@@ -1,3 +1,7 @@
+import * as ExerciseSource from './exercises.js';
+import {EXERCISE_LIBRARY,LEGACY_LIBRARY_IDS,EXERCISE_CATALOG_SHA256} from './exercises.js';
+import {STRINGS} from './i18n.js';
+import {createI18n} from './src/platform/i18n.js';
 import {createInstallTransferCommands} from './src/app/install-transfer.js';
 import {createBlockReview} from './src/app/block-review.js';
 let blockReview;
@@ -142,7 +146,7 @@ const KEY="repforge_v1",DRAFT="repforge_draft_v1",NOTIFY_META="repforge_notify_v
 const generationRules=createGenerationRules();
 const ProgramCompiler=generationRules.compiler;
 let WorkoutDraft=createWorkoutRules(null),ProgramEntry=createEntryRules(null);
-const ExerciseCatalog=createCatalog({identity:generationRules.identity,librarySource:window.RepForgeExercises,
+const ExerciseCatalog=createCatalog({identity:generationRules.identity,librarySource:ExerciseSource,
   fetcher:url=>window.fetch(url)});
 const ExerciseMetrics=PersistenceMetrics;
 let rawExerciseCatalog=null,exerciseCatalogError=null;
@@ -511,7 +515,10 @@ function clearAllPendingJournal(){return DurableState.clearAllPendingJournal()}
 
 function enqueueStateChange(base,proposal,io,options={}){return DurableState.enqueueStateChange(base,proposal,io,options)}
 const $=s=>document.querySelector(s),$$=s=>Array.from(document.querySelectorAll(s));
-const I18N=window.RepForgeI18n;
+const I18N=createI18n({strings:STRINGS,document,navigator});
+export {I18N as language};
+// Consume-only visual diagnostics observe this instance's actual missing keys.
+window.__repforgeI18nMissingRequests=Object.freeze({consume:I18N.consumeMissingRequests});
 const t=(k,v)=>I18N?I18N.t(k,v):k;
 /** "1 session" / "2 sessions": the count catalog keeps a `_one` form for exactly 1 (R7 V-14). kind: sessions, sets, exercises. */
 const countText=(kind,n)=>t(n===1?`count.${kind}_one`:`count.${kind}`,{n});
@@ -973,12 +980,7 @@ function normalizeProgressionModifiers(...args){return TrainingModel.normalizePr
    ProgramDefinitions carry their own ordered slots; keep this empty value only
    for old display-only paths that still ask for a day type during migration. */
 const DAY_TYPES=Object.freeze({});
-/* The exercise library. exercises.js is generated (see tools/README.md) and
-   loads before this file; the fallback keeps app.js parseable and the app
-   usable if that script is ever missing, rather than throwing at boot. */
-const LIBRARY_SOURCE=(typeof window!=="undefined"&&window.RepForgeExercises)||{library:[],legacyIds:{}};
-const EXERCISE_LIBRARY=Array.isArray(LIBRARY_SOURCE.library)?LIBRARY_SOURCE.library:[];
-const LEGACY_LIBRARY_IDS=LIBRARY_SOURCE.legacyIds||{};
+/* Generated native exercise data is the single search/catalog identity source. */
 const LIBRARY_BY_ID=new Map(EXERCISE_LIBRARY.map(e=>[e.id,e]));
 const SHARED_BUILT_IN_IDS=new Set(EXERCISE_LIBRARY.map(e=>e.id));
 const SharedSetup=createSetupLinkCodec({metrics:ExerciseMetrics,identity:generationRules.identity,
@@ -990,7 +992,7 @@ const SharedSetup=createSetupLinkCodec({metrics:ExerciseMetrics,identity:generat
    on first use, so a lifter who never generates never starts a worker. */
 let programEngineInstance=null;
 function createProgramEngineInstance(){
-  const pin=window.RepForgeExercises?.catalogSha256;
+  const pin=EXERCISE_CATALOG_SHA256;
   return createProgramExecutor({compiler:ProgramCompiler,transition:generationRules.transition,catalog:()=>rawExerciseCatalog,
     WorkerConstructor:window.Worker,worker:typeof pin==="string"?{url:programWorkerUrl,catalogUrl:CATALOG_URL,catalogSha256:pin}:null})}
 function programEngine(){return programEngineInstance||(programEngineInstance=createProgramEngineInstance())}

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* Rewrites i18n.js from i18n-en.json, i18n-pt.json, and i18n-runtime.js.
+/* Rewrites native i18n.js data from i18n-en.json and i18n-pt.json.
 
    Usage: node tools/build-i18n.mjs [--check] */
 
@@ -10,21 +10,20 @@ import { fileURLToPath } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const target = join(ROOT, "i18n.js");
 const src = readFileSync(target, "utf8");
-const runtime = readFileSync(join(ROOT, "tools", "i18n-runtime.js"), "utf8").trimEnd();
 
 const render = (name, obj) =>
-  `const ${name} = {\n` +
+  `/** @type {Readonly<Record<string,string>>} */\nexport const ${name} = Object.freeze({\n` +
   Object.entries(obj).map(([k, v]) => `  ${JSON.stringify(k)}: ${JSON.stringify(v)},`).join("\n") +
-  `\n};`;
+  `\n});`;
 
 const en = JSON.parse(readFileSync(join(ROOT, "i18n-en.json"), "utf8"));
 const pt = JSON.parse(readFileSync(join(ROOT, "i18n-pt.json"), "utf8"));
 const out = [
   "// Taurifer i18n — English / Portuguese UI strings.",
-  "// Generated from i18n-en.json + i18n-pt.json + tools/i18n-runtime.js; edit those and regenerate.",
+  "// Generated from i18n-en.json + i18n-pt.json; edit those and regenerate.",
   render("EN", en),
   render("PT", pt),
-  runtime,
+  "export const STRINGS=Object.freeze({en:EN,pt:PT});",
   "",
 ].join("\n");
 

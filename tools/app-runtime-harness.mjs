@@ -1,3 +1,6 @@
+import * as librarySource from '../exercises.js';
+import {STRINGS} from '../i18n.js';
+import {createI18n} from '../src/platform/i18n.js';
 // Fixture composition root. Import public production owners directly; never
 // evaluate app.js, imitate the DOM, install browser globals or suppress boot.
 import {readFileSync} from 'node:fs';
@@ -61,8 +64,6 @@ function memoryPlatform(localStorage) {
 /** Explicit fixture composition root. Every call has its own storage and
  * domain lifetimes; consumers destructure concrete public capabilities. */
 export async function createFixtureRuntime() {
-  const {EXERCISE_LIBRARY,LEGACY_LIBRARY_IDS,EXERCISE_CATALOG_SHA256}=require('../exercises.js');
-  const librarySource={library:EXERCISE_LIBRARY,legacyIds:LEGACY_LIBRARY_IDS,catalogSha256:EXERCISE_CATALOG_SHA256};
   const generation=createGenerationRules();
   const catalogLoader=createCatalog({identity:generation.identity,librarySource,
     fetcher:async()=>({ok:true,text:async()=>readFileSync(join(ROOT,'assets/exercise-catalog.json'),'utf8')})});
@@ -76,7 +77,7 @@ export async function createFixtureRuntime() {
   const model=createProgramModel({catalog:catalogSnapshot,librarySource,nextId,now,language:'en',defaultExerciseName:'program.default.exercise'});
   // Use the existing language module's public normalization contract. No DOM
   // methods are invoked; fixture settings explicitly choose their language.
-  const language=require('../i18n.js');
+  const language=createI18n({strings:STRINGS,document:null,navigator:{language:'en'}});
   const snapshotPolicy=createSnapshotPolicy({entry,metrics,workout:WorkoutDraft,compiler:Compiler,catalog:catalogSnapshot,model,
     transition:generation.transition,now,nextId,language:{normalizeLang:language.normalizeLang,detectLang:()=> 'en'},progression,
     digest:raw=>createHash('sha256').update(raw).digest('hex')});

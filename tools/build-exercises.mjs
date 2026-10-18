@@ -177,16 +177,12 @@ function main() {
    then regenerate. Full source
    details load on demand from assets/exercise-catalog.json. Its exact source
    bytes are pinned here so a catalog from another release cannot boot. */
-(function(){
-"use strict";
-const EXERCISE_CATALOG_SHA256 = ${JSON.stringify(catalogSha256)};
-const EXERCISE_LIBRARY = [
+export const EXERCISE_CATALOG_SHA256 = ${JSON.stringify(catalogSha256)};
+export const EXERCISE_LIBRARY = [
 ${rows.map(row => `  ${JSON.stringify(row)}`).join(",\n")}
 ];
-const LEGACY_LIBRARY_IDS = {};
-if (typeof window !== "undefined") window.RepForgeExercises = {library: EXERCISE_LIBRARY, legacyIds: LEGACY_LIBRARY_IDS, catalogSha256: EXERCISE_CATALOG_SHA256};
-if (typeof module !== "undefined" && module.exports) module.exports = {EXERCISE_LIBRARY, LEGACY_LIBRARY_IDS, EXERCISE_CATALOG_SHA256};
-})();
+export const LEGACY_LIBRARY_IDS = {};
+export {EXERCISE_LIBRARY as library, LEGACY_LIBRARY_IDS as legacyIds, EXERCISE_CATALOG_SHA256 as catalogSha256};
 `;
   const outputs = [[INDEX_PATH, index], [ASSET_PATH, asset]];
 
