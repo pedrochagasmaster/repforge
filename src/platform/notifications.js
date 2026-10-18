@@ -52,7 +52,7 @@ export function createNotifications({ Notification = null, navigator = {}, adapt
 
   /** @param {{title?:string,body?:string,tag?:string,url?:string}} notification */
   async function fireOS({ title, body, tag, url }) {
-    if (!canUse() || /** @type {typeof globalThis.Notification} */(Notification).permission !== "granted") return false;
+    if (!canUse() || permission() !== "granted") return false;
     const opts = {
       body: body || "",
       tag: tag || "repforge",
