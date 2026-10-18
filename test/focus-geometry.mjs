@@ -40,7 +40,7 @@ function assert(condition, message, detail = "") {
 }
 
 const FOCUS_STATES = ["workout/focus", "workout/focus-glossary", "workout/exercise-note", "workout/why-this-weight",
-  "workout/rest-running", "workout/rest-done", "workout/correction", "workout/stale-draft", "workout/persist-retry"];
+  "workout/rest-running", "workout/rest-done", "workout/correction", "workout/logged-sets", "workout/stale-draft", "workout/persist-retry"];
 
 /** What the live Focus card looks like in this frame; every number is measured in the page. */
 function measureFocusCard(safeBottom) {
@@ -81,7 +81,7 @@ function measureFocusCard(safeBottom) {
   const banner = q("#draftRecovery");
   const bannerRect = banner && !banner.classList.contains("hidden") ? banner.getBoundingClientRect() : null;
   const shelfRect = shelf.getBoundingClientRect();
-  const title = q("#woDayTitle"), name = q(".focus-ex__name .ex__namebtn", art), slot = q(".fx-slot", art);
+  const title = q("#woDayTitle"), name = q(".focus-ex__meta", art), slot = q(".fx-slot", art);
   const nameRect = name?.getBoundingClientRect(), slotRect = slot?.getBoundingClientRect();
   return {
     height: innerHeight,
@@ -93,7 +93,12 @@ function measureFocusCard(safeBottom) {
     card: { scroll: art.scrollHeight, client: art.clientHeight },
     contextScrolls: !!context && ["auto", "scroll"].includes(getComputedStyle(context).overflowY),
     banner: bannerRect && { top: bannerRect.top, bottom: bannerRect.bottom, aboveShelf: bannerRect.bottom <= shelfRect.top + 1 },
-    title: { scroll: title.scrollHeight, client: title.clientHeight, clamp: getComputedStyle(title).webkitLineClamp },
+    // Layout D: the title is the exercise's name, two lines at most; the heading's accessible name keeps all of it.
+    title: (() => {
+      const nameEl = title.querySelector(".wo-head__name") || title, s = getComputedStyle(nameEl);
+      const lines = Math.round((nameEl.getBoundingClientRect().height - parseFloat(s.paddingTop) - parseFloat(s.paddingBottom)) / parseFloat(s.lineHeight));
+      return { lines, label: title.getAttribute("aria-label"), text: nameEl.textContent.trim() };
+    })(),
     window: context && { top: context.getBoundingClientRect().top, bottom: context.getBoundingClientRect().bottom, scrollTop: context.scrollTop },
     name: nameRect && { top: nameRect.top, bottom: nameRect.bottom },
     slot: slotRect && { top: slotRect.top, bottom: slotRect.bottom, state: slot.dataset.rest },
@@ -142,7 +147,8 @@ async function checkFocusStatesAtLargeText(browser) {
 const shown = (box, window) => Math.max(0, Math.min(box.bottom, window.bottom) - Math.max(box.top, window.top));
 
 /**
- * R7 V-05: Focus at 320x568 with the usual text. The title is a heading and shows in full (no line clamp), the context
+ * R7 V-05, as amended by layout D: Focus at 320x568 with the usual text. The title is the exercise's name in at most
+ * two lines, and the heading is named by all of it; the context
  * region opens at its top with the exercise's name in view, a running or finished rest keeps a readable part of its
  * block in the window, and a banner or guide never takes the shelf's room.
  */
@@ -159,10 +165,10 @@ async function checkFocusAtSmallestPhone(browser) {
       const m = await opened.page.evaluate(measureFocusCard, SAFE_AREA.bottom);
       const problems = focusCardProblems(m);
       if (!m.error) {
-        if (m.title.scroll > m.title.client + 1 || m.title.clamp !== "none") problems.push(`the day title is cut short (${m.title.scroll}px of text in ${m.title.client}px, line-clamp ${m.title.clamp})`);
+        if (m.title.lines > 2 || !m.title.label || !m.title.label.startsWith(m.title.text.replace(/…$/, ""))) problems.push(`the header's name takes ${m.title.lines} lines or the heading loses it (${JSON.stringify(m.title)})`);
         if (key === "workout/focus") {
           if (m.window.scrollTop !== 0) problems.push(`the context region opens scrolled ${Math.round(m.window.scrollTop)}px`);
-          if (!m.name || m.name.top < m.window.top - 1 || m.name.bottom > m.window.bottom + 1) problems.push("the exercise's name is not whole in the context window on first paint");
+          if (!m.name || m.name.top < m.window.top - 1 || m.name.bottom > m.window.bottom + 1) problems.push("the exercise's prescription line is not whole in the context window on first paint");
         }
         if (key.startsWith("workout/rest-") && (!m.slot || shown(m.slot, m.window) < 44)) problems.push(`the rest block keeps ${Math.round(m.slot ? shown(m.slot, m.window) : 0)}px of the window`);
       }

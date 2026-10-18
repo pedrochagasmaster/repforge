@@ -21,7 +21,7 @@
  */
 import { launchChromium, waitForAppBoot, answerRecommend } from "./browser.mjs";
 import { EVENT_DUPLICATE_POLICIES, FORBIDDEN_PROPERTY_NAMES } from "./fixtures/telemetry.mjs";
-import { exerciseAction, finishEarly, selectExercise } from "./fixtures/focus-workout.mjs";
+import { exerciseAction, finishEarly, openLoggedSets, selectExercise } from "./fixtures/focus-workout.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -715,6 +715,7 @@ try {
     );
     // Re-saving an edited set is not a second saved set.
     await selectExercise(page, a);
+    await openLoggedSets(page);
     await page.locator(`#workout .exercise.is-current [data-editex="${a}"][data-editn="1"]`).click();
     await setIsDone(page, a, 1, false);
     await fillShelf(page, WEIGHT, suggested + 5);

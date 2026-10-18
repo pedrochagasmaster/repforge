@@ -365,8 +365,8 @@ console.log("\nToday — completed session state");
   });
   await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
   const openedView = await page.evaluate(() => ({
-    // The Focus head reads "<day> · exercise n of m"; the day is the first clause.
-    day: (document.querySelector("#woDayTitle")?.textContent || "").split(" \u00b7 ")[0].trim(),
+    // The Focus head names the exercise (layout D); the day the workout opened is the draft's.
+    day: (window.__repforgeWorkoutDraft?.current?.()?.program?.dayLabel || ""),
     shell: !document.querySelector("#workoutShell")?.classList.contains("hidden"),
   }));
   assert(

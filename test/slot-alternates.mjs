@@ -197,7 +197,7 @@ async function main() {
     await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
     await page.waitForFunction(({ id, lat }) => window.__repforgeWorkoutDraft.current()?.exercises?.[id]
       ?.substitution?.replacement?.libraryId === lat, { id: SLOT, lat: LAT.id }, { timeout: 10000 });
-    check((await page.locator(`#workout .exercise[data-ex="${SLOT}"] .focus-ex__name`).textContent()).includes(LAT.name),
+    check((await page.locator(`#workout .exercise[data-ex="${SLOT}"] .fcard__context`).getAttribute("aria-label")).includes(LAT.name),
       "picking an alternate swaps the slot to it");
     await shelfFill(page, WEIGHT, `metric_${WEIGHT}`, 55);
     await shelfFill(page, REPS, `metric_${REPS}`, 10);

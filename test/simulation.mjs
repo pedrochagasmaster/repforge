@@ -18,6 +18,7 @@
  */
 
 import { launchChromium, waitForAsyncCondition, answerRecommend } from "./browser.mjs";
+import { openLoggedSets } from "./fixtures/focus-workout.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 import { writeFileSync, readFileSync, mkdtempSync, rmSync } from "fs";
 import { dirname, join } from "path";
@@ -417,8 +418,9 @@ async function waitForSetDone(page, exerciseId, ordinal = 1) {
     const draft = window.__repforgeWorkoutDraft?.current?.();
     const exercise = draft?.exercises?.[id];
     const set = exercise && Object.values(exercise.sets || {}).find((candidate) => candidate.ordinal === setOrdinal);
+    // The render has taken the set: its row reads back, or (layout D) the table's disclosure holds it.
     return !!set && set.completion !== "pending" &&
-      !!document.querySelector(`#workout .exercise.is-current [data-editex="${id}"][data-editn="${setOrdinal}"]`);
+      !!document.querySelector(`#workout .exercise.is-current [data-editex="${id}"][data-editn="${setOrdinal}"], #workout .exercise.is-current[data-ex="${id}"] [data-ledgermore]`);
   }, { exerciseId, ordinal }, { timeout: 5000 });
 }
 
@@ -634,6 +636,7 @@ async function clickSaveSet(page, key) {
   await selectFocusExercise(page, exId);
   const well = page.locator(`#workout .exercise.is-current [data-save="${key}"]`);
   if (!await well.count()) {
+    await openLoggedSets(page);
     await page.locator(`#workout .exercise.is-current [data-editn="${n}"]`).click();
   }
   await well.click();
@@ -3440,8 +3443,9 @@ async function main() {
   }
   await page.click("#workout .exercise.is-current .focus-shelf .saveset");
   await page.waitForTimeout(300);
+  await openLoggedSets(page);
   const loggedRow = await page.evaluate(() => {
-    const row = document.querySelector(".ledgerline[data-editn]");
+    const row = document.querySelector("#workout .exercise.is-current .ledgerline[data-editn]");
     return {
       cells: row ? [...row.querySelectorAll(".fx-col")].map((s) => s.textContent.trim()) : [],
       head: [...document.querySelectorAll("#workout .exercise.is-current .ledgerline__head .fx-col")].map((s) => s.textContent.trim()),
@@ -3790,7 +3794,7 @@ async function main() {
       // The cards travel flat and upright; nothing tilts.
       cardUpright: getComputedStyle(card).transform === "none",
       peekShown: !!peek && getComputedStyle(peek).visibility === "visible",
-      peekNamed: peek?.querySelector(".focus-ex__name")?.textContent?.trim() || "",
+      peekNamed: peek?.querySelector(".fcard__context")?.getAttribute("aria-label")?.trim() || "",
     };
   });
   assert(
@@ -3821,7 +3825,7 @@ async function main() {
   // must not claim selectable header prose, whose native selection has its own proof.
   const currentEx = () => page.evaluate(() => document.querySelector("#workout .exercise.is-current")?.dataset.ex);
   const dragPath = async (path) => {
-    const box = await page.locator("#workout .exercise.is-current .ex__namebtn").boundingBox();
+    const box = await page.locator("#workout .exercise.is-current .focus-shelf .shelf__fieldbtn").first().boundingBox();
     const ox = Math.round(box.x + box.width / 2);
     const oy = Math.round(box.y + box.height / 2);
     const before = await currentEx();
@@ -5873,7 +5877,9 @@ async function main() {
     `Prefill: "${notePrefill}"`,
     "Save a session with a note → note field for that exercise"
   );
-  await page.click(`#workout [data-ex="${noteEx.id}"] .ex__namebtn`);
+  await page.evaluate((id) => window.__repforgeFocus.to(window.__repforgeFocus.list().findIndex((e) => e.id === id)), noteEx.id);
+  await page.waitForSelector(`#workout .exercise.is-current[data-ex="${noteEx.id}"]`, { timeout: 5000 });
+  await page.click("#woDayTitle [data-exopen]");
   await page.waitForSelector("#exercise.view.active", { timeout: 5000 });
   const exDetailText = await page.textContent("#exDetail");
   assert(
@@ -7135,13 +7141,13 @@ async function main() {
   beginPhase("Honest affordances, contextual guides, and deletion copy");
   await nav(page, "log");
   const firstExId = await page.evaluate(() => {
-    const b = document.querySelector("#todayExList [data-exopen], #workout [data-exopen]");
+    const b = document.querySelector("#todayExList [data-exopen], #woDayTitle [data-exopen]");
     return b?.getAttribute("data-exopen") || "";
   });
   if (!firstExId) {
     await page.evaluate(() => window.__repforgeEnterWorkout?.({}));
   }
-  const exId = firstExId || (await page.evaluate(() => document.querySelector("#workout [data-exopen]")?.getAttribute("data-exopen") || ""));
+  const exId = firstExId || (await page.evaluate(() => document.querySelector("#woDayTitle [data-exopen]")?.getAttribute("data-exopen") || ""));
   if (exId) {
     await page.evaluate((id) => {
       const b = document.querySelector(`[data-exopen="${id}"]`);

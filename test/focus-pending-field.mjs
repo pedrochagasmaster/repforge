@@ -18,7 +18,7 @@
  */
 import { launchChromium } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
-import { finishEarly } from "./fixtures/focus-workout.mjs";
+import { finishEarly, openLoggedSets } from "./fixtures/focus-workout.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -287,6 +287,8 @@ async function main() {
     await boot(page, { restSec: 0 });
     await page.locator(".focus-shelf .saveset").first().click();
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    await page.waitForSelector("#workout .exercise.is-current [data-ledgermore]");
+    await openLoggedSets(page);
     await page.waitForSelector(`#workout .exercise.is-current .ledgerline[data-editn="1"]`);
     await page.locator(`#workout .exercise.is-current .ledgerline[data-editn="1"]`).click();
     await page.waitForSelector(`${SHELF}.is-editing`);
@@ -443,6 +445,7 @@ async function main() {
   await startRestByLogging(page);
   await page.locator("#workout .exercise.is-current .restpad--toggle").click();
   const correctHeld = secs(await clock(page));
+  await openLoggedSets(page);
   await page.locator(`#workout .exercise.is-current .ledgerline[data-editn="1"]`).click();
   await page.waitForSelector(`${SHELF}.is-editing`);
   await page.waitForFunction(() => !document.querySelector("#workout .motion-fade-out"), undefined, { timeout: 3000 });

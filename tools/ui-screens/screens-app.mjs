@@ -280,6 +280,7 @@ const SQUAT_ALTERNATES = Object.freeze(["1a25c6f170d88079a926dde776766181", "1a2
 /** Catalog states built on the Direction D fixture; each R3 sub-slice adds its own. */
 const D_FIXTURE_STATES = new Set([
   "workout/focus", "workout/focus-glossary", "workout/correction", // R3c
+  "workout/logged-sets", // layout D: the logged sets' disclosure, open
   "workout/deload-week", // Plan 072 S4: the deload cue in Focus
   "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions", // R3d
   "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", // R3d
@@ -1752,7 +1753,9 @@ export const APP_SCENARIOS = {
     await page.waitForFunction(() => document.querySelector("#toast")?.classList.contains("hidden"), undefined, { timeout: 15000 });
     await resetSheetScroll(page, ".session-sheet__body");
   },
-  "workout/correction": async page => { await focusMode(page); await logCurrentSet(page); await page.locator("#workout .exercise.is-current [data-editn]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); },
+  "workout/correction": async page => { await focusMode(page); await logCurrentSet(page); await page.locator("#workout .exercise.is-current [data-ledgermore]").click(); await page.locator("#workout .exercise.is-current [data-editn]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); },
+  // Layout D: the logged sets' disclosure opened over the table, the logged row back in place to correct.
+  "workout/logged-sets": async page => { await focusMode(page); await logCurrentSet(page); await page.locator("#workout .exercise.is-current [data-ledgermore]").click(); await page.waitForSelector("#workout .exercise.is-current [data-editn]"); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); },
   "today/draft-resume": async page => { await focusMode(page); await fillAdaptiveShelf(page, ADAPTIVE_WEIGHT_METRIC_ID, "80"); await page.click("#leaveWorkout"); },
 
   "workout/stale-draft": async (page) => {
@@ -2111,7 +2114,7 @@ export const APP_SCENARIOS = {
     // ids, so address the first row rather than naming one.
     // Day 3 opens on Leg extension, a movement with a licensed illustration.
     await enterWorkout(page, { day: "Day 3" });
-    const row = page.locator("#workout [data-exopen]").first();
+    const row = page.locator("#woDayTitle [data-exopen]").first();
     await row.scrollIntoViewIfNeeded({ timeout: 20000 });
     await row.click({ timeout: 20000 });
     await sleep(page, 800);
@@ -2119,7 +2122,7 @@ export const APP_SCENARIOS = {
   "library/exercise-detail-glossary": async (page) => {
     // Day 3 opens on Leg extension, a movement with a licensed illustration.
     await enterWorkout(page, { day: "Day 3" });
-    const row = page.locator("#workout [data-exopen]").first();
+    const row = page.locator("#woDayTitle [data-exopen]").first();
     await row.scrollIntoViewIfNeeded({ timeout: 20000 });
     await row.click({ timeout: 20000 });
     await page.waitForSelector("#exDetail:not(.hidden)", { timeout: 20000 });

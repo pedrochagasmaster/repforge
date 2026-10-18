@@ -8,6 +8,7 @@
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
 import { launchChromium } from "./browser.mjs";
+import { openLoggedSets } from "./fixtures/focus-workout.mjs";
 import { mkdirSync } from "fs";
 import { join } from "path";
 
@@ -220,6 +221,7 @@ async function main() {
 
   // 06 — editing a previously logged set
   await logSets(page, 1);
+  await openLoggedSets(page);
   await page.locator(".ledgerline[data-editn]").nth(1).click();
   await shot(page, "06-editing-set");
   const cancel = page.locator("#workout .exercise.is-current [data-fcancel]");

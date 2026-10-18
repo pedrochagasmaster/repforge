@@ -342,13 +342,13 @@ async function visitFocus(page, { pt, label }) {
   await page.waitForSelector("#workoutShell:not(.hidden)");
   await page.waitForSelector("#workout .exercise.is-current");
   const en = (id) => LIB[id].en, name = (id) => (pt ? LIB[id].pt : LIB[id].en);
-  const title = await joined(page, "#workout .exercise.is-current .focus-ex__name");
-  expectNames(`${label} Focus card name`, title, { shown: [name("sq")], gone: pt ? [en("sq")] : [] });
+  const title = await joined(page, "#woDayTitle");
+  expectNames(`${label} Focus header name`, title, { shown: [name("sq")], gone: pt ? [en("sq")] : [] });
   const next = await joined(page, "#workout .exercise.is-current .fx-next");
   expectNames(`${label} Focus next-exercise row`, next, { shown: [name("pr")], gone: pt ? [en("pr")] : [] });
   const aria = (await attrs(page, "#workout .exercise.is-current [aria-label]", "aria-label")).join(" | ");
   expectNames(`${label} Focus card labels (open, Why, region)`, aria, { shown: [name("sq")], gone: pt ? [en("sq")] : [] });
-  const peeks = await joined(page, "#workout .deck__slot .focus-ex__name");
+  const peeks = (await attrs(page, "#workout .deck__slot .fcard__context", "aria-label")).join(" | ");
   expectNames(`${label} Focus neighbours`, peeks, { shown: [name("sq"), name("pr")], gone: pt ? [en("pr")] : [] });
 
   // Session sheet: the map of every exercise, the reorder labels.

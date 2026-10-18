@@ -136,6 +136,13 @@ Everything else is the D spec section named.
 
 ### 4.2 Focus and the shelf (D §5.2, §4)
 
+> **Amended by layout D (owner decision of 2026-10-17).** The header's centre names the current exercise (the name
+> opens its stats and history, two lines at most); the segment bar's live region carries "Exercise N of M". The
+> exercise row keeps only its prescription line, without the art tile or the name. The shelf takes 56 px fields,
+> 48 px pads and a 52 px action, below §4's 56/56/54. The ledger shows the open set and the next one, with the
+> exercise's logged sets behind a disclosure above them that counts them and opens the full ledger in place for
+> correction. A finished exercise keeps its full ledger.
+
 - **Header:** back (leave with the draft kept, G-43), the day and exercise
   position, the timer (shows remaining time while running and opens the rest
   presets sheet), the table view (opens the Session sheet, G-42), and ⋯ (the

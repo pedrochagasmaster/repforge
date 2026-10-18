@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { exerciseAction, finishEarly, sessionField } from "./fixtures/focus-workout.mjs";
+import { exerciseAction, finishEarly, openLoggedSets, sessionField } from "./fixtures/focus-workout.mjs";
 /**
  * Production storage/DOM gate for Plan 051's first DraftV2 vertical slice.
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
@@ -380,6 +380,7 @@ async function main() {
       return exercise.sets[exercise.setOrder[0]].completion !== "pending";
     });
 
+    await openLoggedSets(page);
     await page.locator(`#workout .exercise.is-current [data-editn="1"]`).click();
     await page.waitForFunction(() => {
       const draft = window.__repforgeWorkoutDraft.current();
@@ -757,6 +758,7 @@ async function main() {
     await page.evaluate(() => window.__repforgeFocus.to(0));
     await page.waitForSelector(`#workout.is-focus .exercise.is-current [data-save="${adaptiveId}_2"]`);
     await fillCurrent(page, "load", "1");
+    await openLoggedSets(page);
     await page.locator('#workout .exercise.is-current [data-editn="1"]').click();
     await page.waitForFunction((id) => {
       const exercise = window.__repforgeWorkoutDraft.current().exercises[id];
@@ -770,6 +772,7 @@ async function main() {
       "an explicit off-grid edit survives a later suggestion refresh", offGrid?.edited?.metrics);
 
     // Repeated stale sources surface Retry and keep Finish closed until it succeeds.
+    await openLoggedSets(page);
     await page.locator('#workout .exercise.is-current [data-editn="1"]').click();
     await page.waitForFunction((id) => {
       const exercise = window.__repforgeWorkoutDraft.current().exercises[id];

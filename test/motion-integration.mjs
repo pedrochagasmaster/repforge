@@ -472,10 +472,13 @@ async function focusMotion(browser, { reducedMotion = "no-preference" } = {}) {
     await fillSet(page, { load });
     return page.evaluate(async (card) => {
       const openBefore = document.querySelector(`${card} .ledgerline--open`)?.getBoundingClientRect().top ?? null;
-      const committedBefore = document.querySelectorAll(`${card} [data-editn]`).length;
+      // Layout D draws logged sets behind the table's disclosure, so the count is the draft's.
+      const committedBefore = (() => { const id = document.querySelector(card)?.dataset.ex, ex = window.__repforgeWorkoutDraft.current()?.exercises?.[id];
+        return ex ? ex.setOrder.filter((sid) => ex.sets[sid].completion !== "pending").length : 0; })();
       const samples = await window.__fm.sample(`${card} .ledgerline__ring`, 520, () => document.querySelector(`${card} .saveset`).click());
       const openAfter = document.querySelector(`${card} .ledgerline--open`);
-      return { openBefore, committedBefore, committedAfter: document.querySelectorAll(`${card} [data-editn]`).length,
+      return { openBefore, committedBefore, committedAfter: (() => { const id = document.querySelector(card)?.dataset.ex, ex = window.__repforgeWorkoutDraft.current()?.exercises?.[id];
+        return ex ? ex.setOrder.filter((sid) => ex.sets[sid].completion !== "pending").length : 0; })(),
         samples, openAfterTop: openAfter?.getBoundingClientRect().top ?? null,
         ringAfter: document.querySelectorAll(`${card} .ledgerline__ring`).length, travelAfter: document.querySelectorAll(`${card} .is-ring-travel`).length,
         border: openAfter ? getComputedStyle(openAfter).borderTopColor : "", borderWidth: openAfter ? getComputedStyle(openAfter).borderTopWidth : "" };
@@ -491,17 +494,18 @@ async function focusMotion(browser, { reducedMotion = "no-preference" } = {}) {
     assert(!adv.samples.some((s) => s.rect) && adv.ringAfter === 0, "no outline travels: the open row simply wears its ring", JSON.stringify(adv.samples.filter((s) => s.rect).slice(0, 3)));
   } else {
     const tops = adv.samples.filter((s) => s.rect).map((s) => s.rect.top);
-    // The card scrolls the next row into view on whole lines, so on screen it can land above or below the row just logged.
-    const lo = Math.min(adv.openBefore, adv.openAfterTop), hi = Math.max(adv.openBefore, adv.openAfterTop);
-    assert(tops.length > 1 && Math.abs(tops[0] - adv.openBefore) < 14 && hi - lo > 6 && tops.some((v) => v > lo + 3 && v < hi - 3),
-      "on advance the outline leaves the row just logged and passes between the rows", JSON.stringify({ tops: tops.slice(0, 10), from: adv.openBefore, to: adv.openAfterTop }));
+    // Layout D: the logged set leaves the collapsed table and the next one opens in its place, so the outline has no
+    // distance to cover; the set's landing beat is the disclosure's (focus-mode, State 03b).
+    assert(Math.abs(adv.openAfterTop - adv.openBefore) < 1 && tops.every((v) => Math.abs(v - adv.openBefore) < 1),
+      "on advance the next set opens where the logged one stood, and no outline travels", JSON.stringify({ tops: tops.slice(0, 10), from: adv.openBefore, to: adv.openAfterTop }));
     assert(adv.ringAfter === 0 && adv.travelAfter === 0 && adv.borderWidth === "2px" && adv.border !== "rgba(0, 0, 0, 0)",
       "afterwards the open row wears its own 2px ring and nothing is left over", JSON.stringify({ ring: adv.ringAfter, travel: adv.travelAfter, border: adv.border, width: adv.borderWidth }));
   }
 
   // Logging does not wait for the outline: the next set goes in while the last one is still moving.
   const queued = await page.evaluate(async (card) => {
-    const count = () => document.querySelectorAll(`${card} [data-editn]`).length;
+    const count = () => (() => { const id = document.querySelector(card)?.dataset.ex, ex = window.__repforgeWorkoutDraft.current()?.exercises?.[id];
+        return ex ? ex.setOrder.filter((sid) => ex.sets[sid].completion !== "pending").length : 0; })();
     const start = count();
     const t0 = performance.now();
     document.querySelector(`${card} .saveset`).click();
@@ -517,7 +521,12 @@ async function focusMotion(browser, { reducedMotion = "no-preference" } = {}) {
     "a set logged straight after another commits at once: nothing queues behind the outline", JSON.stringify(queued));
   assert(queued.ringLeft === 0, "and no outline is left behind", JSON.stringify(queued));
 
-  // Correction: tap a logged row; the outline goes to it, and back when the edit is cancelled.
+  // Correction: open the logged sets, tap a logged row; the outline goes to it, and back when the edit is cancelled.
+  await page.locator(`${CARD} [data-ledgermore]`).click();
+  await page.waitForFunction((card) => {
+    const rows = document.querySelector(`${card} .ledger__rows`);
+    return document.querySelector(`${card} [data-editn="1"]`) && rows && !rows.style.height && !document.querySelector(`${card} .ledgerline__ring`);
+  }, CARD, { timeout: 3000 });
   const corr = await page.evaluate(async (card) => {
     const row1 = document.querySelector(`${card} [data-editn="1"]`);
     const openBefore = document.querySelector(`${card} .ledgerline--open`)?.getBoundingClientRect().top ?? null;
@@ -747,15 +756,18 @@ async function restMotion(browser, { reducedMotion = "no-preference" } = {}) {
       // The slot has just been handed to the running push: it already holds an inline height.
       await new Promise((r) => requestAnimationFrame(r));
       const midPush = slot.style.height !== "" || document.querySelectorAll(`${card} .motion-fade-out`).length > 0;
-      const rowsBefore = document.querySelectorAll(`${card} .ledgerline[data-editn]`).length;
+      // Layout D draws logged sets behind the table's disclosure, so the count is the draft's.
+      const logged = () => { const id = document.querySelector(card)?.dataset.ex, ex = window.__repforgeWorkoutDraft.current()?.exercises?.[id];
+        return ex ? ex.setOrder.filter((sid) => ex.sets[sid].completion !== "pending").length : 0; };
+      const rowsBefore = logged();
       const t0 = performance.now();
       q(".saveset").click();
       let committedAt = null;
       while (performance.now() - t0 < 600) {
         await new Promise((r) => requestAnimationFrame(r));
-        if (document.querySelectorAll(`${card} .ledgerline[data-editn]`).length > rowsBefore) { committedAt = Math.round(performance.now() - t0); break; }
+        if (logged() > rowsBefore) { committedAt = Math.round(performance.now() - t0); break; }
       }
-      return { midPush, rowsBefore, committedAt, rowsAfter: document.querySelectorAll(`${card} .ledgerline[data-editn]`).length,
+      return { midPush, rowsBefore, committedAt, rowsAfter: logged(),
         mode: q(".fx-slot")?.dataset.rest, disabled: q(".saveset")?.disabled };
     }, CARD);
     assert(during.midPush, "the second set is logged while the slot is still mid-push", JSON.stringify(during));
