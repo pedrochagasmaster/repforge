@@ -1,5 +1,6 @@
 import {createTelemetry} from './src/platform/telemetry.js';
 import {createPostHog} from './src/platform/posthog.js';
+import {createEffortPresentation,EFFORT_STEPS} from './src/ui/focus/effort.js';
 import {createCuePresentation} from './src/ui/focus/cue.js';
 import {createRestPresentation} from './src/ui/focus/rest-view.js';
 import {createBlockTransitionCommands} from './src/app/block-transition.js';
@@ -705,7 +706,6 @@ async function shareOrDownload(text,name,type,title="Taurifer backup"){
     if(navigator.canShare({files:[file]})){await navigator.share({files:[file],title});return}}}catch{}
   download(text,name,type)}
 const EFFORT_RIR={easy:3,hard:1,max:0};
-const EFFORT_STEPS=["easy","hard","max"];
 const isEffortMode=()=>state?.settings?.rirMode==="effort";
 /** Bucket a logged RIR into the effort word closest to it. */
 const effortForRir=rir=>+rir>=2.5?"easy":+rir<=0.5?"max":"hard";
@@ -780,70 +780,9 @@ const focusUi=Focus.createFocusState();
 const pendingFields=focusUi.pending;
 function holdPendingField(key,value){return focusUi.holdPendingField(key,value)}
 function releasePendingField(key,token){focusUi.releasePendingField(key,token)}
-function shelfValueMove(val,dir){
-  if(!val||!dir||focusUi.valueBeat==="off")return;
-  playBeat(val,focusUi.valueBeat==="fade"?"motion-value-fade":dir>0?"motion-value-up":"motion-value-down")}
-function setEffortPick(key,eff,dir=0){
-  $$(`[data-effspin="${key}"]`).forEach(el=>{
-    el.dataset.e=eff;
-    // The shelf's field keeps its caption; the word is only the value inside it.
-    const word=el.querySelector(".shelf__val"),moved=!!word&&word.textContent!==effortLabel(eff);
-    (word||el).textContent=effortLabel(eff);
-    if(moved)shelfValueMove(word,dir);
-    const rowCell=el.closest(".exercise")?.querySelector('.ledgerline--open [data-lv="rir"]');
-    if(rowCell){rowCell.textContent=effortLabel(eff);rowCell.classList.remove("is-soft")}
-    el.closest(".shelf__field")?.classList.remove("is-untouched");
-    // The pads name the word they step to, so they follow the word.
-    $$(`[data-effstep="${key}"]`).forEach(b=>{
-      const dir=+b.dataset.dir,to=EFFORT_STEPS[Math.max(0,EFFORT_STEPS.indexOf(eff))+dir];
-      b.textContent=t("focus.shelf.pad_effort",{sign:dir>0?"+":"−",effort:effortLabel(to||eff)});
-      b.disabled=!to});
-    if(el.getAttribute("role")==="spinbutton"){
-      el.setAttribute("aria-valuenow",String(EFFORT_STEPS.indexOf(eff)+1));
-      el.setAttribute("aria-valuetext",effortLabel(eff))}
-    const pop=el.closest(".shelf__field")?.querySelector(".effortpop");
-    fillEffortPop(pop,eff,{bump:!!pop?.classList.contains("is-open")})})}
-
-/* ---- Effort explainer ----
-   How many reps an effort leaves in the tank ("≈1 left") used to sit as a
-   caption under that column's steppers, where it read as permanent chrome and
-   stretched the column. It is a pill now: it pops off the word on a tap, and
-   goes away on the next tap anywhere. */
-const effortPopHtml=(key,eff)=>
-  `<div class="effortpop" id="effpop_${esc(key)}" data-effpop="${esc(key)}" role="tooltip">`+
-    `<span class="effortpop__hint">${esc(effortHint(eff))}</span>`+
-    `<span class="effortpop__arrow" aria-hidden="true"></span></div>`;
-/** Write one effort's shorthand into the pill. `bump` replays a small pulse —
- *  the pill is already open and the value under it just moved, so the new
- *  reading should announce itself rather than swap silently. */
-function fillEffortPop(pop,eff,{bump=false}={}){
-  if(!pop)return;
-  const hint=pop.querySelector(".effortpop__hint");
-  if(hint)hint.textContent=effortHint(eff);
-  if(!bump)return;
-  clearTimeout(pop.bumpT);pop.classList.remove("is-bump");void pop.offsetWidth;
-  pop.classList.add("is-bump");
-  pop.bumpT=setTimeout(()=>pop.classList.remove("is-bump"),420)}
-/** Park the card over the word it explains and play it in. */
-function openEffortPop(key){
-  const spin=$(`[data-effspin="${key}"]`),pop=$(`[data-effpop="${key}"]`);
-  if(!spin||!pop)return;
-  closeEffortPop({except:pop});
-  spin.closest(".shelf__field")?.classList.add("is-active");
-  fillEffortPop(pop,spin.dataset.e);
-  clearTimeout(pop.closeT);pop.classList.remove("is-closing");
-  pop.classList.add("is-open");spin.classList.add("is-open")}
-function closeEffortPop({except=null}={}){
-  $$(".effortpop.is-open").forEach(pop=>{
-    if(pop===except)return;
-    pop.classList.remove("is-open");pop.classList.add("is-closing");
-    clearTimeout(pop.closeT);pop.closeT=setTimeout(()=>pop.classList.remove("is-closing"),240);
-    const spin=$(`[data-effspin="${pop.dataset.effpop}"]`);
-    spin?.classList.remove("is-open");
-    spin?.closest(".shelf__field")?.classList.remove("is-active")})}
-const toggleEffortPop=key=>{
-  const pop=$(`[data-effpop="${key}"]`);
-  if(pop?.classList.contains("is-open"))closeEffortPop();else openEffortPop(key)};
+const FocusEffort=createEffortPresentation({window,focus:focusUi,copy:{t},motion:{playBeat}});
+const shelfValueMove=FocusEffort.valueMove,setEffortPick=FocusEffort.pick,
+  effortPopHtml=FocusEffort.html,openEffortPop=FocusEffort.open,closeEffortPop=FocusEffort.close,toggleEffortPop=FocusEffort.toggle;
 /* The glossary popover is a non-modal dialog opened from a term. By keyboard or screen reader it behaves as one:
    the term says it opens a dialog and whether it is open, focus moves into the popover (named and described by the
    definition it shows, so the text is read out), and Escape or the close button closes it and returns focus to the
