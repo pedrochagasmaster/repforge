@@ -232,6 +232,8 @@ function renderEarlyPreview(){
   }
   function dispose(){
     if(!mounted)return;mounted=false;abort?.abort();abort=null;
+    $$("#sessionMap [data-session-map-ex], #sessionMap [data-session-reorder-up], #sessionMap [data-session-reorder-down], #sessionAbandonReasons [data-abandon-reason]")
+      .forEach(element=>{element.onclick=null;});
     if(openingFrame)window.cancelAnimationFrame(openingFrame);openingFrame=0;early=null;abandonReason=null;
     close();
   }

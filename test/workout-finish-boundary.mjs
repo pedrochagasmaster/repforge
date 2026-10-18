@@ -129,6 +129,47 @@ try {
       "explicit confirmed early finish saves and clears the draft");
     await context.close();
   }
+  {
+    const {context,page}=await freshWorkout(browser);
+    const before=await page.evaluate(()=>({draft:window.__repforgeWorkoutDraft.current(),log:JSON.parse(localStorage.getItem("repforge_v1")).log}));
+    const first=before.draft.exerciseOrder[0];
+    await page.locator("#sessionSheetBtn").click();
+    await page.locator("#sessionDate").fill("2026-10-20");
+    await page.locator("#sessionDate").dispatchEvent("change");
+    await page.locator("#sessionBodyweight").fill("83.5");
+    await page.locator("#sessionNotes").fill("Session controller receipt");
+    await page.waitForFunction(()=>window.__repforgeWorkoutDraft.current()?.session.notes==="Session controller receipt");
+    await page.evaluate(()=>window.__repforgeWorkoutDraft.flush());
+    const edited=await page.evaluate(()=>window.__repforgeWorkoutDraft.current());
+    assert.equal(edited.program.scheduleDate,"2026-10-20","Session date reaches the acknowledged aggregate");
+    assert.equal(edited.session.bodyweight,"83.5","Session bodyweight keeps canonical units");
+    assert.equal(edited.session.contextTouched.date,true);
+    assert.equal(edited.session.contextTouched.bodyweight,true);
+    assert.equal(edited.session.contextTouched.sessionNotes,true);
+    await page.locator(`[data-session-reorder-down="${first}"]`).click();
+    await page.waitForFunction(id=>window.__repforgeWorkoutDraft.current()?.exerciseOrder[1]===id,first);
+    await page.waitForFunction(id=>document.activeElement?.getAttribute("data-session-reorder-down")===id,first);
+    assert.equal(await page.locator(`[data-session-map-ex="${first}"]`).count(),1,"reorder keeps one map row per stable workout identity");
+    await page.locator(`[data-session-map-jump="${first}"]`).click();
+    await page.waitForSelector("#sessionSheet",{state:"hidden"});
+    await page.waitForFunction(id=>window.__repforgeWorkoutDraft.current()?.session.selectedExerciseId===id,first);
+    assert.equal(await page.locator("#workout .exercise.is-current").getAttribute("data-ex"),first,"Session map selects the same aggregate exercise in Focus");
+    await page.locator("#sessionSheetBtn").click();
+    await page.locator("#sessionAbandon").click();
+    await page.locator('[data-abandon-reason="equipment"]').click();
+    assert.equal(await page.locator('[data-abandon-reason="equipment"]').getAttribute("aria-pressed"),"true","the sheet owns its explicit abandon choice");
+    await page.locator("#sessionAbandonCancel").click();
+    assert.equal(await page.locator("#sessionAbandonPrompt").isHidden(),true);
+    assert.ok(await page.evaluate(()=>window.__repforgeWorkoutDraft.current()),"canceling abandon retains the aggregate");
+    await page.locator("#sessionAbandon").click();
+    await page.locator('[data-abandon-reason="equipment"]').click();
+    await page.locator("#sessionAbandonConfirm").click();
+    await page.waitForFunction(()=>window.__repforgeLastAbandon!=null);
+    assert.equal(await page.evaluate(()=>window.__repforgeLastAbandon),true,"confirmed abandon waits for acknowledged removal");
+    assert.equal(await page.evaluate(()=>window.__repforgeWorkoutDraft.current()),null);
+    assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem("repforge_v1")).log),before.log,"abandon preserves existing History exactly");
+    await context.close();
+  }
 } finally {
   await browser.close();
 }
