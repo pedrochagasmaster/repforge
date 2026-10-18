@@ -149,6 +149,7 @@ const ASSETS = [
   "./src/ui/progress/review.js",
   "./src/ui/session-summary.js",
   "./src/ui/settings/appearance.js",
+  "./src/ui/settings/backup.js",
   "./src/ui/settings/guide-registry.js",
   "./src/ui/settings/guides.js",
   "./src/ui/settings/install.js",

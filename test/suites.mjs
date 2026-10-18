@@ -131,6 +131,7 @@ export const SUITES = {
     s("test/architecture/transfer-device.mjs", [], {domains:["install","persistence"],seconds:10}),
     s("test/architecture/transfer-consumption.mjs", [], {domains:["install","persistence"],seconds:10}),
     s("test/architecture/transfer-orphan.mjs", [], {domains:["install","persistence"],seconds:15}),
+    s("test/native-installed-editor-teardown.mjs", [], {domains:["program","shell"],seconds:10}),
     s("test/native-installed-editor-lifetime.mjs", [], {domains:["program","entry"],seconds:10}),
     s("test/native-program-sharing-browser.mjs", [], {domains:["program","entry"],seconds:10}),
     s("test/native-program-sharing-lifetime.mjs", [], {domains:["program","entry"],seconds:10}),
