@@ -244,8 +244,9 @@ async function main() {
   }
   const previewEntries = groups.flatMap(([lane, entries]) => entries.map((suite) => ({ lane, suite })));
   const source = sourceIdentity(ROOT, process.env);
-  const preview = await maybeStartLocalPreview(previewEntries, { cwd: ROOT });
+  // Refuse an existing evidence destination before preview startup mutates generated files.
   if (evidence) evidenceFd = openSync(evidence, "wx", 0o600);
+  const preview = await maybeStartLocalPreview(previewEntries, { cwd: ROOT });
   let failure, reports;
   const startedAt = new Date().toISOString();
   try { reports = await runGroups(groups, { verbose, env: preview?.env || process.env, failFast: failurePolicy ?? Boolean(filter), source }); }

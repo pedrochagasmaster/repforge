@@ -26,7 +26,6 @@ import {progression as PersistenceProgression,schedule} from './src/training/pro
 const {cloneSnapshot,isPlainStateObject,isValidBlockId,isBoundedProgressionValue,isBoundedTransitionValue,classifyRecoveryCarrier,isValidRecoveryTransitions,readRevision,stripStorageMeta,exportableState,mirrorComparisonSnapshot,canonicalize,canonicalPayload,snapshotsEqual,storageSnapshotsEqual,rebaseStateChange,unversionedSnapshot,draftProgramFingerprint,workoutProgramFingerprint,draftContextFingerprint,snapshotBlockId}=SnapshotPolicy;
 let normalizeMuscleAttribution,isValidMuscleDomainTree,isValidStoredMuscleField,isValidPlannedVolumeHistory,normalizeRecoveryCarrierSnapshot,isSafeProgressionFields,isSafeProgressionMeta,isSafeProgramHistoryEntry,isSafeLogRow,isSafeCustomExercise,isValidSetupActivationMarker,setupActivationMarker,setupActivationMatches,isValidStateShape,migrateLogSnapshot,defaultProgramMeta,normalizeProgramEntrySource,normalizeProgramMeta,normalizeLoadingConfiguration,withExplicitProgramStructure,normalizeProgramHistory,normalizeLoaded,normalizeNotify,normalizeSettings;
 import {createSetupLinkCodec} from './src/interchange/setup-link.js';
-import NativeGenerationIdentity from './src/training/identity.js';
 import {createTransferContract} from './src/interchange/transfer-contract.js';
 import {createInstallTransfer} from './src/platform/install-transfer.js';
 import {csvFile} from './src/interchange/csv.js';
@@ -1437,7 +1436,7 @@ const EXERCISE_LIBRARY=Array.isArray(LIBRARY_SOURCE.library)?LIBRARY_SOURCE.libr
 const LEGACY_LIBRARY_IDS=LIBRARY_SOURCE.legacyIds||{};
 const LIBRARY_BY_ID=new Map(EXERCISE_LIBRARY.map(e=>[e.id,e]));
 const SHARED_BUILT_IN_IDS=new Set(EXERCISE_LIBRARY.map(e=>e.id));
-const SharedSetup=createSetupLinkCodec({metrics:ExerciseMetrics,identity:NativeGenerationIdentity,
+const SharedSetup=createSetupLinkCodec({metrics:ExerciseMetrics,identity:generationRules.identity,
   capabilities:{TextEncoder,TextDecoder,CompressionStream:window.CompressionStream,DecompressionStream:window.DecompressionStream,
     Blob,atob,btoa,document,location:window.location}});
 /* #353: generation and Review regeneration run in the program engine's worker,

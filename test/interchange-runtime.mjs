@@ -7,7 +7,8 @@ import {createTransferContract} from '../src/interchange/transfer-contract.js';
 import {createInstallTransfer} from '../src/platform/install-transfer.js';
 import {compiler} from '../src/training/generation.js';
 import metrics from '../src/training/metrics.js';
-import identity from '../src/training/identity.js';
+import {createIdentityRules} from '../src/training/identity.js';
+export const setupIdentity=createIdentityRules();
 import {createEntryRules} from '../src/training/authoring.js';
 import {createWorkoutRules} from '../src/training/workout.js';
 export const catalog=JSON.parse(readFileSync(new URL('../assets/exercise-catalog.json',import.meta.url),'utf8'));
@@ -16,7 +17,7 @@ export const capabilities={crypto:webcrypto,TextEncoder,TextDecoder,CompressionS
 export function transferContract(overrides={}){
   return createTransferContract({compiler,entry,workout,metrics,catalog,crypto:webcrypto,TextEncoder,TextDecoder,...overrides});
 }
-export const Setup=createSetupLinkCodec({metrics,identity,capabilities});
+export const Setup=createSetupLinkCodec({metrics,identity:setupIdentity,capabilities});
 export const Contract=transferContract();
 export const Transfer=createInstallTransfer(capabilities);
 

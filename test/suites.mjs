@@ -21,6 +21,7 @@ const s = (file, args = [], extra = {}) => {
 const shards = (count) => Array.from({ length: count }, (_, index) => `${index + 1}/${count}`);
 export const SUITES = {
   "fast": [
+    s("test/focus-workout-commands.mjs", [], {domains:["workout","persistence"]}),
     s("test/platform-catalog-contract.mjs", [], {domains:["library","offline"],nodeArgs:["--test"]}),
     s("test/platform-executor-contract.mjs", [], {domains:["program","offline"],nodeArgs:["--test"]}),
     s("test/focus-rest-clock.mjs", [], {domains:["workout"],nodeArgs:["--test"]}),
