@@ -1,3 +1,5 @@
+import {cloneSnapshot,isPlainStateObject,canonicalize,isBoundedProgressionValue,PROGRESSION_VALUE_LIMITS} from '../training/model.js';
+
 /** Canonical durable values and identity policy. No browser or live state access.
  * Storage receipts are deliberately included in mirror arbitration and omitted
  * only from interchange exports. Changing that distinction loses activations.
@@ -9,20 +11,6 @@ const PENDING_EFFECT_MAX_RAW=1000000;
 const DRAFT_EFFECT_VALID='valid', DRAFT_EFFECT_INVALID='invalid', DRAFT_EFFECT_NONE='none';
 const DRAFT_PRECONDITION_MATCH_ONLY='match-only', DRAFT_PRECONDITION_ABORT_CHANGED='abort-changed', DRAFT_PRECONDITION_ABORT_SAME_DAY='abort-same-day';
 
-  function cloneSnapshot(snapshot) {
-    if (snapshot == null || typeof snapshot !== "object") return snapshot;
-    try {
-      if (typeof structuredClone === "function") return structuredClone(snapshot);
-    } catch {
-      // fallback to JSON clone
-    }
-    return JSON.parse(JSON.stringify(snapshot));
-  }
-
-function isPlainStateObject(value){
-  if(!value||typeof value!=="object"||Array.isArray(value))return false;
-  const proto=Object.getPrototypeOf(value);
-  return proto===Object.prototype||proto===null}
   function readRevision(snapshot) {
     return Number.isInteger(snapshot?.[STORAGE_REV]) && snapshot[STORAGE_REV] > 0
       ? snapshot[STORAGE_REV]
@@ -49,16 +37,6 @@ function isPlainStateObject(value){
 
   function exportableState(snapshot) {
     return stripStorageMeta(snapshot);
-  }
-
-  function canonicalize(value) {
-    if (value === null || typeof value !== "object") return value;
-    if (Array.isArray(value)) return value.map(canonicalize);
-    const sorted = {};
-    for (const key of Object.keys(value).sort()) {
-      sorted[key] = canonicalize(value[key]);
-    }
-    return sorted;
   }
 
   function canonicalPayload(snapshot) {
@@ -190,16 +168,6 @@ function draftContextFingerprint(snapshot){
 function isValidBlockId(value,programId=null){
   return typeof value==="string"&&value.trim().length>0&&value.length<=240&&
     (programId==null||value!==programId)}
-function isBoundedProgressionValue(value,depth=0,state={nodes:0}){
-  if(++state.nodes>PROGRESSION_VALUE_LIMITS.nodes||depth>PROGRESSION_VALUE_LIMITS.depth)return false;
-  if(typeof value==="string")return value.length<=PROGRESSION_VALUE_LIMITS.stringLength;
-  if(value===null||typeof value==="boolean")return true;
-  if(typeof value==="number")return Number.isFinite(value);
-  if(Array.isArray(value))return value.length<=PROGRESSION_VALUE_LIMITS.arrayItems&&value.every(item=>isBoundedProgressionValue(item,depth+1,state));
-  if(!isPlainStateObject(value)||Object.keys(value).length>PROGRESSION_VALUE_LIMITS.keys)return false;
-  return Object.keys(value).every(key=>isBoundedProgressionValue(value[key],depth+1,state));
-}
-
 const TRANSITION_VALUE_LIMITS=Object.freeze({depth:32,nodes:10000,keys:128,arrayItems:256,stringLength:10000});
 function isBoundedTransitionValue(value,depth=0,state={nodes:0}){
   if(++state.nodes>TRANSITION_VALUE_LIMITS.nodes||depth>TRANSITION_VALUE_LIMITS.depth)return false;
@@ -394,10 +362,13 @@ export function createSnapshotPolicy({entry,metrics,workout,compiler,catalog,mod
   const CUSTOM_ID_PREFIX='custom:';
   const rawCatalogObject=id=>Array.isArray(catalog)?catalog.find(row=>row?.id===id):
     (Object.hasOwn(catalog?.uuidIndex||{},id)?catalog.uuidIndex[id]:null);
-  const rawExercise=id=>{const value=rawCatalogObject(id);return value?.type==='exercise'?value:null};
+  const exercisesById=new Map((catalog?.exercises||[]).map(value=>[value.id,value]));
+  const rawExercise=id=>exercisesById.get(id)||null;
   const {Program,normalizeCustomExercises,snapshotLookup,canonicalProgramDefinition,
     compilerCustomDefinitions,compactProgramPrescriptionState,programStructureForDefinition,
-    libraryMuscleAttribution}=model;
+    libraryMuscleAttribution,normalizeProgressionRelations,normalizeProgressionModifiers,
+    canonicalizeDurableMuscleAttributions,canonicalizeProgramStructureMuscles,
+    canonicalizeLinkedMuscleRows}=model;
   const ProgramCompiler=compiler;
   const uid=()=>nextId();
   const customExercises=()=>[];
@@ -754,40 +725,6 @@ function normalizeNotify(n){
   return withUnknownKeys(n,{enabled:!!(n&&n.enabled),timer:n?.timer!==false,session:n?.session!==false,unfinished:n?.unfinished!==false,missed:n?.missed!==false})}
 const normalizeSettings=s=>{const lang=I18N?.normalizeLang(s?.lang)||I18N?.detectLang()||"en";return withUnknownKeys(s,{jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normSetting(s?.hardRir,DEFAULTS.hardRir,0),restSec:normalizeRestSec(s?.restSec),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",lang,rirMode:s?.rirMode==="effort"?"effort":"numeric",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled),notify:normalizeNotify(s?.notify)})};
 
-function normalizeProgressionEnvelope(value){
-  const validator=progression;
-  const checked=validator?.validatePrescription?.(value);
-  return checked?.ok?cloneSnapshot(checked.value):null}
-function progressionIncompatibility(kind,value,checked,source){
-  return{version:1,kind,source:source||"state-restore",reason:Array.isArray(checked?.issues)?checked.issues.join("; "):"incompatible",value:cloneSnapshot(value)}
-}
-function normalizeProgressionRelations(value,program=[],options={}){
-  if(value!=null&&!Array.isArray(value))throw new TypeError("progressionRelations: expected array");
-  if(value!=null&&!isBoundedProgressionValue(value))throw new TypeError("progressionRelations: structure exceeds safety bounds");
-  // Empty released compatibility collections carry no executable intent.
-  // They remain an empty projection after retiring the old validator instead
-  // of being misclassified as an unsupported user-authored relation.
-  if(value==null||value.length===0)return[];
-  const validator=progression;
-  const checked=validator?.validateRelations?.(value,{slots:program});
-  if(!checked?.ok&&options.preserveInvalid&&value!=null&&Array.isArray(options.incompatibilities))
-    options.incompatibilities.push(progressionIncompatibility("relations",value,checked,options.source));
-  return checked?.ok?cloneSnapshot(checked.value):[]}
-function candidateProgressionData(value,program,existing=[],source="candidate"){
-  const incompatibilities=Array.isArray(existing)?cloneSnapshot(existing):[];
-  const relations=normalizeProgressionRelations(value,program,{preserveInvalid:true,incompatibilities,source});
-  return{relations,incompatibilities}}
-function normalizeProgressionModifiers(value,options={}){
-  if(value!=null&&!Array.isArray(value))throw new TypeError("progressionModifiers: expected array");
-  if(value!=null&&!isBoundedProgressionValue(value))throw new TypeError("progressionModifiers: structure exceeds safety bounds");
-  if(value==null||value.length===0)return[];
-  const validator=progression;
-  const checked=validator?.validateModifiers?.(value);
-  if(!checked?.ok&&options.preserveInvalid&&value!=null&&Array.isArray(options.incompatibilities))
-    options.incompatibilities.push(progressionIncompatibility("modifiers",value,checked,options.source));
-  return checked?.ok?cloneSnapshot(checked.value):[]}
-
-
 function earliestLogDate(log){if(!log?.length)return null;return log.reduce((min,r)=>!min||String(r.date)<min?r.date:min,null)}
 function defaultProgramMeta(log=[]){const now=nowInstant();return{id:uid(),name:"",started:earliestLogDate(log),created:now,updated:now,
   goal:null,experience:null,daysPerWeek:null,splitType:null,equipment:[],priorityMuscles:[],sessionLength:null,
@@ -889,44 +826,6 @@ function withExplicitProgramStructure(program,meta,{freezeHistory=false}={}){
   if(compacted.history)nextMeta.plannedVolumeHistory=compacted.history;
   return{program:migrated.program,meta:nextMeta}
 }
-
-function canonicalizeLinkedMuscleRows(list,customList){
-  if(!Array.isArray(list))return list;
-  const lookup=snapshotLookup(customList);
-  return list.map(row=>{
-    if(!isPlainStateObject(row)||row.libraryId==null)return row;
-    const entry=lookup(row.libraryId);
-    return entry?{...row,primary:libraryMuscleAttribution(entry,"primary"),
-      secondary:libraryMuscleAttribution(entry,"secondary")}:row})}
-function canonicalizeProgramStructureMuscles(structure,program,customList=[]){
-  if(!isPlainStateObject(structure))return structure;
-  const bySlot=new Map();
-  for(const row of Array.isArray(program)?program:[]){
-    for(const id of [row?.slotId,row?.id])
-      if(id!=null&&!bySlot.has(String(id)))bySlot.set(String(id),row)}
-  const out=cloneSnapshot(structure);
-  for(const week of Array.isArray(out.weekPrescriptions)?out.weekPrescriptions:[])
-    for(const day of Array.isArray(week?.days)?week.days:[])
-      for(const slot of Array.isArray(day?.slots)?day.slots:[]){
-        const row=bySlot.get(String(slot?.slotId));
-        if(!row)continue;
-        if(Object.prototype.hasOwnProperty.call(slot,"primary"))slot.primary=row.primary||"";
-        if(Object.prototype.hasOwnProperty.call(slot,"secondary"))slot.secondary=row.secondary||""}
-  for(const version of Array.isArray(out.programVersions)?out.programVersions:[])
-    if(Array.isArray(version?.program))
-      version.program=canonicalizeLinkedMuscleRows(version.program,customList);
-  return out}
-function canonicalizeDurableMuscleAttributions(proposal){
-  if(!isPlainStateObject(proposal))return proposal;
-  const out=cloneSnapshot(proposal),customList=out.customExercises;
-  out.program=canonicalizeLinkedMuscleRows(out.program,customList);
-  if(isPlainStateObject(out.programMeta)&&out.programMeta.programStructure)
-    out.programMeta.programStructure=canonicalizeProgramStructureMuscles(
-      out.programMeta.programStructure,out.program,customList);
-  // programHistory is an immutable archive. Its rows and structure already
-  // carry the attribution captured at archive creation; current custom
-  // definitions may update active linked rows only.
-  return out}
 
 function normalizeProgramHistory(history,lookup){
   return(Array.isArray(history)?history:[]).map(entry=>{

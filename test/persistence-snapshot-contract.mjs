@@ -45,3 +45,46 @@ assert.equal(bound.carrierReadStatus({program:[],log:[],recoveryTransitions:{sch
 const invalid=Object.create({program:[],log:[]});
 assert.equal(bound.isValidStateShape(invalid),false,'unknown prototypes cannot enter storage');
 console.log('production snapshot shape and unknown-carrier refusal contract passed');
+
+const {createProgramModel}=await import('../src/training/model.js');
+const {createEntryRules}=await import('../src/training/authoring.js');
+const {createWorkoutRules}=await import('../src/training/workout.js');
+const {compiler,transition}=await import('../src/training/generation.js');
+const {progression}=await import('../src/training/progress.js');
+const {readFileSync}=await import('node:fs');
+const {createRequire}=await import('node:module');
+const require=createRequire(import.meta.url);
+const catalog=JSON.parse(readFileSync(new URL('../assets/exercise-catalog.json',import.meta.url),'utf8'));
+const {seedProgram,seedProgramMeta}=await import('./fixtures/seed-program.mjs');
+const instant='2026-10-18T12:00:00.000Z';let sequence=0;
+const model=createProgramModel({catalog,librarySource:require('../exercises.js'),now:instant,nextId:()=>`new-${++sequence}`});
+const actual=policy.createSnapshotPolicy({catalog,model,entry:createEntryRules(catalog),metrics,
+  workout:createWorkoutRules(catalog),compiler,transition,progression,now:()=>instant,nextId:()=>`new-${++sequence}`,
+  language:{normalizeLang:value=>['en','pt'].includes(value)?value:null,detectLang:()=> 'en'}});
+const saved={program:seedProgram(),programMeta:seedProgramMeta(),log:[],_storageRevision:11,
+  settings:{unit:'kg',futureSetting:{retained:true},notify:{futureNotification:true}},
+  profile:{futureProfileSchema:99,rawValue:'keep'},customExercises:[],programHistory:[]};
+const sourceBefore=JSON.stringify(saved);
+assert.equal(actual.isValidStateShape(saved),true,'compiler-produced saved fixture remains valid');
+const normalized=actual.normalizeLoaded(saved);
+assert.equal(normalized._storageRevision,11);
+assert.deepEqual(normalized.profile,saved.profile,'unknown profile is preserved losslessly');
+assert.deepEqual(normalized.settings.futureSetting,{retained:true});
+assert.equal(normalized.settings.notify.futureNotification,true);
+assert.deepEqual(normalized.program.map(row=>row.id),saved.program.map(row=>row.id));
+assert.equal(JSON.stringify(saved),sourceBefore,'normalization cannot mutate source replicas');
+assert.deepEqual(actual.normalizeLoaded(normalized),normalized,'canonical state reaches a fixed point');
+const historical={id:'history-a',program:[{id:'historic-slot',libraryId:'custom:one',name:'Archived name',primary:'Chest',secondary:'',sets:3}],
+  meta:{id:'history-a'}};
+const historySource={...saved,customExercises:[{id:'custom:one',name:'Current name',primary:'Lats',secondary:'',created:instant}],programHistory:[historical]};
+const history=actual.normalizeLoaded(historySource).programHistory[0];
+assert.equal(history.program[0].name,'Archived name');assert.equal(history.program[0].primary,'Chest');
+assert.equal(history.id,'history-a');
+console.log('source-produced state normalization, fixed-point and historical identity contract passed');
+const {metricLogRow}=await import('./fixtures/history-metric-rows.mjs');
+const row=metricLogRow(saved.programMeta,saved.program[0],{session:'saved-session',date:'2026-10-17',set:1,load:50,reps:8});
+assert.equal(actual.isValidStateShape({...saved,log:[row]}),true,'real source-metric log validates against raw exercise catalog');
+const changed=structuredClone(row);changed.metricValues[0].metricId='foreign-metric';
+assert.equal(actual.isValidStateShape({...saved,log:[changed]}),false,'foreign metric identities refuse without repair');
+const withLog=actual.normalizeLoaded({...saved,log:[row]});
+assert.deepEqual(withLog.log,[row],'normalization preserves saved metric bytes and session identity');
