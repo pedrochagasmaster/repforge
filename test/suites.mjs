@@ -27,6 +27,8 @@ export const SUITES = {
     s("test/programlab-policy-contract.mjs", [], {domains:["program"]}),
     s("test/programlab-structure-contract.mjs", [], {domains:["program"]}),
 
+    s("test/library-addition-commands.mjs", [], {domains:["program","library"],nodeArgs:["--test"]}),
+    s("test/custom-command-recovery.mjs", [], {domains:["library","persistence"],nodeArgs:["--test"]}),
     s("test/focus-workout-commands.mjs", [], {domains:["workout","persistence"]}),
     s("test/platform-catalog-contract.mjs", [], {domains:["library","offline"],nodeArgs:["--test"]}),
     s("test/platform-executor-contract.mjs", [], {domains:["program","offline"],nodeArgs:["--test"]}),
@@ -141,6 +143,7 @@ export const SUITES = {
     s("test/catalog-metric-program-browser.mjs", [], {"domains": ["entry", "workout", "history", "persistence"], "cost": "long", "tier": "candidate", "seconds": 23.72, "timeoutMs": 900000}),
     s("test/program-editor-text-fields.mjs", [], {"domains": ["program"], "cost": "normal", "tier": "feedback", "seconds": 4.81}),
     s("test/custom-mutation-recovery.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback", "seconds": 150}),
+    s("test/program-library-ui.mjs", [], {domains:["program","library"],seconds:15}),
     s("test/program-import-review.mjs", [], {"domains": ["program"], "cost": "normal", "tier": "feedback", "seconds": 48.85}),
     s("test/program-freeform-import.mjs", [], {"domains": ["program"], "cost": "normal", "tier": "feedback", "seconds": 124.11}),
     s("test/shared-setup-flow.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback", "seconds": 79.86}),

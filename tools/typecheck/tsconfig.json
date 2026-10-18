@@ -37,6 +37,11 @@
     "../../src/ui/shell.js",
     "../../src/ui/workout/session-sheet.js",
     "../../src/ui/progress/**/*.js",
-    "../../src/app/review.js"
+    "../../src/app/review.js",
+    "../../src/app/program.js",
+    "../../src/app/program-form.js",
+    "../../src/ui/program/**/*.js",
+    "../../src/ui/library/**/*.js",
+    "../../src/ui/exercise-media.js"
   ]
 }

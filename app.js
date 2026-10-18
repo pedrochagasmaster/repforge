@@ -15378,7 +15378,7 @@ function initializePersistenceOwners(){
       customIdPrefix:CUSTOM_ID_PREFIX,normalizeMuscleAttribution:ProgramEntry.normalizeMuscleAttribution},
     copy:{t,tOne},format:{libraryName,muscleLabel,dayLabel,countText},
     shell:{openModal,closeModal,canTakeFocus,reducedMotion,routePushBegin,routeViewEl,currentViewId,
-      resolveReturnFocus,focusRoute,routeHeading,returnToTab,activeModal:()=>activeModal},
+      resolveReturnFocus,focusRoute,routeHeading,returnToTab,activeModal:()=>shellView().activeModal},
     editor:{setupOpen:()=>setupEditorOpen,focusEntryEditorStatus,showOnboardingView,renderOnboarding,setDayCollapsed:(day,on)=>ProgramUi.setDayCollapsed(day,on),
       synchronizeSetup:()=>{onboardingProgramEditor?.discard?.();updateOnboardingEditorActions()}},
     onChanged:render,onNotice:toast,onCustomCreated:()=>{customCreatedToastAt=performance.now()}});
