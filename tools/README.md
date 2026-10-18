@@ -112,16 +112,19 @@ node tools/move-draft-store-owner.mjs --check
 
 ## build-i18n.mjs
 
-Rewrites `i18n.js` from `i18n-en.json`, `i18n-pt.json`, and
-`tools/i18n-runtime.js`.
+Generates native `i18n.js` data exports (`EN`, `PT`, `STRINGS`) from
+`i18n-en.json` and `i18n-pt.json`. The instance runtime is
+`src/platform/i18n.js`; it receives those strings and explicit browser capabilities.
 
 ```bash
 node tools/build-i18n.mjs           # regenerate
 node tools/build-i18n.mjs --check   # fail if i18n.js has drifted
 ```
 
-Edit the two JSON catalogs or the runtime source, then regenerate.
-`test/i18n.mjs` checks key parity, placeholders, and catalog/runtime agreement.
+Edit the JSON catalogs and regenerate data; runtime changes belong in the native
+platform owner. `test/native-generated-data.mjs` verifies retained corpus/string
+hashes, instance isolation and import purity. Browser proof uses the actual
+composition instance and forbids the retired data globals.
 
 ## build-icon-masks.mjs
 
