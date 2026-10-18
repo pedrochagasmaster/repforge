@@ -1,3 +1,4 @@
+export const NATIVE_FOCUS_SELECTOR="a[href],button,input,select,textarea,summary,[tabindex]";
 /** Modal focus/inertness and route presentation lifetime.
  * Route actions and training state belong to controllers. Back uses the real
  * visible Back control so focused editor fields keep their existing commit policy.
@@ -96,7 +97,7 @@ function resolveReturnFocus(target){
    surface when the lifter backs out of it). A heading is not a control, so it
    takes a programmatic tabindex of -1: never a tab stop, and styles.css draws no
    ring on it. The route functions stay where they are; they call these. */
-const ROUTE_NATIVE_FOCUS="a[href],button,input,select,textarea,summary,[tabindex]";
+
 /** @param {string|Element|null} view */
 function routeHeading(view){
   const root=typeof view==="string"?$(`#${view}`):view;
@@ -106,7 +107,7 @@ function routeHeading(view){
 function focusRoute(target){
   const el=resolveReturnFocus(target);
   if(!el)return false;
-  if(!el.matches(ROUTE_NATIVE_FOCUS))el.setAttribute("tabindex","-1");
+  if(!el.matches(NATIVE_FOCUS_SELECTOR))el.setAttribute("tabindex","-1");
   try{/** @type {HTMLElement} */(el).focus({preventScroll:true})}catch{return false}
   return document.activeElement===el}
 /* The control the lifter last pressed. Safari does not focus a button on click, so

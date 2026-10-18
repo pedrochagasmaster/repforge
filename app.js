@@ -1,5 +1,5 @@
 import {createBlockTransitionCommands} from './src/app/block-transition.js';
-import {createShell} from './src/ui/shell.js';
+import {createShell,NATIVE_FOCUS_SELECTOR as ROUTE_NATIVE_FOCUS} from './src/ui/shell.js';
 import {createNotifications} from './src/platform/notifications.js';
 import {createSessionSheet} from './src/ui/workout/session-sheet.js';
 import {createEntryController} from './src/ui/entry/controller.js';
