@@ -126,3 +126,13 @@ export function groupExerciseSessions(rows){
   }
   return [...groups.values()].sort(progressEvidence.compareChronology);
 }
+
+/** First primary muscle per ordered exercise, in the released compact day order.
+ * @param {readonly {day?:string,order?:number,name?:string,primary?:string}[]} rows @param {string} day */
+export function programDayMuscles(rows,day){
+  /** @type {string[]} */
+  const seen=[];
+  const exercises=rows.filter(row=>row.day===day).sort((a,b)=>(a.order||0)-(b.order||0)||String(a.name||'').localeCompare(String(b.name||'')));
+  for(const exercise of exercises){const muscle=String(exercise.primary||'').split(',')[0].trim();if(muscle&&!seen.includes(muscle))seen.push(muscle);if(seen.length>=3)break}
+  return seen;
+}
