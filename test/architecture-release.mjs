@@ -14,6 +14,7 @@ test('AST boundary checker accepts pure public contracts and rejects seeded viol
   assert.deepEqual(inspectModules({'training/metrics.js':"const flag = Symbol('flag'); const api = Object.freeze({flag}); Object.freeze(api); export {api};"}),[]);
   assert.deepEqual(inspectModules({'training/metrics.js':"const lookup = new Map([['a',1]]); export const find = key => lookup.get(key);"}),[]);
   assert.deepEqual(inspectModules({'training/metrics.js':"const lookup = new Set(['a']); function read(values,key){return values.has(key);} export const find=key=>read(lookup,key);"}),[]);
+  assert.deepEqual(inspectModules({'training/authoring.js':"export function edit(document){return document.days;} export const fields={document:'plain domain field'};"}),[]);
   const rejects = [
     [{'app/workout.js':"const values=[1].map(writeStorage);"},/initializer call/],
     [{'training/metrics.js':"const lookup = new Set(); function write(values){values.add('x');} export const mutate=()=>write(lookup);"},/initializer call/],

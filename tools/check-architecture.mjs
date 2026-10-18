@@ -22,8 +22,17 @@ const io = new Set(['globalThis','global','self','window','document','localStora
 /** Also exported so seeded negative tests exercise the real checker. */
 export function inspectModules(sources) {
   const errors = [], edges = new Map();
-  for (const [file, source] of Object.entries(sources)) {
-    const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
+  // Resolve actual lexical bindings: an editor parameter named `document` is
+  // domain data, while an unbound DOM `document` is forbidden browser IO.
+  const syntax = new Map(Object.entries(sources).map(([file,source])=>[resolve('/src',file),ts.createSourceFile(resolve('/src',file),source,ts.ScriptTarget.Latest,true,ts.ScriptKind.JS)]));
+  const options={allowJs:true,noLib:true,noResolve:true,target:ts.ScriptTarget.Latest};
+  const host=ts.createCompilerHost(options);
+  host.getSourceFile=file=>syntax.get(resolve(file));
+  host.fileExists=file=>syntax.has(resolve(file));
+  host.readFile=file=>sources[relative('/src',resolve(file)).split(sep).join('/')];
+  const bindings=ts.createProgram([...syntax.keys()],options,host).getTypeChecker();
+  for (const [file] of Object.entries(sources)) {
+    const ast = syntax.get(resolve('/src',file));
     for(const diagnostic of ast.parseDiagnostics) errors.push(`${file}: syntax ${ts.flattenDiagnosticMessageText(diagnostic.messageText,' ')}`);
     const readonlyCollections = discoverReadonlyCollections(ast);
     const deps = [];
@@ -45,7 +54,7 @@ export function inspectModules(sources) {
       if (ts.isPropertyAccessExpression(node) && /^RepForge/.test(node.name.text) && ts.isIdentifier(node.expression) && ['window','globalThis','self','global'].includes(node.expression.text) && layer(file) !== 'compat') errors.push(`${file}: global module lookup`);
       if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'require') errors.push(`${file}: dynamic require`);
       if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && ['Date.now','Math.random'].includes(node.expression.getText(ast)) && layer(file) === 'training') errors.push(`${file}: implicit nondeterminism`);
-      if (layer(file) === 'training' && ts.isIdentifier(node) && io.has(node.text)) errors.push(`${file}: domain IO ${node.text}`);
+      if (layer(file) === 'training' && ts.isIdentifier(node) && io.has(node.text) && !bindings.getSymbolAtLocation(node)?.declarations?.length && !(ts.isPropertyAccessExpression(node.parent) && node.parent.name===node) && !(ts.isPropertyAssignment(node.parent) && node.parent.name===node)) errors.push(`${file}: domain IO ${node.text}`);
       if (!compositionRoots.has(file) && ts.isExpressionStatement(node) && node.parent === ast && !ts.isStringLiteral(node.expression) && containsCall(node.expression)) errors.push(`${file}: import-time effect`);
       if (!compositionRoots.has(file) && ts.isVariableDeclaration(node) && node.initializer && node.parent.parent?.parent === ast && !readonlyCollections.has(node.name.getText(ast)) && containsCall(node.initializer)) errors.push(`${file}:${ast.getLineAndCharacterOfPosition(node.getStart(ast)).line+1}: import-time initializer call ${node.name.getText(ast)}`);
       if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword && !ts.isStringLiteral(node.arguments[0])) errors.push(`${file}: non-literal dynamic import`);
