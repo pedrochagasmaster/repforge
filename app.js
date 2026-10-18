@@ -34,7 +34,7 @@ import {createTelemetry} from './src/platform/telemetry.js';
 import {createPostHog} from './src/platform/posthog.js';
 import {createBlockTransitionCommands} from './src/app/block-transition.js';
 import {createWorkoutReadModel,movementToken,movementIdKey,loggedMovementName,liftKey,exerciseLiftKey} from './src/app/workout-model.js';
-import {createShell,NATIVE_FOCUS_SELECTOR as ROUTE_NATIVE_FOCUS} from './src/ui/shell.js';
+import {createShell,createSheetGestures,NATIVE_FOCUS_SELECTOR as ROUTE_NATIVE_FOCUS} from './src/ui/shell.js';
 import {createNotifications} from './src/platform/notifications.js';
 import {createSessionSheet} from './src/ui/workout/session-sheet.js';
 import {createEntryController} from './src/ui/entry/controller.js';
@@ -98,53 +98,12 @@ import {createBackupCommands} from './src/app/interchange.js';
 import {createBackupView} from './src/ui/settings/backup.js';
 import {BACKUP_MAX_BYTES} from './src/interchange/backup.js';
 import * as Focus from "./src/ui/focus/controller.js";
-let fallbackGestureController=null;
-
-
-function cancelFallbackGestures(){
-  focusGestureView().cancel();
-  if(sheetDrag){sheetDragRelease(sheetDrag.rec);sheetDrag=null}}
 let focusGestureController=null;
 function focusGestureView(){
   if(!focusGestureController)focusGestureController=Focus.createFocusGestures({window,
     readModel:()=>{const list=focusList(),at=list.length?Math.min(focusUi.index,list.length-1):0;return {active:workoutActive,canPrevious:at>0,canNext:at+1<list.length}},
     commands:{go:focusGo,navigate:focusAnimateTo,swallowNextClick},motion:ensureBrowserPresentation().motion||null});
   return focusGestureController}
-function mountFallbackGestures() {
-  if(fallbackGestureController)return fallbackGestureController;
-  document.addEventListener("pointerdown", sheetDragStart);
-  window.addEventListener("pointermove", sheetDragMove, { passive: true });
-  window.addEventListener("pointerup", sheetDragEnd);
-  window.addEventListener("pointercancel", sheetDragEnd);
-  const wk = $("#workout");
-  if (wk) wk.addEventListener("pointerdown", focusDragStart);
-  window.addEventListener("pointermove", focusDragMove, { passive: true });
-  window.addEventListener("pointerup", focusDragEnd);
-  window.addEventListener("pointercancel", focusDragEnd);
-  let disposed = false;
-  const onEscape=e=>{if(e.key==="Escape")cancelFallbackGestures()};
-  document.addEventListener("keydown",onEscape,true);
-  fallbackGestureController = {
-    isFluid:false,
-    navigate:dir=>!disposed && fallbackFocusAnimateTo(dir),
-    dispose() {
-      if (disposed) return;
-      disposed = true;
-      cancelFallbackGestures();
-      fallbackGestureController=null;
-      document.removeEventListener("keydown",onEscape,true);
-      document.removeEventListener("pointerdown", sheetDragStart);
-      window.removeEventListener("pointermove", sheetDragMove);
-      window.removeEventListener("pointerup", sheetDragEnd);
-      window.removeEventListener("pointercancel", sheetDragEnd);
-      if (wk) wk.removeEventListener("pointerdown", focusDragStart);
-      window.removeEventListener("pointermove", focusDragMove);
-      window.removeEventListener("pointerup", focusDragEnd);
-      window.removeEventListener("pointercancel", focusDragEnd);
-    }
-  };
-  return fallbackGestureController;
-}
 const KEY="repforge_v1",DRAFT="repforge_draft_v1",NOTIFY_META="repforge_notify_v1";
 const generationRules=createGenerationRules();
 const ProgramCompiler=generationRules.compiler;
@@ -510,17 +469,16 @@ export let motion=null;
  * Construction installs no gesture listeners; init explicitly mounts Motion. */
 function ensureBrowserPresentation(){
   if(browserPresentation)return browserPresentation;
+  const sheetGestures=createSheetGestures({window,readModal:()=>shell.activeModal,readMotion:()=>nativeMotion,swallowNextClick});
   const nativeMotion=createMotion({window,
     focus:{track:focusTrack,card:focusCard,step:focusStep,canGo:focusCanGo,setTrack:focusSetTrack,
       go:focusGo,dragStart:focusDragStart,dragMove:focusDragMove,dragEnd:focusDragEnd},
-    sheets:{dragStart:sheetDragStart,dragMove:sheetDragMove,dragEnd:sheetDragEnd},
-    selection:{isNativeTextSelectionTarget,swallowNextClick},
-    fallback:{mount:mountFallbackGestures,navigate:fallbackFocusAnimateTo}});
+    sheets:sheetGestures,
+    selection:{isNativeTextSelectionTarget:sheetGestures.isNativeTextSelectionTarget,swallowNextClick},
+    fallback:{navigate:fallbackFocusAnimateTo,cancel:()=>focusGestureView().cancel()}});
   const shell=createShell({window,motion:nativeMotion,isBooted:()=>window.__repforgeBooted===true,
     isFocusActive:()=>document.body.classList.contains("is-focus-wo"),
-    releaseSheetDrag:rec=>{const wasDragged=sheetDrag?.rec===rec;
-      if(wasDragged)sheetDrag=null;
-      if(wasDragged||rec.motion)sheetDragRelease(rec)},releaseSwallowedClick});
+    releaseSheetDrag:sheetGestures.release,releaseSwallowedClick});
   browserPresentation={motion:nativeMotion,shell};
   motion=nativeMotion;
   return browserPresentation;
@@ -2901,106 +2859,6 @@ function trackSheetViewport(){
  * keeps going and closes instead of springing back. A completed swipe runs the
  * sheet's own dismiss — the same one Escape and a tap on the scrim run — so it
  * can never save or copy something a tap wouldn't. */
-let sheetDrag=null;
-const SHEET_DRAG_LOCK=8;
-/** True when the gesture belongs to a scroller inside the sheet: something the
- *  lifter has already scrolled down keeps the drag, and scrolls back up. */
-function sheetScrollHeld(target,sheet){
-  for(let n=target;n instanceof Element&&n!==sheet;n=n.parentElement){
-    if(n.scrollHeight>n.clientHeight+1&&n.scrollTop>0)return true}
-  return false}
-/* user-select is inherited by WebKit/Chromium, but other engines can report
- * auto on a child of selectable prose. Stop at a control's explicit none. */
-function isNativeTextSelectionTarget(target){
-  for(let el=target;el;el=el.parentElement){
-    const policy=getComputedStyle(el).userSelect;
-    if(policy==="none")return false;
-    if(policy==="text")return true}
-  return false}
-function sheetDragStart(e){
-  if(sheetDrag)return;
-  if(e.pointerType==="mouse"&&e.button!==0)return;
-  const rec=shellView().activeModal;
-  if(!rec||rec.closing||typeof rec.onEscape!=="function")return;
-  if(!rec.el?.classList.contains("sheet"))return;
-  const target=e.target instanceof Element?e.target:null;
-  if(!target||!rec.el.contains(target))return;
-  // A mouse inside a text field is selecting, not swiping. A thumb in one has no
-  // other use for a downward drag once the field is already at its top.
-  if(e.pointerType==="mouse"&&(target.closest("input,select,textarea,[contenteditable]")||isNativeTextSelectionTarget(target)))return;
-  if(sheetScrollHeld(target,rec.el))return;
-  sheetDrag={id:e.pointerId,x:e.clientX,y:e.clientY,dy:0,live:false,rec,
-    vy:0,lastY:e.clientY,lastT:e.timeStamp||performance.now()}}
-function sheetDragMove(e){
-  if(!sheetDrag||e.pointerId!==sheetDrag.id)return;
-  const rec=sheetDrag.rec;
-  if(shellView().activeModal!==rec||rec.closing){sheetDragEnd();return}
-  const dy=e.clientY-sheetDrag.y,dx=e.clientX-sheetDrag.x;
-  if(!sheetDrag.live){
-    // Upwards or sideways is somebody else's gesture; only a downward push takes
-    // the sheet, and only once it has cleared the slop a resting thumb wanders.
-    if(dy<=-SHEET_DRAG_LOCK||(Math.abs(dx)>=SHEET_DRAG_LOCK&&Math.abs(dx)>Math.abs(dy))){sheetDrag=null;return}
-    if(dy<SHEET_DRAG_LOCK)return;
-    sheetDrag.live=true;
-    rec.el.classList.add("is-dragging");
-    rec.scrim?.classList.add("is-dragging");
-    // A sheet grabbed again while it is still springing back has a spring
-    // painting its transform. Stop that one first: two writers on the same
-    // property means whichever finishes last wins, and the loser is the thumb.
-    if(rec.motion){rec.motion.cancel();rec.motion=null}
-    sheetDrag.motion=ensureBrowserPresentation().motion?.trackSheetGesture(rec.el,rec.scrim)||null;
-    // The sheet can also be torn down mid-gesture — Escape, a save, a tour step
-    // — and whatever cleans it up has to be able to stop the animation too.
-    rec.motion=sheetDrag.motion;
-    // Anchor where the drag was recognised, so the sheet doesn't jump by the slop.
-    sheetDrag.y=e.clientY-SHEET_DRAG_LOCK}
-  const now=e.timeStamp||performance.now(),dt=now-sheetDrag.lastT;
-  if(dt>0){sheetDrag.vy=(e.clientY-sheetDrag.lastY)/dt;sheetDrag.lastY=e.clientY;sheetDrag.lastT=now}
-  sheetDrag.dy=Math.max(0,e.clientY-sheetDrag.y);
-  // Motion holds the sheet's position in a value it can spring from later, so
-  // the release carries the thumb's velocity. Without the runtime the sheet is
-  // placed the same way it always was and the stylesheet finishes the gesture.
-  if(sheetDrag.motion)sheetDrag.motion.follow(sheetDrag.dy);
-  else{
-    rec.el.style.transform=`translate3d(0,${sheetDrag.dy}px,0)`;
-    // The scrim thins as the sheet leaves, so the page behind is already coming back.
-    if(rec.scrim)rec.scrim.style.opacity=String(Math.max(0,1-sheetDrag.dy/(rec.el.offsetHeight||1)))}}
-/** Hand the sheet back to the stylesheet. Dropping the inline transform in the
- *  same tick as the class restores the transition from wherever the thumb left
- *  it, so the sheet either springs back or carries on down — never cuts. */
-function sheetDragRelease(rec){
-  rec.el.classList.remove("is-dragging");
-  if(rec.motion){rec.motion.cancel();rec.motion=null}
-  rec.el.style.transform="";
-  rec.scrim?.classList.remove("is-dragging");
-  if(rec.scrim)rec.scrim.style.opacity=""}
-function sheetDragEnd(e){
-  if(!sheetDrag||(e&&e.pointerId!=null&&e.pointerId!==sheetDrag.id))return;
-  const{rec,dy,vy,live,motion}=sheetDrag;sheetDrag=null;
-  if(!live)return;
-  if(e?.type==="pointercancel"){sheetDragRelease(rec);return}
-  // The drag ends over whatever the thumb started on, so a button under it must
-  // not also fire.
-  if(dy>SHEET_DRAG_LOCK)swallowNextClick();
-  // A deliberate throw counts as much as a long push (0.5px/ms is a flick), and
-  // anything short of either is the lifter changing their mind.
-  const flick=vy>=.5&&dy>=32;
-  const dismiss=flick||dy>=Math.min(160,Math.max(64,(rec.el.offsetHeight||0)*.32));
-  const gone=shellView().activeModal!==rec||rec.closing;
-  if(!motion){
-    // No runtime: the stylesheet finishes the gesture exactly as it did before.
-    sheetDragRelease(rec);
-    if(!gone&&dismiss)rec.onEscape();
-    return}
-  rec.el.classList.remove("is-dragging");
-  rec.scrim?.classList.remove("is-dragging");
-  if(gone){sheetDragRelease(rec);return}
-  // The sheet keeps the speed it was let go at: a flick carries it the rest of
-  // the way out, a change of mind is caught and put back. Either way `onEscape`
-  // is the sheet's own dismiss, so a swipe can never close something a tap
-  // could not.
-  if(dismiss){motion.dismiss({velocity:vy});rec.onEscape()}
-  else motion.settle({velocity:vy}).finally(()=>{if(rec.motion===motion)rec.motion=null})}
 let FocusNavigation;
 function focusNavigation(){return FocusNavigation||(FocusNavigation=Focus.createFocusNavigation({focus:focusUi,
   read:()=>({hasDraft:!!activeWorkoutDraft,exercises:focusList()}),workout:WorkoutSession,motion:ensureBrowserPresentation().motion,

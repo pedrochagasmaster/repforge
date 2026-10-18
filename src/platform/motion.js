@@ -13,9 +13,9 @@
  * @typedef {{track:HTMLElement,deck:HTMLElement|null,commitDir:number,queuedDir:number,timer:number|null}} FocusSlide
  * @typedef {{page:HTMLElement,onCommit:()=>unknown}} EdgeTarget
  * @typedef {{isFluid:boolean,navigate:(direction:number)=>unknown,dispose:()=>void}} GestureController
- * @typedef {{dragStart?:(event:PointerEvent)=>void,dragMove?:(event:PointerEvent)=>void,dragEnd?:(event:PointerEnd)=>void}} DragHandlers
+ * @typedef {{dragStart?:(event:PointerEvent)=>void,dragMove?:(event:PointerEvent)=>void,dragEnd?:(event:PointerEnd)=>void,cancel?:()=>void}} DragHandlers
  * @typedef {DragHandlers & {track?:()=>HTMLElement|null,card?:()=>HTMLElement|null,step?:()=>number,canGo?:(direction:number)=>boolean,setTrack?:(track:HTMLElement|null,value:number)=>void,go?:(direction:number)=>unknown}} FocusPresentation
- * @typedef {{window:Window & typeof globalThis & {Motion?:MotionRuntime},runtime?:MotionRuntime|null,focus?:FocusPresentation,sheets?:DragHandlers,selection?:{isNativeTextSelectionTarget?:(target:Element)=>boolean,swallowNextClick?:()=>void},fallback:{mount:()=>{dispose:()=>void},navigate:(direction:number)=>unknown}}} MotionOptions
+ * @typedef {{window:Window & typeof globalThis & {Motion?:MotionRuntime},runtime?:MotionRuntime|null,focus?:FocusPresentation,sheets?:DragHandlers,selection?:{isNativeTextSelectionTarget?:(target:Element)=>boolean,swallowNextClick?:()=>void},fallback:{navigate:(direction:number)=>unknown,cancel?:()=>void}}} MotionOptions
  */
 /** Optional animation and gesture lifetime. No browser work happens on module import.
  * focus supplies track/card/step/canGo/setTrack/go and fallback drag handlers;
@@ -1170,21 +1170,13 @@ export function createMotion({ window: global, runtime = global.Motion || null,
   function mountGestureController() {
     if (activeGestureController) return activeGestureController;
 
-    if (!available) {
-      const mountedFallback=fallback.mount();
-      const controller={isFluid:false,navigate:/** @param {number} dir */ dir=>activeGestureController===controller && fallback.navigate(dir),dispose(){
-        mountedFallback.dispose();
-        if(activeGestureController===controller)activeGestureController=null;
-      }};
-      activeGestureController=controller;
-      return controller;
-    }
     const useFluid = available;
     const workout = document.getElementById("workout");
 
     /** @param {KeyboardEvent} event */
     function onKeyDown(event) {
       if (event.key !== "Escape") return;
+      if(!useFluid){sheets.cancel?.();fallback.cancel?.();return}
       if (focusSlide) cleanupFocusSlide(focusSlide);
       if (focusGesture) focusPointerEnd({pointerId:focusGesture.id,type:"pointercancel"});
       if (sheetGesture) clearSheetGesture({ clearRun: true });
@@ -1238,6 +1230,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     }
 
 
+    if(!useFluid)document.addEventListener("keydown",onKeyDown,true);
     let disposed = false;
     const controller = {
       isFluid: useFluid,
@@ -1245,6 +1238,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
       dispose() {
         if (disposed) return;
         disposed = true;
+        if(!useFluid){sheets.cancel?.();fallback.cancel?.();document.removeEventListener("keydown",onKeyDown,true)}
 
         if (focusSlide) cleanupFocusSlide(focusSlide);
         if (sheetGesture) clearSheetGesture({ clearRun: true });

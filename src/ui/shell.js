@@ -1,3 +1,4 @@
+export {createSheetGestures} from './shell/sheet-gestures.js';
 export const NATIVE_FOCUS_SELECTOR="a[href],button,input,select,textarea,summary,[tabindex]";
 /** Modal focus/inertness and route presentation lifetime.
  * Route actions and training state belong to controllers. Back uses the real
