@@ -55,6 +55,7 @@
     "../../src/ui/storage-recovery.js",
     "../../src/app/custom-import.js",
     "../../src/app/program-sharing.js",
-    "../../src/app/install-transfer.js"
+    "../../src/app/install-transfer.js",
+    "../../src/app/installed-editor.js"
   ]
 }
