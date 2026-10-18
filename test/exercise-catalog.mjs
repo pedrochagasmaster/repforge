@@ -2,18 +2,22 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
-const require = createRequire(import.meta.url);
+import {createCatalog,CATALOG_URL} from '../src/platform/catalog.js';
+import {parseLoadInput} from '../src/training/metrics.js';
+import * as librarySource from '../exercises.js';
+const {EXERCISE_LIBRARY,LEGACY_LIBRARY_IDS}=librarySource;
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const rawSource = JSON.parse(await readFile(join(ROOT, "plans/067/data/app_file.json"), "utf8"));
+const generatedAssetText=await readFile(join(ROOT,'assets/exercise-catalog.json'),'utf8');
+const sourceCatalog=options=>createCatalog({librarySource,fetcher:async()=>({ok:true,text:async()=>generatedAssetText}),...options});
+async function loadedCatalog(options){const catalog=sourceCatalog(options);await catalog.load();return catalog}
 
 // This combinatorial input contract belongs at the shipped parser interface;
 // browser journeys retain the separate pending-field/save/durability contract.
 test("load input accepts decimal display units and rejects unsafe numeric syntax", () => {
-  const { parseLoadInput } = require("../exercise-metrics.js");
   for (const raw of [null, undefined, "", "  "]) assert.deepEqual(parseLoadInput(raw), { kind: "empty" });
   for (const raw of ["0", "-1", "+1", ".5", "1.", "1e5", "NaN", "Infinity", "1,2,3", "1000.0000001"])
     assert.deepEqual(parseLoadInput(raw, "kg"), { kind: "invalid" }, String(raw));
@@ -34,40 +38,26 @@ test("load input accepts decimal display units and rejects unsafe numeric syntax
 });
 
 test("a malformed but valid JSON detail asset is rejected before a snapshot is published", async () => {
-  const modulePath = require.resolve("../exercise-catalog.js");
-  delete require.cache[modulePath];
-  delete globalThis.RepForgeExerciseCatalog;
-  const catalog = require(modulePath);
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () => ({
-    ok: true,
-    text: async () => `${JSON.stringify({ exercises: [], uuidIndex: {}, generatedAt: "x" })}\n`,
-  });
-  try {
-    await assert.rejects(catalog.load(), /integrity check/);
-    assert.throws(() => catalog.snapshot(), /Await RepForgeExerciseCatalog\.load\(\)/,
-      "a rejected asset is never published as the current source snapshot");
-  } finally {
-    globalThis.fetch = originalFetch;
-    delete require.cache[modulePath];
-    delete globalThis.RepForgeExerciseCatalog;
-  }
+  const catalog = sourceCatalog({fetcher:async()=>({
+    ok:true,text:async()=>`${JSON.stringify({exercises:[],uuidIndex:{},generatedAt:'x'})}\n`,
+  })});
+  await assert.rejects(catalog.load(), /integrity check/);
+  assert.throws(() => catalog.snapshot(), /Await RepForgeExerciseCatalog\.load\(\)/,
+    "a rejected asset is never published as the current source snapshot");
 });
 
 test("catalog loads complete source values and exposes exact references", async () => {
-  const catalog = require("../exercise-catalog.js");
-  const generatedAssetText = await readFile(join(ROOT, "assets/exercise-catalog.json"), "utf8");
+
   const generatedAsset = JSON.parse(generatedAssetText);
   assert.deepEqual(generatedAsset, rawSource, "the generated compact asset preserves every source value");
-  const originalFetch = globalThis.fetch;
   const calls = [];
-  globalThis.fetch = async url => {
+  const catalog=sourceCatalog({fetcher:async url => {
     calls.push(String(url));
     if (calls.length === 1) return { ok: false };
     return { ok: true, text: async () => generatedAssetText };
-  };
+  }});
 
-  try {
+  {
     const failed = catalog.load();
     const failedAgain = catalog.load();
     assert.equal(failed, failedAgain, "concurrent callers share a rejected load attempt");
@@ -79,7 +69,7 @@ test("catalog loads complete source values and exposes exact references", async 
     assert.equal(first, second, "all callers share the same load promise");
     await first;
     assert.equal(calls.length, 2, "a later caller retries a rejected fetch and then caches the success");
-    assert.equal(calls[0], "./assets/exercise-catalog.json?v=067", "the catalog reads only its versioned local detail asset");
+    assert.equal(calls[0], CATALOG_URL, "the catalog reads only its versioned local detail asset");
     assert.deepEqual(catalog.snapshot(), rawSource, "snapshot preserves the complete source object");
 
     const { exercises, uuidIndex } = catalog.snapshot();
@@ -111,14 +101,11 @@ test("catalog loads complete source values and exposes exact references", async 
     }
     assert.equal(catalog.getExercise("missing"), null);
     assert.equal(catalog.getObject("missing"), null);
-  } finally {
-    globalThis.fetch = originalFetch;
   }
 });
 
 test("metric and nullable source values retain their distinct meanings", async () => {
-  const catalog = require("../exercise-catalog.js");
-  await catalog.load();
+  const catalog=await loadedCatalog();
   const metricless = [
     "3d65c6f170d8805fa510daa728d2044b",
     "3b15c6f170d880da9174c20b185cef90",
@@ -142,8 +129,7 @@ test("metric and nullable source values retain their distinct meanings", async (
 });
 
 test("unknown and prototype property names never resolve as UUID objects", async () => {
-  const catalog = require("../exercise-catalog.js");
-  await catalog.load();
+  const catalog=await loadedCatalog();
   for (const id of ["unknown-uuid", "__proto__", "constructor", "toString"]) {
     assert.equal(catalog.getObject(id), null, `${id} is not an inherited uuidIndex object`);
     assert.equal(catalog.getExercise(id), null, `${id} is not an exercise UUID`);
@@ -152,8 +138,7 @@ test("unknown and prototype property names never resolve as UUID objects", async
 });
 
 test("equipment alternatives use OR, groups use AND, support remains required, and plural links close transitively", async () => {
-  const catalog = require("../exercise-catalog.js");
-  await catalog.load();
+  const catalog=await loadedCatalog();
   const exercise = catalog.getExercise("1a05c6f170d880ccbf5aeb7f1b3fcee5");
   const [smithGroupId, trainerId] = exercise.resistanceEquipmentGroupIds;
   const [benchId] = exercise.supportEquipmentGroupIds;
@@ -181,16 +166,9 @@ test("equipment alternatives use OR, groups use AND, support remains required, a
   synthetic.uuidIndex[singularId].pluralOf = nextSingularId;
   synthetic.uuidIndex[nextSingularId].pluralOf = pluralId;
   const text = JSON.stringify(synthetic);
-  const modulePath = require.resolve("../exercise-catalog.js");
-  const publishedModule = require.cache[modulePath];
-  const originalFetch = globalThis.fetch;
-  const originalExercises = globalThis.RepForgeExercises;
-  try {
-    delete require.cache[modulePath];
-    globalThis.RepForgeExercises = { catalogSha256: createHash("sha256").update(text).digest("hex") };
-    globalThis.fetch = async () => ({ ok: true, text: async () => text });
-    const syntheticCatalog = require(modulePath);
-    await syntheticCatalog.load();
+  const syntheticCatalog=sourceCatalog({catalogSha256:createHash('sha256').update(text).digest('hex'),
+    fetcher:async()=>({ok:true,text:async()=>text})});
+  await syntheticCatalog.load();
     const closure = syntheticCatalog.equipmentClosure([pluralId]);
     assert.ok(closure.has(pluralId));
     assert.ok(closure.has(singularId));
@@ -198,18 +176,11 @@ test("equipment alternatives use OR, groups use AND, support remains required, a
     assert.ok(syntheticCatalog.equipmentClosure(new Set([pluralId])).has(singularId),
       "equipment profiles can pass their IDs as a Set");
     assert.ok(Object.isFrozen(syntheticCatalog.getObject(singularId)), "published synthetic rows are immutable too");
-  } finally {
-    require.cache[modulePath] = publishedModule;
-    globalThis.fetch = originalFetch;
-    if (originalExercises === undefined) delete globalThis.RepForgeExercises;
-    else globalThis.RepForgeExercises = originalExercises;
-  }
 });
 
 test("the synchronous library index keeps canonical UUID identity and resolves canonical names before aliases", async () => {
-  const { EXERCISE_LIBRARY, LEGACY_LIBRARY_IDS } = require("../exercises.js");
-  const catalog = require("../exercise-catalog.js");
-  await catalog.load();
+  const fixtureLibrary=structuredClone(EXERCISE_LIBRARY);
+  const catalog=await loadedCatalog({librarySource:{...librarySource,library:fixtureLibrary}});
   assert.equal(EXERCISE_LIBRARY.length, 1345);
   assert.deepEqual(LEGACY_LIBRARY_IDS, {}, "retired IDs are not repointed at new catalog entries");
   assert.equal(EXERCISE_LIBRARY[0].id.length, 32);
@@ -218,8 +189,8 @@ test("the synchronous library index keeps canonical UUID identity and resolves c
   ].every(key => Object.hasOwn(exercise, key))));
   assert.equal(catalog.getExercise("sq_bb"), null, "a retired short ID does not resolve to a new movement");
 
-  const canonical = EXERCISE_LIBRARY.find(exercise => exercise.id === "19f5c6f170d8808bb424e98de4472a7e");
-  const second = EXERCISE_LIBRARY.find(exercise => exercise.id === "1a05c6f170d8803ba48ec1443eab5978");
+  const canonical = fixtureLibrary.find(exercise => exercise.id === "19f5c6f170d8808bb424e98de4472a7e");
+  const second = fixtureLibrary.find(exercise => exercise.id === "1a05c6f170d8803ba48ec1443eab5978");
   assert.deepEqual(catalog.resolveName(canonical.name), {
     kind: "matched", by: "canonical", exercise: canonical,
   });
