@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {browserExerciseSource,browserLanguage} from "./language-browser.mjs";
 /** Packet 1.3 production journey: review deload edit → activation → Today/Focus. */
 import assert from "node:assert/strict";
 import {installBrowserTraining} from "./training-browser.mjs";
@@ -326,14 +327,14 @@ try {
     "confirming an offer stores only that movement's prerequisites in the answers");
   assert.deepEqual(afterOffer.result.preview.programDefinition, offerRebuildProbe.definition,
     "confirming an offer rebuilds from the compiler baseline, discarding the canceled Review edits");
-  const changedOfferRows = await page.evaluate(({ before, target }) => {
+  const changedOfferRows = await (await browserExerciseSource(page)).evaluate(async (exerciseSource,{ before, target })=>{
     const current = window.__repforgeEntryState().result.preview.programDefinition;
     const positions = before.days.flatMap((day, dayIndex) => day.slots.map((slot, slotIndex) => ({ slot, dayIndex, slotIndex })));
     const changed = positions.filter(({ slot, dayIndex, slotIndex }) => current.days[dayIndex]?.slots[slotIndex]?.exerciseId !== slot.exerciseId)
       .map(({ dayIndex, slotIndex }) => current.days[dayIndex]?.slots[slotIndex]).filter(Boolean);
     const rowName = (slot) => {
       const rendered = document.querySelector(`#entryReview [data-review-slot="${CSS.escape(slot.id)}"] .review__name`)?.textContent.trim();
-      const entry = window.RepForgeExercises.library.find((exercise) => exercise.id === slot.exerciseId);
+      const entry = exerciseSource.library.find((exercise) => exercise.id === slot.exerciseId);
       return rendered || slot.displayName || (document.documentElement.lang.startsWith("pt") && entry?.namePt) || entry?.name ||
         window.__repforgeEntryState().result.preview.program.find((row) => row.slotId === slot.id)?.name;
     };
@@ -475,8 +476,8 @@ try {
     selectedPattern: document.querySelector("#reviewSheet [data-review-block-pattern][aria-checked='true']")?.dataset.reviewBlockPattern,
     deload: document.querySelector("#reviewSheet [data-review-block-deload]")?.getAttribute("aria-checked"),
   }));
-  const expectedBlockTitle = await page.evaluate(() => window.RepForgeI18n.t("entry.review.block.sheet.title"));
-  const expectedSevenWeeks = await page.evaluate(() => window.RepForgeI18n.t("entry.review.block.regular_weeks", { n: 7 }));
+  const expectedBlockTitle = await (await browserLanguage(page)).evaluate(async (language)=>language.t("entry.review.block.sheet.title"));
+  const expectedSevenWeeks = await (await browserLanguage(page)).evaluate(async (language)=>language.t("entry.review.block.regular_weeks", { n: 7 }));
   assert.equal(initialBlockSheet.title, expectedBlockTitle, "the block sheet uses the approved title");
   assert.equal(initialBlockSheet.weeks, expectedSevenWeeks, "the block sheet defaults to seven weeks");
   assert.equal(initialBlockSheet.patternCount, 4, "all four approved rep patterns are available");
@@ -550,7 +551,7 @@ try {
   const renameTarget = dayNamesForRename[0], renameSource = dayNamesForRename[1];
   const duplicateValues = [...new Set([renameSource.stored, renameSource.shown].filter(Boolean))];
   const originalReviewNames = (await entry(page)).result.preview.programDefinition.days.map((day) => day.name);
-  const expectedDuplicateMessage = await page.evaluate(() => window.RepForgeI18n.t("toast.day_name_exists"));
+  const expectedDuplicateMessage = await (await browserLanguage(page)).evaluate(async (language)=>language.t("toast.day_name_exists"));
   for (const duplicateValue of duplicateValues) {
     await page.locator(`#entryReview [data-review-tab="${renameTarget.index}"]`).click();
     await page.locator("#entryReview [data-review-day-menu]").click();
@@ -695,10 +696,10 @@ try {
   assert.equal(reloadedSlot.prescriptionsByCycle.at(-1).sets[0].rir, 6, "the recovery-week six-RIR target survives ordinary reload");
   assert.deepEqual(reloaded.programMeta.programDefinition.deloadCycles, [8],
     "the active program keeps its final deload cycle after reload");
-  const today = await page.evaluate(() => ({
+  const today = await (await browserLanguage(page)).evaluate(async (language)=>({
     block: window.__repforgeMesocycleWeek(),
     deload: [...document.querySelectorAll("#todayDash *")].some((node) =>
-      node.children.length === 0 && node.textContent.trim() === window.RepForgeI18n.t("today.deload_week")),
+      node.children.length === 0 && node.textContent.trim() === language.t("today.deload_week")),
     text: document.querySelector("#todayDash")?.innerText || "",
   }));
   assert.equal(today.block.current, 8, "Today is in the active program's final week");
@@ -706,11 +707,11 @@ try {
 
   await page.locator("#startWorkout").click();
   await page.locator("#workoutShell").waitFor({ state: "visible", timeout: 10000 });
-  const focus = await page.evaluate(() => ({
+  const focus = await (await browserLanguage(page)).evaluate(async (language)=>({
     visible: getComputedStyle(document.querySelector("#woDaySub")).display !== "none" &&
       getComputedStyle(document.querySelector("#woDaySub")).visibility !== "hidden",
     text: document.querySelector("#woDaySub")?.textContent.trim() || "",
-    expected: window.RepForgeI18n.t("today.deload_week"),
+    expected: language.t("today.deload_week"),
   }));
   assert.equal(focus.visible && focus.text.includes(focus.expected), true,
     "Focus shows the approved deload-week line in its visible header");

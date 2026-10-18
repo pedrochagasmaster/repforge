@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {browserLanguage} from "./language-browser.mjs";
 import {ensureBrowserInterchange} from './interchange-browser.mjs';
 /**
  * Characterization and proof-first assertion suite for Plan 054 Packet 054-P9:
@@ -488,9 +489,9 @@ export async function runPrivacy(scope = "all") {
       await page.waitForSelector("#privacySheet.hidden, #privacySheet:not(.is-open)", { state: "hidden" });
 
       // Switch to Portuguese
-      await page.evaluate(() => {
-        if (window.RepForgeI18n?.setLang) {
-          window.RepForgeI18n.setLang("pt");
+      await (await browserLanguage(page)).evaluate(async (language)=>{
+        if (language?.setLang) {
+          language.setLang("pt");
         }
         const langSelect = document.querySelector("#lang");
         if (langSelect) {

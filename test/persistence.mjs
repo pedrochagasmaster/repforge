@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {browserLanguage} from "./language-browser.mjs";
 /** Focused Playwright checks for dual-store persistence. Requires http://localhost:8000/ */
 import { launchChromium } from "./browser.mjs";
 import { readFileSync } from "fs";
@@ -737,7 +738,7 @@ try {
     const health1 = await page.evaluate(() => window.__repforgeStorage.health());
     assert(health1.degraded && health1.localOk && !health1.idbOk, "IDB failure sets degraded health", JSON.stringify(health1));
     const toast1 = await page.locator("#toast").innerText();
-    const degradedCopy = await page.evaluate(() => window.RepForgeI18n?.t("toast.storage_degraded") || "");
+    const degradedCopy = await (await browserLanguage(page)).evaluate(async (language)=>language?.t("toast.storage_degraded") || "");
     assert(toast1.trim() === degradedCopy.trim(), "One-sided write toasts degraded copy", JSON.stringify({ toast1, want: degradedCopy }));
 
     await page.reload({ waitUntil: "domcontentloaded" });
@@ -775,7 +776,7 @@ try {
     const toast3 = await page.locator("#toast").innerText();
     // Asked of the catalog rather than spelled out here, so rewording the toast
     // cannot fail this check while the behaviour it guards is intact.
-    const storageFullCopy = await page.evaluate(() => window.RepForgeI18n?.t("toast.storage_full") || "");
+    const storageFullCopy = await (await browserLanguage(page)).evaluate(async (language)=>language?.t("toast.storage_full") || "");
     assert(toast3.trim() === storageFullCopy.trim(), "Total failure uses the destructive storage toast", JSON.stringify({ toast3, want: storageFullCopy }));
     both = await readBoth(page);
     assert(both.local?.programMeta?.name !== "Boom" && both.idb?.programMeta?.name !== "Boom", "Total failure does not keep the rejected snapshot");

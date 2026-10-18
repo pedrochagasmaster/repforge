@@ -1,3 +1,4 @@
+import {browserLanguage} from "../../test/language-browser.mjs";
 /**
  * Drive every onboarding surface through the production entry UI.
  *
@@ -1072,7 +1073,7 @@ export const ONBOARDING_SCENARIOS = {
       offer: document.querySelector(`[data-review-confirm-offer][data-review-offer-exercise-id="${CSS.escape(exerciseId)}"]`) !== null,
       undo: document.querySelector(`[data-review-confirmation-undo="${CSS.escape(exerciseId)}"]`)?.textContent.trim() || null,
     }), target.exerciseId);
-    const expectedUndo = await page.evaluate(() => window.RepForgeI18n.t("entry.review.undo"));
+    const expectedUndo = await (await browserLanguage(page)).evaluate(async (language)=>language.t("entry.review.undo"));
     if (!Array.isArray(current.confirmation) || !current.confirmation.length || current.offer || current.undo !== expectedUndo) {
       throw new Error(`result-confirmed: production confirmation state is incomplete: ${JSON.stringify(current)}`);
     }
@@ -1090,7 +1091,7 @@ export const ONBOARDING_SCENARIOS = {
       pattern: document.querySelector("[data-review-block-pattern][aria-checked='true']")?.dataset.reviewBlockPattern,
       deload: document.querySelector("[data-review-block-deload]")?.getAttribute("aria-checked"),
     }));
-    const expected = await page.evaluate(() => window.RepForgeI18n.t("entry.review.block.regular_weeks", { n: 7 }));
+    const expected = await (await browserLanguage(page)).evaluate(async (language)=>language.t("entry.review.block.regular_weeks", { n: 7 }));
     if (visible.weeks !== expected || visible.pattern !== "undulating" || visible.deload !== "false")
       throw new Error(`The result block sheet did not keep seven regular weeks with the edited pattern and recovery choice: ${JSON.stringify(visible)}`);
   },
@@ -1160,12 +1161,12 @@ export const ONBOARDING_SCENARIOS = {
       choices: [...document.querySelectorAll("#reviewSheet [data-review-execution-mode]")].map((button) => button.textContent.trim()),
       cue: document.querySelector(`#entryReview [data-review-slot="${CSS.escape(slotId)}"] [data-review-execution-cue]`)?.textContent.trim(),
     }), slotId);
-    const expectedQuestion = await page.evaluate(() => window.RepForgeI18n.t("entry.review.execution_mode.question"));
-    const expectedChoices = await page.evaluate(() => [
-      window.RepForgeI18n.t("entry.review.execution_mode.bilateral"),
-      window.RepForgeI18n.t("entry.review.execution_mode.unilateral"),
+    const expectedQuestion = await (await browserLanguage(page)).evaluate(async (language)=>language.t("entry.review.execution_mode.question"));
+    const expectedChoices = await (await browserLanguage(page)).evaluate(async (language)=>[
+      language.t("entry.review.execution_mode.bilateral"),
+      language.t("entry.review.execution_mode.unilateral"),
     ]);
-    const expectedCue = await page.evaluate(() => window.RepForgeI18n.t("entry.review.execution_mode.cue"));
+    const expectedCue = await (await browserLanguage(page)).evaluate(async (language)=>language.t("entry.review.execution_mode.cue"));
     if (visible.question !== expectedQuestion || visible.groupName !== "reviewExecutionModeQuestion"
       || JSON.stringify(visible.choices) !== JSON.stringify(expectedChoices) || visible.cue !== expectedCue) {
       throw new Error(`review-execution-mode: production question/choices/cue were not exposed: ${JSON.stringify(visible)}`);
@@ -1179,7 +1180,7 @@ export const ONBOARDING_SCENARIOS = {
       .filter((day) => day.kind === "training"));
     if (days.length < 2) throw new Error("review-day-name-refused: the production result has fewer than two training days");
     const target = days[0], duplicate = days[1].stored || days[1].shown;
-    const expected = await page.evaluate(() => window.RepForgeI18n.t("toast.day_name_exists"));
+    const expected = await (await browserLanguage(page)).evaluate(async (language)=>language.t("toast.day_name_exists"));
     await page.locator(`#entryReview [data-review-tab="${target.index}"]`).click();
     await page.locator("#entryReview [data-review-day-menu]").click();
     await page.locator('#reviewSheet [data-review-day-action="rename"]').click();

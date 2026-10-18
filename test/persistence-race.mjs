@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {browserLanguage} from "./language-browser.mjs";
 import { seedProgramMeta } from "./fixtures/seed-program.mjs";
 /** Deterministic repro for an accepted workout racing an ordinary Settings persist. */
 import { launchChromium } from "./browser.mjs";
@@ -670,19 +671,19 @@ try {
           telemetryRoute: "custom",
         });
       }, { key: KEY, definition: seedProgramMeta().programDefinition });
-      await writer.waitForFunction(() => {
+      const storageFullCopy=await (await browserLanguage(writer)).evaluate(language=>language.t("toast.storage_full"));
+      await writer.waitForFunction(storageFull => {
         const toast = document.querySelector("#toast")?.textContent || "";
-        const storageFull = window.RepForgeI18n?.t("toast.storage_full") || "";
         return toast.trim() === storageFull.trim();
-      });
+      },storageFullCopy);
       const required = await readBoth(writer);
       // The toast copy is asked of the catalog, not spelled out here: a reword
       // should not fail a check about which of the two toasts was raised.
-      const requiredUi = await writer.evaluate(() => ({
+      const requiredUi = await (await browserLanguage(writer)).evaluate(async (language)=>({
         toast: document.querySelector("#toast")?.textContent || "",
         health: window.__repforgeStorage.health(),
-        storageFullCopy: window.RepForgeI18n?.t("toast.storage_full") || "",
-        draftConflictCopy: window.RepForgeI18n?.t("toast.draft_conflict_retry") || "",
+        storageFullCopy: language?.t("toast.storage_full") || "",
+        draftConflictCopy: language?.t("toast.draft_conflict_retry") || "",
       }));
       const requiredArtifacts = await inventoryPersistenceArtifacts(writer);
       check(

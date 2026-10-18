@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {browserLanguage} from "./language-browser.mjs";
 import { pathToFileURL } from "node:url";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
@@ -982,7 +983,7 @@ async function testDestructiveOneReplicaRecovery(page, operation, successfulRepl
   await assertNoCompetingCustomAction(page, pendingPhase, 1);
 
   if (pendingLanguage === "pt")
-    await page.evaluate(() => window.RepForgeI18n.setLang("pt"));
+    await (await browserLanguage(page)).evaluate(async (language)=>language.setLang("pt"));
   await page.evaluate(() => window.__releaseInitialCustomWrite());
   await page.waitForFunction(() => typeof window.__releaseCustomRecoveryWrite === "function",
     undefined, { timeout: 5000 });
@@ -1010,7 +1011,7 @@ async function testDestructiveOneReplicaRecovery(page, operation, successfulRepl
     const expectedPt = operation === "archive" ? "Arquivando…" : "Excluindo…";
     check(recovering.key === expectedKey && recovering.text === expectedPt,
       `${label} pending copy is localized in Portuguese`, recovering);
-    await page.evaluate(() => window.RepForgeI18n.setLang("en"));
+    await (await browserLanguage(page)).evaluate(async (language)=>language.setLang("en"));
   }
   const successToast = operation === "archive" ? "Exercise archived." : "Exercise deleted.";
   check(!recovering.toast.includes(successToast), `${operation} success is withheld before settlement`, recovering.toast);

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {browserLanguage} from "./language-browser.mjs";
 /**
  * Free-form program import: the paste door of the import route.
  *
@@ -416,7 +417,7 @@ async function main() {
         writeOwn: !!document.querySelector("#entryWriteOwn"),
       };
     });
-    const lang = await page.evaluate(() => window.RepForgeI18n?.getLang?.() || "en");
+    const lang = await (await browserLanguage(page)).evaluate(async (language)=>language?.getLang?.() || "en");
     const IMPORT_COPY = {
       en: { lede: "Choose a Taurifer program file or paste a program from anywhere. You review every exercise before you activate it.",
         file: ["Choose file", "A Taurifer file from another device"], paste: ["Paste a program", "Text from a spreadsheet, an app or an assistant"] },
@@ -549,7 +550,7 @@ async function main() {
 
     console.log("\nThe prompt contract: strict transcription without contradiction");
     await reset(page);
-    await page.evaluate(() => window.RepForgeI18n.setLang("en"));
+    await (await browserLanguage(page)).evaluate(async (language)=>language.setLang("en"));
     await openFreeform(page);
     await page.fill("#entryFreeformIn", PASTED);
     await page.click("#entryFreeformContinue");
@@ -804,7 +805,7 @@ async function main() {
 
     console.log("\nPortuguese reads the same screen");
     await reset(page);
-    await page.evaluate(() => window.RepForgeI18n.setLang("pt"));
+    await (await browserLanguage(page)).evaluate(async (language)=>language.setLang("pt"));
     await openFreeform(page);
     await page.fill("#entryFreeformIn", PASTED);
     await page.click("#entryFreeformContinue");
@@ -1130,7 +1131,7 @@ async function main() {
       session: sessionStorage.getItem("repforge_freeform_session_v1"),
       step: window.__repforgeEntryState?.()?.step || null,
     }));
-    const confirmCopy = await page.evaluate(() => window.RepForgeI18n?.t?.("entry.freeform.confirm_write_own") || "");
+    const confirmCopy = await (await browserLanguage(page)).evaluate(async (language)=>language?.t?.("entry.freeform.confirm_write_own") || "");
     assert(confirmCopy.length > 0 && lastDialog?.type === "confirm" && lastDialog?.message === confirmCopy,
       "writing from scratch asks before discarding pasted text", JSON.stringify(lastDialog));
     assert(/Overhead press/.test(kept.session || "") && await page.locator("#entryFreeformOut").isVisible(),
@@ -1234,17 +1235,17 @@ async function main() {
     dialogAction = "accept"; lastDialog = null;
 
     // Portuguese copy exists for every clipboard string.
-    const ptClipboard = await page.evaluate(() => {
+    const ptClipboard = await (await browserLanguage(page)).evaluate(async (language)=>{
       const keys = ["clipboard_import", "clipboard_busy", "clipboard_or",
         "clipboard_empty", "clipboard_failed", "clipboard_unavailable"];
-      return keys.map((k) => window.RepForgeI18n.t("entry.freeform." + k, {}, "pt"));
+      return keys.map((k) => language.t("entry.freeform." + k, {}, "pt"));
     });
     assert(ptClipboard.every((v) => v && !/^entry\.freeform\./.test(v)),
       "every clipboard string is translated for Portuguese", JSON.stringify(ptClipboard));
 
     // The repair notices are Brazilian Portuguese (Plan 064 R4c), not European.
-    const ptRepair = await page.evaluate(() => ["gap_error", "not_imported_notice"]
-      .map((k) => window.RepForgeI18n.t("entry.freeform." + k, { items: "x" }, "pt")));
+    const ptRepair = await (await browserLanguage(page)).evaluate(async (language)=>["gap_error", "not_imported_notice"]
+      .map((k) => language.t("entry.freeform." + k, { items: "x" }, "pt")));
     assert(ptRepair.every((v) => v && !/\b(Introduza|regista|assinalados?)\b/i.test(v)),
       "the gap and not-imported notices read as Brazilian Portuguese", JSON.stringify(ptRepair));
   } finally {

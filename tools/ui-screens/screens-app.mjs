@@ -1,3 +1,4 @@
+import {browserLanguage} from "../../test/language-browser.mjs";
 /**
  * Drive the non-onboarding surfaces.
  *
@@ -1350,7 +1351,7 @@ async function whyOnBuildRange(page) {
   await navigateToWhy(page, { exerciseId: row.id, day: row.day });
   await expectWhyLeads(page, ["manual"]);
   const text = await page.locator("#whyBody .whysheet__text").textContent();
-  const expected = await page.evaluate(() => window.RepForgeI18n.t("why.manual"));
+  const expected = await (await browserLanguage(page)).evaluate(async (language)=>language.t("why.manual"));
   if (text?.trim() !== expected) throw new Error(`The Build-backed manual Why sentence was ${JSON.stringify(text)}`);
 }
 
@@ -1415,7 +1416,7 @@ async function whyOnGeneratedPerSide(page) {
     throw new Error(`The ambiguous generated slot lost its execution-mode requirement or acquired a load: ${JSON.stringify(truth)}`);
   await expectWhyLeads(page, ["setup"]);
   const text = await page.locator("#whyBody .whysheet__text").textContent();
-  const expected = await page.evaluate(() => window.RepForgeI18n.t("why.setup.execution_mode"));
+  const expected = await (await browserLanguage(page)).evaluate(async (language)=>language.t("why.setup.execution_mode"));
   if (text?.trim() !== expected) throw new Error(`The generated per-side Why sentence was ${JSON.stringify(text)}`);
 }
 
@@ -1456,7 +1457,7 @@ async function focusPerSideTarget(page) {
       whyOpen: document.querySelector("#whySheet")?.classList.contains("is-open") || false,
     };
   }, PER_SIDE_LOAD_METRIC);
-  const expectedLabel = await page.evaluate(() => window.RepForgeI18n.t("focus.metric.load_per_side_kg"));
+  const expectedLabel = await (await browserLanguage(page)).evaluate(async (language)=>language.t("focus.metric.load_per_side_kg"));
   if (!presentation.fieldText.includes(String(result.targetLoad)) || !presentation.label.startsWith(expectedLabel) || presentation.whyOpen) {
     throw new Error(`The ordinary Focus state does not show its per-side prefill and label without opening Why: ${JSON.stringify({ result, presentation, expectedLabel })}`);
   }
@@ -1501,7 +1502,7 @@ export const APP_SCENARIOS = {
   "today/deload-week": async page => {
     const note = page.locator("#todayProgram .today-prog__deload");
     await note.waitFor({ state: "visible", timeout: 20000 });
-    const copy = await page.evaluate(() => window.RepForgeI18n.t("today.deload_week"));
+    const copy = await (await browserLanguage(page)).evaluate(async (language)=>language.t("today.deload_week"));
     if ((await note.innerText()).trim() !== copy) throw new Error("Today shows the wrong deload recovery note");
   },
   "today/ready": async (page) => {
@@ -1657,7 +1658,7 @@ export const APP_SCENARIOS = {
       visible: getComputedStyle(node).display !== "none" && getComputedStyle(node).visibility !== "hidden",
       text: node.textContent.trim(),
     }));
-    const copy = await page.evaluate(() => window.RepForgeI18n.t("today.deload_week"));
+    const copy = await (await browserLanguage(page)).evaluate(async (language)=>language.t("today.deload_week"));
     if (!cue.visible || cue.text !== copy) throw new Error(`Focus deload note is missing: ${JSON.stringify(cue)}`);
   },
   "workout/focus-glossary": async (page) => {
