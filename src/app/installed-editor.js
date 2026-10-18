@@ -83,10 +83,10 @@ export function createInstalledEditor({read,refreshHead,commit,model,catalog,nex
       return{ok:true,staged:true,document:copySnapshot(staged),token:copySnapshot(expectedToken)};
     }
     const edits=session?.edits||intent.edits||[];
-    const draftBefore=readActiveDraft();
+    const capturedSession=session,draftBefore=readActiveDraft();
     /** @type {import('./session.js').CommitResult} */
     const result=await commands.applyEdits({expectedToken,nextDocument,edits,discardWorkout:intent.kind==='apply_discard_workout'});
-    if(result.committed===true&&result.settled===true){session=null;onSettled(result,{draftBefore});return{...result,ok:true,token:token(read())}}
+    if(result.committed===true&&result.settled===true){if(session===capturedSession)session=null;onSettled(result,{draftBefore});return{...result,ok:true,token:token(read())}}
     return{...result,ok:false,conflict:!!(result.conflict||result.staleRevision)};
   }
   return Object.freeze({read:readDocument,commit:commitDocument,reset:()=>{session=null},readSession:()=>copySnapshot(session),commands,rules});
