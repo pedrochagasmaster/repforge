@@ -1,10 +1,33 @@
+/**
+ * @typedef {{get:()=>number,set:(value:number)=>void,stop:()=>void,on:(event:'change',paint:(value:number)=>void)=>()=>void}} MotionValue
+ * @typedef {{type?:string,stiffness?:number,damping?:number,mass?:number,restDelta?:number,restSpeed?:number,duration?:number,ease?:number[],velocity?:number}} AnimationOptions
+ * @typedef {{then:(arrived:()=>unknown,failed:()=>unknown)=>Promise<unknown>}} Playback
+ * @typedef {{animate:(target:MotionValue|HTMLElement,to:number|{height:string[]},options:AnimationOptions)=>Playback,motionValue:(initial:number)=>MotionValue}} MotionRuntime
+ * @typedef {Promise<boolean> & {abandon:()=>void}} Arrival
+ * @typedef {{left:number,top:number,width:number,height:number}} Rect
+ * @typedef {{y:MotionValue,stopPaint:()=>void,arrived?:Arrival}} ValueRun
+ * @typedef {ValueRun & {distance:number,from:Rect,to:Rect}} IndicatorRun
+ * @typedef {{x:MotionValue,stopPaint:()=>void,arrived?:Arrival}} PushRun
+ * @typedef {{pointerId?:number,type?:string,timeStamp?:number}} PointerEnd
+ * @typedef {{id:number,x:number,y:number,anchorX:number,dx:number,axis:'x'|null,card:HTMLElement,track:HTMLElement,deck:HTMLElement,baseX:number,scrolls:boolean,velocity:number,lastX:number,lastT:number}} FocusGesture
+ * @typedef {{track:HTMLElement,deck:HTMLElement|null,commitDir:number,queuedDir:number,timer:number|null}} FocusSlide
+ * @typedef {{page:HTMLElement,onCommit:()=>unknown}} EdgeTarget
+ * @typedef {{isFluid:boolean,navigate:(direction:number)=>unknown,dispose:()=>void}} GestureController
+ * @typedef {{dragStart?:(event:PointerEvent)=>void,dragMove?:(event:PointerEvent)=>void,dragEnd?:(event:PointerEnd)=>void}} DragHandlers
+ * @typedef {DragHandlers & {track?:()=>HTMLElement|null,card?:()=>HTMLElement|null,step?:()=>number,canGo?:(direction:number)=>boolean,setTrack?:(track:HTMLElement|null,value:number)=>void,go?:(direction:number)=>unknown}} FocusPresentation
+ * @typedef {{window:Window & typeof globalThis & {Motion?:MotionRuntime},runtime?:MotionRuntime|null,focus?:FocusPresentation,sheets?:DragHandlers,selection?:{isNativeTextSelectionTarget?:(target:Element)=>boolean,swallowNextClick?:()=>void},fallback:{mount:()=>{dispose:()=>void},navigate:(direction:number)=>unknown}}} MotionOptions
+ */
 /** Optional animation and gesture lifetime. No browser work happens on module import.
  * focus supplies track/card/step/canGo/setTrack/go and fallback drag handlers;
  * sheets supplies fallback drag handlers; selection owns click suppression.
+ * fallback is required when mounting without the optional animation runtime.
  * These callbacks affect presentation only; training and route state stay with their owners.
  */
+/** @param {MotionOptions} options */
 export function createMotion({ window: global, runtime = global.Motion || null,
-  focus = {}, sheets = {}, selection = {}, fallback = {} }) {
+  focus = {}, sheets = {}, selection = {}, fallback }) {
+  /** @typedef {{id:number,sheet:HTMLElement,scrim:HTMLElement|null,x:number,y:number,anchorY:number,dy:number,live:boolean,velocity:number,lastY:number,lastT:number,motion:ReturnType<typeof trackSheetGesture>}} SheetGesture */
+  /** @typedef {{id:number,page:HTMLElement,target:EdgeTarget,x:number,y:number,dx:number,live:boolean,velocity:number,lastX:number,lastT:number,motion:ReturnType<typeof trackEdgeSwipe>}} EdgeGesture */
   const document = global.document;
   const Element = global.Element;
   const performance = global.performance;
@@ -15,9 +38,12 @@ export function createMotion({ window: global, runtime = global.Motion || null,
   const MutationObserver = global.MutationObserver;
   let fluidControllersInstalled = false;
 
-  const animate = runtime && typeof runtime.animate === "function" ? runtime.animate : null;
-  const motionValue = runtime && typeof runtime.motionValue === "function" ? runtime.motionValue : null;
-  const available = !!(animate && motionValue);
+  // Every animation path checks this fixed capability pair before invocation.
+  const availableAnimate = runtime && typeof runtime.animate === "function" ? runtime.animate : null;
+  const animate = /** @type {MotionRuntime["animate"]} */ (availableAnimate);
+  const availableValue = runtime && typeof runtime.motionValue === "function" ? runtime.motionValue : null;
+  const motionValue = /** @type {MotionRuntime["motionValue"]} */ (availableValue);
+  const available = !!(availableAnimate && availableValue);
 
   const VOCABULARY = {
     gestureSettle: { type: "spring", stiffness: 600, damping: 40, mass: 1, restDelta: 0.5, restSpeed: 10 },
@@ -36,22 +62,25 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     ? global.matchMedia("(prefers-reduced-motion: reduce)")
     : null;
   const reducedMotion = () => !!reduceQuery?.matches;
+  /** @param {number} vPerMs */
   const perSecond = vPerMs => (Number.isFinite(vPerMs) ? vPerMs * 1000 : 0);
   const settled = Promise.resolve(false);
   /* Motion's playback `then` discards what its callbacks return, and a stopped
      or replaced run may never settle at all. So "did this run arrive, or was it
      superseded" is resolved here: from `current()` when the animation finishes,
      or false at once when the owner calls `abandon()`. */
+  /** @param {Playback} animation @param {()=>boolean} current @returns {Arrival} */
   const arrival = (animation, current) => {
     let abandon = () => {};
-    const promise = new Promise(resolve => {
+    const promise = /** @type {Arrival} */ (new Promise(resolve => {
       abandon = () => resolve(false);
       Promise.resolve(animation.then(() => resolve(!!current()), () => resolve(false))).catch(() => resolve(false));
-    });
+    }));
     promise.abandon = abandon;
     return promise;
   };
 
+  /** @param {HTMLElement|null} el @param {string|null} value */
   function hint(el, value) {
     if (!el) return;
     if (value) el.style.willChange = value;
@@ -62,6 +91,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
      velocity is kept in px/ms by app.js, so the original /1000 px/s conversion
      cancels and the projected distance is velocity * rate / (1-rate). */
   const PROJECTION_DECELERATION = 0.998;
+  /** @param {number} position @param {number} velocityPerMs @param {number} [decelerationRate] */
   function projectMomentum(position, velocityPerMs, decelerationRate = PROJECTION_DECELERATION) {
     const positionNow = Number.isFinite(position) ? position : 0;
     const velocity = Number.isFinite(velocityPerMs) ? velocityPerMs : 0;
@@ -69,12 +99,14 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     if (!rate || !velocity) return positionNow;
     return positionNow + velocity * rate / (1 - rate);
   }
+  /** @template {{position:number}} T @param {number} projected @param {T[]} candidates @returns {T|null} */
   function nearestSnap(projected, candidates) {
     const points = (Array.isArray(candidates) ? candidates : []).filter(point => Number.isFinite(point?.position));
     if (!points.length) return null;
     return points.reduce((best, point) =>
       Math.abs(point.position - projected) < Math.abs(best.position - projected) ? point : best);
   }
+  /** @param {number} overshoot @param {number} dimension @param {number} [constant] */
   function rubberband(overshoot, dimension, constant = 0.55) {
     const distance = Math.abs(Number(overshoot) || 0);
     const size = Math.max(1, Number(dimension) || 1);
@@ -82,11 +114,13 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     return Math.sign(overshoot || 1) * resisted;
   }
 
+  /** @param {HTMLElement|null} sheet @param {HTMLElement|null} scrim */
   function trackSheetGesture(sheet, scrim, { from = 0 } = {}) {
     if (!available || !sheet) return null;
     const origin = Math.max(0, Number(from) || 0);
     const y = motionValue(origin);
     const height = sheet.offsetHeight || 1;
+    /** @param {number} value */
     const paint = value => {
       const position = Math.max(0, value);
       sheet.style.transform = `translate3d(0,${position}px,0)`;
@@ -111,6 +145,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     };
 
     return {
+      /** @param {number} dy */
       follow(dy) {
         if (disposed) return;
         y.set(Math.max(0, origin + (Number(dy) || 0)));
@@ -144,11 +179,13 @@ export function createMotion({ window: global, runtime = global.Motion || null,
      on `navPush`, seeded with the release velocity. `takeover()` hands the live
      offset to the next grab without clearing it. */
   const EDGE_SWIPING = "is-edge-swiping";
+  /** @param {HTMLElement|null} page */
   function trackEdgeSwipe(page, { from = 0 } = {}) {
     if (!available || !page) return null;
     const origin = Math.max(0, Number(from) || 0);
     const width = page.offsetWidth || global.innerWidth || 1;
     const x = motionValue(origin);
+    /** @param {number} value */
     const paint = value => {
       page.style.transform = `translate3d(${Math.max(0, value)}px,0,0)`;
     };
@@ -158,6 +195,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     hint(page, "transform");
 
     let disposed = false;
+    /** @type {Arrival|null} */
     let commitRun = null;
     const handOff = () => {
       page.style.transform = "";
@@ -175,6 +213,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
 
     return {
       width,
+      /** @param {number} dx */
       follow(dx) {
         if (disposed) return;
         x.set(Math.max(0, origin + (Number(dx) || 0)));
@@ -207,6 +246,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     };
   }
 
+  /** @param {HTMLElement|null} track */
   function settleFocusDeck(track, { from = 0, velocity = 0 } = {}) {
     if (!available || !track) return null;
     if (reducedMotion()) {
@@ -232,6 +272,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
       });
   }
 
+  /** @param {HTMLElement[]} rows @param {Map<string|undefined,{top:number}>} before */
   function animateExerciseReorder(rows, before) {
     if (!available || !rows?.length || !before?.size) return false;
     if (reducedMotion()) return false;
@@ -265,27 +306,33 @@ export function createMotion({ window: global, runtime = global.Motion || null,
      applies, and the transform is derived from it. That makes the run
      retargetable: a second call while one is in flight starts from where the
      element is on screen now, not from where the first call began. */
+  /** @type {WeakMap<Element,IndicatorRun>} */
   const indicatorRuns = new WeakMap();
   /* Runs asked for before the same frame start together on it, on one clock,
      so a pair that travels as one (the chart's dot and cursor line) stays in
      step. A run superseded before then never starts. */
+  /** @type {Array<()=>void>|null} */
   let frameStarts = null;
+  /** @param {()=>void} start */
   function startOnNextFrame(start) {
     if (!frameStarts) {
       frameStarts = [];
       requestAnimationFrame(() => {
         const due = frameStarts;
         frameStarts = null;
-        for (const fn of due) fn();
+        for (const fn of /** @type {Array<()=>void>} */ (due)) fn();
       });
     }
     frameStarts.push(start);
   }
+  /** @param {IndicatorRun} run */
   function indicatorRect(run) {
     const progress = run.distance ? Math.min(1, Math.max(0, run.y.get() / run.distance)) : 0;
+    /** @param {keyof Rect} key */
     const mix = key => run.to[key] + (run.from[key] - run.to[key]) * progress;
     return { left: mix("left"), top: mix("top"), width: mix("width"), height: mix("height") };
   }
+  /** @param {HTMLElement|null} el @param {Rect} fromRect */
   function animateIndicator(el, fromRect) {
     if (!el) return settled;
     const live = indicatorRuns.get(el);
@@ -298,7 +345,8 @@ export function createMotion({ window: global, runtime = global.Motion || null,
       return settled;
     }
     const to = el.getBoundingClientRect();
-    const measured = rect => !!rect && ["left", "top", "width", "height"].every(key => Number.isFinite(rect[key]));
+    /** @param {Rect} rect */
+    const measured = rect => !!rect && ["left", "top", "width", "height"].every(key => Number.isFinite(rect[/** @type {keyof Rect} */(key)]));
     if (!measured(start) || !measured(to)) { hint(el, null); return settled; }
     const dx = start.left - to.left, dy = start.top - to.top;
     const sx = to.width > 0 ? start.width / to.width : 1;
@@ -311,11 +359,12 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     }
 
     const y = motionValue(distance);
-    const run = {
+    const run = /** @type {IndicatorRun} */ ({
       y, distance, from: { left: start.left, top: start.top, width: start.width, height: start.height },
       to: { left: to.left, top: to.top, width: to.width, height: to.height },
-    };
+    });
     indicatorRuns.set(el, run);
+    /** @param {number} value */
     const paint = value => {
       const progress = Math.min(1, Math.max(0, value / distance));
       el.style.transform = progress
@@ -331,7 +380,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
        caller still does before that frame (a tab change renders its view) would
        otherwise be spent as travel, and on a slow phone the first frame painted
        would show the element most of the way there (#404). */
-    const started = new Promise(resolve => {
+    const started = new Promise(/** @param {(value:{animation:Playback})=>void} resolve */ resolve => {
       startOnNextFrame(() => {
         if (indicatorRuns.get(el) === run) resolve({ animation: animate(y, 0, VOCABULARY.layoutShift) });
       });
@@ -362,19 +411,23 @@ export function createMotion({ window: global, runtime = global.Motion || null,
      before this returns, on every frame, and with the end layout on arrival; a
      run that is superseded is never painted again. Without the runtime, or under
      reduced motion, nothing is painted and the caller's end state stands. */
+  /** @type {WeakMap<Element,ValueRun>} */
   const coordinateRuns = new WeakMap();
+  /** @param {Element|null} host @param {number[]} from @param {number[]} to @param {(values:number[],progress:number)=>void} paint */
   function animateCoordinates(host, from, to, paint) {
     const live = host ? coordinateRuns.get(host) : null;
-    if (live) { coordinateRuns.delete(host); live.y.stop(); live.stopPaint(); live.arrived?.abandon(); }
+    if (live) { coordinateRuns.delete(/** @type {Element} */(host)); live.y.stop(); live.stopPaint(); live.arrived?.abandon(); }
     if (!available || !host || reducedMotion()) return settled;
+    /** @param {unknown} list @returns {list is number[]} */
     const numbers = list => Array.isArray(list) && list.every(Number.isFinite);
     if (!numbers(from) || !numbers(to) || !from.length || from.length !== to.length || typeof paint !== "function") return settled;
     const distance = from.reduce((far, value, index) => Math.max(far, Math.abs(to[index] - value)), 0);
     if (!(distance >= 1)) return settled;
 
     const y = motionValue(distance);
-    const run = { y };
+    const run = /** @type {ValueRun} */ ({ y });
     coordinateRuns.set(host, run);
+    /** @param {number} value */
     const frame = value => {
       const progress = Math.min(1, Math.max(0, 1 - value / distance));
       paint(from.map((start, index) => start + (to[index] - start) * progress), progress);
@@ -401,8 +454,10 @@ export function createMotion({ window: global, runtime = global.Motion || null,
      motion or without the runtime, where the page jumps and no transform is ever
      set) and false when the run was superseded or cancelled. The transform is
      cleared on arrival either way, before the caller's continuation runs. */
+  /** @type {WeakMap<Element,PushRun>} */
   const pushRuns = new WeakMap();
   const trueNow = Promise.resolve(true);
+  /** @param {HTMLElement|null} page */
   function animatePush(page, { direction = "in", velocity = 0 } = {}) {
     if (!page) return trueNow;
     const live = pushRuns.get(page);
@@ -418,8 +473,9 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     const from = start != null ? Math.min(start, width) : (out ? 0 : width);
     const to = out ? width : 0;
     const x = motionValue(from);
-    const run = { x };
+    const run = /** @type {PushRun} */ ({ x });
     pushRuns.set(page, run);
+    /** @param {number} value */
     const paint = value => {
       page.style.transform = value > 0.01 ? `translate3d(${value}px,0,0)` : "";
     };
@@ -427,17 +483,17 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     paint(from);
     hint(page, "transform");
     run.arrived = arrival(animate(x, to, { ...VOCABULARY.navPush, velocity: perSecond(velocity) }), () => pushRuns.get(page) === run);
-    const done = run.arrived.finally(() => {
+    const done = /** @type {Promise<boolean> & {cancel?:()=>void}} */ (run.arrived.finally(() => {
       run.stopPaint();
       if (pushRuns.get(page) !== run) return;
       pushRuns.delete(page);
       page.style.transform = "";
       hint(page, null);
-    });
+    }));
     done.cancel = () => {
       if (pushRuns.get(page) !== run) return;
       pushRuns.delete(page);
-      run.arrived.abandon();
+      /** @type {Arrival} */(run.arrived).abandon();
       x.stop();
       run.stopPaint();
       page.style.transform = "";
@@ -446,13 +502,16 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     return done;
   }
 
+  /** @type {WeakMap<Element,{abandon?:()=>void}>} */
   const disclosureRuns = new WeakMap();
   const COLLAPSING = "is-collapsing";
   /* The measured-height run shared by a disclosure opening or closing and a slot
      swapping one content for another. A superseded run must not clear the
      replacement's inline height, so each run holds a token. */
+  /** @param {HTMLElement} panel @param {number} from @param {number} to @param {AnimationOptions} tween */
   function runMeasuredHeight(panel, from, to, tween) {
     disclosureRuns.get(panel)?.abandon?.();
+    /** @type {{abandon?:()=>void}} */
     const token = {};
     disclosureRuns.set(panel, token);
     panel.style.overflow = "hidden";
@@ -473,6 +532,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
       hint(panel, null);
     });
   }
+  /** @param {HTMLElement|null} panel @param {boolean} open @param {()=>void} applyVisualState */
   function animateDisclosure(panel, open, applyVisualState) {
     const apply = typeof applyVisualState === "function" ? applyVisualState : () => {};
     if (!available || !panel) { apply(); return null; }
@@ -497,6 +557,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
      `revealIn` and shrinks on `revealOut`. Called again mid-run it measures the
      live height, so the height reverses from where it is. The slot's own
      minimum height and the crossfade of the content are the caller's CSS. */
+  /** @param {HTMLElement|null} slot @param {()=>void} swap */
   function animateSlot(slot, swap) {
     const apply = typeof swap === "function" ? swap : () => {};
     if (!available || !slot) { apply(); return null; }
@@ -550,21 +611,27 @@ export function createMotion({ window: global, runtime = global.Motion || null,
   const SHEET_LOCK = 8;
   const FOCUS_LOCK = 10;
   const FOCUS_SLIDE_MS = 210;
+  /** @type {Map<HTMLElement,NonNullable<ReturnType<typeof trackSheetGesture>>>} */
   const sheetRuns = new Map();
+  /** @type {SheetGesture|null} */
   let sheetGesture = null;
+  /** @type {FocusGesture|null} */
   let focusGesture = null;
+  /** @type {FocusSlide|null} */
   let focusSlide = null;
 
+  /** @param {Element|null} target */
   function visibleSheetFrom(target) {
-    const sheet = target?.closest?.(".sheet.is-open");
+    const sheet = /** @type {HTMLElement|null|undefined} */(target?.closest?.(".sheet.is-open"));
     return sheet && !sheet.hidden ? sheet : null;
   }
   function currentScrim() {
-    const scrims = [...document.querySelectorAll("[id$='Scrim'].is-open")];
+    const scrims = /** @type {HTMLElement[]} */([...document.querySelectorAll("[id$='Scrim'].is-open")]);
     return scrims[scrims.length - 1] || null;
   }
+  /** @param {Element} target @param {HTMLElement} sheet */
   function sheetScrollHeld(target, sheet) {
-    for (let node = target; node instanceof Element && node !== sheet; node = node.parentElement) {
+    for (let node = /** @type {Element|null} */(target); node instanceof Element && node !== sheet; node = node.parentElement) {
       if (node.scrollHeight > node.clientHeight + 1 && node.scrollTop > 0) return true;
     }
     return false;
@@ -581,6 +648,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
       if (sheetRuns.get(active.sheet) === active.motion) sheetRuns.delete(active.sheet);
     }
   }
+  /** @param {PointerEvent} event */
   function sheetPointerDown(event) {
     if (sheetGesture) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
@@ -595,6 +663,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
       lastY: event.clientY, lastT: event.timeStamp || performance.now(), motion: null,
     };
   }
+  /** @param {PointerEvent} event */
   function sheetPointerMove(event) {
     const gesture = sheetGesture;
     if (!gesture || event.pointerId !== gesture.id) return;
@@ -629,9 +698,11 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     gesture.dy = Math.max(0, event.clientY - gesture.anchorY);
     gesture.motion?.follow(gesture.dy);
   }
+  /** @param {HTMLElement} sheet */
   function dismissSheetByExistingPath(sheet) {
     sheet.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
   }
+  /** @param {PointerEnd} event */
   function sheetPointerEnd(event) {
     const gesture = sheetGesture;
     if (!gesture || (event?.pointerId != null && event.pointerId !== gesture.id)) return;
@@ -671,6 +742,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     }
   }
 
+  /** @param {HTMLElement|null} el */
   function matrixTranslateX(el) {
     if (!el) return 0;
     const value = getComputedStyle(el).transform;
@@ -686,17 +758,20 @@ export function createMotion({ window: global, runtime = global.Motion || null,
   function focusActive() {
     return !!document.querySelector("#workout.is-focus") && document.body.classList.contains("is-focus-wo");
   }
-  function focusTrack() { return focus.track?.() || document.querySelector("#focusTrack"); }
-  function focusCard() { return focus.card?.() || document.querySelector("#workout.is-focus .exercise.is-current"); }
+  function focusTrack() { return focus.track?.() || /** @type {HTMLElement|null} */(document.querySelector("#focusTrack")); }
+  function focusCard() { return focus.card?.() || /** @type {HTMLElement|null} */(document.querySelector("#workout.is-focus .exercise.is-current")); }
   function focusStep() {
     const step = focus.step?.();
-    return Number.isFinite(step) && step > 0 ? step : (focusCard()?.offsetWidth || 320) + 14;
+    return Number.isFinite(step) && /** @type {number} */(step) > 0 ? /** @type {number} */(step) : (focusCard()?.offsetWidth || 320) + 14;
   }
+  /** @param {number} dir */
   function focusCanGo(dir) { return !!focus.canGo?.(dir); }
+  /** @param {HTMLElement|null} track @param {number} value */
   function setFocusTrack(track, value) {
     if (focus.setTrack) focus.setTrack(track, value);
     else if (track) track.style.transform = `translate3d(${value}px,0,0)`;
   }
+  /** @param {HTMLElement} track */
   function freezeFocusPresentation(track) {
     const current = matrixTranslateX(track);
     track.style.transition = "none";
@@ -707,9 +782,10 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     hint(track, "transform");
     return current;
   }
+  /** @param {FocusSlide|null} run */
   function cleanupFocusSlide(run, { clearTransform = true } = {}) {
     if (!run) return;
-    clearTimeout(run.timer);
+    clearTimeout(/** @type {number|undefined} */(run.timer));
     run.track.classList.remove("is-settling");
     run.deck?.classList.remove("is-swiping");
     run.track.style.removeProperty("transition");
@@ -717,6 +793,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     hint(run.track, null);
     if (focusSlide === run) focusSlide = null;
   }
+  /** @param {FocusSlide|null} run */
   function finishFocusSlide(run) {
     if (!run || focusSlide !== run) return;
     const commit = run.commitDir;
@@ -728,15 +805,17 @@ export function createMotion({ window: global, runtime = global.Motion || null,
       if(owner && activeGestureController===owner)owner.navigate(queued);
     });
   }
+  /** @param {FocusSlide} run @param {number} target */
   function retargetFocusSlide(run, target) {
     freezeFocusPresentation(run.track);
     run.track.classList.add("is-settling");
     run.deck?.classList.add("is-swiping");
     run.track.getBoundingClientRect();
     setFocusTrack(run.track, target);
-    clearTimeout(run.timer);
+    clearTimeout(/** @type {number|undefined} */(run.timer));
     run.timer = setTimeout(() => finishFocusSlide(run), FOCUS_SLIDE_MS);
   }
+  /** @param {number} dir @param {{from?:number|null}} [options] */
   function fluidFocusAnimateTo(dir, { from = null } = {}) {
     dir = Math.sign(Number(dir) || 0);
     if (!dir || !focusActive()) return false;
@@ -745,7 +824,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
       return focusCanGo(dir) ? !!focus.go?.(dir) : false;
     }
     const track = focusTrack();
-    const deck = document.querySelector("#focusDeck");
+    const deck = /** @type {HTMLElement|null} */(document.querySelector("#focusDeck"));
     if (!track) return false;
 
     if (focusSlide && focusSlide.track !== track) cleanupFocusSlide(focusSlide);
@@ -779,6 +858,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
       track.getBoundingClientRect();
       track.style.removeProperty("transition");
     }
+    /** @type {FocusSlide} */
     const run = { track, deck, commitDir: dir, queuedDir: 0, timer: null };
     focusSlide = run;
     retargetFocusSlide(run, -dir * focusStep());
@@ -788,12 +868,13 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     const run = focusSlide;
     if (!run) return 0;
     const current = freezeFocusPresentation(run.track);
-    clearTimeout(run.timer);
+    clearTimeout(/** @type {number|undefined} */(run.timer));
     run.track.classList.remove("is-settling");
     run.deck?.classList.add("is-swiping");
     focusSlide = null;
     return current;
   }
+  /** @param {PointerEvent} event */
   function focusPointerDown(event) {
     if (!focusActive() || focusGesture) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
@@ -801,7 +882,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     if (!target?.closest("#focusDeck")) return;
     if (target.closest("input,select,textarea,[contenteditable]")) return;
     if (event.pointerType === "mouse" && selection.isNativeTextSelectionTarget?.(target)) return;
-    const card = focusCard(), track = focusTrack(), deck = document.querySelector("#focusDeck");
+    const card = focusCard(), track = focusTrack(), deck = /** @type {HTMLElement|null} */(document.querySelector("#focusDeck"));
     if (!card || !track || !deck) return;
     const ledger = card.querySelector(".fcard__ledger");
     focusGesture = {
@@ -811,6 +892,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
       velocity: 0, lastX: event.clientX, lastT: event.timeStamp || performance.now(),
     };
   }
+  /** @param {PointerEvent} event */
   function focusPointerMove(event) {
     const gesture = focusGesture;
     if (!gesture || event.pointerId !== gesture.id) return;
@@ -843,6 +925,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     else gesture.dx = raw;
     setFocusTrack(gesture.track, gesture.dx);
   }
+  /** @param {PointerEnd} event */
   function focusPointerEnd(event) {
     const gesture = focusGesture;
     if (!gesture || (event?.pointerId != null && event.pointerId !== gesture.id)) return;
@@ -889,8 +972,11 @@ export function createMotion({ window: global, runtime = global.Motion || null,
   const EDGE_ZONE = 24;
   const EDGE_LOCK = 10;
   const EDGE_STALE_MS = 100;
+  /** @type {EdgeTarget|null} */
   let edgeTarget = null;
+  /** @type {EdgeGesture|null} */
   let edgeGesture = null;
+  /** @type {ReturnType<typeof trackEdgeSwipe>} */
   let edgeRun = null;
 
   function standaloneDisplay() {
@@ -910,6 +996,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     edgeRun = null;
     run?.cancel();
   }
+  /** @param {Partial<EdgeTarget>} [options] */
   function registerEdgeSwipeBack({ page, onCommit } = {}) {
     if (!available || !(page instanceof Element) || typeof onCommit !== "function") return null;
     cancelEdgeSwipe();
@@ -928,6 +1015,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
      on the page, or on something that wraps it, at a height the page occupies
      (R7 J-11). The dock, a sheet or a sibling page are never ancestors of the
      page, so none of them can start a swipe this way. */
+  /** @param {HTMLElement} page @param {PointerEvent} event */
   function edgeHitsPage(page, event) {
     const hit = event.target;
     if (!(hit instanceof Element)) return false;
@@ -936,6 +1024,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     const rect = page.getBoundingClientRect();
     return event.clientY >= rect.top && event.clientY <= rect.bottom;
   }
+  /** @param {PointerEvent} event */
   function edgePointerDown(event) {
     const target = edgeTarget;
     if (!target || edgeGesture) return;
@@ -950,6 +1039,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
       velocity: 0, lastX: event.clientX, lastT: event.timeStamp || performance.now(), motion: null,
     };
   }
+  /** @param {PointerEvent} event */
   function edgePointerMove(event) {
     const gesture = edgeGesture;
     if (!gesture || event.pointerId !== gesture.id) return;
@@ -977,8 +1067,9 @@ export function createMotion({ window: global, runtime = global.Motion || null,
       gesture.lastT = now;
     }
     gesture.dx = Math.max(0, dx);
-    gesture.motion.follow(gesture.dx);
+    /** @type {NonNullable<typeof gesture.motion>} */(gesture.motion).follow(gesture.dx);
   }
+  /** @param {PointerEnd} event */
   function edgePointerEnd(event) {
     const gesture = edgeGesture;
     if (!gesture || (event?.pointerId != null && event.pointerId !== gesture.id)) return;
@@ -1031,6 +1122,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     const banner = document.getElementById("installBanner");
     if (banner?.getAttribute("role") === "dialog") banner.setAttribute("role", "region");
   }
+  /** @type {GestureController|null} */
   let activeGestureController = null;
 
   function mountGestureController() {
@@ -1038,7 +1130,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
 
     if (!available) {
       const mountedFallback=fallback.mount();
-      const controller={isFluid:false,navigate:dir=>activeGestureController===controller && fallback.navigate(dir),dispose(){
+      const controller={isFluid:false,navigate:/** @param {number} dir */ dir=>activeGestureController===controller && fallback.navigate(dir),dispose(){
         mountedFallback.dispose();
         if(activeGestureController===controller)activeGestureController=null;
       }};
@@ -1048,6 +1140,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     const useFluid = available;
     const workout = document.getElementById("workout");
 
+    /** @param {KeyboardEvent} event */
     function onKeyDown(event) {
       if (event.key !== "Escape") return;
       if (focusSlide) cleanupFocusSlide(focusSlide);
@@ -1062,6 +1155,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
       }
     }
 
+    /** @type {MutationObserver|null} */
     let observer = null;
     if (useFluid && typeof MutationObserver === "function" && document.body) {
       observer = new MutationObserver(cancelSheetRunsThatClosed);
@@ -1105,7 +1199,7 @@ export function createMotion({ window: global, runtime = global.Motion || null,
     let disposed = false;
     const controller = {
       isFluid: useFluid,
-      navigate: dir => !disposed && (useFluid ? fluidFocusAnimateTo(dir) : fallback.navigate?.(dir)),
+      navigate: /** @param {number} dir */ dir => !disposed && (useFluid ? fluidFocusAnimateTo(dir) : fallback.navigate?.(dir)),
       dispose() {
         if (disposed) return;
         disposed = true;

@@ -27,6 +27,7 @@
     "../../src/platform/catalog.js",
     "../../src/platform/program-executor.js",
     "../../src/ui/focus/**/*.js",
-    "../../src/platform/telemetry.js"
+    "../../src/platform/telemetry.js",
+    "../../src/platform/motion.js"
   ]
 }

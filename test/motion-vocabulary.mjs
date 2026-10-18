@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* The motion vocabulary added for Plan 064 rule 11, proved offline.
  *
- * `motion-layer.js` is evaluated in a sandbox over a runtime whose clock the
+ * The native motion factory receives a sandbox and runtime whose clock the
  * test owns, so an interruption can be placed exactly mid-flight. Covered here:
  * `animateIndicator` (travel, retarget from the live transform, reduced motion,
  * no runtime), `animateCoordinates` (the chart's coordinate travel: painted from
@@ -14,11 +14,11 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import vm from "node:vm";
+import { createMotion } from "../src/platform/motion.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = file => readFileSync(join(ROOT, file), "utf8");
-const layer = read("motion-layer.js");
+const layer = read("src/platform/motion.js").replace(/\/\*[^]*?\*\//g, "");
 let passed = 0, failed = 0;
 function assert(condition, name, detail = "") {
   if (condition) { passed++; console.log(`  ✓ ${name}`); }
@@ -63,14 +63,16 @@ function load({ withRuntime = true } = {}) {
   const sandbox = {
     document: { readyState: "loading", getElementById: () => null, createElement: () => ({}), head: { append() {} }, addEventListener() {} },
     matchMedia: () => query,
+    setTimeout, clearTimeout, performance,
+    getComputedStyle: () => ({transform:"none"}),
     requestAnimationFrame(fn) { frames.set(++frameId, fn); return frameId; },
     cancelAnimationFrame(id) { frames.delete(id); },
   };
   const frame = () => { const due = frames; frames = new Map(); for (const fn of due.values()) fn(); };
   if (withRuntime) sandbox.Motion = runtime;
-  vm.runInNewContext(layer, sandbox, { filename: "motion-layer.js", timeout: 1000 });
+  const api = createMotion({window:sandbox, runtime:withRuntime?runtime:null, fallback:{mount:()=>({dispose(){}}),navigate:()=>false}});
   const arrive = run => { run.target.set?.(run.to); if (run.target.pending === run) run.target.pending = null; run.resolve(); };
-  return { api: sandbox.RepForgeMotion, runs, query, arrive, frame };
+  return { api, runs, query, arrive, frame };
 }
 const flush = () => new Promise(resolve => setTimeout(resolve, 0));
 
