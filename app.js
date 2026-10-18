@@ -1,3 +1,4 @@
+import {createNotifications} from './src/platform/notifications.js';
 import {createEntryController} from './src/ui/entry/controller.js';
 import {createEntryImportSession,createEntryImportCommands,FREEFORM_MAX_CHARS} from './src/app/entry.js';
 import * as FreeformGrammar from './src/interchange/freeform.js';
@@ -138,6 +139,7 @@ function showExerciseCatalogUnavailable(){
   return true}
 
 const GuideRegistry=window.RepForgeGuideRegistry;
+const Notifications=createNotifications({Notification:window.Notification,navigator:window.navigator,console:window.console});
 const DRAFT_PENDING_PREFIX=`${DRAFT}:pending:`,DRAFT_CLOSE_PREFIX=`${DRAFT}:closing:`;
 const DRAFT_V2_CHECKPOINT=`${DRAFT}:v2-checkpoint`;
 const DRAFT_WRITE_TRANSACTION="draft-write";
@@ -1562,12 +1564,12 @@ const UNFINISHED_MS=15*60*1000;
 
 function clearUnfinishedWatch(){
   if(unfinishedTimer){clearTimeout(unfinishedTimer); unfinishedTimer=null}
-  if(window.RepForgeNotify) RepForgeNotify.closeTag("repforge-unfinished");
+  if(Notifications) Notifications.closeTag("repforge-unfinished");
 }
 
 function armUnfinishedWatch(delayMs=UNFINISHED_MS){
   clearUnfinishedWatch();
-  if(!RepForgeNotify.enabledFor(state.settings,"unfinished")) return;
+  if(!Notifications.enabledFor(state.settings,"unfinished")) return;
   unfinishedTimer=setTimeout(onUnfinishedIdle, Math.max(0,delayMs));
 }
 
@@ -1596,16 +1598,16 @@ function onUnfinishedIdle(){
   unfinishedTimer=null;
   const draft=loadDraft();
   if(!(draft.__done||[]).length) return;
-  if(!RepForgeNotify.enabledFor(state.settings,"unfinished")) return;
+  if(!Notifications.enabledFor(state.settings,"unfinished")) return;
   if(unfinishedAlreadyPrompted()) return;
   if(document.visibilityState==="visible") showUnfinishedPrompt();
-  else RepForgeNotify.fireOS({title:t("notify.title"),body:t("notify.unfinished.body"),tag:"repforge-unfinished",url:"./"}).then(ok=>{if(ok)markUnfinishedPrompted()});
+  else Notifications.fireOS({title:t("notify.title"),body:t("notify.unfinished.body"),tag:"repforge-unfinished",url:"./"}).then(ok=>{if(ok)markUnfinishedPrompted()});
 }
 
 function maybeUnfinishedOnOpen(){
   const draft=loadDraft();
   lastCommitAt=+draft.__lastCommitAt||0;   // hydrate module state from draft
-  if(!RepForgeNotify.enabledFor(state.settings,"unfinished")) return;
+  if(!Notifications.enabledFor(state.settings,"unfinished")) return;
   const done=(draft.__done||[]).length;
   if(!done||!lastCommitAt) return;
   if(unfinishedAlreadyPrompted()) return;  // single reminder per session
@@ -4645,7 +4647,7 @@ function updateRestChrome(){
 function stopRest(){focusRest.stop();
   $("#restBar")?.classList.add("hidden");paintRest("—",false);updateRestChrome();
   const ra=$("#restAnnounce");if(ra)ra.textContent="";
-  if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest")}
+  if(Notifications)Notifications.closeTag("repforge-rest")}
 const REST_OVERTIME_MAX=60*60;
 /** Milliseconds left on the clock: frozen while held, and negative once the
  *  rest has run past the bell. Idle, it reads as the length the next rest
@@ -4659,9 +4661,9 @@ function ringRest(){
   announceRestDone();
   if(focusRest.notified)return;
   focusRest.notified=true;
-  if(!window.RepForgeNotify||!RepForgeNotify.enabledFor(state.settings,"timer"))return;
+  if(!Notifications||!Notifications.enabledFor(state.settings,"timer"))return;
   if(document.visibilityState==="visible")navigator.vibrate?.([200,100,200]);
-  else RepForgeNotify.fireOS({title:t("notify.title"),body:t("notify.rest.body"),tag:"repforge-rest",url:"./"})}
+  else Notifications.fireOS({title:t("notify.title"),body:t("notify.rest.body"),tag:"repforge-rest",url:"./"})}
 function tickRest(){const left=Math.round(restLeftMs()/1000);
   if(left>0){paintRest(fmtClock(left),false);return}
   const over=Math.min(-left,REST_OVERTIME_MAX);
@@ -4676,7 +4678,7 @@ function syncRest(){
   else{const over=Math.min(-left,REST_OVERTIME_MAX);paintRest(over>0?`+${fmtClock(over)}`:"0:00",true,over)}
   updateRestChrome()}
 function startRest(sec){const s=sec||restPlanSec();if(!focusRest.start(s))return;
-  if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");
+  if(Notifications)Notifications.closeTag("repforge-rest");
   const ra=$("#restAnnounce");if(ra)ra.textContent="";
   $("#restBar")?.classList.remove("hidden");updateRestChrome();paintRest(fmtClock(s),false);
   announceRestStart(s);armRestTick()}
@@ -4775,7 +4777,7 @@ function setRestLength(sec){
 function nudgeRest(delta){
   const result=focusRest.nudge(delta,normalizeRestSec(state?.settings?.restSec));
   if(result.rearmed){const ra=$("#restAnnounce");if(ra)ra.textContent="";
-    if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");
+    if(Notifications)Notifications.closeTag("repforge-rest");
     if(result.needsTick)armRestTick()}
   syncRest();if(result.idle)paintRestSheet()}
 function toggleRestHold(){const result=focusRest.toggleHold(normalizeRestSec(state?.settings?.restSec));
@@ -4788,7 +4790,7 @@ function endRestFromSheet(){stopRest();closeRestSheet()}
  *  OG-4, proposal 5). The lifter ended it, so there is no buzz or OS notice;
  *  the live region still says it is over. */
 function skipRest(){if(!focusRest.skip(normalizeRestSec(state?.settings?.restSec)))return;
-  if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");armRestTick();tickRest()}
+  if(Notifications)Notifications.closeTag("repforge-rest");armRestTick();tickRest()}
 function restAct(act){
   if(act==="minus")nudgeRest(-REST_NUDGE);
   else if(act==="plus")nudgeRest(REST_NUDGE);
@@ -17477,8 +17479,8 @@ function settingsCommands(){return settingsCommandsOwner||(settingsCommandsOwner
   read:applicationSession.read,commit:(proposal,options)=>commitProposedState(proposal,storageIO,options),
   policy:{normalizeSettings,normalizeProfile:value=>ProgramEntry.normalizeProfile(value)},draft:{readRaw:readDraftRaw,hasProgress:draftHasProgress,unitEffect:(raw,oldUnit,newUnit)=>settingsDraftEffects().unitEffect(raw,oldUnit,newUnit)},report:captureEvent,revision:readRevision}))}
 function notificationControls(){return notificationUiOwner||(notificationUiOwner=createNotificationControls({window,
-  settings:settingsCommands(),capability:{permission:()=>window.RepForgeNotify?window.RepForgeNotify.permission():"unsupported",
-    request:()=>window.RepForgeNotify?window.RepForgeNotify.request():Promise.resolve("unsupported")},t}))}
+  settings:settingsCommands(),capability:{permission:()=>Notifications?Notifications.permission():"unsupported",
+    request:()=>Notifications?Notifications.request():Promise.resolve("unsupported")},t}))}
 function settingsView(){return settingsUiOwner||(settingsUiOwner=createSettingsView({window,settings:settingsCommands(),
   i18n:{t,getLang:uiLang,normalizeLang:value=>I18N?.normalizeLang(value)},appearance:appearanceView(),notifications:notificationControls(),
   install:{decision:installPolicyDecision,mode:installMode},guides:guidesView(),telemetry:window.RepForgeTelemetry||{},
