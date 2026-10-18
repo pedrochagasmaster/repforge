@@ -1,3 +1,4 @@
+import {draftEffectOutcome,workoutProgramFingerprint,draftContextFingerprint} from '../persistence/snapshot.js';
 import {copySnapshot} from './session.js';
 import {canonicalDraftField,canonicalMetricInput,canonicalNumberText,effortForRir} from '../training/metrics.js';
 
@@ -293,4 +294,72 @@ export function createWorkoutExerciseCommands({workout,read}){
     return workout.dispatch(draft.exercises[exerciseInstanceId]?.status==='skipped'?'restoreExercise':'skipExercise',{exerciseInstanceId});
   }
   return Object.freeze({repeatPrevious,toggleWarmup,restoreOriginal,toggleSkipped});
+}
+
+/** Draft effects and the read-only block boundary share the released exact-byte
+ * rules. This owner never reconciles storage or adopts an unacknowledged draft.
+ * @typedef {import('../persistence/snapshot.js').SnapshotIdentity} DraftSnapshot
+ * @typedef {Pick<ReturnType<typeof import('../persistence/durable.js').createDurableStore>['DraftStore'],'readRaw'|'readCanonicalStatus'|'readV2Checkpoint'|'pending'>} DraftReadStore
+ * @typedef {{status:'live',raw:string,draft:WorkoutDraft,source:string}|{status:'none'}|{status:'unavailable',reason:string}} LiveDraftRead
+ * @param {{drafts:DraftReadStore,workout:Pick<WorkoutRules,'parse'|'serialize'>,writer:(id:string)=>import('../training/workout-contracts.js').Writer,operationId:()=>string,now:()=>string}} options */
+export function createWorkoutDraftPolicy({drafts,workout,writer,operationId,now}){
+  /** @param {string|null} expectedRaw */
+  function consumedClear(expectedRaw){return draftEffectOutcome({required:true,kind:'clear-draft',expectedRaw,precondition:'match-only'})}
+  /** @param {string|null} expectedRaw */
+  function destructiveClear(expectedRaw){return draftEffectOutcome({required:true,kind:'clear-draft',expectedRaw,precondition:'abort-changed'})}
+  /** @param {string|null} expectedRaw */
+  function preserve(expectedRaw){return expectedRaw==null?destructiveClear(null):draftEffectOutcome({required:true,kind:'replace-draft',expectedRaw,replacementRaw:expectedRaw,precondition:'abort-changed'})}
+  /** @param {string} oldDay @param {string} newDay @param {DraftSnapshot|null} [nextSnapshot] */
+  function renameDay(oldDay,newDay,nextSnapshot=null){
+    try{
+      const expectedRaw=drafts.readRaw();
+      if(expectedRaw==null)return draftEffectOutcome({required:true,kind:'clear-draft',expectedRaw:null,precondition:'abort-same-day',conflictDay:oldDay});
+      let replacementRaw=expectedRaw;
+      try{
+        const draft=JSON.parse(expectedRaw);
+        if(draft&&typeof draft==='object'&&!Array.isArray(draft)){
+          if(draft.schemaVersion===2&&draft.program?.dayLabel===oldDay&&nextSnapshot){
+            const id=`day-rename-${operationId()}`;
+            draft.program.dayLabel=newDay;draft.program.programFingerprint=workoutProgramFingerprint(nextSnapshot);
+            draft.revision+=1;draft.session.updatedAt=now();draft.writer=writer(id);
+            const checked=workout.parse(draft);
+            if(checked.kind!=='valid')return{status:/** @type {const} */('invalid'),effect:null,reason:'v2-day-replacement'};
+            replacementRaw=JSON.stringify(workout.serialize(checked.draft));
+          }else if(draft.__day===oldDay){draft.__day=newDay;replacementRaw=JSON.stringify(draft)}
+        }
+      }catch{}
+      return draftEffectOutcome({required:true,kind:'replace-draft',expectedRaw,replacementRaw,precondition:'abort-same-day',conflictDay:oldDay});
+    }catch{return{status:/** @type {const} */('invalid'),effect:null,reason:'draft-read'}}
+  }
+  /** @param {string|null} raw @param {string} source @returns {Extract<LiveDraftRead,{status:'live'}>|null} */
+  function parsed(raw,source){const value=workout.parse(raw);return value.kind==='valid'&&raw!==null?{status:'live',raw,draft:value.draft,source}:null}
+  /** No recovery, checkpoint promotion or write may run while deciding whether
+   * a new block may start. The queued matching sidecar is next in publication
+   * order; otherwise the checkpoint remains the acknowledged aggregate.
+   * @param {DraftSnapshot} snapshot @returns {LiveDraftRead} */
+  function readLive(snapshot){
+    const canonical=drafts.readCanonicalStatus();
+    if(canonical.status!=='ok')return{status:'unavailable',reason:'canonical-read'};
+    const checkpoint=drafts.readV2Checkpoint();
+    if(checkpoint.status==='invalid'||checkpoint.status==='read-failed')return{status:'unavailable',reason:'checkpoint-read'};
+    const context=draftContextFingerprint(snapshot);
+    const queued=drafts.pending().entries.filter(entry=>entry.value.programFingerprint===context).at(-1);
+    const pending=queued?parsed(queued.value.raw,'pending'):null;
+    if(pending)return pending;
+    if(checkpoint.status==='valid'){
+      const value=checkpoint.value;
+      if(value.kind==='tombstone')return{status:'none'};
+      if(value.kind==='committed')return parsed(value.raw,'checkpoint')||{status:'unavailable',reason:'committed-draft'};
+      if(value.kind==='pending'){
+        const protectedRaw=canonical.raw===value.baseRaw&&value.previous?.raw||value.raw;
+        return parsed(protectedRaw,'checkpoint-pending')||{status:'unavailable',reason:'pending-draft'};
+      }
+      if(value.kind==='pending-removal')return parsed(value.raw,'checkpoint-pending-removal')||{status:'unavailable',reason:'pending-removal'};
+      return{status:'unavailable',reason:'checkpoint-kind'};
+    }
+    return parsed(canonical.raw,'canonical')||{status:'none'};
+  }
+  /** @param {DraftSnapshot} snapshot */
+  function blockStartGuard(snapshot){const live=readLive(snapshot);return live.status==='live'?{draftConflict:true,code:'live_draft_blocks_next_block'}:live.status==='unavailable'?{draftConflict:true,code:'draft_state_unavailable'}:null}
+  return Object.freeze({consumedClear,destructiveClear,preserve,renameDay,readLive,blockStartGuard});
 }
