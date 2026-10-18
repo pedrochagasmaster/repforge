@@ -1,3 +1,4 @@
+import {installBrowserTraining, installBrowserTrainingBeforeNavigation} from "../../test/training-browser.mjs";
 import {browserLanguage} from "../../test/language-browser.mjs";
 /**
  * Drive every onboarding surface through the production entry UI.
@@ -143,7 +144,6 @@ function installOfferVerificationObserverInBrowser() {
     engines: 0,
     jobs: [],
     order: 0,
-    wrappedApis: new WeakMap(),
     digest,
     diagnostic() {
       const current = window.__repforgeEntryState?.();
@@ -193,12 +193,22 @@ function installOfferVerificationObserverInBrowser() {
       if (baseline.status !== "settled" || baseline.result?.ok !== true) {
         return { ready: false, readiness: "foreground result did not succeed", ...this.diagnostic() };
       }
+      // Bind the successful foreground transport to the displayed definition
+      // before any review edits. Later eligibility is checked against live slots.
+      if (!baseline.boundFingerprint) {
+        const identity = window.__repforgeTrainingTest.identity;
+        if (!current.result?.fingerprint || identity.digestCanonical(baseline.result.value)
+          !== identity.digestCanonical(current.result?.preview?.programDefinition)) {
+          return { ready: false, readiness: "foreground response does not match the current preview", ...this.diagnostic() };
+        }
+        baseline.boundFingerprint = current.result.fingerprint;
+      }
       const candidates = Array.isArray(baseline.result.confirmationOffers) ? baseline.result.confirmationOffers : [];
       const baseConfirmations = baseline.request?.movementConfirmations || {};
       const used = new Set();
       const verification = candidates.map(offer => {
         const confirmations = { ...baseConfirmations, [offer.offeredExerciseId]: [...(offer.prerequisiteIds || [])] };
-        const requestDigest = window.RepForgeGenerationIdentity.digestCanonical({ ...baseline.request, movementConfirmations: confirmations });
+        const requestDigest = window.__repforgeTrainingTest.identity.digestCanonical({ ...baseline.request, movementConfirmations: confirmations });
         const job = this.jobs.find(candidate => candidate.engineId !== primaryEngineId
           && candidate.draftDigest === draftDigest && candidate.requestDigest === requestDigest
           && candidate.startedOrder > baseline.startedOrder && !used.has(candidate.jobId));
@@ -299,83 +309,58 @@ function installOfferVerificationObserverInBrowser() {
       };
     },
   };
-  const wrapApi = api => {
-    if (!api || typeof api.create !== "function") return api;
-    const prior = observer.wrappedApis.get(api);
-    if (prior) return prior;
-    const wrapped = Object.create(api);
-    Object.defineProperty(wrapped, "create", {
-      configurable: false,
-      value(...args) {
-        const engine = api.create(...args);
-        const engineId = ++observer.engines;
-        const facade = Object.create(engine);
-        Object.defineProperty(facade, "generate", {
-          configurable: false,
-          value(request, options) {
-            const state = window.__repforgeEntryState?.();
-            const job = {
-              engineId,
-              jobId: observer.jobs.filter(item => item.engineId === engineId).length + 1,
-              foreground: engineId === 1,
-              draftDigest: digest(state?.draftId || ""),
-              step: state?.step || null,
-              requestDigest: window.RepForgeGenerationIdentity.digestCanonical(request),
-              confirmationCount: Object.keys(request?.movementConfirmations || {}).length,
-              request,
-              status: "pending",
-              startedOrder: ++observer.order,
-            };
-            observer.jobs.push(job);
-            let generated;
-            try {
-              generated = engine.generate(request, options);
-            } catch (error) {
-              job.status = "rejected";
-              job.outcome = error?.name || "error";
-              job.resultDigest = digest({ name: error?.name || "Error", message: error?.message || "" });
-              job.mode = engine.stats?.().mode || "unknown";
-              job.settledOrder = ++observer.order;
-              return Promise.reject(error);
-            }
-            return generated.then(result => {
-              job.status = "settled";
-              job.outcome = result?.ok === true ? "success" : "failure";
-              job.resultDigest = digest(result);
-              job.result = result;
-              job.mode = engine.stats?.().mode || "unknown";
-              job.settledOrder = ++observer.order;
-              return result;
-            }, error => {
-              job.status = "rejected";
-              job.outcome = error?.name || "error";
-              job.resultDigest = digest({ name: error?.name || "Error", message: error?.message || "" });
-              job.mode = engine.stats?.().mode || "unknown";
-              job.settledOrder = ++observer.order;
-              throw error;
-            });
-          },
+  // Observe only the actual release-relative module worker. Keep the executor's
+  // onmessage handler untouched and never manufacture fallback results.
+  const NativeWorker = window.Worker;
+  if (typeof NativeWorker !== "function") throw new Error("Offer proof requires native Worker transport");
+  window.Worker = class extends NativeWorker {
+    constructor(url, ...args) {
+      super(url, ...args);
+      const graph = window.__repforgeTrainingTest?.graphBase;
+      const expected = graph && new URL("src/platform/program-worker.js", graph).href;
+      this.catalogEngineId = new URL(String(url), document.baseURI).href === expected ? ++observer.engines : null;
+      if (!this.catalogEngineId) return;
+      this.addEventListener("message", event => {
+        const message = event.data;
+        const job = observer.jobs.find(item => item.engineId === this.catalogEngineId && item.transportId === message?.id);
+        if (!job || job.status !== "pending") return;
+        job.status = message.ok === true ? "settled" : "rejected";
+        job.result = message.ok === true ? message.value : null;
+        job.outcome = job.result?.ok === true ? "success" : "failure";
+        job.resultDigest = digest(job.result);
+        job.settledOrder = ++observer.order;
+      });
+      for (const type of ["error", "messageerror"]) this.addEventListener(type, () => {
+        for (const job of observer.jobs.filter(item => item.engineId === this.catalogEngineId && item.status === "pending")) {
+          job.status = "rejected";
+          job.outcome = type;
+          job.settledOrder = ++observer.order;
+        }
+      });
+    }
+    postMessage(message, ...args) {
+      if (this.catalogEngineId && message?.type === "generate") {
+        const state = window.__repforgeEntryState?.();
+        const request = structuredClone(message.request);
+        observer.jobs.push({
+          engineId: this.catalogEngineId, transportId: message.id,
+          jobId: `${this.catalogEngineId}:${message.id}`,
+          foreground: this.catalogEngineId === 1,
+          draftDigest: digest(state?.draftId || ""), step: state?.step || null,
+          requestDigest: window.__repforgeTrainingTest.identity.digestCanonical(request),
+          confirmationCount: Object.keys(request?.movementConfirmations || {}).length,
+          request, status: "pending", mode: "worker", startedOrder: ++observer.order,
         });
-        return facade;
-      },
-    });
-    observer.wrappedApis.set(api, wrapped);
-    return wrapped;
+      }
+      return super.postMessage(message, ...args);
+    }
   };
-  const descriptor = Object.getOwnPropertyDescriptor(window, "RepForgeProgramEngine");
-  if (descriptor && !descriptor.configurable) throw new Error("program-engine global cannot be observed");
-  let raw = descriptor && Object.hasOwn(descriptor, "value") ? descriptor.value : descriptor?.get?.();
-  let exposed = wrapApi(raw);
-  Object.defineProperty(window, "RepForgeProgramEngine", {
-    configurable: true,
-    enumerable: true,
-    get: () => exposed || raw,
-    set: value => { raw = value; exposed = wrapApi(value); },
-  });
   window.__catalogEntryOfferObserver = observer;
 }
 
 async function installOfferVerificationObserver(page) {
+  await installBrowserTraining(page);
+  await installBrowserTrainingBeforeNavigation(page);
   await page.addInitScript(installOfferVerificationObserverInBrowser);
   await page.evaluate(installOfferVerificationObserverInBrowser);
 }
@@ -488,9 +473,10 @@ async function openReviewSlot(page, slotId) {
   await page.waitForSelector("#reviewSheet.is-open [data-review-sets]", { timeout: 10000 });
 }
 async function findAmbiguousPerSideMovement(page) {
+  await installBrowserTraining(page);
   return page.evaluate(() => {
-    const catalog = window.RepForgeExerciseCatalog.snapshot();
-    const metrics = window.RepForgeExerciseMetrics;
+    const catalog = window.__repforgeTrainingTest.catalog;
+    const metrics = window.__repforgeTrainingTest.metrics;
     const current = window.__repforgeEntryState().result.preview.programDefinition;
     const used = new Set(current.days.flatMap((day) => day.slots || []).map((slot) => slot.exerciseId));
     const supportedPerSide = [["repsPerSide", "loadPerSideKg"], ["persistentLoadPerSideKg", "repsPerSide"]];
@@ -809,9 +795,10 @@ async function resume(page) {
 }
 
 async function rulesDrift(page) {
+  await installBrowserTraining(page);
   await page.evaluate(({ key, draft }) => {
     const activeRevision = JSON.parse(localStorage.getItem(key))._storageRevision;
-    const Entry = window.RepForgeProgramEntry;
+    const Entry = window.__repforgeTrainingTest.entry;
     // A real current-versions snapshot with one pin rolled back to a stale value:
     // any single mismatch is enough to trigger the rebuild-required notice on
     // the recommend route (program-entry.js changedVersions/entryRebuildRules).
@@ -1021,7 +1008,8 @@ export const ONBOARDING_SCENARIOS = {
   },
   "onboarding-recommend/muscle-priorities-limit": async (page) => {
     await recommendStep(page, "muscle_priorities");
-    const muscles = await page.evaluate(() => [...window.RepForgeProgramEntry.ENTRY_MUSCLES]);
+    await installBrowserTraining(page);
+    const muscles = await page.evaluate(() => [...window.__repforgeTrainingTest.entry.ENTRY_MUSCLES]);
     assert.equal(muscles.length, 22);
     for (const muscle of muscles) await pick(page, "musclePriorityB", `${muscle}|prioritize`);
     const selected = await page.evaluate(() => ({
