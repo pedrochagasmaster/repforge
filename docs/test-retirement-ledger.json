@@ -2250,5 +2250,703 @@
       "disposition": "retained",
       "evidence": "Inexpensive production module/protocol/release/runner proof retained."
     }
-  ]
+  ],
+  "acceptedRedesign": {
+    "source": "9448989d52e144c32c5b036f43b9071dd4648eba",
+    "commands": [
+      {
+        "lane": "fast",
+        "file": "test/ci.mjs",
+        "args": [
+          "--test",
+          "test/ci.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/privacy-contract.mjs",
+        "args": [
+          "test/privacy-contract.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/pages-deploy-boundary.mjs",
+        "args": [
+          "--test",
+          "test/pages-deploy-boundary.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/generative/self-test.mjs",
+        "args": [
+          "--test",
+          "test/generative/self-test.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/shared-setup-unit.mjs",
+        "args": [
+          "test/shared-setup-unit.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/program-day-names.mjs",
+        "args": [
+          "test/program-day-names.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/program-transition-plan067.mjs",
+        "args": [
+          "test/program-transition-plan067.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/durable-outcome-contract.mjs",
+        "args": [
+          "test/durable-outcome-contract.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/install-transfer-client-contract.mjs",
+        "args": [
+          "test/install-transfer-client-contract.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/install-transfer-plan067-contract.mjs",
+        "args": [
+          "test/install-transfer-plan067-contract.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/install-transfer-client.mjs",
+        "args": [
+          "test/install-transfer-client.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/install-transfer-limits.mjs",
+        "args": [
+          "test/install-transfer-limits.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/install-transfer-production-config.mjs",
+        "args": [
+          "test/install-transfer-production-config.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/sw-transfer-passthrough.mjs",
+        "args": [
+          "test/sw-transfer-passthrough.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/verification-recorder.mjs",
+        "args": [
+          "--test",
+          "test/verification-recorder.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "tools/check-production-syntax.mjs",
+        "args": [
+          "tools/check-production-syntax.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "tools/check-test-syntax.mjs",
+        "args": [
+          "tools/check-test-syntax.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "tools/build-i18n.mjs",
+        "args": [
+          "tools/build-i18n.mjs",
+          "--check"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "tools/move-draft-store-owner.mjs",
+        "args": [
+          "tools/move-draft-store-owner.mjs",
+          "--check"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/draft-store-owner-check.mjs",
+        "args": [
+          "test/draft-store-owner-check.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/generative/run.mjs",
+        "args": [
+          "test/generative/run.mjs",
+          "--profile",
+          "ci"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/program-entry.mjs",
+        "args": [
+          "test/program-entry.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/program-review.mjs",
+        "args": [
+          "test/program-review.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/program-entry-production-adapter.mjs",
+        "args": [
+          "test/program-entry-production-adapter.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/program-entry-inputs.mjs",
+        "args": [
+          "test/program-entry-inputs.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/generation-identity.mjs",
+        "args": [
+          "test/generation-identity.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/generation-candidates.mjs",
+        "args": [
+          "test/generation-candidates.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/generation-layout.mjs",
+        "args": [
+          "test/generation-layout.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/generation-duration20.mjs",
+        "args": [
+          "--test",
+          "test/generation-duration20.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/program-generation-parity.mjs",
+        "args": [
+          "test/program-generation-parity.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/generation-periodization.mjs",
+        "args": [
+          "test/generation-periodization.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/generation-source-matrix.mjs",
+        "args": [
+          "test/generation-source-matrix.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/generation-source-dose-boundaries.mjs",
+        "args": [
+          "test/generation-source-dose-boundaries.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/program-compiler-plan067.mjs",
+        "args": [
+          "test/program-compiler-plan067.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/program-compiler-search.mjs",
+        "args": [
+          "test/program-compiler-search.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/progression-engine-plan067.mjs",
+        "args": [
+          "test/progression-engine-plan067.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/program-entry-contracts.mjs",
+        "args": [
+          "test/program-entry-contracts.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/ui-screens.mjs",
+        "args": [
+          "test/ui-screens.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/workout-draft.mjs",
+        "args": [
+          "test/workout-draft.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/workout-draft-migration.mjs",
+        "args": [
+          "test/workout-draft-migration.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/schedule.mjs",
+        "args": [
+          "test/schedule.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/history-frequency.mjs",
+        "args": [
+          "test/history-frequency.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/exercise-library.mjs",
+        "args": [
+          "test/exercise-library.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/exercise-catalog.mjs",
+        "args": [
+          "test/exercise-catalog.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/review-pt-names.mjs",
+        "args": [
+          "--test",
+          "test/review-pt-names.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/progress-model.mjs",
+        "args": [
+          "test/progress-model.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/progress-model-dst.mjs",
+        "args": [
+          "test/progress-model-dst.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/vendor-runtimes.mjs",
+        "args": [
+          "test/vendor-runtimes.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/motion-vocabulary.mjs",
+        "args": [
+          "test/motion-vocabulary.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/telemetry-unit.mjs",
+        "args": [
+          "test/telemetry-unit.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/unsupported-workout-grammar.mjs",
+        "args": [
+          "test/unsupported-workout-grammar.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/posthog-adapter.mjs",
+        "args": [
+          "test/posthog-adapter.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/posthog-config.mjs",
+        "args": [
+          "test/posthog-config.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/posthog-measurement.mjs",
+        "args": [
+          "--test",
+          "test/posthog-measurement.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "tools/check-ui-screens.mjs",
+        "args": [
+          "tools/check-ui-screens.mjs"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "tools/check-ui-semantic-roles.mjs",
+        "args": [
+          "tools/check-ui-semantic-roles.mjs",
+          "--check"
+        ]
+      },
+      {
+        "lane": "fast",
+        "file": "test/install-transfer-recovery.mjs",
+        "args": [
+          "--test",
+          "test/install-transfer-recovery.mjs"
+        ]
+      },
+      {
+        "lane": "state",
+        "file": "test/privacy-offline.mjs",
+        "args": [
+          "test/privacy-offline.mjs"
+        ]
+      },
+      {
+        "lane": "state",
+        "file": "test/sw-upgrade.mjs",
+        "args": [
+          "test/sw-upgrade.mjs"
+        ]
+      },
+      {
+        "lane": "state",
+        "file": "test/sw-error-responses.mjs",
+        "args": [
+          "test/sw-error-responses.mjs"
+        ]
+      },
+      {
+        "lane": "state",
+        "file": "test/sw-launch-redirect.mjs",
+        "args": [
+          "test/sw-launch-redirect.mjs"
+        ]
+      },
+      {
+        "lane": "state",
+        "file": "test/install-transfer-sw-upgrade.mjs",
+        "args": [
+          "test/install-transfer-sw-upgrade.mjs"
+        ]
+      },
+      {
+        "lane": "state",
+        "file": "test/program-transition-sw-upgrade.mjs",
+        "args": [
+          "test/program-transition-sw-upgrade.mjs"
+        ]
+      },
+      {
+        "lane": "state",
+        "file": "test/persistence.mjs",
+        "args": [
+          "test/persistence.mjs"
+        ]
+      },
+      {
+        "lane": "state",
+        "file": "test/persistence-race.mjs",
+        "args": [
+          "test/persistence-race.mjs"
+        ]
+      },
+      {
+        "lane": "state",
+        "file": "test/thermonuclear-races.mjs",
+        "args": [
+          "test/thermonuclear-races.mjs"
+        ]
+      },
+      {
+        "lane": "state",
+        "file": "test/program-transition-commit.mjs",
+        "args": [
+          "test/program-transition-commit.mjs"
+        ]
+      },
+      {
+        "lane": "state",
+        "file": "test/program-transition-crash-replay.mjs",
+        "args": [
+          "test/program-transition-crash-replay.mjs"
+        ]
+      },
+      {
+        "lane": "state",
+        "file": "test/program-transition-backup.mjs",
+        "args": [
+          "test/program-transition-backup.mjs"
+        ]
+      },
+      {
+        "lane": "state",
+        "file": "test/install-transfer-client-browser.mjs",
+        "args": [
+          "test/install-transfer-client-browser.mjs"
+        ]
+      },
+      {
+        "lane": "state",
+        "file": "test/install-transfer-import.mjs",
+        "args": [
+          "test/install-transfer-import.mjs"
+        ]
+      },
+      {
+        "lane": "state",
+        "file": "test/install-transfer-ui.mjs",
+        "args": [
+          "test/install-transfer-ui.mjs"
+        ]
+      },
+      {
+        "lane": "state",
+        "file": "test/workout-draft-storage.mjs",
+        "args": [
+          "test/workout-draft-storage.mjs"
+        ]
+      },
+      {
+        "lane": "state",
+        "file": "test/draftv2-staged-cas.mjs",
+        "args": [
+          "test/draftv2-staged-cas.mjs"
+        ]
+      },
+      {
+        "lane": "state",
+        "file": "test/workout-draft-sw-upgrade.mjs",
+        "args": [
+          "test/workout-draft-sw-upgrade.mjs"
+        ]
+      },
+      {
+        "lane": "state",
+        "file": "test/adversarial-draft-transactions.mjs",
+        "args": [
+          "test/adversarial-draft-transactions.mjs"
+        ]
+      },
+      {
+        "lane": "entry",
+        "file": "test/program-entry-s4.mjs",
+        "args": [
+          "test/program-entry-s4.mjs"
+        ]
+      },
+      {
+        "lane": "entry",
+        "file": "test/program-engine-worker.mjs",
+        "args": [
+          "test/program-engine-worker.mjs"
+        ]
+      },
+      {
+        "lane": "entry",
+        "file": "test/per-side-engine-browser.mjs",
+        "args": [
+          "test/per-side-engine-browser.mjs"
+        ]
+      },
+      {
+        "lane": "entry",
+        "file": "test/per-side-engine-bodyweight-browser.mjs",
+        "args": [
+          "test/per-side-engine-bodyweight-browser.mjs"
+        ]
+      },
+      {
+        "lane": "entry",
+        "file": "test/per-side-execution-mode-capture-browser.mjs",
+        "args": [
+          "test/per-side-execution-mode-capture-browser.mjs"
+        ]
+      },
+      {
+        "lane": "entry",
+        "file": "test/catalog-metric-program-browser.mjs",
+        "args": [
+          "test/catalog-metric-program-browser.mjs"
+        ]
+      },
+      {
+        "lane": "entry",
+        "file": "test/program-editor-text-fields.mjs",
+        "args": [
+          "test/program-editor-text-fields.mjs"
+        ]
+      },
+      {
+        "lane": "entry",
+        "file": "test/custom-mutation-recovery.mjs",
+        "args": [
+          "test/custom-mutation-recovery.mjs"
+        ]
+      },
+      {
+        "lane": "entry",
+        "file": "test/program-import-review.mjs",
+        "args": [
+          "test/program-import-review.mjs"
+        ]
+      },
+      {
+        "lane": "entry",
+        "file": "test/program-freeform-import.mjs",
+        "args": [
+          "test/program-freeform-import.mjs"
+        ]
+      },
+      {
+        "lane": "entry",
+        "file": "test/shared-setup-flow.mjs",
+        "args": [
+          "test/shared-setup-flow.mjs"
+        ]
+      },
+      {
+        "lane": "workout",
+        "file": "test/ui-system.mjs",
+        "args": [
+          "test/ui-system.mjs"
+        ]
+      },
+      {
+        "lane": "workout",
+        "file": "test/history-delete-replay.mjs",
+        "args": [
+          "test/history-delete-replay.mjs"
+        ]
+      },
+      {
+        "lane": "workout",
+        "file": "test/focus-pending-field.mjs",
+        "args": [
+          "test/focus-pending-field.mjs"
+        ]
+      },
+      {
+        "lane": "workout",
+        "file": "test/workout-draft-parity.mjs",
+        "args": [
+          "test/workout-draft-parity.mjs"
+        ]
+      },
+      {
+        "lane": "workout",
+        "file": "test/workout-finish-boundary.mjs",
+        "args": [
+          "test/workout-finish-boundary.mjs"
+        ]
+      },
+      {
+        "lane": "workout",
+        "file": "test/management-summary.mjs",
+        "args": [
+          "test/management-summary.mjs"
+        ]
+      },
+      {
+        "lane": "workout",
+        "file": "test/progress-lifecycle.mjs",
+        "args": [
+          "test/progress-lifecycle.mjs"
+        ]
+      },
+      {
+        "lane": "workout",
+        "file": "test/progress-recovery.mjs",
+        "args": [
+          "test/progress-recovery.mjs"
+        ]
+      },
+      {
+        "lane": "privacy",
+        "file": "test/telemetry-leakage.mjs",
+        "args": [
+          "test/telemetry-leakage.mjs"
+        ]
+      },
+      {
+        "lane": "service",
+        "file": "test/install-transfer-service.mjs",
+        "args": [
+          "test/install-transfer-service.mjs"
+        ]
+      }
+    ],
+    "note": "Frozen redesign acceptance scope; later migration contracts remain counted in the live inventory and full CI, not hidden in a separate lane."
+  }
 }

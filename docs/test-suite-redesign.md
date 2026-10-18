@@ -170,3 +170,7 @@ a deliberate transfer-only claimId leak fails the actual new assertion; the
 healthy production module passes. Existing import and diagnostic-redaction
 owners retain the real preboot/identity/freeze and all redaction fixture cases.
 No extra executable/browser journey is introduced; counts remain 97/97.
+
+## Architecture migration integration
+
+Integration PR #448 adopts exact redesign source `9448989d` provisionally while its paired benchmark remains an independent acceptance gate. The frozen `acceptedRedesign` command inventory in the retirement ledger preserves that 97-command/97-file numeric experiment. New migration risks add explicitly scheduled commands to the same live inventory; total counts and runtime must be reported as they actually grow. This is not a new claim of ≥50% reduction for every future feature branch, and no historical exhaustive matrix is restored. The runner self-test rejects removal of any accepted risk command; adapting an owner requires an explicit ledger reconciliation.

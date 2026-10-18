@@ -6,7 +6,7 @@ Implementation base: `147e4afa07fea3243efd42b5b7d167c196c6a7ca`. Specification i
 
 ## Implementation checklist
 
-- [ ] 1. Baseline and reconciliation contract
+- [x] 1. Baseline and reconciliation contract
 - [ ] 2. ESM/checkJs and release protocol
 - [ ] 3. Pure values/model/log/progression extraction
 - [ ] 4. Generator/catalog/executor ESM
@@ -49,4 +49,6 @@ All remain open drafts, none assumed merged:
 
 ## Evidence
 
-Initialization only. No implementation slice, runtime parity, final architecture, data migration or full CI completion is claimed yet. Required acceptance and rollback contract: [specification sections 6–8](agent-first-spec.md).
+Step 1: immutable generator/DraftV2/metric-history/profile/parser fixture captured from reconciled runtime `792fc25f`, rooted in audited main `147e4afa`; independent literals and deliberate corruption oracles pass. The retained browser risk owner matrix is in [baseline contract](baseline-contract.md). These source-produced values must not be regenerated to hide migration drift.
+
+Input integration: runner self-tests 32/32 passed; redesigned inventory 97 commands before adding migration proof. QA focused-name Back suite passed 11.18s with system Chromium; this is local behavior evidence, not pinned-browser pixel certification. Exercise release inventory and transfer-specific fast telemetry proofs passed. Full runtime/architecture/data-review/final-CI completion is not claimed yet. Required acceptance and rollback contract: [specification sections 6–8](agent-first-spec.md).

@@ -50,6 +50,7 @@ export const SUITES = {
     s("test/generation-candidates.mjs", [], {"domains": ["program"], "cost": "normal", "tier": "feedback"}),
     s("test/generation-layout.mjs", [], {"domains": ["program"], "cost": "normal", "tier": "feedback"}),
     s("test/generation-duration20.mjs", [], {"domains": ["program"], "cost": "normal", "tier": "feedback", "nodeArgs": ["--test"]}),
+    s("test/architecture-baseline.mjs", [], { domains: ["program", "workout", "history", "persistence"], cost: "normal", tier: "feedback" }),
     s("test/program-generation-parity.mjs", [], {"domains": ["program"], "cost": "normal", "tier": "feedback"}),
     s("test/generation-periodization.mjs", [], {"domains": ["program"], "cost": "normal", "tier": "feedback"}),
     s("test/generation-source-matrix.mjs", [], {"domains": ["program"], "cost": "normal", "tier": "feedback"}),
