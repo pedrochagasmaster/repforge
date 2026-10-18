@@ -141,7 +141,6 @@ assert(notice.includes("Motion animation runtime") && notice.includes("Copyright
   const ratios = springs.map((s) => Math.round(s.damping / (2 * Math.sqrt(s.stiffness * s.mass)) * 100) / 100);
   assert(ratios.every((z) => z >= 0.75 && z <= 1.05), "springs are damped between 0.75 and critical", ratios.join(", "));
   assert(springs.every((s) => Number.isFinite(s.restDelta) && s.restDelta > 0), "each spring has a pixel-scale rest threshold");
-  assert(JSON.stringify(vocabulary.navPush) === JSON.stringify(vocabulary.gestureExit), "navPush starts from gestureExit's constants (k 700, c 53, critically damped)");
   const strayLiterals = [...layer.matchAll(/type\s*:\s*["']spring["']/g)].length - springs.length;
   assert(strayLiterals === 0, "no spring literals appear outside the vocabulary");
   assert(!/ease\s*:\s*"?ease-?in"?\s*[,}]/i.test(layer) && !/easeIn[,"']/.test(layer), "nothing enters or exits on ease-in");

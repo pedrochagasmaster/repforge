@@ -449,7 +449,7 @@ closed, so it is a maintenance script rather than a build step: run it only when
 the files change. Its output is committed and may be hand-corrected; the build
 reads the file and never re-derives it. `build-exercises.mjs` fails if any
 mapped id has no colour or an id has a colour but no artwork, and
-`test/simulation.mjs` decodes every file to confirm each recorded colour really
+The former `test/simulation.mjs` decoded every file to confirm each recorded colour really
 is that drawing's paper.
 
 ## capture-ui-screens.mjs
@@ -568,3 +568,12 @@ same pinned Chromium as `sample-media-bg.mjs`. It refuses to run if the source
 no longer paints exactly one ground of that colour, because that means the mark
 itself changed. Re-run it when a new mark lands; the output is generated art,
 replaced wholesale and never hand-edited (`docs/brand-guide.md`, "The mark").
+
+## Critical verification
+
+The current automatic rendering contract is the 21-cell matrix in
+`critical-ui.mjs`, executed by `test/ui-system.mjs`. It shares one production
+frame between pixel/semantic comparison and live role checks. Exhaustive
+`capture-ui-screens --verify` and the full role sweep are retired. The catalog
+capture command remains an authoring utility; omitted frames have no automatic
+parity guarantee. See `docs/test-suite-redesign.md` and its retirement ledger.

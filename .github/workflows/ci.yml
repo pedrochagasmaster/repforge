@@ -139,7 +139,7 @@ jobs:
           retention-days: 7
 
   # The aggregate status check. It passes only when every selected job
-  # passed, and it applies the catalog-wide UI-system rule that no single shard
+  # passed, and it applies the complete declared critical UI contract that no single shard
   # can decide on its own.
   ci:
     needs: [plan, fast, browser, service]
@@ -176,5 +176,5 @@ jobs:
           pattern: shard-*
           path: .ci-results/shards
       - if: needs.plan.outputs.run == 'true'
-        name: Merge the UI-system shard reports
+        name: Validate the complete critical UI report
         run: node tools/ci-plan.mjs merge-ui-system .ci-results/shards
