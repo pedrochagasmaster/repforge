@@ -1,3 +1,4 @@
+export {createReceivedSetup} from './entry/received-setup.js';
 export {buildLandingProof} from './entry/landing-proof.js';
 export {createEntryActivation} from './entry/activation.js';
 export {createEntrySetup} from './entry/setup.js';
