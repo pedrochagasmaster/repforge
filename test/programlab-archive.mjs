@@ -124,3 +124,20 @@ test("real historical programs retain unknown catalog identities without current
   malformed.records[0].resultJSON = JSON.stringify(malformed.records[0].result);
   await assert.rejects(reader.exportArchive(malformed.plan.experiment, malformed), /program envelope/);
 });
+
+
+test("diagnostics-mode mismatch is archived even when runtime and catalog hashes match", async () => {
+  const { Compiler, Policy, Catalog, original, checked } = nativeArchiveFixture();
+  const oldBuild = { ...build, diagnostics: "allocation-lineage@0" };
+  const planner = D.create({ normalizePolicy: Policy.normalizeEnginePolicy,
+    normalizeRequest: value => Compiler.normalizeProgramRequest(value, Catalog) });
+  const oldPlan = planner.plan(original.plan.experiment, oldBuild);
+  const canceled = { ...original, plan: oldPlan, records: [], completed: 0, status: "canceled" };
+  const refusedReplay = Compiler.generateProgram(oldPlan.cells[0].request, Catalog, { diagnostics: oldBuild.diagnostics });
+  assert.equal(refusedReplay.ok, false);
+  assert.equal(refusedReplay.conflicts[0].code, "invalid_diagnostics");
+  const parts = await checked.exportArchive(oldPlan.experiment, canceled);
+  const imported = await checked.importArchive(parts.map(part => part.text));
+  assert.equal(imported.archived, true, "unsupported saved compute options must never be advertised as exact-replay compatible");
+  assert.equal(imported.run.plan.build.diagnostics, oldBuild.diagnostics, "historical compute-option metadata is preserved");
+});

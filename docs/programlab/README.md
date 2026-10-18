@@ -15,7 +15,7 @@ The root entry is the same standalone entry exercised by the packaged browser jo
 
 `programlab/build-manifest.json` records source commit, working-tree dirty state, generator/schema/policy/diagnostics versions, runtime/catalog/lab fingerprints and each shipped file's SHA-256. Current runs retain bounded immutable build provenance. A clean source checkout is necessary for an artifact marked clean. The manifest is provenance and integrity data, not a signed attestation.
 
-Lab experiments use IndexedDB `taurifer_programlab_v1` and the lab language preference uses `taurifer_programlab_ui_v1`. They belong to the chosen lab origin. Export run JSON to retain a portable snapshot before moving to a different origin or clearing browser data. Historical results stay read-only on runtime/catalog mismatch; “Run with this build” creates a separate current-build experiment after current validation.
+Lab experiments use IndexedDB `taurifer_programlab_v1` and the lab language preference uses `taurifer_programlab_ui_v1`. They belong to the chosen lab origin. Export run JSON to retain a portable snapshot before moving to a different origin or clearing browser data. Historical results stay read-only on runtime/catalog/diagnostics-mode mismatch; “Run with this build” creates a separate current-build experiment after current validation.
 
 For repository-owned browser verification under Node 22, install the pinned test dependencies and run:
 

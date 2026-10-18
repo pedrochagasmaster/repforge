@@ -152,7 +152,7 @@ checks**. The current compiler's catalog-dependent `executionContexts` check
 needs the integration owner's compatible structural-validation seam; do not
 silently bypass it or reject valid historical IDs as unknown current exercises.
 `validateRequest` is never called against historical inputs. Historical policy
-schema validation still applies. Fingerprint mismatch sets `archived:true` and
+schema validation still applies. Runtime, catalog or diagnostics-mode mismatch sets `archived:true` and
 `exactReplayAvailable:false`. Running on this build requires a new validated
 plan/revision and does not rewrite the archive.
 

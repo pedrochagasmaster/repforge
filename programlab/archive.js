@@ -90,7 +90,7 @@
         D.keys(experiment.sweep, ["path", "values"]);
         check(experiment.mode === "sweep" && Array.isArray(experiment.sweep.values) && experiment.sweep.values.length > 0 && experiment.sweep.values.length <= D.LIMITS.sweepValues, "Sweep bound exceeded");
       } else check(experiment.mode !== "sweep", "Missing sweep definition");
-      const archived = !!run && (run.plan.build.runtimeFingerprint !== build.runtimeFingerprint || run.plan.build.catalogSha256 !== build.catalogSha256);
+      const archived = !!run && (run.plan.build.runtimeFingerprint !== build.runtimeFingerprint || run.plan.build.catalogSha256 !== build.catalogSha256 || run.plan.build.diagnostics !== build.diagnostics);
       for (const policy of [experiment.baselinePolicy, experiment.candidatePolicy, experiment.referenceTimePolicy]) checked(validatePolicy, policy, archived, "policy");
       const ids = new Set();
       for (const scenario of experiment.scenarios) {
