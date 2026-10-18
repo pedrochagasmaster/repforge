@@ -1,7 +1,29 @@
+/** @typedef {import("./contracts.js").ModelSnapshot} ModelSnapshot */
+/** @typedef {import("./contracts.js").StructureDay} StructureDay */
+/** @typedef {import("./contracts.js").Catalog} Catalog */
+/** @typedef {import("./contracts.js").CatalogObject} CatalogObject */
+/** @typedef {import("./contracts.js").CatalogExercise} CatalogExercise */
+/** @typedef {import("./contracts.js").MetricDefinition} MetricDefinition */
+/** @typedef {import("./contracts.js").LibraryEntry} LibraryEntry */
+/** @typedef {import("./contracts.js").LibraryLookup} LibraryLookup */
+/** @typedef {import("./contracts.js").ExerciseRow} ExerciseRow */
+/** @typedef {import("./contracts.js").ExerciseInput} ExerciseInput */
+/** @typedef {import("./contracts.js").Receipt} Receipt */
+/** @typedef {import("./contracts.js").ReceiptDay} ReceiptDay */
+/** @typedef {import("./contracts.js").ReceiptSlot} ReceiptSlot */
+/** @typedef {import("./contracts.js").ProgramStructure} ProgramStructure */
+/** @typedef {import("./contracts.js").ProgramMeta} ProgramMeta */
+/** @typedef {import("./contracts.js").RecoveryRecord} RecoveryRecord */
+/** @typedef {import("./contracts.js").PrescriptionSummary} PrescriptionSummary */
+/** @typedef {import("./contracts.js").PlannedVolumeHistory} PlannedVolumeHistory */
+/** @typedef {import("./contracts.js").ProgramDefinition} ProgramDefinition */
+/** @typedef {import("./contracts.js").ProgressionIncompatibility} ProgressionIncompatibility */
+/** @typedef {import("./contracts.js").CompatibilityOptions} CompatibilityOptions */
+/** @typedef {import("./contracts.js").CompactionOptions} CompactionOptions */
+/** @typedef {import("./contracts.js").DefinitionSlot} DefinitionSlot */
 import { compiler as Compiler } from "../../generation.js";
 import ExerciseMetrics from "../../metrics.js";
 import { createEntryRules } from "../../authoring/internal/entry.js";
-import { progression } from "../../progress.js";
 import { cloneSnapshot,isPlainStateObject,isBoundedProgressionValue,canonicalize,PROGRESSION_VALUE_LIMITS } from "./values.js";
 import { calendarDayDistance } from "../../progress.js";
 /**
@@ -10,6 +32,7 @@ import { calendarDayDistance } from "../../progress.js";
  * `now` is an ISO instant or explicit clock supplied by the caller.
  * `calendarDate` is the caller's local YYYY-MM-DD (value/getter), independent of
  * UTC timestamps. Language/default label may be getters for live display state.
+ * @param {{catalog:Catalog,librarySource?:{library:LibraryEntry[],legacyIds:Record<string,string>},nextId?:()=>string,now:string|(()=>string),calendarDate?:string|(()=>string),language?:string|(()=>string),defaultExerciseName?:string|(()=>string)}} options
  */
 export function createProgramModel({catalog,librarySource={library:[],legacyIds:{}},nextId,now,calendarDate,language="en",defaultExerciseName="Exercise"}) {
 const rawExerciseCatalog=catalog;
@@ -17,15 +40,23 @@ const LIBRARY_BY_ID=new Map((librarySource.library||[]).map(entry=>[entry.id,ent
 const LEGACY_LIBRARY_IDS=librarySource.legacyIds||{};
 const CUSTOM_ID_PREFIX="custom:";
 const MuscleDomain=createEntryRules(catalog);
+/** @param {unknown} id */
 const rawExercise=id=>catalog?.exercises?.find(entry=>entry.id===String(id??""))||null;
+/** @param {unknown} id */
 const rawCatalogObject=id=>catalog?.uuidIndex?.[String(id??"")]||null;
 const uid=()=>{if(typeof nextId!=="function")throw new TypeError("nextId required to create training identity");return nextId();};
 const isPt=()=>(typeof language==="function"?language():language)==="pt";
+/** @param {string} key */
 const t=key=>{if(key!=="program.default.exercise")throw new TypeError("unknown model label");return typeof defaultExerciseName==="function"?defaultExerciseName():defaultExerciseName;};
+/** @param {LibraryEntry|null|undefined} entry */
 const libraryName=entry=>!entry?"":(isPt()&&entry.namePt)||entry.name;
+/** @param {unknown} id */
 const isCustomLibraryId=id=>String(id||"").startsWith(CUSTOM_ID_PREFIX);
+/** @param {unknown} id */
 const libraryEntry=id=>LIBRARY_BY_ID.get(String(id??""))||null;
-const muscles=value=>MuscleDomain.normalizeMuscleAttribution(value).tokens;
+/** @param {unknown} value */
+const muscles=value=>{const result=MuscleDomain.normalizeMuscleAttribution(value);if("tokens" in result)return result.tokens;throw new TypeError("invalid muscle attribution");};
+/** @param {Map<string,{d:number,p:number}>} map */
 const volMapToObj=map=>Object.fromEntries([...map].map(([key,value])=>[key,{d:value.d,p:value.p}]));
 const today=()=>{const date=typeof calendarDate==="function"?calendarDate():calendarDate;
   if(date===undefined)return requiredNow().slice(0,10);
@@ -34,6 +65,7 @@ const today=()=>{const date=typeof calendarDate==="function"?calendarDate():cale
 const PLANNED_VOLUME_HISTORY_KEYS=["schemaVersion","throughWeek","plannedSessions","plannedWorkingSets","muscles"];
 const PLANNED_VOLUME_HISTORY_MUSCLE_KEYS=["direct","secondary"];
 const requiredNow=()=>{const instant=typeof now==="function"?now():now;if(typeof instant!=="string")throw new TypeError("now required to create custom exercise timestamp");return instant;};
+/** @type {Readonly<Record<string,string>>} */
 const SOURCE_FEATURE_TO_LEGACY_MUSCLE=Object.freeze({
   "chest":"Chest","lats":"Lats","upper back":"Mid/upper back","upper traps":"Traps",
   "front delts":"Front delts","side delts":"Side delts","rear delts":"Rear delts",
@@ -42,6 +74,7 @@ const SOURCE_FEATURE_TO_LEGACY_MUSCLE=Object.freeze({
   "calves":"Calves","tibs":"Tibs","hip flexors":"Hip flexors","lower back":"Spinal erectors",
   "neck":"Neck","serratus":"Serratus","abs":"Abs","obliques":"Obliques",
 });
+/** @param {string} id */
 function rawMetricDefinitions(id){
   const record=rawExercise(id);
   if(!record||!Array.isArray(record.exerciseMetrics))return record?[]:null;
@@ -49,14 +82,17 @@ function rawMetricDefinitions(id){
   return record.exerciseMetrics.map(metricId=>{
     const source=rawCatalogObject(metricId),mapped=source&&compiler?.metricDefinitionForName?.(source.name);
     return source?.type==="exerciseMetric"&&mapped?{id:String(metricId),sourceName:source.name,
-      semantic:mapped.semantic,unit:mapped.unit}:null}).filter(Boolean)}
+      semantic:mapped.semantic,unit:mapped.unit}:null}).filter((entry)=>entry!==null)}
 
+/** @param {unknown} value @param {string} [field] */
 function normalizeMuscleAttribution(value,field="muscle attribution"){
   const result=MuscleDomain?.normalizeMuscleAttribution?.(value);
-  if(!result?.ok)throw new TypeError(`${result?.code||"invalid-muscle-domain"}: ${field}`);
+  if(!result?.ok||!("value" in result))throw new TypeError(`${"code" in result?result.code:"invalid-muscle-domain"}: ${field}`);
   return result.value}
 
+/** @param {unknown} ids */
 function sourceFeatureAttribution(ids){
+  /** @type {string[]} */
   const tokens=[];
   for(const id of Array.isArray(ids)?ids:[]){
     const name=rawCatalogObject(id)?.name;
@@ -64,6 +100,7 @@ function sourceFeatureAttribution(ids){
     if(token&&!tokens.includes(token))tokens.push(token)}
   return tokens.join(",")}
 
+/** @param {LibraryEntry|null|undefined} entry @param {"primary"|"secondary"} field */
 function libraryMuscleAttribution(entry,field){
   const record=entry?.id?rawExercise(entry.id):null;
   if(record){
@@ -71,6 +108,7 @@ function libraryMuscleAttribution(entry,field){
     return sourceFeatureAttribution(sourceField)}
   return String(entry?.[field]||"")}
 
+/** @param {LibraryEntry} entry */
 function exerciseFieldsFromLibrary(entry){
   return{name:libraryName(entry),primary:libraryMuscleAttribution(entry,"primary"),secondary:libraryMuscleAttribution(entry,"secondary"),
     notes:entry.notes||"",libraryId:entry.id,displayName:null}}
@@ -79,19 +117,22 @@ function exerciseFieldsFromLibrary(entry){
    (archive flag, patterns, timestamps), so project exactly its keys; a custom
    movement without a configured composition has an empty one. */
 
+/** @param {unknown} list */
 function compilerCustomDefinitions(list){
   return(Array.isArray(list)?list:[]).filter(isPlainStateObject).map(entry=>{
     const metrics=ExerciseMetrics?.validateDefinitions?.(entry.metricIds,entry.metricDefinitions,{allowEmpty:true});
+    /** @type {LibraryEntry} */
     const out={id:String(entry.id||""),name:String(entry.name||"")};
     if(typeof entry.namePt==="string"&&entry.namePt.trim())out.namePt=entry.namePt;
     out.equipment=Array.isArray(entry.equipment)?entry.equipment.filter(item=>typeof item==="string"&&item.trim()):[];
     out.primary=typeof entry.primary==="string"?entry.primary:"";
     out.secondary=typeof entry.secondary==="string"?entry.secondary:"";
     out.notes=typeof entry.notes==="string"?entry.notes:"";
-    out.metricIds=metrics?.ok?cloneSnapshot(entry.metricIds):[];
-    out.metricDefinitions=metrics?.ok?cloneSnapshot(entry.metricDefinitions):[];
+    out.metricIds=metrics?.ok?cloneSnapshot(/** @type {string[]} */(entry.metricIds)):[];
+    out.metricDefinitions=metrics?.ok?cloneSnapshot(/** @type {MetricDefinition[]} */(entry.metricDefinitions)):[];
     return out})}
 
+/** @param {unknown} value @param {LibraryEntry[]} [customDefinitions] @returns {ProgramDefinition|null} */
 function canonicalProgramDefinition(value,customDefinitions=[]){
   const compiler=Compiler;
   if(!compiler?.validateProgramDefinition||!rawExerciseCatalog)return null;
@@ -100,36 +141,40 @@ function canonicalProgramDefinition(value,customDefinitions=[]){
   // Accepts schema v1 (set-level metrics present, equal to the slot's) and v2
   // (absent); this is the one boundary every file/link/backup/transfer passes
   // through, so it always hands back the deduped v2 shape.
-  return compiler.canonicalizeProgramDefinition?compiler.canonicalizeProgramDefinition(value):cloneSnapshot(value)}
+  return compiler.canonicalizeProgramDefinition?compiler.canonicalizeProgramDefinition(value):cloneSnapshot(/** @type {ProgramDefinition} */(value))}
 /* Every movement a canonical definition names: each slot's own and its
    alternates. A custom movement that is only an alternate is still part of the
    program, so it travels, stays in use and is never deleted out from under it. */
 
+/** @param {ProgramDefinition|null|undefined} definition */
 function definitionMovementIds(definition){
   return(definition?.days||[]).flatMap(day=>(day?.slots||[]).flatMap(slot=>
     [slot?.exerciseId,...(Array.isArray(slot?.alternates)?slot.alternates:[])])).filter(id=>typeof id==="string"&&id)}
 /* A movement outside the catalog carries the lifter's own muscle labels. An
    empty label is no attribution, not an invalid one. */
 
+/** @param {ExerciseInput|null|undefined} row */
 function manualAttributionFor(row){
   const primary=String(row?.primary||"").trim(),secondary=String(row?.secondary||"").trim();
   if(!primary&&!secondary)return{};
   return{manualAttribution:{...(primary?{primary}:{}),...(secondary?{secondary}:{})}}}
 
+/** @param {ExerciseInput[]} rows @param {string[]} [dayNames] @param {LibraryEntry[]} [customDefinitions] */
 function manualProgramDefinitionFromRows(rows,dayNames=[],customDefinitions=[]){
   const compiler=Compiler;
   if(!compiler?.validateProgramDefinition||!rawExerciseCatalog)return null;
+  /** @type {Map<string,ExerciseInput[]>} */
   const byDay=new Map();
   for(const row of Array.isArray(rows)?rows:[]){
     const label=String(row?.day||"Day 1");
     if(!byDay.has(label))byDay.set(label,[]);
-    byDay.get(label).push(row)}
+    byDay.get(label)?.push(row)}
   const labels=[...new Set([...(Array.isArray(dayNames)?dayNames:[]).map(String),...byDay.keys()])].filter(Boolean);
   if(labels.length>7)return null;
   const orderedLabels=labels,days=[];
   for(let index=0;index<7;index++){
     const label=orderedLabels[index]||`${isPt()?"Descanso":"Rest"} ${index+1}`;
-    const entries=(byDay.get(label)||[]).slice().sort((a,b)=>(+a.order||0)-(+b.order||0));
+    const entries=(byDay.get(label)||[]).slice().sort((a,b)=>(+(/** @type {number} */(a.order))||0)-(+(/** @type {number} */(b.order))||0));
     const slots=entries.map((row,slotIndex)=>{
       const exerciseId=String(row.libraryId||row.exerciseId||"");
       const raw=rawExercise(exerciseId),custom=customDefinitions.find(item=>item.id===exerciseId)||null;
@@ -164,7 +209,7 @@ function manualProgramDefinitionFromRows(rows,dayNames=[],customDefinitions=[]){
         ...(row.displayName?{displayName:String(row.displayName)}:{}),
         setupNotes:String(row.notes||""),
         ...(!raw?manualAttributionFor(row):{}),
-        loadingModel:{bodyweightCoefficient:Number.isFinite(raw?.bodyweight)?raw.bodyweight:null,
+        loadingModel:{bodyweightCoefficient:Number.isFinite(raw?.bodyweight)?raw?.bodyweight:null,
           assistanceDirection:"subtract"},
         prescriptionsByCycle};});
     if(slots.some(slot=>!slot))return null;
@@ -176,15 +221,18 @@ function manualProgramDefinitionFromRows(rows,dayNames=[],customDefinitions=[]){
    them, so the lock-held program fingerprint of the stored head matches the
    in-memory state for the rest of the session. */
 
+/** @param {ProgramDefinition|null} definition @param {LibraryEntry[]} customDefinitions @param {ProgramMeta|null} meta */
 function durableProgramRows(definition,customDefinitions,meta){
   return makeProgram(flatProgramFromDefinition(definition,customDefinitions,1),null,meta).toJSON()}
 
+/** @param {ProgramDefinition|null} definition @param {LibraryEntry[]} [customDefinitions] @param {number} [cycleNumber] @returns {ExerciseInput[]} */
 function flatProgramFromDefinition(definition,customDefinitions=[],cycleNumber=1){
   if(!definition||!Array.isArray(definition.days))return[];
   const compiler=Compiler;
-  const sourceSets=new Map((compiler?.prescriptionsForCycle?.(definition,cycleNumber)||[])
-    .reduce((all,set)=>{if(!all.has(set.slotId))all.set(set.slotId,[]);all.get(set.slotId).push(set);return all},new Map()));
+  const sourceSets=new Map((/** @type {(import("./contracts.js").DefinitionSet & {slotId:string})[]} */(compiler?.prescriptionsForCycle?.(definition,cycleNumber)||[]))
+    .reduce((all,set)=>{if(!all.has(set.slotId))all.set(set.slotId,[]);all.get(set.slotId)?.push(set);return all},new Map(/** @type {[string,import("./contracts.js").DefinitionSet[]][]} */([]))));
   const customById=new Map(customDefinitions.map(entry=>[entry.id,entry]));
+  /** @type {ExerciseInput[]} */
   const rows=[];
   for(const day of definition.days){
     if(day.kind!=="training")continue;
@@ -194,8 +242,9 @@ function flatProgramFromDefinition(definition,customDefinitions=[],cycleNumber=1
       if(!cycle||!cycle.sets.length)continue;
       const sets=sourceSets.get(slot.id)||cycle.sets;
       const reps=sets.map(set=>set.targets?.reps??set.targets?.repsPerSide).find(value=>value!=null);
-      const minimum=typeof reps==="number"?reps:Number.isFinite(reps?.min)?reps.min:1;
-      const maximum=typeof reps==="number"?reps:Number.isFinite(reps?.max)?reps.max:minimum;
+      const minimum=typeof reps==="number"?reps:reps&&Number.isFinite(reps.min)?reps.min:1;
+      const maximum=typeof reps==="number"?reps:reps&&Number.isFinite(reps.max)?reps.max:minimum;
+      /** @type {ExerciseInput} */
       const row={id:slot.id,slotId:slot.id,day:day.name,dayId:day.id,order:slot.order||rows.length+1,
         // The lifter's alias is the slot's name, as it is for a stored row.
         name:slot.displayName||index?.name||custom?.name||raw?.name||slot.exerciseId,libraryId:slot.exerciseId,
@@ -212,15 +261,18 @@ function flatProgramFromDefinition(definition,customDefinitions=[],cycleNumber=1
   return rows}
 
 
+/** @param {unknown} value */
 function normalizeProgressionEnvelope(value){
-  const validator=progression;
-  const checked=validator?.validatePrescription?.(value);
-  return checked?.ok?cloneSnapshot(checked.value):null}
+  // The released scalar progression envelope validator was retired. Retain its
+  // unsupported outcome explicitly; recommendation math has its own contract.
+  return null}
 
+/** @param {string} kind @param {unknown} value @param {{issues?:string[]}|null} checked @param {string|undefined} source @returns {ProgressionIncompatibility} */
 function progressionIncompatibility(kind,value,checked,source){
   return{version:1,kind,source:source||"state-restore",reason:Array.isArray(checked?.issues)?checked.issues.join("; "):"incompatible",value:cloneSnapshot(value)}
 }
 
+/** @param {unknown} value @param {ExerciseInput[]} [program] @param {CompatibilityOptions} [options] @returns {unknown[]} */
 function normalizeProgressionRelations(value,program=[],options={}){
   if(value!=null&&!Array.isArray(value))throw new TypeError("progressionRelations: expected array");
   if(value!=null&&!isBoundedProgressionValue(value))throw new TypeError("progressionRelations: structure exceeds safety bounds");
@@ -228,26 +280,24 @@ function normalizeProgressionRelations(value,program=[],options={}){
   // They remain an empty projection after retiring the old validator instead
   // of being misclassified as an unsupported user-authored relation.
   if(value==null||value.length===0)return[];
-  const validator=progression;
-  const checked=validator?.validateRelations?.(value,{slots:program});
-  if(!checked?.ok&&options.preserveInvalid&&value!=null&&Array.isArray(options.incompatibilities))
-    options.incompatibilities.push(progressionIncompatibility("relations",value,checked,options.source));
-  return checked?.ok?cloneSnapshot(checked.value):[]}
+  if(options.preserveInvalid&&Array.isArray(options.incompatibilities))
+    options.incompatibilities.push(progressionIncompatibility("relations",value,null,options.source));
+  return[]}
 
+/** @param {unknown} value @param {ExerciseInput[]} program @param {ProgressionIncompatibility[]} [existing] @param {string} [source] */
 function candidateProgressionData(value,program,existing=[],source="candidate"){
   const incompatibilities=Array.isArray(existing)?cloneSnapshot(existing):[];
   const relations=normalizeProgressionRelations(value,program,{preserveInvalid:true,incompatibilities,source});
   return{relations,incompatibilities}}
 
+/** @param {unknown} value @param {CompatibilityOptions} [options] @returns {unknown[]} */
 function normalizeProgressionModifiers(value,options={}){
   if(value!=null&&!Array.isArray(value))throw new TypeError("progressionModifiers: expected array");
   if(value!=null&&!isBoundedProgressionValue(value))throw new TypeError("progressionModifiers: structure exceeds safety bounds");
   if(value==null||value.length===0)return[];
-  const validator=progression;
-  const checked=validator?.validateModifiers?.(value);
-  if(!checked?.ok&&options.preserveInvalid&&value!=null&&Array.isArray(options.incompatibilities))
-    options.incompatibilities.push(progressionIncompatibility("modifiers",value,checked,options.source));
-  return checked?.ok?cloneSnapshot(checked.value):[]}
+  if(options.preserveInvalid&&Array.isArray(options.incompatibilities))
+    options.incompatibilities.push(progressionIncompatibility("modifiers",value,null,options.source));
+  return[]}
 
 /* ============================================================
    Program model
@@ -257,6 +307,7 @@ function normalizeProgressionModifiers(value,options={}){
    as plain objects (see toJSON) so backups stay forward-compatible.
    ============================================================ */
 
+/** @param {LibraryEntry[]|undefined} customList @returns {LibraryLookup} */
 function snapshotLookup(customList){
   const own=new Map((Array.isArray(customList)?customList:[]).map(e=>[e.id,e]));
   return id=>{
@@ -264,6 +315,7 @@ function snapshotLookup(customList){
     if(isCustomLibraryId(key))return own.get(key)||null;
     return LIBRARY_BY_ID.get(key)||LIBRARY_BY_ID.get(LEGACY_LIBRARY_IDS[key])||null}}
 
+/** @param {ExerciseInput[]|undefined} list @param {LibraryEntry[]|undefined} customList */
 function canonicalizeLinkedMuscleRows(list,customList){
   if(!Array.isArray(list))return list;
   const lookup=snapshotLookup(customList);
@@ -273,6 +325,7 @@ function canonicalizeLinkedMuscleRows(list,customList){
     return entry?{...row,primary:libraryMuscleAttribution(entry,"primary"),
       secondary:libraryMuscleAttribution(entry,"secondary")}:row})}
 
+/** @param {ProgramStructure|undefined} structure @param {ExerciseInput[]|undefined} program @param {LibraryEntry[]} [customList] */
 function canonicalizeProgramStructureMuscles(structure,program,customList=[]){
   if(!isPlainStateObject(structure))return structure;
   const bySlot=new Map();
@@ -289,9 +342,10 @@ function canonicalizeProgramStructureMuscles(structure,program,customList=[]){
         if(Object.prototype.hasOwnProperty.call(slot,"secondary"))slot.secondary=row.secondary||""}
   for(const version of Array.isArray(out.programVersions)?out.programVersions:[])
     if(Array.isArray(version?.program))
-      version.program=canonicalizeLinkedMuscleRows(version.program,customList);
+      version.program=canonicalizeLinkedMuscleRows(version.program,customList)||[];
   return out}
 
+/** @param {ModelSnapshot} proposal */
 function canonicalizeDurableMuscleAttributions(proposal){
   if(!isPlainStateObject(proposal))return proposal;
   const out=cloneSnapshot(proposal),customList=out.customExercises;
@@ -304,6 +358,7 @@ function canonicalizeDurableMuscleAttributions(proposal){
   // definitions may update active linked rows only.
   return out}
 
+/** @param {unknown} list @returns {import("./contracts.js").CustomExercise[]} */
 function normalizeCustomExercises(list){
   const out=[],seen=new Set();
   for(const entry of Array.isArray(list)?list:[]){
@@ -328,12 +383,14 @@ function normalizeCustomExercises(list){
       // logging; keep it whenever it is a valid ordered definition list.
       ...(()=>{const checked=ExerciseMetrics?.validateDefinitions?.(entry.metricIds,entry.metricDefinitions,{allowEmpty:true});
         return checked?.ok&&Array.isArray(entry.metricIds)
-          ?{metricIds:cloneSnapshot(entry.metricIds),metricDefinitions:cloneSnapshot(entry.metricDefinitions)}:{}})()})}
+          ?{metricIds:cloneSnapshot(/** @type {string[]} */(entry.metricIds)),metricDefinitions:cloneSnapshot(/** @type {MetricDefinition[]} */(entry.metricDefinitions))}:{}})()})}
   return out}
 
+/** @param {ExerciseInput[]} program @param {LibraryEntry[]} customExercises */
 function canonicalTransitionProgram(program, customExercises) {
   const rows = new Program(program, snapshotLookup(customExercises)).toJSON();
   return rows.map(row => {
+    /** @type {ExerciseRow} */
     const canonical = cloneSnapshot(row);
     // Compiler pattern labels are derived display data. Linked durable rows
     // resolve those labels from the catalogue; identity and every authored
@@ -344,6 +401,7 @@ function canonicalTransitionProgram(program, customExercises) {
   });
 }
 
+/** @param {ExerciseInput[]} liveProgram @param {ExerciseInput[]} compilerProgram @param {LibraryEntry[]} customExercises */
 function compilerProgramMatchesLive(liveProgram, compilerProgram, customExercises) {
   try {
     return JSON.stringify(canonicalize(canonicalTransitionProgram(liveProgram, customExercises))) ===
@@ -358,6 +416,7 @@ function compilerProgramMatchesLive(liveProgram, compilerProgram, customExercise
 // "absent" -> no transition-in and no archive collision, proceed to the
 // transaction.
 
+/** @param {ProgramMeta|null|undefined} meta */
 function structureDayLabels(meta){
   // A canonical program orders its days as authored, not alphabetically.
   const canonical=meta?.programDefinition?.days;
@@ -369,6 +428,7 @@ function structureDayLabels(meta){
   const labels=days.map(d=>String(d.label||d.dayId||"").trim()).filter(Boolean);
   return labels.length?labels:null}
 
+/** @param {ExerciseInput[]} list @param {LibraryLookup|null} [lookup] @param {ProgramMeta|null} [meta] */
 function makeProgram(list,lookup=null,meta=null){
   return new Program(list,lookup,structureDayLabels(meta),
     meta?.programStructure?.provenance?.source==="manual_build")}
@@ -377,18 +437,20 @@ function makeProgram(list,lookup=null,meta=null){
 // elapsed denominators; normal current/future weeks continue to come from the
 // authored program, so a block's size no longer scales with rows × weeks.
 
+/** @param {ExerciseInput[]} program */
 function prescriptionProgramRows(program){
   return(Array.isArray(program)?program:[]).map((row,index)=>({
     id:String(row?.id||`legacy_${index+1}`),
     slotId:String(row?.slotId||row?.id||`legacy_${index+1}`),
     dayId:String(row?.dayId||row?.day||`day_${index+1}`),
     day:String(row?.day||""),
-    order:Number.isFinite(+row?.order)?+row.order:index+1,
-    sets:Number.isFinite(+row?.sets)?Math.max(0,+row.sets):0,
+    order:Number.isFinite(+(/** @type {number} */(row?.order)))?+(/** @type {number} */(row.order)):index+1,
+    sets:Number.isFinite(+(/** @type {number} */(row?.sets)))?Math.max(0,+(/** @type {number} */(row.sets))):0,
     primary:String(row?.primary||""),
     secondary:String(row?.secondary||"")
   })).filter(row=>row.id||row.slotId)}
 
+/** @param {Receipt|null|undefined} existing */
 function existingPrescriptionSlots(existing){
   const slots=new Map();
   for(const day of Array.isArray(existing?.days)?existing.days:[])
@@ -396,6 +458,7 @@ function existingPrescriptionSlots(existing){
       if(slot?.slotId!=null)slots.set(String(slot.slotId),slot);
   return slots}
 
+/** @param {ExerciseInput[]} program @param {number} week @param {Receipt|null|undefined} existing @param {{preserveSets?:boolean}} [options] */
 function plannedPrescriptionForProgram(program,week,existing,{preserveSets=true}={}){
   const days=new Map(),existingSlots=existingPrescriptionSlots(existing);
   for(const row of prescriptionProgramRows(program).sort((a,b)=>a.order-b.order||a.id.localeCompare(b.id))){
@@ -409,6 +472,7 @@ function plannedPrescriptionForProgram(program,week,existing,{preserveSets=true}
   }
   return{week,phase:typeof existing?.phase==="string"?existing.phase:"manual_edit",days:[...days.values()]}}
 
+/** @param {Receipt|null|undefined} existing @param {ExerciseInput[]} program @param {number} week @returns {Receipt|null} */
 function preservePrescriptionReceipt(existing,program,week){
   if(!existing||!Array.isArray(existing.days))return null;
   const sourceSlots=new Map(prescriptionProgramRows(program).map(row=>[row.slotId,row]));
@@ -428,10 +492,12 @@ function preservePrescriptionReceipt(existing,program,week){
   return{week,phase:typeof existing.phase==="string"?existing.phase:"manual_edit",days}
 }
 
+/** @returns {PlannedVolumeHistory} */
 function emptyPlannedVolumeHistory(){
   return{schemaVersion:1,throughWeek:0,plannedSessions:0,plannedWorkingSets:0,
     muscles:{direct:{},secondary:{}}}}
 
+/** @param {PlannedVolumeHistory} history @param {PrescriptionSummary} prescription */
 function addPlannedVolumeHistory(history,prescription){
   history.plannedSessions+=Number.isFinite(+prescription?.plannedSessions)?Math.max(0,+prescription.plannedSessions):0;
   history.plannedWorkingSets+=Number.isFinite(+prescription?.plannedWorkingSets)?Math.max(0,+prescription.plannedWorkingSets):0;
@@ -443,24 +509,29 @@ function addPlannedVolumeHistory(history,prescription){
   }
 }
 
+/** @param {ProgramMeta|null|undefined} meta @param {number} total */
 function plannedVolumeHistoryTarget(meta,total){
   if(meta?.mesocycleStatus==="completed")return total;
   const elapsed=mesocycleLifecycle(meta).elapsedWeek;
-  return Number.isInteger(elapsed)?Math.max(0,Math.min(total,elapsed-1)):0;
+  return elapsed!==null&&Number.isInteger(elapsed)?Math.max(0,Math.min(total,elapsed-1)):0;
 }
 
+/** @param {Receipt} entry @param {number} index */
 function prescriptionWeekNumber(entry,index){
   return Number.isInteger(entry?.week)&&entry.week>=1?entry.week:index+1}
 
+/** @param {Receipt} entry */
 function receiptHasMuscleAttribution(entry){
   return(Array.isArray(entry?.days)?entry.days:[]).some(day=>(Array.isArray(day?.slots)?day.slots:[])
     .some(slot=>typeof slot?.primary==="string"||typeof slot?.secondary==="string"))}
 
+/** @param {Receipt} entry */
 function isSparsePrescriptionOverride(entry){
   const phase=String(entry?.phase||"").trim();
   return!!phase&&!['normal','manual_edit'].includes(phase);
 }
 
+/** @param {Receipt|undefined} existing @param {import("./contracts.js").ProgramVersion[]} versions @param {ExerciseInput[]} program @param {number} week @param {RecoveryRecord|null} recoveryRecord */
 function historicalPrescriptionForWeek(existing,versions,program,week,recoveryRecord){
   const version=[...versions].reverse().find(entry=>entry.fromWeek<=week);
   const sourceProgram=Array.isArray(version?.program)?version.program:program;
@@ -469,6 +540,7 @@ function historicalPrescriptionForWeek(existing,versions,program,week,recoveryRe
   return week===1?recoveryReceiptForWeek(receipt,recoveryRecord):receipt;
 }
 
+/** @param {ProgramStructure|null|undefined} structure @param {ExerciseInput[]} program @param {ProgramMeta|null|undefined} meta @param {CompactionOptions} [options] */
 function compactProgramPrescriptionState(structure,program,meta,{pastProgram=null,previousMeta=null,force=false,recoveryRecord=null,freezeHistory=false}={}){
   const source=structure&&typeof structure==="object"&&!Array.isArray(structure)
     ?cloneSnapshot(structure):{};
@@ -478,7 +550,7 @@ function compactProgramPrescriptionState(structure,program,meta,{pastProgram=nul
   const observedWeeks=rawWeeks.map((entry,index)=>prescriptionWeekNumber(entry,index))
     .concat(rawVersions.map(entry=>Number.isInteger(entry?.fromWeek)?entry.fromWeek:0));
   const total=Math.max(configured,...observedWeeks.filter(week=>week>=1&&week<=52),1);
-  const existingWeeks=new Map(rawWeeks.map((entry,index)=>[prescriptionWeekNumber(entry,index),entry])
+  const existingWeeks=new Map(rawWeeks.map((entry,index)=>/** @type {[number,Receipt]} */([prescriptionWeekNumber(entry,index),entry]))
     .filter(([week])=>week>=1&&week<=total));
   const versions=rawVersions.filter(entry=>Number.isInteger(entry?.fromWeek)&&entry.fromWeek>=1&&
     entry.fromWeek<=total&&Array.isArray(entry.program)).sort((a,b)=>a.fromWeek-b.fromWeek);
@@ -511,6 +583,7 @@ function compactProgramPrescriptionState(structure,program,meta,{pastProgram=nul
     addPlannedVolumeHistory(history,prescriptionForReceipt(receipt,historicalProgram));
     history.throughWeek=week;
   }
+  /** @type {Receipt[]} */
   const retained=[];
   rawWeeks.forEach((entry,index)=>{
     const week=prescriptionWeekNumber(entry,index);
@@ -529,9 +602,11 @@ function compactProgramPrescriptionState(structure,program,meta,{pastProgram=nul
    Entries that still match a training day keep their identity; any other day
    list is rebuilt from the definition, whose generated names localize. */
 
+/** @param {ProgramStructure|null|undefined} structure @param {ProgramDefinition|null|undefined} definition */
 function programStructureForDefinition(structure,definition){
   if(!isPlainStateObject(structure)||!Array.isArray(structure.days)||!Array.isArray(definition?.days))return structure;
   const names=definition.days.filter(day=>day?.kind==="training").map(day=>({id:day.id,name:String(day.name||"")}));
+  /** @param {StructureDay} entry */
   const labelOf=entry=>String(entry?.label||entry?.dayId||"");
   if(structure.days.length===names.length&&structure.days.every((entry,i)=>labelOf(entry)===names[i].name))return structure;
   const byLabel=new Map(structure.days.map(entry=>[labelOf(entry),entry]));
@@ -540,30 +615,34 @@ function programStructureForDefinition(structure,definition){
 /* A Review successor is a new block of a regenerated definition: it keeps the
    structure's provenance but none of the predecessor's days or receipts. */
 
+/** @param {ProgramStructure|null|undefined} structure @param {ProgramDefinition|null|undefined} definition */
 function successorProgramStructure(structure,definition){
   if(!isPlainStateObject(structure))return structure??null;
   const{weekPrescriptions,programVersions,...rest}=cloneSnapshot(structure);
   return programStructureForDefinition({...rest,days:[]},definition)}
 
+/** @param {unknown} value @returns {value is PlannedVolumeHistory} */
 function isValidPlannedVolumeHistory(value){
   if(!isPlainStateObject(value)||!isBoundedProgressionValue(value)||
     Object.keys(value).length!==PLANNED_VOLUME_HISTORY_KEYS.length||
     !PLANNED_VOLUME_HISTORY_KEYS.every(key=>Object.prototype.hasOwnProperty.call(value,key))||
-    value.schemaVersion!==1||!Number.isInteger(value.throughWeek)||value.throughWeek<0||value.throughWeek>52||
-    !Number.isFinite(value.plannedSessions)||value.plannedSessions<0||
-    !Number.isFinite(value.plannedWorkingSets)||value.plannedWorkingSets<0||
+    value.schemaVersion!==1||typeof value.throughWeek!=="number"||!Number.isInteger(value.throughWeek)||value.throughWeek<0||value.throughWeek>52||
+    typeof value.plannedSessions!=="number"||!Number.isFinite(value.plannedSessions)||value.plannedSessions<0||
+    typeof value.plannedWorkingSets!=="number"||!Number.isFinite(value.plannedWorkingSets)||value.plannedWorkingSets<0||
     !isPlainStateObject(value.muscles)||Object.keys(value.muscles).length!==PLANNED_VOLUME_HISTORY_MUSCLE_KEYS.length||
     !PLANNED_VOLUME_HISTORY_MUSCLE_KEYS.every(key=>Object.prototype.hasOwnProperty.call(value.muscles,key)))return false;
+  const muscleMaps=value.muscles;
   return PLANNED_VOLUME_HISTORY_MUSCLE_KEYS.every(kind=>{
-    const map=value.muscles[kind];
+    const map=muscleMaps[kind];
     if(!isPlainStateObject(map)||Object.keys(map).length>MuscleDomain.MUSCLE_TOKENS.length)return false;
     return Object.entries(map).every(([name,amount])=>name&&name.length<=PROGRESSION_VALUE_LIMITS.stringLength&&
-      MuscleDomain?.isMuscleToken?.(name)&&Number.isFinite(amount)&&amount>=0);
+      MuscleDomain?.isMuscleToken?.(name)&&typeof amount==="number"&&Number.isFinite(amount)&&amount>=0);
   });
 }
 
+/** @param {ProgramMeta|null|undefined} programMeta */
 function mesocycleLifecycle(programMeta){
-  const meta=programMeta||{},total=+meta.mesocycleLengthWeeks||6,s=meta.started;
+  const meta=programMeta||{},total=+(/** @type {number} */(meta.mesocycleLengthWeeks))||6,s=meta.started;
   let elapsedWeek=null;
   if(s){const days=calendarDayDistance(s,today());
     elapsedWeek=days<0?1:Math.floor(days/7)+1}
@@ -575,9 +654,11 @@ function mesocycleLifecycle(programMeta){
 /** Q617: extended past the planned length; complete in or after the final
  *  week; partial at least halfway; otherwise early. */
 
+/** @param {Receipt|null|undefined} receipt @param {ExerciseInput[]} [program] */
 function prescriptionForReceipt(receipt,program=[]){
   const musclesByName=new Map(),days=Array.isArray(receipt?.days)?receipt.days:[];
   const bySlot=new Map(prescriptionProgramRows(program).map(row=>[row.slotId,row]));
+  /** @param {unknown} name @param {number} d @param {number} p */
   const add=(name,d,p)=>{for(const muscle of muscles(name)){const key=String(muscle||"").trim();if(!key)continue;
     const current=musclesByName.get(key)||{d:0,p:0};current.d+=d;current.p+=p;musclesByName.set(key,current)}};
   let plannedWorkingSets=0;
@@ -590,6 +671,7 @@ function prescriptionForReceipt(receipt,program=[]){
   return{plannedSessions:days.filter(day=>Array.isArray(day?.slots)&&day.slots.length).length,
     plannedWorkingSets,musclesByName:volMapToObj(musclesByName)}}
 
+/** @param {Receipt} receipt @param {RecoveryRecord|null} record */
 function recoveryReceiptForWeek(receipt,record){
   if(!record)return receipt;
   const bySlot=new Map((record.diff?.recoveryWeek?.entries||[])
@@ -599,15 +681,19 @@ function recoveryReceiptForWeek(receipt,record){
     slots:(Array.isArray(day?.slots)?day.slots:[]).map(slot=>bySlot.has(String(slot?.slotId))
       ?{...slot,sets:bySlot.get(String(slot.slotId))}:slot)}))}}
 
-function addVol(m,k,d,p){if(!m.has(k))m.set(k,{d:0,p:0});m.get(k).d+=d;m.get(k).p+=p}
+/** @param {Map<string,{d:number,p:number}>} m @param {string} k @param {number} d @param {number} p */
+function addVol(m,k,d,p){const value=m.get(k)||{d:0,p:0};if(!m.has(k))m.set(k,value);value.d+=d;value.p+=p}
 
 class Exercise{
+  /** @param {ExerciseInput} [d] */
   constructor(d={}){
+    /** @type {unknown} */
+    this.progression;
     this.id=d.id||uid();
     if(d.slotId!=null&&String(d.slotId).trim())this.slotId=String(d.slotId).trim();
     if(d.dayId!=null&&String(d.dayId).trim())this.dayId=String(d.dayId).trim();
     this.day=String(d.day??"").trim()||"Day 1";
-    this.order=Number.isFinite(+d.order)?+d.order:1;
+    this.order=Number.isFinite(+(/** @type {number} */(d.order)))?+(/** @type {number} */(d.order)):1;
     this.name=String(d.name??"").trim()||"Exercise";
     this.sets=Exercise.posInt(d.sets,2);
     this.hasRepTarget=d.hasRepTarget===false?false:
@@ -635,12 +721,12 @@ class Exercise{
     if(d.minSets!=null&&Number.isFinite(+d.minSets)&&+d.minSets>0)this.minSets=Math.round(+d.minSets);
     if(d.maxSets!=null&&Number.isFinite(+d.maxSets)&&+d.maxSets>0)this.maxSets=Math.round(+d.maxSets);
     if(d.priority!=null)this.priority=String(d.priority).trim();
-    if(["known_grid","bodyweight","ordinal","external_unknown"].includes(d.loadingMode))this.loadingMode=d.loadingMode;
+    if(["known_grid","bodyweight","ordinal","external_unknown"].includes(d.loadingMode||""))this.loadingMode=d.loadingMode;
     if(d.loadIncrement!=null&&Number.isFinite(+d.loadIncrement)&&+d.loadIncrement>0)this.loadIncrement=+d.loadIncrement;
     if(d.progression!=null){
       if(!isBoundedProgressionValue(d.progression))throw new TypeError("progression: structure exceeds safety bounds");
       const progression=normalizeProgressionEnvelope(d.progression);
-      if(progression)this.progression=progression;
+      if(progression){/** @type {unknown} */this.progression=progression;}
       else this.progressionIncompatibility=progressionIncompatibility("prescription",d.progression,null,"program-json");
     }
     if(d.progressionIncompatibility!=null&&!this.progression){
@@ -648,12 +734,14 @@ class Exercise{
       this.progressionIncompatibility=cloneSnapshot(d.progressionIncompatibility);
     }
   }
-  static posInt(v,fallback){const n=Math.round(+v);return Number.isFinite(n)&&n>0?n:fallback}
+  /** @param {number|string|undefined} v @param {number} fallback */
+  static posInt(v,fallback){const n=Math.round(+(/** @type {number|string} */(v)));return Number.isFinite(n)&&n>0?n:fallback}
   /* Resolves a linked slot's label and muscles from the library definition, so
      the stored template can never disagree with the id it carries. name and
      primary/secondary stay written out as plain strings — every reader (volume
      audit, CSV, text export, backups) keeps working unchanged — but for a
      linked slot they are derived, not authored. */
+  /** @param {LibraryLookup|null} [entries] @param {{preserveLinkedSnapshot?:boolean}} [options] */
   resolveIdentity(entries,{preserveLinkedSnapshot=false}={}){
     if(this.libraryId===undefined||preserveLinkedSnapshot)return this;
     const entry=entries?entries(this.libraryId):libraryEntry(this.libraryId);
@@ -669,7 +757,10 @@ class Exercise{
     this.primary=libraryMuscleAttribution(entry,"primary");
     this.secondary=libraryMuscleAttribution(entry,"secondary");
     return this}
-  toJSON(){const o={id:this.id,day:this.day,order:this.order,name:this.name,sets:this.sets,primary:this.primary,secondary:this.secondary,notes:this.notes,alternates:this.alternates};
+  /** @returns {ExerciseRow} */
+  toJSON(){
+    /** @type {ExerciseRow} */
+    const o={id:this.id,day:this.day,order:this.order,name:this.name,sets:this.sets,primary:this.primary,secondary:this.secondary,notes:this.notes,alternates:this.alternates};
     if(!this.hasRepTarget)o.hasRepTarget=false;
     if(this.hasRepTarget){o.min=this.min;o.max=this.max}
     if(this.slotId!==undefined)o.slotId=this.slotId;
@@ -694,6 +785,7 @@ class Program{
   /* lookup lets a caller resolve against a snapshot's own custom definitions —
      import and normalizeLoaded work on state that is not live yet.
      structureDays (optional) keeps empty programStructure containers visible. */
+  /** @param {ExerciseInput[]} [list] @param {LibraryLookup|null} [lookup] @param {string[]|null} [structureDays] @param {boolean} [emptyDayContainers] @param {{preserveLinkedSnapshot?:boolean}} [options] */
   constructor(list=[],lookup=null,structureDays=null,emptyDayContainers=false,options={}){const ids=new Set();
     const preserveLinkedSnapshot=options?.preserveLinkedSnapshot===true;
     this._lookup=lookup;
@@ -711,10 +803,13 @@ class Program{
     for(const d of fromEx.sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))){
       if(seen.has(d))continue;seen.add(d);out.push(d)}
     return out}
+  /** @param {string} d */
   forDay(d){return this.exercises.filter(e=>e.day===d).sort((a,b)=>a.order-b.order||a.name.localeCompare(b.name))}
+  /** @param {string} id */
   find(id){return this.exercises.find(e=>e.id===id)}
   renumber(){for(const d of this.days())this.forDay(d).forEach((e,i)=>e.order=i+1)}
   toJSON(){return this.exercises.map(e=>e.toJSON())}
+  /** @param {string} id @param {string} field @param {string|number} value */
   update(id,field,value){const e=this.find(id);if(!e)return;
     if(field==="sets")e.sets=Exercise.posInt(value,e.sets);
     else if(field==="min"){e.hasRepTarget=true;e.min=Exercise.posInt(value,e.min);if(e.max<e.min)e.max=e.min;}
@@ -740,26 +835,33 @@ class Program{
   /* Breaks the library link, keeping the movement exactly as it reads today.
      The slot becomes plain editable text — which is what a lifter asking to
      change a canonical movement's muscles actually wants. */
+  /** @param {string} id */
   detachExercise(id){const e=this.find(id);if(!e||e.libraryId===undefined)return null;
     e.movementId=`library:${e.libraryId}`;delete e.libraryId;delete e.displayName;return e}
+  /** @param {string} day @param {LibraryEntry|null} [entry] */
   addExercise(day,entry=null){const order=Math.max(0,...this.forDay(day).map(e=>e.order))+1;
     const e=new Exercise(Object.assign({day,order,name:t("program.default.exercise"),sets:3,min:6,max:10},
       entry?exerciseFieldsFromLibrary(entry):null));this.exercises.push(e);return e}
   /* Repoints a structural slot at another movement. The slot id stays stable so
      draft inputs and ordering survive; movement history is keyed independently. */
+  /** @param {string} id @param {LibraryEntry} entry */
   replaceExercise(id,entry){const e=this.find(id);if(!e||!entry)return null;
     delete e.displayName;delete e.movementId;
     Object.assign(e,exerciseFieldsFromLibrary(entry));
     if(e.max<e.min)e.max=e.min;
     return e}
+  /** @param {string} id */
   removeExercise(id){this.exercises=this.exercises.filter(e=>e.id!==id);this.renumber()}
+  /** @param {string} id @param {number} dir */
   move(id,dir){const e=this.find(id);if(!e)return;const list=this.forDay(e.day),i=list.indexOf(e),j=i+dir;
     if(j<0||j>=list.length)return;[list[i].order,list[j].order]=[list[j].order,list[i].order]}
+  /** @param {{withPlaceholder?:boolean}} [options] */
   addDay({withPlaceholder}={}){const ds=this.days();let n=ds.length+1,name=`Day ${n}`;while(ds.includes(name))name=`Day ${++n}`;
     const placeholder=withPlaceholder!=null?!!withPlaceholder:!this._emptyDayContainers;
     if(placeholder)this.exercises.push(new Exercise({day:name,order:1,name:t("program.default.exercise"),sets:3,min:6,max:10}));
     if(this._structureDays)this._structureDays.push(name);
     return name}
+  /** @param {string} oldName @param {string} newName */
   renameDay(oldName,newName){const nv=String(newName).trim();if(!nv||nv===oldName)return false;
     if(this.days().includes(nv))return false;
     for(const e of this.exercises)if(e.day===oldName)e.day=nv;
@@ -767,6 +869,7 @@ class Program{
       const idx=this._structureDays.indexOf(oldName);
       if(idx>=0)this._structureDays[idx]=nv}
     this.renumber();return true}
+  /** @param {string} d */
   removeDay(d){this.exercises=this.exercises.filter(e=>e.day!==d);
     if(this._structureDays)this._structureDays=this._structureDays.filter(x=>x!==d)}
   volume(){const m=new Map();for(const e of this.exercises){
@@ -775,6 +878,7 @@ class Program{
 }
 
 
+/** @param {ModelSnapshot & {programMeta:ProgramMeta}} proposal @param {Program} program @param {ExerciseInput[]|null} [previousProgram] @param {ProgramMeta|null} [previousMeta] @param {{recoveryRecord?:RecoveryRecord|null}} [options] */
 function syncProgramStructureFromProgram(proposal,program,previousProgram=null,previousMeta=null,{recoveryRecord=null}={}){
   const struct=proposal.programMeta?.programStructure;
   if(!struct||!Array.isArray(struct.days))return;
@@ -787,7 +891,7 @@ function syncProgramStructureFromProgram(proposal,program,previousProgram=null,p
     days:labels.map((label,i)=>{
       const prev=byLabel.get(label)||byIndex[i];
       const dayId=prev?.dayId||`manual_d${i+1}`;
-      const displayNameKey=prev?.displayNameKey||Compiler?.dayDisplayNameKey?.(dayId);
+      const displayNameKey=prev?.displayNameKey;
       const previousLabel=String(prev?.label||"");
       const override=typeof prev?.nameOverride==="string"&&prev.nameOverride.trim()
         ?prev.nameOverride:"";

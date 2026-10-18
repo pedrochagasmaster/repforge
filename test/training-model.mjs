@@ -77,3 +77,18 @@ assert.equal(translatedProgram.find("translated").displayName,undefined,"current
 language="en";
 translatedProgram.update("translated","name",translated.name);
 assert.equal(translatedProgram.find("translated").displayName,undefined,"live language getter is consulted after switching back");
+// Retired scalar prescriptions stay recoverable, never executable by accident.
+const legacyEnvelope={version:1,kind:"legacy",nested:{value:3}};
+const legacyExercise=new model.Exercise({id:"legacy",progression:legacyEnvelope});
+assert.equal(legacyExercise.progression,undefined);
+assert.deepEqual(legacyExercise.toJSON().progressionIncompatibility.value,legacyEnvelope);
+legacyEnvelope.nested.value=4;
+assert.equal(legacyExercise.toJSON().progressionIncompatibility.value.nested.value,3,"recovery bytes are cloned");
+const compatibility=[];
+assert.deepEqual(model.normalizeProgressionRelations([{kind:"legacy"}],[],{preserveInvalid:true,incompatibilities:compatibility}),[]);
+assert.equal(compatibility[0].kind,"relations");
+assert.deepEqual(model.normalizeProgressionModifiers([], {preserveInvalid:true,incompatibilities:compatibility}),[]);
+assert.equal(compatibility.length,1,"empty compatibility collections carry no executable intent");
+assert.throws(()=>model.normalizeProgressionModifiers({kind:"not-an-array"}),/expected array/);
+assert.equal(model.isValidPlannedVolumeHistory({schemaVersion:1,throughWeek:1,plannedSessions:1,plannedWorkingSets:3,muscles:{direct:{Lats:3},secondary:{}}}),true);
+assert.equal(model.isValidPlannedVolumeHistory({schemaVersion:1,throughWeek:"1",plannedSessions:1,plannedWorkingSets:3,muscles:{direct:{Lats:3},secondary:{}}}),false);
