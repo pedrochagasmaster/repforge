@@ -1,0 +1,84 @@
+import assert from 'node:assert/strict';
+import {launchChromium,waitForAppBoot} from '../browser.mjs';
+import {installBrowserTraining} from '../training-browser.mjs';
+import {ensureBrowserInterchange} from '../interchange-browser.mjs';
+const base=process.env.REPFORGE_URL||'http://localhost:8000/';
+const browser=await launchChromium();
+try{
+ const source=await browser.newContext({serviceWorkers:'block'}),page=await source.newPage();
+ await page.goto(base);await waitForAppBoot(page,{base});
+ await installBrowserTraining(page);await ensureBrowserInterchange(page);
+ const fixture=await page.evaluate(async()=>{
+  const training=window.__repforgeTrainingTest;
+  const script=[...document.querySelectorAll('script[src]')].map(node=>node.src).find(src=>new URL(src).pathname.includes('/src/'));
+  const graph=script?script.slice(0,script.lastIndexOf('/src/')+1):document.baseURI;
+  const {createProgramModel}=await import(new URL('src/training/model.js',graph).href);
+  const model=createProgramModel({catalog:training.catalog,librarySource:window.RepForgeExercises,nextId:()=> 'fixture-id',now:'2026-10-18T12:00:00.000Z',calendarDate:'2026-10-18'});
+  const metricIds=['2555c6f170d8805cafa6d16d3fdddbaa','2555c6f170d88072bbf6d9ad3f16ea86'];
+  const checkedMetrics=training.metrics.default.definitionsForIds(metricIds);
+  if(!checkedMetrics.ok)throw new Error(JSON.stringify(checkedMetrics));
+  const metricDefinitions=checkedMetrics.value;
+  const incoming=model.normalizeCustomExercises([{id:'custom:same-id',name:'Different movement',equipment:['dumbbell'],primary:'Chest',secondary:'',metricIds,metricDefinitions}]);
+  const definition=model.manualProgramDefinitionFromRows([{id:'shared-slot',day:'A',order:1,name:'Different movement',libraryId:'custom:same-id',sets:2,min:6,max:10,primary:'Chest',secondary:''}],['A'],incoming);
+  const setup=window.__repforgeInterchangeTest.setup;
+  const encoded=await setup.encode({kind:setup.KIND,version:setup.VERSION,program:{name:'Coach collision',definition,customExercises:model.compilerCustomDefinitions(incoming)},settings:{jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,unit:'kg',rirMode:'numeric',lang:'en'},language:'en'},
+   {catalogSnapshot:training.catalog,validateProgramDefinition:training.compiler.validateProgramDefinition,generateProgram:training.compiler.generateProgram,generatorVersion:training.compiler.GENERATOR_VERSION});
+  if(!encoded.ok)throw new Error(JSON.stringify(encoded));
+  await window.__repforgeStorage.flush();
+  const head=JSON.parse(localStorage.getItem('repforge_v1'));
+  head.customExercises=model.normalizeCustomExercises([{id:'custom:same-id',name:'Old movement',equipment:['dumbbell'],primary:'Chest',secondary:'',metricIds,metricDefinitions}]);
+  return{encoded:encoded.value,head,slotId:definition.days[0].slots[0].id};
+ });
+ const context=await browser.newContext({viewport:{width:390,height:844},serviceWorkers:'block'}),target=await context.newPage(),errors=[];
+ target.on('pageerror',error=>errors.push(String(error)));
+ await context.addInitScript(head=>{if(!localStorage.getItem('repforge_v1'))localStorage.setItem('repforge_v1',JSON.stringify(head))},fixture.head);
+ await target.goto(`${base}#setup=${fixture.encoded}`);await waitForAppBoot(target,{base});
+ await target.locator('#firstRunSharedStart').waitFor({state:'visible'});
+ assert.equal(await target.locator('#firstRunSharedName').innerText(),'Coach collision · 1 day per week');
+ assert.equal(await target.evaluate(()=>window.__repforgeSharedSetup.status),'ready');
+ await target.evaluate(()=>window.__repforgeStorage.flush());
+ const before=await target.evaluate(()=>localStorage.getItem('repforge_v1'));
+ await target.click('#firstRunSharedStart');await target.locator('#entryActivate').waitFor({state:'visible'});
+ assert.equal(await target.evaluate(()=>localStorage.getItem('repforge_v1')),before,'consent opens a private preview without installing or saving');
+ assert.equal(await target.evaluate(()=>localStorage.getItem('repforge_setup_draft_v1')),null);
+ assert.equal(await target.locator('#entryActivationStatus').count(),0,await target.locator('#entryActivationStatus').allInnerTexts().then(values=>values.join(' ')));
+ await target.click('#entryActivate');
+ await target.waitForFunction(()=>JSON.parse(localStorage.getItem('repforge_v1')).programMeta.onboarded===true);
+ const installed=await target.evaluate(()=>JSON.parse(localStorage.getItem('repforge_v1')));
+ const row=installed.program[0],slot=installed.programMeta.programDefinition.days[0].slots[0];
+ assert.equal(installed.programMeta.name,'Coach collision');assert.equal(slot.id,fixture.slotId);
+ assert.notEqual(slot.exerciseId,'custom:same-id','incoming collision must receive a new identity');
+ assert.equal(row.libraryId,slot.exerciseId);assert.equal(row.name,'Different movement');
+ assert.equal(installed.customExercises.find(ex=>ex.id==='custom:same-id').name,'Old movement');
+ assert.equal(installed.customExercises.find(ex=>ex.id===slot.exerciseId).name,'Different movement');
+ await target.reload();await waitForAppBoot(target,{base});
+ const reloaded=await target.evaluate(()=>JSON.parse(localStorage.getItem('repforge_v1')));
+ assert.equal(reloaded.program[0].libraryId,slot.exerciseId);assert.equal(reloaded.program[0].name,'Different movement');
+ assert.equal(reloaded.customExercises.find(ex=>ex.id==='custom:same-id').name,'Old movement');
+ assert.deepEqual(errors,[]);
+ // A received proposal never displaces an installed program, even when its
+ // cookie and fragment are valid. Real boot eligibility consumes the handoff.
+ const occupied=await browser.newContext({serviceWorkers:'block'}),existing=await occupied.newPage();
+ await occupied.addInitScript(head=>{if(!localStorage.getItem('repforge_v1'))localStorage.setItem('repforge_v1',JSON.stringify(head))},installed);
+ await existing.goto(`${base}#setup=${fixture.encoded}`);await waitForAppBoot(existing,{base});
+ assert.equal(await existing.evaluate(()=>window.__repforgeSharedSetup.status),'existing');
+ assert.equal(await existing.locator('#firstRun').isVisible(),false);
+ assert.equal(await existing.evaluate(()=>JSON.parse(localStorage.getItem('repforge_v1')).program[0].libraryId),slot.exerciseId);
+ assert.equal(await existing.evaluate(()=>document.cookie.includes('repforge_setup_v1=')),false);
+ await occupied.close();
+ // Choosing Create discards the proposal and restores this device's language;
+ // the received program never enters either durable training or setup storage.
+ const discard=await browser.newContext({serviceWorkers:'block'}),fresh=await discard.newPage();
+ await discard.addInitScript(head=>{if(!localStorage.getItem('repforge_v1'))localStorage.setItem('repforge_v1',JSON.stringify({...head,settings:{...head.settings,lang:'pt'}}))},fixture.head);
+ await fresh.goto(`${base}#setup=${fixture.encoded}`);await waitForAppBoot(fresh,{base});
+ await fresh.locator('#firstRunSharedStart').waitFor({state:'visible'});
+ await fresh.click('#firstRunCreate');await fresh.locator('#onboarding.active').waitFor();
+ assert.equal(await fresh.evaluate(()=>window.__repforgeSharedSetup.status),'none');
+ assert.equal(await fresh.evaluate(()=>document.documentElement.lang),'pt');
+ assert.equal(await fresh.evaluate(()=>JSON.parse(localStorage.getItem('repforge_v1')).program.length),0);
+ assert.equal(await fresh.evaluate(()=>document.cookie.includes('repforge_setup_v1=')),false);
+ assert.equal(await fresh.evaluate(()=>location.hash.includes('setup=')),false);
+ await discard.close();
+ console.log('Shared Entry actual browser: native encoded custom collision, readonly consent preview, explicit activation, slot/custom identity agreement and reload passed');
+ await context.close();await source.close();
+}finally{await browser.close()}
