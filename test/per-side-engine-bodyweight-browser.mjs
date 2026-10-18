@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {installBrowserTraining} from "./training-browser.mjs";
 /** Plan 069 S3: bodyweight + per-side reps carries captured context into history. */
 import { readFileSync } from "node:fs";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
@@ -37,9 +38,10 @@ function check(condition, message, detail) {
 }
 
 async function setupProgram(page, exerciseId, executionMode) {
+  await installBrowserTraining(page);
   return page.evaluate(async ({ request, exerciseId, executionMode }) => {
-    const snapshot = window.RepForgeExerciseCatalog.snapshot();
-    const generated = window.RepForgeProgramCompiler.generateProgram(
+    const snapshot = window.__repforgeTrainingTest.catalog;
+    const generated = window.__repforgeTrainingTest.compiler.generateProgram(
       request, snapshot);
     if (!generated.ok) throw new Error("Could not generate the production program: " + JSON.stringify(generated.conflicts));
     const target = generated.value.days.filter((day) => day.kind === "training").flatMap((day) =>
@@ -67,7 +69,7 @@ async function setupProgram(page, exerciseId, executionMode) {
         set.targets = { repsPerSide: { min: 7, max: 9 } };
       }
     }
-    const validation = window.RepForgeProgramCompiler.validateProgramDefinition(generated.value, snapshot, []);
+    const validation = window.__repforgeTrainingTest.compiler.validateProgramDefinition(generated.value, snapshot, []);
     if (!validation.ok) throw new Error("Mutated catalog-backed bodyweight slot is invalid: " + JSON.stringify(validation.issues));
     await window.__repforgeFinalizeProgramSetup({
       programDefinition: generated.value, name: "Per-side bodyweight proof", answers: {}, destination: "log",

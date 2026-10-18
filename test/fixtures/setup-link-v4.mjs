@@ -1,3 +1,4 @@
+import {installBrowserTraining} from "../training-browser.mjs";
 import {ensureBrowserInterchange} from '../interchange-browser.mjs';
 /**
  * Current-format (v4) setup links for the entry suites (install-modes,
@@ -12,9 +13,10 @@ export const SETUP_SETTINGS = Object.freeze({
 });
 
 async function waitForCodec(page) {
+  await installBrowserTraining(page);
   await ensureBrowserInterchange(page);
-  await page.waitForFunction(() => !!window.RepForgeExerciseCatalog?.snapshot?.()?.exercises?.length
-    && !!window.__repforgeInterchangeTest.setup && !!window.RepForgeProgramCompiler, undefined, { timeout: 20000 });
+  await page.waitForFunction(() => !!window.__repforgeTrainingTest?.catalog?.exercises?.length
+    && !!window.__repforgeInterchangeTest.setup && !!window.__repforgeTrainingTest.compiler, undefined, { timeout: 20000 });
 }
 
 /**
@@ -31,11 +33,11 @@ export async function encodeSetupLink(page, { name = "Coach block", language = "
   await waitForCodec(page);
   await ensureBrowserInterchange(page);
   return page.evaluate(async ({ name, language, daysPerWeek, definition: supplied, custom, settings }) => {
-    const catalog = window.RepForgeExerciseCatalog.snapshot();
-    const Compiler = window.RepForgeProgramCompiler;
+    const catalog = window.__repforgeTrainingTest.catalog;
+    const Compiler = window.__repforgeTrainingTest.compiler;
     let definition = supplied;
     if (!definition) {
-      const mapped = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({
+      const mapped = window.__repforgeTrainingTest.entryAdapter.programRequestFromAnswers({
         desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek, sessionMinutes: 60,
         environment: { kind: "commercial_gym" },
       }, catalog);
@@ -76,8 +78,8 @@ export async function encodeSetupPayload(page, payload) {
   await waitForCodec(page);
   await ensureBrowserInterchange(page);
   return page.evaluate(async (payload) => {
-    const catalog = window.RepForgeExerciseCatalog.snapshot();
-    const Compiler = window.RepForgeProgramCompiler;
+    const catalog = window.__repforgeTrainingTest.catalog;
+    const Compiler = window.__repforgeTrainingTest.compiler;
     return window.__repforgeInterchangeTest.setup.encode(payload, {
       builtInIds: new Set(catalog.exercises.map((exercise) => exercise.id)),
       catalogSnapshot: catalog,
@@ -93,8 +95,8 @@ export async function decodeSetupLink(page, value) {
   await waitForCodec(page);
   await ensureBrowserInterchange(page);
   return page.evaluate(async (value) => {
-    const catalog = window.RepForgeExerciseCatalog.snapshot();
-    const Compiler = window.RepForgeProgramCompiler;
+    const catalog = window.__repforgeTrainingTest.catalog;
+    const Compiler = window.__repforgeTrainingTest.compiler;
     return window.__repforgeInterchangeTest.setup.decode(value, {
       builtInIds: new Set(catalog.exercises.map((exercise) => exercise.id)),
       catalogSnapshot: catalog,
