@@ -1,5 +1,7 @@
 # Taurifer — architecture audit and refactoring plan
 
+> For the current proposed target and migration, see the [18 October 2026 agent-first architecture specification](architecture/agent-first-spec.md), audited against `147e4afa`. This September document remains historical evidence.
+
 **Audit date:** 9 September 2026<br>
 **Repository:** `pedrochagasmaster/repforge`<br>
 **Historical audit snapshot:** `77c6a011e1bba5121ebd2ee15db85d77275c6ee5` (9 September 2026)<br>

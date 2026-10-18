@@ -11,13 +11,27 @@ Scope: documentation only. Base `147e4afa07fea3243efd42b5b7d167c196c6a7ca`. The 
 
 ## Independent review
 
-Architecture/discoverability and migration/data-safety reviewers inspected the current source independently and are reviewing the complete draft. Final findings and dispositions will be recorded here before handoff. Early corrections already incorporated include current setup v4-only support, full source metric/profile/replay responsibilities, matching historical shells, explicit lock-held policy, truthful settlement, transfer irreversibility and SW cache retention.
+Two read-only reviewers inspected fresh main and the complete draft: architecture/discoverability and migration/data safety. Both confirmed no remaining substantive blockers after corrections. Their review covers specification adequacy, not future runtime correctness.
+
+| Finding | Correction / closing evidence |
+| --- | --- |
+| A1: release gate would regress first visit/no-SW/registration failure | Section 7 distinguishes exact network startup without a controller from incompatible controlling-worker startup. Offline readiness requires successful installation. Slice 2 includes no-SW and first-install proofs. |
+| A2: deferred ESM could load after immediately executing classic host | Section 5 specifies one awaited bridge gate and exactly-once classic startup; old immediate start path is removed, prepaint stays synchronous. |
+| A3: production migration implicitly blocked on Lab merge | Slice 18 has a concrete owner patch/proof-map disposition if #432 remains unmerged; production completion does not promise or require its merge. |
+| A4: relative catalog/worker/CSS paths lacked a concrete layout rule | Section 3 mirrors the full source/assets layout in each release, gives exact catalog and sibling worker URL examples and rewrites only root HTML references. |
+| M1: intermediate ESM slices preceded release safety | Slice 2 now implements the graph/cache/start-gate protocol for the first real migrated leaf; all later slices ship through it. Slice 19 removes the last classic root. |
+| M2: pre-protocol worker can overwrite its cached old shell | Section 7 explicitly allows read-only offline update recovery after new HTML has replaced the predecessor shell, requires old-tabs-closed/reopen liveness, and imports no writer graph before the controlling-worker gate. |
+| M3: authoring/compiler and command/session dependencies omitted | Slice 5 depends on 4; slice 9 depends on 8. Dependency backbone and parallelism amended; exact count remains 20. |
+| M4: blanket ban contradicted current missing-ID legacy backfill | Risk register and slice 6 preserve existing characterized name/day/performed-identity guards and add ambiguous-name negatives; only new inference is forbidden. |
+
+Early source-review corrections also incorporated current v4-only setup support, full metric/profile/replay responsibilities, matching historical shells, lock-held validation, distinct export durability policy and irreversible verified transfer commit. Final small wording aligns release failure stopping at slice 2/first affected slice and the uncontrolled-startup exception. Section 8 maps actual retained risk suites to migration slices; these are planned implementation evidence, not reported passes.
 
 ## Documentation validation
 
 - `node tools/run-tests.mjs --check`: passed; base inventory 208 commands, every test script classified. This checks inventory consistency, not application behavior.
 - `git diff --check`: passed for the documentation diff.
 - Migration table parsed: exactly 20 consecutive slices, effort sum 47–86 focused person-days.
-- Final-head `ci`: pending draft PR creation. Under current `tools/ci-plan.mjs`, these two ordinary Markdown files are prose-only; expected plan and aggregate run, executable jobs skip. No application/runtime correctness or #446 benchmark result is claimed from this documentation check.
+- Local `classifyChange` proof: all three changed Markdown files are prose-only under current `tools/ci-plan.mjs`; executable jobs should skip. Relative documentation links resolve.
+- Final-head `ci`: inspect the source-specific check on [draft PR #447](https://github.com/pedrochagasmaster/repforge/pull/447/checks). Final check/run identity is recorded in the PR description after the final push, avoiding a self-referential evidence-only commit that invalidates its own head claim. Expected plan and aggregate run, executable jobs skip. No application/runtime correctness or #446 benchmark result is claimed from this documentation check.
 
 No app source, generated assets, saved schema, CI configuration, deployment, service, credentials or network infrastructure changed. No merge or deployment is part of this work.
