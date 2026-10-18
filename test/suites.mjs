@@ -45,6 +45,8 @@ export const SUITES = {
     s("test/durable-checkpoint-head.mjs", [], {domains:["persistence","workout"],nodeArgs:["--test"]}),
     s("test/storage-recovery-owner.mjs", [], {domains:["persistence","shell"],nodeArgs:["--test"]}),
     s("test/guide-preferences-owner.mjs", [], {domains:["settings","entry"],nodeArgs:["--test"]}),
+    s("test/notification-delivery-contract.mjs", [], {domains:["settings","today"],nodeArgs:["--test"]}),
+    s("test/motion-disposal-contract.mjs", [], {domains:["shell","workout"],nodeArgs:["--test"]}),
     s("test/program-executor-lifecycle.mjs", [], {domains:["program","offline"],nodeArgs:["--test"]}),
     s("test/platform-executor-contract.mjs", [], {domains:["program","offline"],nodeArgs:["--test"]}),
     s("test/focus-rest-clock.mjs", [], {domains:["workout"],nodeArgs:["--test"]}),
