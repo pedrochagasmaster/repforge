@@ -125,7 +125,7 @@ try {
   await page.waitForSelector('[data-history-delete-confirm="delete-crash-target"]');
 
   await page.evaluate(() => {
-    const io = window.RepForgeDurableState.storageIO;
+    const io = window.__repforgeStorage.durable.storageIO;
     const originalWriteLocal = io.writeLocal;
     io.writeLocal = async function (snapshot) {
       const accepted = await originalWriteLocal.call(this, snapshot);

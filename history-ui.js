@@ -68,11 +68,11 @@
 
   function createHistoryUi(deps){
     const {
-      $, $$, t, esc, cloneSnapshot, currentMovementNames, mergeLogChronology,
+      $, $$, t, esc, cloneSnapshot, canonicalize, currentMovementNames, mergeLogChronology,
       compareLogChronology, isWork, liftKey, buildSessionDelta, detectPRs,
       displayName, currentNameForRow, dayLabel, canTakeFocus, parseCalendarDate,
       parseLoadDisplay, parseRepsValue, parseRirValue, clearFieldInvalid,
-      toast, formatLongDate, fmtLoad, sum, kfmt, toDisplay, unitLabel,
+      toast, formatLongDate, fmtLoad, fmtLoadPlain, sum, kfmt, toDisplay, unitLabel, muscleLabel,
       metricLabel: metricLabelDep, metricDisplayValue, metricDisplayUnit,
       parseHistoryMetricInput,
       weekdayLetters, table, fmt, today, uid, readRevision, commitProposedState,

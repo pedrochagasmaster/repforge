@@ -2,6 +2,18 @@ import {createSession} from './src/app/session.js';
 import {createWorkoutCommands} from './src/app/workout.js';
 import {createProgramCommands,createCustomExerciseCommands,createProgramReplacementCommands} from './src/app/program.js';
 import {createHistoryCommands} from './src/app/history.js';
+import {createMotion} from './src/platform/motion.js';
+import * as SnapshotPolicy from './src/persistence/snapshot.js';
+import {createDurableStore} from './src/persistence/durable.js';
+import {createPreferences} from './src/persistence/preferences.js';
+import {createProgramModel,PROGRESSION_VALUE_LIMITS} from './src/training/model.js';
+import {createEntryRules} from './src/training/authoring.js';
+import {createWorkoutRules} from './src/training/workout.js';
+import {compiler as PersistenceCompiler,createTransitionRules} from './src/training/generation.js';
+import PersistenceMetrics from './src/training/metrics.js';
+import {progression as PersistenceProgression} from './src/training/progress.js';
+const {cloneSnapshot,isPlainStateObject,isValidBlockId,isBoundedProgressionValue,isBoundedTransitionValue,classifyRecoveryCarrier,isValidRecoveryTransitions,readRevision,stripStorageMeta,exportableState,mirrorComparisonSnapshot,canonicalize,canonicalPayload,snapshotsEqual,storageSnapshotsEqual,rebaseStateChange,unversionedSnapshot,draftProgramFingerprint,workoutProgramFingerprint,draftContextFingerprint,snapshotBlockId}=SnapshotPolicy;
+let normalizeMuscleAttribution,isValidMuscleDomainTree,isValidStoredMuscleField,isValidPlannedVolumeHistory,normalizeRecoveryCarrierSnapshot,isSafeProgressionFields,isSafeProgressionMeta,isSafeProgramHistoryEntry,isSafeLogRow,isSafeCustomExercise,isValidSetupActivationMarker,setupActivationMarker,setupActivationMatches,isValidStateShape,migrateLogSnapshot,defaultProgramMeta,normalizeProgramEntrySource,normalizeProgramMeta,normalizeLoadingConfiguration,withExplicitProgramStructure,normalizeProgramHistory,normalizeLoaded,normalizeNotify,normalizeSettings;
 let fallbackGestureController=null;
 const fallbackFocusTimers=new Set();
 function fallbackFocusLater(callback,delay){
@@ -120,10 +132,8 @@ const installTransferInitialDevice={
   consent:installTransferRawAtLoad(TELEMETRY_ENABLED_KEY),
   identity:installTransferRawAtLoad(TELEMETRY_IDENTITY_KEY)};
 let installTransferBootDevice=null;
-function loadNotifyMeta(){
-  try{return JSON.parse(localStorage.getItem(NOTIFY_META)||"{}")||{}}catch{return{}}
-}
-function saveNotifyMeta(m){localStorage.setItem(NOTIFY_META,JSON.stringify(m))}
+function loadNotifyMeta(){return preferenceStore.readNotify()}
+function saveNotifyMeta(m){return preferenceStore.writeNotify(m)}
 async function idbGet(key){return DurableState.readAuxiliaryIdbValue(key)}
 async function idbSet(key,val){return DurableState.writeAuxiliaryIdbValue(key,val)}
 async function idbDel(key){return DurableState.deleteAuxiliaryIdbValue(key)}
@@ -132,442 +142,79 @@ const STORAGE_REV="_storageRevision",STORAGE_FOLLOWUP="_storageFollowUp",STORAGE
    definitions, so a rebase against a refreshed head can tell payload data from
    recipient data. Stripped before any snapshot becomes durable. */
 const SHARED_IMPORT="_sharedSetupImport";
-function cloneSnapshot(s){return s==null?s:JSON.parse(JSON.stringify(s))}
-function isPlainStateObject(value){
-  if(!value||typeof value!=="object"||Array.isArray(value))return false;
-  const proto=Object.getPrototypeOf(value);
-  return proto===Object.prototype||proto===null}
-const PROGRESSION_VALUE_LIMITS=Object.freeze({depth:32,nodes:1000,keys:128,arrayItems:128,stringLength:4000});
+
+
+
 const MuscleDomain=window.RepForgeProgramEntry;
-function normalizeMuscleAttribution(value,field="muscle attribution"){
-  const result=MuscleDomain?.normalizeMuscleAttribution?.(value);
-  if(!result?.ok)throw new TypeError(`${result?.code||"invalid-muscle-domain"}: ${field}`);
-  return result.value}
-function isValidMuscleDomainTree(value,seen=new WeakSet()){
-  if(value===null||typeof value!=="object")return true;
-  if(seen.has(value))return false;
-  seen.add(value);
-  if(Array.isArray(value))return value.every(item=>isValidMuscleDomainTree(item,seen));
-  if(!isPlainStateObject(value))return false;
-  for(const [key,child] of Object.entries(value)){
-    if((key==="primary"||key==="secondary")&&typeof child==="string"){
-      if(!MuscleDomain?.isCanonicalMuscleAttribution?.(child))return false;
-    }else if((key==="performedPrimary"||key==="performedSecondary")&&typeof child==="string"){
-      if(child!==null&&!MuscleDomain?.isCanonicalMuscleAttribution?.(child))return false;
-    }
-    if(!isValidMuscleDomainTree(child,seen))return false}
-  return true}
-function isValidStoredMuscleField(value,nullable=false){
-  return nullable&&value===null||typeof value==="string"&&MuscleDomain?.isCanonicalMuscleAttribution?.(value)}
+
+
+
 function invalidMuscleDomainCommit(value=null){
   return{ok:false,committed:false,invalid:true,code:"invalid-muscle-domain",
     message:t("program.editor.invalid_muscles"),localOk:false,idbOk:false}}
-function isValidBlockId(value,programId=null){
-  return typeof value==="string"&&value.trim().length>0&&value.length<=240&&
-    (programId==null||value!==programId)}
-function isBoundedProgressionValue(value,depth=0,state={nodes:0}){
-  if(++state.nodes>PROGRESSION_VALUE_LIMITS.nodes||depth>PROGRESSION_VALUE_LIMITS.depth)return false;
-  if(typeof value==="string")return value.length<=PROGRESSION_VALUE_LIMITS.stringLength;
-  if(value===null||typeof value==="boolean")return true;
-  if(typeof value==="number")return Number.isFinite(value);
-  if(Array.isArray(value))return value.length<=PROGRESSION_VALUE_LIMITS.arrayItems&&value.every(item=>isBoundedProgressionValue(item,depth+1,state));
-  if(!isPlainStateObject(value)||Object.keys(value).length>PROGRESSION_VALUE_LIMITS.keys)return false;
-  return Object.keys(value).every(key=>isBoundedProgressionValue(value[key],depth+1,state));
-}
-const PLANNED_VOLUME_HISTORY_KEYS=["schemaVersion","throughWeek","plannedSessions","plannedWorkingSets","muscles"];
-const PLANNED_VOLUME_HISTORY_MUSCLE_KEYS=["direct","secondary"];
-function isValidPlannedVolumeHistory(value){
-  if(!isPlainStateObject(value)||!isBoundedProgressionValue(value)||
-    Object.keys(value).length!==PLANNED_VOLUME_HISTORY_KEYS.length||
-    !PLANNED_VOLUME_HISTORY_KEYS.every(key=>Object.prototype.hasOwnProperty.call(value,key))||
-    value.schemaVersion!==1||!Number.isInteger(value.throughWeek)||value.throughWeek<0||value.throughWeek>52||
-    !Number.isFinite(value.plannedSessions)||value.plannedSessions<0||
-    !Number.isFinite(value.plannedWorkingSets)||value.plannedWorkingSets<0||
-    !isPlainStateObject(value.muscles)||Object.keys(value.muscles).length!==PLANNED_VOLUME_HISTORY_MUSCLE_KEYS.length||
-    !PLANNED_VOLUME_HISTORY_MUSCLE_KEYS.every(key=>Object.prototype.hasOwnProperty.call(value.muscles,key)))return false;
-  return PLANNED_VOLUME_HISTORY_MUSCLE_KEYS.every(kind=>{
-    const map=value.muscles[kind];
-    if(!isPlainStateObject(map)||Object.keys(map).length>MuscleDomain.MUSCLE_TOKENS.length)return false;
-    return Object.entries(map).every(([name,amount])=>name&&name.length<=PROGRESSION_VALUE_LIMITS.stringLength&&
-      MuscleDomain?.isMuscleToken?.(name)&&Number.isFinite(amount)&&amount>=0);
-  });
-}
-const TRANSITION_VALUE_LIMITS=Object.freeze({depth:32,nodes:10000,keys:128,arrayItems:256,stringLength:10000});
-function isBoundedTransitionValue(value,depth=0,state={nodes:0}){
-  if(++state.nodes>TRANSITION_VALUE_LIMITS.nodes||depth>TRANSITION_VALUE_LIMITS.depth)return false;
-  if(typeof value==="string")return value.length<=TRANSITION_VALUE_LIMITS.stringLength;
-  if(value===null||typeof value==="boolean")return true;
-  if(typeof value==="number")return Number.isFinite(value);
-  if(Array.isArray(value))return value.length<=TRANSITION_VALUE_LIMITS.arrayItems&&value.every(item=>isBoundedTransitionValue(item,depth+1,state));
-  if(!isPlainStateObject(value)||Object.keys(value).length>TRANSITION_VALUE_LIMITS.keys)return false;
-  return Object.keys(value).every(key=>isBoundedTransitionValue(value[key],depth+1,state));
-}
-const RECOVERY_HASH_RE=/^[0-9a-f]{64}$/;
-const RECOVERY_CARRIER_INSTANT_RE=/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
-const RECOVERY_CARRIER_KEYS=["schemaVersion","records","quarantine"];
-const RECOVERY_RECORD_KEYS=["schemaVersion","transitionId","kind","createdAt","status","predecessor","diagnosis","derivation","diff","progressionContract","archiveId","confirmedAt","proposalHash"];
-const RECOVERY_OVERLAY_KEYS=["schemaVersion","policyVersion","transitionId","blockId","activePeriod","eligibilityEvidence","baseProgramFingerprint","entries","createdAt","confirmedAt","reassessmentDueAt","reassessmentOutcome"];
-const RECOVERY_DIFF_KEYS=["days","exercises","prescriptions","recoveryWeek"];
-const RECOVERY_QUARANTINE_REASONS=["known-schema-malformed-recovery","duplicate-target-conflict"];
-const RECOVERY_REPLICA_SOURCES=["localStorage","indexedDB","both"];
-function recoveryCodeUnitCompare(left,right){return left<right?-1:left>right?1:0}
-function exactRecoveryKeys(value,keys){
-  return isPlainStateObject(value)&&Object.keys(value).length===keys.length&&
-    keys.every(key=>Object.prototype.hasOwnProperty.call(value,key))}
-function isRecoveryCarrierQuarantineEntry(value){
-  if(!isPlainStateObject(value)||!isBoundedTransitionValue(value))return false;
-  const keys=["schemaVersion","digest","raw","sourceReplica","detectedAt","reason"];
-  if(Object.keys(value).length!==keys.length||!keys.every(key=>Object.prototype.hasOwnProperty.call(value,key)))return false;
-  return value.schemaVersion===1&&RECOVERY_HASH_RE.test(value.digest)&&
-    typeof value.raw==="string"&&value.raw.length<=TRANSITION_VALUE_LIMITS.stringLength&&
-    RECOVERY_REPLICA_SOURCES.includes(value.sourceReplica)&&
-    RECOVERY_CARRIER_INSTANT_RE.test(value.detectedAt)&&
-    RECOVERY_QUARANTINE_REASONS.includes(value.reason);
-}
-function isRecoveryCarrierRecord(value){
-  if(!isPlainStateObject(value)||!isBoundedTransitionValue(value))return false;
-  if(!exactRecoveryKeys(value,RECOVERY_RECORD_KEYS))return false;
-  const predecessor=value.predecessor,overlay=value.diff?.recoveryWeek,evidence=overlay?.eligibilityEvidence;
-  const overlayKeys=RECOVERY_OVERLAY_KEYS;
-  const diffKeys=RECOVERY_DIFF_KEYS;
-  if(value.schemaVersion!==1||value.kind!=="recovery_week"||value.status!=="committed"||
-    typeof value.transitionId!=="string"||!value.transitionId.trim()||
-    !RECOVERY_CARRIER_INSTANT_RE.test(value.createdAt)||!RECOVERY_CARRIER_INSTANT_RE.test(value.confirmedAt)||
-    !RECOVERY_HASH_RE.test(value.proposalHash)||value.archiveId!==null||
-    !isPlainStateObject(predecessor)||typeof predecessor.programId!=="string"||!predecessor.programId.trim()||
-    !isValidBlockId(predecessor.blockId,predecessor.programId)||
-    !isPlainStateObject(value.diff)||Object.keys(value.diff).length!==diffKeys.length||!diffKeys.every(key=>Object.prototype.hasOwnProperty.call(value.diff,key))||
-    !isPlainStateObject(overlay)||Object.keys(overlay).length!==overlayKeys.length||!overlayKeys.every(key=>Object.prototype.hasOwnProperty.call(overlay,key))||
-    overlay.schemaVersion!==1||overlay.policyVersion!==2||overlay.transitionId!==value.transitionId||
-    typeof overlay.blockId!=="string"||!overlay.blockId.trim()||overlay.blockId===predecessor.blockId||
-    overlay.activePeriod!=="nextBlockWeek1"||!RECOVERY_CARRIER_INSTANT_RE.test(overlay.createdAt)||
-    !RECOVERY_CARRIER_INSTANT_RE.test(overlay.reassessmentDueAt)||overlay.confirmedAt!==value.confirmedAt||
-    ![null,"Better","About the same","Worse"].includes(overlay.reassessmentOutcome)||
-    !isPlainStateObject(evidence)||evidence.sourceBlockId!==predecessor.blockId||
-    typeof evidence.sourceBlockId!=="string"||!evidence.sourceBlockId.trim()||
-    !Array.isArray(overlay.entries)||overlay.entries.length===0)return false;
-  return true;
-}
-function isValidRecoveryTransitions(value){
-  if(!isPlainStateObject(value)||!isBoundedTransitionValue(value)||value.schemaVersion!==1)return false;
-  const keys=RECOVERY_CARRIER_KEYS;
-  if(!exactRecoveryKeys(value,keys))return false;
-  return Array.isArray(value.records)&&value.records.length<=TRANSITION_VALUE_LIMITS.arrayItems&&
-    value.records.every(isRecoveryCarrierRecord)&&Array.isArray(value.quarantine)&&
-    value.quarantine.length<=TRANSITION_VALUE_LIMITS.arrayItems&&value.quarantine.every(isRecoveryCarrierQuarantineEntry);
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /* Carrier classification is deliberately narrower than normalization. The
    supported envelope is closed: an unknown key/version is storage recovery,
    while a known envelope whose semantic record is malformed can fall back to
    the canonical program and leave bounded evidence. */
-function classifyRecoveryRecordEnvelope(value){
-  if(!isPlainStateObject(value)||!isBoundedTransitionValue(value)||
-    !exactRecoveryKeys(value,RECOVERY_RECORD_KEYS)||value.schemaVersion!==1)return"unknown";
-  const diff=value.diff,overlay=diff?.recoveryWeek;
-  if(!isPlainStateObject(diff)||!exactRecoveryKeys(diff,RECOVERY_DIFF_KEYS)||
-    !isPlainStateObject(overlay)||!exactRecoveryKeys(overlay,RECOVERY_OVERLAY_KEYS)||
-    overlay.schemaVersion!==1||overlay.policyVersion!==2)return"unknown";
-  return isRecoveryCarrierRecord(value)?"valid":"malformed";
-}
-function classifyRecoveryCarrier(value){
-  if(value===undefined)return{kind:"absent",malformed:[],valid:[],needsEvidence:false};
-  if(!isPlainStateObject(value)||!isBoundedTransitionValue(value)||
-    !exactRecoveryKeys(value,RECOVERY_CARRIER_KEYS)||value.schemaVersion!==1||
-    !Array.isArray(value.records)||value.records.length>TRANSITION_VALUE_LIMITS.arrayItems||
-    !Array.isArray(value.quarantine)||value.quarantine.length>TRANSITION_VALUE_LIMITS.arrayItems||
-    !value.quarantine.every(isRecoveryCarrierQuarantineEntry))return{kind:"unknown"};
-  const valid=[],malformed=[];
-  for(const record of value.records){
-    const status=classifyRecoveryRecordEnvelope(record);
-    if(status==="unknown")return{kind:"unknown"};
-    if(status==="valid")valid.push(record);
-    else malformed.push(record)}
-  const targets=new Map();
-  for(const record of valid){
-    const target=record.diff.recoveryWeek.blockId;
-    if(!targets.has(target))targets.set(target,[]);
-    targets.get(target).push(record)}
-  const conflicts=[...targets].filter(([,records])=>records.length>1)
-    .map(([targetBlockId,records])=>({targetBlockId,records}));
-  return{kind:"known",valid,malformed,conflicts,
-    needsEvidence:malformed.length>0||conflicts.length>0};
-}
-function recoveryCarrierConflictGroups(records){
-  const targets=new Map();
-  for(const record of records){
-    const target=record.diff.recoveryWeek.blockId;
-    if(!targets.has(target))targets.set(target,[]);
-    targets.get(target).push(record)}
-  return[...targets].filter(([,group])=>group.length>1)
-    .map(([targetBlockId,group])=>({targetBlockId,records:group}))
-}
-async function validateRecoveryCarrierRecord(snapshot,record){
-  const Transition=typeof RepForgeProgramTransition!=="undefined"?RepForgeProgramTransition:null;
-  const Compiler=typeof ProgramCompiler!=="undefined"?ProgramCompiler:null;
-  const catalogue=typeof EXERCISE_LIBRARY!=="undefined"?EXERCISE_LIBRARY:null;
-  if(!Transition||typeof Transition.validateRecoveryRecord!=="function"||
-    typeof Transition.approvedRecoveryPolicy!=="function"||!Compiler||
-    !Compiler.VERSIONS||typeof Compiler.VERSIONS!=="object")return{kind:"unavailable"};
-  const instance=recoveryCompilerInstance(snapshot,Compiler,catalogue);
-  if(!instance)return{kind:"unavailable"};
-  let validation;
-  try{
-    validation=await Transition.validateRecoveryRecord(record,{
-      predecessor:cloneSnapshot(record.predecessor),
-      predecessorInstance:instance,
-      approvedPolicy:Transition.approvedRecoveryPolicy(),
-      supportedVersions:Compiler.VERSIONS,
-      // Validate each candidate independently. The candidate itself is the
-      // only repeat context, so two independently valid records can become a
-      // deterministic target conflict after validation.
-      existingRecoveryRecords:[record],
-    });
-  }catch{return{kind:"unavailable"}}
-  if(validation?.ok===true&&validation.record)return{kind:"valid"};
-  if(!validation||typeof validation!=="object")return{kind:"unavailable"};
-  return{kind:"malformed"};
-}
-async function classifyRecoveryCarrierSemantics(snapshot,classification){
-  const valid=[],malformed=[...classification.malformed];
-  for(const record of classification.valid){
-    const result=await validateRecoveryCarrierRecord(snapshot,record);
-    if(result.kind==="unavailable")return{kind:"unavailable"};
-    if(result.kind==="valid")valid.push(record);
-    else malformed.push(record)}
-  const conflicts=recoveryCarrierConflictGroups(valid);
-  return{kind:"known",valid,malformed,conflicts,
-    needsEvidence:malformed.length>0||conflicts.length>0};
-}
-function isValidStateWithoutRecoveryCarrier(value){
-  if(!isPlainStateObject(value)||!Object.prototype.hasOwnProperty.call(value,"recoveryTransitions"))return false;
-  const copy=cloneSnapshot(value);delete copy.recoveryTransitions;
-  return isValidStateShape(copy)}
-function carrierReadStatus(parsed,raw){
-  const classification=classifyRecoveryCarrier(parsed?.recoveryTransitions);
-  if(classification.kind==="known"&&
-    (isValidStateShape(parsed)||isValidStateWithoutRecoveryCarrier(parsed)))
-    return{status:"valid",raw,parsed,recoveryCarrierClassification:classification};
-  return null;
-}
-function mergeRecoverySource(existing,incoming){
-  if(existing===incoming)return existing;
-  if(existing==="both"||incoming==="both")return"both";
-  return"both";
-}
-function quarantineEntryKey(entry){return`${entry.digest}\u0000${entry.reason}`}
+
+
+
+
+
+
+
+
+
 async function recoverySha256(raw){
   if(typeof TextEncoder!=="function"||!globalThis.crypto?.subtle)throw new Error("SHA-256 unavailable");
   const bytes=new TextEncoder().encode(raw);
   const digest=await globalThis.crypto.subtle.digest("SHA-256",bytes);
   return Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,"0")).join("");
 }
-function mergeRecoveryQuarantine(list,entry){
-  const key=quarantineEntryKey(entry),index=list.findIndex(candidate=>quarantineEntryKey(candidate)===key);
-  if(index<0){list.push(entry);return true}
-  const previous=list[index],source=mergeRecoverySource(previous.sourceReplica,entry.sourceReplica);
-  if(source===previous.sourceReplica)return false;
-  list[index]={...previous,sourceReplica:source};
-  return true;
-}
-async function normalizeRecoveryCarrierSnapshot(snapshot,sourceReplica,{priorQuarantine=[]}={}){
-  let classification=classifyRecoveryCarrier(snapshot?.recoveryTransitions);
-  if(classification.kind!=="known")return{kind:classification.kind,snapshot};
-  let semantic;
-  try{semantic=await classifyRecoveryCarrierSemantics(snapshot,classification)}
-  catch{return{kind:"full-recovery",snapshot}}
-  if(semantic.kind!=="known")return{kind:"full-recovery",snapshot};
-  classification=semantic;
-  const carrier=snapshot.recoveryTransitions;
-  const normalized={schemaVersion:1,records:classification.valid.map(cloneSnapshot),quarantine:[]};
-  for(const entry of carrier.quarantine)
-    mergeRecoveryQuarantine(normalized.quarantine,cloneSnapshot(entry));
-  for(const entry of priorQuarantine)
-    mergeRecoveryQuarantine(normalized.quarantine,cloneSnapshot(entry));
-  const detectedAt=()=>new Date().toISOString();
-  const addEvidence=async(raw,reason)=>{
-    if(typeof raw!=="string"||raw.length>TRANSITION_VALUE_LIMITS.stringLength)
-      return{kind:"full-recovery"};
-    let digest;
-    try{digest=await recoverySha256(raw)}catch{return{kind:"full-recovery"}}
-    const entry={schemaVersion:1,digest,raw,sourceReplica,detectedAt:detectedAt(),reason};
-    mergeRecoveryQuarantine(normalized.quarantine,entry);
-    if(!isBoundedTransitionValue(normalized))return{kind:"full-recovery"};
-    return{kind:"ok"};
-  };
-  for(const malformed of classification.malformed){
-    const result=await addEvidence(JSON.stringify(malformed),"known-schema-malformed-recovery");
-    if(result.kind!=="ok")return{kind:result.kind,snapshot};
-  }
-  for(const conflict of classification.conflicts){
-    const records=[...conflict.records].sort((left,right)=>
-      recoveryCodeUnitCompare(String(left.proposalHash||""),String(right.proposalHash||""))||
-      recoveryCodeUnitCompare(String(left.transitionId||""),String(right.transitionId||"")));
-    const result=await addEvidence(JSON.stringify({targetBlockId:conflict.targetBlockId,records}),"duplicate-target-conflict");
-    if(result.kind!=="ok")return{kind:result.kind,snapshot};
-  }
-  if(!isBoundedTransitionValue(normalized))return{kind:"full-recovery",snapshot};
-  const next=cloneSnapshot(snapshot);next.recoveryTransitions=normalized;
-  return{kind:"known",snapshot:next,changed:!storageSnapshotsEqual(next,snapshot)};
-}
-function isSafeProgressionFields(value){
-  if(!isPlainStateObject(value))return false;
-  if(Object.prototype.hasOwnProperty.call(value,"hasRepTarget")&&typeof value.hasRepTarget!=="boolean")return false;
-  if(!isValidMuscleDomainTree(value))return false;
-  for(const key of ["primary","secondary"])
-    if(Object.prototype.hasOwnProperty.call(value,key)&&!isValidStoredMuscleField(value[key]))return false;
-  if(Object.prototype.hasOwnProperty.call(value,"progressionType")&&
-    (typeof value.progressionType!=="string"||Array.from(value.progressionType.trim()).length>80))return false;
-  for(const key of ["progression","progressionIncompatibility"])
-    if(Object.prototype.hasOwnProperty.call(value,key)&&!isBoundedProgressionValue(value[key]))return false;
-  return true}
-function isSafeProgressionMeta(value,customDefinitions=[]){
-  if(value==null)return true;
-  if(!isPlainStateObject(value))return false;
-  if(!isValidMuscleDomainTree(value))return false;
-  if(Object.prototype.hasOwnProperty.call(value,"blockId")&&
-    !isValidBlockId(value.blockId,value.id))return false;
-  if(Object.prototype.hasOwnProperty.call(value,"transitionIn")&&value.transitionIn!=null&&
-    !DurableState.isCoherentV1TransitionIn(value.transitionIn))return false;
-  for(const key of ["progressionRelations","progressionModifiers","progressionIncompatibilities"])
-    if(Object.prototype.hasOwnProperty.call(value,key)&&
-      (!Array.isArray(value[key])||!isBoundedProgressionValue(value[key])))return false;
-  if(Object.prototype.hasOwnProperty.call(value,"programStructure")&&value.programStructure!=null&&
-    !isBoundedProgressionValue(value.programStructure))return false;
-  if(Object.prototype.hasOwnProperty.call(value,"programDefinition")&&value.programDefinition!=null&&
-    !canonicalProgramDefinition(value.programDefinition,customDefinitions))return false;
-  if(Object.prototype.hasOwnProperty.call(value,"plannedVolumeHistory")&&value.plannedVolumeHistory!=null&&
-    !isValidPlannedVolumeHistory(value.plannedVolumeHistory))return false;
-  return true}
+
+
+
+
 /* An archived block's custom slots resolve against the install's custom
    definitions (archived, never deleted, while anything points at them) as well
    as any the archive itself carries. */
-function isSafeProgramHistoryEntry(entry,customExercises=[]){
-  if(!isPlainStateObject(entry))return false;
-  if(Object.prototype.hasOwnProperty.call(entry,"transitionOut")&&entry.transitionOut!=null&&
-    !DurableState.isCoherentV1TransitionOut(entry.transitionOut))return false;
-  const customs=[...(Array.isArray(entry.customExercises)?entry.customExercises:[]),
-    ...(Array.isArray(customExercises)?customExercises:[])];
-  if(Object.prototype.hasOwnProperty.call(entry,"meta")&&!isSafeProgressionMeta(entry.meta,customs))return false;
-  if(!Object.prototype.hasOwnProperty.call(entry,"program"))return true;
-  return Array.isArray(entry.program)&&entry.program.every(isSafeProgressionFields)}
-function isSafeLogRow(entry){
-  if(!isPlainStateObject(entry))return false;
-  if(Object.prototype.hasOwnProperty.call(entry,"setIndex")&&
-    (!Number.isInteger(entry.setIndex)||entry.setIndex<0))return false;
-  if(!isValidMuscleDomainTree(entry))return false;
-  for(const key of ["primary","secondary"])
-    if(Object.prototype.hasOwnProperty.call(entry,key)&&!isValidStoredMuscleField(entry[key],true))return false;
-  for(const key of ["performedPrimary","performedSecondary"])
-    if(Object.prototype.hasOwnProperty.call(entry,key)&&!isValidStoredMuscleField(entry[key],true))return false;
-  if(Object.prototype.hasOwnProperty.call(entry,"blockId")&&!isValidBlockId(entry.blockId))return false;
-  if(Object.prototype.hasOwnProperty.call(entry,"rirMeasured")&&typeof entry.rirMeasured!=="boolean")return false;
-  for(const key of ["performedName","performedLibraryId","performedMovementId","performedPrimary","performedSecondary"])
-    if(Object.prototype.hasOwnProperty.call(entry,key)&&entry[key]!=null&&typeof entry[key]!=="string")
-      return false;
-  if(Object.prototype.hasOwnProperty.call(entry,"sourceLibraryId")&&entry.sourceLibraryId!==null&&typeof entry.sourceLibraryId!=="string")return false;
-  if(Object.prototype.hasOwnProperty.call(entry,"metricOrigin")&&!["source_catalog","user_defined"].includes(entry.metricOrigin))return false;
-  const metricFields=["metricType","metricIds","metricDefinitions","metricValues","equipmentId","loadingConvention","loadingContext","restSeconds"];
-  const hasMetricFields=metricFields.some(key=>Object.prototype.hasOwnProperty.call(entry,key));
-  if(hasMetricFields){
-    if(!Number.isInteger(entry.setIndex)||entry.setIndex<0||entry.metricType!=="source_metrics@1"||!Array.isArray(entry.metricIds)||!Array.isArray(entry.metricDefinitions)||
-      !Array.isArray(entry.metricValues)||entry.metricIds.length===0||
-      !["source_catalog","user_defined"].includes(entry.metricOrigin)||typeof entry.sourceLibraryId!=="string"||!entry.sourceLibraryId||
-      !["external","assistance","per_side","bodyweight"].includes(entry.loadingConvention)||
-      !(entry.equipmentId===null||typeof entry.equipmentId==="string")||
-      (entry.restSeconds!==null&&(!Number.isSafeInteger(entry.restSeconds)||entry.restSeconds<0)))return false;
-    const definitions=ExerciseMetrics?.validateDefinitions?.(entry.metricIds,entry.metricDefinitions);
-    const values=ExerciseMetrics?.validateMetricValues?.(entry.metricIds,entry.metricValues);
-    if(!definitions?.ok||!values?.ok||entry.metricValues.some(value=>typeof value?.value!=="number"||!Number.isFinite(value.value)))return false;
-    const sourceExercise=rawExercise(entry.sourceLibraryId);
-    const sourceBinding=ExerciseMetrics?.validateExerciseSourceBinding?.({metricOrigin:entry.metricOrigin,
-      metricIds:entry.metricIds,metricDefinitions:entry.metricDefinitions,sourceId:entry.sourceLibraryId,
-      sourceExercise,bodyweightCoefficient:entry.loadingModel?.bodyweightCoefficient??null});
-    if(!sourceBinding?.ok)return false;
-    const loading=WorkoutDraft?.validateLoadingContext?.(entry.loadingContext);
-    if(!loading?.ok||!Object.prototype.hasOwnProperty.call(entry.loadingContext,"bodyweightKg")||
-      !Object.prototype.hasOwnProperty.call(entry.loadingContext,"bodyweightContributionEnabled")||
-      !Object.prototype.hasOwnProperty.call(entry.loadingContext,"externalLoadMultiplier"))return false;
-    if(entry.loadingModel!=null&&(!isPlainStateObject(entry.loadingModel)||
-      Object.keys(entry.loadingModel).some(key=>!["bodyweightCoefficient","assistanceDirection"].includes(key))||
-      (entry.loadingModel.bodyweightCoefficient!=null&&(!Number.isFinite(entry.loadingModel.bodyweightCoefficient)||entry.loadingModel.bodyweightCoefficient<0||entry.loadingModel.bodyweightCoefficient>1))||
-      (entry.loadingModel.assistanceDirection!=null&&entry.loadingModel.assistanceDirection!=="subtract")))return false;
-    const modelCoefficient=entry.loadingModel?.bodyweightCoefficient??null;
-    const contextCoefficient=entry.loadingContext?.bodyweightCoefficient??null;
-    if(modelCoefficient!==contextCoefficient)return false;
-    const semantics=new Set(entry.metricDefinitions.map(definition=>definition.semantic));
-    const expectedConvention=semantics.has("assistanceKg")?"assistance":
-      semantics.has("loadPerSideKg")||semantics.has("persistentLoadPerSideKg")?"per_side":
-        entry.metricIds.length===1&&(semantics.has("reps")||semantics.has("repsPerSide"))?"bodyweight":"external";
-    if(entry.loadingConvention!==expectedConvention)return false;
-    if(entry.loadingContext.loadingConvention!==entry.loadingConvention)return false;
-    if(entry.loadingConvention==="bodyweight"&&entry.loadingContext.externalLoadMultiplier!==0)return false;
-    if(entry.loadingContext.externalLoadMultiplier!=null&&entry.loadingConvention!=="per_side"&&
-      entry.loadingConvention!=="bodyweight"&&entry.loadingContext.externalLoadMultiplier!==1)return false;
-    if(entry.loadingModel?.bodyweightCoefficient!=null&&entry.loadingContext.bodyweightCoefficient!==entry.loadingModel.bodyweightCoefficient)return false;
-    if(entry.loadingContext.bodyweightKg!==(entry.bodyweight??null))return false;
-    if(entry.rir!==null&&(!Number.isFinite(entry.rir)||entry.rir<0))return false;
-    const load=entry.metricDefinitions.find(definition=>definition.semantic==="loadKg");
-    const reps=entry.metricDefinitions.find(definition=>definition.semantic==="reps");
-    const loadValue=load?entry.metricValues.find(value=>value.metricId===load.id)?.value:null;
-    const repsValue=reps?entry.metricValues.find(value=>value.metricId===reps.id)?.value:null;
-    if(entry.load!==loadValue||entry.reps!==repsValue)return false;
-    if(entry.equipmentId!=null&&rawCatalogObject(entry.equipmentId)?.type!=="equipment")return false;
-  }
-  return true}
-function isSafeCustomExercise(entry){
-  if(!isPlainStateObject(entry))return false;
-  if(!isValidMuscleDomainTree(entry))return false;
-  for(const key of ["primary","secondary"])
-    if(Object.prototype.hasOwnProperty.call(entry,key)&&!isValidStoredMuscleField(entry[key]))return false;
-  return typeof entry.id==="string"&&entry.id.startsWith(CUSTOM_ID_PREFIX)&&typeof entry.name==="string"}
-function isValidSetupActivationMarker(marker){
-  const maxRaw=Number.isSafeInteger(ProgramEntry?.MAX_DRAFT_ENVELOPE_BYTES)
-    ?ProgramEntry.MAX_DRAFT_ENVELOPE_BYTES:70000;
-  return isPlainStateObject(marker)&&marker.version===1&&
-    typeof marker.programId==="string"&&marker.programId.length>0&&marker.programId.length<=128&&
-    typeof marker.raw==="string"&&marker.raw.length>0&&marker.raw.length<=maxRaw&&
-    (!Object.prototype.hasOwnProperty.call(marker,"revision")||
-      (Number.isInteger(marker.revision)&&marker.revision>=1))}
-function setupActivationMarker(raw,programId){
-  if(typeof raw!=="string"||!raw||typeof programId!=="string"||!programId)return null;
-  const marker={version:1,programId,raw};
-  return isValidSetupActivationMarker(marker)?marker:null}
-function setupActivationMatches(marker,raw,programId){
-  return isValidSetupActivationMarker(marker)&&marker.programId===programId&&marker.raw===raw}
-function isValidStateShape(s){
-  try{
-    // Pre-contract snapshots may contain arbitrary legacy attribution. Keep
-    // them lossless in the raw replicas and reject them here; boot recovery
-    // can surface the original bytes for deliberate repair instead of
-    // relabeling or dropping unknown historical muscle identity.
-    if(!isPlainStateObject(s)||!Array.isArray(s.program)||!s.program.every(isSafeProgressionFields)||
-      !Array.isArray(s.log)||!s.log.every(isSafeLogRow))return false;
-    if(Object.prototype.hasOwnProperty.call(s,"programMeta")&&!isSafeProgressionMeta(s.programMeta,s.customExercises||[]))return false;
-    if(Object.prototype.hasOwnProperty.call(s,"recoveryTransitions")&&!isValidRecoveryTransitions(s.recoveryTransitions))return false;
-    if(Object.prototype.hasOwnProperty.call(s,STORAGE_DRAFT_TXN)&&!pendingDraftTransaction(s))return false;
-    if(Object.prototype.hasOwnProperty.call(s,STORAGE_SETUP_TXN)&&!isValidSetupActivationMarker(s[STORAGE_SETUP_TXN]))return false;
-    // Optional: backups written before custom exercises existed stay importable.
-    if(Object.prototype.hasOwnProperty.call(s,"customExercises")&&
-      !(Array.isArray(s.customExercises)&&s.customExercises.every(isSafeCustomExercise)))return false;
-    if(!Object.prototype.hasOwnProperty.call(s,"programHistory"))return true;
-    return Array.isArray(s.programHistory)&&s.programHistory.every(entry=>isSafeProgramHistoryEntry(entry,s.customExercises||[]))}
-  catch{return false}}
-function readRevision(s){const n=s?.[STORAGE_REV];return Number.isInteger(n)&&n>=0?n:0}
-function stripStorageMeta(s){return DurableState.stripStorageMeta(s)}
-function exportableState(s){return DurableState.exportableState(s)}
+
+
+
+
+
+
+
+
+
+
 // Mirror arbitration must retain setup-activation receipts. They are omitted
 // from exports, but dropping one while choosing between equal-revision local
 // and IndexedDB copies can re-enable a second activation after a partial write.
-function mirrorComparisonSnapshot(s){return DurableState.mirrorComparisonSnapshot(s)}
-function canonicalize(value){
-  if(Array.isArray(value))return value.map(canonicalize);
-  if(value&&typeof value==="object"){
-    const out={};
-    for(const key of Object.keys(value).sort())out[key]=canonicalize(value[key]);
-    return out}
-  return value}
-function canonicalPayload(s){return DurableState.canonicalPayload(s)}
-function snapshotsEqual(a,b){return DurableState.snapshotsEqual(a,b)}
+
+
+
+
 function snapshotSummary(s){
   const log=Array.isArray(s?.log)?s.log:[];
   const sessions=new Set(log.map(r=>r&&r.session).filter(Boolean)).size;
@@ -577,8 +224,8 @@ function encodeRawExport(raw){if(raw==null)return"";if(typeof raw==="string")ret
 function readLocalStatus(){return DurableState.readLocalStatus()}
 async function readIdbStatus(){return DurableState.readIdbStatus()}
 function chooseSnapshot(local,idb){return DurableState.chooseSnapshot(local,idb)}
-const DurableState = (typeof window !== "undefined" && window.RepForgeDurableState) || (typeof RepForgeDurableState !== "undefined" ? RepForgeDurableState : null);
-const storageIO=DurableState.storageIO;
+let DurableState;
+let storageIO;
 const PENDING_EFFECT_MAX_RAW=1000000;
 const DRAFT_PRECONDITION_MATCH_ONLY="match-only";
 const DRAFT_PRECONDITION_ABORT_CHANGED="abort-changed";
@@ -586,8 +233,8 @@ const DRAFT_PRECONDITION_ABORT_SAME_DAY="abort-same-day";
 const DRAFT_EFFECT_VALID="valid",DRAFT_EFFECT_INVALID="invalid",DRAFT_EFFECT_NONE="none";
 let mutationBase=null;
 let storageDegradedToast=false;
-DurableState.addStorageHealthListener((h) => { noteWriteHealth(h); });
-DurableState.setMutationFreezeCheck(() => (typeof installTransferMutationFrozen === "function" ? installTransferMutationFrozen() : false));
+
+
 function enqueueWrite(op){return DurableState.enqueueWrite(op)}
 function flushStorage(){
   const tail=DurableState.flushStorage();
@@ -601,74 +248,15 @@ function noteWriteHealth(result){
   const el=$("#storageDegraded");
   if(el){el.textContent=degraded?t("settings.storage.degraded"):"";el.classList.toggle("hidden",!degraded);el.hidden=!degraded}}
 function requireAdapter(io,label){return DurableState.requireAdapter(io,label)}
-const CHANGE_MISSING=Symbol("change-missing");
-function changeValueEqual(a,b){
-  if(a===CHANGE_MISSING||b===CHANGE_MISSING)return a===b;
-  return JSON.stringify(canonicalize(a))===JSON.stringify(canonicalize(b))}
-function changeObject(v){return!!(v&&typeof v==="object"&&!Array.isArray(v))}
-function changeEntityKey(root,value,index){
-  if(!value||typeof value!=="object")return`${root}:value:${index}:${JSON.stringify(canonicalize(value))}`;
-  if(root==="log")return value.session?`session:${value.session}`:`row:${index}:${JSON.stringify(canonicalize(value))}`;
-  if(root==="program"||root==="programHistory"||root==="customExercises")
-    return value.id?`id:${value.id}`:`row:${index}:${JSON.stringify(canonicalize(value))}`;
-  return null}
-function changeGroups(list,root){
-  const order=[],map=new Map();
-  (Array.isArray(list)?list:[]).forEach((value,index)=>{
-    const key=changeEntityKey(root,value,index);
-    if(key==null)return;
-    if(!map.has(key)){order.push(key);map.set(key,[])}
-    map.get(key).push(value)});
-  return{order,map}}
-function mergeChangedArray(base,proposal,target,root,preferProposal){
-  const b=changeGroups(base,root),p=changeGroups(proposal,root),tgt=changeGroups(target,root);
-  const order=[...tgt.order],out=new Map([...tgt.map].map(([key,value])=>[key,cloneSnapshot(value)]));
-  const remove=key=>{out.delete(key);const i=order.indexOf(key);if(i>=0)order.splice(i,1)};
-  for(const key of new Set([...b.order,...p.order])){
-    const bv=b.map.has(key)?b.map.get(key):CHANGE_MISSING;
-    const pv=p.map.has(key)?p.map.get(key):CHANGE_MISSING;
-    const tv=tgt.map.has(key)?tgt.map.get(key):CHANGE_MISSING;
-    if(changeValueEqual(pv,bv))continue;
-    if(pv===CHANGE_MISSING){
-      if(tv!==CHANGE_MISSING&&(changeValueEqual(tv,bv)||preferProposal))remove(key);
-      continue}
-    if(tv===CHANGE_MISSING){
-      if(bv===CHANGE_MISSING||preferProposal){out.set(key,cloneSnapshot(pv));if(!order.includes(key))order.push(key)}
-      continue}
-    if(bv===CHANGE_MISSING){
-      if(preferProposal){out.set(key,cloneSnapshot(pv));if(!order.includes(key))order.push(key)}
-      continue}
-    if(root==="program"&&bv.length===1&&pv.length===1&&tv.length===1&&
-      changeObject(bv[0])&&changeObject(pv[0])&&changeObject(tv[0])){
-      const merged=mergeStateValue(bv[0],pv[0],tv[0],[root,key],preferProposal);
-      if(merged===CHANGE_MISSING)remove(key);
-      else{out.set(key,[merged]);if(!order.includes(key))order.push(key)}
-      continue}
-    if(changeValueEqual(tv,bv)||preferProposal)out.set(key,cloneSnapshot(pv))}
-  return order.flatMap(key=>out.get(key)||[])}
-function mergeStateValue(base,proposal,target,path,preferProposal){
-  if(changeValueEqual(proposal,base))return target===CHANGE_MISSING?CHANGE_MISSING:cloneSnapshot(target);
-  if(changeValueEqual(target,base))return proposal===CHANGE_MISSING?CHANGE_MISSING:cloneSnapshot(proposal);
-  const root=path[0];
-  if(path.length===1&&Array.isArray(base)&&Array.isArray(proposal)&&Array.isArray(target)&&
-    (root==="log"||root==="program"||root==="programHistory"||root==="customExercises"))
-    return mergeChangedArray(base,proposal,target,root,preferProposal);
-  if(changeObject(base)&&changeObject(proposal)&&changeObject(target)){
-    const out={};
-    for(const key of new Set([...Object.keys(base),...Object.keys(proposal),...Object.keys(target)])){
-      if(path.length===0&&key===STORAGE_REV)continue;
-      const bv=Object.prototype.hasOwnProperty.call(base,key)?base[key]:CHANGE_MISSING;
-      const pv=Object.prototype.hasOwnProperty.call(proposal,key)?proposal[key]:CHANGE_MISSING;
-      const tv=Object.prototype.hasOwnProperty.call(target,key)?target[key]:CHANGE_MISSING;
-      const merged=mergeStateValue(bv,pv,tv,path.concat(key),preferProposal);
-      if(merged!==CHANGE_MISSING)out[key]=merged}
-    return out}
-  const chosen=preferProposal?proposal:target;
-  return chosen===CHANGE_MISSING?CHANGE_MISSING:cloneSnapshot(chosen)}
-function rebaseStateChange(base,proposal,target,{preferProposal=true}={}){
-  const merged=mergeStateValue(base,proposal,target,[],preferProposal);
-  return merged===CHANGE_MISSING?{}:merged}
-function storageSnapshotsEqual(a,b){return changeValueEqual(a,b)}
+
+
+
+
+
+
+
+
+
 function resetPersistenceBase(snapshot){
   mutationBase=cloneSnapshot(snapshot);
   DurableState.setPersistHead(snapshot)}
@@ -686,10 +274,7 @@ function applyAcceptedSnapshot(base,snapshot){
   else{activeRecoveryRecord=null;activeRecoveryRecordBlockId=null}
   mutationBase=cloneSnapshot(snapshot);
   dropMemo.clear();baselineMemo.clear()}
-function unversionedSnapshot(snapshot){
-  const out=cloneSnapshot(snapshot);
-  if(out&&typeof out==="object")delete out[STORAGE_REV];
-  return out}
+
 function draftEffectOutcome(effect){return DurableState.draftEffectOutcome(effect)}
 function normalizeDraftEffectOutcome(value){return DurableState.normalizeDraftEffectOutcome(value)}
 function pendingJournalEffect(effect){return DurableState.pendingJournalEffect(effect)}
@@ -735,35 +320,22 @@ function draftDayReplacementEffect(oldDay,newDay,nextProgramSnapshot=null){
     return draftEffectOutcome({required:true,kind:"replace-draft",expectedRaw,replacementRaw,
       precondition:DRAFT_PRECONDITION_ABORT_SAME_DAY,conflictDay:oldDay})}
   catch{return{status:DRAFT_EFFECT_INVALID,effect:null,reason:"draft-read"}}}
-function draftProgramFingerprint(snapshot){return DurableState.draftProgramFingerprint(snapshot)}
+
 /* DraftV2 bounds its stored fingerprint. Hash the complete canonical program
    instead of truncating it: length plus four independent FNV-1a passes make
    every source byte participate while keeping the adapter value fixed-size. */
-function workoutProgramFingerprint(snapshot){
-  const source=draftProgramFingerprint(snapshot),seeds=[0x811c9dc5,0x9e3779b9,0x85ebca6b,0xc2b2ae35];
-  const hashes=seeds.map(seed=>{let hash=seed;
-    for(let i=0;i<source.length;i++){hash^=source.charCodeAt(i);hash=Math.imul(hash,0x01000193)}
-    return(hash>>>0).toString(16).padStart(8,"0")});
-  return`program-v1:${source.length}:${hashes.join("")}`}
+
 function workoutDraftFault(point){
   if(window.__repforgeDraftFault!==point)return false;
   window.__repforgeDraftFault=null;return true}
-function draftContextFingerprint(snapshot){
-  const value={programMetaId:snapshot?.programMeta?.id||null,
-    program:Array.isArray(snapshot?.program)?snapshot.program:[],
-    unit:snapshot?.settings?.unit||"kg",rirMode:snapshot?.settings?.rirMode||"numeric"};
-  if(Object.prototype.hasOwnProperty.call(snapshot?.programMeta||{},"blockId"))
-    value.programMetaBlockId=snapshot.programMeta.blockId;
-  return JSON.stringify(canonicalize(value))}
-function snapshotBlockId(snapshot){
-  const meta=snapshot?.programMeta;
-  return Object.prototype.hasOwnProperty.call(meta||{},"blockId")?meta.blockId:null}
+
+
 function programTransitionPrecondition(snapshot=state){
   return{expectedProgramId:snapshot?.programMeta?.id||null,
     expectedProgramFingerprint:draftProgramFingerprint(snapshot),
     expectedBlockId:snapshotBlockId(snapshot),
     expectedStorageRevision:readRevision(snapshot)}}
-const DraftStore=DurableState.DraftStore;
+let DraftStore;
 function parsedAcknowledgedDraftV2(raw,source){
   const parsed=WorkoutDraft?.parse(raw);
   return parsed?.kind==="valid"?{status:"live",raw,draft:parsed.draft,source}:null}
@@ -1551,9 +1123,8 @@ function withUnknownKeys(raw,known){
   for(const key of Object.keys(raw))
     if(!Object.prototype.hasOwnProperty.call(known,key))out[key]=cloneSnapshot(raw[key]);
   return Object.assign(out,known)}
-function normalizeNotify(n){
-  return withUnknownKeys(n,{enabled:!!(n&&n.enabled),timer:n?.timer!==false,session:n?.session!==false,unfinished:n?.unfinished!==false,missed:n?.missed!==false})}
-const normalizeSettings=s=>{const lang=I18N?.normalizeLang(s?.lang)||I18N?.detectLang()||"en";return withUnknownKeys(s,{jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normSetting(s?.hardRir,DEFAULTS.hardRir,0),restSec:normalizeRestSec(s?.restSec),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",lang,rirMode:s?.rirMode==="effort"?"effort":"numeric",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled),notify:normalizeNotify(s?.notify)})};
+
+
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const LB=2.2046226218;
 /* Locale keyboards (pt-BR, de, fr, …) put a comma on the decimal pad. HTML
@@ -1996,8 +1567,7 @@ function normalizeProgressionModifiers(value,options={}){
     options.incompatibilities.push(progressionIncompatibility("modifiers",value,checked,options.source));
   return checked?.ok?cloneSnapshot(checked.value):[]}
 
-/* ============================================================
-   Program model
+/* =====================================================   Program model
    Exercise — one movement: day, sequence, rep range, muscles.
    Program — the whole split. Single source of truth for editing,
    ordering, day grouping, and the weekly volume audit. Persisted
@@ -3210,51 +2780,11 @@ let settingsEditRevision=0;
 const STATS_SEG={overview:"segOverview",review:"segReview"};
 const EVIDENCE_SEG={strength:"segStrength",volume:"segVolume",prs:"segPRs"};
 
-function migrateLogSnapshot(snapshot){let changed=false;const lookup=snapshotLookup(snapshot.customExercises);
-  for(const row of snapshot.log){
-  const named=snapshot.program.find(e=>e.name===row.name&&e.day===row.day)||snapshot.program.find(e=>e.name===row.name);
-  const slotted=snapshot.program.find(e=>e.id===row.exerciseId);
-  const ex=named||(!slotted?.libraryId?slotted:null);
-  if(!row.exerciseId&&ex){row.exerciseId=ex.id;changed=true}
-  if(row.performedName==null&&row.name){row.performedName=String(row.name);changed=true}
-  if(row.performedLibraryId==null&&ex?.libraryId){
-    const entry=lookup(ex.libraryId),names=new Set([ex.name,entry?.name,entry?.namePt].map(movementToken).filter(Boolean));
-    if(names.has(movementToken(row.name))){row.performedLibraryId=ex.libraryId;changed=true}}
-  if(row.performedLibraryId==null&&row.performedMovementId==null&&ex?.movementId){
-    row.performedMovementId=ex.movementId;changed=true}
-  const performed=row.performedLibraryId?lookup(row.performedLibraryId):null;
-  if(performed){
-    if(row.performedPrimary==null){row.performedPrimary=libraryMuscleAttribution(performed,"primary");changed=true}
-    if(row.performedSecondary==null){row.performedSecondary=libraryMuscleAttribution(performed,"secondary");changed=true}}
-  else if(row.performedName===row.name){
-    if(row.performedPrimary==null&&row.primary!=null){row.performedPrimary=String(row.primary||"");changed=true}
-    if(row.performedSecondary==null&&row.secondary!=null){row.performedSecondary=String(row.secondary||"");changed=true}}
-  if(Array.isArray(row.metricValues))continue;
-  const ld=posNum(row.load),rp=posNum(row.reps);
-  const missingRir=row.rir==null||row.rir==="",parsedRir=parseDec(row.rir);
-  const explicitStrategy=ex?.progression?.strategy?.id;
-  const preserveMissingRir=explicitStrategy&&explicitStrategy!=="range"&&missingRir;
-  // Keep the released progression input exactly as it was. Progress also needs
-  // to know that a legacy range row which was coerced to RIR 0 was unmeasured,
-  // so retain that provenance separately instead of changing recommendation
-  // arithmetic for every existing program.
-  const rr=preserveMissingRir?null:posNum(row.rir);
-  if((missingRir||!Number.isFinite(parsedRir)||parsedRir<0)&&row.rirMeasured!==false){row.rirMeasured=false;changed=true}
-  if(ld!==row.load||rp!==row.reps||rr!==row.rir){row.load=ld;row.reps=rp;row.rir=rr;changed=true}}
-  return changed}
+
 function migrateLog(){return migrateLogSnapshot(state)}
 function earliestLogDate(log){if(!log?.length)return null;return log.reduce((min,r)=>!min||String(r.date)<min?r.date:min,null)}
-function defaultProgramMeta(log=[]){const now=new Date().toISOString();return{id:uid(),name:"",started:earliestLogDate(log),created:now,updated:now,
-  goal:null,experience:null,daysPerWeek:null,splitType:null,equipment:[],priorityMuscles:[],sessionLength:null,
-  mesocycleLengthWeeks:6,mesocycleStatus:"active",completedAt:null,onboarded:false,
-  progressionRelations:[],progressionModifiers:[],progressionIncompatibilities:[],programStructure:null,entrySource:null}}
-function normalizeProgramEntrySource(value){
-  if(!value||typeof value!=="object"||Array.isArray(value))return null;
-  const routes=window.RepForgeProgramEntry?.ROUTES||[];
-  const route=routes.includes(value.route)?value.route:null;
-  const fingerprint=typeof value.fingerprint==="string"&&value.fingerprint.length<=128&&/^[a-zA-Z0-9._:-]+$/.test(value.fingerprint)
-    ?value.fingerprint:null;
-  return route&&fingerprint?{route,fingerprint}:null}
+
+
 function buildProgramMeta({name, answers, entrySource}={}){
   const a=answers||{},now=new Date().toISOString();
   const programName=String(name??"").trim()||t("untitled_program")||"Untitled program";
@@ -3266,94 +2796,11 @@ function buildProgramMeta({name, answers, entrySource}={}){
     mesocycleStatus:"active",completedAt:null,onboarded:true,
     progressionRelations:[],progressionModifiers:[],progressionIncompatibilities:[],
     blockPromptDismissedId:null,entrySource:normalizeProgramEntrySource(entrySource)}}
-function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date().toISOString(),base=defaultProgramMeta(log);
-  if(!m||typeof m!=="object")return base;
-  if(Object.prototype.hasOwnProperty.call(m,"blockId")&&!isValidBlockId(m.blockId,m.id))
-    throw new TypeError("blockId: expected bounded opaque identity");
-  const started=typeof m.started==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(m.started)?m.started:(m.started===null?null:base.started);
-  const goal=typeof m.goal==="string"?m.goal.trim()||null:m.goal===null?null:base.goal;
-  const experience=typeof m.experience==="string"?m.experience.trim()||null:m.experience===null?null:base.experience;
-  const daysPerWeek=m.daysPerWeek===null?null:Number.isFinite(+m.daysPerWeek)?+m.daysPerWeek:base.daysPerWeek;
-  const splitType=typeof m.splitType==="string"?m.splitType.trim()||null:m.splitType===null?null:base.splitType;
-  const equipment=Array.isArray(m.equipment)?m.equipment.map(s=>String(s).trim()).filter(Boolean):base.equipment;
-  const priorityMuscles=Array.isArray(m.priorityMuscles)?m.priorityMuscles.map(s=>String(s).trim()).filter(Boolean):base.priorityMuscles;
-  const sessionLength=typeof m.sessionLength==="string"?m.sessionLength.trim()||null:m.sessionLength===null?null:base.sessionLength;
-  const mesocycleLengthWeeks=Number.isFinite(+m.mesocycleLengthWeeks)&&+m.mesocycleLengthWeeks>0?Math.round(+m.mesocycleLengthWeeks):base.mesocycleLengthWeeks;
-  const mesocycleStatus=m.mesocycleStatus==="active"||m.mesocycleStatus==="completed"?m.mesocycleStatus:base.mesocycleStatus;
-  const completedAt=typeof m.completedAt==="string"?m.completedAt:m.completedAt===null?null:base.completedAt;
-  const onboarded=typeof m.onboarded==="boolean"?m.onboarded:base.onboarded;
-  const blockPromptDismissedId=typeof m.blockPromptDismissedId==="string"&&m.blockPromptDismissedId?m.blockPromptDismissedId:null;
-  if(m.progressionIncompatibilities!=null&&!isBoundedProgressionValue(m.progressionIncompatibilities))
-    throw new TypeError("progressionIncompatibilities: structure exceeds safety bounds");
-  if(m.progressionIncompatibilities!=null&&!Array.isArray(m.progressionIncompatibilities))
-    throw new TypeError("progressionIncompatibilities: expected array");
-  const incompatibilities=Array.isArray(m.progressionIncompatibilities)?cloneSnapshot(m.progressionIncompatibilities):[];
-  const progressionOptions={preserveInvalid:options.preserveInvalidProgression===true,incompatibilities,source:options.source};
-  const progressionRelations=normalizeProgressionRelations(m.progressionRelations,program,progressionOptions);
-  const progressionModifiers=normalizeProgressionModifiers(m.progressionModifiers,progressionOptions);
-  if(m.programStructure!=null&&!isBoundedProgressionValue(m.programStructure))throw new TypeError("programStructure: structure exceeds safety bounds");
-  const programStructure=m.programStructure&&typeof m.programStructure==="object"?cloneSnapshot(m.programStructure):base.programStructure;
-  if(m.plannedVolumeHistory!=null&&!isValidPlannedVolumeHistory(m.plannedVolumeHistory))
-    throw new TypeError("plannedVolumeHistory: expected bounded aggregate");
-  const plannedVolumeHistory=m.plannedVolumeHistory==null?null:cloneSnapshot(m.plannedVolumeHistory);
-  const programDefinition=m.programDefinition==null?null:canonicalProgramDefinition(
-    m.programDefinition,options.customExercises||customExercises());
-  if(m.programDefinition!=null&&!programDefinition)throw new TypeError("programDefinition: invalid Plan 067 definition");
-  const entrySource=normalizeProgramEntrySource(m.entrySource);
-  let compilerContext=null;
-  if(m.compilerContext!=null){
-    if(!isBoundedProgressionValue(m.compilerContext))throw new TypeError("compilerContext: structure exceeds safety bounds");
-    if(typeof m.compilerContext!=="object"||Array.isArray(m.compilerContext))throw new TypeError("compilerContext: expected object");
-    const check=typeof ProgramCompiler?.validateContext==="function"
-      ?ProgramCompiler.validateContext(m.compilerContext)
-      :({ok:typeof m.compilerContext.schemaVersion==="number"&&m.compilerContext.schemaVersion>=1});
-    if(check.ok)compilerContext=cloneSnapshot(m.compilerContext);
-  }
-  let transitionIn=null;
-  if(m.transitionIn!=null){
-    if(!isBoundedTransitionValue(m.transitionIn))throw new TypeError("transitionIn: structure exceeds safety bounds");
-    if(typeof m.transitionIn!=="object"||Array.isArray(m.transitionIn))throw new TypeError("transitionIn: expected object");
-    const t=m.transitionIn;
-    if(t.schemaVersion===1&&typeof t.transitionId==="string"&&t.transitionId.trim()&&
-       typeof t.proposalHash==="string"&&t.proposalHash.trim()&&t.status==="committed"&&
-       typeof t.confirmedAt==="string"&&t.confirmedAt.trim()&&typeof t.archiveId==="string"&&t.archiveId.trim()&&
-       typeof t.successor==="object"&&t.successor!==null&&typeof t.predecessor==="object"&&t.predecessor!==null){
-      transitionIn=cloneSnapshot(t);
-    }
-  }
-  const normalizedId=typeof m.id==="string"&&m.id?m.id:base.id;
-  const metaObj={id:normalizedId,name:typeof m.name==="string"?m.name.trim():"",started,
-    created:typeof m.created==="string"?m.created:base.created,updated:typeof m.updated==="string"?m.updated:now,
-    goal,experience,daysPerWeek,splitType,equipment,priorityMuscles,sessionLength,mesocycleLengthWeeks,mesocycleStatus,completedAt,onboarded,
-    progressionRelations,progressionModifiers,progressionIncompatibilities:incompatibilities,blockPromptDismissedId,programStructure,entrySource};
-  if(plannedVolumeHistory!=null)metaObj.plannedVolumeHistory=plannedVolumeHistory;
-  if(programDefinition)metaObj.programDefinition=programDefinition;
-  if(Object.prototype.hasOwnProperty.call(m,"blockId"))metaObj.blockId=m.blockId;
-  if(compilerContext!=null)metaObj.compilerContext=compilerContext;
-  if(transitionIn!=null)metaObj.transitionIn=transitionIn;
-  const loadSteps=normalizeLoadingConfiguration(m.loadingConfiguration);
-  if(loadSteps)metaObj.loadingConfiguration=loadSteps;
-  return metaObj;}
-/* Per-movement smallest load change in canonical kg; anything else is dropped. */
-function normalizeLoadingConfiguration(value){
-  const source=isPlainStateObject(value)&&isPlainStateObject(value.byExerciseId)?value.byExerciseId:null;
-  if(!source)return null;
-  const byExerciseId={};
-  for(const [exerciseId,entry] of Object.entries(source).slice(0,2048)){
-    const step=entry?.loadStepKg;
-    if(exerciseId&&exerciseId.length<=256&&Number.isFinite(step)&&step>0&&step<=100)byExerciseId[exerciseId]={loadStepKg:step}}
-  return Object.keys(byExerciseId).length?{byExerciseId}:null}
 
-function withExplicitProgramStructure(program,meta,{freezeHistory=false}={}){
-  if(!ProgramCompiler?.migrateLegacyStructure)return{program,meta};
-  if(meta?.plannedVolumeHistory!=null&&!isValidPlannedVolumeHistory(meta.plannedVolumeHistory))
-    throw new TypeError("plannedVolumeHistory: expected bounded aggregate");
-  const migrated=ProgramCompiler.migrateLegacyStructure(program,meta?.programStructure);
-  const compacted=compactProgramPrescriptionState(migrated.structure,migrated.program,meta,{freezeHistory});
-  const nextMeta={...meta,programStructure:compacted.structure};
-  if(compacted.history)nextMeta.plannedVolumeHistory=compacted.history;
-  return{program:migrated.program,meta:nextMeta}
-}
+/* Per-movement smallest load change in canonical kg; anything else is dropped. */
+
+
+
 function isImportableState(s){return isValidStateShape(s)}
 /* A backup from before the canonical program model carries flat rows with no
    ProgramDefinition. Restoring it would install a program the engine cannot
@@ -3439,69 +2886,8 @@ function normalizeCustomExercises(list){
         return checked?.ok&&Array.isArray(entry.metricIds)
           ?{metricIds:cloneSnapshot(entry.metricIds),metricDefinitions:cloneSnapshot(entry.metricDefinitions)}:{}})()})}
   return out}
-function normalizeProgramHistory(history,lookup){
-  return(Array.isArray(history)?history:[]).map(entry=>{
-    const normalized=cloneSnapshot(entry);
-    if(Object.prototype.hasOwnProperty.call(normalized,"program")){
-      // An archived program is a historical snapshot. Keep its linked
-      // movement identity and captured attribution; resolving it through the
-      // current custom library would rewrite history after a definition edit.
-      normalized.program=new Program(normalized.program,lookup,null,false,{preserveLinkedSnapshot:true}).toJSON();
-      const structured=withExplicitProgramStructure(normalized.program,normalized.meta||normalized.programMeta||{},
-        {freezeHistory:true});
-      normalized.program=structured.program;
-      if(normalized.meta)normalized.meta=structured.meta;
-      else normalized.programMeta=structured.meta}
-    if(entry.transitionOut!=null){
-      if(!isBoundedTransitionValue(entry.transitionOut))throw new TypeError("transitionOut: structure exceeds safety bounds");
-      if(typeof entry.transitionOut==="object"&&!Array.isArray(entry.transitionOut)){
-        const t=entry.transitionOut;
-        if(t.schemaVersion===1&&typeof t.transitionId==="string"&&t.transitionId.trim()&&
-           typeof t.proposalHash==="string"&&t.proposalHash.trim()&&
-           typeof t.successorProgramId==="string"&&t.successorProgramId.trim()){
-          normalized.transitionOut=cloneSnapshot(t);
-        }
-      }
-    }
-    if(typeof entry.archiveId==="string"&&entry.archiveId.trim()){
-      normalized.archiveId=entry.archiveId.trim();
-    }
-    return normalized})}
-function normalizeLoaded(s,options={}){
-  if(s==null)return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program:[],log:[],programHistory:[],customExercises:[],[STORAGE_REV]:0};
-  if(!isValidStateShape(s))throw new TypeError("Invalid Taurifer state");
-  const customs=normalizeCustomExercises(s.customExercises),lookup=snapshotLookup(customs);
-  const out={settings:normalizeSettings(s.settings),programMeta:null,
-    program:[],log:cloneSnapshot(s.log),
-    programHistory:normalizeProgramHistory(Object.prototype.hasOwnProperty.call(s,"programHistory")?s.programHistory:[],lookup),
-    customExercises:customs};
-  // Resolved against this snapshot's own custom definitions: during an import
-  // or a boot they are not in live state yet.
-  out.program=new Program(s.program,lookup).toJSON();
-  out.programMeta=normalizeProgramMeta(s.programMeta,s.log,out.program,{...options,customExercises:customs});
-  const structured=withExplicitProgramStructure(out.program,out.programMeta);
-  out.program=structured.program;out.programMeta=structured.meta;
-  // An older Review successor kept its predecessor's day list (#388).
-  if(out.programMeta?.programStructure)out.programMeta.programStructure=
-    programStructureForDefinition(out.programMeta.programStructure,out.programMeta.programDefinition);
-  out[STORAGE_REV]=readRevision(s);
-  if(Object.prototype.hasOwnProperty.call(s,"recoveryTransitions"))
-    out.recoveryTransitions=cloneSnapshot(s.recoveryTransitions);
-  if(Object.prototype.hasOwnProperty.call(s,STORAGE_FOLLOWUP))out[STORAGE_FOLLOWUP]=s[STORAGE_FOLLOWUP];
-  if(Object.prototype.hasOwnProperty.call(s,STORAGE_SETUP_TXN))out[STORAGE_SETUP_TXN]=cloneSnapshot(s[STORAGE_SETUP_TXN]);
-  if(Object.prototype.hasOwnProperty.call(s,"profile")){
-    // The Basics a lifter gave in setup (Plan 072). Keep raw records this
-    // release cannot interpret so a later version can recover them.
-    const normalized=window.RepForgeProgramEntry?.normalizeProfile?.(s.profile);
-    out.profile=normalized?.ok&&Object.keys(normalized.value).length
-      ?normalized.value:cloneSnapshot(s.profile)}
-  if(Object.prototype.hasOwnProperty.call(s,"programmingContext")){
-    const Entry=typeof window!=="undefined"?window.RepForgeProgramEntry:null;
-    if(Entry){
-      const normalized=Entry.normalizeProgrammingContext(s.programmingContext);
-      if(normalized.ok)out.programmingContext=normalized.value}
-    else if(s.programmingContext&&typeof s.programmingContext==="object")out.programmingContext=cloneSnapshot(s.programmingContext)}
-  return out}
+
+
 function proposalFromImport(incoming){
   if(!isValidStateShape(incoming))throw new TypeError("Invalid Taurifer backup");
   return normalizeLoaded(stripStorageMeta(incoming),{preserveInvalidProgression:true,source:"backup-restore"})}
@@ -7742,8 +7128,7 @@ function setFieldVals(ex,n,r,draft,prev){
   const effortVal=pending("effort")||draft[`${key}_effort`]||(old&&old.rir!=null?effortForRir(old.rir):"hard");
   const rirVal=pending("rir")??draft[`${key}_rir`]??(old&&old.rir!=null?fmtPlain(old.rir):1);
   return{key,isW,kgVal,repsVal,rirVal,effortVal}}
-/* ============================================================
-   Focus mode
+/* =====================================================   Focus mode
    One full-height card per exercise: a scrolling ledger of what has been
    logged on top, and the shelf underneath that never moves — the set being
    worked on and the one action that commits it, under the cue that says what
@@ -8862,8 +8247,7 @@ function renderFatigue(){const el=$("#fatigue");if(!el)return;const exs=exercise
     $("#fatigue .fatigue__dismiss").onclick=()=>{setUiPref("fatigueDismissedOn",today());renderFatigue()}}
   else el.className="fatigue hidden",el.innerHTML="";}
 
-/* ============================================================
-   The end of a session
+/* =====================================================   The end of a session
    The work is already in the log by the time any of this runs: nothing here
    computes a judgement, it only reads back what the session actually did.
    Every number is one the app already trusts elsewhere — the same PR rule as
@@ -10469,12 +9853,12 @@ const historyCommands=createHistoryCommands({read:()=>state,
   settleAlreadyCommitted:opts=>DurableState.settleHistoryAlreadyCommitted(opts)});
 const HistoryUi=window.RepForgeHistoryUi.create({
   locTag, blockContext:historyBlockContext, sessionOutcome:historySessionOutcome, openModal, closeModal, reducedMotion,
-  $, $$, t, esc, cloneSnapshot, currentMovementNames, mergeLogChronology,
+  $, $$, t, esc, cloneSnapshot, canonicalize, currentMovementNames, mergeLogChronology,
   compareLogChronology, isWork, liftKey, buildSessionDelta, detectPRs,
   readLogRow,
   displayName, exerciseDisplayName, currentNameForRow, dayLabel, canTakeFocus, parseCalendarDate,
   parseLoadDisplay, parseRepsValue, parseRirValue, clearFieldInvalid,
-  toast, formatLongDate, fmtLoad, sum, kfmt, fmt, toDisplay, unitLabel,
+  toast, formatLongDate, fmtLoad, fmtLoadPlain, sum, kfmt, fmt, toDisplay, unitLabel, muscleLabel,
   metricLabel, metricDisplayValue:metricTextValue, metricDisplayUnit, parseHistoryMetricInput,
   weekdayLetters, table, today, uid, readRevision,
   historyCommands,
@@ -12877,8 +12261,7 @@ async function shareSetupLinkNow(){
   if(!shareSetupLink||shareSetupBlockers.length||typeof navigator.share!=="function")return false;
   try{await navigator.share({title:t("program.share_setup_title"),url:shareSetupLink});if(shareSetupOutcome)captureEvent("share_setup_outcome",{action:"shared",...shareSetupOutcome});return true}
   catch{return false}}
-/* ============================================================
-   Exercise picker
+/* =====================================================   Exercise picker
    One sheet, three callers: the program editor's add and change
    paths, and the log-tab substitution.
    Callers hand it a mode and a callback and get library entries
@@ -13559,8 +12942,7 @@ function linkImportedExercises(list){
     linked++}
   return{linked,total:list.length}}
 
-/* ============================================================
-   Program import — staged, reviewed, then written
+/* =====================================================   Program import — staged, reviewed, then written
    Parsing produces a transient model only. Nothing durable moves
    until the lifter presses Import, so a file that turns out to be
    wrong costs them nothing. Names are classified rather than
@@ -13878,8 +13260,7 @@ function importDraftCustomDefinitions(draft){
   for(const r of draft.rows)if(r.createdCustom)out.push(r.createdCustom);
   return out}
 
-/* ============================================================
-   The library flow
+/* =====================================================   The library flow
    One controller behind three surfaces: the quick-add sheet on a
    training day, the full browse page it opens into, and the
    configuration step that follows a multi-selection. The picker
@@ -19200,18 +18581,13 @@ window.closeOnboarding=closeOnboarding;window.startOnboarding=startOnboarding;
 
 // ---- UI prefs (kept separate from training data so they never touch export/import) ----
 const UIKEY=INSTALL_UI_KEY;
-function loadUiPrefs(){try{const o=JSON.parse(localStorage.getItem(UIKEY));return o&&typeof o==="object"?o:{}}catch{return{}}}
+const preferenceStore=createPreferences({local:localStorage,tab:sessionStorage,mutationGate:installTransferMutationFrozen,onError:error=>console.warn("ui prefs save failed",error)});
+function loadUiPrefs(){return preferenceStore.reloadUi()}
 let uiPrefs=loadUiPrefs();
-function setUiPref(k,v){
-  if(installTransferMutationFrozen())return false;
-  uiPrefs[k]=v;try{localStorage.setItem(UIKEY,JSON.stringify(uiPrefs));return true}
-  catch(e){console.warn("ui prefs save failed",e);return false}}
+function setUiPref(k,v){const ok=preferenceStore.setUi(k,v,{base:uiPrefs});uiPrefs=preferenceStore.readUi();return ok}
 const INSTALL_PREF_DEFAULTS=Object.freeze({installLastOfferedMilestone:null,installLastOfferedAt:null,
   installDismissedMilestone:null,installDismissedAt:null});
-function replaceUiPrefs(next){
-  if(installTransferMutationFrozen())return false;
-  try{localStorage.setItem(UIKEY,JSON.stringify(next));uiPrefs=next;return true}
-  catch(e){console.warn("ui prefs save failed",e);return false}}
+function replaceUiPrefs(next){const ok=preferenceStore.replaceUi(next);if(ok)uiPrefs=preferenceStore.readUi();return ok}
 function ensureInstallPolicyPrefs(){
   let changed=false;const next={...uiPrefs};
   for(const[key,value]of Object.entries(INSTALL_PREF_DEFAULTS)){
@@ -20680,6 +20056,13 @@ window.__repforgeOnboarding={
   clearDraft:clearSetupDraft};
 
 function init(){
+  window.RepForgeMotion=createMotion({window,runtime:window.Motion||null,
+    focus:{track:focusTrack,card:focusCard,step:focusStep,canGo:focusCanGo,setTrack:focusSetTrack,
+      go:focusGo,dragStart:focusDragStart,dragMove:focusDragMove,dragEnd:focusDragEnd},
+    sheets:{dragStart:sheetDragStart,dragMove:sheetDragMove,dragEnd:sheetDragEnd},
+    selection:{isNativeTextSelectionTarget,swallowNextClick},
+    fallback:{mount:mountFallbackGestures,navigate:fallbackFocusAnimateTo}});
+
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
   ensureInstallPolicyPrefs();
   ensureGuidePrefs({persist:currentEntryLanding()==="generic"});
@@ -21137,7 +20520,7 @@ function init(){
     if(!$("#onboarding").classList.contains("active"))maybeShowInstallBanner()}
   // Explicit gesture controller lifetime (Candidate D / R2)
   if (window.RepForgeMotion?.mountGestureController) {
-    window.__repforgeGestureHandle = window.RepForgeMotion.mountGestureController();
+    window.__repforgeGestureHandle = window.RepForgeMotion.mount();
   } else {
     window.__repforgeGestureHandle = mountFallbackGestures();
   }
@@ -21400,6 +20783,7 @@ async function boot(){
   // before replica resolution, normalization, journal replay or healing writes.
   if(I18N)I18N.setLang(I18N.detectLang());
   if(!await loadExerciseCatalog()){showExerciseCatalogUnavailable();return}
+  initializePersistenceOwners();
   // Program metadata and the first render are built from the loaded state, so
   // the language has to be settled before that — not after the state exists.
   const sharedCandidate=captureSharedSetupSource();
@@ -21473,26 +20857,27 @@ async function boot(){
   captureEvent("app_boot",{first_run:firstRunPending(),language:I18N?.getLang?.()==="pt"?"pt":"en",platform_class:telemetryPlatformClass(),display_mode:isStandalone()?"standalone":"browser"});
   if(sharedSetupDraft.status==="existing")toast(t("setup.shared.existing"),{assertive:true});
   if(decision.draftConflict)toast(t("toast.draft_conflict_retry"),{assertive:true})}
-if(DurableState){
-  DurableState.configureHost({
-    workoutDraft:WorkoutDraft,
-    getLiveState:()=>state,
-    storeDraftRecovery,
-    workoutParseContext,
-    isValidStateShape,
-    classifyRecoveryCarrier,
-    carrierReadStatus,
-    readSetupDraftRaw,
-    rebaseStateChange,
-    rebaseSharedSetupSnapshot,
-    resolveCustomMutationIntent,
-    applyAcceptedSnapshot,
-    normalizeRecoveryCarrierSnapshot,
-    blockStartDraftGuard,
-    isValidBlockId,
-    isValidRecoveryTransitions,
-    isBoundedTransitionValue,
-    programTransition:typeof RepForgeProgramTransition!=="undefined"?RepForgeProgramTransition:null
-  });
-}
+
 boot();
+
+function initializePersistenceOwners(){
+  if(DurableState)return;
+  const now=()=>new Date().toISOString();
+  const model=createProgramModel({catalog:rawExerciseCatalog,
+    librarySource:{library:EXERCISE_LIBRARY,legacyIds:LEGACY_LIBRARY_IDS},nextId:uid,now,
+    language:I18N?.getLang?.()||'en'});
+  const entry=createEntryRules(rawExerciseCatalog),workout=createWorkoutRules(rawExerciseCatalog);
+  const policy=SnapshotPolicy.createSnapshotPolicy({entry,workout,compiler:PersistenceCompiler,
+    catalog:rawExerciseCatalog,model,transition:createTransitionRules(),metrics:PersistenceMetrics,
+    progression:PersistenceProgression,now,nextId:uid,language:I18N,digest:recoverySha256});
+  ({normalizeMuscleAttribution,isValidMuscleDomainTree,isValidStoredMuscleField,isValidPlannedVolumeHistory,normalizeRecoveryCarrierSnapshot,isSafeProgressionFields,isSafeProgressionMeta,isSafeProgramHistoryEntry,isSafeLogRow,isSafeCustomExercise,isValidSetupActivationMarker,setupActivationMarker,setupActivationMatches,isValidStateShape,migrateLogSnapshot,defaultProgramMeta,normalizeProgramEntrySource,normalizeProgramMeta,normalizeLoadingConfiguration,withExplicitProgramStructure,normalizeProgramHistory,normalizeLoaded,normalizeNotify,normalizeSettings}=policy);
+  DurableState=createDurableStore({snapshotPolicy:policy,workout,
+    session:{getState:()=>state,parseContext:workoutParseContext,blockStartGuard:blockStartDraftGuard,
+      onDraftRecovery:value=>{workoutDraftRecovery=value}},
+    setup:{readRaw:readSetupDraftRaw,rebase:rebaseSharedSetupSnapshot},
+    resolveCustomMutationIntent,onAccepted:applyAcceptedSnapshot,
+    mutationGate:installTransferMutationFrozen,platform:window});
+  storageIO=DurableState.storageIO;DraftStore=DurableState.DraftStore;
+  DurableState.addStorageHealthListener(noteWriteHealth);
+  window.__repforgeStorage.durable=DurableState;
+}

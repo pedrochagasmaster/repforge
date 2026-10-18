@@ -353,7 +353,7 @@ try {
       });
       window.__raceReleaseWorkoutWrite = release;
       window.__raceWorkoutWriteEntered = false;
-      const adapter = window.RepForgeDurableState?.storageIO;
+      const adapter = window.__repforgeStorage.durable?.storageIO;
       if (!adapter || typeof adapter.writeLocal !== "function" || typeof adapter.writeIdb !== "function") {
         throw new Error("durable storage adapter unavailable");
       }
@@ -554,7 +554,7 @@ try {
       });
       window.__resetRaceRelease = release;
       window.__resetRaceEntered = false;
-      const adapter = window.RepForgeDurableState?.storageIO;
+      const adapter = window.__repforgeStorage.durable?.storageIO;
       if (!adapter || typeof adapter.writeLocal !== "function" || typeof adapter.writeIdb !== "function") {
         throw new Error("durable storage adapter unavailable");
       }

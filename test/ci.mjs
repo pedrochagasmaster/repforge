@@ -532,8 +532,8 @@ test("substantive or unprovable service-worker changes retain the full SW owner 
   const substantive = [
     ["release asset expansion", replaceOnce(fixture.source, '"./program-editor.js"', '"./program-editor.js", "./new-shell.js"')],
     ["ASSETS", replaceOnce(fixture.source, '"./styles.css"', '"./styles.css", "./new.css"')],
-    ["install behavior", replaceOnce(fixture.source, ".then(() => self.skipWaiting())", ".then(() => self.clients.claim())")],
-    ["activate behavior", replaceOnce(fixture.source, ".then(() => self.clients.claim())", ".then(() => self.skipWaiting())")],
+    ["install behavior", replaceOnce(fixture.source, "event.waitUntil(installReleaseAssets());", "event.waitUntil(Promise.resolve());")],
+    ["activate behavior", replaceOnce(fixture.source, "caches.keys().then(keys => Promise.all(keys", "caches.keys().then(keys => Promise.all([].concat(keys)")],
     ["fetch behavior", replaceOnce(fixture.source, 'if (event.request.method !== "GET") return;', 'if (event.request.method !== "GET") { event.respondWith(fetch(event.request)); return; }')],
     ["protected runtime query", replaceOnce(fixture.source, appQuery[0], appQuery[0].replace(appQuery[1], String(Number(appQuery[1]) + 1)))],
     ["malformed cache declaration", replaceOnce(fixture.source, cache[0], cache[0].replace(cache[1], "X"))],

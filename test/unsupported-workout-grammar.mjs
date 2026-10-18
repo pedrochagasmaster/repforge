@@ -31,7 +31,7 @@ assert.equal(typeof assets.find((entry) => entry === "./unsupported-workout-gram
   "the measurement module is a plain string entry (required, network-first, no owner or cache policy)");
 assert.notEqual(moduleEntries[0].required, false, "the measurement module is a required release asset");
 assert.notEqual(moduleEntries[0].immutable, true, "the measurement module is not an immutable runtime");
-assert.equal(index.match(/<script src="unsupported-workout-grammar\.js"><\/script>/g)?.length, 1,
+assert.equal(index.match(/<script\b[^>]*\bsrc="unsupported-workout-grammar\.js"><\/script>/g)?.length, 1,
   "index.html loads the measurement module exactly once, without a query revision");
 assert.ok(index.indexOf('src="telemetry.js"') < index.indexOf('src="unsupported-workout-grammar.js"'),
   "the measurement module loads after telemetry.js");
