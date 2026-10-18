@@ -485,6 +485,7 @@ function blockers(definition) {
     .map((day) => `day_empty:${day.id}`);
 }
 
-const api = Object.freeze({ EDIT_KINDS, REST_PRESETS, MIN_SETS, MAX_SETS, MAX_REPS, MAX_RIR, MAX_DAY_NAME, applyEdit, replay, changes, blockers });
-export { EDIT_KINDS, REST_PRESETS, MIN_SETS, MAX_SETS, MAX_REPS, MAX_RIR, MAX_DAY_NAME, applyEdit, replay, changes, blockers };
+const isEditKind=kind=>EDIT_KIND_SET.has(kind);
+const api = Object.freeze({ isEditKind,slotsOf,repKey,recoveredBlock,catalogMetrics,needsExecutionMode,duplicateDayName, EDIT_KINDS, REST_PRESETS, MIN_SETS, MAX_SETS, MAX_REPS, MAX_RIR, MAX_DAY_NAME, applyEdit, replay, changes, blockers });
+export { isEditKind,slotsOf,repKey,recoveredBlock,catalogMetrics,needsExecutionMode,duplicateDayName, EDIT_KINDS, REST_PRESETS, MIN_SETS, MAX_SETS, MAX_REPS, MAX_RIR, MAX_DAY_NAME, applyEdit, replay, changes, blockers };
 export default api;
