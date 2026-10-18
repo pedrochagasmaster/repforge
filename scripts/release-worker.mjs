@@ -16,6 +16,10 @@ self.addEventListener('install', event => event.waitUntil((async () => {
     for (const [url,asset] of own) {
       try {
         const response = await fetch(url,{cache:'no-store',redirect:'error'});
+        const type = (response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+        const path = new URL(url).pathname;
+        const codeType = /\\.js$/.test(path) ? ['text/javascript','application/javascript','application/ecmascript','text/ecmascript','application/x-javascript'] : /\\.css$/.test(path) ? ['text/css'] : null;
+        if (codeType && !codeType.includes(type)) throw new Error('Required release code has invalid MIME');
         if (!response.ok || await digest(await response.clone().arrayBuffer()) !== asset.sha256) throw new Error('Required release asset failed integrity');
         await cache.put(url,response);
       } catch(error) { if (!optional.has(url)) throw error; }
@@ -23,9 +27,13 @@ self.addEventListener('install', event => event.waitUntil((async () => {
   } catch(error) { await caches.delete(CACHE); throw error; }
   // Natural activation after all previous controlled pages close. No skipWaiting.
 })()));
-self.addEventListener('activate', event => event.waitUntil(Promise.resolve()));
-// Historical caches are retained. Cleanup needs explicit evidence that no old
-// client can use them; cache-name age alone does not establish that fact.
+self.addEventListener('activate', event => event.waitUntil((async()=> {
+  // No skipWaiting/claim exists: the platform reaches activate only after the
+  // previous worker has no controlled clients. Retain unrelated origin caches.
+  for (const name of await caches.keys()) {
+    if (name !== CACHE && /^(?:repforge-release-|repforge-v[0-9])/.test(name)) await caches.delete(name);
+  }
+})()));
 self.addEventListener('message',event=> {
   if(event.data?.type === 'taurifer-release-query') event.ports[0]?.postMessage({type:'taurifer-release',id:RELEASE.id});
 });

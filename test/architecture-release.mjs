@@ -39,10 +39,14 @@ test('assembly preserves native relative graph, fingerprints all bytes and isola
   const dir=mkdtempSync(join(tmpdir(),'taurifer-release-'));
   try {
     mkdirSync(join(dir,'src'),{recursive:true});
-    writeFileSync(join(dir,'index.html'),'<head></head><script type="module" src="src/main.js"></script><a href="#setup=private">proposal</a>');
+    writeFileSync(join(dir,'index.html'),'<head><meta name="taurifer-release" content="source"></head><link rel="manifest" href="manifest.webmanifest"><script type="module" src="src/main.js"></script><a href="#setup=private">proposal</a>');
+    writeFileSync(join(dir,'manifest.webmanifest'),JSON.stringify({start_url:'./index.html',scope:'./'}));
     writeFileSync(join(dir,'src/main.js'),"import './leaf.js';");
     writeFileSync(join(dir,'src/leaf.js'),'export const n = 1;');
     const manifest=assembleRelease(dir);
+    const assembledHtml=readFileSync(join(dir,'index.html'),'utf8');
+    assert.equal((assembledHtml.match(/name="taurifer-release"/g)||[]).length,1);
+    assert.match(assembledHtml,/href="manifest.webmanifest"/);
     assert.match(readFileSync(join(dir,'index.html'),'utf8'),new RegExp(`src="releases/${manifest.id}/src/main.js"`));
     assert.match(readFileSync(join(dir,'index.html'),'utf8'),/href="#setup=private"/);
     assert.equal(readFileSync(join(dir,`releases/${manifest.id}/src/main.js`),'utf8'),"import './leaf.js';");
@@ -60,13 +64,13 @@ test('real generated worker rejects corrupt required bytes and serves only insta
   const {releaseWorker}=await import('../scripts/release-worker.mjs');
   const content='export const version = 1;';
   const asset={url:'releases/r1/src/main.js',sha256:createHash('sha256').update(content).digest('hex')};
-  const handlers={},storage=new Map(); let corrupt=false,deleted=0;
+  const handlers={},storage=new Map(); let corrupt=false,wrongMime=false,deleted=0;
   const cache={async put(url,response){storage.set(url,response);},async match(url){return storage.get(url)?.clone();}};
   runInNewContext(releaseWorker({version:1,id:'r1',required:[asset]}),{
     self:{registration:{scope:'https://app.test/scoped/'},addEventListener(type,fn){handlers[type]=fn;}},
     URL,Response,Uint8Array,crypto:webcrypto,Promise,
     caches:{async open(){return cache;},async delete(){deleted++;storage.clear();}},
-    async fetch(){return new Response(corrupt?'wrong bytes':content);},
+    async fetch(){return new Response(corrupt?'wrong bytes':content,{headers:{'content-type':wrongMime?'text/html':'text/javascript'}});},
   });
   const dispatch=async type=>{let task;handlers[type]({waitUntil(value){task=value;}});await task;};
   await dispatch('install');
@@ -83,6 +87,9 @@ test('real generated worker rejects corrupt required bytes and serves only insta
   corrupt=true;
   await assert.rejects(dispatch('install'),/integrity/);
   assert.equal(deleted,1);
+  corrupt=false;wrongMime=true;
+  await assert.rejects(dispatch('install'),/MIME/,'correct bytes with HTML MIME are refused');
+  assert.equal(deleted,2);
   let reply;
   handlers.message({data:{type:'taurifer-release-query'},ports:[{postMessage(value){reply=value;}}]});
   assert.equal(reply.id,'r1');

@@ -17,11 +17,11 @@ export function assembleRelease(out, {optional = []} = {}) {
   const hashes = files.map(path => [path, hash(readFileSync(join(out,path)))]);
   const id = hash(JSON.stringify(hashes)).slice(0,24);
   const base = `releases/${id}/`;
-  const rootHtml = readFileSync(join(out,'index.html'),'utf8');
+  const rootHtml = readFileSync(join(out,'index.html'),'utf8').replace(/\s*<meta\s+name="taurifer-release"\s+content="[^"]*"\s*\/?\s*>/g, '');
   // Prefix only local resource attributes. Links to app navigation and fragment
   // proposals stay at scope root; relative URLs *inside* code/CSS are untouched.
   const html = rootHtml.replace(/(<(?:script|link|img|source)\b[^>]*?\b(?:src|href)=")(?![a-z]+:|\/|#)([^"?]+)([^" ]*)(")/gi,
-    (all,start,path,query,end) => files.includes(path) ? start+base+path+query+end : all)
+    (all,start,path,query,end) => path !== 'manifest.webmanifest' && files.includes(path) ? start+base+path+query+end : all)
     .replace('<head>',`<head>\n  <meta name="taurifer-release" content="${id}">`);
   writeFileSync(join(out,'index.html'),html);
   for (const path of files) {
