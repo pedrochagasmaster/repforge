@@ -6,9 +6,10 @@ import { mkdir, writeFile, mkdtemp, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildProgramLab } from '../tools/build-programlab.mjs';
+import { maybeStartLocalPreview } from '../tools/local-preview.mjs';
 import { launchChromium } from './browser.mjs';
 const base = process.env.REPFORGE_URL || 'http://localhost:8000/';
-let lab = new URL('programlab/', base).href;
+let lab = new URL('programlab/', base).href, artifactPreview = null;
 const artifacts = process.env.REPFORGE_ARTIFACT_DIR || path.resolve('.ci-results/programlab-ui');
 await mkdir(artifacts, { recursive: true });
 if (process.env.REPFORGE_PROGRAMLAB_URL) lab = process.env.REPFORGE_PROGRAMLAB_URL;
@@ -19,8 +20,8 @@ else if (!process.argv.includes('--shell')) {
   const staging = await mkdtemp(path.join(parent, 'programlab-artifact-'));
   const outDir = path.join(staging, 'artifact');
   const manifest = await buildProgramLab({ outDir });
-  const relative = path.relative(repository, outDir).split(path.sep).map(encodeURIComponent).join('/');
-  lab = new URL(`${relative}/programlab/`, base).href;
+  artifactPreview = await maybeStartLocalPreview([{ lane: 'entry' }], { cwd: outDir, prepareApp: false, env: { ...process.env, REPFORGE_URL: '' } });
+  lab = new URL('programlab/', artifactPreview.env.REPFORGE_URL).href;
   await writeFile(path.join(artifacts, 'packaged-build.json'), JSON.stringify({ sourceCommit: manifest.sourceCommit, runtimeFingerprint: manifest.runtimeFingerprint, catalogSha256: manifest.catalogSha256, generatorVersion: manifest.generatorVersion, artifact: outDir }, null, 2));
 }
 async function selectedComparison(page, previousId = null) {
@@ -35,6 +36,40 @@ async function executeAndInspect(page, previousId = null) {
   await page.locator('#run').click();
   await page.locator('#runStatus').filter({ hasText: 'completed' }).waitFor({ timeout: 120000 });
   return selectedComparison(page, previousId);
+}
+async function exerciseCorpus(page) {
+  await page.locator('html[data-lab-ready="true"]').waitFor({ timeout: 20000 });
+  await page.locator('[data-mode="batch"]').click();
+  await page.locator('#fixture').selectOption('compiler-corpus');
+  await page.locator('#preset').selectOption('two_sets_low_rir@1');
+  await page.locator('#applyPreset').click();
+  assert.equal(await page.locator('#caseList option').count(), 180, 'uses the current shared 180-case factory');
+  await page.locator('#planSummary').filter({ hasText: /180 scenarios/ }).waitFor();
+  await page.evaluate(() => {
+    const frames = { active: true, count: 0, maximumGapMs: 0, last: performance.now() };
+    window.__programlabFrames = frames;
+    function tick(time) { if (!frames.active) return; frames.maximumGapMs = Math.max(frames.maximumGapMs, time - frames.last); frames.last = time; frames.count++; requestAnimationFrame(tick); }
+    requestAnimationFrame(tick);
+  });
+  const started = performance.now();
+  await page.locator('#run').click();
+  await page.locator('#runStatus').filter({ hasText: 'completed' }).waitFor({ timeout: 600000 });
+  const selected = await selectedComparison(page);
+  const elapsedMs = performance.now() - started;
+  const frames = await page.evaluate(() => { window.__programlabFrames.active = false; return window.__programlabFrames; });
+  const counters = await page.locator('#progress').evaluate(element => ({ completed: element.value, total: element.max }));
+  const diagnostics = JSON.parse(await page.locator('#diagnostics').textContent());
+  const outcomes = diagnostics.aggregation[0].outcomes;
+  assert.equal(counters.completed, counters.total);
+  assert(counters.total > 180 && counters.total <= 360, 'both policies execute distinct bounded real-worker cells');
+  assert.equal(Object.values(outcomes).reduce((sum, count) => sum + count, 0), 180, 'every scenario has an honest paired outcome');
+  assert(!Object.keys(outcomes).some(key => /execution_error/.test(key)), 'full corpus has no worker execution errors');
+  const manifest = JSON.parse(await page.locator('#buildManifest').textContent());
+  await writeFile(path.join(artifacts, 'corpus.json'), JSON.stringify({ sourceCommit: manifest.sourceCommit, runtimeFingerprint: manifest.runtimeFingerprint,
+    catalogSha256: manifest.catalogSha256, generatorVersion: manifest.generatorVersion, browser: await browser.version(), node: process.version, platform: process.platform,
+    elapsedMs, frames: { count: frames.count, maximumGapMs: frames.maximumGapMs }, counters, cases: 180, outcomes, runId: selected.runId }, null, 2));
+  await page.screenshot({ path: path.join(artifacts, 'corpus-completed.png'), fullPage: true });
+  console.log(`Program Lab corpus: 180 cases / ${counters.total} cells completed in ${(elapsedMs / 1000).toFixed(1)}s; outcomes ${JSON.stringify(outcomes)}; maximum observed frame gap ${frames.maximumGapMs.toFixed(0)}ms.`);
 }
 async function historicalArchive(page, envelope, unknownCatalogId) {
   return page.evaluate(async ({ envelope, unknownCatalogId }) => {
@@ -157,8 +192,9 @@ async function exerciseModes(page) {
   assert(await page.locator('#run').isDisabled(), '180 cases times 20 values is rejected before execution');
   console.log(`Program Lab modes: exact single/batch/sweep parity, native three-day scenario editing, shared-cohort table, cell bound and real cancellation (${acknowledgmentMs.toFixed(0)}ms) passed.`);
 }
-const browser = await launchChromium();
+let browser;
 try {
+  browser = await launchChromium();
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, acceptDownloads: true });
   const page = await context.newPage();
   const errors = [];
@@ -229,6 +265,10 @@ try {
     assert.equal(await page.evaluate(async () => (await navigator.serviceWorker.getRegistrations()).length), 0);
     assert.deepEqual(errors, []);
     console.log('Program Lab shell: missing integration blocks run; labels, same-page keyboard skip, 1440/720/390 layouts, 200% enlarged text, English/Portuguese draft preservation and storage isolation passed. Full worker journey remains pending.');
+    await context.close();
+  } else if (process.argv.includes('--corpus')) {
+    await exerciseCorpus(page);
+    assert.deepEqual(errors, []);
     await context.close();
   } else if (process.argv.includes('--modes')) {
     await exerciseModes(page);
@@ -321,7 +361,7 @@ try {
   console.log('Program Lab: actual worker → edited prescriptions → save/reload/export/import; validation, keyboard and narrow layouts passed.');
   }
 } catch (error) {
-  const page = browser.contexts()[0]?.pages()[0];
+  const page = browser?.contexts()?.[0]?.pages()?.[0];
   if (page) { console.error(await page.locator('#runStatus').textContent(), await page.locator('#fatalError').textContent()); await page.screenshot({ path: path.join(artifacts, 'failure.png'), fullPage: true }); }
   throw error;
-} finally { await browser.close(); }
+} finally { await browser?.close(); artifactPreview?.cleanup(); }

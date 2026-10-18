@@ -8,7 +8,7 @@
   const t = (key, values) => L().t(key, values);
   const issue = (code, message) => Object.assign(new Error(message), { code });
   let Policy, Compiler, Adapter, Engine, D, db, domain, runner, catalog, manifest, metadata, corpus;
-  let storageError = null, activeArchive = null, archivedMetricsDomain;
+  let storageError = null, activeArchive = null, archivedMetricsDomain, planCache = null;
   const metricsCache = new WeakMap();
   const build = () => ({ runtimeFingerprint: manifest.runtimeFingerprint, catalogSha256: manifest.catalogSha256, diagnostics: manifest.diagnosticsVersion });
   const presetIds = ['bundled_default', 'two_sets_low_rir@1', 'two_sets_zero_rir@1'];
@@ -109,7 +109,11 @@
     // The v0 baseline is fixed to this build. An archived result stays viewable,
     // while a new execution must explicitly use this build's bundled baseline.
     if (fingerprint(configuration.baselinePolicy) !== fingerprint(Policy.getDefaultEnginePolicy())) throw issue('baseline_mismatch', t('This archived baseline belongs to another build. Create a new experiment to run with this build.'));
-    return domain.plan(configuration, build());
+    const key = D.digest({ configuration, build: build() });
+    if (planCache?.key === key) return planCache.value;
+    const value = domain.plan(configuration, build());
+    planCache = { key, value }; // Immutable input plans only; every run executes fresh cells.
+    return value;
   }
   async function revisionPlan(configuration) {
     let plan = makePlan(configuration);

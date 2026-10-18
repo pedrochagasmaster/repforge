@@ -61,6 +61,7 @@
     $('loadRun').disabled = value || !$('savedRuns').value;
     $('savedRuns').disabled = value;
     $('savedExperiments').disabled = value;
+    $('caseList').disabled = value;
     $('importFiles').disabled = value;
     $('language').disabled = value;
     document.querySelector('.workbench-grid').setAttribute('aria-busy', String(value));
@@ -125,7 +126,9 @@
       const planned = await services.plan(configuration);
       if (token !== validationToken) return;
       plan = planned;
-      say('planSummary', '{cases} scenario/seed pairs · {cells} compiler cells · {reuse} baseline reuses', { cases: planned.caseCount, cells: planned.cellCount, reuse: planned.baselineReuse || 0 });
+      say('planSummary', '{cases} scenarios · {cells} distinct compiler cells · {reuse} identical-cell reuses', { cases: planned.caseCount, cells: planned.cellCount, reuse: planned.baselineReuse || 0 });
+      $('sweepPlan').hidden = configuration.mode !== 'sweep';
+      if (configuration.mode === 'sweep') say('sweepPlan', '{path}: {values} · reuse requires identical computation keys.', { path: planned.experiment.sweep.path, values: planned.experiment.sweep.values.join(', ') });
       $('run').disabled = false;
     } catch (error) {
       if (token !== validationToken) return;
@@ -183,7 +186,7 @@
       const values = text('div', '', 'policy-values');
       const baselineValue = at(draft.baselinePolicy, field.path) === null ? _('Recovered default') : at(draft.baselinePolicy, field.path);
       const baseline = text('span', baselineValue, 'baseline');
-      baseline.setAttribute('aria-label', _('Baseline: {value}', { value: at(draft.baselinePolicy, field.path) }));
+      baseline.setAttribute('aria-label', _('Baseline: {value}', { value: baselineValue }));
       values.append(baseline);
       const input = createInput(field, at(draft.candidatePolicy, field.path), next => {
         assign(draft.candidatePolicy, field.path, next);
@@ -466,7 +469,7 @@
       draft.scenarios = clone(draft.mode === 'single' ? [scenarios[0]] : scenarios);
       pendingScenarioEdits.clear(); canonicalDrafts.clear(); selectedScenario = 0; renderScenarios(); markDirty();
     }));
-    $('caseList').addEventListener('change', () => { selectedScenario = Number($('caseList').value); renderScenarios(); validate(); });
+    $('caseList').addEventListener('change', () => { selectedScenario = Number($('caseList').value); renderScenarios(); if (draft.mode === 'single') markDirty(); else validate(); });
     $('updateScenario').addEventListener('click', guard(async () => {
       draft.scenarios[selectedScenario] = clone(await services.normalizeScenario({ ...draft.scenarios[selectedScenario], inputMode: 'answers' }));
       pendingScenarioEdits.delete(draft.scenarios[selectedScenario].id);
