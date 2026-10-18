@@ -2150,17 +2150,15 @@
       "baselineCommand": "node test/install-transfer-telemetry.mjs",
       "baselineLane": "privacy",
       "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
-      "retainedRisk": "private source/credential isolation, real vault/cookie import arbitration and redirect launch",
+      "evidence": "Unique cheap transfer-event negatives and milestone/consent contracts migrate to telemetry-unit; a deliberately leaked claimId fails the actual outbound assertion. Real import boundaries remain in install-transfer-import, diagnostic fixtures in install-transfer-limits, generic real SDK/network leakage in telemetry-leakage.",
+      "retainedRisk": "Transfer-specific hostile capture rejection, outbound credential/program stripping, qualified settlement, milestone/reboot suppression and restored disabled consent at the shipped telemetry interface; all diagnostic redaction fixtures and real import preboot/identity/consent-freeze boundaries.",
       "owners": [
-        "test/telemetry-leakage.mjs",
-        "test/privacy-offline.mjs",
-        "test/shared-setup-flow.mjs",
-        "test/install-transfer-client-browser.mjs",
+        "test/telemetry-unit.mjs",
+        "test/install-transfer-limits.mjs",
         "test/install-transfer-import.mjs",
-        "test/sw-launch-redirect.mjs"
+        "test/telemetry-leakage.mjs"
       ],
-      "retiredGuarantee": "The dedicated install-transfer-telemetry execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "retiredGuarantee": "The separate synthetic post-settlement browser/event repetition is retired; no claim that the generic browser leakage owner emits every transfer event or that the old file was an end-to-end secret-bearing transfer."
     },
     {
       "baselineCommand": "node tools/capture-ui-screens.mjs --verify --shard 1/6",

@@ -160,3 +160,13 @@ the entire candidate, so its speedup is not attributed exclusively to harness
 changes. #435's shared launcher must also preserve live-guide fresh transfer
 destinations and clone eligibility; do not seed dismissed guides into those
 fresh-destination proofs.
+
+A final targeted adequacy review found that the generic alpha-event inventory
+excludes the transfer phase. The retained fast telemetry owner now includes the
+retired suite's transfer-specific hostile `capture`/`beforeSend` negatives,
+settlement qualification, milestone/reboot suppression and restored disabled
+consent. A temporary isolated copy of the complete shipped telemetry module with
+a deliberate transfer-only claimId leak fails the actual new assertion; the
+healthy production module passes. Existing import and diagnostic-redaction
+owners retain the real preboot/identity/freeze and all redaction fixture cases.
+No extra executable/browser journey is introduced; counts remain 97/97.
