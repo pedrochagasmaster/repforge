@@ -58,7 +58,7 @@ test("dist/ holds every URL the app precaches or references", () => {
   try {
     build();
     const paths = referencedPaths(ROOT);
-    for (const required of ["index.html", "sw.js", "app.js", "program-engine.js", "program-review.js", "assets/exercise-catalog.json"]) {
+    for (const required of ["index.html", "sw.js", "app.js", "program-engine.js", "src/ui/editors/review.js", "assets/exercise-catalog.json"]) {
       assert.ok(paths.includes(required), `the reference scan misses ${required}`);
     }
     const missing = paths.filter((path) => !GENERATED.has(path) && !KNOWN_MISSING.has(path) && !existsSync(join(DIST, path)));

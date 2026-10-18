@@ -43,12 +43,12 @@ for(const expected of cases){
  if(checked===0){
   const day=training[0],slot=day.slots.find(s=>s.prescriptionsByCycle[0].sets[0].rir!==null);
   const value=slot.prescriptionsByCycle[0].sets[0].rir;
-  const edited=require('./program-review.js').applyEdit(program,{kind:'rir',slotId:slot.id,setIndex:1,rir:value<6?value+1:value-1},{compiler:Compiler,catalog});
+  const edited=require('./src/training/authoring.js').review.applyEdit(program,{kind:'rir',slotId:slot.id,setIndex:1,rir:value<6?value+1:value-1},{compiler:Compiler,catalog});
   assert.equal(edited.ok,true);
   assert.equal(Compiler.estimateDaySeconds(edited.definition.days.find(d=>d.id===day.id),1,catalog),program.provenance.estimatedSessionSeconds[day.id],'an RIR edit preserves the source duration model');
   const timed=day.slots.find(s=>s.prescriptionsByCycle[0].sets.length>1);
   assert(timed,'source fixture has a multi-set slot for rest-override contrast');
-  const restDay=seconds=>require('./program-review.js').applyEdit(program,{kind:'rest',slotId:timed.id,seconds},{compiler:Compiler,catalog}).definition.days.find(d=>d.id===day.id);
+  const restDay=seconds=>require('./src/training/authoring.js').review.applyEdit(program,{kind:'rest',slotId:timed.id,seconds},{compiler:Compiler,catalog}).definition.days.find(d=>d.id===day.id);
   const short=Compiler.estimateDaySeconds(restDay(60),1,catalog),long=Compiler.estimateDaySeconds(restDay(240),1,catalog);
   assert.equal(long-short,180*(timed.prescriptionsByCycle[0].sets.length-1),'explicit rest changes every between-set interval while retaining the source work model');
  }

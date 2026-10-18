@@ -846,7 +846,7 @@ try {
       { key: KEY, snapshot: high }
     );
     await idbDelete(page);
-    await page.evaluate(() => window.resolveBootReplicas());
+    await page.evaluate(() => window.__repforgeStorage.durable.resolveBootReplicas());
 
     const low = sampleState({ name: "Real lower", revision: highRevision - 1 });
     await page.evaluate(
@@ -874,7 +874,7 @@ try {
           return originalPut.apply(this, arguments);
         };
         try {
-          await window.resolveBootReplicas();
+          await window.__repforgeStorage.durable.resolveBootReplicas();
           return { calls, health: window.__repforgeStorage.health() };
         } finally {
           Storage.prototype.setItem = originalSetItem;

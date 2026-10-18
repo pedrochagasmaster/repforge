@@ -12,8 +12,8 @@ import {
 
 const require = createRequire(import.meta.url);
 const Telemetry = createTelemetry();
-const ProgramEntry = require("../program-entry.js");
-const ProgramReview = require("../program-review.js");
+const ProgramEntry = require("../src/training/authoring.js").createEntryRules(null);
+const ProgramReview = require("../src/training/authoring.js").review;
 const FIXED_UUID = "123e4567-e89b-42d3-a456-426614174000";
 const FIXED_DATE = new Date("2026-08-27T00:00:00.000Z");
 
@@ -245,7 +245,7 @@ assert.equal(Telemetry.bucketChanges(1.5), null);
     for (const step of list) assert.ok(steps.has(step), `ROUTE_STEPS.${route} step ${step} has a telemetry step value`);
   }
   assert.ok(steps.has("entry") && steps.has("activation_conflict"));
-  assert.deepEqual([...vocabulary.reviewEditKinds], [...ProgramReview.EDIT_KINDS], "review edit kinds are program-review.js EDIT_KINDS");
+  assert.deepEqual([...vocabulary.reviewEditKinds], [...ProgramReview.EDIT_KINDS], "review edit kinds are native authoring EDIT_KINDS");
 }
 
 // B's Basics never reach telemetry, whatever the event (Plan 071 §7).
@@ -350,7 +350,7 @@ for (const name of Telemetry.getEventNames("all")) {
 
   // The closed lists follow the engine's own vocabularies.
   const vocabulary = Telemetry.getEntryVocabulary().stepAnswers;
-  const Compiler = require("../program-compiler.js");
+  const Compiler = require("../src/training/generation.js");
   for (const split of Object.keys(Compiler.SPLITS)) assert.ok(vocabulary.split.includes(split), `split ${split} has a telemetry value`);
   assert.deepEqual([...vocabulary.gym_preset], [...ProgramEntry.ENTRY_ENVIRONMENTS], "gym presets are the entry environments");
 
