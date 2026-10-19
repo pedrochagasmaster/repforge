@@ -34,8 +34,15 @@ try{
       const mount=editor.mountProgramEditor(host,{read:()=>({document:input}),
         chooseExercise:()=>choice,suggestLoads:{eligibility:()=> 'eligible'},
         commit:request=>{requests.push(structuredClone(request));acknowledge();return {ok:true,document:request.nextDocument}}});
-      host.querySelector(`[data-role="toggle-exercise"][data-id="${firstId}"]`)?.click();
-      await Promise.resolve(); // expansion renders in the mounted owner
+      const toggleSelector=`[data-role="toggle-exercise"][data-id="${firstId}"]`;
+      const toggle=host.querySelector(toggleSelector);
+      if(!toggle)throw new Error(`${name}: missing exercise expansion control`);
+      // The editor initially opens each day's first exercise. Do not collapse
+      // that existing state while preparing to exercise its mounted controls.
+      if(toggle.getAttribute('aria-expanded')!=='true')toggle.click();
+      await Promise.resolve(); // any requested expansion renders in the owner
+      if(host.querySelector(toggleSelector)?.getAttribute('aria-expanded')!=='true')
+        throw new Error(`${name}: exercise must be expanded before the action`);
       act(host);
       if(!refused){
         let timeout;
