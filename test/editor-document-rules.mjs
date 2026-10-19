@@ -38,3 +38,74 @@ assert.equal(enlarged.document.programMeta.programDefinition.days[0].slots[0].pr
 assert.deepEqual(rules.editExerciseField(installed,{id:'seed-ex-1',field:'unrecognized-field',value:'corrupt',cycleIndex:1}),{ok:false});
 assert.equal(JSON.stringify(installed),rawBefore,'negative control: unknown fields cannot mutate the caller document');
 console.log('PASS authored field alias and canonical set growth have literal expected receipts without mutating the input');
+
+// Prescription preparation owns policy and leaves acknowledged documents intact.
+const prescriptionDoc=structuredClone(installed);
+const prescribedSlot=prescriptionDoc.programMeta.programDefinition.days[0].slots[0];
+const picked=()=>prescribedSlot.prescriptionsByCycle[0].sets[0];
+picked().status='ready';picked().rir=2;
+picked().provenance={source:'generator',policyVersion:'fixture@1',reason:'retained by speculative editing'};
+const request={slotId:prescribedSlot.id,cycleIndex:1,setIndex:1,field:'rir',after:0};
+const frozenPrescription=structuredClone(prescriptionDoc);
+for(const after of [0,6,2.5]){
+  const result=rules.editPrescriptionField(prescriptionDoc,{...request,after});
+  assert.equal(result.ok,true);
+  const slot=result.document.programMeta.programDefinition.days[0].slots[0];
+  assert.equal(slot.prescriptionsByCycle[0].sets[0].rir,after);
+  assert.equal(slot.prescriptionsByCycle[0].sets[0].status,'ready');
+  assert.deepEqual(slot.prescriptionsByCycle[0].sets[0].provenance,{source:'generator',policyVersion:'fixture@1',reason:'retained by speculative editing'});
+  assert.deepEqual(slot.prescriptionsByCycle[0].sets.slice(1),prescribedSlot.prescriptionsByCycle[0].sets.slice(1));
+  assert.deepEqual(slot.prescriptionsByCycle.slice(1),prescribedSlot.prescriptionsByCycle.slice(1));
+  assert.deepEqual(result.document.program.find(row=>(row.slotId||row.id)===slot.id).prescriptionsByCycle,slot.prescriptionsByCycle);
+}
+for(const after of [-1,6.1,NaN,Infinity,null])assert.equal(rules.editPrescriptionField(prescriptionDoc,{...request,after}).ok,false);
+for(const after of [0,86400,null]){
+  const result=rules.editPrescriptionField(prescriptionDoc,{...request,field:'restSeconds',after});
+  assert.equal(result.ok,true);
+  if(result.unchanged)continue;
+  const set=result.document.programMeta.programDefinition.days[0].slots[0].prescriptionsByCycle[0].sets[0];
+  assert.equal(set.restSeconds,after);assert.equal(set.status,'manual');
+  assert.deepEqual(set.provenance,{source:'manual',policyVersion:'manual@1',reason:'retained by speculative editing'});
+}
+for(const after of [-1,86401,0.5,NaN,Infinity])assert.equal(rules.editPrescriptionField(prescriptionDoc,{...request,field:'restSeconds',after}).ok,false);
+for(const patch of [{slotId:'missing'},{cycleIndex:0},{cycleIndex:999},{setIndex:0},{setIndex:999},{field:'targets'}])assert.equal(rules.editPrescriptionField(prescriptionDoc,{...request,...patch}).ok,false);
+assert.deepEqual(prescriptionDoc,frozenPrescription);
+picked().status='manual';
+const cleared=rules.editPrescriptionField(prescriptionDoc,{...request,after:null});
+assert.equal(cleared.document.programMeta.programDefinition.days[0].slots[0].prescriptionsByCycle[0].sets[0].rir,null);
+console.log('PASS prescription literal bounds, adaptive/manual policy, coordinates, projection and immutable preparation');
+
+// Loading preparation: captured movement identity, literal boundaries and no input mutation.
+const loadingDoc=structuredClone(installed);
+const loadingSlot=loadingDoc.programMeta.programDefinition.days[0].slots[0];
+loadingSlot.metricDefinitions=[{id:'load-fixture',semantic:'loadPerSideKg'}];
+loadingDoc.programMeta.loadingConfiguration={byExerciseId:{other:{loadStepKg:7}},defaultLoadStepKg:2.5};
+const loadingBefore=structuredClone(loadingDoc);
+for(const after of [0.25,100]){
+  const result=rules.editLoadStep(loadingDoc,{slotId:loadingSlot.id,after});
+  assert.deepEqual(result.edit,{kind:'load_step',exerciseId:loadingSlot.exerciseId,before:null,after});
+  assert.deepEqual(result.document.programMeta.loadingConfiguration,{byExerciseId:{other:{loadStepKg:7},[loadingSlot.exerciseId]:{loadStepKg:after}},defaultLoadStepKg:2.5});
+  assert.deepEqual(result.document.programMeta.programDefinition,loadingBefore.programMeta.programDefinition);
+}
+for(const after of [0,-1,100.1,NaN,Infinity,'2'])assert.equal(rules.editLoadStep(loadingDoc,{slotId:loadingSlot.id,after}).ok,false);
+assert.deepEqual(rules.editLoadStep(loadingDoc,{slotId:loadingSlot.id,after:null}),{ok:true,unchanged:true});
+assert.equal(rules.editLoadStep(loadingDoc,{slotId:'missing',after:1}).ok,false);
+for(const semantic of ['loadKg','assistanceKg','loadPerSideKg','persistentLoadPerSideKg']){
+  const input=structuredClone(loadingDoc);input.programMeta.programDefinition.days[0].slots[0].metricDefinitions[0].semantic=semantic;
+  assert.equal(rules.editLoadStep(input,{slotId:loadingSlot.id,after:1}).ok,true);
+}
+const noLoad=structuredClone(loadingDoc);noLoad.programMeta.programDefinition.days[0].slots[0].metricDefinitions=[{semantic:'durationSeconds'}];
+assert.equal(rules.editLoadStep(noLoad,{slotId:loadingSlot.id,after:1}).ok,false);
+const withStep=rules.editLoadStep(loadingDoc,{slotId:loadingSlot.id,after:5}).document;
+assert.deepEqual(rules.editLoadStep(withStep,{slotId:loadingSlot.id,after:null}).document.programMeta.loadingConfiguration,{byExerciseId:{other:{loadStepKg:7}},defaultLoadStepKg:2.5});
+for(const after of ['bilateral','unilateral']){
+  const result=rules.editExecutionMode(loadingDoc,{slotId:loadingSlot.id,after});
+  assert.deepEqual(result.edit,{kind:'execution_mode',slotId:loadingSlot.id,before:null,after});
+  const expected=structuredClone(loadingBefore);expected.programMeta.programDefinition.days[0].slots[0].executionMode=after;
+  assert.deepEqual(result.document,expected,'mode changes only the captured canonical slot, retaining all prescriptions and provenance');
+  assert.deepEqual(rules.editExecutionMode(result.document,{slotId:loadingSlot.id,after}),{ok:true,unchanged:true});
+}
+for(const after of ['',null,'both'])assert.equal(rules.editExecutionMode(loadingDoc,{slotId:loadingSlot.id,after}).ok,false);
+assert.equal(rules.editExecutionMode(loadingDoc,{slotId:'missing',after:'bilateral'}).ok,false);
+assert.deepEqual(loadingDoc,loadingBefore);
+console.log('PASS loading preparation bounds, per-side semantics, defaults, captured identity and immutable receipts');

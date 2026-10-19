@@ -128,6 +128,102 @@ export function createEditorDocumentRules({nextId:uid}) {
     return true;
   }
 
+  /** Apply to an owned document only after all policy and replay checks pass.
+   * @param {EditorDocument} document
+   * @param {Extract<import('./editor-contracts.js').InstalledIntent,{kind:'prescription_field'}>} edit
+   * Speculative edits retain captured provenance annotations; canonical replay
+   * replaces manual provenance, as it did before sharing this policy.
+   * @param {{preserveProvenance?:boolean}} [options] */
+  function applyPrescriptionField(document, edit, {preserveProvenance=false}={}) {
+    const {slotId,cycleIndex,setIndex,field,before,after}=edit;
+    const slot=definitionSlot(document,slotId);
+    const set=definitionSet(document,slotId,cycleIndex,setIndex);
+    if(!slot||!set||(field!=="rir"&&field!=="restSeconds"))return false;
+    const current=set[field]??null;
+    if(current!==before&&current!==after)return false;
+    if(after!==null&&(typeof after!=="number"||!Number.isFinite(after)||after<0||
+      (field==="rir"?after>6:!Number.isSafeInteger(after)||after>86400)))return false;
+    const keepsAdaptive=field==="rir"&&set.status==="ready";
+    if(keepsAdaptive&&after===null)return false;
+    set[field]=after;
+    if(!keepsAdaptive){
+      set.status="manual";
+      set.provenance={...(preserveProvenance?set.provenance:{}),source:"manual",policyVersion:"manual@1"};
+    }
+    const row=(document.program||[]).find(candidate=>(candidate.slotId||candidate.id)===slotId);
+    if(row)row.prescriptionsByCycle=clone(slot.prescriptionsByCycle||[]);
+    return true;
+  }
+  /** Prepare a speculative receipt without changing the acknowledged input.
+   * @template {EditorDocument} T
+   * @param {T} input
+   * @param {{slotId:string,cycleIndex:number,setIndex:number,field:string,after:number|null}} request */
+  function editPrescriptionField(input,{slotId,cycleIndex,setIndex,field,after}) {
+    if(field!=="rir"&&field!=="restSeconds")return {ok:false};
+    const set=definitionSet(input,slotId,cycleIndex,setIndex);
+    if(!set)return {ok:false};
+    const before=set[field]??null;
+    const edit=/** @type {const} */({kind:"prescription_field",slotId,cycleIndex,setIndex,field,before,after});
+    const next=clone(input);
+    if(!applyPrescriptionField(next,edit,{preserveProvenance:true}))return {ok:false};
+    if(Object.is(before,after))return {ok:true,unchanged:true};
+    return {ok:true,document:next,edit};
+  }
+
+  /** @param {ProgramSlot|null|undefined} slot */
+  function slotLoadMetric(slot) {
+    return (slot?.metricDefinitions || []).find(metric =>
+      ["loadKg", "assistanceKg", "loadPerSideKg", "persistentLoadPerSideKg"].includes(metric.semantic)) || null;
+  }
+  /** Movement-wide overrides intentionally replay without a before-value guard.
+   * Canonical replay also supports a movement not present in the current slots.
+   * @param {EditorDocument} document
+   * @param {Extract<import('./editor-contracts.js').InstalledIntent,{kind:'load_step'}>} edit */
+  function applyLoadStep(document, edit) {
+    const exerciseId=String(edit.exerciseId||""),after=edit.after;
+    if(!exerciseId||(after!==null&&!(Number.isFinite(after)&&after>0&&after<=100)))return false;
+    document.programMeta=document.programMeta||{};
+    const byExerciseId={...(document.programMeta.loadingConfiguration?.byExerciseId||{})};
+    if(after===null)delete byExerciseId[exerciseId];else byExerciseId[exerciseId]={loadStepKg:after};
+    document.programMeta.loadingConfiguration={...(document.programMeta.loadingConfiguration||{}),byExerciseId};
+    return true;
+  }
+  /** @template {EditorDocument} T
+   * @param {T} input @param {{slotId:string,after:number|null}} request */
+  function editLoadStep(input,{slotId,after}) {
+    const slot=definitionSlot(input,slotId);
+    if(!slot||!slotLoadMetric(slot))return {ok:false};
+    const before=input.programMeta?.loadingConfiguration?.byExerciseId?.[slot.exerciseId]?.loadStepKg??null;
+    const edit=/** @type {const} */({kind:"load_step",exerciseId:slot.exerciseId,before,after});
+    const next=clone(input);
+    if(!applyLoadStep(next,edit))return {ok:false};
+    if(Object.is(before,after))return {ok:true,unchanged:true};
+    return {ok:true,document:next,edit};
+  }
+  /** Canonical callers separately enforce catalog eligibility before applying.
+   * @param {EditorDocument} document
+   * @param {Extract<import('./editor-contracts.js').InstalledIntent,{kind:'execution_mode'}>} edit */
+  function applyExecutionMode(document,edit) {
+    const slot=definitionSlot(document,edit.slotId);
+    if(!slot||(edit.after!=="bilateral"&&edit.after!=="unilateral"))return false;
+    const current=slot.executionMode==="bilateral"||slot.executionMode==="unilateral"?slot.executionMode:null;
+    if(current!==(edit.before??null)&&current!==edit.after)return false;
+    slot.executionMode=edit.after;
+    return true;
+  }
+  /** @template {EditorDocument} T
+   * @param {T} input @param {{slotId:string,after:string}} request */
+  function editExecutionMode(input,{slotId,after}) {
+    const slot=definitionSlot(input,slotId);
+    if(!slot)return {ok:false};
+    const before=slot.executionMode==="bilateral"||slot.executionMode==="unilateral"?slot.executionMode:null;
+    const edit=/** @type {const} */({kind:"execution_mode",slotId,before,after});
+    const next=clone(input);
+    if(!applyExecutionMode(next,edit))return {ok:false};
+    if(before===after)return {ok:true,unchanged:true};
+    return {ok:true,document:next,edit};
+  }
+
   /** @param {EditorDocument} document */
   function ensureStructure(document) {
     if (!document.programMeta || typeof document.programMeta !== "object") document.programMeta = {};
@@ -312,5 +408,5 @@ export function createEditorDocumentRules({nextId:uid}) {
 
   }
 
-return Object.freeze({editExerciseField,metaDays,labels,exercisesFor,normalizeOrders,structureFor,definitionCycle,definitionSet,setCountFor,editableMetricComposition,replaceMetricComposition,replaceMetricTarget,ensureStructure,setDayLabel,appendDay,removeDayFromDocument,fieldValue,entryFields,addExercise,replaceExercise,reorder,validation});
+return Object.freeze({slotLoadMetric,editLoadStep,applyLoadStep,editExecutionMode,applyExecutionMode,editPrescriptionField,applyPrescriptionField,editExerciseField,metaDays,labels,exercisesFor,normalizeOrders,structureFor,definitionCycle,definitionSet,setCountFor,editableMetricComposition,replaceMetricComposition,replaceMetricTarget,ensureStructure,setDayLabel,appendDay,removeDayFromDocument,fieldValue,entryFields,addExercise,replaceExercise,reorder,validation});
 }

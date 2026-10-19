@@ -14,6 +14,7 @@ import ExerciseMetrics from "../../metrics.js";
 import { cloneSnapshot,canonicalize,isPlainStateObject } from "../../model/internal/values.js";
 import { progression } from "../../progress.js";
 import suggestion from "./suggestion.js";
+import {createEditorDocumentRules} from "./editor-document.js";
 /** Pure document edits/rebase; host captures the identity and metadata policy.
  * @param {{model:ReturnType<typeof import('../../model.js').createProgramModel>,catalog:import('../../generation/internal/compiler-contracts.js').SourceCatalog,nextId:()=>string,defaultProgramMeta:(log:unknown[])=>EditorMeta,allowCreateDefinition?:boolean,recoveryRecord?:import('../../model/internal/contracts.js').RecoveryRecord|null}} options */
 export function createInstalledEditorRules({model,catalog,nextId,defaultProgramMeta,allowCreateDefinition=false,recoveryRecord=null}) {
@@ -24,6 +25,7 @@ const syncProgramStructureFromProgram=(proposal,program,previousProgram=null,pre
 const rawExercise=id=>catalog?.exercises?.find(item=>item.id===String(id??""))||null;
 /** @param {unknown} id */
 const rawCatalogObject=id=>catalog?.uuidIndex?.[String(id??"")]||null;
+const documentRules=createEditorDocumentRules({nextId});
 const uid=()=>{if(typeof nextId!=="function")throw new TypeError("nextId required to author prescription identity");return nextId();};
 const editorSuggestLoadsPolicy=Object.freeze({
   /** @param {ProgramSlot|null|undefined} slot */
@@ -195,15 +197,7 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
   }
   if(kind==="suggest_loads"||kind==="suggest_loads_rir"||kind==="execution_mode")
     return syncEditorCanonicalIntent(document,document,edit)?{ok:true}:{conflict:true,code:"invalid_canonical_prescription"};
-  if(kind==="load_step"){
-    const exerciseId=String(edit.exerciseId||""),after=edit.after;
-    if(!exerciseId||(after!==null&&!(Number.isFinite(after)&&after>0&&after<=100)))return{conflict:true};
-    document.programMeta=document.programMeta||{};
-    const byExerciseId={...(document.programMeta.loadingConfiguration?.byExerciseId||{})};
-    if(after===null)delete byExerciseId[exerciseId];else byExerciseId[exerciseId]={loadStepKg:after};
-    document.programMeta.loadingConfiguration={...(document.programMeta.loadingConfiguration||{}),byExerciseId};
-    return{ok:true};
-  }
+  if(kind==="load_step")return documentRules.applyLoadStep(document,edit)?{ok:true}:{conflict:true};
   if(kind==="day_remove"){
     const day=String(edit.targetDay||"");
     if(check&&!editorDocumentDays(document).includes(day))return{conflict:true};
@@ -413,17 +407,8 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
       if(attribution)slot.manualAttribution=attribution;else delete slot.manualAttribution;
     }
   }else if(edit?.kind==="prescription_field"){
-    const {slot,cycle,set}=editorSetByCoordinates(definition,slotId,Number(edit.cycleIndex),Number(edit.setIndex));
-    if(!slot||!cycle||!set||!["rir","restSeconds"].includes(edit.field))return false;
-    const current=set[edit.field]??null;
-    if(current!==edit.before&&current!==edit.after)return false;
-    if(edit.field==="rir"&&edit.after!==null&&(!Number.isFinite(edit.after)||edit.after<0||edit.after>6))return false;
-    if(edit.field==="restSeconds"&&edit.after!==null&&(!Number.isSafeInteger(edit.after)||edit.after<0||edit.after>86400))return false;
-    const keepsAdaptive=edit.field==="rir"&&set.status==="ready";
-    if(keepsAdaptive&&edit.after===null)return false;
-    set[edit.field]=edit.after;
-    if(!keepsAdaptive){set.status="manual";set.provenance={source:"manual",policyVersion:"manual@1"}}
-    const {slot:rowSlot}=find(slotId);syncEditorRowFromCanonical(document,rowSlot,Number(edit.cycleIndex));
+    if(!documentRules.applyPrescriptionField(document,edit))return false;
+    const {slot}=find(slotId);syncEditorRowFromCanonical(document,slot,Number(edit.cycleIndex));
   }else if(edit?.kind==="suggest_loads"){
     const {slot}=find(slotId);
     if(!slot||typeof edit.on!=="boolean")return false;
@@ -449,10 +434,7 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
   }else if(edit?.kind==="execution_mode"){
     const {slot}=find(slotId);
     if(!slot||!editorSuggestLoadsPolicy.executionModeQuestion(slot))return false;
-    if(edit.after!=="bilateral"&&edit.after!=="unilateral")return false;
-    const current=slot.executionMode==="bilateral"||slot.executionMode==="unilateral"?slot.executionMode:null;
-    if(current!==(edit.before??null)&&current!==edit.after)return false;
-    slot.executionMode=edit.after;
+    if(!documentRules.applyExecutionMode(document,edit))return false;
   }else if(edit?.kind==="prescription"&&edit.field==="sets"){
     const {slot}=find(slotId);
     const effectiveCycleIndex=Number(edit.cycleIndex||cycleIndex),cycle=slot?.prescriptionsByCycle?.find(item=>item.cycleIndex===effectiveCycleIndex);

@@ -25,14 +25,13 @@ import {createEditorDocumentRules,PROGRAM_EDITOR_INTENTS} from '../../training/a
 import {suggestion} from '../../training/authoring.js';
 const {definitionFor,definitionSlot,slotSets,slotAdaptive,pendingSuggestLoads,slotRepSemantic,repRange,validRir,uniformRir,suggestLoadsIssues,setSuggestLoads,setSlotRir}=suggestion;
 const REP_TARGET_SEMANTICS=new Set(['reps','repsPerSide']);
-const EXECUTION_MODES=new Set(['bilateral','unilateral']);
 const INTENT_SET=new Set(PROGRAM_EDITOR_INTENTS);
 const maxAlternates=()=>MAX_SLOT_ALTERNATES;
 const METRIC_DOMAIN=MetricDomain;
 /** All optional platform services are supplied by composition; importing mounts nothing.
  * @param {{window:Window & typeof globalThis,nextId:()=>string,motion?:{animateExerciseReorder:(rows:HTMLElement[],before:Map<string,DOMRect>)=>unknown}|null,sorting:{read:()=>DragRuntime|null,available:()=>boolean,load:()=>Promise<unknown>}}} options */
 export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:sortingRuntime}) {
-  const {editExerciseField,metaDays,labels,exercisesFor,normalizeOrders,structureFor,definitionCycle,definitionSet,setCountFor,editableMetricComposition,replaceMetricComposition,replaceMetricTarget,ensureStructure,setDayLabel,appendDay,removeDayFromDocument,fieldValue,entryFields,addExercise,replaceExercise,reorder,validation}=createEditorDocumentRules({nextId:uid});
+  const {slotLoadMetric,editLoadStep:prepareLoadStep,editExecutionMode:prepareExecutionMode,editPrescriptionField:preparePrescriptionField,editExerciseField,metaDays,labels,exercisesFor,normalizeOrders,structureFor,definitionCycle,definitionSet,setCountFor,editableMetricComposition,replaceMetricComposition,replaceMetricTarget,ensureStructure,setDayLabel,appendDay,removeDayFromDocument,fieldValue,entryFields,addExercise,replaceExercise,reorder,validation}=createEditorDocumentRules({nextId:uid});
   /** @type {Record<string,string|((vars:Record<string,string|number>)=>string)>} */
   const FALLBACK = Object.freeze({
     programName: "Program name",
@@ -818,11 +817,6 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     }
     // The lifter's smallest load change per movement owns the adaptive engine's
     // candidate loads. Only hosts that persist it offer the field.
-    const LOAD_SEMANTICS = new Set(["loadKg", "assistanceKg", "loadPerSideKg", "persistentLoadPerSideKg"]);
-    /** @param {ProgramSlot|null|undefined} slot */
-    function slotLoadMetric(slot) {
-      return (slot?.metricDefinitions || []).find(definition => LOAD_SEMANTICS.has(definition.semantic)) || null;
-    }
     /** @param {EditorRow} exercise @param {ProgramSlot|null} slot */
     function renderLoadStep(exercise, slot) {
       const loadMetric = slotLoadMetric(slot);
@@ -842,21 +836,12 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       let after = null;
       if (raw) {
         const parsed = parseMetricInput(adapter, loadMetric, raw);
-        after = hasOwn(parsed || {}, "value") ? parsed.value : NaN;
-        if (typeof after!=='number'||!Number.isFinite(after) || after <= 0 || after > 100) {
-          setStatus(label("invalid"), { error: true });
-          return;
-        }
+        after = hasOwn(parsed || {}, "value") ? parsed.value ?? NaN : NaN;
       }
-      const before = document.programMeta?.loadingConfiguration?.byExerciseId?.[slot.exerciseId]?.loadStepKg ?? null;
-      if (Object.is(before, after)) return;
-      const next = clone(document);
-      next.programMeta = next.programMeta || {};
-      const byExerciseId = { ...(next.programMeta.loadingConfiguration?.byExerciseId || {}) };
-      if (after == null) delete byExerciseId[slot.exerciseId];
-      else byExerciseId[slot.exerciseId] = { loadStepKg: after };
-      next.programMeta.loadingConfiguration = { ...(next.programMeta.loadingConfiguration || {}), byExerciseId };
-      return stage(next, { kind: "load_step", exerciseId: slot.exerciseId, before, after }, { redraw: false });
+      const result=prepareLoadStep(document,{slotId:slot.id,after});
+      if(!result.ok){setStatus(label("invalid"),{error:true});return;}
+      if(result.unchanged||!result.document||!result.edit)return;
+      return stage(result.document,result.edit,{redraw:false});
     }
     // Plan 069 S4. Only a host that supplies the eligibility policy offers the
     // switch; the others keep the load step where it always was.
@@ -929,14 +914,11 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     }
     /** @param {HTMLButtonElement} button */
     function editExecutionMode(button) {
-      const slotId = (button.dataset.slotId||''), slot = definitionSlot(document, slotId), after = (button.dataset.mode||'');
-      if (!slot || !EXECUTION_MODES.has(after) || slot.executionMode === after) return;
-      const before = EXECUTION_MODES.has(slot.executionMode||'') ? slot.executionMode : null;
-      const next = clone(document);
-      const nextSlot=definitionSlot(next,slotId);if(!nextSlot)return;
-      nextSlot.executionMode = after;
+      const slotId = (button.dataset.slotId||''), after = (button.dataset.mode||'');
+      const result=prepareExecutionMode(document,{slotId,after});
+      if(!result.ok||result.unchanged||!result.document||!result.edit)return;
       pendingFocus = { selector: `[data-role="execution-mode"][data-slot-id="${cssEscape(slotId)}"][data-mode="${after}"]` };
-      return stage(next, { kind: "execution_mode", slotId, before, after });
+      return stage(result.document,result.edit);
     }
     /** The field carries its own error: aria-invalid and an alert linked by aria-describedby. */
     /** @param {HTMLElement} input @param {string|null} message */
@@ -986,40 +968,17 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       const setIndex = Number(input.dataset.setIndex), field = (input.dataset.field||'');
       if (field !== "rir" && field !== "restSeconds") return;
       const currentSet = definitionSet(document, slotId, cycleIndex, setIndex);
-      const slot = definitionSlot(document, slotId);
-      if (!currentSet || !slot) return;
+      if (!currentSet) return;
       const raw = input.value.trim();
-      let after = null;
-      if (raw) {
-        after = Number(raw);
-        const valid = field === "rir"
-          ? Number.isFinite(after) && after >= 0 && after <= 6
-          : Number.isSafeInteger(after) && after >= 0 && after <= 86400;
-        if (!valid) {
-          setStatus(label("invalid"), { error: true });
-          return;
-        }
-      }
-      const before = currentSet[field] == null ? null : currentSet[field];
-      if (Object.is(before, after)) return;
-      // Plan 069 D3: an adaptive set keeps adapting through an RIR edit, and
-      // cannot lose the RIR its suggestion needs.
-      const keepsAdaptive = field === "rir" && currentSet.status === "ready";
-      if (keepsAdaptive && after == null) {
-        input.value = String(before);
+      const before = currentSet[field] ?? null;
+      const prepared = preparePrescriptionField(document, {slotId,cycleIndex,setIndex,field,after:raw?Number(raw):null});
+      if (!prepared.ok) {
+        if (!raw) input.value = before == null ? "" : String(before);
         setStatus(label("invalid"), { error: true });
         return;
       }
-      const next = clone(document), set = definitionSet(next, slotId, cycleIndex, setIndex);
-      if (!set) return;
-      set[field] = after;
-      if (!keepsAdaptive) {
-        set.status = "manual";
-        set.provenance = { ...(set.provenance || {}), source: "manual", policyVersion: "manual@1" };
-      }
-      const row = (next.program || []).find(candidate => (candidate.slotId || candidate.id) === slotId);
-      if (row) row.prescriptionsByCycle = clone(definitionSlot(next, slotId)?.prescriptionsByCycle || []);
-      const result = stage(next, { kind: "prescription_field", slotId, cycleIndex, setIndex, field, before, after }, { redraw: false });
+      if (prepared.unchanged || !prepared.document || !prepared.edit) return;
+      const result = stage(prepared.document, prepared.edit, { redraw: false });
       updateExerciseSummary((input.dataset.id||''));
       return Promise.resolve(result).then(value => { updateExerciseSummary((input.dataset.id||'')); return value; });
     }

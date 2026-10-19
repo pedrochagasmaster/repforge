@@ -66,3 +66,87 @@ assert.equal(resizedSlot.prescriptionsByCycle[0].sets.length,3);
 assert.equal(resizedSlot.prescriptionsByCycle[0].sets[2].id,added.id);
 assert.equal(resizedSlot.prescriptionsByCycle[1].sets.length,2,'other cycles retain their original identities/counts');
 console.log('PASS native custom composition and default-cycle set-count replay');
+
+// Installed and Build replay the same field policy against captured coordinates.
+for(const owner of [rules,createInstalledEditorRules({model,catalog,nextId:()=>`build-${++id}`,defaultProgramMeta:()=>({}),allowCreateDefinition:true})]){
+  const input=structuredClone(head);
+  const target=input.programMeta.programDefinition.days.find(day=>day.kind==='training').slots[0];
+  const cycle=target.prescriptionsByCycle[1],set=cycle.sets[1];
+  set.rir=2;set.restSeconds=90;set.status='ready';
+  set.provenance={source:'generator',policyVersion:'fixture@1'};
+  cycle.sets[0].targets.reps={min:5,max:9};
+  const original=structuredClone(input);
+  const intent={kind:'prescription_field',slotId:target.id,cycleIndex:cycle.cycleIndex,setIndex:set.setIndex,field:'rir',before:2,after:0};
+  for(const after of [0,6,2.5]){
+    const result=owner.editorRebaseDocument({edits:[{...intent,after}]},input);
+    assert.equal(result.conflict,false);
+    const edited=result.document.programMeta.programDefinition.days.flatMap(day=>day.slots).find(slot=>slot.id===target.id);
+    const expected=structuredClone(target);expected.prescriptionsByCycle[1].sets[1].rir=after;
+    assert.deepEqual(edited,expected,'only the selected cycle and set change; adaptive provenance survives');
+    const row=result.document.program.find(row=>(row.slotId||row.id)===target.id);
+    assert.deepEqual(row.prescriptionsByCycle,edited.prescriptionsByCycle);
+    assert.equal(row.sets,cycle.sets.length);assert.equal(row.min,5);assert.equal(row.max,9);
+  }
+  for(const after of [-1,6.1,NaN,Infinity,null])assert.equal(owner.editorRebaseDocument({edits:[{...intent,after}]},input).conflict,true);
+  for(const patch of [{before:4},{slotId:'missing'},{cycleIndex:0},{cycleIndex:999},{setIndex:0},{setIndex:999}])assert.equal(owner.editorRebaseDocument({edits:[{...intent,...patch}]},input).conflict,true);
+  for(const after of [0,86400,null]){
+    const result=owner.editorRebaseDocument({edits:[{...intent,field:'restSeconds',before:90,after}]},input);
+    assert.equal(result.conflict,false);
+    const edited=result.document.programMeta.programDefinition.days.flatMap(day=>day.slots).find(slot=>slot.id===target.id).prescriptionsByCycle[1].sets[1];
+    assert.equal(edited.restSeconds,after);assert.equal(edited.status,'manual');
+    assert.deepEqual(edited.provenance,{source:'manual',policyVersion:'manual@1'});
+  }
+  for(const after of [-1,86401,0.5,NaN,Infinity])assert.equal(owner.editorRebaseDocument({edits:[{...intent,field:'restSeconds',before:90,after}]},input).conflict,true);
+  assert.deepEqual(input,original,'accepted and refused replays preserve caller input');
+  set.status='manual';
+  const cleared=owner.editorRebaseDocument({edits:[{...intent,after:null}]},input);
+  assert.equal(cleared.conflict,false);
+  const clearedSet=cleared.document.programMeta.programDefinition.days.flatMap(day=>day.slots).find(slot=>slot.id===target.id).prescriptionsByCycle[1].sets[1];
+  assert.equal(clearedSet.rir,null);assert.equal(clearedSet.status,'manual');
+  set.rir=0;
+  assert.equal(owner.editorRebaseDocument({edits:[intent]},input).conflict,false,'already-applied intent is safe to replay');
+}
+console.log('PASS installed and Build prescription boundaries, stale replay refusal and coordinate isolation');
+
+// Movement-wide step overrides keep their replay contract, independent of slots.
+for(const owner of [rules,createInstalledEditorRules({model,catalog,nextId:()=>`build-load-${++id}`,defaultProgramMeta:()=>({}),allowCreateDefinition:true})]){
+  const input=structuredClone(head);
+  input.programMeta.loadingConfiguration={defaultLoadStepKg:2.5,byExerciseId:{'absent-movement':{loadStepKg:5},other:{loadStepKg:7}}};
+  const original=structuredClone(input);
+  for(const after of [0.25,100,null]){
+    const result=owner.editorRebaseDocument({edits:[{kind:'load_step',exerciseId:'absent-movement',before:99,after}]},input);
+    assert.equal(result.conflict,false,'load-step replay has never required a matching before value or present slot');
+    assert.deepEqual(result.document.programMeta.loadingConfiguration,{defaultLoadStepKg:2.5,byExerciseId:{...(after===null?{}:{'absent-movement':{loadStepKg:after}}),other:{loadStepKg:7}}});
+    assert.deepEqual(result.document.programMeta.programDefinition,input.programMeta.programDefinition);
+  }
+  for(const after of [0,-1,100.1,NaN,Infinity,'2'])assert.equal(owner.editorRebaseDocument({edits:[{kind:'load_step',exerciseId:'absent-movement',after}]},input).conflict,true);
+  assert.equal(owner.editorRebaseDocument({edits:[{kind:'load_step',exerciseId:'',after:2}]},input).conflict,true);
+  assert.deepEqual(input,original);
+
+  const sideIds=['25a5c6f170d880baaa2dc8c7b67d4b65','25a5c6f170d880e2990fc88146f7de56'];
+  const sideCustom=model.normalizeCustomExercises([{id:'custom:side',name:'Side movement',primary:'Lats',metricIds:sideIds,metricDefinitions:metrics.definitionsForIds(sideIds).value}]);
+  const sideDefinition=model.manualProgramDefinitionFromRows([{id:'side-slot',slotId:'side-slot',libraryId:'custom:side',day:'A',sets:2,min:6,max:10}],['A'],sideCustom);
+  assert.ok(sideDefinition);
+  const sideInput={program:model.flatProgramFromDefinition(sideDefinition,sideCustom),programMeta:{programDefinition:sideDefinition},customExercises:sideCustom};
+  const sideBefore=structuredClone(sideInput);
+  const sideSlot=sideDefinition.days.flatMap(day=>day.slots)[0];
+  assert.equal(owner.editorSuggestLoadsPolicy.executionModeQuestion(sideSlot),true);
+  const intent={kind:'execution_mode',slotId:'side-slot',before:null,after:'unilateral'};
+  for(const after of ['bilateral','unilateral']){
+    const result=owner.editorRebaseDocument({edits:[{...intent,after}]},sideInput);
+    assert.equal(result.conflict,false);
+    const expected=structuredClone(sideDefinition);expected.days.flatMap(day=>day.slots)[0].executionMode=after;
+    assert.deepEqual(result.document.programMeta.programDefinition,expected,'canonical replay preserves every cycle, target and provenance');
+    assert.equal(owner.editorRebaseDocument({edits:[{...intent,after}]},result.document).conflict,false,'already applied mode is replayable');
+  }
+  for(const patch of [{after:'both'},{after:null},{before:'bilateral'},{slotId:'missing'}])assert.equal(owner.editorRebaseDocument({edits:[{...intent,...patch}]},sideInput).conflict,true);
+  const noSide=structuredClone(configured.document);
+  assert.equal(owner.editorRebaseDocument({edits:[{...intent,slotId:'manual-row'}]},noSide).conflict,true,'ordinary load/reps composition never asks execution mode');
+  const catalogFixed=catalog.exercises.find(exercise=>owner.catalogExecutionMode(exercise.id));
+  assert.ok(catalogFixed,'fixture contains a catalog-prescribed execution mode');
+  const fixedInput=structuredClone(sideInput);
+  fixedInput.programMeta.programDefinition.days.flatMap(day=>day.slots)[0].exerciseId=catalogFixed.id;
+  assert.equal(owner.editorRebaseDocument({edits:[intent]},fixedInput).conflict,true,'catalog-prescribed laterality cannot be overridden by a mode intent');
+  assert.deepEqual(sideInput,sideBefore,'accepted and refused mode replays leave the caller input untouched');
+}
+console.log('PASS installed and Build loading defaults, movement-wide replay, execution eligibility and stale mode refusal');
