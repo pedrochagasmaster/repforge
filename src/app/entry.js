@@ -1,3 +1,4 @@
+export {createEntryEditor} from './entry/editor.js';
 /** @typedef {import('./entry/import-review.js').Review} ProgramImportReview
  * @typedef {import('./entry/import-review.js').Row} ProgramImportRow */
 export {createProgramImport} from './entry/import-review.js';

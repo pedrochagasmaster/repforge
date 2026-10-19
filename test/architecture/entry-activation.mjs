@@ -209,3 +209,83 @@ const repeated=await retry.commands.commit(receipt,{confirmed:true});
 assert.equal(repeated.kind,'committed','retry after exact cleanup is already complete remains successful');
 assert.equal(retry.commits,1);assert.equal(retry.raw,null);assert.equal(retry.head.programHistory.length,1);
 assert.equal(preserve.entryDraftChanged,true,'presentation must not reset a newer Entry flow after old receipt cleanup');
+
+// The mounted Build editor must use the Entry session, never mutate installed
+// state, and preserve a later command when an earlier queued write fails.
+const {createEntryEditor,createEntrySetup}=await import('../../src/app/entry.js');
+assert.equal(typeof createEntryEditor,'function','Entry owns the Build command');
+let editorRaw=null,failEditor=false,releaseEditor;
+const editorStorage={getItem:()=>editorRaw,setItem:(_key,value)=>{if(failEditor)throw Error('quota');editorRaw=value},removeItem:()=>{editorRaw=null}};
+const editorStore=createSetupDraftStore({rules:entry,storage:editorStorage,lock:operation=>operation(),ownerId:'editor-owner',onFailure:()=>{},onSaved:()=>{}});
+const setup=createEntrySetup({rules:entry,store:editorStore,nextId:()=> 'build-editor',now:()=> '2026-10-18T12:00:00.000Z',context:()=>({versions:services.currentVersions(),activeProgramRevision:0}),mutationFrozen:()=>false,onUpdate:()=>{},onFailure:()=>{},onDiagnostic:()=>{}});
+const buildPreview={source:'build',program:model.flatProgramFromDefinition(generated.value,[]),programDefinition:generated.value,customExercises:[]};
+let buildDraft=entry.selectRoute(entry.createState({draftId:'editor-build',activeProgramRevisionAtStart:0,now:'2026-10-18T12:00:00.000Z',versions:services.currentVersions()}),'build');
+buildDraft=entry.setAnswers(buildDraft,{programName:'Generated program',daysPerWeek:3});
+buildDraft=entry.setResult(buildDraft,{schemaVersion:entry.SCHEMA_VERSION,route:'build',name:'Generated program',fingerprint:'fixture-build',selected:{id:'manual_build',source:'manual_build'},preview:buildPreview});
+setup.publish({...buildDraft,step:'editor'});
+const editor=createEntryEditor({setup,store:editorStore,entry,model,imports,policy,catalog,nextId:()=> 'editor-slot',read:()=>base,language:()=> 'en',services:()=>services,time:generation.compiler.RULES?.time});
+assert.equal(editor.snapshot().programMeta.name,'Generated program');
+assert.equal(editor.snapshot().programMeta.onboarded,false);
+const invalid=editor.snapshot();delete invalid.programMeta.programDefinition;
+assert.equal((await editor.commitForm(invalid)).code,'program_definition_required');
+assert.equal(editorRaw,null);
+const document=editor.read().document;document.programMeta.name='Build literal';
+const edited=await editor.commit({nextDocument:document,intent:{kind:'program_name',before:'Generated program',after:'Build literal'}});
+assert.equal(edited.ok,true);assert.equal(edited.setupDraft,true);
+assert.equal(setup.read().result.name,'Build literal');
+assert.equal(JSON.parse(editorRaw).state.result.name,'Build literal');
+assert.equal(base.programMeta.id,'predecessor');assert.equal(base.program.length,0);
+const savedRaw=editorRaw;
+const editorPending=new Promise(resolve=>{releaseEditor=resolve});
+const earlier=editor.snapshot();earlier.programMeta.name='Earlier failed edit';
+const firstEdit=editor.commitForm(earlier,{io:{async writeSetupDraft(){await editorPending;throw Error('quota')}}});
+const later=editor.snapshot();later.programMeta.name='Later saved edit';
+const secondEdit=editor.commitForm(later);
+releaseEditor();
+assert.equal((await firstEdit).localOk,false);
+assert.equal((await secondEdit).localOk,true);
+assert.equal(setup.read().result.name,'Later saved edit');
+assert.equal(JSON.parse(editorRaw).state.result.name,'Later saved edit');
+assert.notEqual(editorRaw,savedRaw);
+const foreignRaw=JSON.stringify({...JSON.parse(editorRaw),ownerId:'other-tab',revision:100});editorRaw=foreignRaw;
+const conflicting=editor.snapshot();conflicting.programMeta.name='Refused edit';
+assert.equal((await editor.commitForm(conflicting)).setupDraftConflict,true);
+assert.equal(setup.read().result.name,'Later saved edit');assert.equal(editorRaw,foreignRaw);
+console.log('Entry editor: literal Build staging, canonical refusal, installed isolation, queued failure and exact foreign-byte preservation passed');
+
+// A completed failed command must not rewind a replacement Entry flow, even
+// when the former flow already has an accepted baseline.
+editorStore.adopt({raw:foreignRaw,envelope:JSON.parse(foreignRaw)},setup.read());
+let releaseStale;
+const staleGate=new Promise(resolve=>{releaseStale=resolve});
+const staleProposal=editor.snapshot();staleProposal.programMeta.name='Stale command';
+const staleCommand=editor.commitForm(staleProposal,{io:{async writeSetupDraft(){await staleGate;throw Error('quota')}}});
+const replacementDraft={...buildDraft,draftId:'replacement-entry',step:'editor'};setup.publish(replacementDraft);
+releaseStale();
+assert.equal((await staleCommand).localOk,false);
+assert.equal(setup.read().draftId,'replacement-entry');
+assert.equal(setup.read().result.name,'Generated program');
+assert.equal(editorRaw,foreignRaw);
+
+// Custom closure includes alternates that have no flat row, and drops unused
+// definitions. Shared proposals stay transient: there is no setup-store write.
+const customDefinition=structuredClone(withAlternate);
+const unused={id:'custom:unused',name:'Unused movement',equipment:['dumbbell'],primary:'Chest',secondary:''};
+setup.publish({...buildDraft,route:'shared',step:'shared_review',result:{name:'Shared custom',preview:{program:clashRows,programDefinition:customDefinition,customExercises:[...clash,unused],sharedSettings:{restSec:60}}}});
+const sharedProposal=editor.snapshot();
+const sharedResult=await editor.commitForm(sharedProposal);
+assert.equal(sharedResult.localOk,true);assert.equal(editorRaw,foreignRaw);
+assert.deepEqual(setup.read().result.preview.customExercises.map(value=>value.id),['custom:same-id','custom:other-id']);
+assert.equal(setup.read().result.preview.program[0].slotId,originalSlotId);
+assert.deepEqual(setup.read().result.preview.programDefinition.days[0].slots[0].alternates,['custom:other-id']);
+assert.equal(base.customExercises.length,0);
+const untouched=structuredClone(setup.read());
+const forged=await editor.commit({nextDocument:editor.read().document,intent:{kind:'metric_target',slotId:'missing-slot',cycleIndex:1,setIndex:0,metricId:'load',semantic:'load',metricIds:[],metricDefinitions:[],before:{},after:{}}});
+assert.equal(forged.ok,false);assert.equal(forged.code,'invalid_canonical_editor_intent');
+assert.deepEqual(setup.read(),untouched);assert.equal(editorRaw,foreignRaw);
+console.log('Entry editor: replacement-flow protection, canonical alternate closure, shared transience and forged intent refusal passed');
+// Fixed FNV-1a oracle for the sorted preimage:
+// {"name":"Literal","preview":{"customExercises":[{"id":"custom:a","name":"Move"}]},"route":"build"}
+const fingerprintPreview={customExercises:[{id:'custom:a',name:'Move',created:'2026-10-18'}]};
+assert.equal(editor.fingerprint('build','Literal',fingerprintPreview),'pe-529e17bb');
+assert.equal(fingerprintPreview.customExercises[0].created,'2026-10-18');

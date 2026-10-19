@@ -6,7 +6,7 @@ import {createWorkoutReminder} from './src/app/workout-reminder.js';
 import {createWorkoutReminderView} from './src/ui/workout/reminder.js';
 import {createWorkoutDraftPolicy,createWorkoutDraftSession,createWorkoutCommands,createFocusWorkoutCommands,createWorkoutExerciseCommands,createWorkoutSuggestionCommands} from './src/app/workout.js';
 import {createWorkoutContext} from './src/app/workout-context.js';
-import {createEntryImportSession,createEntryImportCommands,createEntryGeneration,createEntryAnswerRebuild,createEntryAnswerCommands,createEntryQuestionFlow,createEntryReviewSession,createEntrySetup,createEntryActivation,createProgramImport,createReceivedSetup,buildLandingProof,FREEFORM_MAX_CHARS} from './src/app/entry.js';
+import {createEntryImportSession,createEntryImportCommands,createEntryGeneration,createEntryAnswerRebuild,createEntryAnswerCommands,createEntryQuestionFlow,createEntryReviewSession,createEntrySetup,createEntryEditor,createEntryActivation,createProgramImport,createReceivedSetup,buildLandingProof,FREEFORM_MAX_CHARS} from './src/app/entry.js';
 import {createProgramSource,definitionMovementIds,unsupportedGrammar} from './src/interchange/program-file.js';
 import {createHistoryReadModels} from './src/app/history-read-models.js';
 
@@ -30,7 +30,7 @@ import {createStorageRecoveryCommands} from './src/app/storage-recovery.js';
 import {createInstalledEditorView} from './src/ui/program/installed-editor.js';
 let InstalledEditorView;
 import {createInstalledEditor} from './src/app/installed-editor.js';
-let InstalledEditor,BuildAuthoring,programCommands;
+let InstalledEditor,EntryEditor,programCommands;
 import {createProgramSharing} from './src/app/program-sharing.js';
 import {createProgramSharingView} from './src/ui/program/sharing.js';
 import {createFiles} from './src/platform/files.js';
@@ -3691,20 +3691,12 @@ function createInstalledProgramEditorAdapter(){
 window.__debugProgramEditor=async()=>{const local=readLocalStatus(),idb=await readIdbStatus();return{session:InstalledEditor.readSession(),state:cloneSnapshot(state),local,idb,decision:chooseSnapshot(local,idb),head:await refreshPersistenceHead()}};
 function createOnboardingProgramEditorAdapter(){
   return{
-    read(){return{document:BuildAuthoring.editorDocumentFromSnapshot(programEditorSnapshot()),token:{draftRevision:entryState?.revision||0}}},
-    async commit({nextDocument,intent}){
-      const baseline=BuildAuthoring.editorDocumentFromSnapshot(programEditorSnapshot()),document=cloneSnapshot(nextDocument);
-      if(!(entryState?.route==="build"?BuildAuthoring:InstalledEditor.rules).syncEditorCanonicalIntent(document,baseline,intent,{cycleIndex:Number(intent?.cycleIndex)||1}))
-        return{ok:false,invalid:true,code:"invalid_canonical_editor_intent"};
-      const proposal=programEditorSnapshot();proposal.program=cloneSnapshot(nextDocument.program||[]);
-      proposal.program=cloneSnapshot(document.program||[]);
-      proposal.programMeta=cloneSnapshot(document.programMeta||proposal.programMeta);
-      proposal.customExercises=cloneSnapshot(document.customExercises||proposal.customExercises||[]);
-      syncProgramStructureFromProgram(proposal,makeProgram(proposal.program,snapshotLookup(proposal.customExercises),proposal.programMeta));
-      const result=await commitProgramEditorProposal(proposal);
-      updateOnboardingEditorActions();
-      return{...result,ok:!!(result.localOk||result.idbOk),setupDraft:true,staged:true,
-        document:BuildAuthoring.editorDocumentFromSnapshot(programEditorSnapshot()),token:{draftRevision:entryState?.revision||0}};
+    read:()=>EntryEditor.read(),
+    async commit(request){
+      const previous=entryState,pending=EntryEditor.commit(request);
+      if(entryState!==previous)entryPinnedVersionsExecutable=false;
+      const result=await pending;
+      presentEntryEditorCommit(result);updateOnboardingEditorActions();return result;
     },
     chooseExercise:request=>libraryUi.chooseForEditor(request),
     t:editorAdapterTranslate,
@@ -3776,143 +3768,26 @@ function mountOnboardingProgramEditor(){
   return onboardingProgramEditor;
 }
 
-function programEditorSnapshot(){
-  if(!setupEditorOpen)return cloneSnapshot(state);
-  const preview=entryState?.result?.preview||{},snapshot=cloneSnapshot(state);
-  const candidateProgram=cloneSnapshot(preview.program||[]);
-  const merged=mergeImportedCustomExercises(preview.customExercises||[],candidateProgram,snapshot);
-  snapshot.customExercises=merged.customExercises;
-  snapshot.program=candidateProgram;
-  const loadingConfiguration=entryState?.route==="build"
-    ?normalizeLoadingConfiguration(preview.loadingConfiguration):null;
-  const suggestLoadsPending=entryState?.route==="build"&&Array.isArray(preview.suggestLoadsPending)&&preview.suggestLoadsPending.length
-    ?cloneSnapshot(preview.suggestLoadsPending):null;
-  snapshot.programMeta={...defaultProgramMeta([]),name:entryResultName()||entryState?.answers?.programName||"",
-    daysPerWeek:entryState?.answers?.daysPerWeek||preview.frequency||null,onboarded:false,
-    ...(preview.programDefinition?{programDefinition:cloneSnapshot(preview.programDefinition)}:{}),
-    ...(loadingConfiguration?{loadingConfiguration}:{}),
-    ...(suggestLoadsPending?{suggestLoadsPending}:{}),
-    programStructure:cloneSnapshot(preview.programStructure||null),
-    progressionRelations:cloneSnapshot(preview.progressionRelations||[]),
-    progressionModifiers:cloneSnapshot(preview.progressionModifiers||[]),
-    progressionIncompatibilities:cloneSnapshot(preview.progressionIncompatibilities||[])};
-  return snapshot}
+function programEditorSnapshot(){return setupEditorOpen?EntryEditor.snapshot():cloneSnapshot(state)}
 function programEditorProgram(){
   if(!setupEditorOpen)return prog;
-  const snapshot=programEditorSnapshot();
+  const snapshot=EntryEditor.snapshot();
   return makeProgram(snapshot.program,null,snapshot.programMeta)}
+function presentEntryEditorCommit(result){
+  const effects=result.editorEffects;if(!effects)return;
+  entryPersistenceDiagnostic=effects.diagnostic;
+  if(result.code==="invalid-muscle-domain")result.message=t("program.editor.invalid_muscles");
+  if(effects.draftId!==entryState?.draftId)return;
+  if(effects.resetEditor)onboardingProgramEditor?.discard?.();
+  if(effects.focusStatus){entryEditorStatusFocusPending=true;setTimeout(()=>focusEntryEditorStatus(),reducedMotion()?0:320)}
+}
 async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
   if(!setupEditorOpen)return InstalledEditor.commitForm(proposal,opts,io);
-  if(!entryState?.result?.preview){
-    entryPersistenceDiagnostic={operation:"editor-commit",ok:false,code:"editor-preview-missing",issues:[]};
-    return{localOk:false,idbOk:false,setupDraftInvalid:true,code:"editor-preview-missing"}}
-  const definition=canonicalProgramDefinition(proposal.programMeta?.programDefinition,
-    proposal.customExercises||[]);
-  if(!definition){
-    entryPersistenceDiagnostic={operation:"editor-commit",ok:false,code:"program_definition_required",issues:[]};
-    return{localOk:false,idbOk:false,setupDraftInvalid:true,code:"program_definition_required"}}
-  proposal.programMeta={...(proposal.programMeta||{}),programDefinition:definition};
-  // ProgramDefinition owns slot identity and prescriptions. The legacy Program
-  // model remains useful here for validating linked muscle attribution, but it
-  // is not a publication format: serializing it would drop slot/day identity
-  // and leak legacy-only fields back into the setup candidate.
-  const program=flatProgramFromDefinition(definition,proposal.customExercises||[],1);
-  const model=makeProgram(program,snapshotLookup(proposal.customExercises),proposal.programMeta);
-  // Compiler previews intentionally use the compiler's internal lowercase
-  // muscle ids while they are staged outside durable state. Resolve linked
-  // built-ins/customs here before validating the editor result, so the setup
-  // draft may retain its preview representation but every edited candidate
-  // crossing toward activation already has the durable canonical domain.
-  const canonicalProgram=model.toJSON();
-  if(!Array.isArray(proposal.customExercises)||
-    !proposal.customExercises.every(isSafeCustomExercise)||
-    !isValidMuscleDomainTree({program:canonicalProgram,customExercises:proposal.customExercises})){
-    entryPersistenceDiagnostic={operation:"editor-commit",ok:false,code:"invalid-muscle-domain",issues:[]};
-    return invalidMuscleDomainCommit(proposal)}
-  const structure=proposal.programMeta?.programStructure?cloneSnapshot(proposal.programMeta.programStructure):null;
-  const structureDays=structure?.days||[];
-  const rowsForDay=label=>program.filter(exercise=>exercise.day===label).map(cloneSnapshot);
-  const previewDays=entryState.route==="shared"
-    ?sharedPreviewDays(program,structure,entryState.result.preview.sharedSettings)
-    :(structureDays.length?structureDays.map(item=>({dayId:item.dayId,label:item.label,
-      ...(item.displayNameKey?{displayNameKey:item.displayNameKey}:{}),
-      ...(item.nameOverride?{nameOverride:item.nameOverride}:{}),
-      exercises:rowsForDay(item.label||item.dayId)})):
-      [...new Set(program.map(exercise=>exercise.day))].map(label=>({dayId:label,label,exercises:rowsForDay(label)})));
-  const progressionData=candidateProgressionData(proposal.programMeta?.progressionRelations,program,
-    proposal.programMeta?.progressionIncompatibilities,"candidate-editor");
-  const loadingConfiguration=entryState.route==="build"
-    ?normalizeLoadingConfiguration(proposal.programMeta?.loadingConfiguration):null;
-  const referencedCustomIds=new Set([...program.map(exercise=>exercise.libraryId),
-    ...definitionMovementIds(proposal.programMeta?.programDefinition)].filter(isCustomLibraryId));
-  const preview={...cloneSnapshot(entryState.result.preview),program,
-    ...(proposal.programMeta?.programDefinition?{programDefinition:cloneSnapshot(proposal.programMeta.programDefinition)}:{}),
-    programStructure:structure,
-    progressionRelations:progressionData.relations,
-    progressionIncompatibilities:progressionData.incompatibilities,
-    ...(entryState.route==="build"?{loadingConfiguration}:{}),
-    ...(entryState.route==="build"?{suggestLoadsPending:Array.isArray(proposal.programMeta?.suggestLoadsPending)
-      ?cloneSnapshot(proposal.programMeta.suggestLoadsPending):[]}:{}),
-    days:previewDays,
-    customExercises:(entryState.result.preview?.customExercises||[])
-      .filter(entry=>referencedCustomIds.has(entry.id)).map(cloneSnapshot)};
-  if(!preview.suggestLoadsPending?.length)delete preview.suggestLoadsPending;
-  const previousEntryState=entryState;
-  const result={...cloneSnapshot(entryState.result),preview};
-  const nextName=proposal.programMeta?.name||entryState.result.name;
-  if(nextName){result.name=nextName;delete result.namePt}else delete result.name;
-  result.fingerprint=entryCandidateFingerprint(entryState.route,result.name,preview);
-  entryPinnedVersionsExecutable=false;
-  publishEntryDraft(ProgramEntry.setResult(entryState,result));
-  // persistSetupDraft advances the module-level entryState synchronously
-  // (ahead of its own durable round trip), so a second commit started while
-  // this write is still pending already sees — and builds on — this call's
-  // result. Capture that synchronous outcome so a later failure can tell
-  // whether anything has superseded it.
-  const persisted=persistSetupDraft(entryState);
-  const attemptedEntryState=entryState;
-  const saved=await persisted;
-  entryPersistenceDiagnostic={operation:"editor-commit",ok:!!saved?.ok,
-    code:saved?.code||(saved?.conflict?"setup-draft-conflict":saved?.writeFailed?"setup-draft-write-failed":saved?.invalid?"setup-draft-invalid":null),
-    issues:(saved?.issues||[]).slice(0,12).map(issue=>String(issue).slice(0,240))};
-  if(!saved?.ok){
-    if(saved?.conflict&&EntryDraft.baseline()){
-      // A real conflict means persistSetupDraft's handle/raw check found
-      // another writer's bytes under the setup-draft key: this candidate has
-      // permanently diverged from what is durably saved (every future write
-      // from this tab will see the same foreign raw and fail the same way),
-      // exactly what entry.save_conflict.body already tells the lifter
-      // ("reload to continue from the newer saved draft"). previousEntryState
-      // is only one step back and, once several edits have queued behind a
-      // failing write, can itself still carry other unpersisted changes —
-      // rebasing those onto each other one failure at a time is how memory
-      // ends up torn from storage. Rebase onto EntryDraft.baseline()
-      // instead: the one candidate known to match what is actually on disk.
-      publishEntryDraft(cloneSnapshot(EntryDraft.baseline()));
-      // The editor's own document (program-editor.js's local copy, which is
-      // what the DOM actually renders from) is not touched by a failing
-      // commit's return value — stage() only adopts a returned document on
-      // success. Force it back in sync with the rebased candidate now,
-      // the same way the "Discard changes" control already does, rather
-      // than leave it showing edits that just became durably impossible.
-      onboardingProgramEditor?.discard?.();
-    // Otherwise, only unwind this call's own change. If entryState still is
-    // exactly what this call set it to, nothing landed afterward and a full
-    // revert back to the pre-commit snapshot is safe (the historical
-    // behavior). If a later commit has already advanced entryState past that
-    // point, that state carries real work this call never owned; stomping it
-    // back to previousEntryState would discard it. Leaving entryState alone
-    // here is safe for the editor document too: a later commit always
-    // resolves with a document rebuilt from whatever entryState currently
-    // holds, so no commit ever renders this one's stale snapshot.
-    }else if(entryState===attemptedEntryState)publishEntryDraft(previousEntryState);
-  }
-  if(saved?.ok&&progressionData.incompatibilities.length){
-    entryEditorStatusFocusPending=true;
-    setTimeout(()=>focusEntryEditorStatus(),reducedMotion()?0:320)}
-  return saved?.ok?{revision:saved.envelope?.revision||0,localOk:true,idbOk:true,setupDraft:true}:
-    {revision:0,localOk:false,idbOk:false,setupDraft:true,setupDraftConflict:!!saved?.conflict,
-      code:saved?.code||null,issues:Array.isArray(saved?.issues)?saved.issues.slice(0,12):[]}}
+  const previous=entryState,pending=EntryEditor.commitForm(proposal,{io,production:io===storageIO});
+  if(entryState!==previous)entryPinnedVersionsExecutable=false;
+  const result=await pending;
+  presentEntryEditorCommit(result);return result;
+}
 function openEntryDraftEditor(){
   if(!entryState?.result?.preview)return;
   setupEditorOpen=true;InstalledEditorView.setEditing(false);
@@ -4271,12 +4146,7 @@ function entryServices(){
   if(typeof window!=="undefined"&&window.__repforgeProgramEntryServicesOverride)return window.__repforgeProgramEntryServicesOverride;
   if(!ProgramEntryAdapter||!ProgramCompiler||!rawExerciseCatalog)return null;
   return ProgramEntryAdapter.createProductionServices({Compiler:ProgramCompiler,catalog:rawExerciseCatalog})}
-function entryCandidateFingerprint(route,name,preview){
-  const semanticPreview=cloneSnapshot(preview||{});
-  if(Array.isArray(semanticPreview.customExercises)){
-    semanticPreview.customExercises=semanticPreview.customExercises.map(entry=>{
-      const normalized={...entry};delete normalized.created;return normalized})}
-  return entryServices()?.fingerprint?.({route:route||null,name:name||"",preview:semanticPreview})||"candidate"}
+function entryCandidateFingerprint(route,name,preview){return EntryEditor.fingerprint(route,name,preview)}
 function entryResultName(result=entryState?.result){
   if(!result)return"";
   return String(isPt()?(result.namePt||result.name||""):(result.name||result.namePt||"")).trim()}
@@ -5154,39 +5024,7 @@ async function rebuildEntryForCurrentRules(){
   entryUiNotice=null;
   renderOnboarding();
   return{ok:false,unsupportedRoute:true}}
-/* Shared links carry working sets and the released rest setting, but not the
-   compiler's exercise-class warmups or station transitions. Estimate only the
-   time represented by those payload facts; the UI labels it "about" and leaves
-   the value absent when the inputs cannot support even that bounded estimate.
-   This keeps Import and older shared drafts on their existing paths. */
-function sharedPreviewDayMinutes(exercises,settings){
-  const rows=Array.isArray(exercises)?exercises:[],time=ProgramCompiler?.RULES?.time;
-  const rest=Number(settings?.restSec),working=Number(time?.workingSetSeconds),minimum=Number(time?.bufferMinimumSeconds),percent=Number(time?.bufferPercent);
-  if(!rows.length||!Number.isFinite(rest)||rest<0||![working,minimum,percent].every(Number.isFinite))return null;
-  let subtotal=0;
-  for(const exercise of rows){
-    const sets=Number(exercise?.sets);
-    if(!Number.isInteger(sets)||sets<1)return null;
-    subtotal+=sets*working+Math.max(0,sets-1)*rest;
-  }
-  return Math.ceil((subtotal+Math.max(minimum,Math.ceil(subtotal*percent/100)))/60);
-}
-function sharedPreviewDays(program,structure,settings){
-  const rows=Array.isArray(program)?program:[],sourceDays=Array.isArray(structure?.days)&&structure.days.length
-    ?structure.days.map(item=>({dayId:item.dayId,label:item.label||item.dayId,
-      ...(item.displayNameKey?{displayNameKey:item.displayNameKey}:{}),
-      ...(item.nameOverride?{nameOverride:item.nameOverride}:{})}))
-    :[...new Set(rows.map(exercise=>exercise?.day).filter(Boolean))].map(label=>({dayId:label,label}));
-  return sourceDays.filter(day=>day.dayId||day.label).map(day=>{
-    const exercises=rows.filter(exercise=>exercise?.dayId?exercise.dayId===day.dayId:exercise.day===day.label).map(cloneSnapshot);
-    const estimateMinutes=sharedPreviewDayMinutes(exercises,settings);
-    const out={dayId:day.dayId||day.label,label:day.label||day.dayId,
-      ...(day.displayNameKey?{displayNameKey:day.displayNameKey}:{}),
-      ...(day.nameOverride?{nameOverride:day.nameOverride}:{}),exercises};
-    if(estimateMinutes!==null)out.estimateMinutes=estimateMinutes;
-    return out;
-  });
-}
+function sharedPreviewDays(program,structure,settings){return EntryEditor.previewDays(program,structure,settings)}
 /* A canonical preview's day length is the generator's own estimate of that
    day's prescription; a flat preview may carry its own estimate instead. */
 function previewDayMinutes(preview,day){
@@ -7623,7 +7461,8 @@ function initializePersistenceOwners(){
     settleReceipt:raw=>DurableState.settleCommittedSetupActivation(raw)});
   ({normalizeMuscleAttribution,isValidMuscleDomainTree,isValidStoredMuscleField,isValidPlannedVolumeHistory,normalizeRecoveryCarrierSnapshot,isSafeProgressionFields,isSafeProgressionMeta,isSafeProgramHistoryEntry,isSafeLogRow,isSafeCustomExercise,isValidSetupActivationMarker,setupActivationMarker,setupActivationMatches,isValidStateShape,migrateLogSnapshot,defaultProgramMeta,normalizeProgramEntrySource,normalizeProgramMeta,normalizeLoadingConfiguration,withExplicitProgramStructure,normalizeProgramHistory,normalizeLoaded,normalizeNotify,normalizeSettings}=policy);
   validateRecoveryProjectionRecord=policy.validateRecoveryProjectionRecord;
-  BuildAuthoring=createInstalledEditorRules({model,catalog:rawExerciseCatalog,nextId:uid,defaultProgramMeta,allowCreateDefinition:true});
+  EntryEditor=createEntryEditor({setup:EntrySetup,store:EntryDraft,entry,model,imports:customDefinitionImport,policy,catalog:rawExerciseCatalog,nextId:uid,
+    read:applicationSession.read,language:uiLang,services:entryServices,time:ProgramCompiler.RULES?.time});
   InstalledEditor=createInstalledEditor({read:applicationSession.read,model,catalog:rawExerciseCatalog,nextId:uid,
     defaultMeta:defaultProgramMeta,now,refreshHead:refreshPersistenceHead,
     commit:(proposal,options,io=storageIO)=>commitProposedState(proposal,io,options),

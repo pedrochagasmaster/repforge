@@ -6,7 +6,7 @@ Snapshot: 18 October 2026 UTC. This sequences work; it does not authorize a merg
 
 ## Current pause and completed preparation
 
-The original cloud coding task paused after usage exhaustion. Implementation resumed in the assistant workspace at 20:56 UTC on this same branch. The stopped task's interrupted local state remains unverified. Five of twenty slices are formally accepted; no completion ETA is currently active. See the [migration ledger](migration-status.md) for actual takeover fixes, the native Entry activation cutover and exact-head CI results. Documentation preparation below is historical input, not the current implementation status.
+The original cloud coding task paused after usage exhaustion. Implementation resumed in the assistant workspace at 20:56 UTC on this same branch. The stopped task's interrupted local state remains unverified. Six of twenty slices are formally accepted (1,2,3,4,6,7); no completion ETA is currently active. See the [migration ledger](migration-status.md) for actual takeover fixes, the native Entry activation cutover and exact-head CI results. Slice2 now has bounded release-foundation acceptance on `7964171` with exact-head ordinary CI39177123637 green; full production assembled/offline/rollback and final ownership gates remain in slices19–20. Paired benchmark run39177123595 on `7964171` completed successfully; its complete same-worker comparison is recorded in the migration ledger. Documentation preparation below is historical input, not the current implementation status.
 
 Completed review packets, prepared without application execution:
 

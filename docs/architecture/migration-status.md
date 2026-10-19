@@ -4,13 +4,29 @@ Owner-authorized implementation of [specification #447](https://github.com/pedro
 
 Implementation base: `147e4afa07fea3243efd42b5b7d167c196c6a7ca`. Specification imported from `46c1996901841868ba133e860cc5662b053effa6` without merging #447 to main. Runtime is unchanged at initialization. A checkbox closes only with its objective evidence and review recorded below.
 
-## Current acceptance: 5 of 20
+## Current acceptance: 6 of 20
 
-Accepted: slices1,3,4,6,7. Fifteen remain open. Independent implementation review supports the four new acceptances: native pure model/training consumption and strict closure; verified catalog plus one app/worker generation authority; browser-free snapshot policy; one durable/preferences owner with qualified outcomes and lock-held checkpoint preflight. The missed pending-checkpoint promotion was corrected in `4e08ce9f` before slice7 acceptance. Physical bridge/classic deletion, public type-edge enforcement and full final-head/offline CI remain explicit slices19–20 gates, not claims attached to intermediate pushes.
+Accepted: slices1,2,3,4,6,7. Fourteen remain open. Slice2 release-foundation acceptance is recorded below. Independent implementation review supports the previously accepted slices3,4,6,7: native pure model/training consumption and strict closure; verified catalog plus one app/worker generation authority; browser-free snapshot policy; one durable/preferences owner with qualified outcomes and lock-held checkpoint preflight. The missed pending-checkpoint promotion was corrected in `4e08ce9f` before slice7 acceptance. Physical bridge/classic deletion, public type-edge enforcement and full final-head/offline CI remain explicit slices19–20 gates, not claims attached to intermediate pushes.
 
 Independent evidence: `/tmp/core-independent-native-proof.json`, `/tmp/core-native-worker-independent.json` (actual worker50/0), `/tmp/core-training-model-final-independent.json`, source-produced snapshot/fixed-point/refusal contracts, immutable233 result corpus, actual DraftV2 storage81 and integrated persistence107.42s. Reviewer independently reproduced the pending-promotion failure and verified the common lock-held guard; new proof has4 positive and16 competing-head refusals preserving canonical/checkpoint bytes. Motion's actual vendor follow-up is reviewed separately and does not prematurely close slice11.
 
 The sections below record earlier checkpoints; their smaller acceptance totals describe those earlier revisions. Latest acceptance is the checklist here.
+
+## Slice 2 release-foundation acceptance (18 October, 23:46 UTC)
+
+Independent source review and exact-head job-log verification accept slice2 at `79641710b9be6705305d3f23ac2405edd01986e5`. [Ordinary CI39177123637](https://github.com/pedrochagasmaster/repforge/actions/runs/39177123637) passed fast, service, all14 browser shards and the aggregate gate. Each cited job checks out this exact source SHA. Earlier `8023424` browser failures are not promoted: the checked-in HTML still named `source-482` while its worker replied `source-483`; `7964171` aligns them and adds a regression exercising the actual source worker's message handler through the release gate.
+
+| Slice2 criterion | Implementation and exact-head evidence |
+| --- | --- |
+| Real native consumption; strict converted owners without root npm | `src/bootstrap.js` gates the native application graph, beyond the original intermediate leaf/bridge milestone. Tool-local `tools/typecheck/tsconfig.json` enables allowJs/checkJs/strict/noEmit. The fast job passed strict checking, architecture checking and generated native inventory verification. |
+| Complete immutable inventory/cache and fail-closed startup | `scripts/native-source-assets.mjs`, `build-pages-dist.mjs`, `release-assembly.mjs` and `release-worker.mjs` preserve native paths, hash release bytes, reject required integrity/MIME failures, avoid arbitrary network fallback and wait for natural activation. `test/architecture-release.mjs` passed in [fast](https://github.com/pedrochagasmaster/repforge/actions/runs/39177123637/job/117822063201), including source-shell/actual-worker handshake, assembly and seeded checker negatives for forbidden imports, cycles, global lookup and import-time IO. |
+| No-SW/restricted/registration-failure production startup | `test/shell-lifetime.mjs` passed6.49s in [shard12](https://github.com/pedrochagasmaster/repforge/actions/runs/39177123637/job/117822063442). Actual bootstrap runs with absent API, throwing getter and rejected registration; real app boot/modal focus succeeds without uncaught errors, and rejection makes exactly one registration attempt. |
+| First network visit, installation and controlled reload | `test/sw-launch-redirect.mjs` passed23.37s in [shard7](https://github.com/pedrochagasmaster/repforge/actions/runs/39177123637/job/117822063418): first document stays uncontrolled, subsequent navigation is worker-served, scope/script/release handshake matches, and online/offline launches boot. `test/native-bootstrap-browser.mjs` passed5.01s in [shard9](https://github.com/pedrochagasmaster/repforge/actions/runs/39177123637/job/117822063421): mismatched controller loads no writer/vendor graph and retains literal bytes; installed native offline reload preserves the acknowledged snapshot. |
+| Pre-protocol refusal, blocked install/offline restart, eventual reopen; root/scoped assembly | `test/architecture-release-browser.mjs` passed9.49s in [shard13](https://github.com/pedrochagasmaster/repforge/actions/runs/39177123637/job/117822063545). The real gate/generated worker execute a small synthetic native graph at root and scoped paths, retain the write sentinel during historical-controller and offline refusal, wait for old-client closure, retire only old app caches and boot offline after natural activation. This fixture is foundation evidence, not a full production assembled journey. |
+
+Retained production regressions also passed: `sw-upgrade`12.16s (shard6), `sw-error-responses`4.25s (shard12), `install-transfer-sw-upgrade`4.83s (shard13), `program-transition-sw-upgrade`10.83s and `workout-draft-sw-upgrade`10.07s (shard11). Suite placement is recorded in `test/suites.mjs`; decoded job logs verify execution rather than inferring it from green job totals.
+
+**Bounded acceptance:** this closes only the native/release foundation. Slices19–20 still require full production assembled root/scoped generation in worker/fallback, save/reload, import/export, active draft/WAL/transfer upgrade and compatible rollback coverage, final ownership/deletion/navigation review and exact-final-candidate CI. Neither the synthetic graph nor these source-preview journeys certify that entire matrix. Paired benchmark run39177123595 subsequently completed successfully on this same checkpoint. It measured execution wall time of 1,229.94s before versus 338.32s after (about 3.64× faster, excluding checkout/install/queue time). This compares the configured baseline and current complete inventories, not architecture changes alone. No physical-device certification, merge or deployment approval is made.
 
 ## Assistant-workspace takeover (18 October, 21:21 UTC)
 
@@ -33,7 +49,7 @@ Guide rendering previously queued writes to shown preferences. Native Progress/F
 ## Implementation checklist
 
 - [x] 1. Baseline and reconciliation contract
-- [ ] 2. ESM/checkJs and release protocol
+- [x] 2. ESM/checkJs and release protocol
 - [x] 3. Pure values/model/log/progression extraction
 - [x] 4. Generator/catalog/executor ESM
 - [ ] 5. Authoring/entry/edit/replay pure seams
