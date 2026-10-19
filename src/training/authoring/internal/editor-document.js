@@ -7,8 +7,11 @@
  */
 /** Speculative program editor documents. Mutations touch only the caller's cloned
  * document; installed/setup application commands own validation and publication. */
-import {cloneSnapshot as clone} from '../../model.js';
-import {definitionFor,definitionSlot,slotAdaptive} from './suggestion.js';
+import {MAX_SLOT_ALTERNATES} from '../../generation.js';
+import {cloneSnapshot as clone,canonicalize} from '../../model.js';
+import {definitionFor,definitionSlot,slotAdaptive,repRange,slotSets,setSlotRir} from './suggestion.js';
+/** @param {unknown} value */
+const canonical=value=>JSON.stringify(canonicalize(value));
 const REP_TARGET_SEMANTICS = new Set(['reps','repsPerSide']);
 /** @param {unknown} value */
 const number=value=>{const n=Number(value);return Number.isFinite(n)?n:0};
@@ -77,8 +80,8 @@ export function createEditorDocumentRules({nextId:uid}) {
   function editableMetricComposition(slot) {
     return !!slot && (slot.metricOrigin === "user_defined" || !slot.metricIds?.length);
   }
-  /** @param {EditorDocument} document @param {EditorRow} exercise @param {string[]} metricIds @param {MetricDefinition[]} definitions */
-  function replaceMetricComposition(document, exercise, metricIds, definitions) {
+  /** @param {EditorDocument} document @param {EditorRow} exercise @param {string[]} metricIds @param {MetricDefinition[]} definitions @param {{preserveProvenance?:boolean,filterTargets?:boolean,projectRow?:boolean}} [options] */
+  function replaceMetricComposition(document, exercise, metricIds, definitions, {preserveProvenance=true,filterTargets=true,projectRow=true}={}) {
     const slotId = exercise?.slotId || exercise?.id || '';
     const slot = definitionSlot(document, slotId);
     if (!slot || !editableMetricComposition(slot)) return false;
@@ -90,9 +93,9 @@ export function createEditorDocumentRules({nextId:uid}) {
     // Schema v2: a set derives its metric composition from its slot rather
     // than storing it again, so only the slot above is rewritten here.
     for (const cycle of slot.prescriptionsByCycle || []) for (const set of cycle.sets || []) {
-      set.targets = Object.fromEntries(Object.entries(set.targets || {}).filter(([semantic]) => keepSemantics.has(semantic)));
+      if(filterTargets)set.targets = Object.fromEntries(Object.entries(set.targets || {}).filter(([semantic]) => keepSemantics.has(semantic)));
       set.status = metricIds.length ? "manual" : "configuration_required";
-      set.provenance = { ...(set.provenance || {}), source: "manual", policyVersion: "manual@1" };
+      set.provenance = { ...(preserveProvenance ? set.provenance : {}), source: "manual", policyVersion: "manual@1" };
     }
     const custom = (document.customExercises || []).find(entry => entry?.id === slot.exerciseId);
     if (custom) {
@@ -100,7 +103,7 @@ export function createEditorDocumentRules({nextId:uid}) {
       custom.metricDefinitions = clone(definitions);
     }
     const row = (document.program || []).find(candidate => (candidate.slotId || candidate.id) === slotId);
-    if (row) {
+    if (row && projectRow) {
       row.metricIds = clone(metricIds);
       row.metricDefinitions = clone(definitions);
       row.metricOrigin = slot.metricOrigin;
@@ -108,24 +111,67 @@ export function createEditorDocumentRules({nextId:uid}) {
     }
     return true;
   }
-  /** @param {EditorDocument} document @param {string} slotId @param {number} cycleIndex @param {number} setIndex @param {string} semantic @param {TargetEdit} after */
-  function replaceMetricTarget(document, slotId, cycleIndex, setIndex, semantic, after) {
+  /** @param {EditorDocument} document @param {string} slotId @param {number} cycleIndex @param {number} setIndex @param {string} semantic @param {TargetEdit} after @param {{preserveProvenance?:boolean,projectRow?:boolean}} [options] */
+  function replaceMetricTarget(document, slotId, cycleIndex, setIndex, semantic, after, {preserveProvenance=true,projectRow=true}={}) {
     const set = definitionSet(document, slotId, cycleIndex, setIndex);
     if (!set) return false;
+    const keepsAdaptive=set.status === "ready" && REP_TARGET_SEMANTICS.has(semantic);
+    if(keepsAdaptive&&!(after.present&&repRange(after.value)))return false;
     const targets = { ...(set.targets || {}) };
     if (after.present) targets[semantic] = clone(after.value);
     else delete targets[semantic];
     set.targets = targets;
     // Plan 069 D3: the rep range is an input of the suggestion, so editing it
     // keeps an adaptive set adaptive. Any other target is the lifter's own.
-    if (!(set.status === "ready" && REP_TARGET_SEMANTICS.has(semantic))) {
+    if (!keepsAdaptive) {
       set.status = "manual";
-      set.provenance = { ...(set.provenance || {}), source: "manual", policyVersion: "manual@1" };
+      set.provenance = { ...(preserveProvenance ? set.provenance : {}), source: "manual", policyVersion: "manual@1" };
     }
     const row = (document.program || []).find(candidate => (candidate.slotId || candidate.id) === slotId);
     const slot = definitionSlot(document, slotId);
-    if (row && slot) row.prescriptionsByCycle = clone(slot.prescriptionsByCycle || []);
+    if (projectRow && row && slot) row.prescriptionsByCycle = clone(slot.prescriptionsByCycle || []);
     return true;
+  }
+
+  /** Prepare metric receipts from the captured slot, without changing the input.
+   * @template {EditorDocument} T
+   * @param {T} input
+   * @param {{slotId:string,cycleIndex:number,setIndex:number,metricId:string,semantic:string,after:TargetEdit}} request */
+  function editMetricTarget(input,{slotId,cycleIndex,setIndex,metricId,semantic,after}) {
+    const slot=definitionSlot(input,slotId),set=definitionSet(input,slotId,cycleIndex,setIndex);
+    if(!slot||!set||!slot.metricDefinitions?.some(metric=>metric.id===metricId&&metric.semantic===semantic))return {ok:false};
+    /** @type {TargetEdit} */
+    const before=Object.hasOwn(set.targets||{},semantic)?{present:true,value:clone(set.targets[semantic])}:{present:false,value:null};
+    const next=clone(input);
+    if(!replaceMetricTarget(next,slotId,cycleIndex,setIndex,semantic,after))return {ok:false};
+    if(canonical(before)===canonical(after))return {ok:true,unchanged:true};
+    return {ok:true,document:next,edit:{kind:"metric_target",slotId,cycleIndex,setIndex,metricId,semantic,
+      metricIds:clone(slot.metricIds||[]),metricDefinitions:clone(slot.metricDefinitions||[]),before,after:clone(after)}};
+  }
+  /** Composition identity validation belongs to the supplied metric/catalog owner.
+   * Canonical replay additionally seeds missing ranges and consumes pending opt-in.
+   * @template {EditorDocument} T
+   * @param {T} input
+   * @param {{slotId:string,metricIds:string[],metricDefinitions:MetricDefinition[]}} request */
+  function editMetricComposition(input,{slotId,metricIds,metricDefinitions}) {
+    const slot=definitionSlot(input,slotId);
+    if(!slot||!editableMetricComposition(slot))return {ok:false};
+    const beforeMetricIds=clone(slot.metricIds||[]),beforeMetricDefinitions=clone(slot.metricDefinitions||[]);
+    if(canonical(beforeMetricIds)===canonical(metricIds)&&canonical(beforeMetricDefinitions)===canonical(metricDefinitions))return {ok:true,unchanged:true};
+    const next=clone(input),row=next.program.find(item=>(item.slotId||item.id)===slotId);
+    if(!row||!replaceMetricComposition(next,row,metricIds,metricDefinitions))return {ok:false};
+    return {ok:true,document:next,edit:{kind:"metric_composition",slotId,beforeMetricIds,beforeMetricDefinitions,
+      metricIds:clone(metricIds),metricDefinitions:clone(metricDefinitions)}};
+  }
+  /** @template {EditorDocument} T
+   * @param {T} input @param {{slotId:string,after:number|null}} request */
+  function editSuggestLoadsRir(input,{slotId,after}) {
+    const slot=definitionSlot(input,slotId);
+    if(!slot)return {ok:false};
+    const before=slotSets(slot).map(set=>set.rir??null),next=clone(input);
+    if(!setSlotRir(next,slotId,after))return {ok:false};
+    if(before.every(value=>Object.is(value,after)))return {ok:true,unchanged:true};
+    return {ok:true,document:next,edit:{kind:"suggest_loads_rir",slotId,before,after}};
   }
 
   /** Apply to an owned document only after all policy and replay checks pass.
@@ -221,6 +267,59 @@ export function createEditorDocumentRules({nextId:uid}) {
     const next=clone(input);
     if(!applyExecutionMode(next,edit))return {ok:false};
     if(before===after)return {ok:true,unchanged:true};
+    return {ok:true,document:next,edit};
+  }
+
+  /** @template {EditorDocument} T @param {T} input @param {string} value */
+  function editProgramName(input,value) {
+    const before=input.programMeta?.name||"",after=String(value||"").trim();
+    if(before===after)return {ok:true,unchanged:true};
+    const next=clone(input);next.programMeta={...(next.programMeta||{}),name:after};
+    return {ok:true,document:next,edit:{kind:"program_name",before,after}};
+  }
+  /** @template {EditorDocument} T @param {T} input @param {string} id */
+  function editRemoveExercise(input,id) {
+    const exercise=input.program?.find(item=>item.id===id);
+    if(!exercise)return {ok:false};
+    const next=clone(input);next.program=next.program.filter(item=>item.id!==id);normalizeOrders(next);
+    return {ok:true,document:next,edit:{kind:"exercise_remove",targetId:id,sourceDay:exercise.day}};
+  }
+  /** Attach a picker-owned custom definition only to the speculative copy.
+   * Canonical replay still owns custom-definition conflict and catalog checks.
+   * @template {EditorDocument} T @param {T} input
+   * @param {{id:string,entry:LibraryEntry,customExercise?:LibraryEntry|null}} request */
+  function editReplaceExercise(input,{id,entry,customExercise=null}) {
+    const current=input.program?.find(item=>item.id===id);
+    if(!current||!entry||(customExercise&&customExercise.id!==entry.id))return {ok:false};
+    const next=clone(input);
+    if(customExercise&&!next.customExercises?.some(item=>item.id===customExercise.id))
+      next.customExercises=(next.customExercises||[]).concat(clone(customExercise));
+    if(!replaceExercise(next,id,entry))return {ok:false};
+    return {ok:true,document:next,edit:{kind:"exercise_replace",targetId:id,beforeLibraryId:current.libraryId,
+      afterLibraryId:entry.id,exercise:clone(next.program.find(item=>item.id===id)),...(customExercise?{customExercise:clone(customExercise)}:{})}};
+  }
+  /** Shared list policy; canonical replay additionally resolves catalog identity.
+   * @param {EditorDocument} document
+   * @param {Extract<import('./editor-contracts.js').InstalledIntent,{kind:'slot_alternates'}>} edit */
+  function applyAlternates(document,edit) {
+    const slot=definitionSlot(document,edit.slotId);
+    if(!slot||!Array.isArray(edit.before)||!Array.isArray(edit.after))return false;
+    const current=slot.alternates||[],after=edit.after;
+    if(canonical(current)!==canonical(edit.before)&&canonical(current)!==canonical(after))return false;
+    if(after.length>MAX_SLOT_ALTERNATES||new Set(after).size!==after.length||
+      after.some(id=>typeof id!=="string"||!id||id===slot.exerciseId))return false;
+    if(after.length)slot.alternates=clone(after);else delete slot.alternates;
+    return true;
+  }
+  /** @template {EditorDocument} T @param {T} input @param {{id:string,after:string[]}} request */
+  function editAlternates(input,{id,after}) {
+    const row=input.program?.find(item=>item.id===id),slotId=row?.slotId||row?.id||"";
+    const slot=definitionSlot(input,slotId);
+    if(!slot)return {ok:false};
+    const before=clone(slot.alternates||[]),edit=/** @type {const} */({kind:"slot_alternates",targetId:id,slotId,before,after:clone(after)});
+    const next=clone(input);
+    if(!applyAlternates(next,edit))return {ok:false};
+    if(canonical(before)===canonical(after))return {ok:true,unchanged:true};
     return {ok:true,document:next,edit};
   }
 
@@ -408,5 +507,5 @@ export function createEditorDocumentRules({nextId:uid}) {
 
   }
 
-return Object.freeze({slotLoadMetric,editLoadStep,applyLoadStep,editExecutionMode,applyExecutionMode,editPrescriptionField,applyPrescriptionField,editExerciseField,metaDays,labels,exercisesFor,normalizeOrders,structureFor,definitionCycle,definitionSet,setCountFor,editableMetricComposition,replaceMetricComposition,replaceMetricTarget,ensureStructure,setDayLabel,appendDay,removeDayFromDocument,fieldValue,entryFields,addExercise,replaceExercise,reorder,validation});
+return Object.freeze({editProgramName,editRemoveExercise,editReplaceExercise,editAlternates,applyAlternates,editMetricTarget,editMetricComposition,editSuggestLoadsRir,slotLoadMetric,editLoadStep,applyLoadStep,editExecutionMode,applyExecutionMode,editPrescriptionField,applyPrescriptionField,editExerciseField,metaDays,labels,exercisesFor,normalizeOrders,structureFor,definitionCycle,definitionSet,setCountFor,editableMetricComposition,replaceMetricComposition,replaceMetricTarget,ensureStructure,setDayLabel,appendDay,removeDayFromDocument,fieldValue,entryFields,addExercise,replaceExercise,reorder,validation});
 }

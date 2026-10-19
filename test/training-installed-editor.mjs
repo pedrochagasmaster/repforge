@@ -150,3 +150,54 @@ for(const owner of [rules,createInstalledEditorRules({model,catalog,nextId:()=>`
   assert.deepEqual(sideInput,sideBefore,'accepted and refused mode replays leave the caller input untouched');
 }
 console.log('PASS installed and Build loading defaults, movement-wide replay, execution eligibility and stale mode refusal');
+
+// Literal owner-level expectations keep canonical policy distinct from speculation.
+for(const owner of [rules,createInstalledEditorRules({model,catalog,nextId:()=>`boundary-${++id}`,defaultProgramMeta:()=>({}),allowCreateDefinition:true})]){
+  const input=structuredClone(head),original=structuredClone(input);
+  const targetSlot=input.programMeta.programDefinition.days.flatMap(day=>day.slots).find(slot=>slot.prescriptionsByCycle?.[0]?.sets?.[0]?.status==='ready'&&slot.metricDefinitions.some(metric=>metric.semantic==='reps'));
+  assert.ok(targetSlot);
+  const metric=targetSlot.metricDefinitions.find(metric=>metric.semantic==='reps'),set=targetSlot.prescriptionsByCycle[0].sets[0];
+  const intent={kind:'metric_target',slotId:targetSlot.id,cycleIndex:1,setIndex:1,metricId:metric.id,semantic:'reps',metricIds:targetSlot.metricIds,metricDefinitions:targetSlot.metricDefinitions,before:{present:true,value:structuredClone(set.targets.reps)},after:{present:true,value:{min:5,max:9}}};
+  const edited=owner.editorRebaseDocument({edits:[intent]},input);assert.equal(edited.conflict,false);
+  const editedSet=edited.document.programMeta.programDefinition.days.flatMap(day=>day.slots).find(slot=>slot.id===targetSlot.id).prescriptionsByCycle[0].sets[0];
+  assert.deepEqual(editedSet,{...set,targets:{...set.targets,reps:{min:5,max:9}}},'adaptive range edit retains all other values and provenance');
+  assert.equal(owner.editorRebaseDocument({edits:[intent]},edited.document).conflict,false,'already applied target replay remains valid');
+  for(const patch of [{after:{present:false,value:null}},{after:{present:true,value:31}},{before:{present:true,value:29}},{metricId:'wrong'},{metricDefinitions:[]}])assert.equal(owner.editorRebaseDocument({edits:[{...intent,...patch}]},input).conflict,true);
+  const beforeRir=targetSlot.prescriptionsByCycle.flatMap(cycle=>cycle.sets).map(set=>set.rir??null);
+  const rir={kind:'suggest_loads_rir',slotId:targetSlot.id,before:beforeRir,after:4};
+  assert.equal(owner.editorRebaseDocument({edits:[rir]},input).conflict,false);
+  for(const patch of [{after:null},{after:4.1},{after:6},{before:[99]}])assert.equal(owner.editorRebaseDocument({edits:[{...rir,...patch}]},input).conflict,true,'canonical RIR preserves its maximum four and stale-before guard');
+  const other=training.flatMap(day=>day.slots).find(slot=>slot.exerciseId!==targetSlot.exerciseId).exerciseId;
+  const alternates={kind:'slot_alternates',slotId:targetSlot.id,before:targetSlot.alternates||[],after:[other]};
+  assert.equal(owner.editorRebaseDocument({edits:[alternates]},input).conflict,false);
+  for(const patch of [{after:[targetSlot.exerciseId]},{after:[other,other]},{after:['unrecognized-movement']},{before:['stale']}])assert.equal(owner.editorRebaseDocument({edits:[{...alternates,...patch}]},input).conflict,true);
+  assert.deepEqual(input,original,'successful and conflicting canonical target/RIR/alternate replay cannot mutate the caller');
+
+  const empty=structuredClone(manualHead);empty.programMeta.suggestLoadsPending=['manual-row'];
+  const configureIntent={kind:'metric_composition',slotId:'manual-row',beforeMetricIds:[],beforeMetricDefinitions:[],metricIds,metricDefinitions};
+  const configuredResult=owner.editorRebaseDocument({edits:[configureIntent]},empty);assert.equal(configuredResult.conflict,false);
+  const configuredAgain=configuredResult.document.programMeta.programDefinition.days.flatMap(day=>day.slots)[0];
+  assert.deepEqual(configuredAgain.prescriptionsByCycle[0].sets[0].targets.reps,{min:6,max:10},'canonical-only missing rep range uses Build defaults');
+  assert.deepEqual(configuredAgain.prescriptionsByCycle[0].sets[0].provenance,{source:'manual',policyVersion:'manual@1'});
+  assert.equal(Object.hasOwn(configuredResult.document.programMeta,'suggestLoadsPending'),false,'canonical composition consumes pending opt-in');
+  assert.deepEqual(configuredResult.document.customExercises[0].metricIds,metricIds);
+  assert.equal(owner.editorRebaseDocument({edits:[{...configureIntent,beforeMetricIds:['stale']}]},empty).conflict,true);
+  const replayed=owner.editorRebaseDocument({edits:[configureIntent]},configuredResult.document);assert.equal(replayed.conflict,false);
+  assert.deepEqual(replayed.document.programMeta.programDefinition,configuredResult.document.programMeta.programDefinition);
+  assert.deepEqual(empty.programMeta.suggestLoadsPending,['manual-row']);assert.deepEqual(empty.customExercises[0].metricIds,[]);
+}
+console.log('PASS installed and Build metric/alternate/RIR replay, canonical defaults, pending opt-in and immutable refusals');
+const rangeHead=structuredClone(manualHead);rangeHead.program[0].min=8;rangeHead.program[0].max=12;
+const rangeResult=rules.editorRebaseDocument({edits:[{kind:'metric_composition',slotId:'manual-row',beforeMetricIds:[],beforeMetricDefinitions:[],metricIds,metricDefinitions}]},rangeHead);
+assert.equal(rangeResult.conflict,false);
+assert.deepEqual(rangeResult.document.programMeta.programDefinition.days.flatMap(day=>day.slots)[0].prescriptionsByCycle[0].sets[0].targets.reps,{min:8,max:12},'canonical composition prefers the authored row range over its fallback');
+const nonRepHead=structuredClone(head);
+const nonRepSlot=nonRepHead.programMeta.programDefinition.days.flatMap(day=>day.slots).find(slot=>slot.metricDefinitions.some(metric=>metric.semantic==='loadKg'));
+const nonRepSet=nonRepSlot.prescriptionsByCycle[0].sets[0],nonRepMetric=nonRepSlot.metricDefinitions.find(metric=>metric.semantic==='loadKg');
+nonRepSet.provenance={...nonRepSet.provenance,reason:'must not survive canonical manual provenance'};
+const nonRepOriginal=structuredClone(nonRepHead);
+const manualTarget=rules.editorRebaseDocument({edits:[{kind:'metric_target',slotId:nonRepSlot.id,cycleIndex:1,setIndex:1,metricId:nonRepMetric.id,semantic:'loadKg',metricIds:nonRepSlot.metricIds,metricDefinitions:nonRepSlot.metricDefinitions,before:Object.hasOwn(nonRepSet.targets,'loadKg')?{present:true,value:nonRepSet.targets.loadKg}:{present:false,value:null},after:{present:true,value:12}}]},nonRepHead);
+assert.equal(manualTarget.conflict,false);
+const manuallyEdited=manualTarget.document.programMeta.programDefinition.days.flatMap(day=>day.slots).find(slot=>slot.id===nonRepSlot.id).prescriptionsByCycle[0].sets[0];
+assert.equal(manuallyEdited.status,'manual');assert.deepEqual(manuallyEdited.provenance,{source:'manual',policyVersion:'manual@1'});
+assert.equal(manuallyEdited.targets.loadKg,12);assert.deepEqual(nonRepHead,nonRepOriginal);

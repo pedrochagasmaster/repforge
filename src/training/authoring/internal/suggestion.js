@@ -130,7 +130,8 @@ function setSuggestLoads(document, slotId, on) {
 /** @param {Partial<EditorDocument>} document @param {string} slotId @param {number|null} rir */
 function setSlotRir(document, slotId, rir) {
   const slot = definitionSlot(document, slotId);
-  if (!slot) return false;
+  if (!slot || (rir !== null && !validRir(rir))) return false;
+  if(rir === null && slotSets(slot).some(set=>set.status === "ready"))return false;
   for (const set of slotSets(slot)) set.rir = rir;
   const row = (document.program || []).find(candidate => (candidate.slotId || candidate.id) === slotId);
   if (row && row.prescriptionsByCycle) row.prescriptionsByCycle = clone(slot.prescriptionsByCycle || []);

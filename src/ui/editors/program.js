@@ -23,7 +23,7 @@ import {MAX_SLOT_ALTERNATES} from '../../training/generation.js';
 import {cloneSnapshot as clone,canonicalize} from '../../training/model.js';
 import {createEditorDocumentRules,PROGRAM_EDITOR_INTENTS} from '../../training/authoring.js';
 import {suggestion} from '../../training/authoring.js';
-const {definitionFor,definitionSlot,slotSets,slotAdaptive,pendingSuggestLoads,slotRepSemantic,repRange,validRir,uniformRir,suggestLoadsIssues,setSuggestLoads,setSlotRir}=suggestion;
+const {definitionFor,definitionSlot,slotSets,slotAdaptive,pendingSuggestLoads,slotRepSemantic,repRange,uniformRir,suggestLoadsIssues,setSuggestLoads}=suggestion;
 const REP_TARGET_SEMANTICS=new Set(['reps','repsPerSide']);
 const INTENT_SET=new Set(PROGRAM_EDITOR_INTENTS);
 const maxAlternates=()=>MAX_SLOT_ALTERNATES;
@@ -31,7 +31,7 @@ const METRIC_DOMAIN=MetricDomain;
 /** All optional platform services are supplied by composition; importing mounts nothing.
  * @param {{window:Window & typeof globalThis,nextId:()=>string,motion?:{animateExerciseReorder:(rows:HTMLElement[],before:Map<string,DOMRect>)=>unknown}|null,sorting:{read:()=>DragRuntime|null,available:()=>boolean,load:()=>Promise<unknown>}}} options */
 export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:sortingRuntime}) {
-  const {slotLoadMetric,editLoadStep:prepareLoadStep,editExecutionMode:prepareExecutionMode,editPrescriptionField:preparePrescriptionField,editExerciseField,metaDays,labels,exercisesFor,normalizeOrders,structureFor,definitionCycle,definitionSet,setCountFor,editableMetricComposition,replaceMetricComposition,replaceMetricTarget,ensureStructure,setDayLabel,appendDay,removeDayFromDocument,fieldValue,entryFields,addExercise,replaceExercise,reorder,validation}=createEditorDocumentRules({nextId:uid});
+  const {editProgramName,editRemoveExercise,editReplaceExercise,editAlternates,editMetricTarget:prepareMetricTarget,editMetricComposition:prepareMetricComposition,editSuggestLoadsRir:prepareSuggestLoadsRir,slotLoadMetric,editLoadStep:prepareLoadStep,editExecutionMode:prepareExecutionMode,editPrescriptionField:preparePrescriptionField,editExerciseField,metaDays,labels,exercisesFor,normalizeOrders,structureFor,definitionCycle,definitionSet,setCountFor,editableMetricComposition,ensureStructure,setDayLabel,appendDay,removeDayFromDocument,addExercise,reorder,validation}=createEditorDocumentRules({nextId:uid});
   /** @type {Record<string,string|((vars:Record<string,string|number>)=>string)>} */
   const FALLBACK = Object.freeze({
     programName: "Program name",
@@ -449,17 +449,10 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
         const handoff = 'entry' in choice ? choice : { entry: choice, stagedCustomDefinition: null };
         const entry = handoff.entry;
         if (!entry) return null;
-        const next = clone(document), customExercise = handoff.stagedCustomDefinition ? clone(handoff.stagedCustomDefinition) : null;
-        if (customExercise && customExercise.id !== entry.id) return null;
-        if (customExercise) {
-          const customExercises = Array.isArray(next.customExercises) ? next.customExercises : [];
-          const existing = customExercises.find(item => item?.id === customExercise.id);
-          if (!existing) next.customExercises = customExercises.concat(customExercise);
-        }
-        if (!replaceExercise(next, id, entry)) return null;
-        const replacement = next.program?.find(item => item.id === id);
+        const prepared=editReplaceExercise(document,{id,entry,customExercise:handoff.stagedCustomDefinition});
+        if(!prepared.ok||!prepared.document||!prepared.edit)return null;
         pendingFocus = { id, roles: ["replace", "toggle-exercise"] };
-        return stage(next, { kind: "exercise_replace", targetId: id, beforeLibraryId: current.libraryId, afterLibraryId: entry.id, exercise: replacement, ...(customExercise ? { customExercise } : {}) }).then(value => {
+        return stage(prepared.document,prepared.edit).then(value => {
           if (value?.ok !== false) announceChange("exerciseChanged");
           return value;
         });
@@ -469,9 +462,10 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     const removeExercise = id => {
       const exercise = document.program?.find(item => item.id === id);
       if (!exercise) return Promise.resolve(null);
-      const next = clone(document); next.program = (next.program || []).filter(item => item.id !== id); normalizeOrders(next);
+      const prepared=editRemoveExercise(document,id);
+      if(!prepared.ok||!prepared.document||!prepared.edit)return Promise.resolve(null);
       pendingFocus = { day: exercise.day };
-      return stage(next, { kind: "exercise_remove", targetId: id, sourceDay: exercise.day }).then(value => {
+      return stage(prepared.document,prepared.edit).then(value => {
         if (value?.ok !== false) announceChange("exerciseRemoved");
         return value;
       });
@@ -481,14 +475,10 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
        rebase it onto a head another tab has moved on. */
     /** @param {string} id @param {string[]} alternates @param {PendingFocus} focus */
     const setAlternates = (id, alternates, focus) => {
-      const exercise = document.program?.find(item => item.id === id);
-      const slotId = exercise?.slotId || exercise?.id || '', next = clone(document), slot = definitionSlot(next, slotId);
-      if (!slot) return Promise.resolve({ ok: false });
-      const before = clone(slot.alternates || []), after = alternates.map(String);
-      if (equal(before, after)) return Promise.resolve({ ok: true, unchanged: true });
-      if (after.length) slot.alternates = after; else delete slot.alternates;
+      const prepared=editAlternates(document,{id,after:alternates});
+      if(!prepared.ok||prepared.unchanged||!prepared.document||!prepared.edit)return Promise.resolve(prepared);
       pendingFocus = focus;
-      return stage(next, { kind: "slot_alternates", targetId: id, slotId, before, after });
+      return stage(prepared.document,prepared.edit);
     };
     /** @param {string} id */
     const addAlternate = id => {
@@ -499,7 +489,6 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
         const entry = choice && 'entry' in choice ? choice.entry : choice;
         if (!entry?.id) return null;
         const current = definitionSlot(document, slot.id)?.alternates || [];
-        if (entry.id === slot.exerciseId || current.includes(entry.id) || current.length >= maxAlternates()) return null;
         return setAlternates(id, [...current, entry.id], { selector: `[data-role="alternate-remove"][data-id="${cssEscape(id)}"][data-exercise-id="${cssEscape(entry.id)}"]` });
       });
     };
@@ -753,13 +742,6 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
         ${contents}
       </section>`;
     }
-    /** @param {string} slotId @param {number} cycleIndex @param {number} setIndex @param {string} semantic @returns {TargetEdit} */
-    function targetState(slotId, cycleIndex, setIndex, semantic) {
-      const set = definitionSet(document, slotId, cycleIndex, setIndex);
-      return set && hasOwn(set.targets, semantic)
-        ? { present: true, value: clone(set.targets[semantic]) }
-        : { present: false, value: null };
-    }
     /** @param {HTMLInputElement} input */
     function editMetricTarget(input) {
       const slotId = (input.dataset.slotId||''), cycleIndex = Number(input.dataset.cycleIndex);
@@ -799,19 +781,10 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
         }
         after = { present: true, value: parsed.value };
       }
-      const before = targetState(slotId, cycleIndex, setIndex, semantic);
-      if (equal(before, after)) return;
-      if (set.status === "ready" && REP_TARGET_SEMANTICS.has(semantic) && !repRange(after.value)) {
-        setStatus(label("invalid"), { error: true });
-        return;
-      }
-      const next = clone(document);
-      if (!replaceMetricTarget(next, slotId, cycleIndex, setIndex, semantic, after)) return;
-      const result = stage(next, {
-        kind: "metric_target", slotId, cycleIndex, setIndex, metricId, semantic,
-        metricIds: clone(slot.metricIds || []), metricDefinitions: clone(slot.metricDefinitions || []),
-        before, after,
-      }, { redraw: false });
+      const prepared=prepareMetricTarget(document,{slotId,cycleIndex,setIndex,metricId,semantic,after});
+      if(!prepared.ok){setStatus(label("invalid"),{error:true});return;}
+      if(prepared.unchanged||!prepared.document||!prepared.edit)return;
+      const result = stage(prepared.document,prepared.edit,{redraw:false});
       updateExerciseSummary((input.dataset.id||''));
       return Promise.resolve(result).then(value => { updateExerciseSummary((input.dataset.id||'')); return value; });
     }
@@ -896,21 +869,13 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       if (!slot) return;
       setFieldError(input, null);
       const raw = input.value.trim(), after = raw ? Number(raw) : null;
-      if (after != null && !validRir(after)) {
-        setFieldError(input, label("invalid"));
-        return;
+      const prepared=prepareSuggestLoadsRir(document,{slotId,after});
+      if(!prepared.ok){
+        if(after===null){const kept=uniformRir(slot);input.value=kept==null?"":String(kept);}
+        setFieldError(input,label("invalid"));return;
       }
-      if (after == null && slotAdaptive(slot)) {
-        const kept = uniformRir(slot);
-        input.value = kept == null ? "" : String(kept);
-        setFieldError(input, label("invalid"));
-        return;
-      }
-      const before = slotSets(slot).map(set => set.rir ?? null);
-      if (before.every(value => Object.is(value, after))) return;
-      const next = clone(document);
-      if (!setSlotRir(next, slotId, after)) return;
-      return stage(next, { kind: "suggest_loads_rir", slotId, before, after }, { redraw: false });
+      if(prepared.unchanged||!prepared.document||!prepared.edit)return;
+      return stage(prepared.document,prepared.edit,{redraw:false});
     }
     /** @param {HTMLButtonElement} button */
     function editExecutionMode(button) {
@@ -1000,16 +965,10 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
         setStatus(label("invalid"), { error: true });
         return;
       }
-      const beforeMetricIds = clone(slot.metricIds || []), beforeMetricDefinitions = clone(slot.metricDefinitions || []);
-      if (equal(beforeMetricIds, metricIds) && equal(beforeMetricDefinitions, definitions)) return;
-      const next = clone(document), nextExercise = next.program?.find(item => item.id === exerciseId);if(!nextExercise)return;
-      if (!replaceMetricComposition(next, nextExercise, metricIds, definitions)) return;
+      const prepared=prepareMetricComposition(document,{slotId,metricIds,metricDefinitions:definitions});
+      if(!prepared.ok||prepared.unchanged||!prepared.document||!prepared.edit)return;
       pendingFocus = { selector: `[data-role="metric-composition"][data-id="${cssEscape(exerciseId)}"][data-slot-id="${cssEscape(slotId)}"]` };
-      return stage(next, {
-        kind: "metric_composition", slotId,
-        beforeMetricIds, beforeMetricDefinitions,
-        metricIds: clone(metricIds), metricDefinitions: clone(definitions),
-      });
+      return stage(prepared.document,prepared.edit);
     }
     /** @param {EditorRow} exercise @param {ProgramSlot|null} slot */
     function renderAlternates(exercise, slot) {
@@ -1245,10 +1204,9 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       if (destroyed) return;
       /** @type {NodeListOf<HTMLInputElement>} */ (host.querySelectorAll('[data-role="program-name"]')).forEach(input => {
         input.addEventListener("change", () => {
-          const before = document.programMeta?.name || "", value = String(input.value || "").trim();
-          if (value === before) return;
-          const next = clone(document); next.programMeta = { ...(next.programMeta || {}), name: value };
-          stage(next, { kind: "program_name", before, after: value });
+          const prepared=editProgramName(document,input.value);
+          if(!prepared.ok||prepared.unchanged||!prepared.document||!prepared.edit)return;
+          stage(prepared.document,prepared.edit);
         });
       });
       /** @type {NodeListOf<HTMLInputElement>} */ (host.querySelectorAll('[data-role="day-name"]')).forEach(input => {

@@ -109,3 +109,101 @@ for(const after of ['',null,'both'])assert.equal(rules.editExecutionMode(loading
 assert.equal(rules.editExecutionMode(loadingDoc,{slotId:'missing',after:'bilateral'}).ok,false);
 assert.deepEqual(loadingDoc,loadingBefore);
 console.log('PASS loading preparation bounds, per-side semantics, defaults, captured identity and immutable receipts');
+
+// Preparation must reject adaptive erasure before mutating an owned document.
+// Canonical validation already refused these edits; the public speculative owner
+// must not rely on a mounted input guard to enforce the same rule.
+const {suggestion}=await import('../src/training/authoring.js');
+const adaptiveInput=structuredClone(frozenPrescription);
+const adaptiveSlot=adaptiveInput.programMeta.programDefinition.days[0].slots[0];
+const adaptiveSet=adaptiveSlot.prescriptionsByCycle[0].sets[0];
+const adaptiveBefore=structuredClone(adaptiveInput);
+for(const after of [{present:false,value:null},{present:true,value:0},{present:true,value:{min:8,max:7}},{present:true,value:31}]){
+  assert.equal(rules.replaceMetricTarget(adaptiveInput,adaptiveSlot.id,1,1,'reps',after),false);
+  assert.deepEqual(adaptiveInput,adaptiveBefore,'adaptive target refusal is immutable');
+}
+for(const after of [null,-1,7,NaN,Infinity,'2']){
+  assert.equal(suggestion.setRir(adaptiveInput,adaptiveSlot.id,after),false);
+  assert.deepEqual(adaptiveInput,adaptiveBefore,'slot RIR refusal is immutable even for partially adaptive slots');
+}
+const repMetric=adaptiveSlot.metricDefinitions.find(metric=>metric.semantic==='reps');
+const targetRequest={slotId:adaptiveSlot.id,cycleIndex:1,setIndex:1,metricId:repMetric.id,semantic:'reps',after:{present:true,value:{min:5,max:9}}};
+const targetPrepared=rules.editMetricTarget(adaptiveInput,targetRequest);
+assert.equal(targetPrepared.ok,true);
+assert.deepEqual(targetPrepared.edit,{kind:'metric_target',...targetRequest,metricIds:adaptiveSlot.metricIds,metricDefinitions:adaptiveSlot.metricDefinitions,before:{present:true,value:{min:4,max:8}}});
+assert.deepEqual(targetPrepared.document.programMeta.programDefinition.days[0].slots[0].prescriptionsByCycle[0].sets[0],{...adaptiveSet,targets:{...adaptiveSet.targets,reps:{min:5,max:9}}});
+assert.deepEqual(rules.editMetricTarget(adaptiveInput,{...targetRequest,metricId:'missing'}),{ok:false});
+assert.deepEqual(adaptiveInput,adaptiveBefore);
+const rirPrepared=rules.editSuggestLoadsRir(adaptiveInput,{slotId:adaptiveSlot.id,after:6});
+assert.equal(rirPrepared.ok,true,'speculative maximum stays six; canonical replay retains its narrower maximum');
+assert(rirPrepared.document.programMeta.programDefinition.days[0].slots[0].prescriptionsByCycle.every(cycle=>cycle.sets.every(set=>set.rir===6)));
+assert.equal(rules.editSuggestLoadsRir(adaptiveInput,{slotId:adaptiveSlot.id,after:null}).ok,false);
+const compositionInput=structuredClone(adaptiveInput);
+const compositionSlot=compositionInput.programMeta.programDefinition.days[0].slots[0];
+compositionSlot.metricOrigin='user_defined';compositionSlot.exerciseId='custom:owned';
+compositionInput.customExercises=[{id:'custom:owned',name:'Owned'}];
+compositionInput.programMeta.suggestLoadsPending=[compositionSlot.id];
+const compositionBefore=structuredClone(compositionInput);
+const composed=rules.editMetricComposition(compositionInput,{slotId:compositionSlot.id,metricIds:[],metricDefinitions:[]});
+assert.equal(composed.ok,true);
+const composedSlot=composed.document.programMeta.programDefinition.days[0].slots[0];
+assert.deepEqual(composedSlot.metricIds,[]);assert.equal(composedSlot.metricOrigin,'user_defined');
+assert.deepEqual(composedSlot.prescriptionsByCycle[0].sets[0].targets,{});
+assert.equal(composedSlot.prescriptionsByCycle[0].sets[0].status,'configuration_required');
+assert.deepEqual(composedSlot.prescriptionsByCycle[0].sets[0].provenance,{source:'manual',policyVersion:'manual@1',reason:'retained by speculative editing'});
+assert.deepEqual(composed.document.customExercises,[{id:'custom:owned',name:'Owned',metricIds:[],metricDefinitions:[]}]);
+assert.deepEqual(composed.document.programMeta.suggestLoadsPending,[compositionSlot.id],'speculation does not consume canonical pending opt-in policy');
+assert.deepEqual(compositionInput,compositionBefore);
+console.log('PASS metric and slot-RIR preparation owns adaptive refusal, provenance and isolated custom composition');
+
+// Structural receipt preparation owns data writes; UI owns focus and pickers.
+const structural=structuredClone(installed),structuralBefore=structuredClone(structural);
+const structuralSlot=structural.programMeta.programDefinition.days[0].slots[0];
+const renamedProgram=rules.editProgramName(structural,'  My program  ');
+assert.deepEqual(renamedProgram.edit,{kind:'program_name',before:structural.programMeta.name||'',after:'My program'});
+assert.deepEqual(renamedProgram.document,{...structural,programMeta:{...structural.programMeta,name:'My program'}});
+assert.deepEqual(rules.editProgramName(renamedProgram.document,' My program '),{ok:true,unchanged:true});
+const removedExercise=rules.editRemoveExercise(structural,structural.program[0].id);
+assert.deepEqual(removedExercise.edit,{kind:'exercise_remove',targetId:structural.program[0].id,sourceDay:structural.program[0].day});
+assert.equal(removedExercise.document.program.some(row=>row.id===structural.program[0].id),false);
+assert.deepEqual(removedExercise.document.program.filter(row=>row.day===structural.program[0].day).map(row=>row.order),[1,2,3,4,5]);
+assert.deepEqual(removedExercise.document.programMeta,structural.programMeta,'canonical removal stays in replay');
+assert.deepEqual(rules.editRemoveExercise(structural,'missing'),{ok:false});
+const customDefinition={id:'custom:replacement',name:'My replacement',metricIds:[],metricDefinitions:[]};
+const replacement=rules.editReplaceExercise(structural,{id:structural.program[0].id,entry:customDefinition,customExercise:customDefinition});
+assert.equal(replacement.ok,true);assert.deepEqual(replacement.document.customExercises,[customDefinition]);
+assert.deepEqual(replacement.edit.customExercise,customDefinition);
+assert.equal(replacement.document.program[0].libraryId,'custom:replacement');
+assert.equal(replacement.document.program[0].sets,structural.program[0].sets);
+assert.deepEqual(rules.editReplaceExercise(structural,{id:structural.program[0].id,entry:customDefinition,customExercise:{...customDefinition,id:'custom:wrong'}}),{ok:false});
+assert.deepEqual(rules.editReplaceExercise(structural,{id:'missing',entry:customDefinition,customExercise:customDefinition}),{ok:false});
+for(const after of [[structuralSlot.exerciseId],['other','other'],['a','b','c','d','e','f'],[null]]){
+  assert.equal(rules.editAlternates(structural,{id:structural.program[0].id,after}).ok,false);
+}
+const alternated=rules.editAlternates(structural,{id:structural.program[0].id,after:['a','b','c','d','e']});
+assert.equal(alternated.ok,true);assert.deepEqual(alternated.edit,{kind:'slot_alternates',targetId:structural.program[0].id,slotId:structuralSlot.id,before:structuralSlot.alternates||[],after:['a','b','c','d','e']});
+const staleAlternates=structuredClone(alternated.document),staleBefore=structuredClone(staleAlternates);
+assert.equal(rules.applyAlternates(staleAlternates,{...alternated.edit,before:['stale'],after:['new']}),false);
+assert.deepEqual(staleAlternates,staleBefore);
+const clearedAlternates=rules.editAlternates(alternated.document,{id:structural.program[0].id,after:[]});
+assert.equal(Object.hasOwn(clearedAlternates.document.programMeta.programDefinition.days[0].slots[0],'alternates'),false);
+assert.deepEqual(structural,structuralBefore,'every accepted and refused preparation leaves input untouched');
+console.log('PASS structural preparation identity, custom attachment, order, alternates bounds and stale immutable refusal');
+
+assert.deepEqual(rules.editMetricTarget(targetPrepared.document,targetRequest),{ok:true,unchanged:true});
+assert.deepEqual(rules.editMetricComposition(composed.document,{slotId:compositionSlot.id,metricIds:[],metricDefinitions:[]}),{ok:true,unchanged:true});
+assert.deepEqual(rules.editAlternates(alternated.document,{id:structural.program[0].id,after:['a','b','c','d','e']}),{ok:true,unchanged:true});
+// Non-repetition targets deliberately leave adaptation, while retaining private
+// provenance annotations until canonical replay replaces manual provenance.
+const nonRep=adaptiveSlot.metricDefinitions.find(metric=>metric.semantic!=='reps');
+assert.ok(nonRep);
+const ownTarget=rules.editMetricTarget(adaptiveInput,{...targetRequest,metricId:nonRep.id,semantic:nonRep.semantic,after:{present:true,value:12}});
+const ownSet=ownTarget.document.programMeta.programDefinition.days[0].slots[0].prescriptionsByCycle[0].sets[0];
+assert.equal(ownSet.status,'manual');
+assert.deepEqual(ownSet.provenance,{source:'manual',policyVersion:'manual@1',reason:'retained by speculative editing'});
+assert.deepEqual(ownSet.targets,{...adaptiveSet.targets,[nonRep.semantic]:12});
+assert.deepEqual(ownTarget.document.program[0].prescriptionsByCycle,ownTarget.document.programMeta.programDefinition.days[0].slots[0].prescriptionsByCycle);
+const alreadyCustom=structuredClone(structural);alreadyCustom.customExercises=[{...customDefinition,name:'Previously attached'}];
+const attached=rules.editReplaceExercise(alreadyCustom,{id:structural.program[0].id,entry:customDefinition,customExercise:customDefinition});
+assert.deepEqual(attached.document.customExercises,alreadyCustom.customExercises,'speculation keeps an existing definition; canonical replay checks a conflicting replacement');
+assert.deepEqual(adaptiveInput,adaptiveBefore);

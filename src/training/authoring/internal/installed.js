@@ -313,8 +313,7 @@ function syncEditorRowFromCanonical(document,slot,cycleIndex=1){
   }else{delete row.min;delete row.max}}
 /** @param {unknown} target */
 function editorRepRangeValid(target){
-  const range=typeof target==="number"&&Number.isSafeInteger(target)?{min:target,max:target}:isPlainStateObject(target)?target:null;
-  return!!range&&typeof range.min==="number"&&typeof range.max==="number"&&Number.isSafeInteger(range.min)&&Number.isSafeInteger(range.max)&&range.min>=1&&range.max>=range.min&&range.max<=30}
+  return !!suggestion.repRange(target)}
 /* A pending "Suggest loads" opt-in belongs to the movement it was turned on for. */
 /** @param {EditorDocument} document @param {string} slotId */
 function dropPendingSuggestLoads(document,slotId){
@@ -346,13 +345,7 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
     const current=Object.prototype.hasOwnProperty.call(set.targets||{},edit.semantic)
       ?{present:true,value:set.targets[edit.semantic]}:{present:false,value:null};
     if(!changeValueEqualForEditor(current,edit.after)&&!changeValueEqualForEditor(current,edit.before))return false;
-    // Plan 069 D3: the rep range feeds the suggestion, so an adaptive set
-    // keeps adapting through a range edit and cannot lose its range.
-    const keepsAdaptive=set.status==="ready"&&(metric.semantic==="reps"||metric.semantic==="repsPerSide");
-    if(keepsAdaptive&&!(edit.after?.present&&editorRepRangeValid(edit.after.value)))return false;
-    if(edit.after?.present)set.targets[edit.semantic]=cloneSnapshot(edit.after.value);
-    else delete set.targets[edit.semantic];
-    if(!keepsAdaptive){set.status="manual";set.provenance={source:"manual",policyVersion:"manual@1"}}
+    if(!documentRules.replaceMetricTarget(document,slotId,Number(edit.cycleIndex),Number(edit.setIndex),edit.semantic,edit.after,{preserveProvenance:false,projectRow:false}))return false;
     syncEditorRowFromCanonical(document,slot,Number(edit.cycleIndex));
   }else if(edit?.kind==="metric_composition"){
     const {slot}=find(slotId);
@@ -366,17 +359,9 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
     const supported=ExerciseMetrics?.SOURCE_COMPOSITIONS?.some(composition=>
       changeValueEqualForEditor(composition,edit.metricIds));
     if(!checkedMetrics?.ok||!supported)return false;
-    // Schema v2: a set derives its metric composition from its slot rather
-    // than storing it again, so only the slot above carries the new
-    // composition; there is no per-set copy left to reconcile or verify.
-    if(!alreadyApplied){
-      slot.metricIds=cloneSnapshot(edit.metricIds);slot.metricDefinitions=cloneSnapshot(edit.metricDefinitions);
-      for(const cycle of slot.prescriptionsByCycle||[])for(const set of cycle.sets||[]){
-        set.targets=Object.fromEntries(Object.entries(set.targets||{}).filter(([semantic])=>
-          edit.metricDefinitions.some(metric=>metric.semantic===semantic)));
-        set.status=edit.metricIds.length?"manual":"configuration_required";
-        set.provenance={source:"manual",policyVersion:"manual@1"}}
-    }
+    const compositionRow=(document.program||[]).find(item=>(item.slotId||item.id)===slotId)||{id:slotId};
+    if(!documentRules.replaceMetricComposition(document,compositionRow,edit.metricIds,edit.metricDefinitions,
+      {preserveProvenance:false,filterTargets:!alreadyApplied,projectRow:false}))return false;
     // A composition that counts repetitions needs a rep range to log against;
     // a newly configured one starts from the row's range or Build's default.
     const repSemantic=edit.metricDefinitions.find(metric=>metric.semantic==="reps"||metric.semantic==="repsPerSide")?.semantic;
@@ -385,13 +370,8 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
     const defaultRange=Number.isSafeInteger(rowMin)&&rowMin>0&&Number.isSafeInteger(rowMax)&&rowMax>=rowMin
       ?{min:rowMin,max:rowMax}:{min:6,max:10};
     for(const cycle of slot.prescriptionsByCycle||[])for(const set of cycle.sets||[]){
-      set.status=edit.metricIds.length?"manual":"configuration_required";
-      set.provenance={source:"manual",policyVersion:"manual@1"};
       if(repSemantic&&set.targets?.[repSemantic]==null)set.targets={...(set.targets||{}),[repSemantic]:cloneSnapshot(defaultRange)}}
-    slot.metricOrigin=String(slot.exerciseId||"").startsWith("custom:")||edit.metricIds.length?"user_defined":"source_catalog";
     dropPendingSuggestLoads(document,slotId);
-    const custom=(document.customExercises||[]).find(item=>item.id===slot.exerciseId);
-    if(custom){custom.metricIds=cloneSnapshot(edit.metricIds);custom.metricDefinitions=cloneSnapshot(edit.metricDefinitions)}
     syncEditorRowFromCanonical(document,slot,cycleIndex);
   }else if(edit?.kind==="exercise_field"){
     const row=(document.program||[]).find(item=>item.id===edit.targetId);
@@ -426,10 +406,9 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
     const after=edit.after;
     if(after!==null&&!(typeof after==="number"&&Number.isFinite(after)&&after>=0&&after<=4))return false;
     const sets=(slot.prescriptionsByCycle||[]).flatMap(cycle=>cycle.sets||[]);
-    if(after===null&&sets.some(set=>set.status==="ready"))return false;
     const current=sets.map(set=>set.rir??null);
     if(!changeValueEqualForEditor(current,edit.before)&&!current.every(value=>value===after))return false;
-    suggestion.setRir(document,slotId,after);
+    if(!suggestion.setRir(document,slotId,after))return false;
     syncEditorRowFromCanonical(document,slot,cycleIndex);
   }else if(edit?.kind==="execution_mode"){
     const {slot}=find(slotId);
@@ -494,11 +473,7 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
     day.slots.forEach((item,index)=>{item.order=index+1});
     syncEditorRowFromCanonical(document,newSlot,cycleIndex);
   }else if(edit?.kind==="slot_alternates"){
-    const {slot}=find(slotId);
-    if(!slot||!Array.isArray(edit.after)||!Array.isArray(edit.before))return false;
-    const current=Array.isArray(slot.alternates)?slot.alternates:[];
-    if(!changeValueEqualForEditor(current,edit.before)&&!changeValueEqualForEditor(current,edit.after))return false;
-    if(edit.after.length)slot.alternates=edit.after.map(String);else delete slot.alternates;
+    if(!documentRules.applyAlternates(document,edit))return false;
   }else if(edit?.kind==="exercise_remove"){
     if(!beforeRef.slot)return false;
     // The slots after it close the gap: validateProgramDefinition wants a day's orders contiguous.
