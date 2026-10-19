@@ -35,15 +35,15 @@ Taurifer is the active workstream documented below. No new deadlines, priorities
 
 ## 2. Resume point: exact status and its limits
 
-Status snapshot: 19 October 2026, 00:37 UTC. Linked CI results and branch heads can change after this time.
+Status snapshot: 19 October 2026, 00:48 UTC. Linked CI results and branch heads can change after this time.
 
 | Item | Recorded state |
 | --- | --- |
 | Architecture integration | [`refactor/agent-first-integration`](https://github.com/pedrochagasmaster/repforge/tree/refactor/agent-first-integration), draft [PR #448](https://github.com/pedrochagasmaster/repforge/pull/448) |
 | Approved design reference | [PR #447](https://github.com/pedrochagasmaster/repforge/pull/447), imported into the integration without merging that documentation PR into main |
 | Implementation baseline | [`147e4afa07fea3243efd42b5b7d167c196c6a7ca`](https://github.com/pedrochagasmaster/repforge/commit/147e4afa07fea3243efd42b5b7d167c196c6a7ca), including #440 |
-| Last verified published implementation head | [`5f4e18ade301646913bc2878784c5c68f6cbceb8`](https://github.com/pedrochagasmaster/repforge/commit/5f4e18ade301646913bc2878784c5c68f6cbceb8): pure editor preparation ownership, source release 486 |
-| CI for that head | [CI39181576155](https://github.com/pedrochagasmaster/repforge/actions/runs/39181576155) running; [paired39181576167](https://github.com/pedrochagasmaster/repforge/actions/runs/39181576167) pending. Previous `65a1948` passed [full CI39180339381](https://github.com/pedrochagasmaster/repforge/actions/runs/39180339381). |
+| Last verified published implementation head | [`0599e6caf35d292b3f51035e617d391e9c396349`](https://github.com/pedrochagasmaster/repforge/commit/0599e6caf35d292b3f51035e617d391e9c396349): editor/Focus test setup corrections over source release 486 |
+| CI for that head | [CI39182367503](https://github.com/pedrochagasmaster/repforge/actions/runs/39182367503) running; [paired39182367439](https://github.com/pedrochagasmaster/repforge/actions/runs/39182367439) pending. Previous fully green ordinary checkpoint remains `65a1948`. |
 | Previous complete green checkpoint with successful paired benchmark | [`79641710b9be6705305d3f23ac2405edd01986e5`](https://github.com/pedrochagasmaster/repforge/commit/79641710b9be6705305d3f23ac2405edd01986e5), ordinary [CI 39177123637](https://github.com/pedrochagasmaster/repforge/actions/runs/39177123637) and [paired benchmark 39177123595](https://github.com/pedrochagasmaster/repforge/actions/runs/39177123595) successful |
 | Formal migration acceptance | **6 of 20:** slices **1, 2, 3, 4, 6 and 7**. Fourteen remain open. Code present in another slice is not acceptance. |
 | Latest published work | Metric-target/composition, Suggest-load RIR, alternate and structural editor preparation now share pure authoring ownership. Exact-head browser proof remains pending. |
@@ -201,3 +201,5 @@ Pedro requested a durable record of past, current and future work while the migr
 - **19 October 2026, 00:29 UTC:** Full ordinary CI on `65a1948` passed. Slice 5 remains open: metric-target/composition rules, alternate edits and the remaining speculative document mutations are being consolidated under pure authoring. That follow-on work is not yet published or accepted. The paired benchmark remains in progress.
 
 - **19 October 2026, 00:37 UTC:** Published `5f4e18a` with the remaining identified editor-preparation rules consolidated. Focused tests and strict checks passed; new mounted-editor behavior is covered by an added browser regression awaiting CI. Acceptance remains 6/20 pending the complete slice review and results.
+
+- **19 October 2026, 00:48 UTC:** `5f4e18a` did not pass browser CI: a new mounted-editor test collapsed its initially expanded row, and an existing Focus scenario lost its page context during navigation. Published test-only correction `0599e6c`; assertions are retained. Fresh CI is running. Slice 5 review is conditionally complete, but acceptance stays 6/20 until the exact-head browser gates pass.
