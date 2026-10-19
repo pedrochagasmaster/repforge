@@ -35,7 +35,7 @@ Taurifer is the active workstream documented below. No new deadlines, priorities
 
 ## 2. Resume point: exact status and its limits
 
-Status snapshot: 19 October 2026, 00:21 UTC. Linked CI results and branch heads can change after this time.
+Status snapshot: 19 October 2026, 00:29 UTC. Linked CI results and branch heads can change after this time.
 
 | Item | Recorded state |
 | --- | --- |
@@ -43,7 +43,7 @@ Status snapshot: 19 October 2026, 00:21 UTC. Linked CI results and branch heads 
 | Approved design reference | [PR #447](https://github.com/pedrochagasmaster/repforge/pull/447), imported into the integration without merging that documentation PR into main |
 | Implementation baseline | [`147e4afa07fea3243efd42b5b7d167c196c6a7ca`](https://github.com/pedrochagasmaster/repforge/commit/147e4afa07fea3243efd42b5b7d167c196c6a7ca), including #440 |
 | Last verified published implementation head | [`65a1948e0a8097e6e82bad2e8287117efcf712a7`](https://github.com/pedrochagasmaster/repforge/commit/65a1948e0a8097e6e82bad2e8287117efcf712a7): shared prescription and loading editor rules, source release 485 |
-| CI for that head | [Run 39180339381](https://github.com/pedrochagasmaster/repforge/actions/runs/39180339381) queued as of 00:21 UTC; [paired run 39180339395](https://github.com/pedrochagasmaster/repforge/actions/runs/39180339395) pending. Previous Build checkpoint `390abcbbb44f7df4bd99355359511c2ccbe219cf` passed [full ordinary CI39179196519](https://github.com/pedrochagasmaster/repforge/actions/runs/39179196519). |
+| CI for that head | [Run 39180339381](https://github.com/pedrochagasmaster/repforge/actions/runs/39180339381) **successful**, verified at 00:29 UTC; [paired run 39180339395](https://github.com/pedrochagasmaster/repforge/actions/runs/39180339395) still running. Previous Build checkpoint `390abcbbb44f7df4bd99355359511c2ccbe219cf` passed [full ordinary CI39179196519](https://github.com/pedrochagasmaster/repforge/actions/runs/39179196519). |
 | Previous complete green checkpoint with successful paired benchmark | [`79641710b9be6705305d3f23ac2405edd01986e5`](https://github.com/pedrochagasmaster/repforge/commit/79641710b9be6705305d3f23ac2405edd01986e5), ordinary [CI 39177123637](https://github.com/pedrochagasmaster/repforge/actions/runs/39177123637) and [paired benchmark 39177123595](https://github.com/pedrochagasmaster/repforge/actions/runs/39177123595) successful |
 | Formal migration acceptance | **6 of 20:** slices **1, 2, 3, 4, 6 and 7**. Fourteen remain open. Code present in another slice is not acceptance. |
 | Latest published work | Reviewed prescription and loading changes are included in `65a1948`. |
@@ -197,3 +197,5 @@ Pedro requested a durable record of past, current and future work while the migr
 - **19 October 2026:** Created this project continuity record with the twenty-slice migration state, accepted checkpoints, benchmark limits, feature history and remaining release/device work.
 - **19 October 2026, 00:19 UTC:** Pedro selected the public Taurifer destination and the separate continuity branch. High-level freelance and other project context is included; no complete personal-history export is claimed.
 - **19 October 2026, 00:21 UTC:** Reviewed prescription/loading policy consolidation was published as `65a1948`, source release 485. Node owner proofs, strict checks and independent refusal/parity review passed; fresh CI was queued. This is implementation progress, not another formal slice acceptance.
+
+- **19 October 2026, 00:29 UTC:** Full ordinary CI on `65a1948` passed. Slice 5 remains open: metric-target/composition rules, alternate edits and the remaining speculative document mutations are being consolidated under pure authoring. That follow-on work is not yet published or accepted. The paired benchmark remains in progress.
