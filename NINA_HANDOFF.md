@@ -35,18 +35,18 @@ Taurifer is the active workstream documented below. No new deadlines, priorities
 
 ## 2. Resume point: exact status and its limits
 
-Status snapshot: 19 October 2026, 00:48 UTC. Linked CI results and branch heads can change after this time.
+Status snapshot: 20 October 2026, 03:26 UTC. Linked CI results and branch heads can change after this time.
 
 | Item | Recorded state |
 | --- | --- |
 | Architecture integration | [`refactor/agent-first-integration`](https://github.com/pedrochagasmaster/repforge/tree/refactor/agent-first-integration), draft [PR #448](https://github.com/pedrochagasmaster/repforge/pull/448) |
 | Approved design reference | [PR #447](https://github.com/pedrochagasmaster/repforge/pull/447), imported into the integration without merging that documentation PR into main |
 | Implementation baseline | [`147e4afa07fea3243efd42b5b7d167c196c6a7ca`](https://github.com/pedrochagasmaster/repforge/commit/147e4afa07fea3243efd42b5b7d167c196c6a7ca), including #440 |
-| Last verified published implementation head | [`0599e6caf35d292b3f51035e617d391e9c396349`](https://github.com/pedrochagasmaster/repforge/commit/0599e6caf35d292b3f51035e617d391e9c396349): editor/Focus test setup corrections over source release 486 |
-| CI for that head | [CI39182367503](https://github.com/pedrochagasmaster/repforge/actions/runs/39182367503) running; [paired39182367439](https://github.com/pedrochagasmaster/repforge/actions/runs/39182367439) pending. Previous fully green ordinary checkpoint remains `65a1948`. |
+| Last verified published implementation head | [`250a46050466e71cbf7ea7c7e5a8166ddd4d76e2`](https://github.com/pedrochagasmaster/repforge/commit/250a46050466e71cbf7ea7c7e5a8166ddd4d76e2): unified durable recovery retention and authoring acceptance, source release 487 |
+| CI for that head | [CI39364201930](https://github.com/pedrochagasmaster/repforge/actions/runs/39364201930) and [paired39364201915](https://github.com/pedrochagasmaster/repforge/actions/runs/39364201915) queued. Previous `0599e6c` passed complete [ordinary CI39182367503](https://github.com/pedrochagasmaster/repforge/actions/runs/39182367503) and [paired benchmark39182367439](https://github.com/pedrochagasmaster/repforge/actions/runs/39182367439). |
 | Previous complete green checkpoint with successful paired benchmark | [`79641710b9be6705305d3f23ac2405edd01986e5`](https://github.com/pedrochagasmaster/repforge/commit/79641710b9be6705305d3f23ac2405edd01986e5), ordinary [CI 39177123637](https://github.com/pedrochagasmaster/repforge/actions/runs/39177123637) and [paired benchmark 39177123595](https://github.com/pedrochagasmaster/repforge/actions/runs/39177123595) successful |
-| Formal migration acceptance | **6 of 20:** slices **1, 2, 3, 4, 6 and 7**. Fourteen remain open. Code present in another slice is not acceptance. |
-| Latest published work | Metric-target/composition, Suggest-load RIR, alternate and structural editor preparation now share pure authoring ownership. Exact-head browser proof remains pending. |
+| Formal migration acceptance | **7 of 20: slices 1–7.** Thirteen remain open. Pure authoring acceptance is based on exact-head `0599e6c` evidence. |
+| Latest published work | Workout draft recovery now uses the existing durable retention capability. Exact-new-head validation is pending before slice 8 acceptance. |
 | Completion ETA | No supported completion date is recorded. |
 
 ### What the accepted release-foundation checkpoint establishes
@@ -111,7 +111,7 @@ The detailed dependency/rollback contract is in specification sections 6–8. Th
 | 2 | ESM/checkJs and release protocol | Accepted within the foundation boundary above |
 | 3 | Pure values/model/log/progression | Accepted |
 | 4 | Generator/catalog/executor ESM | Accepted |
-| 5 | Authoring/entry/edit/replay pure seams | Open; shared prescription/loading rules published at `65a1948`, exact-head CI pending |
+| 5 | Authoring/entry/edit/replay pure seams | Accepted at `0599e6c`: pure shared preparation, canonical replay and actual mounted/production journeys |
 | 6 | Pure snapshot policy | Accepted |
 | 7 | Durable instance and preferences ownership | Accepted; includes corrected lock-held pending-checkpoint preflight |
 | 8 | App session/workout commands | Open |
@@ -183,7 +183,7 @@ Plan 059 remains **on hold** until refreshed against the final application and s
 
 The remaining project work is:
 
-1. Complete and review the fourteen open migration slices, with the specification’s ownership and behavioral evidence.
+1. Complete and review the thirteen open migration slices, with the specification’s ownership and behavioral evidence.
 2. Establish the result of the latest exact-head CI and paired benchmark, then record any corrections and their new tested revisions.
 3. Resolve the incoming feature destinations, including priority bug adaptations, S1 then S2, guide comparison and isolated Lab reconciliation.
 4. Complete the full assembled root/scoped, offline/upgrade/rollback and final candidate acceptance evidence.
@@ -203,3 +203,5 @@ Pedro requested a durable record of past, current and future work while the migr
 - **19 October 2026, 00:37 UTC:** Published `5f4e18a` with the remaining identified editor-preparation rules consolidated. Focused tests and strict checks passed; new mounted-editor behavior is covered by an added browser regression awaiting CI. Acceptance remains 6/20 pending the complete slice review and results.
 
 - **19 October 2026, 00:48 UTC:** `5f4e18a` did not pass browser CI: a new mounted-editor test collapsed its initially expanded row, and an existing Focus scenario lost its page context during navigation. Published test-only correction `0599e6c`; assertions are retained. Fresh CI is running. Slice 5 review is conditionally complete, but acceptance stays 6/20 until the exact-head browser gates pass.
+
+- **20 October 2026, 03:26 UTC:** The `0599e6c` ordinary CI and paired benchmark completed successfully. Slice 5 is accepted with exact-head owner and browser evidence, bringing the total to 7/20. Published `250a460` consolidates Workout recovery-sidecar retention into its durable owner; fresh CI is queued. Slice 8 remains pending that validation. The continuity branch stays separate from application implementation.
