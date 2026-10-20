@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {browserLanguage} from "./language-browser.mjs";
 /**
  * Free-form program import: the paste door of the import route.
  *
@@ -212,7 +213,7 @@ async function main() {
     assert(await page.locator("#entryFreeformOut").isVisible(), "copying advances to stage 3");
     await page.fill("#entryFreeformOut", REPLY);
     await page.evaluate(() => {
-      const telemetry = window.RepForgeTelemetry;
+      const telemetry = window.__repforgeTelemetry;
       const original = telemetry.capture;
       window.__capturedTelemetryCalls = [];
       telemetry.capture = function(event, properties) {
@@ -416,7 +417,7 @@ async function main() {
         writeOwn: !!document.querySelector("#entryWriteOwn"),
       };
     });
-    const lang = await page.evaluate(() => window.RepForgeI18n?.getLang?.() || "en");
+    const lang = await (await browserLanguage(page)).evaluate(async (language)=>language?.getLang?.() || "en");
     const IMPORT_COPY = {
       en: { lede: "Choose a Taurifer program file or paste a program from anywhere. You review every exercise before you activate it.",
         file: ["Choose file", "A Taurifer file from another device"], paste: ["Paste a program", "Text from a spreadsheet, an app or an assistant"] },
@@ -534,9 +535,22 @@ async function main() {
     assert(invalidatedState.tagName === "BUTTON" && invalidatedState.isLong,
       "editing the prompt invalidates previous copy and restores the first tap button");
 
+    // The completed clipboard write belongs to the source copied at its tap.
+    // Editing and returning to this screen must not mark a different prompt copied.
+    await page.evaluate(()=>{navigator.clipboard.writeText=()=>new Promise(resolve=>{window.__releaseEntryCopy=resolve})});
+    await page.click('[data-freeform-app="chatgpt"]');
+    await page.locator("#entryFreeformEditSource").click();
+    await page.locator("#entryFreeformIn").fill(LONG_PROGRAM+"\nNew source after the copy started");
+    await page.locator("#entryFreeformContinue").click();
+    await page.evaluate(()=>window.__releaseEntryCopy());
+    await settle(page,100);
+    assert(await page.locator('[data-freeform-app="chatgpt"]').evaluate(node=>node.tagName==="BUTTON"&&!node.dataset.freeformCopied),
+      "a late clipboard copy cannot mark an edited source as already copied");
+    await page.evaluate(()=>{navigator.clipboard.writeText=()=>Promise.resolve()});
+
     console.log("\nThe prompt contract: strict transcription without contradiction");
     await reset(page);
-    await page.evaluate(() => window.RepForgeI18n.setLang("en"));
+    await (await browserLanguage(page)).evaluate(async (language)=>language.setLang("en"));
     await openFreeform(page);
     await page.fill("#entryFreeformIn", PASTED);
     await page.click("#entryFreeformContinue");
@@ -791,7 +805,7 @@ async function main() {
 
     console.log("\nPortuguese reads the same screen");
     await reset(page);
-    await page.evaluate(() => window.RepForgeI18n.setLang("pt"));
+    await (await browserLanguage(page)).evaluate(async (language)=>language.setLang("pt"));
     await openFreeform(page);
     await page.fill("#entryFreeformIn", PASTED);
     await page.click("#entryFreeformContinue");
@@ -921,7 +935,7 @@ async function main() {
     // A gapped reply reaches the existing gap step, disclosure and all.
     await toStage3(page);
     await page.evaluate(() => {
-      const telemetry = window.RepForgeTelemetry;
+      const telemetry = window.__repforgeTelemetry;
       const original = telemetry.capture;
       window.__gapTelemetryCalls = [];
       telemetry.capture = function(event, properties) {
@@ -1117,7 +1131,7 @@ async function main() {
       session: sessionStorage.getItem("repforge_freeform_session_v1"),
       step: window.__repforgeEntryState?.()?.step || null,
     }));
-    const confirmCopy = await page.evaluate(() => window.RepForgeI18n?.t?.("entry.freeform.confirm_write_own") || "");
+    const confirmCopy = await (await browserLanguage(page)).evaluate(async (language)=>language?.t?.("entry.freeform.confirm_write_own") || "");
     assert(confirmCopy.length > 0 && lastDialog?.type === "confirm" && lastDialog?.message === confirmCopy,
       "writing from scratch asks before discarding pasted text", JSON.stringify(lastDialog));
     assert(/Overhead press/.test(kept.session || "") && await page.locator("#entryFreeformOut").isVisible(),
@@ -1221,17 +1235,17 @@ async function main() {
     dialogAction = "accept"; lastDialog = null;
 
     // Portuguese copy exists for every clipboard string.
-    const ptClipboard = await page.evaluate(() => {
+    const ptClipboard = await (await browserLanguage(page)).evaluate(async (language)=>{
       const keys = ["clipboard_import", "clipboard_busy", "clipboard_or",
         "clipboard_empty", "clipboard_failed", "clipboard_unavailable"];
-      return keys.map((k) => window.RepForgeI18n.t("entry.freeform." + k, {}, "pt"));
+      return keys.map((k) => language.t("entry.freeform." + k, {}, "pt"));
     });
     assert(ptClipboard.every((v) => v && !/^entry\.freeform\./.test(v)),
       "every clipboard string is translated for Portuguese", JSON.stringify(ptClipboard));
 
     // The repair notices are Brazilian Portuguese (Plan 064 R4c), not European.
-    const ptRepair = await page.evaluate(() => ["gap_error", "not_imported_notice"]
-      .map((k) => window.RepForgeI18n.t("entry.freeform." + k, { items: "x" }, "pt")));
+    const ptRepair = await (await browserLanguage(page)).evaluate(async (language)=>["gap_error", "not_imported_notice"]
+      .map((k) => language.t("entry.freeform." + k, { items: "x" }, "pt")));
     assert(ptRepair.every((v) => v && !/\b(Introduza|regista|assinalados?)\b/i.test(v)),
       "the gap and not-imported notices read as Brazilian Portuguese", JSON.stringify(ptRepair));
   } finally {

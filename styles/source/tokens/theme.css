@@ -1,0 +1,398 @@
+/* ============================================================
+   Taurifer — editorial
+   Light: cream surfaces, near-black ink, burnt-orange accent.
+   Dark: the same layout on warm charcoal, reached only by
+   swapping the :root tokens (see [data-theme="dark"] below).
+   Ordinary content separates through hairlines and whitespace. Bounded
+   depth marks selected, floating, modal and persistent-action roles.
+   ============================================================ */
+
+@font-face{font-family:"Plex Sans";src:url(fonts/plexsans.woff2) format("woff2");font-weight:100 700;font-display:swap}
+@font-face{font-family:"Plex Mono";src:url(fonts/plexmono-400.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Plex Mono";src:url(fonts/plexmono-500.woff2) format("woff2");font-weight:500;font-display:swap}
+@font-face{font-family:"Plex Mono";src:url(fonts/plexmono-600.woff2) format("woff2");font-weight:600;font-display:swap}
+
+:root{
+  container-type:inline-size;
+  color-scheme:light;
+  /* `color-scheme` is a keyword property, so the few rules that pin a native
+     control to one appearance read it from here instead of hard-coding it and
+     stranding that control in the light palette. */
+  --scheme:light;
+  --bg:#F4F2EF;
+  --surface:#FFFFFF;
+  --ink:#1B1A17;
+  --ink-soft:#6A665F;
+  --ink-faint:#716D66;
+  --rule:#E4E1DA;
+  --rule-strong:#D9D5CD;
+  --accent:#E04E14;
+  --accent-deep:#B8410E;
+  --positive:#2F7D33;
+  --cta:#161513;
+  --well:#FAF8F5;
+  --cta-ink:#FFFFFF;
+  /* Ink for copy sitting on a filled --accent-deep ground. It is not --cta-ink:
+     in dark the CTA inverts to a light pill while the orange stays orange, so
+     the two inks move in opposite directions. */
+  --accent-ink:#FFFFFF;
+  --danger:#C93A2B;
+  /* Channel triplets for the tints, focus rings and washes that need the theme
+     colour at partial alpha. Keeping them beside the hex means a theme swap
+     carries the translucent surfaces with it. */
+  --accent-rgb:224,78,20;
+  --positive-rgb:47,125,51;
+  --danger-rgb:201,58,43;
+  --ink-rgb:27,26,23;
+  --bg-rgb:244,242,239;
+  /* The wash behind a selected program-entry choice: warm copper at a low
+     alpha so a bounded white card gains a tint without a second surface
+     colour. Defined per theme so dark lifts it enough to register. */
+  --entry-tint:rgba(224,78,20,.06);
+  --knob:#FFFFFF;
+  /* Scrims stay dark in both themes: they exist to push the page back. */
+  --scrim:rgba(27,26,23,.42);
+  /* Plan 058 semantic scales. Consumers migrate by role in P4–P6. */
+  --font-language:"Plex Sans",system-ui,-apple-system,Segoe UI,sans-serif;
+  --font-training-data:"Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --font-size-label:.6875rem;
+  --font-size-caption:.75rem;
+  --font-size-body-small:.875rem;
+  --font-size-body:1rem;
+  --font-size-control:1rem;
+  --font-size-subtitle:1.125rem;
+  --font-size-metric:1.375rem;
+  --font-size-section-title:1.5rem;
+  --font-size-feature-title:1.75rem;
+  --font-size-focal-data:var(--font-size-feature-title);
+  --font-size-title:1.875rem;
+  --font-size-display:2.5rem;
+  /* The selected landing's headline has a deliberate scale break above the ordinary
+     display tier; the saved-session hero is a plain title (30px). These are bounded role variants,
+     not permission for one-off sizes in other surfaces. */
+  --font-size-landing-headline:2.375rem;
+  --font-size-landing-headline-wide:3.25rem;
+  --font-size-rest-clock:clamp(2rem,10cqi,2.625rem);
+  --line-tight:1.1;
+  --line-standard:1.4;
+  --line-reading:1.55;
+  --weight-regular:400;
+  --weight-medium:500;
+  --weight-semibold:600;
+  --radius-none:0;
+  --radius-compact:4px;
+  --radius-control:8px;
+  --radius-surface:12px;
+  /* The curve just inside a 1px-bordered surface, for a child that has to follow its clip (#299). */
+  --radius-surface-inner:calc(var(--radius-surface) - 1px);
+  --radius-prominent:16px;
+  /* Exact Plan 054 device-stage composition; these are not reusable scale steps. */
+  --radius-landing-stage:24px;
+  --radius-landing-stage-compact:20px;
+  --radius-landing-crop:14px;
+  --radius-pill:999px;
+  --radius-round:50%;
+  --elevation-flat-shadow:none;
+  --elevation-selected-shadow:inset 0 0 0 2px var(--boundary-selected);
+  --elevation-floating-shadow:0 8px 24px rgba(var(--shadow-rgb),.18);
+  --elevation-focus-shadow:0 1px 2px rgba(var(--shadow-rgb),.04),0 10px 30px rgba(var(--shadow-rgb),.10);
+  --elevation-modal-shadow:0 10px 22px rgba(var(--shadow-rgb),.18),0 2px 5px rgba(var(--shadow-rgb),.08);
+  --elevation-dialog-shadow:0 16px 40px rgba(var(--shadow-rgb),.12);
+  --elevation-persistent-shadow:0 -4px 16px rgba(var(--shadow-rgb),.09);
+  --elevation-nav-shadow:inset 0 1px 0 var(--dock-sheen),inset 0 -1px 0 rgba(var(--shadow-rgb),.05),0 10px 30px rgba(var(--shadow-rgb),.13),0 2px 8px rgba(var(--shadow-rgb),.07);
+  --elevation-program-dock-shadow:inset 0 1px 0 var(--dock-sheen),0 -4px 14px var(--dock-edge);
+  --elevation-popover-shadow:0 8px 24px rgba(var(--shadow-rgb),.1);
+  --elevation-tooltip-shadow:0 10px 22px rgba(var(--shadow-rgb),.18),0 2px 5px rgba(var(--shadow-rgb),.08);
+  --elevation-sheet-shadow:0 -8px 40px rgba(var(--shadow-rgb),.18);
+  --elevation-drag-shadow:0 12px 28px rgba(var(--shadow-rgb),.16);
+  --elevation-nav-selected-shadow:inset 0 1px 0 var(--dock-pill-sheen),0 1px 3px rgba(var(--shadow-rgb),.08);
+  --elevation-nav-indicator-shadow:inset 0 1px 0 var(--dock-pill-sheen),0 1px 3px rgba(var(--shadow-rgb),.09);
+  --control-focus-halo-shadow:0 0 0 3px rgba(var(--accent-rgb),.12);
+  --control-toggle-track-shadow:inset 0 0 0 1px rgba(var(--shadow-rgb),.05);
+  --control-toggle-thumb-shadow:0 3px 8px rgba(var(--shadow-rgb),.15),0 3px 1px rgba(var(--shadow-rgb),.06),0 0 0 .5px rgba(var(--shadow-rgb),.04);
+  --control-accent-keyline-shadow:inset 0 0 0 1px var(--accent);
+  --boundary-flat:var(--rule);
+  --boundary-selected:var(--accent-deep);
+  --boundary-floating:var(--rule-strong);
+  --boundary-modal:var(--rule-strong);
+  --boundary-persistent:var(--rule-strong);
+  --shadow-rgb:27,26,23;
+  /* Semantic color jobs. These aliases have no consumer change in P3. */
+  --color-action:var(--accent);
+  --color-action-text:var(--accent-deep);
+  --color-action-on-fill:var(--accent-ink);
+  --color-improved:var(--positive);
+  --color-declined:var(--danger);
+  --color-maintained:var(--ink-soft);
+  --color-warning:var(--accent-deep);
+  --color-destructive:var(--danger);
+  --color-focus:var(--accent);
+  --color-disabled-reason:var(--ink-soft);
+  --boundary-required:var(--ink-soft);
+  --boundary-decorative:var(--rule);
+  --color-surface:var(--surface);
+  --color-ink:var(--ink);
+  --color-ink-secondary:var(--ink-soft);
+  --control-target:44px;
+  --control-icon-size:24px;
+  --control-primary-bg:var(--cta);
+  --control-primary-ink:var(--cta-ink);
+  --control-primary-boundary:transparent;
+  --control-primary-disabled-bg:var(--rule);
+  --control-primary-disabled-ink:var(--ink-soft);
+  --control-secondary-bg:var(--surface);
+  --control-secondary-ink:var(--ink);
+  --control-secondary-boundary:var(--boundary-required);
+  --control-quiet-bg:transparent;
+  --control-quiet-ink:var(--ink);
+  --control-quiet-boundary:transparent;
+  --control-destructive-bg:transparent;
+  --control-destructive-ink:var(--color-destructive);
+  --control-destructive-boundary:var(--boundary-required);
+  --control-disclosure-bg:transparent;
+  --control-disclosure-ink:var(--ink);
+  --control-disclosure-boundary:transparent;
+  --control-selection-bg:var(--surface);
+  --control-selection-ink:var(--ink);
+  --control-selection-boundary:var(--boundary-required);
+  --control-selection-active-bg:var(--entry-tint);
+  --control-adjustment-bg:var(--control-secondary-bg);
+  --control-adjustment-ink:var(--control-secondary-ink);
+  --control-adjustment-boundary:var(--control-secondary-boundary);
+  --control-field-bg:var(--surface);
+  --control-field-ink:var(--ink);
+  --control-field-boundary:var(--boundary-required);
+  --control-focus-outline:2px solid var(--color-focus);
+  --control-pressed-transform:translateY(1px) scale(.995);
+  --control-disabled-opacity:.4;
+  --control-selected-boundary:var(--boundary-selected);
+  --control-error-boundary:var(--color-destructive);
+  /* Plan 064 R1b: owner-approved shared tokens (OG-3, OG-4; recorded in the
+     contract's Plan 064 amendment). Nothing in the app reads them yet; each
+     is first used by the slice its inventory row names. */
+  /* Quiet selection: the selected boundary where orange is rationed (shelf
+     fields, the open ledger row, the tab indicator). It aliases ink and reuses
+     the contract's 2px inset recipe; it adds no width. */
+  --boundary-selected-quiet:var(--ink);
+  --elevation-selected-quiet-shadow:inset 0 0 0 2px var(--boundary-selected-quiet);
+  /* Decorative separator drawn on --surface (sheets, the shelf). Never the sole
+     cue for a required mark. */
+  --rule-on-surface:var(--rule);
+  /* Spacing scale and page gutter (DESIGN.md: 4 / 8 / 12 / 14 / 16 / 18 / 26 /
+     32). Lengths, not themed, so they are declared once. */
+  --space-4:4px;
+  --space-8:8px;
+  --space-12:12px;
+  --space-14:14px;
+  --space-16:16px;
+  --space-18:18px;
+  --space-26:26px;
+  --space-32:32px;
+  --gut:16px;
+  /* The least the Focus context region keeps: the exercise's name row (the 56px thumbnail and the card's padding).
+     Banners and guides give way before it does; at large text on a short screen the shelf comes first and it is 0. */
+  --focus-context-floor:80px;
+  /* The exercise chart's axis labels live inside the drawing's own 328x190 units, so they are set in that unit and do
+     not follow the reader's text size (a five-character tick at double size is wider than the margin it labels and
+     leaves the drawing). The table under the chart carries the same numbers at the reader's size. */
+  --font-size-chart-axis:11px;
+  /* Workout shelf grounds, on the shelf only: fields sit on the well, pads on
+     the page ground. */
+  --shelf-field-bg:var(--well);
+  --shelf-pad-bg:var(--bg);
+  /* Landing bands (OG-3). Night is the dark palette in both themes; the mark
+     that was #4A453D (1.79:1 and 1.95:1) is the required boundary below. */
+  --band-night-bg:#141310;
+  --band-night-raised:#1E1C18;
+  --band-night-ink:#F2EFE9;
+  --band-night-ink-soft:#ADA79D;
+  --band-night-ink-faint:#99938A;
+  --band-night-rule:#2E2B26;
+  --band-night-accent:#F2703B;
+  --band-night-accent-text:#FF8A3D;
+  --band-night-boundary-required:var(--band-night-ink-soft);
+  --band-night-cta-bg:#DED7CC;
+  --band-night-cta-ink:#161513;
+  /* Orange band: the live accent as the field, always carrying near-black ink. */
+  --band-orange-bg:var(--accent);
+  --band-orange-ink:#141310;
+  --band-orange-cta-ink:#F4F2EF;
+  --band-orange-cta-mark:#F2703B;
+  /* Ink band: the live ink as the field, the page ground as its ink. */
+  --band-ink-bg:var(--ink);
+  --band-ink-ink:var(--bg);
+  --band-ink-ink-soft:rgba(var(--bg-rgb),.78);
+  --band-ink-rule:rgba(var(--bg-rgb),.22);
+  /* Settings is one text column: the caption of a group, the label of every row
+     in it, and the rule between those rows all begin at this inset. */
+  --settings-inset:16px;
+  /* The dock floats: it is a capsule of --dock-h parked --dock-gap above the
+     safe area, inset --dock-inset from each edge. --nav stays the single
+     "space the dock claims at the bottom" token every other floating element
+     (rest bar, toast, tour, FAB) already measures itself against. */
+  /* The text-scaled dock uses two columns so every enlarged tab label stays whole. */
+  --dock-h:max(62px,calc(40px + var(--font-size-label) + var(--font-size-label)));
+  --dock-gap:10px;
+  --dock-inset:14px;
+  --nav:calc(var(--dock-h) + var(--dock-gap));
+  /* Liquid Glass (#301): translucent enough that what scrolls under the dock reads through the frost, with a rim
+     that catches light (--dock-rim) and a faint caustic under it (--dock-caustic) so the capsule reads as a lens
+     suspended over the page rather than a plate laid on it. */
+  --dock-glass:rgba(250,248,245,.5);
+  --dock-glass-opaque:rgba(250,248,245,.97);
+  --dock-edge:rgba(27,26,23,.10);
+  --dock-sheen:rgba(255,255,255,.7);
+  --dock-rim:rgba(255,255,255,.55);
+  --dock-caustic:rgba(255,255,255,.22);
+  --dock-blur:blur(14px) saturate(190%) brightness(1.05);
+  --dock-rim-shadow:inset 0 0 0 .5px var(--dock-rim),inset 0 6px 12px -8px var(--dock-rim);
+  --dock-pill:rgba(255,255,255,.82);
+  --dock-pill-sheen:rgba(255,255,255,.82);
+  --maxw:560px;
+
+  --bolt:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M13.6 2 4 13.4h6.1L9.4 22 20 10.2h-6.6z'/%3E%3C/svg%3E");
+  /* The forward arrow is drawn, not typed. U+2192 is not in the Plex Sans
+   * subset we ship, so a "→" in `content` falls through to whatever the
+   * platform hands us: SF Pro on iOS draws a proper arrow, while Android
+   * lands on a symbol fallback that ignores our weight and sits off-centre
+   * against the label. A mask renders identically everywhere. --arrow and
+   * --check are G's drawings, declared in the generated "G icon set" block
+   * (tools/build-icon-masks.mjs) with the rest of the icon masks. */
+  /* A <select> cannot carry a pseudo-element, so its chevron is a background
+     image rather than a mask, and the ink has to be baked into the SVG. That
+     is why this one glyph exists twice instead of following currentColor. */
+  --select-caret:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231B1A17' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  /* The verdict mark's hold ("=") and recover (a clockwise return) glyphs, drawn for the same reason as --arrow. */
+  --verdict-hold:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 9h14M5 15h14'/%3E%3C/svg%3E");
+  --verdict-recover:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8'/%3E%3Cpath d='M21 3v5h-5'/%3E%3C/svg%3E");
+}
+
+/* ---- Dark ----
+   The whole theme is this block: no rule below it names a colour that is not a
+   token, so dark is a palette, not a second stylesheet. app.js resolves the
+   Appearance setting (system/light/dark) to a concrete value and writes it to
+   <html data-theme>, which is why there is no prefers-color-scheme query here —
+   the attribute is always the answer, and an inline snippet in index.html sets
+   it before the first paint.
+
+   The paper stays warm rather than neutral grey so the burnt orange, the
+   exercise illustrations and the app icon still belong to the same object. Ink
+   is off-white for the same reason, and because pure white on near-black
+   haloes. The CTA is the one element that inverts outright: a near-black pill
+   disappears on this ground, so it becomes a light pill with dark ink, and the
+   orange moves up rather than down (--accent-deep is the *lighter* orange here
+   because its job is emphasis, and emphasis on dark means more light). */
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --scheme:dark;
+  --bg:#141310;
+  --surface:#1E1C18;
+  --ink:#F2EFE9;
+  --ink-soft:#ADA79D;
+  --ink-faint:#99938A;
+  --rule:#2E2B26;
+  --rule-strong:#4A453D;
+  --accent:#F2703B;
+  /* Text emphasis stays in the same burnt-orange family as the mark. The
+     first dark pass was lighter but too peach beside the red danger action. */
+  --accent-deep:#FF8A3D;
+  --positive:#63C267;
+  /* A quiet parchment rather than a lit white card. Scale and placement make
+     the CTA primary; maximum luminance does not need to. */
+  --cta:#DED7CC;
+  --well:#191713;
+  --cta-ink:#161513;
+  --accent-ink:#231A14;
+  --danger:#FF6670;
+  --accent-rgb:242,112,59;
+  --positive-rgb:99,194,103;
+  --danger-rgb:255,102,112;
+  --ink-rgb:242,239,233;
+  --bg-rgb:20,19,16;
+  --shadow-rgb:0,0,0;
+  --entry-tint:rgba(242,112,59,.12);
+  --knob:var(--surface);
+  --scrim:rgba(0,0,0,.62);
+  /* Dark content showing through glass becomes visual noise around the nav
+     labels. Keep the material, but make it read as smoked glass, not a lens. */
+  --dock-glass:rgba(30,28,24,.66);
+  --dock-glass-opaque:rgba(24,22,19,.97);
+  --dock-edge:rgba(255,255,255,.10);
+  --dock-sheen:rgba(255,255,255,.04);
+  /* Smoked glass keeps a heavier frost and dims what it lets through, so dark content stays quiet behind the labels. */
+  --dock-rim:rgba(255,255,255,.12);
+  --dock-caustic:rgba(255,255,255,.05);
+  --dock-blur:blur(18px) saturate(160%) brightness(.85);
+  --dock-pill:rgba(255,255,255,.07);
+  --dock-pill-sheen:rgba(255,255,255,.05);
+  /* Plan 064 R1b: the same tokens as the light block. A separator on --surface
+     needs the stronger rule here; the bands hold identical values in both
+     themes. */
+  --boundary-selected-quiet:var(--ink);
+  --elevation-selected-quiet-shadow:inset 0 0 0 2px var(--boundary-selected-quiet);
+  --rule-on-surface:var(--rule-strong);
+  --shelf-field-bg:var(--well);
+  --shelf-pad-bg:var(--bg);
+  --band-night-bg:#141310;
+  --band-night-raised:#1E1C18;
+  --band-night-ink:#F2EFE9;
+  --band-night-ink-soft:#ADA79D;
+  --band-night-ink-faint:#99938A;
+  --band-night-rule:#2E2B26;
+  --band-night-accent:#F2703B;
+  --band-night-accent-text:#FF8A3D;
+  --band-night-boundary-required:var(--band-night-ink-soft);
+  --band-night-cta-bg:#DED7CC;
+  --band-night-cta-ink:#161513;
+  --band-orange-bg:var(--accent);
+  --band-orange-ink:#141310;
+  --band-orange-cta-ink:#F4F2EF;
+  --band-orange-cta-mark:#F2703B;
+  --band-ink-bg:var(--ink);
+  --band-ink-ink:var(--bg);
+  --band-ink-ink-soft:rgba(var(--bg-rgb),.78);
+  --band-ink-rule:rgba(var(--bg-rgb),.22);
+  --select-caret:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F2EFE9' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+}
+
+/* ---- Dark-theme hierarchy refinements ----
+   A palette swap gets the colours right, but near-black compresses depth:
+   controls that were obvious as white fields on cream become adjacent dark
+   rectangles. These few rules restore the light theme's hierarchy without
+   adding cards or glow. */
+:root[data-theme="dark"] .kg,
+:root[data-theme="dark"] .saveset{
+  border-color:var(--rule-strong);
+}
+:root[data-theme="dark"] .stepbtn{
+  background:var(--control-adjustment-bg);
+  border-color:var(--control-adjustment-boundary);
+  color:var(--control-adjustment-ink);
+}
+:root[data-theme="dark"] .saveset{
+  color:var(--ink);
+}
+/* Small artwork retains its stronger dark-theme edge on charcoal. */
+:root[data-theme="dark"] .exthumb--sm{
+  border-color:var(--rule-strong);
+}
+/* Licensed artwork is painted on its own warm paper, so on charcoal it is a
+   plate whatever we do; the only question is whether that plate looks meant.
+   Light dissolves the field into the page because the page is the same paper —
+   dark cannot, so the field becomes a deliberate archival plate instead of a
+   parchment rectangle with a gradient smeared across its top and bottom edge.
+   This is the same answer .exthumb--lg already gives on the preview page. */
+:root[data-theme="dark"] .exdet-art{
+  margin-inline:0;
+  border-radius:var(--radius-surface);
+  background:var(--exercise-art-bg);
+}
+:root[data-theme="dark"] .exdet-art__figure{
+  padding-block:var(--exercise-art-lead);
+}
+:root[data-theme="dark"] nav{
+  backdrop-filter:blur(28px) saturate(125%);
+  -webkit-backdrop-filter:blur(28px) saturate(125%);
+}
+
+*{box-sizing:border-box}

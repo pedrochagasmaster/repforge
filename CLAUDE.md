@@ -33,13 +33,13 @@ Use the module that owns the behavior. These are the principal production owners
 | `program-engine.js` | Generation and Review regeneration in a precached dedicated worker that loads the page's own compiler, transition and catalog scripts; when no worker can run, the same code runs on the main thread. `app.js` owns the one async generation call site (`generateEntryCandidate`). |
 | `program-editor.js` | Reusable program editor. Its host supplies data and handles returned intents. |
 | `program-review.js` | Onboarding B's review editor on Generate's result screen: pure edit rules on a `ProgramDefinition` (validated, replayable), the diff against the recommendation, and `mountProgramReview`. `app.js` supplies the document, persistence, sheet and picker. |
-| `history-ui.js` | History rendering and interactions through dependencies supplied by the app. |
+| `src/ui/history/controller.js` | History reads immutable application models and invokes named correction/deletion commands. |
 | `shared-setup.js` | Setup-link codec and validation; this module and `AGENTS.md` own the current format, compatibility, and privacy contract. |
 | `install-transfer.js`, `install-transfer-contract.js` | Browser transfer client and its shared request/envelope contract. `services/install-transfer/` owns the service. |
 | `install-policy.js`, `guide-registry.js` | Install-prompt eligibility and versioned contextual-guide definitions/state. |
 | `motion-layer.js` | Motion vocabulary, reduced-motion decision, gesture controller, and fallback. `app.js` mounts and disposes the controller through this layer. |
-| `telemetry.js`, `posthog-init.js` | Closed event/privacy boundary, consent and identity; `posthog-init.js` adapts the optional SDK using generated deployment configuration. |
-| `schedule.js`, `notify.js` | Training schedule helpers; notification adapter and delivery helpers. |
+| `src/platform/telemetry.js`, `src/platform/posthog.js` | Closed event/privacy boundary, consent and identity; the passive PostHog adapter receives the native owner and generated deployment data explicitly. |
+| `src/training/progress.js`, `notify.js` | Native training schedule rules; transitional notification adapter. |
 | `sw.js` | Release asset inventory, cache lifecycle, offline shell, and code-response policy. |
 | `styles.css`, `motion-polish.css` | Presentation tokens and component styles; appearance rules and exceptions are governed by `AGENTS.md` and the design audit. |
 | `i18n-en.json`, `i18n-pt.json`, `tools/exercise-curation.json`, `tools/exercise-compiler-data.json` | Translation and exercise source data. `i18n.js` and `exercises.js` are generated runtime files; follow `AGENTS.md` and `tools/README.md`. |
@@ -56,7 +56,7 @@ For query-versioned runtime scripts, use `transitionAssets` in `test/exercise-li
 
 Setup-link encoding, validation, and compatibility are owned by `shared-setup.js`. Consult `AGENTS.md` and ADR 0007 before changing cookies, import eligibility, or sharing. The install-transfer cookie and setup-proposal handoff are separate mechanisms.
 
-Telemetry event names and allowed properties live in `telemetry.js`; `AGENTS.md` and relevant ADRs define the data boundary.
+Telemetry event names and allowed properties live in `src/platform/telemetry.js`; `AGENTS.md` and relevant ADRs define the data boundary.
 
 ## Working and verification
 

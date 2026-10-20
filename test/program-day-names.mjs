@@ -1,11 +1,12 @@
 #!/usr/bin/env node
+import {Compiler as NativeCompiler,Entry as NativeEntry} from './fixtures/training-runtime.mjs';
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
-const Compiler = require("../program-compiler.js");
-const Entry = require("../program-entry.js");
+const Compiler = NativeCompiler;
+const Entry = NativeEntry;
 const Catalog = require("../assets/exercise-catalog.json");
 const workerFixture = JSON.parse(fs.readFileSync(new URL(
   "../services/install-transfer/test/fixtures/program-definition-plan067-worker.json",

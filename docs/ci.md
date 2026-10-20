@@ -77,27 +77,26 @@ concurrent jobs, so a run that overlaps another one queues a few shards for
 about one shard's duration; that is why the count is not simply "as many as
 possible".
 
-Two catalog sweeps used to be single commands of 29 and 26 minutes. They are
-now inventory commands with a `--shard k/n` argument:
+The redesigned inventory has 97 commands in 97 distinct scheduled files,
+compared with 208 commands in 195 files at `147e4afa`. Scheduling shards and
+assertions are separate measures. The full retirement ledger and changed
+coverage contract are in [test-suite-redesign.md](test-suite-redesign.md).
 
-- `tools/check-ui-system.mjs --shard k/6` renders one stripe of the
-  screen × theme × locale matrix and writes `ui-system-shard.json` beside its
-  evidence. The rule "every inventory selector rendered somewhere" needs the
-  union of all stripes, so the `ci` job downloads the shard artifacts and runs
-  `node tools/ci-plan.mjs merge-ui-system .ci-results/shards` (browser-free, so
-  the gate installs nothing).
-- `tools/capture-ui-screens.mjs --verify --shard k/6` captures one stripe of the
-  915 frames into a staging tree and compares the complete staged catalog with
-  the committed one (`check-ui-screens` registration plus `compare-ui-screens`
-  pixels and semantics). The committed frames are the immutable baseline; the
-  working tree is never rewritten. Failing frames and their baselines are
-  retained under the suite's evidence directory as `visual-failures/`.
+`test/ui-system.mjs` opens the 21 explicitly declared critical frames once each
+and shares each settled production frame between fresh pixel comparison,
+semantic observation and live role/contrast checks. It also exercises real
+entry accessibility and deliberate checker defects. Every cell must pass;
+the aggregate `merge-ui-system` command rejects missing/duplicate reports,
+foreign source identity, failed observations and incomplete comparisons.
+Exhaustive catalog verification and its selector-never-rendered guarantee are
+retired. The catalog updater remains an authoring utility, not a hidden test
+lane. No omitted frame has an equivalence guarantee.
 
 ## Browser preview and visual evidence
 
 In a fresh checkout, run `(cd test && npm ci && npx playwright install --with-deps --only-shell chromium)` once. Normal browser and screenshot commands leave `REPFORGE_URL` unset: `tools/local-preview.mjs` generates an analytics-disabled isolated current-worktree server on a fresh loopback port, verifies identity and cleans up. Explicit local URLs must serve the same worktree.
 
-After a user-visible change, run `node tools/capture-ui-screens.mjs --affected --accept-visual-change`, review the updated PNGs and commit them; `--list-affected` shows the local recapture plan. That local selector (`tools/ci-selection.mjs`, `tools/visual-domains.mjs`) only decides what you recapture; CI always verifies the whole catalog, so a wrong local guess fails the pull request instead of merging silently. `sw.js` is ignored by the local selector only when the canonical `CACHE` declaration is its sole change.
+After a user-visible change, run `node tools/capture-ui-screens.mjs --affected --accept-visual-change`, review the updated PNGs and commit them; `--list-affected` shows the local recapture plan. That local selector (`tools/ci-selection.mjs`, `tools/visual-domains.mjs`) only decides what you recapture; CI always verifies the complete declared critical matrix; a wrong local authoring selection can leave an omitted catalog image stale, an explicitly accepted reduction in automatic coverage. `sw.js` is ignored by the local selector only when the canonical `CACHE` declaration is its sole change.
 
 ## Failures and evidence
 

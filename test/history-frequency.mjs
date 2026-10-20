@@ -5,13 +5,7 @@
  * bounds and nothing else. No browser, no stored state.
  */
 import assert from "node:assert/strict";
-import { createRequire } from "node:module";
-
-const require = createRequire(import.meta.url);
-require("../history-ui.js");
-const { frequency, weekGroups } = globalThis.RepForgeHistoryUi;
-assert.equal(typeof frequency, "function", "RepForgeHistoryUi exposes the frequency helper");
-assert.equal(typeof weekGroups, "function", "RepForgeHistoryUi exposes the week grouping helper");
+import {historyFrequency as frequency,historyWeekGroups as weekGroups} from "../src/app/history-read-models.js";
 
 let passed = 0;
 const check = (name, fn) => { fn(); passed++; console.log(`  ✓ ${name}`); };

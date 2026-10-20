@@ -8,15 +8,11 @@ const root = resolve(import.meta.dirname, "..");
 const manifest = JSON.parse(readFileSync(resolve(root, "docs/ui-screens/manifest.json"), "utf8"));
 const cases = {
   docs: ["docs/ci.md"], directTest: ["test/history.mjs"], helper: ["test/fixtures/seed-program.mjs"],
-  history: ["progress-model.js"], program: ["program-editor.js"], progress: ["progression-engine.js"],
-  appLocal: { files: ["app.js"], appDiff: (() => {
-    const source = readFileSync(resolve(root, "app.js"), "utf8");
-    const line = source.split("\n").findIndex((value) => value.trim() === "// @ci-domain history") + 2;
-    return `@@ -${line} +${line} @@\n+// synthetic representative local edit`;
-  })() },
+  history: ["src/app/history-read-models.js"], program: ["src/ui/editors/program.js"], progress: ["src/training/progress.js"],
+  appLocal: { files: ["src/app/history.js"] },
   appGlobal: { files: ["app.js"], appDiff: "@@ -1 +1 @@\n+// synthetic unannotated global edit" },
-  durable: ["durable-state.js"], draft: ["workout-draft.js"],
-  telemetry: ["telemetry.js"], serviceWorker: ["sw.js"], css: ["styles.css"],
+  durable: ["src/persistence/durable.js"], draft: ["src/training/workout.js"],
+  telemetry: ["src/platform/telemetry.js"], serviceWorker: ["sw.js"], css: ["styles.css"],
   workflow: [".github/workflows/ci.yml"], baseline: ["docs/ui-screens/screens/history/list__phone-390-light-en.png"],
   capture: ["tools/capture-ui-screens.mjs"],
 };

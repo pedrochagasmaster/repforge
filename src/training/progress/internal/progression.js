@@ -1,0 +1,657 @@
+/** @typedef {import("./engine-contracts.js").Prescription} Prescription */
+/** @typedef {import("./engine-contracts.js").RepRange} RepRange */
+/** @typedef {import("./engine-contracts.js").ShapeResult} ShapeResult */
+/** @typedef {import("./engine-contracts.js").SupportedShape} SupportedShape */
+/** @typedef {import("./engine-contracts.js").ProgressionSettings} ProgressionSettings */
+/** @typedef {import("./engine-contracts.js").CurrentConfiguration} CurrentConfiguration */
+/** @typedef {import("./engine-contracts.js").ConfigurationResult} ConfigurationResult */
+/** @typedef {import("./engine-contracts.js").IncomparableSet} IncomparableSet */
+/** @typedef {import("./engine-contracts.js").ComparableLoad} ComparableLoad */
+/** @typedef {import("./engine-contracts.js").ComparableSet} ComparableSet */
+/** @typedef {import("./engine-contracts.js").ComparableSession} ComparableSession */
+/** @typedef {import("./engine-contracts.js").Fatigue} Fatigue */
+/** @typedef {import("./engine-contracts.js").HistoryAnchor} HistoryAnchor */
+/** @typedef {import("./engine-contracts.js").Candidate} Candidate */
+/** @typedef {import("./engine-contracts.js").Recommendation} Recommendation */
+import METRIC_DOMAIN from "../../metrics.js";
+"use strict";
+
+const ENGINE_VERSION = "069.1";
+const FORMULA_VERSION = "rir-adjusted-epley@067.1";
+if (!METRIC_DOMAIN) throw new Error("RepForgeExerciseMetrics unavailable");
+
+const DEFINITIONS_BY_ID = new Map(METRIC_DOMAIN.DEFINITIONS.map((entry) => [entry.id, entry]));
+/** @type {Readonly<Record<string,readonly string[]>>} */
+const SUPPORTED_SEMANTICS = Object.freeze({
+  external: ["loadKg", "reps"],
+  external_reps_per_side: ["loadKg", "repsPerSide"],
+  assistance: ["reps", "assistanceKg"],
+  bodyweight: ["reps"],
+  bodyweight_reps_per_side: ["repsPerSide"],
+  per_side: ["repsPerSide", "loadPerSideKg"],
+  per_side_reps: ["reps", "loadPerSideKg"],
+  persistent_per_side: ["persistentLoadPerSideKg", "repsPerSide"],
+});
+/** @type {Readonly<Record<string,string>>} */
+const CANONICAL_KIND_BY_COMPOSITION = Object.freeze({
+  external_reps_per_side: "external",
+  bodyweight_reps_per_side: "bodyweight",
+  per_side_reps: "per_side",
+});
+const LOADING_CONVENTIONS = new Set(["external", "assistance", "bodyweight", "per_side"]);
+const DEFAULT_SETTINGS = Object.freeze({ expandRepRange: true, weightMatch: false });
+/** @type {Readonly<Record<string,string>>} */
+const REASONS = Object.freeze({
+  available_loads_required: "Set the available loads for this equipment before requesting an automatic load.",
+  bodyweight_required: "Record the current bodyweight before using bodyweight contribution.",
+  configuration_required: "Complete the loading configuration before requesting an automatic recommendation.",
+  execution_context_required: "Set whether both sides move together or one side moves at a time before requesting automatic progression.",
+  historical_bodyweight_required: "This movement needs the bodyweight captured with the performed set; current bodyweight cannot replace it.",
+  invalid_prescription: "The prescription or its source metric definitions are invalid.",
+  loading_context_required: "Choose the equipment and loading convention for this exercise.",
+  loading_convention_mismatch: "The selected loading convention does not match this exercise's source metrics.",
+  loading_convention_required: "A comparable loading convention is not recorded.",
+  no_candidate_in_range: "No available load and repetition pair meets the target RIR range.",
+  no_comparable_history: "Complete a comparable set with a recorded RIR before using automatic progression.",
+  no_candidate_after_expansion: "No available load and repetition pair meets the expanded range and target RIR.",
+  no_repetition_target: "This metric combination has no supported repetition target for adaptive load progression.",
+  no_supported_capacity: "This source metric combination remains manually prescribed.",
+  per_side_convention_required: "Set an explicit per-side load multiplier before estimating total load.",
+  current_session_anchor: "The recommendation uses the latest completed comparable set in this session.",
+  history_anchor: "The recommendation uses median first-set capacity from up to three comparable sessions.",
+  rep_range_expanded: "The search expanded the repetition range by one at each boundary per pass, up to four passes.",
+  rir_target_required: "Set a target RIR from zero through four before requesting an automatic recommendation.",
+  target_range_required: "Set a valid repetition target range before requesting an automatic recommendation.",
+});
+
+/** @param {unknown} value @returns {value is Record<string,unknown>} */
+const isPlainObject = (value) => !!value && typeof value === "object" && !Array.isArray(value)
+  && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
+/** @param {unknown} value @param {string} key */
+const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
+/** @param {unknown} value @returns {value is number} */
+const finite = (value) => typeof value === "number" && Number.isFinite(value);
+/** @param {number} value @param {number} min @param {number} max */
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+/** @param {unknown} left @param {unknown} right */
+const same = (left, right) => JSON.stringify(left) === JSON.stringify(right);
+
+/** @param {number[]} values */
+function median(values) {
+  if (!values.length) return 0;
+  const ordered = [...values].sort((left, right) => left - right);
+  const middle = Math.floor(ordered.length / 2);
+  return ordered.length % 2 ? ordered[middle] : (ordered[middle - 1] + ordered[middle]) / 2;
+}
+
+/** @param {unknown} value @returns {ShapeResult} */
+function prescriptionShape(value) {
+  if (!isPlainObject(value)) return { ok: false, reasons: ["invalid_prescription"] };
+  if (typeof value.id !== "string" || typeof value.slotId !== "string" || typeof value.exerciseId !== "string"
+    || typeof value.setIndex!=="number"||!Number.isInteger(value.setIndex) || value.setIndex < 1
+    || value.metricType !== "source_metrics@1") return { ok: false, reasons: ["invalid_prescription"] };
+  const definitions = METRIC_DOMAIN.validateDefinitions(value.metricIds, value.metricDefinitions, { allowEmpty: true });
+  if (!definitions.ok) return { ok: false, reasons: ["invalid_prescription"] };
+  const semantics = (/** @type {import("./engine-contracts.js").MetricDefinition[]} */(value.metricDefinitions || [])).map((entry) => entry.semantic);
+  const composition = Object.keys(SUPPORTED_SEMANTICS).find((key) => same(SUPPORTED_SEMANTICS[key], semantics)) || null;
+  if (!composition) return { ok: true, supported: false, kind: null, semantics, reasons: ["no_supported_capacity"] };
+  const kind = CANONICAL_KIND_BY_COMPOSITION[composition] || composition;
+  const requiresExecutionMode = semantics.includes("repsPerSide")
+    || semantics.includes("loadPerSideKg") || semantics.includes("persistentLoadPerSideKg");
+  const repSemantic = semantics.includes("reps") ? "reps" : semantics.includes("repsPerSide") ? "repsPerSide" : null;
+  if (!repSemantic) return { ok: true, supported: false, kind, semantics, reasons: ["no_repetition_target"] };
+  const targets = METRIC_DOMAIN.validateTargets(value.metricIds, value.targets);
+  if (!targets.ok || !isPlainObject(value.targets) || !hasOwn(value.targets, repSemantic)) {
+    return { ok: true, supported: false, kind, semantics, repSemantic, reasons: ["target_range_required"] };
+  }
+  const target = value.targets[repSemantic];
+  const range = finite(target) ? { min: target, max: target }
+    : isPlainObject(target) ? { min: target.min, max: target.max } : null;
+  if (!range || !finite(range.min)||!Number.isSafeInteger(range.min) || !finite(range.max)||!Number.isSafeInteger(range.max)
+    || range.min < 1 || range.max < range.min || range.max > 30) {
+    return { ok: true, supported: false, kind, semantics, repSemantic, reasons: ["target_range_required"] };
+  }
+  const acceptedRange=/** @type {RepRange} */(range);
+  if (!finite(value.rir) || value.rir < 0 || value.rir > 6) {
+    return { ok: true, supported: false, kind, semantics, repSemantic, range:acceptedRange, reasons: ["rir_target_required"] };
+  }
+  const coefficient = isPlainObject(value.loadingModel)?value.loadingModel.bodyweightCoefficient:undefined;
+  if (!finite(coefficient) || coefficient < 0 || coefficient > 1) {
+    return { ok: true, supported: false, kind, semantics, repSemantic, range:acceptedRange, reasons: ["configuration_required"] };
+  }
+  if (value.status === "configuration_required") {
+    return { ok: true, supported: false, kind, semantics, repSemantic, range:acceptedRange, reasons: ["configuration_required"] };
+  }
+  if (value.status === "manual") {
+    return { ok: true, supported: false, kind, semantics, repSemantic, range:acceptedRange, reasons: ["no_supported_capacity"] };
+  }
+  if (value.status !== "ready") return { ok: false, reasons: ["invalid_prescription"] };
+  return { ok: true, supported: true, composition, kind, semantics, repSemantic, requiresExecutionMode,
+    range:acceptedRange, coefficient, reasons: [] };
+}
+
+/** @param {unknown} value @returns {{ok:true,value:ProgressionSettings}|{ok:false,reasons:string[]}} */
+function normalizeSettings(value) {
+  if (value === undefined) return { ok: true, value: DEFAULT_SETTINGS };
+  if (!isPlainObject(value)) return { ok: false, reasons: ["invalid_prescription"] };
+  /** @type {ProgressionSettings} */
+  const result = { ...DEFAULT_SETTINGS };
+  for (const key of /** @type {const} */(["expandRepRange", "weightMatch"])) {
+    if (hasOwn(value, key)) {
+      if (typeof value[key] !== "boolean") return { ok: false, reasons: ["invalid_prescription"] };
+      result[key] = value[key];
+    }
+  }
+  return { ok: true, value: result };
+}
+
+/** @param {Prescription} prescription @param {SupportedShape} shape @param {unknown} loadingContext @returns {ConfigurationResult} */
+function currentConfiguration(prescription, shape, loadingContext) {
+  const bySlotId = isPlainObject(loadingContext)&&isPlainObject(loadingContext.bySlotId) ? loadingContext.bySlotId : null;
+  const candidate=bySlotId?.[prescription.slotId];
+  const context = isPlainObject(candidate) ? candidate : null;
+  if (!context) return { ok: false, status: "configuration_required", reasons: ["loading_context_required"] };
+  const convention = context.loadingConvention;
+  if (typeof convention!=="string"||!LOADING_CONVENTIONS.has(convention)) {
+    return { ok: false, status: "configuration_required", reasons: ["loading_convention_required"] };
+  }
+  const executionMode = context.executionMode;
+  if (shape.requiresExecutionMode && executionMode !== "bilateral" && executionMode !== "unilateral") {
+    return { ok: false, status: "configuration_required", reasons: ["execution_context_required"] };
+  }
+  if (shape.kind === "persistent_per_side" && convention !== "per_side") {
+    return { ok: false, status: "configuration_required", reasons: ["loading_convention_mismatch"] };
+  }
+  if (shape.kind !== "persistent_per_side" && convention !== shape.kind) {
+    return { ok: false, status: "configuration_required", reasons: ["loading_convention_mismatch"] };
+  }
+  if (shape.coefficient > 0) {
+    if (typeof context.bodyweightContributionEnabled !== "boolean") {
+      return { ok: false, status: "configuration_required", reasons: ["configuration_required"] };
+    }
+    if (context.bodyweightContributionEnabled && (!finite(context.bodyweightKg) || context.bodyweightKg <= 0)) {
+      return { ok: false, status: "configuration_required", reasons: ["bodyweight_required"] };
+    }
+  }
+  let multiplier;
+  if (shape.kind === "per_side" || shape.kind === "persistent_per_side") {
+    if (!finite(context.externalLoadMultiplier) || context.externalLoadMultiplier <= 0 || context.externalLoadMultiplier > 10) {
+      return { ok: false, status: "configuration_required", reasons: ["per_side_convention_required"] };
+    }
+    multiplier = context.externalLoadMultiplier;
+  } else if (shape.kind === "bodyweight") {
+    if (context.externalLoadMultiplier !== 0) {
+      return { ok: false, status: "configuration_required", reasons: ["configuration_required"] };
+    }
+    multiplier = 0;
+  } else if (context.externalLoadMultiplier === 1) {
+    multiplier = 1;
+  } else {
+    return { ok: false, status: "configuration_required", reasons: ["configuration_required"] };
+  }
+  if (shape.requiresExecutionMode) {
+    const expectedMultiplier = shape.kind === "persistent_per_side" ? 2
+      : shape.kind === "per_side" ? (executionMode === "bilateral" ? 2 : 1)
+        : shape.kind === "bodyweight" ? 0 : 1;
+    if (multiplier !== expectedMultiplier) {
+      return { ok: false, status: "configuration_required", reasons: ["loading_convention_mismatch"] };
+    }
+  }
+  const displayLoadSemantic = shape.kind === "external" ? "loadKg"
+    : shape.kind === "assistance" ? "assistanceKg"
+      : shape.kind === "per_side" ? "loadPerSideKg"
+        : shape.kind === "persistent_per_side" ? "persistentLoadPerSideKg" : null;
+  /** @type {number[]} */
+  let loads = [];
+  if (displayLoadSemantic) {
+    if (!Array.isArray(context.availableLoadsKg) || context.availableLoadsKg.length === 0
+      || context.availableLoadsKg.some((load) => !finite(load) || load < 0 || load > 1000)
+      || new Set(context.availableLoadsKg).size !== context.availableLoadsKg.length) {
+      return { ok: false, status: "configuration_required", reasons: ["available_loads_required"] };
+    }
+    loads = [.../** @type {number[]} */(context.availableLoadsKg)].sort((left, right) => left - right);
+  } else if (context.availableLoadsKg !== undefined && (!Array.isArray(context.availableLoadsKg)
+    || context.availableLoadsKg.some((load) => !finite(load) || load < 0 || load > 1000))) {
+    return { ok: false, status: "configuration_required", reasons: ["configuration_required"] };
+  }
+  return {
+    ok: true,
+    context,
+    convention,
+    multiplier,
+    displayLoadSemantic,
+    loads,
+    bodyweightContributionEnabled: shape.coefficient > 0 ? /** @type {boolean} */(context.bodyweightContributionEnabled) : false,
+    bodyweightKg: shape.coefficient > 0 && context.bodyweightContributionEnabled ? /** @type {number} */(context.bodyweightKg) : null,
+    bodyweightContributionKg: shape.coefficient > 0 && context.bodyweightContributionEnabled
+      ? shape.coefficient * /** @type {number} */(context.bodyweightKg) : 0,
+  };
+}
+
+/** @param {Record<string,unknown>} value @param {SupportedShape} shape @returns {Record<string,number>|null} */
+function metricValuesBySemantic(value, shape) {
+  if (!Array.isArray(value.metricIds)) return null;
+  const checked = METRIC_DOMAIN.validateMetricValues(value.metricIds, value.metricValues);
+  if (!checked.ok || !Array.isArray(value.metricValues)) return null;
+  /** @type {Record<string,number>} */
+  const values = {};
+  for (const entry of value.metricValues) {
+    const definition = DEFINITIONS_BY_ID.get(entry.metricId);
+    if (!definition) return null;
+    values[definition.semantic] = entry.value;
+  }
+  return values;
+}
+
+/** @param {Record<string,number>} values @param {SupportedShape} shape @param {string} convention @param {unknown} capturedContext @returns {ComparableLoad|IncomparableSet} */
+function transformActualLoad(values, shape, convention, capturedContext) {
+  if (!isPlainObject(capturedContext)) {
+    if (shape.coefficient > 0) return { ok: false, reason: "historical_bodyweight_required" };
+    return { ok: false, reason: "loading_convention_mismatch" };
+  }
+  if (capturedContext.loadingConvention !== convention) {
+    return { ok: false, reason: "loading_convention_mismatch" };
+  }
+  if (capturedContext.bodyweightCoefficient !== shape.coefficient) {
+    return { ok: false, reason: "loading_convention_mismatch" };
+  }
+  let bodyweightContributionKg = 0;
+  if (shape.coefficient > 0) {
+    if (typeof capturedContext.bodyweightContributionEnabled !== "boolean") {
+      return { ok: false, reason: "historical_bodyweight_required" };
+    }
+    if (capturedContext.bodyweightContributionEnabled) {
+      if (!finite(capturedContext.bodyweightKg) || capturedContext.bodyweightKg <= 0) {
+        return { ok: false, reason: "historical_bodyweight_required" };
+      }
+      bodyweightContributionKg = shape.coefficient * capturedContext.bodyweightKg;
+    }
+  }
+  let multiplier;
+  if (shape.kind === "per_side" || shape.kind === "persistent_per_side") {
+    if (!finite(capturedContext.externalLoadMultiplier) || capturedContext.externalLoadMultiplier <= 0
+      || capturedContext.externalLoadMultiplier > 10) return { ok: false, reason: "per_side_convention_required" };
+    multiplier = capturedContext.externalLoadMultiplier;
+  } else if (shape.kind === "bodyweight") {
+    if (capturedContext.externalLoadMultiplier !== 0) {
+      return { ok: false, reason: "loading_convention_mismatch" };
+    }
+    multiplier = 0;
+  } else if (capturedContext.externalLoadMultiplier !== 1) {
+    return { ok: false, reason: "loading_convention_mismatch" };
+  } else {
+    multiplier = 1;
+  }
+  const expectedConventionMultiplier = shape.kind === "per_side" || shape.kind === "persistent_per_side"
+    ? multiplier : shape.kind === "bodyweight" ? 0 : multiplier;
+  const displaySemantic = shape.kind === "external" ? "loadKg"
+    : shape.kind === "assistance" ? "assistanceKg"
+      : shape.kind === "per_side" ? "loadPerSideKg"
+        : shape.kind === "persistent_per_side" ? "persistentLoadPerSideKg" : null;
+  const displayLoadKg = displaySemantic ? values[displaySemantic] : null;
+  if (displaySemantic && !finite(displayLoadKg)) return { ok: false, reason: "loading_convention_mismatch" };
+  const externalLoadKg = displayLoadKg == null ? 0 : displayLoadKg * expectedConventionMultiplier;
+  const effectiveLoadKg = shape.kind === "assistance"
+    ? bodyweightContributionKg - externalLoadKg
+    : bodyweightContributionKg + externalLoadKg;
+  if (!finite(effectiveLoadKg) || effectiveLoadKg <= 0) return { ok: false, reason: "loading_convention_mismatch" };
+  const repsSemantic = shape.semantics.includes("reps") ? "reps" : "repsPerSide";
+  const reps = values[repsSemantic];
+  if (!Number.isSafeInteger(reps) || reps <= 0) return { ok: false, reason: "no_supported_capacity" };
+  return {
+    ok: true,
+    effectiveLoadKg,
+    displayLoadKg,
+    bodyweightContributionKg,
+    multiplier,
+    reps,
+  };
+}
+
+/** @param {unknown} value @param {SupportedShape} shape @param {Prescription} prescription @param {CurrentConfiguration} config @returns {ComparableSet|IncomparableSet|null} */
+function parsePerformedSet(value, shape, prescription, config) {
+  if (!isPlainObject(value) || value.completed !== true || value.exerciseId !== prescription.exerciseId
+    || typeof value.setIndex!=="number"||!Number.isInteger(value.setIndex) || value.setIndex < 0 || !finite(value.rir) || value.rir < 0) return null;
+  if (!Array.isArray(value.metricIds) || !same(value.metricIds, prescription.metricIds)) return null;
+  if (value.equipmentId !== config.context.equipmentId || value.loadingConvention !== config.convention) return null;
+  const values = metricValuesBySemantic(value, shape);
+  if (!values) return null;
+  const capturedContext = isPlainObject(value.loadingContext) ? value.loadingContext : null;
+  let normalizedCapturedContext = capturedContext;
+  if ((shape.kind === "per_side" || shape.kind === "persistent_per_side")
+    && capturedContext?.externalLoadMultiplier === null) {
+    normalizedCapturedContext = { ...capturedContext, externalLoadMultiplier: config.multiplier };
+  }
+  if (normalizedCapturedContext) {
+    const capturedMultiplier = normalizedCapturedContext.externalLoadMultiplier;
+    if (capturedMultiplier !== config.multiplier) return { ok: false, reason: "loading_convention_mismatch" };
+    if (shape.coefficient > 0
+      && normalizedCapturedContext.bodyweightContributionEnabled !== config.bodyweightContributionEnabled) {
+      return { ok: false, reason: "loading_convention_mismatch" };
+    }
+  }
+  const transformed = transformActualLoad(values, shape, config.convention, normalizedCapturedContext);
+  if (!transformed.ok) return transformed;
+  const capacityKg = transformed.effectiveLoadKg * (1 + (transformed.reps + value.rir) / 30);
+  return {
+    ...transformed,
+    capacityKg,
+    sessionId: typeof value.sessionId === "string" ? value.sessionId : null,
+    equipmentId: value.equipmentId ?? null,
+    loadingConvention: config.convention,
+    setIndex: value.setIndex,
+    rir: value.rir,
+  };
+}
+
+/** @param {unknown} session @param {SupportedShape} shape @param {Prescription} prescription @param {CurrentConfiguration} config @returns {ComparableSession} */
+function parseSession(session, shape, prescription, config) {
+  if (!isPlainObject(session) || session.completed !== true || !Array.isArray(session.sets)) return { sessionId: null, sets: [], reasons: [] };
+  const sessionId = typeof session.sessionId === "string" ? session.sessionId : null;
+  /** @type {ComparableSet[]} */
+  const sets = [];
+  const reasons = new Set(/** @type {string[]} */([]));
+  for (const value of session.sets) {
+    if (!isPlainObject(value) || value.exerciseId !== prescription.exerciseId) continue;
+    const parsed = parsePerformedSet(value, shape, prescription, config);
+    if (parsed?.ok === false) reasons.add(parsed.reason);
+    else if (parsed) sets.push({ ...parsed, sessionId });
+  }
+  return { sessionId, sets: sets.sort((left, right) => left.setIndex - right.setIndex), reasons: [...reasons] };
+}
+
+/** @param {ComparableSession} session */
+function sessionFirstSet(session) {
+  return session.sets.find((entry) => entry.setIndex === 0) || null;
+}
+
+/** @param {ComparableSession[]} sessions @returns {Fatigue} */
+function fatigueFrom(sessions) {
+  const sample = sessions.filter((session) => sessionFirstSet(session)).slice(-3);
+  const lastSetIndex = Math.max(-1, ...sample.flatMap((session) => session.sets.map((set) => set.setIndex)));
+  const adjacentDrops = [];
+  for (let fromSetIndex = 0; fromSetIndex < lastSetIndex; fromSetIndex += 1) {
+    const drops = [];
+    for (const session of sample) {
+      const previous = session.sets.find((set) => set.setIndex === fromSetIndex);
+      const next = session.sets.find((set) => set.setIndex === fromSetIndex + 1);
+      if (!previous || !next || previous.capacityKg <= 0) continue;
+      drops.push((previous.capacityKg - next.capacityKg) / previous.capacityKg);
+    }
+    adjacentDrops.push({
+      fromSetIndex,
+      toSetIndex: fromSetIndex + 1,
+      drop: Math.round(clamp(median(drops), 0, 0.15) * 1e12) / 1e12,
+    });
+  }
+  return {
+    adjacentDrops,
+    sampleSessionIds: sample.map((session) => session.sessionId),
+  };
+}
+
+/** @param {Fatigue} fatigue @param {number} fromSetIndex */
+function fatigueDropAfter(fatigue, fromSetIndex) {
+  return fatigue.adjacentDrops.find((entry) => entry.fromSetIndex === fromSetIndex)?.drop ?? 0;
+}
+
+/** @param {number} capacityKg @param {number} prescriptionSetIndex @param {Fatigue} fatigue */
+function futureCapacity(capacityKg, prescriptionSetIndex, fatigue) {
+  let projected = capacityKg;
+  for (let fromSetIndex = 0; fromSetIndex < prescriptionSetIndex - 1; fromSetIndex += 1) {
+    projected *= 1 - fatigueDropAfter(fatigue, fromSetIndex);
+  }
+  return projected;
+}
+
+/** @param {ComparableSession[]} sessions @returns {HistoryAnchor|null} */
+function makeHistoryAnchor(sessions) {
+  const withFirst = sessions.map((session) => ({ session, first: sessionFirstSet(session) }))
+    .filter(/** @returns {entry is {session:ComparableSession,first:ComparableSet}} */(entry) => entry.first!==null);
+  const latest = withFirst.slice(-3);
+  const mostRecent = latest.at(-1);
+  if (!mostRecent) return null;
+  return {
+    source: "history",
+    sessionId: mostRecent.session.sessionId,
+    sessionIds: latest.map((entry) => entry.session.sessionId),
+    setIndex: 0,
+    effectiveLoadKg: median(latest.map((entry) => entry.first.effectiveLoadKg)),
+    capacityKg: median(latest.map((entry) => entry.first.capacityKg)),
+    displayLoadKg: mostRecent.first.displayLoadKg,
+    loadingConvention: mostRecent.first.loadingConvention,
+    equipmentId: mostRecent.first.equipmentId,
+  };
+}
+
+/** @param {unknown} currentRows @param {SupportedShape} shape @param {Prescription} prescription @param {CurrentConfiguration} config @returns {{anchor:HistoryAnchor|null,reasons:string[]}} */
+function currentSessionAnchor(currentRows, shape, prescription, config) {
+  /** @type {ComparableSet[]} */
+  const eligible = [];
+  const reasons = new Set(/** @type {string[]} */([]));
+  const targetSetIndex = prescription.setIndex - 1;
+  for (const value of Array.isArray(currentRows) ? currentRows : []) {
+    if (!isPlainObject(value) || value.exerciseId !== prescription.exerciseId
+      || value.completed !== true || typeof value.setIndex!=="number"||!Number.isInteger(value.setIndex) || value.setIndex >= targetSetIndex) continue;
+    const parsed = parsePerformedSet(value, shape, prescription, config);
+    if (parsed?.ok === false) reasons.add(parsed.reason);
+    else if (parsed) eligible.push(parsed);
+  }
+  eligible.sort((left, right) => left.setIndex - right.setIndex);
+  const latest = eligible.at(-1);
+  return latest ? {
+    anchor: {
+      source: "current_session",
+      sessionId: latest.sessionId,
+      sessionIds: [],
+      setIndex: latest.setIndex,
+      effectiveLoadKg: latest.effectiveLoadKg,
+      capacityKg: latest.capacityKg,
+      displayLoadKg: latest.displayLoadKg,
+      loadingConvention: latest.loadingConvention,
+      equipmentId: latest.equipmentId,
+    },
+    reasons: [...reasons],
+  } : { anchor: null, reasons: [...reasons] };
+}
+
+/** @param {number|null} displayLoadKg @param {SupportedShape} shape @param {CurrentConfiguration} config */
+function toEffectiveLoad(displayLoadKg, shape, config) {
+  const external = displayLoadKg == null ? 0 : displayLoadKg * config.multiplier;
+  const effectiveLoadKg = shape.kind === "assistance"
+    ? config.bodyweightContributionKg - external
+    : config.bodyweightContributionKg + external;
+  return finite(effectiveLoadKg) && effectiveLoadKg > 0 ? effectiveLoadKg : null;
+}
+
+/** @param {Candidate} left @param {Candidate} right @param {number} midpoint @param {number} targetRir @param {HistoryAnchor} anchor @param {boolean} weightMatch */
+function compareCandidates(left, right, midpoint, targetRir, anchor, weightMatch) {
+  if (weightMatch && finite(anchor?.displayLoadKg)) {
+    const leftMatches = Math.abs(Number(left.displayLoadKg) - anchor.displayLoadKg) < 1e-9;
+    const rightMatches = Math.abs(Number(right.displayLoadKg) - anchor.displayLoadKg) < 1e-9;
+    if (leftMatches !== rightMatches) return leftMatches ? -1 : 1;
+  }
+  const leftDistance = Math.abs(left.reps - midpoint);
+  const rightDistance = Math.abs(right.reps - midpoint);
+  if (leftDistance !== rightDistance) return leftDistance - rightDistance;
+  const leftRirDistance = Math.abs(left.predictedRir - targetRir);
+  const rightRirDistance = Math.abs(right.predictedRir - targetRir);
+  if (leftRirDistance !== rightRirDistance) return leftRirDistance - rightRirDistance;
+  const leftLoadChange = finite(anchor?.displayLoadKg) ? Math.abs(Number(left.displayLoadKg) - anchor.displayLoadKg) : 0;
+  const rightLoadChange = finite(anchor?.displayLoadKg) ? Math.abs(Number(right.displayLoadKg) - anchor.displayLoadKg) : 0;
+  if (leftLoadChange !== rightLoadChange) return leftLoadChange - rightLoadChange;
+  const leftLoad = left.displayLoadKg ?? 0;
+  const rightLoad = right.displayLoadKg ?? 0;
+  return leftLoad - rightLoad || left.reps - right.reps;
+}
+
+/** @param {RepRange} range @param {SupportedShape} shape @param {CurrentConfiguration} config @param {number} projectedCapacityKg @param {number} targetRir @param {ProgressionSettings} settings @param {HistoryAnchor} anchor */
+function candidatesForRange(range, shape, config, projectedCapacityKg, targetRir, settings, anchor) {
+  const midpoint = (range.min + range.max) / 2;
+  const candidates = [];
+  const loads = config.displayLoadSemantic ? config.loads : [null];
+  for (const displayLoadKg of loads) {
+    const effectiveLoadKg = toEffectiveLoad(displayLoadKg, shape, config);
+    if (effectiveLoadKg == null) continue;
+    for (let reps = range.min; reps <= range.max; reps += 1) {
+      const predictedRir = 30 * (projectedCapacityKg / effectiveLoadKg - 1) - reps;
+      if (!finite(predictedRir) || predictedRir < targetRir - 1e-9 || predictedRir > targetRir + 1 + 1e-9) continue;
+      candidates.push({ displayLoadKg, effectiveLoadKg, reps, predictedRir });
+    }
+  }
+  return candidates.sort((left, right) => compareCandidates(left, right, midpoint, targetRir, anchor, settings.weightMatch));
+}
+
+/** @param {SupportedShape} shape @param {string} repSemantic @param {number} reps @param {number} rir @param {number|null} displayLoadKg */
+function targetFields(shape, repSemantic, reps, rir, displayLoadKg) {
+  const targets = { [repSemantic]: reps, rir };
+  if (shape.kind === "external" && displayLoadKg != null) targets.loadKg = displayLoadKg;
+  else if (shape.kind === "assistance" && displayLoadKg != null) targets.assistanceKg = displayLoadKg;
+  else if (shape.kind === "per_side" && displayLoadKg != null) targets.loadPerSideKg = displayLoadKg;
+  else if (shape.kind === "persistent_per_side" && displayLoadKg != null) targets.persistentLoadPerSideKg = displayLoadKg;
+  return targets;
+}
+
+/** @param {unknown} prescription @param {string} status @param {string[]} reasonCodes @param {Partial<Recommendation> & {shape?:ShapeResult}} [overrides] @returns {Recommendation} */
+function makeRecommendation(prescription, status, reasonCodes, overrides = {}) {
+  const raw=isPlainObject(prescription)?prescription:{};
+  const shape = overrides.shape;
+  const { shape: ignoredShape, ...publicOverrides } = overrides;
+  const repSemantic = (shape&&"repSemantic" in shape?shape.repSemantic:null) || (Array.isArray(raw.metricDefinitions)?raw.metricDefinitions:[]).find((entry) =>
+    entry?.semantic === "reps" || entry?.semantic === "repsPerSide")?.semantic || "reps";
+  const targetValue = isPlainObject(raw.targets)?raw.targets[repSemantic]:undefined;
+  const range = finite(targetValue) ? { min: targetValue, max: targetValue }
+    : isPlainObject(targetValue) && finite(targetValue.min) && finite(targetValue.max)
+      ? { min: targetValue.min, max: targetValue.max } : null;
+  const midpointReps = range ? Math.round((range.min + range.max) / 2) : undefined;
+  /** @type {Record<string,number>} */
+  const targets = midpointReps === undefined ? {} : { [repSemantic]: midpointReps };
+  if (finite(raw.rir)) targets.rir = raw.rir;
+  const codes = [...new Set(reasonCodes)];
+  return {
+    prescriptionId: typeof raw.id === "string" ? raw.id : null,
+    slotId: typeof raw.slotId === "string" ? raw.slotId : null,
+    exerciseId: typeof raw.exerciseId === "string" ? raw.exerciseId : null,
+    setIndex: typeof raw.setIndex==="number"&&Number.isInteger(raw.setIndex) ? raw.setIndex : null,
+    status,
+    targets,
+    reasonCodes: codes,
+    reasons: codes.map((code) => REASONS[code] || "Automatic progression is unavailable for this set."),
+    formulaVersion: FORMULA_VERSION,
+    historyAnchor: null,
+    fatigue: { adjacentDrops: [], sampleSessionIds: [], projectedCapacityKg: null },
+    loadingAssumptions: null,
+    ...publicOverrides,
+  };
+}
+
+/** @param {unknown} prescription @param {unknown} history @param {unknown} currentSession @param {unknown} loadingContext @param {unknown} settings */
+function recommendOne(prescription, history, currentSession, loadingContext, settings) {
+  const shape = prescriptionShape(prescription);
+  if (!shape.ok) return makeRecommendation(prescription, "invalid", shape.reasons, { shape });
+  if (!shape.supported) {
+    const status = shape.reasons.includes("configuration_required") ? "configuration_required" : "manual";
+    return makeRecommendation(prescription, status, shape.reasons, { shape });
+  }
+  const accepted=/** @type {Prescription} */(prescription);
+  const config = currentConfiguration(accepted, shape, loadingContext);
+  if (!config.ok) return makeRecommendation(prescription, config.status, config.reasons, { shape });
+  const settingsResult = normalizeSettings(settings);
+  if (!settingsResult.ok) return makeRecommendation(prescription, "invalid", settingsResult.reasons, { shape });
+  const options = settingsResult.value;
+
+  const parsedHistory = (Array.isArray(history) ? history : [])
+    .map((session) => parseSession(session, shape, accepted, config));
+  const live = currentSessionAnchor(currentSession, shape, accepted, config);
+  const anchor = live.anchor || makeHistoryAnchor(parsedHistory);
+  if (!anchor) {
+    const reasons = new Set(["no_comparable_history", ...parsedHistory.flatMap((session) => session.reasons), ...live.reasons]);
+    return makeRecommendation(prescription,
+      reasons.has("historical_bodyweight_required") || reasons.has("per_side_convention_required")
+        ? "configuration_required" : "manual",
+      [...reasons], { shape });
+  }
+  const fatigue = fatigueFrom(parsedHistory);
+  const projectedCapacityKg = live.anchor
+    ? live.anchor.capacityKg * (1 - fatigueDropAfter(fatigue, live.anchor.setIndex))
+    : futureCapacity(anchor.capacityKg, accepted.setIndex, fatigue);
+  const displayLoadSemantic = config.displayLoadSemantic;
+  let selected = null;
+  let searchedRange = { ...shape.range };
+  let candidates = candidatesForRange(searchedRange, shape, config, projectedCapacityKg,
+    accepted.rir, options, anchor);
+  if (candidates.length) selected = candidates[0];
+  if (!selected && options.expandRepRange) {
+    for (let pass = 0; pass < 4 && !selected; pass += 1) {
+      searchedRange = {
+        min: Math.max(3, searchedRange.min - 1),
+        max: Math.min(30, searchedRange.max + 1),
+      };
+      candidates = candidatesForRange(searchedRange, shape, config, projectedCapacityKg,
+        accepted.rir, options, anchor);
+      if (candidates.length) selected = candidates[0];
+      if (searchedRange.min === 3 && searchedRange.max === 30) break;
+    }
+  }
+  if (!selected) {
+    const expanded = !same(searchedRange, shape.range);
+    return makeRecommendation(prescription, "manual",
+      [expanded ? "no_candidate_after_expansion" : "no_candidate_in_range"], {
+        shape,
+        historyAnchor: anchor,
+        fatigue: { ...fatigue, projectedCapacityKg },
+        loadingAssumptions: {
+          equipmentId: config.context.equipmentId ?? null,
+          loadingConvention: config.convention,
+          availableLoadsKg: [...config.loads],
+          bodyweightContributionEnabled: config.bodyweightContributionEnabled,
+          bodyweightKg: config.bodyweightKg,
+          bodyweightContributionKg: config.bodyweightContributionKg,
+          externalLoadMultiplier: config.multiplier,
+          assistanceDirection: shape.kind === "assistance" ? "subtract" : null,
+        },
+        expandedRepRange: expanded ? searchedRange : undefined,
+      });
+  }
+  const values = targetFields(shape, shape.repSemantic, selected.reps, accepted.rir, selected.displayLoadKg);
+  const expanded = !same(searchedRange, shape.range);
+  const reasonCodes = [
+    anchor.source === "current_session" ? "current_session_anchor" : "history_anchor",
+    ...(expanded ? ["rep_range_expanded"] : []),
+  ];
+  return makeRecommendation(prescription, "recommended", reasonCodes, {
+    shape,
+    targets: values,
+    historyAnchor: anchor,
+    fatigue: { ...fatigue, projectedCapacityKg },
+    loadingAssumptions: {
+      equipmentId: config.context.equipmentId ?? null,
+      loadingConvention: config.convention,
+      availableLoadsKg: [...config.loads],
+      bodyweightContributionEnabled: config.bodyweightContributionEnabled,
+      bodyweightKg: config.bodyweightKg,
+      bodyweightContributionKg: config.bodyweightContributionKg,
+      externalLoadMultiplier: config.multiplier,
+      assistanceDirection: shape.kind === "assistance" ? "subtract" : null,
+    },
+    targetEffectiveLoadKg: selected.effectiveLoadKg,
+    predictedRir: selected.predictedRir,
+    repRange: searchedRange,
+    displayLoadSemantic,
+  });
+}
+
+/** @param {unknown} prescriptions @param {unknown} [history] @param {unknown} [currentSession] @param {unknown} [loadingContext] @param {unknown} [settings] */
+function recommendSets(prescriptions, history = [], currentSession = [], loadingContext = {}, settings = {}) {
+  if (!Array.isArray(prescriptions)) return [];
+  const boundedHistory = Array.isArray(history) ? history.slice(-1000) : [];
+  const boundedSession = Array.isArray(currentSession) ? currentSession.slice(-100) : [];
+  return prescriptions.map((prescription) => recommendOne(
+    prescription, boundedHistory, boundedSession, loadingContext, settings,
+  ));
+}
+
+const api = Object.freeze({ ENGINE_VERSION, FORMULA_VERSION, SUPPORTED_SEMANTICS, recommendSets });
+
+export { ENGINE_VERSION, FORMULA_VERSION, SUPPORTED_SEMANTICS, recommendSets };
+export default api;

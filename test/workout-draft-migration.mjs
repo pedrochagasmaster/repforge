@@ -2,7 +2,7 @@
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
-const Draft = require("../workout-draft.js");
+const Draft = require("../src/training/workout.js").createWorkoutRules(require("../assets/exercise-catalog.json"));
 
 const results = { passed: 0, failed: 0 };
 function assert(condition, name, detail = "") {
@@ -464,7 +464,7 @@ console.log("\nIssue #332: migrateLegacy maps a legacy load/reps value onto a me
 // the ambiguous-mapping boundary is exercised here in isolation; the
 // unambiguous, production-shaped success case has its own browser proof in
 // test/workout-draft-storage.mjs ("Issue #332" section).
-const Metrics = require("../exercise-metrics.js");
+const Metrics = require("../src/training/metrics.js");
 function metricDef(semantic) {
   const canonical = Metrics.DEFINITIONS.find((entry) => entry.semantic === semantic);
   return { id: canonical.id, sourceName: canonical.sourceName, semantic: canonical.semantic, unit: canonical.unit };

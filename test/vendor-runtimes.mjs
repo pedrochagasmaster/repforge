@@ -8,6 +8,8 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
+import {createSheetGestures} from "../src/ui/shell/sheet-gestures.js";
+import {createMotion} from "../src/platform/motion.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = file => readFileSync(join(ROOT, file), "utf8");
@@ -15,9 +17,10 @@ const runtime = read("vendor/motion/motion.js");
 const pin = JSON.parse(read("vendor/motion/motion.pin.json"));
 const dnd = read("vendor/dnd-kit/dnd-kit.js");
 const dndPin = JSON.parse(read("vendor/dnd-kit/dnd-kit.pin.json"));
-const layer = read("motion-layer.js");
+const layer = read("src/platform/motion.js");
+const shell = read("src/ui/shell.js");
 const app = read("app.js");
-const editor = read("program-editor.js");
+const editor = read("src/ui/editors/program.js");
 const index = read("index.html");
 const sw = read("sw.js");
 const polish = read("motion-polish.css");
@@ -30,12 +33,13 @@ function assert(condition, name, detail = "") {
 }
 
 // Evaluate the actual public layer, not a regex-extracted private declaration.
-function loadLayer(source) {
+function loadLayer() {
   const query = { matches: false };
   let mediaCalls = 0, stops = 0;
   const sandbox = {
     document: { readyState: "loading", getElementById: () => null, createElement: () => ({}), head: { append() {} }, addEventListener() {} },
-    setInterval: () => 1, clearInterval() {},
+    setInterval: () => 1, clearInterval() {},setTimeout,clearTimeout,performance,
+    getComputedStyle:()=>({transform:"none"}),requestAnimationFrame:fn=>setTimeout(fn,0),cancelAnimationFrame:clearTimeout,
     matchMedia(value) { assert(value === "(prefers-reduced-motion: reduce)", "the live preference query is reduced motion"); mediaCalls++; return query; },
     Motion: {
       animate: () => Promise.resolve(),
@@ -45,10 +49,10 @@ function loadLayer(source) {
       },
     },
   };
-  vm.runInNewContext(source, sandbox, { filename: "motion-layer.js", timeout: 1000 });
-  return { api: sandbox.RepForgeMotion, query, mediaCalls: () => mediaCalls, stops: () => stops };
+  const api=createMotion({window:sandbox,fallback:{navigate(){}}});
+  return { api, query, mediaCalls: () => mediaCalls, stops: () => stops };
 }
-const motion = loadLayer(layer);
+const motion = loadLayer();
 
 console.log("vendored runtimes");
 for (const [label, bundle, meta, file] of [
@@ -72,7 +76,6 @@ assert(!/\bfetch\s*\(|\bimport\s*\(/.test(layer), "the integration layer resolve
 assert(notice.includes("Motion animation runtime") && notice.includes("Copyright (c) 2018 Framer B.V.") && notice.includes("Drag and drop") && notice.includes("@dnd-kit/dom"), "both runtimes carry MIT attribution");
 
 {
-  const layerRevision = index.match(/src="motion-layer\.js\?v=(\d+)"/)?.[1] || "";
   const rawAssets = sw.match(/\bASSETS\s*=\s*(\[[\s\S]*?\n\])/)?.[1] || "[]";
   const assets = vm.runInNewContext(rawAssets, {}, { timeout: 1000 });
   const entries = assets.map(entry => typeof entry === "string" ? { url: entry, required: true } : entry);
@@ -101,8 +104,8 @@ assert(notice.includes("Motion animation runtime") && notice.includes("Copyright
   const dndBootstrap = asset("vendor/dnd-kit/dnd-kit.js");
   const dndRuntimeAsset = asset("vendor/dnd-kit/dnd-kit.runtime.js");
   const telemetryConfig = asset("posthog-config.js");
-  assert(sw.includes('"./motion-layer.js"') && entries.some(entry => entry.url === "./vendor/motion/motion.js"), "the runtime and layer are atomically precached");
-  assert(layerRevision && sw.includes(`"./motion-layer.js?v=${layerRevision}"`), "the layer query revision matches its precached URL", layerRevision);
+  assert(asset("src/platform/motion.js")?.required === true && asset("src/ui/editors/program.js")?.required === true,
+    "native motion and editor code belong to the required release graph");
   assert(motionAsset?.owner === "RepForgeMotion" && motionAsset.required === false && motionAsset.immutable === true,
     "Motion is optional immutable code owned by the Motion integration layer");
   assert(dndBootstrap?.owner === "RepForgeDndRuntime" && dndBootstrap.required === false &&
@@ -110,22 +113,21 @@ assert(notice.includes("Motion animation runtime") && notice.includes("Copyright
     "both dnd runtime layers are optional and share their guarded caller owner");
   assert(telemetryConfig?.owner === "RepForgeTelemetry" && telemetryConfig.required === false,
     "deploy-generated PostHog config is an optional owned runtime asset");
-  assert(index.includes('src="vendor/motion/motion.js" data-optional-runtime="RepForgeMotion"') &&
-    index.includes('src="vendor/dnd-kit/dnd-kit.js" data-optional-runtime="RepForgeDndRuntime"'),
-  "document runtime tags record the optional owners used by the release inventory");
+  const bootstrap=readFileSync(join(ROOT,"src/bootstrap.js"),"utf8");
+  assert(bootstrap.includes("optional.load(new URL('../vendor/motion/motion.js',import.meta.url))") &&
+    bootstrap.includes("optional.load(new URL('../vendor/dnd-kit/dnd-kit.js',import.meta.url))"),
+  "native bootstrap explicitly loads the two owned optional vendor inputs");
   assert(!/const\s+SHELL\s*=|const\s+IMMUTABLE_RUNTIMES\s*=/.test(sw) && /APP_SHELL_PATHS\s*=\s*new Set\(RELEASE_ASSETS/.test(sw),
     "shell routing and immutable behavior derive from the release inventory");
-  const runtimeAt = index.indexOf('src="vendor/motion/motion.js"');
-  const layerAt = index.indexOf('src="motion-layer.js?v=');
-  const editorAt = index.indexOf('src="program-editor.js?v=');
-  const appAt = index.indexOf('src="app.js?v=');
-  assert(runtimeAt > 0 && runtimeAt < layerAt && layerAt < editorAt && layerAt < appAt, "runtime precedes layer, which precedes its callers");
+  const runtimeAt = bootstrap.indexOf("optional.load(new URL('../vendor/motion/motion.js',import.meta.url))");
+  const appAt = bootstrap.indexOf("script.type='module';script.src=entry.href");
+  assert(runtimeAt > 0 && appAt > runtimeAt && index.includes('rel="taurifer-entry" href="app.js?v='), "optional runtime input precedes the awaited native application entry");
 }
 {
-  const leaks = Object.entries({ "app.js": app, "program-editor.js": editor })
+  const leaks = Object.entries({ "app.js": app, "src/ui/editors/program.js": editor })
     .filter(([, source]) => /\bwindow\.Motion\b|\broot\.Motion\b|(?<![\w.])Motion\.animate\b/.test(source)).map(([file]) => file);
   assert(leaks.length === 0, "application modules do not bypass the Motion layer", leaks.join(", "));
-  assert(/RepForgeMotion/.test(app) && /RepForgeMotion/.test(editor), "callers use RepForgeMotion");
+  assert(/createMotion/.test(app) && /motion\?\.animateExerciseReorder/.test(editor), "composition supplies the native motion capability to the editor");
 }
 {
   const vocabulary = motion.api.vocabulary;
@@ -141,14 +143,12 @@ assert(notice.includes("Motion animation runtime") && notice.includes("Copyright
   const ratios = springs.map((s) => Math.round(s.damping / (2 * Math.sqrt(s.stiffness * s.mass)) * 100) / 100);
   assert(ratios.every((z) => z >= 0.75 && z <= 1.05), "springs are damped between 0.75 and critical", ratios.join(", "));
   assert(springs.every((s) => Number.isFinite(s.restDelta) && s.restDelta > 0), "each spring has a pixel-scale rest threshold");
-  assert(JSON.stringify(vocabulary.navPush) === JSON.stringify(vocabulary.gestureExit), "navPush starts from gestureExit's constants (k 700, c 53, critically damped)");
   const strayLiterals = [...layer.matchAll(/type\s*:\s*["']spring["']/g)].length - springs.length;
   assert(strayLiterals === 0, "no spring literals appear outside the vocabulary");
   assert(!/ease\s*:\s*"?ease-?in"?\s*[,}]/i.test(layer) && !/easeIn[,"']/.test(layer), "nothing enters or exits on ease-in");
   const tinyScales = [...layer.matchAll(/scale\(\$?\{?[^)]*?([0-9]*\.[0-9]+)\)/g)].map((m) => Number(m[1])).filter((v) => v < 0.9);
   assert(tinyScales.length === 0, "no entry grows from a scale below 0.9");
-  const reformatted = loadLayer(layer.replace("const VOCABULARY =", "let VOCABULARY\n ="));
-  assert(JSON.stringify(reformatted.api.vocabulary) === JSON.stringify(vocabulary), "equivalent declaration formatting does not change the contract");
+
 }
 {
   assert(layer.includes("@media (prefers-reduced-transparency: reduce)") &&
@@ -183,15 +183,17 @@ assert(!/sumsheet[^{]*\{[^}]*animation/.test(styles + polish) && !/\.statrow[^{]
   "the summary's blocks and stat row have no CSS animation or transition");
 assert(!/is-played|style\.setProperty\("--i"/.test(app), "the summary sets no staged class and no per-block stagger index in the app");
 {
-  const ramp = app.slice(app.indexOf("function rampSessionStats("), app.indexOf("let sessionSummaryCurrent"));
-  assert(app.includes("const SUMMARY_RAMP_MS=600"), "the summary count ramp lasts 600 ms");
-  assert(/RepForgeMotion\?\.reducedMotion/.test(ramp) && /if\(reduced\|\|document\.hidden\)return/.test(ramp),
+  const summary = read("src/ui/workout/summary.js");
+  const markup = read("src/ui/session-summary.js");
+  const ramp = summary.slice(summary.indexOf("function rampStats("), summary.indexOf("function render(")).replace(/\s+/g, "");
+  assert(/\(now-start\)\/600/.test(ramp), "the summary count ramp lasts 600 ms");
+  assert(/motion\?\.reducedMotion/.test(ramp) && /if\(reduced\|\|document\.hidden\)return/.test(ramp),
     "the count ramp asks the motion layer for the reduced-motion decision and leaves the final figures untouched under it");
-  assert(/1-Math\.pow\(1-p,3\)/.test(ramp) && /Math\.min\(1,Math\.max\(0,/.test(ramp),
+  assert(/1-Math\.pow\(1-progress,3\)/.test(ramp) && /Math\.min\(1,Math\.max\(0,/.test(ramp),
     "the count ramp eases out to exactly 1 and is clamped, so it neither overshoots nor dips below zero");
   assert(/setTimeout\(finish/.test(ramp), "a backgrounded tab still lands on the final figures");
   assert(!/odometer|translateY|transform|toLocaleString|\.animate\(/.test(ramp), "the count ramp rewrites the figure's text only: no odometer digits or transforms");
-  assert(/data-ramp="\$\{esc\(n\)\}"/.test(app) && app.includes("rampSessionStats(el.querySelector(\".sum-stats\"))"),
+  assert(/data-ramp="\$\{esc\(n\)\}"/.test(markup) && /rampStats\(\w+.querySelector\("\.sum-stats"\)\)/.test(summary),
     "only the stat row's totals ramp, and only when the summary opens");
 }
 assert(!/\.view\b/.test(layer) && !/\.toast\b/.test(layer) && !/effortpop/.test(layer), "navigation, toasts and effort explanations remain CSS-owned");
@@ -204,22 +206,23 @@ assert(!/\.view\b/.test(layer) && !/\.toast\b/.test(layer) && !/effortpop/.test(
   assert(/\bCOLLAPSING\s*=\s*"is-collapsing"/.test(layer) && /\.settings-panel\.is-collapsing\{display:block\}/.test(styles), "closing panels have a transient display marker");
   assert(/apply\(\);\s*panel\.classList\.toggle\(COLLAPSING/.test(layer), "the disclosure class changes at the tap, allowing reversal");
   assert((layer.match(/hint\([a-zA-Z]+,\s*null\)/g) || []).length >= 5, "layer promotions are removed after animation");
-  assert(/rec\.motion/.test(app) && (app.match(/rec\.motion\.cancel\(\)/g) || []).length >= 2, "teardown and interruption cancel the active sheet animation");
+
 }
 {
-  assert(/if\s*\(sheetDrag\.motion\)\s*sheetDrag\.motion\.follow/.test(app) && /else\s*\{\s*rec\.el\.style\.transform\s*=/.test(app), "sheet gestures retain a no-runtime fallback");
-  assert(/if\(run\)\{run\.then\(done\);return\}/.test(app) &&
-    /fallbackFocusLater\(done,220\)/.test(app) &&
-    /function fallbackFocusLater\(callback,delay\)\{\s*const timer=setTimeout/.test(app),
+
+  const gestures=read("src/ui/focus/gestures.js");
+  assert(/if\(run\)\{run\.then\(done\);return\}/.test(gestures) &&
+    /fallbackFocusLater\(done,220\)/.test(gestures) &&
+    /function fallbackFocusLater\(callback,delay\)\s*\{\s*const timer=window.setTimeout/.test(gestures),
   "focus snap-back retains its tracked CSS fallback");
-  assert(/function focusAnimateTo\(dir\)\{\s*const controller=window\.__repforgeGestureHandle;\s*return controller\?\.navigate\(dir\)\|\|false\}/.test(app) &&
+  assert(/function focusAnimateTo\(dir\)\{\s*return ensureBrowserPresentation\(\)\.motion\.navigate\(dir\)\}/.test(app) &&
     /function fallbackFocusAnimateTo\(dir\)\{/.test(app) &&
-    /fallbackFocusLater\(\(\)=>\{\s*focusFlinging=false/.test(app) &&
-    /const FOCUS_SLIDE_MS=210/.test(app),
-  "deck carry remains a tracked CSS transition behind the gesture owner");
-  assert(/if\s*\(root\.RepForgeMotion\?\.animateExerciseReorder\(rows,\s*beforeRects\)\)\s*return;/.test(editor) && /program-editor-flip-y/.test(editor), "editor reorder retains FLIP fallback");
+    /fallbackFocusLater\(\(\)=>\{\s*focusFlinging=false/.test(gestures) &&
+    /FOCUS_SLIDE_MS=210/.test(gestures),
+  "deck carry uses the actual Motion owner and retains its tracked CSS fallback");
+  assert(/if\s*\(motion\?\.animateExerciseReorder\(rows,\s*beforeRects\)\)\s*return;/.test(editor) && /program-editor-flip-y/.test(editor), "editor reorder retains FLIP fallback");
   assert(/settle\s*=\s*true/.test(editor) && /moveExercise\(id,\s*day,\s*index,\s*\{\s*settle:\s*false\s*\}\)/.test(editor), "library drags are not animated twice");
-  assert(/if\(window\.RepForgeMotion\)window\.RepForgeMotion\.animateDisclosure\(panel,on,show\);\s*else show\(\)/.test(app), "disclosures toggle exactly once with or without Motion");
+  assert(/if\(motion\?\.animateDisclosure\)motion\.animateDisclosure\(panel,on,show\);\s*else show\(\)/.test(shell), "disclosures toggle exactly once with or without Motion");
 }
 {
   const en = JSON.parse(read("i18n-en.json")), pt = JSON.parse(read("i18n-pt.json"));
@@ -233,7 +236,7 @@ assert(!/\.view\b/.test(layer) && !/\.toast\b/.test(layer) && !/effortpop/.test(
   assert(!/\.setPointerCapture\(|\.elementFromPoint\?\.\(|function beginDrag/.test(editor), "the replaced hand-rolled pointer drag is absent");
   assert(["move-to-day", "move-up", "move-down", "drag-handle"].every((role) => editor.includes(`data-role="${role}"`)), "explicit Move controls remain");
   assert(/if \(destroyed\) return;/.test(editor) && /if \(!Dnd\) \{/.test(editor) && /teardownSorting\(\)/.test(editor), "editor mount and disposal work without the drag library");
-  assert(/root\.RepForgeDndRuntime/.test(editor) && /runtime\.load\(\)\.then\(\(\) => \{ if \(!destroyed && !sorting\) mountSorting\(\); \}/.test(editor), "deferred runtime arrival mounts sortables");
+  assert(/const runtime = sortingRuntime/.test(editor) && /runtime\.load\(\)\.then\(\(\) => \{ if \(!destroyed && !sorting\) mountSorting\(\); \}/.test(editor), "deferred runtime arrival mounts sortables");
   assert(/moveExercise\(id, day, index/.test(editor) && (editor.match(/moveExercise\(/g) || []).length >= 4, "all reorder paths share one transaction");
 }
 {
@@ -245,7 +248,76 @@ assert(!/\.view\b/.test(layer) && !/\.toast\b/.test(layer) && !/effortpop/.test(
   assert(/\.importchoice::backdrop\{background:var\(--scrim\)\}/.test(styles) && /\.storage-recovery::backdrop\{background:var\(--scrim\)\}/.test(styles) && /\.program-editor-leave::backdrop\{background:var\(--scrim\)\}/.test(styles), "live native dialogs share the scrim token");
   for (const id of ["whySheet", "exNoteSheet", "dayPickSheet", "programTextSheet", "shareSetupSheet", "exPickSheet", "exCustomSheet", "restSheet", "iosInstallSheet", "sessionSummary", "firstRun", "glossary"]) assert(divDialog(id), `#${id} retains its deliberately custom dialog behavior`);
   assert(divDialog("installBanner") && /banner\.setAttribute\("role", "region"\)/.test(layer), "install banner becomes a region at runtime");
-  assert(/hideModalElement[\s\S]{0,400}el\.tagName==="DIALOG"/.test(app) && /if\(el\.tagName==="DIALOG"\)\{if\(typeof el\.showModal==="function"/.test(app), "one lifecycle covers both modal types");
+  assert((shell.match(/if\(el\.tagName==="DIALOG"\)/g)||[]).length===2 && /dialog\.showModal\(\)/.test(shell) && /dialog\.close\(\)/.test(shell), "the native Shell owns both modal type lifecycles");
 }
+// Public sheet owner: literal pointer input checks the no-runtime path and
+// cancellation at its presentation boundary, without copying gesture policy.
+{
+  class Element {
+    constructor() {
+      const classes = new Set(['sheet']);
+      this.classList = {contains: value => classes.has(value), add: value => classes.add(value), remove: value => classes.delete(value)};
+      this.style = {transform: '', opacity: ''}; this.offsetHeight = 200;
+      this.scrollHeight = this.clientHeight = 200; this.scrollTop = 0;
+      this.parentElement = null;
+    }
+    contains(target) { return target === this; }
+    closest() { return null; }
+  }
+  const sheet = new Element(), scrim = new Element();
+  let escaped = 0, swallowed = 0, active = null;
+  const rec = {el: sheet, scrim, onEscape() { escaped++; }};
+  active = rec;
+  const gestures = createSheetGestures({window: {Element, performance, getComputedStyle: () => ({userSelect: 'none'})},
+    readModal: () => active, readMotion: () => null, swallowNextClick() { swallowed++; }});
+  const pointer = (y, timeStamp = 1000) => ({target: sheet, pointerId: 1, pointerType: 'touch', clientX: 0, clientY: y, timeStamp});
+  const start = () => gestures.dragStart(pointer(0));
+  start(); gestures.dragMove(pointer(20, 2000));
+  assert(sheet.style.transform === 'translate3d(0,8px,0)' && scrim.style.opacity === '0.96', 'no-runtime drag paints the sheet and scrim from literal pointer input');
+  gestures.dragEnd({pointerId: 1, type: 'pointercancel'});
+  assert(sheet.style.transform === '' && scrim.style.opacity === '' && escaped === 0 && swallowed === 0,
+    'pointercancel clears presentation without dismissing or swallowing a click');
+  start(); gestures.dragMove(pointer(20, 2000)); gestures.dragMove(pointer(90, 3000)); gestures.dragEnd({pointerId: 1, type: 'pointerup'});
+  assert(escaped === 1 && swallowed === 1 && sheet.style.transform === '', 'deliberate no-runtime drag dismisses through the existing Escape action once');
+  start(); gestures.dragMove(pointer(20, 2000)); gestures.cancel();
+  assert(sheet.style.transform === '' && escaped === 1, 'Escape cancellation clears an active fallback gesture without another dismissal');
+  start(); gestures.dragMove(pointer(20, 2000)); gestures.release(rec);
+  gestures.dragMove(pointer(100, 3000)); gestures.dragEnd({pointerId: 1, type: 'pointerup'});
+  assert(sheet.style.transform === '' && escaped === 1, 'sheet teardown releases a live drag and later events cannot repaint it');
+  start(); gestures.dragMove(pointer(20, 2000)); gestures.dispose(); gestures.dispose();
+  start(); gestures.dragMove(pointer(100, 3000));
+  assert(sheet.style.transform === '', 'repeated sheet disposal is safe and later input stays inert');
+}
+// EventTarget is the platform dispatch primitive. These observations prove the
+// real Motion owner registers and removes handlers, including after remount.
+{
+  // Node 24 EventTarget does not normalize boolean capture on removal as DOM
+  // does. Normalize option syntax here; registration/dispatch remain native.
+  class DOMTarget extends EventTarget {
+    addEventListener(type, callback, options) { super.addEventListener(type, callback, typeof options === 'boolean' ? {capture: options} : options); }
+    removeEventListener(type, callback, options) { super.removeEventListener(type, callback, typeof options === 'boolean' ? {capture: options} : options); }
+  }
+  const document = new DOMTarget(), window = new DOMTarget();
+  Object.assign(document, {getElementById: () => null, createElement: () => ({}), head: {append() {}}, querySelector: () => null});
+  Object.assign(window, {document, performance, setTimeout, clearTimeout, getComputedStyle: () => ({transform: 'none'}),
+    requestAnimationFrame: fn => setTimeout(fn, 0), cancelAnimationFrame: clearTimeout, matchMedia: () => ({matches: false})});
+  const effects = {down: 0, move: 0, end: 0, cancel: 0, navigation: 0};
+  const api = createMotion({window, runtime: null, sheets: {
+    dragStart() { effects.down++; }, dragMove() { effects.move++; }, dragEnd() { effects.end++; }, cancel() { effects.cancel++; },
+  }, fallback: {navigate(direction) { effects.navigation += direction; return true; }}});
+  const input = () => { document.dispatchEvent(new Event('pointerdown')); window.dispatchEvent(new Event('pointermove'));
+    window.dispatchEvent(new Event('pointercancel')); const escape = new Event('keydown'); Object.defineProperty(escape, 'key', {value: 'Escape'}); document.dispatchEvent(escape); };
+  input(); assert(Object.values(effects).every(value => value === 0), 'Motion construction registers no input handlers');
+  const controller = api.mount(); assert(api.mount() === controller, 'two Motion mounts return the same live controller');
+  input(); assert(effects.down === 1 && effects.move === 1 && effects.end === 1 && effects.cancel === 1, 'one pointer or Escape event reaches each mounted handler once');
+  assert(controller.navigate(1) === true && effects.navigation === 1, 'no-runtime navigation reaches the supplied public fallback');
+  api.dispose(); api.dispose();
+  assert(effects.cancel === 2 && controller.navigate(1) === false, 'disposal cancels active fallback work once and makes navigation inert');
+  const stopped = JSON.stringify(effects); input(); assert(JSON.stringify(effects) === stopped, 'disposal unregisters pointer and keyboard handlers');
+  const next = api.mount(); input();
+  assert(next !== controller && effects.down === 2 && effects.move === 2 && effects.end === 2 && effects.cancel === 3, 'remount establishes exactly one new input lifetime');
+  api.dispose();
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

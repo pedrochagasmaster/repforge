@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 const root=resolve(new URL("..",import.meta.url).pathname);
 const fixture=mkdtempSync(join(tmpdir(),"taurifer-draft-owner-"));
 try{
-  writeFileSync(join(fixture,"durable-state.js"),readFileSync(join(root,"durable-state.js")));
+  mkdirSync(join(fixture,"src/persistence"),{recursive:true});
+  writeFileSync(join(fixture,"src/persistence/durable.js"),readFileSync(join(root,"src/persistence/durable.js")));
   writeFileSync(join(fixture,"app.js"),`${readFileSync(join(root,"app.js"),"utf8")}
 async function legacyCheckpointMutation(){
   DraftStore.writeV2Checkpoint({});

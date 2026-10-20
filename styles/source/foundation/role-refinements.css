@@ -1,0 +1,181 @@
+/* ---- Plan 064 R6a: the rules-only sweep ----
+   Settings, Library, install, Progress lifecycle, Program management and import review keep their layouts and
+   follow the shared rules (plan 064 section 8). Orange is spent only on the five budget uses, so selection and
+   links on these pages take ink: the quiet selected boundary, the well, and the quiet ink with an underline. */
+
+/* Settings: Back, the guide cue, the warning line and the switches' on state. */
+#settings #settingsBack{color:var(--control-quiet-ink)}
+#settings .guide-cue{background:var(--well)}
+#settings .settings-warn{color:var(--color-ink)}
+#settings .toggle[aria-checked="true"]::before,#settings .toggle[aria-pressed="true"]::before,#settings .toggle.is-on::before{background:var(--boundary-selected-quiet)}
+
+/* Sheets headed by the shared band: the commit action that sat in the old three-slot head (Done, Save, Copy) is now
+   the first action in the foot, and the foot wraps when enlarged text asks for another row. The band's 16px gutter
+   is the sheet's gutter, so the privacy and install bodies share it. */
+#exPickSheet .sheet__foot--actions,#exCustomSheet .sheet__foot--actions,#programTextSheet .sheet__foot--actions{flex-wrap:wrap}
+#exPickSheet #exPickDone{flex:1 1 100%}
+#exCustomSheet .sheet__foot--actions .btn,#programTextSheet .sheet__foot--actions .btn{flex:1 1 8.75em}
+/* The band is the drag rail: a mouse push that starts on selected band text would begin a text drag and cancel the sheet gesture. */
+:is(#privacySheet,#iosInstallSheet,#programTextSheet,#shareSetupSheet,#exPickSheet,#exCustomSheet) .sheetband{-webkit-user-select:none;user-select:none}
+.privacy-sheet,.installsheet{padding-inline:var(--space-16)}
+.privacy-sheet__body{padding-inline:0}
+@media (max-height:700px){.installsheet{padding-inline:var(--space-16)}}
+
+/* Library: Back, Close and the custom-exercise link are quiet ink; the active tab and filter chip take the quiet
+   selected boundary on the well; a ticked row is an ink disc with the tick cut out of it. */
+#library :is(#libBack,#libClose,#libCustom),#exercise #exBack,#exercisePreview #previewBack{color:var(--control-quiet-ink)}
+#library #libCustom{text-decoration:underline;text-underline-offset:.2em}
+@media (hover: hover) and (pointer: fine){
+#library .picktab.is-active:hover:not(:disabled){border-bottom-color:var(--boundary-selected-quiet)}
+}
+#library .picktab.is-active,
+#library .picktab.is-active:active:not(:disabled){border-bottom-color:var(--boundary-selected-quiet)}
+@media (hover: hover) and (pointer: fine){
+:is(#library,#exPickSheet,#exCustomSheet) .pchip.is-active:hover:not(:disabled){
+  background:var(--well);border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow)
+}
+}
+:is(#library,#exPickSheet,#exCustomSheet) .pchip.is-active,
+:is(#library,#exPickSheet,#exCustomSheet) .pchip.is-active:active:not(:disabled){
+  background:var(--well);border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow)
+}
+#library .librow__check{position:relative}
+@media (hover: hover) and (pointer: fine){
+#library .librow__check.is-on:hover:not(:disabled)::before{
+  border-color:var(--boundary-selected-quiet);background-color:var(--boundary-selected-quiet);background-image:none
+}
+}
+#library .librow__check.is-on::before{
+  border-color:var(--boundary-selected-quiet);background-color:var(--boundary-selected-quiet);background-image:none
+}
+#library .librow__check.is-on::after{
+  content:"";position:absolute;inset:0;margin:auto;width:24px;height:24px;background:var(--surface);
+  -webkit-mask:var(--check) no-repeat center/60%;mask:var(--check) no-repeat center/60%
+}
+#library .librow__edit{color:var(--control-quiet-ink)}
+#library .libstep__bar.is-done{background:var(--color-ink)}
+#library .librow__meta,.pickrow__meta{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+/* The filter rails bleed to the screen edge too, so their two wrappers carry the gutter the same way. */
+#libBrowse,#libFilters{margin-inline:calc(-1 * var(--gut));padding-inline:var(--gut)}
+/* The illustration field bleeds to the screen edge. Its box carries the gutter, so the bleed stays inside it. */
+#exercise,#exDetail{
+  margin-left:calc(-1 * max(16px,env(safe-area-inset-left)));margin-right:calc(-1 * max(16px,env(safe-area-inset-right)));
+  padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))
+}
+/* A page being pushed is pinned to the screen with its own gutter, so it takes no negative margin. */
+#exercise:is(.is-push-over,.is-push-under){margin-left:0;margin-right:0}
+#exDetail .recblock{border-left-color:var(--boundary-selected-quiet)}
+#exDetail .recblock__lab{color:var(--color-ink-secondary)}
+#exDetail :is(.link-accent,.recblock__why){color:var(--control-quiet-ink);text-decoration:underline;text-underline-offset:.2em}
+#exDetail :is(.listrow__sub,.statrow__cap){white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+
+/* Install: the drawn Safari bar points with ink, step numbers are secondary ink and the status rail is the quiet boundary. */
+.safaribar__target::before{border-color:var(--boundary-selected-quiet)}
+.safaribar__tool--more{letter-spacing:0;white-space:nowrap}
+.safaribar__tap{left:auto;right:0;transform:none;white-space:nowrap}
+.safaribar__host{text-overflow:clip}
+.installsteps__n{color:var(--color-ink-secondary)}
+.install-transfer__status:not(:empty){border-left-color:var(--boundary-selected-quiet)}
+
+/* Program management: links and warnings are ink. */
+#exCustomSheet .text-link,#exPickSheet .text-link,#programEditToggle{color:var(--control-quiet-ink)}
+#exCustomSheet .text-link,#exPickSheet .text-link{text-decoration:underline;text-underline-offset:.2em}
+.share-setup__blocker-summary{color:var(--color-ink)}
+.program-editor__undo,.program-editor__replace,.pex__detach,.pex__swap.is-unlinked{color:var(--control-quiet-ink)}
+
+/* Progress lifecycle: the selected window is the quiet ink underline, a record is --positive, volume bars are ink,
+   a read-only notice is ink, the chosen diagnosis is a quiet ink ring, and long exercise names wrap. */
+#stats :is(#prFilterSeg,.seg--window) > button.active{border-bottom-color:var(--boundary-selected-quiet)}
+#stats :is(.pr-kind--load,.pr-kind--e1rm){color:var(--color-improved);background:var(--well)}
+#stats .prtl__delta{color:var(--color-improved)}
+#stats .prtl__ex{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+#stats #volumeDash .vrow__status{color:var(--color-ink)}
+#stats #volumeDash .vrow__status.is-on{color:var(--color-improved)}
+#stats #volumeDash .vrow__fill{background:var(--color-ink)}
+#stats #volumeDash .vrow__fill.is-high,#stats #volumeDash .vrow__fill.is-on{background:var(--color-improved)}
+#stats #reviewPanel .review__readonly{color:var(--color-ink)}
+#reviewPanel .radio-card.is-selected{border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow)}
+#reviewPanel .radio-card.is-selected .radio-card__mark{
+  position:relative;background:var(--surface);background-image:none;border:2px solid var(--boundary-selected-quiet)
+}
+#reviewPanel .radio-card.is-selected .radio-card__mark::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--boundary-selected-quiet)}
+
+/* Onboarding B (ADR 0020, Plan 072): hub link note, section map, Basics
+   pickers, equipment checklist, priority rows and the deload card. Tokens
+   only; dark appearance is the token swap. */
+.entry-hub__link,.entry-b__note{display:flex;gap:8px;align-items:flex-start;margin:18px 0 0;font-size:var(--font-size-body-small);line-height:1.4;color:var(--ink-soft)}
+.entry-hub__link .icon-mask,.entry-b__note .icon-mask{flex:none;margin-top:2px}
+.entry-b__sections{list-style:none;margin:24px 0 0;padding:0;display:flex;flex-direction:column;gap:20px}
+.entry-b__section{display:flex;gap:14px;align-items:flex-start;color:var(--ink-soft)}
+.entry-b__section strong{display:block;font-size:var(--font-size-subtitle);font-weight:600;color:var(--ink)}
+.entry-b__section span span{display:block;margin-top:3px;font-size:var(--font-size-body-small)}
+.entry-b__section-n{flex:none;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;border:1px solid var(--rule-strong);font-family:var(--font-training-data);font-size:var(--font-size-caption);color:var(--ink)}
+.entry-b__section.is-current .entry-b__section-n{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.entry-b__compact{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+.entry-b__compact .radio-card{justify-content:center;text-align:center}
+.entry-b__compact .radio-card__mark{display:none}
+.entry-b__fact{margin:14px 0 0;min-height:1.4em;font-size:var(--font-size-body-small);line-height:1.4;color:var(--ink-soft)}
+.entry-b__equipment{gap:8px}
+.entry-b__reset{margin:14px 0 0;align-self:flex-start}
+.entry-b__priorities{margin:12px 0 0;border-top:1px solid var(--rule)}
+.entry-b__priority{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:48px;padding:6px 0;border-bottom:1px solid var(--rule);font-size:var(--font-size-body)}
+.entry-seg{display:flex;gap:4px;padding:4px;border-radius:var(--radius-control);background:var(--well)}
+.entry-seg__option{flex:1;min-height:40px;padding:8px 10px;border:1px solid transparent;border-radius:var(--radius-compact);background:transparent;color:var(--ink-soft);font:inherit;font-size:var(--font-size-control);font-weight:500;cursor:pointer}
+.entry-seg__option.is-selected{background:var(--surface);color:var(--ink);border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow)}
+.entry-seg__option:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.entry-seg--mini{flex:none;padding:3px;gap:2px}
+.entry-seg--mini .entry-seg__option{flex:none;min-height:36px;padding:6px 8px;font-size:var(--font-size-caption)}
+.entry-seg--unit{margin:12px auto 0;max-width:320px}
+.entry-b__deload{margin:16px 0 0;padding:20px;border:1.5px solid var(--rule);border-radius:var(--radius-surface);background:var(--surface)}
+.entry-b__deload-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.entry-b__deload-head strong{font-size:var(--font-size-subtitle);font-weight:600}
+.entry-b__deload p{margin:6px 0 8px;color:var(--ink-soft);line-height:1.4}
+.entry-b__tag{font-size:var(--font-size-body-small);font-weight:600;color:var(--ink)}
+.entry-wheels{position:relative;isolation:isolate;display:flex;justify-content:center;gap:10px;width:100%;height:220px;margin:16px 0 0}
+.entry-wheel{flex:0 0 auto;min-width:72px;height:220px;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;overscroll-behavior:contain;border-radius:var(--radius-compact)}
+.entry-wheel::-webkit-scrollbar{display:none}
+.entry-wheel:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+#entryWheelMonth{min-width:150px}
+.entry-wheel__pad{height:88px}
+.entry-wheel__item{height:44px;display:grid;place-items:center;scroll-snap-align:center;font-family:var(--font-training-data);font-size:var(--font-size-subtitle);color:var(--ink-faint);cursor:pointer;white-space:nowrap}
+#entryWheelMonth .entry-wheel__item{font-family:var(--font-language)}
+.entry-wheel__item.is-current{color:var(--ink);font-weight:600}
+.entry-wheels__band{position:absolute;left:0;right:0;top:88px;height:44px;border-top:1px solid var(--rule-strong);border-bottom:1px solid var(--rule-strong);z-index:-1;pointer-events:none}
+.entry-ruler{position:relative;width:100%;margin:20px 0 0;text-align:center}
+.entry-ruler__value{margin:0 0 14px;font-size:var(--font-size-subtitle);color:var(--ink-soft)}
+.entry-ruler__value b{font-family:var(--font-training-data);font-size:var(--font-size-focal-data);font-variant-numeric:tabular-nums;color:var(--ink)}
+.entry-ruler__type{padding:0;border:0;background:transparent;color:inherit;font:inherit;cursor:text}
+.entry-ruler__type:focus-visible{outline:var(--control-focus-outline);outline-offset:3px;border-radius:var(--radius-control)}
+.entry-ruler__scroll{overflow-x:scroll;scrollbar-width:none;overscroll-behavior:contain;-webkit-mask-image:linear-gradient(90deg,transparent,var(--ink) 20%,var(--ink) 80%,transparent);mask-image:linear-gradient(90deg,transparent,var(--ink) 20%,var(--ink) 80%,transparent)}
+.entry-ruler__scroll::-webkit-scrollbar{display:none}
+.entry-ruler__scroll:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.entry-ruler__track{position:relative;height:84px;background:
+  repeating-linear-gradient(90deg,var(--rule-strong) 0 1px,transparent 1px 80px) bottom left/100% 44px no-repeat,
+  repeating-linear-gradient(90deg,var(--rule) 0 1px,transparent 1px 8px) bottom left/100% 24px no-repeat}
+.entry-ruler__track em{position:absolute;bottom:52px;transform:translateX(-50%);font-style:normal;font-family:var(--font-training-data);font-size:var(--font-size-caption);color:var(--ink-soft)}
+.entry-ruler__needle{position:absolute;left:50%;bottom:0;width:3px;height:70px;border-radius:var(--radius-compact);background:var(--accent);transform:translateX(-50%);pointer-events:none}
+.onb__skip{display:block;margin:8px auto 0;min-height:44px}
+.onb__skip[hidden]{display:none}
+.settings-profile{margin:8px 0 0;display:flex;flex-direction:column}
+.settings-profile__row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--rule)}
+.settings-profile__row dt{color:var(--ink-soft)}
+.settings-profile__row dd{margin:0;text-align:right;color:var(--ink)}
+#profileRow[hidden]{display:none}
+
+/* Onboarding B's building moment (Plan 072): the checklist ticks line by
+   line and a thin bar fills; reduced motion draws it done. */
+.entry-building{display:flex;flex-direction:column;align-items:center;text-align:center;padding:24px 0 8px}
+.entry-building__mark{width:56px;height:56px;margin-bottom:16px}
+.entry-building__steps{list-style:none;margin:20px 0 0;padding:0;display:flex;flex-direction:column;gap:12px;text-align:left;align-self:stretch}
+.entry-building__steps li{display:flex;align-items:center;gap:10px;color:var(--ink-faint);font-size:var(--font-size-body)}
+.entry-building__tick{flex:none;opacity:0;color:var(--ink)}
+.entry-building__steps li.is-now{color:var(--ink-soft)}
+.entry-building__steps li.is-done{color:var(--ink)}
+.entry-building__steps li.is-done .entry-building__tick{opacity:1}
+.entry-building__bar{align-self:stretch;height:2px;margin:24px 0 0;background:var(--rule);overflow:hidden}
+.entry-building__bar i{display:block;height:100%;background:var(--ink);transform:scaleX(0);transform-origin:left}
+.entry-building.is-running .entry-building__bar i{transform:scaleX(1);transition:transform 1040ms linear}
+.entry-building.is-done .entry-building__bar i{transform:scaleX(1)}
+.entry-building__wait{margin:16px 0 0;color:var(--ink-soft)}
+.entry-building__skip{margin-top:20px}
+@media (prefers-reduced-motion: reduce){.entry-building.is-running .entry-building__bar i{transition:none}}

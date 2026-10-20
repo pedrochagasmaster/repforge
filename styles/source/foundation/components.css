@@ -1,0 +1,226 @@
+/* ---- Plan 064 shared components ----
+   Every component block declared in this section must be named by a
+   component row in tools/ui-role-inventory.json (checked by
+   tools/check-ui-system.mjs). R1a added the first four; R1b adds four more
+   on the owner-approved tokens (OG-3, OG-4), recorded in the contract's Plan
+   064 amendment. Nothing renders these classes yet, so no frame can change;
+   each first renders in the slice its inventory row names. Layout lengths are
+   the ones Plan 064 section 8.3 and 8.6 state (48 and 56 rows, 44 close
+   reserve), the shipped sheet geometry (38 by 5 handle) or the --space-*
+   scale. The rest clock's new clamp is not here: it changes rest frames and
+   lands with R3f. */
+
+/* Verdict mark: the glyph beside a rec.*.label word. The word carries the
+   meaning and the glyph is redundant, so consumers mark the glyph
+   aria-hidden. Orange is limited to an up verdict glyph (section 8.8);
+   records use the improved color; declines, holds and recoveries stay ink. The word is never the
+   accent: --accent is 3.57:1 on --bg in light, below the 4.5:1 text floor. */
+.verdictmark{
+  display:inline-flex;align-items:center;gap:6px;min-width:0;
+  font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink);
+}
+.verdictmark__glyph{
+  display:block;flex:none;width:16px;height:16px;background:var(--color-ink);
+  -webkit-mask:var(--arrow) no-repeat center/contain;mask:var(--arrow) no-repeat center/contain;
+}
+.verdictmark--up .verdictmark__glyph{background:var(--color-action);transform:rotate(-90deg)}
+.verdictmark--down .verdictmark__glyph{background:var(--color-ink);transform:rotate(90deg)}
+/* Hold (and the maintained outcome) draw "=", recover a clockwise return, in ink: orange is only the up glyph
+   (section 8.8). Stalled and new stay word-only. */
+.verdictmark--hold .verdictmark__glyph,
+.verdictmark--maintained .verdictmark__glyph{
+  background:var(--color-ink);
+  -webkit-mask:var(--verdict-hold) no-repeat center/contain;mask:var(--verdict-hold) no-repeat center/contain;
+}
+.verdictmark--recover .verdictmark__glyph{
+  background:var(--color-ink);
+  -webkit-mask:var(--verdict-recover) no-repeat center/contain;mask:var(--verdict-recover) no-repeat center/contain;
+}
+.verdictmark--record{color:var(--color-improved)}
+.verdictmark--record .verdictmark__glyph{
+  background:var(--color-improved);
+  -webkit-mask:var(--check) no-repeat center/contain;mask:var(--check) no-repeat center/contain;
+}
+/* The session outcome "Maintained" draws the same ink "=" as the hold recommendation: one meaning per glyph
+   (owner decision on #295, 2026-10-01). Improved keeps the up arrow, declined the ink down arrow. */
+.verdictmark--maintained{color:var(--color-maintained)}
+
+/* Sheet header band: one band for every sheet. Handle, section-title title,
+   an optional body-small line, and a 44px close reserve whose button is
+   centred on the first title line. The band draws no separator; a consumer
+   that needs one inside a sheet uses --rule-on-surface (decorative only). */
+.sheetband{
+  display:grid;grid-template-columns:minmax(0,1fr) var(--control-target);
+  grid-template-areas:"handle handle" "title close" "sub sub";
+  align-items:start;column-gap:8px;padding:0 16px 16px;
+}
+.sheetband__handle{
+  grid-area:handle;justify-self:center;display:block;width:38px;height:5px;margin:8px 0 0;
+  border-radius:var(--radius-compact);background:var(--boundary-floating);
+}
+.sheetband__title{
+  grid-area:title;min-width:0;margin:0;
+  padding-block:calc((var(--control-target) - var(--font-size-section-title) * var(--line-tight)) / 2);
+  font-family:var(--font-language);font-size:var(--font-size-section-title);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink);
+  overflow-wrap:anywhere;
+}
+.sheetband__sub{
+  grid-area:sub;margin:0;
+  font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);
+}
+.sheetband__close{
+  grid-area:close;align-self:start;display:inline-flex;align-items:center;justify-content:center;
+  width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);margin:0;padding:0;
+  border:1px solid var(--control-quiet-boundary);border-radius:var(--radius-round);background:var(--control-quiet-bg);color:var(--control-quiet-ink);cursor:pointer;
+}
+@media (hover: hover) and (pointer: fine){
+.sheetband__close:hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
+}
+.sheetband__close:active:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+.sheetband__close:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.sheetband__close:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
+
+/* Ledger row base: flat, read-only data on one decorative hairline per break.
+   At least 48px; the two-line row (value line plus previous-set line) is 56px.
+   Values are right-aligned Mono on a shared 12px inset. The open row's selected
+   boundary is the .ledgerline--open modifier at the end of this section. */
+.ledgerline__head,.ledgerline{
+  display:grid;grid-template-columns:2.4rem minmax(0,1fr);column-gap:12px;align-items:center;
+  width:100%;padding-inline:12px;font-variant-numeric:tabular-nums;
+}
+.ledgerline__head{
+  padding-block:0 10px;border-bottom:1px solid var(--boundary-decorative);
+  font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:.08em;text-transform:uppercase;color:var(--color-ink-secondary);
+}
+.ledgerline__head > :last-child{text-align:right}
+.ledgerline{
+  min-height:48px;margin:0;padding-block:6px;
+  border:0;border-bottom:1px solid var(--boundary-decorative);border-radius:var(--radius-none);background:none;color:var(--color-ink);
+}
+.ledgerline--two{min-height:56px}
+.ledgerline__idx{
+  font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink-secondary);
+}
+.ledgerline__vals{
+  min-width:0;display:flex;justify-content:flex-end;gap:12px;text-align:right;
+  font-family:var(--font-training-data);font-size:var(--font-size-body);font-weight:var(--weight-regular);line-height:var(--line-standard);
+}
+.ledgerline__prev{
+  grid-column:2;min-width:0;text-align:right;
+  font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);
+}
+
+/* Prescription row: name and strategy line, mark, load and target on one first
+   baseline. The whole row opens the exercise (quiet-navigation). Columns follow
+   the widest load and target forms (66px and 78px at the default root size) and
+   scale with the root so they reflow at 200% text. Manual rows leave the mark
+   slot empty so names still align. */
+.rxrow{
+  display:grid;grid-template-columns:1rem minmax(0,1fr) minmax(4.125rem,auto) minmax(4.875rem,auto);
+  column-gap:12px;align-items:baseline;width:100%;min-height:48px;margin:0;padding:12px 0;
+  border:0;border-bottom:1px solid var(--boundary-decorative);border-radius:var(--radius-none);
+  background:var(--control-quiet-bg);color:var(--control-quiet-ink);cursor:pointer;text-align:left;
+  font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-regular);line-height:var(--line-standard);
+}
+@media (hover: hover) and (pointer: fine){
+.rxrow:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink);border-bottom-color:var(--boundary-decorative)}
+}
+.rxrow:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+.rxrow:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.rxrow:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);border-bottom-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
+.rxrow__mark{position:relative;top:.15em;display:flex;align-items:center;min-width:0}
+.rxrow__name{min-width:0;overflow-wrap:anywhere}
+.rxrow__sub{display:block;font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.rxrow__load{
+  text-align:right;white-space:nowrap;
+  font-family:var(--font-training-data);font-size:var(--font-size-metric);font-weight:var(--weight-medium);line-height:var(--line-tight);color:var(--color-ink);
+}
+.rxrow__target{
+  text-align:right;white-space:nowrap;
+  font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink);
+}
+.rxrow__op,.rxrow__unit{color:var(--color-ink-secondary)}
+
+/* Ledger open row: the row being edited or corrected. Layer selected: a well
+   ground and the quiet 2px inset boundary (ink, aliased from --ink), no
+   outward shadow, no orange. The inset ring is the selected cue and it reaches
+   3:1 on the well and on the page ground in both themes; the hairline gives
+   way to it. Values keep their ink and the previous-set line stays ink-soft. */
+.ledgerline--open{
+  border-bottom-color:transparent;border-radius:var(--radius-surface);
+  background:var(--well);box-shadow:var(--elevation-selected-quiet-shadow);
+}
+
+/* Tab row: a hairline-underlined row of selection controls, each at least 44
+   by 44. The selected tab carries a 2px indicator in the quiet selected
+   boundary, never orange. The row scrolls sideways without a scrollbar; the
+   paper fade that the drawing shows while it overflows is a gradient the
+   rendered-role audit cannot measure, so it is not drawn here. */
+.tabrow{
+  display:flex;gap:var(--space-4);overflow-x:auto;margin:0;padding:0;
+  border-bottom:1px solid var(--boundary-decorative);scrollbar-width:none;overscroll-behavior:contain;}
+.tabrow::-webkit-scrollbar{display:none}
+.tabrow__tab{
+  flex:none;min-width:var(--control-target);min-height:var(--control-target);margin:0;padding:0 var(--space-12);
+  border:0;border-bottom:2px solid transparent;border-radius:var(--radius-none);
+  background:var(--control-quiet-bg);color:var(--color-ink-secondary);cursor:pointer;white-space:nowrap;
+  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);
+}
+.tabrow__tab[aria-selected="true"]{
+  border-bottom-color:var(--boundary-selected-quiet);color:var(--control-selection-ink);font-weight:var(--weight-semibold);
+}
+@media (hover: hover) and (pointer: fine){
+.tabrow__tab:hover:not(:disabled){background:var(--well)}
+}
+.tabrow__tab:active:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
+.tabrow__tab:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
+.tabrow__tab:disabled{color:var(--color-disabled-reason);cursor:not-allowed;transform:none}
+
+/* Frequency counts: small bars of sessions per week and per weekday, ink on
+   the page ground. Not interactive: the host gives the block one image role
+   and one label with the block total, so the counts stay out of the reading
+   order (aria-hidden). The baseline is a decorative hairline; the planned
+   marker, when drawn, is a required boundary (--boundary-required), never
+   --rule-strong, which measures 1.31:1 on the page ground in light. Bar
+   height is --freq-share (0 to 1) set by the host; the marker sits at
+   --freq-plan. The bar's progress classification is decided in R3j. */
+.freqcount{display:flex;align-items:stretch;margin:0;color:var(--color-ink)}
+.freqcount__bar{
+  flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+  padding-inline:var(--space-4);
+}
+.freqcount__n{
+  margin-bottom:var(--space-4);
+  font-family:var(--font-training-data);font-size:var(--font-size-caption);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink-secondary);
+}
+.freqcount__track{position:relative;display:flex;align-items:flex-end;justify-content:center;width:100%;height:4rem}
+.freqcount--planned .freqcount__track::after{
+  content:"";position:absolute;left:calc(-1 * var(--space-4));right:calc(-1 * var(--space-4));bottom:calc(var(--freq-plan,0) * 100%);
+  border-top:1px dashed var(--boundary-required);
+}
+.freqcount__fill{
+  display:block;width:var(--space-12);height:calc(var(--freq-share,0) * 100%);
+  border-radius:var(--radius-compact) var(--radius-compact) var(--radius-none) var(--radius-none);background:var(--color-ink);
+}
+.freqcount__label{
+  align-self:stretch;padding-top:var(--space-4);border-top:1px solid var(--boundary-decorative);text-align:center;
+  font-family:var(--font-training-data);font-size:var(--font-size-caption);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink-secondary);
+}
+.freqcount__bar--now .freqcount__label{color:var(--color-ink);font-weight:var(--weight-semibold)}
+
+/* Workout shelf shell: the persistent-action layer under Focus, a full-width
+   sheet-like surface with the existing top radius step (--radius-prominent),
+   a shallow top edge and the persistent depth. Inside it the field and
+   adjustment roles take the drawn grounds (fields on the well, pads on the
+   page ground); that override is scoped here, so no other surface changes.
+   The host positions the shell and reserves scroll room under it. Fields,
+   pads and the primary action are R3c's, each on its existing control role. */
+.workshelf{
+  --control-field-bg:var(--shelf-field-bg);--control-adjustment-bg:var(--shelf-pad-bg);
+  display:grid;gap:var(--space-8);width:100%;margin:0;
+  padding:var(--space-12) var(--gut) calc(var(--space-16) + env(safe-area-inset-bottom,0px));
+  border:0;border-top:1px solid var(--boundary-persistent);
+  border-radius:var(--radius-prominent) var(--radius-prominent) var(--radius-none) var(--radius-none);
+  background:var(--color-surface);box-shadow:var(--elevation-persistent-shadow);color:var(--color-ink);
+}
+

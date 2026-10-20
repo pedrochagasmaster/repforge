@@ -5,7 +5,7 @@ import { dirname, join } from "path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
-const S = require(join(__dirname, "..", "schedule.js"));
+const S = require(join(__dirname, "..", "src/training/progress.js"));
 
 let passed = 0, failed = 0;
 function assert(cond, name, detail = "") {

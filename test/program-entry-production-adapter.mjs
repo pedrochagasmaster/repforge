@@ -4,10 +4,10 @@ import { createRequire } from "node:module";
 import test from "node:test";
 
 const require = createRequire(import.meta.url);
-const Entry = require("../program-entry.js");
-const Adapter = require("../program-entry-adapter.js");
-const Compiler = require("../program-compiler.js");
+const Entry = require("../src/training/authoring.js").createEntryRules(require("../assets/exercise-catalog.json"));
+const Compiler = require("../src/training/generation.js");
 const Catalog = require("../assets/exercise-catalog.json");
+const Adapter = require("../src/training/authoring.js").createEntryAdapter({compiler:Compiler});
 const workerFixture = JSON.parse(require("node:fs").readFileSync(new URL(
   "../services/install-transfer/test/fixtures/program-definition-plan067-worker.json",
   import.meta.url,

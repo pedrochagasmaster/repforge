@@ -1,0 +1,201 @@
+/* ---- Bottom nav — floating glass dock ----
+   A capsule that hovers over the page rather than capping it, so the content
+   stays visible (blurred) underneath: the edge highlight and the drop shadow
+   are what read as glass, and the blur is what keeps the labels legible over
+   whatever scrolls behind. Content still stops at the dock's top edge —
+   body's padding-bottom reserves --nav — so nothing important sits under it. */
+nav{
+  position:fixed;z-index:25;
+  left:50%;transform:translateX(-50%);
+  bottom:calc(var(--dock-gap) + env(safe-area-inset-bottom));
+  width:min(
+    calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right) - 2*var(--dock-inset)),
+    var(--maxw)
+  );
+  height:var(--dock-h);
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+  padding:6px;gap:2px;
+  border:1px solid var(--dock-edge);border-radius:calc(var(--dock-h)/2);
+  background:var(--dock-glass);
+  backdrop-filter:var(--dock-blur);-webkit-backdrop-filter:var(--dock-blur);
+  box-shadow:var(--elevation-nav-shadow);
+}
+/* The lens rim: light bending at the capsule's edge. A bright rim along the top, a softer caustic band just inside the
+   bottom edge where the curve would focus it, and a hairline of light all the way round. Painted, not a second
+   backdrop sample, so it costs nothing while the page scrolls and needs nothing a browser might lack; it sits under the
+   buttons and the travelling lens (z-index:-1 inside the dock's own stacking context). */
+nav::before{
+  content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;pointer-events:none;
+  background:
+    linear-gradient(180deg,var(--dock-rim) 0,transparent 32%),
+    linear-gradient(0deg,var(--dock-caustic) 0,transparent 24%);
+  box-shadow:var(--dock-rim-shadow);
+  opacity:.9;
+}
+/* Without backdrop-filter the panel is a plain translucent sheet and the page
+   shows through sharp, so pay for legibility with opacity instead. */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  nav{--dock-glass:var(--dock-glass-opaque)}
+  nav::before{display:none}
+}
+nav button{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  background:transparent;border:1px solid transparent;color:var(--ink-soft);cursor:pointer;
+  border-radius:var(--radius-pill);
+  font-weight:500;letter-spacing:0;font-size:var(--font-size-label);text-transform:none;
+  transition:color .2s ease,transform .18s ease;min-height:44px;min-width:0;
+}
+nav button > [data-i18n]{min-width:0;max-width:100%;text-align:center;line-height:1;overflow-wrap:normal}
+nav button:active{transform:scale(.93)}
+nav button:focus-visible{outline:var(--control-focus-outline);outline-offset:-3px}
+/* The selected tab sits in a lighter lens. This one is painted on the button
+   itself and is the fallback: wherever the lens element below is not mounted
+   (before boot, without the script, a dock that has never been on screen) the
+   active button wears it. Once JS mounts the lens (`nav[data-lens]`) the
+   button stops painting its own, and the one lens travels between the tabs. */
+nav button.active{
+  color:var(--accent-deep);
+  background:var(--dock-pill);
+  border-color:var(--boundary-selected);
+  box-shadow:var(--elevation-nav-selected-shadow);
+}
+/* The lens is placed by the script on the active button's border box (read from
+   layout, so it follows the grid at four columns, at two rows and in the editor
+   bar alike) through --lens-x/-y/-w/-h. It sits under the buttons (z-index:-1 in
+   the dock's own stacking context).
+   The floating dock offsets it with `translate`, as the pill that slid under the
+   buttons was offset with a transform, so the pill is painted where it always
+   was. The button keeps the 1px selected ring at rest; only while the lens is in
+   the air (`nav[data-lens=travel]`) does the ring ride with it, and the button
+   sets its own aside so there is one ring on screen (the Progress tab indicator
+   works the same way). */
+.dock-lens{
+  position:absolute;z-index:-1;left:var(--lens-x,0);top:var(--lens-y,0);
+  width:var(--lens-w,0);height:var(--lens-h,0);
+  pointer-events:none;
+  border-radius:var(--radius-pill);
+  background:var(--dock-pill);
+  box-shadow:var(--elevation-nav-indicator-shadow);
+}
+@supports (translate:1px 1px){
+  .dock-lens{left:0;top:0;translate:var(--lens-x,0) var(--lens-y,0)}
+}
+.dock-lens::after{
+  content:"";display:none;position:absolute;inset:0;
+  border:1px solid var(--boundary-selected);border-radius:inherit;
+}
+nav[data-lens] button.active{background:transparent;box-shadow:none}
+nav[data-lens=travel] button.active{border-color:transparent}
+nav[data-lens=travel] .dock-lens::after{display:block}
+/* At enlarged computed text sizes, four short dock columns break localized
+   names inside words. The root container's em threshold follows the rendered
+   root font size, regardless of whether the browser scales it with inline
+   style, a user stylesheet, or another accessibility preference. Keep the
+   same two-row dock and selected-tab indicator while the labels reflow. */
+@container (max-width:15em){
+  body{
+    --dock-h:calc(82px + 2 * var(--font-size-label));
+    --dock-gap:2px;
+    --nav:calc(var(--dock-h) + var(--dock-gap));
+  }
+  nav{grid-template-columns:repeat(2,minmax(0,1fr))}
+  nav button{gap:3px}
+}
+.nav__icon{width:22px;height:22px;flex:none;background:currentColor;
+  -webkit-mask:no-repeat center/contain;mask:no-repeat center/contain}
+nav button.active .nav__icon{background:var(--accent)}
+.nav__icon[data-i=log]{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 10.5L12 4l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1V10.5z'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 10.5L12 4l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1V10.5z'/%3E%3C/svg%3E")}
+.nav__icon[data-i=stats]{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M5 20V10M12 20V4M19 20v-7'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M5 20V10M12 20V4M19 20v-7'/%3E%3C/svg%3E")}
+.nav__icon[data-i=history]{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 12a9 9 0 1 0 3-6.7'/%3E%3Cpath d='M3 4v5h5'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 12a9 9 0 1 0 3-6.7'/%3E%3Cpath d='M3 4v5h5'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E")}
+.nav__icon[data-i=program]{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M8 4h10a2 2 0 0 1 2 2v14H8a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'/%3E%3Cpath d='M9 9h8M9 13h8M9 17h5'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M8 4h10a2 2 0 0 1 2 2v14H8a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'/%3E%3Cpath d='M9 9h8M9 13h8M9 17h5'/%3E%3C/svg%3E")}
+body.is-settings nav,body.is-exercise nav,body.is-onboarding nav,
+body.is-library nav,body.is-preview nav,body.is-import nav{display:none}
+body.is-settings,body.is-exercise,body.is-onboarding,
+body.is-library,body.is-preview,body.is-import{padding-bottom:env(safe-area-inset-bottom)}
+/* No paper fade under the dock (#301): the dock is glass, and glass only reads as glass when the page passes beneath
+   it. What scrolls under the capsule is softened by the dock's own frost, not painted out. */
+
+/* ---- Toast ---- */
+.toast{
+  position:fixed;left:50%;transform:translateX(-50%) translateY(0);
+  bottom:calc(var(--nav) + 22px + env(safe-area-inset-bottom));z-index:50;
+  width:min(92%,420px);background:var(--cta);border:0;color:var(--cta-ink);border-radius:var(--radius-surface);
+  padding:13px 16px;font-size:var(--font-size-body-small);box-shadow:var(--elevation-floating-shadow);
+  animation:toastin .3s cubic-bezier(.2,.7,.2,1)
+}
+
+.ex__skip{flex:none;border:1px solid var(--rule);background:var(--surface);color:var(--ink-soft);
+  border-radius:var(--radius-control);cursor:pointer;line-height:1}
+.ex__skip{padding:0 10px;height:34px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;font-size:var(--font-size-label)}
+
+
+
+
+
+.skipbar{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius-surface);
+  padding:8px 12px;margin-bottom:12px;font-size:var(--font-size-body-small);color:var(--ink-soft)}
+.skipbar__show{border:1px solid var(--rule);background:var(--bg);color:var(--ink);
+  border-radius:var(--radius-control);padding:4px 10px;cursor:pointer;font-weight:600;font-size:var(--font-size-label)}
+
+
+
+
+
+.blockprompt{position:relative;background:transparent;border:0;border-left:3px solid var(--accent);
+  border-radius:0;padding:12px 40px 12px 14px;margin-bottom:14px;font-size:var(--font-size-body-small);color:var(--ink);line-height:1.45}
+.blockprompt b{font-weight:600;color:var(--accent-deep);margin-right:2px;text-transform:none;letter-spacing:0;font-family:inherit}
+.blockprompt__act{margin-left:6px;border:0;background:none;color:var(--accent-deep);
+  border-radius:0;padding:5px 0;cursor:pointer;font-weight:600;font-size:var(--font-size-body-small);text-decoration:underline}
+.blockprompt__dismiss{
+  position:absolute;top:2px;right:0;width:40px;height:40px;margin:0;padding:0;
+  border:0;background:transparent;color:var(--ink-soft);cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;
+}
+@media (hover: hover) and (pointer: fine){
+.blockprompt__dismiss:hover{color:var(--ink)}
+}
+.fatigue{position:relative;background:transparent;border:0;border-left:3px solid var(--ink-soft);
+  border-radius:0;padding:12px 40px 12px 14px;margin-bottom:14px;font-size:var(--font-size-body-small);color:var(--ink);line-height:1.45}
+.fatigue b{font-weight:600;color:var(--ink);margin-right:2px;text-transform:none;letter-spacing:0;font-family:inherit}
+.fatigue__trim{margin-left:6px;border:0;background:none;color:var(--accent-deep);
+  padding:5px 0;cursor:pointer;font-weight:600;font-size:var(--font-size-body-small);text-decoration:underline}
+.fatigue__dismiss{
+  position:absolute;top:2px;right:0;width:40px;height:40px;margin:0;padding:0;
+  border:0;background:transparent;color:var(--ink-soft);cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;
+}
+@media (hover: hover) and (pointer: fine){
+.fatigue__dismiss:hover{color:var(--ink)}
+}
+
+.term{display:inline-flex;align-items:center;justify-content:center;border:0;background:transparent;color:inherit;padding:10px 8px;margin:-10px -8px;
+  min-width:44px;min-height:44px;box-sizing:border-box;vertical-align:middle;
+  text-decoration:underline dotted;text-decoration-color:var(--ink-faint);cursor:pointer;font:inherit;line-height:1.4}
+@media (hover: hover) and (pointer: fine){
+.term:hover{text-decoration-color:var(--accent);color:var(--accent-deep)}
+}
+.glossary{
+  position:absolute;z-index:60;max-width:280px;max-height:calc(100vh - 16px);max-height:calc(100dvh - 16px);
+  display:flex;flex-direction:column;
+  background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius-surface);
+  padding:14px 16px 12px;box-shadow:var(--elevation-popover-shadow);
+}
+.glossary__close{position:absolute;top:0;right:0;border:0;background:transparent;color:var(--ink-soft);cursor:pointer;font-size:var(--control-icon-size);line-height:1;width:44px;height:44px;min-width:44px;min-height:44px;padding:0}
+.glossary__term{flex:none;font-weight:var(--weight-semibold);font-size:var(--font-size-caption);margin:0 24px 6px 0;text-transform:uppercase;letter-spacing:.04em}
+.glossary__body{flex:0 1 auto;min-height:0;overflow-y:auto;margin:0;font-size:var(--font-size-body-small);line-height:1.45;color:var(--ink-soft);overscroll-behavior:contain;}
+body.is-focus-wo #glossary{background:var(--color-surface);border-color:var(--boundary-floating);border-radius:var(--radius-surface);box-shadow:var(--elevation-floating-shadow)}
+body.is-focus-wo #glossary .glossary__close{background:var(--control-quiet-bg);color:var(--control-quiet-ink);border-radius:var(--radius-round)}
+@media (hover: hover) and (pointer: fine){
+body.is-focus-wo #glossary .glossary__close:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
+}
+body.is-focus-wo #glossary .glossary__close:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+body.is-focus-wo #glossary .glossary__term{font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
+body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+
+.blockprogress{margin:0 0 16px;padding:12px 0;border:0;border-radius:0;background:transparent}
+.blockprogress__title{font-weight:600;font-size:var(--font-size-caption);margin:0 0 8px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-faint)}
+.review__summary{margin:0;font-size:var(--font-size-body-small);line-height:1.55;color:var(--ink)}
+.review__hash{display:block;max-width:100%;overflow-wrap:anywhere;word-break:break-all;white-space:normal;font-family:var(--font-training-data)}
+.review__preview-actions .btn{min-width:0;overflow-wrap:anywhere;word-break:break-word}
+

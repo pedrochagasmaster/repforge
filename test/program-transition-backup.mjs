@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {installBrowserTraining} from './training-browser.mjs';
 /**
  * Plan 052-P7: prove that an ordinary backup round-trip keeps transition
  * provenance and the user's program/log identities. Since Plan 067 the
@@ -178,13 +179,14 @@ async function reloadAndBoot(page) {
 }
 
 async function activatePredecessor(page) {
+  await installBrowserTraining(page);
   return page.evaluate(async (request) => {
-    const compiler = window.RepForgeProgramCompiler;
-    const catalog = window.RepForgeExerciseCatalog;
+    const compiler = window.__repforgeTrainingTest.compiler;
+    const catalog = window.__repforgeTrainingTest.catalog;
     if (!compiler || !catalog || typeof window.__repforgeFinalizeProgramSetup !== "function") {
       return { ok: false, error: "production program entry services unavailable" };
     }
-    const generated = compiler.generateProgram(request, catalog.snapshot());
+    const generated = compiler.generateProgram(request, catalog);
     if (!generated.ok) return { ok: false, error: "production generation failed", generated };
     const definition = generated.value;
     // The production entry flow derives the program answers from the

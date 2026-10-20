@@ -3,14 +3,14 @@ import { createRequire } from "node:module";
 import { env } from "cloudflare:workers";
 import { reset } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
-import contract from "../../../install-transfer-contract.js";
+import contract from "../src/contract.js";
+import {createInstallTransfer} from "../../../src/platform/install-transfer.js";
 import canonicalFixture from "../../../test/fixtures/install-transfer-clone-v1.json" with { type: "json" };
 import catalogSnapshot from "../../../assets/exercise-catalog.json" with { type: "json" };
 import worker from "../src/index.js";
 import { euStub } from "../src/namespaces.js";
 
 const require = createRequire(import.meta.url);
-const Transfer = require("../../../install-transfer.js");
 const WorkoutDraft = require("../../../workout-draft.js");
 const ProgramEntry = require("../../../program-entry.js");
 const ProgramEntryAdapter = require("../../../program-entry-adapter.js");
@@ -18,6 +18,7 @@ const ProgramCompiler = require("../../../program-compiler.js");
 const origin = "https://taurifer.example";
 const location = { href: "https://pedrochagasmaster.github.io/repforge/index.html" };
 const now = "2026-09-08T19:00:00.000Z";
+const Transfer=createInstallTransfer({crypto:webcrypto,TextEncoder,TextDecoder,atob,btoa,now:()=>now});
 
 const HASH_PROBE = Object.freeze({
   "10": "ten",
@@ -289,10 +290,10 @@ function serviceFetch({ calls, ip = "198.51.100.77", dropNextCreate = false } = 
     try {
       response = await worker.fetch(request, env);
     } catch (error) {
-      calls.push({ path: parsed.pathname, status: "threw", code: error?.code || error?.name || "error" });
+      calls.push({ url: parsed.href, path: parsed.pathname, status: "threw", code: error?.code || error?.name || "error" });
       throw error;
     }
-    calls.push({ path: parsed.pathname, status: response.status, redirect: init.redirect });
+    calls.push({ url: parsed.href, path: parsed.pathname, status: response.status, redirect: init.redirect });
     if (drop && parsed.pathname === Transfer.ENDPOINTS.create) {
       drop = false;
       await response.arrayBuffer();
@@ -316,10 +317,15 @@ function makeClient({ context, transport, document, outbound, inbound, credentia
 }
 
 function assertNoBearerInUrls(calls) {
+  expect(calls.length > 0, "URL privacy proof requires observed transport requests").toBe(true);
   for (const call of calls) {
-    expect(call.path.startsWith("/v1/transfers")).toBe(true);
-    expect(call.path.includes("?")).toBe(false);
-    expect(call.path.includes("#")).toBe(false);
+    // Inspect the full transport input before Request/HTTP can discard pieces.
+    // Boolean diagnostics avoid printing any deliberately leaked credential.
+    const actual = new URL(call.url);
+    expect(actual.origin === "https://transfer.example", "transport origin is exact").toBe(true);
+    expect(Object.values(Transfer.ENDPOINTS).includes(actual.pathname), "transport endpoint is exact").toBe(true);
+    expect(actual.search === "" && actual.hash === "", "transport URL has no query or fragment").toBe(true);
+    expect(actual.username === "" && actual.password === "", "transport URL has no userinfo").toBe(true);
   }
 }
 
@@ -327,6 +333,19 @@ describe("real client to local HTTP Worker transfer boundary", () => {
   beforeEach(async () => {
     await reset();
     await refreshHealth();
+  });
+
+  it("rejects URL privacy defects before pathname or HTTP strips their evidence", () => {
+    const exact = "https://transfer.example/v1/transfers/claims";
+    assertNoBearerInUrls([{ url: exact }]);
+    expect(() => assertNoBearerInUrls([])).toThrow();
+    for (const url of [
+      `${exact}?token=url-canary`, `${exact}#url-canary`, `${exact}/url-canary`,
+      "https://other.example/v1/transfers/claims",
+      "https://url-canary@transfer.example/v1/transfers/claims",
+    ]) {
+      expect(() => assertNoBearerInUrls([{ url }])).toThrow();
+    }
   });
 
   it("keeps the clone hash oracle independent across key order, Unicode, and array order", () => {

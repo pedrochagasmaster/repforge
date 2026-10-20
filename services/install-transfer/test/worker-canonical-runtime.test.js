@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 import { env } from "cloudflare:workers";
 import { reset } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
-import contract from "../../../install-transfer-contract.js";
+import contract from "../src/contract.js";
 import programEntry from "../../../program-entry.js";
 import definitionFixture from "./fixtures/program-definition-plan067-worker.json" with { type: "json" };
 import worker from "../src/index.js";

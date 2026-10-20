@@ -1,0 +1,1553 @@
+/** @typedef {import("./contracts.js").EditorRow} EditorRow */
+/** @typedef {import("./contracts.js").EditorDocument} EditorDocument */
+/** @typedef {import("./contracts.js").ProgramSlot} ProgramSlot */
+/** @typedef {import("./contracts.js").ProgramSet} ProgramSet */
+/** @typedef {import("./contracts.js").MetricDefinition} MetricDefinition */
+/** @typedef {import("./contracts.js").TargetEdit} TargetEdit */
+/** @typedef {import("./contracts.js").EditorToken} EditorToken */
+/** @typedef {import("./contracts.js").EditorIntent} EditorIntent */
+/** @typedef {import("./contracts.js").EditorReceipt} EditorReceipt */
+/** @typedef {import("./contracts.js").EditorAdapter} EditorAdapter */
+/** @typedef {import("./contracts.js").LibraryEntry} LibraryEntry */
+/** @typedef {import("./contracts.js").PendingFocus} PendingFocus */
+/** @typedef {import("./contracts.js").LiveEdit} LiveEdit */
+/** @typedef {import("./contracts.js").DragRuntime} DragRuntime */
+/** @typedef {import("./contracts.js").DragItem} DragItem */
+/** @typedef {import("./contracts.js").DragOperation} DragOperation */
+/** @typedef {import("./contracts.js").EditorDragEvent} EditorDragEvent */
+/** @typedef {import("./contracts.js").Sorting} Sorting */
+/** Shared mounted editor for private setup documents and installed programs.
+ * The host owns commit semantics. This controller owns DOM/focus/reorder lifetime. */
+import MetricDomain from '../../training/metrics.js';
+import {MAX_SLOT_ALTERNATES} from '../../training/generation.js';
+import {cloneSnapshot as clone,canonicalize} from '../../training/model.js';
+import {createEditorDocumentRules,PROGRAM_EDITOR_INTENTS} from '../../training/authoring.js';
+import {suggestion} from '../../training/authoring.js';
+const {definitionFor,definitionSlot,slotSets,slotAdaptive,pendingSuggestLoads,slotRepSemantic,repRange,uniformRir,suggestLoadsIssues,setSuggestLoads}=suggestion;
+const REP_TARGET_SEMANTICS=new Set(['reps','repsPerSide']);
+const INTENT_SET=new Set(PROGRAM_EDITOR_INTENTS);
+const maxAlternates=()=>MAX_SLOT_ALTERNATES;
+const METRIC_DOMAIN=MetricDomain;
+/** All optional platform services are supplied by composition; importing mounts nothing.
+ * @param {{window:Window & typeof globalThis,nextId:()=>string,motion?:{animateExerciseReorder:(rows:HTMLElement[],before:Map<string,DOMRect>)=>unknown}|null,sorting:{read:()=>DragRuntime|null,available:()=>boolean,load:()=>Promise<unknown>}}} options */
+export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:sortingRuntime}) {
+  const {editProgramName,editRemoveExercise,editReplaceExercise,editAlternates,editMetricTarget:prepareMetricTarget,editMetricComposition:prepareMetricComposition,editSuggestLoadsRir:prepareSuggestLoadsRir,slotLoadMetric,editLoadStep:prepareLoadStep,editExecutionMode:prepareExecutionMode,editPrescriptionField:preparePrescriptionField,editExerciseField,metaDays,labels,exercisesFor,normalizeOrders,structureFor,definitionCycle,definitionSet,setCountFor,editableMetricComposition,ensureStructure,setDayLabel,appendDay,removeDayFromDocument,addExercise,reorder,validation}=createEditorDocumentRules({nextId:uid});
+  /** @type {Record<string,string|((vars:Record<string,string|number>)=>string)>} */
+  const FALLBACK = Object.freeze({
+    programName: "Program name",
+    namePlaceholder: "Untitled program",
+    dayName: "Day name",
+    dayCount: ({ n }) => `${n} exercise${n === 1 ? "" : "s"}`,
+    exercises: ({ n }) => `${n} exercise${n === 1 ? "" : "s"}`,
+    sets: "SETS",
+    setsDecrease: "Decrease sets",
+    setsIncrease: "Increase sets",
+    expandExercise: ({ name }) => `Expand ${name}`,
+    collapseExercise: ({ name }) => `Collapse ${name}`,
+    expandDay: ({ day }) => `Expand ${day}`,
+    collapseDay: ({ day }) => `Collapse ${day}`,
+    repRange: "REP RANGE",
+    min: "MIN",
+    max: "MAX",
+    addExercise: "Add exercise",
+    replaceExercise: "Replace exercise",
+    removeExercise: "Remove exercise",
+    details: "More exercise details",
+    notes: "Setup notes",
+    primary: "Primary",
+    secondary: "Secondary",
+    alternates: "Alternates",
+    alternatesHint: "Offered first when you swap this exercise during a workout.",
+    addAlternate: "Add alternate",
+    alternateUp: ({ name }) => `Move ${name} up`,
+    alternateDown: ({ name }) => `Move ${name} down`,
+    alternateRemove: ({ name }) => `Remove ${name} from alternates`,
+    move: "Reorder exercise",
+    moveUp: "Move up",
+    moveDown: "Move down",
+    moveOther: "Move to another day",
+    dragInstructions: "Press space bar or enter to start reordering this exercise. Use the arrow keys to move it, space bar or enter to drop it, and escape to cancel.",
+    dragPickedUp: ({ name, index, count, day }) => `Picked up ${name}, position ${index} of ${count} in ${day}.`,
+    dragOver: ({ name, index, count, day }) => `${name} is now at position ${index} of ${count} in ${day}.`,
+    dragDropped: ({ name, index, count, day }) => `Dropped ${name} at position ${index} of ${count} in ${day}.`,
+    dragCancelled: ({ name }) => `Reordering cancelled. ${name} stayed where it was.`,
+    moved: "Exercise moved",
+    exerciseAdded: "Exercise added.",
+    exerciseChanged: "Exercise changed.",
+    exerciseRemoved: "Exercise removed.",
+    undo: "Undo",
+    invalid: "Fix the highlighted values before continuing.",
+    dayNameExists: "That day name already exists.",
+    saved: "Draft saved",
+    emptyDays: "Add an exercise to each training day.",
+    more: "More",
+    close: "Close",
+    context: "",
+    metricTargets: "Training targets",
+    metricCycle: ({ n }) => `Cycle ${n}`,
+    metricSet: ({ n }) => `Set ${n}`,
+    metricComposition: "Metric composition",
+    metricUnconfigured: "Not configured",
+    metricTargetAria: ({ cycle, set, metric }) => `${cycle}, ${set}, ${metric}`,
+    metricTargetMinAria: ({ cycle, set, metric }) => `${cycle}, ${set}, ${metric} minimum`,
+    metricTargetMaxAria: ({ cycle, set, metric }) => `${cycle}, ${set}, ${metric} maximum`,
+    metricRir: "Target RIR",
+    loadStep: "Smallest load change",
+    loadStepHint: "Suggested loads move in steps of this size.",
+    suggestLoads: "Suggest loads",
+    suggestLoadsRange: ({ min, max }) => `Current rep target · ${min}–${max}`,
+    suggestLoadsCustom: "Custom exercises use the targets you set.",
+    suggestLoadsUnsupported: "Taurifer doesn't suggest loads for timed or distance work.",
+    executionModeQuestion: "How do you do this exercise?",
+    executionModeBilateral: "Both sides together",
+    executionModeUnilateral: "One side at a time",
+    metricRestSeconds: "Rest between sets (seconds)",
+    prescriptionFieldAria: ({ cycle, set, field }) => `${cycle}, ${set}, ${field}`,
+  });
+  /** @type {Readonly<Record<string,string>>} */
+  const I18N_KEYS = Object.freeze({
+    programName: "program.editor.program_name", namePlaceholder: "program.editor.name_placeholder",
+    dayName: "program.editor.day_name", dayCount: "program.editor.day_count", exercises: "program.editor.day_count",
+    sets: "program.editor.sets", setsDecrease: "program.editor.sets_decrease", setsIncrease: "program.editor.sets_increase",
+    expandExercise: "program.editor.expand_exercise", collapseExercise: "program.editor.collapse_exercise",
+    expandDay: "program.day.expand", collapseDay: "program.day.collapse", repRange: "program.editor.rep_range", min: "program.editor.min", max: "program.editor.max",
+    addExercise: "program.editor.add_exercise", replaceExercise: "program.editor.replace_exercise",
+    removeExercise: "program.editor.remove_exercise", removeDay: "program.editor.remove_day",
+    details: "program.editor.details", notes: "program.editor.notes", primary: "program.editor.primary",
+    secondary: "program.editor.secondary",
+    alternates: "program.editor.alternates", alternatesHint: "program.editor.alternates_hint",
+    addAlternate: "program.editor.add_alternate", alternateUp: "program.editor.alternate_up",
+    alternateDown: "program.editor.alternate_down", alternateRemove: "program.editor.alternate_remove",
+    move: "program.editor.move", moveUp: "program.editor.move_up", moveDown: "program.editor.move_down",
+    moveOther: "program.editor.move_other", moved: "program.editor.moved", undo: "program.editor.undo",
+    exerciseAdded: "toast.exercise_added", exerciseChanged: "toast.exercise_changed", exerciseRemoved: "toast.exercise_removed",
+    dragInstructions: "program.editor.drag.instructions", dragPickedUp: "program.editor.drag.picked_up",
+    dragOver: "program.editor.drag.over", dragDropped: "program.editor.drag.dropped",
+    dragCancelled: "program.editor.drag.cancelled",
+    invalid: "program.editor.invalid", dayNameExists: "toast.day_name_exists", saved: "program.editor.draft_saved", emptyDays: "program.editor.empty_days",
+    more: "program.editor.more", close: "dialog.close",
+    metricTargets: "program.editor.metric_targets", metricCycle: "program.editor.metric_cycle",
+    metricSet: "program.editor.metric_set", metricComposition: "program.editor.metric_composition",
+    metricUnconfigured: "program.editor.metric_unconfigured", metricTargetAria: "program.editor.metric_target_aria",
+    metricTargetMinAria: "program.editor.metric_target_min_aria", metricTargetMaxAria: "program.editor.metric_target_max_aria",
+    metricRir: "program.editor.metric_rir", loadStep: "program.editor.load_step", loadStepHint: "program.editor.load_step_hint", metricRestSeconds: "program.editor.metric_rest_seconds",
+    suggestLoads: "program.editor.suggest_loads", suggestLoadsRange: "program.editor.suggest_loads_range",
+    suggestLoadsCustom: "program.editor.suggest_loads_custom", suggestLoadsUnsupported: "program.editor.suggest_loads_unsupported",
+    executionModeQuestion: "entry.review.execution_mode.question", executionModeBilateral: "entry.review.execution_mode.bilateral",
+    executionModeUnilateral: "entry.review.execution_mode.unilateral",
+    prescriptionFieldAria: "program.editor.prescription_field_aria",
+  });
+
+  /** @param {unknown} value @param {PropertyKey} key */
+  const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value || {}, key);
+  /** @param {unknown} value */
+  const esc = value => String(value ?? "")
+    .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+  /** @param {unknown} value */
+  const number = value => {const n=Number(value);return Number.isFinite(n)?n:0};
+  /** @param {unknown} value @param {number} fallback */
+  const positiveInt = (value,fallback) => {const n=Math.round(number(value));return n>0?n:fallback};
+  /** @param {unknown} a @param {unknown} b */
+  const equal=(a,b)=>JSON.stringify(canonicalize(a))===JSON.stringify(canonicalize(b));
+  /** @param {unknown} value */
+  const cssEscape = value => {
+    try { return root.CSS?.escape ? root.CSS.escape(String(value)) : String(value).replace(/[^a-zA-Z0-9_-]/g, "\\$&"); }
+    catch { return String(value).replace(/[^a-zA-Z0-9_-]/g, "\\$&"); }
+  };
+
+  /** @param {EditorAdapter} adapter @param {string} key @param {Record<string,string|number>} [vars] @param {string|((vars:Record<string,string|number>)=>string)} [fallback] */
+  function t(adapter, key, vars, fallback) {
+    try {
+      const translated = adapter?.t?.(key, vars);
+      if (translated && translated !== key) return translated;
+    } catch { /* A host without i18n still gets a usable editor. */ }
+    const value = fallback ?? FALLBACK[key];
+    return typeof value === "function" ? value(vars || {}) : value ?? key;
+  }
+  /** @param {EditorAdapter} adapter @param {unknown} value */
+  function format(adapter, value) {
+    try { return adapter?.formatNumber ? adapter.formatNumber(value) : String(value); }
+    catch { return String(value); }
+  }
+  /** @param {EditorAdapter} adapter */
+  function reducedMotion(adapter) {
+    try { return !!adapter?.reducedMotion?.() || !!root?.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches; }
+    catch { return false; }
+  }
+
+  /** @param {EditorAdapter} adapter @param {EditorDocument} document @param {string} day @param {number} index */
+  function dayDisplay(adapter, document, day, index) {
+    // Staged renames live in the editor document until the host applies them.
+    // Prefer that value over the host's live resolver so a redraw cannot make
+    // an in-progress rename appear to have been lost.
+    const stored = structureFor(document, day);
+    if (typeof stored?.nameOverride === "string" && stored.nameOverride.trim())
+      return stored.nameOverride.trim();
+    try {
+      const value = adapter?.dayLabel?.(day, index, stored);
+      if (value) return value;
+    } catch { /* fall through to the stored label */ }
+    return String(day || `Day ${index + 1}`);
+  }
+  /** @param {EditorAdapter} adapter @param {EditorRow} exercise */
+  function exerciseName(adapter, exercise) {
+    try {
+      const value = adapter?.exerciseLabel?.(exercise);
+      if (value) return value;
+    } catch { /* stored name is authoritative for the editor */ }
+    return String(exercise?.name || "Exercise");
+  }
+  /* The read-only label for an exercise (aria-labels, drag announcements): the host may
+     localise a stored library name for display. The editable name field keeps the stored text. */
+  /** @param {EditorAdapter} adapter @param {EditorRow} exercise */
+  function exerciseDisplayLabel(adapter, exercise) {
+    try {
+      const value = adapter?.exerciseDisplayLabel?.(exercise);
+      if (value) return value;
+    } catch { /* fall back to the stored name */ }
+    return exerciseName(adapter, exercise);
+  }
+  /** @param {EditorAdapter} adapter @param {string} id */
+  function exerciseEntry(adapter, id) {
+    try { return adapter?.exerciseEntry?.(id) || null; } catch { return null; }
+  }
+  /** @param {EditorAdapter} adapter @param {string} id */
+  function movementLabel(adapter, id) {
+    try {
+      const value = adapter?.movementLabel?.(id);
+      if (value) return String(value);
+    } catch { /* fall back to the library entry's own name */ }
+    return String(exerciseEntry(adapter, id)?.name || id);
+  }
+  /** @param {EditorAdapter} adapter @param {Pick<EditorRow,"metricDefinitions"|"libraryId"|"exerciseId">} exercise */
+  function exerciseMetricDefinitions(adapter, exercise) {
+    if (Array.isArray(exercise?.metricDefinitions)) return clone(exercise.metricDefinitions);
+    try {
+      const supplied = adapter?.metricDefinitionsForExercise?.(exercise?.libraryId || exercise?.exerciseId);
+      if (Array.isArray(supplied)) return clone(supplied);
+    } catch { /* the stored canonical definitions remain available */ }
+    return [];
+  }
+  /** @param {EditorAdapter} adapter */
+  function metricOptions(adapter) {
+    try {
+      const supplied = adapter?.metricOptions?.();
+      if (Array.isArray(supplied)) return supplied;
+    } catch { /* use the shared metric domain */ }
+    return METRIC_DOMAIN?.DEFINITIONS || [];
+  }
+  /** @param {EditorAdapter} adapter */
+  function metricCompositions(adapter) {
+    try {
+      const supplied = adapter?.metricCompositions?.();
+      if (Array.isArray(supplied)) return supplied;
+    } catch { /* use the shared metric domain */ }
+    return METRIC_DOMAIN?.SOURCE_COMPOSITIONS || [];
+  }
+  /** @param {EditorAdapter} adapter @param {MetricDefinition} definition */
+  function metricLabel(adapter, definition) {
+    try {
+      const supplied = adapter?.metricLabel?.(definition);
+      if (supplied) return supplied;
+    } catch { /* canonical source name is still useful */ }
+    return String(definition?.sourceName || definition?.semantic || "Metric");
+  }
+  /** @param {EditorAdapter} adapter @param {MetricDefinition} definition */
+  function metricDisplayUnit(adapter, definition) {
+    try { return String(adapter?.metricDisplayUnit?.(definition) || ""); }
+    catch { return ""; }
+  }
+  /** @param {EditorAdapter} adapter @param {MetricDefinition} definition @param {import("../../training/authoring.js").Target|null|undefined} value */
+  function formatMetricValue(adapter, definition, value) {
+    try {
+      const supplied = adapter?.formatMetricValue?.(definition, value);
+      if (supplied !== undefined && supplied !== null) return String(supplied);
+    } catch { /* canonical value remains editable */ }
+    return format(adapter, value);
+  }
+  /** @param {EditorAdapter} adapter @param {MetricDefinition} definition @param {string} raw */
+  function parseMetricInput(adapter, definition, raw) {
+    try {
+      const supplied = adapter?.parseMetricInput?.(definition, raw);
+      if (supplied && typeof supplied === "object") return supplied;
+    } catch { /* fall through to the shared numeric validator */ }
+    const parsed = METRIC_DOMAIN?.parseMetricValue?.(definition, raw);
+    return parsed?.ok ? { value: parsed.value } : { field: "metric" };
+  }
+  /** @param {EditorAdapter} adapter @param {EditorDocument} document */
+  function metricCycleIndex(adapter, document) {
+    try {
+      const value = Number(adapter?.cycleIndex?.(document));
+      if (Number.isInteger(value) && value > 0) return value;
+    } catch { /* cycle one is the safe editing default */ }
+    return 1;
+  }
+  /** @param {HTMLElement} host @param {EditorAdapter} adapter */
+  function mountProgramEditor(host, adapter) {
+    if (!host || !adapter || typeof adapter.read !== "function" || typeof adapter.commit !== "function")
+      throw new TypeError("mountProgramEditor(host, adapter) requires read and commit");
+    const initial = adapter.read();
+    let document = clone(initial.document);
+    let token = clone(initial.token);
+    // Older snapshots may not have a structure section yet. Materialize it
+    // before taking the baseline; otherwise mounting an untouched editor would
+    // incorrectly make the document dirty.
+    ensureStructure(document);
+    let baseDocument = clone(document);
+    /** @type {EditorIntent[]} */
+    let edits = [];
+    let expandedExercises = new Set();
+    let expandedMetricCycles = new Set();
+    let initializedMetricCycleSlots = new Set();
+    let collapsedDays = new Set();
+    let collapsedDaysInitialized = false;
+    let destroyed = false;
+    /** @type {{before:EditorDocument,id:string,sourceDay:string,sourceIndex:number,targetDay:string,targetIndex:number}|null} */
+    let undoMove = null;
+    let reorderMode = false;
+    /** @type {string|null} */
+    let settleMoveId = null;
+    /** @type {ReturnType<typeof setTimeout>|null} */
+    let settleTimer = null;
+    /** @type {PendingFocus|null} */
+    let pendingFocus = null;
+    let renderQueued = false;
+    /** @type {ReturnType<typeof setTimeout>|null} */
+    let statusTimer = null;
+
+    host.classList.add("program-editor-host");
+    host.dataset.editorMounted = "true";
+    host.dataset.editorRole = "program-editor";
+
+    const rootElement = () => host;
+    /** @param {string} key @param {Record<string,string|number>} [vars] @param {string} [fallback] */
+    const label = (key, vars, fallback) => t(adapter, I18N_KEYS[key] || key, vars, fallback ?? FALLBACK[key]);
+    /** @param {string} message @param {{error?:boolean,undo?:boolean}} [options] */
+    const setStatus = (message, { error = false, undo = false } = {}) => {
+      if(destroyed)return;
+      const status = /** @type {HTMLElement|null} */ (host.querySelector('[data-role="editor-status"]'));
+      if (!status) return;
+      status.classList.toggle("is-error", error);
+      status.innerHTML = message
+        ? `${esc(message)}${undo ? ` <button type="button" class="program-editor__undo" data-role="undo-move">${esc(label("undo"))}</button>` : ""}`
+        : "";
+      // The status line is written outside the render, so the undo it offers has
+      // to be wired here. Waiting for the next render to bind it left the
+      // control live only if something else happened to redraw the editor.
+      /** @type {HTMLElement|null} */ (status.querySelector('[data-role="undo-move"]'))?.addEventListener("click", undoLastMove);
+      status.hidden = !message;
+      if (statusTimer) clearTimeout(statusTimer);
+      if (message && !undo) statusTimer = setTimeout(() => { if (status.isConnected) status.hidden = true; }, 2600);
+    };
+    const context = () => {
+      try { return adapter.context?.(document) || ""; } catch { return ""; }
+    };
+    /** @param {string} day @param {number} index */
+    const titleFor = (day, index) => dayDisplay(adapter, document, day, index);
+    const changed = () => !equal(document, baseDocument);
+    // Browser Back need not blur a name field before the host asks to leave.
+    const pendingNameEdit = () => [.../** @type {NodeListOf<HTMLInputElement>} */ (host.querySelectorAll('[data-role="program-name"], [data-role="day-name"]'))]
+      .some(input => input.value.trim() !== input.defaultValue.trim());
+    /** @param {string} kind @param {Record<string,unknown>} [detail] */
+    const intent = (kind, detail = {}) => {
+      if (!INTENT_SET.has(kind)) throw new TypeError(`Unknown program editor intent: ${kind}`);
+      return Object.freeze({ kind, ...clone(detail) });
+    };
+    const scheduleRender = () => {
+      if (renderQueued || destroyed) return;
+      renderQueued = true;
+      Promise.resolve().then(() => { renderQueued = false; if (!destroyed) render(); });
+    };
+    /** @param {EditorDocument} next @param {EditorIntent} edit @param {{redraw?:boolean}} [options] @returns {Promise<EditorReceipt>} */
+    const stage = (next, edit, { redraw = true } = {}) => {
+      if(destroyed)return Promise.resolve({ok:false,disposed:true});
+      // The host's returned document redraws the list a second time; the focus
+      // the caller asked for has to land on that final DOM, not the first one.
+      const focusRequest = pendingFocus;
+      document = clone(next); normalizeOrders(document);
+      edits.push(intent(edit.kind, edit));
+      if (redraw) scheduleRender();
+      let result;
+      try {
+        result = adapter.commit({ expectedToken: clone(token), nextDocument: clone(document), intent: intent(edit.kind, edit) });
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : label("invalid"), { error: true });
+        return Promise.resolve({ ok: false, error });
+      }
+      return Promise.resolve(result).then(value => {
+        if(destroyed)return value;
+        const returnedDocument = value?.document;
+        if (value?.ok !== false && returnedDocument?.program && returnedDocument?.programMeta) {
+          document = clone(returnedDocument);
+          ensureStructure(document);
+          if (redraw) {
+            if (!pendingFocus && focusRequest) pendingFocus = focusRequest;
+            scheduleRender();
+          }
+        }
+        if (value?.token !== undefined && value?.staged !== false) token = clone(value.token);
+        if (value?.ok === false || value?.localOk === false && value?.staged !== true && value?.setupDraft !== true) {
+          setStatus(value?.message || label("invalid"), { error: true });
+        }
+        return value;
+      }, error => { setStatus(error instanceof Error ? error.message : label("invalid"), { error: true }); return { ok: false, error }; });
+    };
+    /** @param {string} id @param {string} field @param {unknown} value @param {{redraw?:boolean,cycleIndex?:number}} [options] */
+    const setExerciseField = (id, field, value, {redraw=true,cycleIndex}={})=>{
+      const result=editExerciseField(document,{id,field,value,cycleIndex:cycleIndex||metricCycleIndex(adapter,document)});
+      return result.document&&result.edit?stage(result.document,result.edit,{redraw}):Promise.resolve(result);
+    };
+    /** @param {string} id */
+    const toggleExercise = id => { expandedExercises.has(id) ? expandedExercises.delete(id) : expandedExercises.add(id); scheduleRender(); };
+    /** @param {string} day */
+    const toggleDay = day => { collapsedDays.has(day) ? collapsedDays.delete(day) : collapsedDays.add(day); scheduleRender(); };
+    /** @param {import("./contracts.js").PickRequest} request */
+    const chooseExercise = request => {
+      if(destroyed)return Promise.resolve(null);
+      try { return Promise.resolve(adapter.chooseExercise?.(request)).then(choice=>destroyed?null:choice); }
+      catch (error) { setStatus(error instanceof Error ? error.message : label("invalid"), { error: true }); return Promise.resolve(null); }
+    };
+    /* A commit that rebuilds the list leaves nothing focused: the row that changed (or, after a remove, the day's
+       Add control) takes focus once the rebuild has drawn, and the change is announced once through the host. */
+    /** @param {string} key */
+    const announceChange = key => { if(destroyed)return;try { adapter.announce?.(label(key), { change: true }); } catch { /* the focus move still says it */ } };
+    const applyPendingFocus = () => {
+      const want = pendingFocus; pendingFocus = null;
+      if (!want) return;
+      /** @param {string} selector */
+    const find = selector => {const element=host.querySelector(selector);return element instanceof root.HTMLElement?element:null};
+      const target = want.selector ? find(want.selector) : want.id
+        ? (want.roles || ["toggle-exercise"]).map(role => find(`[data-role="${role}"][data-id="${cssEscape(want.id)}"]`)).find(Boolean)
+        : find(`[data-role="add-exercise"][data-day="${cssEscape(want.day)}"]`);
+      try { target?.focus(); } catch { /* a control that cannot take focus is left alone */ }
+    };
+    // The picker that returned the choice is still open when the list redraws, and everything behind it is inert:
+    // the host says when it has closed, and focus lands then.
+    const schedulePendingFocus = () => {
+      if (!pendingFocus) return;
+      const run = () => { if (!destroyed) applyPendingFocus(); };
+      if (typeof adapter.afterModal === "function") adapter.afterModal(run); else run();
+    };
+    /** @param {string} day */
+    const addForDay = day => chooseExercise({ mode: "add", day, exclude: exercisesFor(document, day).map(item => item.libraryId).filter(Boolean) }).then(entry => {
+      if (!entry||'entry' in entry) return null;
+      const next = clone(document), exercise = addExercise(next, day, entry);
+      collapsedDays.delete(day); expandedExercises.add(exercise.id);
+      pendingFocus = { id: exercise.id };
+      return stage(next, { kind: "exercise_add", targetDay: day, targetId: exercise.id, libraryId: entry.id, exercise: exercise }).then(value => {
+        if (value?.ok !== false) announceChange("exerciseAdded");
+        return value;
+      });
+    });
+    /** @param {string} id @param {{repair?:boolean}} [options] */
+    const replaceForExercise = (id, { repair = false } = {}) => {
+      const current = document.program?.find(item => item.id === id);
+      if (!current) return Promise.resolve(null);
+      return chooseExercise({ mode: "replace", day: current.day, exercise: clone(current), repair, exclude: exercisesFor(document, current.day).filter(item => item.id !== id).map(item => item.libraryId).filter(Boolean) }).then(choice => {
+        if (!choice) return null;
+        const handoff = 'entry' in choice ? choice : { entry: choice, stagedCustomDefinition: null };
+        const entry = handoff.entry;
+        if (!entry) return null;
+        const prepared=editReplaceExercise(document,{id,entry,customExercise:handoff.stagedCustomDefinition});
+        if(!prepared.ok||!prepared.document||!prepared.edit)return null;
+        pendingFocus = { id, roles: ["replace", "toggle-exercise"] };
+        return stage(prepared.document,prepared.edit).then(value => {
+          if (value?.ok !== false) announceChange("exerciseChanged");
+          return value;
+        });
+      });
+    };
+    /** @param {string} id */
+    const removeExercise = id => {
+      const exercise = document.program?.find(item => item.id === id);
+      if (!exercise) return Promise.resolve(null);
+      const prepared=editRemoveExercise(document,id);
+      if(!prepared.ok||!prepared.document||!prepared.edit)return Promise.resolve(null);
+      pendingFocus = { day: exercise.day };
+      return stage(prepared.document,prepared.edit).then(value => {
+        if (value?.ok !== false) announceChange("exerciseRemoved");
+        return value;
+      });
+    };
+    /* A slot's alternates live on its canonical slot, so only a definition-backed
+       exercise offers them. The list is replaced whole: before/after let the host
+       rebase it onto a head another tab has moved on. */
+    /** @param {string} id @param {string[]} alternates @param {PendingFocus} focus */
+    const setAlternates = (id, alternates, focus) => {
+      const prepared=editAlternates(document,{id,after:alternates});
+      if(!prepared.ok||prepared.unchanged||!prepared.document||!prepared.edit)return Promise.resolve(prepared);
+      pendingFocus = focus;
+      return stage(prepared.document,prepared.edit);
+    };
+    /** @param {string} id */
+    const addAlternate = id => {
+      const exercise = document.program?.find(item => item.id === id), slot = definitionSlot(document, exercise?.slotId || exercise?.id || '');
+      if (!exercise || !slot || (slot.alternates || []).length >= maxAlternates()) return Promise.resolve(null);
+      return chooseExercise({ mode: "alternate", day: exercise.day, exercise: clone(exercise),
+        exclude: [slot.exerciseId, ...(slot.alternates || [])] }).then(choice => {
+        const entry = choice && 'entry' in choice ? choice.entry : choice;
+        if (!entry?.id) return null;
+        const current = definitionSlot(document, slot.id)?.alternates || [];
+        return setAlternates(id, [...current, entry.id], { selector: `[data-role="alternate-remove"][data-id="${cssEscape(id)}"][data-exercise-id="${cssEscape(entry.id)}"]` });
+      });
+    };
+    /** @param {string} id @param {string} exerciseId @param {string} role */
+    const editAlternate = (id, exerciseId, role) => {
+      const exercise = document.program?.find(item => item.id === id), slot = definitionSlot(document, exercise?.slotId || exercise?.id || '');
+      const list = clone(slot?.alternates || []), index = list.indexOf(exerciseId);
+      if (index < 0) return Promise.resolve(null);
+      if (role === "alternate-remove") {
+        list.splice(index, 1);
+        const neighbour = list[Math.min(index, list.length - 1)];
+        return setAlternates(id, list, { selector: neighbour
+          ? `[data-role="alternate-remove"][data-id="${cssEscape(id)}"][data-exercise-id="${cssEscape(neighbour)}"]`
+          : `[data-role="add-alternate"][data-id="${cssEscape(id)}"]` });
+      }
+      const to = index + (role === "alternate-up" ? -1 : 1);
+      if (to < 0 || to >= list.length) return Promise.resolve(null);
+      list.splice(to, 0, list.splice(index, 1)[0]);
+      // Focus stays on the control that moved, or on its opposite once the row hits an end.
+      const edge = to === 0 || to === list.length - 1;
+      const keep = edge ? (role === "alternate-up" ? "alternate-down" : "alternate-up") : role;
+      return setAlternates(id, list, { selector: `[data-role="${keep}"][data-id="${cssEscape(id)}"][data-exercise-id="${cssEscape(exerciseId)}"]` });
+    };
+    /** @param {string} oldDay @param {string} value */
+    const renameDay = (oldDay, value) => {
+      const next = clone(document), wanted = String(value || "").trim();
+      // Another day can store a different name yet show this one (a translated generated name).
+      const shown = labels(document).some((day, index) => day !== oldDay && dayDisplay(adapter, document, day, index) === wanted);
+      if (!wanted || wanted === oldDay) return Promise.resolve({ ok: false, refused: true });
+      if (shown || !setDayLabel(next, oldDay, value)) return Promise.resolve({ ok: false, refused: true, duplicate: true });
+      if (collapsedDays.delete(oldDay)) collapsedDays.add(String(value).trim());
+      return stage(next, { kind: "day_name", targetDay: oldDay, before: oldDay, after: String(value).trim() });
+    };
+    /** @param {string} day */
+    const removeDay = day => {
+      const next = clone(document); removeDayFromDocument(next, day);
+      return stage(next, { kind: "day_remove", targetDay: day });
+    };
+    /** @param {string} id @param {string} toDay @param {number} toIndex @param {{announce?:boolean,settle?:boolean}} [options] */
+    const moveExercise = (id, toDay, toIndex, { announce = true, settle = true } = {}) => {
+      const before = clone(document), exercise = before.program?.find(item => item.id === id);
+      if (!exercise) return Promise.resolve({ ok: false });
+      const sourceDay = exercise.day, sourceIndex = exercisesFor(before, sourceDay).findIndex(item => item.id === id);
+      const next = clone(before);
+      if (!reorder(next, id, toDay, toIndex)) return Promise.resolve({ ok: false, cancelled: true });
+      undoMove = { before, id, sourceDay, sourceIndex, targetDay: toDay, targetIndex: toIndex };
+      const beforeRects = new Map([.../** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="exercise"][data-id]'))]
+        .map(row => [(row.dataset.id||''), row.getBoundingClientRect()]));
+      settleMoveId = id;
+      const result = stage(next, { kind: "exercise_move", targetId: id, sourceDay, sourceIndex, targetDay: toDay, targetIndex: toIndex });
+      Promise.resolve(result).then(value => {
+        if(destroyed)return;
+        if (value?.ok === false && value?.staged !== true && value?.setupDraft !== true) {
+          settleMoveId = null;
+          return;
+        }
+        if (settleTimer) clearTimeout(settleTimer);
+        settleTimer = setTimeout(() => { settleMoveId = null; }, 220);
+        // A drag has already been animated by the drag library, row for row.
+        // Only a move with no gesture behind it — Move up, Move down, Move to
+        // another day, Undo — has a jump left to cover.
+        if (!settle || reducedMotion(adapter)) return;
+        const frame = root.requestAnimationFrame || (callback => setTimeout(callback, 0));
+        frame(() => {
+          if(destroyed)return;
+          const rows = [.../** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="exercise"][data-id]'))];
+          // A spring per row, retargeted rather than restarted. Nudging a row up
+          // three times used to replay one keyframe from zero on each tap, so the
+          // second and third moves flickered; a spring picks each row up from
+          // wherever it currently is, at whatever speed it is already moving.
+          if (motion?.animateExerciseReorder(rows, beforeRects)) return;
+          for (const row of rows) {
+            const beforeRect = beforeRects.get((row.dataset.id||''));
+            if (!beforeRect) continue;
+            const delta = beforeRect.top - row.getBoundingClientRect().top;
+            if (Math.abs(delta) < 1) continue;
+            row.style.setProperty("--program-editor-flip-y", `${delta}px`);
+            row.classList.remove("is-reordered");
+            void row.offsetWidth;
+            row.classList.add("is-reordered");
+            row.addEventListener("animationend", () => {
+              row.classList.remove("is-reordered");
+              row.style.removeProperty("--program-editor-flip-y");
+            }, { once: true });
+          }
+        });
+      });
+      if (announce) result.then(value => {
+        if(destroyed)return;
+        if (value?.ok !== false && (value?.localOk !== false || value?.staged === true || value?.setupDraft === true)) {
+          setStatus(label("moved"), { undo: true });
+          try { adapter.announce?.(`${label("moved")} · ${label("undo")}`, { undo: () => undoLastMove() }); } catch { /* inline undo remains */ }
+        }
+      });
+      return result;
+    };
+    const undoLastMove = () => {
+      if (!undoMove) return Promise.resolve({ ok: false });
+      const previous = undoMove.before, move = undoMove;
+      undoMove = null;
+      return stage(previous, { kind: "exercise_move", targetId: move.id, sourceDay: move.targetDay, sourceIndex: move.targetIndex, targetDay: move.sourceDay, targetIndex: move.sourceIndex }).then(result => {
+        if (result?.ok !== false) setStatus("");
+        return result;
+      });
+    };
+    const apply = ({ kind = "apply" } = {}) => {
+      if(destroyed)return Promise.resolve({ok:false,disposed:true});
+      if (!INTENT_SET.has(kind) || (kind !== "apply" && kind !== "apply_discard_workout"))
+        return Promise.resolve({ ok: false, invalidIntent: true });
+      if (!edits.length && !changed()) return Promise.resolve({ ok: true, unchanged: true, document: clone(document), token: clone(token) });
+      const issues = validation(document);
+      if (issues.length) {
+        setStatus(label("invalid"), { error: true });
+        return Promise.resolve({ ok: false, invalid: true, issues });
+      }
+      const optIn = checkSuggestLoads();
+      if (!optIn.ok) return Promise.resolve(optIn);
+      const result = adapter.commit({ expectedToken: clone(token), nextDocument: clone(document), intent: intent(kind, { edits: clone(edits) }) });
+      return Promise.resolve(result).then(value => {
+        if(destroyed)return;
+        if (value?.ok === false || value?.conflict || value?.staleRevision) return value;
+        baseDocument = clone(document); edits = []; undoMove = null;
+        if (value?.token !== undefined) token = clone(value.token);
+        return value;
+      });
+    };
+    const discard = () => {
+      const latest = adapter.read();
+      document = clone(latest.document); token = clone(latest.token);
+      baseDocument = clone(document); edits = []; undoMove = null; expandedExercises.clear(); expandedMetricCycles.clear(); initializedMetricCycleSlots.clear(); collapsedDays.clear(); collapsedDaysInitialized = false;
+      scheduleRender();
+      return document;
+    };
+    const refresh = () => {
+      const latest = adapter.read();
+      const latestDocument = clone(latest.document);
+      if (!edits.length && !changed()) {
+        document = latestDocument; token = clone(latest.token); baseDocument = clone(document); scheduleRender();
+        return { refreshed: true, dirty: false };
+      }
+      if (!equal(latestDocument, baseDocument)) {
+        setStatus(label("invalid"), { error: true });
+        host.dataset.editorConflict = "true";
+        return { refreshed: false, dirty: true, conflict: true };
+      }
+      return { refreshed: false, dirty: true };
+    };
+
+    /** @param {EditorRow} exercise */
+    function summary(exercise) {
+      const cycleIndex = metricCycleIndex(adapter, document);
+      const sets = format(adapter, setCountFor(document, exercise, cycleIndex));
+      const slot = definitionSlot(document, exercise.slotId || exercise.id);
+      if (!slot) {
+        const min = format(adapter, exercise.min), max = format(adapter, exercise.max);
+        return `${sets} × ${min}${min === max ? "" : `–${max}`}`;
+      }
+      const definitions = exerciseMetricDefinitions(adapter, slot);
+      const repetition = definitions.find(metric => metric.semantic === "reps" || metric.semantic === "repsPerSide");
+      if (!repetition) return `${sets} ${label("sets").toLocaleLowerCase()}`;
+      const cycle = definitionCycle(slot, cycleIndex);
+      const targets = (cycle?.sets || []).map(set => set.targets?.[repetition.semantic]);
+      if (!targets.length || targets.some(target => target == null) || targets.some(target => !equal(target, targets[0])))
+        return `${sets} ${label("sets").toLocaleLowerCase()}`;
+      const target = formatMetricValue(adapter, repetition, targets[0]);
+      return `${sets} × ${target} ${metricLabel(adapter, repetition).toLocaleLowerCase()}`;
+    }
+    /** @param {string} id */
+    function updateExerciseSummary(id) {
+      const exercise = document.program?.find(item => item.id === id);
+      const node = /** @type {HTMLElement|null} */ (host.querySelector(`[data-role="exercise"][data-id="${cssEscape(id)}"] [data-role="exercise-summary"]`));
+      if (exercise && node) node.textContent = summary(exercise);
+    }
+    /** @param {number} count */
+    function dayCount(count) {
+      const value = adapter?.dayCount ? adapter.dayCount(count) : label("dayCount", { n: count, word: count === 1 ? "exercise" : "exercises" });
+      return value;
+    }
+    /** @param {EditorRow} exercise @param {ProgramSlot} slot @param {{cycleIndex:number}} cycle @param {ProgramSet} set @param {MetricDefinition} definition @param {import("../../training/authoring.js").Target|null|undefined} target */
+    function metricInputMarkup(exercise, slot, cycle, set, definition, target) {
+      const slotId = slot.id, cycleIndex = cycle.cycleIndex, setIndex = set.setIndex;
+      const labelValue = metricLabel(adapter, definition), unit = metricDisplayUnit(adapter, definition);
+      const reps = definition.semantic === "reps" || definition.semantic === "repsPerSide";
+      const range = reps || !!target && typeof target === "object" && Number.isFinite(target.min) && Number.isFinite(target.max);
+      const rangeMin = target && typeof target === "object" ? target.min : target;
+      const rangeMax = target && typeof target === "object" ? target.max : target;
+      /** @param {string} bound @param {number|null|undefined} value @param {string} labelKey */
+    const input = (bound, value, labelKey) => `<label class="program-editor__metric-field"><span>${esc(labelValue)}${unit ? ` <small>${esc(unit)}</small>` : ""}</span><input type="text" inputmode="${reps ? "numeric" : "decimal"}" autocomplete="off" data-role="metric-target" data-id="${esc(exercise.id)}" data-slot-id="${esc(slotId)}" data-cycle-index="${cycleIndex}" data-set-index="${setIndex}" data-metric-id="${esc(definition.id)}" data-semantic="${esc(definition.semantic)}" data-bound="${bound}" value="${value == null ? "" : esc(formatMetricValue(adapter, definition, value))}" aria-label="${esc(label(labelKey, { cycle: label("metricCycle", { n: cycleIndex }), set: label("metricSet", { n: setIndex }), metric: labelValue }))}"></label>`;
+      if (range) return `<fieldset class="program-editor__metric-range"><legend>${esc(labelValue)}${unit ? ` (${esc(unit)})` : ""}</legend>${input("min", rangeMin, "metricTargetMinAria")}${input("max", rangeMax, "metricTargetMaxAria")}</fieldset>`;
+      return input("value", typeof target==='number'?target:null, "metricTargetAria");
+    }
+    /** @param {readonly string[]} metricIds @param {readonly MetricDefinition[]} options */
+    function compositionText(metricIds, options) {
+      const byId = new Map(options.map(definition => [definition.id, definition]));
+      return metricIds.map(id => byId.get(id)).filter(definition=>definition!==undefined).map(definition => metricLabel(adapter, definition)).join(" + ");
+    }
+    /** @param {EditorRow} exercise @param {ProgramSlot} slot @param {{cycleIndex:number}} cycle @param {ProgramSet} set @param {"rir"|"restSeconds"} field */
+    function prescriptionFieldMarkup(exercise, slot, cycle, set, field) {
+      const rir = field === "rir", fieldLabel = label(rir ? "metricRir" : "metricRestSeconds");
+      const unit = rir ? "" : "s", value = set[field];
+      const cycleTitle = label("metricCycle", { n: cycle.cycleIndex }), setTitle = label("metricSet", { n: set.setIndex });
+      return `<label class="program-editor__metric-field program-editor__prescription-field"><span>${esc(fieldLabel)}${unit ? ` <small>${esc(unit)}</small>` : ""}</span><input type="number" inputmode="decimal" min="0" max="${rir ? "6" : "86400"}" step="${rir ? "any" : "1"}" data-role="prescription-field" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}" data-cycle-index="${cycle.cycleIndex}" data-set-index="${set.setIndex}" data-field="${field}" value="${value == null ? "" : esc(String(value))}" aria-label="${esc(label("prescriptionFieldAria", { cycle: cycleTitle, set: setTitle, field: fieldLabel }))}"></label>`;
+    }
+    /** @param {EditorRow} exercise @param {ProgramSlot} slot */
+    function renderMetricComposition(exercise, slot) {
+      const currentIds = Array.isArray(slot.metricIds) ? slot.metricIds : [];
+      const options = metricOptions(adapter);
+      if (!editableMetricComposition(slot)) {
+        return `<p class="program-editor__metric-composition" data-role="metric-composition-summary"><span>${esc(label("metricComposition"))}</span> ${esc(compositionText(currentIds, options))}</p>`;
+      }
+      const choices = [], seen = new Set();
+      for (const candidate of metricCompositions(adapter)) {
+        if (!Array.isArray(candidate)) continue;
+        const ids = candidate.map(String);
+        const key = JSON.stringify(ids);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        choices.push(ids);
+      }
+      if (!seen.has("[]")) choices.unshift([]);
+      return `<label class="program-editor__metric-composition"><span>${esc(label("metricComposition"))}</span><select data-role="metric-composition" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}" aria-label="${esc(label("metricComposition"))}">${choices.map(ids => {
+        const key = JSON.stringify(ids), name = ids.length ? compositionText(ids, options) : label("metricUnconfigured");
+        return `<option value="${esc(key)}"${equal(ids, currentIds) ? " selected" : ""}>${esc(name || label("metricUnconfigured"))}</option>`;
+      }).join("")}</select></label>`;
+    }
+    /** @param {EditorRow} exercise */
+    function renderMetricTargets(exercise) {
+      const slot = definitionSlot(document, exercise.slotId || exercise.id);
+      if (!slot) return "";
+      const definitions = exerciseMetricDefinitions(adapter, slot);
+      const activeCycle = metricCycleIndex(adapter, document);
+      if (!initializedMetricCycleSlots.has(slot.id)) {
+        expandedMetricCycles.add(`${slot.id}:${activeCycle}`);
+        initializedMetricCycleSlots.add(slot.id);
+      }
+      const cycles = (slot.prescriptionsByCycle || []).slice().sort((a, b) => a.cycleIndex - b.cycleIndex);
+      const contents = cycles.map(cycle => `<details class="program-editor__metric-cycle" data-role="metric-cycle" data-cycle-index="${cycle.cycleIndex}"${expandedMetricCycles.has(`${slot.id}:${cycle.cycleIndex}`) ? " open" : ""}>
+        <summary>${esc(label("metricCycle", { n: cycle.cycleIndex }))}</summary>
+        ${(cycle.sets || []).map(set => `<fieldset class="program-editor__metric-set"><legend>${esc(label("metricSet", { n: set.setIndex }))}</legend>
+          ${definitions.length ? "" : `<p class="program-editor__metric-unconfigured">${esc(label("metricUnconfigured"))}</p>`}
+          ${(slot.metricIds || []).map(metricId => {
+            const definition = definitions.find(candidate => candidate.id === metricId);
+            return definition ? metricInputMarkup(exercise, slot, cycle, set, definition, set.targets?.[definition.semantic]) : "";
+          }).join("")}
+          <div class="program-editor__metric-prescription-fields">${prescriptionFieldMarkup(exercise, slot, cycle, set, "rir")}${prescriptionFieldMarkup(exercise, slot, cycle, set, "restSeconds")}</div>
+        </fieldset>`).join("")}
+      </details>`).join("");
+      return `<section class="program-editor__metric-targets" data-role="metric-targets" data-slot-id="${esc(slot.id)}">
+        <h4>${esc(label("metricTargets"))}</h4>
+        ${renderMetricComposition(exercise, slot)}
+        ${contents}
+      </section>`;
+    }
+    /** @param {HTMLInputElement} input */
+    function editMetricTarget(input) {
+      const slotId = (input.dataset.slotId||''), cycleIndex = Number(input.dataset.cycleIndex);
+      const setIndex = Number(input.dataset.setIndex), metricId = input.dataset.metricId||'';
+      const semantic = input.dataset.semantic||'', slot = definitionSlot(document, slotId);
+      const definition = slot?.metricDefinitions?.find(item => item.id === metricId);
+      const set = definitionSet(document, slotId, cycleIndex, setIndex);
+      if (!slot || !definition || !set || !(slot.metricIds || []).includes(metricId)) return;
+      const peers = [.../** @type {NodeListOf<HTMLInputElement>} */ (host.querySelectorAll('[data-role="metric-target"]'))].filter(candidate =>
+        (candidate.dataset.slotId||'') === slotId && candidate.dataset.cycleIndex === String(cycleIndex) &&
+        candidate.dataset.setIndex === String(setIndex) && candidate.dataset.metricId === metricId);
+      const ranged = peers.some(candidate => candidate.dataset.bound === "min" || candidate.dataset.bound === "max");
+      const raw = Object.fromEntries(peers.map(candidate => [candidate.dataset.bound, candidate.value.trim()]));
+      /** @type {TargetEdit} */
+      let after;
+      if (ranged) {
+        const minRaw = raw.min || "", maxRaw = raw.max || "";
+        if (!minRaw && !maxRaw) after = { present: false, value: null };
+        else if (!minRaw || !maxRaw) {
+          setStatus(label("invalid"), { error: true });
+          return;
+        } else {
+          const min = parseMetricInput(adapter, definition, minRaw), max = parseMetricInput(adapter, definition, maxRaw);
+          if (!hasOwn(min, "value") || !hasOwn(max, "value") || min.value == null || max.value == null || max.value < min.value) {
+            const issue = !hasOwn(min, "value") ? min : !hasOwn(max, "value") ? max : null;
+            setStatus(issue?.key ? label(issue.key) : label("invalid"), { error: true });
+            return;
+          }
+          after = { present: true, value: { min: min.value, max: max.value } };
+        }
+      } else if (!raw.value) after = { present: false, value: null };
+      else {
+        const parsed = parseMetricInput(adapter, definition, raw.value);
+        if (!hasOwn(parsed, "value") || parsed.value == null) {
+          setStatus(parsed?.key ? label(parsed.key) : label("invalid"), { error: true });
+          return;
+        }
+        after = { present: true, value: parsed.value };
+      }
+      const prepared=prepareMetricTarget(document,{slotId,cycleIndex,setIndex,metricId,semantic,after});
+      if(!prepared.ok){setStatus(label("invalid"),{error:true});return;}
+      if(prepared.unchanged||!prepared.document||!prepared.edit)return;
+      const result = stage(prepared.document,prepared.edit,{redraw:false});
+      updateExerciseSummary((input.dataset.id||''));
+      return Promise.resolve(result).then(value => { updateExerciseSummary((input.dataset.id||'')); return value; });
+    }
+    // The lifter's smallest load change per movement owns the adaptive engine's
+    // candidate loads. Only hosts that persist it offer the field.
+    /** @param {EditorRow} exercise @param {ProgramSlot|null} slot */
+    function renderLoadStep(exercise, slot) {
+      const loadMetric = slotLoadMetric(slot);
+      if (!slot||!loadMetric || typeof adapter.defaultLoadStepKg !== "function") return "";
+      const own = document.programMeta?.loadingConfiguration?.byExerciseId?.[slot.exerciseId]?.loadStepKg;
+      const value = Number.isFinite(own) ? own : adapter.defaultLoadStepKg();
+      const unit = metricDisplayUnit(adapter, loadMetric);
+      return `<label class="program-editor__metric-field program-editor__load-step"><span>${esc(label("loadStep"))}${unit ? ` <small>${esc(unit)}</small>` : ""}</span>` +
+        `<input type="text" inputmode="decimal" autocomplete="off" data-role="load-step" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}" value="${esc(formatMetricValue(adapter, loadMetric, value))}"></label>` +
+        `<p class="program-editor__hint">${esc(label("loadStepHint"))}</p>`;
+    }
+    /** @param {HTMLInputElement} input */
+    function editLoadStep(input) {
+      const slot = definitionSlot(document, (input.dataset.slotId||'')), loadMetric = slotLoadMetric(slot);
+      if (!slot || !loadMetric) return;
+      const raw = input.value.trim();
+      let after = null;
+      if (raw) {
+        const parsed = parseMetricInput(adapter, loadMetric, raw);
+        after = hasOwn(parsed || {}, "value") ? parsed.value ?? NaN : NaN;
+      }
+      const result=prepareLoadStep(document,{slotId:slot.id,after});
+      if(!result.ok){setStatus(label("invalid"),{error:true});return;}
+      if(result.unchanged||!result.document||!result.edit)return;
+      return stage(result.document,result.edit,{redraw:false});
+    }
+    // Plan 069 S4. Only a host that supplies the eligibility policy offers the
+    // switch; the others keep the load step where it always was.
+    /** @param {EditorRow} exercise @param {ProgramSlot|null} slot */
+    function renderSuggestLoads(exercise, slot) {
+      const policy = adapter.suggestLoads;
+      if (!policy || !slot) return renderLoadStep(exercise, slot);
+      const eligibility = policy.eligibility?.(slot);
+      if (eligibility === "custom" || eligibility === "unsupported") {
+        return `<p class="program-editor__hint program-editor__suggest-loads-note" data-role="suggest-loads-note">${esc(label(eligibility === "custom" ? "suggestLoadsCustom" : "suggestLoadsUnsupported"))}</p>` +
+          renderLoadStep(exercise, slot);
+      }
+      if (eligibility !== "eligible") return renderLoadStep(exercise, slot);
+      const on = slotAdaptive(slot) || pendingSuggestLoads(document).includes(slot.id);
+      const semantic = slotRepSemantic(slot);
+      const activeCycle = definitionCycle(slot, metricCycleIndex(adapter, document)) || slot.prescriptionsByCycle?.[0];
+      const range = repRange(semantic?activeCycle?.sets?.[0]?.targets?.[semantic]:null);
+      const rangeMissing = slotSets(slot).some(set => !repRange(semantic?set.targets?.[semantic]:null));
+      const labelId = `program-editor-suggest-${esc(slot.id)}`;
+      const toggle = `<div class="program-editor__suggest-loads-row"><span class="program-editor__field-label" id="${labelId}">${esc(label("suggestLoads"))}</span>` +
+        `<button type="button" class="toggle" role="switch" aria-checked="${on ? "true" : "false"}" aria-labelledby="${labelId}" data-role="suggest-loads" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}"${!on && rangeMissing ? " disabled" : ""}></button></div>`;
+      if (!on) return `<section class="program-editor__suggest-loads" data-role="suggest-loads-section" data-slot-id="${esc(slot.id)}">${toggle}</section>` +
+        renderLoadStep(exercise, slot);
+      const rir = uniformRir(slot);
+      const question = policy.executionModeQuestion?.(slot);
+      const modeLabelId = `program-editor-mode-${esc(slot.id)}`;
+      const mode = question ? `<div class="program-editor__execution-mode" role="radiogroup" aria-labelledby="${modeLabelId}" data-role="execution-mode-group" data-slot-id="${esc(slot.id)}">` +
+        `<span class="program-editor__field-label" id="${modeLabelId}">${esc(label("executionModeQuestion"))}</span>` +
+        [["bilateral", "executionModeBilateral"], ["unilateral", "executionModeUnilateral"]].map(([value, key]) =>
+          `<button type="button" role="radio" class="radio-card${slot.executionMode === value ? " is-selected" : ""}" aria-checked="${slot.executionMode === value ? "true" : "false"}" data-role="execution-mode" data-mode="${value}" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}"><span class="radio-card__body"><span class="radio-card__title">${esc(label(key))}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button>`).join("") +
+        `</div>` : "";
+      return `<section class="program-editor__suggest-loads is-on" data-role="suggest-loads-section" data-slot-id="${esc(slot.id)}">${toggle}` +
+        (range ? `<p class="program-editor__suggest-loads-range" data-role="suggest-loads-range">${esc(label("suggestLoadsRange", { min: format(adapter, range.min), max: format(adapter, range.max) }))}</p>` : "") +
+        `<label class="program-editor__metric-field"><span>${esc(label("metricRir"))}</span><input type="number" inputmode="decimal" min="0" max="6" step="any" required data-role="suggest-loads-rir" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}" value="${rir == null ? "" : esc(String(rir))}"></label>` +
+        renderLoadStep(exercise, slot) + mode + `</section>`;
+    }
+    /** @param {HTMLButtonElement} button */
+    function toggleSuggestLoads(button) {
+      const slotId = (button.dataset.slotId||''), slot = definitionSlot(document, slotId);
+      if (!slot) return;
+      const on = button.getAttribute("aria-checked") !== "true";
+      const before = { exerciseId: slot.exerciseId,
+        state: slotAdaptive(slot) ? "ready" : pendingSuggestLoads(document).includes(slotId) ? "pending" : "off" };
+      const next = clone(document);
+      if (!setSuggestLoads(next, slotId, on)) return;
+      pendingFocus = { selector: `[data-role="suggest-loads"][data-slot-id="${cssEscape(slotId)}"]` };
+      return stage(next, { kind: "suggest_loads", slotId, on, before });
+    }
+    /** @param {HTMLInputElement} input */
+    function editSuggestLoadsRir(input) {
+      const slotId = (input.dataset.slotId||''), slot = definitionSlot(document, slotId);
+      if (!slot) return;
+      setFieldError(input, null);
+      const raw = input.value.trim(), after = raw ? Number(raw) : null;
+      const prepared=prepareSuggestLoadsRir(document,{slotId,after});
+      if(!prepared.ok){
+        if(after===null){const kept=uniformRir(slot);input.value=kept==null?"":String(kept);}
+        setFieldError(input,label("invalid"));return;
+      }
+      if(prepared.unchanged||!prepared.document||!prepared.edit)return;
+      return stage(prepared.document,prepared.edit,{redraw:false});
+    }
+    /** @param {HTMLButtonElement} button */
+    function editExecutionMode(button) {
+      const slotId = (button.dataset.slotId||''), after = (button.dataset.mode||'');
+      const result=prepareExecutionMode(document,{slotId,after});
+      if(!result.ok||result.unchanged||!result.document||!result.edit)return;
+      pendingFocus = { selector: `[data-role="execution-mode"][data-slot-id="${cssEscape(slotId)}"][data-mode="${after}"]` };
+      return stage(result.document,result.edit);
+    }
+    /** The field carries its own error: aria-invalid and an alert linked by aria-describedby. */
+    /** @param {HTMLElement} input @param {string|null} message */
+    function setFieldError(input, message) {
+      const current = input.getAttribute("aria-describedby");
+      if (current) input.ownerDocument.getElementById(current)?.remove();
+      input.removeAttribute("aria-describedby");
+      input.removeAttribute("aria-invalid");
+      if (!message) return;
+      const note = input.ownerDocument.createElement("p");
+      note.id = `program-editor-field-error-${uid()}`;
+      note.className = "program-editor__field-error";
+      note.setAttribute("role", "alert");
+      note.textContent = message;
+      (input.closest("label, [role=radiogroup]") || input).after(note);
+      input.setAttribute("aria-invalid", "true");
+      input.setAttribute("aria-describedby", note.id);
+    }
+    /**
+     * A commit point's check. An incomplete opt-in opens its exercise, puts
+     * the error on the first field it still needs and refuses the commit.
+     */
+    function checkSuggestLoads() {
+      const issue = suggestLoadsIssues(document, adapter.suggestLoads)[0];
+      if (!issue) return { ok: true };
+      const exercise = (document.program || []).find(item => (item.slotId || item.id) === issue.slotId);
+      if (exercise) {
+        expandedExercises.add(exercise.id);
+        const day = exercise.day;
+        if (collapsedDays.has(day)) collapsedDays.delete(day);
+      }
+      render();
+      const selector = issue.field === "execution_mode"
+        ? `[data-role="execution-mode"][data-slot-id="${cssEscape(issue.slotId)}"]`
+        : issue.field === "rir" ? `[data-role="suggest-loads-rir"][data-slot-id="${cssEscape(issue.slotId)}"]`
+          : `[data-role="suggest-loads"][data-slot-id="${cssEscape(issue.slotId)}"]`;
+      const field = host.querySelector(selector);
+      if (field instanceof root.HTMLElement) {
+        setFieldError(field, label("invalid"));
+        try { field.focus(); } catch { /* detached */ }
+      }
+      return { ok: false, invalid: true, suggestLoads: issue };
+    }
+    /** @param {HTMLInputElement} input */
+    function editPrescriptionField(input) {
+      const slotId = (input.dataset.slotId||''), cycleIndex = Number(input.dataset.cycleIndex);
+      const setIndex = Number(input.dataset.setIndex), field = (input.dataset.field||'');
+      if (field !== "rir" && field !== "restSeconds") return;
+      const currentSet = definitionSet(document, slotId, cycleIndex, setIndex);
+      if (!currentSet) return;
+      const raw = input.value.trim();
+      const before = currentSet[field] ?? null;
+      const prepared = preparePrescriptionField(document, {slotId,cycleIndex,setIndex,field,after:raw?Number(raw):null});
+      if (!prepared.ok) {
+        if (!raw) input.value = before == null ? "" : String(before);
+        setStatus(label("invalid"), { error: true });
+        return;
+      }
+      if (prepared.unchanged || !prepared.document || !prepared.edit) return;
+      const result = stage(prepared.document, prepared.edit, { redraw: false });
+      updateExerciseSummary((input.dataset.id||''));
+      return Promise.resolve(result).then(value => { updateExerciseSummary((input.dataset.id||'')); return value; });
+    }
+    /** @param {HTMLSelectElement} select */
+    function editMetricComposition(select) {
+      const slotId = (select.dataset.slotId||''), exerciseId = (select.dataset.id||'');
+      const exercise = document.program?.find(item => item.id === exerciseId);
+      const slot = definitionSlot(document, slotId);
+      if (!exercise || !slot || !editableMetricComposition(slot)) return;
+      let metricIds;
+      try { metricIds = JSON.parse(select.value); } catch { return; }
+      if (!Array.isArray(metricIds) || !metricCompositions(adapter).some(candidate => equal(candidate, metricIds))) {
+        setStatus(label("invalid"), { error: true });
+        return;
+      }
+      const byId = new Map(metricOptions(adapter).map(definition => [definition.id, definition]));
+      const definitions = metricIds.map(id => byId.get(id)).filter(definition=>definition!==undefined).map(clone);
+      if (definitions.length !== metricIds.length) {
+        setStatus(label("invalid"), { error: true });
+        return;
+      }
+      const prepared=prepareMetricComposition(document,{slotId,metricIds,metricDefinitions:definitions});
+      if(!prepared.ok||prepared.unchanged||!prepared.document||!prepared.edit)return;
+      pendingFocus = { selector: `[data-role="metric-composition"][data-id="${cssEscape(exerciseId)}"][data-slot-id="${cssEscape(slotId)}"]` };
+      return stage(prepared.document,prepared.edit);
+    }
+    /** @param {EditorRow} exercise @param {ProgramSlot|null} slot */
+    function renderAlternates(exercise, slot) {
+      if (!slot) return "";
+      const list = Array.isArray(slot.alternates) ? slot.alternates : [];
+      const items = list.map((id, index) => {
+        const name = movementLabel(adapter, id), attrs = `data-id="${esc(exercise.id)}" data-exercise-id="${esc(id)}"`;
+        return `<li class="program-editor__alternate" data-role="alternate" data-exercise-id="${esc(id)}">
+          <span class="program-editor__alternate-name" data-role="alternate-name">${esc(name)}</span>
+          <button type="button" class="program-editor__alternate-move" data-role="alternate-up" ${attrs} aria-label="${esc(label("alternateUp", { name }))}"${index === 0 ? " disabled" : ""}><span class="icon-mask icon-mask--chev-up" aria-hidden="true"></span></button>
+          <button type="button" class="program-editor__alternate-move" data-role="alternate-down" ${attrs} aria-label="${esc(label("alternateDown", { name }))}"${index === list.length - 1 ? " disabled" : ""}><span class="icon-mask icon-mask--chev-down" aria-hidden="true"></span></button>
+          <button type="button" class="program-editor__alternate-remove" data-role="alternate-remove" data-action-role="removal" ${attrs} aria-label="${esc(label("alternateRemove", { name }))}"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
+        </li>`;
+      }).join("");
+      const full = list.length >= maxAlternates();
+      return `<section class="program-editor__alternates" data-role="alternates" data-id="${esc(exercise.id)}" aria-labelledby="alternates-${esc(exercise.id)}">
+          <span class="program-editor__field-label" id="alternates-${esc(exercise.id)}">${esc(label("alternates"))}</span>
+          ${items ? `<ol class="program-editor__alternate-list">${items}</ol>` : ""}
+          <button type="button" class="program-editor__add-alternate" data-role="add-alternate" data-id="${esc(exercise.id)}"${full ? " disabled" : ""}><span aria-hidden="true">＋</span> ${esc(label("addAlternate"))}</button>
+          <p class="program-editor__hint">${esc(label("alternatesHint"))}</p>
+        </section>`;
+    }
+    /** @param {EditorRow} exercise @param {number} index @param {number} count @param {string} day */
+    function renderExercise(exercise, index, count, day) {
+      const open = expandedExercises.has(exercise.id);
+      const linked = exerciseEntry(adapter, exercise.libraryId||'');
+      const name = exerciseName(adapter, exercise);
+      const shownName = exerciseDisplayLabel(adapter, exercise);
+      const slot = definitionSlot(document, exercise.slotId || exercise.id);
+      const legacyMetrics = exerciseMetricDefinitions(adapter, exercise);
+      const hasLegacyRepMetric = legacyMetrics.some(metric => metric.semantic === "reps" || metric.semantic === "repsPerSide");
+      const legacyRepControls = !slot && (!exercise.metricIds?.length || hasLegacyRepMetric)
+        ? `<div class="program-editor__rep-rule" aria-hidden="true"></div>
+          <fieldset class="program-editor__range"><legend>${esc(label("repRange"))}</legend>
+            <label><span>${esc(label("min"))}</span><input type="number" inputmode="numeric" min="1" step="1" data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="min" value="${esc(exercise.min)}"></label>
+            <label><span>${esc(label("max"))}</span><input type="number" inputmode="numeric" min="1" step="1" data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="max" value="${esc(exercise.max)}"></label>
+          </fieldset>` : "";
+      const activeCycle = metricCycleIndex(adapter, document);
+      const currentSetCount = setCountFor(document, exercise, activeCycle);
+      const details = open ? `<div class="program-editor__exercise-body pex__body">
+          <div class="program-editor__sets" data-role="sets-control" aria-label="${esc(`${label("sets")} · ${label("metricCycle", { n: activeCycle })}`)}">
+            <span class="program-editor__field-label">${esc(label("sets"))} · ${esc(label("metricCycle", { n: activeCycle }))}</span>
+            <div class="program-editor__stepper">
+              <button type="button" data-role="adjust" data-id="${esc(exercise.id)}" data-cycle-index="${activeCycle}" data-field="sets" data-delta="-1" aria-label="${esc(label("setsDecrease"))}"${currentSetCount <= 1 ? " disabled" : ""}>−</button>
+              <output data-role="sets-value">${esc(format(adapter, currentSetCount))}</output>
+              <button type="button" data-role="adjust" data-id="${esc(exercise.id)}" data-cycle-index="${activeCycle}" data-field="sets" data-delta="1" aria-label="${esc(label("setsIncrease"))}"${currentSetCount >= 100 ? " disabled" : ""}>+</button>
+            </div>
+          </div>
+          ${legacyRepControls}
+          ${renderMetricTargets(exercise)}
+          ${renderSuggestLoads(exercise, slot)}
+          ${renderAlternates(exercise, slot)}
+          <div class="program-editor__exercise-actions">
+            <button type="button" class="program-editor__replace" data-role="replace" data-action-role="replacement" data-id="${esc(exercise.id)}">${esc(label("replaceExercise"))}</button>
+            <button type="button" class="program-editor__remove" data-role="remove-exercise" data-action-role="removal" data-id="${esc(exercise.id)}">${esc(label("removeExercise"))}</button>
+          </div>
+          <details class="program-editor__more" data-role="more-details" data-id="${esc(exercise.id)}">
+            <summary>${esc(label("details"))}</summary>
+            <label><span>${esc(label("notes"))}</span><input data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="notes" value="${esc(exercise.notes || "")}"></label>
+            ${/** @type {("primary"|"secondary")[]} */ (["primary", "secondary"]).map(field => linked
+              // A linked movement's muscles come from the catalog: shown read-only, and
+              // allowed to wrap, since a full attribution can outrun one input line.
+              ? `<label><span>${esc(label(field))}</span><textarea class="program-editor__muscles" rows="${Math.min(4, Math.max(1, Math.ceil(String(exercise[field] || "").length / 24)))}" readonly data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="${field}">${esc(exercise[field] || "")}</textarea></label>`
+              : `<label><span>${esc(label(field))}</span><input data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="${field}" value="${esc(exercise[field] || "")}"></label>`).join("")}
+          </details>
+        </div>` : "";
+      return `<article class="program-editor__exercise pex${open ? " is-expanded" : " is-collapsed"}${settleMoveId === exercise.id ? " is-settling" : ""}" data-role="exercise" data-id="${esc(exercise.id)}" data-day="${esc(day)}">
+        <header class="program-editor__exercise-head pex__head">
+          <textarea class="program-editor__exercise-name pex__name" rows="1" data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="name" placeholder="${esc(label("namePlaceholder"))}" aria-label="${esc(name)}">${esc(name)}</textarea>
+          <span class="program-editor__summary" data-role="exercise-summary">${esc(summary(exercise))}</span>
+          <button type="button" class="program-editor__drag-handle" data-role="drag-handle" data-id="${esc(exercise.id)}" aria-label="${esc(label("move", undefined, `${label("moveUp")} ${shownName}`))}" title="${esc(label("move"))}">≡</button>
+          <button type="button" class="program-editor__exercise-toggle" data-role="toggle-exercise" data-action-role="expansion" data-id="${esc(exercise.id)}" aria-expanded="${open ? "true" : "false"}" aria-label="${esc(label(open ? "collapseExercise" : "expandExercise", { name: shownName }))}"><span class="icon-mask icon-mask--chev-${open ? "up" : "down"}" aria-hidden="true"></span></button>
+          <button type="button" class="program-editor__exercise-menu" data-role="exercise-menu" data-action-role="expansion" data-id="${esc(exercise.id)}" aria-haspopup="menu" aria-expanded="false" aria-label="${esc(label("more"))}">⋮</button>
+        </header>${details}
+        <div class="program-editor__menu" data-role="move-menu" data-id="${esc(exercise.id)}" hidden role="menu">
+          <button type="button" role="menuitem" data-role="more-details" data-id="${esc(exercise.id)}">${esc(label("details"))}</button>
+          <button type="button" role="menuitem" data-role="move-up" data-id="${esc(exercise.id)}">${esc(label("moveUp"))}</button>
+          <button type="button" role="menuitem" data-role="move-down" data-id="${esc(exercise.id)}">${esc(label("moveDown"))}</button>
+          <button type="button" role="menuitem" data-role="move-other" data-id="${esc(exercise.id)}">${esc(label("moveOther"))}</button>
+          <div data-role="move-days" hidden>${labels(document).filter(target => target !== day).map(target => `<button type="button" role="menuitem" data-role="move-to-day" data-id="${esc(exercise.id)}" data-day="${esc(target)}">${esc(titleFor(target, labels(document).indexOf(target)))}</button>`).join("")}</div>
+        </div>
+      </article>`;
+    }
+    /** @param {string} day @param {number} index */
+    function renderDay(day, index) {
+      const list = exercisesFor(document, day), open = !collapsedDays.has(day);
+      // Hosts choose the grouping that fits their surrounding chrome. The
+      // onboarding draft keeps Add exercise inside each day card; the
+      // installed editor puts it between cards so the next day remains a
+      // distinct, scannable section. The editor itself stays unaware of the
+      // host's route or persistence mode.
+      const addOutside = adapter?.dayAddPlacement?.(document, day) === "outside";
+      const addButton = `<button type="button" class="program-editor__add pday__add" data-role="add-exercise" data-day="${esc(day)}"><span aria-hidden="true">＋</span> ${esc(label("addExercise"))}</button>`;
+      return `<section class="program-editor__day pday${open ? " is-expanded" : " is-collapsed"}" data-role="day" data-day="${esc(day)}">
+        <header class="program-editor__day-head pday__head" data-role="day-header">
+          <input class="program-editor__day-name pday__name" data-role="day-name" data-day="${esc(day)}" value="${esc(titleFor(day, index))}" aria-label="${esc(label("dayName"))}">
+          <span class="program-editor__day-count pday__count">${esc(dayCount(list.length))}</span>
+          <button type="button" class="program-editor__day-menu" data-role="day-menu" data-action-role="expansion" data-day="${esc(day)}" aria-haspopup="menu" aria-expanded="false" aria-label="${esc(label("more"))}">⋮</button>
+          <button type="button" class="program-editor__day-toggle pday__caret" data-role="toggle-day" data-action-role="expansion" data-day="${esc(day)}" aria-expanded="${open ? "true" : "false"}" aria-label="${esc(label(open ? "collapseDay" : "expandDay", { day: titleFor(day, index) }))}"><span class="icon-mask icon-mask--chev-${open ? "up" : "down"}" aria-hidden="true"></span></button>
+        </header>
+        <div class="program-editor__day-menu-panel" data-role="day-menu-panel" data-day="${esc(day)}" hidden role="menu">
+          <button type="button" role="menuitem" data-role="toggle-reorder">${esc(label("reorder", undefined, "Reorder exercises"))}</button>
+          <button type="button" role="menuitem" data-role="remove-day" data-action-role="removal" data-day="${esc(day)}">${esc(label("removeDay", undefined, "Remove day"))}</button>
+        </div>
+        <div class="program-editor__day-body pexlist" data-role="day-body"${open ? "" : " hidden"}>
+          ${list.map((exercise, itemIndex) => renderExercise(exercise, itemIndex, list.length, day)).join("") || `<p class="program-editor__empty pday__empty" data-role="day-empty">${esc(label("emptyDays"))}</p>`}
+          ${addOutside ? "" : addButton}
+        </div>
+      </section>${addOutside && open ? addButton : ""}`;
+    }
+    /* A render can land while the lifter is mid-edit in a field that has not
+       yet committed (blurred) — most often a delayed confirmation from an
+       earlier structural change (adding a day/exercise, nudging the set
+       count) that resolves only after the lifter has already tabbed on to
+       type the next value. Rebuilding the list wholesale would otherwise
+       throw away whatever is sitting, uncommitted, in that focused input.
+       Capture it before the rebuild and restore it — value, caret, and focus
+       — onto its rebuilt counterpart afterward. */
+    function liveEditSnapshot() {
+      const active = host.ownerDocument?.activeElement;
+      if (!active || !host.contains(active)) return null;
+      if (!(active instanceof root.HTMLInputElement) && !(active instanceof root.HTMLTextAreaElement)) return null;
+      if (!(active.dataset.role||'')) return null;
+      const parts = [];
+      for (const attribute of active.attributes) {
+        if (attribute.name.startsWith("data-")) parts.push(`[${attribute.name}="${cssEscape(attribute.value)}"]`);
+      }
+      if (!parts.length) return null;
+      let selectionStart = null, selectionEnd = null;
+      // type="number" inputs (the rir/restSeconds prescription fields) throw
+      // on selection access in some engines; losing the caret position there
+      // is a minor cosmetic cost next to losing the value itself.
+      try { selectionStart = active.selectionStart; selectionEnd = active.selectionEnd; } catch { /* unsupported */ }
+      const snapshot = { selector: parts.join(""), value: active.value, selectionStart, selectionEnd, committedDuringTeardown: false };
+      // A genuinely dirty field (real typing) fires its own "change"
+      // synchronously when the rebuild below tears its node out — the
+      // engine commits it the ordinary way before this render call ever
+      // reaches restoreLiveEdit. Listening for that here, on the node that
+      // is about to be removed, is how restoreLiveEdit later knows not to
+      // schedule a second commit for a value that already landed.
+      active.addEventListener("change", () => { snapshot.committedDuringTeardown = true; }, { once: true });
+      return snapshot;
+    }
+    /** @param {LiveEdit|null} snapshot */
+    function restoreLiveEdit(snapshot) {
+      if (!snapshot) return false;
+      const next = host.querySelector(snapshot.selector);
+      if (!(next instanceof root.HTMLInputElement) && !(next instanceof root.HTMLTextAreaElement)) return false;
+      const renderedValue = next.value;
+      next.value = snapshot.value;
+      try { if (snapshot.selectionStart != null) next.setSelectionRange(snapshot.selectionStart, snapshot.selectionEnd); }
+      catch { /* unsupported on this input type */ }
+      next.focus();
+      // Setting .value before focus() leaves the element's own dirty-value
+      // tracking believing nothing changed from here, so a plain blur never
+      // fires "change" for this restored value: the lifter would see it on
+      // screen, but it would never reach the document. Every commit path
+      // here is wired to "change" (editMetricTarget, editPrescriptionField,
+      // renameDay, …), so finish the commit through that same path, on this
+      // field's next exit — unless the snapshot above already saw the old
+      // node commit this exact value during teardown, in which case doing
+      // it again would be a duplicate write with the same value.
+      if (snapshot.value !== renderedValue && !snapshot.committedDuringTeardown) {
+        next.dataset.editorPendingCommit = "1";
+        const clearPending = () => { delete next.dataset.editorPendingCommit; };
+        next.addEventListener("change", clearPending, { once: true });
+        next.addEventListener("focusout", () => {
+          if (next.dataset.editorPendingCommit !== "1") return;
+          clearPending();
+          next.dispatchEvent(new Event("change", { bubbles: true }));
+        }, { once: true });
+      }
+      return true;
+    }
+    function render() {
+      if (destroyed) return;
+      ensureStructure(document);
+      const liveEdit = liveEditSnapshot();
+      const days = labels(document);
+      if (!expandedExercises.size) {
+        for (const day of days) {
+          const first = exercisesFor(document, day)[0];
+          if (first) expandedExercises.add(first.id);
+        }
+      }
+      // An empty set is a meaningful user choice: all days are expanded. Keep
+      // the initial compact layout behind its own flag instead of treating
+      // that choice as an uninitialised editor on every redraw.
+      if (!collapsedDaysInitialized) {
+        days.slice(1).forEach(day => collapsedDays.add(day));
+        collapsedDaysInitialized = true;
+      }
+      // The glyph is drawn here; a host string that already starts with a plus ("+ Add day") would double it.
+      const addDayText = String(t(adapter, "program.add_day", undefined, "Add day")).replace(/^\s*[+＋]\s*/, "");
+      host.innerHTML = `<div class="program-editor${reorderMode ? " is-reorder-mode" : ""}" data-role="editor" aria-label="${esc(t(adapter, "program.editor.aria", undefined, "Program editor"))}">
+        <div class="program-editor__meta" data-role="meta">
+          <label class="program-editor__program-name"><span>${esc(label("programName"))}</span><input data-role="program-name" value="${esc(document.programMeta?.name || "")}" placeholder="${esc(label("namePlaceholder"))}" maxlength="80" aria-label="${esc(label("programName"))}"></label>
+          ${context() ? `<p class="program-editor__context" data-role="context">${esc(context())}</p>` : ""}
+          <p class="program-editor__status" data-role="editor-status" role="status" aria-live="polite" tabindex="-1"${adapter.status?.(document) ? "" : " hidden"}>${esc(adapter.status?.(document) || "")}</p>
+        </div>
+        <div class="program-editor__days" data-role="days">${days.map((day, index) => renderDay(day, index)).join("") || `<p class="program-editor__empty">${esc(label("emptyDays"))}</p>`}</div>
+        <button type="button" class="program-editor__add-day" data-role="add-day">＋ <span>${esc(addDayText)}</span></button>
+      </div>`;
+      bind();
+      // Restoring an in-progress edit wins over a queued structural focus
+      // request (e.g. refocusing the sets-adjust button): the lifter is
+      // demonstrably already typing somewhere else by the time this landed.
+      if (restoreLiveEdit(liveEdit)) pendingFocus = null;
+      // A host that annotates the status line (an id other controls describe
+      // themselves by, an error state) re-applies it to each fresh render.
+      adapter.afterRender?.(host);
+      schedulePendingFocus();
+    }
+    /** The field carries its own error: aria-invalid and an alert linked by aria-describedby, not a toast alone. */
+    /** @param {HTMLInputElement} input @param {string|null} message */
+    function setDayNameError(input, message) {
+      const id = `program-editor-day-error-${uid()}`;
+      const current = input.getAttribute("aria-describedby");
+      if (current) input.ownerDocument.getElementById(current)?.remove();
+      input.removeAttribute("aria-describedby");
+      input.removeAttribute("aria-invalid");
+      if (!message) return;
+      const note = input.ownerDocument.createElement("p");
+      note.id = id;
+      note.className = "program-editor__field-error";
+      note.setAttribute("role", "alert");
+      note.textContent = message;
+      (input.closest('[data-role="day-header"]') || input).after(note);
+      input.setAttribute("aria-invalid", "true");
+      input.setAttribute("aria-describedby", id);
+    }
+    function bind() {
+      if (destroyed) return;
+      /** @type {NodeListOf<HTMLInputElement>} */ (host.querySelectorAll('[data-role="program-name"]')).forEach(input => {
+        input.addEventListener("change", () => {
+          const prepared=editProgramName(document,input.value);
+          if(!prepared.ok||prepared.unchanged||!prepared.document||!prepared.edit)return;
+          stage(prepared.document,prepared.edit);
+        });
+      });
+      /** @type {NodeListOf<HTMLInputElement>} */ (host.querySelectorAll('[data-role="day-name"]')).forEach(input => {
+        input.addEventListener("change", () => {
+          const day = (input.dataset.day||'');
+          setDayNameError(input, null);
+          renameDay(day, input.value).then(result => {
+            // A refused rename leaves the day as it was, so the field says so (#343).
+            if (!result?.refused || !input.isConnected) return;
+            input.value = titleFor(day, labels(document).indexOf(day));
+            if ('duplicate' in result && result.duplicate) setDayNameError(input, label("dayNameExists"));
+          });
+        });
+        input.addEventListener("input", () => setDayNameError(input, null));
+        input.addEventListener("keydown", event => {
+          if (event.key !== "Enter") return;
+          event.preventDefault();
+          input.blur();
+        });
+      });
+      /** @type {NodeListOf<HTMLInputElement|HTMLTextAreaElement>} */ (host.querySelectorAll('[data-role="exercise-field"]')).forEach(input => {
+        input.addEventListener("focus", () => { input.dataset.editorFocusValue = input.value; });
+        const handler = () => {
+          // The name wraps in a one-row textarea; it is still one line of text.
+          const field = (input.dataset.field||''), text = String(input.value || "");
+          const raw = field === "name" ? text.replace(/\s*\n\s*/g, " ") : text;
+          // A blank exercise name is useful while the lifter is editing, but
+          // leaving the field blank is an abandoned rename. Restore the value
+          // captured on focus instead of manufacturing the model's fallback.
+          if (field === "name" && !raw.trim() && String(input.dataset.editorFocusValue || "").trim())
+            input.value = input.dataset.editorFocusValue||'';
+          else if (["name", "notes", "primary", "secondary"].includes(field)) input.value = raw.trim();
+          return setExerciseField((input.dataset.id||''), field, input.value);
+        };
+        input.addEventListener("change", handler);
+        // Enter commits a name the way it did when the name was a text input.
+        if ((input.dataset.field||'') === "name") input.addEventListener("keydown", event => {
+          if (event instanceof root.KeyboardEvent && event.key === "Enter" && !event.isComposing) { event.preventDefault(); input.blur(); }
+        });
+        if ((input.dataset.field||'') === "name" || (input.dataset.field||'') === "notes") {
+          input.addEventListener("input", () => setExerciseField((input.dataset.id||''), (input.dataset.field||''), input.value, { redraw: false }));
+          input.addEventListener("blur", handler);
+        }
+      });
+      /** @type {NodeListOf<HTMLInputElement>} */ (host.querySelectorAll('[data-role="metric-target"]')).forEach(input => input.addEventListener("change", () => editMetricTarget(input)));
+      /** @type {NodeListOf<HTMLInputElement>} */ (host.querySelectorAll('[data-role="prescription-field"]')).forEach(input => input.addEventListener("change", () => editPrescriptionField(input)));
+      /** @type {NodeListOf<HTMLInputElement>} */ (host.querySelectorAll('[data-role="load-step"]')).forEach(input => input.addEventListener("change", () => editLoadStep(input)));
+      /** @type {NodeListOf<HTMLButtonElement>} */ (host.querySelectorAll('[data-role="suggest-loads"]')).forEach(button => button.addEventListener("click", () => toggleSuggestLoads(button)));
+      /** @type {NodeListOf<HTMLInputElement>} */ (host.querySelectorAll('[data-role="suggest-loads-rir"]')).forEach(input => input.addEventListener("change", () => editSuggestLoadsRir(input)));
+      /** @type {NodeListOf<HTMLButtonElement>} */ (host.querySelectorAll('[data-role="execution-mode"]')).forEach(button => button.addEventListener("click", () => editExecutionMode(button)));
+      /** @type {NodeListOf<HTMLSelectElement>} */ (host.querySelectorAll('[data-role="metric-composition"]')).forEach(select => select.addEventListener("change", () => editMetricComposition(select)));
+      /** @type {NodeListOf<HTMLDetailsElement>} */ (host.querySelectorAll('[data-role="metric-cycle"]')).forEach(details => details.addEventListener("toggle", () => {
+        const slotId = details.closest('[data-role="metric-targets"]')?.getAttribute('data-slot-id');
+        const cycleIndex = Number(details.dataset.cycleIndex);
+        if (!slotId || !Number.isInteger(cycleIndex)) return;
+        initializedMetricCycleSlots.add(slotId);
+        const key = `${slotId}:${cycleIndex}`;
+        if (details.open) expandedMetricCycles.add(key); else expandedMetricCycles.delete(key);
+      }));
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="toggle-day"]')).forEach(button => button.addEventListener("click", () => toggleDay((button.dataset.day||''))));
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="day-menu"]')).forEach(button => button.addEventListener("click", () => {
+        const card = button.closest('[data-role="day"]'), menu = card?.querySelector('[data-role="day-menu-panel"]');
+        if (!(menu instanceof root.HTMLElement)) return;
+        const open = menu.hidden;
+        /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="day-menu-panel"]')).forEach(item => { item.hidden = true; });
+        menu.hidden = !open;
+        button.setAttribute("aria-expanded", open ? "true" : "false");
+      }));
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="remove-day"]')).forEach(button => button.addEventListener("click", () => {
+        const day = (button.dataset.day||'');
+        const confirm = adapter.confirm;
+        if (typeof confirm === "function" && !confirm({ kind: "day_remove", day })) return;
+        removeDay(day);
+      }));
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="toggle-reorder"]')).forEach(button => button.addEventListener("click", () => {
+        reorderMode = !reorderMode;
+        /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="day-menu-panel"]')).forEach(item => { item.hidden = true; });
+        scheduleRender();
+      }));
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="toggle-exercise"]')).forEach(button => button.addEventListener("click", () => toggleExercise((button.dataset.id||''))));
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="add-exercise"]')).forEach(button => button.addEventListener("click", () => addForDay((button.dataset.day||''))));
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="add-day"]')).forEach(button => button.addEventListener("click", () => { const next = clone(document); const day = appendDay(next); collapsedDays.delete(day); stage(next, { kind: "day_add", targetDay: day, after: day }); }));
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="adjust"]')).forEach(button => button.addEventListener("click", () => {
+        const exercise = document.program?.find(item => item.id === (button.dataset.id||'')); if (!exercise) return;
+        const cycleIndex = Number(button.dataset.cycleIndex) || metricCycleIndex(adapter, document);
+        const current = (button.dataset.field||'') === "sets" ? setCountFor(document, exercise, cycleIndex) : number((button.dataset.field==='min'||button.dataset.field==='max')?exercise[button.dataset.field]:undefined);
+        const delta = number(button.dataset.delta);
+        if ((button.dataset.field||'') === "sets") pendingFocus = { selector: `[data-role="adjust"][data-id="${cssEscape(exercise.id)}"][data-cycle-index="${cycleIndex}"][data-delta="${delta}"]` };
+        setExerciseField(exercise.id, (button.dataset.field||''), current + delta, { cycleIndex });
+      }));
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="replace"]')).forEach(button => button.addEventListener("click", () => replaceForExercise((button.dataset.id||''))));
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="remove-exercise"]')).forEach(button => button.addEventListener("click", () => removeExercise((button.dataset.id||''))));
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="add-alternate"]')).forEach(button => button.addEventListener("click", () => addAlternate((button.dataset.id||''))));
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="alternate-up"],[data-role="alternate-down"],[data-role="alternate-remove"]')).forEach(button =>
+        button.addEventListener("click", () => editAlternate((button.dataset.id||''), (button.dataset.exerciseId||''), (button.dataset.role||''))));
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="exercise-menu"]')).forEach(button => button.addEventListener("click", () => {
+        const menu = /** @type {HTMLElement|null} */ (host.querySelector(`[data-role="move-menu"][data-id="${cssEscape((button.dataset.id||''))}"]`)); if (!(menu instanceof root.HTMLElement)) return;
+        const open = menu.hidden; /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="move-menu"]')).forEach(item => { item.hidden = true; });
+        menu.hidden = !open; button.setAttribute("aria-expanded", open ? "true" : "false");
+      }));
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="more-details"][role="menuitem"]')).forEach(button => button.addEventListener("click", () => {
+        const details = /** @type {HTMLElement|null} */ (host.querySelector(`[data-role="more-details"][data-id="${cssEscape((button.dataset.id||''))}"]`));
+        if (details instanceof root.HTMLDetailsElement) details.open = true;
+        /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="move-menu"]')).forEach(item => { item.hidden = true; });
+      }));
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="move-up"],[data-role="move-down"]')).forEach(button => button.addEventListener("click", () => {
+        const ex = document.program?.find(item => item.id === (button.dataset.id||'')); if (!ex) return;
+        const list = exercisesFor(document, ex.day), index = list.findIndex(item => item.id === ex.id), to = index + ((button.dataset.role||'') === "move-up" ? -1 : 1);
+        if (to >= 0 && to < list.length) moveExercise(ex.id, ex.day, to);
+      }));
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="move-other"]')).forEach(button => button.addEventListener("click", () => {
+        const menu = button.closest('[data-role="move-menu"]'), days = menu?.querySelector('[data-role="move-days"]'); if (days instanceof root.HTMLElement) days.hidden = !days.hidden;
+      }));
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="move-to-day"]')).forEach(button => button.addEventListener("click", () => {
+        const target = exercisesFor(document, (button.dataset.day||'')).length;
+        moveExercise((button.dataset.id||''), (button.dataset.day||''), target);
+      }));
+      /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="undo-move"]')).forEach(button => button.addEventListener("click", undoLastMove));
+      // Every render replaces the rows, so the sortables are rebuilt against
+      // the DOM that now exists rather than patched.
+      mountSorting();
+    }
+    /* ============================================================
+       Reordering — @dnd-kit/dom
+       ------------------------------------------------------------
+       The editor used to carry its own pointer-drag: a pickup timer, manual
+       pointer capture, `elementFromPoint` on every move to find the row and day
+       under the thumb, and hand-computed drop indices. It worked, but it was a
+       drag-and-drop library written by hand, and the parts it did not have were
+       the expensive ones — a keyboard drag, live-region announcements, and
+       auto-scrolling a long day list while dragging near its edge.
+
+       @dnd-kit/dom owns all of that now. What the editor keeps is what is
+       actually about programs rather than about dragging: the 90ms pickup that
+       tells a drag from a tap, the 450ms hold that opens a collapsed day, and
+       the single `moveExercise` call that every path — drag, keyboard drag,
+       Move up, Move down, Move to another day — goes through, so one document
+       transaction, one announcement and one undo cover them all.
+
+       The library is optional in the same sense the rest of the app's runtimes
+       are: if it is missing, the handle simply does not drag, and every reorder
+       remains reachable through the explicit Move controls in each row's menu,
+       which are also the keyboard path this editor shipped with.
+       ============================================================ */
+    /** @type {Sorting|null} */
+    let sorting = null;
+
+    /** Screen-reader copy for the drag, in the lifter's language.
+     *  dnd-kit ships English defaults; a Portuguese install must not hear them. */
+    function dragAnnouncements() {
+      /** @param {DragOperation|undefined} operation */
+    const place = operation => {
+        const source = operation?.source;
+        const sortable = source?.sortable || source;
+        const day = String(sortable?.group ?? "");
+        const item = document.program?.find(candidate => candidate.id === source?.id);
+        const name = item ? exerciseDisplayLabel(adapter, item) : "";
+        return { name, day: titleForDay(day), index: (sortable?.index ?? 0) + 1, count: exercisesFor(document, day).length };
+      };
+      /** @param {string} key @param {DragOperation|undefined} operation */
+    const say = (key, operation) => label(key, place(operation));
+      return {
+        dragstart: /** @param {EditorDragEvent} event */ ({ operation }) => say("dragPickedUp", operation),
+        dragover: /** @param {EditorDragEvent} event */ ({ operation }) => say("dragOver", operation),
+        dragend: /** @param {EditorDragEvent} event */ ({ operation, canceled }) =>
+          canceled ? label("dragCancelled", { name: place(operation).name }) : say("dragDropped", operation),
+      };
+    }
+    /** The day's display title, so an announcement names what the lifter sees. */
+    /** @param {string} day */
+    function titleForDay(day) {
+      const index = labels(document).indexOf(day);
+      return index >= 0 ? titleFor(day, index) : day;
+    }
+
+    function teardownSorting() {
+      const current = sorting;
+      sorting = null;
+      if (!current) return;
+      if(current.expandTimer!==null)clearTimeout(current.expandTimer);
+      for (const sortable of current.sortables) { try { sortable.destroy(); } catch { /* already gone */ } }
+      try { current.manager.destroy(); } catch { /* already gone */ }
+    }
+
+    function mountSorting() {
+      teardownSorting();
+      const Dnd = sortingRuntime.read();
+      if (destroyed) return;
+      // The heavy @dnd-kit bundle is deferred past the document bootstrap, so
+      // an editor rendered during boot can arrive before it. Ask the bootstrap
+      // for it and mount against the rows that exist when it lands; the Move
+      // controls carry reordering in the meantime, and on the far side of the
+      // window `available()` is already true and nothing is scheduled.
+      if (!Dnd) {
+        const runtime = sortingRuntime;
+        if (runtime && !runtime.available())
+          runtime.load().then(() => { if (!destroyed && !sorting) mountSorting(); }, () => {});
+        return;
+      }
+      const reduced = reducedMotion(adapter);
+      // Reduced motion is a different interaction, not a faster one: the row
+      // still follows the thumb, but nothing slides into place behind it and
+      // nothing animates on the drop.
+      const glide = reduced ? null : { duration: 200, easing: "cubic-bezier(.2,.7,.2,1)" };
+      const manager = new Dnd.DragDropManager({
+        plugins: defaults => defaults.map(plugin =>
+          plugin === Dnd.Accessibility
+            ? Dnd.Accessibility.configure({
+                announcements: dragAnnouncements(),
+                screenReaderInstructions: { draggable: label("dragInstructions") },
+              })
+            : plugin === Dnd.Feedback
+              ? Dnd.Feedback.configure({
+                  // The library's own feedback: a copy of the row is carried,
+                  // and a placeholder holds the gap it came from. `feedback:
+                  // "move"` looked closer to the old hand-rolled drag, but it
+                  // takes the row out of the layout the sortable collision
+                  // detection measures against, and no drop target is ever
+                  // found. The stylesheet gives the copy and the gap the same
+                  // language the old drag had instead.
+                  dropAnimation: glide,
+                  keyboardTransition: glide,
+                })
+              : plugin),
+        sensors: defaults => defaults.map(sensor =>
+          sensor === Dnd.PointerSensor
+            ? Dnd.PointerSensor.configure({
+                // A thumb on the handle waits out the same 90ms this editor has
+                // always used to tell a drag from a tap, and gives the gesture
+                // back if it travels more than 10px inside it — which is how a
+                // page scroll that started on the handle escapes.
+                //
+                // A mouse on the handle does not wait at all. The library's own
+                // default makes the same distinction, and it matters: with a
+                // delay, a tolerance that cancels on movement would throw away
+                // exactly the fast, deliberate drags a mouse is good at.
+                activationConstraints: (event, source) =>
+                  event.pointerType === "mouse" &&
+                  (source.handle === event.target || event.target instanceof root.Node && source.handle?.contains(event.target))
+                    ? undefined
+                    : [new Dnd.PointerActivationConstraints.Delay({ value: 90, tolerance: 10 })],
+              })
+            : sensor),
+      });
+
+      const sortables = [];
+      for (const section of /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="day"]'))) {
+        const day = (section.dataset.day||'');
+        // The day itself accepts a drop, at lower priority than the rows inside
+        // it, so an empty day and a collapsed one are both reachable.
+        sortables.push(new Dnd.Droppable({
+          id: `day:${day}`, type: "day", accept: ["exercise"],
+          element: section, data: { day },
+          collisionPriority: Dnd.CollisionPriority.Low,
+        }, manager));
+        [.../** @type {NodeListOf<HTMLElement>} */ (section.querySelectorAll('[data-role="exercise"][data-id]'))].forEach((row, index) => {
+          const handle = /** @type {HTMLElement|null} */ (row.querySelector('[data-role="drag-handle"]'));
+          if (!handle) return;
+          sortables.push(new Dnd.Sortable({
+            id: (row.dataset.id||''), index, group: day,
+            type: "exercise", accept: ["exercise"],
+            element: row, handle, data: { day },
+            transition: glide,
+          }, manager));
+        });
+      }
+
+      sorting = { manager, sortables, expandTimer: null, overDay: null };
+
+      // Holding a row over another day opens it, exactly as before. The library
+      // reports what is under the pointer; the timing is the editor's.
+      manager.monitor.addEventListener("dragover", event => {
+        if (!sorting) return;
+        const over = dayOf(event.operation?.target);
+        if (over === sorting.overDay) return;
+        if(sorting.expandTimer!==null)clearTimeout(sorting.expandTimer);
+        sorting.overDay = over;
+        if (!over) return;
+        sorting.expandTimer = setTimeout(() => {
+          /** @type {HTMLElement|null} */ (host.querySelector(`[data-role="day"][data-day="${cssEscape(over)}"]`))
+            ?.classList.add("is-drag-target-expanded");
+        }, 450);
+      });
+
+      manager.monitor.addEventListener("dragend", event => {
+        if (sorting) { if(sorting.expandTimer!==null)clearTimeout(sorting.expandTimer); sorting.overDay = null; }
+        /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll(".is-drag-target-expanded")).forEach(section => section.classList.remove("is-drag-target-expanded"));
+        if (event.canceled || destroyed) return;
+        const source = event.operation?.source;
+        const sortable = source?.sortable || source;
+        const id = source?.id;
+        if (!id || !document.program?.some(item => item.id === id)) return;
+        // Released between two rows, the sortable already knows its new day and
+        // place. Released on a day itself — an empty one, or a collapsed one the
+        // hold above just opened — it goes to that day's end, which is where
+        // letting go over open space has always put it.
+        const target = event.operation?.target;
+        const onDay = dayOf(target);
+        const droppedOnDay = target?.type === "day" && !!onDay;
+        const day = droppedOnDay ? onDay : (sortable?.group != null ? String(sortable.group) : onDay);
+        if (!day) return;
+        const index = droppedOnDay || typeof sortable?.index !== "number"
+          ? exercisesFor(document, day).filter(item => item.id !== id).length
+          : sortable.index;
+        const from = document.program.find(item => item.id === id);
+        // dnd-kit has already put the row where it belongs. Re-running the same
+        // position through the document would be a no-op transaction and an
+        // announcement for a move that did not happen.
+        if (from && from.day === day && exercisesFor(document, day).findIndex(item => item.id === id) === index) {
+          scheduleRender();
+          return;
+        }
+        // The library animated the drop, so the re-render must not animate it
+        // a second time from where the row already is.
+        moveExercise(id, day, index, { settle: false });
+      });
+    }
+    /** The day a drop target belongs to, whether it is a row or the day itself. */
+    /** @param {DragItem|null|undefined} target */
+    function dayOf(target) {
+      if (!target) return null;
+      const data = target.data;
+      if (data && typeof data.day === "string") return data.day;
+      const element = target.element;
+      return element?.closest?.('[data-role="day"]')?.getAttribute('data-day') || null;
+    }
+
+    render();
+    return {
+      refresh,
+      dispose() { destroyed = true; teardownSorting(); if (statusTimer) clearTimeout(statusTimer); if(settleTimer)clearTimeout(settleTimer); host.classList.remove("program-editor-host"); host.dataset.editorMounted = "false"; host.replaceChildren(); },
+      getDocument: () => clone(document),
+      getToken: () => clone(token),
+      isDirty: () => edits.length > 0 || changed() || pendingNameEdit(),
+      validationIssues: () => validation(document),
+      checkSuggestLoads,
+      commit: apply,
+      discard,
+      replaceExercise: /** @param {string} exerciseInstanceId */ exerciseInstanceId => replaceForExercise(exerciseInstanceId, { repair: true }),
+    };
+  }
+
+return Object.freeze({mountProgramEditor});
+}

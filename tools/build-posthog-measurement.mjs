@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /** Offline schema-1 insight compiler. No SDK changes, network calls, or credentials. */
 import { readFileSync, writeFileSync, realpathSync } from 'node:fs';
-import { createRequire } from 'node:module';
+import {createTelemetry} from '../src/platform/telemetry.js';
 import { dirname, resolve, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -42,7 +42,7 @@ export function validateConfig(input) {
   return structuredClone(input);
 }
 
-/** The contract is the actual CommonJS export from telemetry.js, not a copied event list. */
+/** The contract is the actual native telemetry event registry, not a copied event list. */
 export function buildPlan(input, contract) {
   const config = validateConfig(input);
   if (contract.getSchemaVersion() !== 1) fail('Review these recipes before using a new telemetry schema.');
@@ -217,7 +217,7 @@ export function main(args = process.argv.slice(2)) {
   outsideRepository(input); outsideRepository(output);
   let config;
   try { config = JSON.parse(readFileSync(input, 'utf8')); } catch { fail('Cannot parse the private measurement configuration.'); }
-  const contract = createRequire(import.meta.url)('../telemetry.js');
+  const contract = createTelemetry();
   const plan = buildPlan(config, contract);
   // Exclusive creation refuses overwrites and symlinks; 0600 protects identities.
   writeFileSync(output, `${JSON.stringify(plan, null, 2)}\n`, { flag: 'wx', mode: 0o600 });

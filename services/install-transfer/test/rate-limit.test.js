@@ -12,6 +12,11 @@ describe("short-lived HMAC-keyed rate buckets", () => {
     const repeat = await rateBucketName({ scope: "create", identity: "203.0.113.10", pepper });
     const other = await rateBucketName({ scope: "create", identity: "203.0.113.11", pepper });
     expect(first).toBe(repeat);
+    // Independent Node HMAC-SHA256: UTF-8 rate-bucket/v1 domain, NUL-separated
+    // scope and identity, with the fixed 32-byte 0x05 pepper above.
+    expect(first).toBe("rate-v1-create-daXi5zbv0b-4n8MbRCipB4WA6wWUdQ2ZzQwbGrKOQi0");
+    expect(await rateBucketName({ scope: "create", identity: "203.0.113.10", pepper: new Uint8Array(32).fill(0x77) })).not.toBe(first);
+    expect(await rateBucketName({ scope: "transfer", identity: "203.0.113.10", pepper })).not.toBe(first);
     expect(first).not.toContain("203.0.113.10");
     expect(first).not.toBe(other);
   });

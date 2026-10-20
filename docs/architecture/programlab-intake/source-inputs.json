@@ -1,0 +1,23 @@
+{
+  "pullRequest": 432,
+  "head": "ce0b4403341ee9dbdd34dc6994a1244172189fb8",
+  "state": "open",
+  "draft": true,
+  "verifiedDate": "2026-10-18",
+  "nativeBase": "5a2f6b671bc0bb17a58e8259d91fd8db4266dce8",
+  "sharedPort": "dcb05a3663366ccff1e3159e0d7481c62df338a4",
+  "sourceFiles": {
+    "programlab/app.js": "c8181b4cbf03484707ee88d009750b1b562e4efe80002423841015208a88d582",
+    "programlab/archive-entry.js": "db91ba96ab767200eb8d70cc483bd83ac1b3cd9b75a606b5279eb89402cd41e8",
+    "programlab/archive-worker.js": "c88f28add1f153b1a90cf3818d6699f5846ff8ce4c3b5037d690f9274a47d341",
+    "programlab/archive.js": "91ef1e0328c842368075014e2b86b12d9a2111f307c4e05b7df6579b8e8f475f",
+    "programlab/domain.js": "fd56e113dc2f56c66a018ec5a1bc3017c17ad137fd34db0991f15528549d5d4f",
+    "programlab/i18n.js": "c0f1a6fc582edc856629bcc76d611a5eac6a78ccf574675ad492cf7af8379fb0",
+    "programlab/index.html": "bf008c635eb0854e0830814820643b616f2d041812609daf5458a4affb7772c4",
+    "programlab/services.js": "542c101ff2db8056213722113333afb388f7463af12d8c213b072fd0958eaf62",
+    "programlab/store.js": "c79cb2c7ce73b91a13bc0b389de7d42e36ce79251bb7ba0c3d2ba6a942b7510b",
+    "programlab/styles.css": "3e757cbd10ded09670e24be0564f3d6888816729f99b71d7c34175ebdb610fbf",
+    "tools/build-programlab.mjs": "beb9d37ca5bad0b664cd889ca5e5401f5411a5f69612e99b2db9bf8582727b0b",
+    "test/programlab-native-policy.mjs": "b9f473607c3e8c6bc31ec9e0a87cc1071f135a024f81978572b6daf89f82e72e"
+  }
+}

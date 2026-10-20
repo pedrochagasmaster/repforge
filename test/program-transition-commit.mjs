@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {Transition as NativeTransition} from './fixtures/training-runtime.mjs';
 /**
  * Focused vertical slice test for Plan 052-P6a:
  * Commit transitions with atomic provenance and draft preservation.
@@ -24,12 +25,13 @@
  * live mutable production state is never exposed to the test.
  */
 import { launchChromium, waitForAppBoot, assertServingApp, waitForAsyncCondition } from "./browser.mjs";
+import { installBrowserTraining } from "./training-browser.mjs";
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 import { isDeepStrictEqual } from "node:util";
 
 const require = createRequire(import.meta.url);
-const Transition = require("../program-transition.js");
+const Transition = NativeTransition;
 
 const PLAN_DATA = new URL("../plans/067/data/", import.meta.url);
 const gym = JSON.parse(readFileSync(new URL("gym.json", PLAN_DATA), "utf8"));
@@ -152,12 +154,10 @@ async function confirmTransition(page, args) {
 // Activate a generated four-day/90-minute program through the production
 // finalization seam, with the answers the entry flow derives from it.
 async function activateGeneratedPredecessor(page) {
+  await installBrowserTraining(page);
   return page.evaluate(async (request) => {
-    if (!window.RepForgeProgramCompiler || !window.RepForgeExerciseCatalog) {
-      return { ok: false, error: "program generator or exercise catalog unavailable in window" };
-    }
-    const generated = window.RepForgeProgramCompiler.generateProgram(
-      request, window.RepForgeExerciseCatalog.snapshot());
+    const {compiler,catalog}=window.__repforgeTrainingTest;
+    const generated=compiler.generateProgram(request,catalog);
     if (!generated.ok) return { ok: false, error: "generation failed", issues: generated.conflicts };
     const definition = generated.value;
     const finalized = await window.__repforgeFinalizeProgramSetup({
@@ -759,7 +759,8 @@ async function main() {
 
     // The draft binds catalog metrics, so it is parsed by the production
     // module in the page, where the raw exercise catalog is loaded.
-    const parsedDraft = await page.evaluate((raw) => window.RepForgeWorkoutDraft.parse(raw), postDraftRaw);
+    await installBrowserTraining(page);
+    const parsedDraft = await page.evaluate((raw) => window.__repforgeTrainingTest.workout.parse(raw), postDraftRaw);
     check(parsedDraft?.kind === "valid" && parsedDraft?.draft?.program?.programId === predecessorProgramId,
       "workout draft remains bound to predecessor programId", {
         kind: parsedDraft?.kind, code: parsedDraft?.code, path: parsedDraft?.path, draftProgramId: parsedDraft?.draft?.program?.programId, predecessorProgramId,

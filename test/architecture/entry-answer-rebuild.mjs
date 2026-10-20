@@ -1,0 +1,82 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {createRequire} from 'node:module';
+import {createGenerationRules} from '../../src/training/generation.js';
+import {createEntryRules,createEntryAdapter} from '../../src/training/authoring.js';
+import {createProgramModel} from '../../src/training/model.js';
+import {createSetupDraftStore} from '../../src/persistence/setup-draft.js';
+import {createEntryGeneration,createEntryAnswerRebuild,createEntrySetup,createEntryReviewSession} from '../../src/app/entry.js';
+const source=createRequire(import.meta.url)('../../exercises.js');
+const catalog=JSON.parse(readFileSync(new URL('../../assets/exercise-catalog.json',import.meta.url),'utf8'));
+const {compiler,identity}=createGenerationRules();identity.prepareCatalog(catalog);
+const rules=createEntryRules(catalog),adapter=createEntryAdapter({compiler});
+const model=createProgramModel({catalog,librarySource:{library:source.EXERCISE_LIBRARY,legacyIds:source.LEGACY_LIBRARY_IDS},nextId:()=> 'unused',now:'2026-10-18',calendarDate:'2026-10-18'});
+const services=adapter.createProductionServices({Compiler:compiler,catalog});
+const values=new Map(),storage={getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value),removeItem:key=>values.delete(key)};
+const store=createSetupDraftStore({rules,storage,lock:operation=>operation(),ownerId:'answer-owner',onFailure:()=>{},onSaved:()=>{}});
+const setup=createEntrySetup({rules,store,nextId:()=> 'answer-draft',now:()=> '2026-10-18T12:00:00.000Z',context:()=>({versions:services.currentVersions(),activeProgramRevision:0}),mutationFrozen:()=>false,onUpdate:()=>{},onFailure:()=>{},onDiagnostic:()=>{}});
+const pending=[];
+let controlled=false;
+const generation=createEntryGeneration({compiler,adapter,catalog,model,candidateName:()=> 'Generated',onFailure:()=>{},execute:(request,{signal})=>controlled?new Promise((resolve,reject)=>pending.push({request,signal,resolve,reject})):Promise.resolve({generated:compiler.generateProgram(request,catalog),cache:true})});
+let draft=rules.setAnswers(rules.selectRoute(setup.create(),'recommend'),{desiredResult:'muscle_growth',structuredExperience:'6_to_24m',recentConsistency:'most',daysPerWeek:3,sessionMinutes:60,environment:{kind:'commercial_gym'}});
+const initial=await generation.generate(draft);assert.equal(initial.ok,true);
+initial.result.telemetry.completed=true;draft=rules.setResult(draft,initial.result);setup.publish(draft);
+const review=createEntryReviewSession({storage});
+const command=createEntryAnswerRebuild({setup,rules,generation,compiler,review,reviewContext:()=>({compiler,catalog}),onBusy:()=>{}});
+controlled=true;
+const finish=job=>job.resolve({generated:compiler.generateProgram(job.request,catalog),cache:false});
+const first=command.apply({daysPerWeek:4}),firstJob=pending.shift();
+const second=command.apply({sessionMinutes:40}),secondJob=pending.shift();
+assert.equal(firstJob.signal.aborted,true);
+assert.equal(setup.read().answers.daysPerWeek,3,'speculation must not be published');
+finish(secondJob);const accepted=await second;
+assert.equal(accepted.status,'committed');assert.equal(accepted.before.answers.daysPerWeek,3);
+assert.equal(accepted.after.answers.daysPerWeek,4);assert.equal(accepted.after.answers.sessionMinutes,40);
+assert.equal(accepted.after.result.telemetry.completed,true);
+assert.equal(review.current(setup.read()).baseline.fingerprint,accepted.after.result.fingerprint);
+await accepted.persistence;
+const stored=values.get('repforge_program_setup_draft_v1');
+assert.equal(JSON.parse(stored).state.answers.daysPerWeek,4);
+assert.equal(JSON.parse(stored).state.result.answersFingerprint,accepted.after.result.answersFingerprint);
+finish(firstJob);assert.equal((await first).status,'superseded');assert.equal(values.get('repforge_program_setup_draft_v1'),stored);
+// Navigation and replacement invalidate exact snapshot identity even with the same draft id.
+for(const replace of [current=>({...current,step:'abilities'}),current=>({...current,draftId:'replacement'})]){
+ setup.publish(draft);const work=command.apply({daysPerWeek:4}),job=pending.shift();
+ setup.publish(replace(setup.read()));const replacement=setup.read();finish(job);
+ assert.equal((await work).status,'superseded');assert.strictEqual(setup.read(),replacement);assert.equal(values.get('repforge_program_setup_draft_v1'),stored);
+}
+setup.publish(draft);
+const abort=command.apply({daysPerWeek:4}),aborted=pending.shift();command.cancel();
+assert.equal(aborted.signal.aborted,true);finish(aborted);assert.equal((await abort).status,'superseded');assert.equal(command.busy(),false);
+const conflict=command.apply({daysPerWeek:4}),conflicted=pending.shift();
+conflicted.resolve({generated:{ok:false,conflicts:[{code:'fixture-conflict'}]},cache:false});
+assert.equal((await conflict).failure.conflicts[0].code,'fixture-conflict');assert.equal(values.get('repforge_program_setup_draft_v1'),stored);assert.equal(setup.read().answers.daysPerWeek,3);
+// A speculative patch from a replaced draft must never leak into its successor.
+const old=command.apply({daysPerWeek:4}),oldJob=pending.shift();setup.publish({...draft,draftId:'next-draft'});
+const next=command.apply({sessionMinutes:40}),nextJob=pending.shift();finish(nextJob);
+const nextResult=await next;assert.equal(nextResult.after.answers.daysPerWeek,3);await nextResult.persistence;
+finish(oldJob);assert.equal((await old).status,'superseded');
+// Recovered definitions can be read but cannot silently rebuild outside the current domain.
+const recovered=structuredClone(draft);recovered.result.preview.programDefinition.provenance={source:'recovered_generation_rules'};
+setup.publish(recovered);const unchanged=setup.read(),bytes=values.get('repforge_program_setup_draft_v1');
+const refused=await command.apply({programRequest:{...initial.request,split:'upper_lower_upper_lower'}});
+assert.equal(refused.status,'failure');assert.equal(refused.failure.code,'generation_conflict');assert.strictEqual(setup.read(),unchanged);assert.equal(values.get('repforge_program_setup_draft_v1'),bytes);assert.equal(pending.length,0);
+// The awaiting UI consumer runs after publication. A queued navigation may
+// replace that publication before the consumer gets its success result.
+setup.publish(draft);
+const delayedConsumer=command.apply({daysPerWeek:4}),delayedJob=pending.shift();
+delayedConsumer.then(()=>setup.publish({...draft,step:'abilities'}));
+finish(delayedJob);const committedBeforeNavigation=await delayedConsumer;
+assert.equal(committedBeforeNavigation.status,'committed');
+assert.equal(command.isCurrent(committedBeforeNavigation.after),false,'a stale completion must not grant presentation ownership');
+assert.equal((await committedBeforeNavigation.persistence).ok,true,'navigation does not cancel the already-staged save');
+assert.equal(setup.read().step,'abilities');
+setup.publish(draft);
+const currentConsumer=command.apply({daysPerWeek:4}),currentJob=pending.shift();finish(currentJob);
+const currentResult=await currentConsumer;
+assert.equal(command.isCurrent(currentResult.after),true,'the unchanged completion still grants presentation ownership');
+const savedCurrent=setup.read();command.cancel();
+assert.strictEqual(setup.read(),savedCurrent,'closing the flow need not replace its draft');
+assert.equal(command.isCurrent(currentResult.after),false,'closing revokes presentation even after publication');
+assert.equal((await currentResult.persistence).ok,true);
+console.log('Answer rebuild: actual authoring/setup/review, overlap, stale completion, replacement, abort, conflicts, completion marker and recovered refusal passed');

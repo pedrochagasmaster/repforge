@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {Adapter as NativeAdapter} from './fixtures/training-runtime.mjs';
 import assert from "node:assert/strict";
 import path from "node:path";
 import { createRequire } from "node:module";
@@ -6,13 +7,13 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
-const Compiler = require(path.join(root, "program-compiler.js"));
-const Adapter = require(path.join(root, "program-entry-adapter.js"));
+const Compiler = require(path.join(root, "src/training/generation.js"));
+const Adapter = NativeAdapter;
 const Catalog = require(path.join(root, "assets/exercise-catalog.json"));
 // Pure search proofs cover impossible-slot latency, canonical replay and catalog
 // order independence across the retained product request families. Historical
 // Plan 067 digests remain evidence for that retired generator, not this version.
-require(path.join(root, "generation-identity.js")).prepareCatalog(Catalog);
+require(path.join(root, "src/training/identity.js")).prepareCatalog(Catalog);
 
 function requestFor(answers) {
   const mapped = Adapter.programRequestFromAnswers({
@@ -24,7 +25,7 @@ function requestFor(answers) {
 }
 
 const reversedCatalog = { ...Catalog, exercises: [...Catalog.exercises].reverse() };
-require(path.join(root, "generation-identity.js")).prepareCatalog(reversedCatalog);
+require(path.join(root, "src/training/identity.js")).prepareCatalog(reversedCatalog);
 // The same replay/order boundary is retained as a bounded current-domain sample.
 // Historical corpus cardinality and old search-job counts are not contracts.
 for (const answers of [
@@ -34,17 +35,13 @@ for (const answers of [
 ]) {
   const request = requestFor(answers);
   const generated = Compiler.generateProgram(request, Catalog);
+  assert.equal(generated.ok, true, `known-feasible request was refused: ${JSON.stringify(answers)}`);
   assert.deepEqual(Compiler.generateProgram(request, Catalog), generated, "same current request replays identically");
   assert.deepEqual(Compiler.generateProgram(request, reversedCatalog), generated,
     "current generation is independent of catalog array order");
-  if (generated.ok) {
-    assert.deepEqual(Compiler.validateProgramDefinition(generated.value, Catalog), { ok: true, issues: [] });
-    assert.equal(generated.value.seed, undefined);
-    assert.equal(generated.value.provenance.source, "recovered_generation_rules");
-  } else {
-    assert.equal(generated.value, null, "refusal never returns a partial program");
-    assert.ok(generated.conflicts.length > 0, "refusal is explained");
-  }
+  assert.deepEqual(Compiler.validateProgramDefinition(generated.value, Catalog), { ok: true, issues: [] });
+  assert.equal(generated.value.seed, undefined);
+  assert.equal(generated.value.provenance.source, "recovered_generation_rules");
 }
 
 // #349: without a pull-up bar or bands the Home fixture cannot fill its

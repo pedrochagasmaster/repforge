@@ -1,15 +1,33 @@
+// Default/--check preserves the historical archive; --generate-new requires --output.
+import { readFileSync } from "node:fs";
 // Generates test/fixtures/install-transfer-clone-v1.json through the real
 // generator, loader, and storage writer/reader boundary. The durable-state
 // section is a Plan 067 generated program; transfer consumers prove the rest.
-import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { createRequire } from "node:module";
-import { loadAppRuntime } from "./app-runtime-harness.mjs";
+import { clonePayloadHashOf } from "./canonical-clone-hash.mjs";
+import { writeFixture } from "./fixture-output.mjs";
+import { createFixtureRuntime, verifyHistoricalState } from "./app-runtime-harness.mjs";
 
-const require2 = createRequire(import.meta.url);
+// These committed fixtures predate current generation/manual metadata policy.
+// Default/--check validates immutable saved bytes. New specimens are explicit
+// and must target a different output path; never silently replace the archive.
+if(process.argv.includes('--generate-new')){
+  if(process.argv.includes('--check')||!process.argv.includes('--output'))throw new Error('--generate-new requires --output <new-path>, without --check');
+  await generateNewFixture();
+}else{
+  const historical=JSON.parse(readFileSync(new URL("../test/fixtures/install-transfer-clone-v1.json",import.meta.url),"utf8"));
+  await verifyHistoricalState(historical.durableState,{obsoleteGeneration:true});
+  if(clonePayloadHashOf(historical)!==historical.integrity.canonicalPayloadHash)throw new Error('Historical clone digest mismatch');
+  const {Telemetry,localStorage}=await createFixtureRuntime();
+  localStorage.setItem('repforge_telemetry_identity_v1',JSON.stringify(historical.telemetryIdentity));
+  const identity=Telemetry.boot({storage:localStorage,crypto:{randomUUID:()=> '11111111-1111-4111-8111-111111111111'}});
+  if(identity.installationId!==historical.telemetryIdentity.installationId)throw new Error('Historical telemetry identity was replaced');
+  console.log('Verified immutable historical fixture through public validation and real mirrored IO');
+}
+async function generateNewFixture(){
+
 const { normalizeLoaded, storageIO, readLocalStatus, readIdbStatus, chooseSnapshot, durableProgramRows,
-  Compiler, Adapter, catalogSnapshot, ROOT, localStorage, MemoryStorage } = await loadAppRuntime(
-  ["normalizeLoaded", "storageIO", "readLocalStatus", "readIdbStatus", "chooseSnapshot", "durableProgramRows"]);
+  Compiler, Adapter, WorkoutDraft, Telemetry, catalogSnapshot, ROOT, localStorage, MemoryStorage } = await createFixtureRuntime();
 
 // Generate a REAL program through the canonical generator from Generate's own
 // answer mapping, then let the app project and normalize it.
@@ -18,8 +36,9 @@ const mapped = Adapter.programRequestFromAnswers({
   environment: { kind: "limited_home" },
 }, catalogSnapshot);
 if (!mapped.ok) throw new Error("request mapping failed");
-// One cycle keeps the documented example small; the contract is per cycle.
-mapped.value.cycles = 1;
+// New specimens follow current generation eligibility; the archived one-cycle
+// fixture is immutable and checked above through the authored-data boundary.
+mapped.value.cycles = 7;
 const generated = Compiler.generateProgram(mapped.value, catalogSnapshot);
 if (!generated.ok) throw new Error("generator returned conflicts");
 const programDefinition = generated.value;
@@ -39,10 +58,14 @@ const programMeta = {
 const rawProgram = durableProgramRows(programDefinition, [], programMeta);
 // One completed set of the first slot, compiled to a History row by the real
 // DraftV2 aggregate, so the fixture's log carries the current metric schema.
-const WorkoutDraft = globalThis.window.RepForgeWorkoutDraft;
 const firstDay = programDefinition.days.find((day) => day.kind === "training");
-const firstSlot = firstDay.slots[0];
-const firstRow = rawProgram[0];
+// This specimen demonstrates one conventional external Weight + Reps set.
+// Current deterministic selection may put a per-side movement first; select
+// this fixture's declared composition rather than inventing a loading policy.
+const firstSlot = firstDay.slots.find(slot=>slot.metricDefinitions.length===2&&
+  slot.metricDefinitions.some(metric=>metric.semantic==='loadKg')&&slot.metricDefinitions.some(metric=>metric.semantic==='reps'));
+if(!firstSlot)throw new Error('No conventional Weight + Reps slot available for clone specimen');
+const firstRow = rawProgram.find(row=>row.id===firstSlot.id);
 const slotSets = firstSlot.prescriptionsByCycle[0].sets;
 const loadingConvention = "external";
 let seedDraft = WorkoutDraft.create({
@@ -147,7 +170,6 @@ const telemetryIdentity = {
   createdAt: "2026-08-01T10:00:00.000Z",
 };
 localStorage.setItem("repforge_telemetry_identity_v1", JSON.stringify(telemetryIdentity));
-const Telemetry = require2(join(ROOT, "telemetry.js"));
 const telemetryBoot = Telemetry.boot({ storage: localStorage, crypto: { randomUUID: () => "11111111-1111-4111-8111-111111111111" } });
 if (telemetryBoot.installationId !== telemetryIdentity.installationId) {
   throw new Error("telemetry consumer rejected or replaced the transfer identity");
@@ -188,5 +210,7 @@ delete preimage.integrity.canonicalPayloadHash;
 const { createHash } = await import("node:crypto");
 const digest = createHash("sha256").update(canonicalJson(preimage), "utf8").digest("hex");
 envelope.integrity.canonicalPayloadHash = digest;
-writeFileSync(join(ROOT, "test/fixtures/install-transfer-clone-v1.json"), JSON.stringify(envelope, null, 2) + "\n");
-console.log(`fixture regenerated through real normalization; program rows: ${envelope.durableState.program.length}; digest ${digest.slice(0, 12)}…`);
+const outcome=writeFixture(join(ROOT, "test/fixtures/install-transfer-clone-v1.json"), JSON.stringify(envelope, null, 2) + "\n");
+console.log(`fixture ${outcome} through real normalization; program rows: ${envelope.durableState.program.length}; digest ${digest.slice(0, 12)}…`);
+
+}

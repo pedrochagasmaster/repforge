@@ -1,0 +1,52 @@
+/* "Why this weight?" — the arithmetic behind one recommendation, opened on tap.
+   Rows are a hairline-separated stack so each fact reads as its own line: last
+   session, what it showed, the rule that fired, the load, the reps. Tokens only,
+   so the dark appearance is a variable swap and not a second palette (ADR 0009). */
+.sheet--why{height:auto;max-height:calc(var(--vvh,100dvh) - 56px)}
+.whysheet{
+  display:flex;flex-direction:column;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;padding:0 var(--space-16) var(--space-16);
+}
+/* The headline: the verdict mark and the load the engine asks for, in the subtitle role. */
+.whysheet__target{
+  display:flex;align-items:flex-start;gap:var(--space-8);margin:0;
+  font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink);
+}
+.whysheet__target .verdictmark__glyph{width:20px;height:20px;margin-top:3px}
+#whySheet #whyDecision{margin:var(--space-4) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.whysheet__body{margin-top:var(--space-8);border-top:1px solid var(--boundary-decorative)}
+/* One sentence per block, under a bold lead, on one hairline. */
+.whysheet__block{padding:var(--space-12) 0;border-bottom:1px solid var(--boundary-decorative)}
+.whysheet__lead{display:block;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
+.whysheet__text{margin:var(--space-4) 0 0;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink)}
+.whysheet__lab{margin:0 0 var(--space-4);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+/* The working is one tap away, never in the way. */
+.whysheet__disc{
+  display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);width:100%;min-height:var(--control-target);margin:0;padding:var(--space-12) 0;
+  background:var(--control-disclosure-bg);border:0;border-bottom:1px solid var(--boundary-decorative);border-radius:var(--radius-none);cursor:pointer;text-align:left;
+  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--control-disclosure-ink);
+}
+@media (hover: hover) and (pointer: fine){
+.whysheet__disc:hover:not(:disabled){background:var(--well);color:var(--control-disclosure-ink)}
+}
+.whysheet__disc:active:not(:disabled){background:var(--well);color:var(--control-disclosure-ink);transform:var(--control-pressed-transform)}
+.whysheet__disc:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.whysheet__disc:disabled{background:var(--control-disclosure-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
+.whycalc{display:none;padding:var(--space-4) 0 var(--space-8);border-bottom:1px solid var(--boundary-decorative)}
+.whycalc.is-open{display:block}
+.whycalc__group{margin:var(--space-12) 0 var(--space-4);font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:.08em;text-transform:uppercase;color:var(--color-ink-secondary)}
+.whycalc__row{display:grid;grid-template-columns:minmax(0,auto) minmax(0,1fr);column-gap:var(--space-12);align-items:baseline;padding:var(--space-8) 0;border-bottom:1px solid var(--boundary-decorative)}
+.whycalc__row:last-child{border-bottom:0}
+.whycalc__k{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.whycalc__v{text-align:right;font-family:var(--font-training-data);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink);overflow-wrap:anywhere}
+.whycalc__v em{margin-left:var(--space-8);font-style:normal;color:var(--color-ink-secondary)}
+.whycalc__sub{grid-column:1 / -1;margin-top:var(--space-4);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.whycalc__row--sum .whycalc__k,.whycalc__row--sum .whycalc__v{font-weight:var(--weight-semibold);color:var(--color-ink)}
+.whycalc__text{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.whysheet__evidence{margin:var(--space-12) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+#whyOk{width:100%;min-height:var(--control-target);margin-top:var(--space-16)}
+/* The affordance itself: a quiet text link under the recommendation, never a
+   button that competes with logging a set. */
+.recblock__why,.focus-ex__why{font-size:var(--font-size-body-small);padding:6px 0 0}
+.focus-ex__why{display:block}
+

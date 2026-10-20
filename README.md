@@ -77,7 +77,7 @@ missing or either value is malformed. Preview analytics stays disabled unless
 
 For a local analytics check, copy `posthog-config.js.example` to the ignored
 `posthog-config.js`, replace the public token, and temporarily load it directly
-before `posthog-init.js` in `index.html`. Do not commit the generated config or
+before the native application module in `index.html`. Do not commit the generated config or
 any project credential. Ordinary local development needs no analytics config.
 
 The service worker treats `posthog-config.js` as a network-first shell file. It

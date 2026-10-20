@@ -1,3 +1,5 @@
+import {installBrowserTraining, installBrowserSnapshotPolicy} from "../../test/training-browser.mjs";
+import {browserLanguage} from "../../test/language-browser.mjs";
 /**
  * Drive the non-onboarding surfaces.
  *
@@ -7,10 +9,75 @@
  * poisoned every frame after it.
  */
 import { readFileSync } from "node:fs";
+import assert from "node:assert/strict";
 import { catalogState, directionDState, emptyEntryState, localeState } from "./fixtures.mjs";
 import { CAPTURE_NOW, dismissChrome, LOG_DRAFT, seed, sleep } from "./session.mjs";
 import { definitionSlot, installGeneratedProgram, isWeightRepsSlot, metricLogRow } from "../../test/fixtures/history-metric-rows.mjs";
 import { DIRECTION_D_CANONICAL_ID_BY_LEGACY_ID } from "./direction-d-canonical-fixture.generated.mjs";
+
+// Called by both capture owners after their last visual/semantic assertion.
+const afterCapture = new WeakMap();
+export async function finishAppCapture(page) {
+  const finish = page && afterCapture.get(page);
+  if (!finish) return;
+  afterCapture.delete(page);
+  await finish();
+}
+
+// Keep a real durable operation pending at its browser lock boundary. The
+// capture owns a fresh context, whose finally-close releases this lock even
+// if layout validation fails. No production storage adapter is replaced.
+async function holdCustomMutation(page) {
+  await page.evaluate(async () => {
+    await window.__repforgeStorage.flush();
+    let release, acquired;
+    const held = new Promise(resolve => { acquired = resolve; });
+    const gate = new Promise(resolve => { release = resolve; });
+    const done = navigator.locks.request("repforge:state-write", async () => { acquired(); await gate; });
+    window.__catalogCustomWriteHold = { release, done };
+    await held;
+  });
+  afterCapture.set(page, async () => {
+    await page.evaluate(async () => {
+      window.__catalogCustomWriteHold.release();
+      await window.__catalogCustomWriteHold.done;
+      await window.__repforgeStorage.flush();
+    });
+  });
+}
+
+async function readCustomReplicas(page) {
+  return page.evaluate(async () => {
+    const local = JSON.parse(localStorage.getItem("repforge_v1"));
+    const idb = await new Promise((resolve, reject) => {
+      const open = indexedDB.open("repforge");
+      open.onerror = () => reject(open.error);
+      open.onsuccess = () => {
+        const db = open.result, request = db.transaction("kv", "readonly").objectStore("kv").get("repforge_v1");
+        request.onsuccess = () => { resolve(request.result); db.close(); };
+        request.onerror = () => { reject(request.error); db.close(); };
+      };
+    });
+    return { local, idb, journals: Object.keys(localStorage).filter(key => key.startsWith("repforge_pending_v1:")) };
+  });
+}
+
+async function failCustomSnapshotWrites(page) {
+  await page.evaluate(async () => {
+    await window.__repforgeStorage.flush();
+    const original = IDBObjectStore.prototype.put;
+    const fault = { count: 0, restore() { IDBObjectStore.prototype.put = original; } };
+    IDBObjectStore.prototype.put = function (...args) {
+      if (this.transaction.db.name === "repforge" && this.name === "kv"
+        && args[1] === "repforge_v1" && fault.count < 2) {
+        fault.count++;
+        throw new DOMException("Catalog snapshot write failure", "UnknownError");
+      }
+      return Reflect.apply(original, this, args);
+    };
+    window.__catalogCustomSnapshotFault = fault;
+  });
+}
 
 const WHY_DATA = new URL("../../plans/067/data/", import.meta.url);
 const WHY_GYM = JSON.parse(readFileSync(new URL("gym.json", WHY_DATA), "utf8"));
@@ -705,16 +772,17 @@ async function waitForExerciseChartViewport(page, { chartFocused }) {
 }
 
 async function installPerSideHistory(page, { bodyweightAssumption = false } = {}) {
-  await page.waitForFunction(() => !!window.RepForgeExerciseCatalog?.snapshot?.() &&
+  await installBrowserTraining(page);
+  await page.waitForFunction(() => !!window.__repforgeTrainingTest?.catalog &&
     typeof window.__repforgeFinalizeProgramSetup === "function", undefined, { timeout: 15000 });
   const state = await page.evaluate(async ({ rowId, pressId }) => {
-    const catalog = window.RepForgeExerciseCatalog.snapshot();
-    const mapped = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({
+    const catalog = window.__repforgeTrainingTest.catalog;
+    const mapped = window.__repforgeTrainingTest.entryAdapter.programRequestFromAnswers({
       desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek: 2,
       sessionMinutes: 90, environment: { kind: "commercial_gym" }, mustHaveExercises: [rowId, pressId],
     }, catalog);
     if (!mapped.ok) throw new Error(`Per-side catalog program request failed: ${JSON.stringify(mapped.conflicts)}`);
-    const generated = window.RepForgeProgramCompiler.generateProgram(mapped.value, catalog);
+    const generated = window.__repforgeTrainingTest.compiler.generateProgram(mapped.value, catalog);
     if (!generated.ok) throw new Error(`Per-side catalog program generation failed: ${JSON.stringify(generated.conflicts)}`);
     await window.__repforgeFinalizeProgramSetup({
       programDefinition: generated.value, name: "Per-side history", answers: {}, destination: "log",
@@ -766,17 +834,18 @@ async function installPerSideHistory(page, { bodyweightAssumption = false } = {}
     rowFor(unilateral, "per-side-history-latest", latestDate, { loadKg: 20, repsPerSide: 8 }),
     rowFor(bilateral, "per-side-history-latest", latestDate, { loadPerSideKg: 27.5, repsPerSide: 8 }),
   ];
-  const valid = await page.evaluate(snapshot => window.__repforgeValidateStateShape(snapshot), state);
+  await installBrowserSnapshotPolicy(page);
+  const valid = await page.evaluate(snapshot => window.__repforgeTrainingTest.snapshotPolicy.isValidStateShape(snapshot), state);
   if (!valid) {
     const diagnostics = await page.evaluate(snapshot => snapshot.log.map(row => {
-      const definitions = window.RepForgeExerciseMetrics.validateDefinitions(row.metricIds, row.metricDefinitions);
-      const values = window.RepForgeExerciseMetrics.validateMetricValues(row.metricIds, row.metricValues);
-      const sourceBinding = window.RepForgeExerciseMetrics.validateExerciseSourceBinding({
+      const definitions = window.__repforgeTrainingTest.metrics.validateDefinitions(row.metricIds, row.metricDefinitions);
+      const values = window.__repforgeTrainingTest.metrics.validateMetricValues(row.metricIds, row.metricValues);
+      const sourceBinding = window.__repforgeTrainingTest.metrics.validateExerciseSourceBinding({
         metricOrigin: row.metricOrigin, metricIds: row.metricIds, metricDefinitions: row.metricDefinitions,
-        sourceId: row.sourceLibraryId, sourceExercise: window.RepForgeExerciseCatalog.snapshot().exercises.find(entry => entry.id === row.sourceLibraryId),
+        sourceId: row.sourceLibraryId, sourceExercise: window.__repforgeTrainingTest.catalog.exercises.find(entry => entry.id === row.sourceLibraryId),
         bodyweightCoefficient: row.loadingModel?.bodyweightCoefficient ?? null,
       });
-      const loading = window.RepForgeWorkoutDraft.validateLoadingContext(row.loadingContext);
+      const loading = window.__repforgeTrainingTest.workout.validateLoadingContext(row.loadingContext);
       const load = row.metricDefinitions.find(metric => metric.semantic === "loadKg");
       const reps = row.metricDefinitions.find(metric => metric.semantic === "reps");
       return {
@@ -807,18 +876,19 @@ async function progressSegment(page, segment) {
 }
 
 async function completeCompiledProgram(page, { days = 4, minutes = 90, edits = [] } = {}) {
-  await page.waitForFunction(() => !!window.RepForgeExerciseCatalog?.snapshot?.() &&
+  await installBrowserTraining(page);
+  await page.waitForFunction(() => !!window.__repforgeTrainingTest?.catalog &&
     typeof window.__repforgeFinalizeProgramSetup === "function", undefined, { timeout: 15000 });
   await page.evaluate(async ({ days, minutes, edits }) => {
     // Plan 067: the legacy services.compile()/programStructure/compilerContext path is
     // retired. A canonical ProgramDefinition now comes from the same generator the
     // Recommend route itself drives, finalized the same way `__repforgeFinalizeProgramSetup` expects.
-    const catalog = window.RepForgeExerciseCatalog.snapshot();
-    const request = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({
+    const catalog = window.__repforgeTrainingTest.catalog;
+    const request = window.__repforgeTrainingTest.entryAdapter.programRequestFromAnswers({
       desiredResult: "balanced", structuredExperience: "6_to_24m", daysPerWeek: days, sessionMinutes: minutes,
       environment: { kind: "commercial_gym" },
     }, catalog).value;
-    const generated = window.RepForgeProgramCompiler.generateProgram(request, catalog);
+    const generated = window.__repforgeTrainingTest.compiler.generateProgram(request, catalog);
     if (!generated.ok) throw new Error(`catalog compiler failed: ${JSON.stringify(generated.conflicts || generated)}`);
     // Block edits shaped as the installed editor writes them, so a Review
     // regeneration has something to carry, clamp or drop.
@@ -1350,14 +1420,15 @@ async function whyOnBuildRange(page) {
   await navigateToWhy(page, { exerciseId: row.id, day: row.day });
   await expectWhyLeads(page, ["manual"]);
   const text = await page.locator("#whyBody .whysheet__text").textContent();
-  const expected = await page.evaluate(() => window.RepForgeI18n.t("why.manual"));
+  const expected = await (await browserLanguage(page)).evaluate(async (language)=>language.t("why.manual"));
   if (text?.trim() !== expected) throw new Error(`The Build-backed manual Why sentence was ${JSON.stringify(text)}`);
 }
 
 async function whyOnGeneratedPerSide(page) {
+  await installBrowserTraining(page);
   const target = await page.evaluate(async (request) => {
-    const catalog = window.RepForgeExerciseCatalog.snapshot();
-    const generated = window.RepForgeProgramCompiler.generateProgram(request, catalog);
+    const catalog = window.__repforgeTrainingTest.catalog;
+    const generated = window.__repforgeTrainingTest.compiler.generateProgram(request, catalog);
     if (!generated.ok) throw new Error(`generation failed: ${JSON.stringify(generated.conflicts || generated)}`);
     const definition = generated.value;
     const perSide = definition.days.filter((day) => day.kind === "training").flatMap((day) =>
@@ -1366,7 +1437,7 @@ async function whyOnGeneratedPerSide(page) {
       slot.metricDefinitions.some((metric) => metric.semantic === "repsPerSide"));
     if (!perSide) return null;
     const source = catalog.exercises.find((entry) => entry.id === "3895c6f170d88002b51fdf96c7dc50e1");
-    const metrics = window.RepForgeExerciseMetrics.definitionsForIds(source?.exerciseMetrics || []);
+    const metrics = window.__repforgeTrainingTest.metrics.definitionsForIds(source?.exerciseMetrics || []);
     if (!source || !metrics?.ok) throw new Error("The ambiguous per-side catalog source or its canonical metric definitions are unavailable");
     perSide.slot.exerciseId = source.id;
     perSide.slot.sourceExerciseIds = [source.id];
@@ -1385,7 +1456,7 @@ async function whyOnGeneratedPerSide(page) {
         set.targets = { repsPerSide: { min: 6, max: 10 }, loadPerSideKg: { min: 20, max: 35 } };
       }
     }
-    const valid = window.RepForgeProgramCompiler.validateProgramDefinition(definition, catalog, []);
+    const valid = window.__repforgeTrainingTest.compiler.validateProgramDefinition(definition, catalog, []);
     if (!valid.ok) throw new Error(`The unknown-mode generated slot is invalid: ${JSON.stringify(valid.issues)}`);
     await window.__repforgeFinalizeProgramSetup({
       programDefinition: definition, name: "Why setup proof", answers: {}, destination: "log", origin: "first-run",
@@ -1415,7 +1486,7 @@ async function whyOnGeneratedPerSide(page) {
     throw new Error(`The ambiguous generated slot lost its execution-mode requirement or acquired a load: ${JSON.stringify(truth)}`);
   await expectWhyLeads(page, ["setup"]);
   const text = await page.locator("#whyBody .whysheet__text").textContent();
-  const expected = await page.evaluate(() => window.RepForgeI18n.t("why.setup.execution_mode"));
+  const expected = await (await browserLanguage(page)).evaluate(async (language)=>language.t("why.setup.execution_mode"));
   if (text?.trim() !== expected) throw new Error(`The generated per-side Why sentence was ${JSON.stringify(text)}`);
 }
 
@@ -1456,7 +1527,7 @@ async function focusPerSideTarget(page) {
       whyOpen: document.querySelector("#whySheet")?.classList.contains("is-open") || false,
     };
   }, PER_SIDE_LOAD_METRIC);
-  const expectedLabel = await page.evaluate(() => window.RepForgeI18n.t("focus.metric.load_per_side_kg"));
+  const expectedLabel = await (await browserLanguage(page)).evaluate(async (language)=>language.t("focus.metric.load_per_side_kg"));
   if (!presentation.fieldText.includes(String(result.targetLoad)) || !presentation.label.startsWith(expectedLabel) || presentation.whyOpen) {
     throw new Error(`The ordinary Focus state does not show its per-side prefill and label without opening Why: ${JSON.stringify({ result, presentation, expectedLabel })}`);
   }
@@ -1501,7 +1572,7 @@ export const APP_SCENARIOS = {
   "today/deload-week": async page => {
     const note = page.locator("#todayProgram .today-prog__deload");
     await note.waitFor({ state: "visible", timeout: 20000 });
-    const copy = await page.evaluate(() => window.RepForgeI18n.t("today.deload_week"));
+    const copy = await (await browserLanguage(page)).evaluate(async (language)=>language.t("today.deload_week"));
     if ((await note.innerText()).trim() !== copy) throw new Error("Today shows the wrong deload recovery note");
   },
   "today/ready": async (page) => {
@@ -1657,7 +1728,7 @@ export const APP_SCENARIOS = {
       visible: getComputedStyle(node).display !== "none" && getComputedStyle(node).visibility !== "hidden",
       text: node.textContent.trim(),
     }));
-    const copy = await page.evaluate(() => window.RepForgeI18n.t("today.deload_week"));
+    const copy = await (await browserLanguage(page)).evaluate(async (language)=>language.t("today.deload_week"));
     if (!cue.visible || cue.text !== copy) throw new Error(`Focus deload note is missing: ${JSON.stringify(cue)}`);
   },
   "workout/focus-glossary": async (page) => {
@@ -1759,6 +1830,7 @@ export const APP_SCENARIOS = {
   "today/draft-resume": async page => { await focusMode(page); await fillAdaptiveShelf(page, ADAPTIVE_WEIGHT_METRIC_ID, "80"); await page.click("#leaveWorkout"); },
 
   "workout/stale-draft": async (page) => {
+  await installBrowserTraining(page);
     await enterWorkout(page);
     await page.evaluate(async () => {
       const hook = window.__repforgeWorkoutDraft;
@@ -1766,7 +1838,7 @@ export const APP_SCENARIOS = {
       const exerciseInstanceId = draft.session.selectedExerciseId;
       const setId = draft.exercises[exerciseInstanceId].setOrder[0];
       const operationId = "catalog-stale-winner";
-      const next = window.RepForgeWorkoutDraft.reduce(draft, {
+      const next = window.__repforgeTrainingTest.workout.reduce(draft, {
         type: "editSetField", exerciseInstanceId, setId, field: "load", value: "75",
         operationId, expectedRevision: draft.revision,
         updatedAt: new Date(Date.parse(draft.session.updatedAt) + 1000).toISOString(),
@@ -1776,7 +1848,7 @@ export const APP_SCENARIOS = {
         expectedDraftId: draft.draftId,
         expectedRevision: draft.revision,
         operationId,
-        nextRaw: JSON.stringify(window.RepForgeWorkoutDraft.serialize(next)),
+        nextRaw: JSON.stringify(window.__repforgeTrainingTest.workout.serialize(next)),
       });
     });
     await fillAdaptiveShelf(page, ADAPTIVE_WEIGHT_METRIC_ID, "82.5");
@@ -1894,7 +1966,10 @@ export const APP_SCENARIOS = {
     await view(page, "stats");
     await startExerciseChartViewportTracking(page);
     const evkey = `library:${PER_SIDE_READING_EXERCISES.bilateral}`;
-    await page.evaluate((key) => window.openExerciseView(key, "stats"), evkey);
+    // Open the same keyed movement through Progress's real mounted control.
+    // The native exercise owner is private; its overview callback owns route
+    // state, chart reset, focus transfer and the return destination together.
+    await page.locator(`#overviewStrength button[data-ovkey="${evkey}"]`).click();
     await page.waitForSelector("#exercise.view.active .exchart__plot", { timeout: 20000 });
     await waitForExerciseChartRoute(page);
     await page.locator('#exDetail [data-metric="e1rm"]').click();
@@ -2216,10 +2291,7 @@ export const APP_SCENARIOS = {
     await page.locator("#exCustomName").fill("Paused cable row");
     await page.locator('#exCustomEquip .pchip[aria-pressed="false"]').first().click();
     await page.locator('#exCustomPrimary .pchip[aria-pressed="false"]').first().click();
-    await page.evaluate(() => {
-      const io = window.RepForgeDurableState.storageIO;
-      io.writeIdb = () => new Promise(() => {});
-    });
+    await holdCustomMutation(page);
     await page.locator("#exCustomSave").click();
     await page.waitForFunction(() => {
       const sheet = document.querySelector("#exCustomSheet");
@@ -2246,13 +2318,7 @@ export const APP_SCENARIOS = {
     if (!customId) throw new Error("The custom deletion fixture was not created through the UI");
     await page.evaluate(id => window.__repforgeEditCustom(id), customId);
     await page.waitForSelector("#exCustomSheet.is-open", { timeout: 20000 });
-    await page.evaluate(() => {
-      const io = window.RepForgeDurableState.storageIO;
-      const writeIdb = io.writeIdb;
-      io.writeIdb = snapshot => new Promise(resolve => {
-        window.__releaseCustomDeleteWrite = () => resolve(writeIdb.call(io, snapshot));
-      });
-    });
+    await holdCustomMutation(page);
     await page.locator("#exCustomDelete").click();
     await page.waitForFunction(() => document.querySelector("#exCustomSheet")?.getAttribute("aria-busy") === "true" &&
       document.querySelector("#exCustomDelete")?.dataset.i18n === "custom.deleting");
@@ -2266,38 +2332,67 @@ export const APP_SCENARIOS = {
   },
   "program/custom-exercise-archiving": async (page) => {
     await createInUseCustomExercise(page);
-    await page.evaluate(() => {
-      const io = window.RepForgeDurableState.storageIO;
-      io.writeIdb = () => new Promise(() => {});
-    });
+    await holdCustomMutation(page);
     await page.locator("#exCustomDelete").click();
     await page.waitForFunction(() => document.querySelector("#exCustomSheet")?.getAttribute("aria-busy") === "true" &&
       document.querySelector("#exCustomDelete")?.dataset.i18n === "custom.archiving");
     await sleep(page, 350);
   },
   "program/custom-exercise-recovery": async (page) => {
-    await createInUseCustomExercise(page);
-    await page.evaluate(() => {
-      const io = window.RepForgeDurableState.storageIO;
-      const writeIdb = io.writeIdb;
-      let calls = 0;
-      io.writeIdb = snapshot => ++calls <= 2
-        ? Promise.resolve(false)
-        : writeIdb.call(io, snapshot);
-    });
-    await page.locator("#exCustomDelete").click();
-    await page.waitForFunction(() => {
-      const recovery = document.querySelector("#exCustomRecovery");
-      return recovery?.hidden === false &&
-        document.querySelector("#exCustomRecoveryRetry")?.hidden === false &&
-        document.querySelector("#exCustomRecoveryStatus")?.textContent?.trim();
-    }, undefined, { timeout: 20000 });
-    await page.waitForFunction(() => {
-      const toast = document.querySelector("#toast");
-      return !toast || toast.classList.contains("hidden");
-    }, undefined, { timeout: 10000 });
-    await resetSheetScroll(page, "#exCustomSheet .custom__form");
-    await sleep(page, 350);
+    const customId = await createInUseCustomExercise(page);
+    const before = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_v1")));
+    await failCustomSnapshotWrites(page);
+    try {
+      await page.locator("#exCustomDelete").click();
+      await page.waitForFunction(() => {
+        const recovery = document.querySelector("#exCustomRecovery");
+        return recovery?.hidden === false &&
+          document.querySelector("#exCustomRecoveryRetry")?.hidden === false &&
+          document.querySelector("#exCustomRecoveryStatus")?.textContent?.trim();
+      }, undefined, { timeout: 20000 });
+      await page.waitForFunction(() => {
+        const toast = document.querySelector("#toast");
+        return !toast || toast.classList.contains("hidden");
+      }, undefined, { timeout: 10000 });
+      const faults = await page.evaluate(() => window.__catalogCustomSnapshotFault.count);
+      if (faults !== 2) throw new Error(`Custom recovery expected two snapshot faults, saw ${faults}`);
+      const partial = await readCustomReplicas(page);
+      assert.equal(partial.local.customExercises.find(entry => entry.id === customId)?.archived, true,
+        "archive reaches the local replica before recovery");
+      assert.notDeepEqual(partial.local, partial.idb, "faults preserve a real partial-write recovery state");
+      // Custom settlement closes an applied no-draft-effect journal before
+      // healing replicas (durable.settleCustomExerciseMutation). The current
+      // local R+1 is the recovery authority even when its second IDB write
+      // fails; requiring a surviving journal would describe another protocol.
+      assert.deepEqual(partial.journals, [], "applied archive journal is already closed before replica healing");
+      assert.deepEqual(partial.idb, before, "failed IDB writes preserve the exact predecessor replica");
+      assert.equal(partial.local._storageRevision, before._storageRevision + 1,
+        "local authoritative archive advances exactly one revision");
+      assert.deepEqual(partial.local.customExercises,
+        before.customExercises.map(entry => entry.id === customId ? {...entry, archived: true} : entry),
+        "authoritative replica contains exactly the requested archive");
+      assert.deepEqual(partial.local.program, before.program, "partial archive preserves program references");
+      assert.deepEqual(partial.local.log, before.log, "partial archive preserves history");
+      assert.deepEqual(partial.local.programHistory, before.programHistory, "partial archive preserves previous programs");
+      afterCapture.set(page, async () => {
+        await page.locator("#exCustomRecoveryRetry").click();
+        await page.waitForSelector("#exCustomSheet", { state: "hidden", timeout: 20000 });
+        await page.evaluate(() => window.__repforgeStorage.flush());
+        const proof = await readCustomReplicas(page);
+        assert.deepEqual(proof.local, proof.idb, "custom recovery settles both replicas");
+        assert.deepEqual(proof.journals, [], "custom recovery leaves no pending journal");
+        assert.equal(proof.local.customExercises.filter(entry => entry.id === customId && entry.archived === true).length, 1,
+          "retry archives exactly one custom definition");
+        assert.deepEqual(proof.local.program, before.program, "archive preserves program references");
+        assert.deepEqual(proof.local.log, before.log, "archive preserves history");
+        assert.deepEqual(proof.local.programHistory, before.programHistory, "archive preserves previous programs");
+        assert.equal(proof.local._storageRevision, partial.local._storageRevision, "retry settles the original mutation without another revision");
+      });
+      await resetSheetScroll(page, "#exCustomSheet .custom__form");
+      await sleep(page, 350);
+    } finally {
+      await page.evaluate(() => window.__catalogCustomSnapshotFault?.restore());
+    }
   },
   "program/share-setup": async (page) => {
     await openProgram(page);
@@ -2319,15 +2414,16 @@ export const APP_SCENARIOS = {
   "program/share-too-large": async (page) => {
     // An edited generated program cannot regenerate from its recipe and its
     // full definition exceeds the link cap, so the sheet offers the file.
-    await page.waitForFunction(() => !!window.RepForgeExerciseCatalog?.snapshot?.() &&
+    await installBrowserTraining(page);
+    await page.waitForFunction(() => !!window.__repforgeTrainingTest?.catalog &&
       typeof window.__repforgeFinalizeProgramSetup === "function", undefined, { timeout: 15000 });
     await page.evaluate(async () => {
-      const catalog = window.RepForgeExerciseCatalog.snapshot();
-      const request = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({
+      const catalog = window.__repforgeTrainingTest.catalog;
+      const request = window.__repforgeTrainingTest.entryAdapter.programRequestFromAnswers({
         desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek: 4, sessionMinutes: 60,
         environment: { kind: "commercial_gym" },
       }, catalog).value;
-      const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog).value;
+      const definition = window.__repforgeTrainingTest.compiler.generateProgram(request, catalog).value;
       definition.days.find((day) => day.kind === "training").slots[0].setupNotes = "Rack at 7";
       const finalized = await window.__repforgeFinalizeProgramSetup({
         programDefinition: definition, name: "Edited generated block", answers: {}, destination: "log",

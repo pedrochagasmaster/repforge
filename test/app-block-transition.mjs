@@ -1,0 +1,62 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {createRequire} from 'node:module';
+import {createGenerationRules} from '../src/training/generation.js';
+import {createProgramModel} from '../src/training/model.js';
+import {createEntryAdapter} from '../src/training/authoring.js';
+import {createProgramReplacementCommands} from '../src/app/program.js';
+import {createBlockTransitionCommands,classifyCommittedTransition} from '../src/app/block-transition.js';
+import {draftProgramFingerprint,snapshotBlockId,readRevision,draftEffectOutcome} from '../src/persistence/snapshot.js';
+const require=createRequire(import.meta.url),library=require('../exercises.js');
+const generation=createGenerationRules(),catalog=generation.identity.prepareCatalog(require('../assets/exercise-catalog.json'));
+const mapped=createEntryAdapter({compiler:generation.compiler}).programRequestFromAnswers({desiredResult:'balanced',structuredExperience:'over_24m',daysPerWeek:3,sessionMinutes:60,environment:{kind:'everything'},splitPreference:'upper_lower_full',block:{cycles:7,periodization:'static'},deload:true},catalog);
+assert(mapped.ok);const generated=generation.compiler.generateProgram(mapped.value,catalog);assert(generated.ok);
+const now='2026-10-18T12:00:00.000Z';let identity=0;
+const model=createProgramModel({catalog,librarySource:{library:library.EXERCISE_LIBRARY,legacyIds:library.LEGACY_LIBRARY_IDS},nextId:()=>`id-${++identity}`,now});
+const initial={log:[],program:model.durableProgramRows(generated.value,[],{}),customExercises:[],programHistory:[],programMeta:{id:'predecessor',blockId:'old-block',started:'2026-10-18',programDefinition:generated.value,mesocycleLengthWeeks:7,mesocycleStatus:'active',plannedVolumeHistory:{sentinel:true},programStructure:{days:[],programVersions:[],weekPrescriptions:[],provenance:{source:'generate'}}}};
+function harness(){
+ let state=structuredClone(initial),raw=null,commits=0,progress=false,lockedHead=null,validationCalls=0;
+ const capture=snapshot=>({oldProgramId:snapshot.programMeta.id,oldBlockId:snapshotBlockId(snapshot),oldProgram:structuredClone(snapshot.program),oldMeta:structuredClone(snapshot.programMeta),programFingerprint:draftProgramFingerprint(snapshot),storageRevision:readRevision(snapshot),review:{captured:true}});
+ const replacement=createProgramReplacementCommands({read:()=>state,capture,allocateBlockId:()=>`block-${++identity}`,now:()=>now,
+  commit:async(proposal,options)=>{commits++;const head=lockedHead||state;
+   const checked=await options.preflight({head,proposal});
+   if(checked?.reject)return checked.result;
+   assert.equal(options.effect.status,'valid');assert.equal(options.effect.effect.expectedRaw,raw);
+   state=structuredClone(checked.proposal);return{localOk:true,idbOk:true,committed:true,settled:true,revision:readRevision(state)}}});
+ const transition={...generation.transition,validateProposal:async(...args)=>{validationCalls++;return generation.transition.validateProposal(...args)}};
+ const command=createBlockTransitionCommands({read:()=>state,transition,catalog:()=>catalog,derive:async input=>generation.transition.deriveSuccessor(input),replacement:{...replacement,capture},model,
+  drafts:{readRaw:()=>raw,preserve:expectedRaw=>draftEffectOutcome(expectedRaw===null?{required:true,kind:'clear-draft',expectedRaw:null,precondition:'abort-changed'}:{required:true,kind:'replace-draft',expectedRaw,replacementRaw:expectedRaw,precondition:'abort-changed'}),hasProgressInRemovedSets:()=>progress},
+  identity:{nextId:()=>`id-${++identity}`,now:()=>now,allocateBlockId:()=>`block-${++identity}`}});
+ return{command,read:()=>state,commits:()=>commits,validations:()=>validationCalls,setRaw:value=>{raw=value},setProgress:value=>{progress=value},setLocked:value=>{lockedHead=value}};
+}
+const params=proposal=>({proposal,proposalHash:proposal.proposalHash,transitionId:proposal.transitionId,successorProgramId:proposal.successor.programId,confirmedAt:now,acknowledgedDraftRaw:null});
+const good=harness(),preview=await good.command.proposeChange({change:{kind:'reduce_volume'},transitionId:'transition',successorProgramId:'successor',createdAt:now});
+assert(preview.ok,JSON.stringify(preview));const proposal=preview.proposal;
+const approved=JSON.parse(readFileSync(new URL('./fixtures/block-transition-hashes-v1.json',import.meta.url),'utf8'));
+assert.equal(proposal.proposalHash,approved.proposalHash,'immutable pre-extraction application corpus');
+assert.equal(proposal.predecessor.definitionFingerprint,approved.predecessorFingerprint);
+assert.equal(proposal.successor.definitionFingerprint,approved.successorFingerprint);
+assert.equal(proposal.transitionId,'transition');assert.equal(proposal.successor.programId,'successor');assert.equal(proposal.predecessor.programId,'predecessor');
+assert.equal(classifyCommittedTransition(good.read(),proposal,'predecessor'),'absent');
+const badPin=await good.command.confirmTransition({...params(proposal),proposalHash:'wrong'});assert.equal(badPin.code,'proposal_hash_mismatch');assert.equal(good.commits(),0);
+const omittedAck=params(proposal);delete omittedAck.acknowledgedDraftRaw;
+assert.equal((await good.command.confirmTransition(omittedAck)).code,'acknowledged_draft_missing');
+const committed=await good.command.confirmTransition(params(proposal));assert.equal(committed.committed,true);assert.equal(good.validations(),1,'semantic validation executes inside commit preflight');
+assert.equal(good.read().programMeta.id,'successor');assert.equal(good.read().programHistory.length,1);
+assert.equal(good.read().programHistory[0].id,'predecessor');assert.equal(good.read().programHistory[0].archiveId,'predecessor');
+assert.equal(good.read().programHistory[0].transitionOut.proposalHash,proposal.proposalHash);
+assert.equal(good.read().programMeta.transitionIn.proposalHash,proposal.proposalHash);
+assert.equal('plannedVolumeHistory' in good.read().programMeta,false);assert.equal('weekPrescriptions' in good.read().programMeta.programStructure,false);
+assert.equal(classifyCommittedTransition(good.read(),proposal,'predecessor'),'match');
+assert.equal((await good.command.confirmTransition(params(proposal))).alreadyCommitted,true);assert.equal(good.commits(),1,'idempotent acknowledgment never arms another transaction');
+const partial=structuredClone(good.read());delete partial.programHistory[0].archiveId;
+assert.equal(classifyCommittedTransition(partial,proposal,'predecessor'),'conflict');
+const draft=harness();draft.setRaw('{"pending":true}');assert.equal((await draft.command.confirmTransition(params(proposal))).code,'draft_mismatch');assert.equal(draft.commits(),0);
+const removed=harness();removed.setProgress(true);assert.equal((await removed.command.confirmTransition(params(proposal))).code,'draft_conflict');assert.equal(removed.commits(),0,'edited removed sets refuse before replacement capture/journal');
+const stale=harness(),head=structuredClone(initial);head.programMeta.id='other-program';stale.setLocked(head);
+assert.equal((await stale.command.confirmTransition(params(proposal))).code,'conflicting_transition_record');assert.equal(stale.validations(),0);
+const revision=harness(),newHead=structuredClone(initial);newHead._storageRevision=1;revision.setLocked(newHead);
+assert.equal((await revision.command.confirmTransition(params(proposal))).code,'stale_proposal');assert.equal(revision.validations(),0,'revision check precedes semantic validation');
+const semantic=harness(),tampered=structuredClone(proposal);tampered.successor.programDefinition.days.find(day=>day.kind==='training').slots[0].displayName='tampered';
+assert.equal((await semantic.command.confirmTransition(params(tampered))).committed,false);assert.equal(semantic.read().programMeta.id,'predecessor');assert.equal(semantic.read().programHistory.length,0);
+console.log('PASS native block command proposal pins, exact linked archive, lock-held validation, draft protection, semantic refusal and idempotence');

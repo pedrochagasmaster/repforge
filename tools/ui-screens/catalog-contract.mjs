@@ -118,7 +118,7 @@ export function collectCatalogEvidence(config = {}) {
       .map((attribute) => element.getAttribute(attribute)).filter(Boolean)
       .map((key) => ({ locator: stableLocator(element), key })));
   for (const key of window.__repforgeI18nMissingRequests?.consume?.() || []) {
-    requestedI18nKeys.push({ locator: "RepForgeI18n.t()", key });
+    requestedI18nKeys.push({ locator: "language.t()", key });
   }
   return {
     document: { clientWidth: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth },

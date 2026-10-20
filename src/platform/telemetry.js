@@ -1,0 +1,714 @@
+/** @typedef {Record<string,unknown>} TelemetryRecord
+ * @typedef {{kind:'enum',allowed:readonly string[],optional?:true}|{kind:'boolean',optional?:true}|{kind:'integer',optional?:true}} PropertyRule
+ * @typedef {{phase:'alpha'|'install_transfer',properties:Readonly<Record<string,PropertyRule>>,metric:string,duplicates:string}} EventRule
+ * @typedef {{installationId:string,schemaVersion:1,createdAt:string}} InstallationIdentity
+ * @typedef {Pick<Storage,'getItem'|'setItem'>} TelemetryStorage
+ * @typedef {{capture:(name:string,properties:Readonly<TelemetryRecord>)=>unknown,setEnabled?:(enabled:boolean)=>unknown}} TelemetryAdapter
+ * @typedef {{adapter?:TelemetryAdapter|null,storage?:TelemetryStorage|null,crypto?:Partial<Pick<Crypto,'randomUUID'|'getRandomValues'>>|null,location?:{origin?:unknown,pathname?:unknown}|null,navigator?:unknown,now?:()=>Date,onReject?:(failure:Readonly<{reason:string,detail:unknown}>)=>void,projectToken?:string,appVersion?:string,releaseChannel?:string}} BootOptions
+ * @typedef {{adapter:TelemetryAdapter|null,storage:TelemetryStorage|null,crypto:Partial<Pick<Crypto,'randomUUID'|'getRandomValues'>>|null,identity:InstallationIdentity|null,location:{origin?:unknown,pathname?:unknown}|null,navigator:unknown,now:()=>Date,onReject:((failure:Readonly<{reason:string,detail:unknown}>)=>void)|null,projectToken:string|null,appVersion:string,releaseChannel:string,enabled:boolean}} TelemetryRuntime
+ * @typedef {TelemetryRecord & {environment?:{kind?:unknown,adjust?:{add?:unknown,remove?:unknown}}}} EntryAnswers
+ * @typedef {TelemetryRecord & {storage?:TelemetryStorage|null}} LateTransferFacts
+ */
+/** One consent and transport lifetime. Call boot explicitly after construction. */
+export function createTelemetry() {
+  "use strict";
+
+  /** @param {unknown} value @returns {value is number} */
+  const finiteNumber=value=>Number.isFinite(value);
+  /** @param {unknown} value @returns {value is number} */
+  const integerNumber=value=>Number.isInteger(value);
+  /** @param {unknown} value @returns {value is number} */
+  const safeIntegerNumber=value=>Number.isSafeInteger(value);
+  /** @param {readonly string[]} allowed @param {unknown} value @returns {value is string} */
+  const hasString=(allowed,value)=>allowed.includes(/** @type {string} */(value));
+
+  const SCHEMA_VERSION = 1;
+  const IDENTITY_KEY = "repforge_telemetry_identity_v1";
+  const PREFERENCE_KEY = "repforge_telemetry_enabled_v1";
+  const TRANSFER_EMITTED_KEY = "repforge_telemetry_install_transfer_emitted_v1";
+  const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const VERSION_PATTERN = /^[a-zA-Z0-9._-]{1,32}$/;
+  const CHANNELS = Object.freeze(["production", "preview"]);
+  const AUTOCAPTURE_ACTIONS = Object.freeze([
+    "nav_today",
+    "nav_progress",
+    "nav_history",
+    "nav_program",
+    "settings_open",
+  ]);
+
+  /** @param {...string} allowed @returns {PropertyRule} */
+  const values = (...allowed) => Object.freeze({ kind: "enum", allowed: Object.freeze(allowed) });
+  const boolean = Object.freeze({ kind: "boolean" });
+  const integer = Object.freeze({ kind: "integer" });
+  /** @param {PropertyRule} validator @returns {PropertyRule} */
+  const optional = validator => Object.freeze({ ...validator, optional: true });
+
+  /* How often analysis may legitimately see one event for one subject.
+     Undeclared, a double-fire regression and a real change in behavior are
+     the same shape in the data, and every funnel built on the event inherits
+     that ambiguity. This is a declaration dashboards and tests assert
+     against, not runtime suppression: silently dropping a second event would
+     hide the regression instead of surfacing it.
+
+     once_per_boot        one app start
+     once_per_setup_flow  one program-entry attempt, from first answer to
+                          activation; restarting inside the same flow does
+                          not begin a new one
+     once_per_session     one training session
+     milestone            expected once for the install; recurs only if the
+                          user erases the history that defined it
+     repeatable           many per subject by design */
+  const DUPLICATE_POLICIES = Object.freeze([
+    "once_per_boot",
+    "once_per_setup_flow",
+    "once_per_session",
+    "milestone",
+    "repeatable",
+  ]);
+  /* Program-entry vocabulary (Plan 071 §4). Routes are ProgramEntry.ROUTES;
+     the hub sends "none". Steps are every ProgramEntry.ROUTE_STEPS value plus
+     the hub ("entry") and "activation_conflict". An id names what the step
+     asks, never where it sits; a retired step keeps its value here so older
+     events still parse. test/telemetry-unit.mjs fails when ROUTE_STEPS grows
+     a step this list does not know. */
+  const ENTRY_ROUTES = Object.freeze(["recommend", "custom", "build", "import", "shared"]);
+  const ENTRY_STEPS = Object.freeze([
+    "entry", "activation_conflict",
+    "desired_result", "background", "schedule", "environment", "abilities", "priorities",
+    "exercise_preferences", "custom_shape", "result",
+    "catalogue", "preview", "build_setup", "editor", "import_source", "shared_review",
+    // Onboarding B (Plan 072). schedule and priorities above are retired.
+    "intro", "sex", "birth_date", "height", "weight", "cardio_experience", "equipment",
+    "days_per_week", "session_length", "muscle_priorities", "deload", "building",
+  ]);
+  // program-review.js EDIT_KINDS; the unit suite holds the two together.
+  const REVIEW_EDIT_KINDS = Object.freeze([
+    "sets", "rep_range", "rir", "rest", "swap", "alternates", "execution_mode",
+    "move", "remove", "reorder", "add", "day_name",
+  ]);
+  /* Closed engine answers a completed step may carry (Plan 071 §7, owner
+     decision 2026-10-11). Each step owns the answers it asks; a value outside
+     these lists is dropped, never sent. B's Basics are not here and never
+     will be: no property may name one (test/telemetry-unit.mjs). */
+  /** @type {Readonly<Record<string,readonly string[]>>} */
+  const STEP_ANSWER_VALUES = Object.freeze({
+    goal: Object.freeze(["muscle_growth", "balanced", "strength"]),
+    experience: Object.freeze(["first", "under_6m", "6_to_24m", "over_24m"]),
+    days_per_week: Object.freeze(["2", "3", "4", "5", "6"]),
+    session_length: Object.freeze(["up_to_40", "60", "90", "120_plus"]),
+    gym_preset: Object.freeze(["everything", "commercial_gym", "warehouse_gym", "basic_gym", "full_home", "limited_home"]),
+    // How many equipment groups the lifter added to or removed from the preset.
+    equipment_changes: Object.freeze(["0", "1", "2_3", "4_plus"]),
+    split: Object.freeze(["full_body", "upper_lower", "push_pull", "upper_lower_full", "push_pull_legs", "upper_lower_upper_lower", "push_pull_hinge_squat", "push_pull_legs_accessories", "upper_lower_upper_lower_upper", "push_pull_hinge_squat_accessories", "push_pull_legs_upper_lower", "push_pull_hinge_squat_upper_lower", "push_pull_legs_push_pull_legs"]),
+    deload: Object.freeze(["on", "off"]),
+  });
+  /** @param {{add?:unknown,remove?:unknown}|null|undefined} adjust */
+  const equipmentChanges = (adjust) => {
+    const count = (adjust && Array.isArray(adjust.add) ? adjust.add.length : 0) + (adjust && Array.isArray(adjust.remove) ? adjust.remove.length : 0);
+    return count === 0 ? "0" : count === 1 ? "1" : count <= 3 ? "2_3" : "4_plus";
+  };
+  /** @param {unknown} minutes */
+  const sessionLength = (minutes) => !finiteNumber(minutes) ? undefined :
+    minutes <= 40 ? "up_to_40" : minutes <= 60 ? "60" : minutes <= 90 ? "90" : "120_plus";
+  // The answers each step asks, by step id. A step Plan 072 adds that asks an
+  // engine answer joins this table; a Basics step never does.
+  /** @type {Readonly<Record<string,(answers:EntryAnswers)=>TelemetryRecord>>} */
+  const STEP_ANSWERS = Object.freeze({
+    entry: (answers) => ({ goal: answers.desiredResult }),
+    desired_result: (answers) => ({ goal: answers.desiredResult }),
+    background: (answers) => ({ experience: answers.structuredExperience }),
+    schedule: (answers) => ({
+      days_per_week: integerNumber(answers.daysPerWeek) ? String(answers.daysPerWeek) : undefined,
+      session_length: sessionLength(answers.sessionMinutes),
+    }),
+    environment: (answers) => ({ gym_preset: answers.environment && answers.environment.kind }),
+    equipment: (answers) => ({ equipment_changes: equipmentChanges(answers.environment && answers.environment.adjust) }),
+    days_per_week: (answers) => ({ days_per_week: integerNumber(answers.daysPerWeek) ? String(answers.daysPerWeek) : undefined }),
+    session_length: (answers) => ({ session_length: sessionLength(answers.sessionMinutes) }),
+    deload: (answers) => ({ deload: answers.deload === true ? "on" : answers.deload === false ? "off" : undefined }),
+    custom_shape: (answers) => ({ split: answers.splitPreference }),
+  });
+
+  /** @param {string} step @param {unknown} answers @returns {Record<string,string>} */
+  function stepAnswers(step, answers) {
+    const project = STEP_ANSWERS[step];
+    if (!project || !answers || typeof answers !== "object") return {};
+    /** @type {TelemetryRecord} */let projected = {};
+    try { projected = project(/** @type {EntryAnswers} */(answers)) || {}; } catch { return {}; }
+    /** @type {Record<string,string>} */const clean = {};
+    for (const [key, value] of Object.entries(projected)) {
+      if (STEP_ANSWER_VALUES[key] && hasString(STEP_ANSWER_VALUES[key],value)) clean[key] = value;
+    }
+    return clean;
+  }
+
+  const entryRoute = values(...ENTRY_ROUTES);
+  const entryRouteOrHub = values("none", ...ENTRY_ROUTES);
+  const entryStep = values(...ENTRY_STEPS);
+
+  /** @param {Record<string,PropertyRule>} properties @param {string} metric @param {string} duplicates @returns {EventRule} */
+  const event = (properties, metric, duplicates) => {
+    if (!DUPLICATE_POLICIES.includes(duplicates)) {
+      throw new TypeError(`Telemetry event needs a duplicate-expectation policy, received ${String(duplicates)}`);
+    }
+    return Object.freeze({
+      phase: "alpha",
+      properties: Object.freeze(properties),
+      metric,
+      duplicates,
+    });
+  };
+
+  /** @type {Readonly<Record<string,EventRule>>} */
+  const EVENTS = Object.freeze({
+    app_boot: event({ first_run: boolean, language: values("en", "pt"), platform_class: values("ios", "android", "desktop", "other"), display_mode: optional(values("standalone", "browser")) }, "Successful app boot", "once_per_boot"),
+    landing_viewed: event({ landing: values("generic", "shared", "shared_invalid"), visit: values("first", "returning") }, "First-run landing shown", "repeatable"),
+    landing_action: event({ action: values("create", "import", "continue_browser", "shared_start", "install", "privacy") }, "First-run landing action taken", "repeatable"),
+    install_prompt_outcome: event({ surface: values("landing", "banner", "header", "settings"), mode: values("native", "ios", "manual"), outcome: values("prompted", "accepted", "dismissed", "instructions_shown") }, "Install offer acted on", "repeatable"),
+    app_installed: event({}, "Browser reported the app installed", "milestone"),
+    onboarding_started: event({ origin: values("first_run", "settings", "block"), resumed: boolean }, "Program entry opened", "repeatable"),
+    onboarding_resume_offered: event({ status: values("resumable", "rules_changed", "activation_conflict", "corrupt") }, "Saved setup draft found on opening program entry", "repeatable"),
+    onboarding_step_viewed: event({ route: entryRouteOrHub, step: entryStep }, "Program-entry step shown", "repeatable"),
+    onboarding_step_completed: event({
+      route: entryRouteOrHub, step: entryStep, time_on_step: values("under_10s", "10_30s", "30_60s", "1_3m", "3_10m", "over_10m"),
+      ...Object.fromEntries(Object.entries(STEP_ANSWER_VALUES).map(([key, allowed]) => [key, optional(values(...allowed))])),
+    }, "Program-entry step left forward, with the closed engine answers it asked", "repeatable"),
+    onboarding_step_back: event({ route: entryRouteOrHub, step: entryStep }, "Program-entry step left backward", "repeatable"),
+    onboarding_exit: event({ action: values("keep_draft", "discard_draft", "start_over"), route: entryRouteOrHub, step: entryStep }, "Program entry left or restarted", "repeatable"),
+    generation_settled: event({ route: values("recommend", "custom"), outcome: values("success", "rules_changed", "rebuild_failed", "generation_conflict"), duration: values("under_1s", "1_3s", "3_10s", "over_10s") }, "Program generation request settled", "repeatable"),
+    program_activation_failed: event({ route: entryRoute, reason: values("definition_invalid", "setup_conflict", "durable_conflict") }, "Program activation refused or conflicted", "repeatable"),
+    program_review_action: event({ action: values("edit", "undo", "restore", "rename_program", "refused", "save_failed"), kind: optional(values(...REVIEW_EDIT_KINDS)) }, "Recommendation review editor action", "repeatable"),
+    program_path_selected: event({ route: values("recommend", "custom", "browse", "build", "import", "shared") }, "Program entry route chosen", "once_per_setup_flow"),
+    generator_started: event({ mode: values("baseline") }, "Working baseline generator started", "once_per_setup_flow"),
+    generator_completed: event({ goal: values("muscle_growth", "balanced", "strength"), frequency: values("2", "3", "4", "5", "6"), family: values("legacy", "growth", "balanced", "strength", "home", "foundation", "generated") }, "Generator produced a reviewable program", "once_per_setup_flow"),
+    template_selected: event({ family: values("growth_v1", "balanced_v1", "strength_v1", "home_v1") }, "Executable Taurifer template selected", "once_per_setup_flow"),
+    program_import_started: event({ source: values("freeform", "file") }, "Program import started", "repeatable"),
+    program_import_handoff: event({ method: values("chatgpt", "claude", "copy"), outcome: values("opened", "copied", "copy_failed"), long_prompt: boolean }, "Freeform program import handoff to assistant", "repeatable"),
+    program_import_parsed: event({ source: values("freeform"), outcome: values("complete", "gaps", "unreadable"), gap_count: integer }, "Freeform program reply parsed", "repeatable"),
+    program_import_unsupported_concept: event({ category: values("supersets", "rest_times", "rir_rpe", "tempo", "warmups", "cardio", "progression_rules", "deload") }, "Unsupported workout concept found in freeform import", "repeatable"),
+    program_import_row_resolved: event({ method: values("top_candidate", "alternate", "custom", "picker"), source: values("freeform", "file") }, "Import review row resolved by the lifter", "repeatable"),
+    program_import_review_reached: event({ source: values("freeform", "file") }, "Import review screen reached", "repeatable"),
+    program_activated: event({ route: values("recommend", "custom", "browse", "build", "import", "shared"), version_category: values("legacy_v1", "taurifer_v1", "manual_v1", "import_v1", "shared_v1"), source: optional(values("freeform", "file")), review_changes: optional(values("0", "1_2", "3_5", "6_10", "11_plus")) }, "Program activation committed", "once_per_setup_flow"),
+    first_set_logged: event({}, "First working set committed", "milestone"),
+    set_saved: event({ vs_suggestion: values("matched", "raised", "lowered", "no_suggestion") }, "Working set committed relative to its suggestion", "repeatable"),
+    recommendation_explained: event({ surface: values("workout", "focus", "exercise") }, "Recommendation explanation opened", "repeatable"),
+    exercise_skipped: event({ context: values("planned_session", "one_off") }, "Exercise explicitly skipped", "repeatable"),
+    // The reason is the lifter's optional chip in the swap sheet; absent unless chosen.
+    substitution_used: event({ source: values("alternate", "library"), reason: optional(values("equipment", "preference", "pain", "crowded", "other")) }, "Exercise substitution committed", "repeatable"),
+    session_completed: event({ set_count: values("0", "1_5", "6_10", "11_20", "21_plus"), exercise_count: values("0", "1_3", "4_6", "7_plus"), duration: values("0_15", "16_30", "31_60", "61_90", "90_plus"), days_since_last: optional(values("first", "same_day", "1", "2_3", "4_7", "8_14", "15_30", "31_plus")) }, "Planned session completed", "once_per_session"),
+    // "End without saving" in the session sheet (Plan 071 §10). The reason is optional.
+    session_abandoned: event({ stage: values("before_set", "working"), reason: optional(values("time", "recovery", "pain", "equipment", "schedule", "other")) }, "Session explicitly ended without saving", "once_per_session"),
+    workout_discarded: event({ stage: values("before_set", "working"), cause: values("program_edit") }, "Workout in progress discarded", "once_per_session"),
+    session_summary_viewed: event({}, "Completed-session summary opened", "once_per_session"),
+    block_review_viewed: event({ completion: values("early", "partial", "complete", "extended") }, "Block review opened", "repeatable"),
+    block_transition_chosen: event({ action: values("repeat", "schedule_repair", "reduce_volume", "recovery_week", "guided_edit", "new_program") }, "Block transition committed", "repeatable"),
+    active_program_edited: event({ outcome: values("saved", "discarded_workout") }, "Active program edit saved", "repeatable"),
+    settings_changed: event({ setting: values("language", "unit", "rir_mode", "rest_timer", "voice", "notifications", "progression", "theme") }, "Setting changed", "repeatable"),
+
+    history_session_outcome: event({ action: values("read", "edit_save", "cancel", "delete"), status: values("success", "conflict", "failure") }, "History session operation outcome", "repeatable"),
+    // Validates whether setup links need a larger carrier (server-backed links):
+    // how often a link is refused, for which kind of program, by how much, and
+    // whether the lifter then shares the program as a file. Size is a coarse
+    // ratio to the link limit; no program content or length is sent.
+    share_setup_outcome: event({
+      action: values("link_ready", "link_refused", "shared", "copied", "file_shared"),
+      program_kind: values("generated", "generated_edited", "manual", "other"),
+      form: values("recipe", "full"),
+      size_vs_limit: values("under_half", "under_limit", "over_limit", "over_2x", "over_4x"),
+    }, "Setup link outcome: ready or refused for size, then shared, copied or sent as a file", "repeatable"),
+    guide_replay: event({ guideId: values("entry", "first-set", "focus-utilities", "progress", "block-transition", "backup", "install", "privacy") }, "Contextual guide replayed", "repeatable"),
+    late_install_transfer: Object.freeze({
+      phase: "install_transfer",
+      properties: Object.freeze({
+        outcome: optional(values("success")),
+        source_context: values("browser"),
+        destination_context: values("standalone"),
+        platform_family: optional(values("ios", "android", "desktop", "other")),
+        platform_class: optional(values("ios", "android", "desktop", "other")),
+      }),
+      metric: "Late install transfer completed",
+      duplicates: "milestone",
+    }),
+  });
+
+  let runtime = emptyRuntime();
+
+  /** @returns {TelemetryRuntime} */
+  function emptyRuntime() {
+    return {
+      adapter: null,
+      appVersion: "dev",
+      crypto: null,
+      enabled: true,
+      identity: null,
+      location: null,
+      navigator: null,
+      now: () => new Date(),
+      onReject: null,
+      projectToken: null,
+      releaseChannel: "preview",
+      storage: null,
+    };
+  }
+
+  /** @param {string} reason @param {unknown} detail */
+  function reject(reason, detail) {
+    try {
+      if (typeof runtime.onReject === "function") runtime.onReject(Object.freeze({ reason, detail }));
+    } catch {}
+    return false;
+  }
+
+  /** @param {string} key */
+  function storageGet(key) {
+    try { return runtime.storage && runtime.storage.getItem(key); } catch { return null; }
+  }
+
+  /** @param {string} key @param {string} value */
+  function storageSet(key, value) {
+    try {
+      if (runtime.storage) runtime.storage.setItem(key, value);
+      return true;
+    } catch { return false; }
+  }
+
+  function randomUuid() {
+    const source = runtime.crypto;
+    try {
+      if (source && typeof source.randomUUID === "function") {
+        const id = source.randomUUID();
+        if (UUID_PATTERN.test(id)) return id;
+      }
+      if (source && typeof source.getRandomValues === "function") {
+        const bytes = new Uint8Array(16);
+        source.getRandomValues(bytes);
+        bytes[6] = (bytes[6] & 15) | 64;
+        bytes[8] = (bytes[8] & 63) | 128;
+        const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, "0"));
+        return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10).join("")}`;
+      }
+    } catch {}
+    return null;
+  }
+
+  /** @param {unknown} candidate @returns {candidate is InstallationIdentity} */
+  function validIdentity(candidate) {
+    const value=/** @type {TelemetryRecord|null|undefined} */(candidate);
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+    if (Object.keys(value).sort().join(",") !== "createdAt,installationId,schemaVersion") return false;
+    return value.schemaVersion === 1 && UUID_PATTERN.test(/** @type {string} */(value.installationId)) &&
+      typeof value.createdAt === "string" && finiteNumber(Date.parse(value.createdAt));
+  }
+
+  function installationIdentity() {
+    if (runtime.identity) return runtime.identity;
+    /** @type {unknown} */let stored = null;
+    try { stored = JSON.parse(String(storageGet(IDENTITY_KEY))); } catch {}
+    if (validIdentity(stored)) {
+      runtime.identity = Object.freeze({ ...stored });
+      return runtime.identity;
+    }
+    const installationId = randomUuid();
+    if (!installationId) return null;
+    let createdAt;
+    try { createdAt = runtime.now().toISOString(); } catch { createdAt = new Date(0).toISOString(); }
+    runtime.identity = Object.freeze({ schemaVersion: 1, installationId, createdAt });
+    storageSet(IDENTITY_KEY, JSON.stringify(runtime.identity));
+    return runtime.identity;
+  }
+
+  /** @param {{origin?:unknown,pathname?:unknown}|null|undefined} locationValue */
+  function safeLocation(locationValue) {
+    const origin = typeof locationValue?.origin === "string" ? locationValue.origin : "";
+    const pathname = typeof locationValue?.pathname === "string" ? locationValue.pathname : "/";
+    if (!/^https?:\/\/[^/?#]+$/i.test(origin) || /[?#]/.test(pathname)) return Object.freeze({ origin: "", pathname: "/" });
+    return Object.freeze({ origin, pathname: pathname.startsWith("/") ? pathname : `/${pathname}` });
+  }
+
+  function readEnabled() {
+    const stored = storageGet(PREFERENCE_KEY);
+    return stored !== "false";
+  }
+
+  /** @param {BootOptions} [options] */
+  function boot(options = {}) {
+    if (!options || typeof options !== "object" || Array.isArray(options)) options = {};
+    if (Object.prototype.hasOwnProperty.call(options, "adapter")) runtime.adapter = options.adapter || null;
+    if (Object.prototype.hasOwnProperty.call(options, "storage") && runtime.storage !== options.storage) {
+      runtime.storage = options.storage || null;
+      runtime.identity = null;
+    }
+    if (Object.prototype.hasOwnProperty.call(options, "location")) runtime.location = options.location || null;
+    if (Object.prototype.hasOwnProperty.call(options, "navigator")) runtime.navigator = options.navigator || null;
+    if (Object.prototype.hasOwnProperty.call(options, "crypto")) runtime.crypto = options.crypto || null;
+    if (typeof options.now === "function") runtime.now = options.now;
+    if (typeof options.onReject === "function") runtime.onReject = options.onReject;
+    if (typeof options.projectToken === "string") runtime.projectToken = options.projectToken;
+    if (VERSION_PATTERN.test(options.appVersion || "")) runtime.appVersion = /** @type {string} */(options.appVersion);
+    if (hasString(CHANNELS,options.releaseChannel)) runtime.releaseChannel = options.releaseChannel;
+    runtime.enabled = readEnabled();
+    const identity = installationIdentity();
+    try {
+      if (runtime.adapter && typeof runtime.adapter.setEnabled === "function") runtime.adapter.setEnabled(runtime.enabled);
+    } catch {}
+    return Object.freeze({
+      beforeSend: filterOutbound,
+      enabled: runtime.enabled,
+      installationId: identity?.installationId || null,
+      safeLocation: safeLocation(runtime.location),
+    });
+  }
+
+  /** @param {unknown} value @param {PropertyRule} validator */
+  function validProperty(value, validator) {
+    if (value === undefined) return !!validator.optional;
+    if (validator.kind === "boolean") return typeof value === "boolean";
+    if (validator.kind === "integer") return integerNumber(value) && value >= 0;
+    return validator.kind === "enum" && typeof value === "string" && validator.allowed.includes(value);
+  }
+
+  /** @param {string} eventName @param {unknown} candidate */
+  function capture(eventName, candidate = {}) {
+    const properties=/** @type {TelemetryRecord|null|undefined} */(candidate);
+    if (!runtime.enabled) return false;
+    const definition = EVENTS[eventName];
+    if (!definition || (definition.phase !== "alpha" && definition.phase !== "install_transfer")) return reject("unknown_event", eventName);
+    if (!properties || typeof properties !== "object" || Array.isArray(properties)) return reject("invalid_properties", eventName);
+    const keys = Object.keys(properties);
+    if (keys.some(key => key.startsWith("$") ||
+      (key !== "token" && !Object.prototype.hasOwnProperty.call(definition.properties, key)))) return reject("unknown_property", eventName);
+    if (Object.prototype.hasOwnProperty.call(properties, "token") &&
+      (typeof runtime.projectToken !== "string" || properties.token !== runtime.projectToken)) {
+      return reject("invalid_property", `${eventName}.token`);
+    }
+    for (const [key, validator] of Object.entries(definition.properties)) {
+      if (!validProperty(properties[key], validator)) return reject("invalid_property", `${eventName}.${key}`);
+    }
+    const payload = {
+      ...properties,
+      telemetry_schema_version: SCHEMA_VERSION,
+      app_version: runtime.appVersion,
+      release_channel: runtime.releaseChannel,
+    };
+    try {
+      if (!runtime.adapter || typeof runtime.adapter.capture !== "function") return false;
+      runtime.adapter.capture(eventName, Object.freeze(payload));
+      return true;
+    } catch { return false; }
+  }
+
+  /** @param {unknown} candidate */
+  function filterOutbound(candidate) {
+    const envelope=/** @type {TelemetryRecord|null|undefined} */(candidate);
+    if (!runtime.enabled || !envelope || typeof envelope !== "object" || Array.isArray(envelope)) return null;
+    if (envelope.event === "$autocapture") return filterAutocapture(envelope);
+    if (envelope.event === "$snapshot") return filterReplay(envelope);
+    const definition = EVENTS[/** @type {string} */(envelope.event)];
+    const properties = /** @type {TelemetryRecord|null|undefined} */(envelope.properties);
+    if (!definition || (definition.phase !== "alpha" && definition.phase !== "install_transfer") || !properties || typeof properties !== "object" || Array.isArray(properties)) return null;
+    /** @type {TelemetryRecord} */const clean = {};
+    for (const [key, validator] of Object.entries(definition.properties)) {
+      if (!validProperty(properties[key], validator)) return null;
+      if (properties[key] !== undefined) clean[key] = properties[key];
+    }
+    if (properties.telemetry_schema_version !== SCHEMA_VERSION ||
+      properties.app_version !== runtime.appVersion ||
+      properties.release_channel !== runtime.releaseChannel) return null;
+    clean.telemetry_schema_version = SCHEMA_VERSION;
+    clean.app_version = runtime.appVersion;
+    clean.release_channel = runtime.releaseChannel;
+    // PostHog 1.400.0 carries the project API key in properties.token at the
+    // before_send seam. The SDK adds it before calling us; preserve only the
+    // exact configured token so the privacy allowlist cannot become a general
+    // pass-through for token-shaped application data.
+    if (properties.token !== undefined && typeof runtime.projectToken === "string" && properties.token === runtime.projectToken) clean.token = properties.token;
+    const identity = installationIdentity();
+    if (!identity || properties.distinct_id !== identity.installationId) return null;
+    clean.distinct_id = identity.installationId;
+    for (const key of ["$session_id", "$window_id"]) {
+      if (properties[key] === undefined) continue;
+      if (typeof properties[key] !== "string" || properties[key].length < 8 || properties[key].length > 64 || !/^[a-zA-Z0-9_-]+$/.test(properties[key])) return null;
+      clean[key] = properties[key];
+    }
+    return Object.freeze({ event: envelope.event, properties: Object.freeze(clean) });
+  }
+
+  /** @param {TelemetryRecord} properties */
+  function transportIdentity(properties) {
+    const identity = installationIdentity();
+    if (!identity || properties?.distinct_id !== identity.installationId) return null;
+    /** @type {Record<string,string>} */const clean = { distinct_id: identity.installationId };
+    for (const key of ["$session_id", "$window_id"]) {
+      if (properties[key] === undefined) continue;
+      if (typeof properties[key] !== "string" || properties[key].length < 8 || properties[key].length > 64 || !/^[a-zA-Z0-9_-]+$/.test(properties[key])) return null;
+      clean[key] = properties[key];
+    }
+    return clean;
+  }
+
+  /** @param {TelemetryRecord} properties */
+  function autocaptureAction(properties) {
+    if (hasString(AUTOCAPTURE_ACTIONS,properties?.telemetry_action)) return properties.telemetry_action;
+    if (!Array.isArray(properties?.$elements)) return null;
+    for (const element of properties.$elements) {
+      const action = element?.attributes?.["data-telemetry-action"] || element?.["attr__data-telemetry-action"];
+      if (hasString(AUTOCAPTURE_ACTIONS,action)) return action;
+    }
+    return null;
+  }
+
+  /** @param {TelemetryRecord} envelope */
+  function filterAutocapture(envelope) {
+    const properties = /** @type {TelemetryRecord|null|undefined} */(envelope.properties);
+    if (!properties || typeof properties !== "object" || Array.isArray(properties)) return null;
+    if (properties.$event_type !== undefined && properties.$event_type !== "click") return null;
+    const telemetry_action = autocaptureAction(properties);
+    const transport = transportIdentity(properties);
+    if (!telemetry_action || !transport) return null;
+    return Object.freeze({
+      event: "$autocapture",
+      properties: Object.freeze({
+        telemetry_action,
+        $event_type: "click",
+        telemetry_schema_version: SCHEMA_VERSION,
+        app_version: runtime.appVersion,
+        release_channel: runtime.releaseChannel,
+        ...transport,
+      }),
+    });
+  }
+
+  /** @param {unknown} value @param {string} [key] @param {number} [depth] @param {Set<object>} [seen] @returns {boolean} */
+  function replayValueIsMasked(value, key = "", depth = 0, seen = new Set()) {
+    if (depth > 32) return false;
+    if (value == null || typeof value === "boolean" || typeof value === "number") return true;
+    if (typeof value === "string") {
+      if (/[?#]setup=|(?:^|[^a-z0-9_])v[12]\.[a-z0-9_-]{4,}/i.test(value)) return false;
+      if (/^(?:https?:)?\/\//i.test(value) && /[?#]/.test(value)) return false;
+      if (/^(?:text|textContent|value|placeholder|title|aria-label|name)$/i.test(key)) return /^(?:\s|\*|•|x)*$/i.test(value);
+      return true;
+    }
+    if (typeof value !== "object" || seen.has(value)) return false;
+    seen.add(value);
+    const entries = Array.isArray(value) ? value.map((entry, index) => [String(index), entry]) : Object.entries(value);
+    for (const [childKey, child] of entries) {
+      if (!replayValueIsMasked(child, childKey, depth + 1, seen)) return false;
+    }
+    seen.delete(value);
+    return true;
+  }
+
+  /** @param {TelemetryRecord} envelope */
+  function filterReplay(envelope) {
+    const properties = /** @type {TelemetryRecord|null|undefined} */(envelope.properties);
+    if (!properties || typeof properties !== "object" || Array.isArray(properties)) return null;
+    const transport = transportIdentity(properties);
+    if (!transport || !properties.$snapshot_data || !replayValueIsMasked(properties.$snapshot_data)) return null;
+    return Object.freeze({
+      event: "$snapshot",
+      properties: Object.freeze({
+        $snapshot_data: properties.$snapshot_data,
+        $current_url: `${safeLocation(runtime.location).origin}${safeLocation(runtime.location).pathname}`,
+        ...transport,
+      }),
+    });
+  }
+
+  /** @param {unknown} enabled */
+  function setEnabled(enabled) {
+    runtime.enabled = enabled === true;
+    storageSet(PREFERENCE_KEY, String(runtime.enabled));
+    try {
+      if (runtime.adapter && typeof runtime.adapter.setEnabled === "function") runtime.adapter.setEnabled(runtime.enabled);
+    } catch {}
+    return runtime.enabled;
+  }
+
+  /** @param {unknown} value @param {string} kind */
+  function bucketCount(value, kind) {
+    if (!safeIntegerNumber(value) || value < 0) return null;
+    if (kind === "sets") return value === 0 ? "0" : value <= 5 ? "1_5" : value <= 10 ? "6_10" : value <= 20 ? "11_20" : "21_plus";
+    if (kind === "exercises") return value === 0 ? "0" : value <= 3 ? "1_3" : value <= 6 ? "4_6" : "7_plus";
+    return null;
+  }
+
+  /** @param {unknown} minutes */
+  function bucketDuration(minutes) {
+    if (!finiteNumber(minutes) || minutes < 0) return null;
+    return minutes <= 15 ? "0_15" : minutes <= 30 ? "16_30" : minutes <= 60 ? "31_60" : minutes <= 90 ? "61_90" : "90_plus";
+  }
+
+  /** @param {unknown} milliseconds */
+  function bucketStepTime(milliseconds) {
+    if (!finiteNumber(milliseconds) || milliseconds < 0) return null;
+    const seconds = milliseconds / 1000;
+    return seconds < 10 ? "under_10s" : seconds < 30 ? "10_30s" : seconds < 60 ? "30_60s" :
+      seconds < 180 ? "1_3m" : seconds < 600 ? "3_10m" : "over_10m";
+  }
+
+  /** @param {unknown} milliseconds */
+  function bucketGeneration(milliseconds) {
+    if (!finiteNumber(milliseconds) || milliseconds < 0) return null;
+    return milliseconds < 1000 ? "under_1s" : milliseconds < 3000 ? "1_3s" : milliseconds < 10000 ? "3_10s" : "over_10s";
+  }
+
+  // Calendar days since the lifter's previous session; null when unknown.
+  /** @param {unknown} days */
+  function bucketDaysSince(days) {
+    if (days === null) return "first";
+    if (!safeIntegerNumber(days) || days < 0) return null;
+    return days === 0 ? "same_day" : days === 1 ? "1" : days <= 3 ? "2_3" : days <= 7 ? "4_7" :
+      days <= 14 ? "8_14" : days <= 30 ? "15_30" : "31_plus";
+  }
+
+  /** @param {unknown} count */
+  function bucketChanges(count) {
+    if (!safeIntegerNumber(count) || count < 0) return null;
+    return count === 0 ? "0" : count <= 2 ? "1_2" : count <= 5 ? "3_5" : count <= 10 ? "6_10" : "11_plus";
+  }
+
+  /* The program-entry funnel as a pure projection of two visible screens
+     (Plan 071 §4). Each view is { route, step, at } with `at` in
+     milliseconds; nothing else on it is read, so answers riding along on a
+     caller's state cannot reach a payload. `routeSteps` is
+     ProgramEntry.ROUTE_STEPS: direction comes from the route's own order,
+     never from a screen index. Moving onto or off the conflict screen is the
+     app's doing, not the lifter's, so it reports only the view. */
+  /** @param {unknown} candidate */
+  function entryView(candidate) {
+    const view=/** @type {TelemetryRecord|null|undefined} */(candidate);
+    if (!view || typeof view !== "object") return null;
+    const step = hasString(ENTRY_STEPS,view.step) ? view.step : null;
+    if (!step) return null;
+    const route = step === "entry" ? "none" : hasString(ENTRY_ROUTES,view.route) ? view.route : null;
+    return route ? { route, step, at: Number(view.at) } : null;
+  }
+
+  /** @param {unknown} previousView @param {unknown} nextView @param {Record<string,string[]>|null|undefined} routeSteps @returns {Array<[string,TelemetryRecord]>} */
+  function entryFunnelEvents(previousView, nextView, routeSteps) {
+    const next = entryView(nextView);
+    if (!next) return [];
+    const previous = entryView(previousView);
+    if (previous && previous.route === next.route && previous.step === next.step) return [];
+    /** @type {Array<[string,TelemetryRecord]>} */const events = [];
+    if (previous && previous.step !== "activation_conflict" && next.step !== "activation_conflict") {
+      const from = { route: previous.route, step: previous.step };
+      const order = routeSteps && Array.isArray(routeSteps[next.route]) ? routeSteps[next.route] : [];
+      let direction = null;
+      if (next.step === "entry") direction = "back";
+      else if (previous.step === "entry") direction = "forward";
+      else if (previous.route === next.route && order.includes(previous.step) && order.includes(next.step)) {
+        direction = order.indexOf(next.step) > order.indexOf(previous.step) ? "forward" : "back";
+      }
+      if (direction === "forward") {
+        const time = bucketStepTime(next.at - previous.at);
+        // The hub asks the goal only on its Generate shortcut.
+        const answered = previous.step === "entry" && next.route !== "recommend" ? {} : stepAnswers(previous.step, /** @type {TelemetryRecord} */(nextView).answers);
+        if (time) events.push(["onboarding_step_completed", { ...from, time_on_step: time, ...answered }]);
+      } else if (direction === "back") events.push(["onboarding_step_back", from]);
+    }
+    events.push(["onboarding_step_viewed", { route: next.route, step: next.step }]);
+    return events;
+  }
+
+  /** @param {unknown} candidate */
+  function canEmitLateInstallTransfer(candidate = {}) {
+    const params=/** @type {TelemetryRecord|null|undefined} */(candidate);
+    if (!params || typeof params !== "object") return false;
+    const consent = params.enabled !== undefined ? params.enabled === true : runtime.enabled;
+    if (!consent) return false;
+    if (params.alreadyEmitted === true) return false;
+    const isLocalCommitted = params.state === "localCommitted" || params.phase === "local-committed";
+    const isLocalOk = params.localOk === true || params.localImportVerified === true;
+    if (!isLocalCommitted && !isLocalOk) return false;
+    if (params.claimOnly || params.validationOnly || params.partialImport || params.rollback || params.state === "rolledBack") {
+      return false;
+    }
+    if (params.remoteDeleteAmbiguous === true || params.cleanupRetry === true) return false;
+    return true;
+  }
+
+  /** @param {LateTransferFacts} [options] */
+  function buildLateInstallTransferPayload(options = {}) {
+    /** @type {Record<string,string>} */const payload = {
+      outcome: "success",
+      source_context: "browser",
+      destination_context: "standalone",
+    };
+    if (options.platform_class && hasString(["ios", "android", "desktop", "other"],options.platform_class)) {
+      payload.platform_class = options.platform_class;
+    }
+    if (options.platform_family && hasString(["ios", "android", "desktop", "other"],options.platform_family)) {
+      payload.platform_family = options.platform_family;
+    }
+    return Object.freeze(payload);
+  }
+
+  /** @param {TelemetryStorage|null} [storage] */
+  function hasEmittedLateInstallTransfer(storage) {
+    const s = storage || runtime.storage;
+    try {
+      return s ? s.getItem(TRANSFER_EMITTED_KEY) === "true" : false;
+    } catch {
+      return false;
+    }
+  }
+
+  /** @param {TelemetryStorage|null} [storage] */
+  function markLateInstallTransferEmitted(storage) {
+    const s = storage || runtime.storage;
+    try {
+      if (s) s.setItem(TRANSFER_EMITTED_KEY, "true");
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** @param {LateTransferFacts} [options] */
+  function recordLateInstallTransfer(options = {}) {
+    const storage = options.storage || runtime.storage;
+    const already = options.alreadyEmitted !== undefined ? options.alreadyEmitted : hasEmittedLateInstallTransfer(storage);
+    if (!canEmitLateInstallTransfer({ ...options, alreadyEmitted: already })) {
+      return false;
+    }
+    const payload = buildLateInstallTransferPayload(options);
+    const captured = capture("late_install_transfer", payload);
+    if (captured) {
+      markLateInstallTransferEmitted(storage);
+      return true;
+    }
+    return false;
+  }
+
+  return Object.freeze({
+    DUPLICATE_POLICIES,
+    boot,
+    bucketChanges,
+    bucketCount,
+    bucketDaysSince,
+    bucketDuration,
+    bucketGeneration,
+    bucketStepTime,
+    buildLateInstallTransferPayload,
+    canEmitLateInstallTransfer,
+    capture,
+    entryFunnelEvents,
+    getEventNames: /** @param {string} [filter] */ (filter) => {
+      const names = Object.keys(EVENTS);
+      if (filter === "all") return Object.freeze(names);
+      return Object.freeze(names.filter(name => EVENTS[name]?.phase === "alpha"));
+    },
+    getEventPolicy: /** @param {string} name */ name => EVENTS[name]?.duplicates || null,
+    getEventProperties: /** @param {string} name */ name => (EVENTS[name] ? Object.freeze(Object.keys(EVENTS[name].properties)) : null),
+    getEntryVocabulary: () => Object.freeze({ routes: ENTRY_ROUTES, steps: ENTRY_STEPS, reviewEditKinds: REVIEW_EDIT_KINDS, stepAnswers: STEP_ANSWER_VALUES }),
+    getAutocaptureActions: () => AUTOCAPTURE_ACTIONS,
+    getSchemaVersion: () => SCHEMA_VERSION,
+    hasEmittedLateInstallTransfer,
+    isEnabled: () => runtime.enabled,
+    markLateInstallTransferEmitted,
+    recordLateInstallTransfer,
+    setEnabled,
+  });
+}

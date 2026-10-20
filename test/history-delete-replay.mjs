@@ -121,11 +121,25 @@ try {
   await page.waitForSelector("#history.view.active");
   await page.locator('#sessions [data-sess="delete-crash-target"] .session__open').click();
   await page.waitForSelector('[data-reading="delete-crash-target"]');
+  // The ESM controller must use its injected window; the former classic
+  // `root` alias is unavailable and a swallowed ReferenceError loses this call.
+  await page.evaluate(() => {
+    window.__historyScrollCalls=0;
+    window.__historyOriginalScroll=window.scrollTo;
+    window.scrollTo=function(...args){window.__historyScrollCalls++;return window.__historyOriginalScroll.apply(window,args)};
+  });
+  await page.locator('[data-history-edit="delete-crash-target"]').click();
+  await page.waitForSelector('[data-editing="delete-crash-target"]');
+  assert.equal(await page.evaluate(()=>window.__historyScrollCalls),1,'entering the actual History editor scrolls through its owned window capability');
+  await page.evaluate(()=>{window.scrollTo=window.__historyOriginalScroll;delete window.__historyOriginalScroll});
+  await page.locator('[data-history-back]').click();
+  await page.locator('#sessions [data-sess="delete-crash-target"] .session__open').click();
+  await page.waitForSelector('[data-reading="delete-crash-target"]');
   await page.locator('[data-reading="delete-crash-target"] [data-del="delete-crash-target"]').click();
   await page.waitForSelector('[data-history-delete-confirm="delete-crash-target"]');
 
   await page.evaluate(() => {
-    const io = window.RepForgeDurableState.storageIO;
+    const io = window.__repforgeStorage.durable.storageIO;
     const originalWriteLocal = io.writeLocal;
     io.writeLocal = async function (snapshot) {
       const accepted = await originalWriteLocal.call(this, snapshot);
@@ -165,6 +179,38 @@ try {
     "crash replay keeps unrelated History rows and never duplicates the target");
   assert.equal(recovered.pending.length, 0,
     "History Delete crash replay drains its WAL evidence");
+
+  // A correction that reached only one replica remains a retryable operation,
+  // not a settled save. Retry must use the durable owner even when the desired
+  // rows are already visible in localStorage.
+  await page.locator('nav button[data-view="history"]').click();
+  await page.locator('#sessions [data-sess="delete-crash-survivor"] .session__open').click();
+  await page.locator('[data-reading="delete-crash-survivor"] [data-history-edit]').click();
+  const loadInput=page.locator('.session--edit input[data-ek^="load|"],.session--edit input[data-ek^="metric|"]').first();
+  await loadInput.fill("56");
+  await page.evaluate(() => {
+    const io=window.__repforgeStorage.durable.storageIO;
+    window.__historyRetryWriteIdb=io.writeIdb;
+    io.writeIdb=async()=>false;
+  });
+  await page.locator('[data-edsave="delete-crash-survivor"]').click();
+  await page.waitForSelector('[data-history-retry]',{timeout:10000});
+  const unsettled=await readReplicas(page);
+  assert.equal(unsettled.local.log.find(row=>row.session==="delete-crash-survivor")?.load,56,
+    "one replica retains the requested correction");
+  assert.equal(unsettled.idb.log.find(row=>row.session==="delete-crash-survivor")?.load,55,
+    "failed replica proves the correction is not settled");
+  await page.evaluate(() => {
+    window.__repforgeStorage.durable.storageIO.writeIdb=window.__historyRetryWriteIdb;
+    delete window.__historyRetryWriteIdb;
+  });
+  await page.locator('[data-history-retry]').click();
+  await page.waitForSelector('[data-reading="delete-crash-survivor"]',{timeout:15000});
+  const retried=await readReplicas(page);
+  assert.deepEqual(retried.local,retried.idb,"Retry publishes only a converged acknowledged history head");
+  assert.equal(retried.local.log.find(row=>row.session==="delete-crash-survivor")?.load,56,
+    "Retry preserves the requested correction and original session identity");
+  assert.equal(retried.pending.length,0,"Retry leaves no unsettled WAL before returning to read mode");
 
   await context.close();
 } finally {

@@ -16,9 +16,14 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import vm from "node:vm";
+import { assembleRelease } from "./release-assembly.mjs";
+import { nativeSourceAssets } from "./native-source-assets.mjs";
+import { buildStyles } from "../tools/build-styles.mjs";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const OUT = join(ROOT, "dist");
+// Fail before changing the output tree when a source edit was not regenerated.
+buildStyles(ROOT,{check:true});
 const allowedExtension = /\.(?:js|json|css|html|webmanifest|svg|png|webp|woff2)$/i;
 const read = (file) => readFileSync(join(ROOT, file), "utf8");
 
@@ -55,7 +60,10 @@ for (const url of media) {
 }
 required.delete(null);
 // posthog-config.js is precached as optional but must ship whenever index.html loads it.
-if (/<script src="posthog-config\.js\?/.test(html)) { optional.delete("posthog-config.js"); required.add("posthog-config.js"); }
+if (/<link rel="taurifer-config" href="posthog-config\.js\?/.test(html)) { optional.delete("posthog-config.js"); required.add("posthog-config.js"); }
+
+// All migrated native modules ship at native paths, including Worker entrypoints.
+for (const file of nativeSourceAssets(ROOT)) required.add(file);
 
 const present = (relative) => existsSync(join(ROOT, relative)) && statSync(join(ROOT, relative)).isFile();
 function copyFile(relative) {
@@ -78,6 +86,11 @@ for (const file of optional) {
 for (const sensitive of ["plans", "docs", "test", "tools", "services", ".github", "scripts", "AGENTS.md", "README.md"]) {
   if (existsSync(join(OUT, sensitive))) throw new Error("Sensitive repository path in public output: " + sensitive);
 }
+const releaseOptional = releaseAssets().filter(asset => asset.required === false).map(asset => localPath(asset.url));
+// A generated analytics config explicitly loaded by HTML is required.
+if (/<link rel="taurifer-config" href="posthog-config\.js\?/.test(html)) releaseOptional.splice(releaseOptional.indexOf("posthog-config.js"), 1);
+const release = assembleRelease(OUT, { optional: releaseOptional });
+console.log(`Assembled immutable native release ${release.id}`);
 const count = (dir) => readdirSync(dir, { withFileTypes: true })
   .reduce((n, entry) => n + (entry.isDirectory() ? count(join(dir, entry.name)) : 1), 0);
 console.log(`Prepared Cloudflare Pages dist/ with ${count(OUT)} runtime files`);

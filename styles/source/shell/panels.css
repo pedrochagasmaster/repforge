@@ -1,0 +1,156 @@
+/* The restore-backup and end-block panels: native <dialog> elements sharing the
+   shape of the storage-recovery dialog above them, scrim included. Neither
+   dimmed the page before, which left them the only modals in the app that did
+   not; the element they now use is what makes a backdrop available, and every
+   other dialog already draws one. */
+.importchoice{
+  position:fixed;left:50%;top:calc(var(--vv-top,0px) + var(--vvh,100dvh) / 2);transform:translate(-50%,-50%);z-index:70;width:min(92%,360px);margin:0;
+  max-height:min(90dvh,var(--dialog-max-height));overflow:auto;overscroll-behavior:contain;
+  background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius-prominent);color:var(--ink);
+  padding:20px 18px 16px;box-shadow:var(--elevation-dialog-shadow);
+}
+.importchoice::backdrop{background:var(--scrim)}
+.importchoice__title{font-weight:var(--weight-semibold);font-size:var(--font-size-subtitle);margin:0 0 8px;text-transform:none;letter-spacing:0}
+.importchoice__body{margin:0 0 14px;font-size:var(--font-size-body-small);line-height:1.45;color:var(--ink-soft);white-space:pre-line}
+
+.storage-recovery{
+  position:fixed;left:50%;top:calc(var(--vv-top,0px) + var(--vvh,100dvh) / 2);transform:translate(-50%,-50%);z-index:80;width:min(92%,380px);margin:0;
+  background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius-prominent);
+  padding:20px 18px 16px;box-shadow:var(--elevation-dialog-shadow);
+  max-height:min(90dvh,var(--dialog-max-height));overflow:auto;overscroll-behavior:contain;color:var(--ink);
+}
+.storage-recovery::backdrop{background:var(--scrim)}
+.storage-recovery__copy{margin:0 0 12px;padding:10px 12px;background:var(--well);border-radius:var(--radius-surface);font-size:var(--font-size-body-small);line-height:1.4}
+.storage-recovery__copy-label{font-weight:var(--weight-semibold);margin:0 0 4px}
+.exercise-catalog-recovery{
+  position:fixed;left:50%;top:calc(var(--vv-top,0px) + var(--vvh,100dvh) / 2);transform:translate(-50%,-50%);z-index:80;width:min(92%,380px);margin:0;
+  background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius-prominent);
+  padding:20px 18px 16px;box-shadow:var(--elevation-dialog-shadow);
+  max-height:min(90dvh,var(--dialog-max-height));overflow:auto;overscroll-behavior:contain;color:var(--ink);
+}
+.exercise-catalog-recovery::backdrop{background:var(--scrim)}
+.exercise-catalog-recovery__status{margin:0 0 12px;font-size:var(--font-size-body-small);line-height:1.45;color:var(--ink-soft)}
+.exercise-catalog-recovery__status:empty{display:none}
+.exercise-catalog-recovery .btnrow .btn{width:100%;min-height:var(--control-target)}
+.settings-warn{margin:8px 0 0;font-size:var(--font-size-body-small);line-height:1.4;color:var(--accent-deep)}
+.settings-warn.hidden,[hidden].settings-warn{display:none}
+
+.attention{display:flex;flex-direction:column;gap:0;margin-bottom:14px}
+
+/* A grouped-list row: 44px tall, full-bleed to the card edge so the press tint
+   and the hairline read as part of the list above it. The box's own 44px hit
+   area is pulled in by 11px on each side so the 22px artwork lines up with the
+   panel's 14px gutter and sits 14px from its label. */
+.field--check{
+  position:relative;display:flex;align-items:center;gap:14px;min-height:44px;
+  font-size:var(--font-size-control);font-weight:500;letter-spacing:normal;text-transform:none;color:var(--ink);
+  cursor:pointer;-webkit-tap-highlight-color:transparent;
+}
+.field--check input{width:auto;flex:none;margin:0 -11px}
+.field--check + .field--check::before{
+  content:"";position:absolute;top:0;left:50px;right:0;border-top:1px solid var(--rule);
+}
+.field--check:active{background:var(--well)}
+.field--check:has(input:disabled){color:var(--ink-faint);cursor:default}
+.field--check:has(input:disabled):active{background:none}
+/* Onboarding */
+/* Keep layout and hit-target dimensions in device pixels, but express every
+   onboarding text size in rem so the browser's root text setting can enlarge
+   copy without turning the whole page into a zoomed viewport. */
+.onboarding{position:fixed;inset:0;z-index:50;overflow:auto;background:var(--bg);
+  padding:calc(12px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) calc(88px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));overscroll-behavior:contain;}
+.onboarding.active{display:block}
+.onb{max-width:var(--maxw);margin:0 auto}
+.onb__head{margin-bottom:18px}
+.onb__step{margin:6px 0 0;font-size:var(--font-size-label);color:var(--ink-faint);letter-spacing:.08em;text-transform:uppercase;font-weight:600}
+.onb__body{margin-bottom:18px}
+.onb__opts{display:flex;flex-direction:column;gap:10px}
+.onb__opts.onb__grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px}
+.onb__review{display:flex;flex-direction:column;gap:12px}
+.onb__day{background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius-surface);padding:12px 14px}
+.onb__dayname{font-weight:var(--weight-semibold);font-size:var(--font-size-control);letter-spacing:0;cursor:pointer}
+.onb__dayname span{display:block;margin-top:4px;font-weight:500;font-size:var(--font-size-label);line-height:1.35;letter-spacing:0;text-transform:none;color:var(--ink-soft)}
+.onb__day[open] .onb__dayname{margin-bottom:8px}
+.onb__ex{font-size:var(--font-size-body-small);color:var(--ink-soft);padding:4px 0;border-top:1px solid var(--rule)}
+.onb__ex:first-of-type{border-top:0;padding-top:0}
+.onb__ex b{color:var(--ink);font-weight:600}
+.onb__nav{display:flex;gap:10px;padding:12px 0}
+.onb__nav .btn{flex:1}
+.onb__nav .btn--steel{flex:.4}
+/* A lone Back (steps whose primary action lives in the body, like Import)
+   should not render at the 40% width meant for a Back/Continue pair. */
+.onb__nav .btn--steel:only-child{flex:1}
+
+/* Contextual guides stay in the same document flow as the action they
+   explain. They never become a modal, cover their target, or float when the
+   target is absent. */
+.guide-cue{position:relative;display:grid;grid-template-columns:1fr auto;gap:8px 12px;
+  margin:10px 0 14px;padding:12px 14px;background:var(--entry-tint);
+  border:1px solid var(--boundary-decorative);border-radius:var(--radius-surface);color:var(--color-ink)}
+.guide-cue__copy{min-width:0}
+.guide-cue__title{margin:0 0 3px;font-family:var(--font-language);font-size:var(--font-size-body-small);
+  font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
+/* --ink-soft on the --entry-tint wash measures ~4.47:1, just under the 4.5:1
+   AA floor for normal text; full --ink clears it with room and still reads
+   as the subordinate line beside the bold title. */
+.guide-cue__body{margin:0;font-family:var(--font-language);color:var(--color-ink);
+  font-size:var(--font-size-body-small);line-height:var(--line-standard)}
+.guide-cue__dismiss{align-self:start;min-width:44px;min-height:44px;margin:-8px -10px 0 0;
+  border:0;border-radius:var(--radius-round);background:var(--control-quiet-bg);color:var(--control-quiet-ink);
+  font:inherit;font-size:var(--control-icon-size);cursor:pointer}
+@media (hover: hover) and (pointer: fine){
+.guide-cue__dismiss:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
+}
+.guide-cue__dismiss:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+.guide-cue__dismiss:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-round)}
+.guide-cue__dismiss:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);cursor:not-allowed;transform:none}
+.guide-replay{padding:12px 14px;display:grid;gap:8px}
+.guide-replay[hidden]{display:none}
+.settings-panel.guide-replay.is-open{display:grid}
+.guide-replay .lede{margin:0 0 2px}
+.guide-replay .btn{width:100%;justify-content:flex-start;text-align:left}
+.guide-replay__item{display:grid;gap:3px}
+.guide-replay__title{font-family:var(--font-language);font-weight:var(--weight-semibold);color:var(--color-ink)}
+.guide-replay__body{font-family:var(--font-language);font-size:var(--font-size-caption);
+  line-height:var(--line-standard);color:var(--color-ink-secondary);white-space:normal}
+
+/* Icon and copy share the first row; the action takes a row of its own, the way
+   the first-run install card sets it. A CTA is a 100%-width control that does
+   not shrink, so beside the copy it would take the whole banner and squeeze the
+   text to one word per line. */
+.installbanner{position:fixed;left:50%;transform:translateX(-50%);
+  bottom:calc(var(--nav) + 16px + env(safe-area-inset-bottom));z-index:64;
+  width:min(92%,420px);display:grid;grid-template-columns:auto 1fr;gap:10px 12px;align-items:center;
+  background:var(--color-surface);border:1px solid var(--boundary-floating);border-radius:var(--radius-surface);
+  padding:13px 14px;box-shadow:var(--elevation-floating-shadow);
+  animation:toastin .3s cubic-bezier(.2,.7,.2,1)}
+.installbanner.hidden{display:none}
+/* An open sheet makes the page behind it inert, so the banner is already
+   unreachable there; drawn over the sheet it only hides the sheet's own rows.
+   It comes back with the page, still dismissed or not as the lifter left it. */
+body.is-sheet-open .installbanner{display:none}
+.installbanner__close{position:absolute;top:4px;right:4px;display:grid;place-items:center;
+  min-width:var(--control-target);min-height:var(--control-target);padding:0;border:0;border-radius:var(--radius-round);
+  background:var(--control-quiet-bg);color:var(--control-quiet-ink);
+  font-family:var(--font-language);font-size:var(--font-size-control);line-height:var(--line-tight);cursor:pointer}
+@media (hover: hover) and (pointer: fine){
+.installbanner__close:hover:not(:disabled){background:var(--well)}
+}
+.installbanner__close:active:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
+.installbanner__close:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.installbanner__close:disabled{color:var(--color-disabled-reason);cursor:not-allowed;transform:none}
+.installbanner__icon{width:34px;height:34px;border-radius:var(--radius-control);background:url("icons/icon-192.png") center/cover no-repeat}
+/* The corner the ✕ is drawn in belongs to the copy row alone, so the action
+   below it still sits square in the card. */
+.installbanner__text{min-width:0;padding-right:50px}
+.installbanner__title{margin:0 0 2px;font-family:var(--font-language);font-size:var(--font-size-body-small);
+  font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
+.installbanner__body{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);
+  line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.installbanner__body b{color:var(--color-ink);font-weight:var(--weight-semibold)}
+.installbanner__action{grid-column:1/-1}
+.ios-share{display:inline-block;width:15px;height:15px;vertical-align:-3px;margin:0 1px;
+  fill:none;stroke:var(--accent);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+.stats-seg{display:none}
+.stats-seg.active{display:block}

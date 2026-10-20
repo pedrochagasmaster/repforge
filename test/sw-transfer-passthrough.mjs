@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {Contract} from './interchange-runtime.mjs';
 /**
  * The production install-transfer Worker is routed at the app's own origin
  * (`taurifer.com/v1/*`). The service worker must leave every `/v1/` request to
@@ -15,7 +16,7 @@ import vm from "node:vm";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const source = readFileSync(join(ROOT, "sw.js"), "utf8");
 // The contract's ENDPOINTS also names the `/envelope` validation mode, which is not a URL.
-const ENDPOINTS = Object.values(createRequire(import.meta.url)(join(ROOT, "install-transfer-contract.js")).ENDPOINTS)
+const ENDPOINTS = Object.values(Contract.ENDPOINTS)
   .filter((path) => path.startsWith("/v1/"));
 assert.equal(ENDPOINTS.length, 4, "the four transfer endpoints live under /v1/");
 

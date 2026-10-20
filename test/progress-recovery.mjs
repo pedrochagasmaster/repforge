@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { installBrowserTraining } from "./training-browser.mjs";
 /**
  * Plan 067: Progress planned volume follows the per-cycle ProgramDefinition
  * across a recovery week.
@@ -54,6 +55,7 @@ async function at(page, time) {
   await page.clock.setFixedTime(new Date(time));
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
+  await installBrowserTraining(page);
 }
 
 async function readWeek(page) {
@@ -61,6 +63,7 @@ async function readWeek(page) {
     scheduled: window.__repforgeProgressReview.scheduledProgram().reduce((total, row) => total + row.sets, 0),
     week: window.__repforgeProgressEvidence.volume("this-week"),
     block: window.__repforgeProgressEvidence.volume("block-to-date"),
+    renderedPlannedSets: Number(document.querySelector('#thisWeek [data-week-metric="sets"] .ovtotal__of')?.textContent.replace("/", "")),
   }));
 }
 
@@ -76,8 +79,9 @@ async function main() {
     await page.clock.setFixedTime(new Date(start));
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
+    await installBrowserTraining(page);
     const seeded = await page.evaluate(async (request) => {
-      const generated = window.RepForgeProgramCompiler.generateProgram(request, window.RepForgeExerciseCatalog.snapshot());
+      const generated = window.__repforgeTrainingTest.compiler.generateProgram(request, window.__repforgeTrainingTest.catalog);
       if (!generated.ok) return { ok: false, generated };
       const finalized = await window.__repforgeFinalizeProgramSetup({
         programDefinition: generated.value, name: "Recovery volume", answers: {}, destination: "log", origin: "first-run",
@@ -121,6 +125,8 @@ async function main() {
     await at(page, Date.parse(`${recovered.programMeta.started}T12:00:00.000Z`));
     const weekOne = await readWeek(page);
     check(weekOne.scheduled === deload, "week one schedules the deload prescription", weekOne.scheduled);
+    check(weekOne.renderedPlannedSets === deload,
+      "readonly Progress overview renders the canonical deload set denominator", weekOne);
     check(weekOne.week.plannedWorkingSets === deload,
       "week one's this-week planned volume is the deload prescription", weekOne.week.plannedWorkingSets);
     check(weekOne.block.period.elapsedNumberedWeeks === 1 && weekOne.block.plannedWorkingSets === deload,
@@ -130,6 +136,8 @@ async function main() {
     await at(page, Date.parse(`${recovered.programMeta.started}T12:00:00.000Z`) + 7 * DAY);
     const weekTwo = await readWeek(page);
     check(weekTwo.scheduled === normal, "week two schedules the full prescription again", weekTwo.scheduled);
+    check(weekTwo.renderedPlannedSets === normal,
+      "readonly Progress overview updates to the canonical full-cycle denominator", weekTwo);
     check(weekTwo.week.plannedWorkingSets === normal,
       "week two's this-week planned volume is the full prescription", weekTwo.week.plannedWorkingSets);
     check(weekTwo.block.plannedWorkingSets === deload + normal,

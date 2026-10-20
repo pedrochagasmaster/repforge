@@ -1,0 +1,103 @@
+@keyframes rise{from{opacity:0}to{opacity:1}}
+@keyframes woEnter{from{opacity:0;transform:translateY(16px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes woLeave{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:none}}
+.wo-anim-enter{animation:woEnter .32s cubic-bezier(.2,.7,.2,1) both}
+.wo-anim-leave{animation:woLeave .28s cubic-bezier(.2,.7,.2,1) both}
+@media (prefers-reduced-motion:reduce){
+  .wo-anim-enter,.wo-anim-leave{animation:none}
+}
+@keyframes toastin{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+@keyframes stamp{0%{transform:scale(1)}30%{transform:scale(.97)}60%{transform:scale(1.01)}100%{transform:scale(1)}}
+
+.pday__caret{transition:transform .2s ease}
+.pday.is-collapsed .pday__caret{transform:rotate(-90deg)}
+.pday.is-collapsed .pexlist,.pday.is-collapsed .pday__add{display:none}
+.pday.is-collapsed .pday__head{margin-bottom:0}
+
+#exercise .exview-head__title{font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
+.exdet__muscle{font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:.08em;text-transform:uppercase;color:var(--color-ink-secondary)}
+.exdet__name{font-family:var(--font-language);font-weight:var(--weight-semibold);font-size:var(--font-size-feature-title);line-height:var(--line-tight);letter-spacing:-.02em;color:var(--color-ink);margin-bottom:4px}
+.exdet__meta{margin-bottom:14px;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+/* The illustration is an opaque square on its own warm ground. Dropping it
+   straight onto the page would read as a pasted tile, so the field carries that
+   warmth full-bleed and dissolves into the page above and below it. The fade is
+   a colour bridge between two near-neutral backgrounds and is the one gradient
+   the design allows; it authorises none elsewhere. See
+   docs/design/exercise-detail-illustration.md. */
+.exdet-art{
+  /* Overridden per movement from the sampled paper colour of its own artwork;
+     the shipped set spans #E3D4BE to #F4EDE1, so one constant would draw a
+     visible square around most of the library. This fallback only shows if a
+     movement ever carries art without a sampled colour. */
+  --exercise-art-bg:#ECE0CF;
+  --exercise-art-lead:18px;
+  --exercise-art-trail:30px;
+  margin:2px calc(-1 * max(16px,env(safe-area-inset-right))) 12px calc(-1 * max(16px,env(safe-area-inset-left)));
+  /* The stops are lengths, not percentages, because they have to land on the
+     empty bands above and below the picture. A percentage stop moves with the
+     field's height, so on a wide shell the fade climbs back over the artwork
+     and re-draws the very edge it exists to dissolve. */
+  background:linear-gradient(to bottom,
+    var(--bg) 0,var(--exercise-art-bg) var(--exercise-art-lead),
+    var(--exercise-art-bg) calc(100% - var(--exercise-art-trail)),var(--bg) 100%);
+}
+.exdet-art__figure{
+  display:flex;justify-content:center;
+  padding:var(--exercise-art-lead) 0 var(--exercise-art-trail);
+}
+.exdet-art__img{display:block;width:min(80%,450px);height:auto}
+/* Four columns of rules around a single stat cluster fight the orange
+   recommendation rail for the eye. On this page whitespace does the grouping,
+   so the shared band drops its frame here and only here. */
+.exdet__stats{border-top:0;border-bottom:0;margin-top:4px}
+.exdet__stats .statrow__cell::after{content:none}
+.exsessions{display:flex;flex-direction:column;gap:0}
+.exsess{background:transparent;border:0;border-bottom:1px solid var(--boundary-decorative);border-radius:var(--radius-none);padding:14px 0}
+.exsess__head{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.exsess__date{font-family:var(--font-language);color:var(--color-ink);font-weight:var(--weight-semibold)}
+.exsess__delta{margin-left:auto;font-family:var(--font-language);font-weight:var(--weight-semibold);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.exsess__set small{color:var(--color-ink-secondary);font-size:var(--font-size-caption);margin-left:1px}
+.exsess__set.is-warmup{color:var(--color-ink-secondary)}
+.exsess__note{font-family:var(--font-language);font-size:var(--font-size-body-small);color:var(--color-ink-secondary);margin:10px 0 0;line-height:var(--line-reading);border-left:2px solid var(--boundary-decorative);padding-left:9px;white-space:pre-wrap}
+.exsess__note span{display:block;color:var(--color-ink-secondary);text-transform:uppercase;letter-spacing:.1em;font-size:var(--font-size-label);line-height:var(--line-standard);margin-bottom:3px}
+
+.announce-host{position:static;pointer-events:none}
+/* A notice that must not cover a sheet's pinned foot (the Session sheet's reorder announcement) rides at the top. */
+.toast.toast--top{bottom:auto;top:calc(env(safe-area-inset-top,0px) + var(--space-12))}
+.announce-host .toast{pointer-events:none}
+.sessionbanner{position:relative;margin:0 0 .75rem;padding:0;border:0;border-bottom:1px solid var(--rule);border-radius:0;background:transparent;cursor:default}
+.sessionbanner.hidden{display:none}
+.sessionbanner.is-missed{border-color:var(--accent)}
+.sessionbanner__act{display:block;width:100%;margin:0;padding:.75rem 2.75rem .75rem 0;border:0;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;min-height:44px}
+.sessionbanner__close{position:absolute;top:0;right:0;width:44px;height:44px;margin:0;padding:0;border:0;background:transparent;color:inherit;font:inherit;line-height:1;cursor:pointer;opacity:.7}
+.sessionbanner__title{font-weight:var(--weight-semibold);margin:0 0 .25rem}
+.sessionbanner__body{margin:0;font-size:var(--font-size-body-small);color:var(--ink-soft)}
+.draft-recovery{margin:0 0 14px;padding:12px 14px;border-left:3px solid var(--danger);background:var(--well);color:var(--ink)}
+.draft-recovery.hidden{display:none}
+.draft-recovery__title{margin:0 0 4px;font-weight:var(--weight-semibold)}
+.draft-recovery__body,.draft-recovery__pending{margin:0;font-size:var(--font-size-body-small);line-height:1.45;color:var(--ink-soft)}
+.draft-recovery__pending{margin-top:8px;padding:8px;border:1px solid var(--rule);border-radius:var(--radius-control);overflow-wrap:anywhere;color:var(--ink)}
+.draft-recovery__actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.draft-recovery__actions .btn{width:auto;min-height:44px;padding:8px 12px;flex:1 1 auto}
+.notifytypes{display:grid;gap:0;margin:2px 0 4px}
+#unfinishedBanner{margin:0 0 .75rem;padding:.75rem 0;border:0;border-bottom:1px solid var(--rule);border-radius:0}
+#unfinishedBanner.hidden{display:none}
+
+
+
+@media (prefers-reduced-motion:reduce){
+  /* `*` does not match generated boxes, so the marks drawn in ::before and ::after are named too (R7 V-15). */
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+@media (min-width:680px){
+  .metrics,.statrow--4{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+@media (max-width:360px){
+  /* A 288px row cannot hold the set action, a three-part load control, reps,
+     RIR and Save in one line at 44px each. Keep the outer fields explicit and
+     stack the load input over its two steppers inside the flexible column. */
+  .vrow{grid-template-columns:1fr auto}
+  .stepbtn{width:var(--control-target);min-width:var(--control-target);font-size:var(--control-icon-size)}
+  .saveset{min-width:44px;padding:0 4px}
+}
+

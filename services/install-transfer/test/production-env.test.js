@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import { reset } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
 import wranglerSource from "../wrangler.jsonc?raw";
-import contract from "../../../install-transfer-contract.js";
+import contract from "../src/contract.js";
 import worker from "../src/index.js";
 import { euStub } from "../src/namespaces.js";
 import { operationalServiceHealth, serviceHealth } from "../src/operations.js";

@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+import {browserLanguage} from './language-browser.mjs';
+import {installBrowserTraining,installBrowserTrainingBeforeNavigation} from './training-browser.mjs';
+import {ensureBrowserInterchange} from './interchange-browser.mjs';
 /**
  * Browser behaviour for shared setup links (ADR 0007, Plan 067 format).
  *
@@ -137,7 +140,7 @@ export function wireFragment(value, version = 1) {
 const setupUrl = (fragment, testCase) =>
   `${APP_INDEX}?shared-test=${encodeURIComponent(testCase)}#setup=${fragment}`;
 
-export function sharedGateSnapshot() {
+export function sharedGateSnapshot(language) {
   const hidden = (node) =>
     !node || node.hidden === true || node.classList.contains("hidden") || !!node.closest(".hidden,[hidden]");
   const shown = (node) => {
@@ -193,7 +196,7 @@ export function sharedGateSnapshot() {
     errorText: (error?.textContent || "").trim(),
     errorRole: error?.getAttribute("role") || null,
     langAttr: document.documentElement.lang || null,
-    i18n: window.RepForgeI18n?.getLang?.() || null,
+    i18n: language?.getLang?.() || null,
     logActive: document.querySelector("#log")?.classList.contains("active") || false,
     onboarding: document.querySelector("#onboarding")?.classList.contains("active") || false,
     overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
@@ -284,6 +287,7 @@ export async function openAppPage(browser, {
   });
   const page = await context.newPage();
   const errors = [];
+  await installBrowserTrainingBeforeNavigation(page);
   page.on("pageerror", (e) => errors.push(String(e.message)));
   if (recipeWorkerProbe) await page.addInitScript(installRecipeWorkerProbe, { holdReplies: true });
   if (disableWorker) await page.addInitScript(() => { delete window.Worker; });
@@ -360,9 +364,9 @@ function installRecipeWorkerProbe({ holdReplies = true } = {}) {
     }
     postMessage(message, ...rest) {
       if (message?.type === "generate") {
-        const item = { id: message.id, identity: null };
-        item.identityReady = Promise.resolve(window.RepForgeProgramCompiler.generationIdentity(
-          message.request, window.RepForgeExerciseCatalog.snapshot()))
+        const item = { id: message.id, identity: null },request=structuredClone(message.request);
+        item.identityReady = window.__repforgeTrainingTestReady.then(()=>window.__repforgeTrainingTest.compiler.generationIdentity(
+          request, window.__repforgeTrainingTest.catalog))
           .then((value) => { item.identity = value; });
         probe.requests.push(item);
       }
@@ -388,8 +392,10 @@ export async function buildSetupDocument(page, {
 } = {}) {
   const shared = Object.fromEntries(SETTING_KEYS.map((key) => [key, settings[key] ?? DEFAULT_SHARED_SETTINGS[key]]));
   const seedDefinition = trainingDays === 1 ? seedProgramMeta().programDefinition : null;
+  await installBrowserTraining(page);
+  await ensureBrowserInterchange(page);
   return page.evaluate(({ name, settings, trainingDays, seedDefinition }) => {
-    const api = window.RepForgeSharedSetup;
+    const api = window.__repforgeInterchangeTest.setup;
     let definition;
     if (seedDefinition) {
       let kept = 0;
@@ -401,13 +407,13 @@ export async function buildSetupDocument(page, {
         }),
       };
     } else {
-      const catalog = window.RepForgeExerciseCatalog.snapshot();
-      const request = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({
+      const catalog = window.__repforgeTrainingTest.catalog;
+      const request = window.__repforgeTrainingTest.entryAdapter.programRequestFromAnswers({
         desiredResult: "muscle_growth", structuredExperience: "6_to_24m",
         daysPerWeek: Math.min(6, Math.max(2, trainingDays)), sessionMinutes: 60,
         environment: { kind: "commercial_gym" },
       }, catalog).value;
-      definition = window.RepForgeProgramCompiler.generateProgram(request, catalog).value;
+      definition = window.__repforgeTrainingTest.compiler.generateProgram(request, catalog).value;
     }
     return { kind: api.KIND, version: api.VERSION, program: { name, definition }, settings, language: settings.lang };
   }, { name, settings: shared, trainingDays, seedDefinition });
@@ -415,12 +421,14 @@ export async function buildSetupDocument(page, {
 
 /** Encode a current setup document with the app's codec and its production options. */
 export async function encodeSetupDocument(page, document) {
+  await installBrowserTraining(page);
+  await ensureBrowserInterchange(page);
   return page.evaluate(async (document) => {
-    const api = window.RepForgeSharedSetup;
-    const compiler = window.RepForgeProgramCompiler;
+    const api = window.__repforgeInterchangeTest.setup;
+    const compiler = window.__repforgeTrainingTest.compiler;
     if (!api || typeof api.encode !== "function") return { ok: false, code: "missing-module", missing: true };
     const result = await api.encode(document, {
-      catalogSnapshot: window.RepForgeExerciseCatalog.snapshot(),
+      catalogSnapshot: window.__repforgeTrainingTest.catalog,
       validateProgramDefinition: compiler.validateProgramDefinition,
       generateProgram: compiler.generateProgram,
       generatorVersion: compiler.GENERATOR_VERSION,
@@ -431,11 +439,13 @@ export async function encodeSetupDocument(page, document) {
 
 /** Decode a link fragment with the app's codec and its production options. */
 async function decodeSetup(page, encoded) {
+  await installBrowserTraining(page);
+  await ensureBrowserInterchange(page);
   return page.evaluate(async (encoded) => {
-    const api = window.RepForgeSharedSetup;
-    const compiler = window.RepForgeProgramCompiler;
+    const api = window.__repforgeInterchangeTest.setup;
+    const compiler = window.__repforgeTrainingTest.compiler;
     return api.decode(encoded, {
-      catalogSnapshot: window.RepForgeExerciseCatalog.snapshot(),
+      catalogSnapshot: window.__repforgeTrainingTest.catalog,
       validateProgramDefinition: compiler.validateProgramDefinition,
       generateProgram: compiler.generateProgram,
       generatorVersion: compiler.GENERATOR_VERSION,
@@ -550,16 +560,17 @@ async function freshDevice(page) {
 
 /** Activate a real generated program through the production finalize path. */
 async function activateGeneratedProgram(page, { name = "Coach program", daysPerWeek = 3 } = {}) {
+  await installBrowserTraining(page);
   const ok = await page.evaluate(async ({ name, daysPerWeek }) => {
-    const catalog = window.RepForgeExerciseCatalog.snapshot();
-    const request = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({
+    const catalog = window.__repforgeTrainingTest.catalog;
+    const request = window.__repforgeTrainingTest.entryAdapter.programRequestFromAnswers({
       desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek, sessionMinutes: 60,
       environment: { kind: "commercial_gym" },
     }, catalog).value;
-    const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog).value;
+    const definition = window.__repforgeTrainingTest.compiler.generateProgram(request, catalog).value;
     const result = await window.__repforgeFinalizeProgramSetup({
       programDefinition: definition, name, answers: {}, destination: "log", origin: "first-run",
-      draftConfirmed: true, telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: window.RepForgeProgramCompiler.generationIdentity(request, catalog) },
+      draftConfirmed: true, telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: window.__repforgeTrainingTest.compiler.generationIdentity(request, catalog) },
     });
     await window.__repforgeStorage.flush();
     return !!(result?.localOk || result?.idbOk);
@@ -698,8 +709,10 @@ export async function runSharedSetupFlow(browser) {
 
   await runCase("Module API is present", async () => {
     const { context, page } = await openAppPage(browser);
+    await installBrowserTraining(page);
+  await ensureBrowserInterchange(page);
     const api = await page.evaluate((required) => {
-      const mod = window.RepForgeSharedSetup;
+      const mod = window.__repforgeInterchangeTest.setup;
       if (!mod) return { present: false, keys: [] };
       return {
         present: true,
@@ -808,7 +821,7 @@ export async function runSharedSetupFlow(browser) {
     assert(encoded.ok === true, "a one-day document encodes", encoded.code);
     await page.goto(setupUrl(encoded.value, "fresh-en"), { waitUntil: "domcontentloaded" });
     await waitForFirstRun(page);
-    const gate = await page.evaluate(sharedGateSnapshot);
+    const gate = await page.evaluate(sharedGateSnapshot, await browserLanguage(page));
     assert(gate.gate && gate.hero, "first-run hero remains on a shared link", gate);
     assert(gate.install, "iOS Safari still offers the install card", gate);
     assert(gate.headline === SHARED_COPY.en.title, "shared gate headline uses the approved title", gate.headline);
@@ -956,7 +969,7 @@ export async function runSharedSetupFlow(browser) {
     await page.evaluate(() => window.__repforgeStorage?.flush?.());
     const after = await page.evaluate(readDurableState);
     const state = after.state || {};
-    const gate = await page.evaluate(sharedGateSnapshot);
+    const gate = await page.evaluate(sharedGateSnapshot, await browserLanguage(page));
     assert(state.programMeta?.onboarded === true && state.programMeta?.name === "Força compartilhada",
       "activation onboards the recipient with the shared name", state.programMeta?.name);
     assert(canonicalJson(state.programMeta?.programDefinition) === canonicalJson(document.program.definition),
@@ -976,7 +989,7 @@ export async function runSharedSetupFlow(browser) {
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { timeout: 15000, base: BASE });
     await page.evaluate(() => window.__repforgeStorage?.flush?.());
-    assert(!(await page.evaluate(sharedGateSnapshot)).gate, "the gate stays closed after reload");
+    assert(!(await page.evaluate(sharedGateSnapshot, await browserLanguage(page))).gate, "the gate stays closed after reload");
     const rawAfter = await page.evaluate((k) => localStorage.getItem(k), KEY);
     const replicasAfter = await readBothReplicas(page);
     assert(rawAfter === rawBefore && canonicalJson(replicasAfter.idb) === canonicalJson(replicasBefore.idb),
@@ -1049,11 +1062,11 @@ export async function runSharedSetupFlow(browser) {
     assert(staged?.value === encoded.value, "the gate stages the proposal before the lifter decides", { present: !!staged });
     await page.click("#firstRunSharedCreate");
     await page.waitForSelector('[data-entry-hub="build"]', { state: "visible", timeout: 10000 });
-    const hub = await page.evaluate(() => ({
+    const hub = await (await browserLanguage(page)).evaluate(language => ({
       gate: !document.querySelector("#firstRun")?.classList.contains("hidden"),
       onboarding: document.querySelector("#onboarding")?.classList.contains("active"),
       route: window.__repforgeEntryState?.()?.route ?? null,
-      i18n: window.RepForgeI18n?.getLang?.() || null,
+      i18n: language?.getLang?.() || null,
     }));
     const hook = await page.evaluate(readSharedHook);
     assert(!hub.gate && hub.onboarding && hub.route === null,
@@ -1067,7 +1080,7 @@ export async function runSharedSetupFlow(browser) {
     assert(hits.length === 0 && !/setup=/.test(after.hash), "nothing from the received proposal was written", { hits, hash: after.hash });
     await page.goto(APP_INDEX, { waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { timeout: 15000, base: BASE });
-    const reloaded = await page.evaluate(sharedGateSnapshot);
+    const reloaded = await page.evaluate(sharedGateSnapshot, await browserLanguage(page));
     const reloadedHook = await page.evaluate(readSharedHook);
     const reloadedDurable = await page.evaluate(readDurableState);
     assert(!reloaded.startVisible && !reloaded.sharedCardVisible && reloadedHook.status === "none",
@@ -1084,7 +1097,7 @@ export async function runSharedSetupFlow(browser) {
       await buildSetupDocument(page, { name: "Força compartilhada", settings: PT_SHARED_SETTINGS, trainingDays: 4 }));
     await page.goto(setupUrl(encoded.value, "pt-gate"), { waitUntil: "domcontentloaded" });
     await waitForFirstRun(page);
-    const gate = await page.evaluate(sharedGateSnapshot);
+    const gate = await page.evaluate(sharedGateSnapshot, await browserLanguage(page));
     assert(gate.i18n === "pt" && /^pt/i.test(gate.langAttr || ""), "runtime language is Portuguese before accept", gate);
     assert(gate.lede === SHARED_COPY.pt.lede && gate.headline === SHARED_COPY.pt.title &&
       gate.startTitle === SHARED_COPY.pt.view, "Portuguese shared gate copy before accept", gate);
@@ -1103,7 +1116,7 @@ export async function runSharedSetupFlow(browser) {
     await page.click("#firstRunContinue");
     await page.waitForFunction(() => document.querySelector("#firstRunContinue")?.classList.contains("hidden") ||
       document.querySelector("#firstRunInstall")?.classList.contains("hidden"), null, { timeout: 5000 });
-    const after = await page.evaluate(sharedGateSnapshot);
+    const after = await page.evaluate(sharedGateSnapshot, await browserLanguage(page));
     assert(after.gate && after.startVisible, "Continue leaves the shared action standing", after);
     assert(!after.install && !after.continueShown, "Continue removes only the install offer", after);
     assert(!after.createVisible && !after.importVisible, "Create/Import stay hidden after Continue", after);
@@ -1115,12 +1128,14 @@ export async function runSharedSetupFlow(browser) {
     const { context, page } = await openAppPage(browser, { ua: ANDROID_UA, standalone: true });
     await freshDevice(page);
     const encoded = await encodeSetupDocument(page, await buildSetupDocument(page, { name: "Cookie program" }));
-    const wrote = await page.evaluate((value) => window.RepForgeSharedSetup.writeHandoffCookie(value), encoded.value);
+    await installBrowserTraining(page);
+  await ensureBrowserInterchange(page);
+    const wrote = await page.evaluate((value) => window.__repforgeInterchangeTest.setup.writeHandoffCookie(value), encoded.value);
     assert(wrote === true, "the codec writes a current envelope to the handoff cookie");
     await page.goto(APP_INDEX, { waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { timeout: 15000, base: BASE });
     await waitForFirstRun(page);
-    const gate = await page.evaluate(sharedGateSnapshot);
+    const gate = await page.evaluate(sharedGateSnapshot, await browserLanguage(page));
     const hook = await page.evaluate(readSharedHook);
     assert(gate.gate && gate.startVisible && gate.startCap === SHARED_COPY.en.capOne("Cookie program"),
       "a standalone launch with only the cookie shows the shared gate", { gate, hook });
@@ -1174,6 +1189,8 @@ export async function runSharedSetupFlow(browser) {
     await page.evaluate(() => window.__repforgeRecipeWorkerProbe.release(0));
     await page.waitForFunction(() => window.__repforgeRecipeWorkerProbe?.requests.length === 2, null, { timeout: 10000 });
     await page.waitForFunction(() => window.__repforgeRecipeWorkerProbe?.held.length === 1, null, { timeout: 10000 });
+    await installBrowserTraining(page);
+  await ensureBrowserInterchange(page);
     const secondPending = await page.evaluate(async () => {
       const probe = window.__repforgeRecipeWorkerProbe;
       await Promise.all(probe.requests.map((request) => request.identityReady));
@@ -1190,7 +1207,7 @@ export async function runSharedSetupFlow(browser) {
         sharedName: window.__repforgeSharedSetup?.summary?.name || null,
         gateVisible: visible(start) && !start.disabled,
         cookieMatchesCurrentFragment: !!cookie && decodeURIComponent(cookie.slice("repforge_setup_v1=".length)) ===
-          window.RepForgeSharedSetup.readSetupFragment(location.href),
+          window.__repforgeInterchangeTest.setup.readSetupFragment(location.href),
         inMemoryName: state?.result?.name || null,
         setupDraftPresent: localStorage.getItem("repforge_program_setup_draft_v1") !== null,
       };
@@ -1289,7 +1306,7 @@ export async function runSharedSetupFlow(browser) {
       await page.goto(setupUrl(fixture.recipe, `old-${fixture.label}`), { waitUntil: "domcontentloaded" });
       await waitForFirstRun(page);
       const hook = await page.evaluate(readSharedHook);
-      const gate = await page.evaluate(sharedGateSnapshot);
+      const gate = await page.evaluate(sharedGateSnapshot, await browserLanguage(page));
       const after = await page.evaluate(readDurableState);
       const stats = await page.evaluate(() => window.__repforgeProgramEngine?.stats?.());
       assert(hook.status === "unsupported" && hook.error === "unsupported-version",
@@ -1316,14 +1333,15 @@ export async function runSharedSetupFlow(browser) {
     const before = await page.evaluate(readDurableState);
     await page.goto(setupUrl(legacy.link, "recipe-067-1"), { waitUntil: "domcontentloaded" });
     await waitForFirstRun(page);
-    const gate = await page.evaluate(sharedGateSnapshot);
+    const gate = await page.evaluate(sharedGateSnapshot, await browserLanguage(page));
     const hook = await page.evaluate(readSharedHook);
     const after = await page.evaluate(readDurableState);
-    const version = await page.evaluate(() => window.RepForgeProgramCompiler.GENERATOR_VERSION);
+    await installBrowserTraining(page);
+    const version = await page.evaluate(() => window.__repforgeTrainingTest.compiler.GENERATOR_VERSION);
     assert(version !== legacy.generatorVersion, "the app runs a later generator than the link's", version);
     assert(hook.status === "unsupported" && hook.error === "unsupported-version", "the recipe link is unsupported", hook);
     assert(!gate.startVisible && gate.createVisible && gate.importVisible, "no shared action; standard choices are restored", gate);
-    const outdated = await page.evaluate(() => window.RepForgeI18n.t("setup.shared.outdated"));
+    const outdated = await (await browserLanguage(page)).evaluate(language => language.t("setup.shared.outdated"));
     assert(gate.errorVisible && gate.errorRole === "status" && outdated !== "setup.shared.outdated" && gate.errorText === outdated,
       "an inline status asks for the program to be shared again (setup.shared.outdated)", gate.errorText);
     const hits = noSharedWrite(before, after, legacy.name);
@@ -1339,17 +1357,19 @@ export async function runSharedSetupFlow(browser) {
       await freshDevice(page);
       await waitForFirstRun(page);
       const fragment = wireFragment({ ...LEGACY_PAYLOAD, version }, version);
-      const legacyCookieWritten = await page.evaluate((value) => window.RepForgeSharedSetup.writeHandoffCookie(value), fragment);
+      await installBrowserTraining(page);
+  await ensureBrowserInterchange(page);
+      const legacyCookieWritten = await page.evaluate((value) => window.__repforgeInterchangeTest.setup.writeHandoffCookie(value), fragment);
       assert(legacyCookieWritten === false, `${label}: the codec refuses to stage a legacy envelope in the cookie`);
       const before = await page.evaluate(readDurableState);
       await page.goto(setupUrl(fragment, `legacy-${label}`), { waitUntil: "domcontentloaded" });
       await waitForFirstRun(page);
-      const gate = await page.evaluate(sharedGateSnapshot);
+      const gate = await page.evaluate(sharedGateSnapshot, await browserLanguage(page));
       const hook = await page.evaluate(readSharedHook);
       const after = await page.evaluate(readDurableState);
       assert(hook.status === "unsupported" && hook.error === "unsupported-version", `${label}: the link is unsupported`, hook);
       assert(!gate.startVisible && gate.createVisible && gate.importVisible, `${label}: no shared action; standard choices are restored`, gate);
-      const outdated = await page.evaluate(() => window.RepForgeI18n.t("setup.shared.outdated"));
+      const outdated = await (await browserLanguage(page)).evaluate(language => language.t("setup.shared.outdated"));
       assert(gate.errorVisible && gate.errorRole === "status" && outdated !== "setup.shared.outdated" && gate.errorText === outdated,
         `${label}: an inline status asks for the program to be shared again (setup.shared.outdated)`, gate.errorText);
       assert(gate.i18n === "en", `${label}: the legacy link's language is not applied`, gate.i18n);
@@ -1386,10 +1406,10 @@ export async function runSharedSetupFlow(browser) {
     const before = await page.evaluate(readDurableState);
     await page.goto(setupUrl(fragment, "newer-envelope"), { waitUntil: "domcontentloaded" });
     await waitForFirstRun(page);
-    const gate = await page.evaluate(sharedGateSnapshot);
+    const gate = await page.evaluate(sharedGateSnapshot, await browserLanguage(page));
     const hook = await page.evaluate(readSharedHook);
     const after = await page.evaluate(readDurableState);
-    const unsupported = await page.evaluate(() => window.RepForgeI18n.t("setup.shared.unsupported"));
+    const unsupported = await (await browserLanguage(page)).evaluate(language => language.t("setup.shared.unsupported"));
     assert(hook.status === "unsupported" && hook.error === "unsupported-version", "a v5 link is unsupported", hook);
     assert(gate.errorVisible && gate.errorRole === "status" && unsupported !== "setup.shared.unsupported" && gate.errorText === unsupported,
       "a v5 link says it was made by a newer version (setup.shared.unsupported)", gate.errorText);
@@ -1417,7 +1437,7 @@ export async function runSharedSetupFlow(browser) {
       const before = await page.evaluate(readDurableState);
       await page.goto(setupUrl(fragment, label), { waitUntil: "domcontentloaded" });
       await waitForFirstRun(page);
-      const gate = await page.evaluate(sharedGateSnapshot);
+      const gate = await page.evaluate(sharedGateSnapshot, await browserLanguage(page));
       const after = await page.evaluate(readDurableState);
       const hook = await page.evaluate(readSharedHook);
       assert(hook.status === "invalid", `${label}: the proposal is invalid`, hook);
@@ -1472,7 +1492,7 @@ export async function runSharedSetupFlow(browser) {
     const before = await open.page.evaluate(readDurableState);
     await open.page.goto(setupUrl(encoded.value, "no-decompression"), { waitUntil: "domcontentloaded" });
     await waitForFirstRun(open.page);
-    const gate = await open.page.evaluate(sharedGateSnapshot);
+    const gate = await open.page.evaluate(sharedGateSnapshot, await browserLanguage(open.page));
     const after = await open.page.evaluate(readDurableState);
     assert(gate.createVisible && gate.importVisible && !gate.startVisible, "a browser without DecompressionStream restores standard choices", gate);
     assert(gate.errorText === SHARED_COPY.en.browserUnsupported, "browser_unsupported copy is used", gate.errorText);
@@ -1515,7 +1535,7 @@ export async function runSharedSetupFlow(browser) {
       await page.waitForFunction((expected) => document.querySelector("#toast")?.textContent === expected,
         SHARED_COPY.en.existing, { timeout: 10000 });
       const after = await page.evaluate(readDurableState);
-      const gate = await page.evaluate(sharedGateSnapshot);
+      const gate = await page.evaluate(sharedGateSnapshot, await browserLanguage(page));
       assert(!gate.startVisible, `${label}: no shared Start is offered`, gate);
       assert(canonicalJson(after.state) === canonicalJson(before.state), `${label}: the durable state is unchanged`,
         { before: before.state?.programMeta?.name, after: after.state?.programMeta?.name });
@@ -1639,7 +1659,7 @@ export async function runSharedSetupFlow(browser) {
       window.addEventListener("hashchange", () => requestAnimationFrame(() => requestAnimationFrame(resolve)), { once: true });
       location.hash = "section";
     }));
-    const afterGate = await page.evaluate(sharedGateSnapshot);
+    const afterGate = await page.evaluate(sharedGateSnapshot, await browserLanguage(page));
     const afterHook = await page.evaluate(readSharedHook);
     const afterDurable = await page.evaluate(readDurableState);
     assert(afterHook.status === "ready" && afterGate.startVisible && !afterGate.startDisabled,
@@ -1648,7 +1668,7 @@ export async function runSharedSetupFlow(browser) {
     const second = await encodeSetupDocument(page, await buildSetupDocument(page, { name: "Second coach program" }));
     await page.evaluate((value) => { location.hash = `setup=${value}`; }, second.value);
     await page.waitForFunction(() => window.__repforgeSharedSetup?.summary?.name === "Second coach program", null, { timeout: 10000 });
-    const secondGate = await page.evaluate(sharedGateSnapshot);
+    const secondGate = await page.evaluate(sharedGateSnapshot, await browserLanguage(page));
     assert(secondGate.startVisible && secondGate.startCap === SHARED_COPY.en.capOne("Second coach program"),
       "a later genuine setup fragment still loads", secondGate);
     await context.close();

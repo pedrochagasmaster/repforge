@@ -8,8 +8,10 @@
  * build step by the config contract.
  */
 import { execFileSync, spawnSync } from "node:child_process";
-import { createRequire } from "node:module";
+import {createTelemetry} from "../src/platform/telemetry.js";
+import {inspectTelemetryBoundary} from "./telemetry-boundary.mjs";
 import { readFileSync } from "node:fs";
+import { nativeSourceAssets } from "../scripts/native-source-assets.mjs";
 
 const files = execFileSync("git", ["ls-files", "-z", "--", "*.js"], { encoding: "utf8" })
   .split("\0")
@@ -24,29 +26,20 @@ const expected = [
   "generation-candidates.js",
   "generation-identity.js",
   "generation-layout.js",
-  "guide-registry.js",
-  "history-ui.js",
   "i18n.js",
   "install-policy.js",
-  "install-transfer-contract.js",
-  "install-transfer.js",
   "motion-layer.js",
   "notify.js",
   "posthog-init.js",
   "program-compiler.js",
-  "program-editor.js",
   "program-engine.js",
   "program-entry-adapter.js",
   "program-entry.js",
-  "program-review.js",
   "program-transition.js",
   "progress-model.js",
   "progression-engine.js",
-  "schedule.js",
-  "shared-setup.js",
   "sw.js",
   "telemetry.js",
-  "unsupported-workout-grammar.js",
   "workout-draft.js",
 ];
 const missing = expected.filter((file) => !files.includes(file));
@@ -63,26 +56,20 @@ console.log(`production syntax: ${files.length} modules pass`);
 
 // Architecture/security guard: product code emits through the closed telemetry
 // facade. This is a repository invariant, not a product-behavior unit test.
-const require = createRequire(import.meta.url);
-const Telemetry = require("../telemetry.js");
+const Telemetry = createTelemetry();
 const allowedEvents = new Set(Telemetry.getEventNames("all"));
-const producers = ["app.js", "history-ui.js"].map((file) => readFileSync(file, "utf8")).join("\n");
-const captured = [...producers.matchAll(/captureEvent\("([^"]+)"/g)].map((match) => match[1]);
+const producers = ["app.js", ...nativeSourceAssets(process.cwd()).filter(file=>/src\/(?:app|ui)\/.*\.js$/.test(file))].map((file) => readFileSync(file, "utf8")).join("\n");
+const captured = [...producers.matchAll(/(?:captureEvent|onOutcome|report)\(["']([^"']+)["']/g)].map((match) => match[1]);
 const unknownEvents = [...new Set(captured)].filter((name) => !allowedEvents.has(name));
 if (unknownEvents.length) {
   console.error(`Unknown telemetry event producer(s): ${unknownEvents.join(", ")}`);
   process.exit(1);
 }
 const app = readFileSync("app.js", "utf8");
-const telemetry = readFileSync("telemetry.js", "utf8");
-const adapter = readFileSync("posthog-init.js", "utf8");
-if (/(?:window|globalThis)\.posthog|\.capture\([^\n]*telemetry_schema_version/.test(app) ||
-    /(?:window|globalThis)\.posthog/.test(telemetry) ||
-    !/window\.RepForgeTelemetry\?\.capture/.test(app) ||
-    !/browser\.posthog/.test(adapter)) {
-  console.error("Telemetry producer bypasses the reviewed RepForgeTelemetry boundary.");
-  process.exit(1);
-}
+const telemetry = readFileSync("src/platform/telemetry.js", "utf8");
+const adapter = readFileSync("src/platform/posthog.js", "utf8");
+const boundaryErrors=inspectTelemetryBoundary({app,telemetry,adapter,producers});
+if(boundaryErrors.length){console.error(`Telemetry boundary: ${boundaryErrors.join('; ')}`);process.exit(1)}
 console.log(`telemetry boundary: ${captured.length} reviewed producer call(s) use declared events`);
 
 // The converse guard: every declared event has a producer or an explicit
@@ -100,7 +87,7 @@ for (const name of allowedEvents) {
 }
 // The program-entry funnel events are built by telemetry.js's pure
 // entryFunnelEvents projection and forwarded by app.js's step observer.
-if (/RepForgeTelemetry\?\.entryFunnelEvents\?\.\(/.test(app)) {
+if (/Telemetry\?\.entryFunnelEvents\?\.\(/.test(app)) {
   for (const [, name] of telemetry.matchAll(/events\.push\(\["([a-z_]+)"/g)) produced.add(name);
 }
 const orphaned = [...allowedEvents].filter((name) => !produced.has(name) && !RESERVED.has(name));

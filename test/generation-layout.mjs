@@ -1,7 +1,5 @@
 import assert from 'node:assert/strict';
-import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
-const layout = require('../generation-layout.js');
+import {layout} from '../src/training/generation.js';
 const request = { goal: 'hybrid', split: 'upper_lower_full', daysPerWeek: 3, timeCeilingMinutes: 60, experience: 'advanced', periodization: 'static', cycles: 7, deloadCycles: [] };
 const upper = new Set(['sideDelts','biceps','triceps','chest','rearDelts','lats','upperTraps','upperBack','forearms','neck','frontDelts','serratus']);
 function selector(options = {}) {

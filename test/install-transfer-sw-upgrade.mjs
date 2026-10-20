@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {serveReleasedV120Asset,activateReplacementAfterClientLeaves} from './fixtures/v120-assets.mjs';
 /** Plan 053 old-worker/new-worker oracle for the real Safari handoff marker. */
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
@@ -32,6 +33,7 @@ let statusCount = 0;
 
 const server = createServer((request, response) => {
   const pathname = decodeURIComponent((request.url || "/").split("?", 1)[0]);
+  if(serveReleasedV120Asset(pathname,response))return;
   if (pathname === "/sw.js") {
     response.writeHead(200, { "content-type": "text/javascript", "cache-control": "no-store" });
     response.end(workerGeneration === "old" ? OLD_WORKER : CURRENT_WORKER);
@@ -66,23 +68,19 @@ const context = await browser.newContext({
   userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1",
   reducedMotion: "reduce",
 });
+await context.addInitScript(durableState=>{
+ if(localStorage.getItem('repforge_v1')!==null)return;
+ localStorage.setItem('repforge_v1',JSON.stringify({...durableState,_storageRevision:7}));
+ localStorage.setItem('repforge_ui_v1',JSON.stringify({theme:'light',tourDone:true}));
+ localStorage.setItem('repforge_telemetry_enabled_v1','false');
+},fixture.durableState);
 const page = await context.newPage();
 try {
   await page.goto(base, { waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base });
   await page.evaluate(async () => { const registration = await navigator.serviceWorker.ready; await registration.update(); });
   await waitForWorkerTakeover(page, { cache: oldCache, timeout: 10000 });
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await waitForAppBoot(page, { base });
-  assert.equal(await page.evaluate(() => !!navigator.serviceWorker.controller), true, "released worker controls the source shell");
-
-  await page.evaluate((durableState) => {
-    localStorage.setItem("repforge_v1", JSON.stringify({ ...durableState, _storageRevision: 7 }));
-    localStorage.setItem("repforge_ui_v1", JSON.stringify({ theme: "light", tourDone: true }));
-    localStorage.setItem("repforge_telemetry_enabled_v1", "false");
-  }, fixture.durableState);
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await waitForAppBoot(page, { base });
+  assert.equal(await page.evaluate(()=>!!navigator.serviceWorker.controller),true,'released worker controls the already-running source client');
   const sourceBefore = await page.evaluate(() => localStorage.getItem("repforge_v1"));
   await page.evaluate(() => window.__repforgeUi.showInstallBanner(true));
   await page.click("#installBannerAction");
@@ -91,10 +89,9 @@ try {
   assert.equal(createCount, 1, "the explicit production action creates the handoff under the released worker");
 
   workerGeneration = "current";
-  await page.evaluate(async () => { const registration = await navigator.serviceWorker.ready; await registration.update(); });
-  await waitForWorkerTakeover(page, { cache: currentCache, replaced: oldCache, timeout: 20000 });
+  await activateReplacementAfterClientLeaves(page,{cache:currentCache,replaced:oldCache});
   remoteState = "claimed-expired";
-  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.goto(base,{waitUntil:'domcontentloaded'});
   await waitForAppBoot(page, { base });
   await page.waitForFunction(() => {
     const marker = JSON.parse(localStorage.getItem("repforge_transfer_outbound_v1") || "null");

@@ -1,0 +1,252 @@
+"use strict";
+
+/** @param {unknown} value @returns {string} */
+function canonicalJSON(value) {
+  const active = new Set();
+  /** @param {unknown} item @returns {string} */
+  function encode(item) {
+    if (item === null || typeof item === "string" || typeof item === "boolean") return JSON.stringify(item);
+    if (typeof item === "number") {
+      if (!Number.isFinite(item)) throw new TypeError("Identity requires finite JSON numbers");
+      return JSON.stringify(item);
+    }
+    if (typeof item !== "object" || active.has(item)) throw new TypeError("Identity requires acyclic JSON values");
+    const array = Array.isArray(item);
+    if (!array && Object.getPrototypeOf(item) !== Object.prototype && Object.getPrototypeOf(item) !== null) {
+      throw new TypeError("Identity requires plain JSON objects");
+    }
+    if (Object.getOwnPropertySymbols(item).length) throw new TypeError("Identity cannot contain symbol properties");
+    const descriptors = Object.getOwnPropertyDescriptors(item);
+    if (Object.values(descriptors).some((descriptor) => !Object.hasOwn(descriptor, "value"))) {
+      throw new TypeError("Identity cannot contain accessors");
+    }
+    if (Object.entries(descriptors).some(([key, descriptor]) => !descriptor.enumerable && !(array && key === "length"))) {
+      throw new TypeError("Identity cannot contain hidden properties");
+    }
+    active.add(item);
+    let result;
+    if (array) {
+      const keys = Object.keys(item);
+      if (keys.length !== item.length || keys.some((key, index) => key !== String(index))) {
+        throw new TypeError("Identity requires dense JSON arrays");
+      }
+      result = `[${item.map(encode).join(",")}]`;
+    } else {
+      result = `{${Object.keys(item).sort().map((key) => `${JSON.stringify(key)}:${encode(/** @type {Record<string,unknown>} */ (item)[key])}`).join(",")}}`;
+    }
+    active.delete(item);
+    return result;
+  }
+  return encode(value);
+}
+
+const ROUND_CONSTANTS = Object.freeze([
+  0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+  0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+  0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+  0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+  0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+  0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+  0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+  0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+]);
+/** @param {number} word @param {number} bits */
+const rotate = (word, bits) => (word >>> bits) | (word << (32 - bits));
+
+/** @param {string} text @returns {string} */
+function sha256(text) {
+  let length = 0;
+  for (const character of text) {
+    const rawPoint = /** @type {number} */ (character.codePointAt(0));
+    const point = rawPoint >= 0xd800 && rawPoint <= 0xdfff ? 0xfffd : rawPoint;
+    length += point < 0x80 ? 1 : point < 0x800 ? 2 : point < 0x10000 ? 3 : 4;
+  }
+  const bytes = new Uint8Array(Math.ceil((length + 9) / 64) * 64);
+  let cursor = 0;
+  for (const character of text) {
+    const rawPoint = /** @type {number} */ (character.codePointAt(0));
+    const point = rawPoint >= 0xd800 && rawPoint <= 0xdfff ? 0xfffd : rawPoint;
+    if (point < 0x80) bytes[cursor++] = point;
+    else if (point < 0x800) {
+      bytes[cursor++] = 0xc0 | (point >>> 6);
+      bytes[cursor++] = 0x80 | (point & 63);
+    } else if (point < 0x10000) {
+      bytes[cursor++] = 0xe0 | (point >>> 12);
+      bytes[cursor++] = 0x80 | ((point >>> 6) & 63);
+      bytes[cursor++] = 0x80 | (point & 63);
+    } else {
+      bytes[cursor++] = 0xf0 | (point >>> 18);
+      bytes[cursor++] = 0x80 | ((point >>> 12) & 63);
+      bytes[cursor++] = 0x80 | ((point >>> 6) & 63);
+      bytes[cursor++] = 0x80 | (point & 63);
+    }
+  }
+  bytes[length] = 0x80;
+  const high = Math.floor(length / 0x20000000), low = (length * 8) >>> 0;
+  cursor = bytes.length - 8;
+  for (const word of [high, low]) {
+    bytes[cursor++] = word >>> 24;
+    bytes[cursor++] = (word >>> 16) & 255;
+    bytes[cursor++] = (word >>> 8) & 255;
+    bytes[cursor++] = word & 255;
+  }
+  const state = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
+  const schedule = new Uint32Array(64);
+  for (let offset = 0; offset < bytes.length; offset += 64) {
+    for (let i = 0; i < 16; i++) {
+      const at = offset + i * 4;
+      schedule[i] = (bytes[at] << 24) | (bytes[at + 1] << 16) | (bytes[at + 2] << 8) | bytes[at + 3];
+    }
+    for (let i = 16; i < 64; i++) {
+      const a = schedule[i - 15], b = schedule[i - 2];
+      const s0 = rotate(a, 7) ^ rotate(a, 18) ^ (a >>> 3), s1 = rotate(b, 17) ^ rotate(b, 19) ^ (b >>> 10);
+      schedule[i] = (schedule[i - 16] + s0 + schedule[i - 7] + s1) >>> 0;
+    }
+    let [a, b, c, d, e, f, g, h] = state;
+    for (let i = 0; i < 64; i++) {
+      const s1 = rotate(e, 6) ^ rotate(e, 11) ^ rotate(e, 25), choose = (e & f) ^ (~e & g);
+      const first = (h + s1 + choose + ROUND_CONSTANTS[i] + schedule[i]) >>> 0;
+      const s0 = rotate(a, 2) ^ rotate(a, 13) ^ rotate(a, 22), majority = (a & b) ^ (a & c) ^ (b & c);
+      const second = (s0 + majority) >>> 0;
+      h = g;
+      g = f;
+      f = e;
+      e = (d + first) >>> 0;
+      d = c;
+      c = b;
+      b = a;
+      a = (first + second) >>> 0;
+    }
+    for (const [i, value] of [a, b, c, d, e, f, g, h].entries()) state[i] = (state[i] + value) >>> 0;
+  }
+  return state.map((word) => word.toString(16).padStart(8, "0")).join("");
+}
+
+
+/** @param {unknown} value @returns {PropertyDescriptorMap} */
+function dataRecord(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)
+    || (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null)
+    || Object.getOwnPropertySymbols(value).length) throw new TypeError("Identity requires a plain catalogue object");
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  if (Object.values(descriptors).some((descriptor) => !descriptor.enumerable || !Object.hasOwn(descriptor, "value"))) {
+    throw new TypeError("Catalogue properties must be enumerable data");
+  }
+  return descriptors;
+}
+
+/** @param {object} catalog @returns {string} */
+function catalogIdentity(catalog) {
+  const fields = dataRecord(catalog);
+  const exercises = fields.exercises?.value;
+  if (!Array.isArray(exercises)) throw new TypeError("Identity requires catalogue exercises");
+  const exerciseFields = Object.getOwnPropertyDescriptors(exercises);
+  const exerciseKeys = Object.keys(exercises);
+  if (Object.getOwnPropertySymbols(exercises).length || exerciseKeys.length !== exercises.length
+    || exerciseKeys.some((key, index) => key !== String(index))
+    || Object.entries(exerciseFields).some(([key, descriptor]) => !Object.hasOwn(descriptor, "value")
+      || (!descriptor.enumerable && key !== "length"))) throw new TypeError("Catalogue exercises require a dense JSON array");
+  dataRecord(fields.uuidIndex?.value);
+  if (fields.generatedAt) canonicalJSON(fields.generatedAt.value);
+  const ids = new Set();
+  for (const exercise of exercises) {
+    const id = dataRecord(exercise).id?.value;
+    if (typeof id !== "string" || !id || ids.has(id)) throw new TypeError("Catalogue exercises require unique string IDs");
+    ids.add(id);
+  }
+  const normalized = Object.create(null);
+  for (const [key, descriptor] of Object.entries(fields)) {
+    if (key !== "generatedAt") normalized[key] = descriptor.value;
+  }
+  normalized.exercises = exercises.slice().sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  return sha256(canonicalJSON(normalized));
+}
+
+/** @template {object} T @param {T} catalog @returns {T} */
+function prepareCatalog(catalog) {
+  catalogIdentity(catalog);
+  const seen = new Set();
+  /** @param {unknown} value @returns {void} */
+  function freeze(value) {
+    if (!value || typeof value !== "object" || seen.has(value)) return;
+    seen.add(value);
+    for (const descriptor of Object.values(Object.getOwnPropertyDescriptors(value))) freeze(descriptor.value);
+    Object.freeze(value);
+  }
+  freeze(catalog);
+  return catalog;
+}
+
+/** @param {object} request @param {object} catalog @param {string} generatorVersion @returns {string} */
+function generationIdentity(request, catalog, generatorVersion) {
+  if (!request || Array.isArray(request) || typeof request !== "object" || typeof generatorVersion !== "string" || !generatorVersion) {
+    throw new TypeError("Generation identity requires a canonical request and generator version");
+  }
+  return generationIdentityForCatalog(request, catalogIdentity(catalog), generatorVersion);
+}
+
+/** @param {unknown} value @returns {string} */
+function digestCanonical(value) {
+  return sha256(canonicalJSON(value));
+}
+
+/** @param {string} namespace @param {{digest?:(text:string)=>string}} [options] @returns {(path:string)=>string} */
+function createIdAllocator(namespace, { digest = sha256 } = {}) {
+  if (typeof namespace !== "string" || !namespace || typeof digest !== "function") {
+    throw new TypeError("ID allocation requires a namespace and digest function");
+  }
+  const generationNamespace = /^[a-f0-9]{64}$/.test(namespace) ? namespace : digestCanonical(namespace);
+  const paths = new Map(), occupants = new Map();
+  return function allocate(path) {
+    if (typeof path !== "string" || !path) throw new TypeError("ID allocation requires a semantic path");
+    if (paths.has(path)) return paths.get(path);
+    const pathDigest = digest(canonicalJSON({ namespace, path }));
+    if (typeof pathDigest !== "string" || !/^[a-f0-9]{64}$/.test(pathDigest)) {
+      throw new TypeError("ID allocation requires a complete SHA-256 digest");
+    }
+    const base = `${generationNamespace}.${pathDigest.slice(0, 8)}`;
+    let id = base, suffix = 0;
+    while (occupants.has(id)) id = `${base}_${++suffix}`;
+    occupants.set(id, path);
+    paths.set(path, id);
+    return id;
+  };
+}
+
+/** @param {object} request @param {string} catalogFingerprint @param {string} generatorVersion */
+function generationIdentityForCatalog(request,catalogFingerprint,generatorVersion) {
+  return sha256(canonicalJSON({requestVersion:1,generatorVersion,catalogIdentity:catalogFingerprint,request}));
+}
+/**
+ * Explicit app/worker lifetime for immutable catalog memoization. The cache has
+ * no authority: mutable catalogs are recomputed; only this owner's explicit
+ * prepareCatalog operation freezes a graph before caching its identity.
+ */
+export function createIdentityRules() {
+  /** @type {WeakMap<object,string>} */
+  const preparedCatalogs=new WeakMap();
+  /** @param {object} catalog */
+  const cachedIdentity=catalog=>preparedCatalogs.get(catalog)||catalogIdentity(catalog);
+  /** @template {object} T @param {T} catalog @returns {T} */
+  function prepare(catalog) {
+    if(preparedCatalogs.has(catalog))return catalog;
+    const identity=catalogIdentity(catalog);
+    prepareCatalog(catalog);
+    preparedCatalogs.set(catalog,identity);
+    return catalog;
+  }
+  /** @param {object} request @param {object} catalog @param {string} generatorVersion */
+  function generation(request,catalog,generatorVersion) {
+    if(!request||Array.isArray(request)||typeof request!=="object"||typeof generatorVersion!=="string"||!generatorVersion)
+      throw new TypeError("Generation identity requires a canonical request and generator version");
+    return generationIdentityForCatalog(request,cachedIdentity(catalog),generatorVersion);
+  }
+  return Object.freeze({...api,catalogIdentity:cachedIdentity,prepareCatalog:prepare,generationIdentity:generation});
+}
+
+const api = Object.freeze({ canonicalJSON, catalogIdentity, generationIdentity, prepareCatalog, digestCanonical, createIdAllocator });
+
+
+export { canonicalJSON, catalogIdentity, generationIdentity, prepareCatalog, digestCanonical, createIdAllocator };
+export default api;
+export { sha256 as sha256Text };

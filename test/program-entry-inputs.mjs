@@ -6,6 +6,7 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import historicalDrafts from "./fixtures/program-entry-draft-plan070.json" with { type: "json" };
 
 // Plan 072 S1: the answers onboarding B adds before any of its screens exist.
 // These are isolated proofs because each contract is combinatorial or a
@@ -17,11 +18,12 @@ import test from "node:test";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
-const Entry = require(path.join(root, "program-entry.js"));
-const Adapter = require(path.join(root, "program-entry-adapter.js"));
-const Compiler = require(path.join(root, "program-compiler.js"));
+const Entry = require(path.join(root, "src/training/authoring.js")).createEntryRules(require(path.join(root,"assets/exercise-catalog.json")));
+const generation = require(path.join(root, "src/training/generation.js")).createGenerationRules();
+const Compiler = generation.compiler;
+const Adapter = require(path.join(root, "src/training/authoring.js")).createEntryAdapter({compiler:Compiler});
 const Catalog = require(path.join(root, "assets/exercise-catalog.json"));
-require(path.join(root, "generation-identity.js")).prepareCatalog(Catalog);
+generation.identity.prepareCatalog(Catalog);
 const fixturePath = path.join(root, "test/fixtures/program-entry-request-baseline.json");
 const index = Catalog.uuidIndex;
 
@@ -225,20 +227,19 @@ test("the answer schema takes B's Basics, presets, adjustment, block, deload and
 });
 
 test("a draft an earlier release stored normalizes to itself and maps to the same request", () => {
-  // The install transfer refuses a draft that differs from its own
-  // normalization, so a newer service must take an older client's draft as is.
-  const state = Entry.setAnswers(answersState(), { ...BASE, environment: { kind: "commercial_gym" } });
-  for (const environment of [
-    { kind: "commercial_gym", equipment: [], capabilities: [] },
-    { kind: "commercial_gym", equipment: ["barbell", "cable"], capabilities: ["safe_pull"] },
-    { kind: "other", equipment: [], capabilities: [] },
-  ]) {
-    const stored = structuredClone(state);
-    stored.answers.environment = environment;
+  // Both consumers use frozen outputs of the pre-Plan-072 public producer and
+  // adapter, never a draft enriched by today's constructors or normalizer.
+  const fixture = historicalDrafts;
+  assert.deepEqual(fixture.cases.map(c => c.id), ["commercial-empty", "commercial-authored", "other-empty"]);
+  for (const sample of fixture.cases) {
+    const stored = structuredClone(sample.draft);
     const resumed = Entry.normalizeSetupDraft(stored);
     assert.equal(resumed.ok, true, JSON.stringify(resumed.issues));
-    assert.equal(stable(resumed.value), stable(stored), JSON.stringify(environment));
-    assert.deepEqual(requestFor({ environment }), requestFor({ environment: { kind: environment.kind === "other" ? "basic_gym" : environment.kind } }));
+    assert.deepEqual(resumed.value, sample.draft, `${sample.id}: every historical field survives`);
+    assert.deepEqual(stored, sample.draft, `${sample.id}: input remains untouched`);
+    const request = Adapter.programRequestFromAnswers(resumed.value.answers, Catalog);
+    assert.equal(request.ok, true, JSON.stringify(request.conflicts));
+    assert.deepEqual(request.value, sample.expectedRequest, `${sample.id}: prior-release request meaning survives`);
   }
 });
 

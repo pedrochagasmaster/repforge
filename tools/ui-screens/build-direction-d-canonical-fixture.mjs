@@ -1,3 +1,4 @@
+// Default/--check preserves the historical archive; --generate-new requires --output.
 // Generates tools/ui-screens/direction-d-canonical-fixture.generated.mjs: the
 // Direction D design-review lifter (DIRECTION_D_DATA, frozen — never edit it
 // by hand) re-expressed as a canonical Plan 067 ProgramDefinition instead of
@@ -10,17 +11,30 @@
 // metric composition, since a slot needs one to log sets.
 //
 // Run: node tools/ui-screens/build-direction-d-canonical-fixture.mjs
-import { writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadAppRuntime } from "../app-runtime-harness.mjs";
+import { writeFixture } from "../fixture-output.mjs";
+import { createFixtureRuntime, verifyHistoricalState } from "../app-runtime-harness.mjs";
+import { DIRECTION_D_CANONICAL_DATA as HISTORICAL_DATA } from "./direction-d-canonical-fixture.generated.mjs";
 import { DIRECTION_D_DATA } from "./direction-d-fixture.generated.mjs";
 import { metricLogRow } from "../../test/fixtures/history-metric-rows.mjs";
+
+// These committed fixtures predate current generation/manual metadata policy.
+// Default/--check validates immutable saved bytes. New specimens are explicit
+// and must target a different output path; never silently replace the archive.
+if(process.argv.includes('--generate-new')){
+  if(process.argv.includes('--check')||!process.argv.includes('--output'))throw new Error('--generate-new requires --output <new-path>, without --check');
+  await generateNewFixture();
+}else{
+  await verifyHistoricalState({settings:{},programMeta:HISTORICAL_DATA.programMeta,program:HISTORICAL_DATA.program,log:HISTORICAL_DATA.log,customExercises:HISTORICAL_DATA.customExercises,programHistory:[]});
+  console.log('Verified immutable historical fixture through public validation and real mirrored IO');
+}
+async function generateNewFixture(){
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
 const { manualProgramDefinitionFromRows, durableProgramRows, normalizeLoaded, catalogSnapshot, rawMetricDefinitions, canonicalProgramDefinition } =
-  await loadAppRuntime(["manualProgramDefinitionFromRows", "durableProgramRows", "normalizeLoaded", "rawMetricDefinitions", "canonicalProgramDefinition"]);
+  await createFixtureRuntime();
 
 // Legacy short id -> real catalog movement name. The design mockup predates
 // the 32-hex catalog; every one of these is a deliberate, close real-world
@@ -50,7 +64,7 @@ const CATALOG_NAME_BY_LEGACY_ID = {
 };
 // Exported so the screen driver can address the same movements by their new
 // canonical id instead of the retired short ones.
-export const DIRECTION_D_CANONICAL_ID_BY_LEGACY_ID = {};
+const DIRECTION_D_CANONICAL_ID_BY_LEGACY_ID = {};
 
 const byName = new Map(catalogSnapshot.exercises.map((entry) => [entry.name, entry]));
 for (const [legacyId, movementName] of Object.entries(CATALOG_NAME_BY_LEGACY_ID)) {
@@ -161,6 +175,8 @@ export const DIRECTION_D_CANONICAL_DATA = {
   log: ${JSON.stringify(log)},
 };
 `;
-writeFileSync(join(HERE, "direction-d-canonical-fixture.generated.mjs"), output);
-console.log(`Direction D canonical fixture regenerated: ${normalized.program.length} rows, ${log.length} log rows, `
+const outcome=writeFixture(join(HERE, "direction-d-canonical-fixture.generated.mjs"), output);
+console.log(`Direction D canonical fixture ${outcome}: ${normalized.program.length} rows, ${log.length} log rows, `
   + `${definition.days.filter((d) => d.kind === "training").length} training days.`);
+
+}

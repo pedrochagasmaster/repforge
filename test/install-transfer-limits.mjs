@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import {Adapter as NativeAdapter,Compiler as NativeCompiler,Draft as NativeDraft,Entry as NativeEntry} from './fixtures/training-runtime.mjs';
+import {Contract as contract,nativeContractRealm} from './interchange-runtime.mjs';
 /**
  * Plan 053 Wave A / P1b independent install-transfer boundary oracle.
  *
@@ -18,37 +20,24 @@ import vm from "node:vm";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const textEncoder = new TextEncoder();
 const require = createRequire(import.meta.url);
-const contract = require(join(ROOT, "install-transfer-contract.js"));
-const WorkoutDraft = require(join(ROOT, "workout-draft.js"));
-const ProgramEntry = require(join(ROOT, "program-entry.js"));
-const ProgramEntryAdapter = require(join(ROOT, "program-entry-adapter.js"));
-const ProgramCompiler = require(join(ROOT, "program-compiler.js"));
+
+const WorkoutDraft = NativeDraft;
+const ProgramEntry = NativeEntry;
+const ProgramEntryAdapter = NativeAdapter;
+const ProgramCompiler = NativeCompiler;
 const CatalogSnapshot = JSON.parse(readFileSync(join(ROOT, "assets/exercise-catalog.json"), "utf8"));
 
-// The page loads the catalog, metric domain, compiler, entry and draft modules
-// before the contract, and the catalog's detail asset before boot.
-const catalogText = readFileSync(join(ROOT, "assets/exercise-catalog.json"), "utf8");
-const browserContext = vm.createContext({
-  TextEncoder,
-  TextDecoder,
-  crypto: webcrypto,
-  fetch: async () => ({ ok: true, status: 200, text: async () => catalogText }),
-});
-browserContext.window = vm.runInContext("globalThis", browserContext);
-for (const file of ["generation-identity.js", "exercises.js", "exercise-catalog.js", "exercise-metrics.js",
-  "generation-candidates.js", "generation-layout.js", "program-compiler.js",
-  "program-entry.js", "workout-draft.js", "install-transfer-contract.js"]) {
-  vm.runInContext(readFileSync(join(ROOT, file), "utf8"), browserContext, { filename: file });
-}
-await browserContext.RepForgeExerciseCatalog.load();
-const browserContract = browserContext.RepForgeInstallTransferContract;
+// The actual native public module graph executes separately, just as it does
+// in a page; this is a module/realm proof, not physical-browser attestation.
+const nativeRealm=await nativeContractRealm();
+const browserContract=nativeRealm.contract;
 
 function readJson(relativePath) {
   return JSON.parse(readFileSync(join(ROOT, relativePath), "utf8"));
 }
 
 function browserValue(jsonText) {
-  return vm.runInContext(`JSON.parse(${JSON.stringify(jsonText)})`, browserContext);
+  return nativeRealm.parse(jsonText);
 }
 
 function jsonResult(value) {
@@ -69,7 +58,7 @@ function assertParserParity(raw, endpoint, expectedCode = null, label = "parser 
   const bytes = raw instanceof Uint8Array ? raw : textEncoder.encode(raw);
   const nodeResult = contract.parseBoundedJson(bytes, endpoint);
   const browserResult = browserContract.parseBoundedJson(bytes, endpoint);
-  assert.equal(jsonResult(browserResult), jsonResult(nodeResult), `${label} Node/browser result parity`);
+  assert.equal(jsonResult(browserResult), jsonResult(nodeResult), `${label} native realm result parity`);
   if (expectedCode === null) {
     assertResultShape(nodeResult, true, label);
     assert.equal(contract.canonicalJson(nodeResult.value), contract.canonicalJson(browserResult.value), `${label} canonical value parity`);
@@ -83,7 +72,7 @@ function assertParserParity(raw, endpoint, expectedCode = null, label = "parser 
 function assertValidatorParity(nodeValue, browserValueInput, name) {
   const nodeResult = nodeValue();
   const browserResult = browserValueInput();
-  assert.equal(jsonResult(browserResult), jsonResult(nodeResult), `${name} Node/browser result parity`);
+  assert.equal(jsonResult(browserResult), jsonResult(nodeResult), `${name} native realm result parity`);
   assertResultShape(nodeResult, nodeResult.ok, name);
   return nodeResult;
 }
@@ -438,8 +427,8 @@ assert.throws(() => contract.measureUtf8Bytes({ [Symbol.toStringTag]: "Uint8Arra
 assert.equal(contract.measureChars("😀"), 1, "module character measurement counts Unicode scalars");
 assert.throws(() => contract.measureChars(42), TypeError, "module character measurement rejects coercion");
 assert.throws(() => contract.measureChars("\ud800"), TypeError, "module character measurement rejects lone surrogates");
-assert.equal(browserContract.measureUtf8Bytes(Uint8Array.of(0x7b, 0x7d)), 2, "browser byte measurement keeps raw bytes");
-assert.equal(browserContract.measureChars("😀"), 1, "browser character measurement counts Unicode scalars");
+assert.equal(browserContract.measureUtf8Bytes(Uint8Array.of(0x7b, 0x7d)), 2, "separate native realm byte measurement keeps raw bytes");
+assert.equal(browserContract.measureChars("😀"), 1, "separate native realm character measurement counts Unicode scalars");
 assert.equal(
   contract.canonicalJson({ "2": "two", "10": "ten", a: "a" }),
   '{"10":"ten","2":"two","a":"a"}',
@@ -713,9 +702,9 @@ const producerIntegrity = await contract.validateEnvelopeIntegrity(producerEnvel
 assertResultShape(producerIntegrity, true, "producer-shaped envelope integrity");
 const browserProducerEnvelope = browserValue(JSON.stringify(producerEnvelope));
 const browserProducerValidation = browserContract.validateEnvelope(browserProducerEnvelope);
-assert.equal(jsonResult(browserProducerValidation), jsonResult(producerValidation), "producer envelope Node/browser parity");
+assert.equal(jsonResult(browserProducerValidation), jsonResult(producerValidation), "producer envelope independent native realm parity");
 const browserProducerIntegrity = await browserContract.validateEnvelopeIntegrity(browserProducerEnvelope, webcrypto);
-assert.equal(jsonResult(browserProducerIntegrity), jsonResult(producerIntegrity), "producer integrity Node/browser parity");
+assert.equal(jsonResult(browserProducerIntegrity), jsonResult(producerIntegrity), "producer integrity independent native realm parity");
 const legacyLogicalDatesBase = structuredClone(producerEnvelope);
 legacyLogicalDatesBase.durableState.programMeta.created = "2026-09-07";
 legacyLogicalDatesBase.durableState.customExercises[0].created = "2026-09-10";
@@ -727,8 +716,8 @@ assertResultShape(legacyLogicalDatesValidation, true, "producer legacy logical d
 const legacyLogicalDatesIntegrity = await contract.validateEnvelopeIntegrity(legacyLogicalDates, webcrypto);
 assertResultShape(legacyLogicalDatesIntegrity, true, "producer legacy logical date integrity");
 const browserLegacyLogicalDates = browserValue(JSON.stringify(legacyLogicalDates));
-assert.equal(jsonResult(browserContract.validateEnvelope(browserLegacyLogicalDates)), jsonResult(legacyLogicalDatesValidation), "legacy logical date Node/browser parity");
-assert.equal(jsonResult(await browserContract.validateEnvelopeIntegrity(browserLegacyLogicalDates, webcrypto)), jsonResult(legacyLogicalDatesIntegrity), "legacy logical date integrity Node/browser parity");
+assert.equal(jsonResult(browserContract.validateEnvelope(browserLegacyLogicalDates)), jsonResult(legacyLogicalDatesValidation), "legacy logical date independent native realm parity");
+assert.equal(jsonResult(await browserContract.validateEnvelopeIntegrity(browserLegacyLogicalDates, webcrypto)), jsonResult(legacyLogicalDatesIntegrity), "legacy logical date integrity independent native realm parity");
 const additiveSettingsVersion = structuredClone(producerEnvelope);
 additiveSettingsVersion.durableState.settings.schemaVersion = 99;
 assertResultShape(contract.validateEnvelope(additiveSettingsVersion), true, "additive logical settings schemaVersion");
@@ -962,4 +951,4 @@ const unavailableExpiryCanary = contract.redactDiagnostic({ state: "unavailable"
 assertResultShape(unavailableExpiryCanary, false, "unavailable response rejects arbitrary expiry canary");
 
 console.log("  service parity remains pending until the real service consumer exists");
-console.log("pass: independent boundary matrix, hostile cases, redaction fixtures, Node/browser contract parity, and existing-clone characterization");
+console.log("pass: independent boundary matrix, hostile cases, redaction fixtures, independent native realm contract parity, and existing-clone characterization");

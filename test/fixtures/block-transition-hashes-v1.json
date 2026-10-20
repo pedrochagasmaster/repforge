@@ -1,0 +1,6 @@
+{
+  "source": "Application proposeChange at e3f2e387 before block-transition extraction; fixed native catalog, request and explicit identities in app-block-transition.mjs",
+  "proposalHash": "0ed3129b7efa838db6848116c1349d14c093a21fd6fdbf4f48a3be09e0686655",
+  "predecessorFingerprint": "program-definition-sha256:6ffa8d95f0d40b7ca68326c6125c1079060f09a5fddaa091118fa91fed6fcadb",
+  "successorFingerprint": "program-definition-sha256:18dd7040b2f9ff4264973214a22527b5d4d7283743235ae7cbccec88bf7cfba7"
+}

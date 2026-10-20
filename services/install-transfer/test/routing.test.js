@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   TOKEN_FORMAT,
   digestIdempotencyKey,
+  digestClaimId,
   digestToken,
   mintToken,
   parseToken,
@@ -51,6 +52,10 @@ describe("opaque transfer routing", () => {
     const retry = await routeNameForIdempotencyKey("same-key", routingSecret);
     const other = await routeNameForIdempotencyKey("other-key", routingSecret);
     expect(first).toBe(retry);
+    // Computed independently with Node createHmac("sha256") over the published
+    // UTF-8 route-domain preimage, without production encoding/crypto helpers.
+    expect(first).toBe("transfer-v1-WOsgLwsbdQwOVESzSm0_4DjVsvm0ishiCN9NuqTKlQE");
+    expect(await routeNameForIdempotencyKey("same-key", new Uint8Array(32).fill(0x77))).not.toBe(first);
     expect(other).not.toBe(first);
     expect(first).toMatch(/^transfer-v1-[A-Za-z0-9_-]{43}$/u);
   });
@@ -84,18 +89,20 @@ describe("opaque transfer routing", () => {
     await expect(verifyToken(token, new Map([["k1", tokenMacSecret]]))).rejects.toThrow("invalid transfer token");
   });
 
-  it("stores only keyed digests for idempotency and token lookup", async () => {
-    const { token } = await mintToken({
-      idempotencyKey: "idem-3",
-      routingSecret,
-      tokenMacSecret,
-      randomSource: sourceWith(0x44),
-    });
-    const tokenDigest = await digestToken(token, digestSecret);
-    const idempotencyDigest = await digestIdempotencyKey("idem-3", digestSecret);
-    expect(tokenDigest).toMatch(/^[A-Za-z0-9_-]{43}$/u);
-    expect(idempotencyDigest).toMatch(/^[A-Za-z0-9_-]{43}$/u);
-    expect(tokenDigest).not.toContain(token);
-    expect(idempotencyDigest).not.toContain("idem-3");
+  it("pins secret-dependent, domain-separated digest known answers", async () => {
+    // Independent Node createHmac("sha256") vectors. Each preimage is the
+    // literal domain `taurifer/install-transfer/<kind>/v1\0` plus the input.
+    // The token's three binary components are fixed 32-byte values, not minted
+    // by the implementation whose digest is being checked.
+    const token = "v1.k1.AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE.AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI.AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM";
+    for (const [digest, input, differentInput, expected] of [
+      [digestToken, token, token.replace("v1.k1.", "v1.k2."), "5YiZC_k6yJQCExlpJtlmWR58f-v7bH5ugbpoTfr2Ajw"],
+      [digestIdempotencyKey, "same-preimage", "same-preimage!", "QFuCS2ZgCRZ_whvfX5Mw4mzlGwOGagK_Wrw-jdzppRE"],
+      [digestClaimId, "same-preimage", "same-preimage!", "1ZuxZyg15rsb7E4yykZycuXws35pv3bqORH15KS8B8A"],
+    ]) {
+      expect(await digest(input, digestSecret)).toBe(expected);
+      expect(await digest(input, new Uint8Array(32).fill(0x77))).not.toBe(expected);
+      expect(await digest(differentInput, digestSecret)).not.toBe(expected);
+    }
   });
 });

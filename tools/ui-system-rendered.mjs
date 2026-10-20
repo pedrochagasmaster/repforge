@@ -60,6 +60,10 @@ export async function measureRenderedRoles(input) {
   };
   const sample = (rect, exclusions = []) => {
     if (!pixels || !rect || rect.width < 4 || rect.height < 4) return null;
+    // The screenshot is in device pixels; the rectangles are in CSS pixels.
+    const scale = pixels.width / (window.innerWidth || pixels.width);
+    const box = (r) => ({ left: r.left * scale, top: r.top * scale, right: r.right * scale, bottom: r.bottom * scale });
+    rect = box(rect); exclusions = exclusions.map(box);
     const left = Math.max(0, Math.ceil(rect.left + 2));
     const top = Math.max(0, Math.ceil(rect.top + 2));
     const right = Math.min(pixels.width - 1, Math.floor(rect.right - 2));

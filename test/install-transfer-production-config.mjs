@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {Transfer} from './interchange-runtime.mjs';
 /**
  * Production install-transfer configuration drift guard (owner override,
  * 2026-10-14). The production Worker is routed at the app's own origin, so the
@@ -75,13 +76,19 @@ assert.match(namespaces, /allowLocalFallback = false/u, "the EU helper defaults 
 
 // The client posts to the same origin as the page, so the zone route covers every endpoint.
 const require = createRequire(import.meta.url);
-const endpoints = Object.values(require(join(ROOT, "install-transfer.js")).ENDPOINTS);
+const endpoints = Object.values(Transfer.ENDPOINTS);
 assert.equal(endpoints.length, 4);
 const routePattern = production.routes[0].pattern;
 for (const path of endpoints) {
   assert.ok(`taurifer.com${path}`.startsWith(routePattern.slice(0, -1)), `${path} is inside ${routePattern}`);
 }
-const client = readFileSync(join(ROOT, "install-transfer.js"), "utf8");
-assert.match(client, /createFetchTransport\(\{ fetch: fetchFn = root\.fetch, baseUrl = root\.location\?\.href \} = \{\}\)/u, "the client resolves endpoints against the page origin");
+let transportRequest=null;
+const {createInstallTransfer}=await import('../src/platform/install-transfer.js');
+const client=createInstallTransfer({location:{href:'https://taurifer.com/index.html'},TextEncoder,TextDecoder,atob,btoa,
+  fetch:async(url,options)=>{transportRequest={url,options};return new Response('{}',{status:200});}});
+await client.createFetchTransport().request({path:endpoints[0],body:{}});
+assert.equal(transportRequest.url,`https://taurifer.com${endpoints[0]}`,'default transport resolves against the actual page origin');
+assert.equal(transportRequest.options.credentials,'omit');
+assert.equal(transportRequest.options.cache,'no-store');
 
 console.log("install-transfer production config: route, origin, switches, bindings, migrations, and EU path pinned");

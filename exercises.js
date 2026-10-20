@@ -3,10 +3,8 @@
    then regenerate. Full source
    details load on demand from assets/exercise-catalog.json. Its exact source
    bytes are pinned here so a catalog from another release cannot boot. */
-(function(){
-"use strict";
-const EXERCISE_CATALOG_SHA256 = "08945f092b708884f14e0bd87d7ac8ac79e2399a9c795fee8aeb2c106b2311b7";
-const EXERCISE_LIBRARY = [
+export const EXERCISE_CATALOG_SHA256 = "08945f092b708884f14e0bd87d7ac8ac79e2399a9c795fee8aeb2c106b2311b7";
+export const EXERCISE_LIBRARY = [
   {"id":"2a15c6f170d88066b38fd65f8757716f","name":"45° cable rear delt fly","namePt":"Crucifixo inverso 45° na polia","aliases":["Crucifixo invertido 45° na polia","Crucifixo inverso de cima para baixo na polia","High-to-low cable rear delt fly","45° cable reverse fly"],"searchBoostValue":4,"media":null,"mediaBg":null},
   {"id":"2aa5c6f170d880c08fcbf27e03a0e2dc","name":"45° glute-biased leg press","namePt":"Leg press 45° com ênfase em glúteos","aliases":["Leg press articulado com ênfase em glúteos","Plate-loaded glute-biased leg press"],"searchBoostValue":5,"media":null,"mediaBg":null},
   {"id":"1a05c6f170d880198e1aceac084f30eb","name":"45° incline barbell press","namePt":"Supino inclinado 45° com barra","aliases":["Supino inclinado com barra","Incline barbell touch and go bench press","45° Incline Barbell Press","Moderate incline barbell bench press"],"searchBoostValue":9,"media":null,"mediaBg":null},
@@ -1353,7 +1351,5 @@ const EXERCISE_LIBRARY = [
   {"id":"1a25c6f170d8808d85ace5605ff5b35e","name":"Zercher squat","namePt":"Agachamento Zercher","aliases":[],"searchBoostValue":4,"media":null,"mediaBg":null},
   {"id":"2165c6f170d88097ba97ce6ce53902de","name":"Zombie front squat","namePt":"Agachamento frontal zumbi","aliases":["Agachamento frontal sem as mãos","Hands-free front squat"],"searchBoostValue":3,"media":null,"mediaBg":null}
 ];
-const LEGACY_LIBRARY_IDS = {};
-if (typeof window !== "undefined") window.RepForgeExercises = {library: EXERCISE_LIBRARY, legacyIds: LEGACY_LIBRARY_IDS, catalogSha256: EXERCISE_CATALOG_SHA256};
-if (typeof module !== "undefined" && module.exports) module.exports = {EXERCISE_LIBRARY, LEGACY_LIBRARY_IDS, EXERCISE_CATALOG_SHA256};
-})();
+export const LEGACY_LIBRARY_IDS = {};
+export {EXERCISE_LIBRARY as library, LEGACY_LIBRARY_IDS as legacyIds, EXERCISE_CATALOG_SHA256 as catalogSha256};

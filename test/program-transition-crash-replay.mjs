@@ -1,3 +1,4 @@
+import {installBrowserTraining} from "./training-browser.mjs";
 /**
  * Plan 052-P6c corrections 1+2: coherent transition journal before boot replay.
  *
@@ -241,12 +242,13 @@ async function confirmTransition(page, args) {
 // Activate a generated four-day/90-minute program through the production
 // finalization seam, with the answers the entry flow derives from it.
 async function activateGeneratedPredecessor(page) {
+  await installBrowserTraining(page);
   return page.evaluate(async (request) => {
-    if (!window.RepForgeProgramCompiler || !window.RepForgeExerciseCatalog) {
+    if (!window.__repforgeTrainingTest.compiler || !window.__repforgeTrainingTest.catalog) {
       return { ok: false, error: "program generator or exercise catalog unavailable in window" };
     }
-    const generated = window.RepForgeProgramCompiler.generateProgram(
-      request, window.RepForgeExerciseCatalog.snapshot());
+    const generated = window.__repforgeTrainingTest.compiler.generateProgram(
+      request, window.__repforgeTrainingTest.catalog);
     if (!generated.ok) return { ok: false, error: "generation failed", issues: generated.conflicts };
     const definition = generated.value;
     const finalized = await window.__repforgeFinalizeProgramSetup({
@@ -1095,8 +1097,9 @@ async function main() {
       // Later DraftV2 writes are unblocked: with every transaction artifact
       // cleared, the shipped CAS applies straight to the canonical key
       // instead of staging behind a journal.
+      await installBrowserTraining(survivor);
       const draftUnblocked = await survivor.evaluate(async () => {
-        const WorkoutDraft = window.RepForgeWorkoutDraft;
+        const WorkoutDraft = window.__repforgeTrainingTest.workout;
         const read = window.__repforgeWorkoutDraft.read();
         if (read.status !== "ok") return { ok: false, reason: "canonical unreadable", read };
         const parsed = WorkoutDraft.parse(read.raw);

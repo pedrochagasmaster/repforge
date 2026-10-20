@@ -2,6 +2,7 @@
 /** Plan 069 S3: generated per-side adaptation through two real sessions. */
 import { readFileSync } from "node:fs";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import {installBrowserTraining} from "./training-browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const DATA = new URL("../plans/067/data/", import.meta.url);
@@ -37,18 +38,20 @@ function check(condition, message, detail) {
 
 async function seedGeneratedPress(page) {
   return page.evaluate(async ({ request, exerciseId }) => {
-    const generated = window.RepForgeProgramCompiler.generateProgram(
-      request, window.RepForgeExerciseCatalog.snapshot());
+    const {compiler,catalog,metrics}=window.__repforgeTrainingTest;
+    const entry=[...document.querySelectorAll("script[src]")].map(script=>script.src).find(src=>new URL(src).pathname.includes("/src/"));
+    const graphBase=entry.slice(0,entry.lastIndexOf("/src/")+1);
+    const {review}=await import(new URL("src/training/authoring.js",graphBase).href);
+    const generated = compiler.generateProgram(request,catalog);
     if (!generated.ok) throw new Error("Could not generate the production program: " + JSON.stringify(generated.conflicts));
     // This journey exercises an explicit movement choice, independently of ranking.
-    const catalog = window.RepForgeExerciseCatalog.snapshot();
     const compatible = generated.value.days.filter((day) => day.kind === "training").flatMap((day) => day.slots)
       .find((slot) => slot.metricDefinitions.some((metric) => metric.semantic === "repsPerSide") &&
         slot.metricDefinitions.some((metric) => metric.semantic === "loadPerSideKg"));
     if (!compatible) throw new Error("The generated program has no compatible per-side slot");
-    const reviewed = window.RepForgeProgramReview.applyEdit(generated.value,
+    const reviewed = review.applyEdit(generated.value,
       { kind: "swap", slotId: compatible.id, exerciseId },
-      { compiler: window.RepForgeProgramCompiler, catalog, metrics: window.RepForgeExerciseMetrics });
+      {compiler,catalog,metrics});
     if (!reviewed.ok) throw new Error("The explicit press choice was refused: " + JSON.stringify(reviewed));
     const definition = reviewed.definition;
     const target = definition.days.filter((day) => day.kind === "training").flatMap((day) =>
@@ -147,6 +150,7 @@ async function main() {
     await page.clock.setFixedTime(new Date("2026-10-05T12:00:00.000Z"));
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
+    await installBrowserTraining(page);
     const setup = await seedGeneratedPress(page);
     const rowId = setup.row?.id;
     check(!!rowId && setup.slot.executionMode === "bilateral",

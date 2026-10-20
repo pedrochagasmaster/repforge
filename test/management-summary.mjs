@@ -5,8 +5,7 @@
  * interaction suite so the producer/rendering boundary stays explicit.
  */
 import assert from "node:assert/strict";
-import { chromium } from "playwright";
-import { assertServingApp } from "./browser.mjs";
+import { assertServingApp, launchChromium } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 import { metricLogRow } from "./fixtures/history-metric-rows.mjs";
 
@@ -51,12 +50,26 @@ async function seed(page) {
   await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 20000 });
 }
 
-const browser = await chromium.launch();
+const browser = await launchChromium();
 try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: "UTC" });
   const page = await context.newPage();
   await boot(page);
+  assert.equal(await page.locator("#todayExList [data-exopen]").count(),0,"fresh device has no fabricated prescription");
   await seed(page);
+  // The extracted dashboard consumes engine-derived rows and keeps rendering readonly.
+  const todayBefore = await page.evaluate(() => ({state:localStorage.getItem("repforge_v1"),draft:localStorage.getItem("repforge_draft_v1")}));
+  await page.locator('nav button[data-view="stats"]').click();
+  await page.locator('nav button[data-view="log"]').click();
+  const todayView = await page.evaluate(() => ({
+    rows:[...document.querySelectorAll("#todayExList [data-exopen]")].map(row=>({id:row.dataset.exopen,name:row.querySelector(".rxrow__name")?.textContent,load:row.querySelector(".rxrow__load")?.textContent,target:row.querySelector(".rxrow__target")?.textContent})),
+    state:localStorage.getItem("repforge_v1"),draft:localStorage.getItem("repforge_draft_v1"),
+    week:document.querySelectorAll("#todayWeek .week-letters__d").length,
+  }));
+  assert(todayView.rows.length>0 && todayView.rows.every(row=>program.some(ex=>ex.id===row.id)&&row.name&&row.load&&row.target),
+    "Today preserves engine exercise identity and complete prescription rows");
+  assert.equal(todayView.week,7,"Today retains seven weekday cells");
+  assert.deepEqual({state:todayView.state,draft:todayView.draft},todayBefore,"dashboard navigation does not write training state or draft");
   const result = await page.evaluate(({ previousRows, currentRows, liftKeys }) => {
     const summary = window.__repforgeSessionSummary.build({
       rows: currentRows,
@@ -102,10 +115,41 @@ try {
   assert.ok(rendered.muscleNumbers.length > 0 && rendered.muscleNumbers.every(text => /\d/.test(text)) && rendered.relativeBars === 0 && rendered.inlineWidths.length === 0,
     "summary renders numeric muscle totals without relative bars", JSON.stringify(rendered));
 
+  const overview = await page.evaluate(() => [...document.querySelectorAll("#overviewStrength [data-parity-outcome]")]
+    .map(node=>({id:node.dataset.parityOutcome,session:node.dataset.paritySession,text:node.textContent.trim()})));
+  const expectedOverview=result.summary.liftGroups.filter(lift=>lift.state.kind==="outcome")
+    .map(lift=>({id:lift.exerciseId,session:lift.session,text:rendered.outcomes.find(row=>row.exerciseId===lift.liftKey)?.text}));
+  assert.deepEqual(overview.sort((a,b)=>a.id.localeCompare(b.id)),expectedOverview.sort((a,b)=>a.id.localeCompare(b.id)),
+    "readonly Progress overview preserves the summary's canonical outcome words, session and exercise identities");
+
   // F057-02: deliberately fail the canonical post-commit derivation through
   // the real completion path. The durable result, not the presentation, is
   // the oracle for whether this workout finished.
-  await page.evaluate(() => window.__repforgeSessionSummary.close());
+  await page.locator("#sumDone").click();
+  assert.equal(await page.locator("#sessionSummary:not(.hidden)").count(),0,"Done dispatches the completion exit command");
+  const evidenceBefore=await page.evaluate(()=>({snapshot:window.__repforgeWorkoutDraft.state(),raw:localStorage.getItem("repforge_v1")}));
+  await page.locator('nav button[data-view="stats"]').click();
+  await page.locator('#statsSeg [data-seg="strength"]').click();
+  const strengthRow=page.locator(`#strengthDash [data-evkey="${liftKeys[0]}"]`);
+  await strengthRow.click();
+  assert.equal(await strengthRow.getAttribute("aria-expanded"),"true","Strength evidence opens the original per-session detail table");
+  assert.ok(await page.locator('#strengthDash .evrow__detail:not([hidden]) table').count(),"Strength detail contains session evidence");
+  await page.locator('#strengthScopeSeg [data-scope="all-history"]').click();
+  assert.equal(await page.locator('#strengthScopeSeg [data-scope="all-history"]').getAttribute("aria-pressed"),"true","Strength owns its selected scope");
+  await page.locator('#statsSeg [data-seg="volume"]').click();
+  const volumeRow=page.locator('#volumeDash [data-volume-muscle]').first();
+  await volumeRow.click();
+  assert.equal(await volumeRow.getAttribute("aria-expanded"),"true","Volume evidence opens muscle contribution details");
+  await page.locator('#statsSeg [data-seg="prs"]').click();
+  const prRow=page.locator('#prTimeline [data-prrow]').first();
+  await prRow.click();
+  assert.equal(await prRow.getAttribute("aria-expanded"),"true","PR timeline exposes the original record detail");
+  await page.locator('#prFilterSeg [data-prf="load"]').click();
+  assert.equal(await page.locator('#prFilterSeg [data-prf="load"]').getAttribute("aria-pressed"),"true","PR filter selection belongs to Progress");
+  await page.locator('#statsSeg [data-seg="strength"]').click();
+  assert.equal(await page.locator('#strengthScopeSeg [data-scope="all-history"]').getAttribute("aria-pressed"),"true","scope survives evidence tab navigation");
+  assert.deepEqual(await page.evaluate(()=>({snapshot:window.__repforgeWorkoutDraft.state(),raw:localStorage.getItem("repforge_v1")})),evidenceBefore,"evidence scopes, disclosures and filters never write training state or saved bytes");
+  await page.locator('nav button[data-view="log"]').click();
   await page.evaluate(() => window.__repforgeEnterWorkout({}));
   await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
   const finishResult = await page.evaluate(async () => {
@@ -127,13 +171,18 @@ try {
       }
     }
     await window.__repforgeWorkoutDraft.flush();
+    await window.__repforgeLeaveWorkout();
+    const resume=document.querySelector("#todayResume .today-resume__where");
+    if(!resume?.textContent.trim()||document.querySelector("#startWorkout span")?.textContent!=="Continue workout")
+      throw new Error("Today must expose the unfinished workout location and Continue action");
+    await window.__repforgeEnterWorkout({});
     window.__repforgeSummaryFault = "canonical";
     return window.__repforgeSaveWorkout();
   });
   await page.waitForFunction(() => {
     const toast = document.querySelector("#toast");
     return toast && !toast.classList.contains("hidden") && /saved/i.test(toast.textContent || "");
-  }, undefined, { timeout: 8000 });
+  }, undefined, { timeout: 8000 }).catch(async error=>{console.error("completion evidence",JSON.stringify({finishResult,ui:await page.evaluate(()=>({toast:document.querySelector("#toast")?.textContent,errors:document.querySelector("#workoutShell")?.textContent?.slice(-500)}))}));throw error});
   const faultEvidence = await page.evaluate(async (key) => {
     const local = JSON.parse(localStorage.getItem(key) || "{}");
     const idb = await new Promise((resolve) => {
@@ -159,6 +208,9 @@ try {
       summaryOpen: !document.querySelector("#sessionSummary")?.classList.contains("hidden"),
       outcomeRows: document.querySelectorAll("#sessionSummary .sum-outcome").length,
       draftRaw: localStorage.getItem("repforge_draft_v1"),
+      todayRecap: !!document.querySelector("#todaySession .today-done"),
+      todayReviewVisible: !document.querySelector("#reviewTodaySession")?.classList.contains("hidden"),
+      resumeCleared: !document.querySelector("#todayResume")?.textContent.trim(),
     };
   }, KEY);
   assert(finishResult?.committed === true && finishResult?.settled === true,
@@ -173,6 +225,8 @@ try {
     JSON.stringify(faultEvidence.newSessions));
   assert(faultEvidence.draftRaw === null && !faultEvidence.summaryOpen && faultEvidence.outcomeRows === 0,
     `summary fallback does not resurrect the draft or fabricate outcome rows: ${JSON.stringify(faultEvidence)}`);
+  assert(faultEvidence.todayRecap&&faultEvidence.todayReviewVisible&&faultEvidence.resumeCleared,
+    "saved session swaps Today from draft continuation to canonical recap and review");
   await page.locator('nav button[data-view="stats"]').click();
   await page.waitForSelector("#stats.view.active", { timeout: 5000 });
   assert(await page.locator("#stats.view.active").count() === 1,

@@ -1,21 +1,15 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import {createRequire} from 'node:module';
-import {fileURLToPath} from 'node:url';
+import {fileURLToPath,pathToFileURL} from 'node:url';
 // Defaults are repository-relative when this file is installed under test/.
 const root=process.env.REPFORGE_REPO_ROOT||path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-const require=createRequire(path.join(root,'program-compiler.js'));
+// Overrides point at an actual native public module in the selected source tree.
+const Compiler=await import(pathToFileURL(process.env.REPFORGE_COMPILER_SOURCE||path.join(root,'src/training/generation.js')));
+const identity=await import(pathToFileURL(path.join(root,'src/training/identity.js')));
+const authoring=await import(pathToFileURL(path.join(root,'src/training/authoring.js')));
 const fixture=JSON.parse(fs.readFileSync(process.env.REPFORGE_SOURCE_FIXTURE||new URL('./fixtures/source-generation-v073.json',import.meta.url),'utf8'));
-const catalog=require('./generation-identity.js').prepareCatalog(require('./assets/exercise-catalog.json'));
-const sourcePath=process.env.REPFORGE_COMPILER_SOURCE;
-function loadCompiler(){
- if(!sourcePath)return require('./program-compiler.js');
- const before=globalThis.RepForgeProgramCompiler;
- try{const module={exports:{}};new Function('module','exports','require',fs.readFileSync(sourcePath,'utf8'))(module,module.exports,require);return module.exports;}
- finally{globalThis.RepForgeProgramCompiler=before;}
-}
-const Compiler=loadCompiler();
+const catalog=identity.prepareCatalog(JSON.parse(fs.readFileSync(path.join(root,'assets/exercise-catalog.json'),'utf8')));
 const base={experience:'advanced',periodization:'static',cycles:7,deloadCycles:[],gymProfile:{equipmentIds:Object.entries(catalog.uuidIndex).filter(([,r])=>r.type==='equipment'&&r.commercialGym===1).map(([id])=>id)},competencyAnswers:Object.fromEntries(['pullups10','pullups5','pushups15','inclineBarbell10','overheadPress10','bodyweightDips10','benchPress10'].map(k=>[k,true])),emphasisMuscleIds:[],deprioritizedMuscleIds:fixture.deprioritizedMuscleIds};
 const adjustments={1:[0],2:[0,-1],3:[1,0,-1],4:[1,0,0,-1],5:[1,0,0,-1,-1],6:[1,1,0,0,-1,-1]};
 const reps='2555c6f170d88072bbf6d9ad3f16ea86',perSide='25a5c6f170d880baaa2dc8c7b67d4b65';
@@ -43,12 +37,12 @@ for(const expected of cases){
  if(checked===0){
   const day=training[0],slot=day.slots.find(s=>s.prescriptionsByCycle[0].sets[0].rir!==null);
   const value=slot.prescriptionsByCycle[0].sets[0].rir;
-  const edited=require('./program-review.js').applyEdit(program,{kind:'rir',slotId:slot.id,setIndex:1,rir:value<6?value+1:value-1},{compiler:Compiler,catalog});
+  const edited=authoring.review.applyEdit(program,{kind:'rir',slotId:slot.id,setIndex:1,rir:value<6?value+1:value-1},{compiler:Compiler,catalog});
   assert.equal(edited.ok,true);
   assert.equal(Compiler.estimateDaySeconds(edited.definition.days.find(d=>d.id===day.id),1,catalog),program.provenance.estimatedSessionSeconds[day.id],'an RIR edit preserves the source duration model');
   const timed=day.slots.find(s=>s.prescriptionsByCycle[0].sets.length>1);
   assert(timed,'source fixture has a multi-set slot for rest-override contrast');
-  const restDay=seconds=>require('./program-review.js').applyEdit(program,{kind:'rest',slotId:timed.id,seconds},{compiler:Compiler,catalog}).definition.days.find(d=>d.id===day.id);
+  const restDay=seconds=>authoring.review.applyEdit(program,{kind:'rest',slotId:timed.id,seconds},{compiler:Compiler,catalog}).definition.days.find(d=>d.id===day.id);
   const short=Compiler.estimateDaySeconds(restDay(60),1,catalog),long=Compiler.estimateDaySeconds(restDay(240),1,catalog);
   assert.equal(long-short,180*(timed.prescriptionsByCycle[0].sets.length-1),'explicit rest changes every between-set interval while retaining the source work model');
  }

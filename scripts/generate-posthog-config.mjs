@@ -2,8 +2,8 @@ import { readFileSync, writeFileSync } from "node:fs";
 
 const INDEX_PATH = "index.html";
 const CONFIG_PATH = "posthog-config.js";
-const POSTHOG_INIT_TAG = '  <script src="posthog-init.js"></script>';
-const GENERATED_TAG_PATTERN = /^\s*<script src="posthog-config\.js\?v=[^"]+" data-optional-runtime="RepForgeTelemetry"><\/script>\r?\n/m;
+const APP_TAG_PATTERN = /^  <link rel="taurifer-entry" href="app\.js(?:\?[^\"]+)?">$/m;
+const GENERATED_TAG_PATTERN = /^\s*<link rel="taurifer-config" href="posthog-config\.js\?v=[^\"]+">\r?\n/m;
 const SDK_VERSION = "1.400.0";
 
 const branch = process.env.CF_PAGES_BRANCH || "";
@@ -45,12 +45,11 @@ writeFileSync(
 );
 
 let html = readFileSync(INDEX_PATH, "utf8").replace(GENERATED_TAG_PATTERN, "");
-if (!html.includes(POSTHOG_INIT_TAG)) {
-  throw new Error(`Could not find ${POSTHOG_INIT_TAG} in ${INDEX_PATH}.`);
-}
+const APP_TAG = html.match(APP_TAG_PATTERN)?.[0];
+if (!APP_TAG) throw new Error(`Could not find application composition script in ${INDEX_PATH}.`);
 
-const configTag = `  <script src="${CONFIG_PATH}?v=${revision}" data-optional-runtime="RepForgeTelemetry"></script>`;
-html = html.replace(POSTHOG_INIT_TAG, `${configTag}\n${POSTHOG_INIT_TAG}`);
+const configTag = `  <link rel="taurifer-config" href="${CONFIG_PATH}?v=${revision}">`;
+html = html.replace(APP_TAG, `${configTag}\n${APP_TAG}`);
 writeFileSync(INDEX_PATH, html, "utf8");
 
 console.log(

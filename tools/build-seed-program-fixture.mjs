@@ -1,14 +1,29 @@
+// Default/--check preserves the historical archive; --generate-new requires --output.
+import { readFileSync } from "node:fs";
 // Generates test/fixtures/seed-program-v067.json, the ready-to-log program the
 // browser suites install, through the app's own Build definition and durable
 // projection. Each familiar seed name is the display alias of a real catalog
 // movement with a Weight + Reps composition, so suites keep their names while
 // the program carries canonical identity.
-import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { loadAppRuntime } from "./app-runtime-harness.mjs";
+import { writeFixture } from "./fixture-output.mjs";
+import { createFixtureRuntime, verifyHistoricalState } from "./app-runtime-harness.mjs";
+
+// These committed fixtures predate current generation/manual metadata policy.
+// Default/--check validates immutable saved bytes. New specimens are explicit
+// and must target a different output path; never silently replace the archive.
+if(process.argv.includes('--generate-new')){
+  if(process.argv.includes('--check')||!process.argv.includes('--output'))throw new Error('--generate-new requires --output <new-path>, without --check');
+  await generateNewFixture();
+}else{
+  const historical=JSON.parse(readFileSync(new URL("../test/fixtures/seed-program-v067.json",import.meta.url),"utf8"));
+  await verifyHistoricalState({settings:{},log:[],customExercises:[],programHistory:[],...historical});
+  console.log('Verified immutable historical fixture through public validation and real mirrored IO');
+}
+async function generateNewFixture(){
 
 const { manualProgramDefinitionFromRows, durableProgramRows, normalizeLoaded, catalogSnapshot, ROOT } =
-  await loadAppRuntime(["manualProgramDefinitionFromRows", "durableProgramRows", "normalizeLoaded"]);
+  await createFixtureRuntime();
 
 // [day, order, seed name, catalog movement]
 const ROWS = [
@@ -53,5 +68,7 @@ const normalized = normalizeLoaded({ settings: {}, programMeta, program, log: []
 if (JSON.stringify(normalized.programMeta.programDefinition) !== JSON.stringify(definition))
   throw new Error("normalization changed the seed definition");
 const fixture = { program: normalized.program, programMeta: normalized.programMeta };
-writeFileSync(join(ROOT, "test/fixtures/seed-program-v067.json"), `${JSON.stringify(fixture, null, 2)}\n`);
-console.log(`seed program regenerated: ${fixture.program.length} rows, ${definition.cycles} cycles`);
+const outcome=writeFixture(join(ROOT, "test/fixtures/seed-program-v067.json"), `${JSON.stringify(fixture, null, 2)}\n`);
+console.log(`seed program ${outcome}: ${fixture.program.length} rows, ${definition.cycles} cycles`);
+
+}

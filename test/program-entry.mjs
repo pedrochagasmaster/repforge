@@ -5,8 +5,8 @@ import test from "node:test";
 
 const require = createRequire(import.meta.url);
 const fs = require("node:fs");
-const Entry = require("../program-entry.js");
-const Compiler = require("../program-compiler.js");
+const Entry = require("../src/training/authoring.js").createEntryRules(require("../assets/exercise-catalog.json"));
+const Compiler = require("../src/training/generation.js");
 const Catalog = require("../assets/exercise-catalog.json");
 
 const NOW = "2026-08-27T12:00:00.000Z";

@@ -1,0 +1,129 @@
+/* ============================================================
+   Session summary — the screen a finished session earns
+   Full-bleed over the app: the work is done, so nothing else competes for the
+   page. One column, the evidence in the order it matters — records, how the
+   lifts moved, what the muscles took, where the week now stands.
+   It opens at rest (Direction D spec section 8): nothing animates to celebrate
+   the save, so the panel is a fully legible page the moment it is up.
+   ============================================================ */
+.sumsheet{
+  /* The bottom band is named because the pinned action has to reach through it:
+     it sticks to the true bottom edge and pays this padding out of its own box,
+     so the report scrolls under a button rather than past a gap beside one. */
+  --sum-pad-b:calc(30px + env(safe-area-inset-bottom));
+  --sum-pad-l:max(16px,env(safe-area-inset-left));
+  --sum-pad-r:max(16px,env(safe-area-inset-right));
+  position:fixed;inset:0;z-index:75;overflow-y:auto;overscroll-behavior:contain;
+  display:flex;flex-direction:column;
+  background:var(--bg);
+  padding:calc(30px + env(safe-area-inset-top)) 0 var(--sum-pad-b);
+}
+.sumsheet.hidden{display:none!important}
+/* The side padding belongs to the body, not the sheet, so the pinned bar can reach
+   through it to the edges while staying inside the body's own box. The body fills
+   the sheet down through its bottom band, so a short report still puts the bar on
+   the bottom edge and a long one ends with the bar on it. */
+.sumsheet__body{
+  flex:1 0 auto;display:flex;flex-direction:column;
+  width:min(100%,calc(var(--maxw) + var(--sum-pad-l) + var(--sum-pad-r)));margin:0 auto calc(-1 * var(--sum-pad-b));
+  padding:0 var(--sum-pad-r) 0 var(--sum-pad-l);
+}
+/* The bar keeps its gap above the report and takes up whatever height the report leaves. */
+.sumsheet__body::after{content:"";flex:1 0 var(--space-14)}
+
+/* The report is a ledger (Direction D, spec 4.4): flat groups on hairlines, outcome
+   words in ink, green only for a record, and no mark celebrating the save. */
+.sum-eyebrow{
+  margin-top:var(--space-16);text-align:left;font-family:var(--font-language);font-size:var(--font-size-body-small);
+  font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink-secondary);
+}
+/* The heading takes focus so a screen reader is read the session before the
+   controls, not because it is one. A ring here would draw a box around a title
+   nobody can act on, so it stays off — every actual control keeps its own. */
+.sum-hero{margin-top:var(--space-4);text-align:left;font-family:var(--font-language);font-size:var(--font-size-title);font-weight:var(--weight-semibold);letter-spacing:-.02em;line-height:var(--line-tight);color:var(--color-ink);text-wrap:balance}
+.sum-hero:focus,.sum-hero:focus-visible{outline:none}
+.sum-sub{margin-top:var(--space-8);text-align:left;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.sum-stats{margin-top:var(--space-18);padding:var(--space-12) 0;border-top:1px solid var(--boundary-decorative);border-bottom:1px solid var(--boundary-decorative)}
+:is(#sessionSummary,#todayDash) .sum-stats{grid-template-columns:repeat(auto-fit,minmax(5rem,1fr))}
+:is(#sessionSummary,#todayDash) .sum-stats .statrow__cell{padding-inline:var(--space-4) var(--space-8)}
+:is(#sessionSummary,#todayDash) .sum-stats .statrow__cell:first-child{padding-left:0}
+:is(#sessionSummary,#todayDash) .sum-stats .statrow__cell:not(:first-child){padding-left:var(--space-12)}
+:is(#sessionSummary,#todayDash) .sum-stats .statrow__val{font-family:var(--font-training-data);font-size:var(--font-size-metric);font-weight:var(--weight-medium);line-height:var(--line-tight);color:var(--color-ink);text-align:left}
+:is(#sessionSummary,#todayDash) .sum-stats.statrow--4 .statrow__val{font-size:var(--font-size-subtitle)}
+:is(#sessionSummary,#todayDash) .sum-stats .statrow__cap{font-family:var(--font-language);font-size:var(--font-size-caption);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink-secondary);text-align:left;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:break-word}
+.sum-sec{margin:var(--space-26) 0 0;padding-bottom:var(--space-8);border-bottom:1px solid var(--boundary-decorative);font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
+
+/* One group per lift: its name and outcome, the sets, a record line, the next target. */
+.sum-grp{padding:var(--space-12) 0;border-bottom:1px solid var(--boundary-decorative)}
+.sum-grp__h{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-12)}
+.sum-grp__n{min-width:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink);overflow-wrap:anywhere}
+.sum-grp .sum-outcome,.sum-word{flex:none;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink);text-align:right}
+.sum-grp .sum-outcome.verdictmark--maintained{color:var(--color-ink)}
+.sum-grp__sets{margin:var(--space-4) 0 0;font-family:var(--font-training-data);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:anywhere}
+.sum-pr{display:flex;align-items:baseline;flex-wrap:wrap;gap:var(--space-8);margin:var(--space-4) 0 0}
+.sum-pr__over{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-improved)}
+.sum-grp__next{display:flex;align-items:center;gap:var(--space-8);margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink);font-variant-numeric:tabular-nums}
+.sum-muscles__note{margin:var(--space-8) 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+#sessionSummary .sum-muscles .vrow__name{font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink)}
+#sessionSummary .sum-muscles .vrow__num{font-family:var(--font-training-data);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.sum-muscles__more{
+  display:flex;align-items:center;min-height:var(--control-target);margin:var(--space-4) 0 0;padding:0;background:var(--control-disclosure-bg);border:0;cursor:pointer;text-align:left;
+  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--control-disclosure-ink);
+}
+@media (hover: hover) and (pointer: fine){
+.sum-muscles__more:hover:not(:disabled){background:var(--well);color:var(--control-disclosure-ink)}
+}
+.sum-muscles__more:active:not(:disabled){background:var(--well);color:var(--control-disclosure-ink);transform:var(--control-pressed-transform)}
+.sum-muscles__more:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.sum-muscles__more:disabled{background:var(--control-disclosure-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
+
+.sum-baseline{
+  margin-top:var(--space-18);padding-left:14px;border-left:2px solid var(--boundary-selected-quiet);
+  font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink-secondary);
+}
+.sum-split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-12);margin-top:var(--space-26)}
+.sum-split__k{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.sum-week{margin:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink)}
+.sum-segbar{margin-top:var(--space-8)}
+#sessionSummary .sum-segbar .segbar__seg{background:var(--boundary-required);border-radius:var(--radius-compact)}
+#sessionSummary .sum-segbar .segbar__seg.is-done{background:var(--color-ink)}
+.sum-next{display:block;margin:0;padding:0;border:0}
+.sum-next__lab{letter-spacing:0;text-transform:none;font-weight:var(--weight-regular)}
+.sum-next__day{margin:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink)}
+.sum-next__meta{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+#sumSee{
+  display:flex;align-items:center;justify-content:center;min-height:54px;flex:1 1 0;
+  border:1px solid var(--control-quiet-boundary);border-radius:var(--radius-control);
+  background:var(--control-quiet-bg);color:var(--control-quiet-ink);
+  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
+}
+@media (hover: hover) and (pointer: fine){
+#sumSee:hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
+}
+#sumSee:active:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+#sumSee:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+#sumSee:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
+/* The way out is never below the fold. A session ends with a lifter holding a
+   phone and breathing hard, so both actions stay put and the report moves under them.
+   Like the onboarding pinned region it reaches through the body's side padding, so the
+   persistent-action surface runs edge to edge under its hairline instead of sitting in
+   the text column as a box. */
+.sum-actions{
+  position:sticky;bottom:calc(-1 * var(--sum-pad-b));z-index:1;display:flex;gap:var(--space-12);order:1;
+  margin:0 calc(-1 * var(--sum-pad-r)) 0 calc(-1 * var(--sum-pad-l));
+  padding:var(--space-12) var(--sum-pad-r) var(--sum-pad-b) var(--sum-pad-l);
+  background:var(--bg);border-top:1px solid var(--boundary-persistent);
+  box-shadow:var(--elevation-persistent-shadow);
+}
+#sumDone{
+  flex:1 1 0;min-height:54px;border:1px solid var(--control-primary-boundary);border-radius:var(--radius-control);
+  background:var(--control-primary-bg);color:var(--control-primary-ink);
+  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
+}
+@media (hover: hover) and (pointer: fine){
+#sumDone:hover:not(:disabled){background:var(--control-primary-bg);border-color:var(--control-primary-boundary);color:var(--control-primary-ink)}
+}
+#sumDone:active:not(:disabled){background:var(--control-primary-bg);border-color:var(--control-primary-boundary);color:var(--control-primary-ink);transform:var(--control-pressed-transform)}
+#sumDone:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+#sumDone:disabled{background:var(--control-primary-disabled-bg);border-color:var(--boundary-decorative);color:var(--control-primary-disabled-ink);opacity:1;cursor:not-allowed;transform:none}
+

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {installBrowserTraining} from './training-browser.mjs';
 /**
  * Plan 064 audit RT-03 and RT-04, proved at the production boundary.
  *
@@ -16,7 +17,7 @@
  *
  * Run: node test/focus-pending-field.mjs   (REPFORGE_URL points at a static server)
  */
-import { launchChromium } from "./browser.mjs";
+import { launchChromium, waitForAppBoot, waitForAsyncCondition } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 import { finishEarly, openLoggedSets } from "./fixtures/focus-workout.mjs";
 
@@ -64,7 +65,7 @@ async function persist(page, src) {
 }
 
 async function settle(page) {
-  await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
+  await waitForAppBoot(page, {base: BASE});
   await page.evaluate(() => {
     const el = document.querySelector("#onboarding");
     window.closeFirstRun?.();
@@ -88,8 +89,9 @@ const FIELD_IDS = { load: `metric_${WEIGHT}`, reps: `metric_${REPS}`, rir: "rir"
 async function boot(page, { rirMode = "numeric", restSec = 90, fontScale = 1 } = {}) {
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await settle(page);
+  await page.evaluate(() => window.__repforgeStorage.flush());
   await page.evaluate((d) => {
-    if (window.stopRest) window.stopRest();
+    window.__repforgeRest.stop();
     for (const key of Object.keys(localStorage)) if (key === d || key.startsWith(`${d}:`)) localStorage.removeItem(key);
   }, DRAFT);
   await persist(page, `
@@ -97,8 +99,17 @@ async function boot(page, { rirMode = "numeric", restSec = 90, fontScale = 1 } =
     s.program = ${JSON.stringify(seedProgram())};
     s.programMeta = ${JSON.stringify(seedProgramMeta())};
     s.log = [];`);
+  // Installation does not claim the first document. Wait for activation before
+  // the deliberate reload so every scenario starts in a controlled document,
+  // rather than depending on how far precaching got during the fixture writes.
+  await waitForAsyncCondition(page, async () => {
+    const registration = await navigator.serviceWorker.getRegistration();
+    return registration?.active?.state === "activated" && !registration.installing && !registration.waiting;
+  }, undefined, { timeout: 15000 });
   await page.reload({ waitUntil: "domcontentloaded" });
   await settle(page);
+  await page.waitForFunction(() => navigator.serviceWorker.controller?.state === "activated",
+    undefined, { timeout: 5000 });
   if (fontScale !== 1) await page.evaluate((s) => { document.documentElement.style.fontSize = `${s * 100}%`; }, fontScale);
   await page.evaluate(async () => {
     await window.__repforgeEnterWorkout({});
@@ -167,14 +178,47 @@ function agree(name, snap, expected) {
 
 async function main() {
   const browser = await launchChromium();
-  const ctx = await browser.newContext({ viewport: { width: 393, height: 852 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
-  const page = await ctx.newPage();
+  let ctx, page;
   const errors = [];
-  page.on("pageerror", (e) => errors.push(e.message));
+  let scenario = 0;
+  async function freshBoot(options) {
+    // These cases compare operations within a workout, not state carried from
+    // a previous case. Closing the context ends its live writers, history and
+    // worker lifetime; clearing only draft keys is not a fresh-device reset.
+    await ctx?.close();
+    ctx = await browser.newContext({ viewport: { width: 393, height: 852 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+    page = await ctx.newPage();
+    page.on("pageerror", (e) => errors.push(e.message));
+    const navigations = [], started = Date.now();
+    const record = (event, url) => {
+      navigations.push({ event, elapsedMs: Date.now() - started, path: new URL(url).pathname });
+      if (navigations.length > 12) navigations.shift();
+    };
+    const requested = (request) => {
+      if (request.isNavigationRequest() && request.frame() === page.mainFrame()) record("requested", request.url());
+    };
+    const committed = (frame) => {
+      if (frame === page.mainFrame()) record("committed", frame.url());
+    };
+    page.on("request", requested);
+    page.on("framenavigated", committed);
+    scenario++;
+    try {
+      await boot(page, options);
+    } catch (error) {
+      // Retain the bounded navigation history if initialization fails again;
+      // an execution-context error alone does not identify its cause.
+      console.error("Focus fixture boot failed", { scenario, navigations });
+      throw error;
+    } finally {
+      page.off("request", requested);
+      page.off("framenavigated", committed);
+    }
+  }
 
   // ---- RT-03 a: the audit's reproduction, through to the saved log ---------
   phase("RT-03: a pad tap, then a field switch, while the write waits for the lock");
-  await boot(page);
+  await freshBoot();
   await page.locator(field("load")).click();
   const start = await readField(page, "load");
   agree("RT-03 the typed starting load", start, 50);
@@ -189,7 +233,7 @@ async function main() {
   await page.locator(".focus-shelf .saveset").first().click();
   await page.waitForFunction(() => window.__repforgeWorkoutDraft.current().exercises["seed-ex-1"] && true);
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
-  await page.evaluate(() => window.stopRest?.());
+  await page.evaluate(() => window.__repforgeRest.stop());
   // Save the session through the real Finish action.
   const finished = await finishEarly(page);
   assert(finished && finished.status !== "error", "RT-03: the session saves through the real Finish action", finished);
@@ -199,7 +243,7 @@ async function main() {
 
   // ---- b: several queued pad taps across rebuilds ---------------------------
   phase("RT-03: queued pad taps are not lost across rebuilds");
-  await boot(page);
+  await freshBoot();
   await page.locator(field("load")).click();
   await holdLock(page);
   await page.locator(pad(1)).click();
@@ -214,7 +258,7 @@ async function main() {
 
   // ---- c: a typed value ------------------------------------------------------
   phase("RT-03: a typed edit survives the rebuild");
-  await boot(page);
+  await freshBoot();
   await page.locator(field("load")).click();
   await page.locator(field("load")).click(); // second tap opens the input
   await holdLock(page);
@@ -228,7 +272,7 @@ async function main() {
 
   // ---- d: reps and numeric RIR ----------------------------------------------
   phase("RT-03: reps and RIR pad taps");
-  await boot(page);
+  await freshBoot();
   await page.locator(field("reps")).click();
   const reps0 = num((await readField(page, "reps")).input);
   const rir0 = num((await readField(page, "rir")).input);
@@ -247,7 +291,7 @@ async function main() {
 
   // ---- e: effort mode -------------------------------------------------------
   phase("RT-03: effort mode");
-  await boot(page, { rirMode: "effort" });
+  await freshBoot({ rirMode: "effort" });
   await page.locator(field("rir")).click();
   const effort0 = await readField(page, "effort");
   await holdLock(page);
@@ -265,7 +309,7 @@ async function main() {
 
   // ---- f: exercise navigation while waiting ---------------------------------
   phase("RT-03: leaving the exercise while the write waits");
-  await boot(page);
+  await freshBoot();
   await page.locator(field("load")).click();
   await holdLock(page);
   await page.locator(pad(1)).click();
@@ -284,7 +328,7 @@ async function main() {
   phase("RT-03: correcting a logged set across a rebuild");
   const corrected = {};
   for (const rebuild of [false, true]) {
-    await boot(page, { restSec: 0 });
+    await freshBoot({ restSec: 0 });
     await page.locator(".focus-shelf .saveset").first().click();
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     await page.waitForSelector("#workout .exercise.is-current [data-ledgermore]");
@@ -316,7 +360,7 @@ async function main() {
 
   // ---- h: failed and stale writes --------------------------------------------
   phase("RT-03: a failed write leaves the banner in charge, and its retry agrees everywhere");
-  await boot(page);
+  await freshBoot();
   await page.locator(field("load")).click();
   await page.evaluate(() => { window.__repforgeDraftFault = "persist-failure"; });
   await page.locator(pad(1)).click();
@@ -333,18 +377,19 @@ async function main() {
   agree("RT-03 after Retry", await readField(page, "load"), 52.5);
 
   phase("RT-03: a stale write (another tab won the lock first) ends on the draft the other tab saved");
-  await boot(page);
+  await freshBoot();
   await page.locator(field("load")).click();
   await holdLock(page);
+  await installBrowserTraining(page);
   // The other tab's write queues on the lock first, then this tab's edit.
   await page.evaluate(() => {
     const api = window.__repforgeWorkoutDraft, draft = api.current();
-    const next = window.RepForgeWorkoutDraft.reduce(draft, {
+    const next = window.__repforgeTrainingTest.workout.reduce(draft, {
       type: "setSessionNotes", value: "other tab", operationId: "other-tab-op", expectedRevision: draft.revision,
       updatedAt: new Date().toISOString(), writer: { installationId: "other", tabId: "other-tab", operationId: "other-tab-op" },
     });
     window.__otherTabWrite = api.cas({ expectedDraftId: draft.draftId, expectedRevision: draft.revision,
-      nextRaw: JSON.stringify(window.RepForgeWorkoutDraft.serialize(next)), operationId: "other-tab-op" });
+      nextRaw: JSON.stringify(window.__repforgeTrainingTest.workout.serialize(next)), operationId: "other-tab-op" });
   });
   await page.locator(pad(1)).click();
   await page.locator(field("rir")).click();
@@ -384,7 +429,7 @@ async function main() {
   }
 
   phase("RT-04: Pause/Resume stays reachable after a field tap replaced the rest pads");
-  await boot(page, { restSec: 90 });
+  await freshBoot({ restSec: 90 });
   await startRestByLogging(page);
   await page.locator("#workout .exercise.is-current .restpad--toggle").click();
   const heldAt = secs(await clock(page));
@@ -407,15 +452,15 @@ async function main() {
   assert(secs(await clock(page)) === reheld, "RT-04: the sheet can pause again", { reheld });
   await page.locator("#restStop").click();
   await page.waitForFunction(() => !document.querySelector("#woRest.is-running"), undefined, { timeout: 5000 });
-  await boot(page, { restSec: 90 });
-  await page.evaluate(() => window.openRestSheet());
+  await freshBoot({ restSec: 90 });
+  await page.evaluate(() => window.__repforgeRest.openSheet());
   await page.waitForSelector("#restSheet.is-open", { timeout: 5000 });
   assert(await page.locator("#restHold").isDisabled(), "RT-04: with no rest running the control waits, like Reset and Stop");
   await page.locator("#restSheetClose").click();
   await page.waitForSelector("#restSheet", { state: "hidden", timeout: 5000 });
 
   phase("RT-04: at 200% text, start, pause, edit a field, resume the same remaining time");
-  await boot(page, { restSec: 90, fontScale: 2 });
+  await freshBoot({ restSec: 90, fontScale: 2 });
   assert(await page.evaluate(() => Number.parseFloat(getComputedStyle(document.documentElement).fontSize) > 16.1), "RT-04: the root text is scaled");
   await startRestByLogging(page);
   assert(!(await page.locator("#workout .exercise.is-current .restpad--toggle").count()), "RT-04: at 200% the field pads stay and the inline rest pad is not shown");
@@ -441,7 +486,7 @@ async function main() {
   assert(largeResumed <= largeHeld && largeResumed >= largeHeld - 3, "RT-04: Resume continues from the held remaining time at 200%", { largeHeld, largeResumed });
 
   phase("RT-04: while correcting a logged set");
-  await boot(page, { restSec: 90 });
+  await freshBoot({ restSec: 90 });
   await startRestByLogging(page);
   await page.locator("#workout .exercise.is-current .restpad--toggle").click();
   const correctHeld = secs(await clock(page));

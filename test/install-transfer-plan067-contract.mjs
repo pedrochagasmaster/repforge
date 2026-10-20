@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import {Compiler as NativeCompiler,Draft as NativeDraft,Entry as NativeEntry,Metrics as NativeMetrics} from './fixtures/training-runtime.mjs';
+import {Contract} from './interchange-runtime.mjs';
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -9,17 +11,13 @@ import { webcrypto } from "node:crypto";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
-const Compiler = require(path.join(root, "program-compiler.js"));
-const Metrics = require(path.join(root, "exercise-metrics.js"));
-const WorkoutDraft = require(path.join(root, "workout-draft.js"));
-const ProgramEntry = require(path.join(root, "program-entry.js"));
+const Compiler = NativeCompiler;
+const Metrics = NativeMetrics;
+const WorkoutDraft = NativeDraft;
+const ProgramEntry = NativeEntry;
 const catalogSnapshot = JSON.parse(fs.readFileSync(path.join(root, "plans/067/data/app_file.json"), "utf8"));
 globalThis.crypto ||= webcrypto;
-globalThis.RepForgeProgramCompiler = Compiler;
-globalThis.RepForgeExerciseMetrics = Metrics;
-globalThis.RepForgeExerciseCatalog = { snapshot: () => catalogSnapshot };
-globalThis.RepForgeProgramEntry = ProgramEntry;
-const Contract = require(path.join(root, "install-transfer-contract.js"));
+
 const fixture = JSON.parse(fs.readFileSync(path.join(root, "test/fixtures/install-transfer-clone-v1.json"), "utf8"));
 const gym = JSON.parse(fs.readFileSync(path.join(root, "plans/067/data/gym.json"), "utf8"));
 const observations = JSON.parse(fs.readFileSync(path.join(root, "plans/067/data/programs.json"), "utf8"));

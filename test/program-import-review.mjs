@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import {browserLanguage} from './language-browser.mjs';
+import {installBrowserSnapshotPolicy} from './training-browser.mjs';
 /**
  * Importing a program is a review, not a write.
  *
@@ -553,7 +555,8 @@ async function main() {
     "a retired progression envelope is not carried into the canonical candidate",
     JSON.stringify(legacyCandidate));
 
-    const oversizedMeta = await page.evaluate(() => window.__repforgeValidateStateShape({
+    await installBrowserSnapshotPolicy(page);
+    const oversizedMeta = await page.evaluate(() => window.__repforgeTrainingTest.snapshotPolicy.isValidStateShape({
       program: [{ id: "ex1", name: "Press", day: "Day 1", order: 1, sets: 3, min: 6, max: 10 }], log: [],
       programMeta: { progressionIncompatibilities: [{ value: { text: "x".repeat(4001) } }] },
     }));
@@ -1001,7 +1004,7 @@ async function main() {
       "a legacy backup through the program door goes to review, not to a restore", JSON.stringify(choice));
     await page.click("#importReviewCancel");
     await settle(page);
-    const expectedLegacyToast = await page.evaluate(() => window.RepForgeI18n.t("toast.backup_legacy"));
+    const expectedLegacyToast = await (await browserLanguage(page)).evaluate(language => language.t("toast.backup_legacy"));
     await page.setInputFiles("#importJson", { name: "legacy-backup.json", mimeType: "application/json", buffer: Buffer.from(legacyBackup) });
     await page.waitForFunction((text) => document.querySelector("#toast")?.textContent?.includes(text), expectedLegacyToast, { timeout: 5000 });
     choice = await dialogState();

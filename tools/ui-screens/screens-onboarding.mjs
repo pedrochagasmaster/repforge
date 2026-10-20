@@ -1,3 +1,5 @@
+import {installBrowserTraining, installBrowserTrainingBeforeNavigation} from "../../test/training-browser.mjs";
+import {browserLanguage} from "../../test/language-browser.mjs";
 /**
  * Drive every onboarding surface through the production entry UI.
  *
@@ -127,7 +129,7 @@ async function recommendStep(page, until, answers = {}) {
   await answerRecommend(page, { skipBasics: true, days: 3, environment: "commercial_gym", ...answers, until });
 }
 
-function installOfferVerificationObserverInBrowser() {
+export function installOfferVerificationObserverInBrowser() {
   if (window.__catalogEntryOfferObserver) return;
   const digest = value => {
     const text = JSON.stringify(value) ?? String(value);
@@ -142,7 +144,6 @@ function installOfferVerificationObserverInBrowser() {
     engines: 0,
     jobs: [],
     order: 0,
-    wrappedApis: new WeakMap(),
     digest,
     diagnostic() {
       const current = window.__repforgeEntryState?.();
@@ -192,17 +193,28 @@ function installOfferVerificationObserverInBrowser() {
       if (baseline.status !== "settled" || baseline.result?.ok !== true) {
         return { ready: false, readiness: "foreground result did not succeed", ...this.diagnostic() };
       }
+      // Bind the successful foreground transport to the displayed definition
+      // before any review edits. Later eligibility is checked against live slots.
+      if (!baseline.boundFingerprint) {
+        const identity = window.__repforgeTrainingTest.identity;
+        if (!current.result?.fingerprint || identity.digestCanonical(baseline.result.value)
+          !== identity.digestCanonical(current.result?.preview?.programDefinition)) {
+          return { ready: false, readiness: "foreground response does not match the current preview", ...this.diagnostic() };
+        }
+        baseline.boundFingerprint = current.result.fingerprint;
+      }
       const candidates = Array.isArray(baseline.result.confirmationOffers) ? baseline.result.confirmationOffers : [];
       const baseConfirmations = baseline.request?.movementConfirmations || {};
       const used = new Set();
       const verification = candidates.map(offer => {
         const confirmations = { ...baseConfirmations, [offer.offeredExerciseId]: [...(offer.prerequisiteIds || [])] };
-        const requestDigest = window.RepForgeGenerationIdentity.digestCanonical({ ...baseline.request, movementConfirmations: confirmations });
+        const requestDigest = window.__repforgeTrainingTest.identity.digestCanonical({ ...baseline.request, movementConfirmations: confirmations });
         const job = this.jobs.find(candidate => candidate.engineId !== primaryEngineId
           && candidate.draftDigest === draftDigest && candidate.requestDigest === requestDigest
           && candidate.startedOrder > baseline.startedOrder && !used.has(candidate.jobId));
         if (job) used.add(job.jobId);
-        if (!job || job.status === "pending") return { ready: false, requestDigest, job: job || null };
+        // A rejected transport can trigger fallback; it is not a verified refusal.
+        if (!job || job.status !== "settled") return { ready: false, requestDigest, job: job || null };
         const dayIndex = baseline.result.value.days.findIndex(day => day.slots.some(slot => slot.id === offer.slotId));
         const slotIndex = dayIndex < 0 ? -1 : baseline.result.value.days[dayIndex].slots.findIndex(slot => slot.id === offer.slotId);
         const slot = job.result?.ok ? job.result.value?.days?.[dayIndex]?.slots?.[slotIndex] : null;
@@ -298,83 +310,58 @@ function installOfferVerificationObserverInBrowser() {
       };
     },
   };
-  const wrapApi = api => {
-    if (!api || typeof api.create !== "function") return api;
-    const prior = observer.wrappedApis.get(api);
-    if (prior) return prior;
-    const wrapped = Object.create(api);
-    Object.defineProperty(wrapped, "create", {
-      configurable: false,
-      value(...args) {
-        const engine = api.create(...args);
-        const engineId = ++observer.engines;
-        const facade = Object.create(engine);
-        Object.defineProperty(facade, "generate", {
-          configurable: false,
-          value(request, options) {
-            const state = window.__repforgeEntryState?.();
-            const job = {
-              engineId,
-              jobId: observer.jobs.filter(item => item.engineId === engineId).length + 1,
-              foreground: engineId === 1,
-              draftDigest: digest(state?.draftId || ""),
-              step: state?.step || null,
-              requestDigest: window.RepForgeGenerationIdentity.digestCanonical(request),
-              confirmationCount: Object.keys(request?.movementConfirmations || {}).length,
-              request,
-              status: "pending",
-              startedOrder: ++observer.order,
-            };
-            observer.jobs.push(job);
-            let generated;
-            try {
-              generated = engine.generate(request, options);
-            } catch (error) {
-              job.status = "rejected";
-              job.outcome = error?.name || "error";
-              job.resultDigest = digest({ name: error?.name || "Error", message: error?.message || "" });
-              job.mode = engine.stats?.().mode || "unknown";
-              job.settledOrder = ++observer.order;
-              return Promise.reject(error);
-            }
-            return generated.then(result => {
-              job.status = "settled";
-              job.outcome = result?.ok === true ? "success" : "failure";
-              job.resultDigest = digest(result);
-              job.result = result;
-              job.mode = engine.stats?.().mode || "unknown";
-              job.settledOrder = ++observer.order;
-              return result;
-            }, error => {
-              job.status = "rejected";
-              job.outcome = error?.name || "error";
-              job.resultDigest = digest({ name: error?.name || "Error", message: error?.message || "" });
-              job.mode = engine.stats?.().mode || "unknown";
-              job.settledOrder = ++observer.order;
-              throw error;
-            });
-          },
+  // Observe only the actual release-relative module worker. Keep the executor's
+  // onmessage handler untouched and never manufacture fallback results.
+  const NativeWorker = window.Worker;
+  if (typeof NativeWorker !== "function") throw new Error("Offer proof requires native Worker transport");
+  window.Worker = class extends NativeWorker {
+    constructor(url, ...args) {
+      super(url, ...args);
+      const graph = window.__repforgeTrainingTest?.graphBase;
+      const expected = graph && new URL("src/platform/program-worker.js", graph).href;
+      this.catalogEngineId = new URL(String(url), document.baseURI).href === expected ? ++observer.engines : null;
+      if (!this.catalogEngineId) return;
+      this.addEventListener("message", event => {
+        const message = event.data;
+        const job = observer.jobs.find(item => item.engineId === this.catalogEngineId && item.transportId === message?.id);
+        if (!job || job.status !== "pending") return;
+        job.status = message.ok === true ? "settled" : "rejected";
+        job.result = message.ok === true ? message.value : null;
+        job.outcome = job.result?.ok === true ? "success" : "failure";
+        job.resultDigest = digest(job.result);
+        job.settledOrder = ++observer.order;
+      });
+      for (const type of ["error", "messageerror"]) this.addEventListener(type, () => {
+        for (const job of observer.jobs.filter(item => item.engineId === this.catalogEngineId && item.status === "pending")) {
+          job.status = "rejected";
+          job.outcome = type;
+          job.settledOrder = ++observer.order;
+        }
+      });
+    }
+    postMessage(message, ...args) {
+      if (this.catalogEngineId && message?.type === "generate") {
+        const state = window.__repforgeEntryState?.();
+        const request = structuredClone(message.request);
+        observer.jobs.push({
+          engineId: this.catalogEngineId, transportId: message.id,
+          jobId: `${this.catalogEngineId}:${message.id}`,
+          foreground: this.catalogEngineId === 1,
+          draftDigest: digest(state?.draftId || ""), step: state?.step || null,
+          requestDigest: window.__repforgeTrainingTest.identity.digestCanonical(request),
+          confirmationCount: Object.keys(request?.movementConfirmations || {}).length,
+          request, status: "pending", mode: "worker", startedOrder: ++observer.order,
         });
-        return facade;
-      },
-    });
-    observer.wrappedApis.set(api, wrapped);
-    return wrapped;
+      }
+      return super.postMessage(message, ...args);
+    }
   };
-  const descriptor = Object.getOwnPropertyDescriptor(window, "RepForgeProgramEngine");
-  if (descriptor && !descriptor.configurable) throw new Error("program-engine global cannot be observed");
-  let raw = descriptor && Object.hasOwn(descriptor, "value") ? descriptor.value : descriptor?.get?.();
-  let exposed = wrapApi(raw);
-  Object.defineProperty(window, "RepForgeProgramEngine", {
-    configurable: true,
-    enumerable: true,
-    get: () => exposed || raw,
-    set: value => { raw = value; exposed = wrapApi(value); },
-  });
   window.__catalogEntryOfferObserver = observer;
 }
 
 async function installOfferVerificationObserver(page) {
+  await installBrowserTraining(page);
+  await installBrowserTrainingBeforeNavigation(page);
   await page.addInitScript(installOfferVerificationObserverInBrowser);
   await page.evaluate(installOfferVerificationObserverInBrowser);
 }
@@ -487,9 +474,10 @@ async function openReviewSlot(page, slotId) {
   await page.waitForSelector("#reviewSheet.is-open [data-review-sets]", { timeout: 10000 });
 }
 async function findAmbiguousPerSideMovement(page) {
+  await installBrowserTraining(page);
   return page.evaluate(() => {
-    const catalog = window.RepForgeExerciseCatalog.snapshot();
-    const metrics = window.RepForgeExerciseMetrics;
+    const catalog = window.__repforgeTrainingTest.catalog;
+    const metrics = window.__repforgeTrainingTest.metrics;
     const current = window.__repforgeEntryState().result.preview.programDefinition;
     const used = new Set(current.days.flatMap((day) => day.slots || []).map((slot) => slot.exerciseId));
     const supportedPerSide = [["repsPerSide", "loadPerSideKg"], ["persistentLoadPerSideKg", "repsPerSide"]];
@@ -808,9 +796,10 @@ async function resume(page) {
 }
 
 async function rulesDrift(page) {
+  await installBrowserTraining(page);
   await page.evaluate(({ key, draft }) => {
     const activeRevision = JSON.parse(localStorage.getItem(key))._storageRevision;
-    const Entry = window.RepForgeProgramEntry;
+    const Entry = window.__repforgeTrainingTest.entry;
     // A real current-versions snapshot with one pin rolled back to a stale value:
     // any single mismatch is enough to trigger the rebuild-required notice on
     // the recommend route (program-entry.js changedVersions/entryRebuildRules).
@@ -1020,7 +1009,8 @@ export const ONBOARDING_SCENARIOS = {
   },
   "onboarding-recommend/muscle-priorities-limit": async (page) => {
     await recommendStep(page, "muscle_priorities");
-    const muscles = await page.evaluate(() => [...window.RepForgeProgramEntry.ENTRY_MUSCLES]);
+    await installBrowserTraining(page);
+    const muscles = await page.evaluate(() => [...window.__repforgeTrainingTest.entry.ENTRY_MUSCLES]);
     assert.equal(muscles.length, 22);
     for (const muscle of muscles) await pick(page, "musclePriorityB", `${muscle}|prioritize`);
     const selected = await page.evaluate(() => ({
@@ -1072,7 +1062,7 @@ export const ONBOARDING_SCENARIOS = {
       offer: document.querySelector(`[data-review-confirm-offer][data-review-offer-exercise-id="${CSS.escape(exerciseId)}"]`) !== null,
       undo: document.querySelector(`[data-review-confirmation-undo="${CSS.escape(exerciseId)}"]`)?.textContent.trim() || null,
     }), target.exerciseId);
-    const expectedUndo = await page.evaluate(() => window.RepForgeI18n.t("entry.review.undo"));
+    const expectedUndo = await (await browserLanguage(page)).evaluate(async (language)=>language.t("entry.review.undo"));
     if (!Array.isArray(current.confirmation) || !current.confirmation.length || current.offer || current.undo !== expectedUndo) {
       throw new Error(`result-confirmed: production confirmation state is incomplete: ${JSON.stringify(current)}`);
     }
@@ -1090,7 +1080,7 @@ export const ONBOARDING_SCENARIOS = {
       pattern: document.querySelector("[data-review-block-pattern][aria-checked='true']")?.dataset.reviewBlockPattern,
       deload: document.querySelector("[data-review-block-deload]")?.getAttribute("aria-checked"),
     }));
-    const expected = await page.evaluate(() => window.RepForgeI18n.t("entry.review.block.regular_weeks", { n: 7 }));
+    const expected = await (await browserLanguage(page)).evaluate(async (language)=>language.t("entry.review.block.regular_weeks", { n: 7 }));
     if (visible.weeks !== expected || visible.pattern !== "undulating" || visible.deload !== "false")
       throw new Error(`The result block sheet did not keep seven regular weeks with the edited pattern and recovery choice: ${JSON.stringify(visible)}`);
   },
@@ -1160,12 +1150,12 @@ export const ONBOARDING_SCENARIOS = {
       choices: [...document.querySelectorAll("#reviewSheet [data-review-execution-mode]")].map((button) => button.textContent.trim()),
       cue: document.querySelector(`#entryReview [data-review-slot="${CSS.escape(slotId)}"] [data-review-execution-cue]`)?.textContent.trim(),
     }), slotId);
-    const expectedQuestion = await page.evaluate(() => window.RepForgeI18n.t("entry.review.execution_mode.question"));
-    const expectedChoices = await page.evaluate(() => [
-      window.RepForgeI18n.t("entry.review.execution_mode.bilateral"),
-      window.RepForgeI18n.t("entry.review.execution_mode.unilateral"),
+    const expectedQuestion = await (await browserLanguage(page)).evaluate(async (language)=>language.t("entry.review.execution_mode.question"));
+    const expectedChoices = await (await browserLanguage(page)).evaluate(async (language)=>[
+      language.t("entry.review.execution_mode.bilateral"),
+      language.t("entry.review.execution_mode.unilateral"),
     ]);
-    const expectedCue = await page.evaluate(() => window.RepForgeI18n.t("entry.review.execution_mode.cue"));
+    const expectedCue = await (await browserLanguage(page)).evaluate(async (language)=>language.t("entry.review.execution_mode.cue"));
     if (visible.question !== expectedQuestion || visible.groupName !== "reviewExecutionModeQuestion"
       || JSON.stringify(visible.choices) !== JSON.stringify(expectedChoices) || visible.cue !== expectedCue) {
       throw new Error(`review-execution-mode: production question/choices/cue were not exposed: ${JSON.stringify(visible)}`);
@@ -1179,7 +1169,7 @@ export const ONBOARDING_SCENARIOS = {
       .filter((day) => day.kind === "training"));
     if (days.length < 2) throw new Error("review-day-name-refused: the production result has fewer than two training days");
     const target = days[0], duplicate = days[1].stored || days[1].shown;
-    const expected = await page.evaluate(() => window.RepForgeI18n.t("toast.day_name_exists"));
+    const expected = await (await browserLanguage(page)).evaluate(async (language)=>language.t("toast.day_name_exists"));
     await page.locator(`#entryReview [data-review-tab="${target.index}"]`).click();
     await page.locator("#entryReview [data-review-day-menu]").click();
     await page.locator('#reviewSheet [data-review-day-action="rename"]').click();

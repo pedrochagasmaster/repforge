@@ -1,0 +1,12 @@
+/** Entry state contracts apply after the bounded schema validator succeeds. */
+/** @typedef {'recommend'|'custom'|'browse'|'build'|'import'|'shared'} Route */
+/** @typedef {{kind:string,capabilities?:string[],equipment?:string[],adjust?:{add:string[],remove:string[]}}} Environment */
+/** @typedef {{exerciseId:string,reason?:string}} ExerciseConstraint */
+/** @typedef {{[key:string]:unknown,desiredResult?:string,structuredExperience?:string,recentConsistency?:string,daysPerWeek?:number,sessionMinutes?:number,preferredRestSeconds?:number|null,environment?:Environment,primaryMuscles?:string[],deEmphasizedMuscles?:string[],ignoredMuscles?:string[],priorityMovements?:string[],mustHaveExercises?:string[],exerciseConstraints?:ExerciseConstraint[],splitPreference?:string,catalogueSelection?:string,programName?:string,competencyAnswers?:Record<string,boolean|null>,deload?:boolean,importReady?:boolean,sharedReady?:boolean,block?:{cycles:number,periodization:string},basics?:Record<string,unknown>,movementConfirmations?:Record<string,string[]>}} Answers */
+/** @typedef {{[key:string]:unknown,program?:import('../../model/internal/contracts.js').ExerciseInput[],programDefinition?:import('../../model/internal/contracts.js').ProgramDefinition,customExercises?:import('../../model/internal/contracts.js').LibraryEntry[],programStructure?:import('../../model/internal/contracts.js').ProgramStructure}} Preview */
+/** @typedef {{[key:string]:unknown,schemaVersion?:number,route?:Route|null,answersFingerprint?:string,fingerprint?:string,preview?:Preview}} EntryResult */
+/** @typedef {{schemaVersion:number,draftId:string,route:Route|null,step:string,answers:Answers,legacyHints:Record<string,unknown>,result:EntryResult|null,versions:Record<string,unknown>,activeProgramRevisionAtStart:number,createdAt:string,updatedAt:string}} SetupDraft */
+/** @typedef {{schemaVersion:number,draftId:string,revision:number,ownerId:string|null,state:SetupDraft}} DraftEnvelope */
+/** @typedef {{schemaVersion:number,desiredResult:string,structuredExperience:string,recentConsistency:string,availability:{daysPerWeek:number,sessionMinutes:number,preferredRestSeconds:number|null},environment:Environment,primaryMuscles:string[],deEmphasizedMuscles:string[],ignoredMuscles:string[],priorityMovements:string[],exerciseConstraints:ExerciseConstraint[],reviewedAt:string}} ProgrammingContext */
+/** @typedef {{sex?:string,birthDate?:string,heightCm?:number,heightUnit?:string,weightKg?:number,cardioExperience?:string}} Profile */
+export {};

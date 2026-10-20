@@ -24,14 +24,16 @@
  */
 import { createRequire } from "node:module";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import {installBrowserTraining} from "./training-browser.mjs";
 import { corpusCases } from "./fixtures/program-compiler-corpus-cases.mjs";
 
 const require = createRequire(import.meta.url);
-const ProgramEngine = require(process.env.REPFORGE_PROGRAM_ENGINE_SOURCE || "../program-engine.js");
-const Adapter = require("../program-entry-adapter.js");
-const Compiler = require("../program-compiler.js");
+const {default:ProgramEngine} = await import(process.env.REPFORGE_PROGRAM_ENGINE_SOURCE || "../src/platform/program-executor.js");
+const generation = require("../src/training/generation.js").createGenerationRules();
+const Compiler = generation.compiler;
+const Adapter = require("../src/training/authoring.js").createEntryAdapter({compiler:Compiler});
 const Catalog = require("../assets/exercise-catalog.json");
-require("../generation-identity.js").prepareCatalog(Catalog);
+generation.identity.prepareCatalog(Catalog);
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const failures = [];
@@ -69,6 +71,7 @@ async function open(browser, { contextOptions = {}, init } = {}) {
   if (init) await page.addInitScript(init);
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
+  await installBrowserTraining(page);
   return { context, page, errors };
 }
 
@@ -77,15 +80,15 @@ async function open(browser, { contextOptions = {}, init } = {}) {
 function runCases(page, list) {
   return page.evaluate(async (items) => {
     const engine = window.__repforgeProgramEngine;
-    const catalog = window.RepForgeExerciseCatalog.snapshot();
+    const catalog = window.__repforgeTrainingTest.catalog;
     const out = [];
     for (const { key, request, expectedSplit } of items) {
       const result = await engine.generate(request);
-      const reference = window.RepForgeProgramCompiler.generateProgram(request, catalog);
+      const reference = window.__repforgeTrainingTest.compiler.generateProgram(request, catalog);
       out.push({ key, same: JSON.stringify(result) === JSON.stringify(reference),
         sourceSupported: !expectedSplit || (result.ok && result.value.request.split === expectedSplit
           && result.value.cycles === 8 && JSON.stringify(result.value.deloadCycles) === "[8]"),
-        valid: result.ok ? window.RepForgeProgramCompiler.validateProgramDefinition(result.value, catalog).ok
+        valid: result.ok ? window.__repforgeTrainingTest.compiler.validateProgramDefinition(result.value, catalog).ok
           : result.value === null && result.conflicts.length > 0 });
     }
     return out;
@@ -356,10 +359,10 @@ async function main() {
         await cdp.send("Emulation.setCPUThrottlingRate", { rate: 6 });
         const timing = await page.evaluate(async (request) => {
           const engine = window.__repforgeProgramEngine;
-          const catalog = window.RepForgeExerciseCatalog.snapshot();
+          const catalog = window.__repforgeTrainingTest.catalog;
           // Main-thread reference: how long the same request blocks this thread.
           const mainStarted = performance.now();
-          const reference = window.RepForgeProgramCompiler.generateProgram(request, catalog);
+          const reference = window.__repforgeTrainingTest.compiler.generateProgram(request, catalog);
           const blocked = performance.now() - mainStarted;
           await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
           const gaps = [];
@@ -405,7 +408,7 @@ async function main() {
     // The worker script does not load ------------------------------------
     {
       const { context, page, errors } = await open(browser, { contextOptions: { serviceWorkers: "block" } });
-      await page.route("**/program-engine.js*", (route) => route.fulfill({ status: 404, body: "gone" }));
+      await page.route("**/platform/program-worker.js*", (route) => route.fulfill({ status: 404, body: "gone" }));
       const before = await engineMode(page);
       check(before.mode === "main", "a worker script that fails to load falls back to the main thread", before);
       if (before.mode === "main") checkResults(await runCases(page, sample), "worker load failure");

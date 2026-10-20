@@ -1,0 +1,60 @@
+/** Device preferences and private tab records are separate from training data.
+ * No method serializes a durable state or makes these records exportable.
+ * Read failures never rewrite unknown/malformed storage records.
+ */
+export const UI_KEY='repforge_ui_v1';
+export const NOTIFY_KEY='repforge_notify_v1';
+const FREEFORM_KEY='repforge_freeform_session_v1';
+const IMPORT_SOURCE_KEY='repforge_import_source_v1';
+const ENTRY_REVIEW_KEY='repforge_entry_review_v1';
+
+/** @typedef {{getItem(key:string):string|null,setItem(key:string,value:string):void,removeItem(key:string):void}} PreferenceStorage */
+/** @typedef {Record<string, unknown>} UiPreferences */
+/** @param {{local:PreferenceStorage,tab:PreferenceStorage,mutationGate?:()=>boolean,onError?:(error:unknown)=>void}} options */
+export function createPreferences({local,tab,mutationGate=()=>false,onError=()=>{}}) {
+  /** @template T @param {T} value @returns {T} */
+  const copy=value=>value==null?value:JSON.parse(JSON.stringify(value));
+  /** @param {PreferenceStorage} storage @param {string} key */
+  function raw(storage,key){try{return storage.getItem(key)}catch{return null}}
+  /** @returns {UiPreferences} */
+  function parseUi(){try{/** @type {unknown} */const value=JSON.parse(String(raw(local,UI_KEY)));return value&&typeof value==='object'?/** @type {UiPreferences} */(value):{}}catch{return{}}}
+  let ui=parseUi();
+  /** @param {string} key @param {unknown} value @param {{base?:UiPreferences}} options */
+  function setUi(key,value,{base}={}){
+    if(mutationGate())return false;
+    // Historical behavior retains the user's live choice even on quota failure.
+    try{
+      if(base!==undefined)ui=copy(base);
+      ui[key]=copy(value);
+      local.setItem(UI_KEY,JSON.stringify(ui));return true
+    }
+    catch(error){onError(error);return false}
+  }
+  /** @param {UiPreferences} next */
+  function replaceUi(next){
+    if(mutationGate())return false;
+    try{const captured=copy(next);local.setItem(UI_KEY,JSON.stringify(captured));ui=captured;return true}
+    catch(error){onError(error);return false}
+  }
+  /** @param {PreferenceStorage} storage @param {string} key @param {string} value */
+  function writeRaw(storage,key,value){try{storage.setItem(key,value);return true}catch{return false}}
+  /** @param {PreferenceStorage} storage @param {string} key */
+  function clear(storage,key){try{storage.removeItem(key);return true}catch{return false}}
+  return Object.freeze({
+    readUi:()=>copy(ui),setUi,replaceUi,
+    reloadUi(){ui=parseUi();return copy(ui)},
+    readUiRaw:()=>raw(local,UI_KEY),
+    readNotify(){try{return /** @type {unknown} */(JSON.parse(raw(local,NOTIFY_KEY)||'{}'))||{}}catch{return{}}},
+    /** @param {UiPreferences} value */
+    writeNotify(value){local.setItem(NOTIFY_KEY,JSON.stringify(value))},
+    readFreeformRaw:()=>raw(tab,FREEFORM_KEY),
+    writeFreeformRaw:/** @param {string} value */ value=>writeRaw(tab,FREEFORM_KEY,value),
+    clearFreeform:()=>clear(tab,FREEFORM_KEY),
+    readImportSource:()=>raw(tab,IMPORT_SOURCE_KEY),
+    writeImportSource:/** @param {string} value */ value=>writeRaw(tab,IMPORT_SOURCE_KEY,value),
+    clearImportSource:()=>clear(tab,IMPORT_SOURCE_KEY),
+    readEntryReviewRaw:()=>raw(tab,ENTRY_REVIEW_KEY),
+    writeEntryReviewRaw:/** @param {string} value */ value=>writeRaw(tab,ENTRY_REVIEW_KEY,value),
+    clearEntryReview:()=>clear(tab,ENTRY_REVIEW_KEY),
+  });
+}

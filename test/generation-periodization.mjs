@@ -1,9 +1,10 @@
+import {Adapter as NativeAdapter} from './fixtures/training-runtime.mjs';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
-const Compiler = require('../program-compiler.js');
-const Adapter = require('../program-entry-adapter.js');
-const catalog = require('../generation-identity.js').prepareCatalog(require('../assets/exercise-catalog.json'));
+const Compiler = require('../src/training/generation.js');
+const Adapter = NativeAdapter;
+const catalog = require('../src/training/identity.js').prepareCatalog(require('../assets/exercise-catalog.json'));
 const request = {goal:'hybrid',experience:'advanced',daysPerWeek:3,split:'upper_lower_full',timeCeilingMinutes:60,periodization:'static',cycles:7,deloadCycles:[],gymProfile:{equipmentIds:Object.entries(catalog.uuidIndex).filter(([,r])=>r.type==='equipment'&&r.commercialGym===1).map(([id])=>id)},competencyAnswers:Object.fromEntries(['pullups10','pullups5','pushups15','inclineBarbell10','overheadPress10','bodyweightDips10','benchPress10'].map(k=>[k,true])),emphasisMuscleIds:[],deprioritizedMuscleIds:[]};
 // Independent source schedules, not calculated by the compiler under test.
 const centers = {

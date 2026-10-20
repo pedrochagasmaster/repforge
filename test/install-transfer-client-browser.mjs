@@ -8,11 +8,12 @@
  * consumer suite; this boundary proof stays focused on the browser vault.
  */
 import assert from "node:assert/strict";
+import {ensureBrowserInterchange} from "./interchange-browser.mjs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { chromium } from "playwright";
+import { launchChromium,waitForAppBoot } from "./browser.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -50,19 +51,20 @@ async function assertOrigin() {
   await response.arrayBuffer();
 }
 
-function moduleUrl() {
-  return new URL("install-transfer.js", ORIGIN).href;
+async function installBrowserClient(page){
+  await waitForAppBoot(page,{base:INDEX_URL});
+  await ensureBrowserInterchange(page);
+  await page.evaluate(()=>{window.__repforgeTransferTest=window.__repforgeInterchangeTest.transfer;});
 }
-
-async function openBrowserClient(page) {
-  await page.goto(INDEX_URL, { waitUntil: "domcontentloaded" });
-  await page.addScriptTag({ url: moduleUrl() });
-  await page.waitForFunction(() => typeof window.RepForgeInstallTransfer?.createCredentialVault === "function");
+async function openBrowserClient(page){
+  await page.goto(INDEX_URL,{waitUntil:'domcontentloaded'});
+  await installBrowserClient(page);
+  await page.waitForFunction(()=>typeof window.__repforgeTransferTest?.createCredentialVault==='function');
 }
 
 async function main() {
   await assertOrigin();
-  const browser = await chromium.launch({ headless: true });
+  const browser = await launchChromium();
   const context = await browser.newContext();
   const page = await context.newPage();
   const token = "browser-vault-token-" + "x".repeat(32);
@@ -79,11 +81,17 @@ async function main() {
       sessionStorage.clear();
     }, EXPECTATIONS.credentialDatabase.name);
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.addScriptTag({ url: moduleUrl() });
+    await installBrowserClient(page);
 
     const first = await page.evaluate(async ({ token, expected }) => {
-      const transfer = window.RepForgeInstallTransfer;
-      const vault = transfer.createCredentialVault({ crypto: globalThis.crypto });
+      const transfer = window.__repforgeTransferTest;
+      const openedDatabases = [];
+      const vault = transfer.createCredentialVault({ crypto: globalThis.crypto, indexedDB: {
+        open(...args) {
+          openedDatabases.push(String(args[0]));
+          return indexedDB.open(...args);
+        },
+      } });
       const sealed = await vault.seal("browser-outbound", { token, claimId: "browser-claim-id" });
       const getRawKey = () => new Promise((resolve, reject) => {
         const request = indexedDB.open(expected.credentialDatabase.name);
@@ -119,7 +127,7 @@ async function main() {
         rawRecordHasToken: JSON.stringify(rawKey).includes(token),
         domHasToken: document.documentElement.outerHTML.includes(token),
         urlHasToken: location.href.includes(token),
-        database: expected.credentialDatabase.name,
+        openedDatabases,
       };
       return { sealed, probe };
     }, { token, expected: EXPECTATIONS });
@@ -131,7 +139,8 @@ async function main() {
     check(first.probe.rawKeyExtractable === false, "persisted credential key is non-extractable");
     check(first.probe.rawKeyAlgorithm === EXPECTATIONS.vault.algorithm && first.probe.rawKeyLength === EXPECTATIONS.vault.keyLength, "persisted key algorithm and length are bounded");
     assert.deepEqual(first.probe.rawKeyUsages, EXPECTATIONS.vault.keyUsages, "persisted key usages are encryption-only");
-    check(first.probe.database === EXPECTATIONS.credentialDatabase.name, "credential key is stored in the context-owned database");
+    check(first.probe.openedDatabases.length > 0 && first.probe.openedDatabases.every(name => name === EXPECTATIONS.credentialDatabase.name),
+      "vault opens only the context-owned credential database");
     check(first.probe.exportRejected === EXPECTATIONS.vault.exportKeyRejected, "raw key export is rejected by WebCrypto");
     check(first.probe.unsealedMatches, "sealed credentials decrypt before reload");
     check(!first.probe.sealedHasToken && !first.probe.rawRecordHasToken, "plaintext token is absent from sealed and raw IndexedDB records");
@@ -141,7 +150,7 @@ async function main() {
       document.cookie = "repforge_setup_v1=v1.setup-canary; Path=/index.html; SameSite=Lax";
     });
     const cookieResult = await page.evaluate(async ({ token }) => {
-      const transfer = window.RepForgeInstallTransfer;
+      const transfer = window.__repforgeTransferTest;
       const wrote = transfer.writeTransferCookie({ token, expiresAt: "2099-01-01T00:00:00.000Z" });
       const parsed = transfer.readTransferCookie();
       const rawCookie = document.cookie;
@@ -167,51 +176,43 @@ async function main() {
     check(!transferCookie?.value.includes(COOKIE_TOKEN), "encoded cookie value does not expose the raw token");
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.addScriptTag({ url: moduleUrl() });
-    const afterReload = await page.evaluate(async ({ token, sealed, expected }) => {
-      const transfer = window.RepForgeInstallTransfer;
-      const vault = transfer.createCredentialVault({ crypto: globalThis.crypto });
+    await installBrowserClient(page);
+    const afterReload = await page.evaluate(async ({ token, sealed }) => {
+      const transfer = window.__repforgeTransferTest;
+      const openedDatabases = [];
+      const vault = transfer.createCredentialVault({ crypto: globalThis.crypto, indexedDB: {
+        open(...args) {
+          openedDatabases.push(String(args[0]));
+          return indexedDB.open(...args);
+        },
+      } });
       const value = await vault.unseal("browser-outbound", sealed);
       return {
         sameCredential: value?.token === token && value?.claimId === "browser-claim-id",
         keyId: sealed.keyId,
-        dbName: expected.credentialDatabase.name,
+        openedDatabases,
       };
-    }, { token, sealed, expected: EXPECTATIONS });
+    }, { token, sealed });
     check(afterReload.sameCredential, "credential decrypts after a real page reload");
-    check(afterReload.dbName === EXPECTATIONS.credentialDatabase.name, "reload uses the context-owned credential database");
+    check(afterReload.openedDatabases.length > 0 && afterReload.openedDatabases.every(name => name === EXPECTATIONS.credentialDatabase.name),
+      "reload opens only the context-owned credential database");
 
+    // This fresh context has no workout draft. Check persistence wiring only;
+    // workout-draft.mjs proves populated logical-field normalization and
+    // install-transfer-import.mjs crosses the real live-draft transfer path.
     const producerBoundary = await page.evaluate(() => {
       const hook = window.__repforgeWorkoutDraft;
-      const producer = window.RepForgeWorkoutDraft;
       const hookMethods = ["flush", "current", "checkpoint", "read"].every((name) => typeof hook?.[name] === "function");
-      const moduleReady = typeof producer?.logicalCloneSection === "function";
-      let current = null;
-      let normalized = null;
-      let failed = false;
-      try {
-        current = hookMethods ? hook.current() : null;
-        if (current !== null && current !== undefined && moduleReady) normalized = producer.logicalCloneSection(current);
-      } catch {
-        failed = true;
-      }
-      const normalizedObject = normalized !== null && typeof normalized === "object" && !Array.isArray(normalized) && normalized.kind !== "error" && normalized.ok !== false;
       return {
         hookMethods,
         hookHasLogicalClone: typeof hook?.logicalCloneSection === "function",
-        moduleReady,
-        currentAbsent: current === null || current === undefined,
-        normalizedObject,
-        normalizedStripsVolatile: normalizedObject && !Object.hasOwn(normalized, "writer") && !Object.hasOwn(normalized, "revision") && !Object.hasOwn(normalized.program || {}, "durableRevision"),
-        failed,
       };
     });
-    check(producerBoundary.hookMethods && producerBoundary.moduleReady && !producerBoundary.failed, "real app draft producer does not expose the acknowledged hook and logical normalizer seam");
-    check(producerBoundary.currentAbsent || (producerBoundary.normalizedObject && producerBoundary.normalizedStripsVolatile), "real app draft producer normalization retained volatile storage metadata");
+    check(producerBoundary.hookMethods, "real app exposes the draft persistence methods required by the transfer adapter");
     check(!producerBoundary.hookHasLogicalClone, "clone client does not silently treat the raw app draft hook as its logical producer");
 
     const abortProbe = await page.evaluate(async ({ expected }) => {
-      const transfer = window.RepForgeInstallTransfer;
+      const transfer = window.__repforgeTransferTest;
       const vault = transfer.createCredentialVault({ crypto: globalThis.crypto });
       const originalTransaction = IDBDatabase.prototype.transaction;
       let abortScheduled = false;
@@ -245,7 +246,7 @@ async function main() {
     check(abortProbe.contextRecords === 0, "aborted credential write left a persisted key");
 
     const faultProbes = await page.evaluate(async ({ token, expected }) => {
-      const transfer = window.RepForgeInstallTransfer;
+      const transfer = window.__repforgeTransferTest;
       const contract = {
         canonicalJson: (value) => JSON.stringify(value),
         validateEnvelope: (value) => ({ ok: true, value }),
@@ -374,7 +375,7 @@ async function main() {
     check(faultProbes.cleanup.secondConfirmed && faultProbes.cleanup.noSealedFinal && faultProbes.cleanup.oneStatusRequest, "real-browser cleanup retry did not leave a digest-only recovery snapshot");
 
     const keyLoss = await page.evaluate(async ({ sealed, expected }) => {
-      const transfer = window.RepForgeInstallTransfer;
+      const transfer = window.__repforgeTransferTest;
       const vault = transfer.createCredentialVault({ crypto: globalThis.crypto });
       const keyName = `${expected.credentialDatabase.keyNamePrefix}${sealed.keyId}`;
       const database = await new Promise((resolve, reject) => {

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import {createTelemetry} from "../src/platform/telemetry.js";
 import { createRequire } from "node:module";
 import {
   BASICS_PROPERTY_PATTERN,
@@ -10,9 +11,9 @@ import {
 } from "./fixtures/telemetry.mjs";
 
 const require = createRequire(import.meta.url);
-const Telemetry = require("../telemetry.js");
-const ProgramEntry = require("../program-entry.js");
-const ProgramReview = require("../program-review.js");
+const Telemetry = createTelemetry();
+const ProgramEntry = require("../src/training/authoring.js").createEntryRules(null);
+const ProgramReview = require("../src/training/authoring.js").review;
 const FIXED_UUID = "123e4567-e89b-42d3-a456-426614174000";
 const FIXED_DATE = new Date("2026-08-27T00:00:00.000Z");
 
@@ -244,7 +245,7 @@ assert.equal(Telemetry.bucketChanges(1.5), null);
     for (const step of list) assert.ok(steps.has(step), `ROUTE_STEPS.${route} step ${step} has a telemetry step value`);
   }
   assert.ok(steps.has("entry") && steps.has("activation_conflict"));
-  assert.deepEqual([...vocabulary.reviewEditKinds], [...ProgramReview.EDIT_KINDS], "review edit kinds are program-review.js EDIT_KINDS");
+  assert.deepEqual([...vocabulary.reviewEditKinds], [...ProgramReview.EDIT_KINDS], "review edit kinds are native authoring EDIT_KINDS");
 }
 
 // B's Basics never reach telemetry, whatever the event (Plan 071 §7).
@@ -349,7 +350,7 @@ for (const name of Telemetry.getEventNames("all")) {
 
   // The closed lists follow the engine's own vocabularies.
   const vocabulary = Telemetry.getEntryVocabulary().stepAnswers;
-  const Compiler = require("../program-compiler.js");
+  const Compiler = require("../src/training/generation.js");
   for (const split of Object.keys(Compiler.SPLITS)) assert.ok(vocabulary.split.includes(split), `split ${split} has a telemetry value`);
   assert.deepEqual([...vocabulary.gym_preset], [...ProgramEntry.ENTRY_ENVIRONMENTS], "gym presets are the entry environments");
 
@@ -377,5 +378,51 @@ assert.equal(Telemetry.bucketDaysSince(3), "2_3");
 assert.equal(Telemetry.bucketDaysSince(31), "31_plus");
 assert.equal(Telemetry.bucketDaysSince(-1), null);
 assert.equal(Telemetry.bucketDaysSince(undefined), null);
+
+// Retained from install-transfer-telemetry: the alpha-event inventory excludes
+// this phase, so generic privacy cases cannot replace its event-specific guard.
+{
+  const identity = { schemaVersion: 1, installationId: FIXED_UUID, createdAt: FIXED_DATE.toISOString() };
+  const storage = memoryStorage({
+    repforge_telemetry_enabled_v1: "true",
+    repforge_telemetry_identity_v1: JSON.stringify(identity),
+  });
+  const { sent, status } = boot({ storage });
+  const reviewed = { source_context: "browser", destination_context: "standalone", outcome: "success" };
+  const hostile = {
+    token: "FIXTURE_ONLY_TOKEN_CANARY", claimId: "FIXTURE_ONLY_CLAIM_ID_CANARY",
+    payload_size: 12345, program: "FIXTURE_ONLY_PROGRAM_CANARY",
+  };
+  assert.equal(Telemetry.capture("late_install_transfer", { ...reviewed, ...hostile }), false,
+    "transfer-specific capture rejects credentials, claim identity and private program properties");
+  assert.equal(sent.length, 0);
+  for (const [key,value] of Object.entries(hostile))
+    assert.equal(Telemetry.capture("late_install_transfer", { ...reviewed, [key]: value }), false, key);
+  const outbound = status.beforeSend({ event: "late_install_transfer", properties: {
+    ...reviewed, ...hostile, telemetry_schema_version: 1, app_version: "112.98d5335",
+    release_channel: "preview", distinct_id: FIXED_UUID,
+  } });
+  assert.ok(outbound, "the valid transfer envelope survives without its hostile fields");
+  for (const key of Object.keys(hostile)) assert.equal(Object.hasOwn(outbound.properties, key), false, key);
+  for (const value of [hostile.token, hostile.claimId, hostile.program])
+    assert.equal(JSON.stringify(outbound).includes(value), false, value);
+
+  assert.equal(Telemetry.getEventPolicy("late_install_transfer"), "milestone");
+  for (const unqualified of [{ claimOnly: true }, { validationOnly: true }, { partialImport: true },
+    { rollback: true, state: "rolledBack" }, { remoteDeleteAmbiguous: true }, { cleanupRetry: true, state: "localCommitted" }])
+    assert.equal(Telemetry.recordLateInstallTransfer({ storage, localImportVerified: true, ...unqualified }), false);
+  assert.equal(Telemetry.recordLateInstallTransfer({ storage, localImportVerified: true }), true);
+  assert.equal(Telemetry.recordLateInstallTransfer({ storage, localImportVerified: true }), false);
+  assert.equal(sent.length, 1, "verified settlement emits once");
+  const reloaded = boot({ storage });
+  assert.equal(Telemetry.recordLateInstallTransfer({ storage, localImportVerified: true }), false);
+  assert.equal(reloaded.sent.length, 0, "a new boot preserves the installation milestone");
+  const disabled = boot({ storage: memoryStorage({
+    repforge_telemetry_enabled_v1: "false", repforge_telemetry_identity_v1: JSON.stringify(identity),
+  }) });
+  assert.equal(disabled.status.installationId, FIXED_UUID);
+  assert.equal(Telemetry.recordLateInstallTransfer({ localImportVerified: true }), false);
+  assert.equal(disabled.sent.length, 0, "restored disabled consent suppresses the transfer event");
+}
 
 console.log("telemetry unit: schema, identity, opt-out, failure isolation, and buckets pass");

@@ -3,10 +3,9 @@ import { createRequire } from "node:module";
 import fc from "fast-check";
 
 const require = createRequire(import.meta.url);
-const ExerciseMetrics = require("../exercise-metrics.js");
+const ExerciseMetrics = require("../src/training/metrics.js");
 const rawExerciseCatalog = require("../assets/exercise-catalog.json");
-globalThis.RepForgeExerciseCatalog = { snapshot: () => rawExerciseCatalog };
-const Draft = require("../workout-draft.js");
+const Draft = require("../src/training/workout.js").createWorkoutRules(require("../assets/exercise-catalog.json"));
 
 const results = { passed: 0, failed: 0 };
 function assert(condition, name, detail = "") {
@@ -589,7 +588,7 @@ console.log("\nModule consumers without the page catalog loader validate metric 
     { ...sessionSelection(), draftId: "worker-draft", selectedExerciseId: "worker-slot" }, {});
   const { spawnSync } = await import("node:child_process");
   const probe = spawnSync(process.execPath, ["-e", `
-    const Draft = require(${JSON.stringify(require.resolve("../workout-draft.js"))});
+    const Draft = require(${JSON.stringify(require.resolve("../src/training/workout.js"))}).createWorkoutRules(require(${JSON.stringify(require.resolve("../assets/exercise-catalog.json"))}));
     const input = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
     const result = Draft.validate(input);
     process.stdout.write(JSON.stringify({ global: typeof globalThis.RepForgeExerciseCatalog, ok: !!result?.ok, issues: result?.issues?.slice(0, 3) }));

@@ -7,10 +7,10 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
-const Compiler = require(path.join(root, "program-compiler.js"));
-const Metrics = require(path.join(root, "exercise-metrics.js"));
+const Compiler = require(path.join(root, "src/training/generation.js"));
+const Metrics = require(path.join(root, "src/training/metrics.js"));
 const raw = JSON.parse(fs.readFileSync(path.join(root, "plans/067/data/app_file.json"), "utf8"));
-require(path.join(root, "generation-identity.js")).prepareCatalog(raw);
+require(path.join(root, "src/training/identity.js")).prepareCatalog(raw);
 const gym = JSON.parse(fs.readFileSync(path.join(root, "plans/067/data/gym.json"), "utf8"));
 
 // These pure proofs cover combinatorial boundaries that a browser flow cannot

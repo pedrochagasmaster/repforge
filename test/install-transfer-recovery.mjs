@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {Transfer,Contract} from './interchange-runtime.mjs';
 /**
  * Plan 053 Row 5 Safari recovery snapshot oracle.
  *
@@ -11,8 +12,8 @@ import { webcrypto } from "node:crypto";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
-const Transfer = require("../install-transfer.js");
-const Contract = require("../install-transfer-contract.js");
+
+
 
 function base64url(bytes) {
   return Buffer.from(bytes).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");

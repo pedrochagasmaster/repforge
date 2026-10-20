@@ -58,7 +58,7 @@ test("dist/ holds every URL the app precaches or references", () => {
   try {
     build();
     const paths = referencedPaths(ROOT);
-    for (const required of ["index.html", "sw.js", "app.js", "program-engine.js", "program-review.js", "assets/exercise-catalog.json"]) {
+    for (const required of ["index.html", "sw.js", "app.js", "src/platform/program-executor.js", "src/ui/editors/review.js", "assets/exercise-catalog.json"]) {
       assert.ok(paths.includes(required), `the reference scan misses ${required}`);
     }
     const missing = paths.filter((path) => !GENERATED.has(path) && !KNOWN_MISSING.has(path) && !existsSync(join(DIST, path)));
@@ -88,18 +88,18 @@ test("dist/ excludes repository research, sources and documentation", () => {
 
 test("the Pages build command publishes the generated posthog-config.js", () => {
   // Run the exact Pages command in a copy, because the generator rewrites index.html.
-  const runtimeDirs = new Set(["assets", "icons", "fonts", "vendor", "scripts"]);
+  const runtimeDirs = new Set(["assets", "icons", "fonts", "vendor", "scripts", "src", "styles"]);
   const tracked = execFileSync("git", ["ls-files"], { cwd: ROOT, encoding: "utf8" }).split("\n")
     .filter((file) => file && (!file.includes("/") || runtimeDirs.has(file.split("/")[0])) && existsSync(join(ROOT, file)));
   const work = mkdtempSync(join(tmpdir(), "taurifer-pages-"));
   try {
-    for (const file of [...tracked, "plans/README.md"]) cpSync(join(ROOT, file), join(work, file));
+    for (const file of [...tracked, "plans/README.md", "tools/build-styles.mjs", "tools/styles-order.mjs"]) cpSync(join(ROOT, file), join(work, file));
     const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(?:CF_PAGES|POSTHOG_)/.test(key)));
     const result = spawnSync("sh", ["-c", "node scripts/generate-posthog-config.mjs && node scripts/build-pages-dist.mjs"], { cwd: work, env, encoding: "utf8" });
     assert.equal(result.status, 0, result.stderr);
     const out = join(work, "dist");
     assert.match(readFileSync(join(out, "index.html"), "utf8"),
-      /<script src="posthog-config\.js\?v=local" data-optional-runtime="RepForgeTelemetry"><\/script>/);
+      /<link rel="taurifer-config" href="releases\/[a-f0-9]{24}\/posthog-config\.js\?v=local">/);
     assert.equal(readFileSync(join(out, "posthog-config.js"), "utf8"), readFileSync(join(work, "posthog-config.js"), "utf8"));
     assert.ok(!existsSync(join(out, "plans")), "plans/ stays private");
   } finally {

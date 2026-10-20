@@ -22,8 +22,10 @@ const currentWorker = readFileSync(join(ROOT, "sw.js"), "utf8");
 const CACHE = currentWorker.match(/const CACHE = ["']([^"']+)["']/)?.[1];
 assert(CACHE, "sw.js declares a cache name");
 const indexHtml = readFileSync(join(ROOT, "index.html"), "utf8");
-const protectedApp = indexHtml.match(/<script src="(app\.js\?v=\d+)"/)?.[1];
-assert(protectedApp, "index.html loads the protected app.js?v=N URL");
+const protectedApp = indexHtml.match(/<link rel="taurifer-entry" href="([^"]+)"/)?.[1];
+const bootstrap = indexHtml.match(/<script type="module" src="([^"]*src\/bootstrap\.js[^"]*)"/)?.[1];
+assert(protectedApp, "index.html declares its deferred native entry URL");
+assert(bootstrap, "index.html loads its native bootstrap module");
 
 // pathname -> { status, type } while a fault is armed; empty means a healthy origin.
 const faults = new Map();
@@ -89,21 +91,22 @@ const cachedEntry = (url) => page.evaluate(async ({ url, cacheName }) => {
 
 try {
   await page.goto(base, { waitUntil: "domcontentloaded" });
-  // Activation (skipWaiting after the atomic precache, then claim) makes the
-  // page controlled without a reload.
+  // The native release protocol does not claim the initial network document.
+  // Navigate after installation so the activated worker controls a new client.
   await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => !!navigator.serviceWorker.controller, undefined, { timeout: 15000 });
   assert.equal(await page.evaluate((name) => caches.has(name), CACHE), true, `current cache ${CACHE} is installed`);
 
   // 1. Precached code assets (required, network-first): stylesheet and the
-  //    protected app.js?v=N URL. Errors, and HTML served as code, leave the good
+  //    native bootstrap, deferred entry and required release/Entry dependencies. Errors, and HTML served as code, leave the good
   //    copy in the cache and in the page's hands.
   const faultsToTry = [
     { label: "404", fault: { status: 404 } },
     { label: "503", fault: { status: 503 } },
     { label: "200 text/html", fault: { status: 200, type: "text/html" } },
   ];
-  for (const asset of ["styles.css", protectedApp]) {
+  for (const asset of ["styles.css", bootstrap, protectedApp, "src/release/gate.js", "src/training/authoring.js"]) {
     const pathname = `/${asset.split("?", 1)[0]}`;
     const good = await probe(asset);
     assert.equal(good.status, 200, `${asset} healthy baseline is 200`);
