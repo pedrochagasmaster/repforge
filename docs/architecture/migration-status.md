@@ -4,13 +4,24 @@ Owner-authorized implementation of [specification #447](https://github.com/pedro
 
 Implementation base: `147e4afa07fea3243efd42b5b7d167c196c6a7ca`. Specification imported from `46c1996901841868ba133e860cc5662b053effa6` without merging #447 to main. Runtime is unchanged at initialization. A checkbox closes only with its objective evidence and review recorded below.
 
-## Current acceptance: 6 of 20
+## Current acceptance: 7 of 20
 
-Accepted: slices1,2,3,4,6,7. Fourteen remain open. Slice2 release-foundation acceptance is recorded below. Independent implementation review supports the previously accepted slices3,4,6,7: native pure model/training consumption and strict closure; verified catalog plus one app/worker generation authority; browser-free snapshot policy; one durable/preferences owner with qualified outcomes and lock-held checkpoint preflight. The missed pending-checkpoint promotion was corrected in `4e08ce9f` before slice7 acceptance. Physical bridge/classic deletion, public type-edge enforcement and full final-head/offline CI remain explicit slices19–20 gates, not claims attached to intermediate pushes.
+Accepted: slices1–7. Thirteen remain open. Slice5 authoring acceptance and slice2 release-foundation acceptance are recorded below. Independent implementation review supports the previously accepted slices3,4,6,7: native pure model/training consumption and strict closure; verified catalog plus one app/worker generation authority; browser-free snapshot policy; one durable/preferences owner with qualified outcomes and lock-held checkpoint preflight. The missed pending-checkpoint promotion was corrected in `4e08ce9f` before slice7 acceptance. Physical bridge/classic deletion, public type-edge enforcement and full final-head/offline CI remain explicit slices19–20 gates, not claims attached to intermediate pushes.
 
 Independent evidence: `/tmp/core-independent-native-proof.json`, `/tmp/core-native-worker-independent.json` (actual worker50/0), `/tmp/core-training-model-final-independent.json`, source-produced snapshot/fixed-point/refusal contracts, immutable233 result corpus, actual DraftV2 storage81 and integrated persistence107.42s. Reviewer independently reproduced the pending-promotion failure and verified the common lock-held guard; new proof has4 positive and16 competing-head refusals preserving canonical/checkpoint bytes. Motion's actual vendor follow-up is reviewed separately and does not prematurely close slice11.
 
 The sections below record earlier checkpoints; their smaller acceptance totals describe those earlier revisions. Latest acceptance is the checklist here.
+
+## Slice 5 authoring acceptance (19 October, 01:00 UTC)
+
+Source review and decoded job logs accept slice5 at `0599e6caf35d292b3f51035e617d391e9c396349` (source486). [Ordinary CI39182367503](https://github.com/pedrochagasmaster/repforge/actions/runs/39182367503) passed fast, service, all14 browser shards and the aggregate gate. Every job cited below checks out that exact SHA. Production ownership is unchanged from `5f4e18a`; the successor corrects mounted-editor fixture expansion and isolates Focus scenarios with explicit worker-control readiness. Earlier failed runs are not promoted.
+
+- **Pure rules and real callers:** `src/training/authoring.js` exposes Entry normalization/reducers, recommendation edit/replay and shared speculative/canonical editor rules without DOM/storage imports or ambient clock/random reads. `editor-document.js` and `suggestion.js` own metric targets/compositions, prescription fields, load steps, execution modes, Suggest-load RIR, alternates and structural preparation. `installed.js` consumes those rules with canonical validation and stale-before guards. The mounted `src/ui/editors/program.js` consumes the preparation receipts; it retains DOM parsing, focus and pending-name presentation, not duplicate canonical mutations.
+- **Separate hosts and replay identity:** `src/app/entry/editor.js` stages setup/Build through its setup owner; installed editing retains its separate session and Apply lifecycle. Build-only definition creation remains explicit. `entry/review-session.js` restores its private edit log only when draft identity, baseline fingerprint and replayed definition match. No activation/storage format change is claimed.
+- **Validated sequences, token/dirty and every-cycle/null/RIR values:** [fast job117837704452](https://github.com/pedrochagasmaster/repforge/actions/runs/39182367503/job/117837704452) passed architecture boundaries, strict checking, native inventory and116/116 contracts, including `editor-document-rules`, `training-installed-editor`, `native-installed-editor-session`, `entry-activation`, `entry-answer-rebuild`, `program-entry` and `program-review`. Literal refusals and canonical projections preserve distinct speculative provenance, canonical composition defaults and existing RIR limits.
+- **Actual mounted consumption and production journeys:** `native-editor-lifetime` passed2.97s in [shard7](https://github.com/pedrochagasmaster/repforge/actions/runs/39182367503/job/117837704520), including real mounted receipt/refusal checks. `program-entry-s4`41.95s and per-side execution capture17.87s passed in [shard12](https://github.com/pedrochagasmaster/repforge/actions/runs/39182367503/job/117837704513); pending-name/Back proof16.08s in [shard10](https://github.com/pedrochagasmaster/repforge/actions/runs/39182367503/job/117837704470); installed-editor lifetime1.04s and catalog metric journey29.04s in [shard11](https://github.com/pedrochagasmaster/repforge/actions/runs/39182367503/job/117837704519); Review disposal2.40s in [shard6](https://github.com/pedrochagasmaster/repforge/actions/runs/39182367503/job/117837704431); custom mutation/recovery137.75s in [shard3](https://github.com/pedrochagasmaster/repforge/actions/runs/39182367503/job/117837704472).
+
+**Bounded acceptance:** this closes the pure authoring/entry/edit/replay seam, not remaining command or UI slices9/15/16. Physical classic/bridge deletion, complete production assembled root/scoped offline and compatible rollback coverage, final ownership/navigation review and exact-final-candidate CI remain slices19–20 gates. No merge, deployment or physical-device certification is implied.
 
 ## Slice 2 release-foundation acceptance (18 October, 23:46 UTC)
 
@@ -52,7 +63,7 @@ Guide rendering previously queued writes to shown preferences. Native Progress/F
 - [x] 2. ESM/checkJs and release protocol
 - [x] 3. Pure values/model/log/progression extraction
 - [x] 4. Generator/catalog/executor ESM
-- [ ] 5. Authoring/entry/edit/replay pure seams
+- [x] 5. Authoring/entry/edit/replay pure seams
 - [x] 6. Pure snapshot policy
 - [x] 7. Durable instance and preferences ownership
 - [ ] 8. App session/workout commands

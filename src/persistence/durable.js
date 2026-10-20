@@ -2939,6 +2939,7 @@ export function createDurableStore({snapshotPolicy, workout, session,
 
     // DraftV2 storage owner
     DraftStore,
+    retainDraftRecovery,
     v2CheckpointRecord,
     prepareV2CheckpointEffect,
     commitV2CheckpointEffect,

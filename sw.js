@@ -1,5 +1,5 @@
-const CACHE = "repforge-v486";
-const SOURCE_RELEASE = "source-486";
+const CACHE = "repforge-v487";
+const SOURCE_RELEASE = "source-487";
 const ASSETS = [
   // BEGIN GENERATED NATIVE SOURCE ASSETS
   "./src/app/block-review.js",
@@ -188,7 +188,7 @@ const ASSETS = [
   { url: "./vendor/dnd-kit/dnd-kit.js", owner: "RepForgeDndRuntime", required: false },
   { url: "./vendor/dnd-kit/dnd-kit.runtime.js", owner: "RepForgeDndRuntime", required: false, immutable: true },
   { url: "./posthog-config.js", owner: "RepForgeTelemetry", required: false },
-  "./i18n.js", "./exercises.js", "./assets/exercise-catalog.json?v=067", "./app.js", "./app.js?v=486",
+  "./i18n.js", "./exercises.js", "./assets/exercise-catalog.json?v=067", "./app.js", "./app.js?v=487",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",

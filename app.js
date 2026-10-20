@@ -980,7 +980,7 @@ const committed=new Set();
 const touched=new Set();
 const warmups=new Set();
 let contextTouched={day:false,date:false,sessionNotes:false,bodyweight:false};
-const DRAFT_RECOVERY=`${DRAFT}:recovery`,draftTabId=uid();
+const draftTabId=uid();
 let activeWorkoutDraft=null,activeWorkoutDraftRaw=null,workoutDraftRecovery=null;
 let draftUiRecovery=null;
 let workoutDraftSession;
@@ -1078,8 +1078,6 @@ function draftTargetFromKey(key){return Focus.selectDraftTarget(activeWorkoutDra
 function canonicalDraftField(field,value){return PersistenceMetrics.canonicalDraftField(field,value,state.settings.unit)}
 function canonicalDraftBodyweight(value){return workoutContext.bodyweight(value,state.settings.unit)}
 function draftWriter(operationId){return{installationId:DurableState.getJournalWriterId(),tabId:draftTabId,operationId}}
-function storeDraftRecovery(raw,reason){workoutDraftRecovery={raw,reason};
-  try{localStorage.setItem(DRAFT_RECOVERY,JSON.stringify({version:1,reason,raw}))}catch{}}
 async function reconcileV2Checkpoint(read,label){
   return DurableState.reconcileV2Checkpoint(read,label)}
 async function initializeWorkoutDraft({restoreDay=false}={}){
@@ -7496,7 +7494,7 @@ function initializePersistenceOwners(){
     reconcile:DurableState.reconcileV2Checkpoint,
     context:workoutContext,readContext:()=>({snapshot:applicationSession.read(),query:workoutQueries(),rows:scheduledProgramRows(),
       currentCycle:mesocycleWeek().current,calendarDate:today(),library:EXERCISE_LIBRARY,language:uiLang()}),
-    now:()=>new Date().toISOString(),operationId:uid,writer:draftWriter,retainRecovery:storeDraftRecovery,
+    now:()=>new Date().toISOString(),operationId:uid,writer:draftWriter,retainRecovery:DurableState.retainDraftRecovery,
     mutationFrozen:installTransferMutationFrozen,fault:()=>window.__repforgeDraftFault,
     onPublish:({draft,raw})=>{activeWorkoutDraft=draft;activeWorkoutDraftRaw=raw}});
   initializeWorkoutCommands();

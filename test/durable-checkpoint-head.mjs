@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {createDurableStore} from '../src/persistence/durable.js';
+import {createWorkoutDraftSession} from '../src/app/workout.js';
 import * as policy from '../src/persistence/snapshot.js';
 import {createWorkoutRules} from '../src/training/workout.js';
 import metrics from '../src/training/metrics.js';
@@ -60,3 +61,50 @@ for(const mode of ['pending-new','pending-written','pending-rollback','pending-r
  }
 }
 console.log('PASS literal pending-new/pending-written/previous-rollback/removal-rollback promotion matrix: 4 positive, 16 changed/saved/unreadable/inflight head refusals');
+
+// Recovery retention is a durable-owner capability, also used by the native
+// lifecycle when it refuses an unreadable draft. Fault injection here checks
+// exact bytes/envelope and observation independently of checkpoint repair.
+const recoveryKey='repforge_draft_v1:recovery';
+const retained=new Map([['repforge_draft_v1',raw],['repforge_draft_v1:v2-checkpoint','protected checkpoint']]);
+const observed=[];
+let failRetention=false;
+const retentionStore=createDurableStore({snapshotPolicy,workout,
+ platform:{localStorage:{getItem:key=>retained.get(key)??null,setItem(key,value){if(failRetention)throw new Error('quota');retained.set(key,value)}}},
+ session:{onDraftRecovery:value=>observed.push(value)}});
+const damagedRaw=' \n{"unknown":"café 🚧","broken":\t';
+retentionStore.retainDraftRecovery(damagedRaw,'malformed-draft');
+assert.equal(retained.get(recoveryKey),JSON.stringify({version:1,reason:'malformed-draft',raw:damagedRaw}));
+assert.deepEqual(observed,[{raw:damagedRaw,reason:'malformed-draft'}]);
+const retainedBeforeFailure=retained.get(recoveryKey);
+failRetention=true;
+assert.doesNotThrow(()=>retentionStore.retainDraftRecovery('new exact bytes\n','stale-program'));
+assert.equal(retained.get(recoveryKey),retainedBeforeFailure,'failed best-effort retention leaves previous sidecar intact');
+assert.deepEqual(observed.at(-1),{raw:'new exact bytes\n',reason:'stale-program'},'observer still receives recovery when storage rejects the sidecar');
+failRetention=false;
+retentionStore.retainDraftRecovery(null,'missing-draft');
+assert.equal(retained.get(recoveryKey),'{"version":1,"reason":"missing-draft","raw":null}');
+assert.deepEqual(observed.at(-1),{raw:null,reason:'missing-draft'});
+assert.equal(retained.get('repforge_draft_v1'),raw,'retention never replaces canonical bytes');
+assert.equal(retained.get('repforge_draft_v1:v2-checkpoint'),'protected checkpoint','retention never acknowledges or changes checkpoints');
+console.log('PASS actual durable recovery retention: exact raw/envelope, null raw, and observer despite rejected sidecar write');
+
+// Exercise the native refusal path with the real durable read/reconcile/retain
+// capabilities, so the proof also covers the consumer's exact reason and bytes.
+retained.set('repforge_draft_v1',damagedRaw);
+retained.delete('repforge_draft_v1:v2-checkpoint');
+const refusedSession=createWorkoutDraftSession({workout,drafts:retentionStore.DraftStore,
+ reconcile:retentionStore.reconcileV2Checkpoint,retainRecovery:retentionStore.retainDraftRecovery,
+ context:{draftInputs:()=>({})},readContext:()=>({}),now:()=>now,
+ operationId:()=> 'refused',writer:id=>({installationId:'i',tabId:'t',operationId:id})});
+for(const writeFails of [false,true]){
+ failRetention=writeFails;
+ const refused=await refusedSession.initialize({label:'A',days:['A']});
+ assert.equal(refused.status,'invalid');
+ assert.equal(refused.raw,damagedRaw);
+ assert.deepEqual(observed.at(-1),{raw:damagedRaw,reason:'invalid-json'});
+ assert.equal(refusedSession.read().draft,null,'invalid bytes never publish an acknowledged draft');
+ assert.equal(retained.get('repforge_draft_v1'),damagedRaw);
+ assert.equal(retained.has('repforge_draft_v1:v2-checkpoint'),false);
+}
+console.log('PASS native lifecycle refusal uses actual durable retention with and without sidecar-write availability');
