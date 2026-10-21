@@ -32,6 +32,11 @@ export async function measureRenderedRoles(input) {
     context.drawImage(image, 0, 0);
     pixels = { width: canvas.width, height: canvas.height, data: context.getImageData(0, 0, canvas.width, canvas.height).data };
   }
+  // An open native modal dialog (showModal) makes everything outside it inert, as [inert] does (#454).
+  const behindModal = (node) => {
+    const modals = document.querySelectorAll("dialog:modal");
+    return modals.length > 0 && ![...modals].some((dialog) => dialog.contains(node));
+  };
   const visible = (node) => {
     const rect = node.getBoundingClientRect();
     const style = getComputedStyle(node);
@@ -39,7 +44,7 @@ export async function measureRenderedRoles(input) {
       if (Number.parseFloat(getComputedStyle(current).opacity) === 0) return false;
     }
     return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden"
-      && !node.closest("[inert],.visually-hidden");
+      && !node.closest("[inert],.visually-hidden") && !behindModal(node);
   };
   const background = (node) => {
     const chain = [];
@@ -317,8 +322,11 @@ export async function measureRenderedRoles(input) {
   if (Array.isArray(requests)) {
     return requests.flatMap(({ selector, kind }) => {
       let nodes;
-      try { nodes = [...document.querySelectorAll(selector)].filter(visible); }
+      let all;
+      try { all = [...document.querySelectorAll(selector)]; nodes = all.filter(visible); }
       catch { return [{ selector, kind, status: "unsupported", reason: "invalid selector" }]; }
+      // Required, but inert behind an open modal dialog: nothing to measure, and nothing is missing.
+      if (!nodes.length && all.some(behindModal)) return [{ selector, kind, status: "exempt", reason: "behind an open modal dialog" }];
       if (!nodes.length) return [{ selector, kind, status: "missing" }];
       return nodes.map((node) => measure(node, selector, kind));
     });
@@ -521,6 +529,8 @@ export function measureClampedHeadings() {
   for (const node of document.querySelectorAll("h1,h2,h3,h4,h5,h6,[role='heading']")) {
     const rect = node.getBoundingClientRect(), style = getComputedStyle(node);
     if (rect.width <= 0 || rect.height <= 0 || style.display === "none" || style.visibility === "hidden" || node.closest("[inert],.visually-hidden")) continue;
+    const modals = document.querySelectorAll("dialog:modal");
+    if (modals.length && ![...modals].some((dialog) => dialog.contains(node))) continue;
     const clamp = style.webkitLineClamp;
     if (!clamp || clamp === "none") continue;
     const cut = node.scrollHeight > node.clientHeight + 1;

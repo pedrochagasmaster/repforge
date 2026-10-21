@@ -10557,25 +10557,6 @@
           "measured": ".radio-card:not([id]):span.radio-card__mark"
         }
       ]
-    },
-    {
-      "selector": "#exerciseCatalogRecovery",
-      "role": "native modal over a measured dock, held open (#454)",
-      "rationale": "Temporary, #454: the exercise library recovery dialog opens with native showModal(), so the dock behind it is already inert, but the audit still measures it, now against its true scrim-dimmed ground (#439). The dock's focus, text, icon and boundary findings are held open while the dialog is up; the dialog also opens in the unavailable state, where they already pass. Remove this exception with the fix.",
-      "owner": "tip-modal-2026-10-17",
-      "catalogStates": [
-        "catalog-recovery/retry-failed",
-        "catalog-recovery/unavailable"
-      ],
-      "renderedHold": {
-        "within": "nav",
-        "kinds": [
-          "focus",
-          "text",
-          "icon",
-          "boundary"
-        ]
-      }
     }
   ],
   "rootRecipeOwners": [
