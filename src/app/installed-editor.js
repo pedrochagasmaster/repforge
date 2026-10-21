@@ -104,5 +104,13 @@ export function createInstalledEditor({read,refreshHead,commit,model,catalog,nex
       previous.program||null,previous.programMeta||null,{recoveryRecord:readRecovery(proposal)});
     return commit(proposal,options,io);
   }
-  return Object.freeze({read:readDocument,commit:commitDocument,reset:()=>{session=null},readSession:()=>copySnapshot(session),commitForm,commands,rules});
+  /** Undo in the editor takes its staged intents back to an earlier count.
+   * @param {number} count @param {Document} document */
+  function revert(count,document){
+    if(!session)return;
+    if(!(count>0)){session=null;return}
+    session.edits=session.edits.slice(0,count);
+    session.document=copySnapshot(document);
+  }
+  return Object.freeze({read:readDocument,commit:commitDocument,revert,reset:()=>{session=null},readSession:()=>copySnapshot(session),commitForm,commands,rules});
 }

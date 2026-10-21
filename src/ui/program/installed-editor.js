@@ -1,5 +1,5 @@
 /** @typedef {ReturnType<ReturnType<typeof import('../editors.js').createProgramEditor>['mountProgramEditor']>} Mounted
- * @typedef {{openModal:(element:HTMLElement,options:{initialFocus:HTMLElement|null,onEscape:()=>unknown})=>unknown,closeModal:(element:HTMLElement|null)=>unknown}} Shell
+ * @typedef {{openModal:(element:HTMLElement,options:{initialFocus:HTMLElement|null,onEscape:()=>unknown})=>unknown,closeModal:(element:HTMLElement|null)=>unknown,afterModalSettles:(callback:()=>void)=>unknown}} Shell
  */
 export const INSTALLED_EDITOR_HISTORY_STATE_KEY='tauriferProgramEditor';
 /** Installed editing owns its mounted editor, leave decision, pending route and
@@ -23,7 +23,11 @@ export function createInstalledEditorView({window,session,mountEditor,shell,t,on
    if(!armed)return;armed=false;if(historyAlreadyPopped)return;
    releasing=true;try{history.back()}catch{releasing=false}
  }
- function closeLeave(){leave=null;pendingNavigation=null;shell.closeModal($('#programEditorLeave'))}
+ function closeLeave(){
+   leave=null;pendingNavigation=null;shell.closeModal($('#programEditorLeave'));
+   // Staying in the editor (Keep editing, Escape, a refused name) returns to a name Back set aside.
+   const editor=mounted;shell.afterModalSettles(()=>{if(editor===mounted)editor?.resumePendingRename()});
+ }
  /** @param {{workout?:boolean}} [options] */
  function openLeave({workout=false}={}){
    const dialog=$('#programEditorLeave');if(!dialog)return;
@@ -52,6 +56,8 @@ export function createInstalledEditorView({window,session,mountEditor,shell,t,on
    if(token!==generation||editor!==mounted)return result;
    button?.removeAttribute('disabled');
    if(result?.workoutConflict){openLeave({workout:true});return result}
+   // The typed name was refused (a day name already in use): back to its sheet and reason.
+   if(result?.renameRefused){closeLeave();return result}
    if(result?.suggestLoads){if(leave)closeLeave();pendingNavigation=null;if(editor.checkSuggestLoads()?.ok!==false)conflict();return result}
    if(result?.conflict||result?.editorConflict||result?.staleRevision){conflict();closeLeave();return result}
    if(result?.committed===true&&result?.settled===true){finish();onAccepted()}
@@ -65,7 +71,13 @@ export function createInstalledEditorView({window,session,mountEditor,shell,t,on
    armed=false;
    if(mounted.isDirty()){
      try{history.pushState(historyState(),'',location.href);armed=true}catch{}
-     if(!/** @type {HTMLDialogElement|null} */($('#programEditorLeave'))?.open)openLeave();return true;
+     // A name still typed in the editor's rename sheet is held while the sheet steps aside (#445),
+     // then the decision opens over the editor.
+     const leaveOpen=()=>/** @type {HTMLDialogElement|null} */($('#programEditorLeave'))?.open;
+     const held=mounted.holdPendingRename();
+     if(held)void held.then(()=>shell.afterModalSettles(()=>{if(editing&&!leaveOpen())openLeave()}));
+     else if(!leaveOpen())openLeave();
+     return true;
    }
    finish({historyAlreadyPopped:true});return true;
  }
@@ -73,6 +85,7 @@ export function createInstalledEditorView({window,session,mountEditor,shell,t,on
  function bind(){
    if(listeners)return;listeners=new window.AbortController();const signal=listeners.signal;
    $('#programEditToggle')?.addEventListener('click',()=>{if(entry.isOpen()){entry.cancel();return}if(editing){void done();return}editing=true;onEdit()},{signal});
+   $('#programEditCancel')?.addEventListener('click',()=>{if(!editing||!mounted)return;if(mounted.isDirty()){pendingNavigation=null;openLeave();return}finish()},{signal});
    $('#programEditorApply')?.addEventListener('click',()=>{void apply()},{signal});
    $('#programEditorDiscard')?.addEventListener('click',()=>finish({discard:true}),{signal});
    $('#programEditorKeep')?.addEventListener('click',closeLeave,{signal});

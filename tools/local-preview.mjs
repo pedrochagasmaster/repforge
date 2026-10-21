@@ -48,6 +48,7 @@ const isLoopback = (url) => ["localhost", "127.0.0.1"].includes(url.hostname);
 
 export async function maybeStartLocalPreview(entries, {
   cwd = ROOT,
+  prepareApp = true,
   env = process.env,
   fetchImpl = globalThis.fetch,
   execFileSyncImpl = execFileSync,
@@ -172,12 +173,14 @@ export async function maybeStartLocalPreview(entries, {
       return { env: { ...env, REPFORGE_URL: explicitUrl.href }, cleanup: () => { const error = cleanup(); if (error) throw error; } };
     }
 
-    snapshot = snapshotPreviewFiles(cwd);
-    execFileSyncImpl(process.execPath, ["scripts/generate-posthog-config.mjs"], {
-      cwd,
-      stdio: "ignore",
-      env: { ...env, CF_PAGES_BRANCH: "", POSTHOG_ENABLE_PREVIEWS: "false", POSTHOG_PROJECT_TOKEN: "" },
-    });
+    if (prepareApp) {
+      snapshot = snapshotPreviewFiles(cwd);
+      execFileSyncImpl(process.execPath, ["scripts/generate-posthog-config.mjs"], {
+        cwd,
+        stdio: "ignore",
+        env: { ...env, CF_PAGES_BRANCH: "", POSTHOG_ENABLE_PREVIEWS: "false", POSTHOG_PROJECT_TOKEN: "" },
+      });
+    }
     if (interrupted) throw new Error("Temporary local preview startup interrupted");
     const port = await allocatePort();
     const target = new URL(`http://127.0.0.1:${port}/`);

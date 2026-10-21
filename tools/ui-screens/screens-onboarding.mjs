@@ -17,7 +17,7 @@ import assert from "node:assert/strict";
 import { encodeSetupLink } from "../../test/fixtures/setup-link-v4.mjs";
 import { answerRecommend } from "../../test/browser.mjs";
 import { activeEntryState, emptyEntryState } from "./fixtures.mjs";
-import { BASE, SETUP_DRAFT, KEY, sleep, waitForApp } from "./session.mjs";
+import { BASE, SETUP_DRAFT, KEY, replayGuide, sleep, waitForApp } from "./session.mjs";
 
 /** Screens that must be seeded with an already-active program. */
 const NEEDS_ACTIVE_PROGRAM = new Set([
@@ -887,6 +887,7 @@ const FOCUS_SELECTOR = {
   "onboarding-recommend/result-avoided": ".entry__constraints",
   "onboarding-recommend/activation-conflict": '#onbBody .entry__notice[role="alert"]',
   "onboarding-build/editor-ready": "#entryEditorActivate",
+  "onboarding-build/editor-alternates": '#onbProgramEditor [data-role="alternates"]',
   "onboarding-recommend/result-changed": ".review__row.is-changed",
   "onboarding-recommend/review-reorder": "[data-review-reorder]",
   "onboarding-recommend/review-empty-day": ".review__empty",
@@ -951,6 +952,7 @@ export const ONBOARDING_SCENARIOS = {
   "onboarding-start/first-run-returning-resume": (page) => returnToLanding(page, { draft: true }),
   "onboarding-start/hub": (page) => openHub(page),
   "onboarding-start/hub-existing": (page) => openHub(page, { existing: true }),
+  "onboarding-start/hub-guide": async (page) => { await openHub(page); await replayGuide(page, "entry"); },
   "onboarding-start/hub-chosen": async (page) => {
     await openHub(page);
     await page.click('[data-entry-hub="recommend"]');
@@ -1236,6 +1238,21 @@ export const ONBOARDING_SCENARIOS = {
   "onboarding-build/editor-empty": (page) => buildTo(page, "editor-empty"),
   "onboarding-build/editor-partial": (page) => buildTo(page, "editor-partial"),
   "onboarding-build/editor-ready": (page) => buildTo(page, "editor-ready"),
+  "onboarding-build/editor-alternates": async (page) => {
+    // The classic layout's alternates list (Plan 074 moved the installed editor to candidate A,
+    // so the Build route is where these controls render): two chosen movements in order.
+    await buildTo(page, "editor-partial");
+    const exercise = page.locator('#onbProgramEditor [data-role="exercise"]').first();
+    for (let count = 1; count <= 2; count++) {
+      await exercise.locator('[data-role="add-alternate"]').click();
+      await page.waitForSelector("#exPickSheet.is-open #exPickList .pickrow", { timeout: 20000 });
+      await page.locator("#exPickList .pickrow").first().click();
+      await page.waitForFunction((n) => document.querySelectorAll('#onbProgramEditor [data-role="alternate"]').length === n,
+        count, { timeout: 20000 });
+    }
+    await page.waitForFunction(() => document.querySelector("#toast")?.classList.contains("hidden") !== false, undefined, { timeout: 15000 });
+    await page.locator('#onbProgramEditor [data-role="alternates"]').first().evaluate((node) => node.scrollIntoView({ block: "center" }));
+  },
 
   "onboarding-import/source": (page) => importTo(page, "source"),
   "onboarding-import/review": (page) => importTo(page, "review"),

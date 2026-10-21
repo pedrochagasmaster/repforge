@@ -329,6 +329,36 @@
         "text": "text200",
         "motion": "normal"
       }
+    ],
+    "programlab": [
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "pt",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "en",
+        "text": "text200",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "dark",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      }
     ]
   },
   "catalogChecks": {
@@ -424,6 +454,10 @@
     {
       "id": "catalog-recovery",
       "label": "Exercise catalog recovery"
+    },
+    {
+      "id": "programlab",
+      "label": "Program Lab — isolated standalone artifact"
     }
   ],
   "screens": [
@@ -495,6 +529,13 @@
       "flow": "onboarding-start",
       "label": "Entry hub",
       "scenario": "B's hub: Recommend, Build and Import as choice cards, the setup-link note, Continue held until a choice.",
+      "variants": "accessibility"
+    },
+    {
+      "id": "hub-guide",
+      "flow": "onboarding-start",
+      "label": "Entry hub — guide",
+      "scenario": "The entry guide over the hub: the guide dialog, centred over the dimmed hub.",
       "variants": "accessibility"
     },
     {
@@ -841,6 +882,13 @@
       "variants": "demandingText"
     },
     {
+      "id": "editor-alternates",
+      "flow": "onboarding-build",
+      "label": "Build — editor alternates",
+      "scenario": "The Build editor (the classic layout) with its first exercise's in-session alternates: two chosen movements in order, each with move and remove controls, and Add alternate.",
+      "variants": "localized"
+    },
+    {
       "id": "source",
       "flow": "onboarding-import",
       "label": "Import — source",
@@ -1009,6 +1057,20 @@
       "variants": "demandingText"
     },
     {
+      "id": "first-set-guide",
+      "flow": "workout",
+      "label": "Workout — first-set guide",
+      "scenario": "The first-set guide, opened by the first tap on a shelf field: the guide dialog centred over the dimmed Focus, holding the tap until Got it.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "focus-utilities-guide",
+      "flow": "workout",
+      "label": "Workout — workout menu guide",
+      "scenario": "The focus-utilities guide: the guide dialog centred over the dimmed Focus.",
+      "variants": "demandingText"
+    },
+    {
       "id": "focus-per-side",
       "flow": "workout",
       "label": "Workout — Focus, per-side target",
@@ -1142,6 +1204,13 @@
       "variants": "demandingText"
     },
     {
+      "id": "overview-guide",
+      "flow": "progress",
+      "label": "Progress — overview guide",
+      "scenario": "The progress guide on arrival: the guide dialog centred over the dimmed Overview.",
+      "variants": "demandingText"
+    },
+    {
       "id": "overview-baseline",
       "flow": "progress",
       "label": "Progress — baseline-building overview",
@@ -1237,6 +1306,13 @@
       "flow": "progress",
       "label": "Progress — Review",
       "scenario": "The mesocycle review surface.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "review-guide",
+      "flow": "progress",
+      "label": "Progress — review guide",
+      "scenario": "The block-transition guide on the Review tab: the guide dialog centred over the dimmed review.",
       "variants": "demandingText"
     },
     {
@@ -1432,28 +1508,28 @@
       "id": "progression-editor",
       "flow": "program",
       "label": "Program — editor",
-      "scenario": "The installed program editor, with the first day open.",
+      "scenario": "The installed Program editor (Plan 074): the program name, its days and current week, the day tabs, the first day's exercises with one line per set, and Apply pinned where the dock was.",
       "variants": "localized"
     },
     {
       "id": "editor-alternates",
       "flow": "program",
       "label": "Program — editor alternates",
-      "scenario": "The installed program editor with an exercise open on its alternates: two chosen movements in order, each with reorder and remove controls, and Add alternate.",
+      "scenario": "The installed Program editor with an exercise's sheet scrolled to its in-session alternates: two chosen movements in order, each with reorder and remove controls, and Add alternate.",
       "variants": "localized"
     },
     {
       "id": "editor-suggest-loads",
       "flow": "program",
       "label": "Program — Suggest loads",
-      "scenario": "The installed program editor with Suggest loads switched on for a dumbbell renegade row: the current rep target, the RIR, the smallest load change, and the question of how the lifter does the exercise.",
+      "scenario": "The installed Program editor's sheet for a dumbbell renegade row with Suggest loads switched on (an ink switch): the current rep target, the RIR on every set, the smallest load change, and the question of how the lifter does the exercise.",
       "variants": "localized"
     },
     {
       "id": "editor-day-name-refused",
       "flow": "program",
       "label": "Program — refused day rename",
-      "scenario": "The installed program editor after a day was renamed to a name another day already uses: the field shows the day's own name again and the reason sits under the day header.",
+      "scenario": "The installed Program editor's rename sheet after a day was given a name another day already uses: the field keeps the typed name, is marked invalid, and the reason sits under it; the day keeps its own name.",
       "variants": "localized"
     },
     {
@@ -1551,7 +1627,21 @@
       "id": "guides-replay",
       "flow": "settings",
       "label": "Settings — replayed guide",
-      "scenario": "A real contextual guide replayed from Settings and anchored to its live privacy action.",
+      "scenario": "A real contextual guide replayed from Settings: the privacy guide dialog, centred over the dimmed list.",
+      "variants": "standard"
+    },
+    {
+      "id": "backup-guide",
+      "flow": "settings",
+      "label": "Settings — backup guide",
+      "scenario": "The backup guide in the open backup group: the guide dialog centred over the dimmed Settings.",
+      "variants": "standard"
+    },
+    {
+      "id": "install-guide",
+      "flow": "settings",
+      "label": "Settings — install guide",
+      "scenario": "The install guide where Settings offers Install (iOS Safari): the guide dialog centred over the dimmed Settings.",
       "variants": "standard"
     },
     {
@@ -1777,6 +1867,20 @@
       "label": "Exercise catalog retry failed",
       "scenario": "The lifter retries while the catalog remains unavailable; the dialog reports the failed retry and keeps the retry action available.",
       "variants": "localized"
+    },
+    {
+      "id": "editor",
+      "flow": "programlab",
+      "label": "Program Lab scenario editor",
+      "scenario": "Separate packaged artifact origin, verified catalog, current four-day fixture and two-set low-RIR policy. Stable scenario editor subject.",
+      "variants": "programlab"
+    },
+    {
+      "id": "comparison",
+      "flow": "programlab",
+      "label": "Program Lab candidate prescriptions",
+      "scenario": "Actual dedicated worker runs bundled default and low-RIR candidate; frame the resulting candidate prescriptions on the isolated artifact origin.",
+      "variants": "programlab"
     }
   ]
 }

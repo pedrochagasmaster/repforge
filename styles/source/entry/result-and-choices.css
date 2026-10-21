@@ -266,12 +266,6 @@
 .entry-body .entry-card[data-entry-route="recommend"]:active:not(:disabled){background:var(--entry-tint)}
 .entry-body .entry-card[data-entry-route="recommend"] .entry-card__icon,
 .entry-body .entry-card[data-entry-route="recommend"] .entry-card__go{color:var(--accent)}
-/* The chooser's entry guide sits right after the Recommend card it explains.
-   The hub becomes a CSS grid at wider widths, so without this the cue would
-   land in a card-sized cell instead of its own full-width row. */
-.entry__hub .guide-cue{grid-column:1/-1;margin:0 0 10px;background:var(--well)}
-/* B's hub places the cue after its choices. */
-.entry__hub + .guide-cue{margin:12px 0 0;background:var(--well)}
 .entry-body .entry__own{gap:0;padding:2px 0 2px 20px;border-left:1px solid var(--rule);margin-top:2px}
 .entry-body .entry__group-lab{
   margin:22px 0 8px;display:flex;align-items:center;gap:10px;color:var(--ink-faint)

@@ -4,11 +4,14 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, extname, normalize, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { SUITES, commandArgs } from "../test/suites.mjs";
+import { FULL_SUITES, SUITES, commandArgs } from "../test/suites.mjs";
 import { isCacheRevisionOnlyServiceWorkerChange } from "./revision-diff.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const ALL = Object.entries(SUITES).flatMap(([lane, suites]) => suites.map((suite) => ({ lane, suite })));
+// Full-lane commands (ci-full) are selected locally only when their own file
+// changed, or when a test/tool input reaches no pull-request suite at all.
+const FULL = Object.entries(FULL_SUITES).flatMap(([lane, suites]) => suites.map((suite) => ({ lane, suite })));
 const PROSE = /(^|\/)(README|AGENTS|CLAUDE|CONTEXT)\.md$|^(docs|plans|advisor-plans)\/.+\.(md|html)$/;
 const CACHE_REVISION_SUITES = ["test/exercise-library.mjs", "test/sw-upgrade.mjs", "test/vendor-runtimes.mjs"];
 
@@ -118,8 +121,8 @@ function reverseImports(cwd) {
   return reverse;
 }
 
-function dependentScheduledFiles(files, cwd, reverse = reverseImports(cwd)) {
-  const scheduled = new Set(ALL.map(({ suite }) => suite.file));
+function dependentScheduledFiles(files, cwd, reverse = reverseImports(cwd), entries = ALL) {
+  const scheduled = new Set(entries.map(({ suite }) => suite.file));
   const selected = new Set();
   const queue = [...files];
   const seen = new Set(queue);
@@ -138,13 +141,33 @@ function entriesForLanes(lanes) {
   return ALL.filter(({ lane }) => lanes.has(lane));
 }
 function entriesForSuiteFiles(files) {
-  return ALL.filter(({ suite }) => files.has(suite.file));
+  return [...ALL, ...FULL].filter(({ suite }) => files.has(suite.file));
 }
 function addEntries(target, additions) {
   for (const entry of additions) target.set(JSON.stringify(commandArgs(entry.suite)), entry);
 }
 
 const EXPLICIT_INPUT_RULES = [
+  {
+    match: /^engine-policy\.js$/,
+    suiteFiles: ["test/programlab-native-policy.mjs", "test/programlab-default-parity.mjs", "test/program-engine-worker.mjs"],
+    why: "the engine-policy seam: native policies, default preservation and the worker that loads it",
+  },
+  {
+    match: /^programlab\/(?:domain|store|archive|archive-worker)\.js$/,
+    suiteFiles: ["test/programlab-domain.mjs", "test/programlab-archive.mjs", "test/programlab-archive-limits.mjs", "test/programlab-store.mjs", "test/programlab-ui.mjs", "test/programlab-package.mjs"],
+    why: "lab planning, archive protocol and isolated persistence consumers",
+  },
+  {
+    match: /^programlab\/|^tools\/build-programlab\.mjs$/,
+    suiteFiles: ["test/programlab-ui.mjs", "test/programlab-package.mjs", "test/pages-deploy-boundary.mjs"],
+    why: "standalone workbench presentation, services, packaged URLs and production exclusion",
+  },
+  {
+    match: /^test\/fixtures\/programlab-integration-default-results\.json$/,
+    suiteFiles: ["test/programlab-default-parity.mjs"],
+    why: "pre-extraction complete-result baseline",
+  },
   {
     match: /^test\/generative\/(?:adapters|arbitraries|model|properties|regressions)\//,
     suiteFiles: ["test/generative/run.mjs", "test/generative/self-test.mjs"],
@@ -177,7 +200,7 @@ const EXPLICIT_INPUT_RULES = [
   },
   {
     match: /^tools\/ui-role-inventory\.json$/,
-    suiteFiles: ["test/ui-system.mjs"],
+    suiteFiles: ["test/ui-system.mjs", "test/ui-system-checker.mjs"],
     why: "live semantic-role inventory",
   },
   {
@@ -235,6 +258,14 @@ export function selectAffected(files, { cwd = ROOT, base } = {}) {
   if (dependencyFiles.size) {
     addEntries(chosen, ALL.filter(({ suite }) => dependencyFiles.has(suite.file)));
     reasons.push(`Dependency graph reaches ${dependencyFiles.size} scheduled suite file(s).`);
+  }
+  for (const file of supportInputs) {
+    if (dependencyByInput.get(file).size) continue;
+    const fullFiles = FULL.some(({ suite }) => suite.file === file) ? new Set([file]) : dependentScheduledFiles([file], cwd, reverse, FULL);
+    if (!fullFiles.size) continue;
+    dependencyByInput.set(file, fullFiles);
+    addEntries(chosen, FULL.filter(({ suite }) => fullFiles.has(suite.file)));
+    reasons.push(`${file}: full-lane only → ${[...fullFiles].join(", ")}`);
   }
 
   for (const file of code) {

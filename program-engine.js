@@ -28,7 +28,7 @@
     };
     const run = (message) => {
       if (message.type === "generate") {
-        return root.RepForgeProgramCompiler.generateProgram(message.request, root.RepForgeExerciseCatalog.snapshot());
+        return root.RepForgeProgramCompiler.generateProgram(message.request, root.RepForgeExerciseCatalog.snapshot(), message.generationOptions);
       }
       // Without a catalogSnapshot the transition domain reads this worker's catalog.
       return root.RepForgeProgramTransition.deriveSuccessor(message.input);
@@ -63,33 +63,44 @@
   /* options:
      - compiler, transition: the page's modules, for the main-thread path;
      - catalog(): the page's verified raw catalog;
+     - allowMainThreadFallback: false rejects work if a worker cannot run;
      - worker: { url, scripts, catalogSha256 } or null to stay on the main
        thread. scripts are the absolute URLs the page itself loaded. */
   function create(options) {
     const opts = options || {};
     const counts = { worker: 0, main: 0 };
     const queue = [];
-    let mode = opts.worker && typeof root.Worker === "function" ? "pending" : "main";
+    let mode = opts.worker && typeof root.Worker === "function" ? "pending"
+      : opts.allowMainThreadFallback === false ? "failed" : "main";
     let worker = null, started = null, active = null, disposed = false;
     let settleStart = () => {};
 
+    function workerUnavailable() {
+      return Object.assign(new Error("The program worker is unavailable."), {
+        name: "WorkerUnavailableError", code: "worker_unavailable",
+      });
+    }
+
     function runOnMain(job) {
       counts.main++;
-      if (job.type === "generate") return opts.compiler.generateProgram(job.request, opts.catalog());
+      if (job.type === "generate") return opts.compiler.generateProgram(job.request, opts.catalog(), job.generationOptions);
       return opts.transition.deriveSuccessor({ ...job.input, catalogSnapshot: opts.catalog() });
     }
 
-    // Once the worker is unusable every queued and future job runs here.
+    // A failed worker either falls back or closes this executor to computation.
     function fallBack() {
       if (disposed) return;
       if (worker) { try { worker.terminate(); } catch {} }
       worker = null;
-      mode = "main";
-      settleStart("main");
+      mode = opts.allowMainThreadFallback === false ? "failed" : "main";
+      settleStart(mode);
       const pending = active ? [active, ...queue] : [...queue];
       active = null;
       queue.length = 0;
-      for (const job of pending) settle(job, () => runOnMain(job));
+      for (const job of pending) {
+        if (mode === "failed") job.reject(workerUnavailable());
+        else settle(job, () => runOnMain(job));
+      }
     }
 
     function settle(job, compute) {
@@ -101,7 +112,7 @@
       if (started) return started;
       if (disposed) return Promise.resolve("disposed");
       started = new Promise((resolve) => { settleStart = resolve; });
-      if (mode === "main") { settleStart("main"); return started; }
+      if (mode === "main" || mode === "failed") { settleStart(mode); return started; }
       try {
         worker = new root.Worker(opts.worker.url);
       } catch {
@@ -111,7 +122,7 @@
       worker.onerror = (event) => { event?.preventDefault?.(); fallBack(); };
       worker.onmessageerror = () => fallBack();
       worker.onmessage = (event) => {
-        if (disposed) return;
+        if (disposed || mode === "failed" || mode === "main") return;
         const message = event.data || {};
         if (message.type === "ready") { mode = "worker"; settleStart("worker"); pump(); return; }
         if (message.type === "failed") { fallBack(); return; }
@@ -124,7 +135,9 @@
         else job.reject(new Error(message.message));
         pump();
       };
-      worker.postMessage({ type: "init", scripts: opts.worker.scripts, catalogSha256: opts.worker.catalogSha256 });
+      try {
+        worker.postMessage({ type: "init", scripts: opts.worker.scripts, catalogSha256: opts.worker.catalogSha256 });
+      } catch { fallBack(); }
       return started;
     }
 
@@ -138,7 +151,7 @@
         if (mode === "main") { settle(job, () => runOnMain(job)); continue; }
         active = job;
         const { resolve, reject, signal, ...message } = job;
-        worker.postMessage(message);
+        try { worker.postMessage(message); } catch { fallBack(); }
       }
     }
 
@@ -147,6 +160,7 @@
       return new Promise((resolve, reject) => {
         if (disposed) { reject(abortError()); return; }
         if (signal?.aborted) { reject(abortError()); return; }
+        if (mode === "failed") { reject(workerUnavailable()); return; }
         const entry = { ...job, id: ++nextId, signal, resolve, reject };
         // An abort answers at once; a job already in the worker finishes there
         // and its result is dropped.
@@ -179,13 +193,26 @@
 
     return Object.freeze({
       /** generateProgram(request, catalog), resolved off the main thread when possible. */
-      generate: (request, { signal } = {}) => submit({ type: "generate", request }, signal),
+      generate: (request, { signal, enginePolicy, diagnostics } = {}) => {
+        if (disposed || signal?.aborted) return Promise.reject(abortError());
+        if (mode === "failed") return Promise.reject(workerUnavailable());
+        if (diagnostics !== undefined && diagnostics !== "allocation-lineage@1") return Promise.resolve({ ok: false, value: null,
+          conflicts: [{ field: "diagnostics", code: "invalid_diagnostics", message: "Choose allocation-lineage@1 or omit diagnostics." }], explanations: [] });
+        const Policy = root.RepForgeEnginePolicy || (typeof require === "function" ? require("./engine-policy.js") : null);
+        const normalized = Policy.normalizeEnginePolicy(enginePolicy);
+        if (!normalized.ok) return Promise.resolve({ ok: false, value: null,
+          conflicts: [{ field: "enginePolicy", code: "invalid_engine_policy", issues: normalized.issues }], explanations: [],
+          ...(diagnostics === "allocation-lineage@1" ? { diagnostics: { kind: "taurifer-generation-diagnostics", schemaVersion: 1,
+            version: diagnostics, terminalStage: "validation", slots: [] } } : {}) });
+        return submit({ type: "generate", request,
+          generationOptions: { enginePolicy: normalized.value, ...(diagnostics === undefined ? {} : { diagnostics }) } }, signal);
+      },
       /** RepForgeProgramTransition.deriveSuccessor(input) against the release catalog; input carries no catalog. */
       derive: (input, { signal } = {}) => {
         const { catalogSnapshot, ...rest } = input || {};
         return submit({ type: "derive", input: rest }, signal);
       },
-      /** Starts the worker if needed; resolves "worker" or "main" once that is known. */
+      /** Starts the worker; resolves "worker", "main", or "failed" (fallback disabled). */
       ready: () => start(),
       stats: () => ({ mode, ...counts }),
       /** Terminates this executor and rejects any active or queued jobs. */

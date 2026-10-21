@@ -13,18 +13,27 @@ import * as unsupportedGrammar from './unsupported-grammar.js';
 const isRecord=value=>value!==null&&typeof value==='object'&&!Array.isArray(value);
 const FREEFORM_JSON_CANDIDATES=8;
 const FREEFORM_NOT_IMPORTED_KEYS={rest_times:1,rir_rpe:1,tempo:1,supersets:1,warmups:1,cardio:1,progression_rules:1,deload:1,other_notes:1};
-/** @param {string} text */
+/** Each candidate is whole: a fence body, or a root that never closes, is kept
+   as one candidate so its nested pieces can never import on their own. A
+   backslash pasted just before a root stays in it, so the illegal escape fails
+   to parse.
+   @param {string} text */
 function freeformJsonCandidates(text){
-  const out=[];
-  const fence=/```(?:json)?\s*([\s\S]*?)```/gi;
-  for(let match;(match=fence.exec(text))!==null;){
+  /** @type {string[]} */ const out=[];
+  /** @type {[number,number][]} */ const fences=[];
+  const fence=/```(?:json)?\s*([\s\S]*?)(?:```|$)/gi;
+  for(let match;out.length<FREEFORM_JSON_CANDIDATES&&(match=fence.exec(text))!==null;){
+    fences.push([match.index,fence.lastIndex]);
     const body=match[1].trim();
     if(body)out.push(body)}
   /** @type {Record<string,string>} */ const closers={"{":"}","[":"]"};
   for(let i=0;i<text.length&&out.length<FREEFORM_JSON_CANDIDATES;i++){
+    const inFence=fences.find(([start,end])=>i>=start&&i<end);
+    if(inFence){i=inFence[1]-1;continue}
     const open=text[i],close=closers[open];
     if(!close)continue;
-    let depth=0,inString=false,escaped=false;
+    const start=text[i-1]==="\\"?i-1:i;
+    let depth=0,inString=false,escaped=false,closed=false;
     for(let j=i;j<text.length;j++){
       const ch=text[j];
       if(inString){
@@ -34,7 +43,8 @@ function freeformJsonCandidates(text){
         continue}
       if(ch==='"'){inString=true;continue}
       if(ch===open)depth++;
-      else if(ch===close&&--depth===0){out.push(text.slice(i,j+1));i=j;break}}}
+      else if(ch===close&&--depth===0){out.push(text.slice(start,j+1));i=j;closed=true;break}}
+    if(!closed){out.push(text.slice(start));break}}
   return out}
 /** @param {unknown} obj */
 function extractNotImported(obj){
@@ -233,6 +243,13 @@ export function parseFreeformProgramReply(text,parseProgramSource){
   const directGap=readFreeformGapEnvelope(raw);
   if(directGap)return directGap;
 
-  // Which failure it was decides which repair prompt the lifter can send back.
-  return{status:"unreadable",reason:candidates.length?"invalid_rows":"no_json"};}
+  // A syntax error is not an invalid exercise. Keep them separate so a pasted
+  // Markdown-escaped bracket (e.g. \\[) asks for a clean copy, not invented sets.
+  // Diagnosis only: parsing here never accepts anything, and nothing is repaired.
+  /** @param {string} value */
+  const syntaxBroken=value=>{try{JSON.parse(value);return false}catch{return true}};
+  const reason=candidates.some(syntaxBroken)?"invalid_json"
+    :candidates.length?"invalid_rows"
+    :/^\s*```/.test(raw)?"invalid_json":"no_json";
+  return{status:"unreadable",reason};}
 

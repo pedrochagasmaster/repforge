@@ -14,7 +14,7 @@ import ExerciseMetrics from "../../metrics.js";
 import { cloneSnapshot,canonicalize,isPlainStateObject } from "../../model/internal/values.js";
 import { progression } from "../../progress.js";
 import suggestion from "./suggestion.js";
-import {createEditorDocumentRules} from "./editor-document.js";
+import {createEditorDocumentRules,dayOrderConflict,reorderTrainingDays} from "./editor-document.js";
 /** Pure document edits/rebase; host captures the identity and metadata policy.
  * @param {{model:ReturnType<typeof import('../../model.js').createProgramModel>,catalog:import('../../generation/internal/compiler-contracts.js').SourceCatalog,nextId:()=>string,defaultProgramMeta:(log:unknown[])=>EditorMeta,allowCreateDefinition?:boolean,recoveryRecord?:import('../../model/internal/contracts.js').RecoveryRecord|null}} options */
 export function createInstalledEditorRules({model,catalog,nextId,defaultProgramMeta,allowCreateDefinition=false,recoveryRecord=null}) {
@@ -114,6 +114,19 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
   }
   if(kind==="slot_alternates")
     return syncEditorCanonicalIntent(document,document,edit)?{ok:true}:{conflict:true,code:"invalid_canonical_alternates"};
+  if(kind==="day_move"){
+    // A move made against one day order does not replay over another.
+    const current=(document.programMeta?.programStructure?.days||[]).map(entry=>String(entry?.label||entry?.dayId||""));
+    const code=dayOrderConflict(current,check?edit:{...edit,before:current});
+    if(code)return{conflict:true,code};
+    const byLabel=new Map((document.programMeta?.programStructure?.days||[]).map(entry=>[String(entry?.label||entry?.dayId||""),entry]));
+    const days=[];
+    for(const [index,label] of edit.after.entries()){
+      const entry=byLabel.get(label);if(!entry)return{conflict:true,code:"invalid_day_order"};
+      days.push({...entry,order:index+1})}
+    document.programMeta={...(document.programMeta||{}),programStructure:{...(document.programMeta?.programStructure||{}),days}};
+    return syncEditorCanonicalIntent(document,document,edit)?{ok:true}:{conflict:true,code:"day_order_changed"};
+  }
   if(kind==="metric_target"||kind==="metric_composition"||kind==="prescription_field"||
     kind==="prescription"&&edit.field==="sets"){
     return syncEditorCanonicalIntent(document,document,edit,{cycleIndex:Number(edit.cycleIndex)||1})
@@ -501,6 +514,12 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
     const target=(definition.days||[]).find(day=>day.kind==="rest"&&!day.slots?.length);
     if(!target)return false;
     target.name=nextName;target.kind="training";
+  }else if(edit?.kind==="day_move"){
+    // Plan 074 S2: the training days take the structure's new order in the
+    // positions training days already hold; rest days stay where they are.
+    const days=reorderTrainingDays(definition,edit.after);
+    if(!days)return false;
+    definition.days=days;
   }else if(edit?.kind==="day_remove"){
     const target=(definition.days||[]).find(item=>item.name===edit.targetDay);
     if(!target)return false;

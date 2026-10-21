@@ -103,10 +103,12 @@ try {
             "Why Escape restores its live opener");
         }
         if (key === "settings/guides-replay") {
-          const cue = '[data-guide-cue="privacy"]';
-          assert.ok(await page.evaluate(selector => document.querySelector(selector)?.contains(document.activeElement), cue), "replayed guide receives focus");
+          // #435: a replayed guide is a native modal dialog, focused on its title.
+          const dialog = 'dialog#guideDialog[open][data-guide="privacy"]';
+          assert.ok(await page.evaluate(selector => document.querySelector(selector)?.matches(":modal")
+            && document.querySelector(selector).contains(document.activeElement), dialog), "replayed guide is modal and receives focus");
           await page.keyboard.press("Escape");
-          await page.waitForSelector(cue, { state: "detached" });
+          await page.waitForSelector("dialog#guideDialog[open]", { state: "detached" });
           assert.ok(await page.evaluate(() => document.activeElement?.matches('[data-guide-replay="privacy"]')), "guide Escape returns focus to Replay");
           assert.equal(await page.evaluate(() => window.__repforgeUi.guideState().privacy?.status), "dismissed", "guide Escape persists dismissal");
         }

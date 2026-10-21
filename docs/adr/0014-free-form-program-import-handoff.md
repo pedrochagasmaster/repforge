@@ -77,6 +77,13 @@ fenced block, an offer to keep going. Refusing that reply would push the
 failure onto the lifter, who has no way to know which part we wanted. So the
 reply is mined for candidates: fenced blocks first, then every balanced
 top-level object or array, then the whole thing as a plain-text program export.
+The current prompt asks for one Markdown `json` code fence with no surrounding
+prose. This reduces the risk of mobile copy paths introducing Markdown escapes
+(e.g. `\\[`) outside JSON strings. Bare JSON and prose-wrapped replies remain
+accepted for compatibility. When a JSON-shaped reply is malformed or truncated,
+the paste door identifies a syntax failure and asks for a fresh code-block copy;
+it does not silently strip escapes or repair exercise data.
+
 The first candidate that parses *and validates* wins.
 
 None of that widens what is accepted. Every candidate goes through

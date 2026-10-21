@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 193 screens,
-1118 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 203 screens,
+1174 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -16,9 +16,10 @@ install UI), regenerate before merging:
 node tools/capture-ui-screens.mjs --affected --accept-visual-change
 ```
 
-CI checks catalog registration and the representative matrix in `tools/critical-ui.mjs`.
-Only those selected frames are compared with fresh production captures. Exhaustive
-parity is retired; omitted frames may become stale until reviewed/regenerated.
+Pull-request CI checks catalog registration (`tools/check-ui-screens.mjs`) and compares
+the critical matrix in `tools/critical-ui.mjs` with fresh production captures. The full
+lane (`ci-full`, on every push to main and nightly) verifies every frame with
+`tools/capture-ui-screens.mjs --verify`. A stale catalog fails main loudly.
 
 Never hand-edit a PNG.
 
@@ -32,6 +33,13 @@ demanding surfaces named in ADR 0012 additionally capture PT-BR at 200% text
 run across every catalog screen — image comparison alone cannot tell a
 designed scroller from a failure — and contrast is audited per rendered role
 under WCAG 2.2 AA.
+
+## Contextual guides
+
+A contextual guide is a modal dialog, and the rendered-role audits skip what a modal
+makes inert. Every state is therefore drawn on a device whose guides have been read, so
+each surface is audited whole, and each of the eight guides has its own state that
+replays it over its real surface: the `*-guide` states and `settings/guides-replay`.
 
 ## Naming
 
@@ -58,6 +66,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Returning landing](screens/onboarding-start/first-run-returning__phone-390-light-en.png) | 7 | A later visit to a device with no program and no log, with nothing saved. The welcome-back headline and its line, the Build pill, the Track link and Privacy lead; the chips, the proof and the outcomes are left out, and the ways, the data promise, the questions and the closing band follow. |
 | [Returning landing — setup saved](screens/onboarding-start/first-run-returning-resume__phone-390-light-en.png) | 7 | A later visit with a half-finished Recommend setup saved. The lead action names it (Continue choosing your program) in the hero and the closing band; tapping it opens the chooser's resume card. |
 | [Entry hub](screens/onboarding-start/hub__phone-390-light-en.png) | 7 | B's hub: Recommend, Build and Import as choice cards, the setup-link note, Continue held until a choice. |
+| [Entry hub — guide](screens/onboarding-start/hub-guide__phone-390-light-en.png) | 7 | The entry guide over the hub: the guide dialog, centred over the dimmed hub. |
 | [Entry hub — Recommend chosen](screens/onboarding-start/hub-chosen__phone-390-light-en.png) | 3 | The hub with Recommend chosen and Continue enabled. |
 | [Entry hub — existing program](screens/onboarding-start/hub-existing__phone-390-light-en.png) | 3 | Opened from Settings while a program is active, so replacement consequences are in view. |
 
@@ -117,6 +126,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Build — empty days](screens/onboarding-build/editor-empty__phone-390-light-en.png) | 8 | Real empty day containers, Add exercise, Save draft, activation disabled. |
 | [Build — partial draft](screens/onboarding-build/editor-partial__phone-390-light-en.png) | 8 | One populated day and one incomplete day. Activation stays disabled. |
 | [Build — activation ready](screens/onboarding-build/editor-ready__phone-390-light-en.png) | 8 | A complete manual draft with supported progression and activation enabled. |
+| [Build — editor alternates](screens/onboarding-build/editor-alternates__phone-390-light-en.png) | 3 | The Build editor (the classic layout) with its first exercise's in-session alternates: two chosen movements in order, each with move and remove controls, and Add alternate. |
 
 ### Onboarding — Import a program file
 
@@ -167,6 +177,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | Screen | Frames | What it shows |
 | --- | --- | --- |
 | [Workout — focus mode](screens/workout/focus__phone-390-light-en.png) | 8 | One exercise at a time. |
+| [Workout — first-set guide](screens/workout/first-set-guide__phone-390-light-en.png) | 8 | The first-set guide, opened by the first tap on a shelf field: the guide dialog centred over the dimmed Focus, holding the tap until Got it. |
+| [Workout — workout menu guide](screens/workout/focus-utilities-guide__phone-390-light-en.png) | 8 | The focus-utilities guide: the guide dialog centred over the dimmed Focus. |
 | [Workout — Focus, per-side target](screens/workout/focus-per-side__phone-390-light-en.png) | 8 | A generated bilateral press shows its per-side load label and adaptive target prefilled in ordinary Focus. |
 | [Workout — why this weight, per-side loading](screens/workout/why-per-side__phone-390-light-en.png) | 8 | The generated bilateral press's Why sheet explains the multiplier and enabled bodyweight contribution. |
 | [Workout — deload week](screens/workout/deload-week__phone-390-light-en.png) | 3 | Focus shows the recovery note during the program's deload cycle. |
@@ -208,6 +220,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | Screen | Frames | What it shows |
 | --- | --- | --- |
 | [Progress — overview](screens/progress/overview__phone-390-light-en.png) | 8 | The Progress landing tab. |
+| [Progress — overview guide](screens/progress/overview-guide__phone-390-light-en.png) | 8 | The progress guide on arrival: the guide dialog centred over the dimmed Overview. |
 | [Progress — baseline-building overview](screens/progress/overview-baseline__phone-390-light-en.png) | 8 | Sparse evidence remains neutral and contributes no Needs action items. |
 | [Progress — actionable overview](screens/progress/overview-action__phone-390-light-en.png) | 8 | Sufficient evidence produces linked program-wide action items. |
 | [Progress — exercise chart](screens/progress/exercise-chart__phone-390-light-en.png) | 8 | A per-side lift's e1RM chart and table in the logged unit. |
@@ -222,6 +235,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Progress — PRs](screens/progress/prs__phone-390-light-en.png) | 3 | The personal-record list. |
 | [Progress — PR detail](screens/progress/prs-drill-in__phone-390-light-en.png) | 3 | A personal record expands to locale-formatted evidence detail. |
 | [Progress — Review](screens/progress/review__phone-390-light-en.png) | 8 | The mesocycle review surface. |
+| [Progress — review guide](screens/progress/review-guide__phone-390-light-en.png) | 8 | The block-transition guide on the Review tab: the guide dialog centred over the dimmed review. |
 | [Progress — active Review](screens/progress/review-active__phone-390-light-en.png) | 8 | The active-block checkpoint is read-only. |
 | [Progress — completed-block Review](screens/progress/review-complete__phone-390-light-en.png) | 8 | A completed block exposes the evidence-valid structural routes. |
 | [Progress — insufficient-evidence Review](screens/progress/review-insufficient__phone-390-light-en.png) | 8 | A completed block with sparse evidence excludes performance-derived actions. |
@@ -264,10 +278,10 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | --- | --- | --- |
 | [Program — no program](screens/program/no-program__phone-390-light-en.png) | 3 | A fresh device's Program tab, with setup as the only action. |
 | [Program](screens/program/overview__phone-390-light-en.png) | 8 | The current program and its days. |
-| [Program — editor](screens/program/progression-editor__phone-390-light-en.png) | 3 | The installed program editor, with the first day open. |
-| [Program — editor alternates](screens/program/editor-alternates__phone-390-light-en.png) | 3 | The installed program editor with an exercise open on its alternates: two chosen movements in order, each with reorder and remove controls, and Add alternate. |
-| [Program — Suggest loads](screens/program/editor-suggest-loads__phone-390-light-en.png) | 3 | The installed program editor with Suggest loads switched on for a dumbbell renegade row: the current rep target, the RIR, the smallest load change, and the question of how the lifter does the exercise. |
-| [Program — refused day rename](screens/program/editor-day-name-refused__phone-390-light-en.png) | 3 | The installed program editor after a day was renamed to a name another day already uses: the field shows the day's own name again and the reason sits under the day header. |
+| [Program — editor](screens/program/progression-editor__phone-390-light-en.png) | 3 | The installed Program editor (Plan 074): the program name, its days and current week, the day tabs, the first day's exercises with one line per set, and Apply pinned where the dock was. |
+| [Program — editor alternates](screens/program/editor-alternates__phone-390-light-en.png) | 3 | The installed Program editor with an exercise's sheet scrolled to its in-session alternates: two chosen movements in order, each with reorder and remove controls, and Add alternate. |
+| [Program — Suggest loads](screens/program/editor-suggest-loads__phone-390-light-en.png) | 3 | The installed Program editor's sheet for a dumbbell renegade row with Suggest loads switched on (an ink switch): the current rep target, the RIR on every set, the smallest load change, and the question of how the lifter does the exercise. |
+| [Program — refused day rename](screens/program/editor-day-name-refused__phone-390-light-en.png) | 3 | The installed Program editor's rename sheet after a day was given a name another day already uses: the field keeps the typed name, is marked invalid, and the reason sits under it; the day keeps its own name. |
 | [Program — exercise picker](screens/program/exercise-picker__phone-390-light-en.png) | 3 | The picker sheet. |
 | [Program — custom exercise](screens/program/custom-exercise__phone-390-light-en.png) | 3 | The custom movement sheet. |
 | [Program — saving a custom exercise](screens/program/custom-exercise-saving__phone-390-light-en.png) | 3 | A new custom movement is saving; its actions stay unavailable until the durable write settles. |
@@ -286,7 +300,9 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Settings](screens/settings/main__phone-390-light-en.png) | 3 | The settings list. |
 | [Settings — Appearance](screens/settings/appearance__phone-390-light-en.png) | 3 | The appearance/theme row. |
 | [Settings — contextual guides](screens/settings/guides__phone-390-light-en.png) | 3 | The per-guide replay controls; replay changes presentation state only. |
-| [Settings — replayed guide](screens/settings/guides-replay__phone-390-light-en.png) | 3 | A real contextual guide replayed from Settings and anchored to its live privacy action. |
+| [Settings — replayed guide](screens/settings/guides-replay__phone-390-light-en.png) | 3 | A real contextual guide replayed from Settings: the privacy guide dialog, centred over the dimmed list. |
+| [Settings — backup guide](screens/settings/backup-guide__phone-390-light-en.png) | 3 | The backup guide in the open backup group: the guide dialog centred over the dimmed Settings. |
+| [Settings — install guide](screens/settings/install-guide__phone-390-light-en.png) | 3 | The install guide where Settings offers Install (iOS Safari): the guide dialog centred over the dimmed Settings. |
 | [Settings — privacy and analytics](screens/settings/privacy__phone-390-light-en.png) | 3 | The privacy and analytics section. |
 | [Privacy — temporary install transfer](screens/settings/privacy-disclosure__phone-390-light-en.png) | 8 | The cached ADR 0013 disclosure reached from Settings. |
 
@@ -316,3 +332,10 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | --- | --- | --- |
 | [Exercise catalog unavailable](screens/catalog-recovery/unavailable__phone-390-light-en.png) | 3 | The required offline exercise catalog fails to load. Saved data remains in place and a blocking retry dialog explains what happened. |
 | [Exercise catalog retry failed](screens/catalog-recovery/retry-failed__phone-390-light-en.png) | 3 | The lifter retries while the catalog remains unavailable; the dialog reports the failed retry and keeps the retry action available. |
+
+### Program Lab — isolated standalone artifact
+
+| Screen | Frames | What it shows |
+| --- | --- | --- |
+| [Program Lab scenario editor](screens/programlab/editor__phone-390-light-en.png) | 4 | Separate packaged artifact origin, verified catalog, current four-day fixture and two-set low-RIR policy. Stable scenario editor subject. |
+| [Program Lab candidate prescriptions](screens/programlab/comparison__phone-390-light-en.png) | 4 | Actual dedicated worker runs bundled default and low-RIR candidate; frame the resulting candidate prescriptions on the isolated artifact origin. |

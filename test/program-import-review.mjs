@@ -24,6 +24,7 @@ import {installBrowserSnapshotPolicy} from './training-browser.mjs';
  * Run: node test/program-import-review.mjs   (requires the app served over HTTP)
  */
 import { pathToFileURL } from "url";
+import { openInstalledEditor } from "./fixtures/installed-editor.mjs";
 import { launchChromium } from "./browser.mjs";
 import { installSeedProgram, seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
@@ -100,8 +101,8 @@ async function openEditor(page) {
   const hidden = await page.locator("#programEditorWrap").evaluate((element) =>
     element.classList.contains("is-hidden")
   );
-  if (hidden) await page.click("#programEditToggle");
-  await page.waitForSelector('#programEditor [data-role="exercise"]', { timeout: 5000 });
+  if (hidden) await openInstalledEditor(page);
+  await page.waitForSelector('#programEditor [data-role="exercise-row"]', { timeout: 5000 });
   // Import and export remain in the installed editor's Advanced disclosure.
   // Keep that host mounted so the controls are actually reachable; the shared
   // editor itself owns the ordinary editing surface.
@@ -610,6 +611,53 @@ async function main() {
       after.program.some((e) => e.libraryId === theirs?.id),
       "explicit activation keeps templates pointed at the remapped definition",
       JSON.stringify(after.program.map((e) => [e.name, e.libraryId]))
+    );
+
+    // A program file that carries its canonical definition follows the same
+    // remap: its slots name the file's custom ids, which this device may use
+    // for a different movement or already hold under another id.
+    const fileCustomId = programJson.customExercises[0].id;
+    const portableWithId = (id) => JSON.parse(JSON.stringify(programJson).replaceAll(JSON.stringify(fileCustomId), JSON.stringify(id)));
+    const seedCustom = async (definition) => {
+      await reset(page);
+      const id = await page.evaluate(async (definition) => (await window.__repforgeSaveCustomExercise(definition)).entry?.id || null, definition);
+      await settle(page, 700);
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await waitForApp(page);
+      await page.evaluate(() => window.__repforgeStorage.flush());
+      return id;
+    };
+    const importPortable = async (file) => {
+      await importFile(page, "program.json", JSON.stringify(file));
+      await acceptFirstProposals(page);
+      await stageReviewedImport(page);
+      await activateStagedImport(page);
+      return getState(page);
+    };
+    const gymRowSlots = (state, id) => definitionSlots(state.programMeta?.programDefinition).filter((slot) => slot.exerciseId === id);
+    const gymRowCount = definitionSlots(programJson.definition).filter((slot) => slot.exerciseId === fileCustomId).length;
+
+    const collidingId = await seedCustom({ name: "Something else entirely", equipment: ["cable"], primary: "Chest", secondary: "" });
+    assert(!!collidingId, "seeded a local custom movement for the definition collision", String(collidingId));
+    after = await importPortable(portableWithId(collidingId));
+    const importedRow = (after.customExercises || []).find((e) => e.name === "My gym row");
+    assert(
+      !!importedRow && importedRow.id !== collidingId && gymRowSlots(after, collidingId).length === 0 &&
+        gymRowSlots(after, importedRow.id).length === gymRowCount,
+      "a carried definition's slots follow the remap instead of training the local movement that shares the id",
+      JSON.stringify({ customs: after.customExercises?.map((e) => [e.id, e.name]),
+        slots: definitionSlots(after.programMeta?.programDefinition).map((slot) => [slot.id, slot.exerciseId]) })
+    );
+
+    const twinId = await seedCustom({ name: "My gym row", equipment: ["machine"], primary: "Mid/upper back", secondary: "Biceps", ...WEIGHT_REPS });
+    assert(!!twinId && twinId !== fileCustomId, "seeded a local twin of the file's custom movement", String(twinId));
+    after = await importPortable(programJson);
+    assert(
+      (after.customExercises || []).filter((e) => e.name === "My gym row").length === 1 &&
+        gymRowSlots(after, twinId).length === gymRowCount && gymRowSlots(after, fileCustomId).length === 0,
+      "a carried definition reuses the local twin movement for its slots",
+      JSON.stringify({ customs: after.customExercises?.map((e) => [e.id, e.name]),
+        slots: definitionSlots(after.programMeta?.programDefinition).map((slot) => [slot.id, slot.exerciseId]) })
     );
 
     // ---- an unknown row must become a movement before Import ----

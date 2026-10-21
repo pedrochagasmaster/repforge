@@ -3,6 +3,7 @@ import {browserLanguage} from "./language-browser.mjs";
 import { pathToFileURL } from "node:url";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
+import { EDITOR, SHEET, applyInstalledEditor, editorSettled, openExerciseSheet, openInstalledEditor, showEditorDay } from "./fixtures/installed-editor.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -1407,46 +1408,40 @@ async function testCrossTabStaleEditAndDeleteBecomesArchive(page, otherPage) {
     });
 }
 
-// The broad drag/keyboard/language matrix retires. Preserve one actual editor
-// transaction with canonical identity, replica persistence and reload.
+// The broad drag/keyboard/language matrix runs in the full lane. Keep one real
+// editor transaction here, with canonical identity, both replicas and reload.
+// Plan 074 (editor A): exercises reorder in the day menu's list, change day
+// from their sheet and are removed from their sheet; Apply commits.
 async function testEditorReorderAndRemoval(page) {
   const before = await readReplicas(page);
   const day = before.local.program[0].day;
   const original = before.local.program.filter(row => row.day === day).sort((a,b) => a.order - b.order);
   if (original.length < 2) throw new Error("editor proof needs two slots on the seeded day");
   const id = original[1].id, slotId = original[1].slotId || id;
-  await page.click('nav button[data-view="program"]');
-  await page.click("#programEditToggle");
-  await page.waitForSelector('#programEditor [data-role="exercise"]');
-  const firstDay = page.locator('#programEditor [data-role="day"]').first();
-  await firstDay.locator('[data-role="day-menu"]').click();
-  await firstDay.locator('[data-role="toggle-reorder"]').click();
-  const row = () => page.locator(`#programEditor [data-role="exercise"][data-id="${id}"]`).first();
-  await row().locator('[data-role="exercise-menu"]').click();
-  await row().locator('[data-role="move-up"]').click();
-  await page.evaluate(() => window.__repforgeStorage.flush());
-  await page.click("#programEditToggle");
-  await page.waitForSelector("#programEditorWrap.is-hidden", { state: "attached", timeout: 5000 });
+  await openInstalledEditor(page);
+  await showEditorDay(page, day);
+  await page.locator(`${EDITOR} [data-role="day-menu"]`).click();
+  await page.locator(`${SHEET} [data-role="day-action"][data-action="reorder"]`).click();
+  await page.locator(`${EDITOR} [data-role="reorder-move"][data-id="${id}"][data-delta="-1"]`).click();
+  await editorSettled(page);
+  await page.locator(`${EDITOR} [data-role="reorder-done"]`).click();
+  await applyInstalledEditor(page);
   await page.evaluate(() => window.__repforgeStorage.flush());
   const reordered = await readReplicas(page);
   const order = state => state.program.filter(row => row.day === day).sort((a,b) => a.order-b.order).map(row => row.id);
   const expected = [id, original[0].id, ...original.slice(2).map(row => row.id)];
   check(JSON.stringify(order(reordered.local)) === JSON.stringify(expected) && JSON.stringify(order(reordered.idb)) === JSON.stringify(expected),
-    "editor reorder commits exact slot identities to both replicas");
+    "editor reorder commits exact slot identities to both replicas", { expected, local: order(reordered.local), idb: order(reordered.idb) });
   // #434 also covers source-day gaps in cross-day moves (Plan 074 S1).
   const movedId = original[0].id;
   const otherDay = before.local.program.find(row => row.day !== day)?.day;
   if (!otherDay) throw new Error("editor proof needs another seeded day");
-  await page.click("#programEditToggle");
-  const sourceDay = page.locator('#programEditor [data-role="day"]').first();
-  await sourceDay.locator('[data-role="day-menu"]').click();
-  await sourceDay.locator('[data-role="toggle-reorder"]').click();
-  const moved = page.locator(`#programEditor [data-role="exercise"][data-id="${movedId}"]`).first();
-  await moved.locator('[data-role="exercise-menu"]').click();
-  await moved.locator('[data-role="move-other"]').click();
-  await moved.locator(`[data-role="move-to-day"][data-day="${otherDay}"]`).click();
-  await page.click("#programEditToggle");
-  await page.waitForSelector("#programEditorWrap.is-hidden", { state: "attached", timeout: 5000 });
+  await openInstalledEditor(page);
+  await openExerciseSheet(page, movedId);
+  await page.locator(`${SHEET} [data-role="move-to-day"][data-day="${otherDay}"]`).click();
+  await page.waitForSelector(SHEET, { state: "hidden", timeout: 5000 });
+  await editorSettled(page);
+  await applyInstalledEditor(page);
   await page.evaluate(() => window.__repforgeStorage.flush());
   const movedReplicas = await readReplicas(page);
   const movedCorrectly = state => {
@@ -1458,13 +1453,12 @@ async function testEditorReorderAndRemoval(page) {
   check(movedCorrectly(movedReplicas.local) && movedCorrectly(movedReplicas.idb),
     "cross-day move keeps canonical source/destination orders and both replicas aligned (#434)");
   // A new edit starts from the committed reorder and uses normal removal.
-  await page.click("#programEditToggle");
-  if (await row().locator('[data-role="toggle-exercise"]').getAttribute("aria-expanded") !== "true")
-    await row().locator('[data-role="toggle-exercise"]').click();
-  await row().locator('[data-role="remove-exercise"]').click();
-  await row().waitFor({ state: "detached", timeout: 5000 });
-  await page.click("#programEditToggle");
-  await page.waitForSelector("#programEditorWrap.is-hidden", { state: "attached", timeout: 5000 });
+  await openInstalledEditor(page);
+  await openExerciseSheet(page, id);
+  await page.locator(`${SHEET} [data-role="remove-exercise"]`).click();
+  await page.waitForSelector(SHEET, { state: "hidden", timeout: 5000 });
+  await editorSettled(page);
+  await applyInstalledEditor(page);
   await page.evaluate(() => window.__repforgeStorage.flush());
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);

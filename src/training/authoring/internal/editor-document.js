@@ -22,7 +22,7 @@ export const PROGRAM_EDITOR_INTENTS = Object.freeze([
     "exercise_add", "exercise_remove", "day_remove", "exercise_replace",
     "exercise_move", "slot_alternates", "metric_target", "metric_composition",
     "prescription_field", "load_step", "suggest_loads", "suggest_loads_rir", "execution_mode",
-    "save_draft", "apply", "apply_discard_workout",
+    "day_move", "save_draft", "apply", "apply_discard_workout",
   ]);
 
 /** @param {{nextId:()=>string}} options */
@@ -44,6 +44,13 @@ export function createEditorDocumentRules({nextId:uid}) {
       if (label && !seen.has(label)) { seen.add(label); out.push(label); }
     }
     return out;
+  }
+  /* Rest days live only in the definition. A day name is unique across every
+     day, training and rest (#451), so the editor checks these too. */
+  /** @param {Partial<EditorDocument>} document */
+  function restDayNames(document) {
+    return (definitionFor(/** @type {EditorDocument} */ (document))?.days || []).filter(day => day?.kind === "rest")
+      .map(day => String(day?.name || "").trim()).filter(Boolean);
   }
   /** @template {Partial<EditorDocument>} T @param {T} document @param {string} day @returns {NonNullable<T['program']>} */
   function exercisesFor(document, day) {
@@ -338,7 +345,7 @@ export function createEditorDocumentRules({nextId:uid}) {
   /** @param {EditorDocument} document @param {string} oldLabel @param {string} nextLabel */
   function setDayLabel(document, oldLabel, nextLabel) {
     const value = String(nextLabel || "").trim();
-    if (!value || value === oldLabel || labels(document).includes(value)) return false;
+    if (!value || value === oldLabel || labels(document).includes(value) || restDayNames(document).includes(value)) return false;
     for (const exercise of document.program || []) if (exercise.day === oldLabel) exercise.day = value;
     const structure = metaDays(document);
     const entry = structure.find(item => String(item?.label || item?.dayId || "") === oldLabel);
@@ -356,13 +363,29 @@ export function createEditorDocumentRules({nextId:uid}) {
   }
   /** @param {EditorDocument} document */
   function appendDay(document) {
-    const current = labels(document);
+    const current = labels(document), taken = new Set([...current, ...restDayNames(document)]);
     let n = current.length + 1, label = `Day ${n}`;
-    while (current.includes(label)) label = `Day ${++n}`;
+    while (taken.has(label)) label = `Day ${++n}`;
     const structure = metaDays(document).slice();
     structure.push({ dayId: `manual_d${structure.length + 1}`, label, order: structure.length + 1 });
     document.programMeta.programStructure = { ...(document.programMeta.programStructure || {}), days: structure };
     return label;
+  }
+  /* Plan 074 S2: the training days' order is programStructure's order. A move
+     reorders that list; the host puts the definition's days in the same order. */
+  /** @param {EditorDocument} document @param {string} day @param {number} toIndex */
+  function moveDayInDocument(document, day, toIndex) {
+    const structure = metaDays(document).slice();
+    const from = structure.findIndex(entry => String(entry?.label || entry?.dayId || "") === day);
+    if (from < 0 || !Number.isInteger(toIndex) || toIndex < 0 || toIndex >= structure.length || toIndex === from) return null;
+    const before = structure.map(entry => String(entry?.label || entry?.dayId || ""));
+    const [moved] = structure.splice(from, 1);
+    structure.splice(toIndex, 0, moved);
+    document.programMeta.programStructure = {
+      ...(document.programMeta.programStructure || {}),
+      days: structure.map((entry, index) => ({ ...entry, order: index + 1 })),
+    };
+    return { before, after: structure.map(entry => String(entry?.label || entry?.dayId || "")), fromIndex: from, toIndex };
   }
   /** @param {EditorDocument} document @param {string} day */
   function removeDayFromDocument(document, day) {
@@ -507,5 +530,28 @@ export function createEditorDocumentRules({nextId:uid}) {
 
   }
 
-return Object.freeze({editProgramName,editRemoveExercise,editReplaceExercise,editAlternates,applyAlternates,editMetricTarget,editMetricComposition,editSuggestLoadsRir,slotLoadMetric,editLoadStep,applyLoadStep,editExecutionMode,applyExecutionMode,editPrescriptionField,applyPrescriptionField,editExerciseField,metaDays,labels,exercisesFor,normalizeOrders,structureFor,definitionCycle,definitionSet,setCountFor,editableMetricComposition,replaceMetricComposition,replaceMetricTarget,ensureStructure,setDayLabel,appendDay,removeDayFromDocument,fieldValue,entryFields,addExercise,replaceExercise,reorder,validation});
+return Object.freeze({editProgramName,editRemoveExercise,editReplaceExercise,editAlternates,applyAlternates,editMetricTarget,editMetricComposition,editSuggestLoadsRir,slotLoadMetric,editLoadStep,applyLoadStep,editExecutionMode,applyExecutionMode,editPrescriptionField,applyPrescriptionField,editExerciseField,metaDays,labels,exercisesFor,normalizeOrders,structureFor,definitionCycle,definitionSet,setCountFor,editableMetricComposition,replaceMetricComposition,replaceMetricTarget,ensureStructure,setDayLabel,appendDay,removeDayFromDocument,moveDayInDocument,restDayNames,fieldValue,entryFields,addExercise,replaceExercise,reorder,validation});
+}
+
+/** The definition's days with its training days in `after`'s order, each in a position a training day
+    already holds; rest days stay put and every day is renumbered. Null unless `after` names each
+    training day exactly once.
+    @param {import('./editor-contracts.js').ProgramDefinition|null|undefined} definition @param {unknown} after */
+export function reorderTrainingDays(definition, after) {
+  const days = Array.isArray(definition?.days) ? definition.days : [];
+  const training = days.filter(day => day?.kind === "training");
+  if (!Array.isArray(after) || after.length !== training.length) return null;
+  const wanted = after.map(String), byName = new Map(training.map(day => [String(day.name), day]));
+  if (byName.size !== training.length || new Set(wanted).size !== wanted.length || wanted.some(name => !byName.has(name))) return null;
+  let next = 0;
+  return days.map(day => (day?.kind === "training" ? byName.get(wanted[next++]) || day : day)).map((day, index) => ({ ...day, order: index + 1 }));
+}
+/** Why a day_move made against `edit.before` cannot apply over the training days now named `current`.
+    @param {unknown} current @param {{before?:unknown,after?:unknown}|null|undefined} edit */
+export function dayOrderConflict(current, edit) {
+  const now = (Array.isArray(current) ? current : []).map(String);
+  const before = Array.isArray(edit?.before) ? edit.before.map(String) : null, after = Array.isArray(edit?.after) ? edit.after.map(String) : null;
+  if (!before || !after || JSON.stringify(before) !== JSON.stringify(now)) return "day_order_changed";
+  if (after.length !== now.length || new Set(after).size !== after.length || after.some(name => !now.includes(name))) return "invalid_day_order";
+  return null;
 }

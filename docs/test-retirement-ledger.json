@@ -1,7 +1,12 @@
 {
-  "baseline": "147e4afa07fea3243efd42b5b7d167c196c6a7ca",
-  "baselineCommands": 208,
-  "baselineFiles": 195,
+  "baseline": "651d5a92686441cd39663cf2d9c613d5ea6b9184",
+  "baselineCommands": 213,
+  "baselineFiles": 199,
+  "prCommands": 106,
+  "prFiles": 106,
+  "fullCommands": 206,
+  "fullFiles": 190,
+  "history": "Supersedes the #446 ledger against 147e4afa (208 commands, 195 files). That ledger's 'reduced' rows are 'full' here: the owner decision of 2026-10-21 keeps them running on main.",
   "entries": [
     {
       "baselineCommand": "node --test test/ci.mjs",
@@ -38,6 +43,12 @@
       "baselineLane": "fast",
       "disposition": "retained",
       "evidence": "Inexpensive production module/protocol/release/runner proof retained."
+    },
+    {
+      "baselineCommand": "node test/program-day-move-shape.mjs",
+      "baselineLane": "fast",
+      "disposition": "retained",
+      "evidence": "Landed on main after the #446 baseline; its contracts run in the pull-request lane as an unchanged command."
     },
     {
       "baselineCommand": "node test/program-transition-plan067.mjs",
@@ -330,8 +341,8 @@
     {
       "baselineCommand": "node test/runtime-budget.mjs",
       "baselineLane": "fast",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -339,7 +350,7 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The standalone runtime-budget contract is retired: exact payload/bootstrap shape, design-document token equality, or historical manual-helper self-test respectively. No equivalent replacement promised."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node tools/check-ui-screens.mjs",
@@ -356,8 +367,8 @@
     {
       "baselineCommand": "node tools/check-design-md.mjs",
       "baselineLane": "fast",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -365,13 +376,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The standalone check-design-md contract is retired: exact payload/bootstrap shape, design-document token equality, or historical manual-helper self-test respectively. No equivalent replacement promised."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/manual-matrix.mjs --self-test",
       "baselineLane": "fast",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -379,13 +390,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The standalone manual-matrix contract is retired: exact payload/bootstrap shape, design-document token equality, or historical manual-helper self-test respectively. No equivalent replacement promised."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/ci-browser.mjs",
       "baselineLane": "state",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -393,7 +404,7 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated ci-browser execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/privacy-offline.mjs",
@@ -404,8 +415,8 @@
     {
       "baselineCommand": "node test/program-entry-conflict-runtime.mjs",
       "baselineLane": "state",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "durable replicas, CAS, old-writer recovery and pending-field/workout projection",
       "owners": [
         "test/adversarial-draft-transactions.mjs",
@@ -414,7 +425,7 @@
         "test/workout-draft-sw-upgrade.mjs",
         "test/workout-draft-parity.mjs"
       ],
-      "retiredGuarantee": "The dedicated program-entry-conflict-runtime execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/sw-upgrade.mjs",
@@ -425,8 +436,8 @@
     {
       "baselineCommand": "node test/landing-offline.mjs",
       "baselineLane": "state",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -434,7 +445,7 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated landing-offline execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/sw-error-responses.mjs",
@@ -463,8 +474,8 @@
     {
       "baselineCommand": "node test/program-entry-rules-runtime.mjs",
       "baselineLane": "state",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "production compiler contracts, worker/fallback/activation, source privacy and per-side engine execution",
       "owners": [
         "test/program-engine-worker.mjs",
@@ -475,13 +486,13 @@
         "test/program-entry.mjs",
         "test/program-compiler-search.mjs"
       ],
-      "retiredGuarantee": "The dedicated program-entry-rules-runtime execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/persistence-artifacts.mjs --self-test",
       "baselineLane": "state",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "durable replicas, CAS, old-writer recovery and pending-field/workout projection",
       "owners": [
         "test/adversarial-draft-transactions.mjs",
@@ -490,7 +501,7 @@
         "test/workout-draft-sw-upgrade.mjs",
         "test/workout-draft-parity.mjs"
       ],
-      "retiredGuarantee": "The dedicated persistence-artifacts execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/persistence.mjs",
@@ -531,8 +542,8 @@
     {
       "baselineCommand": "node test/program-block-identity.mjs",
       "baselineLane": "state",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "lifecycle/recovery activation and atomic transition replay/archive fidelity",
       "owners": [
         "test/progress-lifecycle.mjs",
@@ -541,13 +552,13 @@
         "test/progress-model.mjs",
         "test/program-transition-backup.mjs"
       ],
-      "retiredGuarantee": "The dedicated program-block-identity execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/program-transition-review-browser.mjs",
       "baselineLane": "state",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "lifecycle/recovery activation and atomic transition replay/archive fidelity",
       "owners": [
         "test/progress-lifecycle.mjs",
@@ -556,7 +567,7 @@
         "test/progress-model.mjs",
         "test/program-transition-backup.mjs"
       ],
-      "retiredGuarantee": "The dedicated program-transition-review-browser execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/install-transfer-client-browser.mjs",
@@ -567,8 +578,8 @@
     {
       "baselineCommand": "node test/install-transfer-clone.mjs",
       "baselineLane": "state",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "private source/credential isolation, real vault/cookie import arbitration and redirect launch",
       "owners": [
         "test/telemetry-leakage.mjs",
@@ -578,7 +589,7 @@
         "test/install-transfer-import.mjs",
         "test/sw-launch-redirect.mjs"
       ],
-      "retiredGuarantee": "The dedicated install-transfer-clone execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/install-transfer-import.mjs",
@@ -589,8 +600,11 @@
     {
       "baselineCommand": "node test/install-transfer-recovery.mjs",
       "baselineLane": "state",
-      "disposition": "retained",
-      "evidence": "Identical production recovery state machine; now correctly in the fast lane."
+      "disposition": "consolidated",
+      "evidence": "The same pure 15-case recovery state machine runs as node --test test/install-transfer-recovery.mjs in the fast lane; it needs no browser.",
+      "owners": [
+        "test/install-transfer-recovery.mjs"
+      ]
     },
     {
       "baselineCommand": "node test/install-transfer-ui.mjs",
@@ -601,8 +615,13 @@
     {
       "baselineCommand": "node test/install-handoff-redirect.mjs",
       "baselineLane": "state",
-      "disposition": "consolidated",
-      "evidence": "All real cookie/redirect/credential cases now share the host/browser in test/sw-launch-redirect.mjs."
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
+      "retainedRisk": "All real cookie/redirect/credential cases now share the host/browser in test/sw-launch-redirect.mjs.",
+      "owners": [
+        "test/sw-launch-redirect.mjs"
+      ],
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/workout-draft-storage.mjs",
@@ -631,8 +650,8 @@
     {
       "baselineCommand": "node test/program-draft-conflicts.mjs",
       "baselineLane": "state",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "durable replicas, CAS, old-writer recovery and pending-field/workout projection",
       "owners": [
         "test/adversarial-draft-transactions.mjs",
@@ -641,13 +660,13 @@
         "test/workout-draft-sw-upgrade.mjs",
         "test/workout-draft-parity.mjs"
       ],
-      "retiredGuarantee": "The dedicated program-draft-conflicts execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/program-draft-set-reduction.mjs",
       "baselineLane": "state",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "durable replicas, CAS, old-writer recovery and pending-field/workout projection",
       "owners": [
         "test/adversarial-draft-transactions.mjs",
@@ -656,13 +675,13 @@
         "test/workout-draft-sw-upgrade.mjs",
         "test/workout-draft-parity.mjs"
       ],
-      "retiredGuarantee": "The dedicated program-draft-set-reduction execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/program-draft-day-rename.mjs",
       "baselineLane": "state",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "durable replicas, CAS, old-writer recovery and pending-field/workout projection",
       "owners": [
         "test/adversarial-draft-transactions.mjs",
@@ -671,13 +690,13 @@
         "test/workout-draft-sw-upgrade.mjs",
         "test/workout-draft-parity.mjs"
       ],
-      "retiredGuarantee": "The dedicated program-draft-day-rename execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/workout-day-context-discard.mjs",
       "baselineLane": "state",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "durable replicas, CAS, old-writer recovery and pending-field/workout projection",
       "owners": [
         "test/adversarial-draft-transactions.mjs",
@@ -686,13 +705,13 @@
         "test/workout-draft-sw-upgrade.mjs",
         "test/workout-draft-parity.mjs"
       ],
-      "retiredGuarantee": "The dedicated workout-day-context-discard execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/program-entry-rules-recovery.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "lifecycle/recovery activation and atomic transition replay/archive fidelity",
       "owners": [
         "test/progress-lifecycle.mjs",
@@ -701,13 +720,13 @@
         "test/progress-model.mjs",
         "test/program-transition-backup.mjs"
       ],
-      "retiredGuarantee": "The dedicated program-entry-rules-recovery execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/program-entry-picker-contract.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "canonical identity, focused text/Back editing, editor reorder/removal and destructive custom mutation recovery",
       "owners": [
         "test/custom-mutation-recovery.mjs",
@@ -716,13 +735,13 @@
         "test/exercise-catalog.mjs",
         "test/program-entry-s4.mjs"
       ],
-      "retiredGuarantee": "The dedicated program-entry-picker-contract execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/ui-plan-050-build-hierarchy.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -730,13 +749,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated ui-plan-050-build-hierarchy execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/ui-plan-050-editor.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "canonical identity, focused text/Back editing, editor reorder/removal and destructive custom mutation recovery",
       "owners": [
         "test/custom-mutation-recovery.mjs",
@@ -745,13 +764,13 @@
         "test/exercise-catalog.mjs",
         "test/program-entry-s4.mjs"
       ],
-      "retiredGuarantee": "The dedicated ui-plan-050-editor execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/generative-entry-runtime.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "production compiler contracts, worker/fallback/activation, source privacy and per-side engine execution",
       "owners": [
         "test/program-engine-worker.mjs",
@@ -762,13 +781,13 @@
         "test/program-entry.mjs",
         "test/program-compiler-search.mjs"
       ],
-      "retiredGuarantee": "The dedicated generative-entry-runtime execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/generate-program-browser.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "production compiler contracts, worker/fallback/activation, source privacy and per-side engine execution",
       "owners": [
         "test/program-engine-worker.mjs",
@@ -779,7 +798,7 @@
         "test/program-entry.mjs",
         "test/program-compiler-search.mjs"
       ],
-      "retiredGuarantee": "The dedicated generate-program-browser execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/program-entry-s4.mjs",
@@ -796,8 +815,8 @@
     {
       "baselineCommand": "node test/adaptive-workout-browser.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "production compiler contracts, worker/fallback/activation, source privacy and per-side engine execution",
       "owners": [
         "test/program-engine-worker.mjs",
@@ -808,7 +827,7 @@
         "test/program-entry.mjs",
         "test/program-compiler-search.mjs"
       ],
-      "retiredGuarantee": "The dedicated adaptive-workout-browser execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/per-side-engine-browser.mjs",
@@ -819,8 +838,8 @@
     {
       "baselineCommand": "node test/per-side-engine-transfer-browser.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "production compiler contracts, worker/fallback/activation, source privacy and per-side engine execution",
       "owners": [
         "test/program-engine-worker.mjs",
@@ -831,7 +850,7 @@
         "test/program-entry.mjs",
         "test/program-compiler-search.mjs"
       ],
-      "retiredGuarantee": "The dedicated per-side-engine-transfer-browser execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/per-side-engine-bodyweight-browser.mjs",
@@ -842,8 +861,8 @@
     {
       "baselineCommand": "node test/per-side-focus-cues-browser.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "production compiler contracts, worker/fallback/activation, source privacy and per-side engine execution",
       "owners": [
         "test/program-engine-worker.mjs",
@@ -854,7 +873,7 @@
         "test/program-entry.mjs",
         "test/program-compiler-search.mjs"
       ],
-      "retiredGuarantee": "The dedicated per-side-focus-cues-browser execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/per-side-execution-mode-capture-browser.mjs",
@@ -865,8 +884,8 @@
     {
       "baselineCommand": "node test/share-program-browser.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "private source/credential isolation, real vault/cookie import arbitration and redirect launch",
       "owners": [
         "test/telemetry-leakage.mjs",
@@ -876,7 +895,7 @@
         "test/install-transfer-import.mjs",
         "test/sw-launch-redirect.mjs"
       ],
-      "retiredGuarantee": "The dedicated share-program-browser execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/catalog-metric-program-browser.mjs",
@@ -887,8 +906,8 @@
     {
       "baselineCommand": "node test/ui-catalog-contract.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -896,13 +915,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated ui-catalog-contract execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/install-modes.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "private source/credential isolation, real vault/cookie import arbitration and redirect launch",
       "owners": [
         "test/telemetry-leakage.mjs",
@@ -912,13 +931,13 @@
         "test/install-transfer-import.mjs",
         "test/sw-launch-redirect.mjs"
       ],
-      "retiredGuarantee": "The dedicated install-modes execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/onboarding-cancel.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "production compiler contracts, worker/fallback/activation, source privacy and per-side engine execution",
       "owners": [
         "test/program-engine-worker.mjs",
@@ -929,7 +948,19 @@
         "test/program-entry.mjs",
         "test/program-compiler-search.mjs"
       ],
-      "retiredGuarantee": "The dedicated onboarding-cancel execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
+    },
+    {
+      "baselineCommand": "node test/program-editor-a.mjs",
+      "baselineLane": "entry",
+      "disposition": "retained",
+      "evidence": "Landed on main after the #446 baseline; its contracts run in the pull-request lane as an unchanged command."
+    },
+    {
+      "baselineCommand": "node test/program-editor-a-days.mjs",
+      "baselineLane": "entry",
+      "disposition": "retained",
+      "evidence": "Landed on main after the #446 baseline; its contracts run in the pull-request lane as an unchanged command."
     },
     {
       "baselineCommand": "node test/program-editor-text-fields.mjs",
@@ -940,8 +971,8 @@
     {
       "baselineCommand": "node test/program-editor-drag-selection.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "canonical identity, focused text/Back editing, editor reorder/removal and destructive custom mutation recovery",
       "owners": [
         "test/custom-mutation-recovery.mjs",
@@ -950,13 +981,13 @@
         "test/exercise-catalog.mjs",
         "test/program-entry-s4.mjs"
       ],
-      "retiredGuarantee": "The dedicated program-editor-drag-selection execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/program-editor-sorting.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "canonical identity, focused text/Back editing, editor reorder/removal and destructive custom mutation recovery",
       "owners": [
         "test/custom-mutation-recovery.mjs",
@@ -965,13 +996,13 @@
         "test/exercise-catalog.mjs",
         "test/program-entry-s4.mjs"
       ],
-      "retiredGuarantee": "The dedicated program-editor-sorting execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/program-editor-setup-conflict.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "durable replicas, CAS, old-writer recovery and pending-field/workout projection",
       "owners": [
         "test/adversarial-draft-transactions.mjs",
@@ -980,13 +1011,13 @@
         "test/workout-draft-sw-upgrade.mjs",
         "test/workout-draft-parity.mjs"
       ],
-      "retiredGuarantee": "The dedicated program-editor-setup-conflict execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/adaptive-build-opt-in.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "production compiler contracts, worker/fallback/activation, source privacy and per-side engine execution",
       "owners": [
         "test/program-engine-worker.mjs",
@@ -997,13 +1028,13 @@
         "test/program-entry.mjs",
         "test/program-compiler-search.mjs"
       ],
-      "retiredGuarantee": "The dedicated adaptive-build-opt-in execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/adaptive-build-opt-out.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "production compiler contracts, worker/fallback/activation, source privacy and per-side engine execution",
       "owners": [
         "test/program-engine-worker.mjs",
@@ -1014,13 +1045,13 @@
         "test/program-entry.mjs",
         "test/program-compiler-search.mjs"
       ],
-      "retiredGuarantee": "The dedicated adaptive-build-opt-out execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/adaptive-build-share.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "private source/credential isolation, real vault/cookie import arbitration and redirect launch",
       "owners": [
         "test/telemetry-leakage.mjs",
@@ -1030,13 +1061,13 @@
         "test/install-transfer-import.mjs",
         "test/sw-launch-redirect.mjs"
       ],
-      "retiredGuarantee": "The dedicated adaptive-build-share execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/program-text-export.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "canonical identity, focused text/Back editing, editor reorder/removal and destructive custom mutation recovery",
       "owners": [
         "test/custom-mutation-recovery.mjs",
@@ -1045,13 +1076,13 @@
         "test/exercise-catalog.mjs",
         "test/program-entry-s4.mjs"
       ],
-      "retiredGuarantee": "The dedicated program-text-export execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/exercise-picker.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "canonical identity, focused text/Back editing, editor reorder/removal and destructive custom mutation recovery",
       "owners": [
         "test/custom-mutation-recovery.mjs",
@@ -1060,13 +1091,13 @@
         "test/exercise-catalog.mjs",
         "test/program-entry-s4.mjs"
       ],
-      "retiredGuarantee": "The dedicated exercise-picker execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/library-flow.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "canonical identity, focused text/Back editing, editor reorder/removal and destructive custom mutation recovery",
       "owners": [
         "test/custom-mutation-recovery.mjs",
@@ -1075,13 +1106,13 @@
         "test/exercise-catalog.mjs",
         "test/program-entry-s4.mjs"
       ],
-      "retiredGuarantee": "The dedicated library-flow execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/custom-delete-editor-race.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "canonical identity, focused text/Back editing, editor reorder/removal and destructive custom mutation recovery",
       "owners": [
         "test/custom-mutation-recovery.mjs",
@@ -1090,7 +1121,7 @@
         "test/exercise-catalog.mjs",
         "test/program-entry-s4.mjs"
       ],
-      "retiredGuarantee": "The dedicated custom-delete-editor-race execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/custom-mutation-recovery.mjs",
@@ -1101,8 +1132,8 @@
     {
       "baselineCommand": "node test/performed-attribution.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "real edit/delete/backup fidelity, captured historical identity and post-commit summary failure",
       "owners": [
         "test/catalog-metric-program-browser.mjs",
@@ -1111,7 +1142,7 @@
         "test/progress-model.mjs",
         "test/per-side-execution-mode-capture-browser.mjs"
       ],
-      "retiredGuarantee": "The dedicated performed-attribution execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/program-import-review.mjs",
@@ -1128,8 +1159,8 @@
     {
       "baselineCommand": "node test/import-matching.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "production compiler contracts, worker/fallback/activation, source privacy and per-side engine execution",
       "owners": [
         "test/program-engine-worker.mjs",
@@ -1140,13 +1171,13 @@
         "test/program-entry.mjs",
         "test/program-compiler-search.mjs"
       ],
-      "retiredGuarantee": "The dedicated import-matching execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/program-day-names-browser.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "canonical identity, focused text/Back editing, editor reorder/removal and destructive custom mutation recovery",
       "owners": [
         "test/custom-mutation-recovery.mjs",
@@ -1155,13 +1186,13 @@
         "test/exercise-catalog.mjs",
         "test/program-entry-s4.mjs"
       ],
-      "retiredGuarantee": "The dedicated program-day-names-browser execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/muscle-domain-flow.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "real edit/delete/backup fidelity, captured historical identity and post-commit summary failure",
       "owners": [
         "test/catalog-metric-program-browser.mjs",
@@ -1170,13 +1201,13 @@
         "test/progress-model.mjs",
         "test/per-side-execution-mode-capture-browser.mjs"
       ],
-      "retiredGuarantee": "The dedicated muscle-domain-flow execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/archived-muscle-immutability.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "real edit/delete/backup fidelity, captured historical identity and post-commit summary failure",
       "owners": [
         "test/catalog-metric-program-browser.mjs",
@@ -1185,7 +1216,7 @@
         "test/progress-model.mjs",
         "test/per-side-execution-mode-capture-browser.mjs"
       ],
-      "retiredGuarantee": "The dedicated archived-muscle-immutability execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/shared-setup-flow.mjs",
@@ -1196,8 +1227,8 @@
     {
       "baselineCommand": "node test/entry-landing.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "production compiler contracts, worker/fallback/activation, source privacy and per-side engine execution",
       "owners": [
         "test/program-engine-worker.mjs",
@@ -1208,13 +1239,13 @@
         "test/program-entry.mjs",
         "test/program-compiler-search.mjs"
       ],
-      "retiredGuarantee": "The dedicated entry-landing execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/landing-variants.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -1222,13 +1253,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated landing-variants execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/journeys-in.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -1236,13 +1267,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated journeys-in execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/landing-proof-capture.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -1250,13 +1281,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated landing-proof-capture execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/entry-chooser.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "production compiler contracts, worker/fallback/activation, source privacy and per-side engine execution",
       "owners": [
         "test/program-engine-worker.mjs",
@@ -1267,13 +1298,13 @@
         "test/program-entry.mjs",
         "test/program-compiler-search.mjs"
       ],
-      "retiredGuarantee": "The dedicated entry-chooser execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/entry-install-policy.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "private source/credential isolation, real vault/cookie import arbitration and redirect launch",
       "owners": [
         "test/telemetry-leakage.mjs",
@@ -1283,13 +1314,13 @@
         "test/install-transfer-import.mjs",
         "test/sw-launch-redirect.mjs"
       ],
-      "retiredGuarantee": "The dedicated entry-install-policy execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/entry-guides.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "production compiler contracts, worker/fallback/activation, source privacy and per-side engine execution",
       "owners": [
         "test/program-engine-worker.mjs",
@@ -1300,13 +1331,13 @@
         "test/program-entry.mjs",
         "test/program-compiler-search.mjs"
       ],
-      "retiredGuarantee": "The dedicated entry-guides execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/guide-eligibility.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -1314,13 +1345,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated guide-eligibility execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/program-actions.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "canonical identity, focused text/Back editing, editor reorder/removal and destructive custom mutation recovery",
       "owners": [
         "test/custom-mutation-recovery.mjs",
@@ -1329,13 +1360,13 @@
         "test/exercise-catalog.mjs",
         "test/program-entry-s4.mjs"
       ],
-      "retiredGuarantee": "The dedicated program-actions execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/settings-groups.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -1343,13 +1374,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated settings-groups execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/privacy-ui.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "private source/credential isolation, real vault/cookie import arbitration and redirect launch",
       "owners": [
         "test/telemetry-leakage.mjs",
@@ -1359,13 +1390,13 @@
         "test/install-transfer-import.mjs",
         "test/sw-launch-redirect.mjs"
       ],
-      "retiredGuarantee": "The dedicated privacy-ui execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/privacy-share-flow.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "private source/credential isolation, real vault/cookie import arbitration and redirect launch",
       "owners": [
         "test/telemetry-leakage.mjs",
@@ -1375,13 +1406,13 @@
         "test/install-transfer-import.mjs",
         "test/sw-launch-redirect.mjs"
       ],
-      "retiredGuarantee": "The dedicated privacy-share-flow execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/journeys-out.mjs",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -1389,13 +1420,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated journeys-out execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/journeys-out.mjs --seeded",
       "baselineLane": "entry",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -1403,13 +1434,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated journeys-out execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/i18n.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -1417,13 +1448,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated i18n execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/notifications.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -1431,13 +1462,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated notifications execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/appearance.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -1445,19 +1476,23 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated appearance execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/ui-system.mjs",
       "baselineLane": "workout",
       "disposition": "retained",
-      "evidence": "Risk G6; production-backed owner retained."
+      "evidence": "Its checker self-tests (metadata, CSS debt, rendered contrast/boundary/focus fixtures, renderedHold, modal-inert and device-pixel sampling negatives) move unchanged to test/ui-system-checker.mjs in the pull-request lane; test/ui-system.mjs now runs the 21-frame critical matrix.",
+      "owners": [
+        "test/ui-system-checker.mjs",
+        "test/ui-system.mjs"
+      ]
     },
     {
       "baselineCommand": "node test/direction-d-gate.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "Representative critical matrix in test/ui-system.mjs; exhaustive pixel/role/locale/theme/navigation combinations retired. Independent checker fault proofs retained; no omitted-frame parity claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -1465,13 +1500,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated direction-d-gate execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/rules-only-gate.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "Representative critical matrix in test/ui-system.mjs; exhaustive pixel/role/locale/theme/navigation combinations retired. Independent checker fault proofs retained; no omitted-frame parity claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -1479,13 +1514,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated rules-only-gate execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
-      "baselineCommand": "node tools/check-ui-system.mjs --shard 1/6",
+      "baselineCommand": "node tools/check-ui-system.mjs --shard 1/7",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "Representative critical matrix in test/ui-system.mjs; exhaustive pixel/role/locale/theme/navigation combinations retired. Independent checker fault proofs retained; no omitted-frame parity claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -1493,13 +1528,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated check-ui-system execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
-      "baselineCommand": "node tools/check-ui-system.mjs --shard 2/6",
+      "baselineCommand": "node tools/check-ui-system.mjs --shard 2/7",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "Representative critical matrix in test/ui-system.mjs; exhaustive pixel/role/locale/theme/navigation combinations retired. Independent checker fault proofs retained; no omitted-frame parity claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -1507,13 +1542,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated check-ui-system execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
-      "baselineCommand": "node tools/check-ui-system.mjs --shard 3/6",
+      "baselineCommand": "node tools/check-ui-system.mjs --shard 3/7",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "Representative critical matrix in test/ui-system.mjs; exhaustive pixel/role/locale/theme/navigation combinations retired. Independent checker fault proofs retained; no omitted-frame parity claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -1521,13 +1556,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated check-ui-system execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
-      "baselineCommand": "node tools/check-ui-system.mjs --shard 4/6",
+      "baselineCommand": "node tools/check-ui-system.mjs --shard 4/7",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "Representative critical matrix in test/ui-system.mjs; exhaustive pixel/role/locale/theme/navigation combinations retired. Independent checker fault proofs retained; no omitted-frame parity claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -1535,13 +1570,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated check-ui-system execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
-      "baselineCommand": "node tools/check-ui-system.mjs --shard 5/6",
+      "baselineCommand": "node tools/check-ui-system.mjs --shard 5/7",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "Representative critical matrix in test/ui-system.mjs; exhaustive pixel/role/locale/theme/navigation combinations retired. Independent checker fault proofs retained; no omitted-frame parity claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -1549,13 +1584,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated check-ui-system execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
-      "baselineCommand": "node tools/check-ui-system.mjs --shard 6/6",
+      "baselineCommand": "node tools/check-ui-system.mjs --shard 6/7",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "Representative critical matrix in test/ui-system.mjs; exhaustive pixel/role/locale/theme/navigation combinations retired. Independent checker fault proofs retained; no omitted-frame parity claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -1563,13 +1598,27 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated check-ui-system execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
+    },
+    {
+      "baselineCommand": "node tools/check-ui-system.mjs --shard 7/7",
+      "baselineLane": "workout",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
+      "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
+      "owners": [
+        "test/ui-system.mjs",
+        "test/ui-screens.mjs",
+        "tools/check-ui-screens.mjs",
+        "test/motion-vocabulary.mjs"
+      ],
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/accessibility.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "Representative critical matrix in test/ui-system.mjs; exhaustive pixel/role/locale/theme/navigation combinations retired. Independent checker fault proofs retained; no omitted-frame parity claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -1577,13 +1626,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated accessibility execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/accessibility.mjs --touch-targets-320",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "Representative critical matrix in test/ui-system.mjs; exhaustive pixel/role/locale/theme/navigation combinations retired. Independent checker fault proofs retained; no omitted-frame parity claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -1591,13 +1640,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated accessibility execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/history.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "real edit/delete/backup fidelity, captured historical identity and post-commit summary failure",
       "owners": [
         "test/catalog-metric-program-browser.mjs",
@@ -1606,13 +1655,13 @@
         "test/progress-model.mjs",
         "test/per-side-execution-mode-capture-browser.mjs"
       ],
-      "retiredGuarantee": "The dedicated history execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/per-side-reading-browser.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "production compiler contracts, worker/fallback/activation, source privacy and per-side engine execution",
       "owners": [
         "test/program-engine-worker.mjs",
@@ -1623,13 +1672,13 @@
         "test/program-entry.mjs",
         "test/program-compiler-search.mjs"
       ],
-      "retiredGuarantee": "The dedicated per-side-reading-browser execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/per-side-completion-summary-browser.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "real edit/delete/backup fidelity, captured historical identity and post-commit summary failure",
       "owners": [
         "test/catalog-metric-program-browser.mjs",
@@ -1638,13 +1687,13 @@
         "test/progress-model.mjs",
         "test/per-side-execution-mode-capture-browser.mjs"
       ],
-      "retiredGuarantee": "The dedicated per-side-completion-summary-browser execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/history-edit.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "real edit/delete/backup fidelity, captured historical identity and post-commit summary failure",
       "owners": [
         "test/catalog-metric-program-browser.mjs",
@@ -1653,7 +1702,7 @@
         "test/progress-model.mjs",
         "test/per-side-execution-mode-capture-browser.mjs"
       ],
-      "retiredGuarantee": "The dedicated history-edit execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/history-delete-replay.mjs",
@@ -1664,8 +1713,8 @@
     {
       "baselineCommand": "node test/history-persistence-race.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "durable replicas, CAS, old-writer recovery and pending-field/workout projection",
       "owners": [
         "test/adversarial-draft-transactions.mjs",
@@ -1674,13 +1723,13 @@
         "test/workout-draft-sw-upgrade.mjs",
         "test/workout-draft-parity.mjs"
       ],
-      "retiredGuarantee": "The dedicated history-persistence-race execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/today-done.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "pending fields, save boundaries, real source metrics, production load parser and progression properties",
       "owners": [
         "test/focus-pending-field.mjs",
@@ -1690,13 +1739,13 @@
         "test/exercise-catalog.mjs",
         "test/progression-engine-plan067.mjs"
       ],
-      "retiredGuarantee": "The dedicated today-done execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/today-day-picker.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "canonical identity, focused text/Back editing, editor reorder/removal and destructive custom mutation recovery",
       "owners": [
         "test/custom-mutation-recovery.mjs",
@@ -1705,13 +1754,13 @@
         "test/exercise-catalog.mjs",
         "test/program-entry-s4.mjs"
       ],
-      "retiredGuarantee": "The dedicated today-day-picker execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/today-week-line.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "pending fields, save boundaries, real source metrics, production load parser and progression properties",
       "owners": [
         "test/focus-pending-field.mjs",
@@ -1721,13 +1770,13 @@
         "test/exercise-catalog.mjs",
         "test/progression-engine-plan067.mjs"
       ],
-      "retiredGuarantee": "The dedicated today-week-line execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/today-no-draft.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "durable replicas, CAS, old-writer recovery and pending-field/workout projection",
       "owners": [
         "test/adversarial-draft-transactions.mjs",
@@ -1736,13 +1785,13 @@
         "test/workout-draft-sw-upgrade.mjs",
         "test/workout-draft-parity.mjs"
       ],
-      "retiredGuarantee": "The dedicated today-no-draft execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/today-sticky-start.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "pending fields, save boundaries, real source metrics, production load parser and progression properties",
       "owners": [
         "test/focus-pending-field.mjs",
@@ -1752,13 +1801,13 @@
         "test/exercise-catalog.mjs",
         "test/progression-engine-plan067.mjs"
       ],
-      "retiredGuarantee": "The dedicated today-sticky-start execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/shell-chrome-clearance.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -1766,13 +1815,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated shell-chrome-clearance execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/focus-mode.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "pending fields, save boundaries, real source metrics, production load parser and progression properties",
       "owners": [
         "test/focus-pending-field.mjs",
@@ -1782,7 +1831,7 @@
         "test/exercise-catalog.mjs",
         "test/progression-engine-plan067.mjs"
       ],
-      "retiredGuarantee": "The dedicated focus-mode execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/focus-pending-field.mjs",
@@ -1799,8 +1848,8 @@
     {
       "baselineCommand": "node test/focus-only-parity.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "pending fields, save boundaries, real source metrics, production load parser and progression properties",
       "owners": [
         "test/focus-pending-field.mjs",
@@ -1810,13 +1859,13 @@
         "test/exercise-catalog.mjs",
         "test/progression-engine-plan067.mjs"
       ],
-      "retiredGuarantee": "The dedicated focus-only-parity execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/focus-session-sheet.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "pending fields, save boundaries, real source metrics, production load parser and progression properties",
       "owners": [
         "test/focus-pending-field.mjs",
@@ -1826,7 +1875,7 @@
         "test/exercise-catalog.mjs",
         "test/progression-engine-plan067.mjs"
       ],
-      "retiredGuarantee": "The dedicated focus-session-sheet execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/workout-finish-boundary.mjs",
@@ -1837,8 +1886,8 @@
     {
       "baselineCommand": "node test/focus-exercise-actions.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "pending fields, save boundaries, real source metrics, production load parser and progression properties",
       "owners": [
         "test/focus-pending-field.mjs",
@@ -1848,13 +1897,13 @@
         "test/exercise-catalog.mjs",
         "test/progression-engine-plan067.mjs"
       ],
-      "retiredGuarantee": "The dedicated focus-exercise-actions execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/slot-alternates.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "pending fields, save boundaries, real source metrics, production load parser and progression properties",
       "owners": [
         "test/focus-pending-field.mjs",
@@ -1864,13 +1913,13 @@
         "test/exercise-catalog.mjs",
         "test/progression-engine-plan067.mjs"
       ],
-      "retiredGuarantee": "The dedicated slot-alternates execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/focus-navigation.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "pending fields, save boundaries, real source metrics, production load parser and progression properties",
       "owners": [
         "test/focus-pending-field.mjs",
@@ -1880,13 +1929,13 @@
         "test/exercise-catalog.mjs",
         "test/progression-engine-plan067.mjs"
       ],
-      "retiredGuarantee": "The dedicated focus-navigation execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/focus-geometry.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "pending fields, save boundaries, real source metrics, production load parser and progression properties",
       "owners": [
         "test/focus-pending-field.mjs",
@@ -1896,13 +1945,13 @@
         "test/exercise-catalog.mjs",
         "test/progression-engine-plan067.mjs"
       ],
-      "retiredGuarantee": "The dedicated focus-geometry execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/focus-space-summary.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "real edit/delete/backup fidelity, captured historical identity and post-commit summary failure",
       "owners": [
         "test/catalog-metric-program-browser.mjs",
@@ -1911,13 +1960,13 @@
         "test/progress-model.mjs",
         "test/per-side-execution-mode-capture-browser.mjs"
       ],
-      "retiredGuarantee": "The dedicated focus-space-summary execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/manual-load-carry.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "pending fields, save boundaries, real source metrics, production load parser and progression properties",
       "owners": [
         "test/focus-pending-field.mjs",
@@ -1927,7 +1976,7 @@
         "test/exercise-catalog.mjs",
         "test/progression-engine-plan067.mjs"
       ],
-      "retiredGuarantee": "The dedicated manual-load-carry execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/management-summary.mjs",
@@ -1938,8 +1987,8 @@
     {
       "baselineCommand": "node test/summary-evidence.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "real edit/delete/backup fidelity, captured historical identity and post-commit summary failure",
       "owners": [
         "test/catalog-metric-program-browser.mjs",
@@ -1948,13 +1997,13 @@
         "test/progress-model.mjs",
         "test/per-side-execution-mode-capture-browser.mjs"
       ],
-      "retiredGuarantee": "The dedicated summary-evidence execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/why-sheet.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -1962,13 +2011,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated why-sheet execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/why-verb-locale.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -1976,13 +2025,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated why-verb-locale execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/progress-navigation.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "lifecycle/recovery activation and atomic transition replay/archive fidelity",
       "owners": [
         "test/progress-lifecycle.mjs",
@@ -1991,13 +2040,13 @@
         "test/progress-model.mjs",
         "test/program-transition-backup.mjs"
       ],
-      "retiredGuarantee": "The dedicated progress-navigation execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/progress-evidence.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "lifecycle/recovery activation and atomic transition replay/archive fidelity",
       "owners": [
         "test/progress-lifecycle.mjs",
@@ -2006,7 +2055,7 @@
         "test/progress-model.mjs",
         "test/program-transition-backup.mjs"
       ],
-      "retiredGuarantee": "The dedicated progress-evidence execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/progress-lifecycle.mjs",
@@ -2023,8 +2072,8 @@
     {
       "baselineCommand": "node test/progress-guides.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "lifecycle/recovery activation and atomic transition replay/archive fidelity",
       "owners": [
         "test/progress-lifecycle.mjs",
@@ -2033,13 +2082,19 @@
         "test/progress-model.mjs",
         "test/program-transition-backup.mjs"
       ],
-      "retiredGuarantee": "The dedicated progress-guides execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
+    },
+    {
+      "baselineCommand": "node test/guide-modal.mjs",
+      "baselineLane": "workout",
+      "disposition": "retained",
+      "evidence": "Landed on main after the #446 baseline; its contracts run in the pull-request lane as an unchanged command."
     },
     {
       "baselineCommand": "node test/sheet-swipe-dismiss.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -2047,13 +2102,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated sheet-swipe-dismiss execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/motion-integration.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -2061,13 +2116,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated motion-integration execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/session-summary.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "real edit/delete/backup fidelity, captured historical identity and post-commit summary failure",
       "owners": [
         "test/catalog-metric-program-browser.mjs",
@@ -2076,13 +2131,13 @@
         "test/progress-model.mjs",
         "test/per-side-execution-mode-capture-browser.mjs"
       ],
-      "retiredGuarantee": "The dedicated session-summary execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/exercise-display-name.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -2090,13 +2145,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated exercise-display-name execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/simulation.mjs --smoke",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "Year-long emergent sequence retired. Production engine/progression properties plus retained save/recovery journeys; parser decimal/unit/safety matrix at shipped exercise-metrics interface. No long-session equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "pending fields, save boundaries, real source metrics, production load parser and progression properties",
       "owners": [
         "test/focus-pending-field.mjs",
@@ -2106,13 +2161,13 @@
         "test/exercise-catalog.mjs",
         "test/progression-engine-plan067.mjs"
       ],
-      "retiredGuarantee": "The dedicated simulation execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/simulation.mjs",
       "baselineLane": "workout",
-      "disposition": "reduced",
-      "evidence": "Year-long emergent sequence retired. Production engine/progression properties plus retained save/recovery journeys; parser decimal/unit/safety matrix at shipped exercise-metrics interface. No long-session equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "pending fields, save boundaries, real source metrics, production load parser and progression properties",
       "owners": [
         "test/focus-pending-field.mjs",
@@ -2122,13 +2177,13 @@
         "test/exercise-catalog.mjs",
         "test/progression-engine-plan067.mjs"
       ],
-      "retiredGuarantee": "The dedicated simulation execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/telemetry-runtime.mjs",
       "baselineLane": "privacy",
-      "disposition": "reduced",
-      "evidence": "See retainedRisk, owners and retiredGuarantee; this is an explicit coverage reduction, not an assertion-equivalence claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "private source/credential isolation, real vault/cookie import arbitration and redirect launch",
       "owners": [
         "test/telemetry-leakage.mjs",
@@ -2138,7 +2193,7 @@
         "test/install-transfer-import.mjs",
         "test/sw-launch-redirect.mjs"
       ],
-      "retiredGuarantee": "The dedicated telemetry-runtime execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/telemetry-leakage.mjs",
@@ -2149,8 +2204,8 @@
     {
       "baselineCommand": "node test/install-transfer-telemetry.mjs",
       "baselineLane": "privacy",
-      "disposition": "reduced",
-      "evidence": "Unique cheap transfer-event negatives and milestone/consent contracts migrate to telemetry-unit; a deliberately leaked claimId fails the actual outbound assertion. Real import boundaries remain in install-transfer-import, diagnostic fixtures in install-transfer-limits, generic real SDK/network leakage in telemetry-leakage.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "Transfer-specific hostile capture rejection, outbound credential/program stripping, qualified settlement, milestone/reboot suppression and restored disabled consent at the shipped telemetry interface; all diagnostic redaction fixtures and real import preboot/identity/consent-freeze boundaries.",
       "owners": [
         "test/telemetry-unit.mjs",
@@ -2158,13 +2213,13 @@
         "test/install-transfer-import.mjs",
         "test/telemetry-leakage.mjs"
       ],
-      "retiredGuarantee": "The separate synthetic post-settlement browser/event repetition is retired; no claim that the generic browser leakage owner emits every transfer event or that the old file was an end-to-end secret-bearing transfer."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node tools/capture-ui-screens.mjs --verify --shard 1/6",
       "baselineLane": "visual",
-      "disposition": "reduced",
-      "evidence": "Representative critical matrix in test/ui-system.mjs; exhaustive pixel/role/locale/theme/navigation combinations retired. Independent checker fault proofs retained; no omitted-frame parity claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -2172,13 +2227,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated capture-ui-screens execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node tools/capture-ui-screens.mjs --verify --shard 2/6",
       "baselineLane": "visual",
-      "disposition": "reduced",
-      "evidence": "Representative critical matrix in test/ui-system.mjs; exhaustive pixel/role/locale/theme/navigation combinations retired. Independent checker fault proofs retained; no omitted-frame parity claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -2186,13 +2241,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated capture-ui-screens execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node tools/capture-ui-screens.mjs --verify --shard 3/6",
       "baselineLane": "visual",
-      "disposition": "reduced",
-      "evidence": "Representative critical matrix in test/ui-system.mjs; exhaustive pixel/role/locale/theme/navigation combinations retired. Independent checker fault proofs retained; no omitted-frame parity claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -2200,13 +2255,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated capture-ui-screens execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node tools/capture-ui-screens.mjs --verify --shard 4/6",
       "baselineLane": "visual",
-      "disposition": "reduced",
-      "evidence": "Representative critical matrix in test/ui-system.mjs; exhaustive pixel/role/locale/theme/navigation combinations retired. Independent checker fault proofs retained; no omitted-frame parity claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -2214,13 +2269,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated capture-ui-screens execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node tools/capture-ui-screens.mjs --verify --shard 5/6",
       "baselineLane": "visual",
-      "disposition": "reduced",
-      "evidence": "Representative critical matrix in test/ui-system.mjs; exhaustive pixel/role/locale/theme/navigation combinations retired. Independent checker fault proofs retained; no omitted-frame parity claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -2228,13 +2283,13 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated capture-ui-screens execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node tools/capture-ui-screens.mjs --verify --shard 6/6",
       "baselineLane": "visual",
-      "disposition": "reduced",
-      "evidence": "Representative critical matrix in test/ui-system.mjs; exhaustive pixel/role/locale/theme/navigation combinations retired. Independent checker fault proofs retained; no omitted-frame parity claim.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
       "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
         "test/ui-system.mjs",
@@ -2242,7 +2297,7 @@
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retiredGuarantee": "The dedicated capture-ui-screens execution and its additional permutations are retired. Listed owners preserve the stated risk, not every old assertion or sequence."
+      "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node test/install-transfer-service.mjs",

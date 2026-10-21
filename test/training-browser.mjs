@@ -16,7 +16,7 @@ async function composeBrowserTraining(){
       librarySource,fetcher:window.fetch.bind(window)});
     await catalog.load();
     const rawCatalog=catalog.snapshot();
-    window.__repforgeTrainingTest={...rules,catalog:rawCatalog,metrics,graphBase,librarySource,
+    window.__repforgeTrainingTest={...rules,catalog:rawCatalog,metrics,graphBase,librarySource,enginePolicy:{getDefaultEnginePolicy:generation.getDefaultEnginePolicy},
       workout:workoutModule.createWorkoutRules(rawCatalog),entry:entryModule.createEntryRules(rawCatalog),entryAdapter:entryModule.createEntryAdapter({compiler:rules.compiler})};
     return;
   })();

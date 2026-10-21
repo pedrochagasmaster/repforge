@@ -158,6 +158,10 @@ function renderProgram(){if(disposed)return;
   // seam, but leaves it out of the visual layout like the prior editor did.
   setProgramMetadataHidden(editor.installedEditing());
   if(tog){tog.textContent=editor.installedEditing()?t("program.done_editing"):t("program.edit");tog.dataset.actionRole="expansion";tog.setAttribute("aria-expanded",editor.installedEditing()?"true":"false")}
+  // Plan 074: while editing, the header names the task and offers Cancel; Apply is the editor's own pinned bar.
+  tog?.classList.toggle("hidden",editor.installedEditing());
+  const pageTitle=view?.querySelector(".page-title");if(pageTitle)pageTitle.textContent=t(editor.installedEditing()?"program.editor.title":"program.title");
+  $("#programEditCancel")?.classList.toggle("hidden",!editor.installedEditing());
   const end=$("#endBlock"),lede=ed?.querySelector(":scope > .program-editor-lede"),addDay=$("#addDay");
   // Advanced remains part of the installed editor. It is inside the editor
   // host, so hiding the disclosure here would strand the raw import/export

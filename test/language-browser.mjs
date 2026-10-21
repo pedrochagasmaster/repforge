@@ -19,3 +19,9 @@ export function browserLanguage(page){return nativeHandle(page,'language')}
 export function browserExerciseSource(page){return nativeHandle(page,'exercises')}
 
 export function browserMotion(page){return nativeHandle(page,'motion')}
+/** For page.evaluate bodies that read copy synchronously: the actual native
+ * language instance under a test-owned name (call again after navigation). */
+export async function installTestLanguage(page){
+  const language=await browserLanguage(page);
+  await page.evaluate(owner=>{window.__testLanguage=owner},language);
+}

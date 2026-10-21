@@ -396,9 +396,11 @@ are measured rather than inferred from source.
 
 `node tools/check-ui-system.mjs` renders every canonical catalog state and
 rejects unmapped/ambiguous visible controls, illegal nested elevation, and
-unnamed progress. It reports current CSS literal debt; `--strict-css` becomes
-the P6 zero-debt gate. `node test/ui-system.mjs` seeds bad literal, contrast,
-focus, boundary, selector, and dimension cases and proves rejection. P5 expands
+unnamed progress (the full lane runs it on every push to main and nightly;
+pull requests run the 21-frame matrix in `test/ui-system.mjs`). It reports
+current CSS literal debt; `--strict-css` becomes the P6 zero-debt gate.
+`node test/ui-system-checker.mjs` seeds bad literal, contrast, focus, boundary,
+selector, and dimension cases and proves rejection. P5 expands
 rendered role coverage to all locales/themes/states. P4 migrates one surface
 at a time in the order stated by Plan 058. P6 removes aliases and closes
 literal debt; P7 regenerates/reviews the entire catalog and required device

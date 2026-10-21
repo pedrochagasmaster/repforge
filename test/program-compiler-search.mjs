@@ -58,3 +58,9 @@ assert.ok(unsatisfiable.conflicts.some(conflict => conflict.code === "insufficie
   "a missing mandatory candidate is refused instead of replacing the movement or returning a partial program");
 assert.deepEqual(Compiler.generateProgram(noVerticalPull, Catalog), unsatisfiable);
 assert.ok(elapsed < 1000, `a missing mandatory candidate fails without search exhaustion (took ${Math.round(elapsed)} ms)`);
+
+// Program Lab uses the same compiler seam, including complete baseline bytes.
+await (await import("./fixtures/programlab-policy-proof.mjs")).default();
+await (await import("./fixtures/programlab-compiler-proof.mjs")).default();
+
+await (await import("./fixtures/programlab-structure-proof.mjs")).default();

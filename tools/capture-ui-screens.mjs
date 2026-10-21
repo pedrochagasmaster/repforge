@@ -18,7 +18,9 @@
  *   --canonical      only the phone-390 light English frame of each screen
  *   --keep-going     report failures instead of aborting the commit
  *   --shard k/n      only every n-th frame, starting at the k-th (CI splits the sweep this way)
- *   Exhaustive --verify is retired. CI owns the representative critical matrix.
+ *   --verify         compare a fresh capture against the committed catalog and
+ *                    leave the working tree untouched; the full lane (ci-full)
+ *                    runs it over every frame, PR CI over the critical matrix
  *
  * A filtered run merges into a copy of the committed catalog, so the folder on
  * disk is always complete. Nothing replaces committed evidence until every
@@ -78,7 +80,7 @@ function parseArgs(argv) {
     else if (argv[i] === "--screen") options.screens.push(argv[++i]);
     else if (argv[i] === "--canonical") options.canonical = true;
     else if (argv[i] === "--keep-going") options.keepGoing = true;
-    else if (argv[i] === "--verify") throw new Error("Exhaustive verification retired; run node tools/run-tests.mjs workout --suite-id test-ui-system-mjs for the complete critical UI contract");
+    else if (argv[i] === "--verify") options.verify = true;
     else if (argv[i] === "--shard") options.shard = parseShard(argv[++i]);
     else if (argv[i] === "--affected") options.affected = true;
     else if (argv[i] === "--list-affected") options.listAffected = true;
@@ -192,9 +194,10 @@ function writeReadme() {
     "node tools/capture-ui-screens.mjs --affected --accept-visual-change",
     "```",
     "",
-    "CI checks catalog registration and the representative matrix in `tools/critical-ui.mjs`.",
-    "Only selected frames are compared with fresh production captures. Exhaustive parity",
-    "is retired; omitted frames may become stale until reviewed/regenerated.",
+    "Pull-request CI checks catalog registration (`tools/check-ui-screens.mjs`) and compares",
+    "the critical matrix in `tools/critical-ui.mjs` with fresh production captures. The full",
+    "lane (`ci-full`, on every push to main and nightly) verifies every frame with",
+    "`tools/capture-ui-screens.mjs --verify`. A stale catalog fails main loudly.",
     "",
     "Never hand-edit a PNG.",
     "",
@@ -208,6 +211,13 @@ function writeReadme() {
     "run across every catalog screen — image comparison alone cannot tell a",
     "designed scroller from a failure — and contrast is audited per rendered role",
     "under WCAG 2.2 AA.",
+    "",
+    "## Contextual guides",
+    "",
+    "A contextual guide is a modal dialog, and the rendered-role audits skip what a modal",
+    "makes inert. Every state is therefore drawn on a device whose guides have been read, so",
+    "each surface is audited whole, and each of the eight guides has its own state that",
+    "replays it over its real surface: the `*-guide` states and `settings/guides-replay`.",
     "",
     "## Naming",
     "",
@@ -579,6 +589,7 @@ async function main(options = parseArgs(process.argv.slice(2))) {
     if (failures.length) console.warn(`${failures.length} capture(s) still failing.`);
     return failures.length ? 1 : 0;
   } finally {
+    await cleanupProgramLabCapture();
     if (existsSync(stagingRoot)) rmSync(stagingRoot, { recursive: true, force: true });
   }
 }
