@@ -13,12 +13,21 @@ const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const EN = JSON.parse(readFileSync(new URL("../i18n-en.json", import.meta.url), "utf8"));
 const UI_KEY = "repforge_ui_v1";
 const browser = await launchChromium({ guides: "live" });
+// The guide presentation A/B comparison (2026-10-21) runs these gates under both variants: REPFORGE_GUIDE_VARIANT=A
+// draws the centred dialog over the whole scrim through the app's test-only switch; B, the default, is the anchored one.
+const VARIANT = process.env.REPFORGE_GUIDE_VARIANT === "A" ? "A" : "B";
 const errors = [];
 let passed = 0;
 const ok = (value, message, detail) => { assert.ok(value, `${message}${detail === undefined ? "" : ` — ${JSON.stringify(detail)}`}`); passed++; };
 
-async function freshPage({ seed = true, ui = null, viewport = { width: 390, height: 844 } } = {}) {
+async function freshPage({ seed = true, ui = null, viewport = { width: 390, height: 844 }, text = 1 } = {}) {
   const context = await browser.newContext({ viewport, serviceWorkers: "block" });
+  if (VARIANT === "A") await context.addInitScript(() => { window.__repforgeGuidePlacement = "centered"; });
+  if (text !== 1) await context.addInitScript((scale) => {
+    const apply = () => { if (document.documentElement) document.documentElement.style.fontSize = `${scale * 100}%`; };
+    apply();
+    document.addEventListener("DOMContentLoaded", apply, { once: true });
+  }, text);
   const page = await context.newPage();
   page.on("pageerror", (error) => errors.push(String(error)));
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
@@ -283,8 +292,21 @@ async function regionLuma(page, clip) {
   }, png);
 }
 
+/** Variant A: the centred dialog over the whole scrim, wherever its control is. */
+async function expectCentred(page, label) {
+  const plain = await page.evaluate(() => {
+    const dialog = document.querySelector("dialog#guideDialog"), panel = dialog.querySelector(".guide-dialog__panel").getBoundingClientRect();
+    return { anchored: dialog.classList.contains("is-anchored"), backdrop: getComputedStyle(dialog, "::backdrop").backgroundColor,
+      centre: Math.abs((panel.top + panel.bottom) / 2 - (visualViewport.offsetTop + visualViewport.height / 2)) };
+  });
+  ok(!plain.anchored && plain.backdrop !== "rgba(0, 0, 0, 0)" && plain.centre <= 1, `${label}: the centred dialog over the whole scrim`, plain);
+}
+
 /** The guide's control is left out of the scrim, and the panel sits beside it rather than over it. */
 async function expectAnchored(page, anchorSelector, label) {
+  if (VARIANT === "A") return expectCentred(page, label);
+  // The view under the guide may still be playing its entrance (Progress fades in, Focus rises): read it at rest.
+  await page.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished.catch(() => {}))));
   const geometry = await page.evaluate((selector) => {
     const dialog = document.querySelector("dialog#guideDialog");
     const box = (el) => { const r = el.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right }; };
@@ -312,8 +334,94 @@ async function expectAnchored(page, anchorSelector, label) {
   await page.evaluate(() => { document.querySelector("dialog#guideDialog").style.display = "none"; });
   const bare = { anchor: await regionLuma(page, clip), side: await regionLuma(page, side) };
   await page.evaluate(() => { document.querySelector("dialog#guideDialog").style.display = ""; });
-  // The scrim moves a light anchor by over a hundred luma steps; the panel's own shadow may reach its edge by one or two.
-  ok(Math.abs(up.anchor - bare.anchor) < 3 && bare.side - up.side > 1, `${label}: the anchor is undimmed and the page around it is dimmed`, { up, bare });
+  ok(Math.abs(up.anchor - bare.anchor) < 1.5 && bare.side - up.side > 1, `${label}: the anchor is undimmed and the page around it is dimmed`, { up, bare });
+}
+
+/** Click the centre of what `selector` draws, as a pointer would: whatever the top layer leaves under that point. */
+async function tapAt(page, selector) {
+  const box = await page.evaluate((sel) => {
+    const el = [...document.querySelectorAll(sel)].find((node) => node.getClientRects().length);
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  }, selector);
+  await page.mouse.click(box.x, box.y);
+}
+
+// Inertness: the page under the guide, the control it explains included, takes no tap and no key while the guide is up.
+{
+  const { context, page } = await freshPage();
+  await openProgress(page);
+  await expectGuideDialog(page, "progress", "Inert Progress");
+  const seg = () => page.evaluate(() => document.querySelector("#statsSeg [aria-selected='true']")?.dataset.seg);
+  const before = await seg();
+  await tapAt(page, '#statsSeg [data-seg="overview"]');
+  await tapAt(page, '#statsSeg [data-seg="strength"]');
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Space");
+  await settle(page);
+  ok(await seg() === before && await page.locator('dialog#guideDialog[open][data-guide="progress"]').count() === 1
+    && await guideStatus(page, "progress") === "shown", "Inert Progress: taps on its control and the tabs and keys on the title change nothing",
+  { before, after: await seg() });
+  await context.close();
+}
+{
+  const { context, page } = await freshPage();
+  await arriveInFocus(page);
+  await page.locator('.focus-shelf .shelf__fieldbtn[data-shelf-field][aria-pressed="false"]').first().click();
+  await expectGuideDialog(page, "first-set", "Inert first set");
+  const logged = () => page.evaluate(() => Object.values(window.__repforgeWorkoutDraft.current().exercises)
+    .flatMap((exercise) => Object.values(exercise.sets)).filter((set) => set.completion !== "pending").length);
+  const before = await logged();
+  await tapAt(page, ".focus-shelf .saveset");
+  await tapAt(page, ".focus-shelf .saveset");
+  await settle(page);
+  ok(await logged() === before && await page.locator('dialog#guideDialog[open][data-guide="first-set"]').count() === 1,
+    "Inert first set: tapping Log set through the guide logs nothing", { before, after: await logged() });
+  await context.close();
+}
+
+// The held tap is carried out exactly once, whichever way the guide is closed.
+for (const close of ["Got it", "Escape"]) {
+  const { context, page } = await freshPage();
+  await arriveInFocus(page);
+  await page.evaluate(() => {
+    // Bubbling to the document means the click reached its pad; the shelf may be rebuilt, the document is not.
+    window.__padArrivals = 0;
+    document.addEventListener("click", (event) => { if (event.target.closest?.(".focus-shelf .shelf__pad")) window.__padArrivals++; });
+  });
+  await page.click('.focus-shelf .shelf__pad[data-dir="1"]');
+  await expectGuideDialog(page, "first-set", `Held tap (${close})`);
+  ok(await page.evaluate(() => window.__padArrivals) === 0, `Held tap (${close}): the tap is held behind the guide`);
+  if (close === "Escape") await page.keyboard.press("Escape"); else await page.click("#guideDialogOk");
+  await expectClosed(page, `Held tap (${close})`);
+  await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 0)));
+  await settle(page);
+  ok(await page.evaluate(() => window.__padArrivals) === 1, `Held tap (${close}): the held tap reaches its pad exactly once`,
+    await page.evaluate(() => window.__padArrivals));
+  await context.close();
+}
+
+// At 200% text on a short phone the whole guide, its action included, is on screen.
+for (const theme of ["light", "dark"]) {
+  for (const guide of ["progress", "first-set"]) {
+    const label = `${guide} ${theme} 375x667 text200`;
+    const { context, page } = await freshPage({ ui: { theme, lang: "en" }, viewport: { width: 375, height: 667 }, text: 2 });
+    if (guide === "progress") await openProgress(page);
+    else {
+      await arriveInFocus(page);
+      await page.locator('.focus-shelf .shelf__fieldbtn[data-shelf-field][aria-pressed="false"]').first().click();
+    }
+    await expectGuideDialog(page, guide, label);
+    const fit = await page.evaluate(() => {
+      const panel = document.querySelector(".guide-dialog__panel").getBoundingClientRect();
+      const okButton = document.querySelector("#guideDialogOk").getBoundingClientRect();
+      const height = visualViewport.height;
+      return { panel: [panel.top, panel.bottom], ok: [okButton.top, okButton.bottom], height,
+        fits: panel.top >= 0 && panel.bottom <= height && okButton.bottom <= panel.bottom && document.documentElement.scrollWidth <= innerWidth };
+    });
+    ok(fit.fits, `${label}: the panel and Got it are whole on screen`, fit);
+    await context.close();
+  }
 }
 
 // Highlight: the scrim leaves the anchor uncovered on Focus and Progress, in

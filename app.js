@@ -20779,7 +20779,8 @@ function placeGuideDialog(){
   const vv=window.visualViewport,top=vv?vv.offsetTop:0,bottom=top+(vv?vv.height:innerHeight);
   const left=vv?vv.offsetLeft:0,right=left+(vv?vv.width:innerWidth);
   let y=null,rect=null;
-  if(anchor){
+  // Test-only switch for the 2026-10-21 A/B comparison: "centered" draws variant A, the centred dialog over the whole scrim.
+  if(anchor&&window.__repforgeGuidePlacement!=="centered"){
     rect=anchor.getBoundingClientRect();
     const hole={top:rect.top-pad,bottom:rect.bottom+pad};
     const visible=hole.top>=top&&hole.bottom<=bottom&&rect.left>=left&&rect.right<=right;

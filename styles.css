@@ -7329,7 +7329,9 @@ body.is-entry-editor #entryProgramName,
   display:block;position:fixed;left:var(--guide-hole-x);top:var(--guide-hole-y);width:var(--guide-hole-w);height:var(--guide-hole-h);
   border-radius:var(--radius-surface);outline:200vmax solid var(--scrim);pointer-events:none
 }
-.guide-dialog.is-anchored .guide-dialog__panel{top:var(--guide-panel-y);transform:translateX(-50%)}
+/* Placed beside its control the panel casts no shadow: the scrim already sets it apart, and a shadow would fall on the
+   control the guide leaves undimmed. */
+.guide-dialog.is-anchored .guide-dialog__panel{top:var(--guide-panel-y);transform:translateX(-50%);box-shadow:none}
 
 /* ---- Plan 064 shared components ----
    Every component block declared in this section must be named by a

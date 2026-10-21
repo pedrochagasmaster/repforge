@@ -1775,7 +1775,15 @@ export const APP_SCENARIOS = {
   "workout/logged-sets": async page => { await focusMode(page); await logCurrentSet(page); await page.locator("#workout .exercise.is-current [data-ledgermore]").click(); await page.waitForSelector("#workout .exercise.is-current [data-editn]"); await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     // The logged set starts the rest; its clock takes the cue slot once that render has run, and the slot then trades its height.
     await page.waitForFunction(() => (document.querySelector("#workout .exercise.is-current .fx-slot")?.dataset.rest || "none") !== "none", undefined, { timeout: 20000 });
-    await sleep(page, 400); },
+    await page.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished.catch(() => {}))));
+    // After the trade the card brings its open row into view; the frame is taken once that scroll has come to rest.
+    await page.waitForFunction(() => {
+      const context = document.querySelector("#workout .exercise--focus.is-current .fcard__context");
+      const at = context ? Math.round(context.scrollTop) : -1, seen = window.__catalogScrollRest ||= { at: null, still: 0 };
+      if (seen.at === at) seen.still++; else { seen.at = at; seen.still = 0; }
+      return seen.still >= 5;
+    }, undefined, { polling: 100, timeout: 20000 });
+    await sleep(page, 200); },
   "today/draft-resume": async page => { await focusMode(page); await fillAdaptiveShelf(page, ADAPTIVE_WEIGHT_METRIC_ID, "80"); await page.click("#leaveWorkout"); },
 
   "workout/stale-draft": async (page) => {
