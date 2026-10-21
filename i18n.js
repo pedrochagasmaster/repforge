@@ -2240,7 +2240,7 @@ const EN = {
   "entry.freeform.gap_sets_placeholder": "e.g. 3",
   "entry.freeform.gap_reps_placeholder": "e.g. 8-12 or 10",
   "entry.freeform.repair_no_json": "Your last reply did not contain a readable JSON document. Send the complete program again inside a single Markdown code block labeled json (```json), with nothing before or after the block.",
-  "entry.freeform.repair_invalid_rows": "The JSON was readable, but its exercise rows did not validate. Send the complete program again in one ```json code block, with a day, order and exercise name for every row, and valid working sets and repetitions where the source provides them. Do not invent missing values; omit them and list them in \"missing\".",
+  "entry.freeform.repair_invalid_rows": "The JSON was readable, but its exercise rows did not validate. Send the complete program again in one ```json code block, with a day, order and exercise name for every row, and valid working sets (1–100) and repetitions (1–1000, with max not below min) where the source provides them. Do not invent missing values; omit them and list them in \"missing\".",
   "entry.freeform.repair_assemble_failed": "The program was still rejected after I filled in the missing numbers. Send the whole JSON again in exactly the shape I gave you, with one entry per exercise per training day and \"day\", \"order\" and \"name\" present on every entry.",
   "landing.closing.title": "Start where you are.",
   "landing.hero.sub": "You log each set in seconds. Taurifer looks at what you did and tells you the weight and reps for next time, with the reason spelled out. A spreadsheet only stores numbers; Taurifer tells you what to do with them.",
@@ -2792,7 +2792,7 @@ const EN = {
   "program.split_day.workout_e": "Workout E",
   "program.split_day.workout_f": "Workout F",
   "entry.freeform.repair_invalid_json": "Your last reply was malformed JSON. Send the entire program again inside a single ```json code block, with no text outside the block. Do not add backslashes before [ ] { } outside quoted strings, and do not truncate the exercise list. Preserve all original exercises and numbers.",
-  "entry.freeform.unreadable_invalid_json_body": "The copied reply contains malformed or incomplete JSON. Copy the entire JSON code block from the assistant, without extra backslashes before brackets or braces.",
+  "entry.freeform.unreadable_invalid_json_body": "This reply's JSON is broken or cut off. Go back to the assistant and copy the whole JSON block again.",
 };
 const PT = {
   "catalog.unavailable.title": "Biblioteca de exercícios indisponível",
@@ -5034,7 +5034,7 @@ const PT = {
   "entry.freeform.gap_sets_placeholder": "ex.: 3",
   "entry.freeform.gap_reps_placeholder": "ex.: 8-12 ou 10",
   "entry.freeform.repair_no_json": "Sua última resposta não continha um documento JSON legível. Envie o treino completo novamente em um único bloco de código Markdown identificado como json (```json), sem nada antes ou depois do bloco.",
-  "entry.freeform.repair_invalid_rows": "Consegui ler o JSON, mas as entradas dos exercícios não passaram na validação. Envie o treino completo outra vez em um único bloco de código ```json, com dia, ordem e nome em cada exercício e séries e repetições válidas quando constarem da fonte. Não invente valores ausentes: omita-os e liste-os em \"missing\".",
+  "entry.freeform.repair_invalid_rows": "Consegui ler o JSON, mas as entradas dos exercícios não passaram na validação. Envie o treino completo outra vez em um único bloco de código ```json, com dia, ordem e nome em cada exercício e séries (1–100) e repetições (1–1000, com o máximo não menor que o mínimo) válidas quando constarem da fonte. Não invente valores ausentes: omita-os e liste-os em \"missing\".",
   "entry.freeform.repair_assemble_failed": "O treino continuou sendo rejeitado depois que eu preenchi os números que faltavam. Envie o JSON completo outra vez, exatamente no formato que eu dei, com uma entrada por exercício por dia de treino e com \"day\", \"order\" e \"name\" em todas as entradas.",
   "landing.closing.title": "Comece de onde você está.",
   "landing.hero.sub": "Você registra cada série em segundos. O Taurifer olha o que você fez e diz o peso e as repetições da próxima vez, com o motivo explicado. Uma planilha só guarda números; o Taurifer diz o que fazer com eles.",
@@ -5586,7 +5586,7 @@ const PT = {
   "program.split_day.workout_e": "Treino E",
   "program.split_day.workout_f": "Treino F",
   "entry.freeform.repair_invalid_json": "Sua última resposta continha JSON malformado. Envie o treino completo novamente em um único bloco de código ```json, sem texto fora dele. Não coloque barras invertidas antes de [ ] { } fora de strings e não corte a lista de exercícios. Preserve todos os exercícios e números originais.",
-  "entry.freeform.unreadable_invalid_json_body": "A resposta copiada contém JSON malformado ou incompleto. Copie o bloco de código JSON inteiro do assistente, sem barras invertidas extras antes de colchetes ou chaves.",
+  "entry.freeform.unreadable_invalid_json_body": "O JSON desta resposta está quebrado ou incompleto. Volte ao assistente e copie o bloco JSON inteiro de novo.",
 };
 (function (root) {
   const STRINGS = { en: EN, pt: PT };
