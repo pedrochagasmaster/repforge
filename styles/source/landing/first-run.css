@@ -54,6 +54,17 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 
 /* ---- Bands ---- */
 .firstrun-band{padding-block:var(--firstrun-gap-8);background:var(--firstrun-band-bg);color:var(--firstrun-ink)}
+/* #449: the landing scrolls above the shell's status-bar band, so it paints its
+   own over the top inset, in the ground of the section under it. The landing
+   controller names that section's ground; before it does (or without an
+   IntersectionObserver) the band is the hero's night. */
+.firstrun::before{content:"";position:fixed;top:0;left:0;right:0;z-index:20;
+  height:env(safe-area-inset-top,0px);background:var(--band-night-bg);pointer-events:none}
+.firstrun[data-inset-ground="raised"]::before{background:var(--band-night-raised)}
+.firstrun[data-inset-ground="ink"]::before{background:var(--band-ink-bg)}
+.firstrun[data-inset-ground="orange"]::before{background:var(--band-orange-bg)}
+.firstrun[data-inset-ground="faq"]::before{background:var(--well)}
+.firstrun[data-inset-ground="paper"]::before{background:var(--bg)}
 .firstrun-wrap{
   width:100%;max-width:var(--maxw);margin-inline:auto;
   padding-left:max(var(--gut),env(safe-area-inset-left));padding-right:max(var(--gut),env(safe-area-inset-right));

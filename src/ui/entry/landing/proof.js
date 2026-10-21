@@ -187,6 +187,34 @@ export function createLandingProofController({window,root,motion,copy,state:mode
       const y=box.height?window.innerHeight-parseFloat(getComputedStyle(dock).bottom)-box.height/2:window.innerHeight-60;
       dock.dataset.ground=luminance(window.innerWidth/2,y)<.4?"dark":"light"});
     reg.nodes.push(()=>{dock.classList.remove("is-on");delete dock.dataset.ground})}
+  /* ---- the status-bar band (#449) ----
+     One observer whose root box is the top inset strip names the ground of the
+     section under it; the CSS paints the band from that name. No scroll work. */
+  function mountInsetBand(){
+    if(typeof IntersectionObserver==="undefined")return;
+    const sections=[...root.querySelectorAll(".firstrun-band")];
+    /** @param {Element} section */
+    const groundOf=section=>{
+      const variant=/\bfirstrun-band--(night|raised|ink|orange)\b/.exec(section.className)?.[1];
+      return variant||(section.classList.contains("firstrun-faq")?"faq":"paper")};
+    /** @type {Set<Element>} */ const under=new Set();
+    /** @type {IntersectionObserver|null} */ let io=null;
+    const watch=()=>{
+      if(io){io.disconnect();const k=reg.obs.indexOf(io);if(k>=0)reg.obs.splice(k,1)}
+      under.clear();
+      const inset=Math.max(1,parseFloat(getComputedStyle(root,"::before").height)||0);
+      const observer=new IntersectionObserver(entries=>{
+        if(disposed)return;
+        for(const e of entries)e.isIntersecting?under.add(e.target):under.delete(e.target);
+        const top=sections.find(section=>under.has(section));
+        if(top)root.dataset.insetGround=groundOf(top)},
+      {root,rootMargin:`0px 0px ${Math.ceil(inset-root.clientHeight)}px 0px`});
+      io=observer;
+      reg.obs.push(observer);
+      sections.forEach(section=>observer.observe(section))};
+    watch();
+    on(window,"resize",watch);
+    reg.nodes.push(()=>{delete root.dataset.insetGround})}
   /* ---- in-page controls ---- */
   function mountControls(){
     const hand=root.querySelector("#firstRunHandBtn"),body=root.querySelector("#firstRunHand");
@@ -201,7 +229,7 @@ export function createLandingProofController({window,root,motion,copy,state:mode
   /* ---- lifecycle ---- */
   function mount(){
     if(mounted||disposed)return;mounted=true;
-    mountControls();mountDock();
+    mountControls();mountDock();mountInsetBand();
     on(root,"scroll",requestTick,{passive:true});
     on(window,"resize",layout);
     if(typeof motionQuery?.addEventListener==="function")on(motionQuery,"change",layout);

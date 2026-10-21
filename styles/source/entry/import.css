@@ -366,6 +366,10 @@
   --onb-pad-r:max(var(--gut),env(safe-area-inset-right));
   position:fixed;inset:0;z-index:50;overflow:auto;background:var(--bg);
   padding:calc(var(--space-12) + env(safe-area-inset-top)) var(--onb-pad-r) 0 var(--onb-pad-l);overscroll-behavior:contain;}
+/* #453: like #onboarding, this layer scrolls above the shell's status-bar band,
+   so it paints the same paper band over its own top inset. */
+#importReview.active::before{content:"";position:fixed;top:0;left:0;right:0;z-index:20;
+  height:env(safe-area-inset-top,0px);background:var(--bg);pointer-events:none}
 #importBack::before{
   content:"";flex:none;width:var(--control-icon-size);height:var(--control-icon-size);background:currentColor;
   -webkit-mask:no-repeat center/contain;mask:no-repeat center/contain;

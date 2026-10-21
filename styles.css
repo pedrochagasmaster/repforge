@@ -902,15 +902,7 @@ div.settings-row{cursor:default}
 body:has(.exercise--focus.is-text-scaled){--focus-context-floor:0px}
 body:has(.exercise--focus.is-text-scaled) .wo-head{flex-wrap:wrap;row-gap:0}
 body:has(.exercise--focus.is-text-scaled) .fcard__context{padding-block:0}
-body:has(.exercise--focus.is-text-scaled) .exercise--focus .guide-cue{margin-block:0}
 body:has(.exercise--focus.is-text-scaled) #log > :not(#workoutShell){margin-bottom:0}
-/* A guide is a hint, and on a short screen it can only be shown cut off. Where the shelf and the controls already take
-   the height it stands down rather than take the shelf's room; it keeps its state and returns on a taller screen. */
-@media (max-height:600px){
-  body.is-focus-wo :is(#workoutShell,.exercise--focus) .guide-cue{display:none}
-}
-/* At large text a recovery banner is the one thing to act on; a first-use hint does not sit beside it. */
-body.is-focus-wo:has(#draftRecovery:not(.hidden)):has(.exercise--focus.is-text-scaled) :is(#workoutShell,.exercise--focus) .guide-cue{display:none}
 /* The shelf's labels are one or two short words that wrap in a third of the screen; tight leading keeps their two lines
    from costing the shelf the room its action needs. The running timer's pill drops its dot and takes the label size so
    the controls and the timer share one row with the title under them. */
@@ -1035,14 +1027,21 @@ body.is-workout.is-focus-wo #workoutShell > :not(.wo-head):not(#logForm){
    band the keyboard leaves visible, not 100dvh, so the shelf and the field being edited sit just above the keyboard
    (#300). The floors that keep the shelf from being squeezed by the chrome above it stand down: in that band the shelf
    is what matters, and the context region gives up its height instead. */
-:root[data-keyboard="up"] body.is-workout.is-focus-wo main{height:var(--vvh,100dvh)}
+/* The band is where the visual viewport is, not the top of the layout one: iOS pans the visual viewport to show the
+   field (and a browser may try its own focus scroll), so Focus is pinned to the band itself. The header keeps its
+   place under the safe area, the shelf sits on the keyboard's accessory bar, and the document has nothing to scroll. */
+:root[data-keyboard="up"] body.is-workout.is-focus-wo main{position:fixed;top:var(--vv-top,0px);left:0;right:0;height:var(--vvh,100dvh)}
+/* The status bar's paper band follows the band too, so it stays under the clock after the pan. */
+:root[data-keyboard="up"] body.is-workout.is-focus-wo::before{top:var(--vv-top,0px)}
+/* The deck keeps the shelf whole (`--focus-deck-floor`, from syncFocusFloor) and the skip bar gives way like the
+   banners above the deck, so a short band still holds the whole shelf. */
+:root[data-keyboard="up"] body.is-workout.is-focus-wo #workout > .deck{min-height:var(--focus-deck-floor,0px)}
+:root[data-keyboard="up"] body.is-workout.is-focus-wo #workout > .skipbar{flex:0 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain}
 :root[data-keyboard="up"] body.is-workout.is-focus-wo #workoutShell,
 :root[data-keyboard="up"] body.is-workout.is-focus-wo #logForm{min-height:0}
 :root[data-keyboard="up"] body.is-workout.is-focus-wo article.exercise--focus .fcard__context{min-height:0}
 /* The keyboard covers the home indicator, so the shelf does not pay its inset again above the keyboard. */
 :root[data-keyboard="up"] body.is-workout.is-focus-wo .focus-shelf{padding-bottom:var(--space-16)}
-/* A guide above the deck never takes more than a quarter of the screen, so the card under it keeps its context. */
-body.is-workout.is-focus-wo #workoutShell > .guide-cue{max-height:25dvh}
 body.is-workout.is-focus-wo #dayTabs,
 body.is-workout.is-focus-wo #logForm > .field,
 body.is-workout.is-focus-wo #logForm > .btn--save{display:none!important}
@@ -1196,9 +1195,6 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 .ledger__chev{flex:none}
 .ledger__more[aria-expanded="true"] .ledger__chev{transform:rotate(180deg)}
 
-/* A first-set cue rides above the shelf, in the flow, and keeps the shelf on the edge. */
-.exercise--focus .guide-cue{flex:0 1 auto;min-height:0;max-height:25%;overflow-y:auto;overscroll-behavior:contain;margin:var(--space-8) var(--gut)}
-#workoutShell .guide-cue{background:var(--well)}
 
 /* ---- The shelf ----
    Three fields, the pads for the selected one, and the one action. The shell is
@@ -3285,6 +3281,10 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .onboarding{position:fixed;inset:0;z-index:50;overflow:auto;background:var(--bg);
   padding:calc(12px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) calc(88px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));overscroll-behavior:contain;}
 .onboarding.active{display:block}
+/* #449: this layer scrolls above the shell's status-bar band (body::before,
+   #440), so it paints the same paper band over its own top inset. */
+.onboarding::before{content:"";position:fixed;top:0;left:0;right:0;z-index:20;
+  height:env(safe-area-inset-top,0px);background:var(--bg);pointer-events:none}
 .onb{max-width:var(--maxw);margin:0 auto}
 .onb__head{margin-bottom:18px}
 .onb__step{margin:6px 0 0;font-size:var(--font-size-label);color:var(--ink-faint);letter-spacing:.08em;text-transform:uppercase;font-weight:600}
@@ -3306,29 +3306,6 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
    should not render at the 40% width meant for a Back/Continue pair. */
 .onb__nav .btn--steel:only-child{flex:1}
 
-/* Contextual guides stay in the same document flow as the action they
-   explain. They never become a modal, cover their target, or float when the
-   target is absent. */
-.guide-cue{position:relative;display:grid;grid-template-columns:1fr auto;gap:8px 12px;
-  margin:10px 0 14px;padding:12px 14px;background:var(--entry-tint);
-  border:1px solid var(--boundary-decorative);border-radius:var(--radius-surface);color:var(--color-ink)}
-.guide-cue__copy{min-width:0}
-.guide-cue__title{margin:0 0 3px;font-family:var(--font-language);font-size:var(--font-size-body-small);
-  font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
-/* --ink-soft on the --entry-tint wash measures ~4.47:1, just under the 4.5:1
-   AA floor for normal text; full --ink clears it with room and still reads
-   as the subordinate line beside the bold title. */
-.guide-cue__body{margin:0;font-family:var(--font-language);color:var(--color-ink);
-  font-size:var(--font-size-body-small);line-height:var(--line-standard)}
-.guide-cue__dismiss{align-self:start;min-width:44px;min-height:44px;margin:-8px -10px 0 0;
-  border:0;border-radius:var(--radius-round);background:var(--control-quiet-bg);color:var(--control-quiet-ink);
-  font:inherit;font-size:var(--control-icon-size);cursor:pointer}
-@media (hover: hover) and (pointer: fine){
-.guide-cue__dismiss:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
-}
-.guide-cue__dismiss:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
-.guide-cue__dismiss:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-round)}
-.guide-cue__dismiss:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);cursor:not-allowed;transform:none}
 .guide-replay{padding:12px 14px;display:grid;gap:8px}
 .guide-replay[hidden]{display:none}
 .settings-panel.guide-replay.is-open{display:grid}
@@ -4083,12 +4060,6 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 .entry-body .entry-card[data-entry-route="recommend"]:active:not(:disabled){background:var(--entry-tint)}
 .entry-body .entry-card[data-entry-route="recommend"] .entry-card__icon,
 .entry-body .entry-card[data-entry-route="recommend"] .entry-card__go{color:var(--accent)}
-/* The chooser's entry guide sits right after the Recommend card it explains.
-   The hub becomes a CSS grid at wider widths, so without this the cue would
-   land in a card-sized cell instead of its own full-width row. */
-.entry__hub .guide-cue{grid-column:1/-1;margin:0 0 10px;background:var(--well)}
-/* B's hub places the cue after its choices. */
-.entry__hub + .guide-cue{margin:12px 0 0;background:var(--well)}
 .entry-body .entry__own{gap:0;padding:2px 0 2px 20px;border-left:1px solid var(--rule);margin-top:2px}
 .entry-body .entry__group-lab{
   margin:22px 0 8px;display:flex;align-items:center;gap:10px;color:var(--ink-faint)
@@ -4447,14 +4418,6 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
   position:absolute;left:0;right:0;bottom:-2px;height:2px;pointer-events:none;background:var(--boundary-selected-quiet);
 }
 #stats .tabrow__tab.is-ring-travel[aria-selected="true"]{border-bottom-color:transparent}
-#stats .guide-cue{
-  margin:var(--space-14) 0 0;padding:var(--space-12) 0 var(--space-8);background:transparent;
-  border:0;border-bottom:1px solid var(--boundary-decorative);border-radius:var(--radius-none);
-  grid-template-columns:minmax(0,1fr) var(--control-target);column-gap:var(--space-8);
-}
-#stats .guide-cue__title{margin:0;font-size:var(--font-size-body)}
-#stats .guide-cue__body{margin-top:var(--space-4);color:var(--color-ink-secondary)}
-#stats .guide-cue__dismiss{margin:calc(-1 * var(--space-4)) 0 0;justify-self:end}
 
 .ovtotals{
   display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-12);
@@ -4908,6 +4871,17 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 
 /* ---- Bands ---- */
 .firstrun-band{padding-block:var(--firstrun-gap-8);background:var(--firstrun-band-bg);color:var(--firstrun-ink)}
+/* #449: the landing scrolls above the shell's status-bar band, so it paints its
+   own over the top inset, in the ground of the section under it. The landing
+   controller names that section's ground; before it does (or without an
+   IntersectionObserver) the band is the hero's night. */
+.firstrun::before{content:"";position:fixed;top:0;left:0;right:0;z-index:20;
+  height:env(safe-area-inset-top,0px);background:var(--band-night-bg);pointer-events:none}
+.firstrun[data-inset-ground="raised"]::before{background:var(--band-night-raised)}
+.firstrun[data-inset-ground="ink"]::before{background:var(--band-ink-bg)}
+.firstrun[data-inset-ground="orange"]::before{background:var(--band-orange-bg)}
+.firstrun[data-inset-ground="faq"]::before{background:var(--well)}
+.firstrun[data-inset-ground="paper"]::before{background:var(--bg)}
 .firstrun-wrap{
   width:100%;max-width:var(--maxw);margin-inline:auto;
   padding-left:max(var(--gut),env(safe-area-inset-left));padding-right:max(var(--gut),env(safe-area-inset-right));
@@ -6713,6 +6687,10 @@ body.is-entry-editor #entryProgramName,
   --onb-pad-r:max(var(--gut),env(safe-area-inset-right));
   position:fixed;inset:0;z-index:50;overflow:auto;background:var(--bg);
   padding:calc(var(--space-12) + env(safe-area-inset-top)) var(--onb-pad-r) 0 var(--onb-pad-l);overscroll-behavior:contain;}
+/* #453: like #onboarding, this layer scrolls above the shell's status-bar band,
+   so it paints the same paper band over its own top inset. */
+#importReview.active::before{content:"";position:fixed;top:0;left:0;right:0;z-index:20;
+  height:env(safe-area-inset-top,0px);background:var(--bg);pointer-events:none}
 #importBack::before{
   content:"";flex:none;width:var(--control-icon-size);height:var(--control-icon-size);background:currentColor;
   -webkit-mask:no-repeat center/contain;mask:no-repeat center/contain;
@@ -7361,7 +7339,7 @@ body.is-entry-editor #entryProgramName,
   text-transform:uppercase;color:var(--accent-deep)
 }
 
-/* Dialogs: cancel, replace and start over share one modal panel. */
+/* Dialogs: cancel, replace and start over, and the contextual guides, share one modal panel. */
 .entry-dialog{
   position:fixed;left:50%;top:calc(var(--vv-top,0px) + var(--vvh,100dvh) / 2);transform:translate(-50%,-50%);z-index:80;width:min(calc(100% - var(--space-32)),420px);
   max-height:min(90dvh,var(--dialog-max-height));margin:0;padding:var(--space-18);overflow:auto;overscroll-behavior:contain;border:1px solid var(--boundary-modal);
@@ -7751,7 +7729,6 @@ body.is-entry-editor #entryProgramName,
 
 /* Settings: Back, the guide cue, the warning line and the switches' on state. */
 #settings #settingsBack{color:var(--control-quiet-ink)}
-#settings .guide-cue{background:var(--well)}
 #settings .settings-warn{color:var(--color-ink)}
 #settings .toggle[aria-checked="true"]::before,#settings .toggle[aria-pressed="true"]::before,#settings .toggle.is-on::before{background:var(--boundary-selected-quiet)}
 

@@ -5,7 +5,6 @@
 
 /* Settings: Back, the guide cue, the warning line and the switches' on state. */
 #settings #settingsBack{color:var(--control-quiet-ink)}
-#settings .guide-cue{background:var(--well)}
 #settings .settings-warn{color:var(--color-ink)}
 #settings .toggle[aria-checked="true"]::before,#settings .toggle[aria-pressed="true"]::before,#settings .toggle.is-on::before{background:var(--boundary-selected-quiet)}
 

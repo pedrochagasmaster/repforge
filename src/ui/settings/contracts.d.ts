@@ -10,7 +10,13 @@ export interface GuideRegistry {
   replayGuideState(value:UiPrefs,id:string,options:{version:number,nowMs:number}):UiPrefs;
   evaluateGuide(guide:GuideDefinition,context:{anchorPresent:boolean,anchorVisible:boolean,uiPrefs:UiPrefs}):{eligible:boolean,decision:string};
 }
-export interface GuideOptions {window:Browser;registry:GuideRegistry;preferences:{read:()=>UiPrefs,reload:()=>UiPrefs,replace:(value:UiPrefs)=>boolean};t:Translate;landingOpen:()=>boolean;onGeometryChanged:()=>void;report:(event:string,properties:{guideId:string})=>void}
+export interface GuideOptions {
+  window:Browser;registry:GuideRegistry;preferences:{read:()=>UiPrefs,reload:()=>UiPrefs,replace:(value:UiPrefs)=>boolean};
+  t:Translate;landingOpen:()=>boolean;
+  shell:{openModal:(element:HTMLElement,options:import('../shell-contracts.js').ModalOptions)=>unknown,closeModal:(element:HTMLElement|null)=>Promise<unknown>,activeModal:import('../shell-contracts.js').ModalRecord|null};
+  focusKey:(element:Element|null)=>{sel:string}|null;
+  report:(event:string,properties:{guideId:string})=>void;
+}
 export type GuidesView=ReturnType<typeof import('./guides.js').createGuidesView>;
 export type SettingsCommands=ReturnType<typeof import('../../app/settings.js').createSettingsCommands>;
 export interface NotificationOptions {window:Browser;settings:SettingsCommands;capability:{permission:()=>string,request:()=>Promise<string>};t:Translate}
