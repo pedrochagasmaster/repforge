@@ -9,7 +9,7 @@
  * deleted session, never a mixed or half-deleted result.
  */
 import assert from "node:assert/strict";
-import { launchChromium } from "./browser.mjs";
+import { launchChromium, waitForAsyncCondition } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -167,6 +167,80 @@ try {
     "History Delete crash replay drains its WAL evidence");
 
   await context.close();
+
+  // A History write can queue behind another tab's storage lock. Cancelling
+  // while it waits must win: the lock-held preflight rechecks the operation,
+  // so neither replica changes and no success is announced.
+  for (const operation of ["delete", "edit"]) {
+    const cancelContext = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block" });
+    const app = await cancelContext.newPage();
+    await app.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForApp(app);
+    await clearSite(app);
+    await app.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(app);
+    await installSeedProgram(app, { key: KEY, waitFor: waitForApp });
+    const seeded = await app.evaluate((key) => JSON.parse(localStorage.getItem(key) || "{}"), KEY);
+    const session = `cancel-${operation}`;
+    const before = { ...seeded, log: rows(session, seeded.program[0].day, seeded.program[0].name, seeded.program[0].id, 77), _storageRevision: 12 };
+    await writeBoth(app, before);
+    await app.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(app);
+    await app.locator('nav button[data-view="history"]').click();
+    await app.waitForSelector("#history.view.active");
+    await app.locator(`#sessions [data-sess="${session}"] .session__open`).click();
+    await app.waitForSelector(`[data-reading="${session}"]`);
+    if (operation === "delete") {
+      await app.locator(`[data-reading="${session}"] [data-del="${session}"]`).click();
+      await app.waitForSelector(`[data-history-delete-confirm="${session}"]`);
+    } else {
+      await app.locator(`[data-history-edit="${session}"]`).click();
+      await app.locator(".session--edit .edrow__in").first().fill("80");
+    }
+
+    const holder = await cancelContext.newPage();
+    await holder.goto(new URL("manifest.webmanifest", BASE).href);
+    await holder.evaluate(() => {
+      void navigator.locks.request("repforge:state-write", async () => {
+        window.__storageLockHeld = true;
+        await new Promise((resolve) => { window.__releaseStorageLock = resolve; });
+      });
+    });
+    await holder.waitForFunction(() => window.__storageLockHeld === true);
+    await app.evaluate(() => {
+      window.__historyToasts = [];
+      new MutationObserver(() => {
+        const text = document.querySelector("#toast")?.textContent?.trim();
+        if (text) window.__historyToasts.push(text);
+      }).observe(document.body, { subtree: true, childList: true, characterData: true });
+    });
+    await app.locator(operation === "delete" ? `[data-history-delete-confirm="${session}"]` : `[data-edsave="${session}"]`).click();
+    await waitForAsyncCondition(holder, async () =>
+      (await navigator.locks.query()).pending.some((lock) => lock.name === "repforge:state-write"));
+    if (operation === "delete") {
+      await app.locator("[data-history-delete-cancel]").click();
+    } else {
+      await app.locator("[data-edcancel]").click();
+      await app.locator("#historyDiscardDrop").click();
+    }
+    await app.waitForSelector(`[data-reading="${session}"]`);
+    await holder.evaluate(() => window.__releaseStorageLock());
+    await waitForAsyncCondition(holder, async () => {
+      const held = await navigator.locks.query();
+      return ![...held.held, ...held.pending].some((lock) => lock.name === "repforge:state-write");
+    });
+    await app.evaluate(() => window.__repforgeStorage.flush());
+    const after = await readReplicas(app);
+    for (const [name, replica] of [["localStorage", after.local], ["IndexedDB", after.idb]]) {
+      assert.deepEqual(replica.log.filter((row) => row.session === session).map((row) => row.load), [77, 77],
+        `${operation} cancelled while queued for the storage lock leaves ${name} unchanged`);
+    }
+    assert.equal(after.pending.length, 0, `cancelled ${operation} leaves no pending journal`);
+    const announced = await app.evaluate(() => window.__historyToasts);
+    assert.equal(announced.some((text) => /deleted|updated|excluída|atualizada/i.test(text)), false,
+      `cancelled ${operation} never announces success: ${JSON.stringify(announced)}`);
+    await cancelContext.close();
+  }
 } finally {
   await browser.close();
 }
