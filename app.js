@@ -21710,6 +21710,10 @@ async function installTransferBootNeedsLock(){
   // mirrored import-marker stores before deciding whether transfer work needs
   // the cross-tab lock; an IDB-only or divergent marker must still fail closed
   // inside transferWork before ordinary replica healing can begin.
+  // A tab that dies inside the transfer lock releases the lock without running
+  // its finally, so its freeze signal blocks every durable write. Reclaim it
+  // only as the lock's next owner; never infer an expiry.
+  if(installTransferFreezeSignal()!==null)return true;
   const importMarker=await installTransferReadMarker();
   if(importMarker!==null)return true;
   if(installTransferReadInboundMarker()!==null)return true;
