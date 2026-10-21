@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { exerciseAction, finishEarly } from "./fixtures/focus-workout.mjs";
+import { editorSettled, openExerciseSheet, openInstalledEditor } from "./fixtures/installed-editor.mjs";
 /**
  * A mid-session swap must move the work with it.
  *
@@ -233,17 +234,15 @@ async function main() {
     // movement history and leaves the old labels untouched.
     await page.evaluate(() => document.querySelector('nav button[data-view="program"]')?.click());
     await settle(page);
-    await page.evaluate(() => {
-      if (document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"))
-        document.querySelector("#programEditToggle")?.click();
-    });
-    await page.waitForSelector('#programEditor [data-role="editor"]');
-    await page.click(`[data-role="replace"][data-id="${slot.id}"]`);
+    if (await page.locator("#programEditorWrap.is-hidden").count()) await openInstalledEditor(page);
+    await openExerciseSheet(page, slot.id);
+    await page.click('#reviewSheet [data-role="swap-open"]');
+    await page.click('#reviewSheet [data-role="swap-search"]');
     await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
     await pickExact(page, FLY.name);
     await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
-    await settle(page);
-    await page.click("#programEditToggle");
+    await editorSettled(page);
+    await page.locator('#programEditor [data-role="apply"]').click();
     await page.waitForFunction(({ key, id, fly }) => {
       const saved = JSON.parse(localStorage.getItem(key) || "{}");
       return document.querySelector("#programEditorWrap")?.classList.contains("is-hidden") &&

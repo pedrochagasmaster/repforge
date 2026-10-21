@@ -12,6 +12,7 @@
  * registered in the shared suite inventory until the production consumers land.
  */
 import { finishEarly } from "./fixtures/focus-workout.mjs";
+import { openInstalledEditor } from "./fixtures/installed-editor.mjs";
 import { readFileSync } from "node:fs";
 import { launchChromium, waitForAppBoot, assertServingApp } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
@@ -306,9 +307,9 @@ async function exportProgramJson(page) {
   await page.evaluate(() => document.querySelector('nav button[data-view="program"]')?.click());
   await page.waitForFunction(() => document.querySelector("#program")?.classList.contains("active"), undefined, { timeout: 10000 });
   if (await page.locator("#programEditorWrap").evaluate((element) => element.classList.contains("is-hidden"))) {
-    await page.locator("#programEditToggle").click();
+    await openInstalledEditor(page);
   }
-  await page.waitForSelector('#programEditor [data-role="exercise"]', { timeout: 10000 });
+  await page.waitForSelector('#programEditor [data-role="exercise-row"]', { timeout: 10000 });
   const advanced = page.locator("#program details.advanced");
   if (!(await advanced.getAttribute("open"))) await advanced.locator("summary").click();
   const [download] = await Promise.all([
@@ -477,7 +478,7 @@ async function runDraftAndSave(browser) {
     });
     await page.waitForFunction(() => document.querySelector("#program")?.classList.contains("active"), undefined, { timeout: 10000 });
     if (await page.locator("#programEditorWrap").evaluate((element) => element.classList.contains("is-hidden"))) {
-      await page.locator("#programEditToggle").click();
+      await openInstalledEditor(page);
     }
     await page.locator("#programStarted").fill(dates.started);
     await page.locator("#programStarted").dispatchEvent("change");

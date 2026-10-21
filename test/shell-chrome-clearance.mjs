@@ -108,7 +108,9 @@ const underPill = (page) => page.evaluate(() => {
   if (!box || box.width < 1 || getComputedStyle(pill).display === "none") return { error: "the rest pill is not showing" };
   const hits = [];
   for (const el of document.querySelectorAll("main :is(button,a[href],input,select,textarea,summary,[role=button],[role=switch],[tabindex]:not([tabindex='-1']))")) {
-    if (!el.getClientRects().length || getComputedStyle(el).visibility === "hidden") continue;
+    // checkVisibility, not client rects: a closed <details> keeps its content's layout boxes
+    // (content-visibility: hidden) though nothing in it is drawn or can be tapped.
+    if (!el.checkVisibility({ visibilityProperty: true })) continue;
     const r = el.getBoundingClientRect();
     if (r.width < 1 || r.height < 1) continue;
     if (r.left < box.right - 0.5 && r.right > box.left + 0.5 && r.top < box.bottom - 0.5 && r.bottom > box.top + 0.5) {

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { pathToFileURL } from "node:url";
+import { SHEET, closeEditorSheet, editorSettled, openExerciseSheet, openInstalledEditor, showEditorExercise } from "./fixtures/installed-editor.mjs";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 
@@ -88,13 +89,26 @@ async function seedCustom(page, name) {
   return result.id;
 }
 
+/** The exercise's sheet → Swap → Search the catalog: the picker opens over the editor. */
+async function openSwapSearch(page, slotId) {
+  await openExerciseSheet(page, slotId);
+  await page.locator(`${SHEET} [data-role="swap-open"]`).click();
+  await page.locator(`${SHEET} [data-role="swap-search"]`).click();
+}
+
+/** Apply from the pinned bar without waiting for the editor to close. */
+async function pressApply(page) {
+  await closeEditorSheet(page);
+  await page.locator('#programEditor [data-role="apply"]').click();
+}
+
 async function stageCustomReplacementInInstalledEditor(page, id, name) {
   await page.evaluate(() => document.querySelector('nav button[data-view="program"]')?.click());
   await page.waitForFunction(() => document.querySelector("#program")?.classList.contains("active"),
     undefined, { timeout: 5000 });
   if (await page.locator("#programEditorWrap.is-hidden").count())
-    await page.click("#programEditToggle");
-  await page.waitForSelector('#programEditor [data-role="exercise"]', { timeout: 5000 });
+    await openInstalledEditor(page);
+  await page.waitForSelector('#programEditor [data-role="exercise-row"]', { timeout: 5000 });
 
   const slot = await page.evaluate(() => {
     const state = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
@@ -102,10 +116,7 @@ async function stageCustomReplacementInInstalledEditor(page, id, name) {
     return row ? { id: row.id, libraryId: row.libraryId || null } : null;
   });
   if (!slot) throw new Error("Seed program has no non-custom slot to replace");
-  const row = page.locator(`#programEditor [data-role="exercise"][data-id="${slot.id}"]`);
-  if (!(await row.locator('[data-role="replace"]').count()))
-    await row.locator('[data-role="toggle-exercise"]').click();
-  await row.locator('[data-role="replace"]').click();
+  await openSwapSearch(page, slot.id);
   await page.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
   await page.locator("#exPickSearch").fill(name);
   await page.waitForFunction(customId =>
@@ -115,10 +126,12 @@ async function stageCustomReplacementInInstalledEditor(page, id, name) {
     [...document.querySelectorAll("#exPickList .pickrow")]
       .find(button => button.dataset.pick === customId)?.click(), id);
   await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+  await showEditorExercise(page, slot.id);
   await page.waitForFunction(({ slotId, expectedName }) => {
-    const element = document.querySelector(`#programEditor [data-role="exercise"][data-id="${CSS.escape(slotId)}"]`);
-    return element?.querySelector('[data-role="exercise-field"][data-field="name"]')?.value === expectedName;
+    const element = document.querySelector(`#programEditor [data-role="exercise-row"][data-id="${CSS.escape(slotId)}"]`);
+    return element?.querySelector(".review__name")?.textContent?.trim() === expectedName;
   }, { slotId: slot.id, expectedName: name }, { timeout: 5000 });
+  await editorSettled(page);
   return slot;
 }
 
@@ -127,18 +140,15 @@ async function replaceCustomSlotWithBuiltIn(page, customId) {
   await page.waitForFunction(() => document.querySelector("#program")?.classList.contains("active"),
     undefined, { timeout: 5000 });
   if (await page.locator("#programEditorWrap.is-hidden").count())
-    await page.click("#programEditToggle");
-  await page.waitForSelector('#programEditor [data-role="exercise"]', { timeout: 5000 });
+    await openInstalledEditor(page);
+  await page.waitForSelector('#programEditor [data-role="exercise-row"]', { timeout: 5000 });
   const slot = await page.evaluate(id => {
     const state = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
     const row = state.program?.find(item => item.libraryId === id);
     return row ? { id: row.id, day: row.day } : null;
   }, customId);
   if (!slot) throw new Error("Custom-reference fixture has no installed Program slot for X");
-  const row = page.locator(`#programEditor [data-role="exercise"][data-id="${slot.id}"]`);
-  if (!(await row.locator('[data-role="replace"]').count()))
-    await row.locator('[data-role="toggle-exercise"]').click();
-  await row.locator('[data-role="replace"]').click();
+  await openSwapSearch(page, slot.id);
   await page.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
   const builtinId = await page.evaluate(() =>
     window.__repforgeExerciseLibrary.find(entry => entry.name === "Overhand grip cable lat pulldown")?.id || null);
@@ -147,7 +157,8 @@ async function replaceCustomSlotWithBuiltIn(page, customId) {
   await page.waitForSelector(`#exPickList .pickrow[data-pick="${builtinId}"]`, { timeout: 5000 });
   await page.locator(`#exPickList .pickrow[data-pick="${builtinId}"]`).click();
   await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
-  await page.click("#programEditToggle");
+  await editorSettled(page);
+  await pressApply(page);
   await page.waitForFunction(() => {
     const leave = document.querySelector("#programEditorLeave");
     const wrapper = document.querySelector("#programEditorWrap");
@@ -295,7 +306,7 @@ async function testPendingEditorJournalReplayAfterDelete(browser) {
     // The real editor writes its immutable proposal before requesting the lock.
     // Holding that request models a tab crash in the WAL-before-lock window.
     await gateNextStateLockRequest(tabB);
-    await tabB.click("#programEditToggle");
+    await pressApply(tabB);
     await tabB.waitForFunction(customId => {
       if (window.__f05712StateLockQueued !== true) return false;
       return Object.keys(localStorage).some(key => {
@@ -433,7 +444,7 @@ async function testPostPartialStaleWorkoutLog(browser) {
     const name = "F057-12 stale workout attribution";
     const id = await seedCustom(tabA, name);
     const slot = await stageCustomReplacementInInstalledEditor(tabA, id, name);
-    await tabA.click("#programEditToggle");
+    await pressApply(tabA);
     await tabA.waitForFunction(({ slotId, customId }) => {
       const state = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
       return state.program?.some(item => item.id === slotId && item.libraryId === customId) === true;
@@ -682,7 +693,7 @@ async function run() {
     // The injected gate pauses after that optimistic read and before the
     // installed editor submits its durable transaction.
     await gateEditorApplyAfterUnlockedRefresh(tabB, id);
-    await tabB.click("#programEditToggle");
+    await pressApply(tabB);
     await tabB.waitForFunction(() => window.__releaseF05712UnlockedRefresh &&
       window.__f05712UnlockedHead?.customDefined === true, undefined, { timeout: 10000 });
 

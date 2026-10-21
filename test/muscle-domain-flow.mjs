@@ -6,6 +6,7 @@
  * programStructure, so no compact receipt is written.)
  */
 import assert from "node:assert/strict";
+import { SHEET, applyInstalledEditor, closeEditorSheet, editorSettled, openExerciseSheet, openInstalledEditor, sheetTap, showEditorDay } from "./fixtures/installed-editor.mjs";
 import { assertServingApp, launchChromium, waitForAppBoot } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
@@ -114,10 +115,11 @@ async function main() {
     await page.click('nav button[data-view="program"]');
     await page.waitForSelector("#program.view.active");
     if (await page.locator("#programEditorWrap").evaluate((node) => node.classList.contains("is-hidden"))) {
-      await page.click("#programEditToggle");
+      await openInstalledEditor(page);
     }
     // Created from the editor's Add exercise picker, the custom movement joins
     // the canonical program when the edit is applied.
+    await showEditorDay(page, "Day 1");
     await page.click('#programEditor [data-role="add-exercise"][data-day="Day 1"]');
     await page.waitForSelector("#exPickSheet.is-open");
     await page.fill("#exPickSearch", "UI canonical row");
@@ -133,25 +135,27 @@ async function main() {
     await page.click("#exCustomSave");
     await page.waitForSelector("#exCustomSheet", { state: "hidden" });
     await page.waitForSelector("#exPickSheet", { state: "hidden" });
-    await page.click("#programEditToggle");
-    await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"));
+    await editorSettled(page);
+    await applyInstalledEditor(page);
     // A new custom movement has no metrics until the lifter chooses what it
     // logs, and a program cannot be activated with an unconfigured slot.
     const customRowId = await page.evaluate(() => window.__repforgeWorkoutDraft.state().program
       .find((row) => row.name === "UI canonical row")?.id);
-    await page.click("#programEditToggle");
-    const customToggleOwn = page.locator(`#programEditor [data-role="toggle-exercise"][data-id="${customRowId}"]`);
-    if (await customToggleOwn.getAttribute("aria-expanded") !== "true") await customToggleOwn.click();
-    await page.selectOption(`#programEditor [data-role="metric-composition"][data-id="${customRowId}"]`,
+    await openInstalledEditor(page);
+    await openExerciseSheet(page, customRowId);
+    await page.locator(`${SHEET} [data-role="more-details"] summary`).click();
+    await page.selectOption(`${SHEET} [data-role="metric-composition"][data-id="${customRowId}"]`,
       JSON.stringify([WEIGHT, REPS]));
-    await page.click("#programEditToggle");
+    await editorSettled(page);
+    await closeEditorSheet(page);
+    await page.locator('#programEditor [data-role="apply"]').click();
     const configured = await page.waitForFunction((id) => {
       const state = window.__repforgeWorkoutDraft.state();
       const slots = state.programMeta.programDefinition.days.flatMap((day) => day.slots);
       return document.querySelector("#programEditorWrap")?.classList.contains("is-hidden") &&
         slots.find((slot) => slot.id === id)?.metricIds?.length === 2;
     }, customRowId, { timeout: 5000 }).then(() => true, () => false);
-    assert.ok(configured, "Done applies the custom movement's chosen metric composition",
+    assert.ok(configured, "Apply applies the custom movement's chosen metric composition",
       await page.locator('#programEditor [data-role="editor-status"]').textContent().catch(() => ""));
 
     const created = await page.evaluate(() => {
@@ -291,15 +295,12 @@ async function main() {
       await target.click('nav button[data-view="program"]');
       await target.waitForSelector("#program.view.active");
       if (await target.locator("#programEditorWrap").evaluate((node) => node.classList.contains("is-hidden"))) {
-        await target.click("#programEditToggle");
+        await openInstalledEditor(target);
       }
       const customRowId = startResult.state.program.find((entry) => entry.libraryId === activated.custom.id)?.id;
-      const customToggle = target.locator(`[data-role="toggle-exercise"][data-id="${customRowId}"]`);
-      if (await customToggle.getAttribute("aria-expanded") !== "true") await customToggle.click();
-      await target.waitForSelector(`[data-role="adjust"][data-id="${customRowId}"][data-field="sets"][data-delta="1"]`);
-      await target.click(`[data-role="adjust"][data-id="${customRowId}"][data-field="sets"][data-delta="1"]`);
-      await target.click("#programEditToggle");
-      await target.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"));
+      await openExerciseSheet(target, customRowId);
+      await sheetTap(target, '[data-role="sets-step"][data-delta="1"]');
+      await applyInstalledEditor(target);
       await target.evaluate(() => window.__repforgeStorage.flush());
 
       const compacted = await target.evaluate((id) => {

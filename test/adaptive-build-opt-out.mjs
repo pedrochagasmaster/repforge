@@ -3,10 +3,11 @@
  * P069-S4-OFF: an opted-in Build slot through the installed Program editor.
  *
  * Range and RIR edits keep the slot adaptive (D3). Turning Suggest loads off
- * and pressing Done returns every set in every cycle to manual and keeps every
+ * and pressing Apply returns every set in every cycle to manual and keeps every
  * value the lifter typed; Focus, Today and Why then read the manual result
  * with the accepted S1 copy. Turning it back on is refused at Done while the
  * RIR is missing, with the error on that field, and confirmed once it is given.
+ * Plan 074: the controls are the exercise's sheet and its Weeks table.
  *
  * Run: node tools/run-tests.mjs entry --suite-id test-adaptive-build-opt-out-mjs
  */
@@ -23,12 +24,25 @@ function check(condition, message, detail) {
   if (detail !== undefined) console.error(`    ${JSON.stringify(detail).slice(0, 3000)}`);
 }
 
+const settled = (page) => page.waitForSelector('#programEditor [data-role="editor"][data-layout="review"]:not([aria-busy="true"])', { timeout: 10000 });
+
+/** Apply from the pinned bar; a refusal keeps the editor open. */
+async function pressApply(page) {
+  if (await page.locator("#reviewSheet.is-open").count()) {
+    await page.locator('#reviewSheet [data-role="sheet-done"]').click();
+    await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 5000 });
+  }
+  await page.locator('#programEditor [data-role="apply"]').click();
+}
+
 async function done(page) {
-  await page.click("#programEditToggle");
+  await pressApply(page);
   await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"),
     undefined, { timeout: 10000 });
   await page.evaluate(() => window.__repforgeStorage.flush());
 }
+
+const optInRir = (page) => page.locator('#reviewSheet [data-role="suggest-loads-rir-step-value"]').textContent();
 
 async function commitField(input, value) {
   await input.fill(String(value));
@@ -54,12 +68,19 @@ try {
   let row = await openInstalledEditor(page);
   check(await row.locator('[data-role="suggest-loads"]').getAttribute("aria-checked") === "true",
     "the installed editor shows the opted-in slot's switch on");
-  await commitField(row.locator('[data-role="metric-target"][data-cycle-index="1"][data-set-index="1"][data-bound="max"]'), 12);
-  await commitField(row.locator('[data-role="prescription-field"][data-cycle-index="1"][data-set-index="1"][data-field="rir"]'), 3);
+  // Week 1's first set, in the Weeks table.
+  await row.locator('[data-role="weeks-open"]').click();
+  await page.locator('#reviewSheet [data-role="week-row"][data-cycle-index="1"]').click();
+  await commitField(page.locator('#reviewSheet [data-role="metric-target"][data-cycle-index="1"][data-set-index="1"][data-semantic="reps"]'), "6–12");
+  await settled(page);
+  await commitField(page.locator('#reviewSheet [data-role="prescription-field"][data-cycle-index="1"][data-set-index="1"][data-field="rir"]'), 3);
+  await settled(page);
+  await page.locator('#reviewSheet [data-role="weeks-back"]').click();
   // A set added to an adaptive slot joins it with the slot's RIR.
-  await row.locator('[data-role="adjust"][data-field="sets"][data-delta="1"]').click();
-  await page.waitForFunction(() => document.querySelector('#programEditor [data-role="sets-value"]')?.textContent?.trim() === "4",
+  await page.locator('#reviewSheet [data-role="sets-step"][data-delta="1"]').click();
+  await page.waitForFunction(() => /^4\b/.test(document.querySelector('#reviewSheet [data-role="sets-step-value"]')?.textContent?.trim() || ""),
     undefined, { timeout: 5000 });
+  await settled(page);
   await done(page);
   const edited = await durableSlot(page);
   const cycleOne = edited.slot?.prescriptionsByCycle?.find((cycle) => cycle.cycleIndex === 1)?.sets || [];
@@ -70,7 +91,7 @@ try {
   // Off: manual everywhere, typed values kept.
   row = await openInstalledEditor(page);
   await row.locator('[data-role="suggest-loads"]').click();
-  await page.waitForFunction(() => document.querySelector('#programEditor [data-role="suggest-loads"][aria-checked="false"]'),
+  await page.waitForFunction(() => document.querySelector('#reviewSheet [data-role="suggest-loads"][aria-checked="false"]'),
     undefined, { timeout: 5000 });
   await done(page);
   const off = await durableSlot(page);
@@ -116,15 +137,15 @@ try {
   await page.locator('nav button[data-view="program"]').waitFor({ state: "visible", timeout: 10000 });
   row = await openInstalledEditor(page);
   await row.locator('[data-role="suggest-loads"]').click();
-  const rirInput = row.locator('[data-role="suggest-loads-rir"]');
-  await rirInput.waitFor({ timeout: 5000 });
-  check(await rirInput.inputValue() === "", "with mixed set RIRs the opt-in RIR starts empty", await rirInput.inputValue());
-  await page.click("#programEditToggle");
+  await page.locator('#reviewSheet [data-role="suggest-loads-rir-step-value"]').waitFor({ timeout: 5000 });
+  await settled(page);
+  check(await optInRir(page) === "–", "with mixed set RIRs the opt-in RIR starts empty", await optInRir(page));
+  await pressApply(page);
   await page.waitForFunction(() =>
-    document.querySelector('#programEditor [data-role="suggest-loads-rir"]')?.getAttribute("aria-invalid") === "true",
+    document.querySelector('#reviewSheet [data-role="suggest-loads-rir-step"]')?.getAttribute("aria-invalid") === "true",
   undefined, { timeout: 5000 }).catch(() => {});
   const refused = await page.evaluate(() => {
-    const input = document.querySelector('#programEditor [data-role="suggest-loads-rir"]');
+    const input = document.querySelector('#reviewSheet [data-role="suggest-loads-rir-step"]');
     return {
       editorOpen: !document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"),
       invalid: input?.getAttribute("aria-invalid"),
@@ -135,38 +156,43 @@ try {
   const stillOff = await durableSlot(page);
   check(refused.editorOpen && refused.invalid === "true" && refused.note === "alert" && refused.focused
     && stillOff.statuses.join() === "manual",
-  "Done refuses an incomplete opt-in in the installed editor and commits nothing", { refused, stillOff });
-  await commitField(page.locator('#programEditor [data-role="suggest-loads-rir"]'), 1);
+  "Apply refuses an incomplete opt-in in the installed editor and commits nothing", { refused, stillOff });
+  // From an empty RIR the stepper starts at 2: one step down gives 1.
+  await page.locator('#reviewSheet [data-role="suggest-loads-rir-step"][data-delta="-1"]').click();
+  await settled(page);
   await done(page);
   const on = await durableSlot(page);
   check(on.statuses.join() === "ready" && on.rirs.every((value) => value === 1) && on.policies.join() === "manual/manual-adaptive@1"
     && on.targets[0]?.max === 12,
-  "Done confirms the completed opt-in with the chosen RIR on every set, keeping the edited range", on);
+  "Apply confirms the completed opt-in with the chosen RIR on every set, keeping the edited range", on);
 
   // Another tab replaces the movement while this tab holds a staged opt-in:
   // Done must surface the conflict, not opt the new movement in.
   row = await openInstalledEditor(page);
   await row.locator('[data-role="suggest-loads"]').click();
-  await page.waitForFunction(() => document.querySelector('#programEditor [data-role="suggest-loads"][aria-checked="false"]'),
+  await page.waitForFunction(() => document.querySelector('#reviewSheet [data-role="suggest-loads"][aria-checked="false"]'),
     undefined, { timeout: 5000 });
   await done(page);
   row = await openInstalledEditor(page);
   await row.locator('[data-role="suggest-loads"]').click();
-  check(await row.locator('[data-role="suggest-loads-rir"]').inputValue() === "1",
+  await settled(page);
+  check(await optInRir(page) === "1",
     "the staged opt-in reuses the slot's shared RIR, so the switch is its only edit");
   const other = await context.newPage();
   await other.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForAppBoot(other, { base: BASE });
   const otherRow = await openInstalledEditor(other);
-  await otherRow.locator('[data-role="replace"]').click();
+  await otherRow.locator('[data-role="swap-open"]').click();
+  await other.locator('#reviewSheet [data-role="swap-search"]').click();
   await other.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
   await other.fill("#exPickSearch", "Barbell back squat");
   await other.locator('#exPickList [data-pick="1a25c6f170d8803d8231d083fdd65458"]').click();
-  await other.waitForFunction(() => [...document.querySelectorAll('#programEditor [data-role="exercise"]')]
+  await other.waitForFunction(() => [...document.querySelectorAll('#programEditor [data-role="exercise-row"]')]
     .some((node) => node.textContent.includes("Barbell back squat")), undefined, { timeout: 10000 });
+  await settled(other);
   await done(other);
   await other.close();
-  await page.click("#programEditToggle");
+  await pressApply(page);
   await page.waitForFunction(() => /another tab/i.test(document.querySelector('#programEditor [data-role="editor-status"]')?.textContent || "")
     || document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), undefined, { timeout: 10000 }).catch(() => {});
   const raced = await page.evaluate(() => ({

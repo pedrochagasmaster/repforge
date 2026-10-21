@@ -5,6 +5,7 @@
  * Run: node test/exercise-picker.mjs   (requires the app served over HTTP)
  */
 import { pathToFileURL } from "url";
+import { SHEET, applyInstalledEditor, editorSettled, openExerciseSheet, openInstalledEditor, showEditorDay } from "./fixtures/installed-editor.mjs";
 import { launchChromium } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 
@@ -98,35 +99,23 @@ async function openEditor(page) {
   await page.evaluate(() => window.closeTour?.());
   await page.waitForFunction(() => !document.querySelector("#tour") || document.querySelector("#tour").classList.contains("hidden"), { timeout: 5000 });
   await page.waitForFunction(() => !document.body.classList.contains("is-sheet-open"), { timeout: 5000 });
-  await page.evaluate(() => document.querySelector('nav button[data-view="program"]')?.click());
-  await page.waitForTimeout(200);
-  await page.evaluate(() => {
-    const btn = document.querySelector("#programEditToggle");
-    if (document.querySelector("#programEditorWrap")?.classList.contains("is-hidden")) btn?.click();
-  });
-  await page.waitForSelector('#programEditor [data-role="exercise"]', { timeout: 5000 });
-  await page.evaluate(() => {
-    document.querySelectorAll('#programEditor [data-role="day"].is-collapsed [data-role="toggle-day"]')
-      .forEach(button => button.click());
-  });
+  await openInstalledEditor(page);
 }
 
 async function finishEditor(page) {
-  await page.locator("#programEditToggle").evaluate((element) => {
-    element.scrollIntoView({ block: "center", inline: "nearest" });
-  });
-  await page.click("#programEditToggle");
-  await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), { timeout: 10000 });
+  await applyInstalledEditor(page);
 }
 
 async function openDetails(page, id) {
   await page.evaluate(() => window.closeTour?.());
   await page.waitForFunction(() => !document.querySelector("#tour") || document.querySelector("#tour").classList.contains("hidden"), { timeout: 5000 });
-  const row = page.locator(`#programEditor [data-role="exercise"][data-id="${id}"]`);
-  await row.evaluate((element) => element.scrollIntoView({ block: "center", inline: "nearest" }));
-  if (!(await row.locator('[data-role="exercise-field"][data-field="primary"]').count()))
-    await row.locator('[data-role="toggle-exercise"]').evaluate((button) => button.click());
-  await row.locator('[data-role="replace"]').waitFor({ state: "visible", timeout: 5000 });
+  await openExerciseSheet(page, id);
+}
+
+/** + Add exercise sits at the foot of the day's tab. */
+async function clickAdd(page, day) {
+  await showEditorDay(page, day);
+  await page.click(`#programEditor [data-role="add-exercise"][data-day="${day}"]`);
 }
 
 /** Search narrows loosely, so rows are chosen by their exact displayed name. */
@@ -145,21 +134,28 @@ async function pickExact(page, name) {
 
 const settle = (page) => page.waitForTimeout(280);
 
-/** R7 J-08: what the lifter's focus and the live region say after an editor commit. */
+/** R7 J-08: what the lifter's focus and the live region say after an editor commit: the app's
+    toast, or the editor's own toast with Undo (Plan 074), which stands in for it. */
 const watchAnnouncements = (page) => page.evaluate(() => {
   window.__editorToasts = [];
   if (window.__editorToastObserver) window.__editorToastObserver.disconnect();
+  if (window.__editorUndoToastObserver) window.__editorUndoToastObserver.disconnect();
   window.__editorToastObserver = new MutationObserver(() => {
     const text = document.querySelector("#toast")?.textContent?.trim();
     if (text) window.__editorToasts.push(text);
   });
   window.__editorToastObserver.observe(document.querySelector("#toast"), { childList: true, characterData: true, subtree: true });
+  window.__editorUndoToastObserver = new MutationObserver((records) => {
+    for (const record of records) for (const node of record.addedNodes)
+      if (node.dataset?.role === "editor-toast") window.__editorToasts.push(node.textContent.trim());
+  });
+  window.__editorUndoToastObserver.observe(document.body, { childList: true });
 });
 const landed = (page, { rowId = null, day = null } = {}) => page.evaluate(({ rowId, day }) => {
   const el = document.activeElement;
   return {
     tag: el?.tagName, role: el?.dataset?.role || null,
-    inRow: !!rowId && el?.closest?.('[data-role="exercise"]')?.dataset.id === rowId,
+    inRow: !!rowId && el?.closest?.('[data-role="exercise-row"]')?.dataset.id === rowId,
     addForDay: !!day && el?.matches?.('[data-role="add-exercise"]') && el.dataset.day === day,
     live: !!el && el !== document.body && !el.closest("[hidden],[aria-hidden='true']"),
     toasts: window.__editorToasts || [],
@@ -175,7 +171,7 @@ async function main() {
     let state = await getState(page);
     const day = state.program[0].day;
     const idsBefore = new Set(state.program.map((e) => e.id));
-    await page.click(`#programEditor [data-role="add-exercise"][data-day="${day}"]`);
+    await clickAdd(page, day);
     await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
 
     // + Add exercise opens the quick sheet: a short contextual list, with the
@@ -225,7 +221,7 @@ async function main() {
     await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
     await settle(page);
     const newRowId = await page.evaluate((before) =>
-      [...document.querySelectorAll('#programEditor [data-role="exercise"]')].map((r) => r.dataset.id).find((id) => !before.includes(id)),
+      [...document.querySelectorAll('#programEditor [data-role="exercise-row"]')].map((r) => r.dataset.id).find((id) => !before.includes(id)),
     [...idsBefore]);
     const afterAdd = await landed(page, { rowId: newRowId });
     assert(afterAdd.inRow && afterAdd.live && afterAdd.toasts.length === 1,
@@ -245,7 +241,8 @@ async function main() {
     const slotId = added.id;
     await openEditor(page);
     await openDetails(page, slotId);
-    await page.click(`#programEditor [data-role="replace"][data-id="${slotId}"]`);
+    await page.click(`${SHEET} [data-role="swap-open"]`);
+    await page.click(`${SHEET} [data-role="swap-search"]`);
     await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
     await watchAnnouncements(page);
     await pickExact(page, "Horizontal cable fly");
@@ -272,33 +269,15 @@ async function main() {
     // the library movement id and is covered by performed-attribution.mjs.
     assert(swapped.id === slotId, "the structural slot keeps its id across a replacement", `${swapped.id} vs ${slotId}`);
 
-    // ---- a rename is an alias, not a change of movement ----
-    await openEditor(page);
-    const slotName = page.locator(`#programEditor [data-role="exercise-field"][data-id="${slotId}"][data-field="name"]`);
-    await slotName.fill("Hammer Strength fly");
-    await slotName.blur();
-    await settle(page);
-    await finishEditor(page);
-    state = await getState(page);
-    const renamed = state.program.find((e) => e.id === slotId);
-    assert(
-      renamed.name === "Hammer Strength fly" && renamed.displayName === "Hammer Strength fly" &&
-        renamed.libraryId === HORIZONTAL_CABLE_FLY,
-      "renaming a linked slot stores an alias and keeps the link",
-      JSON.stringify(renamed)
-    );
-    // The whole point of the alias: the id still means one movement, so the
-    // muscles the audit reads are the definition's, not whatever was typed.
-    assert(
-      renamed.primary === "Chest" && renamed.primary === swapped.primary && renamed.secondary === swapped.secondary,
-      "an aliased slot keeps the definition's muscles",
-      JSON.stringify([renamed.primary, renamed.secondary, swapped.primary, swapped.secondary])
-    );
+    // ---- a catalog movement keeps its catalog name (ADR 0021 decision 5) ----
     await openEditor(page);
     await openDetails(page, slotId);
+    assert(await page.locator(`${SHEET} [data-role="exercise-field"][data-id="${slotId}"][data-field="name"]`).count() === 0,
+      "a linked slot offers no name box: only custom movements are renamed");
+    await page.locator(`${SHEET} [data-role="more-details"] summary`).click();
     const musclesLocked = await page.evaluate((id) =>
       ["primary", "secondary"].every((f) =>
-        document.querySelector(`#programEditor [data-role="exercise-field"][data-id="${id}"][data-field="${f}"]`)?.readOnly), slotId);
+        document.querySelector(`#reviewSheet [data-role="exercise-field"][data-id="${id}"][data-field="${f}"]`)?.readOnly), slotId);
     assert(musclesLocked, "a linked slot's muscle fields are not editable in place");
     await finishEditor(page);
 
@@ -306,9 +285,11 @@ async function main() {
     await openEditor(page);
     await openDetails(page, slotId);
     await watchAnnouncements(page);
-    await page.locator(`#programEditor [data-role="remove-exercise"][data-id="${slotId}"]`).evaluate((button) => button.click());
+    await page.locator(`${SHEET} [data-role="remove-exercise"][data-id="${slotId}"]`).click();
+    await page.waitForSelector(SHEET, { state: "hidden", timeout: 5000 });
+    await editorSettled(page);
     await settle(page);
-    const slotDay = await page.evaluate((id) => document.querySelector(`#programEditor [data-role="exercise"][data-id="${id}"]`)?.dataset.day || null, slotId);
+    const slotDay = await page.evaluate((id) => document.querySelector(`#programEditor [data-role="exercise-row"][data-id="${id}"]`) ? "present" : null, slotId);
     const afterRemove = await landed(page, { day });
     assert(slotDay === null && afterRemove.addForDay && afterRemove.live && afterRemove.toasts.length === 1,
       "removing an exercise lands focus on the day's Add control and announces it once (R7 J-08)", JSON.stringify({ slotDay, ...afterRemove }));
@@ -316,7 +297,7 @@ async function main() {
 
     // ---- custom exercises ----
     await openEditor(page);
-    await page.click(`#programEditor [data-role="add-exercise"][data-day="${day}"]`);
+    await clickAdd(page, day);
     await page.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
     await page.evaluate(() =>
       [...document.querySelectorAll("#exPickFilters .pchip")].find((b) => b.textContent.trim() === "Machine")?.click());
@@ -364,13 +345,13 @@ async function main() {
       [...document.querySelectorAll("#exCustomSecondary .pchip")].find((b) => b.textContent.trim() === "Glutes")?.click();
     });
     const customIdsBefore = await page.evaluate(() =>
-      [...document.querySelectorAll('#programEditor [data-role="exercise"]')].map((r) => r.dataset.id));
+      [...document.querySelectorAll('#programEditor [data-role="exercise-row"]')].map((r) => r.dataset.id));
     await watchAnnouncements(page);
     await page.click("#exCustomSave");
     await page.waitForSelector("#exCustomSheet", { state: "hidden", timeout: 5000 });
     await settle(page);
     const customRowId = await page.evaluate((before) =>
-      [...document.querySelectorAll('#programEditor [data-role="exercise"]')].map((r) => r.dataset.id).find((id) => !before.includes(id)),
+      [...document.querySelectorAll('#programEditor [data-role="exercise-row"]')].map((r) => r.dataset.id).find((id) => !before.includes(id)),
     customIdsBefore);
     const afterCustom = await landed(page, { rowId: customRowId });
     assert(afterCustom.inRow && afterCustom.live && afterCustom.toasts.length === 1,
@@ -396,7 +377,7 @@ async function main() {
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(page);
     await openEditor(page);
-    await page.click(`#programEditor [data-role="add-exercise"][data-day="${otherDay}"]`);
+    await clickAdd(page, otherDay);
     await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
     await page.evaluate(() =>
       [...document.querySelectorAll("#exPickTabs .picktab")].find((b) => b.textContent.trim() === "Yours")?.click());

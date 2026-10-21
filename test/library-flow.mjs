@@ -11,6 +11,7 @@
  * Run: node test/library-flow.mjs   (requires the app served over HTTP)
  */
 import { pathToFileURL } from "url";
+import { applyInstalledEditor, openInstalledEditor } from "./fixtures/installed-editor.mjs";
 import { launchChromium } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 
@@ -64,16 +65,12 @@ async function reset(page) {
 async function openEditor(page) {
   await page.evaluate(() => document.querySelector('nav button[data-view="program"]')?.click());
   await settle(page, 200);
-  await page.evaluate(() => {
-    if (document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"))
-      document.querySelector("#programEditToggle")?.click();
-  });
-  await page.waitForSelector('#programEditor [data-role="exercise"]', { timeout: 5000 });
+  if (await page.locator("#programEditorWrap.is-hidden").count()) await openInstalledEditor(page);
+  await page.waitForSelector('#programEditor [data-role="exercise-row"]', { timeout: 5000 });
 }
 
 async function finishEditor(page) {
-  await page.click("#programEditToggle");
-  await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), { timeout: 10000 });
+  await applyInstalledEditor(page);
 }
 
 /** Toggles a library row by its exact displayed name. */

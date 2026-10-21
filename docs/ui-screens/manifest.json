@@ -848,6 +848,13 @@
       "variants": "demandingText"
     },
     {
+      "id": "editor-alternates",
+      "flow": "onboarding-build",
+      "label": "Build — editor alternates",
+      "scenario": "The Build editor (the classic layout) with its first exercise's in-session alternates: two chosen movements in order, each with move and remove controls, and Add alternate.",
+      "variants": "localized"
+    },
+    {
       "id": "source",
       "flow": "onboarding-import",
       "label": "Import — source",
@@ -1467,28 +1474,28 @@
       "id": "progression-editor",
       "flow": "program",
       "label": "Program — editor",
-      "scenario": "The installed program editor, with the first day open.",
+      "scenario": "The installed Program editor (Plan 074): the program name, its days and current week, the day tabs, the first day's exercises with one line per set, and Apply pinned where the dock was.",
       "variants": "localized"
     },
     {
       "id": "editor-alternates",
       "flow": "program",
       "label": "Program — editor alternates",
-      "scenario": "The installed program editor with an exercise open on its alternates: two chosen movements in order, each with reorder and remove controls, and Add alternate.",
+      "scenario": "The installed Program editor with an exercise's sheet scrolled to its in-session alternates: two chosen movements in order, each with reorder and remove controls, and Add alternate.",
       "variants": "localized"
     },
     {
       "id": "editor-suggest-loads",
       "flow": "program",
       "label": "Program — Suggest loads",
-      "scenario": "The installed program editor with Suggest loads switched on for a dumbbell renegade row: the current rep target, the RIR, the smallest load change, and the question of how the lifter does the exercise.",
+      "scenario": "The installed Program editor's sheet for a dumbbell renegade row with Suggest loads switched on (an ink switch): the current rep target, the RIR on every set, the smallest load change, and the question of how the lifter does the exercise.",
       "variants": "localized"
     },
     {
       "id": "editor-day-name-refused",
       "flow": "program",
       "label": "Program — refused day rename",
-      "scenario": "The installed program editor after a day was renamed to a name another day already uses: the field shows the day's own name again and the reason sits under the day header.",
+      "scenario": "The installed Program editor's rename sheet after a day was given a name another day already uses: the field keeps the typed name, is marked invalid, and the reason sits under it; the day keeps its own name.",
       "variants": "localized"
     },
     {

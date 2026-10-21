@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 200 screens,
-1163 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 201 screens,
+1166 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -125,6 +125,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Build — empty days](screens/onboarding-build/editor-empty__phone-390-light-en.png) | 8 | Real empty day containers, Add exercise, Save draft, activation disabled. |
 | [Build — partial draft](screens/onboarding-build/editor-partial__phone-390-light-en.png) | 8 | One populated day and one incomplete day. Activation stays disabled. |
 | [Build — activation ready](screens/onboarding-build/editor-ready__phone-390-light-en.png) | 8 | A complete manual draft with supported progression and activation enabled. |
+| [Build — editor alternates](screens/onboarding-build/editor-alternates__phone-390-light-en.png) | 3 | The Build editor (the classic layout) with its first exercise's in-session alternates: two chosen movements in order, each with move and remove controls, and Add alternate. |
 
 ### Onboarding — Import a program file
 
@@ -276,10 +277,10 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | --- | --- | --- |
 | [Program — no program](screens/program/no-program__phone-390-light-en.png) | 3 | A fresh device's Program tab, with setup as the only action. |
 | [Program](screens/program/overview__phone-390-light-en.png) | 8 | The current program and its days. |
-| [Program — editor](screens/program/progression-editor__phone-390-light-en.png) | 3 | The installed program editor, with the first day open. |
-| [Program — editor alternates](screens/program/editor-alternates__phone-390-light-en.png) | 3 | The installed program editor with an exercise open on its alternates: two chosen movements in order, each with reorder and remove controls, and Add alternate. |
-| [Program — Suggest loads](screens/program/editor-suggest-loads__phone-390-light-en.png) | 3 | The installed program editor with Suggest loads switched on for a dumbbell renegade row: the current rep target, the RIR, the smallest load change, and the question of how the lifter does the exercise. |
-| [Program — refused day rename](screens/program/editor-day-name-refused__phone-390-light-en.png) | 3 | The installed program editor after a day was renamed to a name another day already uses: the field shows the day's own name again and the reason sits under the day header. |
+| [Program — editor](screens/program/progression-editor__phone-390-light-en.png) | 3 | The installed Program editor (Plan 074): the program name, its days and current week, the day tabs, the first day's exercises with one line per set, and Apply pinned where the dock was. |
+| [Program — editor alternates](screens/program/editor-alternates__phone-390-light-en.png) | 3 | The installed Program editor with an exercise's sheet scrolled to its in-session alternates: two chosen movements in order, each with reorder and remove controls, and Add alternate. |
+| [Program — Suggest loads](screens/program/editor-suggest-loads__phone-390-light-en.png) | 3 | The installed Program editor's sheet for a dumbbell renegade row with Suggest loads switched on (an ink switch): the current rep target, the RIR on every set, the smallest load change, and the question of how the lifter does the exercise. |
+| [Program — refused day rename](screens/program/editor-day-name-refused__phone-390-light-en.png) | 3 | The installed Program editor's rename sheet after a day was given a name another day already uses: the field keeps the typed name, is marked invalid, and the reason sits under it; the day keeps its own name. |
 | [Program — exercise picker](screens/program/exercise-picker__phone-390-light-en.png) | 3 | The picker sheet. |
 | [Program — custom exercise](screens/program/custom-exercise__phone-390-light-en.png) | 3 | The custom movement sheet. |
 | [Program — saving a custom exercise](screens/program/custom-exercise-saving__phone-390-light-en.png) | 3 | A new custom movement is saving; its actions stay unavailable until the durable write settles. |

@@ -39,6 +39,7 @@
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
 import { launchChromium, waitForAppBoot, answerRecommend } from "./browser.mjs";
+import { cancelInstalledEditor, editorSettled, openExerciseSheet, openInstalledEditor } from "./fixtures/installed-editor.mjs";
 import { finishEarly } from "./fixtures/focus-workout.mjs";
 import { metricLogRow } from "./fixtures/history-metric-rows.mjs";
 
@@ -506,25 +507,30 @@ async function visitProgram(page, { pt, label }) {
   await page.locator("#programTextClose").click();
   await page.locator("#programTextSheet").waitFor({ state: "hidden" });
 
-  // The editor: its name field keeps the stored text; its read-only labels follow the language.
-  await page.locator("#programEditToggle").click();
-  await page.waitForSelector("#programEditor .program-editor__exercise-toggle", { state: "attached" });
-  const fields = await page.$$eval("#programEditor [data-field='name']", (nodes) => nodes.map((n) => n.value));
-  assert(LINKED.every((id) => fields.some((value) => value === LIB[id].en || value === LIB[id].pt)) && fields.includes(RENAMED.stored),
-    `${label} program editor name fields keep the stored text`, JSON.stringify(fields));
-  const toggles = (await attrs(page, "#programEditor .program-editor__exercise-toggle", "aria-label")).join(" | ");
-  expectNames(`${label} program editor expanders`, toggles, { shown: [name("sq")], gone: pt ? [LIB.sq.en] : [] });
-  await page.locator("#programEditor .program-editor__exercise-toggle").first().click();
-  await page.locator("#programEditor [data-role='replace']").first().click();
+  // The editor (Plan 074): rows read the display names, in the lifter's language, and a
+  // renamed slot keeps the lifter's text. Every day's tab is read.
+  await openInstalledEditor(page);
+  const rows = [];
+  for (const tab of await page.locator('#programEditor [data-role="day-tab"]').all()) {
+    await tab.click();
+    rows.push(...await page.$$eval('#programEditor [data-role="exercise-row"]', (nodes) =>
+      nodes.map((node) => `${node.getAttribute("aria-label")} / ${node.querySelector(".review__name")?.textContent?.trim()}`)));
+  }
+  const rowText = rows.join(" | ");
+  expectNames(`${label} program editor rows`, rowText, { shown: [name("sq"), ...kept()], gone: pt ? [LIB.sq.en] : [] });
+  const firstRow = await page.locator('#programEditor [data-role="exercise-row"]').first().getAttribute("data-id");
+  await page.locator('#programEditor [data-role="day-tab"]').first().click();
+  await openExerciseSheet(page, firstRow);
+  expectNames(`${label} program editor sheet`, await page.locator("#reviewSheetTitle").textContent(), { shown: [name("sq")], gone: pt ? [LIB.sq.en] : [] });
+  await page.locator('#reviewSheet [data-role="swap-open"]').click();
+  await page.locator('#reviewSheet [data-role="swap-search"]').click();
   await page.waitForSelector("#exPickSheet:not(.hidden)");
   expectNames(`${label} program editor replace picker`, await joined(page, "#exPickFor"), { shown: [name("sq")], gone: pt ? [LIB.sq.en] : [] });
   await page.locator("#exPickCancel").click();
   await page.locator("#exPickSheet").waitFor({ state: "hidden" });
-  const leave = page.locator("#programEditToggle");
-  await leave.click();
-  await page.waitForTimeout(300);
-  await page.locator("#programEditorDiscard").click({ timeout: 1500 }).catch(() => {});
-  await page.waitForTimeout(200);
+  await editorSettled(page);
+  await cancelInstalledEditor(page);
+  await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), undefined, { timeout: 5000 });
 }
 
 /**
