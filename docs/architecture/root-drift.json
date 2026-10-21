@@ -1,6 +1,6 @@
 {
   "purpose": "Root runtime files the native graph no longer loads. A main merge that changes one fails test/ci.mjs until the change is ported to its native owner and its hash and port note are updated here.",
-  "reconciledMain": "30fbaec04ef704ea13d44d47a74ace23510b52b4",
+  "reconciledMain": "99c4cec39b2ca9a5adf020f30ee6abbf5777b915",
   "files": {
     "durable-state.js": {
       "sha256": "59d6a0a5484877dafe7f65b63529721f9470beaefaa75350f9e2885487ac08c4"

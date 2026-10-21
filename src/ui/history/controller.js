@@ -23,7 +23,10 @@ import {historyFrequency,historyWeekGroups,isoDayNumber} from "../../app/history
 export function createHistoryController({window,queries,commands,copy,format,inputs,shell,onChanged,onNotice,onOutcome}){
 const document=window.document,Element=window.Element,CSS=window.CSS;
 let disposed=false,discardFrame=0,calendarFrame=0;
-/** @type {AbortController|null} */let retryController=null;
+/* A History write can wait behind another tab's storage lock. Cancel and Back replace the selection, which aborts
+   the waiting operation; the lock-held preflight then refuses it (#464). */
+/** @type {AbortController|null} */let operationController=null;
+function operationSignal(){operationController?.abort();const controller=new window.AbortController();operationController=controller;return controller}
 /** @typedef {{element:EventTarget,type:string,handler:EventListener}} ListenerRecord */
 /** @type {ListenerRecord[]} */
 const listeners=[];
@@ -132,7 +135,7 @@ function historySelectedRecord(source=queries.rows()){
   const sid=historySelection.sessionId;if(!sid)return null;
   return historyIndexFor(source).sessions.find(item=>String(item.session)===String(sid))||null}
 /** @param {HistorySelection|null} next */
-function historySetSelection(next){retryController?.abort();retryController=null;historySelection=next||emptyHistorySelection()}
+function historySetSelection(next){operationController?.abort();operationController=null;historySelection=next||emptyHistorySelection()}
 /** @param {unknown} operationId @param {SessionId} sid @param {"edit"|"delete"} operation */
 function historyOperationCurrent(operationId,sid,operation){
   return !disposed&&typeof operationId==="string"&&operationId.length>0&&historySelection.operationId===operationId&&
@@ -361,7 +364,9 @@ async function historyFinishResult(result,successKey,operation,operationId){
   render();historyFocusFailure(status);return false}
 /** @param {SessionId} sid @param {HistoryRow[]} proposed @param {string} original */
 function historyEditCommit(sid,proposed,original){
-  return commands.correct({sessionId:String(sid),rows:proposed,originalFingerprint:original})}
+  const controller=operationSignal();
+  return commands.correct({sessionId:String(sid),rows:proposed,originalFingerprint:original,signal:controller.signal})
+    .finally(()=>{if(operationController===controller)operationController=null})}
 async function historyRetryEdit(){
   if(disposed)return false;
   const sid=historySelection.sessionId,original=historySelection.originalFingerprint;
@@ -370,10 +375,9 @@ async function historyRetryEdit(){
   const operationId=uid();
   historySelection={...historySelection,mode:"failure",operation:"edit",operationId,
     desiredFingerprint:historySelection.desiredFingerprint||historySessionFingerprint(proposed),workingCopy:proposed,dirty:true};
-  retryController?.abort();
-  const controller=new window.AbortController();retryController=controller;
+  const controller=operationSignal();
   const result=await commands.retryCorrection({sessionId:String(sid),rows:proposed,originalFingerprint:original,signal:controller.signal});
-  if(retryController===controller)retryController=null;
+  if(operationController===controller)operationController=null;
   if(!historyOperationCurrent(operationId,sid,"edit"))return false;
   await historyFinishResult(result,"toast.session_updated","edit",operationId);
   return result?.committed===true&&result?.settled===true;
@@ -398,7 +402,9 @@ async function deleteSession(sid,{originalFingerprint=null,operationId=null}={})
     const result={ok:false,committed:false,settled:true,failed:true,code:"history_missing_fingerprint",revision:queries.context().revision,localOk:false,idbOk:false};
     await historyFinishResult(result,"toast.session_deleted","delete",operationId||historySelection.operationId);
     return result}
-  const result=await commands.remove({sessionId:String(sid),originalFingerprint:original});
+  const controller=operationSignal();
+  const result=await commands.remove({sessionId:String(sid),originalFingerprint:original,signal:controller.signal});
+  if(operationController===controller)operationController=null;
   await historyFinishResult(result,"toast.session_deleted","delete",operationId||historySelection.operationId);
   return result}
 // ---- The session as a page (Plan 064 R3j) ----
@@ -801,7 +807,7 @@ async function saveSessionEdit(sid){
   return result}
 
     return {
-      dispose(){disposed=true;if(discardFrame)window.cancelAnimationFrame(discardFrame);discardFrame=0;retryController?.abort();clearListeners();clearListeners(calendarListeners);clearListeners(discardListeners);cancelDiscard?.();closeHistoryCalendar();historySetSelection(emptyHistorySelection())},
+      dispose(){disposed=true;if(discardFrame)window.cancelAnimationFrame(discardFrame);discardFrame=0;operationController?.abort();clearListeners();clearListeners(calendarListeners);clearListeners(discardListeners);cancelDiscard?.();closeHistoryCalendar();historySetSelection(emptyHistorySelection())},
       buildIndex:buildHistoryIndex,
       indexFor:historyIndexFor,
       searchIndex:searchHistoryIndex,
