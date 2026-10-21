@@ -1,24 +1,29 @@
 import {escapeHtml as esc} from '../format.js';
 /** Contextual guide presentation lifetime. Eligibility remains the unchanged
  * versioned registry; stored transitions use only the device preference owner.
- * The active #435 native-dialog implementation reconciles at this owner, rather
- * than adding a second guide host to the composition root. */
+ * A guide is a note about one control, shown once per version. It is the entry dialogs' native <dialog>, centred over
+ * the whole scrim: the title, the body and one "Got it", with focus on the title and kept inside, the page inert
+ * behind it, and focus back on the control it explains when it closes. "Got it", Escape and the platform's cancel all
+ * record `dismissed`; Replay in Settings resets the record. It is built at body level on first use because
+ * `shell.openModal` makes every other body child inert. When another modal is up a guide waits for its next moment
+ * rather than taking that modal's place.
+ * The first-set guide does not stand between the lifter and the set they came to log: arriving in Focus only arms
+ * it, and the first tap on a shelf field or pad opens it before that tap does anything. "Got it" (or Escape) then
+ * applies the held tap. Logging the set without touching the shelf completes it, as using its anchor always has.
+ * One guide per Focus visit: once one has been dismissed in Focus, the next waits for the next arrival rather than
+ * opening after the set the lifter has just logged. */
 /** @param {import('./contracts.js').GuideOptions} options */
-export function createGuidesView({window,registry:GuideRegistry,preferences,t,landingOpen,onGeometryChanged,report}){
+export function createGuidesView({window,registry:GuideRegistry,preferences,t,landingOpen,shell,focusKey,report}){
 const document=window.document,HTMLElement=window.HTMLElement,Element=window.Element;
 const getComputedStyle=window.getComputedStyle.bind(window);
 /** @param {string} selector */
 const $=selector=>/** @type {HTMLElement|null} */(document.querySelector(selector));
-/** @param {string} selector */
-const $$=selector=>[...document.querySelectorAll(selector)].map(el=>/** @type {HTMLButtonElement} */(el));
 /** @type {string|null} */
 let activeGuideId=null;
-/** @type {HTMLElement|null} */
-let activeGuideAnchor=null;
-/** @type {HTMLElement|null} */
-let activeGuideCue=null;
-/** @type {HTMLElement|null} */
-let activeGuideReturnFocus=null;
+/** @type {(()=>void)|null} */
+let activeGuideAfter=null;
+let firstSetGuideArmed=false;
+let focusGuideHeld=false;
 /** @param {string|null|undefined} id */
 function guideDefinition(id){return GuideRegistry?.GUIDE_DEFINITIONS?.find(guide=>guide.id===id)||null}
 /** @param {import('./contracts.js').GuideDefinition|null} guide @returns {HTMLElement|null} */
@@ -36,61 +41,68 @@ function saveGuideTransition(id,status){
   const live=GuideRegistry.migrateLegacyTourDone(preferences.reload());
   const next=GuideRegistry.recordGuideTransition(live,id,status,{version:guide.version,nowMs:Date.now()});
   return preferences.replace({...next})}
+/** @returns {HTMLDialogElement} */
+function guideDialogElement(){
+  const existing=$("#guideDialog");
+  if(existing)return /** @type {HTMLDialogElement} */(existing);
+  const el=/** @type {HTMLDialogElement} */(document.createElement("dialog"));
+  el.id="guideDialog";el.className="entry-dialog guide-dialog";el.setAttribute("aria-modal","true");
+  el.setAttribute("aria-labelledby","guideDialogTitle");el.setAttribute("aria-describedby","guideDialogBody");
+  el.innerHTML=`<h2 class="entry-dialog__title" id="guideDialogTitle" tabindex="-1"></h2><p class="entry-dialog__body" id="guideDialogBody"></p>`+
+    `<div class="entry-dialog__actions"><button type="button" id="guideDialogOk" class="btn btn--cta btn--noarrow"></button></div>`;
+  document.body.append(el);
+  // Some engines close a modal <dialog> on Escape before a capture listener runs; cancel routes that to the same dismissal.
+  el.addEventListener("cancel",event=>{event.preventDefault();dismissContextualGuide()});
+  /** @type {HTMLButtonElement} */(el.querySelector("#guideDialogOk")).onclick=()=>dismissContextualGuide();
+  return el}
+function guideOpen(){const el=$("#guideDialog");return !!activeGuideId&&!!el&&/** @type {HTMLDialogElement} */(el).open}
 function removeContextualGuide(){
-  const hadCue=!!activeGuideCue;
-  activeGuideCue?.remove();activeGuideId=null;activeGuideAnchor=null;activeGuideCue=null;activeGuideReturnFocus=null;
-  if(hadCue)onGeometryChanged()}
-function dismissContextualGuide({restoreFocus=false}={}){
+  const el=$("#guideDialog");
+  activeGuideId=null;activeGuideAfter=null;
+  if(!el||!/** @type {HTMLDialogElement} */(el).open)return;
+  shell.closeModal(el);
+  if(/** @type {HTMLDialogElement} */(el).open)try{/** @type {HTMLDialogElement} */(el).close()}catch{}}
+function dismissContextualGuide(){
   if(!activeGuideId)return false;
-  const target=activeGuideReturnFocus||activeGuideAnchor;
-  saveGuideTransition(activeGuideId,"dismissed");removeContextualGuide();
-  if(restoreFocus&&target instanceof HTMLElement&&target.isConnected)target.focus({preventScroll:true});
+  const after=activeGuideAfter;
+  saveGuideTransition(activeGuideId,"dismissed");
+  if(document.body.classList.contains("is-workout"))focusGuideHeld=true;
+  // Closing restores focus first, so the tap the guide held lands where the lifter aimed it.
+  removeContextualGuide();
+  after?.();
   return true}
-/** @param {string} id @param {{focus?:boolean,returnFocus?:Element|null,persistDeferred?:boolean}} options */
-function showContextualGuide(id,{focus=false,returnFocus=null,persistDeferred=false}={}){
+/** @param {string} id @param {{returnFocus?:Element|(()=>Element|null)|null,persistDeferred?:boolean,after?:(()=>void)|null}} [options] */
+function showContextualGuide(id,{returnFocus=null,persistDeferred=false,after=null}={}){
   const guide=guideDefinition(id);if(!guide?.wired)return false;
   const anchor=guideAnchor(guide);
   const decision=GuideRegistry.evaluateGuide(guide,{
     anchorPresent:!!anchor,anchorVisible:!!anchor,uiPrefs:preferences.read()});
-  if(!decision.eligible||!anchor){
+  if(!decision.eligible){
     if(persistDeferred&&decision.decision==="deferred"&&guideStored(id)?.status!=="deferred")saveGuideTransition(id,"deferred");
     return false}
+  const dialog=guideDialogElement();
+  if(shell.activeModal&&shell.activeModal.el!==dialog)return false;
   removeContextualGuide();
-  const cue=document.createElement("aside"),titleId=`guideCueTitle-${id}`;
-  cue.className="guide-cue";cue.dataset.guideCue=id;cue.dataset.anchorTarget=guide.anchorSelector;
-  cue.setAttribute("role","status");cue.setAttribute("aria-labelledby",titleId);
-  cue.innerHTML=`<div class="guide-cue__copy"><p class="guide-cue__title" id="${titleId}">${esc(t(`guide.${id}.title`))}</p>`+
-    `<p class="guide-cue__body">${esc(t(`guide.${id}.body`))}</p></div>`+
-    `<button type="button" class="guide-cue__dismiss" data-guide-dismiss aria-label="${esc(t("guide.dismiss"))}">×</button>`;
-  const dismiss=/** @type {HTMLButtonElement} */(cue.querySelector("[data-guide-dismiss]"));
-  dismiss.onclick=event=>{if(activeGuideCue!==cue)return;event.stopPropagation();dismissContextualGuide({restoreFocus:focus})};
-  cue.addEventListener("keydown",event=>{
-    if(activeGuideCue!==cue||event.key!=="Escape")return;
-    event.preventDefault();event.stopPropagation();dismissContextualGuide({restoreFocus:true})});
-  placeCue(anchor,cue);
-  onGeometryChanged();
-  activeGuideId=id;activeGuideAnchor=anchor;activeGuideCue=cue;
-  activeGuideReturnFocus=returnFocus instanceof HTMLElement?returnFocus:null;
+  dialog.dataset.guide=id;
+  /** @type {HTMLElement} */(dialog.querySelector(".entry-dialog__title")).textContent=t(`guide.${id}.title`);
+  /** @type {HTMLElement} */(dialog.querySelector(".entry-dialog__body")).textContent=t(`guide.${id}.body`);
+  /** @type {HTMLElement} */(dialog.querySelector("#guideDialogOk")).textContent=t("why.ok");
+  const invoker=returnFocus instanceof Element||typeof returnFocus==="function"?returnFocus:null;
+  // The anchor may be rebuilt while the guide is up (a running rest timer redraws the shelf), so it is found again on close.
+  const back=()=>(typeof invoker==="function"?invoker():invoker?.isConnected?invoker:null)||guideAnchor(guide);
+  if(!shell.openModal(dialog,{initialFocus:/** @type {HTMLElement} */(dialog.querySelector(".entry-dialog__title")),returnFocus:back,onEscape:()=>dismissContextualGuide()}))return false;
+  if(id==="first-set")firstSetGuideArmed=false;
+  activeGuideId=id;activeGuideAfter=typeof after==="function"?after:null;
   const stored=guideStored(id);
   if(stored?.version!==guide.version||stored?.status!=="shown")saveGuideTransition(id,"shown");
-  if(focus)queueMicrotask(()=>dismiss?.focus({preventScroll:true}));
   return true}
-/** @param {HTMLElement} anchor @param {HTMLElement} cue */
-function placeCue(anchor,cue){
-  // #firstRunPrivacy lives in the narrow header utility row: inserted there,
-  // the cue is a flex sibling with no room and collapses into a vertical
-  // sliver of one word per line. Focus's own controls likewise need the whole
-  // owning surface as their insertion point so a cue never joins a fixed row.
-  const shelf=anchor.closest(".focus-shelf");
-  const placement=shelf||anchor.closest(".wo-head")||
-    anchor.closest(".firstrun__actions")||anchor.closest(".firstrun__header")||anchor.closest(".entry__hub")||anchor.closest(".entry-feature")||
-    anchor.closest("#statsSeg")||anchor;
-  placement.insertAdjacentElement(shelf?"beforebegin":"afterend",cue);
-}
-/** @param {readonly string[]} ids */
+function firstSetGuideEligible(){
+  const guide=guideDefinition("first-set");
+  return !!guide?.wired&&GuideRegistry.evaluateGuide(guide,{anchorPresent:true,anchorVisible:!!guideAnchor(guide),uiPrefs:preferences.read()}).eligible}
+/** @param {readonly string[]} [ids] */
 function maybeShowContextualGuides(ids=GuideRegistry?.PLAN_054_GUIDE_IDS||[]){
   // Never while the entry landing is up. It is a full-screen threshold whose
-  // one job is the proposition, and every cue that can anchor to it explains
+  // one job is the proposition, and every guide that can anchor to it explains
   // a control it has already named — the entry actions carry their labels,
   // the install card carries its title and body, Privacy is a standing link.
   // The app's ordinary render loop runs behind this gate, so the rule belongs
@@ -98,14 +110,15 @@ function maybeShowContextualGuides(ids=GuideRegistry?.PLAN_054_GUIDE_IDS||[]){
   // re-opens the same hole. The guides keep their state and their real
   // moments — "entry" at the chooser, "install" and "privacy" in Settings.
   if(landingOpen())return false;
-  if(activeGuideCue?.isConnected&&activeGuideAnchor&&guideAnchor(guideDefinition(activeGuideId))===activeGuideAnchor)return true;
-  removeContextualGuide();
+  if(guideOpen())return true;
+  if(firstSetGuideArmed&&!firstSetGuideEligible())firstSetGuideArmed=false;
+  if(firstSetGuideArmed)return true;
+  if(!document.body.classList.contains("is-workout"))focusGuideHeld=false;
+  else if(focusGuideHeld)return false;
   for(const id of ids){
+    if(id==="first-set"){if(firstSetGuideEligible()){firstSetGuideArmed=true;return true}continue}
     if(showContextualGuide(id))return true}
   return false}
-function completeContextualGuide(){
-  if(!activeGuideId)return false;
-  saveGuideTransition(activeGuideId,"completed");removeContextualGuide();return true}
 /** @param {string} id */
 function replayContextualGuide(id){
   const guide=guideDefinition(id);if(!guide||!GuideRegistry?.replayGuideState)return false;
@@ -115,12 +128,23 @@ function replayContextualGuide(id){
   if(!preferences.replace({...next}))return false;
   report("guide_replay",{guideId:id});
   const returnFocus=document.activeElement;
-  queueMicrotask(()=>showContextualGuide(id,{focus:true,returnFocus,persistDeferred:true}));return true}
+  queueMicrotask(()=>showContextualGuide(id,{returnFocus,persistDeferred:true}));return true}
 function contextualGuideState(){return JSON.parse(JSON.stringify(preferences.read().guideState||{}))}
+/** First-set's held tap: armed on Focus arrival, this intercepts the first tap on a shelf field or pad, opens the
+ *  guide instead, and replays the held tap once "Got it" (or Escape) closes it. A direct Log set completes it. */
 /** @param {Event} event */
 function onContextualGuideAction(event){
+  if(!firstSetGuideArmed)return;
   const target=event.target instanceof Element?event.target:null;
-  if(activeGuideAnchor&&target&&activeGuideAnchor.contains(target))completeContextualGuide()}
+  if(target?.closest(".focus-shelf .saveset")&&firstSetGuideEligible()){
+    firstSetGuideArmed=false;saveGuideTransition("first-set","completed");return}
+  const control=/** @type {HTMLElement|null} */(target?.closest(".focus-shelf .shelf__fieldbtn[data-shelf-field],.focus-shelf .shelf__pad[data-dir]")||null);
+  if(!control||/** @type {HTMLButtonElement} */(control).disabled)return;
+  const key=focusKey(control);
+  if(!key)return;
+  const tapped=()=>$(key.sel);
+  if(!showContextualGuide("first-set",{returnFocus:tapped,after:()=>tapped()?.click()}))return;
+  event.preventDefault();event.stopImmediatePropagation()}
 
 function renderGuideReplayList(){
   const list=$("#guideReplayList");
@@ -130,20 +154,11 @@ function renderGuideReplayList(){
       `<span class="guide-replay__title">${esc(t(`guide.${guide.id}.title`))}</span>`+
       `<span class="guide-replay__body">${esc(t(`guide.${guide.id}.body`))}</span>`+
     `</button>`).join("");
-  $$("#guideReplayList [data-guide-replay]").forEach(button=>{
-    button.onclick=()=>replayContextualGuide(button.dataset.guideReplay||"")
-  })}
+  for(const button of [...list.querySelectorAll("[data-guide-replay]")].map(el=>/** @type {HTMLButtonElement} */(el)))
+    button.onclick=()=>replayContextualGuide(button.dataset.guideReplay||"")}
 
-function refreshAnchor(){
-  if(!activeGuideId||!activeGuideCue)return;
-  const anchor=guideAnchor(guideDefinition(activeGuideId));
-  if(!anchor){removeContextualGuide();return}
-  activeGuideAnchor=anchor;
-  // A repaint may replace the owning body. Preserve the existing presentation
-  // and its handlers without evaluating eligibility or retrying persistence.
-  if(!activeGuideCue.isConnected){placeCue(anchor,activeGuideCue);onGeometryChanged()}}
 return Object.freeze({show:showContextualGuide,maybeShow:maybeShowContextualGuides,
-  dismiss:dismissContextualGuide,remove:removeContextualGuide,complete:completeContextualGuide,
+  dismiss:dismissContextualGuide,remove:removeContextualGuide,
   replay:replayContextualGuide,state:contextualGuideState,onAction:onContextualGuideAction,
-  renderReplayList:renderGuideReplayList,refreshAnchor});
+  renderReplayList:renderGuideReplayList});
 }

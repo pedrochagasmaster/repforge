@@ -358,7 +358,7 @@
   text-transform:uppercase;color:var(--accent-deep)
 }
 
-/* Dialogs: cancel, replace and start over share one modal panel. */
+/* Dialogs: cancel, replace and start over, and the contextual guides, share one modal panel. */
 .entry-dialog{
   position:fixed;left:50%;top:calc(var(--vv-top,0px) + var(--vvh,100dvh) / 2);transform:translate(-50%,-50%);z-index:80;width:min(calc(100% - var(--space-32)),420px);
   max-height:min(90dvh,var(--dialog-max-height));margin:0;padding:var(--space-18);overflow:auto;overscroll-behavior:contain;border:1px solid var(--boundary-modal);

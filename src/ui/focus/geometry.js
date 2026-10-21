@@ -17,8 +17,8 @@ function sizeFocusDeck(){
   syncFocusFloor()}
 /** The shelf keeps its fields, pads and action whole at every text size, and its height depends on the text, so the
  *  layout cannot know it. This publishes the height the shell has to keep (the rigid chrome, the progress bar, the
- *  context region's floor and the shelf) as `--focus-floor` and `--focus-form-floor`; the stylesheet lets banners and
- *  guides above the deck give way to it. Watching the header and the shelf republishes it when a timer widens a chip
+ *  context region's floor and the shelf) as `--focus-floor` and `--focus-form-floor`; the stylesheet lets banners above
+ *  the deck give way to it. Watching the header and the shelf republishes it when a timer widens a chip
  *  or an edit rebuilds the shelf. */
 
 function syncFocusFloor(){
@@ -28,18 +28,14 @@ function syncFocusFloor(){
   const tall=el=>el&&el.getClientRects().length?el.getBoundingClientRect().height:0;
   const context=card.querySelector(".fcard__context");
   const least=context?getComputedStyle(context):null;
+  // The card's own floor: the shelf whole, under the context region at its least. With the keyboard up the other
+  // floors stand down, and this one makes what sits above the deck (the skip bar) give way instead of the shelf.
+  const deck=tall(shelf)+(least?(parseFloat(least.paddingTop)||0)+(parseFloat(least.paddingBottom)||0):0);
+  shell.style.setProperty("--focus-deck-floor",`${Math.ceil(deck)}px`);
   let form=tall($("#woProgress"))+tall(shelf)+(least?Math.max(parseFloat(least.minHeight)||0,parseFloat(least.paddingTop)+parseFloat(least.paddingBottom)):0);
   for(const el of $("#workout")?.children||[])if(!el.matches(".deck"))form+=tall(el);
-  // A guide gives way to everything but its own padding, border and margins.
-  /** @param {Element|null} el */
-  const guideLeast=el=>{
-    if(!el?.getClientRects().length)return 0;
-    const s=getComputedStyle(el);
-    return/** @type {const} */ (["paddingTop","paddingBottom","borderTopWidth","borderBottomWidth","marginTop","marginBottom"]).reduce((n,k)=>n+(parseFloat(s[k])||0),0)};
-  form+=guideLeast(card.querySelector(":scope > .guide-cue"));
-  const shellGuide=guideLeast(shell.querySelector(":scope > .guide-cue"));
   shell.style.setProperty("--focus-form-floor",`${Math.ceil(form)}px`);
-  shell.style.setProperty("--focus-floor",`${Math.ceil(form+tall(head)+shellGuide)}px`);
+  shell.style.setProperty("--focus-floor",`${Math.ceil(form+tall(head))}px`);
   if(typeof ResizeObserver!=="function")return;
   // Observing starts with a notification of its own, so the watch is only re-pointed when its elements changed.
   const watched=[head,shelf,$("#woProgress")].filter((el)=>el!==null);

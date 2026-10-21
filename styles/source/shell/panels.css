@@ -60,6 +60,10 @@
 .onboarding{position:fixed;inset:0;z-index:50;overflow:auto;background:var(--bg);
   padding:calc(12px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) calc(88px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));overscroll-behavior:contain;}
 .onboarding.active{display:block}
+/* #449: this layer scrolls above the shell's status-bar band (body::before,
+   #440), so it paints the same paper band over its own top inset. */
+.onboarding::before{content:"";position:fixed;top:0;left:0;right:0;z-index:20;
+  height:env(safe-area-inset-top,0px);background:var(--bg);pointer-events:none}
 .onb{max-width:var(--maxw);margin:0 auto}
 .onb__head{margin-bottom:18px}
 .onb__step{margin:6px 0 0;font-size:var(--font-size-label);color:var(--ink-faint);letter-spacing:.08em;text-transform:uppercase;font-weight:600}
@@ -81,29 +85,6 @@
    should not render at the 40% width meant for a Back/Continue pair. */
 .onb__nav .btn--steel:only-child{flex:1}
 
-/* Contextual guides stay in the same document flow as the action they
-   explain. They never become a modal, cover their target, or float when the
-   target is absent. */
-.guide-cue{position:relative;display:grid;grid-template-columns:1fr auto;gap:8px 12px;
-  margin:10px 0 14px;padding:12px 14px;background:var(--entry-tint);
-  border:1px solid var(--boundary-decorative);border-radius:var(--radius-surface);color:var(--color-ink)}
-.guide-cue__copy{min-width:0}
-.guide-cue__title{margin:0 0 3px;font-family:var(--font-language);font-size:var(--font-size-body-small);
-  font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
-/* --ink-soft on the --entry-tint wash measures ~4.47:1, just under the 4.5:1
-   AA floor for normal text; full --ink clears it with room and still reads
-   as the subordinate line beside the bold title. */
-.guide-cue__body{margin:0;font-family:var(--font-language);color:var(--color-ink);
-  font-size:var(--font-size-body-small);line-height:var(--line-standard)}
-.guide-cue__dismiss{align-self:start;min-width:44px;min-height:44px;margin:-8px -10px 0 0;
-  border:0;border-radius:var(--radius-round);background:var(--control-quiet-bg);color:var(--control-quiet-ink);
-  font:inherit;font-size:var(--control-icon-size);cursor:pointer}
-@media (hover: hover) and (pointer: fine){
-.guide-cue__dismiss:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
-}
-.guide-cue__dismiss:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
-.guide-cue__dismiss:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-round)}
-.guide-cue__dismiss:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);cursor:not-allowed;transform:none}
 .guide-replay{padding:12px 14px;display:grid;gap:8px}
 .guide-replay[hidden]{display:none}
 .settings-panel.guide-replay.is-open{display:grid}

@@ -5,8 +5,8 @@ import {escapeHtml as esc,formatProgramContext,formatCycleLabel} from '../format
 /** Card rebuilds, ledger disclosure and shelf refresh share one DOM lifetime.
  * Rendering captures acknowledged facts once; it does not hydrate or publish a
  * draft. Controls and other page widgets receive explicit replacement events.
- * @param {{window:Window & typeof globalThis,focus:ReturnType<typeof import('./state.js').createFocusState>,presentation:ReturnType<typeof import('./presentation.js').createFocusPresentation>,controls:ReturnType<typeof import('./control-focus.js').createControlFocus>,geometry:ReturnType<typeof import('./geometry.js').createFocusGeometry>,effects:ReturnType<typeof import('./effects.js').createFocusEffects>,rest:ReturnType<typeof import('./rest-slot.js').createRestSlot>,motion:ReturnType<typeof import('../../platform/motion.js').createMotion>,readFrame:()=>Frame,copy:{t:(key:string,values?:Record<string,unknown>)=>string},guides:{refreshAnchor:()=>unknown},exercise:{open:(id:string,from:'log')=>unknown},onControlsReplaced:()=>void,onRendered:(event:{active:boolean})=>void}} options */
-export function createFocusDom({window,focus,presentation,controls,geometry,effects,rest,motion,readFrame,copy:{t},guides,exercise,onControlsReplaced,onRendered}){
+ * @param {{window:Window & typeof globalThis,focus:ReturnType<typeof import('./state.js').createFocusState>,presentation:ReturnType<typeof import('./presentation.js').createFocusPresentation>,controls:ReturnType<typeof import('./control-focus.js').createControlFocus>,geometry:ReturnType<typeof import('./geometry.js').createFocusGeometry>,effects:ReturnType<typeof import('./effects.js').createFocusEffects>,rest:ReturnType<typeof import('./rest-slot.js').createRestSlot>,motion:ReturnType<typeof import('../../platform/motion.js').createMotion>,readFrame:()=>Frame,copy:{t:(key:string,values?:Record<string,unknown>)=>string},exercise:{open:(id:string,from:'log')=>unknown},onControlsReplaced:()=>void,onRendered:(event:{active:boolean})=>void}} options */
+export function createFocusDom({window,focus,presentation,controls,geometry,effects,rest,motion,readFrame,copy:{t},exercise,onControlsReplaced,onRendered}){
   const document=window.document;
   let disposed=false;
   const card=()=>document.querySelector(/** @type {'div'} */('#workout.is-focus .exercise.is-current'));
@@ -79,7 +79,7 @@ export function createFocusDom({window,focus,presentation,controls,geometry,effe
     if(before&&nextPads&&nextPads.dataset.pads!==before.mode)effects.crossfadeIn(nextPads,before.html,before.className);
     const next=host.querySelector(/** @type {'div'} */('.focus-shelf .shelf__field.is-sel'));
     if(from&&next&&next.dataset.set===previousSet&&(ring||identity(next)!==previousField))effects.travelOutline(next,from,'shelf');
-    geometry.syncFloor();guides.refreshAnchor();
+    geometry.syncFloor();
     if(target){
       const shelf=host.querySelector('.focus-shelf');
       const control=target.startsWith('pad:')?shelf?.querySelector(/** @type {'button'} */(`.shelf__pad[data-dir="${target.slice(4)}"]`)):
