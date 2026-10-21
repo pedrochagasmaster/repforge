@@ -192,8 +192,19 @@ closed by this section; each remains open owner evidence:
 - independent billing, watchdog, log, and deletion health;
 - minute-60 ciphertext and minute-75 tombstone deletion measured on Cloudflare,
   including the delayed-alarm and purge-backstop cases;
-- physical iOS Safari 17.2+ to Home Screen handoff;
+- physical iOS Safari 17.2+ to Home Screen handoff (passed on a physical
+  iPhone on 2026-10-17; see below);
 - the six provider-deadline items listed above.
+
+### Owner acceptance for launch (2026-10-22)
+
+On 2026-10-22 the owner accepted the 2026-10-14 override for launch:
+
+- Authenticated EU placement, independent monitoring, and the minute-60
+  ciphertext and minute-75 tombstone deletion evidence are not collected.
+  The owner accepts launching without them. They stay unrecorded, not closed.
+- The physical iPhone handoff (Safari 17.2+ to the Home Screen app) passed on
+  2026-10-17.
 
 ### What runs in production
 
