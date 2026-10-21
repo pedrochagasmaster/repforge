@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { ROOT, loadManifest } from "../tools/ui-screens/manifest.mjs";
-import { loadRoleInventory, validateRoleInventory, cssLiteralDebt, cssCompatibilityAliasDebt, contrastRatio, requiredBoundaryExceptionRequests, uninventoriedSharedComponents, SHARED_COMPONENTS_MARKER } from "../tools/ui-system-core.mjs";
+import { loadRoleInventory, validateRoleInventory, renderedFindingExemption, renderedHolds, cssLiteralDebt, cssCompatibilityAliasDebt, contrastRatio, requiredBoundaryExceptionRequests, uninventoriedSharedComponents, SHARED_COMPONENTS_MARKER } from "../tools/ui-system-core.mjs";
 import { measureClampedHeadings, measureRenderedRoles, renderedRoleProblems } from "../tools/ui-system-rendered.mjs";
 import { auditFocusRoles, inspectRoleCoverage } from "../tools/check-ui-system.mjs";
 import { maybeStartLocalPreview } from "../tools/local-preview.mjs";
@@ -45,6 +45,28 @@ assert.ok(validateRoleInventory(missingDisabled, manifest).some((error) => error
 const badException = structuredClone(inventory);
 badException.exceptions.push({ selector: ".bad" });
 assert.ok(validateRoleInventory(badException, manifest).some((error) => error.startsWith("exception .bad needs")), "an unowned exception cannot suppress a failure");
+// A rendered finding is held open only by an exception that names its issue, for its exact measurement and states.
+const heldFinding = inventory.exceptions.find((item) => item.renderedFindings);
+const [finding] = heldFinding.renderedFindings;
+assert.equal(renderedFindingExemption(inventory.exceptions, heldFinding.catalogStates[0], { kind: finding.kind, selector: finding.measured }), heldFinding,
+  "a held rendered finding is exempt in its own catalog state");
+assert.equal(renderedFindingExemption(inventory.exceptions, "settings/main", { kind: finding.kind, selector: finding.measured }), null,
+  "a held rendered finding is not exempt in any other state");
+assert.equal(renderedFindingExemption(inventory.exceptions, heldFinding.catalogStates[0], { kind: "text", selector: finding.measured }), null,
+  "a held rendered finding is not exempt for another measurement kind");
+const unnamedHold = structuredClone(inventory);
+unnamedHold.exceptions.find((item) => item.renderedFindings).rationale = "Temporary.";
+assert.ok(validateRoleInventory(unnamedHold, manifest).some((error) => error.includes("without naming its issue")),
+  "a rendered finding cannot be held open without its issue");
+// A subtree hold applies only in its exception's states and needs its issue.
+const subtreeHold = inventory.exceptions.find((item) => item.renderedHold);
+assert.deepEqual(renderedHolds(inventory.exceptions, subtreeHold.catalogStates[0]).map((item) => item.within), [subtreeHold.renderedHold.within],
+  "a subtree hold applies in its own catalog state");
+assert.deepEqual(renderedHolds(inventory.exceptions, "settings/main"), [], "a subtree hold applies in no other state");
+const unnamedSubtree = structuredClone(inventory);
+unnamedSubtree.exceptions.find((item) => item.renderedHold).rationale = "Temporary.";
+assert.ok(validateRoleInventory(unnamedSubtree, manifest).some((error) => error.includes("holds rendered findings open without naming its issue")),
+  "a subtree hold cannot be recorded without its issue");
 const firstRecipe = inventory.rootRecipeOwners[0].id;
 const missingRecipeOwner = structuredClone(inventory);
 delete missingRecipeOwner.rootRecipeOwners[0].rationale;
@@ -768,6 +790,18 @@ try {
   assert.equal(floating.find((item) => item.selector === "#uiFloatPaper")?.status, "pass",
     `a paper outline over an ink band beneath a bare fixed layer reads against that band: ${JSON.stringify(floating)}`);
   await opened.page.evaluate(() => { document.querySelector("#uiFloatBand")?.remove(); document.querySelector("#uiFloatLayer")?.remove(); });
+  // A ground the page walk cannot resolve (a glass layer, like the dock) is read from the screenshot, which is in device
+  // pixels: the catalog captures at 2x. Light text on a glass layer over a dark band low on the page reads against that
+  // band, not against the light page at half its height.
+  await opened.page.evaluate(() => document.body.insertAdjacentHTML("beforeend", `
+    <div id="uiGlassBand" style="position:fixed;top:560px;left:0;width:360px;height:160px;background:#141310;z-index:1000"></div>
+    <div id="uiGlassLayer" style="position:fixed;top:580px;left:20px;width:320px;height:120px;backdrop-filter:blur(1px);z-index:1001">
+      <span id="uiGlassText" style="display:block;padding:40px 20px;font-size:16px;color:#F2EFE9">Glass text</span>
+    </div>`));
+  const glassPixels = (await opened.page.screenshot({ animations: "disabled" })).toString("base64");
+  const glass = await opened.page.evaluate(measureRenderedRoles, { pixels: glassPixels, requests: [{ selector: "#uiGlassText", kind: "text" }] });
+  assert.equal(glass[0]?.status, "pass", `a sampled ground is read at the element's device-pixel position: ${JSON.stringify(glass)}`);
+  await opened.page.evaluate(() => { document.querySelector("#uiGlassBand")?.remove(); document.querySelector("#uiGlassLayer")?.remove(); });
   const auditProblems = renderedRoleProblems("onboarding-start/first-run [en/light]", [
     ...measured,
     { selector: "#uiMissing", kind: "boundary", status: "missing" },

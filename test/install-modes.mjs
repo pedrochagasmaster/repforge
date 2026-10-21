@@ -338,7 +338,7 @@ const landingShape = () => {
 
 async function run() {
   console.log(`Install modes\nTarget: ${BASE}\n`);
-  const browser = await launchChromium();
+  const browser = await launchChromium({ guides: "live" });
   const allErrors = [];
 
   // ---- Chromium holding a deferred prompt before first value ----
@@ -882,10 +882,10 @@ async function run() {
       await page.waitForSelector("#firstRun:not(.hidden)");
       await page.click("#firstRunCreate");
       await page.waitForSelector("#onboarding.active");
-      await page.waitForSelector("[data-guide-cue='entry'] .guide-cue__body");
-      // The cue fades in; sample its settled colour, not a mid-transition frame.
+      await page.waitForSelector("dialog#guideDialog[open][data-guide='entry'] .entry-dialog__body");
+      // Sample the settled colour, not a mid-transition frame.
       await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {}))));
-      const info = await contrastOf(page, "[data-guide-cue='entry'] .guide-cue__body");
+      const info = await contrastOf(page, "dialog#guideDialog .entry-dialog__body");
       const r = ratio(info.fg, info.bg);
       assert(r + 1e-6 >= 4.5, "the chooser's entry guide body text meets 4.5:1", JSON.stringify({ ...info, ratio: +r.toFixed(2) }));
       allErrors.push(...errors);

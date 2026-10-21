@@ -402,7 +402,8 @@ async function main() {
     check(assert.deepEqual(backupView, sourceView) === undefined,
       "backup clone reproduces the same adaptive next-session view, prefill, previous cue, and Why evidence");
 
-    transferContext = await browser.newContext({ locale: "en-US", timezoneId: "UTC" });
+    // A fresh destination: its guides are as the app leaves them, since a dismissed guide is the lifter's own state.
+    transferContext = await browser.newContext({ locale: "en-US", timezoneId: "UTC", guides: "live" });
     const transferTarget = await transferContext.newPage();
     transferTarget.on("dialog", (dialog) => dialog.dismiss().catch(() => {}));
     await transferTarget.clock.setFixedTime(new Date("2026-10-07T12:00:00.000Z"));

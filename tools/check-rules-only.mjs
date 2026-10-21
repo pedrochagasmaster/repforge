@@ -287,13 +287,13 @@ export async function runRulesOnly({
  * R7 V-12 (owner decision #295 comment 5965828337): the accent budget over the onboarding states. Onboarding is drawn by
  * the entry flow, not by the app scenarios above, so this renders each live `onboarding-*` catalog state through
  * ONBOARDING_SCENARIOS and runs the same `checkOrange` over it at 360 px. The pain note (`p.entry__pain` and its shield)
- * and the hub guide cue sit on `--well` with an `--ink-soft` shield, so neither may be painted with the accent.
+ * and the hub's guide dialog are drawn without the accent, so neither may be painted with it.
  *
  * `scope` names those elements. A finding that matches it fails the audit; any other onboarding accent use (the landing's
  * orange band, the segbar's current segment, group labels, new-exercise marks) is returned in `outside` and printed, and is
  * not this finding's to judge.
  */
-export const ONBOARDING_ACCENT_SCOPE = /entry__pain|guide-cue/;
+export const ONBOARDING_ACCENT_SCOPE = /entry__pain|guideDialog/;
 export const onboardingStates = (manifest = loadManifest()) =>
   manifest.screens.map((screen) => `${screen.flow}/${screen.id}`).filter((key) => key.startsWith("onboarding-"));
 

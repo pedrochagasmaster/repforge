@@ -10,7 +10,7 @@ const TIER_VOCABULARY = new Set(["feedback", "packet", "candidate"]);
  * and only drives shard balancing; a missing value falls back on `cost`.
  */
 export const CI_SHARDS = 14;
-export const UI_SYSTEM_SHARDS = 6;
+export const UI_SYSTEM_SHARDS = 7;
 export const VISUAL_SHARDS = 6;
 const DEFAULT_SECONDS = { tiny: 1, normal: 5, long: 60 };
 const RENDERED_DOMAINS = ["shell", "entry", "program", "history", "today", "workout", "progress", "settings", "library", "install"];
@@ -183,7 +183,7 @@ export const SUITES = {
     s("test/direction-d-gate.mjs", [], { domains: RENDERED_DOMAINS, cost: "normal", tier: "feedback", seconds: 345 }),
     s("test/rules-only-gate.mjs", [], { domains: RENDERED_DOMAINS, cost: "normal", tier: "feedback", seconds: 30 }),
     ...shards(UI_SYSTEM_SHARDS).map((shard) =>
-      s("tools/check-ui-system.mjs", ["--shard", shard], { domains: RENDERED_DOMAINS, cost: "long", tier: "packet", timeoutMs: 900000, seconds: 640 })),
+      s("tools/check-ui-system.mjs", ["--shard", shard], { domains: RENDERED_DOMAINS, cost: "long", tier: "packet", timeoutMs: 900000, seconds: 580 })),
     s("test/accessibility.mjs", [], { seconds: 46 }),
     s("test/accessibility.mjs", ["--touch-targets-320"], { seconds: 2 }),
     s("test/history.mjs"),
@@ -219,6 +219,7 @@ export const SUITES = {
     s("test/progress-lifecycle.mjs", [], {"env": {"REPFORGE_LIFECYCLE_BROWSER": "1"}, "timeoutMs": 900000, seconds: 10 }),
     s("test/progress-recovery.mjs", [], {"timeoutMs": 900000, seconds: 3 }),
     s("test/progress-guides.mjs"),
+    s("test/guide-modal.mjs", [], { domains: ["workout", "progress", "settings", "entry"] }),
     s("test/sheet-swipe-dismiss.mjs", [], { seconds: 11 }),
     s("test/motion-integration.mjs", [], { seconds: 172 }),
     s("test/session-summary.mjs", [], { seconds: 19 }),

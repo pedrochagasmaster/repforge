@@ -15,7 +15,7 @@ import assert from "node:assert/strict";
 import { encodeSetupLink } from "../../test/fixtures/setup-link-v4.mjs";
 import { answerRecommend } from "../../test/browser.mjs";
 import { activeEntryState, emptyEntryState } from "./fixtures.mjs";
-import { BASE, SETUP_DRAFT, KEY, sleep, waitForApp } from "./session.mjs";
+import { BASE, SETUP_DRAFT, KEY, replayGuide, sleep, waitForApp } from "./session.mjs";
 
 /** Screens that must be seeded with an already-active program. */
 const NEEDS_ACTIVE_PROGRAM = new Set([
@@ -962,6 +962,7 @@ export const ONBOARDING_SCENARIOS = {
   "onboarding-start/first-run-returning-resume": (page) => returnToLanding(page, { draft: true }),
   "onboarding-start/hub": (page) => openHub(page),
   "onboarding-start/hub-existing": (page) => openHub(page, { existing: true }),
+  "onboarding-start/hub-guide": async (page) => { await openHub(page); await replayGuide(page, "entry"); },
   "onboarding-start/hub-chosen": async (page) => {
     await openHub(page);
     await page.click('[data-entry-hub="recommend"]');

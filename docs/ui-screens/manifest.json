@@ -498,6 +498,13 @@
       "variants": "accessibility"
     },
     {
+      "id": "hub-guide",
+      "flow": "onboarding-start",
+      "label": "Entry hub — guide",
+      "scenario": "The entry guide over the hub: the guide dialog, centred over the dimmed hub.",
+      "variants": "accessibility"
+    },
+    {
       "id": "hub-chosen",
       "flow": "onboarding-start",
       "label": "Entry hub — Recommend chosen",
@@ -1009,6 +1016,20 @@
       "variants": "demandingText"
     },
     {
+      "id": "first-set-guide",
+      "flow": "workout",
+      "label": "Workout — first-set guide",
+      "scenario": "The first-set guide, opened by the first tap on a shelf field: the guide dialog centred over the dimmed Focus, holding the tap until Got it.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "focus-utilities-guide",
+      "flow": "workout",
+      "label": "Workout — workout menu guide",
+      "scenario": "The focus-utilities guide: the guide dialog centred over the dimmed Focus.",
+      "variants": "demandingText"
+    },
+    {
       "id": "focus-per-side",
       "flow": "workout",
       "label": "Workout — Focus, per-side target",
@@ -1142,6 +1163,13 @@
       "variants": "demandingText"
     },
     {
+      "id": "overview-guide",
+      "flow": "progress",
+      "label": "Progress — overview guide",
+      "scenario": "The progress guide on arrival: the guide dialog centred over the dimmed Overview.",
+      "variants": "demandingText"
+    },
+    {
       "id": "overview-baseline",
       "flow": "progress",
       "label": "Progress — baseline-building overview",
@@ -1237,6 +1265,13 @@
       "flow": "progress",
       "label": "Progress — Review",
       "scenario": "The mesocycle review surface.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "review-guide",
+      "flow": "progress",
+      "label": "Progress — review guide",
+      "scenario": "The block-transition guide on the Review tab: the guide dialog centred over the dimmed review.",
       "variants": "demandingText"
     },
     {
@@ -1551,7 +1586,21 @@
       "id": "guides-replay",
       "flow": "settings",
       "label": "Settings — replayed guide",
-      "scenario": "A real contextual guide replayed from Settings and anchored to its live privacy action.",
+      "scenario": "A real contextual guide replayed from Settings: the privacy guide dialog, centred over the dimmed list.",
+      "variants": "standard"
+    },
+    {
+      "id": "backup-guide",
+      "flow": "settings",
+      "label": "Settings — backup guide",
+      "scenario": "The backup guide in the open backup group: the guide dialog centred over the dimmed Settings.",
+      "variants": "standard"
+    },
+    {
+      "id": "install-guide",
+      "flow": "settings",
+      "label": "Settings — install guide",
+      "scenario": "The install guide where Settings offers Install (iOS Safari): the guide dialog centred over the dimmed Settings.",
       "variants": "standard"
     },
     {

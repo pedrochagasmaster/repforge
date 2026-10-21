@@ -17,9 +17,19 @@ export const SETUP_DRAFT = "repforge_program_setup_draft_v1";
 // scheduled day from the clock. Pin both so the catalog is reproducible.
 export const CAPTURE_NOW = process.env.CAPTURE_NOW || "2026-08-31T12:00:00.000Z";
 
+/* Contextual guides are modal dialogs, and the rendered-role audits skip what a modal makes inert. The catalog therefore
+   draws every state on a device whose guides have been read (test/browser.mjs), so each surface is audited whole, and
+   each guide has its own state that replays it over its real surface (the `*-guide` states and settings/guides-replay). */
 export { launchChromium };
 
 export const sleep = (page, ms = 300) => page.waitForTimeout(ms);
+
+/** A guide state: Settings → Replay for one guide, which opens its dialog over the surface already on screen. */
+export async function replayGuide(page, id) {
+  await page.evaluate((guide) => window.__repforgeUi.replayGuide(guide), id);
+  await page.waitForFunction((guide) => !!document.querySelector(`dialog#guideDialog[open][data-guide="${guide}"]`), id, { timeout: 20000 });
+  await sleep(page, 300);
+}
 
 export function waitForApp(page) {
   // Hooks mount before durable state has loaded; a scenario may read state.

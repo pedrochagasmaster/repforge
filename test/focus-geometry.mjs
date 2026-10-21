@@ -268,9 +268,6 @@ async function main() {
       assert(leaveBox.x >= 0, `leave button is not clipped off-screen at ${width}px`);
       assert(headEndBox.x + headEndBox.width <= width + 1, `header controls do not overflow viewport at ${width}px`);
 
-      // The first-use guide rides above the shelf until it is dismissed; on the shortest screen the
-      // ledger proof is about the card itself, so the guide is put away first.
-      await page.locator("[data-guide-dismiss]").click({ timeout: 1500 }).catch(() => {});
       // Check previous-session band minimum / existence
       const prevBand = page.locator(".exercise.is-current .fcard__ledger");
       await prevBand.scrollIntoViewIfNeeded();

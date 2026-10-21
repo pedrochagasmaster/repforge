@@ -43,7 +43,7 @@ const ui = {
   },
 };
 
-const browser = await launchChromium();
+const browser = await launchChromium({ guides: "live" });
 const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block" });
 const page = await context.newPage();
 try {
@@ -69,19 +69,20 @@ try {
   await waitForAppBoot(page, { base: BASE });
   await page.evaluate(() => window.__repforgeEnterWorkout({}));
   await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 15000 });
-  await page.waitForSelector('[data-guide-cue="first-set"]', { timeout: 15000 });
+  // The first-set guide waits for the lifter's first tap on the shelf.
+  await page.waitForSelector(".focus-shelf .shelf__fieldbtn[data-shelf-field]", { timeout: 15000 });
+  await page.locator('.focus-shelf .shelf__fieldbtn[data-shelf-field][aria-pressed="false"]').first().click();
+  await page.waitForSelector('dialog#guideDialog[open][data-guide="first-set"]', { timeout: 15000 });
 
   const evidence = await page.evaluate(({ dataKey, uiKey }) => ({
     guideStatus: JSON.parse(localStorage.getItem(uiKey) || "{}").guideState?.["first-set"]?.status,
     historicalSessions: new Set((JSON.parse(localStorage.getItem(dataKey) || "{}").log || []).map((row) => row.session)).size,
-    cue: document.querySelector('[data-guide-cue="first-set"]')?.dataset.anchorTarget || "",
-    anchor: document.querySelector('[data-guide-cue="first-set"]')?.dataset.anchorTarget
-      ? document.querySelector(document.querySelector('[data-guide-cue="first-set"]').dataset.anchorTarget)
-      : null,
+    modal: !!document.querySelector("dialog#guideDialog")?.matches(":modal"),
+    anchor: !!document.querySelector(".focus-shelf .saveset")?.getClientRects().length,
   }), { dataKey: DATA_KEY, uiKey: UI_KEY });
   assert.equal(evidence.guideStatus, "shown", "existing workout history does not suppress automatic first-set guide eligibility");
   assert.equal(evidence.historicalSessions, 1, "guide eligibility reads history without changing durable workout facts");
-  assert.ok(evidence.cue && evidence.anchor, "automatic guide remains anchored to its real Save control");
+  assert.ok(evidence.modal && evidence.anchor, "the automatic guide opens over Focus with its real Save control on screen");
 } finally {
   await context.close();
   await browser.close();

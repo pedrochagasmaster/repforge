@@ -4,7 +4,7 @@
  * prior observations that cannot support an outcome. The canonical producer is
  * the independent oracle for every case.
  */
-import { chromium } from "playwright";
+import { launchChromium } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 import { metricLogRow } from "./fixtures/history-metric-rows.mjs";
 
@@ -89,7 +89,7 @@ async function build(page, previous, current) {
   }, { previousRows: previous, currentRows: current });
 }
 
-const browser = await chromium.launch();
+const browser = await launchChromium();
 try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: "UTC" });
   const page = await context.newPage();

@@ -151,11 +151,11 @@ try {
     check(unrelatedIds.every((id) => JSON.stringify(after.guideState?.[id]) === JSON.stringify(before.guideState?.[id])),
       "replay changes only the selected guide record", { before, after });
     check(await page.locator("#settings.view.active").count() === 1 &&
-      await page.locator('[data-guide-cue="first-set"]').count() === 0 &&
+      await page.locator("dialog#guideDialog[open]").count() === 0 &&
       after.guideState["first-set"].status === "deferred",
     "a hidden owning anchor defers replay without navigation or a floating cue", {
       view: await page.locator("#settings.view.active").count(),
-      cue: await page.locator('[data-guide-cue="first-set"]').count(),
+      cue: await page.locator("dialog#guideDialog[open]").count(),
       status: after.guideState["first-set"].status,
     });
   } else {

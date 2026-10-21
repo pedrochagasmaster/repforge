@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 /** Plan 057-P6: Today keeps block position and one calendar-week line distinct. */
 import assert from "node:assert/strict";
-import { chromium } from "playwright";
-import { assertServingApp } from "./browser.mjs";
+import { assertServingApp, launchChromium } from "./browser.mjs";
 import { installSeedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -33,7 +32,7 @@ async function persist(page, state) {
   }, { key: KEY, state });
 }
 
-const browser = await chromium.launch();
+const browser = await launchChromium();
 try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: "UTC" });
   const page = await context.newPage();

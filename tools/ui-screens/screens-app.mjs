@@ -8,7 +8,7 @@
  */
 import { readFileSync } from "node:fs";
 import { catalogState, directionDState, emptyEntryState, localeState } from "./fixtures.mjs";
-import { CAPTURE_NOW, dismissChrome, LOG_DRAFT, seed, sleep } from "./session.mjs";
+import { CAPTURE_NOW, dismissChrome, LOG_DRAFT, replayGuide, seed, sleep } from "./session.mjs";
 import { definitionSlot, installGeneratedProgram, isWeightRepsSlot, metricLogRow } from "../../test/fixtures/history-metric-rows.mjs";
 import { DIRECTION_D_CANONICAL_ID_BY_LEGACY_ID } from "./direction-d-canonical-fixture.generated.mjs";
 
@@ -958,6 +958,13 @@ async function confirmRecovery(page) {
   await sleep(page, 400);
 }
 
+/** A Settings disclosure animates its height; the frame is placed once it has its final size. */
+async function disclosureSettled(page) {
+  await page.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished.catch(() => {}))));
+  // The height runs 200 ms through Motion, which may not surface as a document animation.
+  await sleep(page, 400);
+}
+
 async function openSettings(page, anchor) {
   await page.evaluate(() => window.__repforgeShowSettings());
   await sleep(page, 500);
@@ -1648,6 +1655,16 @@ export const APP_SCENARIOS = {
   },
 
   "workout/focus": focusMode,
+  "workout/first-set-guide": async (page) => {
+    // Replayed away from Focus, the guide waits for its anchor; in Focus it waits for the first tap on the shelf.
+    await page.evaluate(() => window.__repforgeUi.replayGuide("first-set"));
+    await page.waitForFunction(() => window.__repforgeUi.guideState()["first-set"]?.status === "deferred", undefined, { timeout: 20000 });
+    await focusMode(page);
+    await page.locator('.focus-shelf .shelf__fieldbtn[data-shelf-field][aria-pressed="false"]').first().click();
+    await page.waitForFunction(() => !!document.querySelector('dialog#guideDialog[open][data-guide="first-set"]'), undefined, { timeout: 20000 });
+    await sleep(page, 300);
+  },
+  "workout/focus-utilities-guide": async (page) => { await focusMode(page); await replayGuide(page, "focus-utilities"); },
   "workout/focus-per-side": focusPerSideTarget,
   "workout/why-per-side": whyPerSideAssumption,
   "workout/deload-week": async page => {
@@ -1755,7 +1772,18 @@ export const APP_SCENARIOS = {
   },
   "workout/correction": async page => { await focusMode(page); await logCurrentSet(page); await page.locator("#workout .exercise.is-current [data-ledgermore]").click(); await page.locator("#workout .exercise.is-current [data-editn]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); },
   // Layout D: the logged sets' disclosure opened over the table, the logged row back in place to correct.
-  "workout/logged-sets": async page => { await focusMode(page); await logCurrentSet(page); await page.locator("#workout .exercise.is-current [data-ledgermore]").click(); await page.waitForSelector("#workout .exercise.is-current [data-editn]"); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); },
+  "workout/logged-sets": async page => { await focusMode(page); await logCurrentSet(page); await page.locator("#workout .exercise.is-current [data-ledgermore]").click(); await page.waitForSelector("#workout .exercise.is-current [data-editn]"); await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    // The logged set starts the rest; its clock takes the cue slot once that render has run, and the slot then trades its height.
+    await page.waitForFunction(() => (document.querySelector("#workout .exercise.is-current .fx-slot")?.dataset.rest || "none") !== "none", undefined, { timeout: 20000 });
+    await page.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished.catch(() => {}))));
+    // After the trade the card brings its open row into view; the frame is taken once that scroll has come to rest.
+    await page.waitForFunction(() => {
+      const context = document.querySelector("#workout .exercise--focus.is-current .fcard__context");
+      const at = context ? Math.round(context.scrollTop) : -1, seen = window.__catalogScrollRest ||= { at: null, still: 0 };
+      if (seen.at === at) seen.still++; else { seen.at = at; seen.still = 0; }
+      return seen.still >= 5;
+    }, undefined, { polling: 100, timeout: 20000 });
+    await sleep(page, 200); },
   "today/draft-resume": async page => { await focusMode(page); await fillAdaptiveShelf(page, ADAPTIVE_WEIGHT_METRIC_ID, "80"); await page.click("#leaveWorkout"); },
 
   "workout/stale-draft": async (page) => {
@@ -1887,6 +1915,7 @@ export const APP_SCENARIOS = {
   },
 
   "progress/overview": (page) => view(page, "stats"),
+  "progress/overview-guide": async (page) => { await view(page, "stats"); await replayGuide(page, "progress"); },
   "progress/overview-baseline": (page) => view(page, "stats"),
   "progress/overview-action": (page) => view(page, "stats"),
   "progress/exercise-chart": async (page) => {
@@ -1949,16 +1978,14 @@ export const APP_SCENARIOS = {
   "progress/prs": (page) => progressSegment(page, "prs"),
   "progress/prs-drill-in": async (page) => { await progressSegment(page, "prs"); await page.locator("#prTimeline .prtl__row").first().click(); },
   "progress/review": (page) => progressSegment(page, "review"),
+  "progress/review-guide": async (page) => { await progressSegment(page, "review"); await replayGuide(page, "block-transition"); },
   "progress/review-active": (page) => progressSegment(page, "review"),
   "progress/review-complete": openCompletedReview,
   "progress/review-insufficient": openCompletedReview,
   "progress/schedule-diagnosis": openScheduleDiagnosis,
   "progress/sibling-lower-frequency": (page) => openSiblingPreview(page, "fewer_days"),
   "progress/sibling-shorter-session": (page) => openSiblingPreview(page, "sessions_too_long"),
-  "progress/guided-repair": async (page) => { await openCompletedReview(page);await page.click('[data-review-action="guided-edit"]');await page.fill("[data-diag-target]","3");await page.click("[data-diag-continue]");await page.waitForSelector(".review__staged",{timeout:20000});
-    // The progress guide is dismissed here. The rendered-role audit reads the dock's ground from the page's top-left
-    // quadrant, and with the guide above it, this short page would put the primary action there.
-    await page.click("[data-guide-dismiss]"); },
+  "progress/guided-repair": async (page) => { await openCompletedReview(page);await page.click('[data-review-action="guided-edit"]');await page.fill("[data-diag-target]","3");await page.click("[data-diag-continue]");await page.waitForSelector(".review__staged",{timeout:20000}); },
   "progress/volume-reduction-preview": async (page) => { await completeCompiledProgram(page);await openCompletedReview(page);await page.click('[data-review-action="reduce-volume"]');await page.click("[data-volume-confirm]");await page.waitForSelector("[data-preview-confirm]",{timeout:20000}); },
   "progress/recovery-ineligible": async (page) => { await openRecoveryPreview(page);await page.click('[data-recovery-answer="Not sure"]'); },
   "progress/recovery-questions": openRecoveryPreview,
@@ -2364,23 +2391,35 @@ export const APP_SCENARIOS = {
     await openSettings(page);
     await page.click("#guideReplayToggle");
     await page.waitForSelector("#guideReplayPanel.is-open", { timeout: 20000 });
-    await page.locator('#guideReplayList [data-guide-replay="privacy"]').click();
-    const cue = page.locator('.guide-cue[data-guide-cue="privacy"]');
-    await cue.waitFor({ state: "visible", timeout: 20000 });
-    // The replay focuses its dismiss button without scrolling, but the click
-    // that opened the panel is allowed to auto-scroll. Establish the frame's
-    // subject explicitly so a different preceding scroll position cannot
-    // produce a different catalog image.
-    await cue.evaluate((element) => {
+    await disclosureSettled(page);
+    // The click that opened the panel may auto-scroll. Put the replayed guide's Privacy action at the centre of the
+    // frame, so the dialog is placed on it the same way every run.
+    await page.locator("#privacyDetails").evaluate((element) => {
       element.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
     });
-    await page.waitForFunction(() => {
-      const element = document.querySelector('.guide-cue[data-guide-cue="privacy"]');
-      if (!element) return false;
-      const rect = element.getBoundingClientRect();
-      return Math.abs((rect.top + rect.bottom) / 2 - window.innerHeight / 2) <= 1;
-    });
+    await page.locator('#guideReplayList [data-guide-replay="privacy"]').click();
+    await page.waitForFunction(() => !!document.querySelector('dialog#guideDialog[open][data-guide="privacy"]'), undefined, { timeout: 20000 });
     await sleep(page, 400);
+  },
+  "settings/backup-guide": async (page) => {
+    await openSettings(page, "#dataBackupRow");
+    await page.click("#dataBackupRow");
+    await page.waitForSelector("#dataBackupPanel.is-open", { timeout: 20000 });
+    await disclosureSettled(page);
+    await page.locator("#exportJson").evaluate((element) => {
+      element.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
+    });
+    await sleep(page, 300);
+    await replayGuide(page, "backup");
+  },
+  "settings/install-guide": async (page) => {
+    // Settings offers Install on iOS Safari (APP_USER_AGENT), which is where its guide is met.
+    await openSettings(page);
+    await page.locator("#installApp").evaluate((element) => {
+      element.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
+    });
+    await sleep(page, 300);
+    await replayGuide(page, "install");
   },
   "settings/privacy": (page) => openSettings(page, "#telemetryToggle"),
   "settings/privacy-disclosure": async (page) => {
@@ -2431,4 +2470,4 @@ export const APP_USER_AGENT = Object.fromEntries([
   "ios-sheet", "transfer-eligible", "transfer-creating", "transfer-ready", "transfer-retryable",
   "transfer-claiming", "transfer-importing", "transfer-success", "transfer-cleanup", "transfer-terminal",
   "transfer-destination", "transfer-interrupted", "transfer-unknown", "transfer-claimed-expired",
-].map((id) => [`install/${id}`, IOS_SAFARI]));
+].map((id) => [`install/${id}`, IOS_SAFARI]).concat([["settings/install-guide", IOS_SAFARI]]));
