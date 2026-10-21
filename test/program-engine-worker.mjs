@@ -98,7 +98,7 @@ function runCases(page, list) {
 async function policyCases(page, label) {
   const request = recorded.find(item => item.key.startsWith("muscle_growth|6_to_24m|4|everything|90")).request;
   const results = await page.evaluate(async request => {
-    const defaults = window.RepForgeEnginePolicy.getDefaultEnginePolicy();
+    const defaults = window.__repforgeTrainingTest.enginePolicy.getDefaultEnginePolicy();
     const low = structuredClone(defaults);
     Object.keys(low.volume.setsByType).forEach(key => low.volume.setsByType[key] = 2);
     Object.keys(low.prescription.baseRirByClass).forEach(key => low.prescription.baseRirByClass[key] = key === "assistance" ? 0 : 1);
@@ -106,16 +106,16 @@ async function policyCases(page, label) {
     Object.keys(zero.prescription.baseRirByClass).forEach(key => zero.prescription.baseRirByClass[key] = 0);
     Object.values(zero.prescription.rirAdjustmentsBySetCount).forEach(row => row.fill(0));
     const engine = window.__repforgeProgramEngine;
-    const catalog = window.RepForgeExerciseCatalog.snapshot();
+    const catalog = window.__repforgeTrainingTest.catalog;
     const outcomes = [];
     for (const enginePolicy of [defaults, low, zero]) {
       const options = { enginePolicy, diagnostics: "allocation-lineage@1" };
-      const expected = window.RepForgeProgramCompiler.generateProgram(request, catalog, options);
+      const expected = window.__repforgeTrainingTest.compiler.generateProgram(request, catalog, options);
       const actual = await engine.generate(request, options);
       outcomes.push({ same: JSON.stringify(actual) === JSON.stringify(expected), ok: actual.ok });
     }
     const mutable = structuredClone(low), options = { enginePolicy: mutable, diagnostics: "allocation-lineage@1" };
-    const expected = window.RepForgeProgramCompiler.generateProgram(request, catalog, options);
+    const expected = window.__repforgeTrainingTest.compiler.generateProgram(request, catalog, options);
     const queued = engine.generate(request, options);
     mutable.volume.setsByType.primary = 3;
     outcomes.push({ same: JSON.stringify(await queued) === JSON.stringify(expected), ok: true });
