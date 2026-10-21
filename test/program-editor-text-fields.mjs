@@ -336,6 +336,83 @@ async function installedPart(browser) {
   }
 }
 
+/*
+ * #445 in candidate A: names are typed in the rename sheet. A program or day name typed
+ * there and not yet saved is an unsaved edit: browser Back asks first instead of closing
+ * the editor, and Discard, Keep editing and Apply each do what they say.
+ */
+async function renameBack(browser) {
+  console.log("\nInstalled editor: a typed name and browser Back (#445)");
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block" });
+  const page = await context.newPage();
+  const storedName = () => page.evaluate((key) => JSON.parse(localStorage.getItem(key)).programMeta.name, KEY);
+  const typeName = async (value) => {
+    await page.locator('#programEditor [data-role="program-name-edit"]').click();
+    const input = page.locator(`${SHEET}.is-open [data-role="rename-input"]`);
+    await input.waitFor({ timeout: 5000 });
+    await input.fill(value);
+    return input;
+  };
+  try {
+    await page.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await writeFixture(page, fixture());
+    const original = await storedName();
+    await openInstalledEditor(page);
+    await typeName("Back protected program");
+    await page.goBack();
+    const asked = await page.waitForSelector("#programEditorLeave[open]", { timeout: 5000 }).then(() => true, () => false);
+    check(asked, "browser Back over an unsaved typed name asks before leaving");
+    check(await storedName() === original, "asking applies nothing");
+    if (asked) {
+      await page.click("#programEditorKeep");
+      await page.waitForSelector("#programEditorLeave", { state: "hidden" });
+      check(!(await page.locator("#programEditorWrap").evaluate((node) => node.classList.contains("is-hidden"))),
+        "Keep editing stays in the editor");
+      const resumed = await page.locator(`${SHEET}.is-open [data-role="rename-input"]`).inputValue({ timeout: 5000 }).catch(() => null);
+      check(resumed === "Back protected program", "Keep editing reopens the rename with the typed name", { resumed });
+      await page.goBack();
+      await page.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
+      await page.click("#programEditorDiscard");
+      await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), undefined, { timeout: 5000 });
+      check(await storedName() === original, "Discard leaves the stored name");
+    }
+    await openInstalledEditor(page);
+    await page.goBack();
+    await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), undefined, { timeout: 5000 });
+    check(!(await page.locator("#programEditorLeave").evaluate((dialog) => dialog.open)), "browser Back closes a clean editor without asking");
+    await openInstalledEditor(page);
+    await typeName("Applied from Back");
+    await page.goBack();
+    await page.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
+    await page.click("#programEditorApply");
+    await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), undefined, { timeout: 10000 });
+    check(await storedName() === "Applied from Back", "Apply from the Back decision saves the typed name");
+
+    // A training day's name already in use is refused: Apply from the decision returns to the
+    // sheet with its reason. The full seed program has more than one training day.
+    await writeFixture(page, { ...fixture(), programMeta: seedProgramMeta(), program: seedProgram() });
+    const dayNames = () => page.evaluate((key) => JSON.parse(localStorage.getItem(key)).programMeta.programDefinition.days.map((day) => day.name), KEY);
+    const namesBefore = await dayNames();
+    const taken = namesBefore[1];
+    await openInstalledEditor(page);
+    await page.locator('#programEditor [data-role="day-menu"][data-day="Day 1"]').click();
+    await page.locator(`${SHEET}.is-open [data-role="day-action"][data-action="rename"]`).click();
+    await page.locator(`${SHEET}.is-open [data-role="rename-input"]`).fill(taken);
+    await page.goBack();
+    await page.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
+    await page.click("#programEditorApply");
+    await page.waitForSelector("#programEditorLeave", { state: "hidden", timeout: 5000 });
+    const refused = page.locator(`${SHEET}.is-open [data-role="rename-input"][aria-invalid="true"]`);
+    const shown = await refused.inputValue({ timeout: 5000 }).catch(() => null);
+    check(shown === taken, "a refused day name from the Back decision returns to its sheet with the reason", { shown, taken });
+    const namesAfter = await dayNames();
+    check(JSON.stringify(namesAfter) === JSON.stringify(namesBefore), "a refused day name changes no stored day", { namesBefore, namesAfter });
+  } finally {
+    await context.close();
+  }
+}
+
 async function main() {
   console.log("Program editor text-field regression");
   console.log(`Target: ${BASE}\n`);
@@ -343,6 +420,7 @@ async function main() {
   try {
     await buildPart(browser);
     await installedPart(browser);
+    await renameBack(browser);
   } finally {
     await browser.close();
   }

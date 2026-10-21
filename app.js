@@ -11911,6 +11911,12 @@ async function applyInstalledEditorAndContinue(){
     closeInstalledLeaveDialog();
     return result;
   }
+  if(result?.renameRefused){
+    // The typed name was refused (a day name already in use): back to its sheet and reason.
+    closeInstalledLeaveDialog();
+    afterModalSettles(()=>editor.resumePendingRename?.());
+    return result;
+  }
   if(result?.committed===true&&result?.settled===true){
     finishInstalledEditor();
     maybeShowInstallBanner();
@@ -19163,7 +19169,11 @@ function onInstalledEditorPopState(){
       history.pushState(installedEditorHistoryState(),"",location.href);
       installedEditorHistoryArmed=true;
     }catch{}
-    if(!$("#programEditorLeave")?.open)openInstalledLeaveDialog();
+    // A name still typed in the editor's rename sheet is held while the sheet steps aside (#445),
+    // then the decision opens over the editor.
+    const held=installedProgramEditor.holdPendingRename?.();
+    if(held)held.then(()=>afterModalSettles(()=>{if(programEditMode&&!$("#programEditorLeave")?.open)openInstalledLeaveDialog()}));
+    else if(!$("#programEditorLeave")?.open)openInstalledLeaveDialog();
     return true;
   }
   finishInstalledEditor({historyAlreadyPopped:true});
@@ -21324,7 +21334,10 @@ function init(){
     finishInstalledEditor()};
   const leaveApply=$("#programEditorApply");if(leaveApply)leaveApply.onclick=()=>applyInstalledEditorAndContinue();
   const leaveDiscard=$("#programEditorDiscard");if(leaveDiscard)leaveDiscard.onclick=()=>finishInstalledEditor({discard:true});
-  const leaveKeep=$("#programEditorKeep");if(leaveKeep)leaveKeep.onclick=()=>closeInstalledLeaveDialog();
+  const leaveKeep=$("#programEditorKeep");if(leaveKeep)leaveKeep.onclick=()=>{
+    closeInstalledLeaveDialog();
+    // Keep editing returns to a name that Back set aside, as it was typed.
+    afterModalSettles(()=>installedProgramEditor?.resumePendingRename?.())};
   const histSearchBtn=$("#historySearchBtn");if(histSearchBtn)histSearchBtn.onclick=()=>HistoryUi.setSearchOpen(!HistoryUi.isSearchOpen());
   const histSearch=$("#historySearch");if(histSearch)histSearch.oninput=()=>HistoryUi.setQuery(histSearch.value);
   const histSearchClear=$("#historySearchClear");if(histSearchClear)histSearchClear.onclick=()=>HistoryUi.clearSearch();

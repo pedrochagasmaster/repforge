@@ -953,6 +953,9 @@
     const apply = ({ kind = "apply" } = {}) => {
       if (!INTENT_SET.has(kind) || (kind !== "apply" && kind !== "apply_discard_workout"))
         return Promise.resolve({ ok: false, invalidIntent: true });
+      // A name typed in the rename sheet and not yet saved is part of what Apply applies (#445).
+      if (reviewLayout && (pendingRename() || heldRename)) return flushPendingRename().then(saved => saved === false
+        ? { ok: false, invalid: true, renameRefused: true } : apply({ kind }));
       if (!edits.length && !changed()) return Promise.resolve({ ok: true, unchanged: true, document: clone(document), token: clone(token) });
       const issues = validation(document);
       if (issues.length) {
@@ -972,7 +975,7 @@
     const discard = () => {
       const latest = adapter.read() || {};
       document = clone(latest.document || latest.nextDocument || latest); token = clone(latest.token);
-      baseDocument = clone(document); edits = []; undoMove = null; undoStack = []; expandedExercises.clear(); expandedMetricCycles.clear(); initializedMetricCycleSlots.clear(); collapsedDays.clear(); collapsedDaysInitialized = false;
+      baseDocument = clone(document); edits = []; undoMove = null; undoStack = []; heldRename = null; expandedExercises.clear(); expandedMetricCycles.clear(); initializedMetricCycleSlots.clear(); collapsedDays.clear(); collapsedDaysInitialized = false;
       scheduleRender();
       return document;
     };
@@ -1966,6 +1969,7 @@
        ============================================================ */
     const view = { tab: null, sheet: null, reorderDay: null };
     let undoStack = [];
+    let heldRename = null; // a typed name that Back set aside while the host asks about leaving
     let busy = 0;
     let reviewQueue = Promise.resolve();
     let toastEl = null, toastTimer = 0;
@@ -2742,14 +2746,20 @@
         return result;
       });
     }
-    async function saveRename() {
+    /** Saves the open rename sheet, or a name Back set aside (`held`) without reopening its sheet. */
+    async function saveRename(held = null) {
       const parts = sheetParts(), input = parts?.body?.querySelector('[data-role="rename-input"]');
-      const value = String(input?.value || "").trim(), sheet = view.sheet;
+      const sheet = held ? { kind: "rename", ...held } : view.sheet;
+      const value = String((held ? held.value : input?.value) || "").trim();
       if (!sheet) return;
       if (sheet.target === "day") {
         const day = sheet.day;
         if (!value || value === titleForDay(day) || value === day) { await closeSheetView(); return; }
         const result = await recorded(() => renameDay(day, value));
+        if (result?.refused && held) {
+          heldRename = { ...held, error: result.duplicate ? label("dayNameExists") : label("invalid") };
+          return false;
+        }
         if (result?.refused) {
           view.sheet = { ...sheet, inputValue: value, error: result.duplicate ? label("dayNameExists") : label("invalid") };
           paintSheet();
@@ -2765,7 +2775,7 @@
       await closeSheetView();
       const before = document.programMeta?.name || "";
       if (value === before) return;
-      userAction([doc => {
+      return userAction([doc => {
         const next = clone(doc);
         next.programMeta = { ...(next.programMeta || {}), name: value };
         return { next, edit: { kind: "program_name", before, after: value } };
@@ -2775,6 +2785,40 @@
        and come back without an answer: only the staging joins the queue. */
     function reviewAdd(day) {
       return pickForAdd(day).then(entry => entry ? recorded(() => stageAdd(day, entry)) : null);
+    }
+    /* #445: a name typed in the open rename sheet is an unsaved edit until Save. Browser Back
+       does not blur it first, so the host asks about it through isDirty, and Apply saves it. */
+    function pendingRename() {
+      if (view.sheet?.kind !== "rename") return null;
+      const value = String(sheetParts()?.body?.querySelector('[data-role="rename-input"]')?.value ?? view.sheet.inputValue ?? "").trim();
+      const current = view.sheet.target === "day" ? titleForDay(view.sheet.day) : String(document.programMeta?.name || "");
+      return value && value !== current && !(view.sheet.target === "day" && value === view.sheet.day) ? value : null;
+    }
+    async function flushPendingRename() {
+      if (heldRename) {
+        // Back set the sheet aside; a refused name is held again with its reason.
+        const held = heldRename;
+        heldRename = null;
+        return (await saveRename(held)) !== false;
+      }
+      if (!pendingRename()) return true;
+      await saveRename();
+      // A refused name keeps the sheet open with its reason; Apply waits for it.
+      return view.sheet?.kind === "rename" ? false : true;
+    }
+    /** Browser Back over a typed, unsaved name: keep the text, close the sheet so the host can ask. */
+    function holdPendingRename() {
+      const value = pendingRename();
+      if (!value) return null;
+      heldRename = { target: view.sheet.target, day: view.sheet.day, value };
+      return closeSheetView();
+    }
+    function resumePendingRename() {
+      if (!heldRename) return;
+      const held = heldRename;
+      heldRename = null;
+      openSheetView({ kind: "rename", target: held.target, day: held.day, inputValue: held.value, ...(held.error ? { error: held.error } : {}) },
+        { focus: '[data-role="rename-input"]' });
     }
     /** Resolves once no modal (the picker, say) is open or closing. */
     function afterModals() {
@@ -2984,7 +3028,9 @@
       dispose() { destroyed = true; if (reviewLayout) unmountReviewLayout(); teardownSorting(); if (statusTimer) clearTimeout(statusTimer); host.classList.remove("program-editor-host"); host.dataset.editorMounted = "false"; host.replaceChildren(); },
       getDocument: () => clone(document),
       getToken: () => clone(token),
-      isDirty: () => edits.length > 0 || changed(),
+      isDirty: () => edits.length > 0 || changed() || (reviewLayout && (!!pendingRename() || !!heldRename)),
+      holdPendingRename: () => (reviewLayout ? holdPendingRename() : null),
+      resumePendingRename: () => { if (reviewLayout) resumePendingRename(); },
       validationIssues: () => validation(document),
       checkSuggestLoads,
       commit: apply,
