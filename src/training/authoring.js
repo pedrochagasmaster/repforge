@@ -7,7 +7,7 @@ export { default as suggestion } from "./authoring/internal/suggestion.js";
 
 export { createEntryAdapter } from "./authoring/internal/adapter.js";
 
-export {createEditorDocumentRules,PROGRAM_EDITOR_INTENTS} from './authoring/internal/editor-document.js';
+export {createEditorDocumentRules,PROGRAM_EDITOR_INTENTS,reorderTrainingDays,dayOrderConflict} from './authoring/internal/editor-document.js';
 
 /** Public values consumed across owner boundaries; runtime validators remain authoritative.
  * @typedef {import('./authoring/internal/editor-contracts.js').EditorDocument} EditorDocument

@@ -16,22 +16,27 @@
 /** @typedef {import("./contracts.js").DragOperation} DragOperation */
 /** @typedef {import("./contracts.js").EditorDragEvent} EditorDragEvent */
 /** @typedef {import("./contracts.js").Sorting} Sorting */
+/** @typedef {import("./contracts.js").PickChoice} PickChoice */
+/** @typedef {import("./contracts.js").ReviewSheetParts} ReviewSheetParts */
 /** Shared mounted editor for private setup documents and installed programs.
  * The host owns commit semantics. This controller owns DOM/focus/reorder lifetime. */
 import MetricDomain from '../../training/metrics.js';
 import {MAX_SLOT_ALTERNATES} from '../../training/generation.js';
 import {cloneSnapshot as clone,canonicalize} from '../../training/model.js';
 import {createEditorDocumentRules,PROGRAM_EDITOR_INTENTS} from '../../training/authoring.js';
-import {suggestion} from '../../training/authoring.js';
-const {definitionFor,definitionSlot,slotSets,slotAdaptive,pendingSuggestLoads,slotRepSemantic,repRange,uniformRir,suggestLoadsIssues,setSuggestLoads}=suggestion;
+import {suggestion,review as reviewRules} from '../../training/authoring.js';
+const {definitionFor,definitionSlot,slotSets,slotAdaptive,pendingSuggestLoads,slotRepSemantic,repRange,uniformRir,suggestLoadsIssues,setSuggestLoads,setSlotRir}=suggestion;
+/** @param {unknown} value */
+const stable=value=>JSON.stringify(canonicalize(value));
 const REP_TARGET_SEMANTICS=new Set(['reps','repsPerSide']);
+const REVIEW_REST_PRESETS=reviewRules.REST_PRESETS;
 const INTENT_SET=new Set(PROGRAM_EDITOR_INTENTS);
 const maxAlternates=()=>MAX_SLOT_ALTERNATES;
 const METRIC_DOMAIN=MetricDomain;
 /** All optional platform services are supplied by composition; importing mounts nothing.
- * @param {{window:Window & typeof globalThis,nextId:()=>string,motion?:{animateExerciseReorder:(rows:HTMLElement[],before:Map<string,DOMRect>)=>unknown}|null,sorting:{read:()=>DragRuntime|null,available:()=>boolean,load:()=>Promise<unknown>}}} options */
+ * @param {{window:Window & typeof globalThis,nextId:()=>string,motion?:{animateExerciseReorder:(rows:HTMLElement[],before:Map<string,DOMRect>)=>unknown,revealToast?:(element:HTMLElement)=>unknown}|null,sorting:{read:()=>DragRuntime|null,available:()=>boolean,load:()=>Promise<unknown>}}} options */
 export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:sortingRuntime}) {
-  const {editProgramName,editRemoveExercise,editReplaceExercise,editAlternates,editMetricTarget:prepareMetricTarget,editMetricComposition:prepareMetricComposition,editSuggestLoadsRir:prepareSuggestLoadsRir,slotLoadMetric,editLoadStep:prepareLoadStep,editExecutionMode:prepareExecutionMode,editPrescriptionField:preparePrescriptionField,editExerciseField,metaDays,labels,exercisesFor,normalizeOrders,structureFor,definitionCycle,definitionSet,setCountFor,editableMetricComposition,ensureStructure,setDayLabel,appendDay,removeDayFromDocument,addExercise,reorder,validation}=createEditorDocumentRules({nextId:uid});
+  const {editProgramName,editRemoveExercise,editReplaceExercise,editAlternates,editMetricTarget:prepareMetricTarget,editMetricComposition:prepareMetricComposition,editSuggestLoadsRir:prepareSuggestLoadsRir,slotLoadMetric,editLoadStep:prepareLoadStep,editExecutionMode:prepareExecutionMode,editPrescriptionField:preparePrescriptionField,editExerciseField,metaDays,labels,exercisesFor,normalizeOrders,structureFor,definitionCycle,definitionSet,setCountFor,editableMetricComposition,ensureStructure,setDayLabel,appendDay,removeDayFromDocument,moveDayInDocument,restDayNames,addExercise,replaceExercise,replaceMetricTarget,reorder,validation}=createEditorDocumentRules({nextId:uid});
   /** @type {Record<string,string|((vars:Record<string,string|number>)=>string)>} */
   const FALLBACK = Object.freeze({
     programName: "Program name",
@@ -315,6 +320,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     let renderQueued = false;
     /** @type {ReturnType<typeof setTimeout>|null} */
     let statusTimer = null;
+    const reviewLayout = adapter.layout === "review";
 
     host.classList.add("program-editor-host");
     host.dataset.editorMounted = "true";
@@ -323,9 +329,13 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     const rootElement = () => host;
     /** @param {string} key @param {Record<string,string|number>} [vars] @param {string} [fallback] */
     const label = (key, vars, fallback) => t(adapter, I18N_KEYS[key] || key, vars, fallback ?? FALLBACK[key]);
+    // The review layout redraws its status line with every render, so it keeps the message to draw.
+    /** @type {{message:string,error:boolean}|null} */
+    let reviewStatus = null;
     /** @param {string} message @param {{error?:boolean,undo?:boolean}} [options] */
     const setStatus = (message, { error = false, undo = false } = {}) => {
       if(destroyed)return;
+      if (reviewLayout) reviewStatus = message && !undo ? { message, error } : null;
       const status = /** @type {HTMLElement|null} */ (host.querySelector('[data-role="editor-status"]'));
       if (!status) return;
       status.classList.toggle("is-error", error);
@@ -338,7 +348,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       /** @type {HTMLElement|null} */ (status.querySelector('[data-role="undo-move"]'))?.addEventListener("click", undoLastMove);
       status.hidden = !message;
       if (statusTimer) clearTimeout(statusTimer);
-      if (message && !undo) statusTimer = setTimeout(() => { if (status.isConnected) status.hidden = true; }, 2600);
+      if (message && !undo) statusTimer = setTimeout(() => { reviewStatus = null; if (status.isConnected) status.hidden = true; }, 2600);
     };
     const context = () => {
       try { return adapter.context?.(document) || ""; } catch { return ""; }
@@ -410,15 +420,17 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     };
     /* A commit that rebuilds the list leaves nothing focused: the row that changed (or, after a remove, the day's
        Add control) takes focus once the rebuild has drawn, and the change is announced once through the host. */
+    // A change that shows its own toast with Undo is announced by that toast alone.
+    let quietChange = false;
     /** @param {string} key */
-    const announceChange = key => { if(destroyed)return;try { adapter.announce?.(label(key), { change: true }); } catch { /* the focus move still says it */ } };
+    const announceChange = key => { if(destroyed||quietChange)return;try { adapter.announce?.(label(key), { change: true }); } catch { /* the focus move still says it */ } };
     const applyPendingFocus = () => {
       const want = pendingFocus; pendingFocus = null;
       if (!want) return;
       /** @param {string} selector */
-    const find = selector => {const element=host.querySelector(selector);return element instanceof root.HTMLElement?element:null};
+    const find = selector => {const element=host.querySelector(selector)||(reviewLayout?sheetParts()?.el?.querySelector(selector):null);return element instanceof root.HTMLElement?element:null};
       const target = want.selector ? find(want.selector) : want.id
-        ? (want.roles || ["toggle-exercise"]).map(role => find(`[data-role="${role}"][data-id="${cssEscape(want.id)}"]`)).find(Boolean)
+        ? (want.roles || ["toggle-exercise", "exercise-row"]).map(role => find(`[data-role="${role}"][data-id="${cssEscape(want.id)}"]`)).find(Boolean)
         : find(`[data-role="add-exercise"][data-day="${cssEscape(want.day)}"]`);
       try { target?.focus(); } catch { /* a control that cannot take focus is left alone */ }
     };
@@ -430,8 +442,10 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       if (typeof adapter.afterModal === "function") adapter.afterModal(run); else run();
     };
     /** @param {string} day */
-    const addForDay = day => chooseExercise({ mode: "add", day, exclude: exercisesFor(document, day).map(item => item.libraryId).filter(Boolean) }).then(entry => {
-      if (!entry||'entry' in entry) return null;
+    const pickForAdd = day => chooseExercise({ mode: "add", day, exclude: exercisesFor(document, day).map(item => item.libraryId).filter(Boolean) });
+    /** @param {string} day @param {PickChoice|null|undefined} entry */
+    const stageAdd = (day, entry) => {
+      if (!entry||'entry' in entry) return Promise.resolve(null);
       const next = clone(document), exercise = addExercise(next, day, entry);
       collapsedDays.delete(day); expandedExercises.add(exercise.id);
       pendingFocus = { id: exercise.id };
@@ -439,25 +453,32 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
         if (value?.ok !== false) announceChange("exerciseAdded");
         return value;
       });
-    });
+    };
+    /** @param {string} day */
+    const addForDay = day => pickForAdd(day).then(entry => entry ? stageAdd(day, entry) : null);
     /** @param {string} id @param {{repair?:boolean}} [options] */
-    const replaceForExercise = (id, { repair = false } = {}) => {
+    const pickReplacement = (id, { repair = false } = {}) => {
       const current = document.program?.find(item => item.id === id);
       if (!current) return Promise.resolve(null);
-      return chooseExercise({ mode: "replace", day: current.day, exercise: clone(current), repair, exclude: exercisesFor(document, current.day).filter(item => item.id !== id).map(item => item.libraryId).filter(Boolean) }).then(choice => {
-        if (!choice) return null;
-        const handoff = 'entry' in choice ? choice : { entry: choice, stagedCustomDefinition: null };
-        const entry = handoff.entry;
-        if (!entry) return null;
-        const prepared=editReplaceExercise(document,{id,entry,customExercise:handoff.stagedCustomDefinition});
-        if(!prepared.ok||!prepared.document||!prepared.edit)return null;
-        pendingFocus = { id, roles: ["replace", "toggle-exercise"] };
-        return stage(prepared.document,prepared.edit).then(value => {
-          if (value?.ok !== false) announceChange("exerciseChanged");
-          return value;
-        });
+      return chooseExercise({ mode: "replace", day: current.day, exercise: clone(current), repair, exclude: exercisesFor(document, current.day).filter(item => item.id !== id).map(item => item.libraryId).filter(Boolean) });
+    };
+    /** @param {string} id @param {PickChoice|null|undefined} choice */
+    const stageReplacement = (id, choice) => {
+      const current = document.program?.find(item => item.id === id);
+      if (!current || !choice) return Promise.resolve(null);
+      const handoff = 'entry' in choice ? choice : { entry: choice, stagedCustomDefinition: null };
+      const entry = handoff.entry;
+      if (!entry) return Promise.resolve(null);
+      const prepared=editReplaceExercise(document,{id,entry,customExercise:handoff.stagedCustomDefinition});
+      if(!prepared.ok||!prepared.document||!prepared.edit)return Promise.resolve(null);
+      pendingFocus = { id, roles: ["replace", "toggle-exercise", "exercise-row"] };
+      return stage(prepared.document,prepared.edit).then(value => {
+        if (value?.ok !== false) announceChange("exerciseChanged");
+        return value;
       });
     };
+    /** @param {string} id @param {{repair?:boolean}} [options] */
+    const replaceForExercise = (id, options) => pickReplacement(id, options).then(choice => stageReplacement(id, choice));
     /** @param {string} id */
     const removeExercise = id => {
       const exercise = document.program?.find(item => item.id === id);
@@ -481,17 +502,23 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       return stage(prepared.document,prepared.edit);
     };
     /** @param {string} id */
-    const addAlternate = id => {
+    const pickAlternate = id => {
       const exercise = document.program?.find(item => item.id === id), slot = definitionSlot(document, exercise?.slotId || exercise?.id || '');
       if (!exercise || !slot || (slot.alternates || []).length >= maxAlternates()) return Promise.resolve(null);
       return chooseExercise({ mode: "alternate", day: exercise.day, exercise: clone(exercise),
-        exclude: [slot.exerciseId, ...(slot.alternates || [])] }).then(choice => {
-        const entry = choice && 'entry' in choice ? choice.entry : choice;
-        if (!entry?.id) return null;
-        const current = definitionSlot(document, slot.id)?.alternates || [];
-        return setAlternates(id, [...current, entry.id], { selector: `[data-role="alternate-remove"][data-id="${cssEscape(id)}"][data-exercise-id="${cssEscape(entry.id)}"]` });
-      });
+        exclude: [slot.exerciseId, ...(slot.alternates || [])] });
     };
+    /** @param {string} id @param {PickChoice|null|undefined} choice */
+    const stageAlternate = (id, choice) => {
+      const exercise = document.program?.find(item => item.id === id), slot = definitionSlot(document, exercise?.slotId || exercise?.id || '');
+      if (!slot) return Promise.resolve(null);
+      const entry = choice && 'entry' in choice ? choice.entry : choice;
+      if (!entry?.id) return Promise.resolve(null);
+      const current = definitionSlot(document, slot.id)?.alternates || [];
+      return setAlternates(id, [...current, entry.id], { selector: `[data-role="alternate-remove"][data-id="${cssEscape(id)}"][data-exercise-id="${cssEscape(entry.id)}"]` });
+    };
+    /** @param {string} id */
+    const addAlternate = id => pickAlternate(id).then(choice => stageAlternate(id, choice));
     /** @param {string} id @param {string} exerciseId @param {string} role */
     const editAlternate = (id, exerciseId, role) => {
       const exercise = document.program?.find(item => item.id === id), slot = definitionSlot(document, exercise?.slotId || exercise?.id || '');
@@ -516,7 +543,8 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     const renameDay = (oldDay, value) => {
       const next = clone(document), wanted = String(value || "").trim();
       // Another day can store a different name yet show this one (a translated generated name).
-      const shown = labels(document).some((day, index) => day !== oldDay && dayDisplay(adapter, document, day, index) === wanted);
+      const shown = labels(document).some((day, index) => day !== oldDay && dayDisplay(adapter, document, day, index) === wanted)
+        || restDayNames(document).includes(wanted);
       if (!wanted || wanted === oldDay) return Promise.resolve({ ok: false, refused: true });
       if (shown || !setDayLabel(next, oldDay, value)) return Promise.resolve({ ok: false, refused: true, duplicate: true });
       if (collapsedDays.delete(oldDay)) collapsedDays.add(String(value).trim());
@@ -594,10 +622,14 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
         return result;
       });
     };
+    /** @param {{kind?:string}} [options] @returns {Promise<EditorReceipt|undefined>} */
     const apply = ({ kind = "apply" } = {}) => {
       if(destroyed)return Promise.resolve({ok:false,disposed:true});
       if (!INTENT_SET.has(kind) || (kind !== "apply" && kind !== "apply_discard_workout"))
         return Promise.resolve({ ok: false, invalidIntent: true });
+      // A name typed in the rename sheet and not yet saved is part of what Apply applies (#445).
+      if (reviewLayout && (pendingRename() || heldRename)) return flushPendingRename().then(saved => saved === false
+        ? { ok: false, invalid: true, renameRefused: true } : apply({ kind }));
       if (!edits.length && !changed()) return Promise.resolve({ ok: true, unchanged: true, document: clone(document), token: clone(token) });
       const issues = validation(document);
       if (issues.length) {
@@ -610,7 +642,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       return Promise.resolve(result).then(value => {
         if(destroyed)return;
         if (value?.ok === false || value?.conflict || value?.staleRevision) return value;
-        baseDocument = clone(document); edits = []; undoMove = null;
+        baseDocument = clone(document); edits = []; undoMove = null; undoStack = [];
         if (value?.token !== undefined) token = clone(value.token);
         return value;
       });
@@ -618,7 +650,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     const discard = () => {
       const latest = adapter.read();
       document = clone(latest.document); token = clone(latest.token);
-      baseDocument = clone(document); edits = []; undoMove = null; expandedExercises.clear(); expandedMetricCycles.clear(); initializedMetricCycleSlots.clear(); collapsedDays.clear(); collapsedDaysInitialized = false;
+      baseDocument = clone(document); edits = []; undoMove = null; undoStack = []; heldRename = null; expandedExercises.clear(); expandedMetricCycles.clear(); initializedMetricCycleSlots.clear(); collapsedDays.clear(); collapsedDaysInitialized = false;
       scheduleRender();
       return document;
     };
@@ -898,7 +930,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       note.className = "program-editor__field-error";
       note.setAttribute("role", "alert");
       note.textContent = message;
-      (input.closest("label, [role=radiogroup]") || input).after(note);
+      (input.closest(".program-editor-a__line, label, [role=radiogroup]") || input).after(note);
       input.setAttribute("aria-invalid", "true");
       input.setAttribute("aria-describedby", note.id);
     }
@@ -914,13 +946,14 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
         expandedExercises.add(exercise.id);
         const day = exercise.day;
         if (collapsedDays.has(day)) collapsedDays.delete(day);
+        if (reviewLayout) { view.tab = day; openSheetView({ kind: "exercise", id: exercise.id }); }
       }
       render();
       const selector = issue.field === "execution_mode"
         ? `[data-role="execution-mode"][data-slot-id="${cssEscape(issue.slotId)}"]`
-        : issue.field === "rir" ? `[data-role="suggest-loads-rir"][data-slot-id="${cssEscape(issue.slotId)}"]`
+        : issue.field === "rir" ? `[data-role="${reviewLayout ? "suggest-loads-rir-step" : "suggest-loads-rir"}"][data-slot-id="${cssEscape(issue.slotId)}"]`
           : `[data-role="suggest-loads"][data-slot-id="${cssEscape(issue.slotId)}"]`;
-      const field = host.querySelector(selector);
+      const field = host.querySelector(selector) || (reviewLayout ? sheetParts()?.el?.querySelector(selector) : null);
       if (field instanceof root.HTMLElement) {
         setFieldError(field, label("invalid"));
         try { field.focus(); } catch { /* detached */ }
@@ -1087,9 +1120,10 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
        throw away whatever is sitting, uncommitted, in that focused input.
        Capture it before the rebuild and restore it — value, caret, and focus
        — onto its rebuilt counterpart afterward. */
-    function liveEditSnapshot() {
+    /** @param {Element|null|undefined} [scope] */
+    function liveEditSnapshot(scope = host) {
       const active = host.ownerDocument?.activeElement;
-      if (!active || !host.contains(active)) return null;
+      if (!scope || !active || !scope.contains(active)) return null;
       if (!(active instanceof root.HTMLInputElement) && !(active instanceof root.HTMLTextAreaElement)) return null;
       if (!(active.dataset.role||'')) return null;
       const parts = [];
@@ -1112,10 +1146,17 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       active.addEventListener("change", () => { snapshot.committedDuringTeardown = true; }, { once: true });
       return snapshot;
     }
-    /** @param {LiveEdit|null} snapshot */
-    function restoreLiveEdit(snapshot) {
-      if (!snapshot) return false;
-      const next = host.querySelector(snapshot.selector);
+    /** The focused control in the editor, as a selector its redrawn twin answers to. */
+    function focusSnapshot() {
+      const active = host.ownerDocument?.activeElement;
+      if (!(active instanceof root.HTMLElement) || !host.contains(active) || !active.dataset?.role) return null;
+      return ["role", "id", "day", "delta", "bound", "setIndex"].filter(key => active.dataset[key] != null)
+        .map(key => `[data-${key.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`)}="${cssEscape(String(active.dataset[key]))}"]`).join("");
+    }
+    /** @param {LiveEdit|null} snapshot @param {Element|null|undefined} [scope] */
+    function restoreLiveEdit(snapshot, scope = host) {
+      if (!snapshot || !scope) return false;
+      const next = scope.querySelector(snapshot.selector);
       if (!(next instanceof root.HTMLInputElement) && !(next instanceof root.HTMLTextAreaElement)) return false;
       const renderedValue = next.value;
       next.value = snapshot.value;
@@ -1146,6 +1187,18 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
     function render() {
       if (destroyed) return;
       ensureStructure(document);
+      if (reviewLayout) {
+        const liveEdit = liveEditSnapshot();
+        const focused = focusSnapshot();
+        renderReview();
+        if (restoreLiveEdit(liveEdit)) pendingFocus = null;
+        else if (!pendingFocus && focused) {
+          // A redraw replaces every control; the one that had focus keeps it.
+          try { /** @type {HTMLElement|null} */ (host.querySelector(focused))?.focus({ preventScroll: true }); } catch { /* not focusable */ }
+        }
+        schedulePendingFocus();
+        return;
+      }
       const liveEdit = liveEditSnapshot();
       const days = labels(document);
       if (!expandedExercises.size) {
@@ -1453,7 +1506,9 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       });
 
       const sortables = [];
-      for (const section of /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll('[data-role="day"]'))) {
+      const sectionSelector = reviewLayout ? '[data-role="reorder-list"]' : '[data-role="day"]';
+      const rowSelector = reviewLayout ? '[data-role="reorder-row"][data-id]' : '[data-role="exercise"][data-id]';
+      for (const section of /** @type {NodeListOf<HTMLElement>} */ (host.querySelectorAll(sectionSelector))) {
         const day = (section.dataset.day||'');
         // The day itself accepts a drop, at lower priority than the rows inside
         // it, so an empty day and a collapsed one are both reachable.
@@ -1462,7 +1517,7 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
           element: section, data: { day },
           collisionPriority: Dnd.CollisionPriority.Low,
         }, manager));
-        [.../** @type {NodeListOf<HTMLElement>} */ (section.querySelectorAll('[data-role="exercise"][data-id]'))].forEach((row, index) => {
+        [.../** @type {NodeListOf<HTMLElement>} */ (section.querySelectorAll(rowSelector))].forEach((row, index) => {
           const handle = /** @type {HTMLElement|null} */ (row.querySelector('[data-role="drag-handle"]'));
           if (!handle) return;
           sortables.push(new Dnd.Sortable({
@@ -1521,7 +1576,8 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
         }
         // The library animated the drop, so the re-render must not animate it
         // a second time from where the row already is.
-        moveExercise(id, day, index, { settle: false });
+        if (reviewLayout) recorded(() => moveExercise(id, day, index, { settle: false, announce: false }));
+        else moveExercise(id, day, index, { settle: false });
       });
     }
     /** The day a drop target belongs to, whether it is a row or the day itself. */
@@ -1534,13 +1590,1271 @@ export function createProgramEditor({window:root,nextId:uid,motion=null,sorting:
       return element?.closest?.('[data-role="day"]')?.getAttribute('data-day') || null;
     }
 
+    /* ============================================================
+       Plan 074 (ADR 0021): the installed editor in onboarding B's
+       editing language.
+       ------------------------------------------------------------
+       A host that asks for `layout: "review"` gets candidate A: day
+       tabs, rows with one line per set, one sheet per exercise, a
+       Weeks sheet for per-week values, a Loads block, the changes bar
+       with Undo, and a pinned Apply. It draws with onboarding's review
+       classes so the two screens read the same.
+
+       The edit rules stay this module's. A sheet control that means
+       "every week" stages one ordinary intent per week, so the host's
+       canonical sync, rebase and workout checks see exactly what they
+       see for the classic layout.
+       ============================================================ */
+    /** @typedef {NonNullable<ProgramSlot['prescriptionsByCycle']>[number]} ProgramCycle */
+    /** @typedef {{next:EditorDocument,edit:EditorIntent}} ReviewChange */
+    /** @typedef {(doc:EditorDocument)=>ReviewChange|null} ReviewStep */
+    /** @typedef {{document:EditorDocument,editCount:number}} UndoEntry */
+    /** @typedef {{target:string,day?:string,value:string,error?:string}} HeldRename */
+    /** @typedef {{kind:string,id?:string,day?:string,target?:string,back?:string,open?:number|null,showAll?:boolean,inputValue?:string,error?:string|null}} ReviewSheetView */
+    /** @type {{tab:string|null,sheet:ReviewSheetView|null,reorderDay:string|null}} */
+    const view = { tab: null, sheet: null, reorderDay: null };
+    /** @type {UndoEntry[]} */
+    let undoStack = [];
+    /** @type {HeldRename|null} */
+    let heldRename = null; // a typed name that Back set aside while the host asks about leaving
+    let busy = 0;
+    /** @type {Promise<unknown>} */
+    let reviewQueue = Promise.resolve();
+    /** @type {HTMLElement|null} */
+    let toastEl = null;
+    /** @type {ReturnType<typeof setTimeout>|undefined} */
+    let toastTimer;
+    const LOAD_SEMANTICS = new Set(["loadKg", "assistanceKg", "loadPerSideKg", "persistentLoadPerSideKg"]);
+    const REST_PRESETS = REVIEW_REST_PRESETS;
+    const MAX_REVIEW_RIR = 6, MAX_OPT_IN_RIR = 4, MAX_REVIEW_SETS = 100, MAX_REVIEW_REPS = 30;
+    const SUGGESTED_SWAPS = 3;
+    /** @param {string} key @param {Record<string,string|number>} [vars] @param {string} [fallback] */
+    const rt = (key, vars, fallback) => t(adapter, key, vars, fallback);
+    /** @param {unknown} text */
+    const nums = text => {
+      try { if (typeof adapter.nums === "function") return adapter.nums(String(text)); } catch { /* plain text below */ }
+      return esc(text);
+    };
+    /** @param {string} name */
+    const icon = name => `<span class="icon-mask icon-mask--${name} icon-mask--sm" aria-hidden="true"></span>`;
+    /** @returns {ReviewSheetParts|null} */
+    const sheetParts = () => { try { return adapter.sheet?.() || null; } catch { return null; } };
+    /** @param {string|undefined} id @param {string} size */
+    const tile = (id, size) => { try { return id ? adapter.tile?.(id, size) || "" : ""; } catch { return ""; } };
+    /** @param {ProgramSlot|null} slot @param {ProgramCycle|null|undefined} cycle */
+    const isDeloadCycle = (slot, cycle) => (cycle?.sets || []).some(set => set?.provenance?.deload === true) ||
+      (cycle != null && (definitionFor(document)?.deloadCycles || []).includes(cycle.cycleIndex));
+    /** @param {ProgramSlot|null|undefined} slot @returns {ProgramCycle[]} */
+    const cyclesOf = slot => (slot?.prescriptionsByCycle || []).slice().sort((a, b) => a.cycleIndex - b.cycleIndex);
+    const displayCycleIndex = () => metricCycleIndex(adapter, document);
+    /** @param {ProgramSlot|null|undefined} slot @returns {ProgramCycle|null} */
+    const displayCycle = slot => definitionCycle(slot, displayCycleIndex()) || cyclesOf(slot)[0] || null;
+    /* The current week is staged last, so the row projection the host keeps
+       for it is the one left standing after an every-week change. */
+    /** @param {ProgramSlot|null|undefined} slot @returns {number[]} */
+    const weekOrder = slot => {
+      const current = displayCycle(slot)?.cycleIndex;
+      const list = cyclesOf(slot).map(cycle => cycle.cycleIndex);
+      return current == null ? list : list.filter(index => index !== current).concat(current);
+    };
+    /** @param {ProgramSlot} slot */
+    const repDefinition = slot => exerciseMetricDefinitions(adapter, slot).find(metric => REP_TARGET_SEMANTICS.has(metric.semantic)) || null;
+    /** @param {unknown} target @returns {{min:number,max:number}|null} */
+    const rangeOf = target => {
+      if (typeof target === "number" && Number.isFinite(target)) return { min: target, max: target };
+      if (!target || typeof target !== "object") return null;
+      const { min, max } = /** @type {{min?:unknown,max?:unknown}} */ (target);
+      return typeof min === "number" && Number.isFinite(min) && typeof max === "number" && Number.isFinite(max) ? { min, max } : null;
+    };
+    /** @param {string|undefined} id */
+    const exerciseById = id => (document.program || []).find(item => item.id === id) || null;
+    /** @param {EditorRow|null|undefined} exercise */
+    const slotOfExercise = exercise => exercise ? definitionSlot(document, exercise.slotId || exercise.id) : null;
+    /** @param {EditorRow|null|undefined} exercise */
+    const customMovement = exercise => !exercise?.libraryId || String(exercise.libraryId).startsWith("custom:");
+
+    /** @param {MetricDefinition} definition @param {unknown} target */
+    function repsText(definition, target) {
+      const range = rangeOf(target);
+      if (!range) return "";
+      const key = definition.semantic === "repsPerSide" ? "entry.review.reps_side" : "entry.review.reps";
+      if (range.min !== range.max) return rt(key, { min: format(adapter, range.min), max: format(adapter, range.max) }, `${range.min}–${range.max} reps`);
+      // One figure: the same words around it, without a range.
+      return rt(key, { min: "\u0000", max: "\u0001" }, "\u0000–\u0001 reps").replace("\u0000–\u0001", format(adapter, range.min));
+    }
+    /** One set in words and figures: the rep range, or each target the movement records. */
+    /** @param {ProgramSlot} slot @param {ProgramSet|undefined} set */
+    function setText(slot, set) {
+      const definitions = exerciseMetricDefinitions(adapter, slot);
+      const rep = definitions.find(metric => REP_TARGET_SEMANTICS.has(metric.semantic));
+      if (rep && set?.targets?.[rep.semantic] != null) return repsText(rep, set.targets[rep.semantic]);
+      const parts = definitions.filter(metric => set?.targets?.[metric.semantic] != null).map(metric => {
+        const unit = metricDisplayUnit(adapter, metric);
+        return `${formatMetricValue(adapter, metric, set?.targets?.[metric.semantic])}${unit ? ` ${unit}` : ""}`;
+      });
+      return parts.join(" · ") || "–";
+    }
+    /** @param {EditorRow} exercise @returns {{text:string,rir:number|null}[]} */
+    function legacySetLines(exercise) {
+      const count = positiveInt(exercise.sets, 1), min = format(adapter, exercise.min), max = format(adapter, exercise.max);
+      const text = exercise.hasRepTarget === false ? "–"
+        : rt("entry.review.reps", { min, max }, `${min}–${max} reps`);
+      return Array.from({ length: count }, () => ({ text, rir: null }));
+    }
+    /** @param {EditorRow} exercise @returns {{text:string,rir:number|null}[]} */
+    function setLines(exercise) {
+      const slot = slotOfExercise(exercise);
+      if (!slot) return legacySetLines(exercise);
+      return (displayCycle(slot)?.sets || []).map(set => ({ text: setText(slot, set), rir: Number.isFinite(set.rir) ? set.rir : null }));
+    }
+    /** @param {EditorRow} exercise */
+    function rowChanged(exercise) {
+      const before = (baseDocument.program || []).find(item => item.id === exercise.id);
+      if (!before) return "added";
+      const slotId = exercise.slotId || exercise.id;
+      const was = definitionSlot(baseDocument, slotId), now = definitionSlot(document, slotId);
+      /** @param {EditorRow|undefined} row @param {ProgramSlot|null} slot */
+      const shape = (row, slot) => stable([row?.libraryId, row?.name, row?.day, row?.notes, row?.primary, row?.secondary,
+        row?.sets, row?.min, row?.max, slot?.exerciseId, slot?.prescriptionsByCycle, slot?.alternates || [], slot?.executionMode || null]);
+      return shape(before, was) === shape(exercise, now) ? "" : "edited";
+    }
+    /** @param {EditorDocument} doc @param {string} day */
+    function dayMinutes(doc, day) {
+      try {
+        const value = Number(adapter.dayMinutes?.(doc, day));
+        return Number.isFinite(value) && value > 0 ? value : null;
+      } catch { return null; }
+    }
+
+    // ----- weeks -----
+    /** @param {ProgramCycle|null|undefined} cycle */
+    function weekPattern(cycle) {
+      return stable((cycle?.sets || []).map(set => [set.targets || {}, set.rir ?? null, set.restSeconds ?? null]));
+    }
+    /** The pattern most weeks share; a tie goes to the earliest week. */
+    /** @param {ProgramSlot|null|undefined} slot @returns {ProgramCycle|null} */
+    function commonWeek(slot) {
+      const counts = new Map(), first = new Map();
+      for (const cycle of cyclesOf(slot)) {
+        const key = weekPattern(cycle);
+        counts.set(key, (counts.get(key) || 0) + 1);
+        if (!first.has(key)) first.set(key, cycle);
+      }
+      let best = null, bestCount = 0;
+      for (const [key, count] of counts) if (count > bestCount) { best = key; bestCount = count; }
+      return best == null ? null : first.get(best);
+    }
+    /** @param {ProgramSlot|null|undefined} slot @returns {number[]} */
+    function differingWeeks(slot) {
+      const common = commonWeek(slot);
+      if (!common) return [];
+      const key = weekPattern(common);
+      return cyclesOf(slot).filter(cycle => weekPattern(cycle) !== key).map(cycle => cycle.cycleIndex);
+    }
+    /** @param {ProgramSlot} slot @param {ProgramCycle} cycle */
+    function weekSummary(slot, cycle) {
+      const sets = cycle?.sets || [];
+      const texts = [...new Set(sets.map(set => setText(slot, set)))];
+      const rirs = sets.map(set => set.rir);
+      const parts = [texts.length === 1 ? `${format(adapter, sets.length)} × ${texts[0]}` : rt("entry.review.sheet.n_sets", { n: sets.length }, `${sets.length} sets`)];
+      if (rirs.some(value => Number.isFinite(value)))
+        parts.push(rt("entry.review.rir", { n: rirs.map(value => Number.isFinite(value) ? format(adapter, value) : "–").join("·") }, "RIR"));
+      return parts.join(" · ");
+    }
+
+    // ----- one change at a time, each staged as an ordinary intent -----
+    /* Each builder delegates to the shared authoring rule the classic layout
+       uses, so both layouts stage identical intents. */
+    /** @param {{ok?:boolean,document?:EditorDocument,edit?:EditorIntent}} result @returns {ReviewChange|null} */
+    const receipt = result => result?.ok && result.document && result.edit ? { next: result.document, edit: result.edit } : null;
+    /** @param {EditorDocument} doc @param {string} id @param {number} cycleIndex @param {number} wanted */
+    function buildSetsChange(doc, id, cycleIndex, wanted) {
+      const exercise = doc.program?.find(item => item.id === id);
+      const slot = exercise ? definitionSlot(doc, exercise.slotId || exercise.id) : null;
+      if (!definitionCycle(slot, cycleIndex)?.sets?.length) return null;
+      const value = Math.max(1, Math.min(MAX_REVIEW_SETS, Math.round(wanted)));
+      return receipt(editExerciseField(doc, { id, field: "sets", value, cycleIndex }));
+    }
+    /** @param {EditorDocument} doc @param {string} slotId @param {number} cycleIndex @param {number} setIndex @param {string} field @param {number|null} after */
+    function buildFieldChange(doc, slotId, cycleIndex, setIndex, field, after) {
+      return receipt(preparePrescriptionField(doc, { slotId, cycleIndex, setIndex, field, after }));
+    }
+    /** @param {EditorDocument} doc @param {string} slotId @param {number} cycleIndex @param {number} setIndex @param {string} metricId @param {import("./contracts.js").TargetEdit} after */
+    function buildTargetChange(doc, slotId, cycleIndex, setIndex, metricId, after) {
+      const slot = definitionSlot(doc, slotId);
+      const definition = slot?.metricDefinitions?.find(item => item.id === metricId);
+      if (!slot || !definition || !(slot.metricIds || []).includes(metricId)) return null;
+      return receipt(prepareMetricTarget(doc, { slotId, cycleIndex, setIndex, metricId, semantic: definition.semantic, after }));
+    }
+
+    // ----- the queue, undo and the toast -----
+    function markBusy() {
+      const editor = host.querySelector('[data-role="editor"]');
+      if (!editor) return;
+      if (busy) editor.setAttribute("aria-busy", "true"); else editor.removeAttribute("aria-busy");
+    }
+    /** @template T @param {()=>Promise<T>|T} task @returns {Promise<T>} */
+    function act(task) {
+      busy++;
+      markBusy();
+      const runTask = async () => {
+        try { return await task(); }
+        finally { busy--; if (!destroyed) render(); }
+      };
+      const next = reviewQueue.then(runTask, runTask);
+      reviewQueue = next;
+      return next;
+    }
+    /** @param {UndoEntry} entry */
+    async function revertTo(entry) {
+      document = clone(entry.document);
+      edits = edits.slice(0, entry.editCount);
+      try { await adapter.revert?.(entry.editCount, clone(document)); } catch { /* the editor's own copy is restored */ }
+    }
+    /** One user action: the steps run in order, each on the document the last one left. All of it undoes at once. */
+    /** @param {ReviewStep[]} steps @param {{toast?:string|null}} [options] */
+    function userAction(steps, options) { return act(() => userActionTask(steps, options)); }
+    /* As in the classic layout, a change the host could not stage (a legacy
+       program with no definition, a custom movement it has not seen yet) stays
+       in the editor's document, which Apply commits whole; the status line
+       says so. Undo takes it back like any other change. */
+    /** @param {ReviewStep[]} steps @param {{toast?:string|null}} [options] */
+    async function userActionTask(steps, { toast = null } = {}) {
+      const entry = { document: clone(document), editCount: edits.length };
+      let staged = 0;
+      for (const step of steps) {
+        const change = step(document);
+        if (!change) continue;
+        await stage(change.next, change.edit, { redraw: false });
+        staged++;
+      }
+      if (!staged) return false;
+      undoStack.push(entry);
+      if (toast) showToast(toast);
+      return true;
+    }
+    /** An existing edit path (add, swap, remove, alternates, loads…) recorded for Undo. */
+    /** @template T @param {()=>Promise<T>|T} run @param {{toast?:string|null}} [options] */
+    function recorded(run, options) { return act(() => recordedTask(run, options)); }
+    /** @template T @param {()=>Promise<T>|T} run @param {{toast?:string|null}} [options] */
+    async function recordedTask(run, { toast = null } = {}) {
+      const entry = { document: clone(document), editCount: edits.length };
+      quietChange = !!toast;
+      let result;
+      try { result = await run(); } finally { quietChange = false; }
+      if (edits.length <= entry.editCount) return result;
+      undoStack.push(entry);
+      if (toast) showToast(toast);
+      return result;
+    }
+    /** The sheet steps aside first, inside the same queued task, so the editor reads busy from the tap on. */
+    /** @template T @param {()=>Promise<T>|T} task */
+    function afterSheet(task) {
+      return act(async () => { await closeSheetView(); return task(); });
+    }
+    function undoLast() {
+      return act(async () => {
+        const entry = undoStack.pop();
+        if (!entry) return false;
+        await revertTo(entry);
+        hideToast();
+        try { adapter.announce?.(rt("entry.review.toast.undone", undefined, "Undone."), {}); } catch { /* the redraw shows it */ }
+        return true;
+      });
+    }
+    /** @param {string} text */
+    function showToast(text) {
+      hideToast();
+      const doc = host.ownerDocument;
+      toastEl = doc.createElement("div");
+      toastEl.className = "review-toast";
+      toastEl.dataset.role = "editor-toast";
+      toastEl.setAttribute("role", "status");
+      toastEl.innerHTML = `<span class="review-toast__text">${esc(text)}</span><button type="button" class="review-toast__undo" data-role="toast-undo">${esc(label("undo"))}</button>`;
+      /** @type {HTMLElement|null} */ (toastEl.querySelector('[data-role="toast-undo"]'))?.addEventListener("click", () => { hideToast(); undoLast(); });
+      doc.body.append(toastEl);
+      try { motion?.revealToast?.(toastEl); } catch { /* shown without motion */ }
+      toastTimer = setTimeout(hideToast, 4200);
+    }
+    function hideToast() {
+      clearTimeout(toastTimer);
+      toastEl?.remove();
+      toastEl = null;
+    }
+
+    // ----- the overview -----
+    /* "4 days · Week 3 of 7": the week comes from the host's block copy, which
+       also says when the block is ready for review. */
+    function factsHtml() {
+      const days = labels(document).length, cycles = definitionFor(document)?.cycles;
+      const daysText = rt(days === 1 ? "program.editor.days_count_one" : "program.editor.days_count", { n: days }, `${days} days`);
+      const weekText = context() || (typeof cycles === "number" && Number.isInteger(cycles)
+        ? rt(cycles === 1 ? "entry.review.block.week_one" : "entry.review.block.weeks", { n: cycles }, `${cycles} weeks`) : "");
+      return nums(daysText) + (weekText ? ` · <span data-role="context">${nums(weekText)}</span>` : "");
+    }
+    /** @param {EditorRow} exercise */
+    function rowHtml(exercise) {
+      const name = exerciseDisplayLabel(adapter, exercise);
+      const changedState = rowChanged(exercise);
+      const mark = changedState === "added" ? rt("entry.review.mark.added", undefined, "Added")
+        : changedState ? rt("entry.review.mark.edited", undefined, "Adjusted") : "";
+      const lines = setLines(exercise);
+      return `<article class="review__row program-editor-a__row${mark ? " is-changed" : ""}" data-role="exercise-row" data-id="${esc(exercise.id)}" role="button" tabindex="0" aria-label="${esc(name)}">` +
+        tile(exercise.libraryId, "md") +
+        `<div class="review__rowbody"><h3 class="review__name">${esc(name)}</h3>` +
+        (mark ? `<span class="review__mark" data-role="row-mark"><span class="review__dot" aria-hidden="true"></span>${esc(mark)}</span>` : "") +
+        `<ol class="review__sets">${lines.map((line, index) => `<li data-role="set-line"><span class="review__setn num">${index + 1}</span><span class="review__reps">${nums(line.text)}</span>` +
+          (line.rir == null ? "" : `<span class="review__rir">${nums(rt("entry.review.rir", { n: format(adapter, line.rir) }, `RIR ${line.rir}`))}</span>`) + `</li>`).join("")}</ol>` +
+        `</div>${icon("chev-right")}</article>`;
+    }
+    /** @param {string} day */
+    function dayPanelHtml(day) {
+      const days = labels(document), index = days.indexOf(day);
+      if (index < 0) return "";
+      const list = exercisesFor(document, day), name = titleFor(day, index);
+      const minutes = dayMinutes(document, day);
+      const meta = list.length
+        ? [dayCount(list.length), minutes ? rt("entry.review.about_minutes", { n: minutes }, `about ${minutes} min`) : ""].filter(Boolean).join(" · ")
+        : rt("program.editor.no_exercises", undefined, "No exercises");
+      const head = `<div class="review__dayhead"><div class="review__dayid">` +
+        `<button type="button" class="review__dayname" data-role="day-name-edit" data-day="${esc(day)}" aria-label="${esc(rt("entry.review.rename_day_aria", { day: name }, `Rename ${name}`))}">${esc(name)}${icon("pencil")}</button>` +
+        `<p class="review__daymeta" data-role="day-meta">${nums(meta)}</p></div>` +
+        (view.reorderDay === day ? "" : `<button type="button" class="review__more" data-role="day-menu" data-day="${esc(day)}" aria-label="${esc(rt("entry.review.day_menu_aria", { day: name }, `More actions for ${name}`))}" aria-haspopup="dialog">${icon("overflow")}</button>`) +
+        `</div>`;
+      if (view.reorderDay === day) {
+        return head + `<p class="review__hint">${esc(rt("entry.review.reorder_hint", undefined, ""))}</p><ol class="review__reorder" data-role="reorder-list" data-day="${esc(day)}">` +
+          list.map((exercise, position) => {
+            const shown = exerciseDisplayLabel(adapter, exercise);
+            return `<li class="review__ro" data-role="reorder-row" data-id="${esc(exercise.id)}">` +
+              `<button type="button" class="review__handle" data-role="drag-handle" data-id="${esc(exercise.id)}" aria-label="${esc(label("move", undefined, shown))}">${icon("grip")}</button>` +
+              `<span class="review__ro-name">${esc(shown)}</span>` +
+              `<button type="button" class="review__ro-btn" data-role="reorder-move" data-id="${esc(exercise.id)}" data-delta="-1" aria-label="${esc(rt("entry.review.move_up", { name: shown }, `Move ${shown} up`))}"${position === 0 ? " disabled" : ""}>${icon("chev-up")}</button>` +
+              `<button type="button" class="review__ro-btn" data-role="reorder-move" data-id="${esc(exercise.id)}" data-delta="1" aria-label="${esc(rt("entry.review.move_down", { name: shown }, `Move ${shown} down`))}"${position === list.length - 1 ? " disabled" : ""}>${icon("chev-down")}</button></li>`;
+          }).join("") + `</ol><button type="button" class="btn btn--cta btn--noarrow review__reorder-done" data-role="reorder-done">${esc(rt("entry.review.reorder_done", undefined, "Done"))}</button>`;
+      }
+      const empty = list.length ? "" : `<p class="review__empty" data-role="day-empty" role="alert">${icon("alert")}<span>${esc(rt("entry.review.empty_day", undefined, "This day has no exercises."))}</span></p>`;
+      return head + empty + list.map(rowHtml).join("") +
+        `<button type="button" class="review__add" data-role="add-exercise" data-day="${esc(day)}">${icon("plus")}<span>${esc(label("addExercise"))}</span></button>`;
+    }
+    function renderReview() {
+      const days = labels(document);
+      if (view.tab == null || !days.includes(view.tab)) view.tab = days[0] ?? null;
+      const issues = validation(document);
+      const blocked = issues.some(issue => issue.startsWith("day_empty:"));
+      const name = document.programMeta?.name || label("namePlaceholder");
+      const count = undoStack.length;
+      const changesBar = count
+        ? `<div class="review__changes" data-role="changes" role="status"><span class="review__count" data-role="changes-count"><span class="review__dot" aria-hidden="true"></span>${esc(rt(count === 1 ? "entry.review.changes_one" : "entry.review.changes", { n: count }, `${count} changes`))}</span>` +
+          `<button type="button" class="text-link" data-role="undo">${esc(label("undo"))}</button></div>`
+        : `<p class="review__hint program-editor-a__hint">${esc(rt("entry.review.tap_hint", undefined, ""))}</p>`;
+      const tabs = `<div class="review__tabs" role="tablist" aria-label="${esc(rt("program.days_label", undefined, "Training days"))}">${days.map((day, index) => {
+        const on = day === view.tab, empty = !exercisesFor(document, day).length;
+        return `<button type="button" role="tab" class="review__tab${on ? " is-on" : ""}" data-role="day-tab" data-day="${esc(day)}" aria-selected="${on}" aria-controls="programEditorPanel" tabindex="${on ? 0 : -1}">` +
+          `${esc(titleFor(day, index))}${empty ? `<span class="review__pip" data-role="empty-pip" aria-label="${esc(rt("entry.review.empty_pip", undefined, "No exercises"))}"></span>` : ""}</button>`;
+      }).join("")}</div>`;
+      host.innerHTML = `<div class="program-editor program-editor-a review" data-role="editor" data-layout="review"${busy ? ' aria-busy="true"' : ""} aria-label="${esc(rt("program.editor.aria", undefined, "Program editor"))}">` +
+        `<h2 class="onb__q review__title program-editor-a__title"><button type="button" class="review__titlebtn" data-role="program-name-edit" aria-label="${esc(rt("entry.review.rename_program_aria", { name }, `Rename ${name}`))}"><span>${esc(name)}</span>${icon("pencil")}</button></h2>` +
+        `<p class="review__daymeta program-editor-a__facts" data-role="facts">${factsHtml()}</p>` +
+        `<p class="program-editor__status${reviewStatus?.error ? " is-error" : ""}" data-role="editor-status" role="status" aria-live="polite" tabindex="-1"${reviewStatus ? "" : " hidden"}>${esc(reviewStatus?.message || "")}</p>` +
+        changesBar + tabs +
+        `<div class="review__panel" id="programEditorPanel" role="tabpanel" data-role="day-panel">${view.tab == null ? `<p class="program-editor__empty">${esc(label("emptyDays"))}</p>` : dayPanelHtml(view.tab)}</div>` +
+        `<div class="program-editor-a__bar" data-role="apply-bar" data-elevation="persistent-action">` +
+          (blocked ? `<p class="program-editor-a__reason" data-role="apply-reason">${esc(label("emptyDays"))}</p>` : "") +
+          `<button type="button" class="btn btn--cta" data-role="apply"${blocked ? " disabled" : ""}>${esc(rt("program.editor.apply_changes", undefined, "Apply changes"))}</button>` +
+        `</div></div>`;
+      adapter.afterRender?.(host);
+      // Only the Reorder exercises list drags; every other render has nothing to sort.
+      if (view.reorderDay != null) mountSorting(); else teardownSorting();
+      paintSheet();
+    }
+
+    // ----- the sheets -----
+    /** @param {ReviewSheetView} next @param {{focus?:string|null}} [options] */
+    function openSheetView(next, { focus = null } = {}) {
+      const wasOpen = !!view.sheet;
+      view.sheet = next;
+      paintSheet();
+      if (!wasOpen) {
+        try { adapter.openSheet?.({ onClose: () => { view.sheet = null; } }); } catch { /* the host has no sheet */ }
+      }
+      const parts = sheetParts();
+      const target = focus ? /** @type {HTMLElement|null} */ (parts?.el?.querySelector(focus) ?? null) : null;
+      if (target) { try { target.focus({ preventScroll: true }); } catch { /* not focusable */ } }
+      else if (wasOpen) { try { parts?.body?.scrollTo?.({ top: 0 }); } catch { /* nothing to scroll */ } }
+    }
+    async function closeSheetView() {
+      if (!view.sheet) return;
+      view.sheet = null;
+      try { await adapter.closeSheet?.(); } catch { /* already closed */ }
+    }
+    /** @param {string} role @param {string} attrs @param {string} value @param {{down?:boolean,up?:boolean,downLabel?:string,upLabel?:string,small?:boolean}} [options] */
+    function stepper(role, attrs, value, { down = true, up = true, downLabel = "−", upLabel = "+", small = false } = {}) {
+      return `<span class="review-step${small ? " review-step--sm" : ""}"><button type="button" data-role="${role}" ${attrs} data-delta="-1" aria-label="${esc(downLabel)}"${down ? "" : " disabled"}>−</button>` +
+        `<b class="num" data-role="${role}-value">${esc(value)}</b><button type="button" data-role="${role}" ${attrs} data-delta="1" aria-label="${esc(upLabel)}"${up ? "" : " disabled"}>+</button></span>`;
+    }
+    /** @param {EditorRow} exercise @param {ProgramSlot|null} slot */
+    function loadsHtml(exercise, slot) {
+      const policy = adapter.suggestLoads;
+      const loadStep = renderLoadStep(exercise, slot);
+      const stepLine = loadStep ? `<div class="program-editor-a__line program-editor-a__loadstep">${loadStep}</div>` : "";
+      if (!policy || !slot) return stepLine ? `<section class="review-sheet__sec" data-role="loads">${stepLine}</section>` : "";
+      const eligibility = policy.eligibility?.(slot);
+      if (eligibility === "custom" || eligibility === "unsupported") {
+        return `<section class="review-sheet__sec" data-role="loads"><p class="review-sheet__note program-editor__suggest-loads-note" data-role="suggest-loads-note">${esc(label(eligibility === "custom" ? "suggestLoadsCustom" : "suggestLoadsUnsupported"))}</p>${stepLine}</section>`;
+      }
+      if (eligibility !== "eligible") return stepLine ? `<section class="review-sheet__sec" data-role="loads">${stepLine}</section>` : "";
+      const on = slotAdaptive(slot) || pendingSuggestLoads(document).includes(slot.id);
+      const semantic = slotRepSemantic(slot);
+      const range = semantic ? repRange(displayCycle(slot)?.sets?.[0]?.targets?.[semantic]) : null;
+      const rangeMissing = !semantic || slotSets(slot).some(set => !repRange(set.targets?.[semantic]));
+      const labelId = `program-editor-suggest-${esc(slot.id)}`;
+      const toggle = `<div class="program-editor-a__line program-editor__suggest-loads-row"><span class="review-sheet__lab" id="${labelId}">${esc(label("suggestLoads"))}</span>` +
+        `<button type="button" class="toggle program-editor-a__switch" role="switch" aria-checked="${on ? "true" : "false"}" aria-labelledby="${labelId}" data-role="suggest-loads" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}"${!on && rangeMissing ? " disabled" : ""}></button></div>`;
+      if (!on) return `<section class="review-sheet__sec program-editor__suggest-loads" data-role="loads">${toggle}${stepLine}</section>`;
+      const rir = uniformRir(slot);
+      const question = policy.executionModeQuestion?.(slot);
+      const modeLabelId = `program-editor-mode-${esc(slot.id)}`;
+      const mode = question ? `<div class="program-editor__execution-mode program-editor-a__mode" role="radiogroup" aria-labelledby="${modeLabelId}" data-role="execution-mode-group" data-slot-id="${esc(slot.id)}">` +
+        `<span class="review-sheet__lab" id="${modeLabelId}">${esc(label("executionModeQuestion"))}</span>` +
+        [["bilateral", "executionModeBilateral"], ["unilateral", "executionModeUnilateral"]].map(([value, key]) =>
+          `<button type="button" role="radio" class="radio-card${slot.executionMode === value ? " is-selected" : ""}" aria-checked="${slot.executionMode === value ? "true" : "false"}" data-role="execution-mode" data-mode="${value}" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}"><span class="radio-card__body"><span class="radio-card__title">${esc(label(key))}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button>`).join("") +
+        (slot.executionMode === "unilateral" ? `<p class="review-sheet__note" data-role="per-side-note">${esc(rt("program.editor.per_side_note", undefined, "Load and reps are now counted per side."))}</p>` : "") +
+        `</div>` : "";
+      return `<section class="review-sheet__sec program-editor__suggest-loads is-on" data-role="loads">${toggle}` +
+        (range ? `<p class="review-sheet__note program-editor__suggest-loads-range" data-role="suggest-loads-range">${nums(label("suggestLoadsRange", { min: format(adapter, range.min), max: format(adapter, range.max) }))}</p>` : "") +
+        `<div class="program-editor-a__line" data-role="suggest-loads-rir-line"><span class="review-sheet__lab">${esc(rt("program.editor.rir_all", undefined, "RIR on every set"))}</span>` +
+        stepper("suggest-loads-rir-step", `data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}"`, rir == null ? "–" : format(adapter, rir),
+          { down: rir == null || rir > 0, up: rir == null || rir < MAX_OPT_IN_RIR, downLabel: label("metricRir"), upLabel: label("metricRir") }) + `</div>` +
+        stepLine + mode + `</section>`;
+    }
+    /** @param {EditorRow} exercise @param {ProgramSlot|null} slot */
+    function alternatesHtml(exercise, slot) {
+      if (!slot) return "";
+      const list = Array.isArray(slot.alternates) ? slot.alternates : [];
+      const full = list.length >= maxAlternates();
+      return `<section class="review-sheet__sec" data-role="alternates" data-id="${esc(exercise.id)}"><h3 class="sheetgroup__head">${esc(rt("entry.review.sheet.alts", undefined, label("alternates")))}</h3>` +
+        `<p class="review-sheet__lede">${esc(rt("entry.review.sheet.alts_lede", undefined, label("alternatesHint")))}</p>` +
+        (list.length ? `<ol class="review-sheet__alts">${list.map((id, index) => {
+          const name = movementLabel(adapter, id), attrs = `data-id="${esc(exercise.id)}" data-exercise-id="${esc(id)}"`;
+          return `<li data-role="alternate" data-exercise-id="${esc(id)}"><span class="review__setn">${index + 1}</span><span class="review-sheet__alt-name" data-role="alternate-name">${esc(name)}</span>` +
+            `<button type="button" class="review__ro-btn" data-role="alternate-up" ${attrs} aria-label="${esc(label("alternateUp", { name }))}"${index === 0 ? " disabled" : ""}>${icon("chev-up")}</button>` +
+            `<button type="button" class="review__ro-btn" data-role="alternate-down" ${attrs} aria-label="${esc(label("alternateDown", { name }))}"${index === list.length - 1 ? " disabled" : ""}>${icon("chev-down")}</button>` +
+            `<button type="button" class="review__ro-btn" data-role="alternate-remove" ${attrs} aria-label="${esc(label("alternateRemove", { name }))}">${icon("close")}</button></li>`;
+        }).join("")}</ol>` : "") +
+        `<div class="review-sheet__links"><button type="button" class="text-link" data-role="add-alternate" data-id="${esc(exercise.id)}"${full ? " disabled" : ""}>${icon("plus")}${esc(label("addAlternate"))}</button></div></section>`;
+    }
+    /** @param {EditorRow} exercise @param {ProgramSlot|null} slot */
+    function detailsHtml(exercise, slot) {
+      const linked = !customMovement(exercise) && !!exercise.libraryId && exerciseEntry(adapter, exercise.libraryId);
+      /** @param {string} name @param {unknown} value @param {{readonly?:boolean}} [options] */
+      const field = (name, value, { readonly = false } = {}) => readonly
+        ? `<label class="field review-sheet__field"><span class="field__lab">${esc(label(name))}</span><textarea class="input program-editor__muscles" rows="${Math.min(4, Math.max(1, Math.ceil(String(value || "").length / 30)))}" readonly data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="${name}">${esc(value || "")}</textarea></label>`
+        : `<label class="field review-sheet__field"><span class="field__lab">${esc(label(name))}</span><input class="input" data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="${name}" value="${esc(value || "")}"></label>`;
+      const nameField = customMovement(exercise)
+        ? `<label class="field review-sheet__field"><span class="field__lab">${esc(rt("program.exercise.name_aria", undefined, "Exercise name"))}</span><input class="input" data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="name" value="${esc(exerciseName(adapter, exercise))}" maxlength="80"></label>` : "";
+      let composition = "";
+      if (slot && editableMetricComposition(slot)) {
+        // The same control, named in the lifter's words rather than "Metric composition".
+        composition = renderMetricComposition(exercise, slot).split(esc(label("metricComposition"))).join(esc(rt("program.editor.records", undefined, "What you record")));
+      }
+      return `<details class="review-sheet__sec program-editor-a__details" data-role="more-details" data-id="${esc(exercise.id)}"><summary>${esc(label("details"))}</summary>` +
+        nameField + field("notes", exercise.notes) + field("primary", exercise.primary, { readonly: !!linked }) + field("secondary", exercise.secondary, { readonly: !!linked }) +
+        composition + `</details>`;
+    }
+    /** @param {EditorRow} exercise */
+    function exerciseSheetHtml(exercise) {
+      const slot = slotOfExercise(exercise);
+      const cycle = slot ? displayCycle(slot) : null;
+      const sets = cycle?.sets || [];
+      const rep = slot ? repDefinition(slot) : null;
+      const firstRange = rep ? rangeOf(sets[0]?.targets?.[rep.semantic]) : null;
+      const count = slot ? sets.length : positiveInt(exercise.sets, 1);
+      const rest = sets[0]?.restSeconds ?? null;
+      const base = (baseDocument.program || []).find(item => item.id === exercise.id);
+      const was = dayMinutes(baseDocument, base?.day || exercise.day), now = dayMinutes(document, exercise.day);
+      const muscles = [exercise.primary, exercise.secondary].filter(Boolean).join(", ");
+      const others = labels(document).filter(day => day !== exercise.day);
+      const differs = slot ? differingWeeks(slot) : [];
+      const cycles = cyclesOf(slot).length;
+      const ledger = slot ? `<div class="review-sheet__ledger" role="table" aria-label="${esc(rt("entry.review.sheet.sets", undefined, "Sets"))}">` +
+        `<div class="review-sheet__lh" role="row"><span role="columnheader">${esc(rt("entry.review.sheet.set_col", undefined, "Set"))}</span><span role="columnheader">${esc(rt("entry.review.sheet.reps_col", undefined, "Reps"))}</span><span role="columnheader">${esc(rt("entry.review.sheet.rir_col", undefined, "RIR"))}</span></div>` +
+        sets.map((set, index) => `<div class="review-sheet__lr" role="row" data-role="set-ledger-row"><span class="review__setn num" role="cell">${index + 1}</span><span role="cell" data-role="set-reps">${nums(setText(slot, set))}</span>` +
+          `<span class="review-step review-step--sm" role="cell"><button type="button" data-role="rir-step" data-set-index="${index + 1}" data-delta="-1" aria-label="${esc(rt("entry.review.sheet.rir_down", { n: index + 1 }, `Lower set ${index + 1}'s RIR`))}"${set.rir != null && set.rir <= 0 ? " disabled" : ""}>−</button><b class="num" data-role="set-rir">${esc(set.rir == null ? "–" : format(adapter, set.rir))}</b>` +
+          `<button type="button" data-role="rir-step" data-set-index="${index + 1}" data-delta="1" aria-label="${esc(rt("entry.review.sheet.rir_up", { n: index + 1 }, `Raise set ${index + 1}'s RIR`))}"${set.rir != null && set.rir >= MAX_REVIEW_RIR ? " disabled" : ""}>+</button></span></div>`).join("") + `</div>` : "";
+      const setsControl = `<div class="review-sheet__ctl"><span class="review-sheet__lab">${esc(rt("entry.review.sheet.sets", undefined, "Sets"))}</span>` +
+        stepper("sets-step", `data-id="${esc(exercise.id)}"`, rt(count === 1 ? "entry.review.sheet.n_sets_one" : "entry.review.sheet.n_sets", { n: count }, `${count} sets`),
+          { down: count > 1, up: count < MAX_REVIEW_SETS, downLabel: label("setsDecrease"), upLabel: label("setsIncrease") }) + `</div>`;
+      const rangeControl = firstRange ? `<div class="review-sheet__ctl"><span class="review-sheet__lab">${esc(rt("entry.review.sheet.range", undefined, "Rep range"))}</span><span class="review-sheet__range">` +
+        stepper("range-step", `data-bound="min"`, format(adapter, firstRange.min), { down: firstRange.min > 1, up: firstRange.min < firstRange.max, small: true,
+          downLabel: rt("entry.review.sheet.min_down", undefined, "−"), upLabel: rt("entry.review.sheet.min_up", undefined, "+") }) +
+        `<span aria-hidden="true">–</span>` +
+        stepper("range-step", `data-bound="max"`, format(adapter, firstRange.max), { down: firstRange.max > firstRange.min, up: firstRange.max < MAX_REVIEW_REPS, small: true,
+          downLabel: rt("entry.review.sheet.max_down", undefined, "−"), upLabel: rt("entry.review.sheet.max_up", undefined, "+") }) + `</span></div>` : "";
+      const restControl = slot ? `<div class="review-sheet__ctl review-sheet__ctl--col"><span class="review-sheet__lab" id="programEditorRestLab">${esc(rt("entry.review.sheet.rest", undefined, "Rest between sets"))}</span><div class="review-seg" role="radiogroup" aria-labelledby="programEditorRestLab">` +
+        REST_PRESETS.map(seconds => `<button type="button" role="radio" class="review-seg__opt num${seconds === rest ? " is-on" : ""}" aria-checked="${seconds === rest}" data-role="rest-preset" data-seconds="${seconds}">${esc(rt("entry.review.sheet.seconds", { n: seconds }, `${seconds} s`))}</button>`).join("") + `</div></div>` : "";
+      const time = now ? `<p class="review-sheet__time" data-role="day-time">${nums(was && was !== now
+        ? rt("entry.review.sheet.day_time_change", { from: was, to: now }, `Day: about ${was} → ${now} min`)
+        : rt("entry.review.sheet.day_time", { n: now }, `Day: about ${now} min`))}</p>` : "";
+      const weeksRow = slot && cycles > 1 ? `<button type="button" class="program-editor-a__navrow" data-role="weeks-open" data-id="${esc(exercise.id)}">` +
+        `<span class="program-editor-a__navtext"><span class="review-sheet__lab">${esc(rt("program.editor.weeks", undefined, "Weeks"))}</span>` +
+        `<span class="review-sheet__note">${esc(differs.length
+          ? rt(differs.length === 1 ? "program.editor.weeks_differ_one" : "program.editor.weeks_differ", { n: differs.length }, `${differs.length} weeks differ`)
+          : rt("program.editor.weeks_same", { n: cycles }, `Same in all ${cycles} weeks`))}</span></span>` +
+        `<span class="program-editor-a__navaction">${esc(rt("program.editor.adjust", undefined, "Adjust"))}</span>${icon("chev-right")}</button>` : "";
+      const legacy = !slot ? `<div class="review-sheet__ctl"><span class="review-sheet__lab">${esc(label("repRange"))}</span><span class="review-sheet__range">` +
+        `<input class="input program-editor-a__num" type="text" inputmode="numeric" data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="min" value="${esc(exercise.min)}" aria-label="${esc(label("min"))}">` +
+        `<span aria-hidden="true">–</span><input class="input program-editor-a__num" type="text" inputmode="numeric" data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="max" value="${esc(exercise.max)}" aria-label="${esc(label("max"))}"></span></div>` : "";
+      return `<div data-pe-sheet="exercise" data-id="${esc(exercise.id)}">` +
+        `<div class="review-sheet__head">${tile(exercise.libraryId, "lg")}<div>${muscles ? `<p class="review-sheet__note">${esc(muscles)}</p>` : ""}</div></div>` +
+        `<section class="review-sheet__sec">${ledger}${setsControl}${rangeControl}${legacy}${restControl}${time}</section>` +
+        (weeksRow ? `<section class="review-sheet__sec">${weeksRow}</section>` : "") +
+        loadsHtml(exercise, slot) +
+        `<section class="review-sheet__sec">` +
+          `<button type="button" class="program-editor-a__navrow" data-role="swap-open" data-action-role="replacement" data-id="${esc(exercise.id)}"><span class="program-editor-a__navtext"><span class="review-sheet__lab">${esc(rt("entry.review.sheet.swap", undefined, label("replaceExercise")))}</span></span>${icon("chev-right")}</button></section>` +
+        alternatesHtml(exercise, slot) +
+        (others.length ? `<section class="review-sheet__sec"><h3 class="sheetgroup__head">${esc(rt("entry.review.sheet.move", undefined, label("moveOther")))}</h3><div class="review-sheet__chips">${others.map(day =>
+          `<button type="button" class="review-chipbtn" data-role="move-to-day" data-id="${esc(exercise.id)}" data-day="${esc(day)}">${esc(titleForDay(day))}</button>`).join("")}</div></section>` : "") +
+        detailsHtml(exercise, slot) +
+        `<section class="review-sheet__sec"><button type="button" class="btn btn--steel btn--destructive" id="programEditorRemove" data-role="remove-exercise" data-action-role="removal" data-id="${esc(exercise.id)}">${esc(rt("entry.review.sheet.remove", undefined, label("removeExercise")))}</button></section>` +
+        `</div>`;
+    }
+    /** @param {EditorRow} exercise @param {ProgramSlot} slot @param {ProgramCycle} cycle @param {ProgramCycle|null} common */
+    function weekTableHtml(exercise, slot, cycle, common) {
+      const definitions = (slot.metricIds || []).map(id => (slot.metricDefinitions || []).find(metric => metric.id === id)).filter(/** @returns {metric is MetricDefinition} */ metric => !!metric);
+      const reference = common && common.cycleIndex !== cycle.cycleIndex ? common : null;
+      /** @param {number} index @param {(set:ProgramSet|undefined)=>unknown} read */
+      const differsAt = (index, read) => !!reference && !equal(read(cycle.sets[index]), read(reference.sets?.[index]));
+      const header = `<span class="program-editor-a__th">#</span>` + definitions.map(metric => {
+        const unit = metricDisplayUnit(adapter, metric);
+        const text = LOAD_SEMANTICS.has(metric.semantic) ? rt("program.editor.week_load", { unit }, `Load ${unit}`)
+          : REP_TARGET_SEMANTICS.has(metric.semantic) ? rt("entry.review.sheet.reps_col", undefined, "Reps")
+            : `${metricLabel(adapter, metric)}${unit ? ` ${unit}` : ""}`;
+        return `<span class="program-editor-a__th">${esc(text)}</span>`;
+      }).join("") + `<span class="program-editor-a__th">${esc(label("metricRir"))}</span><span class="program-editor-a__th">${esc(rt("program.editor.week_rest", undefined, "Rest"))}</span>`;
+      const weekTitle = rt("program.editor.week", { n: cycle.cycleIndex }, `Week ${cycle.cycleIndex}`);
+      const cells = (cycle.sets || []).map((set, index) => {
+        const setTitle = label("metricSet", { n: set.setIndex });
+        const metricCells = definitions.map(metric => {
+          const target = set.targets?.[metric.semantic];
+          const ranged = REP_TARGET_SEMANTICS.has(metric.semantic) || !!rangeOf(target) && typeof target === "object";
+          const diff = differsAt(index, value => value?.targets?.[metric.semantic] ?? null);
+          return `<input class="program-editor-a__cell${diff ? " is-diff" : ""}" type="text" inputmode="${REP_TARGET_SEMANTICS.has(metric.semantic) ? "numeric" : "decimal"}" autocomplete="off" data-role="metric-target" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}" data-cycle-index="${cycle.cycleIndex}" data-set-index="${set.setIndex}" data-metric-id="${esc(metric.id)}" data-semantic="${esc(metric.semantic)}" data-bound="${ranged ? "range" : "value"}"` +
+            ` value="${target == null ? "" : esc(formatMetricValue(adapter, metric, target))}"${LOAD_SEMANTICS.has(metric.semantic) ? ` placeholder="${esc(rt("program.editor.week_auto", undefined, "auto"))}"` : ""}` +
+            ` aria-label="${esc(label("metricTargetAria", { cycle: weekTitle, set: setTitle, metric: metricLabel(adapter, metric) }))}">`;
+        }).join("");
+        /** @param {'rir'|'restSeconds'} field @param {string} fieldLabel */
+        const fieldCell = (field, fieldLabel) => {
+          const diff = differsAt(index, value => value?.[field] ?? null);
+          return `<input class="program-editor-a__cell${diff ? " is-diff" : ""}" type="text" inputmode="numeric" autocomplete="off" data-role="prescription-field" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}" data-cycle-index="${cycle.cycleIndex}" data-set-index="${set.setIndex}" data-field="${field}" value="${set[field] == null ? "" : esc(String(set[field]))}" aria-label="${esc(label("prescriptionFieldAria", { cycle: weekTitle, set: setTitle, field: fieldLabel }))}">`;
+        };
+        return `<span class="program-editor-a__setn num">${index + 1}</span>${metricCells}${fieldCell("rir", label("metricRir"))}${fieldCell("restSeconds", rt("program.editor.week_rest", undefined, "Rest"))}`;
+      }).join("");
+      const columns = definitions.length + 3;
+      return `<div class="program-editor-a__weekbody" data-role="week-body" data-cycle-index="${cycle.cycleIndex}">` +
+        `<div class="program-editor-a__grid" style="--program-editor-a-columns:${columns - 1}">${header}${cells}</div>` +
+        `<div class="program-editor-a__weektools">` +
+          `<button type="button" class="text-link" data-role="week-sets" data-cycle-index="${cycle.cycleIndex}" data-delta="1">${icon("plus")}${esc(rt("program.editor.week_add_set", { n: cycle.cycleIndex }, `Add a set to week ${cycle.cycleIndex}`))}</button>` +
+          (cycle.sets.length > 1 ? `<button type="button" class="text-link" data-role="week-sets" data-cycle-index="${cycle.cycleIndex}" data-delta="-1">${esc(rt("program.editor.week_remove_set", { n: cycle.cycleIndex }, `Remove the last set from week ${cycle.cycleIndex}`))}</button>` : "") +
+        `</div>` +
+        `<p class="review-sheet__note">${esc(rt("program.editor.week_legend", undefined, "Outlined: differs from the other weeks. Empty load: Taurifer suggests it."))}</p>` +
+        (reference && weekPattern(reference) !== weekPattern(cycle) ? `<button type="button" class="text-link" data-role="week-match" data-cycle-index="${cycle.cycleIndex}">${esc(rt("program.editor.week_match", undefined, "Match the other weeks"))}</button>` : "") +
+        `</div>`;
+    }
+    /** @param {EditorRow} exercise */
+    function weeksSheetHtml(exercise) {
+      const slot = slotOfExercise(exercise);
+      if (!slot) return "";
+      const common = commonWeek(slot), differs = differingWeeks(slot), open = view.sheet?.open ?? null;
+      const name = exerciseDisplayLabel(adapter, exercise);
+      const subtitle = differs.length
+        ? rt(differs.length === 1 ? "program.editor.weeks_differ_one" : "program.editor.weeks_differ", { n: differs.length }, `${differs.length} weeks differ`)
+        : rt("program.editor.weeks_same", { n: cyclesOf(slot).length }, "Same in every week");
+      return `<div data-pe-sheet="weeks" data-id="${esc(exercise.id)}">` +
+        `<button type="button" class="text-link program-editor-a__back" data-role="weeks-back">${icon("chev-left")}${esc(name)}</button>` +
+        `<p class="review-sheet__lede">${esc(subtitle)}</p>` +
+        cyclesOf(slot).map(cycle => {
+          const isOpen = open === cycle.cycleIndex, differ = differs.includes(cycle.cycleIndex);
+          return `<div class="program-editor-a__week${isOpen ? " is-open" : ""}">` +
+            `<button type="button" class="program-editor-a__weekrow" data-role="week-row" data-cycle-index="${cycle.cycleIndex}" aria-expanded="${isOpen}">` +
+            `<span class="program-editor-a__weekname">${esc(rt("program.editor.week", { n: cycle.cycleIndex }, `Week ${cycle.cycleIndex}`))}` +
+              (differ ? `<span class="review__mark" data-role="week-differs"><span class="review__dot" aria-hidden="true"></span>${esc(rt("program.editor.week_differs", undefined, "Differs"))}</span>` : "") + `</span>` +
+            `<span class="program-editor-a__weeksum">${isOpen ? "" : nums(weekSummary(slot, cycle))}</span>${icon(isOpen ? "chev-up" : "chev-down")}</button>` +
+            (isOpen ? weekTableHtml(exercise, slot, cycle, common) : "") + `</div>`;
+        }).join("") + `</div>`;
+    }
+    /** @param {EditorRow} exercise @returns {string[]} */
+    function substitutionIds(exercise) {
+      try {
+        const list = adapter.substitutions?.(document, exercise.slotId || exercise.id);
+        return Array.isArray(list) ? list.filter(id => typeof id === "string" && id && id !== exercise.libraryId) : [];
+      } catch { return []; }
+    }
+    /** @param {EditorRow} exercise */
+    function swapSheetHtml(exercise) {
+      const slot = slotOfExercise(exercise);
+      const alternates = (slot?.alternates || []).filter(id => id !== exercise.libraryId);
+      const same = substitutionIds(exercise).filter(id => !alternates.includes(id));
+      const shown = view.sheet?.showAll ? same : same.slice(0, SUGGESTED_SWAPS);
+      /** @param {string} id */
+      const choice = id => `<li>${tile(id, "sm")}<span>${esc(movementLabel(adapter, id))}</span><button type="button" class="btn btn--steel review-sheet__swap-btn" data-role="swap-choice" data-id="${esc(exercise.id)}" data-exercise-id="${esc(id)}">${esc(rt("entry.review.sheet.swap_btn", undefined, "Swap"))}</button></li>`;
+      /** @param {string} title @param {string[]} ids @param {string} [lede] */
+      const group = (title, ids, lede = "") => ids.length ? `<section class="review-sheet__sec" data-role="swap-group"><h3 class="sheetgroup__head" data-role="swap-group-title">${esc(title)}</h3>` +
+        (lede ? `<p class="review-sheet__lede">${esc(lede)}</p>` : "") + `<ul class="review-sheet__list">${ids.map(choice).join("")}</ul></section>` : "";
+      return `<div data-pe-sheet="swap" data-id="${esc(exercise.id)}">` +
+        `<button type="button" class="text-link program-editor-a__back" data-role="swap-back">${icon("chev-left")}${esc(exerciseDisplayLabel(adapter, exercise))}</button>` +
+        group(rt("program.editor.your_alternates", undefined, "Your alternates"), alternates) +
+        group(rt("program.editor.same_job", undefined, "Same job"), shown, rt("entry.review.sheet.swap_lede", undefined, "")) +
+        `<div class="review-sheet__links">${!view.sheet?.showAll && same.length > SUGGESTED_SWAPS ? `<button type="button" class="text-link" data-role="swap-more">${esc(rt("entry.review.sheet.show_more", { n: same.length - SUGGESTED_SWAPS }, "Show more"))}</button>` : ""}` +
+        `<button type="button" class="text-link" data-role="swap-search" data-id="${esc(exercise.id)}">${icon("search")}${esc(rt("entry.review.sheet.search", undefined, "Search the catalog"))}</button></div></div>`;
+    }
+    function renameSheetHtml() {
+      const sheet = view.sheet;
+      if (!sheet) return "";
+      const isDay = sheet.target === "day";
+      const value = sheet.inputValue ?? (isDay ? titleForDay(sheet.day || "") : document.programMeta?.name || "");
+      const errorAttrs = sheet.error ? ' aria-invalid="true" aria-describedby="programEditorRenameError"' : "";
+      return `<div data-pe-sheet="rename"><label class="field review-sheet__field"><span class="field__lab">${esc(isDay ? rt("entry.review.day_name", undefined, label("dayName")) : rt("entry.review.program_name", undefined, label("programName")))}</span>` +
+        `<input class="input" id="programEditorRenameInput" data-role="rename-input" maxlength="${isDay ? 40 : 80}" value="${esc(value)}"${errorAttrs} enterkeyhint="done" autocomplete="off"></label>` +
+        (sheet.error ? `<p class="program-editor__field-error" id="programEditorRenameError" role="alert">${esc(sheet.error)}</p>` : "") + `</div>`;
+    }
+    /** @param {string} day */
+    function dayMenuHtml(day) {
+      const count = exercisesFor(document, day).length;
+      return `<div data-pe-sheet="day-menu" data-day="${esc(day)}"><div class="review-sheet__menu">` +
+        `<button type="button" class="exactions__act" data-role="day-action" data-action="rename" data-day="${esc(day)}">${icon("pencil")}<span>${esc(rt("entry.review.day_menu.rename", undefined, "Rename day"))}</span></button>` +
+        `<button type="button" class="exactions__act" data-role="day-action" data-action="reorder" data-day="${esc(day)}"${count < 2 ? " disabled" : ""}>${icon("grip")}<span>${esc(rt("entry.review.day_menu.reorder", undefined, "Reorder exercises"))}</span></button>` +
+        `<button type="button" class="exactions__act" data-role="day-action" data-action="add" data-day="${esc(day)}">${icon("plus")}<span>${esc(label("addExercise"))}</span></button>` +
+        `<button type="button" class="exactions__act" data-role="day-action" data-action="days" data-day="${esc(day)}">${icon("grip")}<span>${esc(rt("program.days_label", undefined, "Training days"))}</span></button>` +
+        `<button type="button" class="exactions__act" data-role="day-action" data-action="add-day" data-day="${esc(day)}">${icon("plus")}<span>${esc(String(rt("program.add_day", undefined, "Add day")).replace(/^\s*[+＋]\s*/, ""))}</span></button>` +
+        `<button type="button" class="exactions__act exactions__act--danger" data-role="day-action" data-action="remove-day" data-action-role="removal" data-day="${esc(day)}">${icon("close")}<span>${esc(label("removeDay", undefined, "Remove day"))}</span></button>` +
+        `</div></div>`;
+    }
+    function daysSheetHtml() {
+      const days = labels(document);
+      return `<div data-pe-sheet="days"><p class="review-sheet__lede">${esc(rt("program.editor.days_hint", undefined, ""))}</p>` +
+        `<ol class="review__reorder program-editor-a__days" data-role="days-list">` +
+        days.map((day, index) => {
+          const name = titleFor(day, index), count = exercisesFor(document, day).length;
+          return `<li class="review__ro" data-role="days-row" data-day="${esc(day)}">` +
+            `<button type="button" class="review__handle" data-role="day-handle" data-day="${esc(day)}" aria-label="${esc(label("move", undefined, name))}">${icon("grip")}</button>` +
+            `<button type="button" class="program-editor-a__dayrename" data-role="days-rename" data-day="${esc(day)}" aria-label="${esc(rt("entry.review.rename_day_aria", { day: name }, `Rename ${name}`))}">` +
+              `<span class="review__ro-name">${esc(name)}</span><span class="review-sheet__note">${nums(count ? dayCount(count) : rt("program.editor.no_exercises", undefined, "No exercises"))}</span></button>` +
+            `<button type="button" class="review__ro-btn" data-role="day-move" data-day="${esc(day)}" data-delta="-1" aria-label="${esc(rt("entry.review.move_up", { name }, `Move ${name} up`))}"${index === 0 ? " disabled" : ""}>${icon("chev-up")}</button>` +
+            `<button type="button" class="review__ro-btn" data-role="day-move" data-day="${esc(day)}" data-delta="1" aria-label="${esc(rt("entry.review.move_down", { name }, `Move ${name} down`))}"${index === days.length - 1 ? " disabled" : ""}>${icon("chev-down")}</button>` +
+            `</li>`;
+        }).join("") + `</ol>` +
+        `<div class="review-sheet__links"><button type="button" class="text-link" data-role="days-add">${icon("plus")}${esc(String(rt("program.add_day", undefined, "Add day")).replace(/^\s*[+＋]\s*/, ""))}</button></div></div>`;
+    }
+    /** @param {string} day @param {number} toIndex @param {{focus?:string|null}} [options] */
+    function moveDay(day, toIndex, { focus = null } = {}) {
+      return userAction([doc => {
+        const next = clone(doc), moved = moveDayInDocument(next, day, toIndex);
+        if (!moved) return null;
+        return { next, edit: { kind: "day_move", targetDay: day, ...moved } };
+      }]).then(result => {
+        if (focus) {
+          const body = sheetParts()?.body;
+          focusIn(body, focus) || focusIn(body, `[data-role="day-move"][data-day="${cssEscape(day)}"]:not([disabled])`);
+        }
+        return result;
+      });
+    }
+    function paintSheet() {
+      const sheet = view.sheet, parts = sheetParts();
+      if (!sheet || !parts?.title || !parts.body || !parts.foot || destroyed) return;
+      const { title, body, foot } = parts;
+      const done = `<button type="button" class="btn btn--cta btn--noarrow" data-role="sheet-done">${esc(rt("entry.review.sheet.done", undefined, "Done"))}</button>`;
+      const live = liveEditSnapshot(parts.el);
+      if (sheet.kind === "exercise" || sheet.kind === "weeks" || sheet.kind === "swap") {
+        const exercise = exerciseById(sheet.id);
+        if (!exercise) { closeSheetView(); return; }
+        title.textContent = sheet.kind === "weeks" ? rt("program.editor.weeks", undefined, "Weeks")
+          : sheet.kind === "swap" ? rt("entry.review.sheet.swap", undefined, label("replaceExercise")) : exerciseDisplayLabel(adapter, exercise);
+        body.innerHTML = sheet.kind === "weeks" ? weeksSheetHtml(exercise) : sheet.kind === "swap" ? swapSheetHtml(exercise) : exerciseSheetHtml(exercise);
+        foot.innerHTML = sheet.kind === "swap" ? "" : done;
+      } else if (sheet.kind === "rename") {
+        title.textContent = sheet.target === "day" ? rt("entry.review.day_menu.rename", undefined, "Rename day") : rt("entry.review.rename_program", undefined, "Rename program");
+        body.innerHTML = renameSheetHtml();
+        foot.innerHTML = `<button type="button" class="btn btn--cta btn--noarrow" data-role="rename-save">${esc(rt("entry.review.save", undefined, "Save"))}</button>`;
+      } else if (sheet.kind === "day-menu") {
+        title.textContent = titleForDay(sheet.day || "");
+        body.innerHTML = dayMenuHtml(sheet.day || "");
+        foot.innerHTML = "";
+      } else if (sheet.kind === "days") {
+        title.textContent = rt("program.days_label", undefined, "Training days");
+        body.innerHTML = daysSheetHtml();
+        foot.innerHTML = done;
+      }
+      restoreLiveEdit(live, parts.el);
+    }
+
+    // ----- what each control does -----
+    /** @param {EditorRow} exercise @param {number} delta */
+    function stepSets(exercise, delta) {
+      const slot = slotOfExercise(exercise);
+      if (!slot) return userAction([doc => {
+        const row = doc.program?.find(item => item.id === exercise.id);
+        if (!row) return null;
+        const before = positiveInt(row.sets, 1), after = Math.max(1, Math.min(MAX_REVIEW_SETS, before + delta));
+        if (before === after) return null;
+        return receipt(editExerciseField(doc, { id: exercise.id, field: "sets", value: after, cycleIndex: displayCycleIndex() }));
+      }]);
+      const shownCycle = displayCycle(slot), shown = shownCycle?.sets?.length || 0;
+      const wanted = Math.max(1, Math.min(MAX_REVIEW_SETS, shown + delta));
+      if (!shown || wanted === shown) return Promise.resolve(false);
+      /** @param {number} count */
+      const deload = count => Math.max(1, Math.ceil(count / 2));
+      return userAction(weekOrder(slot).map(cycleIndex => /** @type {ReviewStep} */ (doc => {
+        const currentSlot = definitionSlot(doc, slot.id), cycle = definitionCycle(currentSlot, cycleIndex);
+        if (!cycle) return null;
+        const reduced = isDeloadCycle(currentSlot, cycle) && !(shownCycle && isDeloadCycle(slot, shownCycle));
+        if (cycle.sets.length !== (reduced ? deload(shown) : shown)) return null;
+        return buildSetsChange(doc, exercise.id, cycleIndex, reduced ? deload(wanted) : wanted);
+      })));
+    }
+    /** @param {EditorRow} exercise @param {'min'|'max'} bound @param {number} delta */
+    function stepRange(exercise, bound, delta) {
+      const slot = slotOfExercise(exercise), rep = slot ? repDefinition(slot) : null;
+      if (!slot || !rep) return Promise.resolve(false);
+      const shown = rangeOf(displayCycle(slot)?.sets?.[0]?.targets?.[rep.semantic]);
+      if (!shown) return Promise.resolve(false);
+      const next = { ...shown, [bound]: shown[bound] + delta };
+      if (next.min < 1 || next.max > MAX_REVIEW_REPS || next.max < next.min) return Promise.resolve(false);
+      const value = next.min === next.max && Number.isFinite(displayCycle(slot)?.sets?.[0]?.targets?.[rep.semantic]) ? next.min : { min: next.min, max: next.max };
+      /** @type {ReviewStep[]} */
+      const steps = [];
+      for (const cycleIndex of weekOrder(slot)) {
+        for (const set of definitionCycle(slot, cycleIndex)?.sets || []) {
+          steps.push(doc => {
+            const current = definitionSet(doc, slot.id, cycleIndex, set.setIndex);
+            if (!current || !equal(rangeOf(current.targets?.[rep.semantic]), shown)) return null;
+            return buildTargetChange(doc, slot.id, cycleIndex, set.setIndex, rep.id, { present: true, value });
+          });
+        }
+      }
+      return userAction(steps);
+    }
+    /** @param {EditorRow} exercise @param {number} setIndex @param {number} delta */
+    function stepRir(exercise, setIndex, delta) {
+      const slot = slotOfExercise(exercise);
+      const shownCycle = slot ? displayCycle(slot) : null, shownSet = shownCycle?.sets?.[setIndex - 1];
+      if (!slot || !shownSet) return Promise.resolve(false);
+      const shown = typeof shownSet.rir === "number" && Number.isFinite(shownSet.rir) ? shownSet.rir : null;
+      const after = Math.max(0, Math.min(MAX_REVIEW_RIR, (shown ?? 2) + delta));
+      if (Object.is(shown, after)) return Promise.resolve(false);
+      const shownIsDeload = isDeloadCycle(slot, shownCycle);
+      return userAction(weekOrder(slot).map(cycleIndex => /** @type {ReviewStep} */ (doc => {
+        const currentSlot = definitionSlot(doc, slot.id), cycle = definitionCycle(currentSlot, cycleIndex);
+        const set = cycle?.sets?.[setIndex - 1];
+        if (!set) return null;
+        const offset = isDeloadCycle(currentSlot, cycle) && !shownIsDeload;
+        const expected = shown == null ? null : offset ? Math.min(MAX_REVIEW_RIR, shown + 2) : shown;
+        if (!Object.is(typeof set.rir === "number" && Number.isFinite(set.rir) ? set.rir : null, expected)) return null;
+        return buildFieldChange(doc, slot.id, cycleIndex, set.setIndex, "rir", offset ? Math.min(MAX_REVIEW_RIR, after + 2) : after);
+      })));
+    }
+    /** @param {EditorRow} exercise @param {number} seconds */
+    function setRest(exercise, seconds) {
+      const slot = slotOfExercise(exercise), shownSet = slot ? displayCycle(slot)?.sets?.[0] : null;
+      if (!slot || !shownSet) return Promise.resolve(false);
+      const shown = shownSet.restSeconds ?? null;
+      if (shown === seconds) return Promise.resolve(false);
+      /** @type {ReviewStep[]} */
+      const steps = [];
+      for (const cycleIndex of weekOrder(slot)) for (const set of definitionCycle(slot, cycleIndex)?.sets || []) {
+        steps.push(doc => {
+          const current = definitionSet(doc, slot.id, cycleIndex, set.setIndex);
+          if (!current || !Object.is(current.restSeconds ?? null, shown)) return null;
+          return buildFieldChange(doc, slot.id, cycleIndex, set.setIndex, "restSeconds", seconds);
+        });
+      }
+      return userAction(steps);
+    }
+    /** @param {EditorRow} exercise @param {number} cycleIndex @param {number} delta */
+    function stepWeekSets(exercise, cycleIndex, delta) {
+      const slot = slotOfExercise(exercise), cycle = slot ? definitionCycle(slot, cycleIndex) : null;
+      if (!cycle) return Promise.resolve(false);
+      return userAction([doc => buildSetsChange(doc, exercise.id, cycleIndex, cycle.sets.length + delta)]);
+    }
+    /** @param {EditorRow} exercise @param {number} cycleIndex */
+    function matchWeek(exercise, cycleIndex) {
+      const slot = slotOfExercise(exercise), common = slot ? commonWeek(slot) : null;
+      if (!slot || !common || common.cycleIndex === cycleIndex) return Promise.resolve(false);
+      const model = clone(common.sets || []);
+      /** @type {ReviewStep[]} */
+      const steps = [doc => buildSetsChange(doc, exercise.id, cycleIndex, model.length)];
+      model.forEach((source, index) => {
+        const setIndex = index + 1;
+        for (const metricId of slot.metricIds || []) {
+          const metric = (slot.metricDefinitions || []).find(item => item.id === metricId);
+          if (!metric) continue;
+          const targets = source.targets || {};
+          steps.push(doc => buildTargetChange(doc, slot.id, cycleIndex, setIndex, metricId,
+            hasOwn(targets, metric.semantic) ? { present: true, value: clone(targets[metric.semantic]) } : { present: false, value: null }));
+        }
+        steps.push(doc => buildFieldChange(doc, slot.id, cycleIndex, setIndex, "rir", source.rir ?? null));
+        steps.push(doc => buildFieldChange(doc, slot.id, cycleIndex, setIndex, "restSeconds", source.restSeconds ?? null));
+      });
+      return userAction(steps);
+    }
+    /** @param {HTMLInputElement} input @returns {{ok:false}|{ok:true,value:number|null}|{ok:true,value:import("./contracts.js").TargetEdit}} */
+    function parseCell(input) {
+      const raw = String(input.value || "").trim();
+      if (input.dataset.role === "prescription-field") {
+        if (!raw) return { ok: true, value: null };
+        const value = Number(raw.replace(",", "."));
+        const valid = input.dataset.field === "rir" ? Number.isFinite(value) && value >= 0 && value <= MAX_REVIEW_RIR
+          : Number.isSafeInteger(value) && value >= 0 && value <= 86400;
+        return valid ? { ok: true, value } : { ok: false };
+      }
+      const slot = definitionSlot(document, input.dataset.slotId || "");
+      const definition = slot?.metricDefinitions?.find(item => item.id === input.dataset.metricId);
+      if (!definition) return { ok: false };
+      if (!raw) return { ok: true, value: { present: false, value: null } };
+      if (input.dataset.bound === "range") {
+        const parts = raw.split(/\s*[–—-]\s*/).filter(Boolean);
+        if (parts.length < 1 || parts.length > 2) return { ok: false };
+        const values = parts.map(part => parseMetricInput(adapter, definition, part).value);
+        const min = values[0], max = values[values.length - 1];
+        if (typeof min !== "number" || typeof max !== "number" || values.some(value => typeof value !== "number") || max < min) return { ok: false };
+        return { ok: true, value: { present: true, value: { min, max } } };
+      }
+      const parsed = parseMetricInput(adapter, definition, raw);
+      return typeof parsed.value === "number" ? { ok: true, value: { present: true, value: parsed.value } } : { ok: false };
+    }
+    /** @param {HTMLInputElement} input */
+    function editCell(input) {
+      setFieldError(input, null);
+      const parsed = parseCell(input);
+      if (!parsed.ok) { setFieldError(input, label("invalid")); return Promise.resolve(false); }
+      const slotId = input.dataset.slotId || "", cycleIndex = Number(input.dataset.cycleIndex), setIndex = Number(input.dataset.setIndex);
+      const field = input.dataset.field || "", metricId = input.dataset.metricId || "", semantic = input.dataset.semantic || "";
+      const value = parsed.value;
+      /** @type {ReviewStep} */
+      const step = input.dataset.role === "prescription-field"
+        ? doc => (typeof value === "number" || value === null ? buildFieldChange(doc, slotId, cycleIndex, setIndex, field, value) : null)
+        : doc => (value && typeof value === "object" ? buildTargetChange(doc, slotId, cycleIndex, setIndex, metricId, value) : null);
+      if (!step(document)) {
+        // Unchanged, or refused (an adaptive set can't lose its range or RIR): show what is stored.
+        const set = definitionSet(document, slotId, cycleIndex, setIndex);
+        const unchanged = input.dataset.role === "prescription-field"
+          ? Object.is((field === "rir" || field === "restSeconds" ? set?.[field] : null) ?? null, value)
+          : equal(value, set && hasOwn(set.targets || {}, semantic) ? { present: true, value: (set.targets || {})[semantic] } : { present: false, value: null });
+        if (!unchanged) setFieldError(input, label("invalid"));
+        return Promise.resolve(false);
+      }
+      return userAction([step]);
+    }
+    /** @param {string} slotId @param {number} delta */
+    function stepOptInRir(slotId, delta) {
+      const slot = definitionSlot(document, slotId);
+      if (!slot) return Promise.resolve(false);
+      const current = uniformRir(slot);
+      const after = Math.max(0, Math.min(MAX_OPT_IN_RIR, (current ?? 2) + delta));
+      return userAction([doc => receipt(prepareSuggestLoadsRir(doc, { slotId, after }))]);
+    }
+    /** @param {EditorRow} exercise @param {string} libraryId */
+    function swapTo(exercise, libraryId) {
+      const entry = exerciseEntry(adapter, libraryId);
+      if (!entry) return Promise.resolve(false);
+      const name = movementLabel(adapter, libraryId);
+      return recorded(() => {
+        const prepared = editReplaceExercise(document, { id: exercise.id, entry });
+        if (!prepared.ok || !prepared.document || !prepared.edit) return Promise.resolve({ ok: false });
+        return stage(prepared.document, prepared.edit, { redraw: false });
+      }, { toast: rt("entry.review.toast.swapped", { name }, `${name} is now in the program.`) }).then(result => {
+        if (view.sheet) openSheetView({ kind: "exercise", id: exercise.id });
+        return result;
+      });
+    }
+    /** @returns {HTMLInputElement|null} */
+    const renameInput = () => {
+      const input = sheetParts()?.body?.querySelector('[data-role="rename-input"]');
+      return input instanceof root.HTMLInputElement ? input : null;
+    };
+    /** Saves the open rename sheet, or a name Back set aside (`held`) without reopening its sheet.
+        @param {HeldRename|null} [held] @returns {Promise<unknown>} */
+    async function saveRename(held = null) {
+      const input = renameInput();
+      /** @type {ReviewSheetView|null} */
+      const sheet = held ? { kind: "rename", ...held } : view.sheet;
+      const value = String((held ? held.value : input?.value) || "").trim();
+      if (!sheet) return;
+      if (sheet.target === "day") {
+        const day = sheet.day || "";
+        if (!value || value === titleForDay(day) || value === day) { await closeSheetView(); return; }
+        const result = await recorded(() => renameDay(day, value));
+        if (result?.refused && held) {
+          heldRename = { ...held, error: result.duplicate ? label("dayNameExists") : label("invalid") };
+          return false;
+        }
+        if (result?.refused) {
+          view.sheet = { ...sheet, inputValue: value, error: result.duplicate ? label("dayNameExists") : label("invalid") };
+          paintSheet();
+          const next = renameInput();
+          try { next?.focus({ preventScroll: true }); next?.setSelectionRange?.(value.length, value.length); } catch { /* not focusable */ }
+          return;
+        }
+        if (view.tab === day) view.tab = value;
+        if (sheet.back === "days") { openSheetView({ kind: "days" }); render(); return; }
+        await closeSheetView();
+        render();
+        return;
+      }
+      await closeSheetView();
+      if (value === (document.programMeta?.name || "")) return;
+      return userAction([doc => receipt(editProgramName(doc, value))]);
+    }
+    /* The picker is the lifter's to answer, and may leave for the full library
+       and come back without an answer: only the staging joins the queue. */
+    /** @param {string} day */
+    function reviewAdd(day) {
+      return pickForAdd(day).then(entry => entry ? recorded(() => stageAdd(day, entry)) : null);
+    }
+    /* #445: a name typed in the open rename sheet is an unsaved edit until Save. Browser Back
+       does not blur it first, so the host asks about it through isDirty, and Apply saves it. */
+    function pendingRename() {
+      const sheet = view.sheet;
+      if (sheet?.kind !== "rename") return null;
+      const value = String(renameInput()?.value ?? sheet.inputValue ?? "").trim();
+      const current = sheet.target === "day" ? titleForDay(sheet.day || "") : String(document.programMeta?.name || "");
+      return value && value !== current && !(sheet.target === "day" && value === sheet.day) ? value : null;
+    }
+    /** @returns {Promise<boolean>} */
+    async function flushPendingRename() {
+      if (heldRename) {
+        // Back set the sheet aside; a refused name is held again with its reason.
+        const held = heldRename;
+        heldRename = null;
+        return (await saveRename(held)) !== false;
+      }
+      if (!pendingRename()) return true;
+      await saveRename();
+      // A refused name keeps the sheet open with its reason; Apply waits for it.
+      return view.sheet?.kind === "rename" ? false : true;
+    }
+    /** Browser Back over a typed, unsaved name: keep the text, close the sheet so the host can ask. */
+    function holdPendingRename() {
+      const value = pendingRename(), sheet = view.sheet;
+      if (!value || !sheet) return null;
+      heldRename = { target: sheet.target || "program", day: sheet.day, value };
+      return closeSheetView();
+    }
+    function resumePendingRename() {
+      if (!heldRename) return;
+      const held = heldRename;
+      heldRename = null;
+      openSheetView({ kind: "rename", target: held.target, day: held.day, inputValue: held.value, ...(held.error ? { error: held.error } : {}) },
+        { focus: '[data-role="rename-input"]' });
+    }
+    /** Resolves once no modal (the picker, say) is open or closing.
+        @returns {Promise<void>} */
+    function afterModals() {
+      return new Promise(resolve => {
+        try { if (typeof adapter.afterModal === "function") { adapter.afterModal(() => resolve()); return; } } catch { /* resolve now */ }
+        resolve();
+      });
+    }
+    function requestApply() {
+      if (validation(document).length) { render(); return; }
+      try { if (typeof adapter.done === "function") { adapter.done(); return; } } catch { /* fall through */ }
+      apply();
+    }
+
+    /** The element under an event that matches `selector`, as an HTML element. */
+    /** @param {EventTarget|null} target @param {string} selector @returns {HTMLElement|null} */
+    const closestHtml = (target, selector) => {
+      const found = target instanceof root.Element ? target.closest(selector) : null;
+      return found instanceof root.HTMLElement ? found : null;
+    };
+    /** @param {ParentNode|null|undefined} scope @param {string} selector */
+    const focusIn = (scope, selector) => {
+      const found = scope?.querySelector(selector);
+      if (found instanceof root.HTMLElement) { try { found.focus({ preventScroll: true }); } catch { /* not focusable */ } return true; }
+      return false;
+    };
+    /** @param {MouseEvent} event */
+    function onReviewClick(event) {
+      /** @param {string} selector */
+      const hit = selector => closestHtml(event.target, selector);
+      let el;
+      if ((el = hit('[data-role="day-tab"]'))) { view.tab = el.dataset.day || null; view.reorderDay = null; render(); focusIn(host, `[data-role="day-tab"][data-day="${cssEscape(view.tab || "")}"]`); return; }
+      if (hit('[data-role="undo"]')) { undoLast(); return; }
+      if (hit('[data-role="apply"]')) { requestApply(); return; }
+      if (hit('[data-role="program-name-edit"]')) { openSheetView({ kind: "rename", target: "program" }, { focus: '[data-role="rename-input"]' }); return; }
+      if ((el = hit('[data-role="day-name-edit"]'))) { openSheetView({ kind: "rename", target: "day", day: el.dataset.day }, { focus: '[data-role="rename-input"]' }); return; }
+      if ((el = hit('[data-role="day-menu"]'))) { openSheetView({ kind: "day-menu", day: el.dataset.day }); return; }
+      if ((el = hit('[data-role="add-exercise"]'))) { reviewAdd(el.dataset.day || ""); return; }
+      if (hit('[data-role="reorder-done"]')) { view.reorderDay = null; render(); focusIn(host, '[data-role="day-menu"]'); return; }
+      if ((el = hit('[data-role="reorder-move"]'))) {
+        const exercise = exerciseById(el.dataset.id), delta = Number(el.dataset.delta);
+        if (!exercise) return;
+        const list = exercisesFor(document, exercise.day), index = list.findIndex(item => item.id === exercise.id), to = index + delta;
+        if (to < 0 || to >= list.length) return;
+        recorded(() => moveExercise(exercise.id, exercise.day, to, { announce: false })).then(() => {
+          focusIn(host, `[data-role="reorder-move"][data-id="${cssEscape(exercise.id)}"][data-delta="${delta}"]:not([disabled])`) ||
+            focusIn(host, `[data-role="reorder-move"][data-id="${cssEscape(exercise.id)}"][data-delta="${-delta}"]`);
+        });
+        return;
+      }
+      if ((el = hit('[data-role="exercise-row"]'))) openSheetView({ kind: "exercise", id: el.dataset.id });
+    }
+    /** @param {KeyboardEvent} event */
+    function onReviewKey(event) {
+      const row = closestHtml(event.target, '[data-role="exercise-row"]');
+      if (row && event.target === row && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); openSheetView({ kind: "exercise", id: row.dataset.id }); return; }
+      const tab = closestHtml(event.target, '[data-role="day-tab"]');
+      if (tab && (event.key === "ArrowRight" || event.key === "ArrowLeft")) {
+        event.preventDefault();
+        const days = labels(document), index = days.indexOf(view.tab || "") + (event.key === "ArrowRight" ? 1 : -1);
+        if (index < 0 || index >= days.length) return;
+        view.tab = days[index];
+        render();
+        focusIn(host, `[data-role="day-tab"][data-day="${cssEscape(view.tab)}"]`);
+      }
+    }
+    /** @param {MouseEvent} event */
+    function onSheetClick(event) {
+      const sheet = view.sheet;
+      if (!sheet) return;
+      /** @param {string} selector */
+      const hit = selector => closestHtml(event.target, selector);
+      let el;
+      if (hit('[data-role="sheet-done"]')) { closeSheetView(); return; }
+      if (sheet.kind === "rename") { if (hit('[data-role="rename-save"]')) saveRename(); return; }
+      if (sheet.kind === "days") {
+        if ((el = hit('[data-role="day-move"]'))) {
+          const day = el.dataset.day || "", delta = Number(el.dataset.delta), index = labels(document).indexOf(day);
+          moveDay(day, index + delta, { focus: `[data-role="day-move"][data-day="${cssEscape(day)}"][data-delta="${delta}"]:not([disabled])` });
+          return;
+        }
+        if ((el = hit('[data-role="days-rename"]'))) { openSheetView({ kind: "rename", target: "day", day: el.dataset.day, back: "days" }, { focus: '[data-role="rename-input"]' }); return; }
+        if (hit('[data-role="days-add"]')) {
+          userAction([doc => {
+            const next = clone(doc), added = appendDay(next);
+            return { next, edit: intent("day_add", { targetDay: added, after: added }) };
+          }]);
+        }
+        return;
+      }
+      if (sheet.kind === "day-menu") {
+        const action = hit('[data-role="day-action"]')?.dataset.action, day = sheet.day || "";
+        if (!action) return;
+        if (action === "rename") { openSheetView({ kind: "rename", target: "day", day }, { focus: '[data-role="rename-input"]' }); return; }
+        if (action === "days") { openSheetView({ kind: "days" }, { focus: '[data-role="day-move"]:not([disabled])' }); return; }
+        if (action === "reorder") { closeSheetView().then(() => { view.tab = day; view.reorderDay = day; render(); focusIn(host, '[data-role="reorder-move"]:not([disabled])'); }); return; }
+        if (action === "add") { closeSheetView().then(() => reviewAdd(day)); return; }
+        if (action === "add-day") {
+          afterSheet(async () => {
+            /** @type {string|null} */
+            let added = null;
+            await userActionTask([doc => {
+              const next = clone(doc), label = appendDay(next);
+              added = label;
+              return { next, edit: intent("day_add", { targetDay: label, after: label }) };
+            }]);
+            if (added && labels(document).includes(added)) view.tab = added;
+          });
+          return;
+        }
+        if (action === "remove-day") {
+          if (typeof adapter.confirm === "function" && !adapter.confirm({ kind: "day_remove", day })) return;
+          afterSheet(() => userActionTask([doc => {
+            const next = clone(doc);
+            removeDayFromDocument(next, day);
+            return { next, edit: intent("day_remove", { targetDay: day }) };
+          }]));
+        }
+        return;
+      }
+      const exercise = exerciseById(sheet.id);
+      if (!exercise) return;
+      if (sheet.kind === "weeks") {
+        if (hit('[data-role="weeks-back"]')) { openSheetView({ kind: "exercise", id: exercise.id }, { focus: '[data-role="weeks-open"]' }); return; }
+        if ((el = hit('[data-role="week-row"]'))) {
+          const index = Number(el.dataset.cycleIndex);
+          view.sheet = { ...sheet, open: sheet.open === index ? null : index };
+          paintSheet();
+          focusIn(sheetParts()?.body, `[data-role="week-row"][data-cycle-index="${index}"]`);
+          return;
+        }
+        if ((el = hit('[data-role="week-sets"]'))) { stepWeekSets(exercise, Number(el.dataset.cycleIndex), Number(el.dataset.delta)); return; }
+        if ((el = hit('[data-role="week-match"]'))) { matchWeek(exercise, Number(el.dataset.cycleIndex)); return; }
+        return;
+      }
+      if (sheet.kind === "swap") {
+        if (hit('[data-role="swap-back"]')) { openSheetView({ kind: "exercise", id: exercise.id }, { focus: '[data-role="swap-open"]' }); return; }
+        if (hit('[data-role="swap-more"]')) { view.sheet = { ...sheet, showAll: true }; paintSheet(); return; }
+        if ((el = hit('[data-role="swap-choice"]'))) { swapTo(exercise, el.dataset.exerciseId || ""); return; }
+        if (hit('[data-role="swap-search"]')) {
+          closeSheetView().then(() => pickReplacement(exercise.id))
+            .then(choice => choice ? recorded(() => stageReplacement(exercise.id, choice)) : null);
+        }
+        return;
+      }
+      if ((el = hit('[data-role="sets-step"]'))) { stepSets(exercise, Number(el.dataset.delta)); return; }
+      if ((el = hit('[data-role="range-step"]'))) { const bound = el.dataset.bound; if (bound === "min" || bound === "max") stepRange(exercise, bound, Number(el.dataset.delta)); return; }
+      if ((el = hit('[data-role="rir-step"]'))) { stepRir(exercise, Number(el.dataset.setIndex), Number(el.dataset.delta)); return; }
+      if ((el = hit('[data-role="rest-preset"]'))) { setRest(exercise, Number(el.dataset.seconds)); return; }
+      if (hit('[data-role="weeks-open"]')) { openSheetView({ kind: "weeks", id: exercise.id, open: null }, { focus: '[data-role="weeks-back"]' }); return; }
+      if (hit('[data-role="swap-open"]')) { openSheetView({ kind: "swap", id: exercise.id, showAll: false }, { focus: '[data-role="swap-back"]' }); return; }
+      const button = (/** @type {string} */ selector) => { const found = hit(selector); return found instanceof root.HTMLButtonElement ? found : null; };
+      let control;
+      if ((control = button('[data-role="suggest-loads"]'))) { const toggle = control; recorded(() => toggleSuggestLoads(toggle)); return; }
+      if ((el = hit('[data-role="suggest-loads-rir-step"]'))) { stepOptInRir(el.dataset.slotId || "", Number(el.dataset.delta)); return; }
+      if ((control = button('[data-role="execution-mode"]'))) { const mode = control; recorded(() => editExecutionMode(mode)); return; }
+      if (hit('[data-role="add-alternate"]')) {
+        // The picker is its own modal: the sheet steps aside for it and comes back with the choice.
+        closeSheetView()
+          .then(() => pickAlternate(exercise.id))
+          .then(choice => choice ? recorded(() => stageAlternate(exercise.id, choice)) : null)
+          .then(afterModals)
+          .then(() => { if (!destroyed && exerciseById(exercise.id)) openSheetView({ kind: "exercise", id: exercise.id }); });
+        return;
+      }
+      if ((el = hit('[data-role="alternate-up"],[data-role="alternate-down"],[data-role="alternate-remove"]'))) {
+        const exerciseId = el.dataset.exerciseId || "", role = el.dataset.role || "";
+        recorded(() => editAlternate(exercise.id, exerciseId, role));
+        return;
+      }
+      if ((el = hit('[data-role="move-to-day"]'))) {
+        const day = el.dataset.day || "", name = titleForDay(day);
+        afterSheet(() => recordedTask(() => moveExercise(exercise.id, day, exercisesFor(document, day).length, { announce: false }),
+          { toast: rt("entry.review.toast.moved", { day: name }, `Moved to ${name}.`) }));
+        return;
+      }
+      if (hit('[data-role="remove-exercise"]')) {
+        const name = exerciseDisplayLabel(adapter, exercise);
+        afterSheet(() => recordedTask(() => removeExercise(exercise.id),
+          { toast: rt("entry.review.toast.removed", { name }, `Removed ${name}.`) }));
+      }
+    }
+    /** @param {Event} event */
+    function onSheetChange(event) {
+      if (!view.sheet) return;
+      const input = event.target;
+      if (input instanceof root.HTMLSelectElement) {
+        if (input.dataset.role === "metric-composition") recorded(() => editMetricComposition(input));
+        return;
+      }
+      if (!(input instanceof root.HTMLInputElement) && !(input instanceof root.HTMLTextAreaElement)) return;
+      const role = input.dataset.role;
+      if (input instanceof root.HTMLInputElement) {
+        if (role === "metric-target" || role === "prescription-field") { editCell(input); return; }
+        if (role === "load-step") { recorded(() => editLoadStep(input)); return; }
+      }
+      if (role === "exercise-field") {
+        const field = input.dataset.field || "", id = input.dataset.id || "", text = String(input.value || "");
+        const exercise = exerciseById(id);
+        if (field === "name" && !text.trim()) { if (exercise) input.value = exerciseName(adapter, exercise); return; }
+        recorded(() => setExerciseField(id, field, ["name", "notes", "primary", "secondary"].includes(field) ? text.trim() : text, { redraw: false }));
+      }
+    }
+    /** @param {KeyboardEvent} event */
+    function onSheetKey(event) {
+      const target = event.target instanceof root.HTMLElement ? event.target : null;
+      if (view.sheet?.kind === "rename" && event.key === "Enter" && target?.dataset.role === "rename-input") { event.preventDefault(); saveRename(); return; }
+      if (target && event.key === "Enter" && (target.dataset.role === "metric-target" || target.dataset.role === "prescription-field" || target.dataset.role === "load-step")) {
+        event.preventDefault();
+        target.blur();
+      }
+    }
+    /** @param {Event} event */
+    function onSheetInput(event) {
+      const input = event.target, sheet = view.sheet;
+      if (sheet?.kind !== "rename" || !(input instanceof root.HTMLInputElement) || input.dataset.role !== "rename-input") return;
+      sheet.inputValue = input.value;
+      if (!sheet.error) return;
+      sheet.error = null;
+      input.removeAttribute("aria-invalid");
+      input.removeAttribute("aria-describedby");
+      sheetParts()?.body?.querySelector("#programEditorRenameError")?.remove();
+    }
+    /* The handle drag of onboarding's reorder list, for the days: the row follows
+       the pointer, the rows it passes make room, the drop is one day_move. The
+       arrows are the accessible path to the same move. */
+    /** @type {{id:number,row:HTMLElement,rows:HTMLElement[],from:number,to:number,y0:number,h:number}|null} */
+    let dayDrag = null;
+    /** @param {PointerEvent} event */
+    function onSheetPointerDown(event) {
+      const handle = closestHtml(event.target, '[data-role="day-handle"]');
+      if (!handle || view.sheet?.kind !== "days") return;
+      const list = handle.closest('[data-role="days-list"]'), row = closestHtml(handle, '[data-role="days-row"]');
+      if (!list || !row) return;
+      event.preventDefault();
+      // The sheet's drag-to-dismiss listens on the document; a day drag is not a dismiss.
+      event.stopPropagation();
+      const rows = [.../** @type {NodeListOf<HTMLElement>} */ (list.querySelectorAll('[data-role="days-row"]'))];
+      dayDrag = { id: event.pointerId, row, rows, from: rows.indexOf(row), to: rows.indexOf(row), y0: event.clientY, h: row.offsetHeight || 1 };
+      row.classList.add("is-lifted");
+      handle.setPointerCapture?.(event.pointerId);
+    }
+    /** @param {PointerEvent} event */
+    function onSheetPointerMove(event) {
+      const drag = dayDrag;
+      if (!drag || event.pointerId !== drag.id) return;
+      const dy = event.clientY - drag.y0;
+      drag.row.style.transform = `translate3d(0,${dy}px,0)`;
+      drag.to = Math.max(0, Math.min(drag.rows.length - 1, drag.from + Math.round(dy / drag.h)));
+      drag.rows.forEach((row, index) => {
+        if (row === drag.row) return;
+        const shift = drag.from < drag.to && index > drag.from && index <= drag.to ? -drag.h
+          : drag.from > drag.to && index < drag.from && index >= drag.to ? drag.h : 0;
+        row.style.transform = shift ? `translate3d(0,${shift}px,0)` : "";
+      });
+    }
+    /** @param {PointerEvent} event */
+    function onSheetPointerUp(event) {
+      if (!dayDrag || event.pointerId !== dayDrag.id) return;
+      const { rows, row, from, to } = dayDrag;
+      dayDrag = null;
+      rows.forEach(item => { item.style.transform = ""; });
+      row.classList.remove("is-lifted");
+      if (event.type === "pointercancel" || to === from) return;
+      moveDay(row.dataset.day || "", to);
+    }
+    /** @type {HTMLElement|null} */
+    let reviewSheetEl = null;
+    function mountReviewLayout() {
+      host.addEventListener("click", onReviewClick);
+      host.addEventListener("keydown", onReviewKey);
+      reviewSheetEl = sheetParts()?.el || null;
+      reviewSheetEl?.addEventListener("click", onSheetClick);
+      reviewSheetEl?.addEventListener("change", onSheetChange);
+      reviewSheetEl?.addEventListener("keydown", onSheetKey);
+      reviewSheetEl?.addEventListener("input", onSheetInput);
+      reviewSheetEl?.addEventListener("pointerdown", onSheetPointerDown);
+      reviewSheetEl?.addEventListener("pointermove", onSheetPointerMove);
+      reviewSheetEl?.addEventListener("pointerup", onSheetPointerUp);
+      reviewSheetEl?.addEventListener("pointercancel", onSheetPointerUp);
+    }
+    function unmountReviewLayout() {
+      host.removeEventListener("click", onReviewClick);
+      host.removeEventListener("keydown", onReviewKey);
+      reviewSheetEl?.removeEventListener("click", onSheetClick);
+      reviewSheetEl?.removeEventListener("change", onSheetChange);
+      reviewSheetEl?.removeEventListener("keydown", onSheetKey);
+      reviewSheetEl?.removeEventListener("input", onSheetInput);
+      reviewSheetEl?.removeEventListener("pointerdown", onSheetPointerDown);
+      reviewSheetEl?.removeEventListener("pointermove", onSheetPointerMove);
+      reviewSheetEl?.removeEventListener("pointerup", onSheetPointerUp);
+      reviewSheetEl?.removeEventListener("pointercancel", onSheetPointerUp);
+      reviewSheetEl = null;
+      hideToast();
+      if (view.sheet) { view.sheet = null; try { adapter.closeSheet?.(); } catch { /* already closed */ } }
+    }
+
+    if (reviewLayout) mountReviewLayout();
+
     render();
     return {
       refresh,
-      dispose() { destroyed = true; teardownSorting(); if (statusTimer) clearTimeout(statusTimer); if(settleTimer)clearTimeout(settleTimer); host.classList.remove("program-editor-host"); host.dataset.editorMounted = "false"; host.replaceChildren(); },
+      dispose() { destroyed = true; if (reviewLayout) unmountReviewLayout(); teardownSorting(); if (statusTimer) clearTimeout(statusTimer); if(settleTimer)clearTimeout(settleTimer); host.classList.remove("program-editor-host"); host.dataset.editorMounted = "false"; host.replaceChildren(); },
       getDocument: () => clone(document),
       getToken: () => clone(token),
-      isDirty: () => edits.length > 0 || changed() || pendingNameEdit(),
+      isDirty: () => edits.length > 0 || changed() || pendingNameEdit() || (reviewLayout && (!!pendingRename() || !!heldRename)),
+      holdPendingRename: () => (reviewLayout ? holdPendingRename() : null),
+      resumePendingRename: () => { if (reviewLayout) resumePendingRename(); },
       validationIssues: () => validation(document),
       checkSuggestLoads,
       commit: apply,

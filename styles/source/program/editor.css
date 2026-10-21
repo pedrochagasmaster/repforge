@@ -355,40 +355,87 @@
   padding-inline:clamp(4px,calc(28px - .75em),16px)
 }
 
-/* The installed editor reference is a full-width bottom bar. It deliberately
-   drops the overview's floating dock treatment while editing, so the four
-   destinations remain quiet text-and-icon actions and Program is marked only
-   by its orange ink. */
-body:has(#program.program-editor-installed) nav{
-  left:0;right:0;bottom:0;transform:none;width:100%;max-width:none;height:calc(var(--dock-h) + env(safe-area-inset-bottom));
-  padding:6px max(6px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left));
-  border:0;border-top:1px solid var(--boundary-persistent);border-radius:0;background:var(--color-surface);backdrop-filter:none;-webkit-backdrop-filter:none;
-  box-shadow:var(--elevation-program-dock-shadow)
+
+
+/* Plan 074 (ADR 0021): the installed editor in onboarding B's editing language. The rows, tabs, sheet and
+   steppers are onboarding's review classes; these rules only place them in the Program tab and add what
+   onboarding never needed (the week table, the pinned Apply that stands in for the dock). */
+/* The pinned Apply bar's band; a blocked reason above the button makes it taller. The rest pill (#440)
+   and the editor's Undo toast ride above it, and the page reserves both so its end scrolls clear. */
+body:has(#program.program-editor-installed){
+  --editor-apply-reserve:calc(96px + env(safe-area-inset-bottom));
+  padding-bottom:calc(var(--editor-apply-reserve) + var(--space-16) + var(--restbar-reserve,0px))
 }
-/* The flush bar is opaque surface, not glass: it has no rim to catch light. */
-body:has(#program.program-editor-installed) nav::before{display:none}
-body:has(#program.program-editor-installed) #programEditor{padding-bottom:calc(var(--nav) + env(safe-area-inset-bottom))}
-body:has(#program.program-editor-installed) nav button,
-body:has(#program.program-editor-installed) nav button.active{border-radius:0;background:transparent;box-shadow:none}
-body:has(#program.program-editor-installed) nav button.active{
-  border-radius:var(--radius-pill);background:var(--control-selection-active-bg);
-  box-shadow:var(--elevation-selected-shadow)
+body:has(#program.program-editor-installed):has(.program-editor-a__reason){--editor-apply-reserve:calc(128px + env(safe-area-inset-bottom))}
+body:has(#program.program-editor-installed) .restbar{bottom:var(--editor-apply-reserve)}
+body:has(#program.program-editor-installed) .review-toast{bottom:calc(var(--editor-apply-reserve) + var(--restbar-reserve,0px))}
+body:has(#program.program-editor-installed) nav{display:none}
+.pagehead__cancel{flex:none;margin-top:4px}
+.program-editor-installed .pagehead{align-items:center}
+.program-editor-installed .pagehead__titles{flex:1;min-width:0}
+.program-editor-installed .pagehead .page-title{font-size:var(--font-size-body);font-weight:var(--weight-semibold)}
+.program-editor-a{display:flex;flex-direction:column;gap:0}
+.program-editor-a__title{margin:0}
+.program-editor-a__facts{margin:var(--space-4) 0 var(--space-14)}
+.program-editor-a__hint{padding-top:var(--space-14);border-top:1px solid var(--boundary-decorative)}
+/* Figures in Plex Mono, words in the language font (decision 2). */
+.program-editor-a .review__reps,.program-editor-a .review__rir,.review-sheet [data-role="set-reps"],
+.review-sheet .program-editor-a__weeksum{font-family:var(--font-language)}
+.program-editor-a .num,.review-sheet [data-role="set-reps"] .num,.review-sheet .program-editor-a__weeksum .num{font-family:var(--font-training-data)}
+.program-editor-a__bar{
+  position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;flex-direction:column;gap:var(--space-8);
+  padding:var(--space-12) var(--gut) calc(var(--space-12) + env(safe-area-inset-bottom));
+  background:var(--bg);border-top:1px solid var(--boundary-persistent);box-shadow:var(--elevation-persistent-shadow)
 }
-/* In the editor bar the active button keeps painting its whole selected paint at rest (the fill, the 2px inset ring
-   and the 1px border are one box there, and a second box over it would not land on the same pixels). The lens
-   wears that paint only while it is in the air: it sits on the button's layout box (no translate, so it snaps to
-   the pixel grid as the button does), is hidden at rest, and the destination button sets its own aside while
-   the lens is visible, so there is one selected paint on screen. */
-body:has(#program.program-editor-installed) .dock-lens{
-  left:var(--lens-x,0);top:var(--lens-y,0);translate:none;visibility:hidden;
-  border:1px solid var(--boundary-selected);
-  background:var(--control-selection-active-bg);
-  box-shadow:var(--elevation-selected-shadow)
-}
-body:has(#program.program-editor-installed) nav[data-lens=travel] .dock-lens{visibility:visible}
-body:has(#program.program-editor-installed) .dock-lens::after,
-body:has(#program.program-editor-installed) nav[data-lens=travel] .dock-lens::after{display:none}
-body:has(#program.program-editor-installed) nav[data-lens=travel] button.active{background:transparent;box-shadow:none}
+.program-editor-a__bar .btn{width:100%}
+.program-editor-a__reason{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink)}
+/* The Suggest loads switch is ink, not orange (decision 4). */
+.program-editor-a__switch[aria-checked="true"]::before{background:var(--ink)}
+.program-editor-a__line{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--space-12);min-height:var(--control-target);padding:var(--space-8) 0}
+.program-editor-a__loadstep .program-editor__metric-field{display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);width:100%}
+.program-editor-a__loadstep input{width:6.5rem;min-height:var(--control-target);padding:var(--space-8) var(--space-12);border:1px solid var(--control-adjustment-boundary);border-radius:var(--radius-control);background:var(--surface);font-family:var(--font-training-data);font-size:var(--font-size-control);text-align:right;color:var(--color-ink)}
+.program-editor-a__loadstep .program-editor__hint{margin:0;width:100%}
+.program-editor-a__loadstep .program-editor__metric-field>span{font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);letter-spacing:normal;text-transform:none;color:var(--color-ink)}
+.program-editor-a__mode{display:flex;flex-direction:column;gap:var(--space-8);padding-top:var(--space-8)}
+.program-editor-a__navrow{display:flex;align-items:center;gap:var(--space-12);width:100%;min-height:var(--control-target);padding:var(--space-8) 0;border:0;background:none;text-align:left;color:var(--color-ink);cursor:pointer}
+.program-editor-a__navrow:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-control)}
+.program-editor-a__navrow>.icon-mask{flex:none;color:var(--ink-faint)}
+.program-editor-a__navtext{flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--space-4)}
+.program-editor-a__navtext .review-sheet__note{margin:0}
+.program-editor-a__navaction{flex:none;font-family:var(--font-language);font-size:var(--font-size-body-small);color:var(--color-ink)}
+.program-editor-a__back{display:inline-flex;align-items:center;gap:var(--space-4);min-height:var(--control-target);padding:0;margin-bottom:var(--space-4)}
+.program-editor-a__week{border-bottom:1px solid var(--boundary-decorative)}
+.program-editor-a__week.is-open{background:var(--well);margin:0 -16px;padding:0 16px}
+.program-editor-a__weekrow{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:var(--space-12);width:100%;min-height:56px;padding:var(--space-8) 0;border:0;background:none;text-align:left;color:var(--color-ink);font-family:var(--font-language);font-size:var(--font-size-body);cursor:pointer}
+.program-editor-a__weekrow:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px;border-radius:var(--radius-control)}
+.program-editor-a__weekrow>.icon-mask{color:var(--ink-faint)}
+.program-editor-a__weekname{display:inline-flex;align-items:center;flex-wrap:wrap;gap:var(--space-8)}
+.program-editor-a__week.is-open .program-editor-a__weekname{font-weight:var(--weight-semibold)}
+.program-editor-a__weeksum{justify-self:end;text-align:right;font-size:var(--font-size-body-small);color:var(--color-ink-secondary)}
+.program-editor-a__weekbody{padding:0 0 var(--space-14)}
+.program-editor-a__grid{display:grid;grid-template-columns:28px repeat(var(--program-editor-a-columns,3),minmax(0,1fr));gap:var(--space-8);align-items:center}
+.program-editor-a__th{display:flex;align-items:flex-end;min-height:28px;font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-medium);letter-spacing:.06em;text-transform:uppercase;color:var(--color-ink-secondary)}
+.program-editor-a__setn{color:var(--color-ink-secondary)}
+.program-editor-a__cell{width:100%;min-width:0;min-height:var(--control-target);padding:var(--space-8) var(--space-4);border:1px solid var(--control-adjustment-boundary);border-radius:var(--radius-control);background:var(--surface);font-family:var(--font-training-data);font-size:var(--font-size-control);text-align:center;color:var(--color-ink)}
+.program-editor-a__cell::placeholder{font-family:var(--font-language);color:var(--color-ink-secondary)}
+.program-editor-a__cell.is-diff{border-color:var(--boundary-selected);box-shadow:var(--elevation-selected-shadow)}
+.program-editor-a__cell:focus-visible{outline:var(--control-focus-outline);outline-offset:1px}
+.program-editor-a__cell[aria-invalid="true"]{border-color:var(--color-danger,var(--color-warning))}
+.program-editor-a__weektools{display:flex;flex-wrap:wrap;gap:var(--space-18);margin-top:var(--space-8)}
+.program-editor-a__weektools .text-link,.program-editor-a__weekbody>.text-link{display:inline-flex;align-items:center;gap:var(--space-8);min-height:var(--control-target);padding:0}
+.program-editor-a__details>summary{min-height:var(--control-target);display:flex;align-items:center;cursor:pointer;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);color:var(--color-ink)}
+.program-editor-a__details .field{margin-top:var(--space-12)}
+.program-editor-a__details .program-editor__metric-composition{display:flex;flex-direction:column;gap:var(--space-8);margin-top:var(--space-12)}
+.program-editor-a__num{width:4.5rem;text-align:center}
+.program-editor-a .review__handle{border:0;background:none;padding:0;border-radius:var(--radius-control)}
+/* A drag by the handle must not select the names it passes over. */
+.program-editor-a [data-role="reorder-list"]{-webkit-user-select:none;user-select:none}
+.program-editor-a__days .review__handle{border:0;background:none;padding:0}
+.program-editor-a__dayrename{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:var(--space-4);min-height:var(--control-target);padding:0;border:0;background:none;text-align:left;color:var(--color-ink);cursor:pointer}
+.program-editor-a__dayrename .review-sheet__note{margin:0}
+.program-editor-a__dayrename:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-control)}
+.program-editor-a__days{-webkit-user-select:none;user-select:none}
+.program-editor-a .review__handle:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 
 .program-editor-leave{
   width:min(calc(100% - 32px),420px);padding:24px;border:1px solid var(--boundary-modal);
