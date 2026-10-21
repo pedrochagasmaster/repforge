@@ -2871,6 +2871,11 @@ body:has(#program.program-editor-installed) nav{display:none}
 .program-editor-a .review__handle{border:0;background:none;padding:0;border-radius:var(--radius-control)}
 /* A drag by the handle must not select the names it passes over. */
 .program-editor-a [data-role="reorder-list"]{-webkit-user-select:none;user-select:none}
+.program-editor-a__days .review__handle{border:0;background:none;padding:0}
+.program-editor-a__dayrename{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:var(--space-4);min-height:var(--control-target);padding:0;border:0;background:none;text-align:left;color:var(--color-ink);cursor:pointer}
+.program-editor-a__dayrename .review-sheet__note{margin:0}
+.program-editor-a__dayrename:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-control)}
+.program-editor-a__days{-webkit-user-select:none;user-select:none}
 .program-editor-a .review__handle:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 
 .program-editor-leave{
