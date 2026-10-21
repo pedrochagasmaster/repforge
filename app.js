@@ -14979,18 +14979,25 @@ function freeformAppHref(app,program=freeformProgram()){
 
 /* Candidate JSON values inside a chat reply, so "Here you go:" and a fenced
    block cost nobody an import. Fenced blocks first, then every balanced
-   top-level object or array, bounded like any other import. */
+   top-level object or array, bounded like any other import. Each candidate is
+   whole: a fence body, or a root that never closes, is kept as one candidate
+   so its nested pieces can never import on their own. A backslash pasted just
+   before a root stays in it, so the illegal escape fails to parse. */
 function freeformJsonCandidates(text){
-  const out=[];
-  const fence=/```(?:json)?\s*([\s\S]*?)```/gi;
-  for(let match;(match=fence.exec(text))!==null;){
+  const out=[],fences=[];
+  const fence=/```(?:json)?\s*([\s\S]*?)(?:```|$)/gi;
+  for(let match;out.length<FREEFORM_JSON_CANDIDATES&&(match=fence.exec(text))!==null;){
+    fences.push([match.index,fence.lastIndex]);
     const body=match[1].trim();
     if(body)out.push(body)}
   const closers={"{":"}","[":"]"};
   for(let i=0;i<text.length&&out.length<FREEFORM_JSON_CANDIDATES;i++){
+    const inFence=fences.find(([start,end])=>i>=start&&i<end);
+    if(inFence){i=inFence[1]-1;continue}
     const open=text[i],close=closers[open];
     if(!close)continue;
-    let depth=0,inString=false,escaped=false;
+    const start=text[i-1]==="\\"?i-1:i;
+    let depth=0,inString=false,escaped=false,closed=false;
     for(let j=i;j<text.length;j++){
       const ch=text[j];
       if(inString){
@@ -15000,7 +15007,8 @@ function freeformJsonCandidates(text){
         continue}
       if(ch==='"'){inString=true;continue}
       if(ch===open)depth++;
-      else if(ch===close&&--depth===0){out.push(text.slice(i,j+1));i=j;break}}}
+      else if(ch===close&&--depth===0){out.push(text.slice(start,j+1));i=j;closed=true;break}}
+    if(!closed){out.push(text.slice(start));break}}
   return out}
 function extractNotImported(obj){
   if(!obj||typeof obj!=="object")return[];
@@ -15200,15 +15208,12 @@ function parseFreeformProgramReply(text){
 
   // A syntax error is not an invalid exercise. Keep them separate so a pasted
   // Markdown-escaped bracket (e.g. \\[) asks for a clean copy, not invented sets.
-  // Do not repair punctuation silently; only parseProgramSource can accept rows.
-  const trimmed=raw.trim();
-  const fenced=trimmed.match(/```(?:json)?\s*([\s\S]*?)(?:```|$)/i)?.[1]?.trim();
-  const candidate=/^[\[{]/.test(trimmed)?trimmed:
-    fenced&&/^[\[{]/.test(fenced)?fenced:
-    candidates.find(value=>/^\s*[\[{]/.test(value));
-  const looksLikeJson=/^[\[{]/.test(trimmed)||/^```(?:json)?/i.test(trimmed);
-  const invalidJson=candidate?boundedImportJson(candidate)===null:looksLikeJson;
-  return{status:"unreadable",reason:invalidJson?"invalid_json":candidates.length?"invalid_rows":"no_json"};}
+  // Diagnosis only: parsing here never accepts anything, and nothing is repaired.
+  const syntaxBroken=value=>{try{JSON.parse(value);return false}catch{return true}};
+  const reason=candidates.some(syntaxBroken)?"invalid_json"
+    :candidates.length?"invalid_rows"
+    :/^\s*```/.test(raw)?"invalid_json":"no_json";
+  return{status:"unreadable",reason};}
 
 /* A repair prompt that names what actually broke. Missing numbers are no longer
    a failure — they go to the gap step — so what is left is structural, and the
