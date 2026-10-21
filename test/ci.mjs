@@ -1,21 +1,63 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import test from "node:test";
-import { BROWSER_LANES, CI_SHARDS, SUITES, SUPPORT, UI_SYSTEM_SHARDS, VISUAL_SHARDS, browserEntries, commandArgs, inventoryErrors, parseShard, shardSuites, suiteId, suiteSeconds } from "./suites.mjs";
+import { BROWSER_LANES, CI_SHARDS, FULL_SHARDS, FULL_SUITES, INVENTORY, SUITES, SUPPORT, UI_SYSTEM_SHARDS, VISUAL_SHARDS, browserEntries, commandArgs, inventoryErrors, parseShard, shardSuites, suiteId, suiteSeconds } from "./suites.mjs";
 import { changedFiles, selectVisuals } from "../tools/ci-selection.mjs";
-import { classifyChange, gateResults, pullRequestFiles, resolvePlan, shardMatrix } from "../tools/ci-plan.mjs";
+import { classifyChange, gateFullResults, gateResults, mergeFullUiSystemReports, pullRequestFiles, resolvePlan, shardMatrix } from "../tools/ci-plan.mjs";
 import { findShardReports, mergeShardReports, shardCaptures } from "../tools/ui-system-core.mjs";
 import { mergeUiSystemReports } from "../tools/ci-plan.mjs";
+import { criticalCaptures, validateCriticalReport } from "../tools/critical-ui.mjs";
 import { selectCaptures, verifyCatalog } from "../tools/capture-ui-screens.mjs";
 import { captureKey, capturePath, expandCaptures, loadManifest } from "../tools/ui-screens/manifest.mjs";
 import { domainsForAppDiff } from "../tools/visual-domains.mjs";
 import { stabilizeShareUrlForCapture } from "../tools/ui-screens/screens-app.mjs";
 import { changedFilesForTests, changedFilesForEdit, changedFilesForPacket, selectAffected, selectEdit, selectPacket } from "../tools/test-selection.mjs";
 import { execute, maybeStartLocalPreview, runLane, shardPlan } from "../tools/run-tests.mjs";
+import { summarizeBenchmark } from "../tools/benchmark-tests.mjs";
+
+test("paired benchmark reports complete scope and refuses missing, duplicate, or failed evidence", () => {
+  const inventory = ["fast:a", "service:b", "entry:c", "visual:d"].map(id => ({ id, file: `${id}.mjs` }));
+  const worker = (scope, ids) => ({ scope, base: "a".repeat(40), head: "b".repeat(40), seed: "147443",
+    phases: ["before", "after"].map((phase) => ({ phase, durationMs: phase === "before" ? 100 : 80,
+      inventory, expected: ids, rows: ids.map(id => ({ id, status: "passed", durationMs: phase === "before" ? 90 : 70 })),
+      commandsPassed: true })) });
+  const records = [worker("fast", ["fast:a"]), worker("service", ["service:b"]), worker("1/2", ["entry:c"]), worker("2/2", ["visual:d"])];
+  const gates = { before: { passed: true, durationMs: 0, source: "a".repeat(40) }, after: { passed: true, durationMs: 0, source: "b".repeat(40) } };
+  assert.throws(() => summarizeBenchmark(records, 2), /catalog-wide/);
+  assert.throws(() => summarizeBenchmark(records, 2, { ...gates, before: { ...gates.before, passed: false } }), /catalog-wide/);
+  const summary = summarizeBenchmark(records, 2, gates);
+  assert.equal(summary.before.commands, 4);
+  assert.equal(summary.after.commands, 4);
+  assert.equal(summary.after.files, 4);
+  assert.equal(summary.before.runnerMs, 360);
+  assert.equal(summary.after.runnerMs, 280);
+  assert.equal(summary.before.executionWallMs, 100);
+  assert.equal(summary.after.executionWallMs, 80);
+  assert.equal(summary.runtimeRatio, 0.8);
+  assert.equal(summarizeBenchmark(records, 2, { ...gates, before: { ...gates.before, durationMs: 3 } }).before.executionWallMs, 103);
+  assert.throws(() => summarizeBenchmark(records.slice(1), 2), /scope/);
+  const duplicate = structuredClone(records);
+  duplicate[3].phases[0].rows[0].id = "entry:c";
+  assert.throws(() => summarizeBenchmark(duplicate, 2), /inventory|duplicate/);
+  const omitted = structuredClone(records);
+  omitted[0].phases[1].rows = [];
+  assert.throws(() => summarizeBenchmark(omitted, 2), /inventory/);
+  const failed = structuredClone(records);
+  failed[0].phases[0].rows[0].status = "failed";
+  assert.throws(() => summarizeBenchmark(failed, 2), /passed/);
+  const differentSeed = structuredClone(records);
+  differentSeed[1].seed = "2";
+  assert.throws(() => summarizeBenchmark(differentSeed, 2), /identity/);
+  const missingEverywhere = structuredClone(records);
+  missingEverywhere[0].phases[0].expected = [];
+  missingEverywhere[0].phases[0].rows = [];
+  assert.throws(() => summarizeBenchmark(missingEverywhere, 2), /complete inventory/);
+});
 
 const manifest = { screens: [{ flow: "app", id: "today" }, { flow: "onboarding", id: "start" }] };
 const scratch = (t) => {
@@ -48,12 +90,16 @@ const allCommands = Object.values(SUITES).flat().length;
 // ------------------------------------------------------------------ inventory
 
 test("inventory schedules each command once and classifies support explicitly", () => {
-  const files = [...new Set(Object.values(SUITES).flat().map((s) => s.file))];
+  const files = [...new Set(Object.values(INVENTORY).flat().map((s) => s.file))];
   files.push(...Object.keys(SUPPORT).filter((f) => !f.endsWith("/")));
   assert.deepEqual(inventoryErrors(files), []);
   assert.match(inventoryErrors([...files, "test/forgotten.mjs"]).join("\n"), /Unclassified/);
   assert.match(inventoryErrors(files.filter((f) => f !== "test/shared-setup-unit.mjs")).join("\n"), /Missing suite/);
   assert.match(inventoryErrors(files, { ...SUITES, duplicate: [SUITES.fast[0]] }).join("\n"), /Duplicate command/);
+  assert.match(inventoryErrors(files, { ...INVENTORY, "full-fast": [...FULL_SUITES["full-fast"], SUITES.fast[0]] }).join("\n"), /Duplicate command/,
+    "a command lives in exactly one of the pull-request and full lanes");
+  assert.match(inventoryErrors(files, SUITES).join("\n"), /Unclassified test file: test\/simulation\.mjs/,
+    "full-lane suites are classified by the full inventory, not by being forgotten");
   assert.match(inventoryErrors(files, { hidden: [SUITES.fast[0]] }).join("\n"), /Unknown lane: hidden/,
     "a new inventory lane must not disappear outside the workflow's known execution owners");
   assert.ok(SUITES.fast.some((s) => s.file === "test/shared-setup-unit.mjs"));
@@ -67,8 +113,40 @@ test("inventory schedules each command once and classifies support explicitly", 
   assert.ok(SUITES.fast.some((s) => s.file === "tools/build-i18n.mjs" && s.args.includes("--check")), "generated i18n drift is a CI contract");
 });
 
+test("the ledger places every baseline execution in a lane and records both lanes' counts", () => {
+  const ledger = JSON.parse(readFileSync("docs/test-retirement-ledger.json", "utf8"));
+  assert.match(ledger.baseline, /^[0-9a-f]{40}$/);
+  assert.equal(ledger.entries.length, ledger.baselineCommands);
+  assert.equal(new Set(ledger.entries.map(row => row.baselineCommand)).size, ledger.baselineCommands);
+  const originalFiles = ledger.entries.map(row => row.baselineCommand.split(" ").find(word => word.endsWith(".mjs")));
+  assert.equal(new Set(originalFiles).size, ledger.baselineFiles);
+  const command = (s) => ["node", ...commandArgs(s)].join(" ");
+  const pr = new Set(Object.values(SUITES).flat().map(command));
+  const full = new Set(Object.values(FULL_SUITES).flat().map(command));
+  for (const row of ledger.entries) {
+    assert.ok(["retained", "consolidated", "full"].includes(row.disposition), row.baselineCommand);
+    assert.ok(row.evidence);
+    if (row.disposition === "retained") assert.ok(pr.has(row.baselineCommand), `${row.baselineCommand}: retained but not in the PR lane`);
+    if (row.disposition === "full") {
+      assert.ok(full.has(row.baselineCommand), `${row.baselineCommand}: marked full but not in the full lane`);
+      assert.ok(row.retainedRisk && row.prGuaranteeReduced && row.owners.length);
+    }
+    for (const file of row.owners || []) assert.ok(existsSync(file), `${row.baselineCommand}: missing risk owner ${file}`);
+  }
+  // Nothing the baseline ran disappears: each command is in a lane or consolidated into a named owner.
+  for (const row of ledger.entries) {
+    if (row.disposition === "consolidated") assert.ok(row.owners.every((file) => [...pr, ...full].some((c) => c.includes(file))));
+  }
+  const current = Object.values(SUITES).flat(), fullLane = Object.values(FULL_SUITES).flat();
+  assert.equal(ledger.prCommands, current.length, "the ledger's PR command count matches the inventory");
+  assert.equal(ledger.prFiles, new Set(current.map(s => s.file)).size);
+  assert.equal(ledger.fullCommands, fullLane.length, "the ledger's full-lane command count matches the inventory");
+  assert.equal(ledger.fullFiles, new Set(fullLane.map(s => s.file)).size);
+  assert.ok(current.length <= ledger.baselineCommands / 2, "the PR lane schedules at most half the baseline commands");
+});
+
 test("browser suites use the shared preview origin and never own fixed-port servers", () => {
-  const browserSuites = [...BROWSER_LANES].flatMap((lane) => SUITES[lane]);
+  const browserSuites = [...BROWSER_LANES].flatMap((lane) => INVENTORY[lane] || []);
   for (const suite of browserSuites) {
     assert.equal(suite.env?.REPFORGE_URL, undefined, `${suite.file} must inherit the runner-owned REPFORGE_URL`);
     const source = readFileSync(join(process.cwd(), suite.file), "utf8");
@@ -175,8 +253,84 @@ test("shards partition the whole browser inventory deterministically and evenly"
   assert.throws(() => shardSuites(entries, 0), /positive integer/);
 });
 
-test("the two catalog sweeps are split into inventory commands whose shards cover every render once", () => {
-  const uiSystem = SUITES.workout.filter((suite) => suite.file === "tools/check-ui-system.mjs");
+test("full-lane shards partition every full browser command apart from the PR shards", () => {
+  const entries = browserEntries(FULL_SUITES);
+  assert.ok(entries.length && entries.every(({ lane }) => lane === "full-browser"));
+  const bins = shardSuites(entries, FULL_SHARDS);
+  const ids = bins.flatMap((bin) => bin.entries.map(({ suite }) => JSON.stringify(commandArgs(suite))));
+  assert.deepEqual([...ids].sort(), entries.map(({ suite }) => JSON.stringify(commandArgs(suite))).sort(), "every full browser command lands in exactly one shard");
+  assert.ok(bins.every((bin) => bin.entries.length), "no full shard is empty");
+  const prIds = new Set(browserEntries().map(({ suite }) => JSON.stringify(commandArgs(suite))));
+  assert.equal(ids.some((id) => prIds.has(id)), false, "no command runs in both lanes");
+  const plan = shardPlan({ index: 1, count: FULL_SHARDS }, FULL_SUITES);
+  assert.deepEqual(plan.entries, bins[0].entries);
+  assert.match(plan.reasons.join(" "), /Full-lane browser shard 1\//);
+  assert.ok(FULL_SUITES["full-browser"].some((suite) => suite.file === "test/simulation.mjs" && suite.env?.REPFORGE_SIM_WEEKS === "52"),
+    "the year-long emergent simulation runs in the full lane");
+  for (const file of ["test/direction-d-gate.mjs", "test/rules-only-gate.mjs", "test/accessibility.mjs"]) {
+    assert.ok(FULL_SUITES["full-browser"].some((suite) => suite.file === file), `${file} runs in the full lane`);
+  }
+  assert.ok(FULL_SUITES["full-fast"].every((suite) => !BROWSER_LANES.has("full-fast") && suite.file), "full-fast is a pure-node lane");
+});
+
+test("the entire declared critical matrix is required, with source and failure provenance", (t) => {
+  const keys = criticalCaptures().map(captureKey), source = "a".repeat(40);
+  const report = { schemaVersion: 1, kind: "critical-ui", source, status: "passed",
+    cells: keys.map(key => ({ key, status: "passed", pixelComparison: true, semanticComparison: true,
+      pixelDigest: "b".repeat(64), roleMeasurements: 1, problems: [] })) };
+  const check = r => validateCriticalReport(r, { source, keys });
+  assert.deepEqual(check(report), []);
+  for (const mutate of [
+    r => r.cells.pop(), r => r.cells.push(r.cells[0]), r => r.cells[0].key = "foreign",
+    r => r.source = "foreign", r => r.source = "not-a-sha", r => r.status = "failed", r => r.cells[0].pixelComparison = false,
+    r => r.cells[0].semanticComparison = false, r => r.cells[0].pixelDigest = "",
+    r => r.cells[0].roleMeasurements = 0, r => r.cells[0].problems.push("injected defect"),
+  ]) { const bad = structuredClone(report); mutate(bad); assert.ok(check(bad).length); }
+  const root = scratch(t), dir = join(root, "workout", "test-ui-system-mjs", "initial");
+  mkdirSync(dir, { recursive: true });
+  const path = join(dir, "ui-critical-report.json");
+  assert.ok(mergeUiSystemReports(root, { source, keys }).problems.length);
+  writeFileSync(path, JSON.stringify(report));
+  assert.ok(mergeUiSystemReports(root, { source, keys }).problems.length, "metadata alone cannot stand in for actual frame/execution evidence");
+  const manifest = loadManifest();
+  for (const capture of criticalCaptures(manifest)) {
+    const bytes = readFileSync(capturePath(manifest, capture));
+    const target = capturePath(manifest, capture, join(dir, "frames"));
+    mkdirSync(dirname(target), { recursive: true }); writeFileSync(target, bytes);
+    report.cells.find(c => c.key === captureKey(capture)).pixelDigest = createHash("sha256").update(bytes).digest("hex");
+  }
+  writeFileSync(path, JSON.stringify(report));
+  const evidencePath = join(dir, "..", "evidence.json");
+  const execution = { kind: "browser-contract-execution", result: "passed", source: { head: source, dirty: false }, command: ["node", "test/ui-system.mjs"] };
+  writeFileSync(evidencePath, JSON.stringify(execution));
+  assert.deepEqual(mergeUiSystemReports(root, { source, keys }).problems, []);
+  const pairedReports = scratch(t);
+  symlinkSync(root, join(pairedReports, "0"), "dir");
+  assert.deepEqual(mergeUiSystemReports(pairedReports, { source, keys }).problems, [],
+    "paired benchmark phase directories retain frame and execution evidence through artifact links");
+  const firstFrame = capturePath(manifest, criticalCaptures(manifest)[0], join(dir, "frames"));
+  const originalBytes = readFileSync(firstFrame);
+  writeFileSync(firstFrame, "tampered frame");
+  assert.ok(mergeUiSystemReports(root, { source, keys }).problems.some(p => p.includes("digest mismatch")));
+  writeFileSync(firstFrame, originalBytes);
+  const invalidSource = { ...report, source: "not-a-sha" };
+  writeFileSync(path, JSON.stringify(invalidSource));
+  assert.ok(mergeUiSystemReports(root, { source: "not-a-sha", keys }).problems.length, "matching malformed identities still fail the real gate");
+  writeFileSync(path, JSON.stringify(report));
+  writeFileSync(evidencePath, JSON.stringify({ ...execution, result: "failed" }));
+  assert.ok(mergeUiSystemReports(root, { source, keys }).problems.length);
+  writeFileSync(evidencePath, JSON.stringify(execution));
+  const duplicate = join(root, "duplicate"); mkdirSync(duplicate);
+  writeFileSync(join(duplicate, "ui-critical-report.json"), JSON.stringify(report));
+  assert.ok(mergeUiSystemReports(root, { source, keys }).problems.length);
+  const scheduled = Object.values(SUITES).flat();
+  assert.equal(scheduled.filter(s => s.file === "test/ui-system.mjs").length, 1);
+  assert.equal(scheduled.some(s => ["tools/check-ui-system.mjs", "tools/capture-ui-screens.mjs"].includes(s.file)), false,
+    "the exhaustive sweeps are full-lane commands, not PR evidence");
+});
+
+test("the full lane splits the two catalog sweeps into commands whose shards cover every render once", () => {
+  const uiSystem = FULL_SUITES["full-browser"].filter((suite) => suite.file === "tools/check-ui-system.mjs");
   assert.equal(uiSystem.length, UI_SYSTEM_SHARDS);
   assert.deepEqual(uiSystem.map((suite) => suite.args), Array.from({ length: UI_SYSTEM_SHARDS }, (_, i) => ["--shard", `${i + 1}/${UI_SYSTEM_SHARDS}`]));
   const manifestForRoles = loadManifest();
@@ -189,9 +343,11 @@ test("the two catalog sweeps are split into inventory commands whose shards cove
   assert.throws(() => shardCaptures(renders, parseShard(`${renders.length + 1}/${renders.length + 1}`)), /non-empty shards/);
   assert.deepEqual(shardCaptures(renders, null), renders);
 
-  assert.equal(SUITES.visual.length, VISUAL_SHARDS);
+  const visual = FULL_SUITES["full-browser"].filter((suite) => suite.file === "tools/capture-ui-screens.mjs");
+  assert.equal(visual.length, VISUAL_SHARDS);
+  assert.ok(visual.every((suite) => suite.args[0] === "--verify" && suite.args[1] === "--shard"), "every visual command verifies a shard");
   const frames = expandCaptures(loadManifest());
-  const captured = SUITES.visual.map((suite) => selectCaptures({ shard: parseShard(suite.args[2]) }));
+  const captured = visual.map((suite) => selectCaptures({ shard: parseShard(suite.args[2]) }));
   assert.equal(captured.flat().length, frames.length);
   assert.equal(new Set(captured.flat().map((c) => JSON.stringify(c))).size, frames.length);
   assert.ok(Math.max(...captured.map((c) => c.length)) - Math.min(...captured.map((c) => c.length)) <= 1);
@@ -199,7 +355,7 @@ test("the two catalog sweeps are split into inventory commands whose shards cove
   assert.equal(selectCaptures({}).length, frames.length);
 });
 
-test("UI-system shard reports merge into the catalog-wide never-rendered rule", (t) => {
+test("full-lane UI-system shard reports merge into the catalog-wide never-rendered rule", (t) => {
   const inventory = {
     components: [{ id: "a", selector: ".a" }, { id: "b", selector: ".b", sourceOnly: true }, { id: "c", selector: ".c" }],
     exceptions: [{ selector: ".x" }, { selector: ".y", sourceOnlyReason: "documented" }],
@@ -243,14 +399,14 @@ test("UI-system shard reports merge into the catalog-wide never-rendered rule", 
     problems: 0,
   }));
   for (const [index, report] of perShard.entries()) {
-    const name = `shard-${index}/workout/x-${index}/initial`;
+    const name = `full-shard-${index}/full-browser/x-${index}/initial`;
     mkdirSync(join(root, name), { recursive: true });
     writeFileSync(join(root, name, "ui-system-shard.json"), JSON.stringify(report));
     writeFileSync(join(root, name, "output.log"), "noise");
   }
   assert.equal(findShardReports(root).length, UI_SYSTEM_SHARDS);
   assert.deepEqual(findShardReports(join(root, "missing")), []);
-  const gateMerge = mergeUiSystemReports(root, { inventory, manifest: realManifest });
+  const gateMerge = mergeFullUiSystemReports(root, { inventory, manifest: realManifest });
   assert.equal(gateMerge.shards, UI_SYSTEM_SHARDS, "the gate requires the complete declared sweep");
   assert.equal(gateMerge.problems.some((p) => /never rendered/.test(p)), false);
 
@@ -259,18 +415,18 @@ test("UI-system shard reports merge into the catalog-wide never-rendered rule", 
   // count twice; a re-run that wrote no report must not fall back to the stale one.
   const attempts = scratch(t);
   const writeAttempt = (job, attempt, report) => {
-    const dir = join(attempts, `shard-${job}-${attempt}`, "workout", `x-${job}`, "initial");
+    const dir = join(attempts, `full-shard-${job}-${attempt}`, "full-browser", `x-${job}`, "initial");
     mkdirSync(dir, { recursive: true });
     if (report) writeFileSync(join(dir, "ui-system-shard.json"), JSON.stringify(report));
   };
   for (const [index, report] of perShard.entries()) writeAttempt(index * 2, 1, { ...report, problems: index === 0 ? 3 : 0 });
   writeAttempt(0, 2, perShard[0]);
-  const rerun = mergeUiSystemReports(attempts, { inventory, manifest: realManifest });
+  const rerun = mergeFullUiSystemReports(attempts, { inventory, manifest: realManifest });
   const mergeProblems = (problems) => problems.filter((p) => /duplicates capture key|reported \d+ time|expected \d+ reports|catalog states, expected|reported role problems/.test(p));
   assert.deepEqual(mergeProblems(rerun.problems), [], "a re-run job's report replaces its earlier attempt");
   assert.equal(rerun.shards, UI_SYSTEM_SHARDS);
   writeAttempt(2, 2, null);
-  assert.match(mergeUiSystemReports(attempts, { inventory, manifest: realManifest }).problems.join("\n"), /expected \d+ reports, got \d+/,
+  assert.match(mergeFullUiSystemReports(attempts, { inventory, manifest: realManifest }).problems.join("\n"), /expected \d+ reports, got \d+/,
     "a re-run that wrote no report leaves its shard missing instead of reviving the stale report");
 });
 
@@ -364,6 +520,18 @@ test("pull-request file lists come from the compare API and fail safe when it ca
   assert.equal(manual.head, "d".repeat(40));
 });
 
+test("the full gate requires every full-lane job to succeed", () => {
+  const passed = { plan: { result: "success" }, "full-fast": { result: "success" }, "full-browser": { result: "success" } };
+  assert.doesNotThrow(() => gateFullResults(passed, { log() {} }));
+  assert.throws(() => gateFullResults({ ...passed, "full-browser": { result: "failure" } }, { log() {} }), /full-browser: expected success, got failure/);
+  assert.throws(() => gateFullResults({ ...passed, "full-fast": { result: "skipped" } }, { log() {} }), /full-fast: expected success, got skipped/,
+    "the full lane has no prose shortcut");
+  assert.throws(() => gateFullResults({ ...passed, "full-browser": { result: "cancelled" } }, { log() {} }), /cancelled/);
+  const { "full-browser": _, ...missing } = passed;
+  assert.throws(() => gateFullResults(missing, { log() {} }), /missing required job full-browser/);
+  assert.throws(() => gateFullResults([], { log() {} }), /must be an object/);
+});
+
 test("the gate accepts skipped jobs only when the plan skipped them", () => {
   const fullShards = JSON.stringify(shardMatrix(CI_SHARDS));
   const selected = { plan: { result: "success", outputs: { run: "true", shards: fullShards } }, fast: { result: "success" }, browser: { result: "success" }, service: { result: "success" } };
@@ -388,7 +556,7 @@ test("the gate accepts skipped jobs only when the plan skipped them", () => {
   }
 });
 
-test("the workflow is one sharded matrix behind one aggregate check", () => {
+test("the workflow runs two sharded lanes, each behind its own aggregate check", () => {
   const workflow = readFileSync(join(process.cwd(), ".github/workflows/ci.yml"), "utf8");
   assert.match(workflow, /shard: \$\{\{ fromJSON\(needs\.plan\.outputs\.shards\) \}\}/, "the shard list comes from the inventory, not the YAML");
   assert.match(workflow, /node tools\/run-tests\.mjs shard "\$\{\{ matrix\.shard \}\}" --keep-going/);
@@ -402,9 +570,21 @@ test("the workflow is one sharded matrix behind one aggregate check", () => {
   assert.match(workflow, /needs: \[plan, fast, browser, service\]\n\s+if: always\(\)/, "the gate observes every job");
   const jobsSection = workflow.split(/^jobs:\s*$/m)[1] || "";
   const declaredJobs = [...jobsSection.matchAll(/^  ([a-z][a-z0-9-]*):$/gm)].map(([, name]) => name);
-  const aggregateNeeds = jobsSection.match(/^    needs: \[([^\]]+)\]$/m)?.[1].split(",").map((name) => name.trim()) || [];
-  assert.deepEqual(aggregateNeeds.sort(), declaredJobs.filter((name) => name !== "ci").sort(),
-    "the aggregate waits for every workflow job, including any newly added verification lane");
+  const aggregateNeeds = (name) => jobsSection.slice(jobsSection.indexOf(`\n  ${name}:\n`)).match(/^    needs: \[([^\]]+)\]$/m)?.[1].split(",").map((job) => job.trim()) || [];
+  assert.deepEqual([...new Set([...aggregateNeeds("ci"), ...aggregateNeeds("ci-full")])].sort(), declaredJobs.filter((name) => !["ci", "ci-full"].includes(name)).sort(),
+    "the two aggregates together wait for every workflow job, including any newly added verification lane");
+  assert.deepEqual(aggregateNeeds("ci-full"), ["plan", "full-fast", "full-browser"]);
+  assert.match(workflow, /^  schedule:\n    - cron: "[^"]+"$/m, "the full lane also runs nightly");
+  assert.match(workflow, /^  push:\n    branches: \[main\]$/m, "the full lane runs on every push to main");
+  const fullJobs = ["full-fast", "full-browser"].map((name) => jobsSection.slice(jobsSection.indexOf(`\n  ${name}:\n`) + 1).split(/\n  [a-z]/)[0]);
+  for (const job of fullJobs) assert.match(job, /if: github\.event_name != 'pull_request'/, "the full lane never runs on pull requests");
+  const fullGate = jobsSection.slice(jobsSection.indexOf("\n  ci-full:\n"));
+  assert.match(fullGate, /if: always\(\) && github\.event_name != 'pull_request'/, "a failed full job still reaches the full aggregate");
+  assert.match(fullGate, /node tools\/ci-plan\.mjs gate-full/);
+  assert.match(fullGate, /node tools\/ci-plan\.mjs merge-ui-system-full/);
+  assert.match(workflow, /shard: \$\{\{ fromJSON\(needs\.plan\.outputs\.full_shards\) \}\}/);
+  assert.match(workflow, /node tools\/run-tests\.mjs full-shard "\$\{\{ matrix\.shard \}\}" --keep-going/);
+  assert.match(workflow, /node tools\/run-tests\.mjs full-fast --keep-going/);
   assert.equal((workflow.match(/if: needs\.plan\.outputs\.run == 'true'/g) || []).length >= 3, true, "test jobs obey the plan");
   assert.match(workflow, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}/);
   assert.doesNotMatch(workflow, /expected_sha|simulation-feedback|candidate/, "there is one mode");
@@ -524,9 +704,9 @@ test("substantive or unprovable service-worker changes retain the full SW owner 
 test("affected selection is narrow when proven and fail-safe when it is not", () => {
   assert.equal(selectAffected(["docs/ci.md"]).mode, "none");
   assert.equal(selectAffected(["advisor-plans/README.md"]).mode, "none");
-  const direct = selectAffected(["test/accessibility.mjs"]);
+  const direct = selectAffected(["test/focus-pending-field.mjs"]);
   assert.equal(direct.mode, "selected");
-  assert.ok(direct.entries.some(({ suite }) => suite.file === "test/accessibility.mjs"));
+  assert.ok(direct.entries.some(({ suite }) => suite.file === "test/focus-pending-field.mjs"));
   const runner = selectAffected(["tools/run-tests.mjs"]);
   assert.ok(runner.entries.some(({ suite }) => suite.file === "test/ci.mjs"));
   assert.ok(runner.entries.length < allCommands);
@@ -536,31 +716,37 @@ test("affected selection is narrow when proven and fail-safe when it is not", ()
   assert.deepEqual(lanes(telemetry), ["fast", "privacy"]);
   const telemetryFixture = selectAffected(["test/fixtures/telemetry.mjs"]);
   assert.equal(telemetryFixture.mode, "selected");
-  assert.deepEqual(suiteFiles(telemetryFixture), ["test/telemetry-leakage.mjs", "test/telemetry-runtime.mjs", "test/telemetry-unit.mjs"]);
+  assert.deepEqual(suiteFiles(telemetryFixture), ["test/telemetry-leakage.mjs", "test/telemetry-unit.mjs"]);
   const generativeProperty = selectAffected(["test/generative/properties/malformed-inputs.mjs"]);
   assert.equal(generativeProperty.mode, "selected");
   assert.deepEqual(suiteFiles(generativeProperty), ["test/generative/run.mjs", "test/generative/self-test.mjs"]);
   const captureScenario = selectAffected(["tools/ui-screens/screens-app.mjs"]);
   assert.equal(captureScenario.mode, "selected");
-  assert.deepEqual(suiteFiles(captureScenario),
-    ["test/ci.mjs", "test/direction-d-gate.mjs", "test/focus-geometry.mjs", "test/focus-session-sheet.mjs", "test/focus-space-summary.mjs", "test/manual-load-carry.mjs", "test/rules-only-gate.mjs", "test/shell-chrome-clearance.mjs", "test/ui-catalog-contract.mjs", "test/ui-plan-050-editor.mjs", "test/ui-screens.mjs", "test/ui-system.mjs", "tools/capture-ui-screens.mjs", "tools/check-ui-screens.mjs", "tools/check-ui-system.mjs"]);
+  assert.ok(suiteFiles(captureScenario).includes("test/ui-system.mjs"), "capture scenarios select the fresh representative checker");
+  assert.ok(suiteFiles(captureScenario).every(file => existsSync(join(process.cwd(), file))));
   const captureTool = selectAffected(["tools/compare-ui-screens.mjs"]);
   assert.ok(suiteFiles(captureTool).includes("test/ui-screens.mjs"));
-  assert.ok(suiteFiles(captureTool).includes("tools/capture-ui-screens.mjs"), "the verify gate depends on the comparison it runs");
+  assert.ok(suiteFiles(captureTool).includes("test/ui-system.mjs"), "the representative checker depends on the comparison it runs");
   const manifestInput = selectAffected(["docs/ui-screens/manifest.json"]);
   assert.equal(manifestInput.mode, "selected");
-  assert.deepEqual(suiteFiles(manifestInput), ["test/direction-d-gate.mjs", "test/ui-catalog-contract.mjs", "test/ui-plan-050-build-hierarchy.mjs", "test/ui-plan-050-editor.mjs", "test/ui-screens.mjs", "tools/check-ui-screens.mjs"]);
+  assert.deepEqual(suiteFiles(manifestInput), ["test/ui-screens.mjs", "test/ui-system.mjs", "tools/check-ui-screens.mjs"]);
   const baselineInput = selectAffected(["docs/ui-screens/screens/app/today__phone-390-light-en.png"]);
   assert.equal(baselineInput.mode, "selected");
-  assert.deepEqual(suiteFiles(baselineInput), ["test/ui-screens.mjs", "tools/check-ui-screens.mjs"]);
+  assert.deepEqual(suiteFiles(baselineInput), ["test/ui-screens.mjs", "test/ui-system.mjs", "tools/check-ui-screens.mjs"]);
   const semanticInput = selectAffected(["docs/ui-screens/entry-semantics.json"]);
   assert.equal(semanticInput.mode, "selected");
-  assert.deepEqual(suiteFiles(semanticInput), ["test/ui-screens.mjs"]);
+  assert.deepEqual(suiteFiles(semanticInput), ["test/ui-screens.mjs", "test/ui-system.mjs"]);
   const roleInventory = selectAffected(["tools/ui-role-inventory.json"]);
   assert.equal(roleInventory.mode, "selected");
-  assert.deepEqual(suiteFiles(roleInventory), ["test/ui-system.mjs", "tools/check-ui-system.mjs"]);
+  assert.deepEqual(suiteFiles(roleInventory), ["test/ui-system-checker.mjs", "test/ui-system.mjs"]);
+  const fullOnly = selectAffected(["test/simulation.mjs"]);
+  assert.deepEqual(suiteFiles(fullOnly), ["test/simulation.mjs"], "a directly changed full-lane suite selects itself");
+  assert.equal(fullOnly.mode, "selected");
+  const fullTool = selectAffected(["tools/check-direction-d.mjs"]);
+  assert.deepEqual(suiteFiles(fullTool), ["test/direction-d-gate.mjs", "test/rules-only-gate.mjs"],
+    "a tool only full-lane suites import selects them instead of widening to everything");
   const app = selectAffected(["app.js"]);
-  assert.equal(app.entries.length, allCommands - SUITES.service.length - SUITES.visual.length, "the visual gate is candidate-tier, not a local owner");
+  assert.equal(app.entries.length, allCommands - SUITES.service.length, "application changes select every retained application proof");
   const service = selectAffected(["services/install-transfer/src/index.js"]);
   assert.deepEqual(lanes(service), ["service"]);
   assert.equal(selectAffected(["mystery.bin"]).mode, "all");

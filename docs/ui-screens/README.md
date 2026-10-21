@@ -16,9 +16,10 @@ install UI), regenerate before merging:
 node tools/capture-ui-screens.mjs --affected --accept-visual-change
 ```
 
-CI runs `tools/check-ui-screens.mjs` (every registered frame exists, no strays) and
-`tools/compare-ui-screens.mjs` (committed frames still match a fresh capture). A stale
-catalog fails the build — it does not pass quietly.
+Pull-request CI checks catalog registration (`tools/check-ui-screens.mjs`) and compares
+the critical matrix in `tools/critical-ui.mjs` with fresh production captures. The full
+lane (`ci-full`, on every push to main and nightly) verifies every frame with
+`tools/capture-ui-screens.mjs --verify`. A stale catalog fails main loudly.
 
 Never hand-edit a PNG.
 

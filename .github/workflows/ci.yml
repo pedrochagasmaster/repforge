@@ -1,15 +1,22 @@
-# One workflow, one aggregate check ("ci"). Every pull request and every push
-# to main runs the complete inventory from test/suites.mjs; the only shortcut is
-# that a prose-only change skips the test jobs. Browser work is split across
-# balanced shards so the wall time is a few minutes instead of forty. Shard
-# count lives in test/suites.mjs (CI_SHARDS); the account allows 20 concurrent
-# jobs, so two overlapping runs queue some shards for one shard's duration.
+# One workflow, two lanes, each behind its own aggregate check.
+#  - "ci" (the PR lane): every pull request, push to main, nightly and manual
+#    run executes the pull-request inventory (SUITES in test/suites.mjs); the
+#    only shortcut is that a prose-only PR skips the test jobs.
+#  - "ci-full" (the full lane): every push to main, nightly and manual run also
+#    executes FULL_SUITES: the exhaustive catalog verify, the role/contrast and
+#    Direction-D audits over every rendered state, the year-long simulation and
+#    the retired dedicated permutations. It never runs on pull requests; a
+#    failure is a red check on main (triage: docs/ci.md).
+# Browser work is split across balanced shards (CI_SHARDS / FULL_SHARDS); the
+# account allows 20 concurrent jobs, so overlapping runs queue some shards.
 name: CI
 
 on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: "23 3 * * *"
   workflow_dispatch:
 
 permissions:
@@ -33,6 +40,7 @@ jobs:
       run: ${{ steps.plan.outputs.run }}
       reason: ${{ steps.plan.outputs.reason }}
       shards: ${{ steps.plan.outputs.shards }}
+      full_shards: ${{ steps.plan.outputs.full_shards }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -139,7 +147,7 @@ jobs:
           retention-days: 7
 
   # The aggregate status check. It passes only when every selected job
-  # passed, and it applies the catalog-wide UI-system rule that no single shard
+  # passed, and it applies the complete declared critical UI contract that no single shard
   # can decide on its own.
   ci:
     needs: [plan, fast, browser, service]
@@ -176,5 +184,93 @@ jobs:
           pattern: shard-*
           path: .ci-results/shards
       - if: needs.plan.outputs.run == 'true'
-        name: Merge the UI-system shard reports
+        name: Validate the complete critical UI report
         run: node tools/ci-plan.mjs merge-ui-system .ci-results/shards
+
+  # ------------------------------------------------------------ full lane
+  full-fast:
+    needs: plan
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: test/package-lock.json
+      - run: npm ci --prefix test
+      - run: node tools/run-tests.mjs full-fast --keep-going
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-fast-${{ github.run_attempt }}
+          path: .ci-results/
+          include-hidden-files: true
+          retention-days: 14
+
+  full-browser:
+    needs: plan
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.full_shards) }}
+    env:
+      REPFORGE_DIAGNOSTIC_REPLAY: "1"
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          # Historical migration contracts read older commits with `git show`.
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: test/package-lock.json
+      - name: Install pinned test dependencies and the headless Chromium shell
+        working-directory: test
+        run: |
+          npm ci
+          npx playwright install --with-deps --only-shell chromium
+      - name: Run full-lane browser shard ${{ matrix.shard }}
+        run: node tools/run-tests.mjs full-shard "${{ matrix.shard }}" --keep-going
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-shard-${{ strategy.job-index }}-${{ github.run_attempt }}
+          path: .ci-results/
+          include-hidden-files: true
+          retention-days: 14
+
+  # The full lane's aggregate check. Every full job must pass, and the
+  # catalog-wide UI-system rule (every inventoried selector rendered somewhere)
+  # is applied over all check-ui-system shard reports.
+  ci-full:
+    needs: [plan, full-fast, full-browser]
+    if: always() && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - name: Require every full-lane job to pass
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: node tools/ci-plan.mjs gate-full
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: full-shard-*
+          path: .ci-results/full-shards
+      - name: Merge the full UI-system shard reports
+        run: node tools/ci-plan.mjs merge-ui-system-full .ci-results/full-shards

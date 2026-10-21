@@ -1580,21 +1580,7 @@ const unitLabel=()=>isLb()?"lb":"kg";
    one display-unit conversion — a 1e5 commit poisons every derived metric.
    1000 kg is inclusive. The lb display of that bound is 1000*LB; converting
    it back can land 1 ulp over, so only that exact display value snaps to 1000. */
-const LOAD_RAW=/^\d+(?:[.,]\d+)?$/,MAX_LOAD_KG=1000,MAX_LOAD_LB=MAX_LOAD_KG*LB;
-function parseLoadInput(raw,unit=state.settings.unit){
-  const s=String(raw??"").trim();
-  if(!s)return{kind:"empty"};
-  if(!LOAD_RAW.test(s))return{kind:"invalid"};
-  const display=+s.replace(",",".");
-  if(!Number.isFinite(display)||!(display>0))return{kind:"invalid"};
-  if(unit==="lb"){
-    if(display>MAX_LOAD_LB)return{kind:"invalid"};
-    if(display===MAX_LOAD_LB)return{kind:"valid",kg:MAX_LOAD_KG};
-    const kg=display/LB;
-    if(kg>MAX_LOAD_KG)return{kind:"invalid"};
-    return{kind:"valid",kg}}
-  if(display>MAX_LOAD_KG)return{kind:"invalid"};
-  return{kind:"valid",kg:display}}
+const parseLoadInput=(raw,unit=state.settings.unit)=>ExerciseMetrics.parseLoadInput(raw,unit);
 const loadInputToast=p=>t(p.kind==="empty"?"toast.enter_weight_before_save_set":"toast.invalid_weight");
 const fmtLoad=kg=>fmt(toDisplay(kg));
 const fmtLoadPlain=kg=>fmtPlain(toDisplay(kg));

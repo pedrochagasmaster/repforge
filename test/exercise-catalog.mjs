@@ -10,6 +10,29 @@ const require = createRequire(import.meta.url);
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const rawSource = JSON.parse(await readFile(join(ROOT, "plans/067/data/app_file.json"), "utf8"));
 
+// This combinatorial input contract belongs at the shipped parser interface;
+// browser journeys retain the separate pending-field/save/durability contract.
+test("load input accepts decimal display units and rejects unsafe numeric syntax", () => {
+  const { parseLoadInput } = require("../exercise-metrics.js");
+  for (const raw of [null, undefined, "", "  "]) assert.deepEqual(parseLoadInput(raw), { kind: "empty" });
+  for (const raw of ["0", "-1", "+1", ".5", "1.", "1e5", "NaN", "Infinity", "1,2,3", "1000.0000001"])
+    assert.deepEqual(parseLoadInput(raw, "kg"), { kind: "invalid" }, String(raw));
+  assert.deepEqual(parseLoadInput(" 12,5 ", "kg"), { kind: "valid", kg: 12.5 });
+  assert.deepEqual(parseLoadInput("1000", "kg"), { kind: "valid", kg: 1000 });
+  const pounds = 1000 * 2.2046226218;
+  assert.deepEqual(parseLoadInput(String(pounds), "lb"), { kind: "valid", kg: 1000 });
+  assert.deepEqual(parseLoadInput(String(pounds + 0.000001), "lb"), { kind: "invalid" });
+  // Independent round-trip oracle across the legal range in both units.
+  for (let quarter = 1; quarter <= 4000; quarter++) {
+    const kg = quarter / 4;
+    for (const unit of ["kg", "lb"]) {
+      const parsed = parseLoadInput(String(unit === "lb" ? kg * 2.2046226218 : kg), unit);
+      assert.equal(parsed.kind, "valid");
+      assert.ok(Math.abs(parsed.kg - kg) <= 1e-10, `${kg} ${unit}`);
+    }
+  }
+});
+
 test("a malformed but valid JSON detail asset is rejected before a snapshot is published", async () => {
   const modulePath = require.resolve("../exercise-catalog.js");
   delete require.cache[modulePath];

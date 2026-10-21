@@ -126,7 +126,7 @@ node tools/build-icon-masks.mjs           # rewrite the block
 node tools/build-icon-masks.mjs --check   # fail if the block has drifted
 ```
 
-Never edit between the markers by hand; `test/ui-system.mjs` fails when the block
+Never edit between the markers by hand; `test/ui-system-checker.mjs` fails when the block
 differs from the generator's output or a G name is defined twice.
 
 ## extract-ui-audit-findings.mjs
@@ -449,8 +449,8 @@ closed, so it is a maintenance script rather than a build step: run it only when
 the files change. Its output is committed and may be hand-corrected; the build
 reads the file and never re-derives it. `build-exercises.mjs` fails if any
 mapped id has no colour or an id has a colour but no artwork, and
-`test/simulation.mjs` decodes every file to confirm each recorded colour really
-is that drawing's paper.
+`test/simulation.mjs` (full lane) decodes every file to confirm each recorded
+colour really is that drawing's paper.
 
 ## capture-ui-screens.mjs
 
@@ -568,3 +568,13 @@ same pinned Chromium as `sample-media-bg.mjs`. It refuses to run if the source
 no longer paints exactly one ground of that colour, because that means the mark
 itself changed. Re-run it when a new mark lands; the output is generated art,
 replaced wholesale and never hand-edited (`docs/brand-guide.md`, "The mark").
+
+## Critical verification
+
+Pull requests verify rendering through the 21-cell matrix in `critical-ui.mjs`,
+executed by `test/ui-system.mjs`. It shares one production frame between
+pixel/semantic comparison and live role checks. The exhaustive sweeps,
+`capture-ui-screens --verify` over every frame and `check-ui-system --shard k/n`
+over every state × theme × locale, run in the full lane (`ci-full`) on every
+push to main, nightly and on demand. See `docs/test-suite-redesign.md` and its
+ledger.

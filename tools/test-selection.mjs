@@ -4,11 +4,14 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, extname, normalize, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { SUITES, commandArgs } from "../test/suites.mjs";
+import { FULL_SUITES, SUITES, commandArgs } from "../test/suites.mjs";
 import { isCacheRevisionOnlyServiceWorkerChange } from "./revision-diff.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const ALL = Object.entries(SUITES).flatMap(([lane, suites]) => suites.map((suite) => ({ lane, suite })));
+// Full-lane commands (ci-full) are selected locally only when their own file
+// changed, or when a test/tool input reaches no pull-request suite at all.
+const FULL = Object.entries(FULL_SUITES).flatMap(([lane, suites]) => suites.map((suite) => ({ lane, suite })));
 const PROSE = /(^|\/)(README|AGENTS|CLAUDE|CONTEXT)\.md$|^(docs|plans|advisor-plans)\/.+\.(md|html)$/;
 const CACHE_REVISION_SUITES = ["test/exercise-library.mjs", "test/sw-upgrade.mjs", "test/vendor-runtimes.mjs"];
 
@@ -118,8 +121,8 @@ function reverseImports(cwd) {
   return reverse;
 }
 
-function dependentScheduledFiles(files, cwd, reverse = reverseImports(cwd)) {
-  const scheduled = new Set(ALL.map(({ suite }) => suite.file));
+function dependentScheduledFiles(files, cwd, reverse = reverseImports(cwd), entries = ALL) {
+  const scheduled = new Set(entries.map(({ suite }) => suite.file));
   const selected = new Set();
   const queue = [...files];
   const seen = new Set(queue);
@@ -156,82 +159,50 @@ const EXPLICIT_INPUT_RULES = [
   },
   {
     match: /^tools\/(?:capture-ui-screens|check-ui-screens|compare-ui-screens)\.mjs$/,
-    suiteFiles: ["test/ci.mjs", "test/ui-screens.mjs", "tools/check-ui-screens.mjs"],
-    why: "catalog capture/verification tooling; the full recapture is the candidate/CI gate",
+    suiteFiles: ["test/ci.mjs", "test/ui-screens.mjs", "test/ui-system.mjs", "tools/check-ui-screens.mjs"],
+    why: "catalog capture/verification tooling; the representative matrix is the CI gate",
   },
   {
     match: /^tools\/ui-screens\/screens-(?:app|onboarding)\.mjs$/,
-    suiteFiles: ["test/ui-screens.mjs", "tools/check-ui-screens.mjs"],
+    suiteFiles: ["test/ui-screens.mjs", "test/ui-system.mjs", "tools/check-ui-screens.mjs"],
     why: "UI capture scenarios",
   },
   {
     match: /^docs\/ui-screens\/manifest\.json$/,
     suiteFiles: [
-      "test/ui-screens.mjs",
-      "tools/check-ui-screens.mjs",
-      "test/ui-plan-050-build-hierarchy.mjs",
-      "test/ui-plan-050-editor.mjs",
-      "test/ui-catalog-contract.mjs",
-      "test/direction-d-gate.mjs",
-    ],
+      "test/ui-screens.mjs", "test/ui-system.mjs", "tools/check-ui-screens.mjs"],
     why: "UI screen manifest consumers",
   },
   {
     match: /^docs\/ui-screens\/entry-semantics\.json$/,
-    suiteFiles: ["test/ui-screens.mjs"],
+    suiteFiles: ["test/ui-screens.mjs", "test/ui-system.mjs"],
     why: "UI screen semantic baseline",
   },
   {
-    match: /^assets\/brand\/landing-proof-spots\.json$/,
-    suiteFiles: ["test/landing-proof-capture.mjs"],
-    why: "landing proof lens hotspots; a measurement record, not rendered UI (tools/capture-landing-proof.mjs --check owns drift)",
-  },
-  {
-    match: /^tools\/check-direction-d\.mjs$/,
-    suiteFiles: ["test/direction-d-gate.mjs", "test/rules-only-gate.mjs"],
-    why: "Direction D acceptance gate and the rules-only audit that reuses its machinery",
-  },
-  {
-    match: /^tools\/check-rules-only\.mjs$/,
-    suiteFiles: ["test/rules-only-gate.mjs"],
-    why: "rules-only audit",
-  },
-  {
     match: /^tools\/ui-role-inventory\.json$/,
-    suiteFiles: ["test/ui-system.mjs", "tools/check-ui-system.mjs"],
+    suiteFiles: ["test/ui-system.mjs", "test/ui-system-checker.mjs"],
     why: "live semantic-role inventory",
   },
   {
     match: /^docs\/ui-screens\/screens\/.+\.png$/,
-    suiteFiles: ["test/ui-screens.mjs", "tools/check-ui-screens.mjs"],
+    suiteFiles: ["test/ui-screens.mjs", "test/ui-system.mjs", "tools/check-ui-screens.mjs"],
     why: "UI screen catalog baselines",
   },
   {
     match: /^history-ui\.js$/,
     suiteFiles: [
-      "test/history.mjs",
-      "test/history-edit.mjs",
-      "test/history-delete-replay.mjs",
-      "test/history-persistence-race.mjs",
-      "test/per-side-reading-browser.mjs",
-      "test/progress-navigation.mjs",
-      "test/progress-evidence.mjs",
+      "test/history-delete-replay.mjs", "test/catalog-metric-program-browser.mjs",
+      "test/management-summary.mjs", "test/per-side-execution-mode-capture-browser.mjs",
       "test/progress-lifecycle.mjs",
       "test/progress-recovery.mjs",
-      "test/progress-guides.mjs",
-      "test/exercise-display-name.mjs",
-      "test/journeys-in.mjs",
       "test/install-transfer-client-browser.mjs",
-      "test/install-transfer-clone.mjs",
       "test/install-transfer-import.mjs",
       "test/install-transfer-recovery.mjs",
       "test/install-transfer-ui.mjs",
       "test/ui-screens.mjs",
-      "tools/check-ui-screens.mjs",
-    ],
+      "tools/check-ui-screens.mjs"],
     why: "History UI consumers, restored-log compatibility, and shared Progress readers",
-  },
-];
+  }];
 
 const DOMAIN_RULES = [
   { match: /^services\/install-transfer\//, lanes: ["service"], why: "install-transfer service gate" },
@@ -247,8 +218,7 @@ const DOMAIN_RULES = [
   { match: /^(schedule\.js|notify\.js|i18n\.js|i18n-(?:en|pt)\.json|exercises\.js)$/, lanes: ["fast", "entry", "workout"], why: "shared display/domain module" },
   { match: /^sw\.js$/, lanes: ["fast", "state", "workout"], why: "offline/cache behavior" },
   { match: /^(styles\.css|manifest\.webmanifest|assets\/|icons\/|fonts\/)/, lanes: ["entry", "workout"], why: "rendered UI asset" },
-  { match: /^(app\.js|index\.html)$/, lanes: ["fast", "state", "entry", "workout", "privacy"], why: "shared application shell" },
-];
+  { match: /^(app\.js|index\.html)$/, lanes: ["fast", "state", "entry", "workout", "privacy"], why: "shared application shell" }];
 
 export function selectAffected(files, { cwd = ROOT, base } = {}) {
   if (!files) return { mode: "all", entries: ALL, files: [], reasons: ["Diff base unavailable; run everything rather than guess."] };
@@ -268,6 +238,14 @@ export function selectAffected(files, { cwd = ROOT, base } = {}) {
   if (dependencyFiles.size) {
     addEntries(chosen, ALL.filter(({ suite }) => dependencyFiles.has(suite.file)));
     reasons.push(`Dependency graph reaches ${dependencyFiles.size} scheduled suite file(s).`);
+  }
+  for (const file of supportInputs) {
+    if (dependencyByInput.get(file).size) continue;
+    const fullFiles = FULL.some(({ suite }) => suite.file === file) ? new Set([file]) : dependentScheduledFiles([file], cwd, reverse, FULL);
+    if (!fullFiles.size) continue;
+    dependencyByInput.set(file, fullFiles);
+    addEntries(chosen, FULL.filter(({ suite }) => fullFiles.has(suite.file)));
+    reasons.push(`${file}: full-lane only → ${[...fullFiles].join(", ")}`);
   }
 
   for (const file of code) {
