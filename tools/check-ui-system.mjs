@@ -19,8 +19,11 @@ export function inspectRoleCoverage({ key, components, exceptions, progressCandi
     for (let current = node; current; current = current.parentElement) {
       if (Number.parseFloat(getComputedStyle(current).opacity) === 0) return false;
     }
+    // An open native modal dialog (showModal) makes everything outside it inert, as [inert] does (#454).
+    const modals = document.querySelectorAll("dialog:modal");
     return rect.width > 1 && rect.height > 1 && style.display !== "none" && style.visibility !== "hidden"
-      && !node.matches(".visually-hidden") && !node.closest("[inert],.visually-hidden");
+      && !node.matches(".visually-hidden") && !node.closest("[inert],.visually-hidden")
+      && !(modals.length && ![...modals].some((dialog) => dialog.contains(node)));
   };
   const interactive = "button,input:not([type='hidden']),select,textarea,a[href],summary,[role='button'],[role='tab'],[role='radio'],[role='checkbox'],[role='switch'],[role='slider']";
   const candidate = new Set([...document.querySelectorAll(interactive)].filter(visible));
@@ -122,8 +125,10 @@ export async function auditFocusRoles(page, { key, components, pixels }) {
       for (let current = node; current; current = current.parentElement) {
         if (Number.parseFloat(getComputedStyle(current).opacity) === 0) return false;
       }
+      // Outside an open native modal dialog is inert, as [inert] is (#454).
+      const modals = document.querySelectorAll("dialog:modal");
       return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden"
-        && !node.closest("[inert],.visually-hidden");
+        && !node.closest("[inert],.visually-hidden") && !(modals.length && ![...modals].some((dialog) => dialog.contains(node)));
     };
     const uniqueSelector = (node) => {
       const parts = [];

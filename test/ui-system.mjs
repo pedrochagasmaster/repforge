@@ -58,12 +58,18 @@ const unnamedHold = structuredClone(inventory);
 unnamedHold.exceptions.find((item) => item.renderedFindings).rationale = "Temporary.";
 assert.ok(validateRoleInventory(unnamedHold, manifest).some((error) => error.includes("without naming its issue")),
   "a rendered finding cannot be held open without its issue");
-// A subtree hold applies only in its exception's states and needs its issue.
-const subtreeHold = inventory.exceptions.find((item) => item.renderedHold);
-assert.deepEqual(renderedHolds(inventory.exceptions, subtreeHold.catalogStates[0]).map((item) => item.within), [subtreeHold.renderedHold.within],
+// A subtree hold applies only in its exception's states and needs its issue. The live inventory holds none open, so a
+// fixture hold stands in for one.
+const withHold = structuredClone(inventory);
+withHold.exceptions.push({ selector: "#uiHoldFixture", role: "fixture subtree hold", owner: inventory.exceptions[0].owner,
+  rationale: "Temporary, #454: a fixture hold for the self-test.", catalogStates: ["catalog-recovery/retry-failed"],
+  renderedHold: { within: "nav", kinds: ["text"] } });
+assert.deepEqual(validateRoleInventory(withHold, manifest), [], "a subtree hold that names its issue is a valid exception");
+const subtreeHold = withHold.exceptions.at(-1);
+assert.deepEqual(renderedHolds(withHold.exceptions, subtreeHold.catalogStates[0]).map((item) => item.within), [subtreeHold.renderedHold.within],
   "a subtree hold applies in its own catalog state");
-assert.deepEqual(renderedHolds(inventory.exceptions, "settings/main"), [], "a subtree hold applies in no other state");
-const unnamedSubtree = structuredClone(inventory);
+assert.deepEqual(renderedHolds(withHold.exceptions, "settings/main"), [], "a subtree hold applies in no other state");
+const unnamedSubtree = structuredClone(withHold);
 unnamedSubtree.exceptions.find((item) => item.renderedHold).rationale = "Temporary.";
 assert.ok(validateRoleInventory(unnamedSubtree, manifest).some((error) => error.includes("holds rendered findings open without naming its issue")),
   "a subtree hold cannot be recorded without its issue");
