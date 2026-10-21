@@ -365,6 +365,7 @@ async function main() {
   const browser = await launchChromium();
   let sourceContext;
   let targetContext;
+  let raceContext;
   try {
     sourceContext = await browser.newContext();
     const source = await sourceContext.newPage();
@@ -523,7 +524,46 @@ async function main() {
       sameValue(reloadedIdbProvenance, sourceProvenance) &&
       sameValue(reloadedLocalProvenance, reloadedIdbProvenance),
       "Reload keeps complete transitionIn, archive, history, and log replicas equal");
+
+    // A backup picked from slow storage (a cloud file on a phone) can still be
+    // reading when the lifter picks another. The restore choice must describe
+    // and restore the file picked last; the earlier read may not reopen it.
+    raceContext = await browser.newContext();
+    const race = await raceContext.newPage();
+    race.on("dialog", (dialog) => dialog.dismiss().catch(() => {}));
+    await race.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForAppBoot(race, { base: BASE });
+    await race.evaluate(() => {
+      const read = File.prototype.text;
+      File.prototype.text = function () {
+        if (this.name !== "slow-backup.json") return read.call(this);
+        return new Promise((resolve) => { window.__releaseSlowBackup = () => resolve(read.call(this)); });
+      };
+    });
+    await race.evaluate(() => window.closeFirstRun?.());
+    await race.evaluate(() => window.__repforgeShowSettings?.());
+    await race.locator("#dataImportRow").click();
+    const earlier = { ...clone(exported), log: [] };
+    await race.locator("#importJson").setInputFiles({ name: "slow-backup.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(earlier)) });
+    await race.waitForFunction(() => typeof window.__releaseSlowBackup === "function");
+    await race.locator("#importJson").setInputFiles({ name: "latest-backup.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(exported)) });
+    await race.waitForFunction(() => document.querySelector("#importChoice")?.open === true);
+    const latestBody = await race.locator("#importChoiceBody").innerText();
+    await race.evaluate(() => window.__releaseSlowBackup());
+    await race.evaluate(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    check(await race.locator("#importChoiceBody").innerText() === latestBody,
+      "A slower earlier backup read does not replace the restore choice for the file picked last",
+      await race.locator("#importChoiceBody").innerText());
+    await race.locator("#importReplace").click();
+    await race.waitForFunction(() => document.querySelector("#importChoice")?.open === false, undefined, { timeout: 10000 });
+    await race.evaluate(() => window.__repforgeStorage.flush());
+    const restored = await readReplicas(race);
+    check(sameValue(backupProvenance(restored.local).log, exportedProvenance.log) &&
+      sameValue(backupProvenance(restored.idb).log, exportedProvenance.log),
+      "Replace restores the backup picked last in both replicas",
+      { local: restored.local?.log?.length, idb: restored.idb?.log?.length, expected: exported.log.length });
   } finally {
+    await raceContext?.close().catch(() => {});
     await targetContext?.close().catch(() => {});
     await sourceContext?.close().catch(() => {});
     await browser.close();
