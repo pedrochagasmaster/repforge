@@ -141,7 +141,7 @@ function entriesForLanes(lanes) {
   return ALL.filter(({ lane }) => lanes.has(lane));
 }
 function entriesForSuiteFiles(files) {
-  return ALL.filter(({ suite }) => files.has(suite.file));
+  return [...ALL, ...FULL].filter(({ suite }) => files.has(suite.file));
 }
 function addEntries(target, additions) {
   for (const entry of additions) target.set(JSON.stringify(commandArgs(entry.suite)), entry);
@@ -149,9 +149,9 @@ function addEntries(target, additions) {
 
 const EXPLICIT_INPUT_RULES = [
   {
-    match: /^(?:engine-policy|generation-layout|program-compiler)\.js$/,
-    suiteFiles: ["test/programlab-native-policy.mjs"],
-    why: "native allocation, explicit-rest and own/common duration acceptance",
+    match: /^engine-policy\.js$/,
+    suiteFiles: ["test/programlab-native-policy.mjs", "test/programlab-default-parity.mjs", "test/program-engine-worker.mjs"],
+    why: "the engine-policy seam: native policies, default preservation and the worker that loads it",
   },
   {
     match: /^programlab\/(?:domain|store|archive|archive-worker)\.js$/,

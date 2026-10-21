@@ -22,8 +22,8 @@ For repository-owned browser verification under Node 22, install the pinned test
 ```sh
 npm ci --prefix test
 (cd test && npx playwright install --only-shell chromium)
-node tools/run-tests.mjs entry --suite-id test-programlab-ui-mjs
-node tools/run-tests.mjs entry --suite-id test-programlab-ui-mjs---corpus
+node tools/run-tests.mjs full-browser --suite-id test-programlab-ui-mjs
+node tools/run-tests.mjs full-browser --suite-id test-programlab-ui-mjs---corpus
 ```
 
 The runner builds and serves separate temporary loopback artifacts and cleans up its previews. It never needs a production deployment. The final implementation PR lists exact-head independent evidence and remaining CI or attachment limitations. An artifact existing in a cloud executor is not a delivered user attachment.
