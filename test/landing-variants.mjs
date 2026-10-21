@@ -876,7 +876,7 @@ async function finalPage(browser) {
   {
     const { context, page, errors } = await landingPage(browser, { lang: "en" });
     const open = await page.evaluate(proofState);
-    assert(open?.open && open.pinned && open.listeners > 0 && open.observers === 2, "opening the landing mounts the controller with its pinned stage", JSON.stringify(open));
+    assert(open?.open && open.pinned && open.listeners > 0 && open.observers === 3, "opening the landing mounts the controller with its pinned stage (observers: the dock's two and the status-bar band's one)", JSON.stringify(open));
     await page.waitForTimeout(400);
     const before = await page.evaluate(stepState);
     assert(before.pinnedClass && before.phones === 1 && before.rail === 7 && before.count === 7 && before.current === 1,
@@ -1050,7 +1050,7 @@ async function finalPage(browser) {
       assert(!gate.createVisible && !gate.importVisible, "no Build or Track is visible on the shared gate", JSON.stringify(gate));
     }
     const ctl = await page.evaluate(proofState);
-    assert(ctl?.open && ctl.observers === 0, "the shared gate watches no hero action: the dock logic is not mounted", JSON.stringify(ctl));
+    assert(ctl?.open && ctl.observers === 1, "the shared gate watches no hero action: the dock logic is not mounted, only the status-bar band observes", JSON.stringify(ctl));
     const close = await page.evaluate(() => ({
       actions: getComputedStyle(document.querySelector(".firstrun-close__actions")).display,
       dockDisplay: getComputedStyle(document.querySelector("#firstRunDock")).display,

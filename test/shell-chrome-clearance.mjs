@@ -11,6 +11,10 @@
  * 3. Today's prescription keeps a long exercise name readable: the longest catalog name wraps at word boundaries
  *    only, with no line shorter than three characters, at 390 and 375 px. A manual row's target is sets × range
  *    (owner copy 2026-10-18), and the subtitle counts "exercises with your own targets".
+ * 4. The onboarding layer (#onboarding) scrolls on its own above the shell, so it paints its own paper band over the
+ *    top inset: on the review result and the Build editor, the band is solid --bg at scroll 0, mid and end (#449).
+ * 5. The first-run landing (.firstrun) scrolls on its own too, over night, ink, orange and paper sections, so its band
+ *    takes the ground of whichever section is under the inset (owner call on #449): one solid colour, that section's.
  */
 import { launchChromium } from "./browser.mjs";
 import { SAFE_AREA, openCatalogState } from "./fixtures/catalog-state.mjs";
@@ -73,6 +77,27 @@ async function bandReading(page) {
     }
     return { off, total: data.length / 4, bg: [r, g, b] };
   }, shot.toString("base64"));
+}
+
+/** Pixels in the top inset band that are not `rgb`, out of the band's total. */
+async function bandAgainst(page, rgb) {
+  const width = page.viewportSize().width;
+  const shot = await page.screenshot({ clip: { x: 0, y: 0, width, height: SAFE_AREA.top }, animations: "disabled" });
+  return page.evaluate(async ({ b64, rgb: [r, g, b] }) => {
+    const img = new Image();
+    img.src = `data:image/png;base64,${b64}`;
+    await img.decode();
+    const canvas = document.createElement("canvas");
+    canvas.width = img.width; canvas.height = img.height;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    ctx.drawImage(img, 0, 0);
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    let off = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      if (Math.abs(data[i] - r) > 3 || Math.abs(data[i + 1] - g) > 3 || Math.abs(data[i + 2] - b) > 3) off++;
+    }
+    return { off, total: data.length / 4, ground: [r, g, b] };
+  }, { b64: shot.toString("base64"), rgb });
 }
 
 /** Controls in the page that the rest pill covers, and the pill's own box. */
@@ -197,6 +222,59 @@ try {
       const tally = await page.evaluate(() => [...document.querySelectorAll("#todayDash .today-tally__i")].map((li) => li.textContent.trim()));
       const owner = lang === "en" ? /^(1 exercise|\d+ exercises) with your own targets$/ : /^(1 exercício|\d+ exercícios) com metas suas$/;
       check(tally.some((line) => owner.test(line)), `${lang}: the subtitle counts the exercises with your own targets`, tally);
+    } finally { await context.close(); }
+  }
+
+  console.log("\n4. Onboarding scrolls in its own layer, and nothing in it scrolls into the status bar (390×844)");
+  for (const theme of ["light", "dark"]) {
+    for (const key of ["onboarding-recommend/result-changed", "onboarding-build/editor-ready"]) {
+      const { context, page } = await openCatalogState(browser, key, 390, "en", "normal", { theme });
+      try {
+        const max = await page.evaluate(() => { const layer = document.querySelector("#onboarding"); return layer.scrollHeight - layer.clientHeight; });
+        check(max > SAFE_AREA.top, `${theme} ${key}: the onboarding layer is long enough to scroll under the status bar`, { max });
+        const dirty = [];
+        for (const y of [0, Math.round(max / 2), "end"]) {
+          await page.evaluate((top) => {
+            const layer = document.querySelector("#onboarding");
+            layer.scrollTo({ top: top === "end" ? layer.scrollHeight : top, behavior: "instant" });
+            return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+          }, y);
+          const band = await bandReading(page);
+          if (band.off) dirty.push({ y, ...band });
+        }
+        check(!dirty.length, `${theme} ${key}: the status-bar inset is solid paper at scroll 0, mid and end`, dirty);
+      } finally { await context.close(); }
+    }
+  }
+
+  console.log("\n5. The first-run landing's status-bar band takes the ground of the section under it (390×844)");
+  for (const theme of ["light", "dark"]) {
+    const { context, page } = await openCatalogState(browser, "onboarding-start/first-run", 390, "en", "normal", { theme });
+    try {
+      const { max, hero } = await page.evaluate(() => {
+        const layer = document.querySelector(".firstrun");
+        return { max: layer.scrollHeight - layer.clientHeight, hero: document.querySelector(".firstrun-hero").getBoundingClientRect().height };
+      });
+      const dirty = [];
+      for (const [stop, y] of [["top", 0], ["hero leaving", Math.round(hero - 120)], ["mid", Math.round(max / 2)], ["end", "end"]]) {
+        const ground = await page.evaluate((top) => {
+          const layer = document.querySelector(".firstrun");
+          layer.scrollTo({ top: top === "end" ? layer.scrollHeight : top, behavior: "instant" });
+          return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => {
+            // The section whose box covers the top of the inset; the band itself is never hit-tested.
+            const section = [...layer.querySelectorAll(".firstrun-band")].find((band) => {
+              const box = band.getBoundingClientRect();
+              return box.top <= 0 && box.bottom > 0;
+            });
+            const rgb = section && /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(getComputedStyle(section).backgroundColor);
+            resolve(rgb ? { section: section.dataset.landingSection, rgb: rgb.slice(1, 4).map(Number) } : null);
+          })));
+        }, y);
+        if (!ground) { dirty.push({ stop, error: "no section under the inset" }); continue; }
+        const band = await bandAgainst(page, ground.rgb);
+        if (band.off) dirty.push({ stop, section: ground.section, ...band });
+      }
+      check(!dirty.length, `${theme} first-run: at the top, as the hero leaves, mid and end, the inset is one solid band in the ground of the section under it`, dirty);
     } finally { await context.close(); }
   }
 } finally {
