@@ -11,6 +11,7 @@
  * every violation, so a check that rejects everything also fails here.
  */
 import { readFileSync } from "node:fs";
+import { installTestLanguage } from "./language-browser.mjs";
 import { join } from "node:path";
 import { ROOT, loadManifest } from "../tools/ui-screens/manifest.mjs";
 import { APP_CLOCK, APP_SCENARIOS, APP_USER_AGENT, appState } from "../tools/ui-screens/screens-app.mjs";
@@ -48,7 +49,8 @@ async function verifyProgressStrengthReader(browser) {
     await settle(opened.page);
     const correctEvidence = await gatherEvidence(opened.page, { scope: "#stats" });
     const readerOutcomes = correctEvidence.parity.outcomes.filter(item => item.reader === "progress-strength");
-    const improvedWord = await opened.page.evaluate(() => window.RepForgeI18n.t("stats.outcome.improved"));
+    await installTestLanguage(page);
+    const improvedWord = await opened.page.evaluate(() => window.__testLanguage.t("stats.outcome.improved"));
     const improved = readerOutcomes.find(item => item.expected === improvedWord);
     check(readerOutcomes.length > 0 && readerOutcomes.every(item => item.scope === "current-block" && item.convention),
       "the real Progress outcome identifies its saved-session scope and convention for the parity oracle", JSON.stringify(readerOutcomes));
@@ -73,12 +75,14 @@ async function verifyProgressStrengthReader(browser) {
       check(invalidFailures.some(failure => failure.includes("unsupported Progress strength scope unreviewed-scope")),
         "the parity oracle rejects an unsupported Progress scope context", show(invalidFailures));
 
-      const wrongWord = await opened.page.evaluate(() => window.RepForgeI18n.t("delta.not_comparable.label"));
+      await installTestLanguage(page);
+      const wrongWord = await opened.page.evaluate(() => window.__testLanguage.t("delta.not_comparable.label"));
+      await installTestLanguage(marker);
       await marker.evaluate((node, context) => {
         node.setAttribute("data-parity-reader", "progress-strength");
         node.setAttribute("data-parity-scope", context.scope);
         node.setAttribute("data-parity-convention", context.convention);
-        node.textContent = window.RepForgeI18n.t("delta.not_comparable.label");
+        node.textContent = window.__testLanguage.t("delta.not_comparable.label");
       }, { scope: improved.scope, convention: improved.convention });
       const wrongEvidence = await gatherEvidence(opened.page, { scope: "#stats" });
       const wrongFailures = checkParity(wrongEvidence);
@@ -309,9 +313,10 @@ try {
       check(okFailures.length === 0, "a shown outcome word and target that match the app are accepted", show(okFailures));
       // The summary says the session-outcome word (Melhorou, Manteve, Regressou); History's page says the delta label.
       // Both are the same status; a word for another status is still rejected (below).
+      await installTestLanguage(page);
       const sessionWord = await page.evaluate((status) => {
         const key = { improved: "stats.outcome.improved", flat: "stats.outcome.maintained", regressed: "stats.outcome.declined" }[status];
-        return key ? window.RepForgeI18n.t(key) : null;
+        return key ? window.__testLanguage.t(key) : null;
       }, probe.status);
       if (sessionWord) {
         const viaSession = checkParity(await seeded(page, `<span id="seedOutcomeSession" data-parity-outcome="${probe.id}" data-parity-session="${probe.session}">${sessionWord}</span>`));
@@ -379,21 +384,24 @@ try {
       !TIMER_SCOPES.some((scope) => scope.includes("restdial")),
     "the timer scopes name the inline block, its pad row and the presets sheet, and not the retired dial", TIMER_SCOPES.join(", "));
     // Compliant control: a real catalog string, a data string and bare numbers.
+    await installTestLanguage(page);
     const okMarkup = await page.evaluate(() => {
-      const t = window.RepForgeI18n.t;
+      const t = window.__testLanguage.t;
       const name = JSON.parse(localStorage.getItem("repforge_v1")).program[0].name;
       return `<p id="seedCatalogOk">${t("toast.invalid_weight")}</p><p id="seedDataOk">${name}</p><p id="seedNumbersOk">3 × 7 · 102,5 kg</p>`;
     });
     const strict = await prepared(okMarkup);
     check(strict.length === 0, "a catalog string, a user/exercise name and bare figures are accepted", show(strict));
     // A catalog phrase may be followed by figures and units, never by a word.
+    await installTestLanguage(page);
     const phrased = await prepared(await page.evaluate(() => {
-      const top = window.RepForgeI18n.t("stats.metric.top_load");
+      const top = window.__testLanguage.t("stats.metric.top_load");
       return `<p id="seedPhraseOk">${top} 102.5 kg</p><p id="seedPhraseRange">${top} 3 × 7 · 60 lb</p>`;
     }));
     check(phrased.length === 0, "a catalog phrase followed by figures and units is accepted", show(phrased));
+    await installTestLanguage(page);
     const phrasedBad = await prepared(await page.evaluate(() => {
-      const top = window.RepForgeI18n.t("stats.metric.top_load");
+      const top = window.__testLanguage.t("stats.metric.top_load");
       return `<p id="seedPhraseWord">${top} heavier 102.5 kg</p><p id="seedPhraseTail">${top} 102.5 kg extra</p><p id="seedPhraseDay">${top} Monday</p>`;
     }));
     check(has(phrasedBad, "not a catalog", "#seedPhraseWord") && has(phrasedBad, "not a catalog", "#seedPhraseTail") && has(phrasedBad, "not a catalog", "#seedPhraseDay"),
@@ -406,7 +414,8 @@ try {
   const pt = await openState("pt");
   try {
     const ptCatalog = loadCatalog("pt");
-    const okMarkup = await pt.page.evaluate(() => `<p id="seedPtOk">${window.RepForgeI18n.t("toast.invalid_weight")}</p>`);
+    await installTestLanguage(page);
+    const okMarkup = await pt.page.evaluate(() => `<p id="seedPtOk">${window.__testLanguage.t("toast.invalid_weight")}</p>`);
     const ok = checkStrings(await seeded(pt.page, okMarkup), ptCatalog);
     check(ok.length === 0, "a Portuguese catalog string is accepted at 360", show(ok));
     const sideMetricLabel = PT_REPS_PER_SIDE_LABEL;

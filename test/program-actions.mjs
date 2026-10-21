@@ -2,6 +2,7 @@
 /** Plan 057-P7 / Plan 064 R3k / Plan 067: Program roles, the ledger overview with no readiness route, its adaptive
  *  next-load column, and editor dock clearance. */
 import assert from "node:assert/strict";
+import { installBrowserTraining } from "./training-browser.mjs";
 import { cancelInstalledEditor, closeEditorSheet, editorSettled, openExerciseSheet, openInstalledEditor } from "./fixtures/installed-editor.mjs";
 import { launchChromium } from "./browser.mjs";
 import { installSeedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
@@ -75,13 +76,14 @@ const REPS = "2555c6f170d88072bbf6d9ad3f16ea86";
 /** A real generated program, activated through the production finalize path. */
 async function installGeneratedProgram(page) {
   await page.evaluate(() => window.__repforgeLeaveWorkout?.());
+  await installBrowserTraining(page);
   return page.evaluate(async ({ weight, reps }) => {
-    const catalog = window.RepForgeExerciseCatalog.snapshot();
-    const request = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({
+    const catalog = window.__repforgeTrainingTest.catalog;
+    const request = window.__repforgeTrainingTest.entryAdapter.programRequestFromAnswers({
       desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek: 4,
       sessionMinutes: 60, environment: { kind: "commercial_gym" },
     }, catalog).value;
-    const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog).value;
+    const definition = window.__repforgeTrainingTest.compiler.generateProgram(request, catalog).value;
     const found = definition.days.filter((day) => day.kind === "training").map((day) => ({ day, slot: day.slots[0] }))
       .find(({ slot }) => JSON.stringify(slot.metricIds) === JSON.stringify([weight, reps]));
     await window.__repforgeFinalizeProgramSetup({

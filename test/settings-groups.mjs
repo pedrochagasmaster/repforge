@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /** Plan 057-P8: Settings task groups and replayable contextual help. */
 import assert from "node:assert/strict";
+import { installTestLanguage } from "./language-browser.mjs";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -115,6 +116,7 @@ try {
     }
   }
 
+  await installTestLanguage(page);
   const registry = await page.evaluate(() => {
     const definitions = window.RepForgeGuideRegistry.GUIDE_DEFINITIONS;
     return {
@@ -123,8 +125,8 @@ try {
       buttons: [...document.querySelectorAll("#guideReplayList [data-guide-replay]")].map((button) => button.dataset.guideReplay),
       copy: definitions.map((guide) => ({
         id: guide.id,
-        title: window.RepForgeI18n.t(`guide.${guide.id}.title`),
-        body: window.RepForgeI18n.t(`guide.${guide.id}.body`),
+        title: window.__testLanguage.t(`guide.${guide.id}.title`),
+        body: window.__testLanguage.t(`guide.${guide.id}.body`),
       })),
     };
   });

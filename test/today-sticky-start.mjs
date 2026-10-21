@@ -21,6 +21,7 @@
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
 import { launchChromium } from "./browser.mjs";
+import { installTestLanguage } from "./language-browser.mjs";
 import { installSeedProgram, seedProgram } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -66,6 +67,7 @@ async function freshPage(browser, { width, height, locale }) {
 }
 
 /** Where the control sits against the dock and the content around it. */
+await installTestLanguage(page);
 const geometry = (page) => page.evaluate(() => {
   const box = (sel) => {
     const el = document.querySelector(sel);
@@ -88,7 +90,7 @@ const geometry = (page) => page.evaluate(() => {
     otherPosition: getComputedStyle(document.querySelector("#chooseAnotherDay")).position,
     reserve, inner: window.innerHeight, scroll: window.scrollY,
     max: document.documentElement.scrollHeight - window.innerHeight,
-    keys: { start: window.RepForgeI18n.t("today.start"), cont: window.RepForgeI18n.t("today.continue") },
+    keys: { start: window.__testLanguage.t("today.start"), cont: window.__testLanguage.t("today.continue") },
   };
 });
 

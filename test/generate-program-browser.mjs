@@ -28,6 +28,8 @@
  * asks its question.
  */
 import { createRequire } from "node:module";
+import { installBrowserTraining } from "./training-browser.mjs";
+import { installTestLanguage } from "./language-browser.mjs";
 import { answerRecommend, launchChromium, waitForAppBoot } from "./browser.mjs";
 
 const require = createRequire(import.meta.url);
@@ -396,10 +398,11 @@ async function minimumBudget(browser) {
   const run = await fresh(browser);
   await answerGenerate(run.page, { days: 2, minutes: 20 });
   await run.page.waitForSelector("#entryReview [data-review-slot]", { timeout: 15000 });
+  await installBrowserTraining(page);
   const result = await run.page.evaluate(() => {
     const definition = window.__repforgeEntryState?.()?.result?.preview?.programDefinition;
-    return { definition, valid: window.RepForgeProgramCompiler.validateProgramDefinition(
-      definition, window.RepForgeExerciseCatalog.snapshot(), []).ok };
+    return { definition, valid: window.__repforgeTrainingTest.compiler.validateProgramDefinition(
+      definition, window.__repforgeTrainingTest.catalog, []).ok };
   });
   check(result.valid && result.definition.request.timeCeilingMinutes === 20 &&
     result.definition.provenance.generationBudgetMinutes === 18 &&
@@ -848,9 +851,10 @@ async function onboardingConflict(browser) {
   const notice = page.locator("#onbBody .entry__notice[role=alert]");
   await notice.waitFor({ state: "visible", timeout: 15000 });
   const text = await notice.innerText();
+  await installTestLanguage(page);
   const expected = await page.evaluate(() => ({
-    generic: window.RepForgeI18n.t("entry.conflict_b.generic"),
-    nothing: window.RepForgeI18n.t("entry.conflict_b.nothing"),
+    generic: window.__testLanguage.t("entry.conflict_b.generic"),
+    nothing: window.__testLanguage.t("entry.conflict_b.nothing"),
   }));
   check(text.includes(expected.generic) && text.includes(expected.nothing),
     "Home without the pull-up bar and bands explains the conflict and says nothing was saved", text);
@@ -1046,9 +1050,10 @@ async function recoveredGenerationJourney(browser) {
         "P073: removing the additional recovery week restores the identical regular program");
       const beforeEdit = await entry(page);
       const stored = await page.evaluate(() => localStorage.getItem("repforge_program_setup_draft_v1"));
+      await installBrowserTraining(page);
       await page.evaluate(() => {
-        const base = window.RepForgeProgramEntryAdapter.createProductionServices({
-          Compiler: window.RepForgeProgramCompiler, catalog: window.RepForgeExerciseCatalog.snapshot(),
+        const base = window.__repforgeTrainingTest.entryAdapter.createProductionServices({
+          Compiler: window.__repforgeTrainingTest.compiler, catalog: window.__repforgeTrainingTest.catalog,
         });
         window.__repforgeProgramEntryServicesOverride = { ...base, generateProgram: () => ({
           ok: false, conflicts: [{ code: "unsupported_generation_domain" }],
@@ -1157,13 +1162,14 @@ async function sourceSplitChoicesJourney(browser) {
   for (const [daysPerWeek, automatic, expected] of domains) {
     const run = await fresh(browser);
     const { page } = run;
+    await installBrowserTraining(page);
     const persisted = await page.evaluate(async (daysPerWeek) => {
       window.startOnboarding("first-run", { userInitiated: true, forceFresh: true });
       const Entry = window.RepForgeProgramEntry;
       const active = window.__repforgeEntryState();
       let draft = Entry.selectRoute(Entry.createState({ draftId: `source-custom-${daysPerWeek}`,
         activeProgramRevisionAtStart: active.activeProgramRevisionAtStart, now: new Date().toISOString(),
-        versions: window.RepForgeProgramEntryAdapter.currentVersions(window.RepForgeProgramCompiler) }), "custom");
+        versions: window.__repforgeTrainingTest.entryAdapter.currentVersions(window.__repforgeTrainingTest.compiler) }), "custom");
       draft = Entry.setAnswers(draft, { desiredResult: "balanced", structuredExperience: "over_24m", daysPerWeek,
         sessionMinutes: 60, environment: { kind: "everything" }, primaryMuscles: [], deEmphasizedMuscles: [],
         ignoredMuscles: [], mustHaveExercises: [], exerciseConstraints: [], block: { cycles: 7, periodization: "static" }, deload: true });

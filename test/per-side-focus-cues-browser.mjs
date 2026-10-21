@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /** Plan 069 S3: Focus reads both remaining supported per-side compositions. */
 import { readFileSync } from "node:fs";
+import { installBrowserTraining } from "./training-browser.mjs";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -55,13 +56,14 @@ function check(condition, message, detail) {
 }
 
 async function installProgram(page, item) {
+  await installBrowserTraining(page);
   return page.evaluate(async ({ request, item }) => {
-    const catalog = window.RepForgeExerciseCatalog.snapshot();
-    const generated = window.RepForgeProgramCompiler.generateProgram(
+    const catalog = window.__repforgeTrainingTest.catalog;
+    const generated = window.__repforgeTrainingTest.compiler.generateProgram(
       { ...request, preferredExerciseIds: [item.exerciseId] }, catalog);
     if (!generated.ok) throw new Error("Could not generate production program: " + JSON.stringify(generated.conflicts));
     const source = catalog.exercises.find(entry => entry.id === item.exerciseId);
-    const definitions = window.RepForgeExerciseMetrics.definitionsForIds(source?.exerciseMetrics || []);
+    const definitions = window.__repforgeTrainingTest.metrics.definitionsForIds(source?.exerciseMetrics || []);
     if (!source || !definitions?.ok) throw new Error("Catalog source or metric definitions are missing");
     const loadDefinition = definitions.value.find(metric => metric.semantic === item.loadMetric);
     const repsDefinition = definitions.value.find(metric => metric.semantic === item.repsMetric);
@@ -92,7 +94,7 @@ async function installProgram(page, item) {
     for (const cycle of target.slot.prescriptionsByCycle) {
       for (const set of cycle.sets) set.targets = structuredClone(targets);
     }
-    const validation = window.RepForgeProgramCompiler.validateProgramDefinition(generated.value, catalog, []);
+    const validation = window.__repforgeTrainingTest.compiler.validateProgramDefinition(generated.value, catalog, []);
     if (!validation.ok) throw new Error("Compiler rejected the fixture program: " + JSON.stringify(validation.issues));
     await window.__repforgeFinalizeProgramSetup({
       programDefinition: generated.value, name: "Per-side Focus cue proof", answers: {}, destination: "log",

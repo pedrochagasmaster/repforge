@@ -16,6 +16,7 @@
  * replaced. The slot's mode describes the movement it holds now.
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { installBrowserTraining } from "./training-browser.mjs";
 import { join } from "node:path";
 import { answerRecommend, launchChromium, waitForAppBoot } from "./browser.mjs";
 import { exerciseAction } from "./fixtures/focus-workout.mjs";
@@ -43,8 +44,9 @@ const metricNames = id => CATALOG.exercises.find(entry => entry.id === id).exerc
   .map(metricId => ({ id: metricId, name: CATALOG.uuidIndex[metricId].name }));
 
 async function installProgram(page) {
+  await installBrowserTraining(page);
   return page.evaluate(async ({ rowId, pressId }) => {
-    const catalog = window.RepForgeExerciseCatalog.snapshot();
+    const catalog = window.__repforgeTrainingTest.catalog;
     const answers = {
       desiredResult: "muscle_growth",
       structuredExperience: "6_to_24m",
@@ -53,9 +55,9 @@ async function installProgram(page) {
       environment: { kind: "commercial_gym" },
       mustHaveExercises: [rowId, pressId],
     };
-    const mapped = window.RepForgeProgramEntryAdapter.programRequestFromAnswers(answers, catalog);
+    const mapped = window.__repforgeTrainingTest.entryAdapter.programRequestFromAnswers(answers, catalog);
     if (!mapped.ok) throw new Error("Could not prepare the catalog request: " + JSON.stringify(mapped.conflicts));
-    const generated = window.RepForgeProgramCompiler.generateProgram(mapped.value, catalog);
+    const generated = window.__repforgeTrainingTest.compiler.generateProgram(mapped.value, catalog);
     if (!generated.ok) throw new Error("Could not generate the production program: " + JSON.stringify(generated.conflicts));
     await window.__repforgeFinalizeProgramSetup({
       programDefinition: generated.value,

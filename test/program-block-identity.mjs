@@ -12,6 +12,7 @@
  * registered in the shared suite inventory until the production consumers land.
  */
 import { finishEarly } from "./fixtures/focus-workout.mjs";
+import { installBrowserTraining } from "./training-browser.mjs";
 import { openInstalledEditor } from "./fixtures/installed-editor.mjs";
 import { readFileSync } from "node:fs";
 import { launchChromium, waitForAppBoot, assertServingApp } from "./browser.mjs";
@@ -156,8 +157,9 @@ async function flush(page) {
 }
 
 async function activateRealProgram(page, name = "Block identity oracle") {
+  await installBrowserTraining(page);
   const result = await page.evaluate(async ({ programName, request }) => {
-    const compiler = window.RepForgeProgramCompiler;
+    const compiler = window.__repforgeTrainingTest.compiler;
     const catalog = window.RepForgeExerciseCatalog;
     if (!compiler || !catalog || typeof window.__repforgeFinalizeProgramSetup !== "function") {
       return { ok: false, error: "production program-entry activation seam unavailable" };

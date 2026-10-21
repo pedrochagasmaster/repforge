@@ -20,6 +20,7 @@
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
 import { launchChromium, waitForAppBoot, answerRecommend } from "./browser.mjs";
+import { installBrowserTraining } from "./training-browser.mjs";
 import { editorSettled, openExerciseSheet, openInstalledEditor } from "./fixtures/installed-editor.mjs";
 import { EVENT_DUPLICATE_POLICIES, FORBIDDEN_PROPERTY_NAMES } from "./fixtures/telemetry.mjs";
 import { exerciseAction, finishEarly, openLoggedSets, selectExercise } from "./fixtures/focus-workout.mjs";
@@ -197,13 +198,14 @@ async function trustProgram(browser) {
   await page.clock.setFixedTime(new Date(TRUST_SESSION_1));
   await page.goto(BASE);
   await waitForAppBoot(page, { base: BASE });
+  await installBrowserTraining(page);
   const target = await page.evaluate(async ([weight, reps]) => {
-    const catalog = window.RepForgeExerciseCatalog.snapshot();
-    const request = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({
+    const catalog = window.__repforgeTrainingTest.catalog;
+    const request = window.__repforgeTrainingTest.entryAdapter.programRequestFromAnswers({
       desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek: 4, sessionMinutes: 60,
       environment: { kind: "commercial_gym" },
     }, catalog).value;
-    const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog).value;
+    const definition = window.__repforgeTrainingTest.compiler.generateProgram(request, catalog).value;
     const weighted = (slot) => JSON.stringify(slot.metricIds) === JSON.stringify([weight, reps]) &&
       slot.prescriptionsByCycle[0].sets.length >= 3;
     const day = definition.days.find((item) => item.kind === "training" &&

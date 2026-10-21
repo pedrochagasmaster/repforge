@@ -54,10 +54,10 @@ function optInFacts(definition) {
   })));
 }
 const codecOptions = () => ({
-  catalogSnapshot: window.RepForgeExerciseCatalog.snapshot(),
-  validateProgramDefinition: window.RepForgeProgramCompiler.validateProgramDefinition,
-  generateProgram: window.RepForgeProgramCompiler.generateProgram,
-  generatorVersion: window.RepForgeProgramCompiler.GENERATOR_VERSION,
+  catalogSnapshot: window.__repforgeTrainingTest.catalog,
+  validateProgramDefinition: window.__repforgeTrainingTest.compiler.validateProgramDefinition,
+  generateProgram: window.__repforgeTrainingTest.compiler.generateProgram,
+  generatorVersion: window.__repforgeTrainingTest.compiler.GENERATOR_VERSION,
 });
 const decodeIn = (page, encoded) => page.evaluate(async ({ encoded, options }) =>
   window.RepForgeSharedSetup.decode(encoded, new Function(`return (${options})()`)()), { encoded, options: codecOptions.toString() });

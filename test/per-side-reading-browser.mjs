@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /** Plan 069 S2: production per-side logging, reading, Progress and CSV. */
 import assert from "node:assert/strict";
+import { installBrowserTraining } from "./training-browser.mjs";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
@@ -72,8 +73,9 @@ async function replicas(page) {
 }
 
 async function installProgram(page) {
+  await installBrowserTraining(page);
   return page.evaluate(async ({ rowId, pressId }) => {
-    const catalog = window.RepForgeExerciseCatalog.snapshot();
+    const catalog = window.__repforgeTrainingTest.catalog;
     const answers = {
       desiredResult: "muscle_growth",
       structuredExperience: "6_to_24m",
@@ -82,9 +84,9 @@ async function installProgram(page) {
       environment: { kind: "commercial_gym" },
       mustHaveExercises: [rowId, pressId],
     };
-    const mapped = window.RepForgeProgramEntryAdapter.programRequestFromAnswers(answers, catalog);
+    const mapped = window.__repforgeTrainingTest.entryAdapter.programRequestFromAnswers(answers, catalog);
     if (!mapped.ok) throw new Error("Could not prepare the catalog request: " + JSON.stringify(mapped.conflicts));
-    const generated = window.RepForgeProgramCompiler.generateProgram(mapped.value, catalog);
+    const generated = window.__repforgeTrainingTest.compiler.generateProgram(mapped.value, catalog);
     if (!generated.ok) throw new Error("Could not generate the production program: " + JSON.stringify(generated.conflicts));
     const finalized = await window.__repforgeFinalizeProgramSetup({
       programDefinition: generated.value,
@@ -348,8 +350,9 @@ async function main() {
     const sourcePress = saved.local.log.find(row => row.performedLibraryId === PRESS_ID);
     const sourceRow = saved.local.log.find(row => row.performedLibraryId === ROW_ID);
     const ambiguousRaw = CATALOG.exercises.find(entry => entry.id === AMBIGUOUS_ID);
+    await installBrowserTraining(page);
     const ambiguousDefinitions = await page.evaluate(ids => {
-      const result = window.RepForgeExerciseMetrics.definitionsForIds(ids);
+      const result = window.__repforgeTrainingTest.metrics.definitionsForIds(ids);
       if (!result.ok) throw new Error("The persistent B-stance metric composition is invalid: " + JSON.stringify(result.issues));
       return result.value;
     }, ambiguousRaw.exerciseMetrics);
@@ -373,8 +376,9 @@ async function main() {
     const ambiguousLatest = ambiguousRowFor("p069-s2-persistent-latest", "2026-10-05", "2026-10-05T13:01:00.000Z", 27.5);
     const persistentLegacyFallback = ambiguousRowFor("p069-s2-persistent-legacy", "2026-10-05", "2026-10-05T15:00:00.000Z", 22.5, null);
     const totalAmbiguousRaw = CATALOG.exercises.find(entry => entry.id === TOTAL_AMBIGUOUS_ID);
+    await installBrowserTraining(page);
     const totalAmbiguousDefinitions = await page.evaluate(ids => {
-      const result = window.RepForgeExerciseMetrics.definitionsForIds(ids);
+      const result = window.__repforgeTrainingTest.metrics.definitionsForIds(ids);
       if (!result.ok) throw new Error("The total-load B-stance metric composition is invalid: " + JSON.stringify(result.issues));
       return result.value;
     }, totalAmbiguousRaw.exerciseMetrics);

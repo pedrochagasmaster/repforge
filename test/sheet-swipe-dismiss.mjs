@@ -339,7 +339,7 @@ async function run() {
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await settle(page);
   await page.evaluate((d) => {
-    window.stopRest();
+    window.__repforgeRest.stop();
     localStorage.removeItem(d);
   }, DRAFT);
   // The sheets under test describe a program; a fresh device holds none.
@@ -539,7 +539,7 @@ async function run() {
   assert(rest.hidden && !rest.locked, "the swipe closes the rest sheet", JSON.stringify(rest));
   assert(rest.running, "the rest keeps running, exactly as Close leaves it", JSON.stringify(rest));
   assert(rest.focus === "woRest", "focus returns to the chip that opened it", rest.focus);
-  await page.evaluate(() => window.stopRest());
+  await page.evaluate(() => window.__repforgeRest.stop());
 
   assert(!errors.length, "no uncaught page errors", errors.slice(0, 3).join(" | "));
 

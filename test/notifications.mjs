@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /** Focused Playwright checks for notification surfaces. Requires http://localhost:8000/ */
 import { launchChromium, waitForAsyncCondition } from "./browser.mjs";
+import { installTestLanguage } from "./language-browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -632,7 +633,8 @@ console.log("\nNotification permission truth (UX-04)");
   await page.locator("#notifyToggle").click();
   await waitNotifyIdle(page);
   const after = await notifyUi(page);
-  const next = await page.evaluate(() => window.RepForgeI18n?.t("settings.notifications.next.unsupported"));
+  await installTestLanguage(page);
+  const next = await page.evaluate(() => window.__testLanguage?.t("settings.notifications.next.unsupported"));
   assert(after.storedEnabled === false && after.idbEnabled === false && after.pressed === "false" && after.typesDisabled, "unsupported: enable does not persist on", JSON.stringify(after));
   assert(typeof next === "string" && next && after.status.includes(next), "unsupported: status shows next-step copy", JSON.stringify({ status: after.status, next }));
   await context.close();
@@ -644,7 +646,8 @@ console.log("\nNotification permission truth (UX-04)");
   await page.locator("#notifyToggle").click();
   await waitNotifyIdle(page);
   const after = await notifyUi(page);
-  const next = await page.evaluate(() => window.RepForgeI18n?.t("settings.notifications.next.prompt"));
+  await installTestLanguage(page);
+  const next = await page.evaluate(() => window.__testLanguage?.t("settings.notifications.next.prompt"));
   assert(after.storedEnabled === false && after.pressed === "false" && after.typesDisabled, "default: request result does not persist enabled", JSON.stringify(after));
   assert(typeof next === "string" && next && after.status.includes(next), "default: status shows prompt next-step copy", JSON.stringify({ status: after.status, next }));
   await context.close();
@@ -664,7 +667,8 @@ console.log("\nNotification permission truth (UX-04)");
   await page.locator("#notifyToggle").click();
   await waitNotifyIdle(page);
   const after = await notifyUi(page);
-  const next = await page.evaluate(() => window.RepForgeI18n?.t("settings.notifications.next.denied"));
+  await installTestLanguage(page);
+  const next = await page.evaluate(() => window.__testLanguage?.t("settings.notifications.next.denied"));
   assert(after.storedEnabled === false && after.pressed === "false" && after.typesDisabled, "denied: request result stores disabled", JSON.stringify(after));
   assert(after.storedMissed === false && after.idbMissed === false, "denied: reminder-type preference survives failed permission", JSON.stringify(after));
   assert(typeof next === "string" && next && after.status.includes(next), "denied: status shows denied next-step copy", JSON.stringify({ status: after.status, next }));
@@ -677,7 +681,8 @@ console.log("\nNotification permission truth (UX-04)");
   await page.locator("#notifyToggle").click();
   await waitNotifyIdle(page);
   const after = await notifyUi(page);
-  const granted = await page.evaluate(() => window.RepForgeI18n?.t("settings.notifications.status.granted"));
+  await installTestLanguage(page);
+  const granted = await page.evaluate(() => window.__testLanguage?.t("settings.notifications.status.granted"));
   assert(after.storedEnabled === true && after.idbEnabled === true && after.pressed === "true" && after.typesDisabled === false, "granted: stores enabled and unlocks types", JSON.stringify(after));
   assert(after.busy !== "true", "granted: pending busy clears", JSON.stringify(after));
   assert(typeof granted === "string" && granted && after.status.toLowerCase().includes(granted.toLowerCase()), "granted: status names granted permission", JSON.stringify({ status: after.status, granted }));

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /** Focused Playwright checks for History indexing and operability. Requires the app HTTP server. */
 import { pathToFileURL } from "url";
+import { installTestLanguage } from "./language-browser.mjs";
 import { launchChromium } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 import { metricLogRow } from "./fixtures/history-metric-rows.mjs";
@@ -540,8 +541,10 @@ export async function runHistoryOperabilityChecks(page, check = assert) {
   await page.fill("#historySearch", "zzzz-no-session");
   await page.waitForTimeout(50);
   const noMatch = await page.locator('[data-hist-empty="nomatch"]').textContent();
-  const emptyFirst = await page.evaluate(() => window.RepForgeI18n?.t?.("history.empty.sessions"));
-  const emptyNone = await page.evaluate(() => window.RepForgeI18n?.t?.("history.empty.no_match"));
+  await installTestLanguage(page);
+  const emptyFirst = await page.evaluate(() => window.__testLanguage?.t?.("history.empty.sessions"));
+  await installTestLanguage(page);
+  const emptyNone = await page.evaluate(() => window.__testLanguage?.t?.("history.empty.no_match"));
   check(
     !!noMatch && noMatch.trim() === (emptyNone || "").trim() && noMatch.trim() !== (emptyFirst || "").trim(),
     "No-match copy is distinct from the first-run empty state",
@@ -697,13 +700,14 @@ export async function runCountFormChecks(page, check = assert) {
     pt: { one: "1 sessão · 1 série", two: "2 sessões · 2 séries", exercise: ["1 exercício", "2 exercícios"], added: ["1 exercício adicionado.", "2 exercícios adicionados."], days: ["1 dia por semana", "2 dias por semana"] },
   };
   for (const lang of ["en", "pt"]) {
+    await installTestLanguage(page);
     const read = await page.evaluate((language) => {
-      window.RepForgeI18n.setLang(language);
+      window.__testLanguage.setLang(language);
       const row = (session, date, set) => ({ session, date, day: "Push", name: "Alpha Press", exerciseId: "ex-alpha", set, load: 60, reps: 8, rir: 1,
         notes: "", created: `${date}T12:00:00.000Z`, primary: "Chest", secondary: "" });
       // March 2026: one session with one set. April 2026: two sessions with one set each.
       window.__repforgeHistory.renderWithSource([row("c-1", "2026-03-10", 1), row("c-2", "2026-04-07", 1), row("c-3", "2026-04-14", 1)]);
-      const t = (key, vars) => window.RepForgeI18n.t(key, vars);
+      const t = (key, vars) => window.__testLanguage.t(key, vars);
       return {
         months: [...document.querySelectorAll("#sessions .hist-month")].map((heading) => heading.querySelector("span")?.textContent.trim()),
         exercise: [1, 2].map((n) => t(n === 1 ? "today.exercise_count_one" : "today.exercise_count", { n })),
@@ -719,7 +723,8 @@ export async function runCountFormChecks(page, check = assert) {
     check(JSON.stringify(read.added) === JSON.stringify(want.added), `[${lang}] added-exercise toast: ${want.added.join(" / ")}`, JSON.stringify(read.added));
     check(JSON.stringify(read.days) === JSON.stringify(want.days), `[${lang}] days per week: ${want.days.join(" / ")}`, JSON.stringify(read.days));
   }
-  await page.evaluate(() => window.RepForgeI18n.setLang("en"));
+  await installTestLanguage(page);
+  await page.evaluate(() => window.__testLanguage.setLang("en"));
 }
 
 async function main() {

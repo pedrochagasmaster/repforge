@@ -16,6 +16,7 @@
  * 6. A per-side composition carries the per-side value unchanged.
  */
 import { launchChromium } from "./browser.mjs";
+import { installBrowserTraining } from "./training-browser.mjs";
 import { openCatalogState } from "./fixtures/catalog-state.mjs";
 import { seedProgramMeta } from "./fixtures/seed-program.mjs";
 
@@ -181,9 +182,10 @@ try {
     const definition = seedProgramMeta({}).programDefinition;
     const { context, page } = await openCatalogState(browser, "today/no-program", 390, "en", "normal");
     try {
+      await installBrowserTraining(page);
       const swapped = await page.evaluate(async (programDefinition) => {
-        const catalog = window.RepForgeExerciseCatalog.snapshot();
-        const metrics = window.RepForgeExerciseMetrics;
+        const catalog = window.__repforgeTrainingTest.catalog;
+        const metrics = window.__repforgeTrainingTest.metrics;
         const source = catalog.exercises.find((entry) => {
           const defs = metrics.definitionsForIds(entry.exerciseMetrics || []);
           return defs?.ok && defs.value.length === 2 && defs.value.some((m) => m.semantic === "loadPerSideKg")
@@ -199,7 +201,7 @@ try {
           loadingModel: { ...slot.loadingModel, bodyweightCoefficient: source.bodyweight },
         });
         for (const cycle of slot.prescriptionsByCycle) for (const set of cycle.sets) set.targets = { repsPerSide: { min: 6, max: 10 } };
-        const valid = window.RepForgeProgramCompiler.validateProgramDefinition(programDefinition, catalog, []);
+        const valid = window.__repforgeTrainingTest.compiler.validateProgramDefinition(programDefinition, catalog, []);
         if (!valid.ok) return { error: `invalid per-side program: ${JSON.stringify(valid.issues).slice(0, 400)}` };
         await window.__repforgeFinalizeProgramSetup({
           programDefinition, name: "Per-side loads", answers: {}, destination: "log", origin: "first-run",

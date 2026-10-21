@@ -554,7 +554,7 @@ async function focusMotion(browser, { reducedMotion = "no-preference" } = {}) {
   await page.evaluate(() => window.__repforgeFocus.to(0));
   await page.waitForTimeout(300);
   // The sets logged above armed a rest, which holds the shelf's pad row; M1 is the field pads' beat, so end the rest first.
-  await page.evaluate(() => window.stopRest());
+  await page.evaluate(() => window.__repforgeRest.stop());
   await page.waitForFunction((card) => document.querySelector(`${card} .shelf__pads`)?.dataset.pads === "field" &&
     !document.querySelector(`${card} .motion-fade-out`), CARD, { timeout: 3000 });
   const pad = async (dir) => page.evaluate(async ({ card, dir }) => {
@@ -695,7 +695,7 @@ async function restMotion(browser, { reducedMotion = "no-preference" } = {}) {
     if (action === "log") q(".saveset").click();
     else if (action === "bell") { window.__repforgeRest.expire(15); document.dispatchEvent(new Event("visibilitychange")); }
     else if (action === "skip") q(".restpad--skip").click();
-    else if (action === "end") window.stopRest();
+    else if (action === "end") window.__repforgeRest.stop();
     while (performance.now() - t0 < ms) { await frame(); read(); }
     return out;
   }, { card: CARD, action, ms });

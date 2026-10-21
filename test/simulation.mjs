@@ -18,6 +18,8 @@
  */
 
 import { launchChromium, waitForAsyncCondition, answerRecommend } from "./browser.mjs";
+import { installBrowserTraining } from "./training-browser.mjs";
+import { installTestLanguage } from "./language-browser.mjs";
 import { openLoggedSets } from "./fixtures/focus-workout.mjs";
 import { SHEET, applyInstalledEditor, cancelInstalledEditor, editorSettled, openExerciseSheet, openInstalledEditor, sheetTap, showEditorDay } from "./fixtures/installed-editor.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
@@ -2800,8 +2802,9 @@ async function main() {
   await jsonArea.fill(JSON.stringify(unknownMovement));
   await page.click("#saveProgram");
   const invalidDefinitionToast = await readToast(page);
+  await installTestLanguage(page);
   assert(
-    invalidDefinitionToast === await page.evaluate(() => window.RepForgeI18n.t("toast.program_invalid")) &&
+    invalidDefinitionToast === await page.evaluate(() => window.__testLanguage.t("toast.program_invalid")) &&
       JSON.stringify((await getState(page)).programMeta.programDefinition) === storedBeforeInvalid,
     "A definition naming an unknown movement is refused and saves nothing",
     `Toast: "${invalidDefinitionToast}"`,
@@ -3520,13 +3523,14 @@ async function main() {
   const metaBeforeBeginner = (await getState(page)).programMeta;
   // A generated beginner program replaces the seed: the lifter sees its
   // movements and its authored setup notes, and keeps the history.
+  await installBrowserTraining(page);
   const beginnerFirst = await page.evaluate(async () => {
-    const catalog = window.RepForgeExerciseCatalog.snapshot();
-    const request = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({
+    const catalog = window.__repforgeTrainingTest.catalog;
+    const request = window.__repforgeTrainingTest.entryAdapter.programRequestFromAnswers({
       desiredResult: "muscle_growth", structuredExperience: "under_6m", daysPerWeek: 3, sessionMinutes: 60,
       environment: { kind: "commercial_gym" },
     }, catalog).value;
-    const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog).value;
+    const definition = window.__repforgeTrainingTest.compiler.generateProgram(request, catalog).value;
     const first = definition.days.find((day) => day.kind === "training").slots[0];
     first.setupNotes = "Use a stable machine setup and controlled range.";
     await window.__repforgeFinalizeProgramSetup({
@@ -7197,10 +7201,11 @@ async function main() {
     JSON.stringify(positioning)
   );
 
+  await installTestLanguage(page);
   const deleteCopy = await page.evaluate(() => ({
-    label: window.RepForgeI18n.t("settings.delete_all"),
-    confirm: window.RepForgeI18n.t("confirm.delete_log"),
-    lede: window.RepForgeI18n.t("settings.danger_lede"),
+    label: window.__testLanguage.t("settings.delete_all"),
+    confirm: window.__testLanguage.t("confirm.delete_log"),
+    lede: window.__testLanguage.t("settings.danger_lede"),
   }));
   assert(
     /workout history/i.test(deleteCopy.label) &&

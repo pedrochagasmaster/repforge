@@ -39,6 +39,7 @@
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
 import { launchChromium, waitForAppBoot, answerRecommend } from "./browser.mjs";
+import { installBrowserTraining } from "./training-browser.mjs";
 import { cancelInstalledEditor, editorSettled, openExerciseSheet, openInstalledEditor } from "./fixtures/installed-editor.mjs";
 import { finishEarly } from "./fixtures/focus-workout.mjs";
 import { metricLogRow } from "./fixtures/history-metric-rows.mjs";
@@ -112,9 +113,9 @@ let BUILT = null;
 
 async function buildProgram(browser) {
   const { context, page } = await openApp(browser, "en", { seeded: false });
-  await page.waitForFunction(() => !!window.RepForgeExerciseCatalog?.snapshot?.(), undefined, { timeout: 15000 });
+  await installBrowserTraining(page);
   BUILT = await page.evaluate(({ slots, custom, metrics, started }) => {
-    const catalog = window.RepForgeExerciseCatalog.snapshot();
+    const catalog = window.__repforgeTrainingTest.catalog;
     const byName = new Map(catalog.exercises.map((entry) => [entry.name, entry]));
     const customs = [{
       id: custom.id, name: custom.stored, namePt: custom.pt, archived: false, equipment: ["machine"],

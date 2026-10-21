@@ -15,6 +15,7 @@
  *     acceptance; there is no generator input to rebuild them from.
  */
 import assert from "node:assert/strict";
+import { installBrowserTraining } from "./training-browser.mjs";
 import { createRequire } from "node:module";
 import { launchChromium, waitForAppBoot, answerRecommend } from "./browser.mjs";
 import { installSeedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
@@ -282,9 +283,10 @@ try {
     await openHub(page);
     await walkGenerate(page);
     await ageDraftAndReopen(page, { origin: "settings", markPreview: true });
+    await installBrowserTraining(page);
     await page.evaluate(() => {
-      const base = window.RepForgeProgramEntryAdapter.createProductionServices({
-        Compiler: window.RepForgeProgramCompiler, catalog: window.RepForgeExerciseCatalog.snapshot() });
+      const base = window.__repforgeTrainingTest.entryAdapter.createProductionServices({
+        Compiler: window.__repforgeTrainingTest.compiler, catalog: window.__repforgeTrainingTest.catalog });
       window.__repforgeProgramEntryServicesOverride = { ...base, generateProgram: () => ({ ok: false, conflicts: [] }) };
     });
     const before = await entry(page);

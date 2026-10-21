@@ -15,6 +15,7 @@
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
 import { launchChromium } from "./browser.mjs";
+import { installBrowserTraining } from "./training-browser.mjs";
 import { selectExercise, finishEarly, openEarlyFinish } from "./fixtures/focus-workout.mjs";
 import { installGeneratedProgram, isWeightRepsSlot, definitionSlot, metricLogRow } from "./fixtures/history-metric-rows.mjs";
 
@@ -65,9 +66,9 @@ const TEMPLATES = [
 let BUILT = null;
 
 async function buildProgram(page) {
-  await page.waitForFunction(() => !!window.RepForgeExerciseCatalog?.snapshot?.(), undefined, { timeout: 15000 });
+  await installBrowserTraining(page);
   BUILT = await page.evaluate(({ templates, metrics, started }) => {
-    const byName = new Map(window.RepForgeExerciseCatalog.snapshot().exercises.map((entry) => [entry.name, entry]));
+    const byName = new Map(window.__repforgeTrainingTest.catalog.exercises.map((entry) => [entry.name, entry]));
     const customs = [];
     const perDay = new Map();
     const rows = templates.map(([day, name, sets, min, max, primary, secondary, movement], i) => {

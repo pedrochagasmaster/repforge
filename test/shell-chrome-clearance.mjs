@@ -18,6 +18,7 @@
  * 6. The import review (#importReview) is a third such layer: its inset is solid --bg at scroll 0, mid and end (#453).
  */
 import { launchChromium } from "./browser.mjs";
+import { installBrowserTraining } from "./training-browser.mjs";
 import { SAFE_AREA, openCatalogState } from "./fixtures/catalog-state.mjs";
 import { seedProgramMeta } from "./fixtures/seed-program.mjs";
 
@@ -166,8 +167,9 @@ try {
     // swapped for the catalog movement with the longest name that logs the same load and reps.
     const { context, page } = await openCatalogState(browser, "today/no-program", 390, lang, "normal");
     try {
+      await installBrowserTraining(page);
       const named = await page.evaluate(async (definition) => {
-        const catalog = window.RepForgeExerciseCatalog.snapshot();
+        const catalog = window.__repforgeTrainingTest.catalog;
         const metricIds = definition.days[0].slots[0].metricIds.join();
         const source = catalog.exercises.filter((entry) => (entry.exerciseMetrics || []).join() === metricIds)
           .reduce((a, b) => (String(b.name).length > String(a.name).length ? b : a));
@@ -180,7 +182,7 @@ try {
             loadingModel: { ...slot.loadingModel, bodyweightCoefficient: source.bodyweight },
           });
         }
-        const valid = window.RepForgeProgramCompiler.validateProgramDefinition(definition, catalog, []);
+        const valid = window.__repforgeTrainingTest.compiler.validateProgramDefinition(definition, catalog, []);
         if (!valid.ok) return { error: `the long-name program is invalid: ${JSON.stringify(valid.issues).slice(0, 400)}` };
         await window.__repforgeFinalizeProgramSetup({
           programDefinition: definition, name: "Long names", answers: {}, destination: "log", origin: "first-run",

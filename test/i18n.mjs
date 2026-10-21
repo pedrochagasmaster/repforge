@@ -4,6 +4,7 @@
  * Run: node test/i18n.mjs
  */
 import { readFileSync } from "fs";
+import { installTestLanguage } from "./language-browser.mjs";
 import { dirname, join } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { createRequire } from "module";
@@ -262,6 +263,7 @@ async function runBrowserParity(en, pt) {
   const page = await context.newPage();
   page.on("dialog", (d) => d.accept());
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await installTestLanguage(page);
   await page.evaluate(
     async ({ k, d }) => {
       localStorage.removeItem(k);
@@ -277,7 +279,7 @@ async function runBrowserParity(en, pt) {
   );
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { timeout: 10000, base: BASE });
-  await page.waitForFunction(() => typeof window.RepForgeI18n === "object", { timeout: 10000 });
+  await page.waitForFunction(() => typeof window.__testLanguage === "object", { timeout: 10000 });
   await page.evaluate(() => {
     const el = document.querySelector("#onboarding");
     window.closeFirstRun?.();
@@ -286,12 +288,13 @@ async function runBrowserParity(en, pt) {
     if (tour && !tour.classList.contains("hidden") && typeof window.closeTour === "function") window.closeTour();
   });
 
+  await installTestLanguage(page);
   const missing = await page.evaluate(async () => {
     const seen = [];
-    const orig = window.RepForgeI18n.t.bind(window.RepForgeI18n);
-    window.RepForgeI18n.t = (key, vars) => {
-      const dict = window.RepForgeI18n.STRINGS[window.RepForgeI18n.getLang()] || {};
-      if (dict[key] == null) seen.push({ lang: window.RepForgeI18n.getLang(), key });
+    const orig = window.__testLanguage.t.bind(window.__testLanguage);
+    window.__testLanguage.t = (key, vars) => {
+      const dict = window.__testLanguage.STRINGS[window.__testLanguage.getLang()] || {};
+      if (dict[key] == null) seen.push({ lang: window.__testLanguage.getLang(), key });
       return orig(key, vars);
     };
     const visit = () => {
@@ -302,11 +305,11 @@ async function runBrowserParity(en, pt) {
       window.__repforgeShowSettings?.();
       for (const id of ["entry", "install", "privacy"]) window.__repforgeUi?.showGuide?.(id);
     };
-    window.RepForgeI18n.setLang("en");
-    window.RepForgeI18n.applyDom();
+    window.__testLanguage.setLang("en");
+    window.__testLanguage.applyDom();
     visit();
-    window.RepForgeI18n.setLang("pt");
-    window.RepForgeI18n.applyDom();
+    window.__testLanguage.setLang("pt");
+    window.__testLanguage.applyDom();
     visit();
     return seen;
   });

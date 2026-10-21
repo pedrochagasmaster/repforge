@@ -22,11 +22,13 @@
  *
  * New: the sheet also names the anchor, the target (with RIR and reps), and
  * the load step — the three facts `engineWhyRows` reports — each checked
- * against `window.RepForgeI18n.t(...)`, never a hardcoded English string.
+ * against `window.__testLanguage.t(...)`, never a hardcoded English string.
  *
  * Run: REPFORGE_URL=http://localhost:8000/ node test/why-sheet.mjs
  */
 import { readFileSync } from "node:fs";
+import { installBrowserTraining } from "./training-browser.mjs";
+import { installTestLanguage } from "./language-browser.mjs";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 
@@ -56,7 +58,7 @@ const REQUEST = {
  *  integer prints bare, anything else to two decimals with trailing zeros
  *  trimmed. `fmt`/`fmtLoad` are not exposed on `window`, so this is a local
  *  equivalent for the English, kg-unit case this suite runs in — the i18n
- *  *text* itself still always comes from `window.RepForgeI18n.t(...)`. */
+ *  *text* itself still always comes from `window.__testLanguage.t(...)`. */
 function fmtNum(v) {
   const n = Number(v);
   if (!Number.isFinite(n)) return "";
@@ -70,8 +72,9 @@ function assert(cond, name, detail) {
 }
 
 async function seed(page, { ambiguousPerSideReview = false, knownModeNullConfigRequired = false } = {}) {
+  await installBrowserTraining(page);
   return page.evaluate(({ request, weight, reps, ambiguousPerSideReview, knownModeNullConfigRequired }) => {
-    const generated = window.RepForgeProgramCompiler.generateProgram(request, window.RepForgeExerciseCatalog.snapshot());
+    const generated = window.__repforgeTrainingTest.compiler.generateProgram(request, window.__repforgeTrainingTest.catalog);
     let definition = generated.value;
     const target = definition.days.filter((day) => day.kind === "training").map((day) => ({ day, slot: day.slots[0] }))
       .find(({ slot }) => JSON.stringify(slot.metricIds) === JSON.stringify([weight, reps]) &&
@@ -87,7 +90,7 @@ async function seed(page, { ambiguousPerSideReview = false, knownModeNullConfigR
         day.slots.map((slot) => ({ day, slot }))).find(({ slot }) => (slot.movementPatternIds || []).includes("19e5c6f170d88068951fd7fffc03ed0d"));
       if (!hipHinge) throw new Error("generated recommendation has no lower B hip-hinge slot to swap in Review");
       const exerciseId = "3895c6f170d88002b51fdf96c7dc50e1";
-      const exerciseCatalog = window.RepForgeExerciseCatalog.snapshot();
+      const exerciseCatalog = window.__repforgeTrainingTest.catalog;
       const rawExercise = exerciseCatalog.exercises.find((entry) => entry.id === exerciseId);
       const laterality = (rawExercise?.laterality || []).map((id) => exerciseCatalog.uuidIndex?.[id]?.name).filter(Boolean);
       if (laterality.length !== 1 || laterality[0] !== "Asymmetrical") {
@@ -96,11 +99,11 @@ async function seed(page, { ambiguousPerSideReview = false, knownModeNullConfigR
       const edited = window.RepForgeProgramReview.applyEdit(definition, {
         kind: "swap", slotId: hipHinge.slot.id, exerciseId,
       }, {
-        compiler: window.RepForgeProgramCompiler, catalog: exerciseCatalog,
-        metrics: window.RepForgeExerciseMetrics, ordinal: 1,
+        compiler: window.__repforgeTrainingTest.compiler, catalog: exerciseCatalog,
+        metrics: window.__repforgeTrainingTest.metrics, ordinal: 1,
       });
       if (!edited.ok) throw new Error(`Review catalog swap refused the ambiguous B-stance movement: ${JSON.stringify(edited)}`);
-      const checked = window.RepForgeProgramCompiler.validateProgramDefinition(edited.definition, exerciseCatalog, []);
+      const checked = window.__repforgeTrainingTest.compiler.validateProgramDefinition(edited.definition, exerciseCatalog, []);
       if (!checked.ok) throw new Error(`Review catalog swap produced an invalid canonical definition: ${JSON.stringify(checked.issues)}`);
       definition = edited.definition;
       perSide = definition.days.filter((day) => day.kind === "training").flatMap((day) =>
@@ -112,7 +115,7 @@ async function seed(page, { ambiguousPerSideReview = false, knownModeNullConfigR
       }
     }
     if (knownModeNullConfigRequired) {
-      const exerciseCatalog = window.RepForgeExerciseCatalog.snapshot();
+      const exerciseCatalog = window.__repforgeTrainingTest.catalog;
       const rawExercise = exerciseCatalog.exercises.find((entry) => entry.id === knownPerSide?.slot.exerciseId);
       const laterality = (rawExercise?.laterality || []).map((id) => exerciseCatalog.uuidIndex?.[id]?.name).filter(Boolean);
       const hasKnownBilateralMode = laterality.includes("Bilateral") && !laterality.includes("Unilateral");
@@ -127,7 +130,7 @@ async function seed(page, { ambiguousPerSideReview = false, knownModeNullConfigR
       for (const cycle of knownPerSide.slot.prescriptionsByCycle || []) {
         for (const set of cycle.sets || []) set.status = "configuration_required";
       }
-      const checked = window.RepForgeProgramCompiler.validateProgramDefinition(definition, exerciseCatalog, []);
+      const checked = window.__repforgeTrainingTest.compiler.validateProgramDefinition(definition, exerciseCatalog, []);
       if (!checked.ok) throw new Error(`known-laterality guard fixture is not a valid canonical definition: ${JSON.stringify(checked.issues)}`);
     }
     return window.__repforgeFinalizeProgramSetup({
@@ -160,6 +163,7 @@ async function measureLargeTextTodayTarget(page, rowId) {
   const style = await page.addStyleTag({ content: "html { font-size: 32px !important; }" });
   try {
     await page.evaluate(() => new Promise(requestAnimationFrame));
+    await installTestLanguage(page);
     return await page.evaluate((id) => {
       const root = document.documentElement;
       const target = document.querySelector(`#todayDash .rxrow[data-exopen="${CSS.escape(id)}"] .rxrow__target`);
@@ -167,7 +171,7 @@ async function measureLargeTextTodayTarget(page, rowId) {
       const rect = target.getBoundingClientRect();
       const lineHeight = Number.parseFloat(getComputedStyle(target).lineHeight);
       return {
-        language: window.RepForgeI18n.getLang(),
+        language: window.__testLanguage.getLang(),
         viewport: root.clientWidth,
         document: root.scrollWidth,
         text: target.textContent.replace(/\s+/g, " ").trim(),
@@ -207,7 +211,7 @@ async function logSet(page, slotId, ordinal, { load, reps, rir }) {
   const resting = await page.waitForFunction(() => document.querySelector("#woRest")?.classList.contains("is-running"),
     undefined, { timeout: 3000 }).then(() => true, () => false);
   if (resting) {
-    await page.evaluate(() => window.stopRest());
+    await page.evaluate(() => window.__repforgeRest.stop());
     await page.waitForFunction(() => !document.querySelector("#woRest")?.classList.contains("is-running"), undefined, { timeout: 10000 });
   }
 }
@@ -292,8 +296,9 @@ async function expectedAnchorText(page, truth) {
   const projected = fatigue?.projectedCapacityKg;
   const fatigueCap = Number.isFinite(projected) ? fmtNum(Math.round(projected * 2) / 2) : null;
   const showFatigue = Number.isFinite(projected) && Number.isFinite(anchor.capacityKg) && Math.abs(projected - anchor.capacityKg) > 0.25;
+  await installTestLanguage(page);
   return page.evaluate(({ anchor, cap, displayLoad, fatigueCap, showFatigue, unit }) => {
-    const t = (k, v) => window.RepForgeI18n.t(k, v);
+    const t = (k, v) => window.__testLanguage.t(k, v);
     let text = "";
     if (anchor.source === "current_session") {
       text = t("why.engine.anchor_session", { set: (anchor.setIndex ?? 0) + 1, load: displayLoad, cap, unit });
@@ -462,8 +467,9 @@ try {
   // of last session's two sets at its own load — never one shared sentence.
   const anchorBlock = whyBefore.blocks.find((b) => b.lead === "engine-anchor");
   assert(!!anchorBlock, "the sheet has a 'what you showed' (engine-anchor) block", whyBefore.blocks);
+  await installTestLanguage(page);
   const performedExpectations = await page.evaluate(({ load1, load2 }) => {
-    const t = window.RepForgeI18n.t;
+    const t = window.__testLanguage.t;
     return {
       set1: t("why.performed", { reps: "6", load: load1, unit: "kg", rirs: "2" }),
       set2: t("why.performed", { reps: "8", load: load2, unit: "kg", rirs: "1" }),
@@ -479,7 +485,7 @@ try {
   // from the same facts `recommendation()` exposes.
   const expectedAnchor = await expectedAnchorText(page, truthBefore);
   assert((anchorBlock?.text || "").includes(expectedAnchor),
-    "the sheet names the anchor exactly as the engine computed it (via window.RepForgeI18n.t)",
+    "the sheet names the anchor exactly as the engine computed it (via window.__testLanguage.t)",
     `text="${anchorBlock?.text}" expected substring="${expectedAnchor}"`);
 
   // The target fact: "engine-target" names the RIR and reps the engine aims for.
@@ -492,12 +498,13 @@ try {
     const rawReps = truthBefore.firstTargets?.[repsMetric?.semantic];
     const reps = typeof rawReps === "number" ? rawReps : rawReps?.min;
     const rir = truthBefore.firstRir;
+    await installTestLanguage(page);
     const expectedTarget = await page.evaluate(({ rir, reps, load, unit }) => {
-      const t = window.RepForgeI18n.t;
+      const t = window.__testLanguage.t;
       return t(rir != null ? "why.engine.target" : "why.engine.target_norir", { rir, reps, load, unit });
     }, { rir: fmtNum(rir), reps, load: fmtNum(load), unit: "kg" });
     assert(targetBlock.text === expectedTarget,
-      "the sheet names the target with RIR and reps exactly as window.RepForgeI18n.t renders it",
+      "the sheet names the target with RIR and reps exactly as window.__testLanguage.t renders it",
       `text="${targetBlock.text}" expected="${expectedTarget}"`);
   }
 
@@ -508,10 +515,11 @@ try {
     const loads = (truthBefore.loadingAssumptions?.availableLoadsKg || []).slice().sort((a, b) => a - b);
     const steps = loads.slice(1).map((v, i) => Math.round((v - loads[i]) * 1000) / 1000).filter((s) => s > 0);
     const step = Math.min(...steps);
+    await installTestLanguage(page);
     const expectedStep = await page.evaluate((step) =>
-      window.RepForgeI18n.t("why.engine.step", { step, unit: "kg" }), fmtNum(step));
+      window.__testLanguage.t("why.engine.step", { step, unit: "kg" }), fmtNum(step));
     assert(assumptionsBlock.text.includes(expectedStep),
-      "the sheet names the load step exactly as window.RepForgeI18n.t renders it",
+      "the sheet names the load step exactly as window.__testLanguage.t renders it",
       `text="${assumptionsBlock.text}" expected substring="${expectedStep}"`);
   }
   await closeWhy(page);

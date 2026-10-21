@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { installTestLanguage } from "./language-browser.mjs";
 import { resolve } from "node:path";
 import { assertServingApp, launchChromium } from "./browser.mjs";
 import { loadManifest } from "../tools/ui-screens/manifest.mjs";
@@ -86,9 +87,10 @@ try {
       `a displayed input value takes precedence over its hidden placeholder: ${valueKey.join(" | ")}`);
     console.log(`deliberate input-copy rejections: ${placeholderKey.find((failure) => failure.includes("raw translation key"))}; ${valueKey.find((failure) => failure.includes("raw translation key"))}`);
 
+    await installTestLanguage(page);
     await en.page.evaluate(() => {
       document.body.insertAdjacentHTML("beforeend", '<div id="catalogContractBad"><p id="dynamic-missing"></p></div>');
-      document.querySelector("#dynamic-missing").textContent = window.RepForgeI18n.t("brandnew.missing_key");
+      document.querySelector("#dynamic-missing").textContent = window.__testLanguage.t("brandnew.missing_key");
     });
     assert.equal(await en.page.locator("#dynamic-missing").evaluate((element) =>
       [...element.attributes].some((attribute) => attribute.name.startsWith("data-i18n"))), false,

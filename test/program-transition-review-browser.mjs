@@ -20,6 +20,7 @@
  * program engine's worker (#353).
  */
 import { readFileSync } from "node:fs";
+import { installBrowserTraining } from "./training-browser.mjs";
 import { SHEET, applyInstalledEditor, cancelInstalledEditor, closeEditorSheet, editorSettled, openExerciseSheet, openInstalledEditor, sheetTap, showEditorDay } from "./fixtures/installed-editor.mjs";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 
@@ -192,9 +193,10 @@ async function freshPage(browser, errors, { locale } = {}) {
 }
 
 async function seed(page, { manual = false, request = REQUEST } = {}) {
+  await installBrowserTraining(page);
   const result = await page.evaluate(async ({ request, manual }) => {
-    const catalogSnapshot = window.RepForgeExerciseCatalog.snapshot();
-    const generated = window.RepForgeProgramCompiler.generateProgram(request, catalogSnapshot);
+    const catalogSnapshot = window.__repforgeTrainingTest.catalog;
+    const generated = window.__repforgeTrainingTest.compiler.generateProgram(request, catalogSnapshot);
     if (!generated.ok) return { ok: false, generated };
     const definition = generated.value;
     if (manual) {

@@ -16,6 +16,7 @@
  * Requires static server on REPFORGE_URL (port 8000).
  */
 import { launchChromium } from "./browser.mjs";
+import { installTestLanguage } from "./language-browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -121,8 +122,9 @@ async function main() {
      *     warm-up groups restored, reorder and finish early only on the session sheet, Close as the X.
      * ====================================================================== */
     console.log("\nThe redrawn sheet: groups, no session actions, Close is the X");
+    await installTestLanguage(page);
     const redraw = await page.evaluate(() => {
-      const t = (key) => window.RepForgeI18n.t(key);
+      const t = (key) => window.__testLanguage.t(key);
       const sheet = document.querySelector("#exActionsSheet");
       const heads = [...sheet.querySelectorAll(".sheetgroup__head")].filter((el) => el.offsetParent !== null);
       const close = sheet.querySelector("#exActionsClose");
@@ -410,9 +412,10 @@ async function main() {
      * 7. The subtitle counts sets in the page language (Plan 064 N01)
      * ====================================================================== */
     console.log("\nSubtitle: the set count reads in the page language");
+    await installTestLanguage(page);
     await page.evaluate(() => {
       state.settings.lang = "pt";
-      window.RepForgeI18n.setLang("pt");
+      window.__testLanguage.setLang("pt");
       syncLang();
     });
     await page.locator("#woOverflowBtn").click();
@@ -422,9 +425,10 @@ async function main() {
       "PT: the actions subtitle counts séries, not the English word sets", ptSub);
     await page.locator("#exActionsClose").click();
     await page.locator("#exActionsSheet").waitFor({ state: "hidden" });
+    await installTestLanguage(page);
     await page.evaluate(() => {
       state.settings.lang = "en";
-      window.RepForgeI18n.setLang("en");
+      window.__testLanguage.setLang("en");
       syncLang();
     });
     await page.locator("#woOverflowBtn").click();

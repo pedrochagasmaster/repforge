@@ -3,6 +3,7 @@
 // Sparse policy 0/1/2/3+, current-block vs all-history scope, this-week and
 // block-to-date denominators against model-backed values, mobile drill-ins.
 import assert from "node:assert/strict";
+import { installTestLanguage } from "./language-browser.mjs";
 import { SHEET, applyInstalledEditor, openExerciseSheet, openInstalledEditor, sheetTap } from "./fixtures/installed-editor.mjs";
 import { assertServingApp, launchChromium } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
@@ -88,7 +89,8 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   for (const { key, outcome } of outcomes) {
     const row = page.locator(`#strengthDash [data-evkey="${key}"]`);
     // The word is the compareExerciseSession label the summary and History read.
-    const label = await page.evaluate((value) => window.RepForgeI18n.t(`delta.${{ improved: "improved", maintained: "flat", declined: "regressed" }[value]}.label`), outcome);
+    await installTestLanguage(page);
+    const label = await page.evaluate((value) => window.__testLanguage.t(`delta.${{ improved: "improved", maintained: "flat", declined: "regressed" }[value]}.label`), outcome);
     const status = row.locator(".evrow__out");
     assert.ok(await status.isVisible(), `the ${outcome} outcome label stays visible in its evidence row`);
     assert.ok((await status.textContent()).includes(label),

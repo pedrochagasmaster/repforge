@@ -5,6 +5,7 @@
  * Run: node test/today-done.mjs   (requires the app served over HTTP)
  */
 import { pathToFileURL } from "url";
+import { installTestLanguage } from "./language-browser.mjs";
 import { launchChromium } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 import { installGeneratedProgram, isWeightRepsSlot, definitionSlot, metricLogRow, withValues } from "./fixtures/history-metric-rows.mjs";
@@ -122,6 +123,7 @@ function sessionRows(state, day, date, load = 60) {
 }
 
 async function todayView(page) {
+  await installTestLanguage(page);
   return page.evaluate(() => {
     const visible = (sel) => {
       const el = document.querySelector(sel);
@@ -142,10 +144,10 @@ async function todayView(page) {
       upNext: text("#todayUpNext"),
       footer: text("#todayLast"),
       i18n: {
-        doneLabel: window.RepForgeI18n.t("today.done_label"),
-        sessionLabel: window.RepForgeI18n.t("today.session_label"),
-        start: window.RepForgeI18n.t("today.start"),
-        continue: window.RepForgeI18n.t("today.continue"),
+        doneLabel: window.__testLanguage.t("today.done_label"),
+        sessionLabel: window.__testLanguage.t("today.session_label"),
+        start: window.__testLanguage.t("today.start"),
+        continue: window.__testLanguage.t("today.continue"),
       },
     };
   });
@@ -276,8 +278,9 @@ console.log("\nToday — completed session state");
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
 
+  await installTestLanguage(page);
   const done = await page.evaluate(() => {
-    const t = (key) => window.RepForgeI18n.t(key);
+    const t = (key) => window.__testLanguage.t(key);
     const durable = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
     const today = document.querySelector(".today-done");
     const cells = [...document.querySelectorAll(".today-done .statrow__cell")].map((cell) => ({

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /** Plan 069 S3: explicit per-side history survives backup and install transfer. */
 import assert from "node:assert/strict";
+import { installBrowserTraining } from "./training-browser.mjs";
 import { createRequire } from "node:module";
 import { webcrypto } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -51,19 +52,20 @@ function check(condition, message, detail) {
 }
 
 async function seedGeneratedPress(page) {
+  await installBrowserTraining(page);
   return page.evaluate(async ({ request, exerciseId }) => {
-    const generated = window.RepForgeProgramCompiler.generateProgram(
-      request, window.RepForgeExerciseCatalog.snapshot());
+    const generated = window.__repforgeTrainingTest.compiler.generateProgram(
+      request, window.__repforgeTrainingTest.catalog);
     if (!generated.ok) throw new Error("Production compiler failed: " + JSON.stringify(generated.conflicts));
     // Explicit Review choice keeps this transfer proof independent of ranking.
-    const catalog = window.RepForgeExerciseCatalog.snapshot();
+    const catalog = window.__repforgeTrainingTest.catalog;
     const compatible = generated.value.days.filter((day) => day.kind === "training").flatMap((day) => day.slots)
       .find((slot) => slot.metricDefinitions.some((metric) => metric.semantic === "repsPerSide") &&
         slot.metricDefinitions.some((metric) => metric.semantic === "loadPerSideKg"));
     if (!compatible) throw new Error("Generated definition has no compatible per-side slot");
     const reviewed = window.RepForgeProgramReview.applyEdit(generated.value,
       { kind: "swap", slotId: compatible.id, exerciseId },
-      { compiler: window.RepForgeProgramCompiler, catalog, metrics: window.RepForgeExerciseMetrics });
+      { compiler: window.__repforgeTrainingTest.compiler, catalog, metrics: window.__repforgeTrainingTest.metrics });
     if (!reviewed.ok) throw new Error("The explicit press choice was refused: " + JSON.stringify(reviewed));
     const definition = reviewed.definition;
     const target = definition.days.filter((day) => day.kind === "training").flatMap((day) =>

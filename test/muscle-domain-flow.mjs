@@ -6,6 +6,7 @@
  * programStructure, so no compact receipt is written.)
  */
 import assert from "node:assert/strict";
+import { installBrowserTraining } from "./training-browser.mjs";
 import { SHEET, applyInstalledEditor, closeEditorSheet, editorSettled, openExerciseSheet, openInstalledEditor, sheetTap, showEditorDay } from "./fixtures/installed-editor.mjs";
 import { assertServingApp, launchChromium, waitForAppBoot } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
@@ -36,6 +37,7 @@ function seedSnapshot() {
 }
 
 async function installSnapshot(page) {
+  await installBrowserTraining(page);
   await page.evaluate(async ({ key, seed }) => {
     const base = JSON.parse(localStorage.getItem(key) || "{}");
     const state = {
@@ -68,10 +70,10 @@ async function installSnapshot(page) {
 /* The shared-setup codec's options, built from the page's own catalog and compiler. */
 const CODEC_OPTIONS = `({
   builtInIds: new Set(window.__repforgeExerciseLibrary.map((entry) => entry.id)),
-  catalogSnapshot: window.RepForgeExerciseCatalog.snapshot(),
-  validateProgramDefinition: window.RepForgeProgramCompiler.validateProgramDefinition,
-  generateProgram: window.RepForgeProgramCompiler.generateProgram,
-  generatorVersion: window.RepForgeProgramCompiler.GENERATOR_VERSION,
+  catalogSnapshot: window.__repforgeTrainingTest.catalog,
+  validateProgramDefinition: window.__repforgeTrainingTest.compiler.validateProgramDefinition,
+  generateProgram: window.__repforgeTrainingTest.compiler.generateProgram,
+  generatorVersion: window.__repforgeTrainingTest.compiler.GENERATOR_VERSION,
 })`;
 
 async function fixedClock(context) {

@@ -10,6 +10,7 @@
  * recommendations, and completing a set recomputes only untouched sets.
  */
 import { readFileSync } from "node:fs";
+import { installBrowserTraining } from "./training-browser.mjs";
 import { SHEET, applyInstalledEditor, editorSettled, openExerciseSheet, openInstalledEditor } from "./fixtures/installed-editor.mjs";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 
@@ -51,8 +52,9 @@ const draftSet = (page, slotId, ordinal) => page.evaluate(({ slotId, ordinal }) 
 }, { slotId, ordinal });
 
 async function seed(page) {
+  await installBrowserTraining(page);
   return page.evaluate(async ({ request, weight, reps }) => {
-    const generated = window.RepForgeProgramCompiler.generateProgram(request, window.RepForgeExerciseCatalog.snapshot());
+    const generated = window.__repforgeTrainingTest.compiler.generateProgram(request, window.__repforgeTrainingTest.catalog);
     const definition = generated.value;
     // A day's first weighted movement. No bodyweight is entered, so its share is
     // off in both the history and the recommendation (external load only).

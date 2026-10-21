@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /** Resume UI proof for compiler/rules drift. */
 import assert from "node:assert/strict";
+import { installBrowserTraining } from "./training-browser.mjs";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
@@ -21,9 +22,10 @@ try {
     localStorage.setItem(key, JSON.stringify(state));
   }, { state, key: KEY });
   await page.reload({ waitUntil: "domcontentloaded" }); await waitForAppBoot(page, { base: BASE });
+  await installBrowserTraining(page);
   const envelope = await page.evaluate(({ key }) => {
     const Entry = window.RepForgeProgramEntry;
-    const versions = window.RepForgeProgramEntryAdapter.currentVersions(window.RepForgeProgramCompiler);
+    const versions = window.__repforgeTrainingTest.entryAdapter.currentVersions(window.__repforgeTrainingTest.compiler);
     const activeRevision = JSON.parse(localStorage.getItem(key))._storageRevision;
     let draft = Entry.createState({ draftId: "rules-draft", activeProgramRevisionAtStart: activeRevision, now: new Date().toISOString(), versions: { ...versions, rules: "old-rules" } });
     draft = Entry.selectRoute(draft, "recommend");

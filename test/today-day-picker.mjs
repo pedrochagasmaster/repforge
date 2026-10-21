@@ -11,6 +11,7 @@
  * Run: node test/today-day-picker.mjs   (requires the app served over HTTP)
  */
 import { pathToFileURL } from "url";
+import { installTestLanguage } from "./language-browser.mjs";
 import { launchChromium } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 import { metricLogRow } from "./fixtures/history-metric-rows.mjs";
@@ -112,6 +113,7 @@ async function readState(page) {
 
 /** What Today and the picker currently say. */
 async function view(page) {
+  await installTestLanguage(page);
   return page.evaluate(() => {
     const visible = (sel) => {
       const el = document.querySelector(sel);
@@ -144,9 +146,9 @@ async function view(page) {
       activeTab: document.querySelector("#dayTabs button.active")?.dataset.day || "",
       focus: document.activeElement?.id || document.activeElement?.dataset?.daypick || "",
       i18n: {
-        chooseDay: window.RepForgeI18n.t("today.choose_day"),
-        current: window.RepForgeI18n.t("today.choose_day_current"),
-        confirm: window.RepForgeI18n.t("today.choose_day_confirm"),
+        chooseDay: window.__testLanguage.t("today.choose_day"),
+        current: window.__testLanguage.t("today.choose_day_current"),
+        confirm: window.__testLanguage.t("today.choose_day_confirm"),
       },
     };
   });
@@ -377,6 +379,7 @@ phase("an in-progress session is protected by the discard question");
     dialogs++;
     d.dismiss();
   });
+  await installTestLanguage(page);
   const asking = () => page.evaluate(() => {
     const sheet = document.querySelector("#draftDiscardSheet");
     const picker = document.querySelector("#dayPickSheet");
@@ -388,7 +391,7 @@ phase("an in-progress session is protected by the discard question");
       keep: document.querySelector("#draftDiscardKeep")?.textContent.trim() || "",
       drop: document.querySelector("#draftDiscardDrop")?.textContent.trim() || "",
       pickerGivenWay: !!picker && (picker.hidden || !picker.classList.contains("is-open")),
-      i18n: { title: window.RepForgeI18n.t("draft.recovery.discard"), body: window.RepForgeI18n.t("confirm.discard_draft"), keep: window.RepForgeI18n.t("dialog.cancel") },
+      i18n: { title: window.__testLanguage.t("draft.recovery.discard"), body: window.__testLanguage.t("confirm.discard_draft"), keep: window.__testLanguage.t("dialog.cancel") },
     };
   });
 

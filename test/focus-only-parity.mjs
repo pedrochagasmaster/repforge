@@ -15,6 +15,7 @@
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
 import { execFileSync } from "node:child_process";
+import { installTestLanguage } from "./language-browser.mjs";
 import { fileURLToPath } from "node:url";
 import { launchChromium } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
@@ -450,7 +451,8 @@ async function main() {
     assert(running.chip && running.chip !== "—" && !running.hidden, "the chip starts the clock and reads the countdown", JSON.stringify(running));
     // The clock is inline in the cue slot and its Pause pad holds it while the lifter stays on the set.
     await page.waitForSelector("#workout .exercise.is-current .fx-slot[data-rest='running'] [data-rest-clock]", { timeout: 5000 });
-    const labels = await page.evaluate(() => ({ pause: window.RepForgeI18n.t("rest.inline.pause"), resume: window.RepForgeI18n.t("rest.inline.resume") }));
+    await installTestLanguage(page);
+    const labels = await page.evaluate(() => ({ pause: window.__testLanguage.t("rest.inline.pause"), resume: window.__testLanguage.t("rest.inline.resume") }));
     await page.locator("#workout .exercise.is-current .restpad--toggle").click();
     const paused = await page.evaluate(() => document.querySelector("#workout .exercise.is-current .restpad--toggle")?.textContent.trim());
     assert(paused === labels.resume, "the inline pad holds the clock while the lifter stays on the set", paused);

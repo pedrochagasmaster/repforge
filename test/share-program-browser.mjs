@@ -10,6 +10,7 @@
  * definition through export and the file import door.
  */
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { installBrowserTraining } from "./training-browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -75,13 +76,14 @@ async function fresh(browser) {
 }
 
 async function activateGenerated(page, { edit = false } = {}) {
+  await installBrowserTraining(page);
   return page.evaluate(async ({ edit }) => {
-    const catalog = window.RepForgeExerciseCatalog.snapshot();
-    const mapped = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({
+    const catalog = window.__repforgeTrainingTest.catalog;
+    const mapped = window.__repforgeTrainingTest.entryAdapter.programRequestFromAnswers({
       desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek: 4, sessionMinutes: 60,
       environment: { kind: "commercial_gym" },
     }, catalog);
-    const definition = window.RepForgeProgramCompiler.generateProgram(mapped.value, catalog).value;
+    const definition = window.__repforgeTrainingTest.compiler.generateProgram(mapped.value, catalog).value;
     if (edit) definition.days.find((day) => day.kind === "training").slots[0].setupNotes = "Rack at 7";
     const result = await window.__repforgeFinalizeProgramSetup({
       programDefinition: definition, name: "Shared generated block", answers: {}, destination: "log",

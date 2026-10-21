@@ -12,6 +12,7 @@
  * that none of it leaks into the training state or a setup link.
  */
 import { readFileSync } from "node:fs";
+import { installBrowserTraining } from "./training-browser.mjs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { launchChromium } from "./browser.mjs";
@@ -385,10 +386,11 @@ async function runStaysOutOfTrainingData(browser) {
     // A coach who hand-edits a theme into a setup document should not repaint
     // the recipient's app: the eight-setting allowlist has no room for it.
     const document = await buildSetupDocument(page);
+    await installBrowserTraining(page);
     const validated = await page.evaluate((document) => {
-      const compiler = window.RepForgeProgramCompiler;
+      const compiler = window.__repforgeTrainingTest.compiler;
       const options = {
-        catalogSnapshot: window.RepForgeExerciseCatalog.snapshot(),
+        catalogSnapshot: window.__repforgeTrainingTest.catalog,
         validateProgramDefinition: compiler.validateProgramDefinition,
       };
       const api = window.RepForgeSharedSetup;

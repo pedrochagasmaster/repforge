@@ -14,6 +14,7 @@
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
 import { launchChromium } from "./browser.mjs";
+import { installBrowserTraining } from "./training-browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 import { exerciseAction, finishEarly, openLoggedSets } from "./fixtures/focus-workout.mjs";
 import { loadRoleInventory, requiredBoundaryExceptionRequests } from "../tools/ui-system-core.mjs";
@@ -93,7 +94,7 @@ async function boot(page, { lang = "en", rirMode = "numeric", size } = {}) {
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await settle(page);
   await page.evaluate((d) => {
-    if (window.stopRest) window.stopRest();
+    if (window.stopRest) window.__repforgeRest.stop();
     for (const key of Object.keys(localStorage)) if (key === d || key.startsWith(`${d}:`)) localStorage.removeItem(key);
   }, DRAFT);
   // Focus mode is a view of a program, and a device that has not been through
@@ -223,7 +224,7 @@ const fadesDone = (page) => page.waitForFunction(() => !document.querySelector("
 
 /** A logged set arms a rest, and the rest takes the cue slot. Read the cue itself once the lifter has ended it. */
 async function endRest(page) {
-  await page.evaluate(() => window.stopRest());
+  await page.evaluate(() => window.__repforgeRest.stop());
   await page.waitForFunction(() => document.querySelector("#workout .exercise.is-current .fx-slot")?.dataset.rest !== "running");
 }
 
@@ -975,7 +976,7 @@ async function main() {
   assert(await page.evaluate(() => document.querySelector("#woRest").classList.contains("is-running")),
     "tapping the idle chip starts rest again");
   await page.waitForFunction(() => document.querySelector("#workout .exercise.is-current .fx-slot")?.dataset.rest === "running");
-  await page.evaluate(() => window.stopRest());
+  await page.evaluate(() => window.__repforgeRest.stop());
   await page.waitForFunction(() => !document.querySelector("#woRest")?.classList.contains("is-running"));
 
   // ---- 06 — editing a logged set --------------------------------------------
@@ -1869,11 +1870,12 @@ async function main() {
     await ad.clock.setFixedTime(new Date("2026-03-02T09:00:00.000Z"));
     await ad.goto(BASE, { waitUntil: "domcontentloaded" });
     await settle(ad);
+    await installBrowserTraining(ad);
     const target = await ad.evaluate(async ({ weight, reps }) => {
-      const catalog = window.RepForgeExerciseCatalog.snapshot();
-      const request = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({ desiredResult: "muscle_growth",
+      const catalog = window.__repforgeTrainingTest.catalog;
+      const request = window.__repforgeTrainingTest.entryAdapter.programRequestFromAnswers({ desiredResult: "muscle_growth",
         structuredExperience: "6_to_24m", daysPerWeek: 4, sessionMinutes: 60, environment: { kind: "commercial_gym" } }, catalog).value;
-      const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog).value;
+      const definition = window.__repforgeTrainingTest.compiler.generateProgram(request, catalog).value;
       await window.__repforgeFinalizeProgramSetup({ programDefinition: definition, name: "Adaptive focus", answers: {},
         destination: "log", origin: "first-run", draftConfirmed: true, telemetryRoute: "recommend",
         entrySource: { route: "recommend", fingerprint: "focus-mode-adaptive" } });
