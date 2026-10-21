@@ -11,7 +11,7 @@ import {browserLanguage} from "../../test/language-browser.mjs";
 import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import { catalogState, directionDState, emptyEntryState, localeState } from "./fixtures.mjs";
-import { CAPTURE_NOW, dismissChrome, LOG_DRAFT, seed, sleep } from "./session.mjs";
+import { CAPTURE_NOW, dismissChrome, LOG_DRAFT, replayGuide, seed, sleep } from "./session.mjs";
 import { definitionSlot, installGeneratedProgram, isWeightRepsSlot, metricLogRow } from "../../test/fixtures/history-metric-rows.mjs";
 import { DIRECTION_D_CANONICAL_ID_BY_LEGACY_ID } from "./direction-d-canonical-fixture.generated.mjs";
 
@@ -487,6 +487,20 @@ export function appState(key, lang) {
     slot.alternates = [SQUAT_ALTERNATES[0], "1a25c6f170d8809eb8a5e76ff245649d"];
   }
   return localeState(state, lang);
+}
+
+/* Plan 074: the installed editor (candidate A) and its exercise sheet. */
+async function editorIdleA(page) {
+  await page.waitForSelector('#programEditor [data-role="editor"][data-layout="review"]:not([aria-busy="true"])', { timeout: 20000 });
+}
+async function openEditorA(page) {
+  await page.click("#programEditToggle");
+  await editorIdleA(page);
+}
+async function openEditorSheetA(page, id) {
+  await page.locator(`#programEditor [data-role="exercise-row"][data-id="${id}"]`).click();
+  await page.waitForSelector(`#reviewSheet.is-open [data-pe-sheet="exercise"][data-id="${id}"]`, { timeout: 20000 });
+  await sleep(page, 350);
 }
 
 const view = async (page, name) => {
@@ -1028,6 +1042,13 @@ async function confirmRecovery(page) {
   await sleep(page, 400);
 }
 
+/** A Settings disclosure animates its height; the frame is placed once it has its final size. */
+async function disclosureSettled(page) {
+  await page.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished.catch(() => {}))));
+  // The height runs 200 ms through Motion, which may not surface as a document animation.
+  await sleep(page, 400);
+}
+
 async function openSettings(page, anchor) {
   await page.evaluate(() => window.__repforgeShowSettings());
   await sleep(page, 500);
@@ -1551,7 +1572,41 @@ async function whyPerSideAssumption(page) {
   await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions"]);
 }
 
+let programLabPreview;
+export async function cleanupProgramLabCapture() {
+  if (programLabPreview) { const preview = await programLabPreview; preview.cleanup(); programLabPreview = null; }
+}
+async function captureProgramLab(page, result = false) {
+  const language = await page.evaluate(() => navigator.language.startsWith('pt') ? 'pt' : 'en');
+  if (!programLabPreview) programLabPreview = (async () => {
+    const outDir = join(await mkdtemp(join(tmpdir(), 'taurifer-lab-catalog-')), 'artifact');
+    await buildProgramLab({ outDir });
+    // A browser lane makes the owner start a preview; #460 retired `visual`, which left this null.
+    const preview = await maybeStartLocalPreview([{ lane: 'state' }], { cwd: outDir, prepareApp: false, env: { ...process.env, REPFORGE_URL: '' } });
+    if (!preview) throw new Error('Program Lab capture needs an isolated artifact preview');
+    return preview;
+  })();
+  const preview = await programLabPreview;
+  await page.goto(preview.env.REPFORGE_URL);
+  await page.locator('html[data-lab-ready="true"]').waitFor();
+  await page.locator('#language').selectOption(language);
+  await page.locator(`html[lang="${language}"]`).waitFor();
+  await page.locator('#fixture').selectOption('anchor-4day');
+  await page.locator('#preset').selectOption('two_sets_low_rir@1');
+  await page.locator('#applyPreset').click();
+  if (result) {
+    await page.locator('#run').click();
+    await page.locator('#runStatus').filter({ hasText: /completed|concluído/i }).waitFor({ timeout: 120000 });
+    await page.locator('#candidateHeading').evaluate(element => element.scrollIntoView({ block: 'start' }));
+  } else {
+    // Frame the stable editor subject; source identity remains visible in the
+    // normal header and is verified separately by the packaged journey.
+    await page.locator('#scenarioHeading').evaluate(element => element.scrollIntoView({ block: 'start' }));
+  }
+}
 export const APP_SCENARIOS = {
+  "programlab/editor": page => captureProgramLab(page),
+  "programlab/comparison": page => captureProgramLab(page, true),
   "catalog-recovery/unavailable": reloadWithUnavailableExerciseCatalog,
   "catalog-recovery/retry-failed": async page => {
     await reloadWithUnavailableExerciseCatalog(page);
@@ -1719,6 +1774,16 @@ export const APP_SCENARIOS = {
   },
 
   "workout/focus": focusMode,
+  "workout/first-set-guide": async (page) => {
+    // Replayed away from Focus, the guide waits for its anchor; in Focus it waits for the first tap on the shelf.
+    await page.evaluate(() => window.__repforgeUi.replayGuide("first-set"));
+    await page.waitForFunction(() => window.__repforgeUi.guideState()["first-set"]?.status === "deferred", undefined, { timeout: 20000 });
+    await focusMode(page);
+    await page.locator('.focus-shelf .shelf__fieldbtn[data-shelf-field][aria-pressed="false"]').first().click();
+    await page.waitForFunction(() => !!document.querySelector('dialog#guideDialog[open][data-guide="first-set"]'), undefined, { timeout: 20000 });
+    await sleep(page, 300);
+  },
+  "workout/focus-utilities-guide": async (page) => { await focusMode(page); await replayGuide(page, "focus-utilities"); },
   "workout/focus-per-side": focusPerSideTarget,
   "workout/why-per-side": whyPerSideAssumption,
   "workout/deload-week": async page => {
@@ -1826,7 +1891,18 @@ export const APP_SCENARIOS = {
   },
   "workout/correction": async page => { await focusMode(page); await logCurrentSet(page); await page.locator("#workout .exercise.is-current [data-ledgermore]").click(); await page.locator("#workout .exercise.is-current [data-editn]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); },
   // Layout D: the logged sets' disclosure opened over the table, the logged row back in place to correct.
-  "workout/logged-sets": async page => { await focusMode(page); await logCurrentSet(page); await page.locator("#workout .exercise.is-current [data-ledgermore]").click(); await page.waitForSelector("#workout .exercise.is-current [data-editn]"); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); },
+  "workout/logged-sets": async page => { await focusMode(page); await logCurrentSet(page); await page.locator("#workout .exercise.is-current [data-ledgermore]").click(); await page.waitForSelector("#workout .exercise.is-current [data-editn]"); await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    // The logged set starts the rest; its clock takes the cue slot once that render has run, and the slot then trades its height.
+    await page.waitForFunction(() => (document.querySelector("#workout .exercise.is-current .fx-slot")?.dataset.rest || "none") !== "none", undefined, { timeout: 20000 });
+    await page.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished.catch(() => {}))));
+    // After the trade the card brings its open row into view; the frame is taken once that scroll has come to rest.
+    await page.waitForFunction(() => {
+      const context = document.querySelector("#workout .exercise--focus.is-current .fcard__context");
+      const at = context ? Math.round(context.scrollTop) : -1, seen = window.__catalogScrollRest ||= { at: null, still: 0 };
+      if (seen.at === at) seen.still++; else { seen.at = at; seen.still = 0; }
+      return seen.still >= 5;
+    }, undefined, { polling: 100, timeout: 20000 });
+    await sleep(page, 200); },
   "today/draft-resume": async page => { await focusMode(page); await fillAdaptiveShelf(page, ADAPTIVE_WEIGHT_METRIC_ID, "80"); await page.click("#leaveWorkout"); },
 
   "workout/stale-draft": async (page) => {
@@ -1959,6 +2035,7 @@ export const APP_SCENARIOS = {
   },
 
   "progress/overview": (page) => view(page, "stats"),
+  "progress/overview-guide": async (page) => { await view(page, "stats"); await replayGuide(page, "progress"); },
   "progress/overview-baseline": (page) => view(page, "stats"),
   "progress/overview-action": (page) => view(page, "stats"),
   "progress/exercise-chart": async (page) => {
@@ -2024,16 +2101,14 @@ export const APP_SCENARIOS = {
   "progress/prs": (page) => progressSegment(page, "prs"),
   "progress/prs-drill-in": async (page) => { await progressSegment(page, "prs"); await page.locator("#prTimeline .prtl__row").first().click(); },
   "progress/review": (page) => progressSegment(page, "review"),
+  "progress/review-guide": async (page) => { await progressSegment(page, "review"); await replayGuide(page, "block-transition"); },
   "progress/review-active": (page) => progressSegment(page, "review"),
   "progress/review-complete": openCompletedReview,
   "progress/review-insufficient": openCompletedReview,
   "progress/schedule-diagnosis": openScheduleDiagnosis,
   "progress/sibling-lower-frequency": (page) => openSiblingPreview(page, "fewer_days"),
   "progress/sibling-shorter-session": (page) => openSiblingPreview(page, "sessions_too_long"),
-  "progress/guided-repair": async (page) => { await openCompletedReview(page);await page.click('[data-review-action="guided-edit"]');await page.fill("[data-diag-target]","3");await page.click("[data-diag-continue]");await page.waitForSelector(".review__staged",{timeout:20000});
-    // The progress guide is dismissed here. The rendered-role audit reads the dock's ground from the page's top-left
-    // quadrant, and with the guide above it, this short page would put the primary action there.
-    await page.click("[data-guide-dismiss]"); },
+  "progress/guided-repair": async (page) => { await openCompletedReview(page);await page.click('[data-review-action="guided-edit"]');await page.fill("[data-diag-target]","3");await page.click("[data-diag-continue]");await page.waitForSelector(".review__staged",{timeout:20000}); },
   "progress/volume-reduction-preview": async (page) => { await completeCompiledProgram(page);await openCompletedReview(page);await page.click('[data-review-action="reduce-volume"]');await page.click("[data-volume-confirm]");await page.waitForSelector("[data-preview-confirm]",{timeout:20000}); },
   "progress/recovery-ineligible": async (page) => { await openRecoveryPreview(page);await page.click('[data-recovery-answer="Not sure"]'); },
   "progress/recovery-questions": openRecoveryPreview,
@@ -2213,60 +2288,58 @@ export const APP_SCENARIOS = {
   "program/overview": openProgram,
   "program/progression-editor": async (page) => {
     await openProgram(page);
-    await page.click("#programEditToggle");
-    await page.waitForSelector('#programEditor [data-role="editor"]', { timeout: 20000 });
-    // The installed editor is the canonical program-editing surface. Keep the
-    // historical catalog key so existing links and committed frame paths stay
-    // stable while the scenario follows the shared editor.
-    const editor = page.locator('#programEditor [data-role="exercise"]').first();
-    await editor.scrollIntoViewIfNeeded();
+    await openEditorA(page);
+    // The installed editor is the canonical program-editing surface (Plan 074,
+    // candidate A). Keep the historical catalog key so existing links and
+    // committed frame paths stay stable while the scenario follows the editor.
     await sleep(page, 400);
   },
   "program/editor-alternates": async (page) => {
     await openProgram(page);
-    await page.click("#programEditToggle");
-    await page.waitForSelector('#programEditor [data-role="editor"]', { timeout: 20000 });
-    const toggle = page.locator('#programEditor [data-role="toggle-exercise"][data-id="seed-ex-1"]');
-    if (await toggle.getAttribute("aria-expanded") !== "true") await toggle.click();
-    const alternates = page.locator('#programEditor [data-role="alternates"][data-id="seed-ex-1"]');
+    await openEditorA(page);
+    await openEditorSheetA(page, "seed-ex-1");
+    const alternates = page.locator('#reviewSheet [data-role="alternates"][data-id="seed-ex-1"]');
     await alternates.waitFor({ timeout: 20000 });
     await alternates.evaluate((node) => node.scrollIntoView({ block: "center" }));
     await sleep(page, 400);
   },
   "program/editor-suggest-loads": async (page) => {
     await openProgram(page);
-    await page.click("#programEditToggle");
-    await page.waitForSelector('#programEditor [data-role="editor"]', { timeout: 20000 });
-    const toggle = page.locator('#programEditor [data-role="toggle-exercise"][data-id="seed-ex-1"]');
-    if (await toggle.getAttribute("aria-expanded") !== "true") await toggle.click();
-    // The slot becomes a movement that asks how it is done, through Replace.
-    await page.locator('#programEditor [data-role="replace"][data-id="seed-ex-1"]').click();
+    await openEditorA(page);
+    // The slot becomes a movement that asks how it is done, through Swap → Search.
+    await openEditorSheetA(page, "seed-ex-1");
+    await page.locator('#reviewSheet [data-role="swap-open"]').click();
+    await page.locator('#reviewSheet [data-role="swap-search"]').click();
     await page.waitForSelector("#exPickSheet.is-open", { timeout: 20000 });
     await page.fill("#exPickSearch", "Dumbbell renegade row");
     await page.locator('#exPickList [data-pick="3065c6f170d880d2bc77cba9edbf8ce9"]').click({ timeout: 20000 });
     await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 20000 });
-    const row = page.locator('#programEditor [data-role="exercise"][data-id="seed-ex-1"]');
-    if (!await row.locator('[data-role="sets-control"]').count()) await row.locator('[data-role="toggle-exercise"]').click();
-    await row.locator('[data-role="suggest-loads"]').click();
-    const rir = row.locator('[data-role="suggest-loads-rir"]');
-    await rir.waitFor({ timeout: 20000 });
-    await rir.fill("2");
-    await rir.blur();
+    await editorIdleA(page);
+    await openEditorSheetA(page, "seed-ex-1");
+    await page.locator('#reviewSheet [data-role="suggest-loads"]').click();
+    await editorIdleA(page);
+    // From an empty RIR the stepper starts at 2: up then down lands on 2.
+    await page.locator('#reviewSheet [data-role="suggest-loads-rir-step"][data-delta="1"]').click();
+    await editorIdleA(page);
+    await page.locator('#reviewSheet [data-role="suggest-loads-rir-step"][data-delta="-1"]').click();
+    await editorIdleA(page);
     await page.waitForFunction(() => document.querySelector("#toast")?.classList.contains("hidden") !== false, undefined, { timeout: 20000 });
-    const section = row.locator('[data-role="suggest-loads-section"]');
+    const section = page.locator('#reviewSheet [data-role="loads"]');
     await section.locator('[data-role="execution-mode"]').first().waitFor({ timeout: 20000 });
     await section.evaluate((node) => node.scrollIntoView({ block: "center" }));
     await sleep(page, 400);
   },
   "program/editor-day-name-refused": async (page) => {
     await openProgram(page);
-    await page.click("#programEditToggle");
-    await page.waitForSelector('#programEditor [data-role="editor"]', { timeout: 20000 });
-    const names = page.locator('#programEditor [data-role="day-name"]');
-    await names.nth(1).fill(await names.first().inputValue());
-    await names.nth(1).press("Enter");
-    await page.waitForSelector('#programEditor [data-role="day-name"][aria-invalid="true"]', { timeout: 20000 });
-    await names.nth(1).evaluate((node) => node.closest('[data-role="day"]').scrollIntoView({ block: "center" }));
+    await openEditorA(page);
+    const days = await page.locator('#programEditor [data-role="day-tab"]').evaluateAll((tabs) => tabs.map((tab) => tab.dataset.day));
+    const firstName = await page.locator('#programEditor [data-role="day-tab"]').first().textContent();
+    await page.locator(`#programEditor [data-role="day-tab"][data-day="${days[1]}"]`).click();
+    await page.locator(`#programEditor [data-role="day-name-edit"][data-day="${days[1]}"]`).click();
+    const input = page.locator('#reviewSheet.is-open [data-role="rename-input"]');
+    await input.fill(firstName.trim());
+    await input.press("Enter");
+    await page.waitForSelector('#reviewSheet [data-role="rename-input"][aria-invalid="true"]', { timeout: 20000 });
     await sleep(page, 400);
   },
   "program/exercise-picker": async (page) => {
@@ -2460,23 +2533,35 @@ export const APP_SCENARIOS = {
     await openSettings(page);
     await page.click("#guideReplayToggle");
     await page.waitForSelector("#guideReplayPanel.is-open", { timeout: 20000 });
-    await page.locator('#guideReplayList [data-guide-replay="privacy"]').click();
-    const cue = page.locator('.guide-cue[data-guide-cue="privacy"]');
-    await cue.waitFor({ state: "visible", timeout: 20000 });
-    // The replay focuses its dismiss button without scrolling, but the click
-    // that opened the panel is allowed to auto-scroll. Establish the frame's
-    // subject explicitly so a different preceding scroll position cannot
-    // produce a different catalog image.
-    await cue.evaluate((element) => {
+    await disclosureSettled(page);
+    // The click that opened the panel may auto-scroll. Put the replayed guide's Privacy action at the centre of the
+    // frame, so the dialog is placed on it the same way every run.
+    await page.locator("#privacyDetails").evaluate((element) => {
       element.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
     });
-    await page.waitForFunction(() => {
-      const element = document.querySelector('.guide-cue[data-guide-cue="privacy"]');
-      if (!element) return false;
-      const rect = element.getBoundingClientRect();
-      return Math.abs((rect.top + rect.bottom) / 2 - window.innerHeight / 2) <= 1;
-    });
+    await page.locator('#guideReplayList [data-guide-replay="privacy"]').click();
+    await page.waitForFunction(() => !!document.querySelector('dialog#guideDialog[open][data-guide="privacy"]'), undefined, { timeout: 20000 });
     await sleep(page, 400);
+  },
+  "settings/backup-guide": async (page) => {
+    await openSettings(page, "#dataBackupRow");
+    await page.click("#dataBackupRow");
+    await page.waitForSelector("#dataBackupPanel.is-open", { timeout: 20000 });
+    await disclosureSettled(page);
+    await page.locator("#exportJson").evaluate((element) => {
+      element.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
+    });
+    await sleep(page, 300);
+    await replayGuide(page, "backup");
+  },
+  "settings/install-guide": async (page) => {
+    // Settings offers Install on iOS Safari (APP_USER_AGENT), which is where its guide is met.
+    await openSettings(page);
+    await page.locator("#installApp").evaluate((element) => {
+      element.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
+    });
+    await sleep(page, 300);
+    await replayGuide(page, "install");
   },
   "settings/privacy": (page) => openSettings(page, "#telemetryToggle"),
   "settings/privacy-disclosure": async (page) => {
@@ -2527,4 +2612,4 @@ export const APP_USER_AGENT = Object.fromEntries([
   "ios-sheet", "transfer-eligible", "transfer-creating", "transfer-ready", "transfer-retryable",
   "transfer-claiming", "transfer-importing", "transfer-success", "transfer-cleanup", "transfer-terminal",
   "transfer-destination", "transfer-interrupted", "transfer-unknown", "transfer-claimed-expired",
-].map((id) => [`install/${id}`, IOS_SAFARI]));
+].map((id) => [`install/${id}`, IOS_SAFARI]).concat([["settings/install-guide", IOS_SAFARI]]));

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { launchChromium, waitForAppBoot, waitForAsyncCondition } from "./browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const IOS_UA =
@@ -248,6 +248,82 @@ try {
     assert.equal(await page.locator("#privacySheet").getAttribute("aria-labelledby"), "privacyTitle", "cached Privacy has a stable accessible name");
     checks += 2;
     await context.close();
+  }
+
+  if (CASE === "all" || CASE === "orphan-freeze") {
+    // A tab that dies inside the transfer lock releases the Web Lock, but its
+    // finally never runs, so the freeze signal survives. Boot must reclaim it as
+    // the lock's next owner; a live owner must still block boot.
+    const FREEZE_KEY = "repforge_install_transfer_freeze_v1";
+    const holdFreeze = (page, raw) => page.evaluate((args) => {
+      void navigator.locks.request("install-transfer", async () => {
+        localStorage.setItem(args.key, args.raw);
+        window.__freezeEntered = true;
+        await new Promise((resolve) => { window.__releaseFreeze = resolve; });
+      });
+    }, { key: FREEZE_KEY, raw });
+    const signal = JSON.stringify({ version: 1, owner: "crashed-owner", createdAt: "2026-10-21T00:00:00.000Z" });
+
+    const crashed = await browser.newContext({ serviceWorkers: "block" });
+    const owner = await crashed.newPage();
+    await owner.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForAppBoot(owner, { base: BASE });
+    const acknowledged = await owner.evaluate(async () => {
+      const next = window.__repforgeWorkoutDraft.state();
+      next.settings = { ...next.settings, restSec: 137 };
+      const result = await window.__repforgeCommitProposedState(next);
+      await window.__repforgeStorage.flush();
+      return { committed: result?.committed, bytes: localStorage.getItem("repforge_v1") };
+    });
+    assert.equal(acknowledged.committed, true, "the device has acknowledged training data before the crash");
+    await holdFreeze(owner, signal);
+    await owner.waitForFunction(() => window.__freezeEntered === true);
+    await owner.close();
+
+    const reloader = await crashed.newPage();
+    await reloader.goto(new URL("manifest.webmanifest", BASE).href);
+    assert.equal(await reloader.evaluate(() => navigator.locks.request("install-transfer", { ifAvailable: true }, (lock) => !!lock)), true,
+      "closing the owner released its Web Lock");
+    assert.equal(await reloader.evaluate((key) => localStorage.getItem(key), FREEZE_KEY), signal, "the crash left an orphan freeze signal");
+    await reloader.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForAppBoot(reloader, { base: BASE });
+    assert.equal(await reloader.evaluate((key) => localStorage.getItem(key), FREEZE_KEY), null,
+      "boot reclaims an orphan freeze as the transfer lock's owner");
+    assert.equal(await reloader.evaluate(() => localStorage.getItem("repforge_v1")), acknowledged.bytes,
+      "reclaiming the freeze leaves acknowledged training bytes unchanged");
+    const written = await reloader.evaluate(async () => {
+      const next = window.__repforgeWorkoutDraft.state();
+      next.settings = { ...next.settings, restSec: 141 };
+      const result = await window.__repforgeCommitProposedState(next);
+      await window.__repforgeStorage.flush();
+      return { committed: result?.committed, code: result?.code ?? null };
+    });
+    assert.deepEqual(written, { committed: true, code: null }, "saves work again after an orphan freeze is reclaimed");
+    await reloader.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(reloader, { base: BASE });
+    assert.equal(await reloader.evaluate(() => window.__repforgeWorkoutDraft.state().settings.restSec), 141,
+      "the post-recovery save survives reload");
+    checks += 6;
+    await crashed.close();
+
+    for (const raw of [signal, "{broken"]) {
+      const context = await browser.newContext({ serviceWorkers: "block" });
+      const writer = await context.newPage();
+      await writer.goto(new URL("manifest.webmanifest", BASE).href);
+      await holdFreeze(writer, raw);
+      await writer.waitForFunction(() => window.__freezeEntered === true);
+      const reader = await context.newPage();
+      await reader.goto(BASE, { waitUntil: "domcontentloaded" });
+      await waitForAsyncCondition(reader, async () => window.__repforgeBooted === true ||
+        (await navigator.locks.query()).pending.some((lock) => lock.name === "install-transfer"));
+      assert.equal(await reader.evaluate(() => window.__repforgeBooted === true), false, "a live transfer owner blocks boot");
+      assert.equal(await reader.evaluate((key) => localStorage.getItem(key), FREEZE_KEY), raw, "a waiting boot never clears a live owner's signal");
+      await writer.evaluate(() => window.__releaseFreeze());
+      await waitForAppBoot(reader, { base: BASE });
+      assert.equal(await reader.evaluate((key) => localStorage.getItem(key), FREEZE_KEY), null, "boot clears the signal once it owns the lock");
+      checks += 3;
+      await context.close();
+    }
   }
 } finally {
   await browser.close();

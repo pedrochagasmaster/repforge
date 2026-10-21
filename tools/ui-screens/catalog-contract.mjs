@@ -28,7 +28,8 @@ export function collectCatalogEvidence(config = {}) {
   const visible = (element) => {
     const style = getComputedStyle(element);
     const rect = element.getBoundingClientRect();
-    return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0
+    return (!element.checkVisibility || element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }))
+      && style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0
       && !element.closest("[aria-hidden=\"true\"], [inert], .visually-hidden");
   };
   const rect = (element) => {
@@ -39,7 +40,10 @@ export function collectCatalogEvidence(config = {}) {
   for (const element of document.querySelectorAll(layoutSelector)) {
     if (!visible(element) || element.clientWidth < 1) continue;
     const style = getComputedStyle(element);
-    const overflowsX = element.scrollWidth > element.clientWidth + 1;
+    // Native single-line fields scroll with their caret; a select exposes its
+    // options in browser UI. Their internal text width is not clipped layout.
+    const nativeHorizontalControl = element.matches('input, select');
+    const overflowsX = !nativeHorizontalControl && element.scrollWidth > element.clientWidth + 1;
     const nativeVerticalScroller = ["textarea", "select"].includes(element.tagName.toLowerCase())
       && ["auto", "scroll", "overlay"].includes(style.overflowY);
     const overflowsY = element.scrollHeight > element.clientHeight + 1 &&

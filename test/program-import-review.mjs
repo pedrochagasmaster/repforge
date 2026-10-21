@@ -24,6 +24,7 @@ import {installBrowserSnapshotPolicy} from './training-browser.mjs';
  * Run: node test/program-import-review.mjs   (requires the app served over HTTP)
  */
 import { pathToFileURL } from "url";
+import { openInstalledEditor } from "./fixtures/installed-editor.mjs";
 import { launchChromium } from "./browser.mjs";
 import { installSeedProgram, seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
@@ -100,8 +101,8 @@ async function openEditor(page) {
   const hidden = await page.locator("#programEditorWrap").evaluate((element) =>
     element.classList.contains("is-hidden")
   );
-  if (hidden) await page.click("#programEditToggle");
-  await page.waitForSelector('#programEditor [data-role="exercise"]', { timeout: 5000 });
+  if (hidden) await openInstalledEditor(page);
+  await page.waitForSelector('#programEditor [data-role="exercise-row"]', { timeout: 5000 });
   // Import and export remain in the installed editor's Advanced disclosure.
   // Keep that host mounted so the controls are actually reachable; the shared
   // editor itself owns the ordinary editing surface.

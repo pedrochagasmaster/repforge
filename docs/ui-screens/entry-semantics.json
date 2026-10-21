@@ -2,6 +2,5247 @@
   "schemaVersion": 1,
   "captures": [
     {
+      "key": "onboarding-build/editor-alternates__phone-390-dark-en",
+      "flow": "onboarding-build",
+      "screen": "editor-alternates",
+      "label": "Build — editor alternates",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Build a program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "div",
+          "label": "Program editor"
+        },
+        {
+          "tag": "span",
+          "text": "Program name"
+        },
+        {
+          "tag": "input",
+          "name": "Program name",
+          "label": "Program name",
+          "value": "Manual catalog program"
+        },
+        {
+          "tag": "p",
+          "role": "alert",
+          "text": "Add an exercise to Day 2, Day 3.",
+          "name": "Add an exercise to Day 2, Day 3.",
+          "aria-live": "assertive",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 1"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise"
+        },
+        {
+          "tag": "button",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "textarea",
+          "text": "45° cable rear delt fly",
+          "name": "45° cable rear delt fly",
+          "label": "45° cable rear delt fly",
+          "value": "45° cable rear delt fly"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10 reps per side"
+        },
+        {
+          "tag": "button",
+          "name": "Collapse 45° cable rear delt fly",
+          "label": "Collapse 45° cable rear delt fly",
+          "aria-expanded": "true",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "label": "SETS · Cycle 1"
+        },
+        {
+          "tag": "span",
+          "text": "SETS · Cycle 1"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Decrease sets",
+          "label": "Decrease sets",
+          "type": "button"
+        },
+        {
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Increase sets",
+          "label": "Increase sets",
+          "type": "button"
+        },
+        {
+          "tag": "h4",
+          "text": "Training targets"
+        },
+        {
+          "tag": "p",
+          "text": "Reps per side + Load per side"
+        },
+        {
+          "tag": "span",
+          "text": "Metric composition"
+        },
+        {
+          "tag": "summary",
+          "text": "Cycle 1",
+          "name": "Cycle 1"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 1"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 1, Set 1, Reps per side minimum",
+          "label": "Cycle 1, Set 1, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 1, Set 1, Reps per side maximum",
+          "label": "Cycle 1, Set 1, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 1, Set 1, Load per side",
+          "label": "Cycle 1, Set 1, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 1, Set 1, RIR",
+          "label": "Cycle 1, Set 1, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 1, Set 1, Rest (seconds)",
+          "label": "Cycle 1, Set 1, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 2"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 1, Set 2, Reps per side minimum",
+          "label": "Cycle 1, Set 2, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 1, Set 2, Reps per side maximum",
+          "label": "Cycle 1, Set 2, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 1, Set 2, Load per side",
+          "label": "Cycle 1, Set 2, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 1, Set 2, RIR",
+          "label": "Cycle 1, Set 2, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 1, Set 2, Rest (seconds)",
+          "label": "Cycle 1, Set 2, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 3"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 1, Set 3, Reps per side minimum",
+          "label": "Cycle 1, Set 3, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 1, Set 3, Reps per side maximum",
+          "label": "Cycle 1, Set 3, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 1, Set 3, Load per side",
+          "label": "Cycle 1, Set 3, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 1, Set 3, RIR",
+          "label": "Cycle 1, Set 3, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 1, Set 3, Rest (seconds)",
+          "label": "Cycle 1, Set 3, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "summary",
+          "text": "Cycle 2",
+          "name": "Cycle 2"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 1"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 2, Set 1, Reps per side minimum",
+          "label": "Cycle 2, Set 1, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 2, Set 1, Reps per side maximum",
+          "label": "Cycle 2, Set 1, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 2, Set 1, Load per side",
+          "label": "Cycle 2, Set 1, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 2, Set 1, RIR",
+          "label": "Cycle 2, Set 1, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 2, Set 1, Rest (seconds)",
+          "label": "Cycle 2, Set 1, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 2"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 2, Set 2, Reps per side minimum",
+          "label": "Cycle 2, Set 2, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 2, Set 2, Reps per side maximum",
+          "label": "Cycle 2, Set 2, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 2, Set 2, Load per side",
+          "label": "Cycle 2, Set 2, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 2, Set 2, RIR",
+          "label": "Cycle 2, Set 2, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 2, Set 2, Rest (seconds)",
+          "label": "Cycle 2, Set 2, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 3"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 2, Set 3, Reps per side minimum",
+          "label": "Cycle 2, Set 3, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 2, Set 3, Reps per side maximum",
+          "label": "Cycle 2, Set 3, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 2, Set 3, Load per side",
+          "label": "Cycle 2, Set 3, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 2, Set 3, RIR",
+          "label": "Cycle 2, Set 3, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 2, Set 3, Rest (seconds)",
+          "label": "Cycle 2, Set 3, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "summary",
+          "text": "Cycle 3",
+          "name": "Cycle 3"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 1"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 3, Set 1, Reps per side minimum",
+          "label": "Cycle 3, Set 1, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 3, Set 1, Reps per side maximum",
+          "label": "Cycle 3, Set 1, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 3, Set 1, Load per side",
+          "label": "Cycle 3, Set 1, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 3, Set 1, RIR",
+          "label": "Cycle 3, Set 1, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 3, Set 1, Rest (seconds)",
+          "label": "Cycle 3, Set 1, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 2"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 3, Set 2, Reps per side minimum",
+          "label": "Cycle 3, Set 2, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 3, Set 2, Reps per side maximum",
+          "label": "Cycle 3, Set 2, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 3, Set 2, Load per side",
+          "label": "Cycle 3, Set 2, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 3, Set 2, RIR",
+          "label": "Cycle 3, Set 2, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 3, Set 2, Rest (seconds)",
+          "label": "Cycle 3, Set 2, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 3"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 3, Set 3, Reps per side minimum",
+          "label": "Cycle 3, Set 3, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 3, Set 3, Reps per side maximum",
+          "label": "Cycle 3, Set 3, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 3, Set 3, Load per side",
+          "label": "Cycle 3, Set 3, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 3, Set 3, RIR",
+          "label": "Cycle 3, Set 3, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 3, Set 3, Rest (seconds)",
+          "label": "Cycle 3, Set 3, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "summary",
+          "text": "Cycle 4",
+          "name": "Cycle 4"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 1"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 4, Set 1, Reps per side minimum",
+          "label": "Cycle 4, Set 1, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 4, Set 1, Reps per side maximum",
+          "label": "Cycle 4, Set 1, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 4, Set 1, Load per side",
+          "label": "Cycle 4, Set 1, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 4, Set 1, RIR",
+          "label": "Cycle 4, Set 1, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 4, Set 1, Rest (seconds)",
+          "label": "Cycle 4, Set 1, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 2"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 4, Set 2, Reps per side minimum",
+          "label": "Cycle 4, Set 2, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 4, Set 2, Reps per side maximum",
+          "label": "Cycle 4, Set 2, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 4, Set 2, Load per side",
+          "label": "Cycle 4, Set 2, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 4, Set 2, RIR",
+          "label": "Cycle 4, Set 2, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 4, Set 2, Rest (seconds)",
+          "label": "Cycle 4, Set 2, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 3"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 4, Set 3, Reps per side minimum",
+          "label": "Cycle 4, Set 3, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 4, Set 3, Reps per side maximum",
+          "label": "Cycle 4, Set 3, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 4, Set 3, Load per side",
+          "label": "Cycle 4, Set 3, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 4, Set 3, RIR",
+          "label": "Cycle 4, Set 3, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 4, Set 3, Rest (seconds)",
+          "label": "Cycle 4, Set 3, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "summary",
+          "text": "Cycle 5",
+          "name": "Cycle 5"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 1"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 5, Set 1, Reps per side minimum",
+          "label": "Cycle 5, Set 1, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 5, Set 1, Reps per side maximum",
+          "label": "Cycle 5, Set 1, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 5, Set 1, Load per side",
+          "label": "Cycle 5, Set 1, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 5, Set 1, RIR",
+          "label": "Cycle 5, Set 1, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 5, Set 1, Rest (seconds)",
+          "label": "Cycle 5, Set 1, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 2"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 5, Set 2, Reps per side minimum",
+          "label": "Cycle 5, Set 2, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 5, Set 2, Reps per side maximum",
+          "label": "Cycle 5, Set 2, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 5, Set 2, Load per side",
+          "label": "Cycle 5, Set 2, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 5, Set 2, RIR",
+          "label": "Cycle 5, Set 2, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 5, Set 2, Rest (seconds)",
+          "label": "Cycle 5, Set 2, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 3"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 5, Set 3, Reps per side minimum",
+          "label": "Cycle 5, Set 3, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 5, Set 3, Reps per side maximum",
+          "label": "Cycle 5, Set 3, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 5, Set 3, Load per side",
+          "label": "Cycle 5, Set 3, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 5, Set 3, RIR",
+          "label": "Cycle 5, Set 3, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 5, Set 3, Rest (seconds)",
+          "label": "Cycle 5, Set 3, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "summary",
+          "text": "Cycle 6",
+          "name": "Cycle 6"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 1"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 6, Set 1, Reps per side minimum",
+          "label": "Cycle 6, Set 1, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 6, Set 1, Reps per side maximum",
+          "label": "Cycle 6, Set 1, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 6, Set 1, Load per side",
+          "label": "Cycle 6, Set 1, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 6, Set 1, RIR",
+          "label": "Cycle 6, Set 1, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 6, Set 1, Rest (seconds)",
+          "label": "Cycle 6, Set 1, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 2"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 6, Set 2, Reps per side minimum",
+          "label": "Cycle 6, Set 2, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 6, Set 2, Reps per side maximum",
+          "label": "Cycle 6, Set 2, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 6, Set 2, Load per side",
+          "label": "Cycle 6, Set 2, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 6, Set 2, RIR",
+          "label": "Cycle 6, Set 2, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 6, Set 2, Rest (seconds)",
+          "label": "Cycle 6, Set 2, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 3"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 6, Set 3, Reps per side minimum",
+          "label": "Cycle 6, Set 3, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 6, Set 3, Reps per side maximum",
+          "label": "Cycle 6, Set 3, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 6, Set 3, Load per side",
+          "label": "Cycle 6, Set 3, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 6, Set 3, RIR",
+          "label": "Cycle 6, Set 3, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 6, Set 3, Rest (seconds)",
+          "label": "Cycle 6, Set 3, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "summary",
+          "text": "Cycle 7",
+          "name": "Cycle 7"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 1"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 7, Set 1, Reps per side minimum",
+          "label": "Cycle 7, Set 1, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 7, Set 1, Reps per side maximum",
+          "label": "Cycle 7, Set 1, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 7, Set 1, Load per side",
+          "label": "Cycle 7, Set 1, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 7, Set 1, RIR",
+          "label": "Cycle 7, Set 1, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 7, Set 1, Rest (seconds)",
+          "label": "Cycle 7, Set 1, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 2"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 7, Set 2, Reps per side minimum",
+          "label": "Cycle 7, Set 2, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 7, Set 2, Reps per side maximum",
+          "label": "Cycle 7, Set 2, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 7, Set 2, Load per side",
+          "label": "Cycle 7, Set 2, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 7, Set 2, RIR",
+          "label": "Cycle 7, Set 2, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 7, Set 2, Rest (seconds)",
+          "label": "Cycle 7, Set 2, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 3"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 7, Set 3, Reps per side minimum",
+          "label": "Cycle 7, Set 3, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 7, Set 3, Reps per side maximum",
+          "label": "Cycle 7, Set 3, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 7, Set 3, Load per side",
+          "label": "Cycle 7, Set 3, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 7, Set 3, RIR",
+          "label": "Cycle 7, Set 3, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 7, Set 3, Rest (seconds)",
+          "label": "Cycle 7, Set 3, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Suggest loads"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Suggest loads",
+          "labelledBy": "Suggest loads",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Smallest load change"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Smallest load change kg",
+          "value": "2.5",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "Suggested loads move in steps of this size."
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Alternates"
+        },
+        {
+          "tag": "span",
+          "text": "Alternates"
+        },
+        {
+          "tag": "span",
+          "text": "45° glute-biased leg press"
+        },
+        {
+          "tag": "button",
+          "name": "Move 45° glute-biased leg press up",
+          "label": "Move 45° glute-biased leg press up",
+          "disabled": true,
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "name": "Move 45° glute-biased leg press down",
+          "label": "Move 45° glute-biased leg press down",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "name": "Remove 45° glute-biased leg press from alternates",
+          "label": "Remove 45° glute-biased leg press from alternates",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "45° incline barbell press"
+        },
+        {
+          "tag": "button",
+          "name": "Move 45° incline barbell press up",
+          "label": "Move 45° incline barbell press up",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "name": "Move 45° incline barbell press down",
+          "label": "Move 45° incline barbell press down",
+          "disabled": true,
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "name": "Remove 45° incline barbell press from alternates",
+          "label": "Remove 45° incline barbell press from alternates",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Add alternate",
+          "name": "＋ Add alternate",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Offered first when you swap this exercise during a workout."
+        },
+        {
+          "tag": "button",
+          "text": "Replace exercise",
+          "name": "Replace exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Remove exercise",
+          "name": "Remove exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 2"
+        },
+        {
+          "tag": "span",
+          "text": "0 exercises"
+        },
+        {
+          "tag": "button",
+          "name": "Expand Day 2",
+          "label": "Expand Day 2",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 3"
+        },
+        {
+          "tag": "span",
+          "text": "0 exercises"
+        },
+        {
+          "tag": "button",
+          "name": "Expand Day 3",
+          "label": "Expand Day 3",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Save draft",
+          "name": "Save draft",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "describedBy": "Add an exercise to Day 2, Day 3.",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-build/editor-alternates__phone-390-light-en",
+      "flow": "onboarding-build",
+      "screen": "editor-alternates",
+      "label": "Build — editor alternates",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Build a program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "div",
+          "label": "Program editor"
+        },
+        {
+          "tag": "span",
+          "text": "Program name"
+        },
+        {
+          "tag": "input",
+          "name": "Program name",
+          "label": "Program name",
+          "value": "Manual catalog program"
+        },
+        {
+          "tag": "p",
+          "role": "alert",
+          "text": "Add an exercise to Day 2, Day 3.",
+          "name": "Add an exercise to Day 2, Day 3.",
+          "aria-live": "assertive",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 1"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise"
+        },
+        {
+          "tag": "button",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "textarea",
+          "text": "45° cable rear delt fly",
+          "name": "45° cable rear delt fly",
+          "label": "45° cable rear delt fly",
+          "value": "45° cable rear delt fly"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10 reps per side"
+        },
+        {
+          "tag": "button",
+          "name": "Collapse 45° cable rear delt fly",
+          "label": "Collapse 45° cable rear delt fly",
+          "aria-expanded": "true",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "label": "SETS · Cycle 1"
+        },
+        {
+          "tag": "span",
+          "text": "SETS · Cycle 1"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Decrease sets",
+          "label": "Decrease sets",
+          "type": "button"
+        },
+        {
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Increase sets",
+          "label": "Increase sets",
+          "type": "button"
+        },
+        {
+          "tag": "h4",
+          "text": "Training targets"
+        },
+        {
+          "tag": "p",
+          "text": "Reps per side + Load per side"
+        },
+        {
+          "tag": "span",
+          "text": "Metric composition"
+        },
+        {
+          "tag": "summary",
+          "text": "Cycle 1",
+          "name": "Cycle 1"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 1"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 1, Set 1, Reps per side minimum",
+          "label": "Cycle 1, Set 1, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 1, Set 1, Reps per side maximum",
+          "label": "Cycle 1, Set 1, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 1, Set 1, Load per side",
+          "label": "Cycle 1, Set 1, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 1, Set 1, RIR",
+          "label": "Cycle 1, Set 1, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 1, Set 1, Rest (seconds)",
+          "label": "Cycle 1, Set 1, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 2"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 1, Set 2, Reps per side minimum",
+          "label": "Cycle 1, Set 2, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 1, Set 2, Reps per side maximum",
+          "label": "Cycle 1, Set 2, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 1, Set 2, Load per side",
+          "label": "Cycle 1, Set 2, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 1, Set 2, RIR",
+          "label": "Cycle 1, Set 2, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 1, Set 2, Rest (seconds)",
+          "label": "Cycle 1, Set 2, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 3"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 1, Set 3, Reps per side minimum",
+          "label": "Cycle 1, Set 3, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 1, Set 3, Reps per side maximum",
+          "label": "Cycle 1, Set 3, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 1, Set 3, Load per side",
+          "label": "Cycle 1, Set 3, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 1, Set 3, RIR",
+          "label": "Cycle 1, Set 3, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 1, Set 3, Rest (seconds)",
+          "label": "Cycle 1, Set 3, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "summary",
+          "text": "Cycle 2",
+          "name": "Cycle 2"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 1"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 2, Set 1, Reps per side minimum",
+          "label": "Cycle 2, Set 1, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 2, Set 1, Reps per side maximum",
+          "label": "Cycle 2, Set 1, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 2, Set 1, Load per side",
+          "label": "Cycle 2, Set 1, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 2, Set 1, RIR",
+          "label": "Cycle 2, Set 1, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 2, Set 1, Rest (seconds)",
+          "label": "Cycle 2, Set 1, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 2"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 2, Set 2, Reps per side minimum",
+          "label": "Cycle 2, Set 2, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 2, Set 2, Reps per side maximum",
+          "label": "Cycle 2, Set 2, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 2, Set 2, Load per side",
+          "label": "Cycle 2, Set 2, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 2, Set 2, RIR",
+          "label": "Cycle 2, Set 2, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 2, Set 2, Rest (seconds)",
+          "label": "Cycle 2, Set 2, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 3"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 2, Set 3, Reps per side minimum",
+          "label": "Cycle 2, Set 3, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 2, Set 3, Reps per side maximum",
+          "label": "Cycle 2, Set 3, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 2, Set 3, Load per side",
+          "label": "Cycle 2, Set 3, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 2, Set 3, RIR",
+          "label": "Cycle 2, Set 3, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 2, Set 3, Rest (seconds)",
+          "label": "Cycle 2, Set 3, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "summary",
+          "text": "Cycle 3",
+          "name": "Cycle 3"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 1"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 3, Set 1, Reps per side minimum",
+          "label": "Cycle 3, Set 1, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 3, Set 1, Reps per side maximum",
+          "label": "Cycle 3, Set 1, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 3, Set 1, Load per side",
+          "label": "Cycle 3, Set 1, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 3, Set 1, RIR",
+          "label": "Cycle 3, Set 1, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 3, Set 1, Rest (seconds)",
+          "label": "Cycle 3, Set 1, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 2"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 3, Set 2, Reps per side minimum",
+          "label": "Cycle 3, Set 2, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 3, Set 2, Reps per side maximum",
+          "label": "Cycle 3, Set 2, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 3, Set 2, Load per side",
+          "label": "Cycle 3, Set 2, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 3, Set 2, RIR",
+          "label": "Cycle 3, Set 2, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 3, Set 2, Rest (seconds)",
+          "label": "Cycle 3, Set 2, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 3"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 3, Set 3, Reps per side minimum",
+          "label": "Cycle 3, Set 3, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 3, Set 3, Reps per side maximum",
+          "label": "Cycle 3, Set 3, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 3, Set 3, Load per side",
+          "label": "Cycle 3, Set 3, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 3, Set 3, RIR",
+          "label": "Cycle 3, Set 3, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 3, Set 3, Rest (seconds)",
+          "label": "Cycle 3, Set 3, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "summary",
+          "text": "Cycle 4",
+          "name": "Cycle 4"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 1"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 4, Set 1, Reps per side minimum",
+          "label": "Cycle 4, Set 1, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 4, Set 1, Reps per side maximum",
+          "label": "Cycle 4, Set 1, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 4, Set 1, Load per side",
+          "label": "Cycle 4, Set 1, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 4, Set 1, RIR",
+          "label": "Cycle 4, Set 1, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 4, Set 1, Rest (seconds)",
+          "label": "Cycle 4, Set 1, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 2"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 4, Set 2, Reps per side minimum",
+          "label": "Cycle 4, Set 2, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 4, Set 2, Reps per side maximum",
+          "label": "Cycle 4, Set 2, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 4, Set 2, Load per side",
+          "label": "Cycle 4, Set 2, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 4, Set 2, RIR",
+          "label": "Cycle 4, Set 2, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 4, Set 2, Rest (seconds)",
+          "label": "Cycle 4, Set 2, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 3"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 4, Set 3, Reps per side minimum",
+          "label": "Cycle 4, Set 3, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 4, Set 3, Reps per side maximum",
+          "label": "Cycle 4, Set 3, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 4, Set 3, Load per side",
+          "label": "Cycle 4, Set 3, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 4, Set 3, RIR",
+          "label": "Cycle 4, Set 3, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 4, Set 3, Rest (seconds)",
+          "label": "Cycle 4, Set 3, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "summary",
+          "text": "Cycle 5",
+          "name": "Cycle 5"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 1"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 5, Set 1, Reps per side minimum",
+          "label": "Cycle 5, Set 1, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 5, Set 1, Reps per side maximum",
+          "label": "Cycle 5, Set 1, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 5, Set 1, Load per side",
+          "label": "Cycle 5, Set 1, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 5, Set 1, RIR",
+          "label": "Cycle 5, Set 1, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 5, Set 1, Rest (seconds)",
+          "label": "Cycle 5, Set 1, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 2"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 5, Set 2, Reps per side minimum",
+          "label": "Cycle 5, Set 2, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 5, Set 2, Reps per side maximum",
+          "label": "Cycle 5, Set 2, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 5, Set 2, Load per side",
+          "label": "Cycle 5, Set 2, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 5, Set 2, RIR",
+          "label": "Cycle 5, Set 2, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 5, Set 2, Rest (seconds)",
+          "label": "Cycle 5, Set 2, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 3"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 5, Set 3, Reps per side minimum",
+          "label": "Cycle 5, Set 3, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 5, Set 3, Reps per side maximum",
+          "label": "Cycle 5, Set 3, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 5, Set 3, Load per side",
+          "label": "Cycle 5, Set 3, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 5, Set 3, RIR",
+          "label": "Cycle 5, Set 3, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 5, Set 3, Rest (seconds)",
+          "label": "Cycle 5, Set 3, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "summary",
+          "text": "Cycle 6",
+          "name": "Cycle 6"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 1"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 6, Set 1, Reps per side minimum",
+          "label": "Cycle 6, Set 1, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 6, Set 1, Reps per side maximum",
+          "label": "Cycle 6, Set 1, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 6, Set 1, Load per side",
+          "label": "Cycle 6, Set 1, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 6, Set 1, RIR",
+          "label": "Cycle 6, Set 1, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 6, Set 1, Rest (seconds)",
+          "label": "Cycle 6, Set 1, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 2"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 6, Set 2, Reps per side minimum",
+          "label": "Cycle 6, Set 2, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 6, Set 2, Reps per side maximum",
+          "label": "Cycle 6, Set 2, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 6, Set 2, Load per side",
+          "label": "Cycle 6, Set 2, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 6, Set 2, RIR",
+          "label": "Cycle 6, Set 2, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 6, Set 2, Rest (seconds)",
+          "label": "Cycle 6, Set 2, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 3"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 6, Set 3, Reps per side minimum",
+          "label": "Cycle 6, Set 3, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 6, Set 3, Reps per side maximum",
+          "label": "Cycle 6, Set 3, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 6, Set 3, Load per side",
+          "label": "Cycle 6, Set 3, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 6, Set 3, RIR",
+          "label": "Cycle 6, Set 3, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 6, Set 3, Rest (seconds)",
+          "label": "Cycle 6, Set 3, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "summary",
+          "text": "Cycle 7",
+          "name": "Cycle 7"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 1"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 7, Set 1, Reps per side minimum",
+          "label": "Cycle 7, Set 1, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 7, Set 1, Reps per side maximum",
+          "label": "Cycle 7, Set 1, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 7, Set 1, Load per side",
+          "label": "Cycle 7, Set 1, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 7, Set 1, RIR",
+          "label": "Cycle 7, Set 1, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 7, Set 1, Rest (seconds)",
+          "label": "Cycle 7, Set 1, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 2"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 7, Set 2, Reps per side minimum",
+          "label": "Cycle 7, Set 2, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 7, Set 2, Reps per side maximum",
+          "label": "Cycle 7, Set 2, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 7, Set 2, Load per side",
+          "label": "Cycle 7, Set 2, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 7, Set 2, RIR",
+          "label": "Cycle 7, Set 2, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 7, Set 2, Rest (seconds)",
+          "label": "Cycle 7, Set 2, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Set 3"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 7, Set 3, Reps per side minimum",
+          "label": "Cycle 7, Set 3, Reps per side minimum",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps per side"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 7, Set 3, Reps per side maximum",
+          "label": "Cycle 7, Set 3, Reps per side maximum",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Load per side"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 7, Set 3, Load per side",
+          "label": "Cycle 7, Set 3, Load per side",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 7, Set 3, RIR",
+          "label": "Cycle 7, Set 3, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Rest (seconds)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Cycle 7, Set 3, Rest (seconds)",
+          "label": "Cycle 7, Set 3, Rest (seconds)",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Suggest loads"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Suggest loads",
+          "labelledBy": "Suggest loads",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Smallest load change"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Smallest load change kg",
+          "value": "2.5",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "Suggested loads move in steps of this size."
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Alternates"
+        },
+        {
+          "tag": "span",
+          "text": "Alternates"
+        },
+        {
+          "tag": "span",
+          "text": "45° glute-biased leg press"
+        },
+        {
+          "tag": "button",
+          "name": "Move 45° glute-biased leg press up",
+          "label": "Move 45° glute-biased leg press up",
+          "disabled": true,
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "name": "Move 45° glute-biased leg press down",
+          "label": "Move 45° glute-biased leg press down",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "name": "Remove 45° glute-biased leg press from alternates",
+          "label": "Remove 45° glute-biased leg press from alternates",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "45° incline barbell press"
+        },
+        {
+          "tag": "button",
+          "name": "Move 45° incline barbell press up",
+          "label": "Move 45° incline barbell press up",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "name": "Move 45° incline barbell press down",
+          "label": "Move 45° incline barbell press down",
+          "disabled": true,
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "name": "Remove 45° incline barbell press from alternates",
+          "label": "Remove 45° incline barbell press from alternates",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Add alternate",
+          "name": "＋ Add alternate",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Offered first when you swap this exercise during a workout."
+        },
+        {
+          "tag": "button",
+          "text": "Replace exercise",
+          "name": "Replace exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Remove exercise",
+          "name": "Remove exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 2"
+        },
+        {
+          "tag": "span",
+          "text": "0 exercises"
+        },
+        {
+          "tag": "button",
+          "name": "Expand Day 2",
+          "label": "Expand Day 2",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 3"
+        },
+        {
+          "tag": "span",
+          "text": "0 exercises"
+        },
+        {
+          "tag": "button",
+          "name": "Expand Day 3",
+          "label": "Expand Day 3",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Save draft",
+          "name": "Save draft",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "describedBy": "Add an exercise to Day 2, Day 3.",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-build/editor-alternates__phone-390-light-pt",
+      "flow": "onboarding-build",
+      "screen": "editor-alternates",
+      "label": "Build — editor alternates",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um treino"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Montar um treino",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "div",
+          "label": "Editor de treino"
+        },
+        {
+          "tag": "span",
+          "text": "Nome do treino"
+        },
+        {
+          "tag": "input",
+          "name": "Nome do treino",
+          "label": "Nome do treino",
+          "value": "Manual catalog program"
+        },
+        {
+          "tag": "p",
+          "role": "alert",
+          "text": "Adicione um exercício a Dia 2, Dia 3.",
+          "name": "Adicione um exercício a Dia 2, Dia 3.",
+          "aria-live": "assertive",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "input",
+          "name": "Nome do dia",
+          "label": "Nome do dia",
+          "value": "Dia 1"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercício"
+        },
+        {
+          "tag": "button",
+          "text": "⋮",
+          "name": "Mais",
+          "label": "Mais",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "textarea",
+          "text": "Kneeling cable crunch",
+          "name": "Kneeling cable crunch",
+          "label": "Kneeling cable crunch",
+          "value": "Kneeling cable crunch"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10 reps"
+        },
+        {
+          "tag": "button",
+          "name": "Recolher Abdominal ajoelhado na polia",
+          "label": "Recolher Abdominal ajoelhado na polia",
+          "aria-expanded": "true",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "label": "SÉRIES · Ciclo 1"
+        },
+        {
+          "tag": "span",
+          "text": "SÉRIES · Ciclo 1"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Diminuir séries",
+          "label": "Diminuir séries",
+          "type": "button"
+        },
+        {
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Aumentar séries",
+          "label": "Aumentar séries",
+          "type": "button"
+        },
+        {
+          "tag": "h4",
+          "text": "Metas de treino"
+        },
+        {
+          "tag": "p",
+          "text": "Carga + Reps"
+        },
+        {
+          "tag": "span",
+          "text": "Composição de métricas"
+        },
+        {
+          "tag": "summary",
+          "text": "Ciclo 1",
+          "name": "Ciclo 1"
+        },
+        {
+          "tag": "legend",
+          "text": "Série 1"
+        },
+        {
+          "tag": "span",
+          "text": "Carga"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 1, Série 1, Carga",
+          "label": "Ciclo 1, Série 1, Carga",
+          "type": "text"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 1, Série 1, Reps mínimo",
+          "label": "Ciclo 1, Série 1, Reps mínimo",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 1, Série 1, Reps máximo",
+          "label": "Ciclo 1, Série 1, Reps máximo",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 1, Série 1, RIR",
+          "label": "Ciclo 1, Série 1, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Descanso (segundos)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 1, Série 1, Descanso (segundos)",
+          "label": "Ciclo 1, Série 1, Descanso (segundos)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Série 2"
+        },
+        {
+          "tag": "span",
+          "text": "Carga"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 1, Série 2, Carga",
+          "label": "Ciclo 1, Série 2, Carga",
+          "type": "text"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 1, Série 2, Reps mínimo",
+          "label": "Ciclo 1, Série 2, Reps mínimo",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 1, Série 2, Reps máximo",
+          "label": "Ciclo 1, Série 2, Reps máximo",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 1, Série 2, RIR",
+          "label": "Ciclo 1, Série 2, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Descanso (segundos)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 1, Série 2, Descanso (segundos)",
+          "label": "Ciclo 1, Série 2, Descanso (segundos)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Série 3"
+        },
+        {
+          "tag": "span",
+          "text": "Carga"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 1, Série 3, Carga",
+          "label": "Ciclo 1, Série 3, Carga",
+          "type": "text"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 1, Série 3, Reps mínimo",
+          "label": "Ciclo 1, Série 3, Reps mínimo",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 1, Série 3, Reps máximo",
+          "label": "Ciclo 1, Série 3, Reps máximo",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 1, Série 3, RIR",
+          "label": "Ciclo 1, Série 3, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Descanso (segundos)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 1, Série 3, Descanso (segundos)",
+          "label": "Ciclo 1, Série 3, Descanso (segundos)",
+          "type": "number"
+        },
+        {
+          "tag": "summary",
+          "text": "Ciclo 2",
+          "name": "Ciclo 2"
+        },
+        {
+          "tag": "legend",
+          "text": "Série 1"
+        },
+        {
+          "tag": "span",
+          "text": "Carga"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 2, Série 1, Carga",
+          "label": "Ciclo 2, Série 1, Carga",
+          "type": "text"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 2, Série 1, Reps mínimo",
+          "label": "Ciclo 2, Série 1, Reps mínimo",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 2, Série 1, Reps máximo",
+          "label": "Ciclo 2, Série 1, Reps máximo",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 2, Série 1, RIR",
+          "label": "Ciclo 2, Série 1, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Descanso (segundos)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 2, Série 1, Descanso (segundos)",
+          "label": "Ciclo 2, Série 1, Descanso (segundos)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Série 2"
+        },
+        {
+          "tag": "span",
+          "text": "Carga"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 2, Série 2, Carga",
+          "label": "Ciclo 2, Série 2, Carga",
+          "type": "text"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 2, Série 2, Reps mínimo",
+          "label": "Ciclo 2, Série 2, Reps mínimo",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 2, Série 2, Reps máximo",
+          "label": "Ciclo 2, Série 2, Reps máximo",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 2, Série 2, RIR",
+          "label": "Ciclo 2, Série 2, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Descanso (segundos)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 2, Série 2, Descanso (segundos)",
+          "label": "Ciclo 2, Série 2, Descanso (segundos)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Série 3"
+        },
+        {
+          "tag": "span",
+          "text": "Carga"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 2, Série 3, Carga",
+          "label": "Ciclo 2, Série 3, Carga",
+          "type": "text"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 2, Série 3, Reps mínimo",
+          "label": "Ciclo 2, Série 3, Reps mínimo",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 2, Série 3, Reps máximo",
+          "label": "Ciclo 2, Série 3, Reps máximo",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 2, Série 3, RIR",
+          "label": "Ciclo 2, Série 3, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Descanso (segundos)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 2, Série 3, Descanso (segundos)",
+          "label": "Ciclo 2, Série 3, Descanso (segundos)",
+          "type": "number"
+        },
+        {
+          "tag": "summary",
+          "text": "Ciclo 3",
+          "name": "Ciclo 3"
+        },
+        {
+          "tag": "legend",
+          "text": "Série 1"
+        },
+        {
+          "tag": "span",
+          "text": "Carga"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 3, Série 1, Carga",
+          "label": "Ciclo 3, Série 1, Carga",
+          "type": "text"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 3, Série 1, Reps mínimo",
+          "label": "Ciclo 3, Série 1, Reps mínimo",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 3, Série 1, Reps máximo",
+          "label": "Ciclo 3, Série 1, Reps máximo",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 3, Série 1, RIR",
+          "label": "Ciclo 3, Série 1, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Descanso (segundos)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 3, Série 1, Descanso (segundos)",
+          "label": "Ciclo 3, Série 1, Descanso (segundos)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Série 2"
+        },
+        {
+          "tag": "span",
+          "text": "Carga"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 3, Série 2, Carga",
+          "label": "Ciclo 3, Série 2, Carga",
+          "type": "text"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 3, Série 2, Reps mínimo",
+          "label": "Ciclo 3, Série 2, Reps mínimo",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 3, Série 2, Reps máximo",
+          "label": "Ciclo 3, Série 2, Reps máximo",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 3, Série 2, RIR",
+          "label": "Ciclo 3, Série 2, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Descanso (segundos)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 3, Série 2, Descanso (segundos)",
+          "label": "Ciclo 3, Série 2, Descanso (segundos)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Série 3"
+        },
+        {
+          "tag": "span",
+          "text": "Carga"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 3, Série 3, Carga",
+          "label": "Ciclo 3, Série 3, Carga",
+          "type": "text"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 3, Série 3, Reps mínimo",
+          "label": "Ciclo 3, Série 3, Reps mínimo",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 3, Série 3, Reps máximo",
+          "label": "Ciclo 3, Série 3, Reps máximo",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 3, Série 3, RIR",
+          "label": "Ciclo 3, Série 3, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Descanso (segundos)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 3, Série 3, Descanso (segundos)",
+          "label": "Ciclo 3, Série 3, Descanso (segundos)",
+          "type": "number"
+        },
+        {
+          "tag": "summary",
+          "text": "Ciclo 4",
+          "name": "Ciclo 4"
+        },
+        {
+          "tag": "legend",
+          "text": "Série 1"
+        },
+        {
+          "tag": "span",
+          "text": "Carga"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 4, Série 1, Carga",
+          "label": "Ciclo 4, Série 1, Carga",
+          "type": "text"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 4, Série 1, Reps mínimo",
+          "label": "Ciclo 4, Série 1, Reps mínimo",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 4, Série 1, Reps máximo",
+          "label": "Ciclo 4, Série 1, Reps máximo",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 4, Série 1, RIR",
+          "label": "Ciclo 4, Série 1, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Descanso (segundos)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 4, Série 1, Descanso (segundos)",
+          "label": "Ciclo 4, Série 1, Descanso (segundos)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Série 2"
+        },
+        {
+          "tag": "span",
+          "text": "Carga"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 4, Série 2, Carga",
+          "label": "Ciclo 4, Série 2, Carga",
+          "type": "text"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 4, Série 2, Reps mínimo",
+          "label": "Ciclo 4, Série 2, Reps mínimo",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 4, Série 2, Reps máximo",
+          "label": "Ciclo 4, Série 2, Reps máximo",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 4, Série 2, RIR",
+          "label": "Ciclo 4, Série 2, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Descanso (segundos)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 4, Série 2, Descanso (segundos)",
+          "label": "Ciclo 4, Série 2, Descanso (segundos)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Série 3"
+        },
+        {
+          "tag": "span",
+          "text": "Carga"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 4, Série 3, Carga",
+          "label": "Ciclo 4, Série 3, Carga",
+          "type": "text"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 4, Série 3, Reps mínimo",
+          "label": "Ciclo 4, Série 3, Reps mínimo",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 4, Série 3, Reps máximo",
+          "label": "Ciclo 4, Série 3, Reps máximo",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 4, Série 3, RIR",
+          "label": "Ciclo 4, Série 3, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Descanso (segundos)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 4, Série 3, Descanso (segundos)",
+          "label": "Ciclo 4, Série 3, Descanso (segundos)",
+          "type": "number"
+        },
+        {
+          "tag": "summary",
+          "text": "Ciclo 5",
+          "name": "Ciclo 5"
+        },
+        {
+          "tag": "legend",
+          "text": "Série 1"
+        },
+        {
+          "tag": "span",
+          "text": "Carga"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 5, Série 1, Carga",
+          "label": "Ciclo 5, Série 1, Carga",
+          "type": "text"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 5, Série 1, Reps mínimo",
+          "label": "Ciclo 5, Série 1, Reps mínimo",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 5, Série 1, Reps máximo",
+          "label": "Ciclo 5, Série 1, Reps máximo",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 5, Série 1, RIR",
+          "label": "Ciclo 5, Série 1, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Descanso (segundos)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 5, Série 1, Descanso (segundos)",
+          "label": "Ciclo 5, Série 1, Descanso (segundos)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Série 2"
+        },
+        {
+          "tag": "span",
+          "text": "Carga"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 5, Série 2, Carga",
+          "label": "Ciclo 5, Série 2, Carga",
+          "type": "text"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 5, Série 2, Reps mínimo",
+          "label": "Ciclo 5, Série 2, Reps mínimo",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 5, Série 2, Reps máximo",
+          "label": "Ciclo 5, Série 2, Reps máximo",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 5, Série 2, RIR",
+          "label": "Ciclo 5, Série 2, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Descanso (segundos)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 5, Série 2, Descanso (segundos)",
+          "label": "Ciclo 5, Série 2, Descanso (segundos)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Série 3"
+        },
+        {
+          "tag": "span",
+          "text": "Carga"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 5, Série 3, Carga",
+          "label": "Ciclo 5, Série 3, Carga",
+          "type": "text"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 5, Série 3, Reps mínimo",
+          "label": "Ciclo 5, Série 3, Reps mínimo",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 5, Série 3, Reps máximo",
+          "label": "Ciclo 5, Série 3, Reps máximo",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 5, Série 3, RIR",
+          "label": "Ciclo 5, Série 3, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Descanso (segundos)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 5, Série 3, Descanso (segundos)",
+          "label": "Ciclo 5, Série 3, Descanso (segundos)",
+          "type": "number"
+        },
+        {
+          "tag": "summary",
+          "text": "Ciclo 6",
+          "name": "Ciclo 6"
+        },
+        {
+          "tag": "legend",
+          "text": "Série 1"
+        },
+        {
+          "tag": "span",
+          "text": "Carga"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 6, Série 1, Carga",
+          "label": "Ciclo 6, Série 1, Carga",
+          "type": "text"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 6, Série 1, Reps mínimo",
+          "label": "Ciclo 6, Série 1, Reps mínimo",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 6, Série 1, Reps máximo",
+          "label": "Ciclo 6, Série 1, Reps máximo",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 6, Série 1, RIR",
+          "label": "Ciclo 6, Série 1, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Descanso (segundos)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 6, Série 1, Descanso (segundos)",
+          "label": "Ciclo 6, Série 1, Descanso (segundos)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Série 2"
+        },
+        {
+          "tag": "span",
+          "text": "Carga"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 6, Série 2, Carga",
+          "label": "Ciclo 6, Série 2, Carga",
+          "type": "text"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 6, Série 2, Reps mínimo",
+          "label": "Ciclo 6, Série 2, Reps mínimo",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 6, Série 2, Reps máximo",
+          "label": "Ciclo 6, Série 2, Reps máximo",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 6, Série 2, RIR",
+          "label": "Ciclo 6, Série 2, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Descanso (segundos)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 6, Série 2, Descanso (segundos)",
+          "label": "Ciclo 6, Série 2, Descanso (segundos)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Série 3"
+        },
+        {
+          "tag": "span",
+          "text": "Carga"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 6, Série 3, Carga",
+          "label": "Ciclo 6, Série 3, Carga",
+          "type": "text"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 6, Série 3, Reps mínimo",
+          "label": "Ciclo 6, Série 3, Reps mínimo",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 6, Série 3, Reps máximo",
+          "label": "Ciclo 6, Série 3, Reps máximo",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 6, Série 3, RIR",
+          "label": "Ciclo 6, Série 3, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Descanso (segundos)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 6, Série 3, Descanso (segundos)",
+          "label": "Ciclo 6, Série 3, Descanso (segundos)",
+          "type": "number"
+        },
+        {
+          "tag": "summary",
+          "text": "Ciclo 7",
+          "name": "Ciclo 7"
+        },
+        {
+          "tag": "legend",
+          "text": "Série 1"
+        },
+        {
+          "tag": "span",
+          "text": "Carga"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 7, Série 1, Carga",
+          "label": "Ciclo 7, Série 1, Carga",
+          "type": "text"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 7, Série 1, Reps mínimo",
+          "label": "Ciclo 7, Série 1, Reps mínimo",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 7, Série 1, Reps máximo",
+          "label": "Ciclo 7, Série 1, Reps máximo",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 7, Série 1, RIR",
+          "label": "Ciclo 7, Série 1, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Descanso (segundos)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 7, Série 1, Descanso (segundos)",
+          "label": "Ciclo 7, Série 1, Descanso (segundos)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Série 2"
+        },
+        {
+          "tag": "span",
+          "text": "Carga"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 7, Série 2, Carga",
+          "label": "Ciclo 7, Série 2, Carga",
+          "type": "text"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 7, Série 2, Reps mínimo",
+          "label": "Ciclo 7, Série 2, Reps mínimo",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 7, Série 2, Reps máximo",
+          "label": "Ciclo 7, Série 2, Reps máximo",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 7, Série 2, RIR",
+          "label": "Ciclo 7, Série 2, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Descanso (segundos)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 7, Série 2, Descanso (segundos)",
+          "label": "Ciclo 7, Série 2, Descanso (segundos)",
+          "type": "number"
+        },
+        {
+          "tag": "legend",
+          "text": "Série 3"
+        },
+        {
+          "tag": "span",
+          "text": "Carga"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 7, Série 3, Carga",
+          "label": "Ciclo 7, Série 3, Carga",
+          "type": "text"
+        },
+        {
+          "tag": "legend",
+          "text": "Reps"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 7, Série 3, Reps mínimo",
+          "label": "Ciclo 7, Série 3, Reps mínimo",
+          "value": "6",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Reps"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 7, Série 3, Reps máximo",
+          "label": "Ciclo 7, Série 3, Reps máximo",
+          "value": "10",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "RIR"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 7, Série 3, RIR",
+          "label": "Ciclo 7, Série 3, RIR",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Descanso (segundos)"
+        },
+        {
+          "tag": "small",
+          "text": "s"
+        },
+        {
+          "tag": "input",
+          "name": "Ciclo 7, Série 3, Descanso (segundos)",
+          "label": "Ciclo 7, Série 3, Descanso (segundos)",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "Sugerir cargas"
+        },
+        {
+          "tag": "button",
+          "role": "switch",
+          "name": "Sugerir cargas",
+          "labelledBy": "Sugerir cargas",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Menor variação de carga"
+        },
+        {
+          "tag": "small",
+          "text": "kg"
+        },
+        {
+          "tag": "input",
+          "name": "Menor variação de carga kg",
+          "value": "2.5",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "As cargas sugeridas mudam em passos deste tamanho."
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Alternativas"
+        },
+        {
+          "tag": "span",
+          "text": "Alternativas"
+        },
+        {
+          "tag": "span",
+          "text": "Abdominal bicicleta"
+        },
+        {
+          "tag": "button",
+          "name": "Mover Abdominal bicicleta para cima",
+          "label": "Mover Abdominal bicicleta para cima",
+          "disabled": true,
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "name": "Mover Abdominal bicicleta para baixo",
+          "label": "Mover Abdominal bicicleta para baixo",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "name": "Remover Abdominal bicicleta das alternativas",
+          "label": "Remover Abdominal bicicleta das alternativas",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Abdominal bicicleta com carga"
+        },
+        {
+          "tag": "button",
+          "name": "Mover Abdominal bicicleta com carga para cima",
+          "label": "Mover Abdominal bicicleta com carga para cima",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "name": "Mover Abdominal bicicleta com carga para baixo",
+          "label": "Mover Abdominal bicicleta com carga para baixo",
+          "disabled": true,
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "name": "Remover Abdominal bicicleta com carga das alternativas",
+          "label": "Remover Abdominal bicicleta com carga das alternativas",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Adicionar alternativa",
+          "name": "＋ Adicionar alternativa",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Aparecem primeiro quando você substitui este exercício durante a sessão."
+        },
+        {
+          "tag": "button",
+          "text": "Substituir exercício",
+          "name": "Substituir exercício",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Remover exercício",
+          "name": "Remover exercício",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Adicionar exercício",
+          "name": "＋ Adicionar exercício",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Nome do dia",
+          "label": "Nome do dia",
+          "value": "Dia 2"
+        },
+        {
+          "tag": "span",
+          "text": "0 exercícios"
+        },
+        {
+          "tag": "button",
+          "name": "Expandir Dia 2",
+          "label": "Expandir Dia 2",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Nome do dia",
+          "label": "Nome do dia",
+          "value": "Dia 3"
+        },
+        {
+          "tag": "span",
+          "text": "0 exercícios"
+        },
+        {
+          "tag": "button",
+          "name": "Expandir Dia 3",
+          "label": "Expandir Dia 3",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Salvar rascunho",
+          "name": "Salvar rascunho",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Usar este treino",
+          "name": "Usar este treino",
+          "describedBy": "Adicione um exercício a Dia 2, Dia 3.",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-build/editor-empty__phone-320-light-en",
       "flow": "onboarding-build",
       "screen": "editor-empty",
@@ -54999,7 +60240,7 @@
         },
         {
           "tag": "pre",
-          "text": "Rewrite this training program as JSON for the Taurifer app. Reply with the JSON and nothing else: no explanation, no code fences. Use exactly this shape: {\"version\":3,\"meta\":{\"name\":\"Program name\"},\"exercises\":[{\"day\":\"Day label\",\"order\":1,\"name\":\"Exercise name\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Rules: - Preserve exercise selection, order, day grouping and names exactly as the source writes them, in the source's language. - One entry per exercise per training day. Repeat \"day\" on every exercise in that day, and number \"order\" from 1 within each day. - \"sets\" is the number of working sets, a whole number from 1 to 100. - \"min\" and \"max\" are the rep range as whole numbers. Where the source gives one rep number, use it for both bounds. - Never substitute an exercise, never redesign, never invent a day, an exercise, a set count or a rep range. - Where a required value is genuinely absent, omit the field and name it in \"missing\": [{\"day\":\"Day label\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Do not guess it, and do not ask a question; return the structure. - Name anything the source carried that this shape cannot hold in \"notImported\", using only these categories: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". - Leave out warm-ups, cardio and anything that is not a working exercise. The program: Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+          "text": "Rewrite this training program as JSON for the Taurifer app. Reply in exactly one Markdown code block labeled json (opening ```json and closing ```). No text outside the block. Inside it, write valid JSON without backslashes before brackets or braces outside quoted strings. Use exactly this shape: {\"version\":3,\"meta\":{\"name\":\"Program name\"},\"exercises\":[{\"day\":\"Day label\",\"order\":1,\"name\":\"Exercise name\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Rules: - Preserve exercise selection, order, day grouping and names exactly as the source writes them, in the source's language. - One entry per exercise per training day. Repeat \"day\" on every exercise in that day, and number \"order\" from 1 within each day. - \"sets\" is the number of working sets, a whole number from 1 to 100. - \"min\" and \"max\" are the rep range as whole numbers. Where the source gives one rep number, use it for both bounds. - Never substitute an exercise, never redesign, never invent a day, an exercise, a set count or a rep range. - Where a required value is genuinely absent, omit the field and name it in \"missing\": [{\"day\":\"Day label\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Do not guess it, and do not ask a question; return the structure. - Name anything the source carried that this shape cannot hold in \"notImported\", using only these categories: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". - Leave out warm-ups, cardio and anything that is not a working exercise. The program: Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
         },
         {
           "tag": "button",
@@ -55093,7 +60334,7 @@
         },
         {
           "tag": "pre",
-          "text": "Rewrite this training program as JSON for the Taurifer app. Reply with the JSON and nothing else: no explanation, no code fences. Use exactly this shape: {\"version\":3,\"meta\":{\"name\":\"Program name\"},\"exercises\":[{\"day\":\"Day label\",\"order\":1,\"name\":\"Exercise name\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Rules: - Preserve exercise selection, order, day grouping and names exactly as the source writes them, in the source's language. - One entry per exercise per training day. Repeat \"day\" on every exercise in that day, and number \"order\" from 1 within each day. - \"sets\" is the number of working sets, a whole number from 1 to 100. - \"min\" and \"max\" are the rep range as whole numbers. Where the source gives one rep number, use it for both bounds. - Never substitute an exercise, never redesign, never invent a day, an exercise, a set count or a rep range. - Where a required value is genuinely absent, omit the field and name it in \"missing\": [{\"day\":\"Day label\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Do not guess it, and do not ask a question; return the structure. - Name anything the source carried that this shape cannot hold in \"notImported\", using only these categories: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". - Leave out warm-ups, cardio and anything that is not a working exercise. The program: Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+          "text": "Rewrite this training program as JSON for the Taurifer app. Reply in exactly one Markdown code block labeled json (opening ```json and closing ```). No text outside the block. Inside it, write valid JSON without backslashes before brackets or braces outside quoted strings. Use exactly this shape: {\"version\":3,\"meta\":{\"name\":\"Program name\"},\"exercises\":[{\"day\":\"Day label\",\"order\":1,\"name\":\"Exercise name\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Rules: - Preserve exercise selection, order, day grouping and names exactly as the source writes them, in the source's language. - One entry per exercise per training day. Repeat \"day\" on every exercise in that day, and number \"order\" from 1 within each day. - \"sets\" is the number of working sets, a whole number from 1 to 100. - \"min\" and \"max\" are the rep range as whole numbers. Where the source gives one rep number, use it for both bounds. - Never substitute an exercise, never redesign, never invent a day, an exercise, a set count or a rep range. - Where a required value is genuinely absent, omit the field and name it in \"missing\": [{\"day\":\"Day label\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Do not guess it, and do not ask a question; return the structure. - Name anything the source carried that this shape cannot hold in \"notImported\", using only these categories: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". - Leave out warm-ups, cardio and anything that is not a working exercise. The program: Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
         },
         {
           "tag": "button",
@@ -55187,7 +60428,7 @@
         },
         {
           "tag": "pre",
-          "text": "Rewrite this training program as JSON for the Taurifer app. Reply with the JSON and nothing else: no explanation, no code fences. Use exactly this shape: {\"version\":3,\"meta\":{\"name\":\"Program name\"},\"exercises\":[{\"day\":\"Day label\",\"order\":1,\"name\":\"Exercise name\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Rules: - Preserve exercise selection, order, day grouping and names exactly as the source writes them, in the source's language. - One entry per exercise per training day. Repeat \"day\" on every exercise in that day, and number \"order\" from 1 within each day. - \"sets\" is the number of working sets, a whole number from 1 to 100. - \"min\" and \"max\" are the rep range as whole numbers. Where the source gives one rep number, use it for both bounds. - Never substitute an exercise, never redesign, never invent a day, an exercise, a set count or a rep range. - Where a required value is genuinely absent, omit the field and name it in \"missing\": [{\"day\":\"Day label\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Do not guess it, and do not ask a question; return the structure. - Name anything the source carried that this shape cannot hold in \"notImported\", using only these categories: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". - Leave out warm-ups, cardio and anything that is not a working exercise. The program: Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+          "text": "Rewrite this training program as JSON for the Taurifer app. Reply in exactly one Markdown code block labeled json (opening ```json and closing ```). No text outside the block. Inside it, write valid JSON without backslashes before brackets or braces outside quoted strings. Use exactly this shape: {\"version\":3,\"meta\":{\"name\":\"Program name\"},\"exercises\":[{\"day\":\"Day label\",\"order\":1,\"name\":\"Exercise name\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Rules: - Preserve exercise selection, order, day grouping and names exactly as the source writes them, in the source's language. - One entry per exercise per training day. Repeat \"day\" on every exercise in that day, and number \"order\" from 1 within each day. - \"sets\" is the number of working sets, a whole number from 1 to 100. - \"min\" and \"max\" are the rep range as whole numbers. Where the source gives one rep number, use it for both bounds. - Never substitute an exercise, never redesign, never invent a day, an exercise, a set count or a rep range. - Where a required value is genuinely absent, omit the field and name it in \"missing\": [{\"day\":\"Day label\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Do not guess it, and do not ask a question; return the structure. - Name anything the source carried that this shape cannot hold in \"notImported\", using only these categories: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". - Leave out warm-ups, cardio and anything that is not a working exercise. The program: Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
         },
         {
           "tag": "button",
@@ -55281,7 +60522,7 @@
         },
         {
           "tag": "pre",
-          "text": "Rewrite this training program as JSON for the Taurifer app. Reply with the JSON and nothing else: no explanation, no code fences. Use exactly this shape: {\"version\":3,\"meta\":{\"name\":\"Program name\"},\"exercises\":[{\"day\":\"Day label\",\"order\":1,\"name\":\"Exercise name\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Rules: - Preserve exercise selection, order, day grouping and names exactly as the source writes them, in the source's language. - One entry per exercise per training day. Repeat \"day\" on every exercise in that day, and number \"order\" from 1 within each day. - \"sets\" is the number of working sets, a whole number from 1 to 100. - \"min\" and \"max\" are the rep range as whole numbers. Where the source gives one rep number, use it for both bounds. - Never substitute an exercise, never redesign, never invent a day, an exercise, a set count or a rep range. - Where a required value is genuinely absent, omit the field and name it in \"missing\": [{\"day\":\"Day label\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Do not guess it, and do not ask a question; return the structure. - Name anything the source carried that this shape cannot hold in \"notImported\", using only these categories: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". - Leave out warm-ups, cardio and anything that is not a working exercise. The program: Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+          "text": "Rewrite this training program as JSON for the Taurifer app. Reply in exactly one Markdown code block labeled json (opening ```json and closing ```). No text outside the block. Inside it, write valid JSON without backslashes before brackets or braces outside quoted strings. Use exactly this shape: {\"version\":3,\"meta\":{\"name\":\"Program name\"},\"exercises\":[{\"day\":\"Day label\",\"order\":1,\"name\":\"Exercise name\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Rules: - Preserve exercise selection, order, day grouping and names exactly as the source writes them, in the source's language. - One entry per exercise per training day. Repeat \"day\" on every exercise in that day, and number \"order\" from 1 within each day. - \"sets\" is the number of working sets, a whole number from 1 to 100. - \"min\" and \"max\" are the rep range as whole numbers. Where the source gives one rep number, use it for both bounds. - Never substitute an exercise, never redesign, never invent a day, an exercise, a set count or a rep range. - Where a required value is genuinely absent, omit the field and name it in \"missing\": [{\"day\":\"Day label\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Do not guess it, and do not ask a question; return the structure. - Name anything the source carried that this shape cannot hold in \"notImported\", using only these categories: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". - Leave out warm-ups, cardio and anything that is not a working exercise. The program: Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
         },
         {
           "tag": "button",
@@ -55375,7 +60616,7 @@
         },
         {
           "tag": "pre",
-          "text": "Rewrite this training program as JSON for the Taurifer app. Reply with the JSON and nothing else: no explanation, no code fences. Use exactly this shape: {\"version\":3,\"meta\":{\"name\":\"Program name\"},\"exercises\":[{\"day\":\"Day label\",\"order\":1,\"name\":\"Exercise name\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Rules: - Preserve exercise selection, order, day grouping and names exactly as the source writes them, in the source's language. - One entry per exercise per training day. Repeat \"day\" on every exercise in that day, and number \"order\" from 1 within each day. - \"sets\" is the number of working sets, a whole number from 1 to 100. - \"min\" and \"max\" are the rep range as whole numbers. Where the source gives one rep number, use it for both bounds. - Never substitute an exercise, never redesign, never invent a day, an exercise, a set count or a rep range. - Where a required value is genuinely absent, omit the field and name it in \"missing\": [{\"day\":\"Day label\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Do not guess it, and do not ask a question; return the structure. - Name anything the source carried that this shape cannot hold in \"notImported\", using only these categories: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". - Leave out warm-ups, cardio and anything that is not a working exercise. The program: Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+          "text": "Rewrite this training program as JSON for the Taurifer app. Reply in exactly one Markdown code block labeled json (opening ```json and closing ```). No text outside the block. Inside it, write valid JSON without backslashes before brackets or braces outside quoted strings. Use exactly this shape: {\"version\":3,\"meta\":{\"name\":\"Program name\"},\"exercises\":[{\"day\":\"Day label\",\"order\":1,\"name\":\"Exercise name\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Rules: - Preserve exercise selection, order, day grouping and names exactly as the source writes them, in the source's language. - One entry per exercise per training day. Repeat \"day\" on every exercise in that day, and number \"order\" from 1 within each day. - \"sets\" is the number of working sets, a whole number from 1 to 100. - \"min\" and \"max\" are the rep range as whole numbers. Where the source gives one rep number, use it for both bounds. - Never substitute an exercise, never redesign, never invent a day, an exercise, a set count or a rep range. - Where a required value is genuinely absent, omit the field and name it in \"missing\": [{\"day\":\"Day label\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Do not guess it, and do not ask a question; return the structure. - Name anything the source carried that this shape cannot hold in \"notImported\", using only these categories: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". - Leave out warm-ups, cardio and anything that is not a working exercise. The program: Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
         },
         {
           "tag": "button",
@@ -55469,7 +60710,7 @@
         },
         {
           "tag": "pre",
-          "text": "Reescreva este treino como JSON para o app Taurifer. Responda apenas com o JSON: sem explicação e sem blocos de código. Use exatamente este formato: {\"version\":3,\"meta\":{\"name\":\"Nome do treino\"},\"exercises\":[{\"day\":\"Nome do dia\",\"order\":1,\"name\":\"Nome do exercício\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Regras: - Preserve a seleção de exercícios, ordem, agrupamento por dia e nomes exatamente como estão no texto de origem, no mesmo idioma. - Uma entrada por exercício de cada dia de treino. Repita \"day\" em todos os exercícios do dia e numere \"order\" a partir de 1 dentro de cada dia. - \"sets\" é o número de séries de trabalho, um inteiro de 1 a 100. - \"min\" e \"max\" são a faixa de repetições em números inteiros. Se houver só um número, use-o nos dois limites. - Nunca substitua um exercício, nunca redesenhe e nunca invente dias, exercícios, contagem de séries ou repetições. - Se um valor obrigatório estiver ausente, omita o campo e aponte-o em \"missing\": [{\"day\":\"Nome do dia\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Não adivinhe e não faça perguntas; retorne a estrutura. - Aponte tudo o que a fonte continha e este formato não suporta em \"notImported\", usando apenas estas categorias: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". - Deixe de fora aquecimentos, cardio e tudo que não for série de trabalho. O treino: Empurrar A Supino reto 4x6-8 Desenvolvimento militar 3x8-10 Puxar A Remada curvada 4x6-10"
+          "text": "Reescreva este treino como JSON para o app Taurifer. Responda em um único bloco de código Markdown identificado como json (começando com ```json e terminando com ```). Não escreva nada fora do bloco. Dentro dele, use JSON válido, sem barras invertidas antes de colchetes ou chaves fora de strings. Use exatamente este formato: {\"version\":3,\"meta\":{\"name\":\"Nome do treino\"},\"exercises\":[{\"day\":\"Nome do dia\",\"order\":1,\"name\":\"Nome do exercício\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Regras: - Preserve a seleção de exercícios, ordem, agrupamento por dia e nomes exatamente como estão no texto de origem, no mesmo idioma. - Uma entrada por exercício de cada dia de treino. Repita \"day\" em todos os exercícios do dia e numere \"order\" a partir de 1 dentro de cada dia. - \"sets\" é o número de séries de trabalho, um inteiro de 1 a 100. - \"min\" e \"max\" são a faixa de repetições em números inteiros. Se houver só um número, use-o nos dois limites. - Nunca substitua um exercício, nunca redesenhe e nunca invente dias, exercícios, contagem de séries ou repetições. - Se um valor obrigatório estiver ausente, omita o campo e aponte-o em \"missing\": [{\"day\":\"Nome do dia\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Não adivinhe e não faça perguntas; retorne a estrutura. - Aponte tudo o que a fonte continha e este formato não suporta em \"notImported\", usando apenas estas categorias: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". - Deixe de fora aquecimentos, cardio e tudo que não for série de trabalho. O treino: Empurrar A Supino reto 4x6-8 Desenvolvimento militar 3x8-10 Puxar A Remada curvada 4x6-10"
         },
         {
           "tag": "button",
@@ -55563,7 +60804,7 @@
         },
         {
           "tag": "pre",
-          "text": "Rewrite this training program as JSON for the Taurifer app. Reply with the JSON and nothing else: no explanation, no code fences. Use exactly this shape: {\"version\":3,\"meta\":{\"name\":\"Program name\"},\"exercises\":[{\"day\":\"Day label\",\"order\":1,\"name\":\"Exercise name\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Rules: - Preserve exercise selection, order, day grouping and names exactly as the source writes them, in the source's language. - One entry per exercise per training day. Repeat \"day\" on every exercise in that day, and number \"order\" from 1 within each day. - \"sets\" is the number of working sets, a whole number from 1 to 100. - \"min\" and \"max\" are the rep range as whole numbers. Where the source gives one rep number, use it for both bounds. - Never substitute an exercise, never redesign, never invent a day, an exercise, a set count or a rep range. - Where a required value is genuinely absent, omit the field and name it in \"missing\": [{\"day\":\"Day label\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Do not guess it, and do not ask a question; return the structure. - Name anything the source carried that this shape cannot hold in \"notImported\", using only these categories: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". - Leave out warm-ups, cardio and anything that is not a working exercise. The program: Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+          "text": "Rewrite this training program as JSON for the Taurifer app. Reply in exactly one Markdown code block labeled json (opening ```json and closing ```). No text outside the block. Inside it, write valid JSON without backslashes before brackets or braces outside quoted strings. Use exactly this shape: {\"version\":3,\"meta\":{\"name\":\"Program name\"},\"exercises\":[{\"day\":\"Day label\",\"order\":1,\"name\":\"Exercise name\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Rules: - Preserve exercise selection, order, day grouping and names exactly as the source writes them, in the source's language. - One entry per exercise per training day. Repeat \"day\" on every exercise in that day, and number \"order\" from 1 within each day. - \"sets\" is the number of working sets, a whole number from 1 to 100. - \"min\" and \"max\" are the rep range as whole numbers. Where the source gives one rep number, use it for both bounds. - Never substitute an exercise, never redesign, never invent a day, an exercise, a set count or a rep range. - Where a required value is genuinely absent, omit the field and name it in \"missing\": [{\"day\":\"Day label\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Do not guess it, and do not ask a question; return the structure. - Name anything the source carried that this shape cannot hold in \"notImported\", using only these categories: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". - Leave out warm-ups, cardio and anything that is not a working exercise. The program: Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
         },
         {
           "tag": "button",
@@ -165264,27 +170505,6 @@
           "text": "A Taurifer file, or a program pasted from anywhere."
         },
         {
-          "tag": "aside",
-          "role": "status",
-          "name": "Choose how to begin",
-          "labelledBy": "Choose how to begin"
-        },
-        {
-          "tag": "p",
-          "text": "Choose how to begin"
-        },
-        {
-          "tag": "p",
-          "text": "Answer a few questions for a recommended program, build your own, or import one you already have."
-        },
-        {
-          "tag": "button",
-          "text": "×",
-          "name": "Dismiss guide",
-          "label": "Dismiss guide",
-          "type": "button"
-        },
-        {
           "tag": "span",
           "text": "Got a setup link? Open the link and the program appears here."
         },
@@ -165385,27 +170605,6 @@
         {
           "tag": "span",
           "text": "A Taurifer file, or a program pasted from anywhere."
-        },
-        {
-          "tag": "aside",
-          "role": "status",
-          "name": "Choose how to begin",
-          "labelledBy": "Choose how to begin"
-        },
-        {
-          "tag": "p",
-          "text": "Choose how to begin"
-        },
-        {
-          "tag": "p",
-          "text": "Answer a few questions for a recommended program, build your own, or import one you already have."
-        },
-        {
-          "tag": "button",
-          "text": "×",
-          "name": "Dismiss guide",
-          "label": "Dismiss guide",
-          "type": "button"
         },
         {
           "tag": "span",
@@ -165510,27 +170709,6 @@
           "text": "A Taurifer file, or a program pasted from anywhere."
         },
         {
-          "tag": "aside",
-          "role": "status",
-          "name": "Choose how to begin",
-          "labelledBy": "Choose how to begin"
-        },
-        {
-          "tag": "p",
-          "text": "Choose how to begin"
-        },
-        {
-          "tag": "p",
-          "text": "Answer a few questions for a recommended program, build your own, or import one you already have."
-        },
-        {
-          "tag": "button",
-          "text": "×",
-          "name": "Dismiss guide",
-          "label": "Dismiss guide",
-          "type": "button"
-        },
-        {
           "tag": "span",
           "text": "Got a setup link? Open the link and the program appears here."
         },
@@ -165631,27 +170809,6 @@
         {
           "tag": "span",
           "text": "A Taurifer file, or a program pasted from anywhere."
-        },
-        {
-          "tag": "aside",
-          "role": "status",
-          "name": "Choose how to begin",
-          "labelledBy": "Choose how to begin"
-        },
-        {
-          "tag": "p",
-          "text": "Choose how to begin"
-        },
-        {
-          "tag": "p",
-          "text": "Answer a few questions for a recommended program, build your own, or import one you already have."
-        },
-        {
-          "tag": "button",
-          "text": "×",
-          "name": "Dismiss guide",
-          "label": "Dismiss guide",
-          "type": "button"
         },
         {
           "tag": "span",
@@ -165756,27 +170913,6 @@
           "text": "A Taurifer file, or a program pasted from anywhere."
         },
         {
-          "tag": "aside",
-          "role": "status",
-          "name": "Choose how to begin",
-          "labelledBy": "Choose how to begin"
-        },
-        {
-          "tag": "p",
-          "text": "Choose how to begin"
-        },
-        {
-          "tag": "p",
-          "text": "Answer a few questions for a recommended program, build your own, or import one you already have."
-        },
-        {
-          "tag": "button",
-          "text": "×",
-          "name": "Dismiss guide",
-          "label": "Dismiss guide",
-          "type": "button"
-        },
-        {
           "tag": "span",
           "text": "Got a setup link? Open the link and the program appears here."
         },
@@ -165879,27 +171015,6 @@
           "text": "Um arquivo do Taurifer ou um treino colado de qualquer lugar."
         },
         {
-          "tag": "aside",
-          "role": "status",
-          "name": "Escolha como começar",
-          "labelledBy": "Escolha como começar"
-        },
-        {
-          "tag": "p",
-          "text": "Escolha como começar"
-        },
-        {
-          "tag": "p",
-          "text": "Responda algumas perguntas para receber um treino recomendado, monte o seu ou importe um que você já tem."
-        },
-        {
-          "tag": "button",
-          "text": "×",
-          "name": "Dispensar guia",
-          "label": "Dispensar guia",
-          "type": "button"
-        },
-        {
           "tag": "span",
           "text": "Recebeu um link de configuração? Abra o link e o treino aparece aqui."
         },
@@ -166000,27 +171115,6 @@
         {
           "tag": "span",
           "text": "A Taurifer file, or a program pasted from anywhere."
-        },
-        {
-          "tag": "aside",
-          "role": "status",
-          "name": "Choose how to begin",
-          "labelledBy": "Choose how to begin"
-        },
-        {
-          "tag": "p",
-          "text": "Choose how to begin"
-        },
-        {
-          "tag": "p",
-          "text": "Answer a few questions for a recommended program, build your own, or import one you already have."
-        },
-        {
-          "tag": "button",
-          "text": "×",
-          "name": "Dismiss guide",
-          "label": "Dismiss guide",
-          "type": "button"
         },
         {
           "tag": "span",
@@ -166419,27 +171513,6 @@
           "text": "A Taurifer file, or a program pasted from anywhere."
         },
         {
-          "tag": "aside",
-          "role": "status",
-          "name": "Choose how to begin",
-          "labelledBy": "Choose how to begin"
-        },
-        {
-          "tag": "p",
-          "text": "Choose how to begin"
-        },
-        {
-          "tag": "p",
-          "text": "Answer a few questions for a recommended program, build your own, or import one you already have."
-        },
-        {
-          "tag": "button",
-          "text": "×",
-          "name": "Dismiss guide",
-          "label": "Dismiss guide",
-          "type": "button"
-        },
-        {
           "tag": "span",
           "text": "Got a setup link? Open the link and the program appears here."
         },
@@ -166546,27 +171619,6 @@
         {
           "tag": "span",
           "text": "A Taurifer file, or a program pasted from anywhere."
-        },
-        {
-          "tag": "aside",
-          "role": "status",
-          "name": "Choose how to begin",
-          "labelledBy": "Choose how to begin"
-        },
-        {
-          "tag": "p",
-          "text": "Choose how to begin"
-        },
-        {
-          "tag": "p",
-          "text": "Answer a few questions for a recommended program, build your own, or import one you already have."
-        },
-        {
-          "tag": "button",
-          "text": "×",
-          "name": "Dismiss guide",
-          "label": "Dismiss guide",
-          "type": "button"
         },
         {
           "tag": "span",
@@ -166677,25 +171729,616 @@
           "text": "Um arquivo do Taurifer ou um treino colado de qualquer lugar."
         },
         {
-          "tag": "aside",
-          "role": "status",
-          "name": "Escolha como começar",
-          "labelledBy": "Escolha como começar"
+          "tag": "span",
+          "text": "Recebeu um link de configuração? Abra o link e o treino aparece aqui."
         },
         {
           "tag": "p",
-          "text": "Escolha como começar"
-        },
-        {
-          "tag": "p",
-          "text": "Responda algumas perguntas para receber um treino recomendado, monte o seu ou importe um que você já tem."
+          "text": "Escolha uma resposta para continuar."
         },
         {
           "tag": "button",
-          "text": "×",
-          "name": "Dispensar guia",
-          "label": "Dispensar guia",
+          "text": "Continuar",
+          "name": "Continuar",
+          "describedBy": "Escolha uma resposta para continuar.",
+          "disabled": true,
           "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-start/hub-guide__phone-320-light-en",
+      "flow": "onboarding-start",
+      "screen": "hub-guide",
+      "label": "Entry hub — guide",
+      "viewport": "phone-320",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Create a program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Choose how to start your first program."
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Create a program",
+          "labelledBy": "Create a program"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Recommend a programAnswer a few questions. Taurifer chooses the exercises, sets and reps.",
+          "aria-checked": "false",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Recommend a program"
+        },
+        {
+          "tag": "span",
+          "text": "Answer a few questions. Taurifer chooses the exercises, sets and reps."
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Build a programYou type every exercise and set every target.",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build a program"
+        },
+        {
+          "tag": "span",
+          "text": "You type every exercise and set every target."
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Import a programA Taurifer file, or a program pasted from anywhere.",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Import a program"
+        },
+        {
+          "tag": "span",
+          "text": "A Taurifer file, or a program pasted from anywhere."
+        },
+        {
+          "tag": "span",
+          "text": "Got a setup link? Open the link and the program appears here."
+        },
+        {
+          "tag": "p",
+          "text": "Choose an answer to continue."
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "describedBy": "Choose an answer to continue.",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-start/hub-guide__phone-390-dark-en",
+      "flow": "onboarding-start",
+      "screen": "hub-guide",
+      "label": "Entry hub — guide",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Create a program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Choose how to start your first program."
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Create a program",
+          "labelledBy": "Create a program"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Recommend a programAnswer a few questions. Taurifer chooses the exercises, sets and reps.",
+          "aria-checked": "false",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Recommend a program"
+        },
+        {
+          "tag": "span",
+          "text": "Answer a few questions. Taurifer chooses the exercises, sets and reps."
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Build a programYou type every exercise and set every target.",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build a program"
+        },
+        {
+          "tag": "span",
+          "text": "You type every exercise and set every target."
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Import a programA Taurifer file, or a program pasted from anywhere.",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Import a program"
+        },
+        {
+          "tag": "span",
+          "text": "A Taurifer file, or a program pasted from anywhere."
+        },
+        {
+          "tag": "span",
+          "text": "Got a setup link? Open the link and the program appears here."
+        },
+        {
+          "tag": "p",
+          "text": "Choose an answer to continue."
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "describedBy": "Choose an answer to continue.",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-start/hub-guide__phone-390-light-en",
+      "flow": "onboarding-start",
+      "screen": "hub-guide",
+      "label": "Entry hub — guide",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Create a program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Choose how to start your first program."
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Create a program",
+          "labelledBy": "Create a program"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Recommend a programAnswer a few questions. Taurifer chooses the exercises, sets and reps.",
+          "aria-checked": "false",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Recommend a program"
+        },
+        {
+          "tag": "span",
+          "text": "Answer a few questions. Taurifer chooses the exercises, sets and reps."
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Build a programYou type every exercise and set every target.",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build a program"
+        },
+        {
+          "tag": "span",
+          "text": "You type every exercise and set every target."
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Import a programA Taurifer file, or a program pasted from anywhere.",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Import a program"
+        },
+        {
+          "tag": "span",
+          "text": "A Taurifer file, or a program pasted from anywhere."
+        },
+        {
+          "tag": "span",
+          "text": "Got a setup link? Open the link and the program appears here."
+        },
+        {
+          "tag": "p",
+          "text": "Choose an answer to continue."
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "describedBy": "Choose an answer to continue.",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-start/hub-guide__phone-390-light-en-reduced",
+      "flow": "onboarding-start",
+      "screen": "hub-guide",
+      "label": "Entry hub — guide",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "reduced",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Create a program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Choose how to start your first program."
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Create a program",
+          "labelledBy": "Create a program"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Recommend a programAnswer a few questions. Taurifer chooses the exercises, sets and reps.",
+          "aria-checked": "false",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Recommend a program"
+        },
+        {
+          "tag": "span",
+          "text": "Answer a few questions. Taurifer chooses the exercises, sets and reps."
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Build a programYou type every exercise and set every target.",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build a program"
+        },
+        {
+          "tag": "span",
+          "text": "You type every exercise and set every target."
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Import a programA Taurifer file, or a program pasted from anywhere.",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Import a program"
+        },
+        {
+          "tag": "span",
+          "text": "A Taurifer file, or a program pasted from anywhere."
+        },
+        {
+          "tag": "span",
+          "text": "Got a setup link? Open the link and the program appears here."
+        },
+        {
+          "tag": "p",
+          "text": "Choose an answer to continue."
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "describedBy": "Choose an answer to continue.",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-start/hub-guide__phone-390-light-en-text200",
+      "flow": "onboarding-start",
+      "screen": "hub-guide",
+      "label": "Entry hub — guide",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Create a program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Choose how to start your first program."
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Create a program",
+          "labelledBy": "Create a program"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Recommend a programAnswer a few questions. Taurifer chooses the exercises, sets and reps.",
+          "aria-checked": "false",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Recommend a program"
+        },
+        {
+          "tag": "span",
+          "text": "Answer a few questions. Taurifer chooses the exercises, sets and reps."
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Build a programYou type every exercise and set every target.",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build a program"
+        },
+        {
+          "tag": "span",
+          "text": "You type every exercise and set every target."
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Import a programA Taurifer file, or a program pasted from anywhere.",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Import a program"
+        },
+        {
+          "tag": "span",
+          "text": "A Taurifer file, or a program pasted from anywhere."
+        },
+        {
+          "tag": "span",
+          "text": "Got a setup link? Open the link and the program appears here."
+        },
+        {
+          "tag": "p",
+          "text": "Choose an answer to continue."
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "describedBy": "Choose an answer to continue.",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-start/hub-guide__phone-390-light-pt",
+      "flow": "onboarding-start",
+      "screen": "hub-guide",
+      "label": "Entry hub — guide",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um treino"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Criar um treino",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Escolha como montar seu primeiro treino."
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Criar um treino",
+          "labelledBy": "Criar um treino"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Recomendar um treinoResponda algumas perguntas. O Taurifer escolhe exercícios, séries e repetições.",
+          "aria-checked": "false",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Recomendar um treino"
+        },
+        {
+          "tag": "span",
+          "text": "Responda algumas perguntas. O Taurifer escolhe exercícios, séries e repetições."
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Montar um treinoVocê digita cada exercício e define cada meta.",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Montar um treino"
+        },
+        {
+          "tag": "span",
+          "text": "Você digita cada exercício e define cada meta."
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Importar um treinoUm arquivo do Taurifer ou um treino colado de qualquer lugar.",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Importar um treino"
+        },
+        {
+          "tag": "span",
+          "text": "Um arquivo do Taurifer ou um treino colado de qualquer lugar."
         },
         {
           "tag": "span",
@@ -166710,6 +172353,108 @@
           "text": "Continuar",
           "name": "Continuar",
           "describedBy": "Escolha uma resposta para continuar.",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-start/hub-guide__phone-430-light-en",
+      "flow": "onboarding-start",
+      "screen": "hub-guide",
+      "label": "Entry hub — guide",
+      "viewport": "phone-430",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Create a program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Choose how to start your first program."
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Create a program",
+          "labelledBy": "Create a program"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Recommend a programAnswer a few questions. Taurifer chooses the exercises, sets and reps.",
+          "aria-checked": "false",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Recommend a program"
+        },
+        {
+          "tag": "span",
+          "text": "Answer a few questions. Taurifer chooses the exercises, sets and reps."
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Build a programYou type every exercise and set every target.",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build a program"
+        },
+        {
+          "tag": "span",
+          "text": "You type every exercise and set every target."
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Import a programA Taurifer file, or a program pasted from anywhere.",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Import a program"
+        },
+        {
+          "tag": "span",
+          "text": "A Taurifer file, or a program pasted from anywhere."
+        },
+        {
+          "tag": "span",
+          "text": "Got a setup link? Open the link and the program appears here."
+        },
+        {
+          "tag": "p",
+          "text": "Choose an answer to continue."
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "describedBy": "Choose an answer to continue.",
           "disabled": true,
           "type": "button"
         }

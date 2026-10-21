@@ -3,13 +3,66 @@ import { chromium } from "playwright";
 import { existsSync } from "fs";
 import { instrumentBrowser } from "./browser-artifacts.mjs";
 
-export async function launchChromium(opts = {}) {
+/**
+ * A contextual guide is a modal dialog that holds the page inert until "Got it". Most suites are not about guides,
+ * so by default every context starts as a device whose lifter has already read them: when the app brings its guide
+ * records up to date, a guide it has never shown (a pristine `unseen` record) becomes `dismissed`. A guide a suite has moved
+ * on purpose (shown, deferred, replayed, completed) is left alone, and Settings → Replay still shows any guide.
+ *
+ * Suites that prove guide behaviour, or that need a device as the app leaves it (a fresh install-transfer destination,
+ * where a dismissed guide is the lifter's own state), keep the guides live: `launchChromium({ guides: "live" })` for
+ * every context, or `browser.newContext({ guides: "live" })` for one (and `guides: "read"` the other way round).
+ */
+function readGuidesByDefault(browser, liveByDefault) {
+  const newContext = browser.newContext.bind(browser);
+  browser.newContext = async ({ guides, ...options } = {}) => {
+    const context = await newContext(options);
+    if ((guides ?? (liveByDefault ? "live" : "read")) !== "live") {
+      // Applied where the app brings its guide records up to date (at boot and on every transition), so the device's
+      // storage is untouched until the app writes it, and a suite that writes its own preferences still meets read guides.
+      await context.addInitScript(() => {
+        let registry;
+        Object.defineProperty(globalThis, "RepForgeGuideRegistry", {
+          configurable: true,
+          get: () => registry,
+          set(value) {
+            if (typeof value?.migrateLegacyTourDone !== "function") { registry = value; return; }
+            const migrate = value.migrateLegacyTourDone;
+            registry = Object.freeze({ ...value, migrateLegacyTourDone(prefs, options) {
+              const next = migrate(prefs, options);
+              const state = { ...next.guideState };
+              let changed = false;
+              for (const { id, version } of value.GUIDE_DEFINITIONS) {
+                const record = state[id];
+                if (record?.version !== version || record.status !== "unseen" || record.lastTransitionAt != null || record.replayedAt != null) continue;
+                state[id] = { version, status: "dismissed", lastTransitionAt: null };
+                changed = true;
+              }
+              return changed ? Object.freeze({ ...next, guideState: state }) : next;
+            } });
+          },
+        });
+      });
+    }
+    return context;
+  };
+  // Playwright's convenience newPage makes its own context; route it through the one above.
+  browser.newPage = async (options = {}) => {
+    const context = await browser.newContext(options);
+    const page = await context.newPage();
+    page.on("close", () => context.close().catch(() => {}));
+    return page;
+  };
+}
+
+export async function launchChromium({ guides, ...opts } = {}) {
   const exe = process.env.REPFORGE_CHROME;
   const browser = await chromium.launch({
     headless: true,
     ...(exe && existsSync(exe) ? { executablePath: exe } : {}),
     ...opts,
   });
+  readGuidesByDefault(browser, guides === "live");
   if (process.env.REPFORGE_TRACE === "1" && process.env.REPFORGE_ARTIFACT_DIR) {
     instrumentBrowser(browser, process.env.REPFORGE_ARTIFACT_DIR);
   }
@@ -208,4 +261,13 @@ export async function answerRecommend(page, {
     } else throw new Error(`answerRecommend: unexpected step ${current}`);
   }
   throw new Error("answerRecommend did not reach the result");
+}
+
+/**
+ * A contextual guide is a modal dialog: until the lifter taps "Got it", the page under it is inert. A suite that is
+ * not about guides drives the app as a lifter who has read the tip, so the guide is dismissed the moment it stands in
+ * the way of the suite's next action. Guide behaviour itself is proved in test/guide-modal.mjs.
+ */
+export async function dismissGuidesInTheWay(page) {
+  await page.addLocatorHandler(page.locator("dialog#guideDialog[open]"), () => page.locator("#guideDialogOk").click());
 }

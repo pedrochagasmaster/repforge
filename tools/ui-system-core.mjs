@@ -20,6 +20,25 @@ export function requiredBoundaryExceptionRequests(exceptions, key) {
     .map((item) => ({ selector: item.selector, kind: "boundary" }));
 }
 
+/**
+ * A rendered finding an exception holds open while its issue is fixed: the measurement's kind and selector, in the
+ * exception's catalog states only. The exception is "rendered" while the finding persists, so once the fix lands the
+ * full sweep reports it as never rendered and it has to be removed.
+ */
+export function renderedFindingExemption(exceptions, key, measurement) {
+  return (exceptions || []).find((item) => item.catalogStates?.includes(key)
+    && item.renderedFindings?.some((finding) => finding.kind === measurement.kind && finding.measured === measurement.selector)) || null;
+}
+
+/**
+ * Exceptions that hold a subtree's rendered findings open in `key`: while the exception's selector is on the page,
+ * measurements of `renderedHold.kinds` on nodes within `renderedHold.within` count as exempt.
+ */
+export function renderedHolds(exceptions, key) {
+  return (exceptions || []).filter((item) => item.renderedHold && item.catalogStates?.includes(key))
+    .map((item) => ({ selector: item.selector, within: item.renderedHold.within, kinds: item.renderedHold.kinds }));
+}
+
 export function validateRoleInventory(inventory, manifest) {
   const errors = [];
   const expected = new Set(manifest.screens.map(({ flow, id }) => `${flow}/${id}`));
@@ -71,6 +90,18 @@ export function validateRoleInventory(inventory, manifest) {
     for (const key of item.catalogStates || []) if (!expected.has(key)) errors.push(`exception ${item.selector} names stale catalog state ${key}`);
     for (const literal of item.cssLiterals || []) {
       if (!literal.property || !literal.value) errors.push(`exception ${item.selector} has an incomplete CSS literal`);
+    }
+    if (item.renderedHold) {
+      if (!/#\d+/.test(item.rationale || "")) errors.push(`exception ${item.selector} holds rendered findings open without naming its issue`);
+      if (!item.renderedHold.within || !Array.isArray(item.renderedHold.kinds) || !item.renderedHold.kinds.length) {
+        errors.push(`exception ${item.selector} has an incomplete rendered hold`);
+      }
+    }
+    if (item.renderedFindings) {
+      if (!/#\d+/.test(item.rationale || "")) errors.push(`exception ${item.selector} holds a rendered finding open without naming its issue`);
+      for (const finding of item.renderedFindings) {
+        if (!finding.kind || !finding.measured) errors.push(`exception ${item.selector} has an incomplete rendered finding`);
+      }
     }
   }
   for (const item of inventory.contextualVariants || []) {

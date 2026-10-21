@@ -42,7 +42,7 @@
 | --- | --- |
 | The installed editor's screen: header, facts, changes bar, day tabs, day head, rows, exercise sheet, Weeks sheet, Loads block, Training days sheet, pinned Apply and its blocked reason | **`program-editor.js`**, a new A renderer in the same module. It keeps its contract: a document and a token in, intents out; no storage, route or flag reads. |
 | Edit rules and intents | **`program-editor.js`**: the existing intents, plus `day_move`. A sheet control that means "every week" stages one existing intent per week (§4). |
-| Shared visual vocabulary | **`program-review.js`** exports small pure markup helpers (set line, stepper, rest presets, row shell) that both renderers call, so the two screens can't drift. Its edit log, replay and recommendation diff stay onboarding's. |
+| Shared visual vocabulary | **`program-review.js`**'s classes (`review__*`, `review-sheet__*`, `review-step`, `review-seg`, `review-toast`) and its `REST_PRESETS`: the A renderer draws with them, so both screens share one stylesheet and can't drift. Its edit log, replay and recommendation diff stay onboarding's. |
 | Sheet, picker, dialogs, toast placement, motion, labels, catalog lookups | **`app.js`** host adapter (already supplied to both editors: `openSheet`/`closeSheet`, `chooseExercise`, `confirm`, `announce`, `afterModal`, `reducedMotion`). |
 | Canonical sync, rebase, workout impact and commit of every intent, including `day_move` | **`app.js`** (`syncEditorCanonicalIntent`, `applyInstalledEditorIntent`, `installedEditorImpact`, `editorSnapshotFromDocument`). |
 | Undo of the last change | **`program-editor.js`** keeps a stack of (document, intent count). The host gets one new adapter method, `revert(count)`, that truncates `installedEditorSession` to that many intents. |
@@ -61,6 +61,7 @@ From the installed editor's screen (the Build host keeps them until Plan 072 S5)
 - the always-open per-cycle `<details>` forms and the current-cycle-only sets stepper;
 - the free-text name field on catalog movements (decision 5);
 - the row ⋮ menu and the floating Replace/Remove pair (they move into the sheet);
+- dragging an exercise onto another day (a sheet's Move to another day does it; dragging stays inside the day's Reorder exercises list, with the same @dnd-kit pointer and keyboard drag and announcements);
 - the day name input in the day card header (rename moves to the day head's pencil
   and the Training days sheet);
 - "Ciclo N" and "Metric composition" as visible labels in the installed editor
@@ -75,8 +76,8 @@ Every field editable today stays editable. The left column follows
 | Today (intent) | In A | Intents staged |
 | --- | --- | --- |
 | Program name (`program_name`) | Pencil on the name → rename sheet | `program_name` |
-| Day name (`day_name`) | Pencil on the day head; Training days sheet | `day_name` |
-| Add day (`day_add`), remove day (`day_remove`) | Training days sheet: + Adicionar dia; Remover dia (confirm) | unchanged |
+| Day name (`day_name`) | Pencil on the day head, or the day's ··· menu; the Training days sheet in S2 | `day_name` |
+| Add day (`day_add`), remove day (`day_remove`) | S1: the day's ··· menu (Adicionar dia; Remover dia, confirmed). S2: the Training days sheet | unchanged |
 | **Day order (new)** | Training days sheet: handle drag, and Move up/down buttons as the accessible path | `day_move` (§6) |
 | Add exercise (`exercise_add`) | + Adicionar exercício at the day's foot; day ··· menu | unchanged |
 | Remove (`exercise_remove`) | Sheet → Remover exercício; toast with Desfazer | unchanged |
@@ -107,6 +108,7 @@ keeps the deload offset.
 
 ## 5. Validation, Apply and Cancel
 
+- **Removal fix (#434):** the host's `exercise_remove` sync now renumbers the day's remaining slots. Without it `validateProgramDefinition` refused every removal but a day's last one, in the classic layout too.
 - **Validation** is unchanged at the boundary: every intent goes through
   `syncEditorCanonicalIntent`, and Apply goes through `confirmSuggestLoads`, the
   editor's `validation`, and `commitProposedState`, which validates the definition
@@ -125,21 +127,30 @@ keeps the deload offset.
 ## 6. Day reorder (`day_move`)
 
 - Intent: `{ kind: "day_move", targetDay, fromIndex, toIndex, before: [labels], after: [labels] }`
-  over training days.
-- Editor: reorders `programStructure.days` and sets each `order`.
-- Host (`syncEditorCanonicalIntent`, `applyInstalledEditorIntent`): reorders the
-  training days of `programDefinition.days` to match, keeping each rest day after the
-  training day it followed; refuses when `before` no longer matches the head (rebase
-  conflict). `installedEditorImpact`: a reorder is harmless to a draft (the draft keeps
-  its day label).
-- **Shape check before merge:** no field is added or removed; only array order
-  changes. The slice proves that `validateProgramDefinition`, the setup-link codec,
-  the backup round trip and the install-transfer contract accept a reordered program
-  unchanged. If any of them does not, the slice stops and tells the coordinator: the
-  Worker in `services/install-transfer/` must be redeployed from the exact head before
-  merge.
-- The schedule and "next workout" follow the stored day order today; the journey
-  proves the next workout follows the new order.
+  over the training days.
+- Editor: the day's ··· menu → Treinos/Training days sheet. Each day has a handle
+  (pointer drag; the press stops at the sheet, so the sheet's drag-to-dismiss never
+  starts), its name (opens the rename sheet and returns), its exercise count, and
+  Move up / Move down as the accessible path. + Add day sits at the foot. A move
+  reorders `programStructure.days` and renumbers `order`; Undo takes it back.
+- Host (`syncEditorCanonicalIntent`): the training days take the new order in the
+  positions training days already hold; rest days stay where they are; every day is
+  renumbered (`validateProgramDefinition` wants `order` to follow week order).
+  `applyInstalledEditorIntent` refuses a move whose `before` no longer matches the
+  head (`day_order_changed`), so a second tab's reorder or rename against the old order
+  is a conflict and writes nothing; an `after` that omits, repeats or invents a day is
+  `invalid_day_order`. Both rules are the editor's pure `reorderTrainingDays` and
+  `dayOrderConflict` (`window.ProgramEditorDayOrder`), so the shape test runs the
+  host's rules, not a copy. `installedEditorImpact`: a reorder is harmless to a draft (the draft
+  keeps its day label).
+- Today's day tabs are `days()`, the structure's order, which is what the next day
+  is chosen from (`nextDayAfter`).
+- **Shape check (P074-S2-SHAPE, `test/program-day-move-shape.mjs`):** no field is
+  added or removed; only array order and `order` values change.
+  `validateProgramDefinition` accepts the reordered definition, every day and slot
+  keeps its keys, canonicalization is stable, and a setup link round-trips it in the
+  new order. No draft or profile shape changes, so the install-transfer Worker does
+  not need a redeploy for S2.
 
 ## 7. Catalog, roles and telemetry
 
@@ -151,6 +162,7 @@ keeps the deload offset.
   `editor-empty-day`, `editor-leave`. Each gets a manifest entry and role-inventory
   entries; none joins the fixed Plan 064 list in `tools/check-rules-only.mjs`.
   `progression-editor` is recaptured.
+- The facts line under the program name reads the host's block copy ("Week 3 of 7", or that the block is ready for review), so it says what Today and the Program tab say.
 - Telemetry stays inside the closed schema: `active_program_edited` with its existing
   `outcome` values is the only event. No new event or property; no free text, names or
   values.

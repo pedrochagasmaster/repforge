@@ -1,5 +1,7 @@
 (function (root) {
   "use strict";
+  const POLICY = root?.RepForgeEnginePolicy || (typeof require === "function" ? require("./engine-policy.js") : null);
+  const DEFAULT_POLICY = POLICY.getDefaultEnginePolicy();
   const patterns = ["horizontalPush", "verticalPush", "horizontalPull", "verticalPull", "squat", "hipHinge"];
   const orderPatterns = ["horizontalPush", "horizontalPull", "verticalPush", "verticalPull", "squat", "hipHinge"];
   const defaults = [
@@ -156,7 +158,7 @@
     Object.freeze(split.variants);
     return Object.freeze(split);
   }));
-  const budgets = Object.freeze({ 20: 18, 40: 30, 60: 50, 90: 75, 120: 105, 150: 125 });
+  const budgets = DEFAULT_POLICY.allocation.budgetMinutesByCeiling;
   const calendar = Object.freeze({ 2: [0, 3], 3: [0, 2, 4], 4: [0, 2, 4, 6], 5: [0, 1, 2, 4, 6], 6: [0, 1, 2, 4, 5, 6] });
   const rolePatterns = {
     primaryPushCompounds: ["primary", ["horizontalPush", "verticalPush"]], primaryPullCompounds: ["primary", ["horizontalPull", "verticalPull"]],
@@ -194,29 +196,33 @@
   }
   function anyFit(roles, template) { return roles.some(role => fits(role, template)); }
   function equal(a, b) { return a.exercise === b.exercise && a.numSets === b.numSets && a.type === b.type && a.accessoryMuscle === b.accessoryMuscle; }
-  function cost(templates) {
+  function cost(templates, policy = DEFAULT_POLICY) {
+    const model = policy.timeModel;
     return templates.reduce((sum, t) => {
       const region = t.exercise.effectiveRegion;
       if (!["upperBody", "lowerBody", "fullBody", "core"].includes(region)) return sum;
       const isolation = t.type === "accessory" && region !== "core";
-      const fixed = isolation ? 90 : 180;
-      const between = region === "core" ? 60 : isolation ? 90 : region === "upperBody" ? 120 : 180;
-      return sum + 120 + fixed + 30 * t.numSets + between * Math.max(0, t.numSets - 1);
+      const fixed = isolation ? model.isolationFixedSeconds : model.compoundFixedSeconds;
+      const between = region === "core" ? model.coreRestSeconds : isolation ? model.isolationRestSeconds : region === "upperBody" ? model.upperRestSeconds : model.lowerRestSeconds;
+      const rest = policy.prescription.restSeconds[t.type === "accessory" ? "accessory" : "compound"];
+      return sum + model.perExerciseOverheadSeconds + fixed + model.secondsPerSet * t.numSets + (rest === null ? between : rest) * Math.max(0, t.numSets - 1);
     }, 0);
   }
   // Explicit rest edits are a Taurifer override on the recovered default cost.
   // Generation itself passes no overrides and continues to use cost().
-  function estimateTemplatesSeconds(templates) {
-    return cost(templates) + templates.reduce((total, template) => {
+  function estimateTemplatesSeconds(templates, policy = DEFAULT_POLICY) {
+    const model = policy.timeModel;
+    return cost(templates, policy) + templates.reduce((total, template) => {
       const region = template.exercise.effectiveRegion;
       if (!["upperBody", "lowerBody", "fullBody", "core"].includes(region)) return total;
       const isolation = template.type === "accessory" && region !== "core";
-      const between = region === "core" ? 60 : isolation ? 90 : region === "upperBody" ? 120 : 180;
+      const between = region === "core" ? model.coreRestSeconds : isolation ? model.isolationRestSeconds : region === "upperBody" ? model.upperRestSeconds : model.lowerRestSeconds;
       return total + (template.restSecondsBySet || []).slice(0, Math.max(0, template.numSets - 1))
-        .reduce((delta, seconds) => delta + (Number.isFinite(seconds) ? seconds - between : 0), 0);
+        .reduce((delta, seconds) => delta + (Number.isFinite(seconds) ? seconds - (policy.prescription.restSeconds[template.type === "accessory" ? "accessory" : "compound"] ?? between) : 0), 0);
     }, 0);
   }
-  function allocations(budgetMinutes, goal, dayCount, upperFraction) {
+  function allocations(budgetMinutes, goal, dayCount, upperFraction, policy) {
+    const model = policy.timeModel;
     const compounds = [];
     for (let count = 1; count <= 4; count++) for (let sets = 2; sets <= (count === 1 ? 2 : 3); sets++) compounds.push([count, sets, 0, 0]);
     for (let count = 1; count <= 4; count++) for (const sets of [2, 3]) compounds.push([4, 3, count, sets]);
@@ -229,7 +235,7 @@
       for (let sets = count <= 20 ? 2 : count <= 30 ? 3 : 4; sets <= (count < 20 ? 3 : count < 30 ? 4 : 5); sets++) isolations.push([count, sets, 0, 0]);
     }
     function setsFor(a) { return [...Array(a[0]).fill(a[1]), ...Array(a[2]).fill(a[3])]; }
-    function allocationCost(a, between, fixed) { return setsFor(a).reduce((n, s) => n + 120 + fixed + 30 * s + between * Math.max(0, s - 1), 0); }
+    function allocationCost(a, between, fixed) { return setsFor(a).reduce((n, s) => n + model.perExerciseOverheadSeconds + fixed + model.secondsPerSet * s + between * Math.max(0, s - 1), 0); }
     function choose(rows, target, between, fixed, first) {
       let best = null; let distance = Infinity;
       for (const a of rows) {
@@ -239,11 +245,11 @@
       return best.slice();
     }
     const result = {};
-    for (const [name, between, minimum] of [["upper", 120, 4], ["lower", 180, 2]]) {
+    for (const [name, between, minimum] of [["upper", policy.prescription.restSeconds.compound ?? model.upperRestSeconds, 4], ["lower", policy.prescription.restSeconds.compound ?? model.lowerRestSeconds, 2]]) {
       const partition = Math.round(budgetMinutes * 60000000 * dayCount * (name === "upper" ? upperFraction : 1 - upperFraction));
-      const compoundTarget = Math.round(partition * (goal === "strength" ? 0.6 : 0.5));
-      const compound = choose(compounds.filter(a => a[0] * a[1] + a[2] * a[3] >= minimum), compoundTarget, between, 180, false);
-      const isolation = choose(isolations, partition - allocationCost(compound, between, 180) * 1000000, 90, 90, true);
+      const compoundTarget = Math.round(partition * (goal === "strength" ? policy.allocation.compoundFraction.strength : policy.allocation.compoundFraction.other));
+      const compound = choose(compounds.filter(a => a[0] * a[1] + a[2] * a[3] >= minimum), compoundTarget, between, model.compoundFixedSeconds, false);
+      const isolation = choose(isolations, partition - allocationCost(compound, between, model.compoundFixedSeconds) * 1000000, policy.prescription.restSeconds.accessory ?? model.isolationRestSeconds, model.isolationFixedSeconds, true);
       result[name] = { compound, isolation };
     }
     return result;
@@ -323,13 +329,13 @@
     }
     return days;
   }
-  function spillover(days, dayRules) {
+  function spillover(days, dayRules, policy) {
     for (let iteration = 0; iteration < 200; iteration++) {
-      const durations = days.map(cost); const ordered = days.map((_, index) => index).sort((a, b) => durations[a] - durations[b]);
+      const durations = days.map(templates => cost(templates, policy)); const ordered = days.map((_, index) => index).sort((a, b) => durations[a] - durations[b]);
       if (Math.round(1.25 * durations[ordered[0]]) >= durations[ordered[ordered.length - 1]]) return;
       const candidates = [];
       for (const source of ordered.slice().reverse()) for (const template of days[source].slice().reverse()) {
-        const value = cost([template]);
+        const value = cost([template], policy);
         for (const dest of ordered) {
           const gap = durations[source] - durations[dest];
           if (value > 0 && gap > value) candidates.push({ source, dest, template, preferred: anyFit(dayRules[dest].extra, template), improvement: 2 * Math.trunc(value * 1000) * Math.trunc((gap - value) * 1000) });
@@ -413,18 +419,30 @@
     return request.cycles === 7 && deload.length === 0
       || request.cycles === 8 && deload.length === 1 && (deload[0] === 1 || deload[0] === 8);
   }
-  function generate(request, selector) {
+  function generate(request, selector, { enginePolicy = DEFAULT_POLICY, diagnostics } = {}) {
     const supported = supportsRequest(request);
     const priorities = selector?.priorities; const depriorities = selector?.depriorities;
     if (!supported || !Array.isArray(priorities) || !Array.isArray(depriorities) || !priorities.every(m => allMuscles.has(m)) || !depriorities.every(m => allMuscles.has(m)) || priorities.some(m => depriorities.includes(m))) return { status: "unsupported", code: "unsupported_generation_domain" };
-    const budgetMinutes = budgets[request.timeCeilingMinutes];
+    const budgetMinutes = enginePolicy.allocation.budgetMinutesByCeiling[request.timeCeilingMinutes];
     const variant = SPLITS.find(split => split.id === request.split).variants[request.daysPerWeek];
     const dayRules = variant.days;
-    const allocation = allocations(budgetMinutes, request.goal, request.daysPerWeek, variant.upperFraction); const { selected, missing } = produce(selector, allocation, request.goal);
-    const days = distribute(selected, dayRules); spillover(days, dayRules); optimize(days, dayRules);
+    const allocation = allocations(budgetMinutes, request.goal, request.daysPerWeek, variant.upperFraction, enginePolicy); const { selected, missing } = produce(selector, allocation, request.goal);
+    const occurrences = new Map();
+    const records = diagnostics ? selected.map(template => {
+      const identity = `${template.type}:${template.accessoryMuscle || patterns.find(pattern => has(template.exercise, pattern)) || "other"}`;
+      const occurrence = (occurrences.get(identity) || 0) + 1; occurrences.set(identity, occurrence);
+      return { template, lineage: `template:${identity}:${occurrence}`, baseSetCount: template.numSets };
+    }) : null;
+    for (const template of selected) {
+      const override = enginePolicy.volume.setsByType[template.type];
+      template.numSets = Math.max(1, (override || template.numSets) - (request.experience === "beginner" ? enginePolicy.volume.beginnerSetReduction : 0));
+    }
+    const days = distribute(selected, dayRules);
+    if (records) for (const record of records) record.initialDayIndex = days.findIndex(day => day.includes(record.template));
+    spillover(days, dayRules, enginePolicy); optimize(days, dayRules);
     const ordered = days.map(t => finish(t, priorities, request.goal === "strength" ? strengthDefaults : defaults));
     const insufficient = missing || ordered.flat().length < selected.length;
-    return { status: insufficient ? "insufficient" : "ok", ...(insufficient ? { issues: [{ code: "insufficient_candidates" }] } : {}), days: ordered.map((templates, index) => ({ name: dayRules[index].name, templates })), weeklySlots: Array.from({ length: 7 }, (_, index) => { const day = calendar[request.daysPerWeek].indexOf(index); return day < 0 ? null : day; }), budgetMinutes, allocations: allocation, estimatedSessionSeconds: ordered.map(cost) };
+    return { status: insufficient ? "insufficient" : "ok", ...(insufficient ? { issues: [{ code: "insufficient_candidates" }] } : {}), days: ordered.map((templates, index) => ({ name: dayRules[index].name, templates })), weeklySlots: Array.from({ length: 7 }, (_, index) => { const day = calendar[request.daysPerWeek].indexOf(index); return day < 0 ? null : day; }), budgetMinutes, allocations: allocation, estimatedSessionSeconds: ordered.map(templates => cost(templates, enginePolicy)), ...(records ? { diagnosticRecords: records } : {}) };
   }
   const api = Object.freeze({ generate, SPLITS, supportsRequest, estimateTemplatesSeconds });
   if (typeof module !== "undefined" && module.exports) module.exports = api;
