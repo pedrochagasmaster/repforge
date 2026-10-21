@@ -1515,7 +1515,9 @@ async function captureProgramLab(page, result = false) {
   if (!programLabPreview) programLabPreview = (async () => {
     const outDir = join(await mkdtemp(join(tmpdir(), 'taurifer-lab-catalog-')), 'artifact');
     await buildProgramLab({ outDir });
-    const preview = await maybeStartLocalPreview([{ lane: 'visual' }], { cwd: outDir, prepareApp: false, env: { ...process.env, REPFORGE_URL: '' } });
+    // A browser lane makes the owner start a preview; #460 retired `visual`, which left this null.
+    const preview = await maybeStartLocalPreview([{ lane: 'state' }], { cwd: outDir, prepareApp: false, env: { ...process.env, REPFORGE_URL: '' } });
+    if (!preview) throw new Error('Program Lab capture needs an isolated artifact preview');
     return preview;
   })();
   const preview = await programLabPreview;
