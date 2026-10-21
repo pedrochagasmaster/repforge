@@ -226,6 +226,23 @@
     return { ok: issues.length === 0, issues };
   }
 
+  const LB=2.2046226218;
+  const LOAD_RAW=/^\d+(?:[.,]\d+)?$/,MAX_LOAD_KG=1000,MAX_LOAD_LB=MAX_LOAD_KG*LB;
+function parseLoadInput(raw,unit="kg"){
+  const s=String(raw??"").trim();
+  if(!s)return{kind:"empty"};
+  if(!LOAD_RAW.test(s))return{kind:"invalid"};
+  const display=+s.replace(",",".");
+  if(!Number.isFinite(display)||!(display>0))return{kind:"invalid"};
+  if(unit==="lb"){
+    if(display>MAX_LOAD_LB)return{kind:"invalid"};
+    if(display===MAX_LOAD_LB)return{kind:"valid",kg:MAX_LOAD_KG};
+    const kg=display/LB;
+    if(kg>MAX_LOAD_KG)return{kind:"invalid"};
+    return{kind:"valid",kg}}
+  if(display>MAX_LOAD_KG)return{kind:"invalid"};
+  return{kind:"valid",kg:display}}
+
   function validTargetForSemantic(semantic, value) {
     const positiveInteger = semantic === "reps" || semantic === "repsPerSide";
     const positive = semantic.startsWith("duration") || semantic.startsWith("distance");
@@ -252,6 +269,7 @@
     definitionsForIds,
     validateMetricDefinition,
     parseMetricValue,
+    parseLoadInput,
     validateDefinitions,
     validateRawIds,
     validateTargets,

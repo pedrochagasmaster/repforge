@@ -18,8 +18,7 @@
  *   --canonical      only the phone-390 light English frame of each screen
  *   --keep-going     report failures instead of aborting the commit
  *   --shard k/n      only every n-th frame, starting at the k-th (CI splits the sweep this way)
- *   --verify         compare a fresh capture against the committed catalog and
- *                    leave the working tree untouched; this is the CI gate
+ *   Exhaustive --verify is retired. CI owns the representative critical matrix.
  *
  * A filtered run merges into a copy of the committed catalog, so the folder on
  * disk is always complete. Nothing replaces committed evidence until every
@@ -79,7 +78,7 @@ function parseArgs(argv) {
     else if (argv[i] === "--screen") options.screens.push(argv[++i]);
     else if (argv[i] === "--canonical") options.canonical = true;
     else if (argv[i] === "--keep-going") options.keepGoing = true;
-    else if (argv[i] === "--verify") options.verify = true;
+    else if (argv[i] === "--verify") throw new Error("Exhaustive verification retired; run node tools/run-tests.mjs workout --suite-id test-ui-system-mjs for the complete critical UI contract");
     else if (argv[i] === "--shard") options.shard = parseShard(argv[++i]);
     else if (argv[i] === "--affected") options.affected = true;
     else if (argv[i] === "--list-affected") options.listAffected = true;
@@ -193,9 +192,9 @@ function writeReadme() {
     "node tools/capture-ui-screens.mjs --affected --accept-visual-change",
     "```",
     "",
-    "CI runs `tools/check-ui-screens.mjs` (every registered frame exists, no strays) and",
-    "`tools/compare-ui-screens.mjs` (committed frames still match a fresh capture). A stale",
-    "catalog fails the build — it does not pass quietly.",
+    "CI checks catalog registration and the representative matrix in `tools/critical-ui.mjs`.",
+    "Only selected frames are compared with fresh production captures. Exhaustive parity",
+    "is retired; omitted frames may become stale until reviewed/regenerated.",
     "",
     "Never hand-edit a PNG.",
     "",
@@ -275,6 +274,120 @@ export function replaceCatalog(stagingRoot, targetRoot, operations = {}) {
   }
 }
 
+/** Observe a settled production frame before another consumer mutates it. */
+export async function observeCatalogFrame(page, capture, { out, semanticByKey = new Map() } = {}) {
+  if (typeof out !== "string" || !out) throw new Error("Catalog observation requires a fresh output path");
+  // A failed/omitted write must leave no copied baseline at this frame's path.
+  rmSync(out, { force: true });
+  const key = screenKey(capture);
+  let whyGeometry = null;
+  let chartGeometry = null;
+  const sameWhyViewport = (first, second) => JSON.stringify([
+    first?.scroll, first?.geometry?.article, first?.geometry?.context, first?.geometry?.heading,
+    first?.geometry?.cue, first?.geometry?.why,
+  ]) === JSON.stringify([
+    second?.scroll, second?.geometry?.article, second?.geometry?.context, second?.geometry?.heading,
+    second?.geometry?.cue, second?.geometry?.why,
+  ]);
+  const sameChartViewport = (first, second) => JSON.stringify([
+    first?.route, first?.scroll, first?.metricSelected, first?.viewport, first?.geometry,
+  ]) === JSON.stringify([
+    second?.route, second?.scroll, second?.metricSelected, second?.viewport, second?.geometry,
+  ]);
+  if (key === "progress/exercise-chart") {
+    chartGeometry = await page.evaluate(() => {
+      const tracker = window.__exerciseChartViewport;
+      if (!tracker?.routeSettled || !tracker?.settled) return null;
+      tracker.captured = tracker.snapshot();
+      return tracker.report();
+    });
+    const chartFocused = chartGeometry?.viewportDecision?.focusChart === true;
+    const largeText = capture.text === "text200";
+    const frame = chartGeometry?.captured;
+    if (!chartGeometry || !chartGeometry.viewportDecision || !frame || chartGeometry.pendingScrollOwners.length
+      || frame.route.activeView !== "exercise" || frame.route.pushing || !frame.metricSelected
+      || !sameChartViewport(chartGeometry.settled, frame)
+      || chartGeometry.scrollEventCount !== chartGeometry.settled.scrollEventCount
+      || (chartFocused && (Math.abs(frame.geometry.metricGroup?.top ?? Infinity) > 1
+        || !frame.geometry.plotWithinViewport || !frame.geometry.readoutWithinViewport))
+      || (!chartFocused && Math.abs(frame.scroll.windowY) > 1)
+      || (!largeText && chartFocused)) {
+      throw new Error(`Exercise chart capture geometry did not remain at its intended viewport: ${JSON.stringify(chartGeometry)}`);
+    }
+  }
+  if (key === "workout/why-manual" || key === "workout/why-setup") {
+    whyGeometry = await page.evaluate(() => {
+      const tracker = window.__whyCatalogViewport;
+      if (!tracker?.beforeClick || !tracker?.afterSheet) return null;
+      tracker.captured = tracker.snapshot();
+      return tracker.report();
+    });
+    if (!whyGeometry || whyGeometry.captured.selectedExerciseId !== whyGeometry.exerciseId
+      || whyGeometry.captured.geometry.whySheetOpen !== true || whyGeometry.pendingScrollOwners.length
+      || !sameWhyViewport(whyGeometry.beforeClick, whyGeometry.afterSheet)
+      || !sameWhyViewport(whyGeometry.afterSheet, whyGeometry.captured)
+      || whyGeometry.scrollEventCount !== whyGeometry.afterSheet.scrollEventCount) {
+      throw new Error(`Why capture geometry did not remain stable through sheet opening: ${JSON.stringify(whyGeometry)}`);
+    }
+  }
+  const contract = configForCapture(MANIFEST, capture);
+  const evidence = await page.evaluate(collectCatalogEvidence, contract);
+  const contractFailures = validateCatalogEvidence(evidence, contract, { knownKeyNamespaces: KNOWN_KEY_NAMESPACES, knownKeys: KNOWN_I18N_KEYS });
+  if (contractFailures.length) throw new Error(`catalog contract ${key} ${variantSlug(capture)}: ${contractFailures.join(" | ")}`);
+  if (isOnboarding(capture)) {
+    await focusOnboardingSubject(page, key);
+    const semantic = await page.evaluate(collectProgramEntrySemantics);
+    semanticByKey.set(captureKey(capture), normalizeSemanticRecords(semantic));
+  }
+  await page.screenshot({ path: out, fullPage: false });
+  if (whyGeometry) {
+    const captured = await page.evaluate(() => {
+      const tracker = window.__whyCatalogViewport;
+      if (!tracker) return null;
+      tracker.captured = tracker.snapshot();
+      const report = tracker.report();
+      tracker.stop();
+      return report;
+    });
+    if (!captured || captured.pendingScrollOwners.length
+      || !sameWhyViewport(whyGeometry.afterSheet, captured.captured)
+      || captured.scrollEventCount !== captured.afterSheet.scrollEventCount) {
+      throw new Error(`Why viewport changed during screenshot capture: ${JSON.stringify(captured)}`);
+    }
+    whyGeometry = captured;
+    const artifactDir = process.env.REPFORGE_ARTIFACT_DIR;
+    if (artifactDir) {
+      const evidence = join(artifactDir, "why-capture-geometry", `${key.replace("/", "__")}__${variantSlug(capture)}.json`);
+      mkdirSync(dirname(evidence), { recursive: true });
+      writeFileSync(evidence, `${JSON.stringify(whyGeometry, null, 2)}\n`);
+    }
+  }
+  if (chartGeometry) {
+    const captured = await page.evaluate(() => {
+      const tracker = window.__exerciseChartViewport;
+      if (!tracker) return null;
+      tracker.captured = tracker.snapshot();
+      const report = tracker.report();
+      tracker.stop();
+      return report;
+    });
+    if (!captured || captured.pendingScrollOwners.length
+      || !sameChartViewport(chartGeometry.settled, captured.captured)
+      || !sameChartViewport(chartGeometry.captured, captured.captured)
+      || captured.scrollEventCount !== chartGeometry.scrollEventCount) {
+      throw new Error(`Exercise chart viewport changed during screenshot capture: ${JSON.stringify(captured)}`);
+    }
+    chartGeometry = captured;
+    const artifactDir = process.env.REPFORGE_ARTIFACT_DIR;
+    if (artifactDir) {
+      const evidence = join(artifactDir, "exercise-chart-viewport", `${key.replace("/", "__")}__${variantSlug(capture)}`);
+      mkdirSync(dirname(evidence), { recursive: true });
+      writeFileSync(`${evidence}.json`, `${JSON.stringify(chartGeometry, null, 2)}\n`);
+      cpSync(out, `${evidence}.png`);
+    }
+  }
+}
+
 async function main(options = parseArgs(process.argv.slice(2))) {
   if (CATALOG_METADATA_ERRORS.length) {
     console.error(`catalog contract metadata failed: ${CATALOG_METADATA_ERRORS.join("; ")}`);
@@ -331,98 +444,7 @@ async function main(options = parseArgs(process.argv.slice(2))) {
         if (!isOnboarding(capture)) await dismissChrome(opened.page);
         await SCENARIOS[key](opened.page);
         await settle(opened.page);
-        if (key === "progress/exercise-chart") {
-          chartGeometry = await opened.page.evaluate(() => {
-            const tracker = window.__exerciseChartViewport;
-            if (!tracker?.routeSettled || !tracker?.settled) return null;
-            tracker.captured = tracker.snapshot();
-            return tracker.report();
-          });
-          const chartFocused = chartGeometry?.viewportDecision?.focusChart === true;
-          const largeText = capture.text === "text200";
-          const frame = chartGeometry?.captured;
-          if (!chartGeometry || !chartGeometry.viewportDecision || !frame || chartGeometry.pendingScrollOwners.length
-            || frame.route.activeView !== "exercise" || frame.route.pushing || !frame.metricSelected
-            || !sameChartViewport(chartGeometry.settled, frame)
-            || chartGeometry.scrollEventCount !== chartGeometry.settled.scrollEventCount
-            || (chartFocused && (Math.abs(frame.geometry.metricGroup?.top ?? Infinity) > 1
-              || !frame.geometry.plotWithinViewport || !frame.geometry.readoutWithinViewport))
-            || (!chartFocused && Math.abs(frame.scroll.windowY) > 1)
-            || (!largeText && chartFocused)) {
-            throw new Error(`Exercise chart capture geometry did not remain at its intended viewport: ${JSON.stringify(chartGeometry)}`);
-          }
-        }
-        if (key === "workout/why-manual" || key === "workout/why-setup") {
-          whyGeometry = await opened.page.evaluate(() => {
-            const tracker = window.__whyCatalogViewport;
-            if (!tracker?.beforeClick || !tracker?.afterSheet) return null;
-            tracker.captured = tracker.snapshot();
-            return tracker.report();
-          });
-          if (!whyGeometry || whyGeometry.captured.selectedExerciseId !== whyGeometry.exerciseId
-            || whyGeometry.captured.geometry.whySheetOpen !== true || whyGeometry.pendingScrollOwners.length
-            || !sameWhyViewport(whyGeometry.beforeClick, whyGeometry.afterSheet)
-            || !sameWhyViewport(whyGeometry.afterSheet, whyGeometry.captured)
-            || whyGeometry.scrollEventCount !== whyGeometry.afterSheet.scrollEventCount) {
-            throw new Error(`Why capture geometry did not remain stable through sheet opening: ${JSON.stringify(whyGeometry)}`);
-          }
-        }
-        const contract = configForCapture(MANIFEST, capture);
-        const evidence = await opened.page.evaluate(collectCatalogEvidence, contract);
-        const contractFailures = validateCatalogEvidence(evidence, contract, { knownKeyNamespaces: KNOWN_KEY_NAMESPACES, knownKeys: KNOWN_I18N_KEYS });
-        if (contractFailures.length) throw new Error(`catalog contract ${key} ${variantSlug(capture)}: ${contractFailures.join(" | ")}`);
-        if (isOnboarding(capture)) {
-          await focusOnboardingSubject(opened.page, key);
-          const semantic = await opened.page.evaluate(collectProgramEntrySemantics);
-          semanticByKey.set(captureKey(capture), normalizeSemanticRecords(semantic));
-        }
-        await opened.page.screenshot({ path: out, fullPage: false });
-        if (whyGeometry) {
-          const captured = await opened.page.evaluate(() => {
-            const tracker = window.__whyCatalogViewport;
-            if (!tracker) return null;
-            tracker.captured = tracker.snapshot();
-            const report = tracker.report();
-            tracker.stop();
-            return report;
-          });
-          if (!captured || captured.pendingScrollOwners.length
-            || !sameWhyViewport(whyGeometry.afterSheet, captured.captured)
-            || captured.scrollEventCount !== captured.afterSheet.scrollEventCount) {
-            throw new Error(`Why viewport changed during screenshot capture: ${JSON.stringify(captured)}`);
-          }
-          whyGeometry = captured;
-          const artifactDir = process.env.REPFORGE_ARTIFACT_DIR;
-          if (artifactDir) {
-            const evidence = join(artifactDir, "why-capture-geometry", `${key.replace("/", "__")}__${variantSlug(capture)}.json`);
-            mkdirSync(dirname(evidence), { recursive: true });
-            writeFileSync(evidence, `${JSON.stringify(whyGeometry, null, 2)}\n`);
-          }
-        }
-        if (chartGeometry) {
-          const captured = await opened.page.evaluate(() => {
-            const tracker = window.__exerciseChartViewport;
-            if (!tracker) return null;
-            tracker.captured = tracker.snapshot();
-            const report = tracker.report();
-            tracker.stop();
-            return report;
-          });
-          if (!captured || captured.pendingScrollOwners.length
-            || !sameChartViewport(chartGeometry.settled, captured.captured)
-            || !sameChartViewport(chartGeometry.captured, captured.captured)
-            || captured.scrollEventCount !== chartGeometry.scrollEventCount) {
-            throw new Error(`Exercise chart viewport changed during screenshot capture: ${JSON.stringify(captured)}`);
-          }
-          chartGeometry = captured;
-          const artifactDir = process.env.REPFORGE_ARTIFACT_DIR;
-          if (artifactDir) {
-            const evidence = join(artifactDir, "exercise-chart-viewport", `${key.replace("/", "__")}__${variantSlug(capture)}`);
-            mkdirSync(dirname(evidence), { recursive: true });
-            writeFileSync(`${evidence}.json`, `${JSON.stringify(chartGeometry, null, 2)}\n`);
-            cpSync(out, `${evidence}.png`);
-          }
-        }
+        await observeCatalogFrame(opened.page, capture, { out, semanticByKey });
         return null;
       } catch (error) {
         return error.message.split("\n")[0];

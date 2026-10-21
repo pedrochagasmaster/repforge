@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /** Include nested runners, regression fixtures and scripts, not just a shallow glob. */
+import { existsSync } from "node:fs";
 import { execFileSync, spawnSync } from "node:child_process";
 const files = execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", "test", "tools", "scripts"], { encoding: "utf8" })
-  .split("\0").filter((file) => /\.(mjs|js)$/.test(file));
+  .split("\0").filter((file) => /\.(mjs|js)$/.test(file) && existsSync(file));
 let failed = 0;
 for (const file of [...new Set(files)].sort()) {
   const result = spawnSync(process.execPath, ["--check", file], { stdio: "inherit" });

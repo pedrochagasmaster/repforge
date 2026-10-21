@@ -1,0 +1,104 @@
+# Opt-in through a change to the benchmark report. Both complete inventories
+# run in each worker, sequentially, with the same dependencies and seed.
+name: Paired test benchmark
+
+on:
+  pull_request:
+    paths:
+      - docs/test-reduction.md
+      - tools/benchmark-tests.mjs
+      - .github/workflows/test-benchmark.yml
+  workflow_dispatch:
+    inputs:
+      base:
+        description: Full baseline commit SHA
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: paired-benchmark-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      scopes: ${{ steps.plan.outputs.scopes }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.23.0'
+      - id: plan
+        run: |
+          node --input-type=module -e 'import { CI_SHARDS } from "./test/suites.mjs"; import { appendFileSync } from "node:fs"; appendFileSync(process.env.GITHUB_OUTPUT, "scopes=" + JSON.stringify(["fast", "service", ...Array.from({length:CI_SHARDS}, (_,i) => `${i+1}/${CI_SHARDS}`)]) + "\n");'
+
+  paired:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        scope: ${{ fromJSON(needs.plan.outputs.scopes) }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.23.0'
+      - run: npm ci --prefix test
+      - if: matrix.scope == 'service'
+        run: npm ci --prefix services/install-transfer
+      - if: matrix.scope != 'fast' && matrix.scope != 'service'
+        working-directory: test
+        run: npx playwright install --with-deps --only-shell chromium
+      - name: Run both complete scopes on this worker
+        env:
+          BENCHMARK_BASE: ${{ github.event.pull_request.base.sha || inputs.base }}
+          BENCHMARK_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          BENCHMARK_SCOPE: ${{ matrix.scope }}
+        run: node tools/benchmark-tests.mjs run "$BENCHMARK_BASE" "$BENCHMARK_HEAD" "$BENCHMARK_SCOPE"
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paired-${{ strategy.job-index }}
+          path: .ci-results/paired/
+          include-hidden-files: true
+          retention-days: 7
+
+  report:
+    needs: [plan, paired]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          # The aggregate validates each phase with that source's own catalog
+          # inventory, manifest, shard count and actual merge implementation.
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.23.0'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: paired-*
+          path: .ci-results/paired
+      - run: node tools/benchmark-tests.mjs summarize .ci-results/paired
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paired-summary
+          path: .ci-results/paired/summary.json
+          include-hidden-files: true
+          retention-days: 7
