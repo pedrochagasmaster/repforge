@@ -848,6 +848,13 @@
       "variants": "demandingText"
     },
     {
+      "id": "editor-alternates",
+      "flow": "onboarding-build",
+      "label": "Build — editor alternates",
+      "scenario": "The Build editor (the classic layout) with its first exercise's in-session alternates: two chosen movements in order, each with move and remove controls, and Add alternate.",
+      "variants": "localized"
+    },
+    {
       "id": "source",
       "flow": "onboarding-import",
       "label": "Import — source",

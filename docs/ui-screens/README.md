@@ -125,6 +125,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Build — empty days](screens/onboarding-build/editor-empty__phone-390-light-en.png) | 8 | Real empty day containers, Add exercise, Save draft, activation disabled. |
 | [Build — partial draft](screens/onboarding-build/editor-partial__phone-390-light-en.png) | 8 | One populated day and one incomplete day. Activation stays disabled. |
 | [Build — activation ready](screens/onboarding-build/editor-ready__phone-390-light-en.png) | 8 | A complete manual draft with supported progression and activation enabled. |
+| [Build — editor alternates](screens/onboarding-build/editor-alternates__phone-390-light-en.png) | 3 | The Build editor (the classic layout) with its first exercise's in-session alternates: two chosen movements in order, each with move and remove controls, and Add alternate. |
 
 ### Onboarding — Import a program file
 
