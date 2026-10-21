@@ -4,7 +4,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { ROOT, captureKey, loadManifest, screenKey } from "./ui-screens/manifest.mjs";
 import { parseShard } from "../test/suites.mjs";
 import { loadRoleInventory, validateRoleInventory, renderedFindingExemption, renderedHolds, cssLiteralDebt, cssCompatibilityAliasDebt, requiredBoundaryExceptionRequests, SHARD_REPORT, neverRenderedProblems, shardCaptures, uninventoriedSharedComponents } from "./ui-system-core.mjs";
-import { APP_CLOCK, APP_SCENARIOS, APP_USER_AGENT, appState } from "./ui-screens/screens-app.mjs";
+import { APP_CLOCK, APP_SCENARIOS, APP_USER_AGENT, appState, cleanupProgramLabCapture } from "./ui-screens/screens-app.mjs";
 import { ONBOARDING_SCENARIOS, onboardingState } from "./ui-screens/screens-onboarding.mjs";
 import { setCaptureBase, launchChromium, openPage, dismissChrome, settle } from "./ui-screens/session.mjs";
 import { maybeStartLocalPreview } from "./local-preview.mjs";
@@ -302,7 +302,7 @@ export async function auditCatalog({ allowProgressDebt = false, flow = null, sta
       onProgress(index + 1, captures.length);
       if ((index + 1) % 25 === 0) { await browser.close(); browser = await launchChromium(); }
     }
-  } finally { await browser.close(); preview.cleanup(); }
+  } finally { await browser.close(); await cleanupProgramLabCapture(); preview.cleanup(); }
   // A partial sweep cannot know what the other shards rendered; `ci-plan.mjs merge-ui-system` applies this rule over all of them.
   if (!flow && !stateKey && !shard) problems.push(...neverRenderedProblems(inventory, matched, matchedExceptions));
   return { problems, screens: captures.length, captureKeys: captures.map(captureKey), matched: [...matched], matchedExceptions: [...matchedExceptions], measurements };

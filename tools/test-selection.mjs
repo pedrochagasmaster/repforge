@@ -141,13 +141,33 @@ function entriesForLanes(lanes) {
   return ALL.filter(({ lane }) => lanes.has(lane));
 }
 function entriesForSuiteFiles(files) {
-  return ALL.filter(({ suite }) => files.has(suite.file));
+  return [...ALL, ...FULL].filter(({ suite }) => files.has(suite.file));
 }
 function addEntries(target, additions) {
   for (const entry of additions) target.set(JSON.stringify(commandArgs(entry.suite)), entry);
 }
 
 const EXPLICIT_INPUT_RULES = [
+  {
+    match: /^engine-policy\.js$/,
+    suiteFiles: ["test/programlab-native-policy.mjs", "test/programlab-default-parity.mjs", "test/program-engine-worker.mjs"],
+    why: "the engine-policy seam: native policies, default preservation and the worker that loads it",
+  },
+  {
+    match: /^programlab\/(?:domain|store|archive|archive-worker)\.js$/,
+    suiteFiles: ["test/programlab-domain.mjs", "test/programlab-archive.mjs", "test/programlab-archive-limits.mjs", "test/programlab-store.mjs", "test/programlab-ui.mjs", "test/programlab-package.mjs"],
+    why: "lab planning, archive protocol and isolated persistence consumers",
+  },
+  {
+    match: /^programlab\/|^tools\/build-programlab\.mjs$/,
+    suiteFiles: ["test/programlab-ui.mjs", "test/programlab-package.mjs", "test/pages-deploy-boundary.mjs"],
+    why: "standalone workbench presentation, services, packaged URLs and production exclusion",
+  },
+  {
+    match: /^test\/fixtures\/programlab-integration-default-results\.json$/,
+    suiteFiles: ["test/programlab-default-parity.mjs"],
+    why: "pre-extraction complete-result baseline",
+  },
   {
     match: /^test\/generative\/(?:adapters|arbitraries|model|properties|regressions)\//,
     suiteFiles: ["test/generative/run.mjs", "test/generative/self-test.mjs"],

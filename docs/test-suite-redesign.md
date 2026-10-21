@@ -22,8 +22,9 @@ test that landed after `147e4afa` went.
 Original baseline: `147e4afa07fea3243efd42b5b7d167c196c6a7ca`, 208 commands in
 195 scheduled executable files. Redesign inventory at that baseline: **97
 commands in 97 distinct files**. On current main (fair baseline `651d5a92`,
-213 commands in 199 files) the PR lane has **102 commands in 102 files**, and
-the full lane has the other 112 commands. PR-lane reductions are explicit
+213 commands in 199 files) the PR lane had **102 commands in 102 files** at
+adoption, and the full lane had the other 112 commands (Program Lab later
+added 3 and 7). PR-lane reductions are explicit
 below; their commands keep running in the full lane.
 
 | Guarantee | Cheapest reliable proof | Real browser boundary retained |
@@ -240,3 +241,15 @@ Tests that landed on main after `147e4afa`:
 
 Every full-lane test keeps its failing-first proof. It runs unchanged, now on
 `main` rather than on each PR.
+
+### Program Lab (#432)
+
+Program Lab's suites follow the same line: the PR lane guards production. It
+runs `programlab-default-parity` (233 corpus/split/prescription cases produce
+byte-identical complete results with the engine-policy seam omitted, explicit
+or traced), `programlab-native-policy` (the seam's validation and native
+policies) and `programlab-store` (Lab storage never touches production
+storage). `pages-deploy-boundary` keeps the Lab out of `dist/`. Lab-internal
+behaviour (domain planning, archives and their 500 MiB limits, packaging and
+the packaged browser journeys, including the corpus run) runs in the full lane.
+

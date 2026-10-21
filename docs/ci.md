@@ -119,10 +119,12 @@ concurrent jobs, so a run that overlaps another one queues a few shards for
 about one shard's duration; that is why the count is not simply "as many as
 possible".
 
-The pull-request inventory (`SUITES`) has 102 commands in 102 distinct files.
-At `651d5a92` main scheduled 213 commands in 199 files on every PR. The other
-112 commands are in `FULL_SUITES` and run in the full lane (below), so nothing
-main verified before is dropped. Scheduling shards and assertions are separate
+At `651d5a92` main scheduled 213 commands in 199 files on every PR. The
+adoption put 102 of them in the pull-request inventory (`SUITES`) and the
+other 112 in `FULL_SUITES`, the full lane (below), so nothing main verified
+before is dropped. Program Lab then added 3 PR-lane and 7 full-lane commands.
+`node tools/run-tests.mjs --check` prints the current counts; the ledger
+records them. Scheduling shards and assertions are separate
 measures. The ledger is
 [test-retirement-ledger.json](test-retirement-ledger.json), and the coverage
 contract is in [test-suite-redesign.md](test-suite-redesign.md).
