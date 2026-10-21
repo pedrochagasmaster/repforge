@@ -6,13 +6,25 @@ cross-products are not. This supersedes the old requirement to freshly verify
 every catalog image on every CI run. Incremental work and measured evidence
 remain reviewable in [#444](https://github.com/pedrochagasmaster/repforge/pull/444).
 
+**Owner decision, 2026-10-21: fast PRs, full on main**
+([ADR 0022](adr/0022-fast-pr-full-main-verification.md)). The redesigned
+inventory below is the **pull-request lane** (`SUITES`, the `ci` check). The
+exhaustive checks it retired from pull requests are **not deleted**. They run in
+the **full lane** (`FULL_SUITES`, the `ci-full` check) on every push to `main`,
+nightly and on demand, and a failure there is a red check on `main`. This
+overrides the original rule below that no slow suite moves to another lane.
+The full lane is mandatory for `main`; it just does not gate pull requests.
+See "Adoption on current main" at the end for the fair baseline and where every
+test that landed after `147e4afa` went.
+
 ## Acceptance contract
 
 Original baseline: `147e4afa07fea3243efd42b5b7d167c196c6a7ca`, 208 commands in
-195 scheduled executable files. Redesign inventory: **97 commands in 97 distinct files**,
-including every required verification lane. No unchanged historical suite is
-moved to an optional lane to manufacture a speedup. Retired guarantees are
-explicit below; the design catalog remains an authoring artifact.
+195 scheduled executable files. Redesign inventory at that baseline: **97
+commands in 97 distinct files**. On current main (fair baseline `651d5a92`,
+213 commands in 199 files) the PR lane has **102 commands in 102 files**, and
+the full lane has the other 112 commands. PR-lane reductions are explicit
+below; their commands keep running in the full lane.
 
 | Guarantee | Cheapest reliable proof | Real browser boundary retained |
 | --- | --- | --- |
@@ -23,18 +35,20 @@ explicit below; the design catalog remains an authoring artifact.
 | Offline updates and privacy | Release inventory, routing and telemetry contracts | SW upgrade/error/redirect behavior, offline privacy and hostile telemetry leakage |
 | Critical UI and accessibility | Explicit representative matrix, public role checker and metadata validation | Fresh pixel/semantic observations, live role/contrast/labels/targets, narrow/large text and modal focus behavior |
 
-The canonical executable inventory remains `test/suites.mjs`. A retirement
-ledger maps each former execution to retained owners or an explicitly reduced
-guarantee; it is not a second command runner. Independent reviewers assess risk
+The canonical executable inventory remains `test/suites.mjs`. The
+[ledger](test-retirement-ledger.json) maps each baseline execution to the PR
+lane, a consolidated owner, or the full lane (with the PR-lane owners that
+cover its risk); it is not a second command runner. Independent reviewers assess risk
 coverage and measurement methodology separately.
 
-## Deliberately reduced guarantees
+## Guarantees moved off pull requests
 
-The new suite does not promise pixel parity for all 1,118 historical catalog
-frames, role/contrast measurement in all 772 state/locale/theme combinations,
-every navigation permutation, every animation choreography, cosmetic token
-contracts, or the emergent interaction sequence of the year-long simulation.
-Representative rendering does not prove those omitted combinations equivalent.
+The PR lane does not promise pixel parity for every catalog frame, role/contrast
+measurement in every state/locale/theme combination, every navigation
+permutation, every animation choreography, cosmetic token contracts, or the
+emergent interaction sequence of the year-long simulation. Representative
+rendering does not prove those omitted combinations equivalent. The full lane
+still checks every one of them on each push to `main` and nightly.
 Important known data-loss, migration, security and recovery negatives remain
 in production-backed proofs. No assertion threshold or expected product value
 is relaxed to make a retained test pass.
@@ -170,3 +184,59 @@ a deliberate transfer-only claimId leak fails the actual new assertion; the
 healthy production module passes. Existing import and diagnostic-redaction
 owners retain the real preboot/identity/freeze and all redaction fixture cases.
 No extra executable/browser journey is introduced; counts remain 97/97.
+
+## Adoption on current main (2026-10-21)
+
+#446 was measured on `147e4afa`. Main then gained #443, #452, #455, #435, #437,
+#442, #457, #450 and #459, each adding or changing tests. The redesign was reapplied
+onto `651d5a92` (fair baseline: 213 commands, 199 files) as follows.
+
+- **Two lanes.** Every one of the 213 baseline commands is in the PR lane (100),
+  consolidated into a named owner (1: the pure transfer-recovery state machine
+  runs under `node --test` in `fast`), or in the full lane (112). The PR lane adds
+  `test/ui-system-checker.mjs` (below), so it has 102 commands.
+- **Production code keeps main's versions.** Main already carries the #434
+  canonical renumbering (removal and cross-day move) and the #439 device-pixel
+  sampler, so neither is ported again. The only production change left is the
+  load-input parser delegation (`app.js` → `exercise-metrics.js`). The PR-lane
+  parser contracts need it to test the shipped parser.
+- **Checker self-tests stay on PRs.** Main's `test/ui-system.mjs` is the role
+  checker's self-test suite. It now lives unchanged in `test/ui-system-checker.mjs`,
+  including #457's modal-inert negatives, #435's `renderedHold`/finding exemptions
+  and the #439 device-pixel glass fixture. `test/ui-system.mjs` runs the critical
+  matrix, which uses that checker.
+- **Guide replay cell.** #435 made a replayed guide a native modal dialog. The
+  critical `settings/guides-replay` cell asserts it on the dialog, which is modal
+  and focused, closes on Escape, returns focus to Replay and persists the
+  dismissal. Against the old inline cue, the cell failed on "replayed guide
+  receives focus".
+- **Editor transaction.** #446's moved-first reorder, cross-day move and removal
+  proof in `custom-mutation-recovery` now drives Program editor A (#437): the
+  day menu's reorder list, the sheet's Move to day and Remove, and Apply. It
+  still checks canonical identity, both replicas and reload. With #434's
+  cross-day renumbering reverted, the cross-day assertion fails; with main's fix
+  it passes.
+
+Tests that landed on main after `147e4afa`:
+
+| Change | Test | Lane |
+| --- | --- | --- |
+| #442 day-move shape | `test/program-day-move-shape.mjs` | PR (`fast`) |
+| #437 editor A | `test/program-editor-a.mjs` | PR (`entry`) |
+| #442 editor A days | `test/program-editor-a-days.mjs` | PR (`entry`) |
+| #437 editor A, existing suites adapted | `program-editor-text-fields` (renameBack) | PR (`entry`) |
+| #437 editor A, existing suites adapted | `program-editor-sorting`, `-drag-selection`, `program-draft-*`, `program-actions`, `slot-alternates`, `ui-plan-050-editor` and others | full |
+| #435 guide modal | `test/guide-modal.mjs` | PR (`workout`) |
+| #435 guide states in other suites | `entry-guides`, `progress-guides`, `guide-eligibility`, `journeys-in`, `accessibility` and others | full |
+| #435 catalog guide states | `tools/ui-screens/screens-app.mjs` states, verified by `capture-ui-screens --verify` and `check-ui-system` | full (every frame); PR critical cell `settings/guides-replay` |
+| #435/#457 checker self-tests (`renderedHold`, modal-inert, #439 sampler) | `test/ui-system-checker.mjs` | PR (`workout`) |
+| #435 `UI_SYSTEM_SHARDS=7` | `tools/check-ui-system.mjs --shard k/7` | full |
+| #450 free-form import diagnosis | `test/program-freeform-import.mjs` | PR (`entry`) |
+| #459 unique day names (`restDayNames`) | `test/program-editor-text-fields.mjs` | PR (`entry`) |
+| #443 keyboard-up in Focus | `test/focus-space-summary.mjs` | full |
+| #452/#455 layer-status and import-review insets | `test/shell-chrome-clearance.mjs` | full |
+| #452 landing-variants observers | `test/landing-variants.mjs` | full |
+| #437 simulation adapted to editor A | `test/simulation.mjs` (52 weeks and `--smoke`) | full |
+
+Every full-lane test keeps its failing-first proof. It runs unchanged, now on
+`main` rather than on each PR.

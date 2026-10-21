@@ -12,15 +12,19 @@ Browser-only dependencies live under `test/`.
 | Edit | `node tools/run-tests.mjs edit` | Dirty worktree, or the latest commit if clean; fail fast. Feedback only. |
 | Packet | `node tools/run-tests.mjs packet --base <packet-start-sha>` | Coherent changes since an explicit base, plus dirty files; supplemental fail-fast feedback, not merge evidence. |
 | Branch diagnostic | `node tools/run-tests.mjs branch --base origin/main` | Conservative merge-base impact. `affected` remains an alias. |
-| One CI shard | `node tools/run-tests.mjs shard <k>/<n>` | Exactly what CI runner `k` of `n` executes; keeps going after failures. |
-| Everything | `node tools/run-tests.mjs candidate` | The complete local inventory except the external service gate. |
+| One CI shard | `node tools/run-tests.mjs shard <k>/<n>` | Exactly what PR-lane runner `k` of `n` executes; keeps going after failures. |
+| One full-lane shard | `node tools/run-tests.mjs full-shard <k>/<n>` | Exactly what full-lane runner `k` of `n` executes (`ci-full`). |
+| Full-lane Node checks | `node tools/run-tests.mjs full-fast` | The full lane's pure-Node commands. |
+| Everything on a PR | `node tools/run-tests.mjs candidate` | The complete pull-request inventory except the external service gate. |
 | Inventory | `node tools/run-tests.mjs --check` | Reconcile every scheduled/support script. |
 
 Use `--list` for exact commands and `--explain` for files, reasons and scope.
-Lanes are `fast` (pure Node), `state`, `entry`, `workout`, `privacy`, `visual`
-(browser) and `service`. Local `edit`/`packet` selection is a latency tool owned
-by `tools/test-selection.mjs`; unknown executable inputs widen to everything. CI
-does not use it. Once a coherent commit is focused-test green, push it promptly
+Pull-request lanes are `fast` (pure Node), `state`, `entry`, `workout`,
+`privacy` (browser) and `service`. Full-lane lanes are `full-fast` (pure Node)
+and `full-browser`. Local `edit`/`packet` selection is a latency tool owned by
+`tools/test-selection.mjs`; unknown executable inputs widen to the whole PR
+inventory. It selects a full-lane command only when that suite changed, or when
+a changed test/tool input reaches no PR suite. CI does not use it. Once a coherent commit is focused-test green, push it promptly
 so remote CI starts while independent review and any useful local `packet` run
 in parallel. `packet` is supplemental local feedback, not required completion or
 merge evidence. If the environment cannot complete it reliably or within its
@@ -31,16 +35,32 @@ evidence. Do not push half-implemented or known-red work merely to start CI earl
 
 ## What CI runs
 
-`.github/workflows/ci.yml` is the whole configuration. Every pull request and
-every push to `main` runs the same thing:
+`.github/workflows/ci.yml` is the whole configuration. It runs two lanes,
+each behind its own aggregate check. This is the owner's "fast PRs, full on
+main" decision of 2026-10-21 ([ADR 0022](adr/0022-fast-pr-full-main-verification.md)).
 
-| Job | What | Typical wall time |
-| --- | --- | --- |
-| `plan` | Decides whether anything executable changed and publishes the shard list. | 20 s |
-| `fast` | `--check` plus the complete `fast` lane (pure Node, no browser). | 1 min |
-| `browser` × `CI_SHARDS` | Every browser command in the inventory, balanced across runners by measured duration. Includes the UI-system role audit and the screen-catalog recapture, each split into shard commands. | 6–7 min |
-| `service` | The install-transfer Worker gate (`check`, tests, dry deploy). | 1 min |
-| `ci` | The aggregate check: every selected job passed, and the UI-system shard reports merge cleanly. | 20 s |
+**PR lane (`ci`)**: every pull request, push to `main`, nightly run and manual
+dispatch runs the pull-request inventory (`SUITES`):
+
+| Job | What |
+| --- | --- |
+| `plan` | Decides whether anything executable changed and publishes both shard lists. |
+| `fast` | `--check` plus the complete `fast` lane (pure Node, no browser). |
+| `browser` × `CI_SHARDS` | Every PR browser command, balanced across runners by measured duration, including the 21-frame critical UI matrix. |
+| `service` | The install-transfer Worker gate (`check`, tests, dry deploy). |
+| `ci` | The aggregate check: every selected job passed, and the critical UI report is complete, from this source, with its frame bytes. |
+
+**Full lane (`ci-full`)**: every push to `main`, the nightly schedule
+(03:23 UTC) and every manual dispatch also run `FULL_SUITES`. Pull requests never
+run it.
+
+| Job | What |
+| --- | --- |
+| `full-fast` | The full lane's pure-Node commands (DESIGN.md token equality, runtime budget, manual-matrix self-test). |
+| `full-browser` × `FULL_SHARDS` | The exhaustive catalog verify (every frame), the role/contrast audit over every state × theme × locale, the Direction-D and rules-only audits, the year-long simulation, and the retired dedicated browser permutations. |
+| `ci-full` | The aggregate check: every full job passed, and the UI-system shard reports merge under the catalog-wide never-rendered rule. |
+
+Each job writes its per-command timings to the run's job summary.
 
 The only shortcut is in `plan`: a pull request whose changed files are all
 prose (`*.md`, `*.txt`, `.gitignore`, `LICENSE`) skips the test jobs and `ci`
@@ -48,10 +68,11 @@ passes on the plan alone. `README.md`, `NOTICE.md`, `docs/recovery-week-policy.m
 and `tools/README.md` are verification inputs, so changes to them run CI despite
 their Markdown extension. Files in `fixture`, `fixtures` or `__fixtures__` paths
 also run CI even when their extension is allowlisted. Any other file, an unknown
-file, a change list the compare API cannot deliver, a push to `main` or a manual
-dispatch runs everything. There is no draft/ready distinction and no separate
+file, a change list the compare API cannot deliver, a push to `main`, the nightly
+schedule or a manual dispatch runs the PR lane. There is no draft/ready distinction and no separate
 remote candidate mode: a green `ci` on
-the PR head is the merge evidence. Pull requests test their head commit, so a
+the PR head is the merge evidence. `ci-full` is not merge evidence for a PR;
+it guards `main`. Pull requests test their head commit, so a
 red run reproduces with `git checkout <sha>` and the printed rerun command.
 This workflow emits an aggregate status check named `ci`. At the time this CI
 change was refreshed, `main` had branch protection disabled and no required
@@ -61,9 +82,30 @@ a separate change, requiring `ci` is a separate repository configuration step.
 A newer push to the same pull request cancels the run in progress; pushes to
 `main` never cancel each other.
 
+### When `ci-full` is red on main
+
+A `ci-full` failure means main has a regression that the PR lane did not
+catch. Treat it as a main breakage, not as a flake:
+
+1. Open the run and find the failed command in the job summary. Each failure
+   prints its log path and an exact rerun command
+   (`node tools/run-tests.mjs full-browser --suite-id <id>`). Download the
+   shard's `.ci-results/` artifact for logs, traces and `visual-failures/`.
+2. File an issue titled `ci-full: <command>` with the failing command, the first red
+   commit (a push run names it; for a nightly run, bisect with the rerun command
+   over the commits since the last green `ci-full`), and the evidence.
+3. The owner of the PR that introduced it fixes forward with a failing-first
+   proof. If the defect is one the PR lane should have caught, add that proof to
+   the PR lane (a new or strengthened owner in `SUITES`) as well. A stale catalog
+   frame (`capture-ui-screens --verify`) is fixed by reviewed recapture
+   (`--accept-visual-change`), never by relaxing the comparison.
+4. Do not re-run the workflow to get green. The rules for diagnostic replays are
+   the same as for `ci`.
+
 ### Shards
 
-`CI_SHARDS` in `test/suites.mjs` is the runner count. `shardSuites` packs the
+`CI_SHARDS` (PR lane) and `FULL_SHARDS` (full lane) in `test/suites.mjs` are
+the runner counts. `shardSuites` packs the
 browser inventory longest-first into that many bins using each command's
 `seconds` (measured on `ubuntu-latest`; a missing value falls back on `cost`).
 The split is a pure function of the committed inventory, so every runner and
@@ -77,26 +119,45 @@ concurrent jobs, so a run that overlaps another one queues a few shards for
 about one shard's duration; that is why the count is not simply "as many as
 possible".
 
-The redesigned inventory has 97 commands in 97 distinct scheduled files,
-compared with 208 commands in 195 files at `147e4afa`. Scheduling shards and
-assertions are separate measures. The full retirement ledger and changed
-coverage contract are in [test-suite-redesign.md](test-suite-redesign.md).
+The pull-request inventory (`SUITES`) has 102 commands in 102 distinct files.
+At `651d5a92` main scheduled 213 commands in 199 files on every PR. The other
+112 commands are in `FULL_SUITES` and run in the full lane (below), so nothing
+main verified before is dropped. Scheduling shards and assertions are separate
+measures. The ledger is
+[test-retirement-ledger.json](test-retirement-ledger.json), and the coverage
+contract is in [test-suite-redesign.md](test-suite-redesign.md).
 
-`test/ui-system.mjs` opens the 21 explicitly declared critical frames once each
-and shares each settled production frame between fresh pixel comparison,
-semantic observation and live role/contrast checks. It also exercises real
-entry accessibility and deliberate checker defects. Every cell must pass;
-the aggregate `merge-ui-system` command rejects missing/duplicate reports,
-foreign source identity, failed observations and incomplete comparisons.
-Exhaustive catalog verification and its selector-never-rendered guarantee are
-retired. The catalog updater remains an authoring utility, not a hidden test
-lane. No omitted frame has an equivalence guarantee.
+PR lane: `test/ui-system.mjs` opens the 21 explicitly declared critical frames
+once each. Each settled production frame is shared between a fresh pixel
+comparison, a semantic observation and live role/contrast checks. The suite
+also runs real entry accessibility and deliberate checker defects. Every cell
+must pass. The `ci` job's `merge-ui-system` step rejects missing or duplicate
+reports, a foreign source identity, failed observations and incomplete
+comparisons. `test/ui-system-checker.mjs` keeps the checker's own self-tests
+(metadata, CSS debt, rendered contrast, boundary, focus, modal-inert and
+device-pixel sampling negatives).
+
+Full lane: the two exhaustive catalog sweeps are split into shard commands.
+
+- `tools/check-ui-system.mjs --shard k/7` renders one stripe of the
+  screen × theme × locale matrix and writes `ui-system-shard.json` beside its
+  evidence. The rule "every inventory selector rendered somewhere" needs the
+  union of all stripes, so the `ci-full` job downloads the shard artifacts and
+  runs `node tools/ci-plan.mjs merge-ui-system-full .ci-results/full-shards`
+  (browser-free, so the gate installs nothing).
+- `tools/capture-ui-screens.mjs --verify --shard k/6` captures one stripe of the
+  catalog frames into a staging tree. It then compares the complete staged
+  catalog with the committed one (`check-ui-screens` registration plus
+  `compare-ui-screens` pixels and semantics). The committed frames are the
+  immutable baseline; the working tree is never rewritten. Failing frames and
+  their baselines are kept under the suite's evidence directory as
+  `visual-failures/`.
 
 ## Browser preview and visual evidence
 
 In a fresh checkout, run `(cd test && npm ci && npx playwright install --with-deps --only-shell chromium)` once. Normal browser and screenshot commands leave `REPFORGE_URL` unset: `tools/local-preview.mjs` generates an analytics-disabled isolated current-worktree server on a fresh loopback port, verifies identity and cleans up. Explicit local URLs must serve the same worktree.
 
-After a user-visible change, run `node tools/capture-ui-screens.mjs --affected --accept-visual-change`, review the updated PNGs and commit them; `--list-affected` shows the local recapture plan. That local selector (`tools/ci-selection.mjs`, `tools/visual-domains.mjs`) only decides what you recapture; CI always verifies the complete declared critical matrix; a wrong local authoring selection can leave an omitted catalog image stale, an explicitly accepted reduction in automatic coverage. `sw.js` is ignored by the local selector only when the canonical `CACHE` declaration is its sole change.
+After a user-visible change, run `node tools/capture-ui-screens.mjs --affected --accept-visual-change`, review the updated PNGs and commit them; `--list-affected` shows the local recapture plan. That local selector (`tools/ci-selection.mjs`, `tools/visual-domains.mjs`) only decides what you recapture; PR CI verifies the complete declared critical matrix, and the full lane verifies every catalog frame on each push to main and nightly. A wrong local authoring selection can therefore pass a PR and turn `ci-full` red on main; recapture the affected frames before merging. `sw.js` is ignored by the local selector only when the canonical `CACHE` declaration is its sole change.
 
 ## Failures and evidence
 
@@ -146,8 +207,8 @@ more deterministic outside the browser: serialization/canonicalization,
 migrations, algorithmic boundaries, protocol fault injection, durable-state
 recovery, concurrency/races and verification-tool self-tests.
 
-Long simulations, persistence/race suites, migration compatibility, privacy,
-offline behavior and accessibility remain because they cover distinct failure
-modes. Any future deletion should name the stronger retained evidence that
+Long simulations (full lane), persistence/race suites, migration compatibility,
+privacy, offline behavior and accessibility remain because they cover distinct
+failure modes. Any future deletion should name the stronger retained evidence that
 catches the same plausible production bug. This remains Chromium automation, not
 physical-device iOS or Android validation.

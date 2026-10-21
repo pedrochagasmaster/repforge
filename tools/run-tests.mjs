@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync, writeSync } from "node:fs";
 import { dirname, join, resolve, relative, isAbsolute } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { SUITES, BROWSER_LANES, browserEntries, commandArgs, inventoryErrors, parseShard, shardSuites, suiteId } from "../test/suites.mjs";
+import { SUITES, FULL_SUITES, INVENTORY, BROWSER_LANES, browserEntries, commandArgs, inventoryErrors, parseShard, shardSuites, suiteId } from "../test/suites.mjs";
 import { changedFilesForTests, changedFilesForEdit, changedFilesForPacket, formatAffected, selectBranch, selectPacket, selectEdit } from "./test-selection.mjs";
 import { maybeStartLocalPreview } from "./local-preview.mjs";
 export { maybeStartLocalPreview } from "./local-preview.mjs";
@@ -155,15 +155,16 @@ async function main() {
   if (argv.length === 1 && argv[0] === "--check") {
     const errors = inventoryErrors(repositoryFiles());
     if (errors.length) throw new Error(errors.join("\n"));
-    console.log(`Inventory: ${Object.values(SUITES).flat().length} commands; every test script classified.`);
+    console.log(`Inventory: ${Object.values(SUITES).flat().length} pull-request and ${Object.values(FULL_SUITES).flat().length} full-lane commands; every test script classified.`);
     return;
   }
   const target = argv.shift();
-  if (!["all", "affected", "edit", "packet", "branch", "candidate", "shard"].includes(target) && !Object.hasOwn(SUITES, target || "")) {
-    throw new Error("Usage: node tools/run-tests.mjs fast|state|entry|workout|privacy|visual|all|edit|packet|branch|candidate|shard <k/n>|affected [--list] [--explain] [--suite file-or-stem] [--base ref] [--fail-fast|--keep-going] [--verbose], or --check");
+  if (!["all", "affected", "edit", "packet", "branch", "candidate", "shard", "full-shard"].includes(target) && !Object.hasOwn(INVENTORY, target || "")) {
+    throw new Error("Usage: node tools/run-tests.mjs fast|state|entry|workout|privacy|service|full-fast|full-browser|all|edit|packet|branch|candidate|shard <k/n>|full-shard <k/n>|affected [--list] [--explain] [--suite file-or-stem] [--base ref] [--fail-fast|--keep-going] [--verbose], or --check");
   }
-  // `shard k/n` is the CI unit: the whole browser inventory, balanced across n runners.
-  const shard = target === "shard" ? parseShard(argv.shift()) : null;
+  // `shard k/n` is the PR CI unit: the whole pull-request browser inventory, balanced
+  // across n runners. `full-shard k/n` is the same unit for the full lane's browser commands.
+  const shard = target === "shard" || target === "full-shard" ? parseShard(argv.shift()) : null;
   let list = false, explain = false, verbose = false, filter, filterId, ids, base, failurePolicy, evidence;
   while (argv.length) {
     const arg = argv.shift();
@@ -181,7 +182,7 @@ async function main() {
 
   let groups;
   const invocationStarted = Date.now();
-  if (evidence && (list || ids || ["all", "candidate", "branch", "packet", "affected", "edit", "shard"].includes(target))) {
+  if (evidence && (list || ids || ["all", "candidate", "branch", "packet", "affected", "edit", "shard", "full-shard"].includes(target))) {
     throw new Error("--evidence requires an executing exact lane with --suite");
   }
   let sourceBefore, evidenceFd;
@@ -195,18 +196,18 @@ async function main() {
     sourceBefore = sourceAtHead();
     if (sourceBefore.status) throw new Error("--evidence requires a clean source worktree");
   }
-  if (["affected", "branch", "edit", "packet", "candidate", "shard"].includes(target)) {
+  if (["affected", "branch", "edit", "packet", "candidate", "shard", "full-shard"].includes(target)) {
     if (filter || filterId) throw new Error(`${target} already selects suites; use a lane plus --suite-id for one explicit rerun`);
     if (target === "affected") console.warn("affected is the branch-wide compatibility alias; use edit or packet for local feedback.");
     const changed = target === "edit" ? changedFilesForEdit({ cwd: ROOT })
       : target === "packet" ? changedFilesForPacket({ cwd: ROOT, base: base || process.env.REPFORGE_PACKET_BASE })
-      : target === "candidate" || target === "shard" ? { base: "HEAD", files: null }
+      : ["candidate", "shard", "full-shard"].includes(target) ? { base: "HEAD", files: null }
       : changedFilesForTests({ cwd: ROOT, base });
     const selectionBase = changed.base === "HEAD (working tree)" ? "HEAD" : changed.base;
     const plan = target === "candidate"
       ? { mode: "all", entries: Object.entries(SUITES).filter(([lane]) => lane !== "service").flatMap(([lane, suites]) => suites.map((suite) => ({ lane, suite }))), files: [], reasons: ["Complete local candidate gate; service requires its external environment."] }
-      : target === "shard"
-      ? shardPlan(shard)
+      : target === "shard" || target === "full-shard"
+      ? shardPlan(shard, target === "full-shard" ? FULL_SUITES : SUITES)
       : (target === "edit" ? selectEdit : target === "packet" ? selectPacket : selectBranch)(changed.files, { cwd: ROOT, base: selectionBase });
     const selectionDurationMs = Date.now() - invocationStarted;
     console.log(`${target} base: ${changed.base || "unavailable"}`);
@@ -221,17 +222,17 @@ async function main() {
       return;
     }
     if (!plan.entries.length) return;
-    groups = Object.entries(SUITES).map(([lane]) => [lane, plan.entries.filter((entry) => entry.lane === lane).map((entry) => entry.suite)]).filter(([, entries]) => entries.length);
+    groups = Object.entries(INVENTORY).map(([lane]) => [lane, plan.entries.filter((entry) => entry.lane === lane).map((entry) => entry.suite)]).filter(([, entries]) => entries.length);
     const source = sourceIdentity(ROOT, process.env);
     const preview = await maybeStartLocalPreview(plan.entries, { cwd: ROOT });
     try {
-      const reports = await runGroups(groups, { verbose, env: preview?.env || process.env, failFast: failurePolicy ?? !["candidate", "shard"].includes(target), source });
+      const reports = await runGroups(groups, { verbose, env: preview?.env || process.env, failFast: failurePolicy ?? !["candidate", "shard", "full-shard"].includes(target), source });
       writeInvocation(target, plan.entries, reports, selectionDurationMs, invocationStarted);
     } finally { preview?.cleanup?.(); }
     return;
   }
 
-  groups = (target === "all" ? Object.entries(SUITES) : [[target, SUITES[target]]]).map(([lane, entries]) => [lane,
+  groups = (target === "all" ? Object.entries(SUITES) : [[target, INVENTORY[target]]]).map(([lane, entries]) => [lane,
     entries.filter((suite) => ids ? ids.includes(suiteId(suite)) : filterId ? suiteId(suite) === filterId
       : !filter || suite.file === filter || suite.file.split("/").at(-1).replace(/\.mjs$/, "") === filter)]);
   const selected = groups.reduce((sum, [, entries]) => sum + entries.length, 0);
@@ -272,11 +273,12 @@ async function main() {
 }
 
 /** One CI shard: deterministic from the committed inventory, so every runner computes the same split. */
-export function shardPlan({ index, count }) {
-  const bins = shardSuites(browserEntries(), count);
+export function shardPlan({ index, count }, suites = SUITES) {
+  const all = browserEntries(suites);
+  const bins = shardSuites(all, count);
   const { entries, seconds } = bins[index - 1];
   return { mode: "shard", entries, files: [],
-    reasons: [`Browser shard ${index}/${count}: ${entries.length} of ${browserEntries().length} browser command(s), about ${Math.round(seconds)}s measured (heaviest shard ${Math.round(Math.max(...bins.map((bin) => bin.seconds)))}s).`] };
+    reasons: [`${suites === FULL_SUITES ? "Full-lane browser" : "Browser"} shard ${index}/${count}: ${entries.length} of ${all.length} browser command(s), about ${Math.round(seconds)}s measured (heaviest shard ${Math.round(Math.max(...bins.map((bin) => bin.seconds)))}s).`] };
 }
 
 function sourceAtHead() {
@@ -289,7 +291,7 @@ function writeInvocation(scope, entries, reports, selectionDurationMs, started) 
   mkdirSync(join(ROOT, ".ci-results"), { recursive: true });
   writeFileSync(join(ROOT, ".ci-results/invocation.json"), JSON.stringify({
     scope, selectionCount: entries.length,
-    selectionByLane: Object.fromEntries(Object.keys(SUITES).map((lane) => [lane, entries.filter((entry) => entry.lane === lane).length])),
+    selectionByLane: Object.fromEntries(Object.keys(INVENTORY).map((lane) => [lane, entries.filter((entry) => entry.lane === lane).length])),
     selectionDurationMs, executionDurationMs: Date.now() - started - selectionDurationMs,
     failed: reports.reduce((sum, report) => sum + report.failed, 0),
     notRun: entries.length - reports.reduce((sum, report) => sum + report.results.filter((row) => row.initial).length, 0),

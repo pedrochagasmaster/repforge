@@ -6,7 +6,12 @@
  *                                 matrix and publish the shard list
  *   node tools/ci-plan.mjs gate   fail unless every job the plan selected passed
  *   node tools/ci-plan.mjs merge-ui-system <dir>
- *                                 union the ui-critical-report.json reports under
+ *                                 validate the one ui-critical-report.json under
+ *                                 <dir>: the complete critical UI matrix
+ *   node tools/ci-plan.mjs gate-full
+ *                                 fail unless every ci-full job passed
+ *   node tools/ci-plan.mjs merge-ui-system-full <dir>
+ *                                 union the ui-system-shard.json reports under
  *                                 <dir> and apply the catalog-wide rules
  *
  * The only narrowing CI does is "prose-only changes skip the tests". Anything
@@ -17,7 +22,7 @@
 import { appendFileSync, existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { CI_SHARDS } from "../test/suites.mjs";
+import { CI_SHARDS, FULL_SHARDS, UI_SYSTEM_SHARDS } from "../test/suites.mjs";
 import { captureKey, loadManifest } from "./ui-screens/manifest.mjs";
 import { findShardReports, loadRoleInventory, mergeShardReports, shardCaptures, validateRoleInventory } from "./ui-system-core.mjs";
 
@@ -122,7 +127,7 @@ function latestShardReports(root) {
   const latest = new Map();
   const entries = existsSync(root) ? readdirSync(root, { withFileTypes: true }) : [];
   for (const entry of entries) {
-    const match = entry.isDirectory() && /^shard-(\d+)-(\d+)$/.exec(entry.name);
+    const match = entry.isDirectory() && /^(?:full-)?shard-(\d+)-(\d+)$/.exec(entry.name);
     if (!match) continue;
     const [, job, attempt] = match;
     if (!latest.has(job) || Number(attempt) > latest.get(job).attempt) latest.set(job, { attempt: Number(attempt), dir: join(root, entry.name) });
@@ -135,9 +140,53 @@ function latestShardReports(root) {
 export { mergeCriticalReports as mergeUiSystemReports } from "./critical-ui.mjs";
 import { mergeCriticalReports as mergeUiSystemReports } from "./critical-ui.mjs";
 
+/** The full lane's catalog-wide UI-system rule over every shard's report; browser-free so the gate job needs no test dependencies. */
+export function mergeFullUiSystemReports(root, { inventory = loadRoleInventory(), manifest = loadManifest() } = {}) {
+  const problems = validateRoleInventory(inventory, manifest);
+  const captureKeys = manifest.screens.flatMap((screen) => manifest.themes.flatMap((theme) =>
+    Object.keys(manifest.locales).map((locale) => captureKey({
+      flow: screen.flow, screen: screen.id, viewport: "phone-390", theme, locale, text: "normal", motion: "normal",
+    }))));
+  const expectedCaptureKeysByShard = Array.from({ length: UI_SYSTEM_SHARDS }, (_, index) =>
+    shardCaptures(captureKeys, { index: index + 1, count: UI_SYSTEM_SHARDS }));
+  const merged = mergeShardReports(latestShardReports(root), inventory, {
+    expectedShardCount: UI_SYSTEM_SHARDS,
+    expectedScreenCount: captureKeys.length,
+    expectedCaptureKeysByShard,
+  });
+  return { ...merged, problems: [...problems, ...merged.problems] };
+}
+
+/** The full lane has no prose shortcut: on every event that schedules it, every job must pass. */
+export function gateFullResults(needs, { log = console.log } = {}) {
+  if (!needs || typeof needs !== "object" || Array.isArray(needs)) throw new Error("CI full gate: needs must be an object");
+  for (const name of ["plan", "full-fast", "full-browser"]) {
+    if (!Object.hasOwn(needs, name)) throw new Error(`CI full gate: missing required job ${name}`);
+  }
+  const failures = [];
+  for (const [name, job] of Object.entries(needs)) {
+    log(`${name}: ${job.result} (required)`);
+    if (job.result !== "success") failures.push(`${name}: expected success, got ${job.result}`);
+  }
+  if (failures.length) throw new Error(`CI full gate failed: ${failures.join("; ")}`);
+  log("Every full-lane job passed.");
+}
+
 async function main(argv) {
   if (argv[0] === "gate") {
     gateResults(JSON.parse(process.env.NEEDS || "{}"));
+    return;
+  }
+  if (argv[0] === "gate-full") {
+    gateFullResults(JSON.parse(process.env.NEEDS || "{}"));
+    return;
+  }
+  if (argv[0] === "merge-ui-system-full") {
+    if (!argv[1]) throw new Error("merge-ui-system-full needs a directory holding ui-system-shard.json reports");
+    const merged = mergeFullUiSystemReports(resolve(argv[1]));
+    console.log(`UI system merge: ${merged.shards} shard report(s), ${merged.screens} rendered states, ${merged.problems.length} problem(s).`);
+    for (const problem of merged.problems) console.error(`FAIL: ${problem}`);
+    if (merged.problems.length) process.exitCode = 1;
     return;
   }
   if (argv[0] === "merge-ui-system") {
@@ -152,7 +201,7 @@ async function main(argv) {
   const shards = shardMatrix();
   console.log(`${plan.event} ${plan.head}: run=${plan.run} — ${plan.reason}`);
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT,
-    `run=${plan.run}\nreason=${plan.reason.replaceAll("\n", " ")}\nshards=${JSON.stringify(shards)}\n`);
+    `run=${plan.run}\nreason=${plan.reason.replaceAll("\n", " ")}\nshards=${JSON.stringify(shards)}\nfull_shards=${JSON.stringify(shardMatrix(FULL_SHARDS))}\n`);
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY,
     `## CI plan\n\n- Source: ${plan.head}\n- Run tests: **${plan.run ? "yes" : "no"}** — ${plan.reason}\n- Browser shards: ${shards.length}\n` +
     (plan.files ? `- Changed files: ${plan.files.length}\n` : ""));
