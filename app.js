@@ -11856,6 +11856,8 @@ function closeInstalledLeaveDialog(){
   installedLeaveMode=null;
   pendingEditorNavigation=null;
   if(dialog)closeModal(dialog);
+  // Staying in the editor (Keep editing, Escape, a refused name) returns to a name Back set aside.
+  afterModalSettles(()=>installedProgramEditor?.resumePendingRename?.());
 }
 function openInstalledLeaveDialog({workout=false}={}){
   const dialog=$("#programEditorLeave");if(!dialog)return;
@@ -11914,7 +11916,6 @@ async function applyInstalledEditorAndContinue(){
   if(result?.renameRefused){
     // The typed name was refused (a day name already in use): back to its sheet and reason.
     closeInstalledLeaveDialog();
-    afterModalSettles(()=>editor.resumePendingRename?.());
     return result;
   }
   if(result?.committed===true&&result?.settled===true){
@@ -21334,10 +21335,7 @@ function init(){
     finishInstalledEditor()};
   const leaveApply=$("#programEditorApply");if(leaveApply)leaveApply.onclick=()=>applyInstalledEditorAndContinue();
   const leaveDiscard=$("#programEditorDiscard");if(leaveDiscard)leaveDiscard.onclick=()=>finishInstalledEditor({discard:true});
-  const leaveKeep=$("#programEditorKeep");if(leaveKeep)leaveKeep.onclick=()=>{
-    closeInstalledLeaveDialog();
-    // Keep editing returns to a name that Back set aside, as it was typed.
-    afterModalSettles(()=>installedProgramEditor?.resumePendingRename?.())};
+  const leaveKeep=$("#programEditorKeep");if(leaveKeep)leaveKeep.onclick=()=>closeInstalledLeaveDialog();
   const histSearchBtn=$("#historySearchBtn");if(histSearchBtn)histSearchBtn.onclick=()=>HistoryUi.setSearchOpen(!HistoryUi.isSearchOpen());
   const histSearch=$("#historySearch");if(histSearch)histSearch.oninput=()=>HistoryUi.setQuery(histSearch.value);
   const histSearchClear=$("#historySearchClear");if(histSearchClear)histSearchClear.onclick=()=>HistoryUi.clearSearch();

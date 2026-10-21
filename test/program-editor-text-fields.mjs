@@ -373,6 +373,12 @@ async function renameBack(browser) {
       check(resumed === "Back protected program", "Keep editing reopens the rename with the typed name", { resumed });
       await page.goBack();
       await page.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
+      await page.keyboard.press("Escape");
+      await page.waitForSelector("#programEditorLeave", { state: "hidden" });
+      const escaped = await page.locator(`${SHEET}.is-open [data-role="rename-input"]`).inputValue({ timeout: 5000 }).catch(() => null);
+      check(escaped === "Back protected program", "Escape on the decision also returns to the typed name", { escaped });
+      await page.goBack();
+      await page.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
       await page.click("#programEditorDiscard");
       await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), undefined, { timeout: 5000 });
       check(await storedName() === original, "Discard leaves the stored name");
