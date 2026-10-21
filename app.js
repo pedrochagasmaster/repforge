@@ -15435,14 +15435,20 @@ function importChoiceContext(s,opener,io){
     inSessions:new Set(s.log.map(r=>r.session)).size,inSets:s.log.length,
     curSessions:have.size,curSets:state.log.length,
     newSessions:new Set(s.log.filter(r=>!have.has(r.session)).map(r=>r.session)).size}}
+/* A file from slow storage can still be reading when another is picked. Only
+   the latest pick may answer; an earlier read must not reopen the choice. */
+let backupFileSelection=0;
 async function importJson(e){const f=e.target.files?.[0];if(!f)return;
+  const selection=++backupFileSelection;
   try{
     if(Number.isFinite(f.size)&&f.size>BACKUP_MAX_BYTES)throw Error();
-    const s=parseBackupFile(await f.text());
+    const text=await f.text();
+    if(selection!==backupFileSelection)return;
+    const s=parseBackupFile(text);
     if(!isImportableState(s))throw Error();
     if(isLegacyBackup(s)){toast(t("toast.backup_legacy"));e.target.value="";return}
     openImportChoice(importChoiceContext(s,e.target))}
-  catch{toast(t("toast.import_invalid"))}
+  catch{if(selection===backupFileSelection)toast(t("toast.import_invalid"))}
   e.target.value=""}
 /* Restoring answers the setup gate it may have arrived through: the lifter now
    has both a program and a history, so there is nothing left for the gate to
