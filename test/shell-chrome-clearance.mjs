@@ -11,6 +11,8 @@
  * 3. Today's prescription keeps a long exercise name readable: the longest catalog name wraps at word boundaries
  *    only, with no line shorter than three characters, at 390 and 375 px. A manual row's target is sets × range
  *    (owner copy 2026-10-18), and the subtitle counts "exercises with your own targets".
+ * 4. The onboarding layer (#onboarding) scrolls on its own above the shell, so it paints its own paper band over the
+ *    top inset: on the review result and the Build editor, the band is solid --bg at scroll 0, mid and end (#449).
  */
 import { launchChromium } from "./browser.mjs";
 import { SAFE_AREA, openCatalogState } from "./fixtures/catalog-state.mjs";
@@ -198,6 +200,28 @@ try {
       const owner = lang === "en" ? /^(1 exercise|\d+ exercises) with your own targets$/ : /^(1 exercício|\d+ exercícios) com metas suas$/;
       check(tally.some((line) => owner.test(line)), `${lang}: the subtitle counts the exercises with your own targets`, tally);
     } finally { await context.close(); }
+  }
+
+  console.log("\n4. Onboarding scrolls in its own layer, and nothing in it scrolls into the status bar (390×844)");
+  for (const theme of ["light", "dark"]) {
+    for (const key of ["onboarding-recommend/result-changed", "onboarding-build/editor-ready"]) {
+      const { context, page } = await openCatalogState(browser, key, 390, "en", "normal", { theme });
+      try {
+        const max = await page.evaluate(() => { const layer = document.querySelector("#onboarding"); return layer.scrollHeight - layer.clientHeight; });
+        check(max > SAFE_AREA.top, `${theme} ${key}: the onboarding layer is long enough to scroll under the status bar`, { max });
+        const dirty = [];
+        for (const y of [0, Math.round(max / 2), "end"]) {
+          await page.evaluate((top) => {
+            const layer = document.querySelector("#onboarding");
+            layer.scrollTo({ top: top === "end" ? layer.scrollHeight : top, behavior: "instant" });
+            return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+          }, y);
+          const band = await bandReading(page);
+          if (band.off) dirty.push({ y, ...band });
+        }
+        check(!dirty.length, `${theme} ${key}: the status-bar inset is solid paper at scroll 0, mid and end`, dirty);
+      } finally { await context.close(); }
+    }
   }
 } finally {
   await browser.close();
