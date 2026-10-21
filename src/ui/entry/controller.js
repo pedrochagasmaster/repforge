@@ -54,7 +54,7 @@ export function createEntryController({document,navigator,session,copy,commands,
  }
  /** @param {string} selector @param {(event:MouseEvent)=>unknown} action */
  function click(selector,action){const node=/** @type {HTMLElement|null} */(q(selector));if(node)node.onclick=action}
- /** @type {Record<string,string>} */ const repairKeys={invalid_rows:'entry.freeform.repair_invalid_rows',assemble_failed:'entry.freeform.repair_assemble_failed'};
+ /** @type {Record<string,string>} */ const repairKeys={invalid_json:'entry.freeform.repair_invalid_json',invalid_rows:'entry.freeform.repair_invalid_rows',assemble_failed:'entry.freeform.repair_assemble_failed'};
  function bind(){
   click('#entryFreeformSwitch',()=>commands.changeDoor('freeform'));click('#entryFreeformFile',()=>commands.changeDoor('file'));
   click('#entryWriteOwn',()=>commands.writeOwn());
