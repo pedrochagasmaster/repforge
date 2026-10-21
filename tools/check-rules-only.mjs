@@ -293,7 +293,7 @@ export async function runRulesOnly({
  * orange band, the segbar's current segment, group labels, new-exercise marks) is returned in `outside` and printed, and is
  * not this finding's to judge.
  */
-export const ONBOARDING_ACCENT_SCOPE = /entry__pain|guide-dialog/;
+export const ONBOARDING_ACCENT_SCOPE = /entry__pain|guideDialog/;
 export const onboardingStates = (manifest = loadManifest()) =>
   manifest.screens.map((screen) => `${screen.flow}/${screen.id}`).filter((key) => key.startsWith("onboarding-"));
 

@@ -192,9 +192,9 @@ try {
     states: ["onboarding-start/hub-guide"], locales: ["en"], browser, manifest,
     prepare: (page) => page.addStyleTag({ content: ".guide-dialog{border-left:3px solid var(--accent) !important}" }),
   });
-  check(!seededCue.ok && seededCue.findings.some((item) => /guide-dialog/.test(item.message) && /border-left-color/.test(item.message)),
+  check(!seededCue.ok && seededCue.findings.some((item) => /guideDialog/.test(item.message) && /border-left-color/.test(item.message)),
     "an accent edge on the hub guide dialog is reported by the same check", show(seededCue.findings.map((item) => item.message)));
-  check(ONBOARDING_ACCENT_SCOPE.test("p.entry__pain in #onbBody is painted with the accent") && ONBOARDING_ACCENT_SCOPE.test("dialog.entry-dialog.guide-dialog in body is painted with the accent"),
+  check(ONBOARDING_ACCENT_SCOPE.test("p.entry__pain in #onbBody is painted with the accent") && ONBOARDING_ACCENT_SCOPE.test("#guideDialog is painted with the accent"),
     "the audit's scope is the pain note and the hub guide dialog");
 
   console.log("\nThe audit refuses a bad list");
