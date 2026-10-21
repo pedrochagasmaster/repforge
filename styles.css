@@ -902,7 +902,15 @@ div.settings-row{cursor:default}
 body:has(.exercise--focus.is-text-scaled){--focus-context-floor:0px}
 body:has(.exercise--focus.is-text-scaled) .wo-head{flex-wrap:wrap;row-gap:0}
 body:has(.exercise--focus.is-text-scaled) .fcard__context{padding-block:0}
+body:has(.exercise--focus.is-text-scaled) .exercise--focus .guide-cue{margin-block:0}
 body:has(.exercise--focus.is-text-scaled) #log > :not(#workoutShell){margin-bottom:0}
+/* A guide is a hint, and on a short screen it can only be shown cut off. Where the shelf and the controls already take
+   the height it stands down rather than take the shelf's room; it keeps its state and returns on a taller screen. */
+@media (max-height:600px){
+  body.is-focus-wo :is(#workoutShell,.exercise--focus) .guide-cue{display:none}
+}
+/* At large text a recovery banner is the one thing to act on; a first-use hint does not sit beside it. */
+body.is-focus-wo:has(#draftRecovery:not(.hidden)):has(.exercise--focus.is-text-scaled) :is(#workoutShell,.exercise--focus) .guide-cue{display:none}
 /* The shelf's labels are one or two short words that wrap in a third of the screen; tight leading keeps their two lines
    from costing the shelf the room its action needs. The running timer's pill drops its dot and takes the label size so
    the controls and the timer share one row with the title under them. */
@@ -1027,21 +1035,14 @@ body.is-workout.is-focus-wo #workoutShell > :not(.wo-head):not(#logForm){
    band the keyboard leaves visible, not 100dvh, so the shelf and the field being edited sit just above the keyboard
    (#300). The floors that keep the shelf from being squeezed by the chrome above it stand down: in that band the shelf
    is what matters, and the context region gives up its height instead. */
-/* The band is where the visual viewport is, not the top of the layout one: iOS pans the visual viewport to show the
-   field (and a browser may try its own focus scroll), so Focus is pinned to the band itself. The header keeps its
-   place under the safe area, the shelf sits on the keyboard's accessory bar, and the document has nothing to scroll. */
-:root[data-keyboard="up"] body.is-workout.is-focus-wo main{position:fixed;top:var(--vv-top,0px);left:0;right:0;height:var(--vvh,100dvh)}
-/* The status bar's paper band follows the band too, so it stays under the clock after the pan. */
-:root[data-keyboard="up"] body.is-workout.is-focus-wo::before{top:var(--vv-top,0px)}
-/* The deck keeps the shelf whole (`--focus-deck-floor`, from syncFocusFloor) and the skip bar gives way like the
-   banners above the deck, so a short band still holds the whole shelf. */
-:root[data-keyboard="up"] body.is-workout.is-focus-wo #workout > .deck{min-height:var(--focus-deck-floor,0px)}
-:root[data-keyboard="up"] body.is-workout.is-focus-wo #workout > .skipbar{flex:0 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+:root[data-keyboard="up"] body.is-workout.is-focus-wo main{height:var(--vvh,100dvh)}
 :root[data-keyboard="up"] body.is-workout.is-focus-wo #workoutShell,
 :root[data-keyboard="up"] body.is-workout.is-focus-wo #logForm{min-height:0}
 :root[data-keyboard="up"] body.is-workout.is-focus-wo article.exercise--focus .fcard__context{min-height:0}
 /* The keyboard covers the home indicator, so the shelf does not pay its inset again above the keyboard. */
 :root[data-keyboard="up"] body.is-workout.is-focus-wo .focus-shelf{padding-bottom:var(--space-16)}
+/* A guide above the deck never takes more than a quarter of the screen, so the card under it keeps its context. */
+body.is-workout.is-focus-wo #workoutShell > .guide-cue{max-height:25dvh}
 body.is-workout.is-focus-wo #dayTabs,
 body.is-workout.is-focus-wo #logForm > .field,
 body.is-workout.is-focus-wo #logForm > .btn--save{display:none!important}
@@ -1195,6 +1196,9 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 .ledger__chev{flex:none}
 .ledger__more[aria-expanded="true"] .ledger__chev{transform:rotate(180deg)}
 
+/* A first-set cue rides above the shelf, in the flow, and keeps the shelf on the edge. */
+.exercise--focus .guide-cue{flex:0 1 auto;min-height:0;max-height:25%;overflow-y:auto;overscroll-behavior:contain;margin:var(--space-8) var(--gut)}
+#workoutShell .guide-cue{background:var(--well)}
 
 /* ---- The shelf ----
    Three fields, the pads for the selected one, and the one action. The shell is
@@ -2796,87 +2800,40 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
   padding-inline:clamp(4px,calc(28px - .75em),16px)
 }
 
-
-
-/* Plan 074 (ADR 0021): the installed editor in onboarding B's editing language. The rows, tabs, sheet and
-   steppers are onboarding's review classes; these rules only place them in the Program tab and add what
-   onboarding never needed (the week table, the pinned Apply that stands in for the dock). */
-/* The pinned Apply bar's band; a blocked reason above the button makes it taller. The rest pill (#440)
-   and the editor's Undo toast ride above it, and the page reserves both so its end scrolls clear. */
-body:has(#program.program-editor-installed){
-  --editor-apply-reserve:calc(96px + env(safe-area-inset-bottom));
-  padding-bottom:calc(var(--editor-apply-reserve) + var(--space-16) + var(--restbar-reserve,0px))
+/* The installed editor reference is a full-width bottom bar. It deliberately
+   drops the overview's floating dock treatment while editing, so the four
+   destinations remain quiet text-and-icon actions and Program is marked only
+   by its orange ink. */
+body:has(#program.program-editor-installed) nav{
+  left:0;right:0;bottom:0;transform:none;width:100%;max-width:none;height:calc(var(--dock-h) + env(safe-area-inset-bottom));
+  padding:6px max(6px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left));
+  border:0;border-top:1px solid var(--boundary-persistent);border-radius:0;background:var(--color-surface);backdrop-filter:none;-webkit-backdrop-filter:none;
+  box-shadow:var(--elevation-program-dock-shadow)
 }
-body:has(#program.program-editor-installed):has(.program-editor-a__reason){--editor-apply-reserve:calc(128px + env(safe-area-inset-bottom))}
-body:has(#program.program-editor-installed) .restbar{bottom:var(--editor-apply-reserve)}
-body:has(#program.program-editor-installed) .review-toast{bottom:calc(var(--editor-apply-reserve) + var(--restbar-reserve,0px))}
-body:has(#program.program-editor-installed) nav{display:none}
-.pagehead__cancel{flex:none;margin-top:4px}
-.program-editor-installed .pagehead{align-items:center}
-.program-editor-installed .pagehead__titles{flex:1;min-width:0}
-.program-editor-installed .pagehead .page-title{font-size:var(--font-size-body);font-weight:var(--weight-semibold)}
-.program-editor-a{display:flex;flex-direction:column;gap:0}
-.program-editor-a__title{margin:0}
-.program-editor-a__facts{margin:var(--space-4) 0 var(--space-14)}
-.program-editor-a__hint{padding-top:var(--space-14);border-top:1px solid var(--boundary-decorative)}
-/* Figures in Plex Mono, words in the language font (decision 2). */
-.program-editor-a .review__reps,.program-editor-a .review__rir,.review-sheet [data-role="set-reps"],
-.review-sheet .program-editor-a__weeksum{font-family:var(--font-language)}
-.program-editor-a .num,.review-sheet [data-role="set-reps"] .num,.review-sheet .program-editor-a__weeksum .num{font-family:var(--font-training-data)}
-.program-editor-a__bar{
-  position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;flex-direction:column;gap:var(--space-8);
-  padding:var(--space-12) var(--gut) calc(var(--space-12) + env(safe-area-inset-bottom));
-  background:var(--bg);border-top:1px solid var(--boundary-persistent);box-shadow:var(--elevation-persistent-shadow)
+/* The flush bar is opaque surface, not glass: it has no rim to catch light. */
+body:has(#program.program-editor-installed) nav::before{display:none}
+body:has(#program.program-editor-installed) #programEditor{padding-bottom:calc(var(--nav) + env(safe-area-inset-bottom))}
+body:has(#program.program-editor-installed) nav button,
+body:has(#program.program-editor-installed) nav button.active{border-radius:0;background:transparent;box-shadow:none}
+body:has(#program.program-editor-installed) nav button.active{
+  border-radius:var(--radius-pill);background:var(--control-selection-active-bg);
+  box-shadow:var(--elevation-selected-shadow)
 }
-.program-editor-a__bar .btn{width:100%}
-.program-editor-a__reason{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink)}
-/* The Suggest loads switch is ink, not orange (decision 4). */
-.program-editor-a__switch[aria-checked="true"]::before{background:var(--ink)}
-.program-editor-a__line{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--space-12);min-height:var(--control-target);padding:var(--space-8) 0}
-.program-editor-a__loadstep .program-editor__metric-field{display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);width:100%}
-.program-editor-a__loadstep input{width:6.5rem;min-height:var(--control-target);padding:var(--space-8) var(--space-12);border:1px solid var(--control-adjustment-boundary);border-radius:var(--radius-control);background:var(--surface);font-family:var(--font-training-data);font-size:var(--font-size-control);text-align:right;color:var(--color-ink)}
-.program-editor-a__loadstep .program-editor__hint{margin:0;width:100%}
-.program-editor-a__loadstep .program-editor__metric-field>span{font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);letter-spacing:normal;text-transform:none;color:var(--color-ink)}
-.program-editor-a__mode{display:flex;flex-direction:column;gap:var(--space-8);padding-top:var(--space-8)}
-.program-editor-a__navrow{display:flex;align-items:center;gap:var(--space-12);width:100%;min-height:var(--control-target);padding:var(--space-8) 0;border:0;background:none;text-align:left;color:var(--color-ink);cursor:pointer}
-.program-editor-a__navrow:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-control)}
-.program-editor-a__navrow>.icon-mask{flex:none;color:var(--ink-faint)}
-.program-editor-a__navtext{flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--space-4)}
-.program-editor-a__navtext .review-sheet__note{margin:0}
-.program-editor-a__navaction{flex:none;font-family:var(--font-language);font-size:var(--font-size-body-small);color:var(--color-ink)}
-.program-editor-a__back{display:inline-flex;align-items:center;gap:var(--space-4);min-height:var(--control-target);padding:0;margin-bottom:var(--space-4)}
-.program-editor-a__week{border-bottom:1px solid var(--boundary-decorative)}
-.program-editor-a__week.is-open{background:var(--well);margin:0 -16px;padding:0 16px}
-.program-editor-a__weekrow{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:var(--space-12);width:100%;min-height:56px;padding:var(--space-8) 0;border:0;background:none;text-align:left;color:var(--color-ink);font-family:var(--font-language);font-size:var(--font-size-body);cursor:pointer}
-.program-editor-a__weekrow:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px;border-radius:var(--radius-control)}
-.program-editor-a__weekrow>.icon-mask{color:var(--ink-faint)}
-.program-editor-a__weekname{display:inline-flex;align-items:center;flex-wrap:wrap;gap:var(--space-8)}
-.program-editor-a__week.is-open .program-editor-a__weekname{font-weight:var(--weight-semibold)}
-.program-editor-a__weeksum{justify-self:end;text-align:right;font-size:var(--font-size-body-small);color:var(--color-ink-secondary)}
-.program-editor-a__weekbody{padding:0 0 var(--space-14)}
-.program-editor-a__grid{display:grid;grid-template-columns:28px repeat(var(--program-editor-a-columns,3),minmax(0,1fr));gap:var(--space-8);align-items:center}
-.program-editor-a__th{display:flex;align-items:flex-end;min-height:28px;font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-medium);letter-spacing:.06em;text-transform:uppercase;color:var(--color-ink-secondary)}
-.program-editor-a__setn{color:var(--color-ink-secondary)}
-.program-editor-a__cell{width:100%;min-width:0;min-height:var(--control-target);padding:var(--space-8) var(--space-4);border:1px solid var(--control-adjustment-boundary);border-radius:var(--radius-control);background:var(--surface);font-family:var(--font-training-data);font-size:var(--font-size-control);text-align:center;color:var(--color-ink)}
-.program-editor-a__cell::placeholder{font-family:var(--font-language);color:var(--color-ink-secondary)}
-.program-editor-a__cell.is-diff{border-color:var(--boundary-selected);box-shadow:var(--elevation-selected-shadow)}
-.program-editor-a__cell:focus-visible{outline:var(--control-focus-outline);outline-offset:1px}
-.program-editor-a__cell[aria-invalid="true"]{border-color:var(--color-danger,var(--color-warning))}
-.program-editor-a__weektools{display:flex;flex-wrap:wrap;gap:var(--space-18);margin-top:var(--space-8)}
-.program-editor-a__weektools .text-link,.program-editor-a__weekbody>.text-link{display:inline-flex;align-items:center;gap:var(--space-8);min-height:var(--control-target);padding:0}
-.program-editor-a__details>summary{min-height:var(--control-target);display:flex;align-items:center;cursor:pointer;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);color:var(--color-ink)}
-.program-editor-a__details .field{margin-top:var(--space-12)}
-.program-editor-a__details .program-editor__metric-composition{display:flex;flex-direction:column;gap:var(--space-8);margin-top:var(--space-12)}
-.program-editor-a__num{width:4.5rem;text-align:center}
-.program-editor-a .review__handle{border:0;background:none;padding:0;border-radius:var(--radius-control)}
-/* A drag by the handle must not select the names it passes over. */
-.program-editor-a [data-role="reorder-list"]{-webkit-user-select:none;user-select:none}
-.program-editor-a__days .review__handle{border:0;background:none;padding:0}
-.program-editor-a__dayrename{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:var(--space-4);min-height:var(--control-target);padding:0;border:0;background:none;text-align:left;color:var(--color-ink);cursor:pointer}
-.program-editor-a__dayrename .review-sheet__note{margin:0}
-.program-editor-a__dayrename:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-control)}
-.program-editor-a__days{-webkit-user-select:none;user-select:none}
-.program-editor-a .review__handle:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
+/* In the editor bar the active button keeps painting its whole selected paint at rest (the fill, the 2px inset ring
+   and the 1px border are one box there, and a second box over it would not land on the same pixels). The lens
+   wears that paint only while it is in the air: it sits on the button's layout box (no translate, so it snaps to
+   the pixel grid as the button does), is hidden at rest, and the destination button sets its own aside while
+   the lens is visible, so there is one selected paint on screen. */
+body:has(#program.program-editor-installed) .dock-lens{
+  left:var(--lens-x,0);top:var(--lens-y,0);translate:none;visibility:hidden;
+  border:1px solid var(--boundary-selected);
+  background:var(--control-selection-active-bg);
+  box-shadow:var(--elevation-selected-shadow)
+}
+body:has(#program.program-editor-installed) nav[data-lens=travel] .dock-lens{visibility:visible}
+body:has(#program.program-editor-installed) .dock-lens::after,
+body:has(#program.program-editor-installed) nav[data-lens=travel] .dock-lens::after{display:none}
+body:has(#program.program-editor-installed) nav[data-lens=travel] button.active{background:transparent;box-shadow:none}
 
 .program-editor-leave{
   width:min(calc(100% - 32px),420px);padding:24px;border:1px solid var(--boundary-modal);
@@ -3281,10 +3238,6 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .onboarding{position:fixed;inset:0;z-index:50;overflow:auto;background:var(--bg);
   padding:calc(12px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) calc(88px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));overscroll-behavior:contain;}
 .onboarding.active{display:block}
-/* #449: this layer scrolls above the shell's status-bar band (body::before,
-   #440), so it paints the same paper band over its own top inset. */
-.onboarding::before{content:"";position:fixed;top:0;left:0;right:0;z-index:20;
-  height:env(safe-area-inset-top,0px);background:var(--bg);pointer-events:none}
 .onb{max-width:var(--maxw);margin:0 auto}
 .onb__head{margin-bottom:18px}
 .onb__step{margin:6px 0 0;font-size:var(--font-size-label);color:var(--ink-faint);letter-spacing:.08em;text-transform:uppercase;font-weight:600}
@@ -3306,6 +3259,29 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
    should not render at the 40% width meant for a Back/Continue pair. */
 .onb__nav .btn--steel:only-child{flex:1}
 
+/* Contextual guides stay in the same document flow as the action they
+   explain. They never become a modal, cover their target, or float when the
+   target is absent. */
+.guide-cue{position:relative;display:grid;grid-template-columns:1fr auto;gap:8px 12px;
+  margin:10px 0 14px;padding:12px 14px;background:var(--entry-tint);
+  border:1px solid var(--boundary-decorative);border-radius:var(--radius-surface);color:var(--color-ink)}
+.guide-cue__copy{min-width:0}
+.guide-cue__title{margin:0 0 3px;font-family:var(--font-language);font-size:var(--font-size-body-small);
+  font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
+/* --ink-soft on the --entry-tint wash measures ~4.47:1, just under the 4.5:1
+   AA floor for normal text; full --ink clears it with room and still reads
+   as the subordinate line beside the bold title. */
+.guide-cue__body{margin:0;font-family:var(--font-language);color:var(--color-ink);
+  font-size:var(--font-size-body-small);line-height:var(--line-standard)}
+.guide-cue__dismiss{align-self:start;min-width:44px;min-height:44px;margin:-8px -10px 0 0;
+  border:0;border-radius:var(--radius-round);background:var(--control-quiet-bg);color:var(--control-quiet-ink);
+  font:inherit;font-size:var(--control-icon-size);cursor:pointer}
+@media (hover: hover) and (pointer: fine){
+.guide-cue__dismiss:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
+}
+.guide-cue__dismiss:active:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+.guide-cue__dismiss:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-round)}
+.guide-cue__dismiss:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);cursor:not-allowed;transform:none}
 .guide-replay{padding:12px 14px;display:grid;gap:8px}
 .guide-replay[hidden]{display:none}
 .settings-panel.guide-replay.is-open{display:grid}
@@ -4060,6 +4036,12 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 .entry-body .entry-card[data-entry-route="recommend"]:active:not(:disabled){background:var(--entry-tint)}
 .entry-body .entry-card[data-entry-route="recommend"] .entry-card__icon,
 .entry-body .entry-card[data-entry-route="recommend"] .entry-card__go{color:var(--accent)}
+/* The chooser's entry guide sits right after the Recommend card it explains.
+   The hub becomes a CSS grid at wider widths, so without this the cue would
+   land in a card-sized cell instead of its own full-width row. */
+.entry__hub .guide-cue{grid-column:1/-1;margin:0 0 10px;background:var(--well)}
+/* B's hub places the cue after its choices. */
+.entry__hub + .guide-cue{margin:12px 0 0;background:var(--well)}
 .entry-body .entry__own{gap:0;padding:2px 0 2px 20px;border-left:1px solid var(--rule);margin-top:2px}
 .entry-body .entry__group-lab{
   margin:22px 0 8px;display:flex;align-items:center;gap:10px;color:var(--ink-faint)
@@ -4418,6 +4400,14 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
   position:absolute;left:0;right:0;bottom:-2px;height:2px;pointer-events:none;background:var(--boundary-selected-quiet);
 }
 #stats .tabrow__tab.is-ring-travel[aria-selected="true"]{border-bottom-color:transparent}
+#stats .guide-cue{
+  margin:var(--space-14) 0 0;padding:var(--space-12) 0 var(--space-8);background:transparent;
+  border:0;border-bottom:1px solid var(--boundary-decorative);border-radius:var(--radius-none);
+  grid-template-columns:minmax(0,1fr) var(--control-target);column-gap:var(--space-8);
+}
+#stats .guide-cue__title{margin:0;font-size:var(--font-size-body)}
+#stats .guide-cue__body{margin-top:var(--space-4);color:var(--color-ink-secondary)}
+#stats .guide-cue__dismiss{margin:calc(-1 * var(--space-4)) 0 0;justify-self:end}
 
 .ovtotals{
   display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-12);
@@ -4871,17 +4861,6 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 
 /* ---- Bands ---- */
 .firstrun-band{padding-block:var(--firstrun-gap-8);background:var(--firstrun-band-bg);color:var(--firstrun-ink)}
-/* #449: the landing scrolls above the shell's status-bar band, so it paints its
-   own over the top inset, in the ground of the section under it. The landing
-   controller names that section's ground; before it does (or without an
-   IntersectionObserver) the band is the hero's night. */
-.firstrun::before{content:"";position:fixed;top:0;left:0;right:0;z-index:20;
-  height:env(safe-area-inset-top,0px);background:var(--band-night-bg);pointer-events:none}
-.firstrun[data-inset-ground="raised"]::before{background:var(--band-night-raised)}
-.firstrun[data-inset-ground="ink"]::before{background:var(--band-ink-bg)}
-.firstrun[data-inset-ground="orange"]::before{background:var(--band-orange-bg)}
-.firstrun[data-inset-ground="faq"]::before{background:var(--well)}
-.firstrun[data-inset-ground="paper"]::before{background:var(--bg)}
 .firstrun-wrap{
   width:100%;max-width:var(--maxw);margin-inline:auto;
   padding-left:max(var(--gut),env(safe-area-inset-left));padding-right:max(var(--gut),env(safe-area-inset-right));
@@ -6687,10 +6666,6 @@ body.is-entry-editor #entryProgramName,
   --onb-pad-r:max(var(--gut),env(safe-area-inset-right));
   position:fixed;inset:0;z-index:50;overflow:auto;background:var(--bg);
   padding:calc(var(--space-12) + env(safe-area-inset-top)) var(--onb-pad-r) 0 var(--onb-pad-l);overscroll-behavior:contain;}
-/* #453: like #onboarding, this layer scrolls above the shell's status-bar band,
-   so it paints the same paper band over its own top inset. */
-#importReview.active::before{content:"";position:fixed;top:0;left:0;right:0;z-index:20;
-  height:env(safe-area-inset-top,0px);background:var(--bg);pointer-events:none}
 #importBack::before{
   content:"";flex:none;width:var(--control-icon-size);height:var(--control-icon-size);background:currentColor;
   -webkit-mask:no-repeat center/contain;mask:no-repeat center/contain;
@@ -7339,7 +7314,7 @@ body.is-entry-editor #entryProgramName,
   text-transform:uppercase;color:var(--accent-deep)
 }
 
-/* Dialogs: cancel, replace and start over, and the contextual guides, share one modal panel. */
+/* Dialogs: cancel, replace and start over share one modal panel. */
 .entry-dialog{
   position:fixed;left:50%;top:calc(var(--vv-top,0px) + var(--vvh,100dvh) / 2);transform:translate(-50%,-50%);z-index:80;width:min(calc(100% - var(--space-32)),420px);
   max-height:min(90dvh,var(--dialog-max-height));margin:0;padding:var(--space-18);overflow:auto;overscroll-behavior:contain;border:1px solid var(--boundary-modal);
@@ -7362,7 +7337,6 @@ body.is-entry-editor #entryProgramName,
 .entry-dialog .btn:hover:not(:disabled):not(.btn--cta){background:var(--well)}
 }
 .entry-dialog .btn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-
 
 /* ---- Plan 064 shared components ----
    Every component block declared in this section must be named by a
@@ -7730,6 +7704,7 @@ body.is-entry-editor #entryProgramName,
 
 /* Settings: Back, the guide cue, the warning line and the switches' on state. */
 #settings #settingsBack{color:var(--control-quiet-ink)}
+#settings .guide-cue{background:var(--well)}
 #settings .settings-warn{color:var(--color-ink)}
 #settings .toggle[aria-checked="true"]::before,#settings .toggle[aria-pressed="true"]::before,#settings .toggle.is-on::before{background:var(--boundary-selected-quiet)}
 

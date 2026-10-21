@@ -1085,3 +1085,19 @@ test("fail-fast records unexecuted commands while keep-going runs them", async (
   assert.equal(second.failed, 1); assert.equal(second.notRun, 0);
   assert.equal(existsSync(join(cwd, "later-ran")), true);
 });
+
+// Integration-period tripwire (agent-first v2). Main keeps editing root runtime
+// files the native graph no longer loads; a clean merge would land those edits
+// in dead code. Each such file is pinned by hash until its change is ported.
+test("root runtime files the native graph no longer loads cannot drift unported", () => {
+  const root = new URL("../", import.meta.url).pathname;
+  const record = JSON.parse(readFileSync(join(root, "docs/architecture/root-drift.json"), "utf8"));
+  const worker = readFileSync(join(root, "sw.js"), "utf8");
+  const unloaded = readdirSync(root).filter((file) => file.endsWith(".js") && file !== "sw.js" && !worker.includes(`"./${file}"`)).sort();
+  assert.deepEqual(unloaded, Object.keys(record.files).sort(),
+    "a root runtime file outside the native release graph must be recorded in docs/architecture/root-drift.json");
+  for (const [file, { sha256 }] of Object.entries(record.files)) {
+    const actual = createHash("sha256").update(readFileSync(join(root, file))).digest("hex");
+    assert.equal(actual, sha256, `${file} changed after ${record.reconciledMain}; port the change to its native owner, then update its hash and port note`);
+  }
+});

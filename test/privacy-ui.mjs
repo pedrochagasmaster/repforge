@@ -1,0 +1,3 @@
+#!/usr/bin/env node
+import { runPrivacy } from "./entry-privacy.mjs";
+runPrivacy("ui").catch((error) => { console.error(error); process.exitCode = 2; });

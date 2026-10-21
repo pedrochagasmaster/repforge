@@ -1,0 +1,71 @@
+{
+  "purpose": "Root runtime files the native graph no longer loads. A main merge that changes one fails test/ci.mjs until the change is ported to its native owner and its hash and port note are updated here.",
+  "reconciledMain": "30fbaec04ef704ea13d44d47a74ace23510b52b4",
+  "files": {
+    "durable-state.js": {
+      "sha256": "59d6a0a5484877dafe7f65b63529721f9470beaefaa75350f9e2885487ac08c4"
+    },
+    "engine-policy.js": {
+      "sha256": "f1749336ec67829d85abe3bc7fd2ea13f6e5c9b90fe15bf18cd81b81881174d6",
+      "port": "pending: #461 Program Lab engine policy → src/training/generation/internal/policy.js (Lab re-point PR)"
+    },
+    "exercise-catalog.js": {
+      "sha256": "651d566993d521b07d37a35e756cfbf26bab2c4707492ba036802f4aecff4cbb"
+    },
+    "exercise-metrics.js": {
+      "sha256": "19369ab49b36d71d99689909e523ba00903aa3d893810c818a33a1e8d8b37300",
+      "port": "pending: #460 load-input parser delegation and later metric changes → src/training/metrics.js"
+    },
+    "generation-candidates.js": {
+      "sha256": "b9d61627565d6b82339cb51053d24106822912dcb14c52f82b79a404422fa8ca"
+    },
+    "generation-identity.js": {
+      "sha256": "2285fa586c0c838d5e294dbca95b1cdca53506c2df55695b8d5183a31900ac9e"
+    },
+    "generation-layout.js": {
+      "sha256": "a5f66efb925a985841b816d700c536ea608a86ec489725ff029231a6556df665",
+      "port": "pending: #459/#461 layout changes → src/training/generation/internal/layout.js"
+    },
+    "install-policy.js": {
+      "sha256": "0acb5e60b0991fb913da400b49a9d5b1a829f1c3309e007324e75ba52e25c0c5"
+    },
+    "motion-layer.js": {
+      "sha256": "d28cbcdde361fc8f4637d8347a1e211f14fd7ed4a7b991171e66d81e63349da0"
+    },
+    "notify.js": {
+      "sha256": "409ebd28167b491578e5d6530383426624c7c5e57531dd2afa0ea1a8183ac046"
+    },
+    "posthog-init.js": {
+      "sha256": "ca728f8014bad3e1057839a6b6ccc9696f2a48956b727350a394ddae99e98222"
+    },
+    "program-compiler.js": {
+      "sha256": "096d53da68e8627dbd3ffdbd8a714ae3ad35458f333fa40359e5bc5da3675957",
+      "port": "pending: #459/#461 compiler changes → src/training/generation/internal/compiler"
+    },
+    "program-engine.js": {
+      "sha256": "bf921efc6259460f99d17d9492cdddc9b5e08188885e80bf57fef5acf8b0eca0",
+      "port": "pending: #461 executor/engine changes → src/platform/program-executor.js and program-worker.js"
+    },
+    "program-entry-adapter.js": {
+      "sha256": "3a5a3de8d6c29a1e499a337203f319476b9c16925f43224d7f7dfd0c8baeb82b"
+    },
+    "program-entry.js": {
+      "sha256": "7624b5f03af77fb5c2f903c68afa2168cd908107d67a4e91460de920fa7e68bd"
+    },
+    "program-transition.js": {
+      "sha256": "91ab1729b9eaff343e9cf630902139c89bcce3d2b6daa4463fd8880e9a4d7714"
+    },
+    "progress-model.js": {
+      "sha256": "95b58050bd6243075497913475b2213462c68bdfc34a3e12c5d1966e57d5292e"
+    },
+    "progression-engine.js": {
+      "sha256": "cd67171bafe595cde9fc0dbc19967ddb377d9bd521041faae90b9afad8dfcc89"
+    },
+    "telemetry.js": {
+      "sha256": "0631878f005a62fd7630815bdd68c56c89557fd3cce0c1b973cef55860531827"
+    },
+    "workout-draft.js": {
+      "sha256": "5ed41ef1157f1120a8d23806885a2fd79b4f5c6877ccb678e928654141356825"
+    }
+  }
+}
