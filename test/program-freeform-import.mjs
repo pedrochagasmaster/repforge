@@ -1089,14 +1089,17 @@ async function main() {
     await setClip(page, "text", escapedBracket);
     await page.click("#entryFreeformClipboard");
     await page.waitForSelector(".entry__notice--warn #entryFreeformCopyRepair", { timeout: 20000 });
-    const syntaxFailure = await page.evaluate(() => ({
+    const failureCopy = await (await browserLanguage(page)).evaluate((language) => ({
+      expected: language.t("entry.freeform.unreadable_invalid_json_body"),
+      rowsBody: language.t("entry.freeform.unreadable_body"),
+    }));
+    const syntaxFailure = await page.evaluate((copy) => ({
+      ...copy,
       notice: document.querySelector(".entry__notice--warn")?.innerText || "",
-      expected: window.RepForgeI18n.t("entry.freeform.unreadable_invalid_json_body"),
-      rowsBody: window.RepForgeI18n.t("entry.freeform.unreadable_body"),
       hasRepair: !!document.querySelector("#entryFreeformCopyRepair"),
       stillStage3: !!document.querySelector("#entryFreeformOut"),
       reviewing: !!document.querySelector("#importReview.active"),
-    }));
+    }), failureCopy);
     assert(syntaxFailure.hasRepair && syntaxFailure.stillStage3 && !syntaxFailure.reviewing &&
            syntaxFailure.notice.includes(syntaxFailure.expected) && !syntaxFailure.notice.includes(syntaxFailure.rowsBody),
       "malformed clipboard JSON gets an actionable syntax-specific warning, without partial import",

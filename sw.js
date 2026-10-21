@@ -1,5 +1,5 @@
-const CACHE = "repforge-v492";
-const SOURCE_RELEASE = "source-492";
+const CACHE = "repforge-v495";
+const SOURCE_RELEASE = "source-495";
 const ASSETS = [
   // BEGIN GENERATED NATIVE SOURCE ASSETS
   "./src/app/block-review.js",

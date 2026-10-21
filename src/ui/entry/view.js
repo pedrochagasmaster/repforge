@@ -122,7 +122,8 @@ function renderFreeformSourceStep(model){
     if(model.status==="unreadable"){
       unreadableNotice=
         `<div class="entry__notice entry__notice--warn" role="alert"><strong>${esc(t("entry.freeform.unreadable_title"))}</strong>`+
-        `<p>${esc(t("entry.freeform.unreadable_body"))}</p>`+
+        `<p>${esc(t(model.failReason==="invalid_json"
+          ?"entry.freeform.unreadable_invalid_json_body":"entry.freeform.unreadable_body"))}</p>`+
         `<div class="btnrow"><button type="button" class="btn btn--steel" id="entryFreeformCopyRepair">${esc(t("entry.freeform.copy_repair_prompt"))}</button>`+
         `<button type="button" class="btn btn--ghost" id="entryFreeformTryAnother">${esc(t("entry.freeform.try_another"))}</button></div></div>`;
     }
