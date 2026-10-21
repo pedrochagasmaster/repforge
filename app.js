@@ -6882,9 +6882,10 @@ async function confirmPickerDay(){
  *  The keyboard shrinks the visual viewport but not dvh, so a field in Focus's
  *  shelf (pinned to the bottom of a 100dvh screen) opened behind it, and the
  *  browser's own focus scroll left it half covered (#300). While a field is being
- *  edited with the keyboard up, `data-keyboard` lets Focus size itself to the
- *  visible band, and the field is brought fully into that band once the band is
- *  known; when the keyboard goes, Focus drops any scroll the browser left behind. */
+ *  edited with the keyboard up, `data-keyboard` pins Focus to the visible band
+ *  (`--vv-top`, `--vvh`): iOS pans that band inside the layout viewport to show
+ *  the field, and Focus follows it rather than sliding under the status bar.
+ *  Any document scroll the browser makes is given back. */
 function trackSheetViewport(){
   const vv=window.visualViewport;if(!vv)return;
   const root=document.documentElement;
@@ -6903,12 +6904,12 @@ function trackSheetViewport(){
     const field=editing(),up=!!field&&window.innerHeight-height>1,was=root.dataset.keyboard==="up";
     if(up)root.dataset.keyboard="up";else delete root.dataset.keyboard;
     cancelAnimationFrame(settle);
-    if(!zoomed&&up&&field.closest(".focus-shelf"))settle=requestAnimationFrame(()=>{
-      if(document.activeElement!==field)return;
-      // Client coordinates are layout-viewport relative; the band on screen is [offsetTop, offsetTop + height].
-      const r=field.getBoundingClientRect();
-      if(r.top<vv.offsetTop||r.bottom>vv.offsetTop+vv.height)field.scrollIntoView({block:"nearest",inline:"nearest"})});
-    else if(!zoomed&&was&&!up&&document.body.classList.contains("is-focus-wo")&&(window.scrollY||window.scrollX))window.scrollTo(0,0)};
+    // Focus is pinned to the band while the keyboard is up, so the shelf and its field are already on it; whatever
+    // the browser scrolled to show the field is given back, then and when the keyboard goes.
+    const focusWo=document.body.classList.contains("is-focus-wo");
+    if(!zoomed&&focusWo&&(up||was)&&(window.scrollY||window.scrollX))settle=requestAnimationFrame(()=>{
+      // The frame may land after Focus has closed or a pinch has begun; only Focus at rest scale gives the scroll back.
+      if(document.body.classList.contains("is-focus-wo")&&Math.abs((vv.scale||1)-1)<=.01)window.scrollTo(0,0)})};
   vv.addEventListener("resize",apply);vv.addEventListener("scroll",apply);
   document.addEventListener("focusin",apply);
   // Focus leaves before it lands anywhere else, so read where it went once it has.
@@ -8669,6 +8670,10 @@ function syncFocusFloor(){
   const tall=el=>el&&el.getClientRects().length?el.getBoundingClientRect().height:0;
   const context=card.querySelector(".fcard__context");
   const least=context?getComputedStyle(context):null;
+  // The card's own floor: the shelf whole, under the context region at its least. With the keyboard up the other
+  // floors stand down, and this one makes what sits above the deck (the skip bar) give way instead of the shelf.
+  const deck=tall(shelf)+(least?(parseFloat(least.paddingTop)||0)+(parseFloat(least.paddingBottom)||0):0);
+  shell.style.setProperty("--focus-deck-floor",`${Math.ceil(deck)}px`);
   let form=tall($("#woProgress"))+tall(shelf)+(least?Math.max(parseFloat(least.minHeight)||0,parseFloat(least.paddingTop)+parseFloat(least.paddingBottom)):0);
   for(const el of $("#workout")?.children||[])if(!el.matches(".deck"))form+=tall(el);
   // A guide gives way to everything but its own padding, border and margins.
