@@ -3684,8 +3684,29 @@ function createInstalledProgramEditorAdapter(){
     reducedMotion:()=>reducedMotion(),
     announce:announceEditorChange,
     afterModal:afterModalSettles,
+    // Plan 074 (ADR 0021): onboarding B's editing language, in onboarding's sheet.
+    layout:"review",
+    sheet:entryAdjustSheet,openSheet:openEntryAdjustSheet,closeSheet:closeEntryAdjustSheet,
+    tile:(id,size)=>exerciseThumb(libraryEntry(id),{size}),
+    nums:monoNums,
+    dayMinutes:(document,day)=>installedEditorDayMinutes(document,day),
+    substitutions:(document,slotId)=>installedEditorSubstitutions(document,slotId),
+    revert:(count,document)=>InstalledEditor.revert(count,document),
+    done:()=>InstalledEditorView.done(),
   }
 }
+function installedEditorDefinitionDay(document,day){
+  return(document?.programMeta?.programDefinition?.days||[]).find(item=>item?.kind==="training"&&item.name===day)||null}
+function installedEditorDayMinutes(document,day){
+  const canonical=installedEditorDefinitionDay(document,day);
+  if(!canonical||typeof ProgramCompiler?.estimateDaySeconds!=="function")return null;
+  try{const seconds=ProgramCompiler.estimateDaySeconds(canonical,undefined,rawExerciseCatalog);return seconds>0?Math.ceil(seconds/60):null}
+  catch{return null}}
+function installedEditorSubstitutions(document,slotId){
+  const definition=document?.programMeta?.programDefinition;
+  if(!definition||typeof ProgramCompiler?.findSubstitutions!=="function")return[];
+  try{return(ProgramCompiler.findSubstitutions(definition,slotId,{},rawExerciseCatalog)||[]).map(item=>item?.exerciseId).filter(Boolean)}
+  catch{return[]}}
 window.__debugProgramEditor=async()=>{const local=readLocalStatus(),idb=await readIdbStatus();return{session:InstalledEditor.readSession(),state:cloneSnapshot(state),local,idb,decision:chooseSnapshot(local,idb),head:await refreshPersistenceHead()}};
 function createOnboardingProgramEditorAdapter(){
   return{
@@ -7476,7 +7497,7 @@ function initializePersistenceOwners(){
   programCommands=InstalledEditor.commands;
   InstalledEditorView=createInstalledEditorView({window,session:InstalledEditor,
     mountEditor:host=>mountedProgramEditor().mountProgramEditor(host,createInstalledProgramEditorAdapter()),
-    shell:{openModal,closeModal},t,onChanged:render,onEdit:()=>ProgramUi.renderProgram(),onAccepted:maybeShowInstallBanner,
+    shell:{openModal,closeModal,afterModalSettles},t,onChanged:render,onEdit:()=>ProgramUi.renderProgram(),onAccepted:maybeShowInstallBanner,
     entry:{isOpen:()=>setupEditorOpen,cancel:requestEntryCancel}});
 
   programAdditionCommands=createProgramAdditionCommands({read:applicationSession.read,

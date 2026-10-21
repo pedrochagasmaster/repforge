@@ -43,7 +43,19 @@
  * status?:(document:EditorDocument)=>string,
  * afterRender?:(host:HTMLElement,document?:EditorDocument)=>unknown,
  * confirm?:(request:{kind:string,day?:string})=>boolean,
+ * layout?:'review',
+ * sheet?:()=>ReviewSheetParts|null,
+ * openSheet?:(options:{onClose?:()=>void})=>unknown,
+ * closeSheet?:()=>unknown,
+ * tile?:(id:string,size?:string)=>string,
+ * nums?:(text:string)=>string,
+ * dayMinutes?:(document:EditorDocument,day:string)=>number|null,
+ * substitutions?:(document:EditorDocument,slotId:string)=>string[],
+ * revert?:(count:number,document:EditorDocument)=>unknown,
+ * done?:()=>unknown,
  * }} EditorAdapter */
+/** @typedef {{el:HTMLElement|null,title:HTMLElement|null,body:HTMLElement|null,foot:HTMLElement|null}} ReviewSheetParts */
+/** @typedef {LibraryEntry|PickHandoff} PickChoice */
 /** @typedef {{selector?:string,id?:string,roles?:string[],day?:string}} PendingFocus */
 /** @typedef {{selector:string,value:string,selectionStart:number|null,selectionEnd:number|null,committedDuringTeardown:boolean}} LiveEdit */
 /** @typedef {{duration:number,easing:string}|null} Glide */

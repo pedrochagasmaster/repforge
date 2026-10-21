@@ -19,15 +19,13 @@
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { createRequire } from "node:module";
+import * as Compiler from "../src/training/generation.js";
+import { reorderTrainingDays, dayOrderConflict } from "../src/training/authoring.js";
+import { Setup } from "./interchange-runtime.mjs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const require = createRequire(import.meta.url);
-const Compiler = require(join(root, "program-compiler.js"));
-const Setup = require(join(root, "shared-setup.js"));
-const { reorderTrainingDays, dayOrderConflict } = require(join(root, "program-editor.js"));
 const source = JSON.parse(fs.readFileSync(join(root, "plans/067/data/app_file.json"), "utf8"));
 const seed = JSON.parse(fs.readFileSync(join(root, "test/fixtures/seed-program-v067.json"), "utf8"));
 const settings = {
