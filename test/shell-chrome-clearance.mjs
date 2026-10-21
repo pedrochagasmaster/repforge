@@ -15,6 +15,7 @@
  *    top inset: on the review result and the Build editor, the band is solid --bg at scroll 0, mid and end (#449).
  * 5. The first-run landing (.firstrun) scrolls on its own too, over night, ink, orange and paper sections, so its band
  *    takes the ground of whichever section is under the inset (owner call on #449): one solid colour, that section's.
+ * 6. The import review (#importReview) is a third such layer: its inset is solid --bg at scroll 0, mid and end (#453).
  */
 import { launchChromium } from "./browser.mjs";
 import { SAFE_AREA, openCatalogState } from "./fixtures/catalog-state.mjs";
@@ -275,6 +276,26 @@ try {
         if (band.off) dirty.push({ stop, section: ground.section, ...band });
       }
       check(!dirty.length, `${theme} first-run: at the top, as the hero leaves, mid and end, the inset is one solid band in the ground of the section under it`, dirty);
+    } finally { await context.close(); }
+  }
+
+  console.log("\n6. The import review scrolls in its own layer, and nothing in it scrolls into the status bar (390×568)");
+  for (const theme of ["light", "dark"]) {
+    const { context, page } = await openCatalogState(browser, "onboarding-import/review", 390, "en", "normal", { theme, height: 568 });
+    try {
+      const max = await page.evaluate(() => { const layer = document.querySelector("#importReview.active"); return layer.scrollHeight - layer.clientHeight; });
+      check(max > SAFE_AREA.top, `${theme} import review: the layer is long enough to scroll under the status bar`, { max });
+      const dirty = [];
+      for (const y of [0, Math.round(max / 2), "end"]) {
+        await page.evaluate((top) => {
+          const layer = document.querySelector("#importReview.active");
+          layer.scrollTo({ top: top === "end" ? layer.scrollHeight : top, behavior: "instant" });
+          return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        }, y);
+        const band = await bandReading(page);
+        if (band.off) dirty.push({ y, ...band });
+      }
+      check(!dirty.length, `${theme} import review: the status-bar inset is solid paper at scroll 0, mid and end`, dirty);
     } finally { await context.close(); }
   }
 } finally {
