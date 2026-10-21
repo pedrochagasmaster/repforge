@@ -419,6 +419,56 @@ async function renameBack(browser) {
   }
 }
 
+/**
+ * #451: day names are unique across every day of the definition, training and rest (owner decision 2026-10-21).
+ * In the cut-down fixture only Day 1 trains; Day 2, Day 3 and Rest 4–7 are rest days. Renaming Day 1 to a rest
+ * day's name is refused with the existing reason, and Add day never names the new day after a rest day.
+ */
+async function restDayNames(browser) {
+  console.log("\nInstalled editor: a day cannot take a rest day's name (#451)");
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block" });
+  const page = await context.newPage();
+  const definitionDays = () => page.evaluate((key) => JSON.parse(localStorage.getItem(key)).programMeta.programDefinition.days
+    .map((day) => ({ name: day.name, kind: day.kind })), KEY);
+  const stagedLabels = () => page.evaluate(async () => ((await window.__debugProgramEditor?.())?.session?.document?.programMeta?.programStructure?.days || [])
+    .map((entry) => String(entry?.label || entry?.dayId || "")));
+  try {
+    await page.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await writeFixture(page, fixture());
+    const before = await definitionDays();
+    const rest = before.find((day) => day.kind === "rest")?.name;
+    check(rest === "Day 2", "the fixture has a rest day named Day 2", before);
+    await openInstalledEditor(page);
+    await page.locator('#programEditor [data-role="day-menu"][data-day="Day 1"]').click();
+    await page.locator(`${SHEET}.is-open [data-role="day-action"][data-action="rename"]`).click();
+    await page.locator(`${SHEET}.is-open [data-role="rename-input"]`).fill(rest);
+    await page.locator(`${SHEET}.is-open [data-role="rename-save"]`).click();
+    const refused = await page.locator(`${SHEET}.is-open [data-role="rename-input"][aria-invalid="true"]`)
+      .waitFor({ timeout: 5000 }).then(() => true, () => false);
+    const reason = await page.locator(`${SHEET}.is-open`).innerText().catch(() => "");
+    check(refused && reason.includes("That day name already exists."),
+      "renaming a training day to a rest day's name is refused with the existing reason", { refused, reason: reason.slice(0, 200) });
+    check(!(await stagedLabels()).includes(rest), "the refused name is not staged", await stagedLabels());
+    await page.keyboard.press("Escape");
+    await page.locator(`${SHEET}.is-open`).waitFor({ state: "detached", timeout: 5000 }).catch(() => {});
+    await page.locator(SHEET).evaluate((sheet) => sheet.classList.contains("is-open")).then((open) => open ? page.keyboard.press("Escape") : null);
+
+    await page.locator('#programEditor [data-role="day-menu"][data-day="Day 1"]').click();
+    await page.locator(`${SHEET}.is-open [data-role="day-action"][data-action="add-day"]`).click();
+    await editorSettled(page);
+    const labels = await stagedLabels();
+    const restNames = before.filter((day) => day.kind === "rest").map((day) => day.name);
+    check(labels.length === 2 && !labels.some((label) => restNames.includes(label)),
+      "Add day names the new day after no rest day", { labels, restNames });
+    // An empty new day cannot be applied on its own (the editor asks for an exercise first), so the staged names are
+    // the proof; the stored definition is untouched.
+    check(JSON.stringify(await definitionDays()) === JSON.stringify(before), "nothing is stored before Apply", await definitionDays());
+  } finally {
+    await context.close();
+  }
+}
+
 async function main() {
   console.log("Program editor text-field regression");
   console.log(`Target: ${BASE}\n`);
@@ -427,6 +477,7 @@ async function main() {
     await buildPart(browser);
     await installedPart(browser);
     await renameBack(browser);
+    await restDayNames(browser);
   } finally {
     await browser.close();
   }

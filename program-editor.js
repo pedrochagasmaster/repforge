@@ -197,6 +197,12 @@
     }
     return out;
   }
+  /* Rest days live only in the definition. A day name is unique across every
+     day, training and rest (#451), so the editor checks these too. */
+  function restDayNames(document) {
+    return (definitionFor(document)?.days || []).filter(day => day?.kind === "rest")
+      .map(day => String(day?.name || "").trim()).filter(Boolean);
+  }
   function exercisesFor(document, day) {
     return (Array.isArray(document?.program) ? document.program : [])
       .filter(exercise => exercise?.day === day)
@@ -507,7 +513,7 @@
   }
   function setDayLabel(document, oldLabel, nextLabel) {
     const value = String(nextLabel || "").trim();
-    if (!value || value === oldLabel || labels(document).includes(value)) return false;
+    if (!value || value === oldLabel || labels(document).includes(value) || restDayNames(document).includes(value)) return false;
     for (const exercise of document.program || []) if (exercise.day === oldLabel) exercise.day = value;
     const structure = metaDays(document);
     const entry = structure.find(item => String(item?.label || item?.dayId || "") === oldLabel);
@@ -524,9 +530,9 @@
     return true;
   }
   function appendDay(document) {
-    const current = labels(document);
+    const current = labels(document), taken = new Set([...current, ...restDayNames(document)]);
     let n = current.length + 1, label = `Day ${n}`;
-    while (current.includes(label)) label = `Day ${++n}`;
+    while (taken.has(label)) label = `Day ${++n}`;
     const structure = metaDays(document).slice();
     structure.push({ dayId: `manual_d${structure.length + 1}`, label, order: structure.length + 1 });
     document.programMeta.programStructure = { ...(document.programMeta.programStructure || {}), days: structure };
@@ -913,7 +919,8 @@
     const renameDay = (oldDay, value) => {
       const next = clone(document), wanted = String(value || "").trim();
       // Another day can store a different name yet show this one (a translated generated name).
-      const shown = labels(document).some((day, index) => day !== oldDay && dayDisplay(adapter, document, day, index) === wanted);
+      const shown = labels(document).some((day, index) => day !== oldDay && dayDisplay(adapter, document, day, index) === wanted)
+        || restDayNames(document).includes(wanted);
       if (!wanted || wanted === oldDay) return Promise.resolve({ ok: false, refused: true });
       if (shown || !setDayLabel(next, oldDay, value)) return Promise.resolve({ ok: false, refused: true, duplicate: true });
       if (collapsedDays.delete(oldDay)) collapsedDays.add(String(value).trim());
