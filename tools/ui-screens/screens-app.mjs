@@ -1772,7 +1772,10 @@ export const APP_SCENARIOS = {
   },
   "workout/correction": async page => { await focusMode(page); await logCurrentSet(page); await page.locator("#workout .exercise.is-current [data-ledgermore]").click(); await page.locator("#workout .exercise.is-current [data-editn]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); },
   // Layout D: the logged sets' disclosure opened over the table, the logged row back in place to correct.
-  "workout/logged-sets": async page => { await focusMode(page); await logCurrentSet(page); await page.locator("#workout .exercise.is-current [data-ledgermore]").click(); await page.waitForSelector("#workout .exercise.is-current [data-editn]"); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); },
+  "workout/logged-sets": async page => { await focusMode(page); await logCurrentSet(page); await page.locator("#workout .exercise.is-current [data-ledgermore]").click(); await page.waitForSelector("#workout .exercise.is-current [data-editn]"); await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    // The logged set starts the rest; its clock takes the cue slot once that render has run, and the slot then trades its height.
+    await page.waitForFunction(() => (document.querySelector("#workout .exercise.is-current .fx-slot")?.dataset.rest || "none") !== "none", undefined, { timeout: 20000 });
+    await sleep(page, 400); },
   "today/draft-resume": async page => { await focusMode(page); await fillAdaptiveShelf(page, ADAPTIVE_WEIGHT_METRIC_ID, "80"); await page.click("#leaveWorkout"); },
 
   "workout/stale-draft": async (page) => {
