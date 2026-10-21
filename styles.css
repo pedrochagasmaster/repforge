@@ -3247,6 +3247,10 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .onboarding{position:fixed;inset:0;z-index:50;overflow:auto;background:var(--bg);
   padding:calc(12px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) calc(88px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));overscroll-behavior:contain;}
 .onboarding.active{display:block}
+/* #449: this layer scrolls above the shell's status-bar band (body::before,
+   #440), so it paints the same paper band over its own top inset. */
+.onboarding::before{content:"";position:fixed;top:0;left:0;right:0;z-index:20;
+  height:env(safe-area-inset-top,0px);background:var(--bg);pointer-events:none}
 .onb{max-width:var(--maxw);margin:0 auto}
 .onb__head{margin-bottom:18px}
 .onb__step{margin:6px 0 0;font-size:var(--font-size-label);color:var(--ink-faint);letter-spacing:.08em;text-transform:uppercase;font-weight:600}
