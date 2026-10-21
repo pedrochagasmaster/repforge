@@ -2801,7 +2801,15 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
 /* Plan 074 (ADR 0021): the installed editor in onboarding B's editing language. The rows, tabs, sheet and
    steppers are onboarding's review classes; these rules only place them in the Program tab and add what
    onboarding never needed (the week table, the pinned Apply that stands in for the dock). */
-body:has(#program.program-editor-installed){padding-bottom:calc(112px + env(safe-area-inset-bottom))}
+/* The pinned Apply bar's band; a blocked reason above the button makes it taller. The rest pill (#440)
+   and the editor's Undo toast ride above it, and the page reserves both so its end scrolls clear. */
+body:has(#program.program-editor-installed){
+  --editor-apply-reserve:calc(96px + env(safe-area-inset-bottom));
+  padding-bottom:calc(var(--editor-apply-reserve) + var(--space-16) + var(--restbar-reserve,0px))
+}
+body:has(#program.program-editor-installed):has(.program-editor-a__reason){--editor-apply-reserve:calc(128px + env(safe-area-inset-bottom))}
+body:has(#program.program-editor-installed) .restbar{bottom:var(--editor-apply-reserve)}
+body:has(#program.program-editor-installed) .review-toast{bottom:calc(var(--editor-apply-reserve) + var(--restbar-reserve,0px))}
 body:has(#program.program-editor-installed) nav{display:none}
 .pagehead__cancel{flex:none;margin-top:4px}
 .program-editor-installed .pagehead{align-items:center}

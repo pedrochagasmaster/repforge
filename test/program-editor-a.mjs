@@ -246,6 +246,27 @@ async function emptyDayJourney(page) {
   check(state.pip, "the emptied day's tab carries a mark", state);
   check(/no exercises/i.test(state.banner || ""), "the day says it has no exercises", state);
   check(state.disabled === true && /each training day/i.test(state.reason || ""), "Apply is disabled with its reason above it", state);
+
+  // #440's rest pill and the editor's Undo toast float over the page: while editing they ride above the pinned
+  // Apply (its blocked reason included), the toast above the pill, and the page reserves room for all three.
+  const stack = await page.evaluate((selector) => {
+    const pill = document.querySelector("#restBar");
+    pill.classList.remove("hidden");
+    pill.hidden = false;
+    const toast = document.createElement("div");
+    toast.className = "review-toast";
+    toast.textContent = "Removed.";
+    document.body.append(toast);
+    const box = (element) => element.getBoundingClientRect();
+    const out = { pill: box(pill).bottom, pillTop: box(pill).top, toast: box(toast).bottom,
+      bar: box(document.querySelector(`${selector} [data-role="apply-bar"]`)).top,
+      reserve: parseFloat(getComputedStyle(document.body).paddingBottom), viewport: innerHeight };
+    toast.remove();
+    pill.classList.add("hidden");
+    return out;
+  }, EDITOR);
+  check(stack.pill <= stack.bar && stack.toast <= stack.pillTop, "the rest pill rides above the pinned Apply and the Undo toast above the pill", stack);
+  check(stack.reserve >= stack.viewport - stack.pillTop, "the page reserves the band the bar and the pill cover", stack);
 }
 
 async function main() {
