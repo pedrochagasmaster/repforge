@@ -349,7 +349,7 @@ async function browserContractForParity() {
     fetch: async () => ({ ok: true, status: 200, text: async () => catalogText }) });
   browserContext.window = vm.runInContext("globalThis", browserContext);
   for (const file of ["generation-identity.js", "exercises.js", "exercise-catalog.js", "exercise-metrics.js",
-    "generation-candidates.js", "generation-layout.js", "program-compiler.js",
+    "generation-candidates.js", "engine-policy.js", "generation-layout.js", "program-compiler.js",
     "workout-draft.js", "install-transfer-contract.js"]) {
     vm.runInContext(readFileSync(join(ROOT, file), "utf8"), browserContext, { filename: file });
   }

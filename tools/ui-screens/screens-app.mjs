@@ -7,6 +7,11 @@
  * poisoned every frame after it.
  */
 import { readFileSync } from "node:fs";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { buildProgramLab } from "../build-programlab.mjs";
+import { maybeStartLocalPreview } from "../local-preview.mjs";
 import { catalogState, directionDState, emptyEntryState, localeState } from "./fixtures.mjs";
 import { CAPTURE_NOW, dismissChrome, LOG_DRAFT, replayGuide, seed, sleep } from "./session.mjs";
 import { definitionSlot, installGeneratedProgram, isWeightRepsSlot, metricLogRow } from "../../test/fixtures/history-metric-rows.mjs";
@@ -1501,7 +1506,39 @@ async function whyPerSideAssumption(page) {
   await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions"]);
 }
 
+let programLabPreview;
+export async function cleanupProgramLabCapture() {
+  if (programLabPreview) { const preview = await programLabPreview; preview.cleanup(); programLabPreview = null; }
+}
+async function captureProgramLab(page, result = false) {
+  const language = await page.evaluate(() => navigator.language.startsWith('pt') ? 'pt' : 'en');
+  if (!programLabPreview) programLabPreview = (async () => {
+    const outDir = join(await mkdtemp(join(tmpdir(), 'taurifer-lab-catalog-')), 'artifact');
+    await buildProgramLab({ outDir });
+    const preview = await maybeStartLocalPreview([{ lane: 'visual' }], { cwd: outDir, prepareApp: false, env: { ...process.env, REPFORGE_URL: '' } });
+    return preview;
+  })();
+  const preview = await programLabPreview;
+  await page.goto(preview.env.REPFORGE_URL);
+  await page.locator('html[data-lab-ready="true"]').waitFor();
+  await page.locator('#language').selectOption(language);
+  await page.locator(`html[lang="${language}"]`).waitFor();
+  await page.locator('#fixture').selectOption('anchor-4day');
+  await page.locator('#preset').selectOption('two_sets_low_rir@1');
+  await page.locator('#applyPreset').click();
+  if (result) {
+    await page.locator('#run').click();
+    await page.locator('#runStatus').filter({ hasText: /completed|concluído/i }).waitFor({ timeout: 120000 });
+    await page.locator('#candidateHeading').evaluate(element => element.scrollIntoView({ block: 'start' }));
+  } else {
+    // Frame the stable editor subject; source identity remains visible in the
+    // normal header and is verified separately by the packaged journey.
+    await page.locator('#scenarioHeading').evaluate(element => element.scrollIntoView({ block: 'start' }));
+  }
+}
 export const APP_SCENARIOS = {
+  "programlab/editor": page => captureProgramLab(page),
+  "programlab/comparison": page => captureProgramLab(page, true),
   "catalog-recovery/unavailable": reloadWithUnavailableExerciseCatalog,
   "catalog-recovery/retry-failed": async page => {
     await reloadWithUnavailableExerciseCatalog(page);

@@ -75,7 +75,7 @@ test("dist/ holds every URL the app precaches or references", () => {
 test("dist/ excludes repository research, sources and documentation", () => {
   try {
     build();
-    for (const path of ["plans", "docs", "tools", "scripts", "test", "services", "advisor-plans", ".git", ".github", ".claude", ".agents", "AGENTS.md", "README.md", "plans/067/data/app_file.json"]) {
+    for (const path of ["plans", "docs", "tools", "scripts", "test", "services", "programlab", "advisor-plans", ".git", ".github", ".claude", ".agents", "AGENTS.md", "README.md", "plans/067/data/app_file.json"]) {
       assert.ok(!existsSync(join(DIST, path)), "unexpected public file: " + path);
     }
     const files = walk(DIST);

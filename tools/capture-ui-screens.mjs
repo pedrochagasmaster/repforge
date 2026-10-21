@@ -33,7 +33,7 @@ import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { ROOT, capturePath, captureKey, expandCaptures, loadManifest, screenKey, variantSlug } from "./ui-screens/manifest.mjs";
 import { dismissChrome, launchChromium, openPage, settle, setCaptureBase } from "./ui-screens/session.mjs";
-import { APP_CLOCK, APP_SCENARIOS, APP_USER_AGENT, appState } from "./ui-screens/screens-app.mjs";
+import { APP_CLOCK, APP_SCENARIOS, APP_USER_AGENT, appState, cleanupProgramLabCapture } from "./ui-screens/screens-app.mjs";
 import { ONBOARDING_SCENARIOS, focusOnboardingSubject, onboardingState } from "./ui-screens/screens-onboarding.mjs";
 import { buildSemanticArtifact, collectProgramEntrySemantics, normalizeSemanticRecords, validateSemanticArtifact } from "./ui-screens/semantics.mjs";
 import { collectCatalogEvidence, configForCapture, validateCatalogEvidence, validateCatalogMetadata } from "./ui-screens/catalog-contract.mjs";
@@ -585,6 +585,7 @@ async function main(options = parseArgs(process.argv.slice(2))) {
     if (failures.length) console.warn(`${failures.length} capture(s) still failing.`);
     return failures.length ? 1 : 0;
   } finally {
+    await cleanupProgramLabCapture();
     if (existsSync(stagingRoot)) rmSync(stagingRoot, { recursive: true, force: true });
   }
 }

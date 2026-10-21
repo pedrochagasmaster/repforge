@@ -59,6 +59,11 @@ try {
       return result;
     }
 
+    const nativeField = await injectedFailures('<div id="catalogContractBad"><input aria-label="Editable long value" style="width:44px" value="A long editable value remains reachable with the native caret"><details><summary>Data inspector</summary><pre>{"value":null}</pre></details><span style="opacity:0">undefined</span></div>');
+    assert.deepEqual(nativeField, [], 'native caret scrolling and unpainted detail/opacity content are not clipped layout or visible copy');
+    const clippedLabel = await injectedFailures('<div id="catalogContractBad"><label style="display:block;width:12px;height:12px;overflow:hidden;white-space:nowrap">A clipped visible field label</label></div>');
+    assert.ok(clippedLabel.some(failure => failure.startsWith('clipped label')), 'native field treatment still rejects a clipped visible label');
+
     const raw = await injectedFailures('<div id="catalogContractBad"><p id="catalogRawKey">day_empty:manual_d1</p></div>');
     assert.ok(raw.some((failure) => failure.startsWith("raw internal copy (day_empty:)")), `raw-key artifact is rejected: ${raw.join(" | ")}`);
     console.log(`deliberate raw-key rejection: ${raw.find((failure) => failure.startsWith("raw internal copy (day_empty:)"))}`);

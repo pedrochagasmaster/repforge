@@ -2193,7 +2193,7 @@ let programEngineInstance=null;
 function createProgramEngineInstance(){
   const Engine=typeof window!=="undefined"?window.RepForgeProgramEngine:null;
   if(!Engine||!ProgramCompiler)return null;
-  const scripts=["exercise-metrics.js","generation-identity.js","generation-candidates.js","generation-layout.js","program-compiler.js","exercise-catalog.js","program-transition.js"].map(Engine.pageScript);
+  const scripts=["exercise-metrics.js","generation-identity.js","generation-candidates.js","engine-policy.js","generation-layout.js","program-compiler.js","exercise-catalog.js","program-transition.js"].map(Engine.pageScript);
   const pin=window.RepForgeExercises?.catalogSha256;
   return Engine.create({compiler:ProgramCompiler,transition:transitionDomain(),catalog:()=>rawExerciseCatalog,
     worker:Engine.url&&scripts.every(Boolean)&&typeof pin==="string"?{url:Engine.url,scripts,catalogSha256:pin}:null})}
