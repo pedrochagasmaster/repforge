@@ -492,10 +492,16 @@ async function historyFinishResult(result,successKey,operation,operationId){
     historySetSelection(next||emptyHistorySelection());
     render();historyFocusRead(sid);toast(t(successKey));return true}
   render();historyFocusFailure(status);return false}
-function historyEditCommit(sid,proposed,original){
+// A write can wait behind another tab's storage lock. Cancel or Back during
+// that wait retires its operation, so the lock-held preflight refuses it.
+function historyCancelledCommit(head){
+  return{reject:true,result:{ok:false,committed:false,settled:true,cancelled:true,code:"history_cancelled",
+    revision:readRevision(head),localOk:false,idbOk:false}}}
+function historyEditCommit(sid,proposed,original,operationId){
   const desired=historySessionFingerprint(proposed),proposal=cloneSnapshot(deps.getState());
   proposal.log=proposal.log.filter(row=>String(row?.session??"")!==String(sid)).concat(cloneSnapshot(proposed));
   const preflight=({head})=>{
+    if(!historyOperationCurrent(operationId,sid,"edit"))return historyCancelledCommit(head);
     const current=historySessionRows(head.log,sid),fingerprint=historySessionFingerprint(current);
     if(fingerprint===desired)return{reject:true,result:{ok:true,committed:true,alreadyCommitted:true,
       revision:readRevision(head),localOk:true,idbOk:true,kind:"committed"}};
@@ -542,7 +548,7 @@ async function historyRetryEdit(){
   // Retry remains a durable-owner operation even when the visible replica
   // already contains the desired rows. The normalized owner result is the
   // only authority for whether the preserved WAL has actually settled.
-  const result=await historyEditCommit(sid,proposed,original);
+  const result=await historyEditCommit(sid,proposed,original,operationId);
   await historyFinishResult(result,"toast.session_updated","edit",operationId);
   return result?.committed===true&&result?.settled===true}
 async function historyBeginDelete(sid){
@@ -557,13 +563,15 @@ async function historyBeginDelete(sid){
   renderHistory();historyFocus($("[data-history-delete-status]"));return true}
 async function deleteSession(sid,{originalFingerprint=null,operationId=null}={}){
   const original=typeof originalFingerprint==="string"?originalFingerprint:"";
+  const ownOperation=operationId||historySelection.operationId;
   if(!original){
     const result={ok:false,committed:false,settled:true,failed:true,code:"history_missing_fingerprint",revision:readRevision(state),localOk:false,idbOk:false};
-    await historyFinishResult(result,"toast.session_deleted","delete",operationId||historySelection.operationId);
+    await historyFinishResult(result,"toast.session_deleted","delete",ownOperation);
     return result}
   const proposal=cloneSnapshot(getState());
   proposal.log=proposal.log.filter(row=>String(row?.session??"")!==String(sid));
   const preflight=({head})=>{
+    if(!historyOperationCurrent(ownOperation,sid,"delete"))return historyCancelledCommit(head);
     const current=historySessionRows(head.log,sid),fingerprint=historySessionFingerprint(current);
     if(!current.length)return{reject:true,result:{ok:true,committed:true,alreadyCommitted:true,
       revision:readRevision(head),localOk:true,idbOk:true,kind:"committed"}};
@@ -574,7 +582,7 @@ async function deleteSession(sid,{originalFingerprint=null,operationId=null}={})
     return{proposal:next};
   };
   const result=await commitProposedState(proposal,{preflight});
-  await historyFinishResult(result,"toast.session_deleted","delete",operationId||historySelection.operationId);
+  await historyFinishResult(result,"toast.session_deleted","delete",ownOperation);
   return result}
 // ---- The session as a page (Plan 064 R3j) ----
 // Read mode: totals, then one group per lift with its outcome, the previous
@@ -1021,7 +1029,7 @@ async function saveSessionEdit(sid){
     const result={ok:false,committed:false,settled:true,failed:true,code:"history_missing_fingerprint",revision:readRevision(state),localOk:false,idbOk:false};
     await historyFinishResult(result,"toast.session_updated","edit",operationId);
     return result}
-  const result=await historyEditCommit(sid,proposed,original);
+  const result=await historyEditCommit(sid,proposed,original,operationId);
   await historyFinishResult(result,"toast.session_updated","edit",operationId);
   return result}
 
