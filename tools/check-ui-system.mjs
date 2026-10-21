@@ -3,7 +3,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { ROOT, captureKey, loadManifest, screenKey } from "./ui-screens/manifest.mjs";
 import { parseShard } from "../test/suites.mjs";
-import { loadRoleInventory, validateRoleInventory, renderedFindingExemption, cssLiteralDebt, cssCompatibilityAliasDebt, requiredBoundaryExceptionRequests, SHARD_REPORT, neverRenderedProblems, shardCaptures, uninventoriedSharedComponents } from "./ui-system-core.mjs";
+import { loadRoleInventory, validateRoleInventory, renderedFindingExemption, renderedHolds, cssLiteralDebt, cssCompatibilityAliasDebt, requiredBoundaryExceptionRequests, SHARD_REPORT, neverRenderedProblems, shardCaptures, uninventoriedSharedComponents } from "./ui-system-core.mjs";
 import { APP_CLOCK, APP_SCENARIOS, APP_USER_AGENT, appState } from "./ui-screens/screens-app.mjs";
 import { ONBOARDING_SCENARIOS, onboardingState } from "./ui-screens/screens-onboarding.mjs";
 import { setCaptureBase, launchChromium, openPage, dismissChrome, settle } from "./ui-screens/session.mjs";
@@ -247,6 +247,15 @@ export async function auditCatalog({ allowProgressDebt = false, flow = null, sta
         for (const id of result.matched) matched.add(id);
         for (const selector of result.matchedExceptions) matchedExceptions.add(selector);
         const pixels = renderedImage.toString("base64");
+        const holds = renderedHolds(inventory.exceptions, key);
+        if (holds.length) {
+          const held = await opened.page.evaluate((items) => items.filter(({ selector, within, kinds }) => {
+            if (!document.querySelector(selector)) return false;
+            for (const node of document.querySelectorAll(within)) node.dataset.auditHold = kinds.join(" ");
+            return true;
+          }).map(({ selector }) => selector), holds);
+          for (const selector of held) matchedExceptions.add(selector);
+        }
         const focus = await auditFocusRoles(opened.page, { key: `${key} [${capture.locale}/${capture.theme}]`, components: inventory.components, pixels });
         problems.push(...focus.problems);
         for (const [status, count] of Object.entries(focus.measurements)) measurements[status] = (measurements[status] || 0) + count;

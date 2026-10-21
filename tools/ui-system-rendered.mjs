@@ -156,6 +156,8 @@ export async function measureRenderedRoles(input) {
   };
   const measure = (node, selector, kind) => {
     if (!visible(node)) return { selector, kind, status: "missing" };
+    // An inventory exception may hold a subtree's findings open while its issue is fixed (`renderedHold`).
+    if (node.closest?.("[data-audit-hold]")?.dataset.auditHold.split(" ").includes(kind)) return { selector, kind, status: "exempt", reason: "held" };
     if (kind === "disabled-control" && node.matches(":disabled,[aria-disabled='true']")) return { selector, kind, status: "exempt" };
     const style = getComputedStyle(node);
     let inside = background(node);

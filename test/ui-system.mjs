@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { ROOT, loadManifest } from "../tools/ui-screens/manifest.mjs";
-import { loadRoleInventory, validateRoleInventory, renderedFindingExemption, cssLiteralDebt, cssCompatibilityAliasDebt, contrastRatio, requiredBoundaryExceptionRequests, uninventoriedSharedComponents, SHARED_COMPONENTS_MARKER } from "../tools/ui-system-core.mjs";
+import { loadRoleInventory, validateRoleInventory, renderedFindingExemption, renderedHolds, cssLiteralDebt, cssCompatibilityAliasDebt, contrastRatio, requiredBoundaryExceptionRequests, uninventoriedSharedComponents, SHARED_COMPONENTS_MARKER } from "../tools/ui-system-core.mjs";
 import { measureClampedHeadings, measureRenderedRoles, renderedRoleProblems } from "../tools/ui-system-rendered.mjs";
 import { auditFocusRoles, inspectRoleCoverage } from "../tools/check-ui-system.mjs";
 import { maybeStartLocalPreview } from "../tools/local-preview.mjs";
@@ -58,6 +58,15 @@ const unnamedHold = structuredClone(inventory);
 unnamedHold.exceptions.find((item) => item.renderedFindings).rationale = "Temporary.";
 assert.ok(validateRoleInventory(unnamedHold, manifest).some((error) => error.includes("without naming its issue")),
   "a rendered finding cannot be held open without its issue");
+// A subtree hold applies only in its exception's states and needs its issue.
+const subtreeHold = inventory.exceptions.find((item) => item.renderedHold);
+assert.deepEqual(renderedHolds(inventory.exceptions, subtreeHold.catalogStates[0]).map((item) => item.within), [subtreeHold.renderedHold.within],
+  "a subtree hold applies in its own catalog state");
+assert.deepEqual(renderedHolds(inventory.exceptions, "settings/main"), [], "a subtree hold applies in no other state");
+const unnamedSubtree = structuredClone(inventory);
+unnamedSubtree.exceptions.find((item) => item.renderedHold).rationale = "Temporary.";
+assert.ok(validateRoleInventory(unnamedSubtree, manifest).some((error) => error.includes("holds rendered findings open without naming its issue")),
+  "a subtree hold cannot be recorded without its issue");
 const firstRecipe = inventory.rootRecipeOwners[0].id;
 const missingRecipeOwner = structuredClone(inventory);
 delete missingRecipeOwner.rootRecipeOwners[0].rationale;
