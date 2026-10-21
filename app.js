@@ -4355,6 +4355,19 @@ function mergeImportedCustomExercises(incoming,exercises,snapshot,allocate=rando
     for(const ex of exercises||[])
       if(ex&&remap.has(ex.libraryId))ex.libraryId=remap.get(ex.libraryId);
   return{customExercises:mine,added,remapped,remap}}
+/* A carried canonical definition names its movements by the source's custom
+   ids. Its slots follow the same remap as the template rows, or they would
+   name a missing movement or a different local one that shares the id. */
+function remapDefinitionMovements(definition,remap){
+  if(!definition||!remap?.size)return definition;
+  const next=cloneSnapshot(definition);
+  for(const day of next.days||[])for(const slot of day?.slots||[]){
+    if(!slot)continue;
+    if(remap.has(slot.exerciseId))slot.exerciseId=remap.get(slot.exerciseId);
+    if(Array.isArray(slot.sourceExerciseIds))slot.sourceExerciseIds=[...new Set(slot.sourceExerciseIds.map(id=>remap.get(id)||id))];
+    if(Array.isArray(slot.alternates))slot.alternates=[...new Set(slot.alternates.map(id=>remap.get(id)||id))].filter(id=>id!==slot.exerciseId);
+  }
+  return next}
 function sharedSettingsPatch(raw){
   return{jumpPct:normSetting(raw?.jumpPct,DEFAULTS.jumpPct,0),
     minJump:normSetting(raw?.minJump,DEFAULTS.minJump,0.01),
@@ -14688,7 +14701,8 @@ function importCandidate(draft){
   const proposal=cloneSnapshot(state);
   const merged=mergeImportedCustomExercises(importDraftCustomDefinitions(draft),exercises,proposal);
   const program=new Program(exercises,snapshotLookup(merged.customExercises)).toJSON();
-  const wantedCustomIds=new Set([...program.map(exercise=>exercise.libraryId),...definitionMovementIds(draft.definition)]
+  const carriedDefinition=remapDefinitionMovements(draft.definition,merged.remap);
+  const wantedCustomIds=new Set([...program.map(exercise=>exercise.libraryId),...definitionMovementIds(carriedDefinition)]
     .filter(isCustomLibraryId));
   const candidateCustomExercises=merged.customExercises
     .filter(entry=>wantedCustomIds.has(entry.id)).map(cloneSnapshot);
@@ -14709,7 +14723,7 @@ function importCandidate(draft){
   // An imported program becomes a Build definition over the matched catalog
   // movements and custom definitions; the preview rows are its projection.
   const kept=draft.definition&&draft.rows.every(row=>row.decision==="link"&&row.match?.id===row.raw.libraryId);
-  const programDefinition=kept?canonicalProgramDefinition(draft.definition,candidateCustomExercises)
+  const programDefinition=kept?canonicalProgramDefinition(carriedDefinition,candidateCustomExercises)
     :manualProgramDefinitionFromRows(program,labels,candidateCustomExercises);
   const projected=programDefinition?flatProgramFromDefinition(programDefinition,candidateCustomExercises,1):program;
   const projectedDays=programDefinition?programDefinition.days.filter(day=>day.kind==="training").map((day,index)=>({
@@ -19271,11 +19285,12 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     if(preview?.sharedImport)baseProposal[SHARED_IMPORT]=cloneSnapshot(preview.sharedImport);
   }
   exercises=cloneSnapshot(exercises);
+  let customRemap=null;
   if(Array.isArray(preview?.customExercises)&&preview.customExercises.length){
     const merged=mergeImportedCustomExercises(preview.customExercises,exercises,baseProposal);
-    baseProposal.customExercises=merged.customExercises}
-  let programDefinition=preview?.programDefinition||preview?.definition||
-    (route==="shared"?baseProposal.programMeta?.programDefinition:null);
+    baseProposal.customExercises=merged.customExercises;customRemap=merged.remap}
+  let programDefinition=remapDefinitionMovements(preview?.programDefinition||preview?.definition||
+    (route==="shared"?baseProposal.programMeta?.programDefinition:null),customRemap);
   if(!programDefinition&&route==="build"){
     const names=Array.isArray(programStructure?.days)?programStructure.days.map(item=>item?.label||item?.name).filter(Boolean):
       (preview?.days||[]).map(item=>item?.name||item?.label).filter(Boolean);
