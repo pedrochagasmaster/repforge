@@ -802,6 +802,49 @@ try {
   const glass = await opened.page.evaluate(measureRenderedRoles, { pixels: glassPixels, requests: [{ selector: "#uiGlassText", kind: "text" }] });
   assert.equal(glass[0]?.status, "pass", `a sampled ground is read at the element's device-pixel position: ${JSON.stringify(glass)}`);
   await opened.page.evaluate(() => { document.querySelector("#uiGlassBand")?.remove(); document.querySelector("#uiGlassLayer")?.remove(); });
+  // A native modal dialog (showModal) makes everything outside it inert: the platform drops it from focus, pointer and
+  // the accessibility tree, and only draws it dimmed beneath the dialog. The audit treats that content as it treats
+  // [inert]: not measured, not owed an inventory role, and a requested role there is exempt rather than missing (#454).
+  // The dialog's own content is still audited.
+  await opened.page.evaluate(() => {
+    document.body.insertAdjacentHTML("beforeend", `
+      <div id="uiBehindModal" style="position:fixed;top:120px;left:20px;width:300px;background:#fff;padding:8px">
+        <p id="uiBehindText" style="font-size:16px;color:#c8c8c8">Dimmed text</p>
+        <button id="uiBehindControl" class="ui-behind-modal" style="width:160px;height:44px;outline:2px solid #d0d0d0;background:#fff;color:#c0c0c0">Behind</button>
+      </div>
+      <dialog id="uiModalDialog" style="top:400px;margin:0 20px;padding:12px;background:#fff">
+        <p id="uiModalText" style="font-size:16px;color:#c8c8c8;background:#fff">Faint text in the dialog</p>
+        <button id="uiModalControl" class="ui-in-modal">Inside</button>
+      </dialog>`);
+    document.querySelector("#uiModalDialog").showModal();
+  });
+  const modalPixels = (await opened.page.screenshot({ animations: "disabled" })).toString("base64");
+  const modalRequests = await opened.page.evaluate(measureRenderedRoles, { pixels: modalPixels, requests: [
+    { selector: "#uiBehindText", kind: "text" }, { selector: "#uiModalText", kind: "text" },
+  ] });
+  const modalOf = (selector) => modalRequests.find((item) => item.selector === selector);
+  assert.equal(modalOf("#uiBehindText")?.status, "exempt",
+    `a requested role behind an open modal dialog is exempt, neither measured nor missing: ${JSON.stringify(modalRequests)}`);
+  assert.equal(modalOf("#uiModalText")?.status, "fail",
+    `the modal dialog's own content is still measured: ${JSON.stringify(modalRequests)}`);
+  const modalSweep = await opened.page.evaluate(measureRenderedRoles, { pixels: modalPixels, components: [] });
+  assert.ok(!modalSweep.some((item) => item.selector.includes("uiBehind") || item.selector.includes("Dimmed text")),
+    `the sweep measures nothing behind an open modal dialog: ${JSON.stringify(modalSweep.filter((item) => /uiBehind|Dimmed/.test(item.selector)))}`);
+  const modalFocus = await auditFocusRoles(opened.page, {
+    key: "onboarding-start/first-run [modal fixture]",
+    components: [{ selector: "#uiBehindControl", roles: { control: "secondary" }, states: ["focus-visible"] }],
+    pixels: modalPixels,
+  });
+  assert.equal(modalFocus.measurements.total, 0, `a control behind an open modal dialog gets no focus measurement: ${JSON.stringify(modalFocus)}`);
+  const modalCoverage = await opened.page.evaluate(inspectRoleCoverage, {
+    key: "onboarding-start/first-run", components: inventory.components,
+    exceptions: inventory.exceptions, progressCandidateSelectors: inventory.progressCandidateSelectors,
+  });
+  assert.ok(!modalCoverage.problems.some((item) => item.includes("#uiBehindControl")),
+    `a control behind an open modal dialog owes no inventory role: ${JSON.stringify(modalCoverage.problems.filter((item) => item.includes("uiBehind")))}`);
+  assert.ok(modalCoverage.problems.some((item) => item.includes("#uiModalControl") && item.includes("has no inventory role")),
+    `a control inside the modal dialog is still owed one: ${JSON.stringify(modalCoverage.problems.filter((item) => item.includes("uiModal")))}`);
+  await opened.page.evaluate(() => { document.querySelector("#uiModalDialog")?.close(); document.querySelector("#uiModalDialog")?.remove(); document.querySelector("#uiBehindModal")?.remove(); });
   const auditProblems = renderedRoleProblems("onboarding-start/first-run [en/light]", [
     ...measured,
     { selector: "#uiMissing", kind: "boundary", status: "missing" },
