@@ -7,6 +7,7 @@
   if (root) root.ProgramEditorSuggestLoads = Object.freeze({
     confirm: api.confirmSuggestLoads, issues: api.suggestLoadsIssues, set: api.setSuggestLoads, setRir: api.setSlotRir,
   });
+  if (root) root.ProgramEditorDayOrder = Object.freeze({ reorder: api.reorderTrainingDays, conflict: api.dayOrderConflict });
 })(typeof window !== "undefined" ? window : globalThis, function (root) {
   "use strict";
 
@@ -21,7 +22,7 @@
     "exercise_add", "exercise_remove", "day_remove", "exercise_replace",
     "exercise_move", "slot_alternates", "metric_target", "metric_composition",
     "prescription_field", "load_step", "suggest_loads", "suggest_loads_rir", "execution_mode",
-    "save_draft", "apply", "apply_discard_workout",
+    "day_move", "save_draft", "apply", "apply_discard_workout",
   ]);
   const INTENT_SET = new Set(PROGRAM_EDITOR_INTENTS);
   const maxAlternates = () => root?.RepForgeProgramCompiler?.MAX_SLOT_ALTERNATES || 5;
@@ -538,6 +539,41 @@
       ? { ...(document.programMeta.programStructure || {}), days: structure }
       : null;
     normalizeOrders(document);
+  }
+  /* Plan 074 S2: the training days' order is programStructure's order. A move
+     reorders that list; the host puts the definition's days in the same order. */
+  function moveDayInDocument(document, day, toIndex) {
+    const structure = metaDays(document).slice();
+    const from = structure.findIndex(entry => String(entry?.label || entry?.dayId || "") === day);
+    if (from < 0 || !Number.isInteger(toIndex) || toIndex < 0 || toIndex >= structure.length || toIndex === from) return null;
+    const before = structure.map(entry => String(entry?.label || entry?.dayId || ""));
+    const [moved] = structure.splice(from, 1);
+    structure.splice(toIndex, 0, moved);
+    document.programMeta.programStructure = {
+      ...(document.programMeta.programStructure || {}),
+      days: structure.map((entry, index) => ({ ...entry, order: index + 1 })),
+    };
+    return { before, after: structure.map(entry => String(entry?.label || entry?.dayId || "")), fromIndex: from, toIndex };
+  }
+  /** The definition's days with its training days in `after`'s order, each in a position a training day
+      already holds; rest days stay put and every day is renumbered. Null unless `after` names each
+      training day exactly once. */
+  function reorderTrainingDays(definition, after) {
+    const days = Array.isArray(definition?.days) ? definition.days : [];
+    const training = days.filter(day => day?.kind === "training");
+    if (!Array.isArray(after) || after.length !== training.length) return null;
+    const wanted = after.map(String), byName = new Map(training.map(day => [String(day.name), day]));
+    if (byName.size !== training.length || new Set(wanted).size !== wanted.length || wanted.some(name => !byName.has(name))) return null;
+    let next = 0;
+    return days.map(day => (day?.kind === "training" ? byName.get(wanted[next++]) : day)).map((day, index) => ({ ...day, order: index + 1 }));
+  }
+  /** Why a day_move made against `edit.before` cannot apply over the training days now named `current`. */
+  function dayOrderConflict(current, edit) {
+    const now = (Array.isArray(current) ? current : []).map(String);
+    const before = Array.isArray(edit?.before) ? edit.before.map(String) : null, after = Array.isArray(edit?.after) ? edit.after.map(String) : null;
+    if (!before || !after || JSON.stringify(before) !== JSON.stringify(now)) return "day_order_changed";
+    if (after.length !== now.length || new Set(after).size !== after.length || after.some(name => !now.includes(name))) return "invalid_day_order";
+    return null;
   }
   function fieldValue(exercise, field, value) {
     if (field === "sets") return Math.max(1, Math.min(100, positiveInt(value, positiveInt(exercise.sets, 1))));
@@ -2550,9 +2586,39 @@
         `<button type="button" class="exactions__act" data-role="day-action" data-action="rename" data-day="${esc(day)}">${icon("pencil")}<span>${esc(rt("entry.review.day_menu.rename", undefined, "Rename day"))}</span></button>` +
         `<button type="button" class="exactions__act" data-role="day-action" data-action="reorder" data-day="${esc(day)}"${count < 2 ? " disabled" : ""}>${icon("grip")}<span>${esc(rt("entry.review.day_menu.reorder", undefined, "Reorder exercises"))}</span></button>` +
         `<button type="button" class="exactions__act" data-role="day-action" data-action="add" data-day="${esc(day)}">${icon("plus")}<span>${esc(label("addExercise"))}</span></button>` +
+        `<button type="button" class="exactions__act" data-role="day-action" data-action="days" data-day="${esc(day)}">${icon("grip")}<span>${esc(rt("program.days_label", undefined, "Training days"))}</span></button>` +
         `<button type="button" class="exactions__act" data-role="day-action" data-action="add-day" data-day="${esc(day)}">${icon("plus")}<span>${esc(String(rt("program.add_day", undefined, "Add day")).replace(/^\s*[+＋]\s*/, ""))}</span></button>` +
         `<button type="button" class="exactions__act exactions__act--danger" data-role="day-action" data-action="remove-day" data-action-role="removal" data-day="${esc(day)}">${icon("close")}<span>${esc(label("removeDay", undefined, "Remove day"))}</span></button>` +
         `</div></div>`;
+    }
+    function daysSheetHtml() {
+      const days = labels(document);
+      return `<div data-pe-sheet="days"><p class="review-sheet__lede">${esc(rt("program.editor.days_hint", undefined, ""))}</p>` +
+        `<ol class="review__reorder program-editor-a__days" data-role="days-list">` +
+        days.map((day, index) => {
+          const name = titleFor(day, index), count = exercisesFor(document, day).length;
+          return `<li class="review__ro" data-role="days-row" data-day="${esc(day)}">` +
+            `<button type="button" class="review__handle" data-role="day-handle" data-day="${esc(day)}" aria-label="${esc(label("move", undefined, name))}">${icon("grip")}</button>` +
+            `<button type="button" class="program-editor-a__dayrename" data-role="days-rename" data-day="${esc(day)}" aria-label="${esc(rt("entry.review.rename_day_aria", { day: name }, `Rename ${name}`))}">` +
+              `<span class="review__ro-name">${esc(name)}</span><span class="review-sheet__note">${nums(count ? dayCount(count) : rt("program.editor.no_exercises", undefined, "No exercises"))}</span></button>` +
+            `<button type="button" class="review__ro-btn" data-role="day-move" data-day="${esc(day)}" data-delta="-1" aria-label="${esc(rt("entry.review.move_up", { name }, `Move ${name} up`))}"${index === 0 ? " disabled" : ""}>${icon("chev-up")}</button>` +
+            `<button type="button" class="review__ro-btn" data-role="day-move" data-day="${esc(day)}" data-delta="1" aria-label="${esc(rt("entry.review.move_down", { name }, `Move ${name} down`))}"${index === days.length - 1 ? " disabled" : ""}>${icon("chev-down")}</button>` +
+            `</li>`;
+        }).join("") + `</ol>` +
+        `<div class="review-sheet__links"><button type="button" class="text-link" data-role="days-add">${icon("plus")}${esc(String(rt("program.add_day", undefined, "Add day")).replace(/^\s*[+＋]\s*/, ""))}</button></div></div>`;
+    }
+    function moveDay(day, toIndex, { focus = null } = {}) {
+      return userAction([doc => {
+        const next = clone(doc), moved = moveDayInDocument(next, day, toIndex);
+        if (!moved) return null;
+        return { next, edit: { kind: "day_move", targetDay: day, ...moved } };
+      }]).then(result => {
+        if (focus) {
+          const parts = sheetParts();
+          (parts?.body?.querySelector(focus) || parts?.body?.querySelector(`[data-role="day-move"][data-day="${cssEscape(day)}"]:not([disabled])`))?.focus({ preventScroll: true });
+        }
+        return result;
+      });
     }
     function paintSheet() {
       const sheet = view.sheet, parts = sheetParts();
@@ -2574,6 +2640,10 @@
         parts.title.textContent = titleForDay(sheet.day);
         parts.body.innerHTML = dayMenuHtml(sheet.day);
         parts.foot.innerHTML = "";
+      } else if (sheet.kind === "days") {
+        parts.title.textContent = rt("program.days_label", undefined, "Training days");
+        parts.body.innerHTML = daysSheetHtml();
+        parts.foot.innerHTML = done;
       }
       restoreLiveEdit(live, parts.el);
     }
@@ -2768,6 +2838,7 @@
           return;
         }
         if (view.tab === day) view.tab = value;
+        if (sheet.back === "days") { openSheetView({ kind: "days" }); render(); return; }
         await closeSheetView();
         render();
         return;
@@ -2880,10 +2951,26 @@
       let el;
       if (hit('[data-role="sheet-done"]')) { closeSheetView(); return; }
       if (sheet.kind === "rename") { if (hit('[data-role="rename-save"]')) saveRename(); return; }
+      if (sheet.kind === "days") {
+        if ((el = hit('[data-role="day-move"]'))) {
+          const day = el.dataset.day, delta = Number(el.dataset.delta), index = labels(document).indexOf(day);
+          moveDay(day, index + delta, { focus: `[data-role="day-move"][data-day="${cssEscape(day)}"][data-delta="${delta}"]:not([disabled])` });
+          return;
+        }
+        if ((el = hit('[data-role="days-rename"]'))) { openSheetView({ kind: "rename", target: "day", day: el.dataset.day, back: "days" }, { focus: '[data-role="rename-input"]' }); return; }
+        if (hit('[data-role="days-add"]')) {
+          userAction([doc => {
+            const next = clone(doc), added = appendDay(next);
+            return { next, edit: { kind: "day_add", targetDay: added, after: added } };
+          }]);
+        }
+        return;
+      }
       if (sheet.kind === "day-menu") {
         const action = hit('[data-role="day-action"]')?.dataset.action, day = sheet.day;
         if (!action) return;
         if (action === "rename") { openSheetView({ kind: "rename", target: "day", day }, { focus: '[data-role="rename-input"]' }); return; }
+        if (action === "days") { openSheetView({ kind: "days" }, { focus: '[data-role="day-move"]:not([disabled])' }); return; }
         if (action === "reorder") { closeSheetView().then(() => { view.tab = day; view.reorderDay = day; render(); host.querySelector('[data-role="reorder-move"]:not([disabled])')?.focus({ preventScroll: true }); }); return; }
         if (action === "add") { closeSheetView().then(() => reviewAdd(day)); return; }
         if (action === "add-day") {
@@ -2999,6 +3086,43 @@
       input.removeAttribute("aria-describedby");
       sheetParts()?.body?.querySelector("#programEditorRenameError")?.remove();
     }
+    /* The handle drag of onboarding's reorder list, for the days: the row follows
+       the pointer, the rows it passes make room, the drop is one day_move. The
+       arrows are the accessible path to the same move. */
+    let dayDrag = null;
+    function onSheetPointerDown(event) {
+      const handle = event.target instanceof Element ? event.target.closest('[data-role="day-handle"]') : null;
+      if (!handle || view.sheet?.kind !== "days") return;
+      event.preventDefault();
+      // The sheet's drag-to-dismiss listens on the document; a day drag is not a dismiss.
+      event.stopPropagation();
+      const rows = [...handle.closest('[data-role="days-list"]').querySelectorAll('[data-role="days-row"]')];
+      const row = handle.closest('[data-role="days-row"]');
+      dayDrag = { id: event.pointerId, row, rows, from: rows.indexOf(row), to: rows.indexOf(row), y0: event.clientY, h: row.offsetHeight || 1 };
+      row.classList.add("is-lifted");
+      handle.setPointerCapture?.(event.pointerId);
+    }
+    function onSheetPointerMove(event) {
+      if (!dayDrag || event.pointerId !== dayDrag.id) return;
+      const dy = event.clientY - dayDrag.y0;
+      dayDrag.row.style.transform = `translate3d(0,${dy}px,0)`;
+      dayDrag.to = Math.max(0, Math.min(dayDrag.rows.length - 1, dayDrag.from + Math.round(dy / dayDrag.h)));
+      dayDrag.rows.forEach((row, index) => {
+        if (row === dayDrag.row) return;
+        const shift = dayDrag.from < dayDrag.to && index > dayDrag.from && index <= dayDrag.to ? -dayDrag.h
+          : dayDrag.from > dayDrag.to && index < dayDrag.from && index >= dayDrag.to ? dayDrag.h : 0;
+        row.style.transform = shift ? `translate3d(0,${shift}px,0)` : "";
+      });
+    }
+    function onSheetPointerUp(event) {
+      if (!dayDrag || event.pointerId !== dayDrag.id) return;
+      const { rows, row, from, to } = dayDrag;
+      dayDrag = null;
+      rows.forEach(item => { item.style.transform = ""; });
+      row.classList.remove("is-lifted");
+      if (event.type === "pointercancel" || to === from) return;
+      moveDay(row.dataset.day, to);
+    }
     let reviewSheetEl = null;
     function mountReviewLayout() {
       host.addEventListener("click", onReviewClick);
@@ -3008,6 +3132,10 @@
       reviewSheetEl?.addEventListener("change", onSheetChange);
       reviewSheetEl?.addEventListener("keydown", onSheetKey);
       reviewSheetEl?.addEventListener("input", onSheetInput);
+      reviewSheetEl?.addEventListener("pointerdown", onSheetPointerDown);
+      reviewSheetEl?.addEventListener("pointermove", onSheetPointerMove);
+      reviewSheetEl?.addEventListener("pointerup", onSheetPointerUp);
+      reviewSheetEl?.addEventListener("pointercancel", onSheetPointerUp);
     }
     function unmountReviewLayout() {
       host.removeEventListener("click", onReviewClick);
@@ -3016,6 +3144,10 @@
       reviewSheetEl?.removeEventListener("change", onSheetChange);
       reviewSheetEl?.removeEventListener("keydown", onSheetKey);
       reviewSheetEl?.removeEventListener("input", onSheetInput);
+      reviewSheetEl?.removeEventListener("pointerdown", onSheetPointerDown);
+      reviewSheetEl?.removeEventListener("pointermove", onSheetPointerMove);
+      reviewSheetEl?.removeEventListener("pointerup", onSheetPointerUp);
+      reviewSheetEl?.removeEventListener("pointercancel", onSheetPointerUp);
       reviewSheetEl = null;
       hideToast();
       if (view.sheet) { view.sheet = null; try { adapter.closeSheet?.(); } catch { /* already closed */ } }
@@ -3039,5 +3171,5 @@
     };
   }
 
-  return { mountProgramEditor, PROGRAM_EDITOR_INTENTS, confirmSuggestLoads, suggestLoadsIssues, setSuggestLoads, setSlotRir };
+  return { mountProgramEditor, PROGRAM_EDITOR_INTENTS, confirmSuggestLoads, suggestLoadsIssues, setSuggestLoads, setSlotRir, reorderTrainingDays, dayOrderConflict };
 });

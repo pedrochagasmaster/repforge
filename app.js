@@ -11120,6 +11120,16 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
   }
   if(kind==="slot_alternates")
     return syncEditorCanonicalIntent(document,document,edit)?{ok:true}:{conflict:true,code:"invalid_canonical_alternates"};
+  if(kind==="day_move"){
+    // A move made against one day order does not replay over another.
+    const current=(document.programMeta?.programStructure?.days||[]).map(entry=>String(entry?.label||entry?.dayId||""));
+    const code=window.ProgramEditorDayOrder?.conflict(current,check?edit:{...edit,before:current})??"invalid_day_order";
+    if(code)return{conflict:true,code};
+    const byLabel=new Map((document.programMeta?.programStructure?.days||[]).map(entry=>[String(entry?.label||entry?.dayId||""),entry]));
+    document.programMeta={...(document.programMeta||{}),programStructure:{...(document.programMeta?.programStructure||{}),
+      days:edit.after.map((label,index)=>({...byLabel.get(label),order:index+1}))}};
+    return syncEditorCanonicalIntent(document,document,edit)?{ok:true}:{conflict:true,code:"day_order_changed"};
+  }
   if(kind==="metric_target"||kind==="metric_composition"||kind==="prescription_field"||
     kind==="prescription"&&edit.field==="sets"){
     return syncEditorCanonicalIntent(document,document,edit,{cycleIndex:Number(edit.cycleIndex)||1})
@@ -11561,6 +11571,12 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
     const target=(definition.days||[]).find(day=>day.kind==="rest"&&!day.slots?.length);
     if(!target)return false;
     target.name=nextName;target.kind="training";
+  }else if(edit?.kind==="day_move"){
+    // Plan 074 S2: the training days take the structure's new order in the
+    // positions training days already hold; rest days stay where they are.
+    const days=window.ProgramEditorDayOrder?.reorder(definition,edit.after);
+    if(!days)return false;
+    definition.days=days;
   }else if(edit?.kind==="day_remove"){
     const target=(definition.days||[]).find(item=>item.name===edit.targetDay);
     if(!target)return false;
