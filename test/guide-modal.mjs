@@ -13,16 +13,12 @@ const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const EN = JSON.parse(readFileSync(new URL("../i18n-en.json", import.meta.url), "utf8"));
 const UI_KEY = "repforge_ui_v1";
 const browser = await launchChromium({ guides: "live" });
-// The guide presentation A/B comparison (2026-10-21) runs these gates under both variants: REPFORGE_GUIDE_VARIANT=A
-// draws the centred dialog over the whole scrim through the app's test-only switch; B, the default, is the anchored one.
-const VARIANT = process.env.REPFORGE_GUIDE_VARIANT === "A" ? "A" : "B";
 const errors = [];
 let passed = 0;
 const ok = (value, message, detail) => { assert.ok(value, `${message}${detail === undefined ? "" : ` — ${JSON.stringify(detail)}`}`); passed++; };
 
 async function freshPage({ seed = true, ui = null, viewport = { width: 390, height: 844 }, text = 1 } = {}) {
   const context = await browser.newContext({ viewport, serviceWorkers: "block" });
-  if (VARIANT === "A") await context.addInitScript(() => { window.__repforgeGuidePlacement = "centered"; });
   if (text !== 1) await context.addInitScript((scale) => {
     const apply = () => { if (document.documentElement) document.documentElement.style.fontSize = `${scale * 100}%`; };
     apply();
@@ -56,7 +52,7 @@ async function readDialog(page) {
       open: !!dialog?.open,
       modal: !!dialog?.matches(":modal"),
       guide: dialog?.dataset.guide || null,
-      entryDialog: !!dialog?.querySelector(":scope > .entry-dialog"),
+      entryDialog: !!dialog?.classList.contains("entry-dialog"),
       labelledBy: !!title?.id && dialog?.getAttribute("aria-labelledby") === title.id,
       describedBy: !!body?.id && dialog?.getAttribute("aria-describedby") === body.id,
       title: title?.textContent || "",
@@ -257,7 +253,7 @@ async function arriveInFocus(page) {
     await openProgress(page);
     await expectGuideDialog(page, "progress", `Progress ${theme}`);
     tokens[theme] = await page.evaluate(() => {
-      const dialog = document.querySelector("dialog#guideDialog .guide-dialog__panel");
+      const dialog = document.querySelector("dialog#guideDialog");
       const probe = document.createElement("div");
       probe.style.cssText = "background:var(--surface);color:var(--ink)";
       dialog.append(probe);
@@ -277,64 +273,17 @@ async function arriveInFocus(page) {
   ok(tokens.light.background !== tokens.dark.background, "Dark mode swaps the dialog's surface", tokens);
 }
 
-/** Mean luminance of a page region, decoded in the page from a screenshot. */
-async function regionLuma(page, clip) {
-  const png = (await page.screenshot({ clip })).toString("base64");
-  return page.evaluate(async (data) => {
-    const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${data}`)).blob());
-    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(bitmap, 0, 0);
-    const { data: px } = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
-    let sum = 0;
-    for (let i = 0; i < px.length; i += 4) sum += 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2];
-    return sum / (px.length / 4);
-  }, png);
-}
-
-/** Variant A: the centred dialog over the whole scrim, wherever its control is. */
+/** The guide is the entry dialog centred in the visible viewport over the whole scrim, wherever its control is. */
 async function expectCentred(page, label) {
-  const plain = await page.evaluate(() => {
-    const dialog = document.querySelector("dialog#guideDialog"), panel = dialog.querySelector(".guide-dialog__panel").getBoundingClientRect();
-    return { anchored: dialog.classList.contains("is-anchored"), backdrop: getComputedStyle(dialog, "::backdrop").backgroundColor,
-      centre: Math.abs((panel.top + panel.bottom) / 2 - (visualViewport.offsetTop + visualViewport.height / 2)) };
-  });
-  ok(!plain.anchored && plain.backdrop !== "rgba(0, 0, 0, 0)" && plain.centre <= 1, `${label}: the centred dialog over the whole scrim`, plain);
-}
-
-/** The guide's control is left out of the scrim, and the panel sits beside it rather than over it. */
-async function expectAnchored(page, anchorSelector, label) {
-  if (VARIANT === "A") return expectCentred(page, label);
   // The view under the guide may still be playing its entrance (Progress fades in, Focus rises): read it at rest.
   await page.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished.catch(() => {}))));
-  const geometry = await page.evaluate((selector) => {
-    const dialog = document.querySelector("dialog#guideDialog");
-    const box = (el) => { const r = el.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right }; };
-    const anchor = [...document.querySelectorAll(selector)].find((el) => el.getClientRects().length);
-    return {
-      anchored: dialog.classList.contains("is-anchored"),
-      anchor: anchor && box(anchor),
-      hole: box(dialog.querySelector(".guide-dialog__hole")),
-      panel: box(dialog.querySelector(".guide-dialog__panel")),
-      viewport: { height: innerHeight },
-    };
-  }, anchorSelector);
-  const { anchor, hole, panel } = geometry;
-  ok(geometry.anchored && anchor, `${label}: the dialog is placed on its anchor`, geometry);
-  ok(hole.top <= anchor.top && hole.bottom >= anchor.bottom && hole.left <= anchor.left && hole.right >= anchor.right,
-    `${label}: the cut-out holds the whole anchor`, geometry);
-  ok(panel.bottom <= hole.top || panel.top >= hole.bottom, `${label}: the panel does not cover the cut-out`, geometry);
-  ok(panel.top >= 0 && panel.bottom <= geometry.viewport.height, `${label}: the panel is on screen`, geometry);
-  // The anchor looks the same with the guide up as with no guide at all, while the page beside the panel is dimmed.
-  // The middle of the anchor: the panel's shadow may fall on its near edge.
-  const w = anchor.right - anchor.left, h = anchor.bottom - anchor.top;
-  const clip = { x: anchor.left + w / 4, y: anchor.top + h / 4, width: Math.max(1, w / 2), height: Math.max(1, h / 2) };
-  const side = { x: 2, y: Math.round(geometry.viewport.height / 2), width: 8, height: 8 };
-  const up = { anchor: await regionLuma(page, clip), side: await regionLuma(page, side) };
-  await page.evaluate(() => { document.querySelector("dialog#guideDialog").style.display = "none"; });
-  const bare = { anchor: await regionLuma(page, clip), side: await regionLuma(page, side) };
-  await page.evaluate(() => { document.querySelector("dialog#guideDialog").style.display = ""; });
-  ok(Math.abs(up.anchor - bare.anchor) < 1.5 && bare.side - up.side > 1, `${label}: the anchor is undimmed and the page around it is dimmed`, { up, bare });
+  const plain = await page.evaluate(() => {
+    const dialog = document.querySelector("dialog#guideDialog"), box = dialog.getBoundingClientRect();
+    return { backdrop: getComputedStyle(dialog, "::backdrop").backgroundColor,
+      centre: Math.abs((box.top + box.bottom) / 2 - (visualViewport.offsetTop + visualViewport.height / 2)),
+      fits: box.top >= 0 && box.bottom <= visualViewport.height };
+  });
+  ok(plain.backdrop !== "rgba(0, 0, 0, 0)" && plain.centre <= 1 && plain.fits, `${label}: the centred dialog over the whole scrim`, plain);
 }
 
 /** Click the centre of what `selector` draws, as a pointer would: whatever the top layer leaves under that point. */
@@ -413,7 +362,7 @@ for (const theme of ["light", "dark"]) {
     }
     await expectGuideDialog(page, guide, label);
     const fit = await page.evaluate(() => {
-      const panel = document.querySelector(".guide-dialog__panel").getBoundingClientRect();
+      const panel = document.querySelector("dialog#guideDialog").getBoundingClientRect();
       const okButton = document.querySelector("#guideDialogOk").getBoundingClientRect();
       const height = visualViewport.height;
       return { panel: [panel.top, panel.bottom], ok: [okButton.top, okButton.bottom], height,
@@ -424,8 +373,8 @@ for (const theme of ["light", "dark"]) {
   }
 }
 
-// Highlight: the scrim leaves the anchor uncovered on Focus and Progress, in
-// both themes, at a tall and a short phone.
+// Placement: on Focus and Progress, in both themes, on a tall and a short phone, the guide is centred over the whole
+// scrim.
 for (const viewport of [{ width: 390, height: 844 }, { width: 375, height: 667 }]) {
   for (const theme of ["light", "dark"]) {
     const tag = `${theme} ${viewport.width}x${viewport.height}`;
@@ -434,31 +383,17 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 375, height: 667 }
       await arriveInFocus(page);
       await page.locator('.focus-shelf .shelf__fieldbtn[data-shelf-field][aria-pressed="false"]').first().click();
       await expectGuideDialog(page, "first-set", `First set ${tag}`);
-      await expectAnchored(page, ".focus-shelf .saveset", `First set ${tag}`);
+      await expectCentred(page, `First set ${tag}`);
       await context.close();
     }
     {
       const { context, page } = await freshPage({ ui: { theme, lang: "en" }, viewport });
       await openProgress(page);
       await expectGuideDialog(page, "progress", `Progress ${tag}`);
-      await expectAnchored(page, '#statsSeg [data-seg="overview"]', `Progress ${tag}`);
+      await expectCentred(page, `Progress ${tag}`);
       await context.close();
     }
   }
-}
-
-// Without room beside its anchor the guide is the plain centred dialog over the whole scrim.
-{
-  const { context, page } = await freshPage({ viewport: { width: 390, height: 320 } });
-  await openProgress(page);
-  await expectGuideDialog(page, "progress", "Progress short");
-  const plain = await page.evaluate(() => {
-    const dialog = document.querySelector("dialog#guideDialog");
-    return { anchored: dialog.classList.contains("is-anchored"), backdrop: getComputedStyle(dialog, "::backdrop").backgroundColor,
-      hole: getComputedStyle(dialog.querySelector(".guide-dialog__hole")).display };
-  });
-  ok(!plain.anchored && plain.hole === "none" && plain.backdrop !== "rgba(0, 0, 0, 0)", "Progress short: no room falls back to the centred dialog", plain);
-  await context.close();
 }
 
 await browser.close();

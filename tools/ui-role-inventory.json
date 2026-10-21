@@ -61,7 +61,7 @@
     "onboarding-start/hub-guide": {
       "owner": "tip-modal-2026-10-17",
       "content": "flat",
-      "scenario": "The entry guide over the hub: the guide dialog placed below the Recommend choice it explains, which the scrim leaves uncovered."
+      "scenario": "The entry guide over the hub: the guide dialog, centred over the dimmed hub."
     },
     "onboarding-start/hub-existing": {
       "owner": "plan-054",
@@ -306,12 +306,12 @@
     "workout/first-set-guide": {
       "owner": "tip-modal-2026-10-17",
       "content": "flat",
-      "scenario": "The first-set guide, opened by the first tap on a shelf field: the guide dialog above the uncovered Log set action, holding the tap until Got it."
+      "scenario": "The first-set guide, opened by the first tap on a shelf field: the guide dialog centred over the dimmed Focus, holding the tap until Got it."
     },
     "workout/focus-utilities-guide": {
       "owner": "tip-modal-2026-10-17",
       "content": "flat",
-      "scenario": "The focus-utilities guide: the guide dialog below the uncovered workout menu button."
+      "scenario": "The focus-utilities guide: the guide dialog centred over the dimmed Focus."
     },
     "workout/focus-per-side": {
       "owner": "plan-069",
@@ -406,7 +406,7 @@
     "progress/overview-guide": {
       "owner": "tip-modal-2026-10-17",
       "content": "flat",
-      "scenario": "The progress guide on arrival: the guide dialog below the uncovered Overview tab."
+      "scenario": "The progress guide on arrival: the guide dialog centred over the dimmed Overview."
     },
     "progress/overview-baseline": {
       "owner": "plan-056",
@@ -481,7 +481,7 @@
     "progress/review-guide": {
       "owner": "tip-modal-2026-10-17",
       "content": "flat",
-      "scenario": "The block-transition guide on the Review tab: the guide dialog below the uncovered Review tab."
+      "scenario": "The block-transition guide on the Review tab: the guide dialog centred over the dimmed review."
     },
     "progress/review-active": {
       "owner": "plan-056",
@@ -706,17 +706,17 @@
     "settings/guides-replay": {
       "owner": "plan-057",
       "content": "flat",
-      "scenario": "A real contextual guide replayed from Settings: the guide dialog beside its live Privacy action, which the scrim leaves uncovered."
+      "scenario": "A real contextual guide replayed from Settings: the privacy guide dialog, centred over the dimmed list."
     },
     "settings/backup-guide": {
       "owner": "tip-modal-2026-10-17",
       "content": "flat",
-      "scenario": "The backup guide in the open backup group: the guide dialog beside the uncovered Export backup action."
+      "scenario": "The backup guide in the open backup group: the guide dialog centred over the dimmed Settings."
     },
     "settings/install-guide": {
       "owner": "tip-modal-2026-10-17",
       "content": "flat",
-      "scenario": "The install guide where Settings offers Install (iOS Safari): the guide dialog beside the uncovered Install action."
+      "scenario": "The install guide where Settings offers Install (iOS Safari): the guide dialog centred over the dimmed Settings."
     },
     "settings/privacy": {
       "owner": "plan-057",
@@ -6464,36 +6464,12 @@
       "roles": {
         "elevation": "modal"
       },
-      "variant": "anchored-dialog",
-      "facets": [],
-      "states": [
-        "default"
-      ],
-      "rationale": "A contextual guide: a native modal dialog spanning the viewport that holds the page inert until \"Got it\"; Escape and cancel dismiss it and focus returns to the control it explains.",
-      "owner": "tip-modal-2026-10-17",
-      "catalogStates": [
-        "onboarding-start/hub-guide",
-        "workout/first-set-guide",
-        "workout/focus-utilities-guide",
-        "progress/overview-guide",
-        "progress/review-guide",
-        "settings/guides-replay",
-        "settings/backup-guide",
-        "settings/install-guide"
-      ]
-    },
-    {
-      "id": "guidedialog-panel",
-      "selector": "#guideDialog .guide-dialog__panel",
-      "roles": {
-        "elevation": "modal"
-      },
       "variant": "centered-dialog",
       "facets": [],
       "states": [
         "default"
       ],
-      "rationale": "The guide's panel is the entry dialog's panel, placed above or below the control it explains, or centred when there is no room beside it.",
+      "rationale": "A contextual guide: the entry dialog's native modal panel, centred over the whole scrim, holding the page inert until \"Got it\"; Escape and cancel dismiss it and focus returns to the control it explains.",
       "owner": "tip-modal-2026-10-17",
       "catalogStates": [
         "onboarding-start/hub-guide",

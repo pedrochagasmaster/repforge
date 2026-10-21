@@ -20724,9 +20724,10 @@ async function installTransferRequestDivergence(){
   showInstallTransferDivergenceDialog(installTransferConfirmDivergence)}
 
 // ---- Contextual guides ----
-/* A guide is a note about one control, shown once per version. It is the entry dialogs' native <dialog>: the title,
-   the body and one "Got it", with focus on the title and kept inside, the page inert behind it, and focus back on the
-   control it explains when it closes. "Got it", Escape and the platform's cancel all record `dismissed`; Replay in
+/* A guide is a note about one control, shown once per version. It is the entry dialogs' native <dialog>, centred over
+   the whole scrim (chosen over a cut-out around the control by the 2026-10-21 comparison,
+   docs/design/guide-presentation-comparison.md): the title, the body and one "Got it", with focus on the title and kept
+   inside, the page inert behind it, and focus back on the control it explains when it closes. "Got it", Escape and the platform's cancel all record `dismissed`; Replay in
    Settings resets the record. It is built at body level on first use because `openModal` makes every other body child
    inert. When another modal is up a guide waits for its next moment rather than taking that modal's place. */
 let activeGuideId=null,activeGuideAfter=null;
@@ -20754,68 +20755,19 @@ function guideDialogElement(){
   let el=$("#guideDialog");
   if(el)return el;
   el=document.createElement("dialog");
-  el.id="guideDialog";el.className="guide-dialog";el.setAttribute("aria-modal","true");
+  el.id="guideDialog";el.className="entry-dialog guide-dialog";el.setAttribute("aria-modal","true");
   el.setAttribute("aria-labelledby","guideDialogTitle");el.setAttribute("aria-describedby","guideDialogBody");
-  el.innerHTML=`<div class="guide-dialog__hole" aria-hidden="true"></div><div class="entry-dialog guide-dialog__panel">`+
-    `<h2 class="entry-dialog__title" id="guideDialogTitle" tabindex="-1"></h2><p class="entry-dialog__body" id="guideDialogBody"></p>`+
-    `<div class="entry-dialog__actions"><button type="button" id="guideDialogOk" class="btn btn--cta btn--noarrow"></button></div></div>`;
+  el.innerHTML=`<h2 class="entry-dialog__title" id="guideDialogTitle" tabindex="-1"></h2><p class="entry-dialog__body" id="guideDialogBody"></p>`+
+    `<div class="entry-dialog__actions"><button type="button" id="guideDialogOk" class="btn btn--cta btn--noarrow"></button></div>`;
   document.body.append(el);
   // Some engines close a modal <dialog> on Escape before a capture listener runs; cancel routes that to the same dismissal.
   el.addEventListener("cancel",event=>{event.preventDefault();dismissContextualGuide()});
   el.querySelector("#guideDialogOk").onclick=()=>dismissContextualGuide();
   return el}
-/* The scrim leaves the control the guide explains uncovered, and the panel sits above or below it, whichever side has
-   room in the visible viewport. Where the control is off screen or neither side has room, the guide is the plain
-   centred dialog over the whole scrim. Placement follows the keyboard, the viewport and a rebuilt anchor. */
-let guidePlaceFrame=0,guidePlaceWatch=null;
-function placeGuideDialog(){
-  guidePlaceFrame=0;
-  const dialog=$("#guideDialog");
-  if(!dialog?.open||!activeGuideId)return;
-  const panel=dialog.querySelector(".guide-dialog__panel");
-  const anchor=guideAnchor(guideDefinition(activeGuideId));
-  const root=getComputedStyle(document.documentElement),px=name=>parseFloat(root.getPropertyValue(name))||0;
-  const pad=px("--space-8"),gap=px("--space-12"),edge=px("--space-16");
-  const vv=window.visualViewport,top=vv?vv.offsetTop:0,bottom=top+(vv?vv.height:innerHeight);
-  const left=vv?vv.offsetLeft:0,right=left+(vv?vv.width:innerWidth);
-  let y=null,rect=null;
-  // Test-only switch for the 2026-10-21 A/B comparison: "centered" draws variant A, the centred dialog over the whole scrim.
-  if(anchor&&window.__repforgeGuidePlacement!=="centered"){
-    rect=anchor.getBoundingClientRect();
-    const hole={top:rect.top-pad,bottom:rect.bottom+pad};
-    const visible=hole.top>=top&&hole.bottom<=bottom&&rect.left>=left&&rect.right<=right;
-    const height=panel.offsetHeight;
-    if(visible&&hole.bottom+gap+height<=bottom-edge)y=hole.bottom+gap;
-    else if(visible&&hole.top-gap-height>=top+edge)y=hole.top-gap-height}
-  const anchored=y!=null;
-  dialog.classList.toggle("is-anchored",anchored);
-  if(!anchored)return;
-  dialog.style.setProperty("--guide-hole-x",`${rect.left-pad}px`);
-  dialog.style.setProperty("--guide-hole-y",`${rect.top-pad}px`);
-  dialog.style.setProperty("--guide-hole-w",`${rect.width+2*pad}px`);
-  dialog.style.setProperty("--guide-hole-h",`${rect.height+2*pad}px`);
-  dialog.style.setProperty("--guide-panel-y",`${Math.round(y)}px`)}
-function scheduleGuidePlacement(){if(!guidePlaceFrame)guidePlaceFrame=requestAnimationFrame(placeGuideDialog)}
-function watchGuidePlacement(on){
-  if(!on){guidePlaceWatch?.();guidePlaceWatch=null;return}
-  if(guidePlaceWatch)return;
-  const vv=window.visualViewport,panel=$("#guideDialog .guide-dialog__panel");
-  const resize=typeof ResizeObserver==="function"?new ResizeObserver(scheduleGuidePlacement):null;
-  if(panel)resize?.observe(panel);
-  window.addEventListener("resize",scheduleGuidePlacement);
-  window.addEventListener("scroll",scheduleGuidePlacement,true);
-  vv?.addEventListener("resize",scheduleGuidePlacement);vv?.addEventListener("scroll",scheduleGuidePlacement);
-  guidePlaceWatch=()=>{
-    resize?.disconnect();
-    window.removeEventListener("resize",scheduleGuidePlacement);
-    window.removeEventListener("scroll",scheduleGuidePlacement,true);
-    vv?.removeEventListener("resize",scheduleGuidePlacement);vv?.removeEventListener("scroll",scheduleGuidePlacement);
-    if(guidePlaceFrame){cancelAnimationFrame(guidePlaceFrame);guidePlaceFrame=0}}}
 function guideOpen(){return !!activeGuideId&&!!$("#guideDialog")?.open}
 function removeContextualGuide(){
   const el=$("#guideDialog");
   activeGuideId=null;activeGuideAfter=null;
-  watchGuidePlacement(false);
   if(!el?.open)return;
   closeModal(el);
   if(el.open)try{el.close()}catch{}}
@@ -20849,7 +20801,6 @@ function showContextualGuide(id,{returnFocus=null,persistDeferred=false,after=nu
   if(!openModal(dialog,{initialFocus:dialog.querySelector(".entry-dialog__title"),returnFocus:back,onEscape:()=>dismissContextualGuide()}))return false;
   if(id==="first-set")firstSetGuideArmed=false;
   activeGuideId=id;activeGuideAfter=typeof after==="function"?after:null;
-  placeGuideDialog();watchGuidePlacement(true);
   const stored=guideStored(id);
   if(stored?.version!==guide.version||stored?.status!=="shown")saveGuideTransition(id,"shown");
   return true}

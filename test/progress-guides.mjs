@@ -55,14 +55,12 @@ async function openProgress(page) {
     const target = document.querySelector('#statsSeg [data-seg="overview"]');
     return {
       modal: dialog?.matches(":modal"),
-      anchored: dialog?.classList.contains("is-anchored"),
       targetVisible: Boolean(target?.getClientRects().length),
       labelled: Boolean(document.getElementById(dialog?.getAttribute("aria-labelledby") || "")),
     };
   });
   assert.equal(anchor.modal, true, "Progress guide is a modal dialog");
-  assert.equal(anchor.anchored, true, "Progress guide is placed on its concrete Overview anchor");
-  assert.equal(anchor.targetVisible, true);
+  assert.equal(anchor.targetVisible, true, "Progress guide opens where its concrete Overview anchor is on screen");
   assert.equal(anchor.labelled, true);
   await page.click("#guideDialogOk");
   await page.waitForFunction(() => !document.querySelector("dialog#guideDialog[open]"));

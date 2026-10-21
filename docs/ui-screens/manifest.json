@@ -501,7 +501,7 @@
       "id": "hub-guide",
       "flow": "onboarding-start",
       "label": "Entry hub — guide",
-      "scenario": "The entry guide over the hub: the guide dialog placed below the Recommend choice it explains, which the scrim leaves uncovered.",
+      "scenario": "The entry guide over the hub: the guide dialog, centred over the dimmed hub.",
       "variants": "accessibility"
     },
     {
@@ -1019,14 +1019,14 @@
       "id": "first-set-guide",
       "flow": "workout",
       "label": "Workout — first-set guide",
-      "scenario": "The first-set guide, opened by the first tap on a shelf field: the guide dialog above the uncovered Log set action, holding the tap until Got it.",
+      "scenario": "The first-set guide, opened by the first tap on a shelf field: the guide dialog centred over the dimmed Focus, holding the tap until Got it.",
       "variants": "demandingText"
     },
     {
       "id": "focus-utilities-guide",
       "flow": "workout",
       "label": "Workout — workout menu guide",
-      "scenario": "The focus-utilities guide: the guide dialog below the uncovered workout menu button.",
+      "scenario": "The focus-utilities guide: the guide dialog centred over the dimmed Focus.",
       "variants": "demandingText"
     },
     {
@@ -1166,7 +1166,7 @@
       "id": "overview-guide",
       "flow": "progress",
       "label": "Progress — overview guide",
-      "scenario": "The progress guide on arrival: the guide dialog below the uncovered Overview tab.",
+      "scenario": "The progress guide on arrival: the guide dialog centred over the dimmed Overview.",
       "variants": "demandingText"
     },
     {
@@ -1271,7 +1271,7 @@
       "id": "review-guide",
       "flow": "progress",
       "label": "Progress — review guide",
-      "scenario": "The block-transition guide on the Review tab: the guide dialog below the uncovered Review tab.",
+      "scenario": "The block-transition guide on the Review tab: the guide dialog centred over the dimmed review.",
       "variants": "demandingText"
     },
     {
@@ -1586,21 +1586,21 @@
       "id": "guides-replay",
       "flow": "settings",
       "label": "Settings — replayed guide",
-      "scenario": "A real contextual guide replayed from Settings: the guide dialog beside its live Privacy action, which the scrim leaves uncovered.",
+      "scenario": "A real contextual guide replayed from Settings: the privacy guide dialog, centred over the dimmed list.",
       "variants": "standard"
     },
     {
       "id": "backup-guide",
       "flow": "settings",
       "label": "Settings — backup guide",
-      "scenario": "The backup guide in the open backup group: the guide dialog beside the uncovered Export backup action.",
+      "scenario": "The backup guide in the open backup group: the guide dialog centred over the dimmed Settings.",
       "variants": "standard"
     },
     {
       "id": "install-guide",
       "flow": "settings",
       "label": "Settings — install guide",
-      "scenario": "The install guide where Settings offers Install (iOS Safari): the guide dialog beside the uncovered Install action.",
+      "scenario": "The install guide where Settings offers Install (iOS Safari): the guide dialog centred over the dimmed Settings.",
       "variants": "standard"
     },
     {

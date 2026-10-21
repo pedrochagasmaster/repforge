@@ -1059,7 +1059,7 @@ try {
       const globals = await page.evaluate(() => {
         const cues = [...document.querySelectorAll("dialog#guideDialog[open]")].map((el) => el.dataset.guide);
         const headline = document.querySelector("#firstRunHeadline");
-        const above = [...document.querySelectorAll("dialog#guideDialog[open] .guide-dialog__panel")]
+        const above = [...document.querySelectorAll("dialog#guideDialog[open]")]
           .filter((el) => el.getBoundingClientRect().top < headline.getBoundingClientRect().top);
         return {
           modalAbsent: !document.querySelector("#tour"),
@@ -1094,15 +1094,13 @@ try {
       await page.waitForSelector('dialog#guideDialog[open][data-guide="entry"]');
       const chooserGuide = await page.evaluate(() => {
         const dialog = document.querySelector("dialog#guideDialog");
-        const anchor = document.querySelector('[data-entry-hub="recommend"]').getBoundingClientRect();
-        const hole = dialog.querySelector(".guide-dialog__hole").getBoundingClientRect();
         return {
-          cueAnchored: dialog.classList.contains("is-anchored"),
-          anchorsRecommendCard: hole.top <= anchor.top && hole.bottom >= anchor.bottom && hole.left <= anchor.left && hole.right >= anchor.right,
+          cueOpen: !!dialog?.matches(":modal") && dialog.dataset.guide === "entry",
+          recommendShown: !!document.querySelector('[data-entry-hub="recommend"]')?.getClientRects().length,
         };
       });
-      assert(chooserGuide.cueAnchored, "entry guidance is attached to its action");
-      assert(chooserGuide.anchorsRecommendCard, "entry guidance anchors the hub's Recommend choice, not the landing");
+      assert(chooserGuide.cueOpen, "entry guidance opens at the chooser");
+      assert(chooserGuide.recommendShown, "entry guidance belongs to the hub's Recommend choice, not the landing");
 
       const uiPrefs = await page.evaluate(() => window.__repforgeUi?.loadUiPrefs?.());
       assert(typeof uiPrefs === "object" && uiPrefs != null, "window.__repforgeUi.loadUiPrefs returns prefs object");

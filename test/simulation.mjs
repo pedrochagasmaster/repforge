@@ -7293,11 +7293,8 @@ async function main() {
   await page.waitForSelector('dialog#guideDialog[open][data-guide="privacy"]');
   const cue = await page.evaluate(() => {
     const dialog = document.querySelector("dialog#guideDialog");
-    const anchor = document.querySelector("#privacyDetails").getBoundingClientRect();
-    const hole = dialog.querySelector(".guide-dialog__hole").getBoundingClientRect();
     return {
       modal: !!dialog?.matches(":modal"),
-      anchored: dialog.classList.contains("is-anchored") && hole.top <= anchor.top && hole.bottom >= anchor.bottom,
       mainInert: !!document.querySelector("main")?.inert,
     };
   });

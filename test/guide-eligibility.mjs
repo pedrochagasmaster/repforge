@@ -77,12 +77,12 @@ try {
   const evidence = await page.evaluate(({ dataKey, uiKey }) => ({
     guideStatus: JSON.parse(localStorage.getItem(uiKey) || "{}").guideState?.["first-set"]?.status,
     historicalSessions: new Set((JSON.parse(localStorage.getItem(dataKey) || "{}").log || []).map((row) => row.session)).size,
-    anchored: document.querySelector("dialog#guideDialog")?.classList.contains("is-anchored"),
+    modal: !!document.querySelector("dialog#guideDialog")?.matches(":modal"),
     anchor: !!document.querySelector(".focus-shelf .saveset")?.getClientRects().length,
   }), { dataKey: DATA_KEY, uiKey: UI_KEY });
   assert.equal(evidence.guideStatus, "shown", "existing workout history does not suppress automatic first-set guide eligibility");
   assert.equal(evidence.historicalSessions, 1, "guide eligibility reads history without changing durable workout facts");
-  assert.ok(evidence.anchored && evidence.anchor, "automatic guide remains anchored to its real Save control");
+  assert.ok(evidence.modal && evidence.anchor, "the automatic guide opens over Focus with its real Save control on screen");
 } finally {
   await context.close();
   await browser.close();

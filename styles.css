@@ -7292,7 +7292,7 @@ body.is-entry-editor #entryProgramName,
   text-transform:uppercase;color:var(--accent-deep)
 }
 
-/* Dialogs: cancel, replace and start over share one modal panel. */
+/* Dialogs: cancel, replace and start over, and the contextual guides, share one modal panel. */
 .entry-dialog{
   position:fixed;left:50%;top:calc(var(--vv-top,0px) + var(--vvh,100dvh) / 2);transform:translate(-50%,-50%);z-index:80;width:min(calc(100% - var(--space-32)),420px);
   max-height:min(90dvh,var(--dialog-max-height));margin:0;padding:var(--space-18);overflow:auto;overscroll-behavior:contain;border:1px solid var(--boundary-modal);
@@ -7316,22 +7316,6 @@ body.is-entry-editor #entryProgramName,
 }
 .entry-dialog .btn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 
-/* Contextual guides: the entry dialog's panel, in a dialog that spans the viewport so its scrim can leave the control
-   the guide explains uncovered. Without a placed anchor it is the plain centred panel over the whole scrim. */
-.guide-dialog{
-  position:fixed;inset:0;width:100%;height:100%;max-width:none;max-height:none;margin:0;padding:0;border:0;
-  overflow:visible;background:transparent;color:var(--ink)
-}
-.guide-dialog::backdrop{background:var(--scrim)}
-.guide-dialog.is-anchored::backdrop{background:transparent}
-.guide-dialog__hole{display:none}
-.guide-dialog.is-anchored .guide-dialog__hole{
-  display:block;position:fixed;left:var(--guide-hole-x);top:var(--guide-hole-y);width:var(--guide-hole-w);height:var(--guide-hole-h);
-  border-radius:var(--radius-surface);outline:200vmax solid var(--scrim);pointer-events:none
-}
-/* Placed beside its control the panel casts no shadow: the scrim already sets it apart, and a shadow would fall on the
-   control the guide leaves undimmed. */
-.guide-dialog.is-anchored .guide-dialog__panel{top:var(--guide-panel-y);transform:translateX(-50%);box-shadow:none}
 
 /* ---- Plan 064 shared components ----
    Every component block declared in this section must be named by a
