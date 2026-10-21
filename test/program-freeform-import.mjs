@@ -739,9 +739,84 @@ async function main() {
            step3Results.parsedInvalid.reason === "invalid_rows",
       "valid JSON with invalid rows reports a row validation failure, not syntax");
     assert(step3Results.parsedMalformedBracket.status === "unreadable" &&
-           step3Results.parsedMalformedBracket.reason === "invalid_json" &&
+           step3Results.parsedMalformedBracket.reason === "invalid_json",
+      "a Markdown-escaped bracket is a syntax error, never missing exercises",
+      JSON.stringify(step3Results.parsedMalformedBracket));
+    assert(step3Results.parsedTruncated.status === "unreadable" &&
            step3Results.parsedTruncated.reason === "invalid_json",
-      "escaped bracket and truncated clipboard JSON are syntax errors, never missing exercises");
+      "a truncated reply is a syntax error, never a salvaged exercises array",
+      JSON.stringify(step3Results.parsedTruncated));
+
+    console.log("\nBroken JSON is diagnosed, never salvaged; valid JSON still imports");
+    const syntaxCases = await page.evaluate(() => {
+      const freeform = window.__repforgeFreeform;
+      const bs = String.fromCharCode(92);
+      const rows = [
+        { day: "Upper", order: 1, name: "Bench press", sets: 3, min: 8, max: 12 },
+        { day: "Upper", order: 2, name: "Barbell row", sets: 3, min: 8, max: 12 },
+      ];
+      // The sentinel name and notImported make a salvaged inner array visible.
+      const complete = JSON.stringify({ version: 3, meta: { name: "Sentinel program" },
+        exercises: rows, missing: [], notImported: ["rest_times"] });
+      const truncated = complete.slice(0, -9);
+      const seventeen = JSON.stringify({ version: 3, meta: { name: "Seventeen" },
+        exercises: Array.from({ length: 17 }, (_, i) => ({ day: i < 9 ? "A" : "B",
+          order: i < 9 ? i + 1 : i - 8, name: `Exercise ${i + 1}`, sets: 3, min: 6, max: 10 })),
+        missing: [], notImported: ["tempo"] });
+      const nested = depth => depth ? { n: nested(depth - 1) } : 1;
+      const read = text => {
+        const r = freeform.parseReply(text);
+        return { status: r?.status, reason: r?.reason, rows: r?.exercises?.length,
+          names: r?.exercises?.map(e => e.name), notImported: r?.notImported };
+      };
+      const broken = {
+        escapedInside: complete.replace('"exercises":[', '"exercises": ' + bs + "["),
+        truncatedEnd: truncated,
+        truncatedInRow: complete.slice(0, complete.indexOf('"Barbell row"') + 6),
+        truncatedOuterArray: "[" + JSON.stringify(rows[0]) + ',{"day":"Upper","order":2',
+        truncatedInClosedFence: "```json\n" + truncated + "\n```",
+        truncatedInOpenFence: "```json\n" + truncated,
+        truncatedAfterProse: "Here is your program:\n\n" + truncated,
+        escapedBareArray: bs + JSON.stringify(rows),
+        mismatchedCloser: complete.slice(0, -1) + "]",
+        openStringWithBrackets: '{"version":3,"meta":{"name":"Upper [A] {',
+      };
+      const valid = {
+        bare: seventeen,
+        prose: "Sure! Here it is:\n" + seventeen + "\nLet me know if you need changes.",
+        fenced: "```json\n" + seventeen + "\n```",
+        fenceWithoutCloser: "```json\n" + seventeen,
+        secondCandidate: 'First try: {"version":3,"exercises":[ oops\n\n```json\n' + complete + "\n```",
+      };
+      const escapedName = "Curl " + bs + " [EZ] " + '"' + "wide" + '"' + " \u00e9";
+      return {
+        broken: Object.fromEntries(Object.entries(broken).map(([k, v]) => [k, read(v)])),
+        valid: Object.fromEntries(Object.entries(valid).map(([k, v]) => [k, read(v)])),
+        stringEscapes: { expected: escapedName, got: read(JSON.stringify({ version: 3,
+          meta: { name: "Escapes" }, exercises: [{ ...rows[0], name: escapedName }] })) },
+        noJson: read("I could not find a program in that message."),
+        overDepth: read(JSON.stringify({ version: 3, meta: { name: "Deep" }, exercises: rows, extra: nested(40) })),
+      };
+    });
+    for (const [name, result] of Object.entries(syntaxCases.broken)) {
+      assert(result.status === "unreadable" && result.reason === "invalid_json",
+        `broken JSON (${name}) is reported as invalid_json and imports nothing`, JSON.stringify(result));
+    }
+    for (const [name, result] of Object.entries(syntaxCases.valid)) {
+      const expectRows = name === "secondCandidate" ? 2 : 17;
+      const expectNotImported = name === "secondCandidate" ? ["rest_times"] : ["tempo"];
+      assert(result.status === "complete" && result.rows === expectRows &&
+             JSON.stringify(result.notImported) === JSON.stringify(expectNotImported),
+        `a complete reply (${name}) keeps every row and its disclosure`, JSON.stringify(result));
+    }
+    assert(syntaxCases.stringEscapes.got.status === "complete" &&
+           syntaxCases.stringEscapes.got.names?.[0] === syntaxCases.stringEscapes.expected,
+      "escapes inside JSON strings decode byte for byte", JSON.stringify(syntaxCases.stringEscapes));
+    assert(syntaxCases.noJson.status === "unreadable" && syntaxCases.noJson.reason === "no_json",
+      "a reply without JSON stays no_json", JSON.stringify(syntaxCases.noJson));
+    assert(syntaxCases.overDepth.status === "unreadable" && syntaxCases.overDepth.reason !== "invalid_json",
+      "valid JSON over the depth bound is refused, but not called a syntax error",
+      JSON.stringify(syntaxCases.overDepth));
 
     console.log("\nGap resolution UI in the paste door");
     await reset(page);
