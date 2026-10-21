@@ -21,6 +21,8 @@
  */
 import { readFileSync } from "node:fs";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { browserLanguage } from "./language-browser.mjs";
+import { installBrowserTraining } from "./training-browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const DATA = new URL("../plans/067/data/", import.meta.url);
@@ -53,8 +55,10 @@ function assert(cond, name, detail) {
 /** Install a generated program; the target is the first weighted slot of a
  *  training day that prescribes three sets. */
 async function seed(page) {
+  await installBrowserTraining(page);
   return page.evaluate(({ request, weight, reps }) => {
-    const definition = window.RepForgeProgramCompiler.generateProgram(request, window.RepForgeExerciseCatalog.snapshot()).value;
+    const training = window.__repforgeTrainingTest;
+    const definition = training.compiler.generateProgram(request, training.catalog).value;
     const target = definition.days.filter((day) => day.kind === "training").flatMap((day) =>
       day.slots.map((slot, index) => ({ day, slot, index }))).find(({ slot, index }) => {
       const sets = slot.prescriptionsByCycle[0].sets;
@@ -103,7 +107,7 @@ async function logSet(page, slotId, ordinal, { load, reps, rir }) {
   const resting = await page.waitForFunction(() => document.querySelector("#woRest")?.classList.contains("is-running"),
     undefined, { timeout: 3000 }).then(() => true, () => false);
   if (resting) {
-    await page.evaluate(() => window.stopRest());
+    await page.evaluate(() => window.__repforgeRest.stop());
     await page.waitForFunction(() => !document.querySelector("#woRest")?.classList.contains("is-running"), undefined, { timeout: 10000 });
   }
 }
@@ -168,10 +172,10 @@ async function variant(browser, { locale, session }) {
     await page.clock.setFixedTime(new Date("2026-03-04T09:00:00.000Z"));
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
-    const truth = await page.evaluate((id) => {
+    const truth = await page.evaluate(({ id, language }) => {
       const P = window.__repforgeProgression, rec = P.recommendation(P.programSlot(id));
-      return { status: rec.status, load: rec.load, lang: window.RepForgeI18n.getLang() };
-    }, target.slotId);
+      return { status: rec.status, load: rec.load, lang: language.getLang() };
+    }, { id: target.slotId, language: await browserLanguage(page) });
     const enter = async () => {
       if (!await page.evaluate((day) => window.__repforgeEnterWorkout({ day }), target.day)) throw new Error("could not re-enter day");
       await page.waitForSelector(`${current}[data-ex="${target.rowId}"]`, { timeout: 10000 });
@@ -204,7 +208,7 @@ async function variant(browser, { locale, session }) {
   }
 }
 
-const t = (page, key, vars) => page.evaluate(({ key, vars }) => window.RepForgeI18n.t(key, vars), { key, vars });
+const t = async (page, key, vars) => (await browserLanguage(page)).evaluate((language, { key, vars }) => language.t(key, vars), { key, vars });
 
 const browser = await launchChromium();
 try {

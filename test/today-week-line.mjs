@@ -3,6 +3,7 @@
 import assert from "node:assert/strict";
 import { assertServingApp, launchChromium } from "./browser.mjs";
 import { installSeedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
+import { browserLanguage } from "./language-browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -48,11 +49,12 @@ try {
   });
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 20000 });
-  const observed = await page.evaluate(() => {
+  const language = await browserLanguage(page);
+  const observed = await page.evaluate(language => {
     const weekly = window.__repforgeWeeklySnapshot();
     const block = window.__repforgeMesocycleWeek();
-    const expectedWeekly = window.RepForgeI18n.t("today.sessions_done", { done: weekly.completedDays, planned: weekly.plannedDays });
-    const expectedBlock = block.current == null ? "" : window.RepForgeI18n.t("today.week_of", { n: block.current, total: block.total });
+    const expectedWeekly = language.t("today.sessions_done", { done: weekly.completedDays, planned: weekly.plannedDays });
+    const expectedBlock = block.current == null ? "" : language.t("today.week_of", { n: block.current, total: block.total });
     const visible = node => node && !node.hidden && !node.closest("[hidden],.hidden");
     const weeklyNodes = [...document.querySelectorAll("#todayDash *")].filter(node => visible(node) && node.children.length === 0 && node.textContent.trim() === expectedWeekly);
     return {
@@ -66,7 +68,7 @@ try {
       blockText: document.querySelector("#todayProgram .today-prog__week")?.textContent.trim() || "",
       calendarLine: document.querySelector("#todayWeek .ov-week-line")?.textContent.trim() || "",
     };
-  });
+  }, language);
   assert.equal(observed.weeklyNodes.length, 1, "Today exposes exactly one accessible calendar-week completion line");
   assert.equal(observed.weeklyNodes[0]?.id, "", "the completion line belongs to the calendar-week surface, not the block strip");
   assert.equal(!!observed.programDoneVisible, false, "the block strip has no duplicate calendar-week sentence");
