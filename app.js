@@ -11922,6 +11922,8 @@ function disposeProgramEditors(){
 function captureProgramEditorSnapshot(){
   const view=$("#program");if(!view)return null;
   const copy=view.cloneNode(true);
+  // No id survives in the copy, its own included: two #program elements would answer every lookup twice.
+  copy.removeAttribute("id");
   copy.querySelectorAll("[id]").forEach(node=>node.removeAttribute("id"));
   copy.classList.remove("sheet","is-open","program-editor-installed");
   delete copy.dataset.detent;

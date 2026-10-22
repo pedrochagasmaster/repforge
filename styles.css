@@ -1604,6 +1604,8 @@ body.is-sheet-open{overflow:hidden}
   .sheet-scrim{transition:opacity .17s linear!important}
   .sheet.is-dragging,.sheet-scrim.is-dragging{transition:none!important}
 }
+/* The Program editor's grabber shows only while #program is a page sheet. */
+#program:not(.sheet) #programEditGrab{display:none}
 .sheet__grab{display:block;flex:none;width:38px;height:5px;border-radius:var(--radius-compact);background:var(--rule-strong);margin:8px auto 0}
 /* The handle and the head are the drag rail: the browser must not read a push
    there as a scroll, or it takes the gesture and the sheet never moves. Below
@@ -2885,7 +2887,7 @@ body:has(#program.program-editor-installed) nav{display:none}
   position:fixed;inset:0;z-index:40;pointer-events:none;overflow:hidden;
   transform-origin:top center;
   transform:scale(calc(1 - .06 * var(--editor-push,0))) translateY(calc(8px * var(--editor-push,0)));
-  border-radius:calc(14px * var(--editor-push,0));
+  border-radius:calc(var(--radius-prominent) * var(--editor-push,0));
 }
 .pagehead__cancel{flex:none;margin-top:4px}
 .program-editor-installed .pagehead{align-items:center}
