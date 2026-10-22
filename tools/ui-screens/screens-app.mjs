@@ -1495,14 +1495,20 @@ async function focusPerSideTarget(page) {
  * and then a real tap lands on it there (a tap, so the sheet's close takes a quiet focus, as on a phone).
  */
 async function clickWhy(page, selector) {
+  // The link may sit in Focus's own scroller, so the browser places it (whichever scroller holds it), centred first;
+  // the first placement where nothing (a tall header at 200% text, the shelf) covers it is the same every run.
   const point = await page.evaluate((sel) => {
     const link = document.querySelector(sel);
-    window.scrollTo({ top: 0, behavior: "instant" });
-    const top = link.getBoundingClientRect().top + window.scrollY;
-    window.scrollTo({ top: Math.max(0, top - 300), behavior: "instant" });
-    const r = link.getBoundingClientRect();
-    return { x: r.left + Math.min(r.width / 2, 40), y: r.top + r.height / 2 };
+    for (const block of ["center", "start", "end"]) {
+      window.scrollTo({ top: 0, behavior: "instant" });
+      link.scrollIntoView({ block, behavior: "instant" });
+      const r = link.getBoundingClientRect();
+      const p = { x: r.left + Math.min(r.width / 2, 40), y: r.top + Math.min(r.height / 2, 12) };
+      if (p.y > 0 && p.y < innerHeight && document.elementFromPoint(p.x, p.y)?.closest(sel)) return p;
+    }
+    return null;
   }, selector);
+  if (!point) throw new Error(`no clear spot to tap ${selector}`);
   await page.mouse.click(point.x, point.y);
 }
 
