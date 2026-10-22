@@ -83,6 +83,8 @@
   "focus.shelf.pad_reps": "{sign} 1 rep",
   "focus.shelf.pad_rir": "{sign} 1 RIR",
   "focus.shelf.pad_effort": "{sign} {effort}",
+  "focus.field.picker_hint": "toque de novo para abrir o seletor",
+  "focus.picker.type": "Digitar um valor",
   "nav.program": "Treino",
   "nav.settings": "Ajustes",
   "log.aria": "Registrar sessão",

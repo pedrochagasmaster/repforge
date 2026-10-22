@@ -484,6 +484,16 @@ async function main() {
       open: document.querySelector("#workout .exercise.is-current .ledgerline--open [data-lv='reps']")?.textContent?.trim(),
     };
   }, { weight: WEIGHT, reps: REPS });
+  /** A second tap that reaches typed entry. On Load or Reps this now opens the wheel
+   *  first (Plan 075 phase 2W, ADR 0023 choice 8); its keyboard button hands off to
+   *  the same typed input a direct second tap still gives RIR, so the state this
+   *  helper leaves behind is the same either way. */
+  const detourWheelToTyped = async () => {
+    const opened = await page.waitForSelector("#wheelSheet.is-open", { timeout: 400 }).then(() => true, () => false);
+    if (!opened) return;
+    await page.click("#wheelKeyboard");
+    await page.waitForSelector("#wheelSheet", { state: "hidden" });
+  };
   let sh = await shelfProbe();
   // A metric-backed set opens on its first metric: the load, which a manual program leaves to the lifter.
   assert(sh.fields.join() === "load,reps,rir" && sh.pressed.join() === "true,false,false",
@@ -512,8 +522,9 @@ async function main() {
   assert(stepped.touched === true && Number(stepped.load) === Number(loadShown.replace(",", ".")),
     "a pad steps the draft through the stepper handler and the field follows", JSON.stringify({ stepped, loadShown }));
   await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field='${SHELF_ID.load}']`).click();
+  await detourWheelToTyped();
   sh = await shelfProbe();
-  assert(sh.editing.join() === "metric", "a second tap on the selected field opens it as the real input", JSON.stringify(sh));
+  assert(sh.editing.join() === "metric", "a second tap on the selected field opens the wheel, and its keyboard button opens the real input", JSON.stringify(sh));
   const focusedKey = await page.evaluate(() => document.activeElement?.dataset?.k || "");
   assert(focusedKey.endsWith(`_metric_${WEIGHT}`), "the opened input takes focus under its draft key", focusedKey);
   // #300: the software keyboard shrinks the visual viewport but not dvh. Model it on the live visualViewport the app
@@ -555,6 +566,7 @@ async function main() {
     await keyboard(null);
     await field.click();
     await field.click();
+    await detourWheelToTyped();
     await page.waitForTimeout(120);
     kbFields.push(await keyboard(852 - 336));
   }

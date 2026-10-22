@@ -28,6 +28,12 @@
  * large, rubber-bands past it, returns to medium and dismisses on a flick; a
  * short sheet keeps one rest; under reduced motion a sheet cross-fades in place.
  *
+ * Phase 2W, the wheel picker (owner amendment to choice 8): a second tap on the
+ * selected Load or Reps shelf field opens a wheel in a fit sheet (RIR still
+ * types); a keyboard step and a scroll each settle on a value that writes
+ * through the field's own input, the way typing would, and the keyboard button
+ * hands off to that same typed path.
+ *
  * Chromium touch emulation is not iPhone evidence; the feel is checked on a
  * device by the owner.
  *
@@ -708,6 +714,244 @@ async function controlsWithoutMotionLayer(browser) {
   await context.close();
 }
 
+/* ---- Wheel picker for Load and Reps (Plan 075 phase 2W, ADR 0023 choice 8) ---- */
+
+// The seed program's sets are metric-backed (test/fixtures/seed-program-v067.json): weight and reps are
+// metric fields on the shelf, the same ids test/focus-mode.mjs addresses.
+const WHEEL_WEIGHT = "2555c6f170d8805cafa6d16d3fdddbaa";
+const WHEEL_REPS = "2555c6f170d88072bbf6d9ad3f16ea86";
+const CURRENT = "#workout .exercise.is-current";
+const WHEEL_LOAD_SEL = `${CURRENT} .focus-shelf [data-shelf-field="metric_${WHEEL_WEIGHT}"]`;
+const WHEEL_REPS_SEL = `${CURRENT} .focus-shelf [data-shelf-field="metric_${WHEEL_REPS}"]`;
+const WHEEL_RIR_SEL = `${CURRENT} .focus-shelf [data-shelf-field="rir"]`;
+
+async function enterSeededFocus(page) {
+  await page.evaluate(async () => {
+    await window.__repforgeEnterWorkout({});
+    window.__repforgeFocus.to(0);
+  });
+  await page.waitForSelector("#workout.is-focus .exercise.is-current", { state: "attached", timeout: 5000 });
+}
+
+const wheelState = (page) => page.evaluate(() => {
+  const el = document.querySelector("#wheelCol");
+  if (!el) return null;
+  const items = [...el.querySelectorAll(".wheel__item")];
+  return {
+    role: el.getAttribute("role"), now: Number(el.getAttribute("aria-valuenow")),
+    min: Number(el.getAttribute("aria-valuemin")), max: Number(el.getAttribute("aria-valuemax")),
+    text: el.getAttribute("aria-valuetext"), title: document.querySelector("#wheelSheetTitle")?.textContent || "",
+    values: items.map((it) => Number(it.dataset.wheelV)),
+    center: items.findIndex((it) => it.classList.contains("is-center")),
+    target: items.map((it) => it.classList.contains("is-target")),
+    transforms: items.map((it) => it.style.transform),
+  };
+});
+const fieldFace = (page, sel) => page.evaluate((s) => {
+  const field = document.querySelector(s).closest(".shelf__field");
+  return { value: field.querySelector(".shelf__val")?.textContent?.trim(), label: field.querySelector(".shelf__lab")?.textContent?.trim(),
+    editing: field.classList.contains("is-editing"), aria: document.querySelector(s).getAttribute("aria-label") };
+}, sel);
+const draftMetric = (page, metricId) => page.evaluate((id) => {
+  const d = window.__repforgeWorkoutDraft.current();
+  const exercise = d.exercises[d.session.selectedExerciseId];
+  const set = exercise.sets[exercise.setOrder.find((s) => exercise.sets[s].ordinal === 1)];
+  return set.edited.metrics[id];
+}, metricId);
+/** The load pad's own step, read while Load (the exercise's first metric) is
+ *  already the default-selected field. */
+const loadStep = async (page) => {
+  const pads = await page.evaluate(() => [...document.querySelectorAll(`${"#workout .exercise.is-current"} .shelf__pad`)].map((b) => b.textContent.trim()));
+  return Number((pads[1].match(/[\d.,]+/) || ["0"])[0].replace(",", "."));
+};
+/** A fresh exercise suggests nothing yet, so Load reads "—"; a pad tap gives it
+ *  a known value (n steps) to open the wheel on, as a lifter who has stepped it
+ *  once would see. */
+async function pokeLoad(page, times = 1) {
+  for (let i = 0; i < times; i++) await page.locator(`${CURRENT} .shelf__pad`).nth(1).click();
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+}
+
+async function wheelPicker(browser) {
+  phase("A second tap on Load opens the wheel; RIR's second tap still types");
+  {
+    const { context, page } = await todayPage(browser);
+    await enterSeededFocus(page);
+    const step = await loadStep(page);
+    await pokeLoad(page, 1);
+    const loadBefore = await fieldFace(page, WHEEL_LOAD_SEL);
+
+    // Reps first (a first tap, away from the default-selected Load), then Load
+    // twice: a first tap re-selects it, and the second is the one that opens.
+    await page.locator(WHEEL_REPS_SEL).click();
+    await page.locator(WHEEL_LOAD_SEL).click();
+    await page.locator(WHEEL_LOAD_SEL).click();
+    const opened = await page.waitForSelector("#wheelSheet.is-open", { timeout: 2000 }).then(() => true, () => false);
+    assert(opened, "a second tap on the selected Load field opens the wheel sheet");
+    const col = await wheelState(page);
+    assert(col.role === "spinbutton", "the wheel column is a spinbutton", JSON.stringify(col));
+    assert(col.now === Number(loadBefore.value), "its value starts at the field's current load", JSON.stringify({ col, loadBefore }));
+    assert(col.title === loadBefore.label, "its title is the field's own label", JSON.stringify({ col, loadBefore }));
+    assert(Math.abs((col.values[1] - col.values[0]) - step) < 1e-6, "the rail steps by the load pad's own step", JSON.stringify({ col, step }));
+    assert(col.values[0] === 0, "the rail starts at zero", JSON.stringify(col));
+
+    await page.keyboard.press("Escape");
+    await page.waitForSelector("#wheelSheet", { state: "hidden" });
+    await page.locator(WHEEL_RIR_SEL).click();
+    await page.locator(WHEEL_RIR_SEL).click();
+    const rirOpened = await page.waitForSelector("#wheelSheet.is-open", { timeout: 300 }).then(() => true, () => false);
+    assert(!rirOpened, "RIR's second tap does not open the wheel");
+    const rirFace = await fieldFace(page, WHEEL_RIR_SEL);
+    assert(rirFace.editing, "RIR's second tap still opens the typed input, as before", JSON.stringify(rirFace));
+    await context.close();
+  }
+
+  phase("Choosing a value on the wheel writes it through the field's own input, survives a reload and logs it");
+  {
+    const { context, page, touch } = await todayPage(browser);
+    await enterSeededFocus(page);
+    const step = await loadStep(page);
+    await pokeLoad(page, 1);
+    const loadBefore = await fieldFace(page, WHEEL_LOAD_SEL);
+
+    await page.locator(WHEEL_REPS_SEL).click();
+    await page.locator(WHEEL_LOAD_SEL).click();
+    await page.locator(WHEEL_LOAD_SEL).click();
+    await page.waitForSelector("#wheelSheet.is-open");
+    await page.focus("#wheelCol");
+    await page.keyboard.press("ArrowUp");
+    await page.keyboard.press("ArrowUp");
+    const afterKeys = await wheelState(page);
+    const expectKeys = Number(loadBefore.value) + 2 * step;
+    assert(Math.abs(afterKeys.now - expectKeys) < 1e-6, "ArrowUp twice steps the value up by two steps and commits at once",
+      JSON.stringify({ afterKeys, expectKeys }));
+    await page.waitForFunction(([id, want]) => {
+      const d = window.__repforgeWorkoutDraft.current();
+      const exercise = d.exercises[d.session.selectedExerciseId];
+      const set = exercise.sets[exercise.setOrder.find((s) => exercise.sets[s].ordinal === 1)];
+      return Number(set.edited.metrics[id]) === want;
+    }, [WHEEL_WEIGHT, expectKeys], { timeout: 2000 });
+    const liveAfterKeys = await fieldFace(page, WHEEL_LOAD_SEL);
+    // The shelf underneath is untouched while the sheet is open; it reads the committed value once the sheet closes.
+
+    // A real touch drag on the wheel column. Momentum, not a fixed distance, decides
+    // where it lands, so the proof is that whatever it settles on is exactly what gets
+    // written — not a precomputed item count.
+    const box = await page.locator("#wheelCol").boundingBox();
+    const cx = Math.round(box.x + box.width / 2), cy = Math.round(box.y + box.height / 2);
+    await touch("touchStart", [{ x: cx, y: cy }]);
+    await touch("touchMove", [{ x: cx, y: cy - 44 }]);
+    await touch("touchMove", [{ x: cx, y: cy - 88 }]);
+    await touch("touchEnd");
+    // Momentum carries the scroll on after the touch lifts; wait for it (and the native
+    // scroll-snap) to come to rest before the settle debounce reads a value off it.
+    await page.waitForFunction(() => {
+      const el = document.querySelector("#wheelCol");
+      if (!el) return false;
+      if (el.__lastTop === el.scrollTop && el.__stableSince && performance.now() - el.__stableSince > 200) return true;
+      if (el.__lastTop !== el.scrollTop) el.__stableSince = performance.now();
+      el.__lastTop = el.scrollTop;
+      return false;
+    }, undefined, { timeout: 3000, polling: 50 });
+    const expectScroll = await page.evaluate(() => Number(document.querySelector("#wheelCol")?.getAttribute("aria-valuenow")));
+    assert(Number.isFinite(expectScroll) && expectScroll !== afterKeys.now, "the drag moved the wheel off its keyboard-set value",
+      JSON.stringify({ expectScroll, afterKeys }));
+    const scrollCommitted = await page.waitForFunction(([id, want]) => {
+      const d = window.__repforgeWorkoutDraft.current();
+      const exercise = d.exercises[d.session.selectedExerciseId];
+      const set = exercise.sets[exercise.setOrder.find((s) => exercise.sets[s].ordinal === 1)];
+      return Number(set.edited.metrics[id]) === want;
+    }, [WHEEL_WEIGHT, expectScroll], { timeout: 2000 }).then(() => true, () => false);
+    assert(scrollCommitted, "the scroll settles on a value and commits it the same way, through the field's own input",
+      JSON.stringify({ expectScroll }));
+
+    await page.click("#wheelDone");
+    await page.waitForSelector("#wheelSheet", { state: "hidden" });
+    const shelfAfter = await fieldFace(page, WHEEL_LOAD_SEL);
+    assert(Number(shelfAfter.value) === expectScroll, "the shelf reads the wheel's committed value once Done closes it",
+      JSON.stringify({ shelfAfter, expectScroll }));
+
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await enterSeededFocus(page);
+    const afterReload = await fieldFace(page, WHEEL_LOAD_SEL);
+    assert(Number(afterReload.value) === expectScroll, "the value survives a reload", JSON.stringify({ afterReload, expectScroll }));
+
+    const repsInput = page.locator(`${CURRENT} .focus-shelf input[data-metric-id="${WHEEL_REPS}"]`);
+    await repsInput.first().fill("8");
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    await page.locator(`${CURRENT} .focus-shelf .saveset`).first().click();
+    await page.waitForFunction((id) => {
+      const d = window.__repforgeWorkoutDraft.current();
+      const exercise = d.exercises[d.session.selectedExerciseId];
+      const set = exercise.sets[exercise.setOrder.find((s) => exercise.sets[s].ordinal === 1)];
+      return set.completion !== "pending" && Number(set.edited.metrics[id]) > 0;
+    }, WHEEL_WEIGHT, { timeout: 5000 });
+    const logged = await draftMetric(page, WHEEL_WEIGHT);
+    assert(Number(logged) === expectScroll, "logging the set keeps the wheel-picked load", JSON.stringify({ logged, expectScroll }));
+    await context.close();
+  }
+
+  phase("The keyboard button opens typed entry on the same field");
+  {
+    const { context, page } = await todayPage(browser);
+    await enterSeededFocus(page);
+    await page.locator(WHEEL_REPS_SEL).click();
+    await page.locator(WHEEL_LOAD_SEL).click();
+    await page.locator(WHEEL_LOAD_SEL).click();
+    await page.waitForSelector("#wheelSheet.is-open");
+    await page.click("#wheelKeyboard");
+    await page.waitForSelector("#wheelSheet", { state: "hidden" });
+    const face = await fieldFace(page, WHEEL_LOAD_SEL);
+    assert(face.editing, "the keyboard button closes the sheet and opens the field's typed entry", JSON.stringify(face));
+    const focusedKey = await page.evaluate(() => document.activeElement?.dataset?.k || "");
+    assert(focusedKey.endsWith(`_metric_${WHEEL_WEIGHT}`), "the typed input takes focus, exactly the old second tap", focusedKey);
+    await context.close();
+  }
+
+  phase("The reps wheel runs 1–30 and marks the prescription's target range");
+  {
+    const { context, page } = await todayPage(browser);
+    await enterSeededFocus(page);
+    // A fresh set with no suggestion shows the target range ("4–8"), not a number; a
+    // pad tap gives Reps a concrete current value to open the wheel on, as Load's own
+    // proof does. Load is the default-selected field, so a first tap on it would
+    // already be a second tap; move through Reps, then Load, then Reps twice to open.
+    await page.locator(WHEEL_REPS_SEL).click();
+    await page.locator(`${CURRENT} .shelf__pad`).nth(1).click();
+    await page.locator(`${CURRENT} .shelf__pad`).nth(1).click();
+    await page.locator(`${CURRENT} .shelf__pad`).nth(1).click();
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    const repsBefore = await fieldFace(page, WHEEL_REPS_SEL);
+    await page.locator(WHEEL_LOAD_SEL).click();
+    await page.locator(WHEEL_REPS_SEL).click();
+    await page.locator(WHEEL_REPS_SEL).click();
+    await page.waitForSelector("#wheelSheet.is-open");
+    const col = await wheelState(page);
+    assert(col.min === 1 && col.max === 30, "the reps rail runs 1 to 30", JSON.stringify(col));
+    assert(col.now === Number(repsBefore.value), "it opens on the field's current reps", JSON.stringify({ col, repsBefore }));
+    assert(col.target.some(Boolean), "the prescription's target range is marked on the rail", JSON.stringify(col));
+    await context.close();
+  }
+
+  phase("Under reduced motion the wheel has no tilt, and positioning is instant");
+  {
+    const { context, page } = await todayPage(browser, { reducedMotion: "reduce" });
+    await enterSeededFocus(page);
+    await page.locator(WHEEL_REPS_SEL).click();
+    await page.locator(WHEEL_LOAD_SEL).click();
+    await page.locator(WHEEL_LOAD_SEL).click();
+    await page.waitForSelector("#wheelSheet.is-open");
+    const col = await wheelState(page);
+    assert(col.transforms.every((t) => !t), "no item carries a tilt transform under reduced motion", JSON.stringify(col));
+    await page.keyboard.press("ArrowUp");
+    const behavior = await page.evaluate(() => getComputedStyle(document.querySelector("#wheelCol")).scrollBehavior);
+    assert(behavior === "auto", "programmatic positioning is instant, not smooth", behavior);
+    await context.close();
+  }
+}
+
 const browser = await launchChromium();
 try {
   phase("A primary action is pressed on touch-down");
@@ -901,6 +1145,7 @@ try {
   await reducedMotionSheets(browser);
   await dayPickerCommits(browser);
   await libraryOverEditorSheet(browser);
+  await wheelPicker(browser);
 } finally {
   await browser.close();
 }

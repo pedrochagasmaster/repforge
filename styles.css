@@ -1371,6 +1371,34 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 /* The effort word's explainer opens over its field, as it did over the old cell. */
 .shelf__field .effortpop{bottom:calc(100% + 4px)}
 
+/* ---- The wheel picker (Plan 075 phase 2W, ADR 0023 choice 8) ----
+   A second tap on the selected Load or Reps field opens this in a fit sheet.
+   Five rows (44px each) show through a native scroll-snap column; app.js tilts
+   each row by its distance from the centre band on scroll (transform only, none
+   under reduced motion) and marks the centre row and, on the reps wheel, the
+   prescription's target band. */
+.wheel__body{padding:0;overflow:hidden}
+.wheel{
+  position:relative;width:100%;height:220px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  scroll-snap-type:y mandatory;padding:88px 0;perspective:600px;
+}
+.wheel:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
+.wheel__item{
+  height:44px;display:flex;align-items:center;justify-content:center;scroll-snap-align:center;
+  font-size:var(--font-size-control);color:var(--color-ink-secondary);font-variant-numeric:tabular-nums;
+}
+.wheel__item.is-center{color:var(--color-ink);font-weight:var(--weight-semibold)}
+/* The reps wheel's target band is the same quiet ink wash selection uses
+   elsewhere (Q-E), not the accent: the orange budget stays spent on actions. */
+.wheel__item.is-target{background:var(--well)}
+.wheel::before{
+  content:"";position:absolute;left:0;right:0;top:88px;height:44px;pointer-events:none;
+  border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);
+}
+@media (prefers-reduced-motion: reduce){
+  .wheel{scroll-behavior:auto}
+}
+
 /* ---- The travelling outline ----
    Drawn by app.js only while an outline is in flight: T1 between the shelf's
    fields, L2 between the ledger's rows. It is a separate element that tolerates
@@ -1642,6 +1670,14 @@ body.is-sheet-open{overflow:hidden}
    slides out of the middle. */
 .sheet__spacer{display:block;min-width:44px}
 .sheet__act--icon{justify-self:end;display:inline-flex;align-items:center;justify-content:center;color:var(--ink-soft)}
+/* The wheel sheet leads with an icon instead of a spacer (its keyboard button),
+   so that act sits in the head's first cell and keeps the icon's own centring.
+   Its title ("Load, kg"/"Reps") never needs the shared 2fr share the other
+   sheets' longer titles do, so the edge columns size to their own short
+   content instead — Done stays on one line at 200% text. */
+#wheelSheet .sheet__head{grid-template-columns:minmax(44px,auto) minmax(0,1fr) minmax(44px,auto)}
+#wheelSheet .sheet__act--icon{justify-self:start}
+.sheet__act--done{justify-self:end;color:var(--ink);font-weight:var(--weight-semibold);white-space:nowrap;width:auto}
 
 /* The in-workout swap control. It was a <select> of the template's alternates;
    it is a button onto the full library now, and it reads back what is actually
@@ -2353,6 +2389,7 @@ textarea.sheetfield__input{
    end it deliberately. Pause and resume are here as well as on the inline
    Pausar/Retomar pad, which gives way to the field pads. */
 .sheet--rest{height:auto}
+.sheet--wheel{height:auto}
 .restsheet{flex-direction:column;align-items:center;gap:20px;padding:20px 16px calc(20px + env(safe-area-inset-bottom));container:restsheet/inline-size}
 .restsheet__presets{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
 .restpreset{
@@ -3759,6 +3796,7 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 .icon-mask--search{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M15.4%2015.4%2020.5%2020.5%27%2F%3E%3Ccircle%20cx%3D%2710.6%27%20cy%3D%2710.6%27%20r%3D%276.6%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M15.4%2015.4%2020.5%2020.5%27%2F%3E%3Ccircle%20cx%3D%2710.6%27%20cy%3D%2710.6%27%20r%3D%276.6%27%2F%3E%3C%2Fsvg%3E")}
 .icon-mask--pencil{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M4%2020l.9-4.2L15.9%204.8a2.1%202.1%200%200%201%203%200l.3.3a2.1%202.1%200%200%201%200%203L8.2%2019.1%204%2020zM14.6%206.1l3.3%203.3%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M4%2020l.9-4.2L15.9%204.8a2.1%202.1%200%200%201%203%200l.3.3a2.1%202.1%200%200%201%200%203L8.2%2019.1%204%2020zM14.6%206.1l3.3%203.3%27%2F%3E%3C%2Fsvg%3E")}
 .icon-mask--clipboard{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M9%205H7.4A1.9%201.9%200%200%200%205.5%206.9v11.6a1.9%201.9%200%200%200%201.9%201.9h9.2a1.9%201.9%200%200%200%201.9-1.9V6.9A1.9%201.9%200%200%200%2016.6%205H15M9.2%2014l2%202%203.8-4.2%27%2F%3E%3Crect%20x%3D%279%27%20y%3D%273.2%27%20width%3D%276%27%20height%3D%273.6%27%20rx%3D%271.2%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M9%205H7.4A1.9%201.9%200%200%200%205.5%206.9v11.6a1.9%201.9%200%200%200%201.9%201.9h9.2a1.9%201.9%200%200%200%201.9-1.9V6.9A1.9%201.9%200%200%200%2016.6%205H15M9.2%2014l2%202%203.8-4.2%27%2F%3E%3Crect%20x%3D%279%27%20y%3D%273.2%27%20width%3D%276%27%20height%3D%273.6%27%20rx%3D%271.2%27%2F%3E%3C%2Fsvg%3E")}
+.icon-mask--keyboard{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Crect%20x%3D%273.5%27%20y%3D%277%27%20width%3D%2717%27%20height%3D%2711%27%20rx%3D%272%27%2F%3E%3Cpath%20d%3D%27M7%2011h1M11%2011h1M15%2011h1M7%2014.5h8%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Crect%20x%3D%273.5%27%20y%3D%277%27%20width%3D%2717%27%20height%3D%2711%27%20rx%3D%272%27%2F%3E%3Cpath%20d%3D%27M7%2011h1M11%2011h1M15%2011h1M7%2014.5h8%27%2F%3E%3C%2Fsvg%3E")}
 .icon-mask--download{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M12%203.8v11.2M7.8%2011l4.2%204.2%204.2-4.2M4.5%2017v1.6A2.4%202.4%200%200%200%206.9%2021h10.2a2.4%202.4%200%200%200%202.4-2.4V17%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M12%203.8v11.2M7.8%2011l4.2%204.2%204.2-4.2M4.5%2017v1.6A2.4%202.4%200%200%200%206.9%2021h10.2a2.4%202.4%200%200%200%202.4-2.4V17%27%2F%3E%3C%2Fsvg%3E")}
 .icon-mask--sheet{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M3.5%209.8h17M10%209.8v9.7M3.5%2014.6h17%27%2F%3E%3Crect%20x%3D%273.5%27%20y%3D%274.5%27%20width%3D%2717%27%20height%3D%2715%27%20rx%3D%272.4%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M3.5%209.8h17M10%209.8v9.7M3.5%2014.6h17%27%2F%3E%3Crect%20x%3D%273.5%27%20y%3D%274.5%27%20width%3D%2717%27%20height%3D%2715%27%20rx%3D%272.4%27%2F%3E%3C%2Fsvg%3E")}
 .icon-mask--flex{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M5.5%207.4V5.5a2%202%200%200%201%202-2h1.2a2%202%200%200%201%202%202v4.1C12.5%208%2015%207.6%2017%208.4c2.3.9%203.5%203.1%203.5%205.6v3.5a3%203%200%200%201-3%203H7A3.5%203.5%200%200%201%203.5%2017v-3.5c0-2.5.7-4.5%202-6.1zM10.7%209.6c-.7%201.5-1%203-1%204.6%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M5.5%207.4V5.5a2%202%200%200%201%202-2h1.2a2%202%200%200%201%202%202v4.1C12.5%208%2015%207.6%2017%208.4c2.3.9%203.5%203.1%203.5%205.6v3.5a3%203%200%200%201-3%203H7A3.5%203.5%200%200%201%203.5%2017v-3.5c0-2.5.7-4.5%202-6.1zM10.7%209.6c-.7%201.5-1%203-1%204.6%27%2F%3E%3C%2Fsvg%3E")}

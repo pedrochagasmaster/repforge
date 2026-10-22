@@ -1141,6 +1141,20 @@
       "variants": "demandingText"
     },
     {
+      "id": "wheel-load",
+      "flow": "workout",
+      "label": "Workout — wheel picker, Load",
+      "scenario": "A second tap on the selected Load field opens the wheel: the rail centred on its current value, with the keyboard button and Done in the sheet's bar.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "wheel-reps",
+      "flow": "workout",
+      "label": "Workout — wheel picker, Reps",
+      "scenario": "A second tap on the selected Reps field opens the wheel, 1 to 30, with the prescription's target range marked on the rail.",
+      "variants": "demandingText"
+    },
+    {
       "id": "why-this-weight",
       "flow": "workout",
       "label": "Workout — why this weight",

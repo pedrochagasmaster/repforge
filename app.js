@@ -8271,6 +8271,21 @@ const shelfText=raw=>{const v=parseDec(raw);return Number.isFinite(v)?fmt(v):Str
 function shelfLoadStep(){
   const kg=parseDec(state.settings.minJump)||2.5;
   return fmt(Math.round(toDisplay(kg)*10)/10)}
+/** Load or Reps, by a metric's own semantic — the two the wheel picker opens for
+ *  (Plan 075 phase 2W, ADR 0023 choice 8). Anything else (duration, distance) is null. */
+function metricWheelKind(metric){
+  if(!metric)return null;
+  if(METRIC_FIELD_SEMANTICS.load.includes(metric.semantic))return"load";
+  if(METRIC_FIELD_SEMANTICS.reps.includes(metric.semantic))return"reps";
+  return null}
+/** The same classification for a shelf field id: the flat "load"/"reps" fields,
+ *  or a metric field read by its own semantic. RIR, effort and other metrics are null. */
+function fieldWheelKind(exId,n,id){
+  if(id==="load")return"load";
+  if(id==="reps")return"reps";
+  if(!id.startsWith("metric_"))return null;
+  const metric=focusMetricDefinitions(exId,n).find(item=>id==="metric_"+item.id);
+  return metric?metricWheelKind(metric):null}
 
 function focusMetricDefinitions(exId,n){
   const exercise=activeWorkoutDraft?.exercises?.[exId];if(!exercise)return[];
@@ -8355,7 +8370,9 @@ function shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek,carry}){
   const cls=`shelf__field${selected?" is-sel":""}${soft?" is-untouched":""}${live?" is-editing":""}`;
   const face=`<span class="shelf__lab">${esc(label)}</span><span class="shelf__val">${esc(shown||"—")}</span>`;
   if(peek)return `<div class="${cls}" data-field="metric" data-metric="${esc(metric.id)}"><span class="shelf__fieldbtn">${face}</span></div>`;
-  const button=`<button type="button" class="shelf__fieldbtn" data-shelf-field="${esc(fieldId)}" data-set="${esc(key)}" aria-pressed="${selected?"true":"false"}">${face}</button>`;
+  // A selected Load or Reps field's name gains the picker hint: a second tap opens the wheel (ADR 0023 choice 8).
+  const pickerHint=selected&&metricWheelKind(metric)?` aria-label="${esc(`${label} ${shown||"—"}, ${t("focus.field.picker_hint")}`)}"`:"";
+  const button=`<button type="button" class="shelf__fieldbtn" data-shelf-field="${esc(fieldId)}" data-set="${esc(key)}" aria-pressed="${selected?"true":"false"}"${pickerHint}>${face}</button>`;
   const input=`<input class="shelf__input" data-k="${esc(inputKey)}" data-metric-id="${esc(metric.id)}" type="text" inputmode="${metric.semantic==="reps"||metric.semantic==="repsPerSide"?"numeric":"decimal"}" `+
     `enterkeyhint="next" aria-label="${esc(name)}" autocomplete="off" value="${esc(metricTextValue(raw,metric))}" placeholder="${esc(target)}"`+
     `${live?"":' tabindex="-1" aria-hidden="true"'}>`;
@@ -8377,7 +8394,9 @@ function shelfFieldHtml(ex,n,id,vals,{ui,touched,effortMode,peek}){
   if(peek)return `<div class="${cls}"><span class="shelf__fieldbtn">${face}</span></div>`;
   const hooks=effortField
     ?` data-effspin="${esc(key)}" data-e="${esc(vals.effortVal)}" aria-describedby="effpop_${esc(key)}"`:"";
-  const button=`<button type="button" class="shelf__fieldbtn" data-shelf-field="${id}" data-set="${esc(key)}" aria-pressed="${sel?"true":"false"}"${hooks}>${face}</button>`;
+  // A selected Load or Reps field's name gains the picker hint: a second tap opens the wheel (ADR 0023 choice 8).
+  const pickerHint=sel&&(id==="load"||id==="reps")?` aria-label="${esc(`${label} ${shown||"—"}, ${t("focus.field.picker_hint")}`)}"`:"";
+  const button=`<button type="button" class="shelf__fieldbtn" data-shelf-field="${id}" data-set="${esc(key)}" aria-pressed="${sel?"true":"false"}"${hooks}${pickerHint}>${face}</button>`;
   // The input is always in the document, so the draft handlers and validation
   // have one element to read and flag; it only takes the field's place on a
   // second tap, and stays out of the tab order and the accessibility tree until then.
@@ -8454,6 +8473,164 @@ function focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
     `<div class="shelf__fields">${fields}</div>`+
     focusPadsHtml(ex,n,ui,vals,{effortMode,peek,editing})+
     `<button type="button" class="btn btn--cta btn--noarrow saveset"${peek?dead():` data-save="${esc(key)}"`}>${esc(label)}</button></div>`}
+
+/* ---- Wheel picker for Load and Reps (Plan 075 phase 2W, ADR 0023 choice 8) ----
+ * A second tap on the selected Load or Reps field opens a wheel in a fit sheet
+ * instead of typing it; RIR is unchanged. The wheel writes through the same
+ * `<input>` the typed path uses (its own `oninput`), so the draft, the shelf
+ * and logging are identical either way — and the sheet's keyboard button hands
+ * off to that same typed path, exactly the old second tap. */
+const WHEEL_ITEM_H=44;
+const WHEEL_LOAD_MAX_KG=1000;
+const WHEEL_REPS_MAX=30;
+let wheelUi=null,wheelSettleTimer=null;
+/** The display-unit rail for Load: 0 up to the draft's ceiling (1000kg, floored
+ *  to the pad step), with the field's current value included even off the grid. */
+function wheelLoadValues(step,current){
+  const max=Math.floor((toDisplay(WHEEL_LOAD_MAX_KG)+1e-6)/step)*step;
+  const count=Math.max(0,Math.round(max/step));
+  const out=[];
+  for(let i=0;i<=count;i++)out.push(Math.round(i*step*100)/100);
+  if(Number.isFinite(current)&&current>=0&&!out.some(v=>Math.abs(v-current)<1e-6)){
+    out.push(Math.round(current*100)/100);out.sort((a,b)=>a-b)}
+  return out}
+/** 1–30, with the field's current value included even outside that range. */
+function wheelRepsValues(current){
+  const out=[];for(let v=1;v<=WHEEL_REPS_MAX;v++)out.push(v);
+  if(Number.isFinite(current)&&(current<1||current>WHEEL_REPS_MAX)&&!out.includes(Math.round(current))){
+    out.push(Math.round(current));out.sort((a,b)=>a-b)}
+  return out}
+/** The prescription's rep range for the wheel's target band, from the same data the shelf already shows. */
+function wheelRepsRange(target){
+  if(!target)return null;
+  if(target.metricId){
+    const set=activeWorkoutDraft?.exercises?.[target.exerciseInstanceId]?.sets?.[target.setId];
+    const metric=set?.programmed?.metrics?.find(item=>item.id===target.metricId);
+    const tgt=metric?set.programmed.targets?.[metric.semantic]:null;
+    if(typeof tgt==="number")return{min:tgt,max:tgt};
+    if(tgt&&Number.isFinite(tgt.min)&&Number.isFinite(tgt.max))return{min:tgt.min,max:tgt.max};
+    return null}
+  const base=prog.find(target.exerciseInstanceId),ex=base?sessionExercise(base):null;
+  return ex&&Number.isFinite(ex.min)&&Number.isFinite(ex.max)?{min:ex.min,max:ex.max}:null}
+const wheelDraftText=(v,kind)=>kind==="load"?fmt(v):String(v);
+const wheelItemText=(v,kind,unit)=>kind==="load"?`${fmt(v)}${unit?` ${unit}`:""}`:fmt(v);
+function wheelNearestIndex(values,v){
+  let best=0,bestDiff=Infinity;
+  values.forEach((val,i)=>{const d=Math.abs(val-v);if(d<bestDiff){bestDiff=d;best=i}});
+  return best}
+/** Tilt by distance from centre, a pure function of scroll position — direct
+ *  manipulation, not a spring, so it never touches the Motion runtime. None under
+ *  reduced motion. */
+function wheelApplyTilt(col){
+  const items=col.querySelectorAll(".wheel__item");
+  if(reducedMotion()){items.forEach(el=>{el.style.transform="";el.style.opacity=""});return}
+  const mid=col.scrollTop+col.clientHeight/2;
+  items.forEach(el=>{
+    const diff=Math.max(-3,Math.min(3,((el.offsetTop+el.offsetHeight/2)-mid)/WHEEL_ITEM_H));
+    el.style.transform=`rotateX(${diff*-18}deg)`;
+    el.style.opacity=String(Math.max(0.3,1-Math.abs(diff)*0.22))})}
+function wheelSyncAria(index){
+  const ui=wheelUi,col=$("#wheelCol");if(!ui||!col)return;
+  const v=ui.values[index];
+  ui.index=index;
+  col.setAttribute("aria-valuenow",String(v));
+  col.setAttribute("aria-valuetext",wheelItemText(v,ui.kind,ui.unit));
+  col.querySelectorAll(".wheel__item").forEach((el,i)=>el.classList.toggle("is-center",i===index))}
+/** The value applies through the field's own input, exactly as typing it would:
+ *  the same dispatch, the same draft, the same shelf and ledger sync. */
+async function wheelCommit(index){
+  const ui=wheelUi;if(!ui)return;
+  const v=ui.values[index];
+  if(ui.lastCommitted===v)return;
+  ui.lastCommitted=v;
+  ui.input.value=wheelDraftText(v,ui.kind);
+  await ui.input.oninput?.()}
+function wheelNearestIndexFromScroll(col){
+  if(!wheelUi)return 0;
+  return Math.max(0,Math.min(wheelUi.values.length-1,Math.round(col.scrollTop/WHEEL_ITEM_H)))}
+/** The wheel settles, and only then reads a value off the scroll position: the
+ *  tilt follows every frame, but the value and the aria it reports wait for the
+ *  scroll to stop for ~120ms, so a still-moving drag (or the tail of a keyboard
+ *  step's own smooth scroll) never overwrites what a keyboard press or Done just
+ *  committed with a value the scroll merely passed through. */
+function wheelOnScroll(){
+  const col=$("#wheelCol");if(!col||!wheelUi)return;
+  wheelApplyTilt(col);
+  if(wheelSettleTimer)clearTimeout(wheelSettleTimer);
+  wheelSettleTimer=setTimeout(()=>{
+    const idx=wheelNearestIndexFromScroll(col);
+    wheelSyncAria(idx);
+    wheelCommit(idx)},120)}
+function wheelScrollTo(index){
+  const col=$("#wheelCol");if(!col)return;
+  col.scrollTo({top:index*WHEEL_ITEM_H,behavior:reducedMotion()?"auto":"smooth"})}
+/** ArrowUp/Down step one item, PageUp/Down ten, Home/End the ends — and each
+ *  commits at once, the way Done and the keyboard button do. */
+function wheelKeydown(e){
+  const ui=wheelUi;if(!ui)return;
+  let next=ui.index;
+  if(e.key==="ArrowUp")next=ui.index+1;
+  else if(e.key==="ArrowDown")next=ui.index-1;
+  else if(e.key==="PageUp")next=ui.index+10;
+  else if(e.key==="PageDown")next=ui.index-10;
+  else if(e.key==="Home")next=0;
+  else if(e.key==="End")next=ui.values.length-1;
+  else return;
+  e.preventDefault();
+  next=Math.max(0,Math.min(ui.values.length-1,next));
+  if(next===ui.index)return;
+  if(wheelSettleTimer){clearTimeout(wheelSettleTimer);wheelSettleTimer=null}
+  wheelScrollTo(next);
+  wheelSyncAria(next);
+  wheelCommit(next)}
+/** Opened by a second tap on the selected Load or Reps shelf field. */
+function openWheelSheet(key,id,kind){
+  const sheet=$("#wheelSheet"),scrim=$("#wheelScrim"),col=$("#wheelCol");
+  if(!sheet||!col)return;
+  const input=$(`[data-k="${CSS.escape(`${key}_${id}`)}"]`);if(!input)return;
+  const btn=$(`[data-shelf-field="${CSS.escape(id)}"][data-set="${CSS.escape(key)}"]`);
+  const label=btn?.querySelector(".shelf__lab")?.textContent||"";
+  const unit=kind==="load"?unitLabel():"";
+  const step=kind==="load"?(parseDec(shelfLoadStep())||1):1;
+  const current=parseDec(input.value);
+  const values=kind==="load"?wheelLoadValues(step,current):wheelRepsValues(current);
+  const target=draftTargetFromKey(`${key}_${id}`);
+  const range=kind==="reps"?wheelRepsRange(target):null;
+  const index=wheelNearestIndex(values,Number.isFinite(current)?current:values[0]);
+  wheelUi={key,id,kind,input,unit,label,values,range,index,lastCommitted:values[index]};
+  $("#wheelSheetTitle").textContent=label;
+  col.innerHTML=values.map((v,i)=>{
+    const inRange=kind==="reps"&&range&&v>=range.min&&v<=range.max;
+    return `<div class="wheel__item${inRange?" is-target":""}${i===index?" is-center":""}" data-wheel-i="${i}" data-wheel-v="${esc(String(v))}" aria-hidden="true">${esc(wheelItemText(v,kind,unit))}</div>`}).join("");
+  col.setAttribute("aria-label",label);
+  col.setAttribute("aria-valuemin",String(values[0]));
+  col.setAttribute("aria-valuemax",String(values[values.length-1]));
+  col.setAttribute("aria-valuenow",String(values[index]));
+  col.setAttribute("aria-valuetext",wheelItemText(values[index],kind,unit));
+  col.onscroll=wheelOnScroll;
+  col.onkeydown=wheelKeydown;
+  const kbBtn=$("#wheelKeyboard");
+  if(kbBtn)kbBtn.onclick=async()=>{
+    const live=wheelUi;if(!live)return;
+    await closeWheelSheet();
+    shelfSelect(live.key,live.id,true);
+    refreshShelf({focus:live.id})};
+  const doneBtn=$("#wheelDone");
+  if(doneBtn)doneBtn.onclick=()=>{closeWheelSheet()};
+  document.body.classList.add("is-sheet-open");
+  openModal(sheet,{initialFocus:col,returnFocus:btn,onEscape:closeWheelSheet,scrim,delayHide:reducedMotion()?0:280});
+  col.scrollTop=index*WHEEL_ITEM_H;
+  wheelApplyTilt(col);
+  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
+function closeWheelSheet(){
+  const sheet=$("#wheelSheet");
+  if(!sheet)return Promise.resolve(false);
+  if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
+  if(wheelSettleTimer){clearTimeout(wheelSettleTimer);wheelSettleTimer=null}
+  const ui=wheelUi;
+  const commit=ui?wheelCommit(ui.index??0):Promise.resolve();
+  wheelUi=null;
+  return commit.then(()=>closeModal(sheet))}
 
 /** Rebuild the live card's shelf after the selection, an edit or an effort step
  *  changed what it shows, then put focus where the lifter was. The ledger and
@@ -9074,9 +9251,13 @@ function bindWorkout(){
     // A tap on any field brings the field pads back for the rest of this rest.
     const fromRest=restPadsOn(false);
     if(fromRest)restPadsBack=true;
-    // A second tap on the selected field opens it: a typed value, or the word's explainer.
+    // A second tap on the selected field opens it: the wheel for Load or Reps
+    // (Plan 075 phase 2W), a typed value for anything else, or the word's explainer.
     if(ui.field===id&&effortField){toggleEffortPop(key);if(fromRest)restInlineSync();return}
-    if(ui.field===id&&!ui.editing){shelfSelect(key,id,true);refreshShelf({focus:id});return}
+    if(ui.field===id&&!ui.editing){
+      const[exId,n]=setKeyParts(key),wheelKind=fieldWheelKind(exId,n,id);
+      if(wheelKind){openWheelSheet(key,id,wheelKind);return}
+      shelfSelect(key,id,true);refreshShelf({focus:id});return}
     closeEffortPop();shelfSelect(key,id,false);refreshShelf({focus:id})});
   const sb=$("#workout .skipbar__show");if(sb)sb.onclick=()=>applyShowAll();
   {const fl=focusList();const at=fl.length?Math.min(focusIndex,fl.length-1):0;

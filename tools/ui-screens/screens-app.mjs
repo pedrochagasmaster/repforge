@@ -1979,6 +1979,28 @@ export const APP_SCENARIOS = {
     await page.waitForSelector("#exNoteSheet.is-open", { timeout: 20000 });
     await sleep(page, 400);
   },
+  // Plan 075 phase 2W: a second tap on the selected Load or Reps field opens the
+  // wheel. Load is the default-selected field, so the dance moves through Reps
+  // and back so the final tap is a genuine second one, the way the test suite does.
+  "workout/wheel-load": async (page) => {
+    await focusMode(page);
+    const shelf = "#workout .exercise.is-current .focus-shelf";
+    await page.locator(`${shelf} [data-shelf-field="metric_${ADAPTIVE_REPS_METRIC_ID}"]`).click({ timeout: 20000 });
+    await page.locator(`${shelf} [data-shelf-field="metric_${ADAPTIVE_WEIGHT_METRIC_ID}"]`).click({ timeout: 20000 });
+    await page.locator(`${shelf} [data-shelf-field="metric_${ADAPTIVE_WEIGHT_METRIC_ID}"]`).click({ timeout: 20000 });
+    await page.waitForSelector("#wheelSheet.is-open", { timeout: 20000 });
+    await sleep(page, 400);
+  },
+  "workout/wheel-reps": async (page) => {
+    await focusMode(page);
+    const shelf = "#workout .exercise.is-current .focus-shelf";
+    await page.locator(`${shelf} [data-shelf-field="metric_${ADAPTIVE_REPS_METRIC_ID}"]`).click({ timeout: 20000 });
+    await page.locator(`${shelf} [data-shelf-field="metric_${ADAPTIVE_WEIGHT_METRIC_ID}"]`).click({ timeout: 20000 });
+    await page.locator(`${shelf} [data-shelf-field="metric_${ADAPTIVE_REPS_METRIC_ID}"]`).click({ timeout: 20000 });
+    await page.locator(`${shelf} [data-shelf-field="metric_${ADAPTIVE_REPS_METRIC_ID}"]`).click({ timeout: 20000 });
+    await page.waitForSelector("#wheelSheet.is-open", { timeout: 20000 });
+    await sleep(page, 400);
+  },
   "workout/why-this-weight": async (page) => {
     await adaptiveWhyFixture(page);
     await clickWhy(page, "#workout .exercise.is-current [data-why]");
