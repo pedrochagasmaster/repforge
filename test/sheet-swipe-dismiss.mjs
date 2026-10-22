@@ -6,7 +6,7 @@
  * has to answer a downward drag: follow the thumb, close past a real commitment,
  * spring back short of one, and leave gestures that belong to something else —
  * a sideways drag, a scrolled panel — alone. An upward drag on the rail rubber-
- * bands, and a sheet with detents (ADR 0023) moves between medium and large. A
+ * bands; the detents themselves (ADR 0023) are proved in test/native-feel.mjs. A
  * completed swipe runs the sheet's
  * own dismiss, so it discards a half-typed note exactly as Cancel does and
  * leaves a running rest running exactly as Close does.
@@ -338,129 +338,6 @@ const sheetAtRest = (page, sel) => page.waitForFunction((s) => {
     && el.getAnimations().length === 0;
 }, sel, { timeout: 5000 });
 
-/**
- * Detents (Plan 075 phase 2, ADR 0023). A long read-only sheet opens at the
- * medium detent, about half the screen; a drag up takes it to large, past which
- * it rubber-bands; a drag down from large returns it to medium; a fast flick
- * down from medium dismisses it. A sheet whose content fits under medium keeps
- * one rest. Driven on Privacy, whose text is longer than half a phone, and Why.
- */
-async function detents(page) {
-  const SHEET = "#privacySheet";
-  const place = () => page.evaluate((s) => {
-    const el = document.querySelector(s);
-    const vvh = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--vvh")) || innerHeight;
-    return { ...window.__sheet(s), detent: el.dataset.detent || "", height: el.offsetHeight, medium: Math.round(el.offsetHeight - vvh * 0.52), vvh };
-  }, SHEET);
-
-  phase("a long read-only sheet opens at the medium detent");
-  const before = await page.evaluate(() => ({ open: [...document.querySelectorAll(".sheet.is-open,dialog[open]")].map((el) => el.id),
-    focus: document.querySelector("#workout")?.classList.contains("is-focus"), view: document.querySelector(".view.active")?.id }));
-  await page.evaluate(() => window.openPrivacySheet());
-  const opens = await page.waitForSelector(`${SHEET}.is-open`, { timeout: 3000 }).then(() => true, () => false);
-  assert(opens, "Privacy opens", JSON.stringify(before));
-  if (!opens) return;
-  await sheetAtRest(page, SHEET);
-  const opened = await place();
-  assert(opened.medium > 60 && Math.abs(opened.y - opened.medium) <= 2,
-    "Privacy opens with about half the screen showing", JSON.stringify(opened));
-
-  phase("a drag up takes it to the large detent");
-  const rail = await grip(page, SHEET);
-  await drag(page, rail, [[0, -40], [0, -120], [0, -220], [0, -240], [0, -242]], { pause: 40, settleAt: 160 });
-  await sheetAtRest(page, SHEET);
-  const large = await place();
-  assert(Math.abs(large.y) <= 1 && large.detent === "large", "released past halfway, it rests at large", JSON.stringify(large));
-
-  phase("past the large detent it rubber-bands");
-  const top = await grip(page, SHEET);
-  await page.mouse.move(top.x, top.y);
-  await page.mouse.down();
-  for (const dy of [-30, -90, -150]) { await page.mouse.move(top.x, top.y + dy); await page.waitForTimeout(16); }
-  const pulled = await place();
-  await page.mouse.up();
-  await sheetAtRest(page, SHEET);
-  const back = await place();
-  assert(pulled.y < -2 && pulled.y > -70, "it follows a pull upward, resisted to well under the thumb's 140px", JSON.stringify(pulled));
-  assert(Math.abs(back.y) <= 1 && back.detent === "large", "and returns to large on release", JSON.stringify(back));
-
-  phase("a drag down from large returns to medium, and a flick from medium dismisses");
-  // Each slow drag ends on a near-still step, so its release carries no throw.
-  await drag(page, await grip(page, SHEET), [...down(200, 8), [0, 202]], { pause: 40, settleAt: 160 });
-  await sheetAtRest(page, SHEET);
-  const medium = await place();
-  assert(Math.abs(medium.y - medium.medium) <= 2 && medium.detent !== "large", "a slow drag down settles at medium", JSON.stringify(medium));
-  await drag(page, await grip(page, SHEET), [[0, 20], [0, 60], [0, 62]], { pause: 40, settleAt: 160 });
-  await sheetAtRest(page, SHEET);
-  const kept = await place();
-  assert(!kept.hidden && Math.abs(kept.y - kept.medium) <= 2, "a short push from medium springs back to medium", JSON.stringify(kept));
-  await drag(page, await grip(page, SHEET), down(90, 3), { pause: 8 });
-  await page.waitForSelector(SHEET, { state: "hidden", timeout: 5000 });
-  assert(await page.evaluate((s) => document.querySelector(s).hidden, SHEET), "a fast flick down from medium dismisses");
-
-  phase("a sheet whose content fits under medium has one rest");
-  // The rest phase above leaves the workout open; start one only if it isn't.
-  if (!(await page.evaluate(() => document.querySelector("#workout")?.classList.contains("is-focus")))) {
-    await page.click('nav button[data-view="log"]');
-    await page.click("#startWorkout");
-    await page.waitForFunction(() => document.querySelector("#workout")?.classList.contains("is-focus"));
-  }
-  await page.evaluate(() => document.querySelector("dialog[open] .btn")?.click());
-  await page.locator("#workout .exercise.is-current [data-why]").first().click();
-  await sheetAtRest(page, "#whySheet");
-  const why = await page.evaluate(() => ({ ...window.__sheet("#whySheet"), h: document.querySelector("#whySheet").offsetHeight }));
-  assert(why.h < 844 * 0.52 && Math.abs(why.y) <= 1, "the short Why sheet rests at its content height", JSON.stringify(why));
-  await drag(page, await grip(page, "#whySheet"), [[0, -40], [0, -120], [0, -160]], { pause: 40, settleAt: 160 });
-  await sheetAtRest(page, "#whySheet");
-  const whyUp = await page.evaluate(() => window.__sheet("#whySheet"));
-  assert(Math.abs(whyUp.y) <= 1, "a drag up only rubber-bands and comes back", JSON.stringify(whyUp));
-  await page.click("#whyClose");
-  await page.waitForSelector("#whySheet", { state: "hidden" });
-}
-
-/**
- * Under reduced motion a sheet doesn't travel: it cross-fades in place over
- * 160–180ms, opening and closing (audit F-18, ADR 0023 choice 11).
- */
-async function reducedMotionSheets(browser) {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" });
-  const page = await context.newPage();
-  await page.addInitScript(PROBES);
-  await page.goto(BASE, { waitUntil: "domcontentloaded" });
-  await settle(page);
-  await installSeedProgram(page, { waitFor: settle });
-  phase("under reduced motion a sheet cross-fades in place");
-  const sample = (open) => page.evaluate((o) => new Promise((resolve) => {
-    const el = document.querySelector("#programTextSheet");
-    const frames = [];
-    const t0 = performance.now();
-    if (o) document.querySelector("#exportProgramText").click();
-    else document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-    const tick = () => {
-      const style = getComputedStyle(el);
-      frames.push({ t: Math.round(performance.now() - t0), y: Math.round(new DOMMatrixReadOnly(style.transform === "none" ? undefined : style.transform).m42),
-        opacity: Number(style.opacity), hidden: el.hidden });
-      if (performance.now() - t0 < 420) requestAnimationFrame(tick); else resolve(frames);
-    };
-    requestAnimationFrame(tick);
-  }), open);
-  await page.click('nav button[data-view="program"]');
-  await page.waitForSelector("#exportProgramText", { timeout: 10000 });
-  const opening = await sample(true);
-  const shown = opening.filter((f) => !f.hidden);
-  const fading = shown.filter((f) => f.opacity > 0.02 && f.opacity < 0.98);
-  assert(shown.length > 0 && shown.every((f) => Math.abs(f.y) <= 1), "it opens where it rests, with no travel", JSON.stringify(shown.slice(0, 6)));
-  assert(fading.length >= 2 && shown.at(-1)?.opacity === 1, "it fades in over several frames", JSON.stringify(shown.slice(0, 8)));
-  const fadeIn = (shown.find((f) => f.opacity === 1)?.t ?? 0) - (shown[0]?.t ?? 0);
-  assert(fadeIn >= 120 && fadeIn <= 260, "the fade takes about 160–180ms", String(fadeIn));
-  const closing = await sample(false);
-  const leaving = closing.filter((f) => !f.hidden);
-  assert(leaving.some((f) => f.opacity > 0.02 && f.opacity < 0.98) && leaving.every((f) => Math.abs(f.y) <= 1),
-    "it fades out in place before it hides", JSON.stringify(leaving.slice(0, 8)));
-  assert(closing.at(-1)?.hidden === true, "and then it is hidden", JSON.stringify(closing.at(-1)));
-  await context.close();
-}
-
 async function run() {
   const browser = await launchChromium();
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -674,11 +551,8 @@ async function run() {
   assert(rest.focus === "woRest", "focus returns to the chip that opened it", rest.focus);
   await page.evaluate(() => window.stopRest());
 
-  await detents(page);
-
   assert(!errors.length, "no uncaught page errors", errors.slice(0, 3).join(" | "));
 
-  await reducedMotionSheets(browser);
   await edgeSwipe(browser);
   await edgeSwipe(browser, { reducedMotion: "reduce" });
 

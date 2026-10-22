@@ -44,7 +44,7 @@ that fails for the stated reason, at the highest realistic boundary.
   `--control-pressed-transform`. The toggle's knob stretch moves to `.is-pressed`.
 - **Release:** `.btn`, the dock's buttons and the toggle's knob return on the `pressRelease`
   curve. Touch-down has no transition. Under reduced motion the tone stays and the scale goes.
-- **Proofs** (`test/press-feedback.mjs`, real touch through CDP at 390×844):
+- **Proofs** (`test/native-feel.mjs`, real touch through CDP at 390×844):
   pressed on touch-down with the primary tone and 0.97 scale and no transition; cleared by a
   slide off the control and restored by a slide back; a release off the control doesn't
   activate it; the scroller delay; Space shows the pressed state; reduced motion drops the
