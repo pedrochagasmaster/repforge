@@ -140,7 +140,7 @@ async function conflictJourney(browser) {
   await applyInstalledEditor(first);
   const winner = await stored(first);
   await closeEditorSheet(second);
-  await second.locator(`${EDITOR} [data-role="apply"]`).click();
+  await second.locator("#programEditDone").click();
   await second.waitForFunction(() => {
     const status = document.querySelector('#programEditor [data-role="editor-status"]');
     return document.querySelector("#programEditorWrap")?.classList.contains("is-hidden") || (!status?.hidden && !!status?.textContent.trim());

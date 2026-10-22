@@ -520,8 +520,7 @@ h2{font-size:var(--font-size-title);font-weight:var(--weight-semibold);letter-sp
 .is-pressed:not(:disabled){--control-primary-bg:var(--control-primary-pressed-bg);--cta:var(--control-primary-pressed-bg)}
 :is(.btn--cta,.firstrun__cta,.program-editor__activate,#onbNext,#entryActivate,#entryRebuildRules,#entryResumeContinue,
   #entryFreeformContinue,#entryFreeformClipboard,#entryFreeformReview,#entryFreeformSubmitGaps,#importCommit,#libPrimary,
-  #previewAdd,#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep,#draftDiscardKeep,#sumDone,#shareSetupShare,
-  #dayPickConfirm).is-pressed:not(:disabled){--control-pressed-transform:var(--control-primary-pressed-transform)}
+  #previewAdd,#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep,#draftDiscardKeep,#sumDone,#shareSetupShare).is-pressed:not(:disabled){--control-pressed-transform:var(--control-primary-pressed-transform)}
 .btn:disabled{opacity:var(--control-disabled-opacity);cursor:default}
 /* A blanket 40% on the near-black CTA produced a mid-grey fill with washed
    white text (~2.5:1) that read as an enabled secondary button rather than a
@@ -1584,9 +1583,29 @@ body.is-sheet-open{overflow:hidden}
    sheet the rest of the way, down or back to rest. */
 .sheet.is-dragging{transition:none;will-change:transform}
 .sheet-scrim.is-dragging{transition:none}
+/* Detents (ADR 0023, Plan 075 phase 2). A sheet that lists `medium` in
+   `data-detents` is at most the large height and rests at medium: moved down
+   so 52% of the visible band shows. When its content is shorter than that the
+   move is zero and it rests at its content height. The gesture owner in
+   motion-layer.js sets `data-detent="large"` when a drag takes it there, and
+   opening clears it. Below large its scroller is held, so a drag in the body
+   moves the sheet instead of scrolling content that is partly off screen. */
+.sheet[data-detents~="medium"]{height:auto;max-height:var(--sheet-max-height)}
+.sheet[data-detents~="medium"].is-open:not([data-detent="large"]){transform:translateY(max(0px,calc(100% - var(--vvh,100dvh) * .52)))}
+.sheet[data-detents~="medium"]:not([data-detent="large"]) [data-sheet-scroll]{overflow-y:hidden;touch-action:none}
+/* Reduced motion: a sheet doesn't travel. It cross-fades in place, opening and
+   closing (ADR 0023, audit F-18); a drag still places it under the thumb. The
+   fade is the one exception to the global reduced-motion kill below, so it is
+   `!important` against it. */
 @media (prefers-reduced-motion:reduce){
-  .sheet,.sheet-scrim{transition:none}
+  .sheet{transform:none;opacity:0;transition:opacity .17s linear!important}
+  .sheet.is-open{opacity:1}
+  .sheet[data-detents~="medium"]:not([data-detent="large"]){transform:translateY(max(0px,calc(100% - var(--vvh,100dvh) * .52)))}
+  .sheet-scrim{transition:opacity .17s linear!important}
+  .sheet.is-dragging,.sheet-scrim.is-dragging{transition:none!important}
 }
+/* The Program editor's grabber shows only while #program is a page sheet. */
+#program:not(.sheet) #programEditGrab{display:none}
 .sheet__grab{display:block;flex:none;width:38px;height:5px;border-radius:var(--radius-compact);background:var(--rule-strong);margin:8px auto 0}
 /* The handle and the head are the drag rail: the browser must not read a push
    there as a scroll, or it takes the gesture and the sheet never moves. Below
@@ -2022,6 +2041,11 @@ body.is-sheet-open{overflow:hidden}
 .review-toast__text{flex:1;min-width:0;overflow-wrap:anywhere}
 .review-toast__undo{flex:none;min-height:44px;padding:0 4px;border:0;background:none;color:inherit;font:inherit;font-weight:var(--weight-semibold);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 @media (prefers-reduced-motion:reduce){.review-toast{animation:none}}
+/* The day-changed toast (Plan 075 phase 2) reuses .review-toast's shape on
+   Today, so it clears the dock and the floating Start/Continue exactly where
+   the plain #toast already does, instead of the onboarding review's pinned
+   Activate clearance. */
+.daychange-toast{bottom:calc(var(--nav) + 22px + env(safe-area-inset-bottom));z-index:50}
 /* Focus sheets keep their modal hierarchy while using the shared type and depth roles.
    The Session, exercise-actions and note sheets wear the shared .sheetband (Plan 064 R3d),
    and so does the Why sheet (R3g); the rest sheet keeps its own head until its slice lands. */
@@ -2823,15 +2847,48 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
    steppers are onboarding's review classes; these rules only place them in the Program tab and add what
    onboarding never needed (the week table, the pinned Apply that stands in for the dock). */
 /* The pinned Apply bar's band; a blocked reason above the button makes it taller. The rest pill (#440)
-   and the editor's Undo toast ride above it, and the page reserves both so its end scrolls clear. */
+   and the editor's Undo toast ride above it. Plan 075 phase 2B (ADR 0023) moved #program itself off the
+   normal flow and into its own page sheet, so what used to be body's reserve for that flow is now the
+   sheet's own scroller's (#programEditorWrap); the rest pill and toast stay body-level fixed overlays,
+   unaffected by the sheet's transform, and only need their z-index raised above it. */
 body:has(#program.program-editor-installed){
   --editor-apply-reserve:calc(96px + env(safe-area-inset-bottom));
-  padding-bottom:calc(var(--editor-apply-reserve) + var(--space-16) + var(--restbar-reserve,0px))
 }
 body:has(#program.program-editor-installed):has(.program-editor-a__reason){--editor-apply-reserve:calc(128px + env(safe-area-inset-bottom))}
-body:has(#program.program-editor-installed) .restbar{bottom:var(--editor-apply-reserve)}
+body:has(#program.program-editor-installed) .restbar{bottom:var(--editor-apply-reserve);z-index:42}
 body:has(#program.program-editor-installed) .review-toast{bottom:calc(var(--editor-apply-reserve) + var(--restbar-reserve,0px))}
 body:has(#program.program-editor-installed) nav{display:none}
+/* The page sheet itself: #program becomes a .sheet with one detent ("large"),
+   from 10px below the safe-area top to the bottom, over a still, inert, scaled-down
+   copy of the Program view underneath. Everything .sheet already gives for free
+   (the surface, radius, shadow, safe-area padding, open/close transition, the
+   detents drag gesture, the reduced-motion cross-fade) applies unchanged; only the
+   height and internal layout are this sheet's own. */
+#program.sheet{
+  display:flex;flex-direction:column;
+  height:calc(var(--vvh,100dvh) - env(safe-area-inset-top,0px) - 10px);max-height:none;padding-bottom:0;
+}
+#program.sheet>.pagehead{flex:none;margin:0;padding:4px 10px 12px;border-bottom:1px solid var(--rule)}
+#program.sheet>#programNoProgram,#program.sheet>#programOverview,#program.sheet>#programBlockBanner{flex:none}
+#program.sheet>#programEditorWrap{
+  flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  padding-bottom:calc(var(--editor-apply-reserve,96px) + var(--space-16) + var(--restbar-reserve,0px));
+}
+.pagehead[data-sheet-rail]{touch-action:none}
+/* The reason line is what Done being disabled explains; the editor's own bottom
+   Apply button is the sheet's Done instead. */
+#program.program-editor-installed .program-editor-a__bar{display:none}
+#program.program-editor-installed .program-editor-a__bar:has(.program-editor-a__reason){display:flex}
+#program.program-editor-installed .program-editor-a__bar [data-role="apply"]{display:none}
+/* The still copy pushed back under the sheet (Plan 075 phase 2B). `--editor-push`
+   (0 at rest, 1 fully receded) is motion-layer.js's `animateSheetPushBack`; without
+   it, or under reduced motion, it jumps straight to its target. */
+.is-editor-pushed-back{
+  position:fixed;inset:0;z-index:40;pointer-events:none;overflow:hidden;
+  transform-origin:top center;
+  transform:scale(calc(1 - .06 * var(--editor-push,0))) translateY(calc(8px * var(--editor-push,0)));
+  border-radius:calc(var(--radius-prominent) * var(--editor-push,0));
+}
 .pagehead__cancel{flex:none;margin-top:4px}
 .program-editor-installed .pagehead{align-items:center}
 .program-editor-installed .pagehead__titles{flex:1;min-width:0}
@@ -5365,7 +5422,6 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   display:flex;flex-direction:column;min-height:0;overflow-y:auto;overscroll-behavior:contain;
   -webkit-overflow-scrolling:touch;padding:0 22px 20px;
 }
-.installsheet__done{margin-top:22px}
 .installsheet__foot{margin:14px 0 0;text-align:center;font-family:var(--font-language);
   font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .install-transfer__intro{margin-top:20px}
@@ -5382,7 +5438,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .install-transfer__disclosure .textlink{margin-top:10px}
 .install-transfer__actions{display:grid;gap:10px;margin-top:18px}
 .install-transfer__actions .btn{width:100%;justify-content:center}
-.sheet--privacy{height:min(88dvh,760px);background:var(--bg)}
+.sheet--privacy{background:var(--bg)}
 /* The band's subtitle carries the transfer exception to local-first, so it wraps instead of eliding (ADR 0013). */
 .privacy-sheet{display:flex;flex:1 1 auto;flex-direction:column;min-height:0;padding:0 22px 20px}
 .privacy-sheet__body{min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:8px 2px 24px}
@@ -5435,7 +5491,6 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .whycalc__row--sum .whycalc__k,.whycalc__row--sum .whycalc__v{font-weight:var(--weight-semibold);color:var(--color-ink)}
 .whycalc__text{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 .whysheet__evidence{margin:var(--space-12) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
-#whyOk{width:100%;min-height:var(--control-target);margin-top:var(--space-16)}
 /* The affordance itself: a quiet text link under the recommendation, never a
    button that competes with logging a set. */
 .recblock__why,.focus-ex__why{font-size:var(--font-size-body-small);padding:6px 0 0}
@@ -5494,13 +5549,13 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .installsteps__body{flex:1;min-width:0;font-family:var(--font-language);font-size:var(--font-size-body);
   line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .installsteps__body b{color:var(--color-ink);font-weight:var(--weight-semibold)}
-/* A short screen still has to reach Done without a scroll inside the sheet. */
+/* A short screen still has to fit the instructions without a scroll inside
+   the sheet. */
 @media (max-height:700px){
   .installsheet{padding:0 18px 16px}
   .safaribar{margin-top:16px;padding:24px 10px 10px}
   .installsteps{margin-top:16px}
   .installsteps__step{padding:10px 2px}
-  .installsheet__done{margin-top:16px}
 }
 @media (max-width:340px){
   .installsheet,.privacy-sheet{padding-left:16px;padding-right:16px}
@@ -6743,15 +6798,15 @@ body.is-entry-editor #entryProgramName,
 #importReview .impreview__nav{margin-top:0}
 
 /* Today and day choice use the frozen control roles. */
-#todayDash .btn--cta,#dayPickConfirm{
+#todayDash .btn--cta{
   min-height:54px;border:1px solid var(--control-primary-boundary);border-radius:var(--radius-control);
   background:var(--control-primary-bg);color:var(--control-primary-ink);
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard)
 }
 #todayDash .btn--cta::after{color:var(--control-primary-ink)}
-#todayDash .btn--cta.is-pressed:not(:disabled),#dayPickConfirm.is-pressed:not(:disabled){transform:var(--control-pressed-transform)}
-#todayDash .btn--cta:focus-visible,#dayPickConfirm:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-#todayDash .btn--cta:disabled,#dayPickConfirm:disabled{
+#todayDash .btn--cta.is-pressed:not(:disabled){transform:var(--control-pressed-transform)}
+#todayDash .btn--cta:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+#todayDash .btn--cta:disabled{
   background:var(--control-primary-disabled-bg);color:var(--control-primary-disabled-ink);
   border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
 }
@@ -6762,24 +6817,19 @@ body.is-entry-editor #entryProgramName,
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard)
 }
 @media (hover: hover) and (pointer: fine){
-#chooseAnotherDay:hover:not(:disabled),#dayPickCancel:hover:not(:disabled),#todayDash #upNextBtn:hover:not(:disabled){
+#chooseAnotherDay:hover:not(:disabled),#todayDash #upNextBtn:hover:not(:disabled){
   background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)
 }
 }
-#chooseAnotherDay.is-pressed:not(:disabled),#dayPickCancel.is-pressed:not(:disabled),#todayDash #upNextBtn.is-pressed:not(:disabled){
+#chooseAnotherDay.is-pressed:not(:disabled),#todayDash #upNextBtn.is-pressed:not(:disabled){
   background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)
 }
-#chooseAnotherDay:focus-visible,#dayPickCancel:focus-visible,#todayDash #upNextBtn:focus-visible{
+#chooseAnotherDay:focus-visible,#todayDash #upNextBtn:focus-visible{
   outline:var(--control-focus-outline);outline-offset:2px
 }
-#chooseAnotherDay:disabled,#dayPickCancel:disabled,#todayDash #upNextBtn:disabled{
+#chooseAnotherDay:disabled,#todayDash #upNextBtn:disabled{
   background:var(--control-quiet-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);
   opacity:1;cursor:not-allowed;transform:none
-}
-#dayPickCancel{
-  display:block;width:100%;min-height:var(--control-target);padding:8px 0;border:1px solid var(--control-quiet-boundary);
-  border-radius:var(--radius-control);background:var(--control-quiet-bg);color:var(--control-quiet-ink);
-  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard)
 }
 #todayDash #upNextBtn{
   background:var(--control-quiet-bg);color:var(--control-quiet-ink);border:0;border-bottom:1px solid var(--boundary-decorative);

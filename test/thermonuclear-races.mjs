@@ -1680,9 +1680,9 @@ async function scenarioConcurrentExerciseFieldEdits(browser) {
       "precondition: each installed editor holds its distinct staged field",
       { renamerStage, counterStage }
     );
-    await renamer.locator('#programEditor [data-role="apply"]').click();
+    await renamer.locator("#programEditDone").click();
     await waitForPendingStorageLocks(locker, 1);
-    await counter.locator('#programEditor [data-role="apply"]').click();
+    await counter.locator("#programEditDone").click();
     await waitForPendingStorageLocks(locker, 2);
     await releaseStorageLock(locker);
     await Promise.all([

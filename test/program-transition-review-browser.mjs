@@ -127,7 +127,7 @@ async function addSetInEditor(page) {
   await page.locator(`${SHEET} [data-role="week-row"][data-cycle-index="${cycleIndex}"]`).click();
   await sheetTap(page, `[data-role="week-sets"][data-cycle-index="${cycleIndex}"][data-delta="1"]`);
   await closeEditorSheet(page);
-  await page.locator('#programEditor [data-role="apply"]').click();
+  await page.locator("#programEditDone").click();
   // Apply either saves and closes the editor or keeps it open with an error.
   await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden") ||
     /Fix the highlighted values/.test(document.querySelector("#programEditorWrap")?.innerText || ""));

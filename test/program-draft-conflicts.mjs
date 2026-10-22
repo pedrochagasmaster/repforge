@@ -484,7 +484,7 @@ async function openProgramEditor(page) {
 /** Apply from the pinned bar; a workout conflict keeps the editor open behind the leave dialog. */
 async function pressApply(page) {
   await closeEditorSheet(page);
-  await page.locator('#programEditor [data-role="apply"]').click();
+  await page.locator("#programEditDone").click();
 }
 
 async function runTemplateConflict(browser) {

@@ -928,7 +928,7 @@ try {
     await page.locator("#exPickList .pickrow").nth(2).click();
     await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
     await editorSettled(page);
-    await page.locator('#programEditor [data-role="apply"]').click();
+    await page.locator("#programEditDone").click();
     await page.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
     await page.click("#programEditorApply");
     await page.waitForFunction(() => window.__captured.some(([n]) => n === "active_program_edited"), undefined, { timeout: 10000 });

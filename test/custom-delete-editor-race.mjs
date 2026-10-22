@@ -99,7 +99,7 @@ async function openSwapSearch(page, slotId) {
 /** Apply from the pinned bar without waiting for the editor to close. */
 async function pressApply(page) {
   await closeEditorSheet(page);
-  await page.locator('#programEditor [data-role="apply"]').click();
+  await page.locator("#programEditDone").click();
 }
 
 async function stageCustomReplacementInInstalledEditor(page, id, name) {

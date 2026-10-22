@@ -148,7 +148,7 @@ async function main() {
       JSON.stringify([WEIGHT, REPS]));
     await editorSettled(page);
     await closeEditorSheet(page);
-    await page.locator('#programEditor [data-role="apply"]').click();
+    await page.locator("#programEditDone").click();
     const configured = await page.waitForFunction((id) => {
       const state = window.__repforgeWorkoutDraft.state();
       const slots = state.programMeta.programDefinition.days.flatMap((day) => day.slots);

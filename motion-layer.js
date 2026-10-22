@@ -83,15 +83,23 @@
     return Math.sign(overshoot || 1) * resisted;
   }
 
-  function trackSheetGesture(sheet, scrim, { from = 0 } = {}) {
+  /* A sheet under the thumb. `rest` is its lowest detent (where the scrim is
+     full), `top` its highest; a pull past `top` rubber-bands (ADR 0023). A
+     sheet with one rest has both at zero. `resist` (Plan 075 phase 2B: the
+     Program editor's guarded page sheet) rubber-bands a pull toward dismissal
+     from the very first pixel, the whole way down, instead of following the
+     thumb 1:1 until release — iOS's isModalInPresentation feel for a sheet
+     that cannot be dismissed right now. */
+  function trackSheetGesture(sheet, scrim, { from = 0, rest = 0, top = 0, resist = false } = {}) {
     if (!available || !sheet) return null;
-    const origin = Math.max(0, Number(from) || 0);
-    const y = motionValue(origin);
     const height = sheet.offsetHeight || 1;
+    const lowest = Math.max(0, Number(rest) || 0);
+    const highest = Math.min(lowest, Math.max(0, Number(top) || 0));
+    const origin = Number.isFinite(Number(from)) ? Number(from) : lowest;
+    const y = motionValue(origin);
     const paint = value => {
-      const position = Math.max(0, value);
-      sheet.style.transform = `translate3d(0,${position}px,0)`;
-      if (scrim) scrim.style.opacity = String(Math.max(0, 1 - position / height));
+      sheet.style.transform = `translate3d(0,${value}px,0)`;
+      if (scrim) scrim.style.opacity = String(Math.min(1, Math.max(0, 1 - (value - lowest) / Math.max(1, height - lowest))));
     };
     const stopPaint = y.on("change", paint);
     paint(origin);
@@ -114,18 +122,22 @@
     return {
       follow(dy) {
         if (disposed) return;
-        y.set(Math.max(0, origin + (Number(dy) || 0)));
+        const value = origin + (Number(dy) || 0);
+        if (resist && value > highest) { y.set(highest + rubberband(value - highest, height)); return; }
+        y.set(value < highest ? highest - rubberband(highest - value, height) : value);
       },
-      current: () => Math.max(0, y.get()),
+      current: () => y.get(),
       takeover() {
-        const value = Math.max(0, y.get());
+        const value = y.get();
         dispose({ preserve: true });
         return value;
       },
-      settle({ velocity = 0 } = {}) {
+      /* `to` is the detent it settles on; the caller has already made it the
+         stylesheet's rest, so the hand-off at the end doesn't move it. */
+      settle({ velocity = 0, to = lowest } = {}) {
         if (disposed) return settled;
         if (reducedMotion()) { dispose(); return settled; }
-        return animate(y, 0, { ...VOCABULARY.gestureSettle, velocity: perSecond(velocity) })
+        return animate(y, to, { ...VOCABULARY.gestureSettle, velocity: perSecond(velocity) })
           .then(() => { dispose(); return true; }, () => false);
       },
       dismiss({ velocity = 0 } = {}) {
@@ -447,6 +459,78 @@
     return done;
   }
 
+  /* The app, pushed back under the Program editor's page sheet (Plan 075
+     phase 2B, ADR 0023). One motion value (`--editor-push`, 0 at rest, 1 fully
+     receded) drives the copy's scale, lift and corner radius from
+     `styles.css`; opening and closing run the same `navPush` spring as a
+     tapped page push. Without the runtime, or under reduced motion, the
+     variable jumps straight to its target and no transform is ever
+     interpolated. */
+  const pushBackRuns = new WeakMap();
+  function animateSheetPushBack(el, { open, velocity = 0 } = {}) {
+    if (!el) return trueNow;
+    const target = open ? 1 : 0;
+    const live = pushBackRuns.get(el);
+    const start = live ? live.x.get() : (open ? 0 : 1);
+    if (live) { pushBackRuns.delete(el); live.x.stop(); live.stopPaint(); live.arrived?.abandon(); }
+    if (!available || reducedMotion()) {
+      el.style.setProperty("--editor-push", String(target));
+      return trueNow;
+    }
+    const x = motionValue(start);
+    const run = { x };
+    pushBackRuns.set(el, run);
+    const paint = value => el.style.setProperty("--editor-push", String(value));
+    run.stopPaint = x.on("change", paint);
+    paint(start);
+    hint(el, "transform");
+    run.arrived = arrival(animate(x, target, { ...VOCABULARY.navPush, velocity: perSecond(velocity) }), () => pushBackRuns.get(el) === run);
+    const done = run.arrived.finally(() => {
+      run.stopPaint();
+      if (pushBackRuns.get(el) !== run) return;
+      pushBackRuns.delete(el);
+      paint(target);
+      hint(el, null);
+    });
+    return done;
+  }
+
+  /* The Program editor's page sheet (Plan 075 phase 2B) cross-fading under
+     reduced motion. The generic .sheet/.sheet-scrim CSS transition the other
+     sheets use is a class-toggle diff the engine times against its own
+     previous paint; on this one element (a route page with its own render history,
+     turned into a sheet only for the edit) that diff is not reliable enough to
+     promise 170ms of travel-free fade. An explicit Web Animations keyframe
+     plays the same curve deterministically instead, every time. Only reduced
+     motion calls this; the normal open/close keeps the CSS transition. */
+  const SHEET_FADE_DURATION = 170;
+  const sheetFades = new WeakMap();
+  function fadeSheetReducedMotion(el, open) {
+    if (!el || !reducedMotion()) return trueNow;
+    // fill:"forwards" holds its last frame indefinitely, so the previous
+    // direction's animation has to be cancelled — not just superseded — or it
+    // keeps pinning opacity against whatever this new one tries to do.
+    sheetFades.get(el)?.cancel();
+    try {
+      const anim = el.animate(
+        [{ opacity: open ? 0 : 1 }, { opacity: open ? 1 : 0 }],
+        { duration: SHEET_FADE_DURATION, easing: "linear", fill: "forwards" }
+      );
+      sheetFades.set(el, anim);
+      return anim.finished.then(() => true, () => false);
+    } catch {
+      el.style.opacity = open ? "1" : "0";
+      return trueNow;
+    }
+  }
+  /* Releases a fadeSheetReducedMotion run once the sheet is fully gone — its
+     fill:"forwards" would otherwise hold opacity at 0 on #program forever,
+     including the next time it is an ordinary page, not a sheet. */
+  function clearSheetFade(el) {
+    sheetFades.get(el)?.cancel();
+    sheetFades.delete(el);
+  }
+
   const disclosureRuns = new WeakMap();
   const COLLAPSING = "is-collapsing";
   /* The measured-height run shared by a disclosure opening or closing and a slot
@@ -553,6 +637,23 @@
   const FOCUS_SLIDE_MS = 210;
   const sheetRuns = new Map();
   let sheetGesture = null;
+  /* A guarded sheet (Plan 075 phase 2B, ADR 0023: the Program editor's page
+     sheet) cannot always be dismissed by a drag. `canDismiss()` is asked at
+     the start of a pull and again when the thumb is released; while it says
+     no the pull rubber-bands from the first pixel and a release always
+     springs back to rest, then calls `onBlocked()` — the host's guarded-leave
+     prompt. A plain sheet never registers one and is unaffected. */
+  const sheetGuards = new Map();
+  function registerSheetGuard(sheet, guard) {
+    if (sheet) sheetGuards.set(sheet, guard || null);
+  }
+  function unregisterSheetGuard(sheet) {
+    sheetGuards.delete(sheet);
+  }
+  function sheetGuardBlocked(sheet) {
+    const guard = sheetGuards.get(sheet);
+    return !!(guard && typeof guard.canDismiss === "function" && guard.canDismiss() === false);
+  }
   let focusGesture = null;
   let focusSlide = null;
 
@@ -582,6 +683,31 @@
       if (sheetRuns.get(active.sheet) === active.motion) sheetRuns.delete(active.sheet);
     }
   }
+  /* Detents (ADR 0023, Plan 075 phase 2). A sheet that lists `medium` in
+     `data-detents` rests at medium, with about half the screen showing, unless
+     `data-detent="large"`; the stylesheet draws both. Its offsets are read from
+     the same rule: medium is the sheet's height less 52% of the visible band,
+     never below zero, so a sheet whose content is shorter than that has one
+     rest. Every sheet rubber-bands above its highest detent. */
+  const SHEET_MEDIUM_SHARE = 0.52;
+  const SHEET_FLICK = 1.1; // px/ms: a flick this fast from the lowest detent dismisses
+  function sheetDetents(sheet) {
+    const names = (sheet.dataset.detents || "").split(/\s+/).filter(Boolean);
+    if (!names.includes("medium")) return [{ name: "", position: 0 }];
+    const root = getComputedStyle(document.documentElement);
+    const band = parseFloat(root.getPropertyValue("--vvh")) || global.innerHeight || 0;
+    const medium = Math.max(0, Math.round((sheet.offsetHeight || 0) - band * SHEET_MEDIUM_SHARE));
+    if (!medium || !names.includes("large")) return [{ name: "", position: medium }];
+    return [{ name: "large", position: 0 }, { name: "", position: medium }];
+  }
+  function sheetRestingAt(sheet) {
+    const stops = sheetDetents(sheet);
+    return stops.find(stop => stop.name === (sheet.dataset.detent || "")) || stops[stops.length - 1];
+  }
+  function onSheetRail(target, sheet) {
+    return !!target.closest(".sheet__grab,.sheet__head,.sheetband,[data-sheet-rail]") ||
+      (sheetDetents(sheet).length > 1 && sheetRestingAt(sheet).name !== "large");
+  }
   function sheetPointerDown(event) {
     if (sheetGesture) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
@@ -592,7 +718,7 @@
     if (sheetScrollHeld(target, sheet)) return;
     sheetGesture = {
       id: event.pointerId, sheet, scrim: currentScrim(), x: event.clientX, y: event.clientY,
-      anchorY: event.clientY, dy: 0, live: false, velocity: 0,
+      anchorY: event.clientY, dy: 0, live: false, velocity: 0, upward: onSheetRail(target, sheet),
       lastY: event.clientY, lastT: event.timeStamp || performance.now(), motion: null,
     };
   }
@@ -605,20 +731,27 @@
     const dy = event.clientY - gesture.y;
     const dx = event.clientX - gesture.x;
     if (!gesture.live) {
-      if (dy <= -SHEET_LOCK || (Math.abs(dx) >= SHEET_LOCK && Math.abs(dx) > Math.abs(dy))) {
+      // Sideways is somebody else's gesture. Upward belongs to the sheet only on
+      // its rail, or below its highest detent; elsewhere it is the content's.
+      if ((dy <= -SHEET_LOCK && !gesture.upward) || (Math.abs(dx) >= SHEET_LOCK && Math.abs(dx) > Math.abs(dy))) {
         sheetGesture = null; return;
       }
-      if (dy < SHEET_LOCK) return;
+      if (Math.abs(dy) < SHEET_LOCK) return;
       gesture.live = true;
       gesture.sheet.classList.add("is-dragging");
       gesture.scrim?.classList.add("is-dragging");
       try { gesture.sheet.setPointerCapture?.(gesture.id); } catch {}
+      const stops = sheetDetents(gesture.sheet);
+      gesture.stops = stops;
       const previous = sheetRuns.get(gesture.sheet);
-      const from = previous?.takeover?.() || 0;
+      const from = previous ? previous.takeover() : sheetRestingAt(gesture.sheet).position;
       if (previous) sheetRuns.delete(gesture.sheet);
-      gesture.motion = trackSheetGesture(gesture.sheet, gesture.scrim, { from });
+      gesture.guardBlocked = sheetGuardBlocked(gesture.sheet);
+      gesture.motion = trackSheetGesture(gesture.sheet, gesture.scrim, {
+        from, rest: stops[stops.length - 1].position, top: stops[0].position, resist: gesture.guardBlocked,
+      });
       if (gesture.motion) sheetRuns.set(gesture.sheet, gesture.motion);
-      gesture.anchorY = event.clientY - SHEET_LOCK;
+      gesture.anchorY = event.clientY - Math.sign(dy) * SHEET_LOCK;
     }
     const now = event.timeStamp || performance.now();
     const dt = now - gesture.lastT;
@@ -627,7 +760,7 @@
       gesture.lastY = event.clientY;
       gesture.lastT = now;
     }
-    gesture.dy = Math.max(0, event.clientY - gesture.anchorY);
+    gesture.dy = event.clientY - gesture.anchorY;
     gesture.motion?.follow(gesture.dy);
   }
   function dismissSheetByExistingPath(sheet) {
@@ -641,7 +774,7 @@
     gesture.sheet.classList.remove("is-dragging");
     gesture.scrim?.classList.remove("is-dragging");
     try { gesture.sheet.releasePointerCapture?.(gesture.id); } catch {}
-    if (gesture.dy > SHEET_LOCK) global.swallowNextClick?.();
+    if (Math.abs(gesture.dy) > SHEET_LOCK) global.swallowNextClick?.();
 
     const motion = gesture.motion;
     if (!motion || gesture.sheet.hidden || !gesture.sheet.classList.contains("is-open")) {
@@ -656,17 +789,37 @@
     // commitment distance and dismiss a sheet nobody released.
     const released = event?.type !== "pointercancel";
     const current = motion.current();
-    const projected = released ? projectMomentum(current, gesture.velocity) : 0;
-    const threshold = Math.min(160, Math.max(64, (gesture.sheet.offsetHeight || 0) * 0.32));
-    const choice = nearestSnap(projected, [
-      { position: 0, dismiss: false },
-      { position: threshold * 2, dismiss: true },
+    const stops = gesture.stops || [{ name: "", position: 0 }];
+    const resting = sheetRestingAt(gesture.sheet);
+    const lowest = stops[stops.length - 1].position;
+    const projected = released ? projectMomentum(current, gesture.velocity) : resting.position;
+    const threshold = Math.min(160, Math.max(64, ((gesture.sheet.offsetHeight || 0) - lowest) * 0.32));
+    const flick = released && gesture.velocity >= SHEET_FLICK && current > lowest - 20;
+    const choice = flick ? { dismiss: true } : nearestSnap(projected, [
+      ...stops.map(stop => ({ ...stop, dismiss: false })),
+      { position: lowest + threshold * 2, dismiss: true },
     ]);
-    if (choice?.dismiss) {
+    if (gesture.guardBlocked) {
+      // Guarded and blocked: a release never dismisses, however far the resisted
+      // pull travelled — it always springs back to rest. A real attempt (past the
+      // raw, unresisted commitment distance, or a flick) then opens the host's
+      // guarded-leave prompt the way Cancel would; a small jiggle on the rail does
+      // not. `gesture.dy` is the thumb's own unresisted travel (sheetPointerMove),
+      // never the rubber-banded `current` the choice above was built from.
+      const rawAttempt = (released && gesture.velocity >= SHEET_FLICK) || gesture.dy > threshold;
+      if (resting.name) gesture.sheet.dataset.detent = resting.name; else delete gesture.sheet.dataset.detent;
+      motion.settle({ velocity: gesture.velocity, to: resting.position }).finally(() => {
+        if (sheetRuns.get(gesture.sheet) === motion) sheetRuns.delete(gesture.sheet);
+      });
+      if (rawAttempt) sheetGuards.get(gesture.sheet)?.onBlocked?.();
+    } else if (choice?.dismiss) {
       motion.dismiss({ velocity: gesture.velocity });
       dismissSheetByExistingPath(gesture.sheet);
     } else {
-      motion.settle({ velocity: released ? gesture.velocity : 0 }).finally(() => {
+      const stop = released ? choice : resting;
+      if (stop.name) gesture.sheet.dataset.detent = stop.name;
+      else delete gesture.sheet.dataset.detent;
+      motion.settle({ velocity: released ? gesture.velocity : 0, to: stop.position }).finally(() => {
         if (sheetRuns.get(gesture.sheet) === motion) sheetRuns.delete(gesture.sheet);
       });
     }
@@ -1296,6 +1449,11 @@
     projectMomentum,
     nearestSnap,
     trackSheetGesture,
+    registerSheetGuard,
+    unregisterSheetGuard,
+    animateSheetPushBack,
+    fadeSheetReducedMotion,
+    clearSheetFade,
     settleFocusDeck,
     animateExerciseReorder,
     animateIndicator,

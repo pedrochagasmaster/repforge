@@ -1163,6 +1163,7 @@ function pushRoute(direction,pages,change){
   change();
   settle?.()}
 function routeViewEl(id){return $(`#${id}`)}
+const SHEET_FADE_MS=180;
 function openModal(el,opts={}){
   if(!el)return false;
   const extras=opts.extras||[];
@@ -1176,10 +1177,15 @@ function openModal(el,opts={}){
     activeModal=null;
     return openModal(el,{...opts,handoff:false,returnFocus:opener,prevInert})}
   if(activeModal&&activeModal.el===el)return true;
+  // Under reduced motion a sheet cross-fades out in place (ADR 0023), so its hide waits for the fade.
+  const sheet=el.classList.contains("sheet");
   const rec={
     el,scrim:opts.scrim||null,returnFocus:opts.returnFocus||document.activeElement,
-    onEscape:opts.onEscape,delayHide:opts.delayHide||0,prevInert:opts.prevInert||snapshotBodyInert(),closing:false
+    onEscape:opts.onEscape,delayHide:sheet&&reducedMotion()?Math.max(opts.delayHide||0,SHEET_FADE_MS):opts.delayHide||0,
+    prevInert:opts.prevInert||snapshotBodyInert(),closing:false
   };
+  // A sheet with detents opens at its first one, whatever a drag left it on last time.
+  if(sheet)delete el.dataset.detent;
   if(el.tagName==="DIALOG"){if(typeof el.showModal==="function"&&!el.open)el.showModal()}
   else{el.hidden=false;el.classList.remove("hidden")}
   rec.scrim?.classList.remove("hidden");
@@ -3008,7 +3014,8 @@ function isDisposableDraft(draft){
 function draftSetTouched(set){
   return !!(set?.touched?.load||set?.touched?.reps||set?.touched?.effort||
     Object.values(set?.touched?.metrics||{}).some(Boolean))}
-function draftHasSessionWork(d){
+/** `ignoreDay` leaves out the day-touched flag: the day picker's Undo set it itself. */
+function draftHasSessionWork(d,{ignoreDay=false}={}){
   d=d||loadDraft();
   if(d?.schemaVersion===2)return d.exerciseOrder.some(exerciseId=>{
     const exercise=d.exercises[exerciseId];
@@ -3016,7 +3023,7 @@ function draftHasSessionWork(d){
       exercise.setOrder.some(setId=>{const set=exercise.sets[setId];return set.completion!=="pending"||set.role==="warmup"||
         draftSetTouched(set)})})||
       d.session.notes!==""||d.session.bodyweight!=null||d.program.scheduleDate!==today()||
-      Object.values(contextFlagsFromDraft(d)).some(Boolean);
+      Object.entries(contextFlagsFromDraft(d)).some(([flag,on])=>on&&!(ignoreDay&&flag==="day"));
   if((d.__done||[]).length||(d.__touched||[]).length||(d.__warm||[]).length) return true;
   if((d.__skipped||[]).length) return true;
   if(d.__substituted&&typeof d.__substituted==="object"&&Object.keys(d.__substituted).length) return true;
@@ -3081,9 +3088,11 @@ function confirmDiscardDraft(){
     document.body.classList.add("is-sheet-open");
     requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim.classList.add("is-open")})});
   return draftDiscardAsk}
-async function requestWorkoutDay(nextDay){
+/** `undo` is the day picker's Undo putting back the day it just changed: the
+ *  change itself marked the draft's day as touched, so only logged work asks. */
+async function requestWorkoutDay(nextDay,{undo=false}={}){
   if(!nextDay||nextDay===day) return true;
-  const hasProgress=draftHasProgress();
+  const hasProgress=undo?draftHasLoggedWork():draftHasProgress();
   if(hasProgress){
     if(!await confirmDiscardDraft()){
       return false}
@@ -3197,6 +3206,10 @@ let workoutActive=false,workoutLeft=false,programEditMode=false,setupEditorOpen=
 /* The editor module owns the draft document. Hosts retain only its lifecycle
    and adapter session so the installed editor can stay private until Done. */
 let installedProgramEditor=null,onboardingProgramEditor=null,installedEditorSession=null,pendingEditorNavigation=null;
+/* The installed editor's page sheet (Plan 075 phase 2B, ADR 0023): whether it
+   is currently presented, the still copy of the Program view pushed back
+   beneath it, and the control Done/Cancel/the guarded dismiss return focus to. */
+let programEditorSheetOpen=false,programEditorPushBack=null,programEditorFocusReturn=null;
 let settingsEditRevision=0;
 // Today's session lists its first few exercises; the rest sit behind a "+N" row.
 // Two-level Progress navigation (Plan 056): Overview/Review are the primary
@@ -6737,6 +6750,7 @@ function updateSessionBanner(){
   };
 }
 
+function draftHasLoggedWork(){try{return draftHasSessionWork(JSON.parse(DraftStore.readRaw()||"{}"),{ignoreDay:true})}catch{return false}}
 function draftHasProgress(){try{const d=JSON.parse(DraftStore.readRaw()||"{}");
   return draftHasSessionWork(d)||!!contextFlagsFromDraft(d).day}catch{return false}}
 function setWorkoutActive(on){const was=workoutActive;workoutActive=!!on;
@@ -6822,8 +6836,12 @@ function dayPickRowHtml(d,i){
   // The badge is a numeral, so the day it stands for is spelled out for anyone
   // who only hears the row.
   const aria=[label,title===label?"":title,sub,isToday?chip:""].filter(Boolean).join(" · ");
+  // aria-current names the day this actually is today, independent of
+  // .is-selected (the row a tap just landed on, which can briefly lead it
+  // while a discard question is still being answered — F-8/Plan 075 phase 2
+  // dropped aria-pressed, a toggle semantic that never fit a commit-on-tap row).
   return `<button type="button" class="daypick__row${d===dayPickSelected?" is-selected":""}" data-daypick="${esc(d)}"`+
-    ` aria-pressed="${d===dayPickSelected?"true":"false"}" aria-label="${esc(aria)}">`+
+    ` aria-label="${esc(aria)}"${isToday?' aria-current="true"':""}>`+
     `<span class="daypick__n" aria-hidden="true">${esc(String(i+1))}</span>`+
     `<span class="daypick__main"><span class="daypick__line"><span class="daypick__title">${esc(title)}</span>`+
     (isToday?`<span class="daypick__chip">${esc(chip)}</span>`:"")+
@@ -6831,14 +6849,13 @@ function dayPickRowHtml(d,i){
     `</button>`}
 function renderDayPickList(){const list=$("#dayPickList");if(!list)return;
   list.innerHTML=days().map(dayPickRowHtml).join("");
-  $$("#dayPickList [data-daypick]").forEach(b=>b.onclick=()=>armPickerDay(b.dataset.daypick))}
+  $$("#dayPickList [data-daypick]").forEach(b=>b.onclick=()=>commitPickerDay(b.dataset.daypick))}
 /** Arming repaints in place rather than rebuilding the list, so the row the
  *  keyboard is on is still there to keep the focus. */
 function paintDayPickList(){
   $$("#dayPickList [data-daypick]").forEach(b=>{
     const on=b.dataset.daypick===dayPickSelected;
-    b.classList.toggle("is-selected",on);
-    b.setAttribute("aria-pressed",on?"true":"false")})}
+    b.classList.toggle("is-selected",on)})}
 function armPickerDay(d){
   if(!d||!days().includes(d))return;
   dayPickSelected=d;
@@ -6866,16 +6883,60 @@ function closeDayPickSheet(){
   if(!sheet)return Promise.resolve(false);
   if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
   return closeModal(sheet)}
-/** Confirming starts the armed day, exactly as Up next and the session banner
- *  do. The discard prompt is answered while the sheet is still up, so declining
- *  it leaves the picker open on the day already loaded. */
-async function confirmPickerDay(){
-  const next=dayPickSelected;
-  if(!next||!days().includes(next))return;
-  if(!await requestWorkoutDay(next))return;
-  await closeDayPickSheet();
-  await enterWorkout({day:next});
-  toast(t("toast.day_ready",{day:dayLabel(next)}))}
+/** Tapping a row commits it: the tap arms it so the check lands immediately,
+ *  then runs exactly what Up next and the session banner run to change the
+ *  day — `requestWorkoutDay`, which asks the discard question in place, while
+ *  the sheet is still up, when the current draft has progress. Declining
+ *  leaves the picker open on the day that was tapped, as the old Confirm/
+ *  Cancel pair did (Plan 075 phase 2 retired both; commit replaces confirm,
+ *  and the sheet's × / swipe / Escape stand in for cancel, changing nothing).
+ *  Tapping the day already loaded is just a close: there is nothing to undo.
+ *  On success the sheet stays up for the check to be seen, then leaves and
+ *  Today hands back an Undo instead of entering Focus. */
+let dayPickCommitting=false;
+async function commitPickerDay(d){
+  // One commit at a time: a second tap while the first is still asking or landing is ignored.
+  if(dayPickCommitting||!d||!days().includes(d))return;
+  dayPickCommitting=true;
+  try{
+    armPickerDay(d);
+    if(d===day){await closeDayPickSheet();return}
+    const previous=day;
+    if(!await requestWorkoutDay(d))return;
+    if(!reducedMotion())await new Promise(resolve=>setTimeout(resolve,220));
+    await closeDayPickSheet();
+    renderToday();
+    showDayChangeToast(previous,d)}
+  finally{dayPickCommitting=false}}
+/* ---- Day-changed toast (Plan 075 phase 2) ----
+ * Same shape as the program editor's own undo toast (program-editor.js
+ * `showToast`/`.review-toast`), copied rather than imported because this one
+ * lives on Today: it reuses #toast's placement above the dock instead of the
+ * editor's pinned-Activate clearance (see .daychange-toast in styles.css). It
+ * never moves focus — VoiceOver picks up the role=status text — and a second
+ * day change replaces it outright rather than stacking. */
+let dayChangeToastEl=null,dayChangeToastTimer=null;
+function hideDayChangeToast(){
+  clearTimeout(dayChangeToastTimer);dayChangeToastTimer=null;
+  dayChangeToastEl?.remove();dayChangeToastEl=null}
+function showDayChangeToast(previousDay,newDay){
+  hideDayChangeToast();
+  const n=days().indexOf(newDay)+1;
+  const el=document.createElement("div");
+  el.className="review-toast daychange-toast";
+  el.setAttribute("role","status");
+  el.innerHTML=`<span class="review-toast__text">${esc(t("today.day_changed",{n}))}</span>`+
+    `<button type="button" class="review-toast__undo" data-role="daychange-undo">${esc(t("common.undo"))}</button>`;
+  el.querySelector('[data-role="daychange-undo"]').onclick=()=>{hideDayChangeToast();undoDayChange(previousDay)};
+  document.body.append(el);
+  dayChangeToastEl=el;
+  dayChangeToastTimer=setTimeout(hideDayChangeToast,4200)}
+/** Undo is `requestWorkoutDay` run backwards. It is silent unless a set was
+ *  logged on the new day in the meantime; then the discard question appears
+ *  again rather than silently discarding that work. */
+async function undoDayChange(previousDay){
+  if(!await requestWorkoutDay(previousDay,{undo:true}))return;
+  renderToday()}
 /** Keep the sheet above the software keyboard rather than behind it, and inside
  *  the band the keyboard leaves visible so its header stays on screen.
  *  The keyboard shrinks the visual viewport but not dvh, so a field in Focus's
@@ -6967,7 +7028,10 @@ function sheetDragMove(e){
     // painting its transform. Stop that one first: two writers on the same
     // property means whichever finishes last wins, and the loser is the thumb.
     if(rec.motion){rec.motion.cancel();rec.motion=null}
-    sheetDrag.motion=window.RepForgeMotion?.trackSheetGesture(rec.el,rec.scrim)||null;
+    // A sheet resting on a detent (ADR 0023) is pushed from where it rests.
+    const placed=getComputedStyle(rec.el).transform;
+    sheetDrag.rest=placed&&placed!=="none"?new DOMMatrixReadOnly(placed).m42:0;
+    sheetDrag.motion=window.RepForgeMotion?.trackSheetGesture(rec.el,rec.scrim,{from:sheetDrag.rest,rest:sheetDrag.rest,top:sheetDrag.rest})||null;
     // The sheet can also be torn down mid-gesture — Escape, a save, a tour step
     // — and whatever cleans it up has to be able to stop the animation too.
     rec.motion=sheetDrag.motion;
@@ -6981,7 +7045,7 @@ function sheetDragMove(e){
   // placed the same way it always was and the stylesheet finishes the gesture.
   if(sheetDrag.motion)sheetDrag.motion.follow(sheetDrag.dy);
   else{
-    rec.el.style.transform=`translate3d(0,${sheetDrag.dy}px,0)`;
+    rec.el.style.transform=`translate3d(0,${sheetDrag.rest+sheetDrag.dy}px,0)`;
     // The scrim thins as the sheet leaves, so the page behind is already coming back.
     if(rec.scrim)rec.scrim.style.opacity=String(Math.max(0,1-sheetDrag.dy/(rec.el.offsetHeight||1)))}}
 /** Hand the sheet back to the stylesheet. Dropping the inline transform in the
@@ -7019,7 +7083,7 @@ function sheetDragEnd(e){
   // is the sheet's own dismiss, so a swipe can never close something a tap
   // could not.
   if(dismiss){motion.dismiss({velocity:vy});rec.onEscape()}
-  else motion.settle({velocity:vy}).finally(()=>{if(rec.motion===motion)rec.motion=null})}
+  else motion.settle({velocity:vy,to:sheetDrag?.rest??motion.current()-dy}).finally(()=>{if(rec.motion===motion)rec.motion=null})}
 function focusGo(dir){
   const fl=focusList(),at=fl.length?Math.min(focusIndex,fl.length-1):0,next=at+dir;
   if(next<0||next>=fl.length)return false;
@@ -11736,6 +11800,7 @@ function createInstalledProgramEditorAdapter(){
     substitutions:(document,slotId)=>installedEditorSubstitutions(document,slotId),
     revert:(count,document)=>revertInstalledEditorSession(count,document),
     done:()=>requestInstalledDone(),
+    afterRender:()=>updateInstalledEditorDoneButton(),
   }
 }
 function installedEditorDefinitionDay(document,day){
@@ -11846,6 +11911,122 @@ function mountInstalledProgramEditor(){
 function disposeProgramEditors(){
   onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;
   installedProgramEditor?.dispose?.();installedProgramEditor=null;installedEditorSession=null;
+}
+/* ---- The installed editor's page sheet (Plan 075 phase 2B, ADR 0023) ----
+   Edit presents #program itself as a page sheet (the generic sheet/detents
+   gesture owner in motion-layer.js, given nothing but the "large" detent) over
+   a still copy of the Program view as it looked the moment Edit was pressed —
+   the same technique History's session page uses. Done's disabled state
+   tracks the editor's own canApply(); a guarded swipe or Escape asks exactly
+   what Cancel already asks. */
+function captureProgramEditorSnapshot(){
+  const view=$("#program");if(!view)return null;
+  const copy=view.cloneNode(true);
+  // No id survives in the copy, its own included: two #program elements would answer every lookup twice.
+  copy.removeAttribute("id");
+  copy.querySelectorAll("[id]").forEach(node=>node.removeAttribute("id"));
+  copy.classList.remove("sheet","is-open","program-editor-installed");
+  delete copy.dataset.detent;
+  copy.removeAttribute("role");copy.removeAttribute("aria-modal");copy.removeAttribute("aria-labelledby");
+  return copy;
+}
+function attemptProgramEditorDismiss(){
+  if(!programEditMode)return;
+  if(installedProgramEditor?.isDirty()){pendingEditorNavigation=null;openInstalledLeaveDialog();return}
+  finishInstalledEditor();
+}
+function updateInstalledEditorDoneButton(){
+  const done=$("#programEditDone");if(!done)return;
+  done.disabled=installedProgramEditor?.canApply?.()===false;
+}
+function enterProgramEditorSheet(copy){
+  if(programEditorSheetOpen)return;
+  programEditorSheetOpen=true;
+  const view=$("#program"),scrim=$("#programEditScrim"),grab=$("#programEditGrab");
+  programEditorFocusReturn=$("#programEditToggle");
+  const motion=window.RepForgeMotion;
+  if(view){
+    view.classList.add("sheet");
+    // A reflow forced here, before "is-open" follows on the next frame, is what
+    // commits the closed state to an actual paint; without it the browser can
+    // still batch both class changes into the frame it was already about to
+    // render, and the cross-fade (or slide) never has a "from" to run from.
+    void view.offsetHeight;
+    view.setAttribute("role","dialog");view.setAttribute("aria-modal","true");
+    view.setAttribute("aria-labelledby","programTitle");
+    motion?.registerSheetGuard?.(view,{
+      canDismiss:()=>!installedProgramEditor?.isDirty(),
+      onBlocked:()=>attemptProgramEditorDismiss(),
+    });
+  }
+  if(grab)grab.hidden=false;
+  if(scrim){
+    scrim.classList.remove("hidden");
+    scrim.onclick=()=>attemptProgramEditorDismiss();
+  }
+  if(copy&&view?.parentNode){
+    copy.inert=true;copy.setAttribute("aria-hidden","true");
+    copy.classList.add("is-editor-pushed-back");
+    // After the real view, like History's own still copy (app.js ~1131): the
+    // clone keeps #program's id (stripping only its descendants'), so a sibling
+    // placed before it would shadow the real node for every #program lookup
+    // that follows, including this function's own exit.
+    view.after(copy);
+    programEditorPushBack=copy;
+  }
+  // The normal slide-in (and the scrim's fade) only run once the browser has
+  // actually painted the closed state; one rAF still lands in the same paint
+  // as this call (nothing yields to it in between), so it takes the next one
+  // after that — the double-rAF the rest of the web uses for exactly this
+  // "now trigger the transition" case. Reduced motion's cross-fade does not
+  // wait on it: fadeSheetReducedMotion plays an explicit keyframe instead of
+  // relying on that same diff, which this one view-turned-sheet cannot promise.
+  motion?.fadeSheetReducedMotion?.(view,true);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    if(!programEditorSheetOpen)return;
+    view?.classList.add("is-open");
+    scrim?.classList.add("is-open");
+    if(programEditorPushBack)motion?.animateSheetPushBack?.(programEditorPushBack,{open:true});
+  }));
+  const title=view?.querySelector(".page-title");
+  if(title){try{title.setAttribute("tabindex","-1");title.focus({preventScroll:true})}catch{}}
+}
+function exitProgramEditorSheet(){
+  if(!programEditorSheetOpen)return;
+  programEditorSheetOpen=false;
+  const view=$("#program"),scrim=$("#programEditScrim"),grab=$("#programEditGrab");
+  const motion=window.RepForgeMotion;
+  motion?.unregisterSheetGuard?.(view);
+  const copy=programEditorPushBack;programEditorPushBack=null;
+  if(copy)motion?.animateSheetPushBack?.(copy,{open:false});
+  const returnTo=programEditorFocusReturn;programEditorFocusReturn=null;
+  motion?.fadeSheetReducedMotion?.(view,false);
+  // Removing "is-open" alone, before "sheet" itself, is what lets the closing
+  // slide actually run: taking both classes away at once leaves no committed
+  // frame for the transition to start from (ADR 0023). Reduced motion's fade
+  // is the explicit keyframe above, not this class diff.
+  view?.classList.remove("is-open");
+  scrim?.classList.remove("is-open");
+  const finish=()=>{
+    motion?.clearSheetFade?.(view);
+    if(view){
+      view.classList.remove("sheet");delete view.dataset.detent;
+      view.removeAttribute("role");view.removeAttribute("aria-modal");view.removeAttribute("aria-labelledby");
+    }
+    if(grab)grab.hidden=true;
+    if(scrim){scrim.classList.add("hidden");scrim.onclick=null}
+    copy?.remove();
+    try{returnTo?.focus?.({preventScroll:true})}catch{}
+  };
+  let fallback=null;
+  const onEnd=event=>{
+    if(event&&event.target!==view)return;
+    if(fallback)clearTimeout(fallback);
+    view?.removeEventListener("transitionend",onEnd);
+    finish();
+  };
+  fallback=setTimeout(onEnd,reducedMotion()?SHEET_FADE_MS:260);
+  view?.addEventListener("transitionend",onEnd);
 }
 let installedLeaveMode=null;
 function installedEditorHistoryState(){
@@ -12115,6 +12296,12 @@ function setProgramMetadataHidden(hidden,{inert=false}={}){
   if(trulyHidden)meta.innerHTML="";
 }
 function renderProgram(){
+  // The page-sheet presentation (Plan 075 phase 2B) turns on and off around
+  // everything else this function does, so its still copy of the pre-edit
+  // view has to be taken before anything here changes #program.
+  const enteringEditSheet=programEditMode&&!programEditorSheetOpen,
+    leavingEditSheet=!programEditMode&&programEditorSheetOpen,
+    preSheetCopy=enteringEditSheet?captureProgramEditorSnapshot():null;
   // Nothing to show: the tab is the same invitation Today carries, not a
   // summary of a program that does not exist. A lifter who emptied their own
   // program keeps the editor and its Add day — they have not been sent back to
@@ -12142,9 +12329,11 @@ function renderProgram(){
   // The installed editor keeps the existing metadata DOM for its production edit
   // seam, but leaves it out of the visual layout like the prior editor did.
   setProgramMetadataHidden(programEditMode);
-  if(tog){tog.textContent=programEditMode?t("program.done_editing"):t("program.edit");tog.dataset.actionRole="expansion";tog.setAttribute("aria-expanded",programEditMode?"true":"false")}
-  // Plan 074: while editing, the header names the task and offers Cancel; Apply is the editor's own pinned bar.
+  if(tog){tog.textContent=t("program.edit");tog.dataset.actionRole="expansion";tog.setAttribute("aria-expanded",programEditMode?"true":"false")}
+  // Plan 075 phase 2B: while editing, the sheet's bar names the task and offers
+  // Cancel and Done; the editor's own bottom bar keeps only a blocked reason.
   tog?.classList.toggle("hidden",programEditMode);
+  const done=$("#programEditDone");done?.classList.toggle("hidden",!programEditMode);
   const pageTitle=view?.querySelector(".page-title");if(pageTitle)pageTitle.textContent=t(programEditMode?"program.editor.title":"program.title");
   const cancel=$("#programEditCancel");if(cancel)cancel.classList.toggle("hidden",!programEditMode);
   const end=$("#endBlock"),lede=ed?.querySelector(":scope > .program-editor-lede"),addDay=$("#addDay");
@@ -12152,7 +12341,13 @@ function renderProgram(){
   // host, so hiding the disclosure here would strand the raw import/export
   // controls whenever the visual editor is open.
   [end,lede,addDay].forEach(el=>el?.classList.toggle("hidden",programEditMode));
-  if(programEditMode){if(nav)nav.dataset.elevation="persistent-action";armInstalledEditorHistory();if(!installedProgramEditor)mountInstalledProgramEditor();return}
+  if(programEditMode){
+    if(nav)nav.dataset.elevation="persistent-action";armInstalledEditorHistory();
+    if(!installedProgramEditor)mountInstalledProgramEditor();
+    if(enteringEditSheet)enterProgramEditorSheet(preSheetCopy);
+    updateInstalledEditorDoneButton();
+    return}
+  if(leavingEditSheet)exitProgramEditorSheet();
   renderProgramHeader();renderProgramEditor();
   // Candidate edits can invalidate a paired relation while the exercise picker
   // is closing. Focus after the editor DOM has been rebuilt, rather than racing
@@ -20673,7 +20868,6 @@ function openWhySheetFor(ex,opener){
   // Focus is the only workout-logging surface; the exercise page is the other opener.
   captureEvent("recommendation_explained",{surface:opener?.closest?.("#exDetail")?"exercise":"focus"});
   renderWhySheet(whySheetModel(ex,opener?.closest?.("#exDetail")?"exercise":"focus"));
-  const okBtn=$("#whyOk");if(okBtn)okBtn.onclick=()=>closeWhySheet();
   document.body.classList.add("is-sheet-open");
   openModal(sheet,{initialFocus:$("#whyClose"),returnFocus:opener,onEscape:closeWhySheet,scrim,
     delayHide:reducedMotion()?0:280});
@@ -20690,11 +20884,11 @@ function closeWhySheet(){
    Safari, and the only third-party UI Taurifer ever draws — Chrome's install
    prompt is Chrome's to render, and we only ever ask for it. */
 let installTransferVisibleState="manual",privacyReturnsToTransfer=false,privacyTransferOpener=null;
-/** Where focus starts in each install-sheet state: the Done button of the
- *  instructions, the explanation's primary action, or the heading of every state
- *  that has nothing to choose yet. */
+/** Where focus starts in each install-sheet state: the explanation's primary
+ *  action, or the heading of every other state (the instructions' only control
+ *  is now the band's × — Plan 075 phase 2 dropped the redundant Done). */
 function installSheetInitialControl(stateName){
-  return stateName==="eligible"?$("#installTransferStart"):stateName==="manual"?$("#iosInstallDone"):$("#iosInstallTitle")}
+  return stateName==="eligible"?$("#installTransferStart"):$("#iosInstallTitle")}
 /** A state change hides the control that held focus (Start becomes a transfer in
  *  progress, "Install without transferring" becomes the instructions). Focus does
  *  not follow a hidden control, it drops to the page behind the dialog, so the
@@ -20746,7 +20940,7 @@ function installTransferRenderState(stateName,detail={}){
   $("#iosInstallInstructions")?.classList.toggle("hidden",!["manual","ready"].includes(stateName));
   const expiry=$("#installTransferExpiry"),formatted=installTransferTime(detail.expiresAt);
   if(expiry){expiry.textContent=formatted?t("install.transfer.expires",{time:formatted}):"";expiry.classList.toggle("hidden",!formatted)}
-  const actions=$("#installTransferActions"),start=$("#installTransferStart"),retry=$("#installTransferRetry"),cont=$("#installTransferContinue"),done=$("#iosInstallDone"),close=$("#iosInstallClose");
+  const actions=$("#installTransferActions"),start=$("#installTransferStart"),retry=$("#installTransferRetry"),cont=$("#installTransferContinue"),close=$("#iosInstallClose");
   actions?.classList.toggle("hidden",!["eligible","retryable","success","cleanup","terminal","destination","interrupted","unknown","claimed-expired"].includes(stateName));
   start?.classList.toggle("hidden",stateName!=="eligible");
   retry?.classList.toggle("hidden",!["retryable","cleanup","interrupted"].includes(stateName));
@@ -20754,7 +20948,8 @@ function installTransferRenderState(stateName,detail={}){
   cont?.classList.toggle("hidden",!canContinue);
   if(cont)cont.textContent=t(["eligible","retryable"].includes(stateName)?"install.transfer.without"
     :["unknown","claimed-expired"].includes(stateName)?"install.transfer.resume_action":"install.transfer.continue");
-  done?.classList.toggle("hidden",!["manual","ready"].includes(stateName));
+  // The instructions states (manual/ready) now have only × to leave by — Done
+  // was always redundant with it (F-8); the Escape/× gate below is unchanged.
   const busy=["creating","claiming","importing"].includes(stateName);
   sheet.setAttribute("aria-busy",busy?"true":"false");
   close?.classList.toggle("hidden",busy||["interrupted","unknown","claimed-expired"].includes(stateName));
@@ -21089,7 +21284,6 @@ function init(){
   $("#privacyClose").onclick=closePrivacySheet;
   $("#privacyScrim").onclick=closePrivacySheet;
   $("#iosInstallClose").onclick=closeIosInstallSheet;
-  $("#iosInstallDone").onclick=closeIosInstallSheet;
   $("#iosInstallScrim").onclick=closeIosInstallSheet;
   $("#guideReplayToggle").onclick=()=>setDisclosure($("#guideReplayToggle"),$("#guideReplayPanel"),!$("#guideReplayPanel")?.classList.contains("is-open"));
   $$('[data-guide-replay]').forEach(button=>button.onclick=()=>replayContextualGuide(button.dataset.guideReplay));
@@ -21107,9 +21301,7 @@ function init(){
   const noteCancel=$("#exNoteCancel");if(noteCancel)noteCancel.onclick=closeExNoteSheet;
   const noteSave=$("#exNoteSave");if(noteSave)noteSave.onclick=saveExNoteSheet;
   const noteScrim=$("#exNoteScrim");if(noteScrim)noteScrim.onclick=closeExNoteSheet;
-  const dayPickCancel=$("#dayPickCancel");if(dayPickCancel)dayPickCancel.onclick=closeDayPickSheet;
   const dayPickScrim=$("#dayPickScrim");if(dayPickScrim)dayPickScrim.onclick=closeDayPickSheet;
-  const dayPickOk=$("#dayPickConfirm");if(dayPickOk)dayPickOk.onclick=()=>confirmPickerDay();
   const pkCancel=$("#exPickCancel");if(pkCancel)pkCancel.onclick=closeExercisePicker;
   const pkScrim=$("#exPickScrim");if(pkScrim)pkScrim.onclick=closeExercisePicker;
   const pkDone=$("#exPickDone");if(pkDone)pkDone.onclick=confirmPickerSelection;
@@ -21368,10 +21560,11 @@ function init(){
     if(setupEditorOpen){requestEntryCancel();return}
     if(programEditMode){requestInstalledDone();return}
     programEditMode=true;renderProgram()};
-  const progCancel=$("#programEditCancel");if(progCancel)progCancel.onclick=()=>{
-    if(!programEditMode)return;
-    if(installedProgramEditor?.isDirty()){pendingEditorNavigation=null;openInstalledLeaveDialog();return}
-    finishInstalledEditor()};
+  const progCancel=$("#programEditCancel");if(progCancel)progCancel.onclick=()=>attemptProgramEditorDismiss();
+  const progDone=$("#programEditDone");if(progDone)progDone.onclick=()=>requestInstalledDone();
+  document.addEventListener("keydown",e=>{
+    if(e.key!=="Escape"||e.defaultPrevented||activeModal||!programEditorSheetOpen)return;
+    e.preventDefault();attemptProgramEditorDismiss()});
   const leaveApply=$("#programEditorApply");if(leaveApply)leaveApply.onclick=()=>applyInstalledEditorAndContinue();
   const leaveDiscard=$("#programEditorDiscard");if(leaveDiscard)leaveDiscard.onclick=()=>finishInstalledEditor({discard:true});
   const leaveKeep=$("#programEditorKeep");if(leaveKeep)leaveKeep.onclick=()=>closeInstalledLeaveDialog();

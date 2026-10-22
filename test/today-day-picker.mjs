@@ -131,25 +131,38 @@ async function view(page) {
         sub: b.querySelector(".daypick__sub")?.textContent?.trim() || "",
         chip: b.querySelector(".daypick__chip")?.textContent?.trim() || "",
         armed: b.classList.contains("is-selected"),
-        pressed: b.getAttribute("aria-pressed") === "true",
+        current: b.getAttribute("aria-current") === "true",
         aria: b.getAttribute("aria-label") || "",
       })),
-      confirmText: document.querySelector("#dayPickConfirm")?.textContent?.trim() || "",
       // Before a workout the header names the day; once one is open it names the exercise, and the day is the draft's.
       day: document.querySelector("#workoutShell")?.classList.contains("hidden")
         ? (document.querySelector("#woDayTitle")?.textContent || "").trim()
         : (window.__repforgeWorkoutDraft?.current?.()?.program?.dayLabel || ""),
       todayName: document.querySelector("#todaySession .today-session__name")?.textContent?.trim() || "",
       workoutOpen: !document.querySelector("#workoutShell")?.classList.contains("hidden"),
-      activeTab: document.querySelector("#dayTabs button.active")?.dataset.day || "",
       focus: document.activeElement?.id || document.activeElement?.dataset?.daypick || "",
       i18n: {
         chooseDay: window.RepForgeI18n.t("today.choose_day"),
         current: window.RepForgeI18n.t("today.choose_day_current"),
-        confirm: window.RepForgeI18n.t("today.choose_day_confirm"),
       },
     };
   });
+}
+
+/** The day-changed toast (Plan 075 phase 2): a `.review-toast`-shaped notice
+ *  with an Undo action, separate from the plain `#toast` live region. */
+async function dayToastState(page) {
+  return page.evaluate(() => {
+    const el = document.querySelector(".daychange-toast");
+    return {
+      visible: !!el,
+      text: el?.querySelector(".review-toast__text")?.textContent?.trim() || "",
+      undoText: el?.querySelector(".review-toast__undo")?.textContent?.trim() || "",
+    };
+  });
+}
+async function clickDayToastUndo(page) {
+  await page.click(".daychange-toast .review-toast__undo");
 }
 
 async function openPicker(page) {
@@ -222,57 +235,53 @@ phase("Today offers the picker, and a confirmed day starts");
     JSON.stringify(opened.rows.map((r) => r.aria))
   );
   assert(
-    opened.rows.filter((r) => r.armed).length === 1 && opened.rows[0].armed && opened.rows[0].pressed,
-    "the picker opens armed on the day Today is already on",
+    opened.rows.filter((r) => r.armed).length === 1 && opened.rows[0].armed && opened.rows[0].current,
+    "the picker opens armed and aria-current on the day Today is already on",
     JSON.stringify(opened.rows)
   );
-  assert(opened.confirmText === opened.i18n.confirm, "the CTA reads from the catalog", opened.confirmText);
   assert(opened.focus === days[0], "focus opens on the armed row", opened.focus);
 
-  // Arming is not starting: the sheet stays up until the CTA commits the choice.
+  // A tap on a row is the commit — there is no separate Confirm. The check
+  // lands immediately, and the sheet stays up for the lifter to see it land
+  // before it leaves on its own a couple hundred milliseconds later.
   await page.click(`[data-daypick="${days[2]}"]`);
-  await page.waitForTimeout(120);
-  const armed = await view(page);
+  await page.waitForTimeout(100);
+  const landing = await view(page);
   assert(
-    armed.sheetOpen && !armed.workoutOpen && armed.day === days[0],
-    "tapping a row arms it without starting anything",
-    JSON.stringify({ open: armed.sheetOpen, workout: armed.workoutOpen, day: armed.day })
+    landing.sheetOpen && !landing.workoutOpen && landing.day === days[0],
+    "the check lands on the tapped row while the sheet is still up and Today has not moved yet",
+    JSON.stringify({ open: landing.sheetOpen, workout: landing.workoutOpen, day: landing.day })
   );
   assert(
-    armed.rows.filter((r) => r.armed).length === 1 && armed.rows[2].armed && armed.rows[2].pressed,
+    landing.rows.filter((r) => r.armed).length === 1 && landing.rows[2].armed,
     "the armed row moves to the tapped day, and only that row",
-    JSON.stringify(armed.rows.map((r) => ({ day: r.day, armed: r.armed })))
+    JSON.stringify(landing.rows.map((r) => ({ day: r.day, armed: r.armed })))
   );
   assert(
-    armed.rows[0].chip === armed.i18n.current && !armed.rows[2].chip,
-    "the Today chip stays on today's day while another is armed",
-    JSON.stringify(armed.rows.map((r) => r.chip))
+    landing.rows[0].chip === landing.i18n.current && !landing.rows[2].chip,
+    "the Today chip stays on today's day until the commit actually lands",
+    JSON.stringify(landing.rows.map((r) => r.chip))
   );
 
-  await page.click("#dayPickConfirm");
-  await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
-  await page.waitForTimeout(320);
+  await page.waitForTimeout(420);
   const started = await view(page);
-  const toast = await page.evaluate(() => document.querySelector("#toast")?.textContent?.trim() || "");
-  assert(!started.sheetOpen && !started.locked, "confirming closes the sheet and releases the page", JSON.stringify(started));
+  const toast = await dayToastState(page);
+  const expectedToast = await page.evaluate(() => window.RepForgeI18n.t("today.day_changed", { n: 3 }));
+  const expectedUndo = await page.evaluate(() => window.RepForgeI18n.t("common.undo"));
+  assert(!started.sheetOpen && !started.locked, "the sheet leaves on its own once the check has landed", JSON.stringify(started));
   assert(
-    started.workoutOpen && started.day === days[2] && started.activeTab === days[2],
-    "the workout opens on the confirmed day",
+    !started.workoutOpen && started.day === days[2],
+    "Today takes the picked day without starting a workout",
     JSON.stringify(started)
   );
-  assert(toast.includes(days[2]), "the confirmed day is announced", toast);
   assert(
-    await page.evaluate(() => document.body.classList.contains("is-focus-wo")),
-    "it enters the same Focus layout the start CTA does"
+    !(await page.evaluate(() => document.body.classList.contains("is-focus-wo"))),
+    "it never enters the Focus layout the start CTA would"
   );
-
-  await page.evaluate(() => window.__repforgeLeaveWorkout?.());
-  await page.waitForSelector("#todayDash:not(.hidden)", { timeout: 5000 });
-  const back = await view(page);
   assert(
-    back.todayName === days[2] && back.day === days[2],
-    "leaving the workout leaves Today on the day that was confirmed",
-    JSON.stringify(back)
+    toast.visible && toast.text === expectedToast && toast.undoText === expectedUndo,
+    "a toast announces the new day and offers Undo",
+    JSON.stringify({ toast, expectedToast, expectedUndo })
   );
 
   await openPicker(page);
@@ -284,13 +293,43 @@ phase("Today offers the picker, and a confirmed day starts");
   );
   await page.keyboard.press("Escape");
   await page.waitForTimeout(420);
+
+  // Undo is the only way back — it runs the same day-change machinery
+  // backwards and clears its own toast immediately. Nothing was logged on the
+  // new day, so it asks nothing: only logged work brings the discard question.
+  await clickDayToastUndo(page);
+  const toastAfterUndo = await dayToastState(page);
+  assert(!toastAfterUndo.visible, "Undo clears its own toast immediately", JSON.stringify(toastAfterUndo));
+  // Clearing the left day's draft and creating the restored one's both land
+  // before Today's header catches up; wait for that rather than a fixed sleep.
+  await page.waitForFunction(
+    (d) => document.querySelector("#woDayTitle")?.textContent?.trim() === d,
+    days[0], { timeout: 5000 }
+  );
+  const undone = await view(page);
+  assert(!(await page.evaluate(() => document.querySelector("#draftDiscardSheet")?.classList.contains("is-open"))),
+    "with nothing logged, Undo asks no discard question");
+  assert(
+    !undone.workoutOpen && undone.day === days[0],
+    "Undo puts Today back on the day it left, without starting a workout either",
+    JSON.stringify(undone)
+  );
+  await openPicker(page);
+  const afterUndo = await view(page);
+  assert(
+    afterUndo.rows[0].chip === afterUndo.i18n.current && afterUndo.rows[0].armed && !afterUndo.rows[2].chip,
+    "the picker reflects the undone day",
+    JSON.stringify(afterUndo.rows.map((r) => ({ day: r.day, chip: r.chip, armed: r.armed })))
+  );
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(420);
   await context.close();
 }
 
 // ---------------------------------------------------------------------------
 // 2. Escape and Cancel leave Today alone
 // ---------------------------------------------------------------------------
-phase("dismissing the picker changes nothing");
+phase("dismissing the picker changes nothing it has not already committed");
 {
   const { context, page } = await freshPage(browser);
   page.on("pageerror", (e) => errors.push(String(e.message)));
@@ -308,26 +347,41 @@ phase("dismissing the picker changes nothing");
   );
   assert(escaped.focus === "chooseAnotherDay", "focus returns to the button that opened it", escaped.focus);
 
-  // A day armed and then abandoned is a choice never made.
+  // There is no Cancel any more: a tap is already the commit. Dismissing right
+  // after it — Escape, ×, scrim or a swipe — only closes the sheet sooner; it
+  // cannot take back a day that already landed. Undo is the only way back.
   await openPicker(page);
   const days = await page.evaluate((k) => [
     ...new Set(JSON.parse(localStorage.getItem(k) || "{}").program.map((e) => e.day)),
   ], KEY);
   await page.click(`[data-daypick="${days[1]}"]`);
-  await page.waitForTimeout(120);
-  await page.click("#dayPickCancel");
+  await page.keyboard.press("Escape");
   await page.waitForTimeout(420);
-  const cancelled = await view(page);
+  const early = await view(page);
+  const earlyToast = await dayToastState(page);
   assert(
-    !cancelled.sheetOpen && !cancelled.workoutOpen && cancelled.day === before.day,
-    "Cancel drops an armed day instead of applying it",
-    JSON.stringify(cancelled)
+    !early.sheetOpen && !early.workoutOpen,
+    "Escape right after a tap still closes the sheet",
+    JSON.stringify(early)
   );
+  assert(
+    early.day === days[1],
+    "but the tapped day still lands — Escape cannot undo a commit already in flight",
+    JSON.stringify(early)
+  );
+  assert(earlyToast.visible, "the Undo toast still appears even though the sheet left early", JSON.stringify(earlyToast));
+  await clickDayToastUndo(page);
+  await page.waitForFunction(
+    (d) => document.querySelector("#woDayTitle")?.textContent?.trim() === d,
+    before.day, { timeout: 5000 }
+  );
+  const revertedEarly = await view(page);
+  assert(revertedEarly.day === before.day, "Undo still restores the original day", JSON.stringify(revertedEarly));
   await openPicker(page);
   const rearmed = await view(page);
   assert(
     rearmed.rows[0].armed && !rearmed.rows[1].armed,
-    "and the picker reopens armed on today's day, not on the abandoned one",
+    "and the picker now opens armed on today's day again, not on the undone one",
     JSON.stringify(rearmed.rows.map((r) => ({ day: r.day, armed: r.armed })))
   );
   await page.keyboard.press("Escape");
@@ -410,18 +464,15 @@ phase("an in-progress session is protected by the discard question");
   await page.waitForSelector("#todayDash:not(.hidden)", { timeout: 5000 });
   const draftBefore = await page.evaluate((d) => localStorage.getItem(d), DRAFT);
 
+  // The tap is both the arm and the ask now: with sets already logged, tapping
+  // the other day's row asks the discard question in place before anything
+  // commits — there is no separate Confirm to tap first.
   await openPicker(page);
   await page.click(`[data-daypick="${days[1]}"]`);
-  await page.waitForTimeout(120);
-  const armedOnly = await view(page);
-  assert(dialogs === 0, "arming a day asks nothing — it discards nothing", String(dialogs));
-  assert(armedOnly.rows[1].armed, "the other day is armed", JSON.stringify(armedOnly.rows.map((r) => r.armed)));
-
-  await page.click("#dayPickConfirm");
   await page.waitForSelector("#draftDiscardSheet.is-open", { timeout: 5000 });
   await page.waitForTimeout(420);
   const question = await asking();
-  assert(question.open && dialogs === 0, "confirming another day with sets logged asks in a sheet before discarding", JSON.stringify({ ...question, dialogs }));
+  assert(question.open && dialogs === 0, "tapping another day with sets logged asks in a sheet before discarding", JSON.stringify({ ...question, dialogs }));
   assert(question.title === question.i18n.title && question.body === question.i18n.body && question.keep === question.i18n.keep && question.drop === question.i18n.title,
     "the question reads from the catalog: the discard title and sentence over Cancel and the discard action", JSON.stringify(question));
   assert(question.focus === "draftDiscardKeep" && question.pickerGivenWay, "focus starts on Cancel and the picker gives way to the question", JSON.stringify(question));
@@ -438,13 +489,14 @@ phase("an in-progress session is protected by the discard question");
   );
   assert(
     declined.rows[1].armed,
-    "declining leaves the choice armed, so the CTA can be answered again",
+    "declining leaves the choice armed, so tapping the row again can answer it",
     JSON.stringify(declined.rows.map((r) => ({ day: r.day, armed: r.armed })))
   );
   assert(draftAfter === draftBefore, "declining keeps the draft byte for byte", `${draftBefore} → ${draftAfter}`);
 
-  // Escape is Keep too, and the picker comes back each time.
-  await page.click("#dayPickConfirm");
+  // Escape is Keep too, and the picker comes back each time. Retrying is
+  // re-tapping the still-armed row, not a separate Confirm.
+  await page.click(`[data-daypick="${days[1]}"]`);
   await page.waitForSelector("#draftDiscardSheet.is-open", { timeout: 5000 });
   await page.keyboard.press("Escape");
   await page.waitForSelector("#dayPickSheet.is-open", { timeout: 5000 });
@@ -452,7 +504,7 @@ phase("an in-progress session is protected by the discard question");
     "Escape on the question keeps the draft and returns to the picker", "");
   await page.waitForTimeout(420);
   // The scrim is Keep as well.
-  await page.click("#dayPickConfirm");
+  await page.click(`[data-daypick="${days[1]}"]`);
   await page.waitForSelector("#draftDiscardSheet.is-open", { timeout: 5000 });
   await page.waitForTimeout(420);
   await page.locator("#draftDiscardScrim").click({ position: { x: 8, y: 8 } });
@@ -461,7 +513,7 @@ phase("an in-progress session is protected by the discard question");
     "a tap on the scrim keeps the draft and returns to the picker", "");
   await page.waitForTimeout(420);
   // And so is a downward swipe on the sheet.
-  await page.click("#dayPickConfirm");
+  await page.click(`[data-daypick="${days[1]}"]`);
   await page.waitForSelector("#draftDiscardSheet.is-open", { timeout: 5000 });
   await page.waitForTimeout(420);
   const grip = await page.locator("#draftDiscardTitle").boundingBox();
@@ -476,23 +528,37 @@ phase("an in-progress session is protected by the discard question");
   assert(!(await asking()).open && (await page.evaluate((d) => localStorage.getItem(d), DRAFT)) === draftBefore,
     "a downward swipe on the question keeps the draft and returns to the picker", "");
   await page.waitForTimeout(420);
-  await page.click("#dayPickConfirm");
+  await page.click(`[data-daypick="${days[1]}"]`);
   await page.waitForSelector("#draftDiscardSheet.is-open", { timeout: 5000 });
   await page.waitForTimeout(420);
   await page.click("#draftDiscardDrop");
-  await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
-  await page.waitForTimeout(320);
+  // Accepting clears the old draft and creates the new day's before the
+  // commit's own 220ms close delay even starts, so wait for the toast itself
+  // (the last thing commitPickerDay does) rather than a fixed sleep.
+  await page.waitForSelector(".daychange-toast", { timeout: 5000 });
+  await page.waitForTimeout(100);
   const accepted = await view(page);
-  const logged = await page.evaluate((weight) =>
-    [...document.querySelectorAll(`#workout input[data-metric-id="${weight}"]`)].map((el) => el.value).filter(Boolean)
-  , WEIGHT);
+  const acceptedToast = await dayToastState(page);
+  const freshDraft = await page.evaluate(() => window.__repforgeWorkoutDraft?.current?.());
+  const carriedOver = Object.values(freshDraft?.exercises || {}).some((ex) =>
+    Object.values(ex.sets || {}).some((set) => set.edited?.metrics?.[WEIGHT] === "42")
+  );
   assert(dialogs === 0, "no native dialog appeared at any answer", String(dialogs));
   assert(
-    accepted.workoutOpen && accepted.day === days[1] && !accepted.sheetOpen,
-    "accepting starts the picked day",
+    !accepted.workoutOpen && accepted.day === days[1] && !accepted.sheetOpen,
+    "accepting takes the picked day without starting a workout",
     JSON.stringify(accepted)
   );
-  assert(!logged.includes("42"), "the discarded draft's sets do not follow into the new day", JSON.stringify(logged));
+  assert(
+    !(await page.evaluate(() => document.body.classList.contains("is-focus-wo"))),
+    "it never enters Focus either"
+  );
+  assert(acceptedToast.visible, "the Undo toast still appears after a discard-and-switch", JSON.stringify(acceptedToast));
+  assert(
+    freshDraft?.program?.dayLabel === days[1] && !carriedOver,
+    "the new day's fresh draft carries none of the discarded draft's sets",
+    JSON.stringify({ day: freshDraft?.program?.dayLabel, carriedOver })
+  );
   await context.close();
 }
 

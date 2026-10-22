@@ -5,7 +5,9 @@
  * The grab handle promises a sheet that can be pushed back down, so every sheet
  * has to answer a downward drag: follow the thumb, close past a real commitment,
  * spring back short of one, and leave gestures that belong to something else —
- * an upward drag, a scrolled panel — alone. A completed swipe runs the sheet's
+ * a sideways drag, a scrolled panel — alone. An upward drag on the rail rubber-
+ * bands; the detents themselves (ADR 0023) are proved in test/native-feel.mjs. A
+ * completed swipe runs the sheet's
  * own dismiss, so it discards a half-typed note exactly as Cancel does and
  * leaves a running rest running exactly as Close does.
  *
@@ -329,6 +331,13 @@ async function edgeSwipe(browser, { reducedMotion = "no-preference" } = {}) {
   await context.close();
 }
 
+/** The sheet is at rest: no transition or inline placement left. */
+const sheetAtRest = (page, sel) => page.waitForFunction((s) => {
+  const el = document.querySelector(s);
+  return el.classList.contains("is-open") && !el.style.transform && !el.classList.contains("is-dragging")
+    && el.getAnimations().length === 0;
+}, sel, { timeout: 5000 });
+
 async function run() {
   const browser = await launchChromium();
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -418,10 +427,11 @@ async function run() {
   phase("gestures that belong to something else are left alone");
   await openProgramText(page);
   await drag(page, rail, [[0, -30], [0, -80], [0, -120]], { pause: 24 });
-  await page.waitForTimeout(320);
+  await sheetAtRest(page, "#programTextSheet");
   const up = await page.evaluate(() => window.__sheet("#programTextSheet"));
+  // ADR 0023: a sheet rubber-bands above its highest rest and comes back; it never opens further or closes.
   assert(!up.hidden && up.open && !up.dragging && !up.inline && Math.abs(up.y) < 1,
-    "an upward drag on the sheet does nothing", JSON.stringify(up));
+    "an upward drag only rubber-bands, and the sheet comes back to rest", JSON.stringify(up));
 
   const pre = await page.evaluate(() => {
     const el = document.querySelector("#programTextOut");

@@ -206,8 +206,9 @@ async function main() {
 
     await page.locator("#leaveWorkout").click();
     await page.locator("#chooseAnotherDay").click();
+    // Plan 075 phase 2: tapping a row commits it directly — there is no
+    // separate Confirm to tap after arming it.
     await page.locator('[data-daypick="Day 2"]').click();
-    await page.locator("#dayPickConfirm").click();
     await page.waitForSelector("#draftDiscardSheet.is-open", { timeout: 5000 });
     await page.locator("#draftDiscardKeep").click();
     await page.waitForSelector("#dayPickSheet.is-open", { timeout: 5000 });
@@ -223,11 +224,15 @@ async function main() {
     );
     check(dialogs.length === 0, "The day-change question never opens the browser's confirm", { dialogs });
 
-    await page.locator("#dayPickConfirm").click();
+    // Retrying after a decline is re-tapping the still-armed row, not a
+    // separate Confirm.
+    await page.locator('[data-daypick="Day 2"]').click();
     await page.waitForSelector("#draftDiscardSheet.is-open", { timeout: 5000 });
     await page.locator("#draftDiscardDrop").click();
+    // Plan 075 phase 2: accepting takes Today to the picked day without
+    // opening Focus, so the day lands on #woDayTitle, not on a day tab.
     await page.waitForFunction(
-      () => document.querySelector("#dayTabs button.active")?.dataset.day === "Day 2",
+      () => document.querySelector("#woDayTitle")?.textContent?.trim() === "Day 2",
       { timeout: 5000 }
     );
     const restAfterDiscard = await page.evaluate(async () => {
@@ -240,6 +245,10 @@ async function main() {
     });
     check(!restAfterDiscard.running && !restAfterDiscard.bar && !restAfterDiscard.said,
       "Discarding the session ends its running rest (no clock, no bar, nothing announced)", restAfterDiscard);
+    // The day change itself does not open Focus; entering it now continues
+    // on the day the discard already picked.
+    await page.click("#startWorkout");
+    await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
     const afterConfirm = await contextSnapshot(page);
     const confirmedDraft = JSON.parse(afterConfirm.draftRaw || "{}");
     const confirmedContext = confirmedDraft.schemaVersion === 2

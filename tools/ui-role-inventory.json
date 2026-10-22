@@ -1177,49 +1177,6 @@
       ]
     },
     {
-      "id": "daypickcancel",
-      "selector": "#dayPickCancel",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "today/day-picker"
-      ]
-    },
-    {
-      "id": "daypickconfirm",
-      "selector": "#dayPickConfirm",
-      "roles": {
-        "control": "primary"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "loading"
-      ],
-      "rationale": "Advances the current task with the strongest action weight.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "today/day-picker"
-      ]
-    },
-    {
       "id": "daypickscrim",
       "selector": "#dayPickScrim",
       "roles": {
@@ -3452,29 +3409,6 @@
         "install/transfer-retryable",
         "install/transfer-success",
         "install/transfer-terminal"
-      ]
-    },
-    {
-      "id": "iosinstalldone",
-      "selector": "#iosInstallDone",
-      "roles": {
-        "control": "primary"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "loading"
-      ],
-      "rationale": "Advances the current task with the strongest action weight.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "install/ios-sheet",
-        "install/transfer-ready"
       ]
     },
     {
@@ -8753,31 +8687,6 @@
       ]
     },
     {
-      "id": "whyok",
-      "selector": "#whyOk",
-      "roles": {
-        "control": "secondary"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled"
-      ],
-      "rationale": "Closes the sheet; an alternative to the close icon with the weight of a secondary action.",
-      "owner": "plan-064/r3g",
-      "catalogStates": [
-        "workout/why-this-weight",
-        "workout/why-per-side",
-        "workout/why-in-session",
-        "workout/why-manual",
-        "workout/why-setup"
-      ]
-    },
-    {
       "id": "whysheet-disc-not-id",
       "selector": ".whysheet__disc:not([id])",
       "roles": {
@@ -9086,7 +8995,7 @@
       "rationale": "Blocks the underlying route with dialog semantics while the day-change question is open.",
       "owner": "plan-064/r3x",
       "sourceOnly": true,
-      "sourceOnlyReason": "pending: the day-change question opens from Confirm day in the day picker (and from Up next, a day tab or a deep link) when a draft holds logged sets, and the catalog state today/draft-resume is Today with the question closed. The today-day-picker, workout-day-context-discard, simulation and adversarial-draft-transactions suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
+      "sourceOnlyReason": "pending: the day-change question opens from tapping a day in the day picker (and from Up next, a day tab or a deep link) when a draft holds logged sets, and the catalog state today/draft-resume is Today with the question closed. The today-day-picker, workout-day-context-discard, simulation and adversarial-draft-transactions suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
       "catalogStates": [
         "today/draft-resume"
       ]
@@ -9105,7 +9014,7 @@
       "rationale": "Scrim suppresses the page behind the day-change question; a tap on it keeps the unfinished session.",
       "owner": "plan-064/r3x",
       "sourceOnly": true,
-      "sourceOnlyReason": "pending: the day-change question opens from Confirm day in the day picker (and from Up next, a day tab or a deep link) when a draft holds logged sets, and the catalog state today/draft-resume is Today with the question closed. The today-day-picker, workout-day-context-discard, simulation and adversarial-draft-transactions suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
+      "sourceOnlyReason": "pending: the day-change question opens from tapping a day in the day picker (and from Up next, a day tab or a deep link) when a draft holds logged sets, and the catalog state today/draft-resume is Today with the question closed. The today-day-picker, workout-day-context-discard, simulation and adversarial-draft-transactions suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
       "catalogStates": [
         "today/draft-resume"
       ]
@@ -9129,7 +9038,7 @@
       "rationale": "Keeps the unfinished session and the day it belongs to: the strongest action on the sheet and the one focus starts on.",
       "owner": "plan-064/r3x",
       "sourceOnly": true,
-      "sourceOnlyReason": "pending: the day-change question opens from Confirm day in the day picker (and from Up next, a day tab or a deep link) when a draft holds logged sets, and the catalog state today/draft-resume is Today with the question closed. The today-day-picker, workout-day-context-discard, simulation and adversarial-draft-transactions suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
+      "sourceOnlyReason": "pending: the day-change question opens from tapping a day in the day picker (and from Up next, a day tab or a deep link) when a draft holds logged sets, and the catalog state today/draft-resume is Today with the question closed. The today-day-picker, workout-day-context-discard, simulation and adversarial-draft-transactions suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
       "catalogStates": [
         "today/draft-resume"
       ]
@@ -9152,7 +9061,7 @@
       "rationale": "Discards the unfinished session so the chosen day can start; the confirmation stays explicit.",
       "owner": "plan-064/r3x",
       "sourceOnly": true,
-      "sourceOnlyReason": "pending: the day-change question opens from Confirm day in the day picker (and from Up next, a day tab or a deep link) when a draft holds logged sets, and the catalog state today/draft-resume is Today with the question closed. The today-day-picker, workout-day-context-discard, simulation and adversarial-draft-transactions suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
+      "sourceOnlyReason": "pending: the day-change question opens from tapping a day in the day picker (and from Up next, a day tab or a deep link) when a draft holds logged sets, and the catalog state today/draft-resume is Today with the question closed. The today-day-picker, workout-day-context-discard, simulation and adversarial-draft-transactions suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
       "catalogStates": [
         "today/draft-resume"
       ]
@@ -10285,6 +10194,27 @@
         "program/progression-editor"
       ],
       "neverDisabledReason": "Leaving the editor is always available; with unapplied changes it asks first."
+    },
+    {
+      "id": "programeditdone",
+      "selector": "#programEditDone",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Plan 075 phase 2B (ADR 0023): commits the installed editor's page sheet; disabled while a training day is empty, the sheet's own blocked reason above it.",
+      "owner": "plan-075",
+      "catalogStates": [
+        "program/progression-editor"
+      ]
     },
     {
       "id": "programeditorremove",

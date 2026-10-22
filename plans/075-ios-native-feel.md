@@ -1,6 +1,6 @@
 # Plan 075: An iOS-native feel, in Taurifer's look
 
-- **Status:** APPROVED — IMPLEMENTATION IN PROGRESS (phase 1).
+- **Status:** APPROVED — IMPLEMENTATION IN PROGRESS (phase 1 merged in #478; phase 2 in review).
 - **Decision:** [ADR 0023](../docs/adr/0023-ios-native-feel.md), with the 12 resolutions and the
   owner's amendment to choice 8.
 - **Spec:** PR #477, `docs/design/native-feel/` (README, `app.html`, `lab.html`, `native.js`,
@@ -44,7 +44,7 @@ that fails for the stated reason, at the highest realistic boundary.
   `--control-pressed-transform`. The toggle's knob stretch moves to `.is-pressed`.
 - **Release:** `.btn`, the dock's buttons and the toggle's knob return on the `pressRelease`
   curve. Touch-down has no transition. Under reduced motion the tone stays and the scale goes.
-- **Proofs** (`test/press-feedback.mjs`, real touch through CDP at 390×844):
+- **Proofs** (`test/native-feel.mjs`, real touch through CDP at 390×844):
   pressed on touch-down with the primary tone and 0.97 scale and no transition; cleared by a
   slide off the control and restored by a slide back; a release off the control doesn't
   activate it; the scroller delay; Space shows the pressed state; reduced motion drops the
@@ -68,8 +68,15 @@ that fails for the stated reason, at the highest realistic boundary.
 - **Amendments:** the interaction audit's reduced-motion rule (F-18, 160–180 ms cross-fade
   for sheets) and its sheet rows. `today.choose_day_confirm` and the read-only sheets'
   "Got it" are retired.
-- **Catalog:** the day-changed toast with Undo; the editor as a page sheet; its discard
-  prompt.
+- **Catalog:** the editor as a page sheet (the four installed-editor states, recaptured) and
+  the day picker, Why and install sheets without their retired buttons. The day-changed
+  toast is transient and, like the editor's own undo toast, has no catalog state.
+- **As built:** detents go on the two long read-only sheets, Why and Privacy; a sheet whose
+  content is shorter than medium keeps one rest. The day picker's Undo asks nothing unless
+  a set was logged on the new day. The editor sheet slides on the shared sheet transition;
+  the pushed-back copy recedes on `navPush`; under reduced motion both cross-fade.
+  `test/native-feel.mjs` is the one PR-lane suite holding each phase's proofs (the PR lane
+  is at its cap).
 
 ### Phase 2W: wheel picker for load and reps
 

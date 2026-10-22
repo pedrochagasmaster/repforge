@@ -529,7 +529,7 @@ try {
   await replacedPage.waitForFunction(() => [...document.querySelectorAll('#programEditor [data-role="exercise-row"]')]
     .some(node => node.textContent.includes("B-stance barbell Romanian deadlift")), undefined, { timeout: 10000 });
   await replacedPage.waitForSelector('#programEditor [data-role="editor"]:not([aria-busy="true"])', { timeout: 10000 });
-  await replacedPage.locator('#programEditor [data-role="apply"]').click();
+  await replacedPage.locator("#programEditDone").click();
   await replacedPage.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"),
     undefined, { timeout: 10000 });
   await replacedPage.evaluate(() => window.__repforgeStorage.flush());

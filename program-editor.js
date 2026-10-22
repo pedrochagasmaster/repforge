@@ -3168,6 +3168,10 @@
       getDocument: () => clone(document),
       getToken: () => clone(token),
       isDirty: () => edits.length > 0 || changed() || (reviewLayout && (!!pendingRename() || !!heldRename)),
+      // Mirrors renderReview's own `blocked`: false exactly when an empty training
+      // day blocks Apply. A structural read of the current document, never storage
+      // or a route (Plan 075 phase 2B: the host's page-sheet Done button).
+      canApply: () => !validation(document).some(issue => issue.startsWith("day_empty:")),
       holdPendingRename: () => (reviewLayout ? holdPendingRename() : null),
       resumePendingRename: () => { if (reviewLayout) resumePendingRename(); },
       validationIssues: () => validation(document),

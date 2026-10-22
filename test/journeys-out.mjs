@@ -328,7 +328,6 @@ async function checkContained(page, family, label, sheet) {
 const DISMISS = {
   escape: async (page) => page.keyboard.press("Escape"),
   close: async (page, spec) => page.click(spec.closeButton),
-  done: async (page, spec) => page.click(spec.doneButton),
   // The scrim covers the whole viewport and the sheet sits at its foot: the top corner is scrim.
   scrim: async (page) => page.mouse.click(8, 8),
 };
@@ -428,8 +427,8 @@ async function handoff(page, spec) {
   return { before, after, watched };
 }
 
-const INSTALL_SHEET = { sheet: "#iosInstallSheet", scrim: "#iosInstallScrim", closeButton: "#iosInstallClose", doneButton: "#iosInstallDone" };
-const PRIVACY_SHEET = { sheet: "#privacySheet", scrim: "#privacyScrim", closeButton: "#privacyClose", doneButton: "#privacyClose" };
+const INSTALL_SHEET = { sheet: "#iosInstallSheet", scrim: "#iosInstallScrim", closeButton: "#iosInstallClose" };
+const PRIVACY_SHEET = { sheet: "#privacySheet", scrim: "#privacyScrim", closeButton: "#privacyClose" };
 
 // ---- journeys --------------------------------------------------------------
 
@@ -439,13 +438,14 @@ async function landingJourney(browser, { returning, motion = false }) {
   const { context, page, errors } = await landingPage(browser, { returning, motion });
   const visit = returning ? "returning" : "first";
   check("landing", (await page.evaluate(() => document.querySelector("#firstRun").dataset.entryVisit)) === visit, `${tag}: the landing in front is the ${visit} landing`);
+  // Plan 075 phase 2 retired the instructions' Done — × is the one way out,
+  // so initial focus in that state is the sheet's title, not a Done button.
   const trips = [
-    { name: `${tag}: install card, back with Escape`, opener: "#firstRunInstallAction", ...INSTALL_SHEET, initial: "iosInstallDone", dismiss: "escape" },
-    { name: `${tag}: install card, back with the close button`, opener: "#firstRunInstallAction", ...INSTALL_SHEET, initial: "iosInstallDone", dismiss: "close" },
-    { name: `${tag}: install card, back with Done`, opener: "#firstRunInstallAction", ...INSTALL_SHEET, initial: "iosInstallDone", dismiss: "done" },
-    { name: `${tag}: install card, back with the scrim`, opener: "#firstRunInstallAction", ...INSTALL_SHEET, initial: "iosInstallDone", dismiss: "scrim" },
-    { name: `${tag}: header install link, back with Escape`, opener: "#firstRunInstallLink", ...INSTALL_SHEET, initial: "iosInstallDone", dismiss: "escape" },
-    { name: `${tag}: header install link, back with Done`, opener: "#firstRunInstallLink", ...INSTALL_SHEET, initial: "iosInstallDone", dismiss: "done" },
+    { name: `${tag}: install card, back with Escape`, opener: "#firstRunInstallAction", ...INSTALL_SHEET, initial: "iosInstallTitle", dismiss: "escape" },
+    { name: `${tag}: install card, back with the close button`, opener: "#firstRunInstallAction", ...INSTALL_SHEET, initial: "iosInstallTitle", dismiss: "close" },
+    { name: `${tag}: install card, back with the scrim`, opener: "#firstRunInstallAction", ...INSTALL_SHEET, initial: "iosInstallTitle", dismiss: "scrim" },
+    { name: `${tag}: header install link, back with Escape`, opener: "#firstRunInstallLink", ...INSTALL_SHEET, initial: "iosInstallTitle", dismiss: "escape" },
+    { name: `${tag}: header install link, back with the close button`, opener: "#firstRunInstallLink", ...INSTALL_SHEET, initial: "iosInstallTitle", dismiss: "close" },
     { name: `${tag}: Privacy, back with Escape`, opener: "#firstRunPrivacy", ...PRIVACY_SHEET, initial: "privacyClose", dismiss: "escape" },
     { name: `${tag}: Privacy, back with the close button`, opener: "#firstRunPrivacy", ...PRIVACY_SHEET, initial: "privacyClose", dismiss: "close" },
     { name: `${tag}: Privacy, back with the scrim`, opener: "#firstRunPrivacy", ...PRIVACY_SHEET, initial: "privacyClose", dismiss: "scrim" },
@@ -475,8 +475,8 @@ async function sharedGateJourney(browser) {
   const trips = [
     { name: `${tag}: Privacy, back with Escape`, opener: "#firstRunPrivacy", ...PRIVACY_SHEET, initial: "privacyClose", dismiss: "escape" },
     { name: `${tag}: Privacy, back with the close button`, opener: "#firstRunPrivacy", ...PRIVACY_SHEET, initial: "privacyClose", dismiss: "close" },
-    { name: `${tag}: install card, back with Escape`, opener: "#firstRunInstallAction", ...INSTALL_SHEET, initial: "iosInstallDone", dismiss: "escape" },
-    { name: `${tag}: install card, back with Done`, opener: "#firstRunInstallAction", ...INSTALL_SHEET, initial: "iosInstallDone", dismiss: "done" },
+    { name: `${tag}: install card, back with Escape`, opener: "#firstRunInstallAction", ...INSTALL_SHEET, initial: "iosInstallTitle", dismiss: "escape" },
+    { name: `${tag}: install card, back with the close button`, opener: "#firstRunInstallAction", ...INSTALL_SHEET, initial: "iosInstallTitle", dismiss: "close" },
   ];
   for (const trip of trips) {
     if (!(await page.isVisible(trip.opener))) {
@@ -623,7 +623,7 @@ async function transferJourney(browser) {
   });
   await page.waitForSelector("#installBanner:not(.hidden)", { timeout: 8000 });
 
-  phase(`${tag}: decline from the explanation, then Done`);
+  phase(`${tag}: decline from the explanation, then the close button`);
   await prepareOpener(page, "#installBannerAction");
   let before = await page.evaluate(readWorld);
   await page.evaluate(startWatching);
@@ -633,18 +633,19 @@ async function transferJourney(browser) {
   await page.click("#installTransferContinue");
   await page.waitForFunction(() => document.querySelector("#iosInstallSheet").dataset.transferState === "manual");
   await page.waitForTimeout(60);
+  // Plan 075 phase 2 retired the instructions' Done — × is the one way out.
   let active = await page.evaluate(() => document.activeElement?.id);
-  check("initial-focus", active === "iosInstallDone", `${tag}: declining moves focus to the instructions' primary action, not to nothing`, `focus is on ${active}`);
+  check("initial-focus", active === "iosInstallTitle", `${tag}: declining moves focus to the instructions' title, not to nothing`, `focus is on ${active}`);
   const leaks = await page.evaluate(backgroundLeaks, { sheet: "iosInstallSheet", scrim: "iosInstallScrim" });
   check("inert", leaks.length === 0, `${tag}: the background stays inert across the state change`, leaks);
   await checkContained(page, "trap", `${tag}: instructions`, "#iosInstallSheet");
-  await page.evaluate(() => document.getElementById("iosInstallDone").focus({ preventScroll: true }));
-  await page.click("#iosInstallDone");
+  await page.evaluate(() => document.getElementById("iosInstallClose").focus({ preventScroll: true }));
+  await page.click("#iosInstallClose");
   await page.waitForFunction(() => document.querySelector("#iosInstallSheet").hidden === true);
   await page.waitForTimeout(40);
   let after = await page.evaluate(readWorld);
   let watched = await page.evaluate(stopWatching);
-  check("focus-return", after.activeId === "installBannerAction", `${tag}: Done returns focus to the banner action`, `focus is on ${after.activeId}`);
+  check("focus-return", after.activeId === "installBannerAction", `${tag}: the close button returns focus to the banner action`, `focus is on ${after.activeId}`);
   check("inert", JSON.stringify(after.inertIds) === JSON.stringify(before.inertIds), `${tag}: the page is released`, { before: before.inertIds, after: after.inertIds });
   check("announce", watched.writes.length === new Set(watched.writes).size, `${tag}: nothing is announced twice`, { writes: watched.writes });
   check("cadence", JSON.stringify(after.cadence) === JSON.stringify(before.cadence), `${tag}: declining the transfer leaves the cadence alone`, { before: before.cadence, after: after.cadence });

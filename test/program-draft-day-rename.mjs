@@ -490,7 +490,7 @@ async function dispatchRename(page, oldDay, nextDay) {
   // Let that action start its persistence attempt. A held lock intentionally
   // keeps the editor open while the test inspects the queued receipt, whereas
   // an unlocked commit closes the editor when it finishes.
-  await page.locator(`${EDITOR} [data-role="apply"]`).click();
+  await page.locator("#programEditDone").click();
   await page.waitForFunction(
     () => {
       const wrap = document.querySelector("#programEditorWrap");
@@ -815,7 +815,7 @@ async function runTotalFailure(browser) {
         };
         try {
           // The rename is staged; Apply is what writes the replicas.
-          document.querySelector('#programEditor [data-role="apply"]')?.click();
+          document.querySelector("#programEditDone")?.click();
           await settled();
           await window.__repforgeStorage.flush();
         } finally {

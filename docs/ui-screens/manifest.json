@@ -1508,7 +1508,7 @@
       "id": "progression-editor",
       "flow": "program",
       "label": "Program — editor",
-      "scenario": "The installed Program editor (Plan 074): the program name, its days and current week, the day tabs, the first day's exercises with one line per set, and Apply pinned where the dock was.",
+      "scenario": "The installed Program editor as a page sheet (Plan 075 phase 2B): Cancel and Done in its bar over a pushed-back copy of the Program view, the program name, its days and current week, the day tabs, and the first day's exercises with one line per set.",
       "variants": "localized"
     },
     {
