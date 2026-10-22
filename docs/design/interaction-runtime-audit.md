@@ -451,6 +451,29 @@ animations are switched off rather than shortened. In every case the state
 change and the information it carries are identical — nothing in the app depends
 on an animation to say what happened.
 
+**Amended by ADR 0023 (2026-10-22, audit F-18).** Cutting a sheet in and out in
+one frame proved harsher than reduced motion asks for. Under reduced motion a
+sheet and its scrim now cross-fade in place over 170ms: opacity only, no travel,
+on opening and on closing (the close waits for the fade before the sheet is
+hidden). It is the one exception to the global reduced-motion kill in
+`styles.css`, so it is written `!important` against it. Pushed pages take the
+same cross-fade in Plan 075 phase 3. A drag still places a sheet under the thumb
+and the release still jumps to rest. Everything else in this section is
+unchanged: no spring, deck slide, slot or reorder runs.
+
+## Sheets (Plan 075 phase 2)
+
+ADR 0023 resolves the audit's sheet findings (F-8, F-18) in the existing sheet
+owner. No runtime or vocabulary is added.
+
+| Behaviour | Owner | Notes |
+| --- | --- | --- |
+| Detents: a sheet with `data-detents="medium large"` (Why, Privacy) rests at medium, with 52% of the visible band showing, and a drag takes it to large and back | `styles.css` draws both rests (`.sheet[data-detents~="medium"]`, `[data-detent="large"]`); the gesture owner in `motion-layer.js` (`sheetDetents`, `sheetPointerEnd`) chooses one and names it | Medium is the sheet's height less 52% of `--vvh`, never below zero, so a sheet whose content is shorter has one rest and doesn't open half-empty. The release is projected (`projectMomentum`) and snaps to the nearest detent on `gestureSettle`; the stylesheet's rest equals the spring's target, so the hand-off doesn't move it. Below large the sheet's scroller (`[data-sheet-scroll]`) is held, so a drag in the body moves the sheet. Opening clears the detent |
+| Rubber-band above the highest rest | `motion-layer.js` (`trackSheetGesture` `top`, the layer's `rubberband`) | On every sheet. An upward drag is the sheet's on its rail, or below its highest detent; elsewhere it stays the content's scroll |
+| A flick down from the lowest detent dismisses | `motion-layer.js` (`SHEET_FLICK`, 1.1px/ms) | Beside the existing projection to the commitment distance |
+| The stylesheet fallback (no runtime) | `app.js` (`sheetDragMove`) | Pushes from the resting detent and returns to it; it doesn't change detent |
+| Reduced motion | `styles.css`, `app.js` (`SHEET_FADE_MS`) | The 170ms cross-fade recorded above |
+
 ## Known residuals
 
 - ~~**Re-grabbing a sheet mid-settle starts from rest.**~~ Implemented by the
