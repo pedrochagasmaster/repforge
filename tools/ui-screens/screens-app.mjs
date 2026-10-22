@@ -293,7 +293,7 @@ const D_FIXTURE_STATES = new Set([
   "workout/actions", "workout/exercise-actions", // R3x: the redrawn sheet, on the lifter the drawing shows
   "workout/swap-alternates", // #317: the swap picker leads with the squat slot's alternates
   "workout/abandon", "workout/swap-reason", // Plan 071 §10: end-without-saving and the swap reason chips
-  "history/list", "history/session", "history/edit-dirty", "history/edit-invalid", // R3j, R3j2
+  "history/list", "history/list-scrolled", "history/session", "history/edit-dirty", "history/edit-invalid", // R3j, R3j2
   "program/overview", // R3k
   "today/done", // R3x: the finished day, on the lifter whose Monday session is in the log
   "today/deload-week", // Plan 072 S4: the deload cue in Today
@@ -308,7 +308,7 @@ const D_FIXTURE_STATES = new Set([
  * states draw it), so Today's states read the log as it stood that morning.
  */
 const DIRECTION_D_BEFORE_SESSION = new Set([
-  "today/skipped", "today/context-menu", "today/ready", "today/day-picker", "today/rest-bar", "today/draft-resume",
+  "today/skipped", "today/context-menu", "today/ready", "today/ready-scrolled", "today/day-picker", "today/rest-bar", "today/draft-resume",
   "workout/why-this-weight", "workout/why-in-session",
   "workout/rest-running", "workout/rest-done",
 ]);
@@ -1652,6 +1652,18 @@ export const APP_SCENARIOS = {
       await assertTodayExerciseFitsExternalTextScale(page);
     }
   },
+  // Plan 075 phase 3 (ADR 0023): the scroll-edge bar once the large title has
+  // scrolled under it. Same fixture and the same ready state as "today/ready",
+  // scrolled all the way down so the title is fully behind the bar.
+  "today/ready-scrolled": async (page) => {
+    await dismissChrome(page);
+    const rows = page.locator("#todayExList .rxrow");
+    await rows.first().waitFor({ state: "visible", timeout: 20000 });
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await page.waitForFunction(() => document.querySelector("#logTopbar")?.classList.contains("is-scrolled"), undefined, { timeout: 20000 });
+    await page.waitForFunction(() => Number(getComputedStyle(document.querySelector("#logTopbar .topbar__title")).opacity) === 1, undefined, { timeout: 20000 });
+    await sleep(page, 300);
+  },
   "today/day-picker": async (page) => {
     await page.click("#chooseAnotherDay");
     await page.waitForSelector("#dayPickSheet.is-open", { timeout: 20000 });
@@ -2117,6 +2129,15 @@ export const APP_SCENARIOS = {
   "progress/recovery-reassessment": async (page) => { await confirmRecovery(page);await page.evaluate(async()=>{const state=window.__repforgeWorkoutDraft.state();const date=new Date(`${state.programMeta.started}T12:00:00`);date.setDate(date.getDate()-8);state.programMeta.started=date.toISOString().slice(0,10);await window.__repforgeCommitProposedState(state);await window.__repforgeStorage.flush();});await page.reload({waitUntil:"domcontentloaded"});await page.waitForFunction(()=>window.__repforgeBooted===true,undefined,{timeout:20000});await progressSegment(page,"review"); },
 
   "history/list": (page) => view(page, "history"),
+  // Plan 075 phase 3 (ADR 0023): the scroll-edge bar once History's own large
+  // title has scrolled under it, scrolled all the way down from the list.
+  "history/list-scrolled": async (page) => {
+    await view(page, "history");
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await page.waitForFunction(() => document.querySelector("#historyTopbar")?.classList.contains("is-scrolled"), undefined, { timeout: 20000 });
+    await page.waitForFunction(() => Number(getComputedStyle(document.querySelector("#historyTopbar .topbar__title")).opacity) === 1, undefined, { timeout: 20000 });
+    await sleep(page, 300);
+  },
   "history/per-side-session": async (page) => {
     await installPerSideHistory(page);
     await view(page, "history");

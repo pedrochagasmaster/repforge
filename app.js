@@ -5855,6 +5855,27 @@ function mountDockLens(){
   window.addEventListener("resize",()=>sync(false));
   return nav}
 mountDockLens();
+/* Plan 075 phase 3 (ADR 0023): the scroll-edge bar over each root page's
+   large title. One IntersectionObserver per page watches that page's own
+   h2 against the bar, so nothing runs on every scroll frame (`#log` is the
+   active view at boot, so its bar's measured box — which already carries
+   `env(safe-area-inset-top)` — stands in for the identical box the other
+   three bars take once their own page is the one on screen). The bar's
+   material and its mirrored, aria-hidden title (the h2 stays the heading)
+   fade in together once the title has fully scrolled behind the bar, and
+   back out when it returns. */
+function mountTopBars(){
+  if(typeof IntersectionObserver!=="function")return;
+  const ref=$("#logTopbar");
+  const cutoff=Math.ceil(ref?.getBoundingClientRect().bottom||44)||44;
+  const rootMargin=`-${cutoff}px 0px 0px 0px`;
+  [["#log","#logTopbar"],["#stats","#statsTopbar"],["#history","#historyTopbar"],["#program","#programTopbar"]]
+    .forEach(([viewSel,barSel])=>{
+      const bar=$(barSel),title=document.querySelector(`${viewSel} .pagehead .page-title`);
+      if(!bar||!title)return;
+      new IntersectionObserver(([entry])=>{bar.classList.toggle("is-scrolled",!entry.isIntersecting)},
+        {threshold:0,rootMargin}).observe(title)})}
+mountTopBars();
 function setEvidenceView(view){
   if(!EVIDENCE_SEG[view]){evidenceView=null;
     paintStatsTabs();
@@ -21538,6 +21559,18 @@ function navTo(view){
   $$(".view").forEach(v=>v.classList.toggle("active",v.id===view));
   window.scrollTo({top:0});render()
 }
+/* Plan 075 phase 3 (ADR 0023): tapping the dock's own current tab is not a
+   navigation. A History session page returns to the list exactly as its own
+   Back does; any other root page scrolls to its top, instant under reduced
+   motion. Called before the dock handler's ordinary tab-switch branch, which
+   it leaves untouched for every other tap. */
+function dockRetap(b){
+  if(!b.classList.contains("active"))return false;
+  if(b.dataset.view==="history"&&$("#history")?.classList.contains("is-session-page")){
+    $("#history [data-history-back]")?.click();
+    return true}
+  if(window.scrollY>0)window.scrollTo({top:0,behavior:scrollBehavior()});
+  return true}
 window.__repforgeEnterWorkout=enterWorkout;
 window.__repforgeGoToLogExercise=goToLogExercise;
 // The public harness seam can exercise only the ordinary completion path. The
@@ -22051,6 +22084,7 @@ function init(){
       return;
     }
     if(programEditMode)finishInstalledEditor();
+    if(dockRetap(b))return;
     exView=null;workoutActive=false;workoutLeft=true;
     // Progress remembers its segment, so arriving there can itself open the review.
     const opensReview=b.dataset.view==="stats"&&statsSeg==="review"&&!evidenceView&&!$("#stats")?.classList.contains("active");

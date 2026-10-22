@@ -441,6 +441,18 @@ transform, so the pill is painted where it always was (a fractional column is no
 button's own box is; the editor bar offsets with `left` and `top`, so it snaps as the button did). The proof is the
 `N1` sections of `test/motion-integration.mjs` (`REPFORGE_MOTION_ONLY=dock`).
 
+## Scroll-edge bar and tab re-tap (Plan 075 phase 3)
+
+ADR 0023 resolves the audit's navigation findings (F-9, F-11) in the existing
+root pages. No runtime or vocabulary is added; one `IntersectionObserver` per
+page replaces a per-frame scroll handler, and the dock's own click handler
+gains one early branch.
+
+| Addition | Owner | Trigger | Reduced-motion/transparency path | Notes |
+| --- | --- | --- | --- | --- |
+| The scroll-edge bar: a transparent `.topbar` overlay on Today, Progress, History's list and Program's ledger, each holding an `aria-hidden` mirror of that page's own `h2.page-title` | `index.html` for the markup; `app.js` (`mountTopBars`) for the one `IntersectionObserver` per page; `styles.css` (`.topbar`, `.topbar__bg`, `.topbar__title`) for the drawing | Each observer watches its page's `h2.page-title` with a `rootMargin` shrunk by the bar's own measured box (read once, from Today's bar, which is the active page at boot), so the callback fires only when the title's bottom edge crosses under the bar, not on every scroll frame | `prefers-reduced-motion` drops the 160ms opacity fade to a toggle (`transition:none` on `.topbar__bg`/`.topbar__title`); `prefers-reduced-transparency` swaps `--bar-glass` for `--bg` and removes the blur, in the same injected style as the dock's own override (`motion-layer.js`, `installPreferenceStyles`) | The bar adds no height at rest: it overlays the pagehead's own top space (`position:fixed`), so a root page's rest frame is unchanged and the trailing actions stay in the pagehead rather than moving into the bar. No bar under a sheet (`body.is-sheet-open`), on a pushed-over or pushed-under page, once the Program editor replaces the ledger, or on History's session page, which hides its own pagehead the same way. The title caps at 21px under large text (`font-size:min(var(--font-size-body),21px)`), as iOS bars do |
+| Tab re-tap: tapping the dock's own current tab is not a navigation | `app.js` (`dockRetap`, called from the dock's click handler before its ordinary tab-switch branch) | The tapped button already carries `.active`. A History session page (`#history.is-session-page`) returns to the list through its own `[data-history-back]` control, exactly as its Back does; any other root page scrolls to its top (`scrollBehavior()`) | Instant under reduced motion, because `scrollBehavior()` reads the same live preference every other scroll-into-view call in `app.js` does | Switching to a different tab is untouched: `dockRetap` returns `false` and the existing branch runs exactly as before. The dock itself, its buttons, the 140ms view fade (N2) and the N1 lens are unaffected |
+
 ## Reduced motion
 
 `prefers-reduced-motion` is read live in one place and honoured on every path.

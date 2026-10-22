@@ -34,6 +34,14 @@
  * through the field's own input, the way typing would, and the keyboard button
  * hands off to that same typed path.
  *
+ * Phase 3, navigation (audit F-9, F-11): each root page's scroll-edge bar is
+ * silent until its large title has scrolled under it, at which point the
+ * material and the mirrored inline title appear together; dark and reduced
+ * transparency take their own material, and the title caps at 21px under
+ * large text. Tapping the dock's current tab scrolls that page to the top
+ * (instant under reduced motion), or returns a History session page to the
+ * list exactly as its own Back does.
+ *
  * Chromium touch emulation is not iPhone evidence; the feel is checked on a
  * device by the owner.
  *
@@ -45,6 +53,7 @@ import { collectCatalogEvidence, validateCatalogEvidence } from "../tools/ui-scr
 import { measureRenderedRoles } from "../tools/ui-system-rendered.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 import { openCatalogState } from "./fixtures/catalog-state.mjs";
+import { metricLogRow } from "./fixtures/history-metric-rows.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 
@@ -1128,6 +1137,169 @@ async function editorSheetTab(browser) {
   await context.close();
 }
 
+/* ---- Navigation bars (Plan 075 phase 3, ADR 0023) ---- */
+
+const BAR_KEY = "repforge_v1";
+
+/** Writes `log` into both replicas over whatever the page currently holds. */
+async function persistLog(page, log) {
+  await page.evaluate(async ({ k, log }) => {
+    const state = JSON.parse(localStorage.getItem(k) || "{}");
+    state.log = log;
+    localStorage.setItem(k, JSON.stringify(state));
+    const db = await new Promise((res, rej) => {
+      const r = indexedDB.open("repforge", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("kv");
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+    await new Promise((res, rej) => {
+      const tx = db.transaction("kv", "readwrite");
+      tx.objectStore("kv").put(state, k);
+      tx.oncomplete = () => res();
+      tx.onerror = () => rej(tx.error);
+    });
+    db.close();
+  }, { k: BAR_KEY, log });
+}
+
+/** The bar's own material, read from computed style; `glass` is `--bar-glass`
+ * resolved through a probe element, so `background` compares like for like. */
+const barMaterial = (page, barSel) => page.evaluate((sel) => {
+  const bar = document.querySelector(sel);
+  const bg = bar.querySelector(".topbar__bg"), title = bar.querySelector(".topbar__title");
+  const bgStyle = getComputedStyle(bg), titleStyle = getComputedStyle(title);
+  const probe = document.createElement("div");
+  probe.style.background = "var(--bar-glass)";
+  document.body.append(probe);
+  const glass = getComputedStyle(probe).backgroundColor;
+  probe.remove();
+  return {
+    scrolled: bar.classList.contains("is-scrolled"),
+    backdropFilter: bgStyle.backdropFilter,
+    background: bgStyle.backgroundColor, glass,
+    titleOpacity: Number(titleStyle.opacity),
+    titleFontSize: Math.round(parseFloat(titleStyle.fontSize) * 100) / 100,
+  };
+}, barSel);
+
+const scrollToEnd = (page) => page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+const waitScrolled = (page, barSel, want = true) => page.waitForFunction(
+  ([s, w]) => document.querySelector(s)?.classList.contains("is-scrolled") === w, [barSel, want], { timeout: 3000 }
+).then(() => true, () => false);
+/** The title's own opacity transition (160ms) runs after the class flips, so
+ * a read taken straight after `waitScrolled` can still catch its start value;
+ * wait for the transition's end state instead of reading right after the class change. */
+const waitTitleOpacity = (page, barSel, want) => page.waitForFunction(
+  ([s, w]) => Number(getComputedStyle(document.querySelector(`${s} .topbar__title`)).opacity) === w, [barSel, want], { timeout: 2000 }
+).then(() => true, () => false);
+
+/**
+ * The scroll-edge bar over Today's large title (ADR 0023, audit F-9, F-11):
+ * silent until the title has scrolled under it, then the material and the
+ * mirrored inline title appear together, in both themes, opaque under
+ * reduced transparency, and capped at 21px under large text.
+ */
+async function navigationBars(browser) {
+  phase("No material at the top; scrolling the title under the bar reveals it");
+  {
+    const { context, page } = await todayPage(browser);
+    const atTop = await barMaterial(page, "#logTopbar");
+    assert(!atTop.scrolled && atTop.backdropFilter === "none" && atTop.titleOpacity === 0,
+      "no material at the top", JSON.stringify(atTop));
+    await scrollToEnd(page);
+    const reachedScrolled = await waitScrolled(page, "#logTopbar", true);
+    assert(reachedScrolled, "the bar reaches its scrolled state");
+    await waitTitleOpacity(page, "#logTopbar", 1);
+    const scrolled = await barMaterial(page, "#logTopbar");
+    assert(scrolled.titleOpacity === 1 && scrolled.backdropFilter !== "none" && scrolled.background === scrolled.glass,
+      "the inline title and the bar's material appear together", JSON.stringify(scrolled));
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const reachedTop = await waitScrolled(page, "#logTopbar", false);
+    assert(reachedTop, "scrolling back up clears both again");
+    await context.close();
+  }
+
+  phase("Dark theme takes its own bar material");
+  {
+    const { context, page } = await todayPage(browser, { theme: "dark" });
+    await scrollToEnd(page);
+    await waitScrolled(page, "#logTopbar", true);
+    const dark = await barMaterial(page, "#logTopbar");
+    assert(dark.background === dark.glass, "dark reads its own --bar-glass", JSON.stringify(dark));
+    await context.close();
+  }
+
+  phase("Reduced transparency makes the material opaque");
+  {
+    const { context, page } = await todayPage(browser);
+    const cdp = await context.newCDPSession(page);
+    await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-transparency", value: "reduce" }] });
+    await scrollToEnd(page);
+    await waitScrolled(page, "#logTopbar", true);
+    const opaque = await barMaterial(page, "#logTopbar");
+    const alpha = Number((opaque.background.match(/^rgba\(([^)]+)\)$/)?.[1] ?? "").split(",")[3]);
+    assert(opaque.backdropFilter === "none" && (Number.isNaN(alpha) || alpha === 1),
+      "reduced transparency drops the blur and reads opaque", JSON.stringify({ opaque, alpha }));
+    await context.close();
+  }
+
+  phase("The bar title caps at 21px under large text");
+  {
+    const { context, page } = await todayPage(browser);
+    await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+    await scrollToEnd(page);
+    await waitScrolled(page, "#logTopbar", true);
+    const big = await barMaterial(page, "#logTopbar");
+    assert(big.titleFontSize <= 21, "the inline title caps at 21px", String(big.titleFontSize));
+    await context.close();
+  }
+
+  phase("Re-tap on the current tab scrolls to the top");
+  {
+    const { context, page } = await todayPage(browser);
+    await scrollToEnd(page);
+    const before = await page.evaluate(() => window.scrollY);
+    assert(before > 0, "the page is scrolled before the re-tap", String(before));
+    await page.click('nav button[data-view="log"]');
+    const reachedTop = await page.waitForFunction(() => window.scrollY === 0, undefined, { timeout: 3000 }).then(() => true, () => false);
+    assert(reachedTop, "re-tapping the current tab scrolls it to the top");
+    await context.close();
+  }
+  {
+    const { context, page } = await todayPage(browser, { reducedMotion: "reduce" });
+    await scrollToEnd(page);
+    const before = await page.evaluate(() => window.scrollY);
+    assert(before > 0, "(reduced motion) the page is scrolled before the re-tap", String(before));
+    await page.click('nav button[data-view="log"]');
+    const after = await page.evaluate(() => window.scrollY);
+    assert(after === 0, "under reduced motion the re-tap lands at the top on the same tick, with nothing to await", String(after));
+    await context.close();
+  }
+
+  phase("Re-tap on a History session page returns to the list");
+  {
+    const { context, page } = await todayPage(browser);
+    const state = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) || "null"), BAR_KEY);
+    const day1 = state.program[0];
+    const log = [metricLogRow(state.programMeta, day1, { session: "nf-bar", date: "2026-03-03", set: 1, load: 80, reps: 8, rir: 1 })];
+    await persistLog(page, log);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await page.click('nav button[data-view="history"]');
+    await page.waitForSelector("#sessions [data-sess] .session__open");
+    await page.click("#sessions [data-sess] .session__open");
+    const opened = await page.waitForFunction(() => document.querySelector("#history")?.classList.contains("is-session-page"), undefined, { timeout: 3000 })
+      .then(() => true, () => false);
+    assert(opened, "a session row opens the session page");
+    await page.click('nav button[data-view="history"]');
+    const back = await page.waitForFunction(() => !document.querySelector("#history")?.classList.contains("is-session-page"), undefined, { timeout: 3000 })
+      .then(() => true, () => false);
+    assert(back, "re-tapping History from its session page returns to the list");
+    await context.close();
+  }
+}
+
 const browser = await launchChromium();
 try {
   phase("A primary action is pressed on touch-down");
@@ -1326,6 +1498,7 @@ try {
   await autoSwipe(browser);
   await reducedMotionPush(browser);
   await editorSheetTab(browser);
+  await navigationBars(browser);
 } finally {
   await browser.close();
 }

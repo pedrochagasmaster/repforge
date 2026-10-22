@@ -278,6 +278,11 @@
       "content": "flat",
       "scenario": "The Direction D lifter before Day 1 starts: the prescription table reads recommendation() for every exercise, with the verdict tally above it."
     },
+    "today/ready-scrolled": {
+      "owner": "plan-075",
+      "content": "flat",
+      "scenario": "Plan 075 phase 3: the same ready state, scrolled past the large title, so the scroll-edge bar's material and its mirrored inline title are showing."
+    },
     "today/rest-bar": {
       "owner": "plan-058",
       "content": "flat",
@@ -562,6 +567,11 @@
       "owner": "plan-057",
       "content": "flat",
       "scenario": "The logged session list."
+    },
+    "history/list-scrolled": {
+      "owner": "plan-075",
+      "content": "flat",
+      "scenario": "Plan 075 phase 3: the same session list, scrolled past the large title, so the scroll-edge bar's material and its mirrored inline title are showing."
     },
     "history/session": {
       "owner": "plan-057",
@@ -11196,6 +11206,17 @@
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft"
+      ]
+    },
+    {
+      "id": "scroll-edge-bar",
+      "selector": ".topbar",
+      "role": "persistent-action",
+      "rationale": "The scroll-edge bar over each root page's large title holds no control of its own — its only content is an aria-hidden title mirroring the page's own h2.page-title — so it takes the shallow persistent-action depth with no second raised card, and paints neither fill nor blur until that title has scrolled under it (Plan 075 phase 3, ADR 0023).",
+      "owner": "plan-075",
+      "catalogStates": [
+        "today/ready-scrolled",
+        "history/list-scrolled"
       ]
     }
   ],

@@ -265,6 +265,12 @@
   --dock-rim-shadow:inset 0 0 0 .5px var(--dock-rim),inset 0 6px 12px -8px var(--dock-rim);
   --dock-pill:rgba(255,255,255,.82);
   --dock-pill-sheen:rgba(255,255,255,.82);
+  /* Plan 075 phase 3: the scroll-edge bar's material, the same glass grammar
+     as the dock, paper at 72%. It appears only once the large title below
+     has scrolled under the bar. */
+  --bar-glass:rgba(var(--bg-rgb),.72);
+  --bar-blur:blur(20px) saturate(180%);
+  --bar-edge:rgba(var(--shadow-rgb),.08);
   --maxw:560px;
 
   --bolt:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M13.6 2 4 13.4h6.1L9.4 22 20 10.2h-6.6z'/%3E%3C/svg%3E");
@@ -346,6 +352,12 @@
   --dock-blur:blur(18px) saturate(160%) brightness(.85);
   --dock-pill:rgba(255,255,255,.07);
   --dock-pill-sheen:rgba(255,255,255,.05);
+  /* Plan 075 phase 3: the scroll-edge bar's material, charcoal at 72%. The
+     hairline is a literal white value, not --shadow-rgb, so it still reads
+     against smoked glass. */
+  --bar-glass:rgba(var(--bg-rgb),.72);
+  --bar-blur:blur(20px) saturate(180%);
+  --bar-edge:rgba(255,255,255,.08);
   /* Plan 064 R1b: the same tokens as the light block. A separator on --surface
      needs the stronger rule here; the bands hold identical values in both
      themes. */
@@ -501,6 +513,52 @@ h2{font-size:var(--font-size-title);font-weight:var(--weight-semibold);letter-sp
 /* ---- Page headers ---- */
 .pagehead{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin:4px 0 18px}
 .pagehead__actions{display:flex;align-items:center;gap:4px;flex:none;margin-top:4px}
+
+/* Plan 075 phase 3 (ADR 0023): the scroll-edge bar over the large title. It
+   overlays the pagehead's own top space rather than reserving any of its
+   own, so a root page's rest frame is unchanged. Transparent and silent
+   until app.js finds the large title has scrolled under it, at which point
+   the material and the mirrored inline title (aria-hidden; the page's own
+   h2 stays the heading) fade in together. The page's trailing actions stay
+   in the pagehead and simply scroll away with it. */
+.topbar{
+  position:fixed;top:env(safe-area-inset-top);left:max(0px,calc(50% - var(--maxw) / 2));
+  right:max(0px,calc(50% - var(--maxw) / 2));z-index:21;height:44px;
+  display:flex;align-items:center;justify-content:center;pointer-events:none;
+}
+/* No material at rest: background and backdrop-filter are only set once
+   scrolled, so a proof of "no material at the top" reads backdrop-filter
+   as none rather than a hidden, already-applied blur. Only the opacity
+   that reveals them is on the 160ms transition. */
+.topbar__bg{position:absolute;inset:0;opacity:0;transition:opacity .16s linear}
+/* The hairline is a border, not a box-shadow: a persistent-surface edge, not
+   a second raised card, and the role-coverage checker's outward-shadow sweep
+   does not have to carry a rule for a line this thin. */
+.topbar.is-scrolled .topbar__bg{
+  opacity:1;background:var(--bar-glass);
+  -webkit-backdrop-filter:var(--bar-blur);backdrop-filter:var(--bar-blur);
+  border-bottom:.5px solid var(--bar-edge);
+}
+/* Caps at 21px under large text, as iOS bars do (Plan 075 phase 3). */
+.topbar__title{
+  position:relative;font-size:min(var(--font-size-body),21px);font-weight:var(--weight-semibold);
+  color:var(--ink);opacity:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  max-width:60vw;transition:opacity .16s linear;
+}
+.topbar.is-scrolled .topbar__title{opacity:1}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .topbar.is-scrolled .topbar__bg{background:var(--bg)}
+}
+/* An alternate state, not a slower fade: both appear on the next frame. */
+@media (prefers-reduced-motion:reduce){.topbar__bg,.topbar__title{transition:none}}
+/* No bar on a pushed-over or pushed-under page (the page it belongs to has
+   already scrolled out of the stack it owns), under a sheet, or once the
+   Program editor replaces the ledger. History's session page hides its own
+   pagehead the same way. */
+body.is-sheet-open .topbar,
+.view.is-push-over .topbar,.view.is-push-under .topbar,
+#history.is-session-page .topbar,
+#program:not(.program-ledger) .topbar{display:none}
 .back-link{
   background:none;border:0;padding:8px 4px;cursor:pointer;color:var(--accent-deep);
   font-size:var(--font-size-control);font-weight:500;min-height:44px;display:inline-flex;align-items:center;gap:2px;

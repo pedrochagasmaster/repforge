@@ -643,6 +643,11 @@
     -webkit-backdrop-filter: none !important;
   }
   nav::before { display: none; }
+  :root { --bar-glass: var(--bg); }
+  .topbar__bg {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
 }
 @media (prefers-contrast: more) {
   :root {

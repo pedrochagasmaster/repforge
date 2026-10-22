@@ -68,6 +68,10 @@
 
   <main>
     <section id="log" class="view active" data-i18n-aria="log.aria" aria-label="Log workout">
+      <!-- Plan 075 phase 3: the scroll-edge bar. Transparent until the large
+           title below has scrolled under it; aria-hidden because the page's
+           own h2 stays the heading. -->
+      <div class="topbar" id="logTopbar" aria-hidden="true"><div class="topbar__bg"></div><span class="topbar__title" data-i18n="nav.log">Today</span></div>
       <!-- Today dashboard (mock 02) -->
       <div id="todayDash">
         <div class="pagehead">
@@ -155,6 +159,7 @@
     </section>
 
     <section id="stats" class="view" data-i18n-aria="stats.aria" aria-label="Stats">
+      <div class="topbar" id="statsTopbar" aria-hidden="true"><div class="topbar__bg"></div><span class="topbar__title" data-i18n="stats.title">Progress</span></div>
       <div class="pagehead">
         <div class="pagehead__titles">
           <h2 class="page-title" data-i18n="stats.title">Progress</h2>
@@ -204,6 +209,7 @@
     </section>
 
     <section id="history" class="view" data-i18n-aria="history.aria" aria-label="History">
+      <div class="topbar" id="historyTopbar" aria-hidden="true"><div class="topbar__bg"></div><span class="topbar__title" data-i18n="history.title">History</span></div>
       <div class="pagehead">
         <div class="pagehead__titles">
           <h2 class="page-title" data-i18n="history.title">History</h2>
@@ -238,6 +244,7 @@
     </section>
 
     <section id="program" class="view" data-i18n-aria="program.aria" aria-label="Program">
+      <div class="topbar" id="programTopbar" aria-hidden="true"><div class="topbar__bg"></div><span class="topbar__title" data-i18n="program.title">Program</span></div>
       <span class="sheet__grab" id="programEditGrab" aria-hidden="true" hidden></span>
       <div class="pagehead" data-sheet-rail>
         <button type="button" class="link-accent pagehead__cancel hidden" id="programEditCancel" data-i18n="dialog.cancel">Cancel</button>

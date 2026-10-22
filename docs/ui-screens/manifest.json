@@ -1022,6 +1022,13 @@
       "variants": "demandingDockText"
     },
     {
+      "id": "ready-scrolled",
+      "flow": "today",
+      "label": "Today — ready to start, scrolled",
+      "scenario": "Plan 075 phase 3: the same ready state, scrolled past the large title, so the scroll-edge bar's material and its mirrored inline title are showing.",
+      "variants": "standard"
+    },
+    {
       "id": "rest-bar",
       "flow": "today",
       "label": "Today — running rest bar",
@@ -1426,6 +1433,13 @@
       "label": "History",
       "scenario": "The logged session list.",
       "variants": "demandingText"
+    },
+    {
+      "id": "list-scrolled",
+      "flow": "history",
+      "label": "History — list, scrolled",
+      "scenario": "Plan 075 phase 3: the same session list, scrolled past the large title, so the scroll-edge bar's material and its mirrored inline title are showing.",
+      "variants": "standard"
     },
     {
       "id": "session",
