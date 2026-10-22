@@ -979,6 +979,155 @@ async function wheelPicker(browser) {
   }
 }
 
+/* ---- Navigation (Plan 075 phase 3) ---- */
+
+/** Where the route is: the library on screen, and this tab's history entry. */
+const routeState = (page) => page.evaluate(() => ({
+  library: document.body.classList.contains("is-library") && document.querySelector("#library")?.classList.contains("active"),
+  route: history.state?.tauriferRoute?.view || "",
+  length: history.length,
+}));
+
+/**
+ * Pushed pages and the browser's history (ADR 0023 choice 2). Each pushed page
+ * holds one history entry, so Safari's back button and edge swipe pop it as its
+ * Back does; an in-app Back gives the entry back. Right after a touch at the
+ * left edge a browser pop is Safari's own swipe, already animated, so the page
+ * leaves without a second push.
+ */
+async function routeHistory(browser) {
+  phase("a pushed page holds one history entry, and the browser's back pops it");
+  const { context, page } = await sheetPage(browser);
+  const before = await routeState(page);
+  await page.evaluate(() => window.openLibrary());
+  await page.waitForFunction(() => history.state?.tauriferRoute?.view === "library", undefined, { timeout: 3000 }).catch(() => {});
+  const opened = await routeState(page);
+  assert(opened.library && opened.route === "library" && opened.length === before.length + 1,
+    "opening the library adds one history entry for it", JSON.stringify({ before, opened }));
+  await page.goBack({ waitUntil: "commit" }).catch(() => {});
+  const popped = await page.waitForFunction(() => window.__repforgeBooted === true && !document.body.classList.contains("is-library"),
+    undefined, { timeout: 3000 }).then(() => true, () => false);
+  assert(popped, "the browser's back closes the library as its Back does, and stays in the app");
+  if (!popped) { await context.close(); return; }
+
+  phase("an in-app Back gives the entry back");
+  await page.evaluate(() => window.openLibrary());
+  await page.waitForFunction(() => history.state?.tauriferRoute?.view === "library", undefined, { timeout: 3000 }).catch(() => {});
+  await page.click("#libBack");
+  const returned = await page.waitForFunction(() => !document.body.classList.contains("is-library") && !history.state?.tauriferRoute,
+    undefined, { timeout: 3000 }).then(() => true, () => false);
+  assert(returned, "after Back the history is where it was before the push", JSON.stringify(await routeState(page)));
+
+  phase("a pop right after an edge touch is Safari's swipe: no second push");
+  await page.evaluate(() => window.openLibrary());
+  // The opening push itself has to have landed before pushes are counted.
+  await page.waitForFunction(() => history.state?.tauriferRoute?.view === "library" && !document.body.classList.contains("is-pushing"),
+    undefined, { timeout: 3000 }).catch(() => {});
+  await page.evaluate(() => {
+    window.__pushes = [];
+    new MutationObserver(() => { if (document.querySelector(".is-push-over")) window.__pushes.push(Date.now()); })
+      .observe(document.body, { attributes: true, subtree: true, attributeFilter: ["class"] });
+    document.dispatchEvent(new TouchEvent("touchstart", { touches: [new Touch({ identifier: 1, target: document.body, clientX: 6, clientY: 400 })], bubbles: true }));
+  });
+  await page.goBack({ waitUntil: "commit" }).catch(() => {});
+  await page.waitForFunction(() => !document.body.classList.contains("is-library"), undefined, { timeout: 3000 }).catch(() => {});
+  assert((await page.evaluate(() => window.__pushes.length)) === 0, "the library leaves without the app animating it again");
+  await context.close();
+}
+
+/**
+ * The back swipe in Auto mode (choice 2): in a Safari tab it starts anywhere on
+ * a pushed page, right of the browser's own edge zone; a drag that starts on a
+ * text field is the field's. Underneath, the page returned to sits 30% to the
+ * left and dimmed, and moves with the swipe.
+ */
+async function autoSwipe(browser) {
+  phase("in a Safari tab the back swipe starts anywhere on a pushed page");
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const page = await context.newPage();
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  await installSeedProgram(page, { waitFor: waitForApp });
+  const cdp = await context.newCDPSession(page);
+  const touch = (type, points = []) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points });
+  const open = async () => {
+    await page.evaluate(() => window.openLibrary());
+    await page.waitForFunction(() => document.body.classList.contains("is-library") && !document.body.classList.contains("is-pushing"));
+  };
+  await open();
+  const y = 520;
+  await touch("touchStart", [{ x: 120, y }]);
+  for (const x of [140, 170, 210, 250]) await touch("touchMove", [{ x, y }]);
+  const mid = await page.waitForFunction(() => {
+    const lib = document.querySelector("#library"), under = document.querySelector(".is-push-under");
+    const x = new DOMMatrixReadOnly(getComputedStyle(lib).transform === "none" ? undefined : getComputedStyle(lib).transform).m41;
+    if (!(x > 60)) return null;
+    const u = under ? new DOMMatrixReadOnly(getComputedStyle(under).transform === "none" ? undefined : getComputedStyle(under).transform).m41 : null;
+    return { x, under: u, cover: Number((under ? getComputedStyle(under).getPropertyValue("--push-cover") : "") || 0) };
+  }, undefined, { timeout: 2000 }).then((h) => h.jsonValue(), () => null);
+  assert(mid && mid.x > 60, "a drag from mid-page carries the page with the thumb", JSON.stringify(mid));
+  assert(mid && mid.under < 0 && mid.under > -390 * 0.3 && mid.cover > 0 && mid.cover < 1,
+    "the page underneath sits to the left, part of the way back, and dimmed", JSON.stringify(mid));
+  for (const x of [300, 340, 370]) await touch("touchMove", [{ x, y }]);
+  await touch("touchEnd");
+  const popped = await page.waitForFunction(() => !document.body.classList.contains("is-library"), undefined, { timeout: 3000 })
+    .then(() => true, () => false);
+  assert(popped, "released past halfway, the swipe pops the page");
+
+  phase("a drag that starts on a text field is the field's");
+  await open();
+  const box = await page.locator("#libSearch").boundingBox();
+  await touch("touchStart", [{ x: box.x + 30, y: box.y + box.height / 2 }]);
+  for (const dx of [20, 60, 120]) await touch("touchMove", [{ x: box.x + 30 + dx, y: box.y + box.height / 2 }]);
+  await touch("touchEnd");
+  const still = await page.evaluate(() => document.body.classList.contains("is-library") && !document.querySelector("#library").style.transform);
+  assert(still, "the library stays put");
+  await context.close();
+}
+
+/** Under reduced motion a push cross-fades the arriving page over about 170ms, with no travel (choice 11). */
+async function reducedMotionPush(browser) {
+  phase("under reduced motion a push cross-fades in place");
+  const { context, page } = await sheetPage(browser, { reducedMotion: "reduce" });
+  const frames = await page.evaluate(() => new Promise((resolve) => {
+    const lib = document.querySelector("#library"), out = [], t0 = performance.now();
+    window.openLibrary();
+    const fade = lib.getAnimations().map((a) => a.effect.getTiming().duration);
+    const tick = () => {
+      const s = getComputedStyle(lib);
+      out.push({ fade, t: Math.round(performance.now() - t0), opacity: Number(s.opacity),
+        x: Math.round(new DOMMatrixReadOnly(s.transform === "none" ? undefined : s.transform).m41) });
+      if (performance.now() - t0 < 400) requestAnimationFrame(tick); else resolve(out);
+    };
+    requestAnimationFrame(tick);
+  }));
+  assert(frames.every((f) => f.x === 0), "the page never travels", JSON.stringify(frames.slice(0, 5)));
+  assert(frames.some((f) => f.opacity > 0.02 && f.opacity < 0.98) && frames.at(-1).opacity === 1, "it fades in", JSON.stringify(frames.slice(0, 8)));
+  // The fade's own timing, read as it starts: a frame-sampled duration is too noisy on a busy machine.
+  assert(frames[0]?.fade?.some((d) => d >= 160 && d <= 180), "over 160–180ms", JSON.stringify(frames[0]?.fade));
+  await context.close();
+}
+
+/** The Program editor's page sheet keeps keyboard Tab inside it, as the other modals do (#480). */
+async function editorSheetTab(browser) {
+  phase("Tab stays inside the Program editor's page sheet");
+  const { context, page } = await sheetPage(browser);
+  await page.click('nav button[data-view="program"]');
+  await page.click("#programEditToggle");
+  await page.waitForSelector("#program.sheet.is-open");
+  const real = [];
+  for (let i = 0; i < 60; i++) {
+    await page.keyboard.press("Tab");
+    real.push(await page.evaluate(() => !!document.activeElement?.closest("#program.sheet")));
+  }
+  for (let i = 0; i < 10; i++) {
+    await page.keyboard.press("Shift+Tab");
+    real.push(await page.evaluate(() => !!document.activeElement?.closest("#program.sheet")));
+  }
+  assert(real.every(Boolean), "60 Tabs and 10 Shift+Tabs never leave the sheet", real.map(Number).join(""));
+  await context.close();
+}
+
 const browser = await launchChromium();
 try {
   phase("A primary action is pressed on touch-down");
@@ -1173,6 +1322,10 @@ try {
   await dayPickerCommits(browser);
   await libraryOverEditorSheet(browser);
   await wheelPicker(browser);
+  await routeHistory(browser);
+  await autoSwipe(browser);
+  await reducedMotionPush(browser);
+  await editorSheetTab(browser);
 } finally {
   await browser.close();
 }

@@ -164,6 +164,7 @@
     const x = motionValue(origin);
     const paint = value => {
       page.style.transform = `translate3d(${Math.max(0, value)}px,0,0)`;
+      paintCover(Math.max(0, value), width);
     };
     const stopPaint = x.on("change", paint);
     paint(origin);
@@ -175,6 +176,7 @@
     const handOff = () => {
       page.style.transform = "";
       page.classList.remove(EDGE_SWIPING);
+      clearCover();
       hint(page, null);
     };
     const dispose = ({ preserve = false } = {}) => {
@@ -416,6 +418,29 @@
      cleared on arrival either way, before the caller's continuation runs. */
   const pushRuns = new WeakMap();
   const trueNow = Promise.resolve(true);
+  /* The page under a push or a back swipe sits 30% to the left and dimmed while
+     the page above covers it (ADR 0023). Both owners write how much it is
+     covered, 0–1, to the page under itself (`.is-push-under`, which app.js
+     mounts), so only that page restyles each frame and it follows whichever
+     spring or thumb is moving. */
+  function paintCover(x, width) {
+    const cover = String(Math.round(Math.min(1, Math.max(0, 1 - x / Math.max(1, width))) * 1000) / 1000);
+    for (const under of document.querySelectorAll(".is-push-under")) under.style.setProperty("--push-cover", cover);
+  }
+  function clearCover() {
+    for (const under of document.querySelectorAll("[style*='--push-cover']")) under.style.removeProperty("--push-cover");
+  }
+  /* Under reduced motion a push doesn't travel: the arriving page cross-fades
+     in over 170ms (ADR 0023, audit F-18). Web Animations, so the stylesheet's
+     global reduced-motion kill doesn't cancel it. */
+  const PUSH_FADE_MS = 170;
+  function crossFadeIn(el) {
+    if (!el?.animate) return trueNow;
+    try {
+      return el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: PUSH_FADE_MS, easing: "linear" })
+        .finished.then(() => true, () => false);
+    } catch { return trueNow; }
+  }
   function animatePush(page, { direction = "in", velocity = 0 } = {}) {
     if (!page) return trueNow;
     const live = pushRuns.get(page);
@@ -435,6 +460,7 @@
     pushRuns.set(page, run);
     const paint = value => {
       page.style.transform = value > 0.01 ? `translate3d(${value}px,0,0)` : "";
+      paintCover(value, width);
     };
     run.stopPaint = x.on("change", paint);
     paint(from);
@@ -445,6 +471,7 @@
       if (pushRuns.get(page) !== run) return;
       pushRuns.delete(page);
       page.style.transform = "";
+      clearCover();
       hint(page, null);
     });
     done.cancel = () => {
@@ -454,6 +481,7 @@
       x.stop();
       run.stopPaint();
       page.style.transform = "";
+      clearCover();
       hint(page, null);
     };
     return done;
@@ -1037,9 +1065,10 @@
   /* The third gesture owner: an interactive edge swipe back on a pushed page.
      It is inert until a page registers itself, so no view is affected by it
      existing. It never starts in Focus, whose horizontal axis belongs to the
-     deck, and only where `display-mode: standalone` matches: in a Safari tab
-     the left edge belongs to the browser's own history gesture, and the visible
-     back control stays the primary route everywhere. */
+     deck. In the Home Screen app it starts at the left edge; in a Safari tab,
+     where that edge is the browser's own history swipe, it starts anywhere
+     right of it (Auto, below). The visible back control stays the primary
+     route everywhere. */
   const EDGE_ZONE = 24;
   const EDGE_LOCK = 10;
   const EDGE_STALE_MS = 100;
@@ -1090,15 +1119,30 @@
     const rect = page.getBoundingClientRect();
     return event.clientY >= rect.top && event.clientY <= rect.bottom;
   }
+  /* Auto (ADR 0023 choice 2): in the Home Screen app nobody else owns the left
+     edge, so the swipe starts there, as before. In a Safari tab the edge is the
+     browser's history swipe, so the app's own swipe starts anywhere right of it
+     and claims only a drag that is clearly sideways; a text field, a slider, a
+     chart that scrubs or a sideways scroller keeps its own drag. */
+  const EDGE_OPT_OUT = "input,textarea,select,[contenteditable],[role='slider'],[data-hscroll],.exchart__plot";
+  function sidewaysScroller(from, page) {
+    for (let node = from; node && node !== page.parentElement; node = node.parentElement) {
+      if (node.scrollWidth > node.clientWidth + 1 && /auto|scroll/.test(getComputedStyle(node).overflowX)) return true;
+    }
+    return false;
+  }
   function edgePointerDown(event) {
     const target = edgeTarget;
     if (!target || edgeGesture) return;
     if (event.pointerType === "mouse") return;
-    if (!(event.clientX <= EDGE_ZONE)) return;
-    if (focusActive() || !standaloneDisplay() || edgeBlockedByOverlay()) return;
+    const fullWidth = !standaloneDisplay();
+    if (fullWidth ? !(event.clientX > EDGE_ZONE) : !(event.clientX <= EDGE_ZONE)) return;
+    if (focusActive() || edgeBlockedByOverlay()) return;
     const { page } = target;
     if (!page.isConnected || page.hidden) return;
     if (!edgeHitsPage(page, event)) return;
+    const hit = event.target instanceof Element ? event.target : null;
+    if (fullWidth && (!hit || hit.closest(EDGE_OPT_OUT) || sidewaysScroller(hit, page))) return;
     edgeGesture = {
       id: event.pointerId, page, target, x: event.clientX, y: event.clientY, dx: 0, live: false,
       velocity: 0, lastX: event.clientX, lastT: event.timeStamp || performance.now(), motion: null,
@@ -1111,7 +1155,7 @@
     const dx = event.clientX - gesture.x;
     const dy = event.clientY - gesture.y;
     if (!gesture.live) {
-      if (dx <= -EDGE_LOCK || (Math.abs(dy) >= EDGE_LOCK && Math.abs(dy) >= Math.abs(dx))) {
+      if (dx <= -EDGE_LOCK || (Math.abs(dy) >= EDGE_LOCK && Math.abs(dy) * 1.2 >= Math.abs(dx))) {
         edgeGesture = null; return;
       }
       if (dx < EDGE_LOCK) return;
@@ -1681,6 +1725,7 @@
     animateDisclosure,
     animateSlot,
     animatePush,
+    crossFadeIn,
     registerEdgeSwipeBack,
     mountGestureController,
   };

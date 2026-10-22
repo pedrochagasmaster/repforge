@@ -52,6 +52,8 @@
   --knob:#FFFFFF;
   /* Scrims stay dark in both themes: they exist to push the page back. */
   --scrim:rgba(27,26,23,.42);
+  /* How much of --scrim dims the page under a push: about a tenth in either theme (ADR 0023). */
+  --push-dim:.24;
   /* Plan 058 semantic scales. Consumers migrate by role in P4–P6. */
   --font-language:"Plex Sans",system-ui,-apple-system,Segoe UI,sans-serif;
   --font-training-data:"Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
@@ -331,6 +333,7 @@
   --entry-tint:rgba(242,112,59,.12);
   --knob:var(--surface);
   --scrim:rgba(0,0,0,.62);
+  --push-dim:.16;
   /* Dark content showing through glass becomes visual noise around the nav
      labels. Keep the material, but make it read as smoked glass, not a lens. */
   --dock-glass:rgba(30,28,24,.66);
