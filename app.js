@@ -3206,6 +3206,10 @@ let workoutActive=false,workoutLeft=false,programEditMode=false,setupEditorOpen=
 /* The editor module owns the draft document. Hosts retain only its lifecycle
    and adapter session so the installed editor can stay private until Done. */
 let installedProgramEditor=null,onboardingProgramEditor=null,installedEditorSession=null,pendingEditorNavigation=null;
+/* The installed editor's page sheet (Plan 075 phase 2B, ADR 0023): whether it
+   is currently presented, the still copy of the Program view pushed back
+   beneath it, and the control Done/Cancel/the guarded dismiss return focus to. */
+let programEditorSheetOpen=false,programEditorPushBack=null,programEditorFocusReturn=null;
 let settingsEditRevision=0;
 // Today's session lists its first few exercises; the rest sit behind a "+N" row.
 // Two-level Progress navigation (Plan 056): Overview/Review are the primary
@@ -11796,6 +11800,7 @@ function createInstalledProgramEditorAdapter(){
     substitutions:(document,slotId)=>installedEditorSubstitutions(document,slotId),
     revert:(count,document)=>revertInstalledEditorSession(count,document),
     done:()=>requestInstalledDone(),
+    afterRender:()=>updateInstalledEditorDoneButton(),
   }
 }
 function installedEditorDefinitionDay(document,day){
@@ -11906,6 +11911,120 @@ function mountInstalledProgramEditor(){
 function disposeProgramEditors(){
   onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;
   installedProgramEditor?.dispose?.();installedProgramEditor=null;installedEditorSession=null;
+}
+/* ---- The installed editor's page sheet (Plan 075 phase 2B, ADR 0023) ----
+   Edit presents #program itself as a page sheet (the generic sheet/detents
+   gesture owner in motion-layer.js, given nothing but the "large" detent) over
+   a still copy of the Program view as it looked the moment Edit was pressed —
+   the same technique History's session page uses. Done's disabled state
+   tracks the editor's own canApply(); a guarded swipe or Escape asks exactly
+   what Cancel already asks. */
+function captureProgramEditorSnapshot(){
+  const view=$("#program");if(!view)return null;
+  const copy=view.cloneNode(true);
+  copy.querySelectorAll("[id]").forEach(node=>node.removeAttribute("id"));
+  copy.classList.remove("sheet","is-open","program-editor-installed");
+  delete copy.dataset.detent;
+  copy.removeAttribute("role");copy.removeAttribute("aria-modal");copy.removeAttribute("aria-labelledby");
+  return copy;
+}
+function attemptProgramEditorDismiss(){
+  if(!programEditMode)return;
+  if(installedProgramEditor?.isDirty()){pendingEditorNavigation=null;openInstalledLeaveDialog();return}
+  finishInstalledEditor();
+}
+function updateInstalledEditorDoneButton(){
+  const done=$("#programEditDone");if(!done)return;
+  done.disabled=installedProgramEditor?.canApply?.()===false;
+}
+function enterProgramEditorSheet(copy){
+  if(programEditorSheetOpen)return;
+  programEditorSheetOpen=true;
+  const view=$("#program"),scrim=$("#programEditScrim"),grab=$("#programEditGrab");
+  programEditorFocusReturn=$("#programEditToggle");
+  const motion=window.RepForgeMotion;
+  if(view){
+    view.classList.add("sheet");
+    // A reflow forced here, before "is-open" follows on the next frame, is what
+    // commits the closed state to an actual paint; without it the browser can
+    // still batch both class changes into the frame it was already about to
+    // render, and the cross-fade (or slide) never has a "from" to run from.
+    void view.offsetHeight;
+    view.setAttribute("role","dialog");view.setAttribute("aria-modal","true");
+    view.setAttribute("aria-labelledby","programTitle");
+    motion?.registerSheetGuard?.(view,{
+      canDismiss:()=>!installedProgramEditor?.isDirty(),
+      onBlocked:()=>attemptProgramEditorDismiss(),
+    });
+  }
+  if(grab)grab.hidden=false;
+  if(scrim){
+    scrim.classList.remove("hidden");
+    scrim.onclick=()=>attemptProgramEditorDismiss();
+  }
+  if(copy&&view?.parentNode){
+    copy.inert=true;copy.setAttribute("aria-hidden","true");
+    copy.classList.add("is-editor-pushed-back");
+    // After the real view, like History's own still copy (app.js ~1131): the
+    // clone keeps #program's id (stripping only its descendants'), so a sibling
+    // placed before it would shadow the real node for every #program lookup
+    // that follows, including this function's own exit.
+    view.after(copy);
+    programEditorPushBack=copy;
+  }
+  // The normal slide-in (and the scrim's fade) only run once the browser has
+  // actually painted the closed state; one rAF still lands in the same paint
+  // as this call (nothing yields to it in between), so it takes the next one
+  // after that — the double-rAF the rest of the web uses for exactly this
+  // "now trigger the transition" case. Reduced motion's cross-fade does not
+  // wait on it: fadeSheetReducedMotion plays an explicit keyframe instead of
+  // relying on that same diff, which this one view-turned-sheet cannot promise.
+  motion?.fadeSheetReducedMotion?.(view,true);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    if(!programEditorSheetOpen)return;
+    view?.classList.add("is-open");
+    scrim?.classList.add("is-open");
+    if(programEditorPushBack)motion?.animateSheetPushBack?.(programEditorPushBack,{open:true});
+  }));
+  const title=view?.querySelector(".page-title");
+  if(title){try{title.setAttribute("tabindex","-1");title.focus({preventScroll:true})}catch{}}
+}
+function exitProgramEditorSheet(){
+  if(!programEditorSheetOpen)return;
+  programEditorSheetOpen=false;
+  const view=$("#program"),scrim=$("#programEditScrim"),grab=$("#programEditGrab");
+  const motion=window.RepForgeMotion;
+  motion?.unregisterSheetGuard?.(view);
+  const copy=programEditorPushBack;programEditorPushBack=null;
+  if(copy)motion?.animateSheetPushBack?.(copy,{open:false});
+  const returnTo=programEditorFocusReturn;programEditorFocusReturn=null;
+  motion?.fadeSheetReducedMotion?.(view,false);
+  // Removing "is-open" alone, before "sheet" itself, is what lets the closing
+  // slide actually run: taking both classes away at once leaves no committed
+  // frame for the transition to start from (ADR 0023). Reduced motion's fade
+  // is the explicit keyframe above, not this class diff.
+  view?.classList.remove("is-open");
+  scrim?.classList.remove("is-open");
+  const finish=()=>{
+    motion?.clearSheetFade?.(view);
+    if(view){
+      view.classList.remove("sheet");delete view.dataset.detent;
+      view.removeAttribute("role");view.removeAttribute("aria-modal");view.removeAttribute("aria-labelledby");
+    }
+    if(grab)grab.hidden=true;
+    if(scrim){scrim.classList.add("hidden");scrim.onclick=null}
+    copy?.remove();
+    try{returnTo?.focus?.({preventScroll:true})}catch{}
+  };
+  let fallback=null;
+  const onEnd=event=>{
+    if(event&&event.target!==view)return;
+    if(fallback)clearTimeout(fallback);
+    view?.removeEventListener("transitionend",onEnd);
+    finish();
+  };
+  fallback=setTimeout(onEnd,reducedMotion()?SHEET_FADE_MS:260);
+  view?.addEventListener("transitionend",onEnd);
 }
 let installedLeaveMode=null;
 function installedEditorHistoryState(){
@@ -12175,6 +12294,12 @@ function setProgramMetadataHidden(hidden,{inert=false}={}){
   if(trulyHidden)meta.innerHTML="";
 }
 function renderProgram(){
+  // The page-sheet presentation (Plan 075 phase 2B) turns on and off around
+  // everything else this function does, so its still copy of the pre-edit
+  // view has to be taken before anything here changes #program.
+  const enteringEditSheet=programEditMode&&!programEditorSheetOpen,
+    leavingEditSheet=!programEditMode&&programEditorSheetOpen,
+    preSheetCopy=enteringEditSheet?captureProgramEditorSnapshot():null;
   // Nothing to show: the tab is the same invitation Today carries, not a
   // summary of a program that does not exist. A lifter who emptied their own
   // program keeps the editor and its Add day — they have not been sent back to
@@ -12202,9 +12327,11 @@ function renderProgram(){
   // The installed editor keeps the existing metadata DOM for its production edit
   // seam, but leaves it out of the visual layout like the prior editor did.
   setProgramMetadataHidden(programEditMode);
-  if(tog){tog.textContent=programEditMode?t("program.done_editing"):t("program.edit");tog.dataset.actionRole="expansion";tog.setAttribute("aria-expanded",programEditMode?"true":"false")}
-  // Plan 074: while editing, the header names the task and offers Cancel; Apply is the editor's own pinned bar.
+  if(tog){tog.textContent=t("program.edit");tog.dataset.actionRole="expansion";tog.setAttribute("aria-expanded",programEditMode?"true":"false")}
+  // Plan 075 phase 2B: while editing, the sheet's bar names the task and offers
+  // Cancel and Done; the editor's own bottom bar keeps only a blocked reason.
   tog?.classList.toggle("hidden",programEditMode);
+  const done=$("#programEditDone");done?.classList.toggle("hidden",!programEditMode);
   const pageTitle=view?.querySelector(".page-title");if(pageTitle)pageTitle.textContent=t(programEditMode?"program.editor.title":"program.title");
   const cancel=$("#programEditCancel");if(cancel)cancel.classList.toggle("hidden",!programEditMode);
   const end=$("#endBlock"),lede=ed?.querySelector(":scope > .program-editor-lede"),addDay=$("#addDay");
@@ -12212,7 +12339,13 @@ function renderProgram(){
   // host, so hiding the disclosure here would strand the raw import/export
   // controls whenever the visual editor is open.
   [end,lede,addDay].forEach(el=>el?.classList.toggle("hidden",programEditMode));
-  if(programEditMode){if(nav)nav.dataset.elevation="persistent-action";armInstalledEditorHistory();if(!installedProgramEditor)mountInstalledProgramEditor();return}
+  if(programEditMode){
+    if(nav)nav.dataset.elevation="persistent-action";armInstalledEditorHistory();
+    if(!installedProgramEditor)mountInstalledProgramEditor();
+    if(enteringEditSheet)enterProgramEditorSheet(preSheetCopy);
+    updateInstalledEditorDoneButton();
+    return}
+  if(leavingEditSheet)exitProgramEditorSheet();
   renderProgramHeader();renderProgramEditor();
   // Candidate edits can invalidate a paired relation while the exercise picker
   // is closing. Focus after the editor DOM has been rebuilt, rather than racing
@@ -21425,10 +21558,11 @@ function init(){
     if(setupEditorOpen){requestEntryCancel();return}
     if(programEditMode){requestInstalledDone();return}
     programEditMode=true;renderProgram()};
-  const progCancel=$("#programEditCancel");if(progCancel)progCancel.onclick=()=>{
-    if(!programEditMode)return;
-    if(installedProgramEditor?.isDirty()){pendingEditorNavigation=null;openInstalledLeaveDialog();return}
-    finishInstalledEditor()};
+  const progCancel=$("#programEditCancel");if(progCancel)progCancel.onclick=()=>attemptProgramEditorDismiss();
+  const progDone=$("#programEditDone");if(progDone)progDone.onclick=()=>requestInstalledDone();
+  document.addEventListener("keydown",e=>{
+    if(e.key!=="Escape"||e.defaultPrevented||activeModal||!programEditorSheetOpen)return;
+    e.preventDefault();attemptProgramEditorDismiss()});
   const leaveApply=$("#programEditorApply");if(leaveApply)leaveApply.onclick=()=>applyInstalledEditorAndContinue();
   const leaveDiscard=$("#programEditorDiscard");if(leaveDiscard)leaveDiscard.onclick=()=>finishInstalledEditor({discard:true});
   const leaveKeep=$("#programEditorKeep");if(leaveKeep)leaveKeep.onclick=()=>closeInstalledLeaveDialog();

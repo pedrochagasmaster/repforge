@@ -241,13 +241,15 @@
     </section>
 
     <section id="program" class="view" data-i18n-aria="program.aria" aria-label="Program">
-      <div class="pagehead">
+      <span class="sheet__grab" id="programEditGrab" aria-hidden="true" hidden></span>
+      <div class="pagehead" data-sheet-rail>
         <button type="button" class="link-accent pagehead__cancel hidden" id="programEditCancel" data-i18n="dialog.cancel">Cancel</button>
         <div class="pagehead__titles">
-          <h2 class="page-title" data-i18n="program.title">Program</h2>
+          <h2 class="page-title" id="programTitle" data-i18n="program.title">Program</h2>
         </div>
         <div class="pagehead__actions">
           <button type="button" class="link-accent" id="programEditToggle" data-action-role="expansion" aria-expanded="false" aria-controls="programEditorWrap" data-i18n="program.edit">Edit</button>
+          <button type="button" class="link-accent hidden" id="programEditDone" data-i18n="dialog.done">Done</button>
         </div>
       </div>
       <!-- Same rule as Today: with nothing onboarded there is no program to
@@ -1270,6 +1272,7 @@ Triceps pushdown 3x12-15</pre>
       <button type="button" id="retryExerciseCatalog" class="btn btn--cta" data-i18n="catalog.unavailable.retry">Retry</button>
     </div>
   </dialog>
+  <div id="programEditScrim" class="sheet-scrim hidden"></div>
   <dialog id="programEditorLeave" class="program-editor-leave" aria-modal="true" aria-labelledby="programEditorLeaveTitle">
     <h2 id="programEditorLeaveTitle">Unsaved changes</h2>
     <p id="programEditorLeaveBody">Your changes have not been applied.</p>

@@ -242,7 +242,7 @@ async function main() {
     await pickExact(page, FLY.name);
     await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
     await editorSettled(page);
-    await page.locator('#programEditor [data-role="apply"]').click();
+    await page.locator("#programEditDone").click();
     await page.waitForFunction(({ key, id, fly }) => {
       const saved = JSON.parse(localStorage.getItem(key) || "{}");
       return document.querySelector("#programEditorWrap")?.classList.contains("is-hidden") &&

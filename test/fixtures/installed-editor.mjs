@@ -1,10 +1,12 @@
 /**
- * Driving the installed Program editor (Plan 074, ADR 0021: candidate A).
+ * Driving the installed Program editor (Plan 074, ADR 0021: candidate A; the
+ * page sheet of Plan 075 phase 2B, ADR 0023).
  *
- * Program → Edit opens onboarding B's editing language: day tabs, one row per
- * exercise, a sheet per exercise in #reviewSheet, and a pinned Apply where the
- * dock was. Suites that used the classic cards go through these helpers so a
- * later layout change has one place to land.
+ * Program → Edit opens the editor as a page sheet: day tabs, one row per
+ * exercise, a sheet per exercise in #reviewSheet, Cancel and Done in the
+ * sheet's own bar, and the editor's own bottom bar hidden except for its
+ * blocked reason. Suites that used the classic cards go through these
+ * helpers so a later layout change has one place to land.
  */
 
 export const EDITOR = "#programEditor";
@@ -77,10 +79,10 @@ export async function setSheetSetCount(page, count) {
   throw new Error(`set count did not reach ${count}`);
 }
 
-/** Apply from the pinned bar. Resolves when the editor has closed. */
+/** Done, the sheet's commit action. Resolves when the editor has closed. */
 export async function applyInstalledEditor(page, { timeout = 10000 } = {}) {
   await closeEditorSheet(page);
-  await page.locator(`${EDITOR} [data-role="apply"]`).click();
+  await page.locator("#programEditDone").click();
   await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), undefined, { timeout });
 }
 

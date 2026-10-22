@@ -13,6 +13,13 @@
  * P074-S1-EMPTY: a training day emptied of exercises marks its tab and keeps
  * Apply disabled with the reason above it.
  *
+ * Plan 075 phase 2B (ADR 0023): the installed editor is a page sheet over a
+ * pushed-back still copy of the Program view, with Cancel and Done in its bar.
+ * P075-2B-SHEET: Cancel and a clean swipe down dismiss it without asking;
+ * a guarded swipe with unsaved changes springs back and asks, and Keep editing
+ * returns to the sheet with the edit intact.
+ * P075-2B-REDUCED-MOTION: it cross-fades open and closed with no transform travel.
+ *
  * Run: node tools/run-tests.mjs entry --suite program-editor-a
  */
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
@@ -95,23 +102,61 @@ async function closeSheet(page) {
   await page.waitForSelector(`${SHEET}`, { state: "hidden", timeout: 5000 });
 }
 
+/** Plan 075 phase 2B (ADR 0023): #program itself, as the page sheet. */
+async function waitForPushBackSettled(page, { scale = 0.941 } = {}) {
+  await page.waitForFunction((max) => {
+    const el = document.querySelector(".is-editor-pushed-back");
+    if (!el) return false;
+    const m = new DOMMatrixReadOnly(getComputedStyle(el).transform === "none" ? undefined : getComputedStyle(el).transform);
+    return m.a <= max;
+  }, scale, { timeout: 5000 });
+}
+/** The sheet's own close transition (260ms, or the reduced-motion fade) finishes
+ *  after #programEditorWrap already reads is-hidden: the host's cleanup — the
+ *  classes, the pushed-back copy, and the return of focus — waits for it. */
+async function waitForSheetGone(page) {
+  await page.waitForFunction(() => !document.querySelector("#program")?.classList.contains("sheet"), undefined, { timeout: 5000 });
+}
+async function sheetOverview(page, selector) {
+  return page.evaluate((sel) => {
+    const pushBack = document.querySelector(".is-editor-pushed-back");
+    const m = pushBack ? new DOMMatrixReadOnly(getComputedStyle(pushBack).transform === "none" ? undefined : getComputedStyle(pushBack).transform) : null;
+    return {
+      navHidden: getComputedStyle(document.querySelector("nav")).display === "none" || document.querySelector("nav").hidden,
+      tabs: [...document.querySelectorAll(`${sel} [data-role="day-tab"]`)].map((tab) => tab.textContent.trim()),
+      rows: document.querySelectorAll(`${sel} [data-role="exercise-row"]`).length,
+      applyHidden: getComputedStyle(document.querySelector(`${sel} [data-role="apply"]`)).display === "none",
+      title: document.querySelector("#program .page-title")?.textContent?.trim(),
+      cancel: !!document.querySelector("#programEditCancel:not(.hidden)"),
+      doneVisible: !document.querySelector("#programEditDone")?.classList.contains("hidden"),
+      doneDisabled: document.querySelector("#programEditDone")?.disabled,
+      sheetRole: document.querySelector("#program")?.getAttribute("role"),
+      sheetModal: document.querySelector("#program")?.getAttribute("aria-modal"),
+      sheetLabelledby: document.querySelector("#program")?.getAttribute("aria-labelledby"),
+      pushBack: !!pushBack,
+      pushBackInert: pushBack?.inert,
+      pushBackAriaHidden: pushBack?.getAttribute("aria-hidden"),
+      pushBackScale: m?.a ?? null,
+      setLines: document.querySelectorAll(`${sel} [data-role="exercise-row"][data-id="seed-ex-1"] [data-role="set-line"]`).length,
+    };
+  }, selector);
+}
+
 async function editJourney(page) {
   console.log("P074-S1-EDIT");
   await openEditor(page);
-  const overview = await page.evaluate((selector) => ({
-    navHidden: getComputedStyle(document.querySelector("nav")).display === "none" || document.querySelector("nav").hidden,
-    tabs: [...document.querySelectorAll(`${selector} [data-role="day-tab"]`)].map((tab) => tab.textContent.trim()),
-    rows: document.querySelectorAll(`${selector} [data-role="exercise-row"]`).length,
-    apply: !!document.querySelector(`${selector} [data-role="apply"]`),
-    title: document.querySelector("#program .page-title")?.textContent?.trim(),
-    cancel: !!document.querySelector("#programEditCancel:not(.hidden)"),
-    setLines: document.querySelectorAll(`${selector} [data-role="exercise-row"][data-id="seed-ex-1"] [data-role="set-line"]`).length,
-  }), EDITOR);
+  await waitForPushBackSettled(page);
+  const overview = await sheetOverview(page, EDITOR);
   check(overview.tabs.length === 3, "the overview has one tab per training day", overview);
   check(overview.rows === 6, "the first day's six exercises are listed as rows", overview);
   check(overview.setLines === 2, "a row shows one line per set", overview);
-  check(overview.apply && overview.navHidden, "Apply is pinned where the dock was", overview);
+  check(overview.applyHidden && overview.navHidden, "the editor's own Apply is hidden; the dock stays where it was", overview);
   check(overview.title === "Edit program" && overview.cancel, "the header reads Edit program with Cancel", overview);
+  check(overview.doneVisible && !overview.doneDisabled, "Done is shown and enabled", overview);
+  check(overview.sheetRole === "dialog" && overview.sheetModal === "true" && overview.sheetLabelledby === "programTitle",
+    "the sheet is a dialog labelled by its title", overview);
+  check(overview.pushBack && overview.pushBackInert === true && overview.pushBackAriaHidden === "true" && overview.pushBackScale < 1,
+    "a pushed-back copy of the Program view sits beneath it, inert, aria-hidden and scaled down", overview);
 
   await openSheet(page);
   await sheetTap(page, '[data-role="sets-step"][data-delta="1"]');
@@ -164,8 +209,17 @@ async function editJourney(page) {
   check(/\d+ changes of yours/.test(count || ""), "the changes bar counts the changes", count);
   check((await storedSlot(page))?.exerciseId !== LAT.id, "nothing is stored before Apply");
 
-  await page.locator(`${EDITOR} [data-role="apply"]`).click();
+  // The editor's own bottom Apply is hidden in the sheet; Done is the commit action.
+  await page.locator("#programEditDone").click();
   await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), undefined, { timeout: 10000 });
+  await waitForSheetGone(page);
+  const closed = await page.evaluate(() => ({
+    sheet: document.querySelector("#program")?.classList.contains("sheet"),
+    pushBack: !!document.querySelector(".is-editor-pushed-back"),
+    focus: document.activeElement?.id,
+  }));
+  check(!closed.sheet && !closed.pushBack, "Done closes the sheet and removes the pushed-back copy", closed);
+  check(closed.focus === "programEditToggle", "focus returns to Edit", closed);
   const verify = async (label) => {
     const slot = await storedSlot(page);
     const cycles = slot?.prescriptionsByCycle || [];
@@ -224,6 +278,114 @@ async function cancelJourney(page) {
   check(await page.evaluate(() => getComputedStyle(document.querySelector("nav")).display !== "none"), "the dock returns when the editor closes");
 }
 
+/** A point on the sheet's drag rail: the grabber, or the bar beneath it. */
+async function sheetGrip(page) {
+  const box = await page.locator("#programEditGrab").boundingBox();
+  return { x: Math.round(box.x + box.width / 2), y: Math.round(box.y + box.height / 2) };
+}
+/** A real pointer drag (test/sheet-swipe-dismiss.mjs's technique): a short pause between
+ *  samples reads as a flick, a long final one leaves the release velocity at rest. */
+async function sheetDrag(page, from, steps, { pause = 16, settleAt = 0 } = {}) {
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  for (const [dx, dy] of steps) {
+    await page.mouse.move(from.x + dx, from.y + dy);
+    await page.waitForTimeout(pause);
+  }
+  if (settleAt) await page.waitForTimeout(settleAt);
+  await page.mouse.up();
+}
+const sheetDown = (to, n = 6) => Array.from({ length: n }, (_, i) => [0, Math.round((to * (i + 1)) / n)]);
+const sheetClosed = (page) => page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), undefined, { timeout: 10000 });
+
+async function sheetJourney(page) {
+  console.log("P075-2B-SHEET");
+  await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
+
+  // Cancel with no edits closes at once; no leave dialog is asked.
+  await openEditor(page);
+  await waitForPushBackSettled(page);
+  await page.click("#programEditCancel");
+  await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), undefined, { timeout: 10000 });
+  await waitForSheetGone(page);
+  check(!(await page.locator("#programEditorLeave[open]").count()), "Cancel with no edits closes without asking");
+  check(!(await page.locator(".is-editor-pushed-back").count()), "and the pushed-back copy is gone");
+  check((await page.evaluate(() => document.activeElement?.id)) === "programEditToggle", "focus returns to Edit");
+
+  // A swipe down with no edits dismisses the sheet, exactly like Cancel.
+  await openEditor(page);
+  await waitForPushBackSettled(page);
+  const cleanRail = await sheetGrip(page);
+  await sheetDrag(page, cleanRail, sheetDown(500), { settleAt: 360 });
+  await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), undefined, { timeout: 10000 });
+  await waitForSheetGone(page);
+  check(!(await page.locator("#programEditorLeave[open]").count()), "a clean swipe down dismisses it without asking");
+
+  // A swipe down with edits does not dismiss: it rubber-bands, springs back, and
+  // the leave dialog opens, same as Cancel. Keep editing returns with the edit intact.
+  await openEditor(page);
+  await waitForPushBackSettled(page);
+  await openSheet(page);
+  await sheetTap(page, '[data-role="sets-step"][data-delta="1"]');
+  await closeSheet(page);
+  const dirtyRail = await sheetGrip(page);
+  await sheetDrag(page, dirtyRail, sheetDown(500), { settleAt: 360 });
+  await page.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
+  const afterGuardedDrag = await page.evaluate(() => ({
+    sheetOpen: document.querySelector("#program")?.classList.contains("is-open"),
+    pushBack: !!document.querySelector(".is-editor-pushed-back"),
+  }));
+  check(afterGuardedDrag.sheetOpen && afterGuardedDrag.pushBack,
+    "a guarded swipe with edits returns the sheet to rest instead of dismissing it", afterGuardedDrag);
+  await page.click("#programEditorKeep");
+  await page.waitForFunction(() => !document.querySelector("#programEditorLeave")?.open, undefined, { timeout: 5000 });
+  const kept = await page.locator(`${EDITOR} [data-role="exercise-row"][data-id="${SLOT}"] [data-role="set-line"]`).count();
+  check(kept === 3, "Keep editing returns to the sheet with the edit intact", kept);
+  await page.click("#programEditCancel");
+  await page.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
+  await page.click("#programEditorDiscard");
+  await sheetClosed(page);
+}
+
+async function reducedMotionJourney(browser) {
+  console.log("P075-2B-REDUCED-MOTION");
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" });
+  const page = await context.newPage();
+  try {
+    await page.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
+    const sample = (opening) => page.evaluate((isOpening) => new Promise((resolve) => {
+      const sheet = document.querySelector("#program");
+      const frames = [];
+      const t0 = performance.now();
+      if (isOpening) document.querySelector("#programEditToggle").click();
+      else document.querySelector("#programEditCancel").click();
+      const tick = () => {
+        const style = getComputedStyle(sheet);
+        frames.push({ t: Math.round(performance.now() - t0), opacity: Number(style.opacity), transform: style.transform });
+        if (performance.now() - t0 < 300) requestAnimationFrame(tick); else resolve(frames);
+      };
+      requestAnimationFrame(tick);
+    }), opening);
+    await page.click('nav button[data-view="program"]');
+    await page.waitForSelector("#programEditToggle", { timeout: 10000 });
+    const opening = await sample(true);
+    const identity = (t) => t === "none" || /matrix\(1,\s*0,\s*0,\s*1,\s*0,\s*0\)/.test(t);
+    const openNoTravel = opening.every((frame) => identity(frame.transform));
+    const openFades = opening.some((frame) => frame.opacity > 0.02 && frame.opacity < 0.98) && opening.at(-1)?.opacity === 1;
+    check(openNoTravel, "reduced motion: the sheet opens with no transform travel", opening.slice(0, 6));
+    check(openFades, "reduced motion: the sheet cross-fades open", opening.slice(0, 8));
+    const closing = await sample(false);
+    const closeNoTravel = closing.every((frame) => identity(frame.transform));
+    const closeFades = closing.some((frame) => frame.opacity > 0.02 && frame.opacity < 0.98);
+    check(closeNoTravel, "reduced motion: the sheet closes with no transform travel", closing.slice(0, 6));
+    check(closeFades, "reduced motion: the sheet cross-fades closed", closing.slice(0, 8));
+  } finally {
+    await context.close();
+  }
+}
+
 async function emptyDayJourney(page) {
   console.log("P074-S1-EMPTY");
   await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
@@ -242,13 +404,20 @@ async function emptyDayJourney(page) {
     banner: document.querySelector(`${selector} [data-role="day-empty"]`)?.textContent?.trim(),
     disabled: document.querySelector(`${selector} [data-role="apply"]`)?.disabled,
     reason: document.querySelector(`${selector} [data-role="apply-reason"]`)?.textContent?.trim(),
+    barVisible: getComputedStyle(document.querySelector(`${selector} [data-role="apply-bar"]`)).display !== "none",
+    doneDisabled: document.querySelector("#programEditDone")?.disabled,
   }), EDITOR);
   check(state.pip, "the emptied day's tab carries a mark", state);
   check(/no exercises/i.test(state.banner || ""), "the day says it has no exercises", state);
   check(state.disabled === true && /each training day/i.test(state.reason || ""), "Apply is disabled with its reason above it", state);
+  // Plan 075 phase 2B: the sheet's Done is the commit action now; the editor's own Apply
+  // stays hidden, but its blocked reason is what the bar shows while Done is disabled.
+  check(state.barVisible, "the bar stays visible for its reason while blocked", state);
+  check(state.doneDisabled === true, "Done is disabled while the day is empty", state);
 
   // #440's rest pill and the editor's Undo toast float over the page: while editing they ride above the pinned
-  // Apply (its blocked reason included), the toast above the pill, and the page reserves room for all three.
+  // Apply band (its blocked reason included), the toast above the pill, and the sheet's own scroller
+  // (#programEditorWrap, not the body: Plan 075 phase 2B moved #program off the normal flow) reserves room for all three.
   const stack = await page.evaluate((selector) => {
     const pill = document.querySelector("#restBar");
     pill.classList.remove("hidden");
@@ -260,13 +429,13 @@ async function emptyDayJourney(page) {
     const box = (element) => element.getBoundingClientRect();
     const out = { pill: box(pill).bottom, pillTop: box(pill).top, toast: box(toast).bottom,
       bar: box(document.querySelector(`${selector} [data-role="apply-bar"]`)).top,
-      reserve: parseFloat(getComputedStyle(document.body).paddingBottom), viewport: innerHeight };
+      reserve: parseFloat(getComputedStyle(document.querySelector("#programEditorWrap")).paddingBottom), viewport: innerHeight };
     toast.remove();
     pill.classList.add("hidden");
     return out;
   }, EDITOR);
   check(stack.pill <= stack.bar && stack.toast <= stack.pillTop, "the rest pill rides above the pinned Apply and the Undo toast above the pill", stack);
-  check(stack.reserve >= stack.viewport - stack.pillTop, "the page reserves the band the bar and the pill cover", stack);
+  check(stack.reserve >= stack.viewport - stack.pillTop, "the sheet's own scroller reserves the band the bar and the pill cover", stack);
 }
 
 async function main() {
@@ -282,7 +451,9 @@ async function main() {
     await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
     await editJourney(page);
     await cancelJourney(page);
+    await sheetJourney(page);
     await emptyDayJourney(page);
+    await reducedMotionJourney(browser);
     check(!errors.length, "no page errors", errors);
   } catch (error) {
     failures.push(String(error?.stack || error));

@@ -10196,6 +10196,27 @@
       "neverDisabledReason": "Leaving the editor is always available; with unapplied changes it asks first."
     },
     {
+      "id": "programeditdone",
+      "selector": "#programEditDone",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Plan 075 phase 2B (ADR 0023): commits the installed editor's page sheet; disabled while a training day is empty, the sheet's own blocked reason above it.",
+      "owner": "plan-075",
+      "catalogStates": [
+        "program/progression-editor"
+      ]
+    },
+    {
       "id": "programeditorremove",
       "selector": "#programEditorRemove",
       "roles": {

@@ -235,7 +235,7 @@ async function reduceSets(page) {
 /** Apply from the pinned bar without waiting for the editor to close: a refusal keeps it open. */
 async function pressApply(page) {
   await closeEditorSheet(page);
-  await page.locator('#programEditor [data-role="apply"]').click();
+  await page.locator("#programEditDone").click();
 }
 
 async function fillSet(page, set, load, reps, rir) {

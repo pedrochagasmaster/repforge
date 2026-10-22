@@ -2845,15 +2845,48 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
    steppers are onboarding's review classes; these rules only place them in the Program tab and add what
    onboarding never needed (the week table, the pinned Apply that stands in for the dock). */
 /* The pinned Apply bar's band; a blocked reason above the button makes it taller. The rest pill (#440)
-   and the editor's Undo toast ride above it, and the page reserves both so its end scrolls clear. */
+   and the editor's Undo toast ride above it. Plan 075 phase 2B (ADR 0023) moved #program itself off the
+   normal flow and into its own page sheet, so what used to be body's reserve for that flow is now the
+   sheet's own scroller's (#programEditorWrap); the rest pill and toast stay body-level fixed overlays,
+   unaffected by the sheet's transform, and only need their z-index raised above it. */
 body:has(#program.program-editor-installed){
   --editor-apply-reserve:calc(96px + env(safe-area-inset-bottom));
-  padding-bottom:calc(var(--editor-apply-reserve) + var(--space-16) + var(--restbar-reserve,0px))
 }
 body:has(#program.program-editor-installed):has(.program-editor-a__reason){--editor-apply-reserve:calc(128px + env(safe-area-inset-bottom))}
-body:has(#program.program-editor-installed) .restbar{bottom:var(--editor-apply-reserve)}
+body:has(#program.program-editor-installed) .restbar{bottom:var(--editor-apply-reserve);z-index:42}
 body:has(#program.program-editor-installed) .review-toast{bottom:calc(var(--editor-apply-reserve) + var(--restbar-reserve,0px))}
 body:has(#program.program-editor-installed) nav{display:none}
+/* The page sheet itself: #program becomes a .sheet with one detent ("large"),
+   from 10px below the safe-area top to the bottom, over a still, inert, scaled-down
+   copy of the Program view underneath. Everything .sheet already gives for free
+   (the surface, radius, shadow, safe-area padding, open/close transition, the
+   detents drag gesture, the reduced-motion cross-fade) applies unchanged; only the
+   height and internal layout are this sheet's own. */
+#program.sheet{
+  display:flex;flex-direction:column;
+  height:calc(var(--vvh,100dvh) - env(safe-area-inset-top,0px) - 10px);max-height:none;padding-bottom:0;
+}
+#program.sheet>.pagehead{flex:none;margin:0;padding:4px 10px 12px;border-bottom:1px solid var(--rule)}
+#program.sheet>#programNoProgram,#program.sheet>#programOverview,#program.sheet>#programBlockBanner{flex:none}
+#program.sheet>#programEditorWrap{
+  flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  padding-bottom:calc(var(--editor-apply-reserve,96px) + var(--space-16) + var(--restbar-reserve,0px));
+}
+.pagehead[data-sheet-rail]{touch-action:none}
+/* The reason line is what Done being disabled explains; the editor's own bottom
+   Apply button is the sheet's Done instead. */
+#program.program-editor-installed .program-editor-a__bar{display:none}
+#program.program-editor-installed .program-editor-a__bar:has(.program-editor-a__reason){display:flex}
+#program.program-editor-installed .program-editor-a__bar [data-role="apply"]{display:none}
+/* The still copy pushed back under the sheet (Plan 075 phase 2B). `--editor-push`
+   (0 at rest, 1 fully receded) is motion-layer.js's `animateSheetPushBack`; without
+   it, or under reduced motion, it jumps straight to its target. */
+.is-editor-pushed-back{
+  position:fixed;inset:0;z-index:40;pointer-events:none;overflow:hidden;
+  transform-origin:top center;
+  transform:scale(calc(1 - .06 * var(--editor-push,0))) translateY(calc(8px * var(--editor-push,0)));
+  border-radius:calc(14px * var(--editor-push,0));
+}
 .pagehead__cancel{flex:none;margin-top:4px}
 .program-editor-installed .pagehead{align-items:center}
 .program-editor-installed .pagehead__titles{flex:1;min-width:0}

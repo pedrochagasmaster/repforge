@@ -32,7 +32,7 @@ async function pressApply(page) {
     await page.locator('#reviewSheet [data-role="sheet-done"]').click();
     await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 5000 });
   }
-  await page.locator('#programEditor [data-role="apply"]').click();
+  await page.locator("#programEditDone").click();
 }
 
 async function done(page) {
