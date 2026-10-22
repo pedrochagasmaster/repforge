@@ -90,7 +90,7 @@ export async function measureRenderedRoles(input) {
   const localSurface = (node) => {
     const own = getComputedStyle(node);
     const ownBackground = color(own.backgroundColor);
-    if (ownBackground?.[3] > 0) {
+    if (ownBackground?.[3] > 0 || node.matches("button")) {
       const rect = node.getBoundingClientRect();
       const children = [...node.children].map((child) => child.getBoundingClientRect());
       const result = sample(rect, children);
@@ -355,7 +355,7 @@ export async function measureRenderedRoles(input) {
       const disabled = node.matches(":disabled,[aria-disabled='true']");
       const selected = node.matches("[aria-selected='true'],[aria-checked='true'],[aria-pressed='true'],[aria-current]:not([aria-current='false']),.is-selected,.is-active,.active");
       const invalid = node.matches("[aria-invalid='true']");
-      if (!disabled && item.roles?.boundary === "required") {
+      if (!disabled && item.roles?.boundary === "required" && !node.matches(".toggle")) {
         const style = getComputedStyle(node);
         const hasEdge = ["Top", "Right", "Bottom", "Left"].some((side) =>
           parseFloat(style[`border${side}Width`]) > 0 && style[`border${side}Style`] !== "none"
@@ -452,12 +452,26 @@ export async function measureRenderedRoles(input) {
           const knobAlpha = knobColor[3] * (parseFloat(knob.opacity) || 1);
           const renderedKnob = composite([...knobColor.slice(0, 3), knobAlpha], renderedTrack);
           const knobRatio = ratio(renderedKnob, renderedTrack);
-          results.push({ selector: `${item.selector}:${label(node)}::before`, kind: "boundary",
-            status: trackRatio >= 3 ? "pass" : "fail", ratio: Math.round(trackRatio * 100) / 100, threshold: 3,
-            foreground: track.backgroundColor, background: surface.rgb.slice(0, 3) });
-          results.push({ selector: `${item.selector}:${label(node)}::after`, kind: "state-mark",
-            status: knobRatio >= 3 ? "pass" : "fail", ratio: Math.round(knobRatio * 100) / 100, threshold: 3,
-            foreground: knob.backgroundColor, background: renderedTrack.slice(0, 3) });
+          if (selected || node.classList.contains("is-on")) {
+            results.push({ selector: `${item.selector}:${label(node)}::before`, kind: "boundary",
+              status: trackRatio >= 3 ? "pass" : "fail", ratio: Math.round(trackRatio * 100) / 100, threshold: 3,
+              foreground: track.backgroundColor, background: surface.rgb.slice(0, 3) });
+            results.push({ selector: `${item.selector}:${label(node)}::after`, kind: "state-mark",
+              status: knobRatio >= 3 ? "pass" : "fail", ratio: Math.round(knobRatio * 100) / 100, threshold: 3,
+              foreground: knob.backgroundColor, background: renderedTrack.slice(0, 3) });
+          } else {
+            // ADR 0023: the off-track extent is the inset ring, against both
+            // the light track and its surrounding surface. Missing rings fail.
+            const shadow = track.boxShadow.split(/,(?![^()]*\))/).find(value => /\binset\b/.test(value));
+            const raw = shadow?.match(/rgba?\([^)]*\)/)?.[0], ring = raw && color(raw);
+            const dimensions = shadow?.replace(raw || "", "").match(/-?[\d.]+px/g)?.map(Number.parseFloat) || [];
+            const surrounds = dimensions.length === 4 && dimensions.slice(0, 3).every(value => value === 0) && dimensions[3] >= 1.5;
+            const renderedRing = ring && composite([...ring.slice(0, 3), ring[3] * (parseFloat(track.opacity) || 1)], renderedTrack);
+            const measured = surrounds && renderedRing ? Math.min(ratio(renderedRing, renderedTrack), ratio(renderedRing, surface.rgb)) : 0;
+            results.push({ selector: `${item.selector}:${label(node)}::before`, kind: "boundary",
+              status: measured >= 3 ? "pass" : "fail", ratio: Math.round(measured * 100) / 100, threshold: 3,
+              foreground: track.boxShadow, background: renderedTrack.slice(0, 3) });
+          }
         }
       }
       if (!disabled && item.facets?.includes("icon-only") && !node.matches(".toggle")) {

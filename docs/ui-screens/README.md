@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 203 screens,
-1174 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 210 screens,
+1225 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -171,6 +171,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Today — session complete](screens/today/done__phone-390-light-en.png) | 8 | The state after the day's session is logged. |
 | [Today — deload week](screens/today/deload-week__phone-390-light-en.png) | 3 | The active program's deload cycle shows its recovery note. |
 | [Resume saved draft](screens/today/draft-resume__phone-390-light-en.png) | 8 | Resume saved draft through production controls. |
+| [Today row actions](screens/today/context-menu__phone-390-light-en.png) | 8 | A Today exercise lifted above its context menu, opened through its visible actions button. |
+| [Today — skipped exercise](screens/today/skipped__phone-390-light-en.png) | 8 | A context-menu skip acknowledged on Today, stored only in the workout draft. |
 
 ### Workout logging
 
@@ -205,6 +207,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Substituted exercise actions](screens/workout/substituted-actions__phone-390-light-en.png) | 8 | workout/substituted-actions |
 | [Swap picker with alternates](screens/workout/swap-alternates__phone-390-light-en.png) | 3 | workout/swap-alternates |
 | [Swap picker with a reason chosen](screens/workout/swap-reason__phone-390-light-en.png) | 3 | workout/swap-reason |
+| [Workout actions](screens/workout/actions__phone-390-light-en.png) | 8 | Focus session actions with a separate Cancel, before any action commits. |
 
 ### Session summary
 
@@ -292,6 +295,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Program — share link ready](screens/program/share-ready__phone-390-light-en.png) | 8 | A valid setup link is ready for copy or system sharing. |
 | [Program — share as file](screens/program/share-too-large__phone-390-light-en.png) | 8 | An edited generated program is too large for a setup link; the sheet offers sharing it as a program file. |
 | [Program — text export](screens/program/text-export__phone-390-light-en.png) | 3 | The plain-text program export sheet. |
+| [Program row actions](screens/program/editor-context-menu__phone-390-light-en.png) | 8 | An installed editor exercise lifted above Move, Day and Remove actions. |
+| [Alternate row actions](screens/program/editor-alternate-context-menu__phone-390-light-en.png) | 3 | An alternate context menu above the still-open exercise editor sheet. |
 
 ### Settings
 
@@ -305,6 +310,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Settings — install guide](screens/settings/install-guide__phone-390-light-en.png) | 3 | The install guide where Settings offers Install (iOS Safari): the guide dialog centred over the dimmed Settings. |
 | [Settings — privacy and analytics](screens/settings/privacy__phone-390-light-en.png) | 3 | The privacy and analytics section. |
 | [Privacy — temporary install transfer](screens/settings/privacy-disclosure__phone-390-light-en.png) | 8 | The cached ADR 0013 disclosure reached from Settings. |
+| [Rest timer controls](screens/settings/rest-controls__phone-390-light-en.png) | 8 | Rest timer stepper and its typed field in the open Settings disclosure. |
+| [Load change controls](screens/settings/load-controls__phone-390-light-en.png) | 8 | Smallest load change stepper and its typed field in the open progression controls. |
 
 ### Install
 

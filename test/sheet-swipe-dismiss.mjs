@@ -468,7 +468,7 @@ async function run() {
   await page.click('nav button[data-view="log"]');
   await page.evaluate(() => window.__repforgeEnterWorkout({}));
   await page.waitForSelector("#workout.is-focus .exercise.is-current", { state: "attached", timeout: 5000 });
-  await page.locator("#woOverflowBtn").click();
+  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
   await page.locator("#exActionNotesBtn").click();
   await page.waitForSelector("#exNoteSheet.is-open", { timeout: 5000 });
   await page.waitForTimeout(320);
@@ -497,7 +497,7 @@ async function run() {
   // swiping the sheet — while a mouse there is selecting text and must be left
   // to it.
   phase("the note's own text area drags for a thumb, not for a mouse");
-  await page.locator("#woOverflowBtn").click();
+  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
   await page.locator("#exActionNotesBtn").click();
   await page.waitForSelector("#exNoteSheet.is-open", { timeout: 5000 });
   await page.waitForTimeout(320);

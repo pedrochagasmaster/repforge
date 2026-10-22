@@ -983,9 +983,9 @@ try {
   {
     const { context, page } = await openApp(browser, { seed: loggableProgram() });
     await page.evaluate(() => window.__repforgeShowSettings());
-    await page.selectOption("#unit", "lb");
+    await page.locator('#unitSegments [data-value="lb"]').click();
     await page.waitForFunction(() => window.__captured.some(([n]) => n === "settings_changed"), undefined, { timeout: 10000 });
-    await page.selectOption("#theme", "dark");
+    await page.locator('#themeSegments [data-value="dark"]').click();
     const changed = await eventsNamed(page, "settings_changed");
     assert(JSON.stringify(changed) === JSON.stringify([{ setting: "unit" }, { setting: "theme" }]),
       "the unit and the theme report by name, once each", JSON.stringify(changed));

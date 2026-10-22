@@ -2794,6 +2794,15 @@ const EN = {
   "program.split_day.workout_f": "Workout F",
   "entry.freeform.repair_invalid_json": "Your last reply was malformed JSON. Send the entire program again inside a single ```json code block, with no text outside the block. Do not add backslashes before [ ] { } outside quoted strings, and do not truncate the exercise list. Preserve all original exercises and numbers.",
   "entry.freeform.unreadable_invalid_json_body": "This reply's JSON is broken or cut off. Go back to the assistant and copy the whole JSON block again.",
+  "today.row_actions_hint": "Touch and hold for actions",
+  "today.skip_today": "Skip today",
+  "session.sheet.keep_training": "Keep training",
+  "program.editor.remove_alternate": "Remove",
+  "program.editor.day": "Day",
+  "settings.rest_shorter": "Shorter rest",
+  "settings.rest_longer": "Longer rest",
+  "program.editor.step_smaller": "Smaller step",
+  "program.editor.step_larger": "Larger step",
 };
 const PT = {
   "catalog.unavailable.title": "Biblioteca de exercícios indisponível",
@@ -5589,6 +5598,15 @@ const PT = {
   "program.split_day.workout_f": "Treino F",
   "entry.freeform.repair_invalid_json": "Sua última resposta continha JSON malformado. Envie o treino completo novamente em um único bloco de código ```json, sem texto fora dele. Não coloque barras invertidas antes de [ ] { } fora de strings e não corte a lista de exercícios. Preserve todos os exercícios e números originais.",
   "entry.freeform.unreadable_invalid_json_body": "O JSON desta resposta está quebrado ou incompleto. Volte ao assistente e copie o bloco JSON inteiro de novo.",
+  "today.row_actions_hint": "Toque e segure para ver ações",
+  "today.skip_today": "Pular hoje",
+  "session.sheet.keep_training": "Continuar treinando",
+  "program.editor.remove_alternate": "Remover",
+  "program.editor.day": "Dia",
+  "settings.rest_shorter": "Descanso mais curto",
+  "settings.rest_longer": "Descanso mais longo",
+  "program.editor.step_smaller": "Passo menor",
+  "program.editor.step_larger": "Passo maior",
 };
 (function (root) {
   const STRINGS = { en: EN, pt: PT };

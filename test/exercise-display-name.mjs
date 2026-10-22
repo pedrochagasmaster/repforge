@@ -365,7 +365,7 @@ async function visitFocus(page, { pt, label }) {
   await page.locator("#sessionSheet").waitFor({ state: "hidden" });
 
   // Exercise actions, its note sheet and the swap picker.
-  await page.locator("#woOverflowBtn").click();
+  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
   await page.waitForSelector("#exActionsSheet:not(.hidden)");
   expectNames(`${label} exercise actions title`, await joined(page, "#exActionsName"), { shown: [name("sq")], gone: pt ? [en("sq")] : [] });
   await page.locator("#exActionNotesBtn").click();
@@ -373,7 +373,7 @@ async function visitFocus(page, { pt, label }) {
   expectNames(`${label} exercise note sheet`, await joined(page, "#exNoteFor"), { shown: [name("sq")], gone: pt ? [en("sq")] : [] });
   await page.keyboard.press("Escape");
   await page.locator("#exNoteSheet").waitFor({ state: "hidden" });
-  if (!(await page.locator("#exActionsSheet").isVisible())) await page.locator("#woOverflowBtn").click();
+  if (!(await page.locator("#exActionsSheet").isVisible())) { await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click(); }
   await page.locator("#exActionSubstBtn").click();
   await page.waitForSelector("#exPickSheet:not(.hidden)");
   expectNames(`${label} swap picker subtitle`, await joined(page, "#exPickFor"), { shown: [name("sq")], gone: pt ? [en("sq")] : [] });

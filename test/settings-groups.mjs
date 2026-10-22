@@ -28,7 +28,7 @@ async function ready(page) {
     window.__repforgeShowSettings?.();
   });
   await page.waitForSelector("#settings.view.active", { timeout: 10000 });
-  await page.waitForSelector("#theme");
+  await page.waitForSelector("#themeSegments");
 }
 
 async function cleanSettings(page) {
@@ -48,10 +48,10 @@ async function cleanSettings(page) {
 
 const required = Object.freeze({
   training: [
-    "#unit", 'input[name="rirMode"]', "#jumpPct", "#minJump", "#rirHigh", "#hardRir",
+    "#unitSegments", 'input[name="rirMode"]', "#jumpPct", "#minJump", "#rirHigh", "#hardRir",
     "#saveSettings", "#createProgram", "#progressionRow",
   ],
-  app: ["#theme", "#lang", "#restSec", "#voiceToggle", "#notifyToggle", "#notifyConfigRow", "#installApp"],
+  app: ["#themeSegments", "#lang", "#restSec", "#voiceToggle", "#notifyToggle", "#notifyConfigRow", "#installApp"],
   data: ["#exportJson", "#exportCsv", "#importJson", "#telemetryToggle", "#privacyDetails", "#reset"],
   help: ["#guideReplayToggle", "#guideReplayList", "#settingsAbout", "#settingsSupport"],
 });
@@ -165,7 +165,7 @@ try {
 
   console.log("\nAppearance boundary");
   const stateBefore = await page.evaluate((dataKey) => localStorage.getItem(dataKey), DATA_KEY);
-  await page.selectOption("#theme", "dark");
+  await page.locator('#themeSegments [data-value="dark"]').click();
   await page.waitForFunction(() => document.documentElement.dataset.theme === "dark");
   const boundary = await page.evaluate(({ uiKey, dataKey }) => ({
     theme: JSON.parse(localStorage.getItem(uiKey) || "{}").theme,

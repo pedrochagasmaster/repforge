@@ -289,7 +289,7 @@ const D_FIXTURE_STATES = new Set([
   "workout/deload-week", // Plan 072 S4: the deload cue in Focus
   "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions", // R3d
   "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", // R3d
-  "workout/exercise-actions", // R3x: the redrawn sheet, on the lifter the drawing shows
+  "workout/actions", "workout/exercise-actions", // R3x: the redrawn sheet, on the lifter the drawing shows
   "workout/swap-alternates", // #317: the swap picker leads with the squat slot's alternates
   "workout/abandon", "workout/swap-reason", // Plan 071 §10: end-without-saving and the swap reason chips
   "history/list", "history/session", "history/edit-dirty", "history/edit-invalid", // R3j, R3j2
@@ -307,7 +307,7 @@ const D_FIXTURE_STATES = new Set([
  * states draw it), so Today's states read the log as it stood that morning.
  */
 const DIRECTION_D_BEFORE_SESSION = new Set([
-  "today/ready", "today/day-picker", "today/rest-bar", "today/draft-resume",
+  "today/skipped", "today/context-menu", "today/ready", "today/day-picker", "today/rest-bar", "today/draft-resume",
   "workout/why-this-weight", "workout/why-in-session",
   "workout/rest-running", "workout/rest-done",
 ]);
@@ -412,14 +412,14 @@ export function appState(key, lang) {
   // richer fixture so their progress and volume evidence remains meaningful.
   // The editor reads the canonical ProgramDefinition, not the flat `program`
   // projection, so both have to be narrowed together to the same two slots.
-  if (key === "program/progression-editor" || key === "program/editor-alternates" || key === "program/editor-suggest-loads") {
+  if (["program/progression-editor","program/editor-context-menu"].includes(key) || ["program/editor-alternates","program/editor-alternate-context-menu"].includes(key) || key === "program/editor-suggest-loads") {
     const kept = new Set(["seed-ex-1", "seed-ex-2"]);
     state.program = state.program.filter((exercise) => exercise.day !== "Day 1" || kept.has(exercise.id));
     for (const day of state.programMeta.programDefinition.days) {
       if (day.name === "Day 1") day.slots = day.slots.filter((slot) => kept.has(slot.id));
     }
   }
-  if (key === "program/editor-alternates") {
+  if (["program/editor-alternates","program/editor-alternate-context-menu"].includes(key)) {
     const slot = state.programMeta.programDefinition.days.flatMap((day) => day.slots).find((entry) => entry.id === "seed-ex-1");
     // The seed slot is itself a hack squat, so its list is leg press then a split squat.
     slot.alternates = [SQUAT_ALTERNATES[0], "1a25c6f170d8809eb8a5e76ff245649d"];
@@ -1779,11 +1779,11 @@ export const APP_SCENARIOS = {
     await resetSheetScroll(page, ".session-sheet__body");
     await resetSheetScroll(page, "#sessionEarlySection");
   },
-  "workout/exercise-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await resetSheetScroll(page, ".exactions-sheet__body"); },
+  "workout/exercise-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click(); await resetSheetScroll(page, ".exactions-sheet__body"); },
   "workout/skipped-actions": async page => {
     await focusMode(page);
     const id=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
-    await page.locator("#woOverflowBtn").click();
+    await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
     await page.locator("#exActionSkipBtn").click();
     await page.locator("#exActionsSheet").waitFor({state:"hidden"});
     await page.locator("#sessionSheetBtn").click();
@@ -1793,30 +1793,30 @@ export const APP_SCENARIOS = {
   },
   "workout/substituted-actions": async page => {
     await focusMode(page);
-    await page.locator("#woOverflowBtn").click();
+    await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
     await page.locator("#exActionSubstBtn").click();
     await page.locator("#exPickList .pickrow").first().click();
     await page.locator("#exPickSheet").waitFor({state:"hidden"});
-    await page.locator("#woOverflowBtn").click();
+    await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
     await resetSheetScroll(page, ".exactions-sheet__body");
   },
   "workout/swap-alternates": async page => {
     await focusMode(page);
-    await page.locator("#woOverflowBtn").click();
+    await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
     await page.locator("#exActionSubstBtn").click();
     await page.locator("#exPickSheet.is-open .pick__section").first().waitFor();
     await sleep(page, 400);
   },
   "workout/swap-reason": async page => {
     await focusMode(page);
-    await page.locator("#woOverflowBtn").click();
+    await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
     await page.locator("#exActionSubstBtn").click();
     await page.locator("#exPickSheet.is-open .pick__section").first().waitFor();
     await page.locator('#exPickReasons [data-pick-reason="crowded"]').click();
     await resetSheetScroll(page, "#exPickList");
     await sleep(page, 400);
   },
-  "workout/warmup-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); await resetSheetScroll(page, ".exactions-sheet__body"); },
+  "workout/warmup-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click(); await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); await resetSheetScroll(page, ".exactions-sheet__body"); },
   "workout/reorder": async page => {
     await focusMode(page);
     await page.click("#sessionSheetBtn");
@@ -1956,7 +1956,7 @@ export const APP_SCENARIOS = {
   "workout/exercise-note": async (page) => {
     await focusMode(page);
     // The header's ⋯ opens the exercise actions; the note is one of them.
-    await page.locator("#woOverflowBtn").click({ timeout: 20000 });
+    await page.locator("#woOverflowBtn").click({ timeout: 20000 }); await page.locator('[data-workout-action="exercise"]').click();
     await page.locator("#exActionNotesBtn").click({ timeout: 20000 });
     await page.waitForSelector("#exNoteSheet.is-open", { timeout: 20000 });
     await sleep(page, 400);
@@ -2459,8 +2459,40 @@ export const APP_SCENARIOS = {
     await sleep(page, 400);
   },
 
+  "today/skipped": async page => {
+    await dismissChrome(page); await page.locator('#todayExList [data-row-menu]').first().click();
+    await page.locator('#nativeContextMenu [data-menu-value="skip"]').click();
+    await page.waitForSelector('#todayExList .is-skipped');
+  },
+  "today/context-menu": async page => {
+    await dismissChrome(page);
+    await page.locator('#todayExList [data-row-menu]').first().click();
+    await page.waitForSelector('#nativeContextMenu[open]');
+  },
+  "workout/actions": async page => {
+    await focusMode(page); await page.click('#woOverflowBtn');
+    await page.waitForSelector('#workoutActionSheet.is-open');
+  },
+  "program/editor-context-menu": async page => {
+    await openProgram(page); await openEditorA(page);
+    await page.locator('#programEditor [data-row-menu]').first().click();
+    await page.waitForSelector('#nativeContextMenu[open]');
+  },
+  "program/editor-alternate-context-menu": async page => {
+    await openProgram(page); await openEditorA(page); await openEditorSheetA(page, "seed-ex-1");
+    await page.locator('#reviewSheet [data-role="alternate"] [data-row-menu]').first().click();
+    await page.waitForSelector('#nativeContextMenu[open]');
+  },
+  "settings/rest-controls": async page => {
+    await openSettings(page); await page.click('#restSecRow');
+    await page.locator('#restSecPanel').scrollIntoViewIfNeeded();
+  },
+  "settings/load-controls": async page => {
+    await openSettings(page); await page.click('#progressionRow');
+    await page.locator('#minJump').scrollIntoViewIfNeeded();
+  },
   "settings/main": (page) => openSettings(page),
-  "settings/appearance": (page) => openSettings(page, "#theme"),
+  "settings/appearance": (page) => openSettings(page, "#themeSegments"),
   "settings/guides": async (page) => {
     await openSettings(page, "#guideReplayToggle");
     await page.click("#guideReplayToggle");

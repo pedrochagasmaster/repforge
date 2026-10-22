@@ -264,7 +264,7 @@ async function main() {
     await sessionField(page, "#sessionBodyweight", 82.5);
     await sessionField(page, "#sessionNotes", SESSION_NOTE);
     await selectExercise(page, first.id);
-    await page.locator("#woOverflowBtn").click();
+    await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
     await page.locator("#exActionNotesBtn").click();
     await page.locator("#exNoteText").fill(EXERCISE_NOTE);
     await page.locator("#exNoteSave").click();

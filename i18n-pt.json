@@ -2791,5 +2791,14 @@
   "program.split_day.workout_e": "Treino E",
   "program.split_day.workout_f": "Treino F",
   "entry.freeform.repair_invalid_json": "Sua última resposta continha JSON malformado. Envie o treino completo novamente em um único bloco de código ```json, sem texto fora dele. Não coloque barras invertidas antes de [ ] { } fora de strings e não corte a lista de exercícios. Preserve todos os exercícios e números originais.",
-  "entry.freeform.unreadable_invalid_json_body": "O JSON desta resposta está quebrado ou incompleto. Volte ao assistente e copie o bloco JSON inteiro de novo."
+  "entry.freeform.unreadable_invalid_json_body": "O JSON desta resposta está quebrado ou incompleto. Volte ao assistente e copie o bloco JSON inteiro de novo.",
+  "today.row_actions_hint": "Toque e segure para ver ações",
+  "today.skip_today": "Pular hoje",
+  "session.sheet.keep_training": "Continuar treinando",
+  "program.editor.remove_alternate": "Remover",
+  "program.editor.day": "Dia",
+  "settings.rest_shorter": "Descanso mais curto",
+  "settings.rest_longer": "Descanso mais longo",
+  "program.editor.step_smaller": "Passo menor",
+  "program.editor.step_larger": "Passo maior"
 }

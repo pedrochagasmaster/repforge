@@ -1881,6 +1881,55 @@
       "label": "Program Lab candidate prescriptions",
       "scenario": "Actual dedicated worker runs bundled default and low-RIR candidate; frame the resulting candidate prescriptions on the isolated artifact origin.",
       "variants": "programlab"
+    },
+    {
+      "id": "context-menu",
+      "flow": "today",
+      "label": "Today row actions",
+      "scenario": "A Today exercise lifted above its context menu, opened through its visible actions button.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "actions",
+      "flow": "workout",
+      "label": "Workout actions",
+      "scenario": "Focus session actions with a separate Cancel, before any action commits.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "editor-context-menu",
+      "flow": "program",
+      "label": "Program row actions",
+      "scenario": "An installed editor exercise lifted above Move, Day and Remove actions.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "editor-alternate-context-menu",
+      "flow": "program",
+      "label": "Alternate row actions",
+      "scenario": "An alternate context menu above the still-open exercise editor sheet.",
+      "variants": "standard"
+    },
+    {
+      "id": "rest-controls",
+      "flow": "settings",
+      "label": "Rest timer controls",
+      "scenario": "Rest timer stepper and its typed field in the open Settings disclosure.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "load-controls",
+      "flow": "settings",
+      "label": "Load change controls",
+      "scenario": "Smallest load change stepper and its typed field in the open progression controls.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "skipped",
+      "flow": "today",
+      "label": "Today — skipped exercise",
+      "scenario": "A context-menu skip acknowledged on Today, stored only in the workout draft.",
+      "variants": "demandingText"
     }
   ]
 }

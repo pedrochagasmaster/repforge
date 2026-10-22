@@ -743,7 +743,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   await page.waitForSelector("#workoutShell:not(.hidden)");
   // The note opens from the exercise actions, which the header's three-dot button opens.
   const noteId = "woOverflowBtn";
-  await page.locator("#woOverflowBtn").click();
+  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
   await page.locator("#exActionNotesBtn").click();
   await page.waitForFunction(() => {
     const s = document.querySelector("#exNoteSheet");
@@ -767,7 +767,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   assert(after.leaked.length === 0, "Exercise Note: close restores inertness", JSON.stringify(after.leaked));
   assert(after.focusNote === noteId, "Exercise Note: Cancel returns focus to the exact note trigger", JSON.stringify({ noteId, after }));
 
-  await page.locator("#woOverflowBtn").click();
+  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
   await page.locator("#exActionNotesBtn").click();
   await page.waitForSelector("#exNoteSheet:not([hidden])", { timeout: 8000 });
   await page.locator("#exNoteText").fill("Saved focus note");
@@ -2034,7 +2034,7 @@ async function runDimmedStateAccessibility(browser) {
     await page.click("#startWorkout");
     await page.waitForSelector("#workoutShell:not(.hidden)");
 
-    await page.locator("#woOverflowBtn").click();
+    await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
     await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click();
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     await page.locator("#exActionsClose").click();
@@ -2057,7 +2057,7 @@ async function runDimmedStateAccessibility(browser) {
     );
 
     const skippedId=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
-    await page.locator("#woOverflowBtn").click();
+    await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
     await page.locator("#exActionSkipBtn").click();
     await page.locator("#exActionsSheet").waitFor({state:"hidden"});
     await page.locator("#sessionSheetBtn").click();
@@ -2083,7 +2083,7 @@ async function runDimmedStateAccessibility(browser) {
     await page.locator("#sessionSheetBtn").click();
     await page.locator(`[data-session-map-jump="${skippedId}"]`).click();
     await page.locator("#sessionSheet").waitFor({state:"hidden"});
-    await page.locator("#woOverflowBtn").click();
+    await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
     const skip=lang==="pt"?"Pular exercício":"Skip exercise";
     assert(await page.getByRole("button",{name:skip,exact:true}).count()===1,
       `restoring returns the action to Skip semantics (${lang})`);
@@ -2260,7 +2260,7 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
   await page.click("#openSettings");
   await page.waitForSelector("#settings.view.active");
   const settingsRing = await page.evaluate(() => {
-    const el = document.querySelector("#unit, .settings-row select");
+    const el = document.querySelector("#lang");
     el?.focus();
     const st = getComputedStyle(el);
     return { outline: st.outlineStyle, outlineW: parseFloat(st.outlineWidth) || 0, shadow: st.boxShadow };

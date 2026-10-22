@@ -728,7 +728,7 @@ async function runAcceptedRename(browser) {
       }),
       { exerciseId: EXERCISE_ID, keys: SET_FIELD_KEYS }
     );
-    await page.locator("#woOverflowBtn").click();
+    await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
     await page.locator("#exActionNotesBtn").click();
     await page.waitForSelector("#exNoteSheet.is-open", { timeout: 5000 });
     workoutUi.notes=await page.locator("#exNoteText").inputValue();

@@ -1442,7 +1442,196 @@
     document.addEventListener("keyup", pressKeyUp, true);
   }
 
+  const actionSheetRuns = new WeakMap();
+  async function animateActionSheet(sheet, open) {
+    if (!available || reducedMotion() || sheet.hidden) return false;
+    actionSheetRuns.get(sheet)?.stop();
+    const from = open ? "translateY(101%)" : getComputedStyle(sheet).transform;
+    const to = open ? "translateY(0%)" : "translateY(101%)";
+    const run = animate(sheet, { transform: [from, to] }, VOCABULARY.navPush);
+    actionSheetRuns.set(sheet, run);
+    await run;
+    if (actionSheetRuns.get(sheet) !== run) return false;
+    actionSheetRuns.delete(sheet);
+    sheet.style.transform = open ? "" : to;
+    return true;
+  }
+
+  function animateContextMenu(panel, preview, open = true) {
+    if (!available || reducedMotion()) return settled;
+    const spring = open ? VOCABULARY.gestureSettle : VOCABULARY.gestureExit;
+    return Promise.all([
+      animate(panel, { transform: open ? ["scale(.97)", "scale(1)"] : [getComputedStyle(panel).transform, "scale(.97)"],
+        opacity: open ? [0, 1] : [Number(getComputedStyle(panel).opacity), 0] }, spring),
+      animate(preview, { transform: open ? ["scale(1)", "scale(1.03)"] : [getComputedStyle(preview).transform, "scale(1)"] }, spring)
+    ]);
+  }
+
+  const segmentedMounts = new WeakSet();
+  function syncNativeControls(root = document) {
+    root.querySelectorAll("[data-segment-input]").forEach(group => {
+      const input = document.getElementById(group.dataset.segmentInput);
+      const options = [...group.querySelectorAll('[role="radio"]')];
+      const thumb = group.querySelector(".native-segments__thumb");
+      const place = (animate = false) => {
+        const selected = options.find(option => option.dataset.value === input.value);
+        if (!selected) return;
+        const from = thumb.getBoundingClientRect();
+        options.forEach(option => { const on = option === selected; option.setAttribute("aria-checked", String(on)); option.tabIndex = on ? 0 : -1; });
+        thumb.style.left = `${selected.offsetLeft}px`;
+        thumb.style.width = `${selected.offsetWidth}px`;
+        if (animate) animateIndicator(thumb, from);
+      };
+      place();
+      if (segmentedMounts.has(group)) return;
+      segmentedMounts.add(group);
+      const choose = (option, focus = false) => {
+        if (!option || !group.contains(option)) return;
+        input.value = option.dataset.value; place(true);
+        if (focus) option.focus({ preventScroll: true });
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      };
+      let dragging = false, moved = false, pressedOption = null;
+      group.addEventListener("click", event => {
+        if (moved && event.detail !== 0) { moved = false; event.preventDefault(); return; }
+        choose(event.target.closest('[role="radio"]'));
+      });
+      group.addEventListener("keydown", event => {
+        const index = options.indexOf(document.activeElement);
+        if (index < 0) return;
+        const delta = /^(ArrowRight|ArrowDown)$/.test(event.key) ? 1 : /^(ArrowLeft|ArrowUp)$/.test(event.key) ? -1 : 0;
+        if (!delta && event.key !== "Home" && event.key !== "End") return;
+        event.preventDefault();
+        choose(options[event.key === "Home" ? 0 : event.key === "End" ? options.length - 1 : (index + delta + options.length) % options.length], true);
+      });
+      group.addEventListener("pointerdown", event => {
+        moved = false;
+        pressedOption = event.target.closest('[role="radio"]');
+        dragging = event.button === 0 && pressedOption?.getAttribute("aria-checked") === "true";
+        if (dragging && event.isTrusted) group.setPointerCapture(event.pointerId);
+      });
+      group.addEventListener("pointermove", event => {
+        if (!dragging) return;
+        const option = document.elementFromPoint(event.clientX, event.clientY)?.closest('[role="radio"]');
+        if (option && group.contains(option) && option.dataset.value !== input.value) { moved = true; choose(option); }
+      });
+      const stop = event => {
+        if (dragging && event.type === "pointerup") {
+          if (!moved) choose(pressedOption);
+          else options.find(option => option.dataset.value === input.value)?.focus({ preventScroll: true });
+        }
+        dragging = false;
+      };
+      group.addEventListener("pointerup", stop);
+      group.addEventListener("pointercancel", stop);
+      new ResizeObserver(() => place()).observe(group);
+    });
+    [...(root.matches?.(".native-stepper") ? [root] : []), ...root.querySelectorAll(".native-stepper")].forEach(stepper => {
+      const input = stepper.querySelector("input");
+      if (!input) return;
+      const value = Number(input.value.replace(",", "."));
+      stepper.querySelectorAll("[data-step-delta]").forEach(button => {
+        button.disabled = Number.isFinite(value) && (Number(button.dataset.stepDelta) < 0 ? value <= Number(input.dataset.stepMin) : value >= Number(input.dataset.stepMax));
+      });
+    });
+  }
+
+  function installNativeControls() {
+    let repeat = null, repeatedButton = null, hold = null, contextTouch = null, suppressedRow = null;
+    const step = button => {
+      const stepper = button.closest(".native-stepper"), input = stepper?.querySelector("input");
+      if (!input || button.disabled || !button.isConnected) return false;
+      const current = Number(input.value.replace(",", "."));
+      if (!Number.isFinite(current)) return false;
+      const delta = Number(button.dataset.stepDelta);
+      const candidate = Math.round((current + delta * Number(input.dataset.stepSize)) * 1000) / 1000;
+      const next = delta < 0 ? Math.max(Number(input.dataset.stepMin), candidate) : Math.min(Number(input.dataset.stepMax), candidate);
+      if (next === current) return false;
+      input.value = String(next);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      const output = stepper.querySelector("output"); if (output) output.textContent = input.value;
+      syncNativeControls(stepper);
+      return true;
+    };
+    const stopRepeat = () => { clearTimeout(repeat); repeat = null; hold = null; };
+    document.addEventListener("pointerdown", event => {
+      suppressedRow = null;
+      const button = event.target.closest?.("[data-step-delta]");
+      if (!button || button.disabled || event.button !== 0) return;
+      stopRepeat(); repeatedButton = null; hold = { button, id: event.pointerId, steps: 0 };
+      const tick = () => {
+        if (!hold) return;
+        repeatedButton = button;
+        if (!step(button)) { stopRepeat(); return; }
+        repeat = setTimeout(tick, ++hold.steps >= 12 ? 45 : 90);
+      };
+      repeat = setTimeout(tick, 400);
+    });
+    document.addEventListener("pointermove", event => {
+      if (!hold || hold.id !== event.pointerId) return;
+      const r = hold.button.getBoundingClientRect();
+      if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) stopRepeat();
+    }, { passive: true });
+    document.addEventListener("pointerup", stopRepeat);
+    document.addEventListener("pointercancel", stopRepeat);
+    document.addEventListener("scroll", stopRepeat, { capture: true, passive: true });
+    global.addEventListener("blur", stopRepeat);
+    document.addEventListener("visibilitychange", stopRepeat);
+    document.addEventListener("click", event => {
+      const button = event.target.closest?.("[data-step-delta]");
+      if (button) { if (event.detail === 0 || repeatedButton !== button) step(button); repeatedButton = null; }
+    });
+    const contextRow = target => target.closest?.("[data-context-row]");
+    const request = (row, point) => row.dispatchEvent(new CustomEvent("rowcontext", { bubbles: true, detail: point }));
+    const cancelHold = () => { clearTimeout(contextTouch?.timer); contextTouch = null; };
+    document.addEventListener("touchstart", event => {
+      cancelHold(); suppressedRow = null;
+      const row = contextRow(event.target);
+      if (!row || event.touches.length !== 1 || event.target.closest("input,textarea,select,[data-row-menu]")) return;
+      const p = event.touches[0];
+      const run = contextTouch = { row, x: p.clientX, y: p.clientY, fired: false };
+      run.timer = setTimeout(() => {
+        if (!row.isConnected) return cancelHold();
+        run.fired = true; suppressedRow = row; clearPress();
+        request(row, { x: run.x, y: run.y });
+      }, 450);
+    }, { passive: true });
+    document.addEventListener("touchmove", event => {
+      const run = contextTouch; if (!run) return;
+      if (event.touches.length !== 1) { cancelHold(); return; }
+      const p = event.touches[0];
+      if (!run.fired) { if (Math.hypot(p.clientX - run.x, p.clientY - run.y) > 10) cancelHold(); return; }
+      if (event.cancelable) event.preventDefault();
+      document.dispatchEvent(new CustomEvent("contextslide", { detail: { x: p.clientX, y: p.clientY, up: false } }));
+    }, { passive: false });
+    document.addEventListener("touchend", event => {
+      const run = contextTouch; cancelHold(); if (!run?.fired) return;
+      if (event.cancelable) event.preventDefault();
+      const p = event.changedTouches[0];
+      document.dispatchEvent(new CustomEvent("contextslide", { detail: { x: p.clientX, y: p.clientY, up: true } }));
+    }, { passive: false });
+    document.addEventListener("touchcancel", cancelHold);
+    document.addEventListener("scroll", () => { if (!contextTouch?.fired) cancelHold(); }, { capture: true, passive: true });
+    document.addEventListener("click", event => {
+      if (event.detail !== 0 && suppressedRow?.contains(event.target)) { event.preventDefault(); event.stopImmediatePropagation(); suppressedRow = null; }
+    }, true);
+    document.addEventListener("contextmenu", event => {
+      const row = contextRow(event.target); if (!row) return;
+      event.preventDefault();
+      if (!contextTouch?.fired) request(row, { x: event.clientX, y: event.clientY });
+    });
+    document.addEventListener("keydown", event => {
+      if (!(event.key === "ContextMenu" || event.key === "F10" && event.shiftKey)) return;
+      const row = contextRow(event.target); if (!row) return;
+      event.preventDefault(); request(row);
+    });
+  }
+
   global.RepForgeMotion = {
+    syncNativeControls,
+    animateContextMenu,
+    animateActionSheet,
     available: () => available,
     reducedMotion,
     vocabulary: VOCABULARY,
@@ -1467,6 +1656,7 @@
 
   installPreferenceStyles();
   installPressFeedback();
+  installNativeControls();
 
   if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", normalizeInstallBannerSemantics, { once: true });

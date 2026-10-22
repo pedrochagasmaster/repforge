@@ -1059,7 +1059,7 @@ async function main() {
 
   // ---- 08 — the note sheet ---------------------------------------------------
   phase("State 08: exercise-note editor");
-  await page.locator("#woOverflowBtn").click();
+  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
   await page.waitForSelector("#exActionsSheet.is-open");
   await page.locator("#exActionNotesBtn").click();
   await page.waitForSelector("#exNoteSheet:not(.hidden)");
@@ -1138,7 +1138,7 @@ async function main() {
   assert(noteSaved.marked, "the card's note line shows the exercise now has one");
   assert(await page.evaluate(() => document.activeElement?.id === "woOverflowBtn" && document.activeElement.isConnected),
     "saving the sheet returns focus to the header's actions button");
-  await page.locator("#woOverflowBtn").click();
+  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
   await page.waitForSelector("#exActionsSheet.is-open");
   await page.locator("#exActionNotesBtn").click();
   await page.waitForSelector("#exNoteSheet:not(.hidden)");
