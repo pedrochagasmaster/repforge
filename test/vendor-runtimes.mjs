@@ -130,16 +130,20 @@ assert(notice.includes("Motion animation runtime") && notice.includes("Copyright
 {
   const vocabulary = motion.api.vocabulary;
   assert(vocabulary && typeof vocabulary === "object", "one named motion vocabulary is exposed");
-  for (const name of ["gestureSettle", "gestureExit", "layoutShift", "navPush", "revealIn", "revealOut"]) {
+  for (const name of ["gestureSettle", "gestureExit", "layoutShift", "navPush", "pressRelease", "revealIn", "revealOut"]) {
     assert(Object.hasOwn(vocabulary, name), `the vocabulary names ${name}`);
   }
   const values = Object.values(vocabulary);
   const durations = values.filter((v) => Object.hasOwn(v, "duration")).map((v) => v.duration);
   assert(durations.length === 2 && durations.every((d) => Number.isFinite(d) && d <= 0.3), "both tweens stay within 300ms");
   const springs = values.filter((v) => v.type === "spring");
-  assert(springs.length === 4 && springs.every((s) => s.stiffness > 0 && s.damping > 0 && s.mass > 0) && values.every((v) => !Object.hasOwn(v, "visualDuration") && !Object.hasOwn(v, "bounce")), "all springs use physics parameters, not duration or bounce");
-  const ratios = springs.map((s) => Math.round(s.damping / (2 * Math.sqrt(s.stiffness * s.mass)) * 100) / 100);
-  assert(ratios.every((z) => z >= 0.75 && z <= 1.05), "springs are damped between 0.75 and critical", ratios.join(", "));
+  assert(springs.length === 5 && springs.every((s) => s.stiffness > 0 && s.damping > 0 && s.mass > 0) && values.every((v) => !Object.hasOwn(v, "visualDuration") && !Object.hasOwn(v, "bounce")), "all springs use physics parameters, not duration or bounce");
+  const zeta = (s) => Math.round(s.damping / (2 * Math.sqrt(s.stiffness * s.mass)) * 100) / 100;
+  // pressRelease is never handed to Motion: it is sampled into the CSS press release curve (ADR 0023).
+  const ratios = Object.entries(vocabulary).filter(([name, v]) => v.type === "spring" && name !== "pressRelease").map(([, s]) => zeta(s));
+  assert(ratios.length === 4 && ratios.every((z) => z >= 0.75 && z <= 1.05), "the Motion springs are damped between 0.75 and critical", ratios.join(", "));
+  assert(vocabulary.pressRelease.stiffness === 900 && vocabulary.pressRelease.damping === 42 && zeta(vocabulary.pressRelease) === 0.7,
+    "the press release is the approved k=900, c=42 spring, ζ≈0.7", JSON.stringify(vocabulary.pressRelease));
   assert(springs.every((s) => Number.isFinite(s.restDelta) && s.restDelta > 0), "each spring has a pixel-scale rest threshold");
   const strayLiterals = [...layer.matchAll(/type\s*:\s*["']spring["']/g)].length - springs.length;
   assert(strayLiterals === 0, "no spring literals appear outside the vocabulary");

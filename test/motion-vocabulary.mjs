@@ -357,10 +357,35 @@ await section(async () => {
     JSON.stringify({ rest, thrown, backwards }));
 });
 
+console.log("\npressRelease, the press release curve");
+await section(async () => {
+  const appended = [];
+  const sandbox = {
+    document: { readyState: "complete", getElementById: () => null, createElement: () => ({}), head: { append: el => appended.push(el) }, addEventListener() {} },
+    matchMedia: () => ({ matches: false }),
+  };
+  vm.runInNewContext(layer, sandbox, { filename: "motion-layer.js", timeout: 1000 });
+  const css = appended.map(el => el.textContent || "").join("\n");
+  const points = (/--ease-press-release:\s*linear\(([^)]*)\)/.exec(css)?.[1] || "").split(",").map(Number);
+  const ms = Number(/--press-release-duration:\s*(\d+)ms/.exec(css)?.[1]);
+  assert(points.length > 5 && points[0] === 0 && points.at(-1) === 1, "the layer writes the release as a linear() curve from 0 to 1", css.slice(0, 200));
+  assert(/@supports \(transition-timing-function: linear\(0, 1\)\)/.test(css), "only where linear() is supported; the stylesheet's ease-out stands in elsewhere");
+  const peak = Math.max(...points);
+  assert(peak > 1 && peak < 1.06, "it overshoots a little, as a ζ≈0.7 spring does, and never by 6%", String(peak));
+  const firstPeak = points.indexOf(peak);
+  assert(points.slice(0, firstPeak + 1).every((v, i, a) => i === 0 || v >= a[i - 1]), "it rises without a dip to its one peak");
+  assert(ms >= 250 && ms <= 500, "it comes to rest between 250 and 500ms", String(ms));
+});
+
 console.log("\nno spring literal at a call site");
 await section(async () => {
   const vocab = layer.slice(layer.indexOf("const VOCABULARY"), layer.indexOf("};", layer.indexOf("const VOCABULARY")));
-  const outside = layer.replace(vocab, "");
+  // The press release curve samples its spring from the vocabulary, so it names the parameters it reads.
+  const curveStart = layer.indexOf("function pressReleaseCurve(");
+  const curve = layer.slice(curveStart, layer.indexOf("\n  }\n", curveStart));
+  assert(curveStart > 0 && /const spring = VOCABULARY\.pressRelease;/.test(curve) && !/(stiffness|damping|restDelta|restSpeed)\s*:/.test(curve),
+    "the press release curve reads its spring from the vocabulary and declares none");
+  const outside = layer.replace(vocab, "").replace(curve, "");
   assert(!/stiffness|damping|restDelta|restSpeed/.test(outside), "no spring parameter appears in the layer outside the vocabulary");
   for (const file of ["app.js", "program-editor.js", "history-ui.js"]) {
     assert(!/\bstiffness\b|type\s*:\s*["']spring["']/.test(read(file)), `${file} declares no spring`);

@@ -23,6 +23,12 @@
        interrupted push, a back swipe committed from a release velocity) carries
        its speed. Its own name because no gesture drives a tapped push. */
     navPush: { type: "spring", stiffness: 700, damping: 53, mass: 1, restDelta: 1, restSpeed: 40 },
+    /* A pressed control returning to rest (ADR 0023). Never handed to Motion:
+       the press module samples it into a CSS linear() curve, so a release costs
+       no JavaScript per frame. ζ≈0.7 on purpose; its overshoot on a 3% scale is
+       a fifth of a pixel on a 54px button. Its rest thresholds are in the
+       curve's 0–1 units. */
+    pressRelease: { type: "spring", stiffness: 900, damping: 42, mass: 1, restDelta: 0.001, restSpeed: 0.01 },
     revealIn: { duration: 0.2, ease: [0.2, 0.7, 0.2, 1] },
     revealOut: { duration: 0.15, ease: [0.4, 0, 0.8, 0.2] },
   };
@@ -1161,6 +1167,128 @@
     return mountGestureController();
   }
 
+  /* Press feedback (ADR 0023, audit F-3). One delegated owner for every press:
+     the stylesheets style `.is-pressed`, not `:active`, so a press shows on
+     touch-down and is taken back when the finger slides off, which `:active`
+     can't do. A touch in a scroller waits PRESS_SCROLL_DELAY first (iOS's
+     delaysContentTouches, shortened) so a scroll that starts on a row doesn't
+     flash it, and `.is-press-pending` marks that wait. A control in a fixed or
+     sticky layer (a bar, the dock, the shelf, a floating action) doesn't travel
+     under a scroll and is pressed at once. The release is the stylesheets'
+     transition on the pressRelease curve. Needs no runtime; installs once. */
+  const PRESSABLE = "button,a[href],summary,label,[role='button'],[role='switch'],[role='tab'],[role='radio'],[role='checkbox'],[role='menuitem'],[role='menuitemradio'],[role='option']";
+  const PRESS_SLOP = 10;
+  const PRESS_SCROLL_DELAY = 60;
+  const PRESS_STYLE_ID = "taurifer-press-release";
+  let press = null;
+
+  function pressable(target) {
+    const el = target instanceof Element ? target.closest(PRESSABLE) : null;
+    if (!el || el.matches(":disabled") || el.getAttribute("aria-disabled") === "true") return null;
+    return el;
+  }
+  function pressInScroller(el) {
+    for (let node = el; node && node !== document.documentElement; node = node.parentElement) {
+      const style = getComputedStyle(node);
+      if (style.position === "fixed" || style.position === "sticky") return false;
+      if (node !== el && /auto|scroll/.test(style.overflowY) && node.scrollHeight > node.clientHeight) return true;
+    }
+    const root = document.scrollingElement || document.documentElement;
+    return root.scrollHeight > root.clientHeight;
+  }
+  function pressInside(el, x, y) {
+    const r = el.getBoundingClientRect();
+    return x > r.left - PRESS_SLOP && x < r.right + PRESS_SLOP && y > r.top - PRESS_SLOP && y < r.bottom + PRESS_SLOP;
+  }
+  function clearPress() {
+    const current = press;
+    if (!current) return;
+    press = null;
+    clearTimeout(current.timer);
+    current.el.classList.remove("is-pressed", "is-press-pending");
+  }
+  function pressDown(event) {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    clearPress();
+    const el = pressable(event.target);
+    if (!el) return;
+    const current = { el, id: event.pointerId, x: event.clientX, y: event.clientY, timer: 0,
+      scroller: event.pointerType !== "mouse" && pressInScroller(el) };
+    press = current;
+    if (!current.scroller) {
+      el.classList.add("is-pressed");
+      return;
+    }
+    el.classList.add("is-press-pending");
+    current.timer = setTimeout(() => {
+      if (press !== current) return;
+      el.classList.remove("is-press-pending");
+      el.classList.add("is-pressed");
+    }, PRESS_SCROLL_DELAY);
+  }
+  function pressMove(event) {
+    const current = press;
+    if (!current || event.pointerId !== current.id) return;
+    if (current.scroller && Math.hypot(event.clientX - current.x, event.clientY - current.y) > PRESS_SLOP) {
+      clearPress();
+      return;
+    }
+    if (!current.el.classList.contains("is-press-pending"))
+      current.el.classList.toggle("is-pressed", pressInside(current.el, event.clientX, event.clientY));
+  }
+  function pressEnd(event) {
+    if (press && event.pointerId === press.id) clearPress();
+  }
+  function pressKeyDown(event) {
+    if (event.repeat || (event.key !== " " && event.key !== "Enter")) return;
+    const el = pressable(event.target);
+    if (el && el === event.target) el.classList.add("is-pressed");
+  }
+  function pressKeyUp(event) {
+    if (!press && event.target instanceof Element) event.target.classList.remove("is-pressed");
+  }
+
+  /* The release curve: the pressRelease spring's unit step response, sampled
+     every 25ms until it rests, as a CSS linear() and its duration. */
+  function pressReleaseCurve() {
+    const spring = VOCABULARY.pressRelease;
+    const h = 1 / 1000;
+    const points = [0];
+    let x = 0, v = 0, ms = 0;
+    while (ms < 1000) {
+      for (let i = 0; i < 25; i++) {
+        v += (-spring.stiffness * (x - 1) - spring.damping * v) / spring.mass * h;
+        x += v * h;
+      }
+      ms += 25;
+      points.push(+x.toFixed(4));
+      if (Math.abs(1 - x) < spring.restDelta && Math.abs(v) < spring.restSpeed) break;
+    }
+    points[points.length - 1] = 1;
+    return { ease: `linear(${points.join(",")})`, ms };
+  }
+
+  function installPressFeedback() {
+    if (document.getElementById(PRESS_STYLE_ID)) return;
+    const curve = pressReleaseCurve();
+    const style = document.createElement("style");
+    style.id = PRESS_STYLE_ID;
+    style.textContent = `
+:root { --press-release-duration: ${curve.ms}ms; }
+@supports (transition-timing-function: linear(0, 1)) {
+  :root { --ease-press-release: ${curve.ease}; }
+}`;
+    document.head.append(style);
+    document.addEventListener("pointerdown", pressDown, true);
+    document.addEventListener("pointermove", pressMove, { capture: true, passive: true });
+    document.addEventListener("pointerup", pressEnd, true);
+    document.addEventListener("pointercancel", pressEnd, true);
+    document.addEventListener("scroll", clearPress, { capture: true, passive: true });
+    document.addEventListener("visibilitychange", clearPress);
+    document.addEventListener("keydown", pressKeyDown, true);
+    document.addEventListener("keyup", pressKeyUp, true);
+  }
+
   global.RepForgeMotion = {
     available: () => available,
     reducedMotion,
@@ -1180,6 +1308,7 @@
   };
 
   installPreferenceStyles();
+  installPressFeedback();
 
   if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", normalizeInstallBannerSemantics, { once: true });

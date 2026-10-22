@@ -12,9 +12,16 @@
   animation-duration:.14s;
   animation-timing-function:cubic-bezier(.2,.7,.2,1);
 }
-.btn{transition-duration:.1s,.18s,.18s,.18s}
-.btn:active{transform:translateY(1px) scale(.975)}
-nav button:active{transform:scale(.975)}
+.btn{
+  transition-duration:var(--press-release-duration),.18s,.18s,.18s;
+  transition-timing-function:var(--ease-press-release),ease,ease,ease;
+}
+.btn.is-pressed{transform:translateY(1px) scale(.975)}
+.btn--cta.is-pressed{transform:var(--control-pressed-transform)}
+nav button.is-pressed{transform:scale(.975)}
+/* Touch-down is instant; only the release travels (ADR 0023). */
+.btn.is-pressed,nav button.is-pressed{transition-duration:0s}
+nav button{transition-duration:.2s,var(--press-release-duration);transition-timing-function:ease,var(--ease-press-release)}
 
 /* ---- Set completion: acknowledgement, not ceremony ----
    A lifter can trigger this dozens of times in one session. Keep the state
@@ -128,7 +135,7 @@ nav button:active{transform:scale(.975)}
   transform-origin:right center;
   transition:transform .24s cubic-bezier(.32,.72,0,1);
 }
-.toggle:active::after{
+.toggle.is-pressed::after{
   width:27px;
   transform:scaleX(1.12);
   transform-origin:right center;
@@ -139,9 +146,9 @@ nav button:active{transform:scale(.975)}
   transform:translateX(20px);
   transform-origin:left center;
 }
-.toggle[aria-checked="true"]:active::after,
-.toggle[aria-pressed="true"]:active::after,
-.toggle.is-on:active::after{
+.toggle[aria-checked="true"].is-pressed::after,
+.toggle[aria-pressed="true"].is-pressed::after,
+.toggle.is-on.is-pressed::after{
   width:27px;
   transform:translateX(20px) scaleX(1.12);
   transform-origin:left center;
@@ -277,6 +284,8 @@ nav button:active{transform:scale(.975)}
 
 /* Reduced motion is a semantic alternate state, not a slower animation. */
 @media (prefers-reduced-motion:reduce){
+  /* A pressed primary keeps its tone and drops its scale (ADR 0023). */
+  :root{--control-primary-pressed-transform:none}
   .view,
   .effortpop.is-open,
   .effortpop.is-closing,
@@ -294,10 +303,10 @@ nav button:active{transform:scale(.975)}
   .motion-steps-ready .motion-step{opacity:1;transform:none;transition:none}
   .motion-hairline.is-pending::after{animation:none;content:none}
   .motion-hairline.is-pending .motion-hairline__label{display:block}
-  .toggle:active::after{transform:none}
-  .toggle[aria-checked="true"]:active::after,
-  .toggle[aria-pressed="true"]:active::after,
-  .toggle.is-on:active::after{transform:translateX(20px)}
+  .toggle.is-pressed::after{transform:none}
+  .toggle[aria-checked="true"].is-pressed::after,
+  .toggle[aria-pressed="true"].is-pressed::after,
+  .toggle.is-on.is-pressed::after{transform:translateX(20px)}
 }
 
 /* ---- Page push (N4 drill-downs, N5 Today to Focus) ----
