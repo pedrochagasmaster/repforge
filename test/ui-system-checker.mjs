@@ -46,15 +46,21 @@ const badException = structuredClone(inventory);
 badException.exceptions.push({ selector: ".bad" });
 assert.ok(validateRoleInventory(badException, manifest).some((error) => error.startsWith("exception .bad needs")), "an unowned exception cannot suppress a failure");
 // A rendered finding is held open only by an exception that names its issue, for its exact measurement and states.
-const heldFinding = inventory.exceptions.find((item) => item.renderedFindings);
+// The live inventory holds none open, so a fixture hold stands in for one.
+const withFinding = structuredClone(inventory);
+withFinding.exceptions.push({ selector: "#uiFindingFixture .mark", role: "fixture finding hold", owner: inventory.exceptions[0].owner,
+  rationale: "Temporary, #441: a fixture hold for the self-test.", catalogStates: ["catalog-recovery/retry-failed"],
+  renderedFindings: [{ kind: "boundary", measured: "#uiFindingFixture:span.mark" }] });
+assert.deepEqual(validateRoleInventory(withFinding, manifest), [], "a finding hold that names its issue is a valid exception");
+const heldFinding = withFinding.exceptions.at(-1);
 const [finding] = heldFinding.renderedFindings;
-assert.equal(renderedFindingExemption(inventory.exceptions, heldFinding.catalogStates[0], { kind: finding.kind, selector: finding.measured }), heldFinding,
+assert.equal(renderedFindingExemption(withFinding.exceptions, heldFinding.catalogStates[0], { kind: finding.kind, selector: finding.measured }), heldFinding,
   "a held rendered finding is exempt in its own catalog state");
-assert.equal(renderedFindingExemption(inventory.exceptions, "settings/main", { kind: finding.kind, selector: finding.measured }), null,
+assert.equal(renderedFindingExemption(withFinding.exceptions, "settings/main", { kind: finding.kind, selector: finding.measured }), null,
   "a held rendered finding is not exempt in any other state");
-assert.equal(renderedFindingExemption(inventory.exceptions, heldFinding.catalogStates[0], { kind: "text", selector: finding.measured }), null,
+assert.equal(renderedFindingExemption(withFinding.exceptions, heldFinding.catalogStates[0], { kind: "text", selector: finding.measured }), null,
   "a held rendered finding is not exempt for another measurement kind");
-const unnamedHold = structuredClone(inventory);
+const unnamedHold = structuredClone(withFinding);
 unnamedHold.exceptions.find((item) => item.renderedFindings).rationale = "Temporary.";
 assert.ok(validateRoleInventory(unnamedHold, manifest).some((error) => error.includes("without naming its issue")),
   "a rendered finding cannot be held open without its issue");
