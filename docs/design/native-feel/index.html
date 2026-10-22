@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#F4F2EF">
+<title>Taurifer · iOS-native feel prototypes</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="native.css">
+<link rel="stylesheet" href="icons.css">
+<script src="native.js"></script>
+<style>
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:calc(var(--sat) + 20px) var(--gut) 80px}
+  .lede{color:var(--ink-soft);margin:8px 0 0}
+  .cards{display:grid;gap:10px;margin-top:20px}
+  .card{display:flex;align-items:center;gap:14px;padding:16px;border-radius:var(--radius-surface);background:var(--surface);box-shadow:inset 0 0 0 1px var(--rule);color:var(--ink);text-decoration:none}
+  .card b{display:block;font-size:var(--font-size-subtitle)}
+  .card span{color:var(--ink-soft);font-size:var(--font-size-body-small)}
+  .card.is-pressed{background:var(--well)}
+  .card .chevron{margin-left:auto}
+  h2{margin:34px 0 8px}
+  .opt{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;min-height:52px;padding:8px 0;border-bottom:1px solid var(--rule)}
+  .opt:first-of-type{border-top:1px solid var(--rule)}
+  .ba{display:grid;gap:22px;margin-top:12px}
+  .ba__item h3{margin:0 0 4px;font-size:var(--font-size-subtitle)}
+  .ba__item p{margin:0 0 10px;color:var(--ink-soft);font-size:var(--font-size-body-small)}
+  .ba__row{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start}
+  .ba__row img{width:100%;border-radius:12px;box-shadow:0 0 0 1px var(--rule);display:block}
+  .ba__after{display:grid;gap:8px;align-content:start}
+  .ba__after ul{margin:0;padding-left:18px;font-size:var(--font-size-body-small)}
+  .ba__after li{margin:0 0 4px}
+  .t200 .ba__row{grid-template-columns:1fr}
+  ol.how{padding-left:20px;margin:6px 0 0}
+  ol.how li{margin:6px 0}
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <p class="t-label" style="margin:0">Design prototype · not production</p>
+  <h1 class="t-title" style="margin:6px 0 0">An iOS-native feel for Taurifer</h1>
+  <p class="lede">Touch physics, navigation, sheets and controls, in Taurifer's own Direction D look, Plex type and accent budget. Everything here is static HTML; the app is untouched.</p>
+
+  <div class="cards">
+    <a class="card" data-press href="app.html"><span><b>The app, after</b><span>Today → Focus → summary, Settings, the Program editor, History and the dock</span></span><i class="chevron"></i></a>
+    <a class="card" data-press href="lab.html"><span><b>Controls lab</b><span>Press feedback before and after, sheet physics, switch, segmented, stepper, wheel, menus, materials</span></span><i class="chevron"></i></a>
+  </div>
+
+  <h2 class="t-section">How to try it</h2>
+  <ol class="how">
+    <li>Open <b>The app, after</b>. Tap <b>Start workout</b>: Focus pushes in. Log a set, then use ⋯ → Finish workout for the summary.</li>
+    <li>Tap the gear on Today for <b>Settings</b>, then <b>Progression controls</b>. Swipe right to go back, slowly to watch it follow your finger, and let go early to cancel.</li>
+    <li>On Today, <b>touch and hold</b> an exercise for its menu. <b>Change day</b> commits the moment you pick.</li>
+    <li>Program → <b>Edit</b> opens the editor sheet. Change a stepper, then drag the sheet down: it asks before discarding.</li>
+    <li>Tap the current tab in the dock to scroll to the top, or to pop back to its first page.</li>
+    <li>For the Home Screen behaviour, use Safari's Share → <b>Add to Home Screen</b> on this page and open it from there. The back swipe then starts at the left edge, as in the installed app.</li>
+  </ol>
+
+  <h2 class="t-section">Prototype switches</h2>
+  <p class="soft" style="margin:0 0 8px;font-size:var(--font-size-body-small)">Also inside the app at Settings → Prototype only.</p>
+  <div class="opt"><span>Appearance</span><div class="nf-seg" role="radiogroup" aria-label="Appearance" data-pref="theme"><button role="radio" data-value="system" data-press>System</button><button role="radio" data-value="light" data-press>Light</button><button role="radio" data-value="dark" data-press>Dark</button></div></div>
+  <div class="opt"><span>Text size</span><div class="nf-seg" role="radiogroup" aria-label="Text size" data-pref="text"><button role="radio" data-value="100" data-press>100%</button><button role="radio" data-value="200" data-press>200%</button></div></div>
+  <div class="opt"><span>Motion</span><div class="nf-seg" role="radiogroup" aria-label="Motion" data-pref="motion"><button role="radio" data-value="full" data-press>Full</button><button role="radio" data-value="reduced" data-press>Reduced</button></div></div>
+  <div class="opt"><span>Focus tip</span><div class="nf-seg" role="radiogroup" aria-label="Focus tip" data-pref="tip"><button role="radio" data-value="anchored" data-press>Anchored</button><button role="radio" data-value="inline" data-press>Inline</button><button role="radio" data-value="centred" data-press>Centred</button></div></div>
+  <div class="opt"><span>Back swipe</span><div class="nf-seg" role="radiogroup" aria-label="Back swipe" data-pref="swipe"><button role="radio" data-value="auto" data-press>Auto</button><button role="radio" data-value="edge" data-press>Edge</button><button role="radio" data-value="full" data-press>Full width</button></div></div>
+  <div class="opt"><span>Load entry</span><div class="nf-seg" role="radiogroup" aria-label="Load entry" data-pref="wheel"><button role="radio" data-value="on" data-press>Wheel</button><button role="radio" data-value="off" data-press>Keyboard</button></div></div>
+  <div class="opt"><span>Focus language</span><div class="nf-seg" role="radiogroup" aria-label="Focus language" data-pref="lang"><button role="radio" data-value="en" data-press>English</button><button role="radio" data-value="pt" data-press>Português</button></div></div>
+  <div class="opt"><span>Day change undo</span><div class="nf-seg" role="radiogroup" aria-label="Day change undo" data-pref="dayUndo"><button role="radio" data-value="on" data-press>Toast + Undo</button><button role="radio" data-value="off" data-press>None</button></div></div>
+
+  <h2 class="t-section">Before and after</h2>
+  <p class="soft" style="margin:0;font-size:var(--font-size-body-small)">Left: the committed catalog capture of today's app. Right: what changes. Each link opens the live prototype at that screen.</p>
+  <div class="ba">
+    <div class="ba__item"><h3>Today</h3><p>Large title that collapses into a glass bar; press states on every row; touch and hold for actions.</p>
+      <div class="ba__row"><img src="before/today-ready.jpg" alt="Today, current app" loading="lazy"><div class="ba__after"><ul><li>Start workout darkens and shrinks on touch-down, springs back on release</li><li>"Today" collapses into the bar when the list scrolls under it</li><li>Touch and hold an exercise: Why, Swap, Details, Skip today</li><li>Bottom fade under the dock so text never collides with it</li></ul><a class="btn btn--secondary btn--sm" data-press href="app.html">Open Today</a></div></div></div>
+    <div class="ba__item"><h3>Change day</h3><p>Four ways out today (grabber, ×, Confirm day, Cancel) become one: picking a day commits.</p>
+      <div class="ba__row"><img src="before/day-picker.jpg" alt="Day picker, current app" loading="lazy"><div class="ba__after"><ul><li>The check lands on the tapped day, the sheet leaves, Today updates</li><li>A toast offers Undo (an owner choice)</li><li>Swipe down or × dismisses with no change</li></ul><a class="btn btn--secondary btn--sm" data-press href="app.html#daypicker">Open the day picker</a></div></div></div>
+    <div class="ba__item"><h3>Focus</h3><p>Push with parallax from Today. A tip that points at the shelf instead of blocking it.</p>
+      <div class="ba__row"><img src="before/first-set-guide.jpg" alt="Focus with the centred first-set tip, current app" loading="lazy"><div class="ba__after"><ul><li>Anchored tip (default here); Inline and Centred under Prototype switches</li><li>Log set: pressed tone on touch-down; the row lands in 160ms</li><li>Hold −/+ to repeat; tap the selected field again for the wheel picker</li><li>⋯ opens an action sheet; End without saving asks once more</li></ul><a class="btn btn--secondary btn--sm" data-press href="app.html#focus">Open Focus</a></div></div></div>
+    <div class="ba__item"><h3>Focus at 200% text (PT)</h3><p>The rest block stacks, the ledger head goes, the shelf compacts so the open set stays in view.</p>
+      <div class="ba__row"><img src="before/rest-pt-200.jpg" alt="Focus resting at 200% text in Portuguese, current app" loading="lazy"><div class="ba__after"><ul><li>Set Text size 200% and Focus language Português above</li><li>Rest label and total move under the clock</li><li>Pads scroll sideways instead of growing the shelf</li></ul><a class="btn btn--secondary btn--sm" data-press href="app.html#focus">Open Focus</a></div></div></div>
+    <div class="ba__item"><h3>Session summary</h3><p>A full-screen cover that slides up, with one exit. No back: the session is saved.</p>
+      <div class="ba__row"><img src="before/summary.jpg" alt="Session summary, current app" loading="lazy"><div class="ba__after"><ul><li>Slides up over Focus; Focus is gone underneath when you leave</li><li>Done slides it down to Today</li><li>Large title collapses; the footer is glass over the list</li></ul><a class="btn btn--secondary btn--sm" data-press href="app.html#summary">Open the summary</a></div></div></div>
+    <div class="ba__item"><h3>Program editor</h3><p>A page sheet that pushes the app back, Cancel and Done in its bar, its own drill-down, and a guarded dismiss.</p>
+      <div class="ba__row"><img src="before/editor.jpg" alt="Program editor exercise sheet, current app" loading="lazy"><div class="ba__after"><ul><li>Three ↑ ↓ × buttons per alternate become one ⋯ / touch-and-hold menu</li><li>Smallest load change is a stepper; Day is a pull-down menu</li><li>With changes, a swipe down rubber-bands and asks Discard / Keep editing</li><li>Swipe right inside the sheet to go back a level</li></ul><a class="btn btn--secondary btn--sm" data-press href="app.html#editor">Open the editor</a></div></div></div>
+    <div class="ba__item"><h3>Settings</h3><p>Native switches, segmented controls and a stepper; one back control and gutter.</p>
+      <div class="ba__row"><img src="before/settings.jpg" alt="Settings, current app" loading="lazy"><div class="ba__after"><ul><li>Switch off state is light with a 3:1 ring</li><li>Appearance is a segmented control that applies at once</li><li>Rest timer is a stepper (hold to repeat)</li><li>Language is a pull-down menu</li></ul><a class="btn btn--secondary btn--sm" data-press href="app.html#settings">Open Settings</a></div></div></div>
+    <div class="ba__item"><h3>The dock at 200%</h3><p>Today it becomes a 2×2 grid. Here it keeps one row and one height.</p>
+      <div class="ba__row"><img src="before/today-ready-200.jpg" alt="Today at 200% text with the two-row dock, current app" loading="lazy"><div class="ba__after"><ul><li>Labels cap at 1.3×; or icons only (owner choice)</li><li>Touch and hold a tab for the large-content viewer; slide and lift to switch</li><li>Opaque material while text is enlarged</li></ul><a class="btn btn--secondary btn--sm" data-press href="app.html#dock">Open the dock</a></div></div></div>
+  </div>
+</div>
+<script>
+  const N = window.NF;
+  document.querySelectorAll(".nf-seg[data-pref]").forEach((s) => {
+    s.querySelectorAll("[role=radio]").forEach((b) => b.setAttribute("aria-checked", String(N.prefs[s.dataset.pref] === b.dataset.value)));
+    s.addEventListener("change", (e) => N.setPref(s.dataset.pref, e.detail));
+  });
+</script>
+</body>
+</html>
