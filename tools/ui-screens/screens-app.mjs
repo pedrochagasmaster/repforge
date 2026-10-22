@@ -435,6 +435,24 @@ async function openEditorA(page) {
   await page.click("#programEditToggle");
   await editorIdleA(page);
 }
+async function editorSheetAtRest(page) {
+  await page.waitForFunction(() => {
+    const sheet = document.querySelector('#program.sheet.is-open');
+    if (!sheet) return false;
+    const style = getComputedStyle(sheet), position = new DOMMatrixReadOnly(style.transform);
+    return position.m41 === 0 && position.m42 === 0 && style.opacity === '1'
+      && sheet.getAnimations().every(animation => animation.playState !== 'running');
+  });
+}
+async function editorRowMenuForCapture(page, selector) {
+  await page.waitForFunction(() => document.fonts.status === 'loaded');
+  const button = page.locator(selector).first();
+  await button.evaluate(element => {
+    element.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+  });
+  await button.click();
+  await page.waitForSelector('#nativeContextMenu[open]');
+}
 async function openEditorSheetA(page, id) {
   await page.locator(`#programEditor [data-role="exercise-row"][data-id="${id}"]`).click();
   await page.waitForSelector(`#reviewSheet.is-open [data-pe-sheet="exercise"][data-id="${id}"]`, { timeout: 20000 });
@@ -2474,14 +2492,12 @@ export const APP_SCENARIOS = {
     await page.waitForSelector('#workoutActionSheet.is-open');
   },
   "program/editor-context-menu": async page => {
-    await openProgram(page); await openEditorA(page);
-    await page.locator('#programEditor [data-row-menu]').first().click();
-    await page.waitForSelector('#nativeContextMenu[open]');
+    await openProgram(page); await openEditorA(page); await editorSheetAtRest(page);
+    await editorRowMenuForCapture(page, '#programEditor [data-row-menu]');
   },
   "program/editor-alternate-context-menu": async page => {
-    await openProgram(page); await openEditorA(page); await openEditorSheetA(page, "seed-ex-1");
-    await page.locator('#reviewSheet [data-role="alternate"] [data-row-menu]').first().click();
-    await page.waitForSelector('#nativeContextMenu[open]');
+    await openProgram(page); await openEditorA(page); await editorSheetAtRest(page); await openEditorSheetA(page, "seed-ex-1");
+    await editorRowMenuForCapture(page, '#reviewSheet [data-role="alternate"] [data-row-menu]');
   },
   "settings/rest-controls": async page => {
     await openSettings(page); await page.click('#restSecRow');

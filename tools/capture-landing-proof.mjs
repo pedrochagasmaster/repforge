@@ -428,11 +428,13 @@ const RUNNERS = {
   },
   actions: async page => {
     await page.locator(SPOT_TARGETS.more).click();
+    await page.locator('[data-workout-action="exercise"]').click();
     await page.waitForSelector(SPOT_TARGETS.swap, {state: 'visible', timeout: 20000});
     await page.evaluate(() => { const body = document.querySelector('.exactions-sheet__body'); if (body) body.scrollTop = 0; });
   },
   note: async (page, {lang}) => {
     await page.locator(SPOT_TARGETS.more).click();
+    await page.locator('[data-workout-action="exercise"]').click();
     await page.locator(SPOT_TARGETS.noteRow).click();
     await page.waitForSelector('#exNoteSheet.is-open', {timeout: 20000});
     await page.fill(SPOT_TARGETS.note, NOTE[lang]);
