@@ -11,7 +11,7 @@
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { answerRecommend, launchChromium, waitForAppBoot } from "./browser.mjs";
+import { answerRecommend, launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
 import { openInstalledEditor } from "./adaptive-build-fixture.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -122,7 +122,7 @@ try {
     const input = page.locator(`#workout .exercise.is-current .focus-shelf input[data-metric-id="${id}"]`);
     await input.waitFor({ state: "attached", timeout: 10000 });
     if (await input.getAttribute("aria-hidden") === "true")
-      await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${id}"]`).click();
+      await openShelfField(page, `#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${id}"]`);
     await input.fill(value);
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   }

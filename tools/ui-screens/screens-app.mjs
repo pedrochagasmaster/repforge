@@ -15,6 +15,7 @@ import { maybeStartLocalPreview } from "../local-preview.mjs";
 import { catalogState, directionDState, emptyEntryState, localeState } from "./fixtures.mjs";
 import { CAPTURE_NOW, dismissChrome, LOG_DRAFT, replayGuide, seed, sleep } from "./session.mjs";
 import { definitionSlot, installGeneratedProgram, isWeightRepsSlot, metricLogRow } from "../../test/fixtures/history-metric-rows.mjs";
+import { openShelfField } from "../../test/browser.mjs";
 import { DIRECTION_D_CANONICAL_ID_BY_LEGACY_ID } from "./direction-d-canonical-fixture.generated.mjs";
 
 const WHY_DATA = new URL("../../plans/067/data/", import.meta.url);
@@ -1097,7 +1098,7 @@ async function fillAdaptiveShelf(page, metricId, value) {
   const input = page.locator(`#workout .exercise.is-current .focus-shelf input[data-metric-id="${metricId}"]`);
   await input.waitFor({ state: "attached", timeout: 10000 });
   if (await input.getAttribute("aria-hidden") === "true") {
-    await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${metricId}"]`).click();
+    await openShelfField(page, `#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${metricId}"]`);
   }
   await input.fill(String(value));
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());

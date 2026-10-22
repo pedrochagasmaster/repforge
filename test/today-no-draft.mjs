@@ -17,7 +17,7 @@
  * Run: node test/today-no-draft.mjs
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
-import { launchChromium } from "./browser.mjs";
+import { launchChromium, openShelfField } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -204,7 +204,7 @@ async function main() {
     const loadInput = page.locator(`#workout .exercise.is-current .focus-shelf input[data-metric-id="${WEIGHT}"]`);
     await loadInput.waitFor({ state: "attached", timeout: 5000 });
     if (await loadInput.getAttribute("aria-hidden") === "true")
-      await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${WEIGHT}"]`).click();
+      await openShelfField(page, `#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${WEIGHT}"]`);
     await loadInput.fill("40");
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     await page.locator("#leaveWorkout").click();

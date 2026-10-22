@@ -13,7 +13,7 @@ import { editorSettled, openExerciseSheet, openInstalledEditor } from "./fixture
  * Run: node test/performed-attribution.mjs   (requires the app served over HTTP)
  */
 import { pathToFileURL } from "url";
-import { launchChromium } from "./browser.mjs";
+import { launchChromium, openShelfField } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -151,7 +151,7 @@ async function main() {
     const shelfField = async (input, field) => {
       await input.waitFor({ state: "attached", timeout: 5000 });
       if (await input.getAttribute("aria-hidden") === "true")
-        await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="${field}"]`).click();
+        await openShelfField(page, `#workout .exercise.is-current .focus-shelf [data-shelf-field="${field}"]`);
       await input.waitFor({ state: "visible", timeout: 5000 });
     };
     for (const [metricId, value] of [[WEIGHT, 60], [REPS, 10]]) {

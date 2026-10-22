@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /** Plan 069 S3: generated per-side adaptation through two real sessions. */
 import { readFileSync } from "node:fs";
-import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const DATA = new URL("../plans/067/data/", import.meta.url);
@@ -81,7 +81,7 @@ async function fillShelf(page, selector, value, shelfField) {
   const input = page.locator(selector);
   await input.waitFor({ state: "attached", timeout: 10000 });
   if (await input.getAttribute("aria-hidden") === "true")
-    await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="${shelfField}"]`).click();
+    await openShelfField(page, `#workout .exercise.is-current .focus-shelf [data-shelf-field="${shelfField}"]`);
   await input.fill(String(value));
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
 }

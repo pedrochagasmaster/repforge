@@ -17,7 +17,7 @@
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { answerRecommend, launchChromium, waitForAppBoot } from "./browser.mjs";
+import { answerRecommend, launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
 import { exerciseAction } from "./fixtures/focus-workout.mjs";
 import { openInstalledEditor } from "./adaptive-build-fixture.mjs";
 
@@ -142,7 +142,7 @@ async function fillMetric(page, metricId, value) {
   const input = page.locator(`#workout .exercise.is-current .focus-shelf input[data-metric-id="${metricId}"]`);
   await input.waitFor({ state: "attached", timeout: 10000 });
   if (await input.getAttribute("aria-hidden") === "true")
-    await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${metricId}"]`).click();
+    await openShelfField(page, `#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${metricId}"]`);
   await input.waitFor({ state: "visible", timeout: 10000 });
   await input.fill(String(value));
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());

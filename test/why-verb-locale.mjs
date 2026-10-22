@@ -20,7 +20,7 @@
  * Run: node tools/run-tests.mjs workout --suite why-verb-locale
  */
 import { readFileSync } from "node:fs";
-import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const DATA = new URL("../plans/067/data/", import.meta.url);
@@ -75,8 +75,7 @@ async function seed(page) {
 const current = "#workout .exercise.is-current";
 
 async function revealField(page, fieldId) {
-  const input = page.locator(`${current} .focus-shelf [data-shelf-field="${fieldId}"]`);
-  await input.click();
+  await openShelfField(page, `${current} .focus-shelf [data-shelf-field="${fieldId}"]`);
 }
 
 async function fillShelf(page, metricId, value) {

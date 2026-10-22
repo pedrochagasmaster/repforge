@@ -11,7 +11,7 @@
  * Run: node test/focus-session-sheet.mjs
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
-import { launchChromium } from "./browser.mjs";
+import { launchChromium, openShelfField } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 import { SAFE_AREA, openCatalogState } from "./fixtures/catalog-state.mjs";
 
@@ -27,7 +27,7 @@ async function fillShelf(page, field, value) {
   const metricId = field === "load" ? WEIGHT : field === "reps" ? REPS : null;
   const input = page.locator(metricId ? `${shelf} input[data-metric-id="${metricId}"]` : `${shelf} input[data-k$="_rir"]`);
   if (await input.getAttribute("aria-hidden") === "true") {
-    await page.locator(`${shelf} [data-shelf-field="${metricId ? `metric_${metricId}` : "rir"}"]`).click();
+    await openShelfField(page, `${shelf} [data-shelf-field="${metricId ? `metric_${metricId}` : "rir"}"]`);
   }
   await input.fill(String(value));
 }

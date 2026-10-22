@@ -3,7 +3,7 @@
  * Focused regression for renaming a training day while a workout draft is active.
  * Requires the repository root at REPFORGE_URL (default http://localhost:8000/).
  */
-import { launchChromium, waitForAsyncCondition } from "./browser.mjs";
+import { launchChromium, openShelfField, waitForAsyncCondition } from "./browser.mjs";
 import { EDITOR, SHEET, editorSettled, openInstalledEditor, showEditorDay } from "./fixtures/installed-editor.mjs";
 import {
   clearPersistenceArtifacts,
@@ -613,7 +613,7 @@ async function shelfInput(page, dataKey, shelfField) {
   const input = page.locator(`#workout .exercise.is-current .focus-shelf input[data-k="${dataKey}"]`);
   await input.waitFor({ state: "attached", timeout: 5000 });
   if (await input.getAttribute("aria-hidden") === "true") {
-    await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="${shelfField}"]`).click();
+    await openShelfField(page, `#workout .exercise.is-current .focus-shelf [data-shelf-field="${shelfField}"]`);
   }
   return input;
 }

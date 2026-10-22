@@ -19,7 +19,7 @@ import { finishEarly } from "./fixtures/focus-workout.mjs";
 import { webcrypto } from "node:crypto";
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
-import { launchChromium, assertServingApp, waitForAppBoot } from "./browser.mjs";
+import { launchChromium, assertServingApp, openShelfField, waitForAppBoot } from "./browser.mjs";
 
 const require = createRequire(import.meta.url);
 // The envelope is built here with the browser producer's modules. In the app
@@ -323,7 +323,7 @@ async function saveWorkout(page) {
     const input = page.locator(`#workout .exercise.is-current .focus-shelf input[data-metric-id="${metricId}"]`);
     await input.waitFor({ state: "attached", timeout: 5000 });
     if (await input.getAttribute("aria-hidden") === "true") {
-      await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${metricId}"]`).click();
+      await openShelfField(page, `#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${metricId}"]`);
     }
     await input.fill(String(index === 0 ? 60 : 8));
   }

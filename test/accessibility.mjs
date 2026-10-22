@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /** Focused Playwright checks for modal, disclosure, and live-status semantics. Requires the app HTTP server. */
 import { pathToFileURL } from "url";
-import { launchChromium } from "./browser.mjs";
+import { launchChromium, openShelfField } from "./browser.mjs";
 import { runProgramEntryA11y } from "./program-entry-a11y.mjs";
 import { MINIMAL_PAYLOAD, cloneFixture } from "./fixtures/shared-setup.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
@@ -373,7 +373,7 @@ export async function runWorkoutValidationFocusCheck(browser, check = assert) {
   const shelfFill = async (selector, field, value) => {
     const input = page.locator(`#workout .exercise.is-current .focus-shelf ${selector}`);
     if (await input.getAttribute("aria-hidden") === "true")
-      await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="${field}"]`).click();
+      await openShelfField(page, `#workout .exercise.is-current .focus-shelf [data-shelf-field="${field}"]`);
     await input.fill(value);
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   };

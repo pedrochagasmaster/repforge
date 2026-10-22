@@ -16,7 +16,7 @@
  *
  * Run: node test/focus-pending-field.mjs   (REPFORGE_URL points at a static server)
  */
-import { launchChromium } from "./browser.mjs";
+import { launchChromium, openShelfField } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 import { finishEarly, openLoggedSets } from "./fixtures/focus-workout.mjs";
 
@@ -117,7 +117,7 @@ const inputFor = (id, n = 1) => `${SHELF} .shelf__input[data-k$="_${n}_${FIELD_I
 /** Tap a field until its input is open, type, and wait for the draft to acknowledge it. */
 async function typeField(page, id, value) {
   const input = page.locator(inputFor(id));
-  for (let tap = 0; tap < 2 && await input.getAttribute("aria-hidden") === "true"; tap++) await page.locator(field(id)).click();
+  for (let tap = 0; tap < 2 && await input.getAttribute("aria-hidden") === "true"; tap++) await openShelfField(page, field(id));
   await input.fill(value);
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
 }

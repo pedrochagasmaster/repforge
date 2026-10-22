@@ -11,7 +11,7 @@ import { selectExercise, openActions, exerciseAction, sessionField, finishEarly,
  * Run: node test/workout-draft-parity.mjs
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
-import { launchChromium } from "./browser.mjs";
+import { launchChromium, openShelfField } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -127,7 +127,7 @@ async function fillShelf(page, field, value) {
     ? `#workout .exercise.is-current .focus-shelf input[data-metric-id="${metricId}"]`
     : "#workout .exercise.is-current .focus-shelf input[data-k$='_rir']");
   if (await input.getAttribute("aria-hidden") === "true") {
-    await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="${metricId ? `metric_${metricId}` : "rir"}"]`).click();
+    await openShelfField(page, `#workout .exercise.is-current .focus-shelf [data-shelf-field="${metricId ? `metric_${metricId}` : "rir"}"]`);
   }
   await input.fill(String(value));
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());

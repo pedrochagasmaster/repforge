@@ -5,7 +5,7 @@
  *
  * These assertions lock down the safe invariants at the transaction boundary.
  */
-import { launchChromium, waitForAsyncCondition } from "./browser.mjs";
+import { launchChromium, openShelfField, waitForAsyncCondition } from "./browser.mjs";
 import {
   clearPersistenceArtifacts,
   inventoryPersistenceArtifacts,
@@ -274,7 +274,7 @@ async function fillShelfLoad(page, value) {
   const input = page.locator(`#workout .exercise.is-current .focus-shelf input[data-k="${LOAD_INPUT_KEY}"]`);
   await input.waitFor({ state: "attached", timeout: 5000 });
   if (await input.getAttribute("aria-hidden") === "true") {
-    await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${WEIGHT_METRIC}"]`).click();
+    await openShelfField(page, `#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${WEIGHT_METRIC}"]`);
   }
   await input.fill(String(value));
 }
