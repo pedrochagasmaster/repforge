@@ -19941,8 +19941,8 @@ function landingChartRows(){
  *  are measured from the live app by tools/capture-landing-proof.mjs. */
 const LANDING_SCENES=["focus","rest","actions","note"];
 const LANDING_SPOTS={
-  focus:{cue:[50,31.61,91.79,6.59],log:[50,90.88,91.79,6.4],last:[50,48,91.79,11.98]},
-  rest:{dial:[50,32.66,91.79,6.98]},
+  focus:{cue:[50,27.54,91.79,6.59],log:[50,95.02,91.79,6.16],last:[50,43.93,91.79,11.98]},
+  rest:{dial:[50,28.59,91.79,6.98]},
   actions:{swap:[50,52.38,91.79,6.16]},
   note:{text:[50,64.93,91.28,2.94]}};
 /** How the lens reads each element: magnification, shape, padding (px at 390 wide)
