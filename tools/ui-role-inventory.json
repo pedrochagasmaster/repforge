@@ -10217,6 +10217,46 @@
       ]
     },
     {
+      "id": "programeditsheet",
+      "selector": "#program.sheet",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "bottom-sheet",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Plan 075 phase 2 (ADR 0023): the installed Program editor as a page sheet, a dialog over the receded Program view.",
+      "owner": "plan-075",
+      "catalogStates": [
+        "program/progression-editor",
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
+        "program/editor-day-name-refused"
+      ]
+    },
+    {
+      "id": "programeditscrim",
+      "selector": "#programEditScrim",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "scrim",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Scrim suppresses the receded Program view behind the editor's page sheet.",
+      "owner": "plan-075",
+      "catalogStates": [
+        "program/progression-editor",
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
+        "program/editor-day-name-refused"
+      ]
+    },
+    {
       "id": "programeditorremove",
       "selector": "#programEditorRemove",
       "roles": {

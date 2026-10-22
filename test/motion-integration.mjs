@@ -2513,7 +2513,8 @@ async function run() {
   assert(boot.runtime, "the vendored Motion bundle exposes animate and motionValue");
   assert(boot.layer, "the integration layer reports the runtime available");
   assert(boot.reduced === false, "reduced motion is off in this context", String(boot.reduced));
-  assert(boot.vocabulary.length === 6 && boot.vocabulary.includes("navPush"), "the motion vocabulary is published for inspection", boot.vocabulary.join(", "));
+  assert(boot.vocabulary.length === 7 && boot.vocabulary.includes("navPush") && boot.vocabulary.includes("pressRelease"),
+    "the motion vocabulary is published for inspection", boot.vocabulary.join(", "));
 
   // A spring that ignored the velocity handed to it would be a fixed-duration
   // transition wearing a spring's name — this is the property the whole
@@ -2854,13 +2855,16 @@ async function run() {
     const out = {
       view: read(view, "animationDuration"),
       button: read(probe, "transitionDuration"),
+      release: getComputedStyle(document.documentElement).getPropertyValue("--press-release-duration").trim(),
       sheet: read(document.querySelector(".sheet"), "transitionDuration"),
     };
     probe.remove();
     return out;
   });
   assert(timings.view === "0.14s", "view navigation is still the 140ms the discipline pass set", timings.view);
-  assert(timings.button.startsWith("0.1s"), "button press feedback is still 100ms", timings.button);
+  // ADR 0023: the press comes in instantly and its release is the pressRelease spring's own length, not the old 100ms.
+  assert(timings.release && Math.abs(parseFloat(timings.button) * 1000 - parseFloat(timings.release)) < 1,
+    "button press feedback releases over the pressRelease spring's length", JSON.stringify(timings));
   assert(timings.sheet === "0.26s", "the sheet's own open/close transition is untouched", timings.sheet);
   await disc.context.close();
 

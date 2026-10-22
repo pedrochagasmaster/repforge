@@ -4,8 +4,9 @@
  *
  * 1. Nothing scrolls into the status bar. Installed, the page runs under the iOS status bar, so the top inset is
  *    painted with the page's own paper and stays above whatever scrolls. Chromium has no status bar to draw, so the
- *    proof reads the pixels: the inset band is one uniform --bg colour at every scroll position, on every tab and in
- *    the Program editor, in the light and the dark theme.
+ *    proof reads the pixels: the inset band is one uniform --bg colour at every scroll position, on every tab, in
+ *    the light and the dark theme. The Program editor is a page sheet: its edge stays below the inset and nothing it
+ *    scrolls reaches the inset.
  * 2. The floating rest pill never leaves content under it. On every tab, scrolled to the end, no control sits under
  *    the pill, and Today's sticky Start/Continue never rides under it at any scroll position.
  * 3. Today's prescription keeps a long exercise name readable: the longest catalog name wraps at word boundaries
@@ -120,6 +121,44 @@ const underPill = (page) => page.evaluate(() => {
   return { pill: { top: box.top, bottom: box.bottom, left: box.left, right: box.right }, hits, scroll: scrollY };
 });
 
+/**
+ * The Program editor is a page sheet (ADR 0023, Plan 075 phase 2): it scrolls in its own scroller, and above its
+ * top edge the inset shows the receded app under the scrim, as iOS draws a page sheet. Nothing scrolls into the
+ * status bar: the sheet's edge stays below the inset, and the inset's pixels never change as the sheet scrolls.
+ */
+async function editorSheetChrome(page, theme) {
+  const sheet = () => page.evaluate(() => {
+    const wrap = document.querySelector("#programEditorWrap"), view = document.querySelector("#program");
+    return { max: wrap.scrollHeight - wrap.clientHeight, top: view.getBoundingClientRect().top, sheet: view.classList.contains("sheet") };
+  });
+  const scrollSheet = (y) => page.evaluate((top) => {
+    const wrap = document.querySelector("#programEditorWrap");
+    wrap.scrollTo({ top: top === "end" ? wrap.scrollHeight : top, behavior: "instant" });
+    return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  }, y);
+  // At rest: open, with no translation left from its slide in.
+  await page.waitForFunction(() => {
+    const view = document.querySelector("#program"), t = getComputedStyle(view).transform;
+    return view.classList.contains("sheet") && view.classList.contains("is-open") && !view.style.transform
+      && (t === "none" || new DOMMatrixReadOnly(t).m42 === 0);
+  });
+  const at = await sheet();
+  check(at.sheet && at.max > 0, `${theme} editor: the page sheet is long enough to scroll`, at);
+  check(at.top >= SAFE_AREA.top, `${theme} editor: the sheet's edge sits below the status-bar inset`, at);
+  const width = page.viewportSize().width;
+  const band = () => page.screenshot({ clip: { x: 0, y: 0, width, height: SAFE_AREA.top }, animations: "disabled" });
+  const rest = await band();
+  const moved = [];
+  for (const y of [Math.round(at.max / 3), Math.round((2 * at.max) / 3), "end"]) {
+    await scrollSheet(y);
+    if (!(await band()).equals(rest)) moved.push(y);
+  }
+  check(!moved.length, `${theme} editor: nothing scrolls into the status-bar inset`, moved);
+  await scrollSheet(0);
+  await page.click("#programEditCancel");
+  await page.waitForFunction(() => !document.querySelector("#program").classList.contains("sheet"));
+}
+
 const browser = await launchChromium();
 try {
   console.log("\n1. Nothing scrolls into the status bar, and 2. the rest pill leaves nothing under it (390×844)");
@@ -128,6 +167,7 @@ try {
     try {
       for (const surface of SURFACES) {
         await openSurface(page, surface);
+        if (surface === "editor") { await editorSheetChrome(page, theme); continue; }
         const max = await scrollMax(page);
         check(max > SAFE_AREA.top, `${theme} ${surface}: the page is long enough to scroll under the status bar`, { max });
         const dirty = [];
