@@ -1446,15 +1446,27 @@
   async function animateActionSheet(sheet, open) {
     if (!available || reducedMotion() || sheet.hidden) return false;
     actionSheetRuns.get(sheet)?.stop();
-    const from = open ? "translateY(101%)" : getComputedStyle(sheet).transform;
-    const to = open ? "translateY(0%)" : "translateY(101%)";
-    const run = animate(sheet, { transform: [from, to] }, VOCABULARY.navPush);
+    const transition = sheet.style.transition;
+    const height = sheet.offsetHeight;
+    const from = open ? height * 1.01 : new DOMMatrixReadOnly(getComputedStyle(sheet).transform).m42;
+    const y = motionValue(from);
+    const draw = value => { sheet.style.transform = `translateY(${value}px)`; };
+    sheet.style.transition = "none";
+    draw(from);
+    const unbind = y.on("change", draw);
+    const animation = animate(y, open ? 0 : height * 1.01, VOCABULARY.navPush);
+    const arrived = arrival(animation, () => actionSheetRuns.get(sheet) === run);
+    const run = { stop() {
+      arrived.abandon(); y.stop(); unbind();
+      sheet.style.transition = transition;
+      actionSheetRuns.delete(sheet);
+    } };
     actionSheetRuns.set(sheet, run);
-    await run;
+    const complete = await arrived;
     if (actionSheetRuns.get(sheet) !== run) return false;
-    actionSheetRuns.delete(sheet);
-    sheet.style.transform = open ? "" : to;
-    return true;
+    run.stop();
+    sheet.style.transform = open ? "" : "translateY(101%)";
+    return complete;
   }
 
   function animateContextMenu(panel, preview, open = true) {

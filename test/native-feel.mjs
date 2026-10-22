@@ -508,7 +508,17 @@ async function nativeControls(browser) {
     await page.click('#workoutActionCancel');
     await page.waitForSelector('#workoutActionSheet', { state: 'hidden' });
     assert(await page.evaluate(() => !!localStorage.getItem('repforge_draft_v1')), "Cancel keeps the draft");
-    await page.click('#woOverflowBtn'); await page.click('[data-workout-action="abandon"]');
+    await page.click('#woOverflowBtn');
+    const reopened = await page.waitForFunction(() => {
+      const sheet = document.querySelector('#workoutActionSheet'), button = sheet.querySelector('[data-workout-action="abandon"]');
+      const r = button.getBoundingClientRect();
+      return sheet.classList.contains('is-open') && r.top >= 0 && r.bottom <= innerHeight;
+    }, undefined, { timeout: 4000 }).then(() => true, () => false);
+    assert(reopened, 'the Focus action sheet reopens with its actions inside the viewport', await page.locator('#workoutActionSheet').evaluate(sheet => JSON.stringify({
+      style: sheet.getAttribute('style'), computed: getComputedStyle(sheet).transform, rect: sheet.getBoundingClientRect().toJSON(),
+      animations: sheet.getAnimations().map(run => ({ playState: run.playState, currentTime: run.currentTime, frames: run.effect.getKeyframes() }))
+    })));
+    await page.click('[data-workout-action="abandon"]');
     await page.waitForSelector('#sessionAbandonPrompt:not(.hidden)');
     assert(await page.evaluate(() => !!localStorage.getItem('repforge_draft_v1')), "End without saving first asks for confirmation");
     await page.click('#sessionAbandonCancel');
@@ -550,10 +560,32 @@ async function nativeEditorControls(browser) {
   const beforeStep = Number((await loadStep.inputValue()).replace(',', '.'));
   const larger = editorPage.locator('#reviewSheet [data-step-input="load-step"][data-step-delta="1"]');
   assert(await larger.count() === 1, "smallest load change has a visible Larger step control");
+  let committedStep = beforeStep + .5;
   if (await larger.count()) {
     await larger.click();
     await editorPage.waitForFunction(value => Number(document.querySelector('#reviewSheet [data-role="load-step"]').value.replace(',', '.')) === value, beforeStep + .5);
     assert(Number((await loadStep.inputValue()).replace(',', '.')) === beforeStep + .5, "Larger step changes the displayed value by 0.5 through the typed field");
+    await larger.hover(); await editorPage.mouse.down();
+    const repeated = await editorPage.waitForFunction(value => Number(document.querySelector('#reviewSheet [data-role="load-step"]').value.replace(',', '.')) >= value,
+      beforeStep + 2, { timeout: 3500 }).then(() => true, () => false);
+    await editorPage.mouse.up();
+    assert(repeated, "the editor stepper keeps repeating through recorded edits");
+    const releasedValue = await loadStep.inputValue();
+    const stableAfterRelease = await loadStep.evaluate(input => new Promise(resolve => {
+      const value = input.value, start = performance.now();
+      const frame = () => input.value !== value ? resolve(false) : performance.now() - start >= 250 ? resolve(true) : requestAnimationFrame(frame);
+      requestAnimationFrame(frame);
+    }));
+    assert(stableAfterRelease, "releasing the editor stepper stops its repeat");
+    const smaller = editorPage.locator('#reviewSheet [data-step-input="load-step"][data-step-delta="-1"]');
+    await smaller.focus(); await editorPage.keyboard.press('Enter');
+    await editorPage.waitForFunction(value => Number(document.querySelector('#reviewSheet [data-role="load-step"]').value.replace(',', '.')) === value, Number(releasedValue.replace(',', '.')) - .5);
+    assert(await smaller.evaluate(button => button === document.activeElement), "a recorded editor increment retains keyboard button focus");
+    await editorPage.keyboard.press('Enter');
+    committedStep = Number(releasedValue.replace(',', '.')) - 1;
+    const successive = await editorPage.waitForFunction(value => Number(document.querySelector('#reviewSheet [data-role="load-step"]').value.replace(',', '.')) === value,
+      committedStep, { timeout: 1500 }).then(() => true, () => false);
+    assert(successive, "the editor accepts successive keyboard increments without refocusing");
   }
   await editorPage.locator('#reviewSheet [data-role="add-alternate"]').click();
   await editorPage.waitForSelector('#exPickSheet.is-open');
@@ -573,9 +605,9 @@ async function nativeEditorControls(browser) {
     await editorPage.click('#programEditDone');
     await editorPage.waitForSelector('#program.sheet', { state: 'hidden' });
     const storedStep = () => editorPage.evaluate(() => Object.values(JSON.parse(localStorage.getItem('repforge_v1')).programMeta.loadingConfiguration?.byExerciseId || {}).map(item => item.loadStepKg));
-    assert((await storedStep()).includes(beforeStep + .5), "Done commits the canonical smallest load change");
+    assert((await storedStep()).includes(committedStep), "Done commits the canonical smallest load change");
     await editorPage.reload(); await waitForApp(editorPage);
-    assert((await storedStep()).includes(beforeStep + .5), "the load change survives the production reload path");
+    assert((await storedStep()).includes(committedStep), "the load change survives the production reload path");
   }
   await editorContext.close();
 }

@@ -593,6 +593,13 @@ async function main() {
       JSON.stringify(customApplied));
 
     assert(errors.length === 0, "the parity journey emits no page or console errors", errors.join(" | "));
+  } catch (error) {
+    console.error("Focus action sheet at failure:", await page.locator('#workoutActionSheet').evaluate(sheet => ({
+      hidden: sheet.hidden, className: sheet.className, style: sheet.getAttribute('style'),
+      rect: sheet.getBoundingClientRect().toJSON(), transform: getComputedStyle(sheet).transform,
+      animations: sheet.getAnimations().map(run => ({ playState: run.playState, currentTime: run.currentTime, keyframes: run.effect.getKeyframes() }))
+    })).catch(() => null));
+    throw error;
   } finally {
     await context.close();
     await browser.close();

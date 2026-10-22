@@ -1596,13 +1596,13 @@
       }
       return true;
     }
-    function render() {
+    function render({ redrawSheet = true } = {}) {
       if (destroyed) return;
       ensureStructure(document);
       if (reviewLayout) {
         const liveEdit = liveEditSnapshot();
         const focused = focusSnapshot();
-        renderReview();
+        renderReview({ redrawSheet });
         if (restoreLiveEdit(liveEdit)) pendingFocus = null;
         else if (!pendingFocus && focused) {
           // A redraw replaces every control; the one that had focus keeps it.
@@ -2193,12 +2193,12 @@
       if (!editor) return;
       if (busy) editor.setAttribute("aria-busy", "true"); else editor.removeAttribute("aria-busy");
     }
-    function act(task) {
+    function act(task, { redrawSheet = true } = {}) {
       busy++;
       markBusy();
       const runTask = async () => {
         try { return await task(); }
-        finally { busy--; if (!destroyed) render(); }
+        finally { busy--; if (!destroyed) render({ redrawSheet }); }
       };
       reviewQueue = reviewQueue.then(runTask, runTask);
       return reviewQueue;
@@ -2229,7 +2229,7 @@
       return true;
     }
     /** An existing edit path (add, swap, remove, alternates, loads…) recorded for Undo. */
-    function recorded(run, options) { return act(() => recordedTask(run, options)); }
+    function recorded(run, options) { return act(() => recordedTask(run, options), options); }
     async function recordedTask(run, { toast = null } = {}) {
       const entry = { document: clone(document), editCount: edits.length };
       quietChange = !!toast;
@@ -2325,7 +2325,7 @@
       return head + empty + list.map(rowHtml).join("") +
         `<button type="button" class="review__add" data-role="add-exercise" data-day="${esc(day)}">${icon("plus")}<span>${esc(label("addExercise"))}</span></button>`;
     }
-    function renderReview() {
+    function renderReview({ redrawSheet = true } = {}) {
       const days = labels(document);
       if (view.tab == null || !days.includes(view.tab)) view.tab = days[0] ?? null;
       const issues = validation(document);
@@ -2354,7 +2354,7 @@
       adapter.afterRender?.(host);
       // Only the Reorder exercises list drags; every other render has nothing to sort.
       if (view.reorderDay != null) mountSorting(); else teardownSorting();
-      paintSheet();
+      if (redrawSheet) paintSheet();
     }
 
     // ----- the sheets -----
@@ -3101,7 +3101,7 @@
       if (!input) return;
       const role = input.dataset.role;
       if (role === "metric-target" || role === "prescription-field") { editCell(input); return; }
-      if (role === "load-step") { recorded(() => editLoadStep(input)); return; }
+      if (role === "load-step") { recorded(() => editLoadStep(input), { redrawSheet: false }); return; }
       if (role === "metric-composition") { recorded(() => editMetricComposition(input)); return; }
       if (role === "exercise-field") {
         const field = input.dataset.field, text = String(input.value || "");

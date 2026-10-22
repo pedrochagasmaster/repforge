@@ -61,6 +61,7 @@ function load({ withRuntime = true } = {}) {
   /* Animation frames the test steps by hand: `frame()` runs every callback queued so far. */
   let frames = new Map(), frameId = 0;
   const sandbox = {
+    addEventListener() {},
     document: { readyState: "loading", getElementById: () => null, createElement: () => ({}), head: { append() {} }, addEventListener() {} },
     matchMedia: () => query,
     requestAnimationFrame(fn) { frames.set(++frameId, fn); return frameId; },
@@ -361,6 +362,7 @@ console.log("\npressRelease, the press release curve");
 await section(async () => {
   const appended = [];
   const sandbox = {
+    addEventListener() {},
     document: { readyState: "complete", getElementById: () => null, createElement: () => ({}), head: { append: el => appended.push(el) }, addEventListener() {} },
     matchMedia: () => ({ matches: false }),
   };
