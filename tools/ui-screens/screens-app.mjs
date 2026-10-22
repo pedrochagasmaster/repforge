@@ -1489,15 +1489,21 @@ async function focusPerSideTarget(page) {
 }
 
 /**
- * Opens the Why sheet from a Focus card with the page at its top every run. The sheet rests at its medium detent
- * (ADR 0023), so the Focus page under it shows in the frame; a pointer tap scrolls the link into view first, by an
- * amount that depends on when layout settles, so the link's own click runs instead and nothing scrolls.
+ * Opens the Why sheet from a Focus card with the page in one place every run. The sheet rests at its medium detent
+ * (ADR 0023), so the Focus page under it shows in the frame; a locator tap scrolls the link in only "if needed", by
+ * an amount that depends on when layout settles. So the page is scrolled to put the link at a fixed height first,
+ * and then a real tap lands on it there (a tap, so the sheet's close takes a quiet focus, as on a phone).
  */
 async function clickWhy(page, selector) {
-  await page.evaluate((sel) => {
+  const point = await page.evaluate((sel) => {
+    const link = document.querySelector(sel);
     window.scrollTo({ top: 0, behavior: "instant" });
-    document.querySelector(sel).click();
+    const top = link.getBoundingClientRect().top + window.scrollY;
+    window.scrollTo({ top: Math.max(0, top - 300), behavior: "instant" });
+    const r = link.getBoundingClientRect();
+    return { x: r.left + Math.min(r.width / 2, 40), y: r.top + r.height / 2 };
   }, selector);
+  await page.mouse.click(point.x, point.y);
 }
 
 async function whyPerSideAssumption(page) {
