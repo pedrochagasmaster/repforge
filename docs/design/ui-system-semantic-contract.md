@@ -80,6 +80,10 @@ existing press owner, with no stretch under reduced motion.
 
 Appearance and Units are `selection` radiogroups. One checked radio is in the
 Tab order; arrow keys select and move focus. A thumb drag uses `layoutShift`.
+The selection is the thumb under the checked radio, drawn with the existing
+`--elevation-selected-quiet-shadow` ring. The rendered checker counts an inset
+ring as a boundary only when the topmost one reaches 3:1, and it fails a group
+without exactly one checked radio or with a thumb that is off that radio.
 The rest timer and smallest load change are `adjustment` controls, with their
 typed field retained and a politely announced value. Repeating a held button
 stops on release, cancellation, leaving the button, loss of visibility or a
