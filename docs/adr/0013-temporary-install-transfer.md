@@ -598,6 +598,13 @@ contract, privacy and one-hour lifetime in this ADR are unchanged. See
 `services/install-transfer/RUNBOOK.md`, "Production enablement", for
 configuration, the health loop, and how to turn creates off.
 
+**Owner acceptance for launch (2026-10-22).** The owner accepted the
+2026-10-14 override for launch. Authenticated EU placement, independent
+monitoring, and the minute-60 ciphertext and minute-75 tombstone deletion
+evidence are not collected, and the owner accepts launching without them. The
+physical iPhone handoff (Safari 17.2+ to the Home Screen app) passed on
+2026-10-17.
+
 ## Operations
 
 The owner monitors the expiry deadline, deletion latency, purge job, alarms,
