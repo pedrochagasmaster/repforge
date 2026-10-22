@@ -1629,12 +1629,18 @@ async function main() {
   phase("Reduced motion");
   const motion = await rmPage.evaluate(() => {
     const track = document.querySelector("#focusTrack");
+    const sheet = getComputedStyle(document.querySelector("#exNoteSheet"));
     return {
       track: getComputedStyle(track).transitionDuration,
-      sheet: getComputedStyle(document.querySelector("#exNoteSheet")).transitionDuration,
+      sheetProperty: sheet.transitionProperty,
+      sheetDuration: sheet.transitionDuration,
+      sheetTransform: sheet.transform,
     };
   });
-  assert(/^0s/.test(motion.sheet), "reduced motion drops the sheet animation", JSON.stringify(motion));
+  // ADR 0023 choice 11 (the sheets phase): under reduced motion a sheet doesn't
+  // travel, it cross-fades opacity in place over ~170ms.
+  assert(motion.sheetProperty === "opacity" && /^0\.1[5-9]s$/.test(motion.sheetDuration) && motion.sheetTransform === "none",
+    "reduced motion cross-fades the sheet instead of sliding it", JSON.stringify(motion));
   await logSets(rmPage, 1);
   const rmLanded = await rmPage.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");

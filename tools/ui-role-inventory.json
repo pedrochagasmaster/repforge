@@ -10168,11 +10168,13 @@
       "states": [
         "default"
       ],
-      "rationale": "Holds the installed editor's Apply, and its blocked reason, where the dock was while editing.",
+      "rationale": "Holds the installed editor's blocked reason while editing. In the page sheet (ADR 0023, Plan 075 phase 2) Apply is the bar's Done (#programEditDone), so this bar shows only while a training day is empty.",
       "owner": "plan-074",
       "catalogStates": [
         "program/progression-editor"
-      ]
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "Shown only while Apply is blocked (an empty training day); no catalog state captures a blocked editor. test/program-editor-a.mjs proves Done disabled with the reason visible (P075-2B-SHEET)."
     },
     {
       "id": "programeditcancel",
@@ -10214,6 +10216,26 @@
       "owner": "plan-075",
       "catalogStates": [
         "program/progression-editor"
+      ]
+    },
+    {
+      "id": "programeditscrim",
+      "selector": "#programEditScrim",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "scrim",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Scrim suppresses the receded Program view behind the editor's page sheet.",
+      "owner": "plan-075",
+      "catalogStates": [
+        "program/progression-editor",
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
+        "program/editor-day-name-refused"
       ]
     },
     {
@@ -10669,6 +10691,18 @@
           "property": "--exercise-art-bg",
           "value": "#ECE0CF"
         }
+      ]
+    },
+    {
+      "selector": "#program.sheet",
+      "role": "page sheet over the receded Program view",
+      "rationale": "Plan 075 phase 2 (ADR 0023): while the installed editor is open, the Program view itself is presented as a page sheet (role=dialog). It is the route's view, so its .active is the route, not a selection state, and it carries no control role; its scrim (#programEditScrim) is the modal elevation.",
+      "owner": "plan-075",
+      "catalogStates": [
+        "program/progression-editor",
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
+        "program/editor-day-name-refused"
       ]
     }
   ],

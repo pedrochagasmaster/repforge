@@ -1488,9 +1488,33 @@ async function focusPerSideTarget(page) {
   }
 }
 
+/**
+ * Opens the Why sheet from a Focus card with the page in one place every run. The sheet rests at its medium detent
+ * (ADR 0023), so the Focus page under it shows in the frame; a locator tap scrolls the link in only "if needed", by
+ * an amount that depends on when layout settles. So the page is scrolled to put the link at a fixed height first,
+ * and then a real tap lands on it there (a tap, so the sheet's close takes a quiet focus, as on a phone).
+ */
+async function clickWhy(page, selector) {
+  // The link may sit in Focus's own scroller, so the browser places it (whichever scroller holds it), centred first;
+  // the first placement where nothing (a tall header at 200% text, the shelf) covers it is the same every run.
+  const point = await page.evaluate((sel) => {
+    const link = document.querySelector(sel);
+    for (const block of ["center", "start", "end"]) {
+      window.scrollTo({ top: 0, behavior: "instant" });
+      link.scrollIntoView({ block, behavior: "instant" });
+      const r = link.getBoundingClientRect();
+      const p = { x: r.left + Math.min(r.width / 2, 40), y: r.top + Math.min(r.height / 2, 12) };
+      if (p.y > 0 && p.y < innerHeight && document.elementFromPoint(p.x, p.y)?.closest(sel)) return p;
+    }
+    return null;
+  }, selector);
+  if (!point) throw new Error(`no clear spot to tap ${selector}`);
+  await page.mouse.click(point.x, point.y);
+}
+
 async function whyPerSideAssumption(page) {
   await focusPerSideTarget(page);
-  await page.locator(`#workout .exercise.is-current [data-why]`).click();
+  await clickWhy(page, "#workout .exercise.is-current [data-why]");
   await page.waitForSelector("#whySheet.is-open", { timeout: 10000 });
   const text = await page.locator("#whyBody").innerText();
   const lang = await page.locator("html").getAttribute("lang");
@@ -1939,7 +1963,7 @@ export const APP_SCENARIOS = {
   },
   "workout/why-this-weight": async (page) => {
     await adaptiveWhyFixture(page);
-    await page.click("#workout [data-why]");
+    await clickWhy(page, "#workout .exercise.is-current [data-why]");
     await page.waitForSelector("#whySheet.is-open", { timeout: 20000 });
     await sleep(page, 400);
     await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions"]);
@@ -1947,7 +1971,7 @@ export const APP_SCENARIOS = {
   "workout/why-in-session": async (page) => {
     const row = await adaptiveWhyFixture(page);
     await logAdaptiveSet(page, row.slotId || row.id, 1, { load: 45, reps: 8, rir: 2 });
-    await page.click("#workout .exercise.is-current [data-why]");
+    await clickWhy(page, "#workout .exercise.is-current [data-why]");
     await page.waitForSelector("#whySheet.is-open", { timeout: 20000 });
     await sleep(page, 400);
     await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions"]);

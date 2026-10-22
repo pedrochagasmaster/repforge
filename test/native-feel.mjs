@@ -314,6 +314,31 @@ async function dayPickerCommits(browser) {
   await context.close();
 }
 
+/** A page pushed from the Program editor's page sheet (the full library) is on top of it, not under it. */
+async function libraryOverEditorSheet(browser) {
+  phase("the library opened from the editor sheet is on top of it");
+  const { context, page } = await sheetPage(browser);
+  await page.click('nav button[data-view="program"]');
+  await page.click("#programEditToggle");
+  await page.waitForSelector("#program.sheet.is-open");
+  await page.locator('#programEditor [data-role="add-exercise"]').first().click();
+  await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+  await page.click("#exPickFull");
+  await page.waitForSelector("#library.active", { timeout: 5000 });
+  await page.waitForFunction(() => !document.body.classList.contains("is-pushing"));
+  const top = await page.evaluate(() => {
+    const back = document.querySelector("#libBack").getBoundingClientRect();
+    const hit = document.elementFromPoint(back.left + back.width / 2, back.top + back.height / 2);
+    return { back: !!hit?.closest("#libBack"), hit: hit?.id || hit?.className || hit?.tagName };
+  });
+  assert(top.back, "the library's Back is the control under the thumb", JSON.stringify(top));
+  await page.click("#libBack");
+  const returned = await page.waitForFunction(() => document.querySelector("#program")?.classList.contains("sheet")
+    && document.querySelector("#program")?.classList.contains("active"), undefined, { timeout: 5000 }).then(() => true, () => false);
+  assert(returned, "Back returns to the editor sheet");
+  await context.close();
+}
+
 const browser = await launchChromium();
 try {
   phase("A primary action is pressed on touch-down");
@@ -503,6 +528,7 @@ try {
   await detents(browser);
   await reducedMotionSheets(browser);
   await dayPickerCommits(browser);
+  await libraryOverEditorSheet(browser);
 } finally {
   await browser.close();
 }

@@ -257,14 +257,17 @@ try {
     `${surface.theme} Replace/Remove roles remain distinguishable and AA`, surface);
   }
   await closeEditorSheet(page);
+  // The editor is a page sheet (ADR 0023): it scrolls in #programEditorWrap, and its bottom bar shows only a blocked reason.
   const clearance = await page.evaluate(() => {
     const last = [...document.querySelectorAll('#programEditor [data-role="exercise-row"], #programEditor [data-role="add-exercise"]')].at(-1);
-    const dock = document.querySelector('#programEditor [data-role="apply-bar"]');
-    window.scrollTo(0, document.scrollingElement?.scrollHeight || document.documentElement.scrollHeight);
-    const row = last?.getBoundingClientRect(), bar = dock?.getBoundingClientRect();
-    return row && bar ? { rowBottom: row.bottom, dockTop: bar.top, viewport: innerHeight, clear: row.bottom <= bar.top + 1 } : null;
+    const wrap = document.querySelector("#programEditorWrap"), dock = document.querySelector('#programEditor [data-role="apply-bar"]');
+    wrap.scrollTo(0, wrap.scrollHeight);
+    const row = last?.getBoundingClientRect(), box = wrap.getBoundingClientRect(), bar = dock?.getBoundingClientRect();
+    const barShown = !!bar && bar.height > 0 && getComputedStyle(dock).display !== "none";
+    const limit = Math.min(box.bottom, innerHeight, barShown ? bar.top : Infinity);
+    return row ? { rowBottom: row.bottom, limit, barShown, clear: row.bottom <= limit + 1 } : null;
   });
-  check(clearance?.clear === true, "the day's last control clears the pinned Apply at scroll end", clearance);
+  check(clearance?.clear === true, "the day's last control is in view at the end of the editor sheet's scroll, clear of any pinned bar", clearance);
   await cancelInstalledEditor(page);
   await page.waitForSelector("#programOverview:not(.is-hidden)", { timeout: 5000 });
 

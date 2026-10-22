@@ -2874,6 +2874,10 @@ body:has(#program.program-editor-installed) nav{display:none}
   flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
   padding-bottom:calc(var(--editor-apply-reserve,96px) + var(--space-16) + var(--restbar-reserve,0px));
 }
+/* A page pushed from the editor (the full library, a preview) takes the screen:
+   while #program isn't the active view, the sheet, its scrim and the copy under it
+   step aside, and they are back as they were on its Back. */
+#program.sheet:not(.active),body:has(#program.sheet:not(.active)) :is(#programEditScrim,.is-editor-pushed-back){display:none}
 .pagehead[data-sheet-rail]{touch-action:none}
 /* The reason line is what Done being disabled explains; the editor's own bottom
    Apply button is the sheet's Done instead. */
