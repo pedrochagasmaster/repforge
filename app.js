@@ -21950,7 +21950,8 @@ function init(){
   document.addEventListener("keydown",e=>{
     if(e.defaultPrevented||activeModal||!programEditorSheetOpen)return;
     if(e.key==="Escape"){e.preventDefault();attemptProgramEditorDismiss();return}
-    if(e.key!=="Tab")return;
+    // A page pushed from the editor (the library) is the screen then, and keeps its own Tab order.
+    if(e.key!=="Tab"||!$("#program")?.classList.contains("active"))return;
     // Focus moves here on every Tab, so a control the browser would reach outside the sheet never is.
     e.preventDefault();
     const view=$("#program"),stops=modalFocusables(view);
