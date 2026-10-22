@@ -10217,26 +10217,6 @@
       ]
     },
     {
-      "id": "programeditsheet",
-      "selector": "#program.sheet",
-      "roles": {
-        "elevation": "modal"
-      },
-      "variant": "bottom-sheet",
-      "facets": [],
-      "states": [
-        "default"
-      ],
-      "rationale": "Plan 075 phase 2 (ADR 0023): the installed Program editor as a page sheet, a dialog over the receded Program view.",
-      "owner": "plan-075",
-      "catalogStates": [
-        "program/progression-editor",
-        "program/editor-alternates",
-        "program/editor-suggest-loads",
-        "program/editor-day-name-refused"
-      ]
-    },
-    {
       "id": "programeditscrim",
       "selector": "#programEditScrim",
       "roles": {
@@ -10709,6 +10689,18 @@
           "property": "--exercise-art-bg",
           "value": "#ECE0CF"
         }
+      ]
+    },
+    {
+      "selector": "#program.sheet",
+      "role": "page sheet over the receded Program view",
+      "rationale": "Plan 075 phase 2 (ADR 0023): while the installed editor is open, the Program view itself is presented as a page sheet (role=dialog). It is the route's view, so its .active is the route, not a selection state, and it carries no control role; its scrim (#programEditScrim) is the modal elevation.",
+      "owner": "plan-075",
+      "catalogStates": [
+        "program/progression-editor",
+        "program/editor-alternates",
+        "program/editor-suggest-loads",
+        "program/editor-day-name-refused"
       ]
     }
   ],

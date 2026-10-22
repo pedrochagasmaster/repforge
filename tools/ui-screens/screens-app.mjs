@@ -1488,9 +1488,21 @@ async function focusPerSideTarget(page) {
   }
 }
 
+/**
+ * Opens the Why sheet from a Focus card with the page at its top every run. The sheet rests at its medium detent
+ * (ADR 0023), so the Focus page under it shows in the frame; a pointer tap scrolls the link into view first, by an
+ * amount that depends on when layout settles, so the link's own click runs instead and nothing scrolls.
+ */
+async function clickWhy(page, selector) {
+  await page.evaluate((sel) => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+    document.querySelector(sel).click();
+  }, selector);
+}
+
 async function whyPerSideAssumption(page) {
   await focusPerSideTarget(page);
-  await page.locator(`#workout .exercise.is-current [data-why]`).click();
+  await clickWhy(page, "#workout .exercise.is-current [data-why]");
   await page.waitForSelector("#whySheet.is-open", { timeout: 10000 });
   const text = await page.locator("#whyBody").innerText();
   const lang = await page.locator("html").getAttribute("lang");
@@ -1939,7 +1951,7 @@ export const APP_SCENARIOS = {
   },
   "workout/why-this-weight": async (page) => {
     await adaptiveWhyFixture(page);
-    await page.click("#workout [data-why]");
+    await clickWhy(page, "#workout .exercise.is-current [data-why]");
     await page.waitForSelector("#whySheet.is-open", { timeout: 20000 });
     await sleep(page, 400);
     await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions"]);
@@ -1947,7 +1959,7 @@ export const APP_SCENARIOS = {
   "workout/why-in-session": async (page) => {
     const row = await adaptiveWhyFixture(page);
     await logAdaptiveSet(page, row.slotId || row.id, 1, { load: 45, reps: 8, rir: 2 });
-    await page.click("#workout .exercise.is-current [data-why]");
+    await clickWhy(page, "#workout .exercise.is-current [data-why]");
     await page.waitForSelector("#whySheet.is-open", { timeout: 20000 });
     await sleep(page, 400);
     await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions"]);

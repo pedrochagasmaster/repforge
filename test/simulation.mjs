@@ -6129,7 +6129,8 @@ async function main() {
   );
   await requestVisibleDay(page,"Day 1");
   await answerDiscardQuestion(page,"discard");
-  await page.waitForFunction(() => document.querySelector("#dayTabs button.active")?.dataset.day === "Day 1");
+  // The day picker commits Today's day without entering the workout (ADR 0023), so the draft carries the switch.
+  await page.waitForFunction(() => window.__repforgeWorkoutDraft?.current?.()?.program?.dayLabel === "Day 1");
   const dayAfterConfirm = await readDraft(page);
   assert(
     dayAfterConfirm?.program?.dayLabel === "Day 1",
@@ -6198,7 +6199,8 @@ async function main() {
     );
     await requestVisibleDay(page,otherDay);
     await answerDiscardQuestion(page,"discard");
-    await page.waitForFunction((d) => document.querySelector("#dayTabs button.active")?.dataset.day === d, otherDay, { timeout: 5000 });
+    // The day picker commits Today's day without entering the workout (ADR 0023), so the draft carries the switch.
+    await page.waitForFunction((d) => window.__repforgeWorkoutDraft?.current?.()?.program?.dayLabel === d, otherDay, { timeout: 5000 });
     const confirmed = await readDraft(page);
     await reloadApp(page);
     const after = await page.evaluate(() => document.querySelector("#dayTabs button.active")?.dataset.day);
