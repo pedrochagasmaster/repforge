@@ -1156,9 +1156,12 @@ function openPushedRoutes(){
 function syncRouteHistory(){
   if(routeHistoryIgnore)return;
   const open=openPushedRoutes(),kept=routeHistory.filter(id=>open.includes(id)),closed=routeHistory.length-kept.length;
+  const depth=routeHistory.length;
   routeHistory=kept;
+  // Step back only over entries that are ours and on top: another owner (the editor, onboarding) may have pushed
+  // since, and history.go would pop its entry instead. A route closed under one is forgotten, its entry left.
   // Pages opened in the same change are pushed once the browser has stepped back (onRoutePopState).
-  if(closed){routeHistoryIgnore++;try{history.go(-closed)}catch{routeHistoryIgnore--}return}
+  if(closed&&history.state?.[ROUTE_HISTORY_KEY]?.depth===depth){routeHistoryIgnore++;try{history.go(-closed)}catch{routeHistoryIgnore--}return}
   for(const id of open)if(!routeHistory.includes(id)){
     routeHistory.push(id);
     const current=history.state&&typeof history.state==="object"?history.state:{};
@@ -5873,7 +5876,8 @@ function mountTopBars(){
     .forEach(([viewSel,barSel])=>{
       const bar=$(barSel),title=document.querySelector(`${viewSel} .pagehead .page-title`);
       if(!bar||!title)return;
-      new IntersectionObserver(([entry])=>{bar.classList.toggle("is-scrolled",!entry.isIntersecting)},
+      // A title that isn't laid out (its page is hidden) hasn't scrolled under anything.
+      new IntersectionObserver(([entry])=>{bar.classList.toggle("is-scrolled",!entry.isIntersecting&&entry.boundingClientRect.height>0)},
         {threshold:0,rootMargin}).observe(title)})}
 mountTopBars();
 function setEvidenceView(view){
@@ -21565,7 +21569,11 @@ function navTo(view){
    motion. Called before the dock handler's ordinary tab-switch branch, which
    it leaves untouched for every other tap. */
 function dockRetap(b){
-  if(!b.classList.contains("active"))return false;
+  // A re-tap only when that tab's page is the one on screen: the button's own .active can outlive it (the
+  // editor, Settings or a pushed page took the screen), and then the tap is an ordinary switch back.
+  const view=$(`#${CSS.escape(b.dataset.view||"")}`);
+  if(!b.classList.contains("active")||!view?.classList.contains("active")||$$(".view.active").length!==1)return false;
+  if(document.body.classList.contains("is-workout")||document.body.classList.contains("is-settings"))return false;
   if(b.dataset.view==="history"&&$("#history")?.classList.contains("is-session-page")){
     $("#history [data-history-back]")?.click();
     return true}

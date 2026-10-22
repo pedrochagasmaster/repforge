@@ -1098,7 +1098,8 @@
       "rationale": "Steps the calendar sheet's month without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
-        "history/list"
+        "history/list",
+        "history/list-scrolled"
       ],
       "sourceOnly": true,
       "sourceOnlyReason": "pending: the History calendar sheet opens from the calendar button and no catalog state captures it open (history/list is the closed list); the accessibility suite exercises it. A catalog state for the open sheet is an open question for the orchestrator."
@@ -1121,7 +1122,8 @@
       "rationale": "Steps the calendar sheet's month without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
-        "history/list"
+        "history/list",
+        "history/list-scrolled"
       ],
       "sourceOnly": true,
       "sourceOnlyReason": "pending: the History calendar sheet opens from the calendar button and no catalog state captures it open (history/list is the closed list); the accessibility suite exercises it. A catalog state for the open sheet is an open question for the orchestrator."
@@ -1152,7 +1154,8 @@
         "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
-        "today/deload-week"
+        "today/deload-week",
+        "today/ready-scrolled"
       ]
     },
     {
@@ -3173,7 +3176,8 @@
       "rationale": "Performs a reversible supporting action without becoming the screen commitment.",
       "owner": "plan-058",
       "catalogStates": [
-        "history/list"
+        "history/list",
+        "history/list-scrolled"
       ]
     },
     {
@@ -3197,7 +3201,8 @@
       "rationale": "Expands or collapses information; expanded state is separate from navigation.",
       "owner": "plan-058",
       "catalogStates": [
-        "history/list"
+        "history/list",
+        "history/list-scrolled"
       ]
     },
     {
@@ -4118,7 +4123,8 @@
         "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
-        "today/deload-week"
+        "today/deload-week",
+        "today/ready-scrolled"
       ]
     },
     {
@@ -5590,7 +5596,8 @@
         "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
-        "today/deload-week"
+        "today/deload-week",
+        "today/ready-scrolled"
       ]
     },
     {
@@ -5831,7 +5838,8 @@
         "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
-        "today/deload-week"
+        "today/deload-week",
+        "today/ready-scrolled"
       ],
       "progressScopes": {
         "active-program-week": "block"
@@ -5884,7 +5892,8 @@
         "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
-        "today/deload-week"
+        "today/deload-week",
+        "today/ready-scrolled"
       ],
       "progressScopes": {
         "current-week-trained-days": "week"
@@ -5943,7 +5952,8 @@
         "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
-        "today/deload-week"
+        "today/deload-week",
+        "today/ready-scrolled"
       ]
     },
     {
@@ -7316,7 +7326,8 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
-        "history/list"
+        "history/list",
+        "history/list-scrolled"
       ]
     },
     {
@@ -7667,7 +7678,9 @@
         "today/rest-bar",
         "workout/invalid-draft",
         "history/per-side-session",
-        "today/deload-week"
+        "today/deload-week",
+        "today/ready-scrolled",
+        "history/list-scrolled"
       ]
     },
     {
@@ -7735,7 +7748,9 @@
         "today/rest-bar",
         "workout/invalid-draft",
         "history/per-side-session",
-        "today/deload-week"
+        "today/deload-week",
+        "today/ready-scrolled",
+        "history/list-scrolled"
       ]
     },
     {
@@ -7812,7 +7827,9 @@
         "today/rest-bar",
         "workout/invalid-draft",
         "history/per-side-session",
-        "today/deload-week"
+        "today/deload-week",
+        "today/ready-scrolled",
+        "history/list-scrolled"
       ]
     },
     {
@@ -7867,7 +7884,8 @@
         "onboarding-recommend/result-confirmed",
         "onboarding-build/editor-alternates",
         "programlab/editor",
-        "programlab/comparison"
+        "programlab/comparison",
+        "history/list-scrolled"
       ]
     },
     {
@@ -7931,7 +7949,8 @@
         "workout/swap-alternates",
         "history/per-side-session",
         "today/deload-week",
-        "workout/deload-week"
+        "workout/deload-week",
+        "today/ready-scrolled"
       ]
     },
     {
@@ -8097,7 +8116,8 @@
         "workout/invalid-draft",
         "install/banner",
         "program/overview",
-        "today/deload-week"
+        "today/deload-week",
+        "today/ready-scrolled"
       ]
     },
     {
@@ -8244,7 +8264,8 @@
       "rationale": "Frequency counts are flat, non-interactive bars of sessions per week and per weekday: one labelled image for assistive technology, bars in ink, a decorative hairline baseline, and an optional planned marker on the required boundary token, never --rule-strong (OG-4). Progress classification (R3j): the bars are a tally of saved sessions, not workflow progress. The per-week bars sit against the program's planned days per week, but that line is a reference mark, not a completion value: no bar reads as a fraction of a goal, weeks not yet reached draw nothing, and the per-weekday bars have no denominator at all. The block total in the image label (done of planned, week n of N) is the only denominator, and it is text. The counts are therefore neither block, week, exercise-set nor task progress, they are not a progress candidate selector, and no data-progress-dimension is declared on them.",
       "owner": "plan-064/r1b",
       "catalogStates": [
-        "history/list"
+        "history/list",
+        "history/list-scrolled"
       ]
     },
     {
@@ -8803,7 +8824,8 @@
       "rationale": "Opens the month calendar as a sheet without committing training state.",
       "owner": "plan-064/r3j",
       "catalogStates": [
-        "history/list"
+        "history/list",
+        "history/list-scrolled"
       ]
     },
     {
@@ -8822,7 +8844,8 @@
       "sourceOnly": true,
       "sourceOnlyReason": "pending: the History calendar sheet opens from the calendar button and no catalog state captures it open (history/list is the closed list); the accessibility suite exercises it. A catalog state for the open sheet is an open question for the orchestrator.",
       "catalogStates": [
-        "history/list"
+        "history/list",
+        "history/list-scrolled"
       ]
     },
     {
@@ -8841,7 +8864,8 @@
       "sourceOnly": true,
       "sourceOnlyReason": "pending: the History calendar sheet opens from the calendar button and no catalog state captures it open (history/list is the closed list); the accessibility suite exercises it. A catalog state for the open sheet is an open question for the orchestrator.",
       "catalogStates": [
-        "history/list"
+        "history/list",
+        "history/list-scrolled"
       ]
     },
     {
@@ -8866,7 +8890,8 @@
       "sourceOnly": true,
       "sourceOnlyReason": "pending: the History calendar sheet opens from the calendar button and no catalog state captures it open (history/list is the closed list); the accessibility suite exercises it. A catalog state for the open sheet is an open question for the orchestrator.",
       "catalogStates": [
-        "history/list"
+        "history/list",
+        "history/list-scrolled"
       ]
     },
     {
@@ -8889,7 +8914,8 @@
       "sourceOnly": true,
       "sourceOnlyReason": "pending: the History calendar sheet opens from the calendar button and no catalog state captures it open (history/list is the closed list); the accessibility suite exercises it. A catalog state for the open sheet is an open question for the orchestrator.",
       "catalogStates": [
-        "history/list"
+        "history/list",
+        "history/list-scrolled"
       ]
     },
     {
@@ -10921,7 +10947,8 @@
       "owner": "plan-075",
       "catalogStates": [
         "today/ready-scrolled",
-        "history/list-scrolled"
+        "history/list-scrolled",
+        "history/delete-confirm"
       ]
     }
   ],

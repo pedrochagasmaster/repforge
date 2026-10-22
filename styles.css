@@ -527,15 +527,16 @@ h2{font-size:var(--font-size-title);font-weight:var(--weight-semibold);letter-sp
   position:fixed;top:env(safe-area-inset-top);left:max(0px,calc(50% - var(--maxw) / 2));
   right:max(0px,calc(50% - var(--maxw) / 2));z-index:21;height:44px;
   display:flex;align-items:center;justify-content:center;pointer-events:none;
+  /* Nothing is drawn at rest, so nothing is there: hidden until scrolled, and hidden again only after its fade out. */
+  visibility:hidden;transition:visibility 0s linear .16s;
 }
+.topbar.is-scrolled{visibility:visible;transition-delay:0s}
 /* No material at rest: background and backdrop-filter are only set once
    scrolled, so a proof of "no material at the top" reads backdrop-filter
    as none rather than a hidden, already-applied blur. Only the opacity
    that reveals them is on the 160ms transition. */
 .topbar__bg{position:absolute;inset:0;opacity:0;transition:opacity .16s linear}
-/* The hairline is a border, not a box-shadow: a persistent-surface edge, not
-   a second raised card, and the role-coverage checker's outward-shadow sweep
-   does not have to carry a rule for a line this thin. */
+/* The hairline is a border: a persistent-surface edge, not a second raised card. */
 .topbar.is-scrolled .topbar__bg{
   opacity:1;background:var(--bar-glass);
   -webkit-backdrop-filter:var(--bar-blur);backdrop-filter:var(--bar-blur);
@@ -544,8 +545,7 @@ h2{font-size:var(--font-size-title);font-weight:var(--weight-semibold);letter-sp
 /* Caps at 21px under large text, as iOS bars do (Plan 075 phase 3). */
 .topbar__title{
   position:relative;font-size:min(var(--font-size-body),var(--bar-title-max));font-weight:var(--weight-semibold);
-  color:var(--ink);opacity:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  max-width:60vw;transition:opacity .16s linear;
+  color:var(--ink);opacity:0;text-align:center;max-width:60vw;transition:opacity .16s linear;
 }
 .topbar.is-scrolled .topbar__title{opacity:1}
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
@@ -557,6 +557,7 @@ h2{font-size:var(--font-size-title);font-weight:var(--weight-semibold);letter-sp
    already scrolled out of the stack it owns), under a sheet, or once the
    Program editor replaces the ledger. History's session page hides its own
    pagehead the same way. */
+body.is-workout .topbar,
 body.is-sheet-open .topbar,
 .view.is-push-over .topbar,.view.is-push-under .topbar,
 #history.is-session-page .topbar,
