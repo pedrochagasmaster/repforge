@@ -870,13 +870,13 @@ Triceps pushdown 3x12-15</pre>
        arithmetic. Inline recommendation copy still names the signal, not the
        maths; this sheet answers only when the lifter taps to ask. -->
   <div id="whyScrim" class="sheet-scrim hidden"></div>
-  <div id="whySheet" class="sheet sheet--why hidden ph-no-capture" role="dialog" aria-modal="true" aria-labelledby="whyTitle" hidden>
+  <div id="whySheet" class="sheet sheet--why hidden ph-no-capture" data-detents="medium large" role="dialog" aria-modal="true" aria-labelledby="whyTitle" hidden>
     <div class="sheetband">
       <span class="sheetband__handle" aria-hidden="true"></span>
       <h2 class="sheetband__title" id="whyTitle" data-i18n="why.title">Why this weight</h2>
       <button type="button" class="sheetband__close" id="whyClose" data-i18n-aria="dialog.close" aria-label="Close"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
     </div>
-    <div class="whysheet">
+    <div class="whysheet" data-sheet-scroll>
       <p class="whysheet__target" id="whyTarget"></p>
       <p id="whyDecision"></p>
       <div class="whysheet__body" id="whyBody"></div>
@@ -889,7 +889,7 @@ Triceps pushdown 3x12-15</pre>
        the control the lifter has to tap. Chrome's install prompt is never
        drawn here — it is Chrome's, and we only ask for it. -->
   <div id="privacyScrim" class="sheet-scrim hidden"></div>
-  <div id="privacySheet" class="sheet sheet--privacy hidden" role="dialog" aria-modal="true" aria-labelledby="privacyTitle" hidden>
+  <div id="privacySheet" class="sheet sheet--privacy hidden" data-detents="medium large" role="dialog" aria-modal="true" aria-labelledby="privacyTitle" hidden>
     <div class="sheetband">
       <span class="sheetband__handle" aria-hidden="true"></span>
       <h2 class="sheetband__title" id="privacyTitle" data-i18n="privacy.title">Privacy</h2>
@@ -897,7 +897,7 @@ Triceps pushdown 3x12-15</pre>
       <p class="sheetband__sub" data-i18n="privacy.local_first">Your training data stays on this device except when you explicitly create an install transfer.</p>
     </div>
     <div class="privacy-sheet">
-      <div class="privacy-sheet__body">
+      <div class="privacy-sheet__body" data-sheet-scroll>
         <section aria-labelledby="privacySetupTitle">
           <h3 id="privacySetupTitle" data-i18n="privacy.setup.title">Program setup links</h3>
           <p data-i18n="privacy.setup.body">A setup link carries a program proposal in its #setup= fragment. It is an unencrypted bearer link, so anyone you forward it to can read and use it. For the iOS Home Screen handoff, the temporary repforge_setup_v1 cookie carries that proposal to the static host for up to seven days. It never includes workout logs or program history.</p>

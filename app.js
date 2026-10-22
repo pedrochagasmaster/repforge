@@ -1163,6 +1163,7 @@ function pushRoute(direction,pages,change){
   change();
   settle?.()}
 function routeViewEl(id){return $(`#${id}`)}
+const SHEET_FADE_MS=180;
 function openModal(el,opts={}){
   if(!el)return false;
   const extras=opts.extras||[];
@@ -1176,10 +1177,15 @@ function openModal(el,opts={}){
     activeModal=null;
     return openModal(el,{...opts,handoff:false,returnFocus:opener,prevInert})}
   if(activeModal&&activeModal.el===el)return true;
+  // Under reduced motion a sheet cross-fades out in place (ADR 0023), so its hide waits for the fade.
+  const sheet=el.classList.contains("sheet");
   const rec={
     el,scrim:opts.scrim||null,returnFocus:opts.returnFocus||document.activeElement,
-    onEscape:opts.onEscape,delayHide:opts.delayHide||0,prevInert:opts.prevInert||snapshotBodyInert(),closing:false
+    onEscape:opts.onEscape,delayHide:sheet&&reducedMotion()?Math.max(opts.delayHide||0,SHEET_FADE_MS):opts.delayHide||0,
+    prevInert:opts.prevInert||snapshotBodyInert(),closing:false
   };
+  // A sheet with detents opens at its first one, whatever a drag left it on last time.
+  if(sheet)delete el.dataset.detent;
   if(el.tagName==="DIALOG"){if(typeof el.showModal==="function"&&!el.open)el.showModal()}
   else{el.hidden=false;el.classList.remove("hidden")}
   rec.scrim?.classList.remove("hidden");
@@ -6967,7 +6973,10 @@ function sheetDragMove(e){
     // painting its transform. Stop that one first: two writers on the same
     // property means whichever finishes last wins, and the loser is the thumb.
     if(rec.motion){rec.motion.cancel();rec.motion=null}
-    sheetDrag.motion=window.RepForgeMotion?.trackSheetGesture(rec.el,rec.scrim)||null;
+    // A sheet resting on a detent (ADR 0023) is pushed from where it rests.
+    const placed=getComputedStyle(rec.el).transform;
+    sheetDrag.rest=placed&&placed!=="none"?new DOMMatrixReadOnly(placed).m42:0;
+    sheetDrag.motion=window.RepForgeMotion?.trackSheetGesture(rec.el,rec.scrim,{from:sheetDrag.rest,rest:sheetDrag.rest,top:sheetDrag.rest})||null;
     // The sheet can also be torn down mid-gesture — Escape, a save, a tour step
     // — and whatever cleans it up has to be able to stop the animation too.
     rec.motion=sheetDrag.motion;
@@ -6981,7 +6990,7 @@ function sheetDragMove(e){
   // placed the same way it always was and the stylesheet finishes the gesture.
   if(sheetDrag.motion)sheetDrag.motion.follow(sheetDrag.dy);
   else{
-    rec.el.style.transform=`translate3d(0,${sheetDrag.dy}px,0)`;
+    rec.el.style.transform=`translate3d(0,${sheetDrag.rest+sheetDrag.dy}px,0)`;
     // The scrim thins as the sheet leaves, so the page behind is already coming back.
     if(rec.scrim)rec.scrim.style.opacity=String(Math.max(0,1-sheetDrag.dy/(rec.el.offsetHeight||1)))}}
 /** Hand the sheet back to the stylesheet. Dropping the inline transform in the
@@ -7019,7 +7028,7 @@ function sheetDragEnd(e){
   // is the sheet's own dismiss, so a swipe can never close something a tap
   // could not.
   if(dismiss){motion.dismiss({velocity:vy});rec.onEscape()}
-  else motion.settle({velocity:vy}).finally(()=>{if(rec.motion===motion)rec.motion=null})}
+  else motion.settle({velocity:vy,to:sheetDrag?.rest??motion.current()-dy}).finally(()=>{if(rec.motion===motion)rec.motion=null})}
 function focusGo(dir){
   const fl=focusList(),at=fl.length?Math.min(focusIndex,fl.length-1):0,next=at+dir;
   if(next<0||next>=fl.length)return false;

@@ -1584,8 +1584,26 @@ body.is-sheet-open{overflow:hidden}
    sheet the rest of the way, down or back to rest. */
 .sheet.is-dragging{transition:none;will-change:transform}
 .sheet-scrim.is-dragging{transition:none}
+/* Detents (ADR 0023, Plan 075 phase 2). A sheet that lists `medium` in
+   `data-detents` is at most the large height and rests at medium: moved down
+   so 52% of the visible band shows. When its content is shorter than that the
+   move is zero and it rests at its content height. The gesture owner in
+   motion-layer.js sets `data-detent="large"` when a drag takes it there, and
+   opening clears it. Below large its scroller is held, so a drag in the body
+   moves the sheet instead of scrolling content that is partly off screen. */
+.sheet[data-detents~="medium"]{height:auto;max-height:var(--sheet-max-height)}
+.sheet[data-detents~="medium"].is-open:not([data-detent="large"]){transform:translateY(max(0px,calc(100% - var(--vvh,100dvh) * .52)))}
+.sheet[data-detents~="medium"]:not([data-detent="large"]) [data-sheet-scroll]{overflow-y:hidden;touch-action:none}
+/* Reduced motion: a sheet doesn't travel. It cross-fades in place, opening and
+   closing (ADR 0023, audit F-18); a drag still places it under the thumb. The
+   fade is the one exception to the global reduced-motion kill below, so it is
+   `!important` against it. */
 @media (prefers-reduced-motion:reduce){
-  .sheet,.sheet-scrim{transition:none}
+  .sheet{transform:none;opacity:0;transition:opacity .17s linear!important}
+  .sheet.is-open{opacity:1}
+  .sheet[data-detents~="medium"]:not([data-detent="large"]){transform:translateY(max(0px,calc(100% - var(--vvh,100dvh) * .52)))}
+  .sheet-scrim{transition:opacity .17s linear!important}
+  .sheet.is-dragging,.sheet-scrim.is-dragging{transition:none!important}
 }
 .sheet__grab{display:block;flex:none;width:38px;height:5px;border-radius:var(--radius-compact);background:var(--rule-strong);margin:8px auto 0}
 /* The handle and the head are the drag rail: the browser must not read a push
@@ -5382,7 +5400,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .install-transfer__disclosure .textlink{margin-top:10px}
 .install-transfer__actions{display:grid;gap:10px;margin-top:18px}
 .install-transfer__actions .btn{width:100%;justify-content:center}
-.sheet--privacy{height:min(88dvh,760px);background:var(--bg)}
+.sheet--privacy{background:var(--bg)}
 /* The band's subtitle carries the transfer exception to local-first, so it wraps instead of eliding (ADR 0013). */
 .privacy-sheet{display:flex;flex:1 1 auto;flex-direction:column;min-height:0;padding:0 22px 20px}
 .privacy-sheet__body{min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:8px 2px 24px}

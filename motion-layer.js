@@ -83,15 +83,19 @@
     return Math.sign(overshoot || 1) * resisted;
   }
 
-  function trackSheetGesture(sheet, scrim, { from = 0 } = {}) {
+  /* A sheet under the thumb. `rest` is its lowest detent (where the scrim is
+     full), `top` its highest; a pull past `top` rubber-bands (ADR 0023). A
+     sheet with one rest has both at zero. */
+  function trackSheetGesture(sheet, scrim, { from = 0, rest = 0, top = 0 } = {}) {
     if (!available || !sheet) return null;
-    const origin = Math.max(0, Number(from) || 0);
-    const y = motionValue(origin);
     const height = sheet.offsetHeight || 1;
+    const lowest = Math.max(0, Number(rest) || 0);
+    const highest = Math.min(lowest, Math.max(0, Number(top) || 0));
+    const origin = Number.isFinite(Number(from)) ? Number(from) : lowest;
+    const y = motionValue(origin);
     const paint = value => {
-      const position = Math.max(0, value);
-      sheet.style.transform = `translate3d(0,${position}px,0)`;
-      if (scrim) scrim.style.opacity = String(Math.max(0, 1 - position / height));
+      sheet.style.transform = `translate3d(0,${value}px,0)`;
+      if (scrim) scrim.style.opacity = String(Math.min(1, Math.max(0, 1 - (value - lowest) / Math.max(1, height - lowest))));
     };
     const stopPaint = y.on("change", paint);
     paint(origin);
@@ -114,18 +118,21 @@
     return {
       follow(dy) {
         if (disposed) return;
-        y.set(Math.max(0, origin + (Number(dy) || 0)));
+        const value = origin + (Number(dy) || 0);
+        y.set(value < highest ? highest - rubberband(highest - value, height) : value);
       },
-      current: () => Math.max(0, y.get()),
+      current: () => y.get(),
       takeover() {
-        const value = Math.max(0, y.get());
+        const value = y.get();
         dispose({ preserve: true });
         return value;
       },
-      settle({ velocity = 0 } = {}) {
+      /* `to` is the detent it settles on; the caller has already made it the
+         stylesheet's rest, so the hand-off at the end doesn't move it. */
+      settle({ velocity = 0, to = lowest } = {}) {
         if (disposed) return settled;
         if (reducedMotion()) { dispose(); return settled; }
-        return animate(y, 0, { ...VOCABULARY.gestureSettle, velocity: perSecond(velocity) })
+        return animate(y, to, { ...VOCABULARY.gestureSettle, velocity: perSecond(velocity) })
           .then(() => { dispose(); return true; }, () => false);
       },
       dismiss({ velocity = 0 } = {}) {
@@ -582,6 +589,31 @@
       if (sheetRuns.get(active.sheet) === active.motion) sheetRuns.delete(active.sheet);
     }
   }
+  /* Detents (ADR 0023, Plan 075 phase 2). A sheet that lists `medium` in
+     `data-detents` rests at medium, with about half the screen showing, unless
+     `data-detent="large"`; the stylesheet draws both. Its offsets are read from
+     the same rule: medium is the sheet's height less 52% of the visible band,
+     never below zero, so a sheet whose content is shorter than that has one
+     rest. Every sheet rubber-bands above its highest detent. */
+  const SHEET_MEDIUM_SHARE = 0.52;
+  const SHEET_FLICK = 1.1; // px/ms: a flick this fast from the lowest detent dismisses
+  function sheetDetents(sheet) {
+    const names = (sheet.dataset.detents || "").split(/\s+/).filter(Boolean);
+    if (!names.includes("medium")) return [{ name: "", position: 0 }];
+    const root = getComputedStyle(document.documentElement);
+    const band = parseFloat(root.getPropertyValue("--vvh")) || global.innerHeight || 0;
+    const medium = Math.max(0, Math.round((sheet.offsetHeight || 0) - band * SHEET_MEDIUM_SHARE));
+    if (!medium || !names.includes("large")) return [{ name: "", position: medium }];
+    return [{ name: "large", position: 0 }, { name: "", position: medium }];
+  }
+  function sheetRestingAt(sheet) {
+    const stops = sheetDetents(sheet);
+    return stops.find(stop => stop.name === (sheet.dataset.detent || "")) || stops[stops.length - 1];
+  }
+  function onSheetRail(target, sheet) {
+    return !!target.closest(".sheet__grab,.sheet__head,.sheetband") ||
+      (sheetDetents(sheet).length > 1 && sheetRestingAt(sheet).name !== "large");
+  }
   function sheetPointerDown(event) {
     if (sheetGesture) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
@@ -592,7 +624,7 @@
     if (sheetScrollHeld(target, sheet)) return;
     sheetGesture = {
       id: event.pointerId, sheet, scrim: currentScrim(), x: event.clientX, y: event.clientY,
-      anchorY: event.clientY, dy: 0, live: false, velocity: 0,
+      anchorY: event.clientY, dy: 0, live: false, velocity: 0, upward: onSheetRail(target, sheet),
       lastY: event.clientY, lastT: event.timeStamp || performance.now(), motion: null,
     };
   }
@@ -605,20 +637,26 @@
     const dy = event.clientY - gesture.y;
     const dx = event.clientX - gesture.x;
     if (!gesture.live) {
-      if (dy <= -SHEET_LOCK || (Math.abs(dx) >= SHEET_LOCK && Math.abs(dx) > Math.abs(dy))) {
+      // Sideways is somebody else's gesture. Upward belongs to the sheet only on
+      // its rail, or below its highest detent; elsewhere it is the content's.
+      if ((dy <= -SHEET_LOCK && !gesture.upward) || (Math.abs(dx) >= SHEET_LOCK && Math.abs(dx) > Math.abs(dy))) {
         sheetGesture = null; return;
       }
-      if (dy < SHEET_LOCK) return;
+      if (Math.abs(dy) < SHEET_LOCK) return;
       gesture.live = true;
       gesture.sheet.classList.add("is-dragging");
       gesture.scrim?.classList.add("is-dragging");
       try { gesture.sheet.setPointerCapture?.(gesture.id); } catch {}
+      const stops = sheetDetents(gesture.sheet);
+      gesture.stops = stops;
       const previous = sheetRuns.get(gesture.sheet);
-      const from = previous?.takeover?.() || 0;
+      const from = previous ? previous.takeover() : sheetRestingAt(gesture.sheet).position;
       if (previous) sheetRuns.delete(gesture.sheet);
-      gesture.motion = trackSheetGesture(gesture.sheet, gesture.scrim, { from });
+      gesture.motion = trackSheetGesture(gesture.sheet, gesture.scrim, {
+        from, rest: stops[stops.length - 1].position, top: stops[0].position,
+      });
       if (gesture.motion) sheetRuns.set(gesture.sheet, gesture.motion);
-      gesture.anchorY = event.clientY - SHEET_LOCK;
+      gesture.anchorY = event.clientY - Math.sign(dy) * SHEET_LOCK;
     }
     const now = event.timeStamp || performance.now();
     const dt = now - gesture.lastT;
@@ -627,7 +665,7 @@
       gesture.lastY = event.clientY;
       gesture.lastT = now;
     }
-    gesture.dy = Math.max(0, event.clientY - gesture.anchorY);
+    gesture.dy = event.clientY - gesture.anchorY;
     gesture.motion?.follow(gesture.dy);
   }
   function dismissSheetByExistingPath(sheet) {
@@ -641,7 +679,7 @@
     gesture.sheet.classList.remove("is-dragging");
     gesture.scrim?.classList.remove("is-dragging");
     try { gesture.sheet.releasePointerCapture?.(gesture.id); } catch {}
-    if (gesture.dy > SHEET_LOCK) global.swallowNextClick?.();
+    if (Math.abs(gesture.dy) > SHEET_LOCK) global.swallowNextClick?.();
 
     const motion = gesture.motion;
     if (!motion || gesture.sheet.hidden || !gesture.sheet.classList.contains("is-open")) {
@@ -656,17 +694,24 @@
     // commitment distance and dismiss a sheet nobody released.
     const released = event?.type !== "pointercancel";
     const current = motion.current();
-    const projected = released ? projectMomentum(current, gesture.velocity) : 0;
-    const threshold = Math.min(160, Math.max(64, (gesture.sheet.offsetHeight || 0) * 0.32));
-    const choice = nearestSnap(projected, [
-      { position: 0, dismiss: false },
-      { position: threshold * 2, dismiss: true },
+    const stops = gesture.stops || [{ name: "", position: 0 }];
+    const resting = sheetRestingAt(gesture.sheet);
+    const lowest = stops[stops.length - 1].position;
+    const projected = released ? projectMomentum(current, gesture.velocity) : resting.position;
+    const threshold = Math.min(160, Math.max(64, ((gesture.sheet.offsetHeight || 0) - lowest) * 0.32));
+    const flick = released && gesture.velocity >= SHEET_FLICK && current > lowest - 20;
+    const choice = flick ? { dismiss: true } : nearestSnap(projected, [
+      ...stops.map(stop => ({ ...stop, dismiss: false })),
+      { position: lowest + threshold * 2, dismiss: true },
     ]);
     if (choice?.dismiss) {
       motion.dismiss({ velocity: gesture.velocity });
       dismissSheetByExistingPath(gesture.sheet);
     } else {
-      motion.settle({ velocity: released ? gesture.velocity : 0 }).finally(() => {
+      const stop = released ? choice : resting;
+      if (stop.name) gesture.sheet.dataset.detent = stop.name;
+      else delete gesture.sheet.dataset.detent;
+      motion.settle({ velocity: released ? gesture.velocity : 0, to: stop.position }).finally(() => {
         if (sheetRuns.get(gesture.sheet) === motion) sheetRuns.delete(gesture.sheet);
       });
     }
