@@ -8602,6 +8602,8 @@ function openWheelSheet(key,id,kind){
   col.innerHTML=values.map((v,i)=>{
     const inRange=kind==="reps"&&range&&v>=range.min&&v<=range.max;
     return `<div class="wheel__item${inRange?" is-target":""}${i===index?" is-center":""}" data-wheel-i="${i}" data-wheel-v="${esc(String(v))}" aria-hidden="true">${esc(wheelItemText(v,kind,unit))}</div>`}).join("");
+  // The column is a spinbutton only while the wheel is open; closed, it is empty and hidden and names nothing.
+  col.setAttribute("role","spinbutton");
   col.setAttribute("aria-label",label);
   col.setAttribute("aria-valuemin",String(values[0]));
   col.setAttribute("aria-valuemax",String(values[values.length-1]));
@@ -8630,7 +8632,10 @@ function closeWheelSheet(){
   const ui=wheelUi;
   const commit=ui?wheelCommit(ui.index??0):Promise.resolve();
   wheelUi=null;
-  return commit.then(()=>closeModal(sheet))}
+  return commit.then(()=>closeModal(sheet)).then(closed=>{
+    const col=$("#wheelCol");
+    if(col&&!wheelUi)for(const name of["role","aria-label","aria-valuemin","aria-valuemax","aria-valuenow","aria-valuetext"])col.removeAttribute(name);
+    return closed})}
 
 /** Rebuild the live card's shelf after the selection, an edit or an effort step
  *  changed what it shows, then put focus where the lifter was. The ledger and
@@ -9256,6 +9261,8 @@ function bindWorkout(){
     if(ui.field===id&&effortField){toggleEffortPop(key);if(fromRest)restInlineSync();return}
     if(ui.field===id&&!ui.editing){
       const[exId,n]=setKeyParts(key),wheelKind=fieldWheelKind(exId,n,id);
+      // During a rest the shelf shows the rest pads, so this tap brings the field back first; the next opens the wheel.
+      if(wheelKind&&fromRest){shelfSelect(key,id,false);refreshShelf({focus:id});return}
       if(wheelKind){openWheelSheet(key,id,wheelKind);return}
       shelfSelect(key,id,true);refreshShelf({focus:id});return}
     closeEffortPop();shelfSelect(key,id,false);refreshShelf({focus:id})});
