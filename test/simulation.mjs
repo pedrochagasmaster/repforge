@@ -1109,6 +1109,7 @@ async function cardInfoById(page, exId) {
   }));
   if(await card.locator("[data-why]").count())Object.assign(info,await whyInfo(page,exId));
   await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
+  await page.locator("#exActionsSheet.is-open").waitFor({ state: "visible" });
   info.setup = await page.locator("#exActionsSetupText").textContent();
   await page.locator("#exActionsClose").click();
   await page.locator("#exActionsSheet").waitFor({state: "hidden"});

@@ -2084,6 +2084,7 @@ async function runDimmedStateAccessibility(browser) {
     await page.locator(`[data-session-map-jump="${skippedId}"]`).click();
     await page.locator("#sessionSheet").waitFor({state:"hidden"});
     await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
+    await page.locator("#exActionsSheet.is-open").waitFor();
     const skip=lang==="pt"?"Pular exercício":"Skip exercise";
     assert(await page.getByRole("button",{name:skip,exact:true}).count()===1,
       `restoring returns the action to Skip semantics (${lang})`);

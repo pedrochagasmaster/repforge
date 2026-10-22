@@ -1129,6 +1129,7 @@
         "install/banner",
         "today/draft-resume",
         "today/ready",
+        "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
         "today/deload-week"
@@ -4094,6 +4095,7 @@
         "today/draft-resume",
         "today/no-program",
         "today/ready",
+        "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
         "today/deload-week"
@@ -5461,6 +5463,7 @@
         "install/banner",
         "today/draft-resume",
         "today/ready",
+        "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
         "today/deload-week"
@@ -5701,6 +5704,7 @@
         "today/draft-resume",
         "today/no-program",
         "today/ready",
+        "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
         "today/deload-week"
@@ -5753,6 +5757,7 @@
         "today/draft-resume",
         "today/no-program",
         "today/ready",
+        "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
         "today/deload-week"
@@ -5811,6 +5816,7 @@
         "today/done",
         "today/draft-resume",
         "today/ready",
+        "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
         "today/deload-week"
@@ -7533,6 +7539,7 @@
         "today/draft-resume",
         "today/no-program",
         "today/ready",
+        "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
         "history/per-side-session",
@@ -7600,6 +7607,7 @@
         "today/draft-resume",
         "today/no-program",
         "today/ready",
+        "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
         "history/per-side-session",
@@ -7676,6 +7684,7 @@
         "today/draft-resume",
         "today/no-program",
         "today/ready",
+        "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
         "history/per-side-session",
@@ -7763,6 +7772,7 @@
         "onboarding-start/first-run-ways",
         "today/draft-resume",
         "today/ready",
+        "today/skipped",
         "history/session",
         "program/overview",
         "today/rest-bar",
@@ -7956,6 +7966,7 @@
       "owner": "plan-064/r1a",
       "catalogStates": [
         "today/ready",
+        "today/skipped",
         "today/rest-bar",
         "today/day-picker",
         "today/draft-resume",
@@ -10914,6 +10925,7 @@
       "catalogStates": [
         "today/no-program",
         "today/ready",
+        "today/skipped",
         "today/rest-bar",
         "today/done",
         "workout/invalid-draft",
@@ -11297,6 +11309,7 @@
       "catalogStates": [
         "today/no-program",
         "today/ready",
+        "today/skipped",
         "today/rest-bar",
         "today/done",
         "workout/invalid-draft",
@@ -11354,6 +11367,7 @@
       "catalogStates": [
         "today/no-program",
         "today/ready",
+        "today/skipped",
         "today/rest-bar",
         "today/done",
         "workout/invalid-draft",
