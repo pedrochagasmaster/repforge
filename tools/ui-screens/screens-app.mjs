@@ -1630,7 +1630,9 @@ export const APP_SCENARIOS = {
                 || label.scrollWidth > label.clientWidth + 1
                 || !textFits(label);
             }).map((label) => ({ selector: label.className, text: label.textContent.trim() }));
-          const actions = ["#dayPickConfirm", "#dayPickCancel"].map((selector) => {
+          // Plan 075 phase 2 retired Confirm/Cancel: tapping a row commits, and the
+          // band's × (data-daypick-close) is the sheet's one remaining action.
+          const actions = ["[data-daypick-close]"].map((selector) => {
             const button = document.querySelector(selector);
             if (!button) return { selector, visible: false, labelFits: false, inViewport: false };
             const box = button.getBoundingClientRect();
@@ -1640,13 +1642,16 @@ export const APP_SCENARIOS = {
           });
           const list = document.querySelector("#dayPickList");
           const rows = [...(list?.querySelectorAll(".daypick__row") || [])];
+          // Scrolling to the bottom is a no-op when the list already fits —
+          // that still makes the last row reachable, so this does not require
+          // scrollHeight to exceed clientHeight (Plan 075 phase 2 dropped the
+          // sheet's footer, and a short split can now fit without scrolling).
           let lastChoiceReachable = false;
           if (list && rows.length && ["auto", "scroll", "overlay"].includes(getComputedStyle(list).overflowY)) {
             const originalTop = list.scrollTop;
             list.scrollTop = list.scrollHeight;
             const listBox = list.getBoundingClientRect(), lastBox = rows.at(-1).getBoundingClientRect();
-            lastChoiceReachable = list.scrollHeight > list.clientHeight
-              && lastBox.top >= listBox.top - 1 && lastBox.bottom <= listBox.bottom + 1;
+            lastChoiceReachable = lastBox.top >= listBox.top - 1 && lastBox.bottom <= listBox.bottom + 1;
             list.scrollTop = originalTop;
           }
           return { clippedLabels, actions, lastChoiceReachable };

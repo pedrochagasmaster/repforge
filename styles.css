@@ -520,8 +520,7 @@ h2{font-size:var(--font-size-title);font-weight:var(--weight-semibold);letter-sp
 .is-pressed:not(:disabled){--control-primary-bg:var(--control-primary-pressed-bg);--cta:var(--control-primary-pressed-bg)}
 :is(.btn--cta,.firstrun__cta,.program-editor__activate,#onbNext,#entryActivate,#entryRebuildRules,#entryResumeContinue,
   #entryFreeformContinue,#entryFreeformClipboard,#entryFreeformReview,#entryFreeformSubmitGaps,#importCommit,#libPrimary,
-  #previewAdd,#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep,#draftDiscardKeep,#sumDone,#shareSetupShare,
-  #dayPickConfirm).is-pressed:not(:disabled){--control-pressed-transform:var(--control-primary-pressed-transform)}
+  #previewAdd,#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep,#draftDiscardKeep,#sumDone,#shareSetupShare).is-pressed:not(:disabled){--control-pressed-transform:var(--control-primary-pressed-transform)}
 .btn:disabled{opacity:var(--control-disabled-opacity);cursor:default}
 /* A blanket 40% on the near-black CTA produced a mid-grey fill with washed
    white text (~2.5:1) that read as an enabled secondary button rather than a
@@ -2040,6 +2039,11 @@ body.is-sheet-open{overflow:hidden}
 .review-toast__text{flex:1;min-width:0;overflow-wrap:anywhere}
 .review-toast__undo{flex:none;min-height:44px;padding:0 4px;border:0;background:none;color:inherit;font:inherit;font-weight:var(--weight-semibold);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 @media (prefers-reduced-motion:reduce){.review-toast{animation:none}}
+/* The day-changed toast (Plan 075 phase 2) reuses .review-toast's shape on
+   Today, so it clears the dock and the floating Start/Continue exactly where
+   the plain #toast already does, instead of the onboarding review's pinned
+   Activate clearance. */
+.daychange-toast{bottom:calc(var(--nav) + 22px + env(safe-area-inset-bottom));z-index:50}
 /* Focus sheets keep their modal hierarchy while using the shared type and depth roles.
    The Session, exercise-actions and note sheets wear the shared .sheetband (Plan 064 R3d),
    and so does the Why sheet (R3g); the rest sheet keeps its own head until its slice lands. */
@@ -5383,7 +5387,6 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   display:flex;flex-direction:column;min-height:0;overflow-y:auto;overscroll-behavior:contain;
   -webkit-overflow-scrolling:touch;padding:0 22px 20px;
 }
-.installsheet__done{margin-top:22px}
 .installsheet__foot{margin:14px 0 0;text-align:center;font-family:var(--font-language);
   font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .install-transfer__intro{margin-top:20px}
@@ -5453,7 +5456,6 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .whycalc__row--sum .whycalc__k,.whycalc__row--sum .whycalc__v{font-weight:var(--weight-semibold);color:var(--color-ink)}
 .whycalc__text{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 .whysheet__evidence{margin:var(--space-12) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
-#whyOk{width:100%;min-height:var(--control-target);margin-top:var(--space-16)}
 /* The affordance itself: a quiet text link under the recommendation, never a
    button that competes with logging a set. */
 .recblock__why,.focus-ex__why{font-size:var(--font-size-body-small);padding:6px 0 0}
@@ -5512,13 +5514,13 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .installsteps__body{flex:1;min-width:0;font-family:var(--font-language);font-size:var(--font-size-body);
   line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .installsteps__body b{color:var(--color-ink);font-weight:var(--weight-semibold)}
-/* A short screen still has to reach Done without a scroll inside the sheet. */
+/* A short screen still has to fit the instructions without a scroll inside
+   the sheet. */
 @media (max-height:700px){
   .installsheet{padding:0 18px 16px}
   .safaribar{margin-top:16px;padding:24px 10px 10px}
   .installsteps{margin-top:16px}
   .installsteps__step{padding:10px 2px}
-  .installsheet__done{margin-top:16px}
 }
 @media (max-width:340px){
   .installsheet,.privacy-sheet{padding-left:16px;padding-right:16px}
@@ -6761,15 +6763,15 @@ body.is-entry-editor #entryProgramName,
 #importReview .impreview__nav{margin-top:0}
 
 /* Today and day choice use the frozen control roles. */
-#todayDash .btn--cta,#dayPickConfirm{
+#todayDash .btn--cta{
   min-height:54px;border:1px solid var(--control-primary-boundary);border-radius:var(--radius-control);
   background:var(--control-primary-bg);color:var(--control-primary-ink);
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard)
 }
 #todayDash .btn--cta::after{color:var(--control-primary-ink)}
-#todayDash .btn--cta.is-pressed:not(:disabled),#dayPickConfirm.is-pressed:not(:disabled){transform:var(--control-pressed-transform)}
-#todayDash .btn--cta:focus-visible,#dayPickConfirm:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-#todayDash .btn--cta:disabled,#dayPickConfirm:disabled{
+#todayDash .btn--cta.is-pressed:not(:disabled){transform:var(--control-pressed-transform)}
+#todayDash .btn--cta:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+#todayDash .btn--cta:disabled{
   background:var(--control-primary-disabled-bg);color:var(--control-primary-disabled-ink);
   border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
 }
@@ -6780,24 +6782,19 @@ body.is-entry-editor #entryProgramName,
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard)
 }
 @media (hover: hover) and (pointer: fine){
-#chooseAnotherDay:hover:not(:disabled),#dayPickCancel:hover:not(:disabled),#todayDash #upNextBtn:hover:not(:disabled){
+#chooseAnotherDay:hover:not(:disabled),#todayDash #upNextBtn:hover:not(:disabled){
   background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)
 }
 }
-#chooseAnotherDay.is-pressed:not(:disabled),#dayPickCancel.is-pressed:not(:disabled),#todayDash #upNextBtn.is-pressed:not(:disabled){
+#chooseAnotherDay.is-pressed:not(:disabled),#todayDash #upNextBtn.is-pressed:not(:disabled){
   background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)
 }
-#chooseAnotherDay:focus-visible,#dayPickCancel:focus-visible,#todayDash #upNextBtn:focus-visible{
+#chooseAnotherDay:focus-visible,#todayDash #upNextBtn:focus-visible{
   outline:var(--control-focus-outline);outline-offset:2px
 }
-#chooseAnotherDay:disabled,#dayPickCancel:disabled,#todayDash #upNextBtn:disabled{
+#chooseAnotherDay:disabled,#todayDash #upNextBtn:disabled{
   background:var(--control-quiet-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);
   opacity:1;cursor:not-allowed;transform:none
-}
-#dayPickCancel{
-  display:block;width:100%;min-height:var(--control-target);padding:8px 0;border:1px solid var(--control-quiet-boundary);
-  border-radius:var(--radius-control);background:var(--control-quiet-bg);color:var(--control-quiet-ink);
-  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard)
 }
 #todayDash #upNextBtn{
   background:var(--control-quiet-bg);color:var(--control-quiet-ink);border:0;border-bottom:1px solid var(--boundary-decorative);

@@ -3014,7 +3014,8 @@ function isDisposableDraft(draft){
 function draftSetTouched(set){
   return !!(set?.touched?.load||set?.touched?.reps||set?.touched?.effort||
     Object.values(set?.touched?.metrics||{}).some(Boolean))}
-function draftHasSessionWork(d){
+/** `ignoreDay` leaves out the day-touched flag: the day picker's Undo set it itself. */
+function draftHasSessionWork(d,{ignoreDay=false}={}){
   d=d||loadDraft();
   if(d?.schemaVersion===2)return d.exerciseOrder.some(exerciseId=>{
     const exercise=d.exercises[exerciseId];
@@ -3022,7 +3023,7 @@ function draftHasSessionWork(d){
       exercise.setOrder.some(setId=>{const set=exercise.sets[setId];return set.completion!=="pending"||set.role==="warmup"||
         draftSetTouched(set)})})||
       d.session.notes!==""||d.session.bodyweight!=null||d.program.scheduleDate!==today()||
-      Object.values(contextFlagsFromDraft(d)).some(Boolean);
+      Object.entries(contextFlagsFromDraft(d)).some(([flag,on])=>on&&!(ignoreDay&&flag==="day"));
   if((d.__done||[]).length||(d.__touched||[]).length||(d.__warm||[]).length) return true;
   if((d.__skipped||[]).length) return true;
   if(d.__substituted&&typeof d.__substituted==="object"&&Object.keys(d.__substituted).length) return true;
@@ -3087,9 +3088,11 @@ function confirmDiscardDraft(){
     document.body.classList.add("is-sheet-open");
     requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim.classList.add("is-open")})});
   return draftDiscardAsk}
-async function requestWorkoutDay(nextDay){
+/** `undo` is the day picker's Undo putting back the day it just changed: the
+ *  change itself marked the draft's day as touched, so only logged work asks. */
+async function requestWorkoutDay(nextDay,{undo=false}={}){
   if(!nextDay||nextDay===day) return true;
-  const hasProgress=draftHasProgress();
+  const hasProgress=undo?draftHasLoggedWork():draftHasProgress();
   if(hasProgress){
     if(!await confirmDiscardDraft()){
       return false}
@@ -6743,6 +6746,7 @@ function updateSessionBanner(){
   };
 }
 
+function draftHasLoggedWork(){try{return draftHasSessionWork(JSON.parse(DraftStore.readRaw()||"{}"),{ignoreDay:true})}catch{return false}}
 function draftHasProgress(){try{const d=JSON.parse(DraftStore.readRaw()||"{}");
   return draftHasSessionWork(d)||!!contextFlagsFromDraft(d).day}catch{return false}}
 function setWorkoutActive(on){const was=workoutActive;workoutActive=!!on;
@@ -6828,8 +6832,12 @@ function dayPickRowHtml(d,i){
   // The badge is a numeral, so the day it stands for is spelled out for anyone
   // who only hears the row.
   const aria=[label,title===label?"":title,sub,isToday?chip:""].filter(Boolean).join(" · ");
+  // aria-current names the day this actually is today, independent of
+  // .is-selected (the row a tap just landed on, which can briefly lead it
+  // while a discard question is still being answered — F-8/Plan 075 phase 2
+  // dropped aria-pressed, a toggle semantic that never fit a commit-on-tap row).
   return `<button type="button" class="daypick__row${d===dayPickSelected?" is-selected":""}" data-daypick="${esc(d)}"`+
-    ` aria-pressed="${d===dayPickSelected?"true":"false"}" aria-label="${esc(aria)}">`+
+    ` aria-label="${esc(aria)}"${isToday?' aria-current="true"':""}>`+
     `<span class="daypick__n" aria-hidden="true">${esc(String(i+1))}</span>`+
     `<span class="daypick__main"><span class="daypick__line"><span class="daypick__title">${esc(title)}</span>`+
     (isToday?`<span class="daypick__chip">${esc(chip)}</span>`:"")+
@@ -6837,14 +6845,13 @@ function dayPickRowHtml(d,i){
     `</button>`}
 function renderDayPickList(){const list=$("#dayPickList");if(!list)return;
   list.innerHTML=days().map(dayPickRowHtml).join("");
-  $$("#dayPickList [data-daypick]").forEach(b=>b.onclick=()=>armPickerDay(b.dataset.daypick))}
+  $$("#dayPickList [data-daypick]").forEach(b=>b.onclick=()=>commitPickerDay(b.dataset.daypick))}
 /** Arming repaints in place rather than rebuilding the list, so the row the
  *  keyboard is on is still there to keep the focus. */
 function paintDayPickList(){
   $$("#dayPickList [data-daypick]").forEach(b=>{
     const on=b.dataset.daypick===dayPickSelected;
-    b.classList.toggle("is-selected",on);
-    b.setAttribute("aria-pressed",on?"true":"false")})}
+    b.classList.toggle("is-selected",on)})}
 function armPickerDay(d){
   if(!d||!days().includes(d))return;
   dayPickSelected=d;
@@ -6872,16 +6879,60 @@ function closeDayPickSheet(){
   if(!sheet)return Promise.resolve(false);
   if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
   return closeModal(sheet)}
-/** Confirming starts the armed day, exactly as Up next and the session banner
- *  do. The discard prompt is answered while the sheet is still up, so declining
- *  it leaves the picker open on the day already loaded. */
-async function confirmPickerDay(){
-  const next=dayPickSelected;
-  if(!next||!days().includes(next))return;
-  if(!await requestWorkoutDay(next))return;
-  await closeDayPickSheet();
-  await enterWorkout({day:next});
-  toast(t("toast.day_ready",{day:dayLabel(next)}))}
+/** Tapping a row commits it: the tap arms it so the check lands immediately,
+ *  then runs exactly what Up next and the session banner run to change the
+ *  day — `requestWorkoutDay`, which asks the discard question in place, while
+ *  the sheet is still up, when the current draft has progress. Declining
+ *  leaves the picker open on the day that was tapped, as the old Confirm/
+ *  Cancel pair did (Plan 075 phase 2 retired both; commit replaces confirm,
+ *  and the sheet's × / swipe / Escape stand in for cancel, changing nothing).
+ *  Tapping the day already loaded is just a close: there is nothing to undo.
+ *  On success the sheet stays up for the check to be seen, then leaves and
+ *  Today hands back an Undo instead of entering Focus. */
+let dayPickCommitting=false;
+async function commitPickerDay(d){
+  // One commit at a time: a second tap while the first is still asking or landing is ignored.
+  if(dayPickCommitting||!d||!days().includes(d))return;
+  dayPickCommitting=true;
+  try{
+    armPickerDay(d);
+    if(d===day){await closeDayPickSheet();return}
+    const previous=day;
+    if(!await requestWorkoutDay(d))return;
+    if(!reducedMotion())await new Promise(resolve=>setTimeout(resolve,220));
+    await closeDayPickSheet();
+    renderToday();
+    showDayChangeToast(previous,d)}
+  finally{dayPickCommitting=false}}
+/* ---- Day-changed toast (Plan 075 phase 2) ----
+ * Same shape as the program editor's own undo toast (program-editor.js
+ * `showToast`/`.review-toast`), copied rather than imported because this one
+ * lives on Today: it reuses #toast's placement above the dock instead of the
+ * editor's pinned-Activate clearance (see .daychange-toast in styles.css). It
+ * never moves focus — VoiceOver picks up the role=status text — and a second
+ * day change replaces it outright rather than stacking. */
+let dayChangeToastEl=null,dayChangeToastTimer=null;
+function hideDayChangeToast(){
+  clearTimeout(dayChangeToastTimer);dayChangeToastTimer=null;
+  dayChangeToastEl?.remove();dayChangeToastEl=null}
+function showDayChangeToast(previousDay,newDay){
+  hideDayChangeToast();
+  const n=days().indexOf(newDay)+1;
+  const el=document.createElement("div");
+  el.className="review-toast daychange-toast";
+  el.setAttribute("role","status");
+  el.innerHTML=`<span class="review-toast__text">${esc(t("today.day_changed",{n}))}</span>`+
+    `<button type="button" class="review-toast__undo" data-role="daychange-undo">${esc(t("common.undo"))}</button>`;
+  el.querySelector('[data-role="daychange-undo"]').onclick=()=>{hideDayChangeToast();undoDayChange(previousDay)};
+  document.body.append(el);
+  dayChangeToastEl=el;
+  dayChangeToastTimer=setTimeout(hideDayChangeToast,4200)}
+/** Undo is `requestWorkoutDay` run backwards. It is silent unless a set was
+ *  logged on the new day in the meantime; then the discard question appears
+ *  again rather than silently discarding that work. */
+async function undoDayChange(previousDay){
+  if(!await requestWorkoutDay(previousDay,{undo:true}))return;
+  renderToday()}
 /** Keep the sheet above the software keyboard rather than behind it, and inside
  *  the band the keyboard leaves visible so its header stays on screen.
  *  The keyboard shrinks the visual viewport but not dvh, so a field in Focus's
@@ -20682,7 +20733,6 @@ function openWhySheetFor(ex,opener){
   // Focus is the only workout-logging surface; the exercise page is the other opener.
   captureEvent("recommendation_explained",{surface:opener?.closest?.("#exDetail")?"exercise":"focus"});
   renderWhySheet(whySheetModel(ex,opener?.closest?.("#exDetail")?"exercise":"focus"));
-  const okBtn=$("#whyOk");if(okBtn)okBtn.onclick=()=>closeWhySheet();
   document.body.classList.add("is-sheet-open");
   openModal(sheet,{initialFocus:$("#whyClose"),returnFocus:opener,onEscape:closeWhySheet,scrim,
     delayHide:reducedMotion()?0:280});
@@ -20699,11 +20749,11 @@ function closeWhySheet(){
    Safari, and the only third-party UI Taurifer ever draws — Chrome's install
    prompt is Chrome's to render, and we only ever ask for it. */
 let installTransferVisibleState="manual",privacyReturnsToTransfer=false,privacyTransferOpener=null;
-/** Where focus starts in each install-sheet state: the Done button of the
- *  instructions, the explanation's primary action, or the heading of every state
- *  that has nothing to choose yet. */
+/** Where focus starts in each install-sheet state: the explanation's primary
+ *  action, or the heading of every other state (the instructions' only control
+ *  is now the band's × — Plan 075 phase 2 dropped the redundant Done). */
 function installSheetInitialControl(stateName){
-  return stateName==="eligible"?$("#installTransferStart"):stateName==="manual"?$("#iosInstallDone"):$("#iosInstallTitle")}
+  return stateName==="eligible"?$("#installTransferStart"):$("#iosInstallTitle")}
 /** A state change hides the control that held focus (Start becomes a transfer in
  *  progress, "Install without transferring" becomes the instructions). Focus does
  *  not follow a hidden control, it drops to the page behind the dialog, so the
@@ -20755,7 +20805,7 @@ function installTransferRenderState(stateName,detail={}){
   $("#iosInstallInstructions")?.classList.toggle("hidden",!["manual","ready"].includes(stateName));
   const expiry=$("#installTransferExpiry"),formatted=installTransferTime(detail.expiresAt);
   if(expiry){expiry.textContent=formatted?t("install.transfer.expires",{time:formatted}):"";expiry.classList.toggle("hidden",!formatted)}
-  const actions=$("#installTransferActions"),start=$("#installTransferStart"),retry=$("#installTransferRetry"),cont=$("#installTransferContinue"),done=$("#iosInstallDone"),close=$("#iosInstallClose");
+  const actions=$("#installTransferActions"),start=$("#installTransferStart"),retry=$("#installTransferRetry"),cont=$("#installTransferContinue"),close=$("#iosInstallClose");
   actions?.classList.toggle("hidden",!["eligible","retryable","success","cleanup","terminal","destination","interrupted","unknown","claimed-expired"].includes(stateName));
   start?.classList.toggle("hidden",stateName!=="eligible");
   retry?.classList.toggle("hidden",!["retryable","cleanup","interrupted"].includes(stateName));
@@ -20763,7 +20813,8 @@ function installTransferRenderState(stateName,detail={}){
   cont?.classList.toggle("hidden",!canContinue);
   if(cont)cont.textContent=t(["eligible","retryable"].includes(stateName)?"install.transfer.without"
     :["unknown","claimed-expired"].includes(stateName)?"install.transfer.resume_action":"install.transfer.continue");
-  done?.classList.toggle("hidden",!["manual","ready"].includes(stateName));
+  // The instructions states (manual/ready) now have only × to leave by — Done
+  // was always redundant with it (F-8); the Escape/× gate below is unchanged.
   const busy=["creating","claiming","importing"].includes(stateName);
   sheet.setAttribute("aria-busy",busy?"true":"false");
   close?.classList.toggle("hidden",busy||["interrupted","unknown","claimed-expired"].includes(stateName));
@@ -21098,7 +21149,6 @@ function init(){
   $("#privacyClose").onclick=closePrivacySheet;
   $("#privacyScrim").onclick=closePrivacySheet;
   $("#iosInstallClose").onclick=closeIosInstallSheet;
-  $("#iosInstallDone").onclick=closeIosInstallSheet;
   $("#iosInstallScrim").onclick=closeIosInstallSheet;
   $("#guideReplayToggle").onclick=()=>setDisclosure($("#guideReplayToggle"),$("#guideReplayPanel"),!$("#guideReplayPanel")?.classList.contains("is-open"));
   $$('[data-guide-replay]').forEach(button=>button.onclick=()=>replayContextualGuide(button.dataset.guideReplay));
@@ -21116,9 +21166,7 @@ function init(){
   const noteCancel=$("#exNoteCancel");if(noteCancel)noteCancel.onclick=closeExNoteSheet;
   const noteSave=$("#exNoteSave");if(noteSave)noteSave.onclick=saveExNoteSheet;
   const noteScrim=$("#exNoteScrim");if(noteScrim)noteScrim.onclick=closeExNoteSheet;
-  const dayPickCancel=$("#dayPickCancel");if(dayPickCancel)dayPickCancel.onclick=closeDayPickSheet;
   const dayPickScrim=$("#dayPickScrim");if(dayPickScrim)dayPickScrim.onclick=closeDayPickSheet;
-  const dayPickOk=$("#dayPickConfirm");if(dayPickOk)dayPickOk.onclick=()=>confirmPickerDay();
   const pkCancel=$("#exPickCancel");if(pkCancel)pkCancel.onclick=closeExercisePicker;
   const pkScrim=$("#exPickScrim");if(pkScrim)pkScrim.onclick=closeExercisePicker;
   const pkDone=$("#exPickDone");if(pkDone)pkDone.onclick=confirmPickerSelection;

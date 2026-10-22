@@ -521,8 +521,8 @@ async function requestVisibleDay(page,day){
   page.__manualDiscard=true;
   if(await page.locator("#workoutShell").isVisible())await page.locator("#leaveWorkout").click();
   if(!await page.locator("#dayPickSheet").isVisible())await page.locator("#chooseAnotherDay").click();
+  // Plan 075 phase 2: the tap on the row is the commit — Confirm is retired.
   await page.locator(`[data-daypick="${day}"]`).click();
-  await page.locator("#dayPickConfirm").click();
 }
 
 /** Bulk session-date setup uses the production Session field handler. */

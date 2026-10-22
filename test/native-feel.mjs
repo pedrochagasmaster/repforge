@@ -285,6 +285,35 @@ async function reducedMotionSheets(browser) {
   await context.close();
 }
 
+/**
+ * The day picker commits on tap (ADR 0023 choice 3): Today takes the day
+ * without starting a workout, and Undo puts the old day back without asking,
+ * because nothing was logged.
+ */
+async function dayPickerCommits(browser) {
+  phase("the day picker commits on tap, and Undo restores the day");
+  const { context, page } = await sheetPage(browser);
+  const title = () => page.evaluate(() => document.querySelector("#woDayTitle")?.textContent?.trim() || "");
+  const before = await title();
+  await page.click("#chooseAnotherDay");
+  await page.waitForSelector("#dayPickSheet.is-open");
+  const exits = await page.evaluate(() => ({ confirm: !!document.querySelector("#dayPickConfirm"), cancel: !!document.querySelector("#dayPickCancel"),
+    close: !!document.querySelector("#dayPickSheet [data-daypick-close]") }));
+  assert(!exits.confirm && !exits.cancel && exits.close, "the picker's one exit is its ×", JSON.stringify(exits));
+  const target = await page.locator("#dayPickList [data-daypick]").nth(1).getAttribute("data-daypick");
+  await page.locator("#dayPickList [data-daypick]").nth(1).click();
+  await page.waitForSelector("#dayPickSheet", { state: "hidden" });
+  const after = { title: await title(), focus: await page.evaluate(() => document.querySelector("#workout")?.classList.contains("is-focus") || false),
+    toast: await page.locator(".daychange-toast").count() };
+  assert(after.title === target && !after.focus && after.toast === 1, "a tap commits the day on Today, with an Undo toast and no workout", JSON.stringify({ before, target, after }));
+  await page.click(".daychange-toast .review-toast__undo");
+  const restored = await page.waitForFunction((d) => document.querySelector("#woDayTitle")?.textContent?.trim() === d, before, { timeout: 5000 })
+    .then(() => true, () => false);
+  const asked = await page.evaluate(() => document.querySelector("#draftDiscardSheet")?.classList.contains("is-open") || false);
+  assert(restored && !asked, "Undo restores the previous day without a discard question", JSON.stringify({ restored, asked }));
+  await context.close();
+}
+
 const browser = await launchChromium();
 try {
   phase("A primary action is pressed on touch-down");
@@ -473,6 +502,7 @@ try {
 
   await detents(browser);
   await reducedMotionSheets(browser);
+  await dayPickerCommits(browser);
 } finally {
   await browser.close();
 }

@@ -93,7 +93,9 @@ try {
           });
           assert.ok(modal.role === "dialog" && modal.modal === "true" && modal.name && modal.focused && modal.backgroundInert && whyOpener && modal.opener === whyOpener,
             `Why modal semantics/focus/inertness: ${JSON.stringify(modal)}`);
-          await page.locator("#whyOk").focus(); await page.keyboard.press("Tab");
+          // Plan 075 phase 2 retired "Got it" (#whyOk) — × is the sheet's one
+          // exit, so the trap is proven from it in both directions.
+          await page.locator("#whyClose").focus(); await page.keyboard.press("Tab");
           assert.ok(await page.evaluate(() => document.querySelector("#whySheet").contains(document.activeElement)), "Why Tab wraps inside");
           await page.locator("#whyClose").focus(); await page.keyboard.press("Shift+Tab");
           assert.ok(await page.evaluate(() => document.querySelector("#whySheet").contains(document.activeElement)), "Why reverse Tab wraps inside");
