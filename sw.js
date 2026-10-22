@@ -1,10 +1,10 @@
-const CACHE = "repforge-v494";
+const CACHE = "repforge-v495";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./motion-polish.css", "./manifest.webmanifest",
   { url: "./vendor/motion/motion.js", owner: "RepForgeMotion", required: false, immutable: true },
   { url: "./vendor/dnd-kit/dnd-kit.js", owner: "RepForgeDndRuntime", required: false },
   { url: "./vendor/dnd-kit/dnd-kit.runtime.js", owner: "RepForgeDndRuntime", required: false, immutable: true },
-  "./motion-layer.js", "./motion-layer.js?v=455",
+  "./motion-layer.js", "./motion-layer.js?v=495",
   "./telemetry.js", "./unsupported-workout-grammar.js", { url: "./posthog-config.js", owner: "RepForgeTelemetry", required: false }, "./posthog-init.js", "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js", "./exercises.js?v=067", "./exercise-catalog.js?v=459", "./assets/exercise-catalog.json?v=067", "./exercise-metrics.js?v=485", "./install-transfer-contract.js", "./install-transfer.js",
   "./generation-identity.js", "./generation-identity.js?v=459", "./generation-candidates.js", "./generation-candidates.js?v=466", "./generation-layout.js", "./engine-policy.js", "./engine-policy.js?v=486", "./generation-layout.js?v=486",
   "./progression-engine.js", "./progress-model.js", "./progress-model.js?v=309", "./program-compiler.js", "./program-compiler.js?v=486", "./program-entry.js", "./program-entry.js?v=466", "./program-entry-adapter.js", "./program-entry-adapter.js?v=466", "./program-editor.js", "./program-editor.js?v=484", "./program-review.js", "./program-review.js?v=466",

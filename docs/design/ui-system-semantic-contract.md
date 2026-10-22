@@ -300,7 +300,7 @@ creating another role inventory:
 
 | `motion-polish.css` selectors | Existing semantic owner | Interaction evidence |
 | --- | --- | --- |
-| `.view`, `.btn`, `.btn:active`, `nav button:active` | Navigation and action-control roles | Navigation and button feedback in the interaction audit |
+| `.view`, `.btn`, `.btn.is-pressed`, `.btn--cta.is-pressed`, `nav button.is-pressed` | Navigation and action-control roles | Navigation and button feedback in the interaction audit |
 | `.ledger__row.is-fresh`, `.ledger__row.is-fresh .ledger__check`, `.ledger__tick.is-fresh`, `.focus-ex__setof.is-fresh b` | Workout set acknowledgement | Set completion rows in the interaction audit |
 | `.effortpop`, `.effortpop.is-open`, `.effortpop.is-closing`, `.effortpop.is-open .effortpop__arrow`, `.effortpop.is-bump .effortpop__hint` | Floating effort explanation | Effort/RIR explainer row in the interaction audit |
 | `.toast`, `.toast.hidden`, `.tour`, `.tour.hidden`, `.installbanner`, `.installbanner.hidden`, `@starting-style` for `.toast:not(.hidden)`, `.tour:not(.hidden)`, and `.installbanner:not(.hidden)` | Status notice, coach overlay and install action | Transient runtime UI rows in the interaction audit |
@@ -346,6 +346,17 @@ Program steppers retain their
 declared rapid/deliberate variants. Pressed, focus, disabled, and error
 tokens are shared facets. A visible label does not become an icon simply
 because a CSS pseudo-element draws an arrow.
+
+**Pressed (amended by ADR 0023, 2026-10-22).** Pressed is the `.is-pressed`
+state that `motion-layer.js` sets on touch-down and takes back when the finger
+slides off; stylesheets don't style `:active` on controls (form fields keep it).
+A `primary` control's pressed state is `--control-primary-pressed-bg` (one step
+off the primary fill: `#3A3833` light, `#C9C1B4` dark) and
+`--control-primary-pressed-transform` (a 0.97 scale; none under reduced motion).
+Both are set on the pressed control, so a recipe below that reads "use
+`--control-pressed-transform`" resolves to them for a primary. The landing's
+accent primary keeps its own colours and takes the scale. Every other role keeps
+its pressed wash and `--control-pressed-transform`.
 
 Brand orange remains action/decorative emphasis. Small accent text uses
 `--accent-deep`; filled accent uses `--accent-ink`.

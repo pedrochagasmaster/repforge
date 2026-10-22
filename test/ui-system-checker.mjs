@@ -676,23 +676,19 @@ try {
     assert.match(typography.data, /Plex Mono/, `${theme} the next targets keep Mono`);
     assert.match(typography.proofData, /Plex Mono/, `${theme} the proof's result keeps Mono`);
 
-    const cdp = await opened.context.newCDPSession(opened.page);
-    await cdp.send("DOM.enable");
-    await cdp.send("CSS.enable");
-    const { root } = await cdp.send("DOM.getDocument");
-    const { nodeId } = await cdp.send("DOM.querySelector", { nodeId: root.nodeId, selector: "#firstRunImport" });
-    assert.ok(nodeId, "landing Import control is present for pressed-state proof");
-    await cdp.send("CSS.forcePseudoState", { nodeId, forcedPseudoClasses: ["active"] });
+    // The pressed state is the press module's `.is-pressed` (ADR 0023), not `:active`.
+    assert.equal(await opened.page.locator("#firstRunImport").count(), 1, "landing Import control is present for pressed-state proof");
     const pressedImport = await opened.page.locator("#firstRunImport").evaluate((button) => {
+      button.classList.add("is-pressed");
       const style = getComputedStyle(button);
-      return { decoration: style.textDecorationColor, ink: style.color, background: style.backgroundColor, line: style.textDecorationLine, border: style.borderTopWidth };
+      const read = { decoration: style.textDecorationColor, ink: style.color, background: style.backgroundColor, line: style.textDecorationLine, border: style.borderTopWidth };
+      button.classList.remove("is-pressed");
+      return read;
     });
     assert.equal(pressedImport.decoration, pressedImport.ink, `${theme} Track press draws its underline in full ink`);
     assert.equal(pressedImport.background, "rgba(0, 0, 0, 0)", `${theme} Track is a text link: no fill`);
     assert.match(pressedImport.line, /underline/, `${theme} Track stays underlined`);
     assert.equal(pressedImport.border, "0px", `${theme} Track has no boundary of its own`);
-    await cdp.send("CSS.forcePseudoState", { nodeId, forcedPseudoClasses: [] });
-    await cdp.detach();
   }
   await opened.page.evaluate(() => document.documentElement.style.setProperty("--r", "var(--radius-control)"));
   assert.ok((await tokenContract()).errors.some((error) => error.includes("--r must remain absent")), "a retired compatibility alias cannot be reintroduced");

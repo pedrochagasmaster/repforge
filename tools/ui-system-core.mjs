@@ -232,7 +232,8 @@ export function uninventoriedSharedComponents(css, inventory) {
   const blocks = new Set();
   for (const [, selector] of region.matchAll(/([^{}]+)\{/g)) {
     if (selector.trim().startsWith("@")) continue;
-    for (const [, name] of selector.matchAll(/\.([A-Za-z][\w-]*)/g)) blocks.add(name.split(/__|--/)[0]);
+    // `.is-pressed` is the press module's state (ADR 0023), the class form of `:active`, not a component.
+    for (const [, name] of selector.matchAll(/\.([A-Za-z][\w-]*)/g)) if (name !== "is-pressed") blocks.add(name.split(/__|--/)[0]);
   }
   const selectors = inventory.components.map((item) => item.selector);
   return [...blocks].filter((block) => !selectors.some((selector) => new RegExp(`\\.${block}(?![\\w-])|\\.${block}(?:__|--)`).test(selector)));

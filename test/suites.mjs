@@ -134,6 +134,7 @@ export const SUITES = {
   "workout": [
     s("test/ui-system.mjs", [], {"domains": ["shell", "entry", "program", "history", "today", "workout", "progress", "settings", "library", "install"], "cost": "normal", "tier": "feedback", "seconds": 130}),
     s("test/ui-system-checker.mjs", [], {"domains": RENDERED_DOMAINS, "cost": "normal", "tier": "feedback", "seconds": 13}),
+    s("test/press-feedback.mjs", [], {"domains": ["shell", "today", "workout"], "cost": "normal", "tier": "feedback", "seconds": 20}),
     s("test/guide-modal.mjs", [], {"domains": ["workout", "progress", "settings", "entry"], "cost": "normal", "tier": "feedback"}),
     s("test/history-delete-replay.mjs", [], {"domains": ["history"], "cost": "normal", "tier": "feedback", "seconds": 4.53}),
     s("test/focus-pending-field.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback", "seconds": 42.85}),
