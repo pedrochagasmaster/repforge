@@ -621,6 +621,15 @@ async function nativeEditorControls(browser) {
     await editorPage.waitForSelector('#nativeContextMenu:not([hidden])'); await editorPage.keyboard.press('Escape');
     await editorPage.waitForSelector('#nativeContextMenu', { state: 'detached' });
     assert(await rows.nth(1).evaluate(el => el === document.activeElement), "keyboard context menu returns focus to its editor row");
+    await editorPage.locator('#programEditor [data-row-menu]').nth(1).click(); await editorPage.waitForSelector('#nativeContextMenu:not([hidden])');
+    const editorItems = await editorPage.locator('#nativeContextMenu [role="menuitem"]').evaluateAll(items => items.map(item => item.dataset.menuValue));
+    assert(JSON.stringify(editorItems) === JSON.stringify(["up", "down", "day", "remove"]), "the editor menu holds the prototype's Move up, Move down, Move to another day and Remove", JSON.stringify(editorItems));
+    await editorPage.locator('#nativeContextMenu [data-menu-value="day"]').click();
+    await editorPage.waitForSelector('#reviewSheet.is-open');
+    const onDays = await editorPage.waitForFunction(id => document.activeElement?.matches(`#reviewSheet [data-role="move-to-day"][data-id="${CSS.escape(id)}"]`), first, { timeout: 4000 }).then(() => true, () => false);
+    assert(onDays, "Move to another day opens that exercise's page on its day choices");
+    await editorPage.locator('#reviewSheet [data-role="sheet-done"]').click();
+    await editorPage.waitForSelector('#reviewSheet', { state: 'hidden' });
   }
   phase("Phase 4: smallest load change and alternate context actions keep the editor's commit boundary");
   await editorPage.locator('#programEditor [data-role="exercise-row"]').first().click();

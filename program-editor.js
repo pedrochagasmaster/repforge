@@ -2949,19 +2949,14 @@
         { label: label("moveUp"), value: "up", disabled: index <= 0 },
         { label: label("moveDown"), value: "down", disabled: index >= list.length - 1 }
       ];
-      if (!alternateId) {
-        items.unshift({ label: label("details"), value: "details" });
-        labels(document).filter(day => day !== exercise.day).forEach(day => items.push({ label: `${rt("program.editor.day")} · ${titleForDay(day)}`, value: `day:${day}` }));
-      }
+      // Another day is chosen on the exercise page, where its day chips already live.
+      if (!alternateId && labels(document).some(day => day !== exercise.day)) items.push({ label: label("moveOther"), value: "day" });
       items.push({ label: alternateId ? rt("program.editor.remove_alternate") : label("removeExercise"), value: "remove", destructive: true });
       const action = await adapter.contextMenu({ anchor: row, opener, items });
       if (!action || destroyed) return;
       if (alternateId) { await recorded(() => editAlternate(id, alternateId, action === "remove" ? "alternate-remove" : action === "up" ? "alternate-up" : "alternate-down")); return; }
-      if (action === "details") { openSheetView({ kind: "exercise", id }); return; }
+      if (action === "day") { openSheetView({ kind: "exercise", id }, { focus: `[data-role="move-to-day"][data-id="${cssEscape(id)}"]` }); return; }
       if (action === "remove") { await recordedTask(() => removeExercise(id)); return; }
-      if (action.startsWith("day:")) {
-        const day = action.slice(4); await recorded(() => moveExercise(id, day, exercisesFor(document, day).length, { announce: false })); return;
-      }
       await recorded(() => moveExercise(id, exercise.day, index + (action === "up" ? -1 : 1), { announce: false }));
       host.querySelector(`[data-role="exercise-row"][data-id="${cssEscape(id)}"]`)?.focus({ preventScroll: true });
     }

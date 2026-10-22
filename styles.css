@@ -8019,9 +8019,10 @@ body.is-entry-editor #entryProgramName,
 .sheet--actions button.is-pressed{background:var(--well)}
 .native-context{position:fixed;inset:0;width:100%;height:100%;max-width:none;max-height:none;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);margin:0;border:0;background:transparent;color:var(--ink);overflow:hidden}
 .native-context::backdrop{background:var(--scrim);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
-.native-context__preview{position:fixed!important;display:flex;align-items:center;pointer-events:none;background:var(--surface);border-radius:var(--radius-surface);box-shadow:var(--elevation-drag-shadow);transform:scale(1.03)}
-.native-context__preview.today-rx__row{display:grid;grid-template-columns:1rem minmax(0,1fr) auto auto var(--control-target);gap:var(--space-8)}
-.native-context__preview .native-row-menu{visibility:hidden}
+.native-context__preview{position:fixed!important;display:flex;align-items:center;padding-inline:var(--space-12);pointer-events:none;background:var(--surface);border-radius:var(--radius-surface);box-shadow:var(--elevation-drag-shadow);transform:scale(1.03)}
+.native-context__preview.today-rx__row{display:grid;grid-template-columns:1rem minmax(0,1fr) auto auto;gap:var(--space-8)}
+.native-context__preview .native-row-menu{display:none}
+.native-context__preview .rxrow,.native-context__preview .program-editor-a__row{border-bottom:0}
 .native-context__menu{position:fixed;min-width:min(230px,calc(100vw - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px) - 24px));max-width:min(300px,calc(100vw - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px) - 24px));max-height:calc(var(--vvh,100dvh) - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 24px);overflow-y:auto;background:var(--menu-bg);-webkit-backdrop-filter:var(--menu-blur);backdrop-filter:var(--menu-blur);border:1px solid var(--boundary-required);border-radius:var(--radius-surface);box-shadow:var(--elevation-popover-shadow)}
 .native-context__menu button{display:block;width:100%;min-height:var(--control-target);padding:var(--space-12) var(--space-16);text-align:left;border:0;background:transparent;color:var(--ink);font-size:var(--font-size-control);line-height:var(--line-standard)}
 .native-context__menu button+button{border-top:1px solid var(--boundary-decorative)}

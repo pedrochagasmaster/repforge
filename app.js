@@ -8763,7 +8763,9 @@ function openRowContextMenu({anchor,items,opener=anchor}){
   return new Promise(resolve=>{
     const dialog=document.createElement("dialog");dialog.id="nativeContextMenu";dialog.className="native-context";
     dialog.setAttribute("aria-label",anchor.getAttribute("aria-label")||anchor.textContent.trim());
-    const rect=anchor.getBoundingClientRect(),preview=anchor.cloneNode(true);
+    // An edge-to-edge row lifts as a card inset from the screen edges, so its 1.03 lift stays in view.
+    const row=anchor.getBoundingClientRect(),left=Math.max(row.left,12),right=Math.min(row.right,innerWidth-12);
+    const rect=new DOMRect(left,row.top,right-left,row.height),preview=anchor.cloneNode(true);
     preview.querySelectorAll("[id]").forEach(el=>el.removeAttribute("id"));preview.removeAttribute("id");
     preview.className+=" native-context__preview";preview.inert=true;preview.setAttribute("aria-hidden","true");
     Object.assign(preview.style,{left:`${rect.left}px`,top:`${rect.top}px`,width:`${rect.width}px`,height:`${rect.height}px`});
