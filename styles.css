@@ -1036,9 +1036,10 @@ body.is-workout.is-focus-wo #workoutShell > :not(.wo-head):not(#logForm){
 /* The status bar's paper band follows the band too, so it stays under the clock after the pan. */
 :root[data-keyboard="up"] body.is-workout.is-focus-wo::before{top:var(--vv-top,0px)}
 /* The deck keeps the shelf whole (`--focus-deck-floor`, from syncFocusFloor) and the skip bar gives way like the
-   banners above the deck, so a short band still holds the whole shelf. */
+   banners above the deck, so a short band still holds the whole shelf. It clips rather than scrolls: Show all's target
+   reaches past the thin line, and that overhang is not something to scroll to. */
 :root[data-keyboard="up"] body.is-workout.is-focus-wo #workout > .deck{min-height:var(--focus-deck-floor,0px)}
-:root[data-keyboard="up"] body.is-workout.is-focus-wo #workout > .skipbar{flex:0 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+:root[data-keyboard="up"] body.is-workout.is-focus-wo #workout > .skipbar{flex:0 1 auto;min-height:0;overflow-y:clip}
 :root[data-keyboard="up"] body.is-workout.is-focus-wo #workoutShell,
 :root[data-keyboard="up"] body.is-workout.is-focus-wo #logForm{min-height:0}
 :root[data-keyboard="up"] body.is-workout.is-focus-wo article.exercise--focus .fcard__context{min-height:0}
@@ -3025,11 +3026,15 @@ body.is-library,body.is-preview,body.is-import{padding-bottom:env(safe-area-inse
 
 
 
+/* One thin line (owner, 2026-10-22). Show all keeps its 44px target but gives 4px of it back to the line above and
+   below, and paints its chip inside that target, as the checkboxes do. */
 .skipbar{display:flex;align-items:center;justify-content:space-between;gap:10px;
   background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius-surface);
-  padding:8px 12px;margin-bottom:12px;font-size:var(--font-size-body-small);color:var(--ink-soft)}
-.skipbar__show{border:1px solid var(--rule);background:var(--bg);color:var(--ink);
-  border-radius:var(--radius-control);padding:4px 10px;cursor:pointer;font-weight:600;font-size:var(--font-size-label)}
+  padding:0 var(--space-4) 0 var(--space-12);margin-bottom:var(--space-8);font-size:var(--font-size-body-small);color:var(--ink-soft)}
+.skipbar__show{position:relative;isolation:isolate;flex:none;margin:calc(-1 * var(--space-4)) 0;border:0;background:transparent;color:var(--ink);
+  padding:0 10px;cursor:pointer;font-weight:600;font-size:var(--font-size-label)}
+.skipbar__show::before{content:"";position:absolute;inset:var(--space-8) 0;z-index:-1;
+  border:1px solid var(--rule);background:var(--bg);border-radius:var(--radius-control)}
 
 
 

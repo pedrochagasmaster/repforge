@@ -438,11 +438,21 @@ try {
         const context = art.querySelector(".fcard__context"), box = context.getBoundingClientRect();
         const clock = art.querySelector(".fx-slot .restinline__row") || art.querySelector(".fx-slot");
         const c = clock.getBoundingClientRect();
-        return { skipbar: !!document.querySelector("#workout .skipbar"), top: box.top, bottom: box.bottom, scrollTop: context.scrollTop,
-          clockTop: c.top, clockBottom: c.bottom, open: art.querySelector(".ledgerline--open")?.dataset.lrow };
+        const bar = document.querySelector("#workout .skipbar"), show = bar?.querySelector(".skipbar__show");
+        const b = bar?.getBoundingClientRect(), s = show?.getBoundingClientRect();
+        return { skipbar: !!bar, top: box.top, bottom: box.bottom, scrollTop: context.scrollTop,
+          clockTop: c.top, clockBottom: c.bottom, open: art.querySelector(".ledgerline--open")?.dataset.lrow,
+          bar: b && { height: b.height, text: bar.firstChild.textContent.trim(), show: show.textContent.trim(), showW: s.width, showH: s.height,
+            showInside: s.left >= b.left - 0.5 && s.right <= b.right + 0.5 } };
       });
       check(m.skipbar === skip && m.open === "2", `${phone}${skip ? ", skip bar showing" : ""}: set 2 is open while the rest runs (the case under test)`, m);
       check(m.clockTop >= m.top - 0.5 && m.clockBottom <= m.bottom + 0.5, `${phone}${skip ? ", skip bar showing" : ""}: the rest's clock line is whole in the window`, m);
+      if (skip) {
+        // The owner's 2026-10-22 decision: one thin line, about 36–40 px, with the same text and button.
+        check(m.bar.height >= 36 - 0.5 && m.bar.height <= 40 + 0.5, `${phone}: the skip bar is one thin line, 36–40 px tall`, m.bar);
+        check(m.bar.text === "1 hidden today" && m.bar.show === "Show all", `${phone}: the skip bar keeps its text and its Show all button`, m.bar);
+        check(m.bar.showW + 0.01 >= 44 && m.bar.showH + 0.01 >= 44 && m.bar.showInside, `${phone}: Show all keeps a 44 px target inside the bar's width`, m.bar);
+      }
     } finally { await context.close(); }
   }
 
