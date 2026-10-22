@@ -364,6 +364,30 @@ async function nativeControls(browser) {
     const noRing = (await measureSwitch()).filter(item => item.selector.startsWith("#voiceToggle") && item.kind === "boundary");
     assert(noRing.some(item => item.status === "fail"), `${theme}: removing the ring fails the actual rendered-role checker`, JSON.stringify(noRing));
     await broken.evaluate(el => el.remove());
+    await page.locator("#themeSegments").scrollIntoViewIfNeeded();
+    const measureSegments = async () => (await page.evaluate(measureRenderedRoles, { components: [
+      { selector: "#themeSegments", roles: { boundary: "required" } },
+      { selector: "#themeSegments [role=radio]", roles: { control: "selection" } },
+      { selector: "#themeSegments .native-segments__thumb", roles: { boundary: "required", elevation: "selected" } },
+    ], pixels: (await page.screenshot()).toString("base64") })).filter(item => item.selector.startsWith("#themeSegments") && item.kind === "boundary");
+    const segmentEdges = await measureSegments();
+    assert(segmentEdges.length >= 3 && segmentEdges.every(item => item.status === "pass"), `${theme}: group and actual selection thumb have required contrast`, JSON.stringify(segmentEdges));
+    for (const [css, description] of [
+      ["#themeSegments .native-segments__thumb{box-shadow:none!important}", "removing the thumb ring"],
+      ["#themeSegments{border-color:transparent!important}", "removing the group border"],
+      ["#themeSegments .native-segments__thumb{transform:translateX(80px)!important}", "moving the thumb off the checked option"],
+      ["#themeSegments .native-segments__thumb{box-shadow:inset 0 0 0 2px var(--surface),inset 0 0 0 2px var(--ink)!important}", "covering the ring with a surface-colored inset shadow"],
+    ]) {
+      const damage = await page.addStyleTag({ content: css });
+      const measured = await measureSegments();
+      assert(measured.some(item => ["fail", "unsupported", "missing"].includes(item.status)), `${theme}: ${description} fails the real checker`, JSON.stringify(measured));
+      await damage.evaluate(el => el.remove());
+    }
+    const checkedValue = await page.locator('#themeSegments [aria-checked="true"]').getAttribute("data-value");
+    await page.locator('#themeSegments [role=radio]').evaluateAll(nodes => nodes.forEach(node => node.setAttribute("aria-checked", "false")));
+    const unchecked = await measureSegments();
+    assert(unchecked.some(item => item.status === "fail"), `${theme}: an unselected group fails the actual checker`, JSON.stringify(unchecked));
+    await page.locator(`#themeSegments [data-value="${checkedValue}"]`).evaluate(node => node.setAttribute("aria-checked", "true"));
   }
   await page.evaluate(() => { document.documentElement.dataset.theme = "light"; });
   const segmented = page.locator('#themeSegments[role="radiogroup"]');
@@ -514,6 +538,16 @@ async function nativeControls(browser) {
     assert((await page.locator('#todayExList .rxrow__name').first().textContent()).includes(replacementName), 'Today shows the replacement chosen through its context menu');
     assert(await page.locator('#todayExList [data-row-menu]').first().evaluate(el => el === document.activeElement), 'the swap picker returns focus to the rebuilt Today row');
     assert(await page.evaluate(() => JSON.stringify(JSON.parse(localStorage.getItem('repforge_v1')).program)) === programBefore, 'Today actions preserve the durable program');
+    const primary = await page.locator('#todayExList [data-context-row]').first().evaluate(row => {
+      const open = row.querySelector('[data-exopen]'), name = open.querySelector('.rxrow__name').firstChild.textContent;
+      return { first: row.firstElementChild === open, tag: open.tagName, id: open.dataset.exopen, named: open.getAttribute('aria-label') === window.RepForgeI18n.t('log.open_exercise_aria', { name }),
+        menuNext: open.nextElementSibling?.matches('[data-row-menu]') && open.nextElementSibling === row.lastElementChild };
+    });
+    assert(primary.first && primary.tag === 'BUTTON' && primary.named && primary.menuNext, "the row's primary target is still the named exercise button, before its actions button in focus order", JSON.stringify(primary));
+    await page.locator('#todayExList [data-exopen]').first().click();
+    await page.waitForSelector('#exercise.view.active');
+    assert(await page.evaluate(() => document.body.classList.contains('is-exercise')), 'tapping the Today row still opens its exercise');
+    await page.click('#exBack'); await page.waitForSelector('#todayDash:not(.hidden)');
 
 
   }
@@ -545,10 +579,26 @@ async function nativeControls(browser) {
     await page.waitForSelector('#sessionSheet', { state: 'hidden' });
     assert(await page.locator('#workoutShell').isVisible(), 'Keep training returns directly to Focus');
     await page.click('#woOverflowBtn'); await page.click('[data-workout-action="abandon"]');
+    await page.waitForSelector('#sessionAbandonPrompt:not(.hidden)');
+    await page.keyboard.press('Escape'); await page.waitForSelector('#sessionSheet', { state: 'hidden' });
+    await page.click('#sessionSheetBtn'); await page.waitForSelector('#sessionSheet.is-open');
+    await page.click('#sessionAbandon'); await page.click('#sessionAbandonCancel');
+    assert(await page.locator('#sessionSheet').isVisible() && await page.locator('#sessionAbandon').evaluate(el => el === document.activeElement),
+      "an action-sheet End dismissed another way leaves the session sheet's own Cancel in the sheet");
+    await page.click('#sessionSheetClose'); await page.waitForSelector('#sessionSheet', { state: 'hidden' });
+    await page.click('#woOverflowBtn'); await page.click('[data-workout-action="abandon"]');
     await page.click('#sessionAbandonConfirm');
     await page.waitForFunction(() => !localStorage.getItem('repforge_draft_v1'));
     await page.waitForSelector("#todayDash:not(.hidden)");
     assert(await page.locator("#todayDash").isVisible() && await page.locator("#workoutShell").isHidden(), "confirmed End clears the draft and returns to Today");
+    await page.click('#startWorkout');
+    await page.waitForFunction(() => document.querySelector('#workout').classList.contains('is-focus'));
+    await page.evaluate(() => { document.querySelector('#toast').textContent = ''; });
+    await page.click('#woOverflowBtn'); await page.click('[data-workout-action="finish"]');
+    const refusals = await page.evaluate(() => ['toast.enter_weight_before_save', 'toast.finish_incomplete'].map(key => window.RepForgeI18n.t(key)));
+    const refused = await page.waitForFunction(texts => texts.includes(document.querySelector('#toast').textContent.trim()), refusals, { timeout: 4000 }).then(() => true, () => false);
+    assert(refused && await page.evaluate(() => !!window.__repforgeWorkoutDraft.current()), 'Finish runs the save path itself: an untouched session gets its refusal and keeps the draft',
+      await page.locator('#toast').textContent());
   }
   await context.close();
 }

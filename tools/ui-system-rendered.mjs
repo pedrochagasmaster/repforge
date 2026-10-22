@@ -224,6 +224,21 @@ export async function measureRenderedRoles(input) {
           threshold: 3, foreground: sides.map((side) => `${side.toLowerCase()}:${style[`border${side}Color`]}`).join(", "),
           background: inside.rgb.slice(0, 3) };
       }
+      const rings = style.boxShadow.split(/,(?![^()]*\))/).flatMap(shadow => {
+        if (!/\binset\b/.test(shadow)) return [];
+        const raw = shadow.match(/rgba?\([^)]*\)/)?.[0], ink = raw && color(raw);
+        const dimensions = shadow.replace(raw || "", "").match(/-?[\d.]+px/g)?.map(Number.parseFloat) || [];
+        if (!ink || dimensions.length !== 4 || !dimensions.slice(0, 3).every(value => value === 0) || dimensions[3] <= 0) return [];
+        const alpha = ink[3] * Number.parseFloat(style.opacity);
+        return [Math.min(ratio(composite([...ink.slice(0, 3), alpha], inside.rgb), inside.rgb),
+          ratio(composite([...ink.slice(0, 3), alpha], outside.rgb), outside.rgb))];
+      });
+      // The first shadow paints on top, so the topmost inset ring is the edge the eye sees. A ring that
+      // holds 3:1 is the boundary; otherwise the fill below still decides, as it did before rings counted.
+      if (rings[0] >= 3) {
+        return { selector, kind, status: "pass", ratio: Math.round(rings[0] * 100) / 100,
+          threshold: 3, foreground: style.boxShadow, background: inside.rgb.slice(0, 3) };
+      }
       const fill = color(style.backgroundColor);
       if (!fill || fill[3] === 0) {
         if (pixels) {
@@ -413,12 +428,28 @@ export async function measureRenderedRoles(input) {
           }
         }
       }
+      if (!disabled && item.roles?.control === "selection" && node.matches(".native-segments[role=radiogroup] > [role=radio]")) {
+        const group = node.parentElement;
+        if (node === group.querySelector(":scope > [role=radio]") && group.querySelectorAll(':scope > [role=radio][aria-checked="true"]').length !== 1)
+          results.push({ selector: `${item.selector}:${label(group)}`, kind: "boundary", status: "fail", reason: "segmented group has no single checked segment" });
+      }
       if (!disabled && (selected || invalid) && !node.matches(".toggle")) {
         const marker = ["::before", "::after"].find((pseudo) => {
           const style = getComputedStyle(node, pseudo), fill = color(style.backgroundColor);
           return style.content !== "none" && style.display !== "none" && (fill?.[3] || 0) > 0;
         });
-        if (marker) results.push(measurePseudoMark(node, `${item.selector}:${label(node)}${marker}`, marker));
+        const group = selected && node.closest(".native-segments[role=radiogroup]");
+        if (group) {
+          const thumbs = [...group.querySelectorAll(":scope > .native-segments__thumb")].filter(visible);
+          const checked = group.querySelectorAll(':scope > [role=radio][aria-checked="true"]');
+          const option = node.getBoundingClientRect(), thumb = thumbs[0]?.getBoundingClientRect();
+          const aligned = thumb && Math.abs(thumb.left - option.left) <= 2 && Math.abs(thumb.right - option.right) <= 2
+            && Math.abs(thumb.top - option.top) <= 2 && Math.abs(thumb.bottom - option.bottom) <= 2;
+          if (thumbs.length !== 1 || checked.length !== 1 || checked[0] !== node || !aligned) {
+            results.push({ selector: `${item.selector}:${label(node)}`, kind: "boundary", status: "fail",
+              reason: "checked segment has no single visible aligned selection thumb" });
+          } else results.push(measure(thumbs[0], `${item.selector}:${label(node)} selection thumb`, "boundary"));
+        } else if (marker) results.push(measurePseudoMark(node, `${item.selector}:${label(node)}${marker}`, marker));
         else if (item.roles?.boundary !== "required") results.push(measure(node, `${item.selector}:${label(node)}`, "boundary"));
       }
       // One primary label size: the contract's `control` role (R7 V-17, owner decision #295 comment 5965828337), whichever

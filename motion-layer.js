@@ -1549,6 +1549,23 @@
     });
   }
 
+  /* Slide-to-select: after a long press opens a context menu, the same finger can
+     slide onto an item and lift to choose it. The menu's owner hands over its panel
+     and hears only the chosen item. */
+  let contextSlide = null;
+  function trackContextSlide(panel, choose) {
+    const run = {
+      move(x, y, up) {
+        const hit = document.elementFromPoint(x, y)?.closest('[role="menuitem"]');
+        const item = hit && panel.contains(hit) && !hit.disabled ? hit : null;
+        panel.querySelectorAll('[role="menuitem"]').forEach(el => el.classList.toggle("is-pressed", el === item && !up));
+        if (up && item) choose(item);
+      }
+    };
+    contextSlide = run;
+    return () => { if (contextSlide === run) contextSlide = null; };
+  }
+
   function installNativeControls() {
     let repeat = null, repeatedButton = null, hold = null, contextTouch = null, suppressedRow = null;
     const step = button => {
@@ -1616,13 +1633,13 @@
       const p = event.touches[0];
       if (!run.fired) { if (Math.hypot(p.clientX - run.x, p.clientY - run.y) > 10) cancelHold(); return; }
       if (event.cancelable) event.preventDefault();
-      document.dispatchEvent(new CustomEvent("contextslide", { detail: { x: p.clientX, y: p.clientY, up: false } }));
+      contextSlide?.move(p.clientX, p.clientY, false);
     }, { passive: false });
     document.addEventListener("touchend", event => {
       const run = contextTouch; cancelHold(); if (!run?.fired) return;
       if (event.cancelable) event.preventDefault();
       const p = event.changedTouches[0];
-      document.dispatchEvent(new CustomEvent("contextslide", { detail: { x: p.clientX, y: p.clientY, up: true } }));
+      contextSlide?.move(p.clientX, p.clientY, true);
     }, { passive: false });
     document.addEventListener("touchcancel", cancelHold);
     document.addEventListener("scroll", () => { if (!contextTouch?.fired) cancelHold(); }, { capture: true, passive: true });
@@ -1644,6 +1661,7 @@
   global.RepForgeMotion = {
     syncNativeControls,
     animateContextMenu,
+    trackContextSlide,
     animateActionSheet,
     available: () => available,
     reducedMotion,

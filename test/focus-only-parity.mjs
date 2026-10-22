@@ -84,11 +84,9 @@ async function liveWellButton(page, kind) {
   await btn.waitFor({ state: "visible", timeout: 5000 });
   return btn;
 }
-/** The header's three-dot button opens the exercise actions. This suite turns voice input on, so there it opens the short menu that holds both. */
+/** The header's three-dot button opens the session actions; Exercise actions is one of them. */
 async function openActions(page) {
   await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
-  const item = page.locator("#woExActions");
-  if (await item.isVisible()) await item.click();
   await page.waitForSelector("#exActionsSheet.is-open", { timeout: 5000 });
 }
 async function currentCard(page) {

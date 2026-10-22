@@ -1155,8 +1155,10 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -1181,8 +1183,10 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -1207,8 +1211,10 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -3119,8 +3125,10 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -3528,8 +3536,10 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -3766,8 +3776,10 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -3794,8 +3806,10 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -4172,8 +4186,10 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -4497,8 +4513,10 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -4522,8 +4540,10 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -4658,8 +4678,10 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -4814,8 +4836,10 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -5257,8 +5281,10 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -5567,8 +5593,10 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -5812,8 +5840,10 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -7176,8 +7206,10 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -10360,6 +10392,7 @@
       "rationale": "Visible keyboard and screen reader path to the same context actions as long press.",
       "owner": "plan-075-phase-4",
       "catalogStates": [
+        "install/banner",
         "onboarding-build/editor-alternates",
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
@@ -10371,7 +10404,8 @@
         "today/draft-resume",
         "today/ready",
         "today/rest-bar",
-        "today/skipped"
+        "today/skipped",
+        "workout/invalid-draft"
       ],
       "neverDisabledReason": "The menu or choice stays reachable whenever its owning row is present."
     },
@@ -10394,6 +10428,8 @@
       "owner": "plan-075-phase-4",
       "catalogStates": [
         "onboarding-build/editor-alternates",
+        "onboarding-build/editor-partial",
+        "onboarding-build/editor-ready",
         "program/editor-alternates",
         "program/editor-day-name-refused",
         "program/editor-suggest-loads",
@@ -10587,7 +10623,8 @@
       "id": "workout-action-cancel",
       "selector": "#workoutActionCancel",
       "roles": {
-        "control": "quiet-navigation"
+        "control": "quiet-navigation",
+        "elevation": "floating"
       },
       "variant": null,
       "facets": [],
@@ -10603,6 +10640,136 @@
         "workout/actions"
       ],
       "neverDisabledReason": "The menu or choice stays reachable whenever its owning row is present."
+    },
+    {
+      "id": "native-segment-group",
+      "selector": ".native-segments",
+      "roles": {
+        "boundary": "required"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The group boundary defines the extent of the segmented choice.",
+      "owner": "plan-075-phase-4",
+      "catalogStates": [
+        "settings/appearance",
+        "settings/guides",
+        "settings/guides-replay",
+        "settings/load-controls",
+        "settings/main",
+        "settings/privacy",
+        "settings/rest-controls"
+      ]
+    },
+    {
+      "id": "native-segment-thumb",
+      "selector": ".native-segments__thumb",
+      "roles": {
+        "boundary": "required",
+        "elevation": "selected"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "selected"
+      ],
+      "rationale": "The moving thumb uses the selected quiet inset ring to mark the checked choice.",
+      "owner": "plan-075-phase-4",
+      "catalogStates": [
+        "settings/appearance",
+        "settings/guides",
+        "settings/guides-replay",
+        "settings/load-controls",
+        "settings/main",
+        "settings/privacy",
+        "settings/rest-controls"
+      ]
+    },
+    {
+      "id": "workout-action-scrim",
+      "selector": "#workoutActionScrim",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The action-sheet scrim blocks the workout until the menu is dismissed.",
+      "owner": "plan-075-phase-4",
+      "catalogStates": [
+        "workout/actions"
+      ]
+    },
+    {
+      "id": "settings-progression-fields",
+      "selector": "#jumpPct, #minJump, #rirHigh, #hardRir",
+      "roles": {
+        "control": "field",
+        "boundary": "required"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "focus-visible",
+        "disabled",
+        "validation-error"
+      ],
+      "rationale": "Typed progression values remain available beside the smallest-load stepper.",
+      "owner": "plan-075-phase-4",
+      "catalogStates": [
+        "settings/load-controls"
+      ]
+    },
+    {
+      "id": "settings-progression-save",
+      "selector": "#saveSettings",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Commits the edited progression settings.",
+      "owner": "plan-075-phase-4",
+      "catalogStates": [
+        "settings/load-controls"
+      ]
+    },
+    {
+      "id": "settings-rest-seconds",
+      "selector": "#restSec",
+      "roles": {
+        "control": "field",
+        "boundary": "required"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "focus-visible",
+        "disabled",
+        "validation-error"
+      ],
+      "rationale": "The rest stepper retains the typed seconds field.",
+      "owner": "plan-075-phase-4",
+      "catalogStates": [
+        "settings/rest-controls"
+      ]
     }
   ],
   "contextualVariants": [
@@ -10913,11 +11080,13 @@
       "rationale": "The brand mark keeps its own small paper plate and artwork shadow; it does not elevate surrounding Settings content.",
       "owner": "plan-058",
       "catalogStates": [
-        "settings/main",
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
-        "settings/privacy"
+        "settings/load-controls",
+        "settings/main",
+        "settings/privacy",
+        "settings/rest-controls"
       ],
       "cssLiterals": [
         {
@@ -11013,11 +11182,10 @@
       "id": "anchored-popover-elevation",
       "token": "--elevation-popover-shadow",
       "selectors": [
-        ".glossary",
-        ".wo-overflow"
+        ".glossary"
       ],
       "role": "floating",
-      "rationale": "Anchored definitions and the workout overflow menu are local tools. Their lighter floating depth preserves the approved distinction from the Focus card and modal sheets.",
+      "rationale": "Anchored definitions are local tools. Their lighter floating depth preserves the approved distinction from the Focus card and modal sheets.",
       "owner": "plan-055/058",
       "catalogStates": [
         "library/exercise-detail",

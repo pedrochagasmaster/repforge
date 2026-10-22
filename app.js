@@ -5681,9 +5681,6 @@ function focusList(){
   }
   const exs=exercises();
   return exs.filter(e=>!skipped.has(e.id))}
-function closeWorkoutOverflow(){
-  if(activeModal?.el===$("#workoutActionSheet"))return closeWorkoutActions();
-}
 async function goToLogExercise(exId){
   const ex=prog.find(exId);if(!ex)return;
   if(!await requestWorkoutDay(ex.day))return;
@@ -6762,7 +6759,7 @@ function setWorkoutActive(on){const was=workoutActive;workoutActive=!!on;
   document.body.classList.toggle("is-workout",workoutActive);
   if(dash)dash.classList.toggle("hidden",workoutActive);
   if(shell)shell.classList.toggle("hidden",!workoutActive);
-  if(!workoutActive){document.body.classList.remove("is-focus-wo");closeWorkoutOverflow()}
+  if(!workoutActive){document.body.classList.remove("is-focus-wo");if(activeModal?.el===$("#workoutActionSheet"))closeWorkoutActions()}
   updateFocusChrome();
   if(workoutActive!==was){
     if(settle)settle();
@@ -7643,7 +7640,6 @@ const ABANDON_REASON_LABELS=Object.freeze({time:"session.abandon.reason.time",re
   pain:"session.abandon.reason.pain",equipment:"session.abandon.reason.equipment",schedule:"session.abandon.reason.schedule",
   other:"session.abandon.reason.other"});
 let sessionAbandonReason=null;
-let sessionAbandonFromActions=false;
 function renderAbandonReasons(){
   const host=$("#sessionAbandonReasons");if(!host)return;
   host.innerHTML=ABANDON_REASONS.map(reason=>{const on=sessionAbandonReason===reason;
@@ -7655,19 +7651,23 @@ function renderAbandonReasons(){
     host.querySelector(`[data-abandon-reason="${reason}"]`)?.focus()})}
 function closeAbandonPrompt(){
   sessionAbandonReason=null;
-  $("#sessionAbandonPrompt")?.classList.add("hidden");
+  const prompt=$("#sessionAbandonPrompt");if(prompt){prompt.classList.add("hidden");delete prompt.dataset.from}
   $("#sessionAbandon")?.classList.remove("hidden")}
-function openAbandonPrompt(){
+/** `from: "actions"` is the Focus action sheet's End without saving: there the
+ *  session sheet only hosts the confirmation, so Keep training closes it. The
+ *  origin lives on the prompt and every close clears it. */
+function openAbandonPrompt({from="sheet"}={}){
   if(!activeWorkoutDraft)return;
   sessionAbandonReason=null;renderAbandonReasons();
   $("#sessionEarlyFinish")?.classList.add("hidden");
   $("#sessionEarlyPrompt")?.classList.add("hidden");
   $("#sessionAbandon")?.classList.add("hidden");
-  $("#sessionAbandonPrompt")?.classList.remove("hidden");
+  const prompt=$("#sessionAbandonPrompt");if(prompt){prompt.dataset.from=from;prompt.classList.remove("hidden")}
   focusRoute("#sessionAbandonConfirm")}
 function cancelAbandonPrompt(){
-  if(sessionAbandonFromActions){sessionAbandonFromActions=false;closeAbandonPrompt();closeSessionSheet();return}
+  const fromActions=$("#sessionAbandonPrompt")?.dataset.from==="actions";
   closeAbandonPrompt();
+  if(fromActions){closeSessionSheet();return}
   $("#sessionEarlyFinish")?.classList.remove("hidden");
   focusRoute("#sessionAbandon")}
 async function abandonWorkout(){
@@ -7702,7 +7702,6 @@ function renderEarlyFinishPreview(){
 }
 function openSessionSheet(){
   if (!activeWorkoutDraft) return;
-  sessionAbandonFromActions=false;
   renderSessionSheet();
   const sheet = $("#sessionSheet"), scrim = $("#sessionSheetScrim");
   if (!sheet) return;
@@ -8723,16 +8722,41 @@ function closeWorkoutActions(){
 async function performWorkoutAction(action){
   await closeWorkoutActions();
   if(!activeWorkoutDraft)return;
-  if(action==="finish"){$("#logForm button[type=submit]")?.click();return}
+  if(action==="finish"){saveWorkout(null);return}
   if(action==="reorder"){openSessionSheet();return}
-  if(action==="abandon"){await WorkoutSession.flush();openSessionSheet();sessionAbandonFromActions=true;openAbandonPrompt();return}
+  if(action==="abandon"){await WorkoutSession.flush();openSessionSheet();openAbandonPrompt({from:"actions"});return}
   if(action==="voice"){startVoiceInput();return}
   const card=focusCard();if(card)openExActionsSheet(card.dataset.ex);
 }
 
 /* A native dialog permits a context menu over an editor sheet without tearing
-   down that sheet's modal lifetime. The dialog's own top layer owns inertness. */
+   down that sheet's modal lifetime. The dialog's own top layer owns inertness.
+   motion-layer.js owns the long press, slide-to-select and the menu's motion;
+   this builds the menu and hands back the chosen value. */
 let nativeMenuClose=null;
+/** Opens the panel beside the lifted row: below it when it fits, above otherwise,
+ *  always inside the dialog's safe-area padding. */
+function placeContextMenu(dialog,panel,rect){
+  const view=window.visualViewport,inset=getComputedStyle(dialog),offset=view?.offsetTop||0;
+  const top=offset+(parseFloat(inset.paddingTop)||0)+12;
+  const bottom=offset+(view?.height||innerHeight)-(parseFloat(inset.paddingBottom)||0)-12;
+  const left=(parseFloat(inset.paddingLeft)||0)+12,right=innerWidth-(parseFloat(inset.paddingRight)||0)-12;
+  const box=panel.getBoundingClientRect(),below=rect.bottom+8+box.height<bottom;
+  Object.assign(panel.style,{left:`${Math.max(left,Math.min(rect.left+8,right-box.width))}px`,
+    top:`${Math.max(top,Math.min(below?rect.bottom+8:rect.top-box.height-8,bottom-box.height))}px`,
+    transformOrigin:below?"top left":"bottom left"});
+}
+/** Arrow keys, Home, End and Tab cycle the enabled items; Escape dismisses. */
+function contextMenuKeys(panel,dismiss){
+  return event=>{
+    if(!["Escape","ArrowDown","ArrowUp","Home","End","Tab"].includes(event.key))return;
+    event.stopImmediatePropagation();event.preventDefault();
+    if(event.key==="Escape"){dismiss();return}
+    const list=[...panel.querySelectorAll("button:not(:disabled)")],index=list.indexOf(document.activeElement);
+    const back=event.key==="ArrowUp"||event.key==="Tab"&&event.shiftKey;
+    list[event.key==="Home"?0:event.key==="End"?list.length-1:(index+(back?-1:1)+list.length)%list.length]?.focus();
+  };
+}
 function openRowContextMenu({anchor,items,opener=anchor}){
   if(nativeMenuClose)return Promise.resolve(null);
   if(opener===anchor&&anchor.contains(document.activeElement))opener=document.activeElement;
@@ -8747,37 +8771,20 @@ function openRowContextMenu({anchor,items,opener=anchor}){
       `<button type="button" role="menuitem" data-menu-value="${esc(item.value)}"${item.destructive?' class="is-destructive"':""}${item.disabled?" disabled":""}>${esc(item.label)}</button>`).join("")}</div>`;
     dialog.prepend(preview);document.body.append(dialog);
     const panel=dialog.querySelector('[role="menu"]');
-    const buttons=()=>[...panel.querySelectorAll("button:not(:disabled)")];
-    let closing=false;
+    let closing=false,untrack=null;
     const finish=async value=>{
       if(nativeMenuClose!==finish||closing)return;
-      closing=true;
+      closing=true;untrack?.();
       await window.RepForgeMotion?.animateContextMenu?.(panel,preview,false);
-      nativeMenuClose=null;window.removeEventListener("keydown",key,true);document.removeEventListener("contextslide",slide);
+      nativeMenuClose=null;window.removeEventListener("keydown",keys,true);
       dialog.close();dialog.remove();
       const target=opener.isConnected?opener:resolveReturnFocus(opener);
       target?.focus?.({preventScroll:true});resolve(value);
     };
-    const key=event=>{
-      if(["Escape","ArrowDown","ArrowUp","Home","End","Tab"].includes(event.key))event.stopImmediatePropagation();
-      if(event.key==="Escape"){event.preventDefault();finish(null);return}
-      const list=buttons(),index=list.indexOf(document.activeElement);
-      if(["ArrowDown","ArrowUp","Home","End","Tab"].includes(event.key)){
-        event.preventDefault();
-        const next=event.key==="Home"?0:event.key==="End"?list.length-1:
-          (index+(event.key==="ArrowUp"||event.key==="Tab"&&event.shiftKey?-1:1)+list.length)%list.length;
-        list[next]?.focus();
-      }
-    };
-    const slide=event=>{
-      const {x,y,up}=event.detail;
-      const hit=document.elementFromPoint(x,y)?.closest('[role="menuitem"]');
-      const button=hit&&panel.contains(hit)&&!hit.disabled?hit:null;
-      panel.querySelectorAll("button").forEach(el=>el.classList.toggle("is-pressed",el===button&&!up));
-      if(up&&button)finish(button.dataset.menuValue);
-    };
+    const keys=contextMenuKeys(panel,()=>finish(null));
     nativeMenuClose=finish;
-    window.addEventListener("keydown",key,true);document.addEventListener("contextslide",slide);
+    window.addEventListener("keydown",keys,true);
+    untrack=window.RepForgeMotion?.trackContextSlide?.(panel,item=>finish(item.dataset.menuValue));
     dialog.addEventListener("cancel",event=>{event.preventDefault();finish(null)});
     dialog.addEventListener("click",event=>{
       const button=event.target.closest("[data-menu-value]");
@@ -8785,17 +8792,9 @@ function openRowContextMenu({anchor,items,opener=anchor}){
       else if(!panel.contains(event.target))finish(null);
     });
     dialog.showModal();
-    const view=window.visualViewport,height=view?.height||innerHeight;
-    const insets=getComputedStyle(dialog),top=(view?.offsetTop||0)+(parseFloat(insets.paddingTop)||0);
-    const bottom=(view?.offsetTop||0)+height-(parseFloat(insets.paddingBottom)||0);
-    const left=(parseFloat(insets.paddingLeft)||0)+12,right=innerWidth-(parseFloat(insets.paddingRight)||0)-12;
-    const box=panel.getBoundingClientRect();
-    const below=rect.bottom+8+box.height<bottom-12;
-    Object.assign(panel.style,{left:`${Math.max(left,Math.min(rect.left+8,right-box.width))}px`,
-      top:`${Math.max(top+12,Math.min(below?rect.bottom+8:rect.top-box.height-8,bottom-box.height-12))}px`,
-      transformOrigin:below?"top left":"bottom left"});
+    placeContextMenu(dialog,panel,rect);
     window.RepForgeMotion?.animateContextMenu?.(panel,preview);
-    buttons()[0]?.focus({preventScroll:true});
+    panel.querySelector("button:not(:disabled)")?.focus({preventScroll:true});
   });
 }
 async function todayRowContext(row,opener=row){
