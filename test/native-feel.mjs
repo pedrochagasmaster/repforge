@@ -393,12 +393,18 @@ async function nativeControls(browser) {
   }
   phase("Phase 4: a stepper repeats while held and stops at its limit");
   await page.click('#restSecRow');
+  await page.waitForFunction(() => {
+    const panel = document.querySelector('#restSecPanel');
+    return panel.classList.contains('is-open') && panel.style.height === '' && panel.style.overflow === '';
+  });
   const shorter = page.locator('[data-step-input="restSec"][data-step-delta="-1"]');
   const hasStepper = await shorter.count();
   assert(hasStepper === 1, "Rest timer has a shorter button");
   if (hasStepper) {
-    await page.locator('#restSec').fill('30'); await page.locator('#restSec').dispatchEvent('change');
-    await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec === 30);
+    await page.locator('#restSec').fill('30'); await page.locator('#restSec').blur();
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec === 30
+      && document.querySelector('#restSec').value === '30'
+      && !document.querySelector('[data-step-input="restSec"][data-step-delta="-1"]').disabled);
     await shorter.hover();
     await page.mouse.down();
     await page.waitForFunction(() => document.querySelector('#restSec').value === '0');
@@ -408,8 +414,10 @@ async function nativeControls(browser) {
     await page.locator('[data-step-input="restSec"][data-step-delta="1"]').click();
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec === 15);
     assert(await page.locator('#restSec').inputValue() === '15', "a click after release makes exactly one step");
-    await page.locator('#restSec').fill('30'); await page.locator('#restSec').dispatchEvent('change');
-    await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec === 30);
+    await page.locator('#restSec').fill('30'); await page.locator('#restSec').blur();
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec === 30
+      && document.querySelector('#restSec').value === '30'
+      && !document.querySelector('[data-step-input="restSec"][data-step-delta="-1"]').disabled);
     await shorter.focus();
     const keyboardStart = await shorter.evaluate(button => ({ disabled: button.disabled, focused: button === document.activeElement,
       value: document.querySelector('#restSec').value, stored: JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec }));
