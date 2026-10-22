@@ -410,8 +410,15 @@ async function nativeControls(browser) {
     assert(await page.locator('#restSec').inputValue() === '15', "a click after release makes exactly one step");
     await page.locator('#restSec').fill('30'); await page.locator('#restSec').dispatchEvent('change');
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec === 30);
-    await shorter.focus(); await page.keyboard.press('Enter');
-    await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec === 15);
+    await shorter.focus();
+    const keyboardStart = await shorter.evaluate(button => ({ disabled: button.disabled, focused: button === document.activeElement,
+      value: document.querySelector('#restSec').value, stored: JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec }));
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec === 15).catch(async error => {
+      console.error('Rest keyboard boundary:', { before: keyboardStart, after: await shorter.evaluate(button => ({ disabled: button.disabled,
+        focused: button === document.activeElement, value: document.querySelector('#restSec').value, stored: JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec })) });
+      throw error;
+    });
     assert(await page.locator('#restSec').inputValue() === '15', 'the keyboard can still step after a held repeat');
   }
   await page.click('#progressionRow');
@@ -426,7 +433,11 @@ async function nativeControls(browser) {
   const hasRows = await page.locator(row).count();
   assert(hasRows > 0 && await page.locator('#todayExList [data-row-menu]').count() > 0, "Today rows have a visible actions button");
   if (hasRows) {
-    await page.locator('#todayExList [data-row-menu]').first().click();
+    const initialOpacity = await page.locator('#todayExList [data-row-menu]').first().evaluate(button => {
+      button.focus(); button.click();
+      return getComputedStyle(document.querySelector('.native-context__menu')).opacity;
+    });
+    assert(initialOpacity === '0', 'the context menu starts transparent before its first animation frame', initialOpacity);
     await page.waitForSelector('#nativeContextMenu:not([hidden])');
     await page.waitForFunction(() => {
       const panel = document.querySelector('.native-context__menu');

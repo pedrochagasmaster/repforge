@@ -1472,11 +1472,12 @@
   function animateContextMenu(panel, preview, open = true) {
     if (!available || reducedMotion()) return settled;
     const spring = open ? VOCABULARY.gestureSettle : VOCABULARY.gestureExit;
+    panel.style.opacity = open ? "0" : getComputedStyle(panel).opacity;
     return Promise.all([
       animate(panel, { transform: open ? ["scale(.97)", "scale(1)"] : [getComputedStyle(panel).transform, "scale(.97)"],
         opacity: open ? [0, 1] : [Number(getComputedStyle(panel).opacity), 0] }, spring),
       animate(preview, { transform: open ? ["scale(1)", "scale(1.03)"] : [getComputedStyle(preview).transform, "scale(1)"] }, spring)
-    ]);
+    ]).then(() => { panel.style.opacity = open ? "1" : "0"; });
   }
 
   const segmentedMounts = new WeakSet();
