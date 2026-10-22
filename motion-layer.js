@@ -498,7 +498,7 @@
   /* The Program editor's page sheet (Plan 075 phase 2B) cross-fading under
      reduced motion. The generic .sheet/.sheet-scrim CSS transition the other
      sheets use is a class-toggle diff the engine times against its own
-     previous paint; on this one element (a .view with its own render history,
+     previous paint; on this one element (a route page with its own render history,
      turned into a sheet only for the edit) that diff is not reliable enough to
      promise 170ms of travel-free fade. An explicit Web Animations keyframe
      plays the same curve deterministically instead, every time. Only reduced
