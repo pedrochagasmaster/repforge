@@ -421,6 +421,16 @@ at about 262 ms, and Motion's rest test (1 px, 40 px/s) hands the page back at a
 a sub-pixel tail the eye does not read. The constants are `gestureExit`'s and were not
 retuned.
 
+### Plan 075 phase 3 amendments (ADR 0023)
+
+| Change | Owner | Notes |
+| --- | --- | --- |
+| The page under a push or a back swipe sits up to 30% to the left and dims by about a tenth while the page above covers it | `motion-layer.js` writes how much it is covered (`--push-cover`, 0–1) on the `.is-push-under` page from the push spring and the swipe; `motion-polish.css` draws it (`--push-dim` scales `--scrim`) | Only the page under restyles each frame. Absent at rest |
+| Back swipe in Auto (choice 2) | `motion-layer.js` (`edgePointerDown`) | In the Home Screen app it starts at the left edge as before. In a Safari tab, where the edge is the browser's history swipe, it starts anywhere right of it and claims only a clearly sideways drag (1.2× the vertical). A text field, a slider, the chart's scrub plot, `[data-hscroll]` or a sideways scroller keeps its own drag. Scrollers inside pushed pages say `pan-y` so a sideways drag reaches the swipe |
+| Browser history for pushed pages | `app.js` (`syncRouteHistory`, `onRoutePopState`) | Each pushed page on screen (library, preview, exercise, a History session) holds one history entry, read from the route after every change. An in-app Back gives it back with `history.go`, whose popstate is skipped. A browser popstate runs the page's visible Back; within 900ms of a touch at the left edge it is Safari's own swipe, already animated, so the route just changes. A reload clears a stale entry. Safari's own swipe can't be detected for certain; 900ms is the heuristic the prototype used |
+| Reduced motion | `app.js` (`routePushBegin`), `motion-layer.js` (`crossFadeIn`) | A push or pop cross-fades the arriving page over 170ms (Web Animations, so the global reduced-motion kill doesn't cancel it), with no travel. Amends the "alternate state" rule for pushes as phase 2 did for sheets |
+| Keyboard Tab stays inside the editor's page sheet (#480) | `app.js` | While the sheet is the screen, Tab and Shift+Tab move through its controls only, as `openModal` does for the other modals |
+
 ## Dock lens (R6)
 
 Plan 064 amendment pick N1 (the selected lens travels, dock structure unchanged),
@@ -469,7 +479,7 @@ sheet and its scrim now cross-fade in place over 170ms: opacity only, no travel,
 on opening and on closing (the close waits for the fade before the sheet is
 hidden). It is the one exception to the global reduced-motion kill in
 `styles.css`, so it is written `!important` against it. Pushed pages take the
-same cross-fade in Plan 075 phase 3. A drag still places a sheet under the thumb
+same cross-fade since Plan 075 phase 3 (Page push section). A drag still places a sheet under the thumb
 and the release still jumps to rest. Everything else in this section is
 unchanged: no spring, deck slide, slot or reorder runs.
 

@@ -10905,6 +10905,24 @@
       "catalogStates": [
         "settings/rest-controls"
       ]
+    },
+    {
+      "id": "scroll-edge-bar",
+      "selector": ".topbar",
+      "roles": {
+        "elevation": "persistent-action"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Plan 075 phase 3 (ADR 0023): the root pages' scroll-edge bar. It holds no control (the page's actions stay in its head); its glass material and inline title appear only while content is under it.",
+      "owner": "plan-075",
+      "catalogStates": [
+        "today/ready-scrolled",
+        "history/list-scrolled"
+      ]
     }
   ],
   "contextualVariants": [
@@ -11206,17 +11224,6 @@
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft"
-      ]
-    },
-    {
-      "id": "scroll-edge-bar",
-      "selector": ".topbar",
-      "role": "persistent-action",
-      "rationale": "The scroll-edge bar over each root page's large title holds no control of its own — its only content is an aria-hidden title mirroring the page's own h2.page-title — so it takes the shallow persistent-action depth with no second raised card, and paints neither fill nor blur until that title has scrolled under it (Plan 075 phase 3, ADR 0023).",
-      "owner": "plan-075",
-      "catalogStates": [
-        "today/ready-scrolled",
-        "history/list-scrolled"
       ]
     }
   ],

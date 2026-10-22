@@ -613,13 +613,9 @@ both blocks so each theme block shows the whole set; the spacing lengths are not
   No role, tier, radius or colour is added; icons stay `aria-hidden` beside their
   labels and an icon-only control keeps its accessible name and 44px target.
 
-- **Scroll-edge bar (Plan 075 phase 3, ADR 0023).** A "Scroll-edge bar"
-  contextual variant of `persistent-action` is added to the variants table
-  above:
-
-  | Variant | Exact selector | Parent role |
-  | --- | --- | --- |
-  | Scroll-edge bar | `.topbar` | persistent-action |
+- **Scroll-edge bar (Plan 075 phase 3, ADR 0023).** `.topbar` is a
+  `persistent-action` surface (a component in the role inventory, not a new
+  contextual variant: the variants table above is unchanged).
 
   Unlike every other `persistent-action` surface, it holds no control of its
   own: its only content is an `aria-hidden` title that mirrors the page's own

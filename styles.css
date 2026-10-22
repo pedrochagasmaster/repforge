@@ -177,6 +177,8 @@
      above. The release is the pressRelease spring, written by motion-layer.js as
      a linear() curve; these are its fallbacks. */
   --control-pressed-scale:.97;
+  /* A bar title stops growing here, as iOS bar titles do at large text sizes (ADR 0023): pixels, so 200% text does not move it. */
+  --bar-title-max:21px;
   --control-primary-pressed-transform:scale(var(--control-pressed-scale));
   --control-primary-pressed-bg:#3A3833;
   --ease-press-release:cubic-bezier(.2,.7,.2,1);
@@ -541,7 +543,7 @@ h2{font-size:var(--font-size-title);font-weight:var(--weight-semibold);letter-sp
 }
 /* Caps at 21px under large text, as iOS bars do (Plan 075 phase 3). */
 .topbar__title{
-  position:relative;font-size:min(var(--font-size-body),21px);font-weight:var(--weight-semibold);
+  position:relative;font-size:min(var(--font-size-body),var(--bar-title-max));font-weight:var(--weight-semibold);
   color:var(--ink);opacity:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   max-width:60vw;transition:opacity .16s linear;
 }

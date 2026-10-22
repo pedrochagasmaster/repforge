@@ -1,6 +1,6 @@
 # Plan 075: An iOS-native feel, in Taurifer's look
 
-- **Status:** APPROVED — IMPLEMENTATION IN PROGRESS (phase 1 merged in #478; phase 2 in review).
+- **Status:** APPROVED — IMPLEMENTATION IN PROGRESS (phases 1 and 2 merged in #478, #479 and #481; 2W in #483; phase 3 in review; phase 4 with its own owner).
 - **Decision:** [ADR 0023](../docs/adr/0023-ios-native-feel.md), with the 12 resolutions and the
   owner's amendment to choice 8.
 - **Spec:** PR #477, `docs/design/native-feel/` (README, `app.html`, `lab.html`, `native.js`,
