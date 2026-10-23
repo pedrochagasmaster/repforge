@@ -283,7 +283,10 @@ async function edgeSwipe(browser, { reducedMotion = "no-preference" } = {}) {
   if (!reduced) {
     phase("a pull can be re-grabbed while it settles");
     await edge(() => window.__edge.reset());
-    await edge(() => window.__edge.drag([30, 80, 140], { wait: 30, hold: 200 }));
+    // A pull kept short of the commit share (35% of 390px is 136px): after the re-grab below, the page is still
+    // under it, so a slow release can only go home. A pull to 140px sat on the share, and whether it committed
+    // depended on how far the settle had got (the chronic full-lane flake, 2026-10-23).
+    await edge(() => window.__edge.drag([30, 60, 90], { wait: 30, hold: 200 }));
     await still(40);
     const midSettle = await edge(() => window.__edge.state());
     // Held still for 150ms before the lift, so the release carries no velocity.
@@ -291,7 +294,8 @@ async function edgeSwipe(browser, { reducedMotion = "no-preference" } = {}) {
     const regrabbed = regrab[regrab.length - 1];
     assert(midSettle.x > 0 && regrabbed.x >= midSettle.x - 20,
       "the second grab picks the page up where it is, not at rest", JSON.stringify({ midSettle, regrab }));
-    await still(520);
+    // Back at rest is a state, not a delay.
+    await page.waitForFunction(() => { const s = window.__edge.state(); return s.x === 0 && !s.swiping && !s.inline; }, undefined, { timeout: 5000 });
     assert((await edge(() => window.__edge.state())).commits === 0, "and letting it go slowly still does not navigate");
   }
 

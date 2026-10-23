@@ -502,11 +502,12 @@ button,a[href],summary,input:not([type=hidden]),select,textarea,
 main{
   width:min(100%,var(--maxw));margin:0 auto;
   padding:calc(12px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 36px max(16px,env(safe-area-inset-left));
-  /* No value, however wide, gives the page a sideways scroll (owner, iPhone, 2026-10-23): what overflows a row is
-     clipped at the page's edge rather than shifting every page left. clip makes no scroll container, so sticky and
-     fixed children are unaffected. */
-  overflow-x:clip;
 }
+/* No value, however wide, gives a page a sideways scroll (owner, iPhone, 2026-10-23): what overflows a row is
+   clipped at the page's edge rather than shifting every page left. clip makes no scroll container, so sticky and
+   fixed children are unaffected. The Program editor's page sheet is left out: its reorder list (@dnd-kit) measures
+   against its clipping ancestors. */
+:is(#log,#stats,#history,#exercise,#program:not(.sheet)).view{overflow-x:clip}
 /* Backwards fill only: the rise ends on the view's own opacity, and an animation held by its fill makes the view a
    backdrop root, so the scroll-edge bar's blur would stop reaching the rows under it (Plan 075 phase 3). */
 .view{display:none;animation:rise .35s cubic-bezier(.2,.7,.2,1) backwards}

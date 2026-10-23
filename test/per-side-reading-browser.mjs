@@ -287,8 +287,9 @@ async function main() {
     await page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("strength"));
     await page.waitForSelector("#segStrength.active", { timeout: 5000 });
     const strengthRow = page.locator('#strengthDash [data-evkey="' + pressKey + '"]');
-    check(/27\.5/.test(await strengthRow.locator(".evrow__val").textContent()) && /per side/i.test(await strengthRow.locator(".evrow__val").textContent()),
-      "Progress labels the per-side strength value in the logged unit", await strengthRow.locator(".evrow__val").textContent());
+    // The value and its quiet "per side" line share the figure cell; the value span holds the figure alone (#489).
+    check(/27\.5/.test(await strengthRow.locator(".evrow__val").textContent()) && /per side/i.test(await strengthRow.locator(".evrow__fig").textContent()),
+      "Progress labels the per-side strength value in the logged unit", await strengthRow.locator(".evrow__fig").textContent());
     await strengthRow.click();
     const detail = page.locator('[data-evdetail="' + pressKey + '"]');
     check(/35/.test(await detail.textContent()) && /Load per side/i.test(await detail.textContent()),

@@ -10027,7 +10027,7 @@ function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;
     const latest=projection.sessions.filter(x=>x.liftKey===k).at(-1),word=strengthOutcomeWord(k,series,latest),change=strengthChangeText(series);
     return `<button type="button" class="evrow evrow--d" data-evkey="${esc(k)}" aria-expanded="false">`+
       `<b class="evrow__name">${esc(liftDisplayName(nameOf(k),k))}</b>`+
-      `<span class="evrow__fig"><span class="evrow__val">${esc(strengthFigure(series))}${perSideQualifier(series.perSideLoad)}</span><span class="chevron is-down" aria-hidden="true"></span></span>`+
+      `<span class="evrow__fig"><span class="evrow__figtext"><span class="evrow__val">${esc(strengthFigure(series))}</span>${perSideQualifier(series.perSideLoad)}</span><span class="chevron is-down" aria-hidden="true"></span></span>`+
       `<span class="evrow__out${word.soft?" is-soft":""}">${word.html}${change?esc(` · ${change}`):""}</span>`+
       `<span class="evrow__kind">${esc(strengthKindText(series))}</span>`+
       `<span class="evrow__spark">${sparklineSvg(series.points.map(point=>point.value))}</span></button>${panel}`}).join("");
@@ -10085,7 +10085,7 @@ function renderOverviewStrength(){const el=$("#overviewStrength");if(!el)return;
       const series=projection.series.get(k),latest=projection.sessions.filter(x=>x.liftKey===k).at(-1),word=strengthOutcomeWord(k,series,latest);
       const body=`<span class="strrow__main"><b class="strrow__name">${esc(liftDisplayName(nameOf(k),k))}</b>`+
         `<span class="strrow__sub${word.soft?" is-soft":""}">${word.html}${latest?esc(` · ${shortDate(latest.date)}`):""}</span></span>`+
-        `${sparklineSvg(series.points.map(point=>point.value))}<span class="strrow__fig">${esc(strengthFigure(series))}${perSideQualifier(series.perSideLoad)}</span>`;
+        `${sparklineSvg(series.points.map(point=>point.value))}<span class="strrow__fig"><span class="strrow__val">${esc(strengthFigure(series))}</span>${perSideQualifier(series.perSideLoad)}</span>`;
       return series.evidenceCount>1
         ?`<button type="button" class="strrow" data-ovkey="${esc(k)}">${body}</button>`
         :`<div class="strrow strrow--snap" data-ovkey="${esc(k)}">${body}</div>`}).join("");
@@ -11351,8 +11351,9 @@ function chartRowHtml(model,i){
   const delta=pv==null?"–":Math.abs(v-pv)<.05?"0":`${v>pv?"+":"−"}${chartNum(Math.abs(v-pv),model.metric)}`;
   const perSideLoad=model.pts.every(point=>point.perSideLoad),perSideReps=model.pts.every(point=>point.perSideReps);
   return `<button type="button" class="exrow${i===model.sel?" is-sel":""}${p.block?"":" is-old"}" data-pt="${i}" aria-pressed="${i===model.sel}">`+
-    `<span>${esc(shortDate(p.date))}</span><span class="exchart__mono">${esc(fmtLoad(p.top))} × ${esc(p.reps)}${perSideSetQualifier(perSideLoad,perSideReps)}</span>`+
-    `<span class="exchart__mono">${esc(fmt(Math.round(toDisplay(p.e1rm)*10)/10))}${perSideQualifier(perSideLoad)}</span><span class="exchart__mono exchart__soft">${esc(delta)}</span></button>`}
+    // The qualifier sits beside the Mono figure, not inside it: the figure stays a bare number.
+    `<span>${esc(shortDate(p.date))}</span><span><span class="exchart__mono">${esc(fmtLoad(p.top))} × ${esc(p.reps)}</span>${perSideSetQualifier(perSideLoad,perSideReps)}</span>`+
+    `<span><span class="exchart__mono">${esc(fmt(Math.round(toDisplay(p.e1rm)*10)/10))}</span>${perSideQualifier(perSideLoad)}</span><span class="exchart__mono exchart__soft">${esc(delta)}</span></button>`}
 function renderExerciseChart(el,key,sessions,tmpl){
   const latest=sessions.at(-1)?.rows.at(-1),name=latest?exerciseDisplayName(latest):((tmpl&&exerciseDisplayName(tmpl))||key);
   const model=chartModel(key),{metric,scope}=chartView;
