@@ -849,13 +849,16 @@ async function wheelPicker(browser) {
     // written — not a precomputed item count.
     const box = await page.locator("#wheelCol").boundingBox();
     const cx = Math.round(box.x + box.width / 2), cy = Math.round(box.y + box.height / 2);
+    // A finger reports in small steps, a frame apart; two large jumps let a slow runner lift before the column had
+    // followed (main's push CI, 2026-10-23). The drag moves 11px a frame for 110px, and lifts only once the column
+    // has followed it by at least a row.
     const startTop = await page.evaluate(() => document.querySelector("#wheelCol").scrollTop);
     await touch("touchStart", [{ x: cx, y: cy }]);
-    await touch("touchMove", [{ x: cx, y: cy - 44 }]);
-    await touch("touchMove", [{ x: cx, y: cy - 88 }]);
-    // Touch moves land on the next animation frame: wait for the drag to move the column before lifting, or the
-    // rest check below could pass on a column that has not started moving yet.
-    await page.waitForFunction((top) => document.querySelector("#wheelCol").scrollTop !== top, startTop, { timeout: 2000 });
+    for (let dy = 11; dy <= 110; dy += 11) {
+      await touch("touchMove", [{ x: cx, y: cy - dy }]);
+      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve())));
+    }
+    await page.waitForFunction((top) => document.querySelector("#wheelCol").scrollTop - top >= 44, startTop, { timeout: 5000 });
     await touch("touchEnd");
     // Momentum carries the scroll on after the touch lifts; wait for it (and the native
     // scroll-snap) to come to rest before the settle debounce reads a value off it.
@@ -867,7 +870,12 @@ async function wheelPicker(browser) {
       el.__lastTop = el.scrollTop;
       return false;
     }, undefined, { timeout: 3000, polling: 50 });
-    const expectScroll = await page.evaluate(() => Number(document.querySelector("#wheelCol")?.getAttribute("aria-valuenow")));
+    // The settle (a debounce after the last scroll) is what reports the value: wait for it to name the row on the band.
+    const expectScroll = await page.waitForFunction(() => {
+      const col = document.querySelector("#wheelCol");
+      const onBand = Number(col.querySelectorAll(".wheel__item")[Math.round(col.scrollTop / 44)]?.dataset.wheelV);
+      return Number(col.getAttribute("aria-valuenow")) === onBand ? onBand : null;
+    }, undefined, { timeout: 2000 }).then((h) => h.jsonValue(), () => NaN);
     assert(Number.isFinite(expectScroll) && expectScroll !== afterKeys.now, "the drag moved the wheel off its keyboard-set value",
       JSON.stringify({ expectScroll, afterKeys }));
     const scrollCommitted = await page.waitForFunction(([id, want]) => {
@@ -915,12 +923,24 @@ async function wheelPicker(browser) {
     await page.locator(WHEEL_LOAD_SEL).click();
     await page.locator(WHEEL_LOAD_SEL).click();
     await page.waitForSelector("#wheelSheet.is-open");
+    const headTop = await page.evaluate(() => document.querySelector("#workoutShell .wo-head").getBoundingClientRect().top);
+    // iOS raises the keyboard only for a focus made inside the tap: read where focus is as the same click event
+    // finishes, after the button's own handler has run (owner, iPhone, 2026-10-23).
+    await page.evaluate(() => document.addEventListener("click", (event) => {
+      if (event.target.closest?.("#wheelKeyboard")) window.__kbFocusInTap = document.activeElement?.dataset?.k || document.activeElement?.tagName || "";
+    }, { once: true }));
     await page.click("#wheelKeyboard");
+    const inTap = await page.evaluate(() => window.__kbFocusInTap);
+    assert(String(inTap).endsWith(`_metric_${WHEEL_WEIGHT}`), "the keyboard button focuses the field's input inside the tap itself", String(inTap));
     await page.waitForSelector("#wheelSheet", { state: "hidden" });
     const face = await fieldFace(page, WHEEL_LOAD_SEL);
     assert(face.editing, "the keyboard button closes the sheet and opens the field's typed entry", JSON.stringify(face));
     const focusedKey = await page.evaluate(() => document.activeElement?.dataset?.k || "");
-    assert(focusedKey.endsWith(`_metric_${WHEEL_WEIGHT}`), "the typed input takes focus, exactly the old second tap", focusedKey);
+    assert(focusedKey.endsWith(`_metric_${WHEEL_WEIGHT}`), "the typed input keeps focus once the sheet has gone", focusedKey);
+    const after = await page.evaluate(() => ({ scrollY: window.scrollY, scrollTop: document.scrollingElement.scrollTop,
+      headTop: document.querySelector("#workoutShell .wo-head").getBoundingClientRect().top }));
+    assert(after.scrollY === 0 && after.scrollTop === 0 && Math.abs(after.headTop - headTop) <= 0.5,
+      "nothing scrolls, and the Focus header keeps its place", JSON.stringify({ after, headTop }));
     await context.close();
   }
 
@@ -972,6 +992,57 @@ async function wheelPicker(browser) {
     const last = Number((seen.lastLine.match(/last\s+([\d.,]+)/) || [])[1]?.replace(",", "."));
     assert(seen.input === "" && last > 0, "the set's load is empty, and the lift has a last logged load", JSON.stringify(seen));
     assert(seen.now === last, "the wheel opens on the last logged load", JSON.stringify({ ...seen, last }));
+    await context.close();
+  }
+
+  phase("The wheel scrolls on one axis and always rests on a value");
+  {
+    // Owner, iPhone (2026-10-23): a drag carried the column sideways off the band, and it came to rest between values.
+    const { context, page } = await openCatalogState(browser, "workout/wheel-load", 390, "en", "normal");
+    const cdp = await context.newCDPSession(page);
+    const touch = (type, points = []) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points });
+    const axis = () => page.evaluate(() => {
+      const col = document.querySelector("#wheelCol"), band = document.querySelector(".wheel__band").getBoundingClientRect();
+      const mid = col.getBoundingClientRect().top + col.clientHeight / 2;
+      const items = [...col.querySelectorAll(".wheel__item")];
+      const centre = items.reduce((a, b) => Math.abs(b.getBoundingClientRect().top + b.offsetHeight / 2 - mid) < Math.abs(a.getBoundingClientRect().top + a.offsetHeight / 2 - mid) ? b : a);
+      const r = centre.getBoundingClientRect();
+      const style = getComputedStyle(col);
+      return { scrollLeft: col.scrollLeft, overflowX: style.overflowX, touchAction: style.touchAction,
+        offCentre: Math.abs((r.left + r.width / 2) - (band.left + band.width / 2)) };
+    });
+    const box = await page.locator("#wheelCol").boundingBox();
+    const x = Math.round(box.x + box.width / 2), y = Math.round(box.y + box.height / 2);
+    // A diagonal drag, mostly sideways: each move waits for its frame before the next.
+    await touch("touchStart", [{ x, y }]);
+    for (let i = 1; i <= 6; i++) {
+      await touch("touchMove", [{ x: x - 30 * i, y: y - 6 * i }]);
+      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve())));
+    }
+    await touch("touchEnd");
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    const drift = await axis();
+    // The tilted rows still overflow a few pixels sideways (scrollWidth counts them); the axis lock is what keeps a
+    // finger from reaching that overflow.
+    assert(drift.overflowX === "hidden" && drift.touchAction === "pan-y" && drift.scrollLeft === 0,
+      "the column pans only vertically, so a diagonal drag leaves it at x 0",
+      JSON.stringify(drift));
+    assert(drift.offCentre <= 1, "the value stays centred on the band", JSON.stringify(drift));
+
+    // As iOS can leave it after momentum: still, between two values. Snap is lifted so the browser can't do it for us.
+    await page.evaluate(() => {
+      const col = document.querySelector("#wheelCol");
+      col.style.scrollSnapType = "none";
+      col.scrollTop = Math.round(col.scrollTop / 44) * 44 + 17;
+    });
+    const rested = await page.waitForFunction(() => {
+      const col = document.querySelector("#wheelCol");
+      return Math.abs(col.scrollTop / 44 - Math.round(col.scrollTop / 44)) < 0.02 ? col.scrollTop : null;
+    }, undefined, { timeout: 3000 }).then((h) => h.jsonValue(), () => null);
+    assert(rested != null, "once still, the column comes to rest exactly on a value");
+    const now = await page.evaluate(() => Number(document.querySelector("#wheelCol").getAttribute("aria-valuenow")));
+    const shown = await page.evaluate((top) => Number(document.querySelectorAll("#wheelCol .wheel__item")[Math.round(top / 44)].dataset.wheelV), rested ?? 0);
+    assert(now === shown, "and the value it reports is the one on the band", JSON.stringify({ now, shown, rested }));
     await context.close();
   }
 
@@ -1096,6 +1167,92 @@ async function autoSwipe(browser) {
   const still = await page.evaluate(() => document.body.classList.contains("is-library") && !document.querySelector("#library").style.transform);
   assert(still, "the library stays put");
   await context.close();
+}
+
+/**
+ * The back swipe in the Home Screen app (owner, iPhone, 2026-10-23): it starts within 32px of the edge, one page
+ * shows beneath it, the moving page keeps its top, and a release goes through as iOS's does: past 35% of the width,
+ * at 0.3px/ms or faster, or coasting past halfway; only a slow, short drag goes home.
+ */
+async function standaloneSwipe(browser) {
+  const open = async () => {
+    const { context, page, touch } = await todayPage(browser);
+    await page.evaluate(() => {
+      const native = window.matchMedia.bind(window);
+      window.matchMedia = (query) => /display-mode:\s*standalone/.test(query)
+        ? { matches: true, media: query, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }
+        : native(query);
+    });
+    await page.evaluate(() => openExerciseView(state.program[0].id));
+    await page.waitForFunction(() => document.body.classList.contains("is-exercise") && !document.body.classList.contains("is-pushing"));
+    return { context, page, touch };
+  };
+  const frame = (page) => page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve())));
+  const pageX = (page) => page.evaluate(() => {
+    const t = getComputedStyle(document.querySelector("#exercise")).transform;
+    return t === "none" ? 0 : new DOMMatrixReadOnly(t).m41;
+  });
+  /** Drag from `from` through `xs`, a frame apart; `hold` ms still before lifting. Returns whether the page popped. */
+  const swipe = async (page, touch, from, xs, { hold = 0 } = {}) => {
+    const y = 520;
+    await touch("touchStart", [{ x: from, y }]);
+    for (const x of xs) { await touch("touchMove", [{ x, y }]); await frame(page); }
+    if (hold) await page.evaluate((ms) => new Promise((resolve) => setTimeout(resolve, ms)), hold);
+    await touch("touchEnd");
+    return page.waitForFunction(() => !document.body.classList.contains("is-exercise"), undefined, { timeout: 1500 }).then(() => true, () => false);
+  };
+  const steps = (from, to, n) => Array.from({ length: n }, (_, i) => Math.round(from + ((to - from) * (i + 1)) / n));
+
+  phase("In the Home Screen app a swipe that starts 28px in from the edge is the back swipe");
+  {
+    const { context, page, touch } = await open();
+    const headTop = await page.evaluate(() => document.querySelector("#exercise").firstElementChild.getBoundingClientRect().top);
+    await touch("touchStart", [{ x: 28, y: 520 }]);
+    for (const x of [44, 70, 110, 150]) { await touch("touchMove", [{ x, y: 520 }]); await frame(page); }
+    const mid = await page.evaluate(() => {
+      const ex = document.querySelector("#exercise");
+      const visible = [...document.querySelectorAll(".view")].filter((v) => v !== ex && getComputedStyle(v).display !== "none");
+      return { swiping: ex.classList.contains("is-edge-swiping"), underlays: visible.map((v) => v.id || v.className),
+        boxTop: ex.getBoundingClientRect().top, headTop: ex.firstElementChild.getBoundingClientRect().top };
+    });
+    const moved = await pageX(page);
+    assert(mid.swiping && moved > 60, "a start 28px in from the edge is captured and carries the page", JSON.stringify({ mid, moved }));
+    assert(mid.underlays.length === 1, "exactly one page shows beneath the swipe", JSON.stringify(mid));
+    assert(mid.boxTop <= 0.5 && Math.abs(mid.headTop - headTop) <= 0.5,
+      "the moving page keeps its top: its box reaches the top of the screen and its content does not move", JSON.stringify({ mid, headTop }));
+    await touch("touchEnd");
+    await context.close();
+  }
+
+  phase("A release at 45% that has slowed to a stop goes through");
+  {
+    const { context, page, touch } = await open();
+    const popped = await swipe(page, touch, 10, steps(10, 176, 10), { hold: 160 });
+    assert(popped, "45% of the width is past the commit share");
+    await context.close();
+  }
+
+  phase("A quick release at 25% goes through");
+  {
+    const { context, page, touch } = await open();
+    // About 8px a frame: roughly 0.5px/ms at release.
+    const popped = await swipe(page, touch, 10, steps(10, 98, 11));
+    assert(popped, "a release at 0.3px/ms or faster goes through short of the commit share");
+    await context.close();
+  }
+
+  phase("A slow, short drag goes home");
+  {
+    const { context, page, touch } = await open();
+    const popped = await swipe(page, touch, 10, steps(10, 88, 10), { hold: 160 });
+    assert(!popped, "a still release at 20% goes home");
+    const home = await page.waitForFunction(() => {
+      const t = getComputedStyle(document.querySelector("#exercise")).transform;
+      return t === "none" || new DOMMatrixReadOnly(t).m41 === 0;
+    }, undefined, { timeout: 2000 }).then(() => true, () => false);
+    assert(home, "and the page settles back in place");
+    await context.close();
+  }
 }
 
 /** Under reduced motion a push cross-fades the arriving page over about 170ms, with no travel (choice 11). */
@@ -1574,6 +1731,7 @@ try {
   await wheelPicker(browser);
   await routeHistory(browser);
   await autoSwipe(browser);
+  await standaloneSwipe(browser);
   await reducedMotionPush(browser);
   await editorSheetTab(browser);
   await navigationBars(browser);

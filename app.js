@@ -8646,6 +8646,9 @@ function wheelOnScroll(){
   if(wheelSettleTimer)clearTimeout(wheelSettleTimer);
   wheelSettleTimer=setTimeout(()=>{
     const idx=wheelNearestIndexFromScroll(col);
+    // iOS can let momentum come to rest between snap points; once the column is still, place it on the value it
+    // shows. The scroll this starts settles again on the same value.
+    if(Math.abs(col.scrollTop-idx*WHEEL_ITEM_H)>0.5)wheelScrollTo(idx);
     wheelSyncAria(idx);
     // Placing the wheel on its opening value is not a choice: only a move off it writes (Done applies it either way).
     if(wheelUi&&wheelUi.lastCommitted==null&&idx===wheelUi.openedIndex)return;
@@ -8723,11 +8726,18 @@ function openWheelSheet(key,id,kind){
   col.onscroll=wheelOnScroll;
   col.onkeydown=wheelKeydown;
   const kbBtn=$("#wheelKeyboard");
-  if(kbBtn)kbBtn.onclick=async()=>{
+  if(kbBtn)kbBtn.onclick=()=>{
     const live=wheelUi;if(!live)return;
-    await closeWheelSheet();
+    // iOS raises the keyboard only for a focus made inside the tap itself (owner, iPhone, 2026-10-23): write the
+    // wheel's value, give the page back its focus, and open the field's typed input now, in this handler. The sheet
+    // then leaves without taking focus back to the field's button.
+    if(wheelSettleTimer){clearTimeout(wheelSettleTimer);wheelSettleTimer=null}
+    wheelCommit(live.index??0);
+    const rec=activeModal&&activeModal.el===$("#wheelSheet")?activeModal:null;
+    if(rec){restoreBodyInert(rec.prevInert);rec.returnFocus=null}
     shelfSelect(live.key,live.id,true);
-    refreshShelf({focus:live.id})};
+    refreshShelf({focus:live.id});
+    closeWheelSheet()};
   const doneBtn=$("#wheelDone");
   if(doneBtn)doneBtn.onclick=()=>{closeWheelSheet()};
   document.body.classList.add("is-sheet-open");
