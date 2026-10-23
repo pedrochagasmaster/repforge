@@ -823,6 +823,9 @@ async function setLogDateRaw(page, value) {
 
 async function openSessionEditor(page, sid) {
   await nav(page, "history");
+  // Re-tapping History on a session page returns to the list (ADR 0023); its page rides out as a moving copy, so
+  // read the History surface once that push has ended.
+  await page.waitForFunction(() => !document.body.classList.contains("is-pushing"), undefined, { timeout: 5000 });
   if (await page.locator(`.session--edit[data-editing="${sid}"]`).count()) return;
   const selectedEdit = page.locator(`[data-history-edit="${sid}"]`);
   if (await selectedEdit.count()) {

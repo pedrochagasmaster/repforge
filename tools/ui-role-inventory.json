@@ -10949,7 +10949,10 @@
       "catalogStates": [
         "today/ready-scrolled",
         "history/list-scrolled",
-        "history/delete-confirm"
+        "history/delete-confirm",
+        "workout/invalid-draft",
+        "progress/strength-comparison",
+        "progress/strength-sparse"
       ]
     }
   ],
