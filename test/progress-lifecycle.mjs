@@ -205,7 +205,7 @@ if (BROWSER) {
     const before = await stateOf(page);
     await page.evaluate(() => window.__repforgeShowSettings());
     await page.waitForSelector("#settings.view.active", { timeout: 5000 });
-    await page.locator("#unit").selectOption("lb");
+    await page.locator('#unitSegments [data-value="lb"]').click();
     await page.waitForFunction(() => JSON.parse(localStorage.getItem("repforge_v1") || "{}").settings?.unit === "lb",
       null, { timeout: 10000 });
     await openReview(page);

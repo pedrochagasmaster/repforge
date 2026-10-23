@@ -1022,6 +1022,41 @@
       "owner": "programlab",
       "content": "flat",
       "scenario": "Isolated standalone artifact: scenario/policy editor and actual dedicated-worker candidate prescriptions."
+    },
+    "today/context-menu": {
+      "owner": "plan-075-phase-4",
+      "content": "flat",
+      "scenario": "A Today exercise lifted above its context menu, opened through its visible actions button."
+    },
+    "workout/actions": {
+      "owner": "plan-075-phase-4",
+      "content": "flat",
+      "scenario": "Focus session actions with a separate Cancel, before any action commits."
+    },
+    "program/editor-context-menu": {
+      "owner": "plan-075-phase-4",
+      "content": "flat",
+      "scenario": "An installed editor exercise lifted above Move, Day and Remove actions."
+    },
+    "program/editor-alternate-context-menu": {
+      "owner": "plan-075-phase-4",
+      "content": "flat",
+      "scenario": "An alternate context menu above the still-open exercise editor sheet."
+    },
+    "settings/rest-controls": {
+      "owner": "plan-075-phase-4",
+      "content": "flat",
+      "scenario": "Rest timer stepper and its typed field in the open Settings disclosure."
+    },
+    "settings/load-controls": {
+      "owner": "plan-075-phase-4",
+      "content": "flat",
+      "scenario": "Smallest load change stepper and its typed field in the open progression controls."
+    },
+    "today/skipped": {
+      "owner": "plan-075-phase-4",
+      "content": "flat",
+      "scenario": "A context-menu skip acknowledged on Today, stored only in the workout draft."
     }
   },
   "components": [
@@ -1094,6 +1129,7 @@
         "install/banner",
         "today/draft-resume",
         "today/ready",
+        "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
         "today/deload-week"
@@ -1120,8 +1156,10 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -1146,8 +1184,10 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -1172,8 +1212,10 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -3084,8 +3126,10 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -3493,8 +3537,10 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -3731,8 +3777,10 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -3759,8 +3807,10 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -4045,6 +4095,7 @@
         "today/draft-resume",
         "today/no-program",
         "today/ready",
+        "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
         "today/deload-week"
@@ -4137,8 +4188,10 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -4462,8 +4515,10 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -4487,8 +4542,10 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -4623,8 +4680,10 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -4779,8 +4838,10 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -5222,8 +5283,10 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -5400,6 +5463,7 @@
         "install/banner",
         "today/draft-resume",
         "today/ready",
+        "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
         "today/deload-week"
@@ -5532,13 +5596,15 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
       "id": "theme",
-      "selector": "#theme",
+      "selector": "#themeSegments [role=\"radio\"]",
       "roles": {
         "control": "selection"
       },
@@ -5552,14 +5618,16 @@
         "selected",
         "disabled"
       ],
-      "rationale": "Changes a chosen value, active option, or reversible status.",
+      "rationale": "Chooses this device's Appearance through a segmented radiogroup; selected state is aria-checked.",
       "owner": "plan-058",
       "catalogStates": [
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -5636,6 +5704,7 @@
         "today/draft-resume",
         "today/no-program",
         "today/ready",
+        "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
         "today/deload-week"
@@ -5688,6 +5757,7 @@
         "today/draft-resume",
         "today/no-program",
         "today/ready",
+        "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
         "today/deload-week"
@@ -5698,7 +5768,7 @@
     },
     {
       "id": "unit",
-      "selector": "#unit",
+      "selector": "#unitSegments [role=\"radio\"]",
       "roles": {
         "control": "selection"
       },
@@ -5712,14 +5782,16 @@
         "selected",
         "disabled"
       ],
-      "rationale": "Changes a chosen value, active option, or reversible status.",
+      "rationale": "Chooses the durable display unit through a segmented radiogroup; selected state is aria-checked.",
       "owner": "plan-058",
       "catalogStates": [
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -5744,6 +5816,7 @@
         "today/done",
         "today/draft-resume",
         "today/ready",
+        "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
         "today/deload-week"
@@ -5773,8 +5846,10 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -5893,7 +5968,7 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "Opens the current exercise's actions sheet without committing training state; where voice input is on, the same button opens a short menu, which the catalog never shows.",
+      "rationale": "Opens the Focus session action sheet; each session or exercise action stays in its existing owner.",
       "owner": "plan-058",
       "catalogStates": [
         "workout/correction",
@@ -7137,8 +7212,10 @@
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
+        "settings/load-controls",
         "settings/main",
-        "settings/privacy"
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
@@ -7462,6 +7539,7 @@
         "today/draft-resume",
         "today/no-program",
         "today/ready",
+        "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
         "history/per-side-session",
@@ -7529,6 +7607,7 @@
         "today/draft-resume",
         "today/no-program",
         "today/ready",
+        "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
         "history/per-side-session",
@@ -7605,6 +7684,7 @@
         "today/draft-resume",
         "today/no-program",
         "today/ready",
+        "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
         "history/per-side-session",
@@ -7692,6 +7772,7 @@
         "onboarding-start/first-run-ways",
         "today/draft-resume",
         "today/ready",
+        "today/skipped",
         "history/session",
         "program/overview",
         "today/rest-bar",
@@ -7885,6 +7966,7 @@
       "owner": "plan-064/r1a",
       "catalogStates": [
         "today/ready",
+        "today/skipped",
         "today/rest-bar",
         "today/day-picker",
         "today/draft-resume",
@@ -10301,6 +10383,404 @@
       "catalogStates": [
         "program/editor-day-name-refused"
       ]
+    },
+    {
+      "id": "native-row-actions",
+      "selector": ".native-row-menu",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Visible keyboard and screen reader path to the same context actions as long press.",
+      "owner": "plan-075-phase-4",
+      "catalogStates": [
+        "install/banner",
+        "onboarding-build/editor-alternates",
+        "onboarding-build/editor-partial",
+        "onboarding-build/editor-ready",
+        "program/editor-alternates",
+        "program/editor-day-name-refused",
+        "program/editor-suggest-loads",
+        "program/progression-editor",
+        "today/deload-week",
+        "today/draft-resume",
+        "today/ready",
+        "today/rest-bar",
+        "today/skipped",
+        "workout/invalid-draft"
+      ],
+      "neverDisabledReason": "The menu or choice stays reachable whenever its owning row is present."
+    },
+    {
+      "id": "native-stepper",
+      "selector": "[data-step-delta]",
+      "roles": {
+        "control": "adjustment"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Repeats numeric changes through the existing typed-field commit; limits disable only the corresponding direction.",
+      "owner": "plan-075-phase-4",
+      "catalogStates": [
+        "onboarding-build/editor-alternates",
+        "onboarding-build/editor-partial",
+        "onboarding-build/editor-ready",
+        "program/editor-alternates",
+        "program/editor-day-name-refused",
+        "program/editor-suggest-loads",
+        "settings/appearance",
+        "settings/load-controls",
+        "settings/main",
+        "settings/rest-controls"
+      ]
+    },
+    {
+      "id": "native-context-dialog",
+      "selector": "#nativeContextMenu",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "full-screen",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Native top-layer dialog blocks the underlying route while its context menu is open.",
+      "owner": "plan-075-phase-4",
+      "catalogStates": [
+        "today/context-menu",
+        "program/editor-context-menu",
+        "program/editor-alternate-context-menu"
+      ]
+    },
+    {
+      "id": "native-context-panel",
+      "selector": ".native-context__menu",
+      "roles": {
+        "elevation": "floating"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Anchored context actions over an inert lifted row preview.",
+      "owner": "plan-075-phase-4",
+      "catalogStates": [
+        "today/context-menu",
+        "program/editor-context-menu",
+        "program/editor-alternate-context-menu"
+      ]
+    },
+    {
+      "id": "native-context-items",
+      "selector": "#nativeContextMenu button:not(.is-destructive):not([data-menu-value=\"skip\"]):not([data-menu-value=\"restore\"])",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Dispatches a draft command or an editor intent through the owning module.",
+      "owner": "plan-075-phase-4",
+      "catalogStates": [
+        "today/context-menu",
+        "program/editor-context-menu",
+        "program/editor-alternate-context-menu"
+      ]
+    },
+    {
+      "id": "native-context-remove",
+      "selector": "#nativeContextMenu button.is-destructive:not([data-menu-value=\"skip\"])",
+      "roles": {
+        "control": "destructive"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Removes the selected editor exercise or alternate through the existing staged edit.",
+      "owner": "plan-075-phase-4",
+      "catalogStates": [
+        "program/editor-context-menu",
+        "program/editor-alternate-context-menu"
+      ],
+      "neverDisabledReason": "The menu or choice stays reachable whenever its owning row is present."
+    },
+    {
+      "id": "native-context-skip",
+      "selector": "#nativeContextMenu [data-menu-value=\"skip\"],#nativeContextMenu [data-menu-value=\"restore\"]",
+      "roles": {
+        "control": "selection"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Reversible Skip and Restore in today's workout draft.",
+      "owner": "plan-075-phase-4",
+      "catalogStates": [
+        "today/context-menu"
+      ],
+      "neverDisabledReason": "The menu or choice stays reachable whenever its owning row is present."
+    },
+    {
+      "id": "workout-action-sheet",
+      "selector": "#workoutActionSheet",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "bottom-sheet",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Grouped session actions with a separate Cancel; keeps underlying Focus inert.",
+      "owner": "plan-075-phase-4",
+      "catalogStates": [
+        "workout/actions"
+      ]
+    },
+    {
+      "id": "workout-action-group",
+      "selector": ".native-actions__group",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The solid action group carries the modal depth; its buttons do not create further raised cards.",
+      "owner": "plan-075-phase-4",
+      "catalogStates": [
+        "workout/actions"
+      ]
+    },
+    {
+      "id": "workout-actions",
+      "selector": "#workoutActionSheet [data-workout-action]:not(.is-destructive)",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Opens the existing Finish, Reorder, Exercise actions or opted-in Voice input flow.",
+      "owner": "plan-075-phase-4",
+      "catalogStates": [
+        "workout/actions"
+      ],
+      "neverDisabledReason": "The menu or choice stays reachable whenever its owning row is present."
+    },
+    {
+      "id": "workout-action-abandon",
+      "selector": "#workoutActionSheet [data-workout-action=\"abandon\"]",
+      "roles": {
+        "control": "destructive"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Opens the existing End without saving confirmation; the first tap discards nothing.",
+      "owner": "plan-075-phase-4",
+      "catalogStates": [
+        "workout/actions"
+      ],
+      "neverDisabledReason": "The menu or choice stays reachable whenever its owning row is present."
+    },
+    {
+      "id": "workout-action-cancel",
+      "selector": "#workoutActionCancel",
+      "roles": {
+        "control": "quiet-navigation",
+        "elevation": "floating"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Dismisses the action sheet and restores its opener.",
+      "owner": "plan-075-phase-4",
+      "catalogStates": [
+        "workout/actions"
+      ],
+      "neverDisabledReason": "The menu or choice stays reachable whenever its owning row is present."
+    },
+    {
+      "id": "native-segment-group",
+      "selector": ".native-segments",
+      "roles": {
+        "boundary": "required"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The group boundary defines the extent of the segmented choice.",
+      "owner": "plan-075-phase-4",
+      "catalogStates": [
+        "settings/appearance",
+        "settings/guides",
+        "settings/guides-replay",
+        "settings/load-controls",
+        "settings/main",
+        "settings/privacy",
+        "settings/rest-controls"
+      ]
+    },
+    {
+      "id": "native-segment-thumb",
+      "selector": ".native-segments__thumb",
+      "roles": {
+        "boundary": "required",
+        "elevation": "selected"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "selected"
+      ],
+      "rationale": "The moving thumb uses the selected quiet inset ring to mark the checked choice.",
+      "owner": "plan-075-phase-4",
+      "catalogStates": [
+        "settings/appearance",
+        "settings/guides",
+        "settings/guides-replay",
+        "settings/load-controls",
+        "settings/main",
+        "settings/privacy",
+        "settings/rest-controls"
+      ]
+    },
+    {
+      "id": "workout-action-scrim",
+      "selector": "#workoutActionScrim",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The action-sheet scrim blocks the workout until the menu is dismissed.",
+      "owner": "plan-075-phase-4",
+      "catalogStates": [
+        "workout/actions"
+      ]
+    },
+    {
+      "id": "settings-progression-fields",
+      "selector": "#jumpPct, #minJump, #rirHigh, #hardRir",
+      "roles": {
+        "control": "field",
+        "boundary": "required"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "focus-visible",
+        "disabled",
+        "validation-error"
+      ],
+      "rationale": "Typed progression values remain available beside the smallest-load stepper.",
+      "owner": "plan-075-phase-4",
+      "catalogStates": [
+        "settings/load-controls"
+      ]
+    },
+    {
+      "id": "settings-progression-save",
+      "selector": "#saveSettings",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Commits the edited progression settings.",
+      "owner": "plan-075-phase-4",
+      "catalogStates": [
+        "settings/load-controls"
+      ]
+    },
+    {
+      "id": "settings-rest-seconds",
+      "selector": "#restSec",
+      "roles": {
+        "control": "field",
+        "boundary": "required"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "focus-visible",
+        "disabled",
+        "validation-error"
+      ],
+      "rationale": "The rest stepper retains the typed seconds field.",
+      "owner": "plan-075-phase-4",
+      "catalogStates": [
+        "settings/rest-controls"
+      ]
     }
   ],
   "contextualVariants": [
@@ -10445,6 +10925,7 @@
       "catalogStates": [
         "today/no-program",
         "today/ready",
+        "today/skipped",
         "today/rest-bar",
         "today/done",
         "workout/invalid-draft",
@@ -10611,11 +11092,13 @@
       "rationale": "The brand mark keeps its own small paper plate and artwork shadow; it does not elevate surrounding Settings content.",
       "owner": "plan-058",
       "catalogStates": [
-        "settings/main",
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
-        "settings/privacy"
+        "settings/load-controls",
+        "settings/main",
+        "settings/privacy",
+        "settings/rest-controls"
       ],
       "cssLiterals": [
         {
@@ -10711,11 +11194,10 @@
       "id": "anchored-popover-elevation",
       "token": "--elevation-popover-shadow",
       "selectors": [
-        ".glossary",
-        ".wo-overflow"
+        ".glossary"
       ],
       "role": "floating",
-      "rationale": "Anchored definitions and the workout overflow menu are local tools. Their lighter floating depth preserves the approved distinction from the Focus card and modal sheets.",
+      "rationale": "Anchored definitions are local tools. Their lighter floating depth preserves the approved distinction from the Focus card and modal sheets.",
       "owner": "plan-055/058",
       "catalogStates": [
         "library/exercise-detail",
@@ -10827,6 +11309,7 @@
       "catalogStates": [
         "today/no-program",
         "today/ready",
+        "today/skipped",
         "today/rest-bar",
         "today/done",
         "workout/invalid-draft",
@@ -10884,6 +11367,7 @@
       "catalogStates": [
         "today/no-program",
         "today/ready",
+        "today/skipped",
         "today/rest-bar",
         "today/done",
         "workout/invalid-draft",
@@ -10948,12 +11432,12 @@
     },
     {
       "id": "switch-track-inset",
-      "token": "--control-toggle-track-shadow",
+      "token": "--switch-off-ring",
       "selectors": [
         ".toggle::before"
       ],
       "role": "selection",
-      "rationale": "The inset track edge preserves the switch boundary in its unselected state. The selected track uses the existing accent fill and intentionally removes this resting inset.",
+      "rationale": "The 1.5px required ring carries the light off-track extent in both themes; the on track keeps its existing fill.",
       "owner": "plan-054/055/057/058",
       "catalogStates": [
         "onboarding-start/hub",
@@ -11003,6 +11487,21 @@
       "catalogStates": [
         "onboarding-start/hub",
         "onboarding-start/hub-existing"
+      ]
+    },
+    {
+      "id": "context-menu-destructive-ink",
+      "token": "--menu-destructive-ink",
+      "selectors": [
+        ".native-context button.is-destructive"
+      ],
+      "role": "destructive",
+      "rationale": "Readable destructive text over the composited glass menu; the light shade retains 4.5:1 even over the darkest permitted underlay. Dark keeps the existing destructive ink.",
+      "owner": "plan-075-phase-4",
+      "catalogStates": [
+        "today/context-menu",
+        "program/editor-context-menu",
+        "program/editor-alternate-context-menu"
       ]
     }
   ],

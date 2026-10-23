@@ -73,7 +73,7 @@ const storedTheme = (page) =>
 async function openSettings(page) {
   await page.click("#openSettings");
   await page.waitForSelector("#settings.view.active");
-  await page.waitForSelector("#theme");
+  await page.waitForSelector("#themeSegments");
 }
 
 // ---- Contrast ---------------------------------------------------------------
@@ -241,7 +241,7 @@ async function runSettingsRow(browser) {
   const { context, page } = await freshPage(browser, "light");
   try {
     await openSettings(page);
-    await page.selectOption("#theme", "dark");
+    await page.locator('#themeSegments [data-value="dark"]').click();
     await page.waitForFunction(() => document.documentElement.dataset.theme === "dark", { timeout: 3000 });
     assert(true, "Picking Dark repaints immediately");
     assert(await storedTheme(page) === "dark", "Dark is stored in repforge_ui_v1", await storedTheme(page));
@@ -285,12 +285,12 @@ async function runSettingsRow(browser) {
     await openSettings(page);
     assert(await page.inputValue("#theme") === "dark", "The row reopens on Dark", await page.inputValue("#theme"));
 
-    await page.selectOption("#theme", "light");
+    await page.locator('#themeSegments [data-value="light"]').click();
     await page.waitForFunction(() => document.documentElement.dataset.theme === "light", { timeout: 3000 });
     assert(await metaColor(page) === "#F4F2EF", "theme-color returns to cream", await metaColor(page));
     await checkContrast(page, "Light");
 
-    await page.selectOption("#theme", "system");
+    await page.locator('#themeSegments [data-value="system"]').click();
     await page.waitForTimeout(100);
     assert(await storedTheme(page) === "system", "System is stored explicitly", await storedTheme(page));
     assert(await themeOf(page) === "light", "System resolves against the light device", await themeOf(page));
@@ -368,7 +368,7 @@ async function runStaysOutOfTrainingData(browser) {
   const { context, page } = await freshPage(browser, "light");
   try {
     await openSettings(page);
-    await page.selectOption("#theme", "dark");
+    await page.locator('#themeSegments [data-value="dark"]').click();
     await page.waitForFunction(() => document.documentElement.dataset.theme === "dark", { timeout: 3000 });
     await page.evaluate(() => window.__repforgeStorage?.flush?.());
 

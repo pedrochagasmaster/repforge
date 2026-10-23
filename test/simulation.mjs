@@ -637,7 +637,7 @@ async function waitForDraftSetCompletion(page, exId, ordinal = 1) {
 
 async function toggleWarmup(page, exId, setNum = 1) {
   await selectFocusExercise(page, exId);
-  await page.locator("#woOverflowBtn").click();
+  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
   await page.locator("#exActionsWarmupList [data-warm-toggle-set]").nth(setNum-1).click();
   await flushDraftWork(page);
   await page.locator("#exActionsClose").click();
@@ -1108,7 +1108,8 @@ async function cardInfoById(page, exId) {
     cue: a.querySelector(".fx-cue")?.textContent || "",
   }));
   if(await card.locator("[data-why]").count())Object.assign(info,await whyInfo(page,exId));
-  await page.locator("#woOverflowBtn").click();
+  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
+  await page.locator("#exActionsSheet.is-open").waitFor({ state: "visible" });
   info.setup = await page.locator("#exActionsSetupText").textContent();
   await page.locator("#exActionsClose").click();
   await page.locator("#exActionsSheet").waitFor({state: "hidden"});
@@ -1235,7 +1236,7 @@ async function editSimField(page, key, value) {
 }
 async function exerciseAction(page, exId, button) {
   await selectFocusExercise(page, exId);
-  await page.locator("#woOverflowBtn").click();
+  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
   await page.locator("#exActionsSheet.is-open").waitFor({ state: "visible" });
   await page.locator(button).click();
   await page.locator("#exActionsSheet").waitFor({state: "hidden"});
@@ -3112,7 +3113,7 @@ async function main() {
   await editSimField(page, `${unitEx}_1_rir`, "1");
   await page.waitForTimeout(80);
   await nav(page, "settings");
-  await page.selectOption("#unit", "lb");
+  await page.locator('#unitSegments [data-value="lb"]').click();
   await page.waitForTimeout(120);
   await nav(page, "log");
   await selectDay(page, "Day 1");
@@ -3136,17 +3137,17 @@ async function main() {
   );
 
   await nav(page, "settings");
-  await page.selectOption("#unit", "kg");
+  await page.locator('#unitSegments [data-value="kg"]').click();
   await page.waitForTimeout(80);
   await nav(page, "log");
   await selectDay(page, "Day 1");
   await editSimField(page, `${unitEx}_1_load`, "100");
   await page.waitForTimeout(60);
   await nav(page, "settings");
-  await page.selectOption("#unit", "lb");
+  await page.locator('#unitSegments [data-value="lb"]').click();
   await page.waitForTimeout(80);
   await nav(page, "settings");
-  await page.selectOption("#unit", "kg");
+  await page.locator('#unitSegments [data-value="kg"]').click();
   await page.waitForTimeout(80);
   await nav(page, "log");
   await selectDay(page, "Day 1");
@@ -3158,7 +3159,7 @@ async function main() {
   );
 
   await nav(page, "settings");
-  await page.selectOption("#unit", "lb");
+  await page.locator('#unitSegments [data-value="lb"]').click();
   await page.waitForTimeout(80);
   await nav(page, "log");
   await selectDay(page, "Day 1");
@@ -3181,11 +3182,11 @@ async function main() {
     "Settings → unit=lb → repforge_v1 loads still kg"
   );
   await nav(page, "settings");
-  await page.selectOption("#unit", "kg");
+  await page.locator('#unitSegments [data-value="kg"]').click();
   await page.waitForTimeout(80);
 
   await nav(page, "settings");
-  await page.selectOption("#unit", "kg");
+  await page.locator('#unitSegments [data-value="kg"]').click();
   await page.waitForTimeout(80);
 
   beginPhase("Phase: effort RIR mode");
@@ -3619,7 +3620,7 @@ async function main() {
     "Log → Focus → only current card shown"
   );
   const overflowClosed = await page.evaluate(() => ({
-    hidden: document.querySelector("#woOverflow")?.classList.contains("hidden"),
+    hidden: document.querySelector("#workoutActionSheet")?.hidden,
     expanded: document.querySelector("#woOverflowBtn")?.getAttribute("aria-expanded"),
   }));
   assert(
@@ -4067,7 +4068,7 @@ async function main() {
     ex: document.querySelector("#workout .exercise.is-current")?.dataset.ex,
     count: document.querySelectorAll("#woProgress .segbar--ex .segbar__seg").length,
   }));
-  await page.locator("#woOverflowBtn").click();
+  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
   await page.locator("#exActionSkipBtn").click();
   await page.waitForTimeout(320);
   const afterSkip = await page.evaluate(() => ({
@@ -5790,7 +5791,7 @@ async function main() {
   await setLogDate(page, isoDateFromWeeksAgo(0));
   await fillExerciseSets(page, noteEx.id, noteEx.sets, 90, 8, 2);
   await selectFocusExercise(page, noteEx.id);
-  await page.locator("#woOverflowBtn").click();
+  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
   await page.locator("#exActionNotesBtn").click();
   await page.locator("#exNoteSheet.is-open").waitFor({ state: "visible" });
   await page.fill("#exNoteText", NOTE_TEXT);
@@ -5824,7 +5825,7 @@ async function main() {
     "Log a session with an exercise note → inspect state.log"
   );
   await selectFocusExercise(page, noteEx.id);
-  await page.locator("#woOverflowBtn").click();
+  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
   await page.locator("#exActionNotesBtn").click();
   await page.locator("#exNoteSheet.is-open").waitFor({ state: "visible" });
   const notePrefill = await page.inputValue("#exNoteText");
@@ -6305,7 +6306,7 @@ async function main() {
   });
   await fillExerciseSets(page, draftExA.id, 1, 60, 5, 1);
   await nav(page, "settings");
-  await page.selectOption("#unit", "lb");
+  await page.locator('#unitSegments [data-value="lb"]').click();
   await page.waitForTimeout(80);
   await reloadApp(page);
   await page.evaluate(() => window.__repforgeEnterWorkout?.({}));
@@ -6320,7 +6321,7 @@ async function main() {
     "Bodyweight 80kg → unit lb → reload → Finish"
   );
   await nav(page, "settings");
-  await page.selectOption("#unit", "kg");
+  await page.locator('#unitSegments [data-value="kg"]').click();
 
   const adapterOutcomes = [[true, true], [true, false], [false, true], [false, false]];
   for (const [localOk, idbOk] of adapterOutcomes) {

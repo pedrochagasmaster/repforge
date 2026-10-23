@@ -1613,6 +1613,20 @@
           "type": "text"
         },
         {
+          "tag": "button",
+          "text": "−",
+          "name": "Smaller step",
+          "label": "Smaller step",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Larger step",
+          "label": "Larger step",
+          "type": "button"
+        },
+        {
           "tag": "p",
           "text": "Suggested loads move in steps of this size."
         },
@@ -3360,6 +3374,20 @@
           "type": "text"
         },
         {
+          "tag": "button",
+          "text": "−",
+          "name": "Smaller step",
+          "label": "Smaller step",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Larger step",
+          "label": "Larger step",
+          "type": "button"
+        },
+        {
           "tag": "p",
           "text": "Suggested loads move in steps of this size."
         },
@@ -5105,6 +5133,20 @@
           "name": "Menor variação de carga kg",
           "value": "2.5",
           "type": "text"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Passo menor",
+          "label": "Passo menor",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Passo maior",
+          "label": "Passo maior",
+          "type": "button"
         },
         {
           "tag": "p",
@@ -7862,6 +7904,20 @@
           "type": "text"
         },
         {
+          "tag": "button",
+          "text": "−",
+          "name": "Smaller step",
+          "label": "Smaller step",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Larger step",
+          "label": "Larger step",
+          "type": "button"
+        },
+        {
           "tag": "p",
           "text": "Suggested loads move in steps of this size."
         },
@@ -9561,6 +9617,20 @@
           "name": "Smallest load change kg",
           "value": "2.5",
           "type": "text"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Smaller step",
+          "label": "Smaller step",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Larger step",
+          "label": "Larger step",
+          "type": "button"
         },
         {
           "tag": "p",
@@ -11264,6 +11334,20 @@
           "type": "text"
         },
         {
+          "tag": "button",
+          "text": "−",
+          "name": "Smaller step",
+          "label": "Smaller step",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Larger step",
+          "label": "Larger step",
+          "type": "button"
+        },
+        {
           "tag": "p",
           "text": "Suggested loads move in steps of this size."
         },
@@ -12963,6 +13047,20 @@
           "name": "Smallest load change kg",
           "value": "2.5",
           "type": "text"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Smaller step",
+          "label": "Smaller step",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Larger step",
+          "label": "Larger step",
+          "type": "button"
         },
         {
           "tag": "p",
@@ -14666,6 +14764,20 @@
           "type": "text"
         },
         {
+          "tag": "button",
+          "text": "−",
+          "name": "Smaller step",
+          "label": "Smaller step",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Larger step",
+          "label": "Larger step",
+          "type": "button"
+        },
+        {
           "tag": "p",
           "text": "Suggested loads move in steps of this size."
         },
@@ -16365,6 +16477,20 @@
           "name": "Menor variação de carga kg",
           "value": "2.5",
           "type": "text"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Passo menor",
+          "label": "Passo menor",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Passo maior",
+          "label": "Passo maior",
+          "type": "button"
         },
         {
           "tag": "p",
@@ -18068,6 +18194,20 @@
           "type": "text"
         },
         {
+          "tag": "button",
+          "text": "−",
+          "name": "Passo menor",
+          "label": "Passo menor",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Passo maior",
+          "label": "Passo maior",
+          "type": "button"
+        },
+        {
           "tag": "p",
           "text": "As cargas sugeridas mudam em passos deste tamanho."
         },
@@ -19767,6 +19907,20 @@
           "name": "Smallest load change kg",
           "value": "2.5",
           "type": "text"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Smaller step",
+          "label": "Smaller step",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Larger step",
+          "label": "Larger step",
+          "type": "button"
         },
         {
           "tag": "p",
@@ -21470,6 +21624,20 @@
           "type": "text"
         },
         {
+          "tag": "button",
+          "text": "−",
+          "name": "Smaller step",
+          "label": "Smaller step",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Larger step",
+          "label": "Larger step",
+          "type": "button"
+        },
+        {
           "tag": "p",
           "text": "Suggested loads move in steps of this size."
         },
@@ -23073,6 +23241,20 @@
           "type": "text"
         },
         {
+          "tag": "button",
+          "text": "−",
+          "name": "Smaller step",
+          "label": "Smaller step",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Larger step",
+          "label": "Larger step",
+          "type": "button"
+        },
+        {
           "tag": "p",
           "text": "Suggested loads move in steps of this size."
         },
@@ -24674,6 +24856,20 @@
           "name": "Smallest load change kg",
           "value": "2.5",
           "type": "text"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Smaller step",
+          "label": "Smaller step",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Larger step",
+          "label": "Larger step",
+          "type": "button"
         },
         {
           "tag": "p",
@@ -26341,6 +26537,20 @@
           "type": "text"
         },
         {
+          "tag": "button",
+          "text": "−",
+          "name": "Smaller step",
+          "label": "Smaller step",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Larger step",
+          "label": "Larger step",
+          "type": "button"
+        },
+        {
           "tag": "p",
           "text": "Suggested loads move in steps of this size."
         },
@@ -27944,6 +28154,20 @@
           "type": "text"
         },
         {
+          "tag": "button",
+          "text": "−",
+          "name": "Smaller step",
+          "label": "Smaller step",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Larger step",
+          "label": "Larger step",
+          "type": "button"
+        },
+        {
           "tag": "p",
           "text": "Suggested loads move in steps of this size."
         },
@@ -29545,6 +29769,20 @@
           "name": "Smallest load change kg",
           "value": "2.5",
           "type": "text"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Smaller step",
+          "label": "Smaller step",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Larger step",
+          "label": "Larger step",
+          "type": "button"
         },
         {
           "tag": "p",
@@ -31212,6 +31450,20 @@
           "type": "text"
         },
         {
+          "tag": "button",
+          "text": "−",
+          "name": "Smaller step",
+          "label": "Smaller step",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Larger step",
+          "label": "Larger step",
+          "type": "button"
+        },
+        {
           "tag": "p",
           "text": "Suggested loads move in steps of this size."
         },
@@ -32815,6 +33067,20 @@
           "type": "text"
         },
         {
+          "tag": "button",
+          "text": "−",
+          "name": "Smaller step",
+          "label": "Smaller step",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Larger step",
+          "label": "Larger step",
+          "type": "button"
+        },
+        {
           "tag": "p",
           "text": "Suggested loads move in steps of this size."
         },
@@ -34416,6 +34682,20 @@
           "name": "Smallest load change kg",
           "value": "2.5",
           "type": "text"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Smaller step",
+          "label": "Smaller step",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Larger step",
+          "label": "Larger step",
+          "type": "button"
         },
         {
           "tag": "p",
@@ -36083,6 +36363,20 @@
           "type": "text"
         },
         {
+          "tag": "button",
+          "text": "−",
+          "name": "Smaller step",
+          "label": "Smaller step",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Larger step",
+          "label": "Larger step",
+          "type": "button"
+        },
+        {
           "tag": "p",
           "text": "Suggested loads move in steps of this size."
         },
@@ -37686,6 +37980,20 @@
           "type": "text"
         },
         {
+          "tag": "button",
+          "text": "−",
+          "name": "Smaller step",
+          "label": "Smaller step",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Larger step",
+          "label": "Larger step",
+          "type": "button"
+        },
+        {
           "tag": "p",
           "text": "Suggested loads move in steps of this size."
         },
@@ -39287,6 +39595,20 @@
           "name": "Smallest load change kg",
           "value": "2.5",
           "type": "text"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Smaller step",
+          "label": "Smaller step",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Larger step",
+          "label": "Larger step",
+          "type": "button"
         },
         {
           "tag": "p",
@@ -40954,6 +41276,20 @@
           "type": "text"
         },
         {
+          "tag": "button",
+          "text": "−",
+          "name": "Smaller step",
+          "label": "Smaller step",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Larger step",
+          "label": "Larger step",
+          "type": "button"
+        },
+        {
           "tag": "p",
           "text": "Suggested loads move in steps of this size."
         },
@@ -42557,6 +42893,20 @@
           "type": "text"
         },
         {
+          "tag": "button",
+          "text": "−",
+          "name": "Smaller step",
+          "label": "Smaller step",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Larger step",
+          "label": "Larger step",
+          "type": "button"
+        },
+        {
           "tag": "p",
           "text": "Suggested loads move in steps of this size."
         },
@@ -44158,6 +44508,20 @@
           "name": "Smallest load change kg",
           "value": "2.5",
           "type": "text"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Smaller step",
+          "label": "Smaller step",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Larger step",
+          "label": "Larger step",
+          "type": "button"
         },
         {
           "tag": "p",
@@ -45823,6 +46187,20 @@
           "name": "Menor variação de carga kg",
           "value": "2.5",
           "type": "text"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Passo menor",
+          "label": "Passo menor",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Passo maior",
+          "label": "Passo maior",
+          "type": "button"
         },
         {
           "tag": "p",
@@ -50072,6 +50450,20 @@
           "type": "text"
         },
         {
+          "tag": "button",
+          "text": "−",
+          "name": "Passo menor",
+          "label": "Passo menor",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Passo maior",
+          "label": "Passo maior",
+          "type": "button"
+        },
+        {
           "tag": "p",
           "text": "As cargas sugeridas mudam em passos deste tamanho."
         },
@@ -54319,6 +54711,20 @@
           "type": "text"
         },
         {
+          "tag": "button",
+          "text": "−",
+          "name": "Smaller step",
+          "label": "Smaller step",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Larger step",
+          "label": "Larger step",
+          "type": "button"
+        },
+        {
           "tag": "p",
           "text": "Suggested loads move in steps of this size."
         },
@@ -55922,6 +56328,20 @@
           "type": "text"
         },
         {
+          "tag": "button",
+          "text": "−",
+          "name": "Smaller step",
+          "label": "Smaller step",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Larger step",
+          "label": "Larger step",
+          "type": "button"
+        },
+        {
           "tag": "p",
           "text": "Suggested loads move in steps of this size."
         },
@@ -57523,6 +57943,20 @@
           "name": "Smallest load change kg",
           "value": "2.5",
           "type": "text"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Smaller step",
+          "label": "Smaller step",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Larger step",
+          "label": "Larger step",
+          "type": "button"
         },
         {
           "tag": "p",

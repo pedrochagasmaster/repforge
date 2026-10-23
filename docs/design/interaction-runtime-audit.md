@@ -518,3 +518,19 @@ gesture owners yield vertical movement when either context or ledger scrolls;
 horizontal paging retains its existing physics. The context is a named keyboard
 region, and inert peeks have no tab stop. Safe-area browser emulation is automated
 evidence; physical one-handed review remains an owner gate.
+
+## ADR 0023 phase 4 controls
+
+| Owner | Interaction | Decision |
+| --- | --- | --- |
+| `styles.css` | Switch off track and pressed knob | Light track and required inset ring; the existing press-release path stretches the knob, with no stretch under reduced motion. |
+| `motion-layer.js` | Settings segmented thumb | Existing `animateIndicator` and `layoutShift`, including live retargeting; tap and arrows share the same selection path as drag. Without Motion the choice and thumb update immediately. |
+| `motion-layer.js` | Rest and smallest-load-change buttons | No value animation. Hold after 400ms, then repeat every 90ms and every 45ms after twelve steps. Release, leaving, cancellation, scroll, blur and visibility changes stop the hold. |
+| `app.js`, `motion-layer.js` | Focus action sheet | Grouped session actions and separate Cancel. `navPush` opens and closes it; the stylesheet remains the runtime fallback. Reduced motion uses the shared 170ms sheet cross-fade without travel. End without saving opens the existing confirmation. |
+| `app.js`, `program-editor.js`, `motion-layer.js` | Row context menu | 450ms hold cancelled by 10px movement. The inert preview lifts to 1.03 on `gestureSettle`, the menu opens at its anchor, and the held finger can slide onto an item and release to select (`trackContextSlide` in the motion layer; `app.js` supplies the items and handles the chosen value). Right click, Shift+F10 and the visible actions button share the same menu. Native dialog owns focus and inertness, including over the editor sheet. Reduced motion omits the lift and travel. |
+
+If the motion layer itself cannot load, Settings keeps the native selects and
+typed numeric fields; it hides the enhanced controls.
+
+The two vendored runtimes and their bundled exports stay unchanged. The PR-lane journeys live in
+`test/native-feel.mjs`. Chromium only, not device evidence.

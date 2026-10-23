@@ -385,7 +385,7 @@ async function main() {
     const beforeStale = await replicas(page);
     if (!await other.locator("#log.view.active").count()) await other.locator('nav button[data-view="log"]').click();
     await other.locator("#openSettings").click();
-    await other.locator("#unit").selectOption("lb");
+    await other.locator('#unitSegments [data-value="lb"]').click();
     await other.waitForFunction(() => window.__repforgeWorkoutDraft.state()?.settings?.unit === "lb");
     await flush(other);
     await other.close();

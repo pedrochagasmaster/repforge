@@ -112,6 +112,7 @@ async function main() {
     const actionsTrigger = page.locator("#woOverflowBtn");
     assert(await actionsTrigger.count() > 0, "the live Focus card provides an Exercise actions trigger");
     await actionsTrigger.click();
+    await page.locator('[data-workout-action="exercise"]').click();
 
     await page.waitForSelector("#exActionsSheet.is-open", { timeout: 5000 });
     assert(await page.locator("#exActionsSheet").isVisible(), "tapping the trigger opens the Exercise actions sheet");
@@ -191,7 +192,7 @@ async function main() {
     await page.waitForTimeout(300);
 
     // Open Exercise actions for seed-ex-2
-    await page.locator("#woOverflowBtn").click();
+    await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
     await page.waitForSelector("#exActionsSheet.is-open", { timeout: 5000 });
 
     console.log("\nRepeat-last: honest no-history handling");
@@ -359,7 +360,7 @@ async function main() {
       "substitution record is applied to the active exercise in DraftV2", JSON.stringify(subCheck));
 
     // Open Exercise actions again to verify "Restore original" option appears
-    await page.locator("#woOverflowBtn").click();
+    await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
     await page.waitForSelector("#exActionsSheet.is-open", { timeout: 5000 });
 
     const restoreOrigBtn = page.locator("#exActionRestoreOrigBtn");
@@ -382,7 +383,7 @@ async function main() {
      * 6. Skip and restore exercise
      * ====================================================================== */
     console.log("\nSkip/restore: single-exercise status control");
-    await page.locator("#woOverflowBtn").click();
+    await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
     await page.waitForSelector("#exActionsSheet.is-open", { timeout: 5000 });
 
     const skipBtn = page.locator("#exActionSkipBtn");
@@ -415,7 +416,7 @@ async function main() {
       window.RepForgeI18n.setLang("pt");
       syncLang();
     });
-    await page.locator("#woOverflowBtn").click();
+    await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
     await page.waitForSelector("#exActionsSheet.is-open", { timeout: 5000 });
     const ptSub = (await page.locator("#exActionsSub").innerText()).replace(/\s+/g, " ").trim();
     assert(/\b\d+ séries\b/.test(ptSub) && !/\bsets?\b/i.test(ptSub),
@@ -427,7 +428,7 @@ async function main() {
       window.RepForgeI18n.setLang("en");
       syncLang();
     });
-    await page.locator("#woOverflowBtn").click();
+    await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
     await page.waitForSelector("#exActionsSheet.is-open", { timeout: 5000 });
     const enSub = (await page.locator("#exActionsSub").innerText()).replace(/\s+/g, " ").trim();
     assert(/\b\d+ sets\b/.test(enSub) && !/séries/.test(enSub), "EN: the actions subtitle still counts sets", enSub);

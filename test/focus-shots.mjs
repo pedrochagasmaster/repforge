@@ -228,7 +228,7 @@ async function main() {
   if (await cancel.count()) await cancel.click();
 
   // 08 — note editor sheet
-  await page.locator("#woOverflowBtn").click();
+  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
   await page.locator("#exActionNotesBtn").click();
   await page.waitForSelector("#exNoteSheet:not(.hidden)");
   await page.fill("#exNoteText", "Pés firmes. Manter a lombar apoiada.");

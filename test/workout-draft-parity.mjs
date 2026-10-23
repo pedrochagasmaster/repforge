@@ -264,7 +264,7 @@ async function main() {
     await sessionField(page, "#sessionBodyweight", 82.5);
     await sessionField(page, "#sessionNotes", SESSION_NOTE);
     await selectExercise(page, first.id);
-    await page.locator("#woOverflowBtn").click();
+    await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
     await page.locator("#exActionNotesBtn").click();
     await page.locator("#exNoteText").fill(EXERCISE_NOTE);
     await page.locator("#exNoteSave").click();
@@ -593,6 +593,13 @@ async function main() {
       JSON.stringify(customApplied));
 
     assert(errors.length === 0, "the parity journey emits no page or console errors", errors.join(" | "));
+  } catch (error) {
+    console.error("Focus action sheet at failure:", await page.locator('#workoutActionSheet').evaluate(sheet => ({
+      hidden: sheet.hidden, className: sheet.className, style: sheet.getAttribute('style'),
+      rect: sheet.getBoundingClientRect().toJSON(), transform: getComputedStyle(sheet).transform,
+      animations: sheet.getAnimations().map(run => ({ playState: run.playState, currentTime: run.currentTime, keyframes: run.effect.getKeyframes() }))
+    })).catch(() => null));
+    throw error;
   } finally {
     await context.close();
     await browser.close();

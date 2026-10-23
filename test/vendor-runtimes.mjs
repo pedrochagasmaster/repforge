@@ -34,6 +34,7 @@ function loadLayer(source) {
   const query = { matches: false };
   let mediaCalls = 0, stops = 0;
   const sandbox = {
+    addEventListener() {},
     document: { readyState: "loading", getElementById: () => null, createElement: () => ({}), head: { append() {} }, addEventListener() {} },
     setInterval: () => 1, clearInterval() {},
     matchMedia(value) { assert(value === "(prefers-reduced-motion: reduce)", "the live preference query is reduced motion"); mediaCalls++; return query; },

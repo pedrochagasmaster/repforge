@@ -895,7 +895,7 @@
       if (!entry?.id) return null;
       const current = definitionSlot(document, slot.id)?.alternates || [];
       if (entry.id === slot.exerciseId || current.includes(entry.id) || current.length >= maxAlternates()) return null;
-      return setAlternates(id, [...current, entry.id], { selector: `[data-role="alternate-remove"][data-id="${cssEscape(id)}"][data-exercise-id="${cssEscape(entry.id)}"]` });
+      return setAlternates(id, [...current, entry.id], { selector: `[${reviewLayout ? "data-row-menu" : 'data-role="alternate-remove"'}][data-id="${cssEscape(id)}"][data-exercise-id="${cssEscape(entry.id)}"]` });
     };
     const editAlternate = (id, exerciseId, role) => {
       const exercise = document.program?.find(item => item.id === id), slot = definitionSlot(document, exercise?.slotId || exercise?.id);
@@ -905,7 +905,7 @@
         list.splice(index, 1);
         const neighbour = list[Math.min(index, list.length - 1)];
         return setAlternates(id, list, { selector: neighbour
-          ? `[data-role="alternate-remove"][data-id="${cssEscape(id)}"][data-exercise-id="${cssEscape(neighbour)}"]`
+          ? `[${reviewLayout ? "data-row-menu" : 'data-role="alternate-remove"'}][data-id="${cssEscape(id)}"][data-exercise-id="${cssEscape(neighbour)}"]`
           : `[data-role="add-alternate"][data-id="${cssEscape(id)}"]` });
       }
       const to = index + (role === "alternate-up" ? -1 : 1);
@@ -914,7 +914,7 @@
       // Focus stays on the control that moved, or on its opposite once the row hits an end.
       const edge = to === 0 || to === list.length - 1;
       const keep = edge ? (role === "alternate-up" ? "alternate-down" : "alternate-up") : role;
-      return setAlternates(id, list, { selector: `[data-role="${keep}"][data-id="${cssEscape(id)}"][data-exercise-id="${cssEscape(exerciseId)}"]` });
+      return setAlternates(id, list, { selector: `[${reviewLayout ? "data-row-menu" : `data-role="${keep}"`}][data-id="${cssEscape(id)}"][data-exercise-id="${cssEscape(exerciseId)}"]` });
     };
     const renameDay = (oldDay, value) => {
       const next = clone(document), wanted = String(value || "").trim();
@@ -1204,10 +1204,12 @@
       const own = document.programMeta?.loadingConfiguration?.byExerciseId?.[slot.exerciseId]?.loadStepKg;
       const value = Number.isFinite(own) ? own : adapter.defaultLoadStepKg();
       const unit = metricDisplayUnit(adapter, loadMetric);
-      return `<label class="program-editor__metric-field program-editor__load-step"><span>${esc(label("loadStep"))}${unit ? ` <small>${esc(unit)}</small>` : ""}</span>` +
-        `<input type="text" inputmode="decimal" autocomplete="off" data-role="load-step" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}" value="${esc(formatMetricValue(adapter, loadMetric, value))}"></label>` +
+      return `<div class="native-stepper"><label class="program-editor__metric-field program-editor__load-step"><span>${esc(label("loadStep"))}${unit ? ` <small>${esc(unit)}</small>` : ""}</span>` +
+        `<input type="text" inputmode="decimal" autocomplete="off" data-role="load-step" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}" data-step-size="0.5" data-step-min="0.5" data-step-max="10" value="${esc(formatMetricValue(adapter, loadMetric, value))}"></label>` +
+        `<span class="native-stepper__buttons"><button type="button" data-step-input="load-step" data-step-delta="-1" aria-label="${esc(t(adapter,"program.editor.step_smaller"))}">−</button><button type="button" data-step-input="load-step" data-step-delta="1" aria-label="${esc(t(adapter,"program.editor.step_larger"))}">+</button></span><output class="visually-hidden" aria-live="polite"></output></div>` +
         `<p class="program-editor__hint">${esc(label("loadStepHint"))}</p>`;
     }
+
     function editLoadStep(input) {
       const slot = definitionSlot(document, input.dataset.slotId), loadMetric = slotLoadMetric(slot);
       if (!slot || !loadMetric) return;
@@ -1594,13 +1596,13 @@
       }
       return true;
     }
-    function render() {
+    function render({ redrawSheet = true } = {}) {
       if (destroyed) return;
       ensureStructure(document);
       if (reviewLayout) {
         const liveEdit = liveEditSnapshot();
         const focused = focusSnapshot();
-        renderReview();
+        renderReview({ redrawSheet });
         if (restoreLiveEdit(liveEdit)) pendingFocus = null;
         else if (!pendingFocus && focused) {
           // A redraw replaces every control; the one that had focus keeps it.
@@ -2191,12 +2193,12 @@
       if (!editor) return;
       if (busy) editor.setAttribute("aria-busy", "true"); else editor.removeAttribute("aria-busy");
     }
-    function act(task) {
+    function act(task, { redrawSheet = true } = {}) {
       busy++;
       markBusy();
       const runTask = async () => {
         try { return await task(); }
-        finally { busy--; if (!destroyed) render(); }
+        finally { busy--; if (!destroyed) render({ redrawSheet }); }
       };
       reviewQueue = reviewQueue.then(runTask, runTask);
       return reviewQueue;
@@ -2227,7 +2229,7 @@
       return true;
     }
     /** An existing edit path (add, swap, remove, alternates, loads…) recorded for Undo. */
-    function recorded(run, options) { return act(() => recordedTask(run, options)); }
+    function recorded(run, options) { return act(() => recordedTask(run, options), options); }
     async function recordedTask(run, { toast = null } = {}) {
       const entry = { document: clone(document), editCount: edits.length };
       quietChange = !!toast;
@@ -2287,13 +2289,13 @@
       const mark = changedState === "added" ? rt("entry.review.mark.added", undefined, "Added")
         : changedState ? rt("entry.review.mark.edited", undefined, "Adjusted") : "";
       const lines = setLines(exercise);
-      return `<article class="review__row program-editor-a__row${mark ? " is-changed" : ""}" data-role="exercise-row" data-id="${esc(exercise.id)}" role="button" tabindex="0" aria-label="${esc(name)}">` +
+      return `<div class="native-editor-row" data-context-row="${esc(exercise.id)}" data-id="${esc(exercise.id)}"><article class="review__row program-editor-a__row${mark ? " is-changed" : ""}" data-role="exercise-row" data-id="${esc(exercise.id)}" role="button" tabindex="0" aria-label="${esc(name)}">` +
         tile(exercise.libraryId, "md") +
         `<div class="review__rowbody"><h3 class="review__name">${esc(name)}</h3>` +
         (mark ? `<span class="review__mark" data-role="row-mark"><span class="review__dot" aria-hidden="true"></span>${esc(mark)}</span>` : "") +
         `<ol class="review__sets">${lines.map((line, index) => `<li data-role="set-line"><span class="review__setn num">${index + 1}</span><span class="review__reps">${nums(line.text)}</span>` +
           (line.rir == null ? "" : `<span class="review__rir">${nums(rt("entry.review.rir", { n: format(adapter, line.rir) }, `RIR ${line.rir}`))}</span>`) + `</li>`).join("")}</ol>` +
-        `</div>${icon("chev-right")}</article>`;
+        `</div>${icon("chev-right")}</article><button type="button" class="native-row-menu" data-row-menu="${esc(exercise.id)}" aria-haspopup="menu" aria-label="${esc(label("more"))}: ${esc(name)}">⋯</button></div>`;
     }
     function dayPanelHtml(day) {
       const days = labels(document), index = days.indexOf(day);
@@ -2323,7 +2325,7 @@
       return head + empty + list.map(rowHtml).join("") +
         `<button type="button" class="review__add" data-role="add-exercise" data-day="${esc(day)}">${icon("plus")}<span>${esc(label("addExercise"))}</span></button>`;
     }
-    function renderReview() {
+    function renderReview({ redrawSheet = true } = {}) {
       const days = labels(document);
       if (view.tab == null || !days.includes(view.tab)) view.tab = days[0] ?? null;
       const issues = validation(document);
@@ -2352,7 +2354,7 @@
       adapter.afterRender?.(host);
       // Only the Reorder exercises list drags; every other render has nothing to sort.
       if (view.reorderDay != null) mountSorting(); else teardownSorting();
-      paintSheet();
+      if (redrawSheet) paintSheet();
     }
 
     // ----- the sheets -----
@@ -2419,10 +2421,8 @@
         `<p class="review-sheet__lede">${esc(rt("entry.review.sheet.alts_lede", undefined, label("alternatesHint")))}</p>` +
         (list.length ? `<ol class="review-sheet__alts">${list.map((id, index) => {
           const name = movementLabel(adapter, id), attrs = `data-id="${esc(exercise.id)}" data-exercise-id="${esc(id)}"`;
-          return `<li data-role="alternate" data-exercise-id="${esc(id)}"><span class="review__setn">${index + 1}</span><span class="review-sheet__alt-name" data-role="alternate-name">${esc(name)}</span>` +
-            `<button type="button" class="review__ro-btn" data-role="alternate-up" ${attrs} aria-label="${esc(label("alternateUp", { name }))}"${index === 0 ? " disabled" : ""}>${icon("chev-up")}</button>` +
-            `<button type="button" class="review__ro-btn" data-role="alternate-down" ${attrs} aria-label="${esc(label("alternateDown", { name }))}"${index === list.length - 1 ? " disabled" : ""}>${icon("chev-down")}</button>` +
-            `<button type="button" class="review__ro-btn" data-role="alternate-remove" ${attrs} aria-label="${esc(label("alternateRemove", { name }))}">${icon("close")}</button></li>`;
+          return `<li data-role="alternate" data-context-row="${esc(exercise.id)}" data-context-exercise="${esc(exercise.id)}" data-exercise-id="${esc(id)}" tabindex="0"><span class="review__setn">${index + 1}</span><span class="review-sheet__alt-name" data-role="alternate-name">${esc(name)}</span>` +
+            `<button type="button" class="native-row-menu" data-row-menu="${esc(exercise.id)}" ${attrs} aria-haspopup="menu" aria-label="${esc(label("more"))}">⋯</button></li>`;
         }).join("")}</ol>` : "") +
         `<div class="review-sheet__links"><button type="button" class="text-link" data-role="add-alternate" data-id="${esc(exercise.id)}"${full ? " disabled" : ""}>${icon("plus")}${esc(label("addAlternate"))}</button></div></section>`;
     }
@@ -2653,6 +2653,8 @@
         parts.foot.innerHTML = done;
       }
       restoreLiveEdit(live, parts.el);
+      if(globalThis.RepForgeMotion?.syncNativeControls)globalThis.RepForgeMotion.syncNativeControls(parts.el);
+      else parts.el.querySelectorAll(".native-stepper__buttons").forEach(buttons => buttons.classList.add("hidden"));
     }
 
     // ----- what each control does -----
@@ -2934,7 +2936,33 @@
         });
         return;
       }
+      if ((el = hit('[data-row-menu]'))) { rowContext(el.closest("[data-context-row]"), el); return; }
       if ((el = hit('[data-role="exercise-row"]'))) openSheetView({ kind: "exercise", id: el.dataset.id });
+    }
+    async function rowContext(row, opener = row) {
+      const id = row.dataset.contextExercise || row.dataset.id;
+      const exercise = exerciseById(id); if (!exercise || !adapter.contextMenu) return;
+      const alternateId = row.dataset.role === "alternate" ? row.dataset.exerciseId : null;
+      const slot = slotOfExercise(exercise), list = alternateId ? slot?.alternates || [] : exercisesFor(document, exercise.day);
+      const index = alternateId ? list.indexOf(alternateId) : list.findIndex(item => item.id === id);
+      const items = [
+        { label: label("moveUp"), value: "up", disabled: index <= 0 },
+        { label: label("moveDown"), value: "down", disabled: index >= list.length - 1 }
+      ];
+      // Another day is chosen on the exercise page, where its day chips already live.
+      if (!alternateId && labels(document).some(day => day !== exercise.day)) items.push({ label: label("moveOther"), value: "day" });
+      items.push({ label: alternateId ? rt("program.editor.remove_alternate") : label("removeExercise"), value: "remove", destructive: true });
+      const action = await adapter.contextMenu({ anchor: row, opener, items });
+      if (!action || destroyed) return;
+      if (alternateId) { await recorded(() => editAlternate(id, alternateId, action === "remove" ? "alternate-remove" : action === "up" ? "alternate-up" : "alternate-down")); return; }
+      if (action === "day") { openSheetView({ kind: "exercise", id }, { focus: `[data-role="move-to-day"][data-id="${cssEscape(id)}"]` }); return; }
+      if (action === "remove") { await recordedTask(() => removeExercise(id)); return; }
+      await recorded(() => moveExercise(id, exercise.day, index + (action === "up" ? -1 : 1), { announce: false }));
+      host.querySelector(`[data-role="exercise-row"][data-id="${cssEscape(id)}"]`)?.focus({ preventScroll: true });
+    }
+    function onRowContext(event) {
+      const row = event.target.closest?.("[data-context-row]");
+      if (row) { event.stopPropagation(); rowContext(row, event.target); }
     }
     function onReviewKey(event) {
       const target = event.target instanceof Element ? event.target : null;
@@ -2956,6 +2984,7 @@
       const target = event.target instanceof Element ? event.target : null;
       const hit = selector => target?.closest(selector);
       let el;
+      if ((el = hit('[data-row-menu]'))) { rowContext(el.closest("[data-context-row]"), el); return; }
       if (hit('[data-role="sheet-done"]')) { closeSheetView(); return; }
       if (sheet.kind === "rename") { if (hit('[data-role="rename-save"]')) saveRename(); return; }
       if (sheet.kind === "days") {
@@ -3067,7 +3096,7 @@
       if (!input) return;
       const role = input.dataset.role;
       if (role === "metric-target" || role === "prescription-field") { editCell(input); return; }
-      if (role === "load-step") { recorded(() => editLoadStep(input)); return; }
+      if (role === "load-step") { recorded(() => editLoadStep(input), { redrawSheet: false }); return; }
       if (role === "metric-composition") { recorded(() => editMetricComposition(input)); return; }
       if (role === "exercise-field") {
         const field = input.dataset.field, text = String(input.value || "");
@@ -3134,8 +3163,10 @@
     function mountReviewLayout() {
       host.addEventListener("click", onReviewClick);
       host.addEventListener("keydown", onReviewKey);
+      host.addEventListener("rowcontext", onRowContext);
       reviewSheetEl = sheetParts()?.el || null;
       reviewSheetEl?.addEventListener("click", onSheetClick);
+      reviewSheetEl?.addEventListener("rowcontext", onRowContext);
       reviewSheetEl?.addEventListener("change", onSheetChange);
       reviewSheetEl?.addEventListener("keydown", onSheetKey);
       reviewSheetEl?.addEventListener("input", onSheetInput);
@@ -3147,7 +3178,9 @@
     function unmountReviewLayout() {
       host.removeEventListener("click", onReviewClick);
       host.removeEventListener("keydown", onReviewKey);
+      host.removeEventListener("rowcontext", onRowContext);
       reviewSheetEl?.removeEventListener("click", onSheetClick);
+      reviewSheetEl?.removeEventListener("rowcontext", onRowContext);
       reviewSheetEl?.removeEventListener("change", onSheetChange);
       reviewSheetEl?.removeEventListener("keydown", onSheetKey);
       reviewSheetEl?.removeEventListener("input", onSheetInput);

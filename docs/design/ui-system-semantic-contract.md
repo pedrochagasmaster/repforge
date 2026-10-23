@@ -68,6 +68,39 @@ Exceptions and variants are selector-exact; they are not blanket style
 exemptions. P4 may apply shared role tokens to consumers, but may not map a
 stepper to selection or a drill-in chevron to disclosure for styling ease.
 
+### Switch track and native controls
+
+ADR 0023 choice 6 replaces the solid off track with `--switch-off-track`,
+ink at 10% in light and white at 10% in dark. The track is intentionally
+below 3:1. Its extent is carried by `--switch-off-ring`, a 1.5px inset in
+`--boundary-required`, which must reach 3:1 against the composited track and
+its surrounding surface in both themes. The knob keeps its existing depth;
+the on track stays `--accent-deep`. A press stretches the knob through the
+existing press owner, with no stretch under reduced motion.
+
+Appearance and Units are `selection` radiogroups. One checked radio is in the
+Tab order; arrow keys select and move focus. A thumb drag uses `layoutShift`.
+The selection is the thumb under the checked radio, drawn with the existing
+`--elevation-selected-quiet-shadow` ring. The rendered checker counts an inset
+ring as a boundary only when the topmost one reaches 3:1, and it fails a group
+without exactly one checked radio or with a thumb that is off that radio.
+The rest timer and smallest load change are `adjustment` controls, with their
+typed field retained and a politely announced value. Repeating a held button
+stops on release, cancellation, leaving the button, loss of visibility or a
+limit. Their limits constrain the buttons, without rewriting existing stored
+values that the typed field accepts.
+
+The Focus action sheet owns the session actions with a separate Cancel.
+Context menus are floating tools over a native modal dialog. Today and editor
+rows retain a visible actions button alongside long press, right click and
+Shift+F10. The lifted preview is inert and hidden from accessibility; only the
+live menu supplies actions. `--menu-destructive-ink` is `#9E2E22` in light
+and the existing `--color-destructive` in dark, so destructive labels keep
+4.5:1 on the composited glass even over a dark underlay. This is a local
+foreground correction; the global destructive palette stays unchanged.
+Destructive items retain their destructive role;
+Skip and Restore remain reversible selections in the workout draft.
+
 ### Permitted contextual variants
 
 The inventory lists the exact affected catalog states and rationale for each

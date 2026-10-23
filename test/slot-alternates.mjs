@@ -79,7 +79,8 @@ async function addAlternate(page, entry) {
 
 async function alternateControl(page, role, id) {
   const before = await editorAlternates(page);
-  await page.locator(`${SHEET} [data-role="alternates"][data-id="${SLOT}"] [data-role="${role}"][data-exercise-id="${id}"]`).click();
+  await page.locator(`${SHEET} [data-role="alternates"][data-id="${SLOT}"] [data-row-menu][data-exercise-id="${id}"]`).click();
+  await page.locator(`#nativeContextMenu [data-menu-value="${role === "alternate-remove" ? "remove" : role === "alternate-up" ? "up" : "down"}"]`).click();
   await page.waitForFunction(({ sheet, slot, before }) => JSON.stringify([...document.querySelectorAll(
     `${sheet} [data-role="alternates"][data-id="${slot}"] [data-role="alternate"]`)].map((item) => item.dataset.exerciseId)) !== before,
   { sheet: SHEET, slot: SLOT, before: JSON.stringify(before) }, { timeout: 5000 });

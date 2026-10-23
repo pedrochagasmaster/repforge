@@ -84,11 +84,9 @@ async function liveWellButton(page, kind) {
   await btn.waitFor({ state: "visible", timeout: 5000 });
   return btn;
 }
-/** The header's three-dot button opens the exercise actions. This suite turns voice input on, so there it opens the short menu that holds both. */
+/** The header's three-dot button opens the session actions; Exercise actions is one of them. */
 async function openActions(page) {
-  await page.locator("#woOverflowBtn").click();
-  const item = page.locator("#woExActions");
-  if (await item.isVisible()) await item.click();
+  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
   await page.waitForSelector("#exActionsSheet.is-open", { timeout: 5000 });
 }
 async function currentCard(page) {
@@ -524,8 +522,9 @@ async function main() {
 
     phase("Capability-detected voice fills the active set");
     await page.locator("#woOverflowBtn").click();
-    assert(await page.locator("#voiceBtn").isVisible(), "voice remains reachable when supported and enabled");
-    await page.locator("#voiceBtn").click();
+    assert(await page.locator('[data-workout-action="voice"]').isVisible(), "voice remains reachable when supported and enabled");
+    await page.locator('[data-workout-action="voice"]').click();
+    await page.waitForFunction(() => typeof window.__voiceTest?.onresult === "function");
     await page.evaluate(() => window.__voiceTest.onresult({ results: [[{ transcript: "80 x 8 @2" }]] }));
     await flushDraft(page);
     const spoken = await exerciseFacts(page, second.id);

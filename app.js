@@ -1204,7 +1204,7 @@ function openModal(el,opts={}){
     else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}
     else if(!el.contains(document.activeElement)){e.preventDefault();(e.shiftKey?last:first).focus()}};
   rec.onPointer=e=>{
-    if(!activeModal||activeModal.el!==el)return;
+    if(!activeModal||activeModal.el!==el||$("#nativeContextMenu")?.open)return;
     const t=e.target instanceof Element?e.target:null;
     if(t&&(el.contains(t)||rec.scrim?.contains(t)))return;
     e.preventDefault();e.stopPropagation()};
@@ -3139,7 +3139,7 @@ async function applyPredefinedSub(id,name,libraryRef=null){
   const type=!n?"restoreOriginalExercise":"substituteExercise";
   const payload={exerciseInstanceId:id};if(n){payload.replacement=replacementSnapshot(id,n,libraryRef);payload.selectedAt=new Date().toISOString()}
   const result=await WorkoutSession.dispatch(type,payload);if(result.status!=="applied")return false;
-  renderWorkout();return true}
+  if(workoutActive)renderWorkout();else renderToday();return true}
 async function applyCustomSub(id,raw,libraryRef=null,ui={}){
   const name=String(raw||"").trim().slice(0,80);
   const progName=prog.find(id)?.name;
@@ -3154,7 +3154,7 @@ async function applyCustomSub(id,raw,libraryRef=null,ui={}){
   const result=await WorkoutSession.dispatch(type,payload,ui);
   if(result.status==="domain-error"&&result.error?.code==="substitution-touched-pending-set")toast(t("toast.substitute_started_sets"));
   if(result.status!=="applied")return false;
-  renderWorkout();return true}
+  if(workoutActive)renderWorkout();else renderToday();return true}
 function sessionExercise(ex){
   if(!ex||!substituted.has(ex.id))return ex;
   const name=substituted.get(ex.id),ref=substitutedRef.get(ex.id),entry=ref?libraryEntry(ref):null;
@@ -3174,10 +3174,11 @@ function openSubstitutePicker(id){
   openExercisePicker({title:t("picker.title_substitute"),subtitle:exerciseDisplayName(ex),
     leading:{title:"picker.section_alternates",ids:Array.isArray(slot?.alternates)?slot.alternates:[]},
     reasons:SUBSTITUTION_REASONS,
+    returnFocus:workoutActive?null:()=>document.querySelector(`#todayExList [data-row-menu="${CSS.escape(id)}"]`),
     onPick:entry=>{
       const reason=pickerState?.reason||null;
-      if(self&&entry.id===self.id)applyPredefinedSub(id,"");
-      else applyCustomSub(id,libraryName(entry),entry.id,
+      if(self&&entry.id===self.id)return applyPredefinedSub(id,"");
+      return applyCustomSub(id,libraryName(entry),entry.id,
         {substitutionSource:(slot?.alternates||[]).includes(entry.id)?"alternate":"library",substitutionReason:reason})}})}
 function fatigueFlagged(){return exercises().filter(e=>{const r=recommendation(sessionExercise(e));return r.status==="reduce"||r.stalled})}
 async function applyFatigueTrim(){
@@ -5680,11 +5681,6 @@ function focusList(){
   }
   const exs=exercises();
   return exs.filter(e=>!skipped.has(e.id))}
-function setWorkoutOverflow(open){const menu=$("#woOverflow");if(!menu)return;
-  menu.classList.toggle("hidden",!open);
-  $("#woOverflowBtn")?.setAttribute("aria-expanded",open?"true":"false")}
-function closeWorkoutOverflow(){setWorkoutOverflow(false)}
-function toggleWorkoutOverflow(){setWorkoutOverflow($("#woOverflow")?.classList.contains("hidden"))}
 async function goToLogExercise(exId){
   const ex=prog.find(exId);if(!ex)return;
   if(!await requestWorkoutDay(ex.day))return;
@@ -6763,7 +6759,7 @@ function setWorkoutActive(on){const was=workoutActive;workoutActive=!!on;
   document.body.classList.toggle("is-workout",workoutActive);
   if(dash)dash.classList.toggle("hidden",workoutActive);
   if(shell)shell.classList.toggle("hidden",!workoutActive);
-  if(!workoutActive){document.body.classList.remove("is-focus-wo");closeWorkoutOverflow()}
+  if(!workoutActive){document.body.classList.remove("is-focus-wo");if(activeModal?.el===$("#workoutActionSheet"))closeWorkoutActions()}
   updateFocusChrome();
   if(workoutActive!==was){
     if(settle)settle();
@@ -7348,30 +7344,32 @@ function rxTargetText(ex,rec){
 /** Pure view model: one row per exercise of the day, built once per render. */
 function todayRxModel(exs){
   return exs.map(ex=>{
-    const rec=recommendation(ex),glyph=rxVerdict(rec),prev=last(ex);
-    const sub=glyph==="stalled"?rec.label
+    const shown=sessionExercise(ex),rec=recommendation(shown),glyph=rxVerdict(rec),prev=last(shown);
+    const sub=activeWorkoutDraft?.exercises?.[ex.id]?.status==="skipped"?t("log.skipped"):glyph==="stalled"?rec.label
       :prev.length?t("today.sub.before",{sets:rxSetsLine(prev)}):t("today.sub.first");
-    return{ex,rec,glyph,sub,load:rec.status==="manual"||rec.load==null?null:rec.load,target:rxTargetText(ex,rec)}})}
+    return{ex:shown,rec,glyph,sub,load:rec.status==="manual"||rec.load==null?null:rec.load,target:rxTargetText(shown,rec)}})}
 function todayTallyHtml(model){
   const counts={};for(const row of model)counts[row.glyph]=(counts[row.glyph]||0)+1;
   const items=TODAY_TALLY_ORDER.filter(g=>counts[g]).map(g=>
     `<li class="today-tally__i">${verdictMarkHtml(g)}<span>${esc(t(TODAY_TALLY_KEYS[g][counts[g]===1?0:1],{n:counts[g]}))}</span></li>`);
   return items.length?`<ul class="today-tally">${items.join("")}</ul>`:""}
 function todayRxRowHtml(row,index){
-  const{ex,rec,glyph}=row,verdictId=`rxv${index}`,hasVerdict=!!rec.label&&glyph!=="manual";
-  return `<button type="button" class="rxrow${glyph==="manual"?" is-manual":""}" data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name:exerciseDisplayName(ex)}))}"${hasVerdict?` aria-describedby="${verdictId}"`:""}>`+
+  const{ex,rec,glyph}=row,verdictId=`rxv${index}`,statusId=`rxs${index}`,hasVerdict=!!rec.label&&glyph!=="manual";
+  const isSkipped=activeWorkoutDraft?.exercises?.[ex.id]?.status==="skipped";
+  const describedBy=[hasVerdict?verdictId:"",isSkipped?statusId:""].filter(Boolean).join(" ");
+  return `<div class="today-rx__row${isSkipped?" is-skipped":""}" data-context-row="${esc(ex.id)}" tabindex="-1" role="group" aria-label="${esc(exerciseDisplayName(ex))}" aria-describedby="todayRowActionsHint"><button type="button" class="rxrow${glyph==="manual"?" is-manual":""}" data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name:exerciseDisplayName(ex)}))}"${describedBy?` aria-describedby="${describedBy}"`:""}>`+
     `<span class="rxrow__mark">${verdictMarkHtml(glyph)}</span>`+
-    `<span class="rxrow__name">${esc(exerciseDisplayName(ex))}<span class="rxrow__sub">${esc(row.sub)}</span></span>`+
+    `<span class="rxrow__name">${esc(exerciseDisplayName(ex))}<span class="rxrow__sub" id="${statusId}">${esc(row.sub)}</span></span>`+
     `<span class="rxrow__load"${row.load!=null?` data-parity-target="${esc(ex.id)}"`:""}>${row.load!=null?esc(fmtLoad(row.load)):"\u2013"}</span>`+
     `<span class="rxrow__target">${esc(row.target).replace(/\u00d7/g,`<span class="rxrow__op">\u00d7</span>`)}</span>`+
-    (hasVerdict?`<span class="visually-hidden" id="${verdictId}">${esc(rec.label)}</span>`:"")+`</button>`}
+    (hasVerdict?`<span class="visually-hidden" id="${verdictId}">${esc(rec.label)}</span>`:"")+`</button><button type="button" class="native-row-menu" data-row-menu="${esc(ex.id)}" aria-haspopup="menu"${isSkipped?` aria-describedby="${statusId}"`:""} aria-label="${esc(t("program.editor.more"))}: ${esc(exerciseDisplayName(ex))}">⋯</button></div>`}
 function todayRxHtml(exs){
   if(!exs.length)return"";
   const model=todayRxModel(exs),sets=sum(exs.map(e=>+e.sets||0));
   return todayTallyHtml(model)+
     `<div class="today-rx__head"><h3 class="today-rx__title">${esc(t("today.rx.title"))}</h3>`+
     `<span class="today-rx__meta">${esc(t("today.rx.meta",{exercises:countText("exercises",exs.length),sets:countText("sets",sets)}))}</span></div>`+
-    `<div class="today-rx" id="todayExList"><div class="today-rx__grid">`+
+    `<p class="visually-hidden" id="todayRowActionsHint">${esc(t("today.row_actions_hint"))}</p><div class="today-rx" id="todayExList"><div class="today-rx__grid">`+
     `<div class="today-rx__cols" aria-hidden="true"><span></span><span>${esc(t("stats.exercise"))}</span><span>${esc(unitLabel())}</span><span>${esc(t("ledger.col.target"))}</span></div>`+
     model.map((row,index)=>todayRxRowHtml(row,index)).join("")+`</div></div>`}
 /* The unfinished-session band (OG-6 `today/draft-resume`, Direction D 4.1): a status line above the prescription that
@@ -7462,6 +7460,7 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
     // The finished day's way on is the screen's one commitment: View today's session takes the primary control and its
     // arrow, and Log another session sits under it as the quieter choice, as Choose another day does under Start.
     const review=$("#reviewTodaySession");if(review){review.classList.toggle("btn--cta",!!recap);review.classList.toggle("btn--steel",!recap)}
+    $$("#todayExList [data-row-menu]").forEach(button=>button.onclick=()=>todayRowContext(button.closest("[data-context-row]"),button));
     $$("#todayExList [data-exopen]").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.exopen,"log"));
   // A draft with logged or filled sets means the session is still open.
   const cta=$("#startWorkout")?.querySelector("span");
@@ -7652,18 +7651,23 @@ function renderAbandonReasons(){
     host.querySelector(`[data-abandon-reason="${reason}"]`)?.focus()})}
 function closeAbandonPrompt(){
   sessionAbandonReason=null;
-  $("#sessionAbandonPrompt")?.classList.add("hidden");
+  const prompt=$("#sessionAbandonPrompt");if(prompt){prompt.classList.add("hidden");delete prompt.dataset.from}
   $("#sessionAbandon")?.classList.remove("hidden")}
-function openAbandonPrompt(){
+/** `from: "actions"` is the Focus action sheet's End without saving: there the
+ *  session sheet only hosts the confirmation, so Keep training closes it. The
+ *  origin lives on the prompt and every close clears it. */
+function openAbandonPrompt({from="sheet"}={}){
   if(!activeWorkoutDraft)return;
   sessionAbandonReason=null;renderAbandonReasons();
   $("#sessionEarlyFinish")?.classList.add("hidden");
   $("#sessionEarlyPrompt")?.classList.add("hidden");
   $("#sessionAbandon")?.classList.add("hidden");
-  $("#sessionAbandonPrompt")?.classList.remove("hidden");
+  const prompt=$("#sessionAbandonPrompt");if(prompt){prompt.dataset.from=from;prompt.classList.remove("hidden")}
   focusRoute("#sessionAbandonConfirm")}
 function cancelAbandonPrompt(){
+  const fromActions=$("#sessionAbandonPrompt")?.dataset.from==="actions";
   closeAbandonPrompt();
+  if(fromActions){closeSessionSheet();return}
   $("#sessionEarlyFinish")?.classList.remove("hidden");
   focusRoute("#sessionAbandon")}
 async function abandonWorkout(){
@@ -8689,26 +8693,134 @@ function updateWorkoutHeader(fl,at){
   else if(title){title.removeAttribute("aria-label");title.textContent=dayLabel(day)}
   renderFocusDeloadLine();
   syncWorkoutMore()}
-/** ⋯ is the current exercise's actions. Where the device offers voice input and
- *  the lifter has turned it on, the same button opens a short menu that holds
- *  both; the button says which it is. */
-function workoutMoreIsMenu(){const voice=$("#voiceBtn");return !!voice&&!voice.classList.contains("hidden")}
+/** Session actions share one modal, including the optional voice command. */
 function syncWorkoutMore(){
-  const b=$("#woOverflowBtn");if(!b)return;
-  if(workoutMoreIsMenu()){
-    b.setAttribute("aria-haspopup","true");b.setAttribute("aria-controls","woOverflow");
-    if(!b.hasAttribute("aria-expanded"))b.setAttribute("aria-expanded","false")}
-  else{b.setAttribute("aria-haspopup","dialog");b.setAttribute("aria-controls","exActionsSheet");b.removeAttribute("aria-expanded")}}
+  const button=$("#woOverflowBtn");if(!button)return;
+  button.setAttribute("aria-haspopup","dialog");button.setAttribute("aria-controls","workoutActionSheet");
+  button.setAttribute("aria-expanded",String(!$("#workoutActionSheet")?.hidden));
+}
 function openWorkoutMore(){
-  if(workoutMoreIsMenu()){
-    const menu=$("#woOverflow");
-    if(menu&&!$("#woExActions")){
-      const item=document.createElement("button");
-      item.type="button";item.id="woExActions";item.className="wo-overflow__item";item.textContent=t("ex.actions.title");
-      item.onclick=()=>{closeWorkoutOverflow();const card=focusCard();if(card)openExActionsSheet(card.dataset.ex)};
-      menu.prepend(item)}
-    toggleWorkoutOverflow();return}
-  const card=focusCard();if(card)openExActionsSheet(card.dataset.ex)}
+  if(!activeWorkoutDraft)return;
+  const sheet=$("#workoutActionSheet"),scrim=$("#workoutActionScrim");
+  const voice=sheet.querySelector('[data-workout-action="voice"]');
+  voice.hidden=voice.classList.contains("hidden");
+  document.body.classList.add("is-sheet-open");
+  if(!openModal(sheet,{scrim,onEscape:closeWorkoutActions,delayHide:280,initialFocus:sheet.querySelector("button")}))return;
+  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim.classList.add("is-open");window.RepForgeMotion?.animateActionSheet?.(sheet,true)});syncWorkoutMore();
+}
+let workoutActionsClosing=null;
+function closeWorkoutActions(){
+  if(workoutActionsClosing)return workoutActionsClosing;
+  workoutActionsClosing=(async()=>{
+    const sheet=$("#workoutActionSheet");
+    const animated=await window.RepForgeMotion?.animateActionSheet?.(sheet,false);
+    if(animated&&activeModal?.el===sheet)activeModal.delayHide=0;
+    await closeModal(sheet);sheet.style.removeProperty("transform");syncWorkoutMore();
+  })().finally(()=>{workoutActionsClosing=null});
+  return workoutActionsClosing;
+}
+async function performWorkoutAction(action){
+  await closeWorkoutActions();
+  if(!activeWorkoutDraft)return;
+  if(action==="finish"){saveWorkout(null);return}
+  if(action==="reorder"){openSessionSheet();return}
+  if(action==="abandon"){await WorkoutSession.flush();openSessionSheet();openAbandonPrompt({from:"actions"});return}
+  if(action==="voice"){startVoiceInput();return}
+  const card=focusCard();if(card)openExActionsSheet(card.dataset.ex);
+}
+
+/* A native dialog permits a context menu over an editor sheet without tearing
+   down that sheet's modal lifetime. The dialog's own top layer owns inertness.
+   motion-layer.js owns the long press, slide-to-select and the menu's motion;
+   this builds the menu and hands back the chosen value. */
+let nativeMenuClose=null;
+/** Opens the panel beside the lifted row: below it when it fits, above otherwise,
+ *  always inside the dialog's safe-area padding. */
+function placeContextMenu(dialog,panel,rect){
+  const view=window.visualViewport,inset=getComputedStyle(dialog),offset=view?.offsetTop||0;
+  const top=offset+(parseFloat(inset.paddingTop)||0)+12;
+  const bottom=offset+(view?.height||innerHeight)-(parseFloat(inset.paddingBottom)||0)-12;
+  const left=(parseFloat(inset.paddingLeft)||0)+12,right=innerWidth-(parseFloat(inset.paddingRight)||0)-12;
+  const box=panel.getBoundingClientRect(),below=rect.bottom+8+box.height<bottom;
+  Object.assign(panel.style,{left:`${Math.max(left,Math.min(rect.left+8,right-box.width))}px`,
+    top:`${Math.max(top,Math.min(below?rect.bottom+8:rect.top-box.height-8,bottom-box.height))}px`,
+    transformOrigin:below?"top left":"bottom left"});
+}
+/** Arrow keys, Home, End and Tab cycle the enabled items; Escape dismisses. */
+function contextMenuKeys(panel,dismiss){
+  return event=>{
+    if(!["Escape","ArrowDown","ArrowUp","Home","End","Tab"].includes(event.key))return;
+    event.stopImmediatePropagation();event.preventDefault();
+    if(event.key==="Escape"){dismiss();return}
+    const list=[...panel.querySelectorAll("button:not(:disabled)")],index=list.indexOf(document.activeElement);
+    const back=event.key==="ArrowUp"||event.key==="Tab"&&event.shiftKey;
+    list[event.key==="Home"?0:event.key==="End"?list.length-1:(index+(back?-1:1)+list.length)%list.length]?.focus();
+  };
+}
+function openRowContextMenu({anchor,items,opener=anchor}){
+  if(nativeMenuClose)return Promise.resolve(null);
+  if(opener===anchor&&anchor.contains(document.activeElement))opener=document.activeElement;
+  return new Promise(resolve=>{
+    const dialog=document.createElement("dialog");dialog.id="nativeContextMenu";dialog.className="native-context";
+    dialog.setAttribute("aria-label",anchor.getAttribute("aria-label")||anchor.textContent.trim());
+    // An edge-to-edge row lifts as a card inset from the screen edges, so its 1.03 lift stays in view.
+    const row=anchor.getBoundingClientRect(),left=Math.max(row.left,12),right=Math.min(row.right,innerWidth-12);
+    const rect=new DOMRect(left,row.top,right-left,row.height),preview=anchor.cloneNode(true);
+    preview.querySelectorAll("[id]").forEach(el=>el.removeAttribute("id"));preview.removeAttribute("id");
+    preview.className+=" native-context__preview";preview.inert=true;preview.setAttribute("aria-hidden","true");
+    Object.assign(preview.style,{left:`${rect.left}px`,top:`${rect.top}px`,width:`${rect.width}px`,height:`${rect.height}px`});
+    dialog.innerHTML=`<div class="native-context__menu" role="menu">${items.map(item=>
+      `<button type="button" role="menuitem" data-menu-value="${esc(item.value)}"${item.destructive?' class="is-destructive"':""}${item.disabled?" disabled":""}>${esc(item.label)}</button>`).join("")}</div>`;
+    dialog.prepend(preview);document.body.append(dialog);
+    const panel=dialog.querySelector('[role="menu"]');
+    let closing=false,untrack=null;
+    const finish=async value=>{
+      if(nativeMenuClose!==finish||closing)return;
+      closing=true;untrack?.();
+      await window.RepForgeMotion?.animateContextMenu?.(panel,preview,false);
+      nativeMenuClose=null;window.removeEventListener("keydown",keys,true);
+      dialog.close();dialog.remove();
+      const target=opener.isConnected?opener:resolveReturnFocus(opener);
+      target?.focus?.({preventScroll:true});resolve(value);
+    };
+    const keys=contextMenuKeys(panel,()=>finish(null));
+    nativeMenuClose=finish;
+    window.addEventListener("keydown",keys,true);
+    untrack=window.RepForgeMotion?.trackContextSlide?.(panel,item=>finish(item.dataset.menuValue));
+    dialog.addEventListener("cancel",event=>{event.preventDefault();finish(null)});
+    dialog.addEventListener("click",event=>{
+      const button=event.target.closest("[data-menu-value]");
+      if(button&&!button.disabled)finish(button.dataset.menuValue);
+      else if(!panel.contains(event.target))finish(null);
+    });
+    dialog.showModal();
+    placeContextMenu(dialog,panel,rect);
+    window.RepForgeMotion?.animateContextMenu?.(panel,preview);
+    panel.querySelector("button:not(:disabled)")?.focus({preventScroll:true});
+  });
+}
+async function todayRowContext(row,opener=row){
+  if(opener===row&&row.contains(document.activeElement))opener=document.activeElement;
+  const focusAttribute=opener.matches("[data-row-menu]")?"data-row-menu":opener.matches("[data-exopen]")?"data-exopen":"data-context-row";
+  const ex=prog.find(row.dataset.contextRow);if(!ex)return;
+  const isSkipped=activeWorkoutDraft?.exercises?.[ex.id]?.status==="skipped";
+  const action=await openRowContextMenu({anchor:row,opener,items:[
+    {label:t("why.title"),value:"why"},{label:t("ex.actions.substitute"),value:"swap"},
+    {label:t("preview.aria"),value:"details"},
+    {label:t(isSkipped?"ex.actions.restore":"today.skip_today"),value:isSkipped?"restore":"skip",destructive:!isSkipped}]});
+  if(action==="details"){openExerciseView(ex.id,"log");return}
+  if(action==="why"){openWhySheet(ex.id,opener);return}
+  if(!["swap","skip","restore"].includes(action))return;
+  const prepared=await WorkoutSession.start(day);
+  if(prepared.status!=="ready"){showDraftInitializationRecovery(prepared,{retryMode:"create",label:day});return}
+  if(action==="swap"){openSubstitutePicker(ex.id);return}
+  const result=await WorkoutSession.dispatch(action==="restore"?"restoreExercise":"skipExercise",{exerciseInstanceId:ex.id});
+  if(result.status==="applied"){
+    renderToday();
+    document.querySelector(`#todayExList [${focusAttribute}="${CSS.escape(ex.id)}"]`)?.focus({preventScroll:true});
+  }
+}
+
 /** After a render, bring every card in the deck to the row that matters — the
  *  peeks included, so a neighbour rides in already showing what it will show
  *  once it lands. The card's own height comes from the layout, so nothing is
@@ -11790,6 +11902,7 @@ function createInstalledProgramEditorAdapter(){
     confirm:({kind,day})=>kind==="day_remove"?confirm(t("confirm.delete_day",{day:dayLabel(day)})):true,
     reducedMotion:()=>reducedMotion(),
     announce:announceEditorChange,
+    contextMenu:openRowContextMenu,
     afterModal:afterModalSettles,
     // Plan 074 (ADR 0021): onboarding B's editing language, in onboarding's sheet.
     layout:"review",
@@ -11859,6 +11972,7 @@ function createOnboardingProgramEditorAdapter(){
     confirm:()=>true,
     reducedMotion:()=>reducedMotion(),
     announce:announceEditorChange,
+    contextMenu:openRowContextMenu,
     afterModal:afterModalSettles,
   }
 }
@@ -12972,6 +13086,16 @@ function renderSettings(){
   const rirDisp=$("#rirModeDisplay");if(rirDisp)rirDisp.textContent=state.settings.rirMode==="effort"?t("settings.rir_effort"):t("settings.rir_numbers");
   const le=state.settings.lastExport,ago=le?t("settings.storage.last_backup",{lastBackup:le.slice(0,10)}):t("settings.storage.last_backup_never");
   paintStorageNote(ago);
+  if(window.RepForgeMotion?.syncNativeControls)window.RepForgeMotion.syncNativeControls($("#settings"));
+  else{
+    $$("#settings [data-segment-input]").forEach(group=>{
+      const input=document.getElementById(group.dataset.segmentInput);
+      group.classList.add("hidden");input.hidden=false;input.tabIndex=0;
+      input.removeAttribute("aria-hidden");input.setAttribute("aria-labelledby",group.getAttribute("aria-labelledby"));
+      input.classList.add("select-flat");
+    });
+    $$("#settings .native-stepper__buttons").forEach(buttons=>buttons.classList.add("hidden"));
+  }
   const deg=$("#storageDegraded");
   if(deg){const on=!!DurableState.getStorageHealth().degraded;deg.textContent=on?t("settings.storage.degraded"):"";deg.classList.toggle("hidden",!on);deg.hidden=!on}
   const sz=$("#storageSize");if(sz){try{const bytes=new Blob([localStorage.getItem(KEY)||""]).size;sz.textContent=bytes>1048576?`${fmt(+(bytes/1048576).toFixed(1))} MB`:`${Math.max(1,Math.round(bytes/1024))} KB`}catch{sz.textContent="—"}}
@@ -13528,7 +13652,7 @@ async function choosePicked(id){
    fires once on Done with the entries in selection order. */
 function openExercisePicker({title=null,subtitle="",mode="single",selected=[],exclude=[],extras=[],onPick=null,
   onCancel=null,stageOnly=false,repairSeed=null,quick=false,day:dayName=null,query="",muscle=null,equipment=null,tab=null,
-  leading=null,catalogOnly=false,reasons=null}={}){
+  leading=null,catalogOnly=false,reasons=null,returnFocus=null}={}){
   const sheet=$("#exPickSheet"),scrim=$("#exPickScrim"),search=$("#exPickSearch");
   if(!sheet)return;
   pickerState={query:String(query||""),muscle,equipment,mode,onPick,onCancel,stageOnly,repairSeed,completed:false,
@@ -13540,8 +13664,8 @@ function openExercisePicker({title=null,subtitle="",mode="single",selected=[],ex
     reasons:Array.isArray(reasons)?reasons:null,reason:null,
     // Kept so the custom-exercise detour can put this exact picker back, with
     // whatever was typed and filtered still in place.
-    reopen:{title,subtitle,mode,exclude:[...exclude],extras:[...extras],onPick,onCancel,stageOnly,repairSeed,quick,day:dayName,leading,catalogOnly,reasons}};
-  pickerReturn=document.activeElement;
+    reopen:{title,subtitle,mode,exclude:[...exclude],extras:[...extras],onPick,onCancel,stageOnly,repairSeed,quick,day:dayName,leading,catalogOnly,reasons,returnFocus}};
+  pickerReturn=returnFocus||document.activeElement;
   $("#exPickTitle").textContent=title||t("picker.title");
   const sub=$("#exPickFor");if(sub)sub.textContent=subtitle||"";
   if(search)search.value=pickerState.query;
@@ -21398,16 +21522,7 @@ function init(){
   const another=$("#logAnotherSession");if(another)another.onclick=()=>enterWorkout({day:dayAfterTrainedToday()||day});
   const leaveWo=$("#leaveWorkout");if(leaveWo)leaveWo.onclick=leaveWorkout;
   const woOv=$("#woOverflowBtn");if(woOv)woOv.onclick=e=>{e.stopPropagation();openWorkoutMore()};
-  // The menu is a popover: any choice inside it, a tap outside, or Escape closes it.
-  // iOS does not reliably bubble click to document, so touchstart backs it up.
-  const dismissOverflow=e=>{
-    const menu=$("#woOverflow");if(!menu||menu.classList.contains("hidden"))return;
-    const target=e.target instanceof Element?e.target:null;
-    if(target&&(menu.contains(target)||target.closest("#woOverflowBtn")))return;
-    closeWorkoutOverflow()};
-  document.addEventListener("click",dismissOverflow);
-  document.addEventListener("touchstart",dismissOverflow,{passive:true});
-  document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeWorkoutOverflow();closeEffortPop()}});
+  document.addEventListener("keydown",e=>{if(e.key==="Escape")closeEffortPop()});
   // The effort explainer dismisses like any popover: a tap anywhere off it, or
   // a swipe of the card underneath. Capture, so a card drag never outlives it.
   document.addEventListener("pointerdown",e=>{
@@ -21424,6 +21539,13 @@ function init(){
     if(el&&el.closest("button,a,input,select,textarea,[contenteditable],[role=spinbutton]"))return;
     if(e.key==="ArrowRight")focusAnimateTo(1);
     else if(e.key==="ArrowLeft")focusAnimateTo(-1)});
+  $("#workoutActionCancel").onclick=closeWorkoutActions;
+  $("#workoutActionScrim").onclick=closeWorkoutActions;
+  $$("[data-workout-action]").forEach(button=>button.onclick=()=>performWorkoutAction(button.dataset.workoutAction));
+  document.addEventListener("rowcontext",event=>{
+    const row=event.target.closest?.("#todayExList [data-context-row]");
+    if(row)todayRowContext(row,event.target);
+  });
   const sessionSheetBtn=$("#sessionSheetBtn");if(sessionSheetBtn)sessionSheetBtn.onclick=()=>openSessionSheet();
   const sessionSheetClose=$("#sessionSheetClose");if(sessionSheetClose)sessionSheetClose.onclick=()=>closeSessionSheet();
   const sessionSheetScrim=$("#sessionSheetScrim");if(sessionSheetScrim)sessionSheetScrim.onclick=()=>closeSessionSheet();
@@ -21616,7 +21738,6 @@ function init(){
   $$("[data-term]").forEach(b=>{if(!b.onclick)b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)}});
   applyDraftContextToDom();
   updateBodyweightField();
-  const vBtn=$("#voiceBtn");if(vBtn)vBtn.onclick=()=>{closeWorkoutOverflow();startVoiceInput()};
   updateVoiceBtn();
   $("#logForm").addEventListener("submit",(e)=>{e.preventDefault();saveWorkout(e)});
   $("#saveProgram").onclick=saveProgram;

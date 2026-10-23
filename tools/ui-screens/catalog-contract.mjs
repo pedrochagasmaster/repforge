@@ -25,7 +25,9 @@ export function collectCatalogEvidence(config = {}) {
     if (role) return `[data-role="${role}"]`;
     return element.tagName.toLowerCase();
   };
+  const modals = [...document.querySelectorAll("dialog:modal")];
   const visible = (element) => {
+    if (modals.length && !modals.some(dialog => dialog.contains(element))) return false;
     const style = getComputedStyle(element);
     const rect = element.getBoundingClientRect();
     return (!element.checkVisibility || element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }))

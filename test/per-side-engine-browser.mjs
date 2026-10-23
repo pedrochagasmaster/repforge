@@ -185,7 +185,7 @@ async function main() {
     // uses today's unit without rewriting the historical row.
     await page.evaluate(() => window.__repforgeShowSettings());
     await page.waitForSelector("#settings.view.active", { timeout: 10000 });
-    await page.locator("#unit").selectOption("lb");
+    await page.locator('#unitSegments [data-value="lb"]').click();
     await page.waitForFunction(() => window.__repforgeWorkoutDraft.state()?.settings?.unit === "lb",
       undefined, { timeout: 10000 });
     await page.evaluate(() => window.__repforgeStorage.flush());
@@ -205,7 +205,7 @@ async function main() {
       "display-unit conversion leaves the historical per-side metric in canonical kilograms", historicalLoadKg);
     await page.evaluate(() => window.__repforgeShowSettings());
     await page.waitForSelector("#settings.view.active", { timeout: 10000 });
-    await page.locator("#unit").selectOption("kg");
+    await page.locator('#unitSegments [data-value="kg"]').click();
     await page.waitForFunction(() => window.__repforgeWorkoutDraft.state()?.settings?.unit === "kg",
       undefined, { timeout: 10000 });
     await page.evaluate(() => window.__repforgeStorage.flush());
