@@ -520,7 +520,17 @@ async function nativeControls(browser) {
   await page.click('#settingsBack');
   const row = '#todayExList [data-context-row]';
   const hasRows = await page.locator(row).count();
-  assert(hasRows > 0 && await page.locator('#todayExList [data-row-menu]').count() > 0, "Today rows have a visible actions button");
+  assert(hasRows > 0 && await page.locator('#todayExList [data-row-menu]').count() > 0, "Today rows keep an actions button for keyboard and assistive technology");
+  const quiet = await page.evaluate(() => {
+    const button = document.querySelector('#todayExList [data-row-menu]'), open = button.closest('[data-context-row]').querySelector('[data-exopen]');
+    const grid = document.querySelector('#todayExList .today-rx__grid').getBoundingClientRect();
+    return { width: Math.round(button.getBoundingClientRect().width), tabbable: button.tabIndex === 0 && !button.closest('[aria-hidden="true"],[inert]'),
+      rowReach: Math.round(grid.right - open.getBoundingClientRect().right) };
+  });
+  assert(quiet.width <= 1 && quiet.tabbable && quiet.rowReach <= 1, 'the ⋯ column is gone from sight: the row runs to the edge, and the button stays in the tab order', JSON.stringify(quiet));
+  await page.locator('#todayExList [data-exopen]').first().focus(); await page.keyboard.press('Tab');
+  const revealed = await page.evaluate(() => { const el = document.activeElement; return { menu: el?.matches('[data-row-menu]'), width: Math.round(el?.getBoundingClientRect().width || 0) }; });
+  assert(revealed.menu && revealed.width >= 44, 'Tab from a row reaches its ⋯, which shows itself while focused', JSON.stringify(revealed));
   if (hasRows) {
     const initialOpacity = await page.locator('#todayExList [data-row-menu]').first().evaluate(button => {
       button.focus(); button.click();
@@ -528,6 +538,21 @@ async function nativeControls(browser) {
     });
     assert(initialOpacity === '0', 'the context menu starts transparent before its first animation frame', initialOpacity);
     await page.waitForSelector('#nativeContextMenu:not([hidden])');
+    phase("Fidelity: the Today menu matches the prototype's material, icons and wording");
+    await page.waitForFunction(() => document.querySelector('.native-context__menu').getAnimations().every(animation => animation.playState !== 'running'));
+    const menuLook = await page.evaluate(() => {
+      const panel = document.querySelector('.native-context__menu'), style = getComputedStyle(panel), dialog = document.querySelector('#nativeContextMenu');
+      const items = [...panel.querySelectorAll('[role="menuitem"]')].map(item => ({ value: item.dataset.menuValue, label: item.textContent.trim(),
+        icon: [...(item.querySelector('.icon-mask')?.classList || [])].find(name => name.startsWith('icon-mask--')) || null, target: item.getBoundingClientRect().height, height: Math.round(item.getBoundingClientRect().height - parseFloat(getComputedStyle(item).borderTopWidth)) }));
+      const backdrop = getComputedStyle(dialog, '::backdrop').backgroundColor, alpha = Number((backdrop.match(/rgba\([^)]*,\s*([\d.]+)\)/) || [0, 1])[1]);
+      return { border: ['Top', 'Right', 'Bottom', 'Left'].map(side => parseFloat(style[`border${side}Width`])), items, backdrop, alpha,
+        swap: window.RepForgeI18n.t('picker.title_substitute') };
+    });
+    assert(menuLook.border.every(width => width === 0), 'the menu has no hard border; its edge is a soft hairline shadow', JSON.stringify(menuLook.border));
+    assert(JSON.stringify(menuLook.items.map(item => [item.value, item.icon])) === JSON.stringify([["why", "icon-mask--target"], ["swap", "icon-mask--reset"], ["details", "icon-mask--dumbbell"], ["skip", "icon-mask--close"]]),
+      "each Today action carries the prototype's trailing icon", JSON.stringify(menuLook.items));
+    assert(menuLook.items[1].label === menuLook.swap && menuLook.items.every(item => item.target >= 44 && item.height >= 40 && item.height <= 48), 'Swap exercise uses the prototype wording, in 44px rows', JSON.stringify(menuLook.items));
+    assert(menuLook.alpha > 0 && menuLook.alpha <= 0.3, 'the page behind stays light: a 25% paper wash under the blur, not a dark scrim', menuLook.backdrop);
     await page.waitForFunction(() => {
       const panel = document.querySelector('.native-context__menu');
       return getComputedStyle(panel).opacity === '1' && panel.getAnimations().every(animation => animation.playState !== 'running');
@@ -579,13 +604,17 @@ async function nativeControls(browser) {
     if (await page.locator('#leaveWorkout').isVisible()) await page.click('#leaveWorkout');
     await page.waitForSelector('#todayDash:not(.hidden)');
     assert(await page.locator('#todayExList .is-skipped').count() === 1, 'the skipped Today state restores after reload');
-    await page.locator('#todayExList [data-row-menu]').first().click();
+    await keyboardMenu(page.locator('#todayExList [data-row-menu]').first());
     await page.locator('#nativeContextMenu [data-menu-value="restore"]').click();
     await page.waitForSelector('#nativeContextMenu', { state: 'detached' });
-    assert(await page.locator('#todayExList .is-skipped').count() === 0, "Restore reverses the skip in today's draft");
+    const restored = await page.waitForFunction(() => {
+      const draft = JSON.parse(localStorage.getItem('repforge_draft_v1'));
+      return draft && draft.exerciseOrder.every(id => draft.exercises[id].status !== 'skipped') && !document.querySelector('#todayExList .is-skipped');
+    }, undefined, { timeout: 4000 }).then(() => true, () => false);
+    assert(restored, "Restore reverses the skip in today's draft");
     assert(await page.locator('#todayExList [data-row-menu]').first().evaluate(el => el === document.activeElement), 'a row action restores its visible opener after Today redraws');
     const programBefore = await page.evaluate(() => JSON.stringify(JSON.parse(localStorage.getItem('repforge_v1')).program));
-    await page.locator('#todayExList [data-row-menu]').first().click();
+    await keyboardMenu(page.locator('#todayExList [data-row-menu]').first());
     await page.locator('#nativeContextMenu [data-menu-value="swap"]').click();
     await page.waitForSelector('#exPickSheet.is-open');
     await page.fill('#exPickSearch', 'Leg press');
@@ -660,6 +689,9 @@ async function nativeControls(browser) {
   await context.close();
 }
 
+/** The row's ⋯ is shown only to keyboard focus, so tests reach it the way a keyboard does. */
+async function keyboardMenu(button) { await button.focus(); await button.press('Enter'); }
+
 async function nativeEditorControls(browser) {
   const { context: editorContext, page: editorPage } = await todayPage(browser);
   phase("Phase 4: editor rows expose context actions without long press");
@@ -670,7 +702,7 @@ async function nativeEditorControls(browser) {
   if (await editorMenu.count()) {
     const rows = editorPage.locator('#programEditor [data-role="exercise-row"]');
     const first = await rows.first().getAttribute('data-id');
-    await editorMenu.click(); await editorPage.waitForSelector('#nativeContextMenu:not([hidden])');
+    await keyboardMenu(editorMenu); await editorPage.waitForSelector('#nativeContextMenu:not([hidden])');
     await editorPage.locator('#nativeContextMenu [data-menu-value="down"]').click();
     await editorPage.waitForFunction(id => document.querySelector('#programEditor [data-role="exercise-row"]').dataset.id !== id, first);
     assert(await rows.nth(1).getAttribute('data-id') === first, "Move down commits through the editor and preserves identity");
@@ -678,7 +710,7 @@ async function nativeEditorControls(browser) {
     await editorPage.waitForSelector('#nativeContextMenu:not([hidden])'); await editorPage.keyboard.press('Escape');
     await editorPage.waitForSelector('#nativeContextMenu', { state: 'detached' });
     assert(await rows.nth(1).evaluate(el => el === document.activeElement), "keyboard context menu returns focus to its editor row");
-    await editorPage.locator('#programEditor [data-row-menu]').nth(1).click(); await editorPage.waitForSelector('#nativeContextMenu:not([hidden])');
+    await keyboardMenu(editorPage.locator('#programEditor [data-row-menu]').nth(1)); await editorPage.waitForSelector('#nativeContextMenu:not([hidden])');
     const editorItems = await editorPage.locator('#nativeContextMenu [role="menuitem"]').evaluateAll(items => items.map(item => item.dataset.menuValue));
     assert(JSON.stringify(editorItems) === JSON.stringify(["up", "down", "day", "remove"]), "the editor menu holds the prototype's Move up, Move down, Move to another day and Remove", JSON.stringify(editorItems));
     await editorPage.locator('#nativeContextMenu [data-menu-value="day"]').click();
@@ -730,6 +762,11 @@ async function nativeEditorControls(browser) {
   const alternate = editorPage.locator('#reviewSheet [data-role="alternate"]').first();
   assert(await alternate.locator('[data-row-menu]').count() === 1 && await alternate.locator('[data-role="alternate-remove"]').count() === 0,
     "the alternate replaces its action trio with one visible menu");
+  const glyph = await alternate.locator('[data-row-menu]').evaluate(button => ({ text: button.textContent.trim(), icon: !!button.querySelector('.icon-mask--overflow') }));
+  assert(glyph.text === '' && glyph.icon, "an alternate's ⋯ is the overflow icon, not a spaced text glyph", JSON.stringify(glyph));
+  const close = await editorPage.locator('#reviewSheet [data-review-sheet-close]').evaluate(button => { const disc = getComputedStyle(button, '::before');
+    return { width: disc.width, radius: disc.borderRadius, fill: disc.backgroundColor }; });
+  assert(close.width === '30px' && close.radius === '50%' && close.fill !== 'rgba(0, 0, 0, 0)', "a sheet's × sits in the prototype's filled 30px disc", JSON.stringify(close));
   if (await alternate.locator('[data-row-menu]').count()) {
     await alternate.locator('[data-row-menu]').click();
     await editorPage.locator('#nativeContextMenu [data-menu-value="remove"]').click();

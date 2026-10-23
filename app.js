@@ -7447,7 +7447,7 @@ function todayRxRowHtml(row,index){
     `<span class="rxrow__name">${esc(exerciseDisplayName(ex))}<span class="rxrow__sub" id="${statusId}">${esc(row.sub)}</span></span>`+
     `<span class="rxrow__load"${row.load!=null?` data-parity-target="${esc(ex.id)}"`:""}>${row.load!=null?esc(fmtLoad(row.load)):"\u2013"}</span>`+
     `<span class="rxrow__target">${esc(row.target).replace(/\u00d7/g,`<span class="rxrow__op">\u00d7</span>`)}</span>`+
-    (hasVerdict?`<span class="visually-hidden" id="${verdictId}">${esc(rec.label)}</span>`:"")+`</button><button type="button" class="native-row-menu" data-row-menu="${esc(ex.id)}" aria-haspopup="menu"${isSkipped?` aria-describedby="${statusId}"`:""} aria-label="${esc(t("program.editor.more"))}: ${esc(exerciseDisplayName(ex))}">⋯</button></div>`}
+    (hasVerdict?`<span class="visually-hidden" id="${verdictId}">${esc(rec.label)}</span>`:"")+`</button><button type="button" class="native-row-menu" data-row-menu="${esc(ex.id)}" aria-haspopup="menu"${isSkipped?` aria-describedby="${statusId}"`:""} aria-label="${esc(t("program.editor.more"))}: ${esc(exerciseDisplayName(ex))}"><span class="icon-mask icon-mask--overflow" aria-hidden="true"></span></button></div>`}
 function todayRxHtml(exs){
   if(!exs.length)return"";
   const model=todayRxModel(exs),sets=sum(exs.map(e=>+e.sets||0));
@@ -9045,9 +9045,11 @@ function placeContextMenu(dialog,panel,rect){
   const bottom=offset+(view?.height||innerHeight)-(parseFloat(inset.paddingBottom)||0)-12;
   const left=(parseFloat(inset.paddingLeft)||0)+12,right=innerWidth-(parseFloat(inset.paddingRight)||0)-12;
   const box=panel.getBoundingClientRect(),below=rect.bottom+8+box.height<bottom;
-  Object.assign(panel.style,{left:`${Math.max(left,Math.min(rect.left+8,right-box.width))}px`,
-    top:`${Math.max(top,Math.min(below?rect.bottom+8:rect.top-box.height-8,bottom-box.height))}px`,
-    transformOrigin:below?"top left":"bottom left"});
+  const x=Math.max(left,Math.min(rect.left+8,right-box.width));
+  // It grows from under the row's centre, as the prototype's menu does.
+  const originX=Math.max(0,Math.min(box.width,rect.left+rect.width/2-x));
+  Object.assign(panel.style,{left:`${x}px`,top:`${Math.max(top,Math.min(below?rect.bottom+8:rect.top-box.height-8,bottom-box.height))}px`,
+    transformOrigin:`${originX}px ${below?0:box.height}px`});
 }
 /** Arrow keys, Home, End and Tab cycle the enabled items; Escape dismisses. */
 function contextMenuKeys(panel,dismiss){
@@ -9073,7 +9075,7 @@ function openRowContextMenu({anchor,items,opener=anchor}){
     preview.className+=" native-context__preview";preview.inert=true;preview.setAttribute("aria-hidden","true");
     Object.assign(preview.style,{left:`${rect.left}px`,top:`${rect.top}px`,width:`${rect.width}px`,height:`${rect.height}px`});
     dialog.innerHTML=`<div class="native-context__menu" role="menu">${items.map(item=>
-      `<button type="button" role="menuitem" data-menu-value="${esc(item.value)}"${item.destructive?' class="is-destructive"':""}${item.disabled?" disabled":""}>${esc(item.label)}</button>`).join("")}</div>`;
+      `<button type="button" role="menuitem" data-menu-value="${esc(item.value)}"${item.destructive?' class="is-destructive"':""}${item.disabled?" disabled":""}><span>${esc(item.label)}</span>${item.icon?`<span class="icon-mask icon-mask--${esc(item.icon)} native-context__icon" aria-hidden="true"></span>`:""}</button>`).join("")}</div>`;
     dialog.prepend(preview);document.body.append(dialog);
     const panel=dialog.querySelector('[role="menu"]');
     let closing=false,untrack=null;
@@ -9108,9 +9110,9 @@ async function todayRowContext(row,opener=row){
   const ex=prog.find(row.dataset.contextRow);if(!ex)return;
   const isSkipped=activeWorkoutDraft?.exercises?.[ex.id]?.status==="skipped";
   const action=await openRowContextMenu({anchor:row,opener,items:[
-    {label:t("why.title"),value:"why"},{label:t("ex.actions.substitute"),value:"swap"},
-    {label:t("preview.aria"),value:"details"},
-    {label:t(isSkipped?"ex.actions.restore":"today.skip_today"),value:isSkipped?"restore":"skip",destructive:!isSkipped}]});
+    {label:t("why.title"),value:"why",icon:"target"},{label:t("picker.title_substitute"),value:"swap",icon:"reset"},
+    {label:t("preview.aria"),value:"details",icon:"dumbbell"},
+    isSkipped?{label:t("log.restore"),value:"restore",icon:"reset"}:{label:t("today.skip_today"),value:"skip",destructive:true,icon:"close"}]});
   if(action==="details"){openExerciseView(ex.id,"log");return}
   if(action==="why"){openWhySheet(ex.id,opener);return}
   if(!["swap","skip","restore"].includes(action))return;

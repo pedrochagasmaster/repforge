@@ -2295,7 +2295,7 @@
         (mark ? `<span class="review__mark" data-role="row-mark"><span class="review__dot" aria-hidden="true"></span>${esc(mark)}</span>` : "") +
         `<ol class="review__sets">${lines.map((line, index) => `<li data-role="set-line"><span class="review__setn num">${index + 1}</span><span class="review__reps">${nums(line.text)}</span>` +
           (line.rir == null ? "" : `<span class="review__rir">${nums(rt("entry.review.rir", { n: format(adapter, line.rir) }, `RIR ${line.rir}`))}</span>`) + `</li>`).join("")}</ol>` +
-        `</div>${icon("chev-right")}</article><button type="button" class="native-row-menu" data-row-menu="${esc(exercise.id)}" aria-haspopup="menu" aria-label="${esc(label("more"))}: ${esc(name)}">⋯</button></div>`;
+        `</div>${icon("chev-right")}</article><button type="button" class="native-row-menu" data-row-menu="${esc(exercise.id)}" aria-haspopup="menu" aria-label="${esc(label("more"))}: ${esc(name)}"><span class="icon-mask icon-mask--overflow" aria-hidden="true"></span></button></div>`;
     }
     function dayPanelHtml(day) {
       const days = labels(document), index = days.indexOf(day);
@@ -2422,7 +2422,7 @@
         (list.length ? `<ol class="review-sheet__alts">${list.map((id, index) => {
           const name = movementLabel(adapter, id), attrs = `data-id="${esc(exercise.id)}" data-exercise-id="${esc(id)}"`;
           return `<li data-role="alternate" data-context-row="${esc(exercise.id)}" data-context-exercise="${esc(exercise.id)}" data-exercise-id="${esc(id)}" tabindex="0"><span class="review__setn">${index + 1}</span><span class="review-sheet__alt-name" data-role="alternate-name">${esc(name)}</span>` +
-            `<button type="button" class="native-row-menu" data-row-menu="${esc(exercise.id)}" ${attrs} aria-haspopup="menu" aria-label="${esc(label("more"))}">⋯</button></li>`;
+            `<button type="button" class="native-row-menu" data-row-menu="${esc(exercise.id)}" ${attrs} aria-haspopup="menu" aria-label="${esc(label("more"))}"><span class="icon-mask icon-mask--overflow" aria-hidden="true"></span></button></li>`;
         }).join("")}</ol>` : "") +
         `<div class="review-sheet__links"><button type="button" class="text-link" data-role="add-alternate" data-id="${esc(exercise.id)}"${full ? " disabled" : ""}>${icon("plus")}${esc(label("addAlternate"))}</button></div></section>`;
     }

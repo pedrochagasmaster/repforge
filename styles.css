@@ -124,6 +124,10 @@
   --menu-bg:rgba(var(--bg-rgb),.86);
   --menu-destructive-ink:#9E2E22;
   --menu-blur:blur(20px) saturate(180%);
+  /* Behind a context menu the page stays itself, washed and blurred, rather than dimmed. */
+  --menu-backdrop:rgba(var(--bg-rgb),.25);
+  --menu-separator:rgba(var(--ink-rgb),.06);
+  --row-pressed-bg:rgba(var(--ink-rgb),.06);
   --control-toggle-thumb-shadow:0 3px 8px rgba(var(--shadow-rgb),.15),0 3px 1px rgba(var(--shadow-rgb),.06),0 0 0 .5px rgba(var(--shadow-rgb),.04);
   --control-accent-keyline-shadow:inset 0 0 0 1px var(--accent);
   --boundary-flat:var(--rule);
@@ -318,6 +322,8 @@
   --switch-off-track:rgba(255,255,255,.10);
   --segment-thumb-bg:#3A3630;
   --menu-destructive-ink:var(--color-destructive);
+  --menu-bg:rgba(36,33,29,.86);
+  --row-pressed-bg:rgba(255,255,255,.07);
   color-scheme:dark;
   --scheme:dark;
   --bg:#141310;
@@ -7641,6 +7647,10 @@ body.is-entry-editor #entryProgramName,
   width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);margin:0;padding:0;
   border:1px solid var(--control-quiet-boundary);border-radius:var(--radius-round);background:var(--control-quiet-bg);color:var(--control-quiet-ink);cursor:pointer;
 }
+/* The prototype's close: a 16px × in a filled 30px disc, inside the 44px target. */
+.sheetband__close{position:relative;isolation:isolate;color:var(--color-ink-secondary)}
+.sheetband__close::before{content:"";position:absolute;z-index:-1;width:30px;height:30px;border-radius:50%;background:var(--control-track)}
+.sheetband__close .icon-mask{width:16px;height:16px}
 @media (hover: hover) and (pointer: fine){
 .sheetband__close:hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
 }
@@ -8131,11 +8141,15 @@ body.is-entry-editor #entryProgramName,
 .native-stepper__buttons button+button{border-left:1px solid var(--boundary-decorative)}
 .native-stepper__buttons button.is-pressed{background:var(--well)}
 .native-stepper__buttons button:disabled{color:var(--color-disabled-reason);cursor:default;opacity:1}
-.today-rx__grid:has(.today-rx__row){grid-template-columns:1rem minmax(0,1fr) minmax(3.25rem,auto) minmax(4.25rem,auto) var(--control-target);column-gap:var(--space-8)}
-.today-rx__row{grid-column:1/-1;display:grid;grid-template-columns:subgrid;-webkit-touch-callout:none;user-select:none}
-.today-rx__row .rxrow{grid-column:1/5;display:grid;grid-template-columns:subgrid;column-gap:var(--space-8)}
+.today-rx__row{position:relative;grid-column:1/-1;display:grid;grid-template-columns:subgrid;-webkit-touch-callout:none;user-select:none}
+.today-rx__row .rxrow{grid-column:1/-1;display:grid;grid-template-columns:subgrid}
+/* As in the prototype, a Today row shows no ⋯: touch and hold, right click or Shift+F10 open its menu. The button
+   stays in the tab order for keyboard and screen-reader users and shows itself only while it has keyboard focus. */
+.today-rx__row .native-row-menu:not(:focus-visible){position:absolute;width:1px;height:1px;min-width:0;min-height:0;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.today-rx__row .native-row-menu:focus-visible{position:absolute;right:0;top:50%;translate:0 -50%;background:var(--surface)}
 .today-rx__row:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-.native-row-menu{border:0;background:transparent;color:var(--ink-soft);min-height:var(--control-target);min-width:var(--control-target);font-size:var(--control-icon-size);border-radius:var(--radius-control);align-self:center}
+.native-row-menu{display:inline-grid;place-items:center;border:0;background:transparent;color:var(--ink);min-height:var(--control-target);min-width:var(--control-target);border-radius:var(--radius-control);align-self:center}
+.native-row-menu .icon-mask{width:22px;height:22px}
 .native-row-menu.is-pressed{background:var(--well)}
 .native-editor-row{display:flex;align-items:stretch;-webkit-touch-callout:none;user-select:none}
 .native-editor-row .program-editor-a__row{flex:1;min-width:0}
@@ -8148,27 +8162,21 @@ body.is-entry-editor #entryProgramName,
 .sheet--actions #workoutActionCancel{border-radius:var(--radius-prominent);font-weight:var(--weight-semibold);box-shadow:var(--elevation-modal-shadow)}
 .sheet--actions button.is-pressed{background:var(--well)}
 .native-context{position:fixed;inset:0;width:100%;height:100%;max-width:none;max-height:none;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);margin:0;border:0;background:transparent;color:var(--ink);overflow:hidden}
-.native-context::backdrop{background:var(--scrim);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+.native-context::backdrop{background:var(--menu-backdrop);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
 .native-context__preview{position:fixed!important;display:flex;align-items:center;padding-inline:var(--space-12);pointer-events:none;background:var(--surface);border-radius:var(--radius-surface);box-shadow:var(--elevation-drag-shadow);transform:scale(1.03)}
 .native-context__preview.today-rx__row{display:grid;grid-template-columns:1rem minmax(0,1fr) auto auto;gap:var(--space-8)}
 .native-context__preview .native-row-menu{display:none}
 .native-context__preview .rxrow,.native-context__preview .program-editor-a__row{border-bottom:0}
-.native-context__menu{position:fixed;min-width:min(230px,calc(100vw - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px) - 24px));max-width:min(300px,calc(100vw - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px) - 24px));max-height:calc(var(--vvh,100dvh) - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 24px);overflow-y:auto;background:var(--menu-bg);-webkit-backdrop-filter:var(--menu-blur);backdrop-filter:var(--menu-blur);border:1px solid var(--boundary-required);border-radius:var(--radius-surface);box-shadow:var(--elevation-popover-shadow)}
-.native-context__menu button{display:block;width:100%;min-height:var(--control-target);padding:var(--space-12) var(--space-16);text-align:left;border:0;background:transparent;color:var(--ink);font-size:var(--font-size-control);line-height:var(--line-standard)}
-.native-context__menu button+button{border-top:1px solid var(--boundary-decorative)}
+.native-context__menu{position:fixed;min-width:min(230px,calc(100vw - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px) - 24px));max-width:min(300px,calc(100vw - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px) - 24px));max-height:calc(var(--vvh,100dvh) - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 24px);overflow-y:auto;background:var(--menu-bg);-webkit-backdrop-filter:var(--menu-blur);backdrop-filter:var(--menu-blur);border:0;border-radius:var(--radius-surface);box-shadow:var(--elevation-popover-shadow),0 0 0 .5px var(--bar-edge)}
+.native-context__menu button{display:flex;align-items:center;justify-content:space-between;gap:var(--space-16);width:100%;min-height:var(--control-target);padding:10px var(--space-16);text-align:left;border:0;background:transparent;color:var(--ink);font-size:var(--font-size-body);line-height:var(--line-standard)}
+.native-context__menu button+button{border-top:.5px solid var(--rule)}
 /* The destructive choice sits apart, as iOS separates it in a context menu. */
-.native-context__menu button:not(.is-destructive)+button.is-destructive{border-top:var(--space-8) solid var(--boundary-decorative)}
-.native-context__menu button.is-pressed{background:var(--well)}
+.native-context__menu button:not(.is-destructive)+button.is-destructive{border-top:var(--space-8) solid var(--menu-separator)}
+.native-context__menu button.is-pressed{background:var(--row-pressed-bg)}
+.native-context__icon{flex:none;width:20px;height:20px}
 .native-context__menu button:disabled{color:var(--color-disabled-reason);opacity:1}
 .native-context button.is-destructive{color:var(--menu-destructive-ink)}
 .sheet--actions button.is-destructive{color:var(--color-destructive)}
 @media(prefers-reduced-motion:reduce){.native-context__preview{transform:none}}
 @media(prefers-reduced-transparency:reduce){.native-context__menu{background:var(--surface);backdrop-filter:none;-webkit-backdrop-filter:none}.native-context::backdrop{backdrop-filter:none;-webkit-backdrop-filter:none}}
 
-@container (max-width:18rem){
-  .today-rx__grid:has(.today-rx__row){grid-template-columns:1rem minmax(0,1fr) auto var(--control-target)}
-  .today-rx__row .rxrow{grid-column:1/4}
-  .today-rx__row .rxrow .rxrow__name{grid-column:2/-1}
-  .today-rx__row .rxrow .rxrow__load{grid-column:2;text-align:left}
-  .today-rx__row .rxrow .rxrow__target{grid-column:3;white-space:normal}
-}
