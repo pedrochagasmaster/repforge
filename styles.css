@@ -116,6 +116,11 @@
   /* The wheel picker's selection band: ink at 7%, as the prototype draws it, in either theme. */
   --wheel-band:rgba(var(--ink-rgb),.07);
   --switch-off-ring:inset 0 0 0 1.5px var(--boundary-required);
+  /* Segmented and stepper tracks: a soft ink tint, as iOS draws them. The thumb is a raised paper surface whose own
+     hairline carries the selection boundary. */
+  --control-track:rgba(var(--ink-rgb),.07);
+  --segment-thumb-bg:var(--surface);
+  --segment-thumb-shadow:inset 0 0 0 1px var(--boundary-required),0 3px 8px rgba(var(--shadow-rgb),.12),0 1px 1px rgba(var(--shadow-rgb),.04);
   --menu-bg:rgba(var(--bg-rgb),.86);
   --menu-destructive-ink:#9E2E22;
   --menu-blur:blur(20px) saturate(180%);
@@ -311,6 +316,7 @@
    because its job is emphasis, and emphasis on dark means more light). */
 :root[data-theme="dark"]{
   --switch-off-track:rgba(255,255,255,.10);
+  --segment-thumb-bg:#3A3630;
   --menu-destructive-ink:var(--color-destructive);
   color-scheme:dark;
   --scheme:dark;
@@ -8101,8 +8107,8 @@ body.is-entry-editor #entryProgramName,
 @media (prefers-reduced-motion: reduce){.entry-building.is-running .entry-building__bar i{transition:none}}
 
 /* ADR 0023 controls share the existing selection, adjustment and floating roles. */
-.native-segments{position:relative;display:inline-grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);max-width:100%;isolation:isolate;min-height:var(--control-target);padding:2px;border-radius:var(--radius-control);background:var(--control-selection-bg);border:1px solid var(--boundary-required);touch-action:pan-y}
-.native-segments__thumb{position:absolute;top:2px;bottom:2px;left:2px;z-index:-1;background:var(--surface);border-radius:var(--radius-control);box-shadow:var(--elevation-selected-quiet-shadow);pointer-events:none}
+.native-segments{position:relative;display:inline-grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);max-width:100%;isolation:isolate;min-height:var(--control-target);padding:2px;border-radius:var(--radius-control);background:var(--control-track);border:1px solid var(--boundary-required);touch-action:pan-y}
+.native-segments__thumb{position:absolute;top:2px;bottom:2px;left:2px;z-index:-1;background:var(--segment-thumb-bg);border-radius:var(--radius-control);box-shadow:var(--segment-thumb-shadow);pointer-events:none}
 .native-segments button{border:0;background:transparent;color:var(--ink);min-width:var(--control-target);padding:var(--space-8) var(--space-4);font-size:var(--font-size-body-small);border-radius:var(--radius-control)}
 .native-segments button[aria-checked="true"]{font-weight:var(--weight-semibold)}
 .native-segments button.is-pressed{background:var(--well)}
@@ -8110,7 +8116,17 @@ body.is-entry-editor #entryProgramName,
 .settings-row--segments{flex-wrap:wrap;gap:var(--space-8)}
 .native-stepper{display:flex;align-items:center;gap:var(--space-12);flex-wrap:wrap}
 .native-stepper .field,.native-stepper .program-editor__metric-field{flex:1;min-width:0;margin:0}
-.native-stepper__buttons{display:inline-flex;flex:none;border-radius:var(--radius-control);background:var(--control-selection-bg);border:1px solid var(--boundary-required);overflow:hidden}
+/* A Settings stepper row: label, the formatted value (it opens the typed field below), then − +. */
+.native-stepper--row{display:block}
+.settings-row--stepper{flex-wrap:wrap}
+.native-stepper__value{flex:none;margin-left:auto;min-height:var(--control-target);padding:0 var(--space-4);border:0;border-radius:var(--radius-control);background:transparent;color:var(--color-ink-secondary);font-family:var(--font-training-data);font-feature-settings:"tnum";font-size:var(--font-size-body);cursor:pointer}
+.native-stepper__value.is-pressed{background:var(--well)}
+.native-stepper__unit{font-family:var(--font-language)}
+/* Inside a disclosure panel the panel already holds the settings inset. */
+.settings-panel .settings-row--stepper{padding-inline:0}
+.settings-panel .settings-row--stepper::before{left:0}
+.native-stepper__value:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.native-stepper__buttons{display:inline-flex;flex:none;border-radius:var(--radius-control);background:var(--control-track);border:1px solid var(--boundary-required);overflow:hidden}
 .native-stepper__buttons button{min-width:var(--control-target);min-height:var(--control-target);padding:var(--space-8);background:transparent;border:0;color:var(--ink);font-size:var(--control-icon-size);touch-action:none;user-select:none}
 .native-stepper__buttons button+button{border-left:1px solid var(--boundary-decorative)}
 .native-stepper__buttons button.is-pressed{background:var(--well)}

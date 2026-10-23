@@ -4713,6 +4713,28 @@
       ]
     },
     {
+      "id": "minjumprow",
+      "selector": "#minJumpRow",
+      "roles": {
+        "control": "disclosure"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "expanded"
+      ],
+      "rationale": "Shows the smallest load change and opens its typed field; the stepper beside it changes the same value.",
+      "owner": "plan-075-phase-4",
+      "catalogStates": [
+        "settings/load-controls"
+      ]
+    },
+    {
       "id": "restsheet",
       "selector": "#restSheet",
       "roles": {

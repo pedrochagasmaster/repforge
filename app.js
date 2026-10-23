@@ -13389,6 +13389,7 @@ function renderSettings(){
   const ia=$("#installApp");if(ia)ia.classList.toggle("hidden",!manualInstall.eligible&&installMode()!=="safari");
   const sec=normalizeRestSec(state.settings.restSec),disp=$("#restSecDisplay");
   if(disp)disp.textContent=sec?fmtClock(sec):t("settings.rest_off");
+  const jumpDisp=$("#minJumpDisplay");if(jumpDisp)jumpDisp.textContent=fmt(+state.settings.minJump||DEFAULTS.minJump);
   const rirDisp=$("#rirModeDisplay");if(rirDisp)rirDisp.textContent=state.settings.rirMode==="effort"?t("settings.rir_effort"):t("settings.rir_numbers");
   const le=state.settings.lastExport,ago=le?t("settings.storage.last_backup",{lastBackup:le.slice(0,10)}):t("settings.storage.last_backup_never");
   paintStorageNote(ago);
@@ -22028,6 +22029,7 @@ function init(){
   const histSearchClear=$("#historySearchClear");if(histSearchClear)histSearchClear.onclick=()=>HistoryUi.clearSearch();
   const histExport=$("#historyExportBtn");if(histExport)histExport.onclick=exportCsv;
   const restRow=$("#restSecRow");if(restRow)restRow.onclick=()=>setDisclosure(restRow,$("#restSecPanel"),!$("#restSecPanel")?.classList.contains("is-open"));
+  const jumpRow=$("#minJumpRow");if(jumpRow)jumpRow.onclick=()=>setDisclosure(jumpRow,$("#minJumpPanel"),!$("#minJumpPanel")?.classList.contains("is-open"));
   const rirRow=$("#rirModeRow");if(rirRow)rirRow.onclick=()=>setDisclosure(rirRow,$("#rirModePanel"),!$("#rirModePanel")?.classList.contains("is-open"));
   const progRow=$("#progressionRow");if(progRow)progRow.onclick=()=>setDisclosure(progRow,$("#progressionDetails"),!$("#progressionDetails")?.classList.contains("is-open"));
   const notifyCfg=$("#notifyConfigRow");if(notifyCfg)notifyCfg.onclick=()=>setDisclosure(notifyCfg,$("#notifyTypes"),!$("#notifyTypes")?.classList.contains("is-open"));
@@ -22039,7 +22041,7 @@ function init(){
   const profileRow=$("#profileRow");if(profileRow)profileRow.onclick=()=>setDisclosure(profileRow,$("#profilePanel"),!$("#profilePanel")?.classList.contains("is-open"));
   const profileClear=$("#profileClear");if(profileClear)profileClear.onclick=()=>clearProfile();
   const dataImport=$("#dataImportRow");if(dataImport)dataImport.onclick=()=>setDisclosure(dataImport,$("#dataImportPanel"),!$("#dataImportPanel")?.classList.contains("is-open"));
-  [["#restSecRow","#restSecPanel"],["#rirModeRow","#rirModePanel"],["#progressionRow","#progressionDetails"],["#notifyConfigRow","#notifyTypes"],["#dataBackupRow","#dataBackupPanel"],["#profileRow","#profilePanel"],["#dataImportRow","#dataImportPanel"]].forEach(([b,p])=>setDisclosure($(b),$(p),false));
+  [["#restSecRow","#restSecPanel"],["#minJumpRow","#minJumpPanel"],["#rirModeRow","#rirModePanel"],["#progressionRow","#progressionDetails"],["#notifyConfigRow","#notifyTypes"],["#dataBackupRow","#dataBackupPanel"],["#profileRow","#profilePanel"],["#dataImportRow","#dataImportPanel"]].forEach(([b,p])=>setDisclosure($(b),$(p),false));
   setDisclosure($("#guideReplayToggle"),$("#guideReplayPanel"),false);
   const commitChangedSettings=()=>{settingsEditRevision++;return commitSettings(true)};
   $("#settings").addEventListener("input",()=>{settingsEditRevision++});

@@ -431,6 +431,36 @@ async function nativeControls(browser) {
     assert(await page.locator('#unitSegments [data-value="lb"]').getAttribute('aria-checked') === 'true', "Units persists and restores its selected segment");
     assert(await page.locator('#themeSegments [data-value="dark"]').getAttribute('aria-checked') === 'true', "Appearance restores from device UI preferences");
   }
+  phase("Taste round 2: the segmented thumb is a raised paper thumb on a soft track");
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate(value => { document.documentElement.dataset.theme = value; }, theme);
+    const look = await page.locator('#themeSegments').evaluate(group => {
+      const thumb = group.querySelector('.native-segments__thumb'), shadow = getComputedStyle(thumb).boxShadow;
+      const insets = shadow.split(/,(?![^()]*\))/).filter(part => /inset/.test(part)).map(part => Math.max(...(part.match(/[\d.]+px/g) || ['0px']).map(parseFloat)));
+      const surface = getComputedStyle(document.body).backgroundColor, track = getComputedStyle(group).backgroundColor;
+      return { insets, drop: shadow.split(/,(?![^()]*\))/).some(part => !/inset/.test(part) && /px/.test(part)), track, surface,
+        thumbFill: getComputedStyle(thumb).backgroundColor, trackAlpha: Number((track.match(/rgba\([^)]*,\s*([\d.]+)\)/) || [0, 1])[1]) };
+    });
+    assert(look.insets.length === 1 && look.insets[0] <= 1.5 && look.drop, `${theme}: the thumb carries a hairline edge and a soft drop shadow, not a 2px ring`, JSON.stringify(look));
+    assert(look.trackAlpha > 0 && look.trackAlpha < 0.15 && look.thumbFill !== look.track, `${theme}: the track is a soft ink tint under an opaque thumb`, JSON.stringify(look));
+  }
+  await page.evaluate(() => { document.documentElement.dataset.theme = "light"; });
+  phase("Taste round 2: Rest timer reads as a row with its formatted value and a compact stepper");
+  await page.locator('#restSecRow').scrollIntoViewIfNeeded();
+  const restRow = await page.evaluate(() => {
+    const value = document.querySelector('#restSecRow'), buttons = document.querySelectorAll('[data-step-input="restSec"]');
+    const row = value.closest('.settings-row'), panel = document.querySelector('#restSecPanel');
+    const top = el => Math.round(el.getBoundingClientRect().top + el.getBoundingClientRect().height / 2);
+    return { sameRow: !!row && [...buttons].every(button => row.contains(button) && Math.abs(top(button) - top(value)) <= 4),
+      collapsed: !panel.classList.contains('is-open'), display: document.querySelector('#restSecDisplay').textContent.trim(),
+      heights: [...buttons].map(button => Math.round(button.getBoundingClientRect().height)),
+      visible: [...buttons].every(button => button.getBoundingClientRect().height > 0) };
+  });
+  assert(restRow.sameRow && restRow.collapsed && restRow.visible && restRow.display === '2:00' && restRow.heights.every(h => h >= 44),
+    'Rest timer shows 2:00 and its 44px − + in one row, with the typed field still folded away', JSON.stringify(restRow));
+  await page.locator('[data-step-input="restSec"][data-step-delta="-1"]').click();
+  const stepped = await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec === 105 && document.querySelector('#restSecDisplay').textContent.trim() === '1:45', undefined, { timeout: 4000 }).then(() => true, () => false);
+  assert(stepped, 'a step from the row commits and shows the formatted value', await page.locator('#restSecDisplay').textContent());
   phase("Phase 4: a stepper repeats while held and stops at its limit");
   await page.click('#restSecRow');
   await page.waitForFunction(() => {
@@ -470,6 +500,17 @@ async function nativeControls(browser) {
     assert(await page.locator('#restSec').inputValue() === '15', 'the keyboard can still step after a held repeat');
   }
   await page.click('#progressionRow');
+  const loadRow = await page.evaluate(() => {
+    const value = document.querySelector('#minJumpRow'), row = value?.closest('.settings-row');
+    const buttons = [...document.querySelectorAll('[data-step-input="minJump"]')];
+    return { row: !!row, label: row?.querySelector('.settings-row__label')?.textContent.trim(), name: window.RepForgeI18n.t('program.editor.load_step'),
+      display: document.querySelector('#minJumpRow')?.textContent.replace(/\s+/g, ' ').trim(), buttonsInRow: buttons.length === 2 && buttons.every(button => row?.contains(button) && button.getBoundingClientRect().height >= 44),
+      folded: !document.querySelector('#minJumpPanel')?.classList.contains('is-open') };
+  });
+  assert(loadRow.row && loadRow.label === loadRow.name && loadRow.display === '2.5 kg' && loadRow.buttonsInRow && loadRow.folded,
+    'Smallest load change reads as one row: its label, "2.5 kg" and a 44px − +, with the typed field folded away', JSON.stringify(loadRow));
+  await page.click('#minJumpRow');
+  await page.waitForFunction(() => document.querySelector('#minJumpPanel').classList.contains('is-open') && document.querySelector('#minJumpRow').getAttribute('aria-expanded') === 'true');
   await page.locator('#minJump').fill('12'); await page.locator('#minJump').dispatchEvent('change');
   await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.minJump === 12);
   await page.locator('[data-step-input="minJump"][data-step-delta="-1"]').click();

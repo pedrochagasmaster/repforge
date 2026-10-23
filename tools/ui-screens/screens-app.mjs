@@ -2549,7 +2549,7 @@ export const APP_SCENARIOS = {
   },
   "settings/load-controls": async page => {
     await openSettings(page); await page.click('#progressionRow');
-    await page.locator('#minJump').scrollIntoViewIfNeeded();
+    await page.locator('#minJumpRow').scrollIntoViewIfNeeded();
   },
   "settings/main": (page) => openSettings(page),
   "settings/appearance": (page) => openSettings(page, "#themeSegments"),
