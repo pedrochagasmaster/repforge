@@ -975,6 +975,57 @@ async function wheelPicker(browser) {
     await context.close();
   }
 
+  phase("The wheel scrolls on one axis and always rests on a value");
+  {
+    // Owner, iPhone (2026-10-23): a drag carried the column sideways off the band, and it came to rest between values.
+    const { context, page } = await openCatalogState(browser, "workout/wheel-load", 390, "en", "normal");
+    const cdp = await context.newCDPSession(page);
+    const touch = (type, points = []) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points });
+    const axis = () => page.evaluate(() => {
+      const col = document.querySelector("#wheelCol"), band = document.querySelector(".wheel__band").getBoundingClientRect();
+      const mid = col.getBoundingClientRect().top + col.clientHeight / 2;
+      const items = [...col.querySelectorAll(".wheel__item")];
+      const centre = items.reduce((a, b) => Math.abs(b.getBoundingClientRect().top + b.offsetHeight / 2 - mid) < Math.abs(a.getBoundingClientRect().top + a.offsetHeight / 2 - mid) ? b : a);
+      const r = centre.getBoundingClientRect();
+      const style = getComputedStyle(col);
+      return { scrollLeft: col.scrollLeft, overflowX: style.overflowX, touchAction: style.touchAction,
+        offCentre: Math.abs((r.left + r.width / 2) - (band.left + band.width / 2)) };
+    });
+    const box = await page.locator("#wheelCol").boundingBox();
+    const x = Math.round(box.x + box.width / 2), y = Math.round(box.y + box.height / 2);
+    // A diagonal drag, mostly sideways: each move waits for its frame before the next.
+    await touch("touchStart", [{ x, y }]);
+    for (let i = 1; i <= 6; i++) {
+      await touch("touchMove", [{ x: x - 30 * i, y: y - 6 * i }]);
+      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve())));
+    }
+    await touch("touchEnd");
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    const drift = await axis();
+    // The tilted rows still overflow a few pixels sideways (scrollWidth counts them); the axis lock is what keeps a
+    // finger from reaching that overflow.
+    assert(drift.overflowX === "hidden" && drift.touchAction === "pan-y" && drift.scrollLeft === 0,
+      "the column pans only vertically, so a diagonal drag leaves it at x 0",
+      JSON.stringify(drift));
+    assert(drift.offCentre <= 1, "the value stays centred on the band", JSON.stringify(drift));
+
+    // As iOS can leave it after momentum: still, between two values. Snap is lifted so the browser can't do it for us.
+    await page.evaluate(() => {
+      const col = document.querySelector("#wheelCol");
+      col.style.scrollSnapType = "none";
+      col.scrollTop = Math.round(col.scrollTop / 44) * 44 + 17;
+    });
+    const rested = await page.waitForFunction(() => {
+      const col = document.querySelector("#wheelCol");
+      return Math.abs(col.scrollTop / 44 - Math.round(col.scrollTop / 44)) < 0.02 ? col.scrollTop : null;
+    }, undefined, { timeout: 3000 }).then((h) => h.jsonValue(), () => null);
+    assert(rested != null, "once still, the column comes to rest exactly on a value");
+    const now = await page.evaluate(() => Number(document.querySelector("#wheelCol").getAttribute("aria-valuenow")));
+    const shown = await page.evaluate((top) => Number(document.querySelectorAll("#wheelCol .wheel__item")[Math.round(top / 44)].dataset.wheelV), rested ?? 0);
+    assert(now === shown, "and the value it reports is the one on the band", JSON.stringify({ now, shown, rested }));
+    await context.close();
+  }
+
   phase("Under reduced motion the wheel has no tilt, and positioning is instant");
   {
     const { context, page } = await todayPage(browser, { reducedMotion: "reduce" });

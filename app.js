@@ -8646,6 +8646,9 @@ function wheelOnScroll(){
   if(wheelSettleTimer)clearTimeout(wheelSettleTimer);
   wheelSettleTimer=setTimeout(()=>{
     const idx=wheelNearestIndexFromScroll(col);
+    // iOS can let momentum come to rest between snap points; once the column is still, place it on the value it
+    // shows. The scroll this starts settles again on the same value.
+    if(Math.abs(col.scrollTop-idx*WHEEL_ITEM_H)>0.5)wheelScrollTo(idx);
     wheelSyncAria(idx);
     // Placing the wheel on its opening value is not a choice: only a move off it writes (Done applies it either way).
     if(wheelUi&&wheelUi.lastCommitted==null&&idx===wheelUi.openedIndex)return;
