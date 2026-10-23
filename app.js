@@ -9956,12 +9956,18 @@ function strengthKindText(series){
   if(series.presentation==="empty"||!STRENGTH_KIND_KEYS[series.presentation])return t("stats.evidence.empty");
   const n=series.evidenceCount;
   return t(n===1?"stats.overview.evidence.one":"stats.overview.evidence.other",{kind:t(STRENGTH_KIND_KEYS[series.presentation]),n})}
-/** `a→b kg`: the scope's first and latest top load, both the model's points. */
+/** `a→b kg`: the scope's first and latest top load, both the model's points. A per-side load says so beneath it
+ *  (perSideQualifier), never inside the figure. */
 function strengthFigure(series){
   const pts=series.points;if(!pts.length)return"—";
   const last=fmtLoad(pts.at(-1).value);
-  const cue=series.perSideLoad?` · ${t("focus.metric.load_per_side_kg")}`:"";
-  return`${pts.length>1?`${fmtLoad(pts[0].value)}→${last} `:`${last} `}${unitLabel()}${cue}`}
+  return`${pts.length>1?`${fmtLoad(pts[0].value)}→${last} `:`${last} `}${unitLabel()}`}
+/** The quiet "per side" under a load or set figure, as the shelf groups it (owner, 2026-10-23): words in the
+ *  language face on their own line, so a per-side value is as narrow as any other and its column never widens. */
+const perSideQualifier=(on,text=t("focus.per_side"))=>on?`<span class="per-side">${esc(text)}</span>`:"";
+/** A set cell's qualifier: a bare "per side" only when it can't be misread; load or reps alone names which. */
+const perSideSetQualifier=(load,reps)=>perSideQualifier(load||reps,
+  load&&reps?t("focus.per_side"):load?t("focus.metric.load_per_side_kg"):t("focus.metric.reps_per_side"));
 function strengthSessionRows(key,sessionId,comparisonConvention="load"){
   return strengthEvidenceRows().filter(row=>row.exerciseId===key&&String(row.session??row.date)===String(sessionId)&&
     row.strengthComparable!==false&&(row.strengthConvention||"load")===comparisonConvention)}
@@ -10021,7 +10027,7 @@ function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;
     const latest=projection.sessions.filter(x=>x.liftKey===k).at(-1),word=strengthOutcomeWord(k,series,latest),change=strengthChangeText(series);
     return `<button type="button" class="evrow evrow--d" data-evkey="${esc(k)}" aria-expanded="false">`+
       `<b class="evrow__name">${esc(liftDisplayName(nameOf(k),k))}</b>`+
-      `<span class="evrow__fig"><span class="evrow__val">${esc(strengthFigure(series))}</span><span class="chevron is-down" aria-hidden="true"></span></span>`+
+      `<span class="evrow__fig"><span class="evrow__val">${esc(strengthFigure(series))}${perSideQualifier(series.perSideLoad)}</span><span class="chevron is-down" aria-hidden="true"></span></span>`+
       `<span class="evrow__out${word.soft?" is-soft":""}">${word.html}${change?esc(` · ${change}`):""}</span>`+
       `<span class="evrow__kind">${esc(strengthKindText(series))}</span>`+
       `<span class="evrow__spark">${sparklineSvg(series.points.map(point=>point.value))}</span></button>${panel}`}).join("");
@@ -10079,7 +10085,7 @@ function renderOverviewStrength(){const el=$("#overviewStrength");if(!el)return;
       const series=projection.series.get(k),latest=projection.sessions.filter(x=>x.liftKey===k).at(-1),word=strengthOutcomeWord(k,series,latest);
       const body=`<span class="strrow__main"><b class="strrow__name">${esc(liftDisplayName(nameOf(k),k))}</b>`+
         `<span class="strrow__sub${word.soft?" is-soft":""}">${word.html}${latest?esc(` · ${shortDate(latest.date)}`):""}</span></span>`+
-        `${sparklineSvg(series.points.map(point=>point.value))}<span class="strrow__fig">${esc(strengthFigure(series))}</span>`;
+        `${sparklineSvg(series.points.map(point=>point.value))}<span class="strrow__fig">${esc(strengthFigure(series))}${perSideQualifier(series.perSideLoad)}</span>`;
       return series.evidenceCount>1
         ?`<button type="button" class="strrow" data-ovkey="${esc(k)}">${body}</button>`
         :`<div class="strrow strrow--snap" data-ovkey="${esc(k)}">${body}</div>`}).join("");
@@ -11343,11 +11349,10 @@ function chartReadout(model){
 function chartRowHtml(model,i){
   const p=model.pts[i],prev=model.pts[i-1],v=model.value(p),pv=prev?model.value(prev):null;
   const delta=pv==null?"–":Math.abs(v-pv)<.05?"0":`${v>pv?"+":"−"}${chartNum(Math.abs(v-pv),model.metric)}`;
-  const loadCue=model.pts.every(point=>point.perSideLoad)?` · ${t("focus.metric.load_per_side_kg")}`:"",
-    repsCue=model.pts.every(point=>point.perSideReps)?` · ${t("focus.metric.reps_per_side")}`:"";
+  const perSideLoad=model.pts.every(point=>point.perSideLoad),perSideReps=model.pts.every(point=>point.perSideReps);
   return `<button type="button" class="exrow${i===model.sel?" is-sel":""}${p.block?"":" is-old"}" data-pt="${i}" aria-pressed="${i===model.sel}">`+
-    `<span>${esc(shortDate(p.date))}</span><span class="exchart__mono">${esc(fmtLoad(p.top))} × ${esc(p.reps)}${esc(loadCue+repsCue)}</span>`+
-    `<span class="exchart__mono">${esc(fmt(Math.round(toDisplay(p.e1rm)*10)/10))}${esc(loadCue)}</span><span class="exchart__mono exchart__soft">${esc(delta)}</span></button>`}
+    `<span>${esc(shortDate(p.date))}</span><span class="exchart__mono">${esc(fmtLoad(p.top))} × ${esc(p.reps)}${perSideSetQualifier(perSideLoad,perSideReps)}</span>`+
+    `<span class="exchart__mono">${esc(fmt(Math.round(toDisplay(p.e1rm)*10)/10))}${perSideQualifier(perSideLoad)}</span><span class="exchart__mono exchart__soft">${esc(delta)}</span></button>`}
 function renderExerciseChart(el,key,sessions,tmpl){
   const latest=sessions.at(-1)?.rows.at(-1),name=latest?exerciseDisplayName(latest):((tmpl&&exerciseDisplayName(tmpl))||key);
   const model=chartModel(key),{metric,scope}=chartView;

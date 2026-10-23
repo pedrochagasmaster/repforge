@@ -2799,5 +2799,6 @@
   "settings.rest_shorter": "Descanso mais curto",
   "settings.rest_longer": "Descanso mais longo",
   "program.editor.step_smaller": "Passo menor",
-  "program.editor.step_larger": "Passo maior"
+  "program.editor.step_larger": "Passo maior",
+  "focus.per_side": "por lado"
 }

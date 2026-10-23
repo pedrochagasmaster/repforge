@@ -1540,6 +1540,40 @@ const waitTitleOpacity = (page, barSel, want) => page.waitForFunction(
  * Owner, iPhone (2026-10-23): the Program editor's page sheet keeps the page's gutters, the Program page under it
  * stays laid out as it is while the sheet is dragged, and a root page's trailing action is a button in its bar.
  */
+/**
+ * A per-side value never widens a page (owner, iPhone, 2026-10-23): with a per-side lift logged in the block, no page
+ * has a sideways scroll range at 375 or 390px, in English or Portuguese, at 100% or 200% text; a per-side figure stays
+ * inside its row and says "per side" on its own quiet line, which is part of the row's accessible name.
+ */
+async function perSideOverflow(browser) {
+  phase("A per-side value never widens the page");
+  const PRESS = "library:1a05c6f170d8803ba48ec1443eab5978";
+  for (const width of [375, 390]) for (const lang of ["en", "pt"]) for (const text of ["normal", "text200"]) {
+    const label = `${width} ${lang} ${text}`;
+    const { context, page } = await openCatalogState(browser, "progress/strength-comparison", width, lang, text, { height: width === 375 ? 812 : undefined });
+    const wide = () => page.evaluate(() => { const s = document.scrollingElement; return s.scrollWidth > s.clientWidth ? `${s.scrollWidth}>${s.clientWidth}` : ""; });
+    const overflowing = [];
+    const visit = async (name, go) => { await go(); await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))); const w = await wide(); if (w) overflowing.push(`${name} ${w}`); };
+    for (const seg of ["overview", "strength", "volume", "prs", "review"])
+      await visit(`progress/${seg}`, () => page.evaluate((s) => window.__repforgeStatsNav.setStatsSeg(s), seg));
+    // The per-side figures: inside their rows, and named with their qualifier.
+    await page.evaluate(() => window.__repforgeStatsNav.setStatsSeg("overview"));
+    const rows = await page.evaluate(() => [...document.querySelectorAll("#overviewStrength .strrow"), ...document.querySelectorAll("#strengthDash .evrow--d")]
+      .map((row) => { const fig = row.querySelector(".strrow__fig, .evrow__val"), r = row.getBoundingClientRect(), f = fig?.getBoundingClientRect();
+        return { text: row.textContent.replace(/\s+/g, " ").trim().slice(0, 60), inside: !f || f.right <= r.right + 0.5, perSide: !!row.querySelector(".per-side") }; }));
+    const qualified = await page.getByRole("button", { name: lang === "pt" ? /por lado/i : /per side/i }).count();
+    await visit("exercise view", async () => { await page.evaluate((key) => window.openExerciseView(key, "stats"), PRESS); await page.waitForSelector("#exercise.view.active"); });
+    await visit("history list", async () => { await page.click("#exBack"); await page.waitForFunction(() => !document.body.classList.contains("is-exercise")); await page.evaluate(() => document.querySelector('nav button[data-view="history"]').click()); await page.waitForSelector("#history.view.active"); });
+    await visit("history session", async () => { await page.locator('#sessions .hist-row[data-sess="per-side-history-latest"] .session__open').click(); await page.waitForSelector("#history.is-session-page"); });
+    await visit("today", async () => { await page.evaluate(() => document.querySelector('nav button[data-view="log"]').click()); await page.waitForSelector("#log.view.active"); });
+    await visit("program", async () => { await page.evaluate(() => document.querySelector('nav button[data-view="program"]').click()); await page.waitForSelector("#program.view.active"); });
+    assert(!overflowing.length, `${label}: no page scrolls sideways`, overflowing.join("; "));
+    assert(rows.length && rows.every((row) => row.inside), `${label}: every strength figure stays inside its row`, JSON.stringify(rows.filter((row) => !row.inside)));
+    assert(rows.some((row) => row.perSide) && qualified > 0, `${label}: a per-side figure carries its qualifier, in the row's accessible name`, JSON.stringify({ qualified, rows: rows.filter((row) => row.perSide) }));
+    await context.close();
+  }
+}
+
 async function editorSheetAndBar(browser) {
   phase("The editor sheet's content keeps the page gutters");
   {
@@ -1979,6 +2013,7 @@ try {
   await editorSheetTab(browser);
   await navigationBars(browser);
   await editorSheetAndBar(browser);
+  await perSideOverflow(browser);
 } finally {
   await browser.close();
 }

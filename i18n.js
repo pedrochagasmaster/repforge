@@ -2802,6 +2802,7 @@ const EN = {
   "settings.rest_longer": "Longer rest",
   "program.editor.step_smaller": "Smaller step",
   "program.editor.step_larger": "Larger step",
+  "focus.per_side": "per side",
 };
 const PT = {
   "catalog.unavailable.title": "Biblioteca de exercícios indisponível",
@@ -5605,6 +5606,7 @@ const PT = {
   "settings.rest_longer": "Descanso mais longo",
   "program.editor.step_smaller": "Passo menor",
   "program.editor.step_larger": "Passo maior",
+  "focus.per_side": "por lado",
 };
 (function (root) {
   const STRINGS = { en: EN, pt: PT };
