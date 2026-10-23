@@ -1214,9 +1214,43 @@ async function navigationBars(browser) {
     const scrolled = await barMaterial(page, "#logTopbar");
     assert(scrolled.titleOpacity === 1 && scrolled.backdropFilter !== "none" && scrolled.background === scrolled.glass,
       "the inline title and the bar's material appear together", JSON.stringify(scrolled));
+    assert(scrolled.backdropFilter === "blur(20px) saturate(1.8)", "the material is the kit's frosted glass: blur(20px) saturate(180%)", JSON.stringify(scrolled));
     await page.evaluate(() => window.scrollTo(0, 0));
     const reachedTop = await waitScrolled(page, "#logTopbar", false);
     assert(reachedTop, "scrolling back up clears both again");
+    await context.close();
+  }
+
+  phase("The bar's blur reaches the page beneath it in the catalog's settled Today");
+  {
+    // The catalog settles every animation with finish() before it shoots. A view entry animation held by its fill
+    // made the view a backdrop root, and the rows read crisply through 72% paper (owner review of #484's side-by-side).
+    const { context, page } = await openCatalogState(browser, "today/ready", 390, "en", "normal");
+    // The fidelity shot's offset: the prescription rows sit under the bar.
+    await page.evaluate(() => window.scrollTo(0, 420));
+    await waitScrolled(page, "#logTopbar", true);
+    await waitTitleOpacity(page, "#logTopbar", 1);
+    const box = await page.locator("#logTopbar .topbar__bg").boundingBox();
+    const shot = await page.screenshot({ clip: box });
+    // The sharpest step between neighbouring pixels in the bar's left part, clear of its own title: a row's text
+    // read through the paper is a step of about 50 levels; through the blur it is a smooth wash of 1 or 2.
+    const edge = await page.evaluate(async (b64) => {
+      const img = new Image();
+      img.src = `data:image/png;base64,${b64}`;
+      await img.decode();
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width; canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      const w = Math.round(img.width * 0.35), h = Math.round(img.height * 0.9), d = ctx.getImageData(0, 0, w, h).data;
+      let max = 0;
+      for (let y = 0; y < h; y++) for (let x = 1; x < w; x++) {
+        const q = (y * w + x) * 4, r = q - 4;
+        max = Math.max(max, Math.abs((d[q] + d[q + 1] + d[q + 2]) / 3 - (d[r] + d[r + 1] + d[r + 2]) / 3));
+      }
+      return max;
+    }, shot.toString("base64"));
+    assert(edge < 12, "nothing under the bar stays legible: its blur reaches the rows beneath it", String(edge));
     await context.close();
   }
 
