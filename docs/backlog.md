@@ -364,3 +364,5 @@ file size, is not an acceptable architecture rationale.
 
 Do not preserve an idea merely because an old audit mentioned it. Do not delete
 an accepted decision merely because implementation is inconvenient.
+
+<!-- ci-speed timing experiment: docs-only change (PR never merged) -->
