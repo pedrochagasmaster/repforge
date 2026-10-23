@@ -126,6 +126,7 @@
   --menu-blur:blur(20px) saturate(180%);
   /* Behind a context menu the page stays itself, washed and blurred, rather than dimmed. */
   --menu-backdrop:rgba(var(--bg-rgb),.25);
+  --menu-shadow:var(--elevation-popover-shadow),0 0 0 .5px var(--bar-edge);
   --menu-separator:rgba(var(--ink-rgb),.06);
   --row-pressed-bg:rgba(var(--ink-rgb),.06);
   --sheet-grabber:rgba(var(--ink-rgb),.22);
@@ -7655,7 +7656,7 @@ body.is-entry-editor #entryProgramName,
 /* The prototype's close: a 16px × in a filled 30px disc, inside the 44px target. */
 .sheetband__close{position:relative;isolation:isolate;color:var(--color-ink-secondary)}
 .sheetband__close::before{content:"";position:absolute;z-index:-1;width:30px;height:30px;border-radius:50%;background:var(--control-track)}
-.sheetband__close .icon-mask{width:16px;height:16px}
+.sheetband__close > [aria-hidden]{width:16px;height:16px}
 @media (hover: hover) and (pointer: fine){
 .sheetband__close:hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
 }
@@ -8183,7 +8184,7 @@ body.is-entry-editor #entryProgramName,
 .native-context__preview.today-rx__row{background:var(--bg);display:grid;grid-template-columns:1rem minmax(0,1fr) auto auto;gap:var(--space-8)}
 .native-context__preview .native-row-menu{display:none}
 .native-context__preview .rxrow,.native-context__preview .program-editor-a__row{border-bottom:0}
-.native-context__menu{position:fixed;min-width:min(230px,calc(100vw - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px) - 24px));max-width:min(300px,calc(100vw - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px) - 24px));max-height:calc(var(--vvh,100dvh) - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 24px);overflow-y:auto;background:var(--menu-bg);-webkit-backdrop-filter:var(--menu-blur);backdrop-filter:var(--menu-blur);border:0;border-radius:var(--radius-surface);box-shadow:var(--elevation-popover-shadow),0 0 0 .5px var(--bar-edge)}
+.native-context__menu{position:fixed;min-width:min(230px,calc(100vw - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px) - 24px));max-width:min(300px,calc(100vw - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px) - 24px));max-height:calc(var(--vvh,100dvh) - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 24px);overflow-y:auto;background:var(--menu-bg);-webkit-backdrop-filter:var(--menu-blur);backdrop-filter:var(--menu-blur);border:0;border-radius:var(--radius-surface);box-shadow:var(--menu-shadow)}
 .native-context__menu button{display:flex;align-items:center;justify-content:space-between;gap:var(--space-16);width:100%;min-height:var(--control-target);padding:10px var(--space-16);text-align:left;border:0;background:transparent;color:var(--ink);font-size:var(--font-size-body);line-height:var(--line-standard)}
 .native-context__menu button+button{border-top:.5px solid var(--rule)}
 /* The destructive choice sits apart, as iOS separates it in a context menu. */
