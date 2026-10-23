@@ -7045,11 +7045,14 @@ function trackSheetViewport(){
     // that reduction; panning a zoomed view must not move the app's dock.
     const scale=vv.scale||1,zoomed=Math.abs(scale-1)>.01;
     const height=Math.min(window.innerHeight,vv.height*scale),top=zoomed?0:vv.offsetTop;
-    const inset=Math.max(0,window.innerHeight-height-top);
+    const field=editing(),up=!!field&&window.innerHeight-height>1,was=root.dataset.keyboard==="up";
+    // A keyboard is only up while a field is being edited. iOS can report the shrunken viewport for a while after
+    // it goes, and every bottom sheet sits on --kb, so a stale band would float Session details up the screen.
+    // The visible band itself (--vvh, --vv-top) still follows the viewport, for dialogs that fit it.
+    const inset=up?Math.max(0,window.innerHeight-height-top):0;
     root.style.setProperty("--kb",`${Math.round(inset)}px`);
     root.style.setProperty("--vvh",`${Math.round(height)}px`);
     root.style.setProperty("--vv-top",`${Math.round(top)}px`);
-    const field=editing(),up=!!field&&window.innerHeight-height>1,was=root.dataset.keyboard==="up";
     if(up)root.dataset.keyboard="up";else delete root.dataset.keyboard;
     cancelAnimationFrame(settle);
     // Focus is pinned to the band while the keyboard is up, so the shelf and its field are already on it; whatever

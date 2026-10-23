@@ -736,6 +736,18 @@ async function nativeControls(browser) {
       return { border: parseFloat(style.borderTopWidth) === 0 || style.borderTopColor === 'rgba(0, 0, 0, 0)', fill: style.backgroundColor, icon: !!button.querySelector('.icon-mask, svg, [class*="chev"]') }; });
     assert(reorder.border && reorder.fill === 'rgba(0, 0, 0, 0)' && reorder.icon, 'the session map reorders with borderless icon buttons, as the kit draws them', JSON.stringify(reorder));
     await page.click('#sessionSheetClose'); await page.waitForSelector('#sessionSheet', { state: 'hidden' });
+    phase("Session details sits on the bottom edge after a typed entry, even when the viewport still reports the keyboard");
+    // iOS can report the shrunken visual viewport for a while after the keyboard goes; no field is being edited.
+    await page.evaluate(() => { document.activeElement?.blur?.();
+      Object.defineProperty(visualViewport, 'height', { configurable: true, get: () => innerHeight - 300 });
+      visualViewport.dispatchEvent(new Event('resize')); });
+    await page.click('#sessionSheetBtn'); await page.waitForSelector('#sessionSheet.is-open');
+    await page.waitForFunction(() => document.querySelector('#sessionSheet').getAnimations().every(animation => animation.playState !== 'running'));
+    const seat = await page.evaluate(() => ({ bottom: Math.round(document.querySelector('#sessionSheet').getBoundingClientRect().bottom), viewport: innerHeight,
+      kb: getComputedStyle(document.documentElement).getPropertyValue('--kb').trim() }));
+    await page.evaluate(() => { delete visualViewport.height; visualViewport.dispatchEvent(new Event('resize')); });
+    assert(seat.bottom === seat.viewport, "the sheet's bottom is the viewport's bottom: a stale keyboard band moves no sheet while nothing is being typed", JSON.stringify(seat));
+    await page.click('#sessionSheetClose'); await page.waitForSelector('#sessionSheet', { state: 'hidden' });
     await page.click('#woOverflowBtn'); await page.click('[data-workout-action="abandon"]');
     await page.click('#sessionAbandonConfirm');
     await page.waitForFunction(() => !localStorage.getItem('repforge_draft_v1'));
