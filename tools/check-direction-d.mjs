@@ -115,6 +115,8 @@ export const DIRECTION_D_STATES = [...D_STATE_KEYS, ...D_ADDED_STATE_KEYS].map((
 /** Plan 064 section 8.8 / Direction D spec section 7: the only uses of the accent. */
 export const ORANGE_CATEGORIES = Object.freeze([
   "verdict-glyph", "current-exercise-segment", "timer-drain-bar", "cta-arrow", "active-dock-icon",
+  // Owner-approved bar-actions mock (2026-10-23): a root page's text button in its navigation bar takes the accent.
+  "bar-text-button",
 ]);
 /**
  * [{ category, selector, pseudo?: "::before" | "::after" }]. Each R3 sub-slice adds the entries its
@@ -136,6 +138,8 @@ export const ORANGE_ALLOWLIST = [
   { category: "active-dock-icon", selector: "nav button.active .nav__icon" },
   { category: "active-dock-icon", selector: "nav button.active > [data-i18n]" },
   { category: "active-dock-icon", selector: "nav button.active" },
+  // The Program page's Edit, in its navigation bar's trailing slot (owner-approved bar-actions mock, 2026-10-23).
+  { category: "bar-text-button", selector: "#program.program-ledger:not(.sheet) #programEditToggle" },
 ];
 /** [{ id, selector }]. Empty on purpose: see GAPS. */
 export const OVERFLOW_EXCEPTIONS = [

@@ -175,6 +175,19 @@ async function drag(page, from, steps, { pause = 16, settleAt = 0 } = {}) {
   await page.mouse.up();
 }
 
+/**
+ * A surface that has finished opening: nothing in it is running or about to run, it is fully opaque, and it is
+ * drawn where and at the size it is laid out (an identity transform). Waiting only for "no running animation" let a
+ * proof read a menu or sheet before its open animation had started, mid-scale (4 native-feel flakes, 2026-10-23).
+ */
+const surfaceAtRest = (page, sel, { timeout = 5000 } = {}) => page.waitForFunction((s) => {
+  const el = document.querySelector(s);
+  if (!el || el.getAnimations({ subtree: true }).some((run) => run.pending || run.playState === "running")) return false;
+  const style = getComputedStyle(el), m = style.transform === "none" ? null : new DOMMatrixReadOnly(style.transform);
+  const r = el.getBoundingClientRect();
+  return Number(style.opacity) === 1 && (!m || m.isIdentity) && Math.abs(r.width - el.offsetWidth) < 0.5 && Math.abs(r.height - el.offsetHeight) < 0.5;
+}, sel, { timeout });
+
 const down = (to, n = 6) => Array.from({ length: n }, (_, i) => [0, Math.round((to * (i + 1)) / n)]);
 
 /** The sheet is at rest: no transition or inline placement left. */
@@ -319,7 +332,7 @@ async function dayPickerCommits(browser) {
   const exits = await page.evaluate(() => ({ confirm: !!document.querySelector("#dayPickConfirm"), cancel: !!document.querySelector("#dayPickCancel"),
     close: !!document.querySelector("#dayPickSheet [data-daypick-close]") }));
   assert(!exits.confirm && !exits.cancel && exits.close, "the picker's one exit is its ×", JSON.stringify(exits));
-  await page.waitForFunction(() => document.querySelector("#dayPickSheet").getAnimations({ subtree: true }).every(animation => animation.playState !== "running"));
+  await surfaceAtRest(page, "#dayPickSheet");
   const dayLook = await page.evaluate(() => [...document.querySelectorAll("#dayPickList .daypick__row")].map(row => ({ selected: row.classList.contains("is-selected"),
     check: Number(getComputedStyle(row.querySelector(".daypick__check")).opacity), rail: parseFloat(getComputedStyle(row).borderLeftWidth), fill: getComputedStyle(row).backgroundColor })));
   assert(dayLook.filter(row => row.selected).length === 1 && dayLook.every(row => row.check === (row.selected ? 1 : 0) && row.rail === 0)
@@ -562,7 +575,7 @@ async function nativeControls(browser) {
     assert(initialOpacity === '0', 'the context menu starts transparent before its first animation frame', initialOpacity);
     await page.waitForSelector('#nativeContextMenu:not([hidden])');
     phase("Fidelity: the Today menu matches the prototype's material, icons and wording");
-    await page.waitForFunction(() => document.querySelector('.native-context__menu').getAnimations().every(animation => animation.playState !== 'running'));
+    await surfaceAtRest(page, ".native-context__menu");
     const menuLook = await page.evaluate(() => {
       const panel = document.querySelector('.native-context__menu'), style = getComputedStyle(panel), dialog = document.querySelector('#nativeContextMenu');
       const items = [...panel.querySelectorAll('[role="menuitem"]')].map(item => ({ value: item.dataset.menuValue, label: item.textContent.trim(),
@@ -576,10 +589,7 @@ async function nativeControls(browser) {
       "each Today action carries the prototype's trailing icon", JSON.stringify(menuLook.items));
     assert(menuLook.items[1].label === menuLook.swap && menuLook.items.every(item => item.target >= 44 && item.height >= 40 && item.height <= 48), 'Swap exercise uses the prototype wording, in 44px rows', JSON.stringify(menuLook.items));
     assert(menuLook.alpha > 0 && menuLook.alpha <= 0.3, 'the page behind stays light: a 25% paper wash under the blur, not a dark scrim', menuLook.backdrop);
-    await page.waitForFunction(() => {
-      const panel = document.querySelector('.native-context__menu');
-      return getComputedStyle(panel).opacity === '1' && panel.getAnimations().every(animation => animation.playState !== 'running');
-    });
+    await surfaceAtRest(page, ".native-context__menu");
     await page.evaluate(() => {
       const probe = document.createElement('h2'); probe.id = 'nativeContextClipProbe'; probe.textContent = 'Menu probe';
       probe.style.cssText = 'position:fixed;left:20px;top:20px;width:1px;white-space:nowrap;overflow:hidden';
@@ -742,7 +752,7 @@ async function nativeControls(browser) {
       Object.defineProperty(visualViewport, 'height', { configurable: true, get: () => innerHeight - 300 });
       visualViewport.dispatchEvent(new Event('resize')); });
     await page.click('#sessionSheetBtn'); await page.waitForSelector('#sessionSheet.is-open');
-    await page.waitForFunction(() => document.querySelector('#sessionSheet').getAnimations().every(animation => animation.playState !== 'running'));
+    await surfaceAtRest(page, "#sessionSheet");
     const seat = await page.evaluate(() => ({ bottom: Math.round(document.querySelector('#sessionSheet').getBoundingClientRect().bottom), viewport: innerHeight,
       kb: getComputedStyle(document.documentElement).getPropertyValue('--kb').trim() }));
     await page.evaluate(() => { delete visualViewport.height; visualViewport.dispatchEvent(new Event('resize')); });
@@ -877,6 +887,9 @@ async function controlsWithoutMotionLayer(browser) {
   phase("Phase 4: a missing motion layer retains native Settings fields");
   const { context, page } = await todayPage(browser, { layer: false });
   await page.click('#openSettings');
+  // isVisible() reads the page as it is, without waiting: read it once Settings has opened and settled.
+  await page.waitForSelector('#settings.view.active');
+  await surfaceAtRest(page, '#settings');
   const nativeTheme = page.locator('#theme');
   const visible = await nativeTheme.isVisible();
   assert(visible, "Appearance retains a native select if its enhanced control cannot mount");
@@ -985,7 +998,7 @@ async function wheelPicker(browser) {
 
   phase("Choosing a value on the wheel writes it through the field's own input, survives a reload and logs it");
   {
-    const { context, page, touch } = await todayPage(browser);
+    const { context, page } = await todayPage(browser);
     await enterSeededFocus(page);
     const step = await loadStep(page);
     await pokeLoad(page, 1);
@@ -1011,23 +1024,17 @@ async function wheelPicker(browser) {
     const liveAfterKeys = await fieldFace(page, WHEEL_LOAD_SEL);
     // The shelf underneath is untouched while the sheet is open; it reads the committed value once the sheet closes.
 
-    // A real touch drag on the wheel column. Momentum, not a fixed distance, decides
-    // where it lands, so the proof is that whatever it settles on is exactly what gets
-    // written — not a precomputed item count.
+    // A real scroll of the wheel column. Where it lands is the browser's (its scroll and its snap), so the proof is
+    // that whatever it settles on is exactly what gets written, not a precomputed item count. The scroll is a wheel
+    // gesture over the column: CDP touch points drove the column unreliably on the runners (main's push CI and three
+    // PR lanes, 2026-10-23, where the column sometimes never followed the finger at all), and the browser's
+    // touch-to-scroll mapping is not what this proves.
     const box = await page.locator("#wheelCol").boundingBox();
     const cx = Math.round(box.x + box.width / 2), cy = Math.round(box.y + box.height / 2);
-    // A finger reports in small steps, a frame apart; two large jumps let a slow runner lift before the column had
-    // followed (main's push CI, 2026-10-23). The drag moves 11px a frame for 220px, and lifts only once the column
-    // has followed it by at least two rows: one row sat on the snap boundary, and a loaded runner settled it back
-    // onto the keyboard-set value (#485 PR lane, #487).
     const startTop = await page.evaluate(() => document.querySelector("#wheelCol").scrollTop);
-    await touch("touchStart", [{ x: cx, y: cy }]);
-    for (let dy = 11; dy <= 220; dy += 11) {
-      await touch("touchMove", [{ x: cx, y: cy - dy }]);
-      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve())));
-    }
+    await page.mouse.move(cx, cy);
+    await page.mouse.wheel(0, 132);
     await page.waitForFunction((top) => document.querySelector("#wheelCol").scrollTop - top >= 88, startTop, { timeout: 5000 });
-    await touch("touchEnd");
     // Momentum carries the scroll on after the touch lifts; wait for it (and the native
     // scroll-snap) to come to rest before the settle debounce reads a value off it.
     await page.waitForFunction(() => {
@@ -1529,6 +1536,74 @@ const waitTitleOpacity = (page, barSel, want) => page.waitForFunction(
  * mirrored inline title appear together, in both themes, opaque under
  * reduced transparency, and capped at 21px under large text.
  */
+/**
+ * Owner, iPhone (2026-10-23): the Program editor's page sheet keeps the page's gutters, the Program page under it
+ * stays laid out as it is while the sheet is dragged, and a root page's trailing action is a button in its bar.
+ */
+async function editorSheetAndBar(browser) {
+  phase("The editor sheet's content keeps the page gutters");
+  {
+    const { context, page } = await sheetPage(browser);
+    await page.click('nav button[data-view="program"]');
+    // The settled Program page: the size of each line of text in it, before the sheet takes it.
+    const leaves = (root) => [...root.querySelectorAll("*")].filter((el) => !el.children.length && el.textContent.trim())
+      .slice(0, 24).map((el) => [el.textContent.trim().slice(0, 24), el.offsetWidth, el.offsetHeight]);
+    const settled = await page.evaluate((fn) => new Function("root", `return (${fn})(root)`)(document.querySelector("#program")), leaves.toString());
+    await page.click("#programEditToggle");
+    await page.waitForSelector("#program.sheet.is-open");
+    await sheetAtRest(page, "#program.sheet");
+    const insets = await page.evaluate(() => {
+      const hint = document.querySelector("#program.sheet .program-editor-a__hint").getBoundingClientRect();
+      const tabs = document.querySelector("#program.sheet .review__tabs"), first = tabs.querySelector(".review__tab").getBoundingClientRect();
+      return { left: hint.left, right: window.innerWidth - hint.right, firstTab: first.left - tabs.getBoundingClientRect().left + tabs.scrollLeft,
+        tabsLeft: tabs.getBoundingClientRect().left, tabsRight: window.innerWidth - tabs.getBoundingClientRect().right };
+    });
+    assert(insets.left === 16 && insets.right === 16, "the sheet's content sits inside the page's 16px gutters", JSON.stringify(insets));
+    assert(insets.tabsLeft === 0 && insets.tabsRight === 0 && insets.firstTab === 16,
+      "the day tabs run edge to edge and scroll, with the first tab inset to the gutter", JSON.stringify(insets));
+
+    phase("While the sheet is dragged down, the Program page beneath keeps its layout");
+    // The editor sheet's drag rail is its head (data-sheet-rail), clear of Cancel and Done.
+    const rail = await page.locator("#program.sheet > .pagehead .pagehead__titles").boundingBox();
+    const from = { x: Math.round(rail.x + rail.width / 2), y: Math.round(rail.y + rail.height / 2) };
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    for (const dy of [30, 80, 140, 200]) {
+      await page.mouse.move(from.x, from.y + dy);
+      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve())));
+    }
+    const mid = await page.evaluate((fn) => new Function("root", `return (${fn})(root)`)(document.querySelector(".is-editor-pushed-back")), leaves.toString());
+    await page.mouse.up();
+    assert(JSON.stringify(mid) === JSON.stringify(settled), "mid-drag, every line of the page beneath has the settled page's size (no word broken per letter)",
+      JSON.stringify({ settled: settled.slice(0, 6), mid: mid.slice(0, 6) }));
+    await context.close();
+  }
+
+  phase("Edit is a button in the Program page's bar, at the top and scrolled");
+  {
+    const { context, page } = await sheetPage(browser);
+    await page.click('nav button[data-view="program"]');
+    const read = () => page.evaluate(() => {
+      const edit = document.querySelector("#programEditToggle"), r = edit.getBoundingClientRect(), style = getComputedStyle(edit);
+      const probe = document.createElement("span"); probe.style.color = "var(--accent-deep)"; document.body.append(probe);
+      const accent = getComputedStyle(probe).color; probe.remove();
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return { top: r.top, bottom: r.bottom, right: window.innerWidth - r.right, height: r.height, decoration: style.textDecorationLine,
+        accent: style.color === accent, hit: hit === edit || edit.contains(hit) };
+    });
+    const top = await read();
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await page.waitForFunction(() => document.querySelector("#programTopbar").classList.contains("is-scrolled"));
+    const scrolled = await read();
+    for (const [label, at] of [["at the top", top], ["scrolled", scrolled]]) {
+      assert(at.top >= 0 && at.bottom <= 44 && at.height === 44 && at.hit, `${label}: Edit is a 44pt button in the bar's row, nothing over it`, JSON.stringify(at));
+      assert(at.decoration === "none" && at.accent, `${label}: plain accent text, no underline`, JSON.stringify(at));
+    }
+    assert(top.top === scrolled.top && top.right === scrolled.right, "it keeps the same place in both states", JSON.stringify({ top, scrolled }));
+    await context.close();
+  }
+}
+
 async function navigationBars(browser) {
   phase("No material at the top; scrolling the title under the bar reveals it");
   {
@@ -1903,6 +1978,7 @@ try {
   await reducedMotionPush(browser);
   await editorSheetTab(browser);
   await navigationBars(browser);
+  await editorSheetAndBar(browser);
 } finally {
   await browser.close();
 }

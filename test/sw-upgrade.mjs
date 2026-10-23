@@ -106,6 +106,12 @@ try {
   await waitForAppBoot(page, { base });
   assert.equal(await page.locator("#dayTabs").count(), 1, "updated worker boots the entry shell");
   assert.equal(await page.evaluate(() => !!window.RepForgeProgramEntry), true, "updated shell includes program entry code");
+  // Settings' Version row names the build the phone is running: the digits of the CACHE the controlling worker
+  // installed, read from it, equal to the revision in the deployed sw.js (owner, 2026-10-23).
+  const release = currentCache.replace(/^\D+/, "");
+  const shown = await page.waitForFunction(() => document.querySelector("#settingsRelease")?.textContent || null, undefined, { timeout: 10000 })
+    .then((handle) => handle.jsonValue(), () => "");
+  assert.equal(shown, ` (${release})`, "Settings shows the running build's release: Version 1.0 (" + release + ")");
 
   await context.setOffline(true);
   try {

@@ -47,7 +47,7 @@ console.log("\nThe rules-only state list");
   check(validateRulesOnlyConfig().length === 0, "the rules-only allowlist and overflow exceptions are valid", show(validateRulesOnlyConfig()));
   check(RULES_ONLY_ORANGE_ALLOWLIST.every((entry) => ORANGE_CATEGORIES.includes(entry.category)) &&
     RULES_ONLY_EXTRA_ALLOWLIST.every((entry) => ORANGE_CATEGORIES.includes(entry.category)),
-  "every rules-only allowlist entry sits in one of the five budget categories", ORANGE_CATEGORIES.join(", "));
+  "every rules-only allowlist entry sits in one of the budget categories", ORANGE_CATEGORIES.join(", "));
   check(validateRulesOnlyConfig({ allowlist: [{ category: "decoration", selector: ".x" }] }).some((item) => item.includes("decoration")),
     "an allowlist entry outside the five budget categories is rejected");
   check(validateRulesOnlyConfig({ allowlist: [{ category: "cta-arrow", selector: "body" }] }).some((item) => item.includes("too broad")),

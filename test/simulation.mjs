@@ -98,6 +98,28 @@ async function loadApp(page, url = BASE) {
   await page.goto(url, { waitUntil: "domcontentloaded" });
 }
 
+/**
+ * A pushed page's Back (ADR 0023): the page closes at once, and the history entry it held is given back with
+ * history.go(-1), which the browser runs a moment later. A reload or navigation started before that traversal
+ * lands is aborted by it (net::ERR_ABORTED, full lane 2026-10-23), so wait until the entry is gone.
+ */
+async function pressPushedBack(page, selector) {
+  // Watch for the traversal itself: if this Back hands an entry back, its popstate is what has to land first.
+  await page.evaluate(() => {
+    const go = history.go.bind(history);
+    window.__simBackTraversal = { called: false, landed: false };
+    history.go = (delta) => {
+      window.__simBackTraversal.called = true;
+      window.addEventListener("popstate", () => { window.__simBackTraversal.landed = true; }, { once: true });
+      history.go = go;
+      return go(delta);
+    };
+  });
+  await page.click(selector);
+  await page.waitForFunction(() => !window.__simBackTraversal.called || window.__simBackTraversal.landed, undefined, { timeout: 5000 });
+  await page.evaluate(() => { delete history.go; delete window.__simBackTraversal; });
+}
+
 async function reloadApp(page, opts = {}) {
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page, opts);
@@ -835,7 +857,7 @@ async function openSessionEditor(page, sid) {
   }
   const back = page.locator("[data-history-back]");
   if (await back.count()) {
-    await back.click();
+    await pressPushedBack(page, "[data-history-back]");
     await page.waitForSelector("#historyCalBtn", { timeout: 5000 });
   }
   const editBtn = page.locator(`[data-edit="${sid}"]`);
@@ -5393,7 +5415,7 @@ async function main() {
     "No [data-parity-outcome] on the session page",
     "History → session page outcome words carry the parity markup"
   );
-  await page.click("[data-history-back]");
+  await pressPushedBack(page, "[data-history-back]");
 
   beginPhase("Phase: command parser");
   const parseCmd = (t) => page.evaluate((x) => window.__repforgeParseCommand(x), t);
@@ -5771,6 +5793,9 @@ async function main() {
   );
   await page.reload({ waitUntil: "networkidle" });
   await page.waitForSelector("#log.view.active", { timeout: 8000 });
+  // Today is drawn before boot has finished, and boot's own routing can still land after a tap on the dock: wait for
+  // the app to have booted before going to Program (about 1 run in 7 locally, 2026-10-23).
+  await waitForApp(page);
   await nav(page, "program");
   assert(
     (await page.locator('#programEditor [data-role="day-tab"][aria-selected="true"]').getAttribute("data-day")) === firstDay,
@@ -5872,7 +5897,7 @@ async function main() {
     `Active nav buttons: ${navActiveWhileDetail}`,
     "Open the exercise page → inspect nav"
   );
-  await page.click("#exBack");
+  await pressPushedBack(page, "#exBack");
   await page.waitForSelector("#log.view.active", { timeout: 5000 });
   assert(
     await page.locator('nav button[data-view="log"].active').count(),
@@ -7177,7 +7202,7 @@ async function main() {
       "Clicking static range/records does not change route, draft, or log",
       JSON.stringify({ before, after })
     );
-    await page.click("#exBack");
+    await pressPushedBack(page, "#exBack");
   } else {
     assert(false, "Exercise detail opened for static-affordance checks", "no exercise id");
   }
@@ -8892,7 +8917,7 @@ async function main() {
     "Open a mapped exercise page → computed --exercise-art-bg"
   );
 
-  await page.click("#exBack");
+  await pressPushedBack(page, "#exBack");
   await nav(page, "stats");
   // Progress's own totals are no longer the shared row (Plan 064 R3i), so the shared
   // component is probed in place on the Progress page: the rule under test is the
