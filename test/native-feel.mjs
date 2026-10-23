@@ -175,6 +175,19 @@ async function drag(page, from, steps, { pause = 16, settleAt = 0 } = {}) {
   await page.mouse.up();
 }
 
+/**
+ * A surface that has finished opening: nothing in it is running or about to run, it is fully opaque, and it is
+ * drawn where and at the size it is laid out (an identity transform). Waiting only for "no running animation" let a
+ * proof read a menu or sheet before its open animation had started, mid-scale (4 native-feel flakes, 2026-10-23).
+ */
+const surfaceAtRest = (page, sel, { timeout = 5000 } = {}) => page.waitForFunction((s) => {
+  const el = document.querySelector(s);
+  if (!el || el.getAnimations({ subtree: true }).some((run) => run.pending || run.playState === "running")) return false;
+  const style = getComputedStyle(el), m = style.transform === "none" ? null : new DOMMatrixReadOnly(style.transform);
+  const r = el.getBoundingClientRect();
+  return Number(style.opacity) === 1 && (!m || m.isIdentity) && Math.abs(r.width - el.offsetWidth) < 0.5 && Math.abs(r.height - el.offsetHeight) < 0.5;
+}, sel, { timeout });
+
 const down = (to, n = 6) => Array.from({ length: n }, (_, i) => [0, Math.round((to * (i + 1)) / n)]);
 
 /** The sheet is at rest: no transition or inline placement left. */
@@ -319,7 +332,7 @@ async function dayPickerCommits(browser) {
   const exits = await page.evaluate(() => ({ confirm: !!document.querySelector("#dayPickConfirm"), cancel: !!document.querySelector("#dayPickCancel"),
     close: !!document.querySelector("#dayPickSheet [data-daypick-close]") }));
   assert(!exits.confirm && !exits.cancel && exits.close, "the picker's one exit is its ×", JSON.stringify(exits));
-  await page.waitForFunction(() => document.querySelector("#dayPickSheet").getAnimations({ subtree: true }).every(animation => animation.playState !== "running"));
+  await surfaceAtRest(page, "#dayPickSheet");
   const dayLook = await page.evaluate(() => [...document.querySelectorAll("#dayPickList .daypick__row")].map(row => ({ selected: row.classList.contains("is-selected"),
     check: Number(getComputedStyle(row.querySelector(".daypick__check")).opacity), rail: parseFloat(getComputedStyle(row).borderLeftWidth), fill: getComputedStyle(row).backgroundColor })));
   assert(dayLook.filter(row => row.selected).length === 1 && dayLook.every(row => row.check === (row.selected ? 1 : 0) && row.rail === 0)
@@ -562,7 +575,7 @@ async function nativeControls(browser) {
     assert(initialOpacity === '0', 'the context menu starts transparent before its first animation frame', initialOpacity);
     await page.waitForSelector('#nativeContextMenu:not([hidden])');
     phase("Fidelity: the Today menu matches the prototype's material, icons and wording");
-    await page.waitForFunction(() => document.querySelector('.native-context__menu').getAnimations().every(animation => animation.playState !== 'running'));
+    await surfaceAtRest(page, ".native-context__menu");
     const menuLook = await page.evaluate(() => {
       const panel = document.querySelector('.native-context__menu'), style = getComputedStyle(panel), dialog = document.querySelector('#nativeContextMenu');
       const items = [...panel.querySelectorAll('[role="menuitem"]')].map(item => ({ value: item.dataset.menuValue, label: item.textContent.trim(),
@@ -576,10 +589,7 @@ async function nativeControls(browser) {
       "each Today action carries the prototype's trailing icon", JSON.stringify(menuLook.items));
     assert(menuLook.items[1].label === menuLook.swap && menuLook.items.every(item => item.target >= 44 && item.height >= 40 && item.height <= 48), 'Swap exercise uses the prototype wording, in 44px rows', JSON.stringify(menuLook.items));
     assert(menuLook.alpha > 0 && menuLook.alpha <= 0.3, 'the page behind stays light: a 25% paper wash under the blur, not a dark scrim', menuLook.backdrop);
-    await page.waitForFunction(() => {
-      const panel = document.querySelector('.native-context__menu');
-      return getComputedStyle(panel).opacity === '1' && panel.getAnimations().every(animation => animation.playState !== 'running');
-    });
+    await surfaceAtRest(page, ".native-context__menu");
     await page.evaluate(() => {
       const probe = document.createElement('h2'); probe.id = 'nativeContextClipProbe'; probe.textContent = 'Menu probe';
       probe.style.cssText = 'position:fixed;left:20px;top:20px;width:1px;white-space:nowrap;overflow:hidden';
@@ -742,7 +752,7 @@ async function nativeControls(browser) {
       Object.defineProperty(visualViewport, 'height', { configurable: true, get: () => innerHeight - 300 });
       visualViewport.dispatchEvent(new Event('resize')); });
     await page.click('#sessionSheetBtn'); await page.waitForSelector('#sessionSheet.is-open');
-    await page.waitForFunction(() => document.querySelector('#sessionSheet').getAnimations().every(animation => animation.playState !== 'running'));
+    await surfaceAtRest(page, "#sessionSheet");
     const seat = await page.evaluate(() => ({ bottom: Math.round(document.querySelector('#sessionSheet').getBoundingClientRect().bottom), viewport: innerHeight,
       kb: getComputedStyle(document.documentElement).getPropertyValue('--kb').trim() }));
     await page.evaluate(() => { delete visualViewport.height; visualViewport.dispatchEvent(new Event('resize')); });
@@ -877,6 +887,9 @@ async function controlsWithoutMotionLayer(browser) {
   phase("Phase 4: a missing motion layer retains native Settings fields");
   const { context, page } = await todayPage(browser, { layer: false });
   await page.click('#openSettings');
+  // isVisible() reads the page as it is, without waiting: read it once Settings has opened and settled.
+  await page.waitForSelector('#settings.view.active');
+  await surfaceAtRest(page, '#settings');
   const nativeTheme = page.locator('#theme');
   const visible = await nativeTheme.isVisible();
   assert(visible, "Appearance retains a native select if its enhanced control cannot mount");
