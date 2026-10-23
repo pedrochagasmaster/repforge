@@ -922,12 +922,24 @@ async function wheelPicker(browser) {
     await page.locator(WHEEL_LOAD_SEL).click();
     await page.locator(WHEEL_LOAD_SEL).click();
     await page.waitForSelector("#wheelSheet.is-open");
+    const headTop = await page.evaluate(() => document.querySelector("#workoutShell .wo-head").getBoundingClientRect().top);
+    // iOS raises the keyboard only for a focus made inside the tap: read where focus is as the same click event
+    // finishes, after the button's own handler has run (owner, iPhone, 2026-10-23).
+    await page.evaluate(() => document.addEventListener("click", (event) => {
+      if (event.target.closest?.("#wheelKeyboard")) window.__kbFocusInTap = document.activeElement?.dataset?.k || document.activeElement?.tagName || "";
+    }, { once: true }));
     await page.click("#wheelKeyboard");
+    const inTap = await page.evaluate(() => window.__kbFocusInTap);
+    assert(String(inTap).endsWith(`_metric_${WHEEL_WEIGHT}`), "the keyboard button focuses the field's input inside the tap itself", String(inTap));
     await page.waitForSelector("#wheelSheet", { state: "hidden" });
     const face = await fieldFace(page, WHEEL_LOAD_SEL);
     assert(face.editing, "the keyboard button closes the sheet and opens the field's typed entry", JSON.stringify(face));
     const focusedKey = await page.evaluate(() => document.activeElement?.dataset?.k || "");
-    assert(focusedKey.endsWith(`_metric_${WHEEL_WEIGHT}`), "the typed input takes focus, exactly the old second tap", focusedKey);
+    assert(focusedKey.endsWith(`_metric_${WHEEL_WEIGHT}`), "the typed input keeps focus once the sheet has gone", focusedKey);
+    const after = await page.evaluate(() => ({ scrollY: window.scrollY, scrollTop: document.scrollingElement.scrollTop,
+      headTop: document.querySelector("#workoutShell .wo-head").getBoundingClientRect().top }));
+    assert(after.scrollY === 0 && after.scrollTop === 0 && Math.abs(after.headTop - headTop) <= 0.5,
+      "nothing scrolls, and the Focus header keeps its place", JSON.stringify({ after, headTop }));
     await context.close();
   }
 
