@@ -1270,15 +1270,18 @@ Triceps pushdown 3x12-15</pre>
   <div id="wheelScrim" class="sheet-scrim hidden"></div>
   <div id="wheelSheet" class="sheet sheet--wheel hidden" role="dialog" aria-modal="true" aria-labelledby="wheelSheetTitle" hidden>
     <span class="sheet__grab" aria-hidden="true"></span>
-    <div class="sheet__head">
-      <button type="button" class="sheet__act sheet__act--icon" id="wheelKeyboard" data-i18n-aria="focus.picker.type" aria-label="Type a value"><span class="icon-mask icon-mask--keyboard" aria-hidden="true"></span></button>
-      <div class="sheet__titles">
-        <p class="sheet__title" id="wheelSheetTitle"></p>
-      </div>
-      <button type="button" class="sheet__act sheet__act--done" id="wheelDone" data-i18n="dialog.done">Done</button>
+    <div class="sheet__head wheel__head">
+      <p class="sheet__title" id="wheelSheetTitle"></p>
+      <span class="wheel__trail">
+        <button type="button" class="sheet__act sheet__act--icon wheel__kb" id="wheelKeyboard" data-i18n-aria="focus.picker.type" aria-label="Type a value"><span class="icon-mask icon-mask--keyboard" aria-hidden="true"></span></button>
+        <button type="button" class="sheet__act sheet__act--done" id="wheelDone" data-i18n="dialog.done">Done</button>
+      </span>
     </div>
     <div class="sheet__body wheel__body">
-      <div class="wheel" id="wheelCol" tabindex="0"></div>
+      <div class="wheel__frame">
+        <div class="wheel__band" aria-hidden="true"></div>
+        <div class="wheel" id="wheelCol" tabindex="0"></div>
+      </div>
     </div>
   </div>
   <dialog id="storageRecovery" class="storage-recovery" aria-modal="true" aria-labelledby="storageRecoveryTitle" data-i18n-aria="dialog.storage_recovery.aria">

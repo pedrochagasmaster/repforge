@@ -8523,12 +8523,14 @@ function wheelNearestIndex(values,v){
  *  reduced motion. */
 function wheelApplyTilt(col){
   const items=col.querySelectorAll(".wheel__item");
-  if(reducedMotion()){items.forEach(el=>{el.style.transform="";el.style.opacity=""});return}
+  // Reduced motion keeps the fade with distance (it isn't motion) and drops the tilt.
+  if(reducedMotion()){const mid=col.scrollTop+col.clientHeight/2;items.forEach(el=>{el.style.transform="";
+    el.style.opacity=String(Math.max(0.2,1-Math.abs(((el.offsetTop+el.offsetHeight/2)-mid)/WHEEL_ITEM_H)*0.22))});return}
   const mid=col.scrollTop+col.clientHeight/2;
   items.forEach(el=>{
     const diff=Math.max(-3,Math.min(3,((el.offsetTop+el.offsetHeight/2)-mid)/WHEEL_ITEM_H));
     el.style.transform=`rotateX(${diff*-18}deg)`;
-    el.style.opacity=String(Math.max(0.3,1-Math.abs(diff)*0.22))})}
+    el.style.opacity=String(Math.max(0.2,1-Math.abs(diff)*0.22))})}
 function wheelSyncAria(index){
   const ui=wheelUi,col=$("#wheelCol");if(!ui||!col)return;
   const v=ui.values[index];
@@ -8560,6 +8562,8 @@ function wheelOnScroll(){
   wheelSettleTimer=setTimeout(()=>{
     const idx=wheelNearestIndexFromScroll(col);
     wheelSyncAria(idx);
+    // Placing the wheel on its opening value is not a choice: only a move off it writes (Done applies it either way).
+    if(wheelUi&&wheelUi.lastCommitted==null&&idx===wheelUi.openedIndex)return;
     wheelCommit(idx)},120)}
 function wheelScrollTo(index){
   const col=$("#wheelCol");if(!col)return;
@@ -8592,16 +8596,21 @@ function openWheelSheet(key,id,kind){
   const label=btn?.querySelector(".shelf__lab")?.textContent||"";
   const unit=kind==="load"?unitLabel():"";
   const step=kind==="load"?(parseDec(shelfLoadStep())||1):1;
-  const current=parseDec(input.value);
+  // An empty field opens on its suggestion (the input's placeholder: the load the engine suggests, or the rep range,
+  // whose bottom is taken), as the prototype's wheel opens on the aim.
+  const typed=parseDec(input.value),suggested=parseDec((input.placeholder||"").match(/\d+(?:[.,]\d+)?/)?.[0]);
+  const current=Number.isFinite(typed)?typed:suggested;
   const values=kind==="load"?wheelLoadValues(step,current):wheelRepsValues(current);
   const target=draftTargetFromKey(`${key}_${id}`);
   const range=kind==="reps"?wheelRepsRange(target):null;
   const index=wheelNearestIndex(values,Number.isFinite(current)?current:values[0]);
-  wheelUi={key,id,kind,input,unit,label,values,range,index,lastCommitted:values[index]};
+  // An empty field's suggestion is what the wheel shows, so Done applies it; a typed value is already in the draft.
+  wheelUi={key,id,kind,input,unit,label,values,range,index,lastCommitted:Number.isFinite(typed)?values[index]:null,openedIndex:index};
   $("#wheelSheetTitle").textContent=label;
   col.innerHTML=values.map((v,i)=>{
     const inRange=kind==="reps"&&range&&v>=range.min&&v<=range.max;
-    return `<div class="wheel__item${inRange?" is-target":""}${i===index?" is-center":""}" data-wheel-i="${i}" data-wheel-v="${esc(String(v))}" aria-hidden="true">${esc(wheelItemText(v,kind,unit))}</div>`}).join("");
+    // The rows show bare numbers (the unit is in the title, as the prototype draws it); the spinbutton speaks the unit.
+    return `<div class="wheel__item${inRange?" is-target":""}${i===index?" is-center":""}" data-wheel-i="${i}" data-wheel-v="${esc(String(v))}" aria-hidden="true">${esc(fmt(v))}</div>`}).join("");
   // The column is a spinbutton only while the wheel is open; closed, it is empty and hidden and names nothing.
   col.setAttribute("role","spinbutton");
   col.setAttribute("aria-label",label);
