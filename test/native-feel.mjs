@@ -849,15 +849,16 @@ async function wheelPicker(browser) {
     // written — not a precomputed item count.
     const box = await page.locator("#wheelCol").boundingBox();
     const cx = Math.round(box.x + box.width / 2), cy = Math.round(box.y + box.height / 2);
+    // A finger reports in small steps, a frame apart; two large jumps let a slow runner lift before the column had
+    // followed (main's push CI, 2026-10-23). The drag moves 11px a frame for 110px, and lifts only once the column
+    // has followed it by at least a row.
     const startTop = await page.evaluate(() => document.querySelector("#wheelCol").scrollTop);
-    // Touch moves land on the next animation frame, and a slow runner can lift before the column has followed: each
-    // move waits until the column has scrolled with the finger (less the touch slop), so the lift ends a real two-row
-    // drag rather than a nudge that snaps back to where it started.
     await touch("touchStart", [{ x: cx, y: cy }]);
-    for (const [dy, followed] of [[44, 20], [88, 60]]) {
+    for (let dy = 11; dy <= 110; dy += 11) {
       await touch("touchMove", [{ x: cx, y: cy - dy }]);
-      await page.waitForFunction(([top, min]) => document.querySelector("#wheelCol").scrollTop - top >= min, [startTop, followed], { timeout: 2000 });
+      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve())));
     }
+    await page.waitForFunction((top) => document.querySelector("#wheelCol").scrollTop - top >= 44, startTop, { timeout: 5000 });
     await touch("touchEnd");
     // Momentum carries the scroll on after the touch lifts; wait for it (and the native
     // scroll-snap) to come to rest before the settle debounce reads a value off it.
