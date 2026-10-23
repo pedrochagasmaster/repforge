@@ -1015,11 +1015,17 @@ function routeHeading(view){
   const root=typeof view==="string"?$(`#${view}`):view;
   if(!(root instanceof Element))return null;
   return[...root.querySelectorAll(".page-title,h1,h2")].find(canTakeFocus)||null}
+/** Script focus without the keyboard's ring after a touch or click (the motion layer's quiet focus);
+ *  plain focus where the layer is missing. */
+function quietFocus(el){
+  if(!el?.focus)return;
+  if(window.RepForgeMotion?.focusQuietly)window.RepForgeMotion.focusQuietly(el);
+  else try{el.focus({preventScroll:true})}catch{try{el.focus()}catch{}}}
 function focusRoute(target){
   const el=resolveReturnFocus(target);
   if(!el)return false;
   if(!el.matches(ROUTE_NATIVE_FOCUS))el.setAttribute("tabindex","-1");
-  try{el.focus({preventScroll:true})}catch{return false}
+  quietFocus(el);
   return document.activeElement===el}
 /* The control the lifter last pressed. Safari does not focus a button on click, so
    document.activeElement cannot say what opened a flow; the press itself can. */
@@ -1279,7 +1285,7 @@ function openModal(el,opts={}){
   // Modals are fixed overlays, so scrolling one into view only shifts the page
   // beneath them — on iOS that drags the visual viewport and takes the sheet
   // header with it.
-  if(toFocus){try{toFocus.focus({preventScroll:true})}catch{try{toFocus.focus()}catch{}}}
+  if(toFocus)quietFocus(toFocus);
   return true}
 function closeModal(el){
   const rec=activeModal;
@@ -1297,7 +1303,7 @@ function closeModal(el){
       if(activeModal===rec)activeModal=null;
       const target=resolveReturnFocus(rec.returnFocus);
       if(target){
-        try{target.focus({preventScroll:true})}catch{try{target.focus()}catch{}}}
+        quietFocus(target)}
       if(!activeModal&&modalSettleQueue.length){const queued=modalSettleQueue;modalSettleQueue=[];queued.forEach(callback=>callback())}
       resolve(true)};
     if(rec.delayHide>0){
@@ -9087,7 +9093,7 @@ function openRowContextMenu({anchor,items,opener=anchor}){
       nativeMenuClose=null;window.removeEventListener("keydown",keys,true);
       dialog.close();dialog.remove();
       const target=opener.isConnected?opener:resolveReturnFocus(opener);
-      target?.focus?.({preventScroll:true});resolve(value);
+      quietFocus(target);resolve(value);
     };
     const keys=contextMenuKeys(panel,()=>finish(null));
     nativeMenuClose=finish;
@@ -9102,7 +9108,7 @@ function openRowContextMenu({anchor,items,opener=anchor}){
     dialog.showModal();
     placeContextMenu(dialog,panel,rect);
     window.RepForgeMotion?.animateContextMenu?.(panel,preview);
-    panel.querySelector("button:not(:disabled)")?.focus({preventScroll:true});
+    quietFocus(panel.querySelector("button:not(:disabled)"));
   });
 }
 async function todayRowContext(row,opener=row){
@@ -9123,7 +9129,7 @@ async function todayRowContext(row,opener=row){
   const result=await WorkoutSession.dispatch(action==="restore"?"restoreExercise":"skipExercise",{exerciseInstanceId:ex.id});
   if(result.status==="applied"){
     renderToday();
-    document.querySelector(`#todayExList [${focusAttribute}="${CSS.escape(ex.id)}"]`)?.focus({preventScroll:true});
+    quietFocus(document.querySelector(`#todayExList [${focusAttribute}="${CSS.escape(ex.id)}"]`));
   }
 }
 

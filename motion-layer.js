@@ -1612,6 +1612,25 @@
     });
   }
 
+  /* Focus moved by script after a touch or a click carries no ring: a ring is the keyboard's cue, and iOS draws
+     one for any script focus. The mark lasts until the next key press, so a keyboard user sees the ring at once. */
+  let modality = "pointer";
+  const clearQuiet = () => document.querySelectorAll("[data-quiet-focus]").forEach(node => node.removeAttribute("data-quiet-focus"));
+  document.addEventListener("keydown", event => {
+    if (event.metaKey || event.ctrlKey || ["Shift", "Alt", "Meta", "Control"].includes(event.key)) return;
+    modality = "keyboard"; clearQuiet();
+  }, true);
+  for (const type of ["pointerdown", "touchstart"]) document.addEventListener(type, () => { modality = "pointer"; }, { capture: true, passive: true });
+  function focusQuietly(node) {
+    if (!node?.focus) return;
+    const quiet = modality !== "keyboard";
+    if (quiet) {
+      node.setAttribute("data-quiet-focus", "");
+      node.addEventListener("blur", () => node.removeAttribute("data-quiet-focus"), { once: true });
+    }
+    try { node.focus({ preventScroll: true, focusVisible: !quiet }); } catch { node.focus(); }
+  }
+
   /* Slide-to-select: after a long press opens a context menu, the same finger can
      slide onto an item and lift to choose it. The menu's owner hands over its panel
      and hears only the chosen item. */
@@ -1725,6 +1744,8 @@
     syncNativeControls,
     animateContextMenu,
     trackContextSlide,
+    focusQuietly,
+    inputModality: () => modality,
     animateActionSheet,
     available: () => available,
     reducedMotion,

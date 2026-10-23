@@ -4735,6 +4735,32 @@
       ]
     },
     {
+      "id": "native-stepper-value",
+      "selector": ".native-stepper__value:not([id])",
+      "roles": {
+        "control": "disclosure"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "expanded"
+      ],
+      "rationale": "Shows an editor exercise's smallest load change and opens its typed field; the stepper beside it changes the same value.",
+      "owner": "plan-075-phase-4",
+      "catalogStates": [
+        "onboarding-build/editor-alternates",
+        "onboarding-build/editor-partial",
+        "onboarding-build/editor-ready",
+        "program/editor-alternates",
+        "program/editor-suggest-loads"
+      ]
+    },
+    {
       "id": "restsheet",
       "selector": "#restSheet",
       "roles": {
@@ -10620,8 +10646,11 @@
         "program/editor-day-name-refused",
         "program/editor-suggest-loads",
         "settings/appearance",
+        "settings/guides",
+        "settings/guides-replay",
         "settings/load-controls",
         "settings/main",
+        "settings/privacy",
         "settings/rest-controls"
       ]
     },

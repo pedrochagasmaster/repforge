@@ -610,9 +610,28 @@ async function nativeControls(browser) {
     await page.waitForSelector('#nativeContextMenu', { state: 'detached' });
     await page.locator(row).first().focus(); await page.keyboard.press('Shift+F10');
     await page.waitForSelector('#nativeContextMenu:not([hidden])');
+    const keyRing = await page.evaluate(() => { const el = document.activeElement, style = getComputedStyle(el);
+      return { item: el.matches('[role="menuitem"]'), outline: style.outlineStyle, width: style.outlineWidth, quiet: el.hasAttribute('data-quiet-focus') }; });
+    assert(keyRing.item && keyRing.outline !== 'none' && keyRing.width !== '0px' && !keyRing.quiet, 'opened from the keyboard, the first item shows the focus ring', JSON.stringify(keyRing));
     assert(await page.locator('#nativeContextMenu [role="menuitem"]').count() >= 2, "right click and Shift+F10 expose row actions");
     await page.keyboard.press('Escape');
     await page.waitForSelector('#nativeContextMenu', { state: 'detached' });
+    phase("Focus rings follow the keyboard: a touch never leaves one on the row, the ⋯ or the first item");
+    const ringOf = () => page.evaluate(() => { const el = document.activeElement, style = getComputedStyle(el);
+      return { tag: el.tagName, item: el.matches('[role="menuitem"]'), inRow: !!el.closest('[data-context-row]'), ring: style.outlineStyle !== 'none' && style.outlineWidth !== '0px', quiet: el.hasAttribute('data-quiet-focus'),
+        revealed: el.matches('[data-row-menu]') && el.getBoundingClientRect().width > 1 }; });
+    await page.locator(row).first().scrollIntoViewIfNeeded();
+    const held = await center(page, row);
+    await touch('touchStart', [{ x: held.x, y: held.y }]);
+    await page.waitForSelector('#nativeContextMenu:not([hidden])');
+    await touch('touchEnd');
+    const touchOpen = await ringOf();
+    // Chromium already hides a ring on script focus after touch; iOS Safari does not, so the quiet mark is what keeps it off there.
+    assert(touchOpen.item && !touchOpen.ring && touchOpen.quiet, 'after a touch-and-hold the first item takes focus for assistive technology without a ring', JSON.stringify(touchOpen));
+    await page.mouse.click(4, 4);
+    await page.waitForSelector('#nativeContextMenu', { state: 'detached' });
+    const touchClose = await ringOf();
+    assert(touchClose.inRow && !touchClose.ring && touchClose.quiet && !touchClose.revealed, 'closing it by touch returns focus to the row with no ring and no revealed ⋯', JSON.stringify(touchClose));
     await page.locator(row).first().scrollIntoViewIfNeeded();
     const p = await center(page, row);
     await touch('touchStart', [{ x: p.x, y: p.y }]);
