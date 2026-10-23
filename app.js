@@ -12357,9 +12357,9 @@ function disposeProgramEditors(){
 function captureProgramEditorSnapshot(){
   const view=$("#program");if(!view)return null;
   const copy=view.cloneNode(true);
-  // No id survives in the copy, its own included: two #program elements would answer every lookup twice.
-  copy.removeAttribute("id");
-  copy.querySelectorAll("[id]").forEach(node=>node.removeAttribute("id"));
+  // No id survives in the copy, its own included: two #program elements would answer every lookup twice. Each id
+  // moves to data-copy-id, which the Program page's id rules also match, so the copy is laid out as the page is.
+  for(const node of [copy,...copy.querySelectorAll("[id]")]){node.dataset.copyId=node.id;node.removeAttribute("id")}
   copy.classList.remove("sheet","is-open","program-editor-installed");
   delete copy.dataset.detent;
   copy.removeAttribute("role");copy.removeAttribute("aria-modal");copy.removeAttribute("aria-labelledby");
@@ -21573,6 +21573,18 @@ function onContextualGuideAction(event){
   if(!showContextualGuide("first-set",{returnFocus:tapped,after:()=>tapped()?.click()}))return;
   event.preventDefault();event.stopImmediatePropagation()}
 
+/* The running build's release in Settings' Version row, so an update can be confirmed on the phone: the worker
+   that controls the page answers with its CACHE revision, the one it installs and serves under. Without a
+   controlling worker the row stays "Version 1.0". */
+function renderBuildRelease(){
+  const el=$("#settingsRelease"),sw=navigator.serviceWorker;if(!el||!sw)return;
+  const ask=worker=>{
+    if(!worker)return;
+    const channel=new MessageChannel();
+    channel.port1.onmessage=event=>{const release=String(event.data?.release||"");if(/^\d+$/.test(release))el.textContent=` (${release})`};
+    worker.postMessage({type:"taurifer:release"},[channel.port2])};
+  ask(sw.controller);
+  sw.addEventListener("controllerchange",()=>ask(sw.controller))}
 function showSettings(){
   $$("nav button").forEach(x=>{x.classList.remove("active");x.setAttribute("aria-current","false")});
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="settings"));
@@ -21679,6 +21691,7 @@ window.__repforgeOnboarding={
 
 function init(){
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
+  renderBuildRelease();
   ensureInstallPolicyPrefs();
   ensureGuidePrefs({persist:currentEntryLanding()==="generic"});
   // The pre-paint snippet in index.html has already done this for a dark

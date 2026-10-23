@@ -533,6 +533,24 @@ h2{font-size:var(--font-size-title);font-weight:var(--weight-semibold);letter-sp
 /* ---- Page headers ---- */
 .pagehead{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin:4px 0 18px}
 .pagehead__actions{display:flex;align-items:center;gap:4px;flex:none;margin-top:4px}
+/* A root page's trailing actions are its navigation bar's buttons (owner-approved bar-actions mock, 2026-10-23,
+   reversing phase 3's deviation 1). They sit in the bar's trailing slot, above its material, at the same place in
+   the large-title state and the collapsed one; the large title starts below the bar's row, as on iOS. On a moving
+   page they move with it (its transform holds them). The Program page sheet's own head keeps Cancel and Done. */
+:is(#todayDash,#stats,#history:not(.is-session-page),:is(#program,[data-copy-id="program"]):not(.sheet))>.pagehead{margin-top:36px}
+:is(#todayDash,#stats,#history:not(.is-session-page),:is(#program,[data-copy-id="program"]):not(.sheet))>.pagehead>.pagehead__actions{
+  position:fixed;z-index:22;top:env(safe-area-inset-top);right:max(0px,calc(50% - var(--maxw) / 2));
+  height:44px;margin:0;padding:0 max(8px,env(safe-area-inset-right)) 0 8px;gap:0;
+}
+/* Bar buttons: a 44pt target with no border or fill at rest, the row-pressed wash on press. */
+:is(#todayDash,#stats,#history:not(.is-session-page),:is(#program,[data-copy-id="program"]):not(.sheet))>.pagehead>.pagehead__actions>button{
+  min-width:var(--control-target);height:var(--control-target);border:0;border-radius:var(--radius-control);background:transparent;
+}
+:is(#todayDash,#stats,#history:not(.is-session-page),:is(#program,[data-copy-id="program"]):not(.sheet))>.pagehead>.pagehead__actions>button.is-pressed:not(:disabled){
+  background:var(--well);transform:none;
+}
+#todayDash>.pagehead>.pagehead__actions>.settings-btn{color:var(--ink)}
+body.is-workout #todayDash>.pagehead>.pagehead__actions{display:none}
 
 /* Plan 075 phase 3 (ADR 0023): the scroll-edge bar over the large title. It
    overlays the pagehead's own top space rather than reserving any of its
@@ -579,7 +597,7 @@ body.is-workout .topbar,
 body.is-sheet-open .topbar,
 .view.is-push-over .topbar,.view.is-push-under .topbar,
 #history.is-session-page .topbar,
-#program:not(.program-ledger) .topbar{display:none}
+:is(#program,[data-copy-id="program"]):not(.program-ledger) .topbar{display:none}
 .back-link{
   background:none;border:0;padding:8px 4px;cursor:pointer;color:var(--accent-deep);
   font-size:var(--font-size-control);font-weight:500;min-height:44px;display:inline-flex;align-items:center;gap:2px;
@@ -1742,7 +1760,7 @@ body.is-sheet-open{overflow:hidden}
   .sheet.is-dragging,.sheet-scrim.is-dragging{transition:none!important}
 }
 /* The Program editor's grabber shows only while #program is a page sheet. */
-#program:not(.sheet) #programEditGrab{display:none}
+:is(#program,[data-copy-id="program"]):not(.sheet) :is(#programEditGrab,[data-copy-id="programEditGrab"]){display:none}
 .sheet__grab{display:block;flex:none;width:36px;height:5px;border-radius:var(--radius-compact);background:var(--sheet-grabber);margin:6px auto 0}
 /* The handle and the head are the drag rail: the browser must not read a push
    there as a scroll, or it takes the gesture and the sheet never moves. Below
@@ -2638,7 +2656,7 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
 .pmeta__chips{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-left:auto}
 .pmeta__chip{font-size:var(--font-size-caption);color:var(--ink-soft);background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius-pill);padding:6px 10px;white-space:nowrap}
 .pmeta__chip--status{color:var(--ink);border-color:var(--rule-strong);font-weight:600}
-#programEditor.hidden,#programEditChrome.hidden{display:none!important}
+:is(#programEditor,[data-copy-id="programEditor"]).hidden,#programEditChrome.hidden{display:none!important}
 .peditor{display:flex;flex-direction:column;gap:14px}
 .pday{background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius-surface);padding:14px;box-shadow:none}
 .pday__head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
@@ -2993,44 +3011,50 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
    normal flow and into its own page sheet, so what used to be body's reserve for that flow is now the
    sheet's own scroller's (#programEditorWrap); the rest pill and toast stay body-level fixed overlays,
    unaffected by the sheet's transform, and only need their z-index raised above it. */
-body:has(#program.program-editor-installed){
+body:has(:is(#program,[data-copy-id="program"]).program-editor-installed){
   --editor-apply-reserve:calc(96px + env(safe-area-inset-bottom));
 }
-body:has(#program.program-editor-installed):has(.program-editor-a__reason){--editor-apply-reserve:calc(128px + env(safe-area-inset-bottom))}
-body:has(#program.program-editor-installed) .restbar{bottom:var(--editor-apply-reserve);z-index:42}
-body:has(#program.program-editor-installed) .review-toast{bottom:calc(var(--editor-apply-reserve) + var(--restbar-reserve,0px))}
-body:has(#program.program-editor-installed) nav{display:none}
+body:has(:is(#program,[data-copy-id="program"]).program-editor-installed):has(.program-editor-a__reason){--editor-apply-reserve:calc(128px + env(safe-area-inset-bottom))}
+body:has(:is(#program,[data-copy-id="program"]).program-editor-installed) .restbar{bottom:var(--editor-apply-reserve);z-index:42}
+body:has(:is(#program,[data-copy-id="program"]).program-editor-installed) .review-toast{bottom:calc(var(--editor-apply-reserve) + var(--restbar-reserve,0px))}
+body:has(:is(#program,[data-copy-id="program"]).program-editor-installed) nav{display:none}
 /* The page sheet itself: #program becomes a .sheet with one detent ("large"),
    from 10px below the safe-area top to the bottom, over a still, inert, scaled-down
    copy of the Program view underneath. Everything .sheet already gives for free
    (the surface, radius, shadow, safe-area padding, open/close transition, the
    detents drag gesture, the reduced-motion cross-fade) applies unchanged; only the
    height and internal layout are this sheet's own. */
-#program.sheet{
+:is(#program,[data-copy-id="program"]).sheet{
   display:flex;flex-direction:column;
   height:calc(var(--vvh,100dvh) - env(safe-area-inset-top,0px) - 10px);max-height:none;padding-bottom:0;
 }
-#program.sheet>.pagehead{flex:none;margin:0;padding:4px 10px 12px;border-bottom:1px solid var(--rule)}
-#program.sheet>#programNoProgram,#program.sheet>#programOverview,#program.sheet>#programBlockBanner{flex:none}
-#program.sheet>#programEditorWrap{
+:is(#program,[data-copy-id="program"]).sheet>.pagehead{flex:none;margin:0;padding:4px 10px 12px;border-bottom:1px solid var(--rule)}
+:is(#program,[data-copy-id="program"]).sheet>:is(#programNoProgram,[data-copy-id="programNoProgram"]),:is(#program,[data-copy-id="program"]).sheet>:is(#programOverview,[data-copy-id="programOverview"]),:is(#program,[data-copy-id="program"]).sheet>:is(#programBlockBanner,[data-copy-id="programBlockBanner"]){flex:none}
+:is(#program,[data-copy-id="program"]).sheet>:is(#programEditorWrap,[data-copy-id="programEditorWrap"]){
   flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  /* The page's own gutters, as <main> gives them outside the sheet (owner, iPhone, 2026-10-23): the day tabs
+     strip bleeds into them and keeps its first tab inset. */
+  padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right));
   padding-bottom:calc(var(--editor-apply-reserve,96px) + var(--space-16) + var(--restbar-reserve,0px));
 }
 /* A page pushed from the editor (the full library, a preview) takes the screen:
    while #program isn't the active view, the sheet, its scrim and the copy under it
    step aside, and they are back as they were on its Back. */
-#program.sheet:not(.active),body:has(#program.sheet:not(.active)) :is(#programEditScrim,.is-editor-pushed-back){display:none}
+:is(#program,[data-copy-id="program"]).sheet:not(.active),body:has(:is(#program,[data-copy-id="program"]).sheet:not(.active)) :is(#programEditScrim,.is-editor-pushed-back){display:none}
 .pagehead[data-sheet-rail]{touch-action:none}
 /* The reason line is what Done being disabled explains; the editor's own bottom
    Apply button is the sheet's Done instead. */
-#program.program-editor-installed .program-editor-a__bar{display:none}
-#program.program-editor-installed .program-editor-a__bar:has(.program-editor-a__reason){display:flex}
-#program.program-editor-installed .program-editor-a__bar [data-role="apply"]{display:none}
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor-a__bar{display:none}
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor-a__bar:has(.program-editor-a__reason){display:flex}
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor-a__bar [data-role="apply"]{display:none}
 /* The still copy pushed back under the sheet (Plan 075 phase 2B). `--editor-push`
    (0 at rest, 1 fully receded) is motion-layer.js's `animateSheetPushBack`; without
    it, or under reduced motion, it jumps straight to its target. */
 .is-editor-pushed-back{
   position:fixed;inset:0;z-index:40;pointer-events:none;overflow:hidden;
+  /* <main>'s own box, which the page had: the same centred column and gutters, so the copy lays out as the page. */
+  left:max(0px,calc(50% - var(--maxw) / 2));right:max(0px,calc(50% - var(--maxw) / 2));box-sizing:border-box;
+  padding:calc(12px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 36px max(16px,env(safe-area-inset-left));
   transform-origin:top center;
   transform:scale(calc(1 - .06 * var(--editor-push,0))) translateY(calc(8px * var(--editor-push,0)));
   border-radius:calc(var(--radius-prominent) * var(--editor-push,0));
@@ -4994,26 +5018,28 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
    mark. Flat reading content on hairlines, ink only: orange stays off this page
    (the dock's active item is the one use). Below the days, the volume audit,
    export, share and review rows are the shipped rows, wrapped instead of cut. */
-#program.program-ledger>.pagehead{margin-bottom:var(--space-4)}
-#program.program-ledger>.pagehead .page-title{
+:is(#program,[data-copy-id="program"]).program-ledger>.pagehead{margin-bottom:var(--space-4)}
+:is(#program,[data-copy-id="program"]).program-ledger>.pagehead .page-title{
   margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-regular);
   letter-spacing:0;line-height:var(--line-standard);color:var(--color-ink-secondary)
 }
-#program.program-ledger #programEditToggle{
-  color:var(--control-quiet-ink);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);
-  text-decoration:underline;text-underline-offset:.2em
+/* A bar button (owner-approved bar-actions mock): the label alone in the accent, medium weight at body size, no
+   underline. It is on the orange budget as the bar's text button (tools/check-direction-d.mjs). */
+:is(#program,[data-copy-id="program"]).program-ledger :is(#programEditToggle,[data-copy-id="programEditToggle"]){
+  color:var(--accent-deep);font-size:var(--font-size-body);font-weight:var(--weight-medium);
+  text-decoration:none;padding:0 8px
 }
-#programOverview{container-type:inline-size;--prog-cols:minmax(0,1fr) 4.875rem 5.5rem}
+:is(#programOverview,[data-copy-id="programOverview"]){container-type:inline-size;--prog-cols:minmax(0,1fr) 4.875rem 5.5rem}
 .prog-overview__name{
   margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-title);font-weight:var(--weight-semibold);
   letter-spacing:-0.02em;line-height:var(--line-tight);color:var(--color-ink);overflow-wrap:anywhere;text-wrap:balance
 }
 .prog-overview__meta{margin:var(--space-8) 0 0;font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink-secondary);text-wrap:pretty}
 .prog-overview__week{margin:var(--space-4) 0 0;font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
-#programOverview .segbar{gap:var(--space-4);margin:var(--space-12) 0 0}
-#programOverview .segbar__seg{height:3px;border-radius:var(--radius-compact);background:var(--boundary-required)}
-#programOverview .segbar__seg.is-done{background:var(--color-ink)}
-#programOverview .segbar__seg.is-current{background:var(--color-ink-secondary)}
+:is(#programOverview,[data-copy-id="programOverview"]) .segbar{gap:var(--space-4);margin:var(--space-12) 0 0}
+:is(#programOverview,[data-copy-id="programOverview"]) .segbar__seg{height:3px;border-radius:var(--radius-compact);background:var(--boundary-required)}
+:is(#programOverview,[data-copy-id="programOverview"]) .segbar__seg.is-done{background:var(--color-ink)}
+:is(#programOverview,[data-copy-id="programOverview"]) .segbar__seg.is-current{background:var(--color-ink-secondary)}
 .prog-overview__status{margin:var(--space-12) 0 0;font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink)}
 .prog-day{margin-top:var(--space-26)}
 .prog-day__head{display:grid;gap:var(--space-4);padding-bottom:var(--space-8);border-bottom:1px solid var(--boundary-decorative)}
@@ -5026,20 +5052,20 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 }
 .prog-cols>:nth-child(n+2){text-align:right}
 .prog-legend{margin:0;padding:var(--space-8) 0;border-bottom:1px solid var(--boundary-decorative);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
-#programOverview .rxrow{grid-template-columns:var(--prog-cols);column-gap:var(--space-8)}
-#programOverview .rxrow__target{align-self:baseline}
-#programOverview .rxrow__load{
+:is(#programOverview,[data-copy-id="programOverview"]) .rxrow{grid-template-columns:var(--prog-cols);column-gap:var(--space-8)}
+:is(#programOverview,[data-copy-id="programOverview"]) .rxrow__target{align-self:baseline}
+:is(#programOverview,[data-copy-id="programOverview"]) .rxrow__load{
   display:inline-flex;align-items:baseline;justify-content:flex-end;gap:var(--space-4);
   font-size:var(--font-size-body);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink-secondary)
 }
-#programOverview .rxrow__mark{top:0;align-self:center}
-#programOverview .listrow__sub{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
-#programOverview .listrow__meta{white-space:normal;text-align:right}
+:is(#programOverview,[data-copy-id="programOverview"]) .rxrow__mark{top:0;align-self:center}
+:is(#programOverview,[data-copy-id="programOverview"]) .listrow__sub{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+:is(#programOverview,[data-copy-id="programOverview"]) .listrow__meta{white-space:normal;text-align:right}
 @container (max-width:17em){
   .prog-cols{display:none}
-  #programOverview .rxrow{grid-template-columns:minmax(0,1fr) auto}
-  #programOverview .rxrow__name{grid-column:1 / -1}
-  #programOverview .rxrow__target{text-align:left}
+  :is(#programOverview,[data-copy-id="programOverview"]) .rxrow{grid-template-columns:minmax(0,1fr) auto}
+  :is(#programOverview,[data-copy-id="programOverview"]) .rxrow__name{grid-column:1 / -1}
+  :is(#programOverview,[data-copy-id="programOverview"]) .rxrow__target{text-align:left}
 }
 
 /* ---- First-run landing (Plan 064 R2) ----
@@ -6056,99 +6082,99 @@ body.is-entry-editor .pday__empty{border-top-color:var(--boundary-decorative)}
 body.is-entry-editor .program-editor__exercise,
 body.is-entry-editor .program-editor__exercise-body,
 body.is-entry-editor .program-editor__exercise-actions,
-#program.program-editor-installed .program-editor__exercise,
-#program.program-editor-installed .program-editor__exercise-body,
-#program.program-editor-installed .program-editor__exercise-actions{
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__exercise,
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__exercise-body,
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__exercise-actions{
   border-color:var(--boundary-decorative)
 }
 body.is-entry-editor .program-editor__rep-rule,
-#program.program-editor-installed .program-editor__rep-rule{background:var(--boundary-decorative)}
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__rep-rule{background:var(--boundary-decorative)}
 body.is-entry-editor .program-editor__program-name,
 body.is-entry-editor .program-editor__field-label,
 body.is-entry-editor .program-editor__range legend,
 body.is-entry-editor .program-editor__range label,
 body.is-entry-editor .program-editor__more label,
-#program.program-editor-installed .program-editor__program-name,
-#program.program-editor-installed .program-editor__field-label,
-#program.program-editor-installed .program-editor__range legend,
-#program.program-editor-installed .program-editor__range label,
-#program.program-editor-installed .program-editor__more label{
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__program-name,
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__field-label,
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__range legend,
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__range label,
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__more label{
   color:var(--color-ink-secondary);font-family:var(--font-language);
   font-size:var(--font-size-label);font-weight:var(--weight-medium);
   line-height:var(--line-standard)
 }
 body.is-entry-editor .program-editor__context,
-#program.program-editor-installed .program-editor__context{
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__context{
   color:var(--color-ink-secondary);font-family:var(--font-language);
   font-size:var(--font-size-body);line-height:var(--line-reading)
 }
 body.is-entry-editor .program-editor__status,
 body.is-entry-editor .program-editor__empty,
-#program.program-editor-installed .program-editor__status,
-#program.program-editor-installed .program-editor__empty{
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__status,
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__empty{
   color:var(--color-ink-secondary);font-family:var(--font-language);
   font-size:var(--font-size-body-small);line-height:var(--line-reading)
 }
 body.is-entry-editor .program-editor__status.is-error,
-#program.program-editor-installed .program-editor__status.is-error{color:var(--color-destructive)}
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__status.is-error{color:var(--color-destructive)}
 body.is-entry-editor .program-editor__day-count,
 body.is-entry-editor .program-editor__summary,
 body.is-entry-editor .program-editor__stepper output,
 body.is-entry-editor .program-editor__range input[data-field="min"],
 body.is-entry-editor .program-editor__range input[data-field="max"],
-#program.program-editor-installed .program-editor__day-count,
-#program.program-editor-installed .program-editor__summary,
-#program.program-editor-installed .program-editor__stepper output,
-#program.program-editor-installed .program-editor__range input[data-field="min"],
-#program.program-editor-installed .program-editor__range input[data-field="max"]{
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__day-count,
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__summary,
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__stepper output,
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__range input[data-field="min"],
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__range input[data-field="max"]{
   font-family:var(--font-training-data);font-variant-numeric:tabular-nums
 }
 body.is-entry-editor .program-editor__day-count,
-#program.program-editor-installed .program-editor__day-count{
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__day-count{
   color:var(--color-ink-secondary);font-size:var(--font-size-label);
   font-weight:var(--weight-medium);line-height:var(--line-standard)
 }
 body.is-entry-editor .program-editor__summary,
-#program.program-editor-installed .program-editor__summary{
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__summary{
   color:var(--color-ink);font-family:var(--font-training-data);
   font-variant-numeric:tabular-nums
 }
 body.is-entry-editor .program-editor__stepper,
-#program.program-editor-installed .program-editor__stepper{
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__stepper{
   overflow:visible;border-color:var(--control-adjustment-boundary);
   border-radius:var(--radius-control);background:var(--control-adjustment-bg)
 }
 body.is-entry-editor .program-editor__stepper button[data-role="adjust"],
-#program.program-editor-installed .program-editor__stepper button[data-role="adjust"]{
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__stepper button[data-role="adjust"]{
   background:var(--control-adjustment-bg);color:var(--control-adjustment-ink);
   border-color:var(--control-adjustment-boundary);font-size:var(--control-icon-size)
 }
 body.is-entry-editor .program-editor__stepper button[data-role="adjust"]:first-child,
-#program.program-editor-installed .program-editor__stepper button[data-role="adjust"]:first-child{
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__stepper button[data-role="adjust"]:first-child{
   border-radius:var(--radius-control) var(--radius-none) var(--radius-none) var(--radius-control)
 }
 body.is-entry-editor .program-editor__stepper button[data-role="adjust"]:last-child,
-#program.program-editor-installed .program-editor__stepper button[data-role="adjust"]:last-child{
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__stepper button[data-role="adjust"]:last-child{
   border-radius:var(--radius-none) var(--radius-control) var(--radius-control) var(--radius-none)
 }
 @media (hover: hover) and (pointer: fine){
 body.is-entry-editor .program-editor__stepper button[data-role="adjust"]:hover:not(:disabled),
-#program.program-editor-installed .program-editor__stepper button[data-role="adjust"]:hover:not(:disabled){
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__stepper button[data-role="adjust"]:hover:not(:disabled){
   background:var(--well);color:var(--control-adjustment-ink);
   border-color:var(--control-adjustment-boundary)
 }
 }
 body.is-entry-editor .program-editor__stepper button[data-role="adjust"].is-pressed:not(:disabled),
-#program.program-editor-installed .program-editor__stepper button[data-role="adjust"].is-pressed:not(:disabled){
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__stepper button[data-role="adjust"].is-pressed:not(:disabled){
   background:var(--row-pressed-bg);color:var(--control-adjustment-ink);
   border-color:var(--control-adjustment-boundary)
 }
 body.is-entry-editor .program-editor__stepper button[data-role="adjust"].is-pressed:not(:disabled),
-#program.program-editor-installed .program-editor__stepper button[data-role="adjust"].is-pressed:not(:disabled){
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__stepper button[data-role="adjust"].is-pressed:not(:disabled){
   transform:var(--control-pressed-transform)
 }
 body.is-entry-editor .program-editor__stepper button[data-role="adjust"]:focus-visible,
-#program.program-editor-installed .program-editor__stepper button[data-role="adjust"]:focus-visible,
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__stepper button[data-role="adjust"]:focus-visible,
 body.is-entry-editor :is(
   .program-editor__day-name.pday__name:not([id]),
   .program-editor__exercise-name.pex__name:not([id]),
@@ -6161,7 +6187,7 @@ body.is-entry-editor :is(
   .program-editor__remove:not([id]),
   input:not([id]):not([class])
 ):focus-visible,
-#program.program-editor-installed :is(
+:is(#program,[data-copy-id="program"]).program-editor-installed :is(
   .program-editor__day-name.pday__name:not([id]),
   .program-editor__exercise-name.pex__name:not([id]),
   .program-editor__add.pday__add:not([id]),
@@ -6176,7 +6202,7 @@ body.is-entry-editor :is(
   outline:var(--control-focus-outline);outline-offset:2px
 }
 body.is-entry-editor .program-editor__stepper button[data-role="adjust"]:disabled,
-#program.program-editor-installed .program-editor__stepper button[data-role="adjust"]:disabled{
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__stepper button[data-role="adjust"]:disabled{
   background:var(--control-adjustment-bg);color:var(--color-disabled-reason);
   border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
 }
@@ -6185,7 +6211,7 @@ body.is-entry-editor :is(
   .program-editor__exercise-name.pex__name:not([id]),
   input:not([id]):not([class])
 ),
-#program.program-editor-installed :is(
+:is(#program,[data-copy-id="program"]).program-editor-installed :is(
   .program-editor__day-name.pday__name:not([id]),
   .program-editor__exercise-name.pex__name:not([id]),
   input:not([id]):not([class])
@@ -6199,15 +6225,15 @@ body.is-entry-editor :is(
   .program-editor__exercise-name.pex__name:not([id]),
   input:not([id]):not([class]):not([data-field="min"]):not([data-field="max"])
 ),
-#program.program-editor-installed :is(
+:is(#program,[data-copy-id="program"]).program-editor-installed :is(
   .program-editor__day-name.pday__name:not([id]),
   .program-editor__exercise-name.pex__name:not([id]),
   input:not([id]):not([class]):not([data-field="min"]):not([data-field="max"])
 ){font-family:var(--font-language)}
 body.is-entry-editor input[data-field="min"],
 body.is-entry-editor input[data-field="max"],
-#program.program-editor-installed input[data-field="min"],
-#program.program-editor-installed input[data-field="max"]{
+:is(#program,[data-copy-id="program"]).program-editor-installed input[data-field="min"],
+:is(#program,[data-copy-id="program"]).program-editor-installed input[data-field="max"]{
   font-family:var(--font-training-data);font-variant-numeric:tabular-nums
 }
 @media (hover: hover) and (pointer: fine){
@@ -6216,7 +6242,7 @@ body.is-entry-editor :is(
   .program-editor__exercise-name.pex__name:not([id]),
   input:not([id]):not([class])
 ):hover:not(:disabled),
-#program.program-editor-installed :is(
+:is(#program,[data-copy-id="program"]).program-editor-installed :is(
   .program-editor__day-name.pday__name:not([id]),
   .program-editor__exercise-name.pex__name:not([id]),
   input:not([id]):not([class])
@@ -6230,7 +6256,7 @@ body.is-entry-editor :is(
   .program-editor__exercise-name.pex__name:not([id]),
   input:not([id]):not([class])
 ).is-pressed:not(:disabled),
-#program.program-editor-installed :is(
+:is(#program,[data-copy-id="program"]).program-editor-installed :is(
   .program-editor__day-name.pday__name:not([id]),
   .program-editor__exercise-name.pex__name:not([id]),
   input:not([id]):not([class])
@@ -6243,7 +6269,7 @@ body.is-entry-editor :is(
   .program-editor__exercise-name.pex__name:not([id]),
   input:not([id]):not([class])
 ):is([aria-invalid="true"],.is-invalid),
-#program.program-editor-installed :is(
+:is(#program,[data-copy-id="program"]).program-editor-installed :is(
   .program-editor__day-name.pday__name:not([id]),
   .program-editor__exercise-name.pex__name:not([id]),
   input:not([id]):not([class])
@@ -6255,7 +6281,7 @@ body.is-entry-editor :is(
   .program-editor__exercise-name.pex__name:not([id]),
   input:not([id]):not([class])
 ):disabled,
-#program.program-editor-installed :is(
+:is(#program,[data-copy-id="program"]).program-editor-installed :is(
   .program-editor__day-name.pday__name:not([id]),
   .program-editor__exercise-name.pex__name:not([id]),
   input:not([id]):not([class])
@@ -6268,7 +6294,7 @@ body.is-entry-editor :is(
   .program-editor__day-toggle.pday__caret:not([id]),
   .program-editor__exercise-toggle:not([id])
 ),
-#program.program-editor-installed :is(
+:is(#program,[data-copy-id="program"]).program-editor-installed :is(
   .program-editor__day-menu:not([id]),
   .program-editor__day-toggle.pday__caret:not([id]),
   .program-editor__exercise-toggle:not([id])
@@ -6282,7 +6308,7 @@ body.is-entry-editor :is(
   .program-editor__day-toggle.pday__caret:not([id]),
   .program-editor__exercise-toggle:not([id])
 ):hover:not(:disabled),
-#program.program-editor-installed :is(
+:is(#program,[data-copy-id="program"]).program-editor-installed :is(
   .program-editor__day-menu:not([id]),
   .program-editor__day-toggle.pday__caret:not([id]),
   .program-editor__exercise-toggle:not([id])
@@ -6296,7 +6322,7 @@ body.is-entry-editor :is(
   .program-editor__day-toggle.pday__caret:not([id]),
   .program-editor__exercise-toggle:not([id])
 ).is-pressed:not(:disabled),
-#program.program-editor-installed :is(
+:is(#program,[data-copy-id="program"]).program-editor-installed :is(
   .program-editor__day-menu:not([id]),
   .program-editor__day-toggle.pday__caret:not([id]),
   .program-editor__exercise-toggle:not([id])
@@ -6309,7 +6335,7 @@ body.is-entry-editor :is(
   .program-editor__day-toggle.pday__caret:not([id]),
   .program-editor__exercise-toggle:not([id])
 ).is-pressed:not(:disabled),
-#program.program-editor-installed :is(
+:is(#program,[data-copy-id="program"]).program-editor-installed :is(
   .program-editor__day-menu:not([id]),
   .program-editor__day-toggle.pday__caret:not([id]),
   .program-editor__exercise-toggle:not([id])
@@ -6319,7 +6345,7 @@ body.is-entry-editor :is(
   .program-editor__day-toggle.pday__caret:not([id]),
   .program-editor__exercise-toggle:not([id])
 ):disabled,
-#program.program-editor-installed :is(
+:is(#program,[data-copy-id="program"]).program-editor-installed :is(
   .program-editor__day-menu:not([id]),
   .program-editor__day-toggle.pday__caret:not([id]),
   .program-editor__exercise-toggle:not([id])
@@ -6331,7 +6357,7 @@ body.is-entry-editor :is(
   .program-editor__add.pday__add:not([id]),
   .program-editor__replace:not([id])
 ),
-#program.program-editor-installed :is(
+:is(#program,[data-copy-id="program"]).program-editor-installed :is(
   .program-editor__add.pday__add:not([id]),
   .program-editor__add-day:not([id]),
   .program-editor__replace:not([id])
@@ -6347,7 +6373,7 @@ body.is-entry-editor :is(
   .program-editor__add.pday__add:not([id]),
   .program-editor__replace:not([id])
 ):hover:not(:disabled),
-#program.program-editor-installed :is(
+:is(#program,[data-copy-id="program"]).program-editor-installed :is(
   .program-editor__add.pday__add:not([id]),
   .program-editor__add-day:not([id]),
   .program-editor__replace:not([id])
@@ -6360,7 +6386,7 @@ body.is-entry-editor :is(
   .program-editor__add.pday__add:not([id]),
   .program-editor__replace:not([id])
 ).is-pressed:not(:disabled),
-#program.program-editor-installed :is(
+:is(#program,[data-copy-id="program"]).program-editor-installed :is(
   .program-editor__add.pday__add:not([id]),
   .program-editor__add-day:not([id]),
   .program-editor__replace:not([id])
@@ -6372,7 +6398,7 @@ body.is-entry-editor :is(
   .program-editor__add.pday__add:not([id]),
   .program-editor__replace:not([id])
 ).is-pressed:not(:disabled),
-#program.program-editor-installed :is(
+:is(#program,[data-copy-id="program"]).program-editor-installed :is(
   .program-editor__add.pday__add:not([id]),
   .program-editor__add-day:not([id]),
   .program-editor__replace:not([id])
@@ -6381,7 +6407,7 @@ body.is-entry-editor :is(
   .program-editor__add.pday__add:not([id]),
   .program-editor__replace:not([id])
 ):disabled,
-#program.program-editor-installed :is(
+:is(#program,[data-copy-id="program"]).program-editor-installed :is(
   .program-editor__add.pday__add:not([id]),
   .program-editor__add-day:not([id]),
   .program-editor__replace:not([id])
@@ -6390,7 +6416,7 @@ body.is-entry-editor :is(
   border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
 }
 body.is-entry-editor .program-editor__remove:not([id]),
-#program.program-editor-installed .program-editor__remove:not([id]){
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__remove:not([id]){
   min-height:var(--control-target);padding:8px 12px;
   border:1px solid var(--control-destructive-boundary);border-radius:var(--radius-control);
   background:var(--control-destructive-bg);color:var(--control-destructive-ink);
@@ -6399,22 +6425,22 @@ body.is-entry-editor .program-editor__remove:not([id]),
 }
 @media (hover: hover) and (pointer: fine){
 body.is-entry-editor .program-editor__remove:not([id]):hover:not(:disabled),
-#program.program-editor-installed .program-editor__remove:not([id]):hover:not(:disabled){
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__remove:not([id]):hover:not(:disabled){
   background:var(--well);color:var(--control-destructive-ink);
   border-color:var(--control-destructive-boundary)
 }
 }
 body.is-entry-editor .program-editor__remove:not([id]).is-pressed:not(:disabled),
-#program.program-editor-installed .program-editor__remove:not([id]).is-pressed:not(:disabled){
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__remove:not([id]).is-pressed:not(:disabled){
   background:var(--row-pressed-bg);color:var(--control-destructive-ink);
   border-color:var(--control-destructive-boundary)
 }
 body.is-entry-editor .program-editor__remove:not([id]).is-pressed:not(:disabled),
-#program.program-editor-installed .program-editor__remove:not([id]).is-pressed:not(:disabled){
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__remove:not([id]).is-pressed:not(:disabled){
   transform:var(--control-pressed-transform)
 }
 body.is-entry-editor .program-editor__remove:not([id]):disabled,
-#program.program-editor-installed .program-editor__remove:not([id]):disabled{
+:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__remove:not([id]):disabled{
   background:var(--control-destructive-bg);color:var(--color-disabled-reason);
   border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
 }
@@ -8026,7 +8052,7 @@ body.is-entry-editor #entryProgramName,
 .install-transfer__status:not(:empty){border-left-color:var(--boundary-selected-quiet)}
 
 /* Program management: links and warnings are ink. */
-#exCustomSheet .text-link,#exPickSheet .text-link,#programEditToggle{color:var(--control-quiet-ink)}
+#exCustomSheet .text-link,#exPickSheet .text-link,:is(#programEditToggle,[data-copy-id="programEditToggle"]){color:var(--control-quiet-ink)}
 #exCustomSheet .text-link,#exPickSheet .text-link{text-decoration:underline;text-underline-offset:.2em}
 .share-setup__blocker-summary{color:var(--color-ink)}
 .program-editor__undo,.program-editor__replace,.pex__detach,.pex__swap.is-unlinked{color:var(--control-quiet-ink)}

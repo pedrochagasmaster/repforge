@@ -182,7 +182,9 @@ console.log("\nD-owned state list");
     "a status other than pending or implemented is rejected");
   check(has(validateGateConfig({ allowlist: [{ category: "decoration", selector: ".x" }], exceptions: [] }), "decoration"),
     "an orange allowlist entry outside the five budget categories is rejected");
-  check(ORANGE_CATEGORIES.length === 5, "the orange budget names exactly five categories", ORANGE_CATEGORIES.join(", "));
+  // Direction D's five uses, plus the bar's text button the owner approved with the bar-actions mock (2026-10-23).
+  check(ORANGE_CATEGORIES.length === 6 && ORANGE_CATEGORIES.includes("bar-text-button"),
+    "the orange budget names exactly six categories", ORANGE_CATEGORIES.join(", "));
   check(GAPS.length > 0 && GAPS.every((gap) => typeof gap === "string" && gap.length > 40),
     "every rule no governing document provides is recorded as an explicit gap", `${GAPS.length} gaps`);
 }

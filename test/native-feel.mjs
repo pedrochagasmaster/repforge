@@ -1529,6 +1529,74 @@ const waitTitleOpacity = (page, barSel, want) => page.waitForFunction(
  * mirrored inline title appear together, in both themes, opaque under
  * reduced transparency, and capped at 21px under large text.
  */
+/**
+ * Owner, iPhone (2026-10-23): the Program editor's page sheet keeps the page's gutters, the Program page under it
+ * stays laid out as it is while the sheet is dragged, and a root page's trailing action is a button in its bar.
+ */
+async function editorSheetAndBar(browser) {
+  phase("The editor sheet's content keeps the page gutters");
+  {
+    const { context, page } = await sheetPage(browser);
+    await page.click('nav button[data-view="program"]');
+    // The settled Program page: the size of each line of text in it, before the sheet takes it.
+    const leaves = (root) => [...root.querySelectorAll("*")].filter((el) => !el.children.length && el.textContent.trim())
+      .slice(0, 24).map((el) => [el.textContent.trim().slice(0, 24), el.offsetWidth, el.offsetHeight]);
+    const settled = await page.evaluate((fn) => new Function("root", `return (${fn})(root)`)(document.querySelector("#program")), leaves.toString());
+    await page.click("#programEditToggle");
+    await page.waitForSelector("#program.sheet.is-open");
+    await sheetAtRest(page, "#program.sheet");
+    const insets = await page.evaluate(() => {
+      const hint = document.querySelector("#program.sheet .program-editor-a__hint").getBoundingClientRect();
+      const tabs = document.querySelector("#program.sheet .review__tabs"), first = tabs.querySelector(".review__tab").getBoundingClientRect();
+      return { left: hint.left, right: window.innerWidth - hint.right, firstTab: first.left - tabs.getBoundingClientRect().left + tabs.scrollLeft,
+        tabsLeft: tabs.getBoundingClientRect().left, tabsRight: window.innerWidth - tabs.getBoundingClientRect().right };
+    });
+    assert(insets.left === 16 && insets.right === 16, "the sheet's content sits inside the page's 16px gutters", JSON.stringify(insets));
+    assert(insets.tabsLeft === 0 && insets.tabsRight === 0 && insets.firstTab === 16,
+      "the day tabs run edge to edge and scroll, with the first tab inset to the gutter", JSON.stringify(insets));
+
+    phase("While the sheet is dragged down, the Program page beneath keeps its layout");
+    // The editor sheet's drag rail is its head (data-sheet-rail), clear of Cancel and Done.
+    const rail = await page.locator("#program.sheet > .pagehead .pagehead__titles").boundingBox();
+    const from = { x: Math.round(rail.x + rail.width / 2), y: Math.round(rail.y + rail.height / 2) };
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    for (const dy of [30, 80, 140, 200]) {
+      await page.mouse.move(from.x, from.y + dy);
+      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve())));
+    }
+    const mid = await page.evaluate((fn) => new Function("root", `return (${fn})(root)`)(document.querySelector(".is-editor-pushed-back")), leaves.toString());
+    await page.mouse.up();
+    assert(JSON.stringify(mid) === JSON.stringify(settled), "mid-drag, every line of the page beneath has the settled page's size (no word broken per letter)",
+      JSON.stringify({ settled: settled.slice(0, 6), mid: mid.slice(0, 6) }));
+    await context.close();
+  }
+
+  phase("Edit is a button in the Program page's bar, at the top and scrolled");
+  {
+    const { context, page } = await sheetPage(browser);
+    await page.click('nav button[data-view="program"]');
+    const read = () => page.evaluate(() => {
+      const edit = document.querySelector("#programEditToggle"), r = edit.getBoundingClientRect(), style = getComputedStyle(edit);
+      const probe = document.createElement("span"); probe.style.color = "var(--accent-deep)"; document.body.append(probe);
+      const accent = getComputedStyle(probe).color; probe.remove();
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return { top: r.top, bottom: r.bottom, right: window.innerWidth - r.right, height: r.height, decoration: style.textDecorationLine,
+        accent: style.color === accent, hit: hit === edit || edit.contains(hit) };
+    });
+    const top = await read();
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await page.waitForFunction(() => document.querySelector("#programTopbar").classList.contains("is-scrolled"));
+    const scrolled = await read();
+    for (const [label, at] of [["at the top", top], ["scrolled", scrolled]]) {
+      assert(at.top >= 0 && at.bottom <= 44 && at.height === 44 && at.hit, `${label}: Edit is a 44pt button in the bar's row, nothing over it`, JSON.stringify(at));
+      assert(at.decoration === "none" && at.accent, `${label}: plain accent text, no underline`, JSON.stringify(at));
+    }
+    assert(top.top === scrolled.top && top.right === scrolled.right, "it keeps the same place in both states", JSON.stringify({ top, scrolled }));
+    await context.close();
+  }
+}
+
 async function navigationBars(browser) {
   phase("No material at the top; scrolling the title under the bar reveals it");
   {
@@ -1903,6 +1971,7 @@ try {
   await reducedMotionPush(browser);
   await editorSheetTab(browser);
   await navigationBars(browser);
+  await editorSheetAndBar(browser);
 } finally {
   await browser.close();
 }

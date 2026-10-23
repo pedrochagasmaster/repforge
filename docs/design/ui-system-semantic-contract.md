@@ -655,10 +655,14 @@ both blocks so each theme block shows the whole set; the spacing lengths are not
   `prefers-reduced-transparency`. It appears only on Today, Progress,
   History's list and Program's ledger, one at a time with the page it
   belongs to, and never under a sheet, on a pushed page, in the editor sheet
-  or on History's session page. The page's existing trailing actions stay in
-  the pagehead rather than moving into the bar, and the bar reserves no
-  height of its own: it overlays the pagehead's top space, so a root page's
-  rest frame is unchanged. No role, tier or radius is added; the bar's own
+  or on History's session page. The page's trailing actions are the bar's
+  buttons (owner-approved bar-actions mock, 2026-10-23): pinned in its
+  trailing slot, above its material, at the same place whether the title is
+  large or collapsed, each a 44pt target with no border or fill at rest and
+  the row-pressed wash (`--well`) on press. Program's Edit is plain text in
+  `--accent-deep` at medium weight, the orange budget's "bar-text-button";
+  the icon buttons keep ink. The large title starts below the bar's 44px row,
+  as on iOS. No role, tier or radius is added; the bar's own
   tokens (`--bar-glass`, `--bar-blur`, `--bar-edge`) are declared in both
   themes beside the dock's equivalent glass tokens.
 
