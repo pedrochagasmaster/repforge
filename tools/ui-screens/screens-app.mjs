@@ -451,7 +451,10 @@ async function editorRowMenuForCapture(page, selector) {
   await button.evaluate(element => {
     element.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
   });
-  await button.click();
+  // A row whose ⋯ is shown only to keyboard focus opens through its context gesture, as a person would.
+  if (await button.evaluate(element => element.classList.contains('visually-hidden'))) {
+    await page.locator(selector).first().locator('xpath=ancestor::*[@data-context-row][1]').click({ button: 'right' });
+  } else await button.click();
   await page.waitForSelector('#nativeContextMenu[open]');
 }
 async function openEditorSheetA(page, id) {
@@ -2522,13 +2525,13 @@ export const APP_SCENARIOS = {
   },
 
   "today/skipped": async page => {
-    await dismissChrome(page); await page.locator('#todayExList [data-row-menu]').first().click();
+    await dismissChrome(page); await page.locator('#todayExList [data-context-row]').first().click({ button: 'right' });
     await page.locator('#nativeContextMenu [data-menu-value="skip"]').click();
     await page.waitForSelector('#todayExList .is-skipped');
   },
   "today/context-menu": async page => {
     await dismissChrome(page);
-    await page.locator('#todayExList [data-row-menu]').first().click();
+    await page.locator('#todayExList [data-context-row]').first().click({ button: 'right' });
     await page.waitForSelector('#nativeContextMenu[open]');
   },
   "workout/actions": async page => {

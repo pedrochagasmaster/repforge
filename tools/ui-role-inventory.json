@@ -5759,7 +5759,8 @@
       "id": "theme",
       "selector": "#themeSegments [role=\"radio\"]",
       "roles": {
-        "control": "selection"
+        "control": "selection",
+        "boundary": "state-cues"
       },
       "variant": null,
       "facets": [],
@@ -5925,7 +5926,8 @@
       "id": "unit",
       "selector": "#unitSegments [role=\"radio\"]",
       "roles": {
-        "control": "selection"
+        "control": "selection",
+        "boundary": "state-cues"
       },
       "variant": null,
       "facets": [],
@@ -6446,7 +6448,7 @@
           "flat",
           "selected"
         ],
-        "boundary": "required"
+        "boundary": "state-cues"
       },
       "variant": "day-choice",
       "facets": [],
@@ -7784,7 +7786,7 @@
           "flat",
           "selected"
         ],
-        "boundary": "required"
+        "boundary": "state-cues"
       },
       "variant": "navigation-dock",
       "facets": [],
@@ -10829,14 +10831,14 @@
       "id": "native-segment-group",
       "selector": ".native-segments",
       "roles": {
-        "boundary": "required"
+        "boundary": "decorative"
       },
       "variant": null,
       "facets": [],
       "states": [
         "default"
       ],
-      "rationale": "The group boundary defines the extent of the segmented choice.",
+      "rationale": "The soft track groups the choices; selection is carried by the raised thumb and the heavier label (contract: state cues).",
       "owner": "plan-075-phase-4",
       "catalogStates": [
         "settings/appearance",
@@ -10852,7 +10854,6 @@
       "id": "native-segment-thumb",
       "selector": ".native-segments__thumb",
       "roles": {
-        "boundary": "required",
         "elevation": "selected"
       },
       "variant": null,

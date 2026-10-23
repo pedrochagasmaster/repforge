@@ -375,7 +375,7 @@
         <div class="settings-row settings-row--segments">
           <span class="settings-row__label" id="unitLabel" data-i18n="settings.units">Units</span>
           <select id="unit" hidden tabindex="-1" aria-hidden="true"><option value="kg">kg</option><option value="lb">lb</option></select>
-          <div class="native-segments" id="unitSegments" data-segment-input="unit" role="radiogroup" aria-labelledby="unitLabel"><span class="native-segments__thumb" aria-hidden="true"></span><button type="button" role="radio" data-value="kg" aria-checked="false" tabindex="-1">kg</button><button type="button" role="radio" data-value="lb" aria-checked="false" tabindex="-1">lb</button></div>
+          <div class="native-segments" id="unitSegments" data-segment-input="unit" role="radiogroup" aria-labelledby="unitLabel"><span class="native-segments__thumb" data-state-indicator aria-hidden="true"></span><button type="button" role="radio" data-value="kg" aria-checked="false" tabindex="-1">kg</button><button type="button" role="radio" data-value="lb" aria-checked="false" tabindex="-1">lb</button></div>
         </div>
         <button type="button" class="settings-row" id="rirModeRow" aria-expanded="false" aria-controls="rirModePanel">
           <span class="settings-row__label" data-i18n="settings.rir_logging">RIR logging</span>
@@ -410,7 +410,7 @@
             <div class="settings-row settings-row--stepper">
               <span class="settings-row__label" id="minJumpLabel" data-i18n="program.editor.load_step">Smallest load change</span>
               <button type="button" class="native-stepper__value" id="minJumpRow" aria-expanded="false" aria-controls="minJumpPanel" aria-labelledby="minJumpLabel minJumpDisplay"><span id="minJumpDisplay" aria-live="polite">2.5</span> <span class="native-stepper__unit">kg</span></button>
-              <div class="native-stepper__buttons"><button type="button" data-step-input="minJump" data-step-delta="-1" data-i18n-aria="program.editor.step_smaller" aria-label="program.editor.step_smaller">−</button><button type="button" data-step-input="minJump" data-step-delta="1" data-i18n-aria="program.editor.step_larger" aria-label="program.editor.step_larger">+</button></div>
+              <div class="native-stepper__buttons"><button type="button" data-step-input="minJump" data-step-delta="-1" data-i18n-aria="program.editor.step_smaller" aria-label="program.editor.step_smaller"><span class="icon-mask icon-mask--minus" aria-hidden="true"></span></button><button type="button" data-step-input="minJump" data-step-delta="1" data-i18n-aria="program.editor.step_larger" aria-label="program.editor.step_larger"><span class="icon-mask icon-mask--plus" aria-hidden="true"></span></button></div>
             </div>
             <div id="minJumpPanel" class="settings-panel">
               <label class="field"><span data-i18n="program.editor.load_step">Smallest load change</span><input id="minJump" type="text" inputmode="decimal" enterkeyhint="next" data-step-size="0.5" data-step-min="0.5" data-step-max="10"></label>
@@ -432,7 +432,7 @@
           <div class="settings-row settings-row--stepper">
             <span class="settings-row__label" id="restSecLabel" data-i18n="settings.rest_timer_short">Rest timer</span>
             <button type="button" class="native-stepper__value" id="restSecRow" aria-expanded="false" aria-controls="restSecPanel" aria-labelledby="restSecLabel restSecDisplay"><span id="restSecDisplay" aria-live="polite">2:00</span></button>
-            <div class="native-stepper__buttons"><button type="button" data-step-input="restSec" data-step-delta="-1" data-i18n-aria="settings.rest_shorter" aria-label="settings.rest_shorter">−</button><button type="button" data-step-input="restSec" data-step-delta="1" data-i18n-aria="settings.rest_longer" aria-label="settings.rest_longer">+</button></div>
+            <div class="native-stepper__buttons"><button type="button" data-step-input="restSec" data-step-delta="-1" data-i18n-aria="settings.rest_shorter" aria-label="settings.rest_shorter"><span class="icon-mask icon-mask--minus" aria-hidden="true"></span></button><button type="button" data-step-input="restSec" data-step-delta="1" data-i18n-aria="settings.rest_longer" aria-label="settings.rest_longer"><span class="icon-mask icon-mask--plus" aria-hidden="true"></span></button></div>
           </div>
           <div id="restSecPanel" class="settings-panel">
             <label class="field"><span data-i18n="settings.rest_timer">Rest timer (seconds, 0 = off)</span><input id="restSec" type="text" inputmode="numeric" enterkeyhint="done" data-step-size="15" data-step-min="0" data-step-max="600"></label>
@@ -466,7 +466,7 @@
         <div class="settings-row settings-row--segments">
           <span class="settings-row__label" id="themeLabel" data-i18n="settings.appearance">Appearance</span>
           <select id="theme" hidden tabindex="-1" aria-hidden="true"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
-          <div class="native-segments" id="themeSegments" data-segment-input="theme" role="radiogroup" aria-labelledby="themeLabel"><span class="native-segments__thumb" aria-hidden="true"></span><button type="button" role="radio" data-value="system" aria-checked="false" tabindex="-1" data-i18n="settings.appearance.system">System</button><button type="button" role="radio" data-value="light" aria-checked="false" tabindex="-1" data-i18n="settings.appearance.light">Light</button><button type="button" role="radio" data-value="dark" aria-checked="false" tabindex="-1" data-i18n="settings.appearance.dark">Dark</button></div>
+          <div class="native-segments" id="themeSegments" data-segment-input="theme" role="radiogroup" aria-labelledby="themeLabel"><span class="native-segments__thumb" data-state-indicator aria-hidden="true"></span><button type="button" role="radio" data-value="system" aria-checked="false" tabindex="-1" data-i18n="settings.appearance.system">System</button><button type="button" role="radio" data-value="light" aria-checked="false" tabindex="-1" data-i18n="settings.appearance.light">Light</button><button type="button" role="radio" data-value="dark" aria-checked="false" tabindex="-1" data-i18n="settings.appearance.dark">Dark</button></div>
         </div>
         <label class="settings-row" for="lang">
           <span class="settings-row__label" data-i18n="settings.language">Language</span>

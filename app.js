@@ -5822,7 +5822,7 @@ function mountDockLens(){
   const BOX=["left","top","width","height"],SHAPE=["left","width","height"];
   const makeLens=()=>{
     const el=document.createElement("span");
-    el.className="dock-lens";el.setAttribute("aria-hidden","true");
+    el.className="dock-lens";el.setAttribute("aria-hidden","true");el.dataset.stateIndicator="";
     nav.append(el);return el};
   /** The nav's border box, or null while the dock is hidden (display:none gives it no box). */
   const navRect=()=>{
@@ -6927,6 +6927,7 @@ function dayPickRowHtml(d,i){
     `<span class="daypick__main"><span class="daypick__line"><span class="daypick__title">${esc(title)}</span>`+
     (isToday?`<span class="daypick__chip">${esc(chip)}</span>`:"")+
     `</span><span class="daypick__sub">${esc(sub)}</span></span>`+
+    `<span class="icon-mask icon-mask--check daypick__check" aria-hidden="true"></span>`+
     `</button>`}
 function renderDayPickList(){const list=$("#dayPickList");if(!list)return;
   list.innerHTML=days().map(dayPickRowHtml).join("");
@@ -7447,7 +7448,7 @@ function todayRxRowHtml(row,index){
     `<span class="rxrow__name">${esc(exerciseDisplayName(ex))}<span class="rxrow__sub" id="${statusId}">${esc(row.sub)}</span></span>`+
     `<span class="rxrow__load"${row.load!=null?` data-parity-target="${esc(ex.id)}"`:""}>${row.load!=null?esc(fmtLoad(row.load)):"\u2013"}</span>`+
     `<span class="rxrow__target">${esc(row.target).replace(/\u00d7/g,`<span class="rxrow__op">\u00d7</span>`)}</span>`+
-    (hasVerdict?`<span class="visually-hidden" id="${verdictId}">${esc(rec.label)}</span>`:"")+`</button><button type="button" class="native-row-menu" data-row-menu="${esc(ex.id)}" aria-haspopup="menu"${isSkipped?` aria-describedby="${statusId}"`:""} aria-label="${esc(t("program.editor.more"))}: ${esc(exerciseDisplayName(ex))}"><span class="icon-mask icon-mask--overflow" aria-hidden="true"></span></button></div>`}
+    (hasVerdict?`<span class="visually-hidden" id="${verdictId}">${esc(rec.label)}</span>`:"")+`</button><button type="button" class="native-row-menu visually-hidden" data-row-menu="${esc(ex.id)}" aria-haspopup="menu"${isSkipped?` aria-describedby="${statusId}"`:""} aria-label="${esc(t("program.editor.more"))}: ${esc(exerciseDisplayName(ex))}"><span class="icon-mask icon-mask--overflow" aria-hidden="true"></span></button></div>`}
 function todayRxHtml(exs){
   if(!exs.length)return"";
   const model=todayRxModel(exs),sets=sum(exs.map(e=>+e.sets||0));

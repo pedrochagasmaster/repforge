@@ -116,11 +116,11 @@
   /* The wheel picker's selection band: ink at 7%, as the prototype draws it, in either theme. */
   --wheel-band:rgba(var(--ink-rgb),.07);
   --switch-off-ring:inset 0 0 0 1.5px var(--boundary-required);
-  /* Segmented and stepper tracks: a soft ink tint, as iOS draws them. The thumb is a raised paper surface whose own
-     hairline carries the selection boundary. */
+  /* Segmented and stepper tracks: a soft ink tint, as iOS draws them. The thumb is a raised paper surface; it and the
+     heavier label carry the selection (contract: state cues). */
   --control-track:rgba(var(--ink-rgb),.07);
   --segment-thumb-bg:var(--surface);
-  --segment-thumb-shadow:inset 0 0 0 1px var(--boundary-required),0 3px 8px rgba(var(--shadow-rgb),.12),0 1px 1px rgba(var(--shadow-rgb),.04);
+  --segment-thumb-shadow:0 3px 8px rgba(var(--shadow-rgb),.12),0 1px 1px rgba(var(--shadow-rgb),.04),0 0 0 .5px rgba(var(--shadow-rgb),.06);
   --menu-bg:rgba(var(--bg-rgb),.86);
   --menu-destructive-ink:#9E2E22;
   --menu-blur:blur(20px) saturate(180%);
@@ -128,6 +128,7 @@
   --menu-backdrop:rgba(var(--bg-rgb),.25);
   --menu-separator:rgba(var(--ink-rgb),.06);
   --row-pressed-bg:rgba(var(--ink-rgb),.06);
+  --sheet-grabber:rgba(var(--ink-rgb),.22);
   --control-toggle-thumb-shadow:0 3px 8px rgba(var(--shadow-rgb),.15),0 3px 1px rgba(var(--shadow-rgb),.06),0 0 0 .5px rgba(var(--shadow-rgb),.04);
   --control-accent-keyline-shadow:inset 0 0 0 1px var(--accent);
   --boundary-flat:var(--rule);
@@ -944,7 +945,7 @@ div.settings-row{cursor:default}
 @media (hover: hover) and (pointer: fine){
 #settings #reset:hover:not(:disabled){background:var(--well);color:var(--control-destructive-ink)}
 }
-#settings #reset.is-pressed:not(:disabled){background:var(--well);color:var(--control-destructive-ink)}
+#settings #reset.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-destructive-ink)}
 #settings :is(#rirModeRow,#progressionRow,#restSecRow,#notifyConfigRow,#dataBackupRow,#dataImportRow,#guideReplayToggle,#createProgram,#privacyDetails,#reset):disabled{
   background:transparent;color:var(--color-disabled-reason);border-color:var(--boundary-decorative);
   opacity:1;cursor:not-allowed;transform:none
@@ -997,7 +998,7 @@ div.settings-row{cursor:default}
 @media (hover: hover) and (pointer: fine){
 .wo-head__name:hover{background:var(--well)}
 }
-.wo-head__name.is-pressed{background:var(--well);transform:var(--control-pressed-transform)}
+.wo-head__name.is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 .wo-head__name:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-control)}
 /* The title is a heading and is never cut short: it wraps. Where the controls leave it a column too narrow to read
    (the narrowest phones, and any phone at large text) it takes the row under the controls, so a running timer's
@@ -1033,7 +1034,7 @@ body:has(.exercise--focus.is-text-scaled) .wo-head__center{order:3;flex:1 0 100%
 @media (hover: hover) and (pointer: fine){
 .wo-rest:hover:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary)}
 }
-.wo-rest.is-pressed:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary);transform:var(--control-pressed-transform)}
+.wo-rest.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary);transform:var(--control-pressed-transform)}
 .wo-rest:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .wo-rest:disabled{background:var(--control-secondary-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
 .wo-rest__dot{display:none;width:8px;height:8px;border-radius:50%;background:var(--color-ink-secondary);flex:none}
@@ -1053,7 +1054,7 @@ body.is-focus-wo .restbar{display:none!important}
 @media (hover: hover) and (pointer: fine){
 #leaveWorkout:hover:not(:disabled),#sessionSheetBtn:hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
 }
-#leaveWorkout.is-pressed:not(:disabled),#sessionSheetBtn.is-pressed:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+#leaveWorkout.is-pressed:not(:disabled),#sessionSheetBtn.is-pressed:not(:disabled){background:var(--row-pressed-bg);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 #leaveWorkout:focus-visible,#sessionSheetBtn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #leaveWorkout:disabled,#sessionSheetBtn:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 #woOverflowBtn{
@@ -1063,7 +1064,7 @@ body.is-focus-wo .restbar{display:none!important}
 @media (hover: hover) and (pointer: fine){
 #woOverflowBtn:hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
 }
-#woOverflowBtn.is-pressed:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+#woOverflowBtn.is-pressed:not(:disabled){background:var(--row-pressed-bg);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 #woOverflowBtn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #woOverflowBtn:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 #leaveWorkout .icon-mask{transform:rotate(90deg)}
@@ -1229,7 +1230,7 @@ article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
 @media (hover: hover) and (pointer: fine){
 .exercise--focus .text-link.focus-ex__why:hover:not(:disabled),.exercise--focus .fx-cue__cancel:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
 }
-.exercise--focus .text-link.focus-ex__why.is-pressed:not(:disabled),.exercise--focus .fx-cue__cancel.is-pressed:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+.exercise--focus .text-link.focus-ex__why.is-pressed:not(:disabled),.exercise--focus .fx-cue__cancel.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 .exercise--focus .text-link.focus-ex__why:focus-visible,.exercise--focus .fx-cue__cancel:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .exercise--focus .text-link.focus-ex__why:disabled,.exercise--focus .fx-cue__cancel:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 .fx-note{
@@ -1243,7 +1244,7 @@ article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
 @media (hover: hover) and (pointer: fine){
 .exercise--focus .term:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink);text-decoration-color:var(--control-quiet-ink)}
 }
-.exercise--focus .term.is-pressed:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+.exercise--focus .term.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 .exercise--focus .term:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .exercise--focus .term:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 
@@ -1265,7 +1266,7 @@ button.ledgerline{cursor:pointer;text-align:left;border-top:0;border-inline:0}
 @media (hover: hover) and (pointer: fine){
 button.ledgerline:hover:not(:disabled){background:var(--well)}
 }
-button.ledgerline.is-pressed:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
+button.ledgerline.is-pressed:not(:disabled){background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 .ledgerline .fx-check{
   display:block;width:20px;height:20px;background:var(--color-ink);
@@ -1285,7 +1286,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 @media (hover: hover) and (pointer: fine){
 .fx-next:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
 }
-.fx-next.is-pressed:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+.fx-next.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 .fx-next:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .fx-next:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);cursor:not-allowed;transform:none}
 .fx-next__chev{flex:none;transform:rotate(-90deg)}
@@ -1298,7 +1299,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 @media (hover: hover) and (pointer: fine){
 .ledger__more:hover{background:var(--well)}
 }
-.ledger__more.is-pressed{background:var(--well);transform:var(--control-pressed-transform)}
+.ledger__more.is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 .ledger__more:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .ledger__chev{flex:none}
 .ledger__more[aria-expanded="true"] .ledger__chev{transform:rotate(180deg)}
@@ -1332,7 +1333,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 @media (hover: hover) and (pointer: fine){
 .shelf__fieldbtn:hover:not(:disabled){background:var(--well)}
 }
-.shelf__fieldbtn.is-pressed:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
+.shelf__fieldbtn.is-pressed:not(:disabled){background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 .shelf__fieldbtn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .shelf__fieldbtn[aria-pressed="true"]{box-shadow:var(--elevation-selected-quiet-shadow)}
 .shelf__lab{
@@ -1416,20 +1417,20 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 @media (hover: hover) and (pointer: fine){
 .restpad:hover:not(:disabled){background:var(--well)}
 }
-.restpad.is-pressed:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
+.restpad.is-pressed:not(:disabled){background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 .restpad:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .restpad:disabled{color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
 .restpad--adjust{background:var(--control-adjustment-bg);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
 @media (hover: hover) and (pointer: fine){
 .restpad--adjust:hover:not(:disabled){background:var(--well);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
 }
-.restpad--adjust.is-pressed:not(:disabled){background:var(--well);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
+.restpad--adjust.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
 .restpad--adjust:disabled{background:var(--control-adjustment-bg)}
 .restpad--toggle{background:var(--control-selection-bg);color:var(--control-selection-ink);border-color:var(--control-selection-boundary)}
 @media (hover: hover) and (pointer: fine){
 .restpad--toggle:hover:not(:disabled){background:var(--well);color:var(--control-selection-ink);border-color:var(--control-selection-boundary)}
 }
-.restpad--toggle.is-pressed:not(:disabled){background:var(--well);color:var(--control-selection-ink);border-color:var(--control-selection-boundary)}
+.restpad--toggle.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-selection-ink);border-color:var(--control-selection-boundary)}
 .restpad--toggle:disabled{background:var(--control-selection-bg)}
 @media (prefers-reduced-motion:reduce){
   .restinline__fill{transition:none}
@@ -1627,7 +1628,7 @@ body:not(.is-focus-wo):has(#restBar:not(.hidden)){
 @media (hover: hover) and (pointer: fine){
 .stepbtn:hover:not(:disabled){background:var(--well);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
 }
-.stepbtn.is-pressed:not(:disabled){background:var(--well);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary);transform:var(--control-pressed-transform)}
+.stepbtn.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary);transform:var(--control-pressed-transform)}
 .stepbtn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .stepbtn:disabled{background:var(--control-adjustment-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
 
@@ -1735,7 +1736,7 @@ body.is-sheet-open{overflow:hidden}
 }
 /* The Program editor's grabber shows only while #program is a page sheet. */
 #program:not(.sheet) #programEditGrab{display:none}
-.sheet__grab{display:block;flex:none;width:38px;height:5px;border-radius:var(--radius-compact);background:var(--rule-strong);margin:8px auto 0}
+.sheet__grab{display:block;flex:none;width:36px;height:5px;border-radius:var(--radius-compact);background:var(--sheet-grabber);margin:6px auto 0}
 /* The handle and the head are the drag rail: the browser must not read a push
    there as a scroll, or it takes the gesture and the sheet never moves. Below
    them the sheet's own scrollers keep their native panning. */
@@ -1798,12 +1799,12 @@ body.is-sheet-open{overflow:hidden}
 @media (hover: hover) and (pointer: fine){
 .picktab:hover:not(:disabled){background:var(--well)}
 }
-.picktab.is-pressed:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
+.picktab.is-pressed:not(:disabled){background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 .picktab.is-active{color:var(--control-selection-ink);border-bottom-color:var(--control-selected-boundary)}
 @media (hover: hover) and (pointer: fine){
 .picktab.is-active:hover:not(:disabled){background:var(--well);border-bottom-color:var(--control-selected-boundary)}
 }
-.picktab.is-active.is-pressed:not(:disabled){background:var(--well);border-bottom-color:var(--control-selected-boundary)}
+.picktab.is-active.is-pressed:not(:disabled){background:var(--row-pressed-bg);border-bottom-color:var(--control-selected-boundary)}
 .picktab:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .picktab:disabled{color:var(--color-disabled-reason);cursor:not-allowed}
 /* Let the tabs reflow when enlarged text narrows their effective container. */
@@ -1990,7 +1991,7 @@ body.is-sheet-open{overflow:hidden}
 @media (hover: hover) and (pointer: fine){
 .pchip:hover:not(:disabled){background:var(--well);border-color:var(--control-selection-boundary);color:var(--control-selection-ink)}
 }
-.pchip.is-pressed:not(:disabled){background:var(--well);border-color:var(--control-selection-boundary);color:var(--control-selection-ink);transform:var(--control-pressed-transform)}
+.pchip.is-pressed:not(:disabled){background:var(--row-pressed-bg);border-color:var(--control-selection-boundary);color:var(--control-selection-ink);transform:var(--control-pressed-transform)}
 .pchip:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .pchip.is-active{background:var(--control-selection-active-bg);border-color:var(--control-selected-boundary);color:var(--control-selection-ink);box-shadow:var(--elevation-selected-shadow)}
 @media (hover: hover) and (pointer: fine){
@@ -2039,7 +2040,7 @@ body.is-sheet-open{overflow:hidden}
 @media (hover: hover) and (pointer: fine){
 .pickrow:hover:not(:disabled){background:var(--well);border-bottom-color:var(--control-selection-boundary)}
 }
-.pickrow.is-pressed:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
+.pickrow.is-pressed:not(:disabled){background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 .pickrow:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .pickrow.is-selected{background:var(--control-selection-active-bg)}
 @media (hover: hover) and (pointer: fine){
@@ -2125,7 +2126,7 @@ body.is-sheet-open{overflow:hidden}
 .review-step{display:inline-flex;align-items:center;border:1px solid var(--control-adjustment-boundary);border-radius:var(--radius-control);background:var(--control-adjustment-bg);overflow:hidden}
 .review-step button{flex:none;width:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);padding:0;border:0;background:none;color:var(--control-adjustment-ink);font-family:var(--font-language);font-size:var(--font-size-control);line-height:1;cursor:pointer}
 @media (hover:hover) and (pointer:fine){.review-step button:hover:not(:disabled){background:var(--well)}}
-.review-step button.is-pressed:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
+.review-step button.is-pressed:not(:disabled){background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 .review-step button:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 .review-step button:disabled{color:var(--color-disabled-reason);cursor:not-allowed}
 .review-step b{min-width:40px;padding:0 var(--space-4);text-align:center;font-family:var(--font-training-data);font-weight:var(--weight-medium);font-size:var(--font-size-control);color:var(--color-ink)}
@@ -2153,7 +2154,7 @@ body.is-sheet-open{overflow:hidden}
 .review-chipbtn{display:inline-flex;align-items:center;gap:var(--space-8);min-height:var(--control-target);padding:var(--space-8) var(--space-14);border:1px solid var(--control-adjustment-boundary);border-radius:var(--radius-pill);background:var(--control-adjustment-bg);color:var(--control-adjustment-ink);font-family:var(--font-language);font-size:var(--font-size-body-small);cursor:pointer}
 .review-chipbtn .icon-mask{flex:none;color:var(--color-ink-secondary)}
 @media (hover:hover) and (pointer:fine){.review-chipbtn:hover{background:var(--well);border-color:var(--control-selection-boundary)}}
-.review-chipbtn.is-pressed{background:var(--well);transform:var(--control-pressed-transform)}
+.review-chipbtn.is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 .review-chipbtn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .review-sheet__sub{margin:var(--space-12) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);color:var(--color-ink-secondary)}
 .review-sheet__empty{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
@@ -2195,18 +2196,21 @@ body.is-sheet-open{overflow:hidden}
 .daypick__body{flex-direction:column;overflow:hidden;padding:0 16px}
 .daypick__list{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;margin:0 -16px;padding:0 16px}
 .daypick__row{
-  display:flex;align-items:center;gap:var(--space-12);width:100%;min-height:56px;padding:var(--space-8) var(--space-12) var(--space-8) 9px;
-  background:var(--control-selection-bg);border:0;border-bottom:1px solid var(--boundary-decorative);border-left:3px solid var(--control-selection-boundary);border-radius:var(--radius-none);
+  display:flex;align-items:center;gap:var(--space-12);width:100%;min-height:56px;padding:var(--space-8) 0;
+  background:var(--control-selection-bg);border:0;border-bottom:1px solid var(--boundary-decorative);border-radius:var(--radius-none);
   cursor:pointer;text-align:left;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--control-selection-ink);
 }
 .daypick__row:last-child{border-bottom:0}
 @media (hover: hover) and (pointer: fine){
-.daypick__row:hover:not(:disabled){background:var(--well);color:var(--control-selection-ink)}
+.daypick__row:hover:not(:disabled){background:var(--row-pressed-bg);color:var(--control-selection-ink)}
 }
-.daypick__row.is-pressed:not(:disabled){background:var(--well);color:var(--control-selection-ink);transform:var(--control-pressed-transform)}
+.daypick__row.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-selection-ink);transform:var(--control-pressed-transform)}
 .daypick__row:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-/* The armed day takes the well and the quiet selected boundary (ink, never orange) on its rail. */
-.daypick__row.is-selected{border-left-color:var(--boundary-selected-quiet);background:var(--well);color:var(--control-selection-ink)}
+/* As in the prototype the armed day takes a trailing check, and its number the full ink (contract: state cues). */
+.daypick__check{flex:none;width:22px;height:22px;color:var(--color-ink);opacity:0;scale:.6;transition:opacity .12s linear,scale .3s var(--ease-press-release)}
+.daypick__row.is-selected .daypick__check{opacity:1;scale:1}
+.daypick__row.is-selected .daypick__n{color:var(--color-ink)}
+@media (prefers-reduced-motion:reduce){.daypick__check{transition:none}}
 .daypick__row:disabled{background:var(--control-selection-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 .daypick__n{flex:none;min-width:18px;text-align:center;font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink-secondary);font-variant-numeric:tabular-nums}
 .daypick__main{min-width:0;flex:1}
@@ -2299,7 +2303,7 @@ textarea.sheetfield__input{
 @media (hover: hover) and (pointer: fine){
 .session-map__jump:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
 }
-.session-map__jump.is-pressed:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+.session-map__jump.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 .session-map__jump:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .session-map__jump:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 .session-map__name{
@@ -2322,7 +2326,7 @@ textarea.sheetfield__input{
 @media (hover: hover) and (pointer: fine){
 .session-map__reorder-btn:hover:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary)}
 }
-.session-map__reorder-btn.is-pressed:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary);transform:var(--control-pressed-transform)}
+.session-map__reorder-btn.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary);transform:var(--control-pressed-transform)}
 .session-map__reorder-btn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .session-map__reorder-btn:disabled{background:var(--control-secondary-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
 .session-sheet__meta{display:grid;gap:var(--space-12);margin-top:var(--space-18)}
@@ -2372,7 +2376,7 @@ textarea.sheetfield__input{
 @media (hover: hover) and (pointer: fine){
 :is(#sessionEarlyFinish,#draftRecoveryCopy,#draftRecoveryReload,#draftRecoveryRetry):hover:not(:disabled){background:var(--well);border-color:var(--control-secondary-boundary);color:var(--control-secondary-ink)}
 }
-:is(#sessionEarlyFinish,#draftRecoveryCopy,#draftRecoveryReload,#draftRecoveryRetry).is-pressed:not(:disabled){background:var(--well);border-color:var(--control-secondary-boundary);color:var(--control-secondary-ink);transform:var(--control-pressed-transform)}
+:is(#sessionEarlyFinish,#draftRecoveryCopy,#draftRecoveryReload,#draftRecoveryRetry).is-pressed:not(:disabled){background:var(--row-pressed-bg);border-color:var(--control-secondary-boundary);color:var(--control-secondary-ink);transform:var(--control-pressed-transform)}
 :is(#sessionEarlyFinish,#draftRecoveryCopy,#draftRecoveryReload,#draftRecoveryRetry):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 :is(#sessionEarlyFinish,#draftRecoveryCopy,#draftRecoveryReload,#draftRecoveryRetry):disabled{background:var(--control-secondary-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 :is(#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep,#draftDiscardKeep){
@@ -2392,7 +2396,7 @@ textarea.sheetfield__input{
 @media (hover: hover) and (pointer: fine){
 :is(#sessionEarlyCancel,#sessionAbandonCancel,#exNoteCancel):hover:not(:disabled){background:var(--well);border-color:var(--control-secondary-boundary);color:var(--control-secondary-ink)}
 }
-:is(#sessionEarlyCancel,#sessionAbandonCancel,#exNoteCancel).is-pressed:not(:disabled){background:var(--well);border-color:var(--control-secondary-boundary);color:var(--control-secondary-ink);transform:var(--control-pressed-transform)}
+:is(#sessionEarlyCancel,#sessionAbandonCancel,#exNoteCancel).is-pressed:not(:disabled){background:var(--row-pressed-bg);border-color:var(--control-secondary-boundary);color:var(--control-secondary-ink);transform:var(--control-pressed-transform)}
 :is(#sessionEarlyCancel,#sessionAbandonCancel,#exNoteCancel):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 :is(#sessionEarlyCancel,#sessionAbandonCancel,#exNoteCancel):disabled{background:var(--control-secondary-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 /* The History discard question (Plan 064 R3j2): Keep editing is the primary choice above, Discard
@@ -2406,7 +2410,7 @@ textarea.sheetfield__input{
 @media (hover: hover) and (pointer: fine){
 :is(#historyDiscardDrop,#draftDiscardDrop,#sessionAbandon,#sessionAbandonConfirm):hover:not(:disabled){background:var(--well);border-color:var(--control-destructive-boundary);color:var(--control-destructive-ink)}
 }
-:is(#historyDiscardDrop,#draftDiscardDrop,#sessionAbandon,#sessionAbandonConfirm).is-pressed:not(:disabled){background:var(--well);border-color:var(--control-destructive-boundary);color:var(--control-destructive-ink);transform:var(--control-pressed-transform)}
+:is(#historyDiscardDrop,#draftDiscardDrop,#sessionAbandon,#sessionAbandonConfirm).is-pressed:not(:disabled){background:var(--row-pressed-bg);border-color:var(--control-destructive-boundary);color:var(--control-destructive-ink);transform:var(--control-pressed-transform)}
 :is(#historyDiscardDrop,#draftDiscardDrop,#sessionAbandon,#sessionAbandonConfirm):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 :is(#historyDiscardDrop,#draftDiscardDrop,#sessionAbandon,#sessionAbandonConfirm):disabled{background:var(--control-destructive-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 #restSheetClose,#whyClose{
@@ -2416,7 +2420,7 @@ textarea.sheetfield__input{
 @media (hover: hover) and (pointer: fine){
 #restSheetClose:hover:not(:disabled),#whyClose:hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
 }
-#restSheetClose.is-pressed:not(:disabled),#whyClose.is-pressed:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+#restSheetClose.is-pressed:not(:disabled),#whyClose.is-pressed:not(:disabled){background:var(--row-pressed-bg);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 #restSheetClose:focus-visible,#whyClose:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #restSheetClose:disabled,#whyClose:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 
@@ -2445,7 +2449,7 @@ textarea.sheetfield__input{
 @media (hover: hover) and (pointer: fine){
 .exactions__act:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
 }
-.exactions__act.is-pressed:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+.exactions__act.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 .exactions__act:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 .exactions__act:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 .exactions__act:disabled .icon-mask,.exactions__act:disabled .exactions__act-text small{color:var(--color-disabled-reason)}
@@ -2488,7 +2492,7 @@ textarea.sheetfield__input{
 @media (hover: hover) and (pointer: fine){
 .restpreset:hover:not(:disabled){border-color:var(--control-selection-boundary);color:var(--control-selection-ink);background:var(--well)}
 }
-.restpreset.is-pressed:not(:disabled){border-color:var(--control-selection-boundary);color:var(--control-selection-ink);background:var(--well);transform:var(--control-pressed-transform)}
+.restpreset.is-pressed:not(:disabled){border-color:var(--control-selection-boundary);color:var(--control-selection-ink);background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 .restpreset:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .restpreset.is-active{border-color:var(--control-selected-boundary);color:var(--control-selection-ink);background:var(--control-selection-active-bg);box-shadow:var(--elevation-selected-shadow)}
 @media (hover: hover) and (pointer: fine){
@@ -2506,7 +2510,7 @@ textarea.sheetfield__input{
 @media (hover: hover) and (pointer: fine){
 .restctl:hover:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary)}
 }
-.restctl.is-pressed:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary);transform:var(--control-pressed-transform)}
+.restctl.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary);transform:var(--control-pressed-transform)}
 .restctl:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .restctl:disabled{background:var(--control-secondary-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
 #restMinus,#restPlus{background:var(--control-adjustment-bg);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
@@ -2515,7 +2519,7 @@ textarea.sheetfield__input{
 #restPlus:hover:not(:disabled){background:var(--well);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
 }
 #restMinus.is-pressed:not(:disabled),
-#restPlus.is-pressed:not(:disabled){background:var(--well);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
+#restPlus.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
 #restMinus.is-pressed:not(:disabled),#restPlus.is-pressed:not(:disabled){transform:var(--control-pressed-transform)}
 #restMinus:disabled,#restPlus:disabled{background:var(--control-adjustment-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
 /* Pause or Resume: a text-only control on a row of its own above the four icon controls. */
@@ -2815,7 +2819,7 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
 @media (hover: hover) and (pointer: fine){
 .program-editor__alternate-move:not(:disabled):hover,.program-editor__alternate-remove:hover{background:var(--well)}
 }
-:is(.program-editor__alternate-move:not(:disabled),.program-editor__alternate-remove).is-pressed{background:var(--well);transform:var(--control-pressed-transform)}
+:is(.program-editor__alternate-move:not(:disabled),.program-editor__alternate-remove).is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 .program-editor__exercise-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:18px -16px 0;padding:0 16px;border-top:1px solid var(--rule)}
 .program-editor__exercise-actions button{min-height:62px;padding:8px 0;border:0;background:transparent;cursor:pointer;font-size:var(--font-size-control);font-weight:500}
 .program-editor__replace{color:var(--accent-deep)}
@@ -3160,7 +3164,7 @@ nav button:focus-visible{outline:var(--control-focus-outline);outline-offset:-3p
 nav button.active{
   color:var(--accent-deep);
   background:var(--dock-pill);
-  border-color:var(--boundary-selected);
+  border-color:transparent;
   box-shadow:var(--elevation-nav-selected-shadow);
 }
 /* The lens is placed by the script on the active button's border box (read from
@@ -3190,7 +3194,8 @@ nav button.active{
 }
 nav[data-lens] button.active{background:transparent;box-shadow:none}
 nav[data-lens=travel] button.active{border-color:transparent}
-nav[data-lens=travel] .dock-lens::after{display:block}
+/* As in the prototype the lens is a filled pill with no ring: the fill and the orange icon and label carry the
+   selection (contract: state cues), so no ring rides with it while it travels either. */
 /* At enlarged computed text sizes, four short dock columns break localized
    names inside words. The root container's em threshold follows the rendered
    root font size, regardless of whether the browser scales it with inline
@@ -3382,7 +3387,7 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 @media (hover: hover) and (pointer: fine){
 .sum-muscles__more:hover:not(:disabled){background:var(--well);color:var(--control-disclosure-ink)}
 }
-.sum-muscles__more.is-pressed:not(:disabled){background:var(--well);color:var(--control-disclosure-ink);transform:var(--control-pressed-transform)}
+.sum-muscles__more.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-disclosure-ink);transform:var(--control-pressed-transform)}
 .sum-muscles__more:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .sum-muscles__more:disabled{background:var(--control-disclosure-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 
@@ -3409,7 +3414,7 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 @media (hover: hover) and (pointer: fine){
 #sumSee:hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
 }
-#sumSee.is-pressed:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+#sumSee.is-pressed:not(:disabled){background:var(--row-pressed-bg);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 #sumSee:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #sumSee:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 /* The way out is never below the fold. A session ends with a lifter holding a
@@ -3488,7 +3493,7 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .field--check + .field--check::before{
   content:"";position:absolute;top:0;left:50px;right:0;border-top:1px solid var(--rule);
 }
-.field--check.is-pressed{background:var(--well)}
+.field--check.is-pressed{background:var(--row-pressed-bg)}
 .field--check:has(input:disabled){color:var(--ink-faint);cursor:default}
 .field--check:has(input:disabled).is-pressed{background:none}
 /* Onboarding */
@@ -3555,7 +3560,7 @@ body.is-sheet-open .installbanner{display:none}
 @media (hover: hover) and (pointer: fine){
 .installbanner__close:hover:not(:disabled){background:var(--well)}
 }
-.installbanner__close.is-pressed:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
+.installbanner__close.is-pressed:not(:disabled){background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 .installbanner__close:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .installbanner__close:disabled{color:var(--color-disabled-reason);cursor:not-allowed;transform:none}
 .installbanner__icon{width:34px;height:34px;border-radius:var(--radius-control);background:url("icons/icon-192.png") center/cover no-repeat}
@@ -3747,7 +3752,7 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 @media (hover: hover) and (pointer: fine){
 .settings-btn:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)}
 }
-.settings-btn.is-pressed:not(:disabled){background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary);transform:var(--control-pressed-transform)}
+.settings-btn.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary);transform:var(--control-pressed-transform)}
 .settings-btn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .settings-btn:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
 .settings-btn .icon-mask{width:var(--control-icon-size);height:var(--control-icon-size)}
@@ -3795,7 +3800,7 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 @media (hover: hover) and (pointer: fine){
 #logAnotherSession:hover:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary)}
 }
-#logAnotherSession.is-pressed:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary);transform:var(--control-pressed-transform)}
+#logAnotherSession.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary);transform:var(--control-pressed-transform)}
 #logAnotherSession:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #logAnotherSession:disabled{background:var(--control-secondary-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
 
@@ -4212,7 +4217,7 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 .entry-body .entry-card:hover{background:var(--well)}
 }
 .entry-body .entry-card:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-.entry-body .entry-card.is-pressed:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
+.entry-body .entry-card.is-pressed:not(:disabled){background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 .entry-body .entry-card--nested{min-height:52px;padding:12px 4px 12px 14px;border-bottom:0}
 .entry-body .entry-card--subordinate{min-height:54px;padding:12px 4px;color:var(--ink-soft)}
 .entry-body .entry-card--subordinate .entry-card__title{font-size:var(--font-size-body-small);color:var(--color-ink)}
@@ -4240,7 +4245,7 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 }
 .entry-body #entryFreeformStart.is-pressed:not(:disabled),
 .entry-body .entry-card--secondary:not([id]).is-pressed:not(:disabled){
-  background:var(--well);color:var(--control-quiet-ink);
+  background:var(--row-pressed-bg);color:var(--control-quiet-ink);
   border-color:var(--control-quiet-boundary);border-bottom-color:var(--boundary-decorative)
 }
 .entry-body #entryFreeformStart:focus-visible,
@@ -4386,7 +4391,7 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 @media (hover: hover) and (pointer: fine){
 .entry__muscle-state:hover:not(:disabled):not(.is-selected){border-color:var(--control-selection-boundary);background:var(--well);color:var(--control-selection-ink)}
 }
-.entry__muscle-state.is-pressed:not(:disabled):not(.is-selected){border-color:var(--control-selection-boundary);background:var(--well);color:var(--control-selection-ink)}
+.entry__muscle-state.is-pressed:not(:disabled):not(.is-selected){border-color:var(--control-selection-boundary);background:var(--row-pressed-bg);color:var(--control-selection-ink)}
 .entry__muscle-state.is-pressed:not(:disabled){transform:var(--control-pressed-transform)}
 .entry__muscle-state:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .entry__muscle-state.is-selected{border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow);background:var(--well);color:var(--control-selection-ink)}
@@ -4426,7 +4431,7 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 }
 }
 .entry__exercise-action.is-pressed:not(:disabled){
-  background:var(--well);color:var(--control-selection-ink);border-color:var(--control-selection-boundary);
+  background:var(--row-pressed-bg);color:var(--control-selection-ink);border-color:var(--control-selection-boundary);
 }
 .entry__exercise-action.is-pressed:not(:disabled){transform:var(--control-pressed-transform)}
 .entry__exercise-action:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
@@ -4472,7 +4477,7 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 @media (hover: hover) and (pointer: fine){
 .entry-prog:not([id]):hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
 }
-.entry-prog:not([id]).is-pressed:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
+.entry-prog:not([id]).is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-quiet-ink)}
 .entry-prog:not([id]).is-pressed:not(:disabled){transform:var(--control-pressed-transform)}
 .entry-prog:not([id]):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 @media (hover: hover) and (pointer: fine){
@@ -4680,7 +4685,7 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 @media (hover: hover) and (pointer: fine){
 .attn__chip:hover{background:var(--well)}
 }
-.attn__chip.is-pressed{background:var(--well);transform:var(--control-pressed-transform)}
+.attn__chip.is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 .attn__chip:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 .attnrow__mark{grid-column:1;display:flex;align-self:start;padding-top:var(--space-4)}
 .attnrow__name{grid-column:2;min-width:0;font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
@@ -4714,7 +4719,7 @@ button.strrow{cursor:pointer}
 @media (hover: hover) and (pointer: fine){
 button.strrow:hover{background:var(--well)}
 }
-button.strrow.is-pressed{background:var(--well);transform:var(--control-pressed-transform)}
+button.strrow.is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 .strrow--snap{grid-template-columns:minmax(0,1fr) 60px 5rem}
 .strrow .spark{align-self:center}
@@ -4859,7 +4864,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 @media (hover: hover) and (pointer: fine){
 .exrow:hover{background:var(--well)}
 }
-.exrow.is-pressed{background:var(--well);transform:var(--control-pressed-transform)}
+.exrow.is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 .exrow:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 .exrow.is-sel{border-left-color:var(--boundary-selected-quiet)}
 .exrow.is-old span:first-child{color:var(--color-ink-secondary)}
@@ -4884,7 +4889,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 @media (hover: hover) and (pointer: fine){
 #history .session__open:hover:not(:disabled){background:var(--well)}
 }
-#history .session__open.is-pressed:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
+#history .session__open.is-pressed:not(:disabled){background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 #history .session__open:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 #history .hist-sess__d{flex:0 0 2.5rem;display:flex;flex-direction:column;align-items:flex-start;font-family:var(--font-training-data);font-size:var(--font-size-subtitle);font-weight:var(--weight-medium);line-height:var(--line-tight)}
 #history .hist-sess__d small{font-family:var(--font-language);font-size:var(--font-size-caption);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink-secondary)}
@@ -4952,7 +4957,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 @media (hover: hover) and (pointer: fine){
 #historyCalSheet :is(#calPrev,#calNext):hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
 }
-#historyCalSheet :is(#calPrev,#calNext).is-pressed:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
+#historyCalSheet :is(#calPrev,#calNext).is-pressed:not(:disabled){background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 #historyCalSheet :is(#calPrev,#calNext):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #historyCalSheet .cal-head__prev{transform:rotate(180deg)}
 #historyCalSheet .cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:var(--space-4);text-align:center}
@@ -5609,7 +5614,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 @media (hover: hover) and (pointer: fine){
 .whysheet__disc:hover:not(:disabled){background:var(--well);color:var(--control-disclosure-ink)}
 }
-.whysheet__disc.is-pressed:not(:disabled){background:var(--well);color:var(--control-disclosure-ink);transform:var(--control-pressed-transform)}
+.whysheet__disc.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-disclosure-ink);transform:var(--control-pressed-transform)}
 .whysheet__disc:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .whysheet__disc:disabled{background:var(--control-disclosure-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 .whycalc{display:none;padding:var(--space-4) 0 var(--space-8);border-bottom:1px solid var(--boundary-decorative)}
@@ -5713,7 +5718,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 }
 #onboarding:has(:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub)) #onbCancel.is-pressed:not(:disabled),
 #onboarding:has(:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub)) #onbBack.is-pressed:not(:disabled){
-  background:var(--well);color:var(--control-quiet-ink);
+  background:var(--row-pressed-bg);color:var(--control-quiet-ink);
   border-color:var(--control-quiet-boundary)
 }
 #onboarding:has(:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub)) #onbBack.is-pressed:not(:disabled),
@@ -5769,7 +5774,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .btn.btn--steel:not(.btn--destructive).is-pressed:not(:disabled),
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) #entryConflictReview.is-pressed:not(:disabled),
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) #entryEdit.is-pressed:not(:disabled){
-  background:var(--well);color:var(--control-secondary-ink);
+  background:var(--row-pressed-bg);color:var(--control-secondary-ink);
   border-color:var(--control-secondary-boundary)
 }
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) #entryRestart{
@@ -5783,7 +5788,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 }
 }
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) #entryRestart.is-pressed:not(:disabled){
-  background:var(--well);color:var(--control-destructive-ink);
+  background:var(--row-pressed-bg);color:var(--control-destructive-ink);
   border-color:var(--control-destructive-boundary)
 }
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .btn.btn--steel.is-pressed:not(:disabled),
@@ -5822,7 +5827,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 }
 }
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card.is-pressed:not(:disabled):not(.is-selected){
-  background:var(--well);color:var(--control-selection-ink);
+  background:var(--row-pressed-bg);color:var(--control-selection-ink);
   border-color:var(--control-selection-boundary)
 }
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card.is-pressed:not(:disabled){
@@ -5988,7 +5993,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 }
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .entry__disclosure>summary.is-pressed,
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .onb__day>summary.is-pressed{
-  background:var(--well);color:var(--control-disclosure-ink);
+  background:var(--row-pressed-bg);color:var(--control-disclosure-ink);
   transform:var(--control-pressed-transform)
 }
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .entry__disclosure>summary:focus-visible,
@@ -6128,7 +6133,7 @@ body.is-entry-editor .program-editor__stepper button[data-role="adjust"]:hover:n
 }
 body.is-entry-editor .program-editor__stepper button[data-role="adjust"].is-pressed:not(:disabled),
 #program.program-editor-installed .program-editor__stepper button[data-role="adjust"].is-pressed:not(:disabled){
-  background:var(--well);color:var(--control-adjustment-ink);
+  background:var(--row-pressed-bg);color:var(--control-adjustment-ink);
   border-color:var(--control-adjustment-boundary)
 }
 body.is-entry-editor .program-editor__stepper button[data-role="adjust"].is-pressed:not(:disabled),
@@ -6289,7 +6294,7 @@ body.is-entry-editor :is(
   .program-editor__day-toggle.pday__caret:not([id]),
   .program-editor__exercise-toggle:not([id])
 ).is-pressed:not(:disabled){
-  background:var(--well);color:var(--control-disclosure-ink);
+  background:var(--row-pressed-bg);color:var(--control-disclosure-ink);
   border-color:var(--control-disclosure-boundary)
 }
 body.is-entry-editor :is(
@@ -6353,7 +6358,7 @@ body.is-entry-editor :is(
   .program-editor__add-day:not([id]),
   .program-editor__replace:not([id])
 ).is-pressed:not(:disabled){
-  background:var(--well);color:var(--control-secondary-ink);
+  background:var(--row-pressed-bg);color:var(--control-secondary-ink);
   border-color:var(--control-secondary-boundary)
 }
 body.is-entry-editor :is(
@@ -6394,7 +6399,7 @@ body.is-entry-editor .program-editor__remove:not([id]):hover:not(:disabled),
 }
 body.is-entry-editor .program-editor__remove:not([id]).is-pressed:not(:disabled),
 #program.program-editor-installed .program-editor__remove:not([id]).is-pressed:not(:disabled){
-  background:var(--well);color:var(--control-destructive-ink);
+  background:var(--row-pressed-bg);color:var(--control-destructive-ink);
   border-color:var(--control-destructive-boundary)
 }
 body.is-entry-editor .program-editor__remove:not([id]).is-pressed:not(:disabled),
@@ -6456,7 +6461,7 @@ body.is-entry-editor #entryProgramName,
 }
 }
 #onboarding:has(.entry__resume) #onbCancel.is-pressed:not(:disabled){
-  background:var(--well);color:var(--control-quiet-ink);
+  background:var(--row-pressed-bg);color:var(--control-quiet-ink);
   border-color:var(--control-quiet-boundary)
 }
 #onboarding:has(.entry__resume) #onbCancel.is-pressed:not(:disabled){transform:var(--control-pressed-transform)}
@@ -6501,7 +6506,7 @@ body.is-entry-editor #entryProgramName,
 }
 }
 #onbBody:has(.entry__resume) #entryResumeRestart.is-pressed:not(:disabled){
-  background:var(--well);color:var(--control-destructive-ink);
+  background:var(--row-pressed-bg);color:var(--control-destructive-ink);
   border-color:var(--control-destructive-boundary)
 }
 #onbBody:has(.entry__resume) #entryResumeRestart.is-pressed:not(:disabled){transform:var(--control-pressed-transform)}
@@ -6546,7 +6551,7 @@ body.is-entry-editor #entryProgramName,
 }
 }
 #onboarding:has(#onbBody.entry-route--import) :is(#onbCancel, #onbBack).is-pressed:not(:disabled){
-  background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)
+  background:var(--row-pressed-bg);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)
 }
 #onboarding:has(#onbBody.entry-route--import) :is(#onbCancel, #onbBack).is-pressed:not(:disabled){transform:var(--control-pressed-transform)}
 #onboarding:has(#onbBody.entry-route--import) :is(#onbCancel, #onbBack):focus-visible,
@@ -6678,7 +6683,7 @@ body.is-entry-editor #entryProgramName,
   #entryEdit, #entryFreeformCopy, #entryFreeformCopyRepair, #entryFreeformEditSource,
   #entryFreeformTryAnother, .btn.btn--steel:not(.btn--destructive):not([id]), .entry__freeform-app:not([id])
 ).is-pressed:not(:disabled){
-  background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary)
+  background:var(--row-pressed-bg);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary)
 }
 #onbBody.entry-route--import :is(
   #entryEdit, #entryFreeformCopy, #entryFreeformCopyRepair, #entryFreeformEditSource,
@@ -6720,7 +6725,7 @@ body.is-entry-editor #entryProgramName,
 #onbBody.entry-route--import :is(#entryFreeformFile, #entryFreeformBackToReply).is-pressed:not(:disabled),
 #importBack.is-pressed:not(:disabled),
 #importReviewCancel.is-pressed:not(:disabled){
-  background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)
+  background:var(--row-pressed-bg);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)
 }
 #onbBody.entry-route--import :is(#entryFreeformFile, #entryFreeformBackToReply).is-pressed:not(:disabled),
 #importBack.is-pressed:not(:disabled),#importReviewCancel.is-pressed:not(:disabled){transform:var(--control-pressed-transform)}
@@ -6742,7 +6747,7 @@ body.is-entry-editor #entryProgramName,
 }
 }
 #onbBody.entry-route--import :is(#entryFreeformStartOver, #entryRestart).is-pressed:not(:disabled){
-  background:var(--well);color:var(--control-destructive-ink);border-color:var(--control-destructive-boundary)
+  background:var(--row-pressed-bg);color:var(--control-destructive-ink);border-color:var(--control-destructive-boundary)
 }
 #onbBody.entry-route--import :is(#entryFreeformStartOver, #entryRestart).is-pressed:not(:disabled){transform:var(--control-pressed-transform)}
 #onbBody.entry-route--import :is(#entryFreeformStartOver, #entryRestart):disabled{
@@ -6756,7 +6761,7 @@ body.is-entry-editor #entryProgramName,
 }
 }
 #importRows .improw__btn:not(.improw__btn--change):not([id]).is-pressed:not(:disabled){
-  background:var(--well);color:var(--control-selection-ink);border-color:var(--control-selection-boundary)
+  background:var(--row-pressed-bg);color:var(--control-selection-ink);border-color:var(--control-selection-boundary)
 }
 #importRows .improw__btn:not(.improw__btn--change):not([id]).is-pressed:not(:disabled){transform:var(--control-pressed-transform)}
 #importRows .improw__btn:not(.improw__btn--change):not([id]):disabled{
@@ -6774,7 +6779,7 @@ body.is-entry-editor #entryProgramName,
 }
 }
 #importRows .improw__btn.improw__btn--change:not([id]).is-pressed:not(:disabled){
-  background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)
+  background:var(--row-pressed-bg);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)
 }
 #importRows .improw__btn.improw__btn--change:not([id]).is-pressed:not(:disabled){transform:var(--control-pressed-transform)}
 #importRows .improw__btn.improw__btn--change:not([id]):disabled{
@@ -6822,7 +6827,7 @@ body.is-entry-editor #entryProgramName,
 }
 #onbBody.entry-route--import :is(.entry__freeform-preview, .entry__original-text)>summary.is-pressed,
 #importReview :is(.entry__freeform-preview, .entry__original-text, .improw__more)>summary.is-pressed{
-  background:var(--well);color:var(--control-disclosure-ink);transform:var(--control-pressed-transform)
+  background:var(--row-pressed-bg);color:var(--control-disclosure-ink);transform:var(--control-pressed-transform)
 }
 #onbBody.entry-route--import :is(.entry__freeform-preview, .entry__original-text)[open]>summary,
 #importReview :is(.entry__freeform-preview, .entry__original-text, .improw__more)[open]>summary{border-bottom-color:var(--boundary-decorative)}
@@ -6847,7 +6852,7 @@ body.is-entry-editor #entryProgramName,
 }
 }
 #onbBody.entry-route--import #entryWriteOwn.is-pressed:not(:disabled){
-  background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)
+  background:var(--row-pressed-bg);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)
 }
 #onbBody.entry-route--import #entryWriteOwn.is-pressed:not(:disabled){transform:var(--control-pressed-transform)}
 #onbBody.entry-route--import #entryWriteOwn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
@@ -6955,7 +6960,7 @@ body.is-entry-editor #entryProgramName,
 }
 }
 #chooseAnotherDay.is-pressed:not(:disabled),#todayDash #upNextBtn.is-pressed:not(:disabled){
-  background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)
+  background:var(--row-pressed-bg);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)
 }
 #chooseAnotherDay:focus-visible,#todayDash #upNextBtn:focus-visible{
   outline:var(--control-focus-outline);outline-offset:2px
@@ -7021,13 +7026,13 @@ body.is-entry-editor #entryProgramName,
 @media (hover: hover) and (pointer: fine){
 #stats .evrow:hover,#stats .prtl__row:hover{background:var(--well);color:var(--control-disclosure-ink)}
 }
-#stats .evrow.is-pressed,#stats .prtl__row.is-pressed{background:var(--well);color:var(--control-disclosure-ink);transform:var(--control-pressed-transform)}
+#stats .evrow.is-pressed,#stats .prtl__row.is-pressed{background:var(--row-pressed-bg);color:var(--control-disclosure-ink);transform:var(--control-pressed-transform)}
 #stats .evrow:focus-visible,#stats .prtl__row:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #stats .evrow__detail{border-bottom-color:var(--boundary-decorative)}
 @media (hover: hover) and (pointer: fine){
 #stats button.vrow:not(.evrow):hover{background:var(--well);color:var(--control-quiet-ink)}
 }
-#stats button.vrow:not(.evrow).is-pressed{background:var(--well);color:var(--control-quiet-ink)}
+#stats button.vrow:not(.evrow).is-pressed{background:var(--row-pressed-bg);color:var(--control-quiet-ink)}
 #stats button.vrow:not(.evrow).is-pressed{transform:var(--control-pressed-transform)}
 #stats button.vrow:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 /* Keep the label and value on the first row, with the full status beneath them. */
@@ -7074,7 +7079,7 @@ body.is-entry-editor #entryProgramName,
 @media (hover: hover) and (pointer: fine){
 #history .session__open:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
 }
-#history .session__open.is-pressed:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+#history .session__open.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 #history .session__open:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-none)}
 #history .session__open:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 #history .btn--cta,#history .btn--steel,#history .btn--danger{border-radius:var(--radius-control);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard)}
@@ -7113,7 +7118,7 @@ body.is-entry-editor #entryProgramName,
 @media (hover: hover) and (pointer: fine){
 #history .edrow__rm:hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
 }
-#history .edrow__rm.is-pressed:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+#history .edrow__rm.is-pressed:not(:disabled){background:var(--row-pressed-bg);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 #history .edrow__rm:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #history .edrow__rm:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 #history .advanced{border-top-color:var(--boundary-decorative);border-bottom-color:var(--boundary-decorative)}
@@ -7122,7 +7127,7 @@ body.is-entry-editor #entryProgramName,
 @media (hover: hover) and (pointer: fine){
 #history .advanced>summary:hover{background:var(--well);color:var(--control-disclosure-ink)}
 }
-#history .advanced>summary.is-pressed{background:var(--well);transform:var(--control-pressed-transform)}
+#history .advanced>summary.is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 #history .advanced>summary:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-control)}
 
 /* P4d Share keeps the modal's task heading readable at enlarged text while
@@ -7154,7 +7159,7 @@ body.is-entry-editor #entryProgramName,
 @media (hover: hover) and (pointer: fine){
 #shareSetupClose:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
 }
-#shareSetupClose.is-pressed:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
+#shareSetupClose.is-pressed:not(:disabled){background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 #shareSetupClose:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #shareSetupClose:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 #shareSetupCopy,.share-setup__repair{
@@ -7165,7 +7170,7 @@ body.is-entry-editor #entryProgramName,
 @media (hover: hover) and (pointer: fine){
 #shareSetupCopy:hover:not(:disabled),.share-setup__repair:hover:not(:disabled){background:var(--well);border-color:var(--control-secondary-boundary);color:var(--control-secondary-ink)}
 }
-#shareSetupCopy.is-pressed:not(:disabled),.share-setup__repair.is-pressed:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
+#shareSetupCopy.is-pressed:not(:disabled),.share-setup__repair.is-pressed:not(:disabled){background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 #shareSetupCopy:focus-visible,.share-setup__repair:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #shareSetupCopy:disabled,.share-setup__repair:disabled{
   background:var(--control-secondary-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);
@@ -7266,7 +7271,7 @@ body.is-entry-editor #entryProgramName,
 @media (hover: hover) and (pointer: fine){
 .entry-rail__chip:hover{background:var(--well)}
 }
-.entry-rail__chip.is-pressed{background:var(--well);transform:var(--control-pressed-transform)}
+.entry-rail__chip.is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 .entry-rail__chip:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .entry-rail__text{min-width:0;overflow-wrap:anywhere}
 .entry-rail__edit{flex:none;width:var(--space-14);height:var(--space-14);color:var(--ink-soft)}
@@ -7344,7 +7349,7 @@ body.is-entry-editor #entryProgramName,
 @media (hover: hover) and (pointer: fine){
 .entry-body .entry-card.entry-goal[data-entry-route="recommend"]:hover{background:var(--well)}
 }
-.entry-body .entry-card.entry-goal[data-entry-route="recommend"].is-pressed:not(:disabled){background:var(--well)}
+.entry-body .entry-card.entry-goal[data-entry-route="recommend"].is-pressed:not(:disabled){background:var(--row-pressed-bg)}
 .entry-body .entry-card.entry-goal[data-entry-route="recommend"] .entry-card__icon,
 .entry-body .entry-card.entry-goal[data-entry-route="recommend"] .entry-card__go{color:var(--ink-soft)}
 .entry-body .entry-goal .entry-card__title{font-size:var(--font-size-body)}
@@ -7477,14 +7482,14 @@ body.is-entry-editor #entryProgramName,
 .review__over{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-warning)}
 .review__more{flex:none;width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);display:inline-flex;align-items:center;justify-content:center;margin:0 calc(-1 * var(--space-8)) 0 0;border:0;border-radius:var(--radius-control);background:var(--control-quiet-bg);color:var(--control-quiet-ink);cursor:pointer}
 @media (hover:hover) and (pointer:fine){.review__more:hover{background:var(--well)}}
-.review__more.is-pressed{background:var(--well);transform:var(--control-pressed-transform)}
+.review__more.is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 .review__more:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 /* Each row is the whole tap target: thumbnail, name, optional change mark,
    the set list and the muscle chips, with a trailing chevron. */
 .review__row{display:flex;align-items:flex-start;gap:var(--space-14);width:100%;padding:var(--space-16) 0;border:0;border-bottom:1px solid var(--boundary-decorative);background:none;text-align:left;cursor:pointer}
 .review__row:last-of-type{border-bottom:0}
 @media (hover:hover) and (pointer:fine){.review__row:hover{background:var(--well)}}
-.review__row.is-pressed{background:var(--well)}
+.review__row.is-pressed{background:var(--row-pressed-bg)}
 .review__row:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px;border-radius:var(--radius-control)}
 .review__row>.icon-mask--chev-right{align-self:center;flex:none;color:var(--ink-faint)}
 .review__rowbody{flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--space-4)}
@@ -7505,7 +7510,7 @@ body.is-entry-editor #entryProgramName,
 .review__add{display:flex;align-items:center;gap:var(--space-12);width:100%;padding:var(--space-16) 0;border:0;background:none;cursor:pointer;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);color:var(--color-ink);text-align:left}
 .review__add .icon-mask{color:var(--color-ink-secondary)}
 @media (hover:hover) and (pointer:fine){.review__add:hover{background:var(--well)}}
-.review__add.is-pressed{background:var(--well);transform:var(--control-pressed-transform)}
+.review__add.is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 .review__add:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px;border-radius:var(--radius-control)}
 .review__empty{display:flex;align-items:flex-start;gap:var(--space-8);margin:var(--space-12) 0;padding:var(--space-14);border:1px dashed var(--color-warning);border-radius:var(--radius-surface);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink)}
 .review__empty .icon-mask{flex:none;margin-top:2px;color:var(--color-warning)}
@@ -7522,7 +7527,7 @@ body.is-entry-editor #entryProgramName,
 .review__ro-name{flex:1;min-width:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);color:var(--color-ink);overflow-wrap:anywhere}
 .review__ro-btn{flex:none;width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--control-adjustment-boundary);border-radius:var(--radius-control);background:var(--control-adjustment-bg);color:var(--control-adjustment-ink);cursor:pointer}
 @media (hover:hover) and (pointer:fine){.review__ro-btn:hover:not(:disabled){background:var(--well)}}
-.review__ro-btn.is-pressed:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
+.review__ro-btn.is-pressed:not(:disabled){background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 .review__ro-btn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .review__ro-btn:disabled{color:var(--color-disabled-reason);opacity:1;cursor:not-allowed}
 .review__reorder-done{margin-top:var(--space-18)}
@@ -7654,7 +7659,7 @@ body.is-entry-editor #entryProgramName,
 @media (hover: hover) and (pointer: fine){
 .sheetband__close:hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
 }
-.sheetband__close.is-pressed:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+.sheetband__close.is-pressed:not(:disabled){background:var(--row-pressed-bg);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 .sheetband__close:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .sheetband__close:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 
@@ -7703,7 +7708,7 @@ body.is-entry-editor #entryProgramName,
 @media (hover: hover) and (pointer: fine){
 .rxrow:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink);border-bottom-color:var(--boundary-decorative)}
 }
-.rxrow.is-pressed:not(:disabled){background:var(--well);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+.rxrow.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 .rxrow:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .rxrow:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);border-bottom-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
 .rxrow__mark{position:relative;top:.15em;display:flex;align-items:center;min-width:0}
@@ -7750,7 +7755,7 @@ body.is-entry-editor #entryProgramName,
 @media (hover: hover) and (pointer: fine){
 .tabrow__tab:hover:not(:disabled){background:var(--well)}
 }
-.tabrow__tab.is-pressed:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
+.tabrow__tab.is-pressed:not(:disabled){background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 .tabrow__tab:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 .tabrow__tab:disabled{color:var(--color-disabled-reason);cursor:not-allowed;transform:none}
 
@@ -7886,7 +7891,7 @@ body.is-entry-editor #entryProgramName,
 @media (hover: hover) and (pointer: fine){
 .entry-chip:hover{background:var(--well)}
 }
-.entry-chip.is-pressed{background:var(--well);transform:var(--control-pressed-transform)}
+.entry-chip.is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 .entry-chip:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .entry-chip.is-open{border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow);background:var(--well);font-weight:var(--weight-semibold)}
 .entry-chip__text{min-width:0;overflow-wrap:anywhere}
@@ -7973,7 +7978,7 @@ body.is-entry-editor #entryProgramName,
 }
 :is(#library,#exPickSheet,#exCustomSheet) .pchip.is-active,
 :is(#library,#exPickSheet,#exCustomSheet) .pchip.is-active.is-pressed:not(:disabled){
-  background:var(--well);border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow)
+  background:var(--row-pressed-bg);border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow)
 }
 #library .librow__check{position:relative}
 @media (hover: hover) and (pointer: fine){
@@ -8117,11 +8122,11 @@ body.is-entry-editor #entryProgramName,
 @media (prefers-reduced-motion: reduce){.entry-building.is-running .entry-building__bar i{transition:none}}
 
 /* ADR 0023 controls share the existing selection, adjustment and floating roles. */
-.native-segments{position:relative;display:inline-grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);max-width:100%;isolation:isolate;min-height:var(--control-target);padding:2px;border-radius:var(--radius-control);background:var(--control-track);border:1px solid var(--boundary-required);touch-action:pan-y}
+.native-segments{position:relative;display:inline-grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);max-width:100%;isolation:isolate;min-height:var(--control-target);padding:2px;border-radius:var(--radius-control);background:var(--control-track);border:1px solid transparent;touch-action:pan-y}
 .native-segments__thumb{position:absolute;top:2px;bottom:2px;left:2px;z-index:-1;background:var(--segment-thumb-bg);border-radius:var(--radius-control);box-shadow:var(--segment-thumb-shadow);pointer-events:none}
 .native-segments button{border:0;background:transparent;color:var(--ink);min-width:var(--control-target);padding:var(--space-8) var(--space-4);font-size:var(--font-size-body-small);border-radius:var(--radius-control)}
 .native-segments button[aria-checked="true"]{font-weight:var(--weight-semibold)}
-.native-segments button.is-pressed{background:var(--well)}
+.native-segments button.is-pressed{background:var(--row-pressed-bg)}
 .native-segments button:focus-visible,.native-stepper button:focus-visible,.native-row-menu:focus-visible,.native-context button:focus-visible,.sheet--actions button:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 .settings-row--segments{flex-wrap:wrap;gap:var(--space-8)}
 .native-stepper{display:flex;align-items:center;gap:var(--space-12);flex-wrap:wrap}
@@ -8130,27 +8135,33 @@ body.is-entry-editor #entryProgramName,
 .native-stepper--row{display:block}
 .settings-row--stepper{flex-wrap:wrap}
 .native-stepper__value{flex:none;margin-left:auto;min-height:var(--control-target);padding:0 var(--space-4);border:0;border-radius:var(--radius-control);background:transparent;color:var(--color-ink-secondary);font-family:var(--font-training-data);font-feature-settings:"tnum";font-size:var(--font-size-body);cursor:pointer}
-.native-stepper__value.is-pressed{background:var(--well)}
+.native-stepper__value.is-pressed{background:var(--row-pressed-bg)}
 .native-stepper__unit{font-family:var(--font-language)}
 /* Inside a disclosure panel the panel already holds the settings inset. */
 .settings-panel .settings-row--stepper{padding-inline:0}
 .settings-panel .settings-row--stepper::before{left:0}
 .native-stepper__value:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-.native-stepper__buttons{display:inline-flex;flex:none;border-radius:var(--radius-control);background:var(--control-track);border:1px solid var(--boundary-required);overflow:hidden}
-.native-stepper__buttons button{min-width:var(--control-target);min-height:var(--control-target);padding:var(--space-8);background:transparent;border:0;color:var(--ink);font-size:var(--control-icon-size);touch-action:none;user-select:none}
-.native-stepper__buttons button+button{border-left:1px solid var(--boundary-decorative)}
-.native-stepper__buttons button.is-pressed{background:var(--well)}
+.native-stepper__buttons{display:inline-flex;flex:none;border-radius:var(--radius-control);background:var(--control-track);border:0}
+.native-stepper__buttons button{position:relative;display:grid;place-items:center;width:47px;height:36px;min-width:0;min-height:0;padding:0;border-radius:0;background:transparent;border:0;color:var(--ink);font-size:var(--control-icon-size);touch-action:none;user-select:none}
+.native-stepper__buttons button+button{border-left:.5px solid var(--rule-strong)}
+.native-stepper__buttons button:first-child{border-radius:var(--radius-control) 0 0 var(--radius-control)}
+.native-stepper__buttons button:last-child{border-radius:0 var(--radius-control) var(--radius-control) 0}
+.native-stepper__buttons button.is-pressed{background:var(--row-pressed-bg)}
+.native-stepper__buttons button .icon-mask{width:18px;height:18px}
+/* The capsule draws 36px, as in the prototype; each button still answers a 44px-tall touch. */
+.native-stepper__buttons button::after{content:"";position:absolute;inset:-4px 0}
 .native-stepper__buttons button:disabled{color:var(--color-disabled-reason);cursor:default;opacity:1}
 .today-rx__row{position:relative;grid-column:1/-1;display:grid;grid-template-columns:subgrid;-webkit-touch-callout:none;user-select:none}
 .today-rx__row .rxrow{grid-column:1/-1;display:grid;grid-template-columns:subgrid}
 /* As in the prototype, a Today row shows no ⋯: touch and hold, right click or Shift+F10 open its menu. The button
    stays in the tab order for keyboard and screen-reader users and shows itself only while it has keyboard focus. */
-.today-rx__row .native-row-menu:not(:focus-visible){position:absolute;width:1px;height:1px;min-width:0;min-height:0;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
-.today-rx__row .native-row-menu:focus-visible{position:absolute;right:0;top:50%;translate:0 -50%;background:var(--surface)}
+.native-editor-row{position:relative}
+.native-row-menu.visually-hidden{min-width:0;min-height:0}
+.native-row-menu.visually-hidden:focus-visible{width:auto;height:auto;min-width:var(--control-target);min-height:var(--control-target);margin:0;overflow:visible;clip:auto;right:0;top:50%;translate:0 -50%;background:var(--surface)}
 .today-rx__row:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .native-row-menu{display:inline-grid;place-items:center;border:0;background:transparent;color:var(--ink);min-height:var(--control-target);min-width:var(--control-target);border-radius:var(--radius-control);align-self:center}
 .native-row-menu .icon-mask{width:22px;height:22px}
-.native-row-menu.is-pressed{background:var(--well)}
+.native-row-menu.is-pressed{background:var(--row-pressed-bg)}
 .native-editor-row{display:flex;align-items:stretch;-webkit-touch-callout:none;user-select:none}
 .native-editor-row .program-editor-a__row{flex:1;min-width:0}
 .native-editor-row .native-row-menu{flex:none}
@@ -8160,11 +8171,11 @@ body.is-entry-editor #entryProgramName,
 .sheet--actions button[hidden]{display:none}
 .native-actions__group button+button{border-top:1px solid var(--boundary-decorative)}
 .sheet--actions #workoutActionCancel{border-radius:var(--radius-prominent);font-weight:var(--weight-semibold);box-shadow:var(--elevation-modal-shadow)}
-.sheet--actions button.is-pressed{background:var(--well)}
+.sheet--actions button.is-pressed{background:var(--row-pressed-bg)}
 .native-context{position:fixed;inset:0;width:100%;height:100%;max-width:none;max-height:none;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);margin:0;border:0;background:transparent;color:var(--ink);overflow:hidden}
 .native-context::backdrop{background:var(--menu-backdrop);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
 .native-context__preview{position:fixed!important;display:flex;align-items:center;padding-inline:var(--space-12);pointer-events:none;background:var(--surface);border-radius:var(--radius-surface);box-shadow:var(--elevation-drag-shadow);transform:scale(1.03)}
-.native-context__preview.today-rx__row{display:grid;grid-template-columns:1rem minmax(0,1fr) auto auto;gap:var(--space-8)}
+.native-context__preview.today-rx__row{background:var(--bg);display:grid;grid-template-columns:1rem minmax(0,1fr) auto auto;gap:var(--space-8)}
 .native-context__preview .native-row-menu{display:none}
 .native-context__preview .rxrow,.native-context__preview .program-editor-a__row{border-bottom:0}
 .native-context__menu{position:fixed;min-width:min(230px,calc(100vw - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px) - 24px));max-width:min(300px,calc(100vw - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px) - 24px));max-height:calc(var(--vvh,100dvh) - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 24px);overflow-y:auto;background:var(--menu-bg);-webkit-backdrop-filter:var(--menu-blur);backdrop-filter:var(--menu-blur);border:0;border-radius:var(--radius-surface);box-shadow:var(--elevation-popover-shadow),0 0 0 .5px var(--bar-edge)}

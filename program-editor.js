@@ -1206,7 +1206,7 @@
       const unit = metricDisplayUnit(adapter, loadMetric);
       return `<div class="native-stepper"><label class="program-editor__metric-field program-editor__load-step"><span>${esc(label("loadStep"))}${unit ? ` <small>${esc(unit)}</small>` : ""}</span>` +
         `<input type="text" inputmode="decimal" autocomplete="off" data-role="load-step" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}" data-step-size="0.5" data-step-min="0.5" data-step-max="10" value="${esc(formatMetricValue(adapter, loadMetric, value))}"></label>` +
-        `<span class="native-stepper__buttons"><button type="button" data-step-input="load-step" data-step-delta="-1" aria-label="${esc(t(adapter,"program.editor.step_smaller"))}">−</button><button type="button" data-step-input="load-step" data-step-delta="1" aria-label="${esc(t(adapter,"program.editor.step_larger"))}">+</button></span><output class="visually-hidden" aria-live="polite"></output></div>` +
+        `<span class="native-stepper__buttons"><button type="button" data-step-input="load-step" data-step-delta="-1" aria-label="${esc(t(adapter,"program.editor.step_smaller"))}"><span class="icon-mask icon-mask--minus" aria-hidden="true"></span></button><button type="button" data-step-input="load-step" data-step-delta="1" aria-label="${esc(t(adapter,"program.editor.step_larger"))}"><span class="icon-mask icon-mask--plus" aria-hidden="true"></span></button></span><output class="visually-hidden" aria-live="polite"></output></div>` +
         `<p class="program-editor__hint">${esc(label("loadStepHint"))}</p>`;
     }
 
@@ -2295,7 +2295,7 @@
         (mark ? `<span class="review__mark" data-role="row-mark"><span class="review__dot" aria-hidden="true"></span>${esc(mark)}</span>` : "") +
         `<ol class="review__sets">${lines.map((line, index) => `<li data-role="set-line"><span class="review__setn num">${index + 1}</span><span class="review__reps">${nums(line.text)}</span>` +
           (line.rir == null ? "" : `<span class="review__rir">${nums(rt("entry.review.rir", { n: format(adapter, line.rir) }, `RIR ${line.rir}`))}</span>`) + `</li>`).join("")}</ol>` +
-        `</div>${icon("chev-right")}</article><button type="button" class="native-row-menu" data-row-menu="${esc(exercise.id)}" aria-haspopup="menu" aria-label="${esc(label("more"))}: ${esc(name)}"><span class="icon-mask icon-mask--overflow" aria-hidden="true"></span></button></div>`;
+        `</div>${icon("chev-right")}</article><button type="button" class="native-row-menu visually-hidden" data-row-menu="${esc(exercise.id)}" aria-haspopup="menu" aria-label="${esc(label("more"))}: ${esc(name)}"><span class="icon-mask icon-mask--overflow" aria-hidden="true"></span></button></div>`;
     }
     function dayPanelHtml(day) {
       const days = labels(document), index = days.indexOf(day);

@@ -6,7 +6,7 @@ export const ROLE_FAMILIES = Object.freeze({
   elevation: ["flat", "selected", "floating", "modal", "persistent-action"],
   control: ["primary", "secondary", "quiet-navigation", "destructive", "disclosure", "selection", "adjustment", "field"],
   progress: ["block", "week", "exercise-set", "task"],
-  boundary: ["decorative", "required"],
+  boundary: ["decorative", "required", "state-cues"],
   typography: ["label", "caption", "body-small", "body", "control", "subtitle", "metric", "section-title", "feature-title", "focal-data", "title", "display", "training-data"],
 });
 

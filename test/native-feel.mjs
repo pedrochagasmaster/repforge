@@ -319,6 +319,18 @@ async function dayPickerCommits(browser) {
   const exits = await page.evaluate(() => ({ confirm: !!document.querySelector("#dayPickConfirm"), cancel: !!document.querySelector("#dayPickCancel"),
     close: !!document.querySelector("#dayPickSheet [data-daypick-close]") }));
   assert(!exits.confirm && !exits.cancel && exits.close, "the picker's one exit is its ×", JSON.stringify(exits));
+  await page.waitForFunction(() => document.querySelector("#dayPickSheet").getAnimations({ subtree: true }).every(animation => animation.playState !== "running"));
+  const dayLook = await page.evaluate(() => [...document.querySelectorAll("#dayPickList .daypick__row")].map(row => ({ selected: row.classList.contains("is-selected"),
+    check: Number(getComputedStyle(row.querySelector(".daypick__check")).opacity), rail: parseFloat(getComputedStyle(row).borderLeftWidth), fill: getComputedStyle(row).backgroundColor })));
+  assert(dayLook.filter(row => row.selected).length === 1 && dayLook.every(row => row.check === (row.selected ? 1 : 0) && row.rail === 0)
+    && new Set(dayLook.map(row => row.fill)).size === 1, "as in the prototype, the current day takes a trailing check, with no rail or well", JSON.stringify(dayLook));
+  const measureDays = async () => (await page.evaluate(measureRenderedRoles, { components: [{ selector: "#dayPickList .daypick__row", roles: { control: "selection", boundary: "state-cues" } }],
+    pixels: (await page.screenshot()).toString("base64") })).filter(item => item.kind === "state-cues");
+  const dayCues = await measureDays();
+  assert(dayCues.length === 1 && dayCues[0].status === "pass", "the checked day passes the checker on two cues, its check and its full-ink number", JSON.stringify(dayCues));
+  const noCheck = await page.addStyleTag({ content: ".daypick__check{display:none!important}" });
+  assert((await measureDays()).some(item => item.status === "fail"), "without its check the day is marked by colour alone, which the checker rejects");
+  await noCheck.evaluate(el => el.remove());
   const target = await page.locator("#dayPickList [data-daypick]").nth(1).getAttribute("data-daypick");
   await page.locator("#dayPickList [data-daypick]").nth(1).click();
   await page.waitForSelector("#dayPickSheet", { state: "hidden" });
@@ -382,17 +394,15 @@ async function nativeControls(browser) {
     await broken.evaluate(el => el.remove());
     await page.locator("#themeSegments").scrollIntoViewIfNeeded();
     const measureSegments = async () => (await page.evaluate(measureRenderedRoles, { components: [
-      { selector: "#themeSegments", roles: { boundary: "required" } },
-      { selector: "#themeSegments [role=radio]", roles: { control: "selection" } },
-      { selector: "#themeSegments .native-segments__thumb", roles: { boundary: "required", elevation: "selected" } },
-    ], pixels: (await page.screenshot()).toString("base64") })).filter(item => item.selector.startsWith("#themeSegments") && item.kind === "boundary");
-    const segmentEdges = await measureSegments();
-    assert(segmentEdges.length >= 3 && segmentEdges.every(item => item.status === "pass"), `${theme}: group and actual selection thumb have required contrast`, JSON.stringify(segmentEdges));
+      { selector: "#themeSegments [role=radio]", roles: { control: "selection", boundary: "state-cues" } },
+    ], pixels: (await page.screenshot()).toString("base64") })).filter(item => item.selector.startsWith("#themeSegments") && ["state-cues", "boundary"].includes(item.kind));
+    const segmentCues = await measureSegments();
+    assert(segmentCues.length === 1 && segmentCues[0].status === "pass" && segmentCues[0].cues.includes("fill") && segmentCues[0].cues.includes("weight"),
+      `${theme}: the checked segment carries two state cues, the raised thumb and the heavier label`, JSON.stringify(segmentCues));
     for (const [css, description] of [
-      ["#themeSegments .native-segments__thumb{box-shadow:none!important}", "removing the thumb ring"],
-      ["#themeSegments{border-color:transparent!important}", "removing the group border"],
+      ["#themeSegments .native-segments__thumb{display:none!important}", "removing the thumb leaves the weight alone, which"],
+      ["#themeSegments [role=radio]{font-weight:var(--weight-regular)!important}", "dropping the heavier label leaves the thumb alone, which"],
       ["#themeSegments .native-segments__thumb{transform:translateX(80px)!important}", "moving the thumb off the checked option"],
-      ["#themeSegments .native-segments__thumb{box-shadow:inset 0 0 0 2px var(--surface),inset 0 0 0 2px var(--ink)!important}", "covering the ring with a surface-colored inset shadow"],
     ]) {
       const damage = await page.addStyleTag({ content: css });
       const measured = await measureSegments();
@@ -439,9 +449,9 @@ async function nativeControls(browser) {
       const insets = shadow.split(/,(?![^()]*\))/).filter(part => /inset/.test(part)).map(part => Math.max(...(part.match(/[\d.]+px/g) || ['0px']).map(parseFloat)));
       const surface = getComputedStyle(document.body).backgroundColor, track = getComputedStyle(group).backgroundColor;
       return { insets, drop: shadow.split(/,(?![^()]*\))/).some(part => !/inset/.test(part) && /px/.test(part)), track, surface,
-        thumbFill: getComputedStyle(thumb).backgroundColor, trackAlpha: Number((track.match(/rgba\([^)]*,\s*([\d.]+)\)/) || [0, 1])[1]) };
+        thumbFill: getComputedStyle(thumb).backgroundColor, groupEdge: getComputedStyle(group).borderTopColor, trackAlpha: Number((track.match(/rgba\([^)]*,\s*([\d.]+)\)/) || [0, 1])[1]) };
     });
-    assert(look.insets.length === 1 && look.insets[0] <= 1.5 && look.drop, `${theme}: the thumb carries a hairline edge and a soft drop shadow, not a 2px ring`, JSON.stringify(look));
+    assert(look.insets.length === 0 && look.drop && look.groupEdge === 'rgba(0, 0, 0, 0)', `${theme}: as in the prototype, a shadow-only thumb on a borderless track`, JSON.stringify(look));
     assert(look.trackAlpha > 0 && look.trackAlpha < 0.15 && look.thumbFill !== look.track, `${theme}: the track is a soft ink tint under an opaque thumb`, JSON.stringify(look));
   }
   await page.evaluate(() => { document.documentElement.dataset.theme = "light"; });
@@ -454,10 +464,12 @@ async function nativeControls(browser) {
     return { sameRow: !!row && [...buttons].every(button => row.contains(button) && Math.abs(top(button) - top(value)) <= 4),
       collapsed: !panel.classList.contains('is-open'), display: document.querySelector('#restSecDisplay').textContent.trim(),
       heights: [...buttons].map(button => Math.round(button.getBoundingClientRect().height)),
+      reach: [...buttons].every(button => { const r = button.getBoundingClientRect(), x = r.left + r.width / 2;
+        return document.elementFromPoint(x, r.top - 3) === button && document.elementFromPoint(x, r.bottom + 3) === button; }),
       visible: [...buttons].every(button => button.getBoundingClientRect().height > 0) };
   });
-  assert(restRow.sameRow && restRow.collapsed && restRow.visible && restRow.display === '2:00' && restRow.heights.every(h => h >= 44),
-    'Rest timer shows 2:00 and its 44px − + in one row, with the typed field still folded away', JSON.stringify(restRow));
+  assert(restRow.sameRow && restRow.collapsed && restRow.visible && restRow.display === '2:00' && restRow.heights.every(h => h === 36) && restRow.reach,
+    'Rest timer shows 2:00 and its 36px − + capsule in one row, each button answering a 44px touch, with the typed field folded away', JSON.stringify(restRow));
   await page.locator('[data-step-input="restSec"][data-step-delta="-1"]').click();
   const stepped = await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec === 105 && document.querySelector('#restSecDisplay').textContent.trim() === '1:45', undefined, { timeout: 4000 }).then(() => true, () => false);
   assert(stepped, 'a step from the row commits and shows the formatted value', await page.locator('#restSecDisplay').textContent());
@@ -504,11 +516,11 @@ async function nativeControls(browser) {
     const value = document.querySelector('#minJumpRow'), row = value?.closest('.settings-row');
     const buttons = [...document.querySelectorAll('[data-step-input="minJump"]')];
     return { row: !!row, label: row?.querySelector('.settings-row__label')?.textContent.trim(), name: window.RepForgeI18n.t('program.editor.load_step'),
-      display: document.querySelector('#minJumpRow')?.textContent.replace(/\s+/g, ' ').trim(), buttonsInRow: buttons.length === 2 && buttons.every(button => row?.contains(button) && button.getBoundingClientRect().height >= 44),
+      display: document.querySelector('#minJumpRow')?.textContent.replace(/\s+/g, ' ').trim(), buttonsInRow: buttons.length === 2 && buttons.every(button => row?.contains(button) && button.getBoundingClientRect().height === 36),
       folded: !document.querySelector('#minJumpPanel')?.classList.contains('is-open') };
   });
   assert(loadRow.row && loadRow.label === loadRow.name && loadRow.display === '2.5 kg' && loadRow.buttonsInRow && loadRow.folded,
-    'Smallest load change reads as one row: its label, "2.5 kg" and a 44px − +, with the typed field folded away', JSON.stringify(loadRow));
+    'Smallest load change reads as one row: its label, "2.5 kg" and the − + capsule, with the typed field folded away', JSON.stringify(loadRow));
   await page.click('#minJumpRow');
   await page.waitForFunction(() => document.querySelector('#minJumpPanel').classList.contains('is-open') && document.querySelector('#minJumpRow').getAttribute('aria-expanded') === 'true');
   await page.locator('#minJump').fill('12'); await page.locator('#minJump').dispatchEvent('change');
@@ -518,6 +530,17 @@ async function nativeControls(browser) {
   await page.locator('#themeSegments [data-value="light"]').click();
   phase("Phase 4: Today offers the same actions visibly and through context gestures");
   await page.click('#settingsBack');
+  await page.waitForFunction(() => !document.body.classList.contains('is-pushing') && document.querySelector('nav .dock-lens'));
+  const measureDock = async () => (await page.evaluate(measureRenderedRoles, { components: [{ selector: "nav button[data-view]", roles: { control: "quiet-navigation", boundary: "state-cues" } }],
+    pixels: (await page.screenshot()).toString("base64") })).filter(item => item.kind === "state-cues");
+  const dockLook = await page.evaluate(() => { const active = document.querySelector('nav button.active');
+    return { edge: getComputedStyle(active).borderTopColor, ring: getComputedStyle(document.querySelector('nav .dock-lens'), '::after').display }; });
+  const dockCues = await measureDock();
+  assert(dockLook.edge === 'rgba(0, 0, 0, 0)' && dockLook.ring === 'none' && dockCues.length === 1 && dockCues[0].status === 'pass',
+    "the dock's selected tab is the prototype's filled lens with no ring, and passes on the lens and its orange icon and label", JSON.stringify({ dockLook, dockCues }));
+  const noLens = await page.addStyleTag({ content: "nav .dock-lens{background:transparent!important}" });
+  assert((await measureDock()).some(item => item.status === 'fail'), "without the lens the tab is marked by colour alone, which the checker rejects");
+  await noLens.evaluate(el => el.remove());
   const row = '#todayExList [data-context-row]';
   const hasRows = await page.locator(row).count();
   assert(hasRows > 0 && await page.locator('#todayExList [data-row-menu]').count() > 0, "Today rows keep an actions button for keyboard and assistive technology");
