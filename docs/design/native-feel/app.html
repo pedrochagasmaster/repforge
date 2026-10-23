@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#F4F2EF">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Native feel">
+<title>Taurifer · native feel (after)</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="native.css">
+<link rel="stylesheet" href="icons.css">
+<link rel="stylesheet" href="app.css">
+<script src="native.js"></script>
+</head>
+<body>
+<div id="app">
+  <div class="tabs"></div>
+  <nav class="dock" id="dock" aria-label="Sections">
+    <span class="dock__lens" aria-hidden="true"></span>
+    <button data-tab="today" data-press data-press-instant aria-current="page"><i class="dock__ic i-log"></i><span class="dock__lb">Today</span></button>
+    <button data-tab="progress" data-press data-press-instant><i class="dock__ic i-stats"></i><span class="dock__lb">Progress</span></button>
+    <button data-tab="history" data-press data-press-instant><i class="dock__ic i-history"></i><span class="dock__lb">History</span></button>
+    <button data-tab="program" data-press data-press-instant><i class="dock__ic i-program"></i><span class="dock__lb">Program</span></button>
+  </nav>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
