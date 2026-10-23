@@ -850,12 +850,14 @@ async function wheelPicker(browser) {
     const box = await page.locator("#wheelCol").boundingBox();
     const cx = Math.round(box.x + box.width / 2), cy = Math.round(box.y + box.height / 2);
     const startTop = await page.evaluate(() => document.querySelector("#wheelCol").scrollTop);
+    // Touch moves land on the next animation frame, and a slow runner can lift before the column has followed: each
+    // move waits until the column has scrolled with the finger (less the touch slop), so the lift ends a real two-row
+    // drag rather than a nudge that snaps back to where it started.
     await touch("touchStart", [{ x: cx, y: cy }]);
-    await touch("touchMove", [{ x: cx, y: cy - 44 }]);
-    await touch("touchMove", [{ x: cx, y: cy - 88 }]);
-    // Touch moves land on the next animation frame: wait for the drag to move the column before lifting, or the
-    // rest check below could pass on a column that has not started moving yet.
-    await page.waitForFunction((top) => document.querySelector("#wheelCol").scrollTop !== top, startTop, { timeout: 2000 });
+    for (const [dy, followed] of [[44, 20], [88, 60]]) {
+      await touch("touchMove", [{ x: cx, y: cy - dy }]);
+      await page.waitForFunction(([top, min]) => document.querySelector("#wheelCol").scrollTop - top >= min, [startTop, followed], { timeout: 2000 });
+    }
     await touch("touchEnd");
     // Momentum carries the scroll on after the touch lifts; wait for it (and the native
     // scroll-snap) to come to rest before the settle debounce reads a value off it.
@@ -867,7 +869,12 @@ async function wheelPicker(browser) {
       el.__lastTop = el.scrollTop;
       return false;
     }, undefined, { timeout: 3000, polling: 50 });
-    const expectScroll = await page.evaluate(() => Number(document.querySelector("#wheelCol")?.getAttribute("aria-valuenow")));
+    // The settle (a debounce after the last scroll) is what reports the value: wait for it to name the row on the band.
+    const expectScroll = await page.waitForFunction(() => {
+      const col = document.querySelector("#wheelCol");
+      const onBand = Number(col.querySelectorAll(".wheel__item")[Math.round(col.scrollTop / 44)]?.dataset.wheelV);
+      return Number(col.getAttribute("aria-valuenow")) === onBand ? onBand : null;
+    }, undefined, { timeout: 2000 }).then((h) => h.jsonValue(), () => NaN);
     assert(Number.isFinite(expectScroll) && expectScroll !== afterKeys.now, "the drag moved the wheel off its keyboard-set value",
       JSON.stringify({ expectScroll, afterKeys }));
     const scrollCommitted = await page.waitForFunction(([id, want]) => {
