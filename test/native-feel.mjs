@@ -1017,15 +1017,16 @@ async function wheelPicker(browser) {
     const box = await page.locator("#wheelCol").boundingBox();
     const cx = Math.round(box.x + box.width / 2), cy = Math.round(box.y + box.height / 2);
     // A finger reports in small steps, a frame apart; two large jumps let a slow runner lift before the column had
-    // followed (main's push CI, 2026-10-23). The drag moves 11px a frame for 110px, and lifts only once the column
-    // has followed it by at least a row.
+    // followed (main's push CI, 2026-10-23). The drag moves 11px a frame for 220px, and lifts only once the column
+    // has followed it by at least two rows: one row sat on the snap boundary, and a loaded runner settled it back
+    // onto the keyboard-set value (#485 PR lane, #487).
     const startTop = await page.evaluate(() => document.querySelector("#wheelCol").scrollTop);
     await touch("touchStart", [{ x: cx, y: cy }]);
-    for (let dy = 11; dy <= 110; dy += 11) {
+    for (let dy = 11; dy <= 220; dy += 11) {
       await touch("touchMove", [{ x: cx, y: cy - dy }]);
       await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve())));
     }
-    await page.waitForFunction((top) => document.querySelector("#wheelCol").scrollTop - top >= 44, startTop, { timeout: 5000 });
+    await page.waitForFunction((top) => document.querySelector("#wheelCol").scrollTop - top >= 88, startTop, { timeout: 5000 });
     await touch("touchEnd");
     // Momentum carries the scroll on after the touch lifts; wait for it (and the native
     // scroll-snap) to come to rest before the settle debounce reads a value off it.
