@@ -15,7 +15,7 @@
  *
  * Run: node tools/run-tests.mjs entry --suite-id test-adaptive-build-opt-in-mjs
  */
-import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const EXERCISE_ID = "19f5c6f170d8808bb424e98de4472a7e";
@@ -83,7 +83,7 @@ async function fillShelf(page, metricId, value) {
   const input = page.locator(`#workout .exercise.is-current .focus-shelf input[data-metric-id="${metricId}"]`);
   await input.waitFor({ state: "attached", timeout: 5000 });
   if (await input.getAttribute("aria-hidden") === "true")
-    await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${metricId}"]`).click();
+    await openShelfField(page, `#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${metricId}"]`);
   await input.fill(String(value));
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
 }

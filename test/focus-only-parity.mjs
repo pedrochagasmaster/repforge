@@ -305,8 +305,10 @@ async function main() {
       "typed field values land in the DraftV2 projection", JSON.stringify({ before, typed }));
     const loadStep = await page.evaluate((weight) => {
       const card = document.querySelector("#workout .exercise.is-current:not(.is-peek)");
-      // A first tap selects the load field (rebuilding the shelf), and the pads follow it.
-      card.querySelector(`[data-shelf-field='metric_${weight}']`).click();
+      // A first tap selects the load field (rebuilding the shelf), and the pads follow it. When it is already the
+      // selected field, a tap would be the second one, which opens its wheel picker (ADR 0023), so it isn't tapped.
+      const field = card.querySelector(`[data-shelf-field='metric_${weight}']`);
+      if (field.getAttribute("aria-pressed") !== "true") field.click();
       const input = card.querySelector(`[data-k$='_metric_${weight}']`);
       const before = input.value;
       card.querySelector(".shelf__pad[data-dir='1']").click();

@@ -14,7 +14,7 @@
  * Run: node test/session-summary.mjs
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
-import { launchChromium } from "./browser.mjs";
+import { launchChromium, openShelfField } from "./browser.mjs";
 import { selectExercise, finishEarly, openEarlyFinish } from "./fixtures/focus-workout.mjs";
 import { installGeneratedProgram, isWeightRepsSlot, definitionSlot, metricLogRow } from "./fixtures/history-metric-rows.mjs";
 
@@ -174,7 +174,7 @@ async function logSet(page, exId, n, load, reps, rir) {
   for (const [field, value] of [[`metric_${WEIGHT}`, load], [`metric_${REPS}`, reps], ["rir", rir]]) {
     const input = page.locator(`#workout .exercise.is-current [data-k="${exId}_${n}_${field}"]`);
     if (await input.getAttribute("aria-hidden") === "true")
-      await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="${field}"]`).click();
+      await openShelfField(page, `#workout .exercise.is-current .focus-shelf [data-shelf-field="${field}"]`);
     await input.fill(String(value));
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   }

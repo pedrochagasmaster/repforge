@@ -14,7 +14,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { clonePayloadHashOf } from "../tools/canonical-clone-hash.mjs";
-import { launchChromium, assertServingApp, waitForAppBoot } from "./browser.mjs";
+import { launchChromium, assertServingApp, openShelfField, waitForAppBoot } from "./browser.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -252,7 +252,7 @@ async function enterAndEditDraft(page) {
   for (const [index, metricId] of metricIds.slice(0, 2).entries()) {
     const input = current.locator(`.focus-shelf input[data-metric-id="${metricId}"]`);
     if (await input.getAttribute("aria-hidden") === "true")
-      await current.locator(`.focus-shelf [data-shelf-field="metric_${metricId}"]`).click();
+      await openShelfField(page, current.locator(`.focus-shelf [data-shelf-field="metric_${metricId}"]`));
     await input.fill(String(values[index]));
   }
   const rir = current.locator(`.focus-shelf input[data-k="${exerciseId}_1_rir"]`);

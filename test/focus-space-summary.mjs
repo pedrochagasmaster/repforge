@@ -28,7 +28,7 @@
  *    its place at the band's top, from the moment of focus and across a change of field; dismissing the keyboard
  *    gives back the layout from before. Android's resizes-content (a shorter layout viewport) gets the same checks.
  */
-import { launchChromium } from "./browser.mjs";
+import { launchChromium, openShelfField } from "./browser.mjs";
 import { SAFE_AREA, openCatalogState } from "./fixtures/catalog-state.mjs";
 
 /** The phones layout D is measured on, and the context window the proposal's D mock reached on each (±4 px). */
@@ -498,7 +498,7 @@ try {
     else {
       const btn = page.locator(`#workout .exercise--focus.is-current .focus-shelf ${field ? `[data-shelf-field='${field}']` : ".shelf__field.is-sel .shelf__fieldbtn"}`);
       if (field) await btn.click();
-      await btn.click();
+      await openShelfField(page, btn);
     }
     await page.waitForFunction(() => document.activeElement?.matches?.(".focus-shelf .shelf__input"), undefined, { timeout: 5000 });
   };

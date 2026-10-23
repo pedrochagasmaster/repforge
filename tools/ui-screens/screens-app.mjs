@@ -15,6 +15,7 @@ import { maybeStartLocalPreview } from "../local-preview.mjs";
 import { catalogState, directionDState, emptyEntryState, localeState } from "./fixtures.mjs";
 import { CAPTURE_NOW, dismissChrome, LOG_DRAFT, replayGuide, seed, sleep } from "./session.mjs";
 import { definitionSlot, installGeneratedProgram, isWeightRepsSlot, metricLogRow } from "../../test/fixtures/history-metric-rows.mjs";
+import { openShelfField } from "../../test/browser.mjs";
 import { DIRECTION_D_CANONICAL_ID_BY_LEGACY_ID } from "./direction-d-canonical-fixture.generated.mjs";
 
 const WHY_DATA = new URL("../../plans/067/data/", import.meta.url);
@@ -1097,7 +1098,7 @@ async function fillAdaptiveShelf(page, metricId, value) {
   const input = page.locator(`#workout .exercise.is-current .focus-shelf input[data-metric-id="${metricId}"]`);
   await input.waitFor({ state: "attached", timeout: 10000 });
   if (await input.getAttribute("aria-hidden") === "true") {
-    await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${metricId}"]`).click();
+    await openShelfField(page, `#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${metricId}"]`);
   }
   await input.fill(String(value));
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
@@ -1977,6 +1978,28 @@ export const APP_SCENARIOS = {
     await page.locator("#woOverflowBtn").click({ timeout: 20000 }); await page.locator('[data-workout-action="exercise"]').click();
     await page.locator("#exActionNotesBtn").click({ timeout: 20000 });
     await page.waitForSelector("#exNoteSheet.is-open", { timeout: 20000 });
+    await sleep(page, 400);
+  },
+  // Plan 075 phase 2W: a second tap on the selected Load or Reps field opens the
+  // wheel. Load is the default-selected field, so the dance moves through Reps
+  // and back so the final tap is a genuine second one, the way the test suite does.
+  "workout/wheel-load": async (page) => {
+    await focusMode(page);
+    const shelf = "#workout .exercise.is-current .focus-shelf";
+    await page.locator(`${shelf} [data-shelf-field="metric_${ADAPTIVE_REPS_METRIC_ID}"]`).click({ timeout: 20000 });
+    await page.locator(`${shelf} [data-shelf-field="metric_${ADAPTIVE_WEIGHT_METRIC_ID}"]`).click({ timeout: 20000 });
+    await page.locator(`${shelf} [data-shelf-field="metric_${ADAPTIVE_WEIGHT_METRIC_ID}"]`).click({ timeout: 20000 });
+    await page.waitForSelector("#wheelSheet.is-open", { timeout: 20000 });
+    await sleep(page, 400);
+  },
+  "workout/wheel-reps": async (page) => {
+    await focusMode(page);
+    const shelf = "#workout .exercise.is-current .focus-shelf";
+    await page.locator(`${shelf} [data-shelf-field="metric_${ADAPTIVE_REPS_METRIC_ID}"]`).click({ timeout: 20000 });
+    await page.locator(`${shelf} [data-shelf-field="metric_${ADAPTIVE_WEIGHT_METRIC_ID}"]`).click({ timeout: 20000 });
+    await page.locator(`${shelf} [data-shelf-field="metric_${ADAPTIVE_REPS_METRIC_ID}"]`).click({ timeout: 20000 });
+    await page.locator(`${shelf} [data-shelf-field="metric_${ADAPTIVE_REPS_METRIC_ID}"]`).click({ timeout: 20000 });
+    await page.waitForSelector("#wheelSheet.is-open", { timeout: 20000 });
     await sleep(page, 400);
   },
   "workout/why-this-weight": async (page) => {

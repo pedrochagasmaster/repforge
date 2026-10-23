@@ -109,6 +109,8 @@
   --elevation-nav-indicator-shadow:inset 0 1px 0 var(--dock-pill-sheen),0 1px 3px rgba(var(--shadow-rgb),.09);
   --control-focus-halo-shadow:0 0 0 3px rgba(var(--accent-rgb),.12);
   --switch-off-track:rgba(var(--ink-rgb),.10);
+  /* The wheel picker's selection band: ink at 7%, as the prototype draws it, in either theme. */
+  --wheel-band:rgba(var(--ink-rgb),.07);
   --switch-off-ring:inset 0 0 0 1.5px var(--boundary-required);
   --menu-bg:rgba(var(--bg-rgb),.86);
   --menu-destructive-ink:#9E2E22;
@@ -1371,6 +1373,44 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 /* The effort word's explainer opens over its field, as it did over the old cell. */
 .shelf__field .effortpop{bottom:calc(100% + 4px)}
 
+/* ---- The wheel picker (Plan 075 phase 2W, ADR 0023 choice 8) ----
+   A second tap on the selected Load or Reps field opens this in a fit sheet.
+   Five rows (44px each) show through a native scroll-snap column; app.js tilts
+   each row by its distance from the centre band on scroll (transform only, none
+   under reduced motion) and marks the centre row and, on the reps wheel, the
+   prescription's target band. */
+.wheel__body{padding:0 0 var(--space-16);overflow:hidden}
+/* As the prototype draws it: the title on the left at the section-title size,
+   the keyboard button and Done together on the right, no rule under the head. */
+#wheelSheet .wheel__head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;min-height:52px;
+  padding:0 8px 0 var(--space-16);border-bottom:0}
+#wheelSheet .wheel__head .sheet__title{margin:0;text-align:left;font-size:var(--font-size-section-title);letter-spacing:-.01em}
+.wheel__trail{display:inline-flex;align-items:center;gap:var(--space-4)}
+.wheel__trail .sheet__act{flex:none;width:auto;min-width:var(--control-target);padding:10px 8px}
+/* The selection band stays put while the column scrolls under it: a filled,
+   rounded row, outside the scroller. */
+.wheel__frame{position:relative;flex:1 1 auto;width:100%;min-width:0}
+.wheel__band{position:absolute;left:var(--space-12);right:var(--space-12);top:88px;height:44px;
+  border-radius:var(--radius-control);background:var(--wheel-band);pointer-events:none}
+.wheel{
+  position:relative;width:100%;height:220px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  scroll-snap-type:y mandatory;padding:88px 0;perspective:600px;scrollbar-width:none;
+}
+.wheel::-webkit-scrollbar{display:none}
+.wheel:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
+/* Bare numbers in the data face, tabular; the unit is in the title. The centre
+   row is the one at full opacity, the others fade with their distance (app.js). */
+.wheel__item{
+  height:44px;display:flex;align-items:center;justify-content:center;scroll-snap-align:center;
+  font-family:var(--font-training-data);font-feature-settings:"tnum";font-variant-numeric:tabular-nums;
+  font-size:var(--font-size-subtitle);color:var(--color-ink);
+}
+/* The reps wheel's target range: a quiet tick before the number, not a second band (the orange budget stays on actions). */
+.wheel__item.is-target::before{content:"";width:4px;height:4px;border-radius:var(--radius-round);background:var(--color-ink-secondary);margin-right:var(--space-8)}
+@media (prefers-reduced-motion: reduce){
+  .wheel{scroll-behavior:auto}
+}
+
 /* ---- The travelling outline ----
    Drawn by app.js only while an outline is in flight: T1 between the shelf's
    fields, L2 between the ledger's rows. It is a separate element that tolerates
@@ -1642,6 +1682,7 @@ body.is-sheet-open{overflow:hidden}
    slides out of the middle. */
 .sheet__spacer{display:block;min-width:44px}
 .sheet__act--icon{justify-self:end;display:inline-flex;align-items:center;justify-content:center;color:var(--ink-soft)}
+.sheet__act--done{justify-self:end;color:var(--ink);font-weight:var(--weight-semibold);white-space:nowrap;width:auto}
 
 /* The in-workout swap control. It was a <select> of the template's alternates;
    it is a button onto the full library now, and it reads back what is actually
@@ -2353,6 +2394,7 @@ textarea.sheetfield__input{
    end it deliberately. Pause and resume are here as well as on the inline
    Pausar/Retomar pad, which gives way to the field pads. */
 .sheet--rest{height:auto}
+.sheet--wheel{height:auto}
 .restsheet{flex-direction:column;align-items:center;gap:20px;padding:20px 16px calc(20px + env(safe-area-inset-bottom));container:restsheet/inline-size}
 .restsheet__presets{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
 .restpreset{
@@ -3781,6 +3823,7 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 .icon-mask--minus{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M5.5%2012h13%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M5.5%2012h13%27%2F%3E%3C%2Fsvg%3E")}
 .icon-mask--close{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M6.5%206.5l11%2011M17.5%206.5l-11%2011%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M6.5%206.5l11%2011M17.5%206.5l-11%2011%27%2F%3E%3C%2Fsvg%3E")}
 .icon-mask--reset{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M19.6%2012a7.6%207.6%200%201%201-2.3-5.4M20.1%203.6v4.9h-4.9%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M19.6%2012a7.6%207.6%200%201%201-2.3-5.4M20.1%203.6v4.9h-4.9%27%2F%3E%3C%2Fsvg%3E")}
+.icon-mask--keyboard{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M7%2011h1M11%2011h1M15%2011h1M7%2014.5h8%27%2F%3E%3Crect%20x%3D%273.5%27%20y%3D%277%27%20width%3D%2717%27%20height%3D%2711%27%20rx%3D%272%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M7%2011h1M11%2011h1M15%2011h1M7%2014.5h8%27%2F%3E%3Crect%20x%3D%273.5%27%20y%3D%277%27%20width%3D%2717%27%20height%3D%2711%27%20rx%3D%272%27%2F%3E%3C%2Fsvg%3E")}
 .icon-mask--chev-down{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M6.4%209.4l5.6%205.6%205.6-5.6%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M6.4%209.4l5.6%205.6%205.6-5.6%27%2F%3E%3C%2Fsvg%3E")}
 .icon-mask--chev-up{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M6.4%2014.6l5.6-5.6%205.6%205.6%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M6.4%2014.6l5.6-5.6%205.6%205.6%27%2F%3E%3C%2Fsvg%3E")}
 .icon-mask--chev-right{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M9.4%206.4l5.6%205.6-5.6%205.6%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M9.4%206.4l5.6%205.6-5.6%205.6%27%2F%3E%3C%2Fsvg%3E")}

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /** Plan 069 S3: bodyweight + per-side reps carries captured context into history. */
 import { readFileSync } from "node:fs";
-import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const DATA = new URL("../plans/067/data/", import.meta.url);
@@ -102,7 +102,7 @@ async function logWorkingSet(page, rowId) {
   const reps = page.locator(`#workout .exercise.is-current .focus-shelf input[data-metric-id="${REPS_PER_SIDE_ID}"]`);
   await reps.waitFor({ state: "attached", timeout: 10000 });
   if (await reps.getAttribute("aria-hidden") === "true")
-    await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${REPS_PER_SIDE_ID}"]`).click();
+    await openShelfField(page, `#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${REPS_PER_SIDE_ID}"]`);
   await reps.fill("8");
   const rir = page.locator(`#workout .exercise.is-current .focus-shelf input[data-k="${rowId}_1_rir"]`);
   if (await rir.getAttribute("aria-hidden") === "true")

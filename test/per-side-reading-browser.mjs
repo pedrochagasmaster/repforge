@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const CATALOG = JSON.parse(readFileSync(new URL("../assets/exercise-catalog.json", import.meta.url), "utf8"));
@@ -109,7 +109,7 @@ async function fillMetric(page, metricId, value) {
   const input = page.locator('#workout .exercise.is-current .focus-shelf input[data-metric-id="' + metricId + '"]');
   await input.waitFor({ state: "attached", timeout: 10000 });
   if (await input.getAttribute("aria-hidden") === "true") {
-    await page.locator('#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_' + metricId + '"]').click();
+    await openShelfField(page, '#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_' + metricId + '"]');
   }
   await input.waitFor({ state: "visible", timeout: 10000 });
   await input.fill(String(value));

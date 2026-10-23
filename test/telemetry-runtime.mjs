@@ -19,7 +19,7 @@
  * Run: node test/telemetry-runtime.mjs
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
-import { launchChromium, waitForAppBoot, answerRecommend } from "./browser.mjs";
+import { launchChromium, waitForAppBoot, answerRecommend, openShelfField } from "./browser.mjs";
 import { editorSettled, openExerciseSheet, openInstalledEditor } from "./fixtures/installed-editor.mjs";
 import { EVENT_DUPLICATE_POLICIES, FORBIDDEN_PROPERTY_NAMES } from "./fixtures/telemetry.mjs";
 import { exerciseAction, finishEarly, openLoggedSets, selectExercise } from "./fixtures/focus-workout.mjs";
@@ -160,7 +160,7 @@ async function fillShelf(page, metricId, value) {
   const input = page.locator(`#workout .exercise.is-current .focus-shelf input[data-metric-id="${metricId}"]`);
   await input.waitFor({ state: "attached", timeout: 5000 });
   if (await input.getAttribute("aria-hidden") === "true")
-    await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${metricId}"]`).click();
+    await openShelfField(page, `#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${metricId}"]`);
   await input.fill(String(value));
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
 }

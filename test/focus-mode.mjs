@@ -13,7 +13,7 @@
  * Run: node test/focus-mode.mjs
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
-import { launchChromium } from "./browser.mjs";
+import { launchChromium, openShelfField } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 import { exerciseAction, finishEarly, openLoggedSets } from "./fixtures/focus-workout.mjs";
 import { loadRoleInventory, requiredBoundaryExceptionRequests } from "../tools/ui-system-core.mjs";
@@ -511,9 +511,9 @@ async function main() {
   const loadShown = (await shelfProbe()).values[0];
   assert(stepped.touched === true && Number(stepped.load) === Number(loadShown.replace(",", ".")),
     "a pad steps the draft through the stepper handler and the field follows", JSON.stringify({ stepped, loadShown }));
-  await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field='${SHELF_ID.load}']`).click();
+  await openShelfField(page, `#workout .exercise.is-current .focus-shelf [data-shelf-field='${SHELF_ID.load}']`);
   sh = await shelfProbe();
-  assert(sh.editing.join() === "metric", "a second tap on the selected field opens it as the real input", JSON.stringify(sh));
+  assert(sh.editing.join() === "metric", "a second tap on the selected field opens the wheel, and its keyboard button opens the real input", JSON.stringify(sh));
   const focusedKey = await page.evaluate(() => document.activeElement?.dataset?.k || "");
   assert(focusedKey.endsWith(`_metric_${WEIGHT}`), "the opened input takes focus under its draft key", focusedKey);
   // #300: the software keyboard shrinks the visual viewport but not dvh. Model it on the live visualViewport the app
@@ -554,7 +554,7 @@ async function main() {
     await page.evaluate(() => document.activeElement?.blur());
     await keyboard(null);
     await field.click();
-    await field.click();
+    await openShelfField(page, field);
     await page.waitForTimeout(120);
     kbFields.push(await keyboard(852 - 336));
   }

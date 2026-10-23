@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { webcrypto } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
 
 const require = createRequire(import.meta.url);
 const RAW_CATALOG = require("../assets/exercise-catalog.json");
@@ -91,7 +91,7 @@ async function fillShelf(page, selector, value, shelfField) {
   const input = page.locator(selector);
   await input.waitFor({ state: "attached", timeout: 10000 });
   if (await input.getAttribute("aria-hidden") === "true")
-    await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="${shelfField}"]`).click();
+    await openShelfField(page, `#workout .exercise.is-current .focus-shelf [data-shelf-field="${shelfField}"]`);
   await input.fill(String(value));
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
 }

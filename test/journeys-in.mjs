@@ -254,13 +254,22 @@ phase("Journey 5: first session -> summary -> Progress");
   const shelf = "#workout .exercise.is-current .focus-shelf";
   // The first tap on a shelf field opens the first-set guide; "Got it" then carries the tap out.
   let firstSetShown = 0;
+  // A tap on Load or Reps that was already selected opens its wheel picker (ADR 0023); its keyboard button types.
+  const typeFromWheel = async () => {
+    if (await page.evaluate(() => !document.querySelector("#wheelSheet")?.hidden)) {
+      await page.click("#wheelKeyboard");
+      await page.waitForSelector("#wheelSheet", { state: "hidden" });
+    }
+  };
   const tapField = async (selector) => {
     await page.locator(selector).click();
     if (await page.locator('dialog#guideDialog[open][data-guide="first-set"]').count()) {
       firstSetShown++;
-      // The tap the guide held is carried out: a field that was already selected opens for typing.
-      await gotIt(page, "first-set", `${selector}, ${shelf} .shelf__field.is-editing .shelf__input`);
+      // The tap the guide held is carried out: a field that was already selected opens for typing, or, for Load
+      // and Reps, opens its wheel.
+      await gotIt(page, "first-set", `${selector}, ${shelf} .shelf__field.is-editing .shelf__input, #wheelCol`);
     }
+    await typeFromWheel();
   };
   const metricIds = await page.locator(`${shelf} input[data-metric-id]`).evaluateAll((inputs) => inputs.map((input) => input.dataset.metricId));
   assert(metricIds.length > 0, "the first set offers its metric fields", JSON.stringify(metricIds));

@@ -16,7 +16,7 @@
  *
  * Run: node test/focus-pending-field.mjs   (REPFORGE_URL points at a static server)
  */
-import { launchChromium } from "./browser.mjs";
+import { launchChromium, openShelfField } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 import { finishEarly, openLoggedSets } from "./fixtures/focus-workout.mjs";
 
@@ -117,7 +117,7 @@ const inputFor = (id, n = 1) => `${SHELF} .shelf__input[data-k$="_${n}_${FIELD_I
 /** Tap a field until its input is open, type, and wait for the draft to acknowledge it. */
 async function typeField(page, id, value) {
   const input = page.locator(inputFor(id));
-  for (let tap = 0; tap < 2 && await input.getAttribute("aria-hidden") === "true"; tap++) await page.locator(field(id)).click();
+  for (let tap = 0; tap < 2 && await input.getAttribute("aria-hidden") === "true"; tap++) await openShelfField(page, field(id));
   await input.fill(value);
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
 }
@@ -215,8 +215,8 @@ async function main() {
   // ---- c: a typed value ------------------------------------------------------
   phase("RT-03: a typed edit survives the rebuild");
   await boot(page);
-  await page.locator(field("load")).click();
-  await page.locator(field("load")).click(); // second tap opens the input
+  // Load is the selected field, so this tap is the second one: it opens the wheel, whose keyboard button opens the input.
+  await openShelfField(page, field("load"));
   await holdLock(page);
   await page.locator(inputFor("load")).fill("57.5");
   await page.locator(field("reps")).click(); // rebuild
@@ -429,7 +429,8 @@ async function main() {
     "RT-04: the control fits the sheet and meets the target size at 200%", { box, sheetBox });
   await page.locator("#restSheetClose").click();
   await page.waitForSelector("#restSheet", { state: "hidden", timeout: 5000 });
-  await page.locator(field("load")).click();
+  // At 200% the field pads stayed, so Load may already be the selected field; a tap then would open its wheel (ADR 0023).
+  if (await page.locator(field("load")).getAttribute("aria-pressed") !== "true") await page.locator(field("load")).click();
   await page.locator(pad(1)).click();
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   await page.waitForTimeout(1200);

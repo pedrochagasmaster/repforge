@@ -358,6 +358,16 @@
       "content": "flat",
       "scenario": "The per-exercise note sheet."
     },
+    "workout/wheel-load": {
+      "owner": "plan-075/2w",
+      "content": "flat",
+      "scenario": "A second tap on the selected Load field opens the wheel: the rail centred on its current value, with the keyboard button and Done in the sheet's bar."
+    },
+    "workout/wheel-reps": {
+      "owner": "plan-075/2w",
+      "content": "flat",
+      "scenario": "A second tap on the selected Reps field opens the wheel, 1 to 30, with the prescription's target range marked on the rail."
+    },
     "workout/why-this-weight": {
       "owner": "plan-064/r3g",
       "content": "flat",
@@ -4772,6 +4782,110 @@
       ],
       "sourceOnly": true,
       "sourceOnlyReason": "pending: the rest presets sheet opens from the header timer or the Today rest bar and no catalog state captures it open (workout/rest-running is the closed Focus page); the Focus suites and the accessibility suite exercise it. A catalog state for the open sheet is an open question for the orchestrator."
+    },
+    {
+      "id": "wheelscrim",
+      "selector": "#wheelScrim",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "scrim",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Scrim suppresses the page behind its blocking sheet.",
+      "owner": "plan-075/2w",
+      "catalogStates": [
+        "workout/wheel-load",
+        "workout/wheel-reps"
+      ]
+    },
+    {
+      "id": "wheelsheet",
+      "selector": "#wheelSheet",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "bottom-sheet",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Blocks the underlying route with dialog semantics; full-screen variants need no fake shadow.",
+      "owner": "plan-075/2w",
+      "catalogStates": [
+        "workout/wheel-load",
+        "workout/wheel-reps"
+      ]
+    },
+    {
+      "id": "wheelkeyboard",
+      "selector": "#wheelKeyboard",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Closes the wheel and opens the field's typed entry (the old second-tap path); it moves to another input mode without itself committing a value.",
+      "owner": "plan-075/2w",
+      "catalogStates": [
+        "workout/wheel-load",
+        "workout/wheel-reps"
+      ],
+      "neverDisabledReason": "The wheel is always open when this act is drawn, and typed entry is always reachable from it."
+    },
+    {
+      "id": "wheeldone",
+      "selector": "#wheelDone",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Dismisses the sheet; the value it shows was already committed on settle or by a keyboard step, so Done itself commits nothing.",
+      "owner": "plan-075/2w",
+      "catalogStates": [
+        "workout/wheel-load",
+        "workout/wheel-reps"
+      ],
+      "neverDisabledReason": "Closing the wheel is always available; every rail position is a valid value."
+    },
+    {
+      "id": "wheelcol",
+      "selector": "#wheelCol",
+      "roles": {
+        "control": "adjustment"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Changes a numeric training value by scroll, drag or arrow keys; it does not choose among unrelated options.",
+      "owner": "plan-075/2w",
+      "catalogStates": [
+        "workout/wheel-load",
+        "workout/wheel-reps"
+      ],
+      "neverDisabledReason": "The rail always holds the field's load or rep range; there is no state with nothing to choose."
     },
     {
       "id": "reviewblocklink",

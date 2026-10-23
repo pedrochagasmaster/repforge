@@ -4,7 +4,7 @@ import { exerciseAction, finishEarly, openLoggedSets, sessionField } from "./fix
  * Production storage/DOM gate for Plan 051's first DraftV2 vertical slice.
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
-import { launchChromium } from "./browser.mjs";
+import { launchChromium, openShelfField } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -293,7 +293,7 @@ async function shelfInput(page, field, root = "#workout .exercise.is-current .fo
   const input = page.locator(`${root} input[data-k$="${KEY_SUFFIX[field]}"]`);
   await input.waitFor({ state: "attached", timeout: 5000 });
   if (await input.getAttribute("aria-hidden") === "true") {
-    await page.locator(`${root} [data-shelf-field="${SHELF_FIELD[field]}"]`).click();
+    await openShelfField(page, `${root} [data-shelf-field="${SHELF_FIELD[field]}"]`);
   }
   return input;
 }

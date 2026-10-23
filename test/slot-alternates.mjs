@@ -12,7 +12,7 @@
  *
  * Run: node tools/run-tests.mjs workout --suite slot-alternates
  */
-import { launchChromium } from "./browser.mjs";
+import { launchChromium, openShelfField } from "./browser.mjs";
 import { exerciseAction, finishEarly } from "./fixtures/focus-workout.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 import { SHEET, applyInstalledEditor, editorSettled, openExerciseSheet, openInstalledEditor } from "./fixtures/installed-editor.mjs";
@@ -91,7 +91,7 @@ async function shelfFill(page, metricId, field, value) {
   const input = page.locator(`#workout .exercise.is-current .focus-shelf input[data-metric-id="${metricId}"]`);
   await input.waitFor({ state: "attached", timeout: 5000 });
   if (await input.getAttribute("aria-hidden") === "true")
-    await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="${field}"]`).click();
+    await openShelfField(page, `#workout .exercise.is-current .focus-shelf [data-shelf-field="${field}"]`);
   await input.waitFor({ state: "visible", timeout: 5000 });
   await input.fill(String(value));
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());

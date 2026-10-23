@@ -66,6 +66,8 @@ export const GLYPHS = {
   minus: { d: "M5.5 12h13", w: 2 },
   close: { d: "M6.5 6.5l11 11M17.5 6.5l-11 11", w: 2 },
   reset: { d: "M19.6 12a7.6 7.6 0 1 1-2.3-5.4M20.1 3.6v4.9h-4.9" },
+  /* Not drawn by G: the wheel picker's switch to typed entry (Plan 075 phase 2W), in G's 1.75 stroke. */
+  keyboard: { d: "M7 11h1M11 11h1M15 11h1M7 14.5h8", extra: "<rect x='3.5' y='7' width='17' height='11' rx='2'/>" },
   chevron: { d: "M9.4 6.4l5.6 5.6-5.6 5.6" },
 };
 
@@ -81,7 +83,7 @@ export const CHEVRON_UP = { d: "M6.4 14.6l5.6-5.6 5.6 5.6" };
 export const CLASS_NAMES = [
   "wand", "sliders", "search", "pencil", "clipboard", "download", "sheet", "flex", "scale",
   "dumbbell", "building", "house", "kettlebell", "rack", "target", "trend", "cal", "clock",
-  "shield", "pin", "alert", "gear", "check", "plus", "minus", "close", "reset",
+  "shield", "pin", "alert", "gear", "check", "plus", "minus", "close", "reset", "keyboard",
 ];
 
 const svg = (i) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='${i.w || 1.75}' stroke-linecap='round' stroke-linejoin='round'>${i.d ? `<path d='${i.d}'/>` : ""}${i.extra || ""}</svg>`;

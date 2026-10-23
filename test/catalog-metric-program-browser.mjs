@@ -8,7 +8,7 @@
  */
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const STATE_KEY = "repforge_v1";
@@ -416,7 +416,7 @@ async function addMetricSet(page, movement, { actualRir = null } = {}) {
     const input = page.locator(`#workout .exercise.is-current .focus-shelf input[data-metric-id="${metric.id}"]`);
     const button = page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="metric_${metric.id}"]`);
     await input.waitFor({ state: "attached", timeout: 5000 });
-    if (await input.getAttribute("aria-hidden") === "true") await button.click();
+    if (await input.getAttribute("aria-hidden") === "true") await openShelfField(page, button);
     await input.waitFor({ state: "visible", timeout: 5000 });
     const value = movement.values[metric.name];
     if (!Number.isFinite(value)) throw new Error(`No fixture value for ${metric.name} on ${movement.name}`);
