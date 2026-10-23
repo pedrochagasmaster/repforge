@@ -849,9 +849,13 @@ async function wheelPicker(browser) {
     // written — not a precomputed item count.
     const box = await page.locator("#wheelCol").boundingBox();
     const cx = Math.round(box.x + box.width / 2), cy = Math.round(box.y + box.height / 2);
+    const startTop = await page.evaluate(() => document.querySelector("#wheelCol").scrollTop);
     await touch("touchStart", [{ x: cx, y: cy }]);
     await touch("touchMove", [{ x: cx, y: cy - 44 }]);
     await touch("touchMove", [{ x: cx, y: cy - 88 }]);
+    // Touch moves land on the next animation frame: wait for the drag to move the column before lifting, or the
+    // rest check below could pass on a column that has not started moving yet.
+    await page.waitForFunction((top) => document.querySelector("#wheelCol").scrollTop !== top, startTop, { timeout: 2000 });
     await touch("touchEnd");
     // Momentum carries the scroll on after the touch lifts; wait for it (and the native
     // scroll-snap) to come to rest before the settle debounce reads a value off it.
@@ -1323,10 +1327,12 @@ async function navigationBars(browser) {
     await page.click('nav button[data-view="history"]');
     await page.waitForSelector("#sessions [data-sess] .session__open");
     await page.click("#sessions [data-sess] .session__open");
-    const opened = await page.waitForFunction(() => document.querySelector("#history")?.classList.contains("is-session-page"), undefined, { timeout: 3000 })
+    // Re-tap while the session page is still pushing in: its moving copy of the list must not count as a second page.
+    const opened = await page.waitForFunction(() => document.querySelector("#history")?.classList.contains("is-session-page")
+      && document.body.classList.contains("is-pushing"), undefined, { timeout: 3000 })
       .then(() => true, () => false);
     assert(opened, "a session row opens the session page");
-    await page.click('nav button[data-view="history"]');
+    await page.evaluate(() => document.querySelector('nav button[data-view="history"]').click());
     const back = await page.waitForFunction(() => !document.querySelector("#history")?.classList.contains("is-session-page"), undefined, { timeout: 3000 })
       .then(() => true, () => false);
     assert(back, "re-tapping History from its session page returns to the list");

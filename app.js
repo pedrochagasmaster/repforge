@@ -1129,7 +1129,7 @@ function syncEdgeSwipe(){
   const watch=new MutationObserver(()=>{
     const pulling=page.classList.contains("is-edge-swiping");
     if(pulling&&!beneath&&page.id==="history"&&historyListCopy){
-      beneath=historyListCopy;beneath.classList.remove("active");beneath.inert=true;beneath.setAttribute("aria-hidden","true");
+      beneath=historyListCopy;beneath.inert=true;beneath.setAttribute("aria-hidden","true");
       beneath.style.setProperty("--push-top","0px");beneath.classList.add("is-push-under");page.after(beneath)}
     else if(pulling&&!beneath){
       const under=page.id==="history"?null:routeViewEl(routeUnderView||"log");
@@ -1194,7 +1194,9 @@ document.addEventListener("click",event=>{
   if(!target||!view?.classList.contains("active")||!target.closest("#history [data-edit],#history [data-history-back],#historyCalSheet button"))return;
   const copy=view.cloneNode(true);
   copy.querySelectorAll("[id]").forEach(node=>node.removeAttribute("id"));
-  copy.classList.remove("is-push-over","is-push-under");
+  // The copy is a picture of the page, not a second page on screen: without .active, a re-tap mid-push still finds
+  // History as the one page shown.
+  copy.classList.remove("is-push-over","is-push-under","active");
   historySnap={copy,at:performance.now(),scroll:window.scrollY,session:view.classList.contains("is-session-page")}},true);
 function watchRouteSurfaces(){
   const main=$("main"),history=$("#history");
