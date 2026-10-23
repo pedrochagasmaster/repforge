@@ -10566,7 +10566,8 @@
         "today/ready",
         "today/rest-bar",
         "today/skipped",
-        "workout/invalid-draft"
+        "workout/invalid-draft",
+        "today/ready-scrolled"
       ],
       "neverDisabledReason": "The menu or choice stays reachable whenever its owning row is present."
     },
