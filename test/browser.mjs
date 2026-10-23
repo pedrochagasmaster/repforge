@@ -275,16 +275,28 @@ export async function dismissGuidesInTheWay(page) {
  * needs no wait: if the wheel opened, its keyboard button hands off to the same
  * typed entry a direct second tap gives RIR, and the caller sees that input the
  * same way either way. A field that only selects (pads next, not typing) or RIR
- * itself never opens the wheel, so this is a no-op click for them.
+ * itself never opens the wheel, so this is a no-op click for them. During a rest
+ * the shelf shows the rest pads, and a tap on the selected Load or Reps only brings
+ * the field back; a field that was already selected and opened nothing takes the
+ * second tap, as the lifter would.
  */
 export async function openShelfField(page, locatorOrSelector) {
   const locator = typeof locatorOrSelector === "string" ? page.locator(locatorOrSelector) : locatorOrSelector;
-  await locator.click();
-  const opened = await page.evaluate(() => {
+  const wheelOpen = () => page.evaluate(() => {
     const sheet = document.querySelector("#wheelSheet");
     return !!sheet && !sheet.hidden;
   });
-  if (!opened) return;
+  const selected = (el) => el.matches("[aria-pressed='true']") || !!el.closest(".shelf__field")?.classList.contains("is-sel");
+  const wasSelected = await locator.evaluate(selected);
+  await locator.click();
+  // During a rest the first tap on the selected Load or Reps only brings the field back; the next opens the wheel.
+  const restored = wasSelected && await locator.evaluate((el) => {
+    const id = el.closest("[data-shelf-field]")?.dataset.shelfField || "";
+    return (id === "load" || id === "reps" || id.startsWith("metric_")) && !el.closest(".shelf__field")?.classList.contains("is-editing")
+      && !document.activeElement?.matches?.(".shelf__input");
+  });
+  if (restored && !(await wheelOpen())) await locator.click();
+  if (!(await wheelOpen())) return;
   await page.click("#wheelKeyboard");
   await page.waitForSelector("#wheelSheet", { state: "hidden" });
 }
