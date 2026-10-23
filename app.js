@@ -1045,6 +1045,9 @@ let routePushState=null,routeUnderView=null,routeSwipeCommitting=false;
 function routePushOn(){
   const motion=window.RepForgeMotion;
   return window.__repforgeBooted===true&&!!motion?.animatePush&&motion.available?.()===true&&!motion.reducedMotion?.()}
+function routeFadeOn(){
+  const motion=window.RepForgeMotion;
+  return window.__repforgeBooted===true&&typeof motion?.crossFadeIn==="function"&&!!motion.reducedMotion?.()}
 function routePushEnd(){
   const state=routePushState;if(!state)return;
   routePushState=null;
@@ -1063,9 +1066,12 @@ function routePushEnd(){
  *  the page that moves on a push out. Null when the route should simply change. */
 function routePushBegin(direction,{pushed,under=null,ghost=null,offset=-Math.round(window.scrollY)}){
   if(direction==="in"&&under)routeUnderView=under.id;
-  if(routeSwipeCommitting||!routePushOn()||!(pushed instanceof Element)||under===pushed)return null;
+  if(routeSwipeCommitting||!(pushed instanceof Element)||under===pushed)return null;
   if(direction==="in"&&!under&&!ghost)return null;
   if(workoutActive&&under?.id==="log")return null;
+  // Under reduced motion the page that arrives cross-fades in place instead (ADR 0023, audit F-18).
+  if(routeFadeOn()){const arriving=direction==="in"||ghost?pushed:under;return arriving?()=>window.RepForgeMotion.crossFadeIn(arriving):null}
+  if(!routePushOn())return null;
   return()=>{
     routePushEnd();
     const beneath=direction==="in"?(ghost||under):null;
@@ -1099,6 +1105,7 @@ function edgeBackPage(){
   return view}
 function syncEdgeSwipe(){
   routeEdgeFrame=0;
+  syncRouteHistory();
   const page=edgeBackPage();
   if(routeEdge?.page===page)return;
   routeEdge?.dispose();routeEdge=null;
@@ -1115,10 +1122,16 @@ function syncEdgeSwipe(){
   const unmount=()=>{
     if(!beneath)return;
     beneath.classList.remove("is-push-under");beneath.style.removeProperty("--push-top");
-    beneath.inert=false;beneath.removeAttribute("aria-hidden");beneath=null};
+    // History's list under its session page is a still copy: it leaves the page with the swipe.
+    if(beneath===historyListCopy)beneath.remove();
+    else{beneath.inert=false;beneath.removeAttribute("aria-hidden")}
+    beneath=null};
   const watch=new MutationObserver(()=>{
     const pulling=page.classList.contains("is-edge-swiping");
-    if(pulling&&!beneath){
+    if(pulling&&!beneath&&page.id==="history"&&historyListCopy){
+      beneath=historyListCopy;beneath.inert=true;beneath.setAttribute("aria-hidden","true");
+      beneath.style.setProperty("--push-top","0px");beneath.classList.add("is-push-under");page.after(beneath)}
+    else if(pulling&&!beneath){
       const under=page.id==="history"?null:routeViewEl(routeUnderView||"log");
       if(under&&under!==page&&!under.classList.contains("active")){
         beneath=under;under.style.setProperty("--push-top","0px");
@@ -1128,22 +1141,70 @@ function syncEdgeSwipe(){
   routeEdge={page,dispose(){registration.dispose();watch.disconnect();unmount()}}}
 function scheduleEdgeSwipeSync(){
   if(!routeEdgeFrame)routeEdgeFrame=requestAnimationFrame(syncEdgeSwipe)}
+/* ---- Browser history for pushed pages (ADR 0023, Plan 075 phase 3) ----
+   Each pushed page on screen holds one history entry, so Safari's back button,
+   its edge swipe in a tab and Android's back pop it exactly as its Back control
+   does. Which pages are pushed is read from the route itself after every route
+   change, so no opener or closer has to remember. A page closed in the app gives
+   its entry back with history.go, whose popstate is ours and skipped. A popstate
+   we didn't start is the browser's: it runs the page's visible Back. Within
+   SAFARI_SWIPE_MS of a touch at the left edge it is Safari's own swipe, which
+   has already animated, so the route just changes. */
+const ROUTE_HISTORY_KEY="tauriferRoute",SAFARI_SWIPE_MS=900,SAFARI_EDGE=30;
+let routeHistory=[],routeHistoryIgnore=0,routeEdgeTouchAt=-Infinity;
+function openPushedRoutes(){
+  const body=document.body.classList,history=$("#history"),open=[];
+  if(body.contains("is-library"))open.push("library");
+  if(body.contains("is-preview"))open.push("exercisePreview");
+  if(body.contains("is-exercise"))open.push("exercise");
+  if(history?.classList.contains("active")&&history.classList.contains("is-session-page"))open.push("history");
+  return open}
+function syncRouteHistory(){
+  if(routeHistoryIgnore)return;
+  const open=openPushedRoutes(),kept=routeHistory.filter(id=>open.includes(id)),closed=routeHistory.length-kept.length;
+  const depth=routeHistory.length;
+  routeHistory=kept;
+  // Step back only over entries that are ours and on top: another owner (the editor, onboarding) may have pushed
+  // since, and history.go would pop its entry instead. A route closed under one is forgotten, its entry left.
+  // Pages opened in the same change are pushed once the browser has stepped back (onRoutePopState).
+  if(closed&&history.state?.[ROUTE_HISTORY_KEY]?.depth===depth){routeHistoryIgnore++;try{history.go(-closed)}catch{routeHistoryIgnore--}return}
+  for(const id of open)if(!routeHistory.includes(id)){
+    routeHistory.push(id);
+    const current=history.state&&typeof history.state==="object"?history.state:{};
+    try{history.pushState({...current,[ROUTE_HISTORY_KEY]:{view:id,depth:routeHistory.length}},"",location.href)}catch{}}}
+function onRoutePopState(){
+  if(routeHistoryIgnore){routeHistoryIgnore--;syncRouteHistory();return true}
+  const depth=history.state?.[ROUTE_HISTORY_KEY]?.depth||0;
+  if(routeHistory.length<=depth)return false;
+  const swiped=performance.now()-routeEdgeTouchAt<SAFARI_SWIPE_MS;
+  while(routeHistory.length>depth){
+    const id=routeHistory.pop();
+    routeSwipeCommitting=swiped;
+    try{releaseSwallowedClick();$(EDGE_BACK[id])?.click()}finally{routeSwipeCommitting=false}}
+  return true}
+document.addEventListener("touchstart",e=>{if(e.touches[0]?.clientX<SAFARI_EDGE)routeEdgeTouchAt=performance.now()},{capture:true,passive:true});
 /* History swaps its list for a session page inside one view, so there is no second
    page to keep mounted. A still copy of the surface as it was, taken as the lifter
    presses the control that changes it, stands in: under the session page as it
    pushes in, and as the page that rides out on Back. */
-let historySnap=null,historySessionOpen=false;
+let historySnap=null,historySessionOpen=false,historyListCopy=null;
 document.addEventListener("click",event=>{
   const target=event.target instanceof Element?event.target:null;
   const view=$("#history");
   if(!target||!view?.classList.contains("active")||!target.closest("#history [data-edit],#history [data-history-back],#historyCalSheet button"))return;
   const copy=view.cloneNode(true);
   copy.querySelectorAll("[id]").forEach(node=>node.removeAttribute("id"));
-  copy.classList.remove("is-push-over","is-push-under");
+  // The copy is a picture of the page, not a second page on screen: without .active, a re-tap mid-push still finds
+  // History as the one page shown.
+  copy.classList.remove("is-push-over","is-push-under","active");
   historySnap={copy,at:performance.now(),scroll:window.scrollY,session:view.classList.contains("is-session-page")}},true);
 function watchRouteSurfaces(){
   const main=$("main"),history=$("#history");
   if(main)new MutationObserver(scheduleEdgeSwipeSync).observe(main,{attributes:true,attributeFilter:["class"],subtree:true});
+  // The library, preview and exercise routes are body classes.
+  new MutationObserver(scheduleEdgeSwipeSync).observe(document.body,{attributes:true,attributeFilter:["class"]});
+  // A reload starts with no page pushed, so an entry left by the last session is no longer one.
+  try{const st=history.state;if(st&&typeof st==="object"&&st[ROUTE_HISTORY_KEY]){const{[ROUTE_HISTORY_KEY]:_,...rest}=st;history.replaceState(rest,"",location.href)}}catch{}
   if(history){
     historySessionOpen=history.classList.contains("is-session-page");
     new MutationObserver(()=>{
@@ -1151,6 +1212,8 @@ function watchRouteSurfaces(){
       if(open===historySessionOpen)return;
       historySessionOpen=open;
       const snap=historySnap;historySnap=null;
+      // The list as it was, kept while a session page is open: the page a back swipe reveals beneath it (ADR 0023).
+      historyListCopy=open&&snap&&!snap.session?snap.copy.cloneNode(true):null;
       if(!snap||snap.session===open||performance.now()-snap.at>1500)return;
       routePushBegin(open?"in":"out",{pushed:history,ghost:snap.copy,offset:-Math.round(snap.scroll)})?.()
     }).observe(history,{attributes:true,attributeFilter:["class"]})}
@@ -5805,6 +5868,28 @@ function mountDockLens(){
   window.addEventListener("resize",()=>sync(false));
   return nav}
 mountDockLens();
+/* Plan 075 phase 3 (ADR 0023): the scroll-edge bar over each root page's
+   large title. One IntersectionObserver per page watches that page's own
+   h2 against the bar, so nothing runs on every scroll frame (`#log` is the
+   active view at boot, so its bar's measured box — which already carries
+   `env(safe-area-inset-top)` — stands in for the identical box the other
+   three bars take once their own page is the one on screen). The bar's
+   material and its mirrored, aria-hidden title (the h2 stays the heading)
+   fade in together once the title has fully scrolled behind the bar, and
+   back out when it returns. */
+function mountTopBars(){
+  if(typeof IntersectionObserver!=="function")return;
+  const ref=$("#logTopbar");
+  const cutoff=Math.ceil(ref?.getBoundingClientRect().bottom||44)||44;
+  const rootMargin=`-${cutoff}px 0px 0px 0px`;
+  [["#log","#logTopbar"],["#stats","#statsTopbar"],["#history","#historyTopbar"],["#program","#programTopbar"]]
+    .forEach(([viewSel,barSel])=>{
+      const bar=$(barSel),title=document.querySelector(`${viewSel} .pagehead .page-title`);
+      if(!bar||!title)return;
+      // A title that isn't laid out (its page is hidden) hasn't scrolled under anything.
+      new IntersectionObserver(([entry])=>{bar.classList.toggle("is-scrolled",!entry.isIntersecting&&entry.boundingClientRect.height>0)},
+        {threshold:0,rootMargin}).observe(title)})}
+mountTopBars();
 function setEvidenceView(view){
   if(!EVIDENCE_SEG[view]){evidenceView=null;
     paintStatsTabs();
@@ -12295,10 +12380,7 @@ function enterProgramEditorSheet(copy){
   if(copy&&view?.parentNode){
     copy.inert=true;copy.setAttribute("aria-hidden","true");
     copy.classList.add("is-editor-pushed-back");
-    // After the real view, like History's own still copy (app.js ~1131): the
-    // clone keeps #program's id (stripping only its descendants'), so a sibling
-    // placed before it would shadow the real node for every #program lookup
-    // that follows, including this function's own exit.
+    // After the real view, like History's own still copy; it carries no ids.
     view.after(copy);
     programEditorPushBack=copy;
   }
@@ -19752,6 +19834,7 @@ function onInstalledEditorPopState(){
   return true;
 }
 function onEntryPopState(){
+  if(onRoutePopState())return;
   if(onInstalledEditorPopState())return;
   if(!$("#onboarding")?.classList.contains("active")||!entryState)return;
   try{history.pushState(entryHistoryState(true),"",location.href)}catch{}
@@ -21490,6 +21573,22 @@ function navTo(view){
   $$(".view").forEach(v=>v.classList.toggle("active",v.id===view));
   window.scrollTo({top:0});render()
 }
+/* Plan 075 phase 3 (ADR 0023): tapping the dock's own current tab is not a
+   navigation. A History session page returns to the list exactly as its own
+   Back does; any other root page scrolls to its top, instant under reduced
+   motion. Called before the dock handler's ordinary tab-switch branch, which
+   it leaves untouched for every other tap. */
+function dockRetap(b){
+  // A re-tap only when that tab's page is the one on screen: the button's own .active can outlive it (the
+  // editor, Settings or a pushed page took the screen), and then the tap is an ordinary switch back.
+  const view=$(`#${CSS.escape(b.dataset.view||"")}`);
+  if(!b.classList.contains("active")||!view?.classList.contains("active")||$$(".view.active").length!==1)return false;
+  if(document.body.classList.contains("is-workout")||document.body.classList.contains("is-settings"))return false;
+  if(b.dataset.view==="history"&&$("#history")?.classList.contains("is-session-page")){
+    $("#history [data-history-back]")?.click();
+    return true}
+  if(window.scrollY>0)window.scrollTo({top:0,behavior:scrollBehavior()});
+  return true}
 window.__repforgeEnterWorkout=enterWorkout;
 window.__repforgeGoToLogExercise=goToLogExercise;
 // The public harness seam can exercise only the ordinary completion path. The
@@ -21898,9 +21997,19 @@ function init(){
     programEditMode=true;renderProgram()};
   const progCancel=$("#programEditCancel");if(progCancel)progCancel.onclick=()=>attemptProgramEditorDismiss();
   const progDone=$("#programEditDone");if(progDone)progDone.onclick=()=>requestInstalledDone();
+  // The editor's page sheet answers Escape like Cancel and keeps Tab inside it, as openModal does for the other modals (#480).
   document.addEventListener("keydown",e=>{
-    if(e.key!=="Escape"||e.defaultPrevented||activeModal||!programEditorSheetOpen)return;
-    e.preventDefault();attemptProgramEditorDismiss()});
+    if(e.defaultPrevented||activeModal||!programEditorSheetOpen)return;
+    if(e.key==="Escape"){e.preventDefault();attemptProgramEditorDismiss();return}
+    // A page pushed from the editor (the library) is the screen then, and keeps its own Tab order.
+    if(e.key!=="Tab"||!$("#program")?.classList.contains("active"))return;
+    // Focus moves here on every Tab, so a control the browser would reach outside the sheet never is.
+    e.preventDefault();
+    const view=$("#program"),stops=modalFocusables(view);
+    if(!stops.length)return;
+    const at=stops.indexOf(document.activeElement);
+    const next=at<0?(e.shiftKey?stops.length-1:0):(at+(e.shiftKey?-1:1)+stops.length)%stops.length;
+    stops[next].focus()});
   const leaveApply=$("#programEditorApply");if(leaveApply)leaveApply.onclick=()=>applyInstalledEditorAndContinue();
   const leaveDiscard=$("#programEditorDiscard");if(leaveDiscard)leaveDiscard.onclick=()=>finishInstalledEditor({discard:true});
   const leaveKeep=$("#programEditorKeep");if(leaveKeep)leaveKeep.onclick=()=>closeInstalledLeaveDialog();
@@ -21993,6 +22102,7 @@ function init(){
       return;
     }
     if(programEditMode)finishInstalledEditor();
+    if(dockRetap(b))return;
     exView=null;workoutActive=false;workoutLeft=true;
     // Progress remembers its segment, so arriving there can itself open the review.
     const opensReview=b.dataset.view==="stats"&&statsSeg==="review"&&!evidenceView&&!$("#stats")?.classList.contains("active");

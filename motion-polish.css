@@ -314,7 +314,8 @@ nav button{transition-duration:.2s,var(--press-release-duration);transition-timi
    left rides above (`is-push-over`, the one that moves) and the other sits under
    it, still (`is-push-under`). Both are pinned to the screen so they overlap
    instead of stacking, and the page under is held at the scroll offset it had
-   (`--push-top`). Transform only; no new elevation, so the edge is the page's own.
+   (`--push-top`). Transform only, plus the soft edge shadow the moving page casts
+   (`--push-edge-shadow`, the prototype's moving page).
    The class names are written and removed by `app.js` (`pushRoute`) and never
    exist under reduced motion, where the route simply changes. */
 .is-push-under,.is-push-over{
@@ -326,7 +327,15 @@ nav button{transition-duration:.2s,var(--press-release-duration);transition-timi
 .view.is-push-under,.view.is-push-over{display:block}
 .hidden.is-push-under,.hidden.is-push-over{display:block!important}
 .is-push-under{top:var(--push-top,0px);z-index:1;pointer-events:none}
+/* While the page above covers it, the page under sits up to 30% to the left and
+   dims by about a tenth (ADR 0023): `--push-cover` (0–1) is written on it by the
+   push spring and by the back swipe in motion-layer.js, and absent at rest. */
+.is-push-under{transform:translate3d(calc(-30% * var(--push-cover,0)),0,0)}
+.is-push-over,.is-edge-swiping{box-shadow:var(--push-edge-shadow)}
+.is-push-under::after{content:"";position:absolute;inset:0;background:var(--scrim);opacity:calc(var(--push-dim) * var(--push-cover,0));pointer-events:none}
 .is-push-over{top:0;bottom:0;z-index:2;background:var(--bg)}
+/* A page pulled back by the edge swipe stays in flow; it still rides above the page held beneath it. */
+.view.is-edge-swiping{position:relative;z-index:2;background:var(--bg)}
 /* B's one-question entry pages share the onboarding scroll surface. Grid them
    in one row so the old, inert page can sit beneath an incoming page or behind
    a page being carried out without making duplicate IDs live. */
@@ -353,6 +362,9 @@ nav button{transition-duration:.2s,var(--press-release-duration);transition-timi
 /* The pages a push can leave by an edge swipe take the horizontal drag themselves
    (RepForgeMotion.registerEdgeSwipeBack); the browser keeps the vertical pan. */
 #exercise,#library,#exercisePreview,#importReview,#history.is-session-page{touch-action:pan-y pinch-zoom}
+/* A scroller inside a pushed page is its own touch-action root, so it says pan-y
+   too: a sideways drag on its rows is the back swipe, not a pan (ADR 0023). */
+:is(#library,#exercisePreview) .pick__list{touch-action:pan-y pinch-zoom}
 /* Focus lays itself out from the body classes `is-workout is-focus-wo`, which are
    gone by the time Back carries it off. While it rides out it keeps its own layout. */
 #workoutShell.is-push-over,

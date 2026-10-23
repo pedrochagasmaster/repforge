@@ -613,6 +613,29 @@ both blocks so each theme block shows the whole set; the spacing lengths are not
   No role, tier, radius or colour is added; icons stay `aria-hidden` beside their
   labels and an icon-only control keeps its accessible name and 44px target.
 
+- **Scroll-edge bar (Plan 075 phase 3, ADR 0023).** `.topbar` is a
+  `persistent-action` surface (a component in the role inventory, not a new
+  contextual variant: the variants table above is unchanged).
+
+  Unlike every other `persistent-action` surface, it holds no control of its
+  own: its only content is an `aria-hidden` title that mirrors the page's own
+  `h2.page-title` (the h2 stays the heading), so the shared-state set
+  (default, hover, pressed, focus, disabled) does not apply to it and the
+  checker's control rules are not run against it. At rest it paints neither
+  fill nor blur (`--bar-glass` and `--bar-blur` are unset, matching the
+  surface beneath it); once the page's large title has scrolled under it,
+  both the fill and the mirrored title fade in together on a 160ms opacity
+  transition (an alternate-state toggle under reduced motion), opaque under
+  `prefers-reduced-transparency`. It appears only on Today, Progress,
+  History's list and Program's ledger, one at a time with the page it
+  belongs to, and never under a sheet, on a pushed page, in the editor sheet
+  or on History's session page. The page's existing trailing actions stay in
+  the pagehead rather than moving into the bar, and the bar reserves no
+  height of its own: it overlays the pagehead's top space, so a root page's
+  rest frame is unchanged. No role, tier or radius is added; the bar's own
+  tokens (`--bar-glass`, `--bar-blur`, `--bar-edge`) are declared in both
+  themes beside the dock's equivalent glass tokens.
+
 ### Type role changes
 
 - **Section heads (OG-4, proposal 2).** `section-title` (24px) now names a

@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 212 screens,
-1241 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 214 screens,
+1247 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -166,6 +166,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | --- | --- | --- |
 | [Today — no program](screens/today/no-program__phone-390-light-en.png) | 3 | A fresh device after leaving setup, with no program or workout controls. |
 | [Today — ready to start](screens/today/ready__phone-390-light-en.png) | 12 | The Direction D lifter before Day 1 starts: the prescription table reads recommendation() for every exercise, with the verdict tally above it. |
+| [Today — ready to start, scrolled](screens/today/ready-scrolled__phone-390-light-en.png) | 3 | Plan 075 phase 3: the same ready state, scrolled past the large title, so the scroll-edge bar's material and its mirrored inline title are showing. |
 | [Today — running rest bar](screens/today/rest-bar__phone-390-light-en.png) | 8 | The rest countdown remains visible after leaving the active workout. |
 | [Today — choose another day](screens/today/day-picker__phone-390-light-en.png) | 8 | The day picker sheet open. |
 | [Today — session complete](screens/today/done__phone-390-light-en.png) | 8 | The state after the day's session is logged. |
@@ -260,6 +261,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | Screen | Frames | What it shows |
 | --- | --- | --- |
 | [History](screens/history/list__phone-390-light-en.png) | 8 | The logged session list. |
+| [History — list, scrolled](screens/history/list-scrolled__phone-390-light-en.png) | 3 | Plan 075 phase 3: the same session list, scrolled past the large title, so the scroll-edge bar's material and its mirrored inline title are showing. |
 | [History — expanded session](screens/history/session__phone-390-light-en.png) | 8 | One session expanded in place. |
 | [History — per-side session](screens/history/per-side-session__phone-390-light-en.png) | 8 | A saved unilateral and bilateral per-side session shows physical tonnage and a per-side personal record. |
 | [History — dirty edit](screens/history/edit-dirty__phone-390-light-en.png) | 8 | A session edit with an unsaved canonical change and its destructive actions still visible. |

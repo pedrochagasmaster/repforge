@@ -34,6 +34,14 @@
  * through the field's own input, the way typing would, and the keyboard button
  * hands off to that same typed path.
  *
+ * Phase 3, navigation (audit F-9, F-11): each root page's scroll-edge bar is
+ * silent until its large title has scrolled under it, at which point the
+ * material and the mirrored inline title appear together; dark and reduced
+ * transparency take their own material, and the title caps at 21px under
+ * large text. Tapping the dock's current tab scrolls that page to the top
+ * (instant under reduced motion), or returns a History session page to the
+ * list exactly as its own Back does.
+ *
  * Chromium touch emulation is not iPhone evidence; the feel is checked on a
  * device by the owner.
  *
@@ -45,6 +53,7 @@ import { collectCatalogEvidence, validateCatalogEvidence } from "../tools/ui-scr
 import { measureRenderedRoles } from "../tools/ui-system-rendered.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 import { openCatalogState } from "./fixtures/catalog-state.mjs";
+import { metricLogRow } from "./fixtures/history-metric-rows.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 
@@ -840,9 +849,13 @@ async function wheelPicker(browser) {
     // written — not a precomputed item count.
     const box = await page.locator("#wheelCol").boundingBox();
     const cx = Math.round(box.x + box.width / 2), cy = Math.round(box.y + box.height / 2);
+    const startTop = await page.evaluate(() => document.querySelector("#wheelCol").scrollTop);
     await touch("touchStart", [{ x: cx, y: cy }]);
     await touch("touchMove", [{ x: cx, y: cy - 44 }]);
     await touch("touchMove", [{ x: cx, y: cy - 88 }]);
+    // Touch moves land on the next animation frame: wait for the drag to move the column before lifting, or the
+    // rest check below could pass on a column that has not started moving yet.
+    await page.waitForFunction((top) => document.querySelector("#wheelCol").scrollTop !== top, startTop, { timeout: 2000 });
     await touch("touchEnd");
     // Momentum carries the scroll on after the touch lifts; wait for it (and the native
     // scroll-snap) to come to rest before the settle debounce reads a value off it.
@@ -975,6 +988,392 @@ async function wheelPicker(browser) {
     await page.keyboard.press("ArrowUp");
     const behavior = await page.evaluate(() => getComputedStyle(document.querySelector("#wheelCol")).scrollBehavior);
     assert(behavior === "auto", "programmatic positioning is instant, not smooth", behavior);
+    await context.close();
+  }
+}
+
+/* ---- Navigation (Plan 075 phase 3) ---- */
+
+/** Where the route is: the library on screen, and this tab's history entry. */
+const routeState = (page) => page.evaluate(() => ({
+  library: document.body.classList.contains("is-library") && document.querySelector("#library")?.classList.contains("active"),
+  route: history.state?.tauriferRoute?.view || "",
+  length: history.length,
+}));
+
+/**
+ * Pushed pages and the browser's history (ADR 0023 choice 2). Each pushed page
+ * holds one history entry, so Safari's back button and edge swipe pop it as its
+ * Back does; an in-app Back gives the entry back. Right after a touch at the
+ * left edge a browser pop is Safari's own swipe, already animated, so the page
+ * leaves without a second push.
+ */
+async function routeHistory(browser) {
+  phase("a pushed page holds one history entry, and the browser's back pops it");
+  const { context, page } = await sheetPage(browser);
+  const before = await routeState(page);
+  await page.evaluate(() => window.openLibrary());
+  await page.waitForFunction(() => history.state?.tauriferRoute?.view === "library", undefined, { timeout: 3000 }).catch(() => {});
+  const opened = await routeState(page);
+  assert(opened.library && opened.route === "library" && opened.length === before.length + 1,
+    "opening the library adds one history entry for it", JSON.stringify({ before, opened }));
+  await page.goBack({ waitUntil: "commit" }).catch(() => {});
+  const popped = await page.waitForFunction(() => window.__repforgeBooted === true && !document.body.classList.contains("is-library"),
+    undefined, { timeout: 3000 }).then(() => true, () => false);
+  assert(popped, "the browser's back closes the library as its Back does, and stays in the app");
+  if (!popped) { await context.close(); return; }
+
+  phase("an in-app Back gives the entry back");
+  await page.evaluate(() => window.openLibrary());
+  await page.waitForFunction(() => history.state?.tauriferRoute?.view === "library", undefined, { timeout: 3000 }).catch(() => {});
+  await page.click("#libBack");
+  const returned = await page.waitForFunction(() => !document.body.classList.contains("is-library") && !history.state?.tauriferRoute,
+    undefined, { timeout: 3000 }).then(() => true, () => false);
+  assert(returned, "after Back the history is where it was before the push", JSON.stringify(await routeState(page)));
+
+  phase("a pop right after an edge touch is Safari's swipe: no second push");
+  await page.evaluate(() => window.openLibrary());
+  // The opening push itself has to have landed before pushes are counted.
+  await page.waitForFunction(() => history.state?.tauriferRoute?.view === "library" && !document.body.classList.contains("is-pushing"),
+    undefined, { timeout: 3000 }).catch(() => {});
+  await page.evaluate(() => {
+    window.__pushes = [];
+    new MutationObserver(() => { if (document.querySelector(".is-push-over")) window.__pushes.push(Date.now()); })
+      .observe(document.body, { attributes: true, subtree: true, attributeFilter: ["class"] });
+    document.dispatchEvent(new TouchEvent("touchstart", { touches: [new Touch({ identifier: 1, target: document.body, clientX: 6, clientY: 400 })], bubbles: true }));
+  });
+  await page.goBack({ waitUntil: "commit" }).catch(() => {});
+  await page.waitForFunction(() => !document.body.classList.contains("is-library"), undefined, { timeout: 3000 }).catch(() => {});
+  assert((await page.evaluate(() => window.__pushes.length)) === 0, "the library leaves without the app animating it again");
+  await context.close();
+}
+
+/**
+ * The back swipe in Auto mode (choice 2): in a Safari tab it starts anywhere on
+ * a pushed page, right of the browser's own edge zone; a drag that starts on a
+ * text field is the field's. Underneath, the page returned to sits 30% to the
+ * left and dimmed, and moves with the swipe.
+ */
+async function autoSwipe(browser) {
+  phase("in a Safari tab the back swipe starts anywhere on a pushed page");
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const page = await context.newPage();
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  await installSeedProgram(page, { waitFor: waitForApp });
+  const cdp = await context.newCDPSession(page);
+  const touch = (type, points = []) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points });
+  const open = async () => {
+    await page.evaluate(() => window.openLibrary());
+    await page.waitForFunction(() => document.body.classList.contains("is-library") && !document.body.classList.contains("is-pushing"));
+  };
+  await open();
+  const y = 520;
+  await touch("touchStart", [{ x: 120, y }]);
+  for (const x of [140, 170, 210, 250]) await touch("touchMove", [{ x, y }]);
+  const mid = await page.waitForFunction(() => {
+    const lib = document.querySelector("#library"), under = document.querySelector(".is-push-under");
+    const x = new DOMMatrixReadOnly(getComputedStyle(lib).transform === "none" ? undefined : getComputedStyle(lib).transform).m41;
+    if (!(x > 60)) return null;
+    const u = under ? new DOMMatrixReadOnly(getComputedStyle(under).transform === "none" ? undefined : getComputedStyle(under).transform).m41 : null;
+    return { x, under: u, cover: Number((under ? getComputedStyle(under).getPropertyValue("--push-cover") : "") || 0) };
+  }, undefined, { timeout: 2000 }).then((h) => h.jsonValue(), () => null);
+  assert(mid && mid.x > 60, "a drag from mid-page carries the page with the thumb", JSON.stringify(mid));
+  assert(mid && mid.under < 0 && mid.under > -390 * 0.3 && mid.cover > 0 && mid.cover < 1,
+    "the page underneath sits to the left, part of the way back, and dimmed", JSON.stringify(mid));
+  for (const x of [300, 340, 370]) await touch("touchMove", [{ x, y }]);
+  await touch("touchEnd");
+  const popped = await page.waitForFunction(() => !document.body.classList.contains("is-library"), undefined, { timeout: 3000 })
+    .then(() => true, () => false);
+  assert(popped, "released past halfway, the swipe pops the page");
+
+  phase("a drag that starts on a text field is the field's");
+  await open();
+  const box = await page.locator("#libSearch").boundingBox();
+  await touch("touchStart", [{ x: box.x + 30, y: box.y + box.height / 2 }]);
+  for (const dx of [20, 60, 120]) await touch("touchMove", [{ x: box.x + 30 + dx, y: box.y + box.height / 2 }]);
+  await touch("touchEnd");
+  const still = await page.evaluate(() => document.body.classList.contains("is-library") && !document.querySelector("#library").style.transform);
+  assert(still, "the library stays put");
+  await context.close();
+}
+
+/** Under reduced motion a push cross-fades the arriving page over about 170ms, with no travel (choice 11). */
+async function reducedMotionPush(browser) {
+  phase("under reduced motion a push cross-fades in place");
+  const { context, page } = await sheetPage(browser, { reducedMotion: "reduce" });
+  const frames = await page.evaluate(() => new Promise((resolve) => {
+    const lib = document.querySelector("#library"), out = [], t0 = performance.now();
+    window.openLibrary();
+    const fade = lib.getAnimations().map((a) => a.effect.getTiming().duration);
+    const tick = () => {
+      const s = getComputedStyle(lib);
+      out.push({ fade, t: Math.round(performance.now() - t0), opacity: Number(s.opacity),
+        x: Math.round(new DOMMatrixReadOnly(s.transform === "none" ? undefined : s.transform).m41) });
+      if (performance.now() - t0 < 400) requestAnimationFrame(tick); else resolve(out);
+    };
+    requestAnimationFrame(tick);
+  }));
+  assert(frames.every((f) => f.x === 0), "the page never travels", JSON.stringify(frames.slice(0, 5)));
+  assert(frames.some((f) => f.opacity > 0.02 && f.opacity < 0.98) && frames.at(-1).opacity === 1, "it fades in", JSON.stringify(frames.slice(0, 8)));
+  // The fade's own timing, read as it starts: a frame-sampled duration is too noisy on a busy machine.
+  assert(frames[0]?.fade?.some((d) => d >= 160 && d <= 180), "over 160–180ms", JSON.stringify(frames[0]?.fade));
+  await context.close();
+}
+
+/** The Program editor's page sheet keeps keyboard Tab inside it, as the other modals do (#480). */
+async function editorSheetTab(browser) {
+  phase("Tab stays inside the Program editor's page sheet");
+  const { context, page } = await sheetPage(browser);
+  await page.click('nav button[data-view="program"]');
+  await page.click("#programEditToggle");
+  await page.waitForSelector("#program.sheet.is-open");
+  const real = [];
+  for (let i = 0; i < 60; i++) {
+    await page.keyboard.press("Tab");
+    real.push(await page.evaluate(() => !!document.activeElement?.closest("#program.sheet")));
+  }
+  for (let i = 0; i < 10; i++) {
+    await page.keyboard.press("Shift+Tab");
+    real.push(await page.evaluate(() => !!document.activeElement?.closest("#program.sheet")));
+  }
+  assert(real.every(Boolean), "60 Tabs and 10 Shift+Tabs never leave the sheet", real.map(Number).join(""));
+  await context.close();
+}
+
+/* ---- Navigation bars (Plan 075 phase 3, ADR 0023) ---- */
+
+const BAR_KEY = "repforge_v1";
+
+/** Writes `log` into both replicas over whatever the page currently holds. */
+async function persistLog(page, log) {
+  await page.evaluate(async ({ k, log }) => {
+    const state = JSON.parse(localStorage.getItem(k) || "{}");
+    state.log = log;
+    localStorage.setItem(k, JSON.stringify(state));
+    const db = await new Promise((res, rej) => {
+      const r = indexedDB.open("repforge", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("kv");
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+    await new Promise((res, rej) => {
+      const tx = db.transaction("kv", "readwrite");
+      tx.objectStore("kv").put(state, k);
+      tx.oncomplete = () => res();
+      tx.onerror = () => rej(tx.error);
+    });
+    db.close();
+  }, { k: BAR_KEY, log });
+}
+
+/** The bar's own material, read from computed style; `glass` is `--bar-glass`
+ * resolved through a probe element, so `background` compares like for like. */
+const barMaterial = (page, barSel) => page.evaluate((sel) => {
+  const bar = document.querySelector(sel);
+  const bg = bar.querySelector(".topbar__bg"), title = bar.querySelector(".topbar__title");
+  const bgStyle = getComputedStyle(bg), titleStyle = getComputedStyle(title);
+  const probe = document.createElement("div");
+  probe.style.background = "var(--bar-glass)";
+  document.body.append(probe);
+  const glass = getComputedStyle(probe).backgroundColor;
+  probe.remove();
+  return {
+    scrolled: bar.classList.contains("is-scrolled"),
+    backdropFilter: bgStyle.backdropFilter,
+    background: bgStyle.backgroundColor, glass,
+    titleOpacity: Number(titleStyle.opacity),
+    titleFontSize: Math.round(parseFloat(titleStyle.fontSize) * 100) / 100,
+  };
+}, barSel);
+
+const scrollToEnd = (page) => page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+const waitScrolled = (page, barSel, want = true) => page.waitForFunction(
+  ([s, w]) => document.querySelector(s)?.classList.contains("is-scrolled") === w, [barSel, want], { timeout: 3000 }
+).then(() => true, () => false);
+/** The title's own opacity transition (160ms) runs after the class flips, so
+ * a read taken straight after `waitScrolled` can still catch its start value;
+ * wait for the transition's end state instead of reading right after the class change. */
+const waitTitleOpacity = (page, barSel, want) => page.waitForFunction(
+  ([s, w]) => Number(getComputedStyle(document.querySelector(`${s} .topbar__title`)).opacity) === w, [barSel, want], { timeout: 2000 }
+).then(() => true, () => false);
+
+/**
+ * The scroll-edge bar over Today's large title (ADR 0023, audit F-9, F-11):
+ * silent until the title has scrolled under it, then the material and the
+ * mirrored inline title appear together, in both themes, opaque under
+ * reduced transparency, and capped at 21px under large text.
+ */
+async function navigationBars(browser) {
+  phase("No material at the top; scrolling the title under the bar reveals it");
+  {
+    const { context, page } = await todayPage(browser);
+    const atTop = await barMaterial(page, "#logTopbar");
+    assert(!atTop.scrolled && atTop.backdropFilter === "none" && atTop.titleOpacity === 0,
+      "no material at the top", JSON.stringify(atTop));
+    await scrollToEnd(page);
+    const reachedScrolled = await waitScrolled(page, "#logTopbar", true);
+    assert(reachedScrolled, "the bar reaches its scrolled state");
+    await waitTitleOpacity(page, "#logTopbar", 1);
+    const scrolled = await barMaterial(page, "#logTopbar");
+    assert(scrolled.titleOpacity === 1 && scrolled.backdropFilter !== "none" && scrolled.background === scrolled.glass,
+      "the inline title and the bar's material appear together", JSON.stringify(scrolled));
+    assert(scrolled.backdropFilter === "blur(20px) saturate(1.8)", "the material is the kit's frosted glass: blur(20px) saturate(180%)", JSON.stringify(scrolled));
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const reachedTop = await waitScrolled(page, "#logTopbar", false);
+    assert(reachedTop, "scrolling back up clears both again");
+    await context.close();
+  }
+
+  phase("The bar's blur reaches the page beneath it in the catalog's settled Today");
+  {
+    // The catalog settles every animation with finish() before it shoots. A view entry animation held by its fill
+    // made the view a backdrop root, and the rows read crisply through 72% paper (owner review of #484's side-by-side).
+    const { context, page } = await openCatalogState(browser, "today/ready", 390, "en", "normal");
+    // The fidelity shot's offset: the prescription rows sit under the bar.
+    await page.evaluate(() => window.scrollTo(0, 420));
+    await waitScrolled(page, "#logTopbar", true);
+    await waitTitleOpacity(page, "#logTopbar", 1);
+    const box = await page.locator("#logTopbar .topbar__bg").boundingBox();
+    const shot = await page.screenshot({ clip: box });
+    // The sharpest step between neighbouring pixels in the bar's left part, clear of its own title: a row's text
+    // read through the paper is a step of about 50 levels; through the blur it is a smooth wash of 1 or 2.
+    const edge = await page.evaluate(async (b64) => {
+      const img = new Image();
+      img.src = `data:image/png;base64,${b64}`;
+      await img.decode();
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width; canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      const w = Math.round(img.width * 0.35), h = Math.round(img.height * 0.9), d = ctx.getImageData(0, 0, w, h).data;
+      let max = 0;
+      for (let y = 0; y < h; y++) for (let x = 1; x < w; x++) {
+        const q = (y * w + x) * 4, r = q - 4;
+        max = Math.max(max, Math.abs((d[q] + d[q + 1] + d[q + 2]) / 3 - (d[r] + d[r + 1] + d[r + 2]) / 3));
+      }
+      return max;
+    }, shot.toString("base64"));
+    assert(edge < 12, "nothing under the bar stays legible: its blur reaches the rows beneath it", String(edge));
+    await context.close();
+  }
+
+  phase("Dark theme takes its own bar material");
+  {
+    const { context, page } = await todayPage(browser, { theme: "dark" });
+    await scrollToEnd(page);
+    await waitScrolled(page, "#logTopbar", true);
+    const dark = await barMaterial(page, "#logTopbar");
+    assert(dark.background === dark.glass, "dark reads its own --bar-glass", JSON.stringify(dark));
+    await context.close();
+  }
+
+  phase("Reduced transparency makes the material opaque");
+  {
+    const { context, page } = await todayPage(browser);
+    const cdp = await context.newCDPSession(page);
+    await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-transparency", value: "reduce" }] });
+    await scrollToEnd(page);
+    await waitScrolled(page, "#logTopbar", true);
+    const opaque = await barMaterial(page, "#logTopbar");
+    const alpha = Number((opaque.background.match(/^rgba\(([^)]+)\)$/)?.[1] ?? "").split(",")[3]);
+    assert(opaque.backdropFilter === "none" && (Number.isNaN(alpha) || alpha === 1),
+      "reduced transparency drops the blur and reads opaque", JSON.stringify({ opaque, alpha }));
+    await context.close();
+  }
+
+  phase("The bar title caps at 21px under large text");
+  {
+    const { context, page } = await todayPage(browser);
+    await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+    await scrollToEnd(page);
+    await waitScrolled(page, "#logTopbar", true);
+    const big = await barMaterial(page, "#logTopbar");
+    assert(big.titleFontSize <= 21, "the inline title caps at 21px", String(big.titleFontSize));
+    await context.close();
+  }
+
+  phase("Re-tap on the current tab scrolls to the top");
+  {
+    const { context, page } = await todayPage(browser);
+    await scrollToEnd(page);
+    const before = await page.evaluate(() => window.scrollY);
+    assert(before > 0, "the page is scrolled before the re-tap", String(before));
+    await page.click('nav button[data-view="log"]');
+    const reachedTop = await page.waitForFunction(() => window.scrollY === 0, undefined, { timeout: 3000 }).then(() => true, () => false);
+    assert(reachedTop, "re-tapping the current tab scrolls it to the top");
+    await context.close();
+  }
+  {
+    const { context, page } = await todayPage(browser, { reducedMotion: "reduce" });
+    await scrollToEnd(page);
+    const before = await page.evaluate(() => window.scrollY);
+    assert(before > 0, "(reduced motion) the page is scrolled before the re-tap", String(before));
+    await page.click('nav button[data-view="log"]');
+    const after = await page.evaluate(() => window.scrollY);
+    assert(after === 0, "under reduced motion the re-tap lands at the top on the same tick, with nothing to await", String(after));
+    await context.close();
+  }
+
+  phase("Re-tap on a History session page returns to the list");
+  {
+    const { context, page } = await todayPage(browser);
+    const state = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) || "null"), BAR_KEY);
+    const day1 = state.program[0];
+    const log = [metricLogRow(state.programMeta, day1, { session: "nf-bar", date: "2026-03-03", set: 1, load: 80, reps: 8, rir: 1 })];
+    await persistLog(page, log);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await page.click('nav button[data-view="history"]');
+    await page.waitForSelector("#sessions [data-sess] .session__open");
+    await page.click("#sessions [data-sess] .session__open");
+    // Re-tap while the session page is still pushing in: its moving copy of the list must not count as a second page.
+    const opened = await page.waitForFunction(() => document.querySelector("#history")?.classList.contains("is-session-page")
+      && document.body.classList.contains("is-pushing"), undefined, { timeout: 3000 })
+      .then(() => true, () => false);
+    assert(opened, "a session row opens the session page");
+    await page.evaluate(() => document.querySelector('nav button[data-view="history"]').click());
+    const back = await page.waitForFunction(() => !document.querySelector("#history")?.classList.contains("is-session-page"), undefined, { timeout: 3000 })
+      .then(() => true, () => false);
+    assert(back, "re-tapping History from its session page returns to the list");
+    await context.close();
+  }
+
+  phase("A back swipe on a History session page shows the list beneath it");
+  {
+    const { context, page, touch } = await todayPage(browser);
+    const state = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) || "null"), BAR_KEY);
+    const log = [metricLogRow(state.programMeta, state.program[0], { session: "nf-swipe", date: "2026-03-03", set: 1, load: 80, reps: 8, rir: 1 })];
+    await persistLog(page, log);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await page.click('nav button[data-view="history"]');
+    await page.waitForSelector("#sessions [data-sess] .session__open");
+    await page.click("#sessions [data-sess] .session__open");
+    await page.waitForFunction(() => document.querySelector("#history")?.classList.contains("is-session-page") && !document.body.classList.contains("is-pushing"));
+    // One logged set makes a short session page: start the drag on it, not below it.
+    const y = await page.evaluate(() => { const r = document.querySelector("#history").getBoundingClientRect(); return Math.round(Math.min(r.bottom - 40, 400)); });
+    await touch("touchStart", [{ x: 120, y }]);
+    for (const x of [140, 170, 210, 250]) await touch("touchMove", [{ x, y }]);
+    const mid = await page.waitForFunction(() => {
+      // The copy keeps the root id its #history styles need, as the push ghost does; the live page comes first.
+      const under = document.querySelector(".is-push-under");
+      if (!under) return null;
+      // The page beneath is inert and ignores pointers; let hit-testing see it for one read of which paints on top.
+      const inert = under.inert;
+      under.inert = false; under.style.pointerEvents = "auto";
+      const top = document.elementFromPoint(250, 200);
+      under.inert = inert; under.style.removeProperty("pointer-events");
+      return {
+        list: !!under.querySelector(".session__open"), live: under === document.getElementById("history"), active: under.classList.contains("active"),
+        hidden: under.inert && under.getAttribute("aria-hidden") === "true", pageOnTop: !!top && !under.contains(top) && document.getElementById("history").contains(top),
+      };
+    }, undefined, { timeout: 2000 }).then((h) => h.jsonValue(), () => null);
+    assert(mid && mid.list && !mid.live && !mid.active && mid.hidden, "the History list is beneath the session page, inert", JSON.stringify(mid));
+    assert(mid && mid.pageOnTop, "the session page being swiped paints above the list beneath it", JSON.stringify(mid));
+    await touch("touchEnd");
+    const gone = await page.waitForFunction(() => !document.querySelector(".is-push-under"), undefined, { timeout: 3000 }).then(() => true, () => false);
+    assert(gone, "the list copy leaves with the swipe");
     await context.close();
   }
 }
@@ -1173,6 +1572,11 @@ try {
   await dayPickerCommits(browser);
   await libraryOverEditorSheet(browser);
   await wheelPicker(browser);
+  await routeHistory(browser);
+  await autoSwipe(browser);
+  await reducedMotionPush(browser);
+  await editorSheetTab(browser);
+  await navigationBars(browser);
 } finally {
   await browser.close();
 }

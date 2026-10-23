@@ -386,7 +386,8 @@ Focus) and the interactive edge swipe back, built only on the R1c vocabulary:
 `RepForgeMotion.animatePush` (the `navPush` spring), `registerEdgeSwipeBack`
 and the stylesheet classes `is-push-under` / `is-push-over` in `motion-polish.css`.
 The top-level view fade (N2, 140 ms) is untouched and still serves the dock.
-No spring literal exists at a call site. Transform only: no opacity, no new elevation.
+No spring literal exists at a call site. Transform only, no opacity; the one elevation is the
+soft edge shadow the moving page casts on the page beneath (`--push-edge-shadow`, Plan 075 phase 3).
 
 A push keeps both pages mounted for its whole run. The page that moves rides above
 (`is-push-over`) and the other is held still beneath it (`is-push-under`); both are
@@ -421,6 +422,16 @@ at about 262 ms, and Motion's rest test (1 px, 40 px/s) hands the page back at a
 a sub-pixel tail the eye does not read. The constants are `gestureExit`'s and were not
 retuned.
 
+### Plan 075 phase 3 amendments (ADR 0023)
+
+| Change | Owner | Notes |
+| --- | --- | --- |
+| The page under a push or a back swipe sits up to 30% to the left and dims by about a tenth while the page above covers it | `motion-layer.js` writes how much it is covered (`--push-cover`, 0–1) on the `.is-push-under` page from the push spring and the swipe; `motion-polish.css` draws it (`--push-dim` scales `--scrim`) | Only the page under restyles each frame. Absent at rest |
+| Back swipe in Auto (choice 2) | `motion-layer.js` (`edgePointerDown`) | In the Home Screen app it starts at the left edge as before. In a Safari tab, where the edge is the browser's history swipe, it starts anywhere right of it and claims only a clearly sideways drag (1.2× the vertical). A text field, a slider, the chart's scrub plot, `[data-hscroll]` or a sideways scroller keeps its own drag. Scrollers inside pushed pages say `pan-y` so a sideways drag reaches the swipe |
+| Browser history for pushed pages | `app.js` (`syncRouteHistory`, `onRoutePopState`) | Each pushed page on screen (library, preview, exercise, a History session) holds one history entry, read from the route after every change. An in-app Back gives it back with `history.go`, whose popstate is skipped. A browser popstate runs the page's visible Back; within 900ms of a touch at the left edge it is Safari's own swipe, already animated, so the route just changes. A reload clears a stale entry. Safari's own swipe can't be detected for certain; 900ms is the heuristic the prototype used |
+| Reduced motion | `app.js` (`routePushBegin`), `motion-layer.js` (`crossFadeIn`) | A push or pop cross-fades the arriving page over 170ms (Web Animations, so the global reduced-motion kill doesn't cancel it), with no travel. Amends the "alternate state" rule for pushes as phase 2 did for sheets |
+| Keyboard Tab stays inside the editor's page sheet (#480) | `app.js` | While the sheet is the screen, Tab and Shift+Tab move through its controls only, as `openModal` does for the other modals |
+
 ## Dock lens (R6)
 
 Plan 064 amendment pick N1 (the selected lens travels, dock structure unchanged),
@@ -441,6 +452,18 @@ transform, so the pill is painted where it always was (a fractional column is no
 button's own box is; the editor bar offsets with `left` and `top`, so it snaps as the button did). The proof is the
 `N1` sections of `test/motion-integration.mjs` (`REPFORGE_MOTION_ONLY=dock`).
 
+## Scroll-edge bar and tab re-tap (Plan 075 phase 3)
+
+ADR 0023 resolves the audit's navigation findings (F-9, F-11) in the existing
+root pages. No runtime or vocabulary is added; one `IntersectionObserver` per
+page replaces a per-frame scroll handler, and the dock's own click handler
+gains one early branch.
+
+| Addition | Owner | Trigger | Reduced-motion/transparency path | Notes |
+| --- | --- | --- | --- | --- |
+| The scroll-edge bar: a transparent `.topbar` overlay on Today, Progress, History's list and Program's ledger, each holding an `aria-hidden` mirror of that page's own `h2.page-title` | `index.html` for the markup; `app.js` (`mountTopBars`) for the one `IntersectionObserver` per page; `styles.css` (`.topbar`, `.topbar__bg`, `.topbar__title`) for the drawing | Each observer watches its page's `h2.page-title` with a `rootMargin` shrunk by the bar's own measured box (read once, from Today's bar, which is the active page at boot), so the callback fires only when the title's bottom edge crosses under the bar, not on every scroll frame | `prefers-reduced-motion` drops the 160ms opacity fade to a toggle (`transition:none` on `.topbar__bg`/`.topbar__title`); `prefers-reduced-transparency` swaps `--bar-glass` for `--bg` and removes the blur, in the same injected style as the dock's own override (`motion-layer.js`, `installPreferenceStyles`) | The bar adds no height at rest: it overlays the pagehead's own top space (`position:fixed`), so a root page's rest frame is unchanged and the trailing actions stay in the pagehead rather than moving into the bar. No bar under a sheet (`body.is-sheet-open`), on a pushed-over or pushed-under page, once the Program editor replaces the ledger, or on History's session page, which hides its own pagehead the same way. The title caps at 21px under large text (`font-size:min(var(--font-size-body),21px)`), as iOS bars do |
+| Tab re-tap: tapping the dock's own current tab is not a navigation | `app.js` (`dockRetap`, called from the dock's click handler before its ordinary tab-switch branch) | The tapped button already carries `.active`. A History session page (`#history.is-session-page`) returns to the list through its own `[data-history-back]` control, exactly as its Back does; any other root page scrolls to its top (`scrollBehavior()`) | Instant under reduced motion, because `scrollBehavior()` reads the same live preference every other scroll-into-view call in `app.js` does | Switching to a different tab is untouched: `dockRetap` returns `false` and the existing branch runs exactly as before. The dock itself, its buttons, the 140ms view fade (N2) and the N1 lens are unaffected |
+
 ## Reduced motion
 
 `prefers-reduced-motion` is read live in one place and honoured on every path.
@@ -457,7 +480,7 @@ sheet and its scrim now cross-fade in place over 170ms: opacity only, no travel,
 on opening and on closing (the close waits for the fade before the sheet is
 hidden). It is the one exception to the global reduced-motion kill in
 `styles.css`, so it is written `!important` against it. Pushed pages take the
-same cross-fade in Plan 075 phase 3. A drag still places a sheet under the thumb
+same cross-fade since Plan 075 phase 3 (Page push section). A drag still places a sheet under the thumb
 and the release still jumps to rest. Everything else in this section is
 unchanged: no spring, deck slide, slot or reorder runs.
 
