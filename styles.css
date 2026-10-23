@@ -1251,7 +1251,7 @@ article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
 }
 .fx-cue__load{font-family:var(--font-training-data);font-weight:var(--weight-medium)}
 .fx-cue__l2{
-  grid-column:2;margin:var(--space-4) 0 0;font-family:var(--font-language);font-size:var(--font-size-subtitle);
+  grid-column:2;margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-subtitle);
   line-height:var(--line-standard);color:var(--color-ink-secondary);
 }
 .exercise--focus .text-link.focus-ex__why,.exercise--focus .fx-cue__cancel{
