@@ -576,5 +576,15 @@ executed by `test/ui-system.mjs`. It shares one production frame between
 pixel/semantic comparison and live role checks. The exhaustive sweeps,
 `capture-ui-screens --verify` over every frame and `check-ui-system --shard k/n`
 over every state × theme × locale, run in the full lane (`ci-full`) on every
-push to main, nightly and on demand. See `docs/test-suite-redesign.md` and its
-ledger.
+push to main, nightly and on demand; a pull request runs them over the states
+its change can affect (`REPFORGE_CATALOG_SCREENS`, set by the targeted full
+lane in `docs/ci.md`). See `docs/test-suite-redesign.md` and its ledger.
+
+## fetch-ci-captures.mjs
+
+When the critical matrix or a catalog verify stripe renders a frame that differs
+from the committed one, CI publishes it (`ci-captures.mjs`) as a
+`ci-captures-*` artifact. `node tools/fetch-ci-captures.mjs <run-id>` downloads
+them with `gh`, refuses frames rendered from another commit than `HEAD` and any
+path that is not a registered catalog frame, and writes them under
+`docs/ui-screens/screens/` for review. `--dry-run` only lists them.

@@ -2,13 +2,17 @@
 #  - "ci" (the PR lane): every pull request, push to main, nightly and manual
 #    run executes the pull-request inventory (SUITES in test/suites.mjs); the
 #    only shortcut is that a prose-only PR skips the test jobs.
-#  - "ci-full" (the full lane): every push to main, nightly and manual run also
-#    executes FULL_SUITES: the exhaustive catalog verify, the role/contrast and
-#    Direction-D audits over every rendered state, the year-long simulation and
-#    the retired dedicated permutations. It never runs on pull requests; a
-#    failure is a red check on main (triage: docs/ci.md).
-# Browser work is split across balanced shards (CI_SHARDS / FULL_SHARDS); the
-# account allows 20 concurrent jobs, so overlapping runs queue some shards.
+#  - "ci-full" (the full lane): FULL_SUITES, the exhaustive catalog verify,
+#    the role/contrast and Direction-D audits, the year-long simulation and the
+#    retired dedicated permutations. Pushes to main, the nightly schedule and
+#    manual runs execute all of it. A pull request runs only the full-lane
+#    commands and catalog states its changed files can affect
+#    (tools/test-selection.mjs), and only after its PR lane passed, so a red PR
+#    lane never spends a full run and the two lanes do not compete for runners.
+#    The merge gate is both checks green. A failure on main is a red check on
+#    main (triage: docs/ci.md).
+# Browser work is split across balanced shards (CI_SHARDS, and FULL_SHARDS or a
+# targeted count from the plan); the account allows 20 concurrent jobs.
 name: CI
 
 on:
@@ -22,9 +26,11 @@ on:
 permissions:
   contents: read
 
+# A newer push to a pull request or branch cancels that run's in-flight jobs in
+# both lanes; runs on main never cancel each other.
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
   # Pull requests test the reviewed head commit, not GitHub's synthetic merge
@@ -40,7 +46,11 @@ jobs:
       run: ${{ steps.plan.outputs.run }}
       reason: ${{ steps.plan.outputs.reason }}
       shards: ${{ steps.plan.outputs.shards }}
+      full_run: ${{ steps.plan.outputs.full_run }}
+      full_fast: ${{ steps.plan.outputs.full_fast }}
+      full_browser: ${{ steps.plan.outputs.full_browser }}
       full_shards: ${{ steps.plan.outputs.full_shards }}
+      full_selection: ${{ steps.plan.outputs.full_selection }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -93,6 +103,7 @@ jobs:
         shard: ${{ fromJSON(needs.plan.outputs.shards) }}
     env:
       REPFORGE_DIAGNOSTIC_REPLAY: "1"
+      REPFORGE_CI_CAPTURES_DIR: ${{ github.workspace }}/.ci-captures
     steps:
       - uses: actions/checkout@v5
         with:
@@ -105,11 +116,24 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: test/package-lock.json
+      # The Chromium shell and the system packages it needs (fonts included, so
+      # frames render exactly as the committed catalog) are cached: the Azure apt
+      # mirror sometimes serves them at ~30 kB/s, which cost shards 10+ minutes.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/.cache/playwright-apt
+          key: playwright-${{ runner.os }}-${{ hashFiles('test/package-lock.json') }}-apt1
       - name: Install pinned test dependencies and the headless Chromium shell
         working-directory: test
         run: |
           npm ci
+          echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' | sudo tee /etc/apt/apt.conf.d/99taurifer-keep-debs >/dev/null
+          if compgen -G "$HOME/.cache/playwright-apt/*.deb" >/dev/null; then sudo cp "$HOME"/.cache/playwright-apt/*.deb /var/cache/apt/archives/; fi
           npx playwright install --with-deps --only-shell chromium
+          mkdir -p "$HOME/.cache/playwright-apt"
+          cp /var/cache/apt/archives/*.deb "$HOME/.cache/playwright-apt/" 2>/dev/null || true
       - name: Run browser shard ${{ matrix.shard }}
         run: node tools/run-tests.mjs shard "${{ matrix.shard }}" --keep-going
       - if: always()
@@ -118,6 +142,14 @@ jobs:
           name: shard-${{ strategy.job-index }}-${{ github.run_attempt }}
           path: .ci-results/
           include-hidden-files: true
+          retention-days: 7
+      # Frames this run rendered differently from the committed catalog: node tools/fetch-ci-captures.mjs <run-id>.
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-captures-${{ github.job }}-${{ strategy.job-index }}-${{ github.run_attempt }}
+          path: .ci-captures/
+          if-no-files-found: ignore
           retention-days: 7
 
   service:
@@ -151,7 +183,7 @@ jobs:
   # can decide on its own.
   ci:
     needs: [plan, fast, browser, service]
-    if: always()
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -188,14 +220,19 @@ jobs:
         run: node tools/ci-plan.mjs merge-ui-system .ci-results/shards
 
   # ------------------------------------------------------------ full lane
+  # Staged behind the PR lane on pull requests (needs.ci); on main, nightly and
+  # manual runs it follows the PR lane and runs whatever that lane's result.
   full-fast:
-    needs: plan
-    if: github.event_name != 'pull_request'
+    needs: [plan, ci]
+    if: ${{ !cancelled() && needs.plan.outputs.full_fast == 'true' && (github.event_name != 'pull_request' || needs.ci.result == 'success') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      REPFORGE_FULL_SELECTION: ${{ needs.plan.outputs.full_selection }}
     steps:
       - uses: actions/checkout@v5
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - uses: actions/setup-node@v5
         with:
@@ -213,8 +250,8 @@ jobs:
           retention-days: 14
 
   full-browser:
-    needs: plan
-    if: github.event_name != 'pull_request'
+    needs: [plan, ci]
+    if: ${{ !cancelled() && needs.plan.outputs.full_browser == 'true' && (github.event_name != 'pull_request' || needs.ci.result == 'success') }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     strategy:
@@ -223,9 +260,12 @@ jobs:
         shard: ${{ fromJSON(needs.plan.outputs.full_shards) }}
     env:
       REPFORGE_DIAGNOSTIC_REPLAY: "1"
+      REPFORGE_CI_CAPTURES_DIR: ${{ github.workspace }}/.ci-captures
+      REPFORGE_FULL_SELECTION: ${{ needs.plan.outputs.full_selection }}
     steps:
       - uses: actions/checkout@v5
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
           # Historical migration contracts read older commits with `git show`.
           fetch-depth: 0
@@ -234,11 +274,24 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: test/package-lock.json
+      # The Chromium shell and the system packages it needs (fonts included, so
+      # frames render exactly as the committed catalog) are cached: the Azure apt
+      # mirror sometimes serves them at ~30 kB/s, which cost shards 10+ minutes.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/.cache/playwright-apt
+          key: playwright-${{ runner.os }}-${{ hashFiles('test/package-lock.json') }}-apt1
       - name: Install pinned test dependencies and the headless Chromium shell
         working-directory: test
         run: |
           npm ci
+          echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' | sudo tee /etc/apt/apt.conf.d/99taurifer-keep-debs >/dev/null
+          if compgen -G "$HOME/.cache/playwright-apt/*.deb" >/dev/null; then sudo cp "$HOME"/.cache/playwright-apt/*.deb /var/cache/apt/archives/; fi
           npx playwright install --with-deps --only-shell chromium
+          mkdir -p "$HOME/.cache/playwright-apt"
+          cp /var/cache/apt/archives/*.deb "$HOME/.cache/playwright-apt/" 2>/dev/null || true
       - name: Run full-lane browser shard ${{ matrix.shard }}
         run: node tools/run-tests.mjs full-shard "${{ matrix.shard }}" --keep-going
       - if: always()
@@ -248,29 +301,44 @@ jobs:
           path: .ci-results/
           include-hidden-files: true
           retention-days: 14
+      # Frames this run rendered differently from the committed catalog: node tools/fetch-ci-captures.mjs <run-id>.
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-captures-${{ github.job }}-${{ strategy.job-index }}-${{ github.run_attempt }}
+          path: .ci-captures/
+          if-no-files-found: ignore
+          retention-days: 14
 
-  # The full lane's aggregate check. Every full job must pass, and the
-  # catalog-wide UI-system rule (every inventoried selector rendered somewhere)
-  # is applied over all check-ui-system shard reports.
+  # The full lane's aggregate check, on every event. Every job the plan selected
+  # must pass (on a PR, after a passing PR lane), and the UI-system shard reports
+  # merge under the selection's rule: the catalog-wide never-rendered rule for
+  # the complete lane, exactly the selected states for a targeted one.
   ci-full:
-    needs: [plan, full-fast, full-browser]
-    if: always() && github.event_name != 'pull_request'
+    needs: [plan, ci, full-fast, full-browser]
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - uses: actions/setup-node@v5
         with:
           node-version: "22"
-      - name: Require every full-lane job to pass
+      - name: Require every selected full-lane job to pass
         env:
           NEEDS: ${{ toJSON(needs) }}
+          EVENT: ${{ github.event_name }}
         run: node tools/ci-plan.mjs gate-full
-      - uses: actions/download-artifact@v4
+      - if: needs.plan.outputs.full_browser == 'true'
+        uses: actions/download-artifact@v4
         with:
           pattern: full-shard-*
           path: .ci-results/full-shards
-      - name: Merge the full UI-system shard reports
+      - if: needs.plan.outputs.full_browser == 'true'
+        name: Merge the full UI-system shard reports
+        env:
+          REPFORGE_FULL_SELECTION: ${{ needs.plan.outputs.full_selection }}
         run: node tools/ci-plan.mjs merge-ui-system-full .ci-results/full-shards

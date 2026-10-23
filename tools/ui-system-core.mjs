@@ -270,7 +270,7 @@ export function shardCaptures(captures, shard) {
 export const SHARD_REPORT = "ui-system-shard.json";
 
 /** Union the per-shard reports of one complete sweep and apply the catalog-wide rules. */
-export function mergeShardReports(reports, inventory, { expectedShardCount, expectedScreenCount, expectedCaptureKeysByShard } = {}) {
+export function mergeShardReports(reports, inventory, { expectedShardCount, expectedScreenCount, expectedCaptureKeysByShard, catalogWide = true } = {}) {
   const problems = [];
   if (!Array.isArray(reports)) return { problems: ["ui-system shard reports must be an array"], shards: 0, screens: 0 };
   if (!Number.isSafeInteger(expectedShardCount) || expectedShardCount < 1) problems.push("expected shard count must be a positive integer");
@@ -376,7 +376,7 @@ export function mergeShardReports(reports, inventory, { expectedShardCount, expe
     if (unexpected.length) problems.push(`reports contain ${unexpected.length} unknown catalog capture key(s), including ${unexpected.slice(0, 3).join(", ")}`);
   }
   if (failed.length) problems.push(`shard(s) ${failed.join(", ")} reported role problems; see their own logs`);
-  if (!problems.length) problems.push(...neverRenderedProblems(inventory, matched, matchedExceptions));
+  if (!problems.length && catalogWide) problems.push(...neverRenderedProblems(inventory, matched, matchedExceptions));
   return { problems, shards: reports.length, screens };
 }
 

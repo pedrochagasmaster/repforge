@@ -17,6 +17,7 @@ Browser-only dependencies live under `test/`.
 | Full-lane Node checks | `node tools/run-tests.mjs full-fast` | The full lane's pure-Node commands. |
 | Everything on a PR | `node tools/run-tests.mjs candidate` | The complete pull-request inventory except the external service gate. |
 | Inventory | `node tools/run-tests.mjs --check` | Reconcile every scheduled/support script. |
+| Take CI's frames | `node tools/fetch-ci-captures.mjs <run-id>` | Place the catalog frames a CI run rendered differently, for review and commit. |
 
 Use `--list` for exact commands and `--explain` for files, reasons and scope.
 Pull-request lanes are `fast` (pure Node), `state`, `entry`, `workout`,
@@ -37,7 +38,9 @@ evidence. Do not push half-implemented or known-red work merely to start CI earl
 
 `.github/workflows/ci.yml` is the whole configuration. It runs two lanes,
 each behind its own aggregate check. This is the owner's "fast PRs, full on
-main" decision of 2026-10-21 ([ADR 0022](adr/0022-fast-pr-full-main-verification.md)).
+main" decision of 2026-10-21 ([ADR 0022](adr/0022-fast-pr-full-main-verification.md)),
+amended on 2026-10-23 by a targeted full lane staged behind the PR lane on every
+pull request ([ADR 0024](adr/0024-targeted-staged-full-lane.md)).
 
 **PR lane (`ci`)**: every pull request, push to `main`, nightly run and manual
 dispatch runs the pull-request inventory (`SUITES`):
@@ -51,14 +54,18 @@ dispatch runs the pull-request inventory (`SUITES`):
 | `ci` | The aggregate check: every selected job passed, and the critical UI report is complete, from this source, with its frame bytes. |
 
 **Full lane (`ci-full`)**: every push to `main`, the nightly schedule
-(03:23 UTC) and every manual dispatch also run `FULL_SUITES`. Pull requests never
-run it.
+(03:23 UTC) and every manual dispatch run all of `FULL_SUITES`. A pull request
+runs the **targeted** full lane: only the full-lane commands and catalog states
+its changed files can affect (below). On every event the full jobs wait for the
+PR lane; on a pull request they start only if `ci` passed, so a red PR lane never
+spends a full run and the two lanes never compete for runners. On `main` they run
+whatever the PR lane's result.
 
 | Job | What |
 | --- | --- |
-| `full-fast` | The full lane's pure-Node commands (DESIGN.md token equality, runtime budget, manual-matrix self-test). |
-| `full-browser` × `FULL_SHARDS` | The exhaustive catalog verify (every frame), the role/contrast audit over every state × theme × locale, the Direction-D and rules-only audits, the year-long simulation, and the retired dedicated browser permutations. |
-| `ci-full` | The aggregate check: every full job passed, and the UI-system shard reports merge under the catalog-wide never-rendered rule. |
+| `full-fast` | The full lane's selected pure-Node commands (DESIGN.md token equality, runtime budget, manual-matrix self-test, Program Lab). |
+| `full-browser` × the planned count | The exhaustive catalog verify (every frame), the role/contrast audit over every state × theme × locale, the Direction-D and rules-only audits, the year-long simulation, and the retired dedicated browser permutations; on a pull request, the selected subset. |
+| `ci-full` | The aggregate check: every selected full job passed (after a passing PR lane, on a pull request), and the UI-system shard reports merge: under the catalog-wide never-rendered rule for the complete lane, against exactly the selected states for a targeted one. |
 
 Each job writes its per-command timings to the run's job summary.
 
@@ -70,17 +77,60 @@ their Markdown extension. Files in `fixture`, `fixtures` or `__fixtures__` paths
 also run CI even when their extension is allowlisted. Any other file, an unknown
 file, a change list the compare API cannot deliver, a push to `main`, the nightly
 schedule or a manual dispatch runs the PR lane. There is no draft/ready distinction and no separate
-remote candidate mode: a green `ci` on
-the PR head is the merge evidence. `ci-full` is not merge evidence for a PR;
-it guards `main`. Pull requests test their head commit, so a
-red run reproduces with `git checkout <sha>` and the printed rerun command.
+remote candidate mode. **The merge gate is `ci` and `ci-full` both green on the
+PR head.** Nobody dispatches `ci-full` by hand: the push runs it. Pull requests
+test their head commit, so a red run reproduces with `git checkout <sha>` and
+the printed rerun command.
 This workflow emits an aggregate status check named `ci`. At the time this CI
 change was refreshed, `main` had branch protection disabled and no required
 status contexts. This PR does not change branch protection. If it is enabled in
 a separate change, requiring `ci` is a separate repository configuration step.
 
-A newer push to the same pull request cancels the run in progress; pushes to
-`main` never cancel each other.
+A newer push to the same pull request (or a newer manual run on the same branch)
+cancels the run in progress, both lanes at once; runs on `main` never cancel each
+other.
+
+### The targeted full lane on pull requests
+
+`selectFullLane` in `tools/test-selection.mjs` decides it in the `plan` job from
+the compare API's changed files and their patches, and publishes the selection
+(`full_selection`), the runner list (`full_shards`) and whether each full job
+runs. Every runner and the `ci-full` gate derive the same commands from that
+selection with `fullLaneEntries`, so nothing is decided twice. The mapping is:
+
+| Changed file | Full lane |
+| --- | --- |
+| Prose (`*.md`, `*.txt`, …) | Nothing, except the full-lane inputs `DESIGN.md` (`check-design-md`), `docs/design/plan-064-reconciliation.md` (`direction-d-gate`) and `README.md` (simulation). |
+| A full-lane suite | That command. A PR-lane suite already ran in `ci`: nothing. |
+| A test/tool helper | The full-lane commands that import it (the same dependency graph local selection uses). One that reaches a catalog sweep, or nothing scheduled at all, runs everything. |
+| `app.js`, `styles.css` | The domains of the reviewed `@ci-domain` regions its hunks touch (`// @ci-domain a,b` in app.js, `/* @ci-domain a,b */` in styles.css; `tools/visual-domains.mjs`). A hunk outside a region, in a `global` region, or that moves a marker runs everything; so does a patch GitHub does not show. |
+| Other source owners | The domains in `tools/visual-domains.mjs` (`program-editor.js`, `program-entry*.js`, `progress-model.js`, `progression-engine.js`, `history-ui.js`, `guide-registry.js`, `install-*.js`, `notify.js`). Anything unmapped runs everything. |
+| A committed catalog frame | That state's verify and role audit. |
+| Program Lab (`programlab/`, `engine-policy.js`, its build tool and fixtures) | The Program Lab commands and the `programlab` states. |
+| `sw.js`, `index.html` whose hunks only move `?v=` revisions and the `CACHE` token | Nothing for that file (the PR lane's revision contracts own it). |
+| Shared foundations: the `styles.css` tokens and every other unannotated line, `motion-layer.js`, `motion-polish.css`, any other `sw.js`/`index.html` change, `i18n*`, `exercises.js`, `vendor/`, `fonts/`, `icons/`, `assets/`, the workflow, the CI and catalog tooling (`tools/ui-screens/`, the capture/verify/role tools, the manifest, the role inventory, `test/browser.mjs`, `test/suites.mjs`), and any unknown file | The complete full lane. |
+
+A domain selects the catalog states of the flows with that name (an onboarding
+flow counts as `entry`; `session` is the Session summary) and every full-lane
+command whose `domains` in `test/suites.mjs` share it (`session` counts as
+`workout`). Commands whose domains are `global` (motion integration,
+accessibility, i18n, appearance, guide eligibility, sheet swipe, the catalog
+contract, CI self-tests) run whenever any source domain is selected. The two
+catalog sweeps are re-striped over the selected states only (`check-ui-system
+--shard k/K`, `capture-ui-screens --verify --shard k/K` with
+`REPFORGE_CATALOG_SCREENS`), never more stripes than the complete lane. The plan
+packs the selected browser commands into about eight minutes per runner
+(`FULL_TARGET_SHARD_SECONDS`), at most `FULL_SHARDS`. `test/ci.mjs` proves the
+mapping: a Focus-only change selects the Workout and Session flows and their
+journeys and nothing unrelated, a token change selects everything, and the
+staged trigger, the gate and the targeted merge behave as described.
+
+Annotate a region only when everything it renders is drawn inside the flows it
+names, and widen the list when a class is shared (the Focus block in
+`styles.css` names `today` for the rest bar and `history` for the ledger rows it
+shares with History). When unsure, leave it `global`. A wrong annotation can
+narrow a PR's full lane, and the complete run on `main` then turns red; fix it
+forward and widen the annotation.
 
 ### When `ci-full` is red on main
 
@@ -96,7 +146,9 @@ catch. Treat it as a main breakage, not as a flake:
    over the commits since the last green `ci-full`), and the evidence.
 3. The owner of the PR that introduced it fixes forward with a failing-first
    proof. If the defect is one the PR lane should have caught, add that proof to
-   the PR lane (a new or strengthened owner in `SUITES`) as well. A stale catalog
+   the PR lane (a new or strengthened owner in `SUITES`) as well. If the PR's
+   targeted full lane skipped the failing command or state, widen the mapping
+   (an annotation, a suite's `domains`, a foundation) in the same fix. A stale catalog
    frame (`capture-ui-screens --verify`) is fixed by reviewed recapture
    (`--accept-visual-change`), never by relaxing the comparison.
 4. Do not re-run the workflow to get green. The rules for diagnostic replays are
@@ -104,7 +156,7 @@ catch. Treat it as a main breakage, not as a flake:
 
 ### Shards
 
-`CI_SHARDS` (PR lane) and `FULL_SHARDS` (full lane) in `test/suites.mjs` are
+`CI_SHARDS` (PR lane) and `FULL_SHARDS` (complete full lane) in `test/suites.mjs` are
 the runner counts. `shardSuites` packs the
 browser inventory longest-first into that many bins using each command's
 `seconds` (measured on `ubuntu-latest`; a missing value falls back on `cost`).
@@ -113,11 +165,22 @@ every local `shard k/n` computes the same plan. Adding a command to an existing
 inventory lane needs no workflow edit; give a command that runs longer than
 about twenty seconds a `seconds` value so packing stays balanced. An unknown
 lane fails `--check` instead of being silently omitted.
-`node tools/run-tests.mjs shard 1/14 --explain`
+`node tools/run-tests.mjs shard 1/5 --explain`
 prints the estimate for that shard and the heaviest one. The account allows 20
 concurrent jobs, so a run that overlaps another one queues a few shards for
 about one shard's duration; that is why the count is not simply "as many as
 possible".
+
+The counts come from measured data (2026-10-23, runs 40029356354 and
+39951173955; every browser command's `seconds` is the larger of the two). The
+PR lane's browser commands add up to about 1,950 s; five runners hold about
+394 s each, which with roughly a minute of checkout and setup keeps the PR lane
+near eight minutes, against fourteen runners before that started together with
+the full lane and queued. The complete full lane adds up to about 12,550 s;
+twelve runners hold about 1,090 s each, so the PR lane (8 jobs) plus a complete
+full lane stays under the 20-job limit. The browser jobs cache the Chromium
+shell and its apt packages: the mirror sometimes served the fonts at about
+30 kB/s, which made a few shards spend 10–12 minutes installing.
 
 At `651d5a92` main scheduled 213 commands in 199 files on every PR. The
 adoption put 102 of them in the pull-request inventory (`SUITES`) and the
@@ -159,7 +222,13 @@ Full lane: the two exhaustive catalog sweeps are split into shard commands.
 
 In a fresh checkout, run `(cd test && npm ci && npx playwright install --with-deps --only-shell chromium)` once. Normal browser and screenshot commands leave `REPFORGE_URL` unset: `tools/local-preview.mjs` generates an analytics-disabled isolated current-worktree server on a fresh loopback port, verifies identity and cleans up. Explicit local URLs must serve the same worktree.
 
-After a user-visible change, run `node tools/capture-ui-screens.mjs --affected --accept-visual-change`, review the updated PNGs and commit them; `--list-affected` shows the local recapture plan. That local selector (`tools/ci-selection.mjs`, `tools/visual-domains.mjs`) only decides what you recapture; PR CI verifies the complete declared critical matrix, and the full lane verifies every catalog frame on each push to main and nightly. A wrong local authoring selection can therefore pass a PR and turn `ci-full` red on main; recapture the affected frames before merging. `sw.js` is ignored by the local selector only when the canonical `CACHE` declaration is its sole change.
+After a user-visible change, update the catalog frames it affects. Either recapture locally (`node tools/capture-ui-screens.mjs --affected --accept-visual-change`; `--list-affected` shows the plan), or push and take the frames CI rendered:
+
+1. When the critical matrix (`test/ui-system.mjs`) or a catalog verify stripe finds a frame that differs from the committed one, the run publishes the frame it rendered as a `ci-captures-<job>-<index>-<attempt>` artifact, with a `changes-<producer>.json` manifest naming each path, state and reason. The verdict stays red.
+2. `node tools/fetch-ci-captures.mjs <run-id>` downloads those artifacts, refuses frames rendered from a commit other than your `HEAD` (`--allow-source-mismatch` overrides) and any path that is not a registered catalog frame, and writes them under `docs/ui-screens/screens/`. `--dry-run` lists them.
+3. Review the frames and commit them. Verification stays exactly as strict: the committed frames must match what CI renders on the next run. If entry semantics changed too, recapture those onboarding states locally to refresh `docs/ui-screens/entry-semantics.json`.
+
+The local selector (`tools/ci-selection.mjs`, `tools/visual-domains.mjs`) decides what you recapture; PR CI verifies the critical matrix and the targeted full lane verifies the affected states, so a stale frame fails the PR. `sw.js` is ignored by the local selector only when the canonical `CACHE` declaration is its sole change.
 
 ## Failures and evidence
 

@@ -2,12 +2,13 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { tmpdir } from "node:os";
 import { ROOT, loadManifest, capturePath, captureKey, screenKey } from "../tools/ui-screens/manifest.mjs";
 import { criticalCaptures, sourceHead, validateCriticalReport } from "../tools/critical-ui.mjs";
 import { observeCatalogFrame } from "../tools/capture-ui-screens.mjs";
 import { comparePngFiles, comparePngBuffers } from "../tools/compare-ui-screens.mjs";
+import { recordCiCaptures } from "../tools/ci-captures.mjs";
 import { loadRoleInventory, validateRoleInventory, requiredBoundaryExceptionRequests } from "../tools/ui-system-core.mjs";
 import { measureClampedHeadings, measureRenderedRoles, renderedRoleProblems } from "../tools/ui-system-rendered.mjs";
 import { auditFocusRoles, inspectRoleCoverage } from "../tools/check-ui-system.mjs";
@@ -48,6 +49,8 @@ try {
     const scenarios = { ...APP_SCENARIOS, ...ONBOARDING_SCENARIOS };
     const protocolOnly = process.argv.includes("--protocol-self-test");
     const captures = criticalCaptures(manifest).filter(c => !protocolOnly || ["workout/why-manual", "settings/guides-replay"].includes(screenKey(c)));
+    const changedFrames = [];
+    let semanticChanged = false;
     for (const capture of captures) {
       const key = screenKey(capture), id = captureKey(capture), onboarding = capture.flow.startsWith("onboarding");
       const cell = { key: id, status: "failed", problems: [] };
@@ -70,10 +73,13 @@ try {
         cell.pixelDigest = createHash("sha256").update(png).digest("hex");
         const comparison = comparePngFiles(capturePath(manifest, capture), out);
         cell.pixelComparison = comparison.ok;
-        if (!comparison.ok && !protocolOnly) cell.problems.push(...comparison.reasons);
+        if (!comparison.ok && !protocolOnly) {
+          cell.problems.push(...comparison.reasons);
+          changedFrames.push({ path: relative(ROOT, capturePath(manifest, capture)).replaceAll("\\", "/"), file: out, state: key, reasons: comparison.reasons });
+        }
         if (!comparison.ok && protocolOnly) console.log(`pixel diagnostic remains failed: ${id}: ${comparison.reasons.join(" | ")}`);
         cell.semanticComparison = !onboarding || JSON.stringify(semantics.get(id)) === JSON.stringify(baselineSemantics.get(id));
-        if (!cell.semanticComparison) cell.problems.push("fresh semantics differ from committed selected frame");
+        if (!cell.semanticComparison) { cell.problems.push("fresh semantics differ from committed selected frame"); semanticChanged = true; }
         const coverage = await page.evaluate(inspectRoleCoverage, { key, components: inventory.components, exceptions: inventory.exceptions, progressCandidateSelectors: inventory.progressCandidateSelectors });
         cell.problems.push(...coverage.problems);
         const pixels = png.toString("base64");
@@ -126,6 +132,8 @@ try {
       report.cells.push(cell);
       console.log(`${cell.status}: ${id}${cell.problems.length ? `: ${cell.problems.join(" | ")}` : ""}`);
     }
+    // CI publishes the frames it rendered differently so a session can review and commit them (tools/fetch-ci-captures.mjs).
+    if (!protocolOnly && (changedFrames.length || semanticChanged)) recordCiCaptures({ producer: "critical-ui", source: sourceHead(), frames: changedFrames, semanticChanged });
     await runProgramEntryA11y(browser, (condition, name, detail) => assert.ok(condition, `${name}: ${JSON.stringify(detail)}`));
     if (report.cells.every(c => c.status === "passed")) report.status = "passed";
     if (protocolOnly) {

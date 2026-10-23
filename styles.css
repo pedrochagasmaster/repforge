@@ -996,6 +996,7 @@ div.settings-row{cursor:default}
 #settings :is(.settings-row select,.select-flat):focus{box-shadow:none;border:0}
 #settings :is(.settings-row select,.select-flat):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #settings :is(.settings-row select,.select-flat):disabled{color:var(--color-disabled-reason);opacity:1;cursor:not-allowed}
+/* @ci-domain today */
 /* ---- Today dashboard ---- */
 .today-session{padding:4px 0 8px}
 .today-session__name{font-family:var(--font-language);font-size:var(--font-size-feature-title);font-weight:var(--weight-semibold);line-height:var(--line-tight);letter-spacing:-0.02em;margin:4px 0 6px;color:var(--color-ink)}
@@ -1013,6 +1014,7 @@ div.settings-row{cursor:default}
    reads as the quieter of the two. */
 .today-otherday{width:100%;min-height:48px;margin-top:10px}
 
+/* @ci-domain workout,session,today,history */
 /* ---- Active workout ---- */
 .wo-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-8);margin-bottom:0;min-height:var(--control-target)}
 /* The title wraps rather than truncates, so it hangs from the top of the bar: when the timer chip widens and
@@ -1582,6 +1584,7 @@ body:not(.is-focus-wo):has(#restBar:not(.hidden)){
 /* Held in the timer sheet: the clock is frozen, so the live dot goes quiet. */
 .wo-rest.is-paused .wo-rest__dot,.restbar.is-paused .restbar__dot{background:var(--ink-faint)}
 
+/* @ci-domain global */
 /* Hidden legacy gauge (tests may still poke it; UI uses Today readiness) */
 .gauge{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 
