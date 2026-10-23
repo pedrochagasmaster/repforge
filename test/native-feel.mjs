@@ -985,7 +985,7 @@ async function wheelPicker(browser) {
 
   phase("Choosing a value on the wheel writes it through the field's own input, survives a reload and logs it");
   {
-    const { context, page, touch } = await todayPage(browser);
+    const { context, page } = await todayPage(browser);
     await enterSeededFocus(page);
     const step = await loadStep(page);
     await pokeLoad(page, 1);
@@ -1011,23 +1011,17 @@ async function wheelPicker(browser) {
     const liveAfterKeys = await fieldFace(page, WHEEL_LOAD_SEL);
     // The shelf underneath is untouched while the sheet is open; it reads the committed value once the sheet closes.
 
-    // A real touch drag on the wheel column. Momentum, not a fixed distance, decides
-    // where it lands, so the proof is that whatever it settles on is exactly what gets
-    // written — not a precomputed item count.
+    // A real scroll of the wheel column. Where it lands is the browser's (its scroll and its snap), so the proof is
+    // that whatever it settles on is exactly what gets written, not a precomputed item count. The scroll is a wheel
+    // gesture over the column: CDP touch points drove the column unreliably on the runners (main's push CI and three
+    // PR lanes, 2026-10-23, where the column sometimes never followed the finger at all), and the browser's
+    // touch-to-scroll mapping is not what this proves.
     const box = await page.locator("#wheelCol").boundingBox();
     const cx = Math.round(box.x + box.width / 2), cy = Math.round(box.y + box.height / 2);
-    // A finger reports in small steps, a frame apart; two large jumps let a slow runner lift before the column had
-    // followed (main's push CI, 2026-10-23). The drag moves 11px a frame for 220px, and lifts only once the column
-    // has followed it by at least two rows: one row sat on the snap boundary, and a loaded runner settled it back
-    // onto the keyboard-set value (#485 PR lane, #487).
     const startTop = await page.evaluate(() => document.querySelector("#wheelCol").scrollTop);
-    await touch("touchStart", [{ x: cx, y: cy }]);
-    for (let dy = 11; dy <= 220; dy += 11) {
-      await touch("touchMove", [{ x: cx, y: cy - dy }]);
-      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve())));
-    }
+    await page.mouse.move(cx, cy);
+    await page.mouse.wheel(0, 132);
     await page.waitForFunction((top) => document.querySelector("#wheelCol").scrollTop - top >= 88, startTop, { timeout: 5000 });
-    await touch("touchEnd");
     // Momentum carries the scroll on after the touch lifts; wait for it (and the native
     // scroll-snap) to come to rest before the settle debounce reads a value off it.
     await page.waitForFunction(() => {

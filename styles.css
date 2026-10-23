@@ -536,8 +536,9 @@ h2{font-size:var(--font-size-title);font-weight:var(--weight-semibold);letter-sp
 /* A root page's trailing actions are its navigation bar's buttons (owner-approved bar-actions mock, 2026-10-23,
    reversing phase 3's deviation 1). They sit in the bar's trailing slot, above its material, at the same place in
    the large-title state and the collapsed one; the large title starts below the bar's row, as on iOS. On a moving
-   page they move with it (its transform holds them). The Program page sheet's own head keeps Cancel and Done. */
-:is(#todayDash,#stats,#history:not(.is-session-page),:is(#program,[data-copy-id="program"]):not(.sheet))>.pagehead{margin-top:36px}
+   page they move with it (its transform holds them). The Program page sheet's own head keeps Cancel and Done.
+   Under large text the title's glyphs rise above its line box, so the gap below the bar grows with the root size. */
+:is(#todayDash,#stats,#history:not(.is-session-page),:is(#program,[data-copy-id="program"]):not(.sheet))>.pagehead{margin-top:calc(36px + (1rem - 16px) / 2)}
 :is(#todayDash,#stats,#history:not(.is-session-page),:is(#program,[data-copy-id="program"]):not(.sheet))>.pagehead>.pagehead__actions{
   position:fixed;z-index:22;top:env(safe-area-inset-top);right:max(0px,calc(50% - var(--maxw) / 2));
   height:44px;margin:0;padding:0 max(8px,env(safe-area-inset-right)) 0 8px;gap:0;
