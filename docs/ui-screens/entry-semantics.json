@@ -1604,31 +1604,34 @@
         },
         {
           "tag": "small",
-          "text": "kg"
-        },
-        {
-          "tag": "input",
-          "name": "Smallest load change kg",
-          "value": "2.5",
-          "type": "text"
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "button",
-          "text": "−",
+          "name": "2.5 kg",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2.5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "button",
           "name": "Smaller step",
           "label": "Smaller step",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+",
           "name": "Larger step",
           "label": "Larger step",
           "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -3365,31 +3368,34 @@
         },
         {
           "tag": "small",
-          "text": "kg"
-        },
-        {
-          "tag": "input",
-          "name": "Smallest load change kg",
-          "value": "2.5",
-          "type": "text"
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "button",
-          "text": "−",
+          "name": "2.5 kg",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2.5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "button",
           "name": "Smaller step",
           "label": "Smaller step",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+",
           "name": "Larger step",
           "label": "Larger step",
           "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -5126,31 +5132,34 @@
         },
         {
           "tag": "small",
-          "text": "kg"
-        },
-        {
-          "tag": "input",
-          "name": "Menor variação de carga kg",
-          "value": "2.5",
-          "type": "text"
+          "text": "As cargas sugeridas mudam em passos deste tamanho."
         },
         {
           "tag": "button",
-          "text": "−",
+          "name": "2.5 kg",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2.5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "button",
           "name": "Passo menor",
           "label": "Passo menor",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+",
           "name": "Passo maior",
           "label": "Passo maior",
           "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "As cargas sugeridas mudam em passos deste tamanho."
         },
         {
           "tag": "section",
@@ -7895,31 +7904,34 @@
         },
         {
           "tag": "small",
-          "text": "kg"
-        },
-        {
-          "tag": "input",
-          "name": "Smallest load change kg",
-          "value": "2.5",
-          "type": "text"
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "button",
-          "text": "−",
+          "name": "2.5 kg",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2.5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "button",
           "name": "Smaller step",
           "label": "Smaller step",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+",
           "name": "Larger step",
           "label": "Larger step",
           "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -9610,31 +9622,34 @@
         },
         {
           "tag": "small",
-          "text": "kg"
-        },
-        {
-          "tag": "input",
-          "name": "Smallest load change kg",
-          "value": "2.5",
-          "type": "text"
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "button",
-          "text": "−",
+          "name": "2.5 kg",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2.5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "button",
           "name": "Smaller step",
           "label": "Smaller step",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+",
           "name": "Larger step",
           "label": "Larger step",
           "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -11325,31 +11340,34 @@
         },
         {
           "tag": "small",
-          "text": "kg"
-        },
-        {
-          "tag": "input",
-          "name": "Smallest load change kg",
-          "value": "2.5",
-          "type": "text"
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "button",
-          "text": "−",
+          "name": "2.5 kg",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2.5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "button",
           "name": "Smaller step",
           "label": "Smaller step",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+",
           "name": "Larger step",
           "label": "Larger step",
           "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -13040,31 +13058,34 @@
         },
         {
           "tag": "small",
-          "text": "kg"
-        },
-        {
-          "tag": "input",
-          "name": "Smallest load change kg",
-          "value": "2.5",
-          "type": "text"
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "button",
-          "text": "−",
+          "name": "2.5 kg",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2.5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "button",
           "name": "Smaller step",
           "label": "Smaller step",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+",
           "name": "Larger step",
           "label": "Larger step",
           "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -14755,31 +14776,34 @@
         },
         {
           "tag": "small",
-          "text": "kg"
-        },
-        {
-          "tag": "input",
-          "name": "Smallest load change kg",
-          "value": "2.5",
-          "type": "text"
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "button",
-          "text": "−",
+          "name": "2.5 kg",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2.5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "button",
           "name": "Smaller step",
           "label": "Smaller step",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+",
           "name": "Larger step",
           "label": "Larger step",
           "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -16470,31 +16494,34 @@
         },
         {
           "tag": "small",
-          "text": "kg"
-        },
-        {
-          "tag": "input",
-          "name": "Menor variação de carga kg",
-          "value": "2.5",
-          "type": "text"
+          "text": "As cargas sugeridas mudam em passos deste tamanho."
         },
         {
           "tag": "button",
-          "text": "−",
+          "name": "2.5 kg",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2.5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "button",
           "name": "Passo menor",
           "label": "Passo menor",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+",
           "name": "Passo maior",
           "label": "Passo maior",
           "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "As cargas sugeridas mudam em passos deste tamanho."
         },
         {
           "tag": "section",
@@ -18185,31 +18212,34 @@
         },
         {
           "tag": "small",
-          "text": "kg"
-        },
-        {
-          "tag": "input",
-          "name": "Menor variação de carga kg",
-          "value": "2.5",
-          "type": "text"
+          "text": "As cargas sugeridas mudam em passos deste tamanho."
         },
         {
           "tag": "button",
-          "text": "−",
+          "name": "2.5 kg",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2.5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "button",
           "name": "Passo menor",
           "label": "Passo menor",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+",
           "name": "Passo maior",
           "label": "Passo maior",
           "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "As cargas sugeridas mudam em passos deste tamanho."
         },
         {
           "tag": "section",
@@ -19900,31 +19930,34 @@
         },
         {
           "tag": "small",
-          "text": "kg"
-        },
-        {
-          "tag": "input",
-          "name": "Smallest load change kg",
-          "value": "2.5",
-          "type": "text"
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "button",
-          "text": "−",
+          "name": "2.5 kg",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2.5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "button",
           "name": "Smaller step",
           "label": "Smaller step",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+",
           "name": "Larger step",
           "label": "Larger step",
           "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -21615,31 +21648,34 @@
         },
         {
           "tag": "small",
-          "text": "kg"
-        },
-        {
-          "tag": "input",
-          "name": "Smallest load change kg",
-          "value": "2.5",
-          "type": "text"
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "button",
-          "text": "−",
+          "name": "2.5 kg",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2.5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "button",
           "name": "Smaller step",
           "label": "Smaller step",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+",
           "name": "Larger step",
           "label": "Larger step",
           "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -23232,31 +23268,34 @@
         },
         {
           "tag": "small",
-          "text": "kg"
-        },
-        {
-          "tag": "input",
-          "name": "Smallest load change kg",
-          "value": "2.5",
-          "type": "text"
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "button",
-          "text": "−",
+          "name": "2.5 kg",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2.5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "button",
           "name": "Smaller step",
           "label": "Smaller step",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+",
           "name": "Larger step",
           "label": "Larger step",
           "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -24849,31 +24888,34 @@
         },
         {
           "tag": "small",
-          "text": "kg"
-        },
-        {
-          "tag": "input",
-          "name": "Smallest load change kg",
-          "value": "2.5",
-          "type": "text"
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "button",
-          "text": "−",
+          "name": "2.5 kg",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2.5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "button",
           "name": "Smaller step",
           "label": "Smaller step",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+",
           "name": "Larger step",
           "label": "Larger step",
           "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -26528,31 +26570,34 @@
         },
         {
           "tag": "small",
-          "text": "kg"
-        },
-        {
-          "tag": "input",
-          "name": "Smallest load change kg",
-          "value": "2.5",
-          "type": "text"
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "button",
-          "text": "−",
+          "name": "2.5 kg",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2.5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "button",
           "name": "Smaller step",
           "label": "Smaller step",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+",
           "name": "Larger step",
           "label": "Larger step",
           "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -28145,31 +28190,34 @@
         },
         {
           "tag": "small",
-          "text": "kg"
-        },
-        {
-          "tag": "input",
-          "name": "Smallest load change kg",
-          "value": "2.5",
-          "type": "text"
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "button",
-          "text": "−",
+          "name": "2.5 kg",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2.5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "button",
           "name": "Smaller step",
           "label": "Smaller step",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+",
           "name": "Larger step",
           "label": "Larger step",
           "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -29762,31 +29810,34 @@
         },
         {
           "tag": "small",
-          "text": "kg"
-        },
-        {
-          "tag": "input",
-          "name": "Smallest load change kg",
-          "value": "2.5",
-          "type": "text"
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "button",
-          "text": "−",
+          "name": "2.5 kg",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2.5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "button",
           "name": "Smaller step",
           "label": "Smaller step",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+",
           "name": "Larger step",
           "label": "Larger step",
           "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -31441,31 +31492,34 @@
         },
         {
           "tag": "small",
-          "text": "kg"
-        },
-        {
-          "tag": "input",
-          "name": "Smallest load change kg",
-          "value": "2.5",
-          "type": "text"
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "button",
-          "text": "−",
+          "name": "2.5 kg",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2.5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "button",
           "name": "Smaller step",
           "label": "Smaller step",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+",
           "name": "Larger step",
           "label": "Larger step",
           "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -33058,31 +33112,34 @@
         },
         {
           "tag": "small",
-          "text": "kg"
-        },
-        {
-          "tag": "input",
-          "name": "Smallest load change kg",
-          "value": "2.5",
-          "type": "text"
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "button",
-          "text": "−",
+          "name": "2.5 kg",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2.5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "button",
           "name": "Smaller step",
           "label": "Smaller step",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+",
           "name": "Larger step",
           "label": "Larger step",
           "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -34675,31 +34732,34 @@
         },
         {
           "tag": "small",
-          "text": "kg"
-        },
-        {
-          "tag": "input",
-          "name": "Smallest load change kg",
-          "value": "2.5",
-          "type": "text"
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "button",
-          "text": "−",
+          "name": "2.5 kg",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2.5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "button",
           "name": "Smaller step",
           "label": "Smaller step",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+",
           "name": "Larger step",
           "label": "Larger step",
           "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -36354,31 +36414,34 @@
         },
         {
           "tag": "small",
-          "text": "kg"
-        },
-        {
-          "tag": "input",
-          "name": "Smallest load change kg",
-          "value": "2.5",
-          "type": "text"
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "button",
-          "text": "−",
+          "name": "2.5 kg",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2.5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "button",
           "name": "Smaller step",
           "label": "Smaller step",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+",
           "name": "Larger step",
           "label": "Larger step",
           "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -37971,31 +38034,34 @@
         },
         {
           "tag": "small",
-          "text": "kg"
-        },
-        {
-          "tag": "input",
-          "name": "Smallest load change kg",
-          "value": "2.5",
-          "type": "text"
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "button",
-          "text": "−",
+          "name": "2.5 kg",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2.5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "button",
           "name": "Smaller step",
           "label": "Smaller step",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+",
           "name": "Larger step",
           "label": "Larger step",
           "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -39588,31 +39654,34 @@
         },
         {
           "tag": "small",
-          "text": "kg"
-        },
-        {
-          "tag": "input",
-          "name": "Smallest load change kg",
-          "value": "2.5",
-          "type": "text"
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "button",
-          "text": "−",
+          "name": "2.5 kg",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2.5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "button",
           "name": "Smaller step",
           "label": "Smaller step",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+",
           "name": "Larger step",
           "label": "Larger step",
           "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -41267,31 +41336,34 @@
         },
         {
           "tag": "small",
-          "text": "kg"
-        },
-        {
-          "tag": "input",
-          "name": "Smallest load change kg",
-          "value": "2.5",
-          "type": "text"
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "button",
-          "text": "−",
+          "name": "2.5 kg",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2.5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "button",
           "name": "Smaller step",
           "label": "Smaller step",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+",
           "name": "Larger step",
           "label": "Larger step",
           "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -42884,31 +42956,34 @@
         },
         {
           "tag": "small",
-          "text": "kg"
-        },
-        {
-          "tag": "input",
-          "name": "Smallest load change kg",
-          "value": "2.5",
-          "type": "text"
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "button",
-          "text": "−",
+          "name": "2.5 kg",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2.5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "button",
           "name": "Smaller step",
           "label": "Smaller step",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+",
           "name": "Larger step",
           "label": "Larger step",
           "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -44501,31 +44576,34 @@
         },
         {
           "tag": "small",
-          "text": "kg"
-        },
-        {
-          "tag": "input",
-          "name": "Smallest load change kg",
-          "value": "2.5",
-          "type": "text"
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "button",
-          "text": "−",
+          "name": "2.5 kg",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2.5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "button",
           "name": "Smaller step",
           "label": "Smaller step",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+",
           "name": "Larger step",
           "label": "Larger step",
           "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -46180,31 +46258,34 @@
         },
         {
           "tag": "small",
-          "text": "kg"
-        },
-        {
-          "tag": "input",
-          "name": "Menor variação de carga kg",
-          "value": "2.5",
-          "type": "text"
+          "text": "As cargas sugeridas mudam em passos deste tamanho."
         },
         {
           "tag": "button",
-          "text": "−",
+          "name": "2.5 kg",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2.5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "button",
           "name": "Passo menor",
           "label": "Passo menor",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+",
           "name": "Passo maior",
           "label": "Passo maior",
           "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "As cargas sugeridas mudam em passos deste tamanho."
         },
         {
           "tag": "section",
@@ -50441,31 +50522,34 @@
         },
         {
           "tag": "small",
-          "text": "kg"
-        },
-        {
-          "tag": "input",
-          "name": "Menor variação de carga kg",
-          "value": "2.5",
-          "type": "text"
+          "text": "As cargas sugeridas mudam em passos deste tamanho."
         },
         {
           "tag": "button",
-          "text": "−",
+          "name": "2.5 kg",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2.5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "button",
           "name": "Passo menor",
           "label": "Passo menor",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+",
           "name": "Passo maior",
           "label": "Passo maior",
           "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "As cargas sugeridas mudam em passos deste tamanho."
         },
         {
           "tag": "section",
@@ -54702,31 +54786,34 @@
         },
         {
           "tag": "small",
-          "text": "kg"
-        },
-        {
-          "tag": "input",
-          "name": "Smallest load change kg",
-          "value": "2.5",
-          "type": "text"
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "button",
-          "text": "−",
+          "name": "2.5 kg",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2.5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "button",
           "name": "Smaller step",
           "label": "Smaller step",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+",
           "name": "Larger step",
           "label": "Larger step",
           "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -56319,31 +56406,34 @@
         },
         {
           "tag": "small",
-          "text": "kg"
-        },
-        {
-          "tag": "input",
-          "name": "Smallest load change kg",
-          "value": "2.5",
-          "type": "text"
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "button",
-          "text": "−",
+          "name": "2.5 kg",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2.5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "button",
           "name": "Smaller step",
           "label": "Smaller step",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+",
           "name": "Larger step",
           "label": "Larger step",
           "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
@@ -57936,31 +58026,34 @@
         },
         {
           "tag": "small",
-          "text": "kg"
-        },
-        {
-          "tag": "input",
-          "name": "Smallest load change kg",
-          "value": "2.5",
-          "type": "text"
+          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "button",
-          "text": "−",
+          "name": "2.5 kg",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2.5",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "button",
           "name": "Smaller step",
           "label": "Smaller step",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+",
           "name": "Larger step",
           "label": "Larger step",
           "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Suggested loads move in steps of this size."
         },
         {
           "tag": "section",
