@@ -483,7 +483,8 @@ async function nativeControls(browser) {
   });
   assert(restRow.sameRow && restRow.collapsed && restRow.visible && restRow.display === '2:00' && restRow.heights.every(h => h === 36) && restRow.reach,
     'Rest timer shows 2:00 and its 36px − + capsule in one row, each button answering a 44px touch, with the typed field folded away', JSON.stringify(restRow));
-  await page.locator('[data-step-input="restSec"][data-step-delta="-1"]').click();
+  // A single activation (no pointer held, see the hold proof below for that path).
+  await page.locator('[data-step-input="restSec"][data-step-delta="-1"]').evaluate((button) => button.click());
   const stepped = await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec === 105 && document.querySelector('#restSecDisplay').textContent.trim() === '1:45', undefined, { timeout: 4000 }).then(() => true, () => false);
   assert(stepped, 'a step from the row commits and shows the formatted value', await page.locator('#restSecDisplay').textContent());
   phase("Phase 4: a stepper repeats while held and stops at its limit");
@@ -506,7 +507,9 @@ async function nativeControls(browser) {
     await page.mouse.up();
     assert(await shorter.isDisabled(), "a hold repeats down to zero, then disables Shorter", await page.locator("#restSec").inputValue());
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec === 0);
-    await page.locator('[data-step-input="restSec"][data-step-delta="1"]').click();
+    // One activation with no pointer held: a real pointer click on a loaded machine can last past the hold delay
+    // and repeat, which is the hold working, not what this checks (that nothing kept repeating after release).
+    await page.locator('[data-step-input="restSec"][data-step-delta="1"]').evaluate((button) => button.click());
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec === 15);
     assert(await page.locator('#restSec').inputValue() === '15', "a click after release makes exactly one step");
     await page.locator('#restSec').fill('30'); await page.locator('#restSec').blur();
@@ -538,7 +541,8 @@ async function nativeControls(browser) {
   await page.waitForFunction(() => document.querySelector('#minJumpPanel').classList.contains('is-open') && document.querySelector('#minJumpRow').getAttribute('aria-expanded') === 'true');
   await page.locator('#minJump').fill('12'); await page.locator('#minJump').dispatchEvent('change');
   await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.minJump === 12);
-  await page.locator('[data-step-input="minJump"][data-step-delta="-1"]').click();
+  await page.locator('[data-step-input="minJump"][data-step-delta="-1"]').evaluate((button) => button.click());
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.minJump !== 12, undefined, { timeout: 4000 }).catch(() => {});
   assert(Number(await page.locator('#minJump').inputValue()) === 11.5, "a typed value above the stepped range decreases by one step without being clamped", await page.locator('#minJump').inputValue());
   await page.locator('#themeSegments [data-value="light"]').click();
   phase("Phase 4: Today offers the same actions visibly and through context gestures");
@@ -1031,20 +1035,20 @@ async function wheelPicker(browser) {
     // touch-to-scroll mapping is not what this proves.
     const box = await page.locator("#wheelCol").boundingBox();
     const cx = Math.round(box.x + box.width / 2), cy = Math.round(box.y + box.height / 2);
-    const startTop = await page.evaluate(() => document.querySelector("#wheelCol").scrollTop);
+    // The keys scrolled the column smoothly two rows; that scroll must have landed before this one starts, or its
+    // own 88px pass for this gesture's movement and the gesture lands inside it (the chronic flake, 2026-10-23).
+    const keyIndex = afterKeys.values.indexOf(afterKeys.now);
+    await page.waitForFunction((i) => Math.abs(document.querySelector("#wheelCol").scrollTop - i * 44) < 1, keyIndex, { timeout: 5000 });
+    const startTop = await page.evaluate(() => {
+      const col = document.querySelector("#wheelCol");
+      window.__wheelScrollEnded = false;
+      col.addEventListener("scrollend", () => { window.__wheelScrollEnded = true; }, { once: true });
+      return col.scrollTop;
+    });
     await page.mouse.move(cx, cy);
     await page.mouse.wheel(0, 132);
-    await page.waitForFunction((top) => document.querySelector("#wheelCol").scrollTop - top >= 88, startTop, { timeout: 5000 });
-    // Momentum carries the scroll on after the touch lifts; wait for it (and the native
-    // scroll-snap) to come to rest before the settle debounce reads a value off it.
-    await page.waitForFunction(() => {
-      const el = document.querySelector("#wheelCol");
-      if (!el) return false;
-      if (el.__lastTop === el.scrollTop && el.__stableSince && performance.now() - el.__stableSince > 200) return true;
-      if (el.__lastTop !== el.scrollTop) el.__stableSince = performance.now();
-      el.__lastTop = el.scrollTop;
-      return false;
-    }, undefined, { timeout: 3000, polling: 50 });
+    // The scroll and its snap are over when the browser says so (scrollend), not after a quiet spell.
+    await page.waitForFunction((top) => window.__wheelScrollEnded && document.querySelector("#wheelCol").scrollTop - top >= 44, startTop, { timeout: 5000 });
     // The settle (a debounce after the last scroll) is what reports the value: wait for it to name the row on the band.
     const expectScroll = await page.waitForFunction(() => {
       const col = document.querySelector("#wheelCol");
@@ -1540,6 +1544,40 @@ const waitTitleOpacity = (page, barSel, want) => page.waitForFunction(
  * Owner, iPhone (2026-10-23): the Program editor's page sheet keeps the page's gutters, the Program page under it
  * stays laid out as it is while the sheet is dragged, and a root page's trailing action is a button in its bar.
  */
+/**
+ * A per-side value never widens a page (owner, iPhone, 2026-10-23): with a per-side lift logged in the block, no page
+ * has a sideways scroll range at 375 or 390px, in English or Portuguese, at 100% or 200% text; a per-side figure stays
+ * inside its row and says "per side" on its own quiet line, which is part of the row's accessible name.
+ */
+async function perSideOverflow(browser) {
+  phase("A per-side value never widens the page");
+  const PRESS = "library:1a05c6f170d8803ba48ec1443eab5978";
+  for (const width of [375, 390]) for (const lang of ["en", "pt"]) for (const text of ["normal", "text200"]) {
+    const label = `${width} ${lang} ${text}`;
+    const { context, page } = await openCatalogState(browser, "progress/strength-comparison", width, lang, text, { height: width === 375 ? 812 : undefined });
+    const wide = () => page.evaluate(() => { const s = document.scrollingElement; return s.scrollWidth > s.clientWidth ? `${s.scrollWidth}>${s.clientWidth}` : ""; });
+    const overflowing = [];
+    const visit = async (name, go) => { await go(); await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))); const w = await wide(); if (w) overflowing.push(`${name} ${w}`); };
+    for (const seg of ["overview", "strength", "volume", "prs", "review"])
+      await visit(`progress/${seg}`, () => page.evaluate((s) => window.__repforgeStatsNav.setStatsSeg(s), seg));
+    // The per-side figures: inside their rows, and named with their qualifier.
+    await page.evaluate(() => window.__repforgeStatsNav.setStatsSeg("overview"));
+    const rows = await page.evaluate(() => [...document.querySelectorAll("#overviewStrength .strrow"), ...document.querySelectorAll("#strengthDash .evrow--d")]
+      .map((row) => { const fig = row.querySelector(".strrow__fig, .evrow__val"), r = row.getBoundingClientRect(), f = fig?.getBoundingClientRect();
+        return { text: row.textContent.replace(/\s+/g, " ").trim().slice(0, 60), inside: !f || f.right <= r.right + 0.5, perSide: !!row.querySelector(".per-side") }; }));
+    const qualified = await page.getByRole("button", { name: lang === "pt" ? /por lado/i : /per side/i }).count();
+    await visit("exercise view", async () => { await page.evaluate((key) => window.openExerciseView(key, "stats"), PRESS); await page.waitForSelector("#exercise.view.active"); });
+    await visit("history list", async () => { await page.click("#exBack"); await page.waitForFunction(() => !document.body.classList.contains("is-exercise")); await page.evaluate(() => document.querySelector('nav button[data-view="history"]').click()); await page.waitForSelector("#history.view.active"); });
+    await visit("history session", async () => { await page.locator('#sessions .hist-row[data-sess="per-side-history-latest"] .session__open').click(); await page.waitForSelector("#history.is-session-page"); });
+    await visit("today", async () => { await page.evaluate(() => document.querySelector('nav button[data-view="log"]').click()); await page.waitForSelector("#log.view.active"); });
+    await visit("program", async () => { await page.evaluate(() => document.querySelector('nav button[data-view="program"]').click()); await page.waitForSelector("#program.view.active"); });
+    assert(!overflowing.length, `${label}: no page scrolls sideways`, overflowing.join("; "));
+    assert(rows.length && rows.every((row) => row.inside), `${label}: every strength figure stays inside its row`, JSON.stringify(rows.filter((row) => !row.inside)));
+    assert(rows.some((row) => row.perSide) && qualified > 0, `${label}: a per-side figure carries its qualifier, in the row's accessible name`, JSON.stringify({ qualified, rows: rows.filter((row) => row.perSide) }));
+    await context.close();
+  }
+}
+
 async function editorSheetAndBar(browser) {
   phase("The editor sheet's content keeps the page gutters");
   {
@@ -1979,6 +2017,7 @@ try {
   await editorSheetTab(browser);
   await navigationBars(browser);
   await editorSheetAndBar(browser);
+  await perSideOverflow(browser);
 } finally {
   await browser.close();
 }

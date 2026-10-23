@@ -503,6 +503,11 @@ main{
   width:min(100%,var(--maxw));margin:0 auto;
   padding:calc(12px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 36px max(16px,env(safe-area-inset-left));
 }
+/* No value, however wide, gives a page a sideways scroll (owner, iPhone, 2026-10-23): what overflows a row is
+   clipped at the page's edge rather than shifting every page left. clip makes no scroll container, so sticky and
+   fixed children are unaffected. The Program editor's page sheet is left out: its reorder list (@dnd-kit) measures
+   against its clipping ancestors. */
+:is(#log,#stats,#history,#exercise,#program:not(.sheet)).view{overflow-x:clip}
 /* Backwards fill only: the rise ends on the view's own opacity, and an animation held by its fill makes the view a
    backdrop root, so the scroll-edge bar's blur would stop reaching the rows under it (Plan 075 phase 3). */
 .view{display:none;animation:rise .35s cubic-bezier(.2,.7,.2,1) backwards}
@@ -4758,6 +4763,12 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 .strrow__main{display:block;min-width:0}
 .strrow__name{display:block;font-size:var(--font-size-body);font-weight:var(--weight-medium);line-height:var(--line-tight);color:var(--color-ink)}
 .strrow__sub{display:block;font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+/* A per-side load or set figure's qualifier: quiet words on their own line beneath the Mono value, as the shelf
+   groups "Per side". */
+.per-side{
+  display:block;font-family:var(--font-language);font-size:var(--font-size-caption);font-weight:var(--weight-regular);
+  line-height:var(--line-standard);color:var(--color-ink-secondary);white-space:nowrap;
+}
 .strrow__fig{
   font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);line-height:var(--line-tight);
   color:var(--color-ink);white-space:nowrap;text-align:right;

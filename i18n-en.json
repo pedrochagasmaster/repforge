@@ -2799,5 +2799,6 @@
   "settings.rest_shorter": "Shorter rest",
   "settings.rest_longer": "Longer rest",
   "program.editor.step_smaller": "Smaller step",
-  "program.editor.step_larger": "Larger step"
+  "program.editor.step_larger": "Larger step",
+  "focus.per_side": "per side"
 }
