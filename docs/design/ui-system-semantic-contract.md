@@ -80,10 +80,10 @@ existing press owner, with no stretch under reduced motion.
 
 Appearance and Units are `selection` radiogroups. One checked radio is in the
 Tab order; arrow keys select and move focus. A thumb drag uses `layoutShift`.
-The selection is the thumb under the checked radio, drawn with the existing
-`--elevation-selected-quiet-shadow` ring. The rendered checker counts an inset
-ring as a boundary only when the topmost one reaches 3:1, and it fails a group
-without exactly one checked radio or with a thumb that is off that radio.
+The selection uses state cues (below): the raised thumb under the checked
+radio and its semibold label, on a borderless 7% ink track. The rendered
+checker fails a group without exactly one checked radio, and a checked radio
+that loses its thumb or its weight.
 The rest timer and smallest load change are `adjustment` controls, with their
 typed field retained and a politely announced value. Repeating a held button
 stops on release, cancellation, leaving the button, loss of visibility or a
@@ -413,6 +413,32 @@ tracks with explicit values, and Safari teaching artwork are `decorative`.
 These marks may be quieter only because text, labels, or a separate required
 indicator carries the meaning. A P4 migration cannot demote a required mark
 to decorative merely to make a contrast failure disappear.
+
+#### State cues (ADR 0023 fidelity, owner direction 2026-10-23)
+
+A selected or current state may be carried by **state cues** instead of a 3:1
+outline, as iOS draws a selected tab, segment or list choice. The inventory
+marks such a control `boundary: "state-cues"`. The selected item must differ
+from an unselected peer by **at least two cues, at least one of them not a
+colour alone**. The cues are:
+
+- a fill: the item's own background, or a filled indicator (`data-state-indicator`) under it;
+- a heavier label weight;
+- a visible check glyph;
+- an ink change in the label or icon (colour; it counts, but never alone).
+
+The state is also exposed to assistive technology (`aria-current`,
+`aria-checked` or `aria-selected`). The rendered checker measures this rule and
+fails a selected item with fewer than two cues or with colour alone; it is not
+an exception. Fields, unselected choices and controls whose shape is their
+affordance keep the 3:1 required boundary. The worked examples:
+
+| Control | Cues | Replaces |
+| --- | --- | --- |
+| Dock tab (`nav button[data-view]`) | the filled lens under it, plus its orange icon and label | the 1px orange ring on the lens |
+| Segmented choice (Appearance, Units) | the raised paper thumb, plus the semibold label | the group border and the thumb's ring |
+| Day picker row | the trailing check, plus the full-ink day number | the rail and well on the armed row |
+| Stepper capsule (Rest timer, Smallest load change) | not a state: a 36px capsule on the soft track, with a 44px touch box per button | the bordered 44px capsule |
 
 ## Exact exceptions and catalog reachability
 

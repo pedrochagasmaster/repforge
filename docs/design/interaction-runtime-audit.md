@@ -550,10 +550,18 @@ evidence; physical one-handed review remains an owner gate.
 | `motion-layer.js` | Settings segmented thumb | Existing `animateIndicator` and `layoutShift`, including live retargeting; tap and arrows share the same selection path as drag. Without Motion the choice and thumb update immediately. |
 | `motion-layer.js` | Rest and smallest-load-change buttons | No value animation. Hold after 400ms, then repeat every 90ms and every 45ms after twelve steps. Release, leaving, cancellation, scroll, blur and visibility changes stop the hold. |
 | `app.js`, `motion-layer.js` | Focus action sheet | Grouped session actions and separate Cancel. `navPush` opens and closes it; the stylesheet remains the runtime fallback. Reduced motion uses the shared 170ms sheet cross-fade without travel. End without saving opens the existing confirmation. |
-| `app.js`, `program-editor.js`, `motion-layer.js` | Row context menu | 450ms hold cancelled by 10px movement. The inert preview lifts to 1.03 on `gestureSettle`, the menu opens at its anchor, and the held finger can slide onto an item and release to select (`trackContextSlide` in the motion layer; `app.js` supplies the items and handles the chosen value). Right click, Shift+F10 and the visible actions button share the same menu. Native dialog owns focus and inertness, including over the editor sheet. Reduced motion omits the lift and travel. |
+| `app.js`, `program-editor.js`, `motion-layer.js` | Row context menu | 450ms hold cancelled by 10px movement. The inert preview lifts to 1.03 on `gestureSettle` while the menu grows from scale .6 under the row's centre, over a 25% paper wash and 12px blur rather than a dimming scrim (the prototype's `N.menu`), and the held finger can slide onto an item and release to select (`trackContextSlide` in the motion layer; `app.js` supplies the items and handles the chosen value). Right click, Shift+F10 and the actions button share the same menu; on Today and editor exercise rows that button shows only to keyboard focus, as the prototype's rows have no ⋯. Native dialog owns focus and inertness, including over the editor sheet. Reduced motion omits the lift and travel. |
 
 If the motion layer itself cannot load, Settings keeps the native selects and
 typed numeric fields; it hides the enhanced controls.
 
 The two vendored runtimes and their bundled exports stay unchanged. The PR-lane journeys live in
 `test/native-feel.mjs`. Chromium only, not device evidence.
+
+### Fidelity pass (owner gate, 2026-10-23)
+
+Pressed rows, pads and menu items wash with `--row-pressed-bg` (ink 6% light,
+white 7% dark), the approved ADR 0023 token, in place of `--well`, which
+lightened a pressed row in light. The day picker's check lands with an opacity
+fade and a `--ease-press-release` scale from .6, as the prototype's does; reduced
+motion shows it at once.

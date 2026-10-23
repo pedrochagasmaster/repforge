@@ -375,7 +375,7 @@
         <div class="settings-row settings-row--segments">
           <span class="settings-row__label" id="unitLabel" data-i18n="settings.units">Units</span>
           <select id="unit" hidden tabindex="-1" aria-hidden="true"><option value="kg">kg</option><option value="lb">lb</option></select>
-          <div class="native-segments" id="unitSegments" data-segment-input="unit" role="radiogroup" aria-labelledby="unitLabel"><span class="native-segments__thumb" aria-hidden="true"></span><button type="button" role="radio" data-value="kg" aria-checked="false" tabindex="-1">kg</button><button type="button" role="radio" data-value="lb" aria-checked="false" tabindex="-1">lb</button></div>
+          <div class="native-segments" id="unitSegments" data-segment-input="unit" role="radiogroup" aria-labelledby="unitLabel"><span class="native-segments__thumb" data-state-indicator aria-hidden="true"></span><button type="button" role="radio" data-value="kg" aria-checked="false" tabindex="-1">kg</button><button type="button" role="radio" data-value="lb" aria-checked="false" tabindex="-1">lb</button></div>
         </div>
         <button type="button" class="settings-row" id="rirModeRow" aria-expanded="false" aria-controls="rirModePanel">
           <span class="settings-row__label" data-i18n="settings.rir_logging">RIR logging</span>
@@ -406,7 +406,16 @@
           <div id="progressionPanel">
           <p class="lede" data-i18n="settings.progression.lede">Start with these defaults. Change them when you need a different load step or RIR target.</p>
           <label class="field"><span data-i18n="settings.load_jump_pct">Load jump %</span><input id="jumpPct" type="text" inputmode="decimal" enterkeyhint="next"></label>
-          <div class="native-stepper"><label class="field"><span data-i18n="settings.minimum_jump">Minimum jump (kg)</span><input id="minJump" type="text" inputmode="decimal" enterkeyhint="next" data-step-size="0.5" data-step-min="0.5" data-step-max="10"></label><div class="native-stepper__buttons"><button type="button" data-step-input="minJump" data-step-delta="-1" data-i18n-aria="program.editor.step_smaller" aria-label="program.editor.step_smaller">−</button><button type="button" data-step-input="minJump" data-step-delta="1" data-i18n-aria="program.editor.step_larger" aria-label="program.editor.step_larger">+</button></div><output class="visually-hidden" aria-live="polite" data-step-output="minJump"></output></div>
+          <div class="native-stepper native-stepper--row">
+            <div class="settings-row settings-row--stepper">
+              <span class="settings-row__label" id="minJumpLabel" data-i18n="program.editor.load_step">Smallest load change</span>
+              <button type="button" class="native-stepper__value" id="minJumpRow" aria-expanded="false" aria-controls="minJumpPanel" aria-labelledby="minJumpLabel minJumpDisplay"><span id="minJumpDisplay" aria-live="polite">2.5</span> <span class="native-stepper__unit">kg</span></button>
+              <div class="native-stepper__buttons"><button type="button" data-step-input="minJump" data-step-delta="-1" data-i18n-aria="program.editor.step_smaller" aria-label="program.editor.step_smaller"><span class="icon-mask icon-mask--minus" aria-hidden="true"></span></button><button type="button" data-step-input="minJump" data-step-delta="1" data-i18n-aria="program.editor.step_larger" aria-label="program.editor.step_larger"><span class="icon-mask icon-mask--plus" aria-hidden="true"></span></button></div>
+            </div>
+            <div id="minJumpPanel" class="settings-panel">
+              <label class="field"><span data-i18n="program.editor.load_step">Smallest load change</span><input id="minJump" type="text" inputmode="decimal" enterkeyhint="next" data-step-size="0.5" data-step-min="0.5" data-step-max="10"></label>
+            </div>
+          </div>
           <p class="lede" data-i18n="settings.minimum_jump_lede">Minimum jump increment is always in kg regardless of display units.</p>
           <label class="field"><span data-i18n="settings.target_rir_ceiling">Target RIR ceiling</span><input id="rirHigh" type="text" inputmode="decimal" enterkeyhint="next"></label>
           <label class="field"><span data-i18n="settings.hard_rir_ceiling">Hard-set RIR ceiling</span><input id="hardRir" type="text" inputmode="decimal" enterkeyhint="done"></label>
@@ -419,12 +428,15 @@
       <section class="settings-group" data-settings-group="app" aria-labelledby="settingsGroupApp">
         <h2 id="settingsGroupApp" class="settings-group__label" data-i18n="settings.group.app">App</h2>
         <p class="settings-group__summary" data-i18n="settings.group.app_summary">Appearance, reminders, language, and installation.</p>
-        <button type="button" class="settings-row" id="restSecRow" aria-expanded="false" aria-controls="restSecPanel">
-          <span class="settings-row__label" data-i18n="settings.rest_timer_short">Rest timer</span>
-          <span class="settings-row__value"><span id="restSecDisplay">2:00</span> <span class="chevron" aria-hidden="true"></span></span>
-        </button>
-        <div id="restSecPanel" class="settings-panel">
-          <div class="native-stepper"><label class="field"><span data-i18n="settings.rest_timer">Rest timer (seconds, 0 = off)</span><input id="restSec" type="text" inputmode="numeric" enterkeyhint="done" data-step-size="15" data-step-min="0" data-step-max="600"></label><div class="native-stepper__buttons"><button type="button" data-step-input="restSec" data-step-delta="-1" data-i18n-aria="settings.rest_shorter" aria-label="settings.rest_shorter">−</button><button type="button" data-step-input="restSec" data-step-delta="1" data-i18n-aria="settings.rest_longer" aria-label="settings.rest_longer">+</button></div><output class="visually-hidden" aria-live="polite" data-step-output="restSec"></output></div>
+        <div class="native-stepper native-stepper--row">
+          <div class="settings-row settings-row--stepper">
+            <span class="settings-row__label" id="restSecLabel" data-i18n="settings.rest_timer_short">Rest timer</span>
+            <button type="button" class="native-stepper__value" id="restSecRow" aria-expanded="false" aria-controls="restSecPanel" aria-labelledby="restSecLabel restSecDisplay"><span id="restSecDisplay" aria-live="polite">2:00</span></button>
+            <div class="native-stepper__buttons"><button type="button" data-step-input="restSec" data-step-delta="-1" data-i18n-aria="settings.rest_shorter" aria-label="settings.rest_shorter"><span class="icon-mask icon-mask--minus" aria-hidden="true"></span></button><button type="button" data-step-input="restSec" data-step-delta="1" data-i18n-aria="settings.rest_longer" aria-label="settings.rest_longer"><span class="icon-mask icon-mask--plus" aria-hidden="true"></span></button></div>
+          </div>
+          <div id="restSecPanel" class="settings-panel">
+            <label class="field"><span data-i18n="settings.rest_timer">Rest timer (seconds, 0 = off)</span><input id="restSec" type="text" inputmode="numeric" enterkeyhint="done" data-step-size="15" data-step-min="0" data-step-max="600"></label>
+          </div>
         </div>
         <div class="settings-row" style="cursor:default">
           <span class="settings-row__label" data-i18n="settings.voice_enable">Enable voice input</span>
@@ -454,7 +466,7 @@
         <div class="settings-row settings-row--segments">
           <span class="settings-row__label" id="themeLabel" data-i18n="settings.appearance">Appearance</span>
           <select id="theme" hidden tabindex="-1" aria-hidden="true"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
-          <div class="native-segments" id="themeSegments" data-segment-input="theme" role="radiogroup" aria-labelledby="themeLabel"><span class="native-segments__thumb" aria-hidden="true"></span><button type="button" role="radio" data-value="system" aria-checked="false" tabindex="-1" data-i18n="settings.appearance.system">System</button><button type="button" role="radio" data-value="light" aria-checked="false" tabindex="-1" data-i18n="settings.appearance.light">Light</button><button type="button" role="radio" data-value="dark" aria-checked="false" tabindex="-1" data-i18n="settings.appearance.dark">Dark</button></div>
+          <div class="native-segments" id="themeSegments" data-segment-input="theme" role="radiogroup" aria-labelledby="themeLabel"><span class="native-segments__thumb" data-state-indicator aria-hidden="true"></span><button type="button" role="radio" data-value="system" aria-checked="false" tabindex="-1" data-i18n="settings.appearance.system">System</button><button type="button" role="radio" data-value="light" aria-checked="false" tabindex="-1" data-i18n="settings.appearance.light">Light</button><button type="button" role="radio" data-value="dark" aria-checked="false" tabindex="-1" data-i18n="settings.appearance.dark">Dark</button></div>
         </div>
         <label class="settings-row" for="lang">
           <span class="settings-row__label" data-i18n="settings.language">Language</span>
@@ -1348,14 +1360,14 @@ Triceps pushdown 3x12-15</pre>
   <script src="vendor/motion/motion.js" data-optional-runtime="RepForgeMotion"></script>
   <script src="vendor/dnd-kit/dnd-kit.js" data-optional-runtime="RepForgeDndRuntime"></script>
   <div hidden inert aria-hidden="true" id="legacyWorkoutShell"><span id="modeFull"></span><span id="modeFocus"></span><input id="date" type="date"><input id="bodyweight"><textarea id="notes"></textarea></div>
-  <script src="motion-layer.js?v=507"></script>
+  <script src="motion-layer.js?v=508"></script>
   <script src="generation-candidates.js?v=466"></script>
   <script src="engine-policy.js?v=486"></script>
   <script src="generation-layout.js?v=486"></script>
   <script src="program-compiler.js?v=486"></script>
   <script src="program-entry.js?v=466"></script>
   <script src="program-entry-adapter.js?v=466"></script>
-  <script src="program-editor.js?v=503"></script>
+  <script src="program-editor.js?v=508"></script>
   <script src="program-review.js?v=466"></script>
   <script src="shared-setup.js?v=461"></script>
   <script src="workout-draft.js?v=466"></script>
@@ -1368,6 +1380,6 @@ Triceps pushdown 3x12-15</pre>
   <script src="durable-state.js?v=447"></script>
   <script src="progress-model.js?v=309"></script>
   <script src="history-ui.js?v=488"></script>
-  <script src="app.js?v=507"></script>
+  <script src="app.js?v=508"></script>
 </body>
 </html>

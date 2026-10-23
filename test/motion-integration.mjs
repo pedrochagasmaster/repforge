@@ -2225,8 +2225,9 @@ async function dockMotion(browser, { reducedMotion = "no-preference" } = {}) {
   assert(onButton(rest), "and at rest it is exactly the active button's box", JSON.stringify({ lens: rest.lens, active: rest.active }));
   assert(rest.button.bg === "rgba(0, 0, 0, 0)" && rest.button.shadow === "none",
     "the active button paints no pill or shadow of its own while the lens is mounted", JSON.stringify(rest.button));
-  assert(rest.button.border !== "rgba(0, 0, 0, 0)" && rest.ring === "none" && rest.mode === "on",
-    "it keeps its own 1px selected ring at rest, and the lens draws none", JSON.stringify({ border: rest.button.border, lensRing: rest.ring, mode: rest.mode }));
+  // State cues (contract, 2026-10-23): the lens fill and the orange icon and label carry the selection, with no ring.
+  assert(rest.button.border === "rgba(0, 0, 0, 0)" && rest.ring === "none" && rest.mode === "on",
+    "at rest neither the tab nor the lens draws a ring: the filled lens is the selection", JSON.stringify({ border: rest.button.border, lensRing: rest.ring, mode: rest.mode }));
   assert(rest.paint.background && rest.paint.shadow && rest.paint.radius,
     "the lens carries the dock's lens paint: the pill, its shadow and the pill radius", JSON.stringify(rest.paint));
   assert(rest.inactive.every((c) => c === "rgba(0, 0, 0, 0)") && rest.transform === "" && rest.hint === "", "the other tabs stay bare, and the lens carries no transform or layer hint at rest", JSON.stringify(rest.inactive));
@@ -2249,13 +2250,13 @@ async function dockMotion(browser, { reducedMotion = "no-preference" } = {}) {
   assert(go.every((f) => f.count === 1), "there is one lens on every frame", JSON.stringify([...new Set(go.map((f) => f.count))]));
   const last = go.at(-1);
   assert(onButton(last) && last.transform === "" && last.hint === "", "it ends exactly on the new tab with no transform left behind", JSON.stringify({ lens: last.lens, active: last.active, t: last.transform }));
-  assert(last.mode === "on" && last.buttonRing !== "rgba(0, 0, 0, 0)" && last.lensRing === "none", "and the tab wears its own ring again, the lens none", JSON.stringify({ mode: last.mode, ring: last.buttonRing, lens: last.lensRing }));
+  assert(last.mode === "on" && last.buttonRing === "rgba(0, 0, 0, 0)" && last.lensRing === "none", "and it settles there with no ring on the tab or the lens", JSON.stringify({ mode: last.mode, ring: last.buttonRing, lens: last.lensRing }));
   if (reduced) {
-    assert(go.every((f) => onButton(f) && f.transform === "" && f.mode === "on" && f.buttonRing !== "rgba(0, 0, 0, 0)"), "under reduced motion it is on the new tab from the first frame and never in between", JSON.stringify(go.slice(0, 3).map((f) => f.lens)));
+    assert(go.every((f) => onButton(f) && f.transform === "" && f.mode === "on" && f.buttonRing === "rgba(0, 0, 0, 0)"), "under reduced motion it is on the new tab from the first frame and never in between", JSON.stringify(go.slice(0, 3).map((f) => f.lens)));
   } else {
     const air = go.filter((f) => f.transform);
-    assert(air.length > 3 && air.every((f) => f.mode === "travel" && f.buttonRing === "rgba(0, 0, 0, 0)" && f.lensRing === "block"),
-      "while it is in the air the ring rides with it and the tab sets its own aside: one ring on screen", JSON.stringify(air.slice(0, 2).map((f) => ({ m: f.mode, b: f.buttonRing, l: f.lensRing }))));
+    assert(air.length > 3 && air.every((f) => f.mode === "travel" && f.buttonRing === "rgba(0, 0, 0, 0)" && f.lensRing === "none"),
+      "while it is in the air no ring rides with it: the filled lens travels alone", JSON.stringify(air.slice(0, 2).map((f) => ({ m: f.mode, b: f.buttonRing, l: f.lensRing }))));
     const lefts = go.map((f) => f.lens.left);
     assert(go.length > 6 && lefts[0] < before.log.left + (before.history.left - before.log.left) * 0.4, "it starts on the tab it left", JSON.stringify({ first: lefts[0], from: before.log.left }));
     assert(lefts.some((l) => l > before.log.left + 40 && l < before.history.left - 40), "it passes between the two tabs", JSON.stringify(lefts.filter((_, i) => i % 3 === 0).map(Math.round)));

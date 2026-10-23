@@ -2083,7 +2083,7 @@ async function main() {
   beginPhase("Phase 6: Settings");
 
   await nav(page, "settings");
-  await page.evaluate(() => document.querySelector("#progressionDetails")?.classList.add("is-open"));
+  await page.evaluate(() => ["#progressionDetails", "#minJumpPanel"].forEach(sel => document.querySelector(sel)?.classList.add("is-open")));
   await page.fill("#jumpPct", "5");
   await page.fill("#minJump", "5");
   await page.fill("#rirHigh", "3");

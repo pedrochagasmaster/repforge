@@ -581,7 +581,6 @@
   "settings.beginner_program": "Use beginner-friendly program",
   "settings.advanced_progression": "Progression controls",
   "settings.load_jump_pct": "Load jump %",
-  "settings.minimum_jump": "Minimum jump (kg)",
   "settings.minimum_jump_lede": "Minimum jump increment is always in kg regardless of display units.",
   "settings.target_rir_ceiling": "Target RIR ceiling",
   "settings.hard_rir_ceiling": "Hard-set RIR ceiling",

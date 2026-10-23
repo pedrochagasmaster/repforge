@@ -319,6 +319,18 @@ async function dayPickerCommits(browser) {
   const exits = await page.evaluate(() => ({ confirm: !!document.querySelector("#dayPickConfirm"), cancel: !!document.querySelector("#dayPickCancel"),
     close: !!document.querySelector("#dayPickSheet [data-daypick-close]") }));
   assert(!exits.confirm && !exits.cancel && exits.close, "the picker's one exit is its ×", JSON.stringify(exits));
+  await page.waitForFunction(() => document.querySelector("#dayPickSheet").getAnimations({ subtree: true }).every(animation => animation.playState !== "running"));
+  const dayLook = await page.evaluate(() => [...document.querySelectorAll("#dayPickList .daypick__row")].map(row => ({ selected: row.classList.contains("is-selected"),
+    check: Number(getComputedStyle(row.querySelector(".daypick__check")).opacity), rail: parseFloat(getComputedStyle(row).borderLeftWidth), fill: getComputedStyle(row).backgroundColor })));
+  assert(dayLook.filter(row => row.selected).length === 1 && dayLook.every(row => row.check === (row.selected ? 1 : 0) && row.rail === 0)
+    && new Set(dayLook.map(row => row.fill)).size === 1, "as in the prototype, the current day takes a trailing check, with no rail or well", JSON.stringify(dayLook));
+  const measureDays = async () => (await page.evaluate(measureRenderedRoles, { components: [{ selector: "#dayPickList .daypick__row", roles: { control: "selection", boundary: "state-cues" } }],
+    pixels: (await page.screenshot()).toString("base64") })).filter(item => item.kind === "state-cues");
+  const dayCues = await measureDays();
+  assert(dayCues.length === 1 && dayCues[0].status === "pass", "the checked day passes the checker on two cues, its check and its full-ink number", JSON.stringify(dayCues));
+  const noCheck = await page.addStyleTag({ content: ".daypick__check{display:none!important}" });
+  assert((await measureDays()).some(item => item.status === "fail"), "without its check the day is marked by colour alone, which the checker rejects");
+  await noCheck.evaluate(el => el.remove());
   const target = await page.locator("#dayPickList [data-daypick]").nth(1).getAttribute("data-daypick");
   await page.locator("#dayPickList [data-daypick]").nth(1).click();
   await page.waitForSelector("#dayPickSheet", { state: "hidden" });
@@ -382,17 +394,15 @@ async function nativeControls(browser) {
     await broken.evaluate(el => el.remove());
     await page.locator("#themeSegments").scrollIntoViewIfNeeded();
     const measureSegments = async () => (await page.evaluate(measureRenderedRoles, { components: [
-      { selector: "#themeSegments", roles: { boundary: "required" } },
-      { selector: "#themeSegments [role=radio]", roles: { control: "selection" } },
-      { selector: "#themeSegments .native-segments__thumb", roles: { boundary: "required", elevation: "selected" } },
-    ], pixels: (await page.screenshot()).toString("base64") })).filter(item => item.selector.startsWith("#themeSegments") && item.kind === "boundary");
-    const segmentEdges = await measureSegments();
-    assert(segmentEdges.length >= 3 && segmentEdges.every(item => item.status === "pass"), `${theme}: group and actual selection thumb have required contrast`, JSON.stringify(segmentEdges));
+      { selector: "#themeSegments [role=radio]", roles: { control: "selection", boundary: "state-cues" } },
+    ], pixels: (await page.screenshot()).toString("base64") })).filter(item => item.selector.startsWith("#themeSegments") && ["state-cues", "boundary"].includes(item.kind));
+    const segmentCues = await measureSegments();
+    assert(segmentCues.length === 1 && segmentCues[0].status === "pass" && segmentCues[0].cues.includes("fill") && segmentCues[0].cues.includes("weight"),
+      `${theme}: the checked segment carries two state cues, the raised thumb and the heavier label`, JSON.stringify(segmentCues));
     for (const [css, description] of [
-      ["#themeSegments .native-segments__thumb{box-shadow:none!important}", "removing the thumb ring"],
-      ["#themeSegments{border-color:transparent!important}", "removing the group border"],
+      ["#themeSegments .native-segments__thumb{display:none!important}", "removing the thumb leaves the weight alone, which"],
+      ["#themeSegments [role=radio]{font-weight:var(--weight-regular)!important}", "dropping the heavier label leaves the thumb alone, which"],
       ["#themeSegments .native-segments__thumb{transform:translateX(80px)!important}", "moving the thumb off the checked option"],
-      ["#themeSegments .native-segments__thumb{box-shadow:inset 0 0 0 2px var(--surface),inset 0 0 0 2px var(--ink)!important}", "covering the ring with a surface-colored inset shadow"],
     ]) {
       const damage = await page.addStyleTag({ content: css });
       const measured = await measureSegments();
@@ -431,6 +441,38 @@ async function nativeControls(browser) {
     assert(await page.locator('#unitSegments [data-value="lb"]').getAttribute('aria-checked') === 'true', "Units persists and restores its selected segment");
     assert(await page.locator('#themeSegments [data-value="dark"]').getAttribute('aria-checked') === 'true', "Appearance restores from device UI preferences");
   }
+  phase("Taste round 2: the segmented thumb is a raised paper thumb on a soft track");
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate(value => { document.documentElement.dataset.theme = value; }, theme);
+    const look = await page.locator('#themeSegments').evaluate(group => {
+      const thumb = group.querySelector('.native-segments__thumb'), shadow = getComputedStyle(thumb).boxShadow;
+      const insets = shadow.split(/,(?![^()]*\))/).filter(part => /inset/.test(part)).map(part => Math.max(...(part.match(/[\d.]+px/g) || ['0px']).map(parseFloat)));
+      const surface = getComputedStyle(document.body).backgroundColor, track = getComputedStyle(group).backgroundColor;
+      return { insets, drop: shadow.split(/,(?![^()]*\))/).some(part => !/inset/.test(part) && /px/.test(part)), track, surface,
+        thumbFill: getComputedStyle(thumb).backgroundColor, groupEdge: getComputedStyle(group).borderTopColor, trackAlpha: Number((track.match(/rgba\([^)]*,\s*([\d.]+)\)/) || [0, 1])[1]) };
+    });
+    assert(look.insets.length === 0 && look.drop && look.groupEdge === 'rgba(0, 0, 0, 0)', `${theme}: as in the prototype, a shadow-only thumb on a borderless track`, JSON.stringify(look));
+    assert(look.trackAlpha > 0 && look.trackAlpha < 0.15 && look.thumbFill !== look.track, `${theme}: the track is a soft ink tint under an opaque thumb`, JSON.stringify(look));
+  }
+  await page.evaluate(() => { document.documentElement.dataset.theme = "light"; });
+  phase("Taste round 2: Rest timer reads as a row with its formatted value and a compact stepper");
+  await page.locator('#restSecRow').scrollIntoViewIfNeeded();
+  const restRow = await page.evaluate(() => {
+    const value = document.querySelector('#restSecRow'), buttons = document.querySelectorAll('[data-step-input="restSec"]');
+    const row = value.closest('.settings-row'), panel = document.querySelector('#restSecPanel');
+    const top = el => Math.round(el.getBoundingClientRect().top + el.getBoundingClientRect().height / 2);
+    return { sameRow: !!row && [...buttons].every(button => row.contains(button) && Math.abs(top(button) - top(value)) <= 4),
+      collapsed: !panel.classList.contains('is-open'), display: document.querySelector('#restSecDisplay').textContent.trim(),
+      heights: [...buttons].map(button => Math.round(button.getBoundingClientRect().height)),
+      reach: [...buttons].every(button => { const r = button.getBoundingClientRect(), x = r.left + r.width / 2;
+        return document.elementFromPoint(x, r.top - 3) === button && document.elementFromPoint(x, r.bottom + 3) === button; }),
+      visible: [...buttons].every(button => button.getBoundingClientRect().height > 0) };
+  });
+  assert(restRow.sameRow && restRow.collapsed && restRow.visible && restRow.display === '2:00' && restRow.heights.every(h => h === 36) && restRow.reach,
+    'Rest timer shows 2:00 and its 36px − + capsule in one row, each button answering a 44px touch, with the typed field folded away', JSON.stringify(restRow));
+  await page.locator('[data-step-input="restSec"][data-step-delta="-1"]').click();
+  const stepped = await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.restSec === 105 && document.querySelector('#restSecDisplay').textContent.trim() === '1:45', undefined, { timeout: 4000 }).then(() => true, () => false);
+  assert(stepped, 'a step from the row commits and shows the formatted value', await page.locator('#restSecDisplay').textContent());
   phase("Phase 4: a stepper repeats while held and stops at its limit");
   await page.click('#restSecRow');
   await page.waitForFunction(() => {
@@ -470,6 +512,17 @@ async function nativeControls(browser) {
     assert(await page.locator('#restSec').inputValue() === '15', 'the keyboard can still step after a held repeat');
   }
   await page.click('#progressionRow');
+  const loadRow = await page.evaluate(() => {
+    const value = document.querySelector('#minJumpRow'), row = value?.closest('.settings-row');
+    const buttons = [...document.querySelectorAll('[data-step-input="minJump"]')];
+    return { row: !!row, label: row?.querySelector('.settings-row__label')?.textContent.trim(), name: window.RepForgeI18n.t('program.editor.load_step'),
+      display: document.querySelector('#minJumpRow')?.textContent.replace(/\s+/g, ' ').trim(), buttonsInRow: buttons.length === 2 && buttons.every(button => row?.contains(button) && button.getBoundingClientRect().height === 36),
+      folded: !document.querySelector('#minJumpPanel')?.classList.contains('is-open') };
+  });
+  assert(loadRow.row && loadRow.label === loadRow.name && loadRow.display === '2.5 kg' && loadRow.buttonsInRow && loadRow.folded,
+    'Smallest load change reads as one row: its label, "2.5 kg" and the − + capsule, with the typed field folded away', JSON.stringify(loadRow));
+  await page.click('#minJumpRow');
+  await page.waitForFunction(() => document.querySelector('#minJumpPanel').classList.contains('is-open') && document.querySelector('#minJumpRow').getAttribute('aria-expanded') === 'true');
   await page.locator('#minJump').fill('12'); await page.locator('#minJump').dispatchEvent('change');
   await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_v1')).settings.minJump === 12);
   await page.locator('[data-step-input="minJump"][data-step-delta="-1"]').click();
@@ -477,9 +530,30 @@ async function nativeControls(browser) {
   await page.locator('#themeSegments [data-value="light"]').click();
   phase("Phase 4: Today offers the same actions visibly and through context gestures");
   await page.click('#settingsBack');
+  await page.waitForFunction(() => !document.body.classList.contains('is-pushing') && document.querySelector('nav .dock-lens'));
+  const measureDock = async () => (await page.evaluate(measureRenderedRoles, { components: [{ selector: "nav button[data-view]", roles: { control: "quiet-navigation", boundary: "state-cues" } }],
+    pixels: (await page.screenshot()).toString("base64") })).filter(item => item.kind === "state-cues");
+  const dockLook = await page.evaluate(() => { const active = document.querySelector('nav button.active');
+    return { edge: getComputedStyle(active).borderTopColor, ring: getComputedStyle(document.querySelector('nav .dock-lens'), '::after').display }; });
+  const dockCues = await measureDock();
+  assert(dockLook.edge === 'rgba(0, 0, 0, 0)' && dockLook.ring === 'none' && dockCues.length === 1 && dockCues[0].status === 'pass',
+    "the dock's selected tab is the prototype's filled lens with no ring, and passes on the lens and its orange icon and label", JSON.stringify({ dockLook, dockCues }));
+  const noLens = await page.addStyleTag({ content: "nav .dock-lens{background:transparent!important}" });
+  assert((await measureDock()).some(item => item.status === 'fail'), "without the lens the tab is marked by colour alone, which the checker rejects");
+  await noLens.evaluate(el => el.remove());
   const row = '#todayExList [data-context-row]';
   const hasRows = await page.locator(row).count();
-  assert(hasRows > 0 && await page.locator('#todayExList [data-row-menu]').count() > 0, "Today rows have a visible actions button");
+  assert(hasRows > 0 && await page.locator('#todayExList [data-row-menu]').count() > 0, "Today rows keep an actions button for keyboard and assistive technology");
+  const quiet = await page.evaluate(() => {
+    const button = document.querySelector('#todayExList [data-row-menu]'), open = button.closest('[data-context-row]').querySelector('[data-exopen]');
+    const grid = document.querySelector('#todayExList .today-rx__grid').getBoundingClientRect();
+    return { width: Math.round(button.getBoundingClientRect().width), tabbable: button.tabIndex === 0 && !button.closest('[aria-hidden="true"],[inert]'),
+      rowReach: Math.round(grid.right - open.getBoundingClientRect().right) };
+  });
+  assert(quiet.width <= 1 && quiet.tabbable && quiet.rowReach <= 1, 'the ⋯ column is gone from sight: the row runs to the edge, and the button stays in the tab order', JSON.stringify(quiet));
+  await page.locator('#todayExList [data-exopen]').first().focus(); await page.keyboard.press('Tab');
+  const revealed = await page.evaluate(() => { const el = document.activeElement; return { menu: el?.matches('[data-row-menu]'), width: Math.round(el?.getBoundingClientRect().width || 0) }; });
+  assert(revealed.menu && revealed.width >= 44, 'Tab from a row reaches its ⋯, which shows itself while focused', JSON.stringify(revealed));
   if (hasRows) {
     const initialOpacity = await page.locator('#todayExList [data-row-menu]').first().evaluate(button => {
       button.focus(); button.click();
@@ -487,6 +561,21 @@ async function nativeControls(browser) {
     });
     assert(initialOpacity === '0', 'the context menu starts transparent before its first animation frame', initialOpacity);
     await page.waitForSelector('#nativeContextMenu:not([hidden])');
+    phase("Fidelity: the Today menu matches the prototype's material, icons and wording");
+    await page.waitForFunction(() => document.querySelector('.native-context__menu').getAnimations().every(animation => animation.playState !== 'running'));
+    const menuLook = await page.evaluate(() => {
+      const panel = document.querySelector('.native-context__menu'), style = getComputedStyle(panel), dialog = document.querySelector('#nativeContextMenu');
+      const items = [...panel.querySelectorAll('[role="menuitem"]')].map(item => ({ value: item.dataset.menuValue, label: item.textContent.trim(),
+        icon: [...(item.querySelector('.icon-mask')?.classList || [])].find(name => name.startsWith('icon-mask--')) || null, target: item.getBoundingClientRect().height, height: Math.round(item.getBoundingClientRect().height - parseFloat(getComputedStyle(item).borderTopWidth)) }));
+      const backdrop = getComputedStyle(dialog, '::backdrop').backgroundColor, alpha = Number((backdrop.match(/rgba\([^)]*,\s*([\d.]+)\)/) || [0, 1])[1]);
+      return { border: ['Top', 'Right', 'Bottom', 'Left'].map(side => parseFloat(style[`border${side}Width`])), items, backdrop, alpha,
+        swap: window.RepForgeI18n.t('picker.title_substitute') };
+    });
+    assert(menuLook.border.every(width => width === 0), 'the menu has no hard border; its edge is a soft hairline shadow', JSON.stringify(menuLook.border));
+    assert(JSON.stringify(menuLook.items.map(item => [item.value, item.icon])) === JSON.stringify([["why", "icon-mask--target"], ["swap", "icon-mask--reset"], ["details", "icon-mask--dumbbell"], ["skip", "icon-mask--close"]]),
+      "each Today action carries the prototype's trailing icon", JSON.stringify(menuLook.items));
+    assert(menuLook.items[1].label === menuLook.swap && menuLook.items.every(item => item.target >= 44 && item.height >= 40 && item.height <= 48), 'Swap exercise uses the prototype wording, in 44px rows', JSON.stringify(menuLook.items));
+    assert(menuLook.alpha > 0 && menuLook.alpha <= 0.3, 'the page behind stays light: a 25% paper wash under the blur, not a dark scrim', menuLook.backdrop);
     await page.waitForFunction(() => {
       const panel = document.querySelector('.native-context__menu');
       return getComputedStyle(panel).opacity === '1' && panel.getAnimations().every(animation => animation.playState !== 'running');
@@ -521,9 +610,28 @@ async function nativeControls(browser) {
     await page.waitForSelector('#nativeContextMenu', { state: 'detached' });
     await page.locator(row).first().focus(); await page.keyboard.press('Shift+F10');
     await page.waitForSelector('#nativeContextMenu:not([hidden])');
+    const keyRing = await page.evaluate(() => { const el = document.activeElement, style = getComputedStyle(el);
+      return { item: el.matches('[role="menuitem"]'), outline: style.outlineStyle, width: style.outlineWidth, quiet: el.hasAttribute('data-quiet-focus') }; });
+    assert(keyRing.item && keyRing.outline !== 'none' && keyRing.width !== '0px' && !keyRing.quiet, 'opened from the keyboard, the first item shows the focus ring', JSON.stringify(keyRing));
     assert(await page.locator('#nativeContextMenu [role="menuitem"]').count() >= 2, "right click and Shift+F10 expose row actions");
     await page.keyboard.press('Escape');
     await page.waitForSelector('#nativeContextMenu', { state: 'detached' });
+    phase("Focus rings follow the keyboard: a touch never leaves one on the row, the ⋯ or the first item");
+    const ringOf = () => page.evaluate(() => { const el = document.activeElement, style = getComputedStyle(el);
+      return { tag: el.tagName, item: el.matches('[role="menuitem"]'), inRow: !!el.closest('[data-context-row]'), ring: style.outlineStyle !== 'none' && style.outlineWidth !== '0px', quiet: el.hasAttribute('data-quiet-focus'),
+        revealed: el.matches('[data-row-menu]') && el.getBoundingClientRect().width > 1 }; });
+    await page.locator(row).first().scrollIntoViewIfNeeded();
+    const held = await center(page, row);
+    await touch('touchStart', [{ x: held.x, y: held.y }]);
+    await page.waitForSelector('#nativeContextMenu:not([hidden])');
+    await touch('touchEnd');
+    const touchOpen = await ringOf();
+    // Chromium already hides a ring on script focus after touch; iOS Safari does not, so the quiet mark is what keeps it off there.
+    assert(touchOpen.item && !touchOpen.ring && touchOpen.quiet, 'after a touch-and-hold the first item takes focus for assistive technology without a ring', JSON.stringify(touchOpen));
+    await page.mouse.click(4, 4);
+    await page.waitForSelector('#nativeContextMenu', { state: 'detached' });
+    const touchClose = await ringOf();
+    assert(touchClose.inRow && !touchClose.ring && touchClose.quiet && !touchClose.revealed, 'closing it by touch returns focus to the row with no ring and no revealed ⋯', JSON.stringify(touchClose));
     await page.locator(row).first().scrollIntoViewIfNeeded();
     const p = await center(page, row);
     await touch('touchStart', [{ x: p.x, y: p.y }]);
@@ -538,13 +646,17 @@ async function nativeControls(browser) {
     if (await page.locator('#leaveWorkout').isVisible()) await page.click('#leaveWorkout');
     await page.waitForSelector('#todayDash:not(.hidden)');
     assert(await page.locator('#todayExList .is-skipped').count() === 1, 'the skipped Today state restores after reload');
-    await page.locator('#todayExList [data-row-menu]').first().click();
+    await keyboardMenu(page.locator('#todayExList [data-row-menu]').first());
     await page.locator('#nativeContextMenu [data-menu-value="restore"]').click();
     await page.waitForSelector('#nativeContextMenu', { state: 'detached' });
-    assert(await page.locator('#todayExList .is-skipped').count() === 0, "Restore reverses the skip in today's draft");
+    const restored = await page.waitForFunction(() => {
+      const draft = JSON.parse(localStorage.getItem('repforge_draft_v1'));
+      return draft && draft.exerciseOrder.every(id => draft.exercises[id].status !== 'skipped') && !document.querySelector('#todayExList .is-skipped');
+    }, undefined, { timeout: 4000 }).then(() => true, () => false);
+    assert(restored, "Restore reverses the skip in today's draft");
     assert(await page.locator('#todayExList [data-row-menu]').first().evaluate(el => el === document.activeElement), 'a row action restores its visible opener after Today redraws');
     const programBefore = await page.evaluate(() => JSON.stringify(JSON.parse(localStorage.getItem('repforge_v1')).program));
-    await page.locator('#todayExList [data-row-menu]').first().click();
+    await keyboardMenu(page.locator('#todayExList [data-row-menu]').first());
     await page.locator('#nativeContextMenu [data-menu-value="swap"]').click();
     await page.waitForSelector('#exPickSheet.is-open');
     await page.fill('#exPickSearch', 'Leg press');
@@ -601,6 +713,40 @@ async function nativeControls(browser) {
     await page.click('#sessionAbandon'); await page.click('#sessionAbandonCancel');
     assert(await page.locator('#sessionSheet').isVisible() && await page.locator('#sessionAbandon').evaluate(el => el === document.activeElement),
       "an action-sheet End dismissed another way leaves the session sheet's own Cancel in the sheet");
+    phase("Session details: the date fits the sheet and shows its value, a tap leaves no ring, and reorder is borderless");
+    for (const width of [375, 390]) {
+      await page.setViewportSize({ width, height: 844 });
+      const fit = await page.locator('#sessionDate').evaluate(input => {
+        const body = input.closest('.sheetfield').parentElement, box = body.getBoundingClientRect(), style = getComputedStyle(body);
+        return { right: input.getBoundingClientRect().right, limit: box.right - parseFloat(style.paddingRight), value: input.value };
+      });
+      assert(fit.right <= fit.limit + 0.5 && fit.value !== '', `at ${width}px the date field ends inside the sheet's content and holds the session's date`, JSON.stringify(fit));
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator('#sessionDate').scrollIntoViewIfNeeded();
+    await page.locator('#sessionDate').click({ position: { x: 8, y: 8 } });
+    const ringOf = () => page.locator('#sessionDate').evaluate(input => { const style = getComputedStyle(input);
+      return { focused: input === document.activeElement, outline: style.outlineStyle !== 'none' && style.outlineWidth !== '0px', halo: style.boxShadow !== 'none', quiet: input.hasAttribute('data-quiet-focus') }; });
+    const tapped = await ringOf();
+    assert(tapped.focused && !tapped.outline && !tapped.halo && tapped.quiet, 'a tap on the date field focuses it with no ring', JSON.stringify(tapped));
+    await page.keyboard.press('ArrowUp');
+    const keyed = await ringOf();
+    assert(keyed.focused && keyed.outline && !keyed.quiet, 'the first key press gives it the keyboard ring', JSON.stringify(keyed));
+    const reorder = await page.locator('#sessionSheet .session-map__reorder-btn').first().evaluate(button => { const style = getComputedStyle(button);
+      return { border: parseFloat(style.borderTopWidth) === 0 || style.borderTopColor === 'rgba(0, 0, 0, 0)', fill: style.backgroundColor, icon: !!button.querySelector('.icon-mask, svg, [class*="chev"]') }; });
+    assert(reorder.border && reorder.fill === 'rgba(0, 0, 0, 0)' && reorder.icon, 'the session map reorders with borderless icon buttons, as the kit draws them', JSON.stringify(reorder));
+    await page.click('#sessionSheetClose'); await page.waitForSelector('#sessionSheet', { state: 'hidden' });
+    phase("Session details sits on the bottom edge after a typed entry, even when the viewport still reports the keyboard");
+    // iOS can report the shrunken visual viewport for a while after the keyboard goes; no field is being edited.
+    await page.evaluate(() => { document.activeElement?.blur?.();
+      Object.defineProperty(visualViewport, 'height', { configurable: true, get: () => innerHeight - 300 });
+      visualViewport.dispatchEvent(new Event('resize')); });
+    await page.click('#sessionSheetBtn'); await page.waitForSelector('#sessionSheet.is-open');
+    await page.waitForFunction(() => document.querySelector('#sessionSheet').getAnimations().every(animation => animation.playState !== 'running'));
+    const seat = await page.evaluate(() => ({ bottom: Math.round(document.querySelector('#sessionSheet').getBoundingClientRect().bottom), viewport: innerHeight,
+      kb: getComputedStyle(document.documentElement).getPropertyValue('--kb').trim() }));
+    await page.evaluate(() => { delete visualViewport.height; visualViewport.dispatchEvent(new Event('resize')); });
+    assert(seat.bottom === seat.viewport, "the sheet's bottom is the viewport's bottom: a stale keyboard band moves no sheet while nothing is being typed", JSON.stringify(seat));
     await page.click('#sessionSheetClose'); await page.waitForSelector('#sessionSheet', { state: 'hidden' });
     await page.click('#woOverflowBtn'); await page.click('[data-workout-action="abandon"]');
     await page.click('#sessionAbandonConfirm');
@@ -619,6 +765,9 @@ async function nativeControls(browser) {
   await context.close();
 }
 
+/** The row's ⋯ is shown only to keyboard focus, so tests reach it the way a keyboard does. */
+async function keyboardMenu(button) { await button.focus(); await button.press('Enter'); }
+
 async function nativeEditorControls(browser) {
   const { context: editorContext, page: editorPage } = await todayPage(browser);
   phase("Phase 4: editor rows expose context actions without long press");
@@ -629,7 +778,7 @@ async function nativeEditorControls(browser) {
   if (await editorMenu.count()) {
     const rows = editorPage.locator('#programEditor [data-role="exercise-row"]');
     const first = await rows.first().getAttribute('data-id');
-    await editorMenu.click(); await editorPage.waitForSelector('#nativeContextMenu:not([hidden])');
+    await keyboardMenu(editorMenu); await editorPage.waitForSelector('#nativeContextMenu:not([hidden])');
     await editorPage.locator('#nativeContextMenu [data-menu-value="down"]').click();
     await editorPage.waitForFunction(id => document.querySelector('#programEditor [data-role="exercise-row"]').dataset.id !== id, first);
     assert(await rows.nth(1).getAttribute('data-id') === first, "Move down commits through the editor and preserves identity");
@@ -637,7 +786,7 @@ async function nativeEditorControls(browser) {
     await editorPage.waitForSelector('#nativeContextMenu:not([hidden])'); await editorPage.keyboard.press('Escape');
     await editorPage.waitForSelector('#nativeContextMenu', { state: 'detached' });
     assert(await rows.nth(1).evaluate(el => el === document.activeElement), "keyboard context menu returns focus to its editor row");
-    await editorPage.locator('#programEditor [data-row-menu]').nth(1).click(); await editorPage.waitForSelector('#nativeContextMenu:not([hidden])');
+    await keyboardMenu(editorPage.locator('#programEditor [data-row-menu]').nth(1)); await editorPage.waitForSelector('#nativeContextMenu:not([hidden])');
     const editorItems = await editorPage.locator('#nativeContextMenu [role="menuitem"]').evaluateAll(items => items.map(item => item.dataset.menuValue));
     assert(JSON.stringify(editorItems) === JSON.stringify(["up", "down", "day", "remove"]), "the editor menu holds the prototype's Move up, Move down, Move to another day and Remove", JSON.stringify(editorItems));
     await editorPage.locator('#nativeContextMenu [data-menu-value="day"]').click();
@@ -649,7 +798,19 @@ async function nativeEditorControls(browser) {
   }
   phase("Phase 4: smallest load change and alternate context actions keep the editor's commit boundary");
   await editorPage.locator('#programEditor [data-role="exercise-row"]').first().click();
-  await editorPage.waitForSelector('#reviewSheet.is-open [data-role="load-step"]');
+  await editorPage.waitForSelector('#reviewSheet.is-open [data-role="load-step-open"]');
+  const stepRow = await editorPage.evaluate(() => {
+    const open = document.querySelector('#reviewSheet [data-role="load-step-open"]'), row = open.closest('.program-editor__stepper-row');
+    const field = document.querySelector('#reviewSheet [data-role="load-step"]');
+    return { value: open.textContent.replace(/\s+/g, ' ').trim(), folded: open.getAttribute('aria-expanded') === 'false' && !field.checkVisibility(),
+      buttons: [...row.querySelectorAll('[data-step-delta]')].map(button => Math.round(button.getBoundingClientRect().height)) };
+  });
+  assert(/^2[.,]5 kg$/.test(stepRow.value) && stepRow.folded && stepRow.buttons.join() === '36,36',
+    "the editor's Smallest load change reads as the prototype's row: 2.5 kg and the − + capsule, with the typed field folded", JSON.stringify(stepRow));
+  await editorPage.locator('#reviewSheet [data-role="load-step-open"]').click();
+  const typed = await editorPage.waitForFunction(() => document.activeElement?.matches('#reviewSheet [data-role="load-step"]')
+    && document.querySelector('#reviewSheet [data-role="load-step-open"]').getAttribute('aria-expanded') === 'true', undefined, { timeout: 4000 }).then(() => true, () => false);
+  assert(typed, 'tapping the value opens the typed field, focused for typing');
   const loadStep = editorPage.locator('#reviewSheet [data-role="load-step"]');
   const beforeStep = Number((await loadStep.inputValue()).replace(',', '.'));
   const larger = editorPage.locator('#reviewSheet [data-step-input="load-step"][data-step-delta="1"]');
@@ -659,6 +820,7 @@ async function nativeEditorControls(browser) {
     await larger.click();
     await editorPage.waitForFunction(value => Number(document.querySelector('#reviewSheet [data-role="load-step"]').value.replace(',', '.')) === value, beforeStep + .5);
     assert(Number((await loadStep.inputValue()).replace(',', '.')) === beforeStep + .5, "Larger step changes the displayed value by 0.5 through the typed field");
+    assert(Number((await editorPage.locator('#reviewSheet [data-role="load-step-value"]').textContent()).replace(',', '.')) === beforeStep + .5, 'the row shows the stepped value at once');
     await larger.hover(); await editorPage.mouse.down();
     const repeated = await editorPage.waitForFunction(value => Number(document.querySelector('#reviewSheet [data-role="load-step"]').value.replace(',', '.')) >= value,
       beforeStep + 2, { timeout: 3500 }).then(() => true, () => false);
@@ -689,6 +851,11 @@ async function nativeEditorControls(browser) {
   const alternate = editorPage.locator('#reviewSheet [data-role="alternate"]').first();
   assert(await alternate.locator('[data-row-menu]').count() === 1 && await alternate.locator('[data-role="alternate-remove"]').count() === 0,
     "the alternate replaces its action trio with one visible menu");
+  const glyph = await alternate.locator('[data-row-menu]').evaluate(button => ({ text: button.textContent.trim(), icon: !!button.querySelector('.icon-mask--overflow') }));
+  assert(glyph.text === '' && glyph.icon, "an alternate's ⋯ is the overflow icon, not a spaced text glyph", JSON.stringify(glyph));
+  const close = await editorPage.locator('#reviewSheet [data-review-sheet-close]').evaluate(button => { const disc = getComputedStyle(button, '::before');
+    return { width: disc.width, radius: disc.borderRadius, fill: disc.backgroundColor }; });
+  assert(close.width === '30px' && close.radius === '50%' && close.fill !== 'rgba(0, 0, 0, 0)', "a sheet's × sits in the prototype's filled 30px disc", JSON.stringify(close));
   if (await alternate.locator('[data-row-menu]').count()) {
     await alternate.locator('[data-row-menu]').click();
     await editorPage.locator('#nativeContextMenu [data-menu-value="remove"]').click();
@@ -850,15 +1017,16 @@ async function wheelPicker(browser) {
     const box = await page.locator("#wheelCol").boundingBox();
     const cx = Math.round(box.x + box.width / 2), cy = Math.round(box.y + box.height / 2);
     // A finger reports in small steps, a frame apart; two large jumps let a slow runner lift before the column had
-    // followed (main's push CI, 2026-10-23). The drag moves 11px a frame for 110px, and lifts only once the column
-    // has followed it by at least a row.
+    // followed (main's push CI, 2026-10-23). The drag moves 11px a frame for 220px, and lifts only once the column
+    // has followed it by at least two rows: one row sat on the snap boundary, and a loaded runner settled it back
+    // onto the keyboard-set value (#485 PR lane, #487).
     const startTop = await page.evaluate(() => document.querySelector("#wheelCol").scrollTop);
     await touch("touchStart", [{ x: cx, y: cy }]);
-    for (let dy = 11; dy <= 110; dy += 11) {
+    for (let dy = 11; dy <= 220; dy += 11) {
       await touch("touchMove", [{ x: cx, y: cy - dy }]);
       await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve())));
     }
-    await page.waitForFunction((top) => document.querySelector("#wheelCol").scrollTop - top >= 44, startTop, { timeout: 5000 });
+    await page.waitForFunction((top) => document.querySelector("#wheelCol").scrollTop - top >= 88, startTop, { timeout: 5000 });
     await touch("touchEnd");
     // Momentum carries the scroll on after the touch lifts; wait for it (and the native
     // scroll-snap) to come to rest before the settle debounce reads a value off it.

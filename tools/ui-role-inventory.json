@@ -4713,6 +4713,54 @@
       ]
     },
     {
+      "id": "minjumprow",
+      "selector": "#minJumpRow",
+      "roles": {
+        "control": "disclosure"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "expanded"
+      ],
+      "rationale": "Shows the smallest load change and opens its typed field; the stepper beside it changes the same value.",
+      "owner": "plan-075-phase-4",
+      "catalogStates": [
+        "settings/load-controls"
+      ]
+    },
+    {
+      "id": "native-stepper-value",
+      "selector": ".native-stepper__value:not([id])",
+      "roles": {
+        "control": "disclosure"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "expanded"
+      ],
+      "rationale": "Shows an editor exercise's smallest load change and opens its typed field; the stepper beside it changes the same value.",
+      "owner": "plan-075-phase-4",
+      "catalogStates": [
+        "onboarding-build/editor-alternates",
+        "onboarding-build/editor-partial",
+        "onboarding-build/editor-ready",
+        "program/editor-alternates",
+        "program/editor-suggest-loads"
+      ]
+    },
+    {
       "id": "restsheet",
       "selector": "#restSheet",
       "roles": {
@@ -5737,7 +5785,8 @@
       "id": "theme",
       "selector": "#themeSegments [role=\"radio\"]",
       "roles": {
-        "control": "selection"
+        "control": "selection",
+        "boundary": "state-cues"
       },
       "variant": null,
       "facets": [],
@@ -5903,7 +5952,8 @@
       "id": "unit",
       "selector": "#unitSegments [role=\"radio\"]",
       "roles": {
-        "control": "selection"
+        "control": "selection",
+        "boundary": "state-cues"
       },
       "variant": null,
       "facets": [],
@@ -6424,7 +6474,7 @@
           "flat",
           "selected"
         ],
-        "boundary": "required"
+        "boundary": "state-cues"
       },
       "variant": "day-choice",
       "facets": [],
@@ -7762,7 +7812,7 @@
           "flat",
           "selected"
         ],
-        "boundary": "required"
+        "boundary": "state-cues"
       },
       "variant": "navigation-dock",
       "facets": [],
@@ -10596,8 +10646,11 @@
         "program/editor-day-name-refused",
         "program/editor-suggest-loads",
         "settings/appearance",
+        "settings/guides",
+        "settings/guides-replay",
         "settings/load-controls",
         "settings/main",
+        "settings/privacy",
         "settings/rest-controls"
       ]
     },
@@ -10807,14 +10860,14 @@
       "id": "native-segment-group",
       "selector": ".native-segments",
       "roles": {
-        "boundary": "required"
+        "boundary": "decorative"
       },
       "variant": null,
       "facets": [],
       "states": [
         "default"
       ],
-      "rationale": "The group boundary defines the extent of the segmented choice.",
+      "rationale": "The soft track groups the choices; selection is carried by the raised thumb and the heavier label (contract: state cues).",
       "owner": "plan-075-phase-4",
       "catalogStates": [
         "settings/appearance",
@@ -10830,7 +10883,6 @@
       "id": "native-segment-thumb",
       "selector": ".native-segments__thumb",
       "roles": {
-        "boundary": "required",
         "elevation": "selected"
       },
       "variant": null,

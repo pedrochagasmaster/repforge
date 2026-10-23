@@ -1537,7 +1537,7 @@
     const spring = open ? VOCABULARY.gestureSettle : VOCABULARY.gestureExit;
     panel.style.opacity = open ? "0" : getComputedStyle(panel).opacity;
     return Promise.all([
-      animate(panel, { transform: open ? ["scale(.97)", "scale(1)"] : [getComputedStyle(panel).transform, "scale(.97)"],
+      animate(panel, { transform: open ? ["scale(.9)", "scale(1)"] : [getComputedStyle(panel).transform, "scale(.9)"],
         opacity: open ? [0, 1] : [Number(getComputedStyle(panel).opacity), 0] }, spring),
       animate(preview, { transform: open ? ["scale(1)", "scale(1.03)"] : [getComputedStyle(preview).transform, "scale(1)"] }, spring)
     ]).then(() => { panel.style.opacity = open ? "1" : "0"; });
@@ -1610,6 +1610,33 @@
         button.disabled = Number.isFinite(value) && (Number(button.dataset.stepDelta) < 0 ? value <= Number(input.dataset.stepMin) : value >= Number(input.dataset.stepMax));
       });
     });
+  }
+
+  /* Focus moved by script after a touch or a click carries no ring: a ring is the keyboard's cue, and iOS draws
+     one for any script focus. The mark lasts until the next key press, so a keyboard user sees the ring at once. */
+  let modality = "pointer";
+  const clearQuiet = () => document.querySelectorAll("[data-quiet-focus]").forEach(node => node.removeAttribute("data-quiet-focus"));
+  document.addEventListener("keydown", event => {
+    if (event.metaKey || event.ctrlKey || ["Shift", "Alt", "Meta", "Control"].includes(event.key)) return;
+    modality = "keyboard"; clearQuiet();
+  }, true);
+  for (const type of ["pointerdown", "touchstart"]) document.addEventListener(type, () => { modality = "pointer"; }, { capture: true, passive: true });
+  // A date, time or select field a finger or a click opens is quiet too: it opens a picker, not a caret, and the
+  // keyboard's ring is not a tap's cue (iOS draws it). Text fields keep their focus treatment while being typed in.
+  document.addEventListener("focusin", event => {
+    const node = event.target;
+    if (modality === "keyboard" || !(node instanceof Element) || !node.matches("input[type=date],input[type=time],select") || node.hasAttribute("data-quiet-focus")) return;
+    node.setAttribute("data-quiet-focus", "");
+    node.addEventListener("blur", () => node.removeAttribute("data-quiet-focus"), { once: true });
+  }, true);
+  function focusQuietly(node) {
+    if (!node?.focus) return;
+    const quiet = modality !== "keyboard";
+    if (quiet) {
+      node.setAttribute("data-quiet-focus", "");
+      node.addEventListener("blur", () => node.removeAttribute("data-quiet-focus"), { once: true });
+    }
+    try { node.focus({ preventScroll: true, focusVisible: !quiet }); } catch { node.focus(); }
   }
 
   /* Slide-to-select: after a long press opens a context menu, the same finger can
@@ -1725,6 +1752,8 @@
     syncNativeControls,
     animateContextMenu,
     trackContextSlide,
+    focusQuietly,
+    inputModality: () => modality,
     animateActionSheet,
     available: () => available,
     reducedMotion,

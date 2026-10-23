@@ -1015,11 +1015,17 @@ function routeHeading(view){
   const root=typeof view==="string"?$(`#${view}`):view;
   if(!(root instanceof Element))return null;
   return[...root.querySelectorAll(".page-title,h1,h2")].find(canTakeFocus)||null}
+/** Script focus without the keyboard's ring after a touch or click (the motion layer's quiet focus);
+ *  plain focus where the layer is missing. */
+function quietFocus(el){
+  if(!el?.focus)return;
+  if(window.RepForgeMotion?.focusQuietly)window.RepForgeMotion.focusQuietly(el);
+  else try{el.focus({preventScroll:true})}catch{try{el.focus()}catch{}}}
 function focusRoute(target){
   const el=resolveReturnFocus(target);
   if(!el)return false;
   if(!el.matches(ROUTE_NATIVE_FOCUS))el.setAttribute("tabindex","-1");
-  try{el.focus({preventScroll:true})}catch{return false}
+  quietFocus(el);
   return document.activeElement===el}
 /* The control the lifter last pressed. Safari does not focus a button on click, so
    document.activeElement cannot say what opened a flow; the press itself can. */
@@ -1279,7 +1285,7 @@ function openModal(el,opts={}){
   // Modals are fixed overlays, so scrolling one into view only shifts the page
   // beneath them — on iOS that drags the visual viewport and takes the sheet
   // header with it.
-  if(toFocus){try{toFocus.focus({preventScroll:true})}catch{try{toFocus.focus()}catch{}}}
+  if(toFocus)quietFocus(toFocus);
   return true}
 function closeModal(el){
   const rec=activeModal;
@@ -1297,7 +1303,7 @@ function closeModal(el){
       if(activeModal===rec)activeModal=null;
       const target=resolveReturnFocus(rec.returnFocus);
       if(target){
-        try{target.focus({preventScroll:true})}catch{try{target.focus()}catch{}}}
+        quietFocus(target)}
       if(!activeModal&&modalSettleQueue.length){const queued=modalSettleQueue;modalSettleQueue=[];queued.forEach(callback=>callback())}
       resolve(true)};
     if(rec.delayHide>0){
@@ -5822,7 +5828,7 @@ function mountDockLens(){
   const BOX=["left","top","width","height"],SHAPE=["left","width","height"];
   const makeLens=()=>{
     const el=document.createElement("span");
-    el.className="dock-lens";el.setAttribute("aria-hidden","true");
+    el.className="dock-lens";el.setAttribute("aria-hidden","true");el.dataset.stateIndicator="";
     nav.append(el);return el};
   /** The nav's border box, or null while the dock is hidden (display:none gives it no box). */
   const navRect=()=>{
@@ -6925,8 +6931,9 @@ function dayPickRowHtml(d,i){
     ` aria-label="${esc(aria)}"${isToday?' aria-current="true"':""}>`+
     `<span class="daypick__n" aria-hidden="true">${esc(String(i+1))}</span>`+
     `<span class="daypick__main"><span class="daypick__line"><span class="daypick__title">${esc(title)}</span>`+
-    (isToday?`<span class="daypick__chip">${esc(chip)}</span>`:"")+
-    `</span><span class="daypick__sub">${esc(sub)}</span></span>`+
+    // As in the prototype, today's day says so in its subtitle; the trailing place is the check's.
+    `</span><span class="daypick__sub">${esc(sub)}${isToday?` · <span class="daypick__chip">${esc(chip)}</span>`:""}</span></span>`+
+    `<span class="icon-mask icon-mask--check daypick__check" aria-hidden="true"></span>`+
     `</button>`}
 function renderDayPickList(){const list=$("#dayPickList");if(!list)return;
   list.innerHTML=days().map(dayPickRowHtml).join("");
@@ -7038,11 +7045,14 @@ function trackSheetViewport(){
     // that reduction; panning a zoomed view must not move the app's dock.
     const scale=vv.scale||1,zoomed=Math.abs(scale-1)>.01;
     const height=Math.min(window.innerHeight,vv.height*scale),top=zoomed?0:vv.offsetTop;
-    const inset=Math.max(0,window.innerHeight-height-top);
+    const field=editing(),up=!!field&&window.innerHeight-height>1,was=root.dataset.keyboard==="up";
+    // A keyboard is only up while a field is being edited. iOS can report the shrunken viewport for a while after
+    // it goes, and every bottom sheet sits on --kb, so a stale band would float Session details up the screen.
+    // The visible band itself (--vvh, --vv-top) still follows the viewport, for dialogs that fit it.
+    const inset=up?Math.max(0,window.innerHeight-height-top):0;
     root.style.setProperty("--kb",`${Math.round(inset)}px`);
     root.style.setProperty("--vvh",`${Math.round(height)}px`);
     root.style.setProperty("--vv-top",`${Math.round(top)}px`);
-    const field=editing(),up=!!field&&window.innerHeight-height>1,was=root.dataset.keyboard==="up";
     if(up)root.dataset.keyboard="up";else delete root.dataset.keyboard;
     cancelAnimationFrame(settle);
     // Focus is pinned to the band while the keyboard is up, so the shelf and its field are already on it; whatever
@@ -7447,7 +7457,7 @@ function todayRxRowHtml(row,index){
     `<span class="rxrow__name">${esc(exerciseDisplayName(ex))}<span class="rxrow__sub" id="${statusId}">${esc(row.sub)}</span></span>`+
     `<span class="rxrow__load"${row.load!=null?` data-parity-target="${esc(ex.id)}"`:""}>${row.load!=null?esc(fmtLoad(row.load)):"\u2013"}</span>`+
     `<span class="rxrow__target">${esc(row.target).replace(/\u00d7/g,`<span class="rxrow__op">\u00d7</span>`)}</span>`+
-    (hasVerdict?`<span class="visually-hidden" id="${verdictId}">${esc(rec.label)}</span>`:"")+`</button><button type="button" class="native-row-menu" data-row-menu="${esc(ex.id)}" aria-haspopup="menu"${isSkipped?` aria-describedby="${statusId}"`:""} aria-label="${esc(t("program.editor.more"))}: ${esc(exerciseDisplayName(ex))}">⋯</button></div>`}
+    (hasVerdict?`<span class="visually-hidden" id="${verdictId}">${esc(rec.label)}</span>`:"")+`</button><button type="button" class="native-row-menu visually-hidden" data-row-menu="${esc(ex.id)}" aria-haspopup="menu"${isSkipped?` aria-describedby="${statusId}"`:""} aria-label="${esc(t("program.editor.more"))}: ${esc(exerciseDisplayName(ex))}"><span class="icon-mask icon-mask--overflow" aria-hidden="true"></span></button></div>`}
 function todayRxHtml(exs){
   if(!exs.length)return"";
   const model=todayRxModel(exs),sets=sum(exs.map(e=>+e.sets||0));
@@ -9045,9 +9055,11 @@ function placeContextMenu(dialog,panel,rect){
   const bottom=offset+(view?.height||innerHeight)-(parseFloat(inset.paddingBottom)||0)-12;
   const left=(parseFloat(inset.paddingLeft)||0)+12,right=innerWidth-(parseFloat(inset.paddingRight)||0)-12;
   const box=panel.getBoundingClientRect(),below=rect.bottom+8+box.height<bottom;
-  Object.assign(panel.style,{left:`${Math.max(left,Math.min(rect.left+8,right-box.width))}px`,
-    top:`${Math.max(top,Math.min(below?rect.bottom+8:rect.top-box.height-8,bottom-box.height))}px`,
-    transformOrigin:below?"top left":"bottom left"});
+  const x=Math.max(left,Math.min(rect.left+8,right-box.width));
+  // It grows from under the row's centre, as the prototype's menu does.
+  const originX=Math.max(0,Math.min(box.width,rect.left+rect.width/2-x));
+  Object.assign(panel.style,{left:`${x}px`,top:`${Math.max(top,Math.min(below?rect.bottom+8:rect.top-box.height-8,bottom-box.height))}px`,
+    transformOrigin:`${originX}px ${below?0:box.height}px`});
 }
 /** Arrow keys, Home, End and Tab cycle the enabled items; Escape dismisses. */
 function contextMenuKeys(panel,dismiss){
@@ -9073,7 +9085,7 @@ function openRowContextMenu({anchor,items,opener=anchor}){
     preview.className+=" native-context__preview";preview.inert=true;preview.setAttribute("aria-hidden","true");
     Object.assign(preview.style,{left:`${rect.left}px`,top:`${rect.top}px`,width:`${rect.width}px`,height:`${rect.height}px`});
     dialog.innerHTML=`<div class="native-context__menu" role="menu">${items.map(item=>
-      `<button type="button" role="menuitem" data-menu-value="${esc(item.value)}"${item.destructive?' class="is-destructive"':""}${item.disabled?" disabled":""}>${esc(item.label)}</button>`).join("")}</div>`;
+      `<button type="button" role="menuitem" data-menu-value="${esc(item.value)}"${item.destructive?' class="is-destructive"':""}${item.disabled?" disabled":""}><span>${esc(item.label)}</span>${item.icon?`<span class="icon-mask icon-mask--${esc(item.icon)} native-context__icon" aria-hidden="true"></span>`:""}</button>`).join("")}</div>`;
     dialog.prepend(preview);document.body.append(dialog);
     const panel=dialog.querySelector('[role="menu"]');
     let closing=false,untrack=null;
@@ -9084,7 +9096,7 @@ function openRowContextMenu({anchor,items,opener=anchor}){
       nativeMenuClose=null;window.removeEventListener("keydown",keys,true);
       dialog.close();dialog.remove();
       const target=opener.isConnected?opener:resolveReturnFocus(opener);
-      target?.focus?.({preventScroll:true});resolve(value);
+      quietFocus(target);resolve(value);
     };
     const keys=contextMenuKeys(panel,()=>finish(null));
     nativeMenuClose=finish;
@@ -9099,7 +9111,7 @@ function openRowContextMenu({anchor,items,opener=anchor}){
     dialog.showModal();
     placeContextMenu(dialog,panel,rect);
     window.RepForgeMotion?.animateContextMenu?.(panel,preview);
-    panel.querySelector("button:not(:disabled)")?.focus({preventScroll:true});
+    quietFocus(panel.querySelector("button:not(:disabled)"));
   });
 }
 async function todayRowContext(row,opener=row){
@@ -9108,9 +9120,9 @@ async function todayRowContext(row,opener=row){
   const ex=prog.find(row.dataset.contextRow);if(!ex)return;
   const isSkipped=activeWorkoutDraft?.exercises?.[ex.id]?.status==="skipped";
   const action=await openRowContextMenu({anchor:row,opener,items:[
-    {label:t("why.title"),value:"why"},{label:t("ex.actions.substitute"),value:"swap"},
-    {label:t("preview.aria"),value:"details"},
-    {label:t(isSkipped?"ex.actions.restore":"today.skip_today"),value:isSkipped?"restore":"skip",destructive:!isSkipped}]});
+    {label:t("why.title"),value:"why",icon:"target"},{label:t("picker.title_substitute"),value:"swap",icon:"reset"},
+    {label:t("preview.aria"),value:"details",icon:"dumbbell"},
+    isSkipped?{label:t("log.restore"),value:"restore",icon:"reset"}:{label:t("today.skip_today"),value:"skip",destructive:true,icon:"close"}]});
   if(action==="details"){openExerciseView(ex.id,"log");return}
   if(action==="why"){openWhySheet(ex.id,opener);return}
   if(!["swap","skip","restore"].includes(action))return;
@@ -9120,7 +9132,7 @@ async function todayRowContext(row,opener=row){
   const result=await WorkoutSession.dispatch(action==="restore"?"restoreExercise":"skipExercise",{exerciseInstanceId:ex.id});
   if(result.status==="applied"){
     renderToday();
-    document.querySelector(`#todayExList [${focusAttribute}="${CSS.escape(ex.id)}"]`)?.focus({preventScroll:true});
+    quietFocus(document.querySelector(`#todayExList [${focusAttribute}="${CSS.escape(ex.id)}"]`));
   }
 }
 
@@ -13389,6 +13401,7 @@ function renderSettings(){
   const ia=$("#installApp");if(ia)ia.classList.toggle("hidden",!manualInstall.eligible&&installMode()!=="safari");
   const sec=normalizeRestSec(state.settings.restSec),disp=$("#restSecDisplay");
   if(disp)disp.textContent=sec?fmtClock(sec):t("settings.rest_off");
+  const jumpDisp=$("#minJumpDisplay");if(jumpDisp)jumpDisp.textContent=fmt(+state.settings.minJump||DEFAULTS.minJump);
   const rirDisp=$("#rirModeDisplay");if(rirDisp)rirDisp.textContent=state.settings.rirMode==="effort"?t("settings.rir_effort"):t("settings.rir_numbers");
   const le=state.settings.lastExport,ago=le?t("settings.storage.last_backup",{lastBackup:le.slice(0,10)}):t("settings.storage.last_backup_never");
   paintStorageNote(ago);
@@ -22028,6 +22041,7 @@ function init(){
   const histSearchClear=$("#historySearchClear");if(histSearchClear)histSearchClear.onclick=()=>HistoryUi.clearSearch();
   const histExport=$("#historyExportBtn");if(histExport)histExport.onclick=exportCsv;
   const restRow=$("#restSecRow");if(restRow)restRow.onclick=()=>setDisclosure(restRow,$("#restSecPanel"),!$("#restSecPanel")?.classList.contains("is-open"));
+  const jumpRow=$("#minJumpRow");if(jumpRow)jumpRow.onclick=()=>setDisclosure(jumpRow,$("#minJumpPanel"),!$("#minJumpPanel")?.classList.contains("is-open"));
   const rirRow=$("#rirModeRow");if(rirRow)rirRow.onclick=()=>setDisclosure(rirRow,$("#rirModePanel"),!$("#rirModePanel")?.classList.contains("is-open"));
   const progRow=$("#progressionRow");if(progRow)progRow.onclick=()=>setDisclosure(progRow,$("#progressionDetails"),!$("#progressionDetails")?.classList.contains("is-open"));
   const notifyCfg=$("#notifyConfigRow");if(notifyCfg)notifyCfg.onclick=()=>setDisclosure(notifyCfg,$("#notifyTypes"),!$("#notifyTypes")?.classList.contains("is-open"));
@@ -22039,7 +22053,7 @@ function init(){
   const profileRow=$("#profileRow");if(profileRow)profileRow.onclick=()=>setDisclosure(profileRow,$("#profilePanel"),!$("#profilePanel")?.classList.contains("is-open"));
   const profileClear=$("#profileClear");if(profileClear)profileClear.onclick=()=>clearProfile();
   const dataImport=$("#dataImportRow");if(dataImport)dataImport.onclick=()=>setDisclosure(dataImport,$("#dataImportPanel"),!$("#dataImportPanel")?.classList.contains("is-open"));
-  [["#restSecRow","#restSecPanel"],["#rirModeRow","#rirModePanel"],["#progressionRow","#progressionDetails"],["#notifyConfigRow","#notifyTypes"],["#dataBackupRow","#dataBackupPanel"],["#profileRow","#profilePanel"],["#dataImportRow","#dataImportPanel"]].forEach(([b,p])=>setDisclosure($(b),$(p),false));
+  [["#restSecRow","#restSecPanel"],["#minJumpRow","#minJumpPanel"],["#rirModeRow","#rirModePanel"],["#progressionRow","#progressionDetails"],["#notifyConfigRow","#notifyTypes"],["#dataBackupRow","#dataBackupPanel"],["#profileRow","#profilePanel"],["#dataImportRow","#dataImportPanel"]].forEach(([b,p])=>setDisclosure($(b),$(p),false));
   setDisclosure($("#guideReplayToggle"),$("#guideReplayPanel"),false);
   const commitChangedSettings=()=>{settingsEditRevision++;return commitSettings(true)};
   $("#settings").addEventListener("input",()=>{settingsEditRevision++});

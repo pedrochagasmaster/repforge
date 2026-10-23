@@ -362,6 +362,34 @@ export async function measureRenderedRoles(input) {
     const kind = node.id && disabledDescriptions.has(node.id) ? "disabled-reason" : "text";
     results.push(measure(node, `${kind}:${label(node)}`, kind));
   }
+  // `boundary: "state-cues"` (contract: selected and state indicators): the selected item must differ from an
+  // unselected peer by at least two cues, at least one of them not a colour alone — a fill or indicator under it, a
+  // heavier label, or a visible check glyph — as iOS draws a selected tab, segment or day without a 3:1 outline.
+  const SELECTED = "[aria-selected='true'],[aria-checked='true'],[aria-pressed='true'],[aria-current]:not([aria-current='false']),.is-selected,.is-active,.active";
+  const underlay = (node) => {
+    const box = node.getBoundingClientRect();
+    return [...document.querySelectorAll("[data-state-indicator]")].filter(visible).find((indicator) => {
+      const r = indicator.getBoundingClientRect(), fill = color(getComputedStyle(indicator).backgroundColor);
+      const overlap = Math.max(0, Math.min(r.right, box.right) - Math.max(r.left, box.left)) * Math.max(0, Math.min(r.bottom, box.bottom) - Math.max(r.top, box.top));
+      return (fill?.[3] || 0) > 0 && overlap >= 0.8 * box.width * box.height;
+    }) || null;
+  };
+  const glyph = (node) => [...node.querySelectorAll(".icon-mask--check,[data-state-mark]")].some(visible);
+  const stateCues = (node, item) => {
+    const selector = `${item.selector}:${label(node)}`;
+    const peer = [...document.querySelectorAll(item.selector)].filter(visible).find((other) => other !== node && !other.matches(SELECTED));
+    if (!peer) return { selector, kind: "state-cues", status: "unsupported", reason: "no unselected peer to compare" };
+    const own = getComputedStyle(node), other = getComputedStyle(peer);
+    const cues = [];
+    if (own.backgroundColor !== other.backgroundColor || (underlay(node) && !underlay(peer))) cues.push("fill");
+    if (Number.parseFloat(own.fontWeight) > Number.parseFloat(other.fontWeight)) cues.push("weight");
+    if (glyph(node) && !glyph(peer)) cues.push("glyph");
+    const ink = (element) => [element, ...element.querySelectorAll("*")].filter(visible).map((child) => getComputedStyle(child).color).join("|");
+    if (own.color !== other.color || ink(node) !== ink(peer)) cues.push("colour");
+    const pass = cues.length >= 2 && cues.some((cue) => cue !== "colour");
+    return { selector, kind: "state-cues", status: pass ? "pass" : "fail", cues,
+      reason: pass ? undefined : `the selected state needs two cues, not colour alone (found: ${cues.join(", ") || "none"})` };
+  };
   for (const item of components) {
     let nodes;
     try { nodes = [...document.querySelectorAll(item.selector)].filter(visible); }
@@ -433,7 +461,8 @@ export async function measureRenderedRoles(input) {
         if (node === group.querySelector(":scope > [role=radio]") && group.querySelectorAll(':scope > [role=radio][aria-checked="true"]').length !== 1)
           results.push({ selector: `${item.selector}:${label(group)}`, kind: "boundary", status: "fail", reason: "segmented group has no single checked segment" });
       }
-      if (!disabled && (selected || invalid) && !node.matches(".toggle")) {
+      if (!disabled && selected && item.roles?.boundary === "state-cues") results.push(stateCues(node, item));
+      else if (!disabled && (selected || invalid) && !node.matches(".toggle")) {
         const marker = ["::before", "::after"].find((pseudo) => {
           const style = getComputedStyle(node, pseudo), fill = color(style.backgroundColor);
           return style.content !== "none" && style.display !== "none" && (fill?.[3] || 0) > 0;

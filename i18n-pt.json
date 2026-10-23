@@ -581,7 +581,6 @@
   "settings.beginner_program": "Usar treino iniciante",
   "settings.advanced_progression": "Controles de progressão",
   "settings.load_jump_pct": "Salto de carga %",
-  "settings.minimum_jump": "Salto mínimo (kg)",
   "settings.minimum_jump_lede": "O incremento mínimo de carga é sempre em kg, independentemente da unidade exibida.",
   "settings.target_rir_ceiling": "Teto de RIR alvo",
   "settings.hard_rir_ceiling": "Teto de RIR para série efetiva",
