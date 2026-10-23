@@ -8588,6 +8588,23 @@ function wheelKeydown(e){
   wheelSyncAria(next);
   wheelCommit(next)}
 /** Opened by a second tap on the selected Load or Reps shelf field. */
+/** Where the wheel opens on an empty field (the carried load and the suggestion already fill it): the programmed
+ *  target, then what the lift last logged in this set's place, then the bottom of the target range. Only with none
+ *  of these does a load wheel open at its own bottom. Opening writes nothing. */
+function wheelOpeningValue(target,kind,range){
+  if(!target)return NaN;
+  const set=activeWorkoutDraft?.exercises?.[target.exerciseInstanceId]?.sets?.[target.setId];
+  if(kind==="load"){
+    let programmed=set?.programmed?.suggestedLoad;
+    if(target.metricId){
+      const metric=set?.programmed?.metrics?.find(item=>item.id===target.metricId),tgt=metric?set.programmed.targets?.[metric.semantic]:null;
+      programmed=typeof tgt==="number"?tgt:tgt?.min}
+    if(programmed!=null&&+programmed>0)return parseDec(fmtLoadPlain(+programmed))}
+  else if(range)return range.min;
+  const base=prog.find(target.exerciseInstanceId),ex=base?sessionExercise(base):null;
+  const prev=ex?last(ex):[],hit=prev.find(x=>x.set===target.ordinal)||prev.at(-1);
+  const logged=hit?(kind==="load"?+hit.load:+hit.reps):NaN;
+  return logged>0?(kind==="load"?parseDec(fmtLoadPlain(logged)):logged):NaN}
 function openWheelSheet(key,id,kind){
   const sheet=$("#wheelSheet"),scrim=$("#wheelScrim"),col=$("#wheelCol");
   if(!sheet||!col)return;
@@ -8596,13 +8613,13 @@ function openWheelSheet(key,id,kind){
   const label=btn?.querySelector(".shelf__lab")?.textContent||"";
   const unit=kind==="load"?unitLabel():"";
   const step=kind==="load"?(parseDec(shelfLoadStep())||1):1;
-  // An empty field opens on its suggestion (the input's placeholder: the load the engine suggests, or the rep range,
-  // whose bottom is taken), as the prototype's wheel opens on the aim.
-  const typed=parseDec(input.value),suggested=parseDec((input.placeholder||"").match(/\d+(?:[.,]\d+)?/)?.[0]);
-  const current=Number.isFinite(typed)?typed:suggested;
-  const values=kind==="load"?wheelLoadValues(step,current):wheelRepsValues(current);
+  // The field already shows the typed value, the carried load (#440) or the suggestion; an empty one opens on the
+  // most useful value instead (wheelOpeningValue), as the prototype's wheel opens on the aim.
   const target=draftTargetFromKey(`${key}_${id}`);
   const range=kind==="reps"?wheelRepsRange(target):null;
+  const typed=parseDec(input.value);
+  const current=Number.isFinite(typed)?typed:wheelOpeningValue(target,kind,range);
+  const values=kind==="load"?wheelLoadValues(step,current):wheelRepsValues(current);
   const index=wheelNearestIndex(values,Number.isFinite(current)?current:values[0]);
   // An empty field's suggestion is what the wheel shows, so Done applies it; a typed value is already in the draft.
   wheelUi={key,id,kind,input,unit,label,values,range,index,lastCommitted:Number.isFinite(typed)?values[index]:null,openedIndex:index};

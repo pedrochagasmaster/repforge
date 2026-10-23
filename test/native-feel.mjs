@@ -44,6 +44,7 @@ import { launchChromium } from "./browser.mjs";
 import { collectCatalogEvidence, validateCatalogEvidence } from "../tools/ui-screens/catalog-contract.mjs";
 import { measureRenderedRoles } from "../tools/ui-system-rendered.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
+import { openCatalogState } from "./fixtures/catalog-state.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 
@@ -932,6 +933,32 @@ async function wheelPicker(browser) {
     assert(col.min === 1 && col.max === 30, "the reps rail runs 1 to 30", JSON.stringify(col));
     assert(col.now === Number(repsBefore.value), "it opens on the field's current reps", JSON.stringify({ col, repsBefore }));
     assert(col.target.some(Boolean), "the prescription's target range is marked on the rail", JSON.stringify(col));
+    await context.close();
+  }
+
+  phase("An emptied Load on a manual lift reopens the wheel on its last logged load, not at 0");
+  {
+    // The catalog's wheel state: a manual lift, logged last time. The lifter clears the set's load, then reopens the wheel.
+    const { context, page } = await openCatalogState(browser, "workout/wheel-load", 390, "en", "normal");
+    await page.click("#wheelKeyboard");
+    await page.waitForSelector("#wheelSheet", { state: "hidden" });
+    const typed = page.locator(`${CURRENT} .focus-shelf .shelf__field.is-editing .shelf__input`);
+    await typed.fill("");
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    // A field typed into stays open; move through Reps, then a first and second tap on Load opens the wheel.
+    await page.locator(WHEEL_REPS_SEL).click();
+    await page.locator(WHEEL_LOAD_SEL).click();
+    await page.locator(WHEEL_LOAD_SEL).click();
+    await page.waitForSelector("#wheelSheet.is-open");
+    const seen = await page.evaluate(() => {
+      const card = document.querySelector("#workout .exercise.is-current");
+      const lastLine = [...card.querySelectorAll("*")].map((el) => el.childElementCount ? "" : el.textContent).find((text) => /^last\s/.test(text.trim())) || "";
+      const input = card.querySelector(".focus-shelf .shelf__field .shelf__input");
+      return { lastLine, input: input?.value ?? null, now: Number(document.querySelector("#wheelCol").getAttribute("aria-valuenow")) };
+    });
+    const last = Number((seen.lastLine.match(/last\s+([\d.,]+)/) || [])[1]?.replace(",", "."));
+    assert(seen.input === "" && last > 0, "the set's load is empty, and the lift has a last logged load", JSON.stringify(seen));
+    assert(seen.now === last, "the wheel opens on the last logged load", JSON.stringify({ ...seen, last }));
     await context.close();
   }
 
