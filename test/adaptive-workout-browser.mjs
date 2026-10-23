@@ -147,6 +147,8 @@ async function setLoadStep(page, slotId, value) {
   await openExerciseSheet(page, slotId);
   const input = page.locator(`${SHEET} [data-role="load-step"]`);
   check(await input.inputValue() === "2.5", "the load-step field starts from the global minimum jump", await input.inputValue());
+  // The row shows the value; tapping it opens the typed field (native-feel controls).
+  if (!await input.isVisible()) await page.locator(`${SHEET} [data-role="load-step-open"]`).click();
   await input.fill(String(value));
   await input.press("Tab");
   await editorSettled(page);

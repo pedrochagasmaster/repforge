@@ -745,7 +745,19 @@ async function nativeEditorControls(browser) {
   }
   phase("Phase 4: smallest load change and alternate context actions keep the editor's commit boundary");
   await editorPage.locator('#programEditor [data-role="exercise-row"]').first().click();
-  await editorPage.waitForSelector('#reviewSheet.is-open [data-role="load-step"]');
+  await editorPage.waitForSelector('#reviewSheet.is-open [data-role="load-step-open"]');
+  const stepRow = await editorPage.evaluate(() => {
+    const open = document.querySelector('#reviewSheet [data-role="load-step-open"]'), row = open.closest('.program-editor__stepper-row');
+    const field = document.querySelector('#reviewSheet [data-role="load-step"]');
+    return { value: open.textContent.replace(/\s+/g, ' ').trim(), folded: open.getAttribute('aria-expanded') === 'false' && !field.checkVisibility(),
+      buttons: [...row.querySelectorAll('[data-step-delta]')].map(button => Math.round(button.getBoundingClientRect().height)) };
+  });
+  assert(/^2[.,]5 kg$/.test(stepRow.value) && stepRow.folded && stepRow.buttons.join() === '36,36',
+    "the editor's Smallest load change reads as the prototype's row: 2.5 kg and the − + capsule, with the typed field folded", JSON.stringify(stepRow));
+  await editorPage.locator('#reviewSheet [data-role="load-step-open"]').click();
+  const typed = await editorPage.waitForFunction(() => document.activeElement?.matches('#reviewSheet [data-role="load-step"]')
+    && document.querySelector('#reviewSheet [data-role="load-step-open"]').getAttribute('aria-expanded') === 'true', undefined, { timeout: 4000 }).then(() => true, () => false);
+  assert(typed, 'tapping the value opens the typed field, focused for typing');
   const loadStep = editorPage.locator('#reviewSheet [data-role="load-step"]');
   const beforeStep = Number((await loadStep.inputValue()).replace(',', '.'));
   const larger = editorPage.locator('#reviewSheet [data-step-input="load-step"][data-step-delta="1"]');
@@ -755,6 +767,7 @@ async function nativeEditorControls(browser) {
     await larger.click();
     await editorPage.waitForFunction(value => Number(document.querySelector('#reviewSheet [data-role="load-step"]').value.replace(',', '.')) === value, beforeStep + .5);
     assert(Number((await loadStep.inputValue()).replace(',', '.')) === beforeStep + .5, "Larger step changes the displayed value by 0.5 through the typed field");
+    assert(Number((await editorPage.locator('#reviewSheet [data-role="load-step-value"]').textContent()).replace(',', '.')) === beforeStep + .5, 'the row shows the stepped value at once');
     await larger.hover(); await editorPage.mouse.down();
     const repeated = await editorPage.waitForFunction(value => Number(document.querySelector('#reviewSheet [data-role="load-step"]').value.replace(',', '.')) >= value,
       beforeStep + 2, { timeout: 3500 }).then(() => true, () => false);

@@ -8137,6 +8137,11 @@ body.is-entry-editor #entryProgramName,
 .native-stepper__value{flex:none;margin-left:auto;min-height:var(--control-target);padding:0 var(--space-4);border:0;border-radius:var(--radius-control);background:transparent;color:var(--color-ink-secondary);font-family:var(--font-training-data);font-feature-settings:"tnum";font-size:var(--font-size-body);cursor:pointer}
 .native-stepper__value.is-pressed{background:var(--row-pressed-bg)}
 .native-stepper__unit{font-family:var(--font-language)}
+/* The editor's Smallest load change row, as in the prototype: label and hint, the value, then − +. */
+.program-editor__stepper-row{display:flex;align-items:center;gap:var(--space-12);min-height:var(--control-target)}
+.program-editor__stepper-label{flex:1;min-width:0;font-size:var(--font-size-body);color:var(--color-ink)}
+.program-editor__stepper-label small{display:block;margin-top:2px;font-size:var(--font-size-caption);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.program-editor__load-step-field{margin-top:var(--space-8)}
 /* Inside a disclosure panel the panel already holds the settings inset. */
 .settings-panel .settings-row--stepper{padding-inline:0}
 .settings-panel .settings-row--stepper::before{left:0}

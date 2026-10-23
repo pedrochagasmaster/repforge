@@ -1198,16 +1198,35 @@
     function slotLoadMetric(slot) {
       return (slot?.metricDefinitions || []).find(definition => LOAD_SEMANTICS.has(definition.semantic)) || null;
     }
+    /** The value opens the typed field under the row, and focuses it for typing. */
+    function toggleLoadStep(button) {
+      const panel = button.closest(".program-editor__load-step-row")?.querySelector(".program-editor__load-step-field");
+      if (!panel) return;
+      const open = panel.hidden;
+      panel.hidden = !open;
+      button.setAttribute("aria-expanded", String(open));
+      if (open) { openLoadSteps.add(button.dataset.slotId); panel.querySelector("input")?.focus(); }
+      else openLoadSteps.delete(button.dataset.slotId);
+    }
+    /** A step or a typed value shows at once in the row; the sheet is not redrawn for a load-step edit. */
+    function showLoadStep(input) {
+      const shown = input.closest(".program-editor__load-step-row")?.querySelector('[data-role="load-step-value"]');
+      if (shown) shown.textContent = input.value;
+    }
     function renderLoadStep(exercise, slot) {
       const loadMetric = slotLoadMetric(slot);
       if (!loadMetric || typeof adapter.defaultLoadStepKg !== "function") return "";
       const own = document.programMeta?.loadingConfiguration?.byExerciseId?.[slot.exerciseId]?.loadStepKg;
       const value = Number.isFinite(own) ? own : adapter.defaultLoadStepKg();
       const unit = metricDisplayUnit(adapter, loadMetric);
-      return `<div class="native-stepper"><label class="program-editor__metric-field program-editor__load-step"><span>${esc(label("loadStep"))}${unit ? ` <small>${esc(unit)}</small>` : ""}</span>` +
-        `<input type="text" inputmode="decimal" autocomplete="off" data-role="load-step" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}" data-step-size="0.5" data-step-min="0.5" data-step-max="10" value="${esc(formatMetricValue(adapter, loadMetric, value))}"></label>` +
-        `<span class="native-stepper__buttons"><button type="button" data-step-input="load-step" data-step-delta="-1" aria-label="${esc(t(adapter,"program.editor.step_smaller"))}"><span class="icon-mask icon-mask--minus" aria-hidden="true"></span></button><button type="button" data-step-input="load-step" data-step-delta="1" aria-label="${esc(t(adapter,"program.editor.step_larger"))}"><span class="icon-mask icon-mask--plus" aria-hidden="true"></span></button></span><output class="visually-hidden" aria-live="polite"></output></div>` +
-        `<p class="program-editor__hint">${esc(label("loadStepHint"))}</p>`;
+      // As in the prototype the row reads "Smallest load change  2.5 kg  [− +]"; the value opens the typed field.
+      const key = cssEscape(slot.id), open = openLoadSteps.has(slot.id), shown = formatMetricValue(adapter, loadMetric, value);
+      return `<div class="native-stepper native-stepper--row program-editor__load-step-row">` +
+        `<div class="program-editor__stepper-row"><span class="program-editor__stepper-label" id="lsl-${esc(key)}">${esc(label("loadStep"))}<small>${esc(label("loadStepHint"))}</small></span>` +
+        `<button type="button" class="native-stepper__value" data-role="load-step-open" data-slot-id="${esc(slot.id)}" aria-expanded="${open}" aria-controls="lsp-${esc(key)}" aria-labelledby="lsl-${esc(key)} lsv-${esc(key)}"><span id="lsv-${esc(key)}" data-role="load-step-value" aria-live="polite">${esc(shown)}</span>${unit ? ` <span class="native-stepper__unit">${esc(unit)}</span>` : ""}</button>` +
+        `<span class="native-stepper__buttons"><button type="button" data-step-input="load-step" data-step-delta="-1" aria-label="${esc(t(adapter,"program.editor.step_smaller"))}"><span class="icon-mask icon-mask--minus" aria-hidden="true"></span></button><button type="button" data-step-input="load-step" data-step-delta="1" aria-label="${esc(t(adapter,"program.editor.step_larger"))}"><span class="icon-mask icon-mask--plus" aria-hidden="true"></span></button></span></div>` +
+        `<div id="lsp-${esc(key)}" class="program-editor__load-step-field"${open ? "" : " hidden"}><label class="program-editor__metric-field program-editor__load-step"><span>${esc(label("loadStep"))}${unit ? ` <small>${esc(unit)}</small>` : ""}</span>` +
+        `<input type="text" inputmode="decimal" autocomplete="off" data-role="load-step" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}" data-step-size="0.5" data-step-min="0.5" data-step-max="10" value="${esc(shown)}"></label></div></div>`;
     }
 
     function editLoadStep(input) {
@@ -1718,7 +1737,8 @@
       });
       host.querySelectorAll('[data-role="metric-target"]').forEach(input => input.addEventListener("change", () => editMetricTarget(input)));
       host.querySelectorAll('[data-role="prescription-field"]').forEach(input => input.addEventListener("change", () => editPrescriptionField(input)));
-      host.querySelectorAll('[data-role="load-step"]').forEach(input => input.addEventListener("change", () => editLoadStep(input)));
+      host.querySelectorAll('[data-role="load-step"]').forEach(input => input.addEventListener("change", () => { showLoadStep(input); editLoadStep(input); }));
+      host.querySelectorAll('[data-role="load-step-open"]').forEach(button => button.addEventListener("click", () => toggleLoadStep(button)));
       host.querySelectorAll('[data-role="suggest-loads"]').forEach(button => button.addEventListener("click", () => toggleSuggestLoads(button)));
       host.querySelectorAll('[data-role="suggest-loads-rir"]').forEach(input => input.addEventListener("change", () => editSuggestLoadsRir(input)));
       host.querySelectorAll('[data-role="execution-mode"]').forEach(button => button.addEventListener("click", () => editExecutionMode(button)));
@@ -2013,6 +2033,8 @@
        see for the classic layout.
        ============================================================ */
     const view = { tab: null, sheet: null, reorderDay: null };
+    /** Slots whose typed load-step field is open; it stays open across redraws. */
+    const openLoadSteps = new Set();
     let undoStack = [];
     let heldRename = null; // a typed name that Back set aside while the host asks about leaving
     let busy = 0;
@@ -2985,6 +3007,7 @@
       const hit = selector => target?.closest(selector);
       let el;
       if ((el = hit('[data-row-menu]'))) { rowContext(el.closest("[data-context-row]"), el); return; }
+      if ((el = hit('[data-role="load-step-open"]'))) { toggleLoadStep(el); return; }
       if (hit('[data-role="sheet-done"]')) { closeSheetView(); return; }
       if (sheet.kind === "rename") { if (hit('[data-role="rename-save"]')) saveRename(); return; }
       if (sheet.kind === "days") {
@@ -3096,7 +3119,7 @@
       if (!input) return;
       const role = input.dataset.role;
       if (role === "metric-target" || role === "prescription-field") { editCell(input); return; }
-      if (role === "load-step") { recorded(() => editLoadStep(input), { redrawSheet: false }); return; }
+      if (role === "load-step") { showLoadStep(input); recorded(() => editLoadStep(input), { redrawSheet: false }); return; }
       if (role === "metric-composition") { recorded(() => editMetricComposition(input)); return; }
       if (role === "exercise-field") {
         const field = input.dataset.field, text = String(input.value || "");

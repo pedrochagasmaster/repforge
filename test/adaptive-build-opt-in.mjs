@@ -191,6 +191,8 @@ try {
 
   // Load step, carried from the earlier staged slice of this packet.
   const loadStep = section.locator('[data-role="load-step"]');
+  // The row shows the value; tapping it opens the typed field (native-feel controls).
+  if (!await loadStep.isVisible()) await section.locator('[data-role="load-step-open"]').click();
   await loadStep.fill("1.25");
   await loadStep.press("Tab");
   await page.waitForFunction(({ id, key }) =>
