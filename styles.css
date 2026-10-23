@@ -725,6 +725,12 @@ input:not(:where([type=checkbox],[type=radio])):focus-visible,select:focus-visib
    stop. Keep those focus changes visual-free; regular keyboard stops retain rings. */
 [tabindex="-1"]:focus,[tabindex="-1"]:focus-visible{outline:none}
 [data-quiet-focus][data-quiet-focus]:focus-visible{outline:none}
+[data-quiet-focus]:is(input,select,textarea):focus{box-shadow:none}
+/* iOS gives a date or time field an intrinsic width wider than a phone's column, and collapses its value
+   element once the field is restyled; both hold here. */
+input:is([type=date],[type=time]){min-width:0;max-width:100%;box-sizing:border-box}
+.sheetfield__input:is([type=date],[type=time]){-webkit-appearance:none;appearance:none}
+input:is([type=date],[type=time])::-webkit-date-and-time-value{min-height:1.5em;margin:0;text-align:left}
 
 /* ---- Toggle (iOS-style) ----
    The switch is a 51x31 track with a 27px knob, but the button that carries it
@@ -2323,13 +2329,13 @@ textarea.sheetfield__input{
 }
 .session-map__status.is-skipped{font-family:var(--font-language)}
 .session-map__reorder{display:flex;align-items:center;gap:var(--space-8);flex:none}
-.session-map__reorder-btn{width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);padding:0;display:inline-flex;align-items:center;justify-content:center;background:var(--control-secondary-bg);border:1px solid var(--control-secondary-boundary);color:var(--control-secondary-ink);border-radius:var(--radius-control);cursor:pointer}
+.session-map__reorder-btn{width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);padding:0;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:1px solid transparent;color:var(--control-secondary-ink);border-radius:var(--radius-control);cursor:pointer}
 @media (hover: hover) and (pointer: fine){
-.session-map__reorder-btn:hover:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary)}
+.session-map__reorder-btn:hover:not(:disabled){background:var(--row-pressed-bg);color:var(--control-secondary-ink)}
 }
-.session-map__reorder-btn.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary);transform:var(--control-pressed-transform)}
+.session-map__reorder-btn.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-secondary-ink);transform:none}
 .session-map__reorder-btn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-.session-map__reorder-btn:disabled{background:var(--control-secondary-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
+.session-map__reorder-btn:disabled{background:transparent;color:var(--color-disabled-reason);border-color:transparent;opacity:1;cursor:not-allowed;transform:none}
 .session-sheet__meta{display:grid;gap:var(--space-12);margin-top:var(--space-18)}
 /* Early finish lives in the foot, in thumb reach. Choosing it opens the confirmation there, and the
    omitted-sets list stays whole (it scrolls inside its own box when a long day outgrows the sheet). */

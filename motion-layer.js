@@ -1621,6 +1621,13 @@
     modality = "keyboard"; clearQuiet();
   }, true);
   for (const type of ["pointerdown", "touchstart"]) document.addEventListener(type, () => { modality = "pointer"; }, { capture: true, passive: true });
+  // A field a finger or a click lands in is quiet too: the keyboard's ring is not a tap's cue (iOS draws it).
+  document.addEventListener("focusin", event => {
+    const node = event.target;
+    if (modality === "keyboard" || !(node instanceof Element) || !node.matches("input,select,textarea") || node.hasAttribute("data-quiet-focus")) return;
+    node.setAttribute("data-quiet-focus", "");
+    node.addEventListener("blur", () => node.removeAttribute("data-quiet-focus"), { once: true });
+  }, true);
   function focusQuietly(node) {
     if (!node?.focus) return;
     const quiet = modality !== "keyboard";

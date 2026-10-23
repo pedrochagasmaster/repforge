@@ -713,6 +713,28 @@ async function nativeControls(browser) {
     await page.click('#sessionAbandon'); await page.click('#sessionAbandonCancel');
     assert(await page.locator('#sessionSheet').isVisible() && await page.locator('#sessionAbandon').evaluate(el => el === document.activeElement),
       "an action-sheet End dismissed another way leaves the session sheet's own Cancel in the sheet");
+    phase("Session details: the date fits the sheet and shows its value, a tap leaves no ring, and reorder is borderless");
+    for (const width of [375, 390]) {
+      await page.setViewportSize({ width, height: 844 });
+      const fit = await page.locator('#sessionDate').evaluate(input => {
+        const body = input.closest('.sheetfield').parentElement, box = body.getBoundingClientRect(), style = getComputedStyle(body);
+        return { right: input.getBoundingClientRect().right, limit: box.right - parseFloat(style.paddingRight), value: input.value };
+      });
+      assert(fit.right <= fit.limit + 0.5 && fit.value !== '', `at ${width}px the date field ends inside the sheet's content and holds the session's date`, JSON.stringify(fit));
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator('#sessionDate').scrollIntoViewIfNeeded();
+    await page.locator('#sessionDate').click({ position: { x: 8, y: 8 } });
+    const ringOf = () => page.locator('#sessionDate').evaluate(input => { const style = getComputedStyle(input);
+      return { focused: input === document.activeElement, outline: style.outlineStyle !== 'none' && style.outlineWidth !== '0px', halo: style.boxShadow !== 'none', quiet: input.hasAttribute('data-quiet-focus') }; });
+    const tapped = await ringOf();
+    assert(tapped.focused && !tapped.outline && !tapped.halo && tapped.quiet, 'a tap on the date field focuses it with no ring', JSON.stringify(tapped));
+    await page.keyboard.press('ArrowUp');
+    const keyed = await ringOf();
+    assert(keyed.focused && keyed.outline && !keyed.quiet, 'the first key press gives it the keyboard ring', JSON.stringify(keyed));
+    const reorder = await page.locator('#sessionSheet .session-map__reorder-btn').first().evaluate(button => { const style = getComputedStyle(button);
+      return { border: parseFloat(style.borderTopWidth) === 0 || style.borderTopColor === 'rgba(0, 0, 0, 0)', fill: style.backgroundColor, icon: !!button.querySelector('.icon-mask, svg, [class*="chev"]') }; });
+    assert(reorder.border && reorder.fill === 'rgba(0, 0, 0, 0)' && reorder.icon, 'the session map reorders with borderless icon buttons, as the kit draws them', JSON.stringify(reorder));
     await page.click('#sessionSheetClose'); await page.waitForSelector('#sessionSheet', { state: 'hidden' });
     await page.click('#woOverflowBtn'); await page.click('[data-workout-action="abandon"]');
     await page.click('#sessionAbandonConfirm');
