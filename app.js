@@ -6925,8 +6925,8 @@ function dayPickRowHtml(d,i){
     ` aria-label="${esc(aria)}"${isToday?' aria-current="true"':""}>`+
     `<span class="daypick__n" aria-hidden="true">${esc(String(i+1))}</span>`+
     `<span class="daypick__main"><span class="daypick__line"><span class="daypick__title">${esc(title)}</span>`+
-    (isToday?`<span class="daypick__chip">${esc(chip)}</span>`:"")+
-    `</span><span class="daypick__sub">${esc(sub)}</span></span>`+
+    // As in the prototype, today's day says so in its subtitle; the trailing place is the check's.
+    `</span><span class="daypick__sub">${esc(sub)}${isToday?` · <span class="daypick__chip">${esc(chip)}</span>`:""}</span></span>`+
     `<span class="icon-mask icon-mask--check daypick__check" aria-hidden="true"></span>`+
     `</button>`}
 function renderDayPickList(){const list=$("#dayPickList");if(!list)return;
