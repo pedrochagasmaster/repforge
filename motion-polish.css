@@ -336,6 +336,9 @@ nav button{transition-duration:.2s,var(--press-release-duration);transition-timi
 .is-push-over{top:0;bottom:0;z-index:2;background:var(--bg)}
 /* A page pulled back by the edge swipe stays in flow; it still rides above the page held beneath it. */
 .view.is-edge-swiping{position:relative;z-index:2;background:var(--bg)}
+/* The page sits below <main>'s top padding. While it moves, its box reaches up through that padding in the page's
+   own colour, so its content keeps its place and no strip of the page beneath shows above it (owner, iPhone). */
+main>.view.is-edge-swiping{margin-top:calc(-12px - env(safe-area-inset-top));border-top:calc(12px + env(safe-area-inset-top)) solid var(--bg)}
 /* B's one-question entry pages share the onboarding scroll surface. Grid them
    in one row so the old, inert page can sit beneath an incoming page or behind
    a page being carried out without making duplicate IDs live. */

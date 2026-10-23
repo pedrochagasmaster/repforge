@@ -1075,6 +1075,18 @@
      right of it (Auto, below). The visible back control stays the primary
      route everywhere. */
   const EDGE_ZONE = 24;
+  /* In the Home Screen app a thumb that starts "at the edge" lands several pixels in: the start zone there is
+     wider than the browser's own edge zone in a tab (owner, iPhone, 2026-10-23). */
+  const EDGE_ZONE_STANDALONE = 32;
+  /* When a released back swipe goes through (iOS-like): past this share of the width, or at this release speed,
+     or when it would coast past halfway (within EDGE_PROJECT_MS, or on its projected momentum). A clear reversal
+     always goes home. */
+  const EDGE_COMMIT_SHARE = 0.35;
+  const EDGE_COMMIT_VELOCITY = 0.3;
+  const EDGE_PROJECT_MS = 150;
+  const EDGE_REVERSE_VELOCITY = -0.1;
+  /* Release velocity is read over the last stretch of the drag, not its last two samples. */
+  const EDGE_VELOCITY_WINDOW_MS = 80;
   const EDGE_LOCK = 10;
   const EDGE_STALE_MS = 100;
   let edgeTarget = null;
@@ -1141,7 +1153,7 @@
     if (!target || edgeGesture) return;
     if (event.pointerType === "mouse") return;
     const fullWidth = !standaloneDisplay();
-    if (fullWidth ? !(event.clientX > EDGE_ZONE) : !(event.clientX <= EDGE_ZONE)) return;
+    if (fullWidth ? !(event.clientX > EDGE_ZONE) : !(event.clientX <= EDGE_ZONE_STANDALONE)) return;
     if (focusActive() || edgeBlockedByOverlay()) return;
     const { page } = target;
     if (!page.isConnected || page.hidden) return;
@@ -1151,6 +1163,7 @@
     edgeGesture = {
       id: event.pointerId, page, target, x: event.clientX, y: event.clientY, dx: 0, live: false,
       velocity: 0, lastX: event.clientX, lastT: event.timeStamp || performance.now(), motion: null,
+      samples: [{ x: event.clientX, t: event.timeStamp || performance.now() }],
     };
   }
   function edgePointerMove(event) {
@@ -1173,9 +1186,11 @@
       if (!gesture.motion) { edgeGesture = null; return; }
     }
     const now = event.timeStamp || performance.now();
-    const dt = now - gesture.lastT;
-    if (dt > 0) {
-      gesture.velocity = (event.clientX - gesture.lastX) / dt;
+    if (now > gesture.lastT) {
+      gesture.samples.push({ x: event.clientX, t: now });
+      while (gesture.samples.length > 2 && now - gesture.samples[0].t > EDGE_VELOCITY_WINDOW_MS) gesture.samples.shift();
+      const first = gesture.samples[0];
+      gesture.velocity = now > first.t ? (event.clientX - first.x) / (now - first.t) : 0;
       gesture.lastX = event.clientX;
       gesture.lastT = now;
     }
@@ -1200,13 +1215,12 @@
     // last sample is how fast it was going, not how fast it left.
     const stalled = (event?.timeStamp || performance.now()) - gesture.lastT > EDGE_STALE_MS;
     const velocity = released && !stalled ? gesture.velocity : 0;
-    const projected = released ? projectMomentum(motion.current(), velocity) : 0;
-    const choice = nearestSnap(projected, [
-      { position: 0, commit: false },
-      { position: motion.width, commit: true },
-    ]);
+    const at = motion.current(), width = motion.width;
+    const commit = released && velocity > EDGE_REVERSE_VELOCITY && (
+      at >= width * EDGE_COMMIT_SHARE || velocity >= EDGE_COMMIT_VELOCITY
+      || Math.max(at + velocity * EDGE_PROJECT_MS, projectMomentum(at, velocity)) >= width / 2);
     edgeRun = motion;
-    if (released && choice?.commit) {
+    if (commit) {
       motion.commit({ velocity }).then(arrived => {
         if (!arrived || edgeRun !== motion) return;
         edgeRun = null;

@@ -1149,6 +1149,92 @@ async function autoSwipe(browser) {
   await context.close();
 }
 
+/**
+ * The back swipe in the Home Screen app (owner, iPhone, 2026-10-23): it starts within 32px of the edge, one page
+ * shows beneath it, the moving page keeps its top, and a release goes through as iOS's does: past 35% of the width,
+ * at 0.3px/ms or faster, or coasting past halfway; only a slow, short drag goes home.
+ */
+async function standaloneSwipe(browser) {
+  const open = async () => {
+    const { context, page, touch } = await todayPage(browser);
+    await page.evaluate(() => {
+      const native = window.matchMedia.bind(window);
+      window.matchMedia = (query) => /display-mode:\s*standalone/.test(query)
+        ? { matches: true, media: query, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }
+        : native(query);
+    });
+    await page.evaluate(() => openExerciseView(state.program[0].id));
+    await page.waitForFunction(() => document.body.classList.contains("is-exercise") && !document.body.classList.contains("is-pushing"));
+    return { context, page, touch };
+  };
+  const frame = (page) => page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve())));
+  const pageX = (page) => page.evaluate(() => {
+    const t = getComputedStyle(document.querySelector("#exercise")).transform;
+    return t === "none" ? 0 : new DOMMatrixReadOnly(t).m41;
+  });
+  /** Drag from `from` through `xs`, a frame apart; `hold` ms still before lifting. Returns whether the page popped. */
+  const swipe = async (page, touch, from, xs, { hold = 0 } = {}) => {
+    const y = 520;
+    await touch("touchStart", [{ x: from, y }]);
+    for (const x of xs) { await touch("touchMove", [{ x, y }]); await frame(page); }
+    if (hold) await page.evaluate((ms) => new Promise((resolve) => setTimeout(resolve, ms)), hold);
+    await touch("touchEnd");
+    return page.waitForFunction(() => !document.body.classList.contains("is-exercise"), undefined, { timeout: 1500 }).then(() => true, () => false);
+  };
+  const steps = (from, to, n) => Array.from({ length: n }, (_, i) => Math.round(from + ((to - from) * (i + 1)) / n));
+
+  phase("In the Home Screen app a swipe that starts 28px in from the edge is the back swipe");
+  {
+    const { context, page, touch } = await open();
+    const headTop = await page.evaluate(() => document.querySelector("#exercise").firstElementChild.getBoundingClientRect().top);
+    await touch("touchStart", [{ x: 28, y: 520 }]);
+    for (const x of [44, 70, 110, 150]) { await touch("touchMove", [{ x, y: 520 }]); await frame(page); }
+    const mid = await page.evaluate(() => {
+      const ex = document.querySelector("#exercise");
+      const visible = [...document.querySelectorAll(".view")].filter((v) => v !== ex && getComputedStyle(v).display !== "none");
+      return { swiping: ex.classList.contains("is-edge-swiping"), underlays: visible.map((v) => v.id || v.className),
+        boxTop: ex.getBoundingClientRect().top, headTop: ex.firstElementChild.getBoundingClientRect().top };
+    });
+    const moved = await pageX(page);
+    assert(mid.swiping && moved > 60, "a start 28px in from the edge is captured and carries the page", JSON.stringify({ mid, moved }));
+    assert(mid.underlays.length === 1, "exactly one page shows beneath the swipe", JSON.stringify(mid));
+    assert(mid.boxTop <= 0.5 && Math.abs(mid.headTop - headTop) <= 0.5,
+      "the moving page keeps its top: its box reaches the top of the screen and its content does not move", JSON.stringify({ mid, headTop }));
+    await touch("touchEnd");
+    await context.close();
+  }
+
+  phase("A release at 45% that has slowed to a stop goes through");
+  {
+    const { context, page, touch } = await open();
+    const popped = await swipe(page, touch, 10, steps(10, 176, 10), { hold: 160 });
+    assert(popped, "45% of the width is past the commit share");
+    await context.close();
+  }
+
+  phase("A quick release at 25% goes through");
+  {
+    const { context, page, touch } = await open();
+    // About 8px a frame: roughly 0.5px/ms at release.
+    const popped = await swipe(page, touch, 10, steps(10, 98, 11));
+    assert(popped, "a release at 0.3px/ms or faster goes through short of the commit share");
+    await context.close();
+  }
+
+  phase("A slow, short drag goes home");
+  {
+    const { context, page, touch } = await open();
+    const popped = await swipe(page, touch, 10, steps(10, 88, 10), { hold: 160 });
+    assert(!popped, "a still release at 20% goes home");
+    const home = await page.waitForFunction(() => {
+      const t = getComputedStyle(document.querySelector("#exercise")).transform;
+      return t === "none" || new DOMMatrixReadOnly(t).m41 === 0;
+    }, undefined, { timeout: 2000 }).then(() => true, () => false);
+    assert(home, "and the page settles back in place");
+    await context.close();
+  }
+}
+
 /** Under reduced motion a push cross-fades the arriving page over about 170ms, with no travel (choice 11). */
 async function reducedMotionPush(browser) {
   phase("under reduced motion a push cross-fades in place");
@@ -1625,6 +1711,7 @@ try {
   await wheelPicker(browser);
   await routeHistory(browser);
   await autoSwipe(browser);
+  await standaloneSwipe(browser);
   await reducedMotionPush(browser);
   await editorSheetTab(browser);
   await navigationBars(browser);
