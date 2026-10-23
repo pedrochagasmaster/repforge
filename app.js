@@ -1122,10 +1122,16 @@ function syncEdgeSwipe(){
   const unmount=()=>{
     if(!beneath)return;
     beneath.classList.remove("is-push-under");beneath.style.removeProperty("--push-top");
-    beneath.inert=false;beneath.removeAttribute("aria-hidden");beneath=null};
+    // History's list under its session page is a still copy: it leaves the page with the swipe.
+    if(beneath===historyListCopy)beneath.remove();
+    else{beneath.inert=false;beneath.removeAttribute("aria-hidden")}
+    beneath=null};
   const watch=new MutationObserver(()=>{
     const pulling=page.classList.contains("is-edge-swiping");
-    if(pulling&&!beneath){
+    if(pulling&&!beneath&&page.id==="history"&&historyListCopy){
+      beneath=historyListCopy;beneath.classList.remove("active");beneath.inert=true;beneath.setAttribute("aria-hidden","true");
+      beneath.style.setProperty("--push-top","0px");beneath.classList.add("is-push-under");page.after(beneath)}
+    else if(pulling&&!beneath){
       const under=page.id==="history"?null:routeViewEl(routeUnderView||"log");
       if(under&&under!==page&&!under.classList.contains("active")){
         beneath=under;under.style.setProperty("--push-top","0px");
@@ -1181,7 +1187,7 @@ document.addEventListener("touchstart",e=>{if(e.touches[0]?.clientX<SAFARI_EDGE)
    page to keep mounted. A still copy of the surface as it was, taken as the lifter
    presses the control that changes it, stands in: under the session page as it
    pushes in, and as the page that rides out on Back. */
-let historySnap=null,historySessionOpen=false;
+let historySnap=null,historySessionOpen=false,historyListCopy=null;
 document.addEventListener("click",event=>{
   const target=event.target instanceof Element?event.target:null;
   const view=$("#history");
@@ -1204,6 +1210,8 @@ function watchRouteSurfaces(){
       if(open===historySessionOpen)return;
       historySessionOpen=open;
       const snap=historySnap;historySnap=null;
+      // The list as it was, kept while a session page is open: the page a back swipe reveals beneath it (ADR 0023).
+      historyListCopy=open&&snap&&!snap.session?snap.copy.cloneNode(true):null;
       if(!snap||snap.session===open||performance.now()-snap.at>1500)return;
       routePushBegin(open?"in":"out",{pushed:history,ghost:snap.copy,offset:-Math.round(snap.scroll)})?.()
     }).observe(history,{attributes:true,attributeFilter:["class"]})}

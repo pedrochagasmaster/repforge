@@ -54,6 +54,8 @@
   --scrim:rgba(27,26,23,.42);
   /* How much of --scrim dims the page under a push: about a tenth in either theme (ADR 0023). */
   --push-dim:.24;
+  /* The soft edge a pushed page casts on the page under it while it moves, one value in both themes as in the prototype (ADR 0023). */
+  --push-edge-shadow:-10px 0 30px rgba(0,0,0,.12);
   /* Plan 058 semantic scales. Consumers migrate by role in P4–P6. */
   --font-language:"Plex Sans",system-ui,-apple-system,Segoe UI,sans-serif;
   --font-training-data:"Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;

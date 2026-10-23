@@ -1298,6 +1298,44 @@ async function navigationBars(browser) {
     assert(back, "re-tapping History from its session page returns to the list");
     await context.close();
   }
+
+  phase("A back swipe on a History session page shows the list beneath it");
+  {
+    const { context, page, touch } = await todayPage(browser);
+    const state = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) || "null"), BAR_KEY);
+    const log = [metricLogRow(state.programMeta, state.program[0], { session: "nf-swipe", date: "2026-03-03", set: 1, load: 80, reps: 8, rir: 1 })];
+    await persistLog(page, log);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await page.click('nav button[data-view="history"]');
+    await page.waitForSelector("#sessions [data-sess] .session__open");
+    await page.click("#sessions [data-sess] .session__open");
+    await page.waitForFunction(() => document.querySelector("#history")?.classList.contains("is-session-page") && !document.body.classList.contains("is-pushing"));
+    // One logged set makes a short session page: start the drag on it, not below it.
+    const y = await page.evaluate(() => { const r = document.querySelector("#history").getBoundingClientRect(); return Math.round(Math.min(r.bottom - 40, 400)); });
+    await touch("touchStart", [{ x: 120, y }]);
+    for (const x of [140, 170, 210, 250]) await touch("touchMove", [{ x, y }]);
+    const mid = await page.waitForFunction(() => {
+      // The copy keeps the root id its #history styles need, as the push ghost does; the live page comes first.
+      const under = document.querySelector(".is-push-under");
+      if (!under) return null;
+      // The page beneath is inert and ignores pointers; let hit-testing see it for one read of which paints on top.
+      const inert = under.inert;
+      under.inert = false; under.style.pointerEvents = "auto";
+      const top = document.elementFromPoint(250, 200);
+      under.inert = inert; under.style.removeProperty("pointer-events");
+      return {
+        list: !!under.querySelector(".session__open"), live: under === document.getElementById("history"), active: under.classList.contains("active"),
+        hidden: under.inert && under.getAttribute("aria-hidden") === "true", pageOnTop: !!top && !under.contains(top) && document.getElementById("history").contains(top),
+      };
+    }, undefined, { timeout: 2000 }).then((h) => h.jsonValue(), () => null);
+    assert(mid && mid.list && !mid.live && !mid.active && mid.hidden, "the History list is beneath the session page, inert", JSON.stringify(mid));
+    assert(mid && mid.pageOnTop, "the session page being swiped paints above the list beneath it", JSON.stringify(mid));
+    await touch("touchEnd");
+    const gone = await page.waitForFunction(() => !document.querySelector(".is-push-under"), undefined, { timeout: 3000 }).then(() => true, () => false);
+    assert(gone, "the list copy leaves with the swipe");
+    await context.close();
+  }
 }
 
 const browser = await launchChromium();

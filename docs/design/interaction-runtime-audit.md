@@ -386,7 +386,8 @@ Focus) and the interactive edge swipe back, built only on the R1c vocabulary:
 `RepForgeMotion.animatePush` (the `navPush` spring), `registerEdgeSwipeBack`
 and the stylesheet classes `is-push-under` / `is-push-over` in `motion-polish.css`.
 The top-level view fade (N2, 140 ms) is untouched and still serves the dock.
-No spring literal exists at a call site. Transform only: no opacity, no new elevation.
+No spring literal exists at a call site. Transform only, no opacity; the one elevation is the
+soft edge shadow the moving page casts on the page beneath (`--push-edge-shadow`, Plan 075 phase 3).
 
 A push keeps both pages mounted for its whole run. The page that moves rides above
 (`is-push-over`) and the other is held still beneath it (`is-push-under`); both are
