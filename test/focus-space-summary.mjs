@@ -31,14 +31,16 @@
 import { launchChromium, openShelfField } from "./browser.mjs";
 import { SAFE_AREA, openCatalogState } from "./fixtures/catalog-state.mjs";
 
-/** The phones layout D is measured on, and the context window the proposal's D mock reached on each (±4 px). */
+/** The phones layout D is measured on, and the context window the proposal's D mock reached on each (±4 px), less the
+ *  shelf addendum's cost (owner, 2026-10-23): its 16 px top inset and 12 px row gaps take 16 px, 17 with the per-side
+ *  caption (direction-d-implementation-spec.md §4.2). */
 const D_PHONES = {
   "390x844": { width: 390, height: 844, safe: SAFE_AREA },
   "375x667": { width: 375, height: 667, safe: { top: 20, bottom: 0 } },
 };
 const D_WINDOW = {
-  "workout/rest-running": { "390x844": 462, "375x667": 343 },
-  "workout/focus-per-side": { "390x844": 450, "375x667": 323 },
+  "workout/rest-running": { "390x844": 462 - 16, "375x667": 343 - 16 },
+  "workout/focus-per-side": { "390x844": 450 - 17, "375x667": 323 - 17 },
 };
 import { exerciseAction, finishEarly, selectExercise } from "./fixtures/focus-workout.mjs";
 
@@ -259,7 +261,7 @@ try {
       await noGuide(page);
       const d = await page.evaluate(dLayout);
       const label = `${key} ${phone}`;
-      check(d.window >= D_WINDOW[key][phone] - 4, `${label}: the context window is at least the D mock's ${D_WINDOW[key][phone]} px`, d);
+      check(d.window >= D_WINDOW[key][phone] - 4, `${label}: the context window is at least the D minimum's ${D_WINDOW[key][phone]} px`, d);
       check(d.title === NAMES[key], `${label}: the header names the exercise`, d.title);
       check(!d.thumb && !d.rowName && /reps/.test(d.meta), `${label}: the exercise row keeps only its meta line`, d);
       // A per-side label wraps to two lines, so its fields grow past 56 px together; the others are exactly 56 px.

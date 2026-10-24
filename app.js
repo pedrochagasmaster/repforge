@@ -9229,6 +9229,7 @@ let focusFloorWatch=null,focusFloorWatched=[];
 function syncFocusFloor(){
   const card=focusCard(),shell=$("#workoutShell"),shelf=card?.querySelector(".focus-shelf"),head=shell?.querySelector(".wo-head");
   if(!card||!shell||!shelf||!head)return;
+  syncTextScale(card);
   const tall=el=>el&&el.getClientRects().length?el.getBoundingClientRect().height:0;
   const context=card.querySelector(".fcard__context");
   const least=context?getComputedStyle(context):null;
@@ -9248,10 +9249,14 @@ function syncFocusFloor(){
   focusFloorWatch.disconnect();
   watched.forEach(el=>focusFloorWatch.observe(el));
   focusFloorWatched=watched}
+/** The card's large-text state follows the root size, read live: a text-size change while Focus is open restyles it
+ *  on the next floor sync (the header's ResizeObserver), not only on the next full render. */
+function syncTextScale(card){
+  const rootFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
+  card?.classList.toggle("is-text-scaled",Number.isFinite(rootFontSize)&&rootFontSize>16.1)}
 function sizeFocusCard(card){
   if(!card)return;
-  const rootFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
-  card.classList.toggle("is-text-scaled",Number.isFinite(rootFontSize)&&rootFontSize>16.1);
+  syncTextScale(card);
   // The context region scrolls as one: keep the row being worked on in view. At the first set nothing has been
   // logged and the shelf already shows the set, so the card opens at its top with the exercise's prescription; later
   // the row scrolls into view, but never past a rest that is running or has just ended, which sits above it.
