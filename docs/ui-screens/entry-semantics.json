@@ -141986,11 +141986,6 @@
         {
           "tag": "span",
           "text": "6 days"
-        },
-        {
-          "tag": "p",
-          "text": "With 3 days, each session trains the whole body.",
-          "aria-live": "polite"
         }
       ]
     },
@@ -142101,11 +142096,6 @@
         {
           "tag": "span",
           "text": "6 days"
-        },
-        {
-          "tag": "p",
-          "text": "With 3 days, each session trains the whole body.",
-          "aria-live": "polite"
         }
       ]
     },
@@ -142216,11 +142206,6 @@
         {
           "tag": "span",
           "text": "6 dias"
-        },
-        {
-          "tag": "p",
-          "text": "Com 3 dias, cada sessão trabalha o corpo todo.",
-          "aria-live": "polite"
         }
       ]
     },
