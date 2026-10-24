@@ -8,7 +8,8 @@
  *
  *   - the session's name appears once, in the card, and nothing floats above the
  *     dock: no "Session in progress" band, no session label and day heading, no
- *     floating Continue;
+ *     floating Continue; the card leads straight into the rows, with no verdict
+ *     tally, prescription heading or column heads;
  *   - the card says where the lifter is and how many sets are done, and its bar
  *     matches the share;
  *   - each row's leading mark and subtitle say how that lift stands: done, partial,
@@ -144,6 +145,10 @@ const reading = (page) => page.evaluate(() => {
     label: shown(document.querySelector("#todaySessionLabel")),
     heading: shown(document.querySelector("#todaySession .today-session__name--day")),
     band: !!document.querySelector(".today-resume__band"),
+    tally: shown(document.querySelector("#todaySession .today-tally")),
+    rxHead: shown(document.querySelector("#todaySession .today-rx__head")),
+    cols: shown(document.querySelector("#todaySession .today-rx__cols")),
+    figures: [...document.querySelectorAll("#todayExList .rxrow")].map((row) => [row.querySelector(".rxrow__load")?.textContent || "", row.querySelector(".rxrow__target")?.textContent || ""]),
     dotAnimation: dot?.animationName || "", dotDisplay: dot?.display || "",
     rows,
   };
@@ -155,8 +160,9 @@ try {
   {
     const { context, page, errors } = await freshPage(browser);
     const r = await reading(page);
-    assert(!r.card && r.start && r.startText === "Start workout" && r.label && r.heading,
-      "Start, the session label and the day heading, and no live card", JSON.stringify({ card: r.card, start: r.start, label: r.label, heading: r.heading }));
+    assert(!r.card && r.start && r.startText === "Start workout" && r.label && r.heading && r.rxHead && r.cols,
+      "Start, the session label, the day heading and the prescription head, and no live card",
+      JSON.stringify({ card: r.card, start: r.start, label: r.label, heading: r.heading, head: r.rxHead, cols: r.cols }));
     assert(r.rows.length > 4 && r.rows.every((row) => row.mark !== "rxstat--done" && !row.current),
       "the rows carry their verdicts, with no session marks", JSON.stringify(r.rows));
     assert(errors.length === 0, "no page errors", errors.join(" | "));
@@ -176,6 +182,9 @@ try {
     assert(!r.start && !r.label && !r.heading && !r.band,
       "no floating Continue, no session label, no repeated day heading and no in-progress band",
       JSON.stringify({ start: r.start, label: r.label, heading: r.heading, band: r.band }));
+    assert(!r.tally && !r.rxHead && !r.cols && r.figures.length > 4 && r.figures.every(([load, target]) => load && target),
+      "the card leads straight into the rows: no verdict tally, heading row or column heads, and each row keeps its load and target",
+      JSON.stringify({ tally: r.tally, head: r.rxHead, cols: r.cols, figures: r.figures }));
     assert(/^In progress · \d+ min$/.test(r.tag), "the tag reads In progress and the time so far", r.tag);
     assert(r.where === `Exercise 3 of ${s.ids.length - 1} · ${doneSets} of ${total} sets`,
       "it says where the lifter is, skipped lifts left out, and how many sets are done", JSON.stringify({ where: r.where, s }));

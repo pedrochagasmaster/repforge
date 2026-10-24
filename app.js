@@ -7532,11 +7532,14 @@ function todayRxRowHtml(row,index){
 function todayRxHtml(exs,live=null){
   if(!exs.length)return"";
   const model=todayRxModel(exs,live),sets=sum(exs.map(e=>+e.sets||0));
-  return todayTallyHtml(model)+
+  // During a session the live card leads straight into the status rows (owner-approved mock A): no verdict tally, no
+  // heading row and no column heads; each row keeps its load and target. The heading stays for assistive technology.
+  const head=live?`<h3 class="visually-hidden">${esc(t("today.rx.title"))}</h3>`:todayTallyHtml(model)+
     `<div class="today-rx__head"><h3 class="today-rx__title">${esc(t("today.rx.title"))}</h3>`+
-    `<span class="today-rx__meta">${esc(t("today.rx.meta",{exercises:countText("exercises",exs.length),sets:countText("sets",sets)}))}</span></div>`+
+    `<span class="today-rx__meta">${esc(t("today.rx.meta",{exercises:countText("exercises",exs.length),sets:countText("sets",sets)}))}</span></div>`;
+  return head+
     `<p class="visually-hidden" id="todayRowActionsHint">${esc(t("today.row_actions_hint"))}</p><div class="today-rx${live?" today-rx--live":""}" id="todayExList"><div class="today-rx__grid">`+
-    `<div class="today-rx__cols" aria-hidden="true"><span></span><span>${esc(t("stats.exercise"))}</span><span>${esc(unitLabel())}</span><span>${esc(t("ledger.col.target"))}</span></div>`+
+    (live?"":`<div class="today-rx__cols" aria-hidden="true"><span></span><span>${esc(t("stats.exercise"))}</span><span>${esc(unitLabel())}</span><span>${esc(t("ledger.col.target"))}</span></div>`)+
     model.map((row,index)=>todayRxRowHtml(row,index)).join("")+`</div></div>`}
 /* The unfinished-session band (OG-6 `today/draft-resume`, Direction D 4.1): a status line above the prescription that
    says a session is open and where the lifter left it. It reads the draft and never writes it. The position uses the
