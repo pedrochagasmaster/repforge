@@ -1618,13 +1618,21 @@
 
   /* Focus moved by script after a touch or a click carries no ring: a ring is the keyboard's cue, and iOS draws
      one for any script focus. The mark lasts until the next key press, so a keyboard user sees the ring at once. */
+  /* Keys typed into a text field are entry, not navigation: an on-screen keyboard sends them after a tap, and a ring
+     drawn on the control focus returns to afterwards would be a keyboard cue nobody used. Tab out of the field is
+     navigation. The modality is mirrored on <html> so a stylesheet can hold a ring back after touch. */
   let modality = "pointer";
+  const setModality = next => { modality = next; document.documentElement.dataset.inputModality = next; };
   const clearQuiet = () => document.querySelectorAll("[data-quiet-focus]").forEach(node => node.removeAttribute("data-quiet-focus"));
+  const typingTarget = node => node instanceof Element && (node.isContentEditable ||
+    node.matches("textarea,input:not([type=button],[type=checkbox],[type=radio],[type=range],[type=reset],[type=submit],[type=color],[type=file])"));
   document.addEventListener("keydown", event => {
     if (event.metaKey || event.ctrlKey || ["Shift", "Alt", "Meta", "Control"].includes(event.key)) return;
-    modality = "keyboard"; clearQuiet();
+    if (event.key !== "Tab" && typingTarget(event.target)) return;
+    setModality("keyboard"); clearQuiet();
   }, true);
-  for (const type of ["pointerdown", "touchstart"]) document.addEventListener(type, () => { modality = "pointer"; }, { capture: true, passive: true });
+  for (const type of ["pointerdown", "touchstart"]) document.addEventListener(type, () => { setModality("pointer"); }, { capture: true, passive: true });
+  setModality("pointer");
   // A date, time or select field a finger or a click opens is quiet too: it opens a picker, not a caret, and the
   // keyboard's ring is not a tap's cue (iOS draws it). Text fields keep their focus treatment while being typed in.
   document.addEventListener("focusin", event => {

@@ -261,7 +261,6 @@
   --shelf-inner-radius:calc(var(--shelf-radius) - var(--shelf-inset));
   /* A selected field inside the per-side tile keeps small inner corners; the grabber is a short pill. */
   --shelf-group-inner-radius:6px;
-  --shelf-grabber-radius:3px;
   /* Landing bands (OG-3). Night is the dark palette in both themes; the mark
      that was #4A453D (1.79:1 and 1.95:1) is the required boundary below. */
   --band-night-bg:#141310;
@@ -1225,14 +1224,12 @@ body.is-workout.is-focus-wo #workoutShell > :not(.wo-head):not(#logForm){
 :root[data-keyboard="up"] body.is-workout.is-focus-wo article.exercise--focus .fcard__context{min-height:0}
 /* The keyboard covers the home indicator, so the shelf does not pay its inset again above the keyboard. */
 :root[data-keyboard="up"] body.is-workout.is-focus-wo .focus-shelf{padding-bottom:var(--space-16)}
-/* Docked to the keyboard the shelf is not a sheet to drag: no grabber, and the addendum's top inset comes back to 8 px.
+/* Docked to the keyboard the addendum's top inset comes back to 8 px.
    A browser that resizes the page for the keyboard sets no flag, so a window this short (a phone's height with the
    keyboard up) docks it the same way. */
 :root[data-keyboard="up"] body.is-workout.is-focus-wo .focus-shelf{padding-top:var(--space-8)}
-:root[data-keyboard="up"] body.is-workout.is-focus-wo .focus-shelf::before{display:none}
 @media (max-height:480px){
   body.is-workout.is-focus-wo .focus-shelf{padding-top:var(--space-8)}
-  body.is-workout.is-focus-wo .focus-shelf::before{display:none}
 }
 body.is-workout.is-focus-wo #dayTabs,
 body.is-workout.is-focus-wo #logForm > .field,
@@ -1408,7 +1405,6 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
   --control-selection-bg:var(--shelf-pad-bg);--control-secondary-bg:var(--shelf-pad-bg);
   --control-selection-boundary:transparent;--control-adjustment-boundary:transparent;--control-secondary-boundary:transparent;
 }
-.workshelf.focus-shelf::before{content:"";position:absolute;top:var(--space-8);left:50%;width:36px;height:5px;margin-left:-18px;border-radius:var(--shelf-grabber-radius);background:var(--rule-strong)}
 /* A third of the shelf has to hold a load such as 102,5 on one line at any text size. The numeral is as large as the
    token allows and no larger than five Mono digits take in the room a field has left after its gutters, gaps and
    padding (a Mono digit is 0.6em, so 9.6 is three fields at 3.2em each); at the usual size the token is the smaller
@@ -1450,6 +1446,9 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 }
 .shelf__fieldbtn.is-pressed:not(:disabled){background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
 .shelf__fieldbtn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+/* The ring is the keyboard's cue: after a touch or typed entry (the motion layer's input modality) a field focused by
+   script shows only its selected ring, whichever path moved focus there. Without the layer the ring stays. */
+:root[data-input-modality="pointer"] .shelf__fieldbtn:focus-visible{outline:none}
 .shelf__fieldbtn[aria-pressed="true"]{box-shadow:var(--elevation-selected-quiet-shadow)}
 .shelf__lab{
   font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-regular);line-height:var(--line-standard);
@@ -1519,13 +1518,15 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 .wheel__trail .sheet__act{flex:none;width:auto;min-width:var(--control-target);padding:10px 8px}
 /* The selection band stays put while the rows move under it: a filled,
    rounded row, outside the column. */
-.wheel__frame{position:relative;flex:1 1 auto;width:100%;min-width:0}
-.wheel__band{position:absolute;left:var(--space-12);right:var(--space-12);top:88px;height:44px;
+/* The owner's pick from the sizing tester (2026-10-24): 28px numbers in 45px rows, five rows shown, semibold. The row
+   is app.js's WHEEL_ITEM_H, the engine's pitch; at double text the number stops at 36px so it stays inside its row. */
+.wheel__frame{--wheel-row:45px;position:relative;flex:1 1 auto;width:100%;min-width:0}
+.wheel__band{position:absolute;left:var(--space-12);right:var(--space-12);top:calc(2 * var(--wheel-row));height:var(--wheel-row);
   border-radius:var(--radius-control);background:var(--wheel-band);pointer-events:none}
 /* One axis only (owner, iPhone, 2026-10-23): the browser pans nothing here, and the engine reads only the
    finger's y, so a diagonal drag can't carry the column off the band. */
 .wheel{
-  position:relative;width:100%;height:220px;overflow:hidden;touch-action:none;
+  position:relative;width:100%;height:calc(5 * var(--wheel-row));overflow:hidden;touch-action:none;
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
 }
 /* The rows' drum: they fade out towards its edges, as the prototype's mask draws them. The mask sits here, not on
@@ -1536,10 +1537,10 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 /* Bare numbers in the data face, tabular; the unit is in the title. The centre
    row is the one at full opacity, the others fade with their distance (app.js). */
 .wheel__item{
-  position:absolute;left:0;right:0;top:88px;height:44px;visibility:hidden;backface-visibility:hidden;
+  position:absolute;left:0;right:0;top:calc(2 * var(--wheel-row));height:var(--wheel-row);visibility:hidden;backface-visibility:hidden;
   display:flex;align-items:center;justify-content:center;
   font-family:var(--font-training-data);font-feature-settings:"tnum";font-variant-numeric:tabular-nums;
-  font-size:var(--font-size-subtitle);color:var(--color-ink);
+  font-size:min(var(--font-size-feature-title),36px);font-weight:var(--weight-semibold);color:var(--color-ink);
 }
 /* The reps wheel's target range: a quiet tick before the number, not a second band (the orange budget stays on actions). */
 .wheel__item.is-target::before{content:"";width:4px;height:4px;border-radius:var(--radius-round);background:var(--color-ink-secondary);margin-right:var(--space-8)}
