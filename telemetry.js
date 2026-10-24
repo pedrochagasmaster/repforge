@@ -83,6 +83,7 @@
     equipment_changes: Object.freeze(["0", "1", "2_3", "4_plus"]),
     split: Object.freeze(["full_body", "upper_lower", "push_pull", "upper_lower_full", "push_pull_legs", "upper_lower_upper_lower", "push_pull_hinge_squat", "push_pull_legs_accessories", "upper_lower_upper_lower_upper", "push_pull_hinge_squat_accessories", "push_pull_legs_upper_lower", "push_pull_hinge_squat_upper_lower", "push_pull_legs_push_pull_legs"]),
     deload: Object.freeze(["on", "off"]),
+    deload_position: Object.freeze(["start", "end"]),
     // How many exercises the lifter left out, and how many asked to be kept in: counts only, never which.
     avoided_exercises: Object.freeze(["0", "1", "2_3", "4_plus"]),
     required_exercises: Object.freeze(["0", "1", "2_3", "4_plus"]),
@@ -111,7 +112,10 @@
     equipment: (answers) => ({ equipment_changes: equipmentChanges(answers.environment && answers.environment.adjust) }),
     days_per_week: (answers) => ({ days_per_week: Number.isInteger(answers.daysPerWeek) ? String(answers.daysPerWeek) : undefined }),
     session_length: (answers) => ({ session_length: sessionLength(answers.sessionMinutes) }),
-    deload: (answers) => ({ deload: answers.deload === true ? "on" : answers.deload === false ? "off" : undefined }),
+    deload: (answers) => ({
+      deload: answers.deload === true ? "on" : answers.deload === false ? "off" : undefined,
+      deload_position: answers.deload === true ? (answers.deloadPosition === "start" ? "start" : "end") : undefined,
+    }),
     custom_shape: (answers) => ({ split: answers.splitPreference }),
     split: (answers) => ({ split: answers.splitPreference }),
     exercise_preferences: (answers) => ({

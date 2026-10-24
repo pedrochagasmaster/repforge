@@ -8121,7 +8121,9 @@ body.is-entry-editor #entryProgramName,
 .entry-b__equipment{gap:8px}
 .entry-b__reset{margin:14px 0 0;align-self:flex-start}
 .entry-b__priorities{margin:12px 0 0;border-top:1px solid var(--rule)}
-.entry-b__priority{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:48px;padding:6px 0;border-bottom:1px solid var(--rule);font-size:var(--font-size-body)}
+.entry-b__priority{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;min-height:48px;padding:6px 0;border-bottom:1px solid var(--rule);font-size:var(--font-size-body)}
+/* Four choices may not fit beside a long name or at large text: the control then takes its own line, still at the end. */
+.entry-b__priority>.entry-seg{margin-left:auto}
 .entry-seg{display:flex;gap:4px;padding:4px;border-radius:var(--radius-control);background:var(--well)}
 .entry-seg__option{flex:1;min-height:40px;padding:8px 10px;border:1px solid transparent;border-radius:var(--radius-compact);background:transparent;color:var(--ink-soft);font:inherit;font-size:var(--font-size-control);font-weight:500;cursor:pointer}
 .entry-seg__option.is-selected{background:var(--surface);color:var(--ink);border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow)}

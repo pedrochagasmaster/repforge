@@ -297,8 +297,8 @@ async function runBControlsA11y(browser, check) {
       radios: group.querySelectorAll("[role='radio']").length,
       checked: group.querySelectorAll("[role='radio'][aria-checked='true']").length })));
     check(groups.length === 22 && new Set(groups.map((group) => group.name)).size === 22
-      && groups.every((group) => group.name && group.radios === 3 && group.checked === 1),
-      "each of the 22 muscles is a distinctly labelled radio group of Less, Normal and More with one choice", JSON.stringify(groups));
+      && groups.every((group) => group.name && group.radios === 4 && group.checked === 1),
+      "each of the 22 muscles is a distinctly labelled radio group of Skip, Less, Normal and More with one choice", JSON.stringify(groups));
     const first = page.locator(".entry-b__priority [role='radiogroup']").first().locator("[role='radio'][aria-checked='true']");
     await first.focus();
     await page.keyboard.press("ArrowRight");
@@ -308,6 +308,10 @@ async function runBControlsA11y(browser, check) {
     const toggle = await page.locator("#entryDeloadSwitch").evaluate((el) => ({ role: el.getAttribute("role"), checked: el.getAttribute("aria-checked"),
       name: document.getElementById(el.getAttribute("aria-labelledby"))?.textContent || "" }));
     check(toggle.role === "switch" && toggle.checked === "true" && toggle.name, "deload is a named switch, on by default", JSON.stringify(toggle));
+    const when = await page.$eval("#onbBody [role='radiogroup'][aria-labelledby='entryDeloadWhen']", (group) => ({
+      name: document.getElementById("entryDeloadWhen")?.textContent || "",
+      radios: [...group.querySelectorAll("[role='radio']")].map((el) => `${el.dataset.entryVal}:${el.getAttribute("aria-checked")}`) }));
+    check(when.name && when.radios.join() === "end:true,start:false", "the deload's When is a named radio pair with the end chosen", JSON.stringify(when));
     await page.focus("#entryDeloadSwitch");
     await page.keyboard.press("Space");
     check(await page.locator("#entryDeloadSwitch").getAttribute("aria-checked") === "false", "Space turns the deload switch off");

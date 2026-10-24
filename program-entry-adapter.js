@@ -329,7 +329,8 @@
       split: "auto",
       periodization: block.periodization,
       cycles: block.cycles + (source.deload === true ? 1 : 0),
-      deloadCycles: source.deload === true ? [block.cycles + 1] : [],
+      // The lighter week goes first or last; last unless the lifter chose the start.
+      deloadCycles: source.deload === true ? [source.deloadPosition === "start" ? 1 : block.cycles + 1] : [],
     };
     request.split = compatibleSplit(source.splitPreference, request);
     if (request.split === null) {

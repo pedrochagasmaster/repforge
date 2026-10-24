@@ -342,6 +342,15 @@ for (const name of Telemetry.getEventNames("all")) {
   const deloadOn = Telemetry.entryFunnelEvents({ route: "recommend", step: "deload", at: 0 },
     { route: "recommend", step: "abilities", at: 5000, answers: { ...answers, deload: true } }, steps)[0][1];
   assert.equal(deloadOn.deload, "on");
+  // Where the lighter week goes (owner, 2026-10-23): "end" unless the lifter chose the start; nothing with the deload off.
+  assert.equal(deloadOn.deload_position, "end");
+  const deloadFor = (extra) => answered(Telemetry.entryFunnelEvents({ route: "recommend", step: "deload", at: 0 },
+    { route: "recommend", step: "abilities", at: 5000, answers: { ...answers, ...extra } }, steps)[0][1]);
+  assert.deepEqual(deloadFor({ deload: true, deloadPosition: "start" }), { deload: "on", deload_position: "start" });
+  assert.deepEqual(deloadFor({ deload: false, deloadPosition: "start" }), { deload: "off" });
+  assert.deepEqual(answered(Telemetry.entryFunnelEvents({ route: "recommend", step: "muscle_priorities", at: 0 },
+    { route: "recommend", step: "exercise_preferences", at: 5000, answers: { ...answers, ignoredMuscles: ["calves"] } }, steps)
+    .find(([name]) => name === "onboarding_step_completed")?.[1] || {}), {}, "muscle priorities, a skipped muscle included, are not sent");
   const adjusted = Telemetry.entryFunnelEvents({ route: "recommend", step: "equipment", at: 0 },
     { route: "recommend", step: "desired_result", at: 5000, answers: { ...answers,
       environment: { kind: "limited_home", adjust: { add: ["bench", "barbell"], remove: ["bands"] } } } }, steps)[0][1];

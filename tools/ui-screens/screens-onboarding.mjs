@@ -903,6 +903,8 @@ const FOCUS_SELECTOR = {
   "onboarding-recommend/review-empty-day": ".review__empty",
   "onboarding-recommend/review-sheet-execution-mode": "#reviewSheet [data-review-execution-question]",
   "onboarding-recommend/muscle-priorities-limit": '[data-entry-pick="musclePriorityB"][aria-checked="true"][data-entry-val$="|prioritize"]',
+  "onboarding-recommend/muscle-priorities-skip": '[data-entry-pick="musclePriorityB"][data-entry-val="calves|skip"]',
+  "onboarding-recommend/deload-start": '[data-entry-pick="deloadPosition"][data-entry-val="start"]',
 };
 
 /**
@@ -1040,6 +1042,10 @@ export const ONBOARDING_SCENARIOS = {
     await pick(page, "musclePriorityB", "glutes|prioritize");
     await pick(page, "musclePriorityB", "calves|reduce");
   },
+  "onboarding-recommend/muscle-priorities-skip": async (page) => {
+    await recommendStep(page, "muscle_priorities");
+    await pick(page, "musclePriorityB", "calves|skip");
+  },
   "onboarding-recommend/muscle-priorities-limit": async (page) => {
     await recommendStep(page, "muscle_priorities");
     const muscles = await page.evaluate(() => [...window.RepForgeProgramEntry.ENTRY_MUSCLES]);
@@ -1053,6 +1059,10 @@ export const ONBOARDING_SCENARIOS = {
     assert.equal(selected.radios, 22);
   },
   "onboarding-recommend/deload": (page) => recommendStep(page, "deload"),
+  "onboarding-recommend/deload-start": async (page) => {
+    await recommendStep(page, "deload");
+    await pick(page, "deloadPosition", "start");
+  },
   "onboarding-recommend/abilities": (page) => recommendStep(page, "abilities"),
   "onboarding-recommend/building": (page) => buildingStep(page),
   "onboarding-recommend/building-pending": (page) => buildingStep(page, { pending: true }),

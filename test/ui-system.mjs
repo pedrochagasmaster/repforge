@@ -33,6 +33,9 @@ try {
   try {
     const page = await fault.newPage();
     await page.setContent(`<style>body{margin:0;background:white}.glass{position:absolute;top:500px;left:20px;width:200px;height:60px;background:rgba(0,0,0,.8);backdrop-filter:blur(2px);color:#333}</style><button class="glass">Unreadable action</button>`);
+    // A fresh page may have no compositor frame yet, and Chromium then refuses the capture
+    // ("Unable to capture screenshot", CI 2026-10-24): wait for a painted frame first.
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     const baseline = await page.screenshot();
     const rendered = await page.evaluate(measureRenderedRoles, { requests: [{ selector: ".glass", kind: "text" }], pixels: baseline.toString("base64") });
     assert.ok(rendered.some(item => item.kind === "text" && item.status === "fail"), "DPR2 contrast defect over a low-page glass layer must fail the actual contrast measurement");

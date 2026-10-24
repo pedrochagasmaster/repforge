@@ -200,6 +200,8 @@ const DYNAMIC_FAMILIES = [
   { test: (s) => s.includes("entry.goal.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.goal.") && !k.endsWith(".title")) },
   { test: (s) => s.includes("entry.equipment.group.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.equipment.group.")) },
   { test: (s) => s.includes("entry.muscle_priorities.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.muscle_priorities.") && !k.endsWith(".title") && !k.endsWith(".lede") && !k.endsWith(".limit")) },
+  // The deload's When: one key and its caption per position.
+  { test: (s) => s.includes("entry.deload.${"), keys: () => ["entry.deload.start", "entry.deload.start.sub", "entry.deload.end", "entry.deload.end.sub"] },
   { test: (s) => s.includes("entry.cap.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.cap.")) },
   { test: (s) => s.includes("entry.priorities.reason.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.priorities.reason.")) },
   { test: (s) => s.includes("entry.muscle.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.muscle.")) },

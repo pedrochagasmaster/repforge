@@ -682,7 +682,7 @@
       "id": "muscle-priorities",
       "flow": "onboarding-recommend",
       "label": "Recommend Program 4 — muscle priorities",
-      "scenario": "Twenty-two muscles, each Less, Normal or More; glutes set to More and calves to Less; Skip.",
+      "scenario": "Twenty-two muscles, each Skip, Less, Normal or More; glutes set to More and calves to Less; Skip.",
       "variants": "demandingText"
     },
     {
@@ -691,6 +691,13 @@
       "label": "Recommend Program 4 — all twenty-two priorities",
       "scenario": "All twenty-two muscles prioritized and accepted, with every More radio selected.",
       "variants": "localized"
+    },
+    {
+      "id": "muscle-priorities-skip",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Program 4 — a muscle skipped",
+      "scenario": "Calves set to Skip, the fourth choice, which gives the muscle no direct work.",
+      "variants": "demandingText"
     },
     {
       "id": "exercise-preferences",
@@ -710,7 +717,14 @@
       "id": "deload",
       "flow": "onboarding-recommend",
       "label": "Recommend Program 5 — deload",
-      "scenario": "The deload card switched on, marked Recommended.",
+      "scenario": "The deload card switched on, marked Recommended, with When set to the preselected At the end.",
+      "variants": "localized"
+    },
+    {
+      "id": "deload-start",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Program 5 — deload at the start",
+      "scenario": "The deload on, with At the start chosen over the preselected At the end.",
       "variants": "localized"
     },
     {
