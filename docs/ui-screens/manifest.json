@@ -693,6 +693,20 @@
       "variants": "localized"
     },
     {
+      "id": "exercise-preferences",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Program 2 — exercise preferences",
+      "scenario": "Optional exercise preferences: the two questions with their searches, nothing chosen.",
+      "variants": "localized"
+    },
+    {
+      "id": "exercise-preferences-chosen",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Program 2 — exercise preferences chosen",
+      "scenario": "One exercise left out and one kept in, each a removable chip over its search.",
+      "variants": "localized"
+    },
+    {
       "id": "deload",
       "flow": "onboarding-recommend",
       "label": "Recommend Program 5 — deload",

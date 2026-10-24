@@ -1327,6 +1327,64 @@ async function recommendSplitStep(browser) {
   return errors;
 }
 
+/**
+ * Exercise preferences in Recommend (owner, 2026-10-23): an exercise left out reaches the request as an excluded
+ * exercise and is absent from the program; one kept in reaches it as a preferred exercise and is present where it
+ * fits; Skip clears both. Ids never leave the device (telemetry sends counts; telemetry-unit).
+ */
+async function recommendExercisePreferences(browser) {
+  const LEAVE_OUT = "1a05c6f170d88058a3a0c07e098a9605"; // Smith machine bench press, in the default 4-day program
+  const KEEP_IN = "1a05c6f170d8806b911acf558c5af4f6"; // 45° incline dumbbell press, not in it
+  const errors = [];
+  const open = async () => {
+    const run = await fresh(browser);
+    await run.page.click("#firstRunCreate");
+    await run.page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
+    await answerRecommend(run.page, { skipBasics: true, days: 4, until: "exercise_preferences" });
+    return run;
+  };
+  const search = async (page, input, query, attr, id) => {
+    await page.fill(input, query);
+    const result = page.locator(`#onbBody [${attr}="${id}"]:not([aria-hidden="true"] *)`);
+    await result.waitFor({ state: "visible", timeout: 10000 });
+    await result.click();
+  };
+  {
+    const run = await open();
+    const { page } = run;
+    await search(page, "#entryAvoidSearch", "Smith machine bench", "data-entry-leave-out", LEAVE_OUT);
+    await search(page, "#entryMustSearch", "45° incline dumbbell", "data-entry-must-add", KEEP_IN);
+    const chips = await page.evaluate(() => ({
+      out: [...document.querySelectorAll('#onbBody [data-entry-avoid-remove]')].map((chip) => chip.dataset.entryAvoidRemove),
+      in: [...document.querySelectorAll('#onbBody [data-entry-must-remove]')].map((chip) => chip.dataset.entryMustRemove) }));
+    check(chips.out.join() === LEAVE_OUT && chips.in.join() === KEEP_IN, "exercise preferences: each choice shows as a removable chip in its own section", chips);
+    await answerRecommend(page, { skipBasics: true, days: 4 });
+    await page.locator("#entryReview [data-review-slot]").first().waitFor({ state: "visible", timeout: 20000 });
+    const candidate = await entry(page), definition = candidate.result?.preview?.programDefinition;
+    const slots = slotsOf(definition).map((slot) => slot.exerciseId);
+    check(definition?.request?.excludedExerciseIds?.includes(LEAVE_OUT) && definition.request.preferredExerciseIds?.includes(KEEP_IN),
+      "exercise preferences: both answers reach the generated request", definition?.request);
+    check(!slots.includes(LEAVE_OUT) && slots.includes(KEEP_IN),
+      "exercise preferences: the left-out exercise is absent from the program and the kept-in one is present", { slots: slots.length });
+    errors.push(...run.errors);
+    await run.context.close();
+  }
+  {
+    const run = await open();
+    const { page } = run;
+    await search(page, "#entryAvoidSearch", "Smith machine bench", "data-entry-leave-out", LEAVE_OUT);
+    await search(page, "#entryMustSearch", "45° incline dumbbell", "data-entry-must-add", KEEP_IN);
+    await page.click("#onbSkip");
+    await page.waitForFunction(() => window.__repforgeEntryState?.()?.step !== "exercise_preferences");
+    const answers = (await entry(page)).answers;
+    check(!(answers.exerciseConstraints || []).length && !(answers.mustHaveExercises || []).length,
+      "exercise preferences: Skip leaves nothing out and keeps nothing in", answers);
+    errors.push(...run.errors);
+    await run.context.close();
+  }
+  return errors;
+}
+
 async function maximumSourcePreviewPersistence(browser) {
   const { context, page, errors } = await fresh(browser);
   await page.click("#firstRunCreate");
@@ -1363,6 +1421,7 @@ async function main() {
     allErrors.push(await recoveredGenerationJourney(browser));
     allErrors.push(await sourceSplitChoicesJourney(browser));
     allErrors.push(await recommendSplitStep(browser));
+    allErrors.push(await recommendExercisePreferences(browser));
     allErrors.push(await maximumSourcePreviewPersistence(browser));
     // Generate and activate ------------------------------------------------
     const { context, page, errors } = await fresh(browser);

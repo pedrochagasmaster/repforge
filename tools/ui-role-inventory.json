@@ -998,6 +998,16 @@
       "content": "flat",
       "scenario": "Twenty-two muscles, each Less, Normal or More; glutes set to More and calves to Less; Skip."
     },
+    "onboarding-recommend/exercise-preferences": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "Optional exercise preferences: the two questions with their searches, nothing chosen."
+    },
+    "onboarding-recommend/exercise-preferences-chosen": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "One exercise left out and one kept in, each a removable chip over its search."
+    },
     "onboarding-recommend/muscle-priorities-limit": {
       "owner": "plan-072",
       "content": "flat",
@@ -3888,6 +3898,8 @@
         "onboarding-recommend/height-ftin",
         "onboarding-recommend/intro",
         "onboarding-recommend/muscle-priorities",
+        "onboarding-recommend/exercise-preferences",
+        "onboarding-recommend/exercise-preferences-chosen",
         "onboarding-recommend/muscle-priorities-limit",
         "onboarding-recommend/replacement-confirm",
         "onboarding-recommend/result",
@@ -3958,6 +3970,8 @@
         "onboarding-recommend/height-ftin",
         "onboarding-recommend/intro",
         "onboarding-recommend/muscle-priorities",
+        "onboarding-recommend/exercise-preferences",
+        "onboarding-recommend/exercise-preferences-chosen",
         "onboarding-recommend/muscle-priorities-limit",
         "onboarding-recommend/replacement-confirm",
         "onboarding-recommend/result",
@@ -4022,6 +4036,8 @@
         "onboarding-recommend/height-ftin",
         "onboarding-recommend/intro",
         "onboarding-recommend/muscle-priorities",
+        "onboarding-recommend/exercise-preferences",
+        "onboarding-recommend/exercise-preferences-chosen",
         "onboarding-recommend/muscle-priorities-limit",
         "onboarding-recommend/session-length",
         "onboarding-recommend/sex",
@@ -4079,6 +4095,8 @@
         "onboarding-recommend/height",
         "onboarding-recommend/height-ftin",
         "onboarding-recommend/muscle-priorities",
+        "onboarding-recommend/exercise-preferences",
+        "onboarding-recommend/exercise-preferences-chosen",
         "onboarding-recommend/muscle-priorities-limit",
         "onboarding-recommend/replacement-confirm",
         "onboarding-recommend/result",
@@ -9946,6 +9964,8 @@
         "onboarding-recommend/height",
         "onboarding-recommend/height-ftin",
         "onboarding-recommend/muscle-priorities",
+        "onboarding-recommend/exercise-preferences",
+        "onboarding-recommend/exercise-preferences-chosen",
         "onboarding-recommend/muscle-priorities-limit",
         "onboarding-recommend/sex",
         "onboarding-recommend/weight",
@@ -11015,6 +11035,76 @@
         "workout/invalid-draft",
         "progress/strength-comparison",
         "progress/strength-sparse"
+      ]
+    },
+    {
+      "id": "entryavoidsearch",
+      "selector": "#entryAvoidSearch",
+      "roles": {
+        "control": "field",
+        "boundary": "required"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "validation-error"
+      ],
+      "rationale": "Accepts or edits an explicit value: searches exercises to leave out of the program.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-recommend/exercise-preferences",
+        "onboarding-recommend/exercise-preferences-chosen"
+      ]
+    },
+    {
+      "id": "entrymustsearch",
+      "selector": "#entryMustSearch",
+      "roles": {
+        "control": "field",
+        "boundary": "required"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "validation-error"
+      ],
+      "rationale": "Accepts or edits an explicit value: searches exercises to keep in the program.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "onboarding-recommend/exercise-preferences",
+        "onboarding-recommend/exercise-preferences-chosen"
+      ]
+    },
+    {
+      "id": "entry-b-chip",
+      "selector": ".entry-b__chip",
+      "roles": {
+        "control": "secondary",
+        "boundary": "required"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "A chosen exercise in the exercise preferences; a tap removes it from its list.",
+      "owner": "plan-072",
+      "neverDisabledReason": "A chosen exercise can always be removed.",
+      "catalogStates": [
+        "onboarding-recommend/exercise-preferences-chosen"
       ]
     }
   ],

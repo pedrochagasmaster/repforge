@@ -189,9 +189,14 @@ export async function answerRecommend(page, {
   // accessibility. Scope actions to the live page so a snapshot cannot make a
   // route look selectable or receive a click during the push.
   const livePage = () => page.locator("#onbBody > .entry-motion-page:not([aria-hidden='true'])");
-  const pick = (key, value) => livePage().locator(`[data-entry-pick="${key}"][data-entry-val="${value}"]`).first().click();
   const settle = () => page.waitForFunction(() => !document.querySelector(
     "#onbBody .entry-motion-page.is-push-over, #onbBody .entry-motion-page.is-push-under, #onbBody .entry-motion-page.is-edge-swiping"));
+  // A pick waits for the page's push to finish, as Continue does: a card still sliding in is not stable, and on a
+  // loaded runner the pinned bar covers it mid-push (onboardingConflict, 2026-10-24).
+  const pick = async (key, value) => {
+    await settle();
+    await livePage().locator(`[data-entry-pick="${key}"][data-entry-val="${value}"]`).first().click();
+  };
   const next = async () => {
     await settle();
     const before = await step();
@@ -239,6 +244,8 @@ export async function answerRecommend(page, {
     else if (current === "days_per_week") { await pick("daysPerWeek", days); await next(); }
     // The split step (only when the day count offers a choice): the recommended one stays unless one is named.
     else if (current === "split") { if (split) await pick("splitPreference", split); await next(); }
+    // Exercise preferences are optional: nothing left out or kept in unless a suite chooses some there.
+    else if (current === "exercise_preferences") await next();
     else if (current === "session_length") { if (minutes !== 60) await pick("sessionMinutes", minutes); await next(); }
     else if (current === "muscle_priorities") {
       for (const [muscle, status] of Object.entries(priorities)) await pick("musclePriorityB", `${muscle}|${status}`);

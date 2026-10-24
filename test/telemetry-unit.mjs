@@ -325,6 +325,11 @@ for (const name of Telemetry.getEventNames("all")) {
   assert.deepEqual(answered(completedFor("custom", "custom_shape", "result")), { split: "upper_lower" });
   // B's split step (owner, 2026-10-23) sends the closed split id it asked, and nothing for a value outside the list.
   assert.deepEqual(answered(completedFor("recommend", "split", "muscle_priorities")), { split: "upper_lower" });
+  // Exercise preferences send how many exercises were left out and kept in, never which.
+  assert.deepEqual(answered(Telemetry.entryFunnelEvents({ route: "recommend", step: "exercise_preferences", at: 0 },
+    { route: "recommend", step: "deload", at: 5000, answers: { ...answers,
+      exerciseConstraints: [{ exerciseId: "a", reason: "other" }, { exerciseId: "b", reason: "other" }], mustHaveExercises: ["c"] } }, steps)
+    .find(([name]) => name === "onboarding_step_completed")?.[1] || {}), { avoided_exercises: "2_3", required_exercises: "1" });
   assert.deepEqual(answered(Telemetry.entryFunnelEvents({ route: "recommend", step: "split", at: 0 },
     { route: "recommend", step: "muscle_priorities", at: 5000, answers: { ...answers, splitPreference: "auto" } }, steps)
     .find(([name]) => name === "onboarding_step_completed")?.[1] || {}), {});

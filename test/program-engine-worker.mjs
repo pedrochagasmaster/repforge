@@ -252,6 +252,9 @@ async function heldFlow(browser) {
   await page.click("#onbNext");
   await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "muscle_priorities");
   await page.click("#onbSkip");
+  // Exercise preferences: nothing left out or kept in.
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "exercise_preferences");
+  await page.click("#onbSkip");
   await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "deload");
   await page.click("#onbNext");
   await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "abilities");
