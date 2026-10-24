@@ -134,6 +134,21 @@ on one row and scroll sideways if they must. The open set is kept whole above
 the shelf at every set; the header pill still shows a running rest when the
 window scrolls past it.
 
+The Focus shelf is concentric (the phase 5 addendum, owner 2026-10-23, option
+A of `shelf-radii.html`): a `--shelf-radius` (28px) sheet with everything
+`--shelf-inset` (16px) from its edges, so every field, pad and the Log set
+action takes `--shelf-inner-radius` (12px); 8px between siblings, 12px between
+rows, the safe area plus 16px at the bottom, and a grabber at the top. Fields
+stay 56px, pads 48px and the action 52px (Layout D's budget). A field shows a
+short label ("Load", "Reps", "RIR") with the unit beside its value; its
+accessible name stays whole ("Load, kg 102.5"): the rest of the label is
+visually hidden and the shown unit is `aria-hidden`. Per-side Load and Reps
+share one tile (`.shelf__group`) under one caption, G's dumbbell and
+`focus.per_side` in uppercase, with a hairline between them; the selected
+field's ring follows the tile's outer corners and takes
+`--shelf-group-inner-radius` (6px) inside. Each grouped field's name still says
+per side. Fields, the group and pads keep their 1px required boundary.
+
 ### Permitted contextual variants
 
 The inventory lists the exact affected catalog states and rationale for each
