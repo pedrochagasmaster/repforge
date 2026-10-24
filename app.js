@@ -8687,160 +8687,35 @@ function wheelNearestIndex(values,v){
   let best=0,bestDiff=Infinity;
   values.forEach((val,i)=>{const d=Math.abs(val-v);if(d<bestDiff){bestDiff=d;best=i}});
   return best}
-/* ---- The wheel as a physical object (owner, 2026-10-23: "like the MX Master's scroll wheel") ----
- * The column does not scroll. Pointer Events drive one number, `pos` (px; row i sits on the band at i·H), and each
- * frame recomputes the nearby rows' transform and opacity from it alone: no layout reads, no scrollTop.
- *  - A drag tracks the finger from where it took the wheel, through a ratchet: each value is a notch where the wheel
- *    runs a little slower than the finger and between two it runs a little faster, so a slow drag ticks value by
- *    value; the notches fade out as the finger speeds up (free spin). At value centres the two agree exactly.
- *  - A release projects where it is going with Apple's decay (pos + v·d/(1−d)), snaps to the value nearest that
- *    point, and coasts there on a critically damped spring seeded with the finger's velocity (no seam); after a
- *    real flick the last half row is a short, lightly under-damped catch into the notch.
- *  - A touch on a moving wheel stops it where it is drawn; past either end it rubber-bands and springs back.
- *  - The centred value is announced as it changes; the value commits only once the wheel is still. Keys move one
- *    step at a time and announce only where they land. Reduced motion: no momentum, no spring and no tilt; a release
- *    steps straight to the nearest value, and scale and fade stay as static hierarchy. */
-const WHEEL_DECELERATION=0.998;
-const WHEEL_NOTCH=0.16;      // the ratchet's depth: at a notch the wheel moves at 1−0.16 of the finger's speed
-const WHEEL_FREE_SPIN=0.6;   // px/ms of finger speed at which the notches have faded out
-const WHEEL_FLICK=0.25;      // px/ms: a release this fast is a flick, with momentum and the catch
-const WHEEL_SETTLE_W=18;     // rad/s: a critically damped settle (response ≈ 0.35s)
-const WHEEL_CATCH_W=22;      // rad/s, at ζ 0.85: the notch catching a flick
-const WHEEL_TILT=18;         // degrees of tilt per row from the band, as the prototype draws it
-const WHEEL_SPAN=4;          // rows drawn on either side of the band
+/* The wheel itself is the motion layer's (`RepForgeMotion.mountWheel`): Pointer Events, projection, notches,
+ * rubber band and the drum, all from one position. Here it reports the centred value as it moves (the spinbutton's
+ * aria) and commits the value once it is still. Without the layer the rows are placed statically, and the keys and
+ * the keyboard button still set the value. */
 let wheelDrum=null;
-const wheelClamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
-/** Apple's rubber band: the further past the end, the less the wheel follows. */
-const wheelRubber=(over,dim)=>(over*dim*0.55)/(dim+0.55*Math.abs(over));
-const wheelUnrubber=(shown,dim)=>shown*dim/(0.55*(dim-Math.min(Math.abs(shown),dim-1)));
-/** The finger's travel (`raw`) to the wheel's position: the ratchet inside the rail, the rubber band past it. */
-function wheelShown(d,raw,notch){
-  const max=(d.n-1)*d.H;
-  if(raw<0)return-wheelRubber(-raw,d.viewH);
-  if(raw>max)return max+wheelRubber(raw-max,d.viewH);
-  return raw-notch*d.H/(2*Math.PI)*Math.sin(2*Math.PI*raw/d.H)}
-function wheelRaw(d,shown,notch){
-  const max=(d.n-1)*d.H;
-  if(shown<0)return-wheelUnrubber(-shown,d.viewH);
-  if(shown>max)return max+wheelUnrubber(shown-max,d.viewH);
-  let x=shown;
-  for(let k=0;k<6;k++){const a=2*Math.PI*x/d.H;x-=(x-notch*d.H/(2*Math.PI)*Math.sin(a)-shown)/(1-notch*Math.cos(a))}
-  return x}
-/** A damped spring's offset from its target and its velocity (px/s), t seconds after it left e0 at v0. */
-function wheelSpringAt(e0,v0,w,z,t){
-  if(z<1){const wd=w*Math.sqrt(1-z*z),a=Math.exp(-z*w*t),B=(v0+z*w*e0)/wd,c=Math.cos(wd*t),sn=Math.sin(wd*t);
-    const e=a*(e0*c+B*sn);return[e,-z*w*e+a*wd*(B*c-e0*sn)]}
-  const a=Math.exp(-w*t),B=v0+w*e0;return[(e0+B*t)*a,(B-w*(e0+B*t))*a]}
-function wheelPaint(d){
-  const c=d.pos/d.H,lo=Math.max(0,Math.floor(c)-WHEEL_SPAN),hi=Math.min(d.n-1,Math.ceil(c)+WHEEL_SPAN);
-  for(let i=d.lo;i<=d.hi;i++)if(i<lo||i>hi)d.items[i].style.visibility="";
-  for(let i=lo;i<=hi;i++){
-    const off=i-c,far=Math.abs(off),el=d.items[i];
-    el.style.transform=`translateY(${(i*d.H-d.pos).toFixed(3)}px)${d.reduced?"":` rotateX(${(-WHEEL_TILT*off).toFixed(3)}deg)`} scale(${(1-Math.min(far,3)*0.07).toFixed(4)})`;
-    el.style.opacity=String(Math.max(0.2,1-far*0.22).toFixed(4));
-    el.style.visibility="visible"}
-  d.lo=lo;d.hi=hi;
-  const centre=wheelClamp(Math.round(c),0,d.n-1);
-  if(centre!==d.centre){d.centre=centre;if(d.announce)d.onCentre(centre)}}
-function wheelHalt(d=wheelDrum){
-  if(!d)return;
-  if(d.raf)cancelAnimationFrame(d.raf);
-  d.raf=0;d.anim=null}
-function wheelRest(d){
-  d.vel=0;d.aim=null;d.announce=true;
-  d.onRest(wheelClamp(Math.round(d.pos/d.H),0,d.n-1))}
-/** Move the wheel to row `to`, carrying `v` (px/ms). A flick coasts (critically damped, its stiffness matched to
- *  the release, so the motion is the projection's own exponential decay) and is caught by the notch for its last
- *  half row; anything else settles critically damped. Reduced motion steps there at once. */
-function wheelMoveTo(d,to,v=0,{flick=false}={}){
-  wheelHalt(d);
-  const target=wheelClamp(to,0,d.n-1)*d.H;
-  if(d.reduced||Math.abs(target-d.pos)<0.25&&Math.abs(v)<0.02){d.pos=target;wheelPaint(d);wheelRest(d);return}
-  const e0=d.pos-target,v0=v*1000;
-  const coast=flick&&Math.abs(e0)>d.H/2&&Math.sign(v0)===Math.sign(-e0);
-  d.anim={to:target,e0,v0,z:1,w:coast?wheelClamp(Math.abs(v0/e0),1.5,WHEEL_SETTLE_W):WHEEL_SETTLE_W,t0:performance.now(),coast};
-  const frame=()=>{
-    const run=d.anim;if(!run)return;
-    let [e,ve]=wheelSpringAt(run.e0,run.v0,run.w,run.z,(performance.now()-run.t0)/1000);
-    if(run.coast&&Math.abs(e)<d.H/2){Object.assign(run,{e0:e,v0:ve,w:WHEEL_CATCH_W,z:0.85,t0:performance.now(),coast:false})}
-    if(Math.abs(e)<0.25&&Math.abs(ve)<20){d.pos=run.to;d.anim=null;d.raf=0;wheelPaint(d);wheelRest(d);return}
-    d.pos=run.to+e;d.vel=ve/1000;
-    wheelPaint(d);
-    d.raf=requestAnimationFrame(frame)};
-  d.raf=requestAnimationFrame(frame)}
-function wheelPointerDown(e){
-  const d=wheelDrum;if(!d||d.pointer)return;
-  if(e.pointerType==="mouse"&&e.button!==0)return;
-  // The wheel's drag is the wheel's: the sheet's own drag-to-dismiss never starts from it.
-  e.stopPropagation();
-  const caught=!!d.anim;
-  wheelHalt(d);d.vel=0;d.reduced=!!reducedMotion();d.announce=true;
-  try{d.col.setPointerCapture(e.pointerId)}catch{}
-  const notch=WHEEL_NOTCH,t=e.timeStamp||performance.now();
-  d.pointer={id:e.pointerId,y:e.clientY,y0:e.clientY,raw:wheelRaw(d,d.pos,notch),notch,caught,t0:t,
-    band:d.col.getBoundingClientRect().top+d.viewH/2,hist:[{t,p:d.pos}]}}
-function wheelPointerMove(e){
-  const d=wheelDrum,g=d?.pointer;if(!g||e.pointerId!==g.id)return;
-  const t=e.timeStamp||performance.now();
-  g.hist.push({t,p:d.pos});
-  while(g.hist.length>2&&t-g.hist[0].t>60)g.hist.shift();
-  const first=g.hist[0],speed=t>first.t?Math.abs(d.pos-first.p)/(t-first.t):0;
-  g.notch=WHEEL_NOTCH*Math.max(0,1-speed/WHEEL_FREE_SPIN);
-  d.pos=wheelShown(d,g.raw-(e.clientY-g.y0),g.notch);
-  g.hist[g.hist.length-1].p=d.pos;
-  wheelPaint(d)}
-function wheelPointerUp(e){
-  const d=wheelDrum,g=d?.pointer;if(!g||e.pointerId!==g.id)return;
-  d.pointer=null;
-  try{d.col.releasePointerCapture(e.pointerId)}catch{}
-  const t=e.timeStamp||performance.now(),H=d.H;
-  // A short press that barely moved is a tap: on the band it stays, on a row above or below it brings that row in.
-  if(e.type==="pointerup"&&!g.caught&&Math.abs(e.clientY-g.y0)<6&&t-g.t0<350){
-    const to=wheelClamp(Math.round(d.pos/H+(e.clientY-g.band)/H),0,d.n-1);
-    d.release={pos:d.pos,velocity:0,projected:d.pos,target:to,flick:false};
-    wheelMoveTo(d,to);return}
-  // The release velocity: the finger's last 60ms, and none if it had come to rest before it lifted.
-  const recent=g.hist.filter(h=>t-h.t<=60),a=recent[0],b=recent[recent.length-1];
-  const velocity=e.type==="pointerup"&&recent.length>1&&b.t>a.t?(b.p-a.p)/(b.t-a.t):0;
-  const max=(d.n-1)*H,inside=d.pos>=0&&d.pos<=max;
-  const projected=d.reduced||!inside?d.pos:d.pos+velocity*WHEEL_DECELERATION/(1-WHEEL_DECELERATION);
-  const target=wheelClamp(Math.round(wheelClamp(projected,0,max)/H),0,d.n-1);
-  const flick=!d.reduced&&inside&&Math.abs(velocity)>=WHEEL_FLICK;
-  d.release={pos:d.pos,velocity,projected,target,flick};
-  wheelMoveTo(d,target,d.reduced?0:velocity,{flick})}
-/** A mouse wheel or trackpad aims the wheel by its deltas, a row per 44px, and the spring follows the aim. */
-function wheelOnWheel(e){
-  const d=wheelDrum;if(!d||d.pointer)return;
-  e.preventDefault();
-  d.reduced=!!reducedMotion();d.announce=true;
-  const dy=e.deltaMode===1?e.deltaY*d.H:e.deltaMode===2?e.deltaY*d.viewH:e.deltaY;
-  d.aim=wheelClamp((d.aim??d.pos)+dy,0,(d.n-1)*d.H);
-  wheelMoveTo(d,Math.round(d.aim/d.H),d.vel)}
-function wheelMount(col,{count,index,onCentre,onRest}){
-  const d={col,items:[...col.querySelectorAll(".wheel__item")],n:count,H:WHEEL_ITEM_H,viewH:col.clientHeight||5*WHEEL_ITEM_H,
-    pos:index*WHEEL_ITEM_H,vel:0,lo:0,hi:-1,centre:index,announce:true,reduced:!!reducedMotion(),
-    anim:null,raf:0,pointer:null,aim:null,release:null,onCentre,onRest};
-  col.onpointerdown=wheelPointerDown;
-  col.onpointermove=wheelPointerMove;
-  col.onpointerup=wheelPointerUp;
-  col.onpointercancel=wheelPointerUp;
-  col.onwheel=wheelOnWheel;
-  wheelPaint(d);
-  return d}
+function wheelStaticDrum(col,{count,index,onRest}){
+  const items=[...col.querySelectorAll(".wheel__item")];let at=index,lo=0,hi=-1;
+  const paint=()=>{
+    for(let i=lo;i<=hi;i++)items[i].style.visibility="";
+    lo=Math.max(0,at-2);hi=Math.min(count-1,at+2);
+    for(let i=lo;i<=hi;i++){const far=Math.abs(i-at);
+      items[i].style.transform=`translateY(${(i-at)*WHEEL_ITEM_H}px) scale(${1-far*0.07})`;
+      items[i].style.opacity=String(Math.max(0.2,1-far*0.22));items[i].style.visibility="visible"}};
+  paint();
+  return{step(to){at=Math.max(0,Math.min(count-1,to));paint();onRest(at)},halt(){},destroy(){},
+    state:()=>({pos:at*WHEEL_ITEM_H,index:at,itemH:WHEEL_ITEM_H,count,moving:false,now:performance.now(),release:null,drawn:[]})}}
+function wheelHalt(){wheelDrum?.halt()}
 window.__repforgeWheel={state(){
-  const d=wheelDrum;if(!d)return null;
-  const drawn=[];for(let i=d.lo;i<=d.hi;i++)drawn.push({i,transform:d.items[i].style.transform,opacity:d.items[i].style.opacity});
-  return{pos:d.pos,index:d.centre,itemH:d.H,count:d.n,moving:!!d.anim,now:performance.now(),
-    release:d.release&&{...d.release},values:wheelUi?wheelUi.values.slice():[],drawn}}};
+  const s=wheelDrum?.state();
+  return s?{...s,values:wheelUi?wheelUi.values.slice():[]}:null}};
 function wheelSyncAria(index){
   const ui=wheelUi,col=$("#wheelCol");if(!ui||!col)return;
   const v=ui.values[index];
   ui.index=index;
   col.setAttribute("aria-valuenow",String(v));
   col.setAttribute("aria-valuetext",wheelItemText(v,ui.kind,ui.unit));
-  const items=wheelDrum?.items||[...col.querySelectorAll(".wheel__item")];
+  ui.items??=[...col.querySelectorAll(".wheel__item")];
   ui.centerEl?.classList.remove("is-center");
-  ui.centerEl=items[index]||null;
+  ui.centerEl=ui.items[index]||null;
   ui.centerEl?.classList.add("is-center")}
 /** The value applies through the field's own input, exactly as typing it would:
  *  the same dispatch, the same draft, the same shelf and ledger sync. */
@@ -8874,8 +8749,7 @@ function wheelKeydown(e){
   if(next===ui.index)return;
   wheelSyncAria(next);
   wheelCommit(next);
-  const d=wheelDrum;
-  if(d){d.reduced=!!reducedMotion();d.announce=false;wheelMoveTo(d,next,d.vel)}}
+  wheelDrum?.step(next)}
 /** Opened by a second tap on the selected Load or Reps shelf field. */
 /** Where the wheel opens on an empty field (the carried load and the suggestion already fill it): the programmed
  *  target, then what the lift last logged in this set's place, then the bottom of the target range. Only with none
@@ -8942,15 +8816,16 @@ function openWheelSheet(key,id,kind){
   if(doneBtn)doneBtn.onclick=()=>{closeWheelSheet()};
   document.body.classList.add("is-sheet-open");
   openModal(sheet,{initialFocus:col,returnFocus:btn,onEscape:closeWheelSheet,scrim,delayHide:reducedMotion()?0:280});
-  wheelHalt();
-  wheelDrum=wheelMount(col,{count:values.length,index,onCentre:wheelSyncAria,onRest:wheelSettled});
+  wheelDrum?.destroy();
+  const mount=window.RepForgeMotion?.mountWheel||wheelStaticDrum;
+  wheelDrum=mount(col,{count:values.length,index,itemH:WHEEL_ITEM_H,onCentre:wheelSyncAria,onRest:wheelSettled});
   wheelSyncAria(index);
   requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
 function closeWheelSheet(){
   const sheet=$("#wheelSheet");
   if(!sheet)return Promise.resolve(false);
   if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
-  wheelHalt();
+  wheelDrum?.destroy();
   const ui=wheelUi;
   const commit=ui?wheelCommit(ui.index??0):Promise.resolve();
   wheelUi=null;wheelDrum=null;

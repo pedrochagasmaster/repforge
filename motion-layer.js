@@ -1748,6 +1748,170 @@
     });
   }
 
+  /* ---- The load and reps wheel as a physical object (owner, 2026-10-23: "like the MX Master's scroll wheel") ----
+     The column does not scroll. Pointer Events drive one number, `pos` (px; row i sits on the band at i·itemH),
+     and each frame recomputes the nearby rows' transform and opacity from it alone: no layout reads, no scrollTop.
+     - A drag tracks the finger from where it took the wheel, through a ratchet: each value is a notch where the
+       wheel runs a little slower than the finger and between two it runs a little faster, so a slow drag ticks
+       value by value; the notches fade out as the finger speeds up (free spin). At value centres the two agree.
+     - A release is projected (`projectMomentum`), snapped to the value nearest the projected point, and coasts
+       there critically damped, its frequency matched to the release so the motion is the projection's own decay,
+       seeded with the finger's velocity (no seam). After a real flick the last half row is caught on
+       `gestureSettle` (ζ≈0.82); every other settle (a slow release, a tap, a key) runs on `layoutShift`.
+     - A touch on a moving wheel stops it where it is drawn; past either end it rubber-bands and springs back.
+     - The centred value is announced as it changes (`onCentre`), and `onRest` names it once the wheel is still.
+       A key move announces only where it lands. Reduced motion: no momentum, no spring and no tilt; a release
+       steps straight to the nearest value, and scale and fade stay as static hierarchy.
+     The springs are integrated here in closed form, so the wheel needs only this layer, not the Motion runtime. */
+  const WHEEL_NOTCH = 0.16;     // the ratchet's depth: at a notch the wheel moves at 1−0.16 of the finger's speed
+  const WHEEL_FREE_SPIN = 0.6;  // px/ms of finger speed at which the notches have faded out
+  const WHEEL_FLICK = 0.25;     // px/ms: a release this fast is a flick, with momentum and the catch
+  const WHEEL_TILT = 18;        // degrees of tilt per row from the band, as the prototype draws it
+  const WHEEL_SPAN = 4;         // rows drawn on either side of the band
+  /* A vocabulary spring as the wheel integrates it: its natural frequency (rad/s), its ratio ζ, and how near
+     (px) and how still (px/s) counts as at rest. */
+  function wheelSpring(spring) {
+    const mass = spring.mass || 1, w = Math.sqrt(spring.stiffness / mass);
+    return { w, z: spring.damping / (2 * mass * w), near: spring.restDelta, still: spring.restSpeed };
+  }
+  /* A spring's offset from its target and its velocity (px/s), t seconds after it left e0 at v0. */
+  function wheelSpringAt(e0, v0, w, z, t) {
+    if (z < 1) {
+      const wd = w * Math.sqrt(1 - z * z), a = Math.exp(-z * w * t), b = (v0 + z * w * e0) / wd;
+      const c = Math.cos(wd * t), s = Math.sin(wd * t), e = a * (e0 * c + b * s);
+      return [e, -z * w * e + a * wd * (b * c - e0 * s)];
+    }
+    const a = Math.exp(-w * t), b = v0 + w * e0;
+    return [(e0 + b * t) * a, (b - w * (e0 + b * t)) * a];
+  }
+  function mountWheel(col, { count, index = 0, itemH = 44, onCentre = () => {}, onRest = () => {} } = {}) {
+    const items = [...col.querySelectorAll(".wheel__item")];
+    const H = itemH, n = count, viewH = col.clientHeight || 5 * H, max = (n - 1) * H;
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const st = { pos: clamp(index, 0, n - 1) * H, vel: 0, lo: 0, hi: -1, centre: clamp(index, 0, n - 1), announce: true,
+      reduced: reducedMotion(), run: null, raf: 0, pointer: null, aim: null, release: null };
+    const unrubber = shown => shown * viewH / (0.55 * (viewH - Math.min(Math.abs(shown), viewH - 1)));
+    // The finger's travel (`raw`) to the wheel's position: the ratchet inside the rail, the rubber band past it.
+    const shownFrom = (raw, notch) => raw < 0 ? rubberband(raw, viewH) : raw > max ? max + rubberband(raw - max, viewH)
+      : raw - notch * H / (2 * Math.PI) * Math.sin(2 * Math.PI * raw / H);
+    const rawFrom = (shown, notch) => {
+      if (shown < 0) return -unrubber(-shown);
+      if (shown > max) return max + unrubber(shown - max);
+      let x = shown;
+      for (let k = 0; k < 6; k++) {
+        const a = 2 * Math.PI * x / H;
+        x -= (x - notch * H / (2 * Math.PI) * Math.sin(a) - shown) / (1 - notch * Math.cos(a));
+      }
+      return x;
+    };
+    function paint() {
+      const c = st.pos / H, lo = Math.max(0, Math.floor(c) - WHEEL_SPAN), hi = Math.min(n - 1, Math.ceil(c) + WHEEL_SPAN);
+      for (let i = st.lo; i <= st.hi; i++) if (i < lo || i > hi) items[i].style.visibility = "";
+      for (let i = lo; i <= hi; i++) {
+        const off = i - c, far = Math.abs(off), el = items[i];
+        el.style.transform = `translateY(${(i * H - st.pos).toFixed(3)}px)${st.reduced ? "" : ` rotateX(${(-WHEEL_TILT * off).toFixed(3)}deg)`} scale(${(1 - Math.min(far, 3) * 0.07).toFixed(4)})`;
+        el.style.opacity = Math.max(0.2, 1 - far * 0.22).toFixed(4);
+        el.style.visibility = "visible";
+      }
+      st.lo = lo; st.hi = hi;
+      const centre = clamp(Math.round(c), 0, n - 1);
+      if (centre !== st.centre) { st.centre = centre; if (st.announce) onCentre(centre); }
+    }
+    function halt() {
+      if (st.raf) global.cancelAnimationFrame(st.raf);
+      st.raf = 0; st.run = null;
+    }
+    function rest() {
+      st.vel = 0; st.aim = null; st.announce = true;
+      onRest(clamp(Math.round(st.pos / H), 0, n - 1));
+    }
+    /* Move to row `to`, carrying `v` (px/ms). A flick coasts, then the notch catches it for its last half row. */
+    function moveTo(to, v = 0, { flick = false } = {}) {
+      halt();
+      const target = clamp(to, 0, n - 1) * H;
+      if (st.reduced || (Math.abs(target - st.pos) < 0.25 && Math.abs(v) < 0.02)) { st.pos = target; paint(); rest(); return; }
+      const e0 = st.pos - target, v0 = v * 1000, settle = wheelSpring(VOCABULARY.layoutShift);
+      const coast = flick && Math.abs(e0) > H / 2 && Math.sign(v0) === Math.sign(-e0);
+      const spring = coast ? { ...settle, w: clamp(Math.abs(v0 / e0), 1.5, settle.w), z: 1 } : settle;
+      st.run = { to: target, e0, v0, spring, t0: performance.now(), coast };
+      const frame = () => {
+        const run = st.run; if (!run) return;
+        let [e, ve] = wheelSpringAt(run.e0, run.v0, run.spring.w, run.spring.z, (performance.now() - run.t0) / 1000);
+        if (run.coast && Math.abs(e) < H / 2)
+          Object.assign(run, { e0: e, v0: ve, spring: wheelSpring(VOCABULARY.gestureSettle), t0: performance.now(), coast: false });
+        if (Math.abs(e) < run.spring.near && Math.abs(ve) < run.spring.still) {
+          st.pos = run.to; st.run = null; st.raf = 0; paint(); rest(); return;
+        }
+        st.pos = run.to + e; st.vel = ve / 1000;
+        paint();
+        st.raf = global.requestAnimationFrame(frame);
+      };
+      st.raf = global.requestAnimationFrame(frame);
+    }
+    col.onpointerdown = (event) => {
+      if (st.pointer || (event.pointerType === "mouse" && event.button !== 0)) return;
+      // The wheel's drag is the wheel's: the sheet's own drag-to-dismiss never starts from it.
+      event.stopPropagation();
+      const caught = !!st.run, t = event.timeStamp || performance.now();
+      halt(); st.vel = 0; st.reduced = reducedMotion(); st.announce = true;
+      try { col.setPointerCapture(event.pointerId); } catch {}
+      st.pointer = { id: event.pointerId, y0: event.clientY, raw: rawFrom(st.pos, WHEEL_NOTCH), caught, t0: t,
+        band: col.getBoundingClientRect().top + viewH / 2, hist: [{ t, p: st.pos }] };
+    };
+    col.onpointermove = (event) => {
+      const g = st.pointer; if (!g || event.pointerId !== g.id) return;
+      const t = event.timeStamp || performance.now();
+      while (g.hist.length > 1 && t - g.hist[0].t > 60) g.hist.shift();
+      const first = g.hist[0], speed = t > first.t ? Math.abs(st.pos - first.p) / (t - first.t) : 0;
+      st.pos = shownFrom(g.raw - (event.clientY - g.y0), WHEEL_NOTCH * Math.max(0, 1 - speed / WHEEL_FREE_SPIN));
+      g.hist.push({ t, p: st.pos });
+      paint();
+    };
+    col.onpointerup = col.onpointercancel = (event) => {
+      const g = st.pointer; if (!g || event.pointerId !== g.id) return;
+      st.pointer = null;
+      try { col.releasePointerCapture(event.pointerId); } catch {}
+      const t = event.timeStamp || performance.now();
+      // A short press that barely moved is a tap: on the band it stays, on a row above or below it brings it in.
+      if (event.type === "pointerup" && !g.caught && Math.abs(event.clientY - g.y0) < 6 && t - g.t0 < 350) {
+        const to = clamp(Math.round(st.pos / H + (event.clientY - g.band) / H), 0, n - 1);
+        st.release = { pos: st.pos, velocity: 0, projected: st.pos, target: to, flick: false };
+        moveTo(to); return;
+      }
+      // The release velocity: the finger's last 60ms, and none if it had come to rest before it lifted.
+      const recent = g.hist.filter(h => t - h.t <= 60), a = recent[0], b = recent[recent.length - 1];
+      const velocity = event.type === "pointerup" && recent.length > 1 && b.t > a.t ? (b.p - a.p) / (b.t - a.t) : 0;
+      const inside = st.pos >= 0 && st.pos <= max;
+      const projected = st.reduced || !inside ? st.pos : projectMomentum(st.pos, velocity);
+      const target = clamp(Math.round(clamp(projected, 0, max) / H), 0, n - 1);
+      const flick = !st.reduced && inside && Math.abs(velocity) >= WHEEL_FLICK;
+      st.release = { pos: st.pos, velocity, projected, target, flick };
+      moveTo(target, st.reduced ? 0 : velocity, { flick });
+    };
+    // A mouse wheel or trackpad aims the wheel by its deltas, a row per itemH, and the spring follows the aim.
+    col.onwheel = (event) => {
+      if (st.pointer) return;
+      event.preventDefault();
+      st.reduced = reducedMotion(); st.announce = true;
+      const dy = event.deltaMode === 1 ? event.deltaY * H : event.deltaMode === 2 ? event.deltaY * viewH : event.deltaY;
+      st.aim = clamp((st.aim ?? st.pos) + dy, 0, max);
+      moveTo(Math.round(st.aim / H), st.vel);
+    };
+    paint();
+    return {
+      /** A key or an assistive step: it moves to `to` and announces only where it lands. */
+      step(to) { st.reduced = reducedMotion(); st.announce = false; moveTo(to, st.vel); },
+      halt,
+      destroy() { halt(); st.pointer = null; col.onpointerdown = col.onpointermove = col.onpointerup = col.onpointercancel = col.onwheel = null; },
+      state() {
+        const drawn = [];
+        for (let i = st.lo; i <= st.hi; i++) drawn.push({ i, transform: items[i].style.transform, opacity: items[i].style.opacity });
+        return { pos: st.pos, index: st.centre, itemH: H, count: n, moving: !!st.run, now: performance.now(),
+          release: st.release && { ...st.release }, drawn };
+      },
+    };
+  }
+
   global.RepForgeMotion = {
     syncNativeControls,
     animateContextMenu,
@@ -1776,6 +1940,7 @@
     crossFadeIn,
     registerEdgeSwipeBack,
     mountGestureController,
+    mountWheel,
   };
 
   installPreferenceStyles();

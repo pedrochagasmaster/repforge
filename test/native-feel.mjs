@@ -1490,6 +1490,42 @@ async function wheelPhysics(browser) {
       await context.close();
     }
   }
+
+  phase("Wheel physics: without the motion layer the rows are still drawn, and the keys still set the value");
+  {
+    const { context, page } = await todayPage(browser, { layer: false });
+    await enterSeededFocus(page);
+    const step = await loadStep(page);
+    await pokeLoad(page, 1);
+    const loadBefore = await fieldFace(page, WHEEL_LOAD_SEL);
+    await page.locator(WHEEL_REPS_SEL).click();
+    await page.locator(WHEEL_LOAD_SEL).click();
+    await page.locator(WHEEL_LOAD_SEL).click();
+    await page.waitForSelector("#wheelSheet.is-open");
+    const centre = await page.evaluate(() => {
+      const el = document.querySelector("#wheelCol .wheel__item.is-center"), band = document.querySelector(".wheel__band").getBoundingClientRect();
+      const r = el?.getBoundingClientRect();
+      return el ? { visible: getComputedStyle(el).visibility === "visible", offBand: Math.abs((r.top + r.height / 2) - (band.top + band.height / 2)), value: Number(el.dataset.wheelV) } : null;
+    });
+    assert(centre && centre.visible && centre.offBand < 1 && centre.value === Number(loadBefore.value),
+      "the current value is drawn on the band", JSON.stringify({ centre, loadBefore }));
+    await page.focus("#wheelCol");
+    await page.keyboard.press("ArrowUp");
+    const want = Math.round((Number(loadBefore.value) + step) * 100) / 100;
+    const committed = await page.waitForFunction(([id, v]) => {
+      const d = window.__repforgeWorkoutDraft.current();
+      const exercise = d.exercises[d.session.selectedExerciseId];
+      const set = exercise.sets[exercise.setOrder.find((s) => exercise.sets[s].ordinal === 1)];
+      return Number(set.edited.metrics[id]) === v;
+    }, [WHEEL_WEIGHT, want], { timeout: 2000 }).then(() => true, () => false);
+    const moved = await page.evaluate(() => {
+      const el = document.querySelector("#wheelCol .wheel__item.is-center"), band = document.querySelector(".wheel__band").getBoundingClientRect();
+      const r = el.getBoundingClientRect();
+      return { value: Number(el.dataset.wheelV), offBand: Math.abs((r.top + r.height / 2) - (band.top + band.height / 2)) };
+    });
+    assert(committed && moved.value === want && moved.offBand < 1, "ArrowUp steps one value, draws it on the band and commits it", JSON.stringify({ moved, want }));
+    await context.close();
+  }
 }
 
 /* ---- Navigation (Plan 075 phase 3) ---- */
