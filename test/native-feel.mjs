@@ -1012,6 +1012,9 @@ async function wheelPicker(browser) {
     await page.locator(WHEEL_LOAD_SEL).click();
     await page.locator(WHEEL_LOAD_SEL).click();
     await page.waitForSelector("#wheelSheet.is-open");
+    // The sheet slides up after .is-open lands; until it is at rest the column sits 160-230px below its place, and a
+    // wheel aimed at a box read then lands under the column and never scrolls it (the CI flake, 2026-10-24).
+    await surfaceAtRest(page, "#wheelSheet");
     await page.focus("#wheelCol");
     await page.keyboard.press("ArrowUp");
     await page.keyboard.press("ArrowUp");
@@ -1190,6 +1193,7 @@ async function wheelPicker(browser) {
       return { scrollLeft: col.scrollLeft, overflowX: style.overflowX, touchAction: style.touchAction,
         offCentre: Math.abs((r.left + r.width / 2) - (band.left + band.width / 2)) };
     });
+    await surfaceAtRest(page, "#wheelSheet");
     const box = await page.locator("#wheelCol").boundingBox();
     const x = Math.round(box.x + box.width / 2), y = Math.round(box.y + box.height / 2);
     // A diagonal drag, mostly sideways: each move waits for its frame before the next.

@@ -149,6 +149,7 @@ jobs:
         with:
           name: ci-captures-${{ github.job }}-${{ strategy.job-index }}-${{ github.run_attempt }}
           path: .ci-captures/
+          include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 7
 
@@ -307,6 +308,7 @@ jobs:
         with:
           name: ci-captures-${{ github.job }}-${{ strategy.job-index }}-${{ github.run_attempt }}
           path: .ci-captures/
+          include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 14
 

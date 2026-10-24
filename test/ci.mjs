@@ -588,7 +588,8 @@ test("the workflow stages the targeted full lane behind a passing PR lane", () =
   for (const name of ["browser", "full-browser"]) {
     const body = job(name);
     assert.match(body, /REPFORGE_CI_CAPTURES_DIR: \$\{\{ github\.workspace \}\}\/\.ci-captures/, `${name} publishes changed frames`);
-    assert.match(body, /name: ci-captures-\$\{\{ github\.job \}\}-\$\{\{ strategy\.job-index \}\}-\$\{\{ github\.run_attempt \}\}\n\s+path: \.ci-captures\/\n\s+if-no-files-found: ignore/);
+    assert.match(body, /name: ci-captures-\$\{\{ github\.job \}\}-\$\{\{ strategy\.job-index \}\}-\$\{\{ github\.run_attempt \}\}\n\s+path: \.ci-captures\/\n\s+include-hidden-files: true\n\s+if-no-files-found: ignore/,
+      "the dot-directory is uploaded (upload-artifact skips hidden paths by default)");
     assert.match(body, /uses: actions\/cache@v4\n\s+with:\n\s+path: \|\n\s+~\/\.cache\/ms-playwright\n\s+~\/\.cache\/playwright-apt/,
       `${name} reuses the browser and its system packages instead of a slow mirror`);
   }
