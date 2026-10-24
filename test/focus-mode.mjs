@@ -923,21 +923,24 @@ async function main() {
   assert(/^Rest finished \d+:\d\d ago\./.test(chipOverrun.label || ""),
     "the chip's label still says the rest is over", chipOverrun.label);
 
-  // At large text four pads no longer fit one row, and a second row would push the action off the shortest screens:
-  // the field pads stay, the clock stays inline, and the rest controls are the presets sheet's.
+  // At large text the four rest pads keep their row and it scrolls sideways (Plan 075 phase 5, superseding #295's
+  // field pads at large text): one row, so the action is never pushed off the shortest screens.
   await page.evaluate(() => { window.startRest(); });
   await page.waitForFunction(() => document.querySelector("#workout .exercise.is-current .shelf__pads")?.dataset.pads === "rest");
   await fadesDone(page);
   await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; window.startRest(); });
-  await page.waitForFunction(() => document.querySelector("#workout .exercise.is-current .shelf__pads")?.dataset.pads === "field");
+  await page.waitForFunction(() => document.querySelector("#workout .exercise.is-current .shelf__pads")?.dataset.pads === "rest");
+  // The card takes its large-text state when the header's ResizeObserver reports the new root size: wait for it.
+  await page.waitForFunction(() => document.querySelector("#workout .exercise.is-current")?.classList.contains("is-text-scaled"));
   await fadesDone(page);
   const scaled = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");
-    return { slot: card.querySelector(".fx-slot").dataset.rest, restPads: card.querySelectorAll(".restpad").length,
-      fieldPads: card.querySelectorAll(".shelf__pad").length, clock: !!card.querySelector("[data-rest-clock]") };
+    const row = card.querySelector(".shelf__pads"), pads = [...row.querySelectorAll(".restpad")];
+    return { slot: card.querySelector(".fx-slot").dataset.rest, restPads: pads.length, clock: !!card.querySelector("[data-rest-clock]"),
+      rows: new Set(pads.map((pad) => Math.round(pad.getBoundingClientRect().top))).size, overflowX: getComputedStyle(row).overflowX };
   });
-  assert(scaled.slot === "running" && scaled.clock && scaled.restPads === 0 && scaled.fieldPads === 2,
-    "at double-size text the clock stays inline and the field pads stay, since four pads no longer fit a row", JSON.stringify(scaled));
+  assert(scaled.slot === "running" && scaled.clock && scaled.restPads === 4 && scaled.rows === 1 && scaled.overflowX === "auto",
+    "at double-size text the clock stays inline and the four rest pads keep one row that scrolls sideways", JSON.stringify(scaled));
   await page.evaluate(() => { document.documentElement.style.fontSize = ""; window.startRest(); });
   await page.waitForFunction(() => document.querySelector("#workout .exercise.is-current .shelf__pads")?.dataset.pads === "rest");
   await fadesDone(page);

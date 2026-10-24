@@ -131,6 +131,7 @@ async function assertDockFitsExternalTextScale(page) {
         return {
           view: button.dataset.view,
           text: label?.textContent.trim() || "",
+          size: label ? parseFloat(getComputedStyle(label).fontSize) : 0,
           visible: buttonRect.width > 0 && buttonRect.height > 0 && getComputedStyle(button).display !== "none",
           fits: !!label && label.scrollWidth <= label.clientWidth + 1
             && textRects.length > 0 && textRects.every((rect) => rect.left >= labelRect.left - 1
@@ -150,6 +151,8 @@ async function assertDockFitsExternalTextScale(page) {
         rootFontSize: getComputedStyle(root).fontSize,
         rootInlineFontSize: root.style.fontSize,
         columns,
+        rows: new Set(labels.map((label) => Math.round(label.rect.top))).size,
+        height: navRect.height,
         expectedLabels,
         labels,
         overlap,
@@ -158,10 +161,10 @@ async function assertDockFitsExternalTextScale(page) {
       };
     });
     if (layout.error || layout.rootFontSize !== "32px" || layout.rootInlineFontSize !== ""
-      || layout.columns !== 2 || layout.labels.length !== 4
-      || layout.labels.some((label, index) => !label.visible || !label.fits || label.text !== layout.expectedLabels[index])
+      || layout.columns !== 4 || layout.rows !== 1 || Math.abs(layout.height - 62) > 0.5 || layout.labels.length !== 4
+      || layout.labels.some((label, index) => !label.visible || !label.fits || label.size > 14.3 || label.text !== layout.expectedLabels[index])
       || layout.overlap || !layout.dockInViewport) {
-      throw new Error(`The production dock does not reflow for an external 32px root font: ${JSON.stringify(layout)}`);
+      throw new Error(`The production dock does not keep one row of capped labels for an external 32px root font: ${JSON.stringify(layout)}`);
     }
   });
 }
@@ -308,7 +311,7 @@ const D_FIXTURE_STATES = new Set([
  * states draw it), so Today's states read the log as it stood that morning.
  */
 const DIRECTION_D_BEFORE_SESSION = new Set([
-  "today/skipped", "today/context-menu", "today/ready", "today/ready-scrolled", "today/day-picker", "today/rest-bar", "today/draft-resume",
+  "today/skipped", "today/context-menu", "today/ready", "today/dock-viewer", "today/ready-scrolled", "today/day-picker", "today/rest-bar", "today/draft-resume",
   "workout/why-this-weight", "workout/why-in-session",
   "workout/rest-running", "workout/rest-done",
 ]);
@@ -1655,6 +1658,23 @@ export const APP_SCENARIOS = {
       await assertTodayExerciseFitsExternalTextScale(page);
     }
   },
+  // Plan 075 phase 5 (ADR 0023 choice 10): a finger held on the dock's Progress tab. The touch stays down while the frame
+  // is taken. At 200% text the viewer is what the capture shows; at the usual size the labels are whole, the viewer is
+  // not offered, and the frame is the press alone.
+  "today/dock-viewer": async (page) => {
+    await dismissChrome(page);
+    await page.locator("#todayExList .rxrow").first().waitFor({ state: "visible", timeout: 20000 });
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
+    const tab = await page.locator('nav button[data-view="stats"]').boundingBox();
+    if (!tab) throw new Error("The dock's Progress tab is not on screen");
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: tab.x + tab.width / 2, y: tab.y + tab.height / 2 }] });
+    if (await page.evaluate(() => document.documentElement.style.fontSize === "200%")) {
+      await page.waitForFunction(() => document.querySelector(".dock-viewer .dock-viewer__label")?.textContent.trim().length > 0, undefined, { timeout: 20000 });
+    } else {
+      await page.waitForFunction(() => document.querySelector('nav button[data-view="stats"]')?.classList.contains("is-pressed"), undefined, { timeout: 20000 });
+    }
+  },
   // Plan 075 phase 3 (ADR 0023): the scroll-edge bar once the large title has
   // scrolled under it. Same fixture and the same ready state as "today/ready",
   // scrolled all the way down so the title is fully behind the bar.
@@ -1952,8 +1972,8 @@ export const APP_SCENARIOS = {
     });
     await sleep(page, 400);
   },
-  // One -30s moves the pinned clock to 1:30 of 2:00: the pad's own action, taken from the pad. At large text four pads
-  // no longer fit a row, the field pads stay, and the same nudge is the presets sheet's.
+  // One -30s moves the pinned clock to 1:30 of 2:00: the pad's own action, taken from the pad, at every text size (at
+  // large text the pad row scrolls sideways, Plan 075 phase 5).
   "workout/rest-running": async (page) => {
     await startInlineRest(page);
     const pad = page.locator("#workout .exercise.is-current .restpad[data-rest-act='minus']");

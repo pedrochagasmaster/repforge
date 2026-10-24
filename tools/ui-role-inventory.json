@@ -278,6 +278,11 @@
       "content": "flat",
       "scenario": "The Direction D lifter before Day 1 starts: the prescription table reads recommendation() for every exercise, with the verdict tally above it."
     },
+    "today/dock-viewer": {
+      "owner": "plan-075-phase-5",
+      "content": "flat",
+      "scenario": "A finger holds the dock's Progress tab. At 200% text the large-content viewer shows its icon and name large over Today, which keeps its one-row dock with capped labels; at the usual size (the canonical frame) the labels are whole, so the hold is only a press and no viewer is offered."
+    },
     "today/ready-scrolled": {
       "owner": "plan-075",
       "content": "flat",
@@ -1176,6 +1181,7 @@
         "install/banner",
         "today/draft-resume",
         "today/ready",
+        "today/dock-viewer",
         "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
@@ -4165,6 +4171,7 @@
         "today/draft-resume",
         "today/no-program",
         "today/ready",
+        "today/dock-viewer",
         "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
@@ -5686,6 +5693,7 @@
         "install/banner",
         "today/draft-resume",
         "today/ready",
+        "today/dock-viewer",
         "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
@@ -5929,6 +5937,7 @@
         "today/draft-resume",
         "today/no-program",
         "today/ready",
+        "today/dock-viewer",
         "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
@@ -5983,6 +5992,7 @@
         "today/draft-resume",
         "today/no-program",
         "today/ready",
+        "today/dock-viewer",
         "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
@@ -6044,6 +6054,7 @@
         "today/done",
         "today/draft-resume",
         "today/ready",
+        "today/dock-viewer",
         "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
@@ -7772,6 +7783,7 @@
         "today/draft-resume",
         "today/no-program",
         "today/ready",
+        "today/dock-viewer",
         "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
@@ -7842,6 +7854,7 @@
         "today/draft-resume",
         "today/no-program",
         "today/ready",
+        "today/dock-viewer",
         "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
@@ -7921,6 +7934,7 @@
         "today/draft-resume",
         "today/no-program",
         "today/ready",
+        "today/dock-viewer",
         "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
@@ -7929,6 +7943,25 @@
         "today/ready-scrolled",
         "history/list-scrolled"
       ]
+    },
+    {
+      "id": "dock-viewer",
+      "selector": ".dock-viewer",
+      "roles": {
+        "elevation": "floating"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The dock's large-content viewer: while a finger holds a tab at large text it shows that tab's icon and name large; aria-hidden, the tab keeps its own name.",
+      "owner": "plan-075-phase-5",
+      "catalogStates": [
+        "today/dock-viewer"
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "large text only: the viewer is offered only in the dock's large-text state, and the role audit renders the canonical normal-text frames, where a hold is only a press. Its 200% frames are today/dock-viewer's text200 variants; test/native-feel.mjs (phase 5) proves it shows, follows the finger and switches tab."
     },
     {
       "id": "summary",
@@ -8012,6 +8045,7 @@
         "onboarding-start/first-run-ways",
         "today/draft-resume",
         "today/ready",
+        "today/dock-viewer",
         "today/skipped",
         "history/session",
         "program/overview",
@@ -8207,6 +8241,7 @@
       "owner": "plan-064/r1a",
       "catalogStates": [
         "today/ready",
+        "today/dock-viewer",
         "today/skipped",
         "today/rest-bar",
         "today/day-picker",
@@ -8404,7 +8439,7 @@
           "flat",
           "selected"
         ],
-        "boundary": "required"
+        "boundary": "decorative"
       },
       "variant": "workout-shelf-field",
       "facets": [],
@@ -8416,7 +8451,7 @@
         "selected",
         "disabled"
       ],
-      "rationale": "Chooses which field of the active set the pads act on, without committing data. The selected field carries the 2px quiet selected boundary (ink); its ground is the shelf's well (OG-4).",
+      "rationale": "Chooses which field of the active set the pads act on, without committing data. The selected field carries the 2px quiet selected boundary (ink); its ground is the shelf's well (OG-4). Since the Plan 075 phase 5 addendum (owner, 2026-10-24) the tile is a quiet fill named by its label and value, with no 3:1 outline; the selected field keeps its ring.",
       "owner": "plan-064/r3c",
       "catalogStates": [
         "workout/correction",
@@ -10667,6 +10702,7 @@
         "today/deload-week",
         "today/draft-resume",
         "today/ready",
+        "today/dock-viewer",
         "today/rest-bar",
         "today/skipped",
         "workout/invalid-draft",
@@ -11273,6 +11309,7 @@
       "catalogStates": [
         "today/no-program",
         "today/ready",
+        "today/dock-viewer",
         "today/skipped",
         "today/rest-bar",
         "today/done",
@@ -11422,7 +11459,7 @@
       "id": "workout-shelf",
       "selector": ".workshelf",
       "role": "persistent-action",
-      "rationale": "The workout shelf is a full-width persistent-action surface under Focus with the existing prominent top radius, a shallow top edge and the persistent depth; its fields sit on the well and its pads on the page ground, scoped to the shelf. Selector-exact: no other surface inherits it by visual resemblance (OG-4).",
+      "rationale": "The workout shelf is a full-width persistent-action surface under Focus: a concentric sheet (--shelf-radius 28px, --shelf-inset 16px, its tiles at --shelf-inner-radius), a shallow top edge and the persistent depth; its fields and pads are quiet tiles on the page ground with no outline (Plan 075 phase 5 addendum), scoped to the shelf. Selector-exact: no other surface inherits it by visual resemblance (OG-4).",
       "owner": "plan-064/r1b",
       "catalogStates": [
         "workout/correction",
@@ -11657,6 +11694,7 @@
       "catalogStates": [
         "today/no-program",
         "today/ready",
+        "today/dock-viewer",
         "today/skipped",
         "today/rest-bar",
         "today/done",
@@ -11715,6 +11753,7 @@
       "catalogStates": [
         "today/no-program",
         "today/ready",
+        "today/dock-viewer",
         "today/skipped",
         "today/rest-bar",
         "today/done",

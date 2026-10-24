@@ -5896,6 +5896,52 @@ function mountTopBars(){
       new IntersectionObserver(([entry])=>{bar.classList.toggle("is-scrolled",!entry.isIntersecting&&entry.boundingClientRect.height>0)},
         {threshold:0,rootMargin}).observe(title)})}
 mountTopBars();
+/* ---- The dock's large-content viewer (Plan 075 phase 5, audit F-5) ----
+   At large text the dock keeps one row and its labels stop growing, as an iOS tab bar's do, so a touch and hold shows
+   the tab under the finger large in the middle of the screen. Sliding moves it to the tab now under the finger, and
+   lifting is a tap on that tab: the button's own click, so routing, the lens and telemetry stay the dock's. Lifting
+   off the dock or a cancelled touch switches nothing. It offers itself in the large-text state that puts the dock on
+   its opaque material (the root container narrower than 15em). The viewer is for the eye only: every tab keeps its
+   whole name for assistive technology, and the keyboard reaches the tabs as before. */
+const DOCK_VIEWER_HOLD_MS=450;
+function mountDockViewer(){
+  const nav=document.querySelector("nav");
+  if(!nav)return null;
+  let timer=0,held=false,viewer=null,target=null,start=null;
+  const large=()=>{const root=document.documentElement;
+    return root.clientWidth<=15*parseFloat(getComputedStyle(root).fontSize)};
+  const show=(x,y)=>{
+    target=document.elementFromPoint(x,y)?.closest?.("nav > button")||null;
+    if(!target){viewer?.remove();viewer=null;return}
+    if(!viewer){viewer=document.createElement("div");viewer.className="dock-viewer";viewer.setAttribute("aria-hidden","true");document.body.append(viewer)}
+    if(viewer.dataset.view===target.dataset.view)return;
+    viewer.dataset.view=target.dataset.view;
+    const icon=target.querySelector(".nav__icon")?.cloneNode(false),label=document.createElement("span");
+    label.className="dock-viewer__label";label.textContent=target.querySelector("[data-i18n]")?.textContent.trim()||"";
+    viewer.replaceChildren(...(icon?[icon]:[]),label)};
+  const reset=()=>{clearTimeout(timer);timer=0;held=false;target=null;start=null;viewer?.remove();viewer=null};
+  nav.addEventListener("touchstart",e=>{
+    reset();
+    if(e.touches.length!==1||!large())return;
+    const {clientX:x,clientY:y}=e.touches[0];start={x,y};
+    timer=setTimeout(()=>{timer=0;held=true;show(x,y)},DOCK_VIEWER_HOLD_MS)},{passive:true});
+  nav.addEventListener("touchmove",e=>{
+    const t=e.touches[0];if(!t)return;
+    if(held){e.preventDefault();show(t.clientX,t.clientY);return}
+    // Moving before the hold completes is not a hold.
+    if(timer&&Math.hypot(t.clientX-start.x,t.clientY-start.y)>10){clearTimeout(timer);timer=0}},{passive:false});
+  // A touch's events go to the element it started on, so a finger that leaves the dock still ends here.
+  nav.addEventListener("touchend",e=>{
+    const tab=held?target:null,was=held;
+    reset();
+    if(!was)return;
+    // The hold took the gesture: no synthetic click follows it, and lifting is the one tap.
+    e.preventDefault();tab?.click()});
+  nav.addEventListener("touchcancel",reset);
+  // A hold is the viewer's, never the browser's context menu.
+  nav.addEventListener("contextmenu",e=>{if(large())e.preventDefault()});
+  return nav}
+mountDockViewer();
 function setEvidenceView(view){
   if(!EVIDENCE_SEG[view]){evidenceView=null;
     paintStatsTabs();
@@ -8111,12 +8157,9 @@ function restFraction(){return Math.max(0,Math.min(1,restLeftMs()/1000/Math.max(
 const restOverSec=()=>Math.min(REST_OVERTIME_MAX,Math.max(0,-restTimeLeftSec()));
 /** The slot shows the rest unless the lifter is correcting a set: the correction's cue owns it then. */
 const restSlotMode=editing=>editing?"none":restInlineMode();
-/** Four text pads need a row of their own: at large text (the root above 16px, the same test that sizes the card)
- *  they no longer fit one row, and a second row would push the shelf's action off the shortest screens. The field
- *  pads stay then, and the rest controls are the header timer's presets sheet. */
-const restPadsFit=()=>!(Number.parseFloat(getComputedStyle(document.documentElement).fontSize)>16.1);
-/** The rest controls take the pad row while time remains, until a tap on a field brings the field pads back. */
-const restPadsOn=editing=>!editing&&!restPadsBack&&restPadsFit()&&restInlineMode()==="running";
+/** The rest controls take the pad row while time remains, until a tap on a field brings the field pads back. At large
+ *  text the row scrolls sideways instead of wrapping (Plan 075 phase 5), so the four pads keep it at every size. */
+const restPadsOn=editing=>!editing&&!restPadsBack&&restInlineMode()==="running";
 
 /** The Por quê? link of a cue: the same control in the cue and in the rest line. */
 function focusWhyHtml(ex,r,{peek,name,draft,label,cls}){
@@ -8458,7 +8501,7 @@ function parseHistoryMetricInput(metric,raw){
   const checked=ExerciseMetrics?.parseMetricValue?.(metric,value);
   return checked?.ok?{value:checked.value}:{field:"metric",key};}
 // @ci-domain workout,session
-function shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek,carry}){
+function shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek,carry,grouped=false}){
   const key=`${ex.id}_${n}`,fieldId=`metric_${metric.id}`,inputKey=`${key}_${fieldId}`,selected=ui.field===fieldId;
   const live=selected&&ui.editing&&!peek;
   const pending=pendingFields.get(inputKey)?.value;
@@ -8467,13 +8510,15 @@ function shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek,carry}){
   const raw=carried??pending??set.edited.metrics?.[metric.id]??"";
   const shown=raw!==""?shelfText(metricTextValue(raw,metric)):metricTargetText(set.programmed.targets?.[metric.semantic]);
   const target=metricTargetText(set.programmed.targets?.[metric.semantic]);
-  // A unit the name already says (reps) is not repeated; any other follows the load field's "Load, kg".
+  // The name says it all ("Load per side, kg"); the tile shows the short label, the unit beside the value, and a
+  // per-side pair says "Per side" once above its group (Plan 075 phase 5 addendum).
   const unit=metricDisplayUnit(metric);
   const label=`${metricLabel(metric)}${unit?`, ${unit}`:""}`;
   const name=`${label}, ${t("focus.set_label",{n})}`;
   const soft=!touched.metrics?.[metric.id]&&!pendingFields.has(inputKey);
   const cls=`shelf__field${selected?" is-sel":""}${soft?" is-untouched":""}${live?" is-editing":""}`;
-  const face=`<span class="shelf__lab">${esc(label)}</span><span class="shelf__val">${esc(shown||"—")}</span>`;
+  const short=grouped?shelfShortLabel(metric):metricLabel(metric);
+  const face=shelfFaceHtml(short,label,shown,unit);
   if(peek)return `<div class="${cls}" data-field="metric" data-metric="${esc(metric.id)}"><span class="shelf__fieldbtn">${face}</span></div>`;
   // A selected Load or Reps field's name gains the picker hint: a second tap opens the wheel (ADR 0023 choice 8).
   const pickerHint=selected&&metricWheelKind(metric)?` aria-label="${esc(`${label} ${shown||"—"}, ${t("focus.field.picker_hint")}`)}"`:"";
@@ -8481,8 +8526,19 @@ function shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek,carry}){
   const input=`<input class="shelf__input" data-k="${esc(inputKey)}" data-metric-id="${esc(metric.id)}" type="text" inputmode="${metric.semantic==="reps"||metric.semantic==="repsPerSide"?"numeric":"decimal"}" `+
     `enterkeyhint="next" aria-label="${esc(name)}" autocomplete="off" value="${esc(metricTextValue(raw,metric))}" placeholder="${esc(target)}"`+
     `${live?"":' tabindex="-1" aria-hidden="true"'}>`;
-  const caption=live?`<span class="shelf__lab shelf__lab--edit" aria-hidden="true">${esc(label)}</span>`:"";
+  const caption=live?`<span class="shelf__lab shelf__lab--edit" aria-hidden="true">${esc(short)}</span>`:"";
   return `<div class="${cls}" data-field="metric" data-metric="${esc(metric.id)}" data-set="${esc(key)}"><span data-lv="${esc(fieldId)}"></span>${button}${input}${caption}</div>`}
+/** The per-side metrics the shelf groups under one "Per side" caption, with the short label each tile shows. */
+const SHELF_PER_SIDE_SHORT={loadPerSideKg:"focus.metric.load_kg",repsPerSide:"focus.metric.reps",
+  durationPerSideSeconds:"focus.metric.duration_seconds",distanceShortPerSideMeters:"focus.metric.distance_short_meters"};
+const shelfShortLabel=metric=>SHELF_PER_SIDE_SHORT[metric.semantic]?t(SHELF_PER_SIDE_SHORT[metric.semantic]):metricLabel(metric);
+/** A field's face: its short label over the value, with the unit beside the value ("22.5 kg"). The field's name stays
+ *  whole ("Load per side, kg 22.5"): the rest of the label is read but not shown, and the shown unit is not read twice. */
+const shelfFaceHtml=(short,label,shown,unit)=>{
+  const rest=label.startsWith(short)?label.slice(short.length):"";
+  const lab=rest||label===short?`${esc(short)}${rest?`<span class="visually-hidden">${esc(rest)}</span>`:""}`:esc(label);
+  return `<span class="shelf__lab">${lab}</span><span class="shelf__valrow"><span class="shelf__val">${esc(shown||"—")}</span>`+
+    `${unit?`<span class="shelf__unit" aria-hidden="true">${esc(unit)}</span>`:""}</span>`};
 
 function shelfFieldHtml(ex,n,id,vals,{ui,touched,effortMode,peek}){
   const key=`${ex.id}_${n}`,sel=ui.field===id;
@@ -8490,12 +8546,13 @@ function shelfFieldHtml(ex,n,id,vals,{ui,touched,effortMode,peek}){
   const live=sel&&ui.editing&&!effortField&&!peek;
   const label=id==="load"?t("focus.shelf.field_load",{unit:unitLabel()}):id==="reps"?t("stats.table.reps")
     :effortField?t("log.effort"):t("stats.table.rir");
+  const short=id==="load"?t("focus.metric.load_kg"):label;
   const name=`${label}, ${t("focus.set_label",{n})}`;
   const raw=id==="load"?vals.kgVal:id==="reps"?vals.repsVal:vals.rirVal;
   const shown=effortField?effortLabel(vals.effortVal):id==="reps"?String(vals.repsVal??""):shelfText(raw);
   const soft=!(id==="load"?touched.load:id==="reps"?touched.reps:touched.effort);
   const cls=`shelf__field${sel?" is-sel":""}${soft?" is-untouched":""}${live?" is-editing":""}`;
-  const face=`<span class="shelf__lab">${esc(label)}</span><span class="shelf__val">${esc(shown||"—")}</span>`;
+  const face=shelfFaceHtml(short,label,shown,id==="load"?unitLabel():"");
   if(peek)return `<div class="${cls}"><span class="shelf__fieldbtn">${face}</span></div>`;
   const hooks=effortField
     ?` data-effspin="${esc(key)}" data-e="${esc(vals.effortVal)}" aria-describedby="effpop_${esc(key)}"`:"";
@@ -8508,7 +8565,7 @@ function shelfFieldHtml(ex,n,id,vals,{ui,touched,effortMode,peek}){
   const input=effortField?"":`<input class="shelf__input" data-k="${esc(key)}_${id}" type="text" inputmode="${id==="reps"?"numeric":"decimal"}" `+
     `enterkeyhint="${id==="rir"?"done":"next"}" aria-label="${esc(name)}" autocomplete="off" value="${esc(String(raw??""))}"`+
     `${live?"":' tabindex="-1" aria-hidden="true"'}>`;
-  const caption=live?`<span class="shelf__lab shelf__lab--edit" aria-hidden="true">${esc(label)}</span>`:"";
+  const caption=live?`<span class="shelf__lab shelf__lab--edit" aria-hidden="true">${esc(short)}</span>`:"";
   return `<div class="${cls}" data-field="${id}" data-set="${esc(key)}">${button}${input}${caption}${effortField?effortPopHtml(key,vals.effortVal):""}</div>`}
 
 function shelfPadsHtml(ex,n,ui,vals,{effortMode,peek}){
@@ -8571,8 +8628,15 @@ function focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
   const set=activeWorkoutDraft?.exercises?.[ex.id]?.sets?.[setId];
   // The fields read in the order of the set table's columns: load, then reps, then effort.
   const column=metric=>METRIC_FIELD_SEMANTICS.load.includes(metric.semantic)?0:METRIC_FIELD_SEMANTICS.reps.includes(metric.semantic)?1:2;
+  const sorted=[...metricDefinitions].sort((a,b)=>column(a)-column(b));
+  const metricHtml=(metric,grouped)=>shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek,carry:manualLoadCarry(ex.id,n,r),grouped});
+  // The per-side fields that lead the row share one tile under a single "Per side" caption; the rest stand alone.
+  let lead=0;while(lead<sorted.length&&SHELF_PER_SIDE_SHORT[sorted[lead].semantic])lead++;
+  const side=sorted.slice(0,lead);
+  const group=side.length?`<p class="shelf__cap" aria-hidden="true"><span class="icon-mask icon-mask--dumbbell"></span>${esc(t("focus.per_side"))}</p>`+
+    `<div class="shelf__group" style="--shelf-group-n:${side.length}">${side.map(metric=>metricHtml(metric,true)).join("")}</div>`:"";
   const fields=metricDefinitions.length
-    ?[...metricDefinitions].sort((a,b)=>column(a)-column(b)).map(metric=>shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek,carry:manualLoadCarry(ex.id,n,r)})).join("")+shelfFieldHtml(ex,n,"rir",vals,{ui,touched,effortMode,peek})
+    ?group+sorted.slice(lead).map(metric=>metricHtml(metric,false)).join("")+shelfFieldHtml(ex,n,"rir",vals,{ui,touched,effortMode,peek})
     :["load","reps","rir"].map(id=>shelfFieldHtml(ex,n,id,vals,{ui,touched,effortMode,peek})).join("");
   return `<div class="focus-shelf workshelf${editing?" is-editing":""}" role="region" aria-label="${esc(label)}">`+
     `<div class="shelf__fields">${fields}</div>`+
@@ -9165,6 +9229,7 @@ let focusFloorWatch=null,focusFloorWatched=[];
 function syncFocusFloor(){
   const card=focusCard(),shell=$("#workoutShell"),shelf=card?.querySelector(".focus-shelf"),head=shell?.querySelector(".wo-head");
   if(!card||!shell||!shelf||!head)return;
+  syncTextScale(card);
   const tall=el=>el&&el.getClientRects().length?el.getBoundingClientRect().height:0;
   const context=card.querySelector(".fcard__context");
   const least=context?getComputedStyle(context):null;
@@ -9184,22 +9249,29 @@ function syncFocusFloor(){
   focusFloorWatch.disconnect();
   watched.forEach(el=>focusFloorWatch.observe(el));
   focusFloorWatched=watched}
+/** The card's large-text state follows the root size, read live: a text-size change while Focus is open restyles it
+ *  on the next floor sync (the header's ResizeObserver), not only on the next full render. */
+function syncTextScale(card){
+  const rootFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
+  card?.classList.toggle("is-text-scaled",Number.isFinite(rootFontSize)&&rootFontSize>16.1)}
 function sizeFocusCard(card){
   if(!card)return;
-  const rootFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
-  card.classList.toggle("is-text-scaled",Number.isFinite(rootFontSize)&&rootFontSize>16.1);
+  syncTextScale(card);
   // The context region scrolls as one: keep the row being worked on in view. At the first set nothing has been
   // logged and the shelf already shows the set, so the card opens at its top with the exercise's prescription; later
   // the row scrolls into view, but never past a rest that is running or has just ended, which sits above it.
+  // At large text (Plan 075 phase 5) the open set comes first, at every set: the window is too short to hold the rest
+  // and the row, and the header's pill still shows the time.
+  const scaled=card.classList.contains("is-text-scaled");
   const context=card.querySelector(".fcard__context");
   const open=context?.querySelector(".ledgerline--open");if(!open)return;
-  if(+open.dataset.lrow<=1&&context.scrollTop===0)return;
+  if(!scaled&&+open.dataset.lrow<=1&&context.scrollTop===0)return;
   const box=context.getBoundingClientRect(),row=open.getBoundingClientRect();
   if(row.bottom>box.bottom){
     // A rest that is running or has just ended is never scrolled out: whatever else the window holds above the row
     // (a skip bar taking its height, the table's head and disclosure), the row comes no further than the rest's top.
     const slot=context.querySelector(".fx-slot"),
-      resting=!!slot&&!!slot.dataset.rest&&slot.dataset.rest!=="none";
+      resting=!scaled&&!!slot&&!!slot.dataset.rest&&slot.dataset.rest!=="none";
     const keep=resting?slot.getBoundingClientRect().top:NaN;
     const room=Number.isFinite(keep)?Math.max(0,keep-box.top):Infinity;
     const need=row.bottom-box.bottom+8;

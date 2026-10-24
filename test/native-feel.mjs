@@ -41,6 +41,20 @@
  * large text. Tapping the dock's current tab scrolls that page to the top
  * (instant under reduced motion), or returns a History session page to the
  * list exactly as its own Back does.
+ * Phase 5, large text (audit F-1, F-5). At 200% text in both languages, at
+ * 390×844 and 375×667, Focus stacks the rest line under a capped clock, caps
+ * the bar title, prints no rest or ledger text over another or past the edge,
+ * keeps its pads on one row (the rest controls included, scrolling sideways)
+ * and keeps the open set whole above the shelf. The
+ * dock keeps one row and its height with labels capped at 1.3×; touching and
+ * holding a tab shows the large-content viewer, sliding moves it and lifting
+ * switches to the tab under the finger.
+ *
+ * Phase 5 addendum, the concentric shelf: a 28px sheet with 16px insets, every
+ * field, pad and Log set at 12px (the sheet minus the inset), 8px between
+ * siblings and 12px between rows, no field label wrapping, and a per-side
+ * exercise's Load and Reps in one tile under exactly one "Per side" caption,
+ * each field's name still saying per side.
  *
  * Chromium touch emulation is not iPhone evidence; the feel is checked on a
  * device by the owner.
@@ -1820,8 +1834,261 @@ async function navigationBars(browser) {
   }
 }
 
+/** Focus at 200%, measured in the page: the rest block, the ledger's text, the open set against the shelf, the pads. */
+function measureLargeFocus() {
+  const art = document.querySelector("#workout .exercise--focus.is-current");
+  if (!art) return { error: "no live Focus card" };
+  const box = (el) => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; };
+  const textBoxes = (root) => {
+    const out = [];
+    if (!root) return out;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (!node.textContent.trim() || !node.parentElement.getClientRects().length) continue;
+      if (node.parentElement.closest(".visually-hidden,[hidden]")) continue;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      for (const r of range.getClientRects()) if (r.width > 1 && r.height > 1) out.push({ text: node.textContent.trim().slice(0, 14), left: r.left, right: r.right, top: r.top, bottom: r.bottom });
+    }
+    return out;
+  };
+  const overprints = (boxes) => {
+    const hits = [];
+    for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+      const a = boxes[i], b = boxes[j];
+      const across = Math.min(a.right, b.right) - Math.max(a.left, b.left), down = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+      if (across > 1 && down > 0.35 * Math.min(a.bottom - a.top, b.bottom - b.top)) hits.push(`${a.text} / ${b.text}`);
+    }
+    return hits;
+  };
+  const q = (s) => art.querySelector(s);
+  const rest = q(".restinline:not(.restinline--done)");
+  const context = q(".fcard__context"), shelf = q(".focus-shelf"), open = q(".ledgerline--open");
+  const title = document.querySelector("#woDayTitle .wo-head__name") || document.querySelector("#woDayTitle");
+  const pads = [...art.querySelectorAll(".shelf__pads > button")];
+  const padRow = q(".shelf__pads");
+  const restText = textBoxes(rest), ledgerText = textBoxes(q(".fcard__ledger"));
+  return {
+    width: innerWidth,
+    titleSize: parseFloat(getComputedStyle(title).fontSize),
+    rest: rest && {
+      clockSize: parseFloat(getComputedStyle(q(".restinline__clock")).fontSize),
+      clock: box(q(".restinline__clock")), label: box(q(".restinline__label")), of: box(q(".restinline__of")),
+      outside: restText.filter((r) => r.left < -0.5 || r.right > innerWidth + 0.5).map((r) => r.text),
+      overprinted: overprints(restText),
+    },
+    ledgerOverprinted: overprints(ledgerText),
+    ledgerOutside: ledgerText.filter((r) => r.left < -0.5 || r.right > innerWidth + 0.5).map((r) => r.text),
+    open: open && box(open), context: context && box(context), shelf: shelf && box(shelf),
+    pads: pads.map((b) => ({ text: b.textContent.trim(), top: Math.round(b.getBoundingClientRect().top), clipped: b.scrollWidth > b.clientWidth + 1 })),
+    padsKind: padRow?.dataset.pads,
+    padsScroll: padRow && { overflows: padRow.scrollWidth > padRow.clientWidth + 1, scrolls: ["auto", "scroll"].includes(getComputedStyle(padRow).overflowX) },
+  };
+}
+
+/** Phase 5 (F-1): Focus at 200% text, in both languages, on the canonical phone and an SE-class one. */
+async function largeTextFocus(browser) {
+  phase("Focus holds together at 200% text");
+  const phones = [{ width: 390, height: 844, safe: { top: 44, bottom: 34 } }, { width: 375, height: 667, safe: { top: 20, bottom: 0 } }];
+  for (const key of ["workout/rest-running", "workout/focus", "workout/focus-per-side"]) for (const lang of ["pt", "en"]) for (const phone of phones) {
+    const label = `${key} ${lang} ${phone.width}×${phone.height}`;
+    const opened = await openCatalogState(browser, key, phone.width, lang, "text200", { height: phone.height, safe: phone.safe });
+    try {
+      const m = await opened.page.evaluate(measureLargeFocus);
+      if (m.error) { assert(false, label, m.error); continue; }
+      if (key === "workout/rest-running") {
+        assert(!!m.rest && m.rest.clockSize <= 52, `${label}: the rest clock is capped at 52px`, JSON.stringify(m.rest?.clockSize));
+        assert(!!m.rest && m.rest.label.top >= m.rest.clock.bottom - 1 && m.rest.of.top >= m.rest.clock.bottom - 1,
+          `${label}: the rest label and its total stack under the clock`, JSON.stringify(m.rest));
+        assert(!!m.rest && !m.rest.outside.length && !m.rest.overprinted.length, `${label}: no rest text is clipped or overprinted`,
+          JSON.stringify({ outside: m.rest?.outside, overprinted: m.rest?.overprinted }));
+        assert(m.padsKind === "rest", `${label}: the rest controls keep the pad row`, JSON.stringify({ kind: m.padsKind, pads: m.pads }));
+        if (phone.height === 844) assert(m.rest.clock.top >= m.context.top - 0.5, `${label}: the clock is whole in the window with the open set`,
+          JSON.stringify({ clock: m.rest.clock, context: m.context }));
+      }
+      assert(m.titleSize <= 21, `${label}: the bar title is capped at 21px`, String(m.titleSize));
+      assert(!m.ledgerOverprinted.length && !m.ledgerOutside.length, `${label}: no ledger text overprints or leaves the screen`,
+        JSON.stringify({ overprinted: m.ledgerOverprinted, outside: m.ledgerOutside }));
+      assert(!!m.open && m.open.top >= m.context.top - 0.5 && m.open.bottom <= m.shelf.top + 0.5,
+        `${label}: the open set is whole above the shelf`, JSON.stringify({ open: m.open, context: m.context, shelf: m.shelf }));
+      assert(m.pads.length > 0 && m.pads.every((p) => p.top === m.pads[0].top) && m.pads.every((p) => !p.clipped)
+        && (!m.padsScroll.overflows || m.padsScroll.scrolls), `${label}: the pads keep one row, whole, scrolling sideways if they must`,
+        JSON.stringify({ pads: m.pads, row: m.padsScroll }));
+    } finally {
+      await opened.context.close();
+    }
+  }
+}
+
+/** The dock as measured: its rows, height, label size and fit, and how opaque its material is. */
+function measureDock() {
+  const nav = document.querySelector("nav");
+  const buttons = [...nav.querySelectorAll(":scope > button")];
+  const alpha = (color) => { const m = color.match(/rgba?\(([^)]+)\)/); const parts = m ? m[1].split(/[ ,/]+/).filter(Boolean) : []; return parts.length > 3 ? parseFloat(parts[3]) : 1; };
+  return {
+    height: nav.getBoundingClientRect().height,
+    rows: new Set(buttons.map((b) => Math.round(b.getBoundingClientRect().top))).size,
+    labels: buttons.map((b) => {
+      const label = b.querySelector("[data-i18n]");
+      return { text: label.textContent.trim(), size: parseFloat(getComputedStyle(label).fontSize), fits: label.scrollWidth <= label.clientWidth + 1,
+        name: b.getAttribute("aria-label") || b.textContent.trim() };
+    }),
+    alpha: alpha(getComputedStyle(nav).backgroundColor),
+  };
+}
+
+/** Phase 5 (F-5): one row and one height at 200%, capped labels, and the large-content viewer on touch and hold. */
+async function largeTextDock(browser) {
+  phase("The dock keeps one row at 200% text, and touch and hold shows the large-content viewer");
+  const normal = await (async () => {
+    const opened = await openCatalogState(browser, "today/ready", 390, "en", "normal");
+    try { return await opened.page.evaluate(measureDock); } finally { await opened.context.close(); }
+  })();
+  for (const lang of ["en", "pt"]) {
+    const opened = await openCatalogState(browser, "today/ready", 390, lang, "text200");
+    try {
+      const m = await opened.page.evaluate(measureDock);
+      assert(m.rows === 1 && Math.abs(m.height - normal.height) < 0.5, `${lang}: one row at the usual height`, JSON.stringify({ rows: m.rows, height: m.height, normal: normal.height }));
+      assert(m.labels.every((l) => l.size <= 14.3 && l.fits && l.name === l.text), `${lang}: every label is capped at 1.3×, whole, and names its tab`, JSON.stringify(m.labels));
+      assert(m.alpha >= 0.95, `${lang}: the capped dock is on its opaque material`, String(m.alpha));
+    } finally {
+      await opened.context.close();
+    }
+  }
+
+  const { context, page, touch } = await todayPage(browser);
+  const centre = async (view) => { const { x, y } = await center(page, `nav button[data-view="${view}"]`); return { x, y }; };
+  const viewer = () => page.evaluate(() => {
+    const el = document.querySelector(".dock-viewer");
+    if (!el || !el.getClientRects().length) return null;
+    const label = el.querySelector(".dock-viewer__label");
+    return { text: label?.textContent.trim(), size: label && parseFloat(getComputedStyle(label).fontSize), icon: !!el.querySelector(".nav__icon"),
+      hidden: el.getAttribute("aria-hidden") };
+  });
+  const active = () => page.evaluate(() => ({ tab: document.querySelector('nav button[aria-current="page"]')?.dataset.view, view: document.querySelector(".view.active")?.id }));
+  const shows = (text) => page.waitForFunction((t) => document.querySelector(".dock-viewer .dock-viewer__label")?.textContent.trim() === t, text, { timeout: 3000 }).then(() => true, () => false);
+
+  // At the usual size the labels are whole, so a hold shows nothing and a tap switches as always.
+  const p0 = await centre("stats");
+  await touch("touchStart", [p0]);
+  // A hold is a duration: well past the viewer's delay, with nothing to wait for if it is right.
+  await page.waitForTimeout(700);
+  const none = await viewer();
+  await touch("touchEnd");
+  assert(none === null, "at the usual size a hold shows no viewer", JSON.stringify(none));
+  assert((await active()).tab === "stats", "and lifting is a tap on the tab", JSON.stringify(await active()));
+  await page.click('nav button[data-view="log"]');
+
+  await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+  await page.evaluate(() => new Promise(requestAnimationFrame));
+  const p1 = await centre("stats");
+  await touch("touchStart", [p1]);
+  const shown = await shows("Progress");
+  const first = await viewer();
+  assert(shown && first.icon && first.size >= 28 && first.hidden === "true", "a hold on Progress shows its name and icon large, hidden from assistive tech (the tab keeps its name)", JSON.stringify(first));
+  assert((await active()).tab === "log", "the hold alone does not switch", JSON.stringify(await active()));
+  const p2 = await centre("history");
+  await touch("touchMove", [{ x: (p1.x + p2.x) / 2, y: p2.y }]);
+  await touch("touchMove", [p2]);
+  const slid = await shows("History");
+  await touch("touchEnd");
+  const landed = await page.waitForFunction(() => document.querySelector('nav button[aria-current="page"]')?.dataset.view === "history"
+    && !document.querySelector(".dock-viewer"), undefined, { timeout: 3000 }).then(() => true, () => false);
+  assert(slid && landed, "sliding moves the viewer to History, and lifting switches to History and closes the viewer", JSON.stringify({ slid, ...(await active()) }));
+  assert((await active()).view === "history", "the History view is the one shown", JSON.stringify(await active()));
+
+  const p3 = await centre("program");
+  await touch("touchStart", [p3]);
+  await shows("Program");
+  await touch("touchCancel");
+  const cancelled = await page.waitForFunction(() => !document.querySelector(".dock-viewer"), undefined, { timeout: 3000 }).then(() => true, () => false);
+  assert(cancelled && (await active()).tab === "history", "a cancelled hold closes the viewer and switches nothing", JSON.stringify(await active()));
+
+  const p4 = await centre("log");
+  await touch("touchStart", [p4]);
+  await touch("touchEnd");
+  const tapped = await page.waitForFunction(() => document.querySelector('nav button[aria-current="page"]')?.dataset.view === "log", undefined, { timeout: 3000 }).then(() => true, () => false);
+  assert(tapped && !(await viewer()), "a quick tap at 200% still switches, with no viewer", JSON.stringify(await active()));
+  await context.close();
+}
+
+/** The addendum's shelf, measured: radii, insets, gaps, the per-side caption and names, and label wraps. */
+function measureShelf() {
+  const shelf = document.querySelector("#workout .exercise--focus.is-current .focus-shelf");
+  if (!shelf) return { error: "no Focus shelf" };
+  const css = (el) => getComputedStyle(el);
+  const px = (v) => parseFloat(v) || 0;
+  const radius = (el) => px(css(el).borderTopLeftRadius);
+  const tiles = [...shelf.querySelectorAll(".shelf__fields > .shelf__field .shelf__fieldbtn, .shelf__group")];
+  const pads = [...shelf.querySelectorAll(".shelf__pads > button")];
+  const action = shelf.querySelector("[data-save]");
+  const fields = shelf.querySelector(".shelf__fields"), padRow = shelf.querySelector(".shelf__pads");
+  const caps = [...shelf.querySelectorAll(".shelf__cap")].filter((el) => el.getClientRects().length);
+  const perSide = window.RepForgeI18n.t("focus.per_side");
+  const groupButtons = [...shelf.querySelectorAll(".shelf__group .shelf__fieldbtn")];
+  const name = (b) => (b.getAttribute("aria-label") || b.textContent).replace(/\s+/g, " ").trim();
+  const labels = [...shelf.querySelectorAll(".shelf__fieldbtn > .shelf__lab")].map((el) => {
+    // The visible label only: a visually hidden rest of the name is read, not drawn.
+    const rects = [...el.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE).flatMap((node) => {
+      const range = document.createRange(); range.selectNodeContents(node); return [...range.getClientRects()];
+    });
+    const lines = new Set(rects.filter((r) => r.width > 1 && r.height > 1).map((r) => Math.round(r.top))).size;
+    return { text: el.textContent.trim(), lines };
+  });
+  const s = css(shelf);
+  const bg = css(document.documentElement).getPropertyValue("--bg").trim();
+  const probe = document.createElement("i"); probe.style.color = bg; document.body.append(probe);
+  const bgColor = css(probe).color; probe.remove();
+  const outlined = [...tiles, ...pads].filter((el) => ["Top", "Right", "Bottom", "Left"].some((side) =>
+    px(css(el)[`border${side}Width`]) > 0 && !/rgba\(.*,\s*0\)$|transparent/.test(css(el)[`border${side}Color`])));
+  const selected = shelf.querySelector('.shelf__fieldbtn[aria-pressed="true"]');
+  return {
+    outlined: outlined.map((el) => el.className), fills: [...tiles.filter((el) => !el.closest(".shelf__group") || el.matches(".shelf__group")), ...pads]
+      .map((el) => css(el).backgroundColor), bgColor, ring: selected ? css(selected).boxShadow : "none",
+    sheet: radius(shelf), inset: { top: px(s.paddingTop), left: px(s.paddingLeft), right: px(s.paddingRight) }, rowGap: px(s.rowGap),
+    radii: [...tiles, ...pads, action].map(radius),
+    gaps: { fields: px(css(fields).columnGap), pads: px(css(padRow).columnGap) },
+    caps: caps.map((el) => ({ text: el.textContent.trim(), upper: css(el).textTransform })), perSide,
+    groupNames: groupButtons.map(name), labels,
+  };
+}
+
+/** Phase 5 addendum: the concentric shelf and its grouped "Per side". */
+async function concentricShelf(browser) {
+  phase("The Focus shelf is concentric, and says Per side once");
+  const phones = [{ width: 390, height: 844, safe: { top: 44, bottom: 34 } }, { width: 375, height: 667, safe: { top: 20, bottom: 0 } }];
+  for (const key of ["workout/focus", "workout/focus-per-side"]) for (const lang of ["en", "pt"]) for (const phone of phones) for (const theme of ["light", "dark"]) {
+    if (theme === "dark" && (lang === "pt" || phone.width !== 390)) continue;
+    const label = `${key} ${lang} ${phone.width} ${theme}`;
+    const opened = await openCatalogState(browser, key, phone.width, lang, "normal", { height: phone.height, safe: phone.safe, theme });
+    try {
+      const m = await opened.page.evaluate(measureShelf);
+      if (m.error) { assert(false, label, m.error); continue; }
+      const inner = m.sheet - m.inset.left;
+      assert(m.sheet === 28 && m.inset.top === 16 && m.inset.left === 16 && m.inset.right === 16,
+        `${label}: a 28px sheet with 16px insets`, JSON.stringify({ sheet: m.sheet, inset: m.inset }));
+      assert(inner === 12 && m.radii.every((r) => r === inner), `${label}: every field, pad and Log set is 12px, the sheet minus its inset`, JSON.stringify(m.radii));
+      assert(m.gaps.fields === 8 && m.gaps.pads === 8 && m.rowGap === 12, `${label}: 8px between siblings and 12px between rows`, JSON.stringify({ gaps: m.gaps, rowGap: m.rowGap }));
+      assert(m.labels.every((l) => l.lines === 1), `${label}: no field label wraps`, JSON.stringify(m.labels));
+      assert(!m.outlined.length && m.fills.every((f) => f === m.bgColor) && m.ring !== "none",
+        `${label}: quiet tiles on --bg with no outline, and the selected field keeps its ring`, JSON.stringify({ outlined: m.outlined, fills: m.fills, bg: m.bgColor, ring: m.ring }));
+      if (key === "workout/focus-per-side") {
+        assert(m.caps.length === 1 && m.caps[0].text === m.perSide && m.caps[0].upper === "uppercase", `${label}: exactly one "Per side" caption`, JSON.stringify(m.caps));
+        assert(m.groupNames.length >= 1 && m.groupNames.every((n) => n.includes(m.perSide)), `${label}: each grouped field's name says per side`, JSON.stringify(m.groupNames));
+      } else {
+        assert(m.caps.length === 0, `${label}: an ordinary exercise has no caption`, JSON.stringify(m.caps));
+      }
+    } finally {
+      await opened.context.close();
+    }
+  }
+}
+
+// NATIVE_FEEL_ONLY=large runs just phase 5 and =shelf just its addendum, for a local red/green; CI runs everything.
+const ONLY = process.env.NATIVE_FEEL_ONLY || "";
 const browser = await launchChromium();
 try {
+ if (!ONLY) {
   phase("A primary action is pressed on touch-down");
   {
     const { context, page, touch } = await todayPage(browser);
@@ -2022,6 +2289,12 @@ try {
   await navigationBars(browser);
   await editorSheetAndBar(browser);
   await perSideOverflow(browser);
+ }
+  if (ONLY !== "shelf") {
+    await largeTextFocus(browser);
+    await largeTextDock(browser);
+  }
+  await concentricShelf(browser);
 } finally {
   await browser.close();
 }
