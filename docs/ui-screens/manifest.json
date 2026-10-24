@@ -1116,7 +1116,7 @@
       "id": "rest-bar",
       "flow": "today",
       "label": "Today — running rest bar",
-      "scenario": "The rest countdown remains visible after leaving the active workout.",
+      "scenario": "The rest countdown remains visible after leaving the active workout; the logged set opens the live card.",
       "variants": "demandingText"
     },
     {
@@ -2047,7 +2047,7 @@
       "id": "skipped",
       "flow": "today",
       "label": "Today — skipped exercise",
-      "scenario": "A context-menu skip acknowledged on Today, stored only in the workout draft.",
+      "scenario": "A context-menu skip acknowledged on Today, stored only in the workout draft: the skip opens today's session, so the live card leads and the row reads Skipped today.",
       "variants": "demandingText"
     }
   ]

@@ -7523,7 +7523,7 @@ function todayRxRowHtml(row,index){
   const{ex,rec,glyph}=row,verdictId=`rxv${index}`,statusId=`rxs${index}`,hasVerdict=!!rec.label&&glyph!=="manual";
   const isSkipped=row.status==="skipped"||activeWorkoutDraft?.exercises?.[ex.id]?.status==="skipped";
   const describedBy=[hasVerdict?verdictId:"",isSkipped||row.status?statusId:""].filter(Boolean).join(" ");
-  return `<div class="today-rx__row${isSkipped?" is-skipped":""}${row.status==="current"?" is-current":""}" data-context-row="${esc(ex.id)}" tabindex="-1" role="group" aria-label="${esc(exerciseDisplayName(ex))}" aria-describedby="todayRowActionsHint"><button type="button" class="rxrow${glyph==="manual"?" is-manual":""}" data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name:exerciseDisplayName(ex)}))}"${describedBy?` aria-describedby="${describedBy}"`:""}>`+
+  return `<div class="today-rx__row${isSkipped?" is-skipped":""}${row.status==="current"?" is-current":""}" data-context-row="${esc(ex.id)}" tabindex="-1" role="group" aria-label="${esc(exerciseDisplayName(ex))}" aria-describedby="todayRowActionsHint"><button type="button" class="rxrow${glyph==="manual"?" is-manual":""}" data-exopen="${esc(ex.id)}" data-verdict="${esc(glyph)}" aria-label="${esc(t("log.open_exercise_aria",{name:exerciseDisplayName(ex)}))}"${describedBy?` aria-describedby="${describedBy}"`:""}>`+
     `<span class="rxrow__mark">${row.status?todayLiveMarkHtml(row):verdictMarkHtml(glyph)}</span>`+
     `<span class="rxrow__name">${esc(exerciseDisplayName(ex))}<span class="rxrow__sub" id="${statusId}">${esc(row.sub)}</span></span>`+
     `<span class="rxrow__load"${row.load!=null?` data-parity-target="${esc(ex.id)}"`:""}>${row.load!=null?esc(fmtLoad(row.load)):"\u2013"}</span>`+

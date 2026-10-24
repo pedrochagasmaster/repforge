@@ -283,19 +283,18 @@ nav button{transition-duration:.2s,var(--press-release-duration);transition-timi
 }
 
 /* Today's live dot (owner, 2026-10-23, option A): a soft accent ring breathes out from the dot while a session is open.
-   It animates a transform and opacity only, on the dot's own layer; reduced motion leaves the dot and its halo still. */
+   The ring is a spreading shadow on the dot's own pseudo-element, so it paints outside the dot without ever adding
+   scrollable overflow (a scaled layer would); reduced motion leaves the dot and its still halo. */
 .today-live__dot::after{
   content:"";
   position:absolute;
   inset:0;
   border-radius:var(--radius-round);
-  background:var(--accent);
-  opacity:0;
   animation:taurifer-live-dot 1.8s ease-out infinite;
 }
 @keyframes taurifer-live-dot{
-  from{transform:scale(1);opacity:.45}
-  to{transform:scale(2.6);opacity:0}
+  from{box-shadow:var(--live-dot-pulse-from)}
+  to{box-shadow:var(--live-dot-pulse-to)}
 }
 
 /* Reduced motion is a semantic alternate state, not a slower animation. */

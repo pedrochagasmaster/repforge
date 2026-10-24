@@ -1950,8 +1950,6 @@ export const APP_SCENARIOS = {
     });
     await page.click("#leaveWorkout");
     await page.waitForSelector("#todayLive .today-live", { timeout: 20000 });
-    // The live dot loops; a frame holds it at its first beat so it is the same in every capture.
-    await page.evaluate(() => { for (const a of document.getAnimations()) if (a.animationName === "taurifer-live-dot") { a.pause(); a.currentTime = 0; } });
   },
 
   "workout/stale-draft": async (page) => {

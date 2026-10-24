@@ -291,7 +291,7 @@
     "today/rest-bar": {
       "owner": "plan-058",
       "content": "flat",
-      "scenario": "A logged set has started the inline rest countdown; the timer sheet remains closed after leaving Focus."
+      "scenario": "The rest countdown remains visible after leaving the active workout; the logged set opens the live card."
     },
     "today/day-picker": {
       "owner": "plan-057",
@@ -1096,7 +1096,7 @@
     "today/skipped": {
       "owner": "plan-075-phase-4",
       "content": "flat",
-      "scenario": "A context-menu skip acknowledged on Today, stored only in the workout draft."
+      "scenario": "A context-menu skip acknowledged on Today, stored only in the workout draft: the skip opens today's session, so the live card leads and the row reads Skipped today."
     },
     "onboarding-recommend/muscle-priorities-skip": {
       "owner": "plan-072",
@@ -5700,8 +5700,6 @@
         "install/banner",
         "today/ready",
         "today/dock-viewer",
-        "today/skipped",
-        "today/rest-bar",
         "workout/invalid-draft",
         "today/deload-week",
         "today/ready-scrolled"
@@ -11200,7 +11198,9 @@
       "owner": "plan-057",
       "catalogStates": [
         "today/draft-resume",
-        "today/in-progress"
+        "today/in-progress",
+        "today/rest-bar",
+        "today/skipped"
       ]
     },
     {
@@ -11222,7 +11222,9 @@
       "neverDisabledReason": "An open session can always be resumed.",
       "catalogStates": [
         "today/draft-resume",
-        "today/in-progress"
+        "today/in-progress",
+        "today/rest-bar",
+        "today/skipped"
       ]
     },
     {
@@ -11244,7 +11246,9 @@
       },
       "catalogStates": [
         "today/draft-resume",
-        "today/in-progress"
+        "today/in-progress",
+        "today/rest-bar",
+        "today/skipped"
       ]
     },
     {
@@ -11261,7 +11265,30 @@
       "rationale": "A Today row's status in an open session: done, partial, skipped or current. Its subtitle says the same in words.",
       "owner": "plan-057",
       "catalogStates": [
-        "today/in-progress"
+        "today/in-progress",
+        "today/draft-resume",
+        "today/rest-bar",
+        "today/skipped"
+      ]
+    },
+    {
+      "id": "today-live-dot",
+      "selector": "#todayLive .today-live__dot",
+      "roles": {
+        "elevation": "flat"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The live card's live dot: says the session is running; the tag beside it says it in words, so the dot is decorative.",
+      "owner": "plan-057",
+      "catalogStates": [
+        "today/draft-resume",
+        "today/in-progress",
+        "today/rest-bar",
+        "today/skipped"
       ]
     }
   ],

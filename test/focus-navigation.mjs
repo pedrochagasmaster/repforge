@@ -252,8 +252,8 @@ async function main() {
 
     // Verify we navigated safely back to Today
     assert(await page.locator("#workoutShell").isHidden(), "workout shell is hidden after leave");
-    assert(await page.locator("#todayView").isVisible() || await page.locator("#startWorkout").isVisible(),
-      "Today view is visible after leaving workout");
+    assert(await page.locator("#todayDash").isVisible() && await page.locator("#todayLiveResume").isVisible(),
+      "Today view is visible after leaving workout, with the live card resuming the session");
 
     // Verify Today's live card offers Resume
     const startCtaText = await page.locator("#todayLiveResume").textContent();

@@ -199,7 +199,7 @@ async function main() {
       "Start workout creates DraftV2 through the production entry path");
 
     /* ---- A matching draft relabels Start without Today writing ---- */
-    phase("Coming back to Today with an open draft offers Continue and writes nothing");
+    phase("Coming back to Today with an open draft offers Resume and writes nothing");
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     const loadInput = page.locator(`#workout .exercise.is-current .focus-shelf input[data-metric-id="${WEIGHT}"]`);
     await loadInput.waitFor({ state: "attached", timeout: 5000 });
@@ -210,8 +210,10 @@ async function main() {
     await page.locator("#leaveWorkout").click();
     await page.waitForSelector("#log.view.active", { timeout: 5000 });
     const draftBefore = await page.evaluate((d) => localStorage.getItem(d), DRAFT);
-    const cta = await page.evaluate(() => document.querySelector("#startWorkout span")?.textContent?.trim());
-    assert(/continue/i.test(cta || ""), "the start control offers to continue the open session", cta);
+    // Option A (owner, 2026-10-23): the live card resumes the open session, and the floating Start control leaves.
+    const cta = await page.evaluate(() => ({ resume: document.querySelector("#todayLiveResume")?.textContent?.trim() || "",
+      start: !!document.querySelector("#startWorkout")?.getClientRects().length }));
+    assert(/resume/i.test(cta.resume) && !cta.start, "the live card offers to resume the open session, and Start is gone", JSON.stringify(cta));
     await page.locator("#todayExList .rxrow").first().click();
     await page.waitForSelector("#exercise.view.active", { timeout: 5000 });
     await page.click("#exBack");

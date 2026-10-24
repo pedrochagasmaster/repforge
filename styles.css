@@ -131,6 +131,8 @@
   /* Today's live card: the prototype's raised paper (a hairline drop and a soft lift), on the theme's shadow channel. */
   --live-card-shadow:0 1px 0 rgba(var(--shadow-rgb),.04),0 6px 18px rgba(var(--shadow-rgb),.06);
   --live-dot-halo:0 0 0 4px rgba(var(--accent-rgb),.18);
+  --live-dot-pulse-from:0 0 0 0 rgba(var(--accent-rgb),.45);
+  --live-dot-pulse-to:0 0 0 9px rgba(var(--accent-rgb),0);
   --row-pressed-bg:rgba(var(--ink-rgb),.06);
   --sheet-grabber:rgba(var(--ink-rgb),.22);
   --control-toggle-thumb-shadow:0 3px 8px rgba(var(--shadow-rgb),.15),0 3px 1px rgba(var(--shadow-rgb),.06),0 0 0 .5px rgba(var(--shadow-rgb),.04);
@@ -4002,7 +4004,7 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 /* The name keeps a fair share of the row (9rem, about three words, or all the
    other columns leave on a narrow phone) and breaks only between words; the
    figures give way first, the target wrapping under itself when it has to. */
-.today-rx__grid{display:grid;grid-template-columns:var(--rx-mark,1rem) minmax(min(9rem,100% - 10rem - 3 * var(--space-12)),1fr) minmax(4.125rem,auto) minmax(4.875rem,auto);column-gap:var(--space-12)}
+.today-rx__grid{display:grid;grid-template-columns:var(--rx-mark,1rem) minmax(min(9rem,100% - var(--rx-mark,1rem) - 9rem - 3 * var(--space-12)),1fr) minmax(4.125rem,auto) minmax(4.875rem,auto);column-gap:var(--space-12)}
 .today-rx__grid .rxrow .rxrow__name{overflow-wrap:break-word}
 .today-rx__grid .rxrow .rxrow__target{white-space:normal}
 .today-rx__cols,.today-rx__grid .rxrow{grid-column:1 / -1;display:grid;grid-template-columns:subgrid}

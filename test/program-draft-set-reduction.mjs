@@ -390,7 +390,8 @@ async function main() {
     await writeFixture(page, fixture());
     await reloadApp(page);
 
-    await page.click("#startWorkout");
+    // Start, or with the session already open, the live card's Resume (option A).
+    await page.locator("#todayLiveResume, #startWorkout:not(.hidden)").first().click();
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
     await fillSet(page, 1, 100, 8, 1);
     await fillSet(page, 2, 90, 10, 2);
@@ -469,7 +470,8 @@ async function main() {
     await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), undefined, { timeout: 5000 });
     await page.click('nav button[data-view="log"]');
     await page.waitForSelector("#log.view.active", { timeout: 5000 });
-    await page.click("#startWorkout");
+    // Start, or with the session already open, the live card's Resume (option A).
+    await page.locator("#todayLiveResume, #startWorkout:not(.hidden)").first().click();
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
 
     const set2Reachable =
@@ -511,7 +513,8 @@ async function main() {
 
     await writeFixture(page, fixture());
     await reloadApp(page);
-    await page.click("#startWorkout");
+    // Start, or with the session already open, the live card's Resume (option A).
+    await page.locator("#todayLiveResume, #startWorkout:not(.hidden)").first().click();
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
     await fillSet(page, 1, 100, 8, 1);
 
