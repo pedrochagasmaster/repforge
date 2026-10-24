@@ -51,6 +51,7 @@ jobs:
       full_browser: ${{ steps.plan.outputs.full_browser }}
       full_shards: ${{ steps.plan.outputs.full_shards }}
       full_selection: ${{ steps.plan.outputs.full_selection }}
+      capture_shards: ${{ steps.plan.outputs.capture_shards }}
     steps:
       - uses: actions/checkout@v5
         with:

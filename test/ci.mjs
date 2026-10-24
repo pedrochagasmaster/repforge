@@ -1043,6 +1043,19 @@ test("the workflow runs the capture stripes only for a visual-only red PR lane",
   assert.ok(ci.indexOf("node tools/ci-plan.mjs visual-only") < ci.indexOf("node tools/ci-plan.mjs gate\n"), "the classification runs before the gate can stop the job");
 });
 
+test("every plan or job output the workflow reads is declared and published", () => {
+  const workflow = readFileSync(join(process.cwd(), ".github/workflows/ci.yml"), "utf8");
+  const jobsSection = workflow.split(/^jobs:\s*$/m)[1] || "";
+  const job = (name) => jobsSection.slice(jobsSection.indexOf(`\n  ${name}:\n`) + 1).split(/\n  (?=[a-z][a-z0-9-]*:\n)/)[0];
+  const declared = (name) => new Set([...(job(name).match(/^    outputs:\n((?:      .+\n)+)/m)?.[1] || "").matchAll(/^      ([a-z_]+):/gm)].map(([, key]) => key));
+  for (const [, name, key] of workflow.matchAll(/needs\.([a-z][a-z0-9-]*)\.outputs\.([a-z_]+)/g)) {
+    assert.ok(declared(name).has(key), `${name} declares the ${key} output the workflow reads`);
+  }
+  const published = Object.keys(planOutputs({ run: true, reason: "x", full: { mode: "all", ids: null, screens: null } }));
+  assert.deepEqual([...declared("plan")].filter((key) => key !== "reason" && key !== "run" && key !== "shards").sort(),
+    published.filter((key) => !["reason", "run", "shards"].includes(key)).sort(), "the plan job maps every output tools/ci-plan.mjs publishes");
+});
+
 test("frames rendered by both the critical matrix and a verify stripe resolve to the verify render", (t) => {
   const real = loadManifest();
   const dir = scratch(t);
