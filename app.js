@@ -8028,6 +8028,7 @@ function setFieldVals(ex,n,r,draft,prev){
    worked on and the one action that commits it, under the cue that says what
    to do with it.
    ============================================================ */
+// @ci-domain workout,session
 
 /** What a control on a peek copy gets instead of its hooks: the same element,
  *  the same box, no action to fire and no place in the tab order. The peek card
@@ -8387,6 +8388,7 @@ function focusMetricDefinitions(exId,n){
   const setId=exercise.setOrder.find(id=>exercise.sets[id].ordinal===n);
   const metrics=setId?exercise.sets[setId].programmed.metrics:null;
   return Array.isArray(metrics)?metrics:[]}
+// @ci-domain global
 function metricTextValue(raw,metric){
   if(raw==null||raw==="")return"";
   const number=parseDec(raw);
@@ -8448,6 +8450,7 @@ function parseHistoryMetricInput(metric,raw){
   const value=metric?.unit==="kg"?metricKgFromDisplay(displayed):displayed;
   const checked=ExerciseMetrics?.parseMetricValue?.(metric,value);
   return checked?.ok?{value:checked.value}:{field:"metric",key};}
+// @ci-domain workout,session
 function shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek,carry}){
   const key=`${ex.id}_${n}`,fieldId=`metric_${metric.id}`,inputKey=`${key}_${fieldId}`,selected=ui.field===fieldId;
   const live=selected&&ui.editing&&!peek;
@@ -9006,6 +9009,7 @@ function updateWorkoutHeader(fl,at){
   else if(title){title.removeAttribute("aria-label");title.textContent=dayLabel(day)}
   renderFocusDeloadLine();
   syncWorkoutMore()}
+// @ci-domain global
 /** Session actions share one modal, including the optional voice command. */
 function syncWorkoutMore(){
   const button=$("#woOverflowBtn");if(!button)return;

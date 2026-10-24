@@ -8,7 +8,9 @@ import { dirname, join, relative } from "node:path";
 import test from "node:test";
 import { BROWSER_LANES, CI_SHARDS, FULL_SHARDS, FULL_SUITES, INVENTORY, SUITES, SUPPORT, UI_SYSTEM_SHARDS, VISUAL_SHARDS, browserEntries, commandArgs, inventoryErrors, parseShard, shardSuites, suiteId, suiteSeconds } from "./suites.mjs";
 import { changedFiles, selectVisuals } from "../tools/ci-selection.mjs";
-import { classifyChange, gateFullResults, gateResults, mergeFullUiSystemReports, pullRequestFiles, resolvePlan, shardMatrix } from "../tools/ci-plan.mjs";
+import { classifyChange, gateFullResults, gateResults, mergeFullUiSystemReports, planOutputs, pullRequestFiles, resolvePlan, shardMatrix } from "../tools/ci-plan.mjs";
+import { placeCiCaptures } from "../tools/fetch-ci-captures.mjs";
+import { recordCiCaptures } from "../tools/ci-captures.mjs";
 import { findShardReports, mergeShardReports, shardCaptures } from "../tools/ui-system-core.mjs";
 import { mergeUiSystemReports } from "../tools/ci-plan.mjs";
 import { criticalCaptures, validateCriticalReport } from "../tools/critical-ui.mjs";
@@ -16,7 +18,7 @@ import { selectCaptures, verifyCatalog } from "../tools/capture-ui-screens.mjs";
 import { captureKey, capturePath, expandCaptures, loadManifest } from "../tools/ui-screens/manifest.mjs";
 import { domainsForAppDiff } from "../tools/visual-domains.mjs";
 import { stabilizeShareUrlForCapture } from "../tools/ui-screens/screens-app.mjs";
-import { changedFilesForTests, changedFilesForEdit, changedFilesForPacket, selectAffected, selectEdit, selectPacket } from "../tools/test-selection.mjs";
+import { changedFilesForTests, changedFilesForEdit, changedFilesForPacket, fullLaneEntries, fullShardCount, selectAffected, selectEdit, selectFullLane, selectPacket } from "../tools/test-selection.mjs";
 import { execute, maybeStartLocalPreview, runLane, shardPlan } from "../tools/run-tests.mjs";
 import { summarizeBenchmark } from "../tools/benchmark-tests.mjs";
 
@@ -520,18 +522,6 @@ test("pull-request file lists come from the compare API and fail safe when it ca
   assert.equal(manual.head, "d".repeat(40));
 });
 
-test("the full gate requires every full-lane job to succeed", () => {
-  const passed = { plan: { result: "success" }, "full-fast": { result: "success" }, "full-browser": { result: "success" } };
-  assert.doesNotThrow(() => gateFullResults(passed, { log() {} }));
-  assert.throws(() => gateFullResults({ ...passed, "full-browser": { result: "failure" } }, { log() {} }), /full-browser: expected success, got failure/);
-  assert.throws(() => gateFullResults({ ...passed, "full-fast": { result: "skipped" } }, { log() {} }), /full-fast: expected success, got skipped/,
-    "the full lane has no prose shortcut");
-  assert.throws(() => gateFullResults({ ...passed, "full-browser": { result: "cancelled" } }, { log() {} }), /cancelled/);
-  const { "full-browser": _, ...missing } = passed;
-  assert.throws(() => gateFullResults(missing, { log() {} }), /missing required job full-browser/);
-  assert.throws(() => gateFullResults([], { log() {} }), /must be an object/);
-});
-
 test("the gate accepts skipped jobs only when the plan skipped them", () => {
   const fullShards = JSON.stringify(shardMatrix(CI_SHARDS));
   const selected = { plan: { result: "success", outputs: { run: "true", shards: fullShards } }, fast: { result: "success" }, browser: { result: "success" }, service: { result: "success" } };
@@ -556,38 +546,53 @@ test("the gate accepts skipped jobs only when the plan skipped them", () => {
   }
 });
 
-test("the workflow runs two sharded lanes, each behind its own aggregate check", () => {
+test("the workflow stages the targeted full lane behind a passing PR lane", () => {
   const workflow = readFileSync(join(process.cwd(), ".github/workflows/ci.yml"), "utf8");
   assert.match(workflow, /shard: \$\{\{ fromJSON\(needs\.plan\.outputs\.shards\) \}\}/, "the shard list comes from the inventory, not the YAML");
   assert.match(workflow, /node tools\/run-tests\.mjs shard "\$\{\{ matrix\.shard \}\}" --keep-going/);
-  assert.match(workflow, /node tools\/ci-plan\.mjs gate/);
-  const gateJob = workflow.slice(workflow.indexOf("\n  ci:\n"));
+  assert.match(workflow, /node tools\/ci-plan\.mjs gate\n/);
+  const jobsSection = workflow.split(/^jobs:\s*$/m)[1] || "";
+  const job = (name) => jobsSection.slice(jobsSection.indexOf(`\n  ${name}:\n`) + 1).split(/\n  (?=[a-z][a-z0-9-]*:\n)/)[0];
+  const gateJob = job("ci");
   const guard = gateJob.indexOf('if [ "$RUN" != "true" ] && [ "$RUN" != "false" ]; then');
   assert.ok(guard > 0 && guard < gateJob.indexOf("uses: actions/checkout"),
     "the gate rejects a missing run decision in YAML, before it trusts any checked-out planner code");
   assert.match(gateJob, /RUN: \$\{\{ needs\.plan\.outputs\.run \}\}/);
-  assert.match(workflow, /node tools\/ci-plan\.mjs merge-ui-system/);
-  assert.match(workflow, /needs: \[plan, fast, browser, service\]\n\s+if: always\(\)/, "the gate observes every job");
-  const jobsSection = workflow.split(/^jobs:\s*$/m)[1] || "";
+  assert.match(workflow, /node tools\/ci-plan\.mjs merge-ui-system /);
+  assert.match(gateJob, /needs: \[plan, fast, browser, service\]\n\s+if: \$\{\{ !cancelled\(\) \}\}/, "the gate observes every job unless the run was superseded");
   const declaredJobs = [...jobsSection.matchAll(/^  ([a-z][a-z0-9-]*):$/gm)].map(([, name]) => name);
-  const aggregateNeeds = (name) => jobsSection.slice(jobsSection.indexOf(`\n  ${name}:\n`)).match(/^    needs: \[([^\]]+)\]$/m)?.[1].split(",").map((job) => job.trim()) || [];
-  assert.deepEqual([...new Set([...aggregateNeeds("ci"), ...aggregateNeeds("ci-full")])].sort(), declaredJobs.filter((name) => !["ci", "ci-full"].includes(name)).sort(),
+  const needsOf = (name) => job(name).match(/^    needs: \[([^\]]+)\]$/m)?.[1].split(",").map((value) => value.trim()) || [];
+  assert.deepEqual([...new Set([...needsOf("ci"), ...needsOf("ci-full")])].sort(), declaredJobs.filter((name) => name !== "ci-full").sort(),
     "the two aggregates together wait for every workflow job, including any newly added verification lane");
-  assert.deepEqual(aggregateNeeds("ci-full"), ["plan", "full-fast", "full-browser"]);
+  assert.deepEqual(needsOf("ci-full"), ["plan", "ci", "full-fast", "full-browser"]);
   assert.match(workflow, /^  schedule:\n    - cron: "[^"]+"$/m, "the full lane also runs nightly");
   assert.match(workflow, /^  push:\n    branches: \[main\]$/m, "the full lane runs on every push to main");
-  const fullJobs = ["full-fast", "full-browser"].map((name) => jobsSection.slice(jobsSection.indexOf(`\n  ${name}:\n`) + 1).split(/\n  [a-z]/)[0]);
-  for (const job of fullJobs) assert.match(job, /if: github\.event_name != 'pull_request'/, "the full lane never runs on pull requests");
-  const fullGate = jobsSection.slice(jobsSection.indexOf("\n  ci-full:\n"));
-  assert.match(fullGate, /if: always\(\) && github\.event_name != 'pull_request'/, "a failed full job still reaches the full aggregate");
+  for (const [name, output] of [["full-fast", "full_fast"], ["full-browser", "full_browser"]]) {
+    const body = job(name);
+    assert.deepEqual(needsOf(name), ["plan", "ci"], `${name} waits for the PR lane`);
+    assert.ok(body.includes(`if: \${{ !cancelled() && needs.plan.outputs.${output} == 'true' && (github.event_name != 'pull_request' || needs.ci.result == 'success') }}`),
+      `${name} starts on a PR only after the PR lane passed, and always on main and nightly`);
+    assert.match(body, /REPFORGE_FULL_SELECTION: \$\{\{ needs\.plan\.outputs\.full_selection \}\}/, `${name} runs the planned selection`);
+  }
+  const fullGate = job("ci-full");
+  assert.match(fullGate, /if: \$\{\{ !cancelled\(\) \}\}/, "a failed or skipped full job still reaches the full aggregate on every event");
+  assert.match(fullGate, /EVENT: \$\{\{ github\.event_name \}\}/);
   assert.match(fullGate, /node tools\/ci-plan\.mjs gate-full/);
   assert.match(fullGate, /node tools\/ci-plan\.mjs merge-ui-system-full/);
   assert.match(workflow, /shard: \$\{\{ fromJSON\(needs\.plan\.outputs\.full_shards\) \}\}/);
   assert.match(workflow, /node tools\/run-tests\.mjs full-shard "\$\{\{ matrix\.shard \}\}" --keep-going/);
   assert.match(workflow, /node tools\/run-tests\.mjs full-fast --keep-going/);
   assert.equal((workflow.match(/if: needs\.plan\.outputs\.run == 'true'/g) || []).length >= 3, true, "test jobs obey the plan");
-  assert.match(workflow, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}/);
+  assert.match(workflow, /cancel-in-progress: \$\{\{ github\.ref != 'refs\/heads\/main' \}\}/, "a newer push cancels both lanes of any branch run; main never cancels");
   assert.doesNotMatch(workflow, /expected_sha|simulation-feedback|candidate/, "there is one mode");
+  for (const name of ["browser", "full-browser"]) {
+    const body = job(name);
+    assert.match(body, /REPFORGE_CI_CAPTURES_DIR: \$\{\{ github\.workspace \}\}\/\.ci-captures/, `${name} publishes changed frames`);
+    assert.match(body, /name: ci-captures-\$\{\{ github\.job \}\}-\$\{\{ strategy\.job-index \}\}-\$\{\{ github\.run_attempt \}\}\n\s+path: \.ci-captures\/\n\s+include-hidden-files: true\n\s+if-no-files-found: ignore/,
+      "the dot-directory is uploaded (upload-artifact skips hidden paths by default)");
+    assert.match(body, /uses: actions\/cache@v4\n\s+with:\n\s+path: \|\n\s+~\/\.cache\/ms-playwright\n\s+~\/\.cache\/playwright-apt/,
+      `${name} reuses the browser and its system packages instead of a slow mirror`);
+  }
 });
 
 // ------------------------------------------------------------ visual selection
@@ -643,6 +648,243 @@ test("baseline-only selection recaptures whole screens, never isolated variants"
   assert.deepEqual(plan.screens, ["app/today"]);
   assert.equal(selectVisuals(["docs/ui-screens/screens/app/unknown__phone.png"], manifest).mode, "full");
   assert.equal(selectVisuals(["docs/ui-screens/screens/app/today__phone.png", "styles.css"], manifest).mode, "full");
+});
+
+// ------------------------------------------------------- targeted full lane
+
+const realLine = (path, startsWith) => {
+  const line = readFileSync(join(process.cwd(), path), "utf8").split("\n").findIndex((value) => value.startsWith(startsWith)) + 1;
+  assert.ok(line > 0, `${path} contains ${startsWith}`);
+  return line;
+};
+const hunkAt = (line) => `@@ -${line} +${line} @@\n-old\n+new`;
+const revisionPatch = (before, after) => `@@ -1 +1 @@\n-${before}\n+${after}`;
+const fullIds = (selection) => fullLaneEntries(selection).map(({ suite }) => suiteId(suite));
+const fullFiles = (selection) => [...new Set(fullLaneEntries(selection).map(({ suite }) => suite.file))].sort();
+const flowsOf = (selection) => [...new Set(selection.screens.map((key) => key.split("/")[0]))].sort();
+
+test("a Focus-only change runs the Focus flows and their full-lane journeys, nothing unrelated", () => {
+  const files = ["app.js", "styles.css", "sw.js", "index.html", "docs/ui-screens/screens/workout/focus__phone-390-light-en.png", "docs/design/note.md"];
+  const patches = {
+    "app.js": hunkAt(realLine("app.js", "function focusCardHtml(")),
+    "styles.css": hunkAt(realLine("styles.css", "article.exercise--focus{")),
+    "sw.js": [revisionPatch('const CACHE = "repforge-v510";', 'const CACHE = "repforge-v511";'),
+      revisionPatch('  "./app.js", "./app.js?v=510",', '  "./app.js", "./app.js?v=511",')].join("\n"),
+    "index.html": revisionPatch('  <script src="app.js?v=510"></script>', '  <script src="app.js?v=511"></script>'),
+  };
+  const selection = selectFullLane(files, { patches });
+  assert.equal(selection.mode, "selected", selection.reasons.join(" "));
+  const flows = flowsOf(selection);
+  for (const flow of ["workout", "session"]) assert.ok(flows.includes(flow), `${flow} screens are verified`);
+  for (const flow of ["progress", "settings", "install", "library", "program", "onboarding-recommend", "onboarding-start", "programlab"]) {
+    assert.equal(flows.includes(flow), false, `${flow} screens are not touched by a Focus change`);
+  }
+  const selectedFiles = fullFiles(selection);
+  for (const file of ["test/focus-mode.mjs", "test/focus-geometry.mjs", "test/why-sheet.mjs", "test/focus-space-summary.mjs",
+    "tools/check-ui-system.mjs", "tools/capture-ui-screens.mjs"]) assert.ok(selectedFiles.includes(file), `${file} runs`);
+  for (const file of ["test/programlab-ui.mjs", "test/install-modes.mjs", "test/settings-groups.mjs", "test/library-flow.mjs",
+    "test/program-editor-sorting.mjs", "test/entry-chooser.mjs", "test/programlab-archive.mjs"]) assert.equal(selectedFiles.includes(file), false, `${file} is not selected`);
+  const catalog = fullLaneEntries(selection).filter(({ suite }) => suite.file === "tools/check-ui-system.mjs" || suite.file === "tools/capture-ui-screens.mjs");
+  assert.ok(catalog.length && catalog.every(({ suite }) => suite.env?.REPFORGE_CATALOG_SCREENS === selection.screens.join(",")),
+    "every catalog sweep is restricted to the selected states");
+  assert.ok(fullLaneEntries(selection).length < Object.values(FULL_SUITES).flat().length);
+});
+
+test("foundations, unknown inputs and unmappable diffs run the complete full lane", () => {
+  const tokens = selectFullLane(["styles.css"], { patches: { "styles.css": hunkAt(realLine("styles.css", "  --color-ink:")) } });
+  assert.equal(tokens.mode, "all", "a token change selects everything");
+  assert.equal(tokens.screens, null);
+  assert.deepEqual(fullIds(tokens), Object.values(FULL_SUITES).flat().map(suiteId));
+  const shellHunk = { "app.js": hunkAt(realLine("app.js", "function init()")) };
+  assert.equal(selectFullLane(["app.js"], { patches: shellHunk }).mode, "all", "unannotated app.js widens");
+  for (const file of ["motion-layer.js", "motion-polish.css", "durable-state.js", "workout-draft.js", "i18n-en.json", "exercises.js",
+    "vendor/x.js", "fonts/a.woff2", "test/browser.mjs", "tools/ui-screens/session.mjs", "docs/ui-screens/manifest.json",
+    "tools/ui-role-inventory.json", ".github/workflows/ci.yml", "tools/test-selection.mjs", "test/suites.mjs", "mystery.bin",
+    "tools/capture-ui-screens.mjs", "tools/check-ui-system.mjs", "tools/ci-selection.mjs"]) {
+    assert.equal(selectFullLane([file], { patches: {} }).mode, "all", file);
+  }
+  assert.equal(selectFullLane(["sw.js"], { patches: { "sw.js": revisionPatch('  "./app.js",', '  "./app.js", "./new.js",') } }).mode, "all",
+    "a changed precache inventory is not a revision bump");
+  assert.equal(selectFullLane(["index.html"], { patches: { "index.html": revisionPatch("<main>", "<main class=x>") } }).mode, "all");
+  assert.equal(selectFullLane(["app.js"], { patches: {} }).mode, "all", "a missing patch cannot be narrowed");
+  assert.equal(selectFullLane(null).mode, "all");
+  assert.equal(selectFullLane(["styles.css"], { patches: { "styles.css": "@@ -1 +1 @@\n-/* @ci-domain workout */\n+/* @ci-domain history */" } }).mode, "all",
+    "moving an ownership marker widens");
+});
+
+test("full-lane selection is exact for suite, fixture, prose and Program Lab changes", () => {
+  assert.equal(selectFullLane(["docs/backlog.md", "plans/080.md"]).mode, "none");
+  assert.equal(selectFullLane([]).mode, "none");
+  const history = selectFullLane(["test/history.mjs"]);
+  assert.equal(history.mode, "selected");
+  assert.deepEqual(fullFiles(history), ["test/history.mjs"]);
+  assert.deepEqual(history.screens, []);
+  assert.equal(selectFullLane(["test/native-feel.mjs"]).mode, "none", "a pull-request suite already ran in the PR lane");
+  const design = selectFullLane(["DESIGN.md"]);
+  assert.deepEqual(fullFiles(design), ["tools/check-design-md.mjs"], "DESIGN.md is a full-lane input despite being prose");
+  const lab = selectFullLane(["programlab/ui.js"]);
+  assert.equal(lab.mode, "selected");
+  assert.ok(fullFiles(lab).includes("test/programlab-ui.mjs"));
+  assert.deepEqual(flowsOf(lab), ["programlab"]);
+  const baseline = selectFullLane(["docs/ui-screens/screens/history/conflict__phone-390-light-en.png"]);
+  assert.deepEqual(baseline.screens, ["history/conflict"]);
+});
+
+test("targeted catalog sweeps re-stripe only the selected states and the plan sizes the matrix from data", () => {
+  const real = loadManifest();
+  const screens = real.screens.filter((screen) => screen.flow === "workout").map((screen) => `${screen.flow}/${screen.id}`);
+  const selection = { mode: "selected", ids: [suiteId(FULL_SUITES["full-browser"].find((suite) => suite.file === "test/focus-mode.mjs"))], screens };
+  const entries = fullLaneEntries(selection);
+  const uiSystem = entries.filter(({ suite }) => suite.file === "tools/check-ui-system.mjs");
+  const visual = entries.filter(({ suite }) => suite.file === "tools/capture-ui-screens.mjs");
+  assert.ok(uiSystem.length >= 1 && uiSystem.length <= UI_SYSTEM_SHARDS && visual.length >= 1 && visual.length <= VISUAL_SHARDS);
+  const roleKeys = screens.length * real.themes.length * Object.keys(real.locales).length;
+  const roleParts = uiSystem.map(({ suite }) => shardCaptures(Array.from({ length: roleKeys }, (_, i) => i), parseShard(suite.args[1])));
+  assert.equal(roleParts.flat().length, roleKeys);
+  assert.ok(roleParts.every((part) => part.length), "no targeted UI-system stripe is empty");
+  const frames = visual.map(({ suite }) => selectCaptures({ screens, shard: parseShard(suite.args[2]) }));
+  assert.equal(frames.flat().length, selectCaptures({ screens }).length);
+  assert.ok(frames.every((part) => part.length), "no targeted verify stripe is empty");
+  assert.ok(suiteSeconds(uiSystem[0].suite) < suiteSeconds(FULL_SUITES["full-browser"].find((suite) => suite.file === "tools/check-ui-system.mjs")));
+  const browser = entries.filter(({ lane }) => lane === "full-browser");
+  const count = fullShardCount(browser);
+  assert.ok(count >= 1 && count <= FULL_SHARDS && count <= browser.length);
+  const bins = shardSuites(browser, count);
+  assert.equal(bins.flatMap((bin) => bin.entries).length, browser.length);
+  assert.equal(fullShardCount(browserEntries(FULL_SUITES)), FULL_SHARDS, "the complete lane keeps its full matrix");
+  assert.deepEqual(fullLaneEntries({ mode: "none", ids: [], screens: [] }), []);
+  assert.deepEqual(fullLaneEntries(JSON.parse(JSON.stringify(selection))), entries, "the plan output round-trips to the same commands");
+  const planned = shardPlan({ index: 1, count }, FULL_SUITES, selection);
+  assert.deepEqual(planned.entries, bins[0].entries, "a runner computes the same targeted split as the plan");
+});
+
+test("the plan publishes the targeted full lane for pull requests and the complete one elsewhere", async (t) => {
+  const dir = scratch(t);
+  const eventPath = join(dir, "event.json");
+  writeFileSync(eventPath, JSON.stringify({ pull_request: { base: { sha: "b".repeat(40) }, head: { sha: "h".repeat(40) } } }));
+  const env = { GITHUB_EVENT_NAME: "pull_request", GITHUB_EVENT_PATH: eventPath, GITHUB_REPOSITORY: "o/r", GITHUB_API_URL: "https://api.example" };
+  const answer = (files) => async () => ({ ok: true, json: async () => ({ files }) });
+  const suite = await resolvePlan(env, { fetchImpl: answer([{ filename: "test/history.mjs", patch: "@@ -1 +1 @@\n-a\n+b" }]) });
+  assert.equal(suite.full.mode, "selected");
+  assert.deepEqual(fullFiles(suite.full), ["test/history.mjs"]);
+  const outputs = planOutputs(suite);
+  assert.equal(outputs.full_run, "true");
+  assert.equal(outputs.full_fast, "false");
+  assert.equal(outputs.full_browser, "true");
+  assert.deepEqual(JSON.parse(outputs.full_shards), ["1/1"]);
+  assert.deepEqual(JSON.parse(outputs.full_selection), { mode: suite.full.mode, ids: suite.full.ids, screens: suite.full.screens });
+  const prose = planOutputs(await resolvePlan(env, { fetchImpl: answer([{ filename: "docs/a.md" }]) }));
+  assert.equal(prose.full_run, "false");
+  assert.equal(prose.full_browser, "false");
+  const push = planOutputs(await resolvePlan({ GITHUB_EVENT_NAME: "push", GITHUB_SHA: "m".repeat(40) }));
+  assert.equal(JSON.parse(push.full_selection).mode, "all", "main never narrows");
+  assert.deepEqual(JSON.parse(push.full_shards), shardMatrix(FULL_SHARDS));
+  assert.equal(push.full_fast, "true");
+  const broken = planOutputs(await resolvePlan(env, { fetchImpl: async () => { throw new Error("offline"); } }));
+  assert.equal(JSON.parse(broken.full_selection).mode, "all", "an unknown change list runs everything");
+});
+
+test("the full gate is staged behind the PR lane and accepts only what the plan skipped", () => {
+  const selection = { mode: "selected", ids: [suiteId(FULL_SUITES["full-browser"].find((suite) => suite.file === "test/history.mjs"))], screens: [] };
+  const plan = (outputs) => ({ result: "success", outputs: { full_run: "true", full_fast: "false", full_browser: "true", full_shards: '["1/1"]', full_selection: JSON.stringify(selection), ...outputs } });
+  const targeted = { plan: plan(), ci: { result: "success" }, "full-fast": { result: "skipped" }, "full-browser": { result: "success" } };
+  assert.doesNotThrow(() => gateFullResults(targeted, { event: "pull_request", log() {} }));
+  assert.throws(() => gateFullResults({ ...targeted, ci: { result: "failure" } }, { event: "pull_request", log() {} }), /PR lane/);
+  assert.throws(() => gateFullResults({ ...targeted, "full-fast": { result: "success" } }, { event: "pull_request", log() {} }), /full-fast: expected skipped/);
+  assert.throws(() => gateFullResults({ ...targeted, "full-browser": { result: "skipped" } }, { event: "pull_request", log() {} }), /full-browser: expected success/);
+  const nothing = { plan: plan({ full_run: "false", full_browser: "false", full_selection: '{"mode":"none","ids":[],"screens":[]}' }),
+    ci: { result: "success" }, "full-fast": { result: "skipped" }, "full-browser": { result: "skipped" } };
+  assert.doesNotThrow(() => gateFullResults(nothing, { event: "pull_request", log() {} }));
+  assert.throws(() => gateFullResults(targeted, { event: "push", log() {} }), /complete/, "main and nightly never accept a narrowed lane");
+  const complete = { plan: plan({ full_fast: "true", full_shards: JSON.stringify(shardMatrix(FULL_SHARDS)), full_selection: '{"mode":"all","ids":null,"screens":null}' }), ci: { result: "failure" },
+    "full-fast": { result: "success" }, "full-browser": { result: "success" } };
+  assert.doesNotThrow(() => gateFullResults(complete, { event: "push", log() {} }), "a red PR lane on main still lets the full lane report");
+  assert.throws(() => gateFullResults({ ...complete, plan: { result: "failure" } }, { event: "push", log() {} }), /plan job/);
+});
+
+test("targeted UI-system reports merge against the selected states without the catalog-wide rule", () => {
+  const inventory = { components: [{ id: "a", selector: ".a" }, { id: "b", selector: ".b" }], exceptions: [] };
+  const real = loadManifest();
+  const screens = ["workout/focus", "workout/rest-running"];
+  const selection = { mode: "selected", ids: [], screens };
+  const sweeps = fullLaneEntries(selection).filter(({ suite }) => suite.file === "tools/check-ui-system.mjs");
+  const keys = real.screens.filter((screen) => screens.includes(`${screen.flow}/${screen.id}`)).flatMap((screen) => real.themes.flatMap((theme) =>
+    Object.keys(real.locales).map((locale) => captureKey({ flow: screen.flow, screen: screen.id, viewport: "phone-390", theme, locale, text: "normal", motion: "normal" }))));
+  const reports = sweeps.map(({ suite }) => {
+    const shard = parseShard(suite.args[1]);
+    const captureKeys = shardCaptures(keys, shard);
+    return { schemaVersion: 2, shard, screens: captureKeys.length, captureKeys, matched: ["a"], matchedExceptions: [], problems: 0 };
+  });
+  const dir = mkdtempSync(join(tmpdir(), "taurifer-targeted-ui-"));
+  try {
+    reports.forEach((report, index) => { mkdirSync(join(dir, `full-shard-${index}-1`, "x"), { recursive: true });
+      writeFileSync(join(dir, `full-shard-${index}-1`, "x", "ui-system-shard.json"), JSON.stringify(report)); });
+    // The synthetic inventory fails the real catalog's metadata rules; only the merge's own verdict matters here.
+    const mergeProblems = (problems) => problems.filter((p) => /never rendered|duplicates capture key|reported \d+ time|expected \d+ reports|catalog states, expected|capture keys do not match|reported role problems/.test(p));
+    const merged = mergeFullUiSystemReports(dir, { inventory, manifest: real, selection });
+    assert.equal(merged.shards, sweeps.length);
+    assert.deepEqual(mergeProblems(merged.problems), [], "selector b is not required in a targeted sweep");
+    const complete = mergeFullUiSystemReports(dir, { inventory, manifest: real });
+    assert.ok(mergeProblems(complete.problems).length, "the same reports cannot pass as the complete sweep");
+    const short = mergeFullUiSystemReports(dir, { inventory, manifest: real, selection: { ...selection, screens: [...screens, "workout/why-manual"] } });
+    assert.ok(mergeProblems(short.problems).length, "a targeted sweep must render every selected state");
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("CI-captured frames are published with a manifest and placed only onto registered catalog paths", (t) => {
+  const real = loadManifest();
+  const dir = scratch(t);
+  const [capture] = expandCaptures(real).filter((value) => value.flow === "workout");
+  const relativePath = relative(process.cwd(), capturePath(real, capture)).replaceAll("\\", "/");
+  const rendered = join(dir, "rendered.png");
+  writeFileSync(rendered, "new-pixels");
+  const published = join(dir, "published");
+  recordCiCaptures({ dir: published, producer: "verify-1-6", source: "a".repeat(40),
+    frames: [{ path: relativePath, file: rendered, state: `${capture.flow}/${capture.screen}`, reasons: ["pixels differ"] }] });
+  assert.equal(recordCiCaptures({ dir: undefined, producer: "x", source: "a".repeat(40), frames: [] }), null, "local runs publish nothing");
+  const changes = JSON.parse(readFileSync(join(published, "changes-verify-1-6.json"), "utf8"));
+  assert.deepEqual(changes.frames.map((frame) => frame.path), [relativePath]);
+  const download = join(dir, "download");
+  cpSync(published, join(download, "ci-captures-full-browser-0-1"), { recursive: true });
+  const target = join(dir, "repo");
+  const placed = placeCiCaptures({ downloadRoot: download, targetRoot: target, manifest: real, expectedSource: "a".repeat(40) });
+  assert.deepEqual(placed.written, [relativePath]);
+  assert.deepEqual(placed.states, [`${capture.flow}/${capture.screen}`]);
+  assert.equal(readFileSync(join(target, relativePath), "utf8"), "new-pixels");
+  assert.throws(() => placeCiCaptures({ downloadRoot: download, targetRoot: target, manifest: real, expectedSource: "b".repeat(40) }), /source/,
+    "frames rendered from another commit are refused");
+  const forged = join(dir, "forged");
+  mkdirSync(join(forged, "ci-captures-x", "frames"), { recursive: true });
+  writeFileSync(join(forged, "ci-captures-x", "frames", "app.js"), "x");
+  writeFileSync(join(forged, "ci-captures-x", "changes-x.json"), JSON.stringify({ schemaVersion: 1, kind: "ci-captures", source: "a".repeat(40), producer: "x",
+    frames: [{ path: "app.js", state: "workout/focus", reasons: [] }] }));
+  assert.throws(() => placeCiCaptures({ downloadRoot: forged, targetRoot: target, manifest: real, expectedSource: "a".repeat(40) }), /registered catalog/);
+});
+
+test("verify publishes the changed frames it rendered when CI asks for captures", (t) => {
+  const real = loadManifest();
+  const dir = scratch(t);
+  const stagingRoot = join(dir, "staging");
+  const committedRoot = join(process.cwd(), real.artifactRoot);
+  for (const capture of expandCaptures(real)) {
+    const target = capturePath(real, capture, stagingRoot);
+    mkdirSync(dirname(target), { recursive: true });
+    symlinkSync(capturePath(real, capture, committedRoot), target);
+  }
+  const [victim] = expandCaptures(real).filter((capture) => capture.flow === "workout");
+  const [impostor] = expandCaptures(real).filter((capture) => capture.flow === "progress" && capture.viewport === victim.viewport
+    && capture.theme === victim.theme && capture.locale === victim.locale && capture.text === victim.text);
+  const victimPath = capturePath(real, victim, stagingRoot);
+  rmSync(victimPath);
+  cpSync(capturePath(real, impostor, committedRoot), victimPath);
+  const semantic = JSON.parse(readFileSync(join(process.cwd(), "docs/ui-screens/entry-semantics.json"), "utf8"));
+  const captures = join(dir, "captures");
+  assert.equal(verifyCatalog({ stagingRoot, semanticArtifact: semantic, artifactDir: join(dir, "artifacts"), manifest: real,
+    captures: { dir: captures, producer: "verify-test", source: "c".repeat(40) } }), false);
+  const changes = JSON.parse(readFileSync(join(captures, "changes-verify-test.json"), "utf8"));
+  const repoPath = `${real.artifactRoot}/${relative(stagingRoot, victimPath).replaceAll("\\", "/")}`;
+  assert.deepEqual(changes.frames.map((frame) => frame.path), [repoPath]);
+  assert.deepEqual(readFileSync(join(captures, "frames", repoPath)), readFileSync(capturePath(real, impostor, committedRoot)));
 });
 
 // ------------------------------------------------------------- local selection

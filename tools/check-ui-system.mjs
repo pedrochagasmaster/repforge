@@ -207,7 +207,7 @@ export async function auditFocusRoles(page, { key, components, pixels }) {
   return { problems, measurements };
 }
 
-export async function auditCatalog({ allowProgressDebt = false, flow = null, stateKey = null, theme = null, locale = null, shard = null, onProgress = () => {} } = {}) {
+export async function auditCatalog({ allowProgressDebt = false, flow = null, stateKey = null, theme = null, locale = null, shard = null, screens = null, onProgress = () => {} } = {}) {
   const manifest = loadManifest();
   const inventory = loadRoleInventory();
   const problems = validateRoleInventory(inventory, manifest);
@@ -215,13 +215,16 @@ export async function auditCatalog({ allowProgressDebt = false, flow = null, sta
   if (flow && !manifest.screens.some((screen) => screen.flow === flow)) problems.push(`unknown catalog flow ${flow}`);
   if (stateKey && !manifest.screens.some((screen) => `${screen.flow}/${screen.id}` === stateKey)) problems.push(`unknown catalog state ${stateKey}`);
   if (flow && stateKey && !stateKey.startsWith(`${flow}/`)) problems.push(`catalog state ${stateKey} is outside flow ${flow}`);
+  for (const key of screens || []) if (!manifest.screens.some((screen) => `${screen.flow}/${screen.id}` === key)) problems.push(`unknown catalog state ${key}`);
   const locales = locale ? [locale] : Object.keys(manifest.locales);
   const themes = theme ? [theme] : manifest.themes;
   for (const value of locales) if (!manifest.locales[value]) problems.push(`unknown catalog locale ${value}`);
   for (const value of themes) if (!manifest.themes.includes(value) || !["light", "dark"].includes(value)) problems.push(`unknown catalog theme ${value}`);
   if (problems.length) return { problems, screens: 0, captureKeys: [], matched: [] };
   const scenarios = { ...APP_SCENARIOS, ...ONBOARDING_SCENARIOS };
-  const captures = shardCaptures(manifest.screens.filter((screen) => (!flow || screen.flow === flow) && (!stateKey || `${screen.flow}/${screen.id}` === stateKey))
+  const selected = screens ? new Set(screens) : null;
+  const captures = shardCaptures(manifest.screens.filter((screen) => (!flow || screen.flow === flow) && (!stateKey || `${screen.flow}/${screen.id}` === stateKey)
+    && (!selected || selected.has(`${screen.flow}/${screen.id}`)))
     .flatMap((screen) => themes.flatMap((captureTheme) => locales.map((captureLocale) => ({
       flow: screen.flow, screen: screen.id, viewport: "phone-390", theme: captureTheme, locale: captureLocale,
       text: "normal", motion: "normal",
@@ -348,7 +351,9 @@ if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).
     const shardArgument = process.argv.indexOf("--shard");
     const shard = shardArgument < 0 ? null : parseShard(process.argv[shardArgument + 1]);
     if (shard && (flow || stateKey || theme || locale)) throw new Error("--shard partitions the complete catalog; drop --flow/--state/--theme/--locale");
-    const result = await auditCatalog({ allowProgressDebt: process.argv.includes("--allow-progress-debt"), flow, stateKey, theme, locale, shard,
+    // A targeted full lane (tools/test-selection.mjs) restricts each stripe to its selected states.
+    const screens = process.env.REPFORGE_CATALOG_SCREENS ? process.env.REPFORGE_CATALOG_SCREENS.split(",").filter(Boolean) : null;
+    const result = await auditCatalog({ allowProgressDebt: process.argv.includes("--allow-progress-debt"), flow, stateKey, theme, locale, shard, screens,
       onProgress: (done, total) => { if (done % 25 === 0 || done === total) console.log(`  rendered ${done}/${total}`); } });
     console.log(`Rendered-role checks: ${result.measurements?.total || 0}; passes ${result.measurements?.pass || 0}; failures ${result.measurements?.fail || 0}; unsupported ${result.measurements?.unsupported || 0}; missing ${result.measurements?.missing || 0}; exempt ${result.measurements?.exempt || 0}.`);
     metadata.push(...result.problems);

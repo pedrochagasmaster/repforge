@@ -1,6 +1,6 @@
 # ADR 0022: Fast pull-request verification, full verification on main
 
-- **Status:** Accepted, 2026-10-21 (owner)
+- **Status:** Accepted, 2026-10-21 (owner); amended by [ADR 0024](0024-targeted-staged-full-lane.md), 2026-10-23: pull requests now run a targeted full lane
 - **Decision owner:** Product owner
 - **Reference:** PR #446 (`codex/test-suite-redesign`) and its adoption on current main
 - **Affects:** `test/suites.mjs`, `tools/run-tests.mjs`, `tools/ci-plan.mjs`,

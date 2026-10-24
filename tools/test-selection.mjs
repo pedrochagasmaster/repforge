@@ -4,7 +4,9 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, extname, normalize, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { FULL_SUITES, SUITES, commandArgs } from "../test/suites.mjs";
+import { FULL_SHARDS, FULL_SUITES, SUITES, UI_SYSTEM_SHARDS, VISUAL_SHARDS, commandArgs, parseShard, suiteId, suiteSeconds } from "../test/suites.mjs";
+import { expandCaptures, loadManifest } from "./ui-screens/manifest.mjs";
+import { screensForDomains, visualDomains } from "./visual-domains.mjs";
 import { isCacheRevisionOnlyServiceWorkerChange } from "./revision-diff.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -341,4 +343,181 @@ export function selectEdit(files, context = {}) {
 export function formatAffected(plan) {
   const lanes = [...new Set(plan.entries.map(({ lane }) => lane))];
   return `${plan.mode}: ${plan.entries.length} command(s)${lanes.length ? ` across ${lanes.join(", ")}` : ""}; ${plan.reasons.join(" ")}`;
+}
+
+// ------------------------------------------------------------ targeted full lane
+/**
+ * The pull-request full lane (ci-full on a PR) runs only the full-lane commands
+ * and catalog states its changed files can affect. It is narrowed only through
+ * reviewed ownership: `@ci-domain` regions in app.js and styles.css, the source
+ * mappings in tools/visual-domains.mjs, the dependency graph of test inputs and
+ * the explicit rules below. Anything else is a shared foundation and runs the
+ * complete lane, which every push to main and the nightly run always do.
+ */
+const CATALOG_SWEEPS = new Set(["tools/check-ui-system.mjs", "tools/capture-ui-screens.mjs"]);
+const FULL_PROSE = /(?:^|\/)(?:[^/]+\.(?:md|txt)|\.gitignore|LICENSE)$/;
+const FIXTURE_PATH = /(?:^|\/)(?:fixtures?|__fixtures__)(?:\/|$)/;
+const FULL_INPUT_RULES = [
+  { match: /^DESIGN\.md$/, suiteFiles: ["tools/check-design-md.mjs"], why: "DESIGN.md token contract" },
+  { match: /^docs\/design\/plan-064-reconciliation\.md$/, suiteFiles: ["test/direction-d-gate.mjs"], why: "Direction-D reconciliation input" },
+  { match: /^README\.md$/, suiteFiles: ["test/simulation.mjs"], why: "simulation documentation contract" },
+  {
+    match: /^programlab\/|^tools\/build-programlab\.mjs$|^engine-policy\.js$|^test\/fixtures\/programlab-/,
+    suiteFiles: ["test/programlab-domain.mjs", "test/programlab-archive.mjs", "test/programlab-archive-limits.mjs", "test/programlab-package.mjs", "test/programlab-ui.mjs"],
+    flows: ["programlab"], why: "Program Lab workbench, archive and package",
+  },
+];
+// Shared rendering, runtime and verification foundations: no reviewed owner can bound them.
+const FULL_FOUNDATION = /^(?:motion-layer\.js|motion-polish\.css|index\.html|sw\.js|manifest\.webmanifest|vendor\/|fonts\/|icons\/|assets\/|i18n(?:-(?:en|pt)\.json|\.js)|exercises\.js|\.github\/|test\/browser\.mjs|test\/suites\.mjs|tools\/ui-screens\/|tools\/(?:test-selection|run-tests|ci-plan|ci-captures|local-preview|visual-domains|critical-ui|ui-system-core|ui-system-rendered|compare-ui-screens|check-ui-screens)\.mjs$|docs\/ui-screens\/(?:manifest|entry-semantics)\.json$|tools\/ui-role-inventory\.json$)/;
+const SUITE_DOMAIN_FOR_VISUAL = { session: "workout" };
+const REVISION_TOKENS = [[/\?v=[A-Za-z0-9._-]+/g, "?v=REVISION"], [/\bconst CACHE = "repforge-v\d+";/g, 'const CACHE = "repforge-vREVISION";']];
+export const FULL_TARGET_SHARD_SECONDS = 480;
+
+const ALL_FULL = (reason) => ({ mode: "all", ids: null, screens: null, reasons: [reason] });
+
+/** True when a unified diff only moves `?v=` query revisions and the CACHE token. */
+export function isRevisionOnlyPatch(patch) {
+  if (typeof patch !== "string" || !patch.includes("@@")) return false;
+  const normalize = (line) => REVISION_TOKENS.reduce((text, [pattern, value]) => text.replace(pattern, value), line);
+  const removed = [], added = [];
+  for (const line of patch.split("\n")) {
+    if (/^(?:\+\+\+|---) /.test(line)) continue;
+    if (line.startsWith("-")) removed.push(normalize(line.slice(1)));
+    else if (line.startsWith("+")) added.push(normalize(line.slice(1)));
+  }
+  return removed.length > 0 && JSON.stringify(removed.sort()) === JSON.stringify(added.sort());
+}
+
+function fullEntriesFor(files) {
+  return FULL.filter(({ suite }) => files.has(suite.file));
+}
+
+export function selectFullLane(files, { cwd = ROOT, patches = {}, sources = {}, manifest = loadManifest() } = {}) {
+  if (!Array.isArray(files)) return ALL_FULL("Changed files are unknown; run the complete full lane.");
+  const changed = [...new Set(files)].sort();
+  const chosen = new Map();
+  const screens = new Set();
+  const domains = new Set();
+  const reasons = [];
+  const choose = (entries) => { for (const entry of entries) chosen.set(suiteId(entry.suite), entry); };
+  const known = new Set(manifest.screens.map((screen) => `${screen.flow}/${screen.id}`));
+  const fullFiles = new Set(FULL.map(({ suite }) => suite.file));
+  const prFiles = new Set(ALL.map(({ suite }) => suite.file));
+  let reverse;
+  for (const file of changed) {
+    const explicit = FULL_INPUT_RULES.find(({ match }) => match.test(file));
+    if (explicit) {
+      choose(fullEntriesFor(new Set(explicit.suiteFiles)));
+      for (const flow of explicit.flows || []) manifest.screens.filter((screen) => screen.flow === flow).forEach((screen) => screens.add(`${screen.flow}/${screen.id}`));
+      reasons.push(`${file}: ${explicit.why}`);
+      continue;
+    }
+    if (FULL_PROSE.test(file) && !FIXTURE_PATH.test(file)) continue;
+    if (FULL_FOUNDATION.test(file)) {
+      const patch = patches[file];
+      if ((file === "sw.js" || file === "index.html") && isRevisionOnlyPatch(patch)) {
+        reasons.push(`${file}: revision tokens only`);
+        continue;
+      }
+      return ALL_FULL(`Shared foundation: ${file}`);
+    }
+    const baseline = file.match(/^docs\/ui-screens\/screens\/([^/]+)\/([^/]+)__[^/]+\.png$/);
+    if (baseline) {
+      if (!known.has(`${baseline[1]}/${baseline[2]}`)) return ALL_FULL(`Unregistered catalog frame: ${file}`);
+      screens.add(`${baseline[1]}/${baseline[2]}`);
+      continue;
+    }
+    if (CATALOG_SWEEPS.has(file)) return ALL_FULL(`Catalog sweep command: ${file}`);
+    if (fullFiles.has(file)) {
+      choose(fullEntriesFor(new Set([file])));
+      reasons.push(`${file}: changed full-lane command`);
+      continue;
+    }
+    if (prFiles.has(file)) continue;
+    if (/^(?:test|tools|scripts)\//.test(file)) {
+      if (/^test\/.+\.(?:mjs|js)$/.test(file) && !existsSync(resolve(cwd, file))) continue;
+      reverse ??= reverseImports(cwd);
+      const dependents = dependentScheduledFiles([file], cwd, reverse, FULL);
+      const prDependents = dependentScheduledFiles([file], cwd, reverse, ALL);
+      if (!dependents.size && !prDependents.size) return ALL_FULL(`Unmapped test/tool input: ${file}`);
+      // A catalog-sweep input can change any rendered state.
+      if ([...dependents].some((dependent) => CATALOG_SWEEPS.has(dependent))) return ALL_FULL(`Catalog capture input: ${file}`);
+      choose(fullEntriesFor(dependents));
+      reasons.push(`${file}: imported by ${dependents.size} full-lane command file(s)`);
+      continue;
+    }
+    if (file === "app.js" || file === "styles.css") {
+      const patch = patches[file];
+      if (typeof patch !== "string") return ALL_FULL(`No diff available to bound ${file}`);
+      let mapped;
+      try { mapped = visualDomains(file, { cwd, source: sources[file], diff: patch }); }
+      catch (error) { return ALL_FULL(`${file}: ${error.message}`); }
+      if (mapped.includes("global")) return ALL_FULL(`${file}: change outside a reviewed @ci-domain region`);
+      mapped.forEach((domain) => domains.add(domain));
+      reasons.push(`${file}: ${mapped.join(", ")}`);
+      continue;
+    }
+    const mapped = visualDomains(file, { cwd });
+    if (!mapped || mapped.includes("global")) return ALL_FULL(`Unmapped executable input: ${file}`);
+    mapped.forEach((domain) => domains.add(domain));
+    reasons.push(`${file}: ${mapped.join(", ")}`);
+  }
+  if (domains.size) {
+    for (const screen of screensForDomains(domains, manifest) || []) screens.add(screen);
+    const suiteDomains = new Set([...domains].map((domain) => SUITE_DOMAIN_FOR_VISUAL[domain] || domain));
+    choose(FULL.filter(({ suite }) => !CATALOG_SWEEPS.has(suite.file)
+      && (suite.domains.includes("global") || suite.domains.some((domain) => suiteDomains.has(domain)))));
+  }
+  const ids = FULL.filter(({ suite }) => !CATALOG_SWEEPS.has(suite.file) && chosen.has(suiteId(suite))).map(({ suite }) => suiteId(suite));
+  const states = [...screens].filter((key) => known.has(key)).sort();
+  if (!ids.length && !states.length) return { mode: "none", ids: [], screens: [], reasons: reasons.length ? reasons : ["No full-lane command can be affected."] };
+  return { mode: "selected", ids, screens: states, reasons };
+}
+
+function catalogStripes(file, defaultCount, captures, totalCaptures, template, screens) {
+  const perDefault = totalCaptures / defaultCount;
+  const count = Math.max(1, Math.min(defaultCount, captures, Math.ceil(captures / perDefault)));
+  const seconds = Math.max(30, Math.ceil(suiteSeconds(template) * (captures / count) / perDefault));
+  return Array.from({ length: count }, (_, index) => {
+    const shard = `${index + 1}/${count}`;
+    const args = template.args.map((arg) => /^\d+\/\d+$/.test(arg) ? shard : arg);
+    return { lane: "full-browser", suite: { ...template, args, seconds, env: { ...template.env, REPFORGE_CATALOG_SCREENS: screens.join(",") } } };
+  });
+}
+
+/** The exact commands a full-lane selection runs; the plan, every runner and the gate derive them alike. */
+export function fullLaneEntries(selection, { manifest = loadManifest() } = {}) {
+  if (!selection || selection.mode === "all") return FULL;
+  if (selection.mode === "none") return [];
+  const ids = new Set(selection.ids || []);
+  const entries = FULL.filter(({ suite }) => !CATALOG_SWEEPS.has(suite.file) && ids.has(suiteId(suite)));
+  const screens = selection.screens || [];
+  if (!screens.length) return entries;
+  const selected = new Set(screens);
+  const states = manifest.screens.filter((screen) => selected.has(`${screen.flow}/${screen.id}`));
+  const roleRenders = (count) => count * manifest.themes.length * Object.keys(manifest.locales).length;
+  const frames = expandCaptures(manifest);
+  const template = (file) => FULL.find(({ suite }) => suite.file === file).suite;
+  return [
+    ...entries,
+    ...catalogStripes("tools/check-ui-system.mjs", UI_SYSTEM_SHARDS, roleRenders(states.length), roleRenders(manifest.screens.length), template("tools/check-ui-system.mjs"), screens),
+    ...catalogStripes("tools/capture-ui-screens.mjs", VISUAL_SHARDS, frames.filter((capture) => selected.has(`${capture.flow}/${capture.screen}`)).length, frames.length, template("tools/capture-ui-screens.mjs"), screens),
+  ];
+}
+
+/** Full-lane runners for these browser commands: the complete lane keeps FULL_SHARDS, a targeted one about eight minutes each. */
+export function fullShardCount(browser) {
+  if (!browser.length) return 1;
+  if (browser.length === FULL.filter(({ lane }) => lane === "full-browser").length
+    && browser.every(({ suite }, index) => suite === FULL.filter(({ lane }) => lane === "full-browser")[index]?.suite)) return FULL_SHARDS;
+  const seconds = browser.reduce((sum, { suite }) => sum + suiteSeconds(suite), 0);
+  return Math.max(1, Math.min(FULL_SHARDS, browser.length, Math.ceil(seconds / FULL_TARGET_SHARD_SECONDS)));
+}
+
+/** Parse the plan's published selection; anything unreadable runs the complete lane. */
+export function parseFullSelection(text) {
+  if (!text) return { mode: "all", ids: null, screens: null };
+  const value = JSON.parse(text);
+  if (!["all", "selected", "none"].includes(value?.mode)) throw new Error(`Invalid full-lane selection mode ${JSON.stringify(value?.mode)}`);
+  return value;
 }

@@ -14,15 +14,18 @@
  *                                 union the ui-system-shard.json reports under
  *                                 <dir> and apply the catalog-wide rules
  *
- * The only narrowing CI does is "prose-only changes skip the tests". Anything
- * else — an unknown file, an API failure, a push to main — runs the complete
- * inventory. Test selection by ownership stays a local feedback tool
- * (tools/test-selection.mjs); the merge gate never guesses.
+ * The PR lane's only narrowing is "prose-only changes skip the tests". On a
+ * pull request the full lane (ci-full) runs only what the changed files can
+ * affect, as decided by selectFullLane in tools/test-selection.mjs from the
+ * compare API's file list and patches, and starts only after the PR lane
+ * passed. An unknown file, an unmappable diff, an API failure, a push to main,
+ * the nightly schedule and a manual run all get the complete full lane.
  */
 import { appendFileSync, existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { CI_SHARDS, FULL_SHARDS, UI_SYSTEM_SHARDS } from "../test/suites.mjs";
+import { BROWSER_LANES, CI_SHARDS, FULL_SHARDS, UI_SYSTEM_SHARDS, parseShard } from "../test/suites.mjs";
+import { fullLaneEntries, fullShardCount, parseFullSelection, selectFullLane } from "./test-selection.mjs";
 import { captureKey, loadManifest } from "./ui-screens/manifest.mjs";
 import { findShardReports, loadRoleInventory, mergeShardReports, shardCaptures, validateRoleInventory } from "./ui-system-core.mjs";
 
@@ -52,7 +55,7 @@ export function shardMatrix(count = CI_SHARDS) {
 }
 
 /** Files a pull request changes relative to its merge base, from the compare API; null when that is not knowable. */
-export async function pullRequestFiles({ apiUrl, repository, base, head, token, fetchImpl = globalThis.fetch }) {
+export async function pullRequestFiles({ apiUrl, repository, base, head, token, fetchImpl = globalThis.fetch, patches = null }) {
   const files = [];
   for (let page = 1; files.length < COMPARE_LIMIT; page++) {
     const response = await fetchImpl(`${apiUrl}/repos/${repository}/compare/${base}...${head}?per_page=${COMPARE_PAGE}&page=${page}`, {
@@ -63,7 +66,11 @@ export async function pullRequestFiles({ apiUrl, repository, base, head, token, 
     const body = await response.json();
     const batch = (body.files || []).map((file) => file.filename);
     files.push(...batch);
-    for (const file of body.files || []) if (file.previous_filename) files.push(file.previous_filename);
+    for (const file of body.files || []) {
+      if (file.previous_filename) files.push(file.previous_filename);
+      // The API omits a patch for binary files and for diffs too large to show; selection then widens.
+      if (patches && typeof file.patch === "string") patches[file.filename] = file.patch;
+    }
     if (batch.length < COMPARE_PAGE) return files;
   }
   // The compare API caps the file list; a change this large is not "prose only".
@@ -74,15 +81,32 @@ export async function resolvePlan(env = process.env, { fetchImpl } = {}) {
   const event = env.GITHUB_EVENT_NAME || "workflow_dispatch";
   const payload = env.GITHUB_EVENT_PATH ? JSON.parse(readFileSync(env.GITHUB_EVENT_PATH, "utf8")) : {};
   const head = payload.pull_request?.head?.sha || env.GITHUB_SHA || null;
-  if (event !== "pull_request") return { event, head, ...classifyChange(null), reason: `${event} runs the complete inventory.` , files: null };
+  if (event !== "pull_request") return { event, head, ...classifyChange(null), reason: `${event} runs the complete inventory.`, files: null,
+    full: { mode: "all", ids: null, screens: null, reasons: [`${event} runs the complete full lane.`] } };
   let files = null;
+  const patches = {};
   try {
     files = await pullRequestFiles({ apiUrl: env.GITHUB_API_URL || "https://api.github.com", repository: env.GITHUB_REPOSITORY,
-      base: payload.pull_request.base.sha, head: payload.pull_request.head.sha, token: env.GITHUB_TOKEN, fetchImpl });
+      base: payload.pull_request.base.sha, head: payload.pull_request.head.sha, token: env.GITHUB_TOKEN, fetchImpl, patches });
   } catch (error) {
     console.warn(`Could not list changed files (${error.message}); running everything.`);
   }
-  return { event, head, files, ...classifyChange(files) };
+  return { event, head, files, ...classifyChange(files), full: selectFullLane(files, { patches }) };
+}
+
+/** The plan job's outputs: the PR lane decision and the full lane's runners and selection. */
+export function planOutputs(plan) {
+  const full = plan.full || { mode: "all", ids: null, screens: null };
+  const entries = fullLaneEntries(full);
+  const browser = entries.filter(({ lane }) => BROWSER_LANES.has(lane));
+  return {
+    run: String(plan.run), reason: plan.reason.replaceAll("\n", " "), shards: JSON.stringify(shardMatrix()),
+    full_run: String(entries.length > 0),
+    full_fast: String(entries.some(({ lane }) => lane === "full-fast")),
+    full_browser: String(browser.length > 0),
+    full_shards: JSON.stringify(shardMatrix(fullShardCount(browser))),
+    full_selection: JSON.stringify({ mode: full.mode, ids: full.ids, screens: full.screens }),
+  };
 }
 
 /** The aggregate: every job the plan selected must have succeeded, and nothing selected may have been skipped. */
@@ -140,36 +164,76 @@ function latestShardReports(root) {
 export { mergeCriticalReports as mergeUiSystemReports } from "./critical-ui.mjs";
 import { mergeCriticalReports as mergeUiSystemReports } from "./critical-ui.mjs";
 
-/** The full lane's catalog-wide UI-system rule over every shard's report; browser-free so the gate job needs no test dependencies. */
-export function mergeFullUiSystemReports(root, { inventory = loadRoleInventory(), manifest = loadManifest() } = {}) {
+/**
+ * The full lane's UI-system rule over every shard's report; browser-free so the gate job needs no
+ * test dependencies. A targeted sweep is checked against exactly its selected states and stripes;
+ * the catalog-wide "every selector rendered somewhere" rule needs the complete sweep.
+ */
+export function mergeFullUiSystemReports(root, { inventory = loadRoleInventory(), manifest = loadManifest(), selection = null } = {}) {
   const problems = validateRoleInventory(inventory, manifest);
-  const captureKeys = manifest.screens.flatMap((screen) => manifest.themes.flatMap((theme) =>
-    Object.keys(manifest.locales).map((locale) => captureKey({
-      flow: screen.flow, screen: screen.id, viewport: "phone-390", theme, locale, text: "normal", motion: "normal",
-    }))));
-  const expectedCaptureKeysByShard = Array.from({ length: UI_SYSTEM_SHARDS }, (_, index) =>
-    shardCaptures(captureKeys, { index: index + 1, count: UI_SYSTEM_SHARDS }));
+  const targeted = Boolean(selection && selection.mode !== "all");
+  const selected = targeted ? new Set(selection.screens || []) : null;
+  const captureKeys = manifest.screens.filter((screen) => !selected || selected.has(`${screen.flow}/${screen.id}`))
+    .flatMap((screen) => manifest.themes.flatMap((theme) =>
+      Object.keys(manifest.locales).map((locale) => captureKey({
+        flow: screen.flow, screen: screen.id, viewport: "phone-390", theme, locale, text: "normal", motion: "normal",
+      }))));
+  const stripes = targeted
+    ? fullLaneEntries(selection, { manifest }).filter(({ suite }) => suite.file === "tools/check-ui-system.mjs").map(({ suite }) => parseShard(suite.args[1]))
+    : Array.from({ length: UI_SYSTEM_SHARDS }, (_, index) => ({ index: index + 1, count: UI_SYSTEM_SHARDS }));
   const merged = mergeShardReports(latestShardReports(root), inventory, {
-    expectedShardCount: UI_SYSTEM_SHARDS,
+    expectedShardCount: stripes.length,
     expectedScreenCount: captureKeys.length,
-    expectedCaptureKeysByShard,
+    expectedCaptureKeysByShard: stripes.map((shard) => shardCaptures(captureKeys, shard)),
+    catalogWide: !targeted,
   });
   return { ...merged, problems: [...problems, ...merged.problems] };
 }
 
-/** The full lane has no prose shortcut: on every event that schedules it, every job must pass. */
-export function gateFullResults(needs, { log = console.log } = {}) {
+/**
+ * The full aggregate. Every job the plan selected must pass and nothing selected
+ * may be skipped. On a pull request the full lane is staged behind the PR lane,
+ * so a PR lane that did not pass fails this check too. Pushes to main, the
+ * nightly schedule and manual runs accept only the complete lane.
+ */
+export function gateFullResults(needs, { event = "workflow_dispatch", log = console.log } = {}) {
   if (!needs || typeof needs !== "object" || Array.isArray(needs)) throw new Error("CI full gate: needs must be an object");
-  for (const name of ["plan", "full-fast", "full-browser"]) {
+  for (const name of ["plan", "ci", "full-fast", "full-browser"]) {
     if (!Object.hasOwn(needs, name)) throw new Error(`CI full gate: missing required job ${name}`);
   }
+  const plan = needs.plan;
+  if (plan?.result !== "success") throw new Error(`CI full gate: plan job ${plan?.result || "missing"}`);
+  const outputs = plan.outputs || {};
+  for (const name of ["full_run", "full_fast", "full_browser"]) {
+    if (outputs[name] !== "true" && outputs[name] !== "false") throw new Error(`CI full gate: plan ${name} output must be "true" or "false"`);
+  }
+  let selection;
+  try { selection = parseFullSelection(outputs.full_selection); }
+  catch (error) { throw new Error(`CI full gate: plan full_selection output is invalid (${error.message})`); }
+  if (!outputs.full_selection) throw new Error("CI full gate: plan full_selection output is missing");
+  if (event !== "pull_request" && selection.mode !== "all") throw new Error(`CI full gate: ${event} must run the complete full lane, got ${selection.mode}`);
+  const entries = fullLaneEntries(selection);
+  const browser = entries.filter(({ lane }) => BROWSER_LANES.has(lane));
+  const expected = { full_run: entries.length > 0, full_fast: entries.some(({ lane }) => lane === "full-fast"), full_browser: browser.length > 0 };
+  for (const [name, value] of Object.entries(expected)) {
+    if (outputs[name] !== String(value)) throw new Error(`CI full gate: plan ${name} output disagrees with its selection`);
+  }
+  if (expected.full_browser && outputs.full_shards !== JSON.stringify(shardMatrix(fullShardCount(browser)))) {
+    throw new Error("CI full gate: plan full_shards output disagrees with its selection");
+  }
+  if (event === "pull_request" && needs.ci?.result !== "success") {
+    throw new Error(`CI full gate: the PR lane (ci) is ${needs.ci?.result || "missing"}, so the full lane did not start; fix the PR lane first`);
+  }
   const failures = [];
-  for (const [name, job] of Object.entries(needs)) {
-    log(`${name}: ${job.result} (required)`);
-    if (job.result !== "success") failures.push(`${name}: expected success, got ${job.result}`);
+  for (const [name, output] of [["full-fast", "full_fast"], ["full-browser", "full_browser"]]) {
+    const required = outputs[output] === "true";
+    const want = required ? "success" : "skipped";
+    log(`${name}: ${needs[name].result}${required ? " (required)" : " (not selected)"}`);
+    if (needs[name].result !== want) failures.push(`${name}: expected ${want}, got ${needs[name].result}`);
   }
   if (failures.length) throw new Error(`CI full gate failed: ${failures.join("; ")}`);
-  log("Every full-lane job passed.");
+  log(selection.mode === "all" ? "Every full-lane job passed." : selection.mode === "none"
+    ? "Nothing in the full lane can be affected by this change." : `Every targeted full-lane job passed (${entries.length} command(s), ${selection.screens.length} catalog state(s)).`);
 }
 
 async function main(argv) {
@@ -178,12 +242,17 @@ async function main(argv) {
     return;
   }
   if (argv[0] === "gate-full") {
-    gateFullResults(JSON.parse(process.env.NEEDS || "{}"));
+    gateFullResults(JSON.parse(process.env.NEEDS || "{}"), { event: process.env.EVENT || process.env.GITHUB_EVENT_NAME });
     return;
   }
   if (argv[0] === "merge-ui-system-full") {
     if (!argv[1]) throw new Error("merge-ui-system-full needs a directory holding ui-system-shard.json reports");
-    const merged = mergeFullUiSystemReports(resolve(argv[1]));
+    const selection = parseFullSelection(process.env.REPFORGE_FULL_SELECTION);
+    if (!fullLaneEntries(selection).some(({ suite }) => suite.file === "tools/check-ui-system.mjs")) {
+      console.log(`UI system merge: the ${selection.mode} full-lane selection renders no catalog state; nothing to merge.`);
+      return;
+    }
+    const merged = mergeFullUiSystemReports(resolve(argv[1]), { selection });
     console.log(`UI system merge: ${merged.shards} shard report(s), ${merged.screens} rendered states, ${merged.problems.length} problem(s).`);
     for (const problem of merged.problems) console.error(`FAIL: ${problem}`);
     if (merged.problems.length) process.exitCode = 1;
@@ -198,13 +267,18 @@ async function main(argv) {
     return;
   }
   const plan = await resolvePlan();
-  const shards = shardMatrix();
+  const outputs = planOutputs(plan);
+  const full = plan.full;
   console.log(`${plan.event} ${plan.head}: run=${plan.run} — ${plan.reason}`);
+  console.log(`full lane: ${full.mode}${full.mode === "selected" ? ` — ${full.ids.length} command(s), ${full.screens.length} catalog state(s), ${JSON.parse(outputs.full_shards).length} runner(s)` : ""}`);
+  for (const reason of full.reasons || []) console.log(`  ${reason}`);
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT,
-    `run=${plan.run}\nreason=${plan.reason.replaceAll("\n", " ")}\nshards=${JSON.stringify(shards)}\nfull_shards=${JSON.stringify(shardMatrix(FULL_SHARDS))}\n`);
+    Object.entries(outputs).map(([key, value]) => `${key}=${value}\n`).join(""));
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY,
-    `## CI plan\n\n- Source: ${plan.head}\n- Run tests: **${plan.run ? "yes" : "no"}** — ${plan.reason}\n- Browser shards: ${shards.length}\n` +
-    (plan.files ? `- Changed files: ${plan.files.length}\n` : ""));
+    `## CI plan\n\n- Source: ${plan.head}\n- Run tests: **${plan.run ? "yes" : "no"}** — ${plan.reason}\n- Browser shards: ${JSON.parse(outputs.shards).length}\n` +
+    (plan.files ? `- Changed files: ${plan.files.length}\n` : "") +
+    `- Full lane: **${full.mode}**${full.mode === "selected" ? ` — ${full.ids.length} command(s), ${full.screens.length} catalog state(s) on ${JSON.parse(outputs.full_shards).length} runner(s)` : ""}\n` +
+    (full.reasons || []).map((reason) => `  - ${reason}\n`).join(""));
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

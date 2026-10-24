@@ -6,7 +6,7 @@ import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSyn
 import { dirname, join, resolve, relative, isAbsolute } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { SUITES, FULL_SUITES, INVENTORY, BROWSER_LANES, browserEntries, commandArgs, inventoryErrors, parseShard, shardSuites, suiteId } from "../test/suites.mjs";
-import { changedFilesForTests, changedFilesForEdit, changedFilesForPacket, formatAffected, selectBranch, selectPacket, selectEdit } from "./test-selection.mjs";
+import { changedFilesForTests, changedFilesForEdit, changedFilesForPacket, formatAffected, fullLaneEntries, parseFullSelection, selectBranch, selectPacket, selectEdit } from "./test-selection.mjs";
 import { maybeStartLocalPreview } from "./local-preview.mjs";
 export { maybeStartLocalPreview } from "./local-preview.mjs";
 
@@ -207,7 +207,7 @@ async function main() {
     const plan = target === "candidate"
       ? { mode: "all", entries: Object.entries(SUITES).filter(([lane]) => lane !== "service").flatMap(([lane, suites]) => suites.map((suite) => ({ lane, suite }))), files: [], reasons: ["Complete local candidate gate; service requires its external environment."] }
       : target === "shard" || target === "full-shard"
-      ? shardPlan(shard, target === "full-shard" ? FULL_SUITES : SUITES)
+      ? shardPlan(shard, target === "full-shard" ? FULL_SUITES : SUITES, target === "full-shard" ? plannedFullSelection() : null)
       : (target === "edit" ? selectEdit : target === "packet" ? selectPacket : selectBranch)(changed.files, { cwd: ROOT, base: selectionBase });
     const selectionDurationMs = Date.now() - invocationStarted;
     console.log(`${target} base: ${changed.base || "unavailable"}`);
@@ -232,6 +232,12 @@ async function main() {
     return;
   }
 
+  const fullSelection = target === "full-fast" ? plannedFullSelection() : null;
+  if (fullSelection && fullSelection.mode !== "all" && !filter && !filterId && !ids) {
+    const planned = new Set(fullLaneEntries(fullSelection).filter(({ lane }) => lane === "full-fast").map(({ suite }) => suiteId(suite)));
+    if (!planned.size) { console.log("full-fast: the planned full-lane selection runs no pure-Node command."); return; }
+    ids = [...planned];
+  }
   groups = (target === "all" ? Object.entries(SUITES) : [[target, INVENTORY[target]]]).map(([lane, entries]) => [lane,
     entries.filter((suite) => ids ? ids.includes(suiteId(suite)) : filterId ? suiteId(suite) === filterId
       : !filter || suite.file === filter || suite.file.split("/").at(-1).replace(/\.mjs$/, "") === filter)]);
@@ -272,13 +278,22 @@ async function main() {
   }
 }
 
-/** One CI shard: deterministic from the committed inventory, so every runner computes the same split. */
-export function shardPlan({ index, count }, suites = SUITES) {
-  const all = browserEntries(suites);
+/**
+ * One CI shard: deterministic from the committed inventory (and, for a targeted
+ * full lane, the plan's published selection), so every runner computes the same split.
+ */
+export function shardPlan({ index, count }, suites = SUITES, selection = null) {
+  const targeted = Boolean(selection && selection.mode !== "all");
+  const all = targeted ? fullLaneEntries(selection).filter(({ lane }) => BROWSER_LANES.has(lane)) : browserEntries(suites);
   const bins = shardSuites(all, count);
   const { entries, seconds } = bins[index - 1];
   return { mode: "shard", entries, files: [],
-    reasons: [`${suites === FULL_SUITES ? "Full-lane browser" : "Browser"} shard ${index}/${count}: ${entries.length} of ${all.length} browser command(s), about ${Math.round(seconds)}s measured (heaviest shard ${Math.round(Math.max(...bins.map((bin) => bin.seconds)))}s).`] };
+    reasons: [`${suites === FULL_SUITES ? `${targeted ? "Targeted full-lane" : "Full-lane"} browser` : "Browser"} shard ${index}/${count}: ${entries.length} of ${all.length} browser command(s), about ${Math.round(seconds)}s measured (heaviest shard ${Math.round(Math.max(...bins.map((bin) => bin.seconds)))}s).`] };
+}
+
+/** The selection tools/ci-plan.mjs published for this run's full lane; unset means the complete lane. */
+function plannedFullSelection(env = process.env) {
+  return env.REPFORGE_FULL_SELECTION ? parseFullSelection(env.REPFORGE_FULL_SELECTION) : null;
 }
 
 function sourceAtHead() {

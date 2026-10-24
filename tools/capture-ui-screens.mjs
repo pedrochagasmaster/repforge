@@ -43,6 +43,8 @@ import { selectVisuals } from "./ci-selection.mjs";
 import { checkCatalog } from "./check-ui-screens.mjs";
 import { compareCatalog } from "./compare-ui-screens.mjs";
 import { parseShard } from "../test/suites.mjs";
+import { recordCiCaptures } from "./ci-captures.mjs";
+import { sourceHead } from "./critical-ui.mjs";
 
 const MANIFEST = loadManifest();
 const CATALOG_METADATA_ERRORS = validateCatalogMetadata(MANIFEST);
@@ -89,6 +91,8 @@ function parseArgs(argv) {
     else throw new Error(`Unknown or incomplete capture argument: ${argv[i]}`);
   }
   if (process.env.CAPTURE_FILTER) options.screens.push(process.env.CAPTURE_FILTER);
+  // A targeted full lane (tools/test-selection.mjs) restricts each verify stripe to its selected states.
+  if (process.env.REPFORGE_CATALOG_SCREENS) options.screens.push(...process.env.REPFORGE_CATALOG_SCREENS.split(",").filter(Boolean));
   if (options.verify && (options.affected || options.listAffected || options.acceptVisualChange || options.keepGoing)) {
     throw new Error("--verify compares against the committed catalog and cannot be combined with --affected, --accept-visual-change or --keep-going");
   }
@@ -126,7 +130,7 @@ export function selectCaptures(options, manifest = MANIFEST) {
  * directory, so a red run can be inspected without recapturing.
  */
 export function verifyCatalog({ stagingRoot, semanticArtifact, artifactDir = process.env.REPFORGE_ARTIFACT_DIR, manifest = MANIFEST,
-  baselineRoot = ARTIFACT_ROOT, baselineSemanticPath = SEMANTIC_PATH } = {}) {
+  baselineRoot = ARTIFACT_ROOT, baselineSemanticPath = SEMANTIC_PATH, captures = {} } = {}) {
   const currentSemanticPath = join(stagingRoot, "..", `${basename(stagingRoot)}-entry-semantics.json`);
   writeFileSync(currentSemanticPath, `${JSON.stringify(semanticArtifact, null, 2)}\n`);
   try {
@@ -159,6 +163,12 @@ export function verifyCatalog({ stagingRoot, semanticArtifact, artifactDir = pro
       writeFileSync(join(artifactDir, "visual-report.json"), `${JSON.stringify({ ok, registration, comparison }, null, 2)}\n`);
     }
     if (!ok) {
+      const published = recordCiCaptures({ ...captures, frames: comparison.failures
+        .filter((failure) => existsSync(join(stagingRoot, failure.path)))
+        .map((failure) => ({ path: `${manifest.artifactRoot}/${failure.path.replaceAll("\\", "/")}`, file: join(stagingRoot, failure.path),
+          state: failure.path.split(/[\\/]/).slice(0, 2).join("/").replace(/__.*$/, ""), reasons: failure.reasons })),
+        semanticChanged: !comparison.semantic.ok });
+      if (published) console.error(`CI published the changed frames it rendered (${published}); fetch them with node tools/fetch-ci-captures.mjs <run-id>.`);
       console.error("\nThe committed catalog no longer matches the app. Regenerate and review it:");
       console.error("  node tools/capture-ui-screens.mjs --affected --accept-visual-change");
     }
@@ -575,7 +585,8 @@ async function main(options = parseArgs(process.argv.slice(2))) {
 
     if (options.verify) {
       console.log(`\nCaptured ${captures.length} frame(s) into staging; comparing against the committed catalog.`);
-      return verifyCatalog({ stagingRoot, semanticArtifact: artifact }) ? 0 : 1;
+      return verifyCatalog({ stagingRoot, semanticArtifact: artifact, captures: {
+        producer: options.shard ? `verify-${options.shard.index}-${options.shard.count}` : "verify", source: sourceHead() } }) ? 0 : 1;
     }
 
     replaceCatalog(stagingRoot, ARTIFACT_ROOT);
