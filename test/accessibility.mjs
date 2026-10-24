@@ -1796,7 +1796,17 @@ export async function runHistoryResponsiveLayoutChecks(browser, check = assert) 
     check(edit.navHidden, `the dock is hidden while a session is edited (${lang})`);
     check(edit.names.length > 0 && edit.names.length === edit.distinct && edit.perRowNames === 0,
       `the History editor heads each lift's group with its name and keeps no per-set name column (${lang})`, JSON.stringify(edit));
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    // Scroll to the very end and stay there: the editor can still be growing when the first scroll lands, which left
+    // the page 153 px short of its end and Delete under the bar (full lane, 2026-10-24).
+    await page.evaluate(async () => {
+      const frame = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      for (let i = 0; i < 10; i++) {
+        const root = document.documentElement;
+        window.scrollTo({ top: root.scrollHeight, behavior: "instant" });
+        await frame();
+        if (window.scrollY >= root.scrollHeight - window.innerHeight - 1) break;
+      }
+    });
     const tail = await page.evaluate(() => ({
       barTop: Math.round(document.querySelector(".histedit__bar").getBoundingClientRect().top),
       deleteBottom: Math.round(document.querySelector(".edrisk .session__del").getBoundingClientRect().bottom),
