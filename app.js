@@ -7515,6 +7515,7 @@ function renderTodayResume(show){
    so the empty device now says it is empty and offers the way back in. Every
    part of the dashboard that describes a program is taken down together: a week
    strip and an Up next built from no program are the same lie in smaller type. */
+// Timing experiment (never merged): a Today-only change.
 function renderTodayNoProgram(){
   for(const sel of["#todayProgram","#todaySessionLabel","#todaySession","#startWorkout","#chooseAnotherDay",
     "#reviewTodaySession","#logAnotherSession","#todayWeekLabel","#todayWeek",
