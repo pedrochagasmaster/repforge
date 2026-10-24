@@ -1854,6 +1854,11 @@ export const APP_SCENARIOS = {
     await page.locator("#exPickList .pickrow").first().click();
     await page.locator("#exPickSheet").waitFor({state:"hidden"});
     await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
+    // The reopened sheet keeps its body's last scroll until it has opened; a reset before then was undone, and the frame
+    // showed the body scrolled past its first heading (full lane, 2026-10-24). Reset once it has settled.
+    await page.locator("#exActionsSheet.is-open").waitFor();
+    await page.evaluate(() => Promise.all(document.getAnimations()
+      .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity).map((a) => a.finished.catch(() => {}))));
     await resetSheetScroll(page, ".exactions-sheet__body");
   },
   "workout/swap-alternates": async page => {
