@@ -1620,7 +1620,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 /* The rows' drum: they fade out towards its edges, as the prototype's mask draws them. The mask sits here, not on
    the column, so it never clips the column's focus ring. */
 .wheel__drum{position:absolute;inset:0;perspective:600px;
-  -webkit-mask:linear-gradient(transparent,#000 30%,#000 70%,transparent);mask:linear-gradient(transparent,#000 30%,#000 70%,transparent)}
+  -webkit-mask-image:linear-gradient(transparent,var(--ink) 30%,var(--ink) 70%,transparent);mask-image:linear-gradient(transparent,var(--ink) 30%,var(--ink) 70%,transparent)}
 .wheel:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 /* Bare numbers in the data face, tabular; the unit is in the title. The centre
    row is the one at full opacity, the others fade with their distance (app.js). */
