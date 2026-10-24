@@ -16773,7 +16773,7 @@ function entryChooseHubRoute(){
 const ENTRY_B_SECTIONS=Object.freeze([
   ["basics",["sex","birth_date","height","weight","background","cardio_experience"]],
   ["gym",["environment","equipment"]],
-  ["program",["desired_result","days_per_week","session_length","muscle_priorities","deload","abilities"]]]);
+  ["program",["desired_result","days_per_week","split","session_length","muscle_priorities","deload","abilities"]]]);
 function entryBSection(stepId){
   const index=ENTRY_B_SECTIONS.findIndex(([,steps])=>steps.includes(stepId));
   return index<0?null:{n:index+1,total:ENTRY_B_SECTIONS.length,name:ENTRY_B_SECTIONS[index][0]}}
@@ -16785,10 +16785,11 @@ function entryPatchBasics(patch){
   entryPatchAnswers({basics:next})}
 function entryBNote(weight=false){
   return `<p class="entry-b__note"><span class="icon-mask icon-mask--shield icon-mask--sm" aria-hidden="true"></span><span>${esc(t(weight?"entry.basics.weight_note":"entry.basics.note"))}</span></p>`}
-function entryBChoice(key,value,label,sub,selected,{icon=""}={}){
+function entryBChoice(key,value,label,sub,selected,{icon="",tag=""}={}){
   return `<button type="button" class="radio-card${selected?" is-selected":""}" role="radio" aria-checked="${selected?"true":"false"}" data-entry-pick="${esc(key)}" data-entry-val="${esc(String(value))}">`+
     (icon?`<span class="radio-card__icon icon-mask icon-mask--${esc(icon)}" aria-hidden="true"></span>`:"")+
-    `<span class="radio-card__body"><span class="radio-card__title">${esc(label)}</span>${sub?`<span class="radio-card__cap">${esc(sub)}</span>`:""}</span>`+
+    `<span class="radio-card__body"><span class="radio-card__title">${esc(label)}</span>${sub?`<span class="radio-card__cap">${esc(sub)}</span>`:""}`+
+    `${tag?`<span class="entry-b__tag">${esc(tag)}</span>`:""}</span>`+
     `<span class="radio-card__mark" aria-hidden="true"></span></button>`}
 function entryBGroup(inner,{compact=false}={}){
   return `<div class="onb__opts${compact?" onb__num entry-b__compact":""}" role="radiogroup" aria-labelledby="entryHeading">${inner}</div>`}
@@ -16822,9 +16823,25 @@ function renderGoalStep(){
     entryBChoice("desiredResult",value,t(`entry.goal.${value}`),t(`entry.goal.${value}.sub`),current===value,{icon:ENTRY_DESIRED_ICONS[value]})).join(""))}
 function renderDaysStep(){
   const current=entryState.answers.daysPerWeek;
+  // The week's structure is the split step's to say: a fixed sentence per day count could contradict the lifter's choice.
   return entryHeading(t("entry.days_per_week.title"))+entryBGroup([2,3,4,5,6].map(n=>
-    entryBChoice("daysPerWeek",n,t("entry.days_per_week.value",{n}),"",current===n)).join(""),{compact:true})+
-    `<p class="entry-b__fact" aria-live="polite">${current?esc(t(`entry.days_per_week.split.${current}`)):""}</p>`}
+    entryBChoice("daysPerWeek",n,t("entry.days_per_week.value",{n}),"",current===n)).join(""),{compact:true})}
+/* The split step (owner, 2026-10-23): the generator's authored weekly structures for the chosen day count, the one
+   Taurifer would pick preselected and marked, so Continue keeps the program it would have made. Shown only when there
+   are two or more to choose from (entrySplitStepShown). */
+function entrySplitChoices(answers=entryState?.answers||{}){
+  try{return entryServices()?.splitChoices?.(answers)?.choices||[]}catch(error){console.warn("split choices failed",error);return[]}}
+function entrySplitStepShown(answers=entryState?.answers||{}){return entrySplitChoices(answers).length>=2}
+/** The split answer that fits these answers: the one chosen if it is still offered, else the default. */
+function entrySplitFor(answers){
+  const choices=entrySplitChoices(answers);
+  if(choices.length<2)return undefined;
+  return choices.some(choice=>choice.id===answers.splitPreference)?answers.splitPreference:(choices.find(choice=>choice.default)||choices[0]).id}
+function renderSplitStep(){
+  const choices=entrySplitChoices(),current=entrySplitFor(entryState.answers);
+  return entryHeading(t("entry.custom_shape.title"))+`<p class="onb__explain">${esc(t("entry.custom_shape.lede"))}</p>`+
+    entryBGroup(choices.map(choice=>entryBChoice("splitPreference",choice.id,splitDisplayName(choice),
+      choice.default?"":t("entry.custom_shape.compatible_reason"),current===choice.id,{tag:choice.default?t("aria.recommended"):""})).join(""))}
 function renderSessionLengthStep(){
   const current=entryState.answers.sessionMinutes??60;
   return entryHeading(t("entry.session_length.title"))+`<p class="onb__explain">${esc(t("entry.session_length.lede"))}</p>`+
@@ -17133,6 +17150,7 @@ function entryNeedsChoice(stepId){
   return false}
 /* Steps whose screen shows a default the lifter may accept with Continue. */
 function entryApplyShownDefaults(stepId){
+  if(stepId==="split"){const split=entrySplitFor(entryState.answers);if(split&&split!==entryState.answers.splitPreference)entryState=ProgramEntry.setAnswers(entryState,{splitPreference:split})}
   if(stepId==="session_length"&&entryState.answers.sessionMinutes==null)entryState=ProgramEntry.setAnswers(entryState,{sessionMinutes:60});
   if(stepId==="deload"&&entryState.answers.deload==null)entryState=ProgramEntry.setAnswers(entryState,{deload:true})}
 
@@ -19119,7 +19137,7 @@ const ENTRY_B_RENDERERS=Object.freeze({intro:()=>renderIntroStep(),sex:()=>rende
   height:()=>renderHeightStep(),weight:()=>renderWeightStep(),background:()=>renderLiftingStep(),cardio_experience:()=>renderCardioStep(),
   environment:()=>renderGymStep(),equipment:()=>renderEquipmentStep(),desired_result:()=>renderGoalStep(),days_per_week:()=>renderDaysStep(),
   session_length:()=>renderSessionLengthStep(),muscle_priorities:()=>renderMusclePrioritiesStep(),deload:()=>renderDeloadStep(),
-  abilities:()=>renderAbilitiesStep({b:true}),building:()=>renderBuildingStep()});
+  abilities:()=>renderAbilitiesStep({b:true}),building:()=>renderBuildingStep(),split:()=>renderSplitStep()});
 function entryMotionRank(state){
   if(!state)return null;
   if(state.route==="recommend"){
@@ -19583,7 +19601,12 @@ function wireEntryDom(){
       entryPatchAnswers({exerciseConstraints:constraints});
       return}
     if(key==="preferredRestSeconds"){entryPatchAnswers({preferredRestSeconds:raw==="auto"?null:+raw});return}
-    if(key==="daysPerWeek"||key==="sessionMinutes"){entryPatchAnswers({[key]:+raw});return}
+    if(key==="daysPerWeek"||key==="sessionMinutes"){
+      // A split chosen for another day count is not carried over: it resets to what fits, never to an invalid choice.
+      const next={...entryState.answers,[key]:+raw},patch={[key]:+raw};
+      if(key==="daysPerWeek"&&next.splitPreference&&next.splitPreference!=="auto"&&!entrySplitChoices(next).some(choice=>choice.id===next.splitPreference))
+        patch.splitPreference=entrySplitFor({...next,splitPreference:undefined})||"auto";
+      entryPatchAnswers(patch);return}
     if(key==="basicsSex"){entryPatchBasics({sex:raw});return}
     if(key==="basicsCardio"){entryPatchBasics({cardioExperience:raw});return}
     if(key==="basicsHeightUnit"){entryPatchBasics({heightUnit:raw});return}
@@ -19842,6 +19865,15 @@ function entryAdvance(){
   const advanced=ProgramEntry.advance(entryState);
   if(!advanced.ok){renderOnboarding();return}
   let nextState=advanced.state;
+  // The split step only asks when there is a choice to make; otherwise the default stands and the step is passed.
+  if(nextState.route==="recommend"&&nextState.step==="split"){
+    if(entrySplitStepShown(nextState.answers)){
+      const split=entrySplitFor(nextState.answers);
+      if(split!==nextState.answers.splitPreference)nextState=ProgramEntry.setAnswers(nextState,{splitPreference:split});
+    }else{
+      if(nextState.answers.splitPreference!=="auto")nextState=ProgramEntry.setAnswers(nextState,{splitPreference:"auto"});
+      const skipped=ProgramEntry.advance(nextState);
+      if(skipped.ok)nextState=skipped.state}}
   if(nextState.step==="custom_shape"){
     const splits=entryCustomSplitChoices(nextState.answers);
     const compatible=new Set(splits.choices.map(choice=>choice.id));
@@ -19880,6 +19912,7 @@ function entryBack(){
     return}
   if(entryState.route==="custom"&&previous.step==="custom_shape"&&!entryCustomShapeRequired())
     previous={...previous,step:"exercise_preferences"};
+  if(previous.route==="recommend"&&previous.step==="split"&&!entrySplitStepShown(previous.answers))previous=ProgramEntry.back(previous);
   entrySetState(previous)}
 function onInstalledEditorPopState(){
   // Explicit editor exits release the same sentinel with history.back(). Its

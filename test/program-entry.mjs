@@ -105,6 +105,7 @@ function validAnswers(route) {
     primaryMuscles: [],
   };
   if (route === "custom") common.splitPreference = "upper_lower";
+  if (route === "recommend") common.splitPreference = "auto";
   if (route === "browse") common.catalogueSelection = "balanced-4-v1";
   if (route === "build") return { programName: "My program", daysPerWeek: 4 };
   if (route === "import") return { importReady: true };
@@ -307,6 +308,8 @@ test("required omissions block only their owning step", () => {
     environment: ["environment_required", { environment: { kind: "limited_home" } }],
     desired_result: ["desired_result_required", { desiredResult: "strength" }],
     days_per_week: ["days_per_week_required", { daysPerWeek: 3 }],
+    // The split step asks for a weekly structure; the app preselects one (or passes "auto" when there is no choice).
+    split: ["split_preference_required", { splitPreference: "auto" }],
   };
   let state = Entry.selectRoute(fresh(), "recommend");
   assert.equal(state.step, "intro");

@@ -1014,6 +1014,7 @@ export const ONBOARDING_SCENARIOS = {
     await recommendStep(page, "days_per_week");
     await pick(page, "daysPerWeek", "4");
   },
+  "onboarding-recommend/split": (page) => recommendStep(page, "split"),
   "onboarding-recommend/session-length": (page) => recommendStep(page, "session_length"),
   "onboarding-recommend/muscle-priorities": async (page) => {
     await recommendStep(page, "muscle_priorities");

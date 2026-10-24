@@ -182,7 +182,7 @@ export function waitForWorkerTakeover(page, { cache, replaced = null, timeout = 
 export async function answerRecommend(page, {
   sex = "female", birth = null, heightCm = null, weightSteps = 0, lifting = "6_to_24m", cardio = null,
   environment = "commercial_gym", equipment = [], goal = "muscle_growth", days = 4, minutes = 60,
-  priorities = {}, deload = true, abilities = null, skipBasics = false, until = null,
+  priorities = {}, deload = true, abilities = null, skipBasics = false, until = null, split = null,
 } = {}) {
   const step = () => page.evaluate(() => window.__repforgeEntryState?.()?.step);
   // A B page push keeps the outgoing screen in the DOM, inert and hidden from
@@ -237,6 +237,8 @@ export async function answerRecommend(page, {
     else if (current === "equipment") { for (const group of equipment) await pick("equipmentGroup", group); await next(); }
     else if (current === "desired_result") { await pick("desiredResult", goal); await next(); }
     else if (current === "days_per_week") { await pick("daysPerWeek", days); await next(); }
+    // The split step (only when the day count offers a choice): the recommended one stays unless one is named.
+    else if (current === "split") { if (split) await pick("splitPreference", split); await next(); }
     else if (current === "session_length") { if (minutes !== 60) await pick("sessionMinutes", minutes); await next(); }
     else if (current === "muscle_priorities") {
       for (const [muscle, status] of Object.entries(priorities)) await pick("musclePriorityB", `${muscle}|${status}`);

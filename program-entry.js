@@ -109,6 +109,8 @@
       "equipment",
       "desired_result",
       "days_per_week",
+      // Shown only when the day count has two or more authored splits; skipped either way otherwise.
+      "split",
       "session_length",
       "muscle_priorities",
       "deload",
@@ -1807,6 +1809,7 @@
       case "deload":
       case "building": return [];
       case "days_per_week": return answers.daysPerWeek ? [] : ["days_per_week_required"];
+      case "split": return answers.splitPreference ? [] : ["split_preference_required"];
       case "muscle_priorities": return musclePartitionIssues(answers, "$.answers");
       case "priorities": return musclePartitionIssues(answers, "$.answers");
       case "exercise_preferences": return [];

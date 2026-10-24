@@ -981,7 +981,12 @@
     "onboarding-recommend/days-per-week": {
       "owner": "plan-072",
       "content": "flat",
-      "scenario": "Two to six days with four chosen and its split fact."
+      "scenario": "Two to six days with four chosen."
+    },
+    "onboarding-recommend/split": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "Three days: the three authored weekly structures, the recommended one preselected and marked."
     },
     "onboarding-recommend/session-length": {
       "owner": "plan-072",
@@ -3873,6 +3878,7 @@
         "onboarding-recommend/cardio-experience",
         "onboarding-recommend/chip-editor-open",
         "onboarding-recommend/days-per-week",
+        "onboarding-recommend/split",
         "onboarding-recommend/deload",
         "onboarding-recommend/desired-result",
         "onboarding-recommend/environment",
@@ -3942,6 +3948,7 @@
         "onboarding-recommend/cardio-experience",
         "onboarding-recommend/chip-editor-open",
         "onboarding-recommend/days-per-week",
+        "onboarding-recommend/split",
         "onboarding-recommend/deload",
         "onboarding-recommend/desired-result",
         "onboarding-recommend/environment",
@@ -4005,6 +4012,7 @@
         "onboarding-recommend/birth-date",
         "onboarding-recommend/cardio-experience",
         "onboarding-recommend/days-per-week",
+        "onboarding-recommend/split",
         "onboarding-recommend/deload",
         "onboarding-recommend/desired-result",
         "onboarding-recommend/environment",
@@ -4062,6 +4070,7 @@
         "onboarding-recommend/birth-date",
         "onboarding-recommend/cardio-experience",
         "onboarding-recommend/days-per-week",
+        "onboarding-recommend/split",
         "onboarding-recommend/deload",
         "onboarding-recommend/desired-result",
         "onboarding-recommend/environment",
@@ -7241,6 +7250,7 @@
         "onboarding-recommend/cardio-experience",
         "onboarding-recommend/chip-editor-open",
         "onboarding-recommend/days-per-week",
+        "onboarding-recommend/split",
         "onboarding-recommend/desired-result",
         "onboarding-recommend/environment",
         "onboarding-recommend/equipment",

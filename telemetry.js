@@ -62,6 +62,7 @@
     // Onboarding B (Plan 072). schedule and priorities above are retired.
     "intro", "sex", "birth_date", "height", "weight", "cardio_experience", "equipment",
     "days_per_week", "session_length", "muscle_priorities", "deload", "building",
+    "split",
   ]);
   // program-review.js EDIT_KINDS; the unit suite holds the two together.
   const REVIEW_EDIT_KINDS = Object.freeze([
@@ -105,6 +106,7 @@
     session_length: (answers) => ({ session_length: sessionLength(answers.sessionMinutes) }),
     deload: (answers) => ({ deload: answers.deload === true ? "on" : answers.deload === false ? "off" : undefined }),
     custom_shape: (answers) => ({ split: answers.splitPreference }),
+    split: (answers) => ({ split: answers.splitPreference }),
   });
 
   function stepAnswers(step, answers) {
