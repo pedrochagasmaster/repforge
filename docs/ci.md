@@ -125,6 +125,20 @@ mapping: a Focus-only change selects the Workout and Session flows and their
 journeys and nothing unrelated, a token change selects everything, and the
 staged trigger, the gate and the targeted merge behave as described.
 
+The reviewed regions today: in `app.js`, Today (its prescription, recap and
+resume), the Focus workout and its sheets, the Session summary, History,
+Progress (overview, Strength, PR timeline, volume, the exercise chart), the
+Program overview and the installed editor's sheet, Settings (notifications,
+profile, the settings page), the exercise library and custom-exercise editor,
+the import review and free-form import, onboarding (routes, generation, review)
+and the first-run landing; in `styles.css`, Settings, Today, the Focus block,
+the library and import review, Progress, History, the Program ledger, the
+landing and the entry route blocks. Shared helpers inside those areas
+(`render`, `setFieldVals`, `summaries`, `detectPRs`, the program, settings,
+setup-draft and import commits, activation, shared setup, the transition
+adapter) stay `global`. `test/ci.mjs` proves each area selects its own flows and
+that those shared lines still run everything.
+
 Annotate a region only when everything it renders is drawn inside the flows it
 names, and widen the list when a class is shared (the Focus block in
 `styles.css` names `today` for the rest bar and `history` for the ledger rows it
@@ -224,7 +238,7 @@ In a fresh checkout, run `(cd test && npm ci && npx playwright install --with-de
 
 After a user-visible change, update the catalog frames it affects. Either recapture locally (`node tools/capture-ui-screens.mjs --affected --accept-visual-change`; `--list-affected` shows the plan), or push and take the frames CI rendered:
 
-1. When the critical matrix (`test/ui-system.mjs`) or a catalog verify stripe finds a frame that differs from the committed one, the run publishes the frame it rendered as a `ci-captures-<job>-<index>-<attempt>` artifact, with a `changes-<producer>.json` manifest naming each path, state and reason. The verdict stays red.
+1. When the critical matrix (`test/ui-system.mjs`) or a catalog verify stripe finds a frame that differs from the committed one, the run publishes the frame it rendered as a `ci-captures-<job>-<index>-<attempt>` artifact, with a `changes-<producer>.json` manifest naming each path, state and reason. The verdict stays red. When a pull request's PR lane is red **only** because critical frames differ (`ci-plan.mjs visual-only`: every failed command is a `test/ui-system.mjs` run marked deterministic, and `fast` and `service` passed), the `full-capture` job runs the targeted verify stripes anyway (`run-tests.mjs full-verify k/n`), so the same run publishes every affected frame and one fetch takes them all. `ci` and `ci-full` stay red until the frames are committed. Where both producers rendered a frame, the verify render is the one placed.
 2. `node tools/fetch-ci-captures.mjs <run-id>` downloads those artifacts, refuses frames rendered from a commit other than your `HEAD` (`--allow-source-mismatch` overrides) and any path that is not a registered catalog frame, and writes them under `docs/ui-screens/screens/`. `--dry-run` lists them.
 3. Review the frames and commit them. Verification stays exactly as strict: the committed frames must match what CI renders on the next run. If entry semantics changed too, recapture those onboarding states locally to refresh `docs/ui-screens/entry-semantics.json`.
 
@@ -247,7 +261,15 @@ the job summary. `.ci-results/` is ignored by git.
 In CI, a failing browser script is replayed once with diagnostic tracing
 (`REPFORGE_DIAGNOSTIC_REPLAY=1`). **The initial failure remains authoritative
 even if the replay passes**; both outcomes are recorded so a flake is visible
-rather than retried away. Timed-out or cancelled scripts are not replayed.
+rather than retried away. Timed-out or cancelled scripts are not replayed, and
+neither is a failure the suite marks deterministic: a catalog verify whose frames,
+registration or entry semantics differ, a critical matrix whose only problems are
+frame or semantic differences, or a UI-system shard whose only problems are
+rendered-role findings. Those commands write `deterministic-failure.json` into
+their evidence directory (`markDeterministicFailure` in `tools/ci-captures.mjs`),
+and replaying them would only render the same frames again. A scenario error, a
+live role finding in the critical matrix, a protocol assertion or any other
+browser failure keeps its replay, so flakes are still labelled.
 Successful runs pay no tracing cost. For a targeted local trace:
 
 ```sh

@@ -7341,6 +7341,7 @@ function formatLongDate(iso){const d=new Date(`${iso}T12:00:00`);if(Number.isNaN
   catch{return iso}}
 function weekdayLetters(){return isPt()?["S","T","Q","Q","S","S","D"]:["M","T","W","T","F","S","S"]}
 /** Sessions saved today, in the order they were logged. */
+// @ci-domain today
 function sessionsToday(){const iso=today(),by=new Map();
   for(const r of state.log){if(String(r.date)!==iso)continue;
     const k=String(r.session||iso);
@@ -7385,10 +7386,12 @@ function todayDoneHtml(recap){
       liftGroups.map(lift=>summaryGroupHtml(lift,s,{compact:true})).join("")+`</div>`:"")+`</div>`}
 /** Whichever action Today is currently leading with — the start CTA, or the
  *  recap's review action once the day's session is saved. */
+// @ci-domain today,workout,session
 function todayPrimaryControl(){
   for(const sel of["#startWorkout","#reviewTodaySession"]){const el=$(sel);if(el&&canTakeFocus(el))return el}
   return $("#todayDash .page-title")}
 /** Today's recap hands off to History, opened on the session it describes. */
+// @ci-domain today
 function openTodaySessionInHistory(){const done=sessionsToday();if(!done.length)return;
   const sid=done.at(-1).session;HistoryUi.startReading(sid);
   navTo("history");HistoryUi.focusRead(sid)}
@@ -7407,6 +7410,7 @@ const TODAY_TALLY_KEYS={
   new:["today.tally.new.one","today.tally.new.other"],
   manual:["today.tally.manual.one","today.tally.manual.other"]};
 /** One word for a recommendation, from the status and reason the engine attached. */
+// @ci-domain today,workout,session
 function rxVerdict(rec){
   if(rec.status==="configuration_required")return"configuration_required";
   if(rec.status==="manual")return"manual";
@@ -7425,6 +7429,7 @@ function rxSetsLine(sets,withUnit){
   const same=rows.every(x=>sameLoad(+x.load,+rows[0].load));
   return same?`${fmtLoad(rows[0].load)}${withUnit?` ${unitLabel()}`:""} × ${rows.map(x=>x.reps).join(", ")}`
     :rows.map(x=>`${fmtLoad(x.load)} × ${x.reps}`).join(", ")}
+// @ci-domain today
 function rxTargetText(ex,rec){
   if(ex?.hasRepTarget===false)return programPrescriptionSummary(ex);
   if(rec.status==="manual")return t("today.target.manual",{sets:ex.sets,min:ex.min,max:ex.max});
@@ -7598,6 +7603,7 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
   if(!workoutActive){const woTitle=$("#woDayTitle");if(woTitle){woTitle.removeAttribute("aria-label");woTitle.textContent=dayLabel(day)}}
   renderFocusDeloadLine();
 }
+// @ci-domain workout,session,today
 /* ---- Session sheet (Focus workout) ---- */
 let sessionEarlyRevision = null;
 let sessionEarlyDraftId = null;
@@ -7965,6 +7971,7 @@ window.__repforgeExActions = { open: openExActionsSheet, close: closeExActionsSh
 
 
 
+// @ci-domain global
 function render(){applyI18n();
   // Auto-resume an in-progress session (page reload mid-workout), but never
   // override an explicit leave — otherwise every tab switch re-hides the nav.
@@ -9740,6 +9747,7 @@ async function saveWorkout(e,io,options={}){if(e&&e.preventDefault)e.preventDefa
     if(form&&!form.inert){const invalid=form.querySelector("[aria-invalid='true']");if(invalid){try{invalid.focus()}catch{}}}
     saving=false}}
 
+// @ci-domain session,today
 /* ---- Session summary (Direction D, spec 4.4) ----
    One group per lift: its outcome word, the sets it performed, a record line when it set one, and the
    engine's next target as the strongest line. The word is the canonical session outcome (the
@@ -9910,6 +9918,7 @@ window.__repforgeSessionSummary={
   open:openSessionSummary,close:closeSessionSummary,
   build:buildSessionSummary,current:()=>sessionSummaryCurrent};
 
+// @ci-domain global
 function summaries(){const m=new Map();
   for(const raw of state.log){if(!isWork(raw))continue;const x=readLogRow(raw);
     if(!x.strengthComparable||!(+x.load>0&&+x.reps>0))continue;
@@ -9921,6 +9930,7 @@ function summaries(){const m=new Map();
     return{session:o.session,date:o.date,created:o.created,day:o.day,liftKey:o.liftKey,name:o.name,top,topReps,reps:sum(o.reps),rir:avg(o.rirs),sets:o.sets,volume:vol,e1rm:best,perSideLoad:o.perSideLoad,convention:o.convention};})
     .sort(compareLogChronology)}
 
+// @ci-domain progress
 function strengthDashboard(){
   const byLift=new Map();for(const s of summaries()){(byLift.get(s.liftKey)||byLift.set(s.liftKey,[]).get(s.liftKey)).push(s)}
   const prN=new Map();for(const ev of detectPRs(state.log)){const k=ev.liftKey;prN.set(k,(prN.get(k)||0)+1)}
@@ -10145,6 +10155,7 @@ function renderStats(){
     queueMicrotask(()=>maybeShowContextualGuides([statsSeg==="review"?"block-transition":"progress"]));
 }
 
+// @ci-domain global
 function detectPRs(log,opts={}){
   const rows=(Array.isArray(log)?log:[]).map(row=>({row,reading:readLogRow(row)}))
     .filter(({row,reading})=>isWork(row)&&reading.strengthComparable&&+reading.load>0&&+reading.reps>0)
@@ -10670,6 +10681,7 @@ function startVoiceInput(){
 window.__repforgeBlockSnapshot=blockSnapshot;
 window.__repforgeBuildPlainSummary=buildPlainSummary;
 
+// @ci-domain progress
 function prTimeline(filter){
   const all=detectPRs(state.log);let events=all;
   if(filter==="load"||filter==="reps"||filter==="e1rm")events=all.filter(e=>e.kind===filter);
@@ -10760,12 +10772,14 @@ function renderAttention(){const el=$("#attention");if(!el)return;
   $$("#attention [data-action-lift]").forEach(button=>button.onclick=()=>openExerciseView(button.dataset.actionLift,"stats"))}
 
 // Completed hard sets per muscle over a rolling window (load>0, reps>0, RIR within hardRir).
+// @ci-domain global
 function completedHardSets(windowDays){const cutoff=daysAgo(windowDays-1),hr=+state.settings.hardRir,m=new Map();
   for(const x of readLogRows()){if(String(x.date)<cutoff)continue;if(!(+x.load>0&&+x.reps>0&&+x.rir<=hr)||!isWork(x))continue;
     const mus=rowMuscles(x);
     for(const p of muscles(mus.primary))addVol(m,p,1,0);
     for(const s of muscles(mus.secondary))addVol(m,s,0,.5)}
   return m}
+// @ci-domain progress
 function volEff(m,name){const v=m.get(name);return v?v.d+v.p:0}
 function volumeStatus(planned,completed7){if(!planned)return completed7>0?t("status.high"):t("status.on_target");
   const ratio=completed7/planned;return ratio<0.6?t("status.low"):ratio<=1.3?t("status.on_target"):t("status.high")}
@@ -10778,6 +10792,7 @@ window.__repforgeVolumeDashboard=volumeDashboard;
 window.__repforgeOverviewVolume={pct:overviewBarPct,sorted:overviewVolumeSorted,label:muscleLabel};
 // Observed outcomes come from the authoritative paired-exposure comparison,
 // never from presentation. flat reads as "maintained" in the evidence model.
+// @ci-domain global
 const EVIDENCE_OUTCOME_KEYS={improved:"stats.outcome.improved",maintained:"stats.outcome.maintained",declined:"stats.outcome.declined"};
 const EVIDENCE_OUTCOME_GLYPHS={improved:"▲",maintained:"■",declined:"▼"};
 function strengthSessionKey(row){return`${String(row?.session??row?.date)}\u0000${String(row?.blockId??"")}`}
@@ -11261,6 +11276,7 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
   $$("#exDetail [data-why]").forEach(b=>b.onclick=e=>{e.stopPropagation();openWhySheetFor(tmpl,b)});
   const see=$("#exSeePrs");if(see)see.onclick=()=>{closeExerciseView();navTo("stats");setStatsSeg("prs")}}
 
+// @ci-domain progress
 /* ---- Progress: the exercise chart (Plan 064 R3i) ----
    One honest series: the shipped Strength metric (top load), drawn as the step
    itself with a tick where the load went up, and best e1RM as the second
@@ -11537,6 +11553,7 @@ function moveChartMarker(plot,model,from,to){
     pair.dot.remove();pair.line.remove();chartMarkers.delete(plot);plot.classList.remove("is-marker-travel")};
   Promise.all([m.animateIndicator(pair.line,cursorBefore),m.animateIndicator(pair.dot,before)]).then(done,done)}
 
+// @ci-domain global
 function editorDocumentFromSnapshot(snapshot){
   return{program:cloneSnapshot(snapshot?.program||[]),programMeta:cloneSnapshot(snapshot?.programMeta||{}),
     customExercises:cloneSnapshot(snapshot?.customExercises||[])}
@@ -12357,6 +12374,7 @@ function disposeProgramEditors(){
   onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;
   installedProgramEditor?.dispose?.();installedProgramEditor=null;installedEditorSession=null;
 }
+// @ci-domain program,entry
 /* ---- The installed editor's page sheet (Plan 075 phase 2B, ADR 0023) ----
    Edit presents #program itself as a page sheet (the generic sheet/detents
    gesture owner in motion-layer.js, given nothing but the "large" detent) over
@@ -12596,6 +12614,7 @@ function programEditorProgram(){
   if(!setupEditorOpen)return prog;
   const snapshot=programEditorSnapshot();
   return makeProgram(snapshot.program,null,snapshot.programMeta)}
+// @ci-domain global
 async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
   // Check before synchronising the edited program into the compact history
   // aggregate. An unsupported attribution is an ingress error, not a reason
@@ -12722,6 +12741,7 @@ async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
   return saved?.ok?{revision:saved.envelope?.revision||0,localOk:true,idbOk:true,setupDraft:true}:
     {revision:0,localOk:false,idbOk:false,setupDraft:true,setupDraftConflict:!!saved?.conflict,
       code:saved?.code||null,issues:Array.isArray(saved?.issues)?saved.issues.slice(0,12):[]}}
+// @ci-domain program,entry
 function openEntryDraftEditor(){
   if(!entryState?.result?.preview)return;
   setupEditorOpen=true;programEditMode=false;
@@ -12737,6 +12757,7 @@ function setProgramMetadataHidden(hidden,{inert=false}={}){
   meta.classList.toggle("visually-hidden",hidden);
   if(trulyHidden)meta.innerHTML="";
 }
+// @ci-domain program
 function renderProgram(){
   // The page-sheet presentation (Plan 075 phase 2B) turns on and off around
   // everything else this function does, so its still copy of the pre-edit
@@ -13174,6 +13195,7 @@ async function editorAction(act,ds){
     if(result.localOk||result.idbOk){if(!setupEditorOpen)resetDraftSessionState();setDayCollapsed(ds.day,false);render();toast(t("toast.day_deleted"))}}}
 }
 
+// @ci-domain global
 function addVol(m,k,d,p){if(!m.has(k))m.set(k,{d:0,p:0});m.get(k).d+=d;m.get(k).p+=p}
 
 function persistProgram(nextProgram=programEditorProgram()){
@@ -13239,6 +13261,7 @@ async function saveProgram(){try{const parsed=JSON.parse($("#programJson").value
   return result}
   catch{toast(t("toast.program_json_invalid"))}}
 
+// @ci-domain settings,today
 let notifyIntentGen=0,notifyWanted=false,notifyPending=false,notifyRequestInFlight=null;
 function notifyPermission(){return window.RepForgeNotify?RepForgeNotify.permission():"unsupported"}
 function notifyEffective(){return!!state.settings.notify?.enabled&&notifyPermission()==="granted"}
@@ -13332,6 +13355,7 @@ function renderGuideReplayList(){
 // The browser's own answer, appended to the backup line. A stale answer from an
 // earlier render must not overwrite a newer one, and a browser without the API
 // reads the same as one that will not promise.
+// @ci-domain settings
 let storageNoteGen=0;
 function paintStorageNote(backupLine){
   const sn=$("#storageNote");if(!sn)return;
@@ -13345,6 +13369,7 @@ function paintStorageNote(backupLine){
    (OD-4): answered fields replace their old values, skipped ones leave them.
    The weight unit becomes the app's unit when no workout draft would need
    converting. Never part of a link, a state proposal's context or telemetry. */
+// @ci-domain global
 function applyBasicsToProposal(proposal,basics){
   if(!basics||typeof basics!=="object")return;
   const {weightUnit,...answered}=basics;
@@ -13362,6 +13387,7 @@ function interpretedProfile(profile){
     const result=ProgramEntry?.normalizeProfile?.({[key]:profile[key]});
     if(result?.ok&&Object.prototype.hasOwnProperty.call(result.value,key))interpreted[key]=result.value[key]}
   return interpreted}
+// @ci-domain settings
 function profileRows(profile){
   const rows=[];
   profile=interpretedProfile(profile);
@@ -13465,6 +13491,7 @@ async function commitSettings(silent){const editRevision=settingsEditRevision;co
   if(!silent)toast(t("toast.settings_saved"));
   return result}
 
+// @ci-domain global
 function table(rows){if(!rows.length)return`<div class="empty">${esc(t("stats.table.no_data"))}</div>`;const h=Object.keys(rows[0]);
   return`<table><thead><tr>${h.map(x=>`<th>${esc(x)}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${h.map(x=>`<td>${esc(r[x])}</td>`).join("")}</tr>`).join("")}</tbody></table>`}
 
@@ -13563,6 +13590,7 @@ async function shareProgramFile(){
   if(shareSetupOutcome)captureEvent("share_setup_outcome",{action:"file_shared",...shareSetupOutcome});
   return true}
 
+// @ci-domain program
 /* ---- Plain-text program export ----
  * The program as something a lifter can read or paste into a chat: the name and
  * how many days it runs, then each training day with its muscles and its
@@ -13619,6 +13647,7 @@ function closeProgramTextSheet(){
   if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
   programTextReturn=null;
   return closeModal(sheet)}
+// @ci-domain global
 let shareSetupReturn=null,shareSetupLink="",shareSetupBlockers=[],shareRepairReturn=null,shareRepairFocusIntent=null;
 function shareSetupBlockerMessage(count){
   const n=Number(count)||0;
@@ -14037,6 +14066,7 @@ function pickerResumeOptions(){
   return Object.assign({},pickerState.reopen,{query:pickerState.query,muscle:pickerState.muscle,
     equipment:pickerState.equipment,tab:pickerState.tab,selected:[...pickerState.selected]})}
 
+// @ci-domain library,program,entry,workout
 /* ---- custom exercise editor ---- */
 
 /* Reachable editing, which the definition needs to be manageable at all: the
@@ -14419,6 +14449,7 @@ async function deleteCustomExerciseSheet(){
 
 /** Clipboard first; the hidden-textarea path covers browsers that refuse the
  *  async clipboard, and only a genuine failure of both surfaces a toast. */
+// @ci-domain global
 async function copyToClipboard(text,okKey,failKey){
   try{if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(text);
     toast(t(okKey));return true}}catch{}
@@ -14783,6 +14814,7 @@ function importDraftCustomDefinitions(draft){
   for(const r of draft.rows)if(r.createdCustom)out.push(r.createdCustom);
   return out}
 
+// @ci-domain library,program
 /* ============================================================
    The library flow
    One controller behind three surfaces: the quick-add sheet on a
@@ -15159,6 +15191,7 @@ function renderExercisePreview(){
   const add=$("#previewAdd");
   if(add)add.onclick=()=>{toggleLibrarySelection(e.id);closeExercisePreview()}}
 
+// @ci-domain entry,program,settings
 /* ---- Import review screen ---- */
 
 const importStatusKey={[IMPORT_EXACT]:"import.status.exact",[IMPORT_ALIAS]:"import.status.alias",
@@ -15392,6 +15425,7 @@ function importCandidate(draft){
 
 /* Review decisions become an owned setup candidate. Durable active state moves
    only through the common explicit activation transaction on the next screen. */
+// @ci-domain global
 async function commitImportReview(){
   if(!importDraft)return null;
   const counts=importCounts(importDraft);
@@ -15470,6 +15504,7 @@ async function importProgramFile(e,io){const f=e.target.files?.[0];if(!f)return;
   }catch{toast(t("toast.program_import_invalid"))}
   e.target.value=""}
 let pendingImportIo=null;
+// @ci-domain entry
 /* ---- Free-form program import ----
  * A program a lifter already owns often exists only as a coach's message, a
  * spreadsheet dump or a note to self. Retyping it into the editor is where
@@ -16144,6 +16179,7 @@ function openImportChoice(ctx){const d=$("#importChoice");
     finally{importBusy=false}}}
 function mergeLog(s){return mergeImportedLog(s)}
 
+// @ci-domain global
 const SETUP_DRAFT_KEY="repforge_program_setup_draft_v1";
 const ProgramEntry=typeof window!=="undefined"?window.RepForgeProgramEntry:null;
 const ProgramEntryAdapter=typeof window!=="undefined"?window.RepForgeProgramEntryAdapter:null;
@@ -16547,6 +16583,7 @@ function isGuidedRepairSetupDraft(envelope){
   }
   return false;
 }
+// @ci-domain entry,program
 /** The chooser never opens by itself before onboarding: the landing is the boot
  *  surface and leads to it. An onboarded device still resumes a guided repair
  *  draft straight into the editor. */
@@ -18345,7 +18382,9 @@ function writeEntryAdjustLog(value){
 function clearEntryAdjust(){
   entryAdjustMount?.dispose();entryAdjustMount=null;entryAdjust=null;
   try{sessionStorage.removeItem(ENTRY_ADJUST_KEY)}catch{}}
+// @ci-domain global
 const sameDefinition=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+// @ci-domain entry,program
 function ensureEntryAdjust(){
   const Review=window.RepForgeProgramReview,result=entryState?.result;
   if(!Review||!entryAdjustRoute()||!result?.preview?.programDefinition||!rawExerciseCatalog)return null;
@@ -19872,6 +19911,7 @@ function onEntryPopState(){
   if(!$("#onboarding")?.classList.contains("active")||!entryState)return;
   try{history.pushState(entryHistoryState(true),"",location.href)}catch{}
   entryBack()}
+// @ci-domain global
 async function activateEntryPreview({destination="log",manualBuild=false,skipReplaceConfirm=false,io=storageIO}={}){
   if(!ProgramEntry||!entryState)return;
   await setupDraftWriteQueue;
@@ -20400,6 +20440,7 @@ function hideInstallBanner(remember){
   installPresentedDecision=null}
 function maybeShowInstallBanner(){if(installBannerEligible())showInstallBanner(false)}
 
+// @ci-domain entry,install
 /* ---- First-run setup: install, then choose a program ----
    One screen, one layout. Only its install section changes, and it changes with
    what the browser can actually do — a captured beforeinstallprompt, Safari's
@@ -20445,6 +20486,7 @@ function setSharedSetupBusy(busy){
   const button=$("#firstRunSharedStart"),busyEl=$("#firstRunSharedBusy");
   if(button){button.disabled=busy;button.setAttribute("aria-busy",busy?"true":"false")}
   busyEl?.classList.toggle("hidden",!busy)}
+// @ci-domain global
 async function commitSharedSetup(io=storageIO){
   if(!sharedSetupReady())return{revision:readRevision(state),localOk:false,idbOk:false};
   if(!sharedSetupEligible()){
@@ -20493,6 +20535,7 @@ async function commitSharedSetup(io=storageIO){
 }
 /** Write the install section from the current reading, or take it away. Rule 5:
  *  a browser with no mechanism gets no section at all, never a dead button. */
+// @ci-domain entry,install
 function renderFirstRunInstall(){
   const sec=$("#firstRunInstall"),card=$("#firstRunInstallCard"),link=$("#firstRunInstallLink");
   if(!sec||!card)return;
@@ -21076,6 +21119,7 @@ function maybeShowFirstRun(){
   return openFirstRun(kind)}
 window.closeFirstRun=closeFirstRun;window.openFirstRun=openFirstRun;
 
+// @ci-domain global
 /* ---- "Why this weight?" sheet ----
    Plan 043: the recommendation is the product's differentiator, so it must not
    read as a magic number. Everything here is built at tap time from fields the

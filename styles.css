@@ -891,6 +891,7 @@ input:is([type=date],[type=time])::-webkit-date-and-time-value{min-height:1.5em;
   background-repeat:no-repeat;background-position:center;background-size:12px;
 }
 
+/* @ci-domain settings */
 /* ---- Cards (rare — settings groups) ---- */
 .card{
   background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius-surface);
@@ -1821,6 +1822,7 @@ body.is-sheet-open{overflow:hidden}
 }
 .pex__mus input[readonly]{color:var(--ink-soft);background:var(--well)}
 
+/* @ci-domain library,program,workout,entry */
 /* ---- Library flow ---- */
 /* Tabs are a hairline-underlined row, not a segmented pill: the quick sheet and
    the full page use the same control so moving between them reads continuous. */
@@ -1954,6 +1956,7 @@ body.is-sheet-open{overflow:hidden}
 .preview__notes{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 .preview .btn--cta{margin-top:26px}
 
+/* @ci-domain entry,program,settings */
 /* ---- Import review ---- */
 /* A full view rather than a sheet: reviewing a twelve-exercise split is not a
    glance, and nothing is written until Import is pressed. */
@@ -1996,6 +1999,7 @@ body.is-sheet-open{overflow:hidden}
 .impreview__safe{margin:20px 0 12px;text-align:center;color:var(--color-ink-secondary);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading)}
 #importCommit[disabled]{background:var(--control-primary-disabled-bg);color:var(--control-primary-disabled-ink);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
 
+/* @ci-domain global */
 /* ---- Exercise picker sheet ---- */
 /* Search and filters sit outside .sheet__body so the list is the only thing
    that scrolls: a lifter refining a search should never have to scroll back up
@@ -4664,6 +4668,7 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 .chart-wrap{margin:4px 0 0}
 .is-danger{color:var(--danger)!important}
 
+/* @ci-domain progress */
 /* ---- Progress: one tab row, the overview and the Strength tab (Plan 064 R3i) ----
    Direction D on the shared roles: the tab row is the R1b .tabrow, rows are
    flat hairline-separated bands (never cards), figures are Mono, and the accent
@@ -4915,6 +4920,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 .exrow.is-sel{border-left-color:var(--boundary-selected-quiet)}
 .exrow.is-old span:first-child{color:var(--color-ink-secondary)}
 
+/* @ci-domain history */
 /* ---- History list, frequency counts and calendar sheet (Plan 064 R3j) ----
    Weeks, not a calendar strip: sessions group under their block week, the
    calendar is one button away as a sheet, and two small counts sit above the
@@ -5025,6 +5031,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 #historyTable th,#historyTable td{padding:var(--space-8) var(--space-4);white-space:normal;overflow-wrap:anywhere}
 #historyTable td{font-size:var(--font-size-caption)}
 #historyTable th:nth-child(n+4),#historyTable td:nth-child(n+4){text-align:right;white-space:nowrap}
+/* @ci-domain program,entry */
 /* ---- Program overview as a ledger (Plan 064 R3k) ----
    The program on one page: the name, one line that says what it is, the week
    rule, the status, then every training day open as a hairline band. Each
@@ -5083,6 +5090,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
   :is(#programOverview,[data-copy-id="programOverview"]) .rxrow__target{text-align:left}
 }
 
+/* @ci-domain entry */
 /* ---- First-run landing (Plan 064 R2) ----
    One page, built from bands. The hero, the proof and the footer are the night
    band (--band-night-*, the dark palette in both themes); the first stripe of
@@ -5534,6 +5542,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-close__actions .firstrun__actions{margin-top:0}
 .firstrun.is-shared .firstrun-close__actions{display:none}
 
+/* @ci-domain global */
 /* ---- Install, continue and footer ---- */
 .firstrun__section{width:min(100%,var(--maxw));margin:var(--firstrun-gap-5) auto 0}
 .firstrun__continue{
@@ -7240,6 +7249,7 @@ body.is-entry-editor #entryProgramName,
 }
 #shareSetupLink:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 
+/* @ci-domain entry,program */
 /* ---- Plan 064 R4a: entry shell, hub, recovery, dialogs and the common review ----
    Entry-scoped rules only. They sit after the Plan 058 entry sections they
    refine and name existing tokens: ink is the quiet selection (the selected
@@ -7299,7 +7309,9 @@ body.is-entry-editor #entryProgramName,
   margin:0;font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-disabled-reason)
 }
 .onb__reason[hidden]{display:none}
+/* @ci-domain global */
 .btn--cta.btn--noarrow:disabled{padding-inline:var(--space-18)}
+/* @ci-domain entry,program */
 
 /* Questions are sentences in ink, not column heads. */
 #onbBody.entry-body .entry__group-lab.entry__question{
@@ -7625,6 +7637,7 @@ body.is-entry-editor #entryProgramName,
 .entry-dialog .btn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 
 
+/* @ci-domain global */
 /* ---- Plan 064 shared components ----
    Every component block declared in this section must be named by a
    component row in tools/ui-role-inventory.json (checked by
@@ -7855,6 +7868,7 @@ body.is-entry-editor #entryProgramName,
   background:var(--color-surface);box-shadow:var(--elevation-persistent-shadow);color:var(--color-ink);
 }
 
+/* @ci-domain entry,program */
 /* ---- Plan 064 R4b: Recommend, Custom and Browse steps, and the generator review ----
    Entry-scoped rules after the R4a block. Selection is the quiet ink selection
    (Q-E), the accent stays on the change statement's rail (Q637), and every length
@@ -7988,6 +8002,7 @@ body.is-entry-editor #entryProgramName,
 #onbBody.entry-body .entry__muscle-name{flex-wrap:wrap;min-width:0}
 #onbBody.entry-body .entry__muscle-current{flex:0 1 auto;max-width:100%;min-width:0;overflow-wrap:anywhere}
 
+/* @ci-domain global */
 /* ---- Plan 064 R6a: the rules-only sweep ----
    Settings, Library, install, Progress lifecycle, Program management and import review keep their layouts and
    follow the shared rules (plan 064 section 8). Orange is spent only on the five budget uses, so selection and

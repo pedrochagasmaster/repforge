@@ -51,14 +51,17 @@ export function placeCiCaptures({ downloadRoot, targetRoot = ROOT, manifest = lo
     for (const frame of changes.frames) {
       if (!registered.has(frame.path)) throw new Error(`${changes.producer}: ${frame.path} is not a registered catalog frame`);
       const bytes = readFileSync(join(dirname(path), "frames", frame.path));
+      const verify = /^verify\b/.test(changes.producer);
       const earlier = planned.get(frame.path);
-      if (earlier && !earlier.equals(bytes)) throw new Error(`${frame.path}: two CI producers rendered different bytes`);
-      planned.set(frame.path, bytes);
+      // The critical matrix and a catalog verify stripe can both render a frame; verify's render is the
+      // one the full lane compares against, so it wins. Two renders of the same kind must agree.
+      if (earlier && earlier.verify === verify && !earlier.bytes.equals(bytes)) throw new Error(`${frame.path}: two CI producers rendered different bytes`);
+      if (!earlier || (verify && !earlier.verify)) planned.set(frame.path, { bytes, verify });
       states.add(frame.state);
     }
   }
   if (!dryRun) {
-    for (const [path, bytes] of planned) {
+    for (const [path, { bytes }] of planned) {
       const target = join(targetRoot, path);
       mkdirSync(dirname(target), { recursive: true });
       writeFileSync(target, bytes);

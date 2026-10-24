@@ -392,3 +392,9 @@ export function findShardReports(root) {
   if (existsSync(root)) walk(root);
   return found;
 }
+
+/** A catalog role audit whose every problem is a rendered finding, not a scenario that failed to render. */
+export function deterministicAuditFailure(problems) {
+  if (!problems?.length || problems.some((problem) => /scenario failed|Error\b|Timeout/.test(problem))) return null;
+  return `${problems.length} rendered-role finding(s)`;
+}

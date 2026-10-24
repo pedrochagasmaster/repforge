@@ -32,3 +32,18 @@ export function recordCiCaptures({ dir = process.env.REPFORGE_CI_CAPTURES_DIR, p
     semanticChanged: Boolean(previous?.semanticChanged || semanticChanged) }, null, 2)}\n`);
   return manifestPath;
 }
+
+export const DETERMINISTIC_MARKER = "deterministic-failure.json";
+
+/**
+ * Record that this command failed on a pure comparison (catalog frames, entry
+ * semantics, rendered-role findings) that a replay would only repeat. The runner
+ * then skips the diagnostic replay it gives other browser failures.
+ */
+export function markDeterministicFailure(reason, { dir = process.env.REPFORGE_ARTIFACT_DIR } = {}) {
+  if (!dir) return null;
+  mkdirSync(dir, { recursive: true });
+  const path = join(dir, DETERMINISTIC_MARKER);
+  writeFileSync(path, `${JSON.stringify({ schemaVersion: 1, kind: "deterministic-failure", reason }, null, 2)}\n`);
+  return path;
+}
