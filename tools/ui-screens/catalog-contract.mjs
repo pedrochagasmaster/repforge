@@ -127,7 +127,8 @@ export function collectCatalogEvidence(config = {}) {
     requestedI18nKeys.push({ locator: "RepForgeI18n.t()", key });
   }
   return {
-    document: { clientWidth: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth },
+    document: { clientWidth: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth,
+      theme: document.documentElement.dataset.theme || null, colorScheme: getComputedStyle(document.documentElement).colorScheme },
     text, overflow, scrollers, nonOverlap, copyAllowances, requestedI18nKeys,
   };
 }
@@ -158,6 +159,9 @@ export function validateCatalogMetadata(manifest) {
       errors.push(`non-overlap group needs a known screen, stable locator, members, reason, and owner`);
     }
   }
+  for (const item of checks.unthemedScreens || []) {
+    if (!knownScreens.has(item.screen) || !item.reason || !item.owner) errors.push("unthemed screen needs a known screen, reason, and owner");
+  }
   for (const item of checks.renderedCopyAllowances || []) {
     const key = `${item.screen}|${item.locator}|${item.text}`;
     if (!knownScreens.has(item.screen) || !stableIdLocator.test(item.locator || "") ||
@@ -178,12 +182,16 @@ export function configForCapture(manifest, capture) {
     intentionalScrollers: (checks.intentionalScrollers || []).filter((item) => item.screen === screen),
     nonOverlapGroups: (checks.nonOverlapGroups || []).filter((item) => item.screen === screen),
     renderedCopyAllowances: (checks.renderedCopyAllowances || []).filter((item) => item.screen === screen),
+    theme: (checks.unthemedScreens || []).some((item) => item.screen === screen) ? null : capture.theme,
   };
 }
 
 export function validateCatalogEvidence(evidence, config, { knownKeyNamespaces = [], knownKeys = [] } = {}) {
   const failures = [];
   const excerpt = (text) => String(text).replace(/\s+/g, " ").slice(0, 240);
+  if (config.theme && (evidence.document.theme !== config.theme || evidence.document.colorScheme !== config.theme)) {
+    failures.push(`rendered theme ${evidence.document.theme} (color-scheme ${evidence.document.colorScheme}) does not match the ${config.theme} capture`);
+  }
   if (evidence.document.scrollWidth > evidence.document.clientWidth + 1) {
     failures.push(`document overflow: client=${evidence.document.clientWidth} scroll=${evidence.document.scrollWidth}`);
   }

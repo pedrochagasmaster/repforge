@@ -418,7 +418,19 @@
         "owner": "plan-050"
       }
     ],
-    "renderedCopyAllowances": []
+    "renderedCopyAllowances": [],
+    "unthemedScreens": [
+      {
+        "screen": "programlab/editor",
+        "reason": "Program Lab is a separate artifact with a light-only palette (programlab/styles.css color-scheme:light). The owner chose to give it the dark theme on 2026-10-24; that batch removes this entry and recaptures its dark frames.",
+        "owner": "programlab"
+      },
+      {
+        "screen": "programlab/comparison",
+        "reason": "Program Lab is a separate artifact with a light-only palette (programlab/styles.css color-scheme:light). The owner chose to give it the dark theme on 2026-10-24; that batch removes this entry and recaptures its dark frames.",
+        "owner": "programlab"
+      }
+    ]
   },
   "flows": [
     {
