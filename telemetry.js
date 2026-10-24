@@ -83,9 +83,16 @@
     equipment_changes: Object.freeze(["0", "1", "2_3", "4_plus"]),
     split: Object.freeze(["full_body", "upper_lower", "push_pull", "upper_lower_full", "push_pull_legs", "upper_lower_upper_lower", "push_pull_hinge_squat", "push_pull_legs_accessories", "upper_lower_upper_lower_upper", "push_pull_hinge_squat_accessories", "push_pull_legs_upper_lower", "push_pull_hinge_squat_upper_lower", "push_pull_legs_push_pull_legs"]),
     deload: Object.freeze(["on", "off"]),
+    // How many exercises the lifter left out, and how many asked to be kept in: counts only, never which.
+    avoided_exercises: Object.freeze(["0", "1", "2_3", "4_plus"]),
+    required_exercises: Object.freeze(["0", "1", "2_3", "4_plus"]),
   });
   const equipmentChanges = (adjust) => {
     const count = (adjust && Array.isArray(adjust.add) ? adjust.add.length : 0) + (adjust && Array.isArray(adjust.remove) ? adjust.remove.length : 0);
+    return count === 0 ? "0" : count === 1 ? "1" : count <= 3 ? "2_3" : "4_plus";
+  };
+  const countBucket = (list) => {
+    const count = Array.isArray(list) ? list.length : 0;
     return count === 0 ? "0" : count === 1 ? "1" : count <= 3 ? "2_3" : "4_plus";
   };
   const sessionLength = (minutes) => !Number.isFinite(minutes) ? undefined :
@@ -107,6 +114,10 @@
     deload: (answers) => ({ deload: answers.deload === true ? "on" : answers.deload === false ? "off" : undefined }),
     custom_shape: (answers) => ({ split: answers.splitPreference }),
     split: (answers) => ({ split: answers.splitPreference }),
+    exercise_preferences: (answers) => ({
+      avoided_exercises: countBucket(answers.exerciseConstraints),
+      required_exercises: countBucket(answers.mustHaveExercises),
+    }),
   });
 
   function stepAnswers(step, answers) {

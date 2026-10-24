@@ -77026,6 +77026,654 @@
       ]
     },
     {
+      "key": "onboarding-recommend/exercise-preferences__phone-390-dark-en",
+      "flow": "onboarding-recommend",
+      "screen": "exercise-preferences",
+      "label": "Recommend Program 2 — exercise preferences",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Program"
+        },
+        {
+          "tag": "p",
+          "text": "Section 3 of 3",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Exercise preferences",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Optional. Leave out exercises you don't want, and name any you want kept in."
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Any exercises to leave out?"
+        },
+        {
+          "tag": "h2",
+          "text": "Any exercises to leave out?"
+        },
+        {
+          "tag": "span",
+          "text": "Search exercises to avoid"
+        },
+        {
+          "tag": "input",
+          "name": "Search exercises to avoid",
+          "type": "search"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Any exercises you want in?"
+        },
+        {
+          "tag": "h2",
+          "text": "Any exercises you want in?"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer includes a selected exercise only when it fits the program structure and your equipment."
+        },
+        {
+          "tag": "span",
+          "text": "Search for an exercise to include"
+        },
+        {
+          "tag": "input",
+          "name": "Search for an exercise to include",
+          "type": "search"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Skip",
+          "name": "Skip",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/exercise-preferences__phone-390-light-en",
+      "flow": "onboarding-recommend",
+      "screen": "exercise-preferences",
+      "label": "Recommend Program 2 — exercise preferences",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Program"
+        },
+        {
+          "tag": "p",
+          "text": "Section 3 of 3",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Exercise preferences",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Optional. Leave out exercises you don't want, and name any you want kept in."
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Any exercises to leave out?"
+        },
+        {
+          "tag": "h2",
+          "text": "Any exercises to leave out?"
+        },
+        {
+          "tag": "span",
+          "text": "Search exercises to avoid"
+        },
+        {
+          "tag": "input",
+          "name": "Search exercises to avoid",
+          "type": "search"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Any exercises you want in?"
+        },
+        {
+          "tag": "h2",
+          "text": "Any exercises you want in?"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer includes a selected exercise only when it fits the program structure and your equipment."
+        },
+        {
+          "tag": "span",
+          "text": "Search for an exercise to include"
+        },
+        {
+          "tag": "input",
+          "name": "Search for an exercise to include",
+          "type": "search"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Skip",
+          "name": "Skip",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/exercise-preferences__phone-390-light-pt",
+      "flow": "onboarding-recommend",
+      "screen": "exercise-preferences",
+      "label": "Recommend Program 2 — exercise preferences",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um treino"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Treino"
+        },
+        {
+          "tag": "p",
+          "text": "Seção 3 de 3",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Preferências de exercícios",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Opcional. Deixe de fora os exercícios que você não quer e indique os que quer manter."
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Algum exercício para deixar de fora?"
+        },
+        {
+          "tag": "h2",
+          "text": "Algum exercício para deixar de fora?"
+        },
+        {
+          "tag": "span",
+          "text": "Pesquisar exercícios a evitar"
+        },
+        {
+          "tag": "input",
+          "name": "Pesquisar exercícios a evitar",
+          "type": "search"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Algum exercício que você quer no programa?"
+        },
+        {
+          "tag": "h2",
+          "text": "Algum exercício que você quer no programa?"
+        },
+        {
+          "tag": "p",
+          "text": "O Taurifer inclui um exercício selecionado apenas quando ele combina com a estrutura do treino e seu equipamento."
+        },
+        {
+          "tag": "span",
+          "text": "Buscar exercício para incluir"
+        },
+        {
+          "tag": "input",
+          "name": "Buscar exercício para incluir",
+          "type": "search"
+        },
+        {
+          "tag": "button",
+          "text": "Continuar",
+          "name": "Continuar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Pular",
+          "name": "Pular",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/exercise-preferences-chosen__phone-390-dark-en",
+      "flow": "onboarding-recommend",
+      "screen": "exercise-preferences-chosen",
+      "label": "Recommend Program 2 — exercise preferences chosen",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Program"
+        },
+        {
+          "tag": "p",
+          "text": "Section 3 of 3",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Exercise preferences",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Optional. Leave out exercises you don't want, and name any you want kept in."
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Any exercises to leave out?"
+        },
+        {
+          "tag": "h2",
+          "text": "Any exercises to leave out?"
+        },
+        {
+          "tag": "button",
+          "name": "Remove Smith machine bench press",
+          "label": "Remove Smith machine bench press",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Smith machine bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Search exercises to avoid"
+        },
+        {
+          "tag": "input",
+          "name": "Search exercises to avoid",
+          "type": "search"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Any exercises you want in?"
+        },
+        {
+          "tag": "h2",
+          "text": "Any exercises you want in?"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer includes a selected exercise only when it fits the program structure and your equipment."
+        },
+        {
+          "tag": "button",
+          "name": "Remove 45° incline dumbbell press",
+          "label": "Remove 45° incline dumbbell press",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "45° incline dumbbell press"
+        },
+        {
+          "tag": "span",
+          "text": "Search for an exercise to include"
+        },
+        {
+          "tag": "input",
+          "name": "Search for an exercise to include",
+          "type": "search"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Skip",
+          "name": "Skip",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/exercise-preferences-chosen__phone-390-light-en",
+      "flow": "onboarding-recommend",
+      "screen": "exercise-preferences-chosen",
+      "label": "Recommend Program 2 — exercise preferences chosen",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Program"
+        },
+        {
+          "tag": "p",
+          "text": "Section 3 of 3",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Exercise preferences",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Optional. Leave out exercises you don't want, and name any you want kept in."
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Any exercises to leave out?"
+        },
+        {
+          "tag": "h2",
+          "text": "Any exercises to leave out?"
+        },
+        {
+          "tag": "button",
+          "name": "Remove Smith machine bench press",
+          "label": "Remove Smith machine bench press",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Smith machine bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Search exercises to avoid"
+        },
+        {
+          "tag": "input",
+          "name": "Search exercises to avoid",
+          "type": "search"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Any exercises you want in?"
+        },
+        {
+          "tag": "h2",
+          "text": "Any exercises you want in?"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer includes a selected exercise only when it fits the program structure and your equipment."
+        },
+        {
+          "tag": "button",
+          "name": "Remove 45° incline dumbbell press",
+          "label": "Remove 45° incline dumbbell press",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "45° incline dumbbell press"
+        },
+        {
+          "tag": "span",
+          "text": "Search for an exercise to include"
+        },
+        {
+          "tag": "input",
+          "name": "Search for an exercise to include",
+          "type": "search"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Skip",
+          "name": "Skip",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/exercise-preferences-chosen__phone-390-light-pt",
+      "flow": "onboarding-recommend",
+      "screen": "exercise-preferences-chosen",
+      "label": "Recommend Program 2 — exercise preferences chosen",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um treino"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Treino"
+        },
+        {
+          "tag": "p",
+          "text": "Seção 3 de 3",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Preferências de exercícios",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Opcional. Deixe de fora os exercícios que você não quer e indique os que quer manter."
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Algum exercício para deixar de fora?"
+        },
+        {
+          "tag": "h2",
+          "text": "Algum exercício para deixar de fora?"
+        },
+        {
+          "tag": "button",
+          "name": "Remover Supino reto no Smith",
+          "label": "Remover Supino reto no Smith",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Supino reto no Smith"
+        },
+        {
+          "tag": "span",
+          "text": "Pesquisar exercícios a evitar"
+        },
+        {
+          "tag": "input",
+          "name": "Pesquisar exercícios a evitar",
+          "type": "search"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Algum exercício que você quer no programa?"
+        },
+        {
+          "tag": "h2",
+          "text": "Algum exercício que você quer no programa?"
+        },
+        {
+          "tag": "p",
+          "text": "O Taurifer inclui um exercício selecionado apenas quando ele combina com a estrutura do treino e seu equipamento."
+        },
+        {
+          "tag": "button",
+          "name": "Remover Supino inclinado 45° com halteres",
+          "label": "Remover Supino inclinado 45° com halteres",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Supino inclinado 45° com halteres"
+        },
+        {
+          "tag": "span",
+          "text": "Buscar exercício para incluir"
+        },
+        {
+          "tag": "input",
+          "name": "Buscar exercício para incluir",
+          "type": "search"
+        },
+        {
+          "tag": "button",
+          "text": "Continuar",
+          "name": "Continuar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Pular",
+          "name": "Pular",
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-recommend/height__phone-390-dark-en",
       "flow": "onboarding-recommend",
       "screen": "height",

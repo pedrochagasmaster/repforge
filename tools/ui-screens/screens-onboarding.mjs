@@ -1022,6 +1022,19 @@ export const ONBOARDING_SCENARIOS = {
     }, undefined, { timeout: 30000 });
   },
   "onboarding-recommend/session-length": (page) => recommendStep(page, "session_length"),
+  "onboarding-recommend/exercise-preferences": (page) => recommendStep(page, "exercise_preferences"),
+  "onboarding-recommend/exercise-preferences-chosen": async (page) => {
+    await recommendStep(page, "exercise_preferences");
+    for (const [input, attr, id] of [
+      ["#entryAvoidSearch", "data-entry-leave-out", "1a05c6f170d88058a3a0c07e098a9605"],
+      ["#entryMustSearch", "data-entry-must-add", "1a05c6f170d8806b911acf558c5af4f6"],
+    ]) {
+      // The search also matches ids, so the same query works in both languages.
+      await page.fill(input, id);
+      await page.locator(`#onbBody [${attr}="${id}"]`).click({ timeout: 20000 });
+    }
+    await page.waitForSelector('#onbBody [data-entry-must-remove]', { timeout: 20000 });
+  },
   "onboarding-recommend/muscle-priorities": async (page) => {
     await recommendStep(page, "muscle_priorities");
     await pick(page, "musclePriorityB", "glutes|prioritize");

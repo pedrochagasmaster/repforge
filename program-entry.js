@@ -114,6 +114,8 @@
       // more authored splits; skipped either way otherwise.
       "split",
       "muscle_priorities",
+      // Optional: exercises to leave out and exercises to keep in (owner, 2026-10-23).
+      "exercise_preferences",
       "deload",
       "abilities",
       "building",

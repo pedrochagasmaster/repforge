@@ -6007,25 +6007,25 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .entry__field{
   color:var(--color-ink-secondary);font-family:var(--font-language);font-size:var(--font-size-label)
 }
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) :is(#entryAvoidSearch, #entryExerciseSearch){
+:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) :is(#entryAvoidSearch, #entryMustSearch, #entryExerciseSearch){
   min-height:var(--control-target);border-color:var(--control-field-boundary);
   border-radius:var(--radius-control);background:var(--control-field-bg);
   color:var(--control-field-ink);font-family:var(--font-language);
   font-size:var(--font-size-control);font-weight:var(--weight-medium)
 }
 @media (hover: hover) and (pointer: fine){
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) :is(#entryAvoidSearch, #entryExerciseSearch):hover:not(:disabled){
+:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) :is(#entryAvoidSearch, #entryMustSearch, #entryExerciseSearch):hover:not(:disabled){
   border-color:var(--control-field-boundary)
 }
 }
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) :is(#entryAvoidSearch, #entryExerciseSearch):focus-visible{
+:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) :is(#entryAvoidSearch, #entryMustSearch, #entryExerciseSearch):focus-visible{
   outline:var(--control-focus-outline);outline-offset:2px
 }
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) :is(#entryAvoidSearch, #entryExerciseSearch)[aria-invalid="true"],
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) :is(#entryAvoidSearch, #entryExerciseSearch).is-invalid{
+:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) :is(#entryAvoidSearch, #entryMustSearch, #entryExerciseSearch)[aria-invalid="true"],
+:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) :is(#entryAvoidSearch, #entryMustSearch, #entryExerciseSearch).is-invalid{
   border-color:var(--control-error-boundary);box-shadow:none
 }
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) :is(#entryAvoidSearch, #entryExerciseSearch):disabled{
+:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) :is(#entryAvoidSearch, #entryMustSearch, #entryExerciseSearch):disabled{
   background:var(--control-field-bg);color:var(--color-disabled-reason);
   border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed
 }
@@ -8134,6 +8134,17 @@ body.is-entry-editor #entryProgramName,
 .entry-b__deload-head strong{font-size:var(--font-size-subtitle);font-weight:600}
 .entry-b__deload p{margin:6px 0 8px;color:var(--ink-soft);line-height:1.4}
 .entry-b__tag{font-size:var(--font-size-body-small);font-weight:600;color:var(--ink)}
+/* B's exercise preferences: two short questions, each its chosen exercises as removable chips over a search. */
+.entry-b__prefs{margin:var(--space-26) 0 0}
+.entry-b__prefs-title{margin:0 0 var(--space-8);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);color:var(--ink)}
+.entry-b__chips{display:flex;flex-wrap:wrap;gap:var(--space-8);margin:0 0 var(--space-12);padding:0;list-style:none}
+.entry-b__chip{
+  display:inline-flex;align-items:center;gap:var(--space-8);max-width:100%;min-height:var(--control-target);padding:0 var(--space-12) 0 var(--space-14);
+  border:1px solid var(--boundary-required);border-radius:var(--radius-pill);background:var(--surface);color:var(--ink);
+  font:inherit;font-size:var(--font-size-body-small);text-align:left;cursor:pointer;
+}
+.entry-b__chip>span:first-child{min-width:0;overflow-wrap:anywhere}
+.entry-b__chip.is-pressed:not(:disabled){background:var(--well)}
 .entry-wheels{position:relative;isolation:isolate;display:flex;justify-content:center;gap:10px;width:100%;height:220px;margin:16px 0 0}
 .entry-wheel{flex:0 0 auto;min-width:72px;height:220px;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;overscroll-behavior:contain;border-radius:var(--radius-compact)}
 .entry-wheel::-webkit-scrollbar{display:none}

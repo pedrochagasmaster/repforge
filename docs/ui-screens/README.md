@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 215 screens,
-1255 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 217 screens,
+1261 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -94,6 +94,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Recommend Program 3 — session length](screens/onboarding-recommend/session-length__phone-390-light-en.png) | 8 | Up to 20 to up to 150 minutes, with 60 shown as the default. |
 | [Recommend Program 4 — muscle priorities](screens/onboarding-recommend/muscle-priorities__phone-390-light-en.png) | 8 | Twenty-two muscles, each Less, Normal or More; glutes set to More and calves to Less; Skip. |
 | [Recommend Program 4 — all twenty-two priorities](screens/onboarding-recommend/muscle-priorities-limit__phone-390-light-en.png) | 3 | All twenty-two muscles prioritized and accepted, with every More radio selected. |
+| [Recommend Program 2 — exercise preferences](screens/onboarding-recommend/exercise-preferences__phone-390-light-en.png) | 3 | Optional exercise preferences: the two questions with their searches, nothing chosen. |
+| [Recommend Program 2 — exercise preferences chosen](screens/onboarding-recommend/exercise-preferences-chosen__phone-390-light-en.png) | 3 | One exercise left out and one kept in, each a removable chip over its search. |
 | [Recommend Program 5 — deload](screens/onboarding-recommend/deload__phone-390-light-en.png) | 3 | The deload card switched on, marked Recommended. |
 | [Recommend Program 6 — movement abilities](screens/onboarding-recommend/abilities__phone-390-light-en.png) | 3 | Seven yes, no or not sure questions in B's wording, with Skip pinned under Continue. |
 | [Recommend — building](screens/onboarding-recommend/building__phone-390-light-en.png) | 3 | B's third checklist line is active after two lines complete, with generation still in the real worker and Show the program now available. |

@@ -16776,7 +16776,7 @@ function entryChooseHubRoute(){
 const ENTRY_B_SECTIONS=Object.freeze([
   ["basics",["sex","birth_date","height","weight","background","cardio_experience"]],
   ["gym",["environment","equipment"]],
-  ["program",["desired_result","days_per_week","session_length","split","muscle_priorities","deload","abilities"]]]);
+  ["program",["desired_result","days_per_week","session_length","split","muscle_priorities","exercise_preferences","deload","abilities"]]]);
 function entryBSection(stepId){
   const index=ENTRY_B_SECTIONS.findIndex(([,steps])=>steps.includes(stepId));
   return index<0?null:{n:index+1,total:ENTRY_B_SECTIONS.length,name:ENTRY_B_SECTIONS[index][0]}}
@@ -17168,7 +17168,7 @@ function entryCommitPicker(stepId){
   entryPickerDraft={}}
 const ENTRY_SKIP_CLEARS=Object.freeze({sex:["sex"],birth_date:["birthDate"],height:["heightCm"],weight:["weightKg"],cardio_experience:["cardioExperience"]});
 function entrySkippable(stepId){
-  return entryIsB()&&(Object.prototype.hasOwnProperty.call(ENTRY_SKIP_CLEARS,stepId)||stepId==="muscle_priorities"||stepId==="abilities")}
+  return entryIsB()&&(Object.prototype.hasOwnProperty.call(ENTRY_SKIP_CLEARS,stepId)||stepId==="muscle_priorities"||stepId==="abilities"||stepId==="exercise_preferences")}
 function entrySkip(){
   const stepId=entryState?.step;
   if(!entrySkippable(stepId))return;
@@ -17179,6 +17179,7 @@ function entrySkip(){
     entryState=ProgramEntry.setAnswers(entryState,{basics})}
   if(stepId==="muscle_priorities")entryState=ProgramEntry.setAnswers(entryState,{primaryMuscles:[],deEmphasizedMuscles:[]});
   if(stepId==="abilities")entryState=ProgramEntry.setAnswers(entryState,{competencyAnswers:{}});
+  if(stepId==="exercise_preferences")entryState=ProgramEntry.setAnswers(entryState,{exerciseConstraints:[],mustHaveExercises:[]});
   const advanced=ProgramEntry.advance(entryState);
   if(!advanced.ok){renderOnboarding();return}
   if(advanced.state.step==="result"&&!advanced.state.result?.preview){startEntryResult(advanced.state);return}
@@ -17410,6 +17411,31 @@ function entryExercisePreferencesBody(){
     `<section class="entry__exercise-selected-group" aria-labelledby="entryIncludeListLabel"><p class="entry__group-lab" id="entryIncludeListLabel">${esc(t("entry.exercise_preferences.include_list"))}</p>${includeList}</section>`+
     `<section class="entry__exercise-selected-group" aria-labelledby="entryAvoidListLabel"><p class="entry__group-lab" id="entryAvoidListLabel">${esc(t("entry.exercise_preferences.avoid_list"))}</p>${pending}${avoidList}</section>`+
     (hasPain?`<p class="entry__pain" role="note"><span class="entry__pain-ico icon-mask icon-mask--shield" aria-hidden="true"></span><span>${esc(t("entry.priorities.pain_note"))}</span></p>`:"")}
+/* B's exercise preferences (owner, 2026-10-23): what to leave out and what to keep in, each a search and the
+   chosen exercises as chips. Optional and skippable. An exercise left out carries no reason here (the shape asks
+   for one, so it is "other"); B has no pain path. */
+function entryExerciseChips(ids,removeAttr){
+  return ids.length?`<ul class="entry-b__chips">`+ids.map(exerciseId=>{
+    const entry=libraryEntry(exerciseId),name=entry?libraryName(entry):exerciseId;
+    return `<li><button type="button" class="entry-b__chip" ${removeAttr}="${esc(exerciseId)}" aria-label="${esc(`${t("entry.exercise_preferences.remove")} ${name}`)}">`+
+      `<span>${esc(name)}</span><span class="icon-mask icon-mask--close icon-mask--sm" aria-hidden="true"></span></button></li>`}).join("")+`</ul>`:""}
+function entryExerciseSearchSection(id,labelKey,queryValue,matches,addAttr,heading,hint,chips){
+  return `<section class="entry-b__prefs" aria-labelledby="${id}Label"><h2 class="entry-b__prefs-title" id="${id}Label">${esc(heading)}</h2>`+
+    (hint?`<p class="entry__hint">${esc(hint)}</p>`:"")+chips+
+    `<label class="entry__field entry__field--search"><span>${esc(t(labelKey))}</span>`+
+    `<span class="entry__field-ico icon-mask icon-mask--search" aria-hidden="true"></span>`+
+    `<input id="${id}" type="search" autocomplete="off" value="${esc(queryValue)}" placeholder="${esc(t(labelKey))}"></label>`+
+    (queryValue?`<div class="entry__avoid-results" role="listbox" aria-label="${esc(t(labelKey))}">`+
+      matches.map(entry=>`<button type="button" class="entry-card entry-card--compact" ${addAttr}="${esc(entry.id)}" role="option"><span class="entry-card__title">${esc(libraryName(entry))}</span></button>`).join("")+`</div>`:"")+
+    `</section>`}
+function renderExercisePreferencesB(){
+  const a=entryState.answers||{};
+  const leftOut=(a.exerciseConstraints||[]).map(item=>item.exerciseId),kept=a.mustHaveExercises||[];
+  return entryHeading(t("entry.exercise_preferences.title"))+`<p class="onb__explain">${esc(t("entry.exercise_preferences.lede_b"))}</p>`+
+    entryExerciseSearchSection("entryAvoidSearch","entry.priorities.avoid_search",entryAvoidQuery,entryAvoidMatches(entryAvoidQuery),
+      "data-entry-leave-out",t("entry.exercise_preferences.leave_out"),"",entryExerciseChips(leftOut,"data-entry-avoid-remove"))+
+    entryExerciseSearchSection("entryMustSearch","entry.priorities.must_search",entryMustQuery,entryMustMatches(entryMustQuery),
+      "data-entry-must-add",t("entry.exercise_preferences.keep_in"),t("entry.priorities.must_hint"),entryExerciseChips(kept,"data-entry-must-remove"))}
 function renderExercisePreferencesStep(){
   return entryHeading(t("entry.exercise_preferences.title"))+`<p class="entry__optional">${esc(t("entry.optional"))}</p>`+
     `<p class="onb__explain">${esc(t("entry.exercise_preferences.lede"))}</p>`+entryExercisePreferencesBody()}
@@ -19181,7 +19207,8 @@ const ENTRY_B_RENDERERS=Object.freeze({intro:()=>renderIntroStep(),sex:()=>rende
   height:()=>renderHeightStep(),weight:()=>renderWeightStep(),background:()=>renderLiftingStep(),cardio_experience:()=>renderCardioStep(),
   environment:()=>renderGymStep(),equipment:()=>renderEquipmentStep(),desired_result:()=>renderGoalStep(),days_per_week:()=>renderDaysStep(),
   session_length:()=>renderSessionLengthStep(),muscle_priorities:()=>renderMusclePrioritiesStep(),deload:()=>renderDeloadStep(),
-  abilities:()=>renderAbilitiesStep({b:true}),building:()=>renderBuildingStep(),split:()=>renderSplitStep()});
+  abilities:()=>renderAbilitiesStep({b:true}),building:()=>renderBuildingStep(),split:()=>renderSplitStep(),
+  exercise_preferences:()=>renderExercisePreferencesB()});
 function entryMotionRank(state){
   if(!state)return null;
   if(state.route==="recommend"){
@@ -19706,6 +19733,13 @@ function wireEntryDom(){
       mustHaveExercises:(entryState.answers.mustHaveExercises||[]).filter(id=>id!==exerciseId),
       exerciseConstraints:(entryState.answers.exerciseConstraints||[]).filter(item=>item.exerciseId!==exerciseId),
     })});
+  // B leaves an exercise out at once: no reason to choose, so the shape's reason is "other".
+  $$("[data-entry-leave-out]").forEach(btn=>btn.onclick=()=>{
+    const exerciseId=btn.dataset.entryLeaveOut,constraints=[...(entryState.answers.exerciseConstraints||[])];
+    if(constraints.some(item=>item.exerciseId===exerciseId)||constraints.length>=32)return;
+    constraints.push({exerciseId,reason:"other"});
+    entryAvoidQuery="";
+    entryPatchAnswers({exerciseConstraints:constraints})});
   $$("[data-entry-avoid-add]").forEach(btn=>btn.onclick=()=>{
     const exerciseId=btn.dataset.entryAvoidAdd;
     const constraints=[...(entryState.answers.exerciseConstraints||[])];
