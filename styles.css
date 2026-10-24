@@ -3974,7 +3974,10 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 .today-live__where{margin:var(--space-4) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);font-variant-numeric:tabular-nums}
 .today-live__bar{height:6px;margin:var(--space-12) 0 var(--space-14);border-radius:var(--radius-pill);background:var(--rule);overflow:hidden}
 .today-live__fill{display:block;height:100%;border-radius:var(--radius-pill);background:var(--accent)}
-.today-live__resume{width:100%}
+/* Resume is a pill, as the mock draws it (owner, pills everywhere, 2026-10-24), with its arrow in the flow beside the
+   label rather than pinned to the edge, so the two can never overlap. */
+#todayDash .today-live .today-live__resume{width:100%;display:flex;align-items:center;justify-content:center;gap:var(--space-8);min-height:48px;padding:0 var(--space-26);border-radius:var(--radius-pill)}
+#todayDash .today-live .today-live__resume::after{position:static;transform:none;flex:none;width:18px;height:18px}
 /* Status marks in the open session's rows: done is a filled check, partial a pie of its sets, skipped an empty ring and
    the current lift an accent ring. A lift not started keeps its verdict mark. The mark column widens for them. */
 .today-rx--live{--rx-mark:1.25rem}
@@ -3986,7 +3989,8 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 .rxstat--done{background:var(--ink);color:var(--bg)}
 .rxstat--done .icon-mask{width:.8125rem;height:.8125rem;background:var(--bg)}
 .rxstat--partial{background:conic-gradient(var(--ink) var(--rxstat-p),var(--rule-strong) 0)}
-.rxstat--skipped{border:1.5px solid var(--rule-strong)}
+.rxstat--todo{border:1.5px solid var(--rule-strong)}
+.rxstat--skipped{border:1.5px dashed var(--rule-strong)}
 .rxstat--current{border:2px solid var(--accent)}
 
 /* Today prescription (Direction D, spec 4.1): the day's exercises as a table of

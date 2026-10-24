@@ -199,8 +199,10 @@ try {
       "a skipped lift: an empty ring and Skipped today", JSON.stringify(row(skipped)));
     assert(row(current).mark === "rxstat--current" && row(current).sub === "Up next" && row(current).current && +row(current).weight >= 600,
       "the current lift: an accent ring, its name in semibold, and Up next", JSON.stringify(row(current)));
-    assert(!row(notStarted).mark.startsWith("rxstat") && /^Last |^First time/.test(row(notStarted).sub),
-      "a lift not started keeps its verdict and its Last line", JSON.stringify(row(notStarted)));
+    assert(row(notStarted).mark === "rxstat--todo" && /^Last |^First time/.test(row(notStarted).sub),
+      "a lift not started: an empty ring, no verdict, and its Last line", JSON.stringify(row(notStarted)));
+    assert(r.rows.every((item) => item.mark.startsWith("rxstat--")), "with a session open every row's mark is its progress, never a verdict",
+      JSON.stringify(r.rows.map((item) => item.mark)));
     assert(r.dotAnimation === "taurifer-live-dot", "the live dot pulses", r.dotAnimation);
 
     phase("Resume opens Focus on the current exercise");

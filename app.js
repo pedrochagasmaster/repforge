@@ -7495,24 +7495,26 @@ function todayRxModel(exs,live=null){
     // During a session the row says where the exercise stands; one not started yet keeps what it had last time.
     const sub=status==="skipped"||activeWorkoutDraft?.exercises?.[ex.id]?.status==="skipped"?t(live?"today.live.skipped":"log.skipped")
       :status==="current"&&!sets?.done?t("today.live.up_next")
-      :status?t("today.live.sets",{done:sets.done,total:sets.total})
+      :status&&status!=="todo"?t("today.live.sets",{done:sets.done,total:sets.total})
       :glyph==="stalled"?rec.label
       :prev.length?t("today.sub.before",{sets:rxSetsLine(prev)}):t("today.sub.first");
     return{ex:shown,rec,glyph,sub,status,sets,load:rec.status==="manual"||rec.load==null?null:rec.load,target:rxTargetText(shown,rec)}})}
-/** Where one exercise stands in the open session: done, partial, skipped, current, or null (not started). */
+/** Where one exercise stands in the open session: done, partial, skipped, current, or todo (not started). */
 function todayLiveRowStatus(live,id){
   const sets=live.per?.[id];if(!sets)return null;
   if(sets.skipped)return"skipped";
   if(id===live.current)return"current";
   if(sets.total&&sets.done>=sets.total)return"done";
-  return sets.done>0?"partial":null}
-/** The leading mark of a row in an open session (the prototype's status column); not drawn for a lift not started. */
+  return sets.done>0?"partial":"todo"}
+/** The leading mark of a row in an open session (the prototype's status column): always the lift's progress, never a
+ *  verdict (coordinator review, 2026-10-24). A lift not started is an empty ring; a skipped one a dashed ring. */
 function todayLiveMarkHtml(row){
   const{status,sets}=row;
   if(status==="done")return `<span class="rxstat rxstat--done"><span class="icon-mask icon-mask--check icon-mask--sm"></span></span>`;
   if(status==="partial")return `<span class="rxstat rxstat--partial" style="--rxstat-p:${Math.round(100*sets.done/Math.max(1,sets.total))}%"></span>`;
   if(status==="skipped")return `<span class="rxstat rxstat--skipped"></span>`;
   if(status==="current")return `<span class="rxstat rxstat--current"></span>`;
+  if(status==="todo")return `<span class="rxstat rxstat--todo"></span>`;
   return""}
 function todayTallyHtml(model){
   const counts={};for(const row of model)counts[row.glyph]=(counts[row.glyph]||0)+1;
