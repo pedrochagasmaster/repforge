@@ -395,17 +395,16 @@ async function waitForOfferVerification(page) {
 }
 
 async function holdProgramWorker(page) {
+  // On the prototype, so the program worker the split step's estimates already started is held as well.
   await page.evaluate(() => {
-    const NativeWorker = window.Worker;
+    const post = Worker.prototype.postMessage;
     window.__catalogHeldGenerations = [];
-    window.Worker = class extends NativeWorker {
-      postMessage(message, ...args) {
-        if (message?.type === "generate") {
-          window.__catalogHeldGenerations.push(() => super.postMessage(message, ...args));
-          return;
-        }
-        return super.postMessage(message, ...args);
+    Worker.prototype.postMessage = function (message, ...args) {
+      if (message?.type === "generate") {
+        window.__catalogHeldGenerations.push(() => post.call(this, message, ...args));
+        return;
       }
+      return post.call(this, message, ...args);
     };
   });
 }

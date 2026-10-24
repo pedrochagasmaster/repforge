@@ -72888,11 +72888,6 @@
           "text": "6 days"
         },
         {
-          "tag": "p",
-          "text": "With 4 days, the program alternates upper and lower.",
-          "aria-live": "polite"
-        },
-        {
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
@@ -73007,11 +73002,6 @@
         {
           "tag": "span",
           "text": "6 days"
-        },
-        {
-          "tag": "p",
-          "text": "With 4 days, the program alternates upper and lower.",
-          "aria-live": "polite"
         },
         {
           "tag": "button",
@@ -73130,11 +73120,6 @@
           "text": "6 days"
         },
         {
-          "tag": "p",
-          "text": "With 4 days, the program alternates upper and lower.",
-          "aria-live": "polite"
-        },
-        {
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
@@ -73249,11 +73234,6 @@
         {
           "tag": "span",
           "text": "6 days"
-        },
-        {
-          "tag": "p",
-          "text": "With 4 days, the program alternates upper and lower.",
-          "aria-live": "polite"
         },
         {
           "tag": "button",
@@ -73372,11 +73352,6 @@
           "text": "6 days"
         },
         {
-          "tag": "p",
-          "text": "With 4 days, the program alternates upper and lower.",
-          "aria-live": "polite"
-        },
-        {
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
@@ -73491,11 +73466,6 @@
         {
           "tag": "span",
           "text": "6 dias"
-        },
-        {
-          "tag": "p",
-          "text": "Com 4 dias, o treino alterna superior e inferior.",
-          "aria-live": "polite"
         },
         {
           "tag": "button",
@@ -73614,11 +73584,6 @@
           "text": "6 dias"
         },
         {
-          "tag": "p",
-          "text": "Com 4 dias, o treino alterna superior e inferior.",
-          "aria-live": "polite"
-        },
-        {
           "tag": "button",
           "text": "Continuar",
           "name": "Continuar",
@@ -73733,11 +73698,6 @@
         {
           "tag": "span",
           "text": "6 days"
-        },
-        {
-          "tag": "p",
-          "text": "With 4 days, the program alternates upper and lower.",
-          "aria-live": "polite"
         },
         {
           "tag": "button",
