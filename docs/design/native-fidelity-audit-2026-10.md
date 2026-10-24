@@ -69,7 +69,7 @@ Ordered by reach × visibility. "Screens" counts catalog states in light and dar
 | S5 | `.segpill` / `#strengthScopeSeg`, `.entry-seg`, `.seg:not(.seg--window)` | Bordered group and a 2px ringed active option | Reuse `.native-segments` (#485); propose `--seg-thumb-bg` | M | ~12 | open |
 | S6 | `.review-step` (RIR on every set), `.program-editor__stepper` | Bordered capsule with text − + and inner rules, beside the fixed stepper in the same sheet | Reuse `.native-stepper` (#485) | S | ~6 | open |
 | S7 | Editor row and alternate context menu (`program-editor.js:2970-2976`) | Items carry no `icon`, so the menu shows no trailing glyphs; Today's menu has them since #485 | Pass `icon` for Move up (`chev-up`), Move down (`chev-down`), Move to another day (`cal`), Remove (`close`) | S | 2 | open |
-| S8 | `.exactions__act` (exercise actions, warm-up, skipped, substituted sheets), `review-day-menu` rows | Leading action icons; per-set "Make warm-up" rectangles; copy "Substitute exercise" (`ex.actions.substitute`) | Trailing 20px icons (§7); warm-up as a row with a switch, or a trailing text action; copy "Swap exercise" (approved wording, EN and PT) | S–M | 6 | open |
+| S8 | `.exactions__act` (exercise actions, warm-up, skipped, substituted sheets), `review-day-menu` rows | Leading action icons; per-set "Make warm-up" rectangles; copy "Substitute exercise" (`ex.actions.substitute`) | Trailing 20px icons (§7); warm-up as a row with a switch captioned "Warm-up" (accessible name "Set n warm-up"); copy "Swap exercise" (approved wording, EN and PT) | S–M | 6 | open |
 | S9 | `.rxrow__load`, `.rxrow__target` (styles.css:7887) | Load in Mono 500, target in full ink | Load Mono 400, target `--ink-soft` in its own column | S | ~12 | open; same decision as #485 kept deviation 1 |
 | S10 | `.review__rir`, `.exthumb` border, `.exthumb--empty`, `.entry__notice`, `.entry__active`, `.install-transfer__disclosure`, `.statrow` | 1px boxes around values, tiles, notices and previews; empty art tiles are blank bordered squares | Drop the borders; tiles on `--well` with no stroke; an empty tile shows the G `dumbbell` glyph at 40% `--ink-faint` (or the shelf caption's G dumbbell, as #499 approved); notices as an icon and text run | S each | ~30 | open |
 | S11 | Settings danger row (`.settings-row.is-danger`, `#reset`), `.guide-replay .btn` | Boxed destructive row; guide list as bordered buttons | Destructive row in red, no box; guide list as §5 rows with title and subtitle | S + M | 6 | open |
@@ -153,12 +153,12 @@ beside each one.
 | `hub.html` | onboarding-start/hub | S1, S2: choice rows with identity icons, pill Continue on bar glass | `compare/hub-light.png`, `compare/hub-dark.png` |
 | `equipment.html` | onboarding-recommend/equipment | S2 multi-select: check circles, hairline rows, pill CTA with the drawn arrow | `compare/equipment-{light,dark}.png` |
 | `suggest-loads.html` | program/editor-suggest-loads | S2, S6, S16, one exit: rows, one stepper style, accent switch, no footer Done | `compare/suggest-loads-{light,dark}.png` |
-| `library.html` | library/list | S5, S10: segmented Search/Browse/Yours, quiet chips, unbordered tiles, add circles | `compare/library-{light,dark}.png` |
+| `library.html` | library/list | S5, S10: segmented Search/Browse/Yours, quiet chips, add circles, and the empty-art tile as an unbordered `--well` tile with the G dumbbell | `compare/library-{light,dark}.png` |
 | `history-session.html` | history/session | Mono tables with the unit in the head, verdicts as text, Edit/Delete as rows, bar glass | `compare/history-session-{light,dark}.png` |
 | `schedule-diagnosis.html` | progress/schedule-diagnosis | S1, S2: radio rows, a pull-down row for days, pill CTA with a quiet Cancel | `compare/schedule-diagnosis-{light,dark}.png` |
 | `strength.html` | progress/strength | S5, S9: segmented scope, two-tone Mono figures with a spaced arrow | `compare/strength-{light,dark}.png` |
 | `transfer-eligible.html` | install/transfer-eligible | Bug 2, S10: the text action, an unbordered disclosure, pill buttons | `compare/transfer-eligible-{light,dark}.png` |
-| `exercise-actions.html` | workout/exercise-actions | S8, bug 1: trailing icons, "Swap exercise", warm-up switches, "RIR 1" | `compare/exercise-actions-{light,dark}.png` |
+| `exercise-actions.html` | workout/exercise-actions | S8, bug 1: trailing icons, "Swap exercise", warm-up switches captioned "Warm-up", "RIR 1" | `compare/exercise-actions-{light,dark}.png` |
 | `session-details.html` | workout/session | S12 pattern, S1: grip rows instead of ↑ ↓ boxes, form rows, pill and text exits | `compare/session-details-{light,dark}.png` |
 
 Two mocks propose interaction changes the owner should confirm before a batch builds them: warm-up
