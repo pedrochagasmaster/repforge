@@ -1116,7 +1116,7 @@
       "id": "rest-bar",
       "flow": "today",
       "label": "Today — running rest bar",
-      "scenario": "The rest countdown remains visible after leaving the active workout.",
+      "scenario": "The rest countdown remains visible after leaving the active workout; the logged set opens the live card.",
       "variants": "demandingText"
     },
     {
@@ -1935,7 +1935,14 @@
       "id": "draft-resume",
       "flow": "today",
       "label": "Resume saved draft",
-      "scenario": "Resume saved draft through production controls.",
+      "scenario": "Resume saved draft through production controls: the live card under the program block, one set filled.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "in-progress",
+      "flow": "today",
+      "label": "Workout in progress",
+      "scenario": "Option A's live card while a session is open: one lift done, one part done, one skipped and the next one current, each with its status mark.",
       "variants": "demandingText"
     },
     {
@@ -2040,7 +2047,7 @@
       "id": "skipped",
       "flow": "today",
       "label": "Today — skipped exercise",
-      "scenario": "A context-menu skip acknowledged on Today, stored only in the workout draft.",
+      "scenario": "A context-menu skip acknowledged on Today, stored only in the workout draft: the skip opens today's session, so the live card leads and the row reads Skipped today.",
       "variants": "demandingText"
     }
   ]

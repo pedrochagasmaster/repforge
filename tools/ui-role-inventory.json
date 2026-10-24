@@ -291,7 +291,7 @@
     "today/rest-bar": {
       "owner": "plan-058",
       "content": "flat",
-      "scenario": "A logged set has started the inline rest countdown; the timer sheet remains closed after leaving Focus."
+      "scenario": "The rest countdown remains visible after leaving the active workout; the logged set opens the live card."
     },
     "today/day-picker": {
       "owner": "plan-057",
@@ -866,7 +866,7 @@
     "today/draft-resume": {
       "owner": "plan-057",
       "content": "flat",
-      "scenario": "Resume saved draft through production controls."
+      "scenario": "Resume saved draft through production controls: the live card under the program block, one set filled."
     },
     "workout/skipped-actions": {
       "owner": "plan-055",
@@ -1096,7 +1096,7 @@
     "today/skipped": {
       "owner": "plan-075-phase-4",
       "content": "flat",
-      "scenario": "A context-menu skip acknowledged on Today, stored only in the workout draft."
+      "scenario": "A context-menu skip acknowledged on Today, stored only in the workout draft: the skip opens today's session, so the live card leads and the row reads Skipped today."
     },
     "onboarding-recommend/muscle-priorities-skip": {
       "owner": "plan-072",
@@ -1107,6 +1107,11 @@
       "owner": "plan-072",
       "content": "flat",
       "scenario": "The deload on, with At the start chosen over the preselected At the end."
+    },
+    "today/in-progress": {
+      "owner": "plan-057",
+      "content": "flat",
+      "scenario": "Option A's live card while a session is open: one lift done, one part done, one skipped and the next one current, each with its status mark."
     }
   },
   "components": [
@@ -1186,7 +1191,8 @@
         "today/rest-bar",
         "workout/invalid-draft",
         "today/deload-week",
-        "today/ready-scrolled"
+        "today/ready-scrolled",
+        "today/in-progress"
       ]
     },
     {
@@ -4176,7 +4182,8 @@
         "today/rest-bar",
         "workout/invalid-draft",
         "today/deload-week",
-        "today/ready-scrolled"
+        "today/ready-scrolled",
+        "today/in-progress"
       ]
     },
     {
@@ -5691,11 +5698,8 @@
         "catalog-recovery/retry-failed",
         "catalog-recovery/unavailable",
         "install/banner",
-        "today/draft-resume",
         "today/ready",
         "today/dock-viewer",
-        "today/skipped",
-        "today/rest-bar",
         "workout/invalid-draft",
         "today/deload-week",
         "today/ready-scrolled"
@@ -5942,7 +5946,8 @@
         "today/rest-bar",
         "workout/invalid-draft",
         "today/deload-week",
-        "today/ready-scrolled"
+        "today/ready-scrolled",
+        "today/in-progress"
       ],
       "progressScopes": {
         "active-program-week": "block"
@@ -5997,7 +6002,8 @@
         "today/rest-bar",
         "workout/invalid-draft",
         "today/deload-week",
-        "today/ready-scrolled"
+        "today/ready-scrolled",
+        "today/in-progress"
       ],
       "progressScopes": {
         "current-week-trained-days": "week"
@@ -6059,7 +6065,8 @@
         "today/rest-bar",
         "workout/invalid-draft",
         "today/deload-week",
-        "today/ready-scrolled"
+        "today/ready-scrolled",
+        "today/in-progress"
       ]
     },
     {
@@ -7790,7 +7797,8 @@
         "history/per-side-session",
         "today/deload-week",
         "today/ready-scrolled",
-        "history/list-scrolled"
+        "history/list-scrolled",
+        "today/in-progress"
       ]
     },
     {
@@ -7861,7 +7869,8 @@
         "history/per-side-session",
         "today/deload-week",
         "today/ready-scrolled",
-        "history/list-scrolled"
+        "history/list-scrolled",
+        "today/in-progress"
       ]
     },
     {
@@ -7941,7 +7950,8 @@
         "history/per-side-session",
         "today/deload-week",
         "today/ready-scrolled",
-        "history/list-scrolled"
+        "history/list-scrolled",
+        "today/in-progress"
       ]
     },
     {
@@ -8082,7 +8092,8 @@
         "history/per-side-session",
         "today/deload-week",
         "workout/deload-week",
-        "today/ready-scrolled"
+        "today/ready-scrolled",
+        "today/in-progress"
       ]
     },
     {
@@ -8250,7 +8261,8 @@
         "install/banner",
         "program/overview",
         "today/deload-week",
-        "today/ready-scrolled"
+        "today/ready-scrolled",
+        "today/in-progress"
       ]
     },
     {
@@ -9362,7 +9374,8 @@
       "sourceOnly": true,
       "sourceOnlyReason": "pending: the day-change question opens from tapping a day in the day picker (and from Up next, a day tab or a deep link) when a draft holds logged sets, and the catalog state today/draft-resume is Today with the question closed. The today-day-picker, workout-day-context-discard, simulation and adversarial-draft-transactions suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
       "catalogStates": [
-        "today/draft-resume"
+        "today/draft-resume",
+        "today/in-progress"
       ]
     },
     {
@@ -9381,7 +9394,8 @@
       "sourceOnly": true,
       "sourceOnlyReason": "pending: the day-change question opens from tapping a day in the day picker (and from Up next, a day tab or a deep link) when a draft holds logged sets, and the catalog state today/draft-resume is Today with the question closed. The today-day-picker, workout-day-context-discard, simulation and adversarial-draft-transactions suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
       "catalogStates": [
-        "today/draft-resume"
+        "today/draft-resume",
+        "today/in-progress"
       ]
     },
     {
@@ -9405,7 +9419,8 @@
       "sourceOnly": true,
       "sourceOnlyReason": "pending: the day-change question opens from tapping a day in the day picker (and from Up next, a day tab or a deep link) when a draft holds logged sets, and the catalog state today/draft-resume is Today with the question closed. The today-day-picker, workout-day-context-discard, simulation and adversarial-draft-transactions suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
       "catalogStates": [
-        "today/draft-resume"
+        "today/draft-resume",
+        "today/in-progress"
       ]
     },
     {
@@ -9428,7 +9443,8 @@
       "sourceOnly": true,
       "sourceOnlyReason": "pending: the day-change question opens from tapping a day in the day picker (and from Up next, a day tab or a deep link) when a draft holds logged sets, and the catalog state today/draft-resume is Today with the question closed. The today-day-picker, workout-day-context-discard, simulation and adversarial-draft-transactions suites exercise it open. A catalog state for the open sheet is an open question for the orchestrator.",
       "catalogStates": [
-        "today/draft-resume"
+        "today/draft-resume",
+        "today/in-progress"
       ]
     },
     {
@@ -10706,7 +10722,8 @@
         "today/rest-bar",
         "today/skipped",
         "workout/invalid-draft",
-        "today/ready-scrolled"
+        "today/ready-scrolled",
+        "today/in-progress"
       ],
       "neverDisabledReason": "The menu or choice stays reachable whenever its owning row is present."
     },
@@ -11164,6 +11181,114 @@
       "neverDisabledReason": "A chosen exercise can always be removed.",
       "catalogStates": [
         "onboarding-recommend/exercise-preferences-chosen"
+      ]
+    },
+    {
+      "id": "today-live",
+      "selector": "#todayLive .today-live",
+      "roles": {
+        "elevation": "floating"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Today's one live card while a session is open: the raised paper surface that names the session, where the lifter is, and resumes it.",
+      "owner": "plan-057",
+      "catalogStates": [
+        "today/draft-resume",
+        "today/in-progress",
+        "today/rest-bar",
+        "today/skipped"
+      ]
+    },
+    {
+      "id": "todayliveresume",
+      "selector": "#todayLiveResume",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Resumes the open session on its current exercise, the screen's one primary action while a session is open.",
+      "owner": "plan-057",
+      "neverDisabledReason": "An open session can always be resumed.",
+      "catalogStates": [
+        "today/draft-resume",
+        "today/in-progress",
+        "today/rest-bar",
+        "today/skipped"
+      ]
+    },
+    {
+      "id": "todaylive-bar",
+      "selector": "#todayLive .today-live__bar",
+      "roles": {
+        "progress": "exercise-set",
+        "boundary": "decorative"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "current"
+      ],
+      "rationale": "Progress dimension exercise-set; scope: the open session's working sets. The card's text gives the count, so the bar is decorative.",
+      "owner": "plan-057",
+      "progressScopes": {
+        "open-session-sets": "exercise-set"
+      },
+      "catalogStates": [
+        "today/draft-resume",
+        "today/in-progress",
+        "today/rest-bar",
+        "today/skipped"
+      ]
+    },
+    {
+      "id": "rxstat",
+      "selector": ".rxstat",
+      "roles": {
+        "elevation": "flat"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "A Today row's status in an open session: done, partial, skipped or current. Its subtitle says the same in words.",
+      "owner": "plan-057",
+      "catalogStates": [
+        "today/in-progress",
+        "today/draft-resume",
+        "today/rest-bar",
+        "today/skipped"
+      ]
+    },
+    {
+      "id": "today-live-dot",
+      "selector": "#todayLive .today-live__dot",
+      "roles": {
+        "elevation": "flat"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The live card's live dot: says the session is running; the tag beside it says it in words, so the dot is decorative.",
+      "owner": "plan-057",
+      "catalogStates": [
+        "today/draft-resume",
+        "today/in-progress",
+        "today/rest-bar",
+        "today/skipped"
       ]
     }
   ],
@@ -11897,6 +12022,7 @@
     ".week-letters",
     ".libstep",
     ".blockprogress",
-    ".vrow__bar"
+    ".vrow__bar",
+    ".today-live__bar"
   ]
 }

@@ -668,7 +668,8 @@ async function nativeControls(browser) {
     await touch('touchMove', [{ x: item.x, y: item.y }]); await touch('touchEnd');
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('repforge_draft_v1'))?.exerciseOrder?.some(id => JSON.parse(localStorage.getItem('repforge_draft_v1')).exercises[id].status === 'skipped'));
     assert(await onToday(page), "long press and slide-to-select skips only in today's draft, without starting Focus");
-    const skippedText = await page.evaluate(() => window.RepForgeI18n.t('log.skipped'));
+    // The skip opens today's session, so Today reads it through the live card's rows (option A): "Skipped today".
+    const skippedText = await page.evaluate(() => window.RepForgeI18n.t('today.live.skipped'));
     assert(await page.locator('#todayExList .is-skipped .rxrow__sub').count() === 1 && await page.locator('#todayExList .is-skipped .rxrow__sub').textContent() === skippedText, 'the skipped Today row visibly acknowledges the draft command');
     await page.reload(); await waitForApp(page);
     if (await page.locator('#leaveWorkout').isVisible()) await page.click('#leaveWorkout');
@@ -708,7 +709,8 @@ async function nativeControls(browser) {
 
   }
   phase("Phase 4: Focus more opens an action sheet with Cancel and guarded End");
-  await page.click('#startWorkout');
+  // The skip above opened today's draft, so Today may be resuming it from the live card rather than offering Start.
+  await page.locator('#todayLiveResume, #startWorkout:not(.hidden)').first().click();
   await page.waitForFunction(() => document.querySelector('#workout').classList.contains('is-focus'));
   await page.click('#woOverflowBtn');
   const hasAction = await page.locator('#workoutActionSheet:not([hidden])').count();

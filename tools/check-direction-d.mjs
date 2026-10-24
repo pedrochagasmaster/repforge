@@ -117,6 +117,9 @@ export const ORANGE_CATEGORIES = Object.freeze([
   "verdict-glyph", "current-exercise-segment", "timer-drain-bar", "cta-arrow", "active-dock-icon",
   // Owner-approved bar-actions mock (2026-10-23): a root page's text button in its navigation bar takes the accent.
   "bar-text-button",
+  // Owner-approved Today mock A (2026-10-23): the live session card's dot, its "In progress" tag and its sets bar, and
+  // the current lift's ring in the rows below it.
+  "live-session",
 ]);
 /**
  * [{ category, selector, pseudo?: "::before" | "::after" }]. Each R3 sub-slice adds the entries its
@@ -140,6 +143,14 @@ export const ORANGE_ALLOWLIST = [
   { category: "active-dock-icon", selector: "nav button.active" },
   // The Program page's Edit, in its navigation bar's trailing slot (owner-approved bar-actions mock, 2026-10-23).
   { category: "bar-text-button", selector: "#program.program-ledger:not(.sheet) #programEditToggle" },
+  // Today's live card (owner-approved mock A, 2026-10-23): the live dot and its pulse, the tag, the sets bar's fill, and
+  // the current lift's status ring.
+  { category: "live-session", selector: "#todayLive .today-live__dot" },
+  { category: "live-session", selector: "#todayLive .today-live__dot", pseudo: "::after" },
+  { category: "live-session", selector: "#todayLive .today-live__tag span" },
+  { category: "live-session", selector: "#todayLive .today-live__tag" },
+  { category: "live-session", selector: "#todayLive .today-live__fill" },
+  { category: "live-session", selector: "#todayExList .rxstat--current" },
 ];
 /** [{ id, selector }]. Empty on purpose: see GAPS. */
 export const OVERFLOW_EXCEPTIONS = [

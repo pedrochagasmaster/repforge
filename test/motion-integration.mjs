@@ -1527,24 +1527,26 @@ async function progressMotion(browser, { reducedMotion = "no-preference" } = {})
   await context.close();
 }
 
-/* ---- S2, the restored draft on Today (Plan 064 R3, packet R3b2) -------------------------------------------
-   Today with an unfinished session draws a status band above the prescription ("Session in progress" over the
-   Focus header's "Day 1 · exercise 1 of 6"). The band measures open by the R1c disclosure semantics on the render
-   that adds it; the CTA's Start/Continue label is an instant text swap in that same render; reduced motion draws both at
-   once. The band is read from the draft and writes nothing. */
+/* ---- S2, the restored draft on Today (Plan 064 R3, packet R3b2; option A, owner 2026-10-23) ----------------
+   Today with an unfinished session draws one live card under the program block (the session's name, "Exercise 1 of 6
+   · 0 of 18 sets" and Resume). The card measures open by the R1c disclosure semantics on the render that adds it; the
+   floating Start control leaves in that same render; reduced motion draws the card at once. The card is read from the
+   draft and writes nothing. */
 const RESUME_READ = `
 window.__resume = () => {
-  const host = document.querySelector("#todayResume"), band = host?.querySelector(".today-resume__band");
-  const label = document.querySelector("#todaySessionLabel"), rx = document.querySelector("#todaySession");
+  const host = document.querySelector("#todayLive"), band = host?.querySelector(".today-live");
+  const rx = document.querySelector("#todaySession");
   const top = (el) => (el ? el.getBoundingClientRect().top : null);
+  const start = document.querySelector("#startWorkout");
   return {
     host: !!host, band: !!band, h: host ? host.getBoundingClientRect().height : 0,
     inlineH: host?.style.height || "", inlineOverflow: host?.style.overflow || "", willChange: host?.style.willChange || "",
     role: band?.getAttribute("role") || null,
-    title: band?.querySelector(".today-resume__title")?.textContent ?? null,
-    where: band?.querySelector(".today-resume__where")?.textContent ?? null,
-    cta: document.querySelector("#startWorkout span")?.textContent ?? null,
-    above: band ? top(band) < top(label) && top(band) < top(rx) : null,
+    title: band?.querySelector(".today-live__name")?.textContent ?? null,
+    where: band?.querySelector('[data-live="where"]')?.textContent ?? null,
+    resume: band?.querySelector("#todayLiveResume")?.textContent ?? null,
+    cta: start && start.getClientRects().length ? start.querySelector("span")?.textContent ?? null : null,
+    above: band ? top(band) < top(rx) : null,
     visible: !!host && host.getClientRects().length > 0,
   };
 };
@@ -1561,19 +1563,20 @@ async function resumeBandMotion(browser, { reducedMotion = "no-preference" } = {
     await page.waitForFunction(() => !document.querySelector("#todayDash")?.classList.contains("hidden"), undefined, { timeout: 5000 });
   };
   const enter = async () => {
-    await page.click("#startWorkout");
+    // Start with nothing open; with a session open, the live card's Resume.
+    await page.locator("#todayLiveResume, #startWorkout:not(.hidden)").first().click();
     await page.waitForSelector("#workout.is-focus .exercise.is-current .focus-shelf", { state: "attached", timeout: 5000 });
     await page.waitForFunction(() => document.querySelector("#todayDash")?.classList.contains("hidden"), undefined, { timeout: 5000 });
   };
 
-  phase(`S2: Today has no band while the draft holds nothing${tag}`);
+  phase(`S2: Today has no card while the draft holds nothing${tag}`);
   await leave();
   await page.waitForTimeout(450);
   const none = await page.evaluate(() => window.__resume());
   assert(!none.band && none.h === 0 && none.cta === "Start workout",
-    "no logged or filled set: no band, no height, and the CTA still says Start workout", JSON.stringify(none));
+    "no logged or filled set: no card, no height, and the CTA still says Start workout", JSON.stringify(none));
 
-  phase(`S2: the band measures in on the render that adds it, and the CTA relabels at once${tag}`);
+  phase(`S2: the card measures in on the render that adds it, and the floating CTA leaves at once${tag}`);
   await enter();
   await fillSet(page);
   const run = await page.evaluate(async () => {
@@ -1585,42 +1588,42 @@ async function resumeBandMotion(browser, { reducedMotion = "no-preference" } = {
   });
   const shown = run.filter((f) => f.band);
   const last = run.at(-1);
-  assert(shown.length > 0 && last.band, "leaving the session with a filled set draws the band", JSON.stringify(last));
-  assert(last.role === "status" && last.title === "Session in progress" && /^Day 1 · exercise 1 of 6$/.test(last.where || ""),
-    "it is a status region: the title, then the day and exercise position the Focus header uses", JSON.stringify(last));
+  assert(shown.length > 0 && last.band, "leaving the session with a filled set draws the card", JSON.stringify(last));
+  assert(last.role === "group" && last.title === "Day 1" && /^Exercise 1 of 6 · 0 of \d+ sets$/.test(last.where || "") && last.resume === "Resume workout",
+    "it is a named group: the session's name, where the lifter is, and Resume workout", JSON.stringify(last));
   assert(last.above === true && last.visible, "it stands above the prescription", JSON.stringify(last));
-  assert(shown[0].cta === "Continue workout", "the CTA reads Continue workout on the same frame the band first appears", JSON.stringify(shown[0]));
+  assert(shown[0].cta === null, "the floating CTA is gone on the same frame the card first appears", JSON.stringify(shown[0]));
   assert(last.inlineH === "" && last.inlineOverflow === "" && last.willChange === "" && last.h > 40,
-    "settled, the band is its natural height with no inline height, overflow or layer hint", JSON.stringify(last));
+    "settled, the card is its natural height with no inline height, overflow or layer hint", JSON.stringify(last));
   if (reduced) {
-    assert(shown[0].h === last.h && shown[0].inlineH === "", "the band is at its full height on its first frame", JSON.stringify(shown[0]));
+    assert(shown[0].h === last.h && shown[0].inlineH === "", "the card is at its full height on its first frame", JSON.stringify(shown[0]));
   } else {
     // The runtime writes its first height on the frame after the band is drawn, so a sample can land on the one frame
     // before it (the same for every disclosure); the run itself starts at the first frame that is short of the end.
     const start = shown.findIndex((f) => f.h < last.h - 1);
-    assert(start >= 0 && start <= 2 && shown[start].inlineOverflow === "hidden", "the band starts shorter than it ends and is clipped while it grows", JSON.stringify(shown.slice(0, 4)));
+    assert(start >= 0 && start <= 2 && shown[start].inlineOverflow === "hidden", "the card starts shorter than it ends and is clipped while it grows", JSON.stringify(shown.slice(0, 4)));
     const heights = shown.slice(Math.max(0, start)).map((f) => f.h);
     assert(heights.every((h, i) => i === 0 || h >= heights[i - 1] - 0.5), "and only grows", JSON.stringify(heights));
     const done = shown.find((f, i) => i > start && f.h >= last.h - 0.5);
     assert(done && done.t - shown[0].t <= 420, "inside the disclosure's reveal time", JSON.stringify({ first: shown[0].t, done: done?.t }));
   }
 
-  phase(`S2: a render that finds the band there keeps it${tag}`);
+  phase(`S2: a render that finds the card there keeps it${tag}`);
   const kept = await page.evaluate(async () => {
-    const band = document.querySelector("#todayResume .today-resume__band");
-    band.__mark = true; // a property, not an attribute: the band is kept when its markup is unchanged
+    const band = document.querySelector("#todayLive .today-live");
+    band.__mark = true; // a property, not an attribute: the card is kept and only its words are rewritten
     document.querySelector('nav button[data-view="stats"]').click();
     await new Promise((resolve) => setTimeout(resolve, 120));
     document.querySelector('nav button[data-view="log"]').click();
     await new Promise((resolve) => setTimeout(resolve, 120));
-    return { ...window.__resume(), marked: document.querySelector("#todayResume .today-resume__band")?.__mark === true };
+    return { ...window.__resume(), marked: document.querySelector("#todayLive .today-live")?.__mark === true };
   });
-  assert(kept.band && kept.marked && kept.inlineH === "", "coming back to Today leaves the same band, drawn at rest", JSON.stringify(kept));
+  assert(kept.band && kept.marked && kept.inlineH === "", "coming back to Today leaves the same card, drawn at rest", JSON.stringify(kept));
 
-  phase(`S2: the band goes when the lifter re-enters the session, and measures in again on the next return${tag}`);
+  phase(`S2: the card goes when the lifter re-enters the session, and measures in again on the next return${tag}`);
   await enter();
   const inside = await page.evaluate(() => window.__resume());
-  assert(!inside.band && inside.h === 0, "inside the session the band is not drawn", JSON.stringify(inside));
+  assert(!inside.band && inside.h === 0, "inside the session the card is not drawn", JSON.stringify(inside));
   const again = await page.evaluate(async () => {
     const out = [], t0 = performance.now();
     document.querySelector("#leaveWorkout").click();
@@ -1630,7 +1633,7 @@ async function resumeBandMotion(browser, { reducedMotion = "no-preference" } = {
   });
   const first = again.find((f) => f.band), end = again.at(-1);
   assert(first && end.band && (reduced ? first.h === end.h : again.some((f) => f.band && f.h < end.h - 1)), "returning to Today draws it again, measuring in the same way", JSON.stringify({ first, end }));
-  assert(errors.length === 0, `no page errors in the resume band run${tag}`, errors.join(" | "));
+  assert(errors.length === 0, `no page errors in the live card run${tag}`, errors.join(" | "));
   await context.close();
 }
 

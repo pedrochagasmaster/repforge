@@ -12,7 +12,7 @@
  *   - at the end of the page the control is back in the flow above Choose
  *     another day, which stays an ordinary flow control, and nothing under the
  *     control is left covered;
- *   - Continue (a draft with progress) takes the same placement;
+ *   - a draft with progress has no floating control: the live card resumes it;
  *   - a spent day and a device with no program leave no floating surface;
  *   - the dock is glass: what passes under it shows through, except under
  *     reduced transparency (#301).
@@ -88,7 +88,8 @@ const geometry = (page) => page.evaluate(() => {
     otherPosition: getComputedStyle(document.querySelector("#chooseAnotherDay")).position,
     reserve, inner: window.innerHeight, scroll: window.scrollY,
     max: document.documentElement.scrollHeight - window.innerHeight,
-    keys: { start: window.RepForgeI18n.t("today.start"), cont: window.RepForgeI18n.t("today.continue") },
+    keys: { start: window.RepForgeI18n.t("today.start") },
+    live: !!document.querySelector("#todayLive .today-live"),
   };
 });
 
@@ -155,8 +156,9 @@ for (const [width, height] of [[320, 568], [390, 844]]) {
     await page.waitForSelector("#todayDash:not(.hidden)", { timeout: 5000 });
     await scrollTo(page, 0);
     g = await geometry(page);
-    assert(g.text === g.keys.cont && floats(g), "Continue takes the same floating place above the dock",
-      JSON.stringify({ text: g.text, cta: g.cta, dock: g.dock }));
+    // Option A (owner, 2026-10-23): the live card under the program block resumes the session, so nothing floats.
+    assert(g.live && g.display === "none" && !g.cta, "with a session open, the live card resumes it and no control floats above the dock",
+      JSON.stringify({ live: g.live, display: g.display, cta: g.cta }));
 
     await context.close();
   }

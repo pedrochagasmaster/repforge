@@ -188,8 +188,13 @@ async function variant(browser, { locale, session }) {
     await page.evaluate(() => window.__repforgeLeaveWorkout());
     const row = `#todayDash .rxrow[data-exopen="${target.rowId}"]`;
     await page.waitForSelector(row, { timeout: 10000 });
-    const today = await page.evaluate((selector) =>
-      [...(document.querySelector(selector)?.querySelectorAll(".verdictmark") || [])].map((el) => el.className.replace(/.*verdictmark--/, "")), row);
+    // With the session open, Today's row draws its status mark (option A) in the verdict's place; the verdict it
+    // would draw stays on the row as data-verdict.
+    const today = await page.evaluate((selector) => {
+      const el = document.querySelector(selector);
+      if (el?.querySelector(".rxstat")) return [el.dataset.verdict];
+      return [...(el?.querySelectorAll(".verdictmark") || [])].map((mark) => mark.className.replace(/.*verdictmark--/, ""));
+    }, row);
     await page.locator(row).click();
     await page.waitForSelector("#exercise.view.active #exDetail .recblock__head");
     const block = await page.evaluate(() => document.querySelector("#exDetail .recblock__head")?.textContent?.trim() || "");

@@ -603,18 +603,22 @@ async function fillExerciseSets(page, exId, sets, load, reps, rir) {
   await page.evaluate(
     async ({ exId, sets, load, reps, rir, weight, repsMetric }) => {
       const W = window.__repforgeWorkoutDraft;
+      // page.evaluate has no deadline of its own: a draft step that never settles once held the whole suite until the
+      // runner's 900 s cap (full lane, 2026-10-24, PR ledger). Each step now fails by name after 20 s instead.
+      const settle = (promise, step) => Promise.race([promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error(`fillExerciseSets: ${step} did not settle in 20 s`)), 20000))]);
       const ex = W?.current?.()?.exercises?.[exId];
       for (let n = 1; n <= sets; n++) {
         const setId = ex?.setOrder?.find((id) => ex.sets[id].ordinal === n);
         if (!setId) continue;
         for (const [metricId, val] of [[weight, load], [repsMetric, reps]]) {
-          const result = await W.dispatch("editMetricValue", { exerciseInstanceId: exId, setId, metricId, value: String(val) });
+          const result = await settle(W.dispatch("editMetricValue", { exerciseInstanceId: exId, setId, metricId, value: String(val) }), `editMetricValue ${exId}/${setId}`);
           if (result.status !== "applied") throw new Error(`metric edit ${exId}/${setId}: ${result.status}`);
         }
-        const effort = await W.dispatch("editSetField", { exerciseInstanceId: exId, setId, field: "rir", value: String(rir) });
+        const effort = await settle(W.dispatch("editSetField", { exerciseInstanceId: exId, setId, field: "rir", value: String(rir) }), `editSetField rir ${exId}/${setId}`);
         if (effort.status !== "applied") throw new Error(`rir edit ${exId}/${setId}: ${effort.status}`);
       }
-      await W.flush?.();
+      await settle(Promise.resolve(W.flush?.()), "flush");
       if (typeof renderWorkout === "function") renderWorkout();
     },
     { exId, sets, load, reps, rir, weight: WEIGHT_METRIC, repsMetric: REPS_METRIC }
@@ -4236,12 +4240,12 @@ async function main() {
   await page.evaluate(() => { window.__animPhase = "leave"; window.__repforgeLeaveWorkout?.(); });
   await page.waitForSelector("#todayDash:not(.hidden)", { timeout: 5000 });
   await page.waitForTimeout(120);
-  const ctaResume = (await page.locator("#startWorkout").textContent())?.trim();
+  const ctaResume = (await page.locator("#todayLiveResume").textContent())?.trim();
   assert(
-    /continue/i.test(ctaResume || ""),
-    "Today CTA reads Continue workout while a session is in progress",
-    `cta="${ctaResume}"`,
-    "Start a session → leave → Today CTA says Continue workout"
+    /resume/i.test(ctaResume || "") && await page.locator("#startWorkout").isHidden(),
+    "Today's live card offers Resume workout while a session is in progress",
+    `resume="${ctaResume}"`,
+    "Start a session → leave → Today's live card says Resume workout"
   );
   const animSeen = await page.evaluate(() => window.__animSeen);
   assert(
@@ -4250,7 +4254,7 @@ async function main() {
     JSON.stringify(animSeen),
     "Today → Start workout → shell animates in; leave → dashboard animates back"
   );
-  await page.click("#startWorkout");
+  await page.click("#todayLiveResume");
   await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
   await flushDraftWork(page);
   const resumedCtaDraft = await readDraft(page);
@@ -4259,9 +4263,9 @@ async function main() {
       resumedCtaDraft?.draftId &&
       resumedCtaDraft.exerciseOrder.some((id) =>
         Object.values(resumedCtaDraft.exercises[id]?.sets || {}).some((set) => set.edited?.metrics?.["2555c6f170d8805cafa6d16d3fdddbaa"] === "80")),
-    "Continue workout resumes the in-progress draft",
+    "Resume workout resumes the in-progress draft",
     "draft load 80 missing after resume",
-    "Today → Continue workout → previously entered sets are still there"
+    "Today → Resume workout → previously entered sets are still there"
   );
   await clearDraftFixture(page);
   await reloadApp(page);
@@ -6010,7 +6014,8 @@ async function main() {
   const autoResumed = await page.evaluate(() => !document.querySelector("#workoutShell")?.classList.contains("hidden"));
   if (!autoResumed) {
     await page.evaluate(() => window.__repforgeLeaveWorkout?.());
-    await page.click("#startWorkout");
+    // A session with sets is resumed from Today's live card (option A).
+    await page.click("#todayLiveResume");
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
   }
   const resumed = await page.evaluate(({ a, skip, b }) => {

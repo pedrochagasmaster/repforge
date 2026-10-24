@@ -259,6 +259,9 @@ export async function settle(page) {
       .filter((image) => !image.complete && image.checkVisibility())
       .map((image) => image.decode().catch(() => {}))), 3000);
     for (const animation of document.getAnimations()) {
+      // Today's live dot loops for as long as a session is open; a frame holds it at its first beat, so every capture
+      // of a state that shows it is the same.
+      if (animation.animationName === "taurifer-live-dot") { animation.pause(); animation.currentTime = 0; continue; }
       if (animation.effect?.getComputedTiming().iterations === Infinity) continue;
       try { animation.finish(); } catch {}
     }

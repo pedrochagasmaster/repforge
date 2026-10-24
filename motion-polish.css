@@ -282,6 +282,21 @@ nav button{transition-duration:.2s,var(--press-release-duration);transition-timi
   to{transform:translateX(100%)}
 }
 
+/* Today's live dot (owner, 2026-10-23, option A): a soft accent ring breathes out from the dot while a session is open.
+   The ring is a spreading shadow on the dot's own pseudo-element, so it paints outside the dot without ever adding
+   scrollable overflow (a scaled layer would); reduced motion leaves the dot and its still halo. */
+.today-live__dot::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:var(--radius-round);
+  animation:taurifer-live-dot 1.8s ease-out infinite;
+}
+@keyframes taurifer-live-dot{
+  from{box-shadow:var(--live-dot-pulse-from)}
+  to{box-shadow:var(--live-dot-pulse-to)}
+}
+
 /* Reduced motion is a semantic alternate state, not a slower animation. */
 @media (prefers-reduced-motion:reduce){
   /* A pressed primary keeps its tone and drops its scale (ADR 0023). */
@@ -292,6 +307,7 @@ nav button{transition-duration:.2s,var(--press-release-duration);transition-timi
   .effortpop.is-open .effortpop__arrow,
   .effortpop.is-bump .effortpop__hint,
   .toast,.tour,.installbanner,.toggle::after{transition:none}
+  .today-live__dot::after{animation:none;display:none}
   .motion-rise,
   .motion-value-up,
   .motion-value-down,

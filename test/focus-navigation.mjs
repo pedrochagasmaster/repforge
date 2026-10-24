@@ -252,16 +252,16 @@ async function main() {
 
     // Verify we navigated safely back to Today
     assert(await page.locator("#workoutShell").isHidden(), "workout shell is hidden after leave");
-    assert(await page.locator("#todayView").isVisible() || await page.locator("#startWorkout").isVisible(),
-      "Today view is visible after leaving workout");
+    assert(await page.locator("#todayDash").isVisible() && await page.locator("#todayLiveResume").isVisible(),
+      "Today view is visible after leaving workout, with the live card resuming the session");
 
-    // Verify Today CTA shows resume / continue
-    const startCtaText = await page.locator("#startWorkout").textContent();
-    assert(startCtaText.toLowerCase().includes("resume") || startCtaText.toLowerCase().includes("continue"),
-      "Today CTA offers Resume/Continue workout", startCtaText);
+    // Verify Today's live card offers Resume
+    const startCtaText = await page.locator("#todayLiveResume").textContent();
+    assert(startCtaText.toLowerCase().includes("resume"),
+      "Today's live card offers Resume workout", startCtaText);
 
     // Click resume
-    await page.locator("#startWorkout").click();
+    await page.locator("#todayLiveResume").click();
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
 
     // Verify we resumed at the exact same exercise and set with the value intact
