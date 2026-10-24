@@ -8439,7 +8439,7 @@
           "flat",
           "selected"
         ],
-        "boundary": "required"
+        "boundary": "decorative"
       },
       "variant": "workout-shelf-field",
       "facets": [],
@@ -8451,7 +8451,7 @@
         "selected",
         "disabled"
       ],
-      "rationale": "Chooses which field of the active set the pads act on, without committing data. The selected field carries the 2px quiet selected boundary (ink); its ground is the shelf's well (OG-4).",
+      "rationale": "Chooses which field of the active set the pads act on, without committing data. The selected field carries the 2px quiet selected boundary (ink); its ground is the shelf's well (OG-4). Since the Plan 075 phase 5 addendum (owner, 2026-10-24) the tile is a quiet fill named by its label and value, with no 3:1 outline; the selected field keeps its ring.",
       "owner": "plan-064/r3c",
       "catalogStates": [
         "workout/correction",
@@ -11459,7 +11459,7 @@
       "id": "workout-shelf",
       "selector": ".workshelf",
       "role": "persistent-action",
-      "rationale": "The workout shelf is a full-width persistent-action surface under Focus with the existing prominent top radius, a shallow top edge and the persistent depth; its fields sit on the well and its pads on the page ground, scoped to the shelf. Selector-exact: no other surface inherits it by visual resemblance (OG-4).",
+      "rationale": "The workout shelf is a full-width persistent-action surface under Focus: a concentric sheet (--shelf-radius 28px, --shelf-inset 16px, its tiles at --shelf-inner-radius), a shallow top edge and the persistent depth; its fields and pads are quiet tiles on the page ground with no outline (Plan 075 phase 5 addendum), scoped to the shelf. Selector-exact: no other surface inherits it by visual resemblance (OG-4).",
       "owner": "plan-064/r1b",
       "catalogStates": [
         "workout/correction",
