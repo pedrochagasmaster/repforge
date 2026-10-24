@@ -395,17 +395,16 @@ async function waitForOfferVerification(page) {
 }
 
 async function holdProgramWorker(page) {
+  // On the prototype, so the program worker the split step's estimates already started is held as well.
   await page.evaluate(() => {
-    const NativeWorker = window.Worker;
+    const post = Worker.prototype.postMessage;
     window.__catalogHeldGenerations = [];
-    window.Worker = class extends NativeWorker {
-      postMessage(message, ...args) {
-        if (message?.type === "generate") {
-          window.__catalogHeldGenerations.push(() => super.postMessage(message, ...args));
-          return;
-        }
-        return super.postMessage(message, ...args);
+    Worker.prototype.postMessage = function (message, ...args) {
+      if (message?.type === "generate") {
+        window.__catalogHeldGenerations.push(() => post.call(this, message, ...args));
+        return;
       }
+      return post.call(this, message, ...args);
     };
   });
 }
@@ -1013,6 +1012,14 @@ export const ONBOARDING_SCENARIOS = {
   "onboarding-recommend/days-per-week": async (page) => {
     await recommendStep(page, "days_per_week");
     await pick(page, "daysPerWeek", "4");
+  },
+  "onboarding-recommend/split": async (page) => {
+    await recommendStep(page, "split");
+    // Each card's minutes arrive from the program engine after the cards are drawn: shoot them all filled in.
+    await page.waitForFunction(() => {
+      const caps = [...document.querySelectorAll('#onbBody [data-entry-pick="splitPreference"] .radio-card__cap')].filter((cap) => !cap.closest('[aria-hidden="true"]'));
+      return caps.length > 1 && caps.every((cap) => !cap.hidden && cap.textContent.trim());
+    }, undefined, { timeout: 30000 });
   },
   "onboarding-recommend/session-length": (page) => recommendStep(page, "session_length"),
   "onboarding-recommend/muscle-priorities": async (page) => {

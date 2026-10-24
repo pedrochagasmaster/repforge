@@ -690,17 +690,16 @@ async function onboardingResume(browser) {
 // Plan 072 S3: the building moment and the conflict ------------------------
 /** Hold real program-worker Generate messages until the page releases them. */
 async function holdGeneration(page) {
+  // On the prototype, so a program worker started earlier (the split step's estimates start it) is held as well.
   await page.evaluate(() => {
-    const NativeWorker = window.Worker;
+    const post = Worker.prototype.postMessage;
     window.__heldGenerations = [];
-    window.Worker = class extends NativeWorker {
-      postMessage(message, ...args) {
-        if (message?.type === "generate") {
-          window.__heldGenerations.push(() => super.postMessage(message, ...args));
-          return;
-        }
-        return super.postMessage(message, ...args);
+    Worker.prototype.postMessage = function (message, ...args) {
+      if (message?.type === "generate") {
+        window.__heldGenerations.push(() => post.call(this, message, ...args));
+        return;
       }
+      return post.call(this, message, ...args);
     };
   });
 }
@@ -1208,6 +1207,126 @@ async function sourceSplitChoicesJourney(browser) {
   return errors;
 }
 
+/**
+ * The split step (owner, 2026-10-23/24): after the session length, the generator's authored splits for the day count,
+ * the one it would pick preselected and each with what its sessions cost; a choice reaches the generated program,
+ * Continue keeps today's program byte for byte, a day count the choice does not fit resets it, and with fewer than
+ * two choices the step is passed both ways.
+ */
+async function recommendSplitStep(browser) {
+  const Services = Adapter.createProductionServices({ Compiler, catalog: Catalog });
+  const shown = (page) => page.locator('#onbBody [data-entry-pick="splitPreference"]:not([aria-hidden="true"] *)')
+    .evaluateAll((nodes) => nodes.map((node) => ({ id: node.dataset.entryVal, selected: node.getAttribute("aria-checked") === "true",
+      tag: !!node.querySelector(".entry-b__tag"), text: node.textContent })));
+  const open = async (until, extra = {}) => {
+    const run = await fresh(browser);
+    await run.page.click("#firstRunCreate");
+    await run.page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
+    await answerRecommend(run.page, { skipBasics: true, until, ...extra });
+    return run;
+  };
+  const errors = [];
+
+  for (const days of [3, 6]) {
+    const run = await open("split", { days });
+    const answers = (await entry(run.page)).answers;
+    const expected = Services.splitChoices(answers).choices;
+    const cards = await shown(run.page);
+    const auto = expected.find((choice) => choice.default)?.id;
+    check((await entry(run.page)).step === "split" && expected.length >= 2 &&
+      JSON.stringify(cards.map((card) => card.id)) === JSON.stringify(expected.map((choice) => choice.id)) &&
+      JSON.stringify(cards.filter((card) => card.selected).map((card) => card.id)) === JSON.stringify([auto]) &&
+      cards.filter((card) => card.tag).map((card) => card.id).join() === auto && cards.every((card) => !card.text.includes("split.")),
+      `split step: ${days} days offers its ${expected.length} authored splits, the default preselected and marked Recommended`, { cards, expected });
+    // Each card's minutes are the generator's own estimate of that split's training days for these answers.
+    const minutesFor = (id) => {
+      const mapped = Adapter.programRequestFromAnswers({ ...answers, splitPreference: id }, Catalog);
+      const generated = Compiler.generateProgram(mapped.value, Catalog);
+      const each = trainingDays(generated.value).map((day) => Math.ceil(Compiler.estimateDaySeconds(day, undefined, Catalog) / 60));
+      return [Math.min(...each), Math.max(...each)];
+    };
+    await run.page.waitForFunction((n) => [...document.querySelectorAll('#onbBody [data-entry-pick="splitPreference"] .radio-card__cap')]
+      .filter((cap) => !cap.closest('[aria-hidden="true"]') && /\d+\D+\d+/.test(cap.textContent)).length === n, expected.length, { timeout: 20000 });
+    const captions = await run.page.locator('#onbBody [data-entry-pick="splitPreference"]:not([aria-hidden="true"] *)')
+      .evaluateAll((nodes) => nodes.map((node) => node.querySelector(".radio-card__cap").textContent.match(/\d+/g).map(Number)));
+    const wanted = expected.map((choice) => [days, ...minutesFor(choice.id)]);
+    check(JSON.stringify(captions) === JSON.stringify(wanted),
+      `split step: each ${days}-day card shows its training days and their estimated minutes`, { captions, wanted });
+    errors.push(...run.errors);
+    await run.context.close();
+  }
+
+  {
+    const run = await open("split", { days: 3 });
+    const { page } = run;
+    await pick(page, "splitPreference", "push_pull_legs");
+    await answerRecommend(page, { days: 3, skipBasics: true });
+    await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "result");
+    await page.locator("#entryReview [data-review-slot]").first().waitFor({ state: "visible", timeout: 20000 });
+    const candidate = await entry(page), definition = candidate.result?.preview?.programDefinition;
+    const mapped = Adapter.programRequestFromAnswers(candidate.answers, Catalog), reference = mapped.ok ? Compiler.generateProgram(mapped.value, Catalog) : null;
+    check(candidate.answers.splitPreference === "push_pull_legs" && definition?.request?.split === "push_pull_legs" &&
+      trainingDays(definition).length === 3 && reference?.ok && JSON.stringify(definition) === JSON.stringify(reference.value),
+      "split step: push / pull / legs at 3 days generates that split, exactly the canonical definition", definition?.request);
+    errors.push(...run.errors);
+    await run.context.close();
+  }
+
+  {
+    const run = await open(null, { days: 4 });
+    const { page } = run;
+    await page.locator("#entryReview [data-review-slot]").first().waitFor({ state: "visible", timeout: 20000 });
+    const candidate = await entry(page), definition = candidate.result?.preview?.programDefinition;
+    const auto = Adapter.programRequestFromAnswers({ ...candidate.answers, splitPreference: "auto" }, Catalog);
+    const today = auto.ok ? Compiler.generateProgram(auto.value, Catalog) : null;
+    check(today?.ok && JSON.stringify(definition) === JSON.stringify(today.value),
+      "split step: Continue on the preselected split generates byte for byte the program the automatic split does", candidate.answers.splitPreference);
+    errors.push(...run.errors);
+    await run.context.close();
+  }
+
+  {
+    const run = await open("split", { days: 3 });
+    const { page } = run;
+    await pick(page, "splitPreference", "push_pull_legs");
+    await page.click("#onbBack");
+    await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "session_length");
+    await page.click("#onbBack");
+    await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "days_per_week");
+    await pick(page, "daysPerWeek", 4);
+    const answers = (await entry(page)).answers;
+    const fourDefault = Services.splitChoices(answers).choices.find((choice) => choice.default)?.id;
+    check(answers.splitPreference === fourDefault && answers.splitPreference !== "push_pull_legs",
+      "split step: changing to a day count the choice does not fit resets it to that count's default", answers.splitPreference);
+    errors.push(...run.errors);
+    await run.context.close();
+  }
+
+  {
+    // Real answers always offer two or more; the services seam stands in for a day count with a single split.
+    const run = await fresh(browser);
+    const { page } = run;
+    await page.evaluate(() => {
+      const real = window.RepForgeProgramEntryAdapter.createProductionServices({ Compiler: window.RepForgeProgramCompiler,
+        catalog: window.RepForgeExerciseCatalog.snapshot() });
+      window.__repforgeProgramEntryServicesOverride = { ...real,
+        splitChoices: (answers) => ({ choices: real.splitChoices(answers).choices.filter((choice) => choice.default) }) };
+    });
+    await page.click("#firstRunCreate");
+    await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
+    await answerRecommend(page, { days: 4, skipBasics: true, until: "muscle_priorities" });
+    const forward = await entry(page);
+    await page.click("#onbBack");
+    await page.waitForFunction(() => window.__repforgeEntryState?.()?.step !== "muscle_priorities");
+    const back = await entry(page);
+    check(forward.step === "muscle_priorities" && back.step === "session_length",
+      "split step: with a single split it is passed going forward and going back", { forward: forward.step, back: back.step });
+    errors.push(...run.errors);
+    await run.context.close();
+  }
+  return errors;
+}
+
 async function maximumSourcePreviewPersistence(browser) {
   const { context, page, errors } = await fresh(browser);
   await page.click("#firstRunCreate");
@@ -1243,6 +1362,7 @@ async function main() {
   try {
     allErrors.push(await recoveredGenerationJourney(browser));
     allErrors.push(await sourceSplitChoicesJourney(browser));
+    allErrors.push(await recommendSplitStep(browser));
     allErrors.push(await maximumSourcePreviewPersistence(browser));
     // Generate and activate ------------------------------------------------
     const { context, page, errors } = await fresh(browser);

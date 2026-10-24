@@ -198,7 +198,6 @@ const DYNAMIC_FAMILIES = [
   { test: (s) => s.includes("entry.lifting.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.lifting.") && !k.endsWith(".title")) },
   { test: (s) => s.includes("entry.gym.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.gym.") && !k.endsWith(".title") && !k.endsWith(".lede")) },
   { test: (s) => s.includes("entry.goal.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.goal.") && !k.endsWith(".title")) },
-  { test: (s) => s.includes("entry.days_per_week.split.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.days_per_week.split.")) },
   { test: (s) => s.includes("entry.equipment.group.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.equipment.group.")) },
   { test: (s) => s.includes("entry.muscle_priorities.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.muscle_priorities.") && !k.endsWith(".title") && !k.endsWith(".lede") && !k.endsWith(".limit")) },
   { test: (s) => s.includes("entry.cap.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.cap.")) },

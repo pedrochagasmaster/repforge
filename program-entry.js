@@ -110,6 +110,9 @@
       "desired_result",
       "days_per_week",
       "session_length",
+      // After the session length, so each choice can show what a session costs. Shown only when there are two or
+      // more authored splits; skipped either way otherwise.
+      "split",
       "muscle_priorities",
       "deload",
       "abilities",
@@ -1807,6 +1810,7 @@
       case "deload":
       case "building": return [];
       case "days_per_week": return answers.daysPerWeek ? [] : ["days_per_week_required"];
+      case "split": return answers.splitPreference ? [] : ["split_preference_required"];
       case "muscle_priorities": return musclePartitionIssues(answers, "$.answers");
       case "priorities": return musclePartitionIssues(answers, "$.answers");
       case "exercise_preferences": return [];

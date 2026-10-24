@@ -661,7 +661,14 @@
       "id": "days-per-week",
       "flow": "onboarding-recommend",
       "label": "Recommend Program 2 — days per week",
-      "scenario": "Two to six days with four chosen and its split fact.",
+      "scenario": "Two to six days with four chosen.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "split",
+      "flow": "onboarding-recommend",
+      "label": "Recommend Program 2 — weekly structure",
+      "scenario": "Three days: the three authored weekly structures, the recommended one preselected and marked.",
       "variants": "demandingText"
     },
     {

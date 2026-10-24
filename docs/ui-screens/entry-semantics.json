@@ -72888,11 +72888,6 @@
           "text": "6 days"
         },
         {
-          "tag": "p",
-          "text": "With 4 days, the program alternates upper and lower.",
-          "aria-live": "polite"
-        },
-        {
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
@@ -73007,11 +73002,6 @@
         {
           "tag": "span",
           "text": "6 days"
-        },
-        {
-          "tag": "p",
-          "text": "With 4 days, the program alternates upper and lower.",
-          "aria-live": "polite"
         },
         {
           "tag": "button",
@@ -73130,11 +73120,6 @@
           "text": "6 days"
         },
         {
-          "tag": "p",
-          "text": "With 4 days, the program alternates upper and lower.",
-          "aria-live": "polite"
-        },
-        {
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
@@ -73249,11 +73234,6 @@
         {
           "tag": "span",
           "text": "6 days"
-        },
-        {
-          "tag": "p",
-          "text": "With 4 days, the program alternates upper and lower.",
-          "aria-live": "polite"
         },
         {
           "tag": "button",
@@ -73372,11 +73352,6 @@
           "text": "6 days"
         },
         {
-          "tag": "p",
-          "text": "With 4 days, the program alternates upper and lower.",
-          "aria-live": "polite"
-        },
-        {
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
@@ -73491,11 +73466,6 @@
         {
           "tag": "span",
           "text": "6 dias"
-        },
-        {
-          "tag": "p",
-          "text": "Com 4 dias, o treino alterna superior e inferior.",
-          "aria-live": "polite"
         },
         {
           "tag": "button",
@@ -73614,11 +73584,6 @@
           "text": "6 dias"
         },
         {
-          "tag": "p",
-          "text": "Com 4 dias, o treino alterna superior e inferior.",
-          "aria-live": "polite"
-        },
-        {
           "tag": "button",
           "text": "Continuar",
           "name": "Continuar",
@@ -73733,11 +73698,6 @@
         {
           "tag": "span",
           "text": "6 days"
-        },
-        {
-          "tag": "p",
-          "text": "With 4 days, the program alternates upper and lower.",
-          "aria-live": "polite"
         },
         {
           "tag": "button",
@@ -136104,6 +136064,902 @@
       ]
     },
     {
+      "key": "onboarding-recommend/split__phone-320-light-en",
+      "flow": "onboarding-recommend",
+      "screen": "split",
+      "label": "Recommend Program 2 — weekly structure",
+      "viewport": "phone-320",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Program"
+        },
+        {
+          "tag": "p",
+          "text": "Section 3 of 3",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Weekly structure",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Choose a weekly structure that fits your answers. Taurifer still defines the sets, targets, and progression."
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Weekly structure",
+          "labelledBy": "Weekly structure"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Full body3 training days, about 47–53 minutes each.",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Full body"
+        },
+        {
+          "tag": "span",
+          "text": "3 training days, about 47–53 minutes each."
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Upper / lower / full body3 training days, about 49–53 minutes each.Recommended",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Upper / lower / full body"
+        },
+        {
+          "tag": "span",
+          "text": "3 training days, about 49–53 minutes each."
+        },
+        {
+          "tag": "span",
+          "text": "Recommended"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Push / pull / legs3 training days, about 49–51 minutes each.",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Push / pull / legs"
+        },
+        {
+          "tag": "span",
+          "text": "3 training days, about 49–51 minutes each."
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/split__phone-390-dark-en",
+      "flow": "onboarding-recommend",
+      "screen": "split",
+      "label": "Recommend Program 2 — weekly structure",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Program"
+        },
+        {
+          "tag": "p",
+          "text": "Section 3 of 3",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Weekly structure",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Choose a weekly structure that fits your answers. Taurifer still defines the sets, targets, and progression."
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Weekly structure",
+          "labelledBy": "Weekly structure"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Full body3 training days, about 47–53 minutes each.",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Full body"
+        },
+        {
+          "tag": "span",
+          "text": "3 training days, about 47–53 minutes each."
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Upper / lower / full body3 training days, about 49–53 minutes each.Recommended",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Upper / lower / full body"
+        },
+        {
+          "tag": "span",
+          "text": "3 training days, about 49–53 minutes each."
+        },
+        {
+          "tag": "span",
+          "text": "Recommended"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Push / pull / legs3 training days, about 49–51 minutes each.",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Push / pull / legs"
+        },
+        {
+          "tag": "span",
+          "text": "3 training days, about 49–51 minutes each."
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/split__phone-390-light-en",
+      "flow": "onboarding-recommend",
+      "screen": "split",
+      "label": "Recommend Program 2 — weekly structure",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Program"
+        },
+        {
+          "tag": "p",
+          "text": "Section 3 of 3",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Weekly structure",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Choose a weekly structure that fits your answers. Taurifer still defines the sets, targets, and progression."
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Weekly structure",
+          "labelledBy": "Weekly structure"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Full body3 training days, about 47–53 minutes each.",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Full body"
+        },
+        {
+          "tag": "span",
+          "text": "3 training days, about 47–53 minutes each."
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Upper / lower / full body3 training days, about 49–53 minutes each.Recommended",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Upper / lower / full body"
+        },
+        {
+          "tag": "span",
+          "text": "3 training days, about 49–53 minutes each."
+        },
+        {
+          "tag": "span",
+          "text": "Recommended"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Push / pull / legs3 training days, about 49–51 minutes each.",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Push / pull / legs"
+        },
+        {
+          "tag": "span",
+          "text": "3 training days, about 49–51 minutes each."
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/split__phone-390-light-en-reduced",
+      "flow": "onboarding-recommend",
+      "screen": "split",
+      "label": "Recommend Program 2 — weekly structure",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "reduced",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Program"
+        },
+        {
+          "tag": "p",
+          "text": "Section 3 of 3",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Weekly structure",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Choose a weekly structure that fits your answers. Taurifer still defines the sets, targets, and progression."
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Weekly structure",
+          "labelledBy": "Weekly structure"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Full body3 training days, about 47–53 minutes each.",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Full body"
+        },
+        {
+          "tag": "span",
+          "text": "3 training days, about 47–53 minutes each."
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Upper / lower / full body3 training days, about 49–53 minutes each.Recommended",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Upper / lower / full body"
+        },
+        {
+          "tag": "span",
+          "text": "3 training days, about 49–53 minutes each."
+        },
+        {
+          "tag": "span",
+          "text": "Recommended"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Push / pull / legs3 training days, about 49–51 minutes each.",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Push / pull / legs"
+        },
+        {
+          "tag": "span",
+          "text": "3 training days, about 49–51 minutes each."
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/split__phone-390-light-en-text200",
+      "flow": "onboarding-recommend",
+      "screen": "split",
+      "label": "Recommend Program 2 — weekly structure",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Program"
+        },
+        {
+          "tag": "p",
+          "text": "Section 3 of 3",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Weekly structure",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Choose a weekly structure that fits your answers. Taurifer still defines the sets, targets, and progression."
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Weekly structure",
+          "labelledBy": "Weekly structure"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Full body3 training days, about 47–53 minutes each.",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Full body"
+        },
+        {
+          "tag": "span",
+          "text": "3 training days, about 47–53 minutes each."
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Upper / lower / full body3 training days, about 49–53 minutes each.Recommended",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Upper / lower / full body"
+        },
+        {
+          "tag": "span",
+          "text": "3 training days, about 49–53 minutes each."
+        },
+        {
+          "tag": "span",
+          "text": "Recommended"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Push / pull / legs3 training days, about 49–51 minutes each.",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Push / pull / legs"
+        },
+        {
+          "tag": "span",
+          "text": "3 training days, about 49–51 minutes each."
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/split__phone-390-light-pt",
+      "flow": "onboarding-recommend",
+      "screen": "split",
+      "label": "Recommend Program 2 — weekly structure",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um treino"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Treino"
+        },
+        {
+          "tag": "p",
+          "text": "Seção 3 de 3",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Estrutura semanal",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Escolha uma estrutura semanal que combine com suas respostas. O Taurifer continua definindo as séries, as metas e a progressão."
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Estrutura semanal",
+          "labelledBy": "Estrutura semanal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Corpo todo3 dias de treino, cerca de 47–53 minutos cada.",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Corpo todo"
+        },
+        {
+          "tag": "span",
+          "text": "3 dias de treino, cerca de 47–53 minutos cada."
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Superior / inferior / corpo inteiro3 dias de treino, cerca de 49–53 minutos cada.Recomendado",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Superior / inferior / corpo inteiro"
+        },
+        {
+          "tag": "span",
+          "text": "3 dias de treino, cerca de 49–53 minutos cada."
+        },
+        {
+          "tag": "span",
+          "text": "Recomendado"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Empurrar / puxar / pernas3 dias de treino, cerca de 49–51 minutos cada.",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Empurrar / puxar / pernas"
+        },
+        {
+          "tag": "span",
+          "text": "3 dias de treino, cerca de 49–51 minutos cada."
+        },
+        {
+          "tag": "button",
+          "text": "Continuar",
+          "name": "Continuar",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/split__phone-390-light-pt-text200",
+      "flow": "onboarding-recommend",
+      "screen": "split",
+      "label": "Recommend Program 2 — weekly structure",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um treino"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Treino"
+        },
+        {
+          "tag": "p",
+          "text": "Seção 3 de 3",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Estrutura semanal",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Escolha uma estrutura semanal que combine com suas respostas. O Taurifer continua definindo as séries, as metas e a progressão."
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Estrutura semanal",
+          "labelledBy": "Estrutura semanal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Corpo todo3 dias de treino, cerca de 47–53 minutos cada.",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Corpo todo"
+        },
+        {
+          "tag": "span",
+          "text": "3 dias de treino, cerca de 47–53 minutos cada."
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Superior / inferior / corpo inteiro3 dias de treino, cerca de 49–53 minutos cada.Recomendado",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Superior / inferior / corpo inteiro"
+        },
+        {
+          "tag": "span",
+          "text": "3 dias de treino, cerca de 49–53 minutos cada."
+        },
+        {
+          "tag": "span",
+          "text": "Recomendado"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Empurrar / puxar / pernas3 dias de treino, cerca de 49–51 minutos cada.",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Empurrar / puxar / pernas"
+        },
+        {
+          "tag": "span",
+          "text": "3 dias de treino, cerca de 49–51 minutos cada."
+        },
+        {
+          "tag": "button",
+          "text": "Continuar",
+          "name": "Continuar",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/split__phone-430-light-en",
+      "flow": "onboarding-recommend",
+      "screen": "split",
+      "label": "Recommend Program 2 — weekly structure",
+      "viewport": "phone-430",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Program"
+        },
+        {
+          "tag": "p",
+          "text": "Section 3 of 3",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Weekly structure",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Choose a weekly structure that fits your answers. Taurifer still defines the sets, targets, and progression."
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Weekly structure",
+          "labelledBy": "Weekly structure"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Full body3 training days, about 47–53 minutes each.",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Full body"
+        },
+        {
+          "tag": "span",
+          "text": "3 training days, about 47–53 minutes each."
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Upper / lower / full body3 training days, about 49–53 minutes each.Recommended",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Upper / lower / full body"
+        },
+        {
+          "tag": "span",
+          "text": "3 training days, about 49–53 minutes each."
+        },
+        {
+          "tag": "span",
+          "text": "Recommended"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Push / pull / legs3 training days, about 49–51 minutes each.",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Push / pull / legs"
+        },
+        {
+          "tag": "span",
+          "text": "3 training days, about 49–51 minutes each."
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-recommend/weight__phone-390-dark-en",
       "flow": "onboarding-recommend",
       "screen": "weight",
@@ -141130,11 +141986,6 @@
         {
           "tag": "span",
           "text": "6 days"
-        },
-        {
-          "tag": "p",
-          "text": "With 3 days, each session trains the whole body.",
-          "aria-live": "polite"
         }
       ]
     },
@@ -141245,11 +142096,6 @@
         {
           "tag": "span",
           "text": "6 days"
-        },
-        {
-          "tag": "p",
-          "text": "With 3 days, each session trains the whole body.",
-          "aria-live": "polite"
         }
       ]
     },
@@ -141360,11 +142206,6 @@
         {
           "tag": "span",
           "text": "6 dias"
-        },
-        {
-          "tag": "p",
-          "text": "Com 3 dias, cada sessão trabalha o corpo todo.",
-          "aria-live": "polite"
         }
       ]
     },

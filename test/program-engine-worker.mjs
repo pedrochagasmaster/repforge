@@ -247,6 +247,9 @@ async function heldFlow(browser) {
   await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "session_length");
   await pick(page, "sessionMinutes", 60);
   await page.click("#onbNext");
+  // The split step: the recommended weekly structure stays.
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "split");
+  await page.click("#onbNext");
   await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "muscle_priorities");
   await page.click("#onbSkip");
   await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "deload");

@@ -8118,7 +8118,6 @@ body.is-entry-editor #entryProgramName,
 .entry-b__compact{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
 .entry-b__compact .radio-card{justify-content:center;text-align:center}
 .entry-b__compact .radio-card__mark{display:none}
-.entry-b__fact{margin:14px 0 0;min-height:1.4em;font-size:var(--font-size-body-small);line-height:1.4;color:var(--ink-soft)}
 .entry-b__equipment{gap:8px}
 .entry-b__reset{margin:14px 0 0;align-self:flex-start}
 .entry-b__priorities{margin:12px 0 0;border-top:1px solid var(--rule)}
