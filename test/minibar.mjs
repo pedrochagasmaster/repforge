@@ -215,6 +215,17 @@ try {
     assert(resting.bar && !resting.restBar && resting.floating.length === 1, "History: one bar, and no separate rest pill", resting);
     assert(/^Rest \d:\d\d$/.test(resting.title) && /^Next: set \d+ · .+/.test(resting.sub) && resting.plus,
       "the bar reads Rest and the clock, the next set, and offers +30s", resting);
+    // One line, whatever the exercise's name (coordinator review, 2026-10-24): a long name ends in an ellipsis, and the
+    // text is whole for assistive technology.
+    const line = await page.evaluate(() => {
+      const sub = document.querySelector("#miniBar .minibar__sub"), style = getComputedStyle(sub);
+      const name = window.__repforgeWorkoutDraft.current().exercises[window.__repforgeWorkoutDraft.current().session.selectedExerciseId]?.displayName;
+      sub.textContent = sub.textContent.replace(/ · .*$/, " · Single-arm cable rear delt fly with a long name"); // the longest case
+      const lines = Math.round(sub.getBoundingClientRect().height / parseFloat(style.lineHeight));
+      return { lines, ellipsis: style.textOverflow, whiteSpace: style.whiteSpace, text: sub.textContent, name };
+    });
+    assert(line.lines === 1 && line.ellipsis === "ellipsis" && line.whiteSpace === "nowrap" && /long name$/.test(line.text),
+      "the rest line keeps one line, ends in an ellipsis, and keeps its whole text", line);
     const before = await page.evaluate(() => window.restLeftMs());
     await page.click("#miniBarPlus");
     const after = await page.evaluate(() => ({ left: window.restLeftMs(), shell: !document.querySelector("#workoutShell")?.classList.contains("hidden") }));

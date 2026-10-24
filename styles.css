@@ -1708,6 +1708,9 @@ body:not(.is-focus-wo):has(#restBar:not(.hidden)):not(:has(#miniBar:not(.hidden)
 .minibar__title{font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-semibold);line-height:var(--line-standard);overflow-wrap:anywhere}
 .minibar__sub{font-family:var(--font-language);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:anywhere}
 .minibar__rest{color:var(--accent-deep)}
+/* The rest's line stays one line (coordinator review, 2026-10-24): the exercise name, last in both languages, gives way
+   with an ellipsis. The text itself is whole, so assistive technology reads all of it. */
+.minibar.is-rest .minibar__sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .minibar__clock{font-family:var(--font-training-data);font-variant-numeric:tabular-nums}
 .minibar__actions{display:flex;align-items:center;gap:var(--space-8)}
 .minibar__chip{min-height:var(--control-target);padding:0 var(--space-12);border:0;border-radius:var(--radius-pill);background:var(--control-track);color:var(--color-ink);
