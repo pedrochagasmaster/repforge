@@ -930,6 +930,8 @@ async function main() {
   await fadesDone(page);
   await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; window.startRest(); });
   await page.waitForFunction(() => document.querySelector("#workout .exercise.is-current .shelf__pads")?.dataset.pads === "rest");
+  // The card takes its large-text state when the header's ResizeObserver reports the new root size: wait for it.
+  await page.waitForFunction(() => document.querySelector("#workout .exercise.is-current")?.classList.contains("is-text-scaled"));
   await fadesDone(page);
   const scaled = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");
