@@ -324,9 +324,9 @@ for (const name of Telemetry.getEventNames("all")) {
   assert.deepEqual(answered(completedFor("recommend", "equipment", "desired_result")), { equipment_changes: "0" });
   assert.deepEqual(answered(completedFor("custom", "custom_shape", "result")), { split: "upper_lower" });
   // B's split step (owner, 2026-10-23) sends the closed split id it asked, and nothing for a value outside the list.
-  assert.deepEqual(answered(completedFor("recommend", "split", "session_length")), { split: "upper_lower" });
+  assert.deepEqual(answered(completedFor("recommend", "split", "muscle_priorities")), { split: "upper_lower" });
   assert.deepEqual(answered(Telemetry.entryFunnelEvents({ route: "recommend", step: "split", at: 0 },
-    { route: "recommend", step: "session_length", at: 5000, answers: { ...answers, splitPreference: "auto" } }, steps)
+    { route: "recommend", step: "muscle_priorities", at: 5000, answers: { ...answers, splitPreference: "auto" } }, steps)
     .find(([name]) => name === "onboarding_step_completed")?.[1] || {}), {});
   assert.deepEqual(answered(completedFor("recommend", "abilities", "result")), {}, "a step with no closed answer sends none");
   assert.deepEqual(answered(completedFor("recommend", "muscle_priorities", "deload")), {}, "muscle priorities are not sent");

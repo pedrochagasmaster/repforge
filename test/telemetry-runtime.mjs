@@ -459,6 +459,9 @@ try {
       at("days_per_week").days_per_week === "4" && at("session_length").session_length === "60" &&
       at("environment").gym_preset === "commercial_gym",
     "each completed step carries the closed answers it asked", JSON.stringify(completed));
+    // The split step sends the weekly structure the lifter kept or chose, as one of the closed split ids.
+    assert(/^[a-z_]+$/.test(at("split").split || "") && at("split").split !== "auto",
+      "the split step completes with its closed split id", JSON.stringify(at("split")));
     assert(at("abilities").goal === undefined && Object.keys(at("abilities")).sort().join() === "route,step,time_on_step",
       "a step that asked no closed answer carries none", JSON.stringify(at("abilities")));
     assert(!funnel.some(([n]) => n === "onboarding_step_back"), "walking forward reports no back step");

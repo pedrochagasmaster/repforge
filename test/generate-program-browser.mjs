@@ -690,17 +690,16 @@ async function onboardingResume(browser) {
 // Plan 072 S3: the building moment and the conflict ------------------------
 /** Hold real program-worker Generate messages until the page releases them. */
 async function holdGeneration(page) {
+  // On the prototype, so a program worker started earlier (the split step's estimates start it) is held as well.
   await page.evaluate(() => {
-    const NativeWorker = window.Worker;
+    const post = Worker.prototype.postMessage;
     window.__heldGenerations = [];
-    window.Worker = class extends NativeWorker {
-      postMessage(message, ...args) {
-        if (message?.type === "generate") {
-          window.__heldGenerations.push(() => super.postMessage(message, ...args));
-          return;
-        }
-        return super.postMessage(message, ...args);
+    Worker.prototype.postMessage = function (message, ...args) {
+      if (message?.type === "generate") {
+        window.__heldGenerations.push(() => post.call(this, message, ...args));
+        return;
       }
+      return post.call(this, message, ...args);
     };
   });
 }
@@ -1209,9 +1208,10 @@ async function sourceSplitChoicesJourney(browser) {
 }
 
 /**
- * The split step (owner, 2026-10-23): right after the day count, the generator's authored splits for it, the one it
- * would pick preselected; a choice reaches the generated program, Continue keeps today's program byte for byte, a
- * day count the choice does not fit resets it, and with fewer than two choices the step is passed both ways.
+ * The split step (owner, 2026-10-23/24): after the session length, the generator's authored splits for the day count,
+ * the one it would pick preselected and each with what its sessions cost; a choice reaches the generated program,
+ * Continue keeps today's program byte for byte, a day count the choice does not fit resets it, and with fewer than
+ * two choices the step is passed both ways.
  */
 async function recommendSplitStep(browser) {
   const Services = Adapter.createProductionServices({ Compiler, catalog: Catalog });
@@ -1238,6 +1238,20 @@ async function recommendSplitStep(browser) {
       JSON.stringify(cards.filter((card) => card.selected).map((card) => card.id)) === JSON.stringify([auto]) &&
       cards.filter((card) => card.tag).map((card) => card.id).join() === auto && cards.every((card) => !card.text.includes("split.")),
       `split step: ${days} days offers its ${expected.length} authored splits, the default preselected and marked Recommended`, { cards, expected });
+    // Each card's minutes are the generator's own estimate of that split's training days for these answers.
+    const minutesFor = (id) => {
+      const mapped = Adapter.programRequestFromAnswers({ ...answers, splitPreference: id }, Catalog);
+      const generated = Compiler.generateProgram(mapped.value, Catalog);
+      const each = trainingDays(generated.value).map((day) => Math.ceil(Compiler.estimateDaySeconds(day, undefined, Catalog) / 60));
+      return [Math.min(...each), Math.max(...each)];
+    };
+    await run.page.waitForFunction((n) => [...document.querySelectorAll('#onbBody [data-entry-pick="splitPreference"] .radio-card__cap')]
+      .filter((cap) => !cap.closest('[aria-hidden="true"]') && /\d+\D+\d+/.test(cap.textContent)).length === n, expected.length, { timeout: 20000 });
+    const captions = await run.page.locator('#onbBody [data-entry-pick="splitPreference"]:not([aria-hidden="true"] *)')
+      .evaluateAll((nodes) => nodes.map((node) => node.querySelector(".radio-card__cap").textContent.match(/\d+/g).map(Number)));
+    const wanted = expected.map((choice) => [days, ...minutesFor(choice.id)]);
+    check(JSON.stringify(captions) === JSON.stringify(wanted),
+      `split step: each ${days}-day card shows its training days and their estimated minutes`, { captions, wanted });
     errors.push(...run.errors);
     await run.context.close();
   }
@@ -1276,6 +1290,8 @@ async function recommendSplitStep(browser) {
     const { page } = run;
     await pick(page, "splitPreference", "push_pull_legs");
     await page.click("#onbBack");
+    await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "session_length");
+    await page.click("#onbBack");
     await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "days_per_week");
     await pick(page, "daysPerWeek", 4);
     const answers = (await entry(page)).answers;
@@ -1298,12 +1314,12 @@ async function recommendSplitStep(browser) {
     });
     await page.click("#firstRunCreate");
     await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
-    await answerRecommend(page, { days: 4, skipBasics: true, until: "session_length" });
+    await answerRecommend(page, { days: 4, skipBasics: true, until: "muscle_priorities" });
     const forward = await entry(page);
     await page.click("#onbBack");
-    await page.waitForFunction(() => window.__repforgeEntryState?.()?.step !== "session_length");
+    await page.waitForFunction(() => window.__repforgeEntryState?.()?.step !== "muscle_priorities");
     const back = await entry(page);
-    check(forward.step === "session_length" && back.step === "days_per_week",
+    check(forward.step === "muscle_priorities" && back.step === "session_length",
       "split step: with a single split it is passed going forward and going back", { forward: forward.step, back: back.step });
     errors.push(...run.errors);
     await run.context.close();

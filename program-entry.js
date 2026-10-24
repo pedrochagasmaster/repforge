@@ -109,9 +109,10 @@
       "equipment",
       "desired_result",
       "days_per_week",
-      // Shown only when the day count has two or more authored splits; skipped either way otherwise.
-      "split",
       "session_length",
+      // After the session length, so each choice can show what a session costs. Shown only when there are two or
+      // more authored splits; skipped either way otherwise.
+      "split",
       "muscle_priorities",
       "deload",
       "abilities",

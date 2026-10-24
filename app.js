@@ -16725,11 +16725,14 @@ function entryLegacyBanner(){
 /* The resume card sits on the hub (Q633), above doors that stay inert until the
    lifter chooses Resume or Start over: any door tap would otherwise overwrite
    the saved draft on its next persist. */
+/* A step whose title is another step's approved string, rather than a copy of it. */
+const ENTRY_STEP_TITLE_KEYS=Object.freeze({split:"entry.custom_shape.title"});
+const entryStepTitleKey=step=>ENTRY_STEP_TITLE_KEYS[step]||`entry.${step}.title`;
 function renderEntryResumeCard(){
   const updated=entryState?.updatedAt?new Date(entryState.updatedAt):null;
   const when=updated&&!Number.isNaN(updated.valueOf())?updated.toLocaleDateString(locTag(),{month:"short",day:"numeric"}):"";
   const where=[entryState?.route?entryRouteLabel(entryState.route):"",
-    entryState?.step?t(`entry.${entryState.step}.title`):""].filter(Boolean).join(" · ");
+    entryState?.step?t(entryStepTitleKey(entryState.step)):""].filter(Boolean).join(" · ");
   const detail=where?t("entry.resume.detail",{where,when:when||"—"}):"";
   return `<section class="entry__resume" aria-labelledby="entryResumeTitle">`+
     `<div class="entry__resume-head"><span class="entry__resume-ico icon-mask icon-mask--clipboard" aria-hidden="true"></span>`+
@@ -16773,7 +16776,7 @@ function entryChooseHubRoute(){
 const ENTRY_B_SECTIONS=Object.freeze([
   ["basics",["sex","birth_date","height","weight","background","cardio_experience"]],
   ["gym",["environment","equipment"]],
-  ["program",["desired_result","days_per_week","split","session_length","muscle_priorities","deload","abilities"]]]);
+  ["program",["desired_result","days_per_week","session_length","split","muscle_priorities","deload","abilities"]]]);
 function entryBSection(stepId){
   const index=ENTRY_B_SECTIONS.findIndex(([,steps])=>steps.includes(stepId));
   return index<0?null:{n:index+1,total:ENTRY_B_SECTIONS.length,name:ENTRY_B_SECTIONS[index][0]}}
@@ -16785,10 +16788,11 @@ function entryPatchBasics(patch){
   entryPatchAnswers({basics:next})}
 function entryBNote(weight=false){
   return `<p class="entry-b__note"><span class="icon-mask icon-mask--shield icon-mask--sm" aria-hidden="true"></span><span>${esc(t(weight?"entry.basics.weight_note":"entry.basics.note"))}</span></p>`}
-function entryBChoice(key,value,label,sub,selected,{icon="",tag=""}={}){
+function entryBChoice(key,value,label,sub,selected,{icon="",tag="",cap=false}={}){
   return `<button type="button" class="radio-card${selected?" is-selected":""}" role="radio" aria-checked="${selected?"true":"false"}" data-entry-pick="${esc(key)}" data-entry-val="${esc(String(value))}">`+
     (icon?`<span class="radio-card__icon icon-mask icon-mask--${esc(icon)}" aria-hidden="true"></span>`:"")+
-    `<span class="radio-card__body"><span class="radio-card__title">${esc(label)}</span>${sub?`<span class="radio-card__cap">${esc(sub)}</span>`:""}`+
+    // cap: the caption is always drawn (hidden while empty) so a value arriving later has its place.
+    `<span class="radio-card__body"><span class="radio-card__title">${esc(label)}</span>${sub||cap?`<span class="radio-card__cap"${sub?"":" hidden"}>${esc(sub)}</span>`:""}`+
     `${tag?`<span class="entry-b__tag">${esc(tag)}</span>`:""}</span>`+
     `<span class="radio-card__mark" aria-hidden="true"></span></button>`}
 function entryBGroup(inner,{compact=false}={}){
@@ -16837,11 +16841,51 @@ function entrySplitFor(answers){
   const choices=entrySplitChoices(answers);
   if(choices.length<2)return undefined;
   return choices.some(choice=>choice.id===answers.splitPreference)?answers.splitPreference:(choices.find(choice=>choice.default)||choices[0]).id}
+/* What a session of each split costs for these answers: each one is generated in the program engine (its worker)
+   and its training days estimated, one after another, while the cards are already on screen; a card's line fills in
+   as its split comes back. A change of answers or step abandons the run. */
+let entrySplitEstimates=null;
+function entrySplitEstimateText(choice,run){
+  const estimate=run?.byId?.[choice.id];
+  return estimate?t("entry.custom_shape.summary",{days:choice.frequency,min:estimate.min,max:estimate.max}):""}
+function ensureEntrySplitEstimates(choices){
+  const base=entryGeneratorRequest({answers:{...entryState.answers,splitPreference:"auto"}});
+  if(!base.ok)return null;
+  const key=JSON.stringify(base.request);
+  // A finished run for the same answers is kept; one abandoned part-way is started again.
+  if(entrySplitEstimates?.key===key&&(entrySplitEstimates.done||!entrySplitEstimates.controller.signal.aborted))return entrySplitEstimates;
+  entrySplitEstimates?.controller.abort();
+  const run={key,byId:{},controller:new AbortController()},answers={...entryState.answers};
+  entrySplitEstimates=run;
+  (async()=>{
+    for(const choice of choices){
+      if(run.controller.signal.aborted)return;
+      const mapped=entryGeneratorRequest({answers:{...answers,splitPreference:choice.id}});
+      if(!mapped.ok)continue;
+      // Estimates are not the program: they always go to the engine (or this thread without one), never through a
+      // services override that stands in for the program's own generation.
+      const engine=programEngine();
+      let generated=null;
+      try{generated=engine?await engine.generate(mapped.request,{signal:run.controller.signal})
+        :ProgramCompiler.generateProgram(mapped.request,rawExerciseCatalog)}
+      catch(error){if(error?.name==="AbortError")return;console.warn("split estimate failed",error)}
+      if(run.controller.signal.aborted)return;
+      const minutes=(generated?.ok?generated.value.days:[]).filter(day=>day.kind==="training").map(day=>{
+        try{const seconds=ProgramCompiler.estimateDaySeconds(day,undefined,rawExerciseCatalog);return seconds>0?Math.ceil(seconds/60):null}catch{return null}})
+        .filter(Number.isFinite);
+      if(minutes.length)run.byId[choice.id]={min:Math.min(...minutes),max:Math.max(...minutes)};
+      const cap=entrySplitEstimates===run&&entryState?.step==="split"
+        ?$(`#onbBody [data-entry-pick="splitPreference"][data-entry-val="${CSS.escape(choice.id)}"] .radio-card__cap`):null;
+      if(cap){cap.textContent=entrySplitEstimateText(choice,run);cap.hidden=!cap.textContent}}
+    run.done=true})();
+  return run}
+/* Leaving the step stops its estimates, so the program's own generation never waits behind them. */
+function stopEntrySplitEstimates(){if(entrySplitEstimates&&!entrySplitEstimates.done)entrySplitEstimates.controller.abort()}
 function renderSplitStep(){
-  const choices=entrySplitChoices(),current=entrySplitFor(entryState.answers);
-  return entryHeading(t("entry.custom_shape.title"))+`<p class="onb__explain">${esc(t("entry.custom_shape.lede"))}</p>`+
+  const choices=entrySplitChoices(),current=entrySplitFor(entryState.answers),run=ensureEntrySplitEstimates(choices);
+  return entryHeading(t(entryStepTitleKey("split")))+`<p class="onb__explain">${esc(t("entry.custom_shape.lede"))}</p>`+
     entryBGroup(choices.map(choice=>entryBChoice("splitPreference",choice.id,splitDisplayName(choice),
-      choice.default?"":t("entry.custom_shape.compatible_reason"),current===choice.id,{tag:choice.default?t("aria.recommended"):""})).join(""))}
+      entrySplitEstimateText(choice,run),current===choice.id,{tag:choice.default?t("aria.recommended"):"",cap:true})).join(""))}
 function renderSessionLengthStep(){
   const current=entryState.answers.sessionMinutes??60;
   return entryHeading(t("entry.session_length.title"))+`<p class="onb__explain">${esc(t("entry.session_length.lede"))}</p>`+
@@ -19321,7 +19365,7 @@ function renderOnboarding({pageTransition=null}={}){
      same string ("Import a program" twice, 60px apart). Show one of them. */
   const bSection=entryIsB()?entryBSection(stepId):null;
   const eyebrowText=bSection?t(`entry.section.${bSection.name}`):route?entryRouteLabel(route):t("entry.eyebrow");
-  const titleText=isEditor?t("entry.build_editor_title"):t(route?`entry.${stepId}.title`:"entry.hub.title")||t("entry.eyebrow");
+  const titleText=isEditor?t("entry.build_editor_title"):t(route?entryStepTitleKey(stepId):"entry.hub.title")||t("entry.eyebrow");
   const eyebrow=$("#onbEyebrow");
   if(eyebrow){const duplicate=eyebrowText===titleText;
     eyebrow.textContent=duplicate?"":eyebrowText;
@@ -19604,7 +19648,7 @@ function wireEntryDom(){
     if(key==="daysPerWeek"||key==="sessionMinutes"){
       // A split chosen for another day count is not carried over: it resets to what fits, never to an invalid choice.
       const next={...entryState.answers,[key]:+raw},patch={[key]:+raw};
-      if(key==="daysPerWeek"&&next.splitPreference&&next.splitPreference!=="auto"&&!entrySplitChoices(next).some(choice=>choice.id===next.splitPreference))
+      if(next.splitPreference&&next.splitPreference!=="auto"&&!entrySplitChoices(next).some(choice=>choice.id===next.splitPreference))
         patch.splitPreference=entrySplitFor({...next,splitPreference:undefined})||"auto";
       entryPatchAnswers(patch);return}
     if(key==="basicsSex"){entryPatchBasics({sex:raw});return}
@@ -19841,6 +19885,7 @@ function entryAdvance(){
   if(!ProgramEntry||!entryState||entryResultJob)return;
   if(entryHubMode()){entryChooseHubRoute();return}
   entryGoalOpen=false;
+  if(entryState.step==="split")stopEntrySplitEstimates();
   if(entryIsB()){entryCommitPicker(entryState.step);entryApplyShownDefaults(entryState.step);entryPriorityLimitShown=false}
   if(entryState.step==="build_setup"){
     const nameInput=$("#entryProgramName");
@@ -19894,6 +19939,7 @@ function entryBack(){
   // An open answer editor closes first; Back then leaves the review as before.
   if(entryEditor){closeEntryEditor();return}
   entryGoalOpen=false;
+  if(entryState.step==="split")stopEntrySplitEstimates();
   if(entryState.step==="result"&&entryState.result?.preview)entryLastPreview={draftId:entryState.draftId,preview:entryState.result.preview};
   if(entryGoalFromHub&&entryState.route==="recommend"&&entryState.step==="background"){
     entryGoalFromHub=false;

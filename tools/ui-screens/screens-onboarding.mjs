@@ -1014,7 +1014,14 @@ export const ONBOARDING_SCENARIOS = {
     await recommendStep(page, "days_per_week");
     await pick(page, "daysPerWeek", "4");
   },
-  "onboarding-recommend/split": (page) => recommendStep(page, "split"),
+  "onboarding-recommend/split": async (page) => {
+    await recommendStep(page, "split");
+    // Each card's minutes arrive from the program engine after the cards are drawn: shoot them all filled in.
+    await page.waitForFunction(() => {
+      const caps = [...document.querySelectorAll('#onbBody [data-entry-pick="splitPreference"] .radio-card__cap')].filter((cap) => !cap.closest('[aria-hidden="true"]'));
+      return caps.length > 1 && caps.every((cap) => !cap.hidden && cap.textContent.trim());
+    }, undefined, { timeout: 30000 });
+  },
   "onboarding-recommend/session-length": (page) => recommendStep(page, "session_length"),
   "onboarding-recommend/muscle-priorities": async (page) => {
     await recommendStep(page, "muscle_priorities");
