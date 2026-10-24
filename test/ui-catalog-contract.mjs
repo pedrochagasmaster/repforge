@@ -255,6 +255,45 @@ try {
   } finally {
     await transfer.context.close();
   }
+
+  // A scenario that reseeds storage mid-run (the per-side history and adaptive Why fixtures) reloads the app. Those
+  // frames were filed as dark while the page had booted back on the light palette, so the dark catalog showed light
+  // pixels. Read the theme off the rendered page, not the file name: the root's data-theme, its computed color-scheme
+  // and the page ground's luminance.
+  const RESEEDED_DARK = ["workout/focus-per-side", "workout/why-per-side", "workout/why-this-weight", "workout/why-in-session",
+    "history/per-side-session", "progress/exercise-chart", "progress/strength-comparison"];
+  const renderedTheme = () => {
+    const root = document.documentElement;
+    const [r, g, b] = getComputedStyle(document.body).backgroundColor.match(/\d+(\.\d+)?/g).map(Number);
+    return { attribute: root.dataset.theme || null, colorScheme: getComputedStyle(root).colorScheme,
+      luminance: Math.round((0.2126 * r + 0.7152 * g + 0.0722 * b) / 2.55) };
+  };
+  for (const key of RESEEDED_DARK) {
+    const [flow, screen] = key.split("/");
+    const capture = { flow, screen, viewport: "phone-390", theme: "dark", locale: "en", text: "normal", motion: "normal" };
+    const opened = await openPage(browser, manifest, capture, appState(key, manifest.locales.en.lang));
+    try {
+      await dismissChrome(opened.page);
+      await APP_SCENARIOS[key](opened.page);
+      await settle(opened.page);
+      const rendered = await opened.page.evaluate(renderedTheme);
+      assert.ok(rendered.attribute === "dark" && rendered.colorScheme === "dark" && rendered.luminance < 20,
+        `${key} filed as dark renders dark: ${JSON.stringify(rendered)}`);
+      const config = configForCapture(manifest, capture);
+      assert.deepEqual(validate(await opened.page.evaluate(collectCatalogEvidence, config), config), [],
+        `${key} dark frame satisfies the catalog contract`);
+      if (key === RESEEDED_DARK[0]) {
+        await opened.page.evaluate(() => window.__repforgeUi.setTheme("light"));
+        const wrong = validate(await opened.page.evaluate(collectCatalogEvidence, config), config);
+        assert.ok(wrong.some((failure) => failure.startsWith("rendered theme")),
+          `a frame filed as dark that renders light is rejected: ${wrong.join(" | ")}`);
+        console.log(`deliberate theme rejection: ${wrong.find((failure) => failure.startsWith("rendered theme"))}`);
+      }
+      console.log(`${key} dark: ${JSON.stringify(rendered)}`);
+    } finally {
+      await opened.context.close();
+    }
+  }
 } finally {
   await browser.close();
 }

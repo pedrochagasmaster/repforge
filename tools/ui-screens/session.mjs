@@ -69,8 +69,14 @@ async function seedStorage(page, state) {
   }, { key: KEY, logDraft: LOG_DRAFT, setupDraft: SETUP_DRAFT, uiKey: UI_KEY, blob: state });
 }
 
+/**
+ * Reseed a running capture. The interface preferences carry the capture's theme, and seedStorage clears them so the
+ * first boot starts clean; a reseed keeps them, or the reload boots back on the default palette under a dark file name.
+ */
 export async function seed(page, state) {
+  const ui = await page.evaluate((uiKey) => localStorage.getItem(uiKey), UI_KEY);
   await seedStorage(page, state);
+  if (ui !== null) await page.evaluate(({ uiKey, value }) => localStorage.setItem(uiKey, value), { uiKey: UI_KEY, value: ui });
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
 }
