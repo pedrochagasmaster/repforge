@@ -131,6 +131,8 @@
   /* Today's live card: the prototype's raised paper (a hairline drop and a soft lift), on the theme's shadow channel. */
   --live-card-shadow:0 1px 0 rgba(var(--shadow-rgb),.04),0 6px 18px rgba(var(--shadow-rgb),.06);
   --live-dot-halo:0 0 0 4px rgba(var(--accent-rgb),.18);
+  /* The mini bar's lift, the prototype's soft float on the theme's shadow channel. */
+  --minibar-shadow:0 6px 20px rgba(var(--shadow-rgb),.14);
   --live-dot-pulse-from:0 0 0 0 rgba(var(--accent-rgb),.45);
   --live-dot-pulse-to:0 0 0 9px rgba(var(--accent-rgb),0);
   --row-pressed-bg:rgba(var(--ink-rgb),.06);
@@ -1675,14 +1677,48 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
   box-shadow:var(--elevation-persistent-shadow);
 }
 .restbar.hidden{display:none!important}
+/* With a session open the rest has a home on every root tab: the mini bar on the other tabs and the live card's tag on
+   Today. The pill gives way to them, so one thing at most sits above the dock (owner addendum, 2026-10-23). */
+body:has(#miniBar:not(.hidden)) .restbar,body:has(#log.view.active #todayLive .today-live) .restbar{display:none!important}
 /* The pill floats over the page the way the dock does, so while it shows the
    page reserves its band as well: the end of every tab scrolls clear of it, and
    Today's floating Start/Continue rides above it instead of under it. The band
    is the pill's gap above the dock plus its height, which grows with the text. */
-body:not(.is-focus-wo):has(#restBar:not(.hidden)){
+body:not(.is-focus-wo):has(#restBar:not(.hidden)):not(:has(#miniBar:not(.hidden))):not(:has(#log.view.active #todayLive .today-live)){
   --restbar-reserve:calc(16px + max(44px, calc(var(--font-size-body-small) * var(--line-standard) + 18px)));
 }
 .restbar__dot{width:7px;height:7px;border-radius:50%;background:var(--color-ink-secondary)}
+/* The mini bar: one frosted bar above the dock while a session is open, on the root tabs other than Today. It is the
+   context menu's material (paper at 86% with a blur) on the prototype's lift, inset like the dock. */
+.minibar{
+  position:fixed;z-index:28;left:50%;transform:translateX(-50%);
+  bottom:calc(var(--nav) + env(safe-area-inset-bottom) + var(--space-8));
+  width:min(calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right) - 2*var(--dock-inset)),var(--maxw));
+  min-height:58px;box-sizing:border-box;padding:var(--space-8) var(--space-8) var(--space-8) var(--space-14);
+  display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:var(--space-12);
+  border-radius:var(--radius-prominent);background:var(--menu-bg);
+  backdrop-filter:var(--menu-blur);-webkit-backdrop-filter:var(--menu-blur);box-shadow:var(--minibar-shadow);
+  color:var(--color-ink);cursor:pointer;
+}
+.minibar.hidden{display:none!important}
+.minibar__ring{position:relative;flex:none;width:30px;height:30px;border-radius:var(--radius-round);
+  background:conic-gradient(var(--accent) var(--minibar-p,0%),var(--rule) 0)}
+.minibar__ring::after{content:"";position:absolute;inset:4px;border-radius:var(--radius-round);background:var(--bg)}
+.minibar__text{display:grid;min-width:0}
+.minibar__title{font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-semibold);line-height:var(--line-standard);overflow-wrap:anywhere}
+.minibar__sub{font-family:var(--font-language);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:anywhere}
+.minibar__rest{color:var(--accent-deep)}
+/* The rest's line stays one line (coordinator review, 2026-10-24): the exercise name, last in both languages, gives way
+   with an ellipsis. The text itself is whole, so assistive technology reads all of it. */
+.minibar.is-rest .minibar__sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.minibar__clock{font-family:var(--font-training-data);font-variant-numeric:tabular-nums}
+.minibar__actions{display:flex;align-items:center;gap:var(--space-8)}
+.minibar__chip{min-height:var(--control-target);padding:0 var(--space-12);border:0;border-radius:var(--radius-pill);background:var(--control-track);color:var(--color-ink);
+  font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-semibold);cursor:pointer}
+.minibar__go{min-height:var(--control-target);padding:0 var(--space-14);border:0;border-radius:var(--radius-pill);background:var(--control-primary-bg);color:var(--control-primary-ink);
+  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);cursor:pointer}
+.minibar__chip:focus-visible,.minibar__go:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.today-live__tag.is-rest [data-live="elapsed"]{font-variant-numeric:tabular-nums}
 .restbar.is-done{border-color:var(--boundary-persistent);color:var(--color-ink)}
 .restbar__time{min-width:2.5em;text-align:center}
 

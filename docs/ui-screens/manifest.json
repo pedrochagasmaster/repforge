@@ -1116,7 +1116,7 @@
       "id": "rest-bar",
       "flow": "today",
       "label": "Today — running rest bar",
-      "scenario": "The rest countdown remains visible after leaving the active workout; the logged set opens the live card.",
+      "scenario": "A rest running after leaving the workout: the live card's tag counts it down, and no rest pill floats above the dock.",
       "variants": "demandingText"
     },
     {
@@ -1306,6 +1306,13 @@
       "flow": "progress",
       "label": "Progress — overview",
       "scenario": "The Progress landing tab.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "minibar",
+      "flow": "progress",
+      "label": "Mini bar on Progress",
+      "scenario": "While a session is open, the frosted bar above the dock: a ring of the sets done, the session's name, the exercise and the time so far, and Resume.",
       "variants": "demandingText"
     },
     {
@@ -1519,6 +1526,13 @@
       "variants": "demandingText"
     },
     {
+      "id": "minibar-rest",
+      "flow": "history",
+      "label": "Mini bar on History, rest running",
+      "scenario": "A rest running while a session is open: the bar is the rest timer, Rest 1:24 with the next set, +30s and Resume, and no separate rest pill.",
+      "variants": "localized"
+    },
+    {
       "id": "list-scrolled",
       "flow": "history",
       "label": "History — list, scrolled",
@@ -1615,6 +1629,13 @@
       "label": "Program",
       "scenario": "The current program and its days.",
       "variants": "demandingText"
+    },
+    {
+      "id": "minibar-rest-done",
+      "flow": "program",
+      "label": "Mini bar on Program, rest done",
+      "scenario": "Just after the bell: the bar says Rest done with the set coming up, then returns to the session.",
+      "variants": "localized"
     },
     {
       "id": "progression-editor",
