@@ -278,6 +278,11 @@
       "content": "flat",
       "scenario": "The Direction D lifter before Day 1 starts: the prescription table reads recommendation() for every exercise, with the verdict tally above it."
     },
+    "today/dock-viewer": {
+      "owner": "plan-075-phase-5",
+      "content": "flat",
+      "scenario": "At 200% text a finger holds the dock's Progress tab: the large-content viewer shows its icon and name large over Today, which keeps its one-row dock with capped labels."
+    },
     "today/ready-scrolled": {
       "owner": "plan-075",
       "content": "flat",
@@ -1166,6 +1171,7 @@
         "install/banner",
         "today/draft-resume",
         "today/ready",
+        "today/dock-viewer",
         "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
@@ -4147,6 +4153,7 @@
         "today/draft-resume",
         "today/no-program",
         "today/ready",
+        "today/dock-viewer",
         "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
@@ -5668,6 +5675,7 @@
         "install/banner",
         "today/draft-resume",
         "today/ready",
+        "today/dock-viewer",
         "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
@@ -5911,6 +5919,7 @@
         "today/draft-resume",
         "today/no-program",
         "today/ready",
+        "today/dock-viewer",
         "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
@@ -5965,6 +5974,7 @@
         "today/draft-resume",
         "today/no-program",
         "today/ready",
+        "today/dock-viewer",
         "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
@@ -6026,6 +6036,7 @@
         "today/done",
         "today/draft-resume",
         "today/ready",
+        "today/dock-viewer",
         "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
@@ -7752,6 +7763,7 @@
         "today/draft-resume",
         "today/no-program",
         "today/ready",
+        "today/dock-viewer",
         "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
@@ -7822,6 +7834,7 @@
         "today/draft-resume",
         "today/no-program",
         "today/ready",
+        "today/dock-viewer",
         "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
@@ -7901,6 +7914,7 @@
         "today/draft-resume",
         "today/no-program",
         "today/ready",
+        "today/dock-viewer",
         "today/skipped",
         "today/rest-bar",
         "workout/invalid-draft",
@@ -7908,6 +7922,23 @@
         "today/deload-week",
         "today/ready-scrolled",
         "history/list-scrolled"
+      ]
+    },
+    {
+      "id": "dock-viewer",
+      "selector": ".dock-viewer",
+      "roles": {
+        "elevation": "floating"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The dock's large-content viewer: while a finger holds a tab at large text it shows that tab's icon and name large; aria-hidden, the tab keeps its own name.",
+      "owner": "plan-075-phase-5",
+      "catalogStates": [
+        "today/dock-viewer"
       ]
     },
     {
@@ -7992,6 +8023,7 @@
         "onboarding-start/first-run-ways",
         "today/draft-resume",
         "today/ready",
+        "today/dock-viewer",
         "today/skipped",
         "history/session",
         "program/overview",
@@ -8187,6 +8219,7 @@
       "owner": "plan-064/r1a",
       "catalogStates": [
         "today/ready",
+        "today/dock-viewer",
         "today/skipped",
         "today/rest-bar",
         "today/day-picker",
@@ -10644,6 +10677,7 @@
         "today/deload-week",
         "today/draft-resume",
         "today/ready",
+        "today/dock-viewer",
         "today/rest-bar",
         "today/skipped",
         "workout/invalid-draft",
@@ -11250,6 +11284,7 @@
       "catalogStates": [
         "today/no-program",
         "today/ready",
+        "today/dock-viewer",
         "today/skipped",
         "today/rest-bar",
         "today/done",
@@ -11634,6 +11669,7 @@
       "catalogStates": [
         "today/no-program",
         "today/ready",
+        "today/dock-viewer",
         "today/skipped",
         "today/rest-bar",
         "today/done",
@@ -11692,6 +11728,7 @@
       "catalogStates": [
         "today/no-program",
         "today/ready",
+        "today/dock-viewer",
         "today/skipped",
         "today/rest-bar",
         "today/done",

@@ -101,6 +101,39 @@ foreground correction; the global destructive palette stays unchanged.
 Destructive items retain their destructive role;
 Skip and Restore remain reversible selections in the workout draft.
 
+### The dock and Focus at large text
+
+ADR 0023 choice 10 (audit F-5) amends the dock. At every text size it keeps one
+row of four destinations and its 62px height (`--dock-h`). Its labels stop
+growing at 1.3× the `label` role (`--dock-label-max`, 14.3px), or at 3.7cqi
+where a quarter of a narrow phone can't hold the longest name at 14.3px, as an
+iOS tab bar's do, and in the large-text state (the root container narrower
+than 15em) the dock takes `--dock-glass-opaque`. The capped label is the one
+exception to "labels/captions cannot be the sole critical control text": each
+tab keeps its icon, its whole name as its accessible name, the 44px target and
+keyboard reach, and a touch and hold shows the large-content viewer, the tab
+under the finger drawn large (`.dock-viewer`: the icon at 56px and the name at
+32px, on the menu material `--menu-bg` and `--menu-blur` with a 22px radius
+and `--elevation-dialog-shadow`; solid `--surface` under reduced
+transparency). Sliding moves the viewer; lifting is a tap on the tab under the
+finger; lifting off the dock or a cancelled touch selects nothing. The viewer
+is `aria-hidden` and pointer-transparent: it repeats what the tab already says
+for assistive technology. The two-row text-scaled dock is retired.
+
+Focus at large text (audit F-1, the card's `is-text-scaled` state) keeps every
+role and caps the sizes that would push the open set off the screen, at the
+prototype's values: the bar title at `--bar-title-max` (21px), the header timer
+pill at 18px, the meta line at 18px, the cue at 35.2px and 24px, the rest clock
+at 52px with its label and total stacked on one line under it at 26px and the
+next cue at 24px, the ledger's values at 25.6px, its previous-set lines at
+24px and its disclosure at 20px, and the shelf's labels at 16px, values at
+28px, pads at 24px and action at 25.6px. The ledger drops its SET head and
+keeps the value heads (RIR's is the glossary's way in from Focus); its columns
+share the rows' grid. The shelf's pads, the four rest controls included, stay
+on one row and scroll sideways if they must. The open set is kept whole above
+the shelf at every set; the header pill still shows a running rest when the
+window scrolls past it.
+
 ### Permitted contextual variants
 
 The inventory lists the exact affected catalog states and rationale for each
@@ -281,7 +314,8 @@ Line heights are tight 1.1, standard 1.4, reading 1.55; weights are 400, 500,
 600. Labels/captions cannot be the sole critical control text. Two exact
 contextual variants protect established hierarchy: the Plan 054 first-run
 headline (38px, 52px wide) and the responsive Mono rest clock
-(`clamp(2rem,10cqi,2.625rem)` since the Plan 064 R3f amendment below). The
+(`clamp(2rem,10cqi,2.625rem)` since the Plan 064 R3f amendment below, capped
+at 52px in Focus at large text by ADR 0023). The
 Plan 054 climax data (`min(68px,16vw)`, then `min(88px,7.5vw)` wide) retired
 with the landing it belonged to, and its tokens are gone. Their selectors and
 catalog owners are in the inventory; no other surface inherits them by visual
@@ -737,10 +771,11 @@ is added; every value below is an existing token.
   the 44px icon steppers, so they do not take the "Rapid workout stepper" variant
   and carry no variant of their own. Four labels do not fit one row once the root
   font is above 16px, and a second row would push the shelf's action below the
-  safe area at 320px with double-size text (`test/focus-geometry.mjs`), so at
-  large text the field pads stay while a rest runs and the rest controls are the
-  presets sheet's; the clock and the next cue stay inline (owner decision, #295
-  comment 5948281184).
+  safe area at 320px with double-size text (`test/focus-geometry.mjs`). Since
+  ADR 0023 phase 5 the row keeps its four pads at large text and scrolls
+  sideways, as the prototype does, which supersedes #295's rule (comment
+  5948281184) that the field pads stayed and the rest controls moved to the
+  presets sheet; the clock and the next cue stay inline.
 - **Overrun.** Past the bell, and after Pular, the line reads "Descanso
   concluído · +0:15" on `subtitle` in `--ink-soft` (5.11:1 and 7.78:1 on `--bg`),
   not the warning colour (decision 14). The header timer chip follows it: it

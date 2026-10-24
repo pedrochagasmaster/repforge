@@ -359,6 +359,29 @@
         "text": "normal",
         "motion": "normal"
       }
+    ],
+    "largeText": [
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "en",
+        "text": "text200",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "dark",
+        "locale": "en",
+        "text": "text200",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "pt",
+        "text": "text200",
+        "motion": "normal"
+      }
     ]
   },
   "catalogChecks": {
@@ -1041,6 +1064,13 @@
       "label": "Today — ready to start",
       "scenario": "The Direction D lifter before Day 1 starts: the prescription table reads recommendation() for every exercise, with the verdict tally above it.",
       "variants": "demandingDockText"
+    },
+    {
+      "id": "dock-viewer",
+      "flow": "today",
+      "label": "Today — dock large-content viewer",
+      "scenario": "At 200% text a finger holds the dock's Progress tab: the large-content viewer shows its icon and name large over Today, which keeps its one-row dock with capped labels.",
+      "variants": "largeText"
     },
     {
       "id": "ready-scrolled",

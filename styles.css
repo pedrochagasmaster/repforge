@@ -262,8 +262,11 @@
      safe area, inset --dock-inset from each edge. --nav stays the single
      "space the dock claims at the bottom" token every other floating element
      (rest bar, toast, tour, FAB) already measures itself against. */
-  /* The text-scaled dock uses two columns so every enlarged tab label stays whole. */
-  --dock-h:max(62px,calc(40px + var(--font-size-label) + var(--font-size-label)));
+  /* The dock keeps one row and one height at every text size, as an iOS tab bar does: its labels stop growing at
+     1.3× (--dock-label-max), or sooner where a quarter of a narrow phone can't hold "Progresso" at that size (3.7cqi),
+     and a touch and hold shows the large-content viewer (Plan 075 phase 5, audit F-5). */
+  --dock-label-max:14.3px;
+  --dock-h:62px;
   --dock-gap:10px;
   --dock-inset:14px;
   --nav:calc(var(--dock-h) + var(--dock-gap));
@@ -1052,6 +1055,37 @@ body:has(.exercise--focus.is-text-scaled) .shelf__lab{line-height:var(--line-tig
 body:has(.exercise--focus.is-text-scaled) .wo-rest.is-running{padding:0 var(--space-8);font-size:var(--font-size-body-small)}
 body:has(.exercise--focus.is-text-scaled) .wo-rest.is-running .wo-rest__dot{display:none}
 body:has(.exercise--focus.is-text-scaled) .wo-head__center{order:3;flex:1 0 100%;padding-top:0}
+/* Focus at large text (Plan 075 phase 5, audit F-1). The layout scales with the text, but the parts that would push
+   the set off the screen stop growing where iOS stops them: the bar title at --bar-title-max, the timer pill, the rest
+   clock at 52px, and the shelf's labels, values and pads. The rest block stacks, the clock over its label and total.
+   The ledger keeps its value heads (RIR's is the glossary's way in) but drops the SET head, and its columns share the
+   rows' grid instead of rem widths that outgrow the row. `sizeFocusCard` keeps the open set whole above the shelf. */
+body:has(.exercise--focus.is-text-scaled) .wo-head__title{font-size:min(var(--font-size-body-small),var(--bar-title-max))}
+body:has(.exercise--focus.is-text-scaled) .wo-rest.is-running{font-size:min(var(--font-size-body-small),18px)}
+.exercise--focus.is-text-scaled .focus-ex__meta{font-size:min(var(--font-size-body-small),18px)}
+.exercise--focus.is-text-scaled .fx-cue__l1{font-size:min(var(--font-size-section-title),35.2px)}
+.exercise--focus.is-text-scaled .fx-cue__mark{padding-top:calc((min(var(--font-size-section-title),35.2px) * var(--line-tight) - 16px) / 2)}
+.exercise--focus.is-text-scaled .fx-cue__l2{font-size:min(var(--font-size-subtitle),24px)}
+.exercise--focus.is-text-scaled .text-link.focus-ex__why,.exercise--focus.is-text-scaled .fx-cue__cancel{font-size:min(var(--font-size-control),24px)}
+.exercise--focus.is-text-scaled .restinline__row{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:var(--space-8);align-items:baseline}
+.exercise--focus.is-text-scaled .restinline__clock{order:-1;grid-column:1/-1;font-size:min(var(--font-size-rest-clock),52px)}
+.exercise--focus.is-text-scaled .restinline__label,.exercise--focus.is-text-scaled .restinline__of{font-size:min(var(--font-size-body),26px)}
+.exercise--focus.is-text-scaled .restinline__done,.exercise--focus.is-text-scaled .restinline__next,
+.exercise--focus.is-text-scaled .restinline__nextrow .text-link.restinline__why{font-size:min(var(--font-size-subtitle),24px)}
+.exercise--focus.is-text-scaled .ledgerline__head,.exercise--focus.is-text-scaled .ledgerline{grid-template-columns:auto minmax(0,1fr)}
+.exercise--focus.is-text-scaled .ledgerline__head > :first-child{visibility:hidden}
+.exercise--focus.is-text-scaled .ledgerline__head{font-size:min(var(--font-size-label),16px)}
+.exercise--focus.is-text-scaled .ledgerline__vals{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr);font-size:min(var(--font-size-body),25.6px)}
+.exercise--focus.is-text-scaled .ledgerline__vals > .fx-col{min-width:0}
+.exercise--focus.is-text-scaled .ledgerline__idx{font-size:min(var(--font-size-body-small),20px)}
+.exercise--focus.is-text-scaled .ledgerline__prev{font-size:min(var(--font-size-body-small),24px)}
+.exercise--focus.is-text-scaled .ledger__more{font-size:min(var(--font-size-body-small),20px)}
+.exercise--focus.is-text-scaled .shelf__lab{font-size:min(var(--font-size-body-small),16px)}
+.exercise--focus.is-text-scaled .shelf__val,.exercise--focus.is-text-scaled .shelf__input{font-size:min(var(--font-size-metric),var(--shelf-numeral-fit),28px)}
+.exercise--focus.is-text-scaled .shelf__pads{overflow-x:auto;scrollbar-width:none}
+.exercise--focus.is-text-scaled .shelf__pads::-webkit-scrollbar{display:none}
+.exercise--focus.is-text-scaled .shelf__pads > button{flex:1 0 auto;font-size:min(var(--font-size-control),24px)}
+.exercise--focus.is-text-scaled .focus-shelf .saveset{font-size:min(var(--font-size-control),25.6px)}
 .wo-head__sub{display:none}
 .wo-head__sub.is-deload{display:block;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 .wo-head__end{display:flex;align-items:center;gap:6px;flex:none;position:relative;justify-self:end}
@@ -3194,10 +3228,11 @@ nav button{
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
   background:transparent;border:1px solid transparent;color:var(--ink-soft);cursor:pointer;
   border-radius:var(--radius-pill);
-  font-weight:500;letter-spacing:0;font-size:var(--font-size-label);text-transform:none;
+  font-weight:500;letter-spacing:0;font-size:min(var(--font-size-label),var(--dock-label-max),3.7cqi);text-transform:none;
   transition:color .2s ease,transform .18s ease;min-height:44px;min-width:0;
+  padding-inline:2px;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;
 }
-nav button > [data-i18n]{min-width:0;max-width:100%;text-align:center;line-height:1;overflow-wrap:normal}
+nav button > [data-i18n]{min-width:0;max-width:100%;text-align:center;line-height:1;overflow-wrap:normal;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 nav button.is-pressed{transform:scale(.93)}
 nav button:focus-visible{outline:var(--control-focus-outline);outline-offset:-3px}
 /* The selected tab sits in a lighter lens. This one is painted on the button
@@ -3240,20 +3275,24 @@ nav[data-lens] button.active{background:transparent;box-shadow:none}
 nav[data-lens=travel] button.active{border-color:transparent}
 /* As in the prototype the lens is a filled pill with no ring: the fill and the orange icon and label carry the
    selection (contract: state cues), so no ring rides with it while it travels either. */
-/* At enlarged computed text sizes, four short dock columns break localized
-   names inside words. The root container's em threshold follows the rendered
-   root font size, regardless of whether the browser scales it with inline
-   style, a user stylesheet, or another accessibility preference. Keep the
-   same two-row dock and selected-tab indicator while the labels reflow. */
+/* At enlarged text the capped labels sit on the opaque material, so a page read through the glass never competes
+   with them. The root container's em threshold follows the rendered root font size, whether the browser scales it
+   with inline style, a user stylesheet or another accessibility preference. */
 @container (max-width:15em){
-  body{
-    --dock-h:calc(82px + 2 * var(--font-size-label));
-    --dock-gap:2px;
-    --nav:calc(var(--dock-h) + var(--dock-gap));
-  }
-  nav{grid-template-columns:repeat(2,minmax(0,1fr))}
-  nav button{gap:3px}
+  nav{--dock-glass:var(--dock-glass-opaque)}
 }
+/* The large-content viewer (iOS's, for a tab bar whose labels don't grow): while a finger holds the dock at large text,
+   the tab under it is shown large in the middle of the screen. It is drawn for the eye only; each tab already carries
+   its whole name for assistive technology. */
+.dock-viewer{
+  position:fixed;z-index:60;left:50%;top:40%;transform:translate(-50%,-50%);
+  display:grid;justify-items:center;gap:10px;box-sizing:border-box;width:max-content;min-width:180px;max-width:calc(100vw - 2 * var(--gut));padding:22px 26px;
+  border-radius:22px;background:var(--menu-bg);-webkit-backdrop-filter:var(--menu-blur);backdrop-filter:var(--menu-blur);
+  box-shadow:var(--elevation-dialog-shadow);color:var(--ink);pointer-events:none;
+}
+@media(prefers-reduced-transparency:reduce){.dock-viewer{background:var(--surface);backdrop-filter:none;-webkit-backdrop-filter:none}}
+.dock-viewer .nav__icon{width:56px;height:56px}
+.dock-viewer__label{font-family:var(--font-language);font-size:32px;font-weight:var(--weight-semibold);line-height:var(--line-tight);text-align:center;overflow-wrap:break-word}
 .nav__icon{width:22px;height:22px;flex:none;background:currentColor;
   -webkit-mask:no-repeat center/contain;mask:no-repeat center/contain}
 nav button.active .nav__icon{background:var(--accent)}

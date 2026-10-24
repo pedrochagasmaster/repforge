@@ -5896,6 +5896,52 @@ function mountTopBars(){
       new IntersectionObserver(([entry])=>{bar.classList.toggle("is-scrolled",!entry.isIntersecting&&entry.boundingClientRect.height>0)},
         {threshold:0,rootMargin}).observe(title)})}
 mountTopBars();
+/* ---- The dock's large-content viewer (Plan 075 phase 5, audit F-5) ----
+   At large text the dock keeps one row and its labels stop growing, as an iOS tab bar's do, so a touch and hold shows
+   the tab under the finger large in the middle of the screen. Sliding moves it to the tab now under the finger, and
+   lifting is a tap on that tab: the button's own click, so routing, the lens and telemetry stay the dock's. Lifting
+   off the dock or a cancelled touch switches nothing. It offers itself in the large-text state that puts the dock on
+   its opaque material (the root container narrower than 15em). The viewer is for the eye only: every tab keeps its
+   whole name for assistive technology, and the keyboard reaches the tabs as before. */
+const DOCK_VIEWER_HOLD_MS=450;
+function mountDockViewer(){
+  const nav=document.querySelector("nav");
+  if(!nav)return null;
+  let timer=0,held=false,viewer=null,target=null,start=null;
+  const large=()=>{const root=document.documentElement;
+    return root.clientWidth<=15*parseFloat(getComputedStyle(root).fontSize)};
+  const show=(x,y)=>{
+    target=document.elementFromPoint(x,y)?.closest?.("nav > button")||null;
+    if(!target){viewer?.remove();viewer=null;return}
+    if(!viewer){viewer=document.createElement("div");viewer.className="dock-viewer";viewer.setAttribute("aria-hidden","true");document.body.append(viewer)}
+    if(viewer.dataset.view===target.dataset.view)return;
+    viewer.dataset.view=target.dataset.view;
+    const icon=target.querySelector(".nav__icon")?.cloneNode(false),label=document.createElement("span");
+    label.className="dock-viewer__label";label.textContent=target.querySelector("[data-i18n]")?.textContent.trim()||"";
+    viewer.replaceChildren(...(icon?[icon]:[]),label)};
+  const reset=()=>{clearTimeout(timer);timer=0;held=false;target=null;start=null;viewer?.remove();viewer=null};
+  nav.addEventListener("touchstart",e=>{
+    reset();
+    if(e.touches.length!==1||!large())return;
+    const {clientX:x,clientY:y}=e.touches[0];start={x,y};
+    timer=setTimeout(()=>{timer=0;held=true;show(x,y)},DOCK_VIEWER_HOLD_MS)},{passive:true});
+  nav.addEventListener("touchmove",e=>{
+    const t=e.touches[0];if(!t)return;
+    if(held){e.preventDefault();show(t.clientX,t.clientY);return}
+    // Moving before the hold completes is not a hold.
+    if(timer&&Math.hypot(t.clientX-start.x,t.clientY-start.y)>10){clearTimeout(timer);timer=0}},{passive:false});
+  // A touch's events go to the element it started on, so a finger that leaves the dock still ends here.
+  nav.addEventListener("touchend",e=>{
+    const tab=held?target:null,was=held;
+    reset();
+    if(!was)return;
+    // The hold took the gesture: no synthetic click follows it, and lifting is the one tap.
+    e.preventDefault();tab?.click()});
+  nav.addEventListener("touchcancel",reset);
+  // A hold is the viewer's, never the browser's context menu.
+  nav.addEventListener("contextmenu",e=>{if(large())e.preventDefault()});
+  return nav}
+mountDockViewer();
 function setEvidenceView(view){
   if(!EVIDENCE_SEG[view]){evidenceView=null;
     paintStatsTabs();
@@ -8111,12 +8157,9 @@ function restFraction(){return Math.max(0,Math.min(1,restLeftMs()/1000/Math.max(
 const restOverSec=()=>Math.min(REST_OVERTIME_MAX,Math.max(0,-restTimeLeftSec()));
 /** The slot shows the rest unless the lifter is correcting a set: the correction's cue owns it then. */
 const restSlotMode=editing=>editing?"none":restInlineMode();
-/** Four text pads need a row of their own: at large text (the root above 16px, the same test that sizes the card)
- *  they no longer fit one row, and a second row would push the shelf's action off the shortest screens. The field
- *  pads stay then, and the rest controls are the header timer's presets sheet. */
-const restPadsFit=()=>!(Number.parseFloat(getComputedStyle(document.documentElement).fontSize)>16.1);
-/** The rest controls take the pad row while time remains, until a tap on a field brings the field pads back. */
-const restPadsOn=editing=>!editing&&!restPadsBack&&restPadsFit()&&restInlineMode()==="running";
+/** The rest controls take the pad row while time remains, until a tap on a field brings the field pads back. At large
+ *  text the row scrolls sideways instead of wrapping (Plan 075 phase 5), so the four pads keep it at every size. */
+const restPadsOn=editing=>!editing&&!restPadsBack&&restInlineMode()==="running";
 
 /** The Por quê? link of a cue: the same control in the cue and in the rest line. */
 function focusWhyHtml(ex,r,{peek,name,draft,label,cls}){
@@ -9191,15 +9234,18 @@ function sizeFocusCard(card){
   // The context region scrolls as one: keep the row being worked on in view. At the first set nothing has been
   // logged and the shelf already shows the set, so the card opens at its top with the exercise's prescription; later
   // the row scrolls into view, but never past a rest that is running or has just ended, which sits above it.
+  // At large text (Plan 075 phase 5) the open set comes first, at every set: the window is too short to hold the rest
+  // and the row, and the header's pill still shows the time.
+  const scaled=card.classList.contains("is-text-scaled");
   const context=card.querySelector(".fcard__context");
   const open=context?.querySelector(".ledgerline--open");if(!open)return;
-  if(+open.dataset.lrow<=1&&context.scrollTop===0)return;
+  if(!scaled&&+open.dataset.lrow<=1&&context.scrollTop===0)return;
   const box=context.getBoundingClientRect(),row=open.getBoundingClientRect();
   if(row.bottom>box.bottom){
     // A rest that is running or has just ended is never scrolled out: whatever else the window holds above the row
     // (a skip bar taking its height, the table's head and disclosure), the row comes no further than the rest's top.
     const slot=context.querySelector(".fx-slot"),
-      resting=!!slot&&!!slot.dataset.rest&&slot.dataset.rest!=="none";
+      resting=!scaled&&!!slot&&!!slot.dataset.rest&&slot.dataset.rest!=="none";
     const keep=resting?slot.getBoundingClientRect().top:NaN;
     const room=Number.isFinite(keep)?Math.max(0,keep-box.top):Infinity;
     const need=row.bottom-box.bottom+8;
