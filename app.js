@@ -8988,7 +8988,7 @@ let workoutInputModality="pointer";
 document.addEventListener("pointerdown",()=>{workoutInputModality="pointer"},true);
 // Keys typed into a text field are entry, not navigation (the motion layer's rule): only a key outside one, or Tab, is the keyboard.
 document.addEventListener("keydown",event=>{
-  if(event.key!=="Tab"&&event.target instanceof Element&&event.target.matches("textarea,input:not([type=button],[type=checkbox],[type=radio],[type=range],[type=reset],[type=submit])"))return;
+  if(event.key!=="Tab"&&event.target instanceof Element&&event.target.matches("textarea,input:not([type]),input:is([type=text],[type=search],[type=tel],[type=url],[type=email],[type=password],[type=number])"))return;
   workoutInputModality="keyboard";document.activeElement?.removeAttribute?.("data-quiet-focus")},true);
 function focusWorkoutControl(el){
   try{el.focus({preventScroll:true})}catch{return false}

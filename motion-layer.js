@@ -1620,12 +1620,13 @@
      one for any script focus. The mark lasts until the next key press, so a keyboard user sees the ring at once. */
   /* Keys typed into a text field are entry, not navigation: an on-screen keyboard sends them after a tap, and a ring
      drawn on the control focus returns to afterwards would be a keyboard cue nobody used. Tab out of the field is
-     navigation. The modality is mirrored on <html> so a stylesheet can hold a ring back after touch. */
+     navigation, and so are the keys of a date, time or select field. The modality is mirrored on <html> so a
+     stylesheet can hold a ring back after touch. */
   let modality = "pointer";
-  const setModality = next => { modality = next; document.documentElement.dataset.inputModality = next; };
+  const setModality = next => { const root = document.documentElement; if (root?.dataset && root.dataset.inputModality !== next) root.dataset.inputModality = next; modality = next; };
   const clearQuiet = () => document.querySelectorAll("[data-quiet-focus]").forEach(node => node.removeAttribute("data-quiet-focus"));
   const typingTarget = node => node instanceof Element && (node.isContentEditable ||
-    node.matches("textarea,input:not([type=button],[type=checkbox],[type=radio],[type=range],[type=reset],[type=submit],[type=color],[type=file])"));
+    node.matches("textarea,input:not([type]),input:is([type=text],[type=search],[type=tel],[type=url],[type=email],[type=password],[type=number])"));
   document.addEventListener("keydown", event => {
     if (event.metaKey || event.ctrlKey || ["Shift", "Alt", "Meta", "Control"].includes(event.key)) return;
     if (event.key !== "Tab" && typingTarget(event.target)) return;

@@ -1673,8 +1673,9 @@ async function autoSwipe(browser) {
     "the page underneath sits to the left, part of the way back, and dimmed", JSON.stringify(mid));
   for (const x of [300, 340, 370]) await touch("touchMove", [{ x, y }]);
   await touch("touchEnd");
-  const popped = await page.waitForFunction(() => !document.body.classList.contains("is-library"), undefined, { timeout: 3000 })
-    .then(() => true, () => false);
+  // The pop has settled only once the push machinery has finished too: a push started during the settle is dropped.
+  const popped = await page.waitForFunction(() => !document.body.classList.contains("is-library") && !document.body.classList.contains("is-pushing"),
+    undefined, { timeout: 3000 }).then(() => true, () => false);
   assert(popped, "released past halfway, the swipe pops the page");
 
   phase("a drag that starts on a text field is the field's");
@@ -2402,8 +2403,8 @@ async function concentricShelf(browser) {
   }
 }
 
-// NATIVE_FEEL_ONLY=large runs just phase 5, =shelf just its addendum and =wheel just the wheel picker, for a local
-// red/green; CI runs everything.
+// NATIVE_FEEL_ONLY=large runs just phase 5, =shelf just its addendum, =wheel just the wheel picker and =swipe just the
+// history and back-swipe phases, for a local red/green; CI runs everything.
 const ONLY = process.env.NATIVE_FEEL_ONLY || "";
 const browser = await launchChromium();
 try {
@@ -2618,7 +2619,12 @@ try {
     await largeTextFocus(browser);
     await largeTextDock(browser);
   }
-  if (ONLY !== "wheel") await concentricShelf(browser);
+  if (ONLY === "swipe") {
+    await routeHistory(browser);
+    await autoSwipe(browser);
+    await standaloneSwipe(browser);
+  }
+  if (!["wheel", "swipe"].includes(ONLY)) await concentricShelf(browser);
 } finally {
   await browser.close();
 }

@@ -1520,7 +1520,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
    rounded row, outside the column. */
 /* The owner's pick from the sizing tester (2026-10-24): 28px numbers in 45px rows, five rows shown, semibold. The row
    is app.js's WHEEL_ITEM_H, the engine's pitch; at double text the number stops at 36px so it stays inside its row. */
-.wheel__frame{--wheel-row:45px;position:relative;flex:1 1 auto;width:100%;min-width:0}
+.wheel__frame{--wheel-row:45px;--wheel-number-cap:36px;position:relative;flex:1 1 auto;width:100%;min-width:0}
 .wheel__band{position:absolute;left:var(--space-12);right:var(--space-12);top:calc(2 * var(--wheel-row));height:var(--wheel-row);
   border-radius:var(--radius-control);background:var(--wheel-band);pointer-events:none}
 /* One axis only (owner, iPhone, 2026-10-23): the browser pans nothing here, and the engine reads only the
@@ -1540,7 +1540,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
   position:absolute;left:0;right:0;top:calc(2 * var(--wheel-row));height:var(--wheel-row);visibility:hidden;backface-visibility:hidden;
   display:flex;align-items:center;justify-content:center;
   font-family:var(--font-training-data);font-feature-settings:"tnum";font-variant-numeric:tabular-nums;
-  font-size:min(var(--font-size-feature-title),36px);font-weight:var(--weight-semibold);color:var(--color-ink);
+  font-size:min(var(--font-size-feature-title),var(--wheel-number-cap));font-weight:var(--weight-semibold);color:var(--color-ink);
 }
 /* The reps wheel's target range: a quiet tick before the number, not a second band (the orange budget stays on actions). */
 .wheel__item.is-target::before{content:"";width:4px;height:4px;border-radius:var(--radius-round);background:var(--color-ink-secondary);margin-right:var(--space-8)}
