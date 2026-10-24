@@ -950,7 +950,7 @@ test("a failure its suite marks deterministic is not replayed; any other browser
   assert.ok(report.results[1].diagnostic, "an unmarked failure keeps its diagnostic replay");
   assert.equal(report.results[1].suspectedFlake, true);
   assert.match(readFileSync(join(cwd, "summary.md"), "utf8"), /deterministic/);
-  assert.equal(markDeterministicFailure("x", { dir: undefined }), null, "nothing is written without an artifact directory");
+  assert.equal(markDeterministicFailure("x", { dir: null }), null, "nothing is written without an artifact directory");
 });
 
 test("only pure frame, semantic and role findings count as deterministic", () => {
