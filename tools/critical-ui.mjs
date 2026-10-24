@@ -107,3 +107,14 @@ export function mergeCriticalReports(root, options) {
   }
   return { problems, shards: reports.length, screens: reports[0]?.cells?.length || 0 };
 }
+
+/**
+ * The critical matrix failed only because fresh frames or entry semantics differ from the committed
+ * catalog: every failed cell's problems are its frame problems. Live role findings, scenario errors and
+ * protocol assertions stay replayable.
+ */
+export function deterministicCriticalFailure(cells) {
+  const failed = (cells || []).filter((cell) => cell.status !== "passed");
+  if (!failed.length || !failed.every((cell) => cell.frameProblems > 0 && cell.frameProblems === cell.problems.length)) return null;
+  return `${failed.length} critical frame(s) differ from the committed catalog`;
+}

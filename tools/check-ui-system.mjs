@@ -3,11 +3,12 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { ROOT, captureKey, loadManifest, screenKey } from "./ui-screens/manifest.mjs";
 import { parseShard } from "../test/suites.mjs";
-import { loadRoleInventory, validateRoleInventory, renderedFindingExemption, renderedHolds, cssLiteralDebt, cssCompatibilityAliasDebt, requiredBoundaryExceptionRequests, SHARD_REPORT, neverRenderedProblems, shardCaptures, uninventoriedSharedComponents } from "./ui-system-core.mjs";
+import { deterministicAuditFailure, loadRoleInventory, validateRoleInventory, renderedFindingExemption, renderedHolds, cssLiteralDebt, cssCompatibilityAliasDebt, requiredBoundaryExceptionRequests, SHARD_REPORT, neverRenderedProblems, shardCaptures, uninventoriedSharedComponents } from "./ui-system-core.mjs";
 import { APP_CLOCK, APP_SCENARIOS, APP_USER_AGENT, appState, cleanupProgramLabCapture } from "./ui-screens/screens-app.mjs";
 import { ONBOARDING_SCENARIOS, onboardingState } from "./ui-screens/screens-onboarding.mjs";
 import { setCaptureBase, launchChromium, openPage, dismissChrome, settle } from "./ui-screens/session.mjs";
 import { maybeStartLocalPreview } from "./local-preview.mjs";
+import { markDeterministicFailure } from "./ci-captures.mjs";
 import { measureClampedHeadings, measureRenderedRoles, renderedRoleProblems } from "./ui-system-rendered.mjs";
 import { join, resolve } from "node:path";
 
@@ -365,6 +366,8 @@ if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).
       console.log(`Shard ${shard.index}/${shard.count}: ${result.screens} rendered states; report in ${join(reportDir, SHARD_REPORT)}`);
     }
   }
+  const deterministic = deterministicAuditFailure(metadata);
+  if (deterministic) markDeterministicFailure(deterministic);
   const shown = process.argv.includes("--verbose") ? metadata : metadata.slice(0, 40);
   for (const error of shown) console.error(`FAIL: ${error}`);
   if (metadata.length > shown.length) console.error(`... ${metadata.length - shown.length} more failures`);

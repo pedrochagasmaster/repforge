@@ -8,6 +8,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { SUITES, FULL_SUITES, INVENTORY, BROWSER_LANES, browserEntries, commandArgs, inventoryErrors, parseShard, shardSuites, suiteId } from "../test/suites.mjs";
 import { changedFilesForTests, changedFilesForEdit, changedFilesForPacket, formatAffected, fullLaneEntries, parseFullSelection, selectBranch, selectPacket, selectEdit } from "./test-selection.mjs";
 import { maybeStartLocalPreview } from "./local-preview.mjs";
+import { DETERMINISTIC_MARKER } from "./ci-captures.mjs";
 export { maybeStartLocalPreview } from "./local-preview.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -116,7 +117,12 @@ export async function runLane(lane, entries, {
     if (row.status === "failed" && !verbose && row.initial.tail.trim()) {
       console.error(`--- failure excerpt (full log: ${join(suiteDir, "initial/output.log")}) ---\n${row.initial.tail.trim()}\n--- end excerpt ---`);
     }
-    if (row.status === "failed" && browser && diagnosticReplay && !row.initial.timedOut && !row.initial.interrupted) {
+    const marker = join(suiteDir, "initial", DETERMINISTIC_MARKER);
+    if (row.status === "failed" && existsSync(marker)) {
+      row.deterministicFailure = JSON.parse(readFileSync(marker, "utf8")).reason;
+      console.log(`  no diagnostic replay: ${id} failed deterministically (${row.deterministicFailure})`);
+      save();
+    } else if (row.status === "failed" && browser && diagnosticReplay && !row.initial.timedOut && !row.initial.interrupted) {
       console.log(`↻ diagnostic replay: ${id} (cannot change the gate result)`);
       row.diagnostic = await execute(suite, {
         cwd, outputDir: join(suiteDir, "diagnostic"), env: { ...env, REPFORGE_TRACE: "1" }, verbose,
@@ -137,7 +143,7 @@ export async function runLane(lane, entries, {
   const lines = [
     `## Tests: ${lane}`, "", "| Suite | Result | Initial time | Diagnostic time |", "| --- | --- | ---: | ---: |",
     ...report.results.map((r) => `| \`${r.command.join(" ").replaceAll("|", "\\|")}\` | ${r.status} | ${r.initial ? (r.initial.durationMs / 1000).toFixed(2) + "s" : "—"} | ${r.diagnostic ? (r.diagnostic.durationMs / 1000).toFixed(2) + "s (diagnostic only)" : "—"} |`),
-    "", `${report.failed} failed; ${report.notRun} not run; ${report.results.filter((r) => r.suspectedFlake).length} suspected synchronization flake(s). Diagnostic replays never make a failed gate pass.`, "",
+    "", `${report.failed} failed (${report.results.filter((r) => r.deterministicFailure).length} deterministic, not replayed); ${report.notRun} not run; ${report.results.filter((r) => r.suspectedFlake).length} suspected synchronization flake(s). Diagnostic replays never make a failed gate pass.`, "",
   ];
   if (summaryPath) appendFileSync(summaryPath, lines.join("\n"));
   console.log(`${lane}: ${entries.length - report.failed - report.notRun}/${entries.length} passed`);
@@ -159,12 +165,14 @@ async function main() {
     return;
   }
   const target = argv.shift();
-  if (!["all", "affected", "edit", "packet", "branch", "candidate", "shard", "full-shard"].includes(target) && !Object.hasOwn(INVENTORY, target || "")) {
-    throw new Error("Usage: node tools/run-tests.mjs fast|state|entry|workout|privacy|service|full-fast|full-browser|all|edit|packet|branch|candidate|shard <k/n>|full-shard <k/n>|affected [--list] [--explain] [--suite file-or-stem] [--base ref] [--fail-fast|--keep-going] [--verbose], or --check");
+  if (!["all", "affected", "edit", "packet", "branch", "candidate", "shard", "full-shard", "full-verify"].includes(target) && !Object.hasOwn(INVENTORY, target || "")) {
+    throw new Error("Usage: node tools/run-tests.mjs fast|state|entry|workout|privacy|service|full-fast|full-browser|all|edit|packet|branch|candidate|shard <k/n>|full-shard <k/n>|full-verify <k/n>|affected [--list] [--explain] [--suite file-or-stem] [--base ref] [--fail-fast|--keep-going] [--verbose], or --check");
   }
   // `shard k/n` is the PR CI unit: the whole pull-request browser inventory, balanced
   // across n runners. `full-shard k/n` is the same unit for the full lane's browser commands.
-  const shard = target === "shard" || target === "full-shard" ? parseShard(argv.shift()) : null;
+  // `full-verify k/n` is one catalog verify stripe of the planned full-lane selection: the capture run a
+  // visual-only red PR lane gets, so one fetch takes every affected frame.
+  const shard = ["shard", "full-shard", "full-verify"].includes(target) ? parseShard(argv.shift()) : null;
   let list = false, explain = false, verbose = false, filter, filterId, ids, base, failurePolicy, evidence;
   while (argv.length) {
     const arg = argv.shift();
@@ -182,7 +190,7 @@ async function main() {
 
   let groups;
   const invocationStarted = Date.now();
-  if (evidence && (list || ids || ["all", "candidate", "branch", "packet", "affected", "edit", "shard", "full-shard"].includes(target))) {
+  if (evidence && (list || ids || ["all", "candidate", "branch", "packet", "affected", "edit", "shard", "full-shard", "full-verify"].includes(target))) {
     throw new Error("--evidence requires an executing exact lane with --suite");
   }
   let sourceBefore, evidenceFd;
@@ -196,16 +204,18 @@ async function main() {
     sourceBefore = sourceAtHead();
     if (sourceBefore.status) throw new Error("--evidence requires a clean source worktree");
   }
-  if (["affected", "branch", "edit", "packet", "candidate", "shard", "full-shard"].includes(target)) {
+  if (["affected", "branch", "edit", "packet", "candidate", "shard", "full-shard", "full-verify"].includes(target)) {
     if (filter || filterId) throw new Error(`${target} already selects suites; use a lane plus --suite-id for one explicit rerun`);
     if (target === "affected") console.warn("affected is the branch-wide compatibility alias; use edit or packet for local feedback.");
     const changed = target === "edit" ? changedFilesForEdit({ cwd: ROOT })
       : target === "packet" ? changedFilesForPacket({ cwd: ROOT, base: base || process.env.REPFORGE_PACKET_BASE })
-      : ["candidate", "shard", "full-shard"].includes(target) ? { base: "HEAD", files: null }
+      : ["candidate", "shard", "full-shard", "full-verify"].includes(target) ? { base: "HEAD", files: null }
       : changedFilesForTests({ cwd: ROOT, base });
     const selectionBase = changed.base === "HEAD (working tree)" ? "HEAD" : changed.base;
     const plan = target === "candidate"
       ? { mode: "all", entries: Object.entries(SUITES).filter(([lane]) => lane !== "service").flatMap(([lane, suites]) => suites.map((suite) => ({ lane, suite }))), files: [], reasons: ["Complete local candidate gate; service requires its external environment."] }
+      : target === "full-verify"
+      ? shardPlan(shard, FULL_SUITES, plannedFullSelection(), { only: "tools/capture-ui-screens.mjs" })
       : target === "shard" || target === "full-shard"
       ? shardPlan(shard, target === "full-shard" ? FULL_SUITES : SUITES, target === "full-shard" ? plannedFullSelection() : null)
       : (target === "edit" ? selectEdit : target === "packet" ? selectPacket : selectBranch)(changed.files, { cwd: ROOT, base: selectionBase });
@@ -226,7 +236,7 @@ async function main() {
     const source = sourceIdentity(ROOT, process.env);
     const preview = await maybeStartLocalPreview(plan.entries, { cwd: ROOT });
     try {
-      const reports = await runGroups(groups, { verbose, env: preview?.env || process.env, failFast: failurePolicy ?? !["candidate", "shard", "full-shard"].includes(target), source });
+      const reports = await runGroups(groups, { verbose, env: preview?.env || process.env, failFast: failurePolicy ?? !["candidate", "shard", "full-shard", "full-verify"].includes(target), source });
       writeInvocation(target, plan.entries, reports, selectionDurationMs, invocationStarted);
     } finally { preview?.cleanup?.(); }
     return;
@@ -282,9 +292,10 @@ async function main() {
  * One CI shard: deterministic from the committed inventory (and, for a targeted
  * full lane, the plan's published selection), so every runner computes the same split.
  */
-export function shardPlan({ index, count }, suites = SUITES, selection = null) {
+export function shardPlan({ index, count }, suites = SUITES, selection = null, { only = null } = {}) {
   const targeted = Boolean(selection && selection.mode !== "all");
-  const all = targeted ? fullLaneEntries(selection).filter(({ lane }) => BROWSER_LANES.has(lane)) : browserEntries(suites);
+  const all = (targeted ? fullLaneEntries(selection).filter(({ lane }) => BROWSER_LANES.has(lane)) : browserEntries(suites))
+    .filter(({ suite }) => !only || suite.file === only);
   const bins = shardSuites(all, count);
   const { entries, seconds } = bins[index - 1];
   return { mode: "shard", entries, files: [],

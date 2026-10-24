@@ -43,7 +43,7 @@ import { selectVisuals } from "./ci-selection.mjs";
 import { checkCatalog } from "./check-ui-screens.mjs";
 import { compareCatalog } from "./compare-ui-screens.mjs";
 import { parseShard } from "../test/suites.mjs";
-import { recordCiCaptures } from "./ci-captures.mjs";
+import { markDeterministicFailure, recordCiCaptures } from "./ci-captures.mjs";
 import { sourceHead } from "./critical-ui.mjs";
 
 const MANIFEST = loadManifest();
@@ -163,6 +163,7 @@ export function verifyCatalog({ stagingRoot, semanticArtifact, artifactDir = pro
       writeFileSync(join(artifactDir, "visual-report.json"), `${JSON.stringify({ ok, registration, comparison }, null, 2)}\n`);
     }
     if (!ok) {
+      markDeterministicFailure(`${comparison.failures.length} catalog frame(s) differ${registration.length ? `, ${registration.length} registration problem(s)` : ""}${comparison.semantic.ok ? "" : ", entry semantics differ"}`, { dir: artifactDir });
       const published = recordCiCaptures({ ...captures, frames: comparison.failures
         .filter((failure) => existsSync(join(stagingRoot, failure.path)))
         .map((failure) => ({ path: `${manifest.artifactRoot}/${failure.path.replaceAll("\\", "/")}`, file: join(stagingRoot, failure.path),

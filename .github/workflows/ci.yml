@@ -51,6 +51,7 @@ jobs:
       full_browser: ${{ steps.plan.outputs.full_browser }}
       full_shards: ${{ steps.plan.outputs.full_shards }}
       full_selection: ${{ steps.plan.outputs.full_selection }}
+      capture_shards: ${{ steps.plan.outputs.capture_shards }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -187,6 +188,8 @@ jobs:
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    outputs:
+      visual_only: ${{ steps.visual.outputs.visual_only }}
     steps:
       # Decided here, not by the checked-out planner: a branch cut before this
       # workflow carries an older tools/ci-plan.mjs that never emits `run`, so
@@ -207,15 +210,22 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: "22"
-      - name: Require every selected job to pass
-        env:
-          NEEDS: ${{ toJSON(needs) }}
-        run: node tools/ci-plan.mjs gate
       - if: needs.plan.outputs.run == 'true'
         uses: actions/download-artifact@v4
         with:
           pattern: shard-*
           path: .ci-results/shards
+      # Before the gate can stop the job: a PR lane red only on critical frames starts the capture stripes.
+      - id: visual
+        if: needs.plan.outputs.run == 'true'
+        name: Classify a visual-only failure
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: node tools/ci-plan.mjs visual-only .ci-results/shards
+      - name: Require every selected job to pass
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: node tools/ci-plan.mjs gate
       - if: needs.plan.outputs.run == 'true'
         name: Validate the complete critical UI report
         run: node tools/ci-plan.mjs merge-ui-system .ci-results/shards
@@ -312,12 +322,74 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+  # A pull request whose PR lane is red only on critical frames (a visual change
+  # waiting for its frames) runs the targeted verify stripes anyway, so CI
+  # publishes every affected frame in one round. Both gates stay red until the
+  # frames are committed.
+  full-capture:
+    needs: [plan, ci]
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.ci.outputs.visual_only == 'true' && needs.plan.outputs.capture_shards != '[]' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.capture_shards) }}
+    env:
+      REPFORGE_CI_CAPTURES_DIR: ${{ github.workspace }}/.ci-captures
+      REPFORGE_FULL_SELECTION: ${{ needs.plan.outputs.full_selection }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: test/package-lock.json
+      # The Chromium shell and the system packages it needs (fonts included, so
+      # frames render exactly as the committed catalog) are cached: the Azure apt
+      # mirror sometimes serves them at ~30 kB/s, which cost shards 10+ minutes.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/.cache/playwright-apt
+          key: playwright-${{ runner.os }}-${{ hashFiles('test/package-lock.json') }}-apt1
+      - name: Install pinned test dependencies and the headless Chromium shell
+        working-directory: test
+        run: |
+          npm ci
+          echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' | sudo tee /etc/apt/apt.conf.d/99taurifer-keep-debs >/dev/null
+          if compgen -G "$HOME/.cache/playwright-apt/*.deb" >/dev/null; then sudo cp "$HOME"/.cache/playwright-apt/*.deb /var/cache/apt/archives/; fi
+          npx playwright install --with-deps --only-shell chromium
+          mkdir -p "$HOME/.cache/playwright-apt"
+          cp /var/cache/apt/archives/*.deb "$HOME/.cache/playwright-apt/" 2>/dev/null || true
+      - name: Capture verify stripe ${{ matrix.shard }}
+        run: node tools/run-tests.mjs full-verify "${{ matrix.shard }}" --keep-going
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: capture-shard-${{ strategy.job-index }}-${{ github.run_attempt }}
+          path: .ci-results/
+          include-hidden-files: true
+          retention-days: 7
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-captures-${{ github.job }}-${{ strategy.job-index }}-${{ github.run_attempt }}
+          path: .ci-captures/
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 7
+
   # The full lane's aggregate check, on every event. Every job the plan selected
   # must pass (on a PR, after a passing PR lane), and the UI-system shard reports
   # merge under the selection's rule: the catalog-wide never-rendered rule for
   # the complete lane, exactly the selected states for a targeted one.
   ci-full:
-    needs: [plan, ci, full-fast, full-browser]
+    needs: [plan, ci, full-fast, full-browser, full-capture]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5

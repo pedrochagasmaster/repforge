@@ -8,12 +8,12 @@ import { dirname, join, relative } from "node:path";
 import test from "node:test";
 import { BROWSER_LANES, CI_SHARDS, FULL_SHARDS, FULL_SUITES, INVENTORY, SUITES, SUPPORT, UI_SYSTEM_SHARDS, VISUAL_SHARDS, browserEntries, commandArgs, inventoryErrors, parseShard, shardSuites, suiteId, suiteSeconds } from "./suites.mjs";
 import { changedFiles, selectVisuals } from "../tools/ci-selection.mjs";
-import { classifyChange, gateFullResults, gateResults, mergeFullUiSystemReports, planOutputs, pullRequestFiles, resolvePlan, shardMatrix } from "../tools/ci-plan.mjs";
+import { classifyChange, classifyVisualOnly, gateFullResults, gateResults, mergeFullUiSystemReports, planOutputs, pullRequestFiles, resolvePlan, shardMatrix } from "../tools/ci-plan.mjs";
 import { placeCiCaptures } from "../tools/fetch-ci-captures.mjs";
-import { recordCiCaptures } from "../tools/ci-captures.mjs";
-import { findShardReports, mergeShardReports, shardCaptures } from "../tools/ui-system-core.mjs";
+import { markDeterministicFailure, recordCiCaptures } from "../tools/ci-captures.mjs";
+import { deterministicAuditFailure, findShardReports, mergeShardReports, shardCaptures } from "../tools/ui-system-core.mjs";
 import { mergeUiSystemReports } from "../tools/ci-plan.mjs";
-import { criticalCaptures, validateCriticalReport } from "../tools/critical-ui.mjs";
+import { criticalCaptures, deterministicCriticalFailure, validateCriticalReport } from "../tools/critical-ui.mjs";
 import { selectCaptures, verifyCatalog } from "../tools/capture-ui-screens.mjs";
 import { captureKey, capturePath, expandCaptures, loadManifest } from "../tools/ui-screens/manifest.mjs";
 import { domainsForAppDiff } from "../tools/visual-domains.mjs";
@@ -564,7 +564,7 @@ test("the workflow stages the targeted full lane behind a passing PR lane", () =
   const needsOf = (name) => job(name).match(/^    needs: \[([^\]]+)\]$/m)?.[1].split(",").map((value) => value.trim()) || [];
   assert.deepEqual([...new Set([...needsOf("ci"), ...needsOf("ci-full")])].sort(), declaredJobs.filter((name) => name !== "ci-full").sort(),
     "the two aggregates together wait for every workflow job, including any newly added verification lane");
-  assert.deepEqual(needsOf("ci-full"), ["plan", "ci", "full-fast", "full-browser"]);
+  assert.deepEqual(needsOf("ci-full"), ["plan", "ci", "full-fast", "full-browser", "full-capture"]);
   assert.match(workflow, /^  schedule:\n    - cron: "[^"]+"$/m, "the full lane also runs nightly");
   assert.match(workflow, /^  push:\n    branches: \[main\]$/m, "the full lane runs on every push to main");
   for (const [name, output] of [["full-fast", "full_fast"], ["full-browser", "full_browser"]]) {
@@ -631,14 +631,14 @@ test("annotated app hunks select visual domains and unknown regions widen", () =
   assert.deepEqual(selectVisuals(["app.js"], sample, { appSource: source, appDiff: "@@ -5 +5 @@\n-old\n+new\n" }).screens, ["history/edit"]);
 });
 
-test("app.js hunks after the reviewed History block widen instead of inheriting History", () => {
+test("app.js hunks after the reviewed History block never inherit History", () => {
   const source = readFileSync(join(process.cwd(), "app.js"), "utf8");
-  for (const marker of ["function exerciseSessionsDetail", "function renderProgramOverview", "function renderCatalogueStep", "function init()"]){
+  for (const [marker, expected] of [["function exerciseSessionsDetail", ["global"]], ["function renderProgramOverview", ["program"]],
+    ["function renderCatalogueStep", ["entry", "program"]], ["function init()", ["global"]]]) {
     const line = source.split("\n").findIndex((value) => value.startsWith(marker)) + 1;
     assert.ok(line > 0, `production app contains ${marker}`);
     const diff = `@@ -${line} +${line} @@\n-old\n+new\n`;
-    assert.deepEqual([...domainsForAppDiff(source, diff)], ["global"], marker);
-    assert.equal(selectVisuals(["app.js"], manifest, { appSource: source, appDiff: diff }).mode, "full", marker);
+    assert.deepEqual([...domainsForAppDiff(source, diff)].sort(), expected, marker);
   }
 });
 
@@ -885,6 +885,194 @@ test("verify publishes the changed frames it rendered when CI asks for captures"
   const repoPath = `${real.artifactRoot}/${relative(stagingRoot, victimPath).replaceAll("\\", "/")}`;
   assert.deepEqual(changes.frames.map((frame) => frame.path), [repoPath]);
   assert.deepEqual(readFileSync(join(captures, "frames", repoPath)), readFileSync(capturePath(real, impostor, committedRoot)));
+});
+
+
+const AREA_CASES = [
+  // [area, file, line that starts with, flows that must be verified, flows that must not]
+  ["Today", "app.js", "function renderToday(", ["today"], ["progress", "settings", "install", "library", "onboarding-start"]],
+  ["Today", "styles.css", ".today-session{", ["today"], ["workout", "progress", "history", "settings"]],
+  ["History", "app.js", "function historySessionOutcome(", ["history"], ["today", "workout", "settings", "onboarding-start"]],
+  ["History", "styles.css", "/* ---- History session page", ["history"], ["today", "progress", "settings"]],
+  ["Progress", "app.js", "function renderStrengthDash(", ["progress"], ["today", "workout", "history", "settings"]],
+  ["Progress", "styles.css", "/* ---- Progress: the exercise chart", ["progress"], ["today", "workout", "history", "settings"]],
+  ["Program", "app.js", "function renderProgramOverview(", ["program"], ["today", "workout", "progress", "onboarding-start"]],
+  ["Program", "styles.css", "/* ---- Program overview as a ledger", ["program"], ["today", "workout", "progress", "settings"]],
+  ["Editor", "app.js", "function enterProgramEditorSheet(", ["program", "onboarding-build"], ["today", "workout", "progress", "settings"]],
+  ["Onboarding", "app.js", "function renderOnboarding(", ["onboarding-start", "onboarding-recommend", "program"], ["today", "workout", "progress", "settings"]],
+  ["Onboarding", "styles.css", "/* ---- Plan 064 R4b: Recommend", ["onboarding-recommend"], ["today", "workout", "progress", "settings"]],
+  ["Landing", "app.js", "function renderFirstRunInstall(", ["onboarding-start", "install"], ["today", "workout", "progress"]],
+  ["Settings", "app.js", "function renderSettings(", ["settings"], ["today", "workout", "progress", "onboarding-start"]],
+  ["Settings", "styles.css", "/* ---- Cards (rare", ["settings"], ["today", "workout", "progress", "onboarding-start"]],
+  ["Summary", "app.js", "function renderSessionSummary(", ["session", "today"], ["progress", "settings", "onboarding-start"]],
+  ["Library", "app.js", "function renderLibrary(", ["library", "program"], ["today", "progress", "settings"]],
+];
+
+test("each annotated app.js and styles.css area narrows the full lane to its own flows", () => {
+  for (const [area, file, startsWith, must, mustNot] of AREA_CASES) {
+    const selection = selectFullLane([file], { patches: { [file]: hunkAt(realLine(file, startsWith)) } });
+    const label = `${area} (${file}: ${startsWith})`;
+    assert.equal(selection.mode, "selected", `${label}: ${selection.reasons.join(" ")}`);
+    const flows = flowsOf(selection);
+    for (const flow of must) assert.ok(flows.includes(flow), `${label} verifies ${flow}`);
+    for (const flow of mustNot) assert.equal(flows.includes(flow), false, `${label} leaves ${flow} alone`);
+    assert.ok(fullLaneEntries(selection).length < Object.values(FULL_SUITES).flat().length, `${label} runs less than the complete lane`);
+  }
+});
+
+test("shared, durable and core app.js lines between the areas still run the complete lane", () => {
+  for (const startsWith of ["function render(){", "async function commitProgramEditorProposal(", "const SETUP_DRAFT_KEY", "function detectPRs(",
+    "async function activateEntryPreview(", "async function commitSharedSetup(", "function summaries(", "function setFieldVals(", "function interpretedProfile(",
+    "async function commitImportReview(", "const sameDefinition="]) {
+    assert.equal(selectFullLane(["app.js"], { patches: { "app.js": hunkAt(realLine("app.js", startsWith)) } }).mode, "all", startsWith);
+  }
+  assert.equal(selectFullLane(["styles.css"], { patches: { "styles.css": hunkAt(realLine("styles.css", ".btn--cta.btn--noarrow:disabled")) } }).mode, "all",
+    "a shared button rule inside the entry block stays global");
+});
+
+// ------------------------------------------------ deterministic failures and one-round visuals
+
+test("a failure its suite marks deterministic is not replayed; any other browser failure still is", async (t) => {
+  const cwd = scratch(t);
+  writeFileSync(join(cwd, "frames.mjs"), [
+    'import { markDeterministicFailure } from ' + JSON.stringify(join(process.cwd(), "tools/ci-captures.mjs")) + ";",
+    'if (process.env.REPFORGE_TRACE === "1") { process.exitCode = 0; } else { markDeterministicFailure("catalog frames differ"); process.exitCode = 1; }',
+  ].join("\n"));
+  writeFileSync(join(cwd, "flips.mjs"), 'process.exitCode = process.env.REPFORGE_TRACE === "1" ? 0 : 9;\n');
+  const report = await runLane("fixture", [{ file: "frames.mjs", args: [] }, { file: "flips.mjs", args: [] }], {
+    cwd, outputDir: join(cwd, "results"), env: { ...process.env, REPFORGE_TRACE: "0" }, browser: true,
+    diagnosticReplay: true, summaryPath: join(cwd, "summary.md"), source: { head: "fixture-clean-head", dirty: false },
+  });
+  assert.equal(report.results[0].status, "failed");
+  assert.equal(report.results[0].diagnostic, undefined, "a deterministic mismatch is not replayed");
+  assert.equal(report.results[0].deterministicFailure, "catalog frames differ");
+  assert.notEqual(report.results[0].suspectedFlake, true);
+  assert.ok(report.results[1].diagnostic, "an unmarked failure keeps its diagnostic replay");
+  assert.equal(report.results[1].suspectedFlake, true);
+  assert.match(readFileSync(join(cwd, "summary.md"), "utf8"), /deterministic/);
+  assert.equal(markDeterministicFailure("x", { dir: null }), null, "nothing is written without an artifact directory");
+});
+
+test("only pure frame, semantic and role findings count as deterministic", () => {
+  const frame = { key: "a", status: "failed", pixelComparison: false, semanticComparison: true, problems: ["changed-cell ratio 5% exceeds 4.5%"], frameProblems: 1 };
+  const passed = { key: "b", status: "passed", pixelComparison: true, semanticComparison: true, problems: [], frameProblems: 0 };
+  assert.match(deterministicCriticalFailure([frame, passed]), /1 critical frame/);
+  assert.equal(deterministicCriticalFailure([passed]), null);
+  assert.equal(deterministicCriticalFailure([{ ...frame, problems: [...frame.problems, "TimeoutError: waiting for #x"] }]), null, "a scenario error keeps the replay");
+  assert.equal(deterministicCriticalFailure([{ ...frame, problems: [...frame.problems, "x: has no inventory role"] }]), null, "a live role finding in the PR matrix keeps the replay");
+  assert.match(deterministicAuditFailure(["workout/focus [en/light]: .x contrast 3.1 below 4.5"]), /role/);
+  assert.equal(deterministicAuditFailure(["workout/focus: scenario failed: Timeout 5000ms exceeded"]), null);
+  assert.equal(deterministicAuditFailure([]), null);
+});
+
+test("verify marks a catalog mismatch deterministic", (t) => {
+  const real = loadManifest();
+  const dir = scratch(t);
+  const stagingRoot = join(dir, "staging");
+  const committedRoot = join(process.cwd(), real.artifactRoot);
+  for (const capture of expandCaptures(real)) {
+    const target = capturePath(real, capture, stagingRoot);
+    mkdirSync(dirname(target), { recursive: true });
+    symlinkSync(capturePath(real, capture, committedRoot), target);
+  }
+  const semantic = JSON.parse(readFileSync(join(process.cwd(), "docs/ui-screens/entry-semantics.json"), "utf8"));
+  const artifactDir = join(dir, "artifacts");
+  assert.equal(verifyCatalog({ stagingRoot, semanticArtifact: semantic, artifactDir, manifest: real }), true);
+  assert.equal(existsSync(join(artifactDir, "deterministic-failure.json")), false);
+  const [victim] = expandCaptures(real).filter((capture) => capture.flow === "workout");
+  const [impostor] = expandCaptures(real).filter((capture) => capture.flow === "progress" && capture.viewport === victim.viewport
+    && capture.theme === victim.theme && capture.locale === victim.locale && capture.text === victim.text);
+  rmSync(capturePath(real, victim, stagingRoot));
+  cpSync(capturePath(real, impostor, committedRoot), capturePath(real, victim, stagingRoot));
+  assert.equal(verifyCatalog({ stagingRoot, semanticArtifact: semantic, artifactDir, manifest: real }), false);
+  assert.match(JSON.parse(readFileSync(join(artifactDir, "deterministic-failure.json"), "utf8")).reason, /1 catalog frame/);
+});
+
+test("a PR lane red only on deterministic critical frames is visual-only", (t) => {
+  const root = scratch(t);
+  const write = (job, rows) => {
+    mkdirSync(join(root, `shard-${job}-1`, "workout"), { recursive: true });
+    writeFileSync(join(root, `shard-${job}-1`, "workout", "results.json"), JSON.stringify({ lane: "workout", results: rows }));
+  };
+  const ok = (id) => ({ id, command: ["node", id], status: "passed" });
+  write(0, [ok("test/native-feel.mjs")]);
+  write(1, [{ id: "test-ui-system-mjs", command: ["node", "test/ui-system.mjs"], status: "failed", deterministicFailure: "2 critical frame(s) differ" }]);
+  const needs = { plan: { result: "success", outputs: { run: "true" } }, fast: { result: "success" }, service: { result: "success" }, browser: { result: "failure" } };
+  assert.equal(classifyVisualOnly(needs, root), true);
+  assert.equal(classifyVisualOnly({ ...needs, fast: { result: "failure" } }, root), false, "a red fast lane is not a visual change");
+  assert.equal(classifyVisualOnly({ ...needs, browser: { result: "success" } }, root), false, "a green PR lane needs no capture run");
+  write(2, [{ id: "test-persistence-mjs", command: ["node", "test/persistence.mjs"], status: "failed" }]);
+  assert.equal(classifyVisualOnly(needs, root), false, "any behavioural failure keeps the normal path");
+  rmSync(join(root, "shard-2-1"), { recursive: true });
+  write(1, [{ id: "test-ui-system-mjs", command: ["node", "test/ui-system.mjs"], status: "failed" }]);
+  assert.equal(classifyVisualOnly(needs, root), false, "an unmarked ui-system failure is not visual-only");
+});
+
+test("a visual-only PR lane runs the targeted verify stripes so one fetch takes every affected frame", () => {
+  const real = loadManifest();
+  const screens = real.screens.filter((screen) => screen.flow === "workout").map((screen) => `${screen.flow}/${screen.id}`);
+  const selection = { mode: "selected", ids: [], screens };
+  const outputs = planOutputs({ run: true, reason: "x", full: selection });
+  const verify = fullLaneEntries(selection).filter(({ suite }) => suite.file === "tools/capture-ui-screens.mjs");
+  assert.deepEqual(JSON.parse(outputs.capture_shards), shardMatrix(verify.length));
+  const planned = JSON.parse(outputs.capture_shards).map((shard) => shardPlan(parseShard(shard), FULL_SUITES, selection, { only: "tools/capture-ui-screens.mjs" }).entries);
+  assert.deepEqual(planned.flat().map(({ suite }) => suiteId(suite)).sort(), verify.map(({ suite }) => suiteId(suite)).sort(), "each capture runner verifies one stripe");
+  const complete = planOutputs({ run: true, reason: "x", full: { mode: "all", ids: null, screens: null } });
+  assert.deepEqual(JSON.parse(complete.capture_shards), shardMatrix(VISUAL_SHARDS));
+  const none = planOutputs({ run: true, reason: "x", full: { mode: "none", ids: [], screens: [] } });
+  assert.deepEqual(JSON.parse(none.capture_shards), []);
+  const fullShards = JSON.stringify(shardMatrix(1));
+  const sel = JSON.stringify({ mode: "selected", ids: [suiteId(FULL_SUITES["full-browser"].find((suite) => suite.file === "test/history.mjs"))], screens: [] });
+  const red = { plan: { result: "success", outputs: { full_run: "true", full_fast: "false", full_browser: "true", full_shards: fullShards, full_selection: sel } },
+    ci: { result: "failure", outputs: { visual_only: "true" } }, "full-fast": { result: "skipped" }, "full-browser": { result: "skipped" }, "full-capture": { result: "success" } };
+  assert.throws(() => gateFullResults(red, { event: "pull_request", log() {} }), /fetch-ci-captures/, "the gate stays red and says how to take the frames");
+});
+
+test("the workflow runs the capture stripes only for a visual-only red PR lane", () => {
+  const workflow = readFileSync(join(process.cwd(), ".github/workflows/ci.yml"), "utf8");
+  const jobsSection = workflow.split(/^jobs:\s*$/m)[1] || "";
+  const job = (name) => jobsSection.slice(jobsSection.indexOf(`\n  ${name}:\n`) + 1).split(/\n  (?=[a-z][a-z0-9-]*:\n)/)[0];
+  const capture = job("full-capture");
+  assert.match(capture, /needs: \[plan, ci\]/);
+  assert.ok(capture.includes("if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.ci.outputs.visual_only == 'true' && needs.plan.outputs.capture_shards != '[]' }}"));
+  assert.match(capture, /shard: \$\{\{ fromJSON\(needs\.plan\.outputs\.capture_shards\) \}\}/);
+  assert.match(capture, /node tools\/run-tests\.mjs full-verify "\$\{\{ matrix\.shard \}\}" --keep-going/);
+  assert.match(capture, /REPFORGE_CI_CAPTURES_DIR: \$\{\{ github\.workspace \}\}\/\.ci-captures/);
+  const ci = job("ci");
+  assert.match(ci, /visual_only: \$\{\{ steps\.visual\.outputs\.visual_only \}\}/);
+  assert.ok(ci.indexOf("node tools/ci-plan.mjs visual-only") < ci.indexOf("node tools/ci-plan.mjs gate\n"), "the classification runs before the gate can stop the job");
+});
+
+test("every plan or job output the workflow reads is declared and published", () => {
+  const workflow = readFileSync(join(process.cwd(), ".github/workflows/ci.yml"), "utf8");
+  const jobsSection = workflow.split(/^jobs:\s*$/m)[1] || "";
+  const job = (name) => jobsSection.slice(jobsSection.indexOf(`\n  ${name}:\n`) + 1).split(/\n  (?=[a-z][a-z0-9-]*:\n)/)[0];
+  const declared = (name) => new Set([...(job(name).match(/^    outputs:\n((?:      .+\n)+)/m)?.[1] || "").matchAll(/^      ([a-z_]+):/gm)].map(([, key]) => key));
+  for (const [, name, key] of workflow.matchAll(/needs\.([a-z][a-z0-9-]*)\.outputs\.([a-z_]+)/g)) {
+    assert.ok(declared(name).has(key), `${name} declares the ${key} output the workflow reads`);
+  }
+  const published = Object.keys(planOutputs({ run: true, reason: "x", full: { mode: "all", ids: null, screens: null } }));
+  assert.deepEqual([...declared("plan")].filter((key) => key !== "reason" && key !== "run" && key !== "shards").sort(),
+    published.filter((key) => !["reason", "run", "shards"].includes(key)).sort(), "the plan job maps every output tools/ci-plan.mjs publishes");
+});
+
+test("frames rendered by both the critical matrix and a verify stripe resolve to the verify render", (t) => {
+  const real = loadManifest();
+  const dir = scratch(t);
+  const [capture] = expandCaptures(real).filter((value) => value.flow === "workout");
+  const path = relative(process.cwd(), capturePath(real, capture)).replaceAll("\\", "/");
+  const publish = (artifact, producer, bytes) => {
+    const file = join(dir, `${producer}.png`);
+    writeFileSync(file, bytes);
+    recordCiCaptures({ dir: join(dir, "download", artifact), producer, source: "a".repeat(40), frames: [{ path, file, state: "workout/focus", reasons: [] }] });
+  };
+  publish("ci-captures-browser-4-1", "critical-ui", "critical-render");
+  publish("ci-captures-full-capture-0-1", "verify-1-2", "verify-render");
+  const placed = placeCiCaptures({ downloadRoot: join(dir, "download"), targetRoot: join(dir, "repo"), manifest: real, expectedSource: "a".repeat(40) });
+  assert.deepEqual(placed.written, [path]);
+  assert.equal(readFileSync(join(dir, "repo", path), "utf8"), "verify-render");
+  publish("ci-captures-full-capture-1-1", "verify-2-2", "other-render");
+  assert.throws(() => placeCiCaptures({ downloadRoot: join(dir, "download"), targetRoot: join(dir, "repo"), manifest: real, expectedSource: "a".repeat(40) }), /different bytes/);
 });
 
 // ------------------------------------------------------------- local selection

@@ -106,6 +106,8 @@ export function planOutputs(plan) {
     full_browser: String(browser.length > 0),
     full_shards: JSON.stringify(shardMatrix(fullShardCount(browser))),
     full_selection: JSON.stringify({ mode: full.mode, ids: full.ids, screens: full.screens }),
+    // The verify stripes a visual-only red PR lane runs so CI captures every affected state in one round.
+    capture_shards: JSON.stringify(shardMatrix(entries.filter(({ suite }) => suite.file === "tools/capture-ui-screens.mjs").length)),
   };
 }
 
@@ -191,6 +193,27 @@ export function mergeFullUiSystemReports(root, { inventory = loadRoleInventory()
 }
 
 /**
+ * The PR lane failed only because critical frames differ from the committed catalog (the browser shards'
+ * only failures are test/ui-system.mjs runs marked deterministic) while everything else passed. Such a run
+ * is a visual change waiting for its frames, so the workflow runs the targeted verify stripes to capture
+ * every affected state at once. The gates stay red either way.
+ */
+export function classifyVisualOnly(needs, root) {
+  if (needs?.plan?.result !== "success" || needs.plan.outputs?.run !== "true") return false;
+  if (needs.fast?.result !== "success" || needs.service?.result !== "success" || needs.browser?.result !== "failure") return false;
+  const failed = [];
+  const walk = (dir) => {
+    for (const entry of existsSync(dir) ? readdirSync(dir, { withFileTypes: true }) : []) {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) walk(path);
+      else if (entry.name === "results.json") failed.push(...(JSON.parse(readFileSync(path, "utf8")).results || []).filter((row) => row.status !== "passed"));
+    }
+  };
+  walk(root);
+  return failed.length > 0 && failed.every((row) => row.command?.[1] === "test/ui-system.mjs" && row.deterministicFailure);
+}
+
+/**
  * The full aggregate. Every job the plan selected must pass and nothing selected
  * may be skipped. On a pull request the full lane is staged behind the PR lane,
  * so a PR lane that did not pass fails this check too. Pushes to main, the
@@ -222,6 +245,9 @@ export function gateFullResults(needs, { event = "workflow_dispatch", log = cons
     throw new Error("CI full gate: plan full_shards output disagrees with its selection");
   }
   if (event === "pull_request" && needs.ci?.result !== "success") {
+    if (needs.ci?.outputs?.visual_only === "true") {
+      throw new Error(`CI full gate: the PR lane (ci) is red only on catalog frames. CI captured every affected state (full-capture: ${needs["full-capture"]?.result || "missing"}); take them with node tools/fetch-ci-captures.mjs <run-id>, review and commit them`);
+    }
     throw new Error(`CI full gate: the PR lane (ci) is ${needs.ci?.result || "missing"}, so the full lane did not start; fix the PR lane first`);
   }
   const failures = [];
@@ -239,6 +265,12 @@ export function gateFullResults(needs, { event = "workflow_dispatch", log = cons
 async function main(argv) {
   if (argv[0] === "gate") {
     gateResults(JSON.parse(process.env.NEEDS || "{}"));
+    return;
+  }
+  if (argv[0] === "visual-only") {
+    const visual = classifyVisualOnly(JSON.parse(process.env.NEEDS || "{}"), resolve(argv[1] || ".ci-results/shards"));
+    console.log(`Visual-only PR lane failure: ${visual ? "yes; the capture stripes run" : "no"}`);
+    if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `visual_only=${visual}\n`);
     return;
   }
   if (argv[0] === "gate-full") {

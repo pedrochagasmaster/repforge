@@ -5,10 +5,10 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { tmpdir } from "node:os";
 import { ROOT, loadManifest, capturePath, captureKey, screenKey } from "../tools/ui-screens/manifest.mjs";
-import { criticalCaptures, sourceHead, validateCriticalReport } from "../tools/critical-ui.mjs";
+import { criticalCaptures, deterministicCriticalFailure, sourceHead, validateCriticalReport } from "../tools/critical-ui.mjs";
 import { observeCatalogFrame } from "../tools/capture-ui-screens.mjs";
 import { comparePngFiles, comparePngBuffers } from "../tools/compare-ui-screens.mjs";
-import { recordCiCaptures } from "../tools/ci-captures.mjs";
+import { markDeterministicFailure, recordCiCaptures } from "../tools/ci-captures.mjs";
 import { loadRoleInventory, validateRoleInventory, requiredBoundaryExceptionRequests } from "../tools/ui-system-core.mjs";
 import { measureClampedHeadings, measureRenderedRoles, renderedRoleProblems } from "../tools/ui-system-rendered.mjs";
 import { auditFocusRoles, inspectRoleCoverage } from "../tools/check-ui-system.mjs";
@@ -53,7 +53,7 @@ try {
     let semanticChanged = false;
     for (const capture of captures) {
       const key = screenKey(capture), id = captureKey(capture), onboarding = capture.flow.startsWith("onboarding");
-      const cell = { key: id, status: "failed", problems: [] };
+      const cell = { key: id, status: "failed", problems: [], frameProblems: 0 };
       let context;
       try {
         const opened = await openPage(browser, manifest, capture,
@@ -75,11 +75,12 @@ try {
         cell.pixelComparison = comparison.ok;
         if (!comparison.ok && !protocolOnly) {
           cell.problems.push(...comparison.reasons);
+          cell.frameProblems += comparison.reasons.length;
           changedFrames.push({ path: relative(ROOT, capturePath(manifest, capture)).replaceAll("\\", "/"), file: out, state: key, reasons: comparison.reasons });
         }
         if (!comparison.ok && protocolOnly) console.log(`pixel diagnostic remains failed: ${id}: ${comparison.reasons.join(" | ")}`);
         cell.semanticComparison = !onboarding || JSON.stringify(semantics.get(id)) === JSON.stringify(baselineSemantics.get(id));
-        if (!cell.semanticComparison) { cell.problems.push("fresh semantics differ from committed selected frame"); semanticChanged = true; }
+        if (!cell.semanticComparison) { cell.problems.push("fresh semantics differ from committed selected frame"); cell.frameProblems++; semanticChanged = true; }
         const coverage = await page.evaluate(inspectRoleCoverage, { key, components: inventory.components, exceptions: inventory.exceptions, progressCandidateSelectors: inventory.progressCandidateSelectors });
         cell.problems.push(...coverage.problems);
         const pixels = png.toString("base64");
@@ -140,6 +141,9 @@ try {
       assert.equal(report.status, "passed", "focused modal/guide/a11y diagnostic must pass");
       console.log("focused Why, guide replay and entry accessibility protocols passed");
     } else {
+      // Frames that differ are what a visual change looks like; replaying them only repeats the render.
+      const deterministic = deterministicCriticalFailure(report.cells);
+      if (deterministic) markDeterministicFailure(deterministic);
       writeFileSync(join(artifact, "ui-critical-report.json"), JSON.stringify(report, null, 2));
       assert.deepEqual(validateCriticalReport(report), [], "all declared representative frames must pass their initial execution");
     }
