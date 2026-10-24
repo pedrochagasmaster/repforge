@@ -745,7 +745,9 @@ test("targeted catalog sweeps re-stripe only the selected states and the plan si
   const frames = visual.map(({ suite }) => selectCaptures({ screens, shard: parseShard(suite.args[2]) }));
   assert.equal(frames.flat().length, selectCaptures({ screens }).length);
   assert.ok(frames.every((part) => part.length), "no targeted verify stripe is empty");
-  assert.ok(suiteSeconds(uiSystem[0].suite) < suiteSeconds(FULL_SUITES["full-browser"].find((suite) => suite.file === "tools/check-ui-system.mjs")));
+  // A targeted stripe never costs more than a full one; it costs the same when the selection is exactly one full
+  // stripe's worth of states (the workout flow's 32 states against 224 / 7, 2026-10-24).
+  assert.ok(suiteSeconds(uiSystem[0].suite) <= suiteSeconds(FULL_SUITES["full-browser"].find((suite) => suite.file === "tools/check-ui-system.mjs")));
   const browser = entries.filter(({ lane }) => lane === "full-browser");
   const count = fullShardCount(browser);
   assert.ok(count >= 1 && count <= FULL_SHARDS && count <= browser.length);

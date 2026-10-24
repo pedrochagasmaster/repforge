@@ -291,7 +291,7 @@
     "today/rest-bar": {
       "owner": "plan-058",
       "content": "flat",
-      "scenario": "The rest countdown remains visible after leaving the active workout; the logged set opens the live card."
+      "scenario": "A rest running after leaving the workout: the live card's tag counts it down, and no rest pill floats above the dock."
     },
     "today/day-picker": {
       "owner": "plan-057",
@@ -1112,6 +1112,21 @@
       "owner": "plan-057",
       "content": "flat",
       "scenario": "Option A's live card while a session is open: one lift done, one part done, one skipped and the next one current, each with its status mark."
+    },
+    "progress/minibar": {
+      "owner": "plan-057",
+      "content": "flat",
+      "scenario": "While a session is open, the frosted bar above the dock: a ring of the sets done, the session's name, the exercise and the time so far, and Resume."
+    },
+    "history/minibar-rest": {
+      "owner": "plan-057",
+      "content": "flat",
+      "scenario": "A rest running while a session is open: the bar is the rest timer, Rest 1:24 with the next set, +30s and Resume, and no separate rest pill."
+    },
+    "program/minibar-rest-done": {
+      "owner": "plan-057",
+      "content": "flat",
+      "scenario": "Just after the bell: the bar says Rest done with the set coming up, then returns to the session."
     }
   },
   "components": [
@@ -1134,7 +1149,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "history/list",
-        "history/list-scrolled"
+        "history/list-scrolled",
+        "history/minibar-rest"
       ],
       "sourceOnly": true,
       "sourceOnlyReason": "pending: the History calendar sheet opens from the calendar button and no catalog state captures it open (history/list is the closed list); the accessibility suite exercises it. A catalog state for the open sheet is an open question for the orchestrator."
@@ -1158,7 +1174,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "history/list",
-        "history/list-scrolled"
+        "history/list-scrolled",
+        "history/minibar-rest"
       ],
       "sourceOnly": true,
       "sourceOnlyReason": "pending: the History calendar sheet opens from the calendar button and no catalog state captures it open (history/list is the closed list); the accessibility suite exercises it. A catalog state for the open sheet is an open question for the orchestrator."
@@ -2774,7 +2791,8 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
-        "program/overview"
+        "program/overview",
+        "program/minibar-rest-done"
       ]
     },
     {
@@ -3214,7 +3232,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "history/list",
-        "history/list-scrolled"
+        "history/list-scrolled",
+        "history/minibar-rest"
       ]
     },
     {
@@ -3239,7 +3258,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "history/list",
-        "history/list-scrolled"
+        "history/list-scrolled",
+        "history/minibar-rest"
       ]
     },
     {
@@ -4336,7 +4356,8 @@
         "program/editor-suggest-loads",
         "program/overview",
         "program/editor-day-name-refused",
-        "program/progression-editor"
+        "program/progression-editor",
+        "program/minibar-rest-done"
       ]
     },
     {
@@ -4388,7 +4409,8 @@
         "program/editor-suggest-loads",
         "program/overview",
         "program/editor-day-name-refused",
-        "program/progression-editor"
+        "program/progression-editor",
+        "program/minibar-rest-done"
       ]
     },
     {
@@ -4423,7 +4445,8 @@
         "program/share-ready",
         "program/share-setup",
         "program/text-export",
-        "workout/swap-alternates"
+        "workout/swap-alternates",
+        "program/minibar-rest-done"
       ],
       "progressScopes": {
         "active-program-week": "block"
@@ -4474,7 +4497,8 @@
         "program/editor-suggest-loads",
         "program/overview",
         "program/editor-day-name-refused",
-        "program/progression-editor"
+        "program/progression-editor",
+        "program/minibar-rest-done"
       ]
     },
     {
@@ -4648,7 +4672,9 @@
       "owner": "plan-058",
       "catalogStates": [
         "today/rest-bar"
-      ]
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "The pill is the fallback for a rest running with no session open. With a session open, the mini bar (other tabs) and the live card's tag (Today) carry the rest (owner addendum, 2026-10-23), so no canonical catalog state draws it; test/minibar.mjs proves it stays hidden there."
     },
     {
       "id": "resthold",
@@ -5028,7 +5054,8 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
-        "program/overview"
+        "program/overview",
+        "program/minibar-rest-done"
       ]
     },
     {
@@ -5124,7 +5151,8 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
-        "program/overview"
+        "program/overview",
+        "program/minibar-rest-done"
       ]
     },
     {
@@ -5544,7 +5572,8 @@
       "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
       "owner": "plan-058",
       "catalogStates": [
-        "program/overview"
+        "program/overview",
+        "program/minibar-rest-done"
       ]
     },
     {
@@ -5756,7 +5785,8 @@
         "progress/volume",
         "progress/volume-block",
         "progress/volume-drill-in",
-        "progress/volume-reduction-preview"
+        "progress/volume-reduction-preview",
+        "progress/minibar"
       ]
     },
     {
@@ -6334,7 +6364,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "progress/overview",
-        "progress/overview-action"
+        "progress/overview-action",
+        "progress/minibar"
       ]
     },
     {
@@ -7443,7 +7474,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "history/list",
-        "history/list-scrolled"
+        "history/list-scrolled",
+        "history/minibar-rest"
       ]
     },
     {
@@ -7798,7 +7830,10 @@
         "today/deload-week",
         "today/ready-scrolled",
         "history/list-scrolled",
-        "today/in-progress"
+        "today/in-progress",
+        "progress/minibar",
+        "history/minibar-rest",
+        "program/minibar-rest-done"
       ]
     },
     {
@@ -7870,7 +7905,10 @@
         "today/deload-week",
         "today/ready-scrolled",
         "history/list-scrolled",
-        "today/in-progress"
+        "today/in-progress",
+        "progress/minibar",
+        "history/minibar-rest",
+        "program/minibar-rest-done"
       ]
     },
     {
@@ -7951,7 +7989,10 @@
         "today/deload-week",
         "today/ready-scrolled",
         "history/list-scrolled",
-        "today/in-progress"
+        "today/in-progress",
+        "progress/minibar",
+        "history/minibar-rest",
+        "program/minibar-rest-done"
       ]
     },
     {
@@ -8026,7 +8067,8 @@
         "onboarding-build/editor-alternates",
         "programlab/editor",
         "programlab/comparison",
-        "history/list-scrolled"
+        "history/list-scrolled",
+        "history/minibar-rest"
       ]
     },
     {
@@ -8093,7 +8135,9 @@
         "today/deload-week",
         "workout/deload-week",
         "today/ready-scrolled",
-        "today/in-progress"
+        "today/in-progress",
+        "progress/minibar",
+        "program/minibar-rest-done"
       ]
     },
     {
@@ -8262,7 +8306,8 @@
         "program/overview",
         "today/deload-week",
         "today/ready-scrolled",
-        "today/in-progress"
+        "today/in-progress",
+        "program/minibar-rest-done"
       ]
     },
     {
@@ -8335,7 +8380,8 @@
         "progress/volume",
         "progress/volume-block",
         "progress/volume-drill-in",
-        "progress/volume-reduction-preview"
+        "progress/volume-reduction-preview",
+        "progress/minibar"
       ]
     },
     {
@@ -8388,7 +8434,8 @@
         "progress/volume",
         "progress/volume-block",
         "progress/volume-drill-in",
-        "progress/volume-reduction-preview"
+        "progress/volume-reduction-preview",
+        "progress/minibar"
       ]
     },
     {
@@ -8410,7 +8457,8 @@
       "owner": "plan-064/r1b",
       "catalogStates": [
         "history/list",
-        "history/list-scrolled"
+        "history/list-scrolled",
+        "history/minibar-rest"
       ]
     },
     {
@@ -8970,7 +9018,8 @@
       "owner": "plan-064/r3j",
       "catalogStates": [
         "history/list",
-        "history/list-scrolled"
+        "history/list-scrolled",
+        "history/minibar-rest"
       ]
     },
     {
@@ -8990,7 +9039,8 @@
       "sourceOnlyReason": "pending: the History calendar sheet opens from the calendar button and no catalog state captures it open (history/list is the closed list); the accessibility suite exercises it. A catalog state for the open sheet is an open question for the orchestrator.",
       "catalogStates": [
         "history/list",
-        "history/list-scrolled"
+        "history/list-scrolled",
+        "history/minibar-rest"
       ]
     },
     {
@@ -9010,7 +9060,8 @@
       "sourceOnlyReason": "pending: the History calendar sheet opens from the calendar button and no catalog state captures it open (history/list is the closed list); the accessibility suite exercises it. A catalog state for the open sheet is an open question for the orchestrator.",
       "catalogStates": [
         "history/list",
-        "history/list-scrolled"
+        "history/list-scrolled",
+        "history/minibar-rest"
       ]
     },
     {
@@ -9036,7 +9087,8 @@
       "sourceOnlyReason": "pending: the History calendar sheet opens from the calendar button and no catalog state captures it open (history/list is the closed list); the accessibility suite exercises it. A catalog state for the open sheet is an open question for the orchestrator.",
       "catalogStates": [
         "history/list",
-        "history/list-scrolled"
+        "history/list-scrolled",
+        "history/minibar-rest"
       ]
     },
     {
@@ -9060,7 +9112,8 @@
       "sourceOnlyReason": "pending: the History calendar sheet opens from the calendar button and no catalog state captures it open (history/list is the closed list); the accessibility suite exercises it. A catalog state for the open sheet is an open question for the orchestrator.",
       "catalogStates": [
         "history/list",
-        "history/list-scrolled"
+        "history/list-scrolled",
+        "history/minibar-rest"
       ]
     },
     {
@@ -9131,7 +9184,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "progress/overview",
-        "progress/overview-action"
+        "progress/overview-action",
+        "progress/minibar"
       ]
     },
     {
@@ -11290,6 +11344,92 @@
         "today/rest-bar",
         "today/skipped"
       ]
+    },
+    {
+      "id": "minibar",
+      "selector": "#miniBar",
+      "roles": {
+        "elevation": "floating"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The session's mini bar above the dock on the root tabs other than Today; a tap resumes the session.",
+      "owner": "plan-057",
+      "catalogStates": [
+        "progress/minibar",
+        "history/minibar-rest",
+        "program/minibar-rest-done"
+      ]
+    },
+    {
+      "id": "minibar-ring",
+      "selector": "#miniBar .minibar__ring",
+      "roles": {
+        "progress": "exercise-set",
+        "boundary": "decorative"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "current"
+      ],
+      "rationale": "Progress dimension exercise-set; scope: the open session's working sets, or the rest counting down. The title and line say it in words.",
+      "owner": "plan-057",
+      "progressScopes": {
+        "open-session-sets": "exercise-set"
+      },
+      "catalogStates": [
+        "progress/minibar",
+        "history/minibar-rest",
+        "program/minibar-rest-done"
+      ]
+    },
+    {
+      "id": "minibarresume",
+      "selector": "#miniBarResume",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Resumes the open session on its current exercise.",
+      "owner": "plan-057",
+      "neverDisabledReason": "An open session can always be resumed.",
+      "catalogStates": [
+        "progress/minibar",
+        "history/minibar-rest",
+        "program/minibar-rest-done"
+      ]
+    },
+    {
+      "id": "minibarplus",
+      "selector": "#miniBarPlus",
+      "roles": {
+        "control": "adjustment"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Adds thirty seconds to the running rest.",
+      "owner": "plan-057",
+      "neverDisabledReason": "Shown only while a rest runs, and a running rest can always be extended.",
+      "catalogStates": [
+        "history/minibar-rest"
+      ]
     }
   ],
   "contextualVariants": [
@@ -12023,6 +12163,7 @@
     ".libstep",
     ".blockprogress",
     ".vrow__bar",
-    ".today-live__bar"
+    ".today-live__bar",
+    ".minibar__ring"
   ]
 }

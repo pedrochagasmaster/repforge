@@ -302,6 +302,7 @@ const D_FIXTURE_STATES = new Set([
   "today/deload-week", // Plan 072 S4: the deload cue in Today
   "today/draft-resume", // R3b2: the unfinished-session band, on the same lifter as Today
   "today/in-progress", // Option A (owner, 2026-10-23): the live card and each lift's state, on the same lifter
+  "progress/minibar", "history/minibar-rest", "program/minibar-rest-done", // the mini bar (owner addendum, 2026-10-23)
   "progress/overview", "progress/overview-baseline", "progress/overview-action", "progress/exercise-chart", // R3i
   "progress/strength", "progress/strength-current-block", "progress/strength-all-history", // R3i
   "progress/strength-comparison", "progress/strength-sparse", // R3i
@@ -313,7 +314,7 @@ const D_FIXTURE_STATES = new Set([
  */
 const DIRECTION_D_BEFORE_SESSION = new Set([
   "today/skipped", "today/context-menu", "today/ready", "today/dock-viewer", "today/ready-scrolled", "today/day-picker", "today/rest-bar", "today/draft-resume",
-  "today/in-progress",
+  "today/in-progress", "progress/minibar", "history/minibar-rest", "program/minibar-rest-done",
   "workout/why-this-weight", "workout/why-in-session",
   "workout/rest-running", "workout/rest-done",
 ]);
@@ -491,6 +492,43 @@ async function openTransferState(page, state) {
   await page.evaluate((name) => window.__repforgeUi.openInstallTransferState(name), state);
   await page.waitForSelector(`#iosInstallSheet[data-transfer-state="${state}"].is-open`, { timeout: 10000 });
   await sleep(page, 300);
+}
+
+/** Today's open session for the live card and the mini bar: one lift done, one part done, one skipped and the next
+ *  selected, made with the draft's own commands. Leaves the lifter in Focus. */
+async function openSessionShape(page) {
+  await focusMode(page);
+  await page.evaluate(async () => {
+    const api = window.__repforgeWorkoutDraft, ids = api.current().exerciseOrder.slice();
+    const working = (id) => api.current().exercises[id].setOrder.filter((setId) => api.current().exercises[id].sets[setId].role !== "warmup");
+    const complete = async (id, setId) => {
+      const set = api.current().exercises[id].sets[setId];
+      if (Array.isArray(set.programmed.metrics)) {
+        for (const metric of set.programmed.metrics) {
+          const value = /rep/i.test(metric.semantic || "") ? "8" : /time|duration|second/i.test(metric.semantic || "") ? "45" : "60";
+          await api.dispatch("editMetricValue", { exerciseInstanceId: id, setId, metricId: metric.id, value });
+        }
+      } else {
+        await api.dispatch("editSetField", { exerciseInstanceId: id, setId, field: "load", value: "60" });
+        await api.dispatch("editSetField", { exerciseInstanceId: id, setId, field: "reps", value: "8" });
+      }
+      await api.dispatch("completeSet", { exerciseInstanceId: id, setId, completedAt: new Date().toISOString() });
+    };
+    for (const setId of working(ids[0])) await complete(ids[0], setId);
+    await complete(ids[1], working(ids[1])[0]);
+    await api.dispatch("skipExercise", { exerciseInstanceId: ids[2] });
+    await api.dispatch("selectExercise", { exerciseInstanceId: ids[3] });
+    await api.flush();
+  });
+}
+
+/** The open session, then a root tab other than Today, where the mini bar stands above the dock. */
+async function miniBarOn(page, view) {
+  await openSessionShape(page);
+  await page.click("#leaveWorkout");
+  await page.waitForSelector("#todayLive .today-live", { timeout: 20000 });
+  await page.click(`nav button[data-view="${view}"]`);
+  await page.waitForSelector("#miniBar:not(.hidden)", { timeout: 20000 });
 }
 
 /** Fill the current focus card and save the set, which starts the rest timer. */
@@ -1930,31 +1968,21 @@ export const APP_SCENARIOS = {
   "today/draft-resume": async page => { await focusMode(page); await fillAdaptiveShelf(page, ADAPTIVE_WEIGHT_METRIC_ID, "80"); await page.click("#leaveWorkout"); },
   // Option A: one lift done, one part done, one skipped and the next selected, made with the draft's own commands.
   "today/in-progress": async page => {
-    await focusMode(page);
-    await page.evaluate(async () => {
-      const api = window.__repforgeWorkoutDraft, ids = api.current().exerciseOrder.slice();
-      const working = (id) => api.current().exercises[id].setOrder.filter((setId) => api.current().exercises[id].sets[setId].role !== "warmup");
-      const complete = async (id, setId) => {
-        const set = api.current().exercises[id].sets[setId];
-        if (Array.isArray(set.programmed.metrics)) {
-          for (const metric of set.programmed.metrics) {
-            const value = /rep/i.test(metric.semantic || "") ? "8" : /time|duration|second/i.test(metric.semantic || "") ? "45" : "60";
-            await api.dispatch("editMetricValue", { exerciseInstanceId: id, setId, metricId: metric.id, value });
-          }
-        } else {
-          await api.dispatch("editSetField", { exerciseInstanceId: id, setId, field: "load", value: "60" });
-          await api.dispatch("editSetField", { exerciseInstanceId: id, setId, field: "reps", value: "8" });
-        }
-        await api.dispatch("completeSet", { exerciseInstanceId: id, setId, completedAt: new Date().toISOString() });
-      };
-      for (const setId of working(ids[0])) await complete(ids[0], setId);
-      await complete(ids[1], working(ids[1])[0]);
-      await api.dispatch("skipExercise", { exerciseInstanceId: ids[2] });
-      await api.dispatch("selectExercise", { exerciseInstanceId: ids[3] });
-      await api.flush();
-    });
+    await openSessionShape(page);
     await page.click("#leaveWorkout");
     await page.waitForSelector("#todayLive .today-live", { timeout: 20000 });
+  },
+  // The mini bar (owner addendum, 2026-10-23): the same open session, seen from the other tabs.
+  "progress/minibar": async page => { await miniBarOn(page, "stats"); },
+  "history/minibar-rest": async page => {
+    await miniBarOn(page, "history");
+    await page.evaluate(() => { window.startRest(84); });
+    await page.waitForFunction(() => document.querySelector("#miniBar.is-rest #miniBarPlus:not([hidden])"), undefined, { timeout: 20000 });
+  },
+  "program/minibar-rest-done": async page => {
+    await miniBarOn(page, "program");
+    await page.evaluate(() => { window.startRest(90); window.__repforgeRest.expire(2); window.syncRest(); });
+    await page.waitForFunction(() => document.querySelector("#miniBar.is-rest") && document.querySelector("#miniBarPlus")?.hidden, undefined, { timeout: 20000 });
   },
 
   "workout/stale-draft": async (page) => {
@@ -2032,13 +2060,13 @@ export const APP_SCENARIOS = {
     await focusMode(page);
     await logCurrentSet(page);
     await page.click("#leaveWorkout");
+    // The session is open, so the live card's tag carries the rest and no pill floats (owner addendum, 2026-10-23).
     await page.waitForFunction(() => {
       const timer = document.querySelector("#woRest");
-      const bar = document.querySelector("#restBar");
-      const rect = bar?.getBoundingClientRect();
+      const tag = document.querySelector('#todayLive [data-live="elapsed"]')?.textContent || "";
       return !document.body.classList.contains("is-focus-wo") && timer?.classList.contains("is-running")
-        && rect?.width > 1 && rect?.height > 1
-        && getComputedStyle(bar).display !== "none" && !document.querySelector("#restSheet.is-open");
+        && /\d:\d\d$/.test(tag) && getComputedStyle(document.querySelector("#restBar")).display === "none"
+        && !document.querySelector("#restSheet.is-open");
     }, undefined, { timeout: 20000 });
     await sleep(page, 400);
   },

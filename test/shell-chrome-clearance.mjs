@@ -102,11 +102,14 @@ async function bandAgainst(page, rgb) {
   }, { b64: shot.toString("base64"), rgb });
 }
 
-/** Controls in the page that the rest pill covers, and the pill's own box. */
+/** Controls in the page that the floating rest layer covers, and its own box. With a session open that layer is the
+ *  mini bar on the other tabs (owner addendum, 2026-10-23); on Today the live card's tag carries the rest and nothing
+ *  floats. The pill is the fallback with no session. */
 const underPill = (page) => page.evaluate(() => {
-  const pill = document.querySelector("#restBar");
+  const pill = ["#miniBar", "#restBar"].map((sel) => document.querySelector(sel))
+    .find((el) => el && getComputedStyle(el).display !== "none" && el.getBoundingClientRect().width >= 1);
   const box = pill?.getBoundingClientRect();
-  if (!box || box.width < 1 || getComputedStyle(pill).display === "none") return { error: "the rest pill is not showing" };
+  if (!box) return { none: true };
   const hits = [];
   for (const el of document.querySelectorAll("main :is(button,a[href],input,select,textarea,summary,[role=button],[role=switch],[tabindex]:not([tabindex='-1']))")) {
     // checkVisibility, not client rects: a closed <details> keeps its content's layout boxes
@@ -118,7 +121,7 @@ const underPill = (page) => page.evaluate(() => {
       hits.push(`${el.id ? `#${el.id}` : el.className || el.tagName} "${(el.textContent || el.value || "").trim().slice(0, 24)}"`);
     }
   }
-  return { pill: { top: box.top, bottom: box.bottom, left: box.left, right: box.right }, hits, scroll: scrollY };
+  return { layer: pill.id, pill: { top: box.top, bottom: box.bottom, left: box.left, right: box.right }, hits, scroll: scrollY };
 });
 
 /**
@@ -161,7 +164,7 @@ async function editorSheetChrome(page, theme) {
 
 const browser = await launchChromium();
 try {
-  console.log("\n1. Nothing scrolls into the status bar, and 2. the rest pill leaves nothing under it (390×844)");
+  console.log("\n1. Nothing scrolls into the status bar, and 2. the rest's floating layer leaves nothing under it (390×844)");
   for (const theme of ["light", "dark"]) {
     const { context, page } = await openCatalogState(browser, "today/rest-bar", 390, "en", "normal", { theme });
     try {
@@ -181,7 +184,8 @@ try {
         if (theme !== "light") continue;
         await scrollTo(page, "end");
         const end = await underPill(page);
-        check(!end.error && !end.hits.length, `${surface}: scrolled to the end, no control is left under the rest pill`, end);
+        if (surface === "log") check(end.none, "Today: the live card's tag carries the rest, so nothing floats above the dock", end);
+        else check(!end.none && end.layer === "miniBar" && !end.hits.length, `${surface}: scrolled to the end, no control is left under the mini bar`, end);
         if (surface === "log") {
           const covered = [];
           for (let y = 0; y <= max; y += 60) {
@@ -194,7 +198,7 @@ try {
             });
             if (now) covered.push(now);
           }
-          check(!covered.length, "Today: Continue never rides under the rest pill while it floats", covered.slice(0, 3));
+          check(!covered.length, "Today: no floating Start rides under a rest layer", covered.slice(0, 3));
         }
       }
     } finally { await context.close(); }

@@ -1112,6 +1112,7 @@ function edgeBackPage(){
 function syncEdgeSwipe(){
   routeEdgeFrame=0;
   syncRouteHistory();
+  syncMiniBar();
   const page=edgeBackPage();
   if(routeEdge?.page===page)return;
   routeEdge?.dispose();routeEdge=null;
@@ -6481,6 +6482,7 @@ function fmtClock(s){const sec=Math.max(0,Math.round(Number(s)||0));const m=Math
 function paintRest(text,done,over=0){
   paintRestSheet();
   restInlineSync();
+  paintSessionRest();
   const b=$("#restBar");
   if(b){const el=b.querySelector(".restbar__time");if(el)el.textContent=text;
     b.classList.toggle("is-done",!!done);
@@ -7612,12 +7614,109 @@ function renderTodayLive(live){
     const draw=()=>{host.innerHTML=html};
     if(window.RepForgeMotion?.animateDisclosure)window.RepForgeMotion.animateDisclosure(host,true,draw);
     else draw()}
+  // A rest already running reads in the tag from the first frame.
+  if(sessionRestPhase())paintSessionRest();
   // The card opens the session as Resume does: the button for keyboard and assistive technology, the card for a tap.
   host.onclick=event=>{if(event.target.closest?.(".today-live"))enterWorkout({})};
   if(live.started!=null)todayLiveTimer=setInterval(()=>{
     const el=$("#todayLive [data-live=\"elapsed\"]");
     if(!el||!el.isConnected||workoutActive){clearInterval(todayLiveTimer);todayLiveTimer=0;return}
+    // While a rest runs the tag is the rest's (paintSessionRest); the session's time waits for it to end.
+    if(sessionRestPhase())return;
     const text=t("today.live.in_progress",{time:todayLiveElapsed(live)});if(el.textContent!==text)el.textContent=text},30000)}
+/* ---- The mini bar (owner addendum, 2026-10-23) ----
+   While a session is open, every root tab except Today (which has the live card) shows one frosted bar above the
+   dock: a ring of the sets done, the session's name, "Exercise {i} of {n} · {elapsed}" and Resume. While a rest runs
+   the same bar is the rest timer: the ring counts the rest down, the title reads "Rest 1:24", the line names the next
+   set, and +30s extends the real rest. When the rest ends it says "Rest done" for a moment, then goes back to the
+   session. It replaces the floating rest pill on those tabs, and Today's card carries the rest in its tag instead, so
+   one thing at most sits above the dock. Like a mini player, it stays on root tabs and gives way to pushed pages,
+   Settings, Focus, the program editor and the keyboard; sheets cover it. */
+const MINI_BAR_TABS=["stats","history","program"],REST_DONE_HOLD_SEC=10;
+let miniBarTimer=0;
+function miniBarEl(){
+  let bar=$("#miniBar");if(bar)return bar;
+  bar=document.createElement("div");bar.id="miniBar";bar.className="minibar hidden";
+  bar.setAttribute("role","group");bar.setAttribute("aria-labelledby","miniBarTitle");
+  bar.innerHTML=`<span class="minibar__ring" data-progress-dimension="exercise-set" data-progress-scope="open-session-sets" aria-hidden="true"></span>`+
+    `<span class="minibar__text"><span class="minibar__title" id="miniBarTitle"></span><span class="minibar__sub"></span></span>`+
+    `<span class="minibar__actions"><button type="button" class="minibar__chip" id="miniBarPlus" hidden></button>`+
+    `<button type="button" class="minibar__go" id="miniBarResume"></button></span>`;
+  // The bar opens the session as Resume does: Focus lives on Today, so the tab changes first. +30s opens nothing.
+  bar.onclick=event=>{if(event.target.closest?.("#miniBarPlus"))return;navTo("log");enterWorkout({})};
+  bar.querySelector("#miniBarPlus").onclick=()=>nudgeRest(30);
+  document.body.append(bar);return bar}
+/** Root tabs other than Today, with nothing pushed over them and no session on screen. */
+function miniBarWanted(){
+  if(workoutActive||!hasProgramContent())return false;
+  const b=document.body.classList;
+  if(["is-settings","is-onboarding","is-workout","is-focus-wo","is-exercise","is-library","is-preview"].some(c=>b.contains(c)))return false;
+  if(document.documentElement.dataset.keyboard==="up")return false;
+  const views=$$(".view.active");if(views.length!==1||!MINI_BAR_TABS.includes(views[0].id))return false;
+  const view=views[0];
+  if(view.id==="history"&&view.classList.contains("is-session-page"))return false;
+  if(view.classList.contains("program-editor-installed"))return false;
+  return draftHasProgress()}
+/** What the session's next set is: the current lift and its first working set still to log. */
+function sessionNextSet(live){
+  const d=activeWorkoutDraft||(()=>{try{return JSON.parse(DraftStore.readRaw()||"null")}catch{return null}})();
+  const ex=live?.current&&d?.exercises?.[live.current];if(!ex)return null;
+  const set=(ex.setOrder||[]).map(id=>ex.sets?.[id]).find(item=>item&&item.role!=="warmup"&&item.completion==="pending");
+  const program=prog.find(live.current);
+  const name=program?exerciseDisplayName(program):ex.displayName||"";
+  return set&&name?{n:set.ordinal,name}:null}
+/** The rest as the bar and the card read it: running, just done (for a moment), or none. */
+function sessionRestPhase(){
+  if(!restEnd)return null;
+  const left=Math.round(restLeftMs()/1000);
+  if(left>0)return{kind:"running",left,share:restLength?Math.max(0,Math.min(1,left/restLength)):0};
+  return restOvertimeSec()<=REST_DONE_HOLD_SEC?{kind:"done"}:null}
+function paintMiniBar(bar,live){
+  const rest=sessionRestPhase(),next=rest?sessionNextSet(live):null;
+  const title=bar.querySelector(".minibar__title"),sub=bar.querySelector(".minibar__sub"),ring=bar.querySelector(".minibar__ring");
+  const plus=bar.querySelector("#miniBarPlus"),go=bar.querySelector("#miniBarResume");
+  let titleHtml,subText,share;
+  if(rest?.kind==="running"){
+    titleHtml=`<span class="minibar__rest">${esc(t("rest.inline.label"))} <span class="minibar__clock">${esc(fmtClock(rest.left))}</span></span>`;
+    subText=next?t("minibar.next",{n:next.n,exercise:next.name}):"";share=rest.share}
+  else if(rest?.kind==="done"){
+    titleHtml=`<span class="minibar__rest">${esc(t("rest.inline.done"))}</span>`;
+    subText=next?t("minibar.set",{n:next.n,exercise:next.name}):"";share=1}
+  else{
+    titleHtml=esc(live.name);
+    subText=live.per?t("minibar.where",{i:live.index,n:live.count,time:todayLiveElapsed(live)}):todayLiveElapsed(live);
+    share=live.per&&live.total?live.done/live.total:0}
+  if(title.innerHTML!==titleHtml)title.innerHTML=titleHtml;
+  if(sub.textContent!==subText)sub.textContent=subText;
+  bar.classList.toggle("is-rest",!!rest);
+  ring.style.setProperty("--minibar-p",`${Math.round(share*1000)/10}%`);
+  plus.hidden=rest?.kind!=="running";
+  const plusText=t("rest.sheet.plus");if(plus.textContent!==plusText)plus.textContent=plusText;
+  plus.setAttribute("aria-label",t("rest.sheet.plus_aria"));
+  const goText=t("minibar.resume");if(go.textContent!==goText)go.textContent=goText}
+/** Show, hide and paint the bar from the route as it stands. Called on every route change and every rest repaint. */
+function syncMiniBar(){
+  const bar=miniBarEl(),show=miniBarWanted(),live=show?todayLiveSession():null;
+  const on=!!live;
+  bar.classList.toggle("hidden",!on);
+  clearInterval(miniBarTimer);miniBarTimer=0;
+  if(!on){document.body.style.removeProperty("--restbar-reserve");return}
+  paintMiniBar(bar,live);
+  // The end of every tab scrolls clear of the bar, as it did of the rest pill (#440).
+  const gap=parseFloat(getComputedStyle(bar).bottom)||0,nav=$("nav"),dockTop=nav?window.innerHeight-nav.getBoundingClientRect().top:0;
+  document.body.style.setProperty("--restbar-reserve",`${Math.max(0,Math.round(gap-dockTop+bar.getBoundingClientRect().height))}px`);
+  if(live.started!=null)miniBarTimer=setInterval(()=>{if(!restEnd)syncMiniBar()},30000)}
+/** A rest repaint reaches the bar on the other tabs and the tag of Today's card. */
+function paintSessionRest(){
+  const bar=$("#miniBar");
+  if(bar&&!bar.classList.contains("hidden")){const live=todayLiveSession();if(live)paintMiniBar(bar,live)}
+  else if(restEnd&&bar)syncMiniBar();
+  const tag=$("#todayLive [data-live=\"elapsed\"]");if(!tag)return;
+  const rest=sessionRestPhase();
+  const text=rest?.kind==="running"?`${t("rest.inline.label")} ${fmtClock(rest.left)}`:rest?.kind==="done"?t("rest.inline.done")
+    :t("today.live.in_progress",{time:todayLiveElapsed(todayLiveSession())});
+  if(tag.textContent!==text)tag.textContent=text;
+  tag.closest(".today-live__tag")?.classList.toggle("is-rest",!!rest)}
 /* Today with nothing behind it. Backing out of onboarding used to land here on
    a bundled program the lifter had never seen, which read as "your training" —
    so the empty device now says it is empty and offers the way back in. Every
@@ -8434,6 +8533,8 @@ function toggleFocusLedger(button){
 /** The line under the exercise name: sets and reps, the effort window, and the
  *  name of the strategy that sets the target. Read off the program's own
  *  envelope; a slot with none is the range it always was. */
+/** An effort window of one value reads as that value: "RIR 1", never "RIR 1–1". */
+const singleRir=line=>String(line).replace(/RIR (\S+)–\1(?![\d.,])/,"RIR $1");
 function focusExMeta(ex){
   if(ex?.hasRepTarget===false)return programPrescriptionSummary(ex);
   // A canonical slot is adaptive or manual; its RIR comes from its own sets.
@@ -8442,7 +8543,7 @@ function focusExMeta(ex){
     const name=t(facts.adaptive?"program.progression.adaptive":"program.progression.strategy.manual");
     const line=facts.rirMin==null?t("focus.exmeta.manual",{sets:+ex.sets||1,min:ex.min,max:ex.max})
       :t("focus.exmeta.range",{sets:+ex.sets||1,min:ex.min,max:ex.max,rmin:fmt(facts.rirMin),rmax:fmt(facts.rirMax)});
-    return `${line} · ${name}`}
+    return `${singleRir(line)} · ${name}`}
   const env=progressionForExercise(ex),id=env?.strategy?.id||"range",p=env?.strategy?.params||{};
   const sets=+p.workingSets||+ex.sets||1;
   const rmin=fmt(p.targetRirMin!=null?p.targetRirMin:0),rmax=fmt(p.targetRirMax!=null?p.targetRirMax:state.settings.rirHigh);
@@ -8456,7 +8557,7 @@ function focusExMeta(ex){
   else if(id==="anchor_backoff")line=t("focus.exmeta.anchor",{amin:p.anchorRepMin,amax:p.anchorRepMax,n:p.backoffSets,bmin:p.backoffRepMin,bmax:p.backoffRepMax});
   else if(id==="manual"||!names[id])line=t("focus.exmeta.manual",{sets:+ex.sets||1,min:ex.min,max:ex.max});
   else line=t("focus.exmeta.range",{sets,min:p.repMin!=null?p.repMin:ex.min,max:p.repMax!=null?p.repMax:ex.max,rmin,rmax});
-  return `${line} · ${name}`}
+  return `${singleRir(line)} · ${name}`}
 
 /* ---- The shelf ----
    The shelf is a presentation over the DraftV2 commands. It holds nothing of its own that is saved: the three fields show
