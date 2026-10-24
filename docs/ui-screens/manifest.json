@@ -365,6 +365,13 @@
         "viewport": "phone-390",
         "theme": "light",
         "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "en",
         "text": "text200",
         "motion": "normal"
       },
@@ -1069,7 +1076,7 @@
       "id": "dock-viewer",
       "flow": "today",
       "label": "Today — dock large-content viewer",
-      "scenario": "At 200% text a finger holds the dock's Progress tab: the large-content viewer shows its icon and name large over Today, which keeps its one-row dock with capped labels.",
+      "scenario": "A finger holds the dock's Progress tab. At 200% text the large-content viewer shows its icon and name large over Today, which keeps its one-row dock with capped labels; at the usual size (the canonical frame) the labels are whole, so the hold is only a press and no viewer is offered.",
       "variants": "largeText"
     },
     {

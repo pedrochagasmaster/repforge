@@ -192,6 +192,16 @@
   --control-pressed-scale:.97;
   /* A bar title stops growing here, as iOS bar titles do at large text sizes (ADR 0023): pixels, so 200% text does not move it. */
   --bar-title-max:21px;
+  /* Focus at large text (Plan 075 phase 5): where each type role stops growing, at the prototype's 200% sizes. */
+  --large-cap-caption:16px;
+  --large-cap-supporting:18px;
+  --large-cap-small:20px;
+  --large-cap-body:24px;
+  --large-cap-data:25.6px;
+  --large-cap-subtitle:26px;
+  --large-cap-value:28px;
+  --large-cap-title:35.2px;
+  --large-cap-clock:52px;
   --control-primary-pressed-transform:scale(var(--control-pressed-scale));
   --control-primary-pressed-bg:#3A3833;
   --ease-press-release:cubic-bezier(.2,.7,.2,1);
@@ -232,6 +242,14 @@
      the page ground. */
   --shelf-field-bg:var(--well);
   --shelf-pad-bg:var(--bg);
+  /* The Focus shelf's concentric corners (Plan 075 phase 5 addendum): every field, pad and the action sits
+     --shelf-inset inside a sheet of --shelf-radius, so its corner is the difference. */
+  --shelf-radius:28px;
+  --shelf-inset:16px;
+  --shelf-inner-radius:calc(var(--shelf-radius) - var(--shelf-inset));
+  /* A selected field inside the per-side tile keeps small inner corners; the grabber is a short pill. */
+  --shelf-group-inner-radius:6px;
+  --shelf-grabber-radius:3px;
   /* Landing bands (OG-3). Night is the dark palette in both themes; the mark
      that was #4A453D (1.79:1 and 1.95:1) is the required boundary below. */
   --band-night-bg:#141310;
@@ -266,6 +284,10 @@
      1.3× (--dock-label-max), or sooner where a quarter of a narrow phone can't hold "Progresso" at that size (3.7cqi),
      and a touch and hold shows the large-content viewer (Plan 075 phase 5, audit F-5). */
   --dock-label-max:14.3px;
+  --dock-label-fit:3.7cqi;
+  /* The large-content viewer: its corner and its name's size. */
+  --dock-viewer-radius:22px;
+  --dock-viewer-label:32px;
   --dock-h:62px;
   --dock-gap:10px;
   --dock-inset:14px;
@@ -1061,31 +1083,32 @@ body:has(.exercise--focus.is-text-scaled) .wo-head__center{order:3;flex:1 0 100%
    The ledger keeps its value heads (RIR's is the glossary's way in) but drops the SET head, and its columns share the
    rows' grid instead of rem widths that outgrow the row. `sizeFocusCard` keeps the open set whole above the shelf. */
 body:has(.exercise--focus.is-text-scaled) .wo-head__title{font-size:min(var(--font-size-body-small),var(--bar-title-max))}
-body:has(.exercise--focus.is-text-scaled) .wo-rest.is-running{font-size:min(var(--font-size-body-small),18px)}
-.exercise--focus.is-text-scaled .focus-ex__meta{font-size:min(var(--font-size-body-small),18px)}
-.exercise--focus.is-text-scaled .fx-cue__l1{font-size:min(var(--font-size-section-title),35.2px)}
+body:has(.exercise--focus.is-text-scaled) .wo-rest.is-running{font-size:min(var(--font-size-body-small),var(--large-cap-supporting))}
+.exercise--focus.is-text-scaled .focus-ex__meta{font-size:min(var(--font-size-body-small),var(--large-cap-supporting))}
+.exercise--focus.is-text-scaled .fx-cue__l1{font-size:min(var(--font-size-section-title),var(--large-cap-title))}
 .exercise--focus.is-text-scaled .fx-cue__mark{padding-top:calc((min(var(--font-size-section-title),35.2px) * var(--line-tight) - 16px) / 2)}
-.exercise--focus.is-text-scaled .fx-cue__l2{font-size:min(var(--font-size-subtitle),24px)}
-.exercise--focus.is-text-scaled .text-link.focus-ex__why,.exercise--focus.is-text-scaled .fx-cue__cancel{font-size:min(var(--font-size-control),24px)}
+.exercise--focus.is-text-scaled .fx-cue__l2{font-size:min(var(--font-size-subtitle),var(--large-cap-body))}
+.exercise--focus.is-text-scaled .text-link.focus-ex__why,.exercise--focus.is-text-scaled .fx-cue__cancel{font-size:min(var(--font-size-control),var(--large-cap-body))}
 .exercise--focus.is-text-scaled .restinline__row{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:var(--space-8);align-items:baseline}
-.exercise--focus.is-text-scaled .restinline__clock{order:-1;grid-column:1/-1;font-size:min(var(--font-size-rest-clock),52px)}
-.exercise--focus.is-text-scaled .restinline__label,.exercise--focus.is-text-scaled .restinline__of{font-size:min(var(--font-size-body),26px)}
+.exercise--focus.is-text-scaled .restinline__clock{order:-1;grid-column:1/-1;font-size:min(var(--font-size-rest-clock),var(--large-cap-clock))}
+.exercise--focus.is-text-scaled .restinline__label,.exercise--focus.is-text-scaled .restinline__of{font-size:min(var(--font-size-body),var(--large-cap-subtitle))}
 .exercise--focus.is-text-scaled .restinline__done,.exercise--focus.is-text-scaled .restinline__next,
-.exercise--focus.is-text-scaled .restinline__nextrow .text-link.restinline__why{font-size:min(var(--font-size-subtitle),24px)}
+.exercise--focus.is-text-scaled .restinline__nextrow .text-link.restinline__why{font-size:min(var(--font-size-subtitle),var(--large-cap-body))}
 .exercise--focus.is-text-scaled .ledgerline__head,.exercise--focus.is-text-scaled .ledgerline{grid-template-columns:auto minmax(0,1fr)}
 .exercise--focus.is-text-scaled .ledgerline__head > :first-child{visibility:hidden}
-.exercise--focus.is-text-scaled .ledgerline__head{font-size:min(var(--font-size-label),16px)}
-.exercise--focus.is-text-scaled .ledgerline__vals{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr);font-size:min(var(--font-size-body),25.6px)}
+.exercise--focus.is-text-scaled .ledgerline__head{font-size:min(var(--font-size-label),var(--large-cap-caption))}
+.exercise--focus.is-text-scaled .ledgerline__vals{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr);font-size:min(var(--font-size-body),var(--large-cap-data))}
 .exercise--focus.is-text-scaled .ledgerline__vals > .fx-col{min-width:0}
-.exercise--focus.is-text-scaled .ledgerline__idx{font-size:min(var(--font-size-body-small),20px)}
-.exercise--focus.is-text-scaled .ledgerline__prev{font-size:min(var(--font-size-body-small),24px)}
-.exercise--focus.is-text-scaled .ledger__more{font-size:min(var(--font-size-body-small),20px)}
-.exercise--focus.is-text-scaled .shelf__lab{font-size:min(var(--font-size-body-small),16px)}
-.exercise--focus.is-text-scaled .shelf__val,.exercise--focus.is-text-scaled .shelf__input{font-size:min(var(--font-size-metric),var(--shelf-numeral-fit),28px)}
+.exercise--focus.is-text-scaled .ledgerline__idx{font-size:min(var(--font-size-body-small),var(--large-cap-small))}
+.exercise--focus.is-text-scaled .ledgerline__prev{font-size:min(var(--font-size-body-small),var(--large-cap-body))}
+.exercise--focus.is-text-scaled .ledger__more{font-size:min(var(--font-size-body-small),var(--large-cap-small))}
+.exercise--focus.is-text-scaled .shelf__lab{font-size:min(var(--font-size-body-small),var(--large-cap-caption))}
+.exercise--focus.is-text-scaled .shelf__unit,.exercise--focus.is-text-scaled .shelf__cap{font-size:min(var(--font-size-caption),var(--large-cap-caption))}
+.exercise--focus.is-text-scaled .shelf__val,.exercise--focus.is-text-scaled .shelf__input{font-size:min(var(--font-size-metric),var(--shelf-numeral-fit),var(--large-cap-value))}
 .exercise--focus.is-text-scaled .shelf__pads{overflow-x:auto;scrollbar-width:none}
 .exercise--focus.is-text-scaled .shelf__pads::-webkit-scrollbar{display:none}
-.exercise--focus.is-text-scaled .shelf__pads > button{flex:1 0 auto;font-size:min(var(--font-size-control),24px)}
-.exercise--focus.is-text-scaled .focus-shelf .saveset{font-size:min(var(--font-size-control),25.6px)}
+.exercise--focus.is-text-scaled .shelf__pads > button{flex:1 0 auto;font-size:min(var(--font-size-control),var(--large-cap-body))}
+.exercise--focus.is-text-scaled .focus-shelf .saveset{font-size:min(var(--font-size-control),var(--large-cap-data))}
 .wo-head__sub{display:none}
 .wo-head__sub.is-deload{display:block;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 .wo-head__end{display:flex;align-items:center;gap:6px;flex:none;position:relative;justify-self:end}
@@ -1379,8 +1402,14 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
    roles. A field is a button until a second tap turns it into the real input. */
 .focus-shelf{flex:none;position:relative}
 /* Layout D (owner decision of 2026-10-17, from the approved mock): the shelf at 56 px fields, 48 px pads and a 52 px
-   action, under the 56/56/54 of Direction D §4, on an 8 px top padding. Every target stays at least 48 px. */
-.workshelf.focus-shelf{padding-top:var(--space-8)}
+   action, under the 56/56/54 of Direction D §4. Every target stays at least 48 px. The addendum to Plan 075 phase 5
+   (owner, 2026-10-23) makes it concentric: a --shelf-radius sheet, everything --shelf-inset from its edges (the bottom
+   is the safe area plus the inset), 8 px between siblings and 12 px between rows, and a grabber at the top. */
+.workshelf.focus-shelf{
+  row-gap:var(--space-12);padding:var(--shelf-inset) var(--shelf-inset) calc(var(--shelf-inset) + env(safe-area-inset-bottom,0px));
+  border-radius:var(--shelf-radius) var(--shelf-radius) var(--radius-none) var(--radius-none);
+}
+.workshelf.focus-shelf::before{content:"";justify-self:center;width:36px;height:5px;margin:calc(-1 * var(--space-8)) 0 calc(-1 * var(--space-4));border-radius:var(--shelf-grabber-radius);background:var(--rule-strong)}
 .focus-shelf{--control-selection-bg:var(--shelf-field-bg)}
 /* A third of the shelf has to hold a load such as 102,5 on one line at any text size. The numeral is as large as the
    token allows and no larger than five Mono digits take in the room a field has left after its gutters, gaps and
@@ -1388,16 +1417,36 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
    of the two and nothing changes, at double size the step-down replaces the wrap. */
 .focus-shelf{
   --shelf-field-inset:calc(2 * var(--space-12) + 2px);
-  --shelf-numeral-fit:calc((100vw - 2 * var(--gut) - 2 * var(--space-8) - 3 * var(--shelf-field-inset)) / 9.6);
+  /* Five Mono digits (3em) and the unit beside them (about 20px) in a third of the row. */
+  --shelf-numeral-fit:calc(((100vw - 2 * var(--shelf-inset) - 2 * var(--space-8)) / 3 - var(--shelf-field-inset) - 20px) / 3);
 }
 .shelf__fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-8)}
 /* The three fields share a row's height whichever label wrapped (a flex field stretches its button). */
 .shelf__field{position:relative;display:flex;min-width:0}
 .shelf__fieldbtn{
   display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;width:100%;min-height:56px;margin:0;
-  padding:var(--space-4) var(--space-12);border:1px solid var(--control-selection-boundary);border-radius:var(--radius-control);
+  padding:var(--space-4) var(--space-12);border:1px solid var(--control-selection-boundary);border-radius:var(--shelf-inner-radius);
   background:var(--control-selection-bg);color:var(--control-selection-ink);text-align:left;cursor:pointer;
 }
+.shelf__valrow{display:flex;align-items:baseline;gap:3px;min-width:0;white-space:nowrap}
+.shelf__unit{font-family:var(--font-language);font-size:var(--font-size-caption);color:var(--color-ink-secondary)}
+/* Per side, said once (addendum option A): the per-side fields share one tile under a caption, a hairline between
+   them; the selected one's ring follows the tile's outer corners and keeps small inner ones. */
+.shelf__cap{
+  grid-column:1/-1;display:flex;align-items:center;gap:6px;margin:0 0 calc(-1 * var(--space-4)) var(--space-4);
+  font-family:var(--font-language);font-size:var(--font-size-caption);font-weight:var(--weight-semibold);line-height:var(--line-tight);
+  letter-spacing:.06em;text-transform:uppercase;color:var(--color-ink-secondary);
+}
+.shelf__cap .icon-mask{width:16px;height:16px}
+.shelf__group{
+  grid-column:span var(--shelf-group-n,2);display:grid;grid-template-columns:repeat(var(--shelf-group-n,2),minmax(0,1fr));min-width:0;
+  border:1px solid var(--control-selection-boundary);border-radius:var(--shelf-inner-radius);background:var(--control-selection-bg);
+}
+.shelf__group .shelf__fieldbtn{border-color:transparent;background:transparent}
+.shelf__group .shelf__field:first-child .shelf__fieldbtn{border-radius:var(--shelf-inner-radius) var(--shelf-group-inner-radius) var(--shelf-group-inner-radius) var(--shelf-inner-radius)}
+.shelf__group .shelf__field:last-child .shelf__fieldbtn{border-radius:var(--shelf-group-inner-radius) var(--shelf-inner-radius) var(--shelf-inner-radius) var(--shelf-group-inner-radius)}
+.shelf__group .shelf__field:only-child .shelf__fieldbtn{border-radius:var(--shelf-inner-radius)}
+.shelf__group .shelf__field + .shelf__field::before{content:"";position:absolute;z-index:1;left:0;top:var(--space-12);bottom:var(--space-12);width:1px;background:var(--rule);pointer-events:none}
 @media (hover: hover) and (pointer: fine){
 .shelf__fieldbtn:hover:not(:disabled){background:var(--well)}
 }
@@ -1417,7 +1466,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
    flag. Until the second tap it is invisible and inert; then it takes the field's place. */
 .shelf__input{
   position:absolute;inset:0;width:100%;height:100%;min-height:56px;margin:0;padding:var(--space-4) var(--space-12) 0;
-  opacity:0;pointer-events:none;border:1px solid var(--control-field-boundary);border-radius:var(--radius-control);
+  opacity:0;pointer-events:none;border:1px solid var(--control-field-boundary);border-radius:var(--shelf-inner-radius);
   background:var(--control-field-bg);color:var(--control-field-ink);box-shadow:var(--elevation-selected-quiet-shadow);
   font-family:var(--font-training-data);font-size:min(var(--font-size-metric),var(--shelf-numeral-fit));font-weight:var(--weight-medium);line-height:var(--line-tight);
   font-variant-numeric:tabular-nums;text-align:left;
@@ -1431,7 +1480,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 .shelf__fieldbtn[aria-invalid="true"]{border-color:var(--control-error-boundary)}
 .shelf__pads{display:flex;gap:var(--space-8)}
 .shelf__pads .shelf__pad{
-  flex:1 1 0;width:auto;min-width:0;height:48px;min-height:48px;padding:0 var(--space-12);border-radius:var(--radius-control);
+  flex:1 1 0;width:auto;min-width:0;height:48px;min-height:48px;padding:0 var(--space-12);border-radius:var(--shelf-inner-radius);
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);white-space:nowrap;
 }
 /* ---- Inline rest ----
@@ -1476,7 +1525,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 /* The rest controls: -30s and +30s step the clock, Pausar holds it, Pular ends it. */
 .shelf__pads{position:relative}
 .restpad{
-  flex:1 1 0;min-width:0;height:48px;min-height:48px;margin:0;padding:0 var(--space-4);border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);
+  flex:1 1 0;min-width:0;height:48px;min-height:48px;margin:0;padding:0 var(--space-4);border:1px solid var(--control-secondary-boundary);border-radius:var(--shelf-inner-radius);
   background:var(--control-secondary-bg);color:var(--control-secondary-ink);cursor:pointer;text-align:center;white-space:nowrap;
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
@@ -1507,7 +1556,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 .focus-shelf .btn--cta.saveset{
   border:1px solid var(--control-primary-boundary);background:var(--control-primary-bg);color:var(--control-primary-ink);
   font-family:var(--font-language);text-transform:none;letter-spacing:normal;font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
-  min-height:52px;min-width:0;padding:0 var(--space-18);border-radius:var(--radius-control);
+  min-height:52px;min-width:0;padding:0 var(--space-18);border-radius:var(--shelf-inner-radius);
 }
 @media (hover: hover) and (pointer: fine){
 .focus-shelf .btn--cta.saveset:hover:not(:disabled){background:var(--control-primary-bg);color:var(--control-primary-ink);border-color:var(--control-primary-boundary)}
@@ -3228,7 +3277,7 @@ nav button{
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
   background:transparent;border:1px solid transparent;color:var(--ink-soft);cursor:pointer;
   border-radius:var(--radius-pill);
-  font-weight:500;letter-spacing:0;font-size:min(var(--font-size-label),var(--dock-label-max),3.7cqi);text-transform:none;
+  font-weight:500;letter-spacing:0;font-size:min(var(--font-size-label),var(--dock-label-max),var(--dock-label-fit));text-transform:none;
   transition:color .2s ease,transform .18s ease;min-height:44px;min-width:0;
   padding-inline:2px;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;
 }
@@ -3287,12 +3336,12 @@ nav[data-lens=travel] button.active{border-color:transparent}
 .dock-viewer{
   position:fixed;z-index:60;left:50%;top:40%;transform:translate(-50%,-50%);
   display:grid;justify-items:center;gap:10px;box-sizing:border-box;width:max-content;min-width:180px;max-width:calc(100vw - 2 * var(--gut));padding:22px 26px;
-  border-radius:22px;background:var(--menu-bg);-webkit-backdrop-filter:var(--menu-blur);backdrop-filter:var(--menu-blur);
+  border-radius:var(--dock-viewer-radius);background:var(--menu-bg);-webkit-backdrop-filter:var(--menu-blur);backdrop-filter:var(--menu-blur);
   box-shadow:var(--elevation-dialog-shadow);color:var(--ink);pointer-events:none;
 }
 @media(prefers-reduced-transparency:reduce){.dock-viewer{background:var(--surface);backdrop-filter:none;-webkit-backdrop-filter:none}}
 .dock-viewer .nav__icon{width:56px;height:56px}
-.dock-viewer__label{font-family:var(--font-language);font-size:32px;font-weight:var(--weight-semibold);line-height:var(--line-tight);text-align:center;overflow-wrap:break-word}
+.dock-viewer__label{font-family:var(--font-language);font-size:var(--dock-viewer-label);font-weight:var(--weight-semibold);line-height:var(--line-tight);text-align:center;overflow-wrap:break-word}
 .nav__icon{width:22px;height:22px;flex:none;background:currentColor;
   -webkit-mask:no-repeat center/contain;mask:no-repeat center/contain}
 nav button.active .nav__icon{background:var(--accent)}

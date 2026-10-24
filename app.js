@@ -8501,7 +8501,7 @@ function parseHistoryMetricInput(metric,raw){
   const checked=ExerciseMetrics?.parseMetricValue?.(metric,value);
   return checked?.ok?{value:checked.value}:{field:"metric",key};}
 // @ci-domain workout,session
-function shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek,carry}){
+function shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek,carry,grouped=false}){
   const key=`${ex.id}_${n}`,fieldId=`metric_${metric.id}`,inputKey=`${key}_${fieldId}`,selected=ui.field===fieldId;
   const live=selected&&ui.editing&&!peek;
   const pending=pendingFields.get(inputKey)?.value;
@@ -8510,13 +8510,15 @@ function shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek,carry}){
   const raw=carried??pending??set.edited.metrics?.[metric.id]??"";
   const shown=raw!==""?shelfText(metricTextValue(raw,metric)):metricTargetText(set.programmed.targets?.[metric.semantic]);
   const target=metricTargetText(set.programmed.targets?.[metric.semantic]);
-  // A unit the name already says (reps) is not repeated; any other follows the load field's "Load, kg".
+  // The name says it all ("Load per side, kg"); the tile shows the short label, the unit beside the value, and a
+  // per-side pair says "Per side" once above its group (Plan 075 phase 5 addendum).
   const unit=metricDisplayUnit(metric);
   const label=`${metricLabel(metric)}${unit?`, ${unit}`:""}`;
   const name=`${label}, ${t("focus.set_label",{n})}`;
   const soft=!touched.metrics?.[metric.id]&&!pendingFields.has(inputKey);
   const cls=`shelf__field${selected?" is-sel":""}${soft?" is-untouched":""}${live?" is-editing":""}`;
-  const face=`<span class="shelf__lab">${esc(label)}</span><span class="shelf__val">${esc(shown||"—")}</span>`;
+  const short=grouped?shelfShortLabel(metric):metricLabel(metric);
+  const face=shelfFaceHtml(short,label,shown,unit);
   if(peek)return `<div class="${cls}" data-field="metric" data-metric="${esc(metric.id)}"><span class="shelf__fieldbtn">${face}</span></div>`;
   // A selected Load or Reps field's name gains the picker hint: a second tap opens the wheel (ADR 0023 choice 8).
   const pickerHint=selected&&metricWheelKind(metric)?` aria-label="${esc(`${label} ${shown||"—"}, ${t("focus.field.picker_hint")}`)}"`:"";
@@ -8524,8 +8526,19 @@ function shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek,carry}){
   const input=`<input class="shelf__input" data-k="${esc(inputKey)}" data-metric-id="${esc(metric.id)}" type="text" inputmode="${metric.semantic==="reps"||metric.semantic==="repsPerSide"?"numeric":"decimal"}" `+
     `enterkeyhint="next" aria-label="${esc(name)}" autocomplete="off" value="${esc(metricTextValue(raw,metric))}" placeholder="${esc(target)}"`+
     `${live?"":' tabindex="-1" aria-hidden="true"'}>`;
-  const caption=live?`<span class="shelf__lab shelf__lab--edit" aria-hidden="true">${esc(label)}</span>`:"";
+  const caption=live?`<span class="shelf__lab shelf__lab--edit" aria-hidden="true">${esc(short)}</span>`:"";
   return `<div class="${cls}" data-field="metric" data-metric="${esc(metric.id)}" data-set="${esc(key)}"><span data-lv="${esc(fieldId)}"></span>${button}${input}${caption}</div>`}
+/** The per-side metrics the shelf groups under one "Per side" caption, with the short label each tile shows. */
+const SHELF_PER_SIDE_SHORT={loadPerSideKg:"focus.metric.load_kg",repsPerSide:"focus.metric.reps",
+  durationPerSideSeconds:"focus.metric.duration_seconds",distanceShortPerSideMeters:"focus.metric.distance_short_meters"};
+const shelfShortLabel=metric=>SHELF_PER_SIDE_SHORT[metric.semantic]?t(SHELF_PER_SIDE_SHORT[metric.semantic]):metricLabel(metric);
+/** A field's face: its short label over the value, with the unit beside the value ("22.5 kg"). The field's name stays
+ *  whole ("Load per side, kg 22.5"): the rest of the label is read but not shown, and the shown unit is not read twice. */
+const shelfFaceHtml=(short,label,shown,unit)=>{
+  const rest=label.startsWith(short)?label.slice(short.length):"";
+  const lab=rest||label===short?`${esc(short)}${rest?`<span class="visually-hidden">${esc(rest)}</span>`:""}`:esc(label);
+  return `<span class="shelf__lab">${lab}</span><span class="shelf__valrow"><span class="shelf__val">${esc(shown||"—")}</span>`+
+    `${unit?`<span class="shelf__unit" aria-hidden="true">${esc(unit)}</span>`:""}</span>`};
 
 function shelfFieldHtml(ex,n,id,vals,{ui,touched,effortMode,peek}){
   const key=`${ex.id}_${n}`,sel=ui.field===id;
@@ -8533,12 +8546,13 @@ function shelfFieldHtml(ex,n,id,vals,{ui,touched,effortMode,peek}){
   const live=sel&&ui.editing&&!effortField&&!peek;
   const label=id==="load"?t("focus.shelf.field_load",{unit:unitLabel()}):id==="reps"?t("stats.table.reps")
     :effortField?t("log.effort"):t("stats.table.rir");
+  const short=id==="load"?t("focus.metric.load_kg"):label;
   const name=`${label}, ${t("focus.set_label",{n})}`;
   const raw=id==="load"?vals.kgVal:id==="reps"?vals.repsVal:vals.rirVal;
   const shown=effortField?effortLabel(vals.effortVal):id==="reps"?String(vals.repsVal??""):shelfText(raw);
   const soft=!(id==="load"?touched.load:id==="reps"?touched.reps:touched.effort);
   const cls=`shelf__field${sel?" is-sel":""}${soft?" is-untouched":""}${live?" is-editing":""}`;
-  const face=`<span class="shelf__lab">${esc(label)}</span><span class="shelf__val">${esc(shown||"—")}</span>`;
+  const face=shelfFaceHtml(short,label,shown,id==="load"?unitLabel():"");
   if(peek)return `<div class="${cls}"><span class="shelf__fieldbtn">${face}</span></div>`;
   const hooks=effortField
     ?` data-effspin="${esc(key)}" data-e="${esc(vals.effortVal)}" aria-describedby="effpop_${esc(key)}"`:"";
@@ -8551,7 +8565,7 @@ function shelfFieldHtml(ex,n,id,vals,{ui,touched,effortMode,peek}){
   const input=effortField?"":`<input class="shelf__input" data-k="${esc(key)}_${id}" type="text" inputmode="${id==="reps"?"numeric":"decimal"}" `+
     `enterkeyhint="${id==="rir"?"done":"next"}" aria-label="${esc(name)}" autocomplete="off" value="${esc(String(raw??""))}"`+
     `${live?"":' tabindex="-1" aria-hidden="true"'}>`;
-  const caption=live?`<span class="shelf__lab shelf__lab--edit" aria-hidden="true">${esc(label)}</span>`:"";
+  const caption=live?`<span class="shelf__lab shelf__lab--edit" aria-hidden="true">${esc(short)}</span>`:"";
   return `<div class="${cls}" data-field="${id}" data-set="${esc(key)}">${button}${input}${caption}${effortField?effortPopHtml(key,vals.effortVal):""}</div>`}
 
 function shelfPadsHtml(ex,n,ui,vals,{effortMode,peek}){
@@ -8614,8 +8628,15 @@ function focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
   const set=activeWorkoutDraft?.exercises?.[ex.id]?.sets?.[setId];
   // The fields read in the order of the set table's columns: load, then reps, then effort.
   const column=metric=>METRIC_FIELD_SEMANTICS.load.includes(metric.semantic)?0:METRIC_FIELD_SEMANTICS.reps.includes(metric.semantic)?1:2;
+  const sorted=[...metricDefinitions].sort((a,b)=>column(a)-column(b));
+  const metricHtml=(metric,grouped)=>shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek,carry:manualLoadCarry(ex.id,n,r),grouped});
+  // The per-side fields that lead the row share one tile under a single "Per side" caption; the rest stand alone.
+  let lead=0;while(lead<sorted.length&&SHELF_PER_SIDE_SHORT[sorted[lead].semantic])lead++;
+  const side=sorted.slice(0,lead);
+  const group=side.length?`<p class="shelf__cap" aria-hidden="true"><span class="icon-mask icon-mask--dumbbell"></span>${esc(t("focus.per_side"))}</p>`+
+    `<div class="shelf__group" style="--shelf-group-n:${side.length}">${side.map(metric=>metricHtml(metric,true)).join("")}</div>`:"";
   const fields=metricDefinitions.length
-    ?[...metricDefinitions].sort((a,b)=>column(a)-column(b)).map(metric=>shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek,carry:manualLoadCarry(ex.id,n,r)})).join("")+shelfFieldHtml(ex,n,"rir",vals,{ui,touched,effortMode,peek})
+    ?group+sorted.slice(lead).map(metric=>metricHtml(metric,false)).join("")+shelfFieldHtml(ex,n,"rir",vals,{ui,touched,effortMode,peek})
     :["load","reps","rir"].map(id=>shelfFieldHtml(ex,n,id,vals,{ui,touched,effortMode,peek})).join("");
   return `<div class="focus-shelf workshelf${editing?" is-editing":""}" role="region" aria-label="${esc(label)}">`+
     `<div class="shelf__fields">${fields}</div>`+

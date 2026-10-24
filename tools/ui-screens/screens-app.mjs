@@ -1658,8 +1658,9 @@ export const APP_SCENARIOS = {
       await assertTodayExerciseFitsExternalTextScale(page);
     }
   },
-  // Plan 075 phase 5 (ADR 0023 choice 10): a finger held on the dock's Progress tab at 200% text. The touch stays down
-  // while the frame is taken, so the viewer is what the capture shows; it is only offered in the large-text state.
+  // Plan 075 phase 5 (ADR 0023 choice 10): a finger held on the dock's Progress tab. The touch stays down while the frame
+  // is taken. At 200% text the viewer is what the capture shows; at the usual size the labels are whole, the viewer is
+  // not offered, and the frame is the press alone.
   "today/dock-viewer": async (page) => {
     await dismissChrome(page);
     await page.locator("#todayExList .rxrow").first().waitFor({ state: "visible", timeout: 20000 });
@@ -1668,7 +1669,11 @@ export const APP_SCENARIOS = {
     const tab = await page.locator('nav button[data-view="stats"]').boundingBox();
     if (!tab) throw new Error("The dock's Progress tab is not on screen");
     await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: tab.x + tab.width / 2, y: tab.y + tab.height / 2 }] });
-    await page.waitForFunction(() => document.querySelector(".dock-viewer .dock-viewer__label")?.textContent.trim().length > 0, undefined, { timeout: 20000 });
+    if (await page.evaluate(() => document.documentElement.style.fontSize === "200%")) {
+      await page.waitForFunction(() => document.querySelector(".dock-viewer .dock-viewer__label")?.textContent.trim().length > 0, undefined, { timeout: 20000 });
+    } else {
+      await page.waitForFunction(() => document.querySelector('nav button[data-view="stats"]')?.classList.contains("is-pressed"), undefined, { timeout: 20000 });
+    }
   },
   // Plan 075 phase 3 (ADR 0023): the scroll-edge bar once the large title has
   // scrolled under it. Same fixture and the same ready state as "today/ready",

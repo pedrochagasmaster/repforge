@@ -281,7 +281,7 @@
     "today/dock-viewer": {
       "owner": "plan-075-phase-5",
       "content": "flat",
-      "scenario": "At 200% text a finger holds the dock's Progress tab: the large-content viewer shows its icon and name large over Today, which keeps its one-row dock with capped labels."
+      "scenario": "A finger holds the dock's Progress tab. At 200% text the large-content viewer shows its icon and name large over Today, which keeps its one-row dock with capped labels; at the usual size (the canonical frame) the labels are whole, so the hold is only a press and no viewer is offered."
     },
     "today/ready-scrolled": {
       "owner": "plan-075",
@@ -7939,7 +7939,9 @@
       "owner": "plan-075-phase-5",
       "catalogStates": [
         "today/dock-viewer"
-      ]
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "large text only: the viewer is offered only in the dock's large-text state, and the role audit renders the canonical normal-text frames, where a hold is only a press. Its 200% frames are today/dock-viewer's text200 variants; test/native-feel.mjs (phase 5) proves it shows, follows the finger and switches tab."
     },
     {
       "id": "summary",

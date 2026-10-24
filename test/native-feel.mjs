@@ -50,6 +50,12 @@
  * holding a tab shows the large-content viewer, sliding moves it and lifting
  * switches to the tab under the finger.
  *
+ * Phase 5 addendum, the concentric shelf: a 28px sheet with 16px insets, every
+ * field, pad and Log set at 12px (the sheet minus the inset), 8px between
+ * siblings and 12px between rows, no field label wrapping, and a per-side
+ * exercise's Load and Reps in one tile under exactly one "Per side" caption,
+ * each field's name still saying per side.
+ *
  * Chromium touch emulation is not iPhone evidence; the feel is checked on a
  * device by the owner.
  *
@@ -1884,7 +1890,7 @@ function measureLargeFocus() {
 async function largeTextFocus(browser) {
   phase("Focus holds together at 200% text");
   const phones = [{ width: 390, height: 844, safe: { top: 44, bottom: 34 } }, { width: 375, height: 667, safe: { top: 20, bottom: 0 } }];
-  for (const key of ["workout/rest-running", "workout/focus"]) for (const lang of ["pt", "en"]) for (const phone of phones) {
+  for (const key of ["workout/rest-running", "workout/focus", "workout/focus-per-side"]) for (const lang of ["pt", "en"]) for (const phone of phones) {
     const label = `${key} ${lang} ${phone.width}×${phone.height}`;
     const opened = await openCatalogState(browser, key, phone.width, lang, "text200", { height: phone.height, safe: phone.safe });
     try {
@@ -2004,11 +2010,73 @@ async function largeTextDock(browser) {
   await context.close();
 }
 
-// NATIVE_FEEL_ONLY=large runs just phase 5, for a local red/green on its proofs; CI runs everything.
+/** The addendum's shelf, measured: radii, insets, gaps, the per-side caption and names, and label wraps. */
+function measureShelf() {
+  const shelf = document.querySelector("#workout .exercise--focus.is-current .focus-shelf");
+  if (!shelf) return { error: "no Focus shelf" };
+  const css = (el) => getComputedStyle(el);
+  const px = (v) => parseFloat(v) || 0;
+  const radius = (el) => px(css(el).borderTopLeftRadius);
+  const tiles = [...shelf.querySelectorAll(".shelf__fields > .shelf__field .shelf__fieldbtn, .shelf__group")];
+  const pads = [...shelf.querySelectorAll(".shelf__pads > button")];
+  const action = shelf.querySelector("[data-save]");
+  const fields = shelf.querySelector(".shelf__fields"), padRow = shelf.querySelector(".shelf__pads");
+  const caps = [...shelf.querySelectorAll(".shelf__cap")].filter((el) => el.getClientRects().length);
+  const perSide = window.RepForgeI18n.t("focus.per_side");
+  const groupButtons = [...shelf.querySelectorAll(".shelf__group .shelf__fieldbtn")];
+  const name = (b) => (b.getAttribute("aria-label") || b.textContent).replace(/\s+/g, " ").trim();
+  const labels = [...shelf.querySelectorAll(".shelf__fieldbtn > .shelf__lab")].map((el) => {
+    // The visible label only: a visually hidden rest of the name is read, not drawn.
+    const rects = [...el.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE).flatMap((node) => {
+      const range = document.createRange(); range.selectNodeContents(node); return [...range.getClientRects()];
+    });
+    const lines = new Set(rects.filter((r) => r.width > 1 && r.height > 1).map((r) => Math.round(r.top))).size;
+    return { text: el.textContent.trim(), lines };
+  });
+  const s = css(shelf);
+  return {
+    sheet: radius(shelf), inset: { top: px(s.paddingTop), left: px(s.paddingLeft), right: px(s.paddingRight) }, rowGap: px(s.rowGap),
+    radii: [...tiles, ...pads, action].map(radius),
+    gaps: { fields: px(css(fields).columnGap), pads: px(css(padRow).columnGap) },
+    caps: caps.map((el) => ({ text: el.textContent.trim(), upper: css(el).textTransform })), perSide,
+    groupNames: groupButtons.map(name), labels,
+  };
+}
+
+/** Phase 5 addendum: the concentric shelf and its grouped "Per side". */
+async function concentricShelf(browser) {
+  phase("The Focus shelf is concentric, and says Per side once");
+  const phones = [{ width: 390, height: 844, safe: { top: 44, bottom: 34 } }, { width: 375, height: 667, safe: { top: 20, bottom: 0 } }];
+  for (const key of ["workout/focus", "workout/focus-per-side"]) for (const lang of ["en", "pt"]) for (const phone of phones) for (const theme of ["light", "dark"]) {
+    if (theme === "dark" && (lang === "pt" || phone.width !== 390)) continue;
+    const label = `${key} ${lang} ${phone.width} ${theme}`;
+    const opened = await openCatalogState(browser, key, phone.width, lang, "normal", { height: phone.height, safe: phone.safe, theme });
+    try {
+      const m = await opened.page.evaluate(measureShelf);
+      if (m.error) { assert(false, label, m.error); continue; }
+      const inner = m.sheet - m.inset.left;
+      assert(m.sheet === 28 && m.inset.top === 16 && m.inset.left === 16 && m.inset.right === 16,
+        `${label}: a 28px sheet with 16px insets`, JSON.stringify({ sheet: m.sheet, inset: m.inset }));
+      assert(inner === 12 && m.radii.every((r) => r === inner), `${label}: every field, pad and Log set is 12px, the sheet minus its inset`, JSON.stringify(m.radii));
+      assert(m.gaps.fields === 8 && m.gaps.pads === 8 && m.rowGap === 12, `${label}: 8px between siblings and 12px between rows`, JSON.stringify({ gaps: m.gaps, rowGap: m.rowGap }));
+      assert(m.labels.every((l) => l.lines === 1), `${label}: no field label wraps`, JSON.stringify(m.labels));
+      if (key === "workout/focus-per-side") {
+        assert(m.caps.length === 1 && m.caps[0].text === m.perSide && m.caps[0].upper === "uppercase", `${label}: exactly one "Per side" caption`, JSON.stringify(m.caps));
+        assert(m.groupNames.length >= 1 && m.groupNames.every((n) => n.includes(m.perSide)), `${label}: each grouped field's name says per side`, JSON.stringify(m.groupNames));
+      } else {
+        assert(m.caps.length === 0, `${label}: an ordinary exercise has no caption`, JSON.stringify(m.caps));
+      }
+    } finally {
+      await opened.context.close();
+    }
+  }
+}
+
+// NATIVE_FEEL_ONLY=large runs just phase 5 and =shelf just its addendum, for a local red/green; CI runs everything.
 const ONLY = process.env.NATIVE_FEEL_ONLY || "";
 const browser = await launchChromium();
 try {
- if (ONLY !== "large") {
+ if (!ONLY) {
   phase("A primary action is pressed on touch-down");
   {
     const { context, page, touch } = await todayPage(browser);
@@ -2210,8 +2278,11 @@ try {
   await editorSheetAndBar(browser);
   await perSideOverflow(browser);
  }
-  await largeTextFocus(browser);
-  await largeTextDock(browser);
+  if (ONLY !== "shelf") {
+    await largeTextFocus(browser);
+    await largeTextDock(browser);
+  }
+  await concentricShelf(browser);
 } finally {
   await browser.close();
 }
