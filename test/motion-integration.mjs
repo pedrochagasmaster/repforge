@@ -2360,13 +2360,14 @@ async function dockMotion(browser, { reducedMotion = "no-preference" } = {}) {
   const navBefore = await page.evaluate(() => document.querySelector("nav").getBoundingClientRect().height);
   const big = await page.evaluate(() => window.__dock.frames(480, () => { document.documentElement.style.fontSize = "200%"; }));
   const navAfter = await page.evaluate(() => document.querySelector("nav").getBoundingClientRect().height);
-  assert(navAfter > navBefore, "200% text makes the two-row dock", JSON.stringify({ navBefore, navAfter }));
-  assert(onButton(big.at(-1)) && big.every((f) => f.transform === "" && f.count === 1), "the lens is on the active tab of the taller dock and was never in flight", JSON.stringify({ end: big.at(-1).lens, active: big.at(-1).active }));
+  // Plan 075 phase 5: the dock keeps one row and its height at 200% (capped labels, the large-content viewer).
+  assert(Math.abs(navAfter - navBefore) < 0.5, "200% text keeps the one-row dock at its height", JSON.stringify({ navBefore, navAfter }));
+  assert(onButton(big.at(-1)) && big.every((f) => f.transform === "" && f.count === 1), "the lens is on the active tab of the large-text dock and was never in flight", JSON.stringify({ end: big.at(-1).lens, active: big.at(-1).active }));
   const second = await page.evaluate(async () => {
     const out = await window.__dock.travel(560, () => window.__dock.click("program"));
     return out;
   });
-  assert(onButton(second.at(-1)) && second.at(-1).view === "program" && second.every((f) => f.count === 1), "and a tab chosen in the two-row dock lands on its tile", JSON.stringify({ end: second.at(-1).lens, active: second.at(-1).active }));
+  assert(onButton(second.at(-1)) && second.at(-1).view === "program" && second.every((f) => f.count === 1), "and a tab chosen in the large-text dock lands on its tile", JSON.stringify({ end: second.at(-1).lens, active: second.at(-1).active }));
   await page.evaluate(() => { document.documentElement.style.fontSize = ""; });
 
   assert(errors.length === 0, `no page errors in the dock run${tag}`, errors.join(" | "));

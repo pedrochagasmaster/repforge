@@ -418,7 +418,8 @@ async function main() {
   await boot(page, { restSec: 90, fontScale: 2 });
   assert(await page.evaluate(() => Number.parseFloat(getComputedStyle(document.documentElement).fontSize) > 16.1), "RT-04: the root text is scaled");
   await startRestByLogging(page);
-  assert(!(await page.locator("#workout .exercise.is-current .restpad--toggle").count()), "RT-04: at 200% the field pads stay and the inline rest pad is not shown");
+  // Plan 075 phase 5 (superseding #295's rule): at 200% the rest controls keep the pad row, which scrolls sideways.
+  assert((await page.locator("#workout .exercise.is-current .restpad--toggle").count()) === 1, "RT-04: at 200% the inline rest pads stay in their row");
   hold = await sheetHold(page);
   await hold.click();
   const largeHeld = secs(await clock(page));
@@ -429,8 +430,8 @@ async function main() {
     "RT-04: the control fits the sheet and meets the target size at 200%", { box, sheetBox });
   await page.locator("#restSheetClose").click();
   await page.waitForSelector("#restSheet", { state: "hidden", timeout: 5000 });
-  // At 200% the field pads stayed, so Load may already be the selected field; a tap then would open its wheel (ADR 0023).
-  if (await page.locator(field("load")).getAttribute("aria-pressed") !== "true") await page.locator(field("load")).click();
+  await page.locator(field("load")).click(); // brings the field pads back, as at the usual size
+  await page.waitForFunction(() => !document.querySelector("#workout .motion-fade-out"), undefined, { timeout: 3000 });
   await page.locator(pad(1)).click();
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   await page.waitForTimeout(1200);
