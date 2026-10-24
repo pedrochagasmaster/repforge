@@ -7488,12 +7488,32 @@ function rxTargetText(ex,rec){
   const first=setSuggestion(ex,1,rec,{},last(ex).find(x=>+x.set===1));
   return `${ex.sets} × ${first.reps??ex.min}`}
 /** Pure view model: one row per exercise of the day, built once per render. */
-function todayRxModel(exs){
+function todayRxModel(exs,live=null){
   return exs.map(ex=>{
     const shown=sessionExercise(ex),rec=recommendation(shown),glyph=rxVerdict(rec),prev=last(shown);
-    const sub=activeWorkoutDraft?.exercises?.[ex.id]?.status==="skipped"?t("log.skipped"):glyph==="stalled"?rec.label
+    const status=live?todayLiveRowStatus(live,ex.id):null,sets=live?.per?.[ex.id];
+    // During a session the row says where the exercise stands; one not started yet keeps what it had last time.
+    const sub=status==="skipped"||activeWorkoutDraft?.exercises?.[ex.id]?.status==="skipped"?t(live?"today.live.skipped":"log.skipped")
+      :status==="current"&&!sets?.done?t("today.live.up_next")
+      :status?t("today.live.sets",{done:sets.done,total:sets.total})
+      :glyph==="stalled"?rec.label
       :prev.length?t("today.sub.before",{sets:rxSetsLine(prev)}):t("today.sub.first");
-    return{ex:shown,rec,glyph,sub,load:rec.status==="manual"||rec.load==null?null:rec.load,target:rxTargetText(shown,rec)}})}
+    return{ex:shown,rec,glyph,sub,status,sets,load:rec.status==="manual"||rec.load==null?null:rec.load,target:rxTargetText(shown,rec)}})}
+/** Where one exercise stands in the open session: done, partial, skipped, current, or null (not started). */
+function todayLiveRowStatus(live,id){
+  const sets=live.per?.[id];if(!sets)return null;
+  if(sets.skipped)return"skipped";
+  if(id===live.current)return"current";
+  if(sets.total&&sets.done>=sets.total)return"done";
+  return sets.done>0?"partial":null}
+/** The leading mark of a row in an open session (the prototype's status column); not drawn for a lift not started. */
+function todayLiveMarkHtml(row){
+  const{status,sets}=row;
+  if(status==="done")return `<span class="rxstat rxstat--done"><span class="icon-mask icon-mask--check icon-mask--sm"></span></span>`;
+  if(status==="partial")return `<span class="rxstat rxstat--partial" style="--rxstat-p:${Math.round(100*sets.done/Math.max(1,sets.total))}%"></span>`;
+  if(status==="skipped")return `<span class="rxstat rxstat--skipped"></span>`;
+  if(status==="current")return `<span class="rxstat rxstat--current"></span>`;
+  return""}
 function todayTallyHtml(model){
   const counts={};for(const row of model)counts[row.glyph]=(counts[row.glyph]||0)+1;
   const items=TODAY_TALLY_ORDER.filter(g=>counts[g]).map(g=>
@@ -7501,21 +7521,21 @@ function todayTallyHtml(model){
   return items.length?`<ul class="today-tally">${items.join("")}</ul>`:""}
 function todayRxRowHtml(row,index){
   const{ex,rec,glyph}=row,verdictId=`rxv${index}`,statusId=`rxs${index}`,hasVerdict=!!rec.label&&glyph!=="manual";
-  const isSkipped=activeWorkoutDraft?.exercises?.[ex.id]?.status==="skipped";
-  const describedBy=[hasVerdict?verdictId:"",isSkipped?statusId:""].filter(Boolean).join(" ");
-  return `<div class="today-rx__row${isSkipped?" is-skipped":""}" data-context-row="${esc(ex.id)}" tabindex="-1" role="group" aria-label="${esc(exerciseDisplayName(ex))}" aria-describedby="todayRowActionsHint"><button type="button" class="rxrow${glyph==="manual"?" is-manual":""}" data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name:exerciseDisplayName(ex)}))}"${describedBy?` aria-describedby="${describedBy}"`:""}>`+
-    `<span class="rxrow__mark">${verdictMarkHtml(glyph)}</span>`+
+  const isSkipped=row.status==="skipped"||activeWorkoutDraft?.exercises?.[ex.id]?.status==="skipped";
+  const describedBy=[hasVerdict?verdictId:"",isSkipped||row.status?statusId:""].filter(Boolean).join(" ");
+  return `<div class="today-rx__row${isSkipped?" is-skipped":""}${row.status==="current"?" is-current":""}" data-context-row="${esc(ex.id)}" tabindex="-1" role="group" aria-label="${esc(exerciseDisplayName(ex))}" aria-describedby="todayRowActionsHint"><button type="button" class="rxrow${glyph==="manual"?" is-manual":""}" data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name:exerciseDisplayName(ex)}))}"${describedBy?` aria-describedby="${describedBy}"`:""}>`+
+    `<span class="rxrow__mark">${row.status?todayLiveMarkHtml(row):verdictMarkHtml(glyph)}</span>`+
     `<span class="rxrow__name">${esc(exerciseDisplayName(ex))}<span class="rxrow__sub" id="${statusId}">${esc(row.sub)}</span></span>`+
     `<span class="rxrow__load"${row.load!=null?` data-parity-target="${esc(ex.id)}"`:""}>${row.load!=null?esc(fmtLoad(row.load)):"\u2013"}</span>`+
     `<span class="rxrow__target">${esc(row.target).replace(/\u00d7/g,`<span class="rxrow__op">\u00d7</span>`)}</span>`+
     (hasVerdict?`<span class="visually-hidden" id="${verdictId}">${esc(rec.label)}</span>`:"")+`</button><button type="button" class="native-row-menu visually-hidden" data-row-menu="${esc(ex.id)}" aria-haspopup="menu"${isSkipped?` aria-describedby="${statusId}"`:""} aria-label="${esc(t("program.editor.more"))}: ${esc(exerciseDisplayName(ex))}"><span class="icon-mask icon-mask--overflow" aria-hidden="true"></span></button></div>`}
-function todayRxHtml(exs){
+function todayRxHtml(exs,live=null){
   if(!exs.length)return"";
-  const model=todayRxModel(exs),sets=sum(exs.map(e=>+e.sets||0));
+  const model=todayRxModel(exs,live),sets=sum(exs.map(e=>+e.sets||0));
   return todayTallyHtml(model)+
     `<div class="today-rx__head"><h3 class="today-rx__title">${esc(t("today.rx.title"))}</h3>`+
     `<span class="today-rx__meta">${esc(t("today.rx.meta",{exercises:countText("exercises",exs.length),sets:countText("sets",sets)}))}</span></div>`+
-    `<p class="visually-hidden" id="todayRowActionsHint">${esc(t("today.row_actions_hint"))}</p><div class="today-rx" id="todayExList"><div class="today-rx__grid">`+
+    `<p class="visually-hidden" id="todayRowActionsHint">${esc(t("today.row_actions_hint"))}</p><div class="today-rx${live?" today-rx--live":""}" id="todayExList"><div class="today-rx__grid">`+
     `<div class="today-rx__cols" aria-hidden="true"><span></span><span>${esc(t("stats.exercise"))}</span><span>${esc(unitLabel())}</span><span>${esc(t("ledger.col.target"))}</span></div>`+
     model.map((row,index)=>todayRxRowHtml(row,index)).join("")+`</div></div>`}
 /* The unfinished-session band (OG-6 `today/draft-resume`, Direction D 4.1): a status line above the prescription that
@@ -7535,27 +7555,64 @@ function draftResumeWhere(){
   const skip=new Set(Array.isArray(d.__skipped)?d.__skipped:[]),live=exercises(named).filter(e=>!skip.has(e.id));
   if(!live.length)return label;
   return t("focus.head.day_ex",{day:label,n:Math.max(0,live.findIndex(e=>e.id===d.__selectedExerciseId))+1,m:live.length})}
-/** The band's host stands before Today's session label and is empty (zero height) while no session is open, so the
- *  first band measures in from nothing (S2: `animateDisclosure`, the R1c vocabulary's `revealIn`). It is made here, not in
- *  the shell markup, because the band has no meaning before the first render that needs it. */
-function todayResumeHost(){
-  let host=$("#todayResume");if(host)return host;
+/** The open session as Today's live card reads it (owner, 2026-10-23, option A): position, sets, start time.
+ *  Read from the draft; never written. Skipped lifts are out of the position and the set count, as Focus leaves them out. */
+function todayLiveSession(){
+  let d=activeWorkoutDraft;
+  if(!d){try{d=JSON.parse(DraftStore.readRaw()||"null")}catch{d=null}}
+  if(!d||typeof d!=="object")return null;
+  const name=dayLabel(d.schemaVersion===2?d.program?.dayLabel||day:day);
+  if(d.schemaVersion!==2||!Array.isArray(d.exerciseOrder))return{name,per:null,started:null};
+  const ids=d.exerciseOrder.filter(id=>d.exercises?.[id]),live=ids.filter(id=>d.exercises[id].status!=="skipped");
+  const per={};let done=0,total=0;
+  for(const id of ids){
+    const exercise=d.exercises[id],sets=(exercise.setOrder||[]).map(setId=>exercise.sets?.[setId]).filter(set=>set&&set.role!=="warmup");
+    const row={done:sets.filter(set=>set.completion!=="pending").length,total:sets.length,skipped:exercise.status==="skipped"};
+    per[id]=row;if(!row.skipped){done+=row.done;total+=row.total}}
+  const current=live.includes(d.session?.selectedExerciseId)?d.session.selectedExerciseId:live[0]??null;
+  const started=Date.parse(d.session?.startedAt||"");
+  return{name,per,current,index:Math.max(0,live.indexOf(current))+1,count:live.length,done,total,started:Number.isFinite(started)?started:null}}
+function todayLiveElapsed(live){
+  const minutes=live?.started==null?0:Math.max(0,Math.floor((Date.now()-live.started)/60000));
+  return minutes<60?t("today.live.minutes",{n:minutes}):t("today.live.hours",{h:Math.floor(minutes/60),m:minutes%60})}
+/** The card's host stands under the program block and is empty (zero height) while no session is open, so the
+ *  first card measures in from nothing (S2: `animateDisclosure`, the R1c vocabulary's `revealIn`). */
+function todayLiveHost(){
+  let host=$("#todayLive");if(host)return host;
   const before=$("#todaySessionLabel");if(!before?.parentNode)return null;
-  host=document.createElement("div");host.id="todayResume";host.className="today-resume";
+  host=document.createElement("div");host.id="todayLive";host.className="today-live-host";
   before.parentNode.insertBefore(host,before);return host}
-/** Draw the band while a session is open and Today is the surface in view; take it away otherwise. A render that finds
- *  the band already there keeps it (and only rewrites it when its words changed, so the status region does not speak
- *  again); the render that adds it to an empty host measures it open, or draws it at once under reduced motion or
- *  without the runtime. The Start/Continue label is a separate instant swap in `renderToday`. */
-function renderTodayResume(show){
-  const host=todayResumeHost();if(!host)return;
-  if(!show){host.innerHTML="";host.removeAttribute("style");return}
-  const html=`<div class="today-resume__band" role="status"><span class="today-resume__title">${esc(t("today.resume.title"))}</span>`+
-    `<span class="today-resume__where">${esc(draftResumeWhere())}</span></div>`;
-  if(host.firstElementChild){if(host.innerHTML!==html)host.innerHTML=html;return}
-  const draw=()=>{host.innerHTML=html};
-  if(window.RepForgeMotion?.animateDisclosure)window.RepForgeMotion.animateDisclosure(host,true,draw);
-  else draw()}
+let todayLiveTimer=0;
+/** Draw the live card while a session is open and Today is in view; take it away otherwise. A render that finds the
+ *  card there keeps it and rewrites only its words, so its dot keeps pulsing; the render that adds it measures it
+ *  open, or draws it at once under reduced motion. The elapsed time moves on by itself while the card is up. */
+function renderTodayLive(live){
+  const host=todayLiveHost();if(!host)return;
+  clearInterval(todayLiveTimer);todayLiveTimer=0;
+  if(!live){host.innerHTML="";host.removeAttribute("style");host.onclick=null;return}
+  const where=live.per?t("today.live.where",{i:live.index,n:live.count,done:live.done,total:live.total}):draftResumeWhere();
+  const share=live.per&&live.total?Math.round(100*live.done/live.total):0;
+  const words={elapsed:t("today.live.in_progress",{time:todayLiveElapsed(live)}),name:live.name,where};
+  const card=host.querySelector(".today-live");
+  if(card){
+    for(const[key,text]of Object.entries(words)){const el=card.querySelector(`[data-live="${key}"]`);if(el&&el.textContent!==text)el.textContent=text}
+    const fill=card.querySelector(".today-live__fill");if(fill)fill.style.width=`${share}%`}
+  else{
+    const html=`<div class="today-live" role="group" aria-labelledby="todayLiveName">`+
+      `<p class="today-live__tag"><span class="today-live__dot" aria-hidden="true"></span><span data-live="elapsed">${esc(words.elapsed)}</span></p>`+
+      `<h2 class="today-live__name" id="todayLiveName" data-live="name">${esc(words.name)}</h2>`+
+      `<p class="today-live__where" data-live="where">${esc(words.where)}</p>`+
+      (live.per?`<div class="today-live__bar" data-progress-dimension="exercise-set" data-progress-scope="open-session-sets" aria-hidden="true"><span class="today-live__fill" style="width:${share}%"></span></div>`:"")+
+      `<button type="button" class="btn btn--cta today-live__resume" id="todayLiveResume"><span>${esc(t("today.live.resume"))}</span></button></div>`;
+    const draw=()=>{host.innerHTML=html};
+    if(window.RepForgeMotion?.animateDisclosure)window.RepForgeMotion.animateDisclosure(host,true,draw);
+    else draw()}
+  // The card opens the session as Resume does: the button for keyboard and assistive technology, the card for a tap.
+  host.onclick=event=>{if(event.target.closest?.(".today-live"))enterWorkout({})};
+  if(live.started!=null)todayLiveTimer=setInterval(()=>{
+    const el=$("#todayLive [data-live=\"elapsed\"]");
+    if(!el||!el.isConnected||workoutActive){clearInterval(todayLiveTimer);todayLiveTimer=0;return}
+    const text=t("today.live.in_progress",{time:todayLiveElapsed(live)});if(el.textContent!==text)el.textContent=text},30000)}
 /* Today with nothing behind it. Backing out of onboarding used to land here on
    a bundled program the lifter had never seen, which read as "your training" —
    so the empty device now says it is empty and offers the way back in. Every
@@ -7567,7 +7624,7 @@ function renderTodayNoProgram(){
     "#todayUpNextLabel","#todayUpNext","#todayLast"]){
     const el=$(sel);if(el)el.classList.add("hidden")}
   const sess=$("#todaySession");if(sess)sess.innerHTML="";
-  renderTodayResume(false);
+  renderTodayLive(null);
   const empty=$("#todayNoProgram");if(empty)empty.classList.remove("hidden");
   // No origin: `startOnboarding` reads first-run against the live state, which
   // is the same reading the gate and Settings' Create program already get.
@@ -7593,28 +7650,27 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
   // A saved session means today is spent: Today recaps it instead of offering the
   // day again. An unsaved draft still outranks it — that session is not over.
   const inProgress=draftHasProgress(),recap=inProgress?null:todayRecap(week);
+  // An open session is said once, by the live card (owner, 2026-10-23, option A): no session label, no day heading
+  // repeating its name, no floating Continue. Inside the session Today is not in view, so there is no card to draw.
+  const live=inProgress&&!workoutActive?todayLiveSession():null;
   const sessLabel=$("#todaySessionLabel");if(sessLabel){const key=recap?"today.done_label":"today.session_label";
-    sessLabel.setAttribute("data-i18n",key);sessLabel.textContent=t(key)}
+    sessLabel.setAttribute("data-i18n",key);sessLabel.textContent=t(key);sessLabel.classList.toggle("hidden",!!live)}
   const sess=$("#todaySession");if(sess&&recap)sess.innerHTML=todayDoneHtml(recap);
   else if(sess){const exs=exercises();
-    sess.innerHTML=`<div class="today-session__name today-session__name--day">${esc(dayLabel(day))}</div>`+todayRxHtml(exs)}
+    sess.innerHTML=(live?"":`<div class="today-session__name today-session__name--day">${esc(dayLabel(day))}</div>`)+todayRxHtml(exs,live)}
     // A one-day split has no other day to offer, so the picker would open onto
     // the day Today already leads with.
     const canPickDay=!recap&&days().length>1;
-    for(const[sel,shown]of[["#startWorkout",!recap],["#chooseAnotherDay",canPickDay],["#reviewTodaySession",!!recap],["#logAnotherSession",!!recap]]){
+    for(const[sel,shown]of[["#startWorkout",!recap&&!live],["#chooseAnotherDay",canPickDay],["#reviewTodaySession",!!recap],["#logAnotherSession",!!recap]]){
       const el=$(sel);if(el)el.classList.toggle("hidden",!shown)}
     // The finished day's way on is the screen's one commitment: View today's session takes the primary control and its
     // arrow, and Log another session sits under it as the quieter choice, as Choose another day does under Start.
     const review=$("#reviewTodaySession");if(review){review.classList.toggle("btn--cta",!!recap);review.classList.toggle("btn--steel",!recap)}
     $$("#todayExList [data-row-menu]").forEach(button=>button.onclick=()=>todayRowContext(button.closest("[data-context-row]"),button));
     $$("#todayExList [data-exopen]").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.exopen,"log"));
-  // A draft with logged or filled sets means the session is still open.
-  const cta=$("#startWorkout")?.querySelector("span");
-  if(cta){const key=inProgress?"today.continue":"today.start";
-    cta.setAttribute("data-i18n",key);cta.textContent=t(key)}
-  // The band is drawn only while Today is in view: the render that returns from a session is the one that finds it
-  // absent, so that is the render it measures in on. The CTA above is the same condition and an instant text swap.
-  renderTodayResume(inProgress&&!workoutActive);
+  // The card is drawn only while Today is in view: the render that returns from a session is the one that finds it
+  // absent, so that is the render it measures in on.
+  renderTodayLive(live);
   const weekEl=$("#todayWeek");if(weekEl){const w=week,{start}=weekRange(today()),letters=weekdayLetters();
     const trained=new Set(state.log.filter(r=>String(r.date)>=start&&String(r.date)<=today()).map(r=>String(r.date)));
     const cells=letters.map((lab,i)=>{const d=new Date(`${start}T12:00:00`);d.setDate(d.getDate()+i);

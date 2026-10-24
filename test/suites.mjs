@@ -244,6 +244,7 @@ export const FULL_SUITES = {
     s("test/today-week-line.mjs", [], { seconds: 4 }),
     s("test/today-no-draft.mjs", [], { seconds: 6 }),
     s("test/today-sticky-start.mjs", [], { seconds: 19 }),
+    s("test/today-live-card.mjs", [], { domains: ["today", "workout"], seconds: 20 }),
     s("test/shell-chrome-clearance.mjs", [], { domains: ["shell", "today", "progress", "history", "program"], seconds: 83 }),
     s("test/focus-mode.mjs", [], { domains: ["workout"], seconds: 76 }),
     s("test/focus-only-parity.mjs", [], { domains: ["workout"], seconds: 60 }),

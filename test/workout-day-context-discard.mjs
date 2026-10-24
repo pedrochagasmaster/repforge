@@ -246,8 +246,8 @@ async function main() {
     check(!restAfterDiscard.running && !restAfterDiscard.bar && !restAfterDiscard.said,
       "Discarding the session ends its running rest (no clock, no bar, nothing announced)", restAfterDiscard);
     // The day change itself does not open Focus; entering it now continues
-    // on the day the discard already picked.
-    await page.click("#startWorkout");
+    // on the day the discard already picked (from Today's live card when the draft already counts as open).
+    await page.locator("#todayLiveResume, #startWorkout:not(.hidden)").first().click();
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
     const afterConfirm = await contextSnapshot(page);
     const confirmedDraft = JSON.parse(afterConfirm.draftRaw || "{}");

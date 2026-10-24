@@ -139,13 +139,14 @@ async function todayView(page) {
       reviewVisible: visible("#reviewTodaySession"),
       anotherVisible: visible("#logAnotherSession"),
       startText: text("#startWorkout"),
+      liveResume: text("#todayLiveResume"),
       upNext: text("#todayUpNext"),
       footer: text("#todayLast"),
       i18n: {
         doneLabel: window.RepForgeI18n.t("today.done_label"),
         sessionLabel: window.RepForgeI18n.t("today.session_label"),
         start: window.RepForgeI18n.t("today.start"),
-        continue: window.RepForgeI18n.t("today.continue"),
+        resume: window.RepForgeI18n.t("today.live.resume"),
       },
     };
   });
@@ -446,9 +447,9 @@ console.log("\nToday — completed session state");
 
   const view = await todayView(page);
   assert(
-    view.startVisible && !view.hasDoneCard && view.startText === view.i18n.continue,
-    "Unsaved second session: Today reverts to Continue workout",
-    JSON.stringify({ start: view.startVisible, card: view.hasDoneCard, cta: view.startText })
+    !view.startVisible && !view.hasDoneCard && view.liveResume === view.i18n.resume,
+    "Unsaved second session: Today shows the live card's Resume workout instead of the recap",
+    JSON.stringify({ start: view.startVisible, card: view.hasDoneCard, resume: view.liveResume })
   );
   await context.close();
 }

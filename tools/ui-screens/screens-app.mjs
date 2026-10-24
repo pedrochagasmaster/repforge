@@ -301,6 +301,7 @@ const D_FIXTURE_STATES = new Set([
   "today/done", // R3x: the finished day, on the lifter whose Monday session is in the log
   "today/deload-week", // Plan 072 S4: the deload cue in Today
   "today/draft-resume", // R3b2: the unfinished-session band, on the same lifter as Today
+  "today/in-progress", // Option A (owner, 2026-10-23): the live card and each lift's state, on the same lifter
   "progress/overview", "progress/overview-baseline", "progress/overview-action", "progress/exercise-chart", // R3i
   "progress/strength", "progress/strength-current-block", "progress/strength-all-history", // R3i
   "progress/strength-comparison", "progress/strength-sparse", // R3i
@@ -312,6 +313,7 @@ const D_FIXTURE_STATES = new Set([
  */
 const DIRECTION_D_BEFORE_SESSION = new Set([
   "today/skipped", "today/context-menu", "today/ready", "today/dock-viewer", "today/ready-scrolled", "today/day-picker", "today/rest-bar", "today/draft-resume",
+  "today/in-progress",
   "workout/why-this-weight", "workout/why-in-session",
   "workout/rest-running", "workout/rest-done",
 ]);
@@ -1921,6 +1923,36 @@ export const APP_SCENARIOS = {
     }, undefined, { polling: 100, timeout: 20000 });
     await sleep(page, 200); },
   "today/draft-resume": async page => { await focusMode(page); await fillAdaptiveShelf(page, ADAPTIVE_WEIGHT_METRIC_ID, "80"); await page.click("#leaveWorkout"); },
+  // Option A: one lift done, one part done, one skipped and the next selected, made with the draft's own commands.
+  "today/in-progress": async page => {
+    await focusMode(page);
+    await page.evaluate(async () => {
+      const api = window.__repforgeWorkoutDraft, ids = api.current().exerciseOrder.slice();
+      const working = (id) => api.current().exercises[id].setOrder.filter((setId) => api.current().exercises[id].sets[setId].role !== "warmup");
+      const complete = async (id, setId) => {
+        const set = api.current().exercises[id].sets[setId];
+        if (Array.isArray(set.programmed.metrics)) {
+          for (const metric of set.programmed.metrics) {
+            const value = /rep/i.test(metric.semantic || "") ? "8" : /time|duration|second/i.test(metric.semantic || "") ? "45" : "60";
+            await api.dispatch("editMetricValue", { exerciseInstanceId: id, setId, metricId: metric.id, value });
+          }
+        } else {
+          await api.dispatch("editSetField", { exerciseInstanceId: id, setId, field: "load", value: "60" });
+          await api.dispatch("editSetField", { exerciseInstanceId: id, setId, field: "reps", value: "8" });
+        }
+        await api.dispatch("completeSet", { exerciseInstanceId: id, setId, completedAt: new Date().toISOString() });
+      };
+      for (const setId of working(ids[0])) await complete(ids[0], setId);
+      await complete(ids[1], working(ids[1])[0]);
+      await api.dispatch("skipExercise", { exerciseInstanceId: ids[2] });
+      await api.dispatch("selectExercise", { exerciseInstanceId: ids[3] });
+      await api.flush();
+    });
+    await page.click("#leaveWorkout");
+    await page.waitForSelector("#todayLive .today-live", { timeout: 20000 });
+    // The live dot loops; a frame holds it at its first beat so it is the same in every capture.
+    await page.evaluate(() => { for (const a of document.getAnimations()) if (a.animationName === "taurifer-live-dot") { a.pause(); a.currentTime = 0; } });
+  },
 
   "workout/stale-draft": async (page) => {
     await enterWorkout(page);

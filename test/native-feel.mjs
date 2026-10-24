@@ -708,7 +708,8 @@ async function nativeControls(browser) {
 
   }
   phase("Phase 4: Focus more opens an action sheet with Cancel and guarded End");
-  await page.click('#startWorkout');
+  // The skip above opened today's draft, so Today may be resuming it from the live card rather than offering Start.
+  await page.locator('#todayLiveResume, #startWorkout:not(.hidden)').first().click();
   await page.waitForFunction(() => document.querySelector('#workout').classList.contains('is-focus'));
   await page.click('#woOverflowBtn');
   const hasAction = await page.locator('#workoutActionSheet:not([hidden])').count();
