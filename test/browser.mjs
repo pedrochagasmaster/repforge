@@ -182,7 +182,7 @@ export function waitForWorkerTakeover(page, { cache, replaced = null, timeout = 
 export async function answerRecommend(page, {
   sex = "female", birth = null, heightCm = null, weightSteps = 0, lifting = "6_to_24m", cardio = null,
   environment = "commercial_gym", equipment = [], goal = "muscle_growth", days = 4, minutes = 60,
-  priorities = {}, deload = true, abilities = null, skipBasics = false, until = null, split = null,
+  priorities = {}, deload = true, deloadPosition = null, abilities = null, skipBasics = false, until = null, split = null,
 } = {}) {
   const step = () => page.evaluate(() => window.__repforgeEntryState?.()?.step);
   // A B page push keeps the outgoing screen in the DOM, inert and hidden from
@@ -252,6 +252,8 @@ export async function answerRecommend(page, {
       await next();
     } else if (current === "deload") {
       if (!deload) await page.click("#entryDeloadSwitch");
+      // First or last: the end stays unless a suite names the start.
+      else if (deloadPosition) await pick("deloadPosition", deloadPosition);
       await next();
     } else if (current === "abilities") {
       if (abilities === "skip") await skip();

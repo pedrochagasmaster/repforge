@@ -62,6 +62,7 @@
   const RECENT_CONSISTENCY = new Set(["most", "about_half", "few", "none"]);
   // Generator time ceilings: up to 20, 20–40, 40–60, 60–90, 90–120, over 120 (150).
   const SESSION_MINUTES = new Set([20, 40, 60, 90, 120, 150]);
+  const DELOAD_POSITIONS = new Set(["start", "end"]);
   const PREFERRED_REST_SECONDS = new Set([null, 60, 90, 120, 180]);
   // B's six presets, in its order. A stored Other resumes as Local gym, whose
   // catalog flag it always shared.
@@ -732,6 +733,7 @@
       "basics",
       "block",
       "deload",
+      "deloadPosition",
       "movementConfirmations",
     ]);
     rejectUnknownKeys(raw, allowed, "$.answers", issues);
@@ -770,6 +772,11 @@
     if (hasOwn(raw, "deload")) {
       if (typeof raw.deload !== "boolean") issues.push("$.answers.deload:invalid");
       else output.deload = raw.deload;
+    }
+    // Where the lighter week goes: the generator takes one, first or last (owner, 2026-10-23).
+    if (hasOwn(raw, "deloadPosition")) {
+      if (!DELOAD_POSITIONS.has(raw.deloadPosition)) issues.push("$.answers.deloadPosition:invalid");
+      else output.deloadPosition = raw.deloadPosition;
     }
     if (hasOwn(raw, "movementConfirmations")) {
       output.movementConfirmations = normalizeConfirmations(raw.movementConfirmations, "$.answers.movementConfirmations", issues);
