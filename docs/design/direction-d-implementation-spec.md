@@ -142,6 +142,13 @@ Everything else is the D spec section named.
 > 48 px pads and a 52 px action, below §4's 56/56/54. The ledger shows the open set and the next one, with the
 > exercise's logged sets behind a disclosure above them that counts them and opens the full ledger in place for
 > correction. A finished exercise keeps its full ledger.
+>
+> **Amended by the shelf addendum (owner, 2026-10-23; Plan 075 phase 5).** The shelf is concentric: a 28 px sheet
+> with a 16 px inset, so fields, pads and the action take 12 px corners; 8 px between siblings and 12 px between rows;
+> fields, pads and the action keep 56/48/52. The extra top inset and row gaps cost the context window 16 px (17 px
+> with the per-side caption), and the layout D minimums are lowered by exactly that: 446/327 px for a running rest at
+> 390×844/375×667, and 433/306 px for a per-side exercise. With the keyboard up the shelf drops its grabber and its top
+> inset is 8 px.
 
 - **Header:** back (leave with the draft kept, G-43), the day and exercise
   position, the timer (shows remaining time while running and opens the rest

@@ -1247,6 +1247,15 @@ body.is-workout.is-focus-wo #workoutShell > :not(.wo-head):not(#logForm){
 :root[data-keyboard="up"] body.is-workout.is-focus-wo article.exercise--focus .fcard__context{min-height:0}
 /* The keyboard covers the home indicator, so the shelf does not pay its inset again above the keyboard. */
 :root[data-keyboard="up"] body.is-workout.is-focus-wo .focus-shelf{padding-bottom:var(--space-16)}
+/* Docked to the keyboard the shelf is not a sheet to drag: no grabber, and the addendum's top inset comes back to 8 px.
+   A browser that resizes the page for the keyboard sets no flag, so a window this short (a phone's height with the
+   keyboard up) docks it the same way. */
+:root[data-keyboard="up"] body.is-workout.is-focus-wo .focus-shelf{padding-top:var(--space-8)}
+:root[data-keyboard="up"] body.is-workout.is-focus-wo .focus-shelf::before{display:none}
+@media (max-height:480px){
+  body.is-workout.is-focus-wo .focus-shelf{padding-top:var(--space-8)}
+  body.is-workout.is-focus-wo .focus-shelf::before{display:none}
+}
 body.is-workout.is-focus-wo #dayTabs,
 body.is-workout.is-focus-wo #logForm > .field,
 body.is-workout.is-focus-wo #logForm > .btn--save{display:none!important}
@@ -1421,7 +1430,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
   --control-selection-bg:var(--shelf-pad-bg);--control-secondary-bg:var(--shelf-pad-bg);
   --control-selection-boundary:transparent;--control-adjustment-boundary:transparent;--control-secondary-boundary:transparent;
 }
-.workshelf.focus-shelf::before{content:"";justify-self:center;width:36px;height:5px;margin:calc(-1 * var(--space-8)) 0 calc(-1 * var(--space-4));border-radius:var(--shelf-grabber-radius);background:var(--rule-strong)}
+.workshelf.focus-shelf::before{content:"";position:absolute;top:var(--space-8);left:50%;width:36px;height:5px;margin-left:-18px;border-radius:var(--shelf-grabber-radius);background:var(--rule-strong)}
 /* A third of the shelf has to hold a load such as 102,5 on one line at any text size. The numeral is as large as the
    token allows and no larger than five Mono digits take in the room a field has left after its gutters, gaps and
    padding (a Mono digit is 0.6em, so 9.6 is three fields at 3.2em each); at the usual size the token is the smaller
@@ -1451,7 +1460,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 .shelf__cap .icon-mask{width:16px;height:16px}
 .shelf__group{
   grid-column:span var(--shelf-group-n,2);display:grid;grid-template-columns:repeat(var(--shelf-group-n,2),minmax(0,1fr));min-width:0;
-  border:1px solid var(--control-selection-boundary);border-radius:var(--shelf-inner-radius);background:var(--control-selection-bg);
+  border-radius:var(--shelf-inner-radius);background:var(--control-selection-bg);
 }
 .shelf__group .shelf__fieldbtn{border-color:transparent;background:transparent}
 .shelf__group .shelf__field:first-child .shelf__fieldbtn{border-radius:var(--shelf-inner-radius) var(--shelf-group-inner-radius) var(--shelf-group-inner-radius) var(--shelf-inner-radius)}
@@ -3292,7 +3301,7 @@ nav button{
   transition:color .2s ease,transform .18s ease;min-height:44px;min-width:0;
   padding-inline:2px;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;
 }
-nav button > [data-i18n]{min-width:0;max-width:100%;text-align:center;line-height:1;overflow-wrap:normal;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+nav button > [data-i18n]{min-width:0;max-width:100%;text-align:center;line-height:1;overflow-wrap:normal;white-space:nowrap}
 nav button.is-pressed{transform:scale(.93)}
 nav button:focus-visible{outline:var(--control-focus-outline);outline-offset:-3px}
 /* The selected tab sits in a lighter lens. This one is painted on the button
