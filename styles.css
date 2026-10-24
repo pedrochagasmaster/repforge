@@ -1089,9 +1089,14 @@ body:has(.exercise--focus.is-text-scaled) .wo-rest.is-running{font-size:min(var(
 .exercise--focus.is-text-scaled .fx-cue__mark{padding-top:calc((min(var(--font-size-section-title),35.2px) * var(--line-tight) - 16px) / 2)}
 .exercise--focus.is-text-scaled .fx-cue__l2{font-size:min(var(--font-size-subtitle),var(--large-cap-body))}
 .exercise--focus.is-text-scaled .text-link.focus-ex__why,.exercise--focus.is-text-scaled .fx-cue__cancel{font-size:min(var(--font-size-control),var(--large-cap-body))}
-.exercise--focus.is-text-scaled .restinline__row{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:var(--space-8);align-items:baseline}
+.exercise--focus.is-text-scaled .restinline__row{display:grid;grid-template-columns:auto minmax(0,1fr);gap:0 var(--space-8);align-items:baseline}
+/* The stacked rest spends no more height than it must, so the clock and the open set share the window where they can. */
+.exercise--focus.is-text-scaled .restinline{margin-bottom:var(--space-8)}
+.exercise--focus.is-text-scaled .fx-slot:not([data-rest="none"]){margin-bottom:var(--space-8)}
+.exercise--focus.is-text-scaled .restinline__bar{margin-top:var(--space-8)}
+.exercise--focus.is-text-scaled .restinline__nextrow{margin-top:var(--space-8)}
 .exercise--focus.is-text-scaled .restinline__clock{order:-1;grid-column:1/-1;font-size:min(var(--font-size-rest-clock),var(--large-cap-clock))}
-.exercise--focus.is-text-scaled .restinline__label,.exercise--focus.is-text-scaled .restinline__of{font-size:min(var(--font-size-body),var(--large-cap-subtitle))}
+.exercise--focus.is-text-scaled .restinline__label,.exercise--focus.is-text-scaled .restinline__of{font-size:min(var(--font-size-body),var(--large-cap-subtitle));line-height:var(--line-tight)}
 .exercise--focus.is-text-scaled .restinline__done,.exercise--focus.is-text-scaled .restinline__next,
 .exercise--focus.is-text-scaled .restinline__nextrow .text-link.restinline__why{font-size:min(var(--font-size-subtitle),var(--large-cap-body))}
 .exercise--focus.is-text-scaled .ledgerline__head,.exercise--focus.is-text-scaled .ledgerline{grid-template-columns:auto minmax(0,1fr)}
@@ -1413,7 +1418,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
    on --bg, a step off the sheet in both themes, and are named by their label and value; the selected field keeps its
    ring. The real input a second tap opens keeps the field boundary. */
 .focus-shelf{
-  --control-selection-bg:var(--shelf-pad-bg);
+  --control-selection-bg:var(--shelf-pad-bg);--control-secondary-bg:var(--shelf-pad-bg);
   --control-selection-boundary:transparent;--control-adjustment-boundary:transparent;--control-secondary-boundary:transparent;
 }
 .workshelf.focus-shelf::before{content:"";justify-self:center;width:36px;height:5px;margin:calc(-1 * var(--space-8)) 0 calc(-1 * var(--space-4));border-radius:var(--shelf-grabber-radius);background:var(--rule-strong)}

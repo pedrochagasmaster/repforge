@@ -1903,6 +1903,8 @@ async function largeTextFocus(browser) {
         assert(!!m.rest && !m.rest.outside.length && !m.rest.overprinted.length, `${label}: no rest text is clipped or overprinted`,
           JSON.stringify({ outside: m.rest?.outside, overprinted: m.rest?.overprinted }));
         assert(m.padsKind === "rest", `${label}: the rest controls keep the pad row`, JSON.stringify({ kind: m.padsKind, pads: m.pads }));
+        if (phone.height === 844) assert(m.rest.clock.top >= m.context.top - 0.5, `${label}: the clock is whole in the window with the open set`,
+          JSON.stringify({ clock: m.rest.clock, context: m.context }));
       }
       assert(m.titleSize <= 21, `${label}: the bar title is capped at 21px`, String(m.titleSize));
       assert(!m.ledgerOverprinted.length && !m.ledgerOutside.length, `${label}: no ledger text overprints or leaves the screen`,
