@@ -10014,6 +10014,7 @@ function strengthChangeText(series){
   if(!comparison||!comparison.absolute)return"";
   return t("stats.evidence.change",{absolute:`${comparison.absolute>0?"+":""}${fmt(toDisplay(comparison.absolute))} ${unitLabel()}`,
     percentage:`${comparison.percentage>0?"+":""}${fmt(comparison.percentage)}`})}
+// Timing experiment (never merged): a Progress-only change.
 function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
   const scopeSeg=$("#strengthScopeSeg");
