@@ -1409,8 +1409,14 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
   row-gap:var(--space-12);padding:var(--shelf-inset) var(--shelf-inset) calc(var(--shelf-inset) + env(safe-area-inset-bottom,0px));
   border-radius:var(--shelf-radius) var(--shelf-radius) var(--radius-none) var(--radius-none);
 }
+/* The tiles are quiet fills with no outline (the addendum's option A, owner decision 2026-10-24): fields and pads sit
+   on --bg, a step off the sheet in both themes, and are named by their label and value; the selected field keeps its
+   ring. The real input a second tap opens keeps the field boundary. */
+.focus-shelf{
+  --control-selection-bg:var(--shelf-pad-bg);
+  --control-selection-boundary:transparent;--control-adjustment-boundary:transparent;--control-secondary-boundary:transparent;
+}
 .workshelf.focus-shelf::before{content:"";justify-self:center;width:36px;height:5px;margin:calc(-1 * var(--space-8)) 0 calc(-1 * var(--space-4));border-radius:var(--shelf-grabber-radius);background:var(--rule-strong)}
-.focus-shelf{--control-selection-bg:var(--shelf-field-bg)}
 /* A third of the shelf has to hold a load such as 102,5 on one line at any text size. The numeral is as large as the
    token allows and no larger than five Mono digits take in the room a field has left after its gutters, gaps and
    padding (a Mono digit is 0.6em, so 9.6 is three fields at 3.2em each); at the usual size the token is the smaller

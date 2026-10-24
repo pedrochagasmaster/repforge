@@ -147,7 +147,9 @@ share one tile (`.shelf__group`) under one caption, G's dumbbell and
 `focus.per_side` in uppercase, with a hairline between them; the selected
 field's ring follows the tile's outer corners and takes
 `--shelf-group-inner-radius` (6px) inside. Each grouped field's name still says
-per side. Fields, the group and pads keep their 1px required boundary.
+per side. Fields, the group and pads are quiet tiles on `--bg` with no
+outline (the state-cues worked example above); the real input a second tap
+opens keeps the field boundary.
 
 ### Permitted contextual variants
 
@@ -480,7 +482,8 @@ The state is also exposed to assistive technology (`aria-current`,
 `aria-checked` or `aria-selected`). The rendered checker measures this rule and
 fails a selected item with fewer than two cues or with colour alone; it is not
 an exception. Fields, unselected choices and controls whose shape is their
-affordance keep the 3:1 required boundary. The worked examples:
+affordance keep the 3:1 required boundary, except the Focus shelf's tiles
+(below). The worked examples:
 
 | Control | Cues | Replaces |
 | --- | --- | --- |
@@ -488,6 +491,7 @@ affordance keep the 3:1 required boundary. The worked examples:
 | Segmented choice (Appearance, Units) | the raised paper thumb, plus the semibold label | the group border and the thumb's ring |
 | Day picker row | the trailing check, plus the full-ink day number | the rail and well on the armed row |
 | Stepper capsule (Rest timer, Smallest load change) | not a state: a 36px capsule on the soft track, with a 44px touch box per button | the bordered 44px capsule |
+| Focus shelf tiles (fields, the per-side group, pads; Plan 075 phase 5 addendum, owner 2026-10-24) | identified by the tile fill (`--bg`, a step off the sheet in both themes) with its label and value; the selected field keeps its ring (`--elevation-selected-quiet-shadow`) | the 1px required outline on each field and pad |
 
 ## Exact exceptions and catalog reachability
 
