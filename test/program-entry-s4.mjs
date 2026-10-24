@@ -638,6 +638,9 @@ try {
     return slot?.executionMode === mode && slot.prescriptionsByCycle.every((cycle) =>
       cycle.sets.every((set) => set.status !== "configuration_required"));
   }, { slotId: firstSlot.id, mode: executionMode }, { timeout: 15000 });
+  // The state settles before the review is drawn again from it: wait for the row itself, then read it.
+  await page.waitForFunction((slotId) => !document.querySelector(`#entryReview [data-review-slot="${CSS.escape(slotId)}"] [data-review-execution-cue]`),
+    firstSlot.id, { timeout: 5000 }).catch(() => {});
   assert.equal(await page.locator(`#entryReview [data-review-slot="${firstSlot.id}"] [data-review-execution-cue]`).count(), 0,
     "the resolved review row clears its configuration cue");
   assert.equal((await entry(page)).result.preview.programDefinition.days.flatMap((day) => day.slots)
