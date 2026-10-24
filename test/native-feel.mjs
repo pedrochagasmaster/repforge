@@ -44,7 +44,8 @@
  * Phase 5, large text (audit F-1, F-5). At 200% text in both languages, at
  * 390×844 and 375×667, Focus stacks the rest line under a capped clock, caps
  * the bar title, prints no rest or ledger text over another or past the edge,
- * keeps its pads on one row and keeps the open set whole above the shelf. The
+ * keeps its pads on one row (the rest controls included, scrolling sideways)
+ * and keeps the open set whole above the shelf. The
  * dock keeps one row and its height with labels capped at 1.3×; touching and
  * holding a tab shows the large-content viewer, sliding moves it and lifting
  * switches to the tab under the finger.
@@ -1874,6 +1875,7 @@ function measureLargeFocus() {
     ledgerOutside: ledgerText.filter((r) => r.left < -0.5 || r.right > innerWidth + 0.5).map((r) => r.text),
     open: open && box(open), context: context && box(context), shelf: shelf && box(shelf),
     pads: pads.map((b) => ({ text: b.textContent.trim(), top: Math.round(b.getBoundingClientRect().top), clipped: b.scrollWidth > b.clientWidth + 1 })),
+    padsKind: padRow?.dataset.pads,
     padsScroll: padRow && { overflows: padRow.scrollWidth > padRow.clientWidth + 1, scrolls: ["auto", "scroll"].includes(getComputedStyle(padRow).overflowX) },
   };
 }
@@ -1894,6 +1896,7 @@ async function largeTextFocus(browser) {
           `${label}: the rest label and its total stack under the clock`, JSON.stringify(m.rest));
         assert(!!m.rest && !m.rest.outside.length && !m.rest.overprinted.length, `${label}: no rest text is clipped or overprinted`,
           JSON.stringify({ outside: m.rest?.outside, overprinted: m.rest?.overprinted }));
+        assert(m.padsKind === "rest", `${label}: the rest controls keep the pad row`, JSON.stringify({ kind: m.padsKind, pads: m.pads }));
       }
       assert(m.titleSize <= 21, `${label}: the bar title is capped at 21px`, String(m.titleSize));
       assert(!m.ledgerOverprinted.length && !m.ledgerOutside.length, `${label}: no ledger text overprints or leaves the screen`,
@@ -2001,8 +2004,11 @@ async function largeTextDock(browser) {
   await context.close();
 }
 
+// NATIVE_FEEL_ONLY=large runs just phase 5, for a local red/green on its proofs; CI runs everything.
+const ONLY = process.env.NATIVE_FEEL_ONLY || "";
 const browser = await launchChromium();
 try {
+ if (ONLY !== "large") {
   phase("A primary action is pressed on touch-down");
   {
     const { context, page, touch } = await todayPage(browser);
@@ -2203,6 +2209,7 @@ try {
   await navigationBars(browser);
   await editorSheetAndBar(browser);
   await perSideOverflow(browser);
+ }
   await largeTextFocus(browser);
   await largeTextDock(browser);
 } finally {
