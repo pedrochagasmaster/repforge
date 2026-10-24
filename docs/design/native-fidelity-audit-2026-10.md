@@ -1,6 +1,8 @@
 # App-wide native fidelity audit, 2026-10
 
-**Status:** audit and batch plan for the coordinator and owner, 2026-10-24. No production change.
+**Status:** audit and batch plan, 2026-10-24. No production change. The owner decided every open
+question on 2026-10-24 (pills everywhere, choice rows, warm-up switches, Program Lab dark, drag and
+menu reorder, lighter ledger figures); each is marked where it applies.
 **Yardstick:** [`native-ui-kit.md`](native-ui-kit.md), extracted from the native-feel prototype
 (`origin/design/native-feel:docs/design/native-feel/`).
 **Base:** main at 5d2ca411 (after #483, #484, #485, #486, #488, #489, #498, #500, #501, #499, #503).
@@ -62,15 +64,15 @@ Ordered by reach × visibility. "Screens" counts catalog states in light and dar
 
 | # | Component | Deviation on main | Kit fix | Effort | Screens | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| S1 | `.btn`, `.btn--cta`, `.btn--steel`, `.firstrun__cta` (styles.css:649, :671, :670; `.firstrun__cta` 12px) | 8px (or 12px) rectangle; base `.btn` adds a 1px `--rule` border | `--radius-pill` on every button class; no border on filled variants; secondary keeps the 1px inset `--boundary-required` ring (contract) | M (one rule; then a wrap check on long labels) | ~180 | open. Today's Start is #485 kept deviation 1 (Direction D), so it is in the owner's decision too |
-| S2 | `.entry-card` (styles.css:4120), `.radio-card`, `.entry-body .radio-card`, `.onb__opts.onb__num .radio-card` | 1px box and 12px radius per option; three different selected treatments | Grouped list rows (§5): hairline between rows, trailing radio (single choice) or check circle (multi), selected mark in `--accent-deep`; the 2px selected ring goes away | M | ~25 | open |
+| S1 | `.btn`, `.btn--cta`, `.btn--steel`, `.firstrun__cta` (styles.css:649, :671, :670; `.firstrun__cta` 12px) | 8px (or 12px) rectangle; base `.btn` adds a 1px `--rule` border | `--radius-pill` on every button class; no border on filled variants; secondary keeps the 1px inset `--boundary-required` ring (contract) | M (one rule; then a wrap check on long labels) | ~180 | open. **Decided 2026-10-24:** pills everywhere, Today's Start included (supersedes #485 deviation 1's 12px Start) |
+| S2 | `.entry-card` (styles.css:4120), `.radio-card`, `.entry-body .radio-card`, `.onb__opts.onb__num .radio-card` | 1px box and 12px radius per option; three different selected treatments | Grouped list rows (§5): hairline between rows, trailing radio (single choice) or check circle (multi), selected mark in `--accent-deep`; the 2px selected ring goes away | M | ~25 | open. **Decided 2026-10-24:** plain rows with trailing marks |
 | S3 | `.entry-dialog` (styles.css:7725), `.exercise-catalog-recovery` | `border:1px` plus `--elevation-dialog-shadow` | Drop the border (§2 Dialog) | S | 12 | open |
 | S4 | `#glossary` (Focus), `.glossary` (styles.css:3444, Library detail) | Border and floating shadow | `--elevation-menu-shadow` (the #485 menu recipe: shadow plus 0.5px `--bar-edge`), no border; close disc | S | 2 | open; the last floating layer with the rejected look |
 | S5 | `.segpill` / `#strengthScopeSeg`, `.entry-seg`, `.seg:not(.seg--window)` | Bordered group and a 2px ringed active option | Reuse `.native-segments` (#485); propose `--seg-thumb-bg` | M | ~12 | open |
 | S6 | `.review-step` (RIR on every set), `.program-editor__stepper` | Bordered capsule with text − + and inner rules, beside the fixed stepper in the same sheet | Reuse `.native-stepper` (#485) | S | ~6 | open |
 | S7 | Editor row and alternate context menu (`program-editor.js:2970-2976`) | Items carry no `icon`, so the menu shows no trailing glyphs; Today's menu has them since #485 | Pass `icon` for Move up (`chev-up`), Move down (`chev-down`), Move to another day (`cal`), Remove (`close`) | S | 2 | open |
-| S8 | `.exactions__act` (exercise actions, warm-up, skipped, substituted sheets), `review-day-menu` rows | Leading action icons; per-set "Make warm-up" rectangles; copy "Substitute exercise" (`ex.actions.substitute`) | Trailing 20px icons (§7); warm-up as a row with a switch captioned "Warm-up" (accessible name "Set n warm-up"); copy "Swap exercise" (approved wording, EN and PT) | S–M | 6 | open |
-| S9 | `.rxrow__load`, `.rxrow__target` (styles.css:7887) | Load in Mono 500, target in full ink | Load Mono 400, target `--ink-soft` in its own column | S | ~12 | open; same decision as #485 kept deviation 1 |
+| S8 | `.exactions__act` (exercise actions, warm-up, skipped, substituted sheets), `review-day-menu` rows | Leading action icons; per-set "Make warm-up" rectangles; copy "Substitute exercise" (`ex.actions.substitute`) | Trailing 20px icons (§7); warm-up as a row with a switch captioned "Warm-up" (accessible name "Set n warm-up"; **decided 2026-10-24**); copy "Swap exercise" (approved wording, EN and PT) | S–M | 6 | open |
+| S9 | `.rxrow__load`, `.rxrow__target` (styles.css:7887) | Load in Mono 500, target in full ink | Load Mono 400, target `--ink-soft` in its own column | S | ~12 | open. **Decided 2026-10-24:** lighter figures, as in the prototype |
 | S10 | `.review__rir`, `.exthumb` border, `.exthumb--empty`, `.entry__notice`, `.entry__active`, `.install-transfer__disclosure`, `.statrow` | 1px boxes around values, tiles, notices and previews; empty art tiles are blank bordered squares | Drop the borders; tiles on `--well` with no stroke; an empty tile shows the G `dumbbell` glyph at 40% `--ink-faint` (or the shelf caption's G dumbbell, as #499 approved); notices as an icon and text run | S each | ~30 | open |
 | S11 | Settings danger row (`.settings-row.is-danger`, `#reset`), `.guide-replay .btn` | Boxed destructive row; guide list as bordered buttons | Destructive row in red, no box; guide list as §5 rows with title and subtitle | S + M | 6 | open |
 | S12 | Icon-only reorder and alternate buttons in Recommend review (`.session-map__reorder-btn` variants in `review-reorder`, `review-sheet-swap`) | Bordered square buttons | No box, 44px target, dim on press (§7) | S | 2 | open; Focus header and session-map buttons fixed on main |
@@ -87,8 +89,8 @@ Ordered by reach × visibility. "Screens" counts catalog states in light and dar
 | "RIR 1–1" for a single RIR value | `focus.exmeta.effort/.goal/.range` (i18n-en.json:57-60) rendered by app.js ~8382-8397; ~15 Focus frames and `onboarding-start/first-run-proof` | When `rmin === rmax`, use a single-value key ("RIR {rir}"), as `program-editor.js:1046` already does for rep ranges; new keys need EN and PT | S |
 | Unstyled "Read full privacy details" | `.textlink` has no base rule (styles.css: only `.install-transfer__disclosure .textlink`); install/transfer-eligible, transfer-retryable | A base text-action rule: transparent, no border, `--accent-deep`, semibold, 44px target, trailing chevron | S |
 | CTA arrow overlaps its label | `.btn--cta::after` is absolutely placed; "Retry preserved edit" on history/conflict wraps under it | Make the arrow an inline flex child (as the kit's `.btn .arrow`) | S |
-| Program Lab has no dark theme | `programlab/` (its own `styles.css`); programlab/comparison and editor dark frames equal light | Owner question: Program Lab is a separate tool. Either adopt the palette tokens or mark it light-only in the manifest | M or none |
-| Dark never captured | 11 frames byte-identical to light: history/per-side-session, progress/exercise-chart, progress/strength-comparison, workout/focus-per-side, why-in-session, why-per-side, why-this-weight, programlab/comparison, programlab/editor; onboarding-start/first-run and onboarding-shared/invalid are the always-dark band, so equal by design | Fix the catalog fixtures so these states set the theme; then re-audit them in dark | S (catalog) |
+| Program Lab has no dark theme | `programlab/` (its own `styles.css`, `color-scheme:light`); programlab/comparison and editor dark frames equal light | **Decided 2026-10-24:** adopt the dark theme. Program Lab takes the palette tokens and a `data-theme` dark block, and its two dark frames are recaptured in that batch | M |
+| Dark never captured | 11 frames byte-identical to light: history/per-side-session, progress/exercise-chart, progress/strength-comparison, workout/focus-per-side, why-in-session, why-per-side, why-this-weight, programlab/comparison, programlab/editor; onboarding-start/first-run and onboarding-shared/invalid are the always-dark band, so equal by design | Fix the catalog fixtures so these states keep the theme; then re-audit them in dark. The two Program Lab frames go with the Program Lab theming batch | S (catalog) |
 
 ### Covered elsewhere (not batched here)
 
@@ -98,8 +100,8 @@ Ordered by reach × visibility. "Screens" counts catalog states in light and dar
 - **#485 kept deviations for the owner:** 1 Today ledger typography and the 12px Start button; 2 editor
   row content; 3 the editor exercise page as a stacked sheet; 4 End without saving prompt; 5 Exercise
   actions in the action sheet; 6 Settings label weight and bold Language value; 7 the first menu item's
-  focus mark; 8 out of scope then; 9 menu opacity curve; 10 menu entry scale from .9. S1 and S9
-  overlap 1 and are best decided together.
+  focus mark; 8 out of scope then; 9 menu opacity curve; 10 menu entry scale from .9. The owner
+  decided 1 on 2026-10-24: pill Start and lighter ledger figures (S1, S9).
 - **#499 kept deviations:** the SET column head only; the exercise title on its own row; spread ledger
   columns; dock labels at weight 500; the shelf caption's G dumbbell.
 - **#503:** the wheel's feel (notch depth, free spin, coast) needs the owner's device; the catalog frames
@@ -135,10 +137,11 @@ fidelity gate requires. The order is most visible and most used first.
 | **4. Control primitives everywhere** | `.segpill`, `.entry-seg`, `.review-step`, `.program-editor__stepper` onto the #485 primitives; editor menu icons; the editor switch; review reorder buttons | S5, S6, S7, S12, S16 | 1.5 days | Removes the "two styles in one sheet" look |
 | **5. Small boxes and tiles** | RIR badges, art tile borders and the empty-tile glyph, notices, disclosure, stat band, Library glossary | S10, S4 (Library) | 1 day | Many screens, each a small change |
 | **6. Lists and bars** | Settings danger row and guide replay rows, PR timeline row anatomy, bottom action bars on glass, numeric inputs in Mono | S11, S13, S15, Progress PR rows (area D §4) | 1.5 days | Lower traffic |
-| **7. Typography polish** | Ledger number weights (with the owner's #485 deviation 1 decision), tracking tokens | S9, S17 | 0.5 day | Waits on the owner |
-| **Catalog fix** | Dark capture for the 11 frames; Program Lab decision | bugs 4–5 | 0.5 day | Can run in parallel with any batch |
+| **7. Typography polish** | Ledger number weights (lighter, decided 2026-10-24), tracking tokens | S9, S17 | 0.5 day | Decided; lowest visual weight |
+| **8. Catalog fix** | Dark capture for the 7 app frames (fix/catalog-dark-capture) | bug 5 | 0.5 day | Can run in parallel with any batch |
+| **9. Program Lab dark theme** | Palette tokens and a dark block in `programlab/`, its two dark frames | bug 4 | 0.5–1 day | Decided 2026-10-24 |
 
-Total: about 8–9 working days for batches 1–7.
+Total: about 9–10 working days for batches 1–9.
 
 ## Mocks
 
@@ -161,6 +164,6 @@ beside each one.
 | `exercise-actions.html` | workout/exercise-actions | S8, bug 1: trailing icons, "Swap exercise", warm-up switches captioned "Warm-up", "RIR 1" | `compare/exercise-actions-{light,dark}.png` |
 | `session-details.html` | workout/session | S12 pattern, S1: grip rows instead of ↑ ↓ boxes, form rows, pill and text exits | `compare/session-details-{light,dark}.png` |
 
-Two mocks propose interaction changes the owner should confirm before a batch builds them: warm-up
-sets as switches (exercise actions), and reorder by drag or context menu instead of ↑ ↓ buttons
-(session details), which is what the editor already does.
+Two mocks propose interaction changes, both **decided 2026-10-24**: warm-up sets as switches (exercise
+actions), and reorder by drag plus the long-press menu instead of ↑ ↓ buttons (session details),
+which is what the editor already does.
