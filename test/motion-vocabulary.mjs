@@ -387,12 +387,17 @@ await section(async () => {
   const curve = layer.slice(curveStart, layer.indexOf("\n  }\n", curveStart));
   assert(curveStart > 0 && /const spring = VOCABULARY\.pressRelease;/.test(curve) && !/(stiffness|damping|restDelta|restSpeed)\s*:/.test(curve),
     "the press release curve reads its spring from the vocabulary and declares none");
-  const outside = layer.replace(vocab, "").replace(curve, "");
+  // The wheel integrates vocabulary springs in closed form, so it too reads their parameters, in one place.
+  const wheelStart = layer.indexOf("function wheelSpring(");
+  const wheelReader = layer.slice(wheelStart, layer.indexOf("\n  }\n", wheelStart));
+  assert(wheelStart > 0 && !/(stiffness|damping|restDelta|restSpeed)\s*:\s*[\d.]/.test(wheelReader),
+    "the wheel reads its springs from the vocabulary and declares none");
+  const outside = layer.replace(vocab, "").replace(curve, "").replace(wheelReader, "");
   assert(!/stiffness|damping|restDelta|restSpeed/.test(outside), "no spring parameter appears in the layer outside the vocabulary");
   for (const file of ["app.js", "program-editor.js", "history-ui.js"]) {
     assert(!/\bstiffness\b|type\s*:\s*["']spring["']/.test(read(file)), `${file} declares no spring`);
   }
-  for (const name of ["animateIndicator", "animateCoordinates", "animateSlot", "animatePush", "trackEdgeSwipe"]) {
+  for (const name of ["animateIndicator", "animateCoordinates", "animateSlot", "animatePush", "trackEdgeSwipe", "mountWheel"]) {
     const start = layer.indexOf(`function ${name}(`);
     const body = layer.slice(start, layer.indexOf("\n  }\n", start));
     assert(start > 0 && /VOCABULARY\.\w+/.test(body), `${name} takes its timing from the named vocabulary`);

@@ -1045,42 +1045,26 @@ async function wheelPicker(browser) {
     const liveAfterKeys = await fieldFace(page, WHEEL_LOAD_SEL);
     // The shelf underneath is untouched while the sheet is open; it reads the committed value once the sheet closes.
 
-    // A real scroll of the wheel column. Where it lands is the browser's (its scroll and its snap), so the proof is
-    // that whatever it settles on is exactly what gets written, not a precomputed item count. The scroll is a wheel
-    // gesture over the column: CDP touch points drove the column unreliably on the runners (main's push CI and three
-    // PR lanes, 2026-10-23, where the column sometimes never followed the finger at all), and the browser's
-    // touch-to-scroll mapping is not what this proves.
-    const box = await page.locator("#wheelCol").boundingBox();
-    const cx = Math.round(box.x + box.width / 2), cy = Math.round(box.y + box.height / 2);
-    // The keys scrolled the column smoothly two rows; that scroll must have landed before this one starts, or its
-    // own 88px pass for this gesture's movement and the gesture lands inside it (the chronic flake, 2026-10-23).
-    const keyIndex = afterKeys.values.indexOf(afterKeys.now);
-    await page.waitForFunction((i) => Math.abs(document.querySelector("#wheelCol").scrollTop - i * 44) < 1, keyIndex, { timeout: 5000 });
-    const startTop = await page.evaluate(() => {
-      const col = document.querySelector("#wheelCol");
-      window.__wheelScrollEnded = false;
-      col.addEventListener("scrollend", () => { window.__wheelScrollEnded = true; }, { once: true });
-      return col.scrollTop;
-    });
-    await page.mouse.move(cx, cy);
-    await page.mouse.wheel(0, 132);
-    // The scroll and its snap are over when the browser says so (scrollend), not after a quiet spell.
-    await page.waitForFunction((top) => window.__wheelScrollEnded && document.querySelector("#wheelCol").scrollTop - top >= 44, startTop, { timeout: 5000 });
-    // The settle (a debounce after the last scroll) is what reports the value: wait for it to name the row on the band.
-    const expectScroll = await page.waitForFunction(() => {
-      const col = document.querySelector("#wheelCol");
-      const onBand = Number(col.querySelectorAll(".wheel__item")[Math.round(col.scrollTop / 44)]?.dataset.wheelV);
-      return Number(col.getAttribute("aria-valuenow")) === onBand ? onBand : null;
-    }, undefined, { timeout: 2000 }).then((h) => h.jsonValue(), () => NaN);
-    assert(Number.isFinite(expectScroll) && expectScroll !== afterKeys.now, "the drag moved the wheel off its keyboard-set value",
-      JSON.stringify({ expectScroll, afterKeys }));
+    // A real touch drag of the wheel column: touch pointer events, one per frame, three rows up and then still before
+    // the finger lifts, so it carries no momentum. The engine owns the column (no native scroll), so where it lands
+    // is exactly three steps on (#488's mouse-wheel gesture was the interim while CDP touch scroll was flaky).
+    await page.waitForFunction(() => !window.__repforgeWheel?.state().moving, undefined, { timeout: 5000 }).catch(() => {});
+    const dragH = (await drumState(page))?.itemH ?? 44;
+    await wheelGesture(page, { path: Array.from({ length: 33 }, (_, i) => -Math.round(((i + 1) * 3 * dragH) / 33)), hold: 140 });
+    const expectScroll = Math.round((afterKeys.now + 3 * step) * 100) / 100;
+    const settledOn = await page.waitForFunction(() => {
+      const s = window.__repforgeWheel?.state();
+      return s && !s.moving ? Number(document.querySelector("#wheelCol").getAttribute("aria-valuenow")) : null;
+    }, undefined, { timeout: 5000 }).then((h) => h.jsonValue(), () => NaN);
+    assert(settledOn === expectScroll, "the drag moved the wheel exactly three values off its keyboard-set value",
+      JSON.stringify({ settledOn, expectScroll, afterKeys }));
     const scrollCommitted = await page.waitForFunction(([id, want]) => {
       const d = window.__repforgeWorkoutDraft.current();
       const exercise = d.exercises[d.session.selectedExerciseId];
       const set = exercise.sets[exercise.setOrder.find((s) => exercise.sets[s].ordinal === 1)];
       return Number(set.edited.metrics[id]) === want;
     }, [WHEEL_WEIGHT, expectScroll], { timeout: 2000 }).then(() => true, () => false);
-    assert(scrollCommitted, "the scroll settles on a value and commits it the same way, through the field's own input",
+    assert(scrollCommitted, "the drag settles on a value and commits it the same way, through the field's own input",
       JSON.stringify({ expectScroll }));
 
     await page.click("#wheelDone");
@@ -1219,24 +1203,21 @@ async function wheelPicker(browser) {
     await touch("touchEnd");
     await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
     const drift = await axis();
-    // The tilted rows still overflow a few pixels sideways (scrollWidth counts them); the axis lock is what keeps a
-    // finger from reaching that overflow.
-    assert(drift.overflowX === "hidden" && drift.touchAction === "pan-y" && drift.scrollLeft === 0,
-      "the column pans only vertically, so a diagonal drag leaves it at x 0",
+    // The browser pans nothing on the column (touch-action none): the engine moves it, on y alone.
+    assert(drift.overflowX === "hidden" && drift.touchAction === "none" && drift.scrollLeft === 0,
+      "the column moves only vertically (the engine reads only the finger's y), so a diagonal drag leaves it at x 0",
       JSON.stringify(drift));
     assert(drift.offCentre <= 1, "the value stays centred on the band", JSON.stringify(drift));
 
-    // As iOS can leave it after momentum: still, between two values. Snap is lifted so the browser can't do it for us.
-    await page.evaluate(() => {
-      const col = document.querySelector("#wheelCol");
-      col.style.scrollSnapType = "none";
-      col.scrollTop = Math.round(col.scrollTop / 44) * 44 + 17;
-    });
+    // Released still, part way between two values (17px past one): it comes to rest exactly on a value.
+    await page.waitForFunction(() => !window.__repforgeWheel?.state().moving, undefined, { timeout: 5000 }).catch(() => {});
+    await wheelGesture(page, { path: [-6, -12, -17], hold: 140 });
     const rested = await page.waitForFunction(() => {
-      const col = document.querySelector("#wheelCol");
-      return Math.abs(col.scrollTop / 44 - Math.round(col.scrollTop / 44)) < 0.02 ? col.scrollTop : null;
+      const s = window.__repforgeWheel?.state();
+      return s && !s.moving ? s.pos : null;
     }, undefined, { timeout: 3000 }).then((h) => h.jsonValue(), () => null);
-    assert(rested != null, "once still, the column comes to rest exactly on a value");
+    const restH = (await drumState(page))?.itemH ?? 44;
+    assert(rested != null && Math.abs(rested / restH - Math.round(rested / restH)) < 1e-6, "once still, the column comes to rest exactly on a value", String(rested));
     const now = await page.evaluate(() => Number(document.querySelector("#wheelCol").getAttribute("aria-valuenow")));
     const shown = await page.evaluate((top) => Number(document.querySelectorAll("#wheelCol .wheel__item")[Math.round(top / 44)].dataset.wheelV), rested ?? 0);
     assert(now === shown, "and the value it reports is the one on the band", JSON.stringify({ now, shown, rested }));
@@ -1252,10 +1233,297 @@ async function wheelPicker(browser) {
     await page.locator(WHEEL_LOAD_SEL).click();
     await page.waitForSelector("#wheelSheet.is-open");
     const col = await wheelState(page);
-    assert(col.transforms.every((t) => !t), "no item carries a tilt transform under reduced motion", JSON.stringify(col));
+    assert(col.transforms.every((t) => !/rotate/.test(t)), "no item carries a tilt under reduced motion", JSON.stringify(col));
     await page.keyboard.press("ArrowUp");
-    const behavior = await page.evaluate(() => getComputedStyle(document.querySelector("#wheelCol")).scrollBehavior);
-    assert(behavior === "auto", "programmatic positioning is instant, not smooth", behavior);
+    const stepped = await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => {
+      const s = window.__repforgeWheel?.state();
+      resolve(s ? { pos: s.pos, index: s.index, itemH: s.itemH, moving: s.moving } : null);
+    })));
+    assert(stepped && !stepped.moving && stepped.index === col.center + 1 && Math.abs(stepped.pos - stepped.index * stepped.itemH) < 0.01,
+      "a key step positions the wheel at once, not over frames", JSON.stringify({ stepped, from: col.center }));
+    await context.close();
+  }
+}
+
+/* ---- The wheel as a physical object (owner, 2026-10-23) ----
+ * The column is driven by Pointer Events, not native scroll: one position, every row's transform recomputed from it
+ * per frame, a release projected with Apple's decay and snapped where it is going, notches, rubber-banding at the
+ * ends, and a touch that takes a moving wheel where it is. Each gesture is dispatched as touch pointer events
+ * (pointerType "touch"), one per animation frame, so nothing depends on the browser's touch-to-scroll mapping
+ * (#488's interim wheel-gesture proof). Feel on a phone is the owner's to judge on the device.
+ */
+const WHEEL_PROJECTION = 0.998;
+
+/** The wheel engine's own reading: its position (px; row i is centred at i × itemH), the centred row, whether it is
+ *  moving, the last release it projected, and the rows it drew with the transform and opacity it gave each. */
+const drumState = (page) => page.evaluate(() => window.__repforgeWheel?.state() ?? null);
+
+/** A finger on the wheel column: down at the column's centre (offset by `startY`), then one move per animation
+ *  frame through `path` (y offsets from where it went down), then still for `hold` ms of frames, then up unless
+ *  `lift` is false. Returns the engine's position after each event. */
+const wheelGesture = (page, { path = [], hold = 0, lift = true, startY = 0, pointerId = 41 } = {}) => page.evaluate(async ({ path, hold, lift, startY, pointerId }) => {
+  const col = document.querySelector("#wheelCol"), r = col.getBoundingClientRect();
+  const x = r.left + r.width / 2, y0 = r.top + r.height / 2 + startY;
+  const frame = () => new Promise((resolve) => requestAnimationFrame(() => resolve()));
+  const fire = (type, y) => col.dispatchEvent(new PointerEvent(type, { pointerId, pointerType: "touch", isPrimary: true,
+    clientX: x, clientY: y, button: 0, buttons: type === "pointerup" ? 0 : 1, bubbles: true, cancelable: true }));
+  const log = [];
+  const sample = (type) => { const s = window.__repforgeWheel?.state() ?? {}; log.push({ type, pos: s.pos, index: s.index, now: s.now, moving: s.moving, scrollTop: col.scrollTop }); };
+  fire("pointerdown", y0); sample("down");
+  for (const dy of path) { await frame(); fire("pointermove", y0 + dy); sample("move"); }
+  const last = y0 + (path.at(-1) ?? 0);
+  if (hold) { const t = performance.now(); while (performance.now() - t < hold) { await frame(); fire("pointermove", last); sample("hold"); } }
+  if (lift) { fire("pointerup", last); sample("up"); }
+  return log;
+}, { path, hold, lift, startY, pointerId });
+
+/** Every frame until the wheel is still: its position, the column's scrollTop and the rows as drawn. */
+const wheelFrames = (page, { max = 900 } = {}) => page.evaluate(async (max) => {
+  const col = document.querySelector("#wheelCol");
+  const frame = () => new Promise((resolve) => requestAnimationFrame(() => resolve()));
+  const frames = [];
+  for (let i = 0; i < max; i++) {
+    await frame();
+    const s = window.__repforgeWheel?.state() ?? { drawn: [] };
+    frames.push({ pos: s.pos, index: s.index, moving: s.moving, scrollTop: col.scrollTop, drawn: s.drawn, now: s.now });
+    if (!s.moving) break;
+  }
+  return frames;
+}, max);
+
+/** Each drawn row's transform is a function of the position alone: row i sits at i × itemH − pos, tilts by its
+ *  distance from the band, and shrinks and fades the further it is. Returns the first frame that breaks it. */
+function frameOffPosition(frame, itemH, { tilt = true } = {}) {
+  const rows = frame.drawn.map((row) => {
+    const ty = Number((row.transform.match(/translateY\((-?[\d.e-]+)px\)/) || [])[1]);
+    const rx = Number((row.transform.match(/rotateX\((-?[\d.e-]+)deg\)/) || [])[1] ?? 0);
+    const sc = Number((row.transform.match(/scale\(([\d.e-]+)\)/) || [])[1] ?? 1);
+    return { i: row.i, ty, rx, sc, op: Number(row.opacity), d: row.i - frame.pos / itemH, hasTilt: /rotateX/.test(row.transform) };
+  });
+  for (const row of rows) {
+    if (!(Math.abs(row.ty - (row.i * itemH - frame.pos)) < 0.05)) return { why: "translateY", row, pos: frame.pos };
+    if (tilt !== row.hasTilt) return { why: "tilt presence", row };
+    if (tilt && !(Math.abs(row.rx + 18 * row.d) < 0.05)) return { why: "rotateX", row, pos: frame.pos };
+  }
+  const byDistance = [...rows].sort((a, b) => Math.abs(a.d) - Math.abs(b.d));
+  for (let k = 1; k < byDistance.length; k++) {
+    if (byDistance[k].sc > byDistance[k - 1].sc + 1e-6 || byDistance[k].op > byDistance[k - 1].op + 1e-6) return { why: "scale/opacity grows with distance", rows: byDistance };
+  }
+  if (!rows.some((row) => Math.abs(row.d) < 0.5 + 1e-6)) return { why: "no row drawn on the band", rows };
+  return null;
+}
+
+/** The set's weight in the draft, as the field's own input wrote it. */
+const draftLoad = (page) => page.evaluate((id) => {
+  const d = window.__repforgeWorkoutDraft.current();
+  const exercise = d.exercises[d.session.selectedExerciseId];
+  const set = exercise.sets[exercise.setOrder.find((s) => exercise.sets[s].ordinal === 1)];
+  return Number(set.edited.metrics[id]);
+}, WHEEL_WEIGHT);
+
+async function openWheelState(browser, { reducedMotion = false } = {}) {
+  const opened = await openCatalogState(browser, "workout/wheel-load", 390, "en", "normal");
+  if (reducedMotion) await opened.page.emulateMedia({ reducedMotion: "reduce" });
+  await surfaceAtRest(opened.page, "#wheelSheet");
+  return opened;
+}
+
+async function wheelPhysics(browser) {
+  phase("Wheel physics: a slow drag across three values steps exactly three, ticking through each");
+  {
+    const { context, page } = await openWheelState(browser);
+    const start = await drumState(page);
+    assert(start && !start.moving && Math.abs(start.pos - start.index * start.itemH) < 0.01, "the wheel engine reports an open wheel at rest on a row", JSON.stringify(start && { ...start, drawn: undefined }));
+    if (start) {
+      const H = start.itemH;
+      // Up three rows at about 0.25 px/ms, then the finger rests before it lifts: no momentum is left.
+      const path = Array.from({ length: 33 }, (_, i) => -Math.round(((i + 1) * 3 * H) / 33));
+      const log = await wheelGesture(page, { path, hold: 140 });
+      const ticks = log.map((e) => e.index).filter((v, i, a) => i === 0 || v !== a[i - 1]);
+      assert(JSON.stringify(ticks) === JSON.stringify([start.index, start.index + 1, start.index + 2, start.index + 3]),
+        "the centred value ticks one row at a time as the drag crosses each notch", JSON.stringify(ticks));
+      const held = log.filter((e) => e.type === "hold").at(-1);
+      assert(held && Math.abs(held.pos - (start.pos + 3 * H)) < 0.01, "three rows of finger travel are exactly three rows of wheel (1:1 at the notches)", JSON.stringify({ held, start: start.pos }));
+      const frames = await wheelFrames(page);
+      const rest = await drumState(page);
+      assert(!rest.moving && rest.index === start.index + 3 && Math.abs(rest.pos - rest.index * H) < 0.01, "it rests exactly three values on", JSON.stringify({ rest: { ...rest, drawn: undefined }, start: start.index, frames: frames.length }));
+      const now = await page.evaluate(() => Number(document.querySelector("#wheelCol").getAttribute("aria-valuenow")));
+      assert(now === rest.values[rest.index], "the value it reports is the one centred on the band", JSON.stringify({ now, centred: rest.values[rest.index] }));
+      const committed = await page.waitForFunction(([id, want]) => {
+        const d = window.__repforgeWorkoutDraft.current();
+        const exercise = d.exercises[d.session.selectedExerciseId];
+        const set = exercise.sets[exercise.setOrder.find((s) => exercise.sets[s].ordinal === 1)];
+        return Number(set.edited.metrics[id]) === want;
+      }, [WHEEL_WEIGHT, rest.values[rest.index]], { timeout: 2000 }).then(() => true, () => false);
+      assert(committed, "once still, the centred value is committed through the field's own input", JSON.stringify({ want: rest.values[rest.index], have: await draftLoad(page) }));
+    }
+    await context.close();
+  }
+
+  phase("Wheel physics: a fast flick lands where its release velocity projects it, not on the row nearest the release");
+  {
+    const { context, page } = await openWheelState(browser);
+    const start = await drumState(page);
+    if (!start) { assert(false, "the wheel engine reports its state"); await context.close(); }
+    else {
+      const H = start.itemH;
+      const log = await wheelGesture(page, { path: [-30, -70, -120, -175, -235] });
+      const frames = await wheelFrames(page);
+      const rest = await drumState(page);
+      const release = rest.release;
+      const max = (rest.count - 1) * H;
+      const projected = release ? release.pos + release.velocity * WHEEL_PROJECTION / (1 - WHEEL_PROJECTION) : NaN;
+      const expected = Math.max(0, Math.min(rest.count - 1, Math.round(Math.max(0, Math.min(max, projected)) / H)));
+      assert(release && release.velocity > 0.5, "the release carried the finger's velocity", JSON.stringify(release));
+      assert(release && Math.abs(release.projected - projected) < 1e-6 && release.target === expected,
+        "the target is the row nearest Apple's projection of the recorded release velocity", JSON.stringify({ release, projected, expected }));
+      assert(release && expected - Math.round(release.pos / H) >= 3, "and well past the row nearest the release", JSON.stringify({ release, nearest: Math.round(release?.pos / H) }));
+      assert(!rest.moving && rest.index === expected && Math.abs(rest.pos - expected * H) < 0.01, "the wheel comes to rest exactly on the projected row", JSON.stringify({ pos: rest.pos, index: rest.index, expected }));
+      const firstFrame = frames[0], lastMove = log.at(-1);
+      assert(firstFrame && firstFrame.pos > lastMove.pos, "the motion carries on from the release with no seam (it keeps going the finger's way)", JSON.stringify({ firstFrame: firstFrame && { pos: firstFrame.pos }, lastMove }));
+      const broken = frames.map((f) => frameOffPosition(f, H)).find(Boolean);
+      assert(frames.length > 5 && !broken, "every frame's row transforms derive from the position alone", JSON.stringify({ frames: frames.length, broken }));
+      const tops = new Set([...log, ...frames].map((f) => f.scrollTop));
+      assert(tops.size === 1 && tops.has(0), "the column never scrolls (scrollTop stays 0)", JSON.stringify([...tops]));
+      const now = await page.evaluate(() => Number(document.querySelector("#wheelCol").getAttribute("aria-valuenow")));
+      const committed = await page.waitForFunction(([id, want]) => {
+        const d = window.__repforgeWorkoutDraft.current();
+        const exercise = d.exercises[d.session.selectedExerciseId];
+        const set = exercise.sets[exercise.setOrder.find((s) => exercise.sets[s].ordinal === 1)];
+        return Number(set.edited.metrics[id]) === want;
+      }, [WHEEL_WEIGHT, rest.values[expected]], { timeout: 2000 }).then(() => true, () => false);
+      assert(now === rest.values[expected] && committed, "the committed value is the centred one", JSON.stringify({ now, want: rest.values[expected], have: await draftLoad(page) }));
+      await context.close();
+    }
+  }
+
+  phase("Wheel physics: a touch on a moving wheel stops it under the finger within a frame, and drags on from there");
+  {
+    const { context, page } = await openWheelState(browser);
+    const start = await drumState(page);
+    if (!start) { assert(false, "the wheel engine reports its state"); await context.close(); }
+    else {
+      const H = start.itemH;
+      await wheelGesture(page, { path: [-30, -70, -120, -175, -235] });
+      // Let it run a few frames so the wheel is moving under its own momentum when the finger lands.
+      const running = await page.evaluate(async () => {
+        const frame = () => new Promise((resolve) => requestAnimationFrame(() => resolve()));
+        const seen = [];
+        for (let i = 0; i < 4; i++) { await frame(); seen.push(window.__repforgeWheel.state().pos); }
+        return { seen, moving: window.__repforgeWheel.state().moving };
+      });
+      assert(running.moving && running.seen.at(-1) > running.seen[0], "the wheel is moving on its own", JSON.stringify(running));
+      const caught = await page.evaluate(async () => {
+        const col = document.querySelector("#wheelCol"), r = col.getBoundingClientRect();
+        const x = r.left + r.width / 2, y = r.top + r.height / 2;
+        const frame = () => new Promise((resolve) => requestAnimationFrame(() => resolve()));
+        const shown = window.__repforgeWheel.state().pos;
+        col.dispatchEvent(new PointerEvent("pointerdown", { pointerId: 42, pointerType: "touch", isPrimary: true, clientX: x, clientY: y, button: 0, buttons: 1, bubbles: true, cancelable: true }));
+        const atDown = window.__repforgeWheel.state();
+        await frame();
+        const next = window.__repforgeWheel.state();
+        await frame();
+        const after = window.__repforgeWheel.state();
+        col.dispatchEvent(new PointerEvent("pointermove", { pointerId: 42, pointerType: "touch", isPrimary: true, clientX: x, clientY: y - 10, button: 0, buttons: 1, bubbles: true, cancelable: true }));
+        const dragged = window.__repforgeWheel.state();
+        col.dispatchEvent(new PointerEvent("pointerup", { pointerId: 42, pointerType: "touch", isPrimary: true, clientX: x, clientY: y - 10, button: 0, buttons: 0, bubbles: true, cancelable: true }));
+        return { shown, atDown: atDown.pos, downMoving: atDown.moving, next: next.pos, after: after.pos, dragged: dragged.pos };
+      });
+      assert(!caught.downMoving && caught.atDown === caught.shown, "the touch stops the wheel at the position it was showing", JSON.stringify(caught));
+      assert(caught.next === caught.atDown && caught.after === caught.atDown, "and it stays there under the still finger on the next frames", JSON.stringify(caught));
+      // The ratchet bends 10px of finger into 8.5–11.5px of wheel, depending on where between two notches it was caught.
+      assert(Math.abs(caught.dragged - (caught.atDown + 10)) < 2, "a drag from there moves it from where it was caught, with no jump", JSON.stringify(caught));
+      await context.close();
+    }
+  }
+
+  phase("Wheel physics: past either end it rubber-bands, then springs back to the end value");
+  {
+    const { context, page } = await openWheelState(browser);
+    const start = await drumState(page);
+    if (!start) { assert(false, "the wheel engine reports its state"); await context.close(); }
+    else {
+      const H = start.itemH;
+      await page.focus("#wheelCol");
+      await page.keyboard.press("Home");
+      await wheelFrames(page);
+      const atMin = await drumState(page);
+      assert(atMin.index === 0 && Math.abs(atMin.pos) < 0.01, "Home takes the wheel to its first value", JSON.stringify({ pos: atMin.pos, index: atMin.index }));
+      const down = Array.from({ length: 20 }, (_, i) => (i + 1) * 10);
+      const pulled = await wheelGesture(page, { path: down, hold: 140 });
+      const deepest = pulled.filter((e) => e.type === "move").at(-1).pos;
+      assert(deepest < -10 && deepest > -200 * 0.55, "a 200px pull past the first value moves it less and less (rubber band)", JSON.stringify({ deepest }));
+      const steps = pulled.filter((e) => e.type === "move" && e.pos < 0).map((e, i, a) => (i ? a[i - 1].pos - e.pos : null)).filter((v) => v != null);
+      assert(steps.length > 3 && steps.at(-1) < steps[0], "each further pixel of pull moves it less", JSON.stringify(steps));
+      await wheelFrames(page);
+      const back = await drumState(page);
+      assert(!back.moving && back.index === 0 && Math.abs(back.pos) < 0.01, "released, it springs back to the first value", JSON.stringify({ pos: back.pos, index: back.index }));
+
+      await page.keyboard.press("End");
+      await wheelFrames(page);
+      const atMax = await drumState(page);
+      const max = (atMax.count - 1) * H;
+      const upPath = Array.from({ length: 20 }, (_, i) => -(i + 1) * 10);
+      const over = await wheelGesture(page, { path: upPath, hold: 140 });
+      const highest = over.filter((e) => e.type === "move").at(-1).pos;
+      assert(highest > max + 10 && highest < max + 200 * 0.55, "a 200px push past the last value rubber-bands too", JSON.stringify({ highest, max }));
+      await wheelFrames(page);
+      const home = await drumState(page);
+      assert(!home.moving && home.index === atMax.count - 1 && Math.abs(home.pos - max) < 0.01, "released, it springs back to the last value", JSON.stringify({ pos: home.pos, max }));
+      await context.close();
+    }
+  }
+
+  phase("Wheel physics: under reduced motion a release steps straight to the nearest value, with no momentum and no tilt");
+  {
+    const { context, page } = await openWheelState(browser, { reducedMotion: true });
+    const start = await drumState(page);
+    if (!start) { assert(false, "the wheel engine reports its state"); await context.close(); }
+    else {
+      const H = start.itemH;
+      await wheelGesture(page, { path: [-30, -70, -120] });
+      const rest = await drumState(page);
+      assert(!rest.moving && rest.release && rest.release.target === Math.round(rest.release.pos / H) && Math.abs(rest.pos - rest.release.target * H) < 0.01,
+        "the release lands at once on the value nearest where the finger let go", JSON.stringify({ release: rest.release, pos: rest.pos }));
+      const broken = frameOffPosition(rest, H, { tilt: false });
+      assert(!broken, "rows keep their scale and fade by distance, without a tilt", JSON.stringify(broken));
+      await context.close();
+    }
+  }
+
+  phase("Wheel physics: without the motion layer the rows are still drawn, and the keys still set the value");
+  {
+    const { context, page } = await todayPage(browser, { layer: false });
+    await enterSeededFocus(page);
+    const step = await loadStep(page);
+    await pokeLoad(page, 1);
+    const loadBefore = await fieldFace(page, WHEEL_LOAD_SEL);
+    await page.locator(WHEEL_REPS_SEL).click();
+    await page.locator(WHEEL_LOAD_SEL).click();
+    await page.locator(WHEEL_LOAD_SEL).click();
+    await page.waitForSelector("#wheelSheet.is-open");
+    const centre = await page.evaluate(() => {
+      const el = document.querySelector("#wheelCol .wheel__item.is-center"), band = document.querySelector(".wheel__band").getBoundingClientRect();
+      const r = el?.getBoundingClientRect();
+      return el ? { visible: getComputedStyle(el).visibility === "visible", offBand: Math.abs((r.top + r.height / 2) - (band.top + band.height / 2)), value: Number(el.dataset.wheelV) } : null;
+    });
+    assert(centre && centre.visible && centre.offBand < 1 && centre.value === Number(loadBefore.value),
+      "the current value is drawn on the band", JSON.stringify({ centre, loadBefore }));
+    await page.focus("#wheelCol");
+    await page.keyboard.press("ArrowUp");
+    const want = Math.round((Number(loadBefore.value) + step) * 100) / 100;
+    const committed = await page.waitForFunction(([id, v]) => {
+      const d = window.__repforgeWorkoutDraft.current();
+      const exercise = d.exercises[d.session.selectedExerciseId];
+      const set = exercise.sets[exercise.setOrder.find((s) => exercise.sets[s].ordinal === 1)];
+      return Number(set.edited.metrics[id]) === v;
+    }, [WHEEL_WEIGHT, want], { timeout: 2000 }).then(() => true, () => false);
+    const moved = await page.evaluate(() => {
+      const el = document.querySelector("#wheelCol .wheel__item.is-center"), band = document.querySelector(".wheel__band").getBoundingClientRect();
+      const r = el.getBoundingClientRect();
+      return { value: Number(el.dataset.wheelV), offBand: Math.abs((r.top + r.height / 2) - (band.top + band.height / 2)) };
+    });
+    assert(committed && moved.value === want && moved.offBand < 1, "ArrowUp steps one value, draws it on the band and commits it", JSON.stringify({ moved, want }));
     await context.close();
   }
 }
@@ -2084,7 +2352,8 @@ async function concentricShelf(browser) {
   }
 }
 
-// NATIVE_FEEL_ONLY=large runs just phase 5 and =shelf just its addendum, for a local red/green; CI runs everything.
+// NATIVE_FEEL_ONLY=large runs just phase 5, =shelf just its addendum and =wheel just the wheel picker, for a local
+// red/green; CI runs everything.
 const ONLY = process.env.NATIVE_FEEL_ONLY || "";
 const browser = await launchChromium();
 try {
@@ -2281,6 +2550,7 @@ try {
   await dayPickerCommits(browser);
   await libraryOverEditorSheet(browser);
   await wheelPicker(browser);
+  await wheelPhysics(browser);
   await routeHistory(browser);
   await autoSwipe(browser);
   await standaloneSwipe(browser);
@@ -2290,11 +2560,15 @@ try {
   await editorSheetAndBar(browser);
   await perSideOverflow(browser);
  }
-  if (ONLY !== "shelf") {
+  if (ONLY === "wheel") {
+    await wheelPicker(browser);
+    await wheelPhysics(browser);
+  }
+  if (!ONLY || ONLY === "large") {
     await largeTextFocus(browser);
     await largeTextDock(browser);
   }
-  await concentricShelf(browser);
+  if (ONLY !== "wheel") await concentricShelf(browser);
 } finally {
   await browser.close();
 }

@@ -1593,9 +1593,10 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 
 /* ---- The wheel picker (Plan 075 phase 2W, ADR 0023 choice 8) ----
    A second tap on the selected Load or Reps field opens this in a fit sheet.
-   Five rows (44px each) show through a native scroll-snap column; app.js tilts
-   each row by its distance from the centre band on scroll (transform only, none
-   under reduced motion) and marks the centre row and, on the reps wheel, the
+   Five rows (44px each) show through a column that does not scroll: app.js
+   drives it with Pointer Events and places, tilts, shrinks and fades each row
+   from one position every frame (transform and opacity only; no tilt under
+   reduced motion). It marks the centre row and, on the reps wheel, the
    prescription's target band. */
 .wheel__body{padding:0 0 var(--space-16);overflow:hidden}
 /* As the prototype draws it: the title on the left at the section-title size,
@@ -1605,32 +1606,32 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 #wheelSheet .wheel__head .sheet__title{margin:0;text-align:left;font-size:var(--font-size-section-title);letter-spacing:-.01em}
 .wheel__trail{display:inline-flex;align-items:center;gap:var(--space-4)}
 .wheel__trail .sheet__act{flex:none;width:auto;min-width:var(--control-target);padding:10px 8px}
-/* The selection band stays put while the column scrolls under it: a filled,
-   rounded row, outside the scroller. */
+/* The selection band stays put while the rows move under it: a filled,
+   rounded row, outside the column. */
 .wheel__frame{position:relative;flex:1 1 auto;width:100%;min-width:0}
 .wheel__band{position:absolute;left:var(--space-12);right:var(--space-12);top:88px;height:44px;
   border-radius:var(--radius-control);background:var(--wheel-band);pointer-events:none}
-/* One axis only: the tilted rows overflow a few pixels sideways, and with overflow-x left to compute as auto a
-   diagonal drag carried the column off the band (owner, iPhone, 2026-10-23). No horizontal range, no horizontal pan. */
+/* One axis only (owner, iPhone, 2026-10-23): the browser pans nothing here, and the engine reads only the
+   finger's y, so a diagonal drag can't carry the column off the band. */
 .wheel{
-  position:relative;width:100%;height:220px;overflow-x:hidden;overflow-y:auto;
-  overscroll-behavior-x:none;overscroll-behavior-y:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;
-  scroll-snap-type:y mandatory;padding:88px 0;perspective:600px;scrollbar-width:none;
+  position:relative;width:100%;height:220px;overflow:hidden;touch-action:none;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
 }
-.wheel::-webkit-scrollbar{display:none}
+/* The rows' drum: they fade out towards its edges, as the prototype's mask draws them. The mask sits here, not on
+   the column, so it never clips the column's focus ring. */
+.wheel__drum{position:absolute;inset:0;perspective:600px;
+  -webkit-mask-image:linear-gradient(transparent,var(--ink) 30%,var(--ink) 70%,transparent);mask-image:linear-gradient(transparent,var(--ink) 30%,var(--ink) 70%,transparent)}
 .wheel:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 /* Bare numbers in the data face, tabular; the unit is in the title. The centre
    row is the one at full opacity, the others fade with their distance (app.js). */
 .wheel__item{
-  height:44px;display:flex;align-items:center;justify-content:center;scroll-snap-align:center;
+  position:absolute;left:0;right:0;top:88px;height:44px;visibility:hidden;backface-visibility:hidden;
+  display:flex;align-items:center;justify-content:center;
   font-family:var(--font-training-data);font-feature-settings:"tnum";font-variant-numeric:tabular-nums;
   font-size:var(--font-size-subtitle);color:var(--color-ink);
 }
 /* The reps wheel's target range: a quiet tick before the number, not a second band (the orange budget stays on actions). */
 .wheel__item.is-target::before{content:"";width:4px;height:4px;border-radius:var(--radius-round);background:var(--color-ink-secondary);margin-right:var(--space-8)}
-@media (prefers-reduced-motion: reduce){
-  .wheel{scroll-behavior:auto}
-}
 
 /* ---- The travelling outline ----
    Drawn by app.js only while an outline is in flight: T1 between the shelf's

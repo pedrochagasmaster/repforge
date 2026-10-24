@@ -8652,7 +8652,7 @@ function focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
 const WHEEL_ITEM_H=44;
 const WHEEL_LOAD_MAX_KG=1000;
 const WHEEL_REPS_MAX=30;
-let wheelUi=null,wheelSettleTimer=null;
+let wheelUi=null;
 /** The display-unit rail for Load: 0 up to the draft's ceiling (1000kg, floored
  *  to the pad step), with the field's current value included even off the grid. */
 function wheelLoadValues(step,current){
@@ -8687,26 +8687,36 @@ function wheelNearestIndex(values,v){
   let best=0,bestDiff=Infinity;
   values.forEach((val,i)=>{const d=Math.abs(val-v);if(d<bestDiff){bestDiff=d;best=i}});
   return best}
-/** Tilt by distance from centre, a pure function of scroll position — direct
- *  manipulation, not a spring, so it never touches the Motion runtime. None under
- *  reduced motion. */
-function wheelApplyTilt(col){
-  const items=col.querySelectorAll(".wheel__item");
-  // Reduced motion keeps the fade with distance (it isn't motion) and drops the tilt.
-  if(reducedMotion()){const mid=col.scrollTop+col.clientHeight/2;items.forEach(el=>{el.style.transform="";
-    el.style.opacity=String(Math.max(0.2,1-Math.abs(((el.offsetTop+el.offsetHeight/2)-mid)/WHEEL_ITEM_H)*0.22))});return}
-  const mid=col.scrollTop+col.clientHeight/2;
-  items.forEach(el=>{
-    const diff=Math.max(-3,Math.min(3,((el.offsetTop+el.offsetHeight/2)-mid)/WHEEL_ITEM_H));
-    el.style.transform=`rotateX(${diff*-18}deg)`;
-    el.style.opacity=String(Math.max(0.2,1-Math.abs(diff)*0.22))})}
+/* The wheel itself is the motion layer's (`RepForgeMotion.mountWheel`): Pointer Events, projection, notches,
+ * rubber band and the drum, all from one position. Here it reports the centred value as it moves (the spinbutton's
+ * aria) and commits the value once it is still. Without the layer the rows are placed statically, and the keys and
+ * the keyboard button still set the value. */
+let wheelDrum=null;
+function wheelStaticDrum(col,{count,index,onRest}){
+  const items=[...col.querySelectorAll(".wheel__item")];let at=index,lo=0,hi=-1;
+  const paint=()=>{
+    for(let i=lo;i<=hi;i++)items[i].style.visibility="";
+    lo=Math.max(0,at-2);hi=Math.min(count-1,at+2);
+    for(let i=lo;i<=hi;i++){const far=Math.abs(i-at);
+      items[i].style.transform=`translateY(${(i-at)*WHEEL_ITEM_H}px) scale(${1-far*0.07})`;
+      items[i].style.opacity=String(Math.max(0.2,1-far*0.22));items[i].style.visibility="visible"}};
+  paint();
+  return{step(to){at=Math.max(0,Math.min(count-1,to));paint();onRest(at)},halt(){},destroy(){},
+    state:()=>({pos:at*WHEEL_ITEM_H,index:at,itemH:WHEEL_ITEM_H,count,moving:false,now:performance.now(),release:null,drawn:[]})}}
+function wheelHalt(){wheelDrum?.halt()}
+window.__repforgeWheel={state(){
+  const s=wheelDrum?.state();
+  return s?{...s,values:wheelUi?wheelUi.values.slice():[]}:null}};
 function wheelSyncAria(index){
   const ui=wheelUi,col=$("#wheelCol");if(!ui||!col)return;
   const v=ui.values[index];
   ui.index=index;
   col.setAttribute("aria-valuenow",String(v));
   col.setAttribute("aria-valuetext",wheelItemText(v,ui.kind,ui.unit));
-  col.querySelectorAll(".wheel__item").forEach((el,i)=>el.classList.toggle("is-center",i===index))}
+  ui.items??=[...col.querySelectorAll(".wheel__item")];
+  ui.centerEl?.classList.remove("is-center");
+  ui.centerEl=ui.items[index]||null;
+  ui.centerEl?.classList.add("is-center")}
 /** The value applies through the field's own input, exactly as typing it would:
  *  the same dispatch, the same draft, the same shelf and ledger sync. */
 async function wheelCommit(index){
@@ -8716,30 +8726,12 @@ async function wheelCommit(index){
   ui.lastCommitted=v;
   ui.input.value=wheelDraftText(v,ui.kind);
   await ui.input.oninput?.()}
-function wheelNearestIndexFromScroll(col){
-  if(!wheelUi)return 0;
-  return Math.max(0,Math.min(wheelUi.values.length-1,Math.round(col.scrollTop/WHEEL_ITEM_H)))}
-/** The wheel settles, and only then reads a value off the scroll position: the
- *  tilt follows every frame, but the value and the aria it reports wait for the
- *  scroll to stop for ~120ms, so a still-moving drag (or the tail of a keyboard
- *  step's own smooth scroll) never overwrites what a keyboard press or Done just
- *  committed with a value the scroll merely passed through. */
-function wheelOnScroll(){
-  const col=$("#wheelCol");if(!col||!wheelUi)return;
-  wheelApplyTilt(col);
-  if(wheelSettleTimer)clearTimeout(wheelSettleTimer);
-  wheelSettleTimer=setTimeout(()=>{
-    const idx=wheelNearestIndexFromScroll(col);
-    // iOS can let momentum come to rest between snap points; once the column is still, place it on the value it
-    // shows. The scroll this starts settles again on the same value.
-    if(Math.abs(col.scrollTop-idx*WHEEL_ITEM_H)>0.5)wheelScrollTo(idx);
-    wheelSyncAria(idx);
-    // Placing the wheel on its opening value is not a choice: only a move off it writes (Done applies it either way).
-    if(wheelUi&&wheelUi.lastCommitted==null&&idx===wheelUi.openedIndex)return;
-    wheelCommit(idx)},120)}
-function wheelScrollTo(index){
-  const col=$("#wheelCol");if(!col)return;
-  col.scrollTo({top:index*WHEEL_ITEM_H,behavior:reducedMotion()?"auto":"smooth"})}
+/** The wheel is still: the value on the band is the value. Placing the wheel on its opening value is not a choice,
+ *  so only a move off it writes (Done applies it either way). */
+function wheelSettled(index){
+  wheelSyncAria(index);
+  if(wheelUi&&wheelUi.lastCommitted==null&&index===wheelUi.openedIndex)return;
+  wheelCommit(index)}
 /** ArrowUp/Down step one item, PageUp/Down ten, Home/End the ends — and each
  *  commits at once, the way Done and the keyboard button do. */
 function wheelKeydown(e){
@@ -8755,10 +8747,9 @@ function wheelKeydown(e){
   e.preventDefault();
   next=Math.max(0,Math.min(ui.values.length-1,next));
   if(next===ui.index)return;
-  if(wheelSettleTimer){clearTimeout(wheelSettleTimer);wheelSettleTimer=null}
-  wheelScrollTo(next);
   wheelSyncAria(next);
-  wheelCommit(next)}
+  wheelCommit(next);
+  wheelDrum?.step(next)}
 /** Opened by a second tap on the selected Load or Reps shelf field. */
 /** Where the wheel opens on an empty field (the carried load and the suggestion already fill it): the programmed
  *  target, then what the lift last logged in this set's place, then the bottom of the target range. Only with none
@@ -8796,10 +8787,10 @@ function openWheelSheet(key,id,kind){
   // An empty field's suggestion is what the wheel shows, so Done applies it; a typed value is already in the draft.
   wheelUi={key,id,kind,input,unit,label,values,range,index,lastCommitted:Number.isFinite(typed)?values[index]:null,openedIndex:index};
   $("#wheelSheetTitle").textContent=label;
-  col.innerHTML=values.map((v,i)=>{
+  col.innerHTML=`<div class="wheel__drum">${values.map((v,i)=>{
     const inRange=kind==="reps"&&range&&v>=range.min&&v<=range.max;
     // The rows show bare numbers (the unit is in the title, as the prototype draws it); the spinbutton speaks the unit.
-    return `<div class="wheel__item${inRange?" is-target":""}${i===index?" is-center":""}" data-wheel-i="${i}" data-wheel-v="${esc(String(v))}" aria-hidden="true">${esc(fmt(v))}</div>`}).join("");
+    return `<div class="wheel__item${inRange?" is-target":""}${i===index?" is-center":""}" data-wheel-i="${i}" data-wheel-v="${esc(String(v))}" aria-hidden="true">${esc(fmt(v))}</div>`}).join("")}</div>`;
   // The column is a spinbutton only while the wheel is open; closed, it is empty and hidden and names nothing.
   col.setAttribute("role","spinbutton");
   col.setAttribute("aria-label",label);
@@ -8807,7 +8798,6 @@ function openWheelSheet(key,id,kind){
   col.setAttribute("aria-valuemax",String(values[values.length-1]));
   col.setAttribute("aria-valuenow",String(values[index]));
   col.setAttribute("aria-valuetext",wheelItemText(values[index],kind,unit));
-  col.onscroll=wheelOnScroll;
   col.onkeydown=wheelKeydown;
   const kbBtn=$("#wheelKeyboard");
   if(kbBtn)kbBtn.onclick=()=>{
@@ -8815,7 +8805,7 @@ function openWheelSheet(key,id,kind){
     // iOS raises the keyboard only for a focus made inside the tap itself (owner, iPhone, 2026-10-23): write the
     // wheel's value, give the page back its focus, and open the field's typed input now, in this handler. The sheet
     // then leaves without taking focus back to the field's button.
-    if(wheelSettleTimer){clearTimeout(wheelSettleTimer);wheelSettleTimer=null}
+    wheelHalt();
     wheelCommit(live.index??0);
     const rec=activeModal&&activeModal.el===$("#wheelSheet")?activeModal:null;
     if(rec){restoreBodyInert(rec.prevInert);rec.returnFocus=null}
@@ -8826,17 +8816,19 @@ function openWheelSheet(key,id,kind){
   if(doneBtn)doneBtn.onclick=()=>{closeWheelSheet()};
   document.body.classList.add("is-sheet-open");
   openModal(sheet,{initialFocus:col,returnFocus:btn,onEscape:closeWheelSheet,scrim,delayHide:reducedMotion()?0:280});
-  col.scrollTop=index*WHEEL_ITEM_H;
-  wheelApplyTilt(col);
+  wheelDrum?.destroy();
+  const mount=window.RepForgeMotion?.mountWheel||wheelStaticDrum;
+  wheelDrum=mount(col,{count:values.length,index,itemH:WHEEL_ITEM_H,onCentre:wheelSyncAria,onRest:wheelSettled});
+  wheelSyncAria(index);
   requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
 function closeWheelSheet(){
   const sheet=$("#wheelSheet");
   if(!sheet)return Promise.resolve(false);
   if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
-  if(wheelSettleTimer){clearTimeout(wheelSettleTimer);wheelSettleTimer=null}
+  wheelDrum?.destroy();
   const ui=wheelUi;
   const commit=ui?wheelCommit(ui.index??0):Promise.resolve();
-  wheelUi=null;
+  wheelUi=null;wheelDrum=null;
   return commit.then(()=>closeModal(sheet)).then(closed=>{
     const col=$("#wheelCol");
     if(col&&!wheelUi)for(const name of["role","aria-label","aria-valuemin","aria-valuemax","aria-valuenow","aria-valuetext"])col.removeAttribute(name);
