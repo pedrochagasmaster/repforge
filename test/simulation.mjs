@@ -107,15 +107,19 @@ async function pressPushedBack(page, selector) {
   // Watch for the traversal itself: if this Back hands an entry back, its popstate is what has to land first.
   await page.evaluate(() => {
     const go = history.go.bind(history);
-    window.__simBackTraversal = { called: false, landed: false };
+    // The listener keeps its own record, so a popstate arriving after the cleanup below has somewhere to land.
+    const traversal = window.__simBackTraversal = { called: false, landed: false };
     history.go = (delta) => {
-      window.__simBackTraversal.called = true;
-      window.addEventListener("popstate", () => { window.__simBackTraversal.landed = true; }, { once: true });
+      traversal.called = true;
+      window.addEventListener("popstate", () => { traversal.landed = true; }, { once: true });
       history.go = go;
       return go(delta);
     };
   });
   await page.click(selector);
+  // The app hands the entry back from the next animation frame (syncEdgeSwipe), not in the tap: a first poll
+  // before that frame saw no call yet and moved on (full lane 2026-10-24). Let the frame run, then wait.
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   await page.waitForFunction(() => !window.__simBackTraversal.called || window.__simBackTraversal.landed, undefined, { timeout: 5000 });
   await page.evaluate(() => { delete history.go; delete window.__simBackTraversal; });
 }

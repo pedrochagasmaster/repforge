@@ -996,7 +996,7 @@
     "onboarding-recommend/muscle-priorities": {
       "owner": "plan-072",
       "content": "flat",
-      "scenario": "Twenty-two muscles, each Less, Normal or More; glutes set to More and calves to Less; Skip."
+      "scenario": "Twenty-two muscles, each Skip, Less, Normal or More; glutes set to More and calves to Less; Skip."
     },
     "onboarding-recommend/exercise-preferences": {
       "owner": "plan-072",
@@ -1016,7 +1016,7 @@
     "onboarding-recommend/deload": {
       "owner": "plan-072",
       "content": "flat",
-      "scenario": "The deload card switched on, marked Recommended."
+      "scenario": "The deload card switched on, marked Recommended, with When set to the preselected At the end."
     },
     "onboarding-recommend/building": {
       "owner": "plan-072",
@@ -1092,6 +1092,16 @@
       "owner": "plan-075-phase-4",
       "content": "flat",
       "scenario": "A context-menu skip acknowledged on Today, stored only in the workout draft."
+    },
+    "onboarding-recommend/muscle-priorities-skip": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "Calves set to Skip, the fourth choice, which gives the muscle no direct work."
+    },
+    "onboarding-recommend/deload-start": {
+      "owner": "plan-072",
+      "content": "flat",
+      "scenario": "The deload on, with At the start chosen over the preselected At the end."
     }
   },
   "components": [
@@ -3919,7 +3929,9 @@
         "onboarding-recommend/building-pending",
         "onboarding-recommend/result-equipment-conflict",
         "onboarding-recommend/result-confirm-offer",
-        "onboarding-recommend/result-confirmed"
+        "onboarding-recommend/result-confirmed",
+        "onboarding-recommend/muscle-priorities-skip",
+        "onboarding-recommend/deload-start"
       ]
     },
     {
@@ -3996,7 +4008,9 @@
         "onboarding-recommend/result-equipment-conflict",
         "onboarding-recommend/result-confirm-offer",
         "onboarding-recommend/result-confirmed",
-        "onboarding-build/editor-alternates"
+        "onboarding-build/editor-alternates",
+        "onboarding-recommend/muscle-priorities-skip",
+        "onboarding-recommend/deload-start"
       ]
     },
     {
@@ -4046,7 +4060,9 @@
         "onboarding-recovery/rules-drift",
         "onboarding-start/hub",
         "onboarding-start/hub-chosen",
-        "onboarding-start/hub-existing"
+        "onboarding-start/hub-existing",
+        "onboarding-recommend/muscle-priorities-skip",
+        "onboarding-recommend/deload-start"
       ]
     },
     {
@@ -4114,7 +4130,9 @@
         "onboarding-recommend/building-pending",
         "onboarding-recommend/result-equipment-conflict",
         "onboarding-recommend/result-confirm-offer",
-        "onboarding-recommend/result-confirmed"
+        "onboarding-recommend/result-confirmed",
+        "onboarding-recommend/muscle-priorities-skip",
+        "onboarding-recommend/deload-start"
       ],
       "progressScopes": {
         "entry-route-step": "task"
@@ -7282,7 +7300,9 @@
         "progress/schedule-diagnosis",
         "onboarding-recommend/result-block-sheet",
         "onboarding-recommend/review-sheet-execution-mode",
-        "program/editor-suggest-loads"
+        "program/editor-suggest-loads",
+        "onboarding-recommend/deload",
+        "onboarding-recommend/deload-start"
       ]
     },
     {
@@ -9929,7 +9949,7 @@
         "selected",
         "disabled"
       ],
-      "rationale": "One answer of a segmented choice: a muscle's Less, Normal or More, or a picker's unit.",
+      "rationale": "One answer of a segmented choice: a muscle's Skip, Less, Normal or More, or a picker's unit.",
       "owner": "plan-072",
       "catalogStates": [
         "onboarding-recommend/height",
@@ -9937,7 +9957,8 @@
         "onboarding-recommend/muscle-priorities",
         "onboarding-recommend/muscle-priorities-limit",
         "onboarding-recommend/weight",
-        "onboarding-recommend/weight-lb"
+        "onboarding-recommend/weight-lb",
+        "onboarding-recommend/muscle-priorities-skip"
       ]
     },
     {
@@ -9969,7 +9990,8 @@
         "onboarding-recommend/muscle-priorities-limit",
         "onboarding-recommend/sex",
         "onboarding-recommend/weight",
-        "onboarding-recommend/weight-lb"
+        "onboarding-recommend/weight-lb",
+        "onboarding-recommend/muscle-priorities-skip"
       ]
     },
     {
@@ -10058,10 +10080,11 @@
         "selected",
         "disabled"
       ],
-      "rationale": "Turns the block's last-week deload on or off.",
+      "rationale": "Turns the block's lighter week on or off.",
       "owner": "plan-072",
       "catalogStates": [
-        "onboarding-recommend/deload"
+        "onboarding-recommend/deload",
+        "onboarding-recommend/deload-start"
       ]
     },
     {

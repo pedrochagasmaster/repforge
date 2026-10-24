@@ -1385,6 +1385,55 @@ async function recommendExercisePreferences(browser) {
   return errors;
 }
 
+/** The Addendum's last engine inputs (owner, 2026-10-23): a skipped muscle reaches the request as
+ *  excludedMuscleIds and gets no direct work, and "At the start" puts the lighter week at cycle 1. */
+async function recommendSkipMuscleAndDeloadStart(browser) {
+  const CALVES = "2545c6f170d880bbb34fc724d677176f";
+  const errors = [];
+  const run = await fresh(browser);
+  const { page } = run;
+  await page.click("#firstRunCreate");
+  await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
+  await answerRecommend(page, { skipBasics: true, days: 4, until: "muscle_priorities" });
+  await page.locator('#onbBody [data-entry-pick="musclePriorityB"][data-entry-val="calves|skip"]').click();
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.answers?.ignoredMuscles?.includes("calves"));
+  const row = await page.evaluate(() => {
+    const option = document.querySelector('#onbBody [data-entry-val="calves|skip"]');
+    return { checked: option?.getAttribute("aria-checked"), options: option?.parentElement?.querySelectorAll("[role=radio]").length };
+  });
+  check(row.checked === "true" && row.options === 4, "skip a muscle: the muscle's control offers four choices and Skip is selected", row);
+  await answerRecommend(page, { skipBasics: true, days: 4, until: "deload" });
+  const when = await page.locator('#onbBody [data-entry-pick="deloadPosition"]').count();
+  check(when === 2, "deload position: with the lighter week on, it offers the start and the end", when);
+  const preset = await page.locator('#onbBody [data-entry-pick="deloadPosition"][data-entry-val="end"]').getAttribute("aria-checked");
+  check(preset === "true", "deload position: the end is preselected, as before", preset);
+  await answerRecommend(page, { skipBasics: true, days: 4, deloadPosition: "start" });
+  await page.locator("#entryReview [data-review-slot]").first().waitFor({ state: "visible", timeout: 20000 });
+  const proof = await page.evaluate((calves) => {
+    const definition = window.__repforgeEntryState()?.result?.preview?.programDefinition;
+    const index = Object.fromEntries((window.RepForgeExerciseCatalog.snapshot().exercises || []).map((item) => [item.id, item]));
+    const trainsCalves = (id) => [...(index[id]?.primaryFeatureMuscle || []), ...(index[id]?.secondaryFeatureMuscle || [])].includes(calves);
+    const slots = definition.days.flatMap((day) => day.slots || []);
+    const { excludedMuscleIds, ...unskipped } = definition.request;
+    const baseline = window.RepForgeProgramCompiler.generateProgram({ ...unskipped, excludedMuscleIds: [] }, window.RepForgeExerciseCatalog.snapshot());
+    const firstCycle = slots.map((slot) => slot.prescriptionsByCycle?.[0]);
+    return {
+      excluded: excludedMuscleIds, deloadCycles: definition.request.deloadCycles, programDeload: definition.deloadCycles, cycles: definition.cycles,
+      calfSlots: slots.filter((slot) => trainsCalves(slot.exerciseId)).length,
+      baselineCalfSlots: baseline.ok ? baseline.value.days.flatMap((day) => day.slots || []).filter((slot) => trainsCalves(slot.exerciseId)).length : null,
+      firstCycleDeload: firstCycle.every((cycle) => cycle?.cycleIndex === 1 && cycle.sets.every((set) => set.provenance?.deload === true)),
+    };
+  }, CALVES);
+  check(proof.excluded?.includes(CALVES), "skip a muscle: the skipped muscle reaches the generated request", proof.excluded);
+  check(proof.baselineCalfSlots > 0 && proof.calfSlots === 0,
+    "skip a muscle: the same answers train calves, and with calves skipped no exercise works them", proof);
+  check(JSON.stringify(proof.deloadCycles) === "[1]" && JSON.stringify(proof.programDeload) === "[1]" && proof.cycles === 8 && proof.firstCycleDeload,
+    "deload position: At the start puts the lighter week at cycle 1 of eight", proof);
+  errors.push(...run.errors);
+  await run.context.close();
+  return errors;
+}
+
 async function maximumSourcePreviewPersistence(browser) {
   const { context, page, errors } = await fresh(browser);
   await page.click("#firstRunCreate");
@@ -1422,6 +1471,7 @@ async function main() {
     allErrors.push(await sourceSplitChoicesJourney(browser));
     allErrors.push(await recommendSplitStep(browser));
     allErrors.push(await recommendExercisePreferences(browser));
+    allErrors.push(await recommendSkipMuscleAndDeloadStart(browser));
     allErrors.push(await maximumSourcePreviewPersistence(browser));
     // Generate and activate ------------------------------------------------
     const { context, page, errors } = await fresh(browser);

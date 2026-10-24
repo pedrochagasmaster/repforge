@@ -16921,11 +16921,12 @@ function entryToggleEquipmentGroup(group){
 let entryPriorityLimitShown=false;
 function renderMusclePrioritiesStep(){
   const a=entryState.answers;
-  const primary=new Set(a.primaryMuscles||[]),reduced=new Set(a.deEmphasizedMuscles||[]);
+  const primary=new Set(a.primaryMuscles||[]),reduced=new Set(a.deEmphasizedMuscles||[]),skipped=new Set(a.ignoredMuscles||[]);
   const rows=ENTRY_B_MUSCLES.map(muscle=>{
-    const state=primary.has(muscle)?"prioritize":reduced.has(muscle)?"reduce":"normal";
+    const state=primary.has(muscle)?"prioritize":reduced.has(muscle)?"reduce":skipped.has(muscle)?"skip":"normal";
     const labelId=`entryPriority-${muscle}`;
-    const options=["reduce","normal","prioritize"].map(value=>
+    // Skip gives the muscle no direct work (owner, 2026-10-23): the generator's excludedMuscleIds.
+    const options=["skip","reduce","normal","prioritize"].map(value=>
       `<button type="button" class="entry-seg__option${state===value?" is-selected":""}" role="radio" aria-checked="${state===value?"true":"false"}" data-entry-pick="musclePriorityB" data-entry-val="${muscle}|${value}">${esc(t(`entry.muscle_priorities.${value}`))}</button>`).join("");
     return `<div class="entry-b__priority"><span id="${labelId}">${esc(t(`entry.muscle.${muscle}`))}</span><div class="entry-seg entry-seg--mini" role="radiogroup" aria-labelledby="${labelId}">${options}</div></div>`}).join("");
   return entryHeading(t("entry.muscle_priorities.title"))+`<p class="onb__explain">${esc(t("entry.muscle_priorities.lede"))}</p>`+
@@ -16933,22 +16934,29 @@ function renderMusclePrioritiesStep(){
     `<p class="entry__hint entry__limit" id="entryPriorityLimit" role="status"${entryPriorityLimitShown?"":" hidden"}>${esc(t("entry.muscle_priorities.limit"))}</p>`}
 const ENTRY_B_MUSCLES=ProgramEntry.ENTRY_MUSCLES;
 function entrySetMusclePriority(muscle,status){
-  if(!ENTRY_B_MUSCLES.includes(muscle)||!["reduce","normal","prioritize"].includes(status))return;
+  if(!ENTRY_B_MUSCLES.includes(muscle)||!["skip","reduce","normal","prioritize"].includes(status))return;
   const a=entryState.answers;
   const primary=(a.primaryMuscles||[]).filter(item=>item!==muscle);
   const reduced=(a.deEmphasizedMuscles||[]).filter(item=>item!==muscle);
-  const limit=ProgramEntry.MAX_PRIORITY_MUSCLES||22;
+  const skipped=(a.ignoredMuscles||[]).filter(item=>item!==muscle);
+  const limit=ProgramEntry.MAX_PRIORITY_MUSCLES||22,controls=ProgramEntry.MAX_MUSCLE_CONTROLS||22;
   if(status==="prioritize")primary.push(muscle);
   if(status==="reduce")reduced.push(muscle);
-  entryPriorityLimitShown=primary.length>limit||reduced.length>limit;
+  if(status==="skip")skipped.push(muscle);
+  entryPriorityLimitShown=primary.length>limit||reduced.length>controls||skipped.length>controls;
   if(entryPriorityLimitShown){renderOnboarding();return}
-  entryPatchAnswers({primaryMuscles:primary,deEmphasizedMuscles:reduced})}
+  entryPatchAnswers({primaryMuscles:primary,deEmphasizedMuscles:reduced,ignoredMuscles:skipped})}
 function renderDeloadStep(){
   const on=entryState.answers.deload!==false;
   return entryHeading(t("entry.deload.title"))+
     `<div class="entry-b__deload"><div class="entry-b__deload-head"><strong id="entryDeloadLabel">${esc(t("entry.deload.card"))}</strong>`+
     `<button type="button" class="toggle" id="entryDeloadSwitch" role="switch" aria-checked="${on?"true":"false"}" aria-labelledby="entryDeloadLabel" aria-describedby="entryDeloadBody"></button></div>`+
-    `<p id="entryDeloadBody">${esc(t("entry.deload.body"))}</p><span class="entry-b__tag">${esc(t("entry.deload.recommended"))}</span></div>`}
+    `<p id="entryDeloadBody">${esc(t("entry.deload.body"))}</p><span class="entry-b__tag">${esc(t("entry.deload.recommended"))}</span></div>`+
+    // With the week on, it goes first or last: the generator takes one of the two (owner, 2026-10-23). The end stays the default.
+    (on?`<p class="entry__group-lab" id="entryDeloadWhen">${esc(t("entry.deload.when"))}</p>`+
+      `<div class="onb__opts" role="radiogroup" aria-labelledby="entryDeloadWhen">`+["end","start"].map(value=>
+        entryBChoice("deloadPosition",value,t(`entry.deload.${value}`),t(`entry.deload.${value}.sub`),
+          (entryState.answers.deloadPosition==="start"?"start":"end")===value)).join("")+`</div>`:"")}
 /* Basics pickers. Continue accepts the value currently shown, including the
    neutral starting value. Skip is the separate path that leaves it unset. */
 let entryPickerDraft={};
@@ -17177,7 +17185,7 @@ function entrySkip(){
     const basics={...entryBasics()};
     for(const key of ENTRY_SKIP_CLEARS[stepId])delete basics[key];
     entryState=ProgramEntry.setAnswers(entryState,{basics})}
-  if(stepId==="muscle_priorities")entryState=ProgramEntry.setAnswers(entryState,{primaryMuscles:[],deEmphasizedMuscles:[]});
+  if(stepId==="muscle_priorities")entryState=ProgramEntry.setAnswers(entryState,{primaryMuscles:[],deEmphasizedMuscles:[],ignoredMuscles:[]});
   if(stepId==="abilities")entryState=ProgramEntry.setAnswers(entryState,{competencyAnswers:{}});
   if(stepId==="exercise_preferences")entryState=ProgramEntry.setAnswers(entryState,{exerciseConstraints:[],mustHaveExercises:[]});
   const advanced=ProgramEntry.advance(entryState);
