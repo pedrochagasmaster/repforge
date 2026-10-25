@@ -211,6 +211,17 @@ async function reviewAndAdjust(browser) {
   // One sheet per exercise: sets, RIR, rest, rep range, alternates, swap.
   await openSlot(page, slotA.id);
   const sets = slotA.prescriptionsByCycle[0].sets;
+  // A slot with no stored rest reads the Settings rest length's preset as selected (owner, 2026-10-25: option A).
+  const restSeen = await page.evaluate(() => ({
+    presets: [...document.querySelectorAll("#reviewSheet [data-review-rest]")].map((item) => Number(item.dataset.reviewRest)),
+    selected: [...document.querySelectorAll("#reviewSheet [data-review-rest]")]
+      .filter((item) => item.classList.contains("is-on") && item.getAttribute("aria-checked") === "true").map((item) => Number(item.dataset.reviewRest)),
+    settings: Number(state?.settings?.restSec ?? 120),
+  }));
+  const restExpected = sets[0].restSeconds ?? restSeen.settings;
+  check(JSON.stringify(restSeen.selected) === JSON.stringify(restSeen.presets.includes(restExpected) ? [restExpected] : []),
+    "review: the selected rest preset is the stored rest, or the inherited Settings rest length when none is stored",
+    { ...restSeen, stored: sets[0].restSeconds ?? null });
   await step(page, run, { kind: "sets", slotId: slotA.id, count: sets.length + 1 },
     () => page.locator('#reviewSheet [data-review-sets="1"]').click(), "a set added in the sheet");
   const rirDir = sets[0].rir >= 4 ? -1 : 1;

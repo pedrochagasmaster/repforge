@@ -12443,6 +12443,8 @@ function createInstalledProgramEditorAdapter(){
     confirm:({kind,day})=>kind==="day_remove"?confirm(t("confirm.delete_day",{day:dayLabel(day)})):true,
     reducedMotion:()=>reducedMotion(),
     announce:announceEditorChange,
+    // The Settings rest length, which a slot with no stored rest inherits (owner, 2026-10-25: option A).
+    defaultRestSeconds:()=>normalizeRestSec(state?.settings?.restSec),
     contextMenu:openRowContextMenu,
     afterModal:afterModalSettles,
     // Plan 074 (ADR 0021): onboarding B's editing language, in onboarding's sheet.
@@ -12513,6 +12515,8 @@ function createOnboardingProgramEditorAdapter(){
     confirm:()=>true,
     reducedMotion:()=>reducedMotion(),
     announce:announceEditorChange,
+    // The Settings rest length, which a slot with no stored rest inherits (owner, 2026-10-25: option A).
+    defaultRestSeconds:()=>normalizeRestSec(state?.settings?.restSec),
     contextMenu:openRowContextMenu,
     afterModal:afterModalSettles,
   }
@@ -18854,6 +18858,8 @@ function mountEntryAdjust(){
     t:(key,vars)=>key==="entry.review.source"&&entryState?.route==="shared"?t("entry.route.shared"):t(key,vars),esc,
     exerciseName:id=>libraryName(libraryEntry(id))||id,
     tile:(id,size)=>exerciseThumb(libraryEntry(id),{size}),
+    // The Settings rest length, which a slot with no stored rest inherits (owner, 2026-10-25: option A).
+    defaultRestSeconds:()=>normalizeRestSec(state?.settings?.restSec),
     muscleName:id=>{const token=SOURCE_FEATURE_TO_LEGACY_MUSCLE[String(rawCatalogObject(id)?.name||"").trim().toLowerCase()];return token?muscleLabel(token):""},
     dayName:entryAdjustDayName,
     nums:monoNums,
