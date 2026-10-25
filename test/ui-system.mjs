@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { ROOT, loadManifest, capturePath, captureKey, screenKey } from "../tools/ui-screens/manifest.mjs";
 import { criticalCaptures, deterministicCriticalFailure, sourceHead, validateCriticalReport } from "../tools/critical-ui.mjs";
 import { observeCatalogFrame } from "../tools/capture-ui-screens.mjs";
-import { comparePngFiles, comparePngBuffers } from "../tools/compare-ui-screens.mjs";
+import { comparePngFiles, comparePngBuffers, CI_STRICT_THRESHOLDS } from "../tools/compare-ui-screens.mjs";
 import { markDeterministicFailure, recordCiCaptures } from "../tools/ci-captures.mjs";
 import { loadRoleInventory, validateRoleInventory, requiredBoundaryExceptionRequests } from "../tools/ui-system-core.mjs";
 import { measureClampedHeadings, measureRenderedRoles, renderedRoleProblems } from "../tools/ui-system-rendered.mjs";
@@ -74,7 +74,7 @@ try {
         await observeCatalogFrame(page, capture, { out, semanticByKey: semantics });
         const png = readFileSync(out);
         cell.pixelDigest = createHash("sha256").update(png).digest("hex");
-        const comparison = comparePngFiles(capturePath(manifest, capture), out);
+        const comparison = comparePngFiles(capturePath(manifest, capture), out, CI_STRICT_THRESHOLDS);
         cell.pixelComparison = comparison.ok;
         if (!comparison.ok && !protocolOnly) {
           cell.problems.push(...comparison.reasons);

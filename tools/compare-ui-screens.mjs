@@ -36,6 +36,11 @@ export const DEFAULT_THRESHOLDS = Object.freeze({
   materialMeanCellDelta: 0.035,
   materialHistogramDelta: 0.16,
 });
+// CI renders the catalog on one pinned runner image, so a committed frame is a CI render and a fresh render of an
+// unchanged state is the same frame. The perceptual ratio above let real but small changes (a corner radius, an arrow
+// moved, a lighter weight) keep stale frames, so 1,007 frames drifted. CI verification therefore allows no changed cell
+// beyond the per-cell delta: a frame whose cells changed must be recaptured. The aggregate limits stay as they are.
+export const CI_STRICT_THRESHOLDS = Object.freeze({ ...DEFAULT_THRESHOLDS, maxChangedCellRatio: 0 });
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
@@ -386,7 +391,7 @@ export function compareCatalog({
   baselineSemanticPath,
   currentSemanticPath = CURRENT_SEMANTIC_PATH,
   manifest = MANIFEST,
-  thresholds = DEFAULT_THRESHOLDS,
+  thresholds = CI_STRICT_THRESHOLDS,
 } = {}) {
   const semantic = compareSemanticFiles(
     baselineSemanticPath || join(dirname(baselineRoot), "entry-semantics.json"),
