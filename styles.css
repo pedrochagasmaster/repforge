@@ -2411,8 +2411,9 @@ textarea.sheetfield__input{
   position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:var(--space-8);
   min-height:56px;padding:var(--space-4) 0;border-bottom:1px solid var(--rule-on-surface);
 }
-.session-map__row.is-current{padding-left:var(--space-8)}
-.session-map__row.is-current::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--color-ink)}
+/* The current lift reads as the semibold row with its count in the action ink (the native UI kit), not a rail. */
+.session-map__row.is-current .session-map__name{font-weight:var(--weight-semibold)}
+.session-map__row.is-current .session-map__status{color:var(--color-action-text)}
 .session-map__jump{
   display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);min-width:0;min-height:48px;margin:0;padding:var(--space-4) 0;
   background:var(--control-quiet-bg);color:var(--control-quiet-ink);border:0;border-radius:var(--radius-none);cursor:pointer;text-align:left;
@@ -2566,7 +2567,8 @@ textarea.sheetfield__input{
   background:var(--control-quiet-bg);color:var(--control-quiet-ink);border:0;border-bottom:1px solid var(--rule-on-surface);border-radius:var(--radius-none);
   font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-regular);line-height:var(--line-standard);text-align:left;cursor:pointer;
 }
-.exactions__act .icon-mask{flex:none;width:20px;height:20px;color:var(--color-ink-secondary)}
+/* The action's glyph trails its label, as a menu row draws it (the native UI kit). */
+.exactions__act .icon-mask{flex:none;order:2;margin-left:auto;width:20px;height:20px;color:var(--color-ink-secondary)}
 .exactions__act-text{display:grid;min-width:0;overflow-wrap:anywhere}
 .exactions__act-text small{font-size:var(--font-size-body-small);color:var(--color-ink-secondary)}
 .exactions__act-text small:empty{display:none}
@@ -2585,11 +2587,11 @@ textarea.sheetfield__input{
 .exactions__warmup-num{font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink)}
 .exactions__warmup-role{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .exactions__warmup-role.is-warmup{color:var(--color-ink);font-weight:var(--weight-medium)}
-.exactions__warmup-btn.btn{
-  flex:1 1 11rem;width:auto;min-width:0;min-height:var(--control-target);margin:0;padding:var(--space-4) var(--space-12);
-  border:1px solid var(--control-adjustment-boundary);border-radius:var(--radius-control);background:var(--control-adjustment-bg);color:var(--control-adjustment-ink);
-  font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);line-height:var(--line-standard);text-align:center;
-}
+.exactions__warmup-ctl{display:inline-flex;align-items:center;gap:var(--space-12);flex:none;margin-left:auto}
+.exactions__warmup-cap{font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.exactions__warmup-switch{flex:none}
+/* Direction D's orange budget holds in Focus: an on warm-up switch is ink, as Settings' switches are (plan 064 R6a). */
+.exactions__warmup-switch[aria-checked="true"]::before{background:var(--boundary-selected-quiet)}
 
 /* Recovery owns workout-draft actions; the state and its repair path stay in app.js. */
 .draft-recovery{border-left-color:var(--color-destructive);background:var(--well);color:var(--color-ink)}
@@ -3452,7 +3454,7 @@ body.is-library,body.is-preview,body.is-import{padding-bottom:env(safe-area-inse
 .glossary__close{position:absolute;top:0;right:0;border:0;background:transparent;color:var(--ink-soft);cursor:pointer;font-size:var(--control-icon-size);line-height:1;width:44px;height:44px;min-width:44px;min-height:44px;padding:0}
 .glossary__term{flex:none;font-weight:var(--weight-semibold);font-size:var(--font-size-caption);margin:0 24px 6px 0;text-transform:uppercase;letter-spacing:.04em}
 .glossary__body{flex:0 1 auto;min-height:0;overflow-y:auto;margin:0;font-size:var(--font-size-body-small);line-height:1.45;color:var(--ink-soft);overscroll-behavior:contain;}
-body.is-focus-wo #glossary{background:var(--color-surface);border-color:var(--boundary-floating);border-radius:var(--radius-surface);box-shadow:var(--elevation-floating-shadow)}
+body.is-focus-wo #glossary{background:var(--color-surface);border:0;border-radius:var(--radius-surface);box-shadow:var(--menu-shadow)}
 body.is-focus-wo #glossary .glossary__close{background:var(--control-quiet-bg);color:var(--control-quiet-ink);border-radius:var(--radius-round)}
 @media (hover: hover) and (pointer: fine){
 body.is-focus-wo #glossary .glossary__close:hover:not(:disabled){background:var(--well);color:var(--control-quiet-ink)}
