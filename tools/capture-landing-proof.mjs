@@ -26,7 +26,7 @@
  *                      overflow check bites; the --fault-narrow / --fault-wrap switches went with the
  *                      composition they targeted.
  *
- * Every proof scene fails when a retired selector (RETIRED_SELECTORS: the rest sheet, the import review's old head)
+ * Every proof scene fails when a retired selector (RETIRED_SELECTORS: the inline rest and its pill, the import review's old head)
  * is on screen; --fault-retired puts one there so a test can prove that check bites.
  *
  * Every mode reads REPFORGE_URL (default http://localhost:8000/) and, when the pinned Chromium is not on
@@ -85,8 +85,8 @@ const NOTE = {
 
 /**
  * The one selector table. Every lens hotspot is a box read from these elements.
- * `card` is the Focus card in play; `rest` lives in that card's cue slot (R3f: the rest is inline, there is no
- * rest sheet); the rest are the exercise-actions and exercise-note sheets the scenes open.
+ * `card` is the Focus card in play; `rest` is the rest sheet's dial (the rest timer redesign: Log set raises the
+ * rest tab over the shelf and the tab opens the sheet); the rest are the exercise-actions and exercise-note sheets.
  * When a surface is reshaped, edit here and re-run --proof.
  */
 export const SPOT_TARGETS = {
@@ -97,17 +97,18 @@ export const SPOT_TARGETS = {
   log: '.focus-shelf .saveset',
   more: '#woOverflowBtn',
   noteRow: '#exActionNotesBtn',
-  rest: '.fx-slot[data-rest="running"] .restinline',
+  rest: '#restSheet.is-open #restDial .restdial__c',
   swap: '#exActionSubstBtn',
   note: '#exNoteText',
 };
 
 /**
  * Selectors of retired UI. No regenerated scene may contain one (Plan 064 C-03: never ship a screenshot of a
- * retired UI), and neither may the selector table above. `#restSheet` was the rest scene before R3f;
- * `#importReview .exview-head` was the import review's head before R4c.
+ * retired UI), and neither may the selector table above. `.restinline` and `.restpad` were the inline rest (R3f)
+ * and `#woRest` its header pill before the rest timer redesign; `#importReview .exview-head` was the import
+ * review's head before R4c.
  */
-export const RETIRED_SELECTORS = ['#restSheet', '#restSheetScrim', '#importReview .exview-head'];
+export const RETIRED_SELECTORS = ['.restinline', '.restpad', '#woRest', '#importReview .exview-head'];
 
 /** Runs in the page: the retired selectors that match something on screen (the hidden shell nodes do not count). */
 export function visibleRetired(selectors) {
@@ -136,7 +137,7 @@ export const CHART_TARGETS = {
 /** Scene table: the runner name, the spots it owns, and what the frame must show. */
 export const PROOF_SCENES = [
   {name: 'focus', spots: ['cue', 'log', 'last'], shows: "Focus, set 1 of 3, last session 3 x 60 x 10 RIR 2, cue at the engine's recommended load x reps"},
-  {name: 'rest', spots: ['dial'], shows: 'Focus after Log set: the inline rest clock and drain bar in the cue slot, the next set cued'},
+  {name: 'rest', spots: ['dial'], shows: 'Focus after Log set: the rest tab opens the rest sheet, its dial mid-countdown with the next set, Pause between -30s and +30s'},
   {name: 'actions', spots: ['swap'], shows: 'the redrawn exercise-actions sheet'},
   {name: 'note', spots: ['text'], shows: 'the exercise-note sheet over Focus with a typed note'},
 ];
@@ -421,10 +422,16 @@ function measureInPage({scene, targets, logLabel}) {
 
 const RUNNERS = {
   focus: async () => {},
-  // Log set starts the rest; the clock runs inline in the card's cue slot (R3f), so there is nothing to open.
+  // Log set starts the rest and raises the tab over the shelf; the tab opens the rest sheet with its dial.
   rest: async page => {
     await page.locator(`${SPOT_TARGETS.card} ${SPOT_TARGETS.log}`).first().click();
-    await page.waitForSelector(`${SPOT_TARGETS.card} ${SPOT_TARGETS.rest}`, {timeout: 20000});
+    await page.waitForSelector('#restTab', {timeout: 20000});
+    // Mid-countdown, as the catalog's workout/rest-sheet: the dial's depletion and its glow show.
+    await page.evaluate(() => window.nudgeRest(-36));
+    await page.locator('#restTab').click();
+    await page.waitForSelector(SPOT_TARGETS.rest, {state: 'visible', timeout: 20000});
+    await page.evaluate(() => Promise.all(document.getAnimations().filter(a => a.id !== 'rest-flick')
+      .map(a => a.finished.catch(() => {}))));
   },
   actions: async page => {
     await page.locator(SPOT_TARGETS.more).click();
@@ -444,12 +451,14 @@ const RUNNERS = {
 
 /**
  * --fault-retired: put a retired element on screen so a test can prove the retired-UI check bites. The rest scene
- * gets the open rest sheet; the paste-review scene gets the import review's old head.
+ * and every other scene get the retired inline rest clock; the paste-review scene also gets the import review's old head.
  */
 async function injectRetiredFault(page) {
   await page.evaluate(() => {
-    const sheet = document.querySelector('#restSheet');
-    if (sheet) { sheet.hidden = false; sheet.classList.remove('hidden'); sheet.style.cssText = 'display:block;width:8px;height:8px'; }
+    const clock = document.createElement('div');
+    clock.className = 'restinline';
+    clock.style.cssText = 'position:fixed;top:0;left:0;display:block;width:8px;height:8px';
+    document.body.append(clock);
     const review = document.querySelector('#importReview');
     if (review) { const head = document.createElement('div'); head.className = 'exview-head'; head.textContent = 'retired'; review.prepend(head); }
   });

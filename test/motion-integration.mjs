@@ -553,9 +553,9 @@ async function focusMotion(browser, { reducedMotion = "no-preference" } = {}) {
   await page.waitForTimeout(300);
   await page.evaluate(() => window.__repforgeFocus.to(0));
   await page.waitForTimeout(300);
-  // The sets logged above armed a rest, which holds the shelf's pad row; M1 is the field pads' beat, so end the rest first.
+  // The sets logged above armed a rest; end it so the tab's frames do not run under M1's samples.
   await page.evaluate(() => window.stopRest());
-  await page.waitForFunction((card) => document.querySelector(`${card} .shelf__pads`)?.dataset.pads === "field" &&
+  await page.waitForFunction((card) => !document.querySelector("#restTab") && document.querySelector(`${card} .shelf__pads .shelf__pad`) &&
     !document.querySelector(`${card} .motion-fade-out`), CARD, { timeout: 3000 });
   const pad = async (dir) => page.evaluate(async ({ card, dir }) => {
     const val0 = document.querySelector(`${card} .shelf__field.is-sel .shelf__val`);
@@ -661,143 +661,64 @@ async function focusMotion(browser, { reducedMotion = "no-preference" } = {}) {
 }
 
 /**
- * L3, the inline rest: the cue slot trades the cue for the clock (and the clock for the done line) in a measured height
- * push with a crossfade, and the drain bar is a transform. The shelf's action stays enabled throughout and a set logged
- * during the push commits at once. Under reduced motion the end state is drawn on the first frame.
+ * The rest timer redesign (owner-approved mock, 2026-10-23; audit entries R1 and R2): the shelf's edge and the tab's ring
+ * drain continuously from the real end time (a transform written each frame, no CSS transition), the second rolls in
+ * ~150ms, the bell plays one soft light flick (600ms) and nothing loops. Under reduced motion the progress still steps
+ * with the clock, with no roll and no flick.
  */
 async function restMotion(browser, { reducedMotion = "no-preference" } = {}) {
   const reduced = reducedMotion === "reduce";
   const tag = reduced ? " under reduced motion" : "";
   const { context, page, errors } = await focusPage(browser, { reducedMotion, sets: 4 });
-
-  phase(`L3: the cue slot trades the cue for the rest in a measured height push with a crossfade${tag}`);
-  await fillSet(page);
-  // Sample the slot, the ledger under it and the shelf's action every frame across each action that changes the slot.
-  const sampled = (action, ms = 700) => page.evaluate(async ({ card, action, ms }) => {
-    const q = (s) => document.querySelector(`${card} ${s}`);
-    const out = [];
+  phase(`R1: the edge and the ring drain continuously, by transform, with no transition${tag}`);
+  await page.evaluate(() => window.startRest(90));
+  await page.waitForSelector("#restTab");
+  const drain = await page.evaluate(async () => {
+    const fill = document.querySelector(".shelf__edge-fill"), arc = document.querySelector("#restTab .restring__arc");
+    const frames = [];
     const t0 = performance.now();
-    const read = () => {
-      const slot = q(".fx-slot"), cta = q(".saveset") || q(".focus-shelf .btn--cta");
-      const fade = q(".motion-fade-out");
-      out.push({
-        t: Math.round(performance.now() - t0), mode: slot?.dataset.rest, h: slot ? slot.getBoundingClientRect().height : null,
-        inlineH: slot?.style.height || "",
-        // Measured from the exercise head, so a guide that opens above the card or the card's own scroll cannot read as the slot moving the ledger.
-        ledgerTop: (q(".fcard__ledger")?.getBoundingClientRect().top ?? 0) - (q(".fx-head")?.getBoundingClientRect().top ?? 0),
-        fade: document.querySelectorAll(`${card} .motion-fade-out`).length, fadeDur: fade ? getComputedStyle(fade).animationDuration : "",
-        ctaDisabled: cta ? cta.disabled : null,
-      });
-    };
-    read();
-    // Read after the frame's own callbacks have run (the runtime writes its first height there), as the frame is painted.
-    const frame = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
-    if (action === "log") q(".saveset").click();
-    else if (action === "bell") { window.__repforgeRest.expire(15); document.dispatchEvent(new Event("visibilitychange")); }
-    else if (action === "skip") q(".restpad--skip").click();
-    else if (action === "end") window.stopRest();
-    while (performance.now() - t0 < ms) { await frame(); read(); }
-    return out;
-  }, { card: CARD, action, ms });
-  const reversals = (values) => {
-    const moves = values.slice(1).map((v, i) => v - values[i]).filter((d) => Math.abs(d) > 0.4);
-    return moves.slice(1).filter((d, i) => Math.sign(d) !== Math.sign(moves[i])).length;
-  };
-
-  const start = await sampled("log");
-  const first = start[0], last = start.at(-1);
-  assert(last.mode === "running", "logging a set puts the rest in the cue slot", JSON.stringify(last));
-  assert(start.every((s) => s.ctaDisabled === false || s.ctaDisabled === null), "the shelf action is enabled in every frame of the swap", JSON.stringify(start.filter((s) => s.ctaDisabled)));
-  const startMoves = start.filter((s) => s.mode === "running");
-  if (reduced) {
-    assert(startMoves.length > 0 && startMoves.every((s) => s.fade === 0 && s.inlineH === "" && Math.abs(s.h - last.h) < 0.5),
-      "the slot is at its end height on the first frame it shows the rest, with no crossfade layer", JSON.stringify(startMoves.slice(0, 4)));
-  } else if (Math.abs(last.h - first.h) >= 8) {
-    const between = startMoves.filter((s) => s.h > Math.min(first.h, last.h) + 1 && s.h < Math.max(first.h, last.h) - 1);
-    assert(between.length > 0 && start.some((s) => s.inlineH !== ""), "the slot height is pushed through measured values between the cue's and the clock's", JSON.stringify({ first: first.h, last: last.h, between: between.length }));
-    assert(reversals(start.map((s) => s.ledgerTop).filter((v) => v != null)) === 0, "the ledger under the slot moves once, in one direction", JSON.stringify(start.map((s) => Math.round(s.ledgerTop))));
-  } else {
-    assert(last.inlineH === "", "a slot whose height does not change leaves no inline height behind", JSON.stringify({ first: first.h, last: last.h, inline: last.inlineH }));
-  }
-  assert(last.inlineH === "" && last.fade === 0, "afterwards no inline height and no crossfade layer are left", JSON.stringify(last));
-
-  // The bell: the clock collapses to the done line above the returned cue, which is always a growth the push has to carry.
-  await page.waitForTimeout(260);
-  const bell = await sampled("bell");
-  const b0 = bell[0], b1 = bell.at(-1);
-  assert(b1.mode === "done" && b1.h - b0.h >= 10, "when the bell goes the slot grows to hold the done line and the returned cue", JSON.stringify({ from: b0.h, to: b1.h, mode: b1.mode }));
-  if (reduced) {
-    const doneFrames = bell.filter((s) => s.mode === "done");
-    assert(doneFrames.length > 0 && doneFrames.every((s) => s.fade === 0 && s.inlineH === "" && Math.abs(s.h - b1.h) < 0.5),
-      "under reduced motion the done line and the cue are at their end height on the first frame", JSON.stringify(doneFrames.slice(0, 3)));
-  } else {
-    const between = bell.filter((s) => s.mode === "done" && s.h > b0.h + 1 && s.h < b1.h - 1);
-    assert(between.length > 0, "the push carries the slot through the heights between", JSON.stringify(bell.map((s) => Math.round(s.h))));
-    const fades = bell.filter((s) => s.fade > 0);
-    assert(fades.length > 0 && fades.every((s) => s.fadeDur === "0.16s"), "the outgoing content crosses over the incoming for 160ms", JSON.stringify(fades.slice(0, 3)));
-    const gone = bell.findIndex((s, i) => i > 0 && s.fade === 0 && bell[i - 1].fade > 0);
-    assert(gone > 0 && bell[gone].t < 420, "the crossfade layer is gone well inside half a second", JSON.stringify(bell.map((s) => [s.t, s.fade])));
-    assert(reversals(bell.map((s) => s.ledgerTop).filter((v) => v != null)) === 0, "the ledger moves once for the bell too", JSON.stringify(bell.map((s) => Math.round(s.ledgerTop))));
-  }
-  assert(bell.every((s) => s.ctaDisabled === false || s.ctaDisabled === null), "the shelf action is enabled throughout the bell's swap");
-
-  // Logging during the push commits at once: nothing waits on the height run, and the render it causes starts the next rest.
-  if (!reduced) {
-    // A new rest, so the bell has a clock to run out.
-    await page.evaluate(() => window.startRest());
-    await page.waitForFunction((card) => document.querySelector(`${card} .fx-slot`)?.dataset.rest === "running" &&
-      !document.querySelector(`${card} .motion-fade-out`) && document.querySelector(`${card} .fx-slot`).style.height === "", CARD, { timeout: 3000 });
-    await fillSet(page);
-    const during = await page.evaluate(async (card) => {
-      const q = (s) => document.querySelector(`${card} ${s}`);
-      const slot = q(".fx-slot");
-      window.__repforgeRest.expire(15);
-      document.dispatchEvent(new Event("visibilitychange"));
-      // The slot has just been handed to the running push: it already holds an inline height.
+    while (performance.now() - t0 < 600) {
       await new Promise((r) => requestAnimationFrame(r));
-      const midPush = slot.style.height !== "" || document.querySelectorAll(`${card} .motion-fade-out`).length > 0;
-      // Layout D draws logged sets behind the table's disclosure, so the count is the draft's.
-      const logged = () => { const id = document.querySelector(card)?.dataset.ex, ex = window.__repforgeWorkoutDraft.current()?.exercises?.[id];
-        return ex ? ex.setOrder.filter((sid) => ex.sets[sid].completion !== "pending").length : 0; };
-      const rowsBefore = logged();
-      const t0 = performance.now();
-      q(".saveset").click();
-      let committedAt = null;
-      while (performance.now() - t0 < 600) {
-        await new Promise((r) => requestAnimationFrame(r));
-        if (logged() > rowsBefore) { committedAt = Math.round(performance.now() - t0); break; }
-      }
-      return { midPush, rowsBefore, committedAt, rowsAfter: logged(),
-        mode: q(".fx-slot")?.dataset.rest, disabled: q(".saveset")?.disabled };
-    }, CARD);
-    assert(during.midPush, "the second set is logged while the slot is still mid-push", JSON.stringify(during));
-    assert(during.committedAt != null && during.committedAt < 250 && during.rowsAfter === during.rowsBefore + 1,
-      "a set logged during the push commits at once, not after it", JSON.stringify(during));
-    await page.waitForFunction((card) => document.querySelector(`${card} .fx-slot`)?.dataset.rest === "running", CARD, { timeout: 3000 });
-    const restarted = await page.evaluate((card) => ({ pads: document.querySelector(`${card} .shelf__pads`).dataset.pads, fade: document.querySelectorAll(`${card} .motion-fade-out`).length }), CARD);
-    assert(restarted.pads === "rest", "and its render carries the next rest in from where the slot stood", JSON.stringify(restarted));
-    await page.waitForTimeout(400);
-  }
-
-  // The drain bar is a transform on a full-width track; reduced motion takes the transition off.
-  phase(`L3: the drain bar is a scaleX transform${tag}`);
-  await page.evaluate(() => window.startRest());
-  await page.waitForFunction((card) => document.querySelector(`${card} .fx-slot`)?.dataset.rest === "running" && !document.querySelector(`${card} .motion-fade-out`), CARD);
-  const bar = await page.evaluate(async (card) => {
-    const q = (s) => document.querySelector(`${card} ${s}`);
-    const fill = q(".restinline__fill"), track = q(".restinline__bar");
-    const scale = () => new DOMMatrix(getComputedStyle(fill).transform).a;
-    const before = { scale: scale(), width: fill.offsetWidth, track: track.clientWidth };
-    q(".restpad--adjust").click();
-    await new Promise((r) => setTimeout(r, 420));
+      frames.push({ scale: new DOMMatrix(getComputedStyle(fill).transform).a, arc: arc.style.strokeDasharray });
+    }
     const cs = getComputedStyle(fill);
-    return { before, after: { scale: scale(), width: fill.offsetWidth }, prop: cs.transitionProperty, dur: cs.transitionDuration, widthAnimates: /width/.test(cs.transitionProperty) };
-  }, CARD);
-  assert(bar.before.width === bar.before.track && bar.after.width === bar.before.track && bar.after.scale < bar.before.scale && bar.after.scale > 0.5,
-    "the bar keeps its full width and drains by its scale", JSON.stringify(bar));
-  if (reduced) assert(bar.dur === "0s", "under reduced motion the bar has no transition", JSON.stringify(bar));
-  else assert(bar.prop === "transform" && bar.dur === "0.25s" && !bar.widthAnimates, "the bar's only transition is a 250ms transform", JSON.stringify(bar));
-  assert(errors.length === 0, `no page errors in the inline rest run${tag}`, errors.join(" | "));
+    return { frames: frames.length, distinct: new Set(frames.map((f) => f.scale.toFixed(5))).size, arcs: new Set(frames.map((f) => f.arc)).size,
+      transition: cs.transitionDuration, width: fill.offsetWidth, track: fill.parentElement.clientWidth };
+  });
+  if (reduced) assert(drain.distinct <= 4 && drain.transition === "0s", "under reduced motion the edge steps with the clock's ticks, with no frame loop", JSON.stringify(drain));
+  else assert(drain.distinct >= Math.min(10, drain.frames - 2) && drain.arcs > 5 && drain.transition === "0s" && drain.width === drain.track,
+    "the edge and the ring change on almost every frame, by their scale and dash, at full width and with no transition", JSON.stringify(drain));
+
+  phase(`R1: the second rolls quietly${tag}`);
+  const roll = await page.evaluate(async () => {
+    const time = document.querySelector("#restTab .resttab__time"), start = time.textContent;
+    const t0 = performance.now();
+    while (time.textContent === start && performance.now() - t0 < 1500) await new Promise((r) => requestAnimationFrame(r));
+    const runs = time.getAnimations();
+    return { changed: time.textContent !== start, runs: runs.length, duration: runs[0]?.effect.getTiming().duration ?? null };
+  });
+  if (reduced) assert(roll.changed && roll.runs === 0, "under reduced motion the figures change in place", JSON.stringify(roll));
+  else assert(roll.changed && roll.runs === 1 && roll.duration === 150, "a new second rolls in over 150ms", JSON.stringify(roll));
+  const loops = await page.evaluate(() => document.getAnimations().filter((a) => a.effect?.getComputedTiming().iterations === Infinity).length);
+  assert(loops === 0, "nothing in the rest loops: the glow never pulses", String(loops));
+
+  phase(`R2: the bell plays one soft flick${tag}`);
+  const bell = await page.evaluate(async () => {
+    const seen = [];
+    const origin = Element.prototype.animate;
+    Element.prototype.animate = function (...args) { const run = origin.apply(this, args); queueMicrotask(() => { if (run.id === "rest-flick") seen.push({ duration: run.effect.getTiming().duration, on: this.parentElement?.id || "" }); }); return run; };
+    window.__repforgeRest.expire(0);
+    document.dispatchEvent(new Event("visibilitychange"));
+    await new Promise((r) => setTimeout(r, 1400));
+    Element.prototype.animate = origin;
+    return { seen, done: document.querySelector("#restTab")?.classList.contains("is-done"), cta: document.querySelector("#workout .exercise.is-current .saveset")?.disabled };
+  });
+  if (reduced) assert(bell.seen.length === 0 && bell.done, "under reduced motion the tab says Rest done at once, with no flick", JSON.stringify(bell));
+  else assert(bell.seen.length === 1 && bell.seen[0].duration === 600 && bell.seen[0].on === "restTab" && bell.done,
+    "one 600ms flick on the tab, then Rest done", JSON.stringify(bell));
+  assert(bell.cta === false, "the shelf's action stays enabled through the rest and the bell", JSON.stringify(bell));
+  await page.evaluate(() => window.stopRest());
+  assert(errors.length === 0, `no page errors in the rest timer run${tag}`, errors.join(" | "));
   await context.close();
 }
 
@@ -2518,7 +2439,7 @@ async function run() {
   assert(boot.runtime, "the vendored Motion bundle exposes animate and motionValue");
   assert(boot.layer, "the integration layer reports the runtime available");
   assert(boot.reduced === false, "reduced motion is off in this context", String(boot.reduced));
-  assert(boot.vocabulary.length === 7 && boot.vocabulary.includes("navPush") && boot.vocabulary.includes("pressRelease"),
+  assert(boot.vocabulary.length === 9 && boot.vocabulary.includes("restRoll") && boot.vocabulary.includes("restFlick") && boot.vocabulary.includes("navPush") && boot.vocabulary.includes("pressRelease"),
     "the motion vocabulary is published for inspection", boot.vocabulary.join(", "));
 
   // A spring that ignored the velocity handed to it would be a fixed-duration

@@ -537,9 +537,9 @@ async function run() {
 
   // ---- the rest sheet: closing it was never ending the rest -------------------
   phase("swiping the rest timer away leaves the rest running");
-  await page.click("#woRest");
-  await page.waitForTimeout(200);
-  await page.click("#woRest");
+  await page.evaluate(() => window.startRest());
+  await page.waitForSelector("#restTab", { timeout: 5000 });
+  await page.click("#restTab");
   await page.waitForSelector("#restSheet.is-open", { timeout: 5000 });
   await page.waitForTimeout(320);
   const restRail = await grip(page, "#restSheet");
@@ -547,12 +547,12 @@ async function run() {
   await page.waitForTimeout(520);
   const rest = await page.evaluate(() => ({
     ...window.__sheet("#restSheet"),
-    running: document.querySelector("#woRest").classList.contains("is-running"),
+    running: restEnd > 0,
     focus: document.activeElement?.id || "",
   }));
   assert(rest.hidden && !rest.locked, "the swipe closes the rest sheet", JSON.stringify(rest));
   assert(rest.running, "the rest keeps running, exactly as Close leaves it", JSON.stringify(rest));
-  assert(rest.focus === "woRest", "focus returns to the chip that opened it", rest.focus);
+  assert(rest.focus === "restTab", "focus returns to the tab that opened it", rest.focus);
   await page.evaluate(() => window.stopRest());
 
   assert(!errors.length, "no uncaught page errors", errors.slice(0, 3).join(" | "));

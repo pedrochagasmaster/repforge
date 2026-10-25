@@ -201,8 +201,8 @@ async function main() {
     );
 
     // A running rest belongs to the session: discarding the session must end it.
-    await page.locator("#woRest").click();
-    await page.waitForFunction(() => document.querySelector("#woRest")?.classList.contains("is-running"), undefined, { timeout: 5000 });
+    await page.evaluate(() => window.startRest());
+    await page.waitForFunction(() => restEnd > 0 && !!document.querySelector("#restTab"), undefined, { timeout: 5000 });
 
     await page.locator("#leaveWorkout").click();
     await page.locator("#chooseAnotherDay").click();
@@ -238,7 +238,7 @@ async function main() {
     const restAfterDiscard = await page.evaluate(async () => {
       await new Promise((resolve) => setTimeout(resolve, 600));
       return {
-        running: document.querySelector("#woRest")?.classList.contains("is-running"),
+        running: restEnd > 0 || !!document.querySelector("#restTab"),
         bar: !document.querySelector("#restBar")?.classList.contains("hidden"),
         said: (document.querySelector("#restAnnounce")?.textContent || "").trim(),
       };

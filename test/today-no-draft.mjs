@@ -86,7 +86,7 @@ const snapshotStorage = (page) =>
       };
       open.onerror = () => resolve({});
     });
-    return { local, idb, restRunning: !!window.__repforgeRest && document.querySelector("#woRest.is-running") !== null };
+    return { local, idb, restRunning: !!window.__repforgeRest && restEnd > 0 };
   });
 
 /** Record every telemetry capture so the proof can show preview never

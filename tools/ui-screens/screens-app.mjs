@@ -316,7 +316,7 @@ const DIRECTION_D_BEFORE_SESSION = new Set([
   "today/skipped", "today/context-menu", "today/ready", "today/dock-viewer", "today/ready-scrolled", "today/day-picker", "today/rest-bar", "today/draft-resume",
   "today/in-progress", "progress/minibar", "history/minibar-rest", "program/minibar-rest-done",
   "workout/why-this-weight", "workout/why-in-session",
-  "workout/rest-running", "workout/rest-done",
+  "workout/rest-running", "workout/rest-done", "workout/rest-sheet", "workout/rest-sheet-idle",
 ]);
 function directionDBeforeSession() {
   const state = directionDState();
@@ -1124,7 +1124,8 @@ async function createInUseCustomExercise(page) {
 async function startInlineRest(page) {
   await enterWorkout(page);
   await logCurrentSet(page, { load: "102.5", reps: "8", rir: "1" });
-  await page.waitForSelector("#workout .exercise.is-current .fx-slot[data-rest='running']", { timeout: 20000 });
+  // The rest timer redesign: the rest rises as a tab out of the shelf's top edge (no clock in the card).
+  await page.waitForSelector("#workout .exercise.is-current .focus-shelf #restTab", { timeout: 20000 });
 }
 
 /** The sheet's blocks are the spec 4.3 contract: each carries the lead it opens with. */
@@ -1162,8 +1163,6 @@ async function logAdaptiveSet(page, slotId, ordinal, { load, reps, rir }) {
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   await page.locator(`#workout .exercise.is-current [data-save="${slotId}_${ordinal}"]`).click();
   await sleep(page, 500);
-  const skip = page.locator('#workout .exercise.is-current .focus-shelf [data-rest-act="skip"]');
-  if (await skip.count() && await skip.isVisible().catch(() => false)) await skip.click();
 }
 
 /**
@@ -1954,10 +1953,10 @@ export const APP_SCENARIOS = {
   "workout/correction": async page => { await focusMode(page); await logCurrentSet(page); await page.locator("#workout .exercise.is-current [data-ledgermore]").click(); await page.locator("#workout .exercise.is-current [data-editn]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); },
   // Layout D: the logged sets' disclosure opened over the table, the logged row back in place to correct.
   "workout/logged-sets": async page => { await focusMode(page); await logCurrentSet(page); await page.locator("#workout .exercise.is-current [data-ledgermore]").click(); await page.waitForSelector("#workout .exercise.is-current [data-editn]"); await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
-    // The logged set starts the rest; its clock takes the cue slot once that render has run, and the slot then trades its height.
-    await page.waitForFunction(() => (document.querySelector("#workout .exercise.is-current .fx-slot")?.dataset.rest || "none") !== "none", undefined, { timeout: 20000 });
+    // The logged set starts the rest; the tab rises out of the shelf once that render has run.
+    await page.waitForSelector("#restTab", { timeout: 20000 });
     await page.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished.catch(() => {}))));
-    // After the trade the card brings its open row into view; the frame is taken once that scroll has come to rest.
+    // The card then brings its open row into view; the frame is taken once that scroll has come to rest.
     await page.waitForFunction(() => {
       const context = document.querySelector("#workout .exercise--focus.is-current .fcard__context");
       const at = context ? Math.round(context.scrollTop) : -1, seen = window.__catalogScrollRest ||= { at: null, still: 0 };
@@ -2035,15 +2034,30 @@ export const APP_SCENARIOS = {
     });
     await sleep(page, 400);
   },
-  // One -30s moves the pinned clock to 1:30 of 2:00: the pad's own action, taken from the pad, at every text size (at
-  // large text the pad row scrolls sideways, Plan 075 phase 5).
+  // The rest timer redesign: the pinned clock moved to 1:30 of 2:00, read from the tab over the shelf, whose ring and
+  // the shelf's top edge show the quarter gone.
   "workout/rest-running": async (page) => {
     await startInlineRest(page);
-    const pad = page.locator("#workout .exercise.is-current .restpad[data-rest-act='minus']");
-    if (await pad.count()) await pad.click();
-    else await page.evaluate(() => window.nudgeRest(-30));
-    await page.waitForFunction(() => document.querySelector("#workout .exercise.is-current [data-rest-clock]")?.textContent === "1:30");
+    await page.evaluate(() => window.nudgeRest(-30));
+    await page.waitForFunction(() => document.querySelector("#restTab .resttab__time")?.textContent === "1:30");
     await sleep(page, 400);
+  },
+  // The tab opens the sheet: the dial at 1:24 of 2:00, the next set, Pause between ±30 s, the presets and the links.
+  "workout/rest-sheet": async (page) => {
+    await startInlineRest(page);
+    await page.evaluate(() => window.nudgeRest(-36));
+    await page.locator("#restTab").click();
+    await page.waitForSelector("#restSheet.is-open", { timeout: 20000 });
+    await page.waitForFunction(() => document.querySelector("#restDialTime")?.textContent === "1:24");
+    await sleep(page, 500);
+  },
+  // With no rest running there is no tab; the ⋯ sheet's Rest timer row opens the sheet idle, on Start.
+  "workout/rest-sheet-idle": async (page) => {
+    await focusMode(page);
+    await page.locator("#woOverflowBtn").click();
+    await page.locator('[data-workout-action="rest"]').click();
+    await page.waitForSelector("#restSheet.is-open", { timeout: 20000 });
+    await sleep(page, 500);
   },
   // The bell, fifteen seconds ago: the same seam the accessibility suite uses to run the clock out.
   "workout/rest-done": async (page) => {
@@ -2052,8 +2066,7 @@ export const APP_SCENARIOS = {
       window.__repforgeRest.expire(15);
       document.dispatchEvent(new Event("visibilitychange"));
     });
-    await page.waitForSelector("#workout .exercise.is-current .fx-slot[data-rest='done']", { timeout: 20000 });
-    await page.waitForSelector("#workout .exercise.is-current .shelf__pads[data-pads='field']", { timeout: 20000 });
+    await page.waitForSelector("#restTab.is-done", { timeout: 20000 });
     await sleep(page, 400);
   },
   "today/rest-bar": async (page) => {
@@ -2062,9 +2075,8 @@ export const APP_SCENARIOS = {
     await page.click("#leaveWorkout");
     // The session is open, so the live card's tag carries the rest and no pill floats (owner addendum, 2026-10-23).
     await page.waitForFunction(() => {
-      const timer = document.querySelector("#woRest");
       const tag = document.querySelector('#todayLive [data-live="elapsed"]')?.textContent || "";
-      return !document.body.classList.contains("is-focus-wo") && timer?.classList.contains("is-running")
+      return !document.body.classList.contains("is-focus-wo") && restEnd > 0
         && /\d:\d\d$/.test(tag) && getComputedStyle(document.querySelector("#restBar")).display === "none"
         && !document.querySelector("#restSheet.is-open");
     }, undefined, { timeout: 20000 });

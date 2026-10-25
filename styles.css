@@ -131,6 +131,11 @@
   /* Today's live card: the prototype's raised paper (a hairline drop and a soft lift), on the theme's shadow channel. */
   --live-card-shadow:0 1px 0 rgba(var(--shadow-rgb),.04),0 6px 18px rgba(var(--shadow-rgb),.06);
   --live-dot-halo:0 0 0 4px rgba(var(--accent-rgb),.18);
+  /* The rest timer's glow at a ring's leading end and the bell's flick (owner, 2026-10-23: subtle, classy). Dark tunes
+     them below: a tighter spread at a little more strength, so the bloom reads on the dark paper without smearing. */
+  --rest-glow:0 0 6px 3px rgba(var(--accent-rgb),.3);--rest-dial-glow:0 0 14px 6px rgba(var(--accent-rgb),.28);
+  --rest-flick-glow:0 0 22px 6px rgba(var(--accent-rgb),.34);
+  --rest-tab-shadow:0 -6px 16px rgba(var(--shadow-rgb),.06);
   /* The mini bar's lift, the prototype's soft float on the theme's shadow channel. */
   --minibar-shadow:0 6px 20px rgba(var(--shadow-rgb),.14);
   --live-dot-pulse-from:0 0 0 0 rgba(var(--accent-rgb),.45);
@@ -353,6 +358,8 @@
    orange moves up rather than down (--accent-deep is the *lighter* orange here
    because its job is emphasis, and emphasis on dark means more light). */
 :root[data-theme="dark"]{
+  --rest-glow:0 0 4px 2px rgba(var(--accent-rgb),.46);--rest-dial-glow:0 0 10px 4px rgba(var(--accent-rgb),.4);
+  --rest-flick-glow:0 0 16px 4px rgba(var(--accent-rgb),.42);
   --switch-off-track:rgba(255,255,255,.10);
   --segment-thumb-bg:#3A3630;
   --menu-destructive-ink:var(--color-destructive);
@@ -1081,8 +1088,6 @@ body:has(.exercise--focus.is-text-scaled) #log > :not(#workoutShell){margin-bott
    from costing the shelf the room its action needs. The running timer's pill drops its dot and takes the label size so
    the controls and the timer share one row with the title under them. */
 body:has(.exercise--focus.is-text-scaled) .shelf__lab{line-height:var(--line-tight)}
-body:has(.exercise--focus.is-text-scaled) .wo-rest.is-running{padding:0 var(--space-8);font-size:var(--font-size-body-small)}
-body:has(.exercise--focus.is-text-scaled) .wo-rest.is-running .wo-rest__dot{display:none}
 body:has(.exercise--focus.is-text-scaled) .wo-head__center{order:3;flex:1 0 100%;padding-top:0}
 /* Focus at large text (Plan 075 phase 5, audit F-1). The layout scales with the text, but the parts that would push
    the set off the screen stop growing where iOS stops them: the bar title at --bar-title-max, the timer pill, the rest
@@ -1090,22 +1095,11 @@ body:has(.exercise--focus.is-text-scaled) .wo-head__center{order:3;flex:1 0 100%
    The ledger keeps its value heads (RIR's is the glossary's way in) but drops the SET head, and its columns share the
    rows' grid instead of rem widths that outgrow the row. `sizeFocusCard` keeps the open set whole above the shelf. */
 body:has(.exercise--focus.is-text-scaled) .wo-head__title{font-size:min(var(--font-size-body-small),var(--bar-title-max))}
-body:has(.exercise--focus.is-text-scaled) .wo-rest.is-running{font-size:min(var(--font-size-body-small),var(--large-cap-supporting))}
 .exercise--focus.is-text-scaled .focus-ex__meta{font-size:min(var(--font-size-body-small),var(--large-cap-supporting))}
 .exercise--focus.is-text-scaled .fx-cue__l1{font-size:min(var(--font-size-section-title),var(--large-cap-title))}
 .exercise--focus.is-text-scaled .fx-cue__mark{padding-top:calc((min(var(--font-size-section-title),35.2px) * var(--line-tight) - 16px) / 2)}
 .exercise--focus.is-text-scaled .fx-cue__l2{font-size:min(var(--font-size-subtitle),var(--large-cap-body))}
 .exercise--focus.is-text-scaled .text-link.focus-ex__why,.exercise--focus.is-text-scaled .fx-cue__cancel{font-size:min(var(--font-size-control),var(--large-cap-body))}
-.exercise--focus.is-text-scaled .restinline__row{display:grid;grid-template-columns:auto minmax(0,1fr);gap:0 var(--space-8);align-items:baseline}
-/* The stacked rest spends no more height than it must, so the clock and the open set share the window where they can. */
-.exercise--focus.is-text-scaled .restinline{margin-bottom:var(--space-8)}
-.exercise--focus.is-text-scaled .fx-slot:not([data-rest="none"]){margin-bottom:var(--space-8)}
-.exercise--focus.is-text-scaled .restinline__bar{margin-top:var(--space-8)}
-.exercise--focus.is-text-scaled .restinline__nextrow{margin-top:var(--space-8)}
-.exercise--focus.is-text-scaled .restinline__clock{order:-1;grid-column:1/-1;font-size:min(var(--font-size-rest-clock),var(--large-cap-clock))}
-.exercise--focus.is-text-scaled .restinline__label,.exercise--focus.is-text-scaled .restinline__of{font-size:min(var(--font-size-body),var(--large-cap-subtitle));line-height:var(--line-tight)}
-.exercise--focus.is-text-scaled .restinline__done,.exercise--focus.is-text-scaled .restinline__next,
-.exercise--focus.is-text-scaled .restinline__nextrow .text-link.restinline__why{font-size:min(var(--font-size-subtitle),var(--large-cap-body))}
 .exercise--focus.is-text-scaled .ledgerline__head,.exercise--focus.is-text-scaled .ledgerline{grid-template-columns:auto minmax(0,1fr)}
 .exercise--focus.is-text-scaled .ledgerline__head > :first-child{visibility:hidden}
 .exercise--focus.is-text-scaled .ledgerline__head{font-size:min(var(--font-size-label),var(--large-cap-caption))}
@@ -1124,29 +1118,6 @@ body:has(.exercise--focus.is-text-scaled) .wo-rest.is-running{font-size:min(var(
 .wo-head__sub{display:none}
 .wo-head__sub.is-deload{display:block;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 .wo-head__end{display:flex;align-items:center;gap:6px;flex:none;position:relative;justify-self:end}
-/* Rest lives in the workout chrome, never over the card's controls: a square
-   with the stopwatch while idle, a counting pill once it is running. */
-.wo-rest{
-  display:inline-flex;align-items:center;justify-content:center;gap:6px;
-  width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);padding:0;flex:none;cursor:pointer;
-  border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);
-  background:var(--control-secondary-bg);color:var(--control-secondary-ink);
-  font-family:var(--font-training-data);font-size:var(--font-size-control);line-height:var(--line-standard);
-  transition:border-radius .2s ease,width .2s ease,color .2s ease,border-color .2s ease;
-}
-@media (hover: hover) and (pointer: fine){
-.wo-rest:hover:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary)}
-}
-.wo-rest.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary);transform:var(--control-pressed-transform)}
-.wo-rest:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-.wo-rest:disabled{background:var(--control-secondary-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
-.wo-rest__dot{display:none;width:8px;height:8px;border-radius:50%;background:var(--color-ink-secondary);flex:none}
-.wo-rest__time{display:none;font-variant-numeric:tabular-nums}
-.wo-rest.is-running{width:auto;min-width:88px;padding:0 14px;border-radius:var(--radius-pill)}
-.wo-rest.is-running .wo-rest__dot,.wo-rest.is-running .wo-rest__time{display:block}
-.wo-rest.is-running .wo-rest__icon{display:none}
-.wo-rest.is-done{color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary)}
-@media (prefers-reduced-motion:reduce){.wo-rest{transition:none}}
 /* The active workout reads the timer from its header. */
 body.is-focus-wo .restbar{display:none!important}
 
@@ -1510,75 +1481,8 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
   flex:1 1 0;width:auto;min-width:0;height:48px;min-height:48px;padding:0 var(--space-12);border-radius:var(--shelf-inner-radius);
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);white-space:nowrap;
 }
-/* ---- Inline rest ----
-   The cue slot trades the cue for the running clock, and the shelf's pad row
-   trades the field pads for the rest controls (L3). The clock is the protected
-   rest clock; the drain bar is a transform on a 4px track, the one orange mark
-   a running timer is allowed. */
-/* The slot is plain flow while it holds the cue, so the cue lays out exactly as it did before the slot existed. A rest
-   makes it a block formatting context with the cue's 12px gap on the slot itself, so the height the swap measures is
-   the content's and the gap under it does not change when the content does. */
 .fx-slot{position:relative}
-.fx-slot:not([data-rest="none"]){display:flow-root;margin-bottom:var(--space-12)}
-.fx-slot:not([data-rest="none"]) > :last-child{margin-bottom:0}
-/* While the clock is up the slot keeps the height of the cue it replaced, so the ledger under it settles once when the
-   rest arrives and once when the cue returns. The floor stands down while `animateSlot` holds an inline height on the
-   slot: a floor above the height the run starts from would make the push a jump. */
-.fx-slot[data-rest="running"]:not([style*="height"]){min-height:calc(var(--font-size-section-title) * var(--line-tight) + var(--font-size-subtitle) * var(--line-standard) + var(--control-target) + var(--space-4) * 2)}
-.restinline{margin:0 0 var(--space-12)}
-.restinline__row{display:flex;align-items:baseline;gap:var(--space-12)}
-.restinline__label{font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink-secondary)}
-.restinline__clock{
-  font-family:var(--font-training-data);font-weight:var(--weight-medium);font-size:var(--font-size-rest-clock);line-height:var(--line-tight);
-  letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--color-ink);
-}
-.restinline__of{font-family:var(--font-training-data);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink-secondary)}
-.restinline__bar{height:4px;margin-top:var(--space-12);border-radius:var(--radius-compact);background:var(--rule);overflow:hidden}
-.restinline__fill{display:block;width:100%;height:100%;background:var(--accent);transform-origin:left center;transition:transform .25s linear}
-/* Past the bell: one quiet line that counts up. It is not a warning. */
-.restinline--done{margin:0 0 var(--space-8)}
-.restinline__done{
-  display:flex;align-items:center;gap:var(--space-8);margin:0;font-family:var(--font-language);font-size:var(--font-size-subtitle);
-  line-height:var(--line-standard);color:var(--color-ink-secondary);font-variant-numeric:tabular-nums;
-}
-.restinline__mk{
-  flex:none;width:var(--space-18);height:var(--space-18);background:var(--color-ink-secondary);
-  -webkit-mask:var(--check) no-repeat center/contain;mask:var(--check) no-repeat center/contain;
-}
-.restinline__nextrow{display:flex;flex-wrap:wrap;align-items:center;gap:0 var(--space-8);margin-top:var(--space-12)}
-.restinline__next{margin:0;min-width:0;font-family:var(--font-language);font-size:var(--font-size-subtitle);line-height:var(--line-standard);color:var(--color-ink)}
-.restinline__val{font-family:var(--font-training-data);font-weight:var(--weight-medium)}
-.exercise--focus .restinline__nextrow .text-link.restinline__why{margin:0}
-/* The rest controls: -30s and +30s step the clock, Pausar holds it, Pular ends it. */
 .shelf__pads{position:relative}
-.restpad{
-  flex:1 1 0;min-width:0;height:48px;min-height:48px;margin:0;padding:0 var(--space-4);border:1px solid var(--control-secondary-boundary);border-radius:var(--shelf-inner-radius);
-  background:var(--control-secondary-bg);color:var(--control-secondary-ink);cursor:pointer;text-align:center;white-space:nowrap;
-  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);
-  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
-}
-.restpad--toggle{flex-grow:1.4}
-@media (hover: hover) and (pointer: fine){
-.restpad:hover:not(:disabled){background:var(--well)}
-}
-.restpad.is-pressed:not(:disabled){background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
-.restpad:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-.restpad:disabled{color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
-.restpad--adjust{background:var(--control-adjustment-bg);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
-@media (hover: hover) and (pointer: fine){
-.restpad--adjust:hover:not(:disabled){background:var(--well);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
-}
-.restpad--adjust.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
-.restpad--adjust:disabled{background:var(--control-adjustment-bg)}
-.restpad--toggle{background:var(--control-selection-bg);color:var(--control-selection-ink);border-color:var(--control-selection-boundary)}
-@media (hover: hover) and (pointer: fine){
-.restpad--toggle:hover:not(:disabled){background:var(--well);color:var(--control-selection-ink);border-color:var(--control-selection-boundary)}
-}
-.restpad--toggle.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-selection-ink);border-color:var(--control-selection-boundary)}
-.restpad--toggle:disabled{background:var(--control-selection-bg)}
-@media (prefers-reduced-motion:reduce){
-  .restinline__fill{transition:none}
-}
 .focus-shelf .btn--cta{margin:0}
 .focus-shelf .btn--cta.saveset{
   border:1px solid var(--control-primary-boundary);background:var(--control-primary-bg);color:var(--control-primary-ink);
@@ -1677,6 +1581,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
   box-shadow:var(--elevation-persistent-shadow);
 }
 .restbar.hidden{display:none!important}
+.restbar .restring{width:20px;height:20px}
 /* With a session open the rest has a home on every root tab: the mini bar on the other tabs and the live card's tag on
    Today. The pill gives way to them, so one thing at most sits above the dock (owner addendum, 2026-10-23). */
 body:has(#miniBar:not(.hidden)) .restbar,body:has(#log.view.active #todayLive .today-live) .restbar{display:none!important}
@@ -1687,7 +1592,6 @@ body:has(#miniBar:not(.hidden)) .restbar,body:has(#log.view.active #todayLive .t
 body:not(.is-focus-wo):has(#restBar:not(.hidden)):not(:has(#miniBar:not(.hidden))):not(:has(#log.view.active #todayLive .today-live)){
   --restbar-reserve:calc(16px + max(44px, calc(var(--font-size-body-small) * var(--line-standard) + 18px)));
 }
-.restbar__dot{width:7px;height:7px;border-radius:50%;background:var(--color-ink-secondary)}
 /* The mini bar: one frosted bar above the dock while a session is open, on the root tabs other than Today. It is the
    context menu's material (paper at 86% with a blur) on the prototype's lift, inset like the dock. */
 .minibar{
@@ -1725,10 +1629,10 @@ body:not(.is-focus-wo):has(#restBar:not(.hidden)):not(:has(#miniBar:not(.hidden)
 /* Overrun — the clock has passed zero and counts up as +m:ss. It reads as the
    inline "Rest done" line does: soft ink, no warning colour, no pulse. The
    wider minimum keeps the sign from moving the chip. */
-.wo-rest.is-over,.restbar.is-over{color:var(--color-ink-secondary)}
+.restbar.is-over{color:var(--color-ink-secondary)}
 .restbar.is-over .restbar__time{min-width:3.4em}
 /* Held in the timer sheet: the clock is frozen, so the live dot goes quiet. */
-.wo-rest.is-paused .wo-rest__dot,.restbar.is-paused .restbar__dot{background:var(--ink-faint)}
+
 
 /* @ci-domain global */
 /* Hidden legacy gauge (tests may still poke it; UI uses Today readiness) */
@@ -2658,73 +2562,88 @@ textarea.sheetfield__input{
 /* The retry's in-flight state as words: the hairline sweep (motion-polish.css) is gone under reduced motion, and this label, hidden otherwise, takes its place. */
 .draft-recovery__saving{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 
-/* ---- Rest presets sheet ---- */
-/* The running clock is inline in the Focus cue slot. The header timer and the
-   Today bar open this instead: pick a length, nudge the clock, restart it, or
-   end it deliberately. Pause and resume are here as well as on the inline
-   Pausar/Retomar pad, which gives way to the field pads. */
 .sheet--rest{height:auto}
 .sheet--wheel{height:auto}
-.restsheet{flex-direction:column;align-items:center;gap:20px;padding:20px 16px calc(20px + env(safe-area-inset-bottom));container:restsheet/inline-size}
-.restsheet__presets{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
-.restpreset{
-  min-width:0;min-height:var(--control-target);padding:0 12px;border-radius:var(--radius-pill);cursor:pointer;
-  border:1px solid var(--control-selection-boundary);background:var(--control-selection-bg);color:var(--control-selection-ink);
-  font-family:var(--font-training-data);font-size:var(--font-size-body-small);line-height:var(--line-standard);
+
+/* ---- The rest timer (rest timer redesign, owner-approved mock 2026-10-23) ----
+   No pill in the header and no clock in the card: while a rest runs a tab rises out of the Focus shelf's top edge
+   (a ring, "Rest", the time, a chevron) and the edge fills with the rest; the sheet behind the tab holds the dial and
+   every control. The tab is the only way in during a rest, so it is a full 44 px target. */
+.restring{position:relative;display:inline-block;flex:none;width:24px;height:24px}
+.restring svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);overflow:visible}
+.restring__track{fill:none;stroke:var(--rule);stroke-width:3}
+.restring__arc{fill:none;stroke:var(--accent);stroke-width:3;stroke-linecap:round;stroke-dasharray:100 100}
+.restring .restring__check{position:absolute;top:20%;left:20%;width:60%;height:60%;background:var(--control-primary-ink);opacity:0}
+.restring.is-done .restring__track{stroke:var(--accent)}
+.restring.is-done .restring__arc{display:none}
+.restring.is-done svg{background:var(--accent);border-radius:var(--radius-round)}
+.restring.is-done .restring__check{opacity:1}
+/* The glow: a soft accent bloom on the leading end that moves with it and never pulses. It is a shadow round a point, so
+   it paints past its box without adding scrollable overflow. */
+.restglow{position:absolute;width:2px;height:2px;margin:-1px 0 0 -1px;border-radius:var(--radius-round);box-shadow:var(--rest-glow);pointer-events:none}
+.restring.is-done .restglow,.resttab.is-paused .restglow{display:none}
+/* The flick: one soft bloom over the tab or the dial, played once at the bell by motion-layer (`flickRest`). */
+.restflick{position:absolute;inset:0;border-radius:inherit;box-shadow:var(--rest-flick-glow);opacity:0;pointer-events:none}
+/* The tab rises out of the shelf over the card's window: the window keeps room under its last line so the open set
+   scrolls clear of it (sizeFocusCard keeps the row above the tab). */
+article.exercise--focus:has(.resttab) .fcard__context{padding-bottom:calc(var(--space-16) + var(--control-target) - var(--space-14))}
+.resttab{
+  position:absolute;z-index:2;left:50%;bottom:calc(100% - var(--space-14));transform:translateX(-50%);
+  display:flex;align-items:center;gap:var(--space-8);min-height:var(--control-target);padding:0 var(--space-16) var(--space-14) var(--space-12);
+  border:0;border-radius:var(--radius-prominent) var(--radius-prominent) var(--radius-none) var(--radius-none);
+  background:var(--surface);color:var(--color-ink);box-shadow:var(--rest-tab-shadow);cursor:pointer;
+  font-family:var(--font-language);-webkit-tap-highlight-color:transparent;
 }
-@media (hover: hover) and (pointer: fine){
-.restpreset:hover:not(:disabled){border-color:var(--control-selection-boundary);color:var(--control-selection-ink);background:var(--well)}
-}
-.restpreset.is-pressed:not(:disabled){border-color:var(--control-selection-boundary);color:var(--control-selection-ink);background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
-.restpreset:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-.restpreset.is-active{border-color:var(--control-selected-boundary);color:var(--control-selection-ink);background:var(--control-selection-active-bg);box-shadow:var(--elevation-selected-shadow)}
-@media (hover: hover) and (pointer: fine){
-.restpreset.is-active:hover:not(:disabled){border-color:var(--control-selected-boundary);color:var(--control-selection-ink);background:var(--control-selection-active-bg)}
-}
-.restpreset.is-active.is-pressed:not(:disabled){border-color:var(--control-selected-boundary);color:var(--control-selection-ink);background:var(--control-selection-active-bg)}
-.restpreset:disabled{border-color:var(--boundary-decorative);color:var(--color-disabled-reason);background:var(--control-selection-bg);opacity:1;cursor:not-allowed;transform:none;box-shadow:none}
-.restsheet__controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:stretch;gap:4px;width:100%}
-.restctl{
-  display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
-  flex:1 1 0;min-width:0;min-height:var(--control-target);padding:6px 2px;border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);
-  background:var(--control-secondary-bg);color:var(--control-secondary-ink);cursor:pointer;
-  font-family:var(--font-language);font-size:var(--font-size-caption);font-weight:var(--weight-medium);line-height:var(--line-standard);
-}
-@media (hover: hover) and (pointer: fine){
-.restctl:hover:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary)}
-}
-.restctl.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary);transform:var(--control-pressed-transform)}
-.restctl:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-.restctl:disabled{background:var(--control-secondary-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
-#restMinus,#restPlus{background:var(--control-adjustment-bg);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
-@media (hover: hover) and (pointer: fine){
-#restMinus:hover:not(:disabled),
-#restPlus:hover:not(:disabled){background:var(--well);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
-}
-#restMinus.is-pressed:not(:disabled),
-#restPlus.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-adjustment-ink);border-color:var(--control-adjustment-boundary)}
-#restMinus.is-pressed:not(:disabled),#restPlus.is-pressed:not(:disabled){transform:var(--control-pressed-transform)}
-#restMinus:disabled,#restPlus:disabled{background:var(--control-adjustment-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
-/* Pause or Resume: a text-only control on a row of its own above the four icon controls. */
-#restHold{grid-column:1 / -1;flex-direction:row}
-.restctl .icon-mask{width:var(--control-icon-size);height:var(--control-icon-size)}
-.restctl__label{max-width:100%;white-space:normal;overflow-wrap:anywhere;line-height:var(--line-tight)}
-@media (max-width:430px){
-  #restSheet .sheet__head{grid-template-columns:minmax(0,1fr) var(--control-target)}
-  #restSheet .sheet__spacer{display:none}
-  #restSheet .sheet__titles{grid-column:1;grid-row:1}
-  #restSheet #restSheetClose{grid-column:2;grid-row:1}
-  .restsheet{gap:14px;padding-top:14px}
-  .restctl__label{white-space:nowrap;overflow-wrap:normal;word-break:normal}
-}
-/* Enlarged text: four icon-over-label controls no longer share a row (a long word such as Reiniciar clipped in its box),
-   so each control becomes a row of its own with the icon beside the label, and the label may wrap. The measure is the
-   sheet's width in rem, which grows with the text size, so the usual size keeps its four columns at every width. */
-@container restsheet (max-width:17rem){
-  .restsheet__controls{grid-template-columns:repeat(auto-fit,minmax(min(100%,6rem),1fr))}
-  .restctl{flex-direction:row;justify-content:flex-start;gap:var(--space-8);padding:6px var(--space-12)}
-  .restctl__label{white-space:normal;overflow-wrap:break-word;text-align:left}
-}
+.resttab:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.resttab.is-pressed{background:var(--row-pressed-bg)}
+.resttab__label{font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary);white-space:nowrap}
+.resttab__time{font-family:var(--font-training-data);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);font-variant-numeric:tabular-nums;display:inline-block;min-width:2.6em;text-align:left}
+.resttab__chev{width:14px;height:14px;background:var(--color-ink-secondary)}
+.resttab.is-done .resttab__time,.resttab.is-done .resttab__label{color:var(--accent-deep)}
+.resttab.is-paused .restring__arc{stroke:var(--ink-faint)}
+/* The shelf's top edge is the rest's progress line, inside the corners; it has no track of its own. */
+.shelf__edge{position:absolute;z-index:1;top:0;left:var(--shelf-radius);right:var(--shelf-radius);height:3px;pointer-events:none}
+.shelf__edge-fill{display:block;width:100%;height:100%;border-radius:var(--radius-pill);background:var(--accent);transform-origin:left center}
+.shelf__edge-glow{top:50%;left:0}
+.focus-shelf:has(.resttab.is-done) .shelf__edge-glow{display:none}
+/* The sheet: the dial with the time, one primary control between ±30 s, the presets as the native segmented
+   control, and Restart and End rest as quiet text actions. Concentric with the shelf (28 / 16 / 12). */
+.restsheet{flex-direction:column;align-items:stretch;gap:var(--space-16);padding:var(--space-8) var(--shelf-inset) calc(var(--shelf-inset) + env(safe-area-inset-bottom))}
+.restdial{position:relative;align-self:center;width:min(250px,64vw);aspect-ratio:1;border-radius:var(--radius-round)}
+.restdial__svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);overflow:visible}
+.restdial__track{fill:none;stroke:var(--rule);stroke-width:10}
+.restdial__arc{fill:none;stroke:var(--accent);stroke-width:10;stroke-linecap:round;stroke-dasharray:1000 1000}
+.restdial.is-done .restdial__track{stroke:var(--accent)}
+.restdial.is-done .restdial__glow,.restdial.is-idle .restdial__glow,.restdial.is-paused .restdial__glow{display:none}
+.restdial__glow{width:4px;height:4px;margin:-2px 0 0 -2px;box-shadow:var(--rest-dial-glow)}
+.restdial__c{position:absolute;inset:14%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.restdial__time{font-family:var(--font-training-data);font-size:var(--font-size-rest-clock);font-weight:var(--weight-medium);line-height:var(--line-tight);letter-spacing:-.02em;font-variant-numeric:tabular-nums;display:inline-block}
+.restdial.is-done .restdial__time{color:var(--accent-deep)}
+.restdial__of{margin-top:var(--space-4);font-size:var(--font-size-body-small);color:var(--color-ink-secondary)}
+.restdial__next{margin-top:var(--space-8);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.restsheet__controls{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin:0 var(--space-18)}
+.restround{justify-self:center;min-width:64px;min-height:64px;aspect-ratio:1;padding:0 var(--space-8);border:0;border-radius:var(--radius-round);background:var(--control-track);color:var(--color-ink);
+  font-family:var(--font-training-data);font-size:var(--font-size-body);font-weight:var(--weight-semibold);font-variant-numeric:tabular-nums;cursor:pointer}
+.restplay{display:grid;place-items:center;width:84px;height:84px;border:0;border-radius:var(--radius-round);background:var(--control-primary-bg);color:var(--control-primary-ink);cursor:pointer}
+.restplay__icon{width:30px;height:30px;background:var(--control-primary-ink)}
+.restplay[data-mode="pause"] .restplay__icon--play,.restplay:not([data-mode="pause"]) .restplay__icon--pause{display:none}
+.restround:focus-visible,.restplay:focus-visible,.restlink:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.restround.is-pressed,.restplay.is-pressed{transform:var(--control-pressed-transform)}
+.restsheet__cap{margin:var(--space-4) var(--space-4) 0;font-size:var(--font-size-caption);font-weight:var(--weight-semibold);letter-spacing:.06em;text-transform:uppercase;color:var(--color-ink-secondary)}
+.restsheet__presets{display:grid;width:100%}
+#restPresets button{min-width:0;padding-inline:0;font-size:min(var(--font-size-body-small),var(--large-cap-supporting));font-family:var(--font-training-data);font-variant-numeric:tabular-nums}
+.restsheet__links{display:flex;flex-wrap:wrap;justify-content:space-between;gap:0 var(--space-8);margin:0 var(--space-4)}
+.restlink{flex:none;min-height:var(--control-target);padding:0 var(--space-8);border:0;background:transparent;color:var(--color-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);cursor:pointer}
+.restlink--end{color:var(--accent-deep);font-weight:var(--weight-semibold)}
+.restlink:disabled{color:var(--color-disabled-reason);cursor:not-allowed}
+@media (prefers-reduced-transparency:reduce){.restglow{display:none}}
+/* At large text the dial's words stop growing where Focus's do, so they stay inside the ring, and the sheet's one-word
+   title keeps its word whole. */
+.restdial__time{font-size:min(var(--font-size-rest-clock),var(--large-cap-clock))}
+.restdial__of,.restdial__next{font-size:min(var(--font-size-body-small),var(--large-cap-supporting))}
+#restSheet .sheet__title{font-size:min(var(--font-size-section-title),var(--large-cap-title));overflow-wrap:normal}
+/* Concentric with the approved shelf: the sheet's 28, the controls' 16 inside its 16 inset, the segments' 12. */
+#restSheet{border-radius:var(--shelf-radius) var(--shelf-radius) var(--radius-none) var(--radius-none)}
 
 /* Short screens trade padding, never a control: the ledger scrolls above the
    shelf, and the shelf keeps its three fields, its pads and its action. */
@@ -2734,7 +2653,7 @@ textarea.sheetfield__input{
 }
 @media (max-height:600px){
   .shelf__fieldbtn,.shelf__input{min-height:56px}
-  .shelf__pads .shelf__pad,.shelf__pads .restpad{height:48px;min-height:48px}
+  .shelf__pads .shelf__pad{height:48px;min-height:48px}
   .focus-shelf .btn--cta.saveset{min-height:48px}
 }
 /* On the narrowest phones a three-digit load needs the room its padding took, or it wraps onto a second line. */
@@ -3956,6 +3875,8 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 }
 .icon-mask--sm{width:16px;height:16px}
 .icon-mask--stop{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Crect x='6.5' y='6.5' width='11' height='11' rx='2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Crect x='6.5' y='6.5' width='11' height='11' rx='2'/%3E%3C/svg%3E")}
+.icon-mask--pause{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Crect x='6' y='5' width='4' height='14' rx='1.2'/%3E%3Crect x='14' y='5' width='4' height='14' rx='1.2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Crect x='6' y='5' width='4' height='14' rx='1.2'/%3E%3Crect x='14' y='5' width='4' height='14' rx='1.2'/%3E%3C/svg%3E")}
+.icon-mask--play{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M8 5.6v12.8a1 1 0 0 0 1.52.85l10.24-6.4a1 1 0 0 0 0-1.7L9.52 4.75A1 1 0 0 0 8 5.6z'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M8 5.6v12.8a1 1 0 0 0 1.52.85l10.24-6.4a1 1 0 0 0 0-1.7L9.52 4.75A1 1 0 0 0 8 5.6z'/%3E%3C/svg%3E")}
 .icon-mask--history{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 12a8.5 8.5 0 1 0 2.5-6'/%3E%3Cpolyline points='3 3.5 3 8.5 8 8.5'/%3E%3Cpolyline points='12 7.5 12 12 15.5 14'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 12a8.5 8.5 0 1 0 2.5-6'/%3E%3Cpolyline points='3 3.5 3 8.5 8 8.5'/%3E%3Cpolyline points='12 7.5 12 12 15.5 14'/%3E%3C/svg%3E")}
 .icon-mask--overflow{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Ccircle cx='5' cy='12' r='1.6'/%3E%3Ccircle cx='12' cy='12' r='1.6'/%3E%3Ccircle cx='19' cy='12' r='1.6'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Ccircle cx='5' cy='12' r='1.6'/%3E%3Ccircle cx='12' cy='12' r='1.6'/%3E%3Ccircle cx='19' cy='12' r='1.6'/%3E%3C/svg%3E")}
 .icon-mask--grip{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27black%27%3E%3Ccircle%20cx%3D%279%27%20cy%3D%276%27%20r%3D%271.6%27%2F%3E%3Ccircle%20cx%3D%2715%27%20cy%3D%276%27%20r%3D%271.6%27%2F%3E%3Ccircle%20cx%3D%279%27%20cy%3D%2712%27%20r%3D%271.6%27%2F%3E%3Ccircle%20cx%3D%2715%27%20cy%3D%2712%27%20r%3D%271.6%27%2F%3E%3Ccircle%20cx%3D%279%27%20cy%3D%2718%27%20r%3D%271.6%27%2F%3E%3Ccircle%20cx%3D%2715%27%20cy%3D%2718%27%20r%3D%271.6%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27black%27%3E%3Ccircle%20cx%3D%279%27%20cy%3D%276%27%20r%3D%271.6%27%2F%3E%3Ccircle%20cx%3D%2715%27%20cy%3D%276%27%20r%3D%271.6%27%2F%3E%3Ccircle%20cx%3D%279%27%20cy%3D%2712%27%20r%3D%271.6%27%2F%3E%3Ccircle%20cx%3D%2715%27%20cy%3D%2712%27%20r%3D%271.6%27%2F%3E%3Ccircle%20cx%3D%279%27%20cy%3D%2718%27%20r%3D%271.6%27%2F%3E%3Ccircle%20cx%3D%2715%27%20cy%3D%2718%27%20r%3D%271.6%27%2F%3E%3C%2Fsvg%3E")}

@@ -160,7 +160,7 @@ console.log("\nD-owned state list");
     "R3h's session summary states are enforced");
   check(["workout/rest-running", "workout/rest-done"].every((key) => status(key) === "implemented") &&
     !DIRECTION_D_STATES.some((item) => /^workout\/rest-timer/.test(item.key)),
-  "R3f's inline rest states are enforced and the retired rest-timer sheet states are in no gate list");
+  "the rest states (the tab, running and run out) are enforced, and the R3f-retired rest-timer states are in no gate list");
   check(["today/done", "workout/exercise-actions"].every((key) => status(key) === "implemented"),
     "R3x's last two approved states, the finished day and the redrawn exercise actions, are enforced");
   check(DIRECTION_D_STATES.every((item) => item.status === "implemented"),
@@ -184,8 +184,8 @@ console.log("\nD-owned state list");
     "an orange allowlist entry outside the five budget categories is rejected");
   // Direction D's five uses, plus the bar's text button the owner approved with the bar-actions mock (2026-10-23) and
   // Today's live session card the owner approved with mock A (2026-10-23).
-  check(ORANGE_CATEGORIES.length === 7 && ORANGE_CATEGORIES.includes("bar-text-button") && ORANGE_CATEGORIES.includes("live-session"),
-    "the orange budget names exactly seven categories", ORANGE_CATEGORIES.join(", "));
+  check(ORANGE_CATEGORIES.length === 8 && ORANGE_CATEGORIES.includes("bar-text-button") && ORANGE_CATEGORIES.includes("live-session") && ORANGE_CATEGORIES.includes("rest-timer"),
+    "the orange budget names exactly eight categories", ORANGE_CATEGORIES.join(", "));
   check(GAPS.length > 0 && GAPS.every((gap) => typeof gap === "string" && gap.length > 40),
     "every rule no governing document provides is recorded as an explicit gap", `${GAPS.length} gaps`);
 }
@@ -270,18 +270,18 @@ try {
       "the same elements pass when they are on the list", show(listed));
     check(has(listed, "#seedOrangeText") && has(listed, "#seedOrangeBorder"),
       "an element that is not on the list still fails beside listed ones", show(listed));
-    // The running timer's drain bar (inline rest): its fill is the budget's timer use, nothing else in the block is.
-    const drainMarkup = `<div class="restinline" id="seedRest"><div class="restinline__row">
-        <span class="restinline__label" id="seedRestLabel" style="color:var(--accent)">Rest</span><b class="restinline__clock" id="seedRestClock">1:30</b></div>
-        <div class="restinline__bar"><i class="restinline__fill" id="seedDrainFill" style="transform:scaleX(.75)"></i></div></div>`;
+    // The running rest's drain (rest timer redesign): the shelf's edge fill is the budget's timer use; accent on the tab's
+    // running label is not.
+    const drainMarkup = `<div class="focus-shelf" id="seedRest" style="position:relative"><span class="shelf__edge"><i class="shelf__edge-fill" id="seedDrainFill" style="transform:scaleX(.75)"></i></span>
+        <button type="button" class="resttab"><span class="resttab__label" id="seedRestLabel" style="color:var(--accent)">Rest</span><span class="resttab__time" id="seedRestClock">1:30</span></button></div>`;
     const drainEmpty = checkOrange(await seeded(page, drainMarkup, { allowlist: [] }));
-    check(has(drainEmpty, "orange", "#seedDrainFill"), "the drain bar's fill is accent paint and is rejected when it is not on the list", show(drainEmpty));
+    check(has(drainEmpty, "orange", "#seedDrainFill"), "the drain's edge fill is accent paint and is rejected when it is not on the list", show(drainEmpty));
     const drainReal = checkOrange(await seeded(page, drainMarkup));
-    check(!has(drainReal, "#seedDrainFill"), "the drain bar's fill is accepted by the gate's own allowlist (timer-drain-bar)", show(drainReal));
+    check(!has(drainReal, "#seedDrainFill"), "the drain's edge fill is accepted by the gate's own allowlist (timer-drain-bar)", show(drainReal));
     check(has(drainReal, "orange", "#seedRestLabel") && !has(drainReal, "#seedRestClock"),
-      "only the fill is orange budget: accent on the rest label is rejected and the ink clock is accepted", show(drainReal));
-    check(ORANGE_ALLOWLIST.some((entry) => entry.category === "timer-drain-bar" && entry.selector === ".restinline__fill" && !entry.pseudo),
-      "the drain bar entry sits under the running timer's drain bar category and names the fill, not the block");
+      "only the drain is orange budget while the rest runs: accent on the tab's label is rejected and the ink time is accepted", show(drainReal));
+    check(ORANGE_ALLOWLIST.some((entry) => entry.category === "timer-drain-bar" && entry.selector === ".shelf__edge-fill" && !entry.pseudo),
+      "the drain entry sits under the running timer's drain bar category and names the edge's fill, not the shelf");
     const real = await gatherEvidence(page, { scope: "body", allowlist: [] });
     const realOrange = checkOrange(real);
     check(realOrange.length > 0, "the detector is not vacuous: today's own accent paint is found with an empty list",
@@ -364,8 +364,8 @@ try {
       <p id="seedBannedPt">Regrediu</p>
       <p id="seedEmDash">Done — nice work</p>
       <p id="seedNotCatalog">Quantum flux capacitor engaged</p>
-      <div class="restinline"><button id="seedHold" type="button">Hold</button></div>
-      <div class="shelf__pads--rest"><button id="seedHoldPad" type="button" aria-label="Hold">Hold</button></div>
+      <div class="resttab"><span id="seedHold">Hold</span></div>
+      <div class="restbar"><span id="seedHoldPad" aria-label="Hold">Hold</span></div>
       <p id="seedCatalogOk"></p><p id="seedDataOk"></p><p id="seedNumbersOk">3 × 7 · 102,5 kg</p>`;
     const prepared = async (markup, lang = "en", options = {}) => {
       const evidence = await seeded(page, markup, options);
@@ -376,11 +376,10 @@ try {
     check(has(strings, "banned", "Regrediu"), "a banned word is rejected", show(strings));
     check(has(strings, "banned", "#seedEmDash"), "an em dash is rejected", show(strings));
     check(has(strings, "not a catalog", "Quantum flux capacitor engaged"), "a rendered string that is not a catalog key is rejected", show(strings));
-    check(has(strings, "banned", "Hold", "timer", "at #seedHold:"), "'Hold' as a timer label is rejected inside the inline rest block", show(strings));
-    check(has(strings, "banned", "Hold", "timer", "at #seedHoldPad:"), "'Hold' on a rest pad is rejected", show(strings));
-    check(TIMER_SCOPES.includes(".restinline") && TIMER_SCOPES.includes(".shelf__pads--rest") && TIMER_SCOPES.includes("#restSheet") &&
-      !TIMER_SCOPES.some((scope) => scope.includes("restdial")),
-    "the timer scopes name the inline block, its pad row and the presets sheet, and not the retired dial", TIMER_SCOPES.join(", "));
+    check(has(strings, "banned", "Hold", "timer", "at #seedHold:"), "'Hold' as a timer label is rejected on the rest tab", show(strings));
+    check(has(strings, "banned", "Hold", "timer", "at #seedHoldPad:"), "'Hold' on the rest pill is rejected", show(strings));
+    check(TIMER_SCOPES.includes(".resttab") && TIMER_SCOPES.includes(".restbar") && TIMER_SCOPES.includes("#restSheet"),
+    "the timer scopes name the rest tab, the pill and the rest sheet (which holds the dial)", TIMER_SCOPES.join(", "));
     // Compliant control: a real catalog string, a data string and bare numbers.
     const okMarkup = await page.evaluate(() => {
       const t = window.RepForgeI18n.t;
@@ -451,7 +450,7 @@ try {
   "the implemented states were actually rendered and enforced in PT and EN", JSON.stringify(built.rendered.map((item) => `${item.key}:${item.locale}`)));
   check(["workout/rest-running", "workout/rest-done"].every((key) => ["pt", "en"].every((locale) =>
     built.rendered.some((item) => item.key === key && item.locale === locale && item.enforced))),
-  "the inline rest states were rendered and enforced in both languages", JSON.stringify(built.rendered.filter((item) => /rest-/.test(item.key))));
+  "the rest states were rendered and enforced in both languages", JSON.stringify(built.rendered.filter((item) => /rest-/.test(item.key))));
   check(["today/ready", "today/day-picker", "workout/why-this-weight", "workout/why-in-session", "workout/why-manual", "session/summary", "session/summary-first"].every((key) => ["pt", "en"].every((locale) =>
     built.rendered.some((item) => item.key === key && item.locale === locale && item.enforced))),
   "the landed Today, Why and summary states were rendered and enforced in both languages", JSON.stringify(built.rendered.map((item) => `${item.key}:${item.locale}`)));

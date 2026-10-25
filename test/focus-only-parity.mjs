@@ -439,29 +439,23 @@ async function main() {
       restored.sets.map((s) => s.ordinal).join() === "1,2",
       "restore returns the exercise with its set identities and order intact", JSON.stringify(restored));
 
-    /* ---- Rest timer through the header chip ---- */
-    phase("Rest timer: chip start, inline hold, sheet stop; commit independent of timer");
-    await page.locator("#woRest").click();
-    await page.waitForFunction(() => !!document.querySelector("#woRest.is-running"), undefined, { timeout: 5000 });
-    const running = await page.evaluate(() => ({
-      chip: document.querySelector("#woRest .wo-rest__time")?.textContent?.trim(),
-      hidden: document.querySelector("#woRest")?.classList.contains("hidden"),
-    }));
-    assert(running.chip && running.chip !== "—" && !running.hidden, "the chip starts the clock and reads the countdown", JSON.stringify(running));
-    // The clock is inline in the cue slot and its Pause pad holds it while the lifter stays on the set.
-    await page.waitForSelector("#workout .exercise.is-current .fx-slot[data-rest='running'] [data-rest-clock]", { timeout: 5000 });
-    const labels = await page.evaluate(() => ({ pause: window.RepForgeI18n.t("rest.inline.pause"), resume: window.RepForgeI18n.t("rest.inline.resume") }));
-    await page.locator("#workout .exercise.is-current .restpad--toggle").click();
-    const paused = await page.evaluate(() => document.querySelector("#workout .exercise.is-current .restpad--toggle")?.textContent.trim());
-    assert(paused === labels.resume, "the inline pad holds the clock while the lifter stays on the set", paused);
-    await page.locator("#workout .exercise.is-current .restpad--toggle").click();
-    assert(await page.evaluate(() => document.querySelector("#workout .exercise.is-current .restpad--toggle")?.textContent.trim()) === labels.pause,
-      "the same pad lets the clock go again");
-    await page.locator("#woRest").click();
+    /* ---- Rest timer through the actions sheet and the tab (rest timer redesign, 2026-10-23) ---- */
+    phase("Rest timer: started from the actions sheet, held and let go from the sheet, ended; commit independent of timer");
+    await page.locator("#woOverflowBtn").click();
+    await page.locator('[data-workout-action="rest"]').click();
     await page.waitForSelector("#restSheet.is-open", { timeout: 5000 });
+    await page.locator("#restHold").click();
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    const running = await page.evaluate(() => ({ time: document.querySelector("#restTab .resttab__time")?.textContent?.trim(), mode: document.querySelector("#restHold")?.dataset.mode }));
+    assert(/^\d:\d\d$/.test(running.time || "") && running.mode === "pause", "Start starts the clock and the tab reads the countdown", JSON.stringify(running));
+    const labels = await page.evaluate(() => ({ pause: window.RepForgeI18n.t("rest.inline.pause"), resume: window.RepForgeI18n.t("rest.inline.resume") }));
+    await page.locator("#restHold").click();
+    assert(await page.locator("#restHold").getAttribute("aria-label") === labels.resume, "the primary control holds the clock and reads Resume");
+    await page.locator("#restHold").click();
+    assert(await page.locator("#restHold").getAttribute("aria-label") === labels.pause, "the same control lets the clock go again");
     await page.locator("#restStop").click();
-    await page.waitForFunction(() => !document.querySelector("#woRest.is-running"), undefined, { timeout: 5000 });
-    assert(true, "stopping from the sheet clears the chip");
+    await page.waitForFunction(() => !document.querySelector("#restTab") && document.querySelector("#restSheet")?.hidden === true, undefined, { timeout: 5000 });
+    assert(true, "End rest ends the clock, closes the sheet and takes the tab away");
 
     /* ---- Save through the Focus finish action ---- */
     phase("Save to summary: one atomic commit, draft cleared, summary opens");

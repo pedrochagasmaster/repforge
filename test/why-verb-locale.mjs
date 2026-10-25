@@ -99,11 +99,11 @@ async function logSet(page, slotId, ordinal, { load, reps, rir }) {
     const setId = exercise?.setOrder?.find((id) => exercise.sets[id].ordinal === ordinal);
     return typeof exercise?.sets?.[setId]?.completion === "object";
   }, { slotId, ordinal }, { timeout: 15000 });
-  const resting = await page.waitForFunction(() => document.querySelector("#woRest")?.classList.contains("is-running"),
+  const resting = await page.waitForFunction(() => restEnd > 0,
     undefined, { timeout: 3000 }).then(() => true, () => false);
   if (resting) {
     await page.evaluate(() => window.stopRest());
-    await page.waitForFunction(() => !document.querySelector("#woRest")?.classList.contains("is-running"), undefined, { timeout: 10000 });
+    await page.waitForFunction(() => !restEnd, undefined, { timeout: 10000 });
   }
 }
 

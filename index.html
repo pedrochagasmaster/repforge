@@ -58,7 +58,7 @@
 <body>
   <!-- Legacy hooks kept for JS/tests; visually relocated or hidden -->
   <button id="restBar" type="button" class="restbar hidden" data-i18n-aria="top.rest_timer_aria" aria-label="Rest timer. Tap to open.">
-    <span class="restbar__dot" aria-hidden="true"></span><span class="restbar__time">0:00</span>
+    <span class="restring" aria-hidden="true"><svg viewBox="0 0 24 24"><circle class="restring__track" cx="12" cy="12" r="10"/><circle class="restring__arc" cx="12" cy="12" r="10" pathLength="100"/></svg><span class="restglow"></span><span class="restring__check icon-mask icon-mask--check"></span></span><span class="restbar__time">0:00</span>
   </button>
   <button id="heatGauge" type="button" class="visually-hidden" hidden aria-hidden="true" data-i18n-title="top.heat_title" title="Number of lifts ready for more load" tabindex="-1">
     <span class="gauge__fill"></span>
@@ -135,11 +135,6 @@
             <div class="wo-head__sub" id="woDaySub"></div>
           </div>
           <div class="wo-head__end">
-            <button type="button" class="wo-rest hidden" id="woRest" data-i18n-aria="focus.rest.start_aria" aria-label="Start rest timer" aria-live="off">
-              <span class="wo-rest__dot" aria-hidden="true"></span>
-              <span class="icon-mask icon-mask--sm icon-mask--timer wo-rest__icon" aria-hidden="true"></span>
-              <span class="wo-rest__time" aria-hidden="true"></span>
-            </button>
             <button type="button" class="icon-btn icon-btn--ghost" id="sessionSheetBtn" aria-label="Show as table" data-i18n-aria="focus.session_sheet"><span class="icon-mask icon-mask--sheet" aria-hidden="true"></span></button>
             <button type="button" class="icon-btn icon-btn--ghost" id="woOverflowBtn" aria-label="Session details" data-i18n-aria="session.sheet.title" aria-haspopup="dialog" aria-controls="workoutActionSheet"><span class="icon-mask icon-mask--overflow" aria-hidden="true"></span></button>
           </div>
@@ -1027,6 +1022,7 @@ Triceps pushdown 3x12-15</pre>
       <button type="button" data-workout-action="finish" data-i18n="log.finish">Finish workout</button>
       <button type="button" data-workout-action="reorder" data-i18n="program.editor.reorder">Reorder exercises</button>
       <button type="button" data-workout-action="exercise" data-i18n="ex.actions.title">Exercise actions</button>
+      <button type="button" data-workout-action="rest" data-i18n="rest.sheet.title">Rest timer</button>
       <button type="button" id="voiceBtn" class="hidden" data-workout-action="voice" data-i18n="log.command.voice">Voice input</button>
       <button type="button" data-workout-action="abandon" class="is-destructive" data-i18n="session.sheet.abandon">End without saving</button>
     </div>
@@ -1260,29 +1256,38 @@ Triceps pushdown 3x12-15</pre>
     <div class="sheet__head">
       <span class="sheet__spacer" aria-hidden="true"></span>
       <div class="sheet__titles">
-        <p class="sheet__title" id="restSheetTitle" data-i18n="rest.sheet.title">Rest timer</p>
+        <p class="sheet__title" id="restSheetTitle" data-i18n="rest.inline.label">Rest</p>
       </div>
       <button type="button" class="sheet__act sheet__act--icon" id="restSheetClose" data-i18n-aria="rest.sheet.close_aria" aria-label="Close rest timer"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
     </div>
     <div class="sheet__body restsheet">
-      <div class="restsheet__presets" id="restPresets" role="group" data-i18n-aria="rest.sheet.presets_aria" aria-label="Rest length"></div>
+      <div class="restdial" id="restDial">
+        <svg class="restdial__svg" viewBox="0 0 250 250" aria-hidden="true">
+          <circle class="restdial__track" cx="125" cy="125" r="112"/>
+          <circle class="restdial__arc" cx="125" cy="125" r="112" pathLength="1000"/>
+        </svg>
+        <span class="restglow restdial__glow" aria-hidden="true"></span>
+        <span class="restflick" aria-hidden="true"></span>
+        <div class="restdial__c" role="timer" aria-live="off">
+          <span class="restdial__time" id="restDialTime"></span>
+          <span class="restdial__of" id="restDialOf"></span>
+          <span class="restdial__next" id="restDialNext" hidden></span>
+        </div>
+      </div>
       <div class="restsheet__controls">
-        <button type="button" class="restctl" id="restMinus" data-i18n-aria="rest.sheet.minus_aria" aria-label="Take 30 seconds off">
-          <span class="icon-mask icon-mask--minus" aria-hidden="true"></span>
-          <span class="restctl__label" data-i18n="rest.sheet.minus">-30s</span>
+        <button type="button" class="restround" id="restMinus" data-i18n-aria="rest.sheet.minus_aria" aria-label="Take 30 seconds off"><span data-i18n="rest.sheet.minus">-30s</span></button>
+        <button type="button" class="restplay" id="restHold" data-mode="start" data-i18n-aria="focus.rest.start_aria" aria-label="Start rest timer">
+          <span class="restplay__icon restplay__icon--play icon-mask icon-mask--play" aria-hidden="true"></span>
+          <span class="restplay__icon restplay__icon--pause icon-mask icon-mask--pause" aria-hidden="true"></span>
         </button>
-        <button type="button" class="restctl" id="restPlus" data-i18n-aria="rest.sheet.plus_aria" aria-label="Add 30 seconds">
-          <span class="icon-mask icon-mask--plus" aria-hidden="true"></span>
-          <span class="restctl__label" data-i18n="rest.sheet.plus">+30s</span>
-        </button>
-        <button type="button" class="restctl" id="restReset" data-i18n-aria="rest.sheet.reset_aria" aria-label="Restart rest">
-          <span class="icon-mask icon-mask--reset" aria-hidden="true"></span>
-          <span class="restctl__label" data-i18n="rest.sheet.reset">Reset</span>
-        </button>
-        <button type="button" class="restctl" id="restStop" data-i18n-aria="rest.sheet.stop_aria" aria-label="End rest">
-          <span class="icon-mask icon-mask--stop" aria-hidden="true"></span>
-          <span class="restctl__label" data-i18n="rest.sheet.stop">Stop</span>
-        </button>
+        <button type="button" class="restround" id="restPlus" data-i18n-aria="rest.sheet.plus_aria" aria-label="Add 30 seconds"><span data-i18n="rest.sheet.plus">+30s</span></button>
+      </div>
+      <p class="restsheet__cap" id="restPresetsLabel" data-i18n="rest.sheet.default">Default rest</p>
+      <select id="restPresetInput" class="visually-hidden" aria-hidden="true" tabindex="-1"></select>
+      <div class="native-segments restsheet__presets" id="restPresets" data-segment-input="restPresetInput" role="radiogroup" aria-labelledby="restPresetsLabel"><span class="native-segments__thumb" data-state-indicator aria-hidden="true"></span></div>
+      <div class="restsheet__links">
+        <button type="button" class="restlink" id="restReset" data-i18n="rest.sheet.restart" data-i18n-aria="rest.sheet.reset_aria" aria-label="Restart rest">Restart</button>
+        <button type="button" class="restlink restlink--end" id="restStop" data-i18n="rest.sheet.end" data-i18n-aria="rest.sheet.stop_aria" aria-label="End rest">End rest</button>
       </div>
     </div>
   </div>
@@ -1360,7 +1365,7 @@ Triceps pushdown 3x12-15</pre>
   <script src="vendor/motion/motion.js" data-optional-runtime="RepForgeMotion"></script>
   <script src="vendor/dnd-kit/dnd-kit.js" data-optional-runtime="RepForgeDndRuntime"></script>
   <div hidden inert aria-hidden="true" id="legacyWorkoutShell"><span id="modeFull"></span><span id="modeFocus"></span><input id="date" type="date"><input id="bodyweight"><textarea id="notes"></textarea></div>
-  <script src="motion-layer.js?v=517"></script>
+  <script src="motion-layer.js?v=520"></script>
   <script src="generation-candidates.js?v=466"></script>
   <script src="engine-policy.js?v=486"></script>
   <script src="generation-layout.js?v=486"></script>
@@ -1380,6 +1385,6 @@ Triceps pushdown 3x12-15</pre>
   <script src="durable-state.js?v=447"></script>
   <script src="progress-model.js?v=309"></script>
   <script src="history-ui.js?v=488"></script>
-  <script src="app.js?v=519"></script>
+  <script src="app.js?v=520"></script>
 </body>
 </html>

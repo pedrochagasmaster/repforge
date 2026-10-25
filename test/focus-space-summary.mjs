@@ -138,12 +138,11 @@ try {
       const before = await page.evaluate(contextCuts);
       check(before.top >= before.barBottom - 0.5 && !before.cuts.length, "rest running: the context opens whole under the segments", before);
       await page.locator("#workout .exercise--focus.is-current .saveset").click();
-      await page.locator("#workout .exercise.is-current [data-rest-act='skip']").click();
       await page.waitForFunction(() => {
         const row = document.querySelector("#workout .exercise--focus.is-current .ledgerline--open");
-        return row && +row.dataset.lrow === 3 && document.querySelector("#workout .exercise.is-current .fx-slot")?.dataset.rest === "done";
+        return row && +row.dataset.lrow === 3 && !!document.querySelector("#restTab");
       }, undefined, { timeout: 15000 });
-      // The rest's slot trades its content and height after the render; the window settles once that is done.
+      // The window settles once the render has brought the third set in.
       await page.waitForFunction(() => {
         const context = document.querySelector("#workout .exercise--focus.is-current .fcard__context");
         const top = context.getBoundingClientRect().top;
@@ -246,7 +245,7 @@ try {
       rowName: !!art.querySelector(".fx-head .focus-ex__name"),
       meta: art.querySelector(".fx-head .focus-ex__meta")?.textContent.trim() || "",
       fields: [...art.querySelectorAll(".focus-shelf .shelf__fieldbtn")].map(h),
-      pads: [...art.querySelectorAll(".focus-shelf .shelf__pads .shelf__pad, .focus-shelf .shelf__pads .restpad")].map(h),
+      pads: [...art.querySelectorAll(".focus-shelf .shelf__pads .shelf__pad")].map(h),
       cta: h(art.querySelector(".focus-shelf .btn--cta.saveset")),
       values: [...art.querySelectorAll(".focus-shelf .shelf__val")].map((el) => {
         const s = getComputedStyle(el);
@@ -304,15 +303,15 @@ try {
       const LONG = "Single-arm dumbbell Romanian deadlift with a two-second pause at the knee";
       const m = await page.evaluate((long) => {
         const title = document.querySelector("#woDayTitle"), name = title.querySelector(".wo-head__name");
-        const pill = document.querySelector("#woRest");
         name.textContent = long;
         const s = getComputedStyle(name);
         return { lines: Math.round((name.getBoundingClientRect().height - parseFloat(s.paddingTop) - parseFloat(s.paddingBottom)) / parseFloat(s.lineHeight)),
-          pill: pill && !pill.classList.contains("hidden") ? pill.textContent.trim() : null, pillWidth: pill?.getBoundingClientRect().width || 0,
+          pill: !!document.querySelector("#woRest"), tab: !!document.querySelector("#restTab"),
           head: document.querySelector("#workoutShell .wo-head").getBoundingClientRect().height };
       }, LONG);
-      check(m.pill && m.pillWidth > 60, `${key}: the rest pill is showing (the case under test)`, m);
-      check(m.lines === 2, `${key}: the long name is clamped to two lines beside it`, m);
+      // The rest timer redesign: the rest is in the tab over the shelf, so the name has the whole bar.
+      check(!m.pill && m.tab, `${key}: no rest pill in the header; the tab carries the rest (the case under test)`, m);
+      check(m.lines === 2, `${key}: the long name is clamped to two lines`, m);
       check(m.head <= Math.max(before, 63) + 0.5, `${key}: the header row keeps its height`, { before, ...m });
     } finally { await context.close(); }
   }
@@ -417,7 +416,7 @@ try {
     } finally { await context.close(); }
   }
 
-  console.log("\n9. A running rest's clock stays in the window, with or without the skip bar");
+  console.log("\n9. A running rest's tab is whole and never covers the open set, with or without the skip bar");
   for (const [phone, spec, skip] of [["390x700", { width: 390, height: 700, safe: SAFE_AREA }, true], ["390x700", { width: 390, height: 700, safe: SAFE_AREA }, false],
     ["375x667", D_PHONES["375x667"], true], ["375x667", D_PHONES["375x667"], false]]) {
     const { context, page } = await openCatalogState(browser, "workout/rest-running", spec.width, "en", "normal", { height: spec.height, safe: spec.safe });
@@ -432,23 +431,24 @@ try {
         await page.waitForFunction((id) => document.querySelector("#workout .exercise--focus.is-current")?.dataset.ex === id
           && document.querySelector("#workout .skipbar"), first, { timeout: 15000 });
       }
-      await page.waitForFunction(() => document.querySelector("#workout .exercise--focus.is-current .fx-slot")?.dataset.rest === "running"
-        && !document.querySelector("#workout .motion-fade-out") && !document.querySelector("#workout .fx-slot").style.height, undefined, { timeout: 15000 });
+      await page.waitForFunction(() => !!document.querySelector("#restTab") && !document.querySelector("#workout .motion-fade-out"), undefined, { timeout: 15000 });
       await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       const m = await page.evaluate(() => {
         const art = document.querySelector("#workout .exercise--focus.is-current");
         const context = art.querySelector(".fcard__context"), box = context.getBoundingClientRect();
-        const clock = art.querySelector(".fx-slot .restinline__row") || art.querySelector(".fx-slot");
-        const c = clock.getBoundingClientRect();
+        const c = document.querySelector("#restTab").getBoundingClientRect();
+        const o = art.querySelector(".ledgerline--open")?.getBoundingClientRect();
         const bar = document.querySelector("#workout .skipbar"), show = bar?.querySelector(".skipbar__show");
         const b = bar?.getBoundingClientRect(), s = show?.getBoundingClientRect();
         return { skipbar: !!bar, top: box.top, bottom: box.bottom, scrollTop: context.scrollTop,
-          clockTop: c.top, clockBottom: c.bottom, open: art.querySelector(".ledgerline--open")?.dataset.lrow,
+          clockTop: c.top, clockBottom: c.bottom, clockLeft: c.left, clockRight: c.right, open: art.querySelector(".ledgerline--open")?.dataset.lrow,
+          openCovered: !!o && o.bottom > c.top + 0.5 && o.top < c.bottom - 0.5 && o.right > c.left + 0.5 && o.left < c.right - 0.5,
           bar: b && { height: b.height, text: bar.firstChild.textContent.trim(), show: show.textContent.trim(), showW: s.width, showH: s.height,
             showInside: s.left >= b.left - 0.5 && s.right <= b.right + 0.5 } };
       });
       check(m.skipbar === skip && m.open === "2", `${phone}${skip ? ", skip bar showing" : ""}: set 2 is open while the rest runs (the case under test)`, m);
-      check(m.clockTop >= m.top - 0.5 && m.clockBottom <= m.bottom + 0.5, `${phone}${skip ? ", skip bar showing" : ""}: the rest's clock line is whole in the window`, m);
+      check(m.clockTop >= m.top - 0.5 && m.clockBottom <= spec.height + 0.5 && !m.openCovered,
+        `${phone}${skip ? ", skip bar showing" : ""}: the rest tab is whole on screen and does not cover the open set`, m);
       if (skip) {
         // The owner's 2026-10-22 decision: one thin line, about 36–40 px, with the same text and button.
         check(m.bar.height >= 36 - 0.5 && m.bar.height <= 40 + 0.5, `${phone}: the skip bar is one thin line, 36–40 px tall`, m.bar);

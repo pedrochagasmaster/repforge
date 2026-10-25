@@ -3662,61 +3662,55 @@ async function main() {
     JSON.stringify(overflowClosed),
     "Log → ⋯ → Focus → menu collapses on its own"
   );
-  // Rest lives in the workout header in Focus: one control, never over the card.
-  await page.click("#woRest");
-  await page.waitForTimeout(200);
+  // The rest timer redesign (owner-approved mock, 2026-10-23): no rest control in the header; the rest rises as a tab
+  // out of the shelf's top edge, and the sheet behind it holds every control. With no rest, the actions sheet opens it.
+  const headerBefore = await page.evaluate(() => document.querySelector(".wo-head").getBoundingClientRect().height);
+  await page.click("#woOverflowBtn");
+  await page.click('[data-workout-action="rest"]');
+  await page.waitForSelector("#restSheet.is-open", { timeout: 5000 });
+  await page.click("#restHold");
+  await page.click("#restSheetClose");
+  await page.waitForTimeout(400);
   const restSurfaces = await page.evaluate(() => {
-    const chip = document.querySelector("#woRest");
+    const tab = document.querySelector("#restTab");
     const bar = document.querySelector("#restBar");
     const card = document.querySelector("#workout .exercise.is-current");
-    const chipBox = chip.getBoundingClientRect();
-    const cardBox = card.getBoundingClientRect();
+    const shelf = card.querySelector(".focus-shelf");
+    const box = tab?.getBoundingClientRect();
     return {
-      chipVisible: !chip.classList.contains("hidden") && getComputedStyle(chip).display !== "none",
-      running: chip.classList.contains("is-running"),
-      counting: /^\d+:\d\d$/.test(chip.querySelector(".wo-rest__time")?.textContent?.trim() || ""),
-      labelled: /\d+:\d\d/.test(chip.getAttribute("aria-label") || ""),
+      chip: !!document.querySelector("#woRest"),
+      tab: !!tab && shelf.contains(tab),
+      counting: /^\d+:\d\d$/.test(tab?.querySelector(".resttab__time")?.textContent?.trim() || ""),
+      labelled: /\d+:\d\d/.test(tab?.getAttribute("aria-label") || ""),
       floatingHidden: getComputedStyle(bar).display === "none",
-      // The clock is inline in the cue slot, a part of the card's flow above the shelf, and nothing else of the old rest chrome is in it.
-      inCard: card.querySelectorAll(".ex__rest").length,
-      inline: card.querySelectorAll(".fx-slot[data-rest='running'] .restinline").length,
-      aboveShelf: (() => {
-        const slot = card.querySelector(".fx-slot")?.getBoundingClientRect();
-        const cta = card.querySelector(".focus-shelf .btn--cta")?.getBoundingClientRect();
-        return !!slot && !!cta && slot.bottom <= cta.top;
-      })(),
-      overlapsCard: chipBox.bottom > cardBox.top,
-      tapTarget: Math.round(Math.min(chipBox.width, chipBox.height)),
+      inCard: card.querySelectorAll(".ex__rest, .restinline, .restpad").length,
+      header: document.querySelector(".wo-head").getBoundingClientRect().height,
+      tapTarget: box ? Math.round(Math.min(box.width, box.height)) : 0,
     };
   });
   assert(
-    restSurfaces.chipVisible && restSurfaces.running && restSurfaces.counting &&
-      restSurfaces.labelled && restSurfaces.floatingHidden && restSurfaces.inCard === 0 &&
-      restSurfaces.inline === 1 && restSurfaces.aboveShelf &&
-      !restSurfaces.overlapsCard && restSurfaces.tapTarget >= 44,
-    "Focus rest counts down in the workout header and inline in the cue slot, clear of the shelf's controls",
-    JSON.stringify(restSurfaces),
-    "Log → Focus → tap the header timer → it becomes a counting pill above the card"
+    !restSurfaces.chip && restSurfaces.tab && restSurfaces.counting && restSurfaces.labelled && restSurfaces.floatingHidden &&
+      restSurfaces.inCard === 0 && restSurfaces.header === headerBefore && restSurfaces.tapTarget >= 44,
+    "Focus rest counts down in the tab over the shelf; the header keeps its height and the card holds no rest chrome",
+    JSON.stringify({ ...restSurfaces, headerBefore }),
+    "Log → Focus → ⋯ → Rest timer → Start → the tab rises out of the shelf"
   );
-  await page.click("#woRest");
+  await page.click("#restTab");
   await page.waitForTimeout(350);
-  const restChipTap = await page.evaluate(() => ({
-    sheet: !document.querySelector("#restSheet").hidden,
-    running: document.querySelector("#woRest").classList.contains("is-running"),
-  }));
+  const restTabTap = await page.evaluate(() => ({ sheet: !document.querySelector("#restSheet").hidden, running: restEnd > 0 }));
   assert(
-    restChipTap.sheet && restChipTap.running,
-    "tapping the running rest chip opens the presets rather than ending the rest",
-    JSON.stringify(restChipTap),
-    "Focus → tap the counting pill → the rest timer opens with the clock still running"
+    restTabTap.sheet && restTabTap.running,
+    "tapping the rest tab opens the rest sheet with the clock still running",
+    JSON.stringify(restTabTap),
+    "Focus → tap the rest tab → the rest sheet opens"
   );
   await page.click("#restStop");
   await page.waitForTimeout(350);
   assert(
-    await page.evaluate(() => !document.querySelector("#woRest").classList.contains("is-running")),
-    "Stop in the rest sheet returns the stopwatch chip",
-    `running=${await page.evaluate(() => document.querySelector("#woRest").classList.contains("is-running"))}`,
-    "Rest timer → Stop → rest ends and the stopwatch returns"
+    await page.evaluate(() => !restEnd && !document.querySelector("#restTab")),
+    "End rest in the sheet ends the rest and takes the tab away",
+    `restEnd=${await page.evaluate(() => restEnd)}`,
+    "Rest sheet → End rest → the tab is gone"
   );
 
   // Focus mode is a swipeable card deck: no fixed dock, and the card owns the
@@ -4081,7 +4075,7 @@ async function main() {
       head: [...card.querySelectorAll(".ledgerline__head .fx-col")].map((s) => s.textContent.replace(/\s+/g, " ").trim()),
       more: !!document.querySelector("#woOverflowBtn"),
       tools: card.querySelectorAll(".focus-ex__tools .focus-tool").length,
-      restInCard: card.querySelectorAll(".restinline, .ex__rest").length,
+      restInCard: card.querySelectorAll(".restinline, .restpad, .ex__rest").length,
     };
   });
   assert(
@@ -4162,7 +4156,7 @@ async function main() {
         return logged
           ? { logged, rec: card.querySelectorAll(".recblock").length,
               // The set just logged armed a rest: until it ends, the cue's place holds the next set's line.
-              cue: card.querySelector(".fx-cue, .restinline__next")?.textContent?.trim() || "" }
+              cue: card.querySelector(".fx-cue")?.textContent?.trim() || "" }
           : null;
       });
     }

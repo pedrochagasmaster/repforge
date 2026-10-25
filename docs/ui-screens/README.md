@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 224 screens,
-1298 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 226 screens,
+1309 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -196,8 +196,10 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Workout — stale draft recovery](screens/workout/stale-draft__phone-390-light-en.png) | 8 | A conflicting tab won while this tab retains a pending field value and offers Reload latest or Copy value. |
 | [Workout — draft persistence retry](screens/workout/persist-retry__phone-390-light-en.png) | 8 | A field write was interrupted; the exact pending value remains visible beside Retry and Copy value actions. |
 | [Workout — invalid draft recovery](screens/workout/invalid-draft__phone-390-light-en.png) | 8 | An unreadable local draft remains untouched and offers a non-destructive copy action. |
-| [Workout — rest running](screens/workout/rest-running__phone-390-light-en.png) | 8 | A logged set has started the rest: the clock, the drain bar and the next set's cue take the cue slot, and the rest controls take the shelf's pad row. |
-| [Workout — rest done](screens/workout/rest-done__phone-390-light-en.png) | 8 | The rest has run out: the clock collapses to one line that counts the overrun up, the cue returns and the field pads come back. |
+| [Workout — rest running](screens/workout/rest-running__phone-390-light-en.png) | 8 | A logged set has started the rest: no clock in the card or the header; the rest tab rises out of the shelf's top edge with its ring and 1:30, and the edge fills with the rest. |
+| [Workout — rest done](screens/workout/rest-done__phone-390-light-en.png) | 8 | The rest has run out: the tab reads Rest done in accent with a check and counts the overrun up (+0:15); the cue and the shelf are as they were. |
+| [Rest sheet](screens/workout/rest-sheet__phone-390-light-en.png) | 8 | The tab opens the rest sheet: the dial at 1:24 of 2:00 with the next set, Pause between -30s and +30s, the presets as the segmented control, and Restart and End rest. |
+| [Rest sheet, no rest running](screens/workout/rest-sheet-idle__phone-390-light-en.png) | 3 | With no rest running the sheet opens from the actions sheet's Rest timer row: the dial at the default length and Start. |
 | [Workout — exercise note](screens/workout/exercise-note__phone-390-light-en.png) | 8 | The per-exercise note sheet. |
 | [Workout — wheel picker, Load](screens/workout/wheel-load__phone-390-light-en.png) | 8 | A second tap on the selected Load field opens the wheel: the rail centred on its current value, with the keyboard button and Done in the sheet's bar. |
 | [Workout — wheel picker, Reps](screens/workout/wheel-reps__phone-390-light-en.png) | 8 | A second tap on the selected Reps field opens the wheel, 1 to 30, with the prescription's target range marked on the rail. |

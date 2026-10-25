@@ -369,35 +369,44 @@ async function main() {
     "RT-03: stale — after the banner's action, input, label, ledger and draft agree", reloaded);
 
   // ---- RT-04 -----------------------------------------------------------------
-  const clock = (p) => p.evaluate(() => document.querySelector("#woRest .wo-rest__time")?.textContent?.trim());
+  // The rest timer redesign (owner-approved mock, 2026-10-23): the rest lives in the tab over the shelf and the sheet
+  // behind it. Pause and Resume are the sheet's one primary control (named by its label), reachable at every moment.
+  const clock = (p) => p.evaluate(() => document.querySelector("#restTab .resttab__time")?.textContent?.trim());
   const secs = (s) => { const m = /^(\d+):(\d\d)$/.exec(s || ""); return m ? +m[1] * 60 + +m[2] : NaN; };
+  const holdLabel = (p) => p.locator("#restHold").getAttribute("aria-label");
   async function startRestByLogging(p) {
     await p.locator(".focus-shelf .saveset").first().click();
     await p.evaluate(() => window.__repforgeWorkoutDraft.flush());
-    await p.waitForFunction(() => document.querySelector("#woRest.is-running"), undefined, { timeout: 5000 });
+    await p.waitForSelector("#restTab", { timeout: 5000 });
     await p.waitForTimeout(200);
   }
   async function sheetHold(p) {
-    await p.locator("#woRest").click();
+    await p.locator("#restTab").click();
     await p.waitForSelector("#restSheet.is-open", { timeout: 5000 });
     return p.locator("#restHold");
   }
+  async function closeSheet(p) {
+    await p.locator("#restSheetClose").click();
+    await p.waitForSelector("#restSheet", { state: "hidden", timeout: 5000 });
+  }
 
-  phase("RT-04: Pause/Resume stays reachable after a field tap replaced the rest pads");
+  phase("RT-04: Pause/Resume is in the sheet behind the tab, and the shelf keeps its field pads");
   await boot(page, { restSec: 90 });
   await startRestByLogging(page);
-  await page.locator("#workout .exercise.is-current .restpad--toggle").click();
-  const heldAt = secs(await clock(page));
-  await page.locator(field("load")).click(); // brings the field pads back for the rest of this rest
-  await page.waitForFunction(() => !document.querySelector("#workout .motion-fade-out"), undefined, { timeout: 3000 });
-  assert(!(await page.locator("#workout .exercise.is-current .restpad--toggle").count()), "RT-04: the inline Pause/Resume pad is gone after the field tap");
+  assert(!(await page.locator("#workout .exercise.is-current .restpad, #workout [data-rest-act]").count()), "RT-04: the shelf has no rest pads; its pads are the field's");
   let hold = await sheetHold(page);
-  assert((await hold.count()) === 1 && (await hold.isVisible()) && (await hold.isEnabled()), "RT-04: the presets sheet offers a Pause/Resume control", await hold.count());
-  assert(/resume/i.test(await hold.textContent()), "RT-04: it reads Resume while the clock is held", await hold.textContent());
-  await page.waitForTimeout(1300);
-  assert(secs(await clock(page)) === heldAt, "RT-04: the held clock did not move", { heldAt, now: await clock(page) });
+  assert((await hold.count()) === 1 && (await hold.isVisible()) && (await hold.isEnabled()) && /pause/i.test(await holdLabel(page)),
+    "RT-04: the sheet offers Pause while the rest runs", await holdLabel(page));
   await hold.click();
-  assert(/pause/i.test(await hold.textContent()), "RT-04: after Resume the control offers Pause");
+  const heldAt = secs(await clock(page));
+  assert(/resume/i.test(await holdLabel(page)), "RT-04: it reads Resume while the clock is held", await holdLabel(page));
+  await closeSheet(page);
+  await page.locator(field("reps")).click(); // another field: the load is already selected, and a second tap opens its wheel
+  await page.waitForTimeout(1300);
+  assert(secs(await clock(page)) === heldAt, "RT-04: the held clock did not move, a field tap and all", { heldAt, now: await clock(page) });
+  hold = await sheetHold(page);
+  await hold.click();
+  assert(/pause/i.test(await holdLabel(page)), "RT-04: after Resume the control offers Pause");
   await page.waitForTimeout(1300);
   const resumedAt = secs(await clock(page));
   assert(resumedAt <= heldAt && resumedAt >= heldAt - 3, "RT-04: Resume continues from the remaining time that was held", { heldAt, resumedAt });
@@ -406,31 +415,28 @@ async function main() {
   await page.waitForTimeout(1200);
   assert(secs(await clock(page)) === reheld, "RT-04: the sheet can pause again", { reheld });
   await page.locator("#restStop").click();
-  await page.waitForFunction(() => !document.querySelector("#woRest.is-running"), undefined, { timeout: 5000 });
+  await page.waitForFunction(() => !document.querySelector("#restTab"), undefined, { timeout: 5000 });
   await boot(page, { restSec: 90 });
   await page.evaluate(() => window.openRestSheet());
   await page.waitForSelector("#restSheet.is-open", { timeout: 5000 });
-  assert(await page.locator("#restHold").isDisabled(), "RT-04: with no rest running the control waits, like Reset and Stop");
-  await page.locator("#restSheetClose").click();
-  await page.waitForSelector("#restSheet", { state: "hidden", timeout: 5000 });
+  assert((await page.locator("#restHold").getAttribute("data-mode")) === "start" && await page.locator("#restReset").isDisabled() && await page.locator("#restStop").isDisabled(),
+    "RT-04: with no rest running the primary control offers Start, and Restart and End rest wait");
+  await closeSheet(page);
 
   phase("RT-04: at 200% text, start, pause, edit a field, resume the same remaining time");
   await boot(page, { restSec: 90, fontScale: 2 });
   assert(await page.evaluate(() => Number.parseFloat(getComputedStyle(document.documentElement).fontSize) > 16.1), "RT-04: the root text is scaled");
   await startRestByLogging(page);
-  // Plan 075 phase 5 (superseding #295's rule): at 200% the rest controls keep the pad row, which scrolls sideways.
-  assert((await page.locator("#workout .exercise.is-current .restpad--toggle").count()) === 1, "RT-04: at 200% the inline rest pads stay in their row");
   hold = await sheetHold(page);
   await hold.click();
   const largeHeld = secs(await clock(page));
-  assert(/resume/i.test(await hold.textContent()), "RT-04: the sheet pauses the clock at 200%");
+  assert(/resume/i.test(await holdLabel(page)), "RT-04: the sheet pauses the clock at 200%");
   const box = await hold.boundingBox();
   const sheetBox = await page.locator("#restSheet").boundingBox();
   assert(box && box.x >= sheetBox.x - 1 && box.x + box.width <= sheetBox.x + sheetBox.width + 1 && box.width > 40 && box.height >= 40,
     "RT-04: the control fits the sheet and meets the target size at 200%", { box, sheetBox });
-  await page.locator("#restSheetClose").click();
-  await page.waitForSelector("#restSheet", { state: "hidden", timeout: 5000 });
-  await page.locator(field("load")).click(); // brings the field pads back, as at the usual size
+  await closeSheet(page);
+  await page.locator(field("reps")).click(); // another field: the load is already selected, and a second tap opens its wheel
   await page.waitForFunction(() => !document.querySelector("#workout .motion-fade-out"), undefined, { timeout: 3000 });
   await page.locator(pad(1)).click();
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
@@ -441,19 +447,22 @@ async function main() {
   await page.waitForTimeout(1300);
   const largeResumed = secs(await clock(page));
   assert(largeResumed <= largeHeld && largeResumed >= largeHeld - 3, "RT-04: Resume continues from the held remaining time at 200%", { largeHeld, largeResumed });
+  await closeSheet(page);
 
   phase("RT-04: while correcting a logged set");
   await boot(page, { restSec: 90 });
   await startRestByLogging(page);
-  await page.locator("#workout .exercise.is-current .restpad--toggle").click();
+  hold = await sheetHold(page);
+  await hold.click();
   const correctHeld = secs(await clock(page));
+  await closeSheet(page);
   await openLoggedSets(page);
   await page.locator(`#workout .exercise.is-current .ledgerline[data-editn="1"]`).click();
   await page.waitForSelector(`${SHELF}.is-editing`);
   await page.waitForFunction(() => !document.querySelector("#workout .motion-fade-out"), undefined, { timeout: 3000 });
-  assert(!(await page.locator("#workout .exercise.is-current .restpad--toggle").count()), "RT-04: while correcting, the rest pads are not in the pad row");
+  assert(await page.locator("#restTab").count() === 1, "RT-04: while correcting, the tab still carries the rest");
   hold = await sheetHold(page);
-  assert(/resume/i.test(await hold.textContent()), "RT-04: the sheet still shows the held clock while a set is corrected", await hold.textContent());
+  assert(/resume/i.test(await holdLabel(page)), "RT-04: the sheet still shows the held clock while a set is corrected", await holdLabel(page));
   await hold.click();
   await page.waitForTimeout(1300);
   const correctResumed = secs(await clock(page));
