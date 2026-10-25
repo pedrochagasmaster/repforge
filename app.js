@@ -7796,6 +7796,101 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
 let sessionEarlyRevision = null;
 let sessionEarlyDraftId = null;
 
+/** Move one exercise of the open session to `to` (0-based) through the draft, then redraw and say where it went. */
+async function moveSessionExercise(exId, to, { focus = "row" } = {}) {
+  const order = (activeWorkoutDraft?.exerciseOrder || []).slice(), from = order.indexOf(exId);
+  if (from < 0 || to < 0 || to >= order.length) return false;
+  if (from === to) { renderSessionSheet(); return false; }
+  order.splice(to, 0, ...order.splice(from, 1));
+  const res = await WorkoutSession.dispatch("reorderExercises", { exerciseOrder: order });
+  if (res.status !== "applied") { renderSessionSheet(); return false; }
+  hydrateDraftCollections(WorkoutSession.projection(), { restoreSelection: true });
+  renderWorkout();
+  renderSessionSheet();
+  const now = activeWorkoutDraft?.exerciseOrder || [], exercise = activeWorkoutDraft?.exercises?.[exId];
+  const mapEl = $("#sessionMap"), target = focus === "grip"
+    ? mapEl?.querySelector(`[data-session-drag="${CSS.escape(exId)}"]`)
+    : mapEl?.querySelector(`[data-session-row-menu="${CSS.escape(exId)}"]`);
+  if (target) quietFocus(target);
+  if (exercise) announce(t("session.sheet.reorder_announcement", { name: exerciseDisplayName(exercise), index: now.indexOf(exId) + 1, count: now.length }), { placement: "top" });
+  return true;
+}
+/** The long-press (or keyboard) menu on a session map row: Move up and Move down, as the editor's row menu. */
+async function sessionRowContext(row, opener = row) {
+  const exId = row?.dataset.contextRow; if (!exId) return;
+  const order = activeWorkoutDraft?.exerciseOrder || [], index = order.indexOf(exId);
+  if (index < 0) return;
+  const action = await openRowContextMenu({ anchor: row, opener, items: [
+    { label: t("program.editor.move_up"), value: "up", disabled: index <= 0, icon: "chev-up" },
+    { label: t("program.editor.move_down"), value: "down", disabled: index >= order.length - 1, icon: "chev-down" }] });
+  if (action === "up" || action === "down") await moveSessionExercise(exId, index + (action === "up" ? -1 : 1));
+}
+/* The session map's drag, on @dnd-kit/dom as the program editor's (same 90ms pickup and 10px slop on touch, none for a
+   mouse on the grip, the library's keyboard drag and live announcements). Without the runtime the grip does not drag
+   and the row menu carries the reorder. */
+let sessionSorting = null;
+function teardownSessionSorting() {
+  const current = sessionSorting; sessionSorting = null;
+  if (!current) return;
+  for (const sortable of current.sortables) { try { sortable.destroy(); } catch { /* already gone */ } }
+  try { current.manager.destroy(); } catch { /* already gone */ }
+}
+function mountSessionSorting(mapEl) {
+  teardownSessionSorting();
+  const Dnd = window.DndKit;
+  if (!mapEl) return;
+  if (!Dnd) {
+    const runtime = window.RepForgeDndRuntime;
+    if (runtime && !runtime.available())
+      runtime.load().then(() => { const live = $("#sessionMap"); if (!sessionSorting && live?.isConnected && live.children.length) mountSessionSorting(live); }, () => {});
+    return;
+  }
+  const rows = [...mapEl.querySelectorAll("[data-session-map-ex]")];
+  if (rows.length < 2) return;
+  const glide = window.RepForgeMotion?.reducedMotion?.() ? null : { duration: 200, easing: "cubic-bezier(.2,.7,.2,1)" };
+  const place = operation => {
+    const source = operation?.source, sortable = source?.sortable || source;
+    const exercise = activeWorkoutDraft?.exercises?.[source?.id];
+    return { name: exercise ? exerciseDisplayName(exercise) : "", index: (sortable?.index ?? 0) + 1, count: rows.length };
+  };
+  const manager = new Dnd.DragDropManager({
+    plugins: defaults => defaults.map(plugin =>
+      plugin === Dnd.Accessibility
+        ? Dnd.Accessibility.configure({
+            announcements: {
+              dragstart: ({ operation }) => t("session.sheet.drag.picked_up", place(operation)),
+              dragover: ({ operation }) => t("session.sheet.drag.over", place(operation)),
+              dragend: ({ operation, canceled }) => canceled
+                ? t("program.editor.drag.cancelled", { name: place(operation).name })
+                : t("session.sheet.drag.dropped", place(operation)),
+            },
+            screenReaderInstructions: { draggable: t("program.editor.drag.instructions") },
+          })
+        : plugin === Dnd.Feedback ? Dnd.Feedback.configure({ dropAnimation: glide, keyboardTransition: glide }) : plugin),
+    sensors: defaults => defaults.map(sensor =>
+      sensor === Dnd.PointerSensor
+        ? Dnd.PointerSensor.configure({
+            activationConstraints: (event, source) =>
+              event.pointerType === "mouse" && (source.handle === event.target || source.handle?.contains(event.target))
+                ? undefined
+                : [new Dnd.PointerActivationConstraints.Delay({ value: 90, tolerance: 10 })],
+          })
+        : sensor),
+  });
+  const sortables = rows.map((row, index) => new Dnd.Sortable({
+    id: row.dataset.sessionMapEx, index, group: "session", type: "session-exercise", accept: ["session-exercise"],
+    element: row, handle: row.querySelector("[data-session-drag]"), transition: glide,
+  }, manager));
+  sessionSorting = { manager, sortables };
+  manager.monitor.addEventListener("dragend", event => {
+    if (event.canceled) return;
+    const source = event.operation?.source, sortable = source?.sortable || source;
+    if (!source?.id || typeof sortable?.index !== "number") return;
+    // The library has already drawn the row in its new place; the draft follows, and the redraw starts from there.
+    moveSessionExercise(source.id, sortable.index, { focus: "grip" });
+  });
+}
+
 function renderSessionSheet(){
   const sheet = $("#sessionSheet");
   if (!sheet) return;
@@ -7825,21 +7920,22 @@ function renderSessionSheet(){
       const isComplete = doneCount === totalCount && totalCount > 0 && !isSkipped;
       const isCurrent = exId === currentId;
       const statusText = isSkipped ? t("log.skipped") : `${doneCount}/${totalCount}`;
-      return `<div class="session-map__row${isCurrent ? " is-current" : ""}" data-session-map-ex="${esc(exId)}"${isCurrent ? ' aria-current="true"' : ""}>` +
+      // Reorder as the editor does (UI kit, owner 2026-10-24): drag the grip, or long-press the row (or its menu, the
+      // keyboard path) for Move up and Move down. The ↑ ↓ buttons are gone.
+      const name = exerciseDisplayName(ex);
+      return `<div class="session-map__row${isCurrent ? " is-current" : ""}" data-session-map-ex="${esc(exId)}" data-context-row="${esc(exId)}"${isCurrent ? ' aria-current="true"' : ""}>` +
         `<button type="button" class="session-map__jump" data-session-map-jump="${esc(exId)}">` +
-        `<span class="session-map__name">${esc(exerciseDisplayName(ex))}</span>` +
+        `<span class="session-map__name">${esc(name)}</span>` +
         `<span class="session-map__status ${isComplete ? "is-complete" : isSkipped ? "is-skipped" : ""}">${esc(statusText)}</span>` +
         `</button>` +
-        `<div class="session-map__reorder">` +
-        `<button type="button" class="session-map__reorder-btn" data-session-reorder-up="${esc(exId)}" aria-label="${esc(t("session.sheet.reorder_up_aria", { name: exerciseDisplayName(ex) }))}"${idx === 0 ? " disabled" : ""}>` +
-        `<span class="icon-mask icon-mask--chev-up" aria-hidden="true"></span></button>` +
-        `<button type="button" class="session-map__reorder-btn" data-session-reorder-down="${esc(exId)}" aria-label="${esc(t("session.sheet.reorder_down_aria", { name: exerciseDisplayName(ex) }))}"${idx === order.length - 1 ? " disabled" : ""}>` +
-        `<span class="icon-mask icon-mask--chev-down" aria-hidden="true"></span></button>` +
-        `</div></div>`;
+        `<button type="button" class="native-row-menu visually-hidden" data-row-menu="${esc(exId)}" data-session-row-menu="${esc(exId)}" aria-haspopup="menu" aria-label="${esc(t("program.editor.more"))}: ${esc(name)}"><span class="icon-mask icon-mask--overflow" aria-hidden="true"></span></button>` +
+        `<button type="button" class="session-map__grip" data-session-drag="${esc(exId)}" data-sheet-hold aria-label="${esc(t("session.sheet.drag_aria", { name }))}"${order.length < 2 ? " disabled" : ""}>` +
+        `<span class="icon-mask icon-mask--grip" aria-hidden="true"></span></button>` +
+        `</div>`;
     }).filter(Boolean);
     mapEl.innerHTML = rows.join("");
     $$("#sessionMap [data-session-map-ex]").forEach(b => b.onclick = (e) => {
-      if (e.target.closest("[data-session-reorder-up], [data-session-reorder-down]")) return;
+      if (e.target.closest("[data-session-drag], [data-row-menu]")) return;
       const exId = b.dataset.sessionMapEx;
       closeSessionSheet().then(() => {
         if (activeWorkoutDraft?.exercises[exId]?.status === "skipped") { openExActionsSheet(exId); return; }
@@ -7850,58 +7946,11 @@ function renderSessionSheet(){
         }
       });
     });
-    const restoreReorderFocus = (exerciseId, direction) => {
-      const key = direction === "up" ? "sessionReorderUp" : "sessionReorderDown";
-      const control = [...mapEl.querySelectorAll("[data-session-reorder-up], [data-session-reorder-down]")]
-        .find(button => button.dataset[key] === exerciseId && !button.disabled) ||
-        [...mapEl.querySelectorAll("[data-session-reorder-up], [data-session-reorder-down]")]
-          .find(button => button.dataset[direction === "up" ? "sessionReorderDown" : "sessionReorderUp"] === exerciseId && !button.disabled) ||
-        mapEl.querySelector(`[data-session-map-ex="${CSS.escape(exerciseId)}"]`);
-      if (control) control.focus({ preventScroll: true });
-    };
-    const announceReorder = (exerciseId, direction) => {
-      const order = activeWorkoutDraft?.exerciseOrder || [];
-      const index = order.indexOf(exerciseId);
-      const exercise = activeWorkoutDraft?.exercises?.[exerciseId];
-      restoreReorderFocus(exerciseId, direction);
-      if (index >= 0 && exercise) announce(t("session.sheet.reorder_announcement", {
-        name: exerciseDisplayName(exercise),
-        index: index + 1,
-        count: order.length,
-      }), { placement: "top" });
-    };
-    $$("#sessionMap [data-session-reorder-up]").forEach(b => b.onclick = async (e) => {
+    $$("#sessionMap [data-session-row-menu]").forEach(button => button.onclick = (e) => {
       e.stopPropagation();
-      const exId = b.dataset.sessionReorderUp;
-      const currentOrder = (activeWorkoutDraft?.exerciseOrder || []).slice();
-      const idx = currentOrder.indexOf(exId);
-      if (idx > 0) {
-        [currentOrder[idx - 1], currentOrder[idx]] = [currentOrder[idx], currentOrder[idx - 1]];
-        const res = await WorkoutSession.dispatch("reorderExercises", { exerciseOrder: currentOrder });
-        if (res.status === "applied") {
-          hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});
-          renderWorkout();
-          renderSessionSheet();
-          announceReorder(exId, "up");
-        }
-      }
+      sessionRowContext(button.closest("[data-context-row]"), button);
     });
-    $$("#sessionMap [data-session-reorder-down]").forEach(b => b.onclick = async (e) => {
-      e.stopPropagation();
-      const exId = b.dataset.sessionReorderDown;
-      const currentOrder = (activeWorkoutDraft?.exerciseOrder || []).slice();
-      const idx = currentOrder.indexOf(exId);
-      if (idx >= 0 && idx < currentOrder.length - 1) {
-        [currentOrder[idx], currentOrder[idx + 1]] = [currentOrder[idx + 1], currentOrder[idx]];
-        const res = await WorkoutSession.dispatch("reorderExercises", { exerciseOrder: currentOrder });
-        if (res.status === "applied") {
-          hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});
-          renderWorkout();
-          renderSessionSheet();
-          announceReorder(exId, "down");
-        }
-      }
-    });
+    mountSessionSorting(mapEl);
   }
 
   // Reset early finish prompt
@@ -8008,6 +8057,7 @@ function closeSessionSheet(){
   const sheet = $("#sessionSheet");
   if (!sheet) return Promise.resolve(false);
   if (sheet.hidden && !(activeModal && activeModal.el === sheet)) return Promise.resolve(false);
+  teardownSessionSorting();
   return closeModal(sheet);
 }
 window.__repforgeSessionSheet = { open: openSessionSheet, close: closeSessionSheet, render: renderSessionSheet };
@@ -22209,6 +22259,8 @@ function init(){
   document.addEventListener("rowcontext",event=>{
     const row=event.target.closest?.("#todayExList [data-context-row]");
     if(row)todayRowContext(row,event.target);
+    const sessionRow=event.target.closest?.("#sessionMap [data-context-row]");
+    if(sessionRow)sessionRowContext(sessionRow,event.target);
   });
   const sessionSheetBtn=$("#sessionSheetBtn");if(sessionSheetBtn)sessionSheetBtn.onclick=()=>openSessionSheet();
   const sessionSheetClose=$("#sessionSheetClose");if(sessionSheetClose)sessionSheetClose.onclick=()=>closeSessionSheet();

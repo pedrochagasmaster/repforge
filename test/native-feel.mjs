@@ -762,9 +762,11 @@ async function nativeControls(browser) {
     await page.keyboard.press('ArrowUp');
     const keyed = await ringOf();
     assert(keyed.focused && keyed.outline && !keyed.quiet, 'the first key press gives it the keyboard ring', JSON.stringify(keyed));
-    const reorder = await page.locator('#sessionSheet .session-map__reorder-btn').first().evaluate(button => { const style = getComputedStyle(button);
-      return { border: parseFloat(style.borderTopWidth) === 0 || style.borderTopColor === 'rgba(0, 0, 0, 0)', fill: style.backgroundColor, icon: !!button.querySelector('.icon-mask, svg, [class*="chev"]') }; });
-    assert(reorder.border && reorder.fill === 'rgba(0, 0, 0, 0)' && reorder.icon, 'the session map reorders with borderless icon buttons, as the kit draws them', JSON.stringify(reorder));
+    const reorder = await page.locator('#sessionSheet .session-map__grip').first().evaluate(button => { const style = getComputedStyle(button), r = button.getBoundingClientRect();
+      return { border: parseFloat(style.borderTopWidth) === 0 || style.borderTopColor === 'rgba(0, 0, 0, 0)', fill: style.backgroundColor, grip: !!button.querySelector('.icon-mask--grip'), w: r.width, h: r.height,
+        upDown: document.querySelectorAll('#sessionSheet [data-session-reorder-up], #sessionSheet [data-session-reorder-down]').length }; });
+    assert(reorder.border && reorder.fill === 'rgba(0, 0, 0, 0)' && reorder.grip && reorder.w >= 44 && reorder.h >= 44 && reorder.upDown === 0,
+      'the session map reorders with a borderless 44px grip, as the editor and the kit do, and no up/down buttons', JSON.stringify(reorder));
     await page.click('#sessionSheetClose'); await page.waitForSelector('#sessionSheet', { state: 'hidden' });
     phase("Session details sits on the bottom edge after a typed entry, even when the viewport still reports the keyboard");
     // iOS can report the shrunken visual viewport for a while after the keyboard goes; no field is being edited.
@@ -2568,8 +2570,8 @@ try {
       for (const sheet of document.styleSheets) { try { walk(sheet.cssRules); } catch {} }
       return out;
     });
-    const strayActive = rules.active.filter((sel) => !/(input|__input|drag-handle)[^ ]*:active/.test(sel));
-    assert(strayActive.length === 0, "only form fields and the drag handle's cursor keep :active", strayActive.join("\n    "));
+    const strayActive = rules.active.filter((sel) => !/(input|__input|drag-handle|session-map__grip)[^ ]*:active/.test(sel));
+    assert(strayActive.length === 0, "only form fields and the drag handles' cursor (the editor's and the session map's grip) keep :active", strayActive.join("\n    "));
     assert(rules.pressed.length > 150, "the app's press rules are .is-pressed rules", String(rules.pressed.length));
 
     const missed = await page.evaluate((selectors) => {

@@ -2968,12 +2968,12 @@
       const slot = slotOfExercise(exercise), list = alternateId ? slot?.alternates || [] : exercisesFor(document, exercise.day);
       const index = alternateId ? list.indexOf(alternateId) : list.findIndex(item => item.id === id);
       const items = [
-        { label: label("moveUp"), value: "up", disabled: index <= 0 },
-        { label: label("moveDown"), value: "down", disabled: index >= list.length - 1 }
+        { label: label("moveUp"), value: "up", disabled: index <= 0, icon: "chev-up" },
+        { label: label("moveDown"), value: "down", disabled: index >= list.length - 1, icon: "chev-down" }
       ];
       // Another day is chosen on the exercise page, where its day chips already live.
-      if (!alternateId && labels(document).some(day => day !== exercise.day)) items.push({ label: label("moveOther"), value: "day" });
-      items.push({ label: alternateId ? rt("program.editor.remove_alternate") : label("removeExercise"), value: "remove", destructive: true });
+      if (!alternateId && labels(document).some(day => day !== exercise.day)) items.push({ label: label("moveOther"), value: "day", icon: "cal" });
+      items.push({ label: alternateId ? rt("program.editor.remove_alternate") : label("removeExercise"), value: "remove", destructive: true, icon: "close" });
       const action = await adapter.contextMenu({ anchor: row, opener, items });
       if (!action || destroyed) return;
       if (alternateId) { await recorded(() => editAlternate(id, alternateId, action === "remove" ? "alternate-remove" : action === "up" ? "alternate-up" : "alternate-down")); return; }

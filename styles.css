@@ -868,12 +868,13 @@ input:is([type=date],[type=time])::-webkit-date-and-time-value{min-height:1.5em;
 
 /* Day tabs / legacy seg */
 .seg{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.seg:not(.seg--window){gap:0;padding:2px;border-radius:var(--radius-control);background:var(--control-track)}
 .seg:not(.seg--window) button{
-  flex:1;min-width:0;border:1px solid var(--rule);background:var(--surface);color:var(--ink-soft);
-  cursor:pointer;border-radius:var(--radius-control);padding:11px 8px;font-weight:600;font-size:var(--font-size-body-small);
+  flex:1;min-width:0;border:0;background:transparent;color:var(--ink);
+  cursor:pointer;border-radius:var(--radius-control);padding:11px 8px;font-weight:var(--weight-medium);font-size:var(--font-size-body-small);
 }
 .seg:not(.seg--window) button.active{
-  color:var(--ink);border-color:var(--accent);background:var(--surface);
+  color:var(--ink);background:var(--segment-thumb-bg);box-shadow:var(--segment-thumb-shadow);font-weight:var(--weight-semibold);
 }
 
 /* ---- Stat band (unified: value above caption, partial hairlines) ---- */
@@ -2231,23 +2232,28 @@ body.is-sheet-open{overflow:hidden}
 .review-sheet__lab{flex:1 1 auto;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);color:var(--color-ink)}
 .review-sheet__range{display:inline-flex;align-items:center;gap:var(--space-8)}
 .review-sheet__range>span[aria-hidden]{color:var(--color-ink-secondary)}
-/* A bordered −/value/+ pill. The --sm variant narrows the buttons for the
-   ledger's dense RIR column without shrinking below a 44px tap target. */
-.review-step{display:inline-flex;align-items:center;border:1px solid var(--control-adjustment-boundary);border-radius:var(--radius-control);background:var(--control-adjustment-bg);overflow:hidden}
-.review-step button{flex:none;width:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);padding:0;border:0;background:none;color:var(--control-adjustment-ink);font-family:var(--font-language);font-size:var(--font-size-control);line-height:1;cursor:pointer}
-@media (hover:hover) and (pointer:fine){.review-step button:hover:not(:disabled){background:var(--well)}}
-.review-step button.is-pressed:not(:disabled){background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
+/* The native stepper (UI kit S6, #485's `.native-stepper`): the value, then a 36px − + capsule on the soft track with a
+   .5px divider, each button a 44px touch box. The value is drawn first (order) so the markup keeps its − value + order. */
+.review-step{display:inline-flex;align-items:center;gap:0;border:0;border-radius:var(--radius-none);background:transparent;overflow:visible}
+.review-step b{order:-1;min-width:40px;padding:0 var(--space-12) 0 0;text-align:right;font-family:var(--font-training-data);font-weight:var(--weight-regular);font-size:var(--font-size-control);color:var(--color-ink)}
+.review-step button{
+  position:relative;flex:none;display:grid;place-items:center;width:47px;min-width:47px;height:36px;min-height:36px;padding:0;border:0;
+  background:var(--control-track);color:var(--ink);font-family:var(--font-language);font-size:var(--control-icon-size);line-height:1;cursor:pointer
+}
+.review-step button::after{content:"";position:absolute;inset:-4px 0}
+.review-step button:first-of-type{border-radius:var(--radius-control) var(--radius-none) var(--radius-none) var(--radius-control)}
+.review-step button:last-of-type{border-radius:var(--radius-none) var(--radius-control) var(--radius-control) var(--radius-none);border-left:.5px solid var(--rule-strong)}
+@media (hover:hover) and (pointer:fine){.review-step button:hover:not(:disabled){background-image:linear-gradient(var(--row-pressed-bg),var(--row-pressed-bg))}}
+.review-step button.is-pressed:not(:disabled){background-image:linear-gradient(var(--row-pressed-bg),var(--row-pressed-bg))}
 .review-step button:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 .review-step button:disabled{color:var(--color-disabled-reason);cursor:not-allowed}
-.review-step b{min-width:40px;padding:0 var(--space-4);text-align:center;font-family:var(--font-training-data);font-weight:var(--weight-medium);font-size:var(--font-size-control);color:var(--color-ink)}
-.review-step button+b,.review-step b+button{border-left:1px solid var(--boundary-decorative)}
-.review-step--sm button{width:36px;min-width:36px}
-.review-step--sm b{min-width:22px;font-size:var(--font-size-body-small)}
-/* The rest-preset segmented control: a quiet well with a selected option drawn
-   in the same quiet-selection ring as the day tabs' indicator. */
-.review-seg{display:flex;flex-wrap:wrap;gap:var(--space-4);padding:var(--space-4);background:var(--well);border-radius:var(--radius-control)}
-.review-seg__opt{flex:1 0 auto;white-space:nowrap;min-height:var(--control-target);padding:var(--space-8) var(--space-4);border:1px solid transparent;border-radius:var(--radius-compact);background:none;font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);color:var(--color-ink-secondary);cursor:pointer;text-align:center}
-.review-seg__opt.is-on{background:var(--surface);border-color:var(--boundary-selected-quiet);color:var(--color-ink);box-shadow:var(--elevation-selected-quiet-shadow)}
+.review-step--sm button{width:var(--control-target);min-width:var(--control-target)}
+.review-step--sm b{min-width:22px;padding-right:var(--space-8);font-size:var(--font-size-body-small)}
+/* The rest-preset segmented control: the native segmented recipe (UI kit S5), a raised thumb and a semibold label. */
+.review-seg{display:flex;flex-wrap:wrap;gap:0;padding:2px;background:var(--control-track);border-radius:var(--radius-control)}
+.review-seg__opt{flex:1 0 auto;white-space:nowrap;min-height:var(--control-target);padding:var(--space-8) var(--space-4);border:0;border-radius:var(--radius-control);background:none;font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);color:var(--color-ink);cursor:pointer;text-align:center}
+.review-seg__opt.is-on{background:var(--segment-thumb-bg);color:var(--color-ink);font-weight:var(--weight-semibold);box-shadow:var(--segment-thumb-shadow)}
+.review-seg__opt.is-pressed:not(.is-on){background:var(--row-pressed-bg)}
 .review-seg__opt:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .review-sheet__time{margin:var(--space-12) 0 0;font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);color:var(--color-ink)}
 .review-sheet__note{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
@@ -2431,14 +2437,21 @@ textarea.sheetfield__input{
   -webkit-mask:var(--check) no-repeat center/contain;mask:var(--check) no-repeat center/contain;
 }
 .session-map__status.is-skipped{font-family:var(--font-language)}
-.session-map__reorder{display:flex;align-items:center;gap:var(--space-8);flex:none}
-.session-map__reorder-btn{width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);padding:0;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:1px solid transparent;color:var(--control-secondary-ink);border-radius:var(--radius-control);cursor:pointer}
-@media (hover: hover) and (pointer: fine){
-.session-map__reorder-btn:hover:not(:disabled){background:var(--row-pressed-bg);color:var(--control-secondary-ink)}
+/* The grip (UI kit §5, owner 2026-10-24): a 44px target with no box, the 18px grip in --ink-faint; it dims on a press.
+   Dragging it reorders the session as the editor does; a long-press on the row opens Move up and Move down. */
+.session-map__grip{
+  flex:none;display:inline-flex;align-items:center;justify-content:center;width:var(--control-target);height:var(--control-target);
+  min-width:var(--control-target);min-height:var(--control-target);padding:0;border:0;border-radius:var(--radius-control);
+  background:transparent;color:var(--ink-faint);cursor:grab;touch-action:none
 }
-.session-map__reorder-btn.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-secondary-ink);transform:none}
-.session-map__reorder-btn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-.session-map__reorder-btn:disabled{background:transparent;color:var(--color-disabled-reason);border-color:transparent;opacity:1;cursor:not-allowed;transform:none}
+.session-map__grip .icon-mask{width:18px;height:18px}
+.session-map__grip:active{cursor:grabbing}
+.session-map__grip.is-pressed:not(:disabled){opacity:.4}
+.session-map__grip:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
+.session-map__grip:disabled{visibility:hidden}
+.session-map__row[data-dnd-dragging]{z-index:4;background:var(--surface);box-shadow:var(--elevation-drag-shadow);transition:none}
+.session-map__row[data-dnd-placeholder]{opacity:.35}
+@media (prefers-reduced-motion:reduce){.session-map__row[data-dnd-dragging]{box-shadow:none}}
 .session-sheet__meta{display:grid;gap:var(--space-12);margin-top:var(--space-18)}
 /* Early finish lives in the foot, in thumb reach. Choosing it opens the confirmation there, and the
    omitted-sets list stays whole (it scrolls inside its own box when a long day outgrows the sheet). */
@@ -2885,12 +2898,18 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
 .program-editor__exercise-body{margin:0;padding:14px 16px 0;border-top:1px solid var(--rule)}
 .program-editor__sets{display:flex;align-items:center;justify-content:space-between;gap:14px;min-height:62px}
 .program-editor__field-label,.program-editor__range legend{color:var(--ink-soft);font-size:var(--font-size-label);font-weight:500;letter-spacing:var(--track-label);text-transform:uppercase}
-.program-editor__stepper{display:grid;grid-template-columns:62px minmax(70px,120px) 62px;min-height:62px;border:1px solid var(--rule-strong);border-radius:var(--radius-control);overflow:hidden;background:var(--surface)}
-.program-editor__stepper button,.program-editor__stepper output{display:flex;align-items:center;justify-content:center;min-width:0;min-height:60px;padding:0;border:0;background:transparent;color:var(--ink);font-size:var(--font-size-metric);font-variant-numeric:tabular-nums}
-.program-editor__stepper button{cursor:pointer}
-.program-editor__stepper button+output,.program-editor__stepper output+button{border-left:1px solid var(--rule)}
+/* The sets stepper is the native stepper (UI kit S6): the value, then the 36px − + capsule on the soft track. */
+.program-editor__stepper{display:inline-flex;align-items:center;justify-content:flex-end;gap:0;min-height:var(--control-target);border:0;border-radius:var(--radius-none);overflow:visible;background:transparent}
+.program-editor__stepper output{order:-1;display:flex;align-items:center;justify-content:flex-end;min-width:2.5em;min-height:var(--control-target);padding:0 var(--space-12) 0 0;border:0;background:transparent;color:var(--ink);font-size:var(--font-size-metric);font-variant-numeric:tabular-nums}
+.program-editor__stepper button{
+  position:relative;display:grid;place-items:center;flex:none;width:47px;min-width:47px;height:36px;min-height:36px;padding:0;border:0;
+  background:var(--control-track);color:var(--ink);font-size:var(--control-icon-size);line-height:1;cursor:pointer
+}
+.program-editor__stepper button::after{content:"";position:absolute;inset:-4px 0}
+.program-editor__stepper button:first-child{border-radius:var(--radius-control) var(--radius-none) var(--radius-none) var(--radius-control)}
+.program-editor__stepper button:last-child{border-radius:var(--radius-none) var(--radius-control) var(--radius-control) var(--radius-none);border-left:.5px solid var(--rule-strong)}
 @media (hover: hover) and (pointer: fine){
-.program-editor__stepper button:hover{background:var(--well)}
+.program-editor__stepper button:hover:not(:disabled){background-image:linear-gradient(var(--row-pressed-bg),var(--row-pressed-bg))}
 }
 .program-editor__rep-rule{height:1px;background:var(--rule);margin:0 0 18px}
 .program-editor__range{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0;padding:0;border:0}
@@ -2936,17 +2955,17 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
 .program-editor__alternate{display:flex;align-items:center;gap:8px;min-height:calc(var(--control-target) + 12px);border-top:1px solid var(--boundary-decorative)}
 .program-editor__alternate:last-child{border-bottom:1px solid var(--boundary-decorative)}
 .program-editor__alternate-name{flex:1 1 auto;min-width:0;color:var(--color-ink);font-size:var(--font-size-body);overflow-wrap:anywhere}
-.program-editor__alternate-move,.program-editor__alternate-remove{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:var(--control-target);height:var(--control-target);padding:0;border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);background:var(--control-secondary-bg);color:var(--control-secondary-ink);cursor:pointer;font-size:var(--control-icon-size);line-height:1}
+.program-editor__alternate-move,.program-editor__alternate-remove{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:var(--control-target);height:var(--control-target);padding:0;border:0;border-radius:var(--radius-control);background:transparent;color:var(--control-secondary-ink);cursor:pointer;font-size:var(--control-icon-size);line-height:1}
 .program-editor__alternate-remove{color:var(--color-destructive)}
-.program-editor__alternate-move:disabled{color:var(--color-disabled-reason);border-color:var(--boundary-decorative);cursor:not-allowed}
+.program-editor__alternate-move:disabled{color:var(--color-disabled-reason);cursor:not-allowed}
 .program-editor__add-alternate{display:flex;align-items:center;gap:8px;min-height:var(--control-target);padding:0;border:0;background:transparent;color:var(--accent-deep);cursor:pointer;text-align:left;font-size:var(--font-size-control)}
 .program-editor__add-alternate:disabled{color:var(--color-disabled-reason);cursor:not-allowed}
 .program-editor__alternates .program-editor__hint{margin:0;color:var(--color-ink-secondary);font-size:var(--font-size-body-small);line-height:var(--line-reading)}
 :is(.program-editor__alternate-move,.program-editor__alternate-remove,.program-editor__add-alternate):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 @media (hover: hover) and (pointer: fine){
-.program-editor__alternate-move:not(:disabled):hover,.program-editor__alternate-remove:hover{background:var(--well)}
+.program-editor__alternate-move:not(:disabled):hover,.program-editor__alternate-remove:hover{background:transparent;opacity:.6}
 }
-:is(.program-editor__alternate-move:not(:disabled),.program-editor__alternate-remove).is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
+:is(.program-editor__alternate-move:not(:disabled),.program-editor__alternate-remove).is-pressed{background:transparent;opacity:.4;transform:none}
 .program-editor__exercise-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:18px -16px 0;padding:0 16px;border-top:1px solid var(--rule)}
 .program-editor__exercise-actions button{min-height:62px;padding:8px 0;border:0;background:transparent;cursor:pointer;font-size:var(--font-size-control);font-weight:500}
 .program-editor__replace{color:var(--accent-deep)}
@@ -3028,8 +3047,7 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
 .program-editor-onboarding .program-editor__exercise-name{flex:1 1 min(11em,100%);min-width:min(11em,100%)}
 .program-editor-onboarding .program-editor__exercise-body{padding:12px 16px 0}
 .program-editor-onboarding .program-editor__sets{min-height:58px}
-.program-editor-onboarding .program-editor__stepper{width:160px;grid-template-columns:44px 1fr 44px;min-height:58px}
-.program-editor-onboarding .program-editor__stepper button,.program-editor-onboarding .program-editor__stepper output{min-height:56px}
+
 .program-editor-onboarding .program-editor__exercise-actions{margin-top:14px}
 .program-editor-onboarding .program-editor__exercise-actions button{min-height:50px}
 @media (max-width:340px){
@@ -3086,9 +3104,7 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
 .program-editor-installed .program-editor__exercise-body{padding:12px 16px 0}
 .program-editor-installed .program-editor__sets{display:block;min-height:0}
 .program-editor-installed .program-editor__sets .program-editor__field-label{display:block;margin-bottom:8px}
-.program-editor-installed .program-editor__stepper{width:100%;grid-template-columns:1fr 1.2fr 1fr;min-height:var(--control-target)}
-.program-editor-installed .program-editor__stepper button{min-height:var(--control-target)}
-.program-editor-installed .program-editor__stepper output{min-height:var(--control-target);font-size:var(--font-size-metric)}
+
 .program-editor-installed .program-editor__rep-rule{margin:14px 0 16px}
 .program-editor-installed .program-editor__range{row-gap:12px}
 .program-editor-installed .program-editor__range input{margin-top:2px;padding:10px 14px;font-size:var(--font-size-control)}
@@ -3180,8 +3196,6 @@ body:has(:is(#program,[data-copy-id="program"]).program-editor-installed) nav{di
 }
 .program-editor-a__bar .btn{width:100%}
 .program-editor-a__reason{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink)}
-/* The Suggest loads switch is ink, not orange (decision 4). */
-.program-editor-a__switch[aria-checked="true"]::before{background:var(--ink)}
 .program-editor-a__line{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--space-12);min-height:var(--control-target);padding:var(--space-8) 0}
 .program-editor-a__loadstep .program-editor__metric-field{display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);width:100%}
 .program-editor-a__loadstep input{width:6.5rem;min-height:var(--control-target);padding:var(--space-8) var(--space-12);border:1px solid var(--control-adjustment-boundary);border-radius:var(--radius-control);background:var(--surface);font-family:var(--font-training-data);font-size:var(--font-size-control);text-align:right;color:var(--color-ink)}
@@ -4866,20 +4880,24 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 }
 
 /* The Strength tab: the scope control, then a row per lift that opens in place. */
+/* The scope control is the native segmented control (UI kit S5, #485's `.native-segments` recipe): a soft track, and the
+   chosen segment a raised thumb with a semibold label (contract: state cues). No group border, no ring. */
 #stats #strengthScopeSeg,
 .segpill{
-  display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:0;margin:var(--space-14) 0 0;padding:3px;
-  border:1px solid var(--boundary-decorative);border-radius:var(--radius-control);background:var(--well);
+  display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:0;margin:var(--space-14) 0 0;padding:2px;
+  border:0;border-radius:var(--radius-control);background:var(--control-track);
 }
 #stats #strengthScopeSeg > button,
 .segpill > button{
-  min-height:var(--control-target);margin:0;padding:4px var(--space-8);border:2px solid transparent;border-radius:var(--radius-compact);
-  background:var(--control-quiet-bg);color:var(--color-ink-secondary);text-align:center;white-space:normal;overflow-wrap:anywhere;
-  font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);
+  min-height:var(--control-target);margin:0;padding:var(--space-4) var(--space-8);border:0;border-radius:var(--radius-control);
+  background:transparent;color:var(--ink);text-align:center;white-space:normal;overflow-wrap:anywhere;box-shadow:none;
+  font-size:var(--font-size-body-small);font-weight:var(--weight-medium);line-height:var(--line-standard);
 }
+#stats #strengthScopeSeg > button.is-pressed:not(.active),
+.segpill > button.is-pressed:not([aria-pressed="true"]){background:var(--row-pressed-bg)}
 #stats #strengthScopeSeg > button.active,
 .segpill > button[aria-pressed="true"]{
-  border-color:var(--boundary-selected-quiet);background:var(--surface);color:var(--control-selection-ink);font-weight:var(--weight-semibold);
+  background:var(--segment-thumb-bg);box-shadow:var(--segment-thumb-shadow);color:var(--ink);font-weight:var(--weight-semibold);
 }
 .evrow--d{
   display:grid;grid-template-columns:minmax(0,1fr) minmax(0,auto);grid-template-areas:"n f" "o s" "k s";column-gap:var(--space-12);row-gap:0;
@@ -6221,39 +6239,13 @@ body.is-entry-editor .program-editor__summary,
   color:var(--color-ink);font-family:var(--font-training-data);
   font-variant-numeric:tabular-nums
 }
-body.is-entry-editor .program-editor__stepper,
-:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__stepper{
-  overflow:visible;border-color:var(--control-adjustment-boundary);
-  border-radius:var(--radius-control);background:var(--control-adjustment-bg)
-}
 body.is-entry-editor .program-editor__stepper button[data-role="adjust"],
 :is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__stepper button[data-role="adjust"]{
-  background:var(--control-adjustment-bg);color:var(--control-adjustment-ink);
-  border-color:var(--control-adjustment-boundary);font-size:var(--control-icon-size)
-}
-body.is-entry-editor .program-editor__stepper button[data-role="adjust"]:first-child,
-:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__stepper button[data-role="adjust"]:first-child{
-  border-radius:var(--radius-control) var(--radius-none) var(--radius-none) var(--radius-control)
-}
-body.is-entry-editor .program-editor__stepper button[data-role="adjust"]:last-child,
-:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__stepper button[data-role="adjust"]:last-child{
-  border-radius:var(--radius-none) var(--radius-control) var(--radius-control) var(--radius-none)
-}
-@media (hover: hover) and (pointer: fine){
-body.is-entry-editor .program-editor__stepper button[data-role="adjust"]:hover:not(:disabled),
-:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__stepper button[data-role="adjust"]:hover:not(:disabled){
-  background:var(--well);color:var(--control-adjustment-ink);
-  border-color:var(--control-adjustment-boundary)
-}
+  background:var(--control-track);color:var(--ink);font-size:var(--control-icon-size)
 }
 body.is-entry-editor .program-editor__stepper button[data-role="adjust"].is-pressed:not(:disabled),
 :is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__stepper button[data-role="adjust"].is-pressed:not(:disabled){
-  background:var(--row-pressed-bg);color:var(--control-adjustment-ink);
-  border-color:var(--control-adjustment-boundary)
-}
-body.is-entry-editor .program-editor__stepper button[data-role="adjust"].is-pressed:not(:disabled),
-:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__stepper button[data-role="adjust"].is-pressed:not(:disabled){
-  transform:var(--control-pressed-transform)
+  background-image:linear-gradient(var(--row-pressed-bg),var(--row-pressed-bg))
 }
 body.is-entry-editor .program-editor__stepper button[data-role="adjust"]:focus-visible,
 :is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__stepper button[data-role="adjust"]:focus-visible,
@@ -6285,8 +6277,7 @@ body.is-entry-editor :is(
 }
 body.is-entry-editor .program-editor__stepper button[data-role="adjust"]:disabled,
 :is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__stepper button[data-role="adjust"]:disabled{
-  background:var(--control-adjustment-bg);color:var(--color-disabled-reason);
-  border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
+  background:var(--control-track);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none
 }
 body.is-entry-editor :is(
   .program-editor__day-name.pday__name:not([id]),
@@ -7636,9 +7627,9 @@ body.is-entry-editor #entryProgramName,
 .review__ro.is-lifted{z-index:2;border-radius:var(--radius-control);background:var(--surface);box-shadow:var(--elevation-drag-shadow)}
 .review__handle{flex:none;width:var(--control-target);height:var(--control-target);display:inline-flex;align-items:center;justify-content:center;color:var(--color-ink-secondary);touch-action:none;cursor:grab}
 .review__ro-name{flex:1;min-width:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);color:var(--color-ink);overflow-wrap:anywhere}
-.review__ro-btn{flex:none;width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--control-adjustment-boundary);border-radius:var(--radius-control);background:var(--control-adjustment-bg);color:var(--control-adjustment-ink);cursor:pointer}
-@media (hover:hover) and (pointer:fine){.review__ro-btn:hover:not(:disabled){background:var(--well)}}
-.review__ro-btn.is-pressed:not(:disabled){background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
+.review__ro-btn{flex:none;width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:var(--radius-control);background:transparent;color:var(--control-adjustment-ink);cursor:pointer}
+@media (hover:hover) and (pointer:fine){.review__ro-btn:hover:not(:disabled){background:transparent;opacity:.6}}
+.review__ro-btn.is-pressed:not(:disabled){background:transparent;opacity:.4;transform:none}
 .review__ro-btn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .review__ro-btn:disabled{color:var(--color-disabled-reason);opacity:1;cursor:not-allowed}
 .review__reorder-done{margin-top:var(--space-18)}
@@ -8152,11 +8143,13 @@ body.is-entry-editor #entryProgramName,
 .entry-b__priority{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;min-height:48px;padding:6px 0;border-bottom:1px solid var(--rule);font-size:var(--font-size-body)}
 /* Four choices may not fit beside a long name or at large text: the control then takes its own line, still at the end. */
 .entry-b__priority>.entry-seg{margin-left:auto}
-.entry-seg{display:flex;gap:4px;padding:4px;border-radius:var(--radius-control);background:var(--well)}
-.entry-seg__option{flex:1;min-height:40px;padding:8px 10px;border:1px solid transparent;border-radius:var(--radius-compact);background:transparent;color:var(--ink-soft);font:inherit;font-size:var(--font-size-control);font-weight:500;cursor:pointer}
-.entry-seg__option.is-selected{background:var(--surface);color:var(--ink);border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow)}
+/* Native segmented control (UI kit S5): soft track, raised thumb, semibold chosen label; no ring. */
+.entry-seg{display:flex;gap:0;padding:2px;border-radius:var(--radius-control);background:var(--control-track)}
+.entry-seg__option{flex:1;min-height:40px;padding:8px 10px;border:0;border-radius:var(--radius-control);background:transparent;color:var(--ink);font:inherit;font-size:var(--font-size-body-small);font-weight:var(--weight-medium);cursor:pointer}
+.entry-seg__option.is-pressed:not(.is-selected){background:var(--row-pressed-bg)}
+.entry-seg__option.is-selected{background:var(--segment-thumb-bg);color:var(--ink);font-weight:var(--weight-semibold);box-shadow:var(--segment-thumb-shadow)}
 .entry-seg__option:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-.entry-seg--mini{flex:none;padding:3px;gap:2px}
+.entry-seg--mini{flex:none;padding:2px;gap:0}
 .entry-seg--mini .entry-seg__option{flex:none;min-height:36px;padding:6px 8px;font-size:var(--font-size-caption)}
 .entry-seg--unit{margin:12px auto 0;max-width:320px}
 .entry-b__deload{margin:16px 0 0;padding:20px;border:1.5px solid var(--rule);border-radius:var(--radius-surface);background:var(--surface)}

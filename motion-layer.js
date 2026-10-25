@@ -753,6 +753,8 @@
     if (!target || !sheet) return;
     if (event.pointerType === "mouse" && (target.closest("input,select,textarea,[contenteditable]") || global.isNativeTextSelectionTarget?.(target))) return;
     if (sheetScrollHeld(target, sheet)) return;
+    // A control that owns its own drag (the session map's grip) keeps the pointer; the sheet does not follow it.
+    if (target.closest("[data-sheet-hold]")) return;
     sheetGesture = {
       id: event.pointerId, sheet, scrim: currentScrim(), x: event.clientX, y: event.clientY,
       anchorY: event.clientY, dy: 0, live: false, velocity: 0, upward: onSheetRail(target, sheet),

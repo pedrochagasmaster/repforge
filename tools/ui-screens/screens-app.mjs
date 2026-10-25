@@ -1915,28 +1915,25 @@ export const APP_SCENARIOS = {
     await sleep(page, 400);
   },
   "workout/warmup-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click(); await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); await resetSheetScroll(page, ".exactions-sheet__body"); },
+  // The session map reorders as the editor does: the row's menu (long-press, or its button for the keyboard) moves it.
   "workout/reorder": async page => {
     await focusMode(page);
     await page.click("#sessionSheetBtn");
     const before = await page.evaluate(() => {
       const draft = window.__repforgeWorkoutDraft.current();
-      const button = document.querySelector("[data-session-reorder-down]");
-      const exerciseId = button?.dataset.sessionReorderDown;
+      const exerciseId = document.querySelector("#sessionMap [data-session-row-menu]")?.dataset.sessionRowMenu;
       return {
         exerciseId,
         beforeRevision: draft?.revision ?? -1,
         expectedIndex: exerciseId ? (draft?.exerciseOrder || []).indexOf(exerciseId) + 1 : -1,
       };
     });
-    await page.locator("[data-session-reorder-down]").first().click();
+    await page.locator("#sessionMap [data-session-row-menu]").first().evaluate((button) => button.click());
+    await page.locator('#nativeContextMenu [data-menu-value="down"]').click();
     await page.waitForFunction(({ exerciseId, beforeRevision, expectedIndex }) => {
       const draft = window.__repforgeWorkoutDraft?.current?.();
-      const active = document.activeElement;
-      const isMovingExercise = active?.dataset?.sessionReorderUp === exerciseId
-        || active?.dataset?.sessionReorderDown === exerciseId;
-      return exerciseId && draft?.revision > beforeRevision
-        && draft.exerciseOrder?.[expectedIndex] === exerciseId
-        && isMovingExercise && !active.disabled;
+      return exerciseId && draft?.revision > beforeRevision && draft.exerciseOrder?.[expectedIndex] === exerciseId
+        && !document.querySelector("#nativeContextMenu") && document.activeElement?.dataset?.sessionRowMenu === exerciseId;
     }, before, { timeout: 15000 });
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     // Prove the production announcement was emitted, then let its ordinary
