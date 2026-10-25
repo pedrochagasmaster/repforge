@@ -208,6 +208,18 @@ async function main() {
     console.log("\nWarm-up management: toggles individual set role");
     const warmupToggleSet1 = page.locator("#exActionsWarmupList [data-warm-toggle-set]").first();
     assert(await warmupToggleSet1.count() > 0, "warm-up toggle controls are rendered for each set");
+    // The native UI kit (owner, 2026-10-24): each set's warm-up control is a switch named for its set, the
+    // substitution row says "Swap exercise", and every action's glyph trails its label.
+    const kit = await page.evaluate(() => {
+      const sw = document.querySelector("#exActionsWarmupList [data-warm-toggle-set]");
+      const subst = document.querySelector("#exActionSubstBtn");
+      const icon = subst.querySelector(".icon-mask").getBoundingClientRect(), text = subst.querySelector(".exactions__act-text").getBoundingClientRect();
+      return { role: sw.getAttribute("role"), checked: sw.getAttribute("aria-checked"), name: sw.getAttribute("aria-label"),
+        swap: subst.querySelector(".exactions__act-text > span").textContent.trim(), trails: icon.left >= text.right };
+    });
+    assert(kit.role === "switch" && kit.checked === "false" && kit.name === "Set 1 warm-up", "set 1's warm-up control is an off switch named \"Set 1 warm-up\"", JSON.stringify(kit));
+    assert(kit.swap === "Swap exercise", "the substitution action reads \"Swap exercise\"", kit.swap);
+    assert(kit.trails, "the action's glyph trails its label", JSON.stringify(kit));
 
     // Click to mark Set 1 as warmup
     await warmupToggleSet1.click();
@@ -222,6 +234,7 @@ async function main() {
       return ex.sets[ex.setOrder[0]].role;
     });
     assert(roleAfterWarmup === "warmup", "set 1 role changed to warmup in DraftV2", roleAfterWarmup);
+    assert(await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().getAttribute("aria-checked") === "true", "the switch is on once set 1 is a warm-up");
 
     // Re-click to mark back as working
     await warmupToggleSet1.click();

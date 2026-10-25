@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { assertServingApp, launchChromium } from "./browser.mjs";
 import { loadManifest } from "../tools/ui-screens/manifest.mjs";
-import { APP_SCENARIOS, appState } from "../tools/ui-screens/screens-app.mjs";
+import { APP_SCENARIOS, appState, cleanupProgramLabCapture } from "../tools/ui-screens/screens-app.mjs";
 import { ONBOARDING_SCENARIOS, onboardingState } from "../tools/ui-screens/screens-onboarding.mjs";
 import {
   buildSemanticArtifact,
@@ -261,10 +261,15 @@ try {
   // pixels. Read the theme off the rendered page, not the file name: the root's data-theme, its computed color-scheme
   // and the page ground's luminance.
   const RESEEDED_DARK = ["workout/focus-per-side", "workout/why-per-side", "workout/why-this-weight", "workout/why-in-session",
-    "history/per-side-session", "progress/exercise-chart", "progress/strength-comparison"];
+    "history/per-side-session", "progress/exercise-chart", "progress/strength-comparison",
+    // Program Lab follows the device's appearance (owner, 2026-10-24: it gets the dark theme).
+    "programlab/editor", "programlab/comparison"];
   const renderedTheme = () => {
     const root = document.documentElement;
-    const [r, g, b] = getComputedStyle(document.body).backgroundColor.match(/\d+(\.\d+)?/g).map(Number);
+    // The page ground is the body's, or the root's where the body is transparent (Program Lab paints :root).
+    const ground = [document.body, root].map((el) => getComputedStyle(el).backgroundColor)
+      .find((c) => !/rgba\([^)]*,\s*0\)$|transparent/.test(c)) || "rgb(255, 255, 255)";
+    const [r, g, b] = ground.match(/\d+(\.\d+)?/g).map(Number);
     return { attribute: root.dataset.theme || null, colorScheme: getComputedStyle(root).colorScheme,
       luminance: Math.round((0.2126 * r + 0.7152 * g + 0.0722 * b) / 2.55) };
   };
@@ -296,6 +301,8 @@ try {
   }
 } finally {
   await browser.close();
+  // The Program Lab states run on their own isolated artifact preview; stop it so the run can end.
+  await cleanupProgramLabCapture();
 }
 
 console.log("ui catalog contract: actual EN/PT-BR green after cross-rail repair and isolated copy, overflow, overlap escapes verified");

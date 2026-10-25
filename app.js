@@ -8135,13 +8135,15 @@ function renderExActionsSheet(exId) {
       if (!set) return "";
       const isWarmup = set.role === "warmup";
       const roleLabel = t(isWarmup ? "ex.actions.role_warmup" : "ex.actions.role_working");
-      const btnLabel = t(isWarmup ? "ex.actions.mark_working" : "ex.actions.mark_warmup");
+      // A switch per set (the native UI kit, owner 2026-10-24): on is a warm-up set, named for the set it changes.
+      const switchLabel = t("ex.actions.warmup_switch", { n: idx + 1 });
       return `<div class="exactions__warmup-row">` +
         `<div class="exactions__warmup-info">` +
         `<span class="exactions__warmup-num">${esc(t("log.set"))} ${idx + 1}</span>` +
         `<span class="exactions__warmup-role ${isWarmup ? "is-warmup" : ""}">${esc(roleLabel)}</span>` +
         `</div>` +
-        `<button type="button" class="btn btn--steel exactions__warmup-btn" data-warm-toggle-set="${esc(sid)}">${esc(btnLabel)}</button>` +
+        `<span class="exactions__warmup-ctl"><span class="exactions__warmup-cap" aria-hidden="true">${esc(t("ex.actions.warmup_caption"))}</span>` +
+        `<button type="button" class="toggle exactions__warmup-switch" role="switch" aria-checked="${isWarmup}" aria-label="${esc(switchLabel)}" data-warm-toggle-set="${esc(sid)}"></button></span>` +
         `</div>`;
     }).filter(Boolean);
     warmupList.innerHTML = rows.join("");
@@ -12441,6 +12443,8 @@ function createInstalledProgramEditorAdapter(){
     confirm:({kind,day})=>kind==="day_remove"?confirm(t("confirm.delete_day",{day:dayLabel(day)})):true,
     reducedMotion:()=>reducedMotion(),
     announce:announceEditorChange,
+    // The Settings rest length, which a slot with no stored rest inherits (owner, 2026-10-25: option A).
+    defaultRestSeconds:()=>normalizeRestSec(state?.settings?.restSec),
     contextMenu:openRowContextMenu,
     afterModal:afterModalSettles,
     // Plan 074 (ADR 0021): onboarding B's editing language, in onboarding's sheet.
@@ -12511,6 +12515,8 @@ function createOnboardingProgramEditorAdapter(){
     confirm:()=>true,
     reducedMotion:()=>reducedMotion(),
     announce:announceEditorChange,
+    // The Settings rest length, which a slot with no stored rest inherits (owner, 2026-10-25: option A).
+    defaultRestSeconds:()=>normalizeRestSec(state?.settings?.restSec),
     contextMenu:openRowContextMenu,
     afterModal:afterModalSettles,
   }
@@ -18852,6 +18858,8 @@ function mountEntryAdjust(){
     t:(key,vars)=>key==="entry.review.source"&&entryState?.route==="shared"?t("entry.route.shared"):t(key,vars),esc,
     exerciseName:id=>libraryName(libraryEntry(id))||id,
     tile:(id,size)=>exerciseThumb(libraryEntry(id),{size}),
+    // The Settings rest length, which a slot with no stored rest inherits (owner, 2026-10-25: option A).
+    defaultRestSeconds:()=>normalizeRestSec(state?.settings?.restSec),
     muscleName:id=>{const token=SOURCE_FEATURE_TO_LEGACY_MUSCLE[String(rawCatalogObject(id)?.name||"").trim().toLowerCase()];return token?muscleLabel(token):""},
     dayName:entryAdjustDayName,
     nums:monoNums,

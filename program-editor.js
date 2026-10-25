@@ -2472,6 +2472,11 @@
       const firstRange = rep ? rangeOf(sets[0]?.targets?.[rep.semantic]) : null;
       const count = slot ? sets.length : positiveInt(exercise.sets, 1);
       const rest = sets[0]?.restSeconds ?? null;
+      // A slot with no stored rest inherits the Settings rest length: its preset shows selected while restSeconds stays
+      // null, and a tap on it stores it explicitly (setRest compares with the stored value). A default that is not a
+      // preset selects none (owner, 2026-10-25: option A).
+      const inherited = rest == null ? adapter.defaultRestSeconds?.() ?? null : null;
+      const restShown = rest ?? (REST_PRESETS.includes(inherited) ? inherited : null);
       const base = (baseDocument.program || []).find(item => item.id === exercise.id);
       const was = dayMinutes(baseDocument, base?.day || exercise.day), now = dayMinutes(document, exercise.day);
       const muscles = [exercise.primary, exercise.secondary].filter(Boolean).join(", ");
@@ -2493,7 +2498,7 @@
         stepper("range-step", `data-bound="max"`, format(adapter, firstRange.max), { down: firstRange.max > firstRange.min, up: firstRange.max < MAX_REVIEW_REPS, small: true,
           downLabel: rt("entry.review.sheet.max_down", undefined, "−"), upLabel: rt("entry.review.sheet.max_up", undefined, "+") }) + `</span></div>` : "";
       const restControl = slot ? `<div class="review-sheet__ctl review-sheet__ctl--col"><span class="review-sheet__lab" id="programEditorRestLab">${esc(rt("entry.review.sheet.rest", undefined, "Rest between sets"))}</span><div class="review-seg" role="radiogroup" aria-labelledby="programEditorRestLab">` +
-        REST_PRESETS.map(seconds => `<button type="button" role="radio" class="review-seg__opt num${seconds === rest ? " is-on" : ""}" aria-checked="${seconds === rest}" data-role="rest-preset" data-seconds="${seconds}">${esc(rt("entry.review.sheet.seconds", { n: seconds }, `${seconds} s`))}</button>`).join("") + `</div></div>` : "";
+        REST_PRESETS.map(seconds => `<button type="button" role="radio" class="review-seg__opt num${seconds === restShown ? " is-on" : ""}" aria-checked="${seconds === restShown}" data-role="rest-preset" data-seconds="${seconds}">${esc(rt("entry.review.sheet.seconds", { n: seconds }, `${seconds} s`))}</button>`).join("") + `</div></div>` : "";
       const time = now ? `<p class="review-sheet__time" data-role="day-time">${nums(was && was !== now
         ? rt("entry.review.sheet.day_time_change", { from: was, to: now }, `Day: about ${was} → ${now} min`)
         : rt("entry.review.sheet.day_time", { n: now }, `Day: about ${now} min`))}</p>` : "";

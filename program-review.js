@@ -898,6 +898,11 @@
         const suggestions = subs.filter((id) => !alternates.includes(id)).slice(0, ALTERNATE_SUGGESTIONS);
         const others = definition.days.filter((day) => day.kind === "training" && day.id !== at.day.id);
         const rest = sets[0]?.restSeconds;
+        // A slot with no stored rest inherits the Settings rest length: its preset reads selected while restSeconds stays
+        // null, and a tap on it stores it (the rest handler compares with the stored value). A default that is no preset
+        // selects none (owner, 2026-10-25: option A).
+        const inherited = rest == null ? adapter.defaultRestSeconds?.() ?? null : null;
+        const restShown = rest ?? (REST_PRESETS.includes(inherited) ? inherited : null);
         const modeNeeded = needsExecutionMode(slot);
         const name = slotName(slot);
         parts.title.textContent = name;
@@ -919,7 +924,7 @@
             `<span class="review-step review-step--sm"><button type="button" data-review-min="-1" aria-label="${esc(t("entry.review.sheet.min_down"))}"${first.min <= 1 ? " disabled" : ""}>−</button><b class="num">${first.min}</b><button type="button" data-review-min="1" aria-label="${esc(t("entry.review.sheet.min_up"))}"${first.min >= first.max ? " disabled" : ""}>+</button></span>` +
             `<span aria-hidden="true">–</span><span class="review-step review-step--sm"><button type="button" data-review-max="-1" aria-label="${esc(t("entry.review.sheet.max_down"))}"${first.max <= first.min ? " disabled" : ""}>−</button><b class="num">${first.max}</b><button type="button" data-review-max="1" aria-label="${esc(t("entry.review.sheet.max_up"))}"${first.max >= MAX_REPS ? " disabled" : ""}>+</button></span></span></div>` : "") +
           `<div class="review-sheet__ctl review-sheet__ctl--col"><span class="review-sheet__lab" id="reviewRestLab">${esc(t("entry.review.sheet.rest"))}</span><div class="review-seg" role="radiogroup" aria-labelledby="reviewRestLab">` +
-          REST_PRESETS.map((seconds) => `<button type="button" role="radio" class="review-seg__opt num${seconds === rest ? " is-on" : ""}" aria-checked="${seconds === rest}" data-review-rest="${seconds}">${esc(t("entry.review.sheet.seconds", { n: seconds }))}</button>`).join("") + `</div></div>` +
+          REST_PRESETS.map((seconds) => `<button type="button" role="radio" class="review-seg__opt num${seconds === restShown ? " is-on" : ""}" aria-checked="${seconds === restShown}" data-review-rest="${seconds}">${esc(t("entry.review.sheet.seconds", { n: seconds }))}</button>`).join("") + `</div></div>` +
           `<p class="review-sheet__time" data-review-day-time>${nums(was === now ? t("entry.review.sheet.day_time", { n: now }) : t("entry.review.sheet.day_time_change", { from: was, to: now }))}` +
           `${state.sessionMinutes && now > state.sessionMinutes ? ` · ${nums(t("entry.review.over", { n: state.sessionMinutes }))}` : ""}</p>` +
           (deload ? `<p class="review-sheet__note">${esc(t("entry.review.sheet.deload_note"))}</p>` : "") + `</section>` +

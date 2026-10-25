@@ -55,6 +55,11 @@ const durable = async (page) => {
   await page.evaluate(() => window.__repforgeStorage.flush());
   return page.evaluate((key) => JSON.parse(localStorage.getItem(key) || "{}"), KEY);
 };
+/** The rest presets as the sheet draws them: which one reads selected (class and aria-checked agree). */
+const restPresets = (page) => page.$$eval(`${SHEET} [data-role="rest-preset"]`, (items) => items.map((item) => ({
+  seconds: Number(item.dataset.seconds), on: item.classList.contains("is-on"), checked: item.getAttribute("aria-checked") === "true" })));
+const restsOf = (slot) => (slot?.prescriptionsByCycle || []).flatMap((cycle) => cycle.sets.map((set) => set.restSeconds ?? null));
+const OTHER = "seed-ex-2";
 const storedSlot = async (page, slotId = SLOT) => (await durable(page)).programMeta?.programDefinition?.days
   ?.flatMap((day) => day.slots || []).find((slot) => slot.id === slotId) || null;
 
@@ -158,7 +163,25 @@ async function editJourney(page) {
   check(overview.pushBack && overview.pushBackInert === true && overview.pushBackAriaHidden === "true" && overview.pushBackScale < 1,
     "a pushed-back copy of the Program view sits beneath it, inert, aria-hidden and scaled down", overview);
 
+  // Rest (owner, 2026-10-25: option A). A slot that stores no rest inherits the Settings rest length (120 s): its preset
+  // reads selected while restSeconds stays null; a default that is no preset selects none; a tap stores it explicitly.
+  const otherBefore = restsOf(await storedSlot(page, OTHER));
+  check(otherBefore.length > 0 && otherBefore.every((rest) => rest === null), "the other slot stores no rest to begin with", otherBefore);
+  await openSheet(page, OTHER);
+  const inherited = await restPresets(page);
+  check(inherited.filter((p) => p.on && p.checked).map((p) => p.seconds).join() === "120" && inherited.filter((p) => p.on || p.checked).length === 1,
+    "with no stored rest, the preset matching the Settings rest length (120 s) reads selected", inherited);
+  await closeSheet(page);
+  await page.evaluate(() => { state.settings.restSec = 100; });
+  await openSheet(page, OTHER);
+  const none = await restPresets(page);
+  check(none.length > 0 && none.every((p) => !p.on && !p.checked), "a Settings rest length that is no preset (100 s) selects none", none);
+  await closeSheet(page);
+  await page.evaluate(() => { state.settings.restSec = 120; });
+
   await openSheet(page);
+  const before = await restPresets(page);
+  check(before.find((p) => p.seconds === 120)?.on, "the edited slot also reads its inherited 120 s before the tap", before);
   await sheetTap(page, '[data-role="sets-step"][data-delta="1"]');
   await sheetTap(page, '[data-role="range-step"][data-bound="max"][data-delta="-1"]');
   await sheetTap(page, '[data-role="rir-step"][data-set-index="1"][data-delta="1"]');
@@ -236,6 +259,10 @@ async function editJourney(page) {
       `${label}: set 1 is RIR 3, and 4 in week 7`, cycles.map((cycle) => cycle.sets[0].rir));
   };
   await verify("after Apply");
+  // The tap on the already-selected inherited 120 s stored it (verify: every set rests 120 s); the slot only looked at
+  // keeps no stored rest.
+  const otherAfter = restsOf(await storedSlot(page, OTHER));
+  check(otherAfter.length > 0 && otherAfter.every((rest) => rest === null), "the slot whose inherited preset was only shown still stores no rest (null)", otherAfter);
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
   await verify("after a reload");

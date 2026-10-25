@@ -10305,6 +10305,30 @@
       ]
     },
     {
+      "id": "exactions-warmup-switch",
+      "selector": ".exactions__warmup-switch",
+      "roles": {
+        "control": "selection"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "pressed",
+        "focus-visible",
+        "selected"
+      ],
+      "rationale": "Marks one set as a warm-up (UI kit batch 3, owner 2026-10-24): a switch named \"Set n warm-up\" beside its visible Warm-up caption; on is ink, as Settings' switches are, so Focus keeps its orange budget.",
+      "owner": "kit-c",
+      "neverDisabledReason": "Every set can be marked a warm-up or a working set while the exercise is open.",
+      "catalogStates": [
+        "workout/exercise-actions",
+        "workout/warmup-actions",
+        "workout/skipped-actions",
+        "workout/substituted-actions"
+      ]
+    },
+    {
       "id": "review-confirmation-undo",
       "selector": "[data-review-confirmation-undo]",
       "roles": {
