@@ -299,6 +299,30 @@ try {
       await opened.context.close();
     }
   }
+
+  // At 200% text a button whose label wraps stays a rounded rectangle, never a circle, and the CTA arrow never runs
+  // over the label (#510's pills regressed both). The catalog contract measures every button in every frame; these are
+  // the frames the regression was found on.
+  for (const [key, width] of [["progress/schedule-diagnosis", 390], ["progress/schedule-diagnosis", 320]]) {
+    const [flow, screen] = key.split("/");
+    const capture = { flow, screen, viewport: `phone-${width}`, theme: "light", locale: "en", text: "text200", motion: "normal" };
+    const opened = await openPage(browser, manifest, capture, appState(key, manifest.locales.en.lang));
+    try {
+      await dismissChrome(opened.page);
+      await APP_SCENARIOS[key](opened.page);
+      await settle(opened.page);
+      const config = configForCapture(manifest, capture);
+      const evidence = await opened.page.evaluate(collectCatalogEvidence, config);
+      const shapes = evidence.buttons.filter((b) => /diag/.test(b.locator) || b.width > 0);
+      assert.ok(evidence.buttons.length >= 2, `${key} ${width} at 200%: its buttons are measured`);
+      const bad = evidence.buttons.filter((b) => b.height > b.width || b.overlap);
+      assert.deepEqual(bad, [], `${key} ${width} at 200%: no button is taller than wide and no arrow overlaps its label`);
+      assert.deepEqual(validate(evidence, config).filter((f) => /^button taller|^CTA arrow/.test(f)), [], `${key} ${width} at 200%: the catalog contract agrees`);
+      console.log(`${key} ${width} text200 buttons: ${JSON.stringify(shapes)}`);
+    } finally {
+      await opened.context.close();
+    }
+  }
 } finally {
   await browser.close();
   // The Program Lab states run on their own isolated artifact preview; stop it so the run can end.

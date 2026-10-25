@@ -126,7 +126,24 @@ export function collectCatalogEvidence(config = {}) {
   for (const key of window.__repforgeI18nMissingRequests?.consume?.() || []) {
     requestedI18nKeys.push({ locator: "RepForgeI18n.t()", key });
   }
+  // Buttons keep their shape at any text size: never taller than wide (a wrapped pill turned into a circle), and a CTA's
+  // arrow never over its label. A static arrow follows the label in the flex row; an absolutely placed one is measured.
+  const buttons = [...document.querySelectorAll(".btn")].filter((el) => {
+    const r = el.getBoundingClientRect(), cs = getComputedStyle(el);
+    return r.width > 0 && r.height > 0 && cs.visibility !== "hidden" && cs.display !== "none" && !el.closest("[hidden],[inert]");
+  }).map((el) => {
+    const r = el.getBoundingClientRect(), after = getComputedStyle(el, "::after");
+    let overlap = false;
+    if (after.content !== "none" && after.position === "absolute" && parseFloat(after.width) > 0) {
+      const w = parseFloat(after.width), h = parseFloat(after.height), right = parseFloat(after.right) || 0;
+      const arrow = { left: r.right - right - w, right: r.right - right, top: r.top + r.height / 2 - h / 2, bottom: r.top + r.height / 2 + h / 2 };
+      const range = document.createRange(); range.selectNodeContents(el);
+      overlap = [...range.getClientRects()].some((t) => t.width > 0 && t.left < arrow.right && t.right > arrow.left && t.top < arrow.bottom && t.bottom > arrow.top);
+    }
+    return { locator: stableLocator(el), width: Math.round(r.width), height: Math.round(r.height), overlap };
+  });
   return {
+    buttons,
     document: { clientWidth: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth,
       theme: document.documentElement.dataset.theme || null, colorScheme: getComputedStyle(document.documentElement).colorScheme },
     text, overflow, scrollers, nonOverlap, copyAllowances, requestedI18nKeys,
@@ -189,6 +206,10 @@ export function configForCapture(manifest, capture) {
 export function validateCatalogEvidence(evidence, config, { knownKeyNamespaces = [], knownKeys = [] } = {}) {
   const failures = [];
   const excerpt = (text) => String(text).replace(/\s+/g, " ").slice(0, 240);
+  for (const button of evidence.buttons || []) {
+    if (button.height > button.width) failures.push(`button taller than wide ${button.locator}: ${button.width}x${button.height}`);
+    if (button.overlap) failures.push(`CTA arrow over its label ${button.locator}`);
+  }
   if (config.theme && (evidence.document.theme !== config.theme || evidence.document.colorScheme !== config.theme)) {
     failures.push(`rendered theme ${evidence.document.theme} (color-scheme ${evidence.document.colorScheme}) does not match the ${config.theme} capture`);
   }
