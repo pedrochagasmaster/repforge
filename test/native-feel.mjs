@@ -1126,6 +1126,42 @@ async function wheelPicker(browser) {
     await context.close();
   }
 
+  phase("No focus ring stays on a shelf field after touch use; a keyboard Tab still shows one (owner, Android, 2026-10-24)");
+  {
+    const { context, page } = await todayPage(browser);
+    await enterSeededFocus(page);
+    const ringOf = () => page.evaluate(() => {
+      const el = document.activeElement, style = getComputedStyle(el);
+      return { field: el.dataset?.shelfField || null, tag: el.tagName, ring: style.outlineStyle !== "none" && parseFloat(style.outlineWidth) > 0,
+        visible: el.matches(":focus-visible"), quiet: el.hasAttribute("data-quiet-focus") };
+    });
+    // Touch: a second tap on Load opens the wheel, Done closes it, and focus comes back to Load.
+    await page.tap(WHEEL_REPS_SEL); await page.tap(WHEEL_LOAD_SEL); await page.tap(WHEEL_LOAD_SEL);
+    await page.waitForSelector("#wheelSheet.is-open");
+    await page.tap("#wheelDone");
+    await page.waitForSelector("#wheelSheet", { state: "hidden" });
+    await page.evaluate(() => new Promise(requestAnimationFrame));
+    const wheelClosed = await ringOf();
+    // Chromium hides a ring on script focus after touch by itself; iOS Safari does not, so the quiet mark is what keeps it off there.
+    assert(wheelClosed.field === `metric_${WHEEL_WEIGHT}` && !wheelClosed.ring && wheelClosed.quiet,
+      "after a touch on the wheel focus returns to Load with no ring", JSON.stringify(wheelClosed));
+    // A typed edit: RIR's second tap types. Whatever path then moves focus back onto a field by script (a rebuild's
+    // restore, a sheet's return), the keys typed into the field are not keyboard navigation, so no ring is drawn.
+    await page.tap(WHEEL_RIR_SEL); await page.tap(WHEEL_RIR_SEL);
+    await page.waitForSelector(`${CURRENT} .focus-shelf .shelf__field.is-editing .shelf__input`);
+    await page.keyboard.press("Backspace"); await page.keyboard.type("2"); await page.keyboard.press("Enter");
+    // Enter submits the log form, which is inert while its save runs.
+    await page.waitForFunction(() => !document.querySelector("#logForm").inert && !document.querySelector("#logForm").hasAttribute("aria-busy"));
+    await page.evaluate((sel) => document.querySelector(sel).focus({ preventScroll: true }), WHEEL_LOAD_SEL);
+    const typed = await ringOf();
+    assert(typed.field === `metric_${WHEEL_WEIGHT}` && !typed.ring, "after a typed edit a field focused by script draws no ring", JSON.stringify(typed));
+    // The keyboard: Tab moves focus within the shelf and draws the ring.
+    await page.keyboard.press("Shift+Tab");
+    const tabbed = await ringOf();
+    assert(tabbed.tag === "BUTTON" && tabbed.visible && tabbed.ring && !tabbed.quiet, "a keyboard Tab shows the focus ring", JSON.stringify(tabbed));
+    await context.close();
+  }
+
   phase("The reps wheel runs 1–30 and marks the prescription's target range");
   {
     const { context, page } = await todayPage(browser);
@@ -1221,7 +1257,7 @@ async function wheelPicker(browser) {
     const restH = (await drumState(page))?.itemH ?? 44;
     assert(rested != null && Math.abs(rested / restH - Math.round(rested / restH)) < 1e-6, "once still, the column comes to rest exactly on a value", String(rested));
     const now = await page.evaluate(() => Number(document.querySelector("#wheelCol").getAttribute("aria-valuenow")));
-    const shown = await page.evaluate((top) => Number(document.querySelectorAll("#wheelCol .wheel__item")[Math.round(top / 44)].dataset.wheelV), rested ?? 0);
+    const shown = await page.evaluate(({ top, h }) => Number(document.querySelectorAll("#wheelCol .wheel__item")[Math.round(top / h)].dataset.wheelV), { top: rested ?? 0, h: restH });
     assert(now === shown, "and the value it reports is the one on the band", JSON.stringify({ now, shown, rested }));
     await context.close();
   }
@@ -1331,6 +1367,22 @@ async function openWheelState(browser, { reducedMotion = false } = {}) {
 }
 
 async function wheelPhysics(browser) {
+  phase("The wheel draws the owner's pick: 28px semibold numbers in 45px rows, five rows shown (2026-10-24)");
+  {
+    const { context, page } = await openWheelState(browser);
+    const size = await page.evaluate(() => {
+      const col = document.querySelector("#wheelCol"), band = document.querySelector(".wheel__band");
+      const centre = col.querySelector(".wheel__item.is-center"), style = getComputedStyle(centre);
+      return { fontSize: parseFloat(style.fontSize), weight: Number(style.fontWeight), row: centre.getBoundingClientRect().height,
+        height: col.getBoundingClientRect().height, band: band.getBoundingClientRect().height,
+        bandTop: band.getBoundingClientRect().top - col.getBoundingClientRect().top, pitch: window.__repforgeWheel?.state().itemH };
+    });
+    assert(size.fontSize === 28 && size.weight === 600 && size.row === 45 && size.band === 45 && size.pitch === 45,
+      "numbers are 28px at weight 600 in 45px rows, and the band and the engine's pitch match the row", JSON.stringify(size));
+    assert(size.height === 225 && size.bandTop === 90, "the wheel shows five rows (225px) with the band on the middle one", JSON.stringify(size));
+    await context.close();
+  }
+
   phase("Wheel physics: a slow drag across three values steps exactly three, ticking through each");
   {
     const { context, page } = await openWheelState(browser);
@@ -1621,8 +1673,9 @@ async function autoSwipe(browser) {
     "the page underneath sits to the left, part of the way back, and dimmed", JSON.stringify(mid));
   for (const x of [300, 340, 370]) await touch("touchMove", [{ x, y }]);
   await touch("touchEnd");
-  const popped = await page.waitForFunction(() => !document.body.classList.contains("is-library"), undefined, { timeout: 3000 })
-    .then(() => true, () => false);
+  // The pop has settled only once the push machinery has finished too: a push started during the settle is dropped.
+  const popped = await page.waitForFunction(() => !document.body.classList.contains("is-library") && !document.body.classList.contains("is-pushing"),
+    undefined, { timeout: 3000 }).then(() => true, () => false);
   assert(popped, "released past halfway, the swipe pops the page");
 
   phase("a drag that starts on a text field is the field's");
@@ -2350,8 +2403,8 @@ async function concentricShelf(browser) {
   }
 }
 
-// NATIVE_FEEL_ONLY=large runs just phase 5, =shelf just its addendum and =wheel just the wheel picker, for a local
-// red/green; CI runs everything.
+// NATIVE_FEEL_ONLY=large runs just phase 5, =shelf just its addendum, =wheel just the wheel picker and =swipe just the
+// history and back-swipe phases, for a local red/green; CI runs everything.
 const ONLY = process.env.NATIVE_FEEL_ONLY || "";
 const browser = await launchChromium();
 try {
@@ -2566,7 +2619,12 @@ try {
     await largeTextFocus(browser);
     await largeTextDock(browser);
   }
-  if (ONLY !== "wheel") await concentricShelf(browser);
+  if (ONLY === "swipe") {
+    await routeHistory(browser);
+    await autoSwipe(browser);
+    await standaloneSwipe(browser);
+  }
+  if (!["wheel", "swipe"].includes(ONLY)) await concentricShelf(browser);
 } finally {
   await browser.close();
 }

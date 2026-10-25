@@ -138,9 +138,9 @@ The Focus shelf is concentric (the phase 5 addendum, owner 2026-10-23, option
 A of `shelf-radii.html`): a `--shelf-radius` (28px) sheet with everything
 `--shelf-inset` (16px) from its edges, so every field, pad and the Log set
 action takes `--shelf-inner-radius` (12px); 8px between siblings, 12px between
-rows, the safe area plus 16px at the bottom, and a grabber at the top (docked
-to the keyboard, or in a window under 480px tall, the shelf drops the grabber
-and its top inset is 8px). The addendum's spacing lowers layout D's context
+rows, and the safe area plus 16px at the bottom. It has no grabber: the shelf
+cannot be dragged, so a grabber would be a false affordance (owner, 2026-10-24).
+Docked to the keyboard, or in a window under 480px tall, its top inset is 8px. The addendum's spacing lowers layout D's context
 minimums by 16px (direction-d-implementation-spec.md §4.2). Fields
 stay 56px, pads 48px and the action 52px (Layout D's budget). A field shows a
 short label ("Load", "Reps", "RIR") with the unit beside its value; its

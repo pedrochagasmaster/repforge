@@ -181,10 +181,16 @@ export async function auditFocusRoles(page, { key, components, pixels }) {
       }
     }
     if (focusTargets.length) {
-      // Forcing :focus-visible stands for a keyboard user. In the app any key press clears a quiet hand-off
-      // (app.js workoutInputModality: focus moved after a tap draws no ring until a key is used), so the
-      // emulation clears it too rather than measuring a state no keyboard user can reach.
-      await page.evaluate(() => document.querySelectorAll("[data-quiet-focus]").forEach((el) => el.removeAttribute("data-quiet-focus")));
+      // Forcing :focus-visible stands for a keyboard user. In the app a navigation key press clears a quiet hand-off
+      // (app.js workoutInputModality: focus moved after a tap draws no ring until a key is used) and sets the motion
+      // layer's input modality to keyboard, so the emulation does both rather than measuring a state no keyboard user
+      // can reach. The modality goes back afterwards.
+      const modality = await page.evaluate(() => {
+        document.querySelectorAll("[data-quiet-focus]").forEach((el) => el.removeAttribute("data-quiet-focus"));
+        const before = document.documentElement.dataset.inputModality ?? null;
+        document.documentElement.dataset.inputModality = "keyboard";
+        return before;
+      });
       await Promise.all(focusTargets.map(({ nodeId }) => session.send("CSS.forcePseudoState", {
         nodeId, forcedPseudoClasses: ["focus-visible"],
       })));
@@ -197,6 +203,10 @@ export async function auditFocusRoles(page, { key, components, pixels }) {
         await Promise.allSettled(focusTargets.map(({ nodeId }) => session.send("CSS.forcePseudoState", {
           nodeId, forcedPseudoClasses: [],
         })));
+        await page.evaluate((before) => {
+          if (before === null) delete document.documentElement.dataset.inputModality;
+          else document.documentElement.dataset.inputModality = before;
+        }, modality);
       }
       for (const item of rendered) measurements[item.status] = (measurements[item.status] || 0) + 1;
       measurements.total += rendered.length;

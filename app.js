@@ -8741,7 +8741,7 @@ function focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
  * `<input>` the typed path uses (its own `oninput`), so the draft, the shelf
  * and logging are identical either way — and the sheet's keyboard button hands
  * off to that same typed path, exactly the old second tap. */
-const WHEEL_ITEM_H=44;
+const WHEEL_ITEM_H=45;
 const WHEEL_LOAD_MAX_KG=1000;
 const WHEEL_REPS_MAX=30;
 let wheelUi=null;
@@ -8959,7 +8959,7 @@ function refreshShelf({focus=null}={}){
     const shelf=card.querySelector(".focus-shelf");
     const el=focus.startsWith("pad:")?shelf?.querySelector(`.shelf__pad[data-dir="${focus.slice(4)}"]`)
       :shelf?.querySelector(`.shelf__field.is-editing .shelf__input[data-k$="_${focus}"]`)||shelf?.querySelector(`[data-shelf-field="${focus}"]`);
-    if(el){try{el.focus({preventScroll:true})}catch{}if(el.matches("input"))el.select()}}
+    if(el){if(el.matches("input")){try{el.focus({preventScroll:true})}catch{}el.select()}else focusWorkoutControl(el)}}
   else if(heldFocus)restoreWorkoutFocus(heldFocus);
   return true}
 
@@ -8986,7 +8986,10 @@ function workoutFocusKey(el){
    gets the ring. */
 let workoutInputModality="pointer";
 document.addEventListener("pointerdown",()=>{workoutInputModality="pointer"},true);
-document.addEventListener("keydown",()=>{workoutInputModality="keyboard";document.activeElement?.removeAttribute?.("data-quiet-focus")},true);
+// Keys typed into a text field are entry, not navigation (the motion layer's rule): only a key outside one, or Tab, is the keyboard.
+document.addEventListener("keydown",event=>{
+  if(event.key!=="Tab"&&event.target instanceof Element&&event.target.matches("textarea,input:not([type]),input:is([type=text],[type=search],[type=tel],[type=url],[type=email],[type=password],[type=number])"))return;
+  workoutInputModality="keyboard";document.activeElement?.removeAttribute?.("data-quiet-focus")},true);
 function focusWorkoutControl(el){
   try{el.focus({preventScroll:true})}catch{return false}
   if(workoutInputModality==="pointer"){
