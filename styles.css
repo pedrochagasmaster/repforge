@@ -3663,7 +3663,7 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .guide-replay .btn{width:100%;justify-content:flex-start;text-align:left;padding:12px 0;border:0;border-top:1px solid var(--boundary-decorative);border-radius:0;background:transparent}
 .guide-replay__item{display:grid;gap:3px}
 .guide-replay__title{font-family:var(--font-language);font-weight:var(--weight-semibold);color:var(--color-ink)}
-.guide-replay__body{font-family:var(--font-language);font-size:var(--font-size-caption);
+.guide-replay__body{font-family:var(--font-language);font-size:var(--font-size-caption);font-weight:var(--weight-regular);
   line-height:var(--line-standard);color:var(--color-ink-secondary);white-space:normal}
 
 /* Icon and copy share the first row; the action takes a row of its own, the way
