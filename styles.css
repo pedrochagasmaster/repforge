@@ -95,6 +95,10 @@
   --radius-landing-stage-compact:20px;
   --radius-landing-crop:14px;
   --radius-pill:999px;
+  /* Every button is a pill (the native UI kit, owner decision 2026-10-24): one token so a variant cannot drift. */
+  --radius-button:var(--radius-pill);
+  /* Toasts are an ink pill with paper text in both themes (the native UI kit), not the primary button's fill. */
+  --toast-bg:var(--ink);--toast-ink:var(--bg);
   --radius-round:50%;
   --elevation-flat-shadow:none;
   --elevation-selected-shadow:inset 0 0 0 2px var(--boundary-selected);
@@ -661,7 +665,7 @@ body.is-sheet-open .topbar,
 /* ---- Primary CTA ---- */
 .btn{
   display:inline-flex;align-items:center;justify-content:center;gap:8px;
-  border:1px solid var(--rule);border-radius:var(--radius-control);background:var(--surface);color:var(--ink);
+  border:1px solid var(--rule);border-radius:var(--radius-button);background:var(--surface);color:var(--ink);
   padding:13px 16px;font-weight:600;cursor:pointer;font-size:var(--font-size-control);
   transition:transform .12s ease,filter .2s ease,border-color .2s ease,background .2s ease;
 }
@@ -682,7 +686,7 @@ body.is-sheet-open .topbar,
 .btn--ghost{background:transparent;padding:8px 13px;font-size:var(--font-size-body-small);border-radius:var(--radius-pill)}
 .btn--steel{background:var(--surface);border-color:var(--rule-strong)}
 .btn--cta{
-  position:relative;width:100%;height:auto;min-height:54px;border:0;border-radius:var(--radius-control);
+  position:relative;width:100%;height:auto;min-height:54px;border:0;border-radius:var(--radius-button);
   background:var(--cta);color:var(--cta-ink);font-size:var(--font-size-control);font-weight:600;
   justify-content:center;padding:13px 48px;
 }
@@ -1965,7 +1969,7 @@ body.is-sheet-open{overflow:hidden}
 .libbar .btn{margin:0}
 #libBar #libPrimary,.preview #previewAdd{
   background:var(--control-primary-bg);color:var(--control-primary-ink);border-color:var(--control-primary-boundary);
-  border-radius:var(--radius-control);font-family:var(--font-language);font-size:var(--font-size-control);
+  border-radius:var(--radius-button);font-family:var(--font-language);font-size:var(--font-size-control);
   font-weight:var(--weight-semibold);line-height:var(--line-standard)
 }
 #libBar #libPrimary::after,.preview #previewAdd::after{width:var(--control-icon-size);height:var(--control-icon-size);color:var(--control-primary-ink)}
@@ -2253,12 +2257,12 @@ body.is-sheet-open{overflow:hidden}
   position:fixed;left:50%;transform:translateX(-50%);z-index:52;
   bottom:calc(var(--entry-pinned-clearance,104px) + env(safe-area-inset-bottom));
   width:min(92%,420px);display:flex;align-items:center;gap:var(--space-12,12px);
-  background:var(--cta);color:var(--cta-ink);border-radius:var(--radius-surface);
-  padding:12px 16px;font-size:var(--font-size-body-small);box-shadow:var(--elevation-floating-shadow);
+  background:var(--toast-bg);color:var(--toast-ink);border-radius:var(--radius-button);
+  padding:6px 6px 6px 20px;font-size:var(--font-size-body-small);box-shadow:var(--elevation-floating-shadow);
   animation:toastin .3s cubic-bezier(.2,.7,.2,1)
 }
 .review-toast__text{flex:1;min-width:0;overflow-wrap:anywhere}
-.review-toast__undo{flex:none;min-height:44px;padding:0 4px;border:0;background:none;color:inherit;font:inherit;font-weight:var(--weight-semibold);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.review-toast__undo{flex:none;min-height:var(--control-target);padding:0 16px;border:0;border-radius:var(--radius-button);background:rgba(var(--bg-rgb),.14);color:inherit;font:inherit;font-weight:var(--weight-semibold);cursor:pointer}
 @media (prefers-reduced-motion:reduce){.review-toast{animation:none}}
 /* The day-changed toast (Plan 075 phase 2) reuses .review-toast's shape on
    Today, so it clears the dock and the floating Start/Continue exactly where
@@ -2458,7 +2462,7 @@ textarea.sheetfield__input{
 
 /* Workout sheet controls keep their current routes and state owners. */
 :is(#sessionEarlyFinish,#draftRecoveryCopy,#draftRecoveryReload,#draftRecoveryRetry){
-  min-height:var(--control-target);border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);
+  min-height:var(--control-target);border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-button);
   background:var(--control-secondary-bg);color:var(--control-secondary-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
 }
 @media (hover: hover) and (pointer: fine){
@@ -2468,7 +2472,7 @@ textarea.sheetfield__input{
 :is(#sessionEarlyFinish,#draftRecoveryCopy,#draftRecoveryReload,#draftRecoveryRetry):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 :is(#sessionEarlyFinish,#draftRecoveryCopy,#draftRecoveryReload,#draftRecoveryRetry):disabled{background:var(--control-secondary-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 :is(#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep,#draftDiscardKeep){
-  min-height:var(--control-target);border:1px solid var(--control-primary-boundary);border-radius:var(--radius-control);
+  min-height:var(--control-target);border:1px solid var(--control-primary-boundary);border-radius:var(--radius-button);
   background:var(--control-primary-bg);color:var(--control-primary-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
 }
 @media (hover: hover) and (pointer: fine){
@@ -2478,7 +2482,7 @@ textarea.sheetfield__input{
 :is(#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep,#draftDiscardKeep):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 :is(#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep,#draftDiscardKeep):disabled{background:var(--control-primary-disabled-bg);border-color:var(--boundary-decorative);color:var(--control-primary-disabled-ink);opacity:1;cursor:not-allowed;transform:none}
 :is(#sessionEarlyCancel,#sessionAbandonCancel,#exNoteCancel){
-  min-height:var(--control-target);border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);
+  min-height:var(--control-target);border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-button);
   background:var(--control-secondary-bg);color:var(--control-secondary-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
 }
 @media (hover: hover) and (pointer: fine){
@@ -2492,7 +2496,7 @@ textarea.sheetfield__input{
    Cancel keeps the unfinished session, Discard unfinished session is the destructive choice, and its sentence is the body. */
 .draftdiscard__body{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink)}
 :is(#historyDiscardDrop,#draftDiscardDrop,#sessionAbandon,#sessionAbandonConfirm){
-  min-height:var(--control-target);border:1px solid var(--control-destructive-boundary);border-radius:var(--radius-control);
+  min-height:var(--control-target);border:1px solid var(--control-destructive-boundary);border-radius:var(--radius-button);
   background:var(--control-destructive-bg);color:var(--control-destructive-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
 }
 @media (hover: hover) and (pointer: fine){
@@ -3342,8 +3346,8 @@ body.is-library,body.is-preview,body.is-import{padding-bottom:env(safe-area-inse
 .toast{
   position:fixed;left:50%;transform:translateX(-50%) translateY(0);
   bottom:calc(var(--nav) + 22px + env(safe-area-inset-bottom));z-index:50;
-  width:min(92%,420px);background:var(--cta);border:0;color:var(--cta-ink);border-radius:var(--radius-surface);
-  padding:13px 16px;font-size:var(--font-size-body-small);box-shadow:var(--elevation-floating-shadow);
+  width:min(92%,420px);background:var(--toast-bg);border:0;color:var(--toast-ink);border-radius:var(--radius-button);
+  padding:13px 20px;font-size:var(--font-size-body-small);box-shadow:var(--elevation-floating-shadow);
   animation:toastin .3s cubic-bezier(.2,.7,.2,1)
 }
 
@@ -3544,7 +3548,7 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
   box-shadow:var(--elevation-persistent-shadow);
 }
 #sumDone{
-  flex:1 1 0;min-height:54px;border:1px solid var(--control-primary-boundary);border-radius:var(--radius-control);
+  flex:1 1 0;min-height:54px;border:1px solid var(--control-primary-boundary);border-radius:var(--radius-button);
   background:var(--control-primary-bg);color:var(--control-primary-ink);
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
 }
@@ -3581,7 +3585,7 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .storage-recovery__copy-label{font-weight:var(--weight-semibold);margin:0 0 4px}
 .exercise-catalog-recovery{
   position:fixed;left:50%;top:calc(var(--vv-top,0px) + var(--vvh,100dvh) / 2);transform:translate(-50%,-50%);z-index:80;width:min(92%,380px);margin:0;
-  background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius-prominent);
+  background:var(--surface);border:0;border-radius:var(--radius-prominent);
   padding:20px 18px 16px;box-shadow:var(--elevation-dialog-shadow);
   max-height:min(90dvh,var(--dialog-max-height));overflow:auto;overscroll-behavior:contain;color:var(--ink);
 }
@@ -3714,8 +3718,11 @@ button.vrow{width:100%;padding:8px 0;background:none;border:0;text-align:left;co
 #history .session--delete h3,#history .history-operation h3{margin:0 0 8px;font-family:var(--font-language);font-size:var(--font-size-section-title);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
 #history .session--delete>p,#history .history-operation>p{margin:0 0 14px;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-deep);outline-offset:1px}
-#history .edbtns{display:flex;gap:10px;margin-top:14px}
-#history .edbtns .btn{flex:1;min-width:0;padding:12px;white-space:normal;overflow-wrap:anywhere;word-break:break-word}
+/* History's actions stack as full-width pills, the primary first (the native UI kit's action group): three labels in
+   a row wrapped to three lines each, and the CTA's arrow, which sits in its side padding, ran into them. */
+#history .edbtns{display:flex;flex-direction:column;gap:var(--space-8);margin-top:14px}
+#history .edbtns .btn{min-width:0;padding:12px 20px;white-space:normal;overflow-wrap:anywhere}
+#history .edbtns .btn--cta{order:-1;padding-inline:48px}
 /* Throwing the session away sits after the edits and under a rule, so the eye
    reaches Save first and never lands on it while aiming for something else. */
 #history .edrisk{display:flex;justify-content:center;margin-top:var(--space-18)}
@@ -3912,7 +3919,7 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
    shell still carries the quiet row's chevron, which the arrow replaces. */
 #reviewTodaySession{margin-top:32px}
 #reviewTodaySession .chevron{display:none}
-#logAnotherSession{display:flex;align-items:center;justify-content:center;width:100%;min-height:48px;margin:10px 0 0;padding:8px 16px;border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);background:var(--control-secondary-bg);color:var(--control-secondary-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);text-align:center}
+#logAnotherSession{display:flex;align-items:center;justify-content:center;width:100%;min-height:48px;margin:10px 0 0;padding:8px 16px;border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-button);background:var(--control-secondary-bg);color:var(--control-secondary-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);text-align:center}
 @media (hover: hover) and (pointer: fine){
 #logAnotherSession:hover:not(:disabled){background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary)}
 }
@@ -5372,7 +5379,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 /* ---- Actions: the ink pill with its arrow, and the underlined text link ---- */
 .firstrun__cta{
   position:relative;display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;min-height:var(--firstrun-dock-h);
-  padding:var(--space-12) var(--space-18);border:0;border-radius:var(--radius-surface);
+  padding:var(--space-12) var(--space-18);border:0;border-radius:var(--radius-button);
   background:var(--firstrun-cta-bg);color:var(--firstrun-cta-ink);
   font:inherit;font-size:var(--font-size-control);line-height:var(--line-standard);font-weight:var(--weight-semibold);text-align:left;cursor:pointer;
   -webkit-tap-highlight-color:transparent;
@@ -5724,6 +5731,11 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   border:1px solid var(--boundary-decorative);border-radius:var(--radius-surface)}
 .install-transfer__disclosure p{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);
   line-height:var(--line-reading);color:var(--color-ink-secondary)}
+/* A text action: the kit's link-style button, no box. It had no base rule, so it fell back to the platform's grey
+   button chrome. */
+.textlink{display:inline-flex;align-items:center;min-height:var(--control-target);padding:0;border:0;background:none;
+  color:var(--color-action-text);font:inherit;font-weight:var(--weight-semibold);text-align:left;cursor:pointer}
+.textlink:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-compact)}
 .install-transfer__disclosure .textlink{margin-top:10px}
 .install-transfer__actions{display:grid;gap:10px;margin-top:18px}
 .install-transfer__actions .btn{width:100%;justify-content:center}
@@ -6481,7 +6493,7 @@ body.is-entry-editor :is(
   .program-editor__replace:not([id])
 ){
   min-height:var(--control-target);padding:8px 12px;
-  border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);
+  border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-button);
   background:var(--control-secondary-bg);color:var(--control-secondary-ink);
   font-family:var(--font-language);font-size:var(--font-size-control);
   font-weight:var(--weight-medium);line-height:var(--line-standard)
@@ -6536,7 +6548,7 @@ body.is-entry-editor :is(
 body.is-entry-editor .program-editor__remove:not([id]),
 :is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__remove:not([id]){
   min-height:var(--control-target);padding:8px 12px;
-  border:1px solid var(--control-destructive-boundary);border-radius:var(--radius-control);
+  border:1px solid var(--control-destructive-boundary);border-radius:var(--radius-button);
   background:var(--control-destructive-bg);color:var(--control-destructive-ink);
   font-family:var(--font-language);font-size:var(--font-size-control);
   font-weight:var(--weight-medium);line-height:var(--line-standard)
@@ -6773,7 +6785,7 @@ body.is-entry-editor #entryProgramName,
   #entryFreeformContinue, #entryFreeformClipboard, #entryFreeformReview,
   #entryFreeformSubmitGaps, #entryActivate
 ){
-  border-radius:var(--radius-control);background:var(--control-primary-bg);
+  border-radius:var(--radius-button);background:var(--control-primary-bg);
   color:var(--control-primary-ink);border-color:var(--control-primary-boundary);
   font-family:var(--font-language);font-size:var(--font-size-control);
   font-weight:var(--weight-medium);line-height:var(--line-standard)
@@ -6801,7 +6813,7 @@ body.is-entry-editor #entryProgramName,
   border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
 }
 #importCommit{
-  border-radius:var(--radius-control);background:var(--control-primary-bg);
+  border-radius:var(--radius-button);background:var(--control-primary-bg);
   color:var(--control-primary-ink);border-color:var(--control-primary-boundary);
   font-family:var(--font-language);font-size:var(--font-size-control);
   font-weight:var(--weight-medium);line-height:var(--line-standard)
@@ -6818,7 +6830,7 @@ body.is-entry-editor #entryProgramName,
   #entryFreeformTryAnother, .btn.btn--steel:not(.btn--destructive):not([id]), .entry__freeform-app:not([id])
 ){
   min-height:var(--control-target);border:1px solid var(--control-secondary-boundary);
-  border-radius:var(--radius-control);background:var(--control-secondary-bg);color:var(--control-secondary-ink);
+  border-radius:var(--radius-button);background:var(--control-secondary-bg);color:var(--control-secondary-ink);
   font-family:var(--font-language);font-size:var(--font-size-control);
   font-weight:var(--weight-medium);line-height:var(--line-standard)
 }
@@ -6888,7 +6900,7 @@ body.is-entry-editor #entryProgramName,
 #onbBody.entry-route--import #entryFreeformStartOver,
 #onbBody.entry-route--import #entryRestart{
   min-height:var(--control-target);border:1px solid var(--control-destructive-boundary);
-  border-radius:var(--radius-control);background:var(--control-destructive-bg);color:var(--control-destructive-ink);
+  border-radius:var(--radius-button);background:var(--control-destructive-bg);color:var(--control-destructive-ink);
   font-family:var(--font-language);font-size:var(--font-size-control);
   font-weight:var(--weight-medium);line-height:var(--line-standard)
 }
@@ -7088,7 +7100,7 @@ body.is-entry-editor #entryProgramName,
 
 /* Today and day choice use the frozen control roles. */
 #todayDash .btn--cta{
-  min-height:54px;border:1px solid var(--control-primary-boundary);border-radius:var(--radius-control);
+  min-height:54px;border:1px solid var(--control-primary-boundary);border-radius:var(--radius-button);
   background:var(--control-primary-bg);color:var(--control-primary-ink);
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard)
 }
@@ -7198,7 +7210,7 @@ body.is-entry-editor #entryProgramName,
 #stats #reviewPanel .review__outcomes{color:var(--color-ink)}
 #stats #reviewPanel .review__readonly{color:var(--color-warning)}
 #stats #reviewPanel .review__hash{font-family:var(--font-training-data);font-size:var(--font-size-caption);line-height:var(--line-reading)}
-#stats #reviewPanel .btn--cta,#stats #reviewPanel .btn--steel{min-height:var(--control-target);border-radius:var(--radius-control);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard)}
+#stats #reviewPanel .btn--cta,#stats #reviewPanel .btn--steel{min-height:var(--control-target);border-radius:var(--radius-button);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard)}
 #stats #reviewPanel .btn--cta{border:1px solid var(--control-primary-boundary);background:var(--control-primary-bg);color:var(--control-primary-ink);font-weight:var(--weight-semibold)}
 #stats #reviewPanel .btn--steel{border:1px solid var(--control-secondary-boundary);background:var(--control-secondary-bg);color:var(--control-secondary-ink)}
 @media (hover: hover) and (pointer: fine){
@@ -7233,7 +7245,7 @@ body.is-entry-editor #entryProgramName,
 #history .session__open.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 #history .session__open:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-none)}
 #history .session__open:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
-#history .btn--cta,#history .btn--steel,#history .btn--danger{border-radius:var(--radius-control);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard)}
+#history .btn--cta,#history .btn--steel,#history .btn--danger{border-radius:var(--radius-button);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard)}
 #history .btn--cta{border:1px solid var(--control-primary-boundary);background:var(--control-primary-bg);color:var(--control-primary-ink)}
 #history .btn--steel,#history .btn--danger{min-height:var(--control-target)}
 #history .btn--steel{border:1px solid var(--control-secondary-boundary);background:var(--control-secondary-bg);color:var(--control-secondary-ink)}
@@ -7314,7 +7326,7 @@ body.is-entry-editor #entryProgramName,
 #shareSetupClose:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #shareSetupClose:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 #shareSetupCopy,.share-setup__repair{
-  min-height:var(--control-target);border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);
+  min-height:var(--control-target);border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-button);
   background:var(--control-secondary-bg);color:var(--control-secondary-ink);
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);
 }
@@ -7328,7 +7340,7 @@ body.is-entry-editor #entryProgramName,
   opacity:1;cursor:not-allowed;transform:none;
 }
 #shareSetupShare{
-  min-height:var(--control-target);border:1px solid var(--control-primary-boundary);border-radius:var(--radius-control);
+  min-height:var(--control-target);border:1px solid var(--control-primary-boundary);border-radius:var(--radius-button);
   background:var(--control-primary-bg);color:var(--control-primary-ink);
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
 }
@@ -7709,7 +7721,7 @@ body.is-entry-editor #entryProgramName,
 /* Dialogs: cancel, replace and start over, and the contextual guides, share one modal panel. */
 .entry-dialog{
   position:fixed;left:50%;top:calc(var(--vv-top,0px) + var(--vvh,100dvh) / 2);transform:translate(-50%,-50%);z-index:80;width:min(calc(100% - var(--space-32)),420px);
-  max-height:min(90dvh,var(--dialog-max-height));margin:0;padding:var(--space-18);overflow:auto;overscroll-behavior:contain;border:1px solid var(--boundary-modal);
+  max-height:min(90dvh,var(--dialog-max-height));margin:0;padding:var(--space-18);overflow:auto;overscroll-behavior:contain;border:0;
   border-radius:var(--radius-prominent);background:var(--surface);color:var(--ink);box-shadow:var(--elevation-dialog-shadow)
 }
 .entry-dialog::backdrop{background:var(--scrim)}
