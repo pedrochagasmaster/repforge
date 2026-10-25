@@ -1,6 +1,16 @@
 /* Program Lab DOM owner. All validation, policy transformations, planning,
    execution, comparison and storage belong to the injected shared services.
    See RepForgeProgramLabUI.connect below for the single integration seam. */
+/* The lab follows the device's appearance (it is its own origin and cannot read the app's setting); data-theme mirrors
+   it, as the app's root carries its theme, so the catalog can read the rendered theme. */
+(function mirrorProgramLabTheme(root) {
+  const doc = root.document, query = typeof root.matchMedia === 'function' ? root.matchMedia('(prefers-color-scheme: dark)') : null;
+  if (!doc || !query) return;
+  const apply = () => { doc.documentElement.dataset.theme = query.matches ? 'dark' : 'light'; };
+  apply();
+  if (typeof query.addEventListener === 'function') query.addEventListener('change', apply);
+})(typeof window !== 'undefined' ? window : globalThis);
+
 (function attachProgramLabUI(root) {
   'use strict';
   const $ = id => document.getElementById(id);

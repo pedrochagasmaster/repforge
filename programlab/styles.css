@@ -22,5 +22,11 @@
 
 /* Required control edges and focus remain distinct from decorative rules. */
 :root{--boundary-decorative:var(--rule);--font-size-control:1rem}
+
+/* Dark: the app's dark palette (styles.css :root[data-theme="dark"]). The lab is its own origin and cannot read the
+   app's Appearance setting, so it follows the device's (owner decision 2026-10-24: Program Lab gets the dark theme). */
+@media (prefers-color-scheme: dark){
+  :root{color-scheme:dark;--bg:#141310;--surface:#1E1C18;--ink:#F2EFE9;--ink-soft:#ADA79D;--rule:#2E2B26;--accent:#F2703B;--accent-deep:#FF8A3D;--danger:#FF6670;--positive:#63C267;--well:#191713}
+}
 button,input,select,textarea,.file-button{border-color:var(--ink-soft)}
 progress{border:1px solid var(--ink-soft);border-radius:2px}
