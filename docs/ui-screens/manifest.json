@@ -1214,15 +1214,29 @@
       "id": "rest-running",
       "flow": "workout",
       "label": "Workout — rest running",
-      "scenario": "A logged set has started the rest: the clock, the drain bar and the next set's cue take the cue slot, and the rest controls take the shelf's pad row.",
+      "scenario": "A logged set has started the rest: no clock in the card or the header; the rest tab rises out of the shelf's top edge with its ring and 1:30, and the edge fills with the rest.",
       "variants": "demandingText"
     },
     {
       "id": "rest-done",
       "flow": "workout",
       "label": "Workout — rest done",
-      "scenario": "The rest has run out: the clock collapses to one line that counts the overrun up, the cue returns and the field pads come back.",
+      "scenario": "The rest has run out: the tab reads Rest done in accent with a check and counts the overrun up (+0:15); the cue and the shelf are as they were.",
       "variants": "demandingText"
+    },
+    {
+      "id": "rest-sheet",
+      "flow": "workout",
+      "label": "Rest sheet",
+      "scenario": "The tab opens the rest sheet: the dial at 1:24 of 2:00 with the next set, Pause between -30s and +30s, the presets as the segmented control, and Restart and End rest.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "rest-sheet-idle",
+      "flow": "workout",
+      "label": "Rest sheet, no rest running",
+      "scenario": "With no rest running the sheet opens from the actions sheet's Rest timer row: the dial at the default length and Start.",
+      "variants": "localized"
     },
     {
       "id": "exercise-note",

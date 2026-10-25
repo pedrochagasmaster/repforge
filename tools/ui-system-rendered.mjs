@@ -538,11 +538,8 @@ export async function measureRenderedRoles(input) {
         const icons = [...node.querySelectorAll("svg,[role='img'],[data-icon],.icon-mask")].filter(visible);
         if (!icons.length) {
           const glyph = node.textContent.trim();
-          const timer = item.selector === "#woRest" ? [...node.querySelectorAll(".wo-rest__time")].find((child) => visible(child) && child.textContent.trim()) : null;
           if (/^[\p{S}\p{P}\p{M}\s]+$/u.test(glyph) && glyph) {
             results.push(measure(node, `${item.selector}:${label(node)}`, "icon"));
-          } else if (timer) {
-            results.push(measure(timer, `${item.selector}:${label(timer)}`, "text"));
           } else results.push({ selector: `${item.selector}:${label(node)}`, kind: "icon", status: "unsupported", reason: "icon-only control has no rendered icon" });
         }
         else for (const icon of icons) results.push(measure(icon, `${item.selector}:${label(icon)}`, "icon"));

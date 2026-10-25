@@ -9,15 +9,15 @@
  *     a stale count, and the empty placeholder.
  *   - the paste sample is derived from landing.ways.paste.message in both catalogs.
  *   - the committed assets/brand/landing-proof-spots.json is well formed.
- *   - no scene targets retired UI (Plan 064 C-03, RF-8): the rest scene is the inline rest on Focus, never
- *     the rest sheet, and the import review is cropped from its current head, never `.exview-head`.
+ *   - no scene targets retired UI (Plan 064 C-03, RF-8): the rest scene is the rest sheet's dial, opened from
+ *     the rest tab, never the retired inline rest, and the import review is cropped from its current head.
  * Part 2 (browser, via the tool itself): the tool runs against the live app.
  *   - --proof writes real 780x1688 WebP files and a spots JSON for the focus scene;
  *   - --check against that JSON passes, and against a JSON with one hotspot moved fails
  *     naming the spot (the stale-lens gate bites);
  *   - the paste-review runner reaches the real import-review screen in both languages and
  *     reports integer counts that cover all four exercises;
- *   - the rest, actions and note scenes render through production code (inline rest in the Focus card,
+ *   - the rest, actions and note scenes render through production code (the rest sheet opened from the tab,
  *     the exercise-actions sheet, the exercise-note sheet) and measure their hotspots;
  *   - exercise-chart opens the exercise page from Progress with best e1RM pressed and checks the figures it draws
  *     against the Progress model's reading of the chart fixture (the caption's 92.5 to 100 kg over 4 sessions);
@@ -75,23 +75,24 @@ check("the exercise-chart scene is the Progress exercise page with best e1RM, no
   assert.match(CHART_TARGETS.page, /^#exercise\.exview--chart$/);
   assert.match(CHART_TARGETS.plot, /^#exDetail \.exchart__plot$/);
   assert.match(CHART_TARGETS.e1rm, /data-metric="e1rm"/);
-  assert(![...Object.values(CHART_TARGETS)].some((selector) => /#exChart|restSheet|exview-head/.test(selector)), "no chart target names a retired part");
+  assert(![...Object.values(CHART_TARGETS)].some((selector) => /#exChart|restinline|exview-head/.test(selector)), "no chart target names a retired part");
 });
 
-check("no scene or crop targets retired UI: the rest scene is the inline rest, the import review has its current head", () => {
-  assert(RETIRED_SELECTORS.includes("#restSheet"), "the rest sheet is a retired selector");
+check("no scene or crop targets retired UI: the rest scene is the rest sheet's dial, the import review has its current head", () => {
+  for (const retired of [".restinline", ".restpad", "#woRest"]) assert(RETIRED_SELECTORS.includes(retired), `${retired} is a retired selector`);
+  assert(!RETIRED_SELECTORS.some((selector) => /restSheet/.test(selector)), "the rest sheet is live again (the rest timer redesign)");
   assert(RETIRED_SELECTORS.includes("#importReview .exview-head"), "the old import-review head is a retired selector");
   const targets = [...Object.values(SPOT_TARGETS), ...Object.values(PASTE_TARGETS)];
   for (const retired of RETIRED_SELECTORS) {
     assert(!targets.some((selector) => selector.includes(retired)), `no capture target uses ${retired}`);
   }
-  assert(!targets.some((selector) => /restSheet|restdial|exview-head/.test(selector)), "no capture target names a retired part");
-  assert.match(SPOT_TARGETS.rest, /\.fx-slot\[data-rest="running"\] \.restinline/, "the rest scene reads the inline rest in the Focus card's cue slot");
-  assert.match(PROOF_SCENES.find((scene) => scene.name === "rest").shows, /inline rest/);
+  assert(!targets.some((selector) => /restinline|restpad|woRest|exview-head/.test(selector)), "no capture target names a retired part");
+  assert.match(SPOT_TARGETS.rest, /#restSheet\.is-open #restDial/, "the rest scene reads the open rest sheet's dial");
+  assert.match(PROOF_SCENES.find((scene) => scene.name === "rest").shows, /rest tab opens the rest sheet/);
   assert.equal(PASTE_TARGETS.head, "#importReview .onb__head");
   const source = readFileSync(TOOL, "utf8");
   assert(!/querySelector\(['"]#importReview \.exview-head/.test(source), "the tool never queries the old head");
-  assert(!/waitForSelector\(['"`]#restSheet/.test(source), "the tool never waits for the rest sheet");
+  assert(/#restTab/.test(source), "the tool opens the rest sheet from the rest tab");
 });
 
 const measured = {
@@ -230,17 +231,17 @@ try {
     assert.deepEqual(Object.keys(spots.scenes.rest), ["dial"]);
     assert.deepEqual(Object.keys(spots.scenes.actions), ["swap"]);
     assert.deepEqual(Object.keys(spots.scenes.note), ["text"]);
-    // The inline rest sits in the Focus card's cue slot, near the top of the frame; the retired sheet's dial sat at 54% of it.
-    assert(spots.scenes.rest.dial[1] < 45, `the rest hotspot is the inline clock, not the retired sheet's dial (${spots.scenes.rest.dial})`);
+    // The rest sheet's dial sits mid-frame; the retired inline clock sat in the card's cue slot at 29% of it.
+    assert(spots.scenes.rest.dial[1] > 38, `the rest hotspot is the sheet's dial, not the retired inline clock (${spots.scenes.rest.dial})`);
     for (const box of Object.values(spots.scenes).flatMap((spot) => Object.values(spot))) {
       assert(box.length === 4 && box.every((value) => value >= 0 && value <= 100));
     }
   });
   const faultRest = tool(["--proof", join(dir, "fault-rest"), "--scenes", "rest", "--fault-retired", "--spots-only"]);
-  check("--fault-retired in the rest scene FAILS: the rest sheet on screen is refused", () => {
+  check("--fault-retired in the rest scene FAILS: the retired inline rest on screen is refused", () => {
     assert.notEqual(faultRest.status, 0, "a retired element in the frame must fail the capture");
     assert.match(faultRest.stderr, /rest-en: the frame shows retired UI/);
-    assert.match(faultRest.stderr, /#restSheet/);
+    assert.match(faultRest.stderr, /\.restinline/);
   });
   const faultPaste = tool(["--proof", join(dir, "fault-paste"), "--scenes", "paste-review", "--fault-retired", "--spots-only"]);
   check("--fault-retired in the paste-review scene FAILS: the old import-review head is refused", () => {

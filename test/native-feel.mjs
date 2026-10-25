@@ -2132,7 +2132,8 @@ function measureLargeFocus() {
     return hits;
   };
   const q = (s) => art.querySelector(s);
-  const rest = q(".restinline:not(.restinline--done)");
+  // The rest timer redesign: the rest is the tab that rises out of the shelf's top edge.
+  const rest = document.querySelector("#restTab");
   const context = q(".fcard__context"), shelf = q(".focus-shelf"), open = q(".ledgerline--open");
   const title = document.querySelector("#woDayTitle .wo-head__name") || document.querySelector("#woDayTitle");
   const pads = [...art.querySelectorAll(".shelf__pads > button")];
@@ -2142,16 +2143,15 @@ function measureLargeFocus() {
     width: innerWidth,
     titleSize: parseFloat(getComputedStyle(title).fontSize),
     rest: rest && {
-      clockSize: parseFloat(getComputedStyle(q(".restinline__clock")).fontSize),
-      clock: box(q(".restinline__clock")), label: box(q(".restinline__label")), of: box(q(".restinline__of")),
+      tab: box(rest),
       outside: restText.filter((r) => r.left < -0.5 || r.right > innerWidth + 0.5).map((r) => r.text),
       overprinted: overprints(restText),
+      clipped: [...rest.querySelectorAll("span")].filter((el) => el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).display !== "none").length,
     },
     ledgerOverprinted: overprints(ledgerText),
     ledgerOutside: ledgerText.filter((r) => r.left < -0.5 || r.right > innerWidth + 0.5).map((r) => r.text),
     open: open && box(open), context: context && box(context), shelf: shelf && box(shelf),
     pads: pads.map((b) => ({ text: b.textContent.trim(), top: Math.round(b.getBoundingClientRect().top), clipped: b.scrollWidth > b.clientWidth + 1 })),
-    padsKind: padRow?.dataset.pads,
     padsScroll: padRow && { overflows: padRow.scrollWidth > padRow.clientWidth + 1, scrolls: ["auto", "scroll"].includes(getComputedStyle(padRow).overflowX) },
   };
 }
@@ -2167,14 +2167,10 @@ async function largeTextFocus(browser) {
       const m = await opened.page.evaluate(measureLargeFocus);
       if (m.error) { assert(false, label, m.error); continue; }
       if (key === "workout/rest-running") {
-        assert(!!m.rest && m.rest.clockSize <= 52, `${label}: the rest clock is capped at 52px`, JSON.stringify(m.rest?.clockSize));
-        assert(!!m.rest && m.rest.label.top >= m.rest.clock.bottom - 1 && m.rest.of.top >= m.rest.clock.bottom - 1,
-          `${label}: the rest label and its total stack under the clock`, JSON.stringify(m.rest));
-        assert(!!m.rest && !m.rest.outside.length && !m.rest.overprinted.length, `${label}: no rest text is clipped or overprinted`,
-          JSON.stringify({ outside: m.rest?.outside, overprinted: m.rest?.overprinted }));
-        assert(m.padsKind === "rest", `${label}: the rest controls keep the pad row`, JSON.stringify({ kind: m.padsKind, pads: m.pads }));
-        if (phone.height === 844) assert(m.rest.clock.top >= m.context.top - 0.5, `${label}: the clock is whole in the window with the open set`,
-          JSON.stringify({ clock: m.rest.clock, context: m.context }));
+        assert(!!m.rest && !m.rest.outside.length && !m.rest.overprinted.length && !m.rest.clipped, `${label}: the rest tab's text is whole, on screen and not overprinted`,
+          JSON.stringify(m.rest));
+        assert(!!m.rest && m.rest.tab.left >= -0.5 && m.rest.tab.right <= m.width + 0.5 && m.rest.tab.bottom - m.rest.tab.top >= 44,
+          `${label}: the tab is a full target inside the screen`, JSON.stringify(m.rest));
       }
       assert(m.titleSize <= 21, `${label}: the bar title is capped at 21px`, String(m.titleSize));
       assert(!m.ledgerOverprinted.length && !m.ledgerOutside.length, `${label}: no ledger text overprints or leaves the screen`,

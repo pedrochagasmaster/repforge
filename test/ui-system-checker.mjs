@@ -15,10 +15,12 @@ import { onboardingState, ONBOARDING_SCENARIOS } from "../tools/ui-screens/scree
 const manifest = loadManifest(), inventory = loadRoleInventory();
 assert.deepEqual(validateRoleInventory(inventory, manifest), [], "current manifest and semantic inventory agree");
 assert.deepEqual(requiredBoundaryExceptionRequests(inventory.exceptions, "workout/rest-running"), [
-  { selector: ".restinline__fill", kind: "boundary" },
+  { selector: ".restring__arc", kind: "boundary" },
+  { selector: ".shelf__edge-fill", kind: "boundary" },
 ], "required boundary exceptions enter rendered-role measurement for their owned catalog state");
-assert.deepEqual(requiredBoundaryExceptionRequests(inventory.exceptions, "workout/rest-done"), [],
-  "the run-out state has no drain bar to measure");
+assert.deepEqual(requiredBoundaryExceptionRequests(inventory.exceptions, "workout/rest-done"), [
+  { selector: ".shelf__edge-fill", kind: "boundary" },
+], "the run-out state measures only the whole edge: the ring is the filled check");
 assert.equal(Object.keys(inventory.catalogStates).length, manifest.screens.length, "every live catalog state has an explicit owner");
 assert.ok(inventory.components.some((item) => item.roles.elevation === "flat"), "flat content has an explicit role");
 for (const role of ["selected", "floating", "modal", "persistent-action"]) {
@@ -327,29 +329,39 @@ for (const selector of focusAdjustmentSelectors) {
   assert.ok(focusAdjustmentContractErrors(selectedFocusAdjustment).some((error) => error.includes(selector)),
     `${selector} cannot claim a selected state after changing a number`);
 }
-// The retired rest-timer sheet's dial and play/pause are gone with it; the inline rest controls replace them (R3f).
-assert.ok(!inventory.components.some((item) => item.selector === "#restPlayPause") &&
-  !inventory.exceptions.some((item) => item.selector.includes("restdial")) &&
-  !inventory.progressCandidateSelectors.some((selector) => selector.includes("restdial")) &&
+// The rest timer redesign: the pill, the inline clock and the rest pads are gone; the tab and the sheet carry the rest.
+assert.ok(!inventory.components.some((item) => /#woRest|restpad|restpreset|restinline/.test(item.selector)) &&
+  !inventory.exceptions.some((item) => /restinline/.test(item.selector)) &&
+  !inventory.contextualVariants.some((item) => /restinline/.test(item.selector)) &&
   !Object.keys(inventory.catalogStates).some((key) => key.startsWith("workout/rest-timer")),
-"the retired rest-timer sheet leaves no inventory row, exception or catalog owner behind");
+"the retired rest pill, inline clock and pads leave no inventory row, exception or variant behind");
 {
-  const inlineRest = (selector) => inventory.components.filter((item) => item.selector === selector);
-  const roles = { ".restpad--adjust:not([id])": "adjustment", ".restpad--toggle:not([id])": "selection", ".restpad--skip:not([id])": "secondary" };
-  for (const [selector, control] of Object.entries(roles)) {
-    const [row, ...rest] = inlineRest(selector);
-    assert.ok(row && !rest.length && row.roles.control === control && row.catalogStates.includes("workout/rest-running"),
-      `${selector} is one selector-exact ${control} row rendered by workout/rest-running`);
+  const one = (selector) => {
+    const rows = inventory.components.filter((item) => item.selector === selector);
+    return rows.length === 1 ? rows[0] : null;
+  };
+  const sheet = ["workout/rest-sheet", "workout/rest-sheet-idle"];
+  const tab = one("#restTab");
+  assert.ok(tab && tab.roles.control === "quiet-navigation" && tab.catalogStates.includes("workout/rest-running") && tab.catalogStates.includes("workout/rest-done"),
+    "#restTab is one quiet-navigation row rendered by the running and run-out rest states");
+  const hold = one("#restHold");
+  assert.ok(hold && hold.roles.control === "primary" && hold.facets.includes("icon-only") && JSON.stringify(hold.catalogStates) === JSON.stringify(sheet),
+    "#restHold is the sheet's primary icon control, owned by the rest-sheet states");
+  for (const [selector, control] of [["#restMinus", "adjustment"], ["#restPlus", "adjustment"], ["#restReset", "secondary"], ["#restStop", "secondary"],
+    ["#restPresets [role=\"radio\"]", "selection"]]) {
+    const row = one(selector);
+    assert.ok(row && row.roles.control === control && !row.sourceOnly && JSON.stringify(row.catalogStates) === JSON.stringify(sheet),
+      `${selector} is one selector-exact ${control} row rendered by the rest-sheet states`);
   }
-  const bar = inventory.exceptions.find((item) => item.selector === ".restinline__fill");
-  assert.ok(bar && bar.boundary === "required" && /falsify its denominator/.test(bar.rationale) &&
-    JSON.stringify(bar.catalogStates) === JSON.stringify(["workout/rest-running", "workout/logged-sets"]),
-  "the drain bar's fill is a selector-exact countdown exception with the arc's rationale");
-  assert.ok(!inventory.progressCandidateSelectors.some((selector) => /restinline/.test(selector)),
-    "the drain bar is not a progress candidate selector");
+  for (const selector of [".restring__arc", ".shelf__edge-fill", ".restdial__arc"]) {
+    const arc = inventory.exceptions.find((item) => item.selector === selector);
+    assert.ok(arc && arc.boundary === "required" && /falsify its denominator/.test(arc.rationale), `${selector} is a selector-exact countdown exception`);
+  }
+  assert.ok(!inventory.progressCandidateSelectors.some((selector) => /rest(ring|dial)|shelf__edge/.test(selector)),
+    "the rest depletion is not a progress candidate selector");
   const clock = inventory.contextualVariants.find((item) => item.id === "rest-clock-scale");
-  assert.ok(clock && clock.selector === ".restinline__clock" && JSON.stringify(clock.catalogStates) === JSON.stringify(["workout/rest-running"]),
-    "the responsive rest clock variant is selector-exact to the inline clock");
+  assert.ok(clock && clock.selector === ".restdial__time" && JSON.stringify(clock.catalogStates) === JSON.stringify(sheet),
+    "the responsive rest clock variant is selector-exact to the dial's time");
 }
 
 const whyCloseStates = ["default", "hover", "pressed", "focus-visible", "disabled"];

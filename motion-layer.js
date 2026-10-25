@@ -31,6 +31,10 @@
     pressRelease: { type: "spring", stiffness: 900, damping: 42, mass: 1, restDelta: 0.001, restSpeed: 0.01 },
     revealIn: { duration: 0.2, ease: [0.2, 0.7, 0.2, 1] },
     revealOut: { duration: 0.15, ease: [0.4, 0, 0.8, 0.2] },
+    /* The rest clock's second (rest timer redesign, owner 2026-10-23): the new figures settle up into place, quietly. */
+    restRoll: { duration: 0.15, ease: [0.2, 0.7, 0.2, 1] },
+    /* The bell's one soft light flick: the glow brightens and widens once, then settles into the done state. */
+    restFlick: { duration: 0.6, ease: [0.16, 0.84, 0.3, 1] },
   };
 
   const reduceQuery = typeof global.matchMedia === "function"
@@ -1912,7 +1916,31 @@
     };
   }
 
+  const cubic = ease => `cubic-bezier(${ease.join(",")})`;
+  /** A clock figure that just changed rolls up into place (a few pixels and a fade). Nothing under reduced motion. */
+  function rollValue(el) {
+    if (!el || reducedMotion() || typeof el.animate !== "function") return null;
+    const { duration, ease } = VOCABULARY.restRoll;
+    return el.animate([{ transform: "translateY(35%)", opacity: 0.25 }, { transform: "none", opacity: 1 }],
+      { duration: duration * 1000, easing: cubic(ease) });
+  }
+  /** The rest's zero flick on a glow layer: it brightens and widens once and is gone. Played once per bell by the
+   *  caller; nothing under reduced motion. Returns the animation (its id is "rest-flick"). */
+  function flickRest(el) {
+    if (!el || reducedMotion() || typeof el.animate !== "function") return null;
+    const { duration, ease } = VOCABULARY.restFlick;
+    const run = el.animate([
+      { opacity: 0, transform: "scale(.9)" },
+      { opacity: 1, transform: "scale(1)", offset: 0.28 },
+      { opacity: 0, transform: "scale(1.18)" },
+    ], { duration: duration * 1000, easing: cubic(ease) });
+    run.id = "rest-flick";
+    return run;
+  }
+
   global.RepForgeMotion = {
+    rollValue,
+    flickRest,
     syncNativeControls,
     animateContextMenu,
     trackContextSlide,

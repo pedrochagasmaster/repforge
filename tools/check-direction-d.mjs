@@ -62,7 +62,8 @@ const D_STATE_KEYS = [
 const IMPLEMENTED_D_STATES = new Set([
   // R3c: the Focus surface (shelf, ledger, cue, header routes) over DraftV2.
   "workout/focus", "workout/focus-glossary", "workout/correction",
-  // R3f: the inline rest in the Focus cue slot and pad row, running and run out.
+  // R3f, redrawn by the rest timer redesign (owner-approved mock, 2026-10-23): the rest tab over the Focus shelf, running
+  // and run out.
   "workout/rest-running", "workout/rest-done",
   // R3d: the workout sheets drawn in OG-6 round 1.
   "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions",
@@ -120,6 +121,8 @@ export const ORANGE_CATEGORIES = Object.freeze([
   // Owner-approved Today mock A (2026-10-23): the live session card's dot, its "In progress" tag and its sets bar, and
   // the current lift's ring in the rows below it.
   "live-session",
+  // The rest timer (owner-approved mock, 2026-10-23): the bell's words and check in accent, the flick, and End rest.
+  "rest-timer",
 ]);
 /**
  * [{ category, selector, pseudo?: "::before" | "::after" }]. Each R3 sub-slice adds the entries its
@@ -134,8 +137,21 @@ export const ORANGE_ALLOWLIST = [
   { category: "verdict-glyph", selector: ".verdictmark--up .verdictmark__glyph" },
   // R3b: Today's Start workout CTA keeps its arrow.
   { category: "cta-arrow", selector: ".btn--cta", pseudo: "::after" },
-  // R3f: the running rest's drain bar (the bar's fill, a transform on a 4px track).
-  { category: "timer-drain-bar", selector: ".restinline__fill" },
+  // The running rest's drain (rest timer redesign): the tab's ring and the dial's arc, the shelf's top edge, and the
+  // soft glow at each leading end.
+  { category: "timer-drain-bar", selector: ".restring__arc" },
+  { category: "timer-drain-bar", selector: ".restdial__arc" },
+  { category: "timer-drain-bar", selector: ".shelf__edge-fill" },
+  { category: "timer-drain-bar", selector: ".restglow" },
+  // The rest timer's own accent (owner-approved mock): the run-out ring, the "Rest done" words and time, the flick and End rest.
+  { category: "rest-timer", selector: ".restring.is-done svg" },
+  { category: "rest-timer", selector: ".restring.is-done .restring__track" },
+  { category: "rest-timer", selector: ".restdial.is-done .restdial__track" },
+  { category: "rest-timer", selector: ".resttab.is-done .resttab__label" },
+  { category: "rest-timer", selector: ".resttab.is-done .resttab__time" },
+  { category: "rest-timer", selector: ".restdial.is-done .restdial__time" },
+  { category: "rest-timer", selector: ".restflick" },
+  { category: "rest-timer", selector: ".restlink--end" },
   // R3j: the dock's active item. Direction D leaves the dock as shipped (spec section 7), so the
   // active tab keeps painting its icon, its label and its selection edge in the accent.
   { category: "active-dock-icon", selector: "nav button.active .nav__icon" },
@@ -160,8 +176,8 @@ export const OVERFLOW_EXCEPTIONS = [
   // clamp's ellipsis can sit a pixel or two past the box. The heading's accessible name keeps the whole name.
   { id: "focus-header-name-clamp", selector: ".wo-head__name" },
 ];
-/** Where "Hold" as a label is banned: the rest surfaces. R3f: the inline block, its pad row and the presets sheet. */
-export const TIMER_SCOPES = ["#restSheet", ".restinline", ".shelf__pads--rest"];
+/** Where "Hold" as a label is banned: the rest surfaces. The rest timer redesign: the sheet, the tab and the pill. */
+export const TIMER_SCOPES = ["#restSheet", ".resttab", ".restbar"];
 
 /** Data attributes a D surface emits so parity can tie a rendered word or figure to an exercise (see GAPS). */
 export const PARITY_ATTRIBUTES = Object.freeze({

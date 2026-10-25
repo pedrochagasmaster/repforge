@@ -131,12 +131,14 @@ assert(notice.includes("Motion animation runtime") && notice.includes("Copyright
 {
   const vocabulary = motion.api.vocabulary;
   assert(vocabulary && typeof vocabulary === "object", "one named motion vocabulary is exposed");
-  for (const name of ["gestureSettle", "gestureExit", "layoutShift", "navPush", "pressRelease", "revealIn", "revealOut"]) {
+  for (const name of ["gestureSettle", "gestureExit", "layoutShift", "navPush", "pressRelease", "revealIn", "revealOut", "restRoll", "restFlick"]) {
     assert(Object.hasOwn(vocabulary, name), `the vocabulary names ${name}`);
   }
   const values = Object.values(vocabulary);
-  const durations = values.filter((v) => Object.hasOwn(v, "duration")).map((v) => v.duration);
-  assert(durations.length === 2 && durations.every((d) => Number.isFinite(d) && d <= 0.3), "both tweens stay within 300ms");
+  // The rest timer redesign (owner 2026-10-23): the bell's one flick is the only tween over 300ms, 500–700ms by the brief.
+  const tweens = Object.entries(vocabulary).filter(([, v]) => Object.hasOwn(v, "duration"));
+  assert(tweens.length === 4 && tweens.every(([name, v]) => Number.isFinite(v.duration) && (name === "restFlick" ? v.duration >= 0.5 && v.duration <= 0.7 : v.duration <= 0.3)),
+    "the tweens stay within 300ms, and the rest's zero flick within 500–700ms", JSON.stringify(Object.fromEntries(tweens)));
   const springs = values.filter((v) => v.type === "spring");
   assert(springs.length === 5 && springs.every((s) => s.stiffness > 0 && s.damping > 0 && s.mass > 0) && values.every((v) => !Object.hasOwn(v, "visualDuration") && !Object.hasOwn(v, "bounce")), "all springs use physics parameters, not duration or bounce");
   const zeta = (s) => Math.round(s.damping / (2 * Math.sqrt(s.stiffness * s.mass)) * 100) / 100;

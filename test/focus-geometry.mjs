@@ -81,8 +81,8 @@ function measureFocusCard(safeBottom) {
   const banner = q("#draftRecovery");
   const bannerRect = banner && !banner.classList.contains("hidden") ? banner.getBoundingClientRect() : null;
   const shelfRect = shelf.getBoundingClientRect();
-  const title = q("#woDayTitle"), name = q(".focus-ex__meta", art), slot = q(".fx-slot", art);
-  const nameRect = name?.getBoundingClientRect(), slotRect = slot?.getBoundingClientRect();
+  const title = q("#woDayTitle"), name = q(".focus-ex__meta", art), tab = q("#restTab");
+  const nameRect = name?.getBoundingClientRect(), tabRect = tab?.getBoundingClientRect();
   return {
     height: innerHeight,
     // A state that opens a sheet or the glossary is drawn with that layer over the card, and what lies over the action
@@ -101,7 +101,7 @@ function measureFocusCard(safeBottom) {
     })(),
     window: context && { top: context.getBoundingClientRect().top, bottom: context.getBoundingClientRect().bottom, scrollTop: context.scrollTop },
     name: nameRect && { top: nameRect.top, bottom: nameRect.bottom },
-    slot: slotRect && { top: slotRect.top, bottom: slotRect.bottom, state: slot.dataset.rest },
+    tab: tabRect && { top: tabRect.top, bottom: tabRect.bottom, left: tabRect.left, right: tabRect.right, height: tabRect.height },
   };
 }
 
@@ -144,7 +144,6 @@ async function checkFocusStatesAtLargeText(browser) {
 }
 
 /** The part of a box that shows inside the context region's window. */
-const shown = (box, window) => Math.max(0, Math.min(box.bottom, window.bottom) - Math.max(box.top, window.top));
 
 /**
  * R7 V-05, as amended by layout D: Focus at 320x568 with the usual text. The title is the exercise's name in at most
@@ -170,7 +169,8 @@ async function checkFocusAtSmallestPhone(browser) {
           if (m.window.scrollTop !== 0) problems.push(`the context region opens scrolled ${Math.round(m.window.scrollTop)}px`);
           if (!m.name || m.name.top < m.window.top - 1 || m.name.bottom > m.window.bottom + 1) problems.push("the exercise's prescription line is not whole in the context window on first paint");
         }
-        if (key.startsWith("workout/rest-") && (!m.slot || shown(m.slot, m.window) < 44)) problems.push(`the rest block keeps ${Math.round(m.slot ? shown(m.slot, m.window) : 0)}px of the window`);
+        // The rest timer redesign: the rest is the tab over the shelf, whole on screen and a 44px target.
+        if (/^workout\/rest-(running|done)$/.test(key) && (!m.tab || m.tab.top < 0 || m.tab.bottom > m.height + 0.5 || m.tab.left < -0.5 || m.tab.right > 320.5 || m.tab.height < 44 - 0.01)) problems.push(`the rest tab is not whole on screen with a 44px target (${JSON.stringify(m.tab)})`);
       }
       if (problems.length) failures.push(`${label}: ${problems.join(" | ")}`);
     } catch (error) {
@@ -249,9 +249,9 @@ async function main() {
       const titleIdleBox = await titleEl.boundingBox();
       assert(titleIdleBox != null && titleIdleBox.width > 0, `title exists and has width at ${width}px PT+200%`);
 
-      // Start the rest timer
-      await page.locator("#woRest").click();
-      await page.waitForSelector("#woRest.is-running");
+      // Start the rest timer (the rest timer redesign: it rises as a tab over the shelf, never in the header)
+      await page.evaluate(() => window.startRest());
+      await page.waitForSelector("#restTab");
 
       // Measure title bounding box while timer is running
       const titleRunningBox = await titleEl.boundingBox();
