@@ -166,14 +166,16 @@ async function main() {
       empties: document.querySelectorAll("#libList span.exthumb--empty").length,
       emptyHasNoSrc: [...document.querySelectorAll("#libList span.exthumb--empty")].every((s) => !s.getAttribute("src")),
       emptyIsHidden: [...document.querySelectorAll("#libList span.exthumb--empty")].every((s) => s.getAttribute("aria-hidden") === "true"),
-      emptyIsBlank: [...document.querySelectorAll("#libList span.exthumb--empty")].every((s) => !s.textContent.trim() && !s.children.length),
+      // The native UI kit (owner, 2026-10-24): an empty tile carries only the decorative G dumbbell, never text or an image.
+      emptyIsBlank: [...document.querySelectorAll("#libList span.exthumb--empty")].every((s) => !s.textContent.trim() && !s.querySelector("img") &&
+        s.children.length === 1 && s.firstElementChild.matches(".icon-mask.icon-mask--dumbbell")),
       lazy: [...document.querySelectorAll("#libList img.exthumb")].every((i) => i.loading === "lazy"),
     }));
     assert(media.images === MAPPED, "exactly the mapped exercises show artwork", `${media.images} of ${media.rows}`);
     assert(media.empties === media.rows - MAPPED, "every other row shows an empty tile",
       `${media.empties} empties, ${media.rows} rows`);
     assert(media.emptyHasNoSrc && media.emptyIsBlank,
-      "the empty tile is genuinely empty — no src, no glyph, no text");
+      "the empty tile has no src, no image and no text, only the decorative G dumbbell");
     assert(media.emptyIsHidden, "the empty tile is hidden from screen readers");
     assert(media.lazy, "artwork decodes lazily in a long list");
     await settle(page, 800);
