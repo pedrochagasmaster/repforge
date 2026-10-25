@@ -990,8 +990,8 @@ div.settings-row{cursor:default}
 /* The one row that is still a box: a destructive action is not part of the
    list above it, and the outline is what says so. */
 .settings-row.is-danger,#reset.settings-row{
-  margin-top:24px;border:1px solid var(--control-destructive-boundary);border-radius:var(--radius-control);
-  background:var(--control-destructive-bg);color:var(--control-destructive-ink);
+  margin-top:24px;border:0;border-radius:0;
+  background:transparent;color:var(--control-destructive-ink);
   min-height:56px;
 }
 .settings-row.is-danger::before,#reset.settings-row::before{display:none}
@@ -1962,7 +1962,7 @@ body.is-sheet-open{overflow:hidden}
   position:fixed;left:0;right:0;bottom:0;z-index:30;
   display:flex;flex-direction:column;gap:6px;
   padding:10px 16px calc(12px + env(safe-area-inset-bottom));
-  background:var(--color-surface);border-top:1px solid var(--boundary-persistent);
+  background:var(--color-surface);border-top:.5px solid var(--bar-edge);
   box-shadow:var(--elevation-persistent-shadow);
 }
 .libbar.is-hidden{display:none}
@@ -2683,11 +2683,13 @@ article.exercise--focus:has(.resttab) .fcard__context{padding-bottom:calc(var(--
 .prtl__ex{font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .prtl__set{font-size:var(--font-size-body-small);color:var(--ink);white-space:nowrap;font-variant-numeric:tabular-nums}
 .prtl__delta{font-size:var(--font-size-body-small);font-weight:600;color:var(--accent-deep);white-space:nowrap}
+/* On a phone a record is one list row (the native UI kit): the lift and its set on the first line, the date, kind
+   and gain under them, and the drill-in chevron trailing both lines instead of falling onto a line of its own. */
 @media(max-width:520px){
-  .prtl__row{grid-template-columns:1fr 1fr;gap:4px 8px}
-  .prtl__date{grid-column:1}.prtl__ex{grid-column:2;text-align:right}
-  .pr-kind{grid-column:1}.prtl__set{grid-column:2;text-align:right}
-  .prtl__delta{grid-column:1/-1;text-align:right}}
+  .prtl__row{grid-template-columns:auto minmax(0,1fr) auto var(--control-icon-size);grid-template-areas:"ex ex set chev" "date kind delta chev";gap:4px 8px}
+  .prtl__ex{grid-area:ex}.prtl__set{grid-area:set;text-align:right}
+  .prtl__date{grid-area:date}.pr-kind{grid-area:kind;justify-self:start}
+  .prtl__delta{grid-area:delta;text-align:right}.prtl__row>.chevron{grid-area:chev;justify-self:end}}
 canvas{width:100%;display:block;margin-top:6px}
 
 /* ---- Tables ---- */
@@ -3649,11 +3651,14 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
    should not render at the 40% width meant for a Back/Continue pair. */
 .onb__nav .btn--steel:only-child{flex:1}
 
+/* Settings' training-data fields take the data face with tabular figures, as the editor's metric fields do. */
+#settings :is(#jumpPct,#minJump,#rirHigh,#hardRir,#restSec){font-family:var(--font-training-data);font-feature-settings:"tnum";font-variant-numeric:tabular-nums}
 .guide-replay{padding:12px 14px;display:grid;gap:8px}
 .guide-replay[hidden]{display:none}
 .settings-panel.guide-replay.is-open{display:grid}
 .guide-replay .lede{margin:0 0 2px}
-.guide-replay .btn{width:100%;justify-content:flex-start;text-align:left}
+/* The guides are a list of rows (the native UI kit's row anatomy), not a stack of bordered buttons. */
+.guide-replay .btn{width:100%;justify-content:flex-start;text-align:left;padding:12px 0;border:0;border-top:1px solid var(--boundary-decorative);border-radius:0;background:transparent}
 .guide-replay__item{display:grid;gap:3px}
 .guide-replay__title{font-family:var(--font-language);font-weight:var(--weight-semibold);color:var(--color-ink)}
 .guide-replay__body{font-family:var(--font-language);font-size:var(--font-size-caption);
@@ -7152,7 +7157,7 @@ body.is-entry-editor #entryProgramName,
 #stats .subhead{font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);letter-spacing:.08em;text-transform:uppercase;color:var(--color-ink-secondary)}
 #stats .subhead::after{background:var(--boundary-decorative)}
 #stats .lede{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
-#stats .pr-kind{font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);border-radius:var(--radius-compact)}
+#stats .pr-kind{font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);border-radius:var(--radius-pill)}
 #stats .pr-kind--load,#stats .pr-kind--e1rm{color:var(--color-action-text)}
 #stats .pr-kind--reps{color:var(--color-ink-secondary)}
 #stats .prtl__row{min-height:var(--control-target);border-radius:var(--radius-none);background:var(--control-disclosure-bg);color:var(--control-disclosure-ink);border-bottom-color:var(--control-disclosure-boundary);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard)}
@@ -7402,14 +7407,14 @@ body.is-entry-editor #entryProgramName,
 .onb__body{margin-bottom:calc(var(--space-26) + env(safe-area-inset-bottom))}
 #onbBody.entry-body--preview,#onbBody.entry-body--result,#onbBody.entry-body--activation_conflict{margin-bottom:0}
 
-/* The pinned region: one primary action on solid ground under a hairline, kept
+/* The pinned region: one primary action on solid ground under the bar's 0.5px hairline, kept
    in reach while a long screen scrolls. A blocked primary drops its arrow and
    says why directly above it. */
 .onb__nav,.entry__pinned{
   position:sticky;bottom:0;z-index:2;display:flex;flex-direction:column;gap:var(--space-8);
   margin:0 calc(-1 * var(--onb-pad-r)) 0 calc(-1 * var(--onb-pad-l));
   padding:var(--space-12) var(--onb-pad-r) calc(var(--space-12) + env(safe-area-inset-bottom)) var(--onb-pad-l);
-  background:var(--bg);border-top:1px solid var(--boundary-persistent)
+  background:var(--bg);border-top:.5px solid var(--bar-edge)
 }
 .entry__pinned{margin-top:var(--space-26)}
 .onb__nav .btn,.entry__pinned .btn{flex:0 0 auto;width:100%}
