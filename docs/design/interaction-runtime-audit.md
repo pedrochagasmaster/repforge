@@ -108,6 +108,17 @@ stays reachable through the Move controls.
 | Move up / Move down / Move to another day | Buttons calling `moveExercise` | **Motion** | `layoutShift` spring FLIP | No gesture, so nothing animates the jump. A CSS keyframe restarts from zero, so nudging a row up three times flickered on the second and third taps; a spring retargets from where the row currently is |
 | Undo after a move | Status line with an inline Undo | **Unchanged** (bug fixed) | — | The control was only live if something else happened to redraw the editor; it is now bound at the moment it is offered |
 
+## Session details — reordering (UI kit, owner 2026-10-24)
+
+The session map in Session details reorders the open session as the editor does, and its ↑ ↓ buttons are gone.
+
+| Interaction | Owner | Technique | Reduced-motion path | Notes |
+| --- | --- | --- | --- | --- |
+| Dragging a row by its grip | `app.js` (`mountSessionSorting`, `moveSessionExercise`) | **@dnd-kit**, as the editor: one `Sortable` per row with the 44px grip as its handle, the 90ms touch pickup with a 10px slop and none for a mouse on the grip, the `Feedback` drop animation (200ms) and the `Accessibility` plugin with Taurifer's EN/PT copy | No drop glide: the row follows the pointer and lands at once | The grip carries `data-sheet-hold`, so the sheet's swipe-to-dismiss does not follow a drag that starts on it. The drop is one `reorderExercises` dispatch; the draft, not the DOM, decides the order the redraw shows. Without the runtime the grip does not drag and the row menu carries the reorder |
+| Reordering by keyboard | same | @dnd-kit's keyboard drag on the grip (Space, arrows, Space or Escape), and the row's menu button (Move up, Move down) | Same | Focus returns to the moved exercise's menu (or grip) by identity, and the new position is announced |
+| Long-press on a row | `motion-layer.js` (`rowcontext`, 450ms, 10px slop) and `app.js` (`sessionRowContext`) | The shared row context menu (`openRowContextMenu`) with Move up and Move down, their `chev-up` and `chev-down` icons | The menu's own reduced-motion path | The same menu Today's rows use; a long-press never also opens the exercise |
+
+
 ## Onboarding B's review editor (Plan 070)
 
 Generate's result screen is the program editor ADR 0020 chose. It adds no

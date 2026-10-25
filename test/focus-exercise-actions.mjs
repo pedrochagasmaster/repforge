@@ -127,7 +127,7 @@ async function main() {
       const sheet = document.querySelector("#exActionsSheet");
       const heads = [...sheet.querySelectorAll(".sheetgroup__head")].filter((el) => el.offsetParent !== null);
       const close = sheet.querySelector("#exActionsClose");
-      const sessionOnly = [...sheet.querySelectorAll("[data-session-reorder-up], [data-session-reorder-down], #sessionEarlyFinish")];
+      const sessionOnly = [...sheet.querySelectorAll("[data-session-drag], [data-session-row-menu], #sessionEarlyFinish")];
       const earlyLabel = t("session.sheet.early_finish");
       const labelled = [...sheet.querySelectorAll("button")].filter((el) => el.textContent.includes(earlyLabel));
       return {

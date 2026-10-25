@@ -5789,7 +5789,7 @@
     },
     {
       "id": "stats-button-aria-pressed",
-      "selector": "#stats button[aria-pressed]:not(.tabrow__tab)",
+      "selector": "#stats button[aria-pressed]:not(.tabrow__tab):not(#strengthScopeSeg > button)",
       "roles": {
         "control": "selection",
         "elevation": [
@@ -5840,6 +5840,37 @@
         "progress/volume-drill-in",
         "progress/volume-reduction-preview",
         "progress/minibar"
+      ]
+    },
+    {
+      "id": "strength-scope-segment",
+      "selector": "#strengthScopeSeg > button",
+      "roles": {
+        "control": "selection",
+        "elevation": [
+          "flat",
+          "selected"
+        ],
+        "boundary": "state-cues"
+      },
+      "variant": "progress-tab",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected",
+        "disabled"
+      ],
+      "rationale": "Chooses the Strength scope (Current block, All history) on the native segmented recipe (UI kit S5, owner 2026-10-24): a soft track and the chosen segment a raised thumb with a semibold label (contract: state cues); aria-pressed carries the choice.",
+      "owner": "kit-b",
+      "catalogStates": [
+        "progress/strength",
+        "progress/strength-all-history",
+        "progress/strength-comparison",
+        "progress/strength-current-block",
+        "progress/strength-sparse"
       ]
     },
     {
@@ -7344,8 +7375,48 @@
         "selected",
         "disabled"
       ],
-      "rationale": "Changes a chosen value, active option, or reversible status.",
-      "owner": "plan-058",
+      "rationale": "Chooses an option as a plain choice row (native UI kit §5, owner 2026-10-24); the row is the target and its trailing mark carries the selection and the required boundary. The number, muscle, compact and reason tiles keep a 3:1 tile outline.",
+      "owner": "kit-b",
+      "catalogStates": [
+        "onboarding-build/setup",
+        "onboarding-recommend/abilities",
+        "onboarding-recommend/background",
+        "onboarding-recommend/cardio-experience",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/days-per-week",
+        "onboarding-recommend/split",
+        "onboarding-recommend/desired-result",
+        "onboarding-recommend/environment",
+        "onboarding-recommend/equipment",
+        "onboarding-recommend/equipment-adjusted",
+        "onboarding-recommend/session-length",
+        "onboarding-recommend/sex",
+        "onboarding-recovery/rules-drift",
+        "onboarding-start/hub",
+        "onboarding-start/hub-chosen",
+        "onboarding-start/hub-existing",
+        "progress/schedule-diagnosis",
+        "onboarding-recommend/result-block-sheet",
+        "onboarding-recommend/review-sheet-execution-mode",
+        "program/editor-suggest-loads",
+        "onboarding-recommend/deload",
+        "onboarding-recommend/deload-start"
+      ]
+    },
+    {
+      "id": "radio-card-mark",
+      "selector": ".radio-card__mark",
+      "roles": {
+        "boundary": "required"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "selected"
+      ],
+      "rationale": "A choice row's required boundary (contract: choice rows): a 22px ring in --boundary-required, or an --accent-deep ring and centre (single) or disc with a check (multiple) when chosen. Inset, so it lifts nothing.",
+      "owner": "kit-b",
       "catalogStates": [
         "onboarding-build/setup",
         "onboarding-recommend/abilities",
@@ -7397,26 +7468,23 @@
       ]
     },
     {
-      "id": "session-map-reorder-btn-not-id",
-      "selector": ".session-map__reorder-btn:not([id])",
+      "id": "session-map-grip-not-id",
+      "selector": ".session-map__grip:not([id])",
       "roles": {
         "control": "secondary"
       },
       "variant": null,
       "facets": [
-        "icon-only",
-        "disabled"
+        "icon-only"
       ],
       "states": [
         "default",
-        "hover",
         "pressed",
         "focus-visible",
-        "disabled",
-        "loading"
+        "disabled"
       ],
-      "rationale": "Performs a reversible supporting action without becoming the screen commitment.",
-      "owner": "plan-058",
+      "rationale": "The session map's drag handle (UI kit, owner 2026-10-24): a 44px grip with no box that reorders the open session as the editor's handle does; a long-press on the row or its menu carries Move up and Move down.",
+      "owner": "kit-b",
       "catalogStates": [
         "workout/abandon",
         "workout/early-finish",
@@ -9192,7 +9260,7 @@
           "flat",
           "selected"
         ],
-        "boundary": "required"
+        "boundary": "state-cues"
       },
       "variant": null,
       "facets": [],
@@ -9204,8 +9272,8 @@
         "selected",
         "disabled"
       ],
-      "rationale": "Chooses the chart's scope or metric without committing data. The selected button carries the quiet 2px ink boundary (OG-4), 3:1 or better on the pill ground.",
-      "owner": "plan-058",
+      "rationale": "Chooses the chart's scope or metric without committing data, on the native segmented recipe (UI kit S5, owner 2026-10-24): a soft track and the chosen segment a raised thumb with a semibold label (contract: state cues).",
+      "owner": "kit-b",
       "catalogStates": [
         "progress/exercise-chart"
       ]
@@ -9755,7 +9823,12 @@
       "id": "review-seg-opt",
       "selector": ".review-seg__opt",
       "roles": {
-        "control": "selection"
+        "control": "selection",
+        "elevation": [
+          "flat",
+          "selected"
+        ],
+        "boundary": "state-cues"
       },
       "variant": null,
       "facets": [],
@@ -9766,8 +9839,8 @@
         "focus-visible",
         "selected"
       ],
-      "rationale": "Chooses the rest between sets from the presets; aria-checked carries the choice.",
-      "owner": "plan-070",
+      "rationale": "Chooses the rest between sets from the presets, on the native segmented recipe (UI kit S5, owner 2026-10-24): a soft track and the chosen segment a raised thumb with a semibold label (contract: state cues); aria-checked carries the choice.",
+      "owner": "kit-b",
       "catalogStates": [
         "onboarding-recommend/review-sheet",
         "onboarding-recommend/review-sheet-swap",
@@ -9970,7 +10043,8 @@
         "elevation": [
           "flat",
           "selected"
-        ]
+        ],
+        "boundary": "state-cues"
       },
       "variant": null,
       "facets": [],
@@ -9982,8 +10056,8 @@
         "selected",
         "disabled"
       ],
-      "rationale": "One answer of a segmented choice: a muscle's Skip, Less, Normal or More, or a picker's unit.",
-      "owner": "plan-072",
+      "rationale": "One answer of a segmented choice (a muscle's Skip, Less, Normal or More, or a picker's unit), on the native segmented recipe (UI kit S5, owner 2026-10-24): a soft track and the chosen segment a raised thumb with a semibold label (contract: state cues).",
+      "owner": "kit-b",
       "catalogStates": [
         "onboarding-recommend/height",
         "onboarding-recommend/height-ftin",
@@ -10698,14 +10772,18 @@
         "program/editor-suggest-loads",
         "program/progression-editor",
         "today/deload-week",
-        "today/draft-resume",
-        "today/ready",
         "today/dock-viewer",
+        "today/draft-resume",
+        "today/in-progress",
+        "today/ready",
+        "today/ready-scrolled",
         "today/rest-bar",
         "today/skipped",
+        "workout/abandon",
+        "workout/early-finish",
         "workout/invalid-draft",
-        "today/ready-scrolled",
-        "today/in-progress"
+        "workout/reorder",
+        "workout/session"
       ],
       "neverDisabledReason": "The menu or choice stays reachable whenever its owning row is present."
     },

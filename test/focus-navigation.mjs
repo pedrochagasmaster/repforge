@@ -103,9 +103,16 @@ async function main() {
     await page.locator("#sessionSheetBtn").click();
     await page.waitForSelector("#sessionSheet.is-open", { timeout: 5000 });
 
-    // Reorder controls exist
-    const reorderDownBtn = page.locator('#sessionMap [data-session-reorder-down]').first();
-    assert(await reorderDownBtn.count() > 0, "session map provides reorder-down controls");
+    // The session map reorders as the editor does (UI kit, owner 2026-10-24): a grip to drag, and the row's menu
+    // (a long-press, or its button for the keyboard) with Move up and Move down. The old up/down buttons are gone.
+    const controls = await page.evaluate(() => ({
+      menus: document.querySelectorAll("#sessionMap [data-session-row-menu]").length,
+      grips: document.querySelectorAll("#sessionMap [data-session-drag][data-sheet-hold]").length,
+      rows: document.querySelectorAll("#sessionMap [data-context-row]").length,
+      oldButtons: document.querySelectorAll("#sessionMap [data-session-reorder-up], #sessionMap [data-session-reorder-down]").length,
+    }));
+    assert(controls.rows > 1 && controls.menus === controls.rows && controls.grips === controls.rows && controls.oldButtons === 0,
+      "every session map row has a grip and a row menu, and no up/down buttons", JSON.stringify(controls));
 
     // Capture initial order in DraftV2 and in Program template
     const beforeOrder = await page.evaluate((key) => {
@@ -120,37 +127,39 @@ async function main() {
 
     const selectedBefore=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
 
-    // Operate the Move Down control through the keyboard path. The row rerender
-    // must restore focus by exercise identity, not by the old DOM node.
+    // The keyboard path: the row's menu button opens Move up and Move down; after the move, focus is on the same
+    // exercise's menu button (found by identity in the redrawn list) and the new position is announced.
     const movingExerciseId = beforeOrder.draftOrder[0];
-    const firstMove = await page.evaluate(() => {
-      const draft = window.__repforgeWorkoutDraft.current();
-      const moving = draft.exerciseOrder[0];
-      return { revision: draft.revision, exerciseId: moving, expectedIndex: 1, count: draft.exerciseOrder.length };
-    });
-    await reorderDownBtn.focus();
-    await reorderDownBtn.press("Enter");
-    await page.waitForFunction(({ revision, exerciseId, expectedIndex, count }) => {
-      const draft = window.__repforgeWorkoutDraft.current();
-      const active = document.activeElement;
-      const activeId = active?.dataset?.sessionReorderDown || active?.dataset?.sessionReorderUp;
-      const announcement = document.querySelector("#toast")?.textContent || "";
-      return draft && draft.revision > revision && draft.exerciseOrder.indexOf(exerciseId) === expectedIndex &&
-        activeId === exerciseId && active?.tagName === "BUTTON" && !active.disabled &&
-        announcement.includes(String(expectedIndex + 1)) && announcement.includes(String(count));
-    }, firstMove, { timeout: 5000 });
-
+    const moveDown = async () => {
+      const before = await page.evaluate((exerciseId) => {
+        const draft = window.__repforgeWorkoutDraft.current();
+        return { revision: draft.revision, exerciseId, expectedIndex: draft.exerciseOrder.indexOf(exerciseId) + 1, count: draft.exerciseOrder.length };
+      }, movingExerciseId);
+      const menu = page.locator(`#sessionMap [data-session-row-menu="${movingExerciseId}"]`);
+      await menu.focus();
+      await menu.press("Enter");
+      await page.waitForSelector("#nativeContextMenu[open]", { timeout: 5000 });
+      const down = page.locator('#nativeContextMenu [data-menu-value="down"]');
+      await down.focus();
+      await down.press("Enter");
+      await page.waitForFunction(({ revision, exerciseId, expectedIndex, count }) => {
+        const draft = window.__repforgeWorkoutDraft.current();
+        const active = document.activeElement;
+        const announcement = document.querySelector("#toast")?.textContent || "";
+        return draft && draft.revision > revision && draft.exerciseOrder.indexOf(exerciseId) === expectedIndex &&
+          !document.querySelector("#nativeContextMenu") && active?.dataset?.sessionRowMenu === exerciseId &&
+          announcement.includes(String(expectedIndex + 1)) && announcement.includes(String(count));
+      }, before, { timeout: 5000 });
+    };
+    await moveDown();
     const reorderFocus = await page.evaluate(() => ({
-      tag: document.activeElement?.tagName,
-      exerciseId: document.activeElement?.dataset?.sessionReorderDown || null,
+      exerciseId: document.activeElement?.dataset?.sessionRowMenu || null,
       announcement: document.querySelector("#toast")?.textContent || "",
     }));
-    assert(reorderFocus.tag === "BUTTON" && reorderFocus.exerciseId === beforeOrder.draftOrder[0],
-      "keyboard reorder keeps focus on the same logical Move down control",
-      JSON.stringify(reorderFocus));
+    assert(reorderFocus.exerciseId === beforeOrder.draftOrder[0],
+      "the menu's Move down keeps focus on the same exercise's row menu", JSON.stringify(reorderFocus));
     assert(reorderFocus.announcement.includes("2") && reorderFocus.announcement.includes(String(beforeOrder.draftOrder.length)),
-      "keyboard reorder announces the resulting position",
-      JSON.stringify(reorderFocus));
+      "the move announces the resulting position", JSON.stringify(reorderFocus));
 
     const afterOrder = await page.evaluate((key) => {
       const draft = window.__repforgeWorkoutDraft.current();
@@ -187,38 +196,56 @@ async function main() {
       JSON.stringify({ before: beforeOrder.setOrdinalsEx0, after: afterOrder.setOrdinalsEx0 })
     );
 
-    // Continue using the same keyboard path until the moved exercise reaches
-    // the end. The requested Move down control is then disabled; focus must
-    // move to the stable exercise identity's other live reorder control so
-    // keyboard reordering remains operable at the boundary.
-    for (let step = 1; step < beforeOrder.draftOrder.length - 1; step++) {
-      const beforeMove = await page.evaluate((exerciseId) => {
-        const draft = window.__repforgeWorkoutDraft.current();
-        const currentIndex = draft.exerciseOrder.indexOf(exerciseId);
-        return { revision: draft.revision, exerciseId, expectedIndex: currentIndex + 1, count: draft.exerciseOrder.length };
-      }, movingExerciseId);
-      await page.keyboard.press("Enter");
-      await page.waitForFunction(({ revision, exerciseId, expectedIndex, count }) => {
-        const draft = window.__repforgeWorkoutDraft.current();
-        const active = document.activeElement;
-        const activeId = active?.dataset?.sessionReorderDown || active?.dataset?.sessionReorderUp;
-        const announcement = document.querySelector("#toast")?.textContent || "";
-        return draft && draft.revision > revision && draft.exerciseOrder.indexOf(exerciseId) === expectedIndex &&
-          activeId === exerciseId && active?.tagName === "BUTTON" && !active.disabled &&
-          announcement.includes(String(expectedIndex + 1)) && announcement.includes(String(count));
-      }, beforeMove, { timeout: 5000 });
-    }
-    const boundaryFocus = await page.evaluate(() => ({
-      exerciseId: document.activeElement?.dataset?.sessionReorderUp || null,
-      disabled: document.activeElement?.disabled || false,
+    // Move it on to the end: there the menu offers Move up and a disabled Move down, and the row menu stays live.
+    for (let step = 1; step < beforeOrder.draftOrder.length - 1; step++) await moveDown();
+    const boundary = page.locator(`#sessionMap [data-session-row-menu="${movingExerciseId}"]`);
+    await boundary.press("Enter");
+    await page.waitForSelector("#nativeContextMenu[open]", { timeout: 5000 });
+    const boundaryMenu = await page.evaluate(() => ({
+      up: document.querySelector('#nativeContextMenu [data-menu-value="up"]')?.disabled,
+      down: document.querySelector('#nativeContextMenu [data-menu-value="down"]')?.disabled,
       announcement: document.querySelector("#toast")?.textContent || "",
     }));
-    assert(boundaryFocus.exerciseId === beforeOrder.draftOrder[0] && !boundaryFocus.disabled,
-      "keyboard reorder restores focus to a live control at the list boundary",
-      JSON.stringify(boundaryFocus));
-    assert(boundaryFocus.announcement.includes(String(beforeOrder.draftOrder.length)),
-      "boundary reorder announces the final position",
-      JSON.stringify(boundaryFocus));
+    assert(boundaryMenu.up === false && boundaryMenu.down === true,
+      "at the end of the list the menu offers Move up and a disabled Move down", JSON.stringify(boundaryMenu));
+    await page.keyboard.press("Escape");
+    await page.waitForFunction((id) => !document.querySelector("#nativeContextMenu") && document.activeElement?.dataset?.sessionRowMenu === id,
+      movingExerciseId, { timeout: 5000 });
+    assert(boundaryMenu.announcement.includes(String(beforeOrder.draftOrder.length)),
+      "boundary reorder announces the final position", JSON.stringify(boundaryMenu));
+
+    // The grip drags, as the editor's handle does: the library's keyboard drag (Space, arrows, Space), then a mouse.
+    await page.waitForFunction(() => !!window.DndKit, undefined, { timeout: 10000 });
+    const lastId = movingExerciseId;
+    const keyboardBefore = await page.evaluate(() => window.__repforgeWorkoutDraft.current().revision);
+    const grip = page.locator(`#sessionMap [data-session-drag="${lastId}"]`);
+    await grip.focus();
+    await page.keyboard.press("Space");
+    await page.waitForTimeout(150);
+    await page.keyboard.press("ArrowUp");
+    await page.waitForTimeout(250);
+    await page.keyboard.press("Space");
+    await page.waitForFunction(({ id, revision, count }) => {
+      const draft = window.__repforgeWorkoutDraft.current();
+      return draft.revision > revision && draft.exerciseOrder.indexOf(id) === count - 2;
+    }, { id: lastId, revision: keyboardBefore, count: beforeOrder.draftOrder.length }, { timeout: 5000 });
+    assert(true, "a keyboard drag on the grip moves the exercise up one place");
+    const mouseBefore = await page.evaluate(() => window.__repforgeWorkoutDraft.current());
+    const dragId = mouseBefore.exerciseOrder.at(-1);
+    const from = await page.locator(`#sessionMap [data-session-drag="${dragId}"]`).boundingBox();
+    const to = await page.locator(`#sessionMap [data-session-map-ex="${mouseBefore.exerciseOrder[0]}"]`).boundingBox();
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await page.mouse.down();
+    for (let i = 1; i <= 12; i++) {
+      await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2 + (to.y + 4 - from.y - from.height / 2) * i / 12);
+      await page.waitForTimeout(30);
+    }
+    await page.mouse.up();
+    await page.waitForFunction(({ id, revision }) => {
+      const draft = window.__repforgeWorkoutDraft.current();
+      return draft.revision > revision && draft.exerciseOrder[0] === id;
+    }, { id: dragId, revision: mouseBefore.revision }, { timeout: 5000 });
+    assert(await page.locator("#sessionSheet.is-open").count() === 1, "dragging the grip reorders and leaves the sheet open (it does not swipe the sheet away)");
 
     // Close session sheet: verify Focus deck reflects the new first exercise
     await page.locator("#sessionSheetClose").click();

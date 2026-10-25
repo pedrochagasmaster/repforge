@@ -235,6 +235,11 @@
      the contract's 2px inset recipe; it adds no width. */
   --boundary-selected-quiet:var(--ink);
   --elevation-selected-quiet-shadow:inset 0 0 0 2px var(--boundary-selected-quiet);
+  /* A choice row's mark is its required boundary (native UI kit §5, contract: choice rows): a 1.5px ring, accent
+     when chosen. The row is the target, at least the kit's single-line row height. */
+  --choice-row-min:52px;
+  --choice-mark-ring:inset 0 0 0 1.5px var(--boundary-required);
+  --choice-mark-ring-on:inset 0 0 0 1.5px var(--accent-deep);
   /* Decorative separator drawn on --surface (sheets, the shelf). Never the sole
      cue for a required mark. */
   --rule-on-surface:var(--rule);
@@ -425,6 +430,8 @@
      themes. */
   --boundary-selected-quiet:var(--ink);
   --elevation-selected-quiet-shadow:inset 0 0 0 2px var(--boundary-selected-quiet);
+  --choice-mark-ring:inset 0 0 0 1.5px var(--boundary-required);
+  --choice-mark-ring-on:inset 0 0 0 1.5px var(--accent-deep);
   --rule-on-surface:var(--rule-strong);
   --shelf-field-bg:var(--well);
   --shelf-pad-bg:var(--bg);
@@ -592,12 +599,13 @@ h2{font-size:var(--font-size-title);font-weight:var(--weight-semibold);letter-sp
   position:fixed;z-index:22;top:env(safe-area-inset-top);right:max(0px,calc(50% - var(--maxw) / 2));
   height:44px;margin:0;padding:0 max(8px,env(safe-area-inset-right)) 0 8px;gap:0;
 }
-/* Bar buttons: a 44pt target with no border or fill at rest, the row-pressed wash on press. */
+/* Bar buttons: a 44pt target with no border or fill at rest. */
 :is(#todayDash,#stats,#history:not(.is-session-page),:is(#program,[data-copy-id="program"]):not(.sheet))>.pagehead>.pagehead__actions>button{
   min-width:var(--control-target);height:var(--control-target);border:0;border-radius:var(--radius-control);background:transparent;
 }
+/* Pressed, an icon button dims to 40% with no fill (UI kit §7 and §10). */
 :is(#todayDash,#stats,#history:not(.is-session-page),:is(#program,[data-copy-id="program"]):not(.sheet))>.pagehead>.pagehead__actions>button.is-pressed:not(:disabled){
-  background:var(--well);transform:none;
+  background:transparent;opacity:.4;transform:none;
 }
 #todayDash>.pagehead>.pagehead__actions>.settings-btn{color:var(--ink)}
 body.is-workout #todayDash>.pagehead>.pagehead__actions{display:none}
@@ -861,12 +869,13 @@ input:is([type=date],[type=time])::-webkit-date-and-time-value{min-height:1.5em;
 
 /* Day tabs / legacy seg */
 .seg{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.seg:not(.seg--window){gap:0;padding:2px;border-radius:var(--radius-control);background:var(--control-track)}
 .seg:not(.seg--window) button{
-  flex:1;min-width:0;border:1px solid var(--rule);background:var(--surface);color:var(--ink-soft);
-  cursor:pointer;border-radius:var(--radius-control);padding:11px 8px;font-weight:600;font-size:var(--font-size-body-small);
+  flex:1;min-width:0;border:0;background:transparent;color:var(--ink);
+  cursor:pointer;border-radius:var(--radius-control);padding:11px 8px;font-weight:var(--weight-medium);font-size:var(--font-size-body-small);
 }
 .seg:not(.seg--window) button.active{
-  color:var(--ink);border-color:var(--accent);background:var(--surface);
+  color:var(--ink);background:var(--segment-thumb-bg);box-shadow:var(--segment-thumb-shadow);font-weight:var(--weight-semibold);
 }
 
 /* ---- Stat band (unified: value above caption, partial hairlines) ---- */
@@ -909,31 +918,37 @@ input:is([type=date],[type=time])::-webkit-date-and-time-value{min-height:1.5em;
 .recblock__head{font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);color:var(--ink);margin:0 0 2px}
 .recblock__body,.rec{font-size:var(--font-size-body-small);line-height:1.45;color:var(--ink-soft);margin:0}
 
-/* ---- Radio cards (onboarding, block review) ---- */
+/* ---- Choice rows (native UI kit §5, owner 2026-10-24) ----
+   A choice is a plain row: no box, a 1px hairline between rows and above and below the run, and a trailing mark.
+   The mark is the choice's required boundary (contract: choice rows): a 22px ring in --boundary-required; chosen,
+   a radio rings and fills its centre in --accent-deep, and a checkbox is an --accent-deep disc with a check.
+   The tile families (numbers, muscle tiles, compact pickers, reason pills) keep a tile and override below. */
 .radio-card{
-  display:flex;align-items:center;gap:12px;width:100%;text-align:left;
-  background:var(--surface);border:1px solid var(--control-selection-boundary);border-radius:var(--radius-surface);
-  padding:14px 16px;cursor:pointer;color:var(--ink);font:inherit;
-  transition:border-color .15s ease;
+  display:flex;align-items:center;gap:var(--space-14);width:100%;min-height:var(--choice-row-min);text-align:left;
+  background:transparent;border:0;border-radius:var(--radius-none);box-shadow:none;
+  padding:var(--space-8) 0;cursor:pointer;color:var(--ink);font:inherit;
+  transition:background-color .15s ease
 }
-.radio-card.is-selected{border-color:var(--control-selected-boundary);border-width:1.5px;padding:13.5px 15.5px}
-.radio-card__body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
-.radio-card__title{font-size:var(--font-size-control);font-weight:600;line-height:1.25;color:var(--ink)}
-.radio-card__cap{font-size:var(--font-size-body-small);line-height:1.35;color:var(--ink-soft)}
+.radio-card:not(.radio-card + .radio-card){border-top:1px solid var(--boundary-decorative)}
+.radio-card:not(:has(+ .radio-card)){border-bottom:1px solid var(--boundary-decorative)}
+.radio-card + .radio-card{border-top:1px solid var(--boundary-decorative)}
+.radio-card.is-pressed:not(:disabled):not(.is-disabled){background:var(--row-pressed-bg)}
+.radio-card:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.radio-card__body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.radio-card__title{font-size:var(--font-size-body);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--ink)}
+.radio-card__cap{font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--ink-soft)}
 .radio-card__mark{
-  flex:none;width:22px;height:22px;border-radius:50%;border:1.5px solid var(--control-selection-boundary);
-  background:transparent;
+  position:relative;flex:none;display:grid;place-items:center;width:22px;height:22px;
+  border:0;border-radius:var(--radius-round);background:transparent;background-image:none;box-shadow:var(--choice-mark-ring)
 }
-.review-block__patterns .radio-card:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-/* Nothing told you whether picking a second option replaced the first. A
-   checkbox is a square; a radio is a circle. */
-.radio-card[role="checkbox"] .radio-card__mark{border-radius:var(--radius-compact)}
-/* The fill is the boundary, as on the entry checkbox: a transparent border lets
-   the fill paint under it, so the edge reads against the card, not ink on ink. */
-.radio-card.is-selected .radio-card__mark{
-  border-color:transparent;background:var(--control-selected-boundary);
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='white' d='M4.5 8.5L2 6l.7-.7 1.8 1.8 4-4 .7.7z'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;background-position:center;background-size:12px;
+.radio-card:not([role="checkbox"]).is-selected .radio-card__mark{box-shadow:var(--choice-mark-ring-on)}
+.radio-card:not([role="checkbox"]).is-selected .radio-card__mark::after{
+  content:"";width:12px;height:12px;border-radius:var(--radius-round);background:var(--accent-deep)
+}
+.radio-card[role="checkbox"].is-selected .radio-card__mark{background:var(--accent-deep);box-shadow:none}
+.radio-card[role="checkbox"].is-selected .radio-card__mark::after{
+  content:"";width:14px;height:14px;background:var(--accent-ink);
+  -webkit-mask:var(--check) no-repeat center/contain;mask:var(--check) no-repeat center/contain
 }
 
 /* @ci-domain settings */
@@ -2218,23 +2233,28 @@ body.is-sheet-open{overflow:hidden}
 .review-sheet__lab{flex:1 1 auto;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);color:var(--color-ink)}
 .review-sheet__range{display:inline-flex;align-items:center;gap:var(--space-8)}
 .review-sheet__range>span[aria-hidden]{color:var(--color-ink-secondary)}
-/* A bordered −/value/+ pill. The --sm variant narrows the buttons for the
-   ledger's dense RIR column without shrinking below a 44px tap target. */
-.review-step{display:inline-flex;align-items:center;border:1px solid var(--control-adjustment-boundary);border-radius:var(--radius-control);background:var(--control-adjustment-bg);overflow:hidden}
-.review-step button{flex:none;width:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);padding:0;border:0;background:none;color:var(--control-adjustment-ink);font-family:var(--font-language);font-size:var(--font-size-control);line-height:1;cursor:pointer}
-@media (hover:hover) and (pointer:fine){.review-step button:hover:not(:disabled){background:var(--well)}}
-.review-step button.is-pressed:not(:disabled){background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
+/* The native stepper (UI kit S6, #485's `.native-stepper`): the value, then a 36px − + capsule on the soft track with a
+   .5px divider, each button a 44px touch box. The value is drawn first (order) so the markup keeps its − value + order. */
+.review-step{display:inline-flex;align-items:center;gap:0;border:0;border-radius:var(--radius-none);background:transparent;overflow:visible}
+.review-step b{order:-1;min-width:40px;padding:0 var(--space-12) 0 0;text-align:right;font-family:var(--font-training-data);font-weight:var(--weight-regular);font-size:var(--font-size-control);color:var(--color-ink)}
+.review-step button{
+  position:relative;flex:none;display:grid;place-items:center;width:47px;min-width:47px;height:36px;min-height:36px;padding:0;border:0;
+  background:var(--control-track);color:var(--ink);font-family:var(--font-language);font-size:var(--control-icon-size);line-height:1;cursor:pointer
+}
+.review-step button::after{content:"";position:absolute;inset:-4px 0}
+.review-step button:first-of-type{border-radius:var(--radius-control) var(--radius-none) var(--radius-none) var(--radius-control)}
+.review-step button:last-of-type{border-radius:var(--radius-none) var(--radius-control) var(--radius-control) var(--radius-none);border-left:.5px solid var(--rule-strong)}
+@media (hover:hover) and (pointer:fine){.review-step button:hover:not(:disabled){background-image:linear-gradient(var(--row-pressed-bg),var(--row-pressed-bg))}}
+.review-step button.is-pressed:not(:disabled){background-image:linear-gradient(var(--row-pressed-bg),var(--row-pressed-bg))}
 .review-step button:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 .review-step button:disabled{color:var(--color-disabled-reason);cursor:not-allowed}
-.review-step b{min-width:40px;padding:0 var(--space-4);text-align:center;font-family:var(--font-training-data);font-weight:var(--weight-medium);font-size:var(--font-size-control);color:var(--color-ink)}
-.review-step button+b,.review-step b+button{border-left:1px solid var(--boundary-decorative)}
-.review-step--sm button{width:36px;min-width:36px}
-.review-step--sm b{min-width:22px;font-size:var(--font-size-body-small)}
-/* The rest-preset segmented control: a quiet well with a selected option drawn
-   in the same quiet-selection ring as the day tabs' indicator. */
-.review-seg{display:flex;flex-wrap:wrap;gap:var(--space-4);padding:var(--space-4);background:var(--well);border-radius:var(--radius-control)}
-.review-seg__opt{flex:1 0 auto;white-space:nowrap;min-height:var(--control-target);padding:var(--space-8) var(--space-4);border:1px solid transparent;border-radius:var(--radius-compact);background:none;font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);color:var(--color-ink-secondary);cursor:pointer;text-align:center}
-.review-seg__opt.is-on{background:var(--surface);border-color:var(--boundary-selected-quiet);color:var(--color-ink);box-shadow:var(--elevation-selected-quiet-shadow)}
+.review-step--sm button{width:var(--control-target);min-width:var(--control-target)}
+.review-step--sm b{min-width:22px;padding-right:var(--space-8);font-size:var(--font-size-body-small)}
+/* The rest-preset segmented control: the native segmented recipe (UI kit S5), a raised thumb and a semibold label. */
+.review-seg{display:flex;flex-wrap:wrap;gap:0;padding:2px;background:var(--control-track);border-radius:var(--radius-control)}
+.review-seg__opt{flex:1 0 auto;white-space:nowrap;min-height:var(--control-target);padding:var(--space-8) var(--space-4);border:0;border-radius:var(--radius-control);background:none;font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);color:var(--color-ink);cursor:pointer;text-align:center}
+.review-seg__opt.is-on{background:var(--segment-thumb-bg);color:var(--color-ink);font-weight:var(--weight-semibold);box-shadow:var(--segment-thumb-shadow)}
+.review-seg__opt.is-pressed:not(.is-on){background:var(--row-pressed-bg)}
 .review-seg__opt:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .review-sheet__time{margin:var(--space-12) 0 0;font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);color:var(--color-ink)}
 .review-sheet__note{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
@@ -2418,14 +2438,21 @@ textarea.sheetfield__input{
   -webkit-mask:var(--check) no-repeat center/contain;mask:var(--check) no-repeat center/contain;
 }
 .session-map__status.is-skipped{font-family:var(--font-language)}
-.session-map__reorder{display:flex;align-items:center;gap:var(--space-8);flex:none}
-.session-map__reorder-btn{width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);padding:0;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:1px solid transparent;color:var(--control-secondary-ink);border-radius:var(--radius-control);cursor:pointer}
-@media (hover: hover) and (pointer: fine){
-.session-map__reorder-btn:hover:not(:disabled){background:var(--row-pressed-bg);color:var(--control-secondary-ink)}
+/* The grip (UI kit §5, owner 2026-10-24): a 44px target with no box, the 18px grip in --ink-faint; it dims on a press.
+   Dragging it reorders the session as the editor does; a long-press on the row opens Move up and Move down. */
+.session-map__grip{
+  flex:none;display:inline-flex;align-items:center;justify-content:center;width:var(--control-target);height:var(--control-target);
+  min-width:var(--control-target);min-height:var(--control-target);padding:0;border:0;border-radius:var(--radius-control);
+  background:transparent;color:var(--ink-faint);cursor:grab;touch-action:none
 }
-.session-map__reorder-btn.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-secondary-ink);transform:none}
-.session-map__reorder-btn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-.session-map__reorder-btn:disabled{background:transparent;color:var(--color-disabled-reason);border-color:transparent;opacity:1;cursor:not-allowed;transform:none}
+.session-map__grip .icon-mask{width:18px;height:18px}
+.session-map__grip:active{cursor:grabbing}
+.session-map__grip.is-pressed:not(:disabled){opacity:.4}
+.session-map__grip:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
+.session-map__grip:disabled{visibility:hidden}
+.session-map__row[data-dnd-dragging]{z-index:4;background:var(--surface);box-shadow:var(--elevation-drag-shadow);transition:none}
+.session-map__row[data-dnd-placeholder]{opacity:.35}
+@media (prefers-reduced-motion:reduce){.session-map__row[data-dnd-dragging]{box-shadow:none}}
 .session-sheet__meta{display:grid;gap:var(--space-12);margin-top:var(--space-18)}
 /* Early finish lives in the foot, in thumb reach. Choosing it opens the confirmation there, and the
    omitted-sets list stays whole (it scrolls inside its own box when a long day outgrows the sheet). */
@@ -2872,12 +2899,18 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
 .program-editor__exercise-body{margin:0;padding:14px 16px 0;border-top:1px solid var(--rule)}
 .program-editor__sets{display:flex;align-items:center;justify-content:space-between;gap:14px;min-height:62px}
 .program-editor__field-label,.program-editor__range legend{color:var(--ink-soft);font-size:var(--font-size-label);font-weight:500;letter-spacing:var(--track-label);text-transform:uppercase}
-.program-editor__stepper{display:grid;grid-template-columns:62px minmax(70px,120px) 62px;min-height:62px;border:1px solid var(--rule-strong);border-radius:var(--radius-control);overflow:hidden;background:var(--surface)}
-.program-editor__stepper button,.program-editor__stepper output{display:flex;align-items:center;justify-content:center;min-width:0;min-height:60px;padding:0;border:0;background:transparent;color:var(--ink);font-size:var(--font-size-metric);font-variant-numeric:tabular-nums}
-.program-editor__stepper button{cursor:pointer}
-.program-editor__stepper button+output,.program-editor__stepper output+button{border-left:1px solid var(--rule)}
+/* The sets stepper is the native stepper (UI kit S6): the value, then the 36px − + capsule on the soft track. */
+.program-editor__stepper{display:inline-flex;align-items:center;justify-content:flex-end;gap:0;min-height:var(--control-target);border:0;border-radius:var(--radius-none);overflow:visible;background:transparent}
+.program-editor__stepper output{order:-1;display:flex;align-items:center;justify-content:flex-end;min-width:2.5em;min-height:var(--control-target);padding:0 var(--space-12) 0 0;border:0;background:transparent;color:var(--ink);font-size:var(--font-size-metric);font-variant-numeric:tabular-nums}
+.program-editor__stepper button{
+  position:relative;display:grid;place-items:center;flex:none;width:47px;min-width:47px;height:36px;min-height:36px;padding:0;border:0;
+  background:var(--control-track);color:var(--ink);font-size:var(--control-icon-size);line-height:1;cursor:pointer
+}
+.program-editor__stepper button::after{content:"";position:absolute;inset:-4px 0}
+.program-editor__stepper button:first-child{border-radius:var(--radius-control) var(--radius-none) var(--radius-none) var(--radius-control)}
+.program-editor__stepper button:last-child{border-radius:var(--radius-none) var(--radius-control) var(--radius-control) var(--radius-none);border-left:.5px solid var(--rule-strong)}
 @media (hover: hover) and (pointer: fine){
-.program-editor__stepper button:hover{background:var(--well)}
+.program-editor__stepper button:hover:not(:disabled){background-image:linear-gradient(var(--row-pressed-bg),var(--row-pressed-bg))}
 }
 .program-editor__rep-rule{height:1px;background:var(--rule);margin:0 0 18px}
 .program-editor__range{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0;padding:0;border:0}
@@ -2923,17 +2956,17 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
 .program-editor__alternate{display:flex;align-items:center;gap:8px;min-height:calc(var(--control-target) + 12px);border-top:1px solid var(--boundary-decorative)}
 .program-editor__alternate:last-child{border-bottom:1px solid var(--boundary-decorative)}
 .program-editor__alternate-name{flex:1 1 auto;min-width:0;color:var(--color-ink);font-size:var(--font-size-body);overflow-wrap:anywhere}
-.program-editor__alternate-move,.program-editor__alternate-remove{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:var(--control-target);height:var(--control-target);padding:0;border:1px solid var(--control-secondary-boundary);border-radius:var(--radius-control);background:var(--control-secondary-bg);color:var(--control-secondary-ink);cursor:pointer;font-size:var(--control-icon-size);line-height:1}
+.program-editor__alternate-move,.program-editor__alternate-remove{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:var(--control-target);height:var(--control-target);padding:0;border:0;border-radius:var(--radius-control);background:transparent;color:var(--control-secondary-ink);cursor:pointer;font-size:var(--control-icon-size);line-height:1}
 .program-editor__alternate-remove{color:var(--color-destructive)}
-.program-editor__alternate-move:disabled{color:var(--color-disabled-reason);border-color:var(--boundary-decorative);cursor:not-allowed}
+.program-editor__alternate-move:disabled{color:var(--color-disabled-reason);cursor:not-allowed}
 .program-editor__add-alternate{display:flex;align-items:center;gap:8px;min-height:var(--control-target);padding:0;border:0;background:transparent;color:var(--accent-deep);cursor:pointer;text-align:left;font-size:var(--font-size-control)}
 .program-editor__add-alternate:disabled{color:var(--color-disabled-reason);cursor:not-allowed}
 .program-editor__alternates .program-editor__hint{margin:0;color:var(--color-ink-secondary);font-size:var(--font-size-body-small);line-height:var(--line-reading)}
 :is(.program-editor__alternate-move,.program-editor__alternate-remove,.program-editor__add-alternate):focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 @media (hover: hover) and (pointer: fine){
-.program-editor__alternate-move:not(:disabled):hover,.program-editor__alternate-remove:hover{background:var(--well)}
+.program-editor__alternate-move:not(:disabled):hover,.program-editor__alternate-remove:hover{background:transparent;opacity:.6}
 }
-:is(.program-editor__alternate-move:not(:disabled),.program-editor__alternate-remove).is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
+:is(.program-editor__alternate-move:not(:disabled),.program-editor__alternate-remove).is-pressed{background:transparent;opacity:.4;transform:none}
 .program-editor__exercise-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:18px -16px 0;padding:0 16px;border-top:1px solid var(--rule)}
 .program-editor__exercise-actions button{min-height:62px;padding:8px 0;border:0;background:transparent;cursor:pointer;font-size:var(--font-size-control);font-weight:500}
 .program-editor__replace{color:var(--accent-deep)}
@@ -2944,7 +2977,9 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
 .program-editor__more label{margin:0 0 12px}
 /* Catalog muscles wrap rather than scroll inside one line. */
 .program-editor__more textarea.program-editor__muscles{resize:none;field-sizing:content;min-height:46px;font-family:inherit;line-height:1.4;overflow-wrap:anywhere;color:var(--ink-soft)}
-.program-editor__more button{width:100%;min-height:44px;padding:10px;text-align:left;border:1px solid var(--rule);border-radius:var(--radius-control);background:var(--surface);color:var(--accent-deep);cursor:pointer;font:inherit}
+/* The exercise's more list is plain action rows (UI kit §5): no box, a hairline between rows, the text action's ink. */
+.program-editor__more button{width:100%;min-height:var(--choice-row-min);padding:var(--space-8) 0;text-align:left;border:0;border-top:1px solid var(--boundary-decorative);border-radius:var(--radius-none);background:transparent;color:var(--accent-deep);cursor:pointer;font:inherit}
+.program-editor__more button.is-pressed:not(:disabled){background:var(--row-pressed-bg)}
 .program-editor__add{display:flex;align-items:center;gap:8px;width:100%;min-height:62px;margin:0;padding:12px 16px;border:0;background:var(--surface);color:var(--ink);cursor:pointer;text-align:left;font-size:var(--font-size-control)}
 @media (hover: hover) and (pointer: fine){
 .program-editor__add:hover{background:var(--well)}
@@ -3015,8 +3050,7 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
 .program-editor-onboarding .program-editor__exercise-name{flex:1 1 min(11em,100%);min-width:min(11em,100%)}
 .program-editor-onboarding .program-editor__exercise-body{padding:12px 16px 0}
 .program-editor-onboarding .program-editor__sets{min-height:58px}
-.program-editor-onboarding .program-editor__stepper{width:160px;grid-template-columns:44px 1fr 44px;min-height:58px}
-.program-editor-onboarding .program-editor__stepper button,.program-editor-onboarding .program-editor__stepper output{min-height:56px}
+
 .program-editor-onboarding .program-editor__exercise-actions{margin-top:14px}
 .program-editor-onboarding .program-editor__exercise-actions button{min-height:50px}
 @media (max-width:340px){
@@ -3073,9 +3107,7 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
 .program-editor-installed .program-editor__exercise-body{padding:12px 16px 0}
 .program-editor-installed .program-editor__sets{display:block;min-height:0}
 .program-editor-installed .program-editor__sets .program-editor__field-label{display:block;margin-bottom:8px}
-.program-editor-installed .program-editor__stepper{width:100%;grid-template-columns:1fr 1.2fr 1fr;min-height:var(--control-target)}
-.program-editor-installed .program-editor__stepper button{min-height:var(--control-target)}
-.program-editor-installed .program-editor__stepper output{min-height:var(--control-target);font-size:var(--font-size-metric)}
+
 .program-editor-installed .program-editor__rep-rule{margin:14px 0 16px}
 .program-editor-installed .program-editor__range{row-gap:12px}
 .program-editor-installed .program-editor__range input{margin-top:2px;padding:10px 14px;font-size:var(--font-size-control)}
@@ -3167,8 +3199,6 @@ body:has(:is(#program,[data-copy-id="program"]).program-editor-installed) nav{di
 }
 .program-editor-a__bar .btn{width:100%}
 .program-editor-a__reason{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink)}
-/* The Suggest loads switch is ink, not orange (decision 4). */
-.program-editor-a__switch[aria-checked="true"]::before{background:var(--ink)}
 .program-editor-a__line{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--space-12);min-height:var(--control-target);padding:var(--space-8) 0}
 .program-editor-a__loadstep .program-editor__metric-field{display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);width:100%}
 .program-editor-a__loadstep input{width:6.5rem;min-height:var(--control-target);padding:var(--space-8) var(--space-12);border:1px solid var(--control-adjustment-boundary);border-radius:var(--radius-control);background:var(--surface);font-family:var(--font-training-data);font-size:var(--font-size-control);text-align:right;color:var(--color-ink)}
@@ -4445,68 +4475,31 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 .entry-body--entry .entry__group-lab{color:var(--accent-deep)}
 .entry-body--entry .entry__group-lab::after{content:"";flex:1;height:1px;background:var(--rule)}
 
-/* ---- Choice surfaces ----
-   A questionnaire answer is a real choice, so it gets a bounded white surface:
-   border, 12px radius, an optional semantic glyph, and a radio/checkbox mark.
-   Selected = the quiet ink ring (Q-E, OG-4) and a firmer label. The orange budget holds. */
-.entry-body .onb__opts{display:flex;flex-direction:column;gap:10px}
-.entry-body .radio-card{
-  position:relative;isolation:isolate;display:flex;align-items:center;gap:14px;
-  width:100%;min-height:56px;padding:14px 16px;background:var(--surface);
-  border:1px solid var(--rule);border-radius:var(--radius-surface);color:var(--ink);
-  transition:border-color .15s ease,background-color .15s ease,box-shadow .15s ease
-}
-.entry-body .radio-card.is-selected{
-  border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow);
-  background:var(--well);padding:14px 16px
-}
+/* ---- Choice rows in the entry flows ----
+   A questionnaire answer is a choice row (native UI kit §5, owner 2026-10-24): the base `.radio-card` row with an
+   optional leading identity glyph and the trailing mark. Selected is the mark alone; the orange budget holds. */
+.entry-body .onb__opts{display:flex;flex-direction:column;gap:0}
+.entry-body .radio-card{position:relative;isolation:isolate}
 @media (hover: hover) and (pointer: fine){
-.entry-body .radio-card:hover{border-color:var(--rule-strong)}
+.entry-body .radio-card:hover:not(:disabled):not(.is-disabled){background:var(--row-pressed-bg)}
 }
-.entry-body .radio-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.entry-body .radio-card__body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-.entry-body .radio-card__title{font-size:var(--font-size-control);font-weight:500;line-height:1.3}
-.entry-body .radio-card.is-selected .radio-card__title{font-weight:600}
-.entry-body .radio-card__cap{font-size:var(--font-size-body-small);line-height:1.4;color:var(--ink-soft)}
-.entry-body .radio-card__icon{
-  flex:none;width:28px;height:28px;background:currentColor;color:var(--ink-soft)
-}
-.entry-body .radio-card.is-selected .radio-card__icon{color:var(--ink)}
-.entry-body .radio-card__mark{width:22px;height:22px;flex:none}
-/* A radio reads as a ring with a filled centre, not a ticked box. */
-.entry-body .radio-card[role="radio"] .radio-card__mark{border-radius:50%}
-.entry-body .radio-card[role="radio"].is-selected .radio-card__mark{
-  background:var(--surface);border:2px solid var(--boundary-selected-quiet);background-image:none;position:relative
-}
-.entry-body .radio-card[role="radio"].is-selected .radio-card__mark::after{
-  content:"";position:absolute;inset:3px;border-radius:50%;background:var(--boundary-selected-quiet)
-}
-/* A chosen checkbox is an ink box with a tick cut out of it, not an orange one. */
-.entry-body .radio-card[role="checkbox"].is-selected .radio-card__mark{
-  /* The ink fill is the boundary: the border stays transparent so the fill
-     paints under it (background-clip is border-box) and the edge reads as the
-     fill against the card, not as ink on ink. */
-  background:var(--boundary-selected-quiet);border-color:transparent;background-image:none;position:relative
-}
-.entry-body .radio-card[role="checkbox"].is-selected .radio-card__mark::after{
-  content:"";position:absolute;inset:0;background:var(--surface);
-  -webkit-mask:var(--check) no-repeat center/75%;mask:var(--check) no-repeat center/75%
-}
+.entry-body .radio-card__cap{font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--ink-soft)}
+.entry-body .radio-card__icon{flex:none;width:28px;height:28px;background:currentColor;color:var(--ink-soft)}
 .entry-body .radio-card.is-disabled,.entry-body .radio-card:disabled{opacity:.45}
 
-/* Grouped list: several rows share one bounded surface, divided by hairlines.
-   Used where the options are a plain enumeration (experience, consistency,
-   rest, environment) rather than cards that each need their own supporting
-   copy. The selected row takes the quiet ink ring. */
-.entry-body .onb__opts.onb__list{
-  gap:0;border:1px solid var(--rule);border-radius:var(--radius-surface);background:var(--surface);overflow:hidden
+/* Grouped list: the plain enumerations (experience, consistency, rest, environment) are the same rows. */
+.entry-body .onb__opts.onb__list{gap:0;border:0;border-radius:var(--radius-none);background:transparent;overflow:visible}
+
+/* The tile families keep a tile: a bounded surface, the quiet ink ring when chosen. */
+.entry-body .onb__opts.onb__grid .radio-card,
+.entry-body .entry-b__compact .radio-card,
+.entry-body .onb__opts--reasons .radio-card{
+  border:1px solid var(--control-selection-boundary);border-radius:var(--radius-surface);background:var(--surface)
 }
-.entry-body .onb__opts.onb__list .radio-card{
-  border:0;border-radius:0;border-top:1px solid var(--rule);box-shadow:none;background:transparent
-}
-.entry-body .onb__opts.onb__list .radio-card:first-child{border-top:0}
-.entry-body .onb__opts.onb__list .radio-card.is-selected{
-  box-shadow:var(--elevation-selected-quiet-shadow);background:var(--well)
+.entry-body .onb__opts.onb__grid .radio-card.is-selected,
+.entry-body .entry-b__compact .radio-card.is-selected,
+.entry-body .onb__opts--reasons .radio-card.is-selected{
+  border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow);background:var(--well)
 }
 
 /* Tiles: the short-label muscle and movement checkboxes. Bounded cards in a
@@ -4701,10 +4694,6 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 /* Priorities and avoidance: a dense optional section kept structured. */
 .entry-body--priorities .entry__group-lab{margin-top:22px}
 .entry-body--priorities .entry__none{margin-bottom:6px}
-.entry-body--priorities .entry__none .radio-card{
-  border:1px solid var(--control-selection-boundary);border-radius:var(--radius-surface);background:var(--surface)
-}
-.entry-body--priorities .entry__none .radio-card.is-selected{background:var(--well)}
 .entry-body--priorities .entry__avoid-list{gap:10px}
 .entry-body--priorities .entry__avoid-item{
   padding:14px;border:1px solid var(--rule);border-radius:var(--radius-surface);background:var(--surface)
@@ -4894,20 +4883,24 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 }
 
 /* The Strength tab: the scope control, then a row per lift that opens in place. */
+/* The scope control is the native segmented control (UI kit S5, #485's `.native-segments` recipe): a soft track, and the
+   chosen segment a raised thumb with a semibold label (contract: state cues). No group border, no ring. */
 #stats #strengthScopeSeg,
 .segpill{
-  display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:0;margin:var(--space-14) 0 0;padding:3px;
-  border:1px solid var(--boundary-decorative);border-radius:var(--radius-control);background:var(--well);
+  display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:0;margin:var(--space-14) 0 0;padding:2px;
+  border:0;border-radius:var(--radius-control);background:var(--control-track);
 }
 #stats #strengthScopeSeg > button,
 .segpill > button{
-  min-height:var(--control-target);margin:0;padding:4px var(--space-8);border:2px solid transparent;border-radius:var(--radius-compact);
-  background:var(--control-quiet-bg);color:var(--color-ink-secondary);text-align:center;white-space:normal;overflow-wrap:anywhere;
-  font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);
+  min-height:var(--control-target);margin:0;padding:var(--space-4) var(--space-8);border:0;border-radius:var(--radius-control);
+  background:transparent;color:var(--ink);text-align:center;white-space:normal;overflow-wrap:anywhere;box-shadow:none;
+  font-size:var(--font-size-body-small);font-weight:var(--weight-medium);line-height:var(--line-standard);
 }
+#stats #strengthScopeSeg > button.is-pressed:not(.active),
+.segpill > button.is-pressed:not([aria-pressed="true"]){background:var(--row-pressed-bg)}
 #stats #strengthScopeSeg > button.active,
 .segpill > button[aria-pressed="true"]{
-  border-color:var(--boundary-selected-quiet);background:var(--surface);color:var(--control-selection-ink);font-weight:var(--weight-semibold);
+  background:var(--segment-thumb-bg);box-shadow:var(--segment-thumb-shadow);color:var(--ink);font-weight:var(--weight-semibold);
 }
 .evrow--d{
   display:grid;grid-template-columns:minmax(0,1fr) minmax(0,auto);grid-template-areas:"n f" "o s" "k s";column-gap:var(--space-12);row-gap:0;
@@ -5989,27 +5982,15 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 }
 
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card{
-  background:var(--control-selection-bg);color:var(--control-selection-ink);
-  border-color:var(--control-selection-boundary);border-radius:var(--radius-control);
-  font-family:var(--font-language)
+  color:var(--control-selection-ink);font-family:var(--font-language)
 }
 @media (hover: hover) and (pointer: fine){
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card:hover:not(:disabled):not(.is-selected){
-  background:var(--well);color:var(--control-selection-ink);
-  border-color:var(--control-selection-boundary)
+:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card:hover:not(:disabled):not(.is-disabled){
+  background:var(--row-pressed-bg);color:var(--control-selection-ink)
 }
-}
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card.is-pressed:not(:disabled):not(.is-selected){
-  background:var(--row-pressed-bg);color:var(--control-selection-ink);
-  border-color:var(--control-selection-boundary)
 }
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card.is-pressed:not(:disabled){
-  transform:var(--control-pressed-transform)
-}
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card.is-selected{
-  background:var(--well);color:var(--control-selection-ink);
-  border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow);
-  border-width:1px
+  background:var(--row-pressed-bg);color:var(--control-selection-ink)
 }
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card:focus-visible{
   outline:var(--control-focus-outline);outline-offset:2px
@@ -6017,20 +5998,18 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 @media (hover: hover) and (pointer: fine){
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card.is-disabled:hover,
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card:disabled:hover{
-  background:var(--control-selection-bg);color:var(--color-disabled-reason);
-  border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
+  background:transparent;color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none
 }
 }
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card.is-disabled,
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card:disabled,
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card.is-disabled.is-pressed,
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card:disabled.is-pressed{
-  background:var(--control-selection-bg);color:var(--color-disabled-reason);
-  border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
+  background:transparent;color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none
 }
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card__title{
   color:var(--control-selection-ink);font-family:var(--font-language);
-  font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard)
+  font-size:var(--font-size-body);font-weight:var(--weight-regular);line-height:var(--line-standard)
 }
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card__cap{
   color:var(--color-ink-secondary);font-family:var(--font-language);
@@ -6049,22 +6028,6 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card.is-selected .radio-card__icon{
   color:var(--ink)
 }
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card.is-selected .radio-card__mark{
-  border-color:var(--boundary-selected-quiet)
-}
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card[role="radio"].is-selected .radio-card__mark{
-  background:var(--control-selection-bg);border-color:var(--boundary-selected-quiet)
-}
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card[role="radio"].is-selected .radio-card__mark::after{
-  background:var(--boundary-selected-quiet)
-}
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card[role="checkbox"].is-selected .radio-card__mark{
-  border-color:transparent
-}
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .onb__opts.onb__list{
-  border-color:var(--boundary-required);border-radius:var(--radius-surface)
-}
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .entry__none .radio-card{border-width:1px}
 
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .onb__q{
   color:var(--color-ink);font-family:var(--font-language);font-size:var(--font-size-title);
@@ -6279,39 +6242,13 @@ body.is-entry-editor .program-editor__summary,
   color:var(--color-ink);font-family:var(--font-training-data);
   font-variant-numeric:tabular-nums
 }
-body.is-entry-editor .program-editor__stepper,
-:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__stepper{
-  overflow:visible;border-color:var(--control-adjustment-boundary);
-  border-radius:var(--radius-control);background:var(--control-adjustment-bg)
-}
 body.is-entry-editor .program-editor__stepper button[data-role="adjust"],
 :is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__stepper button[data-role="adjust"]{
-  background:var(--control-adjustment-bg);color:var(--control-adjustment-ink);
-  border-color:var(--control-adjustment-boundary);font-size:var(--control-icon-size)
-}
-body.is-entry-editor .program-editor__stepper button[data-role="adjust"]:first-child,
-:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__stepper button[data-role="adjust"]:first-child{
-  border-radius:var(--radius-control) var(--radius-none) var(--radius-none) var(--radius-control)
-}
-body.is-entry-editor .program-editor__stepper button[data-role="adjust"]:last-child,
-:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__stepper button[data-role="adjust"]:last-child{
-  border-radius:var(--radius-none) var(--radius-control) var(--radius-control) var(--radius-none)
-}
-@media (hover: hover) and (pointer: fine){
-body.is-entry-editor .program-editor__stepper button[data-role="adjust"]:hover:not(:disabled),
-:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__stepper button[data-role="adjust"]:hover:not(:disabled){
-  background:var(--well);color:var(--control-adjustment-ink);
-  border-color:var(--control-adjustment-boundary)
-}
+  background:var(--control-track);color:var(--ink);font-size:var(--control-icon-size)
 }
 body.is-entry-editor .program-editor__stepper button[data-role="adjust"].is-pressed:not(:disabled),
 :is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__stepper button[data-role="adjust"].is-pressed:not(:disabled){
-  background:var(--row-pressed-bg);color:var(--control-adjustment-ink);
-  border-color:var(--control-adjustment-boundary)
-}
-body.is-entry-editor .program-editor__stepper button[data-role="adjust"].is-pressed:not(:disabled),
-:is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__stepper button[data-role="adjust"].is-pressed:not(:disabled){
-  transform:var(--control-pressed-transform)
+  background-image:linear-gradient(var(--row-pressed-bg),var(--row-pressed-bg))
 }
 body.is-entry-editor .program-editor__stepper button[data-role="adjust"]:focus-visible,
 :is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__stepper button[data-role="adjust"]:focus-visible,
@@ -6343,8 +6280,7 @@ body.is-entry-editor :is(
 }
 body.is-entry-editor .program-editor__stepper button[data-role="adjust"]:disabled,
 :is(#program,[data-copy-id="program"]).program-editor-installed .program-editor__stepper button[data-role="adjust"]:disabled{
-  background:var(--control-adjustment-bg);color:var(--color-disabled-reason);
-  border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
+  background:var(--control-track);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none
 }
 body.is-entry-editor :is(
   .program-editor__day-name.pday__name:not([id]),
@@ -7452,15 +7388,8 @@ body.is-entry-editor #entryProgramName,
 .entry-rail__text{min-width:0;overflow-wrap:anywhere}
 .entry-rail__edit{flex:none;width:var(--space-14);height:var(--space-14);color:var(--ink-soft)}
 
-/* Quiet selection (Q-E). A chosen option is ringed in ink, never in the accent. */
-#onbBody.entry-body .radio-card.is-selected{
-  border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow);
-  background:var(--well);color:var(--control-selection-ink)
-}
+/* A chosen row's identity glyph takes full ink beside its mark. */
 #onbBody.entry-body .radio-card.is-selected .radio-card__icon{color:var(--ink)}
-#onbBody.entry-body .radio-card[role="radio"].is-selected .radio-card__mark{border-color:var(--boundary-selected-quiet)}
-#onbBody.entry-body .radio-card[role="radio"].is-selected .radio-card__mark::after{background:var(--boundary-selected-quiet)}
-#onbBody.entry-body .onb__opts.onb__list .radio-card.is-selected{box-shadow:var(--elevation-selected-quiet-shadow);background:var(--well)}
 
 /* Hub */
 .entry-body--entry .entry-hub__lede{margin-bottom:var(--space-18)}
@@ -7701,9 +7630,9 @@ body.is-entry-editor #entryProgramName,
 .review__ro.is-lifted{z-index:2;border-radius:var(--radius-control);background:var(--surface);box-shadow:var(--elevation-drag-shadow)}
 .review__handle{flex:none;width:var(--control-target);height:var(--control-target);display:inline-flex;align-items:center;justify-content:center;color:var(--color-ink-secondary);touch-action:none;cursor:grab}
 .review__ro-name{flex:1;min-width:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);color:var(--color-ink);overflow-wrap:anywhere}
-.review__ro-btn{flex:none;width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--control-adjustment-boundary);border-radius:var(--radius-control);background:var(--control-adjustment-bg);color:var(--control-adjustment-ink);cursor:pointer}
-@media (hover:hover) and (pointer:fine){.review__ro-btn:hover:not(:disabled){background:var(--well)}}
-.review__ro-btn.is-pressed:not(:disabled){background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
+.review__ro-btn{flex:none;width:var(--control-target);height:var(--control-target);min-width:var(--control-target);min-height:var(--control-target);display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:var(--radius-control);background:transparent;color:var(--control-adjustment-ink);cursor:pointer}
+@media (hover:hover) and (pointer:fine){.review__ro-btn:hover:not(:disabled){background:transparent;opacity:.6}}
+.review__ro-btn.is-pressed:not(:disabled){background:transparent;opacity:.4;transform:none}
 .review__ro-btn:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .review__ro-btn:disabled{color:var(--color-disabled-reason);opacity:1;cursor:not-allowed}
 .review__reorder-done{margin-top:var(--space-18)}
@@ -8029,8 +7958,6 @@ body.is-entry-editor #entryProgramName,
 /* Optional section: Skip while empty, and the two-muscle limit said in text. */
 #onbBody.entry-body .entry__skip{margin:var(--space-14) 0 var(--space-4);width:auto}
 #onbBody.entry-body .entry__limit{margin:var(--space-8) 0 0}
-#onbBody.entry-body--priorities .entry__none .radio-card.is-selected,
-#onbBody.entry-body .entry__none .radio-card.is-selected{border-color:var(--boundary-selected-quiet);background:var(--well)}
 
 /* Bands, not boxes: the environment correction, the muscle list and the exercise lists. */
 #onbBody.entry-body .entry__disclosure{
@@ -8092,24 +8019,6 @@ body.is-entry-editor #entryProgramName,
 /* Constraints: a row with its own Restore. */
 .entry__constraint{align-items:center}
 .entry__constraint .entry__row-body{flex:1 1 auto}
-
-/* List choices are hairline rows inside one bounded list, not a stack of rounded cards. */
-#onbBody.entry-body .onb__opts.onb__list .radio-card{border-radius:var(--radius-none);border-width:0;border-top:1px solid var(--boundary-decorative)}
-#onbBody.entry-body .onb__opts.onb__list .radio-card:first-child{border-top-width:0}
-/* The selected row's inset ring would otherwise keep square corners inside the
-   list's rounded clip and be cut at the corner (#299). The end rows follow the
-   list's inner curve (outer radius less its 1px border) so the ring bends with it. */
-.entry-body .onb__opts.onb__list .radio-card:first-child,
-#onbBody.entry-body .onb__opts.onb__list .radio-card:first-child{
-  border-top-left-radius:var(--radius-surface-inner);border-top-right-radius:var(--radius-surface-inner)
-}
-.entry-body .onb__opts.onb__list .radio-card:last-child,
-#onbBody.entry-body .onb__opts.onb__list .radio-card:last-child{
-  border-bottom-left-radius:var(--radius-surface-inner);border-bottom-right-radius:var(--radius-surface-inner)
-}
-#onbBody.entry-body .onb__opts.onb__list .radio-card.is-selected{
-  border-color:var(--boundary-decorative);box-shadow:var(--elevation-selected-quiet-shadow);background:var(--well)
-}
 
 /* Browse: the context the list answers, with a way back to change it. */
 #onbBody.entry-body .entry__context{
@@ -8216,11 +8125,6 @@ body.is-entry-editor #entryProgramName,
 #stats #volumeDash .vrow__fill{background:var(--color-ink)}
 #stats #volumeDash .vrow__fill.is-high,#stats #volumeDash .vrow__fill.is-on{background:var(--color-improved)}
 #stats #reviewPanel .review__readonly{color:var(--color-ink)}
-#reviewPanel .radio-card.is-selected{border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow)}
-#reviewPanel .radio-card.is-selected .radio-card__mark{
-  position:relative;background:var(--surface);background-image:none;border:2px solid var(--boundary-selected-quiet)
-}
-#reviewPanel .radio-card.is-selected .radio-card__mark::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--boundary-selected-quiet)}
 
 /* Onboarding B (ADR 0020, Plan 072): hub link note, section map, Basics
    pickers, equipment checklist, priority rows and the deload card. Tokens
@@ -8234,7 +8138,7 @@ body.is-entry-editor #entryProgramName,
 .entry-b__section-n{flex:none;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;border:1px solid var(--rule-strong);font-family:var(--font-training-data);font-size:var(--font-size-caption);color:var(--ink)}
 .entry-b__section.is-current .entry-b__section-n{background:var(--ink);border-color:var(--ink);color:var(--bg)}
 .entry-b__compact{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
-.entry-b__compact .radio-card{justify-content:center;text-align:center}
+.entry-b__compact .radio-card{justify-content:center;text-align:center;padding:var(--space-8) var(--space-12)}
 .entry-b__compact .radio-card__mark{display:none}
 .entry-b__equipment{gap:8px}
 .entry-b__reset{margin:14px 0 0;align-self:flex-start}
@@ -8242,11 +8146,13 @@ body.is-entry-editor #entryProgramName,
 .entry-b__priority{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;min-height:48px;padding:6px 0;border-bottom:1px solid var(--rule);font-size:var(--font-size-body)}
 /* Four choices may not fit beside a long name or at large text: the control then takes its own line, still at the end. */
 .entry-b__priority>.entry-seg{margin-left:auto}
-.entry-seg{display:flex;gap:4px;padding:4px;border-radius:var(--radius-control);background:var(--well)}
-.entry-seg__option{flex:1;min-height:40px;padding:8px 10px;border:1px solid transparent;border-radius:var(--radius-compact);background:transparent;color:var(--ink-soft);font:inherit;font-size:var(--font-size-control);font-weight:500;cursor:pointer}
-.entry-seg__option.is-selected{background:var(--surface);color:var(--ink);border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow)}
+/* Native segmented control (UI kit S5): soft track, raised thumb, semibold chosen label; no ring. */
+.entry-seg{display:flex;gap:0;padding:2px;border-radius:var(--radius-control);background:var(--control-track)}
+.entry-seg__option{flex:1;min-height:40px;padding:8px 10px;border:0;border-radius:var(--radius-control);background:transparent;color:var(--ink);font:inherit;font-size:var(--font-size-body-small);font-weight:var(--weight-medium);cursor:pointer}
+.entry-seg__option.is-pressed:not(.is-selected){background:var(--row-pressed-bg)}
+.entry-seg__option.is-selected{background:var(--segment-thumb-bg);color:var(--ink);font-weight:var(--weight-semibold);box-shadow:var(--segment-thumb-shadow)}
 .entry-seg__option:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-.entry-seg--mini{flex:none;padding:3px;gap:2px}
+.entry-seg--mini{flex:none;padding:2px;gap:0}
 .entry-seg--mini .entry-seg__option{flex:none;min-height:36px;padding:6px 8px;font-size:var(--font-size-caption)}
 .entry-seg--unit{margin:12px auto 0;max-width:320px}
 .entry-b__deload{margin:16px 0 0;padding:20px;border:1.5px solid var(--rule);border-radius:var(--radius-surface);background:var(--surface)}

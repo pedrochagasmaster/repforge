@@ -459,7 +459,7 @@ actual composited surface at 4.5:1 (or 3:1 for large text) and required
 non-text boundaries, icons, state marks, and focus at 3:1. An unresolved image,
 gradient, opacity, or glass background is `unsupported`, not a pass.
 
-The inventory marks choice outlines/fills, field extents, selected tabs/nav,
+The inventory marks choice marks and tile outlines/fills (see Choice rows below), field extents, selected tabs/nav,
 progress segments, and the rest drain bar as `required`. Their visual state must
 reach the non-text threshold where it supplies the affordance or value.
 Read-only row separators, the block-review prose container, relative comparison
@@ -492,9 +492,29 @@ affordance keep the 3:1 required boundary, except the Focus shelf's tiles
 | --- | --- | --- |
 | Dock tab (`nav button[data-view]`) | the filled lens under it, plus its orange icon and label | the 1px orange ring on the lens |
 | Segmented choice (Appearance, Units) | the raised paper thumb, plus the semibold label | the group border and the thumb's ring |
+| The older segmented controls (Strength scope, the chart's toggles, the onboarding units and muscle priorities, the editor's rest presets; UI kit S5, owner 2026-10-24) | the same raised thumb (`--segment-thumb-bg`, `--segment-thumb-shadow`) on the soft track, plus the semibold label | the bordered group and the 2px ink ring on the chosen option |
 | Day picker row | the trailing check, plus the full-ink day number | the rail and well on the armed row |
 | Stepper capsule (Rest timer, Smallest load change) | not a state: a 36px capsule on the soft track, with a 44px touch box per button | the bordered 44px capsule |
 | Focus shelf tiles (fields, the per-side group, pads; Plan 075 phase 5 addendum, owner 2026-10-24) | identified by the tile fill (`--bg`, a step off the sheet in both themes) with its label and value; the selected field keeps its ring (`--elevation-selected-quiet-shadow`) | the 1px required outline on each field and pad |
+
+#### Choice rows (native UI kit §5, owner decision 2026-10-24)
+
+A list of choices (a questionnaire answer, the block-review rep pattern, the
+schedule diagnosis, the editor's execution mode) is drawn as plain rows: no
+box, a 1px decorative hairline between rows and above and below the run, and
+a trailing mark. **A choice row's required boundary is its mark, not its box.**
+The mark is a 22px ring, an inset 1.5px `--boundary-required` (5.11:1 on `--bg`
+light, 7.78:1 dark), and the whole row is the target (at least 52px). Chosen,
+a single choice's ring and a 12px centre turn `--accent-deep`, and a multiple
+choice's mark becomes an `--accent-deep` disc with a check in `--accent-ink`.
+The 2px selected ring and the selected well go away; the state is exposed as
+`aria-checked` (or `.is-selected` with the row's own wording). The rendered
+checker measures the mark at 3:1 and treats the hairlines as decorative.
+
+The tile families keep a tile and its 3:1 outline (`--control-selection-boundary`),
+measured with their mark: the number tiles (days, session length), the muscle
+and movement tiles, the compact pickers and the reason pills. They are grids or
+inline runs, not lists, and the quiet ink ring still marks the chosen tile.
 
 ## Exact exceptions and catalog reachability
 
