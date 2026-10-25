@@ -882,9 +882,10 @@ input:is([type=date],[type=time])::-webkit-date-and-time-value{min-height:1.5em;
 .metric:not(:last-child)::after{
   content:"";position:absolute;right:0;top:20%;bottom:20%;width:1px;background:var(--rule);
 }
+/* Figures are training data: Plex Mono at the metric weight, as the summary's stats already draw them (the native UI kit). */
 .statrow__val{
-  font-size:var(--font-size-metric);font-weight:var(--weight-semibold);line-height:1.1;color:var(--ink);
-  font-variant-numeric:tabular-nums;letter-spacing:-0.01em;
+  font-family:var(--font-training-data);font-size:var(--font-size-metric);font-weight:var(--weight-medium);line-height:1.1;color:var(--ink);
+  font-feature-settings:"tnum";font-variant-numeric:tabular-nums;
 }
 .statrow--4 .statrow__val{font-size:var(--font-size-subtitle)}
 .statrow__cap{
@@ -2096,12 +2097,14 @@ body.is-sheet-open{overflow:hidden}
    missing illustration never looks like a failure. */
 .exthumb{
   flex:none;display:block;border-radius:var(--radius-control);background:var(--well);
-  border:1px solid var(--boundary-decorative);object-fit:cover;
+  border:0;object-fit:cover;
 }
 .exthumb--sm{width:52px;height:52px}
 .exthumb--md{width:72px;height:72px}
 .exthumb--lg{width:100%;height:auto;aspect-ratio:1;border-radius:var(--radius-surface)}
-.exthumb--empty{background:var(--well)}
+/* A movement with no illustration yet shows the G dumbbell, quiet, in its tile (the native UI kit), not a blank box. */
+.exthumb--empty{display:grid;place-items:center;background:var(--well);color:var(--ink-faint)}
+.exthumb--empty .icon-mask{width:40%;height:40%;opacity:.5}
 
 /* Browsing a library is not a confirmation prompt: the picker takes the whole
    visible viewport instead of the default 74dvh band, so search, filters and
@@ -3409,8 +3412,8 @@ body.is-library,body.is-preview,body.is-import{padding-bottom:env(safe-area-inse
 .glossary{
   position:absolute;z-index:60;max-width:280px;max-height:calc(100vh - 16px);max-height:calc(100dvh - 16px);
   display:flex;flex-direction:column;
-  background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius-surface);
-  padding:14px 16px 12px;box-shadow:var(--elevation-popover-shadow);
+  background:var(--surface);border:0;border-radius:var(--radius-surface);
+  padding:14px 16px 12px;box-shadow:var(--menu-shadow);
 }
 .glossary__close{position:absolute;top:0;right:0;border:0;background:transparent;color:var(--ink-soft);cursor:pointer;font-size:var(--control-icon-size);line-height:1;width:44px;height:44px;min-width:44px;min-height:44px;padding:0}
 .glossary__term{flex:none;font-weight:var(--weight-semibold);font-size:var(--font-size-caption);margin:0 24px 6px 0;text-transform:uppercase;letter-spacing:.04em}
@@ -4122,15 +4125,15 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 .entry-card__title{font-weight:var(--weight-semibold);font-size:var(--font-size-control)}
 .entry-card__cap{font-size:var(--font-size-body-small);color:var(--ink-soft);line-height:1.35}
 .entry__own{display:flex;flex-direction:column;gap:8px;padding:4px 0 0 8px;border-left:2px solid var(--rule)}
-.entry__active,.entry__legacy,.entry__explain{margin:0 0 12px;padding:10px 12px;border-radius:var(--radius-surface);background:var(--surface);border:1px solid var(--rule);color:var(--ink-soft);font-size:var(--font-size-body-small);line-height:1.4}
+.entry__active,.entry__legacy,.entry__explain{margin:0 0 12px;padding:10px 12px;border-radius:var(--radius-surface);background:var(--well);border:0;color:var(--ink-soft);font-size:var(--font-size-body-small);line-height:1.4}
 /* Severity carried by three channels — a rail, a glyph and the title colour —
    because `--danger` and `--accent` are close enough in hue that a border swap
    alone reads as branding rather than alarm. The role each notice already
    carries drives the treatment, so the visual matches what is announced. */
 .entry__notice{
-  margin:0 0 16px;padding:14px 14px 14px 15px;border-radius:var(--radius-surface);
-  border:1px solid var(--rule);border-left:3px solid var(--rule-strong);
-  background:var(--surface);overflow-wrap:anywhere
+  margin:0 0 16px;padding:4px 0 4px 14px;border-radius:0;
+  border:0;border-left:3px solid var(--rule-strong);
+  background:transparent;overflow-wrap:anywhere
 }
 .entry__notice--error,.entry__notice[role="alert"]{border-left-color:var(--danger)}
 .entry__notice--warn{border-left-color:var(--accent)}
@@ -5727,8 +5730,8 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 }
 .install-transfer__status:not(:empty){margin-top:16px;padding-left:14px;border-left:3px solid var(--color-action);color:var(--color-ink)}
 .install-transfer__expiry{margin-top:8px;font-size:var(--font-size-caption);color:var(--color-ink-secondary)}
-.install-transfer__disclosure{margin-top:16px;padding:14px;background:var(--well);
-  border:1px solid var(--boundary-decorative);border-radius:var(--radius-surface)}
+.install-transfer__disclosure{margin-top:16px;padding:14px 16px;background:var(--well);
+  border:0;border-radius:var(--radius-surface)}
 .install-transfer__disclosure p{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);
   line-height:var(--line-reading);color:var(--color-ink-secondary)}
 /* A text action: the kit's link-style button, no box. It had no base rule, so it fell back to the platform's grey
@@ -7665,7 +7668,7 @@ body.is-entry-editor #entryProgramName,
 .review__sets li{display:flex;align-items:center;gap:var(--space-8)}
 .review__setn{flex:none;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;border-radius:var(--radius-round);background:var(--well);font-family:var(--font-training-data);font-size:var(--font-size-caption);font-weight:var(--weight-medium);color:var(--color-ink-secondary)}
 .review__reps{font-family:var(--font-training-data);font-size:var(--font-size-body-small);color:var(--color-ink)}
-.review__rir{margin-left:auto;flex:none;padding:var(--space-4) var(--space-8);border:1px solid var(--boundary-decorative);border-radius:var(--radius-control);font-family:var(--font-training-data);font-size:var(--font-size-caption);color:var(--color-ink-secondary)}
+.review__rir{margin-left:auto;flex:none;padding:var(--space-4) 0;border:0;font-family:var(--font-training-data);font-size:var(--font-size-caption);color:var(--color-ink-secondary)}
 .review__chips{display:flex;flex-wrap:wrap;gap:var(--space-8);margin-top:var(--space-4)}
 .review__chip{padding:var(--space-4) var(--space-8);border:1px solid var(--boundary-decorative);border-radius:var(--radius-pill);font-family:var(--font-language);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .review__offer{display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);padding:var(--space-8) 0 var(--space-14);border-bottom:1px solid var(--boundary-decorative)}

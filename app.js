@@ -14028,7 +14028,7 @@ const exerciseMediaBg=e=>(e&&typeof e.mediaBg==="string"&&HEX_COLOR.test(e.media
    definition they point at. A custom entry resolves too and simply has none. */
 const exerciseRefEntry=ref=>ref?.libraryId!=null?libraryEntry(ref.libraryId):ref;
 const emptyThumb=({size="md"}={})=>
-  `<span class="exthumb exthumb--${esc(size)} exthumb--empty" aria-hidden="true"></span>`;
+  `<span class="exthumb exthumb--${esc(size)} exthumb--empty" aria-hidden="true"><span class="icon-mask icon-mask--dumbbell"></span></span>`;
 function exerciseThumb(e,{size="md"}={}){
   const src=exerciseMedia(e);
   if(!src)return emptyThumb({size});
@@ -15319,7 +15319,7 @@ function renderExercisePreview(){
     // rather than hidden; the empty tile has nothing to describe.
     (exerciseMedia(e)
       ?`<img class="exthumb exthumb--lg" src="${esc(exerciseMedia(e))}" alt="${esc(t("preview.art_alt",{name:libraryName(e)}))}" decoding="async" width="768" height="768">`
-      :`<span class="exthumb exthumb--lg exthumb--empty" aria-hidden="true"></span>`)+
+      :`<span class="exthumb exthumb--lg exthumb--empty" aria-hidden="true"><span class="icon-mask icon-mask--dumbbell"></span></span>`)+
     `<h3 class="preview__head">${esc(t("preview.muscles"))}</h3>`+
     `<dl class="preview__rows">`+
       `<div class="preview__row"><dt>${esc(t("program.exercise.primary"))}</dt><dd>${esc(prim||"—")}</dd></div>`+
