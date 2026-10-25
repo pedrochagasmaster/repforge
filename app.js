@@ -3997,8 +3997,10 @@ function legacyReviewPanel(el){
 // confirmed by hash) or the exact-program guided fallback, which stages a
 // setup draft and never archives. Cancel leaves the program untouched.
 let reviewFlow=null;
-function startScheduleRepair(){reviewFlow={stage:"diagnosis",action:"schedule-repair",kind:"fewer_days",target:""};renderReview()}
-function startGuidedEdit(){reviewFlow={stage:"diagnosis",action:"guided-edit",kind:"fewer_days",target:""};renderReview()}
+/* The days question opens on the program's current days per week (owner, 2026-10-25); the minutes question opens empty. */
+const scheduleDiagnosisTarget=kind=>kind==="fewer_days"?String(days().length||""):"";
+function startScheduleRepair(){reviewFlow={stage:"diagnosis",action:"schedule-repair",kind:"fewer_days",target:scheduleDiagnosisTarget("fewer_days")};renderReview()}
+function startGuidedEdit(){reviewFlow={stage:"diagnosis",action:"guided-edit",kind:"fewer_days",target:scheduleDiagnosisTarget("fewer_days")};renderReview()}
 function startVolumeReduction(){reviewFlow={stage:"volume-question",action:"reduce-volume"};renderReview()}
 function startRecoveryWeek(){reviewFlow={stage:"recovery-question",action:"recovery-week",answer:null};renderReview()}
 async function closeReviewFlow(){
@@ -4056,12 +4058,21 @@ function renderReviewFlow(el){
     `<div class="review__diag">`+
     `<button type="button" class="radio-card${flow.kind==="fewer_days"?" is-selected":""}" data-diag="fewer_days"><span class="radio-card__body"><span class="radio-card__title">${esc(t("review.diagnosis.fewer_days"))}</span></span><span class="radio-card__mark"></span></button>`+
     `<button type="button" class="radio-card${flow.kind==="sessions_too_long"?" is-selected":""}" data-diag="sessions_too_long"><span class="radio-card__body"><span class="radio-card__title">${esc(t("review.diagnosis.sessions_too_long"))}</span></span><span class="radio-card__mark"></span></button>`+
-    `</div><label class="field"><span>${esc(targetLabel)}</span>`+
-    `<input type="number" inputmode="numeric" min="${isDays?1:15}" max="${isDays?7:240}" step="1" value="${esc(flow.target)}" data-diag-target></label>`+
+    `</div>`+
+    // Days are the onboarding day-count tiles (owner, 2026-10-25); minutes stay a typed number.
+    (isDays?`<div class="review__days"><p class="review__days-label" id="reviewDaysLab">${esc(targetLabel)}</p>`+
+      dayCountTilesHtml(Number(flow.target)||null,n=>`data-diag-days="${n}"`,"reviewDaysLab")+`</div>`
+      :`<label class="field"><span>${esc(targetLabel)}</span>`+
+      `<input type="number" inputmode="numeric" min="15" max="240" step="1" value="${esc(flow.target)}" data-diag-target></label>`)+
     (flow.error?`<p class="review__error" role="alert">${esc(t(flow.error))}</p>`:"")+
     `<div class="btnrow"><button type="button" class="btn btn--cta" data-diag-continue>${esc(t(flow.action==="guided-edit"?"review.diagnosis.edit":"review.diagnosis.continue"))}</button>`+
     `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.diagnosis.cancel"))}</button></div>`;
-  $$("[data-diag]",el).forEach(b=>b.onclick=()=>{flow.kind=b.dataset.diag;flow.error=null;renderReview()});
+  $$("[data-diag]",el).forEach(b=>b.onclick=()=>{
+    if(flow.kind!==b.dataset.diag)flow.target=scheduleDiagnosisTarget(b.dataset.diag);
+    flow.kind=b.dataset.diag;flow.error=null;renderReview()});
+  $$("[data-diag-days]",el).forEach(b=>b.onclick=()=>{
+    flow.target=b.dataset.diagDays;flow.error=null;renderReview();
+    $(`[data-diag-days="${CSS.escape(flow.target)}"]`,el)?.focus({preventScroll:true})});
   const input=$("[data-diag-target]",el);
   if(input)input.oninput=()=>{flow.target=input.value;flow.error=null};
   const cont=$("[data-diag-continue]",el);if(cont)cont.onclick=continueScheduleDiagnosis;
@@ -17022,11 +17033,18 @@ function renderGoalStep(){
   const current=entryState.answers.desiredResult;
   return entryHeading(t("entry.goal.title"))+entryBGroup(["muscle_growth","strength","balanced"].map(value=>
     entryBChoice("desiredResult",value,t(`entry.goal.${value}`),t(`entry.goal.${value}.sub`),current===value,{icon:ENTRY_DESIRED_ICONS[value]})).join(""))}
+/** The day-count tiles: onboarding's days per week, and the schedule diagnosis's "How many days can you train?"
+ *  (owner, 2026-10-25), one tile per count, a tap picks it. `attrs(n)` names the tile for its owner's handler. */
+const DAY_COUNT_CHOICES=Object.freeze([2,3,4,5,6]);
+function dayCountTilesHtml(current,attrs,labelledby){
+  return `<div class="onb__opts onb__num entry-b__compact" role="radiogroup" aria-labelledby="${esc(labelledby)}">`+DAY_COUNT_CHOICES.map(n=>
+    `<button type="button" class="radio-card${current===n?" is-selected":""}" role="radio" aria-checked="${current===n?"true":"false"}" ${attrs(n)}>`+
+    `<span class="radio-card__body"><span class="radio-card__title">${esc(t("entry.days_per_week.value",{n}))}</span></span>`+
+    `<span class="radio-card__mark" aria-hidden="true"></span></button>`).join("")+`</div>`}
 function renderDaysStep(){
   const current=entryState.answers.daysPerWeek;
   // The week's structure is the split step's to say: a fixed sentence per day count could contradict the lifter's choice.
-  return entryHeading(t("entry.days_per_week.title"))+entryBGroup([2,3,4,5,6].map(n=>
-    entryBChoice("daysPerWeek",n,t("entry.days_per_week.value",{n}),"",current===n)).join(""),{compact:true})}
+  return entryHeading(t("entry.days_per_week.title"))+dayCountTilesHtml(current,n=>`data-entry-pick="daysPerWeek" data-entry-val="${n}"`,"entryHeading")}
 /* The split step (owner, 2026-10-23): the generator's authored weekly structures for the chosen day count, the one
    Taurifer would pick preselected and marked, so Continue keeps the program it would have made. Shown only when there
    are two or more to choose from (entrySplitStepShown). */

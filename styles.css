@@ -4501,12 +4501,12 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 
 /* The tile families keep a tile: a bounded surface, the quiet ink ring when chosen. */
 .entry-body .onb__opts.onb__grid .radio-card,
-.entry-body .entry-b__compact .radio-card,
+:is(.entry-body,.review__days) .entry-b__compact .radio-card,
 .entry-body .onb__opts--reasons .radio-card{
   border:1px solid var(--control-selection-boundary);border-radius:var(--radius-surface);background:var(--surface)
 }
 .entry-body .onb__opts.onb__grid .radio-card.is-selected,
-.entry-body .entry-b__compact .radio-card.is-selected,
+:is(.entry-body,.review__days) .entry-b__compact .radio-card.is-selected,
 .entry-body .onb__opts--reasons .radio-card.is-selected{
   border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow);background:var(--well)
 }
@@ -7943,26 +7943,29 @@ body.is-entry-editor #entryProgramName,
 .entry__carried-change,.entry__restore{flex:none;min-height:var(--control-target);padding:var(--space-8) var(--space-14);width:auto}
 
 /* Numbers set as numbers: a Mono value over its unit, three to a row. */
-#onbBody.entry-body .onb__opts.onb__num{
+/* The schedule diagnosis's days are the same tiles (owner, 2026-10-25), under the field label they replace. */
+#reviewPanel .review__days{margin:var(--space-14) 0 var(--space-18)}
+#reviewPanel .review__days-label{margin:0 0 var(--space-8);color:var(--ink-soft);font-size:var(--font-size-caption);font-weight:600;text-transform:uppercase;letter-spacing:var(--track-label)}
+:is(#onbBody.entry-body,#reviewPanel .review__days) .onb__opts.onb__num{
   display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-8);border:0;border-radius:var(--radius-none);background:transparent;overflow:visible
 }
-#onbBody.entry-body .onb__opts.onb__num .radio-card{
+:is(#onbBody.entry-body,#reviewPanel .review__days) .onb__opts.onb__num .radio-card{
   flex-direction:column;align-items:center;justify-content:center;gap:var(--space-4);min-height:calc(var(--control-target) + var(--space-26));
   padding:var(--space-8);border:1px solid var(--control-selection-boundary);border-radius:var(--radius-control);
   background:var(--control-selection-bg);text-align:center
 }
-#onbBody.entry-body .onb__opts.onb__num .radio-card.is-selected{
+:is(#onbBody.entry-body,#reviewPanel .review__days) .onb__opts.onb__num .radio-card.is-selected{
   border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow);background:var(--well)
 }
-#onbBody.entry-body .onb__opts.onb__num .radio-card__body{align-items:center;flex:0 0 auto;gap:var(--space-4)}
-#onbBody.entry-body .onb__opts.onb__num .radio-card__title{
+:is(#onbBody.entry-body,#reviewPanel .review__days) .onb__opts.onb__num .radio-card__body{align-items:center;flex:0 0 auto;gap:var(--space-4)}
+:is(#onbBody.entry-body,#reviewPanel .review__days) .onb__opts.onb__num .radio-card__title{
   font-family:var(--font-training-data);font-size:var(--font-size-metric);font-weight:var(--weight-medium);font-variant-numeric:tabular-nums;
   line-height:var(--line-tight);color:var(--ink)
 }
-#onbBody.entry-body .onb__opts.onb__num .radio-card__cap{font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
-#onbBody.entry-body .onb__opts.onb__num .radio-card__mark{display:none}
-#onbBody.entry-body .onb__opts.onb__num .radio-card.is-selected .radio-card__title,
-#onbBody.entry-body .onb__opts.onb__num .radio-card.is-selected .radio-card__cap{color:var(--ink)}
+:is(#onbBody.entry-body,#reviewPanel .review__days) .onb__opts.onb__num .radio-card__cap{font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+:is(#onbBody.entry-body,#reviewPanel .review__days) .onb__opts.onb__num .radio-card__mark{display:none}
+:is(#onbBody.entry-body,#reviewPanel .review__days) .onb__opts.onb__num .radio-card.is-selected .radio-card__title,
+:is(#onbBody.entry-body,#reviewPanel .review__days) .onb__opts.onb__num .radio-card.is-selected .radio-card__cap{color:var(--ink)}
 
 /* Optional section: Skip while empty, and the two-muscle limit said in text. */
 #onbBody.entry-body .entry__skip{margin:var(--space-14) 0 var(--space-4);width:auto}

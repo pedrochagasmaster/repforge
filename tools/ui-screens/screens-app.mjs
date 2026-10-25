@@ -968,7 +968,8 @@ async function openSiblingPreview(page, kind) {
     : [{ role: "PrimaryCompound$", week: 2, addSets: 1 }] });
   await openScheduleDiagnosis(page);
   if (kind === "sessions_too_long") await page.click('[data-diag="sessions_too_long"]');
-  await page.fill("[data-diag-target]", kind === "sessions_too_long" ? "60" : "3");
+  if (kind === "sessions_too_long") await page.fill("[data-diag-target]", "60");
+  else await page.click('[data-diag-days="3"]');
   await page.click("[data-diag-continue]");
   await page.waitForSelector("[data-preview-confirm]", { timeout: 20000 });
   await sleep(page, 400);
@@ -2215,7 +2216,7 @@ export const APP_SCENARIOS = {
   "progress/schedule-diagnosis": openScheduleDiagnosis,
   "progress/sibling-lower-frequency": (page) => openSiblingPreview(page, "fewer_days"),
   "progress/sibling-shorter-session": (page) => openSiblingPreview(page, "sessions_too_long"),
-  "progress/guided-repair": async (page) => { await openCompletedReview(page);await page.click('[data-review-action="guided-edit"]');await page.fill("[data-diag-target]","3");await page.click("[data-diag-continue]");await page.waitForSelector(".review__staged",{timeout:20000}); },
+  "progress/guided-repair": async (page) => { await openCompletedReview(page);await page.click('[data-review-action="guided-edit"]');await page.click('[data-diag-days="3"]');await page.click("[data-diag-continue]");await page.waitForSelector(".review__staged",{timeout:20000}); },
   "progress/volume-reduction-preview": async (page) => { await completeCompiledProgram(page);await openCompletedReview(page);await page.click('[data-review-action="reduce-volume"]');await page.click("[data-volume-confirm]");await page.waitForSelector("[data-preview-confirm]",{timeout:20000}); },
   "progress/recovery-ineligible": async (page) => { await openRecoveryPreview(page);await page.click('[data-recovery-answer="Not sure"]'); },
   "progress/recovery-questions": openRecoveryPreview,
