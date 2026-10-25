@@ -95,8 +95,10 @@
   --radius-landing-stage-compact:20px;
   --radius-landing-crop:14px;
   --radius-pill:999px;
-  /* Every button is a pill (the native UI kit, owner decision 2026-10-24): one token so a variant cannot drift. */
-  --radius-button:var(--radius-pill);
+  /* Every button is a pill (the native UI kit, owner decision 2026-10-24): one token so a variant cannot drift. It is
+     half the single-line CTA (54px), not 999px: a one-line button is a pill, and one whose label wraps at large text
+     becomes a rounded rectangle, as iOS draws it, never a circle or an oval. */
+  --radius-button:27px;
   /* Tracking by role (the native UI kit): uppercase group labels and eyebrows share one value. */
   --track-label:.06em;
   /* Toasts are an ink pill with paper text in both themes (the native UI kit), not the primary button's fill. */
@@ -698,10 +700,11 @@ body.is-sheet-open .topbar,
 .btn--cta{
   position:relative;width:100%;height:auto;min-height:54px;border:0;border-radius:var(--radius-button);
   background:var(--cta);color:var(--cta-ink);font-size:var(--font-size-control);font-weight:600;
-  justify-content:center;padding:13px 48px;
+  justify-content:center;padding:13px 20px;
 }
+/* The arrow follows the label in the flex row, so however the label wraps it never runs over the text. */
 .btn--cta::after{
-  content:"";position:absolute;right:18px;top:50%;transform:translateY(-50%);
+  content:"";flex:none;
   width:22px;height:22px;
   /* The arrow is drawn in the CTA's own ink, as the landing draws it. The accent held it on the near-black light CTA
    * (~4.6:1) but measured 2.05:1 on the parchment dark CTA, under the 3:1 mark floor (R7 V-01). */
@@ -714,10 +717,14 @@ body.is-sheet-open .topbar,
 .review-sheet__swap-btn{min-height:var(--control-target);padding:var(--space-8) var(--space-14);font-size:var(--font-size-body-small)}
 .btn--danger{background:transparent;color:var(--danger);border-color:transparent}
 .btn--save{margin-top:6px;flex-direction:column;gap:2px;height:auto;min-height:54px;padding:12px 48px}
+/* The legacy save button stacks its label over a meta line, so its arrow keeps the side padding. */
+.btn--save::after{position:absolute;right:18px;top:50%;transform:translateY(-50%)}
 .btn--save.is-stamped{animation:stamp .5s ease}
 .btn__meta{font-size:var(--font-size-label);font-weight:500;letter-spacing:.04em;opacity:.75}
 .btnrow{display:flex;gap:10px;flex-wrap:wrap}
-.btnrow .btn{flex:1 1 160px}
+/* A pair shares the row while both labels fit on one line; when they don't (long copy, large text), each button takes
+   the full width on its own line, as iOS stacks actions at accessibility sizes. */
+.btnrow .btn{flex:1 1 max-content;min-width:0}
 /* ---- Fields ---- */
 .field{display:block;margin:14px 0 0;color:var(--ink-soft);font-size:var(--font-size-caption);font-weight:600;
   text-transform:uppercase;letter-spacing:var(--track-label)}
@@ -3764,7 +3771,7 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
    a row wrapped to three lines each, and the CTA's arrow, which sits in its side padding, ran into them. */
 #history .edbtns{display:flex;flex-direction:column;gap:var(--space-8);margin-top:14px}
 #history .edbtns .btn{min-width:0;padding:12px 20px;white-space:normal;overflow-wrap:anywhere}
-#history .edbtns .btn--cta{order:-1;padding-inline:48px}
+#history .edbtns .btn--cta{order:-1}
 /* Throwing the session away sits after the edits and under a rule, so the eye
    reaches Save first and never lands on it while aiming for something else. */
 #history .edrisk{display:flex;justify-content:center;margin-top:var(--space-18)}
@@ -4191,7 +4198,7 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 .btnrow--primary-first{flex-direction:column}
 /* A discard is not a Back button. */
 .btn--destructive{color:var(--danger);border-color:var(--rule)}
-/* `.btnrow .btn{flex:1 1 160px}` sizes the main axis, so in a column that
+/* `.btnrow .btn{flex:1 1 max-content}` sizes the main axis, so in a column that
    became a height rule and stretched each button to fill the row. */
 .btnrow--primary-first .btn{width:100%;flex:0 0 auto}
 
