@@ -1558,11 +1558,10 @@ async function resumeBandMotion(browser, { reducedMotion = "no-preference" } = {
   await context.close();
 }
 
-/* ---- O2, the onboarding choice cards take the quiet ink selection (Plan 064 R3, packet R3b2) ---------------
-   Owner decision Q-E: a chosen entry option is ringed in ink (the 2px inset `--boundary-selected-quiet`) and the orange budget
-   holds, so no selected card, mark or icon may paint the accent, and a selection does not lift or resize the card. The ring
-   arrives on the card's own box-shadow transition (150ms) and is simply there under reduced motion. There is no check growth on
-   a choice card at this base, so none is invented: outline only. */
+/* ---- O2, the onboarding choice rows: the mark carries the selection (native UI kit §5, owner 2026-10-24) -------
+   The owner's 2026-10-24 decision replaces Q-E's ink ring: a choice is a plain row and its trailing mark is the selection, an
+   `--accent-deep` ring and centre. The row itself and its identity glyph paint no accent and draw no ring, and a selection does
+   not lift or resize the row. */
 const ENTRY_READ = `
 window.__entrySel = () => {
   const root = getComputedStyle(document.documentElement), probe = document.createElement("i");
@@ -1621,16 +1620,15 @@ async function entrySelectionInk(browser, { reducedMotion = "no-preference", col
   await page.click("#onbSkip");
   await step("environment");
 
-  phase(`O2: a chosen option is ringed in ink and nothing about the card moves${tag}`);
+  phase(`O2: a chosen row is marked by its accent mark alone and nothing about the row moves${tag}`);
   // "schedule" (days + minutes on one screen) is gone; "environment" is now
   // the nearest single-choice radiogroup step to carry this proof.
   await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
   const list = await page.evaluate(() => window.__entrySel());
-  const ring = (c) => /0px 0px 0px 2px inset/.test(c.shadow) && c.shadow.includes(list.ink);
-  assert(list.cards.length === 1, "the chosen row is a selected card", String(list.cards.length));
-  assert(list.cards.every(ring), "the selected row draws the 2px inset ink ring", JSON.stringify(list.cards.map((c) => c.shadow)));
-  assert(list.cards.every((c) => !c.cardPaints.length && !c.markPaints.length && !c.iconPaints.length),
-    "and paints no accent on the card, its mark or its icon", JSON.stringify(list.cards.map((c) => [c.cardPaints, c.markPaints, c.iconPaints])));
+  assert(list.cards.length === 1, "the chosen row is a selected row", String(list.cards.length));
+  assert(list.cards.every((c) => c.shadow === "none"), "the selected row draws no ring", JSON.stringify(list.cards.map((c) => c.shadow)));
+  assert(list.cards.every((c) => c.markPaints.includes("boxShadow") && !c.cardPaints.length && !c.iconPaints.length),
+    "its mark rings in the accent, and the row and its icon paint none", JSON.stringify(list.cards.map((c) => [c.cardPaints, c.markPaints, c.iconPaints])));
   assert(list.cards.every((c) => c.transform === "none"), "a selected card does not lift", JSON.stringify(list.cards.map((c) => c.transform)));
   const sizes = await page.evaluate(() => window.__entryRects());
   await page.click('[data-entry-pick="environment"][data-entry-val="warehouse_gym"]');
@@ -1638,15 +1636,15 @@ async function entrySelectionInk(browser, { reducedMotion = "no-preference", col
   assert(sizes.length > 0 && sizes.length === resized.length && sizes.every((r, i) => r[0] === resized[i][0] && r[1] === resized[i][1]),
     "choosing a different row leaves every card the same size", JSON.stringify({ sizes, resized }));
   if (reduced) assert(list.cards.every((c) => c.maxDuration === 0), "under reduced motion the card has no transition", JSON.stringify(list.cards.map((c) => c.maxDuration)));
-  else assert(list.cards.every((c) => /box-shadow/.test(c.transition) && c.maxDuration > 0 && c.maxDuration <= 0.16),
-    "the ring arrives on the card's own box-shadow transition, 160ms or less", JSON.stringify(list.cards.map((c) => [c.transition, c.maxDuration])));
+  else assert(list.cards.every((c) => c.maxDuration <= 0.16),
+    "the row's own transitions take 160ms or less", JSON.stringify(list.cards.map((c) => [c.transition, c.maxDuration])));
   // Home leaves most equipment groups unticked, so the checkbox run below
   // has rows to choose.
   await page.click('[data-entry-pick="environment"][data-entry-val="limited_home"]');
   await page.click("#onbNext");
   await step("equipment");
 
-  phase(`O2: a chosen checkbox has an ink mark, not an orange one${tag}`);
+  phase(`O2: a chosen checkbox is an accent disc with a check, and the row stays plain${tag}`);
   // The equipment groups are B's checkbox cards. Three that start unticked
   // are chosen, so the click is what selects them.
   const offGroups = await page.evaluate(() => [...document.querySelectorAll('[data-entry-pick="equipmentGroup"][aria-checked="false"]')]
@@ -1656,10 +1654,10 @@ async function entrySelectionInk(browser, { reducedMotion = "no-preference", col
   const boxes = await page.evaluate(() => window.__entrySel());
   const checks = boxes.cards.filter((c) => c.role === "checkbox");
   assert(checks.length >= 3, "the three chosen equipment groups are selected checkbox cards", String(checks.length));
-  assert(checks.every((c) => !c.cardPaints.length && !c.markPaints.length && !c.iconPaints.length),
-    "no selected checkbox card, mark or icon paints the accent", JSON.stringify(checks.map((c) => [c.cardPaints, c.markPaints, c.iconPaints])));
-  assert(boxes.cards.every((c) => /0px 0px 0px 2px inset/.test(c.shadow) && c.shadow.includes(boxes.ink)),
-    "and every selected card on the step draws the same ink ring", JSON.stringify(boxes.cards.map((c) => c.shadow)));
+  assert(checks.every((c) => c.markPaints.includes("backgroundColor") && !c.cardPaints.length && !c.iconPaints.length),
+    "each chosen checkbox mark is an accent disc, and no row or icon paints the accent", JSON.stringify(checks.map((c) => [c.cardPaints, c.markPaints, c.iconPaints])));
+  assert(boxes.cards.every((c) => c.shadow === "none"),
+    "and no selected row on the step draws a ring", JSON.stringify(boxes.cards.map((c) => c.shadow)));
   assert(errors.length === 0, `no page errors in the choice card run${tag}`, errors.join(" | "));
   await context.close();
 }

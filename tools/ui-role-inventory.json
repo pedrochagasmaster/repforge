@@ -7344,8 +7344,48 @@
         "selected",
         "disabled"
       ],
-      "rationale": "Changes a chosen value, active option, or reversible status.",
-      "owner": "plan-058",
+      "rationale": "Chooses an option as a plain choice row (native UI kit §5, owner 2026-10-24); the row is the target and its trailing mark carries the selection and the required boundary. The number, muscle, compact and reason tiles keep a 3:1 tile outline.",
+      "owner": "kit-b",
+      "catalogStates": [
+        "onboarding-build/setup",
+        "onboarding-recommend/abilities",
+        "onboarding-recommend/background",
+        "onboarding-recommend/cardio-experience",
+        "onboarding-recommend/chip-editor-open",
+        "onboarding-recommend/days-per-week",
+        "onboarding-recommend/split",
+        "onboarding-recommend/desired-result",
+        "onboarding-recommend/environment",
+        "onboarding-recommend/equipment",
+        "onboarding-recommend/equipment-adjusted",
+        "onboarding-recommend/session-length",
+        "onboarding-recommend/sex",
+        "onboarding-recovery/rules-drift",
+        "onboarding-start/hub",
+        "onboarding-start/hub-chosen",
+        "onboarding-start/hub-existing",
+        "progress/schedule-diagnosis",
+        "onboarding-recommend/result-block-sheet",
+        "onboarding-recommend/review-sheet-execution-mode",
+        "program/editor-suggest-loads",
+        "onboarding-recommend/deload",
+        "onboarding-recommend/deload-start"
+      ]
+    },
+    {
+      "id": "radio-card-mark",
+      "selector": ".radio-card__mark",
+      "roles": {
+        "boundary": "required"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "selected"
+      ],
+      "rationale": "A choice row's required boundary (contract: choice rows): a 22px ring in --boundary-required, or an --accent-deep ring and centre (single) or disc with a check (multiple) when chosen. Inset, so it lifts nothing.",
+      "owner": "kit-b",
       "catalogStates": [
         "onboarding-build/setup",
         "onboarding-recommend/abilities",

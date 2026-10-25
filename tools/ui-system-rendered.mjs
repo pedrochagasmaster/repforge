@@ -350,7 +350,6 @@ export async function measureRenderedRoles(input) {
   const { components } = input;
   const results = [];
   const disabledDescriptions = new Set();
-  const measuredSelectionGroups = new Set();
   for (const control of document.querySelectorAll(":disabled,[aria-disabled='true']")) {
     for (const id of (control.getAttribute("aria-describedby") || "").split(/\s+/).filter(Boolean)) disabledDescriptions.add(id);
   }
@@ -417,17 +416,20 @@ export async function measureRenderedRoles(input) {
             && !isDecorativeBoundary(pseudoStyle[`border${side}Color`]));
           return pseudoHasEdge || pseudoHasFill;
         }) : null;
-        const groupedSelection = item.roles?.control === "selection" && node.matches(".radio-card")
-          ? node.closest(".onb__opts.onb__list,.onb__opts.onb__seg") : null;
-        if (groupedSelection) {
-          if (!measuredSelectionGroups.has(groupedSelection)) {
-            results.push(measure(groupedSelection, `${item.selector}:${label(groupedSelection)}`, "boundary"));
-            measuredSelectionGroups.add(groupedSelection);
-          }
+        // Contract, choice rows (native UI kit §5, owner 2026-10-24): a choice row draws no box, and its required
+        // boundary is its trailing mark. A choice that still draws a tile (the number, muscle, compact and reason
+        // tiles) is measured on its tile as well.
+        const choiceRow = item.roles?.control === "selection" && node.matches(".radio-card");
+        if (choiceRow) {
           const mark = [...node.querySelectorAll(".radio-card__mark")].find(visible);
           if (mark) results.push(measure(mark, `${item.selector}:${label(mark)}`, "boundary"));
-          if (groupedSelection.matches(".onb__opts.onb__seg") && (hasEdge || hasFill)) {
-            results.push(measure(node, `${item.selector}:${label(node)}`, "boundary"));
+          // The hairlines between rows are decorative; only a tile's own edge or fill is measured.
+          const tileEdge = ["Top", "Right", "Bottom", "Left"].some((side) =>
+            parseFloat(style[`border${side}Width`]) > 0 && style[`border${side}Style`] !== "none"
+            && (color(style[`border${side}Color`])?.[3] || 0) > 0 && !isDecorativeBoundary(style[`border${side}Color`]));
+          if (tileEdge || hasFill) results.push(measure(node, `${item.selector}:${label(node)}`, "boundary"));
+          if (!mark && !tileEdge && !hasFill) {
+            results.push({ selector: `${item.selector}:${label(node)}`, kind: "boundary", status: "unsupported", reason: "a choice row needs its mark" });
           }
         } else {
           const requiredNow = item.roles?.progress || item.roles?.control === "field"
@@ -449,10 +451,6 @@ export async function measureRenderedRoles(input) {
           else results.push({ selector: `${item.selector}:${label(node)}`, kind: "boundary", status: "unsupported", reason: "required progress marks are missing" });
           } else if (requiredNow) {
             results.push(measure(node, `${item.selector}:${label(node)}`, "boundary"));
-          }
-          if (item.roles?.control === "selection" && node.matches(".radio-card")) {
-            const mark = [...node.querySelectorAll(".radio-card__mark")].find(visible);
-            if (mark) results.push(measure(mark, `${item.selector}:${label(mark)}`, "boundary"));
           }
         }
       }

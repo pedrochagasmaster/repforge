@@ -909,8 +909,9 @@ try {
   const groupedMarks = contextualRoles.filter((item) => item.selector.includes("radio-card__mark"));
   assert.deepEqual(groupedMarks.map((item) => item.status).sort(), ["fail", "pass"],
     `grouped choices measure their actual marks without treating transparent rows as boundaries: ${JSON.stringify(contextualRoles)}`);
-  assert.ok(contextualRoles.some((item) => item.kind === "boundary" && item.selector.includes("onb__opts.onb__list") && item.status === "pass"),
-    "the grouped choice boundary is measured at its visible owner");
+  // Contract, choice rows (owner 2026-10-24): a choice row's required boundary is its mark, not a box or its group.
+  assert.ok(!contextualRoles.some((item) => item.kind === "boundary" && item.selector.includes("onb__opts.onb__list")),
+    "a choice row's group is not measured as its boundary: the mark is");
   assert.equal(contextualRoles.find((item) => item.selector.includes("#uiPseudoGood") && item.kind === "boundary")?.status, "pass",
     `required pseudo-element boundaries use their rendered border: ${JSON.stringify(contextualRoles)}`);
   assert.equal(contextualRoles.find((item) => item.selector.includes("#uiPseudoBad") && item.kind === "boundary")?.status, "fail",

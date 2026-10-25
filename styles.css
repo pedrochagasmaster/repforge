@@ -235,6 +235,11 @@
      the contract's 2px inset recipe; it adds no width. */
   --boundary-selected-quiet:var(--ink);
   --elevation-selected-quiet-shadow:inset 0 0 0 2px var(--boundary-selected-quiet);
+  /* A choice row's mark is its required boundary (native UI kit §5, contract: choice rows): a 1.5px ring, accent
+     when chosen. The row is the target, at least the kit's single-line row height. */
+  --choice-row-min:52px;
+  --choice-mark-ring:inset 0 0 0 1.5px var(--boundary-required);
+  --choice-mark-ring-on:inset 0 0 0 1.5px var(--accent-deep);
   /* Decorative separator drawn on --surface (sheets, the shelf). Never the sole
      cue for a required mark. */
   --rule-on-surface:var(--rule);
@@ -425,6 +430,8 @@
      themes. */
   --boundary-selected-quiet:var(--ink);
   --elevation-selected-quiet-shadow:inset 0 0 0 2px var(--boundary-selected-quiet);
+  --choice-mark-ring:inset 0 0 0 1.5px var(--boundary-required);
+  --choice-mark-ring-on:inset 0 0 0 1.5px var(--accent-deep);
   --rule-on-surface:var(--rule-strong);
   --shelf-field-bg:var(--well);
   --shelf-pad-bg:var(--bg);
@@ -909,31 +916,37 @@ input:is([type=date],[type=time])::-webkit-date-and-time-value{min-height:1.5em;
 .recblock__head{font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);color:var(--ink);margin:0 0 2px}
 .recblock__body,.rec{font-size:var(--font-size-body-small);line-height:1.45;color:var(--ink-soft);margin:0}
 
-/* ---- Radio cards (onboarding, block review) ---- */
+/* ---- Choice rows (native UI kit §5, owner 2026-10-24) ----
+   A choice is a plain row: no box, a 1px hairline between rows and above and below the run, and a trailing mark.
+   The mark is the choice's required boundary (contract: choice rows): a 22px ring in --boundary-required; chosen,
+   a radio rings and fills its centre in --accent-deep, and a checkbox is an --accent-deep disc with a check.
+   The tile families (numbers, muscle tiles, compact pickers, reason pills) keep a tile and override below. */
 .radio-card{
-  display:flex;align-items:center;gap:12px;width:100%;text-align:left;
-  background:var(--surface);border:1px solid var(--control-selection-boundary);border-radius:var(--radius-surface);
-  padding:14px 16px;cursor:pointer;color:var(--ink);font:inherit;
-  transition:border-color .15s ease;
+  display:flex;align-items:center;gap:var(--space-14);width:100%;min-height:var(--choice-row-min);text-align:left;
+  background:transparent;border:0;border-radius:var(--radius-none);box-shadow:none;
+  padding:var(--space-8) 0;cursor:pointer;color:var(--ink);font:inherit;
+  transition:background-color .15s ease
 }
-.radio-card.is-selected{border-color:var(--control-selected-boundary);border-width:1.5px;padding:13.5px 15.5px}
-.radio-card__body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
-.radio-card__title{font-size:var(--font-size-control);font-weight:600;line-height:1.25;color:var(--ink)}
-.radio-card__cap{font-size:var(--font-size-body-small);line-height:1.35;color:var(--ink-soft)}
+.radio-card:not(.radio-card + .radio-card){border-top:1px solid var(--boundary-decorative)}
+.radio-card:not(:has(+ .radio-card)){border-bottom:1px solid var(--boundary-decorative)}
+.radio-card + .radio-card{border-top:1px solid var(--boundary-decorative)}
+.radio-card.is-pressed:not(:disabled):not(.is-disabled){background:var(--row-pressed-bg)}
+.radio-card:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.radio-card__body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.radio-card__title{font-size:var(--font-size-body);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--ink)}
+.radio-card__cap{font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--ink-soft)}
 .radio-card__mark{
-  flex:none;width:22px;height:22px;border-radius:50%;border:1.5px solid var(--control-selection-boundary);
-  background:transparent;
+  position:relative;flex:none;display:grid;place-items:center;width:22px;height:22px;
+  border:0;border-radius:var(--radius-round);background:transparent;background-image:none;box-shadow:var(--choice-mark-ring)
 }
-.review-block__patterns .radio-card:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-/* Nothing told you whether picking a second option replaced the first. A
-   checkbox is a square; a radio is a circle. */
-.radio-card[role="checkbox"] .radio-card__mark{border-radius:var(--radius-compact)}
-/* The fill is the boundary, as on the entry checkbox: a transparent border lets
-   the fill paint under it, so the edge reads against the card, not ink on ink. */
-.radio-card.is-selected .radio-card__mark{
-  border-color:transparent;background:var(--control-selected-boundary);
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='white' d='M4.5 8.5L2 6l.7-.7 1.8 1.8 4-4 .7.7z'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;background-position:center;background-size:12px;
+.radio-card:not([role="checkbox"]).is-selected .radio-card__mark{box-shadow:var(--choice-mark-ring-on)}
+.radio-card:not([role="checkbox"]).is-selected .radio-card__mark::after{
+  content:"";width:12px;height:12px;border-radius:var(--radius-round);background:var(--accent-deep)
+}
+.radio-card[role="checkbox"].is-selected .radio-card__mark{background:var(--accent-deep);box-shadow:none}
+.radio-card[role="checkbox"].is-selected .radio-card__mark::after{
+  content:"";width:14px;height:14px;background:var(--accent-ink);
+  -webkit-mask:var(--check) no-repeat center/contain;mask:var(--check) no-repeat center/contain
 }
 
 /* @ci-domain settings */
@@ -4445,68 +4458,31 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 .entry-body--entry .entry__group-lab{color:var(--accent-deep)}
 .entry-body--entry .entry__group-lab::after{content:"";flex:1;height:1px;background:var(--rule)}
 
-/* ---- Choice surfaces ----
-   A questionnaire answer is a real choice, so it gets a bounded white surface:
-   border, 12px radius, an optional semantic glyph, and a radio/checkbox mark.
-   Selected = the quiet ink ring (Q-E, OG-4) and a firmer label. The orange budget holds. */
-.entry-body .onb__opts{display:flex;flex-direction:column;gap:10px}
-.entry-body .radio-card{
-  position:relative;isolation:isolate;display:flex;align-items:center;gap:14px;
-  width:100%;min-height:56px;padding:14px 16px;background:var(--surface);
-  border:1px solid var(--rule);border-radius:var(--radius-surface);color:var(--ink);
-  transition:border-color .15s ease,background-color .15s ease,box-shadow .15s ease
-}
-.entry-body .radio-card.is-selected{
-  border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow);
-  background:var(--well);padding:14px 16px
-}
+/* ---- Choice rows in the entry flows ----
+   A questionnaire answer is a choice row (native UI kit §5, owner 2026-10-24): the base `.radio-card` row with an
+   optional leading identity glyph and the trailing mark. Selected is the mark alone; the orange budget holds. */
+.entry-body .onb__opts{display:flex;flex-direction:column;gap:0}
+.entry-body .radio-card{position:relative;isolation:isolate}
 @media (hover: hover) and (pointer: fine){
-.entry-body .radio-card:hover{border-color:var(--rule-strong)}
+.entry-body .radio-card:hover:not(:disabled):not(.is-disabled){background:var(--row-pressed-bg)}
 }
-.entry-body .radio-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.entry-body .radio-card__body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-.entry-body .radio-card__title{font-size:var(--font-size-control);font-weight:500;line-height:1.3}
-.entry-body .radio-card.is-selected .radio-card__title{font-weight:600}
-.entry-body .radio-card__cap{font-size:var(--font-size-body-small);line-height:1.4;color:var(--ink-soft)}
-.entry-body .radio-card__icon{
-  flex:none;width:28px;height:28px;background:currentColor;color:var(--ink-soft)
-}
-.entry-body .radio-card.is-selected .radio-card__icon{color:var(--ink)}
-.entry-body .radio-card__mark{width:22px;height:22px;flex:none}
-/* A radio reads as a ring with a filled centre, not a ticked box. */
-.entry-body .radio-card[role="radio"] .radio-card__mark{border-radius:50%}
-.entry-body .radio-card[role="radio"].is-selected .radio-card__mark{
-  background:var(--surface);border:2px solid var(--boundary-selected-quiet);background-image:none;position:relative
-}
-.entry-body .radio-card[role="radio"].is-selected .radio-card__mark::after{
-  content:"";position:absolute;inset:3px;border-radius:50%;background:var(--boundary-selected-quiet)
-}
-/* A chosen checkbox is an ink box with a tick cut out of it, not an orange one. */
-.entry-body .radio-card[role="checkbox"].is-selected .radio-card__mark{
-  /* The ink fill is the boundary: the border stays transparent so the fill
-     paints under it (background-clip is border-box) and the edge reads as the
-     fill against the card, not as ink on ink. */
-  background:var(--boundary-selected-quiet);border-color:transparent;background-image:none;position:relative
-}
-.entry-body .radio-card[role="checkbox"].is-selected .radio-card__mark::after{
-  content:"";position:absolute;inset:0;background:var(--surface);
-  -webkit-mask:var(--check) no-repeat center/75%;mask:var(--check) no-repeat center/75%
-}
+.entry-body .radio-card__cap{font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--ink-soft)}
+.entry-body .radio-card__icon{flex:none;width:28px;height:28px;background:currentColor;color:var(--ink-soft)}
 .entry-body .radio-card.is-disabled,.entry-body .radio-card:disabled{opacity:.45}
 
-/* Grouped list: several rows share one bounded surface, divided by hairlines.
-   Used where the options are a plain enumeration (experience, consistency,
-   rest, environment) rather than cards that each need their own supporting
-   copy. The selected row takes the quiet ink ring. */
-.entry-body .onb__opts.onb__list{
-  gap:0;border:1px solid var(--rule);border-radius:var(--radius-surface);background:var(--surface);overflow:hidden
+/* Grouped list: the plain enumerations (experience, consistency, rest, environment) are the same rows. */
+.entry-body .onb__opts.onb__list{gap:0;border:0;border-radius:var(--radius-none);background:transparent;overflow:visible}
+
+/* The tile families keep a tile: a bounded surface, the quiet ink ring when chosen. */
+.entry-body .onb__opts.onb__grid .radio-card,
+.entry-body .entry-b__compact .radio-card,
+.entry-body .onb__opts--reasons .radio-card{
+  border:1px solid var(--control-selection-boundary);border-radius:var(--radius-surface);background:var(--surface)
 }
-.entry-body .onb__opts.onb__list .radio-card{
-  border:0;border-radius:0;border-top:1px solid var(--rule);box-shadow:none;background:transparent
-}
-.entry-body .onb__opts.onb__list .radio-card:first-child{border-top:0}
-.entry-body .onb__opts.onb__list .radio-card.is-selected{
-  box-shadow:var(--elevation-selected-quiet-shadow);background:var(--well)
+.entry-body .onb__opts.onb__grid .radio-card.is-selected,
+.entry-body .entry-b__compact .radio-card.is-selected,
+.entry-body .onb__opts--reasons .radio-card.is-selected{
+  border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow);background:var(--well)
 }
 
 /* Tiles: the short-label muscle and movement checkboxes. Bounded cards in a
@@ -4701,10 +4677,6 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 /* Priorities and avoidance: a dense optional section kept structured. */
 .entry-body--priorities .entry__group-lab{margin-top:22px}
 .entry-body--priorities .entry__none{margin-bottom:6px}
-.entry-body--priorities .entry__none .radio-card{
-  border:1px solid var(--control-selection-boundary);border-radius:var(--radius-surface);background:var(--surface)
-}
-.entry-body--priorities .entry__none .radio-card.is-selected{background:var(--well)}
 .entry-body--priorities .entry__avoid-list{gap:10px}
 .entry-body--priorities .entry__avoid-item{
   padding:14px;border:1px solid var(--rule);border-radius:var(--radius-surface);background:var(--surface)
@@ -5989,27 +5961,15 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 }
 
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card{
-  background:var(--control-selection-bg);color:var(--control-selection-ink);
-  border-color:var(--control-selection-boundary);border-radius:var(--radius-control);
-  font-family:var(--font-language)
+  color:var(--control-selection-ink);font-family:var(--font-language)
 }
 @media (hover: hover) and (pointer: fine){
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card:hover:not(:disabled):not(.is-selected){
-  background:var(--well);color:var(--control-selection-ink);
-  border-color:var(--control-selection-boundary)
+:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card:hover:not(:disabled):not(.is-disabled){
+  background:var(--row-pressed-bg);color:var(--control-selection-ink)
 }
-}
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card.is-pressed:not(:disabled):not(.is-selected){
-  background:var(--row-pressed-bg);color:var(--control-selection-ink);
-  border-color:var(--control-selection-boundary)
 }
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card.is-pressed:not(:disabled){
-  transform:var(--control-pressed-transform)
-}
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card.is-selected{
-  background:var(--well);color:var(--control-selection-ink);
-  border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow);
-  border-width:1px
+  background:var(--row-pressed-bg);color:var(--control-selection-ink)
 }
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card:focus-visible{
   outline:var(--control-focus-outline);outline-offset:2px
@@ -6017,20 +5977,18 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 @media (hover: hover) and (pointer: fine){
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card.is-disabled:hover,
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card:disabled:hover{
-  background:var(--control-selection-bg);color:var(--color-disabled-reason);
-  border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
+  background:transparent;color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none
 }
 }
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card.is-disabled,
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card:disabled,
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card.is-disabled.is-pressed,
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card:disabled.is-pressed{
-  background:var(--control-selection-bg);color:var(--color-disabled-reason);
-  border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
+  background:transparent;color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none
 }
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card__title{
   color:var(--control-selection-ink);font-family:var(--font-language);
-  font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard)
+  font-size:var(--font-size-body);font-weight:var(--weight-regular);line-height:var(--line-standard)
 }
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card__cap{
   color:var(--color-ink-secondary);font-family:var(--font-language);
@@ -6049,22 +6007,6 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card.is-selected .radio-card__icon{
   color:var(--ink)
 }
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card.is-selected .radio-card__mark{
-  border-color:var(--boundary-selected-quiet)
-}
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card[role="radio"].is-selected .radio-card__mark{
-  background:var(--control-selection-bg);border-color:var(--boundary-selected-quiet)
-}
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card[role="radio"].is-selected .radio-card__mark::after{
-  background:var(--boundary-selected-quiet)
-}
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .radio-card[role="checkbox"].is-selected .radio-card__mark{
-  border-color:transparent
-}
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .onb__opts.onb__list{
-  border-color:var(--boundary-required);border-radius:var(--radius-surface)
-}
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .entry__none .radio-card{border-width:1px}
 
 :is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build, #onbBody.entry-route--shared, #onbBody.entry-route--hub) .onb__q{
   color:var(--color-ink);font-family:var(--font-language);font-size:var(--font-size-title);
@@ -7452,15 +7394,8 @@ body.is-entry-editor #entryProgramName,
 .entry-rail__text{min-width:0;overflow-wrap:anywhere}
 .entry-rail__edit{flex:none;width:var(--space-14);height:var(--space-14);color:var(--ink-soft)}
 
-/* Quiet selection (Q-E). A chosen option is ringed in ink, never in the accent. */
-#onbBody.entry-body .radio-card.is-selected{
-  border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow);
-  background:var(--well);color:var(--control-selection-ink)
-}
+/* A chosen row's identity glyph takes full ink beside its mark. */
 #onbBody.entry-body .radio-card.is-selected .radio-card__icon{color:var(--ink)}
-#onbBody.entry-body .radio-card[role="radio"].is-selected .radio-card__mark{border-color:var(--boundary-selected-quiet)}
-#onbBody.entry-body .radio-card[role="radio"].is-selected .radio-card__mark::after{background:var(--boundary-selected-quiet)}
-#onbBody.entry-body .onb__opts.onb__list .radio-card.is-selected{box-shadow:var(--elevation-selected-quiet-shadow);background:var(--well)}
 
 /* Hub */
 .entry-body--entry .entry-hub__lede{margin-bottom:var(--space-18)}
@@ -8029,8 +7964,6 @@ body.is-entry-editor #entryProgramName,
 /* Optional section: Skip while empty, and the two-muscle limit said in text. */
 #onbBody.entry-body .entry__skip{margin:var(--space-14) 0 var(--space-4);width:auto}
 #onbBody.entry-body .entry__limit{margin:var(--space-8) 0 0}
-#onbBody.entry-body--priorities .entry__none .radio-card.is-selected,
-#onbBody.entry-body .entry__none .radio-card.is-selected{border-color:var(--boundary-selected-quiet);background:var(--well)}
 
 /* Bands, not boxes: the environment correction, the muscle list and the exercise lists. */
 #onbBody.entry-body .entry__disclosure{
@@ -8092,24 +8025,6 @@ body.is-entry-editor #entryProgramName,
 /* Constraints: a row with its own Restore. */
 .entry__constraint{align-items:center}
 .entry__constraint .entry__row-body{flex:1 1 auto}
-
-/* List choices are hairline rows inside one bounded list, not a stack of rounded cards. */
-#onbBody.entry-body .onb__opts.onb__list .radio-card{border-radius:var(--radius-none);border-width:0;border-top:1px solid var(--boundary-decorative)}
-#onbBody.entry-body .onb__opts.onb__list .radio-card:first-child{border-top-width:0}
-/* The selected row's inset ring would otherwise keep square corners inside the
-   list's rounded clip and be cut at the corner (#299). The end rows follow the
-   list's inner curve (outer radius less its 1px border) so the ring bends with it. */
-.entry-body .onb__opts.onb__list .radio-card:first-child,
-#onbBody.entry-body .onb__opts.onb__list .radio-card:first-child{
-  border-top-left-radius:var(--radius-surface-inner);border-top-right-radius:var(--radius-surface-inner)
-}
-.entry-body .onb__opts.onb__list .radio-card:last-child,
-#onbBody.entry-body .onb__opts.onb__list .radio-card:last-child{
-  border-bottom-left-radius:var(--radius-surface-inner);border-bottom-right-radius:var(--radius-surface-inner)
-}
-#onbBody.entry-body .onb__opts.onb__list .radio-card.is-selected{
-  border-color:var(--boundary-decorative);box-shadow:var(--elevation-selected-quiet-shadow);background:var(--well)
-}
 
 /* Browse: the context the list answers, with a way back to change it. */
 #onbBody.entry-body .entry__context{
@@ -8216,11 +8131,6 @@ body.is-entry-editor #entryProgramName,
 #stats #volumeDash .vrow__fill{background:var(--color-ink)}
 #stats #volumeDash .vrow__fill.is-high,#stats #volumeDash .vrow__fill.is-on{background:var(--color-improved)}
 #stats #reviewPanel .review__readonly{color:var(--color-ink)}
-#reviewPanel .radio-card.is-selected{border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow)}
-#reviewPanel .radio-card.is-selected .radio-card__mark{
-  position:relative;background:var(--surface);background-image:none;border:2px solid var(--boundary-selected-quiet)
-}
-#reviewPanel .radio-card.is-selected .radio-card__mark::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--boundary-selected-quiet)}
 
 /* Onboarding B (ADR 0020, Plan 072): hub link note, section map, Basics
    pickers, equipment checklist, priority rows and the deload card. Tokens
@@ -8234,7 +8144,7 @@ body.is-entry-editor #entryProgramName,
 .entry-b__section-n{flex:none;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;border:1px solid var(--rule-strong);font-family:var(--font-training-data);font-size:var(--font-size-caption);color:var(--ink)}
 .entry-b__section.is-current .entry-b__section-n{background:var(--ink);border-color:var(--ink);color:var(--bg)}
 .entry-b__compact{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
-.entry-b__compact .radio-card{justify-content:center;text-align:center}
+.entry-b__compact .radio-card{justify-content:center;text-align:center;padding:var(--space-8) var(--space-12)}
 .entry-b__compact .radio-card__mark{display:none}
 .entry-b__equipment{gap:8px}
 .entry-b__reset{margin:14px 0 0;align-self:flex-start}
