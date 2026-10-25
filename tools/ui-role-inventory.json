@@ -4706,7 +4706,8 @@
         "workout/rest-running",
         "workout/rest-done",
         "workout/logged-sets",
-        "workout/rest-sheet"
+        "workout/rest-sheet",
+        "workout/correction"
       ],
       "neverDisabledReason": "The tab exists only while a rest runs or has just run out, and it always opens the sheet."
     },
@@ -8130,7 +8131,8 @@
         "today/ready-scrolled",
         "today/in-progress",
         "progress/minibar",
-        "program/minibar-rest-done"
+        "program/minibar-rest-done",
+        "workout/logged-sets"
       ]
     },
     {
@@ -11765,7 +11767,8 @@
       "owner": "rest-timer-redesign",
       "catalogStates": [
         "workout/rest-running",
-        "workout/logged-sets"
+        "workout/logged-sets",
+        "workout/correction"
       ],
       "boundary": "required"
     },
@@ -11777,7 +11780,8 @@
       "catalogStates": [
         "workout/rest-running",
         "workout/rest-done",
-        "workout/logged-sets"
+        "workout/logged-sets",
+        "workout/correction"
       ],
       "boundary": "required"
     },
@@ -11800,7 +11804,8 @@
       "catalogStates": [
         "workout/rest-running",
         "workout/logged-sets",
-        "workout/rest-sheet"
+        "workout/rest-sheet",
+        "workout/correction"
       ]
     },
     {
@@ -11812,7 +11817,8 @@
         "workout/rest-running",
         "workout/rest-done",
         "workout/logged-sets",
-        "workout/rest-sheet"
+        "workout/rest-sheet",
+        "workout/correction"
       ]
     }
   ],
