@@ -393,7 +393,7 @@ jobs:
   # the complete lane, exactly the selected states for a targeted one.
   ci-full:
     needs: [plan, ci, full-fast, full-browser, full-capture]
-    if: ${{ !cancelled() }}
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
