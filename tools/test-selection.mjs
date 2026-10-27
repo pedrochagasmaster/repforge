@@ -15,6 +15,8 @@ const ALL = Object.entries(SUITES).flatMap(([lane, suites]) => suites.map((suite
 // changed, or when a test/tool input reaches no pull-request suite at all.
 const FULL = Object.entries(FULL_SUITES).flatMap(([lane, suites]) => suites.map((suite) => ({ lane, suite })));
 const PROSE = /(^|\/)(README|AGENTS|CLAUDE|CONTEXT)\.md$|^(docs|plans|advisor-plans)\/.+\.(md|html)$/;
+// Design-only comparisons: not bundled, imported, or scheduled by CI.
+const DESIGN_REFERENCE = /^docs\/design\/native-fidelity-mocks\//;
 const CACHE_REVISION_SUITES = ["test/exercise-library.mjs", "test/sw-upgrade.mjs", "test/vendor-runtimes.mjs"];
 
 function git(args, cwd) {
@@ -247,8 +249,8 @@ export function selectAffected(files, { cwd = ROOT, base } = {}) {
   const changed = [...new Set(files)].sort();
   if (!changed.length) return { mode: "none", entries: [], files: [], reasons: ["No changes from the selected base or working tree."] };
   const cacheRevisionOnlySw = changed.includes("sw.js") && isCacheRevisionOnlyWorker(cwd, base);
-  const code = changed.filter((file) => !PROSE.test(file));
-  if (!code.length) return { mode: "none", entries: [], files: changed, reasons: ["Only allowlisted prose changed."] };
+  const code = changed.filter((file) => !PROSE.test(file) && !DESIGN_REFERENCE.test(file));
+  if (!code.length) return { mode: "none", entries: [], files: changed, reasons: ["Only allowlisted prose or standalone design references changed."] };
 
   const chosen = new Map();
   const reasons = [];
@@ -412,7 +414,7 @@ export function selectFullLane(files, { cwd = ROOT, patches = {}, sources = {}, 
       reasons.push(`${file}: ${explicit.why}`);
       continue;
     }
-    if (FULL_PROSE.test(file) && !FIXTURE_PATH.test(file)) continue;
+    if (DESIGN_REFERENCE.test(file) || (FULL_PROSE.test(file) && !FIXTURE_PATH.test(file))) continue;
     if (FULL_FOUNDATION.test(file)) {
       const patch = patches[file];
       if ((file === "sw.js" || file === "index.html") && isRevisionOnlyPatch(patch)) {

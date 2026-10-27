@@ -479,6 +479,34 @@ test("verify mode compares a staged capture with the committed catalog and keeps
 
 // -------------------------------------------------------------------- CI plan
 
+test("standalone native-fidelity design mocks are inert across CI and local selectors", () => {
+  const mockFiles = [
+    "docs/design/native-fidelity-mocks/after/equipment-dark.png",
+    "docs/design/native-fidelity-mocks/compare/equipment-light.png",
+    "docs/design/native-fidelity-mocks/capture.mjs",
+    "docs/design/native-fidelity-mocks/kit.css",
+    "docs/design/native-fidelity-mocks/equipment.html",
+  ];
+  assert.equal(classifyChange(mockFiles).run, false, "only nonproduction mock changes may skip PR jobs");
+  assert.equal(selectFullLane(mockFiles).mode, "none", "standalone design references cannot require the full lane");
+  assert.equal(selectAffected(mockFiles).mode, "none", "local selectors agree with the PR planner");
+  assert.equal(selectVisuals(mockFiles, manifest).mode, "none", "standalone prototypes do not alter production captures");
+
+  const mixed = [...mockFiles, "app.js"];
+  assert.equal(classifyChange(mixed).run, true, "real application changes still require the PR lane");
+  assert.equal(selectFullLane(mixed).mode, "all", "an unbounded production change cannot be hidden by mock assets");
+  assert.equal(selectAffected(mixed).mode !== "none", true);
+  assert.equal(selectVisuals(mixed, manifest).mode, "full");
+  for (const path of [
+    "docs/design/prototype.html", "docs/design/unreviewed-example.js",
+    "docs/ui-screens/screens/history/session__phone-390-light-en.png",
+    "docs/ui-screens/entry-semantics.json", "docs/ui-screens/manifest.json",
+  ]) {
+    assert.equal(classifyChange([path]).run, true, path + " remains an executable/unknown input");
+    assert.equal(selectFullLane([path]).mode !== "none", true, path + " is not allowlisted");
+  }
+});
+
 test("CI runs everything unless a change is provably prose-only", () => {
   assert.equal(classifyChange(null).run, true);
   assert.equal(classifyChange([]).run, true);
