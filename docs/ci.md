@@ -88,7 +88,10 @@ a separate change, requiring `ci` is a separate repository configuration step.
 
 A newer push to the same pull request (or a newer manual run on the same branch)
 cancels the run in progress, both lanes at once; runs on `main` never cancel each
-other.
+other. Both aggregate jobs use `always()` to evaluate their upstream results even
+when a run is cancelled: an unexpected cancellation or skip is never accepted as
+successful verification. The replacement run for the current PR head supplies
+the merge evidence.
 
 ### The targeted full lane on pull requests
 
