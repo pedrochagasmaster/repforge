@@ -39,6 +39,9 @@ const VERIFICATION_DOCUMENTS = new Set([
   "docs/recovery-week-policy.md",
   "tools/README.md",
 ]);
+// GitHub compare returns changed files ONLY on page 1 (up to 300).
+// per_page paginates commits, not the file list. Reaching the cap means the
+// inventory might be truncated, so never narrow CI.
 const COMPARE_PAGE = 100;
 const COMPARE_LIMIT = 300;
 
@@ -56,25 +59,31 @@ export function shardMatrix(count = CI_SHARDS) {
 
 /** Files a pull request changes relative to its merge base, from the compare API; null when that is not knowable. */
 export async function pullRequestFiles({ apiUrl, repository, base, head, token, fetchImpl = globalThis.fetch, patches = null }) {
+  const url = apiUrl + "/repos/" + repository + "/compare/" + base + "..." + head
+    + "?per_page=" + COMPARE_PAGE + "&page=1";
+  const response = await fetchImpl(url, {
+    headers: { accept: "application/vnd.github+json", ...(token ? { authorization: "Bearer " + token } : {}) },
+    signal: AbortSignal.timeout(20000),
+  });
+  if (!response.ok) throw new Error("compare API answered HTTP " + response.status);
+  const body = await response.json();
+  const records = body?.files;
+  // An absent or empty list cannot prove zero executable changes. GitHub
+  // also omits changed files on subsequent commit pages. Fail open.
+  if (!Array.isArray(records) || !records.length || records.length >= COMPARE_LIMIT) return null;
   const files = [];
-  for (let page = 1; files.length < COMPARE_LIMIT; page++) {
-    const response = await fetchImpl(`${apiUrl}/repos/${repository}/compare/${base}...${head}?per_page=${COMPARE_PAGE}&page=${page}`, {
-      headers: { accept: "application/vnd.github+json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
-      signal: AbortSignal.timeout(20000),
-    });
-    if (!response.ok) throw new Error(`compare API answered HTTP ${response.status}`);
-    const body = await response.json();
-    const batch = (body.files || []).map((file) => file.filename);
-    files.push(...batch);
-    for (const file of body.files || []) {
-      if (file.previous_filename) files.push(file.previous_filename);
-      // The API omits a patch for binary files and for diffs too large to show; selection then widens.
-      if (patches && typeof file.patch === "string") patches[file.filename] = file.patch;
+  for (const file of records) {
+    if (!file || typeof file.filename !== "string" || !file.filename
+      || (file.status === "renamed" && !file.previous_filename)
+      || (file.previous_filename !== undefined && (typeof file.previous_filename !== "string" || !file.previous_filename))) {
+      return null;
     }
-    if (batch.length < COMPARE_PAGE) return files;
+    files.push(file.filename);
+    if (file.previous_filename) files.push(file.previous_filename);
+    // Binary/oversized diffs omit patch data; annotated selectors then widen.
+    if (patches && typeof file.patch === "string") patches[file.filename] = file.patch;
   }
-  // The compare API caps the file list; a change this large is not "prose only".
-  return null;
+  return files;
 }
 
 export async function resolvePlan(env = process.env, { fetchImpl } = {}) {
