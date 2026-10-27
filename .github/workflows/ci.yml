@@ -180,12 +180,14 @@ jobs:
           include-hidden-files: true
           retention-days: 7
 
-  # The aggregate status check. It passes only when every selected job
-  # passed, and it applies the complete declared critical UI contract that no single shard
+  # The aggregate status check. It runs even after cancellation, so a cancelled
+  # or unexpectedly skipped job cannot become a green/skipped required check.
+  # It passes only when every selected job passed, and it applies the complete
+  # declared critical UI contract that no single shard
   # can decide on its own.
   ci:
     needs: [plan, fast, browser, service]
-    if: ${{ !cancelled() }}
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -384,7 +386,8 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  # The full lane's aggregate check, on every event. Every job the plan selected
+  # The full lane's aggregate check, even if the run was cancelled.
+  # Every job the plan selected
   # must pass (on a PR, after a passing PR lane), and the UI-system shard reports
   # merge under the selection's rule: the catalog-wide never-rendered rule for
   # the complete lane, exactly the selected states for a targeted one.
