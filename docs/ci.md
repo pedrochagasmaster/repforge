@@ -70,8 +70,11 @@ whatever the PR lane's result.
 Each job writes its per-command timings to the run's job summary.
 
 The only shortcut is in `plan`: a pull request whose changed files are all
-prose (`*.md`, `*.txt`, `.gitignore`, `LICENSE`) skips the test jobs and `ci`
-passes on the plan alone. `README.md`, `NOTICE.md`, `docs/recovery-week-policy.md`
+prose (`*.md`, `*.txt`, `.gitignore`, `LICENSE`) or standalone design gallery
+inputs (`docs/design/native-fidelity-mocks/`) skips the test jobs and `ci`
+passes on the plan alone. The gallery is a manual HTML/CSS/JS mock-and-image
+comparison, not shipped PWA code, production test data or a scheduled test
+dependency; `docs/ui-screens/` evidence and other unknown files remain gated. `README.md`, `NOTICE.md`, `docs/recovery-week-policy.md`
 and `tools/README.md` are verification inputs, so changes to them run CI despite
 their Markdown extension. Files in `fixture`, `fixtures` or `__fixtures__` paths
 also run CI even when their extension is allowlisted. Any other file, an unknown

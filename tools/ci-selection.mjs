@@ -10,6 +10,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const PROSE = /(^|\/)(README|AGENTS|CLAUDE|CONTEXT)\.md$|^(docs|plans|advisor-plans)\/.+\.md$/;
 // Only shared-setup.mjs is imported by the production screen-capture scenarios.
+const DESIGN_REFERENCE = /^docs\/design\/native-fidelity-mocks\//;
 const VISUAL_FIXTURE = /^test\/fixtures\/shared-setup\.mjs$/;
 const NON_RENDERING_FIXTURE = /^test\/fixtures(?:\/|$)/;
 const NON_RENDERING_TEST = /^test\/(?!browser\.mjs$).+\.(?:mjs|js)$/;
@@ -33,7 +34,7 @@ export function selectVisuals(files, manifest, { force = false, cwd = ROOT, base
   const domains = new Set();
   for (const file of files) {
     if (VISUAL_FIXTURE.test(file)) return full(`Screen-capture fixture input: ${file}`);
-    if (PROSE.test(file) || NON_RENDERING_FIXTURE.test(file) || NON_RENDERING_TEST.test(file) || NON_RENDERING_TOOL.test(file) || NON_RENDERING_INFRA.test(file)) continue;
+    if (DESIGN_REFERENCE.test(file) || PROSE.test(file) || NON_RENDERING_FIXTURE.test(file) || NON_RENDERING_TEST.test(file) || NON_RENDERING_TOOL.test(file) || NON_RENDERING_INFRA.test(file)) continue;
     if (revisionOnly(file, base, cwd)) continue;
     const match = file.match(/^docs\/ui-screens\/screens\/([^/]+)\/([^/]+)__[^/]+\.png$/);
     if (match && known.has(`${match[1]}/${match[2]}`)) { screens.add(`${match[1]}/${match[2]}`); continue; }
