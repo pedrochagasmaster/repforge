@@ -116,6 +116,17 @@ selection with `fullLaneEntries`, so nothing is decided twice. The mapping is:
 | `sw.js`, `index.html` whose hunks only move `?v=` revisions and the `CACHE` token | Nothing for that file (the PR lane's revision contracts own it). |
 | Shared foundations: the `styles.css` tokens and every other unannotated line, `motion-layer.js`, `motion-polish.css`, any other `sw.js`/`index.html` change, `i18n*`, `exercises.js`, `vendor/`, `fonts/`, `icons/`, `assets/`, the workflow, the CI and catalog tooling (`tools/ui-screens/`, the capture/verify/role tools, the manifest, the role inventory, `test/browser.mjs`, `test/suites.mjs`), and any unknown file | The complete full lane. |
 
+**Reviewed boundaries added October 27:** the block-review flow's render and
+action controls in app.js are scoped to progress/history/entry/program; the
+Program and embedded editor rules in styles.css are scoped to
+program/entry/library; and the onboarding entry-card/choice styles are scoped
+to entry/program. Nearby code is explicitly returned to global: schedule
+commit operations, the exercise-picker/search helpers, the navigation dock,
+generic radio states, and exercise-detail header styles. Changing one of
+those remains a complete full-lane run. See
+[the source-ownership audit](audits/ci-source-ownership-2026-10-27.md)
+for the measured selector impact, historical counterexamples and guard tests.
+
 A domain selects the catalog states of the flows with that name (an onboarding
 flow counts as `entry`; `session` is the Session summary) and every full-lane
 command whose `domains` in `test/suites.mjs` share it (`session` counts as

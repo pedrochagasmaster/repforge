@@ -3996,6 +3996,7 @@ function bindReviewActions(){
     else if(kind==="reduce-volume")startVolumeReduction?.();
     else if(kind==="recovery-week")startRecoveryWeek?.();
     else if(kind==="guided-edit")startGuidedEdit?.()})}
+// @ci-domain progress,history,entry,program
 function legacyReviewPanel(el){
   const snap=blockSnapshot(state.programMeta,state.log),pct=Math.round((snap.volumeCompliance||0)*100),summary=buildPlainSummary(snap);
   const weekLine=snap.isComplete?t("meso.complete"):snap.isFinalWeek?t("meso.week_ready",{n:snap.weekCurrent,total:snap.weekTotal}):t("review.week_of",{n:snap.weekCurrent??"—",total:snap.weekTotal});
@@ -4091,6 +4092,7 @@ function renderReviewFlow(el){
   const cont=$("[data-diag-continue]",el);if(cont)cont.onclick=continueScheduleDiagnosis;
   bindFlowCancel(el)}
 function bindFlowCancel(el){const c=$("[data-flow-cancel]",el);if(c)c.onclick=()=>void closeReviewFlow()}
+// @ci-domain global
 async function continueScheduleDiagnosis(){
   const flow=reviewFlow;if(!flow||flow.stage!=="diagnosis")return;
   const n=Number(flow.target);

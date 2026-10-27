@@ -16,7 +16,7 @@ import { mergeUiSystemReports } from "../tools/ci-plan.mjs";
 import { criticalCaptures, deterministicCriticalFailure, validateCriticalReport } from "../tools/critical-ui.mjs";
 import { selectCaptures, verifyCatalog } from "../tools/capture-ui-screens.mjs";
 import { captureKey, capturePath, expandCaptures, loadManifest } from "../tools/ui-screens/manifest.mjs";
-import { domainsForAppDiff } from "../tools/visual-domains.mjs";
+import { domainsForAppDiff, visualDomains } from "../tools/visual-domains.mjs";
 import { stabilizeShareUrlForCapture } from "../tools/ui-screens/screens-app.mjs";
 import { changedFilesForTests, changedFilesForEdit, changedFilesForPacket, fullLaneEntries, fullShardCount, selectAffected, selectEdit, selectFullLane, selectPacket } from "../tools/test-selection.mjs";
 import { execute, maybeStartLocalPreview, runLane, shardPlan } from "../tools/run-tests.mjs";
@@ -748,6 +748,60 @@ test("app.js hunks after the reviewed History block never inherit History", () =
     const diff = `@@ -${line} +${line} @@\n-old\n+new\n`;
     assert.deepEqual([...domainsForAppDiff(source, diff)].sort(), expected, marker);
   }
+});
+
+test("reviewed source spans select impacted flows while neighboring foundations stay global", () => {
+  const sources = Object.fromEntries(["app.js", "styles.css"].map((file) =>
+    [file, readFileSync(join(process.cwd(), file), "utf8")]));
+  const patchAt = (file, marker) => {
+    const n = sources[file].split("\n").findIndex((line) => line.startsWith(marker)) + 1;
+    assert.ok(n > 0, file + " contains " + marker);
+    return "@@ -" + n + " +" + n + " @@\n-old\n+new";
+  };
+  for (const [file, marker, expected] of [
+    ["app.js", "function legacyReviewPanel(", ["entry", "history", "program", "progress"]],
+    ["app.js", "function renderReviewFlow(", ["entry", "history", "program", "progress"]],
+    ["styles.css", ".program-editor__day{", ["entry", "library", "program"]],
+    ["styles.css", ".entry-body .onb__opts.onb__grid{", ["entry", "program"]],
+    ["styles.css", ".entry__exercise-results{", ["entry", "program"]],
+  ]) {
+    const patch = patchAt(file, marker);
+    assert.deepEqual([...visualDomains(file, { source: sources[file], diff: patch })].sort(), expected, marker);
+    const plan = selectFullLane([file], { patches: { [file]: patch }, sources: { [file]: sources[file] } });
+    assert.equal(plan.mode, "selected", marker + ": " + plan.reasons.join("; "));
+    if (file === "app.js") {
+      assert.equal(selectVisuals([file], loadManifest(), { appSource: sources[file], appDiff: patch }).mode, "screens", marker);
+    }
+  }
+  for (const [file, marker] of [
+    ["app.js", "async function continueScheduleDiagnosis("],
+    ["app.js", "function init()"],
+    ["app.js", "const exerciseMediaBg="],
+    ["app.js", "function renderPickerList()"],
+    ["styles.css", "nav{"],
+    ["styles.css", ".radio-card.is-disabled,.radio-card:disabled{"],
+    ["styles.css", ".exview-head{"],
+    ["styles.css", "  --color-ink:"],
+  ]) {
+    const patch = patchAt(file, marker);
+    assert.equal(selectFullLane([file], { patches: { [file]: patch } }).mode, "all", marker);
+  }
+  const entryPatch = patchAt("styles.css", ".entry__exercise-results{");
+  const reviewPatch = patchAt("app.js", "function renderReviewFlow(");
+  // Historical PR #513 also changed the screen-capture harness. That input
+  // rightfully overrides these focused domains, so no time savings are claimed.
+  assert.equal(selectFullLane(["app.js", "styles.css", "tools/ui-screens/screens-app.mjs"], {
+    patches: { "app.js": reviewPatch, "styles.css": entryPatch },
+  }).mode, "all", "capture harness changes must remain all-lane");
+  const selectedTogether = selectFullLane(["app.js", "styles.css"], {
+    patches: { "app.js": reviewPatch, "styles.css": entryPatch },
+  });
+  assert.equal(selectedTogether.mode, "selected", "only the reviewed app/CSS hunks can narrow");
+  assert.ok(selectedTogether.ids.length < Object.values(FULL_SUITES).flat().length,
+    "an isolated review + entry edit materially reduces command count");
+  const mixed = patchAt("styles.css", ".entry__exercise-results{") + "\n" + patchAt("styles.css", "nav{");
+  assert.equal(selectFullLane(["styles.css"], { patches: { "styles.css": mixed } }).mode, "all",
+    "any shared hunk overrides localized hunks");
 });
 
 test("baseline-only selection recaptures whole screens, never isolated variants", () => {
