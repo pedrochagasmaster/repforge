@@ -2814,6 +2814,7 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
 .vrow__fill{display:block;height:100%;background:var(--accent)}
 .vrow__fill.is-high,.vrow__fill.is-on{background:var(--positive)}
 
+/* @ci-domain program,entry,library */
 /* ---- Program ---- */
 .pmeta{background:transparent;border:0;border-radius:0;padding:0;margin-bottom:14px;box-shadow:none;display:flex;flex-direction:column;gap:10px}
 .pmeta__row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px}
@@ -3311,6 +3312,7 @@ body:has(:is(#program,[data-copy-id="program"]).program-editor-installed) nav{di
 .program-editor-leave__actions{display:flex;flex-direction:column;gap:8px}
 .program-editor-leave__actions .btn,.program-editor-leave__actions .text-link{width:100%}
 
+/* @ci-domain global */
 /* ---- Bottom nav — floating glass dock ----
    A capsule that hovers over the page rather than capping it, so the content
    stays visible (blurred) underneath: the edge highlight and the drop shadow
@@ -4207,6 +4209,7 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 .settings-group > .lede{padding-bottom:10px}
 .onb__cancel{color:var(--accent-deep)}
 .onb__title{font-size:var(--font-size-subtitle);font-weight:600;text-align:center}
+/* @ci-domain entry,program */
 .entry__hub{display:flex;flex-direction:column;gap:10px;margin-top:8px}
 .entry-card{display:flex;flex-direction:column;gap:4px;text-align:left;width:100%;min-height:44px;padding:14px 16px;border-radius:var(--radius-surface);border:1px solid var(--rule);background:var(--surface);color:var(--ink);cursor:pointer;font:inherit;overflow-wrap:anywhere}
 /* Hover and focus are distinct signals: a pointer resting on a card tints its
@@ -4411,8 +4414,10 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 .entry__freeform-prompt-preview{margin:8px 0 0;padding:10px;background:var(--color-surface);border:1px solid var(--boundary-decorative);border-radius:var(--radius-surface);color:var(--color-ink-secondary);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);white-space:pre-wrap;max-height:160px;overflow-y:auto;overscroll-behavior:contain;}
 .entry__switch{margin:16px 0 0;display:flex;justify-content:center}
 .entry-body .entry__switch .btn--ghost{color:var(--ink-soft)}
+/* @ci-domain global */
 .radio-card.is-disabled,.radio-card:disabled{
   opacity:.45;cursor:not-allowed}
+/* @ci-domain entry,program */
 .entry__correct{margin-top:14px;padding-top:4px}
 .entry__hint,.entry__pain{margin:14px 0 0;font-size:var(--font-size-body-small);line-height:1.4;color:var(--ink-soft)}
 .entry__pain{padding:10px 12px;border-radius:var(--radius-surface);border:1px solid var(--rule);background:var(--surface)}
@@ -4803,6 +4808,7 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 @media (prefers-reduced-motion:reduce){
   .entry-body .radio-card,.entry__disclosure>summary{transition:none}
 }
+/* @ci-domain global */
 .exview-head{display:flex;align-items:center;justify-content:center;position:relative;min-height:44px;margin-bottom:14px}
 /* Exercise headers keep their Back action pinned at the left edge. */
 .exview-head .back-link{position:absolute;left:0;display:inline-flex;align-items:center;min-height:44px}
