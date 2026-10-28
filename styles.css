@@ -1398,7 +1398,7 @@ article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
    ring, and sets still to do read in soft ink until the lifter confirms them. */
 .fcard__ledger{margin:var(--space-8) 0 0}
 /* The rows the measurement folds, and the disclosure while it folds none (#517). */
-.fcard__ledger .ledger__rows > [hidden],.fcard__ledger .ledger__more[hidden]{display:none}
+.fcard__ledger [data-ldone][hidden],.fcard__ledger .ledger__more[hidden]{display:none}
 .fcard__ledger .ledgerline__head{align-items:center;min-height:calc(var(--control-target) + 1px);padding-block:0}
 .fcard__ledger .ledgerline__head .ledgerline__vals{
   align-items:center;font-family:inherit;font-size:inherit;font-weight:inherit;line-height:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;
