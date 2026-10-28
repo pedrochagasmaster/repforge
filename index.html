@@ -97,7 +97,9 @@
         <p class="section-label" id="todaySessionLabel" data-i18n="today.session_label">Today's session</p>
         <div id="todaySession" class="today-session"></div>
         <button type="button" class="btn btn--cta" id="startWorkout"><span data-i18n="today.start">Start workout</span></button>
-        <button type="button" class="btn btn--steel today-otherday" id="chooseAnotherDay" data-i18n="today.choose_day">Choose another day</button>
+        <!-- "Change day" stands beside the day's title (the prototype, owner 2026-10-28): renderToday moves it into that
+             row, and parks it here while Today draws no day. -->
+        <button type="button" class="today-dayaction" id="chooseAnotherDay" aria-haspopup="dialog"><span data-i18n="today.change_day">Change day</span><span class="chevron" aria-hidden="true"></span></button>
         <button type="button" class="btn btn--steel hidden" id="reviewTodaySession"><span data-i18n="today.done_review">View today's session</span><span class="chevron" aria-hidden="true"></span></button>
         <button type="button" class="text-link text-link--center hidden" id="logAnotherSession" data-i18n="today.done_another">Log another session</button>
         <p class="section-label" id="todayWeekLabel" data-i18n="today.this_week">This week</p>
@@ -372,11 +374,12 @@
           <select id="unit" hidden tabindex="-1" aria-hidden="true"><option value="kg">kg</option><option value="lb">lb</option></select>
           <div class="native-segments" id="unitSegments" data-segment-input="unit" role="radiogroup" aria-labelledby="unitLabel"><span class="native-segments__thumb" data-state-indicator aria-hidden="true"></span><button type="button" role="radio" data-value="kg" aria-checked="false" tabindex="-1">kg</button><button type="button" role="radio" data-value="lb" aria-checked="false" tabindex="-1">lb</button></div>
         </div>
-        <button type="button" class="settings-row" id="rirModeRow" aria-expanded="false" aria-controls="rirModePanel">
-          <span class="settings-row__label" data-i18n="settings.rir_logging">RIR logging</span>
-          <span class="settings-row__value"><span id="rirModeDisplay">Numbers</span> <span class="chevron" aria-hidden="true"></span></span>
+        <!-- A choice row opens a native pull-down anchored to it (the prototype, owner 2026-10-28); the radios keep the value. -->
+        <button type="button" class="settings-row settings-row--pull" id="rirModeRow" aria-haspopup="menu" aria-labelledby="rirModeLabel rirModeDisplay">
+          <span class="settings-row__label" id="rirModeLabel" data-i18n="settings.rir_logging">RIR logging</span>
+          <span class="settings-row__value"><span id="rirModeDisplay">Numbers</span> <span class="icon-mask icon-mask--chev-down settings-row__pull" aria-hidden="true"></span></span>
         </button>
-        <div id="rirModePanel" class="settings-panel">
+        <div id="rirModePanel" hidden>
           <fieldset class="field rirmode">
             <legend class="visually-hidden" data-i18n="settings.rir_logging">RIR logging</legend>
             <div class="rirmode__opts">
@@ -384,8 +387,8 @@
               <label class="rirmode__opt"><input type="radio" name="rirMode" value="effort"> <span data-i18n="settings.rir_effort">Easy / Hard / Max</span></label>
             </div>
           </fieldset>
-          <p class="lede" data-i18n="settings.effort_lede">Easy ≈ 3 reps left in the tank (RIR 3) · Hard ≈ 1 left (RIR 1) · Max ≈ nothing left (RIR 0).</p>
         </div>
+        <p class="lede settings-row__foot" id="rirEffortLede" data-i18n="settings.effort_lede" hidden>Easy ≈ 3 reps left in the tank (RIR 3) · Hard ≈ 1 left (RIR 1) · Max ≈ nothing left (RIR 0).</p>
         <button type="button" class="settings-row" id="createProgram">
           <span class="settings-row__label" data-i18n="settings.create_program">Create new program</span>
           <span class="settings-row__value"><span class="chevron" aria-hidden="true"></span></span>
@@ -463,10 +466,11 @@
           <select id="theme" hidden tabindex="-1" aria-hidden="true"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
           <div class="native-segments" id="themeSegments" data-segment-input="theme" role="radiogroup" aria-labelledby="themeLabel"><span class="native-segments__thumb" data-state-indicator aria-hidden="true"></span><button type="button" role="radio" data-value="system" aria-checked="false" tabindex="-1" data-i18n="settings.appearance.system">System</button><button type="button" role="radio" data-value="light" aria-checked="false" tabindex="-1" data-i18n="settings.appearance.light">Light</button><button type="button" role="radio" data-value="dark" aria-checked="false" tabindex="-1" data-i18n="settings.appearance.dark">Dark</button></div>
         </div>
-        <label class="settings-row" for="lang">
-          <span class="settings-row__label" data-i18n="settings.language">Language</span>
-          <span class="settings-row__value"><select id="lang" class="select-flat"><option value="en">English</option><option value="pt">Português</option></select></span>
-        </label>
+        <button type="button" class="settings-row settings-row--pull" id="langRow" aria-haspopup="menu" aria-labelledby="langLabel langDisplay">
+          <span class="settings-row__label" id="langLabel" data-i18n="settings.language">Language</span>
+          <span class="settings-row__value"><span id="langDisplay">English</span> <span class="icon-mask icon-mask--chev-down settings-row__pull" aria-hidden="true"></span></span>
+        </button>
+        <select id="lang" hidden tabindex="-1" aria-hidden="true"><option value="en">English</option><option value="pt">Português</option></select>
         <button type="button" class="settings-row hidden" id="installApp">
           <span class="settings-row__label" data-i18n="settings.add_home">Add to home screen</span>
           <span class="settings-row__value"><span class="chevron" aria-hidden="true"></span></span>
@@ -1365,7 +1369,7 @@ Triceps pushdown 3x12-15</pre>
   <script src="vendor/motion/motion.js" data-optional-runtime="RepForgeMotion"></script>
   <script src="vendor/dnd-kit/dnd-kit.js" data-optional-runtime="RepForgeDndRuntime"></script>
   <div hidden inert aria-hidden="true" id="legacyWorkoutShell"><span id="modeFull"></span><span id="modeFocus"></span><input id="date" type="date"><input id="bodyweight"><textarea id="notes"></textarea></div>
-  <script src="motion-layer.js?v=523"></script>
+  <script src="motion-layer.js?v=529"></script>
   <script src="generation-candidates.js?v=466"></script>
   <script src="engine-policy.js?v=486"></script>
   <script src="generation-layout.js?v=486"></script>
@@ -1385,6 +1389,6 @@ Triceps pushdown 3x12-15</pre>
   <script src="durable-state.js?v=447"></script>
   <script src="progress-model.js?v=309"></script>
   <script src="history-ui.js?v=488"></script>
-  <script src="app.js?v=527"></script>
+  <script src="app.js?v=529"></script>
 </body>
 </html>

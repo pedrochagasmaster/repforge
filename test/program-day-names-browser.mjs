@@ -142,7 +142,7 @@ try {
     "the renamed day shows the lifter's text while the other days stay Portuguese");
 
   await page.evaluate(() => window.__repforgeShowSettings());
-  await page.selectOption("#lang", "en");
+  await page.click("#langRow"); await page.click('#nativeContextMenu [data-menu-value="en"]');
   await page.waitForFunction(() => /^en/.test(document.documentElement.lang));
   const english = await dayTabs(page);
   assert.deepEqual(english, ["My upper day", ...authored.slice(1)],

@@ -1661,9 +1661,9 @@
   function trackContextSlide(panel, choose) {
     const run = {
       move(x, y, up) {
-        const hit = document.elementFromPoint(x, y)?.closest('[role="menuitem"]');
+        const hit = document.elementFromPoint(x, y)?.closest('[role="menuitem"],[role="menuitemradio"]');
         const item = hit && panel.contains(hit) && !hit.disabled ? hit : null;
-        panel.querySelectorAll('[role="menuitem"]').forEach(el => el.classList.toggle("is-pressed", el === item && !up));
+        panel.querySelectorAll('[role="menuitem"],[role="menuitemradio"]').forEach(el => el.classList.toggle("is-pressed", el === item && !up));
         if (up && item) choose(item);
       }
     };

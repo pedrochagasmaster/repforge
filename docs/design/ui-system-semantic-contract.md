@@ -459,6 +459,19 @@ actual composited surface at 4.5:1 (or 3:1 for large text) and required
 non-text boundaries, icons, state marks, and focus at 3:1. An unresolved image,
 gradient, opacity, or glass background is `unsupported`, not a pass.
 
+**Almost-solid glass (owner, 2026-10-28).** The Library bar, the onboarding
+pinned footer, the Library glossary popover and sheet footers use the bar
+material at 90% (`--glass-solid-bg` or `--glass-solid-surface`, with `--bar-blur`
+and the 0.5px `--bar-edge`). Their text is measured, not left `unsupported`:
+the material is composited over pure white and over pure black, the two worst
+cases for whatever scrolls beneath it, and the lower of the two ratios must
+meet the threshold. Secondary text on those surfaces takes `--glass-ink-soft`
+(a step darker than `--ink-soft` in light, so the disabled reason under
+onboarding's Continue holds 4.5:1 over the black case; dark keeps `--ink-soft`).
+The rendered checker applies this to any blurred material
+at least 85% opaque; a thinner glass stays `unsupported`. Under
+`prefers-reduced-transparency: reduce` the four surfaces are solid.
+
 The inventory marks choice marks and tile outlines/fills (see Choice rows below), field extents, selected tabs/nav,
 progress segments, and the rest drain bar as `required`. Their visual state must
 reach the non-text threshold where it supplies the affordance or value.

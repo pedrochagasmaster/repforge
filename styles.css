@@ -334,6 +334,15 @@
      has scrolled under the bar. */
   --bar-glass:rgba(var(--bg-rgb),.72);
   --bar-blur:blur(20px) saturate(180%);
+  /* Almost-solid glass (owner, 2026-10-28): the bar material at 90%, for the surfaces that carry text over scrolling
+     content (the Library bar, the onboarding footer, the Library glossary, sheet footers). The contract measures its
+     text against the worst case beneath it, the material over pure black and over pure white. */
+  --surface-rgb:255,255,255;
+  --glass-solid-bg:rgba(var(--bg-rgb),.9);
+  --glass-solid-surface:rgba(var(--surface-rgb),.9);
+  /* Secondary text on that glass, a step darker in light so it holds 4.5:1 over the black worst case (5.49:1 on
+     the surface glass, 4.91:1 on the page glass); dark keeps --ink-soft, which already holds over white. */
+  --glass-ink-soft:#5E5A53;
   --bar-edge:rgba(var(--shadow-rgb),.08);
   --maxw:560px;
 
@@ -426,6 +435,10 @@
      against smoked glass. */
   --bar-glass:rgba(var(--bg-rgb),.72);
   --bar-blur:blur(20px) saturate(180%);
+  --surface-rgb:30,28,24;
+  --glass-solid-bg:rgba(var(--bg-rgb),.9);
+  --glass-solid-surface:rgba(var(--surface-rgb),.9);
+  --glass-ink-soft:var(--ink-soft);
   --bar-edge:rgba(255,255,255,.08);
   /* Plan 064 R1b: the same tokens as the light block. A separator on --surface
      needs the stronger rule here; the bands hold identical values in both
@@ -1006,11 +1019,14 @@ input:is([type=date],[type=time])::-webkit-date-and-time-value{min-height:1.5em;
 }
 div.settings-row{cursor:default}
 .settings-row:first-child::before{display:none}
-.settings-row__label{flex:1;min-width:0;font-size:var(--font-size-body);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink)}
+/* Rows read as the prototype's (owner, 2026-10-28): a regular label, the value in secondary ink. */
+.settings-row__label{flex:1;min-width:0;font-size:var(--font-size-body);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink)}
 .settings-row__cap{display:block;font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);font-weight:var(--weight-regular);margin-top:2px}
 .settings-row__value{flex:none;margin-left:auto;display:inline-flex;align-items:center;gap:8px;color:var(--color-ink-secondary);font-size:var(--font-size-body-small);line-height:var(--line-standard)}
 .settings-row .chevron{color:var(--color-ink-secondary);flex:none}
 .settings-row.is-danger .settings-row__label{color:var(--control-destructive-ink)}
+/* A choice row's pull-down mark: the kit's 16px chev-down after the value, in the value's ink. */
+.settings-row__pull{flex:none;width:16px;height:16px}
 /* The one row that is still a box: a destructive action is not part of the
    list above it, and the outline is what says so. */
 .settings-row.is-danger,#reset.settings-row{
@@ -1080,7 +1096,6 @@ div.settings-row{cursor:default}
 }
 /* The alternative to the day Today leads with, so it sits under the CTA and
    reads as the quieter of the two. */
-.today-otherday{width:100%;min-height:48px;margin-top:10px}
 
 /* @ci-domain workout,session,today,history */
 /* ---- Active workout ---- */
@@ -1875,7 +1890,19 @@ body.is-sheet-open{overflow:hidden}
   -webkit-user-select:text;user-select:text;
 }
 .sheet__foot{flex:none;padding:12px 16px 16px;font-size:var(--font-size-body-small);color:var(--ink-faint)}
-.sheet__foot--actions{display:flex;justify-content:flex-end;gap:8px;border-top:1px solid var(--rule)}
+.sheet__foot--actions{
+  display:flex;justify-content:flex-end;gap:8px;border-top:.5px solid var(--bar-edge);
+  background:var(--glass-solid-surface);-webkit-backdrop-filter:var(--bar-blur);backdrop-filter:var(--bar-blur)
+}
+/* Secondary text on the almost-solid glass takes the glass ink (contract: almost-solid glass). */
+.libbar,.onb__nav,.entry__pinned,.glossary,.sheet__foot--actions{
+  --ink-soft:var(--glass-ink-soft);--color-ink-secondary:var(--glass-ink-soft);--color-disabled-reason:var(--glass-ink-soft)
+}
+/* Reduced transparency: the almost-solid glass goes solid. */
+@media (prefers-reduced-transparency:reduce){
+  .libbar,.sheet__foot--actions,.glossary{background:var(--color-surface);-webkit-backdrop-filter:none;backdrop-filter:none}
+  .onb__nav,.entry__pinned{background:var(--bg);-webkit-backdrop-filter:none;backdrop-filter:none}
+}
 /* A head with nothing on the left still needs its first grid cell, or the title
    slides out of the middle. */
 .sheet__spacer{display:block;min-width:44px}
@@ -1986,8 +2013,8 @@ body.is-sheet-open{overflow:hidden}
   position:fixed;left:0;right:0;bottom:0;z-index:30;
   display:flex;flex-direction:column;gap:6px;
   padding:10px 16px calc(12px + env(safe-area-inset-bottom));
-  background:var(--color-surface);border-top:.5px solid var(--bar-edge);
-  box-shadow:var(--elevation-persistent-shadow);
+  background:var(--glass-solid-surface);-webkit-backdrop-filter:var(--bar-blur);backdrop-filter:var(--bar-blur);
+  border-top:.5px solid var(--bar-edge);box-shadow:var(--elevation-persistent-shadow);
 }
 .libbar.is-hidden{display:none}
 .libbar__count{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
@@ -2150,7 +2177,7 @@ body.is-sheet-open{overflow:hidden}
 }
 .pick__empty{padding:28px 4px;text-align:center;color:var(--color-ink-secondary);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading)}
 /* Opaque, or the row the list is scrolled to shows through behind the button. */
-.sheet--pick .sheet__foot--actions{background:var(--color-surface)}
+
 .pickrow{
   display:flex;align-items:center;gap:10px;width:100%;
   padding:11px 2px;border:0;border-bottom:1px solid var(--control-selection-boundary);
@@ -3455,8 +3482,8 @@ body.is-library,body.is-preview,body.is-import{padding-bottom:env(safe-area-inse
 .glossary{
   position:absolute;z-index:60;max-width:280px;max-height:calc(100vh - 16px);max-height:calc(100dvh - 16px);
   display:flex;flex-direction:column;
-  background:var(--surface);border:0;border-radius:var(--radius-surface);
-  padding:14px 16px 12px;box-shadow:var(--menu-shadow);
+  background:var(--glass-solid-surface);-webkit-backdrop-filter:var(--bar-blur);backdrop-filter:var(--bar-blur);
+  border:0;border-radius:var(--radius-surface);padding:14px 16px 12px;box-shadow:var(--menu-shadow);
 }
 .glossary__close{position:absolute;top:0;right:0;border:0;background:transparent;color:var(--ink-soft);cursor:pointer;font-size:var(--control-icon-size);line-height:1;width:44px;height:44px;min-width:44px;min-height:44px;padding:0}
 .glossary__term{flex:none;font-weight:var(--weight-semibold);font-size:var(--font-size-caption);margin:0 24px 6px 0;text-transform:uppercase;letter-spacing:.04em}
@@ -4014,10 +4041,10 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 .today-session__name--day{font-size:var(--font-size-title);line-height:var(--line-tight);margin:var(--space-4) 0 0;text-wrap:balance}
 .today-tally{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-4) var(--space-16);margin:var(--space-12) 0 0;padding:0;list-style:none;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink)}
 .today-tally__i{display:inline-flex;align-items:center;gap:var(--space-4)}
+/* With the prescription heading gone (the prototype, owner 2026-10-28), the verdict line leads into the column heads
+   across the prototype's gap. */
+.today-tally{margin-bottom:var(--space-18)}
 .today-tally .verdictmark__glyph{width:15px;height:15px}
-.today-rx__head{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-12);flex-wrap:wrap;margin-top:var(--space-26);padding-bottom:var(--space-8);border-bottom:1px solid var(--boundary-decorative)}
-.today-rx__title{margin:0;font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
-.today-rx__meta{flex:none;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .today-rx{container-type:inline-size}
 /* The name keeps a fair share of the row (9rem, about three words, or all the
    other columns leave on a narrow phone) and breaks only between words; the
@@ -7066,24 +7093,31 @@ body.is-entry-editor #entryProgramName,
   background:var(--control-primary-disabled-bg);color:var(--control-primary-disabled-ink);
   border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
 }
+/* "Change day ›" trails the day's title as a quiet action (the prototype, owner 2026-10-28): ink, semibold, small, a 44px
+   target with no box; pressed, the row wash. It wraps under the title, left-aligned, when both do not fit one line. */
+.today-dayhead{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;column-gap:var(--space-12);row-gap:0}
+.today-dayhead .today-session__name--day{flex:1 1 auto;min-width:0}
 #chooseAnotherDay{
-  display:flex;align-items:center;justify-content:center;width:100%;min-height:48px;margin-top:10px;padding:8px 13px;
-  border:1px solid var(--control-quiet-boundary);border-radius:var(--radius-control);
-  background:var(--control-quiet-bg);color:var(--control-quiet-ink);
-  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard)
+  display:inline-flex;align-items:center;gap:6px;flex:none;min-height:var(--control-target);margin:0 calc(-1 * var(--space-8));padding:0 var(--space-8);
+  border:0;border-radius:var(--radius-pill);background:transparent;color:var(--color-ink);white-space:nowrap;
+  font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-semibold);line-height:var(--line-standard)
 }
+#chooseAnotherDay .chevron{width:14px;height:14px}
+.today-dayhead #chooseAnotherDay{align-self:center}
 @media (hover: hover) and (pointer: fine){
-#chooseAnotherDay:hover:not(:disabled),#todayDash #upNextBtn:hover:not(:disabled){
+#chooseAnotherDay:hover:not(:disabled){background:var(--row-pressed-bg)}
+#todayDash #upNextBtn:hover:not(:disabled){
   background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)
 }
 }
-#chooseAnotherDay.is-pressed:not(:disabled),#todayDash #upNextBtn.is-pressed:not(:disabled){
+#chooseAnotherDay.is-pressed:not(:disabled){background:var(--row-pressed-bg);transform:none}
+#todayDash #upNextBtn.is-pressed:not(:disabled){
   background:var(--row-pressed-bg);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)
 }
 #chooseAnotherDay:focus-visible,#todayDash #upNextBtn:focus-visible{
   outline:var(--control-focus-outline);outline-offset:2px
 }
-#chooseAnotherDay:disabled,#todayDash #upNextBtn:disabled{
+#todayDash #upNextBtn:disabled{
   background:var(--control-quiet-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);
   opacity:1;cursor:not-allowed;transform:none
 }
@@ -7354,14 +7388,15 @@ body.is-entry-editor #entryProgramName,
 .onb__body{margin-bottom:calc(var(--space-26) + env(safe-area-inset-bottom))}
 #onbBody.entry-body--preview,#onbBody.entry-body--result,#onbBody.entry-body--activation_conflict{margin-bottom:0}
 
-/* The pinned region: one primary action on solid ground under the bar's 0.5px hairline, kept
+/* The pinned region: one primary action on the almost-solid glass under the bar's 0.5px hairline, kept
    in reach while a long screen scrolls. A blocked primary drops its arrow and
    says why directly above it. */
 .onb__nav,.entry__pinned{
   position:sticky;bottom:0;z-index:2;display:flex;flex-direction:column;gap:var(--space-8);
   margin:0 calc(-1 * var(--onb-pad-r)) 0 calc(-1 * var(--onb-pad-l));
   padding:var(--space-12) var(--onb-pad-r) calc(var(--space-12) + env(safe-area-inset-bottom)) var(--onb-pad-l);
-  background:var(--bg);border-top:.5px solid var(--bar-edge)
+  background:var(--glass-solid-bg);-webkit-backdrop-filter:var(--bar-blur);backdrop-filter:var(--bar-blur);
+  border-top:.5px solid var(--bar-edge)
 }
 .entry__pinned{margin-top:var(--space-26)}
 .onb__nav .btn,.entry__pinned .btn{flex:0 0 auto;width:100%}
@@ -8301,6 +8336,8 @@ body.is-entry-editor #entryProgramName,
 .native-context__menu button:not(.is-destructive)+button.is-destructive{border-top:var(--space-8) solid var(--menu-separator)}
 .native-context__menu button.is-pressed{background:var(--row-pressed-bg)}
 .native-context__icon{flex:none;width:20px;height:20px}
+/* A pull-down's checked item: the check in the icon slot and a medium label (contract: state cues). */
+.native-context__menu [role="menuitemradio"][aria-checked="true"]{font-weight:var(--weight-medium)}
 .native-context__menu button:disabled{color:var(--color-disabled-reason);opacity:1}
 .native-context button.is-destructive{color:var(--menu-destructive-ink)}
 .sheet--actions button.is-destructive{color:var(--color-destructive)}

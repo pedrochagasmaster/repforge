@@ -723,6 +723,11 @@
       "content": "flat",
       "scenario": "The appearance/theme row."
     },
+    "settings/language-menu": {
+      "owner": "today-settings-proto",
+      "content": "flat",
+      "scenario": "Language opened as a native pull-down anchored to its row: English and Português, the current one checked."
+    },
     "settings/guides": {
       "owner": "plan-057",
       "content": "flat",
@@ -1205,8 +1210,8 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
-      "owner": "plan-058",
+      "rationale": "Change day: a quiet action trailing the day's title (the prototype, owner 2026-10-28), ink with a chevron and a 44px target, that opens the day picker; it wraps under the title when both do not fit one line.",
+      "owner": "today-settings-proto",
       "catalogStates": [
         "catalog-recovery/retry-failed",
         "catalog-recovery/unavailable",
@@ -1246,7 +1251,8 @@
         "settings/load-controls",
         "settings/main",
         "settings/privacy",
-        "settings/rest-controls"
+        "settings/rest-controls",
+        "settings/language-menu"
       ]
     },
     {
@@ -1274,7 +1280,8 @@
         "settings/load-controls",
         "settings/main",
         "settings/privacy",
-        "settings/rest-controls"
+        "settings/rest-controls",
+        "settings/language-menu"
       ]
     },
     {
@@ -1302,7 +1309,8 @@
         "settings/load-controls",
         "settings/main",
         "settings/privacy",
-        "settings/rest-controls"
+        "settings/rest-controls",
+        "settings/language-menu"
       ]
     },
     {
@@ -3217,7 +3225,8 @@
         "settings/load-controls",
         "settings/main",
         "settings/privacy",
-        "settings/rest-controls"
+        "settings/rest-controls",
+        "settings/language-menu"
       ]
     },
     {
@@ -3608,10 +3617,10 @@
       ]
     },
     {
-      "id": "lang",
-      "selector": "#lang",
+      "id": "langrow",
+      "selector": "#langRow",
       "roles": {
-        "control": "selection"
+        "control": "quiet-navigation"
       },
       "variant": null,
       "facets": [],
@@ -3620,11 +3629,10 @@
         "hover",
         "pressed",
         "focus-visible",
-        "selected",
         "disabled"
       ],
-      "rationale": "Changes a chosen value, active option, or reversible status.",
-      "owner": "plan-058",
+      "rationale": "Opens Language as a native pull-down anchored to the row (the prototype, owner 2026-10-28): the row's label and current value name it, the current language is checked in the menu, and a choice applies through the hidden #lang select.",
+      "owner": "today-settings-proto",
       "catalogStates": [
         "settings/appearance",
         "settings/guides",
@@ -3632,7 +3640,8 @@
         "settings/load-controls",
         "settings/main",
         "settings/privacy",
-        "settings/rest-controls"
+        "settings/rest-controls",
+        "settings/language-menu"
       ]
     },
     {
@@ -3872,7 +3881,8 @@
         "settings/load-controls",
         "settings/main",
         "settings/privacy",
-        "settings/rest-controls"
+        "settings/rest-controls",
+        "settings/language-menu"
       ]
     },
     {
@@ -3902,7 +3912,8 @@
         "settings/load-controls",
         "settings/main",
         "settings/privacy",
-        "settings/rest-controls"
+        "settings/rest-controls",
+        "settings/language-menu"
       ]
     },
     {
@@ -4306,7 +4317,8 @@
         "settings/load-controls",
         "settings/main",
         "settings/privacy",
-        "settings/rest-controls"
+        "settings/rest-controls",
+        "settings/language-menu"
       ]
     },
     {
@@ -4637,7 +4649,8 @@
         "settings/load-controls",
         "settings/main",
         "settings/privacy",
-        "settings/rest-controls"
+        "settings/rest-controls",
+        "settings/language-menu"
       ]
     },
     {
@@ -4664,7 +4677,8 @@
         "settings/load-controls",
         "settings/main",
         "settings/privacy",
-        "settings/rest-controls"
+        "settings/rest-controls",
+        "settings/language-menu"
       ]
     },
     {
@@ -4851,7 +4865,8 @@
         "settings/load-controls",
         "settings/main",
         "settings/privacy",
-        "settings/rest-controls"
+        "settings/rest-controls",
+        "settings/language-menu"
       ]
     },
     {
@@ -5137,7 +5152,7 @@
       "id": "rirmoderow",
       "selector": "#rirModeRow",
       "roles": {
-        "control": "disclosure"
+        "control": "quiet-navigation"
       },
       "variant": null,
       "facets": [],
@@ -5146,11 +5161,10 @@
         "hover",
         "pressed",
         "focus-visible",
-        "disabled",
-        "expanded"
+        "disabled"
       ],
-      "rationale": "Expands or collapses information; expanded state is separate from navigation.",
-      "owner": "plan-058",
+      "rationale": "Opens RIR logging as a native pull-down anchored to the row (the prototype, owner 2026-10-28): Numbers or Easy / Hard / Max, the current one checked; a choice applies through the row's hidden radios, so its commit and confirm paths are unchanged.",
+      "owner": "today-settings-proto",
       "catalogStates": [
         "settings/appearance",
         "settings/guides",
@@ -5158,7 +5172,8 @@
         "settings/load-controls",
         "settings/main",
         "settings/privacy",
-        "settings/rest-controls"
+        "settings/rest-controls",
+        "settings/language-menu"
       ]
     },
     {
@@ -5604,7 +5619,8 @@
         "settings/load-controls",
         "settings/main",
         "settings/privacy",
-        "settings/rest-controls"
+        "settings/rest-controls",
+        "settings/language-menu"
       ]
     },
     {
@@ -5949,7 +5965,8 @@
         "settings/load-controls",
         "settings/main",
         "settings/privacy",
-        "settings/rest-controls"
+        "settings/rest-controls",
+        "settings/language-menu"
       ]
     },
     {
@@ -5978,7 +5995,8 @@
         "settings/load-controls",
         "settings/main",
         "settings/privacy",
-        "settings/rest-controls"
+        "settings/rest-controls",
+        "settings/language-menu"
       ]
     },
     {
@@ -6149,7 +6167,8 @@
         "settings/load-controls",
         "settings/main",
         "settings/privacy",
-        "settings/rest-controls"
+        "settings/rest-controls",
+        "settings/language-menu"
       ]
     },
     {
@@ -6210,7 +6229,8 @@
         "settings/load-controls",
         "settings/main",
         "settings/privacy",
-        "settings/rest-controls"
+        "settings/rest-controls",
+        "settings/language-menu"
       ]
     },
     {
@@ -7559,7 +7579,8 @@
         "settings/load-controls",
         "settings/main",
         "settings/privacy",
-        "settings/rest-controls"
+        "settings/rest-controls",
+        "settings/language-menu"
       ]
     },
     {
@@ -10841,7 +10862,8 @@
         "settings/load-controls",
         "settings/main",
         "settings/privacy",
-        "settings/rest-controls"
+        "settings/rest-controls",
+        "settings/language-menu"
       ]
     },
     {
@@ -10860,7 +10882,8 @@
       "catalogStates": [
         "today/context-menu",
         "program/editor-context-menu",
-        "program/editor-alternate-context-menu"
+        "program/editor-alternate-context-menu",
+        "settings/language-menu"
       ]
     },
     {
@@ -10879,12 +10902,13 @@
       "catalogStates": [
         "today/context-menu",
         "program/editor-context-menu",
-        "program/editor-alternate-context-menu"
+        "program/editor-alternate-context-menu",
+        "settings/language-menu"
       ]
     },
     {
       "id": "native-context-items",
-      "selector": "#nativeContextMenu button:not(.is-destructive):not([data-menu-value=\"skip\"]):not([data-menu-value=\"restore\"])",
+      "selector": "#nativeContextMenu button:not(.is-destructive):not([data-menu-value=\"skip\"]):not([data-menu-value=\"restore\"]):not([role=\"menuitemradio\"])",
       "roles": {
         "control": "secondary"
       },
@@ -10902,7 +10926,30 @@
       "catalogStates": [
         "today/context-menu",
         "program/editor-context-menu",
-        "program/editor-alternate-context-menu"
+        "program/editor-alternate-context-menu",
+        "settings/language-menu"
+      ]
+    },
+    {
+      "id": "native-context-radio",
+      "selector": "#nativeContextMenu [role=\"menuitemradio\"]",
+      "roles": {
+        "control": "selection",
+        "boundary": "state-cues"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "pressed",
+        "focus-visible",
+        "selected"
+      ],
+      "owner": "today-settings-proto",
+      "rationale": "A pull-down's choice (Settings Language and RIR logging, the prototype, owner 2026-10-28): the checked one carries the check in the icon slot and a medium label (contract: state cues).",
+      "neverDisabledReason": "Every option of a settings pull-down is always a valid choice.",
+      "catalogStates": [
+        "settings/language-menu"
       ]
     },
     {
@@ -10944,7 +10991,8 @@
       "rationale": "Reversible Skip and Restore in today's workout draft.",
       "owner": "plan-075-phase-4",
       "catalogStates": [
-        "today/context-menu"
+        "today/context-menu",
+        "settings/language-menu"
       ],
       "neverDisabledReason": "The menu or choice stays reachable whenever its owning row is present."
     },
@@ -11068,7 +11116,8 @@
         "settings/privacy",
         "settings/rest-controls",
         "workout/rest-sheet",
-        "workout/rest-sheet-idle"
+        "workout/rest-sheet-idle",
+        "settings/language-menu"
       ]
     },
     {
@@ -11094,7 +11143,8 @@
         "settings/privacy",
         "settings/rest-controls",
         "workout/rest-sheet",
-        "workout/rest-sheet-idle"
+        "workout/rest-sheet-idle",
+        "settings/language-menu"
       ]
     },
     {
@@ -11783,7 +11833,8 @@
         "settings/load-controls",
         "settings/main",
         "settings/privacy",
-        "settings/rest-controls"
+        "settings/rest-controls",
+        "settings/language-menu"
       ],
       "cssLiterals": [
         {

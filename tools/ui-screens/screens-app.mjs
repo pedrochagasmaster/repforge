@@ -2648,6 +2648,13 @@ export const APP_SCENARIOS = {
     await page.locator('#minJumpRow').scrollIntoViewIfNeeded();
   },
   "settings/main": (page) => openSettings(page),
+  // Language as a native pull-down anchored to its row (the prototype, owner 2026-10-28), the current one checked.
+  "settings/language-menu": async (page) => {
+    await openSettings(page, "#langRow");
+    await page.click("#langRow");
+    await page.waitForSelector('#nativeContextMenu[open] [role="menuitemradio"][aria-checked="true"]');
+    await sleep(page, 400);
+  },
   "settings/appearance": (page) => openSettings(page, "#themeSegments"),
   "settings/guides": async (page) => {
     await openSettings(page, "#guideReplayToggle");
