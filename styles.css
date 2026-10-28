@@ -1105,13 +1105,13 @@ div.settings-row{cursor:default}
 /* The title wraps rather than truncates, so it hangs from the top of the bar: when the timer chip widens and
    takes room from it, the controls and the first line of the title stay where they were. */
 .wo-head__center{text-align:center;min-width:0;flex:1;padding-top:var(--space-12)}
-.wo-head__title{font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:anywhere}
+.wo-head__title{font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto}
 /* In a workout the title is the exercise's name, and the name opens its stats and history. A long name beside a
    running or overrun rest pill takes two lines at most (owner, 2026-10-17); the heading's name keeps all of it. */
 .wo-head__title:has(.wo-head__name){font-weight:var(--weight-semibold);color:var(--color-ink)}
 .wo-head__name{
   display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;width:100%;min-height:var(--control-target);margin:calc(-1 * var(--space-12)) 0 0;padding:var(--space-12) 0 0;border:0;
-  background:none;color:inherit;font:inherit;text-align:center;overflow-wrap:anywhere;cursor:pointer;
+  background:none;color:inherit;font:inherit;text-align:center;overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto;cursor:pointer;
 }
 @media (hover: hover) and (pointer: fine){
 .wo-head__name:hover{background:var(--well)}
@@ -2448,7 +2448,7 @@ textarea.sheetfield__input{
 #sessionSheet .session-sheet__body{padding:0 16px var(--space-26)}
 #sessionSheet .sheetband{border-bottom:1px solid transparent}
 #sessionSheet .sheetband.is-scrolled{border-bottom-color:var(--rule-on-surface)}
-.session-sheet__summary{font-variant-numeric:tabular-nums}
+.session-sheet__summary{font-variant-numeric:tabular-nums;-webkit-hyphens:auto;hyphens:auto}
 .session-sheet__sets{font-family:var(--font-training-data);font-weight:var(--weight-medium);color:var(--color-ink)}
 /* The kit's group caption (§6): 11px semibold uppercase in secondary ink, 26px above a group after the first. */
 .sheetgroup__cap{
@@ -2456,7 +2456,7 @@ textarea.sheetfield__input{
   letter-spacing:var(--track-label);text-transform:uppercase;line-height:var(--line-standard);color:var(--color-ink-secondary);
 }
 .session-sheet__meta .sheetgroup__cap{margin-top:var(--space-26)}
-.session-map{display:flex;flex-direction:column}
+.session-map{display:flex;flex-direction:column;container-type:inline-size;container-name:session-map}
 .session-map__row{
   position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:var(--space-4);min-height:56px;
 }
@@ -2483,7 +2483,7 @@ textarea.sheetfield__input{
 .session-map__mark.is-skipped{border:1.5px dashed var(--ink-faint)}
 .session-map__name{
   min-width:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-regular);
-  line-height:var(--line-standard);color:var(--color-ink);overflow-wrap:break-word;
+  line-height:var(--line-standard);color:var(--color-ink);overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto;
 }
 .session-map__note{display:block;margin-top:2px;font-size:var(--font-size-caption);font-weight:var(--weight-regular);color:var(--color-ink-secondary)}
 .session-map__row.is-current .session-map__name{font-weight:var(--weight-semibold)}
@@ -2494,6 +2494,16 @@ textarea.sheetfield__input{
   font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--color-ink-secondary);
 }
 .session-map__row.is-current .session-map__status{color:var(--color-ink)}
+/* Enlarged text (the map narrower than 16rem of its own text): the count moves under the name, beside its note, so a long
+   name has the whole row and breaks between words, or with a hyphen where the language allows, not inside one. */
+@container session-map (max-width:16rem){
+  .session-map__row{grid-template-columns:minmax(0,1fr)}
+  .session-map__jump{grid-template-columns:22px minmax(0,1fr);row-gap:2px;padding-right:0}
+  .session-map__mark{grid-row:1 / span 2;align-self:start;margin-top:calc((var(--font-size-body) * var(--line-standard) - 22px) / 2)}
+  .session-map__status{grid-column:2;justify-self:start;min-height:var(--control-target);display:flex;align-items:center}
+  /* The grip keeps its 44px target on the count's line, at the row's end. */
+  .session-map__grip{position:absolute;right:0;bottom:var(--space-8)}
+}
 /* The grip (UI kit §5, owner 2026-10-24): a 44px target with no box, the 18px grip in --ink-faint; it dims on a press.
    Dragging it reorders the session as the editor does; a long-press on the row opens Move up and Move down. */
 .session-map__grip{
@@ -2510,33 +2520,37 @@ textarea.sheetfield__input{
 .session-map__row[data-dnd-dragging]::before{display:none}
 .session-map__row[data-dnd-placeholder]{opacity:.35}
 @media (prefers-reduced-motion:reduce){.session-map__row[data-dnd-dragging]{box-shadow:none}}
-/* Details: value rows. The label on the left, the value on the right on a quiet --bg fill that marks it as the field
-   (as the shelf's tiles are, Plan 075 addendum option A); the field takes the kit's 2px selected ring while edited. */
+/* Details: quiet value rows, as iOS Settings and the approved mock A draw them (owner review, 2026-10-28). The label is on
+   the left and the real input on the right, with no fill and no border at rest: the value right-aligned in secondary
+   ink ("Optional", "Add"), a set value in ink. The whole row is the tap target (each row is the input's label); while the
+   input is focused the row shows a quiet wash and the caret, and the keyboard's first key draws the ring. Notes keeps
+   "Add" on the right while empty and moves its text under the label once there is text or focus. */
 .session-sheet__meta{display:flex;flex-direction:column}
-.sessrow{position:relative;display:flex;align-items:center;gap:var(--space-14);min-height:56px;padding:var(--space-8) 0;margin:0}
+.sessrow{position:relative;display:flex;align-items:center;gap:var(--space-14);min-height:56px;padding:var(--space-8) 0;margin:0;cursor:text}
 .sessrow+.sessrow::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;background:var(--rule-on-surface)}
-.sessrow__label{flex:1 1 auto;min-width:0;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink);overflow-wrap:break-word}
-.sessrow__value{display:flex;align-items:center;gap:var(--space-8);flex:none;max-width:60%}
+.sessrow__label{flex:1 1 auto;min-width:0;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink);
+  overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto}
+.sessrow__value{display:flex;align-items:center;justify-content:flex-end;gap:var(--space-4);flex:none;max-width:60%}
 .sessrow__input{
-  box-sizing:border-box;min-width:0;max-width:100%;min-height:var(--control-target);margin:0;padding:0 var(--space-12);
-  border:0;border-radius:var(--radius-control);background:var(--shelf-pad-bg);color:var(--color-ink);text-align:right;
-  font-family:var(--font-language);font-size:var(--font-size-control);line-height:var(--line-standard);
+  box-sizing:border-box;min-width:0;max-width:100%;min-height:var(--control-target);margin:0;padding:0 var(--space-8);
+  border:0;border-radius:var(--radius-control);background:transparent;color:var(--color-ink);text-align:right;
+  font-family:var(--font-language);font-size:var(--font-size-control);line-height:var(--line-standard);caret-color:var(--color-ink);
 }
-.sessrow__input[type=date]{-webkit-appearance:none;appearance:none;flex:none;width:auto;max-width:60%}
+.sessrow__input[type=date]{-webkit-appearance:none;appearance:none;flex:none;width:auto;max-width:60%;color:var(--color-ink-secondary)}
 .sessrow__input[type=date]::-webkit-date-and-time-value{text-align:right}
-.sessrow__input--mono{width:calc(9ch + 2 * var(--space-12));font-family:var(--font-training-data);font-variant-numeric:tabular-nums}
+.sessrow__input[type=date]::-webkit-calendar-picker-indicator{opacity:.55}
+.sessrow__input--mono{width:calc(9ch + 2 * var(--space-8));font-family:var(--font-training-data);font-variant-numeric:tabular-nums}
 .sessrow__input::placeholder{color:var(--color-ink-secondary);opacity:1;font-family:var(--font-language)}
-/* A tap leaves no ring (native feel); the keyboard's first key draws it. */
-.sessrow__input:focus{outline:0}
-.sessrow__input:focus-visible{outline:2px solid var(--boundary-selected-quiet);outline-offset:-2px;box-shadow:none}
+/* A tap leaves no ring (native feel); the edit state is the quiet wash, and the keyboard's first key draws the ring. */
+.sessrow__input:focus{outline:0;background:var(--well)}
+.sessrow__input:focus-visible{outline:2px solid var(--boundary-selected-quiet);outline-offset:-2px}
 .sessrow__input[aria-invalid="true"],.sessrow__input[aria-invalid="true"]:focus-visible{outline:2px solid var(--control-error-boundary);outline-offset:-2px}
 .sessrow__unit{font-family:var(--font-language);font-size:var(--font-size-body-small);color:var(--color-ink-secondary)}
 .sessrow__unit:empty{display:none}
-.sessrow--notes{align-items:flex-start}
-.sessrow--notes .sessrow__label{flex:none;padding-top:calc((var(--control-target) - var(--font-size-body) * var(--line-standard)) / 2)}
-.sessrow--notes .sessrow__input{flex:1 1 auto;min-height:var(--control-target);padding:var(--space-8) var(--space-12);
-  resize:none;overflow:hidden;line-height:var(--line-reading);text-align:left}
-.sessrow--notes .sessrow__input:placeholder-shown{text-align:right}
+.sessrow--notes{flex-wrap:wrap;row-gap:var(--space-4)}
+.sessrow--notes .sessrow__input{flex:0 1 auto;width:8em;min-height:var(--control-target);padding:var(--space-8);resize:none;overflow:hidden;line-height:var(--line-reading)}
+.sessrow--notes .sessrow__input:placeholder-shown:not(:focus){text-align:right}
+.sessrow--notes:has(.sessrow__input:not(:placeholder-shown), .sessrow__input:focus) .sessrow__input{flex:1 1 100%;width:auto;text-align:left;margin:0 calc(-1 * var(--space-8))}
 .sessrow__note{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 /* The endings close the scroll. */
 .session-sheet__endings{display:flex;flex-direction:column;gap:var(--space-4);margin-top:var(--space-26)}
@@ -2549,7 +2563,7 @@ textarea.sheetfield__input{
   list-style:none;margin:0;padding:0;
   font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary);
 }
-#sessionEarlyOmissions li{padding:var(--space-4) 0;overflow-wrap:break-word}
+#sessionEarlyOmissions li{padding:var(--space-4) 0;overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto}
 .session-early-sets{font-family:var(--font-training-data);color:var(--color-ink)}
 .session-early-actions{display:flex;flex-direction:column;gap:var(--space-4);margin-top:var(--space-8)}
 .session-early-actions > :is(#sessionEarlyConfirm,#sessionAbandonConfirm){min-height:52px;border-radius:var(--radius-pill)}
@@ -4117,7 +4131,7 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
    other columns leave on a narrow phone) and breaks only between words; the
    figures give way first, the target wrapping under itself when it has to. */
 .today-rx__grid{display:grid;grid-template-columns:var(--rx-mark,1rem) minmax(min(9rem,100% - var(--rx-mark,1rem) - 9rem - 3 * var(--space-12)),1fr) minmax(4.125rem,auto) minmax(4.875rem,auto);column-gap:var(--space-12)}
-.today-rx__grid .rxrow .rxrow__name{overflow-wrap:break-word}
+.today-rx__grid .rxrow .rxrow__name{overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto}
 .today-rx__grid .rxrow .rxrow__target{white-space:normal}
 .today-rx__cols,.today-rx__grid .rxrow{grid-column:1 / -1;display:grid;grid-template-columns:subgrid}
 .today-rx__cols{align-items:baseline;padding:var(--space-8) 0;border-bottom:1px solid var(--boundary-decorative);font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--color-ink-secondary)}

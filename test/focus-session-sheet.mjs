@@ -142,7 +142,7 @@ async function earlyFinishFitsLargeText(browser) {
  */
 async function sessionHubChecks(browser) {
   phase("Session details as a hub (#522): head, marks, value rows, endings at the end of the scroll");
-  for (const [width, lang, text] of [[390, "en", "normal"], [320, "pt", "normal"], [320, "en", "text200"], [430, "en", "normal"]]) {
+  for (const [width, lang, text] of [[390, "en", "normal"], [320, "pt", "normal"], [320, "en", "text200"], [320, "pt", "text200"], [430, "en", "normal"]]) {
     const opened = await openCatalogState(browser, "workout/session", width, lang, text, { height: width === 430 ? 932 : width === 320 ? 568 : 844 });
     const label = `${width}px ${lang} ${text === "text200" ? "200%" : "100%"}`;
     try {
@@ -177,6 +177,17 @@ async function sessionHubChecks(browser) {
         `${label}: every row has a state mark, and the current and the skipped lift also say so in words`, JSON.stringify(m.rows.map((r) => [r.state, r.note])));
       assert(m.rows.every((r) => r.height >= 44 && r.inside && !r.overflow), `${label}: every row is a whole jump target of 44px or more inside the column`, JSON.stringify(m.rows));
       assert(m.fields.every((f) => f.inside && f.height >= 44), `${label}: date, bodyweight and notes sit inside the column at a 44px height or more`, JSON.stringify(m.fields));
+      // Quiet value rows (owner review, 2026-10-28): at rest no field draws a fill or a border.
+      const rest = await page.evaluate(() => ["#sessionDate", "#sessionBodyweight", "#sessionNotes"].map((id) => { const cs = getComputedStyle(document.querySelector(id));
+        return { id, bg: cs.backgroundColor, border: parseFloat(cs.borderTopWidth) || 0, shadow: cs.boxShadow }; }));
+      assert(rest.every((f) => f.bg === "rgba(0, 0, 0, 0)" && f.border === 0 && f.shadow === "none"), `${label}: at rest the details fields draw no fill, border or ring`, JSON.stringify(rest));
+      // No name breaks inside a word: each line break in a row's name falls at a space or a hyphen.
+      const broken = await page.evaluate(() => [...document.querySelectorAll("#sessionMap .session-map__name")].flatMap((el) => {
+        const node = el.firstChild, text = node?.textContent || "", out = []; let top = null;
+        for (let i = 0; i < text.length; i++) { const r = document.createRange(); r.setStart(node, i); r.setEnd(node, i + 1); const b = r.getClientRects()[0]; if (!b) continue;
+          if (top !== null && b.top > top + 2 && !/[\s\u00ad-]/.test(text[i - 1]) && !/\s/.test(text[i])) out.push(text.slice(Math.max(0, i - 4), i + 4)); top = b.top; }
+        return out; }));
+      assert(broken.length === 0, `${label}: exercise names wrap between words, not inside one`, JSON.stringify(broken));
       assert(m.kids.length === 2 && m.endingsInBody, `${label}: nothing is pinned under the body; both endings close its scroll`, JSON.stringify(m.kids));
       assert(/Pull-up/.test(m.note), `${label}: a lift that counts bodyweight is named beside the bodyweight field`, m.note);
       await page.locator("#sessionSheetBody").evaluate((b) => { b.scrollTop = b.scrollHeight; });
@@ -198,6 +209,11 @@ async function sessionHubChecks(browser) {
         await page.locator("#sessionBodyweight").fill("82");
         const unit = await page.evaluate(async () => { await window.__repforgeWorkoutDraft.flush(); return { unit: document.querySelector("#sessionBodyweightUnit").textContent, value: window.__repforgeWorkoutDraft.current().session.bodyweight }; });
         assert(unit.unit === "kg" && unit.value != null, `${label}: a bodyweight typed in the row is stored, and the unit follows the value`, JSON.stringify(unit));
+        await page.locator("#sessionNotes").fill("Belt on for the squats.");
+        await page.locator("#sessionNotes").blur();
+        const notes = await page.evaluate(() => { const label = document.querySelector(".sessrow--notes .sessrow__label").getBoundingClientRect(), area = document.querySelector("#sessionNotes").getBoundingClientRect();
+          return { under: area.top >= label.bottom - 0.5, left: area.left, labelLeft: label.left, align: getComputedStyle(document.querySelector("#sessionNotes")).textAlign }; });
+        assert(notes.under && notes.align === "left" && notes.left <= notes.labelLeft + 0.5, `${label}: once notes has text it reads under its label, left-aligned`, JSON.stringify(notes));
       }
       assert(opened.errors ? opened.errors.length === 0 : true, `${label}: no page errors`);
     } finally {
