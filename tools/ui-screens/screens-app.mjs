@@ -463,10 +463,30 @@ async function editorRowMenuForCapture(page, selector) {
   } else await button.click();
   await page.waitForSelector('#nativeContextMenu[open]');
 }
+/** The exercise sheet over the editor, at rest: the sheet in place with no animation running, and every scroller
+ *  under it (the editor's page sheet among them) unchanged for three frames. Opening the row can scroll the page
+ *  sheet behind it, and a fixed wait let that scroll land at a different offset from run to run, so the strict catalog
+ *  verify saw the underlay move (program/editor-suggest-loads, editor-alternates). */
 async function openEditorSheetA(page, id) {
   await page.locator(`#programEditor [data-role="exercise-row"][data-id="${id}"]`).click();
   await page.waitForSelector(`#reviewSheet.is-open [data-pe-sheet="exercise"][data-id="${id}"]`, { timeout: 20000 });
-  await sleep(page, 350);
+  await page.waitForFunction(() => {
+    const sheet = document.querySelector("#reviewSheet.is-open");
+    if (!sheet) return false;
+    const position = new DOMMatrixReadOnly(getComputedStyle(sheet).transform);
+    return position.m42 === 0 && document.getAnimations().every((animation) => animation.playState !== "running" || animation.effect?.getTiming().iterations === Infinity);
+  }, undefined, { timeout: 20000 });
+  await page.evaluate(() => new Promise((resolve) => {
+    const offsets = () => [document.scrollingElement, ...document.querySelectorAll("*")]
+      .filter((el) => el && el.scrollHeight > el.clientHeight).map((el) => `${el.scrollTop},${el.scrollLeft}`).join("|");
+    let last = offsets(), still = 0;
+    const tick = () => {
+      const now = offsets();
+      still = now === last ? still + 1 : 0; last = now;
+      if (still >= 3) resolve(); else requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }));
 }
 
 const view = async (page, name) => {
