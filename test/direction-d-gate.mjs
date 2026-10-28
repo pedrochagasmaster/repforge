@@ -270,18 +270,18 @@ try {
       "the same elements pass when they are on the list", show(listed));
     check(has(listed, "#seedOrangeText") && has(listed, "#seedOrangeBorder"),
       "an element that is not on the list still fails beside listed ones", show(listed));
-    // The running rest's drain (rest timer redesign): the shelf's edge fill is the budget's timer use; accent on the tab's
-    // running label is not.
-    const drainMarkup = `<div class="focus-shelf" id="seedRest" style="position:relative"><span class="shelf__edge"><i class="shelf__edge-fill" id="seedDrainFill" style="transform:scaleX(.75)"></i></span>
+    // The running rest's drain (rest timer redesign): the light along the shelf's contour is the budget's timer use;
+    // accent on the tab's running label is not.
+    const drainMarkup = `<div class="focus-shelf" id="seedRest" style="position:relative"><svg class="restlight" width="300" height="40" style="position:absolute;top:0;left:0"><path class="restlight__core" id="seedDrainFill" d="M0,34 A20,20 0 0 1 20,14 H300" style="stroke:var(--accent);stroke-width:1.25;fill:none"/></svg>
         <button type="button" class="resttab"><span class="resttab__label" id="seedRestLabel" style="color:var(--accent)">Rest</span><span class="resttab__time" id="seedRestClock">1:30</span></button></div>`;
     const drainEmpty = checkOrange(await seeded(page, drainMarkup, { allowlist: [] }));
-    check(has(drainEmpty, "orange", "#seedDrainFill"), "the drain's edge fill is accent paint and is rejected when it is not on the list", show(drainEmpty));
+    check(has(drainEmpty, "orange", "#seedDrainFill"), "the drain's light is accent paint and is rejected when it is not on the list", show(drainEmpty));
     const drainReal = checkOrange(await seeded(page, drainMarkup));
-    check(!has(drainReal, "#seedDrainFill"), "the drain's edge fill is accepted by the gate's own allowlist (timer-drain-bar)", show(drainReal));
+    check(!has(drainReal, "#seedDrainFill"), "the drain's light is accepted by the gate's own allowlist (timer-drain-bar)", show(drainReal));
     check(has(drainReal, "orange", "#seedRestLabel") && !has(drainReal, "#seedRestClock"),
       "only the drain is orange budget while the rest runs: accent on the tab's label is rejected and the ink time is accepted", show(drainReal));
-    check(ORANGE_ALLOWLIST.some((entry) => entry.category === "timer-drain-bar" && entry.selector === ".shelf__edge-fill" && !entry.pseudo),
-      "the drain entry sits under the running timer's drain bar category and names the edge's fill, not the shelf");
+    check(ORANGE_ALLOWLIST.some((entry) => entry.category === "timer-drain-bar" && entry.selector === ".restlight__core" && !entry.pseudo),
+      "the drain entry sits under the running timer's drain bar category and names the light's core, not the shelf");
     const real = await gatherEvidence(page, { scope: "body", allowlist: [] });
     const realOrange = checkOrange(real);
     check(realOrange.length > 0, "the detector is not vacuous: today's own accent paint is found with an empty list",

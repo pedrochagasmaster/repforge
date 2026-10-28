@@ -143,7 +143,8 @@
      them below: a tighter spread at a little more strength, so the bloom reads on the dark paper without smearing. */
   --rest-glow:0 0 6px 3px rgba(var(--accent-rgb),.3);--rest-dial-glow:0 0 14px 6px rgba(var(--accent-rgb),.28);
   --rest-flick-glow:0 0 22px 6px rgba(var(--accent-rgb),.34);
-  --rest-tab-shadow:0 -6px 16px rgba(var(--shadow-rgb),.06);
+  /* The light behind the panel (owner, 2026-10-28): quieter in light, which can't be brighter than the paper. */
+  --rest-light-core:var(--accent);--rest-light-bloom:var(--accent);--rest-light-gain:.62;
   /* The mini bar's lift, the prototype's soft float on the theme's shadow channel. */
   --minibar-shadow:0 6px 20px rgba(var(--shadow-rgb),.14);
   --live-dot-pulse-from:0 0 0 0 rgba(var(--accent-rgb),.45);
@@ -381,6 +382,7 @@
 :root[data-theme="dark"]{
   --rest-glow:0 0 4px 2px rgba(var(--accent-rgb),.46);--rest-dial-glow:0 0 10px 4px rgba(var(--accent-rgb),.4);
   --rest-flick-glow:0 0 16px 4px rgba(var(--accent-rgb),.42);
+  --rest-light-core:#FFB48A;--rest-light-bloom:var(--accent);--rest-light-gain:1;
   --switch-off-track:rgba(255,255,255,.10);
   --segment-thumb-bg:#3A3630;
   --menu-destructive-ink:var(--color-destructive);
@@ -2660,11 +2662,12 @@ textarea.sheetfield__input{
 /* The tab rises out of the shelf over the card's window: the window keeps room under its last line so the open set
    scrolls clear of it (sizeFocusCard keeps the row above the tab). */
 article.exercise--focus:has(.resttab) .fcard__context{padding-bottom:calc(var(--space-16) + var(--control-target) - var(--space-14))}
+/* The tab is the contour's raised part (.restlight draws its surface), so it paints no box of its own. */
 .resttab{
-  position:absolute;z-index:2;left:50%;bottom:calc(100% - var(--space-14));transform:translateX(-50%);
+  position:absolute;z-index:2;left:0;right:0;bottom:calc(100% - var(--space-14));width:max-content;margin:0 auto;
   display:flex;align-items:center;gap:var(--space-8);min-height:var(--control-target);padding:0 var(--space-16) var(--space-14) var(--space-12);
   border:0;border-radius:var(--radius-prominent) var(--radius-prominent) var(--radius-none) var(--radius-none);
-  background:var(--surface);color:var(--color-ink);box-shadow:var(--rest-tab-shadow);cursor:pointer;
+  background:transparent;color:var(--color-ink);cursor:pointer;
   font-family:var(--font-language);-webkit-tap-highlight-color:transparent;
 }
 .resttab:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
@@ -2674,11 +2677,26 @@ article.exercise--focus:has(.resttab) .fcard__context{padding-bottom:calc(var(--
 .resttab__chev{width:14px;height:14px;background:var(--color-ink-secondary)}
 .resttab.is-done .resttab__time,.resttab.is-done .resttab__label{color:var(--accent-deep)}
 .resttab.is-paused .restring__arc{stroke:var(--ink-faint)}
-/* The shelf's top edge is the rest's progress line, inside the corners; it has no track of its own. */
-.shelf__edge{position:absolute;z-index:1;top:0;left:var(--shelf-radius);right:var(--shelf-radius);height:3px;pointer-events:none}
-.shelf__edge-fill{display:block;width:100%;height:100%;border-radius:var(--radius-pill);background:var(--accent);transform-origin:left center}
-.shelf__edge-glow{top:50%;left:0}
-.focus-shelf:has(.resttab.is-done) .shelf__edge-glow{display:none}
+/* One contour (owner, 2026-10-28, the rest-glow prototype): during a rest the shelf and its tab are one SVG shape under
+   the shelf's content, with one upward shadow and one hairline, so the shelf paints no box of its own. The rest is
+   light along the contour, painted behind the shape: a hairline core and two blurred blooms, masked to the length the
+   clock has left, so only what spills past the edge shows and nothing falls on the panel. Held, it greys; under
+   reduced transparency only the core is drawn. */
+.workshelf.focus-shelf.has-rest{isolation:isolate;background:transparent;border-top-color:transparent;box-shadow:none}
+.restlight{position:absolute;z-index:-1;left:0;top:0;overflow:visible;pointer-events:none}
+.restlight__shape{fill:var(--color-surface)}
+.restlight__hair{fill:none;stroke:var(--boundary-persistent);stroke-width:1}
+.restlight__shadow{flood-color:rgb(var(--shadow-rgb));flood-opacity:.09}
+.restlight__half{fill:none;stroke-width:56;stroke-linecap:butt;stroke-linejoin:round}
+.restlight__light{opacity:var(--rest-light-gain)}
+.restlight.is-paused .restlight__light{opacity:calc(var(--rest-light-gain) * .55)}
+.restlight__core,.restlight__bloom{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.restlight__core{stroke:var(--rest-light-core);stroke-width:1.25;opacity:.95}
+.restlight__bloom{stroke:var(--rest-light-bloom)}
+.restlight__bloom--wide{stroke-width:16;opacity:.24}
+.restlight__bloom--near{stroke-width:5;opacity:.5}
+.restlight.is-paused :is(.restlight__core,.restlight__bloom){stroke:var(--ink-faint)}
+@media (prefers-reduced-transparency:reduce){.restlight__bloom{display:none}}
 /* The sheet: the dial with the time, one primary control between ±30 s, the presets as the native segmented
    control, and Restart and End rest as quiet text actions. Concentric with the shelf (28 / 16 / 12). */
 .restsheet{flex-direction:column;align-items:stretch;gap:var(--space-16);padding:var(--space-8) var(--shelf-inset) calc(var(--shelf-inset) + env(safe-area-inset-bottom))}

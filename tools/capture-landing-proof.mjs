@@ -430,7 +430,7 @@ const RUNNERS = {
     await page.evaluate(() => window.nudgeRest(-36));
     await page.locator('#restTab').click();
     await page.waitForSelector(SPOT_TARGETS.rest, {state: 'visible', timeout: 20000});
-    await page.evaluate(() => Promise.all(document.getAnimations().filter(a => a.id !== 'rest-flick')
+    await page.evaluate(() => Promise.all(document.getAnimations().filter(a => !String(a.id).startsWith('rest-flick'))
       .map(a => a.finished.catch(() => {}))));
   },
   actions: async page => {

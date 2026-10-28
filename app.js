@@ -6508,28 +6508,80 @@ function updateRestChrome(){
    the shelf's top edge fills with the rest. At zero the tab says "Rest done" and counts the overrun up, in accent,
    with a check. A tap opens the rest sheet, whose dial reads the same clock. The ring, the edge and the dial deplete
    continuously from the real end time (one rAF loop, only while something is on screen and the page is visible); a
-   soft accent glow sits at each leading end and never pulses. The bell, seen live, plays one soft light flick on the
-   dial when the sheet is open and on the tab otherwise; a rest that ran out while the page was hidden shows its
-   done state with no flick. Reduced motion paints the same progress per tick, with no roll, glow motion or flick. */
+   soft accent glow sits at the ring's and the dial's leading ends and never pulses. The bell, seen live, plays one soft
+   light flick on the dial when the sheet is open and along the shelf's edge otherwise; a rest that ran out while the
+   page was hidden shows its done state with no flick. Reduced motion paints the same progress per tick, with no roll,
+   glow motion or flick.
+   The light behind the panel (owner, 2026-10-28, the rest-glow prototype's direction A): the tab and the shelf are one
+   contour, drawn as one SVG shape under the shelf's content, and the rest is light along that contour painted behind
+   the shape, so only what spills past the edge shows. It comes from the clock: lit from the tab's top centre out along
+   both halves, the shelf's edge carrying the first 70% of the rest and the tab's outline the last 30%. */
 let restFrameId=0,restFrameLast=0,restLastLeft=null,restFlickArmed=false,restFlickCount=0;
+/** The contour as last laid out: the lit group, the two mask halves and their lengths. */
+let restContour=null,restContourObserver=null;
+const REST_TAB_SHARE=.3,REST_FILLET=10;
+const restLightSvg=()=>`<svg class="restlight" aria-hidden="true" focusable="false"><defs>`+
+  `<filter id="restLightWide"><feGaussianBlur stdDeviation="9"/></filter><filter id="restLightNear"><feGaussianBlur stdDeviation="3"/></filter>`+
+  `<filter id="restLightFeather"><feGaussianBlur stdDeviation="7"/></filter>`+
+  `<filter id="restContourShadow"><feDropShadow class="restlight__shadow" dx="0" dy="-4" stdDeviation="8"/></filter>`+
+  `<mask id="restLightMask" maskUnits="userSpaceOnUse"><g filter="url(#restLightFeather)"><path class="restlight__half" stroke="#fff"/><path class="restlight__half" stroke="#fff"/></g></mask></defs>`+
+  `<g class="restlight__light" mask="url(#restLightMask)"><g class="restlight__lit">`+
+  `<path class="restlight__bloom restlight__bloom--wide" filter="url(#restLightWide)"/><path class="restlight__bloom restlight__bloom--near" filter="url(#restLightNear)"/>`+
+  `<path class="restlight__core"/></g></g><path class="restlight__shape" filter="url(#restContourShadow)"/><path class="restlight__hair"/></svg>`;
+/** Draw the one contour from the shelf and the tab as they lay out: the tab rises out of the shelf's top edge with
+ *  rounded top corners and concave shoulder fillets, and the shelf keeps its own corners. */
+function layoutRestContour(){
+  const svg=$(".restlight"),tab=$("#restTab");
+  restContour=null;
+  if(!svg||!tab||!svg.isConnected)return;
+  // Measured from the shelf's border box (its top border is there, transparent, while the contour draws the edge).
+  const shelf=svg.parentElement,W=shelf.offsetWidth,H=shelf.offsetHeight,edge=shelf.clientTop;
+  const T=Math.max(0,-(tab.offsetTop+edge)),RT=parseFloat(getComputedStyle(tab).borderTopLeftRadius)||16;
+  // A tab grown wide by large text keeps its whole shape: the shoulder fillets, then the shelf's corners, tighten.
+  const room=Math.max(0,tab.offsetLeft),F=Math.min(REST_FILLET,room);
+  const R=Math.min(parseFloat(getComputedStyle(shelf).borderTopLeftRadius)||28,room-F);
+  const CX=tab.offsetLeft+tab.offsetWidth/2,x0=tab.offsetLeft-F,x1=tab.offsetLeft+tab.offsetWidth+F,SH=T+H;
+  const top=`M0,${T+R} A${R},${R} 0 0 1 ${R},${T} H${x0} A${F},${F} 0 0 0 ${x0+F},${T-F} V${RT} A${RT},${RT} 0 0 1 ${x0+F+RT},0 H${x1-F-RT} A${RT},${RT} 0 0 1 ${x1-F},${RT} V${T-F} A${F},${F} 0 0 0 ${x1},${T} H${W-R} A${R},${R} 0 0 1 ${W},${T+R}`;
+  const left=`M${CX},0 H${x0+F+RT} A${RT},${RT} 0 0 0 ${x0+F},${RT} V${T-F} A${F},${F} 0 0 1 ${x0},${T} H${R} A${R},${R} 0 0 0 0,${T+R}`;
+  const right=`M${CX},0 H${x1-F-RT} A${RT},${RT} 0 0 1 ${x1-F},${RT} V${T-F} A${F},${F} 0 0 0 ${x1},${T} H${W-R} A${R},${R} 0 0 1 ${W},${T+R}`;
+  svg.setAttribute("viewBox",`0 0 ${W} ${SH}`);
+  Object.assign(svg.style,{top:`${-T-edge}px`,left:`${-shelf.clientLeft}px`,width:`${W}px`,height:`${SH}px`});
+  for(const el of svg.querySelectorAll("filter,mask")){
+    el.setAttribute(el.tagName==="mask"?"maskUnits":"filterUnits","userSpaceOnUse");
+    el.setAttribute("x",-80);el.setAttribute("y",-80);el.setAttribute("width",W+160);el.setAttribute("height",SH+160)}
+  svg.querySelector(".restlight__shape").setAttribute("d",`${top} V${SH} H0 Z`);
+  for(const el of svg.querySelectorAll(".restlight__hair,.restlight__core,.restlight__bloom"))el.setAttribute("d",top);
+  const halves=[...svg.querySelectorAll(".restlight__half")];
+  halves[0].setAttribute("d",left);halves[1].setAttribute("d",right);
+  const tabLength=(CX-(x0+F+RT))+Math.PI*RT/2+((T-F)-RT)+Math.PI*F/2;
+  restContour={svg,lit:svg.querySelector(".restlight__lit"),halves,tabLength,length:tabLength+(x0-R)+Math.PI*R/2}}
+/** How far the light reaches from the clock for the share of the rest left: the shelf's edge carries the first 70% of
+ *  the rest and the tab's outline the last 30% (the prototype's reach()). */
+function restReach(share,c){
+  return share<REST_TAB_SHARE?share/REST_TAB_SHARE*c.tabLength:c.tabLength+(share-REST_TAB_SHARE)/(1-REST_TAB_SHARE)*(c.length-c.tabLength)}
+const restLightDash=length=>`0 0 ${Math.max(0,length).toFixed(2)} 99999`;
 function restTabHtml(){
   return `<button type="button" class="resttab" id="restTab" aria-haspopup="dialog" aria-controls="restSheet">`+
     `<span class="restring" aria-hidden="true"><svg viewBox="0 0 24 24"><circle class="restring__track" cx="12" cy="12" r="10"/>`+
     `<circle class="restring__arc" cx="12" cy="12" r="10" pathLength="100"/></svg>`+
     `<span class="restglow"></span><span class="restring__check icon-mask icon-mask--check"></span></span>`+
     `<span class="resttab__label"></span><span class="resttab__time"></span>`+
-    `<span class="resttab__chev icon-mask icon-mask--chev-up" aria-hidden="true"></span>`+
-    `<span class="restflick" aria-hidden="true"></span></button>`+
-    `<span class="shelf__edge" aria-hidden="true"><i class="shelf__edge-fill"></i><i class="restglow shelf__edge-glow"></i></span>`}
+    `<span class="resttab__chev icon-mask icon-mask--chev-up" aria-hidden="true"></span></button>`+restLightSvg()}
 /** Put the tab and the edge on the shelf now in Focus, or take them away when there is no rest or no Focus. */
 function syncRestTab(){
   const shelf=workoutActive?focusCard()?.querySelector(".focus-shelf"):null;
-  $$("#restTab,.shelf__edge").forEach(el=>{if(!shelf||!shelf.contains(el)||!restEnd)el.remove()});
+  $$("#restTab,.restlight").forEach(el=>{if(!shelf||!shelf.contains(el)||!restEnd)el.remove()});
   $$(".focus-shelf.has-rest").forEach(el=>{if(el!==shelf||!restEnd)el.classList.remove("has-rest")});
-  if(!shelf||!restEnd){stopRestFrames();return}
+  if(!shelf||!restEnd){restContourObserver?.disconnect();restContourObserver=null;restContour=null;stopRestFrames();return}
   if(!shelf.querySelector("#restTab")){
     shelf.insertAdjacentHTML("afterbegin",restTabHtml());
-    shelf.querySelector("#restTab").onclick=()=>openRestSheet()}
+    shelf.querySelector("#restTab").onclick=()=>openRestSheet();
+    shelf.classList.add("has-rest");
+    layoutRestContour();
+    // The contour follows the shelf and the tab: a rotation, a text size, or "Rest" becoming "Rest done +0:05".
+    restContourObserver?.disconnect();
+    restContourObserver=typeof ResizeObserver==="function"?new ResizeObserver(()=>{layoutRestContour();paintRestVisuals()}):null;
+    restContourObserver?.observe(shelf);restContourObserver?.observe(shelf.querySelector("#restTab"))}
   shelf.classList.add("has-rest");
   paintRestTab();
   paintRestVisuals();
@@ -6563,9 +6615,15 @@ function paintRestVisuals(){
   const glow=(el,head)=>{if(el){el.style.left=`${head.x.toFixed(2)}%`;el.style.top=`${head.y.toFixed(2)}%`}};
   for(const ring of $$(".resttab .restring,.restbar .restring")){
     arc(ring.querySelector(".restring__arc"),100);glow(ring.querySelector(".restglow"),ringHead)}
-  // At the bell the edge is whole in accent, as the ring is (the mock's Rest done).
-  const fill=$(".shelf__edge-fill");if(fill)fill.style.transform=`scaleX(${(done?1:share).toFixed(4)})`;
-  const edgeGlow=$(".shelf__edge-glow");if(edgeGlow)edgeGlow.style.left=`${(share*100).toFixed(2)}%`;
+  // The light along the contour reaches from the clock as far as the rest has left; held, it keeps its length and
+  // greys. Past the bell it is a faint steady rim the whole way round (the flick, seen live, plays over it).
+  const c=restContour;
+  if(c?.svg.isConnected){
+    const rim=window.RepForgeMotion?.vocabulary?.restFlick?.rim??.2;
+    const length=done?c.length:restReach(share,c);
+    for(const half of c.halves)half.style.strokeDasharray=restLightDash(length);
+    c.lit.style.opacity=String(done?rim:1);
+    c.svg.classList.toggle("is-paused",!done&&!!restEnd&&restPaused!=null)}
   const dial=$("#restDial");
   if(dial){arc(dial.querySelector(".restdial__arc"),1000);glow(dial.querySelector(".restdial__glow"),dialHead);dial.classList.toggle("is-done",done);dial.classList.toggle("is-idle",!restEnd);dial.classList.toggle("is-paused",!!restEnd&&restPaused!=null)}
   $$(".restring").forEach(ring=>ring.classList.toggle("is-done",done))}
@@ -6594,13 +6652,17 @@ function restFrame(now){
     restFlickArmed=false}
   restLastLeft=left;
   if(left>0&&restPaused==null)restFrameId=requestAnimationFrame(restFrame)}
-/** One soft light flick where the lifter is looking: the dial when the sheet is open, else the tab. Once per bell. */
+/** One soft light flick where the lifter is looking: the dial when the sheet is open, else along the shelf's edge, out
+ *  from the clock. Once per bell. */
 function playRestFlick(){
+  if(reducedMotion())return;
   const sheet=$("#restSheet"),open=sheet&&!sheet.hidden&&sheet.classList.contains("is-open");
-  const target=open?$("#restDial .restflick"):$("#restTab .restflick");
-  if(!target||reducedMotion())return;
+  if(open){
+    const target=$("#restDial .restflick");if(!target)return;
+    restFlickCount++;window.RepForgeMotion?.flickRest?.(target);return}
+  const c=restContour;if(!c?.svg.isConnected)return;
   restFlickCount++;
-  window.RepForgeMotion?.flickRest?.(target)}
+  window.RepForgeMotion?.flickRestLight?.(c.lit,c.halves,c.length)}
 function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;restPaused=null;restAnnounced=false;
   $("#restBar")?.classList.add("hidden");paintRest("—",false);
   updateRestChrome();

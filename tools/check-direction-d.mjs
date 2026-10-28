@@ -140,11 +140,12 @@ export const ORANGE_ALLOWLIST = [
   { category: "verdict-glyph", selector: ".verdictmark--up .verdictmark__glyph" },
   // R3b: Today's Start workout CTA keeps its arrow.
   { category: "cta-arrow", selector: ".btn--cta", pseudo: "::after" },
-  // The running rest's drain (rest timer redesign): the tab's ring and the dial's arc, the shelf's top edge, and the
-  // soft glow at each leading end.
+  // The running rest's drain (rest timer redesign): the tab's ring and the dial's arc, the light along the shelf's
+  // contour (its core and blooms, owner 2026-10-28), and the soft glow at the ring's and the dial's leading ends.
   { category: "timer-drain-bar", selector: ".restring__arc" },
   { category: "timer-drain-bar", selector: ".restdial__arc" },
-  { category: "timer-drain-bar", selector: ".shelf__edge-fill" },
+  { category: "timer-drain-bar", selector: ".restlight__core" },
+  { category: "timer-drain-bar", selector: ".restlight__bloom" },
   { category: "timer-drain-bar", selector: ".restglow" },
   // The rest timer's own accent (owner-approved mock): the run-out ring, the "Rest done" words and time, the flick and End rest.
   { category: "rest-timer", selector: ".restring.is-done svg" },

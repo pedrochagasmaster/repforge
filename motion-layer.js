@@ -33,8 +33,11 @@
     revealOut: { duration: 0.15, ease: [0.4, 0, 0.8, 0.2] },
     /* The rest clock's second (rest timer redesign, owner 2026-10-23): the new figures settle up into place, quietly. */
     restRoll: { duration: 0.15, ease: [0.2, 0.7, 0.2, 1] },
-    /* The bell's one soft light flick: the glow brightens and widens once, then settles into the done state. */
-    restFlick: { duration: 0.6, ease: [0.16, 0.84, 0.3, 1] },
+    /* The bell's one soft light flick. On the dial: the glow brightens and widens once (`ease`). Along the shelf's edge
+       (the rest-glow prototype, owner 2026-10-28): the light sweeps out from the clock along both halves over `sweep`
+       (ease-out cubic), its envelope rises over `rise` (ease-out cubic) and decays as ^`decay`, and from `settle` it
+       eases into the steady `rim` that stands after the bell. Times in seconds. */
+    restFlick: { duration: 0.6, ease: [0.16, 0.84, 0.3, 1], sweep: 0.26, rise: 0.14, decay: 2.2, settle: 0.3, rim: 0.2 },
   };
 
   const reduceQuery = typeof global.matchMedia === "function"
@@ -1949,9 +1952,29 @@
     return run;
   }
 
+  /** The rest's zero flick along the contour: `lit` is the light's group, `halves` the two mask strokes that run out
+   *  from the clock, `length` a half's length. One run of restFlick, sampled into linear keyframes, over the steady rim
+   *  the caller has already drawn (the animations fill nothing, so the rim stands when they end). Nothing under reduced
+   *  motion. Returns the light's animation (its id is "rest-flick"; the sweeps are "rest-flick-sweep"). */
+  function flickRestLight(lit, halves, length) {
+    if (!lit || reducedMotion() || typeof lit.animate !== "function") return null;
+    const { duration, sweep, rise, decay, settle, rim } = VOCABULARY.restFlick;
+    const out = (t) => 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 3);
+    const envelope = (t) => (t < rise ? out(t / rise) : Math.pow(Math.max(0, 1 - (t - rise) / (duration - rise)), decay));
+    const steps = 36, times = Array.from({ length: steps + 1 }, (_, i) => (i / steps) * duration);
+    const light = times.map((t) => ({ opacity: Math.min(1, Math.max(envelope(t) * 1.15, t > settle ? rim * Math.min(1, (t - settle) / (duration - settle)) : 0)) }));
+    const reach = times.map((t) => ({ strokeDasharray: `0 0 ${(length * out(t / sweep)).toFixed(2)} 99999` }));
+    const timing = { duration: duration * 1000, easing: "linear" };
+    for (const half of halves || []) half.animate(reach, timing).id = "rest-flick-sweep";
+    const run = lit.animate(light, timing);
+    run.id = "rest-flick";
+    return run;
+  }
+
   global.RepForgeMotion = {
     rollValue,
     flickRest,
+    flickRestLight,
     syncNativeControls,
     animateContextMenu,
     trackContextSlide,
