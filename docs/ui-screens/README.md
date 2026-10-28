@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 227 screens,
-1317 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 228 screens,
+1320 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -311,6 +311,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Program — share link ready](screens/program/share-ready__phone-390-light-en.png) | 8 | A valid setup link is ready for copy or system sharing. |
 | [Program — share as file](screens/program/share-too-large__phone-390-light-en.png) | 8 | An edited generated program is too large for a setup link; the sheet offers sharing it as a program file. |
 | [Program — text export](screens/program/text-export__phone-390-light-en.png) | 3 | The plain-text program export sheet. |
+| [Program — planned weekly volume](screens/program/volume-audit__phone-390-light-en.png) | 3 | See audit opens the read-only planned weekly volume sheet, its first muscle open. |
 | [Program row actions](screens/program/editor-context-menu__phone-390-light-en.png) | 8 | An installed editor exercise lifted above Move, Day and Remove actions. |
 | [Alternate row actions](screens/program/editor-alternate-context-menu__phone-390-light-en.png) | 3 | An alternate context menu above the still-open exercise editor sheet. |
 
