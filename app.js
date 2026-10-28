@@ -7528,14 +7528,15 @@ function todayRxRowHtml(row,index){
     (hasVerdict?`<span class="visually-hidden" id="${verdictId}">${esc(rec.label)}</span>`:"")+`</button><button type="button" class="native-row-menu visually-hidden" data-row-menu="${esc(ex.id)}" aria-haspopup="menu"${isSkipped?` aria-describedby="${statusId}"`:""} aria-label="${esc(t("program.editor.more"))}: ${esc(exerciseDisplayName(ex))}"><span class="icon-mask icon-mask--overflow" aria-hidden="true"></span></button></div>`}
 function todayRxHtml(exs,live=null){
   if(!exs.length)return"";
-  const model=todayRxModel(exs,live),sets=sum(exs.map(e=>+e.sets||0));
+  const model=todayRxModel(exs,live);
   // During a session the live card leads straight into the status rows (owner-approved mock A): no verdict tally, no
-  // heading row and no column heads; each row keeps its load and target. The heading stays for assistive technology.
-  const head=live?`<h3 class="visually-hidden">${esc(t("today.rx.title"))}</h3>`:todayTallyHtml(model)+
-    `<div class="today-rx__head"><h3 class="today-rx__title">${esc(t("today.rx.title"))}</h3>`+
-    `<span class="today-rx__meta">${esc(t("today.rx.meta",{exercises:countText("exercises",exs.length),sets:countText("sets",sets)}))}</span></div>`;
+  // heading row and no column heads; each row keeps its load and target. With no session the day's title line and its
+  // verdict tally lead into the column heads, as the prototype (owner, 2026-10-28): no visible heading or meta. Either
+  // way the heading stays for assistive technology, and it names the list.
+  const title=`<h3 class="visually-hidden" id="todayRxTitle">${esc(t("today.rx.title"))}</h3>`;
+  const head=live?title:todayTallyHtml(model)+title;
   return head+
-    `<p class="visually-hidden" id="todayRowActionsHint">${esc(t("today.row_actions_hint"))}</p><div class="today-rx${live?" today-rx--live":""}" id="todayExList"><div class="today-rx__grid">`+
+    `<p class="visually-hidden" id="todayRowActionsHint">${esc(t("today.row_actions_hint"))}</p><div class="today-rx${live?" today-rx--live":""}" id="todayExList" role="group" aria-labelledby="todayRxTitle"><div class="today-rx__grid">`+
     (live?"":`<div class="today-rx__cols" aria-hidden="true"><span></span><span>${esc(t("stats.exercise"))}</span><span>${esc(unitLabel())}</span><span>${esc(t("ledger.col.target"))}</span></div>`)+
     model.map((row,index)=>todayRxRowHtml(row,index)).join("")+`</div></div>`}
 /* The unfinished-session band (OG-6 `today/draft-resume`, Direction D 4.1): a status line above the prescription that
@@ -7720,13 +7721,17 @@ function renderTodayNoProgram(){
     "#reviewTodaySession","#logAnotherSession","#todayWeekLabel","#todayWeek",
     "#todayUpNextLabel","#todayUpNext","#todayLast"]){
     const el=$(sel);if(el)el.classList.add("hidden")}
-  const sess=$("#todaySession");if(sess)sess.innerHTML="";
+  const sess=$("#todaySession");parkDayAction();if(sess)sess.innerHTML="";
   renderTodayLive(null);
   const empty=$("#todayNoProgram");if(empty)empty.classList.remove("hidden");
   // No origin: `startOnboarding` reads first-run against the live state, which
   // is the same reading the gate and Settings' Create program already get.
   const cta=$("#todaySetupProgram");
   if(cta)cta.onclick=()=>startOnboarding(null,{userInitiated:true})}
+/** "Change day" lives in the day's title row while Today draws one; a render that replaces the session parks it
+ *  beside Start first, so the control (its handler, its focus) outlives the redraw. */
+function parkDayAction(){const pick=$("#chooseAnotherDay"),start=$("#startWorkout"),sess=$("#todaySession");
+  if(pick&&start&&sess?.contains(pick))start.after(pick)}
 function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent=formatLongDate(today());
   // The dashboard describes a program: with none there is nothing to describe,
   // and the empty state stands in for the whole surface.
@@ -7750,11 +7755,16 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
   // An open session is said once, by the live card (owner, 2026-10-23, option A): no session label, no day heading
   // repeating its name, no floating Continue. Inside the session Today is not in view, so there is no card to draw.
   const live=inProgress&&!workoutActive?todayLiveSession():null;
+  // The eyebrow names the finished day's recap only: a day ahead reads from its own title line (the prototype, owner
+  // 2026-10-28), and an open session from its live card.
   const sessLabel=$("#todaySessionLabel");if(sessLabel){const key=recap?"today.done_label":"today.session_label";
-    sessLabel.setAttribute("data-i18n",key);sessLabel.textContent=t(key);sessLabel.classList.toggle("hidden",!!live)}
-  const sess=$("#todaySession");if(sess&&recap)sess.innerHTML=todayDoneHtml(recap);
+    sessLabel.setAttribute("data-i18n",key);sessLabel.textContent=t(key);sessLabel.classList.toggle("hidden",!recap)}
+  const sess=$("#todaySession");parkDayAction();
+  if(sess&&recap)sess.innerHTML=todayDoneHtml(recap);
   else if(sess){const exs=exercises();
-    sess.innerHTML=(live?"":`<div class="today-session__name today-session__name--day">${esc(dayLabel(day))}</div>`)+todayRxHtml(exs,live)}
+    sess.innerHTML=(live?"":`<div class="today-dayhead"><div class="today-session__name today-session__name--day">${esc(dayLabel(day))}</div></div>`)+todayRxHtml(exs,live);
+    // "Change day" trails the day's title (the prototype, owner 2026-10-28).
+    const head=sess.querySelector(".today-dayhead"),pick=$("#chooseAnotherDay");if(head&&pick)head.append(pick)}
     // A one-day split has no other day to offer, so the picker would open onto
     // the day Today already leads with.
     const canPickDay=!recap&&days().length>1;
@@ -9305,8 +9315,10 @@ function openRowContextMenu({anchor,items,opener=anchor}){
     preview.querySelectorAll("[id]").forEach(el=>el.removeAttribute("id"));preview.removeAttribute("id");
     preview.className+=" native-context__preview";preview.inert=true;preview.setAttribute("aria-hidden","true");
     Object.assign(preview.style,{left:`${rect.left}px`,top:`${rect.top}px`,width:`${rect.width}px`,height:`${rect.height}px`});
-    dialog.innerHTML=`<div class="native-context__menu" role="menu">${items.map(item=>
-      `<button type="button" role="menuitem" data-menu-value="${esc(item.value)}"${item.destructive?' class="is-destructive"':""}${item.disabled?" disabled":""}><span>${esc(item.label)}</span>${item.icon?`<span class="icon-mask icon-mask--${esc(item.icon)} native-context__icon" aria-hidden="true"></span>`:""}</button>`).join("")}</div>`;
+    // A pull-down's items carry `checked` (the kit, §6): a radio menu item, its check in the icon slot.
+    dialog.innerHTML=`<div class="native-context__menu" role="menu">${items.map(item=>{
+      const radio=typeof item.checked==="boolean",icon=radio?(item.checked?"check":""):item.icon;
+      return `<button type="button" role="${radio?"menuitemradio":"menuitem"}"${radio?` aria-checked="${item.checked}"`:""} data-menu-value="${esc(item.value)}"${item.destructive?' class="is-destructive"':""}${item.disabled?" disabled":""}><span>${esc(item.label)}</span>${icon?`<span class="icon-mask icon-mask--${esc(icon)} native-context__icon" aria-hidden="true"></span>`:radio?`<span class="native-context__icon" aria-hidden="true"></span>`:""}</button>`}).join("")}</div>`;
     dialog.prepend(preview);document.body.append(dialog);
     const panel=dialog.querySelector('[role="menu"]');
     let closing=false,untrack=null;
@@ -13647,6 +13659,9 @@ function renderSettings(){
   if(disp)disp.textContent=sec?fmtClock(sec):t("settings.rest_off");
   const jumpDisp=$("#minJumpDisplay");if(jumpDisp)jumpDisp.textContent=fmt(+state.settings.minJump||DEFAULTS.minJump);
   const rirDisp=$("#rirModeDisplay");if(rirDisp)rirDisp.textContent=state.settings.rirMode==="effort"?t("settings.rir_effort"):t("settings.rir_numbers");
+  // The effort scale's explanation stands under its row while that is the mode (it was the panel's lede).
+  const effortLede=$("#rirEffortLede");if(effortLede)effortLede.hidden=state.settings.rirMode!=="effort";
+  const langDisp=$("#langDisplay");if(langDisp)langDisp.textContent=t("settings.lang."+(I18N?.normalizeLang(state.settings.lang)||"en"));
   const le=state.settings.lastExport,ago=le?t("settings.storage.last_backup",{lastBackup:le.slice(0,10)}):t("settings.storage.last_backup_never");
   paintStorageNote(ago);
   if(window.RepForgeMotion?.syncNativeControls)window.RepForgeMotion.syncNativeControls($("#settings"));
@@ -22448,7 +22463,20 @@ function init(){
   const histExport=$("#historyExportBtn");if(histExport)histExport.onclick=exportCsv;
   const restRow=$("#restSecRow");if(restRow)restRow.onclick=()=>setDisclosure(restRow,$("#restSecPanel"),!$("#restSecPanel")?.classList.contains("is-open"));
   const jumpRow=$("#minJumpRow");if(jumpRow)jumpRow.onclick=()=>setDisclosure(jumpRow,$("#minJumpPanel"),!$("#minJumpPanel")?.classList.contains("is-open"));
-  const rirRow=$("#rirModeRow");if(rirRow)rirRow.onclick=()=>setDisclosure(rirRow,$("#rirModePanel"),!$("#rirModePanel")?.classList.contains("is-open"));
+  // Choice rows open a native pull-down anchored to the row (the prototype, owner 2026-10-28): the current option is
+  // checked, a choice applies through the row's own input and the settings commit (so its confirm path is unchanged),
+  // then the rows are redrawn from what was stored; Esc or a tap outside dismisses it with focus back on the row.
+  const pullDown=async(row,options,current,apply)=>{
+    const value=await openRowContextMenu({anchor:row,items:options.map(([v,label])=>({label,value:v,checked:v===current()}))});
+    if(value!=null&&value!==current())apply(value)};
+  const rirRow=$("#rirModeRow");if(rirRow)rirRow.onclick=()=>pullDown(rirRow,
+    [["numeric",t("settings.rir_numbers")],["effort",t("settings.rir_effort")]],
+    ()=>$('input[name="rirMode"]:checked')?.value==="effort"?"effort":"numeric",
+    value=>{const radio=$(`input[name="rirMode"][value="${value}"]`);if(radio){radio.checked=true;commitChangedSettings().then(renderSettings)}});
+  const langRow=$("#langRow");if(langRow)langRow.onclick=()=>pullDown(langRow,
+    [["en",t("settings.lang.en")],["pt",t("settings.lang.pt")]],
+    ()=>$("#lang")?.value||"en",
+    value=>{const sel=$("#lang");if(sel){sel.value=value;commitChangedSettings().then(renderSettings)}});
   const progRow=$("#progressionRow");if(progRow)progRow.onclick=()=>setDisclosure(progRow,$("#progressionDetails"),!$("#progressionDetails")?.classList.contains("is-open"));
   const notifyCfg=$("#notifyConfigRow");if(notifyCfg)notifyCfg.onclick=()=>setDisclosure(notifyCfg,$("#notifyTypes"),!$("#notifyTypes")?.classList.contains("is-open"));
   const dataBackup=$("#dataBackupRow");if(dataBackup)dataBackup.onclick=()=>{
@@ -22459,7 +22487,7 @@ function init(){
   const profileRow=$("#profileRow");if(profileRow)profileRow.onclick=()=>setDisclosure(profileRow,$("#profilePanel"),!$("#profilePanel")?.classList.contains("is-open"));
   const profileClear=$("#profileClear");if(profileClear)profileClear.onclick=()=>clearProfile();
   const dataImport=$("#dataImportRow");if(dataImport)dataImport.onclick=()=>setDisclosure(dataImport,$("#dataImportPanel"),!$("#dataImportPanel")?.classList.contains("is-open"));
-  [["#restSecRow","#restSecPanel"],["#minJumpRow","#minJumpPanel"],["#rirModeRow","#rirModePanel"],["#progressionRow","#progressionDetails"],["#notifyConfigRow","#notifyTypes"],["#dataBackupRow","#dataBackupPanel"],["#profileRow","#profilePanel"],["#dataImportRow","#dataImportPanel"]].forEach(([b,p])=>setDisclosure($(b),$(p),false));
+  [["#restSecRow","#restSecPanel"],["#minJumpRow","#minJumpPanel"],["#progressionRow","#progressionDetails"],["#notifyConfigRow","#notifyTypes"],["#dataBackupRow","#dataBackupPanel"],["#profileRow","#profilePanel"],["#dataImportRow","#dataImportPanel"]].forEach(([b,p])=>setDisclosure($(b),$(p),false));
   setDisclosure($("#guideReplayToggle"),$("#guideReplayPanel"),false);
   const commitChangedSettings=()=>{settingsEditRevision++;return commitSettings(true)};
   $("#settings").addEventListener("input",()=>{settingsEditRevision++});

@@ -50,18 +50,27 @@ export async function measureRenderedRoles(input) {
     const chain = [];
     for (let current = node; current; current = current.parentElement) chain.push(current);
     let result = [255, 255, 255, 1];
+    // Contract, almost-solid glass (owner, 2026-10-28): a surface declaring --material:almost-solid-glass (a blurred
+    // material at least 85% opaque) is measured against the worst case beneath it, the material composited over pure
+    // white and over pure black; `alt` carries the second. Other glass stays unsupported here.
+    let alt = null;
     for (const current of chain.reverse()) {
       const style = getComputedStyle(current);
       const selectIndicatorOnly = current.matches("select");
-      if (style.backgroundImage !== "none" && !selectIndicatorOnly || style.backdropFilter !== "none") {
+      const bg = color(style.backgroundColor);
+      const glass = style.backdropFilter !== "none" && style.backgroundImage === "none" && (bg?.[3] || 0) >= 0.85
+        && style.getPropertyValue("--material").trim() === "almost-solid-glass" && current.parentElement
+        && getComputedStyle(current.parentElement).getPropertyValue("--material").trim() !== "almost-solid-glass";
+      if (style.backgroundImage !== "none" && !selectIndicatorOnly || style.backdropFilter !== "none" && !glass) {
         return { unsupported: `image or backdrop at ${current.id ? `#${current.id}` : current.tagName.toLowerCase()}` };
       }
       if (+style.opacity < 1) return { unsupported: `opacity at ${current.id ? `#${current.id}` : current.tagName.toLowerCase()}` };
-      const bg = color(style.backgroundColor);
       if (!bg) return { unsupported: `background ${style.backgroundColor}` };
+      if (glass) { result = composite(bg, [255, 255, 255, 1]); alt = composite(bg, [0, 0, 0, 1]); continue; }
       result = composite(bg, result);
+      if (alt) alt = composite(bg, alt);
     }
-    return { rgb: result };
+    return alt ? { rgb: result, alt } : { rgb: result };
   };
   const sample = (rect, exclusions = []) => {
     if (!pixels || !rect || rect.width < 4 || rect.height < 4) return null;
@@ -175,6 +184,7 @@ export async function measureRenderedRoles(input) {
     if (inside.unsupported) return { selector, kind, status: "unsupported", reason: inside.unsupported };
     let foreground = null;
     let adjacent = inside.rgb;
+    let adjacentAlt = inside.alt || null;
     let threshold = 3;
     if (kind === "text" || kind === "disabled-reason") {
       foreground = color(style.color);
@@ -191,6 +201,7 @@ export async function measureRenderedRoles(input) {
       if (outside.unsupported && pixels) outside = adjacentSurface(node) || outside;
       if (outside.unsupported) return { selector, kind, status: "unsupported", reason: outside.unsupported };
       adjacent = outside.rgb;
+      adjacentAlt = outside.alt || null;
     } else if (kind === "boundary") {
       const svgStroke = node.namespaceURI === "http://www.w3.org/2000/svg" && style.stroke !== "none"
         && parseFloat(style.strokeWidth) > 0 ? color(style.stroke) : null;
@@ -264,6 +275,11 @@ export async function measureRenderedRoles(input) {
     const ink = composite(foreground, adjacent);
     let measured = ratio(ink, adjacent);
     let measuredBackground = inside.rgb;
+    // On almost-solid glass the worse of the two grounds (over white, over black) decides.
+    if (adjacentAlt) {
+      const worst = ratio(composite(foreground, adjacentAlt), adjacentAlt);
+      if (worst < measured) { measured = worst; measuredBackground = adjacentAlt; }
+    }
     if (kind === "focus") {
       let outside = background(node.parentElement || document.documentElement);
       if ((parseFloat(style.outlineOffset) || 0) >= 0 && floatsOverUnrelatedGround(node)) outside = outlineGround(node, style) || outside;

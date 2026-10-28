@@ -791,7 +791,6 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   await page.waitForSelector("#settings.view.active");
   const rows = [
     ["#restSecRow", "#restSecPanel"],
-    ["#rirModeRow", "#rirModePanel"],
     ["#progressionRow", "#progressionDetails"],
     ["#notifyConfigRow", "#notifyTypes"],
     ["#dataBackupRow", "#dataBackupPanel"],
@@ -2270,8 +2269,11 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
   await waitForApp(page);
   await page.click("#openSettings");
   await page.waitForSelector("#settings.view.active");
+  // A key press first, so the programmatic focus below counts as keyboard focus (:focus-visible).
+  await page.keyboard.press("Shift");
   const settingsRing = await page.evaluate(() => {
-    const el = document.querySelector("#lang");
+    // Language is a pull-down row (the prototype, owner 2026-10-28); the row carries the focus ring.
+    const el = document.querySelector("#langRow");
     el?.focus();
     const st = getComputedStyle(el);
     return { outline: st.outlineStyle, outlineW: parseFloat(st.outlineWidth) || 0, shadow: st.boxShadow };

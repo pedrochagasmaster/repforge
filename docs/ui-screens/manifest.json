@@ -1753,6 +1753,13 @@
       "variants": "standard"
     },
     {
+      "id": "language-menu",
+      "flow": "settings",
+      "label": "Settings language menu",
+      "scenario": "Language opened as a native pull-down anchored to its row: English and Português, the current one checked.",
+      "variants": "demandingText"
+    },
+    {
       "id": "guides",
       "flow": "settings",
       "label": "Settings — contextual guides",

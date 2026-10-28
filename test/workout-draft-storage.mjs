@@ -516,7 +516,7 @@ async function main() {
     await page.evaluate(() => window.__repforgeShowSettings());
     await page.waitForSelector("#settings.active");
     await page.locator("#rirModeRow").click();
-    await page.locator('input[name="rirMode"][value="effort"]').click();
+    await page.locator('#nativeContextMenu [data-menu-value="effort"]').click();
     await page.waitForTimeout(150);
     const refusedContext = await rawState(page);
     check(refusedContext.state.settings.rirMode === "numeric" && refusedContext.raw === clearedContextBefore.raw,
@@ -539,7 +539,7 @@ async function main() {
     await page.evaluate(() => window.__repforgeShowSettings());
     await page.waitForSelector("#settings.active");
     await page.locator("#rirModeRow").click();
-    await page.locator('input[name="rirMode"][value="effort"]').click();
+    await page.locator('#nativeContextMenu [data-menu-value="effort"]').click();
     await page.waitForTimeout(150);
     const dayRefused = await rawState(page);
     check(dayRefused.state.settings.rirMode === "numeric" && dayRefused.raw === dayBeforeMode,
@@ -567,7 +567,7 @@ async function main() {
     await page.evaluate(() => window.__repforgeShowSettings());
     await page.waitForSelector("#settings.active");
     await page.locator("#rirModeRow").click();
-    await page.locator('input[name="rirMode"][value="effort"]').click();
+    await page.locator('#nativeContextMenu [data-menu-value="effort"]').click();
     await page.waitForTimeout(150);
     const noteOnlyRefused = await rawState(page);
     check(noteOnlyRefused.state.settings.rirMode === "numeric" && noteOnlyRefused.raw === noteOnlyBefore.raw,
@@ -581,7 +581,7 @@ async function main() {
     await page.evaluate(() => window.__repforgeShowSettings());
     await page.waitForSelector("#settings.active");
     await page.locator("#rirModeRow").click();
-    await page.locator('input[name="rirMode"][value="effort"]').check();
+    await page.locator('#nativeContextMenu [data-menu-value="effort"]').click();
     await page.waitForFunction(() => JSON.parse(localStorage.getItem("repforge_v1") || "{}").settings?.rirMode === "effort");
     check((await rawState(page)).state.settings.rirMode === "effort",
       "a fresh DraftV2 permits the RIR mode change");

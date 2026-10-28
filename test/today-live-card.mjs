@@ -160,8 +160,9 @@ try {
   {
     const { context, page, errors } = await freshPage(browser);
     const r = await reading(page);
-    assert(!r.card && r.start && r.startText === "Start workout" && r.label && r.heading && r.rxHead && r.cols,
-      "Start, the session label, the day heading and the prescription head, and no live card",
+    // #17 (owner, 2026-10-28): with no session running, Today goes from the day title straight to the column heads.
+    assert(!r.card && r.start && r.startText === "Start workout" && !r.label && r.heading && !r.rxHead && r.cols,
+      "Start, the day heading and the column heads, no eyebrow or prescription head, and no live card",
       JSON.stringify({ card: r.card, start: r.start, label: r.label, heading: r.heading, head: r.rxHead, cols: r.cols }));
     assert(r.rows.length > 4 && r.rows.every((row) => row.mark !== "rxstat--done" && !row.current),
       "the rows carry their verdicts, with no session marks", JSON.stringify(r.rows));

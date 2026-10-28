@@ -3229,10 +3229,13 @@ async function main() {
   await clearDraftFixture(page);
   await reloadApp(page);
   await nav(page, "settings");
-  await page.evaluate(() => document.querySelector("#rirModePanel")?.classList.add("is-open"));
-  await page.waitForSelector("#rirModePanel.is-open", { timeout: 3000 });
-  await page.check('input[name="rirMode"][value="effort"]');
-  await page.waitForTimeout(120);
+  // RIR logging is a pull-down anchored to its row (the prototype, owner 2026-10-28).
+  const rirBefore = await page.textContent("#rirModeDisplay");
+  await page.click("#rirModeRow");
+  await page.click('#nativeContextMenu [data-menu-value="effort"]');
+  // The menu closes, then the choice commits and Settings redraws; wait for the row to show it.
+  await page.waitForFunction((before) => !document.querySelector("#nativeContextMenu")
+    && document.querySelector("#rirModeDisplay")?.textContent !== before, rirBefore);
   await nav(page, "log");
   await selectDay(page, "Day 1");
   const effMeta = await getExerciseMeta(page, "Day 1");
@@ -3538,15 +3541,20 @@ async function main() {
   await reloadApp(page);
 
   await nav(page, "settings");
-  await page.evaluate(() => document.querySelector("#rirModePanel")?.classList.add("is-open"));
-  await page.waitForSelector("#rirModePanel.is-open", { timeout: 3000 });
+  assert(
+    await page.locator("#rirEffortLede").isVisible(),
+    "the effort scale's legend stands under the RIR logging row in effort mode",
+    "the legend is hidden",
+    "Settings → RIR logging → legend under the row"
+  );
   assert(
     /RIR 3/i.test((await page.locator("#settings").textContent()) || ""),
     "Settings shows effort scale legend with RIR 3",
     "Settings text missing RIR 3 legend",
-    "Settings → RIR logging → legend line under radio group"
+    "Settings → RIR logging → legend line under the row"
   );
-  await page.check('input[name="rirMode"][value="numeric"]');
+  await page.click("#rirModeRow");
+  await page.click('#nativeContextMenu [data-menu-value="numeric"]');
   await page.waitForTimeout(80);
 
   beginPhase("Phase: beginner program");
@@ -6504,7 +6512,7 @@ async function main() {
   );
 
   await nav(page, "settings");
-  await page.selectOption("#lang", "en");
+  await page.click("#langRow"); await page.click('#nativeContextMenu [data-menu-value="en"]');
   await nav(page, "log");
   await selectDay(page, "Day 1");
   await setLogDate(page, "2024-02-29");
@@ -6522,7 +6530,7 @@ async function main() {
   );
 
   await nav(page, "settings");
-  await page.selectOption("#lang", "pt");
+  await page.click("#langRow"); await page.click('#nativeContextMenu [data-menu-value="pt"]');
   await nav(page, "log");
   await selectDay(page, "Day 1");
   await setLogDate(page, "2024-02-29");
@@ -6541,7 +6549,7 @@ async function main() {
     "Log 90,5 kg @ 2,5 RIR in PT → Finish"
   );
   await nav(page, "settings");
-  await page.selectOption("#lang", "en");
+  await page.click("#langRow"); await page.click('#nativeContextMenu [data-menu-value="en"]');
 
   const beforeHist = new Set((await getState(page)).log.map((r) => r.session));
   await nav(page, "log");

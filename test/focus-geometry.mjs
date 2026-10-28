@@ -230,7 +230,7 @@ async function main() {
       await page.reload();
       await page.waitForFunction(() => window.__repforgeBooted);
       await page.locator("#openSettings").click();
-      await page.locator("#lang").selectOption(lang);
+      await page.locator("#langRow").click(); await page.locator(`#nativeContextMenu [data-menu-value="${lang}"]`).click();
       await page.waitForFunction(lang => document.documentElement.lang === (lang === "pt" ? "pt-BR" : "en"), lang);
       await page.waitForFunction(lang => JSON.parse(localStorage.getItem("repforge_v1"))?.settings?.lang === lang, lang);
       await page.evaluate(({ theme, scale }) => {

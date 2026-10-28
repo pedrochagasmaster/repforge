@@ -9,9 +9,9 @@
  *     a deliberate gap above the dock and never touching or overlapping it;
  *   - the gap is derived from the dock reservation (`--nav` plus the safe area),
  *     so it is the same on every viewport;
- *   - at the end of the page the control is back in the flow above Choose
- *     another day, which stays an ordinary flow control, and nothing under the
- *     control is left covered;
+ *   - at the end of the page the control is back in the flow above This week,
+ *     Change day stays an ordinary control in the day's title row (the
+ *     prototype, owner 2026-10-28), and nothing under the control is covered;
  *   - a draft with progress has no floating control: the live card resumes it;
  *   - a spent day and a device with no program leave no floating surface;
  *   - the dock is glass: what passes under it shows through, except under
@@ -81,11 +81,18 @@ const geometry = (page) => page.evaluate(() => {
   document.body.append(probe);
   const reserve = probe.getBoundingClientRect().height;
   probe.remove();
+  // Where the control's own place in the flow ends: a zero-height probe right after it (Change day used to sit there
+  // before it moved beside the day's title, the prototype, owner 2026-10-28).
+  const probeAfter = document.createElement("div");
+  cta?.after(probeAfter);
+  const after = probeAfter.getBoundingClientRect();
+  probeAfter.remove();
   return {
-    cta: box("#startWorkout"), dock: box("nav"), other: box("#chooseAnotherDay"), session: box("#todaySession"),
+    cta: box("#startWorkout"), dock: box("nav"), other: cta ? { top: after.top, bottom: after.bottom } : null, session: box("#todaySession"),
     week: box("#todayWeek"), last: box("#todayLast"),
     display: style?.display || "", position: style?.position || "", text: cta?.textContent?.trim() || "",
     otherPosition: getComputedStyle(document.querySelector("#chooseAnotherDay")).position,
+    otherInTitle: !!document.querySelector("#todaySession .today-dayhead #chooseAnotherDay"),
     reserve, inner: window.innerHeight, scroll: window.scrollY,
     max: document.documentElement.scrollHeight - window.innerHeight,
     keys: { start: window.RepForgeI18n.t("today.start") },
@@ -135,9 +142,9 @@ for (const [width, height] of [[320, 568], [390, 844]]) {
 
     await scrollTo(page, "end");
     g = await geometry(page);
-    assert(g.cta && g.other && g.cta.bottom <= g.other.top + 0.5 && g.otherPosition === "static",
-      "at the end of Today, Start is back in the flow above Choose another day, which stays an ordinary control",
-      JSON.stringify({ cta: g.cta, other: g.other, otherPosition: g.otherPosition }));
+    assert(g.cta && g.week && g.cta.bottom <= g.week.top + 0.5 && g.otherInTitle && g.otherPosition === "static",
+      "at the end of Today, Start is back in the flow above This week; Change day stays an ordinary control in the day's title row",
+      JSON.stringify({ cta: g.cta, week: g.week, otherInTitle: g.otherInTitle, otherPosition: g.otherPosition }));
     assert(g.cta.bottom <= g.dock.top && (!g.week || g.cta.bottom <= g.week.top) && (!g.last || !g.last.top || g.cta.bottom <= g.last.top),
       "scrolled to the end, nothing under the control stays covered", JSON.stringify({ cta: g.cta, week: g.week, last: g.last }));
 

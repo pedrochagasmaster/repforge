@@ -48,10 +48,10 @@ async function cleanSettings(page) {
 
 const required = Object.freeze({
   training: [
-    "#unitSegments", 'input[name="rirMode"]', "#jumpPct", "#minJump", "#rirHigh", "#hardRir",
+    "#unitSegments", "#rirModeRow", "#jumpPct", "#minJump", "#rirHigh", "#hardRir",
     "#saveSettings", "#createProgram", "#progressionRow",
   ],
-  app: ["#themeSegments", "#lang", "#restSec", "#voiceToggle", "#notifyToggle", "#notifyConfigRow", "#installApp"],
+  app: ["#themeSegments", "#langRow", "#restSec", "#voiceToggle", "#notifyToggle", "#notifyConfigRow", "#installApp"],
   data: ["#exportJson", "#exportCsv", "#importJson", "#telemetryToggle", "#privacyDetails", "#reset"],
   help: ["#guideReplayToggle", "#guideReplayList", "#settingsAbout", "#settingsSupport"],
 });
@@ -162,6 +162,46 @@ try {
     check(false, "first-set guide replay is reachable", registry.buttons);
     check(false, "a hidden owning anchor defers replay without navigation or a floating cue");
   }
+
+  console.log("\nChoice rows open a native pull-down (the prototype, owner 2026-10-28)");
+  const rowLook = await page.evaluate(() => {
+    const label = getComputedStyle(document.querySelector("#langRow .settings-row__label"));
+    const value = getComputedStyle(document.querySelector("#langRow .settings-row__value"));
+    const ink = getComputedStyle(document.querySelector("#settings")).getPropertyValue("--color-ink-secondary");
+    return { labelWeight: label.fontWeight, valueWeight: value.fontWeight, valueColor: value.color, labelColor: label.color };
+  });
+  check(rowLook.labelWeight === "400" && Number(rowLook.valueWeight) <= 400 && rowLook.valueColor !== rowLook.labelColor,
+    "a row's label is regular and its value is grey, not bold", rowLook);
+  for (const [row, label, values] of [["#langRow", "Language", ["en", "pt"]], ["#rirModeRow", "RIR logging", ["numeric", "effort"]]]) {
+    const named = await page.evaluate((sel) => {
+      const el = document.querySelector(sel);
+      const ids = (el.getAttribute("aria-labelledby") || "").split(/\s+/).filter(Boolean);
+      return { popup: el.getAttribute("aria-haspopup"), name: ids.map((id) => document.getElementById(id)?.textContent.trim()).join(" "),
+        chevron: !!el.querySelector(".icon-mask--chev-down"), push: !!el.querySelector(".chevron") };
+    }, row);
+    check(named.popup === "menu" && named.name.startsWith(label) && named.name.length > label.length && named.chevron && !named.push,
+      `${label}: a pull-down row named by its label and current value, with the down chevron`, named);
+    await page.locator(row).focus();
+    await page.keyboard.press("Enter");
+    await page.waitForSelector("#nativeContextMenu[open]", { timeout: 5000 });
+    const menu = await page.evaluate(() => [...document.querySelectorAll('#nativeContextMenu [role="menuitemradio"]')].map((item) => ({
+      value: item.dataset.menuValue, checked: item.getAttribute("aria-checked") === "true", mark: !!item.querySelector(".icon-mask--check") })));
+    check(menu.map((item) => item.value).join() === values.join() && menu.filter((item) => item.checked && item.mark).length === 1 && menu[0].checked,
+      `${label}: the menu lists the choices, the current one checked`, menu);
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => !document.querySelector("#nativeContextMenu"), undefined, { timeout: 5000 });
+    check(await page.evaluate((sel) => document.activeElement === document.querySelector(sel), row), `${label}: Esc dismisses it and focus returns to the row`);
+  }
+  await page.locator("#rirModeRow").click();
+  await page.locator('#nativeContextMenu [data-menu-value="effort"]').click();
+  await page.waitForFunction((dataKey) => JSON.parse(localStorage.getItem(dataKey) || "{}").settings?.rirMode === "effort", DATA_KEY, { timeout: 5000 });
+  const chosen = await page.evaluate(() => ({ display: document.querySelector("#rirModeDisplay").textContent.trim(),
+    lede: !document.querySelector("#rirEffortLede").hidden, focus: document.activeElement?.id }));
+  check(chosen.display === "Easy / Hard / Max" && chosen.lede && chosen.focus === "rirModeRow",
+    "choosing applies: the setting is stored, the row shows it, its legend stands under it, and focus is back on the row", chosen);
+  await page.locator("#rirModeRow").click();
+  await page.locator('#nativeContextMenu [data-menu-value="numeric"]').click();
+  await page.waitForFunction((dataKey) => JSON.parse(localStorage.getItem(dataKey) || "{}").settings?.rirMode === "numeric", DATA_KEY, { timeout: 5000 });
 
   console.log("\nAppearance boundary");
   const stateBefore = await page.evaluate((dataKey) => localStorage.getItem(dataKey), DATA_KEY);

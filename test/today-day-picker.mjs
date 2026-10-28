@@ -142,7 +142,7 @@ async function view(page) {
       workoutOpen: !document.querySelector("#workoutShell")?.classList.contains("hidden"),
       focus: document.activeElement?.id || document.activeElement?.dataset?.daypick || "",
       i18n: {
-        chooseDay: window.RepForgeI18n.t("today.choose_day"),
+        chooseDay: window.RepForgeI18n.t("today.change_day"),
         current: window.RepForgeI18n.t("today.choose_day_current"),
       },
     };
