@@ -211,6 +211,23 @@ persist-credentials: false remains enabled. The planner, service and fast
 jobs stay on shallow checkouts. This changes transfer/setup, not coverage.
 See [the October 27 efficiency audit](audits/ci-runner-efficiency-2026-10-27.md).
 
+PR-browser weights were refreshed from complete per-suite timings
+of three successful October 27 CI runs (40489481892, 40491459346,
+40536611865); run 40613851336 is an independent holdout sample.
+The eight largest positive timing mismatches were updated to their
+observed maxima, rounded up. The native gesture gate was underbudgeted:
+188s expected versus 236–290s observed. All 45 browser commands still
+run exactly once, and the five recalibrated shards each budget 431–434s.
+A fixed-duration four-run replay predicts 17–63s less PR-browser
+makespan, including 56s on the holdout. These are simulations, **not
+observed GitHub wall-clock savings**. See the
+[packing audit](audits/ci-pr-browser-packing-2026-10-27.md).
+
+The PR lane keeps five runners within the account's concurrency limit.
+The complete full lane still uses twelve runners with approximately
+1,090s of estimated browser work per runner and remains staged after
+the PR lane.
+
 The browser jobs cache the Chromium
 shell and its apt packages: the mirror sometimes served the fonts at about
 30 kB/s, which made a few shards spend 10–12 minutes installing.

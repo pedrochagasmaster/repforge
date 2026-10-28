@@ -255,6 +255,18 @@ test("shards partition the whole browser inventory deterministically and evenly"
   assert.throws(() => shardSuites(entries, 0), /positive integer/);
 });
 
+test("the PR browser packing isolates the observed long native-gesture bottleneck", () => {
+  const bins = shardSuites(browserEntries(), CI_SHARDS);
+  const native = bins.find(bin => bin.entries.some(({ suite }) => suite.file === "test/native-feel.mjs"));
+  assert.ok(native, "native-feel must remain in the PR inventory");
+  assert.deepEqual(native.entries.filter(({ suite }) => suiteSeconds(suite) >= 60).map(({ suite }) => suite.file),
+    ["test/native-feel.mjs"],
+    "do not co-locate a second long suite with the variable native gesture gate");
+  const loads = bins.map(bin => bin.seconds);
+  assert.ok(Math.max(...loads) - Math.min(...loads) <= 6,
+    "calibrated shard loads diverged: " + loads.join(", ") + "; review the measured timings");
+});
+
 test("full-lane shards partition every full browser command apart from the PR shards", () => {
   const entries = browserEntries(FULL_SUITES);
   assert.ok(entries.length && entries.every(({ lane }) => lane === "full-browser"));
