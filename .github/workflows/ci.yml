@@ -110,7 +110,9 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
-          # Historical migration contracts read older commits with `git show`.
+          filter: blob:none
+          # Keep the full commit graph for historical migration contract tests;
+          # missing older file blobs are fetched on demand from this public repo.
           fetch-depth: 0
       - uses: actions/setup-node@v5
         with:
@@ -280,7 +282,9 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
-          # Historical migration contracts read older commits with `git show`.
+          filter: blob:none
+          # Keep the full commit graph for historical migration contract tests;
+          # missing older file blobs are fetched on demand from this public repo.
           fetch-depth: 0
       - uses: actions/setup-node@v5
         with:
