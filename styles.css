@@ -2526,7 +2526,8 @@ textarea.sheetfield__input{
 .sessrow__input[type=date]::-webkit-date-and-time-value{text-align:right}
 .sessrow__input--mono{width:calc(9ch + 2 * var(--space-12));font-family:var(--font-training-data);font-variant-numeric:tabular-nums}
 .sessrow__input::placeholder{color:var(--color-ink-secondary);opacity:1;font-family:var(--font-language)}
-.sessrow__input:focus{outline:0;box-shadow:var(--elevation-selected-quiet-shadow)}
+/* A tap leaves no ring (native feel); the keyboard's first key draws it. */
+.sessrow__input:focus{outline:0}
 .sessrow__input:focus-visible{outline:2px solid var(--boundary-selected-quiet);outline-offset:-2px;box-shadow:none}
 .sessrow__input[aria-invalid="true"],.sessrow__input[aria-invalid="true"]:focus-visible{outline:2px solid var(--control-error-boundary);outline-offset:-2px}
 .sessrow__unit{font-family:var(--font-language);font-size:var(--font-size-body-small);color:var(--color-ink-secondary)}
