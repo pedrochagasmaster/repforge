@@ -5207,6 +5207,29 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
   font-variant-numeric:tabular-nums;color:var(--color-ink-secondary);overflow-wrap:break-word}
 .everyset__set{font-family:var(--font-language);white-space:nowrap}
 .everyset__rir{white-space:nowrap}
+/* Planned weekly volume (#525): the overview's total explained, read-only. The total and how it is counted, then each
+   muscle on a hairline with its count and its direct and secondary parts; a muscle opens to the exercises it comes from. */
+#volumeAuditBody{flex-direction:column;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:var(--space-16) var(--space-16) var(--space-26)}
+.volaudit{flex:none;min-width:0;display:block}
+.volaudit__total{margin:0 0 var(--space-4);font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);font-variant-numeric:tabular-nums;color:var(--color-ink)}
+.volaudit__method{margin:0 0 var(--space-18);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.volaudit__label{margin:0;padding-bottom:var(--space-8);border-bottom:1px solid var(--boundary-decorative)}
+.volaudit__muscle{border-bottom:1px solid var(--boundary-decorative)}
+.volaudit__row{display:flex;align-items:center;gap:var(--space-12);min-height:var(--control-target);padding:var(--space-8) 0;list-style:none;cursor:pointer}
+.volaudit__row::-webkit-details-marker{display:none}
+.volaudit__row:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.volaudit__row .chevron{flex:none;transition:transform .2s}
+.volaudit__muscle[open] .volaudit__row .chevron{transform:rotate(90deg)}
+.volaudit__name{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink);overflow-wrap:break-word}
+.volaudit__split{font-size:var(--font-size-caption);color:var(--color-ink-secondary)}
+.volaudit__n{flex:none;font-family:var(--font-training-data);font-size:var(--font-size-body);font-weight:var(--weight-semibold);font-variant-numeric:tabular-nums;color:var(--color-ink)}
+.volaudit__from{margin:0 0 var(--space-8);padding:0;list-style:none}
+.volaudit__from li{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-12);padding:var(--space-4) 0}
+.volaudit__ex{min-width:0;display:flex;flex-direction:column;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink);overflow-wrap:break-word}
+.volaudit__day{font-size:var(--font-size-caption);color:var(--color-ink-secondary)}
+.volaudit__calc{flex:none;white-space:nowrap;font-family:var(--font-training-data);font-size:var(--font-size-caption);font-variant-numeric:tabular-nums;color:var(--color-ink-secondary)}
+.volaudit__empty{margin:var(--space-8) 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+@media (prefers-reduced-motion:reduce){.volaudit__row .chevron{transition:none}}
 /* @ci-domain program,entry */
 /* ---- Program overview as a ledger (Plan 064 R3k) ----
    The program on one page: the name, one line that says what it is, the week

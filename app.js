@@ -13180,7 +13180,7 @@ function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
       `<div class="listrow__sub">${esc(t("program.share_setup_sub"))}</div></div><span class="chevron" aria-hidden="true"></span></button>`:"")+
     `<button type="button" class="listrow" id="reviewBlockLink" data-action-role="navigation" style="border-bottom:0"><div class="listrow__main"><div class="listrow__title">${esc(t("program.review_block"))}</div></div><span class="chevron" aria-hidden="true"></span></button>`;
   $$("#programOverview [data-exopen]").forEach(b=>b.onclick=()=>{if(b.dataset.exopen)openExerciseView(b.dataset.exopen,"program")});
-  const audit=$("#seeVolumeAudit");if(audit)audit.onclick=()=>{programEditMode=true;renderProgram()};
+  const audit=$("#seeVolumeAudit");if(audit)audit.onclick=openVolumeAuditSheet;
   const asText=$("#exportProgramText");if(asText)asText.onclick=openProgramTextSheet;
   const shareSetup=$("#shareProgramSetup");if(shareSetup)shareSetup.onclick=openShareSetupSheet;
   const rev=$("#reviewBlockLink");if(rev)rev.onclick=promptEndBlock}
@@ -13926,6 +13926,55 @@ function programText(){
 const programTextName=()=>{const slug=fileSlug(state.programMeta?.name);
   return `taurifer_program_${slug?`${slug}_`:""}${today()}.txt`};
 let programTextReturn=null;
+/* ---- Planned weekly volume (#525) ----
+   "See audit" explains the Program overview's planned weekly total, read-only. Every figure comes from the same
+   prog.volume() snapshot as the overview's row, so they reconcile exactly: a planned set counts in full for each
+   muscle an exercise trains first and half for each muscle it also works, and the total adds those counts across
+   muscles. Each muscle opens to the exercises (and days) its count comes from. */
+let volumeAuditReturn=null;
+/** The planned volume by muscle and where each count comes from, as prog.volume() counts it. */
+function plannedVolumeAudit(){
+  const planned=prog.volume(),rows=[];let total=0;
+  for(const [muscle,v] of planned){total+=v.d+v.p;rows.push({muscle,direct:v.d,secondary:v.p,total:v.d+v.p,from:[]})}
+  const byMuscle=new Map(rows.map(r=>[r.muscle,r]));
+  for(const e of prog.exercises){
+    for(const x of muscles(e.primary))byMuscle.get(x)?.from.push({e,sets:e.sets,weight:1});
+    for(const x of muscles(e.secondary))byMuscle.get(x)?.from.push({e,sets:e.sets,weight:.5})}
+  rows.sort((a,b)=>b.total-a.total||muscleLabel(a.muscle).localeCompare(muscleLabel(b.muscle)));
+  return{total,rows:rows.filter(r=>r.total>0)}}
+function volumeAuditHtml(){
+  const {total,rows}=plannedVolumeAudit();
+  if(!rows.length)return`<p class="volaudit__empty">${esc(t("program.volume_audit.empty"))}</p>`;
+  return`<p class="volaudit__total">${esc(t("program.effective_sets",{n:fmt(total)}))}</p>`+
+    `<p class="volaudit__method">${esc(t("program.volume_audit.method"))}</p>`+
+    `<h3 class="section-label volaudit__label">${esc(t("program.volume_audit.by_muscle"))}</h3>`+
+    `<div class="volaudit__list">${rows.map(r=>`<details class="volaudit__muscle"><summary class="volaudit__row">`+
+      `<span class="volaudit__name">${esc(muscleLabel(r.muscle))}<span class="volaudit__split">${esc(t("program.volume_audit.split",{direct:fmt(r.direct),secondary:fmt(r.secondary)}))}</span></span>`+
+      `<span class="volaudit__n">${esc(fmt(r.total))}</span><span class="chevron" aria-hidden="true"></span></summary>`+
+      `<ul class="volaudit__from">${r.from.map(f=>`<li><span class="volaudit__ex">${esc(exerciseDisplayName(f.e))}<span class="volaudit__day">${esc(dayLabel(f.e.day))}</span></span>`+
+        `<span class="volaudit__calc">${esc(t(f.weight===1?"program.volume_audit.full":"program.volume_audit.half",{n:fmt(f.sets),value:fmt(f.sets*f.weight)}))}</span></li>`).join("")}</ul></details>`).join("")}</div>`}
+function openVolumeAuditSheet(){
+  const sheet=$("#volumeAuditSheet"),scrim=$("#volumeAuditScrim"),body=$("#volumeAuditBody");
+  if(!sheet||!body)return;
+  body.innerHTML=`<div class="volaudit">${volumeAuditHtml()}</div>`;
+  body.scrollTop=0;
+  const sub=$("#volumeAuditFor");if(sub)sub.textContent=state.programMeta?.name||t("untitled_program");
+  volumeAuditReturn=document.activeElement;
+  document.body.classList.add("is-sheet-open");
+  openModal(sheet,{
+    initialFocus:$("#volumeAuditClose"),
+    returnFocus:volumeAuditReturn,
+    onEscape:closeVolumeAuditSheet,
+    scrim,
+    delayHide:reducedMotion()?0:280
+  });
+  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
+function closeVolumeAuditSheet(){
+  const sheet=$("#volumeAuditSheet");
+  if(!sheet)return Promise.resolve(false);
+  if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
+  volumeAuditReturn=null;
+  return closeModal(sheet)}
 function openProgramTextSheet(){
   const sheet=$("#programTextSheet"),scrim=$("#programTextScrim"),out=$("#programTextOut");
   if(!sheet||!out)return;
@@ -22303,6 +22352,8 @@ function init(){
   const cuDelete=$("#exCustomDelete");if(cuDelete)cuDelete.onclick=deleteCustomExerciseSheet;
   const cuRecoveryRetry=$("#exCustomRecoveryRetry");if(cuRecoveryRetry)cuRecoveryRetry.onclick=retryCustomExerciseRecovery;
   const cuRecoveryReload=$("#exCustomRecoveryReload");if(cuRecoveryReload)cuRecoveryReload.onclick=()=>location.reload();
+  const vaClose=$("#volumeAuditClose");if(vaClose)vaClose.onclick=closeVolumeAuditSheet;
+  const vaScrim=$("#volumeAuditScrim");if(vaScrim)vaScrim.onclick=closeVolumeAuditSheet;
   const ptClose=$("#programTextClose");if(ptClose)ptClose.onclick=closeProgramTextSheet;
   const ptScrim=$("#programTextScrim");if(ptScrim)ptScrim.onclick=closeProgramTextSheet;
   const ptCopy=$("#programTextCopy");if(ptCopy)ptCopy.onclick=copyProgramText;

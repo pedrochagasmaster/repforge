@@ -713,6 +713,11 @@
       "content": "flat",
       "scenario": "The plain-text program export sheet."
     },
+    "program/volume-audit": {
+      "owner": "issue-525",
+      "content": "flat",
+      "scenario": "Program's See audit opens the read-only planned weekly volume sheet, its first muscle open."
+    },
     "settings/main": {
       "owner": "plan-057",
       "content": "flat",
@@ -4625,6 +4630,63 @@
       ]
     },
     {
+      "id": "volumeauditclose",
+      "selector": "#volumeAuditClose",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Dismisses the read-only volume sheet without committing training state.",
+      "owner": "issue-525",
+      "catalogStates": [
+        "program/volume-audit"
+      ]
+    },
+    {
+      "id": "volumeauditscrim",
+      "selector": "#volumeAuditScrim",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "scrim",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Scrim suppresses the page behind its blocking sheet.",
+      "owner": "issue-525",
+      "catalogStates": [
+        "program/volume-audit"
+      ]
+    },
+    {
+      "id": "volumeauditsheet",
+      "selector": "#volumeAuditSheet",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "bottom-sheet",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Blocks the underlying route with dialog semantics while it explains the planned weekly volume, read-only.",
+      "owner": "issue-525",
+      "catalogStates": [
+        "program/volume-audit"
+      ]
+    },
+    {
       "id": "progressionrow",
       "selector": "#progressionRow",
       "roles": {
@@ -8151,7 +8213,8 @@
         "programlab/editor",
         "programlab/comparison",
         "history/list-scrolled",
-        "history/minibar-rest"
+        "history/minibar-rest",
+        "program/volume-audit"
       ]
     },
     {
@@ -8289,7 +8352,8 @@
         "onboarding-recommend/review-day-name-refused",
         "program/editor-alternates",
         "program/editor-suggest-loads",
-        "program/editor-day-name-refused"
+        "program/editor-day-name-refused",
+        "program/volume-audit"
       ]
     },
     {

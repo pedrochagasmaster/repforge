@@ -1177,6 +1177,16 @@ Triceps pushdown 3x12-15</pre>
       <button type="button" class="btn btn--steel" id="programTextShare" data-i18n="program.export_text.share">Share or save</button>
     </div>
   </div>
+  <div id="volumeAuditScrim" class="sheet-scrim hidden"></div>
+  <div id="volumeAuditSheet" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="volumeAuditTitle" hidden>
+    <div class="sheetband">
+      <span class="sheetband__handle" aria-hidden="true"></span>
+      <h2 class="sheetband__title" id="volumeAuditTitle" data-i18n="program.volume_audit.title">Planned weekly volume</h2>
+      <button type="button" class="sheetband__close" id="volumeAuditClose" data-i18n-aria="dialog.close" aria-label="Close"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
+      <p class="sheetband__sub" id="volumeAuditFor"></p>
+    </div>
+    <div class="sheet__body" id="volumeAuditBody"></div>
+  </div>
   <div id="shareSetupScrim" class="sheet-scrim hidden"></div>
   <div id="shareSetupSheet" class="sheet sheet--setup hidden ph-no-capture" role="dialog" aria-modal="true" aria-labelledby="shareSetupTitle" hidden>
     <div class="sheetband">
