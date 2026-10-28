@@ -3922,6 +3922,10 @@ body:has(#history.view.active.is-session-edit){padding-bottom:env(safe-area-inse
 .announce-host{position:static;pointer-events:none}
 /* A notice that must not cover a sheet's pinned foot (the Session sheet's reorder announcement) rides at the top. */
 .toast.toast--top{bottom:auto;top:calc(env(safe-area-inset-top,0px) + var(--space-12))}
+/* In Focus a notice rides just above the pinned shelf and its rest tab, measured when it is shown (#521). */
+body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + var(--space-12))}
+/* A quiet notice is for assistive technology only: the live region speaks it, nothing is drawn. */
+.toast.toast--quiet{position:fixed;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;box-shadow:none;animation:none}
 .announce-host .toast{pointer-events:none}
 .sessionbanner{position:relative;margin:0 0 .75rem;padding:0;border:0;border-bottom:1px solid var(--rule);border-radius:0;background:transparent;cursor:default}
 .sessionbanner.hidden{display:none}

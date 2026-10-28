@@ -670,6 +670,32 @@ async function main() {
   await page.waitForFunction(() => window.__repforgeFocus.editing() === null, undefined, { timeout: 5000 });
   assert(JSON.stringify(await editedReps()) === JSON.stringify({ reps: "9", completion: "done" }),
     "saving an edit stores the corrected reps on the set it came from", JSON.stringify(await editedReps()));
+  // #521: the confirmation is said, not drawn across the shelf; any notice Focus does show rides clear of the shelf
+  // and the rest tab over it, errors included.
+  const notice = () => page.evaluate(() => {
+    const live = document.querySelector("#toast"), shelf = document.querySelector("#workout .exercise.is-current .focus-shelf");
+    const tab = document.querySelector("#restTab"), cta = shelf?.querySelector(".saveset, .btn--cta");
+    const r = live.getBoundingClientRect(), boxes = [shelf, tab].filter((el) => el && el.getClientRects().length).map((el) => el.getBoundingClientRect());
+    const hits = boxes.filter((b) => r.width > 1 && r.height > 1 && r.left < b.right && r.right > b.left && r.top < b.bottom && r.bottom > b.top).length;
+    const c = cta?.getBoundingClientRect(), atCta = c ? document.elementFromPoint(c.left + c.width / 2, c.top + c.height / 2) : null;
+    return { text: live.textContent, role: live.getAttribute("role"), live: live.getAttribute("aria-live"), hidden: live.classList.contains("hidden"),
+      drawn: r.width > 1 && r.height > 1, hits, tab: !!tab?.getClientRects().length, inView: r.top >= 0 && r.bottom <= innerHeight,
+      ctaUsable: !!c && !!atCta && cta.contains(atCta) };
+  });
+  const updated = await notice();
+  assert(updated.text === "Set updated." && updated.role === "status" && updated.live === "polite" && !updated.drawn && updated.ctaUsable,
+    "Set updated is announced politely and draws nothing over the shelf (#521)", JSON.stringify(updated));
+  await page.evaluate(() => toast("A routine notice."));
+  await page.waitForTimeout(350);
+  const routine = await notice();
+  assert(routine.drawn && routine.inView && routine.hits === 0 && routine.ctaUsable && routine.role === "status",
+    "a notice Focus shows clears the shelf and the rest tab, and the shelf's action stays usable (#521)", JSON.stringify(routine));
+  await page.evaluate(() => announce("Couldn't save. Try again.", { assertive: true }));
+  await page.waitForTimeout(350);
+  const failure = await notice();
+  assert(failure.drawn && failure.inView && failure.hits === 0 && failure.role === "alert" && failure.live === "assertive",
+    "an error stays visible and assertive, clear of the shelf (#521)", JSON.stringify(failure));
+  await page.evaluate(() => document.querySelector("#toast").classList.add("hidden"));
   // Layout D: the saved correction closes the table again, so focus returns to the disclosure that holds the row.
   const afterSave = await focusAt(page);
   assert(afterSave.inCard && afterSave.live && afterSave.disclosure,

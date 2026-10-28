@@ -916,11 +916,17 @@ const applyI18n=()=>{if(!I18N)return;I18N.applyDom();
    be resolved here rather than handed a null and left to that fallback. */
 const resolveLang=()=>state?.settings?.lang||I18N.detectLang();
 function syncLang(){if(!I18N)return;I18N.setLang(resolveLang());applyI18n()}
-function announce(msg,{assertive=false,placement=""}={}){
+function announce(msg,{assertive=false,placement="",quiet=false}={}){
   const generation=announce._generation=(announce._generation||0)+1;
   const live=$("#toast");if(!live)return;
   // "top" keeps a notice clear of a sheet's pinned foot (the Session sheet's reorder announcement).
   live.classList.toggle("toast--top",placement==="top");
+  // A quiet notice is said, not shown: the change it confirms is already on screen (#521, a corrected set).
+  live.classList.toggle("toast--quiet",quiet);
+  // In Focus a shown notice rides clear of the pinned shelf and the rest tab over it (#521), never across them.
+  const shelfTop=quiet||placement?null:focusShelfTop();
+  if(shelfTop==null)live.style.removeProperty("--toast-clear");
+  else live.style.setProperty("--toast-clear",`${Math.max(0,Math.round(window.innerHeight-shelfTop))}px`);
   live.setAttribute("role",assertive?"alert":"status");
   live.setAttribute("aria-live",assertive?"assertive":"polite");
   live.setAttribute("aria-atomic","true");
@@ -938,6 +944,13 @@ function announce(msg,{assertive=false,placement=""}={}){
         write()})})}
   else write()}
 const toast=(m,opts)=>announce(m,opts||{});
+/** The top of what Focus pins at the bottom, the shelf and the rest tab rising out of it, or null outside Focus. */
+function focusShelfTop(){
+  if(!document.body.classList.contains("is-focus-wo"))return null;
+  const shelf=document.querySelector("#workout .exercise.is-current .focus-shelf");
+  if(!shelf||!shelf.getClientRects().length)return null;
+  const tab=shelf.querySelector("#restTab");
+  return Math.min(shelf.getBoundingClientRect().top,tab?.getClientRects().length?tab.getBoundingClientRect().top:Infinity)}
 /* The Program editor announces a change it made (an exercise added, changed or removed). A custom exercise saved from
    the picker has just announced itself, and that is the one announcement for the change. */
 let customCreatedToastAt=-Infinity;
@@ -9619,7 +9632,8 @@ function bindWorkout(){
       if(result.status==="domain-error"){applyDraftIssue(result.error?.issues);return}
       if(result.status!=="applied")return;
       const nowDone=activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId].completion!=="pending";
-      if(editing&&nowDone){focusEdit=null;focusLedgerOpen=null;toast(t("toast.set_updated"))}
+      // The corrected row redraws with its new figures, so the confirmation is said rather than shown (#521).
+      if(editing&&nowDone){focusEdit=null;focusLedgerOpen=null;toast(t("toast.set_updated"),{quiet:true})}
       if(nowDone&&!editing){lastCommitAt=Date.now();if(!sessionStartedAt)sessionStartedAt=lastCommitAt;startRest();armUnfinishedWatch()}
       if(nowDone&&!editing)focusLogged={exId:target.exerciseInstanceId,n:target.ordinal};
       if(nowDone&&refreshReservation){refreshStarted=true;const refreshed=await refreshReservation.start(()=>runRefreshSuggestions(target.exerciseInstanceId));
