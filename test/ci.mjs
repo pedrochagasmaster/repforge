@@ -479,6 +479,16 @@ test("verify mode compares a staged capture with the committed catalog and keeps
 
 // -------------------------------------------------------------------- CI plan
 
+test("nothing the app, its tests or its tools load depends on the design mocks the selectors skip", () => {
+  // The selectors skip docs/design/native-fidelity-mocks/ because nothing executable reads it. If a test, tool or app
+  // file starts to, a change there could alter a result while CI skips it, so the only files that may name the folder
+  // are the selectors that skip it, this contract and prose.
+  const allowed = new Set(["tools/ci-plan.mjs", "tools/ci-selection.mjs", "tools/test-selection.mjs", "test/ci.mjs"]);
+  const referencing = execFileSync("git", ["grep", "-l", "native-fidelity-mocks"], { encoding: "utf8" }).trim().split("\n").filter(Boolean);
+  const executable = referencing.filter((file) => !file.startsWith("docs/design/native-fidelity-mocks/") && !/\.md$/.test(file) && !allowed.has(file));
+  assert.deepEqual(executable, [], `executable files that reference the skipped design mocks: ${executable.join(", ")}`);
+});
+
 test("standalone native-fidelity design mocks are inert across CI and local selectors", () => {
   const mockFiles = [
     "docs/design/native-fidelity-mocks/after/equipment-dark.png",
