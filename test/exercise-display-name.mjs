@@ -431,7 +431,7 @@ async function visitHistory(page, { pt, label }) {
   await page.waitForSelector("#history .histlift__name");
   await page.locator("[data-history-back]").click();
   await page.waitForSelector("#sessions .session__open");
-  const table = await page.$$eval("#historyTable td", (cells) => cells.map((c) => c.textContent.trim()).join(" | "));
+  const table = await page.$$eval("#historyTable .everyset__ex", (cells) => cells.map((c) => c.textContent.trim()).join(" | "));
   expectNames(`${label} History table`, table, { shown: pt ? ptShown() : LINKED.map((id) => LIB[id].en), gone: pt ? ptGone() : [] });
 
   // Search finds a session by either name.

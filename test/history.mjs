@@ -722,6 +722,92 @@ export async function runCountFormChecks(page, check = assert) {
   await page.evaluate(() => window.RepForgeI18n.setLang("en"));
 }
 
+/**
+ * #524: "Every set" on a phone. A mixed log (a flat row, a warm-up, per-side source metrics, long names, a session from
+ * another year) opened under the disclosure at 320/390/430px, 100% and 200% text, EN and PT: one readable line per set
+ * under its session's head, every set present with its figures, nothing wider than the column, no word or date broken
+ * into pieces, and no row absurdly tall.
+ */
+async function runEverySetChecks(browser) {
+  console.log("\nEvery set on a phone (#524)");
+  const rows = [
+    { session: "es-1", date: "2026-10-26", day: "Workout A", name: "Standing dumbbell lateral raise", exerciseId: "ex-lat", set: 1, load: 14, reps: 12, rir: 1,
+      notes: "", created: "2026-10-26T12:10:00.000Z", primary: "Shoulders", secondary: "" },
+    { session: "es-1", date: "2026-10-26", day: "Workout A", name: "Barbell bench press", exerciseId: "ex-bench", set: 1, load: 40, reps: 10, rir: null, warmup: true,
+      notes: "", created: "2026-10-26T12:00:00.000Z", primary: "Chest", secondary: "" },
+    { session: "es-0", date: "2025-12-30", day: "Upper body and conditioning", name: "Single-arm dumbbell row on an incline bench with a pause at the top", exerciseId: "ex-row", set: 2,
+      load: 14, reps: 7, rir: 2, notes: "", created: "2025-12-30T12:00:00.000Z", primary: "Back", secondary: "",
+      metricType: "source_metrics@1", metricIds: ["m-reps-side", "m-load-side"],
+      metricDefinitions: [{ id: "m-reps-side", semantic: "repsPerSide", unit: "reps" }, { id: "m-load-side", semantic: "loadPerSideKg", unit: "kg" }],
+      metricValues: [{ metricId: "m-reps-side", value: 7, unit: "reps" }, { metricId: "m-load-side", value: 14, unit: "kg" }] },
+  ];
+  const expected = { en: ["Set 1", "Warm-up 1", "Set 2", "Reps per side: 7", "Load per side: 14 kg", "RIR 2"], pt: ["Série 1", "Aquecimento 1", "Série 2", "RIR 2"] };
+  for (const lang of ["en", "pt"]) for (const width of [320, 390, 430]) for (const scale of [1, 2]) {
+    const context = await browser.newContext({ viewport: { width, height: 844 }, serviceWorkers: "block" });
+    try {
+      const page = await context.newPage();
+      await page.goto(BASE, { waitUntil: "domcontentloaded" });
+      await clearState(page);
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await waitForApp(page);
+      await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
+      const m = await page.evaluate(async ({ rows, lang, scale }) => {
+        window.RepForgeI18n.setLang(lang);
+        document.documentElement.style.fontSize = scale === 1 ? "" : `${scale * 100}%`;
+        document.querySelector('nav [data-view="history"]').click();
+        await new Promise((r) => setTimeout(r, 200));
+        window.__repforgeHistory.renderWithSource(rows);
+        const details = document.querySelector("#historyTable").closest("details");
+        details.open = true;
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const column = document.querySelector("#historyTable").getBoundingClientRect();
+        /** Line breaks inside an element's text that do not fall at a space or a hyphen. */
+        const brokenWords = (el) => {
+          const text = el.textContent, node = el.firstChild, out = [];
+          if (!node || node.nodeType !== 3) return out;
+          let top = null;
+          for (let i = 0; i < text.length; i++) {
+            const range = document.createRange(); range.setStart(node, i); range.setEnd(node, i + 1);
+            const rect = range.getClientRects()[0]; if (!rect) continue;
+            if (top !== null && rect.top > top + 2 && !/[\s-]/.test(text[i - 1]) && !/\s/.test(text[i])) out.push(text.slice(Math.max(0, i - 4), i + 4));
+            top = rect.top;
+          }
+          return out;
+        };
+        const lines = [...document.querySelectorAll(".everyset__row")].map((row) => {
+          const r = row.getBoundingClientRect(), lh = parseFloat(getComputedStyle(row.querySelector(".everyset__ex")).lineHeight);
+          const perLine = [...row.children].map((c) => c.textContent.length / Math.max(1, Math.round(c.getBoundingClientRect().height / parseFloat(getComputedStyle(c).lineHeight))));
+          return { text: row.textContent, height: r.height, lineHeight: lh, perLine, inside: r.left >= column.left - 0.5 && r.right <= column.right + 0.5,
+            overflow: [...row.children].some((c) => c.scrollWidth > c.clientWidth + 1 || c.getBoundingClientRect().right > r.right + 0.5),
+            broken: brokenWords(row.querySelector(".everyset__ex")) };
+        });
+        const heads = [...document.querySelectorAll(".everyset__head")].map((h) => ({ text: h.textContent, broken: brokenWords(h),
+          inside: h.getBoundingClientRect().right <= column.right + 0.5 }));
+        return { lang: document.documentElement.lang, table: !!document.querySelector("#historyTable table"), lines, heads,
+          groups: document.querySelectorAll("#historyTable section.everyset__group[aria-label] > h3").length,
+          wide: document.documentElement.scrollWidth > innerWidth, column: column.width };
+      }, { rows, lang, scale });
+      const tag = `[${lang} ${width}px ${scale * 100}%]`;
+      const all = m.lines.map((l) => l.text).join(" | ").replace(/\u00a0/g, " ");
+      assert(!m.table && m.lines.length === 3 && m.groups === 2 && m.lang.startsWith(lang),
+        `${tag} every set is one line under its session's head, with no table`, JSON.stringify({ table: m.table, lines: m.lines.length, groups: m.groups, lang: m.lang }));
+      assert(expected[lang].every((piece) => all.includes(piece)) && all.includes("14 kg × 12"),
+        `${tag} each set carries its set or warm-up marker, its figures and its RIR`, all);
+      assert(m.heads.some((h) => h.text.includes("2025")) && m.heads.every((h) => h.text.includes("·")),
+        `${tag} each head names its session's date (with the year when it is not this one) and its day`, JSON.stringify(m.heads.map((h) => h.text)));
+      assert(m.lines.every((l) => l.inside && !l.overflow) && m.heads.every((h) => h.inside) && !m.wide,
+        `${tag} nothing runs past the column or the page`, JSON.stringify(m.lines.filter((l) => !l.inside || l.overflow)));
+      assert(m.lines.every((l) => !l.broken.length) && m.heads.every((h) => !h.broken.length),
+        `${tag} names and heads wrap only between words`, JSON.stringify([...m.lines.flatMap((l) => l.broken), ...m.heads.flatMap((h) => h.broken)]));
+      // Rows are as tall as their words need: every line of a row holds at least ten characters on average.
+      assert(m.lines.every((l) => l.perLine.every((n) => n >= 10)),
+        `${tag} no row is absurdly tall for what it says`, JSON.stringify(m.lines.map((l) => [Math.round(l.height), l.perLine.map((n) => Math.round(n))])));
+    } finally {
+      await context.close();
+    }
+  }
+}
+
 async function main() {
   const browser = await launchChromium();
   try {
@@ -744,6 +830,7 @@ async function main() {
 
     await context.close();
     await runHistoryHeadAtLargeText(browser);
+    await runEverySetChecks(browser);
   } finally {
     await browser.close();
   }

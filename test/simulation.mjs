@@ -2981,7 +2981,8 @@ async function main() {
     "History tab after logging"
   );
 
-  const historyTableRows = await page.locator("#historyTable tbody tr").count();
+  // "Every set" is one line per set (#524).
+  const historyTableRows = await page.locator("#historyTable .everyset__row").count();
   assert(
     historyTableRows === state.log.length,
     "History table row count matches log",
