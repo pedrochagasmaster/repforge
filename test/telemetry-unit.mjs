@@ -449,7 +449,7 @@ assert.equal(Telemetry.bucketDaysSince(undefined), null);
 // cannot be timed deterministically through a real remote ingestion endpoint.
 {
   const storage = memoryStorage();
-  Telemetry.boot({ storage, adapter: null });
+  Telemetry.boot({ storage, adapter: null, sdkPending: true });
   assert.equal(Telemetry.capture("app_boot", { first_run: true, language: "en", platform_class: "desktop" }), true, "startup is accepted before the SDK attaches");
   assert.equal(Telemetry.capture("first_set_logged", { notes: "private" }), false);
   const sent = [];
@@ -462,7 +462,7 @@ assert.equal(Telemetry.bucketDaysSince(undefined), null);
 }
 {
   const storage = memoryStorage();
-  Telemetry.boot({ storage, adapter: null });
+  Telemetry.boot({ storage, adapter: null, sdkPending: true });
   Telemetry.capture("app_boot", { first_run: true, language: "en", platform_class: "desktop" });
   Telemetry.setEnabled(false);
   assert.equal(Telemetry.capture("first_set_logged", {}), false);
@@ -473,7 +473,7 @@ assert.equal(Telemetry.bucketDaysSince(undefined), null);
 }
 {
   const storage = memoryStorage();
-  Telemetry.boot({ storage, adapter: null });
+  Telemetry.boot({ storage, adapter: null, sdkPending: true });
   for (let i = 0; i < 64; i++) assert.equal(Telemetry.capture("first_set_logged", {}), true);
   assert.equal(Telemetry.capture("first_set_logged", {}), false, "startup queue is bounded");
   assert.equal(Object.keys(storage.snapshot()).some(key => /queue|pending/.test(key)), false, "events stay in memory");
@@ -484,11 +484,23 @@ assert.equal(Telemetry.bucketDaysSince(undefined), null);
 
 {
   const storage = memoryStorage();
-  Telemetry.boot({ storage, adapter: null });
+  Telemetry.boot({ storage, adapter: null, sdkPending: true });
   Telemetry.capture("first_set_logged", {});
   const sent = [];
   Telemetry.boot({ storage: memoryStorage(), adapter: { capture: (...event) => sent.push(event) } });
   assert.equal(sent.length, 0, "switching installation storage clears pending events");
+}
+{
+  const storage = memoryStorage();
+  Telemetry.boot({ storage, adapter: null, sdkPending: false });
+  assert.equal(Telemetry.capture("first_set_logged", {}), false, "without an SDK load in flight, capture fails closed");
+  Telemetry.boot({ sdkPending: true });
+  assert.equal(Telemetry.capture("first_set_logged", {}), true);
+  Telemetry.boot({ sdkPending: false });
+  assert.equal(Telemetry.capture("first_set_logged", {}), false, "a failed SDK load fails closed");
+  const sent = [];
+  Telemetry.boot({ storage, adapter: { capture: (...event) => sent.push(event) } });
+  assert.equal(sent.length, 0, "a failed SDK load discards events queued while it was loading");
 }
 
 

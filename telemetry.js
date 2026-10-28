@@ -229,6 +229,7 @@
     return {
       adapter: null,
       pending: [],
+      sdkPending: false,
       appVersion: "dev",
       crypto: null,
       enabled: true,
@@ -319,6 +320,10 @@
   function boot(options = {}) {
     if (!options || typeof options !== "object" || Array.isArray(options)) options = {};
     if (Object.prototype.hasOwnProperty.call(options, "adapter")) runtime.adapter = options.adapter || null;
+    // Startup events wait only while the SDK script is actually loading. An
+    // unconfigured build or a failed load captures nothing, as before.
+    if (Object.prototype.hasOwnProperty.call(options, "sdkPending")) runtime.sdkPending = options.sdkPending === true;
+    if (runtime.adapter) runtime.sdkPending = false;
     if (Object.prototype.hasOwnProperty.call(options, "storage") && runtime.storage !== options.storage) {
       runtime.pending = [];
       runtime.storage = options.storage || null;
@@ -337,7 +342,7 @@
     try {
       if (runtime.adapter && typeof runtime.adapter.setEnabled === "function") runtime.adapter.setEnabled(runtime.enabled);
     } catch {}
-    if (!runtime.enabled) runtime.pending = [];
+    if (!runtime.enabled || (!runtime.adapter && !runtime.sdkPending)) runtime.pending = [];
     if (runtime.enabled && typeof runtime.adapter?.capture === "function") {
       const pending = runtime.pending;
       runtime.pending = [];
@@ -386,7 +391,7 @@
       if (!runtime.adapter || typeof runtime.adapter.capture !== "function") {
         // Only validated, consent-eligible events wait for asynchronous SDK load.
         // Keep the earliest startup denominators, bound memory, never persist.
-        if (runtime.pending.length >= 64) return false;
+        if (!runtime.sdkPending || runtime.pending.length >= 64) return false;
         runtime.pending.push([eventName, Object.freeze(payload), new Date(runtime.now())]);
         return true;
       }

@@ -128,6 +128,7 @@ assert.equal(SDK_VERSION, "1.400.0");
 
 {
   const appended = [];
+  const boots = [];
   const status = {
     beforeSend: value => value,
     enabled: true,
@@ -142,7 +143,7 @@ assert.equal(SDK_VERSION, "1.400.0");
       releaseChannel: "preview",
       sdkVersion: SDK_VERSION,
     },
-    RepForgeTelemetry: { boot: () => status },
+    RepForgeTelemetry: { boot: options => { boots.push(options); return status; } },
     crypto: {},
     document: {
       createElement: () => ({}),
@@ -156,6 +157,9 @@ assert.equal(SDK_VERSION, "1.400.0");
   assert.equal(appended[0].src, `https://e.taurifer.com/static/${SDK_VERSION}/array.js`);
   assert.equal(appended[0].async, true);
   assert.equal(appended[0].crossOrigin, "anonymous");
+  assert.equal(boots.at(-1).sdkPending, true, "startup events wait only once the SDK load is in flight");
+  appended[0].onerror();
+  assert.equal(boots.at(-1).sdkPending, false, "a failed SDK load ends the startup wait");
 }
 
 assert.equal(start({ __POSTHOG_CONFIG__: {}, document: {} }), false);
