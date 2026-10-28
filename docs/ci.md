@@ -149,6 +149,14 @@ shares with History). When unsure, leave it `global`. A wrong annotation can
 narrow a PR's full lane, and the complete run on `main` then turns red; fix it
 forward and widen the annotation.
 
+Change-detection safety: the GitHub compare API provides changed files only
+on the first commit page, with a limit of 300 files. The planner reads that
+page once; an absent, empty, malformed or possibly truncated file list runs
+the complete full lane. Renames inspect both the old and new paths. Deletions
+just before a reviewed annotation boundary conservatively select both
+neighboring domains: diff context can place the new-file pointer on the
+following region, even when the removed code belonged to the previous one.
+
 ### When `ci-full` is red on main
 
 A `ci-full` failure means main has a regression that the PR lane did not

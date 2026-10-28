@@ -61,7 +61,15 @@ export function domainsForAnnotatedDiff(source, diff, { kind = "js" } = {}) {
     if (header) { line = Number(header[1]); hunk = true; continue; }
     if (!hunk) continue;
     if (part.startsWith("+")) { add(owners[line]); line++; }
-    else if (part.startsWith("-")) add(owners[line] || owners[line - 1]);
+    else if (part.startsWith("-")) {
+      // A deletion has no line in the new file. With diff context, the new
+      // pointer may already sit on the NEXT annotation marker. Include both
+      // adjacent owners rather than silently dropping the deleted region.
+      const next = owners[line];
+      const previous = owners[line - 1];
+      add(next || previous);
+      if (next && previous && next !== previous) add(previous);
+    }
     else if (part.startsWith(" ")) line++;
   }
   return domains.size ? domains : new Set(["global"]);

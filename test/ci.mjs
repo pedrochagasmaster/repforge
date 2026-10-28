@@ -486,31 +486,51 @@ test("CI runs everything unless a change is provably prose-only", () => {
   assert.equal(shardMatrix().length, CI_SHARDS);
 });
 
-test("pull-request file lists come from the compare API and fail safe when it cannot answer", async (t) => {
-  const pages = [
-    { files: Array.from({ length: 100 }, (_, i) => ({ filename: `src/${i}.js`, ...(i === 3 ? { previous_filename: "src/old.js" } : {}) })) },
-    { files: [{ filename: "docs/a.md" }, { filename: "app.js" }] },
-  ];
+test("pull-request file lists use GitHub first-page comparison and fail open on incomplete data", async (t) => {
+  // GitHub returns up to 300 changed files ONLY on page 1, independently of commit pagination.
+  const first = { files: [
+    ...Array.from({ length: 100 }, (_, i) => ({ filename: "src/" + i + ".js", ...(i === 3
+      ? { status: "renamed", previous_filename: "src/old.js" } : {}) })),
+    { filename: "docs/a.md" },
+    { filename: "app.js", patch: "@@ -1 +1 @@\n-old\n+new" },
+  ] };
   const urls = [];
-  const fetchImpl = async (url) => { urls.push(url); const page = Number(new URL(url).searchParams.get("page")); return { ok: true, json: async () => pages[page - 1] }; };
-  const files = await pullRequestFiles({ apiUrl: "https://api.example", repository: "o/r", base: "b".repeat(40), head: "h".repeat(40), token: "t", fetchImpl });
+  const fetchImpl = async (url) => { urls.push(url); return { ok: true, json: async () => first }; };
+  const patches = {};
+  const files = await pullRequestFiles({ apiUrl: "https://api.example", repository: "o/r", base: "b".repeat(40),
+    head: "h".repeat(40), token: "t", fetchImpl, patches });
   assert.equal(files.length, 103);
   assert.ok(files.includes("src/old.js") && files.includes("app.js"));
-  assert.equal(urls.length, 2);
+  assert.equal(patches["app.js"], "@@ -1 +1 @@\n-old\n+new");
+  assert.equal(urls.length, 1, "commit pagination must not trigger further file-list requests");
   assert.match(urls[0], /\/repos\/o\/r\/compare\/b{40}\.\.\.h{40}\?per_page=100&page=1$/);
-  const huge = async () => ({ ok: true, json: async () => ({ files: Array.from({ length: 100 }, (_, i) => ({ filename: `f${i}` })) }) });
-  assert.equal(await pullRequestFiles({ apiUrl: "x", repository: "o/r", base: "b", head: "h", fetchImpl: huge }), null, "a capped list is not knowable");
-  await assert.rejects(pullRequestFiles({ apiUrl: "x", repository: "o/r", base: "b", head: "h", fetchImpl: async () => ({ ok: false, status: 403 }) }), /HTTP 403/);
+
+  const answer = (body) => async () => ({ ok: true, json: async () => body });
+  const args = { apiUrl: "x", repository: "o/r", base: "b", head: "h" };
+  assert.equal(await pullRequestFiles({ ...args, fetchImpl: answer({
+    files: Array.from({ length: 300 }, (_, i) => ({ filename: "f" + i })) }) }), null,
+    "300 files may be a truncated comparison and must run the full suite");
+  for (const payload of [{}, { files: [] }, { files: [{}] },
+    { files: [{ filename: "" }] }, { files: [{ filename: "new.js", status: "renamed" }] }]) {
+    assert.equal(await pullRequestFiles({ ...args, fetchImpl: answer(payload) }), null,
+      "malformed or empty diff must not suppress the full lane: " + JSON.stringify(payload));
+  }
+  await assert.rejects(pullRequestFiles({ ...args, fetchImpl: async () => ({ ok: false, status: 403 }) }), /HTTP 403/);
 
   const dir = scratch(t);
   const eventPath = join(dir, "event.json");
   writeFileSync(eventPath, JSON.stringify({ pull_request: { base: { sha: "b".repeat(40) }, head: { sha: "h".repeat(40) } } }));
   const env = { GITHUB_EVENT_NAME: "pull_request", GITHUB_EVENT_PATH: eventPath, GITHUB_REPOSITORY: "o/r", GITHUB_API_URL: "https://api.example" };
-  const prose = await resolvePlan(env, { fetchImpl: async () => ({ ok: true, json: async () => ({ files: [{ filename: "docs/a.md" }] }) }) });
+  const prose = await resolvePlan(env, { fetchImpl: answer({ files: [{ filename: "docs/a.md" }] }) });
   assert.equal(prose.run, false);
   assert.equal(prose.head, "h".repeat(40));
-  const code = await resolvePlan(env, { fetchImpl: async () => ({ ok: true, json: async () => ({ files: [{ filename: "app.js" }] }) }) });
+  const code = await resolvePlan(env, { fetchImpl: answer({ files: [{ filename: "app.js" }] }) });
   assert.equal(code.run, true);
+  for (const payload of [{ files: [] }, {}]) {
+    const incomplete = await resolvePlan(env, { fetchImpl: answer(payload) });
+    assert.equal(incomplete.run, true);
+    assert.equal(incomplete.full.mode, "all", "unavailable file evidence must run every full-lane test");
+  }
   const broken = await resolvePlan(env, { fetchImpl: async () => { throw new Error("offline"); } });
   assert.equal(broken.run, true);
   assert.equal(broken.files, null);
@@ -631,6 +651,26 @@ test("annotated app hunks select visual domains and unknown regions widen", () =
   assert.deepEqual([...domainsForAppDiff(source, "@@ -5 +5 @@\n-// @ci-domain history\n+// @ci-domain progress\n")], ["global"]);
   const sample = { screens: [{ flow: "history", id: "edit" }, { flow: "progress", id: "overview" }] };
   assert.deepEqual(selectVisuals(["app.js"], sample, { appSource: source, appDiff: "@@ -5 +5 @@\n-old\n+new\n" }).screens, ["history/edit"]);
+});
+
+test("deletions at an annotation boundary retain the deleted region's tests", () => {
+  // Context can advance the new-file pointer onto the next domain's marker.
+  const source = ["// @ci-domain history", "// @ci-domain progress", "function progress() {}"].join("\n");
+  const patch = "@@ -1,4 +1,3 @@\n // @ci-domain history\n-function history() {}\n // @ci-domain progress\n function progress() {}";
+  assert.ok(domainsForAppDiff(source, patch).has("history"), "deleted History code requires History verification");
+  // A deletion at EOF has no successor: keep its known owner, not global.
+  const endSource = ["// @ci-domain history", "const kept = 1;"].join("\n");
+  const endPatch = "@@ -1,3 +1,2 @@\n // @ci-domain history\n const kept = 1;\n-const deleted = 2;";
+  assert.deepEqual([...domainsForAppDiff(endSource, endPatch)], ["history"]);
+
+  const selection = selectFullLane(["app.js"], { sources: { "app.js": source }, patches: { "app.js": patch } });
+  assert.equal(selection.mode, "selected");
+  assert.ok(selection.screens.some((key) => key.startsWith("history/")), "affected History frames must be selected");
+
+  const css = ["/* @ci-domain history */", "/* @ci-domain progress */", ".progress { color: inherit; }"].join("\n");
+  const cssPatch = "@@ -1,4 +1,3 @@\n /* @ci-domain history */\n-.history { color: inherit; }\n /* @ci-domain progress */\n .progress { color: inherit; }";
+  const cssSelection = selectFullLane(["styles.css"], { sources: { "styles.css": css }, patches: { "styles.css": cssPatch } });
+  assert.ok(cssSelection.screens.some((key) => key.startsWith("history/")), "deleted History CSS requires History verification");
 });
 
 test("app.js hunks after the reviewed History block never inherit History", () => {
