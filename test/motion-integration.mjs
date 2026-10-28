@@ -670,24 +670,25 @@ async function restMotion(browser, { reducedMotion = "no-preference" } = {}) {
   const reduced = reducedMotion === "reduce";
   const tag = reduced ? " under reduced motion" : "";
   const { context, page, errors } = await focusPage(browser, { reducedMotion, sets: 4 });
-  phase(`R1: the edge and the ring drain continuously, by transform, with no transition${tag}`);
+  phase(`R1: the light and the ring drain continuously, by their dash, with no transition${tag}`);
   await page.evaluate(() => window.startRest(90));
   await page.waitForSelector("#restTab");
   const drain = await page.evaluate(async () => {
-    const fill = document.querySelector(".shelf__edge-fill"), arc = document.querySelector("#restTab .restring__arc");
+    // The light along the contour (owner, 2026-10-28): its reach is the dash on the mask's halves.
+    const half = document.querySelector(".restlight__half"), arc = document.querySelector("#restTab .restring__arc");
     const frames = [];
     const t0 = performance.now();
     while (performance.now() - t0 < 600) {
       await new Promise((r) => requestAnimationFrame(r));
-      frames.push({ scale: new DOMMatrix(getComputedStyle(fill).transform).a, arc: arc.style.strokeDasharray });
+      frames.push({ reach: half.style.strokeDasharray, arc: arc.style.strokeDasharray });
     }
-    const cs = getComputedStyle(fill);
-    return { frames: frames.length, distinct: new Set(frames.map((f) => f.scale.toFixed(5))).size, arcs: new Set(frames.map((f) => f.arc)).size,
-      transition: cs.transitionDuration, width: fill.offsetWidth, track: fill.parentElement.clientWidth };
+    const cs = getComputedStyle(half);
+    return { frames: frames.length, distinct: new Set(frames.map((f) => f.reach)).size, arcs: new Set(frames.map((f) => f.arc)).size,
+      transition: cs.transitionDuration };
   });
-  if (reduced) assert(drain.distinct <= 4 && drain.transition === "0s", "under reduced motion the edge steps with the clock's ticks, with no frame loop", JSON.stringify(drain));
-  else assert(drain.distinct >= Math.min(10, drain.frames - 2) && drain.arcs > 5 && drain.transition === "0s" && drain.width === drain.track,
-    "the edge and the ring change on almost every frame, by their scale and dash, at full width and with no transition", JSON.stringify(drain));
+  if (reduced) assert(drain.distinct <= 4 && drain.transition === "0s", "under reduced motion the light steps with the clock's ticks, with no frame loop", JSON.stringify(drain));
+  else assert(drain.distinct >= Math.min(10, drain.frames - 2) && drain.arcs > 5 && drain.transition === "0s",
+    "the light and the ring change on almost every frame, by their dash, with no transition", JSON.stringify(drain));
 
   phase(`R1: the second rolls quietly${tag}`);
   const roll = await page.evaluate(async () => {
@@ -706,7 +707,7 @@ async function restMotion(browser, { reducedMotion = "no-preference" } = {}) {
   const bell = await page.evaluate(async () => {
     const seen = [];
     const origin = Element.prototype.animate;
-    Element.prototype.animate = function (...args) { const run = origin.apply(this, args); queueMicrotask(() => { if (run.id === "rest-flick") seen.push({ duration: run.effect.getTiming().duration, on: this.parentElement?.id || "" }); }); return run; };
+    Element.prototype.animate = function (...args) { const run = origin.apply(this, args); queueMicrotask(() => { if (run.id === "rest-flick") seen.push({ duration: run.effect.getTiming().duration, on: this.getAttribute("class") || "" }); }); return run; };
     window.__repforgeRest.expire(0);
     document.dispatchEvent(new Event("visibilitychange"));
     await new Promise((r) => setTimeout(r, 1400));
@@ -714,8 +715,8 @@ async function restMotion(browser, { reducedMotion = "no-preference" } = {}) {
     return { seen, done: document.querySelector("#restTab")?.classList.contains("is-done"), cta: document.querySelector("#workout .exercise.is-current .saveset")?.disabled };
   });
   if (reduced) assert(bell.seen.length === 0 && bell.done, "under reduced motion the tab says Rest done at once, with no flick", JSON.stringify(bell));
-  else assert(bell.seen.length === 1 && bell.seen[0].duration === 600 && bell.seen[0].on === "restTab" && bell.done,
-    "one 600ms flick on the tab, then Rest done", JSON.stringify(bell));
+  else assert(bell.seen.length === 1 && bell.seen[0].duration === 600 && bell.seen[0].on === "restlight__lit" && bell.done,
+    "one 600ms flick along the shelf's edge, then Rest done", JSON.stringify(bell));
   assert(bell.cta === false, "the shelf's action stays enabled through the rest and the bell", JSON.stringify(bell));
   await page.evaluate(() => window.stopRest());
   assert(errors.length === 0, `no page errors in the rest timer run${tag}`, errors.join(" | "));

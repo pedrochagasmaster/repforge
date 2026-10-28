@@ -16,11 +16,12 @@ const manifest = loadManifest(), inventory = loadRoleInventory();
 assert.deepEqual(validateRoleInventory(inventory, manifest), [], "current manifest and semantic inventory agree");
 assert.deepEqual(requiredBoundaryExceptionRequests(inventory.exceptions, "workout/rest-running"), [
   { selector: ".restring__arc", kind: "boundary" },
-  { selector: ".shelf__edge-fill", kind: "boundary" },
 ], "required boundary exceptions enter rendered-role measurement for their owned catalog state");
-assert.deepEqual(requiredBoundaryExceptionRequests(inventory.exceptions, "workout/rest-done"), [
-  { selector: ".shelf__edge-fill", kind: "boundary" },
-], "the run-out state measures only the whole edge: the ring is the filled check");
+// The light along the shelf's contour is ambience (owner, 2026-10-28): the ring and the numbers carry the time.
+assert.deepEqual(requiredBoundaryExceptionRequests(inventory.exceptions, "workout/rest-done"), [],
+  "the run-out state measures no countdown boundary: the ring is the filled check and the light is a faint rim");
+assert.ok(inventory.exceptions.some((item) => item.selector === ".restlight" && !item.boundary && /ambience/.test(item.rationale)),
+  "the rest light is a selector-exact decorative countdown exception");
 assert.equal(Object.keys(inventory.catalogStates).length, manifest.screens.length, "every live catalog state has an explicit owner");
 assert.ok(inventory.components.some((item) => item.roles.elevation === "flat"), "flat content has an explicit role");
 for (const role of ["selected", "floating", "modal", "persistent-action"]) {
@@ -353,11 +354,11 @@ assert.ok(!inventory.components.some((item) => /#woRest|restpad|restpreset|resti
     assert.ok(row && row.roles.control === control && !row.sourceOnly && JSON.stringify(row.catalogStates) === JSON.stringify(sheet),
       `${selector} is one selector-exact ${control} row rendered by the rest-sheet states`);
   }
-  for (const selector of [".restring__arc", ".shelf__edge-fill", ".restdial__arc"]) {
+  for (const selector of [".restring__arc", ".restdial__arc"]) {
     const arc = inventory.exceptions.find((item) => item.selector === selector);
     assert.ok(arc && arc.boundary === "required" && /falsify its denominator/.test(arc.rationale), `${selector} is a selector-exact countdown exception`);
   }
-  assert.ok(!inventory.progressCandidateSelectors.some((selector) => /rest(ring|dial)|shelf__edge/.test(selector)),
+  assert.ok(!inventory.progressCandidateSelectors.some((selector) => /rest(ring|dial|light)/.test(selector)),
     "the rest depletion is not a progress candidate selector");
   const clock = inventory.contextualVariants.find((item) => item.id === "rest-clock-scale");
   assert.ok(clock && clock.selector === ".restdial__time" && JSON.stringify(clock.catalogStates) === JSON.stringify(sheet),

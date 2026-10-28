@@ -11926,17 +11926,16 @@
       "boundary": "required"
     },
     {
-      "selector": ".shelf__edge-fill",
-      "role": "countdown status, not workflow progress",
-      "rationale": "The shelf's edge is the running rest clock drawn as depletion: it measures time left in this rest, so assigning block, week, exercise-set or task would falsify its denominator. It is not a progress candidate selector. At the bell it is drawn whole in accent, as the ring is.",
+      "selector": ".restlight",
+      "role": "countdown light, not workflow progress or elevation",
+      "rationale": "The rest as light along the one contour of the shelf and its tab (owner, 2026-10-28): a hairline core and two blurred blooms painted behind the panel, so only what spills past the edge shows and none of it falls on the panel. It reaches from the clock as far as the rest has left, holds and greys while paused, and is a faint steady rim after the bell. It is ambience: the tab's ring and numbers carry the exact time, so it is no boundary the lifter must read, it measures no block, week, set or task, and it is not a progress candidate selector. The same SVG draws the shelf's surface, its one upward shadow and its hairline while the rest runs.",
       "owner": "rest-timer-redesign",
       "catalogStates": [
         "workout/rest-running",
         "workout/rest-done",
         "workout/logged-sets",
         "workout/correction"
-      ],
-      "boundary": "required"
+      ]
     },
     {
       "selector": ".restdial__arc",
@@ -11952,7 +11951,7 @@
     {
       "selector": ".restglow",
       "role": "countdown glow, not elevation",
-      "rationale": "The soft light at the head of the rest's depletion (the tab's ring, the shelf's edge, the sheet's dial): a 2px point with an accent box-shadow that marks where the clock stands. It lifts no surface, never pulses, and is hidden when the rest is paused, done, idle or under reduced transparency.",
+      "rationale": "The soft light at the head of the rest's depletion (the tab's ring and the sheet's dial): a 2px point with an accent box-shadow that marks where the clock stands. It lifts no surface, never pulses, and is hidden when the rest is paused, done, idle or under reduced transparency.",
       "owner": "rest-timer-redesign",
       "catalogStates": [
         "workout/rest-running",
@@ -11964,7 +11963,7 @@
     {
       "selector": "#restTab",
       "role": "the shelf's continuation, not nested elevation",
-      "rationale": "The rest tab rises out of the shelf's top edge as one surface with it; its soft upward shadow continues the shelf's own top shadow over the part of the tab above the edge, so it lifts no second layer inside the shelf.",
+      "rationale": "The rest tab rises out of the shelf's top edge as one contour with it (owner, 2026-10-28): the shelf's SVG surface draws the tab's raised part, with concave shoulder fillets, one upward shadow and one hairline, so the tab paints no box or shadow of its own and lifts no second layer inside the shelf.",
       "owner": "rest-timer-redesign",
       "catalogStates": [
         "workout/rest-running",

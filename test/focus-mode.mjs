@@ -603,12 +603,12 @@ async function main() {
       inShelf: shelf.contains(tab), rises: box.top < shelfBox.top, width: box.width, height: box.height,
       label: tab.querySelector(".resttab__label").textContent, time: tab.querySelector(".resttab__time").textContent,
       aria: tab.getAttribute("aria-label") || "", popup: tab.getAttribute("aria-haspopup"),
-      edge: !!shelf.querySelector(".shelf__edge-fill"), cue: !!card.querySelector(".fx-slot .fx-cue"),
+      edge: !!shelf.querySelector(".restlight .restlight__core"), cue: !!card.querySelector(".fx-slot .fx-cue"),
       fieldPads: card.querySelectorAll(".shelf__pads .shelf__pad").length, restPads: card.querySelectorAll(".restpad, [data-rest-act]").length,
       header: !!document.querySelector("#woRest"),
     };
   });
-  assert(restSurface.inShelf && restSurface.rises && restSurface.edge, "the tab rises out of the shelf's top edge, and the edge carries the rest", JSON.stringify(restSurface));
+  assert(restSurface.inShelf && restSurface.rises && restSurface.edge, "the tab rises out of the shelf's top edge, and the light along the edge carries the rest", JSON.stringify(restSurface));
   assert(restSurface.width >= 44 && restSurface.height >= 44 && restSurface.popup === "dialog" && /^Rest \d:\d\d\. Tap to open the timer\.$/.test(restSurface.aria),
     "the tab is a full target, named with the time, and opens a dialog", JSON.stringify(restSurface));
   assert(restSurface.label === "Rest" && /^\d:\d\d$/.test(restSurface.time), "it reads Rest and the time", JSON.stringify(restSurface));
