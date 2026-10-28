@@ -528,9 +528,11 @@ test("the gate accepts skipped jobs only when the plan skipped them", () => {
   assert.doesNotThrow(() => gateResults(selected, { log() {} }));
   assert.throws(() => gateResults({ ...selected, browser: { result: "failure" } }, { log() {} }), /browser: expected success, got failure/);
   assert.throws(() => gateResults({ ...selected, service: { result: "skipped" } }, { log() {} }), /service: expected success, got skipped/);
+  assert.throws(() => gateResults({ ...selected, browser: { result: "cancelled" } }, { log() {} }), /browser: expected success, got cancelled/);
   const prose = { plan: { result: "success", outputs: { run: "false", reason: "Only prose changed", shards: fullShards } }, fast: { result: "skipped" }, browser: { result: "skipped" }, service: { result: "skipped" } };
   assert.doesNotThrow(() => gateResults(prose, { log() {} }));
   assert.throws(() => gateResults({ ...prose, fast: { result: "success" } }, { log() {} }), /fast: expected skipped, got success/);
+  assert.throws(() => gateResults({ ...prose, fast: { result: "cancelled" } }, { log() {} }), /fast: expected skipped, got cancelled/);
   assert.throws(() => gateResults({ ...selected, plan: { result: "failure" } }, { log() {} }), /plan job failure/);
   assert.throws(() => gateResults({}, { log() {} }), /missing required job plan/);
   const missingService = { ...selected };
@@ -559,7 +561,7 @@ test("the workflow stages the targeted full lane behind a passing PR lane", () =
     "the gate rejects a missing run decision in YAML, before it trusts any checked-out planner code");
   assert.match(gateJob, /RUN: \$\{\{ needs\.plan\.outputs\.run \}\}/);
   assert.match(workflow, /node tools\/ci-plan\.mjs merge-ui-system /);
-  assert.match(gateJob, /needs: \[plan, fast, browser, service\]\n\s+if: \$\{\{ !cancelled\(\) \}\}/, "the gate observes every job unless the run was superseded");
+  assert.match(gateJob, /needs: \[plan, fast, browser, service\]\n\s+if: \$\{\{ always\(\) \}\}/, "the gate evaluates cancelled and unexpectedly skipped jobs as failures");
   const declaredJobs = [...jobsSection.matchAll(/^  ([a-z][a-z0-9-]*):$/gm)].map(([, name]) => name);
   const needsOf = (name) => job(name).match(/^    needs: \[([^\]]+)\]$/m)?.[1].split(",").map((value) => value.trim()) || [];
   assert.deepEqual([...new Set([...needsOf("ci"), ...needsOf("ci-full")])].sort(), declaredJobs.filter((name) => name !== "ci-full").sort(),
@@ -575,7 +577,7 @@ test("the workflow stages the targeted full lane behind a passing PR lane", () =
     assert.match(body, /REPFORGE_FULL_SELECTION: \$\{\{ needs\.plan\.outputs\.full_selection \}\}/, `${name} runs the planned selection`);
   }
   const fullGate = job("ci-full");
-  assert.match(fullGate, /if: \$\{\{ !cancelled\(\) \}\}/, "a failed or skipped full job still reaches the full aggregate on every event");
+  assert.match(fullGate, /if: \$\{\{ always\(\) \}\}/, "even cancellation reaches the full aggregate instead of silently skipping it");
   assert.match(fullGate, /EVENT: \$\{\{ github\.event_name \}\}/);
   assert.match(fullGate, /node tools\/ci-plan\.mjs gate-full/);
   assert.match(fullGate, /node tools\/ci-plan\.mjs merge-ui-system-full/);
@@ -794,6 +796,8 @@ test("the full gate is staged behind the PR lane and accepts only what the plan 
   assert.throws(() => gateFullResults({ ...targeted, ci: { result: "failure" } }, { event: "pull_request", log() {} }), /PR lane/);
   assert.throws(() => gateFullResults({ ...targeted, "full-fast": { result: "success" } }, { event: "pull_request", log() {} }), /full-fast: expected skipped/);
   assert.throws(() => gateFullResults({ ...targeted, "full-browser": { result: "skipped" } }, { event: "pull_request", log() {} }), /full-browser: expected success/);
+  assert.throws(() => gateFullResults({ ...targeted, "full-browser": { result: "cancelled" } }, { event: "pull_request", log() {} }), /full-browser: expected success, got cancelled/);
+  assert.throws(() => gateFullResults({ ...targeted, ci: { result: "cancelled" } }, { event: "pull_request", log() {} }), /PR lane/);
   const nothing = { plan: plan({ full_run: "false", full_browser: "false", full_selection: '{"mode":"none","ids":[],"screens":[]}' }),
     ci: { result: "success" }, "full-fast": { result: "skipped" }, "full-browser": { result: "skipped" } };
   assert.doesNotThrow(() => gateFullResults(nothing, { event: "pull_request", log() {} }));
