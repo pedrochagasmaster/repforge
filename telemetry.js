@@ -228,6 +228,7 @@
   function emptyRuntime() {
     return {
       adapter: null,
+      pending: [],
       appVersion: "dev",
       crypto: null,
       enabled: true,
@@ -319,6 +320,7 @@
     if (!options || typeof options !== "object" || Array.isArray(options)) options = {};
     if (Object.prototype.hasOwnProperty.call(options, "adapter")) runtime.adapter = options.adapter || null;
     if (Object.prototype.hasOwnProperty.call(options, "storage") && runtime.storage !== options.storage) {
+      runtime.pending = [];
       runtime.storage = options.storage || null;
       runtime.identity = null;
     }
@@ -335,6 +337,15 @@
     try {
       if (runtime.adapter && typeof runtime.adapter.setEnabled === "function") runtime.adapter.setEnabled(runtime.enabled);
     } catch {}
+    if (!runtime.enabled) runtime.pending = [];
+    if (runtime.enabled && typeof runtime.adapter?.capture === "function") {
+      const pending = runtime.pending;
+      runtime.pending = [];
+      for (const [name, payload, timestamp] of pending) {
+        if (!runtime.enabled) break;
+        try { runtime.adapter.capture(name, payload, { timestamp }); } catch {}
+      }
+    }
     return Object.freeze({
       beforeSend: filterOutbound,
       enabled: runtime.enabled,
@@ -372,7 +383,13 @@
       release_channel: runtime.releaseChannel,
     };
     try {
-      if (!runtime.adapter || typeof runtime.adapter.capture !== "function") return false;
+      if (!runtime.adapter || typeof runtime.adapter.capture !== "function") {
+        // Only validated, consent-eligible events wait for asynchronous SDK load.
+        // Keep the earliest startup denominators, bound memory, never persist.
+        if (runtime.pending.length >= 64) return false;
+        runtime.pending.push([eventName, Object.freeze(payload), new Date(runtime.now())]);
+        return true;
+      }
       runtime.adapter.capture(eventName, Object.freeze(payload));
       return true;
     } catch { return false; }
@@ -409,7 +426,20 @@
       if (typeof properties[key] !== "string" || properties[key].length < 8 || properties[key].length > 64 || !/^[a-zA-Z0-9_-]+$/.test(properties[key])) return null;
       clean[key] = properties[key];
     }
-    return Object.freeze({ event: envelope.event, properties: Object.freeze(clean) });
+    // The SDK timestamps before before_send. Keep only a validated transport
+    // timestamp, so delayed startup events retain their original funnel timing.
+    let timestamp;
+    if (envelope.timestamp !== undefined) {
+      const value = envelope.timestamp;
+      if (!(value instanceof Date) && (typeof value !== "string" ||
+        !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value))) return null;
+      const parsed = new Date(value);
+      if (!Number.isFinite(parsed.getTime())) return null;
+      // SDK 1.400.0 request batching subtracts this Date to derive offset.
+      timestamp = parsed;
+    }
+    return Object.freeze({ event: envelope.event, properties: Object.freeze(clean),
+      ...(timestamp === undefined ? {} : { timestamp }) });
   }
 
   function transportIdentity(properties) {
@@ -490,6 +520,7 @@
 
   function setEnabled(enabled) {
     runtime.enabled = enabled === true;
+    if (!runtime.enabled) runtime.pending = [];
     storageSet(PREFERENCE_KEY, String(runtime.enabled));
     try {
       if (runtime.adapter && typeof runtime.adapter.setEnabled === "function") runtime.adapter.setEnabled(runtime.enabled);

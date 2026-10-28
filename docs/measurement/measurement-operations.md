@@ -30,6 +30,42 @@ app-version range, and private attribution roster using
 empty person-property test cohort as evidence that founder traffic is excluded.
 Keep internal and unclassified traffic visible in diagnostics, not pilot metrics.
 
+## Live verification — 2026-10-28 (#529)
+
+Read-only `project-get` inspection of project **572717** (UTC), through the
+connected PostHog app, confirmed the following project configuration. No live
+settings or data were changed.
+
+| Setting | Observed value | Assessment against required state |
+|---|---|---|
+| `anonymize_ips` | `false` | IP minimization remains unresolved; this setting alone does not establish which IP the ingestion proxy stores or geolocation retention. |
+| `autocapture_opt_out` | `false` | Project allows autocapture; the client's five-action allowlist still needs live ingestion verification. |
+| `autocapture_web_vitals_opt_in`, `capture_performance_opt_in`, `capture_console_log_opt_in` | `true` | Drift from the runbook's disabled requirement; client disables these paths, but project reconciliation remains a release gate. |
+| `capture_dead_clicks` | `false` | Matches required state. |
+| `session_recording_opt_in` | `true` | Enabled; does not prove an eligible recording was captured safely. |
+| `session_recording_masking_config` | `maskAllInputs: true` | Input masking set; text/attribute masking and blocked regions still require actual recording inspection. |
+| `session_recording_sample_rate`, minimum duration, linked flag | `null` | No explicit values returned; do not equate null with verified 100% eligible sampling. |
+| `session_recording_network_payload_capture_config` | `null` | No explicit project configuration returned; does not prove bodies/headers absent. |
+| `session_recording_retention_period` | `30d` | Observed retention, not a new policy approval. |
+
+This connection exposes project reads but no project-update or replay-read
+operation. Person-profile provenance, IP/geo values at rest, replay masking,
+retention approval, and successful controlled production ingestion remain
+**unverified**. The historical #529 counts remain historical; this settings
+inspection neither confirms a current data leak nor clears the privacy gate.
+SDK configuration and [PostHog's anonymous-event documentation](https://posthog.com/docs/libraries/js/usage#anonymous-and-identified-events)
+are separate from project and stored-data evidence.
+
+The startup-delivery slice uses a memory-only FIFO of at most 64 validated,
+consent-eligible events while the SDK adapter is unavailable. It retains the
+earliest events, refuses overflow, and clears on opt-out or installation-storage
+changes. Attachment drains once, preserving the original occurrence time via
+SDK transport options ([timestamp semantics](https://posthog.com/docs/data/timestamps)).
+It does not persist events across reload or promise delivery through a permanently
+blocked SDK. Module/browser adapter proofs do not replace the controlled
+production-ingestion matrix below. The first-working-set milestone correction
+and other #529 checklist items remain separate work.
+
 ## Zero-tolerance health queries
 
 | Invariant | Threshold | Immediate response | Owner |
