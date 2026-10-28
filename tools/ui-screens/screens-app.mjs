@@ -510,7 +510,12 @@ async function enterWorkout(page, options = {}) {
   await sleep(page, 600);
 }
 
-async function focusMode(page) { await enterWorkout(page); }
+/** Focus on the program's first day. Boot now defaults to the day after the last one trained (#528), so a state that
+ *  depicts the first lift of a session names its day instead of inheriting whichever day the fixture's history implies. */
+async function focusMode(page) {
+  const first = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_v1") || "{}").program?.[0]?.day || null);
+  await enterWorkout(page, first ? { day: first } : {});
+}
 
 async function openTransferState(page, state) {
   await page.evaluate((name) => window.__repforgeUi.openInstallTransferState(name), state);
@@ -1147,7 +1152,7 @@ async function createInUseCustomExercise(page) {
  * clock stands where the rest started: 2:00 of 2:00 until the scenario moves it through the rest controls.
  */
 async function startInlineRest(page) {
-  await enterWorkout(page);
+  await focusMode(page);
   await logCurrentSet(page, { load: "102.5", reps: "8", rir: "1" });
   // The rest timer redesign: the rest rises as a tab out of the shelf's top edge (no clock in the card).
   await page.waitForSelector("#workout .exercise.is-current .focus-shelf #restTab", { timeout: 20000 });
@@ -2007,7 +2012,7 @@ export const APP_SCENARIOS = {
   },
 
   "workout/stale-draft": async (page) => {
-    await enterWorkout(page);
+    await focusMode(page);
     await page.evaluate(async () => {
       const hook = window.__repforgeWorkoutDraft;
       const draft = hook.current();
@@ -2036,7 +2041,7 @@ export const APP_SCENARIOS = {
     await sleep(page, 400);
   },
   "workout/persist-retry": async (page) => {
-    await enterWorkout(page);
+    await focusMode(page);
     await page.evaluate(() => { window.__repforgeDraftFault = "before-canonical-write"; });
     await fillAdaptiveShelf(page, ADAPTIVE_WEIGHT_METRIC_ID, "82.5");
     await page.waitForFunction(() => window.__repforgeWorkoutDraft.recovery()?.kind === "persist");
