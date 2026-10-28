@@ -438,9 +438,13 @@ export function appState(key, lang) {
 async function editorIdleA(page) {
   await page.waitForSelector('#programEditor [data-role="editor"][data-layout="review"]:not([aria-busy="true"])', { timeout: 20000 });
 }
+/** The editor's page sheet, open and at rest. A row clicked while the sheet is still sliding up can look out of view,
+ *  so the click scrolls the sheet first; at rest it does not. Clicking only once the sheet is in place keeps the
+ *  sheet's scroll offset the same in every run (the strict catalog verify saw it move under the exercise sheet). */
 async function openEditorA(page) {
   await page.click("#programEditToggle");
   await editorIdleA(page);
+  await editorSheetAtRest(page);
 }
 async function editorSheetAtRest(page) {
   await page.waitForFunction(() => {

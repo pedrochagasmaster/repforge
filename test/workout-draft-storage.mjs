@@ -336,6 +336,24 @@ async function commandFixture(page, field, value, operationId) {
   }, { field, metricId: METRIC_OF[field] || null, value: String(value), operationId });
 }
 
+/** The stored bytes once every pending write has landed: the draft's and the state's writers flushed. A read taken
+ *  straight after a command, or after a fixed wait, could see a write still in flight and report bytes that "changed"
+ *  (CI, #549: "day-only intent refuses RIR mode change", failed then passed on replay). */
+async function settledRawState(page) {
+  await page.evaluate(async () => {
+    await window.__repforgeWorkoutDraft?.flush?.();
+    await window.__repforgeStorage?.flush?.();
+  });
+  return rawState(page);
+}
+
+/** Choose an RIR mode from Settings' menu and wait for the menu to close: the choice has been handled, applied or refused. */
+async function chooseRirMode(page, value) {
+  await page.locator("#rirModeRow").click();
+  await page.locator(`#nativeContextMenu [data-menu-value="${value}"]`).click();
+  await page.waitForSelector("#nativeContextMenu", { state: "detached" });
+}
+
 async function rawState(page) {
   return page.evaluate(({ state, draft, checkpoint, recovery }) => {
     const parse = (key) => { try { return JSON.parse(localStorage.getItem(key) || "null"); } catch { return "invalid"; } };
@@ -499,11 +517,11 @@ async function main() {
         draft.session.contextTouched?.date === true && draft.session.contextTouched?.sessionNotes === true &&
         draft.session.contextTouched?.bodyweight === true;
     });
-    const clearedContextBefore = await rawState(page);
+    const clearedContextBefore = await settledRawState(page);
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForBoot(page);
     await enter(page);
-    const clearedContextAfter = await rawState(page);
+    const clearedContextAfter = await settledRawState(page);
     const reloadedContext = JSON.parse(clearedContextAfter.raw);
     check(clearedContextAfter.raw === clearedContextBefore.raw &&
       reloadedContext.session.contextTouched.date && reloadedContext.session.contextTouched.sessionNotes &&
@@ -515,10 +533,8 @@ async function main() {
     });
     await page.evaluate(() => window.__repforgeShowSettings());
     await page.waitForSelector("#settings.active");
-    await page.locator("#rirModeRow").click();
-    await page.locator('#nativeContextMenu [data-menu-value="effort"]').click();
-    await page.waitForTimeout(150);
-    const refusedContext = await rawState(page);
+    await chooseRirMode(page, "effort");
+    const refusedContext = await settledRawState(page);
     check(refusedContext.state.settings.rirMode === "numeric" && refusedContext.raw === clearedContextBefore.raw,
       "context intent refuses RIR mode change and preserves the exact DraftV2 bytes", {
         mode: refusedContext.state.settings.rirMode,
@@ -529,7 +545,7 @@ async function main() {
     await enter(page, "Day 1");
     await page.evaluate(() => window.__repforgeEnterWorkout({day: "Day 2" }));
     await page.waitForSelector("#workout.is-focus .exercise.is-current");
-    const dayIntent = await rawState(page);
+    const dayIntent = await settledRawState(page);
     const dayDraft = JSON.parse(dayIntent.raw);
     check(dayDraft.program.dayLabel === "Day 2" && dayDraft.revision === 0 &&
       dayDraft.session.contextTouched.day === true && !dayDraft.session.contextTouched.date &&
@@ -538,10 +554,8 @@ async function main() {
     const dayBeforeMode = dayIntent.raw;
     await page.evaluate(() => window.__repforgeShowSettings());
     await page.waitForSelector("#settings.active");
-    await page.locator("#rirModeRow").click();
-    await page.locator('#nativeContextMenu [data-menu-value="effort"]').click();
-    await page.waitForTimeout(150);
-    const dayRefused = await rawState(page);
+    await chooseRirMode(page, "effort");
+    const dayRefused = await settledRawState(page);
     check(dayRefused.state.settings.rirMode === "numeric" && dayRefused.raw === dayBeforeMode,
       "day-only intent refuses RIR mode change and preserves exact bytes");
 
@@ -556,20 +570,18 @@ async function main() {
       return draft?.session?.notes === "" && flags?.sessionNotes === true &&
         flags.date === false && flags.bodyweight === false;
     });
-    const noteOnlyBefore = await rawState(page);
+    const noteOnlyBefore = await settledRawState(page);
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForBoot(page);
     await enter(page);
-    const noteOnlyAfter = await rawState(page);
+    const noteOnlyAfter = await settledRawState(page);
     check(noteOnlyAfter.raw === noteOnlyBefore.raw &&
       JSON.parse(noteOnlyAfter.raw).session.contextTouched.sessionNotes === true,
       "a cleared note marker survives reload with exact DraftV2 bytes");
     await page.evaluate(() => window.__repforgeShowSettings());
     await page.waitForSelector("#settings.active");
-    await page.locator("#rirModeRow").click();
-    await page.locator('#nativeContextMenu [data-menu-value="effort"]').click();
-    await page.waitForTimeout(150);
-    const noteOnlyRefused = await rawState(page);
+    await chooseRirMode(page, "effort");
+    const noteOnlyRefused = await settledRawState(page);
     check(noteOnlyRefused.state.settings.rirMode === "numeric" && noteOnlyRefused.raw === noteOnlyBefore.raw,
       "a cleared-note-only draft refuses RIR mode change without changing its bytes");
 
@@ -583,7 +595,7 @@ async function main() {
     await page.locator("#rirModeRow").click();
     await page.locator('#nativeContextMenu [data-menu-value="effort"]').click();
     await page.waitForFunction(() => JSON.parse(localStorage.getItem("repforge_v1") || "{}").settings?.rirMode === "effort");
-    check((await rawState(page)).state.settings.rirMode === "effort",
+    check((await settledRawState(page)).state.settings.rirMode === "effort",
       "a fresh DraftV2 permits the RIR mode change");
 
     console.log("\n1a. Immediate Complete then Finish orders the acknowledged write");
