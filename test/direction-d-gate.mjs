@@ -272,7 +272,7 @@ try {
       "an element that is not on the list still fails beside listed ones", show(listed));
     // The running rest's drain (rest timer redesign): the light along the shelf's contour is the budget's timer use;
     // accent on the tab's running label is not.
-    const drainMarkup = `<div class="focus-shelf" id="seedRest" style="position:relative"><svg class="restlight" width="300" height="40" style="position:absolute;top:0;left:0"><path class="restlight__core" id="seedDrainFill" d="M0,20 H300" style="stroke:var(--accent);stroke-width:1.25;fill:none"/></svg>
+    const drainMarkup = `<div class="focus-shelf" id="seedRest" style="position:relative"><svg class="restlight" width="300" height="40" style="position:absolute;top:0;left:0"><path class="restlight__core" id="seedDrainFill" d="M0,34 A20,20 0 0 1 20,14 H300" style="stroke:var(--accent);stroke-width:1.25;fill:none"/></svg>
         <button type="button" class="resttab"><span class="resttab__label" id="seedRestLabel" style="color:var(--accent)">Rest</span><span class="resttab__time" id="seedRestClock">1:30</span></button></div>`;
     const drainEmpty = checkOrange(await seeded(page, drainMarkup, { allowlist: [] }));
     check(has(drainEmpty, "orange", "#seedDrainFill"), "the drain's light is accent paint and is rejected when it is not on the list", show(drainEmpty));
