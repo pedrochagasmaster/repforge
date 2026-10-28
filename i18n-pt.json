@@ -1495,7 +1495,7 @@
   "program.volume_audit.title": "Volume semanal planejado",
   "program.volume_audit.method": "Cada série planejada conta uma vez para cada músculo que o exercício trabalha primeiro e meia vez para cada músculo que ele também trabalha. O total soma essas contagens entre os músculos, por isso é maior que o número de séries do programa.",
   "program.volume_audit.by_muscle": "Por músculo",
-  "program.volume_audit.split": "{direct} diretas · {secondary} secundárias",
+  "program.volume_audit.split": "{direct} séries diretas · {secondary} séries secundárias × ½",
   "program.volume_audit.full": "{n} séries × 1 = {value}",
   "program.volume_audit.half": "{n} séries × ½ = {value}",
   "program.volume_audit.empty": "Ainda não há séries planejadas.",

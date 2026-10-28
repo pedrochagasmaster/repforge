@@ -13935,6 +13935,8 @@ let volumeAuditReturn=null;
 /** The planned volume by muscle and where each count comes from, as prog.volume() counts it. */
 function plannedVolumeAudit(){
   const planned=prog.volume(),rows=[];let total=0;
+  // direct: the sets that train the muscle first; secondary: the half-credit it gets from sets that also work it (the
+  // row states those sets and their ½, so its parts add up in the head: direct + secondary sets × ½ = the figure).
   for(const [muscle,v] of planned){total+=v.d+v.p;rows.push({muscle,direct:v.d,secondary:v.p,total:v.d+v.p,from:[]})}
   const byMuscle=new Map(rows.map(r=>[r.muscle,r]));
   for(const e of prog.exercises){
@@ -13949,7 +13951,7 @@ function volumeAuditHtml(){
     `<p class="volaudit__method">${esc(t("program.volume_audit.method"))}</p>`+
     `<h3 class="section-label volaudit__label">${esc(t("program.volume_audit.by_muscle"))}</h3>`+
     `<div class="volaudit__list">${rows.map(r=>`<details class="volaudit__muscle"><summary class="volaudit__row">`+
-      `<span class="volaudit__name">${esc(muscleLabel(r.muscle))}<span class="volaudit__split">${esc(t("program.volume_audit.split",{direct:fmt(r.direct),secondary:fmt(r.secondary)}))}</span></span>`+
+      `<span class="volaudit__name">${esc(muscleLabel(r.muscle))}<span class="volaudit__split">${esc(t("program.volume_audit.split",{direct:fmt(r.direct),secondary:fmt(r.secondary*2)}))}</span></span>`+
       `<span class="volaudit__n">${esc(fmt(r.total))}</span><span class="chevron" aria-hidden="true"></span></summary>`+
       `<ul class="volaudit__from">${r.from.map(f=>`<li><span class="volaudit__ex">${esc(exerciseDisplayName(f.e))}<span class="volaudit__day">${esc(dayLabel(f.e.day))}</span></span>`+
         `<span class="volaudit__calc">${esc(t(f.weight===1?"program.volume_audit.full":"program.volume_audit.half",{n:fmt(f.sets),value:fmt(f.sets*f.weight)}))}</span></li>`).join("")}</ul></details>`).join("")}</div>`}
