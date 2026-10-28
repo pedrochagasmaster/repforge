@@ -326,7 +326,7 @@ async function main() {
     await openReview(page);
     await page.locator('[data-review-action="schedule-repair"]').click();
     await page.locator('[data-diag="fewer_days"]').click();
-    await page.locator("[data-diag-target]").fill("3");
+    await page.locator('[data-diag-days="3"]').click();
     await page.locator("[data-diag-continue]").click();
     await page.locator("[data-preview-confirm]").waitFor({ state: "visible", timeout: 15000 });
     const daysPreview = await page.locator("#reviewPanel").innerText();
@@ -551,7 +551,7 @@ async function main() {
     await openReview(pt);
     await pt.locator('[data-review-action="schedule-repair"]').click();
     await pt.locator('[data-diag="fewer_days"]').click();
-    await pt.locator("[data-diag-target]").fill("3");
+    await pt.locator('[data-diag-days="3"]').click();
     await pt.locator("[data-diag-continue]").click();
     await pt.locator("[data-preview-confirm]").waitFor({ state: "visible", timeout: 15000 });
     const ptProposal = (await pt.evaluate(() => window.__repforgeProgressReview.flow())).proposal;
@@ -598,7 +598,7 @@ async function main() {
     await openReview(manual);
     await manual.locator('[data-review-action="schedule-repair"]').click();
     await manual.locator('[data-diag="fewer_days"]').click();
-    await manual.locator("[data-diag-target]").fill("3");
+    await manual.locator('[data-diag-days="3"]').click();
     await manual.locator("[data-diag-continue]").click();
     await manual.locator("[data-flow-editor]").waitFor({ state: "visible", timeout: 15000 });
     const staged = await manual.evaluate(() => JSON.parse(localStorage.getItem("repforge_program_setup_draft_v1") || "null"));

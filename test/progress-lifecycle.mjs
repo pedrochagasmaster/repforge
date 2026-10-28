@@ -83,8 +83,8 @@ if (BROWSER) {
   const DAY = 86400000;
   const START = Date.parse("2026-03-02T09:00:00.000Z");
 
-  async function freshPage() {
-    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  async function freshPage(locale) {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, ...(locale ? { locale } : {}) });
     const page = await context.newPage();
     page.on("pageerror", (e) => errors.push(String(e)));
     await page.clock.setFixedTime(new Date(START));
@@ -146,7 +146,9 @@ if (BROWSER) {
     await page.click(`[data-review-action="${action}"]`);
     await page.waitForSelector("[data-diag-continue]", { timeout: 5000 });
     await page.click(`[data-diag="${kind}"]`);
-    await page.fill("[data-diag-target]", String(value));
+    // Days are the onboarding day-count tiles (owner, 2026-10-25); minutes stay a typed number.
+    if (kind === "fewer_days") await page.click(`[data-diag-days="${value}"]`);
+    else await page.fill("[data-diag-target]", String(value));
     await page.click("[data-diag-continue]");
     await page.waitForFunction(() =>
       !!document.querySelector("[data-preview-confirm]") || !!document.querySelector(".review__staged"),
@@ -156,6 +158,41 @@ if (BROWSER) {
       staged: !!document.querySelector(".review__staged"),
       text: document.querySelector("#reviewPanel")?.innerText || "",
     }));
+  }
+
+  // Journey D (owner, 2026-10-25): "How many days can you train?" is onboarding's day-count tiles, the program's current
+  // days per week chosen to begin with; a tap sets the target the repair uses, and the proposal is built from it.
+  for (const [locale, word] of [["en-US", "days"], ["pt-BR", "dias"]]) {
+    const { context, page } = await freshPage(locale);
+    await seedGeneratedProgram(page, { days: 4, minutes: 90 });
+    await finishBlock(page);
+    await openReview(page);
+    await page.click('[data-review-action="schedule-repair"]');
+    await page.waitForSelector("[data-diag-continue]", { timeout: 5000 });
+    const tiles = () => page.evaluate(() => ({
+      input: !!document.querySelector("#reviewPanel [data-diag-target]"),
+      group: document.querySelector("#reviewPanel [data-diag-days]")?.closest('[role="radiogroup"]')?.getAttribute("aria-labelledby") || null,
+      tiles: [...document.querySelectorAll("#reviewPanel [data-diag-days]")].map((tile) => ({
+        n: Number(tile.dataset.diagDays), text: tile.textContent.trim(),
+        selected: tile.classList.contains("is-selected") && tile.getAttribute("aria-checked") === "true" })),
+    }));
+    const opened = await tiles();
+    assert.equal(opened.input, false, `${locale}: the days question has no number box`);
+    assert.deepEqual(opened.tiles.map((tile) => [tile.n, tile.text]), [2, 3, 4, 5, 6].map((n) => [n, `${n} ${word}`]),
+      `${locale}: the days are onboarding's tiles, 2 to 6 ${word}`);
+    assert.ok(opened.group && await page.locator(`#${opened.group}`).count(), `${locale}: the tiles are a radiogroup named by the question`);
+    assert.deepEqual(opened.tiles.filter((tile) => tile.selected).map((tile) => tile.n), [4], `${locale}: the program's current 4 days are chosen`);
+    assert.equal((await page.evaluate(() => window.__repforgeProgressReview.flow())).target, "4", `${locale}: the flow's target starts at the current days`);
+    await page.click('[data-diag-days="3"]');
+    const picked = await tiles();
+    assert.deepEqual(picked.tiles.filter((tile) => tile.selected).map((tile) => tile.n), [3], `${locale}: one tap chooses 3 days`);
+    assert.equal((await page.evaluate(() => window.__repforgeProgressReview.flow())).target, "3", `${locale}: the tap sets the target the repair uses`);
+    await page.click("[data-diag-continue]");
+    await page.waitForSelector("[data-preview-confirm]", { timeout: 15000 });
+    const proposal = (await page.evaluate(() => window.__repforgeProgressReview.flow())).proposal;
+    const proposedDays = proposal?.successor?.programDefinition?.days?.filter((day) => day.kind === "training").length;
+    assert.equal(proposedDays, 3, `${locale}: the proposal step receives the picked 3 days`);
+    await context.close();
   }
 
   // Journey A: a fewer-days successor previews its exact diff and changes
@@ -224,14 +261,15 @@ if (BROWSER) {
   }
 
   // Journey C: a fewer-days target the generator cannot meet stages the
-  // exact-program guided draft with the diagnosed constraint and no archive.
+  // exact-program guided draft with the diagnosed constraint and no archive. The day tiles offer onboarding's 2–6
+  // (owner, 2026-10-25), so the unmeetable target is the program's own 2 days: nothing fewer to generate.
   {
     const { context, page } = await freshPage();
-    await seedGeneratedProgram(page, { days: 3, minutes: 90 });
+    await seedGeneratedProgram(page, { days: 2, minutes: 90 });
     await finishBlock(page);
     await openReview(page);
     const before = await stateOf(page);
-    const step = await driveToPreview(page, { kind: "fewer_days", value: 1 });
+    const step = await driveToPreview(page, { kind: "fewer_days", value: 2 });
     assert.equal(step.staged, true, "an impossible successor falls back to the guided editor");
     const after = await stateOf(page);
     assert.equal(after.metaId, before.metaId, "guided staging never archives");
@@ -242,7 +280,7 @@ if (BROWSER) {
       "the draft carries the live definition for editing");
     const diag = draft?.state?.result?.diagnostics || null;
     assert.equal(diag?.mainConstraint, "fewer_days", "the draft carries the diagnosed constraint");
-    assert.equal(diag?.daysPerWeek, 1, "the draft carries the exact target");
+    assert.equal(diag?.daysPerWeek, 2, "the draft carries the exact target");
     await page.click("[data-flow-cancel]");
     await page.waitForFunction(() => localStorage.getItem("repforge_program_setup_draft_v1") === null);
     const cancelled = await stateOf(page);
