@@ -238,6 +238,62 @@ console.log("\nToday — completed session state");
   await context.close();
 }
 
+// #528: a real save, next-calendar-day cold boot, and CTA/draft agreement.
+{
+  const { context, page } = await freshPage(browser);
+  await page.clock.install({ time: new Date("2026-10-26T12:00:00") });
+  await logAndSaveToday(page, "Day 1");
+  await page.clock.setFixedTime(new Date("2026-10-27T12:00:00"));
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  const view = await todayView(page);
+  assert(view.session.includes("Day 2"), "Next-day boot recommends Day 2 after completing Day 1", view.session);
+  assert(view.upNext.includes("Day 3"), "Up next follows the recommended session", view.upNext);
+  await page.locator("#startWorkout").click();
+  await page.waitForSelector("#workoutShell:not(.hidden)");
+  const draft = await page.evaluate(() => window.__repforgeWorkoutDraft.current());
+  assert(draft?.program?.dayLabel === "Day 2", "Today CTA starts the recommended Day 2", draft?.program);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  await page.locator("#startWorkout").click();
+  const resumed = await page.evaluate(() => window.__repforgeWorkoutDraft.current());
+  assert(resumed?.draftId === draft?.draftId, "Reload preserves the recommended-day draft");
+  await context.close();
+}
+
+// Queue identity and chronology: edited dates and unrelated work cannot advance it.
+{
+  const { context, page } = await freshPage(browser);
+  await page.clock.install({ time: new Date("2026-10-27T12:00:00") });
+  const original = await readState(page);
+  const state = { ...original, programMeta: { ...original.programMeta, blockId: "active-queue-block" } };
+  const a = sessionRows(state, "Day 1", "2026-10-26");
+  // A program edit moves a completed slot; history still describes Day 1.
+  const moved = structuredClone(state);
+  moved.program.find(ex => ex.day === "Day 1").day = "Day 2";
+  await persistState(page, { ...moved, log: a });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  assert((await todayView(page)).session.includes("Day 2"), "Moved slot does not relabel the completed session");
+
+  const b = sessionRows(state, "Day 2", "2026-10-25").map(row => ({ ...row, created: "2026-10-26T14:00:00.000Z" }));
+  const cases = [
+    ["archived block", sessionRows(state, "Day 3", "2026-10-26").map(row => ({ ...row, blockId: "old-block", created: "2026-10-26T15:00:00.000Z" })), "Day 2"],
+    ["future-dated work", sessionRows(state, "Day 3", "2026-10-28"), "Day 2"],
+    ["unrelated slots", sessionRows(state, "Day 3", "2026-10-26").map(row => ({ ...row, exerciseId: "one-off-slot", created: "2026-10-26T15:00:00.000Z" })), "Day 2"],
+    ["warmups", sessionRows(state, "Day 3", "2026-10-26").map(row => ({ ...row, warmup: true, created: "2026-10-26T15:00:00.000Z" })), "Day 2"],
+    ["edited calendar date preserves completion order", b, "Day 3"],
+  ];
+  for (const [name, extra, expected] of cases) {
+    await persistState(page, { ...state, log: [...a, ...extra] });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    const view = await todayView(page);
+    assert(view.session.includes(expected), `Queue: ${name}`, view.session);
+  }
+  await context.close();
+}
+
 // ---------------------------------------------------------------------------
 // 1b. Beating a previous best does show up in the recap
 // ---------------------------------------------------------------------------
@@ -404,7 +460,7 @@ console.log("\nToday — completed session state");
 }
 
 // ---------------------------------------------------------------------------
-// 4. Yesterday's session leaves today's suggestion alone
+// 4. Yesterday's session advances today's suggestion
 // ---------------------------------------------------------------------------
 {
   const { context, page } = await freshPage(browser);
@@ -419,6 +475,7 @@ console.log("\nToday — completed session state");
     "Trained yesterday: Today still offers a session to start",
     JSON.stringify({ start: view.startVisible, card: view.hasDoneCard, preview: view.hasExercisePreview })
   );
+  assert(view.session.includes("Day 2"), "Yesterday\'s Day 1 advances to Day 2", view.session);
   await context.close();
 }
 
