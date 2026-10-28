@@ -5188,12 +5188,19 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 #history .back-link{gap:var(--space-4);padding-left:0}
 #history .back-link .chevron{transform:rotate(180deg);color:inherit}
 
-/* "Every set" stays one table per set, so its seven columns have to share the
-   column: no 520px floor, tight cells, and the figures stay on one line. */
-#historyTable table{min-width:0}
-#historyTable th,#historyTable td{padding:var(--space-8) var(--space-4);white-space:normal;overflow-wrap:anywhere}
-#historyTable td{font-size:var(--font-size-caption)}
-#historyTable th:nth-child(n+4),#historyTable td:nth-child(n+4){text-align:right;white-space:nowrap}
+/* "Every set" (#524): each set under its session's head, on hairlines, ink only. The exercise takes the column and
+   wraps at word boundaries; under it the set, the figures in tabular numerals and the RIR, wrapping between them. */
+#historyTable.table{overflow:visible}
+.everyset__group+.everyset__group{margin-top:var(--space-16)}
+.everyset__head{margin:0;padding:var(--space-12) 0 var(--space-8);border-bottom:1px solid var(--boundary-decorative);font-family:var(--font-language);
+  font-size:var(--font-size-body-small);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
+.everyset__list{margin:0;padding:0;list-style:none}
+.everyset__row{display:flex;flex-direction:column;gap:2px;padding:var(--space-8) 0;border-bottom:1px solid var(--boundary-decorative)}
+.everyset__ex{min-width:0;overflow-wrap:break-word;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink)}
+.everyset__vals{font-family:var(--font-training-data);font-size:var(--font-size-caption);line-height:var(--line-standard);
+  font-variant-numeric:tabular-nums;color:var(--color-ink-secondary);overflow-wrap:break-word}
+.everyset__set{font-family:var(--font-language);white-space:nowrap}
+.everyset__rir{white-space:nowrap}
 /* @ci-domain program,entry */
 /* ---- Program overview as a ledger (Plan 064 R3k) ----
    The program on one page: the name, one line that says what it is, the week

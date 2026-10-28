@@ -228,6 +228,7 @@
   "history.title": "Histórico",
   "history.sessions": "Sessões",
   "history.every_set": "Todas as séries",
+  "history.everyset.warmup": "Aquecimento {n}",
   "history.metrics": "Métricas",
   "history.empty.sessions": "Nenhuma sessão ainda. Comece a primeira na aba Hoje.",
   "history.empty.no_match": "Nenhuma sessão correspondente",

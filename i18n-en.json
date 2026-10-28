@@ -228,6 +228,7 @@
   "history.title": "History",
   "history.sessions": "Sessions",
   "history.every_set": "Every set",
+  "history.everyset.warmup": "Warm-up {n}",
   "history.metrics": "Metrics",
   "history.empty.sessions": "No sessions yet. Start your first on the Today tab.",
   "history.empty.no_match": "No matching sessions",

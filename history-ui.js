@@ -125,6 +125,28 @@
       return records.map(record=>{
         const label=historyMetricLabel(record.definition),unit=historyMetricUnit(record.definition),shown=historyMetricText(record.value,record.definition);
         return`${label}: ${shown}${unit?` ${unit}`:""}`}).join(" · ")}
+    /** The date of a set's session as the group head says it: the long weekday date, with the year when it is not this one. */
+    function everySetDate(iso){
+      const year=String(iso||"").slice(0,4),label=formatLongDate(String(iso||""));
+      return year&&year!==String(new Date().getFullYear())?`${label}, ${year}`:label}
+    /** Every logged set under its session's head: the exercise across the column, then its set (or warm-up), the
+     *  figures as logged (metric-backed sets by their own labelled metrics) and the RIR. */
+    function everySetHtml(rows){
+      if(!rows.length)return`<div class="empty">${esc(t("stats.table.no_data"))}</div>`;
+      const groups=[];
+      for(const x of rows){
+        const last=groups[groups.length-1];
+        if(last&&last.date===x.date&&last.day===x.day)last.rows.push(x);else groups.push({date:x.date,day:x.day,rows:[x]})}
+      return`<div class="everyset">${groups.map(g=>{
+        const head=`${everySetDate(g.date)} · ${dayLabel(g.day)}`;
+        return`<section class="everyset__group" aria-label="${esc(head)}"><h3 class="everyset__head">${esc(head)}</h3><ul class="everyset__list">${g.rows.map(x=>{
+          const set=x.warmup?t("history.everyset.warmup",{n:x.set}):t("focus.set_label",{n:x.set});
+          // A figure keeps its label's colon, its unit and (a load) its reps on one line: lines break between metrics.
+          const figures=(isSourceMetricRow(x)?historyMetricSummary(x):`${fmtLoad(x.load)} ${unitLabel()} × ${x.reps}`)
+            .replace(/(\d) (?=(kg|lb|m|s)\b)/g,"$1\u00a0").replace(/ × /g,"\u00a0×\u00a0").replace(/: /g,":\u00a0");
+          const rir=x.rir==null?"":`${t("stats.table.rir")} ${fmt(x.rir)}`;
+          return`<li class="everyset__row"><span class="everyset__ex">${esc(shownName(x))}</span>`+
+            `<span class="everyset__vals"><span class="everyset__set">${esc(set)}</span> · ${esc(figures)}${rir?`<span class="everyset__rir"> · ${esc(rir)}</span>`:""}</span></li>`}).join("")}</ul></section>`}).join("")}</div>`}
     const historyMetricErrorKey=metric=>["reps","repsPerSide"].includes(metric?.semantic)?"validation.reps"
       :["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg"].includes(metric?.semantic)?"validation.load":"validation.metric";
     const parseHistoryMetric=typeof parseHistoryMetricInput==="function"
@@ -939,15 +961,10 @@ function renderHistory(source=state.log){
     const next=$$("#sessions .session__open").find(btn=>btn.closest("[data-sess]")?.dataset.sess===focusedSession);
     if(next&&canTakeFocus(next)){try{next.focus({preventScroll:true})}catch{try{next.focus()}catch{}}}}
   $$("#sessions [data-edit]").forEach(b=>b.onclick=e=>{e.stopPropagation();historyStartReading(b.dataset.edit)});
-  const hasSourceMetrics=index.tableRows.some(isSourceMetricRow);
-  const rows=index.tableRows.map(x=>hasSourceMetrics
-    ?{[t("stats.table.date")]:x.date,[t("stats.table.day")]:dayLabel(x.day),[t("stats.table.exercise")]:shownName(x),
-      [t("stats.table.set")]:x.warmup?"W"+x.set:x.set,
-      [t("history.metrics")]:isSourceMetricRow(x)?historyMetricSummary(x)
-        :`${fmtLoad(x.load)} ${unitLabel()} × ${x.reps}`,
-      [t("stats.table.rir")]:x.rir==null?"":fmt(x.rir)}
-    :{[t("stats.table.date")]:x.date,[t("stats.table.day")]:dayLabel(x.day),[t("stats.table.exercise")]:shownName(x),[t("stats.table.set")]:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),[t("stats.table.reps")]:x.reps,[t("stats.table.rir")]:fmt(x.rir)});
-  $("#historyTable").innerHTML=table(rows);
+  // "Every set" (#524): one readable line per set, grouped under its session's date and day, in the same descending
+  // order and with the same figures the old seven-column table carried. A phone column (and the app never runs wider
+  // than 560px) could not hold those columns: names, dates and headings broke into letters.
+  $("#historyTable").innerHTML=everySetHtml(index.tableRows);
 }
 
 
