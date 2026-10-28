@@ -10,8 +10,8 @@
 
   function createAdapter(posthog) {
     return Object.freeze({
-      capture(eventName, properties) {
-        try { posthog.capture(eventName, properties); } catch {}
+      capture(eventName, properties, options) {
+        try { posthog.capture(eventName, properties, options); } catch {}
       },
       setEnabled(enabled) {
         try {

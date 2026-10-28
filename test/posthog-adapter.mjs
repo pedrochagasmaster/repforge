@@ -101,9 +101,12 @@ assert.equal(SDK_VERSION, "1.400.0");
     _requestQueue: { clear: () => calls.push(["clear"]) },
   });
   adapter.capture("first_set_logged", { telemetry_schema_version: 1 });
+  const timestamp = new Date("2026-10-27T12:00:00.000Z");
+  adapter.capture("app_boot", {}, { timestamp });
+  assert.equal(calls[1][3].timestamp, timestamp, "buffered occurrence time reaches SDK transport options");
   adapter.setEnabled(false);
   adapter.setEnabled(true);
-  assert.deepEqual(calls.map(call => call[0]), ["capture", "stop", "out", "clear", "in", "start"]);
+  assert.deepEqual(calls.map(call => call[0]), ["capture", "capture", "stop", "out", "clear", "in", "start"]);
 }
 
 {
