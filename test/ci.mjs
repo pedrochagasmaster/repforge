@@ -568,6 +568,22 @@ test("the gate accepts skipped jobs only when the plan skipped them", () => {
   }
 });
 
+test("every full-history browser runner uses blobless checkout without losing historical commits", () => {
+  const workflow = readFileSync(join(process.cwd(), ".github/workflows/ci.yml"), "utf8");
+  const section = (name) => {
+    const start = workflow.indexOf(`\n  ${name}:\n`);
+    assert.ok(start !== -1, `${name} exists`);
+    return workflow.slice(start + 1).split(/\n  (?=[a-z][a-z0-9-]*:\n)/)[0];
+  };
+  for (const name of ["browser", "full-browser"]) {
+    const body = section(name);
+    assert.match(body, /uses: actions\/checkout@v5\n\s+with:\n\s+ref: .*\n\s+persist-credentials: false\n\s+filter: blob:none\n(?:\s*#.*\n)*\s+fetch-depth: 0/,
+      `${name} fetches all historical commits but only needed file blobs`);
+    assert.equal((body.match(/fetch-depth: 0/g) || []).length, 1, `${name} keeps exactly one full-history checkout`);
+  }
+  assert.doesNotMatch(section("plan"), /filter: blob:none/, "the planner keeps its ordinary shallow checkout");
+});
+
 test("the workflow stages the targeted full lane behind a passing PR lane", () => {
   const workflow = readFileSync(join(process.cwd(), ".github/workflows/ci.yml"), "utf8");
   assert.match(workflow, /shard: \$\{\{ fromJSON\(needs\.plan\.outputs\.shards\) \}\}/, "the shard list comes from the inventory, not the YAML");

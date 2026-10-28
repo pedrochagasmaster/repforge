@@ -203,7 +203,15 @@ PR lane's browser commands add up to about 1,950 s; five runners hold about
 near eight minutes, against fourteen runners before that started together with
 the full lane and queued. The complete full lane adds up to about 12,550 s;
 twelve runners hold about 1,090 s each, so the PR lane (8 jobs) plus a complete
-full lane stays under the 20-job limit. The browser jobs cache the Chromium
+full lane stays under the 20-job limit. Both browser matrices retain full history (fetch-depth: 0) for migration
+tests that read old commit files, but apply filter: blob:none to avoid
+downloading every historical screenshot and other blob on every runner.
+Git fetches missing old blobs on demand; the repository is public and
+persist-credentials: false remains enabled. The planner, service and fast
+jobs stay on shallow checkouts. This changes transfer/setup, not coverage.
+See [the October 27 efficiency audit](audits/ci-runner-efficiency-2026-10-27.md).
+
+The browser jobs cache the Chromium
 shell and its apt packages: the mirror sometimes served the fonts at about
 30 kB/s, which made a few shards spend 10–12 minutes installing.
 
