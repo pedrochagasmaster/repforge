@@ -40,27 +40,38 @@ async function startWorkout(context, { seed = false } = {}) {
   return page;
 }
 
+/** A named deadline for one awaited step, well under the suite's 600 s cap. page.evaluate and waitForFunction can wait
+ *  without end on a page whose main thread never yields; a CI run once spent 600 s inside holdStateTransaction
+ *  (#536, rule 13) and reported only "Target closed". A recurrence now fails within the step's budget and names it. */
+const STEP_MS = 30000;
+async function step(name, promise) {
+  let timer;
+  const deadline = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`${name} did not settle in ${STEP_MS / 1000} s`)), STEP_MS); });
+  try { return await Promise.race([promise, deadline]); } finally { clearTimeout(timer); }
+}
+
 async function holdStateTransaction(page) {
-  await page.evaluate(() => {
+  await step("holdStateTransaction: request the state-write lock", page.evaluate(() => {
     window.__a01StateLockHeld = false;
     window.__a01StateLock = navigator.locks.request("repforge:state-write", () => new Promise((resolve) => {
       window.__a01ReleaseStateLock = resolve;
       window.__a01StateLockHeld = true;
     }));
-  });
-  await page.waitForFunction(() => window.__a01StateLockHeld === true);
-  await page.evaluate(() => {
+  }));
+  await step("holdStateTransaction: the state-write lock is held", page.waitForFunction(() => window.__a01StateLockHeld === true, undefined, { timeout: 0 }));
+  await step("holdStateTransaction: stage the settings commit", page.evaluate(() => {
     const hook = window.__repforgeWorkoutDraft;
     const proposal = hook.state();
     proposal.settings.restSec = 123;
     window.__a01StateCommit = hook.commitEffect(proposal, hook.effect.preserve());
-  });
-  await page.waitForFunction((prefix) => Object.keys(localStorage).some((key) => key.startsWith(prefix)), JOURNAL_PREFIX);
+  }));
+  await step("holdStateTransaction: the commit's journal entry is written",
+    page.waitForFunction((prefix) => Object.keys(localStorage).some((key) => key.startsWith(prefix)), JOURNAL_PREFIX, { timeout: 0 }));
 }
 
 async function releaseStateTransaction(page) {
-  await page.evaluate(() => window.__a01ReleaseStateLock?.());
-  return page.evaluate(() => window.__a01StateCommit);
+  await step("releaseStateTransaction: release the state-write lock", page.evaluate(() => window.__a01ReleaseStateLock?.()));
+  return step("releaseStateTransaction: the settings commit settles", page.evaluate(() => window.__a01StateCommit));
 }
 
 async function stored(page) {
