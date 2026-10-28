@@ -7396,6 +7396,24 @@ function todayRecap(week){const sessions=sessionsToday();if(!sessions.length)ret
 function nextDayAfter(from){const ds=days();if(!ds.length)return null;
   const i=ds.indexOf(from);if(i<0)return ds[0];
   return ds.length>1?ds[(i+1)%ds.length]:null}
+/** Default queue follows committed active-program work, never editable history dates.
+ * Block identity is authoritative; legacy rows additionally need a current slot.
+ * This is a boot default only: explicit choices and recovered drafts retain ownership.
+ */
+function defaultPlannedDay(){
+  const ds=days(),slots=new Map((state.program||[]).map(ex=>[ex.id,ex]));
+  const block=state.programMeta?.blockId,now=Date.now(),iso=today();
+  let latest=null;
+  for(const row of state.log||[]){
+    const slot=slots.get(row.exerciseId),created=Date.parse(row.created);
+    if(!slot||!ds.includes(row.day)||!isWork(row)||String(row.date)>iso||
+      !Number.isFinite(created)||created>now)continue;
+    if(block?row.blockId!==block:row.blockId!=null)continue;
+    // Without a block stamp, refuse history predating the active program.
+    if(!block&&created<Date.parse(state.programMeta?.created))continue;
+    if(!latest||created>latest.created)latest={created,day:row.day};
+  }
+  return latest?(nextDayAfter(latest.day)||latest.day):(ds[0]||"Day 1")}
 /** The program day that follows the last one trained today. */
 function dayAfterTrainedToday(){const done=sessionsToday();
   return nextDayAfter(done.length?done.at(-1).day:day)}
@@ -22666,7 +22684,7 @@ async function applyBootDecision(decision){
   resetPersistenceBase(decision.kind==="first-run"?state:decision.snapshot);
   await refreshRecoveryProjectionCache(state);
   await DraftStore.promote(null,draftContextFingerprint(state));
-  day=days()[0]||"Day 1";
+  day=defaultPlannedDay();
   applyGotoParam();
   const migrated=migrateLog();
   const metaDrift=decision.snapshot&&canonicalPayload({programMeta:decision.snapshot.programMeta})!==canonicalPayload({programMeta:state.programMeta});
