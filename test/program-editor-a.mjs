@@ -23,7 +23,7 @@
  * Run: node tools/run-tests.mjs entry --suite program-editor-a
  */
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
-import { installSeedProgram } from "./fixtures/seed-program.mjs";
+import { installSeedProgram, seedProgram } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -442,9 +442,9 @@ async function emptyDayJourney(page) {
   check(state.barVisible, "the bar stays visible for its reason while blocked", state);
   check(state.doneDisabled === true, "Done is disabled while the day is empty", state);
 
-  // #440's rest pill and the editor's Undo toast float over the page: while editing they ride above the pinned
-  // Apply band (its blocked reason included), the toast above the pill, and the sheet's own scroller
-  // (#programEditorWrap, not the body: Plan 075 phase 2B moved #program off the normal flow) reserves room for all three.
+  // The editor's Undo toast floats over the page above the pinned Apply band (its blocked reason included), and the
+  // sheet's own scroller (#programEditorWrap, not the body: Plan 075 phase 2B moved #program off the normal flow)
+  // reserves room for the band. The legacy rest pill never shows over the editor (#519), so nothing reserves room for it.
   const stack = await page.evaluate((selector) => {
     const pill = document.querySelector("#restBar");
     pill.classList.remove("hidden");
@@ -453,16 +453,100 @@ async function emptyDayJourney(page) {
     toast.className = "review-toast";
     toast.textContent = "Removed.";
     document.body.append(toast);
+    const probe = document.createElement("i");
+    probe.style.cssText = "position:fixed;height:var(--editor-apply-reserve)";
+    document.body.append(probe);
     const box = (element) => element.getBoundingClientRect();
-    const out = { pill: box(pill).bottom, pillTop: box(pill).top, toast: box(toast).bottom,
-      bar: box(document.querySelector(`${selector} [data-role="apply-bar"]`)).top,
+    const out = { pillShown: pill.getClientRects().length > 0, toast: box(toast).bottom,
+      bar: box(document.querySelector(`${selector} [data-role="apply-bar"]`)).top, band: probe.offsetHeight,
       reserve: parseFloat(getComputedStyle(document.querySelector("#programEditorWrap")).paddingBottom), viewport: innerHeight };
+    probe.remove();
     toast.remove();
     pill.classList.add("hidden");
     return out;
   }, EDITOR);
-  check(stack.pill <= stack.bar && stack.toast <= stack.pillTop, "the rest pill rides above the pinned Apply and the Undo toast above the pill", stack);
-  check(stack.reserve >= stack.viewport - stack.pillTop, "the sheet's own scroller reserves the band the bar and the pill cover", stack);
+  check(!stack.pillShown, "the legacy rest pill is not rendered over the editor, even when it is armed (#519)", stack);
+  check(stack.toast <= stack.bar, "the Undo toast rides above the pinned Apply", stack);
+  check(stack.reserve >= stack.viewport - stack.bar && Math.abs(stack.reserve - (stack.band + 16)) <= 1,
+    "the sheet's own scroller reserves the Apply band and no dead space for a pill", stack);
+}
+
+/** #519: a rest running, then run over, while the full-screen editor is open. No legacy pill shows over the sheet,
+ *  the clock is untouched, and on the way out the route's own rest surface carries it. */
+async function restPillJourney(browser) {
+  console.log("P519-REST-PILL");
+  const context = await browser.newContext({ viewport: { width: 320, height: 568 }, isMobile: true, hasTouch: true });
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(String(error?.stack || error)));
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
+  const day = seedProgram()[0].day;
+  await page.evaluate((d) => window.__repforgeEnterWorkout({ day: d }), day);
+  await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
+  // A rest begins with a logged set, which is also what gives the session its mini bar on the root tabs.
+  await page.evaluate(async () => {
+    const api = window.__repforgeWorkoutDraft, draft = api.current(), id = draft.exerciseOrder[0];
+    const setId = draft.exercises[id].setOrder.find((sid) => draft.exercises[id].sets[sid].role !== "warmup");
+    const set = draft.exercises[id].sets[setId];
+    if (Array.isArray(set.programmed.metrics)) {
+      for (const metric of set.programmed.metrics) await api.dispatch("editMetricValue", { exerciseInstanceId: id, setId, metricId: metric.id, value: /rep/i.test(metric.semantic || "") ? "8" : "60" });
+    } else {
+      await api.dispatch("editSetField", { exerciseInstanceId: id, setId, field: "load", value: "60" });
+      await api.dispatch("editSetField", { exerciseInstanceId: id, setId, field: "reps", value: "8" });
+    }
+    await api.dispatch("completeSet", { exerciseInstanceId: id, setId, completedAt: new Date().toISOString() });
+    await api.flush();
+    window.startRest(90);
+  });
+  await page.evaluate(() => window.__repforgeLeaveWorkout?.());
+  await page.waitForSelector("#todayDash:not(.hidden)", { timeout: 5000 });
+  const clock = () => page.evaluate(() => ({ end: restEnd, paused: restPaused, length: restLength }));
+  const shown = () => page.evaluate(() => {
+    const visible = (el) => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden";
+    return { pill: visible(document.querySelector("#restBar")), mini: visible(document.querySelector("#miniBar")),
+      miniRest: !!document.querySelector("#miniBar.is-rest"), restPhase: sessionRestPhase()?.kind || null,
+      tab: visible(document.querySelector("#restTab")) };
+  });
+  const before = await clock();
+  await page.click('nav button[data-view="program"]');
+  await page.waitForSelector("#program.view.active");
+  await page.waitForTimeout(300);
+  const program = await shown();
+  check(program.mini && program.miniRest && !program.pill, "on Program, before editing, the mini bar carries the rest", program);
+  await openEditor(page);
+  const running = await shown();
+  check(!running.pill && !running.mini, "with a rest running, neither the legacy pill nor the mini bar shows over the editor", running);
+  await page.evaluate(() => { window.__repforgeRest.expire(30); syncRest(); });
+  const overEnd = (await clock()).end;
+  await page.waitForTimeout(400);
+  const over = await shown();
+  check(!over.pill && !over.mini, "in overrun, the legacy pill still does not show over the editor", over);
+  const covered = await page.evaluate((selector) => {
+    const rows = [...document.querySelectorAll(`${selector} [data-role="exercise-row"]`)];
+    const last = rows[rows.length - 1];
+    last.scrollIntoView({ block: "end" });
+    const box = last.getBoundingClientRect(), hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+    return { reachable: !!hit && last.contains(hit), pillHit: !!hit?.closest("#restBar") };
+  }, EDITOR);
+  check(covered.reachable && !covered.pillHit, "the editor's last exercise row scrolls clear and takes its own tap", covered);
+  await page.click("#programEditCancel");
+  await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), undefined, { timeout: 10000 });
+  await page.waitForTimeout(300);
+  const after = await clock(), back = await shown();
+  check(after.end === overEnd && after.paused === before.paused && after.length === before.length && before.end > 0,
+    "opening and closing the editor leave the rest's end, hold and length as they were", { before, overEnd, after });
+  // Past the bell's hold the bar shows the session again rather than the rest, as it does anywhere (the mini bar's rule).
+  check(back.mini && back.miniRest === !!back.restPhase && !back.pill, "back on Program, the mini bar reflects the true clock and no legacy pill appears beside it", back);
+  // Resume from the mini bar, the way back into the workout from another tab.
+  await page.click("#miniBarResume");
+  await page.waitForSelector("#workout .exercise.is-current .focus-shelf #restTab", { timeout: 5000 });
+  const focus = await page.evaluate(() => ({ tabShown: document.querySelector("#restTab")?.getClientRects().length > 0, done: document.querySelector("#restTab")?.classList.contains("is-done"),
+    time: document.querySelector("#restTab .resttab__time")?.textContent || "", pill: document.querySelector("#restBar")?.getClientRects().length > 0 }));
+  check(focus.tabShown && focus.done && /^\+0:3\d$/.test(focus.time) && !focus.pill, "back in the workout, the Focus rest tab shows the true overrun, with no pill", focus);
+  check(!errors.length, "no page errors in the rest pill journey", errors);
+  await context.close();
 }
 
 async function main() {
@@ -481,6 +565,7 @@ async function main() {
     await sheetJourney(page);
     await emptyDayJourney(page);
     await reducedMotionJourney(browser);
+    await restPillJourney(browser);
     check(!errors.length, "no page errors", errors);
   } catch (error) {
     failures.push(String(error?.stack || error));

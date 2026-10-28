@@ -1636,7 +1636,7 @@ body:has(#miniBar:not(.hidden)) .restbar,body:has(#log.view.active #todayLive .t
    page reserves its band as well: the end of every tab scrolls clear of it, and
    Today's floating Start/Continue rides above it instead of under it. The band
    is the pill's gap above the dock plus its height, which grows with the text. */
-body:not(.is-focus-wo):has(#restBar:not(.hidden)):not(:has(#miniBar:not(.hidden))):not(:has(#log.view.active #todayLive .today-live)){
+body:not(.is-focus-wo):has(#restBar:not(.hidden)):not(:has(#miniBar:not(.hidden))):not(:has(#log.view.active #todayLive .today-live)):not(:has(:is(#program,[data-copy-id="program"]).program-editor-installed)){
   --restbar-reserve:calc(16px + max(44px, calc(var(--font-size-body-small) * var(--line-standard) + 18px)));
 }
 /* The mini bar: one frosted bar above the dock while a session is open, on the root tabs other than Today. It is the
@@ -3181,17 +3181,18 @@ td{font-size:var(--font-size-body-small);color:var(--ink);font-variant-numeric:t
 /* Plan 074 (ADR 0021): the installed editor in onboarding B's editing language. The rows, tabs, sheet and
    steppers are onboarding's review classes; these rules only place them in the Program tab and add what
    onboarding never needed (the week table, the pinned Apply that stands in for the dock). */
-/* The pinned Apply bar's band; a blocked reason above the button makes it taller. The rest pill (#440)
-   and the editor's Undo toast ride above it. Plan 075 phase 2B (ADR 0023) moved #program itself off the
-   normal flow and into its own page sheet, so what used to be body's reserve for that flow is now the
-   sheet's own scroller's (#programEditorWrap); the rest pill and toast stay body-level fixed overlays,
-   unaffected by the sheet's transform, and only need their z-index raised above it. */
+/* The pinned Apply bar's band; a blocked reason above the button makes it taller. The editor's Undo toast
+   rides above it. Plan 075 phase 2B (ADR 0023) moved #program itself off the normal flow and into its own page
+   sheet, so what used to be body's reserve for that flow is now the sheet's own scroller's (#programEditorWrap).
+   The legacy rest pill has no place over the full-screen editor (#519): the mini bar already gives way to the
+   editor, and the pill does too, so it neither shows nor reserves a band there. The rest runs on unchanged, and
+   on the way out the route's own rest surface (the Focus tab, Today's card, the mini bar) picks it up. */
 body:has(:is(#program,[data-copy-id="program"]).program-editor-installed){
   --editor-apply-reserve:calc(96px + env(safe-area-inset-bottom));
 }
 body:has(:is(#program,[data-copy-id="program"]).program-editor-installed):has(.program-editor-a__reason){--editor-apply-reserve:calc(128px + env(safe-area-inset-bottom))}
-body:has(:is(#program,[data-copy-id="program"]).program-editor-installed) .restbar{bottom:var(--editor-apply-reserve);z-index:42}
-body:has(:is(#program,[data-copy-id="program"]).program-editor-installed) .review-toast{bottom:calc(var(--editor-apply-reserve) + var(--restbar-reserve,0px))}
+body:has(:is(#program,[data-copy-id="program"]).program-editor-installed) .restbar{display:none!important}
+body:has(:is(#program,[data-copy-id="program"]).program-editor-installed) .review-toast{bottom:var(--editor-apply-reserve)}
 body:has(:is(#program,[data-copy-id="program"]).program-editor-installed) nav{display:none}
 /* The page sheet itself: #program becomes a .sheet with one detent ("large"),
    from 10px below the safe-area top to the bottom, over a still, inert, scaled-down
@@ -3210,7 +3211,7 @@ body:has(:is(#program,[data-copy-id="program"]).program-editor-installed) nav{di
   /* The page's own gutters, as <main> gives them outside the sheet (owner, iPhone, 2026-10-23): the day tabs
      strip bleeds into them and keeps its first tab inset. */
   padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right));
-  padding-bottom:calc(var(--editor-apply-reserve,96px) + var(--space-16) + var(--restbar-reserve,0px));
+  padding-bottom:calc(var(--editor-apply-reserve,96px) + var(--space-16));
 }
 /* A page pushed from the editor (the full library, a preview) takes the screen:
    while #program isn't the active view, the sheet, its scrim and the copy under it
