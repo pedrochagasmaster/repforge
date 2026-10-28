@@ -259,6 +259,16 @@ try {
   phase("Delayed SDK attachment preserves eligible startup events, and opt-out clears them");
   for (const optOut of [false, true]) {
     const context = await browser.newContext();
+    // Startup events wait only while an SDK load is in flight: declare one, as
+    // posthog-init does before it appends the SDK script.
+    await context.addInitScript(() => {
+      let installed;
+      Object.defineProperty(window, "RepForgeTelemetry", {
+        configurable: true,
+        get: () => installed,
+        set(next) { installed = next; try { next.boot({ sdkPending: true }); } catch {} },
+      });
+    });
     const page = await context.newPage();
     await page.goto(BASE);
     await waitForAppBoot(page, { base: BASE });
