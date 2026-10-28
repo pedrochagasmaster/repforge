@@ -2498,7 +2498,7 @@ textarea.sheetfield__input{
    Dragging it reorders the session as the editor does; a long-press on the row opens Move up and Move down. */
 .session-map__grip{
   flex:none;display:inline-flex;align-items:center;justify-content:center;width:var(--control-target);height:var(--control-target);
-  min-width:var(--control-target);min-height:var(--control-target);margin-right:calc(-1 * var(--space-12));padding:0;border:0;border-radius:var(--radius-control);
+  min-width:var(--control-target);min-height:var(--control-target);padding:0;border:0;border-radius:var(--radius-control);
   background:transparent;color:var(--ink-faint);cursor:grab;touch-action:none
 }
 .session-map__grip .icon-mask{width:18px;height:18px}
@@ -2534,7 +2534,7 @@ textarea.sheetfield__input{
 .sessrow__unit:empty{display:none}
 .sessrow--notes{align-items:flex-start}
 .sessrow--notes .sessrow__label{flex:none;padding-top:calc((var(--control-target) - var(--font-size-body) * var(--line-standard)) / 2)}
-.sessrow--notes .sessrow__input{flex:1 1 auto;min-height:var(--control-target);padding:calc((var(--control-target) - var(--font-size-control) * var(--line-reading)) / 2) var(--space-12);
+.sessrow--notes .sessrow__input{flex:1 1 auto;min-height:var(--control-target);padding:var(--space-8) var(--space-12);
   resize:none;overflow:hidden;line-height:var(--line-reading);text-align:left}
 .sessrow--notes .sessrow__input:placeholder-shown{text-align:right}
 .sessrow__note{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}

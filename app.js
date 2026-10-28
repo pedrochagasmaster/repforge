@@ -8037,6 +8037,8 @@ function syncSessionBodyweightUnit(){
 /** The notes row grows with what it holds, one line when empty. */
 function fitSessionNotes(area){
   if (!area) return;
+  // A hidden sheet measures nothing: leave the natural one-line height and fit again once it is open.
+  if (!area.getClientRects().length) { area.style.height = ""; return; }
   area.style.height = "auto";
   area.style.height = `${area.scrollHeight}px`;
 }
@@ -8228,6 +8230,8 @@ function openSessionSheet(){
     scrim,
     delayHide: reducedMotion() ? 0 : 280
   });
+  // The notes row is sized once the sheet lays out (#522).
+  fitSessionNotes($("#sessionNotes"));
   requestAnimationFrame(() => { sheet.classList.add("is-open"); scrim?.classList.add("is-open"); });
 }
 
