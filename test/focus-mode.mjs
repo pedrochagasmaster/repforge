@@ -239,8 +239,10 @@ const cardState = (page) =>
     const cta = shelf?.querySelector(".btn--cta");
     const cardBox = card.getBoundingClientRect();
     const text = (el) => el?.textContent?.replace(/\s+/g, " ").trim() || "";
-    const rows = [...card.querySelectorAll("#ledger_" + CSS.escape(card.dataset.ex) + " .ledgerline")];
-    const logged = card.querySelectorAll(".ledgerline[data-editn]");
+    // #517: the table folds its oldest logged rows only when they do not fit; what it draws is what is not hidden.
+    const rows = [...card.querySelectorAll("#ledger_" + CSS.escape(card.dataset.ex) + " .ledgerline:not([hidden])")];
+    const logged = card.querySelectorAll(".ledgerline[data-editn]:not([hidden])");
+    const more = card.querySelector("[data-ledgermore]:not([hidden])");
     const lastLogged = logged[logged.length - 1];
     return {
       cueL1: text(card.querySelector(".fx-cue__l1")),
@@ -256,12 +258,15 @@ const cardState = (page) =>
         ink.style.color = "var(--color-ink)";
         document.body.append(ink);
         const inkColor = getComputedStyle(ink).color;
+        ink.style.color = "var(--accent-deep)";
+        const accentColor = getComputedStyle(ink).color;
         ink.remove();
         const style = getComputedStyle(glyph);
         return {
           variant: [...mark.classList].find((c) => c.startsWith("verdictmark--"))?.slice(13) || "",
           drawn: glyph.getBoundingClientRect().width > 0 && (style.webkitMaskImage || style.maskImage) !== "none",
           ink: style.backgroundColor === inkColor,
+          accent: style.backgroundColor === accentColor,
           hidden: glyph.getAttribute("aria-hidden") === "true",
         };
       })(),
@@ -272,8 +277,9 @@ const cardState = (page) =>
       open: card.querySelectorAll(".ledgerline--open").length,
       editing: card.querySelectorAll(".ledgerline--open[aria-current]").length,
       prevLines: card.querySelectorAll(".ledgerline__prev").length,
-      more: text(card.querySelector("[data-ledgermore]")),
-      moreExpanded: card.querySelector("[data-ledgermore]")?.getAttribute("aria-expanded") ?? null,
+      folded: card.querySelectorAll(".ledgerline[data-editn][hidden]").length,
+      more: text(more),
+      moreExpanded: more?.getAttribute("aria-expanded") ?? null,
       cancel: !!card.querySelector("[data-fcancel]"),
       ctaText: text(cta),
       ctaArrow: cta ? !cta.classList.contains("btn--noarrow") : null,
@@ -294,14 +300,15 @@ const cardState = (page) =>
     };
   });
 
-/** The cue's inline mark is the shared verdict mark, drawn from the move its sentence names: hold is the ink
- *  "=", down the ink arrow and up the only accent mark. Returns the move so a state can pin which one it reads. */
+/** The cue's inline mark is the shared verdict mark, drawn from the move its sentence names: "=" for hold, the arrow
+ *  down or up. In the hero every mark takes the deep accent (owner, direction A of focus-hero.html, 2026-10-28).
+ *  Returns the move so a state can pin which one it reads. */
 function assertCueMark(st, where) {
   const move = /^go up/i.test(st.cueL1) ? "up" : /^drop/i.test(st.cueL1) ? "down" : /^hold/i.test(st.cueL1) ? "hold" : "";
   assert(move && st.cueMark && st.cueMark.variant === move && st.cueMark.drawn && st.cueMark.hidden,
     `${where}: the cue draws the shared verdict mark for the move its sentence names`, JSON.stringify({ move, cueL1: st.cueL1, mark: st.cueMark }));
-  assert(st.cueMark && (move === "up" ? !st.cueMark.ink : st.cueMark.ink),
-    `${where}: the cue's mark is ink unless it is the up arrow, the only accent mark`, JSON.stringify(st.cueMark));
+  assert(st.cueMark && st.cueMark.accent && !st.cueMark.ink,
+    `${where}: the hero's mark takes the deep accent for every move`, JSON.stringify(st.cueMark));
   return move;
 }
 
@@ -402,24 +409,20 @@ async function main() {
     "after Log set, focus is on a field of the next set's shelf", JSON.stringify(afterLog));
   await endRest(page);
   st = await cardState(page);
-  assert(st.logged === 0 && st.rows === 2 && st.more === "2 sets logged" && st.moreExpanded === "false",
-    "two logged sets leave the table for its disclosure, which counts them", JSON.stringify(st));
-  // The landing beat of the render that logged the set, read before the disclosure redraws the rows.
+  assert(st.logged === 2 && st.folded === 0 && st.rows === 4 && !st.more,
+    "two logged sets stay in the table above the open set and the next one, because they fit, with no disclosure (#517)", JSON.stringify(st));
+  // The landing beat of the render that logged the set.
   const setLanded = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");
     const anim = (el) => (el ? getComputedStyle(el).animationName : "");
     return {
       freshRows: card.querySelectorAll(".ledgerline.is-fresh").length,
       freshMore: !!card.querySelector("[data-ledgermore].is-fresh"),
-      moreAnim: anim(card.querySelector("[data-ledgermore].is-fresh")),
+      rowAnim: anim(card.querySelector(".ledgerline.is-fresh")),
       // A peek is inert scenery: it must never replay the live card's beat.
       peekFresh: document.querySelectorAll("#focusDeck .is-peek .is-fresh").length,
     };
   });
-  await page.locator("#workout .exercise.is-current [data-ledgermore]").click();
-  await page.waitForFunction(() => document.querySelectorAll("#workout .exercise.is-current .ledgerline[data-editn]").length === 2, undefined, { timeout: 5000 }).catch(() => {});
-  st = await cardState(page);
-  assert(st.logged === 2 && st.rows === 5 && st.moreExpanded === "true", "opened, the two logged sets read back in the ledger and every set keeps its row", JSON.stringify(st));
   // The "Change since last session" line is retired (OG-6 round 2): no element, no text, however many sets are logged.
   const retiredDelta = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");
@@ -454,10 +457,10 @@ async function main() {
 
   // ---- 03b — a logged set lands -----------------------------------------------
   phase("State 03b: a logged set lands with one pass of motion");
-  assert(setLanded.freshRows === 0 && setLanded.freshMore,
-    "the set that just landed is acknowledged on the disclosure it went into, and nowhere else", JSON.stringify(setLanded));
-  assert(/setland-row/.test(setLanded.moreAnim),
-    "the disclosure takes the new set with one pass of the landing motion", JSON.stringify(setLanded));
+  assert(setLanded.freshRows === 1 && !setLanded.freshMore,
+    "the set that just landed is acknowledged on its own row, which stays in the table, and nowhere else", JSON.stringify(setLanded));
+  assert(/setland-row/.test(setLanded.rowAnim),
+    "the row takes the new set with one pass of the landing motion", JSON.stringify(setLanded));
   assert(setLanded.peekFresh === 0, "the neighbouring peek cards stay still", JSON.stringify(setLanded));
   // The card is redrawn on every navigation and every draft change, so the beat
   // has to belong to the render that logged the set and to no other.
@@ -466,8 +469,8 @@ async function main() {
   const replayed = await page.evaluate(() => document.querySelectorAll("#workout .is-fresh").length);
   assert(replayed === 0, "a later render draws the same card at rest", String(replayed));
   st = await cardState(page);
-  assert(st.more === "2 sets logged" && st.moreExpanded === "false" && st.rows === 2 && st.openBottom <= st.contextBottom + 1,
-    "the landing animation leaves the table where the layout puts it, collapsed again on return, the open set in view", JSON.stringify(st));
+  assert(st.logged === 2 && !st.more && st.rows === 4 && st.openBottom <= st.contextBottom + 1,
+    "the landing animation leaves the table where the layout puts it, the logged sets still in place on return, the open set in view", JSON.stringify(st));
 
   // ---- 03c — the shelf --------------------------------------------------------
   phase("State 03c: the shelf's fields, pads and typed values");
@@ -699,10 +702,11 @@ async function main() {
   assert(failure.drawn && failure.inView && failure.hits === 0 && failure.role === "alert" && failure.live === "assertive",
     "an error stays visible and assertive, clear of the shelf (#521)", JSON.stringify(failure));
   await page.evaluate(() => document.querySelector("#toast").classList.add("hidden"));
-  // Layout D: the saved correction closes the table again, so focus returns to the disclosure that holds the row.
+  // The saved correction closes the table again: focus returns to the corrected row where the table shows it, else
+  // to the disclosure that folds it (#517).
   const afterSave = await focusAt(page);
-  assert(afterSave.inCard && afterSave.live && afterSave.disclosure,
-    "Save on an edited set returns focus to the disclosure holding its row (R7 J-03)", JSON.stringify(afterSave));
+  assert(afterSave.inCard && afterSave.live && (afterSave.row != null || afterSave.disclosure),
+    "Save on an edited set returns focus to its row, or to the disclosure folding it (R7 J-03)", JSON.stringify(afterSave));
   await openLoggedSets(page);
   const afterEdit = await page.evaluate(() => {
     const draft = window.__repforgeWorkoutDraft.current();
@@ -731,8 +735,8 @@ async function main() {
   assert(JSON.stringify(await editedReps()) === JSON.stringify({ reps: "9", completion: "done" }),
     "cancelling an edit puts the set's logged reps back in the draft, not the abandoned value", JSON.stringify(await editedReps()));
   const afterCancelFocus = await focusAt(page);
-  assert(afterCancelFocus.inCard && afterCancelFocus.live && afterCancelFocus.disclosure,
-    "Cancel on an edited set returns focus to the disclosure holding its row (R7 J-03)", JSON.stringify(afterCancelFocus));
+  assert(afterCancelFocus.inCard && afterCancelFocus.live && (afterCancelFocus.row != null || afterCancelFocus.disclosure),
+    "Cancel on an edited set returns focus to its row, or to the disclosure folding it (R7 J-03)", JSON.stringify(afterCancelFocus));
   await openLoggedSets(page);
   const afterCancel = await page.evaluate(() =>
     [...document.querySelectorAll(".ledgerline[data-editn]")].map((r) =>
@@ -912,7 +916,8 @@ async function main() {
   });
   assert(shelfAlign.n === 3 && shelfAlign.labs <= 1 && shelfAlign.vals <= 1 && shelfAlign.tops <= 1,
     "effort, load and reps share one baseline in the shelf", JSON.stringify(shelfAlign));
-  assert(st.logged === 0 && st.rows === 2 && st.more === "4 sets logged", "four logged sets wait behind the table's disclosure, which counts them", JSON.stringify(st));
+  assert(st.logged + st.folded === 4 && (st.folded ? st.more === `${st.folded} earlier set${st.folded === 1 ? "" : "s"}` : !st.more),
+    "four logged sets show where they fit, and the disclosure counts exactly the ones it folds", JSON.stringify(st));
   // The reps-left shorthand is a pill off the word, not a caption among the pads.
   const popClosed = await page.evaluate(() => {
     const pop = document.querySelector(".focus-shelf .effortpop");
@@ -1030,8 +1035,8 @@ async function main() {
   const longBefore = await cardState(page);
   await logSets(page, 8, { load: 70, reps: 8 });
   st = await cardState(page);
-  assert(st.logged === 0 && st.rows === 2 && st.open === 1 && st.more === "8 sets logged",
-    "a long ledger draws the open set and the queued one, with eight logged behind the disclosure", JSON.stringify(st));
+  assert(st.logged + st.folded === 8 && st.folded > 0 && st.open === 1 && st.more === `${st.folded} earlier set${st.folded === 1 ? "" : "s"}`,
+    "a long ledger keeps the open set and folds the oldest logged sets that do not fit, counted on the disclosure", JSON.stringify(st));
   assert(st.shelfHeight === longBefore.shelfHeight && st.shelfHeight >= 150 && st.spill <= 1,
     "a long session never shrinks the shelf or spills the card", JSON.stringify({ longBefore, st }));
   const openInView = await page.evaluate(() => {
@@ -1329,8 +1334,8 @@ async function main() {
   await logSets(rmPage, 1);
   const rmLanded = await rmPage.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");
-    // Collapsed (layout D), the landing beat is the disclosure's.
-    const fresh = card.querySelector(".ledgerline.is-fresh, [data-ledgermore].is-fresh");
+    // The landing beat is the logged row's, in the table where it fits (#517).
+    const fresh = card.querySelector(".ledgerline.is-fresh");
     const anim = (el) => (el ? getComputedStyle(el).animationName : "");
     return { marked: !!fresh, row: anim(fresh) };
   });

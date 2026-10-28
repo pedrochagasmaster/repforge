@@ -11929,6 +11929,26 @@
       ]
     },
     {
+      "id": "focus-hero-scale",
+      "selector": ".fx-cue__l1",
+      "role": "typography:focus-hero",
+      "rationale": "The Focus hero (owner, 2026-10-28; direction A of focus-hero.html; #523): the cue is the screen's headline at --font-size-focus-cue 34px, weight --weight-focus-cue 650, line height 1.08, with its second line (.fx-cue__l2) at 21px, its evidence line (.fx-cue__evidence) at 15px and the prescription line (.focus-ex__meta) at 13px. Selector-exact, Focus card only; it retires the 24px section-title cue of Direction D section 7.",
+      "owner": "focus-hero",
+      "catalogStates": [
+        "workout/focus",
+        "workout/focus-glossary",
+        "workout/correction",
+        "workout/logged-sets",
+        "workout/deload-week",
+        "workout/focus-per-side",
+        "workout/rest-running",
+        "workout/rest-done",
+        "workout/exercise-note",
+        "workout/stale-draft",
+        "workout/persist-retry"
+      ]
+    },
+    {
       "id": "workout-shelf",
       "selector": ".workshelf",
       "role": "persistent-action",
@@ -12094,6 +12114,31 @@
         "workout/logged-sets",
         "workout/rest-sheet",
         "workout/correction"
+      ]
+    },
+    {
+      "selector": ".fx-cue__l1",
+      "role": "focus hero weight",
+      "rationale": "The Focus hero's 650 weight (owner, direction A of focus-hero.html, 2026-10-28) sits between the semibold and bold steps; Plex Sans is variable from 100 to 700, so it renders as drawn. Only the hero takes it.",
+      "owner": "focus-hero",
+      "catalogStates": [
+        "workout/focus",
+        "workout/focus-glossary",
+        "workout/correction",
+        "workout/logged-sets",
+        "workout/deload-week",
+        "workout/focus-per-side",
+        "workout/rest-running",
+        "workout/rest-done",
+        "workout/exercise-note",
+        "workout/stale-draft",
+        "workout/persist-retry"
+      ],
+      "cssLiterals": [
+        {
+          "property": "font-weight",
+          "value": "var(--weight-focus-cue)"
+        }
       ]
     }
   ],

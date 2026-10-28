@@ -1973,7 +1973,7 @@
       "id": "logged-sets",
       "flow": "workout",
       "label": "Logged sets",
-      "scenario": "Layout D: a set is logged and the rest runs; the table's disclosure is open, the logged row back in place above the open set and the next one.",
+      "scenario": "Two sets are logged and the rest runs; the logged rows show in place above the open set because they fit (#517).",
       "variants": "demandingText"
     },
     {

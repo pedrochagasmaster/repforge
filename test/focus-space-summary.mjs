@@ -182,9 +182,10 @@ try {
       await page.locator("#workout .exercise--focus.is-current .saveset").click();
       await page.waitForFunction((id) => document.querySelector("#workout .exercise--focus.is-current .ledgerline--open")?.dataset.lrow === "2"
         && document.querySelector("#workout .exercise--focus.is-current")?.dataset.ex === id, exId, { timeout: 15000 });
-      // Layout D keeps the logged set behind its disclosure; opened, the row reads back.
-      await page.locator("#workout .exercise--focus.is-current [data-ledgermore]").click();
-      await page.waitForSelector("#workout .exercise--focus.is-current [data-editn='1']", { timeout: 15000 });
+      // The logged set reads back in the table, where it fits (#517); folded, the disclosure opens it.
+      const folded = page.locator("#workout .exercise--focus.is-current [data-ledgermore]:not([hidden])");
+      if (await folded.count()) await folded.click();
+      await page.waitForSelector("#workout .exercise--focus.is-current [data-editn='1']:not([hidden])", { timeout: 15000 });
       const ledger = await page.evaluate(() => document.querySelector("#workout .exercise--focus.is-current [data-editn='1'] [data-lv='rir']")?.textContent.trim());
       check(shown && ledger === shown, "the logged row reads the RIR the shelf showed", { shown, ledger });
       await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
@@ -316,12 +317,12 @@ try {
     } finally { await context.close(); }
   }
 
-  console.log("\n8. Layout D: the open set and the next, with the logged sets behind a disclosure");
+  console.log("\n8. The table shows the logged sets in place when they fit, and folds the oldest behind a disclosure when not (#517)");
   const table = () => {
     const art = document.querySelector("#workout .exercise--focus.is-current");
     const context = art.querySelector(".fcard__context"), box = context.getBoundingClientRect();
-    const more = art.querySelector(".fcard__ledger [data-ledgermore]");
-    const rows = [...art.querySelectorAll(".fcard__ledger .ledgerline:not(.ledgerline__head)")];
+    const more = art.querySelector(".fcard__ledger [data-ledgermore]:not([hidden])");
+    const rows = [...art.querySelectorAll(".fcard__ledger .ledgerline:not(.ledgerline__head):not([hidden])")];
     const open = art.querySelector(".fcard__ledger .ledgerline--open")?.getBoundingClientRect();
     return {
       rows: rows.map((row) => row.dataset.lrow || `done ${row.dataset.editn}`),
@@ -332,19 +333,70 @@ try {
     };
   };
   const tableSettles = (page, predicate, arg) => page.waitForFunction(predicate, arg, { timeout: 15000 }).catch(() => {});
+  const editPadSave = async (page, exId) => {
+    const field = await page.evaluate(() => {
+      const sel = document.querySelector("#workout .exercise--focus.is-current .focus-shelf .shelf__field.is-sel");
+      return sel?.dataset.field === "metric" ? `metric:${sel.dataset.metric}` : sel?.dataset.field;
+    });
+    const valueOf = ({ id, field }) => {
+      const ex = window.__repforgeWorkoutDraft.current().exercises[id];
+      const set = ex.sets[ex.setOrder.find((sid) => ex.sets[sid].ordinal === 1)];
+      const value = field.startsWith("metric:") ? set.edited.metrics?.[field.slice(7)] : set.edited[field];
+      return { value: Number(value), completion: set.completion };
+    };
+    const before = (await page.evaluate(valueOf, { id: exId, field })).value;
+    await page.locator("#workout .exercise--focus.is-current .focus-shelf .shelf__pad[data-dir='1']").click();
+    await page.locator("#workout .exercise--focus.is-current .focus-shelf .saveset").click();
+    await tableSettles(page, () => !window.__repforgeFocus.editing());
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    const after = await page.evaluate(valueOf, { id: exId, field });
+    check(Number.isFinite(before) && after.value > before && after.completion !== "pending", "the correction is saved on set 1", { field, before, after });
+  };
   {
+    // A tall phone: set 2 of 3 with the rest running, the logged set fits above the open one.
     const { context, page } = await openCatalogState(browser, "workout/rest-running", 390, "en", "normal");
     try {
       await noGuide(page);
       const exId = await page.evaluate(() => document.querySelector("#workout .exercise--focus.is-current").dataset.ex);
-      const collapsed = await page.evaluate(table);
-      check(JSON.stringify(collapsed.rows) === JSON.stringify(["2", "3"]), "set 2 of 3: the table shows the open set and the next one only", collapsed);
-      check(collapsed.more?.text === "1 set logged" && collapsed.more.expanded === "false" && collapsed.more.controlsLedger,
-        "a collapsed disclosure above them counts the logged set and controls the table", collapsed.more);
-      const named = page.locator("#workout .exercise--focus.is-current").getByRole("button", { name: "1 set logged", exact: true });
-      check(await named.count() === 1 && await named.getAttribute("aria-expanded") === "false", "assistive tech reads it as \"1 set logged\", collapsed", null);
+      const shown = await page.evaluate(table);
+      check(JSON.stringify(shown.rows) === JSON.stringify(["done 1", "2", "3"]) && !shown.more && shown.openWhole,
+        "set 2 of 3: the logged set shows in place above the open set and the next one, with no disclosure", shown);
+      await page.locator("#workout .exercise--focus.is-current [data-editn='1']").click();
+      await tableSettles(page, () => /Save set 1/.test(document.querySelector("#workout .exercise--focus.is-current .focus-shelf .saveset")?.textContent || ""));
+      const editing = await page.evaluate(table);
+      check(/Save set 1/.test(editing.cta || "") && editing.rows.includes("1"), "correcting set 1 opens it in place", editing);
+      await editPadSave(page, exId);
+      const saved = await page.evaluate(table);
+      check(JSON.stringify(saved.rows) === JSON.stringify(["done 1", "2", "3"]) && !saved.more, "after the correction the logged set is back in place", saved);
+
+      await page.locator("#workout .exercise--focus.is-current [data-fnextrow]").click();
+      await tableSettles(page, (id) => document.querySelector("#workout .exercise--focus.is-current")?.dataset.ex !== id, exId);
+      await page.locator("#woProgress button[data-focusgo='0']").click();
+      await tableSettles(page, (id) => document.querySelector("#workout .exercise--focus.is-current")?.dataset.ex === id, exId);
+      const back = await page.evaluate(table);
+      check(JSON.stringify(back.rows) === JSON.stringify(["done 1", "2", "3"]), "moving to another exercise and back finds the same table", back);
+
+      await page.locator("#workout .exercise--focus.is-current .focus-shelf .saveset").click();
+      await tableSettles(page, () => document.querySelector("#workout .exercise--focus.is-current .ledgerline--open")?.dataset.lrow === "3");
+      const last = await page.evaluate(table);
+      check(JSON.stringify(last.rows) === JSON.stringify(["done 1", "done 2", "3"]) && !last.more && last.openWhole,
+        "on the last set both logged sets show above the open one", last);
+    } finally { await context.close(); }
+  }
+  {
+    // A window too short for the logged set: it folds behind the disclosure, which counts it and controls the table.
+    const { context, page } = await openCatalogState(browser, "workout/rest-running", 390, "en", "normal", { height: 560 });
+    try {
+      await noGuide(page);
+      const exId = await page.evaluate(() => document.querySelector("#workout .exercise--focus.is-current").dataset.ex);
+      const folded = await page.evaluate(table);
+      check(JSON.stringify(folded.rows) === JSON.stringify(["2", "3"]) && folded.openWhole, "a short window folds the logged set and keeps the open set whole", folded);
+      check(folded.more?.text === "1 earlier set" && folded.more.expanded === "false" && folded.more.controlsLedger,
+        "the disclosure counts the folded set and controls the table", folded.more);
+      const named = page.locator("#workout .exercise--focus.is-current").getByRole("button", { name: "1 earlier set", exact: true });
+      check(await named.count() === 1 && await named.getAttribute("aria-expanded") === "false", "assistive tech reads it as \"1 earlier set\", collapsed", null);
       await named.click();
-      await tableSettles(page, () => document.querySelectorAll("#workout .exercise--focus.is-current .fcard__ledger .ledgerline:not(.ledgerline__head)").length === 3);
+      await tableSettles(page, () => document.querySelectorAll("#workout .exercise--focus.is-current .fcard__ledger .ledgerline:not(.ledgerline__head):not([hidden])").length === 3);
       const expanded = await page.evaluate(table);
       check(JSON.stringify(expanded.rows) === JSON.stringify(["done 1", "2", "3"]) && expanded.more?.expanded === "true",
         "expanded, the table holds every set again, the logged one first", expanded);
@@ -355,34 +407,17 @@ try {
       const editing = await page.evaluate(table);
       check(/Save set 1/.test(editing.cta || "") && editing.more?.expanded === "true" && editing.rows.includes("1"),
         "correcting set 1 keeps the table expanded with set 1 open in place", editing);
-      // The correction nudges the selected field up one step with its pad.
-      const field = await page.evaluate(() => {
-        const sel = document.querySelector("#workout .exercise--focus.is-current .focus-shelf .shelf__field.is-sel");
-        return sel?.dataset.field === "metric" ? `metric:${sel.dataset.metric}` : sel?.dataset.field;
-      });
-      const valueOf = ({ id, field }) => {
-        const ex = window.__repforgeWorkoutDraft.current().exercises[id];
-        const set = ex.sets[ex.setOrder.find((sid) => ex.sets[sid].ordinal === 1)];
-        const value = field.startsWith("metric:") ? set.edited.metrics?.[field.slice(7)] : set.edited[field];
-        return { value: Number(value), completion: set.completion };
-      };
-      const before = (await page.evaluate(valueOf, { id: exId, field })).value;
-      await page.locator("#workout .exercise--focus.is-current .focus-shelf .shelf__pad[data-dir='1']").click();
-      await page.locator("#workout .exercise--focus.is-current .focus-shelf .saveset").click();
-      await tableSettles(page, () => document.querySelector("#workout .exercise--focus.is-current [data-ledgermore]")?.getAttribute("aria-expanded") === "false");
-      await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
-      const after = await page.evaluate(valueOf, { id: exId, field });
-      check(Number.isFinite(before) && after.value > before && after.completion !== "pending", "the correction is saved on set 1", { field, before, after });
+      await editPadSave(page, exId);
       const saved = await page.evaluate(table);
-      check(saved.more?.expanded === "false" && JSON.stringify(saved.rows) === JSON.stringify(["2", "3"]), "after the correction the table collapses again", saved);
+      check(saved.more?.expanded === "false" && JSON.stringify(saved.rows) === JSON.stringify(["2", "3"]), "after the correction the table folds again", saved);
 
       await page.locator("#workout .exercise--focus.is-current [data-ledgermore]").click();
-      await tableSettles(page, () => document.querySelector("#workout .exercise--focus.is-current [data-editn='1']"));
+      await tableSettles(page, () => document.querySelector("#workout .exercise--focus.is-current [data-editn='1']:not([hidden])"));
       await page.locator("#workout .exercise--focus.is-current [data-editn='1']").click();
       await tableSettles(page, () => document.querySelector("#workout .exercise--focus.is-current [data-fcancel]"));
       await page.locator("#workout .exercise--focus.is-current [data-fcancel]").click();
       await tableSettles(page, () => document.querySelector("#workout .exercise--focus.is-current [data-ledgermore]")?.getAttribute("aria-expanded") === "false");
-      check((await page.evaluate(table)).more?.expanded === "false", "a cancelled correction collapses it again too", await page.evaluate(table));
+      check((await page.evaluate(table)).more?.expanded === "false", "a cancelled correction folds it again too", await page.evaluate(table));
 
       await page.locator("#workout .exercise--focus.is-current [data-ledgermore]").click();
       await page.locator("#workout .exercise--focus.is-current [data-fnextrow]").click();
@@ -390,22 +425,19 @@ try {
       await page.locator("#woProgress button[data-focusgo='0']").click();
       await tableSettles(page, (id) => document.querySelector("#workout .exercise--focus.is-current")?.dataset.ex === id, exId);
       const back = await page.evaluate(table);
-      check(back.more?.expanded === "false" && back.rows.length === 2, "moving to another exercise and back finds the table collapsed", back);
-
-      await page.locator("#workout .exercise--focus.is-current .focus-shelf .saveset").click();
-      await tableSettles(page, () => document.querySelector("#workout .exercise--focus.is-current .ledgerline--open")?.dataset.lrow === "3");
-      const last = await page.evaluate(table);
-      check(JSON.stringify(last.rows) === JSON.stringify(["3"]) && last.more?.text === "2 sets logged", "on the last set the table shows the open set alone", last);
+      check(back.more?.expanded === "false" && back.rows.length === 2, "moving to another exercise and back finds the table folded", back);
     } finally { await context.close(); }
   }
-  for (const [lang, phone, label] of [["pt", "390x844", "1 série registrada"], ["en", "375x667", "1 set logged"]]) {
+  // A phone's own geometry decides: 390×844 has room for the logged set, 375×667 folds it behind the disclosure.
+  for (const [lang, phone, label] of [["pt", "390x844", null], ["en", "375x667", "1 earlier set"]]) {
     const spec = D_PHONES[phone];
     const { context, page } = await openCatalogState(browser, "workout/rest-running", spec.width, lang, "normal", { height: spec.height, safe: spec.safe });
     try {
       await noGuide(page);
       const t = await page.evaluate(table);
-      check(t.more?.text === label, `${lang} ${phone}: the disclosure reads "${label}"`, t.more);
-      if (phone === "375x667") check(t.openWhole, "375×667, collapsed: the open row is whole in the window", t);
+      if (label) check(t.more?.text === label && JSON.stringify(t.rows) === JSON.stringify(["2", "3"]), `${lang} ${phone}: the logged set folds and the disclosure reads "${label}"`, t);
+      else check(!t.more && JSON.stringify(t.rows) === JSON.stringify(["done 1", "2", "3"]), `${lang} ${phone}: the logged set shows in place`, t);
+      check(t.openWhole, `${lang} ${phone}: the open row is whole in the window`, t);
     } finally { await context.close(); }
   }
   {

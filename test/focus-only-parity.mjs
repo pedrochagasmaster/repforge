@@ -18,7 +18,7 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { launchChromium } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
-import { finishEarly } from "./fixtures/focus-workout.mjs";
+import { finishEarly, openLoggedSets } from "./fixtures/focus-workout.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const STATE_KEY = "repforge_v1";
@@ -340,12 +340,13 @@ async function main() {
       "committing the active set completes exactly that ordinal", JSON.stringify(committed));
     const setOf = await page.evaluate(() => ({
       setof: document.querySelector("#workout .exercise.is-current .focus-shelf .saveset")?.textContent?.replace(/\s+/g, " ").trim(),
-      more: document.querySelector("#workout .exercise.is-current [data-ledgermore]")?.textContent?.trim(),
+      logged: [...document.querySelectorAll("#workout .exercise.is-current .ledgerline[data-editn]")]
+        .filter((row) => !row.hidden).map((row) => +row.dataset.editn),
     }));
-    assert(setOf.more === "1 set logged" && /\b2$/.test(setOf.setof),
-      "the table's disclosure carries the committed set and the shelf moves to set 2", JSON.stringify(setOf));
-    // Correction: open the logged sets and reopen the committed row through the ledger.
-    await page.locator("#workout .exercise.is-current [data-ledgermore]").click();
+    assert(JSON.stringify(setOf.logged) === "[1]" && /\b2$/.test(setOf.setof),
+      "the table shows the committed set in place (#517) and the shelf moves to set 2", JSON.stringify(setOf));
+    // Correction: reopen the committed row through the ledger (opening the disclosure first if it folds the row).
+    await openLoggedSets(page);
     await page.locator("#workout .exercise.is-current .ledgerline[data-editn]").click();
     await page.waitForFunction(() => window.__repforgeFocus.editing() !== null, undefined, { timeout: 5000 });
     const snap = await page.evaluate(() => window.__repforgeFocus.editing());
@@ -357,7 +358,7 @@ async function main() {
       corrected.sets[0].ordinal === 1 && corrected.sets[1].completion === "pending",
       "correction updates the committed set in place and the next ordinal stays untouched", JSON.stringify({ snap, corrected }));
     // Uncommit: values retained, status back to pending. The saved correction closed the disclosure again.
-    await page.locator("#workout .exercise.is-current [data-ledgermore]").click();
+    await openLoggedSets(page);
     await page.locator("#workout .exercise.is-current .ledgerline[data-editn]").click();
     await page.waitForFunction((id) => {
       const ex = window.__repforgeWorkoutDraft.current()?.exercises?.[id];

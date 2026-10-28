@@ -289,7 +289,7 @@ const SQUAT_ALTERNATES = Object.freeze(["1a25c6f170d88079a926dde776766181", "1a2
 /** Catalog states built on the Direction D fixture; each R3 sub-slice adds its own. */
 const D_FIXTURE_STATES = new Set([
   "workout/focus", "workout/focus-glossary", "workout/correction", // R3c
-  "workout/logged-sets", // layout D: the logged sets' disclosure, open
+  "workout/logged-sets", // #517: the logged sets shown in place, the rest running
   "workout/deload-week", // Plan 072 S4: the deload cue in Focus
   "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions", // R3d
   "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", // R3d
@@ -568,6 +568,15 @@ async function miniBarOn(page, view) {
 }
 
 /** Fill the current focus card and save the set, which starts the rest timer. */
+/** #517: the table folds its oldest logged rows only when they do not fit; open the disclosure when it folds any. */
+async function openFoldedSets(page) {
+  const more = page.locator("#workout .exercise.is-current [data-ledgermore][aria-expanded='false']:not([hidden])");
+  if (await more.count()) await more.click();
+  await page.waitForFunction(() => {
+    const card = document.querySelector("#workout .exercise.is-current");
+    return !!card?.querySelector("[data-editn]:not([hidden])") && !card.querySelector(".ledger__rows")?.style.height;
+  }, undefined, { timeout: 5000 });
+}
 async function logCurrentSet(page, values = { load: "100", reps: "6", rir: "1" }) {
   await page.evaluate((values) => {
     const card = document.querySelector("#workout .exercise.is-current")
@@ -1995,9 +2004,9 @@ export const APP_SCENARIOS = {
     await page.waitForFunction(() => document.querySelector("#toast")?.classList.contains("hidden"), undefined, { timeout: 15000 });
     await resetSheetScroll(page, ".session-sheet__body");
   },
-  "workout/correction": async page => { await focusMode(page); await logCurrentSet(page); await page.locator("#workout .exercise.is-current [data-ledgermore]").click(); await page.locator("#workout .exercise.is-current [data-editn]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); },
-  // Layout D: the logged sets' disclosure opened over the table, the logged row back in place to correct.
-  "workout/logged-sets": async page => { await focusMode(page); await logCurrentSet(page); await page.locator("#workout .exercise.is-current [data-ledgermore]").click(); await page.waitForSelector("#workout .exercise.is-current [data-editn]"); await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  "workout/correction": async page => { await focusMode(page); await logCurrentSet(page); await openFoldedSets(page); await page.locator("#workout .exercise.is-current [data-editn]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); },
+  // #517: two logged sets shown in place above the open one while the rest runs, because they fit.
+  "workout/logged-sets": async page => { await focusMode(page); await logCurrentSet(page); await logCurrentSet(page); await page.waitForSelector("#workout .exercise.is-current [data-editn]:not([hidden])"); await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     // The logged set starts the rest; the tab rises out of the shelf once that render has run.
     await page.waitForSelector("#restTab", { timeout: 20000 });
     await page.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished.catch(() => {}))));

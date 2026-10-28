@@ -494,10 +494,12 @@ async function focusMotion(browser, { reducedMotion = "no-preference" } = {}) {
     assert(!adv.samples.some((s) => s.rect) && adv.ringAfter === 0, "no outline travels: the open row simply wears its ring", JSON.stringify(adv.samples.filter((s) => s.rect).slice(0, 3)));
   } else {
     const tops = adv.samples.filter((s) => s.rect).map((s) => s.rect.top);
-    // Layout D: the logged set leaves the collapsed table and the next one opens in its place, so the outline has no
-    // distance to cover; the set's landing beat is the disclosure's (focus-mode, State 03b).
-    assert(Math.abs(adv.openAfterTop - adv.openBefore) < 1 && tops.every((v) => Math.abs(v - adv.openBefore) < 1),
-      "on advance the next set opens where the logged one stood, and no outline travels", JSON.stringify({ tops: tops.slice(0, 10), from: adv.openBefore, to: adv.openAfterTop }));
+    // #517: the logged set stays in the table where it fits, so the outline travels once from it to the next set,
+    // downward and without overshoot, and settles on the row that opened.
+    const rising = tops.every((v, i) => i === 0 || v >= tops[i - 1] - 0.5);
+    assert(adv.openAfterTop > adv.openBefore + 1 && Math.abs(tops[0] - adv.openBefore) < 1 && rising
+      && tops.every((v) => v <= adv.openAfterTop + 0.5),
+      "on advance the outline travels once from the logged set down to the next one", JSON.stringify({ tops: tops.slice(0, 12), from: adv.openBefore, to: adv.openAfterTop }));
     assert(adv.ringAfter === 0 && adv.travelAfter === 0 && adv.borderWidth === "2px" && adv.border !== "rgba(0, 0, 0, 0)",
       "afterwards the open row wears its own 2px ring and nothing is left over", JSON.stringify({ ring: adv.ringAfter, travel: adv.travelAfter, border: adv.border, width: adv.borderWidth }));
   }
@@ -521,8 +523,10 @@ async function focusMotion(browser, { reducedMotion = "no-preference" } = {}) {
     "a set logged straight after another commits at once: nothing queues behind the outline", JSON.stringify(queued));
   assert(queued.ringLeft === 0, "and no outline is left behind", JSON.stringify(queued));
 
-  // Correction: open the logged sets, tap a logged row; the outline goes to it, and back when the edit is cancelled.
-  await page.locator(`${CARD} [data-ledgermore]`).click();
+  // Correction: tap a logged row (opening the disclosure first if it folds it); the outline goes to it, and back when
+  // the edit is cancelled.
+  const folded = page.locator(`${CARD} [data-ledgermore]:not([hidden])`);
+  if (await folded.count()) await folded.click();
   await page.waitForFunction((card) => {
     const rows = document.querySelector(`${card} .ledger__rows`);
     return document.querySelector(`${card} [data-editn="1"]`) && rows && !rows.style.height && !document.querySelector(`${card} .ledgerline__ring`);

@@ -287,7 +287,7 @@ async function main() {
     await boot(page, { restSec: 0 });
     await page.locator(".focus-shelf .saveset").first().click();
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
-    await page.waitForSelector("#workout .exercise.is-current [data-ledgermore]");
+    await page.waitForSelector("#workout .exercise.is-current .ledgerline[data-editn=\"1\"]", { state: "attached" });
     await openLoggedSets(page);
     await page.waitForSelector(`#workout .exercise.is-current .ledgerline[data-editn="1"]`);
     await page.locator(`#workout .exercise.is-current .ledgerline[data-editn="1"]`).click();

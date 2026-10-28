@@ -77,6 +77,14 @@
   --font-size-landing-headline:2.375rem;
   --font-size-landing-headline-wide:3.25rem;
   --font-size-rest-clock:clamp(2rem,10cqi,2.625rem);
+  /* The Focus hero (#523, owner 2026-10-28, direction A of focus-hero.html): the instruction is the screen's headline,
+     its second line, the evidence line under them and the demoted prescription line. A contextual variant, Focus only. */
+  --font-size-focus-cue:2.125rem;
+  --font-size-focus-cue-second:1.3125rem;
+  --font-size-focus-evidence:.9375rem;
+  --font-size-focus-meta:.8125rem;
+  --line-focus-cue:1.08;
+  --weight-focus-cue:650;
   --line-tight:1.1;
   --line-standard:1.4;
   --line-reading:1.55;
@@ -1140,10 +1148,10 @@ body:has(.exercise--focus.is-text-scaled) .wo-head__center{order:3;flex:1 0 100%
    The ledger keeps its value heads (RIR's is the glossary's way in) but drops the SET head, and its columns share the
    rows' grid instead of rem widths that outgrow the row. `sizeFocusCard` keeps the open set whole above the shelf. */
 body:has(.exercise--focus.is-text-scaled) .wo-head__title{font-size:min(var(--font-size-body-small),var(--bar-title-max))}
-.exercise--focus.is-text-scaled .focus-ex__meta{font-size:min(var(--font-size-body-small),var(--large-cap-supporting))}
-.exercise--focus.is-text-scaled .fx-cue__l1{font-size:min(var(--font-size-section-title),var(--large-cap-title))}
-.exercise--focus.is-text-scaled .fx-cue__mark{padding-top:calc((min(var(--font-size-section-title),35.2px) * var(--line-tight) - 16px) / 2)}
-.exercise--focus.is-text-scaled .fx-cue__l2{font-size:min(var(--font-size-subtitle),var(--large-cap-body))}
+.exercise--focus.is-text-scaled .focus-ex__meta{font-size:min(var(--font-size-focus-meta),var(--large-cap-supporting))}
+.exercise--focus.is-text-scaled .fx-cue__l1{font-size:min(var(--font-size-focus-cue),var(--large-cap-title))}
+.exercise--focus.is-text-scaled .fx-cue__l2{font-size:min(var(--font-size-focus-cue-second),var(--large-cap-body))}
+.exercise--focus.is-text-scaled .fx-cue__evidence{font-size:min(var(--font-size-focus-evidence),var(--large-cap-body))}
 .exercise--focus.is-text-scaled .text-link.focus-ex__why,.exercise--focus.is-text-scaled .fx-cue__cancel{font-size:min(var(--font-size-control),var(--large-cap-body))}
 .exercise--focus.is-text-scaled .ledgerline__head,.exercise--focus.is-text-scaled .ledgerline{grid-template-columns:auto minmax(0,1fr)}
 .exercise--focus.is-text-scaled .ledgerline__head > :first-child{visibility:hidden}
@@ -1324,31 +1332,42 @@ article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
 .fcard__context:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 .fx-head{margin:0 0 var(--space-16)}
 .focus-ex__meta{
-  margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);
+  margin:0;font-family:var(--font-language);font-size:var(--font-size-focus-meta);line-height:var(--line-reading);
   color:var(--color-ink-secondary);overflow-wrap:anywhere;
 }
 
-/* The cue: the verb and the load on the first line, the reps on the second. The
-   mark column is kept when there is no mark, so the lines never shift. */
-.fx-cue{
-  display:grid;grid-template-columns:var(--space-18) minmax(0,1fr);column-gap:var(--space-8);align-items:start;
-  margin:0 0 var(--space-12);
-}
+/* The hero (#523): the verb and the load as the screen's headline, the reps under it, then one line of evidence
+   ending in the Why link (#518). The verdict mark rides inline before the words; a cue without one has no gap. */
+.fx-cue{margin:var(--space-18) 0 var(--space-12)}
 .fx-cue__mark{
-  display:flex;grid-column:1;grid-row:1;justify-self:start;
-  padding-top:calc((var(--font-size-section-title) * var(--line-tight) - 16px) / 2);
+  display:inline-block;width:.62em;height:.62em;margin-right:.14em;transform:translateY(-.04em);
 }
+.fx-cue__mark .verdictmark,.fx-cue__mark .verdictmark__glyph{display:block;width:100%;height:100%}
+/* In the hero every verdict glyph takes the deep accent (owner, direction A), above the shared ink and orange. */
+.fx-cue__l1 .fx-cue__mark .verdictmark__glyph{background:var(--accent-deep)}
 .fx-cue__l1{
-  grid-column:2;grid-row:1;margin:0;overflow-wrap:anywhere;font-family:var(--font-language);font-size:var(--font-size-section-title);
-  font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink);
+  margin:0;overflow-wrap:anywhere;font-family:var(--font-language);font-size:var(--font-size-focus-cue);
+  font-weight:var(--weight-focus-cue);line-height:var(--line-focus-cue);letter-spacing:-.02em;color:var(--color-ink);
 }
-.fx-cue__load{font-family:var(--font-training-data);font-weight:var(--weight-medium)}
+.fx-cue__load{font-family:var(--font-training-data);font-weight:var(--weight-semibold);letter-spacing:-.03em}
 .fx-cue__l2{
-  grid-column:2;margin:var(--space-4) 0 0;font-family:var(--font-language);font-size:var(--font-size-subtitle);
-  line-height:var(--line-standard);color:var(--color-ink-secondary);
+  margin:var(--space-4) 0 0;font-family:var(--font-language);font-size:var(--font-size-focus-cue-second);
+  line-height:var(--line-standard);letter-spacing:-.01em;color:var(--color-ink-secondary);
+}
+.fx-cue__evidence{
+  max-width:22rem;margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-focus-evidence);
+  line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:anywhere;
+}
+.fx-cue__fig{font-family:var(--font-training-data);font-weight:var(--weight-medium);color:var(--color-ink)}
+/* Inline in the evidence line the Why link keeps the 44px target: its padding reaches the floor and its negative
+   margin gives the height back, so the line keeps its own leading. */
+.exercise--focus .fx-cue__evidence .text-link.focus-ex__why{
+  display:inline-block;min-height:var(--control-target);margin:calc((var(--control-target) - 1lh) / -2) 0;
+  padding:calc((var(--control-target) - 1lh) / 2) 0;font-size:inherit;font-weight:var(--weight-semibold);line-height:inherit;
+  color:var(--accent-deep);text-decoration:none;white-space:nowrap;vertical-align:baseline;
 }
 .exercise--focus .text-link.focus-ex__why,.exercise--focus .fx-cue__cancel{
-  grid-column:2;justify-self:start;display:inline-flex;align-items:center;min-height:var(--control-target);margin:var(--space-4) 0 0;padding:0;
+  justify-self:start;display:inline-flex;align-items:center;min-height:var(--control-target);margin:var(--space-4) 0 0;padding:0;
   border:0;border-radius:var(--radius-control);background:var(--control-quiet-bg);color:var(--control-quiet-ink);cursor:pointer;
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);text-align:left;
   text-decoration:underline;text-underline-offset:.2em;
@@ -1378,6 +1397,8 @@ article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
    columns that the head's labels share; the set being worked on wears the open
    ring, and sets still to do read in soft ink until the lifter confirms them. */
 .fcard__ledger{margin:var(--space-8) 0 0}
+/* The rows the measurement folds, and the disclosure while it folds none (#517). */
+.fcard__ledger .ledger__rows > [hidden],.fcard__ledger .ledger__more[hidden]{display:none}
 .fcard__ledger .ledgerline__head{align-items:center;min-height:calc(var(--control-target) + 1px);padding-block:0}
 .fcard__ledger .ledgerline__head .ledgerline__vals{
   align-items:center;font-family:inherit;font-size:inherit;font-weight:inherit;line-height:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;
