@@ -2070,7 +2070,8 @@ async function runDimmedStateAccessibility(browser) {
     await page.locator("#exActionSkipBtn").click();
     await page.locator("#exActionsSheet").waitFor({state:"hidden"});
     await page.locator("#sessionSheetBtn").click();
-    const statusSelector=`[data-session-map-ex="${skippedId}"] .session-map__status`;
+    // The skipped state is a dashed mark and a word under the name (#522).
+    const statusSelector=`[data-session-map-ex="${skippedId}"] .session-map__note`;
     const copy=expected[lang];
     assert(await page.locator(statusSelector).textContent()===copy.skipped,
       `Session map exposes a real skipped status (${lang})`);

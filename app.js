@@ -5770,9 +5770,13 @@ function lastBodyweight(){const rows=state.log.filter(r=>+r.bodyweight>0);
   if(!rows.length)return profileWeight>0?fmt(toDisplay(profileWeight)):"";const latest=rows.sort((a,b)=>compareLogChronology(b,a))[0];
   return fmt(toDisplay(latest.bodyweight))}
 function updateBodyweightField(){const el=$("#sessionBodyweight");if(!el)return;
-  el.placeholder=unitLabel();
-  const lbl=$("#sessionBodyweightLabel")?.querySelector("span");
-  if(lbl)lbl.textContent=t("log.bodyweight_unit",{unit:unitLabel()})}
+  // A value row (#522): the label says Bodyweight, the empty value Optional, and the unit follows a value; the field's
+  // accessible name keeps the unit and the optional status.
+  el.placeholder=t("session.sheet.optional");
+  el.setAttribute("aria-label",t("log.bodyweight_unit",{unit:unitLabel()}));
+  const lbl=$("#sessionBodyweightLabel")?.querySelector(".sessrow__label");
+  if(lbl)lbl.textContent=t("session.sheet.bodyweight");
+  syncSessionBodyweightUnit()}
 function focusList(){
   if(activeWorkoutDraft&&Array.isArray(activeWorkoutDraft.exerciseOrder)){
     const byId=new Map(exercises().map(e=>[e.id,e]));
@@ -8017,6 +8021,26 @@ function mountSessionSorting(mapEl) {
   });
 }
 
+/** The lifts in this session whose load counts the lifter's bodyweight. */
+function sessionBodyweightLifts(draft){
+  const definition = state.programMeta?.programDefinition;
+  return (draft?.exerciseOrder || []).map(id => {
+    const ex = draft.exercises[id], base = ex && prog.find(id), slot = base && definition ? canonicalPrescriptionSlot(base, definition) : null;
+    return (+slot?.loadingModel?.bodyweightCoefficient || 0) > 0 ? exerciseDisplayName(ex) : null;
+  }).filter(Boolean);
+}
+/** The bodyweight row shows its unit once it has a value; empty, it reads Optional. */
+function syncSessionBodyweightUnit(){
+  const input = $("#sessionBodyweight"), unit = $("#sessionBodyweightUnit");
+  if (unit) unit.textContent = input?.value.trim() ? unitLabel() : "";
+}
+/** The notes row grows with what it holds, one line when empty. */
+function fitSessionNotes(area){
+  if (!area) return;
+  area.style.height = "auto";
+  area.style.height = `${area.scrollHeight}px`;
+}
+
 function renderSessionSheet(){
   const sheet = $("#sessionSheet");
   if (!sheet) return;
@@ -8026,10 +8050,34 @@ function renderSessionSheet(){
   const bwInput = $("#sessionBodyweight");
   if (bwInput) {
     bwInput.value = displayDraftText("bodyweight", draft?.session?.bodyweight) || "";
-    bwInput.placeholder = unitLabel();
+    bwInput.placeholder = t("session.sheet.optional");
+    bwInput.setAttribute("aria-label", t("log.bodyweight_unit", { unit: unitLabel() }));
   }
+  syncSessionBodyweightUnit();
   const notesInput = $("#sessionNotes");
-  if (notesInput) notesInput.value = draft?.session?.notes || "";
+  if (notesInput) { notesInput.value = draft?.session?.notes || ""; fitSessionNotes(notesInput); }
+  // The head says where the session stands (#522, direction A): the day, the sets logged of the sets planned and the
+  // exercises done, in place of a generic subtitle.
+  const sub = $("#sessionSheetSub");
+  if (sub && draft) {
+    const ids = draft.exerciseOrder || [];
+    let sets = 0, total = 0, exDone = 0;
+    for (const id of ids) {
+      const ex = draft.exercises[id]; if (!ex) continue;
+      const done = ex.setOrder.filter(sid => ex.sets[sid]?.completion !== "pending").length;
+      sets += done; total += ex.setOrder.length;
+      if (ex.status !== "skipped" && ex.setOrder.length && done === ex.setOrder.length) exDone++;
+    }
+    sub.innerHTML = esc(t("session.sheet.summary", { day: dayLabel(draft.program?.dayLabel || ""), sets: "\u0001", n: exDone, m: ids.length }))
+      .replace("\u0001", `<span class="session-sheet__sets">${esc(`${sets}/${total}`)}</span>`);
+  }
+  // Bodyweight is optional, but the lifts that count it say so beside the field rather than behind a disclosure.
+  const bwNote = $("#sessionBodyweightNote");
+  if (bwNote) {
+    const names = sessionBodyweightLifts(draft);
+    bwNote.textContent = names.length ? t("session.sheet.bodyweight_note", { names: programNameList(names) }) : "";
+    bwNote.classList.toggle("hidden", !names.length);
+  }
 
   // Render Session map
   const mapEl = $("#sessionMap");
@@ -8045,13 +8093,17 @@ function renderSessionSheet(){
       const isSkipped = ex.status === "skipped";
       const isComplete = doneCount === totalCount && totalCount > 0 && !isSkipped;
       const isCurrent = exId === currentId;
-      const statusText = isSkipped ? t("log.skipped") : `${doneCount}/${totalCount}`;
+      const statusText = `${doneCount}/${totalCount}`;
+      // The state is a mark and, for the lift Focus is on and a skipped one, a word: never colour alone (#522).
+      const state = isSkipped ? "skipped" : isComplete ? "complete" : isCurrent ? "current" : "pending";
+      const note = isSkipped ? t("log.skipped") : isCurrent ? t("session.sheet.now") : "";
       // Reorder as the editor does (UI kit, owner 2026-10-24): drag the grip, or long-press the row (or its menu, the
       // keyboard path) for Move up and Move down. The ↑ ↓ buttons are gone.
       const name = exerciseDisplayName(ex);
       return `<div class="session-map__row${isCurrent ? " is-current" : ""}" data-session-map-ex="${esc(exId)}" data-context-row="${esc(exId)}"${isCurrent ? ' aria-current="true"' : ""}>` +
         `<button type="button" class="session-map__jump" data-session-map-jump="${esc(exId)}">` +
-        `<span class="session-map__name">${esc(name)}</span>` +
+        `<span class="session-map__mark is-${state}" aria-hidden="true"></span>` +
+        `<span class="session-map__name">${esc(name)}${note ? `<span class="session-map__note">${esc(note)}</span>` : ""}</span>` +
         `<span class="session-map__status ${isComplete ? "is-complete" : isSkipped ? "is-skipped" : ""}">${esc(statusText)}</span>` +
         `</button>` +
         `<button type="button" class="native-row-menu visually-hidden" data-row-menu="${esc(exId)}" data-session-row-menu="${esc(exId)}" aria-haspopup="menu" aria-label="${esc(t("program.editor.more"))}: ${esc(name)}"><span class="icon-mask icon-mask--overflow" aria-hidden="true"></span></button>` +
@@ -8126,7 +8178,7 @@ function openAbandonPrompt({from="sheet"}={}){
   $("#sessionEarlyFinish")?.classList.add("hidden");
   $("#sessionEarlyPrompt")?.classList.add("hidden");
   $("#sessionAbandon")?.classList.add("hidden");
-  const prompt=$("#sessionAbandonPrompt");if(prompt){prompt.dataset.from=from;prompt.classList.remove("hidden")}
+  const prompt=$("#sessionAbandonPrompt");if(prompt){prompt.dataset.from=from;prompt.classList.remove("hidden");prompt.scrollIntoView({block:"nearest"})}
   focusRoute("#sessionAbandonConfirm")}
 function cancelAbandonPrompt(){
   const fromActions=$("#sessionAbandonPrompt")?.dataset.from==="actions";
@@ -22472,12 +22524,16 @@ function init(){
   });
 
   const sessBw=$("#sessionBodyweight");if(sessBw)sessBw.addEventListener("input",async()=>{
-    contextTouched.bodyweight=true;
+    contextTouched.bodyweight=true;syncSessionBodyweightUnit();
     if(activeWorkoutDraft)await WorkoutSession.dispatch("setBodyweight",{value:canonicalDraftBodyweight(sessBw.value)},{pendingValue:sessBw.value});
   });
 
+  // The sheet's head takes its hairline once content is under it (UI kit §4).
+  const sessBody=$("#sessionSheetBody");if(sessBody)sessBody.addEventListener("scroll",()=>{
+    sessBody.closest(".sheet")?.querySelector(".sheetband")?.classList.toggle("is-scrolled",sessBody.scrollTop>0)},{passive:true});
+
   const sessNotes=$("#sessionNotes");if(sessNotes)sessNotes.addEventListener("input",async()=>{
-    contextTouched.sessionNotes=true;
+    contextTouched.sessionNotes=true;fitSessionNotes(sessNotes);
     if(activeWorkoutDraft)await WorkoutSession.dispatch("setSessionNotes",{value:sessNotes.value},{pendingValue:sessNotes.value});
   });
 
@@ -22492,7 +22548,9 @@ function init(){
     const earlyPrompt=$("#sessionEarlyPrompt");if(earlyPrompt)earlyPrompt.classList.remove("hidden");
     earlyBtn.classList.add("hidden");
     $("#sessionAbandon")?.classList.add("hidden");
-    // The pressed control is now hidden: the lifter lands on the choice it asks for.
+    // The pressed control is now hidden: the lifter lands on the choice it asks for, with the whole question in view
+    // (it opens at the end of the scroll, #522).
+    earlyPrompt?.scrollIntoView({block:"nearest"});
     focusRoute("#sessionEarlyConfirm");
   };
 

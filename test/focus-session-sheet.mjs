@@ -133,6 +133,79 @@ async function earlyFinishFitsLargeText(browser) {
   }
 }
 
+/**
+ * #522 (owner direction A, 2026-10-28): the sheet as a session hub. At 390 EN, 320 PT, 320 EN at double-size text and
+ * 430 EN: the head says where the session stands; every row's state is a mark and (for the current and a skipped lift)
+ * a word, not colour alone; rows are whole 44px+ jump targets inside the column; date, bodyweight and notes are value
+ * rows inside the column; nothing is pinned under the body, the two endings close the scroll and, once scrolled to,
+ * are whole and tappable; and End without saving is quiet text that never looks like Finish early.
+ */
+async function sessionHubChecks(browser) {
+  phase("Session details as a hub (#522): head, marks, value rows, endings at the end of the scroll");
+  for (const [width, lang, text] of [[390, "en", "normal"], [320, "pt", "normal"], [320, "en", "text200"], [430, "en", "normal"]]) {
+    const opened = await openCatalogState(browser, "workout/session", width, lang, text, { height: width === 430 ? 932 : width === 320 ? 568 : 844 });
+    const label = `${width}px ${lang} ${text === "text200" ? "200%" : "100%"}`;
+    try {
+      const page = opened.page;
+      // A skipped lift, and a lift that counts bodyweight, so both say so.
+      await page.evaluate(async () => {
+        const draft = window.__repforgeWorkoutDraft.current(), skip = draft.exerciseOrder[2];
+        await WorkoutSession.dispatch("skipExercise", { exerciseInstanceId: skip });
+        window.sessionBodyweightLifts = () => ["Pull-up"];
+        renderSessionSheet();
+      });
+      const m = await page.evaluate(() => {
+        const sheet = document.querySelector("#sessionSheet"), body = document.querySelector("#sessionSheetBody"), col = body.getBoundingClientRect();
+        const draft = window.__repforgeWorkoutDraft.current();
+        const sets = draft.exerciseOrder.reduce((n, id) => n + draft.exercises[id].setOrder.filter((sid) => draft.exercises[id].sets[sid].completion !== "pending").length, 0);
+        const total = draft.exerciseOrder.reduce((n, id) => n + draft.exercises[id].setOrder.length, 0);
+        const rows = [...document.querySelectorAll("#sessionMap .session-map__row")].map((row) => {
+          const jump = row.querySelector(".session-map__jump"), r = jump.getBoundingClientRect(), mark = row.querySelector(".session-map__mark");
+          return { state: [...mark.classList].find((c) => c.startsWith("is-")), note: row.querySelector(".session-map__note")?.textContent || "",
+            height: r.height, inside: r.left >= col.left - 0.5 && r.right <= col.right + 0.5,
+            overflow: [...jump.children].some((c) => c.scrollWidth > c.clientWidth + 1) };
+        });
+        const fields = ["#sessionDate", "#sessionBodyweight", "#sessionNotes"].map((id) => { const r = document.querySelector(id).getBoundingClientRect(); return { id, inside: r.left >= col.left - 0.5 && r.right <= col.right + 0.5, height: r.height }; });
+        return { summary: document.querySelector("#sessionSheetSub").textContent, sets, total, mono: getComputedStyle(document.querySelector(".session-sheet__sets")).fontFamily,
+          rows, fields, kids: [...sheet.children].map((c) => c.id || c.className),
+          endingsInBody: body.contains(document.querySelector("#sessionEarlyFinish")) && body.contains(document.querySelector("#sessionAbandon")),
+          note: document.querySelector("#sessionBodyweightNote").classList.contains("hidden") ? "" : document.querySelector("#sessionBodyweightNote").textContent };
+      });
+      assert(m.summary.includes(`${m.sets}/${m.total}`) && /Mono/i.test(m.mono), `${label}: the head says the sets logged of the sets planned, in Mono`, JSON.stringify({ summary: m.summary, sets: m.sets, total: m.total }));
+      const cur = m.rows.filter((r) => r.state === "is-current"), skipped = m.rows.filter((r) => r.state === "is-skipped");
+      assert(cur.length === 1 && cur[0].note && skipped.length === 1 && skipped[0].note && m.rows.every((r) => r.state),
+        `${label}: every row has a state mark, and the current and the skipped lift also say so in words`, JSON.stringify(m.rows.map((r) => [r.state, r.note])));
+      assert(m.rows.every((r) => r.height >= 44 && r.inside && !r.overflow), `${label}: every row is a whole jump target of 44px or more inside the column`, JSON.stringify(m.rows));
+      assert(m.fields.every((f) => f.inside && f.height >= 44), `${label}: date, bodyweight and notes sit inside the column at a 44px height or more`, JSON.stringify(m.fields));
+      assert(m.kids.length === 2 && m.endingsInBody, `${label}: nothing is pinned under the body; both endings close its scroll`, JSON.stringify(m.kids));
+      assert(/Pull-up/.test(m.note), `${label}: a lift that counts bodyweight is named beside the bodyweight field`, m.note);
+      await page.locator("#sessionSheetBody").evaluate((b) => { b.scrollTop = b.scrollHeight; });
+      await page.waitForTimeout(150);
+      const end = await page.evaluate(() => {
+        const col = document.querySelector("#sessionSheetBody").getBoundingClientRect();
+        const look = (id) => { const el = document.querySelector(id), r = el.getBoundingClientRect(), cs = getComputedStyle(el);
+          const hit = document.elementFromPoint((r.left + r.right) / 2, (r.top + r.bottom) / 2);
+          return { whole: r.top >= col.top - 0.5 && r.bottom <= col.bottom + 0.5, tapped: !!hit?.closest(id), border: parseFloat(cs.borderTopWidth) || 0,
+            bg: cs.backgroundColor, color: cs.color, height: r.height }; };
+        return { early: look("#sessionEarlyFinish"), abandon: look("#sessionAbandon"), scrolled: document.querySelector("#sessionSheet .sheetband").classList.contains("is-scrolled") };
+      });
+      assert(end.early.whole && end.abandon.whole && end.early.tapped && end.abandon.tapped && end.abandon.height >= 44,
+        `${label}: scrolled to the end, Finish early and End without saving are whole and take their taps`, JSON.stringify(end));
+      assert(end.early.border > 0 && end.abandon.border === 0 && end.abandon.bg === "rgba(0, 0, 0, 0)" && end.abandon.color !== end.early.color,
+        `${label}: End without saving is quiet red text, never the bordered control Finish early is`, JSON.stringify(end));
+      assert(end.scrolled, `${label}: the head takes its hairline once content is under it`);
+      if (width === 390) {
+        await page.locator("#sessionBodyweight").fill("82");
+        const unit = await page.evaluate(async () => { await window.__repforgeWorkoutDraft.flush(); return { unit: document.querySelector("#sessionBodyweightUnit").textContent, value: window.__repforgeWorkoutDraft.current().session.bodyweight }; });
+        assert(unit.unit === "kg" && unit.value != null, `${label}: a bodyweight typed in the row is stored, and the unit follows the value`, JSON.stringify(unit));
+      }
+      assert(opened.errors ? opened.errors.length === 0 : true, `${label}: no page errors`);
+    } finally {
+      await opened.context.close();
+    }
+  }
+}
+
 async function main() {
   const browser = await launchChromium();
   const { context, page, errors } = await freshPage(browser);
@@ -324,6 +397,7 @@ async function main() {
     assert(errors.length === 0, "the session sheet journey emits no page or console errors", errors.join(" | "));
 
     await earlyFinishFitsLargeText(browser);
+    await sessionHubChecks(browser);
   } finally {
     await context.close();
     await browser.close();
