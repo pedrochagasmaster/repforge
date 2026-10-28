@@ -2634,6 +2634,16 @@ export const APP_SCENARIOS = {
     }, undefined, { timeout: 10000 });
     await sleep(page, 400);
   },
+  // #525: See audit explains the overview's planned weekly total, read-only; the first muscle is open.
+  "program/volume-audit": async (page) => {
+    await openProgram(page);
+    await page.click("#seeVolumeAudit");
+    await page.waitForSelector("#volumeAuditSheet.is-open", { timeout: 20000 });
+    await page.locator("#volumeAuditBody .volaudit__row").first().click();
+    await page.waitForSelector("#volumeAuditBody .volaudit__muscle[open]", { timeout: 20000 });
+    await page.evaluate(() => { document.querySelector("#volumeAuditBody").scrollTop = 0; });
+    await sleep(page, 400);
+  },
   "program/text-export": async (page) => {
     await openProgram(page);
     await page.click("#exportProgramText");

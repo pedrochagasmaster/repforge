@@ -1739,6 +1739,13 @@
       "variants": "standard"
     },
     {
+      "id": "volume-audit",
+      "flow": "program",
+      "label": "Program — planned weekly volume",
+      "scenario": "See audit opens the read-only planned weekly volume sheet, its first muscle open.",
+      "variants": "standard"
+    },
+    {
       "id": "main",
       "flow": "settings",
       "label": "Settings",

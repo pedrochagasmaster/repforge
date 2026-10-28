@@ -223,12 +223,50 @@ try {
     "zero readiness renders no ready action, 0-ready chip or up verdict", overview);
   check(overview.reviewRole === "navigation", "Review block is marked as navigation", overview.reviewRole);
   check(overview.volumeAuditAction, "effective-set audit action remains in Program overview", overview);
+  // #525: "See audit" opens a read-only explanation of the planned weekly total, never the editor.
+  const storedBefore = await page.evaluate((key) => localStorage.getItem(key), KEY);
+  const scrollBefore = await page.evaluate(() => { document.querySelector("#seeVolumeAudit").scrollIntoView({ block: "center" }); return scrollY; });
   await page.click("#seeVolumeAudit");
-  await page.waitForSelector("#programEditorWrap:not(.is-hidden) #programEditor [data-role=\"editor\"]", { timeout: 5000 });
-  check(await page.locator("#programOverview.is-hidden").count() === 1, "effective-set action enters the installed Program editor");
-  await editorSettled(page);
-  await cancelInstalledEditor(page);
-  await page.waitForSelector("#programOverview:not(.is-hidden)", { timeout: 5000 });
+  await page.waitForSelector("#volumeAuditSheet.is-open", { timeout: 5000 });
+  const audit = await page.evaluate(() => {
+    const num = (text) => Number(String(text).replace(/[^\d.,-]/g, "").replace(",", "."));
+    const muscles = [...document.querySelectorAll("#volumeAuditBody .volaudit__muscle")].map((el) => {
+      const split = el.querySelector(".volaudit__split").textContent.match(/\d+(?:[.,]\d+)?/g).map(num);
+      return { name: el.querySelector(".volaudit__name").firstChild.textContent, total: num(el.querySelector(".volaudit__n").textContent), split,
+        from: [...el.querySelectorAll(".volaudit__calc")].map((c) => num(c.textContent.split("=").pop())) };
+    });
+    // The engine's own count per muscle, as prog.volume() returns it: direct sets in full, secondary credit at ½.
+    const engine = [...prog.volume()].filter(([, v]) => v.d + v.p > 0).map(([muscle, v]) => ({ name: muscleLabel(muscle), total: v.d + v.p, direct: v.d, secondarySets: v.p * 2 }));
+    return { engine, overview: document.querySelector("#seeVolumeAudit .listrow__title").textContent.trim(),
+      total: document.querySelector("#volumeAuditBody .volaudit__total")?.textContent.trim(),
+      method: document.querySelector("#volumeAuditBody .volaudit__method")?.textContent || "", muscles,
+      editor: !document.querySelector("#programEditorWrap")?.classList.contains("is-hidden") || !!document.querySelector("#program.program-editor-installed"),
+      label: document.querySelector("#volumeAuditSheet").getAttribute("aria-labelledby"), title: document.querySelector("#volumeAuditTitle")?.textContent };
+  });
+  const sum = (list) => Math.round(list.reduce((a, b) => a + b, 0) * 100) / 100;
+  check(!audit.editor && audit.title === "Planned weekly volume" && audit.label === "volumeAuditTitle",
+    "See audit opens the planned weekly volume sheet, not the editor (#525)", audit);
+  check(audit.total === audit.overview && sum(audit.muscles.map((m) => m.total)) === Number(audit.overview.match(/[\d.]+/)[0]),
+    "the sheet's total is the overview's, and the muscles add up to it exactly", { overview: audit.overview, total: audit.total, muscles: audit.muscles.map((m) => m.total) });
+  // The row states its parts in sets: direct sets count in full and secondary sets at ½, and they compute to its figure.
+  check(audit.muscles.length > 0 && audit.muscles.every((m) => m.split.length === 2 && m.split[0] + m.split[1] * 0.5 === m.total && sum(m.from) === m.total),
+    "each muscle's stated parts (direct sets + secondary sets × ½), and the exercises it comes from, compute to its count", audit.muscles);
+  const byName = new Map(audit.engine.map((e) => [e.name, e]));
+  check(audit.engine.length === audit.muscles.length && audit.muscles.every((m) => { const e = byName.get(m.name);
+    return e && e.total === m.total && e.direct === m.split[0] && e.secondarySets === m.split[1]; }),
+    "every muscle's figure and parts are the engine's own (prog.volume()), not a second calculation", { engine: audit.engine, muscles: audit.muscles });
+  check(/half/.test(audit.method) && /more than the number of sets/.test(audit.method), "the sheet says how the count is made and that it is not a count of sets", audit.method);
+  await page.locator("#volumeAuditBody .volaudit__row").first().click();
+  check(await page.locator("#volumeAuditBody .volaudit__muscle[open] .volaudit__from li").count() > 0, "a muscle opens to the exercises its count comes from");
+  const empty = await page.evaluate(() => { const keep = prog.exercises; prog.exercises = []; try { return volumeAuditHtml(); } finally { prog.exercises = keep; } });
+  check(/No sets are planned yet/.test(empty) && !/volaudit__total/.test(empty), "with nothing planned the sheet says so plainly", empty);
+  await page.keyboard.press("Escape");
+  await page.waitForSelector("#volumeAuditSheet", { state: "hidden", timeout: 5000 });
+  const back = await page.evaluate((key) => ({ focus: document.activeElement?.id, scroll: scrollY, stored: localStorage.getItem(key),
+    overview: !document.querySelector("#programOverview").classList.contains("is-hidden"),
+    editor: !!document.querySelector("#program.program-editor-installed") }), KEY);
+  check(back.focus === "seeVolumeAudit" && back.overview && !back.editor && Math.abs(back.scroll - scrollBefore) < 2 && back.stored === storedBefore,
+    "closing returns to the overview at its place with focus on See audit, nothing edited or stored", { ...back, stored: back.stored === storedBefore, scrollBefore });
 
   await openInstalledEditor(page);
   const tabs = await page.evaluate(() => [...document.querySelectorAll('#programEditor [data-role="day-tab"]')]
