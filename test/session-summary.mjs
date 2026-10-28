@@ -194,8 +194,12 @@ async function logSet(page, exId, n, load, reps, rir) {
   );
 }
 
+/** Enter the program's first day: a fixture that has trained it would otherwise boot onto the next one (#528). */
 async function enterLog(page) {
-  await page.evaluate(() => window.__repforgeEnterWorkout({}));
+  await page.evaluate(() => {
+    const day = JSON.parse(localStorage.getItem("repforge_v1") || "{}").program?.[0]?.day;
+    return window.__repforgeEnterWorkout(day ? { day } : {});
+  });
   await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
 }
 

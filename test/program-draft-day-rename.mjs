@@ -619,7 +619,8 @@ async function shelfInput(page, dataKey, shelfField) {
 }
 
 async function fillRaceWorkout(page, load) {
-  await page.evaluate(() => window.__repforgeEnterWorkout({}));
+  // The race's field keys are Day 1's; name it, since a trained Day 1 boots onto the next day (#528).
+  await page.evaluate(() => window.__repforgeEnterWorkout({ day: "Day 1" }));
   await (await shelfInput(page, SET_FIELD_KEYS.load, `metric_${WEIGHT_METRIC}`)).fill(String(load));
   await (await shelfInput(page, SET_FIELD_KEYS.reps, `metric_${REPS_METRIC}`)).fill("8");
   await (await shelfInput(page, SET_FIELD_KEYS.rir, "rir")).fill("1");

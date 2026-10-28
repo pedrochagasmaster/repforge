@@ -10501,6 +10501,50 @@
       ]
     },
     {
+      "id": "fatigue-trim",
+      "selector": ".fatigue__trim",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Trims today's session to its essentials from the possible-fatigue banner: the flagged lifts are skipped through the draft's own commands, restorable from the session sheet. Drawn like the block prompt's action beside it.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "workout/deload-week"
+      ]
+    },
+    {
+      "id": "fatigue-dismiss",
+      "selector": ".fatigue__dismiss",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Dismisses the possible-fatigue banner for today without changing the session or the program.",
+      "owner": "plan-072",
+      "catalogStates": [
+        "workout/deload-week"
+      ]
+    },
+    {
       "id": "programlab-primary",
       "selector": "[data-programlab] #run",
       "roles": {
