@@ -479,6 +479,44 @@ test("verify mode compares a staged capture with the committed catalog and keeps
 
 // -------------------------------------------------------------------- CI plan
 
+test("nothing the app, its tests or its tools load depends on the design mocks the selectors skip", () => {
+  // The selectors skip docs/design/native-fidelity-mocks/ because nothing executable reads it. If a test, tool or app
+  // file starts to, a change there could alter a result while CI skips it, so the only files that may name the folder
+  // are the selectors that skip it, this contract and prose.
+  const allowed = new Set(["tools/ci-plan.mjs", "tools/ci-selection.mjs", "tools/test-selection.mjs", "test/ci.mjs"]);
+  const referencing = execFileSync("git", ["grep", "-l", "native-fidelity-mocks"], { encoding: "utf8" }).trim().split("\n").filter(Boolean);
+  const executable = referencing.filter((file) => !file.startsWith("docs/design/native-fidelity-mocks/") && !/\.md$/.test(file) && !allowed.has(file));
+  assert.deepEqual(executable, [], `executable files that reference the skipped design mocks: ${executable.join(", ")}`);
+});
+
+test("standalone native-fidelity design mocks are inert across CI and local selectors", () => {
+  const mockFiles = [
+    "docs/design/native-fidelity-mocks/after/equipment-dark.png",
+    "docs/design/native-fidelity-mocks/compare/equipment-light.png",
+    "docs/design/native-fidelity-mocks/capture.mjs",
+    "docs/design/native-fidelity-mocks/kit.css",
+    "docs/design/native-fidelity-mocks/equipment.html",
+  ];
+  assert.equal(classifyChange(mockFiles).run, false, "only nonproduction mock changes may skip PR jobs");
+  assert.equal(selectFullLane(mockFiles).mode, "none", "standalone design references cannot require the full lane");
+  assert.equal(selectAffected(mockFiles).mode, "none", "local selectors agree with the PR planner");
+  assert.equal(selectVisuals(mockFiles, manifest).mode, "none", "standalone prototypes do not alter production captures");
+
+  const mixed = [...mockFiles, "app.js"];
+  assert.equal(classifyChange(mixed).run, true, "real application changes still require the PR lane");
+  assert.equal(selectFullLane(mixed).mode, "all", "an unbounded production change cannot be hidden by mock assets");
+  assert.equal(selectAffected(mixed).mode !== "none", true);
+  assert.equal(selectVisuals(mixed, manifest).mode, "full");
+  for (const path of [
+    "docs/design/prototype.html", "docs/design/unreviewed-example.js",
+    "docs/ui-screens/screens/history/session__phone-390-light-en.png",
+    "docs/ui-screens/entry-semantics.json", "docs/ui-screens/manifest.json",
+  ]) {
+    assert.equal(classifyChange([path]).run, true, path + " remains an executable/unknown input");
+    assert.equal(selectFullLane([path]).mode !== "none", true, path + " is not allowlisted");
+  }
+});
+
 test("CI runs everything unless a change is provably prose-only", () => {
   assert.equal(classifyChange(null).run, true);
   assert.equal(classifyChange([]).run, true);

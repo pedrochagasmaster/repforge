@@ -31,6 +31,9 @@ import { findShardReports, loadRoleInventory, mergeShardReports, shardCaptures, 
 
 const PROSE = /(?:^|\/)(?:[^/]+\.(?:md|txt)|\.gitignore|LICENSE)$/;
 const FIXTURE_PATH = /(?:^|\/)(?:fixtures?|__fixtures__)(?:\/|$)/;
+// Manual standalone gallery, not shipped in the PWA or imported by tests.
+// Unlike docs/ui-screens, these are NOT production verification inputs.
+const DESIGN_REFERENCE = /^docs\/design\/native-fidelity-mocks\//;
 // These Markdown files are inputs to committed verification contracts. A
 // prose-only shortcut must still run those contracts when their input changes.
 const VERIFICATION_DOCUMENTS = new Set([
@@ -48,8 +51,8 @@ const COMPARE_LIMIT = 300;
 export function classifyChange(files) {
   if (!Array.isArray(files)) return { run: true, reason: "Changed files are unknown; run everything rather than guess." };
   if (!files.length) return { run: true, reason: "No changed files were reported; run everything." };
-  const code = files.filter((file) => FIXTURE_PATH.test(file) || VERIFICATION_DOCUMENTS.has(file) || !PROSE.test(file));
-  if (!code.length) return { run: false, reason: `Only prose changed (${files.length} file(s)); nothing executable can differ.` };
+  const code = files.filter((file) => !DESIGN_REFERENCE.test(file) && (FIXTURE_PATH.test(file) || VERIFICATION_DOCUMENTS.has(file) || !PROSE.test(file)));
+  if (!code.length) return { run: false, reason: `Only prose or standalone design references changed (${files.length} file(s)); nothing executable can differ.` };
   return { run: true, reason: `Executable or unknown input changed: ${code.slice(0, 6).join(", ")}${code.length > 6 ? ` and ${code.length - 6} more` : ""}.` };
 }
 
