@@ -2269,6 +2269,8 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
   await waitForApp(page);
   await page.click("#openSettings");
   await page.waitForSelector("#settings.view.active");
+  // A key press first, so the programmatic focus below counts as keyboard focus (:focus-visible).
+  await page.keyboard.press("Shift");
   const settingsRing = await page.evaluate(() => {
     // Language is a pull-down row (the prototype, owner 2026-10-28); the row carries the focus ring.
     const el = document.querySelector("#langRow");

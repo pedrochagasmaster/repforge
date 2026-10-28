@@ -1035,14 +1035,14 @@ div.settings-row{cursor:default}
   min-height:56px;
 }
 .settings-row.is-danger::before,#reset.settings-row::before{display:none}
-#settings :is(#rirModeRow,#progressionRow,#restSecRow,#notifyConfigRow,#dataBackupRow,#dataImportRow,#guideReplayToggle){
+#settings :is(#rirModeRow,#langRow,#progressionRow,#restSecRow,#notifyConfigRow,#dataBackupRow,#dataImportRow,#guideReplayToggle){
   background:var(--control-disclosure-bg);color:var(--control-disclosure-ink)
 }
 #settings :is(#createProgram,#privacyDetails){
   background:var(--control-quiet-bg);color:var(--control-quiet-ink)
 }
 @media (hover: hover) and (pointer: fine){
-#settings :is(#rirModeRow,#progressionRow,#restSecRow,#notifyConfigRow,#dataBackupRow,#dataImportRow,#guideReplayToggle):hover:not(:disabled){
+#settings :is(#rirModeRow,#langRow,#progressionRow,#restSecRow,#notifyConfigRow,#dataBackupRow,#dataImportRow,#guideReplayToggle):hover:not(:disabled){
   background:var(--well);color:var(--control-disclosure-ink)
 }
 }
@@ -1051,21 +1051,21 @@ div.settings-row{cursor:default}
   background:var(--well);color:var(--control-quiet-ink)
 }
 }
-#settings :is(#rirModeRow,#progressionRow,#restSecRow,#notifyConfigRow,#dataBackupRow,#dataImportRow,#guideReplayToggle,#createProgram,#privacyDetails,#reset).is-pressed:not(:disabled){
+#settings :is(#rirModeRow,#langRow,#progressionRow,#restSecRow,#notifyConfigRow,#dataBackupRow,#dataImportRow,#guideReplayToggle,#createProgram,#privacyDetails,#reset).is-pressed:not(:disabled){
   transform:var(--control-pressed-transform)
 }
-#settings :is(#rirModeRow,#progressionRow,#restSecRow,#notifyConfigRow,#dataBackupRow,#dataImportRow,#guideReplayToggle,#createProgram,#privacyDetails,#reset):focus-visible{
+#settings :is(#rirModeRow,#langRow,#progressionRow,#restSecRow,#notifyConfigRow,#dataBackupRow,#dataImportRow,#guideReplayToggle,#createProgram,#privacyDetails,#reset):focus-visible{
   outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-none)
 }
 @media (hover: hover) and (pointer: fine){
 #settings #reset:hover:not(:disabled){background:var(--well);color:var(--control-destructive-ink)}
 }
 #settings #reset.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-destructive-ink)}
-#settings :is(#rirModeRow,#progressionRow,#restSecRow,#notifyConfigRow,#dataBackupRow,#dataImportRow,#guideReplayToggle,#createProgram,#privacyDetails,#reset):disabled{
+#settings :is(#rirModeRow,#langRow,#progressionRow,#restSecRow,#notifyConfigRow,#dataBackupRow,#dataImportRow,#guideReplayToggle,#createProgram,#privacyDetails,#reset):disabled{
   background:transparent;color:var(--color-disabled-reason);border-color:var(--boundary-decorative);
   opacity:1;cursor:not-allowed;transform:none
 }
-#settings :is(#rirModeRow,#progressionRow,#restSecRow,#notifyConfigRow,#dataBackupRow,#dataImportRow,#guideReplayToggle,#createProgram,#privacyDetails,#reset):disabled :is(.settings-row__label,.settings-row__value,.chevron){
+#settings :is(#rirModeRow,#langRow,#progressionRow,#restSecRow,#notifyConfigRow,#dataBackupRow,#dataImportRow,#guideReplayToggle,#createProgram,#privacyDetails,#reset):disabled :is(.settings-row__label,.settings-row__value,.chevron){
   color:var(--color-disabled-reason)
 }
 #settings .settings-row.is-danger:disabled .settings-row__label{color:var(--color-disabled-reason)}
@@ -1892,7 +1892,7 @@ body.is-sheet-open{overflow:hidden}
 .sheet__foot{flex:none;padding:12px 16px 16px;font-size:var(--font-size-body-small);color:var(--ink-faint)}
 .sheet__foot--actions{
   display:flex;justify-content:flex-end;gap:8px;border-top:.5px solid var(--bar-edge);
-  background:var(--glass-solid-surface);-webkit-backdrop-filter:var(--bar-blur);backdrop-filter:var(--bar-blur)
+  --material:almost-solid-glass;background:var(--glass-solid-surface);-webkit-backdrop-filter:var(--bar-blur);backdrop-filter:var(--bar-blur)
 }
 /* Secondary text on the almost-solid glass takes the glass ink (contract: almost-solid glass). */
 .libbar,.onb__nav,.entry__pinned,.glossary,.sheet__foot--actions{
@@ -2013,7 +2013,7 @@ body.is-sheet-open{overflow:hidden}
   position:fixed;left:0;right:0;bottom:0;z-index:30;
   display:flex;flex-direction:column;gap:6px;
   padding:10px 16px calc(12px + env(safe-area-inset-bottom));
-  background:var(--glass-solid-surface);-webkit-backdrop-filter:var(--bar-blur);backdrop-filter:var(--bar-blur);
+  --material:almost-solid-glass;background:var(--glass-solid-surface);-webkit-backdrop-filter:var(--bar-blur);backdrop-filter:var(--bar-blur);
   border-top:.5px solid var(--bar-edge);box-shadow:var(--elevation-persistent-shadow);
 }
 .libbar.is-hidden{display:none}
@@ -3482,7 +3482,7 @@ body.is-library,body.is-preview,body.is-import{padding-bottom:env(safe-area-inse
 .glossary{
   position:absolute;z-index:60;max-width:280px;max-height:calc(100vh - 16px);max-height:calc(100dvh - 16px);
   display:flex;flex-direction:column;
-  background:var(--glass-solid-surface);-webkit-backdrop-filter:var(--bar-blur);backdrop-filter:var(--bar-blur);
+  --material:almost-solid-glass;background:var(--glass-solid-surface);-webkit-backdrop-filter:var(--bar-blur);backdrop-filter:var(--bar-blur);
   border:0;border-radius:var(--radius-surface);padding:14px 16px 12px;box-shadow:var(--menu-shadow);
 }
 .glossary__close{position:absolute;top:0;right:0;border:0;background:transparent;color:var(--ink-soft);cursor:pointer;font-size:var(--control-icon-size);line-height:1;width:44px;height:44px;min-width:44px;min-height:44px;padding:0}
@@ -7098,7 +7098,7 @@ body.is-entry-editor #entryProgramName,
 .today-dayhead{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;column-gap:var(--space-12);row-gap:0}
 .today-dayhead .today-session__name--day{flex:1 1 auto;min-width:0}
 #chooseAnotherDay{
-  display:inline-flex;align-items:center;gap:6px;flex:none;min-height:var(--control-target);margin:0 calc(-1 * var(--space-8));padding:0 var(--space-8);
+  display:inline-flex;align-items:center;gap:6px;flex:none;min-height:var(--control-target);margin:0 0 0 calc(-1 * var(--space-8));padding:0 0 0 var(--space-8);
   border:0;border-radius:var(--radius-pill);background:transparent;color:var(--color-ink);white-space:nowrap;
   font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-semibold);line-height:var(--line-standard)
 }
@@ -7395,7 +7395,7 @@ body.is-entry-editor #entryProgramName,
   position:sticky;bottom:0;z-index:2;display:flex;flex-direction:column;gap:var(--space-8);
   margin:0 calc(-1 * var(--onb-pad-r)) 0 calc(-1 * var(--onb-pad-l));
   padding:var(--space-12) var(--onb-pad-r) calc(var(--space-12) + env(safe-area-inset-bottom)) var(--onb-pad-l);
-  background:var(--glass-solid-bg);-webkit-backdrop-filter:var(--bar-blur);backdrop-filter:var(--bar-blur);
+  --material:almost-solid-glass;background:var(--glass-solid-bg);-webkit-backdrop-filter:var(--bar-blur);backdrop-filter:var(--bar-blur);
   border-top:.5px solid var(--bar-edge)
 }
 .entry__pinned{margin-top:var(--space-26)}

@@ -50,14 +50,17 @@ export async function measureRenderedRoles(input) {
     const chain = [];
     for (let current = node; current; current = current.parentElement) chain.push(current);
     let result = [255, 255, 255, 1];
-    // Contract, almost-solid glass (owner, 2026-10-28): a blurred material at least 85% opaque is measured against the
-    // worst case beneath it, the material composited over pure white and over pure black; `alt` carries the second.
+    // Contract, almost-solid glass (owner, 2026-10-28): a surface declaring --material:almost-solid-glass (a blurred
+    // material at least 85% opaque) is measured against the worst case beneath it, the material composited over pure
+    // white and over pure black; `alt` carries the second. Other glass stays unsupported here.
     let alt = null;
     for (const current of chain.reverse()) {
       const style = getComputedStyle(current);
       const selectIndicatorOnly = current.matches("select");
       const bg = color(style.backgroundColor);
-      const glass = style.backdropFilter !== "none" && style.backgroundImage === "none" && (bg?.[3] || 0) >= 0.85;
+      const glass = style.backdropFilter !== "none" && style.backgroundImage === "none" && (bg?.[3] || 0) >= 0.85
+        && style.getPropertyValue("--material").trim() === "almost-solid-glass" && current.parentElement
+        && getComputedStyle(current.parentElement).getPropertyValue("--material").trim() !== "almost-solid-glass";
       if (style.backgroundImage !== "none" && !selectIndicatorOnly || style.backdropFilter !== "none" && !glass) {
         return { unsupported: `image or backdrop at ${current.id ? `#${current.id}` : current.tagName.toLowerCase()}` };
       }

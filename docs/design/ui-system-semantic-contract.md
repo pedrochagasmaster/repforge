@@ -468,8 +468,10 @@ cases for whatever scrolls beneath it, and the lower of the two ratios must
 meet the threshold. Secondary text on those surfaces takes `--glass-ink-soft`
 (a step darker than `--ink-soft` in light, so the disabled reason under
 onboarding's Continue holds 4.5:1 over the black case; dark keeps `--ink-soft`).
-The rendered checker applies this to any blurred material
-at least 85% opaque; a thinner glass stays `unsupported`. Under
+Each of the four declares `--material: almost-solid-glass`, and the rendered
+checker applies the worst-case rule only to a blurred material that declares it
+and is at least 85% opaque; other glass (the tab bar, the mini bar, context
+menus) stays `unsupported`, as before. Under
 `prefers-reduced-transparency: reduce` the four surfaces are solid.
 
 The inventory marks choice marks and tile outlines/fills (see Choice rows below), field extents, selected tabs/nav,

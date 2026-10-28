@@ -3230,9 +3230,12 @@ async function main() {
   await reloadApp(page);
   await nav(page, "settings");
   // RIR logging is a pull-down anchored to its row (the prototype, owner 2026-10-28).
+  const rirBefore = await page.textContent("#rirModeDisplay");
   await page.click("#rirModeRow");
   await page.click('#nativeContextMenu [data-menu-value="effort"]');
-  await page.waitForTimeout(120);
+  // The menu closes, then the choice commits and Settings redraws; wait for the row to show it.
+  await page.waitForFunction((before) => !document.querySelector("#nativeContextMenu")
+    && document.querySelector("#rirModeDisplay")?.textContent !== before, rirBefore);
   await nav(page, "log");
   await selectDay(page, "Day 1");
   const effMeta = await getExerciseMeta(page, "Day 1");
