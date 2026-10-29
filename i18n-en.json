@@ -2608,6 +2608,8 @@
   "entry.review.sheet.min_up": "Raise the minimum",
   "entry.review.sheet.max_down": "Lower the maximum",
   "entry.review.sheet.max_up": "Raise the maximum",
+  "entry.review.sheet.range_min_n": "Minimum reps, {n}",
+  "entry.review.sheet.range_max_n": "Maximum reps, {n}",
   "entry.review.sheet.rest": "Rest between sets",
   "entry.review.sheet.seconds": "{n} s",
   "entry.review.sheet.day_time": "Day: about {n} min",

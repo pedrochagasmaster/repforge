@@ -183,7 +183,9 @@ async function editJourney(page) {
   const before = await restPresets(page);
   check(before.find((p) => p.seconds === 120)?.on, "the edited slot also reads its inherited 120 s before the tap", before);
   await sheetTap(page, '[data-role="sets-step"][data-delta="1"]');
-  await sheetTap(page, '[data-role="range-step"][data-bound="max"][data-delta="-1"]');
+  // #520: the range's endpoints are one choice and one shared − + adjusts the chosen one.
+  await page.locator(`${SHEET} [data-role="range-end"][data-bound="max"]`).click();
+  await sheetTap(page, '[data-role="range-step"][data-delta="-1"]');
   await sheetTap(page, '[data-role="rir-step"][data-set-index="1"][data-delta="1"]');
   await sheetTap(page, '[data-role="rest-preset"][data-seconds="120"]');
   const rows = await ledger(page);
@@ -549,6 +551,66 @@ async function restPillJourney(browser) {
   await context.close();
 }
 
+/** #520: the rep range is two selectable endpoints and one shared − + that adjusts the chosen one. */
+async function rangeJourney(page) {
+  console.log("P520-RANGE");
+  await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
+  await openEditor(page);
+  await openSheet(page);
+  const read = () => page.evaluate((sheet) => {
+    const ends = [...document.querySelectorAll(`${sheet} [data-role="range-end"]`)].map((b) => ({ bound: b.dataset.bound, value: Number(b.textContent), on: b.getAttribute("aria-checked") === "true", label: b.getAttribute("aria-label") }));
+    const steps = [...document.querySelectorAll(`${sheet} [data-role="range-step"]`)].map((b) => ({ bound: b.dataset.bound, delta: b.dataset.delta, disabled: b.disabled, label: b.getAttribute("aria-label") }));
+    return { ends, steps, group: document.querySelector(`${sheet} .review-range__ends`)?.getAttribute("role") };
+  }, SHEET);
+  const value = (r, bound) => r.ends.find((e) => e.bound === bound)?.value;
+  const opened = await read();
+  check(opened.group === "radiogroup" && opened.ends.length === 2 && opened.steps.length === 2 && opened.steps.every((b) => b.bound === "min"),
+    "two selectable endpoints and exactly one shared pair, pointed at the minimum when the sheet opens", opened);
+  check(/^Minimum reps, \d+$/.test(opened.ends[0].label) && /^Maximum reps, \d+$/.test(opened.ends[1].label) && opened.ends[0].on && !opened.ends[1].on
+    && opened.steps[0].label === "Lower the minimum" && opened.steps[1].label === "Raise the minimum",
+    "the endpoints and the shared buttons say what they adjust", opened);
+  const before = JSON.stringify(await storedSlot(page));
+  await page.locator(`${SHEET} [data-role="range-end"][data-bound="max"]`).click();
+  const chosen = await read();
+  check(chosen.ends[1].on && !chosen.ends[0].on && chosen.steps.every((b) => b.bound === "max") && value(chosen, "min") === value(opened, "min") && value(chosen, "max") === value(opened, "max")
+    && JSON.stringify(await storedSlot(page)) === before && !(await page.locator(`${EDITOR} [data-role="changes-count"]`).count()),
+    "choosing the maximum changes no value and stages no edit; the shared pair now adjusts the maximum", chosen);
+  await sheetTap(page, '[data-role="range-step"][data-delta="1"]');
+  await sheetTap(page, '[data-role="range-step"][data-delta="1"]');
+  const twice = await read();
+  check(value(twice, "max") === value(opened, "max") + 2 && value(twice, "min") === value(opened, "min") && twice.ends[1].on,
+    "two presses raise only the maximum, and the choice survives each redraw", twice);
+  await page.locator(`${SHEET} [data-role="range-end"][data-bound="min"]`).click();
+  for (let i = 0; i < 40 && !(await read()).steps.find((b) => b.delta === "1").disabled; i++) await sheetTap(page, '[data-role="range-step"][data-delta="1"]');
+  const top = await read();
+  check(value(top, "min") === value(top, "max") && top.steps.find((b) => b.delta === "1").disabled && !top.steps.find((b) => b.delta === "-1").disabled,
+    "the minimum rises to meet the maximum and no further, without moving the maximum", top);
+  await page.locator(`${SHEET} [data-role="range-end"][data-bound="max"]`).click();
+  const floor = await read();
+  check(floor.steps.find((b) => b.delta === "-1").disabled && !floor.steps.find((b) => b.delta === "1").disabled,
+    "at min = max the maximum cannot go lower", floor);
+  await closeSheet(page);
+  await openSheet(page);
+  check((await read()).ends[0].on, "a reopened sheet points the shared pair at the minimum again", await read());
+  const fit = await page.evaluate(async (sheet) => {
+    document.documentElement.style.fontSize = "200%";
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const range = document.querySelector(`${sheet} .review-sheet__range`), row = range.closest(".review-sheet__ctl"), body = range.closest(".sheet__body, .review-sheet__body, [data-pe-sheet]") || row.parentElement;
+    range.scrollIntoView({ block: "center" });
+    const r = range.getBoundingClientRect(), b = body.getBoundingClientRect(), lab = row.querySelector(".review-sheet__lab").getBoundingClientRect();
+    // The touch box: the button plus the ::after the kit's compact stepper extends it with (36px capsule, 44px touch).
+    const buttons = [...range.querySelectorAll("button")].map((x) => { const r = x.getBoundingClientRect(), a = getComputedStyle(x, "::after");
+      const ext = a.content !== "none" && a.position === "absolute" ? Math.max(0, -parseFloat(a.top) || 0) + Math.max(0, -parseFloat(a.bottom) || 0) : 0;
+      return { width: r.width, height: r.height + ext }; });
+    const overlap = lab.right > r.left + 0.5 && lab.bottom > r.top + 0.5 && lab.top < r.bottom - 0.5;
+    const out = { inside: r.left >= b.left - 0.5 && r.right <= b.right + 0.5, overlap, small: buttons.filter((x) => x.width < 43.5 || x.height < 43.5).length, wide: document.documentElement.scrollWidth > innerWidth };
+    document.documentElement.style.fontSize = "";
+    return out;
+  }, SHEET);
+  check(fit.inside && !fit.overlap && fit.small === 0 && !fit.wide, "at 200% text the range and its shared pair fit the sheet, with 44px targets", fit);
+  await closeSheet(page);
+}
+
 async function main() {
   console.log("Plan 074 S1: the Program editor in candidate A");
   const browser = await launchChromium();
@@ -564,6 +626,7 @@ async function main() {
     await cancelJourney(page);
     await sheetJourney(page);
     await emptyDayJourney(page);
+    await rangeJourney(page);
     await reducedMotionJourney(browser);
     await restPillJourney(browser);
     check(!errors.length, "no page errors", errors);

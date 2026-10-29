@@ -2269,6 +2269,11 @@ body.is-sheet-open{overflow:hidden}
 .review-sheet__lab{flex:1 1 auto;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);color:var(--color-ink)}
 .review-sheet__range{display:inline-flex;align-items:center;gap:var(--space-8)}
 .review-sheet__range>span[aria-hidden]{color:var(--color-ink-secondary)}
+/* The rep range (#520): the two endpoints are one segmented choice (the chosen one wears the thumb, and says so to
+   assistive technology), and one shared − + beside it adjusts that endpoint. */
+.review-range__ends{display:inline-flex;flex-wrap:nowrap;align-items:center}
+.review-range__ends .review-seg__opt{flex:0 0 auto;min-width:var(--control-target);padding:var(--space-8) var(--space-12);font-family:var(--font-training-data);font-variant-numeric:tabular-nums}
+.review-range__dash{padding:0 var(--space-4);color:var(--color-ink-secondary)}
 /* The native stepper (UI kit S6, #485's `.native-stepper`): the value, then a 36px − + capsule on the soft track with a
    .5px divider, each button a 44px touch box. The value is drawn first (order) so the markup keeps its − value + order. */
 .review-step{display:inline-flex;align-items:center;gap:0;border:0;border-radius:var(--radius-none);background:transparent;overflow:visible}

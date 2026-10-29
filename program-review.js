@@ -838,9 +838,26 @@
       toastEl = null;
     }
 
+    /** The rep range (#520): the two endpoints as one segmented choice, and one shared − + that adjusts the chosen one. */
+    function rangeControlHtml(first) {
+      const bound = sheet?.bound === "max" ? "max" : "min";
+      const ends = ["min", "max"].map((end) => {
+        const on = end === bound;
+        return `<button type="button" role="radio" class="review-seg__opt num${on ? " is-on" : ""}" aria-checked="${on}" data-review-range-end="${end}" ` +
+          `aria-label="${esc(t(`entry.review.sheet.range_${end}_n`, { n: first[end] }))}">${first[end]}</button>`;
+      }).join(`<span class="review-range__dash" aria-hidden="true">–</span>`);
+      const canDown = bound === "min" ? first.min > 1 : first.max > first.min;
+      const canUp = bound === "min" ? first.min < first.max : first.max < MAX_REPS;
+      return `<div class="review-sheet__ctl"><span class="review-sheet__lab" id="reviewRangeLab">${esc(t("entry.review.sheet.range"))}</span><span class="review-sheet__range">` +
+        `<span class="review-seg review-range__ends" role="radiogroup" aria-labelledby="reviewRangeLab">${ends}</span>` +
+        `<span class="review-step review-step--sm review-range__step">` +
+        `<button type="button" data-review-range-step="-1" aria-label="${esc(t(`entry.review.sheet.${bound}_down`))}"${canDown ? "" : " disabled"}>−</button>` +
+        `<button type="button" data-review-range-step="1" aria-label="${esc(t(`entry.review.sheet.${bound}_up`))}"${canUp ? "" : " disabled"}>+</button></span></span></div>`;
+    }
     // ----- sheets -----
     function exerciseSheet(slotId) {
-      sheet = { kind: "exercise", slotId, showAll: false };
+      // The rep range's shared stepper adjusts the minimum first (#520); the choice lasts while this sheet is open.
+      sheet = { kind: "exercise", slotId, showAll: false, bound: "min" };
       openSheet();
     }
     function openSheet() {
@@ -920,9 +937,7 @@
             `<button type="button" data-review-rir="${index + 1}:1" aria-label="${esc(t("entry.review.sheet.rir_up", { n: index + 1 }))}"${!(set.rir < MAX_RIR) ? " disabled" : ""}>+</button></span></div>`).join("") + `</div>` +
           `<div class="review-sheet__ctl"><span class="review-sheet__lab">${esc(t("entry.review.sheet.sets"))}</span><span class="review-step"><button type="button" data-review-sets="-1" aria-label="${esc(t("entry.review.sheet.fewer"))}"${sets.length <= MIN_SETS ? " disabled" : ""}>−</button>` +
           `<b class="num">${esc(t(sets.length === 1 ? "entry.review.sheet.n_sets_one" : "entry.review.sheet.n_sets", { n: sets.length }))}</b><button type="button" data-review-sets="1" aria-label="${esc(t("entry.review.sheet.more"))}"${sets.length >= MAX_SETS ? " disabled" : ""}>+</button></span></div>` +
-          (first ? `<div class="review-sheet__ctl"><span class="review-sheet__lab">${esc(t("entry.review.sheet.range"))}</span><span class="review-sheet__range">` +
-            `<span class="review-step review-step--sm"><button type="button" data-review-min="-1" aria-label="${esc(t("entry.review.sheet.min_down"))}"${first.min <= 1 ? " disabled" : ""}>−</button><b class="num">${first.min}</b><button type="button" data-review-min="1" aria-label="${esc(t("entry.review.sheet.min_up"))}"${first.min >= first.max ? " disabled" : ""}>+</button></span>` +
-            `<span aria-hidden="true">–</span><span class="review-step review-step--sm"><button type="button" data-review-max="-1" aria-label="${esc(t("entry.review.sheet.max_down"))}"${first.max <= first.min ? " disabled" : ""}>−</button><b class="num">${first.max}</b><button type="button" data-review-max="1" aria-label="${esc(t("entry.review.sheet.max_up"))}"${first.max >= MAX_REPS ? " disabled" : ""}>+</button></span></span></div>` : "") +
+          (first ? rangeControlHtml(first) : "") +
           `<div class="review-sheet__ctl review-sheet__ctl--col"><span class="review-sheet__lab" id="reviewRestLab">${esc(t("entry.review.sheet.rest"))}</span><div class="review-seg" role="radiogroup" aria-labelledby="reviewRestLab">` +
           REST_PRESETS.map((seconds) => `<button type="button" role="radio" class="review-seg__opt num${seconds === restShown ? " is-on" : ""}" aria-checked="${seconds === restShown}" data-review-rest="${seconds}">${esc(t("entry.review.sheet.seconds", { n: seconds }))}</button>`).join("") + `</div></div>` +
           `<p class="review-sheet__time" data-review-day-time>${nums(was === now ? t("entry.review.sheet.day_time", { n: now }) : t("entry.review.sheet.day_time_change", { from: was, to: now }))}` +
@@ -1056,8 +1071,17 @@
       else if ((button = hit("[data-review-rir]"))) {
         const [setIndex, dir] = button.dataset.reviewRir.split(":").map(Number);
         apply({ kind: "rir", slotId: slot.id, setIndex, rir: (sets[setIndex - 1].rir ?? 2) + dir });
-      } else if ((button = hit("[data-review-min]"))) apply({ kind: "rep_range", slotId: slot.id, min: first.min + Number(button.dataset.reviewMin), max: first.max });
-      else if ((button = hit("[data-review-max]"))) apply({ kind: "rep_range", slotId: slot.id, min: first.min, max: first.max + Number(button.dataset.reviewMax) });
+      } else if ((button = hit("[data-review-range-end]"))) {
+        // Choosing an endpoint changes nothing in the program: it only points the shared stepper (#520).
+        sheet.bound = button.dataset.reviewRangeEnd === "max" ? "max" : "min";
+        paintSheet();
+        adapter.sheet().body.querySelector(`[data-review-range-end="${sheet.bound}"]`)?.focus({ preventScroll: true });
+      } else if ((button = hit("[data-review-range-step]"))) {
+        const delta = Number(button.dataset.reviewRangeStep);
+        apply(sheet.bound === "max"
+          ? { kind: "rep_range", slotId: slot.id, min: first.min, max: first.max + delta }
+          : { kind: "rep_range", slotId: slot.id, min: first.min + delta, max: first.max });
+      }
       else if ((button = hit("[data-review-rest]"))) {
         const seconds = Number(button.dataset.reviewRest);
         if (seconds !== sets[0].restSeconds) apply({ kind: "rest", slotId: slot.id, seconds });

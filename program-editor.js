@@ -2033,6 +2033,8 @@
        see for the classic layout.
        ============================================================ */
     const view = { tab: null, sheet: null, reorderDay: null };
+    /** Which rep-range endpoint the exercise sheet's one shared stepper adjusts (#520). */
+    let rangeBound = "min";
     /** Slots whose typed load-step field is open; it stays open across redraws. */
     const openLoadSteps = new Set();
     let undoStack = [];
@@ -2403,6 +2405,9 @@
     // ----- the sheets -----
     function openSheetView(next, { focus = null } = {}) {
       const wasOpen = !!view.sheet;
+      // A newly opened exercise sheet adjusts the rep range's minimum first (#520); the choice lasts while that sheet
+      // stays open and is never program data.
+      if (next?.kind === "exercise" && !(view.sheet?.kind === "exercise" && view.sheet.id === next.id)) rangeBound = "min";
       view.sheet = next;
       paintSheet();
       if (!wasOpen) {
@@ -2512,12 +2517,21 @@
       const setsControl = `<div class="review-sheet__ctl"><span class="review-sheet__lab">${esc(rt("entry.review.sheet.sets", undefined, "Sets"))}</span>` +
         stepper("sets-step", `data-id="${esc(exercise.id)}"`, rt(count === 1 ? "entry.review.sheet.n_sets_one" : "entry.review.sheet.n_sets", { n: count }, `${count} sets`),
           { down: count > 1, up: count < MAX_REVIEW_SETS, downLabel: label("setsDecrease"), upLabel: label("setsIncrease") }) + `</div>`;
-      const rangeControl = firstRange ? `<div class="review-sheet__ctl"><span class="review-sheet__lab">${esc(rt("entry.review.sheet.range", undefined, "Rep range"))}</span><span class="review-sheet__range">` +
-        stepper("range-step", `data-bound="min"`, format(adapter, firstRange.min), { down: firstRange.min > 1, up: firstRange.min < firstRange.max, small: true,
-          downLabel: rt("entry.review.sheet.min_down", undefined, "−"), upLabel: rt("entry.review.sheet.min_up", undefined, "+") }) +
-        `<span aria-hidden="true">–</span>` +
-        stepper("range-step", `data-bound="max"`, format(adapter, firstRange.max), { down: firstRange.max > firstRange.min, up: firstRange.max < MAX_REVIEW_REPS, small: true,
-          downLabel: rt("entry.review.sheet.max_down", undefined, "−"), upLabel: rt("entry.review.sheet.max_up", undefined, "+") }) + `</span></div>` : "";
+      // The rep range (#520): the two endpoints as one segmented choice, and one shared − + that adjusts the chosen one.
+      const rangeName = rt("entry.review.sheet.range", undefined, "Rep range");
+      const bound = rangeBound === "max" ? "max" : "min";
+      const rangeControl = firstRange ? `<div class="review-sheet__ctl"><span class="review-sheet__lab" id="programEditorRangeLab">${esc(rangeName)}</span><span class="review-sheet__range">` +
+        `<span class="review-seg review-range__ends" role="radiogroup" aria-labelledby="programEditorRangeLab">` +
+        ["min", "max"].map(end => {
+          const on = end === bound, n = firstRange[end];
+          return `<button type="button" role="radio" class="review-seg__opt num${on ? " is-on" : ""}" aria-checked="${on}" data-role="range-end" data-bound="${end}" ` +
+            `aria-label="${esc(rt(`entry.review.sheet.range_${end}_n`, { n }, `${end === "min" ? "Minimum" : "Maximum"} reps, ${n}`))}">${esc(format(adapter, n))}</button>`;
+        }).join(`<span class="review-range__dash" aria-hidden="true">–</span>`) + `</span>` +
+        `<span class="review-step review-step--sm review-range__step">` +
+        `<button type="button" data-role="range-step" data-bound="${bound}" data-delta="-1" aria-label="${esc(rt(`entry.review.sheet.${bound}_down`, undefined, "−"))}"` +
+          `${(bound === "min" ? firstRange.min > 1 : firstRange.max > firstRange.min) ? "" : " disabled"}>−</button>` +
+        `<button type="button" data-role="range-step" data-bound="${bound}" data-delta="1" aria-label="${esc(rt(`entry.review.sheet.${bound}_up`, undefined, "+"))}"` +
+          `${(bound === "min" ? firstRange.min < firstRange.max : firstRange.max < MAX_REVIEW_REPS) ? "" : " disabled"}>+</button></span></span></div>` : "";
       const restControl = slot ? `<div class="review-sheet__ctl review-sheet__ctl--col"><span class="review-sheet__lab" id="programEditorRestLab">${esc(rt("entry.review.sheet.rest", undefined, "Rest between sets"))}</span><div class="review-seg" role="radiogroup" aria-labelledby="programEditorRestLab">` +
         REST_PRESETS.map(seconds => `<button type="button" role="radio" class="review-seg__opt num${seconds === restShown ? " is-on" : ""}" aria-checked="${seconds === restShown}" data-role="rest-preset" data-seconds="${seconds}">${esc(rt("entry.review.sheet.seconds", { n: seconds }, `${seconds} s`))}</button>`).join("") + `</div></div>` : "";
       const time = now ? `<p class="review-sheet__time" data-role="day-time">${nums(was && was !== now
@@ -3106,6 +3120,13 @@
         return;
       }
       if ((el = hit('[data-role="sets-step"]'))) { stepSets(exercise, Number(el.dataset.delta)); return; }
+      if ((el = hit('[data-role="range-end"]'))) {
+        // Choosing an endpoint changes nothing in the program: it only points the shared stepper (#520).
+        rangeBound = el.dataset.bound === "max" ? "max" : "min";
+        paintSheet();
+        host.ownerDocument.querySelector(`[data-role="range-end"][data-bound="${rangeBound}"]`)?.focus({ preventScroll: true });
+        return;
+      }
       if ((el = hit('[data-role="range-step"]'))) { stepRange(exercise, el.dataset.bound, Number(el.dataset.delta)); return; }
       if ((el = hit('[data-role="rir-step"]'))) { stepRir(exercise, Number(el.dataset.setIndex), Number(el.dataset.delta)); return; }
       if ((el = hit('[data-role="rest-preset"]'))) { setRest(exercise, Number(el.dataset.seconds)); return; }

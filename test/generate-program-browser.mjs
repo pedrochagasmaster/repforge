@@ -232,7 +232,8 @@ async function reviewAndAdjust(browser) {
     () => page.locator(`#reviewSheet [data-review-rest="${rest}"]`).click(), "rest changed");
   const range = sets[0].targets.reps || sets[0].targets.repsPerSide;
   await step(page, run, { kind: "rep_range", slotId: slotA.id, min: range.min, max: range.max + 1 },
-    () => page.locator('#reviewSheet [data-review-max="1"]').click(), "the rep range widened");
+    // #520: choose the maximum, then the one shared + raises it.
+    async () => { await page.locator('#reviewSheet [data-review-range-end="max"]').click(); await page.locator('#reviewSheet [data-review-range-step="1"]').click(); }, "the rep range widened");
   const minutes = await page.locator("#reviewSheet [data-review-day-time]").innerText();
   check(/→/.test(minutes), "review: the sheet shows the day's time moving with the edits", minutes);
   const alternate = await page.locator("#reviewSheet [data-review-alt-add]").first().getAttribute("data-review-alt-add");
