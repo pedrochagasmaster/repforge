@@ -1656,9 +1656,15 @@ async function autoSwipe(browser) {
   await installSeedProgram(page, { waitFor: waitForApp });
   const cdp = await context.newCDPSession(page);
   const touch = (type, points = []) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: points });
+  // A named deadline: the library's push settles within 5 s, or the phase fails saying where it stood (a bare wait
+  // once ran this file into its 600 s cap on CI).
   const open = async () => {
     await page.evaluate(() => window.openLibrary());
-    await page.waitForFunction(() => document.body.classList.contains("is-library") && !document.body.classList.contains("is-pushing"));
+    await page.waitForFunction(() => document.body.classList.contains("is-library") && !document.body.classList.contains("is-pushing"), undefined, { timeout: 5000 })
+      .catch(async () => {
+        const where = await page.evaluate(() => ({ body: document.body.className, view: document.querySelector(".view.active")?.id || "", visibility: document.visibilityState }));
+        throw new Error(`autoSwipe: the library's push did not settle within 5 s (${JSON.stringify(where)})`);
+      });
   };
   await open();
   const y = 520;
@@ -1689,6 +1695,23 @@ async function autoSwipe(browser) {
   await touch("touchEnd");
   const still = await page.evaluate(() => document.body.classList.contains("is-library") && !document.querySelector("#library").style.transform);
   assert(still, "the library stays put");
+
+  phase("a push whose animation never reports arriving still ends");
+  const stalled = await page.evaluate(async () => {
+    window.closeLibrary?.();
+    await new Promise((r) => setTimeout(r, 600));
+    const motion = window.RepForgeMotion, real = motion.animatePush;
+    motion.animatePush = () => new Promise(() => {});
+    try {
+      window.openLibrary();
+      const t0 = performance.now();
+      while (document.body.classList.contains("is-pushing") && performance.now() - t0 < 3000) await new Promise((r) => setTimeout(r, 50));
+      return { pushing: document.body.classList.contains("is-pushing"), library: document.body.classList.contains("is-library"),
+        underInert: !!document.querySelector(".is-push-under"), ms: Math.round(performance.now() - t0) };
+    } finally { motion.animatePush = real; }
+  });
+  assert(!stalled.pushing && stalled.library && !stalled.underInert && stalled.ms <= 2000,
+    "a stalled push animation is ended by the route's deadline: the page arrives and nothing beneath stays inert", JSON.stringify(stalled));
   await context.close();
 }
 

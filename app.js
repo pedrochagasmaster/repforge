@@ -1104,7 +1104,12 @@ function routePushBegin(direction,{pushed,under=null,ghost=null,offset=-Math.rou
     mover.classList.add("is-push-over");
     document.body.classList.add("is-pushing");
     window.RepForgeMotion.animatePush(mover,{direction}).then(arrived=>{
-      if(arrived&&routePushState===state)routePushEnd()})}}
+      if(arrived&&routePushState===state)routePushEnd()});
+    // A push always ends. If its animation never reports arriving (frames stopped while the page was in the background,
+    // or a run stalled), the route would stay mid-push with the page beneath inert; the deadline ends it as arrival would.
+    setTimeout(()=>{if(routePushState===state)routePushEnd()},ROUTE_PUSH_DEADLINE_MS)}}
+/** How long a push may take before it is ended regardless: well past navPush's settle at any velocity. */
+const ROUTE_PUSH_DEADLINE_MS=1500;
 /* ---- Edge swipe back on pushed pages (amendment: the third gesture owner) ----
    The pages a push can leave register with `RepForgeMotion.registerEdgeSwipeBack`
    while they are the page on screen, and nothing else does: Focus keeps its
