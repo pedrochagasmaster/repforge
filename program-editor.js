@@ -2347,9 +2347,25 @@
       return head + empty + list.map(rowHtml).join("") +
         `<button type="button" class="review__add" data-role="add-exercise" data-day="${esc(day)}">${icon("plus")}<span>${esc(label("addExercise"))}</span></button>`;
     }
+    /** The element the editor scrolls in: the nearest ancestor that scrolls, else the document. */
+    function scrollHost() {
+      for (let el = host.parentElement; el; el = el.parentElement) {
+        const overflow = el.ownerDocument.defaultView?.getComputedStyle(el).overflowY;
+        if (overflow === "auto" || overflow === "scroll") return el;
+      }
+      return host.ownerDocument.scrollingElement;
+    }
+    let reviewViewKey = null;
     function renderReview({ redrawSheet = true } = {}) {
       const days = labels(document);
       if (view.tab == null || !days.includes(view.tab)) view.tab = days[0] ?? null;
+      // A redraw of the same view (a reorder, an undo, an edit) keeps the place the lifter was looking at (#516): the
+      // whole panel is rebuilt, and an engine without scroll anchoring would otherwise jump. Opening another day or
+      // view starts where that view starts.
+      const viewKey = `${view.tab}\u0000${view.reorderDay}`;
+      const scroller = viewKey === reviewViewKey ? scrollHost() : null;
+      const page = host.ownerDocument.scrollingElement;
+      const kept = scroller ? { top: scroller.scrollTop, page: page?.scrollTop ?? 0 } : null;
       const issues = validation(document);
       const blocked = issues.some(issue => issue.startsWith("day_empty:"));
       const name = document.programMeta?.name || label("namePlaceholder");
@@ -2376,6 +2392,11 @@
       adapter.afterRender?.(host);
       // Only the Reorder exercises list drags; every other render has nothing to sort.
       if (view.reorderDay != null) mountSorting(); else teardownSorting();
+      if (kept) {
+        if (scroller.scrollTop !== kept.top) scroller.scrollTop = kept.top;
+        if (page && page !== scroller && page.scrollTop !== kept.page) page.scrollTop = kept.page;
+      }
+      reviewViewKey = viewKey;
       if (redrawSheet) paintSheet();
     }
 
