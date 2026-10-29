@@ -119,7 +119,7 @@ async function importBackupThroughUi(page, backup, choice = "#importReplace") {
   await page.evaluate(() => window.__repforgeStorage.flush());
 }
 
-async function transferEnvelope(page) {
+async function transferEnvelope(page, { sessionTiming } = {}) {
   const observation = await page.evaluate(async ({ uiKey, consentKey, identityKey }) => {
     const draft = window.__repforgeWorkoutDraft;
     await window.__repforgeStorage.flush();
@@ -134,6 +134,7 @@ async function transferEnvelope(page) {
       telemetryIdentity: JSON.parse(localStorage.getItem(identityKey) || "null"),
     };
   }, { uiKey: UI_KEY, consentKey: CONSENT_KEY, identityKey: IDENTITY_KEY });
+  if (sessionTiming) observation.durableState.sessionTiming = structuredClone(sessionTiming);
   const draft = observation.draft;
   const sections = {
     durableState: { logicalCloneSection: () => structuredClone(observation.durableState) },
@@ -207,6 +208,15 @@ async function importTransfer(page, envelope) {
   }, { value: envelope, token, expiresAt: "2099-01-01T00:00:00.000Z", inboundKey: INBOUND_KEY });
 }
 
+async function readingTotals(page, sid) {
+  await page.evaluate(() => window.closeFirstRun?.());
+  await page.locator('nav button[data-view="history"]').click();
+  await page.waitForSelector("#history.view.active");
+  await page.locator(`#sessions [data-sess="${sid}"] .session__open`).click();
+  await page.waitForSelector(`[data-reading="${sid}"] .histpage__totals`);
+  return page.locator(`[data-reading="${sid}"] .histpage__totals > div`).allInnerTexts();
+}
+
 async function reload(page) {
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
@@ -268,6 +278,24 @@ async function main() {
     state = await durable(merged);
     check(JSON.stringify(state.sessionTiming?.[sid]) === JSON.stringify(expected), "a backup Merge brings the added session's timing", state.sessionTiming);
 
+    phase("A reader takes a payload that carries timing without refusing it");
+    // Built by hand, so this phase also runs against a release that writes none.
+    const carried = { [sid]: expected };
+    const carryingBackup = { ...structuredClone(backup), sessionTiming: carried };
+    const backupReader = await bootFresh(await context(), FINISHED);
+    await importBackupThroughUi(backupReader, carryingBackup);
+    await reload(backupReader);
+    state = await durable(backupReader);
+    check(JSON.stringify(sessionIds(state)) === JSON.stringify([sid]) && state.log.length === backup.log.length,
+      "a backup carrying session timing imports with every row", { sessions: sessionIds(state), rows: state.log.length });
+    const carryingEnvelope = await transferEnvelope(source, { sessionTiming: carried });
+    const transferReader = await bootFresh(await context({ guides: "live" }), FINISHED);
+    const carriedImport = await importTransfer(transferReader, carryingEnvelope);
+    await reload(transferReader);
+    state = await durable(transferReader);
+    check(carriedImport?.ok === true && JSON.stringify(sessionIds(state)) === JSON.stringify([sid]),
+      "a transfer carrying session timing passes the contract and imports with every row", { carriedImport, sessions: sessionIds(state) });
+
     phase("A session saved without timing stays unknown");
     const legacy = structuredClone(backup);
     legacy.sessionTiming = { ghost: expected, [sid]: { startedAt: FINISHED, completedAt: STARTED, durationSeconds: -2530 } };
@@ -277,6 +305,9 @@ async function main() {
     state = await durable(older);
     check(sessionIds(state).includes(sid) && !Object.keys(state.sessionTiming || {}).length,
       "a session whose timing is missing or impossible reads unknown, and timing without a session is dropped", state.sessionTiming);
+    const unknownTotals = await readingTotals(older, sid);
+    check(unknownTotals.length > 0 && !unknownTotals.some((text) => /minute/i.test(text)),
+      "History shows no duration for it, not zero", unknownTotals);
 
     phase("A refused save leaves no timing behind");
     await source.clock.setFixedTime(new Date("2026-10-07T12:00:00.000Z"));
@@ -307,9 +338,9 @@ async function main() {
     await reload(source);
     // The refused save left its draft open; step out of it to reach History.
     await source.evaluate(() => window.__repforgeLeaveWorkout());
-    await source.locator('nav button[data-view="history"]').click();
-    await source.waitForSelector("#history.view.active");
-    await source.locator(`#sessions [data-sess="${sid}"] .session__open`).click();
+    const knownTotals = await readingTotals(source, sid);
+    check(knownTotals.some((text) => /^42\s+minutes$/.test(text.replace(/\s+/g, " ").trim())),
+      "History reads the session's 42 minutes beside its totals", knownTotals);
     await source.locator(`[data-reading="${sid}"] [data-del="${sid}"]`).click();
     await source.locator(`[data-history-delete-confirm="${sid}"]`).click();
     await source.waitForFunction((id) => !window.__repforgeWorkoutDraft.state().log.some((row) => String(row.session) === id),

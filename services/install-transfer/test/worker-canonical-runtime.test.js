@@ -201,6 +201,31 @@ sourceEnvelope.integrity.canonicalPayloadHash = createHash("sha256")
   .update(contract.canonicalJson({ ...sourceEnvelope, integrity: {} }), "utf8")
   .digest("hex");
 
+// #515: a session's recorded duration rides in the durable state as an
+// optional top-level key; the deployed Worker must accept it unchanged.
+const timedEnvelope = structuredClone(sourceEnvelope);
+timedEnvelope.durableState.sessionTiming = {
+  "2026-10-06T09:00:00.000Z": {
+    startedAt: "2026-10-06T08:20:00.000Z", completedAt: "2026-10-06T09:05:00.000Z", durationSeconds: 2700,
+  },
+};
+timedEnvelope.integrity = { canonicalPayloadHash: createHash("sha256")
+  .update(contract.canonicalJson({ ...timedEnvelope, integrity: {} }), "utf8").digest("hex") };
+
+function createRequest(envelope, idempotencyKey) {
+  return new Request("https://transfer.example/v1/transfers", {
+    method: "POST",
+    headers: {
+      Origin: "https://taurifer.example",
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store",
+      "CF-Connecting-IP": "198.51.100.86",
+    },
+    body: JSON.stringify({ envelope, idempotencyKey }),
+  });
+}
+
 async function refreshWorkerHealth() {
   const now = Date.now();
   const stub = euStub(env.TRANSFER_HEALTH, "global", { allowLocalFallback: true });
@@ -246,5 +271,12 @@ describe("Worker canonical runtime dependencies", () => {
     expect(globalThis.RepForgeWorkoutDraft).toBeUndefined();
     expect(globalThis.RepForgeExerciseCatalog).toBeUndefined();
     expect(globalThis.RepForgeProgramEntry).toBeUndefined();
+  });
+
+  it("accepts a durable state that carries session timing (#515)", async () => {
+    expect((await contract.validateEnvelopeIntegrity(timedEnvelope, globalThis.crypto)).ok).toBe(true);
+    const response = await worker.fetch(createRequest(timedEnvelope, "canonical-worker-session-timing"), env);
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({ token: expect.stringMatching(/^v1\./) });
   });
 });
