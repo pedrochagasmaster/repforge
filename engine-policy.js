@@ -1,4 +1,4 @@
-/* Complete per-call experimental policies for the recovered 073.4 generator.
+/* Complete per-call experimental policies for the recovered 073.5 generator.
    Zero set overrides retain allocation; null rest retains recovered rest. */
 (function (root) {
   "use strict";
@@ -58,7 +58,7 @@
     } else if (path !== "kind" && path !== "schemaVersion") fields.push({ path, label: path.split(".").at(-1).replace(/([a-z])([A-Z])/g, "$1 $2"), default: value, ...rule(path, value) });
   }
   describe(defaults);
-  const metadata = freeze({ kind: "taurifer-engine-policy-metadata", schemaVersion: 1, engineVersion: "073.4", repClasses: REP_CLASSES, fields });
+  const metadata = freeze({ kind: "taurifer-engine-policy-metadata", schemaVersion: 1, engineVersion: "073.5", repClasses: REP_CLASSES, fields });
   const fieldMap = new Map(fields.map(field => [field.path, field]));
   const plain = value => !!value && typeof value === "object" && [Object.prototype, null].includes(Object.getPrototypeOf(value));
   function normalizeEnginePolicy(input) {
@@ -114,7 +114,19 @@
     return issues.length ? { ok: false, issues } : { ok: true, value: freeze(value), isDefault: JSON.stringify(value) === JSON.stringify(defaults) };
   }
   function cloneFrozenDefault() { return freeze(clone(defaults)); }
-  const api = Object.freeze({ normalizeEnginePolicy, getDefaultEnginePolicy: cloneFrozenDefault, getEnginePolicyMetadata: () => metadata });
+  /* Plan 076 OD-2: the rep-pattern tables describe seven regular weeks. A block
+     of N regular weeks samples linear and reverse linear along that curve, so
+     seven weeks read the table unchanged and its first and last steps always
+     hold; undulating is a sequence, so it repeats. Returns a table position. */
+  function periodizationPosition(pattern, week, regularWeeks) {
+    if (!Number.isInteger(week) || !Number.isInteger(regularWeeks) || regularWeeks < 1 || week < 1 || week > regularWeeks) {
+      throw new RangeError("periodizationPosition needs 1 <= week <= regularWeeks");
+    }
+    if (pattern === "undulating") return (week - 1) % 7;
+    return regularWeeks === 1 ? 0 : Math.round((week - 1) * 6 / (regularWeeks - 1));
+  }
+  const api = Object.freeze({ normalizeEnginePolicy, getDefaultEnginePolicy: cloneFrozenDefault, getEnginePolicyMetadata: () => metadata,
+    periodizationPosition });
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.RepForgeEnginePolicy = api;
 })(typeof window !== "undefined" ? window : globalThis);

@@ -75,14 +75,14 @@
   }
   function fixture(id) {
     const make = {
-      'anchor-4day': () => fromAnswers(id, '073.4 · four days · all equipment', answers(), true),
-      'anchor-beginner': () => fromAnswers(id, '073.4 · beginner · all equipment', answers({ structuredExperience: 'first' }), true),
-      'anchor-deload': () => fromAnswers(id, '073.4 · eight cycles with final deload', answers({ deload: true }), true),
-      'anchor-focus': () => fromAnswers(id, '073.4 · side delts/back priority', answers({ primaryMuscles: ['side_delts', 'back'], deEmphasizedMuscles: ['calves'] }), true),
-      'budget-40': () => fromAnswers(id, '073.4 · 40-minute allocation', answers({ sessionMinutes: 40 })),
-      'restricted-home': () => fromAnswers(id, '073.4 · limited home equipment', answers({ environment: { kind: 'limited_home' }, sessionMinutes: 60 })),
-      'three-day': () => fromAnswers(id, '073.4 · three-day distribution', answers({ daysPerWeek: 3 })),
-      'production-answers': () => fromAnswers(id, '073.4 · editable production answers', answers()),
+      'anchor-4day': () => fromAnswers(id, '073.5 · four days · all equipment', answers(), true),
+      'anchor-beginner': () => fromAnswers(id, '073.5 · beginner · all equipment', answers({ structuredExperience: 'first' }), true),
+      'anchor-deload': () => fromAnswers(id, '073.5 · eight cycles with final deload', answers({ deload: true }), true),
+      'anchor-focus': () => fromAnswers(id, '073.5 · side delts/back priority', answers({ primaryMuscles: ['side_delts', 'back'], deEmphasizedMuscles: ['calves'] }), true),
+      'budget-40': () => fromAnswers(id, '073.5 · 40-minute allocation', answers({ sessionMinutes: 40 })),
+      'restricted-home': () => fromAnswers(id, '073.5 · limited home equipment', answers({ environment: { kind: 'limited_home' }, sessionMinutes: 60 })),
+      'three-day': () => fromAnswers(id, '073.5 · three-day distribution', answers({ daysPerWeek: 3 })),
+      'production-answers': () => fromAnswers(id, '073.5 · editable production answers', answers()),
       'compiler-corpus': () => corpus.map(item => normalizeScenario({ id: item.key, name: item.key, inputMode: 'canonical', request: item.request })),
     };
     if (!make[id]) throw issue('unknown_fixture', t('Unknown bundled scenario.'));

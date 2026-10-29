@@ -14166,10 +14166,22 @@ function setShareSetupState(message,{ready=false,blockers=null,fileFallback=fals
   if(share){share.disabled=!ready||typeof navigator.share!=="function";share.classList.toggle("hidden",!ready||typeof navigator.share!=="function")}
   if(copy){copy.disabled=!ready;copy.classList.toggle("hidden",!ready)}
 }
-function sharedSetupErrorMessage(result){
+/* Plan 076 (owner option A): an unedited program generated before the 073.5
+   bump would still be a short recipe link, but a link now regenerates under the
+   current version, so it travels as a file until the next block, which this
+   version generates. Only that exact case is told the link comes back. */
+function shareSetupWaitsForNextBlock(definition){
+  const versions=ProgramCompiler?.BASELINE_VERSIONS||[];
+  if(definition?.provenance?.source!=="recovered_generation_rules"||!versions.includes(definition.generatorVersion))return false;
+  try{
+    const request=cloneSnapshot(definition.request);delete request.seed;
+    const regenerated=ProgramCompiler.generateProgram(request,rawExerciseCatalog,{asVersion:definition.generatorVersion});
+    return regenerated?.ok===true&&JSON.stringify(canonicalize(regenerated.value))===JSON.stringify(canonicalize(definition))}
+  catch{return false}}
+function sharedSetupErrorMessage(result,definition=null){
   if(result?.code==="unresolved-exercises")return shareSetupBlockerMessage(result.blockers?.length||0);
   if(result?.code==="compression-unavailable")return t("program.share_setup_unsupported");
-  if(result?.code==="encoded-too-large")return t("program.share_setup_too_large");
+  if(result?.code==="encoded-too-large")return t(shareSetupWaitsForNextBlock(definition)?"program.share_setup_next_block":"program.share_setup_too_large");
   return t("program.share_setup_invalid")}
 /* Coarse facts about a setup-link attempt for telemetry: the kind of program,
    the form the codec used, and its size against the link limit. */
@@ -14197,7 +14209,7 @@ async function buildShareSetupLink(){
   if(!encoded.ok){
     const tooLarge=encoded.code==="encoded-too-large";
     if(tooLarge)captureEvent("share_setup_outcome",{action:"link_refused",...shareSetupOutcome});
-    setShareSetupState(sharedSetupErrorMessage(encoded),{fileFallback:tooLarge});return}
+    setShareSetupState(sharedSetupErrorMessage(encoded,checked.value.program.definition),{fileFallback:tooLarge});return}
   captureEvent("share_setup_outcome",{action:"link_ready",...shareSetupOutcome});
   const local=/^(localhost|127(?:\.\d{1,3}){3}|\[::1\])$/i.test(location.hostname);
   const url=new URL("index.html",local?location.href:"https://pedrochagasmaster.github.io/repforge/index.html");

@@ -232,6 +232,7 @@
     ]),
   });
   const PERIODIZATIONS = Object.freeze(["static", "linear", "reverse_linear", "undulating"]);
+  const GENERATED_BLOCK_WEEKS = Object.freeze({ min: 4, max: 10, default: 7 });
   const MUSCLE_IDS = Object.freeze({
     chest: "2545c6f170d8805f823bcfb076a74397",
     back: "2545c6f170d880da9b28f1e024be796b",
@@ -306,11 +307,14 @@
     const exerciseIds = (values) => (Array.isArray(values) ? values : [])
       .filter((id) => typeof id === "string" && index[id]?.type === "exercise");
     const answersIn = isPlainObject(source.competencyAnswers) ? source.competencyAnswers : {};
-    if (source.block?.cycles !== undefined && source.block.cycles !== 7) {
+    // Plan 076: generated programs run four to ten regular weeks (default seven).
+    // The draft schema keeps 4-12, so a stored 11 or 12 is refused, not rewritten.
+    const cycles = source.block?.cycles === undefined ? 7 : source.block.cycles;
+    if (!Number.isInteger(cycles) || cycles < GENERATED_BLOCK_WEEKS.min || cycles > GENERATED_BLOCK_WEEKS.max) {
       return { ok: false, conflicts: [{ field: "block", code: "block_cycles_unsupported" }] };
     }
     const block = {
-      cycles: 7,
+      cycles,
       periodization: PERIODIZATIONS.includes(source.block?.periodization) ? source.block.periodization : "static",
     };
     const request = {
@@ -425,6 +429,7 @@
     createProductionServices,
     programRequestFromAnswers,
     EQUIPMENT_GROUPS,
+    GENERATED_BLOCK_WEEKS,
     presetEquipmentGroups,
     verifyConfirmationOffers,
     currentVersions: (Compiler) => currentVersions(compilerApi(Compiler)),

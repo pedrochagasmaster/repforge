@@ -270,8 +270,16 @@
   function generatorBaseline(definition, catalog, compiler) {
     const request = copyJson(definition.request, "request");
     delete request.seed;
+    // A block made by an earlier version the generator still reproduces exactly
+    // (Plan 076) is compared with that version's output, stamps and IDs included,
+    // so its edits are still identified when the next block is made by this one.
+    const earlier = definition.generatorVersion !== compiler.GENERATOR_VERSION
+      && (compiler.BASELINE_VERSIONS || []).includes(definition.generatorVersion);
     let generated;
-    try { generated = compiler.generateProgram(request, catalog); } catch { return null; }
+    try {
+      generated = earlier ? compiler.generateProgram(request, catalog, { asVersion: definition.generatorVersion })
+        : compiler.generateProgram(request, catalog);
+    } catch { return null; }
     if (!generated?.ok || generated.value.generatorVersion !== definition.generatorVersion) return null;
     return generated.value;
   }
