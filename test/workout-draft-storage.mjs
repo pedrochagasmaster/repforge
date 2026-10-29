@@ -6,7 +6,7 @@ import { exerciseAction, finishEarly, openLoggedSets, sessionField } from "./fix
  */
 import { launchChromium, openShelfField } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
-import { execFileSync } from "node:child_process";
+import { legacyRelease } from "./fixtures/legacy-release.mjs";
 import { readFileSync } from "node:fs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -18,50 +18,8 @@ const OLD_APP_SHA = "3fbae92fcee58c0d72539b9f4e2c270a9d60dbd4";
 // An installed older version runs its own shell with every module it loads from
 // its own release (its cache holds them), so the legacy writer is served that
 // commit's files: the current modules are not API-compatible with its app.js.
-const OLD_FILES = new Map();
-// CI checks out with `filter: blob:none`, so an old blob read on demand is a
-// network fetch made while the route handler blocks the event loop; serial
-// fetches for the shell's scripts once outlasted a page.goto deadline. Fetch the
-// release's cache inventory (its sw.js ASSETS) in one batch and hold it in
-// memory before any page opens.
-function preloadOldRelease() {
-  const git = (args, input) => execFileSync("git", args, { input, maxBuffer: 1 << 28, stdio: ["pipe", "pipe", "ignore"] });
-  const assets = [...git(["show", `${OLD_APP_SHA}:sw.js`]).toString().match(/const ASSETS = \[([\s\S]*?)\];/)[1]
-    .matchAll(/"\.\/([^"?]+)/g)].map(([, path]) => path);
-  const paths = new Set(["index.html", "sw.js", "test/fixtures/seed-program.mjs", ...assets]);
-  const blobs = git(["ls-tree", "-r", "-z", OLD_APP_SHA]).toString().split("\0")
-    .map((line) => line.match(/^\d+ blob ([0-9a-f]+)\t(.*)$/s)).filter((match) => match && paths.has(match[2]))
-    .map(([, oid, path]) => ({ oid, path }));
-  const wanted = new Set(blobs.map(({ oid }) => oid));
-  const missing = git(["rev-list", "--objects", "--no-walk", "--missing=print", OLD_APP_SHA]).toString()
-    .split("\n").filter((line) => line.startsWith("?") && wanted.has(line.slice(1))).map((line) => line.slice(1));
-  if (missing.length) {
-    git(["-c", "fetch.negotiationAlgorithm=noop", "fetch", "--quiet", "origin", "--no-tags", "--no-write-fetch-head",
-      "--recurse-submodules=no", "--filter=blob:none", "--stdin"], `${missing.join("\n")}\n`);
-  }
-  // cat-file answers in input order: "<oid> blob <size>\n<bytes>\n" per blob.
-  const out = git(["cat-file", "--batch"], `${blobs.map(({ oid }) => oid).join("\n")}\n`);
-  let at = 0;
-  for (const { path } of blobs) {
-    const end = out.indexOf(10, at);
-    const size = Number(out.subarray(at, end).toString().split(" ")[2]);
-    OLD_FILES.set(path, out.subarray(end + 1, end + 1 + size));
-    at = end + 2 + size;
-  }
-}
-preloadOldRelease();
-// Release files the legacy app needed beyond the preloaded inventory.
-const ON_DEMAND_OLD = [];
-function oldFile(path) {
-  if (!OLD_FILES.has(path)) {
-    let bytes = null;
-    try { bytes = execFileSync("git", ["show", `${OLD_APP_SHA}:${path}`], { maxBuffer: 1 << 28, stdio: ["ignore", "pipe", "ignore"] }); }
-    catch {}
-    if (bytes) ON_DEMAND_OLD.push(path);
-    OLD_FILES.set(path, bytes);
-  }
-  return OLD_FILES.get(path);
-}
+const OLD_RELEASE = legacyRelease(OLD_APP_SHA, { extra: ["test/fixtures/seed-program.mjs"] });
+const oldFile = OLD_RELEASE.file;
 // The released app logs against the legacy flat program it shipped with (its own
 // seed fixture, no canonical ProgramDefinition). The current app still binds
 // DraftV2 to such a program, so cross-version writer races share one program.
@@ -1670,8 +1628,8 @@ async function main() {
     freshAfterDiscard);
 
     check(errors.length === 0, "the production storage/DOM journey emits no page or console errors", errors);
-    check(ON_DEMAND_OLD.length === 0,
-      "the legacy app is served from the preloaded release, with no blocking git read during a page load", ON_DEMAND_OLD);
+    check(OLD_RELEASE.onDemand.length === 0,
+      "the legacy app is served from the preloaded release, with no blocking git read during a page load", OLD_RELEASE.onDemand);
   } catch (error) {
     console.error(`failure-time state: ${JSON.stringify(await failureState(page))}; crashes: ${JSON.stringify(crashes)}`);
     throw error;

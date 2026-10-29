@@ -12,25 +12,17 @@
  */
 import assert from "node:assert/strict";
 import { finishEarly } from "./fixtures/focus-workout.mjs";
-import { execFileSync } from "node:child_process";
 import { createServer } from "node:http";
 import { createReadStream, readFileSync, statSync } from "node:fs";
 import { dirname, extname, join, normalize, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { launchChromium, waitForAppBoot, waitForWorkerTakeover } from "./browser.mjs";
+import { legacyRelease } from "./fixtures/legacy-release.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OLD_SHA = "3fbae92fcee58c0d72539b9f4e2c270a9d60dbd4";
-const oldFiles = new Map();
-function oldFile(pathname) {
-  if (!oldFiles.has(pathname)) {
-    let bytes = null;
-    try { bytes = execFileSync("git", ["show", `${OLD_SHA}:${pathname.slice(1)}`], { cwd: ROOT, maxBuffer: 1 << 28, stdio: ["ignore", "pipe", "ignore"] }); }
-    catch {}
-    oldFiles.set(pathname, bytes);
-  }
-  return oldFiles.get(pathname);
-}
+const OLD_RELEASE = legacyRelease(OLD_SHA, { cwd: ROOT, extra: ["test/fixtures/seed-program.mjs"] });
+const oldFile = (pathname) => OLD_RELEASE.file(pathname.slice(1));
 const legacyFixture = await import(`data:text/javascript;base64,${oldFile("/test/fixtures/seed-program.mjs").toString("base64")}`);
 const oldWorker = oldFile("/sw.js").toString("utf8");
 const currentWorker = readFileSync(join(ROOT, "sw.js"), "utf8");
@@ -277,6 +269,9 @@ try {
   );
   assert.equal(offlineResult.draftRaw, null, "the committed offline save removes the active draft");
   assert.equal(offlineResult.checkpoint?.kind, "tombstone", "the offline save protects removal from an old writer");
+
+  assert.deepEqual(OLD_RELEASE.onDemand, [],
+    "the released app and its worker precache are served from the preloaded release, with no blocking git read");
 
   console.log(`workout draft SW upgrade: ${oldCache} flat V1 -> ${currentCache} DraftV2; one migration, offline non-first Focus resume, completion, and save pass`);
 } catch (error) {
