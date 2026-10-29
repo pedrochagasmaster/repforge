@@ -9,6 +9,7 @@
  * anything on the receiving device. A program file carries the same
  * definition through export and the file import door.
  */
+import { readFileSync } from "node:fs";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 
@@ -74,14 +75,14 @@ async function fresh(browser) {
   return { context, page, errors };
 }
 
-async function activateGenerated(page, { edit = false } = {}) {
-  return page.evaluate(async ({ edit }) => {
+async function activateGenerated(page, { edit = false, asVersion } = {}) {
+  return page.evaluate(async ({ edit, asVersion }) => {
     const catalog = window.RepForgeExerciseCatalog.snapshot();
     const mapped = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({
       desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek: 4, sessionMinutes: 60,
       environment: { kind: "commercial_gym" },
     }, catalog);
-    const definition = window.RepForgeProgramCompiler.generateProgram(mapped.value, catalog).value;
+    const definition = window.RepForgeProgramCompiler.generateProgram(mapped.value, catalog, asVersion ? { asVersion } : {}).value;
     if (edit) definition.days.find((day) => day.kind === "training").slots[0].setupNotes = "Rack at 7";
     const result = await window.__repforgeFinalizeProgramSetup({
       programDefinition: definition, name: "Shared generated block", answers: {}, destination: "log",
@@ -90,7 +91,7 @@ async function activateGenerated(page, { edit = false } = {}) {
     });
     await window.__repforgeStorage.flush();
     return !!(result?.localOk || result?.idbOk);
-  }, { edit });
+  }, { edit, asVersion });
 }
 
 async function shareLink(page) {
@@ -297,6 +298,53 @@ async function main() {
     check((importedAlternates.customExercises || []).some((entry) => entry.id === CUSTOM_ALTERNATE.id),
       "the imported program keeps the custom alternate's definition", importedAlternates.customExercises?.map((entry) => entry.id));
     await alternateImporter.context.close();
+
+    // Plan 076 (owner option A): a program generated before the 073.5 bump -----
+    const EN = JSON.parse(readFileSync(new URL("../i18n-en.json", import.meta.url), "utf8"));
+    const preRelease = await fresh(browser);
+    errors.push(preRelease.errors);
+    await activateGenerated(preRelease.page, { asVersion: "073.4" });
+    const waiting = await shareLink(preRelease.page);
+    check(!waiting.link && waiting.status === EN["program.share_setup_next_block"],
+      "an unedited 073.4 program says its link comes back with the next block", waiting);
+    check(await preRelease.page.locator("#shareSetupFile:not(.hidden):not([disabled])").count() === 1,
+      "and offers the program as a file meanwhile");
+    await preRelease.context.close();
+    const preReleaseEdited = await fresh(browser);
+    errors.push(preReleaseEdited.errors);
+    await activateGenerated(preReleaseEdited.page, { asVersion: "073.4", edit: true });
+    const editedWaiting = await shareLink(preReleaseEdited.page);
+    check(editedWaiting.status === EN["program.share_setup_too_large"],
+      "an edited 073.4 program keeps the plain too-large copy, since its next block stays edited", editedWaiting);
+    await preReleaseEdited.context.close();
+    // A recipe link made by 073.4 asks the recipient to have it shared again.
+    const oldLink = await (async () => {
+      const maker = await fresh(browser);
+      const link = await maker.page.evaluate(async () => {
+        const catalog = window.RepForgeExerciseCatalog.snapshot();
+        const mapped = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({
+          desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek: 4, sessionMinutes: 60,
+          environment: { kind: "commercial_gym" } }, catalog);
+        const definition = window.RepForgeProgramCompiler.generateProgram(mapped.value, catalog, { asVersion: "073.4" }).value;
+        const payload = { kind: "taurifer-shared-setup", version: 2, program: { name: "Before the update", definition },
+          settings: { jumpPct: 2.5, minJump: 2.5, rirHigh: 2, hardRir: 4, restSec: 120, unit: "kg", lang: "en", rirMode: "numeric" }, language: "en" };
+        const ids = new Set(window.RepForgeExerciseCatalog.snapshot().exercises.map((entry) => entry.id));
+        const encoded = await window.RepForgeSharedSetup.encode(payload, { builtInIds: ids, catalogSnapshot: catalog,
+          validateProgramDefinition: window.RepForgeProgramCompiler.validateProgramDefinition,
+          generateProgram: (request, snapshot) => window.RepForgeProgramCompiler.generateProgram(request, snapshot, { asVersion: "073.4" }),
+          generatorVersion: "073.4" });
+        return encoded.ok && encoded.form === "recipe" ? `${location.origin}${location.pathname}#setup=${encoded.value}` : null;
+      });
+      await maker.context.close();
+      return link;
+    })();
+    check(!!oldLink, "a 073.4 recipe link is built as 073.4 made it");
+    const recipient = await receive(browser, oldLink);
+    errors.push(recipient.errors);
+    await recipient.page.waitForSelector("#firstRunSharedError:not(.hidden)", { timeout: 15000 });
+    check((await recipient.page.locator("#firstRunSharedError").innerText()).trim() === EN["setup.shared.outdated"],
+      "the recipient is asked to have the program shared again", await recipient.page.locator("#firstRunSharedError").innerText());
+    await recipient.context.close();
 
     // An edited generated program that cannot fit is refused whole -------------
     const edited = await fresh(browser);

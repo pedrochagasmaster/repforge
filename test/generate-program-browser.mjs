@@ -981,6 +981,7 @@ async function recoveredGenerationJourney(browser) {
     check(mapped.ok && mapped.value.deprioritizedMuscleIds.length === 8,
       `P073 ${mode}: the compiler request carries all eight muscle UUIDs`, mapped);
     let definition = staged.result?.preview?.programDefinition;
+    let steppedToFive = false;
     const expected = mapped.ok ? Compiler.generateProgram(mapped.value, Catalog) : null;
     check(expected?.ok && JSON.stringify(definition) === JSON.stringify(expected.value),
       `P073 ${mode}: review contains the canonical seedless compiler definition`, expected?.conflicts);
@@ -1025,9 +1026,9 @@ async function recoveredGenerationJourney(browser) {
       check(rebuiltStats?.worker > 0 && JSON.stringify(await reviewed(page)) === JSON.stringify(definition),
         "P073: explicit Rebuild generates the current deterministic recommendation", rebuiltStats);
       await page.locator("#entryReview [data-review-block-edit]").click();
-      check(await page.locator("#reviewSheet [data-review-block-step]").count() === 0 &&
-        /7/.test(await page.locator("#reviewSheet [data-review-block-weeks]").innerText()),
-        "P073: the generated block exposes seven regular weeks without unsupported length controls");
+      check(await page.locator("#reviewSheet [data-review-block-step]").count() === 2 &&
+        /^7\b/.test((await page.locator("#reviewSheet [data-review-block-weeks]").innerText()).trim()),
+        "P076: the generated block offers a length stepper that opens at seven regular weeks");
       await page.locator("#reviewSheet [data-review-block-deload]").click();
       await page.locator("#reviewSheet [data-review-block-apply]").click();
       await page.waitForFunction(() => {
@@ -1114,12 +1115,40 @@ async function recoveredGenerationJourney(browser) {
         })), `P073 ${periodization}: review carries the seven recovered source centers and null metric targets`);
       }
       }
+      // Plan 076: step the generated block down to five regular weeks and rebuild.
+      await page.locator("#entryReview [data-review-block-edit]").click();
+      for (let step = 0; step < 2; step += 1) await page.locator('#reviewSheet [data-review-block-step="-1"]').click();
+      check(/^5\b/.test((await page.locator("#reviewSheet [data-review-block-weeks]").innerText()).trim()),
+        "P076: the stepper reads five weeks after two steps down");
+      for (let step = 0; step < 2; step += 1) await page.locator('#reviewSheet [data-review-block-step="-1"]').click();
+      check(await page.locator('#reviewSheet [data-review-block-step="-1"]').isDisabled() &&
+        /^4\b/.test((await page.locator("#reviewSheet [data-review-block-weeks]").innerText()).trim()),
+        "P076: four weeks is the shortest generated block");
+      await page.locator('#reviewSheet [data-review-block-step="1"]').click();
+      await page.locator("#reviewSheet [data-review-block-apply]").click();
+      await page.waitForFunction(() => {
+        const value = window.__repforgeEntryState()?.result?.preview?.programDefinition;
+        return value?.cycles === 5 && !document.querySelector("#entryReview[aria-busy]");
+      }, undefined, { timeout: 20000 });
+      const fiveWeeks = await entry(page);
+      const fiveRequest = Adapter.programRequestFromAnswers(fiveWeeks.answers, Catalog);
+      const fiveExpected = fiveRequest.ok ? Compiler.generateProgram(fiveRequest.value, Catalog) : null;
+      definition = fiveWeeks.result.preview.programDefinition;
+      check(fiveWeeks.answers.block.cycles === 5 && fiveExpected?.ok && definition.generatorVersion === Compiler.GENERATOR_VERSION &&
+        JSON.stringify(definition) === JSON.stringify(fiveExpected.value) &&
+        definition.days.every((day) => day.slots.every((slot) => slot.prescriptionsByCycle.length === 5)),
+        "P076: the rebuilt program is the canonical five-week generation", fiveRequest);
+      check(/5/.test(await page.locator("#entryReview .review__block").innerText()),
+        "P076: the block row reads five weeks", await page.locator("#entryReview .review__block").innerText());
+      steppedToFive = true;
     }
     await page.click("#entryActivate");
     await page.waitForFunction(() => window.__repforgeWorkoutDraft.state()?.programMeta?.onboarded === true, undefined, { timeout: 20000 });
     await page.evaluate(() => window.__repforgeStorage?.flush?.());
     check(JSON.stringify((await state(page)).programMeta.programDefinition) === JSON.stringify(definition),
       `P073 ${mode}: activation preserves the reviewed definition`);
+    if (steppedToFive) check((await state(page)).programMeta.mesocycleLengthWeeks === 5,
+      "P076: the activated block is five weeks long", (await state(page)).programMeta.mesocycleLengthWeeks);
     await page.click("#startWorkout");
     await page.waitForSelector("#workout .exercise", { timeout: 10000 });
     const focus = await page.evaluate(() => {

@@ -38,9 +38,73 @@ for(const mode of Object.keys(centers)) {
  for(const goal of ['hybrid','hypertrophy','strength'])for(const timeCeilingMinutes of [20,40,60,90,120,150])for(const experience of ['beginner','intermediate','advanced']){
   assert(Compiler.availableSplits({...next,goal,timeCeilingMinutes,experience}).includes('upper_lower_full'),'recovered independent dimensions compose across all supported goals, times and experiences');
  }
- for(const change of [{cycles:8},{deloadCycles:[7]},{daysPerWeek:2},{daysPerWeek:1}]){
+ // Plan 076: four to ten regular weeks and at most one first or last lighter week.
+ for(const change of [{cycles:3},{cycles:11},{cycles:12,deloadCycles:[12]},{deloadCycles:[4]},{daysPerWeek:2},{daysPerWeek:1}]){
   assert.equal(Compiler.generateProgram({...next,...change},catalog).ok,false,'invalid normal-cycle count or incompatible frequency is refused');
   assert.equal(Compiler.availableSplits({...next,...change}).includes('upper_lower_full'),false);
  }
 }
-console.log('generation-periodization: three real-catalog modes, adapter, source schedules and expanded domain boundaries PASS');
+
+// ---- Plan 076: variable block length --------------------------------------
+const Policy = require('../engine-policy.js');
+{
+ // OD-2: seven weeks read the table unchanged; linear and reverse linear keep both endpoints at every length; undulating repeats.
+ assert.deepEqual(Array.from({length:7},(_,w)=>Policy.periodizationPosition('linear',w+1,7)),[0,1,2,3,4,5,6]);
+ assert.deepEqual(Array.from({length:4},(_,w)=>Policy.periodizationPosition('linear',w+1,4)),[0,2,4,6]);
+ assert.deepEqual(Array.from({length:10},(_,w)=>Policy.periodizationPosition('reverse_linear',w+1,10)),[0,1,1,2,3,3,4,5,5,6]);
+ assert.deepEqual(Array.from({length:10},(_,w)=>Policy.periodizationPosition('undulating',w+1,10)),[0,1,2,3,4,5,6,0,1,2]);
+ assert.throws(()=>Policy.periodizationPosition('linear',0,7),RangeError);
+}
+const { baselineCases, digestOf } = await import('../tools/record-generator-baseline.mjs');
+{
+ // The bump guard: 073.5 stamped as 073.4 reproduces every recorded 073.4 result exactly, refusals included.
+ const recorded = JSON.parse(require('node:fs').readFileSync(new URL('./fixtures/generator-073-4-digests.json', import.meta.url), 'utf8'));
+ assert.equal(recorded.generatorVersion, '073.4');
+ assert.ok(Compiler.BASELINE_VERSIONS.includes('073.4') && Compiler.GENERATOR_VERSION === '073.5');
+ const cases = baselineCases();
+ assert.equal(cases.length, Object.keys(recorded.digests).length);
+ for (const { key, request: caseRequest } of cases)
+  assert.equal(digestOf(Compiler.generateProgram(caseRequest, catalog, { asVersion: '073.4' })), recorded.digests[key], `${key}: identical to 073.4`);
+ // Unstamped, the same seven weeks differ only in version stamps and the IDs derived from them.
+ const { request: sample } = cases.find(item => item.key.startsWith('block|linear|deload'));
+ const strip = value => JSON.parse(JSON.stringify(value).replace(/"(day|slot|set)-[0-9a-f.]+"/g, '"$1-*"').replace(/"073\.[45]"/g, '"073.x"'));
+ const old = Compiler.generateProgram(sample, catalog, { asVersion: '073.4' }).value, now = Compiler.generateProgram(sample, catalog).value;
+ assert.equal(now.generatorVersion, '073.5'); assert.notEqual(JSON.stringify(old), JSON.stringify(now));
+ assert.deepEqual(strip(now), strip(old), 'seven weeks are structurally unchanged by the bump');
+ // asVersion is a closed list, and an earlier version keeps its own domain and refusal.
+ assert.equal(Compiler.generateProgram(sample, catalog, { asVersion: '072.1' }).conflicts[0].code, 'unsupported_generator_version');
+ const fiveWeeks = { ...sample, cycles: 5, deloadCycles: [] };
+ const legacy = Compiler.generateProgram(fiveWeeks, catalog, { asVersion: '073.4' });
+ assert.equal(legacy.ok, false); assert.match(legacy.conflicts[0].message, /seven normal cycles/);
+}
+{
+ // OD-1/OD-3: four to ten regular weeks with one optional first or last lighter week.
+ const base = {...request, periodization:'linear'};
+ for (const [cycles, deloadCycles] of [[4,[]],[6,[6]],[10,[]],[11,[1]],[11,[11]]]) {
+  const built = Compiler.generateProgram({...base, cycles, deloadCycles}, catalog);
+  assert.equal(built.ok, true, `${cycles} cycles with deload ${deloadCycles}`);
+  assert.equal(built.value.cycles, cycles); assert.deepEqual(built.value.deloadCycles, deloadCycles);
+  const slot = built.value.days.find(d=>d.kind==='training').slots[0];
+  assert.equal(slot.prescriptionsByCycle.length, cycles);
+  const regular = slot.prescriptionsByCycle.filter(c=>!deloadCycles.includes(c.cycleIndex)).map(c=>c.sets[0].targets);
+  const seven = Compiler.generateProgram({...base, cycles:7, deloadCycles:[]}, catalog).value.days.find(d=>d.kind==='training').slots[0]
+   .prescriptionsByCycle.map(c=>c.sets[0].targets);
+  assert.deepEqual([regular[0], regular.at(-1)], [seven[0], seven[6]], `${cycles - deloadCycles.length} regular weeks keep the curve's endpoints`);
+  assert.ok(Compiler.validateProgramDefinition(built.value, catalog).ok);
+ }
+ const undulating = Compiler.generateProgram({...request, periodization:'undulating', cycles:10, deloadCycles:[]}, catalog).value
+  .days.find(d=>d.kind==='training').slots[0].prescriptionsByCycle.map(c=>JSON.stringify(c.sets[0].targets));
+ assert.deepEqual(undulating.slice(7), undulating.slice(0, 3), 'undulating repeats its seven-step sequence');
+}
+{
+ // A program reviewed under 073.4 keeps its recovered duration estimate after the bump.
+ const reviewed = structuredClone(Compiler.generateProgram(request, catalog, { asVersion: '073.4' }).value);
+ const day = reviewed.days.find(d=>d.kind==='training');
+ const mark = version => { const copy = structuredClone(day);
+  for (const slot of copy.slots) for (const cycle of slot.prescriptionsByCycle) for (const set of cycle.sets) set.provenance = { source:'lifter_review', policyVersion:version };
+  return copy; };
+ assert.equal(Compiler.estimateDaySeconds(mark('073.4'), 1, catalog), Compiler.estimateDaySeconds(mark('073.5'), 1, catalog),
+  'a 073.4 review keeps the recovered time model');
+ assert.notEqual(Compiler.estimateDaySeconds(mark('070.1'), 1, catalog), undefined);
+}
+console.log('generation-periodization: three real-catalog modes, adapter, source schedules, expanded domain boundaries and Plan 076 block lengths PASS');

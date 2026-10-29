@@ -746,4 +746,37 @@ console.log("fragment and cookie handoff helpers retain source bytes");
     "a custom alternate without its definition is refused, never left dangling");
 }
 
+// Plan 076: a five-week generated program travels as a recipe, and a recipe
+// stamped by 073.4 is refused as unsupported (the receiver is asked to have it
+// shared again) instead of being rebuilt under 073.5.
+{
+  const generatorOptions = { ...compilerOptions, generateProgram: Compiler.generateProgram,
+    generatorVersion: Compiler.GENERATOR_VERSION };
+  const request = structuredClone(workerFixture.request);
+  delete request.seed;
+  Object.assign(request, { daysPerWeek: 3, timeCeilingMinutes: 60, cycles: 5, deloadCycles: [], split: "auto", periodization: "linear" });
+  const fiveWeeks = Compiler.generateProgram(request, source);
+  assert.equal(fiveWeeks.ok, true, JSON.stringify(fiveWeeks.conflicts));
+  assert.equal(fiveWeeks.value.cycles, 5);
+  const encoded = await Setup.encode(document({ program: { name: "Five weeks", definition: fiveWeeks.value } }), generatorOptions);
+  assert.equal(encoded.ok, true, encoded.code);
+  assert.equal(encoded.form, "recipe", "a five-week generated program is regenerable from its request");
+  const decoded = await Setup.decode(encoded.value, generatorOptions);
+  assert.equal(decoded.ok, true, decoded.code);
+  assert.deepEqual(decoded.value.program.definition, fiveWeeks.value, "the recipe rebuilds the identical five-week definition");
+
+  const seven = { ...request, cycles: 7 };
+  const asOld = { ...generatorOptions, generatorVersion: "073.4",
+    generateProgram: (value, catalog) => Compiler.generateProgram(value, catalog, { asVersion: "073.4" }) };
+  const oldProgram = Compiler.generateProgram(seven, source, { asVersion: "073.4" });
+  const oldLink = await Setup.encode(document({ program: { name: "Before the update", definition: oldProgram.value } }), asOld);
+  assert.equal(oldLink.form, "recipe", "073.4 made this link as a recipe");
+  const refused = await Setup.decode(oldLink.value, generatorOptions);
+  assert.equal(refused.ok, false);
+  assert.equal(refused.code, "unsupported-version", "a 073.4 recipe is refused on 073.5, never rebuilt into a different program");
+  const resent = await Setup.encode(document({ program: { name: "Before the update", definition: oldProgram.value } }), generatorOptions);
+  assert.equal(resent.ok, false, "a 073.4 program no longer regenerates exactly, so it cannot be a recipe link now");
+  assert.equal(resent.code, "encoded-too-large", "it falls back to the full form, which is too large for a link");
+}
+
 console.log("PASS shared setup v4 protocol contract");

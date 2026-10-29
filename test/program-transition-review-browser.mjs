@@ -22,6 +22,7 @@
 import { readFileSync } from "node:fs";
 import { SHEET, applyInstalledEditor, cancelInstalledEditor, closeEditorSheet, editorSettled, openExerciseSheet, openInstalledEditor, sheetTap, showEditorDay } from "./fixtures/installed-editor.mjs";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { finishEarly } from "./fixtures/focus-workout.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const DATA = new URL("../plans/067/data/", import.meta.url);
@@ -191,10 +192,10 @@ async function freshPage(browser, errors, { locale } = {}) {
   return { context, page };
 }
 
-async function seed(page, { manual = false, request = REQUEST } = {}) {
-  const result = await page.evaluate(async ({ request, manual }) => {
+async function seed(page, { manual = false, request = REQUEST, asVersion } = {}) {
+  const result = await page.evaluate(async ({ request, manual, asVersion }) => {
     const catalogSnapshot = window.RepForgeExerciseCatalog.snapshot();
-    const generated = window.RepForgeProgramCompiler.generateProgram(request, catalogSnapshot);
+    const generated = window.RepForgeProgramCompiler.generateProgram(request, catalogSnapshot, asVersion ? { asVersion } : {});
     if (!generated.ok) return { ok: false, generated };
     const definition = generated.value;
     if (manual) {
@@ -212,7 +213,7 @@ async function seed(page, { manual = false, request = REQUEST } = {}) {
     });
     await window.__repforgeStorage.flush();
     return { ok: !!(finalized?.localOk || finalized?.idbOk), finalized };
-  }, { request, manual });
+  }, { request, manual, asVersion });
   if (!result.ok) throw new Error(`seeding failed: ${JSON.stringify(result).slice(0, 1500)}`);
 }
 
@@ -589,6 +590,63 @@ async function main() {
         JSON.stringify(ptBefore.map((day) => day.name)),
     "the stored day names are the language-independent names the proposal carried");
     await ptContext.close();
+
+    // Plan 076: a block generated before the 073.5 bump carries into a 073.5 block --
+    const { context: bumpContext, page: bumped } = await freshPage(browser, errors);
+    await seed(bumped, { asVersion: "073.4" });
+    const legacyStart = await state(bumped);
+    check(legacyStart.programMeta.programDefinition.generatorVersion === "073.4", "an install from before the bump runs a 073.4 block");
+    const logged = training(legacyStart.programMeta.programDefinition).flatMap((day) => day.slots.map((slot) => ({ day, slot })))
+      .find(({ slot }) => ["loadKg", "reps"].every((semantic) => slot.metricDefinitions.some((metric) => metric.semantic === semantic)));
+    if (!await bumped.evaluate((day) => window.__repforgeEnterWorkout({ day }), logged.day.name)) throw new Error("could not enter the 073.4 workout");
+    const loggedStatus = await bumped.evaluate(async ({ slotId }) => {
+      const api = window.__repforgeWorkoutDraft, exercise = api.current().exercises[slotId];
+      const setId = exercise.setOrder.find((id) => exercise.sets[id].ordinal === 1);
+      const metrics = exercise.sets[setId].programmed.metrics;
+      const statuses = [];
+      for (const [semantic, value] of [["loadKg", "60"], ["reps", "10"]])
+        statuses.push((await api.dispatch("editMetricValue", { exerciseInstanceId: slotId, setId,
+          metricId: metrics.find((metric) => metric.semantic === semantic).id, value })).status);
+      statuses.push((await api.dispatch("editSetField", { exerciseInstanceId: slotId, setId, field: "rir", value: "2" })).status);
+      statuses.push((await api.dispatch("completeSet", { exerciseInstanceId: slotId, setId })).status);
+      await api.flush();
+      return statuses;
+    }, { slotId: logged.slot.id });
+    check(loggedStatus.every((status) => status === "applied"), "a working set is logged under 073.4", loggedStatus);
+    await finishEarly(bumped);
+    await bumped.locator("#sumDone").click();
+    await bumped.waitForSelector("#workoutShell.hidden", { state: "attached", timeout: 10000 });
+    const legacyEdit = await addSetInEditor(bumped);
+    await finishBlock(bumped);
+    await openReview(bumped);
+    await bumped.locator('[data-review-action="schedule-repair"]').click();
+    await bumped.locator('[data-diag="fewer_days"]').click();
+    await bumped.locator('[data-diag-days="3"]').click();
+    await bumped.locator("[data-diag-continue]").click();
+    await bumped.locator("[data-preview-confirm]").waitFor({ state: "visible", timeout: 15000 });
+    const legacyPreview = await bumped.locator("#reviewPanel").innerText();
+    check(!/could not be identified/.test(legacyPreview) && legacyPreview.includes(`Kept your edits to ${legacyEdit.movement}`),
+      "the 073.4 block's edit is identified against its own generator's output", legacyPreview);
+    await confirmPreview(bumped, { title: "Proposed plan" });
+    const successor = await state(bumped);
+    const successorDefinition = successor.programMeta.programDefinition;
+    check(successorDefinition.generatorVersion === "073.5", "the next block is generated by 073.5", successorDefinition.generatorVersion);
+    const editedSource = slots(legacyStart.programMeta.programDefinition).find((slot) => slot.id === legacyEdit.slotId);
+    const carried = slots(successorDefinition).find((slot) => slot.exerciseId === editedSource.exerciseId);
+    check(carried?.prescriptionsByCycle[legacyEdit.cycleIndex - 1].sets.length === legacyEdit.sets,
+      "the set-count edit made under 073.4 is carried into the 073.5 block", carried?.prescriptionsByCycle.map((cycle) => cycle.sets.length));
+    const next = slots(successorDefinition).find((slot) => slot.exerciseId === logged.slot.exerciseId &&
+      JSON.stringify(slot.metricIds) === JSON.stringify(logged.slot.metricIds));
+    check(next && next.id !== logged.slot.id, "the logged movement continues in the new block under a new slot", { from: logged.slot.id, to: next?.id });
+    const lineage = await bumped.evaluate(({ slotId, exerciseId }) => {
+      const progression = window.__repforgeProgression;
+      const rec = progression.recommendation(progression.programSlot(slotId));
+      const rows = window.__repforgeWorkoutDraft.state().log.filter((row) => row.performedLibraryId === exerciseId || row.exerciseId === exerciseId);
+      return { engineStatus: rec?.engineStatus, reason: rec?.reason, rows: rows.length };
+    }, { slotId: next?.id, exerciseId: logged.slot.exerciseId });
+    check(lineage.rows > 0 && lineage.engineStatus === "recommended",
+      "the 073.4 history reaches the 073.5 block's recommendation for the same movement", lineage);
+    await bumpContext.close();
 
     // A Build program's schedule repair stages guided editing -------------
     const { context: manualContext, page: manual } = await freshPage(browser, errors);

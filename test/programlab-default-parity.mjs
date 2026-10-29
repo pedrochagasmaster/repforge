@@ -18,21 +18,23 @@ const hash = text => createHash('sha256').update(text).digest('hex');
 const fixture = JSON.parse(readFileSync(new URL('./fixtures/programlab-integration-default-results.json', import.meta.url)));
 const cases = programLabDefaultCases({ Adapter, Catalog, Layout });
 const defaults = Policy.getDefaultEnginePolicy();
-assert.equal(Compiler.GENERATOR_VERSION, fixture.generatorVersion);
+// Captured on 073.4; 073.5 reproduces it exactly when stamped as that version (Plan 076).
+assert.ok(Compiler.GENERATOR_VERSION === fixture.generatorVersion || Compiler.BASELINE_VERSIONS.includes(fixture.generatorVersion));
+const as = Compiler.GENERATOR_VERSION === fixture.generatorVersion ? {} : { asVersion: fixture.generatorVersion };
 assert.equal(hash(readFileSync(new URL('../assets/exercise-catalog.json', import.meta.url))), fixture.catalogSha256);
 assert.deepEqual(cases.map(item => item.key), fixture.cases.map(item => item.key),
   'baseline case population and order are preserved');
 for (const [index, item] of cases.entries()) {
-  const result = Compiler.generateProgram(item.request, Catalog);
+  const result = Compiler.generateProgram(item.request, Catalog, as);
   const json = JSON.stringify(result);
   const expected = fixture.cases[index];
   assert.equal(hash(json), expected.resultSha256, `${item.key}: complete omitted-policy result matches pre-extraction main`);
   assert.equal(Buffer.byteLength(json), expected.resultBytes, `${item.key}: serialized byte count`);
   assert.equal(result.ok, expected.ok);
-  assert.equal(JSON.stringify(Compiler.generateProgram(item.request, Catalog, { enginePolicy: defaults })),
+  assert.equal(JSON.stringify(Compiler.generateProgram(item.request, Catalog, { ...as, enginePolicy: defaults })),
     json, `${item.key}: explicit default preserves complete serialized result`);
   const { diagnostics, ...untraced } = Compiler.generateProgram(item.request, Catalog,
-    { enginePolicy: defaults, diagnostics: 'allocation-lineage@1' });
+    { ...as, enginePolicy: defaults, diagnostics: 'allocation-lineage@1' });
   assert.equal(JSON.stringify(untraced), json, `${item.key}: diagnostics do not affect complete result`);
   assert.equal(diagnostics.version, 'allocation-lineage@1');
 }
