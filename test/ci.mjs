@@ -22,6 +22,10 @@ import { changedFilesForTests, changedFilesForEdit, changedFilesForPacket, fullL
 import { execute, maybeStartLocalPreview, runLane, shardPlan } from "../tools/run-tests.mjs";
 import { summarizeBenchmark } from "../tools/benchmark-tests.mjs";
 
+/** A fixture lane's progress lines stay out of this file's stdout: under node --test that stream is also the runner's
+ *  message channel, and a progress line written into it could split a frame ("Unable to deserialize cloned data"). */
+const quiet = () => {};
+
 test("paired benchmark reports complete scope and refuses missing, duplicate, or failed evidence", () => {
   const inventory = ["fast:a", "service:b", "entry:c", "visual:d"].map(id => ({ id, file: `${id}.mjs` }));
   const worker = (scope, ids) => ({ scope, base: "a".repeat(40), head: "b".repeat(40), seed: "147443",
@@ -1107,7 +1111,7 @@ test("a failure its suite marks deterministic is not replayed; any other browser
   writeFileSync(join(cwd, "flips.mjs"), 'process.exitCode = process.env.REPFORGE_TRACE === "1" ? 0 : 9;\n');
   const report = await runLane("fixture", [{ file: "frames.mjs", args: [] }, { file: "flips.mjs", args: [] }], {
     cwd, outputDir: join(cwd, "results"), env: { ...process.env, REPFORGE_TRACE: "0" }, browser: true,
-    diagnosticReplay: true, summaryPath: join(cwd, "summary.md"), source: { head: "fixture-clean-head", dirty: false },
+    diagnosticReplay: true, summaryPath: join(cwd, "summary.md"), source: { head: "fixture-clean-head", dirty: false }, log: quiet,
   });
   assert.equal(report.results[0].status, "failed");
   assert.equal(report.results[0].diagnostic, undefined, "a deterministic mismatch is not replayed");
@@ -1586,7 +1590,7 @@ test("runner continues after failure and cannot replay a failed suite to green",
   const report = await runLane("fixture", [{ file: "flips.mjs", args: [] }, { file: "later.mjs", args: [] }], {
     cwd, outputDir: join(cwd, "results"), env: { ...process.env, REPFORGE_TRACE: "0" }, browser: true,
     diagnosticReplay: true, summaryPath: join(cwd, "summary.md"),
-    source: { head: "fixture-clean-head", dirty: false },
+    source: { head: "fixture-clean-head", dirty: false }, log: quiet,
   });
   assert.equal(report.failed, 1); assert.equal(report.notRun, 0);
   assert.equal(report.results[0].initial.exitCode, 9); assert.equal(report.results[0].diagnostic.exitCode, 0);
@@ -1617,11 +1621,11 @@ test("fail-fast records unexecuted commands while keep-going runs them", async (
   writeFileSync(join(cwd, "fail.mjs"), "process.exit(2)\n");
   writeFileSync(join(cwd, "later.mjs"), 'import { writeFileSync } from "node:fs"; writeFileSync("later-ran", "yes")\n');
   const entries = [{ file: "fail.mjs", args: [] }, { file: "later.mjs", args: [] }];
-  const first = await runLane("fixture", entries, { cwd, outputDir: join(cwd, "one"), failFast: true });
+  const first = await runLane("fixture", entries, { cwd, outputDir: join(cwd, "one"), failFast: true, log: quiet });
   assert.equal(first.failed, 1); assert.equal(first.notRun, 1);
   assert.equal(first.results[1].status, "not-run-after-failure");
   assert.equal(existsSync(join(cwd, "later-ran")), false);
-  const second = await runLane("fixture", entries, { cwd, outputDir: join(cwd, "two"), failFast: false });
+  const second = await runLane("fixture", entries, { cwd, outputDir: join(cwd, "two"), failFast: false, log: quiet });
   assert.equal(second.failed, 1); assert.equal(second.notRun, 0);
   assert.equal(existsSync(join(cwd, "later-ran")), true);
 });

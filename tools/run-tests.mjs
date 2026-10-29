@@ -95,6 +95,9 @@ export async function runLane(lane, entries, {
   cwd = ROOT, outputDir = join(ROOT, ".ci-results", lane), env = process.env,
   diagnosticReplay = false, browser = BROWSER_LANES.has(lane), summaryPath = env.GITHUB_STEP_SUMMARY, verbose = false,
   failFast = false, source = null,
+  // Where the lane's progress lines go. A test that runs a fixture lane under node --test passes its own sink: the
+  // child's stdout is also the runner's message channel, and a progress line written into it can split a frame.
+  log = console.log,
 } = {}) {
   mkdirSync(outputDir, { recursive: true });
   const executionSource = source || sourceIdentity(cwd, env);
@@ -106,28 +109,28 @@ export async function runLane(lane, entries, {
     rmSync(suiteDir, { recursive: true, force: true });
     const row = { id, command: ["node", ...commandArgs(suite)], status: "running" };
     report.results.push(row); save();
-    if (verbose) console.log(`\n=== ${row.command.join(" ")} ===`);
+    if (verbose) log(`\n=== ${row.command.join(" ")} ===`);
     row.initial = await execute(suite, { cwd, outputDir: join(suiteDir, "initial"), env, verbose });
     row.status = row.initial.status;
     if (row.status === "failed") row.failureClass = row.initial.timedOut ? "timeout" : row.initial.error ? "workflow/infrastructure" : "product/test assertion or test-harness synchronization";
     if (browser) row.evidence = relative(outputDir, writeBrowserEvidence({ suiteDir, row, source: executionSource })).replaceAll("\\", "/");
     save();
     const seconds = (row.initial.durationMs / 1000).toFixed(2);
-    console.log(`${row.status === "passed" ? "✓" : "✗"} ${row.command.join(" ")}  ${seconds}s`);
+    log(`${row.status === "passed" ? "✓" : "✗"} ${row.command.join(" ")}  ${seconds}s`);
     if (row.status === "failed" && !verbose && row.initial.tail.trim()) {
       console.error(`--- failure excerpt (full log: ${join(suiteDir, "initial/output.log")}) ---\n${row.initial.tail.trim()}\n--- end excerpt ---`);
     }
     const marker = join(suiteDir, "initial", DETERMINISTIC_MARKER);
     if (row.status === "failed" && existsSync(marker)) {
       row.deterministicFailure = JSON.parse(readFileSync(marker, "utf8")).reason;
-      console.log(`  no diagnostic replay: ${id} failed deterministically (${row.deterministicFailure})`);
+      log(`  no diagnostic replay: ${id} failed deterministically (${row.deterministicFailure})`);
       save();
     } else if (row.status === "failed" && browser && diagnosticReplay && !row.initial.timedOut && !row.initial.interrupted) {
-      console.log(`↻ diagnostic replay: ${id} (cannot change the gate result)`);
+      log(`↻ diagnostic replay: ${id} (cannot change the gate result)`);
       row.diagnostic = await execute(suite, {
         cwd, outputDir: join(suiteDir, "diagnostic"), env: { ...env, REPFORGE_TRACE: "1" }, verbose,
       });
-      console.log(`  diagnostic ${row.diagnostic.status} in ${(row.diagnostic.durationMs / 1000).toFixed(2)}s; original remains FAILED`);
+      log(`  diagnostic ${row.diagnostic.status} in ${(row.diagnostic.durationMs / 1000).toFixed(2)}s; original remains FAILED`);
       row.suspectedFlake = row.diagnostic.status === "passed";
       if (row.suspectedFlake) console.warn(`Suspected synchronization flake: ${id}; initial failed, diagnostic passed. Gate remains red.`);
       save();
@@ -146,7 +149,7 @@ export async function runLane(lane, entries, {
     "", `${report.failed} failed (${report.results.filter((r) => r.deterministicFailure).length} deterministic, not replayed); ${report.notRun} not run; ${report.results.filter((r) => r.suspectedFlake).length} suspected synchronization flake(s). Diagnostic replays never make a failed gate pass.`, "",
   ];
   if (summaryPath) appendFileSync(summaryPath, lines.join("\n"));
-  console.log(`${lane}: ${entries.length - report.failed - report.notRun}/${entries.length} passed`);
+  log(`${lane}: ${entries.length - report.failed - report.notRun}/${entries.length} passed`);
   return report;
 }
 
