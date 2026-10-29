@@ -804,7 +804,14 @@
       "id": "result-block-sheet",
       "flow": "onboarding-recommend",
       "label": "Recommend — block inputs",
-      "scenario": "The result's block sheet with seven regular weeks and the undulating rep pattern selected; the additional deload is off after exercising its switch.",
+      "scenario": "The result's block sheet with its length stepper at seven regular weeks and the undulating rep pattern selected; the additional deload is off after exercising its switch.",
+      "variants": "localized"
+    },
+    {
+      "id": "result-block-5",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — five-week block",
+      "scenario": "The result's block sheet with the length stepper stepped down to five regular weeks (Plan 076), before Apply.",
       "variants": "localized"
     },
     {

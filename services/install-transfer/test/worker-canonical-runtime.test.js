@@ -15,7 +15,7 @@ const rawCatalog = require("../../../assets/exercise-catalog.json");
 
 const definition = structuredClone(definitionFixture);
 
-const slotRows = definition.days.flatMap((day) => day.slots.map((slot) => {
+const rowsFor = (programDefinition) => programDefinition.days.flatMap((day) => day.slots.map((slot) => {
   const sets = slot.prescriptionsByCycle[0].sets;
   const repetition = slot.metricDefinitions.find((metric) => ["reps", "repsPerSide"].includes(metric.semantic));
   const target = repetition ? sets.map((set) => set.targets[repetition.semantic]).find((value) => value != null) : null;
@@ -38,6 +38,7 @@ const slotRows = definition.days.flatMap((day) => day.slots.map((slot) => {
     metricOrigin: slot.metricOrigin,
   };
 }));
+const slotRows = rowsFor(definition);
 const actualSlot = definition.days.flatMap((day) => day.slots).find((slot) =>
   slot.metricDefinitions.some((metric) => metric.semantic === "loadKg") &&
   slot.metricDefinitions.some((metric) => metric.semantic === "reps"));
@@ -212,6 +213,19 @@ timedEnvelope.durableState.sessionTiming = {
 timedEnvelope.integrity = { canonicalPayloadHash: createHash("sha256")
   .update(contract.canonicalJson({ ...timedEnvelope, integrity: {} }), "utf8").digest("hex") };
 
+// Plan 076: a five-week block compiled by the current generator crosses the
+// deployed Worker's validation unchanged.
+require("../../../generation-identity.js").prepareCatalog(rawCatalog);
+const fiveWeekRequest = { ...structuredClone(definition.request), cycles: 5, deloadCycles: [], periodization: "linear" };
+delete fiveWeekRequest.seed;
+const fiveWeeks = ProgramCompiler.generateProgram(fiveWeekRequest, rawCatalog);
+if (!fiveWeeks.ok) throw new Error(`five-week fixture failed to compile: ${JSON.stringify(fiveWeeks.conflicts)}`);
+const fiveWeekEnvelope = structuredClone(sourceEnvelope);
+fiveWeekEnvelope.durableState.programMeta = { id: "program-worker-five-weeks", programDefinition: fiveWeeks.value };
+fiveWeekEnvelope.durableState.program = rowsFor(fiveWeeks.value);
+fiveWeekEnvelope.integrity = { canonicalPayloadHash: createHash("sha256")
+  .update(contract.canonicalJson({ ...fiveWeekEnvelope, integrity: {} }), "utf8").digest("hex") };
+
 function createRequest(envelope, idempotencyKey) {
   return new Request("https://transfer.example/v1/transfers", {
     method: "POST",
@@ -271,6 +285,13 @@ describe("Worker canonical runtime dependencies", () => {
     expect(globalThis.RepForgeWorkoutDraft).toBeUndefined();
     expect(globalThis.RepForgeExerciseCatalog).toBeUndefined();
     expect(globalThis.RepForgeProgramEntry).toBeUndefined();
+  });
+
+  it("accepts a five-week generated block (Plan 076)", async () => {
+    expect(fiveWeeks.value.cycles).toBe(5);
+    expect(fiveWeeks.value.generatorVersion).toBe(ProgramCompiler.GENERATOR_VERSION);
+    const response = await worker.fetch(createRequest(fiveWeekEnvelope, "canonical-worker-five-weeks"), env);
+    expect(response.status).toBe(201);
   });
 
   it("accepts a durable state that carries session timing (#515)", async () => {

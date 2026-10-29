@@ -138,14 +138,19 @@ test("equipment adjustment is the preset plus added groups minus removed groups"
   assert.deepEqual(both.gymProfile.equipmentIds, [...expected].sort());
 });
 
-test("seven regular weeks and optional extra deload map to total cycles", () => {
+test("four to ten regular weeks and an optional extra deload map to total cycles (Plan 076)", () => {
   const untouched = requestFor({ environment: { kind: "commercial_gym" } });
   assert.deepEqual([untouched.cycles, untouched.periodization, untouched.deloadCycles], [7, "static", []]);
   const block = requestFor({ environment: { kind: "commercial_gym" }, block: { cycles: 7, periodization: "undulating" }, deload: true });
   assert.deepEqual([block.cycles, block.periodization, block.deloadCycles], [8, "undulating", [8]]);
   const off = requestFor({ environment: { kind: "commercial_gym" }, block: { cycles: 7, periodization: "linear" }, deload: false });
   assert.deepEqual([off.cycles, off.periodization, off.deloadCycles], [7, "linear", []]);
-  for (const cycles of [4, 10]) {
+  for (const [cycles, deload, total, deloadCycles] of [[4, false, 4, []], [5, true, 6, [6]], [10, true, 11, [11]]]) {
+    const mapped = requestFor({ environment: { kind: "commercial_gym" }, block: { cycles, periodization: "linear" }, deload });
+    assert.deepEqual([mapped.cycles, mapped.deloadCycles], [total, deloadCycles], `${cycles} regular weeks${deload ? " plus a lighter week" : ""}`);
+  }
+  // The draft schema still holds 4-12; generation refuses what it cannot build rather than rewriting it.
+  for (const cycles of [11, 12]) {
     const answers = { desiredResult: "balanced", structuredExperience: "6_to_24m", daysPerWeek: 4,
       environment: { kind: "commercial_gym" }, block: { cycles, periodization: "static" } };
     const before = structuredClone(answers);

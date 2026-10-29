@@ -1113,7 +1113,7 @@ export const ONBOARDING_SCENARIOS = {
     await recommendTo(page, { result: true, desired: "balanced" });
     await page.click("#entryReview [data-review-block-edit]");
     await page.waitForSelector("#reviewSheet.is-open [data-review-block-weeks]", { timeout: 10000 });
-    assert.equal(await page.locator('#reviewSheet [data-review-block-step]').count(), 0);
+    assert.equal(await page.locator('#reviewSheet [data-review-block-step]').count(), 2);
     assert.equal(await page.locator('#reviewSheet [data-review-block-deload]').getAttribute("aria-checked"), "true");
     await page.click('#reviewSheet [data-review-block-pattern="undulating"]');
     await page.click('#reviewSheet [data-review-block-deload]');
@@ -1122,9 +1122,29 @@ export const ONBOARDING_SCENARIOS = {
       pattern: document.querySelector("[data-review-block-pattern][aria-checked='true']")?.dataset.reviewBlockPattern,
       deload: document.querySelector("[data-review-block-deload]")?.getAttribute("aria-checked"),
     }));
-    const expected = await page.evaluate(() => window.RepForgeI18n.t("entry.review.block.regular_weeks", { n: 7 }));
+    const expected = await page.evaluate(() => window.RepForgeI18n.t("entry.review.block.weeks", { n: 7 }));
     if (visible.weeks !== expected || visible.pattern !== "undulating" || visible.deload !== "false")
       throw new Error(`The result block sheet did not keep seven regular weeks with the edited pattern and recovery choice: ${JSON.stringify(visible)}`);
+  },
+  // Plan 076: the generated block's length stepper at five weeks.
+  "onboarding-recommend/result-block-5": async page => {
+    await recommendTo(page, { result: true, desired: "balanced" });
+    await page.click("#entryReview [data-review-block-edit]");
+    await page.waitForSelector("#reviewSheet.is-open [data-review-block-weeks]", { timeout: 10000 });
+    for (let step = 0; step < 2; step += 1) await page.click('#reviewSheet [data-review-block-step="-1"]');
+    const shown = await page.evaluate(() => document.querySelector("[data-review-block-weeks]")?.textContent.trim());
+    const expected = await page.evaluate(() => window.RepForgeI18n.t("entry.review.block.weeks", { n: 5 }));
+    if (shown !== expected) throw new Error(`The block sheet did not step to five weeks: ${JSON.stringify(shown)}`);
+    // Tapping the stepper can scroll the sheet; the frame is the sheet from its top.
+    await page.evaluate(() => {
+      for (let node = document.querySelector("[data-review-block-weeks]"); node; node = node.parentElement)
+        if (node.scrollHeight > node.clientHeight && getComputedStyle(node).overflowY !== "visible") node.scrollTop = 0;
+    });
+    await page.waitForFunction(() => {
+      const heading = document.querySelector("#reviewSheet .review-block__sec .sheetgroup__head");
+      const box = heading?.getBoundingClientRect();
+      return !!box && box.top >= 0 && box.bottom <= window.innerHeight;
+    }, undefined, { timeout: 5000 });
   },
   "onboarding-recommend/result-existing": (page) => recommendTo(page, { result: true, existing: true }),
   "onboarding-recommend/chip-editor-open": (page) => reviewWithEditor(page, "days"),

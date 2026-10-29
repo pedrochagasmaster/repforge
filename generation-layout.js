@@ -415,9 +415,10 @@
       || !Number.isInteger(request.timeCeilingMinutes) || !Object.hasOwn(budgets, request.timeCeilingMinutes)
       || !["static", "linear", "reverse_linear", "undulating"].includes(request.periodization)
       || !Array.isArray(request.deloadCycles)) return false;
-    const deload = request.deloadCycles;
-    return request.cycles === 7 && deload.length === 0
-      || request.cycles === 8 && deload.length === 1 && (deload[0] === 1 || deload[0] === 8);
+    // Plan 076: four to ten regular weeks and at most one lighter week, first or last.
+    const deload = request.deloadCycles, regular = request.cycles - deload.length;
+    return Number.isInteger(request.cycles) && regular >= 4 && regular <= 10
+      && (deload.length === 0 || deload.length === 1 && (deload[0] === 1 || deload[0] === request.cycles));
   }
   function generate(request, selector, { enginePolicy = DEFAULT_POLICY, diagnostics } = {}) {
     const supported = supportsRequest(request);

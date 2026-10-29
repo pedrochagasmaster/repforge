@@ -10,12 +10,16 @@ require('../../generation-identity.js').prepareCatalog(Catalog);
 const expected=require('./programlab-default-results.json');
 const cases=corpusCases({Adapter,Catalog});
 const defaults=Policy.getDefaultEnginePolicy();
+// The digests were captured on 073.4; Plan 076's 073.5 reproduces them exactly
+// when stamped as that version, so the parity holds across the bump.
+assert.ok(expected.generatorVersion===Compiler.GENERATOR_VERSION||Compiler.BASELINE_VERSIONS.includes(expected.generatorVersion));
+const as=expected.generatorVersion===Compiler.GENERATOR_VERSION?{}:{asVersion:expected.generatorVersion};
 for (const [index, {key,request}] of cases.entries()) {
-  const plain=Compiler.generateProgram(request,Catalog);
+  const plain=Compiler.generateProgram(request,Catalog,as);
   assert.equal(createHash('sha256').update(JSON.stringify(plain)).digest('hex'),expected.results[index].sha256,key);
   assert.equal(expected.results[index].key,key);
-  assert.equal(JSON.stringify(Compiler.generateProgram(request,Catalog,{enginePolicy:defaults})),JSON.stringify(plain),key);
-  const traced=Compiler.generateProgram(request,Catalog,{diagnostics:'allocation-lineage@1'});
+  assert.equal(JSON.stringify(Compiler.generateProgram(request,Catalog,{...as,enginePolicy:defaults})),JSON.stringify(plain),key);
+  const traced=Compiler.generateProgram(request,Catalog,{...as,diagnostics:'allocation-lineage@1'});
   const {diagnostics,...without}=traced;
   assert.equal(JSON.stringify(without),JSON.stringify(plain),key);
   assert.equal(diagnostics.version,'allocation-lineage@1');

@@ -82,7 +82,8 @@ const noAccessories40=layout.generate(request40,selector({fail:s=>s.type==='acce
 assert.equal(noAccessories40.status,'insufficient');
 assert.equal(noAccessories40.days.flatMap(d=>d.templates).length,6);
 assert.equal(noAccessories40.days.flatMap(d=>d.templates).reduce((n,t)=>n+t.numSets,0),12);
-for (const change of [{split:'upper_lower'},{daysPerWeek:4},{timeCeilingMinutes:30},{experience:'none'},{cycles:8},{deloadCycles:[7]}]) {
+// Plan 076: four to ten regular weeks, at most one first or last lighter week.
+for (const change of [{split:'upper_lower'},{daysPerWeek:4},{timeCeilingMinutes:30},{experience:'none'},{cycles:3},{cycles:11},{deloadCycles:[4]}]) {
  assert.equal(layout.generate({...request,...change},selector()).status,'unsupported');
 }
 for(const periodization of ['linear','reverse_linear','undulating']) {
@@ -140,7 +141,7 @@ assert.equal(layout.generate(strengthRequest,strengthExhausted).status,'insuffic
 const sourceWalk=[strengthDefaults[0],strengthDefaults[1],strengthDefaults[0],strengthDefaults[2],strengthDefaults[1]].flat();
 assert.deepEqual(strengthExhausted.calls.filter(c=>c.type==='accessory').map(c=>c.muscle),
  [...sourceWalk.filter(m=>upper.has(m)),...sourceWalk.filter(m=>!upper.has(m))]);
-for(const change of [{timeCeilingMinutes:30},{experience:'none'},{cycles:8},{deloadCycles:[7]}])
+for(const change of [{timeCeilingMinutes:30},{experience:'none'},{cycles:3},{cycles:11},{deloadCycles:[4]}])
  assert.equal(layout.generate({...strengthRequest,...change},selector()).status,'unsupported');
 
 // Route synthetic accessories to Full so source A/B/C ordering and repeated

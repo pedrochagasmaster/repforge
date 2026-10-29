@@ -109,7 +109,7 @@
         text(scenario.name, "scenario name");
         if (ids.has(scenario.id)) fail("duplicate_scenario", "Duplicate scenario ID");
         ids.add(scenario.id);
-        if (scenario.seed !== undefined && !allowSeedLabels) fail("unsupported_seed", "073.4 derives identity from canonical inputs; variable seeds are unsupported");
+        if (scenario.seed !== undefined && !allowSeedLabels) fail("unsupported_seed", "073.5 derives identity from canonical inputs; variable seeds are unsupported");
         if (scenario.seed !== undefined && typeof scenario.seed !== "string") fail("invalid_schema", "Historical seed labels must be strings");
         if (scenario.inputMode !== undefined && !["canonical", "answers"].includes(scenario.inputMode)) fail("invalid_schema", "Unknown scenario input mode");
         return { ...scenario, request: normalized(normalizeRequest, scenario.request, "invalid_request") };

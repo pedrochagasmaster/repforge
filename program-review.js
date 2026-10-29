@@ -65,6 +65,11 @@
   function recoveredBlock(definition) {
     return definition.provenance?.source === "recovered_generation_rules";
   }
+  // Plan 076: a generated block runs four to ten regular weeks; a built or
+  // imported one keeps the editor's four to twelve.
+  function blockWeekBounds(definition) {
+    return recoveredBlock(definition) ? { min: 4, max: 10 } : { min: 4, max: 12 };
+  }
 
   function markReviewed(set) {
     set.provenance = { ...(set.provenance || {}), source: PROVENANCE_SOURCE };
@@ -884,12 +889,10 @@
         parts.title.textContent = t("entry.review.block.sheet.title");
         parts.body.innerHTML =
           `<section class="review-sheet__sec review-block__sec"><h3 class="sheetgroup__head">${esc(t("entry.review.block.sheet.length"))}</h3>` +
-          (sheet.fixedCycles
-            ? `<p class="num" data-review-block-weeks>${esc(t("entry.review.block.regular_weeks", { n: sheet.cycles }))}</p>`
-            : `<div class="review-step review-block__stepper"><button type="button" data-review-block-step="-1" aria-label="−"${sheet.cycles <= 4 ? " disabled" : ""}>−</button>` +
-              `<b class="num" data-review-block-weeks>${esc(t(sheet.cycles === 1 ? "entry.review.block.week_one" : "entry.review.block.weeks", { n: sheet.cycles }))}</b>` +
-              `<button type="button" data-review-block-step="1" aria-label="+"${sheet.cycles >= 12 ? " disabled" : ""}>+</button></div>`) +
-          `<p class="review-sheet__lede">${esc(t(sheet.fixedCycles ? "entry.review.block.sheet.fixed_length_hint" : "entry.review.block.sheet.length_hint"))}</p></section>` +
+          `<div class="review-step review-block__stepper"><button type="button" data-review-block-step="-1" aria-label="−"${sheet.cycles <= sheet.minWeeks ? " disabled" : ""}>−</button>` +
+          `<b class="num" data-review-block-weeks>${esc(t(sheet.cycles === 1 ? "entry.review.block.week_one" : "entry.review.block.weeks", { n: sheet.cycles }))}</b>` +
+          `<button type="button" data-review-block-step="1" aria-label="+"${sheet.cycles >= sheet.maxWeeks ? " disabled" : ""}>+</button></div>` +
+          `<p class="review-sheet__lede">${esc(t(sheet.generated ? "entry.review.block.sheet.generated_length_hint" : "entry.review.block.sheet.length_hint"))}</p></section>` +
           `<section class="review-sheet__sec review-block__sec"><h3 class="sheetgroup__head" id="reviewBlockPatternLab">${esc(t("entry.review.block.sheet.pattern"))}</h3>` +
           `<div class="review-block__patterns" role="radiogroup" aria-labelledby="reviewBlockPatternLab">${patterns.map((pattern) => {
             const selected = pattern === sheet.periodization;
@@ -897,8 +900,8 @@
               `<span class="radio-card__body"><span class="radio-card__title">${esc(t(`entry.review.block.card.${pattern}.title`))}</span>` +
               `<span class="radio-card__cap">${esc(t(`entry.review.block.card.${pattern}.hint`))}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button>`;
           }).join("")}</div></section>` +
-          `<div class="review-block__deload"><span class="review-block__copy"><strong>${esc(t(sheet.fixedCycles ? "entry.deload.card" : "entry.review.block.manual_deload_card"))}</strong><span>${esc(t(sheet.fixedCycles ? "entry.deload.body" : "entry.review.block.manual_deload_body"))}</span></span>` +
-          `<button type="button" class="toggle" role="switch" aria-label="${esc(t(sheet.fixedCycles ? "entry.deload.card" : "entry.review.block.manual_deload_card"))}" aria-checked="${sheet.deload}" data-review-block-deload></button></div>`;
+          `<div class="review-block__deload"><span class="review-block__copy"><strong>${esc(t(sheet.generated ? "entry.deload.card" : "entry.review.block.manual_deload_card"))}</strong><span data-review-block-deload-body>${esc(sheet.generated ? t("entry.review.block.sheet.deload_body", { n: sheet.cycles }) : t("entry.review.block.manual_deload_body"))}</span></span>` +
+          `<button type="button" class="toggle" role="switch" aria-label="${esc(t(sheet.generated ? "entry.deload.card" : "entry.review.block.manual_deload_card"))}" aria-checked="${sheet.deload}" data-review-block-deload></button></div>`;
         parts.foot.innerHTML = `<button type="button" class="btn btn--cta btn--noarrow" data-review-block-apply>${esc(t("entry.review.block.apply"))}</button>`;
       } else if (sheet.kind === "exercise") {
         const at = findSlot(definition, sheet.slotId);
@@ -1012,12 +1015,13 @@
       if (sheet.kind === "block") {
         let button;
         if ((button = hit("[data-review-block-step]"))) {
-          if (sheet.fixedCycles) return;
-          sheet.cycles = Math.max(4, Math.min(12, sheet.cycles + Number(button.dataset.reviewBlockStep)));
+          sheet.cycles = Math.max(sheet.minWeeks, Math.min(sheet.maxWeeks, sheet.cycles + Number(button.dataset.reviewBlockStep)));
           const body = adapter.sheet().body;
           body.querySelector("[data-review-block-weeks]").textContent = t("entry.review.block.weeks", { n: sheet.cycles });
-          body.querySelector('[data-review-block-step="-1"]').disabled = sheet.cycles <= 4;
-          body.querySelector('[data-review-block-step="1"]').disabled = sheet.cycles >= 12;
+          body.querySelector('[data-review-block-step="-1"]').disabled = sheet.cycles <= sheet.minWeeks;
+          body.querySelector('[data-review-block-step="1"]').disabled = sheet.cycles >= sheet.maxWeeks;
+          // The lighter week is added to however many regular weeks the block now has.
+          if (sheet.generated) body.querySelector("[data-review-block-deload-body]").textContent = t("entry.review.block.sheet.deload_body", { n: sheet.cycles });
         } else if ((button = hit("[data-review-block-pattern]"))) {
           sheet.periodization = button.dataset.reviewBlockPattern;
           adapter.sheet().body.querySelectorAll("[data-review-block-pattern]").forEach((option) => {
@@ -1033,7 +1037,8 @@
           const next = { block: { cycles: sheet.cycles, periodization: sheet.periodization }, deload: sheet.deload };
           const definition = state.definition, answers = state.answers || {};
           const current = {
-            cycles: recoveredBlock(definition) ? 7 : Number.isInteger(answers.block?.cycles) ? answers.block.cycles : definition.cycles,
+            cycles: Number.isInteger(answers.block?.cycles) ? answers.block.cycles
+              : definition.cycles - (recoveredBlock(definition) ? (definition.deloadCycles || []).length : 0),
             periodization: answers.block?.periodization || slotsOf(definition)[0]?.prescriptionsByCycle?.[0]?.sets?.[0]?.provenance?.periodization || "static",
             deload: typeof answers.deload === "boolean" ? answers.deload : recoveredBlock(definition)
               ? (definition.deloadCycles || []).length > 0 : (definition.deloadCycles || []).includes(definition.cycles),
@@ -1197,10 +1202,14 @@
       if (hit("[data-review-title]")) { sheet = { kind: "rename", target: "program" }; openSheet(); return; }
       if (hit("[data-review-block-edit]") && typeof adapter.changeBlock === "function") {
         const state = read(), definition = state.definition, answers = state.answers || {};
+        const bounds = blockWeekBounds(definition), generated = recoveredBlock(definition);
+        const regular = definition.cycles - (generated ? (definition.deloadCycles || []).length : 0);
         sheet = {
           kind: "block",
-          fixedCycles: recoveredBlock(definition),
-          cycles: recoveredBlock(definition) ? 7 : Number.isInteger(answers.block?.cycles) ? answers.block.cycles : definition.cycles,
+          generated,
+          minWeeks: bounds.min,
+          maxWeeks: bounds.max,
+          cycles: Math.max(bounds.min, Math.min(bounds.max, Number.isInteger(answers.block?.cycles) ? answers.block.cycles : regular)),
           periodization: answers.block?.periodization || slotsOf(definition)[0]?.prescriptionsByCycle?.[0]?.sets?.[0]?.provenance?.periodization || "static",
           deload: typeof answers.deload === "boolean" ? answers.deload : recoveredBlock(definition)
               ? (definition.deloadCycles || []).length > 0 : (definition.deloadCycles || []).includes(definition.cycles),

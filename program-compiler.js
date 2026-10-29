@@ -1,7 +1,19 @@
 (function (root) {
   "use strict";
 
-  const GENERATOR_VERSION = "073.4";
+  const GENERATOR_VERSION = "073.5";
+  /* Earlier versions this generator reproduces exactly inside their own domain
+     (Plan 076): 073.4 is 073.5 restricted to seven regular weeks and at most one
+     first or last lighter week. A baseline regenerated as one of them carries its
+     stamps and identity, so a program made then can still be compared with what
+     its generator made. */
+  const BASELINE_VERSIONS = Object.freeze(["073.4"]);
+  const LEGACY_DOMAIN_MESSAGE = "Choose a supported split, seven normal cycles, and at most one first or last deload.";
+  function legacyDomain(request) {
+    const deload = request.deloadCycles || [];
+    return request.cycles === 7 && deload.length === 0
+      || request.cycles === 8 && deload.length === 1 && (deload[0] === 1 || deload[0] === 8);
+  }
   const POLICY = root?.RepForgeEnginePolicy || (typeof require === "function" ? require("./engine-policy.js") : null);
   const IDENTITY = root?.RepForgeGenerationIdentity || (typeof require === "function" ? require("./generation-identity.js") : null);
   const CANDIDATES = root?.RepForgeGenerationCandidates || (typeof require === "function" ? require("./generation-candidates.js") : null);
@@ -196,10 +208,10 @@
     return validateRequest(request, catalog);
   }
 
-  function generationIdentity(request, catalog) {
+  function generationIdentity(request, catalog, version = GENERATOR_VERSION) {
     const normalized = canonicalizeRequest(request, catalog);
     if (!normalized.ok) throw new TypeError("Cannot identify invalid generation inputs");
-    return IDENTITY.generationIdentity(normalized.value, catalog, GENERATOR_VERSION);
+    return IDENTITY.generationIdentity(normalized.value, catalog, version);
   }
 
   function automaticSplit(days) {
@@ -460,11 +472,15 @@
     const policy = POLICY.normalizeEnginePolicy(options?.enginePolicy);
     if (!policy.ok) return finish(failure([{ field: "enginePolicy", code: "invalid_engine_policy", issues: policy.issues }]));
     if (!validCatalog(catalogSnapshot)) return finish(failure([{ field: "catalog", code: "invalid_catalog", message: "A raw catalog snapshot is required." }]));
+    const version = options?.asVersion === undefined ? GENERATOR_VERSION : options.asVersion;
+    if (version !== GENERATOR_VERSION && !BASELINE_VERSIONS.includes(version)) {
+      return finish(failure([fieldIssue("asVersion", "unsupported_generator_version", `Choose ${BASELINE_VERSIONS.join(", ")} or omit asVersion.`)]));
+    }
     const normalized = validateRequest(rawRequest, catalogSnapshot);
     if (!normalized.ok) return finish(failure(normalized.issues));
-    const namespace = generationIdentity(normalized.value, catalogSnapshot);
+    const namespace = generationIdentity(normalized.value, catalogSnapshot, version);
     const seedValue = { namespace, allocate: IDENTITY.createIdAllocator(namespace) };
-    return finish(generateRecovered(normalized.value, catalogSnapshot, seedValue, policy, diagnostics));
+    return finish(generateRecovered(normalized.value, catalogSnapshot, seedValue, policy, diagnostics, version));
   }
 
   function recoveredRepClass(template) {
@@ -477,15 +493,17 @@
   function recoveredDoseCenters(request, repClass, policy) {
     const centers = policy.prescription.periodizedRepCenters[request.goal][repClass];
     const indices = policy.periodization.indices[request.periodization];
-    return indices ? indices.map(index => centers[index])
-      : Array(7).fill(policy.prescription.staticRepCenters[request.goal][repClass]);
+    const regularWeeks = request.cycles - request.deloadCycles.length;
+    return indices ? Array.from({ length: regularWeeks }, (_, week) =>
+      centers[indices[POLICY.periodizationPosition(request.periodization, week + 1, regularWeeks)]])
+      : Array(regularWeeks).fill(policy.prescription.staticRepCenters[request.goal][repClass]);
   }
 
   function retainedDeloadSetCount(count, policy) {
     return Math.max(1, Math.floor(policy.deload.setRetention * count));
   }
 
-  function recoveredPrescriptions(request, template, repsKey, namespace, path, policy, isDefault) {
+  function recoveredPrescriptions(request, template, repsKey, namespace, path, policy, isDefault, version) {
     const repClass = recoveredRepClass(template);
     const centers = recoveredDoseCenters(request, repClass, policy);
     const adjustments = policy.prescription.rirAdjustmentsBySetCount;
@@ -507,15 +525,18 @@
         cycleIndex, setIndex: setIndex + 1, metricType: "source_metrics@1",
         targets: deload && repsKey ? { [repsKey]: Object.fromEntries(Object.entries(set.targets[repsKey]).map(([bound, value]) => [bound, value === null ? null : Math.round(policy.deload.repRetention * value)])) } : clone(set.targets),
         rir: deload && repsKey ? (set.rir ?? 0) + policy.deload.rirBonus : set.rir,
-        provenance: { source: isDefault ? (request.periodization === "static" ? "recovered_static_rules" : "recovered_periodized_rules") : "experimental_policy", policyVersion: isDefault ? GENERATOR_VERSION : "engine-policy@1", periodization: request.periodization, deload, approximation: false },
+        provenance: { source: isDefault ? (request.periodization === "static" ? "recovered_static_rules" : "recovered_periodized_rules") : "experimental_policy", policyVersion: isDefault ? version : "engine-policy@1", periodization: request.periodization, deload, approximation: false },
       })) };
     });
   }
 
-  function generateRecovered(request, catalog, namespace, policyResult, diagnostics) {
+  function generateRecovered(request, catalog, namespace, policyResult, diagnostics, version = GENERATOR_VERSION) {
     const policy = policyResult.value;
     if (diagnostics) diagnostics.terminalStage = "selection";
-    if (!recoveredGenerationDomain(request)) return failure([fieldIssue("split", "unsupported_generation_domain", "Choose a supported split, seven normal cycles, and at most one first or last deload.")]);
+    if (version !== GENERATOR_VERSION ? !legacyDomain(request) || !recoveredGenerationDomain(request) : !recoveredGenerationDomain(request)) {
+      return failure([fieldIssue("split", "unsupported_generation_domain", version !== GENERATOR_VERSION ? LEGACY_DOMAIN_MESSAGE
+        : "Choose a supported split, four to ten normal cycles, and at most one first or last deload.")]);
+    }
     const hardAllowed = (exercise) => {
       if (request.excludedExerciseIds.includes(exercise.id) || excludedByMuscle(exercise, request.excludedMuscleIds)) return false;
       if (!prerequisitesSatisfied(exercise, request, catalog).ok) return false;
@@ -568,7 +589,7 @@
           executionMode: executionMode(exercise, request, catalog),
           loadingModel: { bodyweightCoefficient: finite(exercise.bodyweight) ? exercise.bodyweight : null, assistanceDirection: "subtract" },
           order: slotIndex + 1,
-          prescriptionsByCycle: recoveredPrescriptions(request, template, repsKey, namespace, path, policy, policyResult.isDefault),
+          prescriptionsByCycle: recoveredPrescriptions(request, template, repsKey, namespace, path, policy, policyResult.isDefault, version),
         };
         if (diagnostics) {
           const record = layout.diagnosticRecords.find(record => record.template === template);
@@ -584,10 +605,10 @@
       return { id: dayId, name, kind: "training", order: weekIndex + 1, slots };
     });
     const output = {
-      schemaVersion: PROGRAM_SCHEMA_VERSION, generatorVersion: GENERATOR_VERSION, request: clone(request), days,
+      schemaVersion: PROGRAM_SCHEMA_VERSION, generatorVersion: version, request: clone(request), days,
       cycles: request.cycles, deloadCycles: [...request.deloadCycles],
       provenance: {
-        source: policyResult.isDefault ? "recovered_generation_rules" : "experimental_policy", policyVersion: policyResult.isDefault ? GENERATOR_VERSION : "engine-policy@1", goal: request.goal, split: request.split,
+        source: policyResult.isDefault ? "recovered_generation_rules" : "experimental_policy", policyVersion: policyResult.isDefault ? version : "engine-policy@1", goal: request.goal, split: request.split,
         selection: "recovered-pool_then-explicit-preference_then-ascii-id", approximations: policyResult.isDefault ? [] : ["experimental-engine-policy"],
         generationBudgetMinutes: layout.budgetMinutes, estimatedSessionSeconds, focusNotApplied: [],
       },
@@ -633,7 +654,8 @@
       return cycle?.sets?.length && cycle.sets.every((set) => set.provenance?.source === "recovered_static_rules"
         || set.provenance?.source === "recovered_periodized_rules"
         || set.provenance?.source === "experimental_policy"
-        || set.provenance?.source === "lifter_review" && set.provenance.policyVersion === GENERATOR_VERSION);
+        || set.provenance?.source === "lifter_review"
+          && [GENERATOR_VERSION, ...BASELINE_VERSIONS].includes(set.provenance.policyVersion));
     })) {
       const templates = day.slots.map((slot) => {
         const raw = catalogSnapshot.exercises.find((exercise) => exercise.id === slot.exerciseId);
@@ -1132,6 +1154,7 @@
 
   const api = Object.freeze({
     GENERATOR_VERSION,
+    BASELINE_VERSIONS,
     PROGRAM_SCHEMA_VERSION,
     MAX_SLOT_ALTERNATES,
     ROLES,

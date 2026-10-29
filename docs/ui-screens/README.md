@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 228 screens,
-1320 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 229 screens,
+1323 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -105,7 +105,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Recommend — recommendation and review](screens/onboarding-recommend/result__phone-390-light-en.png) | 8 | Onboarding B's review editor at rest: the source, the program name, four facts, the block row and its Change action, the day tabs with rest days and the first day's exercises with their sets, RIR and muscles; how it was built follows, with the pinned activation. |
 | [Recommend — offered movement](screens/onboarding-recommend/result-confirm-offer__phone-390-light-en.png) | 3 | A real Worker-verified movement offer under its current exercise row, with the approved advice and confirmation action. |
 | [Recommend — confirmed movement](screens/onboarding-recommend/result-confirmed__phone-390-light-en.png) | 3 | After confirming the offered movement: its row is marked Confirmed by you, Undo is available, and the changed rows are announced. |
-| [Recommend — block inputs](screens/onboarding-recommend/result-block-sheet__phone-390-light-en.png) | 3 | The result's block sheet with seven regular weeks and the undulating rep pattern selected; the additional deload is off after exercising its switch. |
+| [Recommend — block inputs](screens/onboarding-recommend/result-block-sheet__phone-390-light-en.png) | 3 | The result's block sheet with its length stepper at seven regular weeks and the undulating rep pattern selected; the additional deload is off after exercising its switch. |
+| [Recommend — five-week block](screens/onboarding-recommend/result-block-5__phone-390-light-en.png) | 3 | The result's block sheet with the length stepper stepped down to five regular weeks (Plan 076), before Apply. |
 | [Recommend — equipment conflict](screens/onboarding-recommend/result-equipment-conflict__phone-390-light-en.png) | 3 | The result explains that the available candidates cannot complete the program, says nothing was saved, and offers Back to equipment with the adjustment preserved. |
 | [Recommend — review with adjustments](screens/onboarding-recommend/result-changed__phone-390-light-en.png) | 3 | Three rows carry their marks (a set added, an engine swap, a movement added from the catalog) and the changes bar counts them with Undo and Restore. |
 | [Recommend — exercise sheet](screens/onboarding-recommend/review-sheet__phone-390-light-en.png) | 7 | One exercise's sheet at its top: the movement, its role and job, the sets ledger with RIR per set, the set count, rep range and rest controls, and the day's time. |
