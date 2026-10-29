@@ -40,6 +40,7 @@
   "focus.evidence.what_rir": "RIR",
   "focus.evidence.what_effort": "effort",
   "focus.evidence.why": "Why?",
+  "focus.evidence.none_history": "No history for this lift yet, so Taurifer won't guess a weight. Log this set and it suggests the next one.",
   "focus.evidence.none_new": "No logged effort on this lift yet, so Taurifer won't guess a weight. Log {what} on this set and it suggests the next one.",
   "focus.evidence.none_mismatch": "Your earlier sets on this lift used a different loading setup, so Taurifer won't guess a weight. Log {what} on this set and it suggests the next one.",
   "focus.evidence.none_range": "No load in your steps fits {min}–{max} reps at the target effort, so the load is yours to pick.",

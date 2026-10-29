@@ -238,7 +238,9 @@ try {
     const open = context.querySelector(".ledgerline--open")?.getBoundingClientRect();
     const h = (el) => (el ? Math.round(el.getBoundingClientRect().height * 10) / 10 : null);
     return {
-      window: Math.round(box.height),
+      // The window runs from the region's top to the shelf: since #550 the region itself ends at the rest tab's rise,
+      // so the band beside the tab belongs to the window the D minimum names.
+      window: Math.round(box.height + (parseFloat(getComputedStyle(context).marginBottom) || 0)),
       openRow: open ? { top: open.top, bottom: open.bottom, boxTop: box.top, boxBottom: box.bottom } : null,
       title: document.querySelector("#woDayTitle")?.textContent.trim(),
       next: art.querySelector(".fx-next b")?.textContent.trim() || "",

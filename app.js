@@ -8530,8 +8530,13 @@ function focusCue(ex,n,r,draft,prev,editing){
     sub:t("focus.cue.range_reps",{reps:`${ex.min}–${ex.max}`})};
   if(r.status==="configuration_required")return{kind:"setup",move:"",headHtml:esc(t("focus.cue.needs_setup")),
     sub:t("focus.cue.range_reps",{reps:`${ex.min}–${ex.max}`})};
-  if(sg.load==null){const head=t("focus.cue.pick_load",{min:ex.min,max:ex.max});
-    return{kind:"start",move:"",headHtml:esc(head),sub:""}}
+  if(sg.load==null){
+    // The range rides in Mono like the engine's figures (direction A): from the first bound to the last.
+    const head=esc(t("focus.cue.pick_load",{min:"\u0000",max:"\u0001"}));
+    const ranged=head.indexOf("\u0000")<head.indexOf("\u0001")
+      ?head.replace("\u0000",`<b class="fx-cue__load">${esc(ex.min)}`).replace("\u0001",`${esc(ex.max)}</b>`)
+      :head.replace("\u0000",esc(ex.min)).replace("\u0001",esc(ex.max));
+    return{kind:"start",move:"",headHtml:ranged,sub:""}}
   // A canonical target's move is the engine's: against this session's last set
   // once one is logged, else the recommendation's own verdict.
   const ref=Array.isArray(r.targetSets)?null:focusRefLoad(ex,n,draft,prev);
@@ -8587,13 +8592,19 @@ function focusNoSuggestionKey(ex,r,n,kind){
   if(reasons.has("bodyweight_required")||reasons.has("historical_bodyweight_required"))return"setup_bodyweight";
   if(kind==="setup"||(item?.status||r.status)==="configuration_required")return"setup";
   if(reasons.has("no_candidate_in_range")||reasons.has("no_candidate_after_expansion"))return"range";
-  if(reasons.has("no_comparable_history"))return reasons.has("loading_convention_mismatch")?"mismatch":"new";
+  if(reasons.has("no_comparable_history")){
+    // Which history there is decides the reason: none at all, sets logged without an effort, or sets logged another way.
+    const inputs=r.progressionInputs,seen=[...(inputs?.history||[]).flatMap(session=>session.sets||[]),...(inputs?.currentSession||[])];
+    if(!seen.length&&!reasons.has("loading_convention_mismatch"))return"history";
+    if(reasons.has("loading_convention_mismatch")||seen.every(set=>Number.isFinite(set.rir)))return"mismatch";
+    return"new"}
   return"unsupported"}
 /** The evidence line under the hero: the set the engine anchored on and the target it aims at, the same facts as the
  *  Why sheet (`engineSetFacts`), or, with no suggestion, the honest reason. Mono carries the figures. */
 function focusEvidenceText(ex,n,r,cue){
   if(cue.kind==="edit")return"";
-  const u=unitLabel(),effort=isEffortMode(),mono=v=>`<span class="fx-cue__fig">${esc(v)}</span>`;
+  // One quiet sentence: only the performed set's figures ride in Mono (owner review of #550).
+  const effort=isEffortMode(),mono=v=>`<span class="fx-cue__fig">${esc(v)}</span>`,plain=v=>esc(v);
   const say=(key,vars)=>{
     const keys=Object.keys(vars),marks=keys.map((_,i)=>String.fromCharCode(0xE000+i));
     let html=esc(t(key,Object.fromEntries(keys.map((k,i)=>[k,marks[i]]))));
@@ -8601,17 +8612,17 @@ function focusEvidenceText(ex,n,r,cue){
   if(cue.kind!=="now"){
     const key=focusNoSuggestionKey(ex,r,n,cue.kind);
     return say(`focus.evidence.none_${key}`,{what:esc(t(effort?"focus.evidence.what_effort":"focus.evidence.what_rir")),
-      min:mono(ex.min),max:mono(ex.max)})}
+      min:plain(ex.min),max:plain(ex.max)})}
   const facts=Array.isArray(r.targetSets)?engineSetFacts(r,n):null;
   if(!facts||facts.item.prescription?.setIndex!==n)return"";
   const parts=[],seen=engineAnchorSet(r,facts);
   if(seen){
-    const vars={set:mono((facts.anchor.setIndex??0)+1),load:mono(`${fmtLoad(facts.anchor.displayLoadKg)} × ${seen.reps}`),
-      rir:mono(fmt(seen.rir)),effort:esc(effortLabel(effortForRir(seen.rir)))};
+    const vars={set:plain((facts.anchor.setIndex??0)+1),load:mono(`${fmtLoad(facts.anchor.displayLoadKg)} × ${seen.reps}`),
+      rir:plain(fmt(seen.rir)),effort:esc(effortLabel(effortForRir(seen.rir)))};
     const source=facts.anchor.source==="current_session"?"session":"history";
     parts.push(say(`focus.evidence.${source}${effort?"_effort":""}`,vars))}
   if(facts.reps!=null&&facts.rir!=null)parts.push(say(`focus.evidence.target${facts.fatigued?"_fatigue":""}${effort?"_effort":""}`,
-    {reps:mono(facts.reps),rir:mono(fmt(facts.rir)),effort:esc(effortLabel(effortForRir(facts.rir)))}));
+    {reps:plain(facts.reps),rir:plain(fmt(facts.rir)),effort:esc(effortLabel(effortForRir(facts.rir)))}));
   return parts.join(" ")}
 /** The hero: the verb and the load at the screen's largest size, the reps under it, then one line of evidence that
  *  ends in the Why link. The verdict mark is the shared one, so hold draws the ink "=" and up the orange arrow exactly
@@ -8703,8 +8714,9 @@ function ledgerSetIsWarmup(exId,n){
  *  open for one exercise at a time, stays open through a correction, and closes after it and whenever the lifter
  *  moves on. A finished exercise keeps its whole ledger, as it always has. */
 let focusLedgerOpen=null;
-/** How many of each exercise's oldest logged rows the last measurement hid, kept so a render starts from it. */
-const focusLedgerFolded=new Map();
+/** How many of each exercise's oldest logged rows the last measurement hid, kept so a render starts from it, and the
+ *  exercises whose hero last had to step down (`fitFocusLedger`). */
+const focusLedgerFolded=new Map(),focusHeroCompact=new Set();
 function focusLedgerExpanded(ex,peek){
   if(focusActiveSet(ex)===0)return true;
   return !peek&&(focusLedgerOpen===ex.id||!!(focusEdit&&focusEdit.exId===ex.id))}
@@ -9397,7 +9409,7 @@ function focusCardHtml(ex,r,draft,prev,opts){
   const nextRow=hasNext&&nextName
     ?`<button type="button" class="fx-next"${peek?dead():" data-fnextrow"}><span>${esc(t("focus.next_row",{name:"\u0000"})).replace("\u0000",`<b>${esc(nextName)}</b>`)}</span>`+
       `<span class="icon-mask icon-mask--sm icon-mask--chev-down fx-next__chev" aria-hidden="true"></span></button>`:"";
-  return `<article class="exercise exercise--focus is-${r.status}${peek?" is-peek":" is-current"}"`+
+  return `<article class="exercise exercise--focus is-${r.status}${peek?" is-peek":" is-current"}${focusHeroCompact.has(ex.id)?" is-hero-compact":""}"`+
     (peek?` aria-hidden="true" inert data-peek="${esc(ex.id)}"`:` data-ex="${esc(ex.id)}"`)+`>`+
     `<div class="fcard__context" role="region" aria-label="${esc(name)}" tabindex="${peek?-1:0}">`+
     // The header names the exercise (layout D), so its row here is the prescription line alone.
@@ -9639,28 +9651,44 @@ const FOCUS_LEDGER_SPARE=4;
 /** Fold the oldest logged rows that do not fit above the shelf and the rest tab, and bring back the ones that do (#517).
  *  Measured from the rendered geometry, never a breakpoint. */
 function fitFocusLedger(card){
-  const context=card?.querySelector(".fcard__context"),rows=context?.querySelector(".ledger__rows");
-  const more=context?.querySelector(".ledger__more");if(!rows||!more)return;
-  const exId=rows.id.slice("ledger_".length);
+  const context=card?.querySelector(".fcard__context"),rows=context?.querySelector(".ledger__rows");if(!rows)return;
+  const more=context.querySelector(".ledger__more"),exId=rows.id.slice("ledger_".length);
+  // The context ends above the rest tab's rise (the tab sits on the shelf's top edge and rises out of it).
+  const tab=card.querySelector(".resttab"),shelf=card.querySelector(".focus-shelf");
+  const rise=tab&&tab.offsetParent===shelf?Math.max(0,Math.ceil(-tab.offsetTop)):0;
+  if(card.style.getPropertyValue("--rest-tab-rise")!==`${rise}px`)card.style.setProperty("--rest-tab-rise",`${rise}px`);
+  const open=rows.querySelector(".ledgerline--open"),hero=context.querySelector(".fx-cue__l1");
+  // A finished exercise has no open set and no hero: its whole ledger shows, at the hero's own size.
+  if(!open||!hero){card.classList.remove("is-hero-compact");focusHeroCompact.delete(exId);return}
   // Open (by the lifter or for a correction), the table shows every row and the disclosure only closes it.
-  if(more.getAttribute("aria-expanded")==="true")return;
-  const done=[...rows.querySelectorAll(":scope > [data-ldone]")];if(!done.length)return;
-  // The hero, the evidence line and the open set come first: the logged rows fit while the open set, read from the
-  // region's top, stays whole above the window's foot (the rest tab when it rises out of the shelf, as
-  // `sizeFocusCard` reads it). What comes after the open set scrolls. Positive overflows, negative is room to spare.
-  const open=rows.querySelector(".ledgerline--open");if(!open)return;
+  if(more?.getAttribute("aria-expanded")==="true")return;
+  const done=more?[...rows.querySelectorAll(":scope > [data-ldone]")]:[];
+  // The hero, the evidence line and the open set come first: what lies from the top of the region (from the hero's first
+  // line once it has stepped down) to the open set's foot must fit above the window's foot, the rest tab's rise when it
+  // rises higher (as `sizeFocusCard` reads it). What comes after the open set scrolls. Positive overflows.
   const over=()=>{
-    const box=context.getBoundingClientRect(),tab=card.querySelector(".resttab");
-    const bottom=tab&&tab.getClientRects().length?Math.min(box.bottom,tab.getBoundingClientRect().top-4):box.bottom;
-    return open.getBoundingClientRect().bottom+context.scrollTop-bottom};
+    const box=context.getBoundingClientRect();
+    const bottom=tab&&tab.getClientRects().length?Math.min(box.bottom,tab.getBoundingClientRect().top):box.bottom;
+    const from=card.classList.contains("is-hero-compact")?hero.getBoundingClientRect().top:box.top-context.scrollTop;
+    return open.getBoundingClientRect().bottom-from-(bottom-box.top)};
   let folded=done.filter(row=>row.hidden).length;
   const fold=k=>{
     folded=k;done.forEach((row,i)=>{row.hidden=i<k});
+    if(!more)return;
     more.hidden=!k;
     const label=focusLedgerMoreLabel(k);if(more.innerHTML!==label)more.innerHTML=label};
+  const compact=on=>{card.classList.toggle("is-hero-compact",on);if(on)focusHeroCompact.add(exId);else focusHeroCompact.delete(exId)};
+  // The hero steps back up only when it fits at full size with every logged row folded, with room to spare.
+  if(card.classList.contains("is-hero-compact")){
+    const kept=folded;compact(false);fold(done.length);
+    if(over()>-FOCUS_LEDGER_SPARE){compact(true);fold(kept)}}
   fold(folded);
   while(folded<done.length&&over()>0)fold(folded+1);
-  while(folded>0){fold(folded-1);if(over()<=-FOCUS_LEDGER_SPARE)continue;fold(folded+1);break}
+  // Logged rows give way first; the hero steps down only when the open set still would not stay whole below it, and
+  // while it is down every logged row stays folded.
+  if(folded===done.length&&over()>0)compact(true);
+  if(card.classList.contains("is-hero-compact"))fold(done.length);
+  else while(folded>0){fold(folded-1);if(over()<=-FOCUS_LEDGER_SPARE)continue;fold(folded+1);break}
   focusLedgerFolded.set(exId,folded)}
 /** The window's foot moves without a render: the keyboard, the rest tab rising out of the shelf, a text-size change.
  *  Watching the context region and the shelf refits the table on the frame after, and so does the end of any motion
@@ -9724,16 +9752,16 @@ function syncTextScale(card){
 function sizeFocusCard(card){
   if(!card)return;
   syncTextScale(card);
-  // The context region scrolls as one: keep the row being worked on in view. At the first set the card opens at its
-  // top with the exercise's prescription and the hero, as long as the open row shows whole under them; a window too
-  // short for both scrolls the row in. At large text (Plan 075 phase 5) the open set comes first, at every set.
+  // The context region scrolls as one: keep the row being worked on in view. At the first set nothing has been
+  // logged and the shelf already shows the set, so the card opens at its top with the exercise's prescription and the
+  // hero; later the row scrolls into view. At large text (Plan 075 phase 5) the open set comes first, at every set.
   const scaled=card.classList.contains("is-text-scaled");
   const context=card.querySelector(".fcard__context");
   const open=context?.querySelector(".ledgerline--open");if(!open)return;
   const box=context.getBoundingClientRect(),row=open.getBoundingClientRect();
   // The rest tab rises out of the shelf over the window's foot; the row is in view only above it.
   const tab=card.querySelector(".resttab"),bottom=tab?Math.min(box.bottom,tab.getBoundingClientRect().top-4):box.bottom;
-  if(!scaled&&+open.dataset.lrow<=1&&context.scrollTop===0&&row.bottom<=bottom)return;
+  if(!scaled&&+open.dataset.lrow<=1&&context.scrollTop===0)return;
   // At large text the region is only as tall as the open set (#541): a margin, or moving back to show a cut line whole,
   // would push the set itself out, so it is aligned to the region's top whenever it is not wholly in view.
   if(scaled){if(row.top<box.top||row.bottom>bottom)context.scrollTop=Math.max(0,context.scrollTop+row.top-box.top);return}
@@ -9745,7 +9773,14 @@ function sizeFocusCard(card){
     // The row is in view, but what sits above it may have changed height since: show a cut line whole if the row stays in view, else move on past it.
     const back=wholeLineScroll(context,context.scrollTop,-1);
     context.scrollTop=row.bottom+(context.scrollTop-back)<=bottom?back
-      :wholeLineScroll(context,context.scrollTop,1,context.scrollTop+Math.max(0,row.top-box.top))}}
+      :wholeLineScroll(context,context.scrollTop,1,context.scrollTop+Math.max(0,row.top-box.top))}
+  // The hero's first line stays in view whenever the open set can stay whole below it (#523): the window scrolls only
+  // as far as the open set needs.
+  const lead=context.querySelector(".fx-cue__l1");if(!lead)return;
+  const at=context.getBoundingClientRect(),origin=at.top-context.scrollTop;
+  const foot=(tab?Math.min(at.bottom,tab.getBoundingClientRect().top):at.bottom)-at.top;
+  const leadTop=lead.getBoundingClientRect().top-origin,rowBottom=open.getBoundingClientRect().bottom-origin;
+  if(context.scrollTop>leadTop&&rowBottom-leadTop<=foot)context.scrollTop=Math.max(0,Math.ceil(rowBottom-foot))}
 /** A scroll position for the context region that leaves no line cut at its top edge, under the segment bar: from
  *  `target`, `dir` 1 moves on past a cut line and -1 moves back to show it whole, never beyond `limit`. */
 function wholeLineScroll(context,target,dir,limit=Infinity){
@@ -22452,6 +22487,12 @@ window.__repforgeWorkoutDraft={
 // Test seam for the Focus deck, alongside the other __repforge* harness hooks.
 window.__repforgeFocus={
   go:focusAnimateTo,list:focusList,at:()=>focusIndex,editing:()=>focusEdit,
+  // The evidence line's reason for an engine result (#518): which catalog string a no-suggestion state says, and in
+  // what words, so a proof can pin every cause the engine reports without building each history.
+  noSuggestion(exId,rec,n=1,kind="start"){
+    const base=prog.find(exId),ex=base?sessionExercise(base):null;if(!ex)return null;
+    const key=focusNoSuggestionKey(ex,rec,n,kind);
+    return{key,text:t(`focus.evidence.none_${key}`,{what:t(isEffortMode()?"focus.evidence.what_effort":"focus.evidence.what_rir"),min:ex.min,max:ex.max})}},
   to(i){
     focusIndex=Math.max(0,i);focusEdit=null;
     const fl=focusList();

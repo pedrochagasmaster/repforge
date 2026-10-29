@@ -155,6 +155,19 @@ function readCard() {
       return copy.textContent.replace(/\s+/g, " ").trim();
     })(),
     why: evidence?.querySelector("[data-why]")?.textContent.trim() || "",
+    figs: evidence ? [...evidence.querySelectorAll(".fx-cue__fig")].map((el) => el.textContent.trim()) : [],
+    // Anything drawn in the context region that meets the rest tab's box at rest scroll.
+    underTab: (() => {
+      if (!tab || !tab.getClientRects().length) return [];
+      const t = tab.getBoundingClientRect();
+      return [...context.querySelectorAll("*")].filter((el) => !el.childElementCount && el.getClientRects().length).filter((el) => {
+        const r = el.getBoundingClientRect();
+        const shown = r.bottom > context.getBoundingClientRect().top && r.top < context.getBoundingClientRect().bottom;
+        return shown && r.width > 0 && r.height > 0 && r.left < t.right && r.right > t.left && r.top < t.bottom && r.bottom > t.top;
+      }).map((el) => el.textContent.trim().slice(0, 24) || el.className);
+    })(),
+    compact: card.classList.contains("is-hero-compact"),
+    heroBox: l1 && box(l1),
     whyHeight: evidence?.querySelector("[data-why]")?.getBoundingClientRect().height || 0,
     spills: [l1, evidence, card.querySelector(".fx-cue__l2")].filter(Boolean).some((el) => el.scrollWidth > el.clientWidth + 1),
     done: done.map((row) => ({ hidden: row.hidden, inView: inView(row), text: row.textContent.replace(/\s+/g, " ").trim(), ...box(row) })),
@@ -207,10 +220,11 @@ try {
     ok(engine.status === "new" && engine.reasonCodes.includes("no_comparable_history") && engine.load == null,
       "the fixture's first set has no comparable history", engine);
     const now = await card(page);
-    const expected = await t(page, "focus.evidence.none_new", { what: await t(page, "focus.evidence.what_rir") });
+    const expected = await t(page, "focus.evidence.none_history");
     ok(now.l1 === await t(page, "focus.cue.pick_load", { min: (await page.evaluate((id) => window.__repforgeProgression.programSlot(id).min, target.rowId)),
       max: (await page.evaluate((id) => window.__repforgeProgression.programSlot(id).max, target.rowId)) }), "the hero asks for a load", now.l1);
     ok(now.evidenceText === expected, "the evidence line gives the no-history reason from the catalog", now);
+    ok(!now.figs.length, "with nothing performed, nothing in the line rides in Mono", now.figs);
     ok(!/\d+(?:[.,]\d+)?\s*kg/.test(now.evidenceText), "the no-suggestion line names no weight", now.evidenceText);
     ok(!now.marks.length && !now.markColumn, "a cue without a verdict has no mark and no reserved column", now);
     ok(now.l1Size === 34 && now.largest === 34, "the hero is 34px and the largest text on the card", now);
@@ -230,6 +244,8 @@ try {
     ok(now.l1.includes(num(engine.load)), "the hero carries the engine's load", { l1: now.l1, engine });
     ok(now.why === await t(page, "focus.evidence.why") && now.whyHeight >= 44, "the line ends in a Why? action with a 44px target", now);
     ok(now.marks.length === 1, "a verdict draws one inline mark", now.marks);
+    ok(JSON.stringify(now.figs) === JSON.stringify([`${logged.load} × ${logged.reps}`]),
+      "one quiet sentence: only the performed set rides in Mono", now.figs);
     ok(now.done.length === 1 && !now.done[0].hidden && now.done[0].inView && now.open?.inView,
       "on a tall phone the logged set and the open set both show, above the shelf", now);
     ok(now.more?.hidden === true, "nothing is folded, so the disclosure is not drawn", now.more);
@@ -263,6 +279,7 @@ try {
     await logSet(page, target.slotId, 2, { load: 60, reps: 8, rir: 1 }, { stopRest: false });
     const now = await card(page);
     ok(now.tab && now.done.every((row) => !row.hidden && row.inView) && now.open?.inView, "with the rest running, both logged sets and the open set show above the tab", now);
+    ok(!now.underTab.length, "nothing in the context region meets the rest tab at rest scroll", now.underTab);
     ok(now.evidenceText.startsWith(await t(page, "focus.evidence.session", { set: 2, load: "60 × 8", rir: "1" })),
       "the rest does not suppress the line for the target just created", now.evidenceText);
   }
@@ -272,7 +289,8 @@ try {
     const { page } = tall;
     const roomy = await card(page);
     await page.setViewportSize({ width: 390, height: 600 });
-    await page.waitForFunction(() => document.querySelector("#workout .exercise.is-current .ledger__more")?.hidden === false, undefined, { timeout: 5000 });
+    await page.waitForFunction(() => document.querySelector("#workout .exercise.is-current .ledger__more")?.hidden === false, undefined, { timeout: 5000 })
+      .catch(async () => { throw new Error(`no fold at 600: ${JSON.stringify(await card(page))}`); });
     await settle(page);
     const short = await card(page);
     const folded = short.done.filter((row) => row.hidden).length;
@@ -318,17 +336,61 @@ try {
     ok(seen.has("hold") && seen.has("up") && seen.has("down"), "the three logged sets produce hold, up and down", [...seen]);
   }
 
+  console.log("320×568 with the rest running: the hero stays above the open set, the logged row folds first");
+  for (const lang of ["en", "pt"]) {
+    const run = await open(browser, { width: 320, height: 568, lang });
+    await logSet(run.page, run.target.slotId, 1, { load: 60, reps: 8, rir: 2 }, { stopRest: false });
+    const now = await card(run.page);
+    ok(now.hero?.inView && now.open?.inView && now.heroBox.bottom <= now.open.top,
+      `${lang}: the hero's first line is whole above the open set`, now);
+    ok(now.done.every((row) => row.hidden) && now.more?.hidden === false, `${lang}: the logged row folded before the hero gave way`, now);
+    ok(now.evidenceText.length > 0 && !now.underTab.length, `${lang}: the evidence line stays, and nothing meets the rest tab`, now);
+    ok(!run.errors.length, `${lang}: no page errors at 320×568`, run.errors);
+    await run.context.close();
+  }
+
+  console.log("Every no-suggestion cause the engine reports says its own reason");
+  {
+    const run = await open(browser);
+    const { page, target } = run;
+    const cases = [
+      ["history", "start", ["no_comparable_history"], { history: [], currentSession: [] }],
+      ["new", "start", ["no_comparable_history"], { history: [{ sessionId: "s", sets: [{ setIndex: 0, rir: null }] }], currentSession: [] }],
+      ["mismatch", "start", ["no_comparable_history", "loading_convention_mismatch"], { history: [{ sessionId: "s", sets: [{ setIndex: 0, rir: 2 }] }], currentSession: [] }],
+      ["range", "start", ["no_candidate_in_range"], null],
+      ["range", "start", ["no_candidate_after_expansion"], null],
+      ["unsupported", "manual", ["manual_prescription"], null],
+      ["setup", "setup", ["configuration_required"], null],
+      ["setup_execution", "setup", ["execution_context_required", "configuration_required"], null],
+      ["setup_per_side", "setup", ["per_side_convention_required"], null],
+      ["setup_bodyweight", "setup", ["bodyweight_required"], null],
+      ["setup_bodyweight", "setup", ["historical_bodyweight_required"], null],
+    ];
+    for (const [key, kind, reasonCodes, inputs] of cases) {
+      const said = await page.evaluate(({ id, kind, reasonCodes, inputs }) => window.__repforgeFocus.noSuggestion(id, {
+        status: kind === "setup" ? "configuration_required" : kind === "manual" ? "manual" : "new", reasonCodes,
+        targetSets: [{ prescription: { setIndex: 1 }, status: kind === "setup" ? "configuration_required" : "manual", result: { reasonCodes } }],
+        progressionInputs: inputs || { history: [], currentSession: [] } }, 1, kind), { id: target.rowId, kind, reasonCodes, inputs });
+      const expected = await t(page, `focus.evidence.none_${key}`, { what: "RIR", min: await page.evaluate((id) => window.__repforgeProgression.programSlot(id).min, target.rowId),
+        max: await page.evaluate((id) => window.__repforgeProgression.programSlot(id).max, target.rowId) });
+      ok(said?.key === key && said.text === expected && !/\d+(?:[.,]\d+)?\s*kg/.test(said.text), `${reasonCodes.join(" + ")} (${kind}) says ${key}`, said);
+    }
+    await run.context.close();
+  }
+
   console.log("Short phone with many logged sets, 200% text, Portuguese");
   {
     const run = await open(browser, { width: 320, height: 568, lang: "pt", text: "text200" });
     const { page, target } = run;
-    for (let n = 1; n < target.sets; n++) await logSet(page, target.slotId, n, { load: 60, reps: 8, rir: 1 });
+    ok((await card(page)).evidenceText === await t(page, "focus.evidence.none_history"), "the Portuguese no-history reason comes from the Portuguese catalog");
+    for (let n = 1; n < target.sets; n++) await logSet(page, target.slotId, n, { load: 60, reps: 8, rir: 1 }, { stopRest: n < target.sets - 1 });
     const engine = await engineSet(page, target.rowId, target.sets);
     const now = await card(page);
     const folded = now.done.filter((row) => row.hidden).length;
     ok(await page.evaluate(() => window.RepForgeI18n.getLang()) === "pt", "the run reads in Portuguese");
     ok(now.evidenceText === await expectedEvidence(page, target.sets - 1, { load: 60, reps: 8, rir: 1 }, engine), "the Portuguese line comes from the Portuguese catalog", now.evidenceText);
     ok(now.l1Size <= 35.2 && !now.spills, "the hero stays at the large-text cap and nothing spills sideways", now);
+    ok(!now.underTab.length, "at 200% nothing in the context region meets the rest tab", now.underTab);
     ok(folded > 0 && now.open?.inView && now.more?.hidden === false, "the logged rows that do not fit fold, and the open set stays whole", now);
     ok(now.more.text === `${folded} ${await page.evaluate((n) => window.RepForgeI18n.tp(n, "earlier set"), folded)}`, "the Portuguese disclosure counts what it folds", now.more);
     ok(!run.errors.length, "no page errors on the short phone", run.errors);

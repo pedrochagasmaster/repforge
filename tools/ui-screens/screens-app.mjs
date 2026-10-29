@@ -2006,7 +2006,7 @@ export const APP_SCENARIOS = {
   },
   "workout/correction": async page => { await focusMode(page); await logCurrentSet(page); await openFoldedSets(page); await page.locator("#workout .exercise.is-current [data-editn]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); },
   // #517: two logged sets shown in place above the open one while the rest runs, because they fit.
-  "workout/logged-sets": async page => { await focusMode(page); await logCurrentSet(page); await logCurrentSet(page); await page.waitForSelector("#workout .exercise.is-current [data-editn]:not([hidden])"); await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  "workout/logged-sets": async page => { await focusMode(page); await logCurrentSet(page); await logCurrentSet(page); await page.waitForSelector("#workout .exercise.is-current [data-editn]", { state: "attached" }); await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     // The logged set starts the rest; the tab rises out of the shelf once that render has run.
     await page.waitForSelector("#restTab", { timeout: 20000 });
     await page.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished.catch(() => {}))));

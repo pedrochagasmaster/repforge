@@ -1152,6 +1152,17 @@ body:has(.exercise--focus.is-text-scaled) .wo-head__title{font-size:min(var(--fo
 .exercise--focus.is-text-scaled .fx-cue__l1{font-size:min(var(--font-size-focus-cue),var(--large-cap-title))}
 .exercise--focus.is-text-scaled .fx-cue__l2{font-size:min(var(--font-size-focus-cue-second),var(--large-cap-body))}
 .exercise--focus.is-text-scaled .fx-cue__evidence{font-size:min(var(--font-size-focus-evidence),var(--large-cap-body))}
+/* A window too short for the hero, its evidence line and the open set together (owner review of #550): once the
+   logged rows have all folded, the hero steps down to the feature-title size and its reps line to subtitle, the cue's
+   spacing tightens, and the table's column heads give way. The shelf's own labels still name each value. */
+.exercise--focus.is-hero-compact .fx-cue{margin:var(--space-8) 0 var(--space-4)}
+.exercise--focus.is-hero-compact .fx-cue__l1{font-size:min(var(--font-size-feature-title),var(--large-cap-value))}
+.exercise--focus.is-hero-compact .fx-cue__l2{margin-top:0;font-size:min(var(--font-size-subtitle),var(--large-cap-subtitle))}
+.exercise--focus.is-hero-compact .fx-cue__evidence{margin-top:var(--space-4);font-size:min(var(--font-size-body-small),var(--large-cap-body))}
+.exercise--focus.is-hero-compact .fcard__ledger{margin-top:0}
+/* The column heads give way only to the disclosure: while it folds rows it takes their place, and at the first set,
+   with nothing to fold, the heads (RIR's is the glossary's way in from Focus) stay. */
+.exercise--focus.is-hero-compact .fcard__ledger:has(.ledger__more:not([hidden])) .ledgerline__head{display:none}
 .exercise--focus.is-text-scaled .text-link.focus-ex__why,.exercise--focus.is-text-scaled .fx-cue__cancel{font-size:min(var(--font-size-control),var(--large-cap-body))}
 .exercise--focus.is-text-scaled .ledgerline__head,.exercise--focus.is-text-scaled .ledgerline{grid-template-columns:auto minmax(0,1fr)}
 .exercise--focus.is-text-scaled .ledgerline__head > :first-child{visibility:hidden}
@@ -1276,6 +1287,8 @@ body.is-workout.is-focus-wo #workoutShell > :not(.wo-head):not(#logForm){
 :root[data-keyboard="up"] body.is-workout.is-focus-wo #workoutShell,
 :root[data-keyboard="up"] body.is-workout.is-focus-wo #logForm{min-height:0}
 :root[data-keyboard="up"] body.is-workout.is-focus-wo article.exercise--focus .fcard__context{min-height:0}
+/* With the keyboard up the floors stand down, and so does the band the region leaves for the rest tab's rise (#550). */
+:root[data-keyboard="up"] body.is-workout.is-focus-wo article.exercise--focus:has(.resttab) .fcard__context{margin-bottom:0}
 /* The keyboard covers the home indicator, so the shelf does not pay its inset again above the keyboard. */
 :root[data-keyboard="up"] body.is-workout.is-focus-wo .focus-shelf{padding-bottom:var(--space-16)}
 /* Docked to the keyboard the addendum's top inset comes back to 8 px.
@@ -2740,7 +2753,9 @@ textarea.sheetfield__input{
 .restflick{position:absolute;inset:0;border-radius:inherit;box-shadow:var(--rest-flick-glow);opacity:0;pointer-events:none}
 /* The tab rises out of the shelf over the card's window: the window keeps room under its last line so the open set
    scrolls clear of it (sizeFocusCard keeps the row above the tab). */
-article.exercise--focus:has(.resttab) .fcard__context{padding-bottom:calc(var(--space-16) + var(--control-target) - var(--space-14))}
+/* The context region ends above the rest tab's rise, so nothing in it ever sits beside or under the tab (owner review
+   of #550): `fitFocusLedger` publishes the measured rise, which grows with the tab at large text. */
+article.exercise--focus:has(.resttab) .fcard__context{margin-bottom:var(--rest-tab-rise,calc(var(--control-target) - var(--space-14)))}
 /* The tab is the contour's raised part (.restlight draws its surface), so it paints no box of its own. */
 .resttab{
   position:absolute;z-index:2;left:0;right:0;bottom:calc(100% - var(--space-14));width:max-content;margin:0 auto;
