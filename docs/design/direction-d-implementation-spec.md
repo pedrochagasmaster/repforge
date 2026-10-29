@@ -143,6 +143,18 @@ Everything else is the D spec section named.
 > exercise's logged sets behind a disclosure above them that counts them and opens the full ledger in place for
 > correction. A finished exercise keeps its full ledger.
 >
+> **Amended by the Focus hero (owner, 2026-10-28; direction A of `native-feel/focus-hero.html`; #523, #518,
+> #517).** The cue is the screen's headline: its first line at 34 px (weight 650, line height 1.08, tracking
+> −0.02em) with the engine's figures in Plex Mono 600, the verdict mark inline before the words in the deep accent
+> and no reserved column when there is no verdict, its second line at 21 px in secondary ink, and the prescription
+> line demoted to 13 px. Under it, one 15 px evidence line says what the engine reported for this set (the set it
+> anchored on as logged, and the reps and RIR the target aims at, the same facts as the Why sheet), or with no
+> suggestion the engine's reason and what would change it, never a weight; it ends in the Why? action. The ledger
+> shows the logged sets in place whenever they fit above the shelf and the rest tab, measured from the rendered
+> geometry; when they don't, the oldest fold behind the disclosure, which counts exactly the rows it hides. A row
+> folds when the content overflows and returns only with room to spare, so a moving rest tab or keyboard never makes
+> the table flicker.
+>
 > **Amended by the shelf addendum (owner, 2026-10-23; Plan 075 phase 5).** The shelf is concentric: a 28 px sheet
 > with a 16 px inset, so fields, pads and the action take 12 px corners; 8 px between siblings and 12 px between rows;
 > fields, pads and the action keep 56/48/52. The extra top inset and row gaps cost the context window 16 px (17 px
@@ -356,8 +368,10 @@ against the merged contract.
 | D element | 058 role |
 | --- | --- |
 | Page title (30) | `title` |
-| Cue line (24) | `section-title` |
-| Cue second line, rest next cue | `subtitle` (18) |
+| Cue line | the Focus hero variant (34), owner 2026-10-28; retired from `section-title` (24) |
+| Cue second line | the Focus hero variant (21) |
+| Cue evidence line | the Focus hero variant (15) |
+| Rest next cue | `subtitle` (18) |
 | Body, rows, controls | `body`/`control` (16) |
 | Secondary lines, previous-set line | `body-small` (14) |
 | Column heads (uppercase) | `label` (11) |
@@ -372,7 +386,9 @@ against the merged contract.
 The orange budget from D §3 becomes a rule in `DESIGN.md` and a check (§10):
 orange marks only an up or down verdict glyph, the current exercise segment, a
 running timer's drain bar, the CTA arrow and the active dock icon. Records use
-the positive color; declines are ink.
+the positive color; declines are ink. The Focus hero (owner, 2026-10-28) draws
+every verdict glyph in it, hold and down included, in the deep accent, and its
+evidence line's Why? action in the deep accent.
 
 New content jobs for 058's contract review (P0): the shelf, the inline rest
 block, the prescription row, the ledger's open row, and the frequency counts.

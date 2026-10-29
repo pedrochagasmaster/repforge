@@ -37,7 +37,8 @@
  * literal here) and asserts the real Focus inputs equal it before it captures, so a wrong recommendation,
  * or a landing/Focus disagreement, fails here, not on the page. Safe-area insets
  * of the frame, [centre x, centre y, width, height], read from the selectors in SPOT_TARGETS, the one place
- * to edit when a surface changes. English and Portuguese must agree on every hotspot (they are stored once).
+ * to edit when a surface changes. A hotspot is stored once where English and Portuguese agree, and for each language only
+ * where they genuinely differ (the Focus proof's evidence line wraps to another line in Portuguese, #550).
  *
  * Interim status of each image this produces: assets/brand/README.md.
  */
@@ -151,6 +152,18 @@ export const outputFiles = () => [
 ];
 
 const round2 = value => Number(value.toFixed(2));
+/** A stored spot is one box both languages share, or {en, pt} where they genuinely differ. */
+const isBox = value => Array.isArray(value) && value.length === 4;
+const spotFor = (value, lang) => isBox(value) ? value : value && isBox(value[lang]) ? value[lang] : null;
+const boxesAgree = (a, b, tolerance) => a.every((value, index) => Math.abs(round2(value - b[index])) <= tolerance);
+
+/** One scene's spots from its English and Portuguese measurements: shared where the two agree within the tolerance, per
+ *  language only where they do not (the shared-spot contract holds wherever it is true). */
+export function mergeSceneSpots(en, pt, tolerance = SPOT_TOLERANCE) {
+  const ids = [...new Set([...Object.keys(en), ...Object.keys(pt)])];
+  return Object.fromEntries(ids.map(id => [id, isBox(en[id]) && isBox(pt[id]) && boxesAgree(en[id], pt[id], tolerance)
+    ? en[id] : {en: en[id], pt: pt[id]}]));
+}
 
 /** Compare stored hotspots / counts with a fresh measurement. Returns problem strings; [] means no drift. */
 export function compareSpots(stored, measured, tolerance = SPOT_TOLERANCE) {
@@ -168,13 +181,19 @@ export function compareSpots(stored, measured, tolerance = SPOT_TOLERANCE) {
   }
   for (const [scene, spots] of Object.entries(measured.scenes)) {
     if (!storedScenes[scene]) { problems.push(`${scene}: scene not stored`); continue; }
-    for (const [id, box] of Object.entries(spots)) {
+    for (const [id, live] of Object.entries(spots)) {
       const old = storedScenes[scene][id];
-      if (!Array.isArray(old) || old.length !== 4) { problems.push(`${scene}.${id}: not stored`); continue; }
-      const moved = box.map((value, index) => round2(value - old[index]));
-      if (moved.some(delta => Math.abs(delta) > tolerance)) {
-        problems.push(`${scene}.${id}: stored [${old}] but live [${box}] (delta [${moved}], tolerance ${tolerance})`);
+      if (!isBox(old) && !(isBox(old?.en) && isBox(old?.pt))) { problems.push(`${scene}.${id}: not stored`); continue; }
+      for (const lang of LANGS) {
+        const box = spotFor(live, lang), was = spotFor(old, lang), where = isBox(old) ? `${scene}.${id}` : `${scene}.${id}.${lang}`;
+        if (!box) continue;
+        const moved = box.map((value, index) => round2(value - was[index]));
+        if (moved.some(delta => Math.abs(delta) > tolerance)) {
+          problems.push(`${where}: stored [${was}] but live [${box}] (delta [${moved}], tolerance ${tolerance})`);
+        }
       }
+      // Per-language storage is the exception: where both languages agree the spot is shared.
+      if (!isBox(old) && boxesAgree(old.en, old.pt, tolerance)) problems.push(`${scene}.${id}: stored per language but both languages agree; store it once`);
     }
     for (const id of Object.keys(storedScenes[scene])) {
       if (!(id in spots)) problems.push(`${scene}.${id}: stored but no longer measured`);
@@ -629,10 +648,8 @@ export async function runProof(browser, {scenes, images, log = () => {}}) {
       log(`ok ${scene.name} ${lang} ${JSON.stringify(result.spots)}`);
     }
     assert.deepEqual(Object.keys(perLang.en).sort(), [...scene.spots].sort(), `${scene.name}: measured spots match the scene table`);
-    const disagreement = compareSpots({schema: SPOT_SCHEMA, frame: measured.frame, scenes: {[scene.name]: perLang.en}},
-      {frame: measured.frame, scenes: {[scene.name]: perLang.pt}});
-    assert.deepEqual(disagreement, [], `${scene.name}: hotspots must be identical in EN and PT, they are stored once`);
-    measured.scenes[scene.name] = perLang.en;
+    assert.deepEqual(Object.keys(perLang.pt).sort(), [...scene.spots].sort(), `${scene.name}: the Portuguese capture measures the same spots`);
+    measured.scenes[scene.name] = mergeSceneSpots(perLang.en, perLang.pt);
   }
   if (scenes.includes(PASTE_SCENE)) {
     for (const lang of LANGS) for (const theme of PASTE_THEMES) {

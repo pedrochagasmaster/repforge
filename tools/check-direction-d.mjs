@@ -123,6 +123,8 @@ export const ORANGE_CATEGORIES = Object.freeze([
   "live-session",
   // The rest timer (owner-approved mock, 2026-10-23): the bell's words and check in accent, the flick, and End rest.
   "rest-timer",
+  // The Focus hero (owner-approved direction A of focus-hero.html, 2026-10-28): the evidence line's inline Why? action.
+  "focus-hero-why",
 ]);
 /**
  * [{ category, selector, pseudo?: "::before" | "::after" }]. Each R3 sub-slice adds the entries its
@@ -139,6 +141,10 @@ export const ORANGE_ALLOWLIST = [
   { category: "cta-arrow", selector: ".focus-shelf .btn--cta[data-fnext]", pseudo: "::after" },
   // R3c: the up verdict glyph beside the cue.
   { category: "verdict-glyph", selector: ".verdictmark--up .verdictmark__glyph" },
+  // The Focus hero (owner, direction A, 2026-10-28): every verdict glyph inline in the hero takes the deep accent.
+  { category: "verdict-glyph", selector: ".fx-cue__mark .verdictmark__glyph" },
+  // ...and its evidence line ends in the Why? action in the deep accent.
+  { category: "focus-hero-why", selector: ".fx-cue__evidence .fx-cue__why" },
   // R3b: Today's Start workout CTA keeps its arrow.
   { category: "cta-arrow", selector: ".btn--cta", pseudo: "::after" },
   // The running rest's drain (rest timer redesign): the tab's ring and the dial's arc, the light along the shelf's

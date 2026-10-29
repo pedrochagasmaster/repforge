@@ -6238,7 +6238,7 @@ function recommendation(ex){
   const direction=manual||load==null||!Number.isFinite(anchorLoad)?"hold"
     :load>anchorLoad+1e-9?"add":load<anchorLoad-1e-9?"reduce":"hold";
   const status=manual?(result?.status==="configuration_required"?"configuration_required":newLift?"new":"manual"):direction;
-  return{status,engineStatus:result?.status||"manual",
+  const rec={status,engineStatus:result?.status||"manual",
     reason:reasonCodes[0]||"manual_prescription",reasonCodes,
     label:manual?"":t(status==="add"?"rec.add.label":status==="reduce"?"rec.reduce.label":"rec.hold.label"),text:"",load,
     lastLoad:Number.isFinite(anchorLoad)?anchorLoad:null,
@@ -6247,6 +6247,10 @@ function recommendation(ex){
     stalled:false,block:{dir:null,sessions:0},blockNote:"",pushReps:false,
     prescription:cloneSnapshot(first),historyAnchor:result?.historyAnchor||null,fatigue:result?.fatigue||null,
     loadingAssumptions:result?.loadingAssumptions||null};
+  // The observations the engine was given, so a surface can read back the set it anchored on. Not enumerable, so the
+  // recommendation that serialises (and that the parity proofs compare) is exactly what it was.
+  Object.defineProperty(rec,"progressionInputs",{value:{history,currentSession}});
+  return rec;
 }
 // Re-entry after a load change: the reps this capacity predicts at the NEW load,
 // minus the lifter's own habitual RIR, clamped into the range. Replaces the blind
@@ -8526,8 +8530,13 @@ function focusCue(ex,n,r,draft,prev,editing){
     sub:t("focus.cue.range_reps",{reps:`${ex.min}–${ex.max}`})};
   if(r.status==="configuration_required")return{kind:"setup",move:"",headHtml:esc(t("focus.cue.needs_setup")),
     sub:t("focus.cue.range_reps",{reps:`${ex.min}–${ex.max}`})};
-  if(sg.load==null){const head=t("focus.cue.pick_load",{min:ex.min,max:ex.max});
-    return{kind:"start",move:"",headHtml:esc(head),sub:""}}
+  if(sg.load==null){
+    // The range rides in Mono like the engine's figures (direction A): from the first bound to the last.
+    const head=esc(t("focus.cue.pick_load",{min:"\u0000",max:"\u0001"}));
+    const ranged=head.indexOf("\u0000")<head.indexOf("\u0001")
+      ?head.replace("\u0000",`<b class="fx-cue__load">${esc(ex.min)}`).replace("\u0001",`${esc(ex.max)}</b>`)
+      :head.replace("\u0000",esc(ex.min)).replace("\u0001",esc(ex.max));
+    return{kind:"start",move:"",headHtml:ranged,sub:""}}
   // A canonical target's move is the engine's: against this session's last set
   // once one is logged, else the recommendation's own verdict.
   const ref=Array.isArray(r.targetSets)?null:focusRefLoad(ex,n,draft,prev);
@@ -8563,18 +8572,73 @@ function focusWhyHtml(ex,r,{peek,name,draft,label,cls}){
   if(!(r.status!=="new"||inSessionNote(ex,draft)))return"";
   return `<button type="button" class="text-link focus-ex__why ${cls}"${peek?dead()
     :` data-why="${esc(ex.id)}" aria-label="${esc(t("why.open_aria",{name}))}"`}>${esc(label)}</button>`}
-/** The 24px cue: the verb and the load, the reps under it, and the Why link. The mark is the shared verdict mark,
- *  so hold draws the ink "=" and up the orange arrow exactly as the Why headline does. The column stays when the
- *  cue has no mark, so the lines never shift. */
-function focusCueBlockHtml(ex,r,cue,{peek,name,draft}){
-  const mark=`<span class="fx-cue__mark" aria-hidden="true">${verdictMarkHtml(cue.move)}</span>`;
-  const why=focusWhyHtml(ex,r,{peek,name,draft,label:t("why.open"),cls:"fx-cue__why"});
+/** The logged set the engine anchored on, read from the observations it was given: its reps and effort beside the
+ *  load the engine reported. Nothing here decides which set that is; the engine's anchor names it. */
+function engineAnchorSet(rec,facts){
+  const inputs=rec.progressionInputs,anchor=facts.anchor;
+  if(!inputs||!Number.isInteger(anchor.setIndex)||!Number.isFinite(anchor.displayLoadKg))return null;
+  const rows=anchor.source==="current_session"?inputs.currentSession
+    :anchor.source==="history"?inputs.history.find(session=>session.sessionId===anchor.sessionId)?.sets:null;
+  const set=(rows||[]).find(row=>row.setIndex===anchor.setIndex);
+  const reps=set?.metricValues?.find(value=>value.metricId===facts.repsMetric?.id)?.value;
+  return set&&Number.isFinite(reps)&&Number.isFinite(set.rir)?{reps,rir:set.rir}:null}
+/** Why there is no suggested load, said from the engine's own reason for this set and what would change it. */
+function focusNoSuggestionKey(ex,r,n,kind){
+  const item=r.targetSets?.find(entry=>entry.prescription?.setIndex===n);
+  const reasons=new Set([...(item?.result?.reasonCodes||[]),...(r.reasonCodes||[])]);
+  if(kind==="manual"&&canonicalSlotFacts(ex)?.adaptive===false)return"manual";
+  if(reasons.has("execution_context_required"))return"setup_execution";
+  if(reasons.has("per_side_convention_required"))return"setup_per_side";
+  if(reasons.has("bodyweight_required")||reasons.has("historical_bodyweight_required"))return"setup_bodyweight";
+  if(kind==="setup"||(item?.status||r.status)==="configuration_required")return"setup";
+  if(reasons.has("no_candidate_in_range")||reasons.has("no_candidate_after_expansion"))return"range";
+  if(reasons.has("no_comparable_history")){
+    // Which history there is decides the reason: none at all, sets logged without an effort, or sets logged another way.
+    const inputs=r.progressionInputs,seen=[...(inputs?.history||[]).flatMap(session=>session.sets||[]),...(inputs?.currentSession||[])];
+    if(!seen.length&&!reasons.has("loading_convention_mismatch"))return"history";
+    if(reasons.has("loading_convention_mismatch")||seen.every(set=>Number.isFinite(set.rir)))return"mismatch";
+    return"new"}
+  return"unsupported"}
+/** The evidence line under the hero: the set the engine anchored on and the target it aims at, the same facts as the
+ *  Why sheet (`engineSetFacts`), or, with no suggestion, the honest reason. Mono carries the figures. */
+function focusEvidenceText(ex,n,r,cue){
+  if(cue.kind==="edit")return"";
+  // One quiet sentence: only the performed set's figures ride in Mono (owner review of #550).
+  const effort=isEffortMode(),mono=v=>`<span class="fx-cue__fig">${esc(v)}</span>`,plain=v=>esc(v);
+  const say=(key,vars)=>{
+    const keys=Object.keys(vars),marks=keys.map((_,i)=>String.fromCharCode(0xE000+i));
+    let html=esc(t(key,Object.fromEntries(keys.map((k,i)=>[k,marks[i]]))));
+    keys.forEach((k,i)=>{html=html.replace(marks[i],vars[k])});return html};
+  if(cue.kind!=="now"){
+    const key=focusNoSuggestionKey(ex,r,n,cue.kind);
+    return say(`focus.evidence.none_${key}`,{what:esc(t(effort?"focus.evidence.what_effort":"focus.evidence.what_rir")),
+      min:plain(ex.min),max:plain(ex.max)})}
+  const facts=Array.isArray(r.targetSets)?engineSetFacts(r,n):null;
+  if(!facts||facts.item.prescription?.setIndex!==n)return"";
+  const parts=[],seen=engineAnchorSet(r,facts);
+  if(seen){
+    const vars={set:plain((facts.anchor.setIndex??0)+1),load:mono(`${fmtLoad(facts.anchor.displayLoadKg)} × ${seen.reps}`),
+      rir:plain(fmt(seen.rir)),effort:esc(effortLabel(effortForRir(seen.rir)))};
+    const source=facts.anchor.source==="current_session"?"session":"history";
+    parts.push(say(`focus.evidence.${source}${effort?"_effort":""}`,vars))}
+  if(facts.reps!=null&&facts.rir!=null)parts.push(say(`focus.evidence.target${facts.fatigued?"_fatigue":""}${effort?"_effort":""}`,
+    {reps:plain(facts.reps),rir:plain(fmt(facts.rir)),effort:esc(effortLabel(effortForRir(facts.rir)))}));
+  return parts.join(" ")}
+/** The hero: the verb and the load at the screen's largest size, the reps under it, then one line of evidence that
+ *  ends in the Why link. The verdict mark is the shared one, so hold draws the ink "=" and up the orange arrow exactly
+ *  as the Why headline does; it rides inline before the words, and a cue with no verdict has no mark and no gap. */
+function focusCueBlockHtml(ex,n,r,cue,{peek,name,draft}){
+  const glyph=verdictMarkHtml(cue.move);
+  const mark=glyph?`<span class="fx-cue__mark" aria-hidden="true">${glyph}</span>`:"";
+  const why=focusWhyHtml(ex,r,{peek,name,draft,label:t("focus.evidence.why"),cls:"fx-cue__why"});
+  const evidence=focusEvidenceText(ex,n,r,cue);
   const cancel=cue.kind==="edit"
     ?`<button type="button" class="text-link fx-cue__cancel"${peek?dead():" data-fcancel"}>${esc(t("focus.cancel_edit"))}</button>`:"";
-  return `<div class="fx-cue is-${cue.kind}">${mark}<p class="fx-cue__l1">${cue.headHtml}</p>`+
-    (cue.sub?`<p class="fx-cue__l2">${esc(cue.sub)}</p>`:"")+why+cancel+`</div>`}
+  return `<div class="fx-cue is-${cue.kind}"><p class="fx-cue__l1">${mark}${cue.headHtml}</p>`+
+    (cue.sub?`<p class="fx-cue__l2">${esc(cue.sub)}</p>`:"")+
+    (evidence||why?`<p class="fx-cue__evidence">${evidence}${evidence&&why?" ":""}${why}</p>`:"")+cancel+`</div>`}
 function focusSlotHtml(ex,n,r,cue,opts){
-  return `<div class="fx-slot">${focusCueBlockHtml(ex,r,cue,opts)}</div>`}
+  return `<div class="fx-slot">${focusCueBlockHtml(ex,n,r,cue,opts)}</div>`}
 /** How a logged set reads back in the ledger. */
 function focusRowVals(ex,n,r,draft,prev,effortMode){
   const{kgVal,repsVal,rirVal,effortVal}=setFieldVals(ex,n,r,draft,prev);
@@ -8644,12 +8708,15 @@ function ledgerSetIsWarmup(exId,n){
   const setId=draft.setOrder.find(id=>draft.sets[id].ordinal===n);
   return draft.sets[setId]?.role==="warmup"}
 
-/** Layout D's table (owner decision of 2026-10-17): the set being worked on and
- *  the one after it, with the logged sets behind a disclosure above them. The
- *  disclosure is transient: it is open for one exercise at a time, stays open
- *  through a correction, and closes after it and whenever the lifter moves on.
- *  A finished exercise keeps its whole ledger, as it always has. */
+/** The table (#517, owner 2026-10-28): the logged sets, the set being worked on and the one after it. The logged
+ *  rows show whenever they fit above the shelf and the rest tab; when they don't, the oldest go behind a disclosure
+ *  that counts exactly the rows it hides (`fitFocusLedger` measures it). Opening the disclosure is transient: it is
+ *  open for one exercise at a time, stays open through a correction, and closes after it and whenever the lifter
+ *  moves on. A finished exercise keeps its whole ledger, as it always has. */
 let focusLedgerOpen=null;
+/** How many of each exercise's oldest logged rows the last measurement hid, kept so a render starts from it, and the
+ *  exercises whose hero last had to step down (`fitFocusLedger`). */
+const focusLedgerFolded=new Map(),focusHeroCompact=new Set();
 function focusLedgerExpanded(ex,peek){
   if(focusActiveSet(ex)===0)return true;
   return !peek&&(focusLedgerOpen===ex.id||!!(focusEdit&&focusEdit.exId===ex.id))}
@@ -8658,16 +8725,21 @@ function focusLoggedCount(ex){
   const editN=focusEdit&&focusEdit.exId===ex.id?focusEdit.n:0;
   let count=0;for(let n=1;n<=ex.sets;n++)if(committed.has(`${ex.id}_${n}`)||n===editN)count++;
   return count}
+/** The oldest logged rows the table folds: none while it is open, else what the last measurement left out. */
+function focusLedgerFoldCount(ex,peek){
+  if(focusLedgerExpanded(ex,peek))return 0;
+  return Math.min(focusLedgerFolded.get(ex.id)||0,focusLoggedCount(ex))}
+/** The disclosure's words: the count and the word sit in their own spans, so each reads as the figure and the catalog
+ *  plural it is. */
+function focusLedgerMoreLabel(count){
+  return `<span>${esc(t("focus.ex_done_sets",{n:"\u0000",sets:"\u0001"})).replace("\u0000",`<span>${count}</span>`).replace("\u0001",`<span>${esc(tp(count,"earlier set"))}</span>`)}</span>`+
+    `<span class="icon-mask icon-mask--sm icon-mask--chev-down ledger__chev" aria-hidden="true"></span>`}
+/** Drawn whenever there are logged rows to fold, and hidden while none are: the measurement shows it without a render. */
 function focusLedgerToggleHtml(ex,{peek=false}={}){
-  const count=focusLoggedCount(ex);
-  if(!count||focusActiveSet(ex)===0)return"";
-  const open=focusLedgerExpanded(ex,peek);
-  // Collapsed, the set just logged leaves the table on the render that logs it; its landing beat plays here instead.
-  const fresh=!open&&focusIsFresh(ex,peek);
-  return `<button type="button" class="ledger__more${fresh?" is-fresh":""}"${peek?dead():` data-ledgermore`} aria-expanded="${open?"true":"false"}" aria-controls="ledger_${esc(ex.id)}">`+
-    // The count and the word sit in their own spans, so each reads as the figure and the catalog plural it is.
-    `<span>${esc(t("focus.ex_done_sets",{n:"\u0000",sets:"\u0001"})).replace("\u0000",`<span>${count}</span>`).replace("\u0001",`<span>${esc(tp(count,"logged set"))}</span>`)}</span>`+
-    `<span class="icon-mask icon-mask--sm icon-mask--chev-down ledger__chev" aria-hidden="true"></span></button>`}
+  if(!focusLoggedCount(ex)||focusActiveSet(ex)===0)return"";
+  const open=focusLedgerExpanded(ex,peek),count=open?focusLedgerFolded.get(ex.id)||0:focusLedgerFoldCount(ex,peek);
+  return `<button type="button" class="ledger__more"${peek?dead():` data-ledgermore`}${count?"":" hidden"} aria-expanded="${open?"true":"false"}" aria-controls="ledger_${esc(ex.id)}">`+
+    `${focusLedgerMoreLabel(count)}</button>`}
 /** The ledger: one row per set. Logged sets read back and reopen on a tap, the
  *  set being worked on (or corrected) wears the open ring, and the sets still
  *  to do show their targets in soft ink. The second line of every row is the
@@ -8684,13 +8756,14 @@ function focusLedgerRowsHtml(ex,r,draft,prev,{effortMode,peek=false}){
   const editN=focusEdit&&focusEdit.exId===ex.id?focusEdit.n:0;
   const freshN=focusIsFresh(ex,peek)?focusLogged.n:0;
   const expanded=focusLedgerExpanded(ex,peek);
-  let after=0;
+  let after=0,folded=focusLedgerFoldCount(ex,peek);
   for(let n=active+1;n<=ex.sets&&!after;n++)if(!committed.has(`${ex.id}_${n}`))after=n;
   const rows=[];
   for(let n=1;n<=ex.sets;n++){
-    if(!expanded&&n!==active&&n!==after)continue;
     const key=`${ex.id}_${n}`;
     const done=committed.has(key)&&n!==editN;
+    if(!expanded&&!done&&n!==active&&n!==after)continue;
+    const fold=!expanded&&done&&folded-->0;
     const open=n===active;
     const vals=focusRowVals(ex,n,r,draft,prev,effortMode);
     const prevLine=focusPrevLine(prev.find(x=>x.set===n),effortMode);
@@ -8705,7 +8778,7 @@ function focusLedgerRowsHtml(ex,r,draft,prev,{effortMode,peek=false}){
       `<span class="fx-col${open||done?soft("rir"):" is-soft"}" data-lv="rir">${esc(rirText)}</span></span>`+
       (prevLine?`<small class="ledgerline__prev">${esc(prevLine)}</small>`:"");
     const cls=`ledgerline${prevLine?" ledgerline--two":""}${open?" ledgerline--open":""}${n===freshN?" is-fresh":""}`;
-    if(done)rows.push(`<button type="button" class="${cls}"${peek?dead()
+    if(done)rows.push(`<button type="button" class="${cls}" data-ldone${fold?" hidden":""}${peek?dead()
       :` data-editex="${esc(ex.id)}" data-editn="${n}" aria-label="${esc(t("focus.edit_set_aria",{n}))}"`}>${cells}</button>`);
     else rows.push(`<div class="${cls}"${n===editN?' aria-current="true"':""} data-lrow="${n}">${cells}</div>`)}
   return rows.join("")}
@@ -8719,7 +8792,9 @@ function toggleFocusLedger(button){
   const apply=()=>{
     focusLedgerOpen=open?ex.id:null;
     rows.innerHTML=focusLedgerRowsHtml(ex,r,draft,prev,{effortMode:isEffortMode(),peek:false});
-    button.setAttribute("aria-expanded",open?"true":"false");button.classList.remove("is-fresh");
+    button.setAttribute("aria-expanded",open?"true":"false");
+    // Closed again, the table folds what no longer fits, measured now rather than restored from before.
+    if(!open)fitFocusLedger(card);
     bindWorkout()};
   const moved=window.RepForgeMotion?.animateSlot?window.RepForgeMotion.animateSlot(rows,apply):(apply(),null);
   // Opening reveals the logged rows under the disclosure where the lifter is looking; closing brings the open set back.
@@ -9274,8 +9349,10 @@ function focusWorkoutHandoff(kind,{exId=null,n=0}={}){
   const shelf=card.querySelector(".focus-shelf");
   const cta=shelf?.querySelector(".btn--cta")||null;
   let target=null;
-  // A collapsed table no longer draws the corrected row; its disclosure stands for it.
-  if(kind==="row")target=card.querySelector(`.ledgerline[data-editex="${CSS.escape(String(exId))}"][data-editn="${n}"]`)||card.querySelector("[data-ledgermore]");
+  // The corrected row, where the table shows it; folded (#517), the disclosure that holds it stands for it.
+  if(kind==="row"){
+    const row=card.querySelector(`.ledgerline[data-editex="${CSS.escape(String(exId))}"][data-editn="${n}"]`);
+    target=row&&!row.hidden?row:card.querySelector("[data-ledgermore]:not([hidden])")}
   else if(kind==="next")target=shelf?.querySelector(".shelf__field.is-sel [data-shelf-field]")||shelf?.querySelector("[data-shelf-field]")||null;
   const next=resolveReturnFocus(target)||cta;
   if(!next)return false;
@@ -9332,7 +9409,7 @@ function focusCardHtml(ex,r,draft,prev,opts){
   const nextRow=hasNext&&nextName
     ?`<button type="button" class="fx-next"${peek?dead():" data-fnextrow"}><span>${esc(t("focus.next_row",{name:"\u0000"})).replace("\u0000",`<b>${esc(nextName)}</b>`)}</span>`+
       `<span class="icon-mask icon-mask--sm icon-mask--chev-down fx-next__chev" aria-hidden="true"></span></button>`:"";
-  return `<article class="exercise exercise--focus is-${r.status}${peek?" is-peek":" is-current"}"`+
+  return `<article class="exercise exercise--focus is-${r.status}${peek?" is-peek":" is-current"}${focusHeroCompact.has(ex.id)?" is-hero-compact":""}"`+
     (peek?` aria-hidden="true" inert data-peek="${esc(ex.id)}"`:` data-ex="${esc(ex.id)}"`)+`>`+
     `<div class="fcard__context" role="region" aria-label="${esc(name)}" tabindex="${peek?-1:0}">`+
     // The header names the exercise (layout D), so its row here is the prescription line alone.
@@ -9565,9 +9642,78 @@ async function todayRowContext(row,opener=row){
  *  measured into a stale number. */
 function sizeFocusDeck(){
   const cards=$$("#focusDeck .exercise--focus");
-  if(cards.length)cards.forEach(sizeFocusCard);
-  else sizeFocusCard(focusCard());
-  syncFocusFloor()}
+  if(cards.length)cards.forEach(card=>{fitFocusLedger(card);sizeFocusCard(card)});
+  else{fitFocusLedger(focusCard());sizeFocusCard(focusCard())}
+  syncFocusFloor();watchFocusFit()}
+/** A logged row comes back only when it fits with this much to spare, and goes only when the content overflows, so a
+ *  rest tab or keyboard that moves the window's foot by a few pixels never makes the table flicker. */
+const FOCUS_LEDGER_SPARE=4;
+/** Fold the oldest logged rows that do not fit above the shelf and the rest tab, and bring back the ones that do (#517).
+ *  Measured from the rendered geometry, never a breakpoint. */
+function fitFocusLedger(card){
+  const context=card?.querySelector(".fcard__context"),rows=context?.querySelector(".ledger__rows");if(!rows)return false;
+  const more=context.querySelector(".ledger__more"),exId=rows.id.slice("ledger_".length);
+  // The context ends above the rest tab's rise (the tab sits on the shelf's top edge and rises out of it).
+  const tab=card.querySelector(".resttab"),shelf=card.querySelector(".focus-shelf");
+  const rise=tab&&tab.offsetParent===shelf?Math.max(0,Math.ceil(-tab.offsetTop)):0;
+  // What this fit changes: a refit that changes nothing leaves the window where the lifter scrolled it.
+  const before=[card.style.getPropertyValue("--rest-tab-rise"),card.classList.contains("is-hero-compact"),
+    [...rows.querySelectorAll(":scope > [data-ldone]")].filter(row=>row.hidden).length].join();
+  const changed=()=>before!==[card.style.getPropertyValue("--rest-tab-rise"),card.classList.contains("is-hero-compact"),
+    [...rows.querySelectorAll(":scope > [data-ldone]")].filter(row=>row.hidden).length].join();
+  if(card.style.getPropertyValue("--rest-tab-rise")!==`${rise}px`)card.style.setProperty("--rest-tab-rise",`${rise}px`);
+  const open=rows.querySelector(".ledgerline--open"),hero=context.querySelector(".fx-cue__l1");
+  // A finished exercise has no open set and no hero: its whole ledger shows, at the hero's own size.
+  if(!open||!hero){card.classList.remove("is-hero-compact");focusHeroCompact.delete(exId);return changed()}
+  // Open (by the lifter or for a correction), the table shows every row and the disclosure only closes it.
+  if(more?.getAttribute("aria-expanded")==="true")return changed();
+  const done=more?[...rows.querySelectorAll(":scope > [data-ldone]")]:[];
+  // The hero, the evidence line and the open set come first: what lies from the top of the region (from the hero's first
+  // line once it has stepped down) to the open set's foot must fit above the window's foot, the rest tab's rise when it
+  // rises higher (as `sizeFocusCard` reads it). What comes after the open set scrolls. Positive overflows.
+  const over=()=>{
+    const box=context.getBoundingClientRect();
+    const bottom=tab&&tab.getClientRects().length?Math.min(box.bottom,tab.getBoundingClientRect().top):box.bottom;
+    const from=card.classList.contains("is-hero-compact")?hero.getBoundingClientRect().top:box.top-context.scrollTop;
+    return open.getBoundingClientRect().bottom-from-(bottom-box.top)};
+  let folded=done.filter(row=>row.hidden).length;
+  const fold=k=>{
+    folded=k;done.forEach((row,i)=>{row.hidden=i<k});
+    if(!more)return;
+    more.hidden=!k;
+    const label=focusLedgerMoreLabel(k);if(more.innerHTML!==label)more.innerHTML=label};
+  const compact=on=>{card.classList.toggle("is-hero-compact",on);if(on)focusHeroCompact.add(exId);else focusHeroCompact.delete(exId)};
+  // The hero steps back up only when it fits at full size with every logged row folded, with room to spare.
+  if(card.classList.contains("is-hero-compact")){
+    const kept=folded;compact(false);fold(done.length);
+    if(over()>-FOCUS_LEDGER_SPARE){compact(true);fold(kept)}}
+  fold(folded);
+  while(folded<done.length&&over()>0)fold(folded+1);
+  // Logged rows give way first; the hero steps down only when the open set still would not stay whole below it, and
+  // while it is down every logged row stays folded.
+  if(folded===done.length&&over()>0)compact(true);
+  if(card.classList.contains("is-hero-compact"))fold(done.length);
+  else while(folded>0){fold(folded-1);if(over()<=-FOCUS_LEDGER_SPARE)continue;fold(folded+1);break}
+  focusLedgerFolded.set(exId,folded);
+  return changed()}
+/** The window's foot moves without a render: the keyboard, the rest tab rising out of the shelf, a text-size change.
+ *  Watching the context region and the shelf refits the table on the frame after, and so does the end of any motion
+ *  in the card: a measurement taken while the rest tab was still rising read a foot it no longer has. */
+let focusFitWatch=null,focusFitFrame=0;
+function refitFocusSoon(){
+  cancelAnimationFrame(focusFitFrame);
+  // Only a fit that folded or unfolded a row, stepped the hero or moved the rest tab's rise re-places the open set:
+  // otherwise the window stays where the lifter scrolled it.
+  focusFitFrame=requestAnimationFrame(()=>{const card=focusCard();if(card&&fitFocusLedger(card))sizeFocusCard(card)})}
+function watchFocusFit(){
+  if(typeof ResizeObserver!=="function")return;
+  if(!focusFitWatch){
+    focusFitWatch=new ResizeObserver(refitFocusSoon);
+    const settled=event=>{if(event.target instanceof Element&&event.target.closest(".exercise--focus.is-current"))refitFocusSoon()};
+    for(const type of ["animationend","transitionend"])document.addEventListener(type,settled,true)}
+  focusFitWatch.disconnect();
+  const card=focusCard();
+  for(const el of [card?.querySelector(".fcard__context"),card?.querySelector(".focus-shelf")])if(el)focusFitWatch.observe(el)}
 /** The shelf keeps its fields, pads and action whole at every text size, and its height depends on the text, so the
  *  layout cannot know it. This publishes the height the shell has to keep (the rigid chrome, the progress bar, the
  *  context region's floor and the shelf) as `--focus-floor` and `--focus-form-floor`; the stylesheet lets banners above
@@ -9588,9 +9734,11 @@ function syncFocusFloor(){
   const least=context?getComputedStyle(context):null;
   // The card's own floor: the shelf whole, under the context region at its least. With the keyboard up the other
   // floors stand down, and this one makes what sits above the deck (the skip bar) give way instead of the shelf.
-  const deck=tall(shelf)+(least?(parseFloat(least.paddingTop)||0)+(parseFloat(least.paddingBottom)||0):0);
+  // The band the region leaves for the rest tab's rise (#550) is part of its floor; it stands down with the keyboard up.
+  const rise=least?parseFloat(least.marginBottom)||0:0;
+  const deck=tall(shelf)+rise+(least?(parseFloat(least.paddingTop)||0)+(parseFloat(least.paddingBottom)||0):0);
   shell.style.setProperty("--focus-deck-floor",`${Math.ceil(deck)}px`);
-  let form=tall($("#woProgress"))+tall(shelf)+(least?Math.max(parseFloat(least.minHeight)||0,parseFloat(least.paddingTop)+parseFloat(least.paddingBottom)):0);
+  let form=tall($("#woProgress"))+tall(shelf)+rise+(least?Math.max(parseFloat(least.minHeight)||0,parseFloat(least.paddingTop)+parseFloat(least.paddingBottom)):0);
   for(const el of $("#workout")?.children||[])if(!el.matches(".deck"))form+=tall(el);
   shell.style.setProperty("--focus-form-floor",`${Math.ceil(form)}px`);
   shell.style.setProperty("--focus-floor",`${Math.ceil(form+tall(head))}px`);
@@ -9615,19 +9763,19 @@ function sizeFocusCard(card){
   if(!card)return;
   syncTextScale(card);
   // The context region scrolls as one: keep the row being worked on in view. At the first set nothing has been
-  // logged and the shelf already shows the set, so the card opens at its top with the exercise's prescription; later
-  // the row scrolls into view. At large text (Plan 075 phase 5) the open set comes first, at every set.
+  // logged and the shelf already shows the set, so the card opens at its top with the exercise's prescription and the
+  // hero; later the row scrolls into view. At large text (Plan 075 phase 5) the open set comes first, at every set.
   const scaled=card.classList.contains("is-text-scaled");
   const context=card.querySelector(".fcard__context");
   const open=context?.querySelector(".ledgerline--open");if(!open)return;
-  if(!scaled&&+open.dataset.lrow<=1&&context.scrollTop===0)return;
   const box=context.getBoundingClientRect(),row=open.getBoundingClientRect();
   // The rest tab rises out of the shelf over the window's foot; the row is in view only above it.
   const tab=card.querySelector(".resttab"),bottom=tab?Math.min(box.bottom,tab.getBoundingClientRect().top-4):box.bottom;
+  if(!scaled&&+open.dataset.lrow<=1&&context.scrollTop===0)return;
   // At large text the region is only as tall as the open set (#541): a margin, or moving back to show a cut line whole,
   // would push the set itself out, so it is aligned to the region's top whenever it is not wholly in view.
-  if(scaled){if(row.top<box.top||row.bottom>bottom)context.scrollTop=Math.max(0,context.scrollTop+row.top-box.top);return}
-  if(row.bottom>bottom){
+  if(scaled){if(row.top<box.top||row.bottom>bottom)context.scrollTop=Math.max(0,context.scrollTop+row.top-box.top)}
+  else if(row.bottom>bottom){
     // The window moves on past a line it would cut.
     context.scrollTop=wholeLineScroll(context,context.scrollTop+row.bottom-bottom+8,1)}
   else if(row.top<box.top)context.scrollTop=wholeLineScroll(context,Math.max(0,context.scrollTop-(box.top-row.top)-8),-1);
@@ -9635,7 +9783,15 @@ function sizeFocusCard(card){
     // The row is in view, but what sits above it may have changed height since: show a cut line whole if the row stays in view, else move on past it.
     const back=wholeLineScroll(context,context.scrollTop,-1);
     context.scrollTop=row.bottom+(context.scrollTop-back)<=bottom?back
-      :wholeLineScroll(context,context.scrollTop,1,context.scrollTop+Math.max(0,row.top-box.top))}}
+      :wholeLineScroll(context,context.scrollTop,1,context.scrollTop+Math.max(0,row.top-box.top))}
+  // The hero's first line stays in view whenever the open set can stay whole below it (#523), at large text too: the
+  // window scrolls only as far as the open set needs. Where both cannot fit, the open set comes first (#541) and the
+  // hero is the first thing scrolling up reaches.
+  const lead=context.querySelector(".fx-cue__l1");if(!lead)return;
+  const at=context.getBoundingClientRect(),origin=at.top-context.scrollTop;
+  const foot=(tab?Math.min(at.bottom,tab.getBoundingClientRect().top):at.bottom)-at.top;
+  const leadTop=lead.getBoundingClientRect().top-origin,rowBottom=open.getBoundingClientRect().bottom-origin;
+  if(context.scrollTop>leadTop&&rowBottom-leadTop<=foot)context.scrollTop=Math.max(0,Math.ceil(rowBottom-foot))}
 /** A scroll position for the context region that leaves no line cut at its top edge, under the segment bar: from
  *  `target`, `dir` 1 moves on past a cut line and -1 moves back to show it whole, never beyond `limit`. */
 function wholeLineScroll(context,target,dir,limit=Infinity){
@@ -21256,10 +21412,13 @@ function landingChartRows(){
  *  are measured from the live app by tools/capture-landing-proof.mjs. */
 const LANDING_SCENES=["focus","rest","actions","note"];
 const LANDING_SPOTS={
-  focus:{cue:[50,27.54,91.79,6.59],log:[50,95.02,91.79,6.16],last:[50,43.93,91.79,11.98]},
+  focus:{cue:[50,28.46,91.79,8.31],log:[50,95.02,91.79,6.16],last:{en:[50,45.95,91.79,11.98],pt:[50,48.43,91.79,11.98]}},
   rest:{dial:[50,44.34,46.08,21.29]},
   actions:{swap:[50,52.38,91.79,6.16]},
   note:{text:[50,64.93,91.28,2.94]}};
+/** A spot for the page's language: shared where English and Portuguese agree, else stored for each (the Focus proof's
+ *  evidence line wraps to another line in Portuguese, #550). */
+const landingSpot=(scene,name)=>{const spot=LANDING_SPOTS[scene]?.[name];return Array.isArray(spot)?spot:spot?.[landingLang()]||null};
 /** How the lens reads each element: magnification, shape, padding (px at 390 wide)
  *  and, for a button read edge to edge, the app's corner radius. */
 const LANDING_READ={
@@ -21334,7 +21493,7 @@ function landingSceneAlt(scene,add){
 /** The read of one step as a crop: the spot grown by the lens padding (a share of
  *  a 390 by 844 screen), as the five numbers the static card's CSS needs. */
 function landingCropBox(scene,reads){
-  const name=reads[reads.length-1],spot=LANDING_SPOTS[scene]?.[name],read=LANDING_READ[name];
+  const name=reads[reads.length-1],spot=landingSpot(scene,name),read=LANDING_READ[name];
   if(!spot||!read)return null;
   const padW=2*read.pad/390*100,padH=2*read.pad/844*100;
   return{x:spot[0],y:spot[1],w:Math.min(100,spot[2]+padW),h:Math.min(100,spot[3]+padH)}}
@@ -21450,7 +21609,7 @@ function createLandingController(root){
     steps.forEach(step=>{step.classList.remove("is-current");step.removeAttribute("aria-current")});
     pin=null}
   function lensTo(name){
-    const read=LANDING_READ[name],spot=LANDING_SPOTS[read.scene][name];
+    const read=LANDING_READ[name],spot=landingSpot(read.scene,name);
     const img=pin.imgs[read.scene],phone=pin.phone,glass=pin.glass,lens=pin.lens;
     const pw=phone.clientWidth,gw=glass.clientWidth,gh=glass.clientHeight,gx=glass.offsetLeft,gy=glass.offsetTop;
     if(!pw||!gw||!gh)return;
@@ -21841,26 +22000,30 @@ function whyCueSet(ex){
    reported: the set it is anchored on and the strength that set shows, the
    effort and reps the target aims at, and the assumptions it loaded with (the
    load steps and any bodyweight it counted). Nothing is recomputed here. */
-function engineWhyRows(ex,rec,n=1){
-  const u=unitLabel(),rows=[];
-  const item=rec.targetSets.find(entry=>entry.prescription?.setIndex===n)||rec.targetSets[0];
-  const result=item?.result;if(!result||item.status!=="recommended")return rows;
+/** The engine's answer for set n, read once: the Why sheet and the Focus evidence line both say these facts, so the
+ *  two always name the same anchor, fatigue and target. */
+function engineSetFacts(rec,n=1){
+  const item=rec.targetSets?.find(entry=>entry.prescription?.setIndex===n)||rec.targetSets?.[0];
+  const result=item?.result;if(!result||item.status!=="recommended")return null;
   const definitions=rec.metricDefinitions||[];
   const loadMetric=definitions.find(metric=>METRIC_FIELD_SEMANTICS.load.includes(metric.semantic));
   const repsMetric=definitions.find(metric=>METRIC_FIELD_SEMANTICS.reps.includes(metric.semantic));
-  const anchor=result.historyAnchor||{},assumptions=result.loadingAssumptions||{};
+  const anchor=result.historyAnchor||{},projected=result.fatigue?.projectedCapacityKg;
+  const fatigued=n>1&&Number.isFinite(projected)&&Number.isFinite(anchor.capacityKg)&&Math.abs(projected-anchor.capacityKg)>0.25;
+  const load=loadMetric?result.targets?.[loadMetric.semantic]:null,rawReps=repsMetric?result.targets?.[repsMetric.semantic]:null;
+  return{item,result,loadMetric,repsMetric,anchor,projected,fatigued,load,
+    reps:typeof rawReps==="number"?rawReps:rawReps?.min,rir:item.prescription?.rir}}
+function engineWhyRows(ex,rec,n=1){
+  const u=unitLabel(),rows=[],facts=engineSetFacts(rec,n);if(!facts)return rows;
+  const{result,loadMetric,anchor,projected,load,reps,rir}=facts,assumptions=result.loadingAssumptions||{};
   const cap=Number.isFinite(anchor.capacityKg)?fmtLoad(Math.round(anchor.capacityKg*2)/2):null;
   if(anchor.source==="current_session")rows.push(whyRow("anchor",{text:t("why.engine.anchor_session",
     {set:(anchor.setIndex??0)+1,load:fmtLoad(anchor.displayLoadKg),cap,unit:u})}));
   else if(cap)rows.push(whyRow("anchor",{text:t(PER_SIDE_LOAD_SEMANTICS.has(loadMetric?.semantic)
     ?"why.engine.anchor_history_per_side":"why.engine.anchor_history",
     {n:(anchor.sessionIds||[]).length||1,load:fmtLoad(anchor.displayLoadKg),cap,unit:u})}));
-  const projected=result.fatigue?.projectedCapacityKg;
-  if(n>1&&Number.isFinite(projected)&&Number.isFinite(anchor.capacityKg)&&Math.abs(projected-anchor.capacityKg)>0.25)
+  if(facts.fatigued)
     rows.push(whyRow("fatigue",{text:t("why.engine.fatigue",{cap:fmtLoad(Math.round(projected*2)/2),unit:u})}));
-  const load=loadMetric?result.targets?.[loadMetric.semantic]:null,rawReps=repsMetric?result.targets?.[repsMetric.semantic]:null;
-  const reps=typeof rawReps==="number"?rawReps:rawReps?.min;
-  const rir=item.prescription?.rir;
   if(load!=null&&reps!=null)rows.push(whyRow("target",{text:t(rir!=null?"why.engine.target":"why.engine.target_norir",
     {rir:fmt(rir),reps,load:fmtLoad(load),unit:u})}));
   const loads=(assumptions.availableLoadsKg||[]).slice().sort((a,b)=>a-b);
@@ -22338,6 +22501,12 @@ window.__repforgeWorkoutDraft={
 // Test seam for the Focus deck, alongside the other __repforge* harness hooks.
 window.__repforgeFocus={
   go:focusAnimateTo,list:focusList,at:()=>focusIndex,editing:()=>focusEdit,
+  // The evidence line's reason for an engine result (#518): which catalog string a no-suggestion state says, and in
+  // what words, so a proof can pin every cause the engine reports without building each history.
+  noSuggestion(exId,rec,n=1,kind="start"){
+    const base=prog.find(exId),ex=base?sessionExercise(base):null;if(!ex)return null;
+    const key=focusNoSuggestionKey(ex,rec,n,kind);
+    return{key,text:t(`focus.evidence.none_${key}`,{what:t(isEffortMode()?"focus.evidence.what_effort":"focus.evidence.what_rir"),min:ex.min,max:ex.max})}},
   to(i){
     focusIndex=Math.max(0,i);focusEdit=null;
     const fl=focusList();

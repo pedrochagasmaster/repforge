@@ -289,7 +289,8 @@ const SQUAT_ALTERNATES = Object.freeze(["1a25c6f170d88079a926dde776766181", "1a2
 /** Catalog states built on the Direction D fixture; each R3 sub-slice adds its own. */
 const D_FIXTURE_STATES = new Set([
   "workout/focus", "workout/focus-glossary", "workout/correction", // R3c
-  "workout/logged-sets", // layout D: the logged sets' disclosure, open
+  "workout/logged-sets", // #517: the logged sets shown in place, the rest running
+  "workout/logged-sets-folded", // #517: a banner shortens the window and the oldest logged set folds
   "workout/deload-week", // Plan 072 S4: the deload cue in Focus
   "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions", // R3d
   "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", // R3d
@@ -568,6 +569,15 @@ async function miniBarOn(page, view) {
 }
 
 /** Fill the current focus card and save the set, which starts the rest timer. */
+/** #517: the table folds its oldest logged rows only when they do not fit; open the disclosure when it folds any. */
+async function openFoldedSets(page) {
+  const more = page.locator("#workout .exercise.is-current [data-ledgermore][aria-expanded='false']:not([hidden])");
+  if (await more.count()) await more.click();
+  await page.waitForFunction(() => {
+    const card = document.querySelector("#workout .exercise.is-current");
+    return !!card?.querySelector("[data-editn]:not([hidden])") && !card.querySelector(".ledger__rows")?.style.height;
+  }, undefined, { timeout: 5000 });
+}
 async function logCurrentSet(page, values = { load: "100", reps: "6", rir: "1" }) {
   await page.evaluate((values) => {
     const card = document.querySelector("#workout .exercise.is-current")
@@ -1607,6 +1617,17 @@ async function focusPerSideTarget(page) {
  * and then a real tap lands on it there (a tap, so the sheet's close takes a quiet focus, as on a phone).
  */
 async function clickWhy(page, selector) {
+  // Measure a settled card: the Focus window's scroll at rest and the card's finite motion finished, so nothing moves
+  // the link between the measure and the tap.
+  await page.evaluate(() => Promise.all(document.getAnimations()
+    .filter((animation) => animation.effect?.getTiming?.().iterations !== Infinity).map((animation) => animation.finished.catch(() => {}))));
+  await page.evaluate(() => { window.__catalogWhyRest = null; });
+  await page.waitForFunction(() => {
+    const context = document.querySelector("#workout .exercise--focus.is-current .fcard__context");
+    const at = context ? Math.round(context.scrollTop) : -1, seen = window.__catalogWhyRest ||= { at: null, still: 0 };
+    if (seen.at === at) seen.still++; else { seen.at = at; seen.still = 0; }
+    return seen.still >= 3;
+  }, undefined, { polling: "raf", timeout: 10000 });
   // The link may sit in Focus's own scroller, so the browser places it (whichever scroller holds it), centred first;
   // the first placement where nothing (a tall header at 200% text, the shelf) covers it is the same every run.
   const point = await page.evaluate((sel) => {
@@ -1622,6 +1643,18 @@ async function clickWhy(page, selector) {
   }, selector);
   if (!point) throw new Error(`no clear spot to tap ${selector}`);
   await page.mouse.click(point.x, point.y);
+  // A tap that opens nothing names what it hit, so a failure carries its own evidence.
+  const opened = await page.waitForSelector("#whySheet.is-open", { timeout: 15000 }).then(() => true, () => false);
+  if (!opened) {
+    const seen = await page.evaluate(({ sel, point }) => {
+      const hit = document.elementFromPoint(point.x, point.y), link = document.querySelector(sel);
+      const context = document.querySelector("#workout .exercise--focus.is-current .fcard__context");
+      return { point, hit: hit ? `${hit.tagName}.${hit.className}` : null, onLink: !!hit?.closest(sel),
+        link: link ? JSON.stringify(link.getBoundingClientRect()) : null, scrollTop: context?.scrollTop ?? null,
+        sheet: document.querySelector("#whySheet")?.className || null, lang: document.documentElement.lang };
+    }, { sel: selector, point });
+    throw new Error(`tapping ${selector} did not open the Why sheet: ${JSON.stringify(seen)}`);
+  }
 }
 
 async function whyPerSideAssumption(page) {
@@ -1995,9 +2028,9 @@ export const APP_SCENARIOS = {
     await page.waitForFunction(() => document.querySelector("#toast")?.classList.contains("hidden"), undefined, { timeout: 15000 });
     await resetSheetScroll(page, ".session-sheet__body");
   },
-  "workout/correction": async page => { await focusMode(page); await logCurrentSet(page); await page.locator("#workout .exercise.is-current [data-ledgermore]").click(); await page.locator("#workout .exercise.is-current [data-editn]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); },
-  // Layout D: the logged sets' disclosure opened over the table, the logged row back in place to correct.
-  "workout/logged-sets": async page => { await focusMode(page); await logCurrentSet(page); await page.locator("#workout .exercise.is-current [data-ledgermore]").click(); await page.waitForSelector("#workout .exercise.is-current [data-editn]"); await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  "workout/correction": async page => { await focusMode(page); await logCurrentSet(page); await openFoldedSets(page); await page.locator("#workout .exercise.is-current [data-editn]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); },
+  // #517: two logged sets shown in place above the open one while the rest runs, because they fit.
+  "workout/logged-sets": async page => { await focusMode(page); await logCurrentSet(page); await logCurrentSet(page); await page.waitForSelector("#workout .exercise.is-current [data-editn]", { state: "attached" }); await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     // The logged set starts the rest; the tab rises out of the shelf once that render has run.
     await page.waitForSelector("#restTab", { timeout: 20000 });
     await page.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished.catch(() => {}))));
@@ -2067,6 +2100,24 @@ export const APP_SCENARIOS = {
       const box = document.querySelector("#draftRecovery")?.getBoundingClientRect();
       return box && box.top >= 0 && box.bottom <= innerHeight;
     });
+    await sleep(page, 400);
+  },
+  // #517: a banner above the deck shortens the window, so the oldest logged set folds behind the disclosure that counts it.
+  "workout/logged-sets-folded": async (page) => {
+    await focusMode(page);
+    await logCurrentSet(page);
+    await logCurrentSet(page);
+    await page.evaluate(() => { window.__repforgeDraftFault = "before-canonical-write"; });
+    await fillAdaptiveShelf(page, ADAPTIVE_WEIGHT_METRIC_ID, "82.5");
+    await page.waitForFunction(() => window.__repforgeWorkoutDraft.recovery()?.kind === "persist");
+    await page.waitForFunction(() => {
+      const box = document.querySelector("#draftRecovery")?.getBoundingClientRect();
+      return box && box.top >= 0 && box.bottom <= innerHeight;
+    });
+    // At 390 the window is too short for the logged rows; a wider phone may still have room for them.
+    await page.waitForSelector("#workout .exercise.is-current .ledger__more:not([hidden])", { timeout: 5000 }).catch(() => {});
+    await page.evaluate(() => Promise.all(document.getAnimations().filter((animation) => animation.effect?.getTiming?.().iterations !== Infinity)
+      .map((animation) => animation.finished.catch(() => {}))));
     await sleep(page, 400);
   },
   "workout/invalid-draft": async (page) => {

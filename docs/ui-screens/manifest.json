@@ -1973,7 +1973,14 @@
       "id": "logged-sets",
       "flow": "workout",
       "label": "Logged sets",
-      "scenario": "Layout D: a set is logged and the rest runs; the table's disclosure is open, the logged row back in place above the open set and the next one.",
+      "scenario": "Two sets are logged and the rest runs; the logged rows show in place above the open set because they fit (#517).",
+      "variants": "demandingText"
+    },
+    {
+      "id": "logged-sets-folded",
+      "flow": "workout",
+      "label": "Logged sets, folded",
+      "scenario": "Two sets are logged and a save-retry banner shortens the window: the oldest logged set folds behind the disclosure that counts it (#517).",
       "variants": "demandingText"
     },
     {

@@ -481,7 +481,7 @@ function radiusContractErrors(candidate) {
       JSON.stringify(variant.radiusRecipes) !== JSON.stringify(radiusRecipe)) return ["landing stage radius scope or recipe changed"];
   return [];
 }
-assert.equal(inventory.contextualVariants.length, 15, "the landing recipes, radius and headline plus the workout shelf make 15 contextual variants (the summary hero is a title-role consumer, not a variant)");
+assert.equal(inventory.contextualVariants.length, 16, "the landing recipes, radius and headline, the workout shelf and the Focus hero (owner, 2026-10-28) make 16 contextual variants (the summary hero is a title-role consumer, not a variant)");
 assert.deepEqual(radiusContractErrors(inventory), [], "the proof's phone plate, its compact plate and the step crop retain the Plan 054 geometry");
 const flattenedRadius = structuredClone(inventory);
 flattenedRadius.contextualVariants.find((item) => item.id === "landing-device-stage-radius").radiusRecipes[1].token = "--radius-prominent";

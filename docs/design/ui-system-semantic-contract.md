@@ -123,7 +123,7 @@ for assistive technology. The two-row text-scaled dock is retired.
 Focus at large text (audit F-1, the card's `is-text-scaled` state) keeps every
 role and caps the sizes that would push the open set off the screen, at the
 prototype's values: the bar title at `--bar-title-max` (21px), the header timer
-pill at 18px, the meta line at 18px, the cue at 35.2px and 24px, the rest clock
+pill at 18px, the meta line at 18px, the cue at 35.2px and 24px with its evidence line at 24px, the rest clock
 at 52px with its label and total stacked on one line under it at 26px and the
 next cue at 24px, the ledger's values at 25.6px, its previous-set lines at
 24px and its disclosure at 20px, and the shelf's labels at 16px, values at
@@ -331,7 +331,15 @@ exceptions. Page titles use `title`, and full display statements use
 15px or 17px. Structural labels and supporting notes use label, caption, or
 body-small according to whether they carry essential information.
 Line heights are tight 1.1, standard 1.4, reading 1.55; weights are 400, 500,
-600. Labels/captions cannot be the sole critical control text. Two exact
+600. Labels/captions cannot be the sole critical control text. The Focus hero
+(owner, 2026-10-28; direction A of `native-feel/focus-hero.html`) is a
+selector-exact contextual variant on the Focus card only: the cue at
+`--font-size-focus-cue` 34px, weight `--weight-focus-cue` 650, line height
+`--line-focus-cue` 1.08 and −0.02em tracking; its second line at
+`--font-size-focus-cue-second` 21px; its evidence line at
+`--font-size-focus-evidence` 15px; and the prescription line above it at
+`--font-size-focus-meta` 13px. It retires the 24px `section-title` cue of
+Direction D §7; no other surface takes these sizes. Two exact
 contextual variants protect established hierarchy: the Plan 054 first-run
 headline (38px, 52px wide) and the responsive Mono rest clock
 (`clamp(2rem,10cqi,2.625rem)` since the Plan 064 R3f amendment below, capped

@@ -47,10 +47,11 @@ export async function finishEarly(page) {
   return result;
 }
 
-/** Layout D keeps the current exercise's logged sets behind its table's disclosure: open it, when it is closed, to
- *  read or correct them. It closes again after a correction and on another exercise. */
+/** The table shows the current exercise's logged sets in place when they fit and folds the oldest behind its
+ *  disclosure when they don't (#517): open it, when it folds any, to read or correct them. It closes again after a
+ *  correction and on another exercise. */
 export async function openLoggedSets(page) {
-  const more = page.locator("#workout .exercise.is-current [data-ledgermore][aria-expanded='false']");
+  const more = page.locator("#workout .exercise.is-current [data-ledgermore][aria-expanded='false']:not([hidden])");
   if (!(await more.count())) return;
   await more.click();
   await page.waitForFunction(() => {
