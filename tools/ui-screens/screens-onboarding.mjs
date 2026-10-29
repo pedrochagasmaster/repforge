@@ -908,11 +908,13 @@ const FOCUS_SELECTOR = {
 };
 
 /**
- * The landing's proof is pinned: one phone, one lens, seven steps. Its frame is the
- * middle of step 4 (the rest timer), where the lens, the rail and the persistent Build
- * control are all in view. The scroll is the track's own geometry, not a pixel offset.
+ * The landing's proof plays itself, so every landing frame holds its timeline at one
+ * moment: mid-chapter 2, the set logged and the rest tab risen with its light. The
+ * first-run-proof frame scrolls the phone to the top of the viewport, with its chapters
+ * and the persistent Build control in view.
  */
-const FOCUS_PROOF_STEP = { "onboarding-start/first-run-proof": 3 };
+const PROOF_HOLD = 7.2;
+const FOCUS_PROOF = new Set(["onboarding-start/first-run-proof"]);
 
 /**
  * The landing in its first-visit form. A seeded empty device boots straight into
@@ -1366,16 +1368,16 @@ export async function focusOnboardingSubject(page, key) {
     }
     if (sel) document.querySelector(sel)?.scrollIntoView({ block: "center", inline: "nearest" });
   }, FOCUS_SELECTOR[key] || null);
-  if (FOCUS_PROOF_STEP[key] !== undefined) {
-    await page.evaluate((index) => {
-      const root = document.querySelector("#firstRun");
-      const track = document.querySelector("#firstRunProofTrack");
-      const stage = document.querySelector("#firstRunProofStage");
-      if (!root || !track || !stage) return;
-      const span = track.offsetHeight - stage.offsetHeight;
-      root.scrollTo({ top: track.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop + span * (index + 0.5) / 7, behavior: "auto" });
-    }, FOCUS_PROOF_STEP[key]);
+  if (FOCUS_PROOF.has(key)) {
+    await page.evaluate(() => {
+      const root = document.querySelector("#firstRun"), device = document.querySelector(".firstrun-proof__device");
+      if (root && device) root.scrollTo({ top: root.scrollTop + device.getBoundingClientRect().top - 16, behavior: "auto" });
+    });
     await sleep(page, 400);
+  }
+  if (await page.evaluate(() => typeof window.__repforgeLandingSeek === "function" && !document.querySelector("#firstRun")?.classList.contains("hidden"))) {
+    await page.evaluate((time) => window.__repforgeLandingSeek(time), PROOF_HOLD);
+    await sleep(page, 200);
   }
   await sleep(page, 200);
   if (key === "onboarding-recommend/activation-conflict") {

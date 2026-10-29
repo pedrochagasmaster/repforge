@@ -155,7 +155,7 @@ export function cssLiteralDebt(css, exceptions = []) {
     const brace = clean.lastIndexOf("{", match.index);
     const prior = clean.lastIndexOf("}", brace);
     const selector = clean.slice(prior + 1, brace).trim().replace(/\s+/g, " ");
-    const tokenDefinition = selector === ":root" || selector === ':root[data-theme="dark"]';
+    const tokenDefinition = selector === ":root,.theme-dark" || selector === ':root[data-theme="dark"],.theme-dark';
     if (property.startsWith("--") && tokenDefinition) continue;
     const isType = property === "font-size";
     const isFontWeight = property === "font-weight";

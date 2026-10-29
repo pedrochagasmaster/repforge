@@ -1,44 +1,32 @@
 #!/usr/bin/env node
 /**
  * Landing proof tooling (Plan 064 R2a-3). Everything here drives the real app;
- * nothing is redrawn, copied from a prototype or hand-typed.
+ * nothing is redrawn, copied from a prototype or hand-typed. (The scroll walkthrough's
+ * wt-* screens and lens spots retired with it on 2026-10-29: the proof is now the
+ * app's own Focus markup, played on the page.)
  *
- *   --proof <dir>      Capture the landing's real-app proof images into <dir>:
- *                        wt-{focus,rest,actions,note}-{en,pt}-dark.webp   (8; 390x844 @2x, dark only)
+ *   --proof <dir>      Capture the landing's real-app images into <dir>:
  *                        paste-review-{en,pt}-{light,dark}.webp            (4; the import-review screen)
  *                        exercise-chart-{en,pt}-{light,dark}.webp         (4; the best e1RM chart region of the exercise page, from the chart fixture)
- *                        landing-proof-spots.json                          (lens hotspots + paste counts)
+ *                        landing-proof-spots.json                          (the paste-review counts)
  *                        proof-report.json                                 (sizes, counts, review rows)
  *                      Prints the linked / to-review counts read off each captured paste-review
  *                      DOM. Never writes into assets/brand/: copy the files there deliberately.
- *     --scenes a,b       limit to some of focus,rest,actions,note,paste-review,exercise-chart
+ *     --scenes a,b       limit to some of paste-review,exercise-chart
  *     --spots-only       measure and write the JSON only (no WebP files)
- *   --check            Capture nothing. Re-measure every lens hotspot (and the paste-review counts)
- *                      and fail when the stored JSON no longer matches the live DOM, so R3 / R4 / R6
- *                      cannot ship a lens over the wrong pixels.
+ *   --check            Capture nothing. Re-measure the paste-review counts and fail when the stored
+ *                      JSON no longer matches the live DOM.
  *     --spots <file>     the stored JSON (default assets/brand/landing-proof-spots.json)
- *     --scenes a,b       limit the re-measure
- *   --source <dir>     430x932 @3x PNG source captures of the "add" Focus state, then the upcoming sets of
- *                      the same day in the session list (both read from the live Focus and session screens).
  *   --matrix <dir>     (historical) landing layout matrix. Its composition assertions belonged to the
  *                      retired landing; only generic geometry / reachability / image checks remain, so it
  *                      depends on no landing composition markup. --fault-overflow still proves the
- *                      overflow check bites; the --fault-narrow / --fault-wrap switches went with the
- *                      composition they targeted.
+ *                      overflow check bites.
  *
- * Every proof scene fails when a retired selector (RETIRED_SELECTORS: the inline rest and its pill, the import review's old head)
+ * Every capture fails when a retired selector (RETIRED_SELECTORS: the inline rest and its pill, the import review's old head)
  * is on screen; --fault-retired puts one there so a test can prove that check bites.
  *
  * Every mode reads REPFORGE_URL (default http://localhost:8000/) and, when the pinned Chromium is not on
- * the default path, REPFORGE_CHROME. The Focus state is rebuilt from test/fixtures/landing-proof.json
- * (a canonical generated ProgramDefinition whose bench slot has an 8-10 rep target, RIR 1, and one logged
- * session of 3 x 60 kg x 10 at RIR 2 — see tools/build-landing-proof-fixture.mjs). The tool reads the
- * landing's own rendered "add" outcome (the real `landingEvaluate` result poured into the page, never a
- * literal here) and asserts the real Focus inputs equal it before it captures, so a wrong recommendation,
- * or a landing/Focus disagreement, fails here, not on the page. Safe-area insets
- * of the frame, [centre x, centre y, width, height], read from the selectors in SPOT_TARGETS, the one place
- * to edit when a surface changes. A hotspot is stored once where English and Portuguese agree, and for each language only
- * where they genuinely differ (the Focus proof's evidence line wraps to another line in Portuguese, #550).
+ * the default path, REPFORGE_CHROME.
  *
  * Interim status of each image this produces: assets/brand/README.md.
  */
@@ -58,8 +46,6 @@ export const DEFAULT_SPOTS_FILE = fileURLToPath(new URL('assets/brand/landing-pr
 export const PROOF_FRAME = {width: 390, height: 844, scale: 2};
 export const SAFE_INSETS = {top: 59, bottom: 34};
 export const SPOT_SCHEMA = 1;
-/** Percentage points of the frame a re-measure may move before a stored spot counts as stale. */
-export const SPOT_TOLERANCE = 0.1;
 export const WEBP_QUALITY = 0.86;
 export const LANGS = ['en', 'pt'];
 export const PASTE_SCENE = 'paste-review';
@@ -76,36 +62,9 @@ export const CHART_LIFT = 'library:sq_bb';
 export const CHART_FRAME = {width: 320, scale: 2};
 export const CHART_MIN_SCALE = 0.75;
 export const CHART_FIGURES = {from: 92.5, to: 100, sessions: 4};
-/** The universal Weight + Reps metric IDs every such catalog movement shares (Plan 067 brief). */
-export const WEIGHT_METRIC_ID = '2555c6f170d8805cafa6d16d3fdddbaa';
-export const REPS_METRIC_ID = '2555c6f170d88072bbf6d9ad3f16ea86';
-const NOTE = {
-  en: 'Bench on 4, grip one finger past the ring.',
-  pt: 'Banco no 4, pegada um dedo além da marca.',
-};
-
 /**
- * The one selector table. Every lens hotspot is a box read from these elements.
- * `card` is the Focus card in play; `rest` is the rest sheet's dial (the rest timer redesign: Log set raises the
- * rest tab over the shelf and the tab opens the sheet); the rest are the exercise-actions and exercise-note sheets.
- * When a surface is reshaped, edit here and re-run --proof.
- */
-export const SPOT_TARGETS = {
-  card: '#workout .exercise.is-current',
-  cueLines: '.fx-cue__mark, .fx-cue__l1, .fx-cue__l2',
-  ledgerHead: '.ledgerline__head',
-  ledgerRow: '.ledgerline',
-  log: '.focus-shelf .saveset',
-  more: '#woOverflowBtn',
-  noteRow: '#exActionNotesBtn',
-  rest: '#restSheet.is-open #restDial .restdial__c',
-  swap: '#exActionSubstBtn',
-  note: '#exNoteText',
-};
-
-/**
- * Selectors of retired UI. No regenerated scene may contain one (Plan 064 C-03: never ship a screenshot of a
- * retired UI), and neither may the selector table above. `.restinline` and `.restpad` were the inline rest (R3f)
+ * Selectors of retired UI. No regenerated capture may contain one (Plan 064 C-03: never ship a screenshot of a
+ * retired UI), and no capture target may name one. `.restinline` and `.restpad` were the inline rest (R3f)
  * and `#woRest` its header pill before the rest timer redesign; `#importReview .exview-head` was the import
  * review's head before R4c.
  */
@@ -135,69 +94,25 @@ export const CHART_TARGETS = {
   readout: '#exDetail .exchart__readout',
 };
 
-/** Scene table: the runner name, the spots it owns, and what the frame must show. */
-export const PROOF_SCENES = [
-  {name: 'focus', spots: ['cue', 'log', 'last'], shows: "Focus, set 1 of 3, last session 3 x 60 x 10 RIR 2, cue at the engine's recommended load x reps"},
-  {name: 'rest', spots: ['dial'], shows: 'Focus after Log set: the rest tab opens the rest sheet, its dial mid-countdown with the next set, Pause between -30s and +30s'},
-  {name: 'actions', spots: ['swap'], shows: 'the redrawn exercise-actions sheet'},
-  {name: 'note', spots: ['text'], shows: 'the exercise-note sheet over Focus with a typed note'},
-];
-export const sceneFile = (scene, lang) => `wt-${scene}-${lang}-dark.webp`;
 export const pasteFile = (lang, theme) => `paste-review-${lang}-${theme}.webp`;
 export const chartFile = (lang, theme) => `exercise-chart-${lang}-${theme}.webp`;
 export const outputFiles = () => [
-  ...PROOF_SCENES.flatMap(scene => LANGS.map(lang => sceneFile(scene.name, lang))),
   ...LANGS.flatMap(lang => PASTE_THEMES.map(theme => pasteFile(lang, theme))),
   ...LANGS.flatMap(lang => CHART_THEMES.map(theme => chartFile(lang, theme))),
 ];
 
-const round2 = value => Number(value.toFixed(2));
-/** A stored spot is one box both languages share, or {en, pt} where they genuinely differ. */
-const isBox = value => Array.isArray(value) && value.length === 4;
-const spotFor = (value, lang) => isBox(value) ? value : value && isBox(value[lang]) ? value[lang] : null;
-const boxesAgree = (a, b, tolerance) => a.every((value, index) => Math.abs(round2(value - b[index])) <= tolerance);
-
-/** One scene's spots from its English and Portuguese measurements: shared where the two agree within the tolerance, per
- *  language only where they do not (the shared-spot contract holds wherever it is true). */
-export function mergeSceneSpots(en, pt, tolerance = SPOT_TOLERANCE) {
-  const ids = [...new Set([...Object.keys(en), ...Object.keys(pt)])];
-  return Object.fromEntries(ids.map(id => [id, isBox(en[id]) && isBox(pt[id]) && boxesAgree(en[id], pt[id], tolerance)
-    ? en[id] : {en: en[id], pt: pt[id]}]));
-}
-
-/** Compare stored hotspots / counts with a fresh measurement. Returns problem strings; [] means no drift. */
-export function compareSpots(stored, measured, tolerance = SPOT_TOLERANCE) {
+/** Compare the stored paste-review counts with a fresh measurement. Returns problem strings; [] means no drift. */
+export function compareSpots(stored, measured) {
   if (!stored || typeof stored !== 'object') return ['stored spots are missing or not an object'];
   const problems = [];
   if (stored.schema !== SPOT_SCHEMA) problems.push(`schema ${stored.schema} != ${SPOT_SCHEMA}`);
   for (const key of ['width', 'height', 'scale']) {
     if (stored.frame?.[key] !== measured.frame[key]) problems.push(`frame.${key} ${stored.frame?.[key]} != ${measured.frame[key]}`);
   }
-  const storedScenes = stored.scenes || {};
-  const storedAny = Object.keys(storedScenes).length > 0 || Object.keys(stored.pasteReview || {}).length > 0;
-  if (!storedAny) {
-    problems.push('stored spots are empty (placeholder): run --proof <dir> and commit the generated landing-proof-spots.json');
+  if (stored.scenes) problems.push('stored spots still carry the retired walkthrough scenes');
+  if (!Object.keys(stored.pasteReview || {}).length) {
+    problems.push('stored counts are empty (placeholder): run --proof <dir> and commit the generated landing-proof-spots.json');
     return problems;
-  }
-  for (const [scene, spots] of Object.entries(measured.scenes)) {
-    if (!storedScenes[scene]) { problems.push(`${scene}: scene not stored`); continue; }
-    for (const [id, live] of Object.entries(spots)) {
-      const old = storedScenes[scene][id];
-      if (!isBox(old) && !(isBox(old?.en) && isBox(old?.pt))) { problems.push(`${scene}.${id}: not stored`); continue; }
-      for (const lang of LANGS) {
-        const box = spotFor(live, lang), was = spotFor(old, lang), where = isBox(old) ? `${scene}.${id}` : `${scene}.${id}.${lang}`;
-        if (!box) continue;
-        const moved = box.map((value, index) => round2(value - was[index]));
-        if (moved.some(delta => Math.abs(delta) > tolerance)) {
-          problems.push(`${where}: stored [${was}] but live [${box}] (delta [${moved}], tolerance ${tolerance})`);
-        }
-      }
-      // Per-language storage is the exception: where both languages agree the spot is shared.
-      if (!isBox(old) && boxesAgree(old.en, old.pt, tolerance)) problems.push(`${scene}.${id}: stored per language but both languages agree; store it once`);
-    }
-    for (const id of Object.keys(storedScenes[scene])) {
-      if (!(id in spots)) problems.push(`${scene}.${id}: stored but no longer measured`);
-    }
   }
   const storedPaste = stored.pasteReview || {};
   for (const [lang, counts] of Object.entries(measured.pasteReview || {})) {
@@ -243,35 +158,7 @@ const {GUIDE_DEFINITIONS} = createRequire(import.meta.url)('../guide-registry.js
 const QUIET_GUIDES = Object.fromEntries(GUIDE_DEFINITIONS.map(guide =>
   [guide.id, {version: guide.version, status: 'dismissed', lastTransitionAt: null}]));
 
-const fixture = JSON.parse(await readFile(new URL('test/fixtures/landing-proof.json', ROOT), 'utf8'));
 const base = process.env.REPFORGE_URL || 'http://localhost:8000/';
-
-/**
- * The landing's own rendered "add" outcome (`landing.outcomes.target`: "{load} × {reps}"), read off a
- * fresh, unseeded device so `landingEvaluate(LANDING_CASES.add)` in app.js renders it — never a literal
- * copied here. Locale alone picks the language on a fresh device (no settings are seeded yet). Cached per
- * language: the number does not depend on anything this tool seeds.
- */
-const landingTargets = {};
-async function landingAddTarget(browser, lang) {
-  if (landingTargets[lang]) return landingTargets[lang];
-  const context = await browser.newContext({viewport: {width: 430, height: 932}, locale: lang === 'pt' ? 'pt-BR' : 'en-US'});
-  const page = await context.newPage();
-  try {
-    await page.clock.setFixedTime(new Date('2026-08-31T12:00:00Z'));
-    await page.goto(base);
-    await waitForAppBoot(page, {base});
-    const locator = page.locator('[data-landing-outcome="add"] [data-landing-next]');
-    await locator.waitFor({state: 'attached', timeout: 20000});
-    const text = (await locator.textContent()).trim();
-    const match = /^([\d.,]+)\s*kg\s*×\s*(\d+)$/.exec(text);
-    assert(match, `landing "add" outcome text does not match "<load> kg × <reps>": ${JSON.stringify(text)}`);
-    const target = {load: Number(match[1].replace(',', '.')), reps: Number(match[2])};
-    assert(Number.isFinite(target.load) && Number.isFinite(target.reps), `landing "add" outcome is unreadable: ${JSON.stringify(text)}`);
-    landingTargets[lang] = target;
-    return target;
-  } finally {await context.close();}
-}
 
 async function safeInsets(page) {
   await page.route('**/styles.css', async route => {
@@ -283,7 +170,7 @@ async function safeInsets(page) {
 }
 
 /**
- * One isolated page. `source` seeds the bench program and marks the landing seen;
+ * One isolated page. `source` seeds `seed` as the program and marks the landing seen;
  * `program: false, seen: true` is a fresh device that skips the landing;
  * `quiet` marks every one-time guide seen so a returning lifter's screen is captured.
  */
@@ -296,7 +183,7 @@ async function open(browser, {width = 430, height = 932, lang = 'en', theme = 'l
   const page = await context.newPage();
   if (insets) await safeInsets(page);
   await page.clock.setFixedTime(new Date('2026-08-31T12:00:00Z'));
-  const state = structuredClone(seed || fixture);
+  const state = seed ? structuredClone(seed) : {settings: {}};
   state.settings.lang = lang;
   // The program row's name is the catalog's own English name (never a custom alias), so the app shows
   // the catalog's namePt automatically when lang is 'pt' (app.js's stored-name-equals-catalog-name check);
@@ -316,161 +203,9 @@ async function open(browser, {width = 430, height = 932, lang = 'en', theme = 'l
   return {page, context, state};
 }
 
-/** The fixture's logged history for its bench slot, as the ledger's "last session" line shows it: [set, load, reps, rir]. */
-function fixtureLastSessionRows(state) {
-  const slotId = state.program[0].id;
-  return state.log.filter(row => row.exerciseId === slotId).sort((a, b) => a.set - b.set)
-    .map(row => [String(row.set), String(row.load), String(row.reps), String(row.rir)]);
-}
-
 /**
- * Enter the bench session in Focus and prove the recommendation the page will claim: the metric inputs
- * for set 1 must equal `target` (the landing's own rendered "add" outcome, read by `landingAddTarget`),
- * not a number copied here.
- */
-async function assertFocus(page, state, name, target) {
-  const slotId = state.program[0].id;
-  await page.evaluate(day => window.__repforgeEnterWorkout({focus: true, day}), state.program[0].day);
-  await settle(page);
-  const load = page.locator(`#workout input[data-k="${slotId}_1_metric_${WEIGHT_METRIC_ID}"]`);
-  const reps = page.locator(`#workout input[data-k="${slotId}_1_metric_${REPS_METRIC_ID}"]`);
-  assert.equal(Number((await load.inputValue()).replace(',', '.')), target.load, `${name}: actual Focus next load`);
-  assert.equal(Number(await reps.inputValue()), target.reps, `${name}: actual Focus next reps`);
-  // The previous session rides under each matching row as one line: "last 60 x 10 · RIR 2" / "antes 60 x 10 · RIR 2".
-  // Layout D draws the open set and the next one, so set 1 shows rows 1 and 2.
-  const rows = await page.locator('#workout .exercise.is-current [data-lrow]').evaluateAll(lines =>
-    lines.map(row => {
-      const line = row.querySelector('.ledgerline__prev');
-      const match = line?.textContent.match(/(\d+(?:[.,]\d+)?) \u00d7 (\d+) \u00b7 RIR (\d+)/);
-      return match ? [row.dataset.lrow, match[1], match[2], match[3]] : [row.dataset.lrow, line?.textContent.trim() || ''];
-    }));
-  assert.deepEqual(rows, fixtureLastSessionRows(state).slice(0, 2), `${name}: actual last-session ledger`);
-  return rows;
-}
-
-async function captureSource(browser, output, report) {
-  for (const lang of LANGS) for (const theme of ['light', 'dark']) {
-    const name = `workout-${lang}-${theme}`;
-    const target = await landingAddTarget(browser, lang);
-    const {page, context, state} = await open(browser, {lang, theme, source: true, insets: true});
-    try {
-      const rows = await assertFocus(page, state, name, target);
-      await page.screenshot({path: `${output}/${name}.png`});
-      // The ledger under the cue draws the open set and the next one (layout D) with their targets; each shows the
-      // same engine answer, read off the live rows (the session list has no per-set inputs since R3c).
-      const slotId = state.program[0].id;
-      const ledgerRows = page.locator(`#workout .exercise.is-current #ledger_${slotId} [data-lrow]`);
-      assert.equal(await ledgerRows.count(), 2, `${name}: actual upcoming set count`);
-      if (values['fault-next']) {
-        await ledgerRows.nth(1).locator('[data-lv="load"]').evaluate(cell => {cell.textContent = '99';});
-      }
-      const upcomingSets = [];
-      for (const set of [1, 2]) {
-        const row = ledgerRows.nth(set - 1);
-        const load = Number((await row.locator('[data-lv="load"]').textContent()).replace(',', '.'));
-        const reps = Number(await row.locator('[data-lv="reps"]').textContent());
-        assert.equal(load, target.load, `${name}: actual upcoming set ${set} load`);
-        assert.equal(reps, target.reps, `${name}: actual upcoming set ${set} reps`);
-        upcomingSets.push({set, load, reps});
-      }
-      report.cases.push({name, nextLoad: target.load, nextReps: target.reps, upcomingSets, lastSessionRows: rows.length});
-      console.log(`PASS ${name}: 3 × 60 kg × 10 @ RIR 2 → the open and next sets at ${target.load} kg × ${target.reps}`);
-    } finally {await context.close();}
-  }
-}
-
-/* ------------------------------------------------------------------ */
-/* Proof scenes, hotspots and paste-review                              */
-/* ------------------------------------------------------------------ */
-
-/**
- * Runs in the page. Boxes are percentages of the frame: [centre x, centre y, width, height], clipped to
- * what the person can actually see (a scrolling ancestor hides part of a box, and the lens must not
- * magnify pixels that are not on the screen).
- */
-function measureInPage({scene, targets, logLabel}) {
-  const W = innerWidth, H = innerHeight;
-  const pct = (left, top, right, bottom) => [left + (right - left) / 2, top + (bottom - top) / 2, right - left, bottom - top]
-    .map((value, index) => +(100 * value / (index % 2 ? H : W)).toFixed(2));
-  const visible = (scope, selector) => [...scope.querySelectorAll(selector)].find(e => e.getClientRects().length && e.getBoundingClientRect().width);
-  const need = (element, what) => { if (!element) throw new Error(`${scene}: no visible element for ${what}`); return element; };
-  // The rectangle [left, top, right, bottom] of `rect` clipped by every clipping ancestor of `element`.
-  const clipped = (element, rect) => {
-    let [left, top, right, bottom] = [rect.left, rect.top, rect.right, rect.bottom];
-    for (let node = element.parentElement; node && node !== document.documentElement; node = node.parentElement) {
-      const style = getComputedStyle(node);
-      if (style.overflowX === 'visible' && style.overflowY === 'visible') continue;
-      const box = node.getBoundingClientRect();
-      left = Math.max(left, box.left); top = Math.max(top, box.top); right = Math.min(right, box.right); bottom = Math.min(bottom, box.bottom);
-    }
-    left = Math.max(left, 0); top = Math.max(top, 0); right = Math.min(right, W); bottom = Math.min(bottom, H);
-    if (right <= left || bottom <= top) throw new Error(`${scene}: element is not on screen`);
-    return [left, top, right, bottom];
-  };
-  const boxOf = (element, what) => pct(...clipped(need(element, what), element.getBoundingClientRect()));
-  if (scene === 'focus') {
-    const card = need(visible(document, targets.card), targets.card);
-    const head = need(card.querySelector(targets.ledgerHead), targets.ledgerHead).getBoundingClientRect();
-    const row = need(card.querySelector(`#workout .exercise.is-current ${targets.ledgerRow}:not(.ledgerline__head)`), targets.ledgerRow);
-    const rowBox = row.getBoundingClientRect();
-    const log = need(card.querySelector(targets.log), targets.log);
-    // The cue is its verdict mark, its headline and the "aim for N reps" line under it; the Why link under them is not part of the read.
-    const lines = [...card.querySelectorAll(targets.cueLines)].map(line => line.getBoundingClientRect());
-    need(lines.length === 3 ? lines : null, `${targets.card} ${targets.cueLines}`);
-    const cueBox = {left: Math.min(...lines.map(r => r.left)), top: Math.min(...lines.map(r => r.top)),
-      right: Math.max(...lines.map(r => r.right)), bottom: Math.max(...lines.map(r => r.bottom))};
-    return {
-      cue: pct(...clipped(card.querySelector('.fx-cue__l1'), cueBox)),
-      log: boxOf(log, `${targets.log} (${logLabel})`),
-      // From the ledger head through the first row and its last-session line, as far as it is on screen.
-      last: pct(...clipped(row, {left: head.left, top: head.top, right: rowBox.right, bottom: rowBox.bottom})),
-    };
-  }
-  if (scene === 'rest') return {dial: boxOf(visible(document, targets.rest), targets.rest)};
-  if (scene === 'actions') return {swap: boxOf(visible(document, targets.swap), targets.swap)};
-  if (scene === 'note') {
-    // The first line of the textarea: its full text column, one line tall.
-    const area = need(visible(document, targets.note), targets.note);
-    const style = getComputedStyle(area), r = area.getBoundingClientRect();
-    const left = r.left + area.clientLeft, top = r.top + area.clientTop + parseFloat(style.paddingTop);
-    const line = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.4;
-    return {text: pct(...clipped(area, {left, top, right: left + area.clientWidth, bottom: top + line}))};
-  }
-  throw new Error(`unknown scene ${scene}`);
-}
-
-const RUNNERS = {
-  focus: async () => {},
-  // Log set starts the rest and raises the tab over the shelf; the tab opens the rest sheet with its dial.
-  rest: async page => {
-    await page.locator(`${SPOT_TARGETS.card} ${SPOT_TARGETS.log}`).first().click();
-    await page.waitForSelector('#restTab', {timeout: 20000});
-    // Mid-countdown, as the catalog's workout/rest-sheet: the dial's depletion and its glow show.
-    await page.evaluate(() => window.nudgeRest(-36));
-    await page.locator('#restTab').click();
-    await page.waitForSelector(SPOT_TARGETS.rest, {state: 'visible', timeout: 20000});
-    await page.evaluate(() => Promise.all(document.getAnimations().filter(a => !String(a.id).startsWith('rest-flick'))
-      .map(a => a.finished.catch(() => {}))));
-  },
-  actions: async page => {
-    await page.locator(SPOT_TARGETS.more).click();
-    await page.locator('[data-workout-action="exercise"]').click();
-    await page.waitForSelector(SPOT_TARGETS.swap, {state: 'visible', timeout: 20000});
-    await page.evaluate(() => { const body = document.querySelector('.exactions-sheet__body'); if (body) body.scrollTop = 0; });
-  },
-  note: async (page, {lang}) => {
-    await page.locator(SPOT_TARGETS.more).click();
-    await page.locator('[data-workout-action="exercise"]').click();
-    await page.locator(SPOT_TARGETS.noteRow).click();
-    await page.waitForSelector('#exNoteSheet.is-open', {timeout: 20000});
-    await page.fill(SPOT_TARGETS.note, NOTE[lang]);
-    await page.evaluate(() => document.activeElement?.blur());
-  },
-};
-
-/**
- * --fault-retired: put a retired element on screen so a test can prove the retired-UI check bites. The rest scene
- * and every other scene get the retired inline rest clock; the paste-review scene also gets the import review's old head.
+ * --fault-retired: put a retired element on screen so a test can prove the retired-UI check bites. Every capture gets
+ * the retired inline rest clock; the paste-review capture also gets the import review's old head.
  */
 async function injectRetiredFault(page) {
   await page.evaluate(() => {
@@ -496,25 +231,6 @@ async function encodeWebp(page, png) {
     return canvas.toDataURL('image/webp', quality).split(',')[1];
   }, {data: png.toString('base64'), quality: WEBP_QUALITY});
   return Buffer.from(b64, 'base64');
-}
-
-async function captureScene(browser, scene, lang, {images}) {
-  const name = `${scene}-${lang}`;
-  const target = await landingAddTarget(browser, lang);
-  const {page, context, state} = await open(browser, {width: PROOF_FRAME.width, height: PROOF_FRAME.height, dpr: PROOF_FRAME.scale, lang, theme: 'dark',
-    source: true, quiet: true, insets: true});
-  try {
-    await assertFocus(page, state, name, target);
-    const logLabel = (await catalog(lang))['today.log_set'];
-    await RUNNERS[scene](page, {lang, logLabel});
-    await settle(page);
-    const spots = await page.evaluate(measureInPage, {scene, targets: SPOT_TARGETS, logLabel});
-    if (values['fault-retired']) await injectRetiredFault(page);
-    const retired = await page.evaluate(visibleRetired, RETIRED_SELECTORS);
-    assert.deepEqual(retired, [], `${name}: the frame shows retired UI`);
-    const webp = images ? await encodeWebp(page, await page.screenshot({type: 'png'})) : null;
-    return {spots, webp};
-  } finally {await context.close();}
 }
 
 /** The import-review screen for the final page's sample coach message, through the real paste door. */
@@ -634,23 +350,11 @@ async function captureChart(browser, lang, theme, {images}) {
   } finally {await context.close();}
 }
 
-/** Run the selected proof scenes. Returns measured spots, counts, and (with images) the WebP buffers by file name. */
+/** Run the selected captures. Returns the measured counts and (with images) the WebP buffers by file name. */
 export async function runProof(browser, {scenes, images, log = () => {}}) {
-  const measured = {schema: SPOT_SCHEMA, frame: {...PROOF_FRAME}, tolerance: SPOT_TOLERANCE, scenes: {}, pasteReview: {}};
+  const measured = {schema: SPOT_SCHEMA, frame: {...PROOF_FRAME}, pasteReview: {}};
   const files = {};
   const review = {};
-  for (const scene of PROOF_SCENES.filter(item => scenes.includes(item.name))) {
-    const perLang = {};
-    for (const lang of LANGS) {
-      const result = await captureScene(browser, scene.name, lang, {images});
-      perLang[lang] = result.spots;
-      if (result.webp) files[sceneFile(scene.name, lang)] = result.webp;
-      log(`ok ${scene.name} ${lang} ${JSON.stringify(result.spots)}`);
-    }
-    assert.deepEqual(Object.keys(perLang.en).sort(), [...scene.spots].sort(), `${scene.name}: measured spots match the scene table`);
-    assert.deepEqual(Object.keys(perLang.pt).sort(), [...scene.spots].sort(), `${scene.name}: the Portuguese capture measures the same spots`);
-    measured.scenes[scene.name] = mergeSceneSpots(perLang.en, perLang.pt);
-  }
   if (scenes.includes(PASTE_SCENE)) {
     for (const lang of LANGS) for (const theme of PASTE_THEMES) {
       const result = await capturePasteReview(browser, lang, theme, {images});
@@ -778,7 +482,7 @@ async function captureMatrix(browser, output, report) {
 let values = {};
 
 async function proofMode(browser, {check}) {
-  const allScenes = [...PROOF_SCENES.map(scene => scene.name), PASTE_SCENE, CHART_SCENE];
+  const allScenes = [PASTE_SCENE, CHART_SCENE];
   const scenes = values.scenes ? values.scenes.split(',') : allScenes;
   assert(scenes.length && scenes.every(name => allScenes.includes(name)), `--scenes must be some of ${allScenes.join(',')}`);
   const images = !check && !values['spots-only'];
@@ -789,16 +493,13 @@ async function proofMode(browser, {check}) {
     try {stored = JSON.parse(await readFile(file, 'utf8'));} catch (error) {
       throw new Error(`cannot read stored spots ${file}: ${error.message}`);
     }
-    const scoped = scenes.length === allScenes.length ? stored : {...stored,
-      scenes: Object.fromEntries(Object.entries(stored.scenes || {}).filter(([name]) => scenes.includes(name))),
-      pasteReview: scenes.includes(PASTE_SCENE) ? stored.pasteReview : {}};
-    const problems = compareSpots(scoped, measured);
+    const problems = compareSpots(stored, measured);
     if (problems.length) {
-      console.error(`FAIL landing proof spots are stale (${file}):\n  ${problems.join('\n  ')}\nRegenerate with: node tools/capture-landing-proof.mjs --proof <dir>`);
+      console.error(`FAIL landing proof counts are stale (${file}):\n  ${problems.join('\n  ')}\nRegenerate with: node tools/capture-landing-proof.mjs --proof <dir>`);
       process.exitCode = 1;
       return;
     }
-    console.log(`PASS landing proof spots match the live DOM (${Object.keys(measured.scenes).length} scenes, ${Object.keys(measured.pasteReview).length} paste-review languages)`);
+    console.log(`PASS landing proof counts match the live DOM (${Object.keys(measured.pasteReview).length} paste-review languages)`);
     return;
   }
   const output = resolve(values.proof);
@@ -823,23 +524,22 @@ async function proofMode(browser, {check}) {
 
 async function main() {
   ({values} = parseArgs({options: {
-    cases: {type: 'string'}, source: {type: 'string'}, matrix: {type: 'string'}, proof: {type: 'string'}, check: {type: 'boolean'},
+    cases: {type: 'string'}, matrix: {type: 'string'}, proof: {type: 'string'}, check: {type: 'boolean'},
     spots: {type: 'string'}, scenes: {type: 'string'}, 'spots-only': {type: 'boolean'},
-    'fault-next': {type: 'boolean'}, 'fault-overflow': {type: 'boolean'}, 'fault-retired': {type: 'boolean'},
+    'fault-overflow': {type: 'boolean'}, 'fault-retired': {type: 'boolean'},
   }}));
-  assert([values.source, values.matrix, values.proof, values.check].filter(Boolean).length === 1,
-    'Choose exactly one of --proof <dir>, --check, --source <dir>, --matrix <dir>');
+  assert([values.matrix, values.proof, values.check].filter(Boolean).length === 1,
+    'Choose exactly one of --proof <dir>, --check, --matrix <dir>');
   const browser = await launchChromium();
   try {
     if (values.proof || values.check) {
       await proofMode(browser, {check: Boolean(values.check)});
       return;
     }
-    const output = resolve(values.source || values.matrix);
+    const output = resolve(values.matrix);
     await mkdir(output, {recursive: true});
-    const report = {mode: values.source ? 'source' : 'matrix', cases: []};
-    if (values.source) await captureSource(browser, output, report);
-    else await captureMatrix(browser, output, report);
+    const report = {mode: 'matrix', cases: []};
+    await captureMatrix(browser, output, report);
     await writeFile(`${output}/proof.json`, `${JSON.stringify(report, null, 2)}\n`);
   } finally {await browser.close();}
 }

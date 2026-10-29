@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
  * STD-2: the landing is the boot surface until onboarding, so every image it
- * can show must be in the installed shell. Its proof scenes and its two
- * real-app shots load lazily and follow the language (and, for the shots, the
- * theme), so a first launch that goes offline before scrolling would otherwise
+ * can show must be in the installed shell. Its two real-app shots load lazily
+ * and follow the language and the theme (the proof is the app's own markup and
+ * needs no image), so a first launch that goes offline before scrolling would otherwise
  * find them missing. This installs the real worker, goes offline without
  * visiting the lower bands, and fetches every image the landing's own markup
  * can ask for, in both languages and both themes.
@@ -53,15 +53,13 @@ try {
   // Every image the landing's markup can request, read from that markup.
   const wanted = await page.evaluate(() => {
     const out = new Set(["assets/brand/mark.png"]);
-    const scenes = new Set([...document.querySelectorAll("#firstRun [data-landing-step][data-scene]")].map((el) => el.dataset.scene));
     const shots = new Set([...document.querySelectorAll("#firstRun [data-shot]")].map((el) => el.dataset.shot));
     for (const lang of ["en", "pt"]) {
-      for (const scene of scenes) out.add(`assets/brand/wt-${scene}-${lang}-dark.webp`);
       for (const shot of shots) for (const theme of ["light", "dark"]) out.add(`assets/brand/${shot}-${lang}-${theme}.webp`);
     }
-    return { urls: [...out], scenes: [...scenes], shots: [...shots] };
+    return { urls: [...out], shots: [...shots] };
   });
-  assert(wanted.scenes.length >= 4 && wanted.shots.length >= 2, `the landing names its scenes and shots: ${JSON.stringify(wanted)}`);
+  assert(wanted.shots.length >= 2, `the landing names its shots: ${JSON.stringify(wanted)}`);
 
   await context.setOffline(true);
   const results = await page.evaluate(async (urls) => {
