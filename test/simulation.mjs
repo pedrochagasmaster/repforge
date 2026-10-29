@@ -599,6 +599,15 @@ function simFieldKey(key) {
   return match ? `${match[1]}_metric_${SIM_FIELD_METRIC[match[2]]}` : key;
 }
 
+/** Choose the language in Settings' pull-down and wait for the choice itself: the menu closed, the document in that
+ *  language and every write flushed (a bare click raced the settings commit and the next draft edit: rule 13). */
+async function chooseLang(page, lang) {
+  await page.click("#langRow");
+  await page.click(`#nativeContextMenu [data-menu-value="${lang}"]`);
+  await page.waitForFunction((code) => !document.querySelector("#nativeContextMenu") && document.documentElement.lang.toLowerCase().startsWith(code), lang, { timeout: 10000 });
+  await page.evaluate(async () => { await window.__repforgeStorage?.flush?.(); });
+}
+
 async function fillExerciseSets(page, exId, sets, load, reps, rir) {
   await page.evaluate(
     async ({ exId, sets, load, reps, rir, weight, repsMetric }) => {
@@ -6513,7 +6522,7 @@ async function main() {
   );
 
   await nav(page, "settings");
-  await page.click("#langRow"); await page.click('#nativeContextMenu [data-menu-value="en"]');
+  await chooseLang(page, "en");
   await nav(page, "log");
   await selectDay(page, "Day 1");
   await setLogDate(page, "2024-02-29");
@@ -6531,7 +6540,7 @@ async function main() {
   );
 
   await nav(page, "settings");
-  await page.click("#langRow"); await page.click('#nativeContextMenu [data-menu-value="pt"]');
+  await chooseLang(page, "pt");
   await nav(page, "log");
   await selectDay(page, "Day 1");
   await setLogDate(page, "2024-02-29");
@@ -6550,7 +6559,7 @@ async function main() {
     "Log 90,5 kg @ 2,5 RIR in PT → Finish"
   );
   await nav(page, "settings");
-  await page.click("#langRow"); await page.click('#nativeContextMenu [data-menu-value="en"]');
+  await chooseLang(page, "en");
 
   const beforeHist = new Set((await getState(page)).log.map((r) => r.session));
   await nav(page, "log");
