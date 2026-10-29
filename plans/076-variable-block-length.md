@@ -66,8 +66,12 @@ So the change is in generation and in one onboarding control. It doesn't reach t
      so no change is needed beyond the centre count.
    - `generateRecovered`'s domain message names the new range.
    - `GENERATOR_VERSION` `073.4` → `073.5` (OD-5). Selection doesn't change (Plan 068: identical exercise IDs
-     across 3/7/12 cycles), and with OD-2's identity at N = 7, 7-week output is unchanged apart from the version
-     stamps (`generatorVersion`, `provenance.policyVersion`).
+     across 3/7/12 cycles), and with OD-2's identity at N = 7, 7-week output is structurally unchanged. Two things
+     do change with the version: the stamps (`generatorVersion`, `provenance.policyVersion`), and every generated
+     day/slot/set ID, because `generationIdentity` hashes the generator version into the ID namespace. Installed
+     programs keep their stored IDs.
+   - `estimateDaySeconds` recognises `lifter_review` sets only at the current `GENERATOR_VERSION`. It must accept
+     both `073.4` and `073.5`, so programs reviewed before the release keep their recovered duration estimate.
 3. **`generation-layout.js` `supportsRequest`:** accept `4 ≤ cycles − deload ≤ 10`, with deload `[]`, `[1]` or
    `[cycles]`.
 4. **`program-entry-adapter.js`:** drop `block_cycles_unsupported` for 4–10, map `cycles = block.cycles + (deload ?
@@ -101,8 +105,10 @@ So the change is in generation and in one onboarding control. It doesn't reach t
   - `periodizationIndex` is the identity at N = 7 for linear and reverse linear, with the OD-2 rule for undulating.
   - Endpoints are kept at N = 4 and 10.
   - A **byte-identical corpus guard** checks that every 7-week request produces the same definition as before
-    (reuse the generator corpus fixtures), identical apart from the version stamps (`generatorVersion`,
-    `provenance.policyVersion`).
+    (reuse the generator corpus fixtures). It compares definitions with the version stamps (`generatorVersion`,
+    `provenance.policyVersion`) and the generation-derived IDs normalized, and requires them to be identical.
+  - A program reviewed under 073.4 (`lifter_review` at policyVersion `073.4`) keeps the same `estimateDaySeconds`
+    after the bump.
 - `test/program-entry-inputs.mjs`:
   - `block.cycles` 4–10 map to `cycles = N + deload`.
   - 11–12 refuse with `block_cycles_unsupported`.
