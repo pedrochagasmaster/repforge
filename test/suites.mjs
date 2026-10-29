@@ -303,6 +303,9 @@ export const SUPPORT = {
 export const commandArgs = (suite) => [...(suite.nodeArgs || []), suite.file, ...suite.args];
 export const suiteId = (suite) => [suite.file, ...suite.args].join(" ").replace(/[^a-zA-Z0-9_-]+/g, "-");
 export const BROWSER_LANES = new Set(["state", "entry", "workout", "privacy", "full-browser"]);
+/** Every lane a suite can run in: the pure-Node lanes and the browser lanes. A lane outside it is a typo or a retired
+ *  lane (#462), never "no browser needed". */
+export const KNOWN_LANES = new Set(["fast", "service", "full-fast", ...BROWSER_LANES]);
 /** Both lanes, for classification and local selection; CI runs each lane on its own. */
 export const INVENTORY = { ...SUITES, ...FULL_SUITES };
 export const suiteSeconds = (suite) => suite.seconds ?? DEFAULT_SECONDS[suite.cost] ?? DEFAULT_SECONDS.normal;
@@ -347,7 +350,7 @@ export function inventoryErrors(files, suites = INVENTORY, support = SUPPORT) {
   const ids = new Set();
   const scheduled = new Set();
   const available = new Set(files);
-  const executableLanes = new Set(["fast", "service", "full-fast", ...BROWSER_LANES]);
+  const executableLanes = KNOWN_LANES;
   for (const [lane, entries] of Object.entries(suites)) {
     if (!executableLanes.has(lane)) errors.push(`Unknown lane: ${lane}`);
     if (!entries.length) errors.push(`Empty lane: ${lane}`);

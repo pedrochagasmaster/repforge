@@ -3,8 +3,12 @@ import { spawn, execFileSync } from "node:child_process";
 import { closeSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { createServer } from "node:net";
-import { join } from "node:path";
-import { BROWSER_LANES } from "../test/suites.mjs";
+import { join, resolve } from "node:path";
+import { BROWSER_LANES, KNOWN_LANES } from "../test/suites.mjs";
+
+/** The worktree this tool belongs to: the default cwd for a preview. Callers have always passed one, which hid that
+ *  the default named a constant this module never defined. */
+const ROOT = resolve(import.meta.dirname, "..");
 
 const PREVIEW_GENERATED_FILES = ["index.html", "posthog-config.js"];
 const PREVIEW_READINESS_TIMEOUT_MS = 500;
@@ -61,6 +65,10 @@ export async function maybeStartLocalPreview(entries, {
   allocatePort = () => allocateLoopbackPort(),
   identityToken = randomUUID(),
 } = {}) {
+  // An unknown lane is a mistake at the call, not a lane that needs no browser (#462): a retired lane name once came
+  // back null here and crashed much later as "Cannot read properties of null (reading 'cleanup')".
+  const unknown = [...new Set(entries.map(({ lane }) => lane).filter((lane) => !KNOWN_LANES.has(lane)))];
+  if (unknown.length) throw new Error(`Unknown lane: ${unknown.join(", ")}`);
   if (!entries.some(({ lane }) => BROWSER_LANES.has(lane))) return null;
 
   const explicitUrl = typeof env.REPFORGE_URL === "string" && env.REPFORGE_URL.trim()
