@@ -1123,7 +1123,7 @@ async function recoveredGenerationJourney(browser) {
       check((await page.locator("#reviewSheet [data-review-block-deload-body]").innerText()).trim() ===
         await page.evaluate(() => window.RepForgeI18n.t("entry.review.block.sheet.deload_body", { n: 5 })),
         "P076: the lighter week is described against the five regular weeks", await page.locator("#reviewSheet [data-review-block-deload-body]").innerText());
-      for (let step = 0; step < 2; step += 1) await page.locator('#reviewSheet [data-review-block-step="-1"]').click();
+      await page.locator('#reviewSheet [data-review-block-step="-1"]').click();
       check(await page.locator('#reviewSheet [data-review-block-step="-1"]').isDisabled() &&
         /^4\b/.test((await page.locator("#reviewSheet [data-review-block-weeks]").innerText()).trim()),
         "P076: four weeks is the shortest generated block");
