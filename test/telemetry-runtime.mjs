@@ -664,6 +664,59 @@ try {
     await context.close();
   }
 
+  phase("The first working set is reported when its commit applies, once for the history");
+  {
+    const { context, page } = await openApp(browser, { seed: loggableProgram() });
+    await enterWorkout(page, "Day 1");
+    await selectExercise(page, SEED_A);
+    await fillShelf(page, WEIGHT, 60);
+    await fillShelf(page, REPS, 8);
+    await fillRir(page, SEED_A, 1, 1);
+    await page.evaluate(() => { window.__repforgeDraftFault = "persist-failure"; });
+    await page.locator(`#workout .exercise.is-current [data-save="${SEED_A}_1"]`).click();
+    await page.waitForSelector("#draftRecovery:not(.hidden)", { timeout: 5000 });
+    let events = await captured(page);
+    assert(countOf(events, "first_set_logged") === 0 && countOf(events, "set_saved") === 0,
+      "a set whose write failed is neither saved nor the first set", namesOf(events).join(","));
+    await page.evaluate(() => { delete window.__repforgeDraftFault; });
+    await page.locator("#draftRecoveryRetry").click();
+    await setIsDone(page, SEED_A, 1);
+    events = await captured(page);
+    assert(countOf(events, "first_set_logged") === 1 && countOf(events, "session_completed") === 0,
+      "the retried commit reports the first working set at once, before the workout is finished", namesOf(events).join(","));
+    assert(countOf(events, "set_saved") === 1, "the retried commit reports its saved set", namesOf(events).join(","));
+    await saveSetByHand(page, SEED_A, 2, 60, { reps: 7 });
+    assert(countOf(await captured(page), "first_set_logged") === 1, "a second working set is not the first",
+      namesOf(await captured(page)).join(","));
+    // Uncommit both sets, reload, and commit the first again: it was already reported.
+    await page.evaluate(async (id) => {
+      const api = window.__repforgeWorkoutDraft;
+      for (const set of Object.values(api.current().exercises[id].sets).filter((row) => row.completion !== "pending"))
+        await api.dispatch("uncommitSet", { exerciseInstanceId: id, setId: set.setId });
+      await api.flush();
+    }, SEED_A);
+    await page.reload();
+    await waitForAppBoot(page, { base: BASE });
+    await page.waitForFunction(() => window.__repforgeWorkoutDraft?.current(), undefined, { timeout: 8000 });
+    const status = await page.evaluate(async (id) => {
+      const api = window.__repforgeWorkoutDraft;
+      const set = Object.values(api.current().exercises[id].sets).find((row) => row.ordinal === 1);
+      return (await api.dispatch("completeSet", { exerciseInstanceId: id, setId: set.setId })).status;
+    }, SEED_A);
+    assert(status === "applied" && countOf(await captured(page), "first_set_logged") === 0,
+      "a resumed draft's recommitted set is not reported as the first set again", `${status} ${namesOf(await captured(page)).join(",")}`);
+    await finishEarly(page);
+    await page.waitForFunction(() => window.__captured.some(([n]) => n === "session_completed"), undefined, { timeout: 10000 });
+    events = await captured(page);
+    assert(countOf(events, "session_completed") === 1 && countOf(events, "first_set_logged") === 0,
+      "finishing the workout reports its completion, not the first set", namesOf(events).join(","));
+    await enterWorkout(page, "Day 1");
+    await saveSetByHand(page, SEED_A, 1, 62.5);
+    assert(countOf(await captured(page), "first_set_logged") === 0, "a working set after a saved session is not the first",
+      namesOf(await captured(page)).join(","));
+    await context.close();
+  }
+
   phase("A return session reports the bucketed days since the previous one");
   {
     const first = Date.parse("2026-09-01T09:00:00.000Z");
@@ -698,6 +751,8 @@ try {
       JSON.stringify(await eventsNamed(page, "set_saved")) === JSON.stringify([{ vs_suggestion: "matched" }]),
       "saving the recommended load reports matched", JSON.stringify(await eventsNamed(page, "set_saved")),
     );
+    assert(countOf(await captured(page), "first_set_logged") === 0,
+      "a working set over a logged history is not the installation's first", namesOf(await captured(page)).join(","));
     await saveSetByHand(page, a, 2, (await suggestedLoad(page, a, 2)) + 2.5);
     await saveSetByHand(page, a, 3, (await suggestedLoad(page, a, 3)) + 1);
     await selectExercise(page, b);
