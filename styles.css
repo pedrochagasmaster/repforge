@@ -1105,13 +1105,13 @@ div.settings-row{cursor:default}
 /* The title wraps rather than truncates, so it hangs from the top of the bar: when the timer chip widens and
    takes room from it, the controls and the first line of the title stay where they were. */
 .wo-head__center{text-align:center;min-width:0;flex:1;padding-top:var(--space-12)}
-.wo-head__title{font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto}
+.wo-head__title{font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto;hyphenate-limit-chars:10 4 4;-webkit-hyphenate-limit-before:4;-webkit-hyphenate-limit-after:4}
 /* In a workout the title is the exercise's name, and the name opens its stats and history. A long name beside a
    running or overrun rest pill takes two lines at most (owner, 2026-10-17); the heading's name keeps all of it. */
 .wo-head__title:has(.wo-head__name){font-weight:var(--weight-semibold);color:var(--color-ink)}
 .wo-head__name{
   display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;width:100%;min-height:var(--control-target);margin:calc(-1 * var(--space-12)) 0 0;padding:var(--space-12) 0 0;border:0;
-  background:none;color:inherit;font:inherit;text-align:center;overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto;cursor:pointer;
+  background:none;color:inherit;font:inherit;text-align:center;overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto;hyphenate-limit-chars:10 4 4;-webkit-hyphenate-limit-before:4;-webkit-hyphenate-limit-after:4;cursor:pointer;
 }
 @media (hover: hover) and (pointer: fine){
 .wo-head__name:hover{background:var(--well)}
@@ -2448,7 +2448,7 @@ textarea.sheetfield__input{
 #sessionSheet .session-sheet__body{padding:0 16px var(--space-26)}
 #sessionSheet .sheetband{border-bottom:1px solid transparent}
 #sessionSheet .sheetband.is-scrolled{border-bottom-color:var(--rule-on-surface)}
-.session-sheet__summary{font-variant-numeric:tabular-nums;-webkit-hyphens:auto;hyphens:auto}
+.session-sheet__summary{font-variant-numeric:tabular-nums;-webkit-hyphens:auto;hyphens:auto;hyphenate-limit-chars:10 4 4;-webkit-hyphenate-limit-before:4;-webkit-hyphenate-limit-after:4}
 .session-sheet__sets{font-family:var(--font-training-data);font-weight:var(--weight-medium);color:var(--color-ink)}
 /* The kit's group caption (§6): 11px semibold uppercase in secondary ink, 26px above a group after the first. */
 .sheetgroup__cap{
@@ -2483,7 +2483,7 @@ textarea.sheetfield__input{
 .session-map__mark.is-skipped{border:1.5px dashed var(--ink-faint)}
 .session-map__name{
   min-width:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-regular);
-  line-height:var(--line-standard);color:var(--color-ink);overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto;
+  line-height:var(--line-standard);color:var(--color-ink);overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto;hyphenate-limit-chars:10 4 4;-webkit-hyphenate-limit-before:4;-webkit-hyphenate-limit-after:4;
 }
 .session-map__note{display:block;margin-top:2px;font-size:var(--font-size-caption);font-weight:var(--weight-regular);color:var(--color-ink-secondary)}
 .session-map__row.is-current .session-map__name{font-weight:var(--weight-semibold)}
@@ -2529,7 +2529,7 @@ textarea.sheetfield__input{
 .sessrow{position:relative;display:flex;align-items:center;gap:var(--space-14);min-height:56px;padding:var(--space-8) 0;margin:0;cursor:text}
 .sessrow+.sessrow::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;background:var(--rule-on-surface)}
 .sessrow__label{flex:1 1 auto;min-width:0;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink);
-  overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto}
+  overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto;hyphenate-limit-chars:10 4 4;-webkit-hyphenate-limit-before:4;-webkit-hyphenate-limit-after:4}
 .sessrow__value{display:flex;align-items:center;justify-content:flex-end;gap:var(--space-4);flex:none;max-width:60%}
 .sessrow__input{
   box-sizing:border-box;min-width:0;max-width:100%;min-height:var(--control-target);margin:0;padding:0 var(--space-8);
@@ -2563,7 +2563,7 @@ textarea.sheetfield__input{
   list-style:none;margin:0;padding:0;
   font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary);
 }
-#sessionEarlyOmissions li{padding:var(--space-4) 0;overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto}
+#sessionEarlyOmissions li{padding:var(--space-4) 0;overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto;hyphenate-limit-chars:10 4 4;-webkit-hyphenate-limit-before:4;-webkit-hyphenate-limit-after:4}
 .session-early-sets{font-family:var(--font-training-data);color:var(--color-ink)}
 .session-early-actions{display:flex;flex-direction:column;gap:var(--space-4);margin-top:var(--space-8)}
 .session-early-actions > :is(#sessionEarlyConfirm,#sessionAbandonConfirm){min-height:52px;border-radius:var(--radius-pill)}
@@ -4131,7 +4131,7 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
    other columns leave on a narrow phone) and breaks only between words; the
    figures give way first, the target wrapping under itself when it has to. */
 .today-rx__grid{display:grid;grid-template-columns:var(--rx-mark,1rem) minmax(min(9rem,100% - var(--rx-mark,1rem) - 9rem - 3 * var(--space-12)),1fr) minmax(4.125rem,auto) minmax(4.875rem,auto);column-gap:var(--space-12)}
-.today-rx__grid .rxrow .rxrow__name{overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto}
+.today-rx__grid .rxrow .rxrow__name{overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto;hyphenate-limit-chars:10 4 4;-webkit-hyphenate-limit-before:4;-webkit-hyphenate-limit-after:4}
 .today-rx__grid .rxrow .rxrow__target{white-space:normal}
 .today-rx__cols,.today-rx__grid .rxrow{grid-column:1 / -1;display:grid;grid-template-columns:subgrid}
 .today-rx__cols{align-items:baseline;padding:var(--space-8) 0;border-bottom:1px solid var(--boundary-decorative);font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--color-ink-secondary)}

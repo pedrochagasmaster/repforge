@@ -185,9 +185,15 @@ async function sessionHubChecks(browser) {
       const broken = await page.evaluate(() => [...document.querySelectorAll("#sessionMap .session-map__name")].flatMap((el) => {
         const node = el.firstChild, text = node?.textContent || "", out = []; let top = null;
         for (let i = 0; i < text.length; i++) { const r = document.createRange(); r.setStart(node, i); r.setEnd(node, i + 1); const b = r.getClientRects()[0]; if (!b) continue;
-          if (top !== null && b.top > top + 2 && !/[\s\u00ad-]/.test(text[i - 1]) && !/\s/.test(text[i])) out.push(text.slice(Math.max(0, i - 4), i + 4)); top = b.top; }
+          if (top !== null && b.top > top + 2 && !/[\s\u00ad-]/.test(text[i - 1]) && !/\s/.test(text[i])) {
+            // A hyphenated break is allowed only inside a long word (10+ letters), 4 or more letters from either end
+            // (hyphenate-limit-chars: 10 4 4); a short word never breaks.
+            const start = text.lastIndexOf(" ", i - 1) + 1, endAt = text.indexOf(" ", i), end = endAt < 0 ? text.length : endAt;
+            if (end - start < 10 || i - start < 4 || end - i < 4) out.push(text.slice(Math.max(0, i - 4), i + 4));
+          }
+          top = b.top; }
         return out; }));
-      assert(broken.length === 0, `${label}: exercise names wrap between words, not inside one`, JSON.stringify(broken));
+      assert(broken.length === 0, `${label}: exercise names wrap between words, or hyphenate only inside a long word`, JSON.stringify(broken));
       assert(m.kids.length === 2 && m.endingsInBody, `${label}: nothing is pinned under the body; both endings close its scroll`, JSON.stringify(m.kids));
       assert(/Pull-up/.test(m.note), `${label}: a lift that counts bodyweight is named beside the bodyweight field`, m.note);
       await page.locator("#sessionSheetBody").evaluate((b) => { b.scrollTop = b.scrollHeight; });
