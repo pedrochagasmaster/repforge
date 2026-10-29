@@ -988,6 +988,17 @@ async function openCompletedReview(page) {
 async function openScheduleDiagnosis(page) {
   await openCompletedReview(page);
   await page.click('[data-review-action="schedule-repair"]');
+  await page.waitForSelector("[data-diag-continue]");
+  // The click scrolls the action into view, and the page's scroll-edge bar follows its title through an
+  // IntersectionObserver that reports asynchronously: the frame waits until the bar agrees with where the title is.
+  await page.waitForFunction(() => {
+    const bar = document.querySelector("#statsTopbar"), title = document.querySelector("#stats .pagehead .page-title");
+    if (!bar || !title) return true;
+    const cutoff = Math.ceil(document.querySelector("#logTopbar")?.getBoundingClientRect().bottom || 44) || 44;
+    const box = title.getBoundingClientRect();
+    const hidden = box.height > 0 && (box.bottom <= cutoff || box.top >= innerHeight);
+    return bar.classList.contains("is-scrolled") === hidden;
+  }, undefined, { polling: "raf", timeout: 10000 });
   await sleep(page, 300);
 }
 
