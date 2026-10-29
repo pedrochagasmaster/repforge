@@ -126,13 +126,24 @@ const dayIso = (daysAgo) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
+/** Enter a day's workout through the app's own entry and read Focus in the same turn.
+ *  enterWorkout shows the shell before its promise settles, so the promise is the event
+ *  to wait on: polling the DOM afterwards only adds a window that a loaded runner can
+ *  starve (main 40919454322 timed out there with the workout already entered). */
 async function enterWorkout(page, day) {
-  const entered = await page.evaluate((label) => {
+  const outcome = await page.evaluate(async (label) => {
     window.closeFirstRun?.();
-    return window.__repforgeEnterWorkout(label ? { day: label } : {});
+    const entered = await window.__repforgeEnterWorkout(label ? { day: label } : {});
+    const shell = document.querySelector("#workoutShell");
+    return {
+      entered,
+      shown: !!shell && !shell.classList.contains("hidden") && shell.getClientRects().length > 0,
+      route: { body: document.body.className, views: [...document.querySelectorAll(".view.active")].map((view) => view.id),
+        draft: !!window.__repforgeWorkoutDraft?.current() },
+    };
   }, day);
-  if (entered === false) throw new Error(`could not enter workout ${day || ""}`);
-  await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 8000 });
+  if (outcome.entered === false) throw new Error(`could not enter workout ${day || ""}`);
+  if (!outcome.shown) throw new Error(`entered ${day || "the workout"} but Focus is not shown: ${JSON.stringify(outcome.route)}`);
 }
 
 const draftSet = (page, exerciseId, ordinal) => page.evaluate(([id, n]) => {
