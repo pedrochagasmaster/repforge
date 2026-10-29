@@ -2810,6 +2810,7 @@
   "entry.review.block.regular_weeks": "{n} regular weeks",
   "entry.review.block.additional_deload": "plus week {n} for recovery",
   "entry.review.block.sheet.generated_length_hint": "4 to 10 weeks, then you review how it went.",
+  "entry.review.block.sheet.deload_body": "A week with fewer sets, added to the {n} regular weeks, so you recover.",
   "entry.review.block.manual_deload_card": "Lighter last week",
   "entry.review.block.manual_deload_body": "The block's last week has fewer sets, so you recover before the next one.",
   "program.split_day.accessories": "Accessories",
