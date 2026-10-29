@@ -678,9 +678,13 @@ function historyReadingView(s,rows){
       `<span class="histlift__tags">${record}${historyOutcomeMark(g,sid)}</span></div>`+
       (before?`<p class="histlift__before">${esc(before)}</p>`:"")+groupHeader+`<div class="histlift__sets">${setRows}</div></section>`}).join("");
   const total=(value,label)=>`<div><b>${esc(value)}</b><span>${esc(label)}</span></div>`;
+  // #515: the recorded wall-clock duration, inside the summary's own window;
+  // a session without one shows nothing rather than zero.
+  const seconds=state.sessionTiming?.[sid]?.durationSeconds,minutes=Number.isFinite(seconds)?Math.round(seconds/60):null;
   const totals=total(historyInt(setCount),setCount===1?t("plural.set.one"):t("plural.set.other"))+
     (hasStrengthProjection?total(historyInt(toDisplay(volume)),t("summary.stat.moved",{unit:unitLabel()}))+
-      total(historyInt(prLifts.size),t("stats.metric.prs")):"");
+      total(historyInt(prLifts.size),t("stats.metric.prs")):"")+
+    (minutes>=1&&minutes<=480?total(historyInt(minutes),minutes===1?t("plural.minute.one"):t("plural.minute.other")):"");
   return`<article class="session session--read histpage" data-reading="${esc(sid)}" data-sess="${esc(sid)}">`+
     `<div class="histpage__totals">${totals}</div>`+
     lifts+

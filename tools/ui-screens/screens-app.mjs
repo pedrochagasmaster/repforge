@@ -381,6 +381,13 @@ export function appState(key, lang) {
   // the review page draws. Every other state keeps catalogState().
   if (D_FIXTURE_STATES.has(key)) {
     const drawn = localeState(directionDState(), lang);
+    if (key === "history/session") {
+      // #515: the session the page opens (the newest) has a recorded duration.
+      const newest = [...drawn.log].sort((a, b) => String(b.created).localeCompare(String(a.created)))[0];
+      const completedAt = new Date(Date.parse(newest.created)).toISOString();
+      drawn.sessionTiming = { [String(newest.session)]: { startedAt: new Date(Date.parse(completedAt) - 3120000).toISOString(),
+        completedAt, durationSeconds: 3120 } };
+    }
     if (key === "workout/swap-alternates") {
       const slot = drawn.programMeta.programDefinition.days.flatMap((day) => day.slots).find((entry) => entry.id === "ex-sq");
       slot.alternates = [...SQUAT_ALTERNATES];
