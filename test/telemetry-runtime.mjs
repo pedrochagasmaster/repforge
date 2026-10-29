@@ -710,6 +710,8 @@ try {
     events = await captured(page);
     assert(countOf(events, "session_completed") === 1 && countOf(events, "first_set_logged") === 0,
       "finishing the workout reports its completion, not the first set", namesOf(events).join(","));
+    await page.locator("#sumDone").click();
+    await page.waitForSelector("#workoutShell.hidden", { state: "attached", timeout: 10000 });
     await enterWorkout(page, "Day 1");
     await saveSetByHand(page, SEED_A, 1, 62.5);
     assert(countOf(await captured(page), "first_set_logged") === 0, "a working set after a saved session is not the first",
