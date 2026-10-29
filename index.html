@@ -1038,43 +1038,47 @@ Triceps pushdown 3x12-15</pre>
       <span class="sheetband__handle" aria-hidden="true"></span>
       <h2 class="sheetband__title" id="sessionSheetTitle" data-i18n="session.sheet.title">Session details</h2>
       <button type="button" class="sheetband__close" id="sessionSheetClose" data-i18n-aria="dialog.close" aria-label="Close"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
-      <p class="sheetband__sub" id="sessionSheetSub" data-i18n="session.sheet.subtitle">Overview and workout notes</p>
+      <p class="sheetband__sub session-sheet__summary" id="sessionSheetSub"></p>
     </div>
-    <div class="session-sheet__body">
+    <div class="session-sheet__body" id="sessionSheetBody">
       <div class="session-sheet__overview">
-        <h3 class="sheetgroup__head" data-i18n="session.sheet.overview_label">Session map</h3>
-        <div id="sessionMap" class="session-map" role="group" aria-labelledby="sessionSheetTitle"></div>
+        <h3 class="sheetgroup__cap" id="sessionMapLabel" data-i18n="session.sheet.exercises_label">Exercises</h3>
+        <div id="sessionMap" class="session-map" role="group" aria-labelledby="sessionMapLabel"></div>
       </div>
-      <div class="session-sheet__meta">
-        <label class="sheetfield"><span class="sheetfield__cap" data-i18n="log.date">Date</span>
-          <input id="sessionDate" class="sheetfield__input" type="date">
+      <div class="session-sheet__meta" role="group" aria-labelledby="sessionMetaLabel">
+        <h3 class="sheetgroup__cap" id="sessionMetaLabel" data-i18n="session.sheet.details_label">Details</h3>
+        <label class="sessrow"><span class="sessrow__label" data-i18n="log.date">Date</span>
+          <input id="sessionDate" class="sessrow__input" type="date">
         </label>
-        <label class="sheetfield" id="sessionBodyweightLabel"><span class="sheetfield__cap" data-i18n="log.bodyweight">Bodyweight (optional)</span>
-          <input id="sessionBodyweight" class="sheetfield__input sheetfield__input--mono" type="text" inputmode="decimal" enterkeyhint="done" placeholder="kg">
+        <label class="sessrow" id="sessionBodyweightLabel"><span class="sessrow__label" data-i18n="session.sheet.bodyweight">Bodyweight</span>
+          <span class="sessrow__value"><input id="sessionBodyweight" class="sessrow__input sessrow__input--mono" type="text" inputmode="decimal" enterkeyhint="done" data-i18n-placeholder="session.sheet.optional" placeholder="Optional"><span class="sessrow__unit" id="sessionBodyweightUnit" aria-hidden="true"></span></span>
         </label>
-        <label class="sheetfield sheetfield--area"><span class="sheetfield__cap" data-i18n="log.notes">Session notes</span>
-          <textarea id="sessionNotes" class="sheetfield__input" rows="3" data-i18n-placeholder="log.notes.placeholder" placeholder="Belt on, felt strong, machine #3 squeaks…"></textarea>
+        <label class="sessrow sessrow--notes"><span class="sessrow__label" data-i18n="session.sheet.notes">Notes</span>
+          <textarea id="sessionNotes" class="sessrow__input" rows="1" data-i18n-placeholder="session.sheet.notes_add" placeholder="Add"></textarea>
         </label>
+        <p class="sessrow__note hidden" id="sessionBodyweightNote"></p>
       </div>
-    </div>
-    <div class="sheetfoot session-sheet__early-section" id="sessionEarlySection">
-      <button type="button" class="session-early-btn" id="sessionEarlyFinish" data-i18n="session.sheet.early_finish">Finish session early</button>
-      <div id="sessionEarlyPrompt" class="session-early-prompt hidden" aria-live="polite">
-        <p class="session-early-msg" id="sessionEarlyMsg" data-i18n="session.sheet.early_prompt">Unlogged sets will be omitted.</p>
-        <ul id="sessionEarlyOmissions"></ul>
-        <div class="session-early-actions">
-          <button type="button" class="session-early-confirm" id="sessionEarlyConfirm" data-i18n="session.sheet.early_confirm">Confirm early finish</button>
-          <button type="button" id="sessionEarlyCancel" data-i18n="dialog.cancel">Cancel</button>
+      <div class="session-sheet__endings session-sheet__early-section" id="sessionEarlySection">
+        <button type="button" class="session-early-btn" id="sessionEarlyFinish" data-i18n="session.sheet.early_finish">Finish session early</button>
+        <div id="sessionEarlyPrompt" class="session-early-prompt hidden" aria-live="polite">
+          <h4 class="session-early-title" data-i18n="session.sheet.early_title">Finish early?</h4>
+          <p class="session-early-msg" id="sessionEarlyMsg" data-i18n="session.sheet.early_prompt">Unlogged sets will be omitted.</p>
+          <ul id="sessionEarlyOmissions"></ul>
+          <div class="session-early-actions">
+            <button type="button" class="session-early-confirm" id="sessionEarlyConfirm" data-i18n="session.sheet.early_confirm">Confirm early finish</button>
+            <button type="button" id="sessionEarlyCancel" data-i18n="dialog.cancel">Cancel</button>
+          </div>
         </div>
-      </div>
-      <button type="button" class="session-abandon-btn" id="sessionAbandon" data-i18n="session.sheet.abandon">End without saving</button>
-      <div id="sessionAbandonPrompt" class="session-early-prompt session-abandon-prompt hidden" aria-live="polite">
-        <p class="session-early-msg" id="sessionAbandonMsg" data-i18n="session.sheet.abandon_prompt">Nothing from this session is saved. Logged sets are discarded and your program stays as it is.</p>
-        <p class="session-abandon__label" id="sessionAbandonReasonLabel" data-i18n="session.sheet.abandon_reason_label">Why? (optional)</p>
-        <div class="session-abandon__reasons" id="sessionAbandonReasons" role="group" aria-labelledby="sessionAbandonReasonLabel"></div>
-        <div class="session-early-actions">
-          <button type="button" class="session-abandon-confirm" id="sessionAbandonConfirm" data-i18n="session.sheet.abandon_confirm">End and discard</button>
-          <button type="button" id="sessionAbandonCancel" data-i18n="session.sheet.keep_training">Keep training</button>
+        <button type="button" class="session-abandon-btn" id="sessionAbandon" data-i18n="session.sheet.abandon">End without saving</button>
+        <div id="sessionAbandonPrompt" class="session-early-prompt session-abandon-prompt hidden" aria-live="polite">
+          <h4 class="session-early-title" data-i18n="session.sheet.abandon_title">End without saving?</h4>
+          <p class="session-early-msg" id="sessionAbandonMsg" data-i18n="session.sheet.abandon_prompt">Nothing from this session is saved. Logged sets are discarded and your program stays as it is.</p>
+          <p class="session-abandon__label" id="sessionAbandonReasonLabel" data-i18n="session.sheet.abandon_reason_label">Why? (optional)</p>
+          <div class="session-abandon__reasons" id="sessionAbandonReasons" role="group" aria-labelledby="sessionAbandonReasonLabel"></div>
+          <div class="session-early-actions">
+            <button type="button" class="session-abandon-confirm" id="sessionAbandonConfirm" data-i18n="session.sheet.abandon_confirm">End and discard</button>
+            <button type="button" id="sessionAbandonCancel" data-i18n="session.sheet.keep_training">Keep training</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1399,6 +1403,6 @@ Triceps pushdown 3x12-15</pre>
   <script src="durable-state.js?v=447"></script>
   <script src="progress-model.js?v=309"></script>
   <script src="history-ui.js?v=533"></script>
-  <script src="app.js?v=543"></script>
+  <script src="app.js?v=544"></script>
 </body>
 </html>

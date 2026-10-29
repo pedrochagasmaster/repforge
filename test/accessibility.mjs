@@ -2070,7 +2070,8 @@ async function runDimmedStateAccessibility(browser) {
     await page.locator("#exActionSkipBtn").click();
     await page.locator("#exActionsSheet").waitFor({state:"hidden"});
     await page.locator("#sessionSheetBtn").click();
-    const statusSelector=`[data-session-map-ex="${skippedId}"] .session-map__status`;
+    // The skipped state is a dashed mark and a word under the name (#522).
+    const statusSelector=`[data-session-map-ex="${skippedId}"] .session-map__note`;
     const copy=expected[lang];
     assert(await page.locator(statusSelector).textContent()===copy.skipped,
       `Session map exposes a real skipped status (${lang})`);
@@ -2335,15 +2336,18 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
       await page.waitForSelector("#workoutShell:not(.hidden)");
     }
     if (!await page.locator("#sessionSheet").isVisible()) await page.locator("#sessionSheetBtn").click();
+    // Session details as a hub (#522): the row's visible label is the word alone, and the field's accessible name
+    // carries the unit and the optional status.
     const info = await page.evaluate((expected) => {
       const lbl = document.querySelector("#sessionBodyweightLabel");
-      const span = lbl?.querySelector("span");
+      const span = lbl?.querySelector(".sessrow__label");
       const extras = [...(lbl?.childNodes || [])].filter((n) => n.nodeType === 3 && n.textContent.trim()).map((n) => n.textContent);
       const hits = (lbl?.textContent || "").match(/Bodyweight|Peso corporal/g) || [];
-      return { span: (span?.textContent || "").replace(/\s+/g, " ").trim(), extras, hits: hits.length, expected };
+      return { span: (span?.textContent || "").replace(/\s+/g, " ").trim(), name: document.querySelector("#sessionBodyweight")?.getAttribute("aria-label") || "",
+        extras, hits: hits.length, expected };
     }, expected);
     assert(
-      info.span === expected && info.extras.length === 0 && info.hits === 1,
+      info.name === expected && expected.startsWith(info.span) && info.span.length > 0 && info.extras.length === 0 && info.hits === 1,
       `bodyweight label is singular and translated (${lang}/${unit})`,
       JSON.stringify(info)
     );

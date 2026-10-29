@@ -1903,15 +1903,15 @@ export const APP_SCENARIOS = {
     await sleep(page, 400);
   },
   "workout/session": async page => { await focusMode(page); await page.click("#sessionSheetBtn"); await resetSheetScroll(page, ".session-sheet__body"); },
-  "workout/early-finish": async page => { await focusMode(page); await logCurrentSet(page); await page.click("#sessionSheetBtn"); await page.click("#sessionEarlyFinish"); await resetSheetScroll(page, ".session-sheet__body"); await resetSheetScroll(page, "#sessionEarlySection"); },
+  // #522: the confirmation opens at the end of the scroll, so the frame shows the scroll pinned to its end.
+  "workout/early-finish": async page => { await focusMode(page); await logCurrentSet(page); await page.click("#sessionSheetBtn"); await page.click("#sessionEarlyFinish"); await pinSheetScrollToEnd(page, ".session-sheet__body"); },
   "workout/abandon": async page => {
     await focusMode(page);
     await logCurrentSet(page);
     await page.click("#sessionSheetBtn");
     await page.click("#sessionAbandon");
     await page.locator('#sessionAbandonReasons [data-abandon-reason="time"]').click();
-    await resetSheetScroll(page, ".session-sheet__body");
-    await resetSheetScroll(page, "#sessionEarlySection");
+    await pinSheetScrollToEnd(page, ".session-sheet__body");
   },
   "workout/exercise-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click(); await resetSheetScroll(page, ".exactions-sheet__body"); },
   "workout/skipped-actions": async page => {

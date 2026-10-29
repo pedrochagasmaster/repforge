@@ -131,9 +131,10 @@ export const ORANGE_CATEGORIES = Object.freeze([
 export const ORANGE_ALLOWLIST = [
   // R3c: the current exercise's segment in Focus's exercise bar (the bar inside the segment button).
   { category: "current-exercise-segment", selector: "#woProgress .segbar__seg.is-current .segbar__bar" },
-  // UI kit batch 3 (the owner-approved #504 session-details mock, 2026-10-24): the session map marks the current lift by
-  // its count in the action ink beside a semibold name, the same marker as the current segment, in place of the 3px rail.
-  { category: "current-exercise-segment", selector: ".session-map__row.is-current .session-map__status" },
+  // Session details as a hub (#522, owner direction A, 2026-10-28): the map marks the current lift with the accent ring
+  // round a dot beside a semibold name and the word Now, the same marker as the current segment.
+  { category: "current-exercise-segment", selector: ".session-map__row.is-current .session-map__mark" },
+  { category: "current-exercise-segment", selector: ".session-map__row.is-current .session-map__mark", pseudo: "::after" },
   // R3c: Next exercise is a navigation, so its CTA keeps the arrow (the only arrow a Focus state can show).
   { category: "cta-arrow", selector: ".focus-shelf .btn--cta[data-fnext]", pseudo: "::after" },
   // R3c: the up verdict glyph beside the cue.

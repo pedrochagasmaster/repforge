@@ -747,7 +747,8 @@ async function nativeControls(browser) {
     for (const width of [375, 390]) {
       await page.setViewportSize({ width, height: 844 });
       const fit = await page.locator('#sessionDate').evaluate(input => {
-        const body = input.closest('.sheetfield').parentElement, box = body.getBoundingClientRect(), style = getComputedStyle(body);
+        // Session details as a hub (#522): the date is a value row in the sheet's body.
+        const body = input.closest('.session-sheet__body'), box = body.getBoundingClientRect(), style = getComputedStyle(body);
         return { right: input.getBoundingClientRect().right, limit: box.right - parseFloat(style.paddingRight), value: input.value };
       });
       assert(fit.right <= fit.limit + 0.5 && fit.value !== '', `at ${width}px the date field ends inside the sheet's content and holds the session's date`, JSON.stringify(fit));
