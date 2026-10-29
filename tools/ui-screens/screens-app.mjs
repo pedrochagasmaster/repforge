@@ -1616,6 +1616,17 @@ async function focusPerSideTarget(page) {
  * and then a real tap lands on it there (a tap, so the sheet's close takes a quiet focus, as on a phone).
  */
 async function clickWhy(page, selector) {
+  // Measure a settled card: the Focus window's scroll at rest and the card's finite motion finished, so nothing moves
+  // the link between the measure and the tap.
+  await page.evaluate(() => Promise.all(document.getAnimations()
+    .filter((animation) => animation.effect?.getTiming?.().iterations !== Infinity).map((animation) => animation.finished.catch(() => {}))));
+  await page.evaluate(() => { window.__catalogWhyRest = null; });
+  await page.waitForFunction(() => {
+    const context = document.querySelector("#workout .exercise--focus.is-current .fcard__context");
+    const at = context ? Math.round(context.scrollTop) : -1, seen = window.__catalogWhyRest ||= { at: null, still: 0 };
+    if (seen.at === at) seen.still++; else { seen.at = at; seen.still = 0; }
+    return seen.still >= 3;
+  }, undefined, { polling: "raf", timeout: 10000 });
   // The link may sit in Focus's own scroller, so the browser places it (whichever scroller holds it), centred first;
   // the first placement where nothing (a tall header at 200% text, the shelf) covers it is the same every run.
   const point = await page.evaluate((sel) => {
@@ -1631,6 +1642,18 @@ async function clickWhy(page, selector) {
   }, selector);
   if (!point) throw new Error(`no clear spot to tap ${selector}`);
   await page.mouse.click(point.x, point.y);
+  // A tap that opens nothing names what it hit, so a failure carries its own evidence.
+  const opened = await page.waitForSelector("#whySheet.is-open", { timeout: 15000 }).then(() => true, () => false);
+  if (!opened) {
+    const seen = await page.evaluate(({ sel, point }) => {
+      const hit = document.elementFromPoint(point.x, point.y), link = document.querySelector(sel);
+      const context = document.querySelector("#workout .exercise--focus.is-current .fcard__context");
+      return { point, hit: hit ? `${hit.tagName}.${hit.className}` : null, onLink: !!hit?.closest(sel),
+        link: link ? JSON.stringify(link.getBoundingClientRect()) : null, scrollTop: context?.scrollTop ?? null,
+        sheet: document.querySelector("#whySheet")?.className || null, lang: document.documentElement.lang };
+    }, { sel: selector, point });
+    throw new Error(`tapping ${selector} did not open the Why sheet: ${JSON.stringify(seen)}`);
+  }
 }
 
 async function whyPerSideAssumption(page) {
