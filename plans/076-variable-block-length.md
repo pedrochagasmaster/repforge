@@ -52,8 +52,20 @@ So the change is in generation and in one onboarding control. It doesn't reach t
     again." (PT: same key.) The sender re-shares from their installed program, which produces a 073.5 link.
   - Full-form links (Build, imported or edited programs), backups and installed programs are **not**
     affected. They carry the full definition and never regenerate.
+  - **A program generated before the release can be shared only as a file until its next block.** The owner
+    accepted this on 2026-10-29 (option A). The recipe form is used only when the current generator regenerates
+    the definition exactly. A 073.4 program no longer does, because its version stamps and generated IDs
+    differ. Its link falls back to the full form, which is too large (9–13 KB against the 2.3 KB cap). The
+    next block is generated under 073.5, and its links work again. The share sheet must say so honestly. In
+    that case it shows `program.share_setup_next_block` instead of the generic `program.share_setup_too_large`.
+    The draft copy below is **pending owner review**:
+    - EN: "Links for this program come back when you start your next block. For now, share it as a program file;
+      the other person opens Import and chooses the file."
+    - PT: "O link deste treino volta quando você começar o próximo bloco. Por enquanto, compartilhe como arquivo
+      de treino; a outra pessoa abre Importar e escolhe o arquivo."
   - **Release note** (EN/PT, owner copy review): "Program links shared before this update need to be shared
-    again. Your own program, history and backups are unchanged."
+    again, and a program you started before it can be shared as a file until your next block. Your own
+    program, history and backups are unchanged."
 
 ## 3. Changes, by owner module
 
