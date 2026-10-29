@@ -20,7 +20,7 @@ const TIER_VOCABULARY = new Set(["feedback", "packet", "candidate"]);
  */
 export const CI_SHARDS = 5;
 export const FULL_SHARDS = 12;
-export const UI_SYSTEM_SHARDS = 7;
+export const UI_SYSTEM_SHARDS = 8;
 /* The slowest measured cost of one UI-system render on ubuntu-latest: 6.42 s
  * across 42 green `--shard k/7` runs on 2026-10-29 (#456), rounded up.
  * test/ci.mjs holds every shard's states × this cost under 85% of its
@@ -279,7 +279,7 @@ export const FULL_SUITES = {
     s("test/telemetry-runtime.mjs", [], { seconds: 174 }),
     s("test/install-transfer-telemetry.mjs", [], { seconds: 4 }),
     ...shards(UI_SYSTEM_SHARDS).map((shard) =>
-      s("tools/check-ui-system.mjs", ["--shard", shard], { domains: RENDERED_DOMAINS, cost: "long", tier: "packet", timeoutMs: 900000, seconds: 783 })),
+      s("tools/check-ui-system.mjs", ["--shard", shard], { domains: RENDERED_DOMAINS, cost: "long", tier: "packet", timeoutMs: 900000, seconds: 680 })),
     ...shards(VISUAL_SHARDS).map((shard) =>
       s("tools/capture-ui-screens.mjs", ["--verify", "--shard", shard], { domains: RENDERED_DOMAINS, cost: "long", tier: "candidate", timeoutMs: 900000, seconds: 480 })),
   ],

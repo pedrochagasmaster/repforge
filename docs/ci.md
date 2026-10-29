@@ -268,9 +268,11 @@ device-pixel sampling negatives).
 
 Full lane: the two exhaustive catalog sweeps are split into shard commands.
 
-- `tools/check-ui-system.mjs --shard k/7` renders one stripe of the
+- `tools/check-ui-system.mjs --shard k/8` renders one stripe of the
   screen × theme × locale matrix and writes `ui-system-shard.json` beside its
-  evidence. The rule "every inventory selector rendered somewhere" needs the
+  evidence. `test/ci.mjs` keeps each stripe's renders × `UI_SYSTEM_STATE_SECONDS`
+  (the slowest measured per-state cost) under 85% of its timeout; when the
+  catalog outgrows that, raise `UI_SYSTEM_SHARDS` (#456). The rule "every inventory selector rendered somewhere" needs the
   union of all stripes, so the `ci-full` job downloads the shard artifacts and
   runs `node tools/ci-plan.mjs merge-ui-system-full .ci-results/full-shards`
   (browser-free, so the gate installs nothing).
