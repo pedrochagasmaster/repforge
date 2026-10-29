@@ -9734,9 +9734,11 @@ function syncFocusFloor(){
   const least=context?getComputedStyle(context):null;
   // The card's own floor: the shelf whole, under the context region at its least. With the keyboard up the other
   // floors stand down, and this one makes what sits above the deck (the skip bar) give way instead of the shelf.
-  const deck=tall(shelf)+(least?(parseFloat(least.paddingTop)||0)+(parseFloat(least.paddingBottom)||0):0);
+  // The band the region leaves for the rest tab's rise (#550) is part of its floor; it stands down with the keyboard up.
+  const rise=least?parseFloat(least.marginBottom)||0:0;
+  const deck=tall(shelf)+rise+(least?(parseFloat(least.paddingTop)||0)+(parseFloat(least.paddingBottom)||0):0);
   shell.style.setProperty("--focus-deck-floor",`${Math.ceil(deck)}px`);
-  let form=tall($("#woProgress"))+tall(shelf)+(least?Math.max(parseFloat(least.minHeight)||0,parseFloat(least.paddingTop)+parseFloat(least.paddingBottom)):0);
+  let form=tall($("#woProgress"))+tall(shelf)+rise+(least?Math.max(parseFloat(least.minHeight)||0,parseFloat(least.paddingTop)+parseFloat(least.paddingBottom)):0);
   for(const el of $("#workout")?.children||[])if(!el.matches(".deck"))form+=tall(el);
   shell.style.setProperty("--focus-form-floor",`${Math.ceil(form)}px`);
   shell.style.setProperty("--focus-floor",`${Math.ceil(form+tall(head))}px`);

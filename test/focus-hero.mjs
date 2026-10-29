@@ -160,10 +160,11 @@ function readCard() {
     underTab: (() => {
       if (!tab || !tab.getClientRects().length) return [];
       const t = tab.getBoundingClientRect();
+      // Only what the region draws counts: each element clipped to the region's box (it scrolls and clips its content).
+      const c = context.getBoundingClientRect();
       return [...context.querySelectorAll("*")].filter((el) => !el.childElementCount && el.getClientRects().length).filter((el) => {
-        const r = el.getBoundingClientRect();
-        const shown = r.bottom > context.getBoundingClientRect().top && r.top < context.getBoundingClientRect().bottom;
-        return shown && r.width > 0 && r.height > 0 && r.left < t.right && r.right > t.left && r.top < t.bottom && r.bottom > t.top;
+        const r = el.getBoundingClientRect(), top = Math.max(r.top, c.top), bottom = Math.min(r.bottom, c.bottom);
+        return bottom - top > 0.5 && r.width > 0 && r.left < t.right && r.right > t.left && top < t.bottom - 0.5 && bottom > t.top + 0.5;
       }).map((el) => el.textContent.trim().slice(0, 24) || el.className);
     })(),
     compact: card.classList.contains("is-hero-compact"),
