@@ -208,13 +208,22 @@ async function importTransfer(page, envelope) {
   }, { value: envelope, token, expiresAt: "2099-01-01T00:00:00.000Z", inboundKey: INBOUND_KEY });
 }
 
-async function readingTotals(page, sid) {
+/** The session page's subtitle as it is seen and as it is spoken. */
+async function readingLede(page, sid) {
   await page.evaluate(() => window.closeFirstRun?.());
   await page.locator('nav button[data-view="history"]').click();
   await page.waitForSelector("#history.view.active");
   await page.locator(`#sessions [data-sess="${sid}"] .session__open`).click();
   await page.waitForSelector(`[data-reading="${sid}"] .histpage__totals`);
-  return page.locator(`[data-reading="${sid}"] .histpage__totals > div`).allInnerTexts();
+  return page.locator(".histpage__lede").evaluate((lede) => {
+    const text = (skip) => {
+      const copy = lede.cloneNode(true);
+      copy.querySelectorAll(skip).forEach((node) => node.remove());
+      return copy.textContent.replace(/\s+/g, " ").trim();
+    };
+    return { seen: text(".visually-hidden"), spoken: text('[aria-hidden="true"]'),
+      tiles: document.querySelectorAll(".histpage__totals > div").length };
+  });
 }
 
 async function reload(page) {
@@ -305,9 +314,9 @@ async function main() {
     state = await durable(older);
     check(sessionIds(state).includes(sid) && !Object.keys(state.sessionTiming || {}).length,
       "a session whose timing is missing or impossible reads unknown, and timing without a session is dropped", state.sessionTiming);
-    const unknownTotals = await readingTotals(older, sid);
-    check(unknownTotals.length > 0 && !unknownTotals.some((text) => /minute/i.test(text)),
-      "History shows no duration for it, not zero", unknownTotals);
+    const unknownLede = await readingLede(older, sid);
+    check(!/min|·|,\s*$/.test(unknownLede.seen) && !/minute/.test(unknownLede.spoken),
+      "History shows no duration for it, not zero, and no dangling separator", unknownLede);
 
     phase("A refused save leaves no timing behind");
     await source.clock.setFixedTime(new Date("2026-10-07T12:00:00.000Z"));
@@ -338,9 +347,10 @@ async function main() {
     await reload(source);
     // The refused save left its draft open; step out of it to reach History.
     await source.evaluate(() => window.__repforgeLeaveWorkout());
-    const knownTotals = await readingTotals(source, sid);
-    check(knownTotals.some((text) => /^42\s+minutes$/.test(text.replace(/\s+/g, " ").trim())),
-      "History reads the session's 42 minutes beside its totals", knownTotals);
+    const knownLede = await readingLede(source, sid);
+    check(/ · 42 min$/.test(knownLede.seen) && /, 42 minutes$/.test(knownLede.spoken) && !knownLede.seen.includes("minutes"),
+      "History's subtitle shows · 42 min and says 42 minutes", knownLede);
+    check(knownLede.tiles === 3, "the totals strip keeps its three tiles", knownLede);
     await source.locator(`[data-reading="${sid}"] [data-del="${sid}"]`).click();
     await source.locator(`[data-history-delete-confirm="${sid}"]`).click();
     await source.waitForFunction((id) => !window.__repforgeWorkoutDraft.state().log.some((row) => String(row.session) === id),

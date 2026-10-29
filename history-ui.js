@@ -678,24 +678,28 @@ function historyReadingView(s,rows){
       `<span class="histlift__tags">${record}${historyOutcomeMark(g,sid)}</span></div>`+
       (before?`<p class="histlift__before">${esc(before)}</p>`:"")+groupHeader+`<div class="histlift__sets">${setRows}</div></section>`}).join("");
   const total=(value,label)=>`<div><b>${esc(value)}</b><span>${esc(label)}</span></div>`;
-  // #515: the recorded wall-clock duration, inside the summary's own window;
-  // a session without one shows nothing rather than zero.
-  const seconds=state.sessionTiming?.[sid]?.durationSeconds,minutes=Number.isFinite(seconds)?Math.round(seconds/60):null;
   const totals=total(historyInt(setCount),setCount===1?t("plural.set.one"):t("plural.set.other"))+
     (hasStrengthProjection?total(historyInt(toDisplay(volume)),t("summary.stat.moved",{unit:unitLabel()}))+
-      total(historyInt(prLifts.size),t("stats.metric.prs")):"")+
-    (minutes>=1&&minutes<=480?total(historyInt(minutes),minutes===1?t("plural.minute.one"):t("plural.minute.other")):"");
+      total(historyInt(prLifts.size),t("stats.metric.prs")):"");
   return`<article class="session session--read histpage" data-reading="${esc(sid)}" data-sess="${esc(sid)}">`+
     `<div class="histpage__totals">${totals}</div>`+
     lifts+
     `<div class="histpage__actions"><button type="button" class="btn btn--steel" data-history-edit="${esc(sid)}"><span class="icon-mask icon-mask--pencil" aria-hidden="true"></span>${esc(t("history.session.edit"))}</button>`+
     `<button type="button" class="session__del" data-del="${esc(sid)}">${esc(t("history.session.delete"))}</button></div></article>`}
+/** #515: the session's recorded wall-clock minutes, inside the summary's own
+ *  window, as quiet metadata after the date. Unknown reads as nothing. */
+function historyDurationMeta(sid){
+  const seconds=state.sessionTiming?.[String(sid)]?.durationSeconds;
+  const minutes=Number.isFinite(seconds)?Math.round(seconds/60):null;
+  if(!(minutes>=1&&minutes<=480))return"";
+  return`<span aria-hidden="true"> · ${esc(t("today.live.minutes",{n:minutes}))}</span>`+
+    `<span class="visually-hidden">, ${esc(`${minutes} ${minutes===1?t("plural.minute.one"):t("plural.minute.other")}`)}</span>`}
 /** Back, the day's name as the page title, and the date with its block week. */
 function historySessionHead(record){
   const longDate=formatLongDate(String(record.date||"")),week=historyWeekOf(record.date);
   return`<div class="histpage__head"><button type="button" class="back-link" data-history-back><span class="chevron" aria-hidden="true"></span>${esc(t("history.title"))}</button>`+
     `<h2 class="page-title histpage__title" data-history-selection-heading tabindex="-1">${esc(dayLabel(record.day))}</h2>`+
-    `<p class="histpage__lede">${esc(week!=null?t("history.saved_week",{date:longDate,n:week}):longDate)}</p></div>`}
+    `<p class="histpage__lede">${esc(week!=null?t("history.saved_week",{date:longDate,n:week}):longDate)}${historyDurationMeta(record.session)}</p></div>`}
 function historyDeleteView(s){
   return '<article class="session session--delete" data-deleting="'+esc(s.session)+'" role="alert">'+
     '<div class="history-delete__icon" aria-hidden="true">!</div><h3 data-history-delete-status tabindex="-1">'+esc(t("history.delete_title"))+'</h3>'+
