@@ -101,9 +101,12 @@ assert.equal(SDK_VERSION, "1.400.0");
     _requestQueue: { clear: () => calls.push(["clear"]) },
   });
   adapter.capture("first_set_logged", { telemetry_schema_version: 1 });
+  const timestamp = new Date("2026-10-27T12:00:00.000Z");
+  adapter.capture("app_boot", {}, { timestamp });
+  assert.equal(calls[1][3].timestamp, timestamp, "buffered occurrence time reaches SDK transport options");
   adapter.setEnabled(false);
   adapter.setEnabled(true);
-  assert.deepEqual(calls.map(call => call[0]), ["capture", "stop", "out", "clear", "in", "start"]);
+  assert.deepEqual(calls.map(call => call[0]), ["capture", "capture", "stop", "out", "clear", "in", "start"]);
 }
 
 {
@@ -125,6 +128,7 @@ assert.equal(SDK_VERSION, "1.400.0");
 
 {
   const appended = [];
+  const boots = [];
   const status = {
     beforeSend: value => value,
     enabled: true,
@@ -139,7 +143,7 @@ assert.equal(SDK_VERSION, "1.400.0");
       releaseChannel: "preview",
       sdkVersion: SDK_VERSION,
     },
-    RepForgeTelemetry: { boot: () => status },
+    RepForgeTelemetry: { boot: options => { boots.push(options); return status; } },
     crypto: {},
     document: {
       createElement: () => ({}),
@@ -153,6 +157,9 @@ assert.equal(SDK_VERSION, "1.400.0");
   assert.equal(appended[0].src, `https://e.taurifer.com/static/${SDK_VERSION}/array.js`);
   assert.equal(appended[0].async, true);
   assert.equal(appended[0].crossOrigin, "anonymous");
+  assert.equal(boots.at(-1).sdkPending, true, "startup events wait only once the SDK load is in flight");
+  appended[0].onerror();
+  assert.equal(boots.at(-1).sdkPending, false, "a failed SDK load ends the startup wait");
 }
 
 assert.equal(start({ __POSTHOG_CONFIG__: {}, document: {} }), false);

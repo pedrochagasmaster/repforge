@@ -10,8 +10,8 @@
 
   function createAdapter(posthog) {
     return Object.freeze({
-      capture(eventName, properties) {
-        try { posthog.capture(eventName, properties); } catch {}
+      capture(eventName, properties, options) {
+        try { posthog.capture(eventName, properties, options); } catch {}
       },
       setEnabled(enabled) {
         try {
@@ -141,6 +141,10 @@
     const document = browser.document;
     if (!document?.createElement || !document.head?.appendChild) return true;
     let script;
+    const fail = () => {
+      runtimeByBrowser.set(browser, { state: "failed" });
+      try { telemetry.boot({ sdkPending: false }); } catch {}
+    };
     try {
       script = document.createElement("script");
       script.async = true;
@@ -155,13 +159,14 @@
           telemetry.boot({ adapter: createAdapter(posthog) });
           runtimeByBrowser.set(browser, { state: "loaded" });
         } catch {
-          runtimeByBrowser.set(browser, { state: "failed" });
+          fail();
         }
       };
-      script.onerror = function () { runtimeByBrowser.set(browser, { state: "failed" }); };
+      script.onerror = fail;
+      telemetry.boot({ sdkPending: true });
       document.head.appendChild(script);
     } catch {
-      runtimeByBrowser.set(browser, { state: "failed" });
+      fail();
     }
     return true;
   }

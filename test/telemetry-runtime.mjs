@@ -256,6 +256,37 @@ async function driveOnboarding(page, { experience = "6_to_24m", days = 4 } = {})
 const browser = await launchChromium();
 
 try {
+  phase("Delayed SDK attachment preserves eligible startup events, and opt-out clears them");
+  for (const optOut of [false, true]) {
+    const context = await browser.newContext();
+    // Startup events wait only while an SDK load is in flight: declare one, as
+    // posthog-init does before it appends the SDK script.
+    await context.addInitScript(() => {
+      let installed;
+      Object.defineProperty(window, "RepForgeTelemetry", {
+        configurable: true,
+        get: () => installed,
+        set(next) { installed = next; try { next.boot({ sdkPending: true }); } catch {} },
+      });
+    });
+    const page = await context.newPage();
+    await page.goto(BASE);
+    await waitForAppBoot(page, { base: BASE });
+    const events = await page.evaluate((optOut) => {
+      const telemetry = window.RepForgeTelemetry, sent = [];
+      if (optOut) { telemetry.setEnabled(false); telemetry.setEnabled(true); }
+      telemetry.boot({ adapter: { capture: (name, properties, options) => sent.push([name, properties, options]), setEnabled() {} } });
+      telemetry.boot({});
+      return sent;
+    }, optOut);
+    assert(countOf(events, "app_boot") === (optOut ? 0 : 1),
+      optOut ? "opting out erases queued boot events permanently" : "attaching after app boot delivers exactly one app_boot");
+    if (!optOut) {
+      assert(propsOf(events, "app_boot").first_run === true, "queued boot retains first-run classification");
+      assert(events.find(([name]) => name === "app_boot")?.[2]?.timestamp != null, "queued boot retains occurrence time as transport metadata");
+    }
+    await context.close();
+  }
   phase("Opening the app is not choosing a program route");
   {
     const { context, page } = await openApp(browser);

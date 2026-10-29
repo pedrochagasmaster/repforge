@@ -443,4 +443,83 @@ assert.equal(Telemetry.bucketDaysSince(undefined), null);
   assert.equal(disabled.sent.length, 0, "restored disabled consent suppresses the transfer event");
 }
 
-console.log("telemetry unit: schema, identity, opt-out, failure isolation, and buckets pass");
+
+
+// Fault injection at the shipped telemetry boundary: a blocked/delayed SDK
+// cannot be timed deterministically through a real remote ingestion endpoint.
+{
+  const storage = memoryStorage();
+  Telemetry.boot({ storage, adapter: null, sdkPending: true });
+  assert.equal(Telemetry.capture("app_boot", { first_run: true, language: "en", platform_class: "desktop" }), true, "startup is accepted before the SDK attaches");
+  assert.equal(Telemetry.capture("first_set_logged", { notes: "private" }), false);
+  const sent = [];
+  Telemetry.boot({ storage, adapter: { capture: (...event) => sent.push(event) } });
+  assert.deepEqual(sent.map(([name]) => name), ["app_boot"]);
+  assert.equal(sent[0][1].first_run, true);
+  assert.equal(sent[0][2].timestamp.toISOString(), FIXED_DATE.toISOString(), "flush retains occurrence time outside product properties");
+  Telemetry.boot({ storage });
+  assert.equal(sent.length, 1, "reattachment never repeats flushed events");
+}
+{
+  const storage = memoryStorage();
+  Telemetry.boot({ storage, adapter: null, sdkPending: true });
+  Telemetry.capture("app_boot", { first_run: true, language: "en", platform_class: "desktop" });
+  Telemetry.setEnabled(false);
+  assert.equal(Telemetry.capture("first_set_logged", {}), false);
+  Telemetry.setEnabled(true);
+  const sent = [];
+  Telemetry.boot({ storage, adapter: { capture: (...event) => sent.push(event) } });
+  assert.equal(sent.length, 0, "opt-out erases queued events, including after opting back in");
+}
+{
+  const storage = memoryStorage();
+  Telemetry.boot({ storage, adapter: null, sdkPending: true });
+  for (let i = 0; i < 64; i++) assert.equal(Telemetry.capture("first_set_logged", {}), true);
+  assert.equal(Telemetry.capture("first_set_logged", {}), false, "startup queue is bounded");
+  assert.equal(Object.keys(storage.snapshot()).some(key => /queue|pending/.test(key)), false, "events stay in memory");
+  const sent = [];
+  Telemetry.boot({ storage, adapter: { capture: (...event) => sent.push(event) } });
+  assert.equal(sent.length, 64);
+}
+
+{
+  const storage = memoryStorage();
+  Telemetry.boot({ storage, adapter: null, sdkPending: true });
+  Telemetry.capture("first_set_logged", {});
+  const sent = [];
+  Telemetry.boot({ storage: memoryStorage(), adapter: { capture: (...event) => sent.push(event) } });
+  assert.equal(sent.length, 0, "switching installation storage clears pending events");
+}
+{
+  const storage = memoryStorage();
+  Telemetry.boot({ storage, adapter: null, sdkPending: false });
+  assert.equal(Telemetry.capture("first_set_logged", {}), false, "without an SDK load in flight, capture fails closed");
+  Telemetry.boot({ sdkPending: true });
+  assert.equal(Telemetry.capture("first_set_logged", {}), true);
+  Telemetry.boot({ sdkPending: false });
+  assert.equal(Telemetry.capture("first_set_logged", {}), false, "a failed SDK load fails closed");
+  const sent = [];
+  Telemetry.boot({ storage, adapter: { capture: (...event) => sent.push(event) } });
+  assert.equal(sent.length, 0, "a failed SDK load discards events queued while it was loading");
+}
+
+
+
+{
+  const { status, sent } = boot();
+  Telemetry.capture("first_set_logged", {});
+  const config = require("../posthog-init.js").createConfig({ beforeSend: status.beforeSend, enabled: true,
+    host: "https://taurifer.example", installationId: status.installationId, safeLocation: status.safeLocation });
+  const timestamp = new Date("2026-08-27T01:00:00.000Z");
+  const properties = { ...sent[0][1], distinct_id: status.installationId };
+  const output = config.before_send({ event: "first_set_logged", properties, timestamp, privateField: "never sent" });
+  assert.ok(output.timestamp instanceof Date, "SDK batching requires a Date to calculate offset");
+  assert.equal(output.timestamp.getTime(), timestamp.getTime(), "final SDK before_send preserves occurrence time");
+  assert.notEqual(output.timestamp, timestamp, "timestamp is copied at the boundary");
+  const isoOutput = config.before_send({ event: "first_set_logged", properties, timestamp: timestamp.toISOString() });
+  assert.equal(isoOutput.timestamp.getTime(), timestamp.getTime());
+  assert.equal(output.privateField, undefined);
+  assert.equal(config.before_send({ event: "first_set_logged", properties, timestamp: "private text" }), null);
+}
+
+console.log("telemetry unit: schema, identity, consent-aware startup queue, failure isolation, and buckets pass");
