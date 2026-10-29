@@ -674,25 +674,26 @@ async function restMotion(browser, { reducedMotion = "no-preference" } = {}) {
   const reduced = reducedMotion === "reduce";
   const tag = reduced ? " under reduced motion" : "";
   const { context, page, errors } = await focusPage(browser, { reducedMotion, sets: 4 });
-  phase(`R1: the light and the ring drain continuously, by their dash, with no transition${tag}`);
+  phase(`R1: the light drains continuously, by its dash, with no transition, and the tab is words only${tag}`);
   await page.evaluate(() => window.startRest(90));
   await page.waitForSelector("#restTab");
   const drain = await page.evaluate(async () => {
     // The light along the contour (owner, 2026-10-28): its reach is the dash on the mask's halves.
-    const half = document.querySelector(".restlight__half"), arc = document.querySelector("#restTab .restring__arc");
+    const half = document.querySelector(".restlight__half"), ring = document.querySelector("#restTab .restring, #restTab svg");
     const frames = [];
     const t0 = performance.now();
     while (performance.now() - t0 < 600) {
       await new Promise((r) => requestAnimationFrame(r));
-      frames.push({ reach: half.style.strokeDasharray, arc: arc.style.strokeDasharray });
+      frames.push({ reach: half.style.strokeDasharray });
     }
     const cs = getComputedStyle(half);
-    return { frames: frames.length, distinct: new Set(frames.map((f) => f.reach)).size, arcs: new Set(frames.map((f) => f.arc)).size,
+    return { frames: frames.length, distinct: new Set(frames.map((f) => f.reach)).size, ring: !!ring,
       transition: cs.transitionDuration };
   });
+  assert(!drain.ring, "the rest tab draws no ring: it is words only (owner, 2026-10-29)", JSON.stringify(drain));
   if (reduced) assert(drain.distinct <= 4 && drain.transition === "0s", "under reduced motion the light steps with the clock's ticks, with no frame loop", JSON.stringify(drain));
-  else assert(drain.distinct >= Math.min(10, drain.frames - 2) && drain.arcs > 5 && drain.transition === "0s",
-    "the light and the ring change on almost every frame, by their dash, with no transition", JSON.stringify(drain));
+  else assert(drain.distinct >= Math.min(10, drain.frames - 2) && drain.transition === "0s",
+    "the light changes on almost every frame, by its dash, with no transition", JSON.stringify(drain));
 
   phase(`R1: the second rolls quietly${tag}`);
   const roll = await page.evaluate(async () => {

@@ -93,7 +93,7 @@ const read = (page) => page.evaluate(() => {
     chip: !!document.querySelector("#woRest"),
     tab: shown(tab), done: !!tab?.classList.contains("is-done"),
     label: tab?.querySelector(".resttab__label")?.textContent || "", time: tab?.querySelector(".resttab__time")?.textContent || "",
-    arc: tab?.querySelector(".restring__arc")?.style.strokeDasharray || "",
+    ring: !!tab?.querySelector(".restring, svg, .icon-mask--check"),
     edge: document.querySelector(".restlight__half")?.style.strokeDasharray || "",
     restEnd: restEnd, left: restLeftMs(), paused: restPaused, length: restLength,
     sheet: !!document.querySelector("#restSheet.is-open"),
@@ -172,7 +172,7 @@ try {
     const a = await read(page);
     await page.waitForTimeout(100);
     const b = await read(page);
-    assert(a.arc && b.arc && a.arc !== b.arc && a.edge !== b.edge, "the tab's ring and the shelf's edge differ between two frames 100 ms apart", { a: [a.arc, a.edge], b: [b.arc, b.edge] });
+    assert(!a.ring && a.edge && b.edge && a.edge !== b.edge, "the tab is words only, and the shelf's edge differs between two frames 100 ms apart", { a: [a.ring, a.edge], b: [b.ring, b.edge] });
 
     phase("Every capability works from the sheet behind the tab");
     await page.locator("#restTab").click();
@@ -360,6 +360,95 @@ try {
     assert(errors.length === 0, "no page errors", errors.join(" | "));
     await context.close();
   }
+  phase("The tab is words only (owner, 2026-10-29): running, paused and done each say their state, and a press dims");
+  {
+    const { context, page, errors } = await focusPage(browser);
+    await logSet(page);
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    const look = () => page.evaluate(() => {
+      const tab = document.querySelector("#restTab"), label = tab.querySelector(".resttab__label"), time = tab.querySelector(".resttab__time");
+      const ink = (token) => { const i = document.createElement("i"); i.style.color = `var(${token})`; document.body.append(i); const c = getComputedStyle(i).color; i.remove(); return c; };
+      return { label: label.textContent, time: time.textContent, aria: tab.getAttribute("aria-label") || "",
+        labelColor: getComputedStyle(label).color, timeColor: getComputedStyle(time).color,
+        ink: ink("--color-ink"), secondary: ink("--color-ink-secondary"), accent: ink("--accent-deep"),
+        ring: !!tab.querySelector(".restring, svg, .icon-mask--check") };
+    });
+    const running = await look();
+    assert(running.label === "Rest" && /^\d:\d\d$/.test(running.time) && running.labelColor === running.ink && running.timeColor === running.ink && !running.ring,
+      "running: Rest and the countdown, in ink, with no ring", running);
+    await page.evaluate(() => { restPaused = Math.max(1000, restLeftMs()); syncRest(); });
+    const paused = await look();
+    assert(paused.label === "Paused" && /^\d:\d\d$/.test(paused.time) && paused.labelColor === paused.secondary && paused.timeColor === paused.secondary,
+      "paused: the word Paused and the held time, in secondary ink", paused);
+    assert(/paused/i.test(paused.aria), "the paused tab announces Paused", paused.aria);
+    await page.evaluate(() => { restEnd = Date.now() + restPaused; restPaused = null; window.__repforgeRest.expire(5); syncRest(); });
+    await page.waitForFunction(() => /^\+/.test(document.querySelector("#restTab .resttab__time")?.textContent || ""), undefined, { timeout: 5000 });
+    const done = await look();
+    assert(done.label === "Rest done" && /^\+\d:\d\d$/.test(done.time) && done.labelColor === done.accent && !done.ring,
+      "done: Rest done and the + count-up, in the deep accent, with no check", done);
+    // Each state differs from the others by at least two cues that are not colour: the word, and the clock's direction.
+    const word = new Set([running.label, paused.label, done.label]).size, up = [running, paused, done].map((x) => x.time.startsWith("+"));
+    assert(word === 3 && up.join() === "false,false,true" && running.label !== paused.label,
+      "the states are told apart by the word and by countdown against count-up, not by colour alone", { word, up });
+
+    phase("A rest that starts without a render still leaves its band: nothing in the context sits beside the tab");
+    const band = async () => page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => {
+      const card = document.querySelector("#workout .exercise--focus.is-current");
+      const c = card.querySelector(".fcard__context").getBoundingClientRect(), t = card.querySelector("#restTab").getBoundingClientRect();
+      done({ contextBottom: Math.round(c.bottom), tabTop: Math.round(t.top), rise: card.style.getPropertyValue("--rest-tab-rise") });
+    }))));
+    await page.evaluate(() => { stopRest(); startRest(90); });
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    const plain = await band();
+    assert(plain.contextBottom <= plain.tabTop + 1, "a started rest refits the band: the context region ends at the tab's top", plain);
+    await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; stopRest(); startRest(90); });
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    await page.waitForTimeout(300);
+    const large = await band();
+    assert(large.contextBottom <= large.tabTop + 1, "at 200% too, the context region ends at the tab's top", large);
+    await page.evaluate(() => { document.documentElement.style.fontSize = ""; });
+    await page.waitForTimeout(300);
+
+    phase("A press dims the words and paints no box");
+    await page.evaluate(() => { stopRest(); startRest(90); });
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    const box = await page.locator("#restTab").boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 3);
+    await page.mouse.down();
+    await page.waitForFunction(() => document.querySelector("#restTab")?.classList.contains("is-pressed"), undefined, { timeout: 2000 });
+    const pressed = await page.evaluate(() => {
+      const tab = document.querySelector("#restTab");
+      const painted = [tab, ...tab.querySelectorAll("*")].filter((el) => {
+        const c = getComputedStyle(el).backgroundColor;
+        return c && c !== "transparent" && !/rgba\(0, 0, 0, 0\)/.test(c) && !el.classList.contains("icon-mask");
+      }).map((el) => el.className);
+      return { painted, opacity: [...tab.children].map((el) => +getComputedStyle(el).opacity), tap: getComputedStyle(tab).webkitTapHighlightColor };
+    });
+    await page.mouse.up();
+    assert(!pressed.painted.length, "during a press nothing inside the tab paints a background", pressed);
+    assert(pressed.opacity.length && pressed.opacity.every((value) => value < 0.6), "the tab's words dim on press-down", pressed);
+    assert(/rgba\(0, 0, 0, 0\)|transparent/.test(pressed.tap), "no platform tap highlight on the tab", pressed.tap);
+    await page.waitForSelector("#restSheet.is-open", { timeout: 5000 });
+    await page.evaluate(() => closeRestSheet());
+
+    phase("The legacy pill is retired: a running rest never floats over Settings or a pushed page");
+    const floating = () => page.evaluate(() => ({
+      pill: !!document.querySelector("#restBar, .restbar"),
+      clocks: [...document.querySelectorAll("body *")].filter((el) => {
+        const st = getComputedStyle(el);
+        return st.position === "fixed" && el.getClientRects().length && /\b\d:\d\d\b/.test(el.textContent || "") && !el.closest("#miniBar") && el.checkVisibility?.();
+      }).map((el) => el.id || el.className).slice(0, 4),
+      mini: !document.querySelector("#miniBar")?.classList.contains("hidden"), restEnd,
+    }));
+    await page.evaluate(() => window.__repforgeShowSettings());
+    await page.waitForTimeout(400);
+    const settings = await floating();
+    assert(settings.restEnd > 0 && !settings.pill && !settings.clocks.length && !settings.mini,
+      "with a rest running, Settings shows no rest pill and no floating clock (and no mini bar)", settings);
+    assert(!errors.length, "no page errors in the text-only tab run", errors);
+    await context.close();
+  }
+
 } finally {
   await browser.close();
 }

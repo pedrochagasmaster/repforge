@@ -446,11 +446,9 @@ async function emptyDayJourney(page) {
 
   // The editor's Undo toast floats over the page above the pinned Apply band (its blocked reason included), and the
   // sheet's own scroller (#programEditorWrap, not the body: Plan 075 phase 2B moved #program off the normal flow)
-  // reserves room for the band. The legacy rest pill never shows over the editor (#519), so nothing reserves room for it.
+  // reserves room for the band. The legacy rest pill is retired (owner, 2026-10-29), so nothing reserves room for it.
   const stack = await page.evaluate((selector) => {
     const pill = document.querySelector("#restBar");
-    pill.classList.remove("hidden");
-    pill.hidden = false;
     const toast = document.createElement("div");
     toast.className = "review-toast";
     toast.textContent = "Removed.";
@@ -459,15 +457,14 @@ async function emptyDayJourney(page) {
     probe.style.cssText = "position:fixed;height:var(--editor-apply-reserve)";
     document.body.append(probe);
     const box = (element) => element.getBoundingClientRect();
-    const out = { pillShown: pill.getClientRects().length > 0, toast: box(toast).bottom,
+    const out = { pillShown: !!pill, toast: box(toast).bottom,
       bar: box(document.querySelector(`${selector} [data-role="apply-bar"]`)).top, band: probe.offsetHeight,
       reserve: parseFloat(getComputedStyle(document.querySelector("#programEditorWrap")).paddingBottom), viewport: innerHeight };
     probe.remove();
     toast.remove();
-    pill.classList.add("hidden");
     return out;
   }, EDITOR);
-  check(!stack.pillShown, "the legacy rest pill is not rendered over the editor, even when it is armed (#519)", stack);
+  check(!stack.pillShown, "the legacy rest pill no longer exists to show over the editor (#519, retired 2026-10-29)", stack);
   check(stack.toast <= stack.bar, "the Undo toast rides above the pinned Apply", stack);
   check(stack.reserve >= stack.viewport - stack.bar && Math.abs(stack.reserve - (stack.band + 16)) <= 1,
     "the sheet's own scroller reserves the Apply band and no dead space for a pill", stack);

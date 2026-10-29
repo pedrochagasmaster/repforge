@@ -4757,25 +4757,6 @@
       ]
     },
     {
-      "id": "restbar",
-      "selector": "#restBar",
-      "roles": {
-        "elevation": "persistent-action"
-      },
-      "variant": "rest-timer",
-      "facets": [],
-      "states": [
-        "default"
-      ],
-      "rationale": "A running rest countdown stays reachable outside the timer sheet.",
-      "owner": "plan-058",
-      "catalogStates": [
-        "today/rest-bar"
-      ],
-      "sourceOnly": true,
-      "sourceOnlyReason": "The pill is the fallback for a rest running with no session open. With a session open, the mini bar (other tabs) and the live card's tag (Today) carry the rest (owner addendum, 2026-10-23), so no canonical catalog state draws it; test/minibar.mjs proves it stays hidden there."
-    },
-    {
       "id": "resttab",
       "selector": "#restTab",
       "roles": {
@@ -12089,19 +12070,6 @@
       ]
     },
     {
-      "selector": ".restring__arc",
-      "role": "countdown status, not workflow progress",
-      "rationale": "The tab's ring is the running rest clock drawn as depletion: it measures time left in this rest, so assigning block, week, exercise-set or task would falsify its denominator. It is not a progress candidate selector.",
-      "owner": "rest-timer-redesign",
-      "catalogStates": [
-        "workout/rest-running",
-        "workout/logged-sets",
-        "workout/correction",
-        "workout/logged-sets-folded"
-      ],
-      "boundary": "required"
-    },
-    {
       "selector": ".restlight",
       "role": "countdown light, not workflow progress or elevation",
       "rationale": "The rest as light along the one contour of the shelf and its tab (owner, 2026-10-28): a hairline core and two blurred blooms painted behind the panel, so only what spills past the edge shows and none of it falls on the panel. It reaches from the clock as far as the rest has left, holds and greys while paused, and is a faint steady rim after the bell. It is ambience: the tab's ring and numbers carry the exact time, so it is no boundary the lifter must read, it measures no block, week, set or task, and it is not a progress candidate selector. The same SVG draws the shelf's surface, its one upward shadow and its hairline while the rest runs.",
@@ -12126,19 +12094,6 @@
       "boundary": "required"
     },
     {
-      "selector": ".restglow",
-      "role": "countdown glow, not elevation",
-      "rationale": "The soft light at the head of the rest's depletion (the tab's ring and the sheet's dial): a 2px point with an accent box-shadow that marks where the clock stands. It lifts no surface, never pulses, and is hidden when the rest is paused, done, idle or under reduced transparency.",
-      "owner": "rest-timer-redesign",
-      "catalogStates": [
-        "workout/rest-running",
-        "workout/logged-sets",
-        "workout/rest-sheet",
-        "workout/correction",
-        "workout/logged-sets-folded"
-      ]
-    },
-    {
       "selector": "#restTab",
       "role": "the shelf's continuation, not nested elevation",
       "rationale": "The rest tab rises out of the shelf's top edge as one contour with it (owner, 2026-10-28): the shelf's SVG surface draws the tab's raised part, with concave shoulder fillets, one upward shadow and one hairline, so the tab paints no box or shadow of its own and lifts no second layer inside the shelf.",
@@ -12150,6 +12105,15 @@
         "workout/rest-sheet",
         "workout/correction",
         "workout/logged-sets-folded"
+      ]
+    },
+    {
+      "selector": ".restglow",
+      "role": "countdown glow, not elevation",
+      "rationale": "The soft light at the head of the dial's depletion in the rest sheet: a point with an accent box-shadow that marks where the clock stands. It lifts no surface, never pulses, and is hidden when the rest is paused, done, idle or under reduced transparency. The tab over the shelf is words only (owner, 2026-10-29).",
+      "owner": "rest-timer-redesign",
+      "catalogStates": [
+        "workout/rest-sheet"
       ]
     },
     {

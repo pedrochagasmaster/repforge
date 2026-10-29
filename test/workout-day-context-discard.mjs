@@ -239,7 +239,7 @@ async function main() {
       await new Promise((resolve) => setTimeout(resolve, 600));
       return {
         running: restEnd > 0 || !!document.querySelector("#restTab"),
-        bar: !document.querySelector("#restBar")?.classList.contains("hidden"),
+        bar: !!document.querySelector("#restBar") || !document.querySelector("#miniBar")?.classList.contains("hidden") && /Rest/.test(document.querySelector("#miniBar")?.textContent || ""),
         said: (document.querySelector("#restAnnounce")?.textContent || "").trim(),
       };
     });

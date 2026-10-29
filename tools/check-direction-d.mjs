@@ -147,16 +147,13 @@ export const ORANGE_ALLOWLIST = [
   { category: "focus-hero-why", selector: ".fx-cue__evidence .fx-cue__why" },
   // R3b: Today's Start workout CTA keeps its arrow.
   { category: "cta-arrow", selector: ".btn--cta", pseudo: "::after" },
-  // The running rest's drain (rest timer redesign): the tab's ring and the dial's arc, the light along the shelf's
-  // contour (its core and blooms, owner 2026-10-28), and the soft glow at the ring's and the dial's leading ends.
-  { category: "timer-drain-bar", selector: ".restring__arc" },
+  // The running rest's drain (rest timer redesign): the dial's arc and the light along the shelf's contour (its core and
+  // blooms, owner 2026-10-28). The tab is words only (owner, 2026-10-29): its ring and glow are retired.
   { category: "timer-drain-bar", selector: ".restdial__arc" },
+  { category: "timer-drain-bar", selector: ".restglow" },
   { category: "timer-drain-bar", selector: ".restlight__core" },
   { category: "timer-drain-bar", selector: ".restlight__bloom" },
-  { category: "timer-drain-bar", selector: ".restglow" },
-  // The rest timer's own accent (owner-approved mock): the run-out ring, the "Rest done" words and time, the flick and End rest.
-  { category: "rest-timer", selector: ".restring.is-done svg" },
-  { category: "rest-timer", selector: ".restring.is-done .restring__track" },
+  // The rest timer's own accent (owner-approved mock): the dial's run-out ring, the "Rest done" words and time, the flick and End rest.
   { category: "rest-timer", selector: ".restdial.is-done .restdial__track" },
   { category: "rest-timer", selector: ".resttab.is-done .resttab__label" },
   { category: "rest-timer", selector: ".resttab.is-done .resttab__time" },
@@ -187,8 +184,8 @@ export const OVERFLOW_EXCEPTIONS = [
   // clamp's ellipsis can sit a pixel or two past the box. The heading's accessible name keeps the whole name.
   { id: "focus-header-name-clamp", selector: ".wo-head__name" },
 ];
-/** Where "Hold" as a label is banned: the rest surfaces. The rest timer redesign: the sheet, the tab and the pill. */
-export const TIMER_SCOPES = ["#restSheet", ".resttab", ".restbar"];
+/** Where "Hold" as a label is banned: the rest surfaces, the sheet and the tab (the floating pill is retired, 2026-10-29). */
+export const TIMER_SCOPES = ["#restSheet", ".resttab"];
 
 /** Data attributes a D surface emits so parity can tie a rendered word or figure to an exercise (see GAPS). */
 export const PARITY_ATTRIBUTES = Object.freeze({

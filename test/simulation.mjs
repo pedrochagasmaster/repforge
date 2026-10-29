@@ -830,10 +830,7 @@ async function saveSettingsAndFlush(page) {
 }
 
 async function stopRestIfRunning(page) {
-  await page.evaluate(() => {
-    const bar = document.querySelector("#restBar");
-    if (bar && !bar.classList.contains("hidden")) bar.click();
-  });
+  await page.evaluate(() => { if (restEnd) window.stopRest(); });
 }
 
 async function setWorkoutField(page, selector, value) {
@@ -3700,7 +3697,8 @@ async function main() {
       tab: !!tab && shelf.contains(tab),
       counting: /^\d+:\d\d$/.test(tab?.querySelector(".resttab__time")?.textContent?.trim() || ""),
       labelled: /\d+:\d\d/.test(tab?.getAttribute("aria-label") || ""),
-      floatingHidden: getComputedStyle(bar).display === "none",
+      // The floating pill is retired (owner, 2026-10-29): nothing floats over Focus.
+      floatingHidden: !bar,
       inCard: card.querySelectorAll(".ex__rest, .restinline, .restpad").length,
       header: document.querySelector(".wo-head").getBoundingClientRect().height,
       tapTarget: box ? Math.round(Math.min(box.width, box.height)) : 0,
@@ -6502,11 +6500,11 @@ async function main() {
   await fillValidCandidate();
   await stopRestIfRunning(page);
   await setWorkoutField(page, `[data-k="${valKey}_metric_2555c6f170d8805cafa6d16d3fdddbaa"]`, "");
-  const restHiddenBefore = await page.evaluate(() => document.querySelector("#restBar")?.classList.contains("hidden") !== false);
+  const restHiddenBefore = await page.evaluate(() => !restEnd);
   const doneBefore = (await draftSetState(page,valKey)).done;
   await clickSaveSet(page, valKey);
   await page.waitForTimeout(80);
-  const restHiddenAfter = await page.evaluate(() => document.querySelector("#restBar")?.classList.contains("hidden") !== false);
+  const restHiddenAfter = await page.evaluate(() => !restEnd);
   const doneAfter = (await draftSetState(page,valKey)).done;
   const draftForDone = await readDraft(page);
   const draftDone = draftForDone?.exerciseOrder.flatMap((id) =>

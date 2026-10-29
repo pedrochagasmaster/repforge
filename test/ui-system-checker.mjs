@@ -14,12 +14,15 @@ import { onboardingState, ONBOARDING_SCENARIOS } from "../tools/ui-screens/scree
 
 const manifest = loadManifest(), inventory = loadRoleInventory();
 assert.deepEqual(validateRoleInventory(inventory, manifest), [], "current manifest and semantic inventory agree");
-assert.deepEqual(requiredBoundaryExceptionRequests(inventory.exceptions, "workout/rest-running"), [
-  { selector: ".restring__arc", kind: "boundary" },
-], "required boundary exceptions enter rendered-role measurement for their owned catalog state");
-// The light along the shelf's contour is ambience (owner, 2026-10-28): the ring and the numbers carry the time.
+// The tab is words only (owner, 2026-10-29): "Rest", "Paused" or "Rest done" and the countdown or "+" count-up carry the
+// time, and the light along the shelf's contour is ambience (owner, 2026-10-28), so no tab state measures a boundary.
+assert.deepEqual(requiredBoundaryExceptionRequests(inventory.exceptions, "workout/rest-running"), [],
+  "the running tab measures no countdown boundary: its ring is retired and the light is ambience");
 assert.deepEqual(requiredBoundaryExceptionRequests(inventory.exceptions, "workout/rest-done"), [],
-  "the run-out state measures no countdown boundary: the ring is the filled check and the light is a faint rim");
+  "the run-out state measures no countdown boundary: the words say it and the light is a faint rim");
+assert.deepEqual(requiredBoundaryExceptionRequests(inventory.exceptions, "workout/rest-sheet"), [
+  { selector: ".restdial__arc", kind: "boundary" },
+], "the sheet's dial keeps its ring: a required boundary exception measured in its owned catalog state");
 assert.ok(inventory.exceptions.some((item) => item.selector === ".restlight" && !item.boundary && /ambience/.test(item.rationale)),
   "the rest light is a selector-exact decorative countdown exception");
 assert.equal(Object.keys(inventory.catalogStates).length, manifest.screens.length, "every live catalog state has an explicit owner");
@@ -354,7 +357,7 @@ assert.ok(!inventory.components.some((item) => /#woRest|restpad|restpreset|resti
     assert.ok(row && row.roles.control === control && !row.sourceOnly && JSON.stringify(row.catalogStates) === JSON.stringify(sheet),
       `${selector} is one selector-exact ${control} row rendered by the rest-sheet states`);
   }
-  for (const selector of [".restring__arc", ".restdial__arc"]) {
+  for (const selector of [".restdial__arc"]) {
     const arc = inventory.exceptions.find((item) => item.selector === selector);
     assert.ok(arc && arc.boundary === "required" && /falsify its denominator/.test(arc.rationale), `${selector} is a selector-exact countdown exception`);
   }
