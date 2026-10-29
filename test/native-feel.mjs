@@ -2263,6 +2263,26 @@ async function largeTextFocus(browser) {
       await opened.context.close();
     }
   }
+  // #541: a banner-bearing session (Day 2 raises "Possible fatigue") at 200% on the SE-class and canonical phones, in
+  // both languages. The banner gives way, scrolling inside itself, and the open set stays whole between it and the shelf.
+  phase("Focus at 200% text with a fatigue banner: the open set stays whole");
+  for (const lang of ["pt", "en"]) for (const phone of phones) {
+    const label = `fatigue banner ${lang} ${phone.width}×${phone.height}`;
+    const opened = await openCatalogState(browser, "today/ready", phone.width, lang, "text200", { height: phone.height, safe: phone.safe });
+    try {
+      await opened.page.evaluate(() => window.__repforgeEnterWorkout({ day: "Day 2" }));
+      await opened.page.waitForSelector("#workout .exercise.is-current .focus-shelf", { timeout: 15000 });
+      await opened.page.waitForTimeout(600);
+      const m = await opened.page.evaluate(measureLargeFocus);
+      const banner = await opened.page.evaluate(() => { const el = document.querySelector("#fatigue:not(.hidden)"); return el ? { height: el.getBoundingClientRect().height, scrolls: getComputedStyle(el).overflowY } : null; });
+      if (m.error) { assert(false, label, m.error); continue; }
+      assert(!!banner, `${label}: the session shows its fatigue banner`, JSON.stringify(banner));
+      assert(!!m.open && m.open.top >= m.context.top - 0.5 && m.open.bottom <= m.shelf.top + 0.5,
+        `${label}: the open set is whole between the banner and the shelf`, JSON.stringify({ open: m.open, context: m.context, shelf: m.shelf, banner }));
+    } finally {
+      await opened.context.close();
+    }
+  }
 }
 
 /** The dock as measured: its rows, height, label size and fit, and how opaque its material is. */
