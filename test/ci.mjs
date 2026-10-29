@@ -26,6 +26,14 @@ import { summarizeBenchmark } from "../tools/benchmark-tests.mjs";
  *  message channel, and a progress line written into it could split a frame ("Unable to deserialize cloned data"). */
 const quiet = () => {};
 
+
+test("an unknown lane is refused at the preview call; a known pure-Node lane still needs no preview (#462)", async () => {
+  await assert.rejects(() => maybeStartLocalPreview([{ lane: "visual" }]), /Unknown lane: visual/);
+  await assert.rejects(() => maybeStartLocalPreview([{ lane: "state" }, { lane: "visual" }]), /Unknown lane: visual/);
+  assert.equal(await maybeStartLocalPreview([{ lane: "fast" }]), null);
+  assert.equal(await maybeStartLocalPreview([{ lane: "service" }, { lane: "full-fast" }]), null);
+});
+
 test("paired benchmark reports complete scope and refuses missing, duplicate, or failed evidence", () => {
   const inventory = ["fast:a", "service:b", "entry:c", "visual:d"].map(id => ({ id, file: `${id}.mjs` }));
   const worker = (scope, ids) => ({ scope, base: "a".repeat(40), head: "b".repeat(40), seed: "147443",
