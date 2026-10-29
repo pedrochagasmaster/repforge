@@ -692,7 +692,8 @@ function historyDurationMeta(sid){
   const seconds=state.sessionTiming?.[String(sid)]?.durationSeconds;
   const minutes=Number.isFinite(seconds)?Math.round(seconds/60):null;
   if(!(minutes>=1&&minutes<=480))return"";
-  return`<span aria-hidden="true"> · ${esc(t("today.live.minutes",{n:minutes}))}</span>`+
+  // Non-breaking inside "· 52 min", so a wrapping subtitle moves it as one piece.
+  return`<span aria-hidden="true"> ${esc(`· ${t("today.live.minutes",{n:minutes})}`.replace(/ /g,"\u00a0"))}</span>`+
     `<span class="visually-hidden">, ${esc(`${minutes} ${minutes===1?t("plural.minute.one"):t("plural.minute.other")}`)}</span>`}
 /** Back, the day's name as the page title, and the date with its block week. */
 function historySessionHead(record){

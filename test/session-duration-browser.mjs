@@ -221,7 +221,7 @@ async function readingLede(page, sid) {
       copy.querySelectorAll(skip).forEach((node) => node.remove());
       return copy.textContent.replace(/\s+/g, " ").trim();
     };
-    return { seen: text(".visually-hidden"), spoken: text('[aria-hidden="true"]'),
+    return { seen: text(".visually-hidden"), spoken: text('[aria-hidden="true"]'), raw: lede.textContent,
       tiles: document.querySelectorAll(".histpage__totals > div").length };
   });
 }
@@ -350,6 +350,7 @@ async function main() {
     const knownLede = await readingLede(source, sid);
     check(/ · 42 min$/.test(knownLede.seen) && /, 42 minutes$/.test(knownLede.spoken) && !knownLede.seen.includes("minutes"),
       "History's subtitle shows · 42 min and says 42 minutes", knownLede);
+    check(knownLede.raw.includes("·\u00a042\u00a0min"), "the duration wraps as one piece, never between number and unit", knownLede);
     check(knownLede.tiles === 3, "the totals strip keeps its three tiles", knownLede);
     await source.locator(`[data-reading="${sid}"] [data-del="${sid}"]`).click();
     await source.locator(`[data-history-delete-confirm="${sid}"]`).click();
