@@ -583,6 +583,11 @@ async function historyBeginDelete(sid){
     desiredFingerprint:null,workingCopy:null,removedRowIndices:[],dirty:false,validation:null,
     operation:"delete",operationId:uid()});
   renderHistory();historyFocus($("[data-history-delete-status]"));return true}
+/** A deleted session takes its recorded duration with it (#515). */
+function withoutSessionTiming(snapshot,sid){
+  if(!snapshot.sessionTiming||!Object.prototype.hasOwnProperty.call(snapshot.sessionTiming,String(sid)))return;
+  const{[String(sid)]:_removed,...rest}=snapshot.sessionTiming;
+  if(Object.keys(rest).length)snapshot.sessionTiming=rest;else delete snapshot.sessionTiming}
 async function deleteSession(sid,{originalFingerprint=null,operationId=null}={}){
   const original=typeof originalFingerprint==="string"?originalFingerprint:"";
   const ownOperation=operationId||historySelection.operationId;
@@ -592,6 +597,7 @@ async function deleteSession(sid,{originalFingerprint=null,operationId=null}={})
     return result}
   const proposal=cloneSnapshot(getState());
   proposal.log=proposal.log.filter(row=>String(row?.session??"")!==String(sid));
+  withoutSessionTiming(proposal,sid);
   const preflight=({head})=>{
     if(!historyOperationCurrent(ownOperation,sid,"delete"))return historyCancelledCommit(head);
     const current=historySessionRows(head.log,sid),fingerprint=historySessionFingerprint(current);
@@ -601,6 +607,7 @@ async function deleteSession(sid,{originalFingerprint=null,operationId=null}={})
       code:"history_stale",revision:readRevision(head),localOk:false,idbOk:false}};
     const next=cloneSnapshot(head);
     next.log=next.log.filter(row=>String(row?.session??"")!==String(sid));
+    withoutSessionTiming(next,sid);
     return{proposal:next};
   };
   const result=await commitProposedState(proposal,{preflight});
@@ -679,12 +686,21 @@ function historyReadingView(s,rows){
     lifts+
     `<div class="histpage__actions"><button type="button" class="btn btn--steel" data-history-edit="${esc(sid)}"><span class="icon-mask icon-mask--pencil" aria-hidden="true"></span>${esc(t("history.session.edit"))}</button>`+
     `<button type="button" class="session__del" data-del="${esc(sid)}">${esc(t("history.session.delete"))}</button></div></article>`}
+/** #515: the session's recorded wall-clock minutes, inside the summary's own
+ *  window, as quiet metadata after the date. Unknown reads as nothing. */
+function historyDurationMeta(sid){
+  const seconds=state.sessionTiming?.[String(sid)]?.durationSeconds;
+  const minutes=Number.isFinite(seconds)?Math.round(seconds/60):null;
+  if(!(minutes>=1&&minutes<=480))return"";
+  // Non-breaking inside "· 52 min", so a wrapping subtitle moves it as one piece.
+  return`<span aria-hidden="true"> ${esc(`· ${t("today.live.minutes",{n:minutes})}`.replace(/ /g,"\u00a0"))}</span>`+
+    `<span class="visually-hidden">, ${esc(`${minutes} ${minutes===1?t("plural.minute.one"):t("plural.minute.other")}`)}</span>`}
 /** Back, the day's name as the page title, and the date with its block week. */
 function historySessionHead(record){
   const longDate=formatLongDate(String(record.date||"")),week=historyWeekOf(record.date);
   return`<div class="histpage__head"><button type="button" class="back-link" data-history-back><span class="chevron" aria-hidden="true"></span>${esc(t("history.title"))}</button>`+
     `<h2 class="page-title histpage__title" data-history-selection-heading tabindex="-1">${esc(dayLabel(record.day))}</h2>`+
-    `<p class="histpage__lede">${esc(week!=null?t("history.saved_week",{date:longDate,n:week}):longDate)}</p></div>`}
+    `<p class="histpage__lede">${esc(week!=null?t("history.saved_week",{date:longDate,n:week}):longDate)}${historyDurationMeta(record.session)}</p></div>`}
 function historyDeleteView(s){
   return '<article class="session session--delete" data-deleting="'+esc(s.session)+'" role="alert">'+
     '<div class="history-delete__icon" aria-hidden="true">!</div><h3 data-history-delete-status tabindex="-1">'+esc(t("history.delete_title"))+'</h3>'+
