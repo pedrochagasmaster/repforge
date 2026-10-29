@@ -9651,17 +9651,22 @@ const FOCUS_LEDGER_SPARE=4;
 /** Fold the oldest logged rows that do not fit above the shelf and the rest tab, and bring back the ones that do (#517).
  *  Measured from the rendered geometry, never a breakpoint. */
 function fitFocusLedger(card){
-  const context=card?.querySelector(".fcard__context"),rows=context?.querySelector(".ledger__rows");if(!rows)return;
+  const context=card?.querySelector(".fcard__context"),rows=context?.querySelector(".ledger__rows");if(!rows)return false;
   const more=context.querySelector(".ledger__more"),exId=rows.id.slice("ledger_".length);
   // The context ends above the rest tab's rise (the tab sits on the shelf's top edge and rises out of it).
   const tab=card.querySelector(".resttab"),shelf=card.querySelector(".focus-shelf");
   const rise=tab&&tab.offsetParent===shelf?Math.max(0,Math.ceil(-tab.offsetTop)):0;
+  // What this fit changes: a refit that changes nothing leaves the window where the lifter scrolled it.
+  const before=[card.style.getPropertyValue("--rest-tab-rise"),card.classList.contains("is-hero-compact"),
+    [...rows.querySelectorAll(":scope > [data-ldone]")].filter(row=>row.hidden).length].join();
+  const changed=()=>before!==[card.style.getPropertyValue("--rest-tab-rise"),card.classList.contains("is-hero-compact"),
+    [...rows.querySelectorAll(":scope > [data-ldone]")].filter(row=>row.hidden).length].join();
   if(card.style.getPropertyValue("--rest-tab-rise")!==`${rise}px`)card.style.setProperty("--rest-tab-rise",`${rise}px`);
   const open=rows.querySelector(".ledgerline--open"),hero=context.querySelector(".fx-cue__l1");
   // A finished exercise has no open set and no hero: its whole ledger shows, at the hero's own size.
-  if(!open||!hero){card.classList.remove("is-hero-compact");focusHeroCompact.delete(exId);return}
+  if(!open||!hero){card.classList.remove("is-hero-compact");focusHeroCompact.delete(exId);return changed()}
   // Open (by the lifter or for a correction), the table shows every row and the disclosure only closes it.
-  if(more?.getAttribute("aria-expanded")==="true")return;
+  if(more?.getAttribute("aria-expanded")==="true")return changed();
   const done=more?[...rows.querySelectorAll(":scope > [data-ldone]")]:[];
   // The hero, the evidence line and the open set come first: what lies from the top of the region (from the hero's first
   // line once it has stepped down) to the open set's foot must fit above the window's foot, the rest tab's rise when it
@@ -9689,14 +9694,17 @@ function fitFocusLedger(card){
   if(folded===done.length&&over()>0)compact(true);
   if(card.classList.contains("is-hero-compact"))fold(done.length);
   else while(folded>0){fold(folded-1);if(over()<=-FOCUS_LEDGER_SPARE)continue;fold(folded+1);break}
-  focusLedgerFolded.set(exId,folded)}
+  focusLedgerFolded.set(exId,folded);
+  return changed()}
 /** The window's foot moves without a render: the keyboard, the rest tab rising out of the shelf, a text-size change.
  *  Watching the context region and the shelf refits the table on the frame after, and so does the end of any motion
  *  in the card: a measurement taken while the rest tab was still rising read a foot it no longer has. */
 let focusFitWatch=null,focusFitFrame=0;
 function refitFocusSoon(){
   cancelAnimationFrame(focusFitFrame);
-  focusFitFrame=requestAnimationFrame(()=>{const card=focusCard();if(card){fitFocusLedger(card);sizeFocusCard(card)}})}
+  // Only a fit that folded or unfolded a row, stepped the hero or moved the rest tab's rise re-places the open set:
+  // otherwise the window stays where the lifter scrolled it.
+  focusFitFrame=requestAnimationFrame(()=>{const card=focusCard();if(card&&fitFocusLedger(card))sizeFocusCard(card)})}
 function watchFocusFit(){
   if(typeof ResizeObserver!=="function")return;
   if(!focusFitWatch){
