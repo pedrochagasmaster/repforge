@@ -1977,6 +1977,13 @@
       "variants": "demandingText"
     },
     {
+      "id": "logged-sets-folded",
+      "flow": "workout",
+      "label": "Logged sets, folded",
+      "scenario": "Two sets are logged and a save-retry banner shortens the window: the oldest logged set folds behind the disclosure that counts it (#517).",
+      "variants": "demandingText"
+    },
+    {
       "id": "draft-resume",
       "flow": "today",
       "label": "Resume saved draft",

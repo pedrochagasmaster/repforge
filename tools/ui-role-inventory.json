@@ -871,7 +871,12 @@
     "workout/logged-sets": {
       "owner": "focus-layout-d",
       "content": "flat",
-      "scenario": "Layout D: the logged sets' disclosure open over the Focus table while the rest runs; the logged row reads back and corrects from its place."
+      "scenario": "#517: two logged sets show in place above the open set while the rest runs, because they fit; a logged row reads back and corrects from its place."
+    },
+    "workout/logged-sets-folded": {
+      "owner": "focus-hero",
+      "content": "flat",
+      "scenario": "#517: a save-retry banner above the deck shortens the window, so the oldest logged set folds behind the disclosure, which counts exactly what it hides."
     },
     "today/draft-resume": {
       "owner": "plan-057",
@@ -1378,7 +1383,8 @@
       "catalogStates": [
         "workout/invalid-draft",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/logged-sets-folded"
       ]
     },
     {
@@ -1423,7 +1429,8 @@
       "owner": "plan-058",
       "catalogStates": [
         "workout/invalid-draft",
-        "workout/persist-retry"
+        "workout/persist-retry",
+        "workout/logged-sets-folded"
       ]
     },
     {
@@ -3685,7 +3692,8 @@
         "workout/rest-done",
         "workout/swap-alternates",
         "workout/swap-reason",
-        "workout/deload-week"
+        "workout/deload-week",
+        "workout/logged-sets-folded"
       ]
     },
     {
@@ -4788,7 +4796,8 @@
         "workout/rest-done",
         "workout/logged-sets",
         "workout/rest-sheet",
-        "workout/correction"
+        "workout/correction",
+        "workout/logged-sets-folded"
       ],
       "neverDisabledReason": "The tab exists only while a rest runs or has just run out, and it always opens the sheet."
     },
@@ -5546,7 +5555,8 @@
         "workout/rest-done",
         "workout/swap-alternates",
         "workout/swap-reason",
-        "workout/deload-week"
+        "workout/deload-week",
+        "workout/logged-sets-folded"
       ]
     },
     {
@@ -6430,7 +6440,8 @@
         "workout/rest-done",
         "workout/swap-alternates",
         "workout/swap-reason",
-        "workout/deload-week"
+        "workout/deload-week",
+        "workout/logged-sets-folded"
       ]
     },
     {
@@ -6475,7 +6486,8 @@
         "workout/rest-done",
         "workout/swap-alternates",
         "workout/swap-reason",
-        "workout/deload-week"
+        "workout/deload-week",
+        "workout/logged-sets-folded"
       ],
       "progressScopes": {
         "workout-exercise-order": "exercise-set"
@@ -6613,7 +6625,8 @@
         "program/progression-editor",
         "program/editor-alternates",
         "program/editor-suggest-loads",
-        "program/editor-day-name-refused"
+        "program/editor-day-name-refused",
+        "workout/logged-sets-folded"
       ]
     },
     {
@@ -6847,7 +6860,8 @@
         "workout/rest-done",
         "workout/swap-alternates",
         "workout/swap-reason",
-        "workout/deload-week"
+        "workout/deload-week",
+        "workout/logged-sets-folded"
       ],
       "neverDisabledReason": "The header draws the name only while the workout has an exercise to open, and opening it is always available."
     },
@@ -6873,7 +6887,8 @@
         "workout/correction",
         "workout/logged-sets",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/logged-sets-folded"
       ]
     },
     {
@@ -6901,7 +6916,8 @@
         "workout/rest-done",
         "workout/swap-alternates",
         "workout/swap-reason",
-        "workout/deload-week"
+        "workout/deload-week",
+        "workout/logged-sets-folded"
       ]
     },
     {
@@ -7681,7 +7697,8 @@
         "workout/rest-done",
         "workout/swap-alternates",
         "workout/deload-week",
-        "workout/rest-running"
+        "workout/rest-running",
+        "workout/logged-sets-folded"
       ]
     },
     {
@@ -7734,7 +7751,8 @@
         "workout/rest-done",
         "workout/swap-alternates",
         "workout/swap-reason",
-        "workout/deload-week"
+        "workout/deload-week",
+        "workout/logged-sets-folded"
       ]
     },
     {
@@ -7766,7 +7784,8 @@
         "workout/rest-done",
         "workout/swap-alternates",
         "workout/swap-reason",
-        "workout/deload-week"
+        "workout/deload-week",
+        "workout/logged-sets-folded"
       ]
     },
     {
@@ -7788,7 +7807,8 @@
       "owner": "plan-064/r3c",
       "catalogStates": [
         "workout/correction",
-        "workout/logged-sets"
+        "workout/logged-sets",
+        "workout/logged-sets-folded"
       ]
     },
     {
@@ -8292,7 +8312,8 @@
         "today/in-progress",
         "progress/minibar",
         "program/minibar-rest-done",
-        "workout/logged-sets"
+        "workout/logged-sets",
+        "workout/logged-sets-folded"
       ]
     },
     {
@@ -8432,7 +8453,8 @@
         "history/edit-invalid",
         "workout/swap-alternates",
         "history/per-side-session",
-        "workout/deload-week"
+        "workout/deload-week",
+        "workout/logged-sets-folded"
       ]
     },
     {
@@ -8494,7 +8516,8 @@
         "workout/rest-done",
         "workout/swap-alternates",
         "workout/swap-reason",
-        "workout/deload-week"
+        "workout/deload-week",
+        "workout/logged-sets-folded"
       ]
     },
     {
@@ -8645,7 +8668,8 @@
         "history/edit-dirty",
         "history/edit-invalid",
         "workout/swap-alternates",
-        "workout/deload-week"
+        "workout/deload-week",
+        "workout/logged-sets-folded"
       ]
     },
     {
@@ -8683,7 +8707,8 @@
         "workout/rest-done",
         "workout/swap-alternates",
         "workout/swap-reason",
-        "workout/deload-week"
+        "workout/deload-week",
+        "workout/logged-sets-folded"
       ]
     },
     {
@@ -8714,7 +8739,8 @@
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
-        "workout/swap-alternates"
+        "workout/swap-alternates",
+        "workout/logged-sets-folded"
       ]
     },
     {
@@ -8746,7 +8772,8 @@
         "workout/rest-done",
         "workout/swap-alternates",
         "workout/swap-reason",
-        "workout/deload-week"
+        "workout/deload-week",
+        "workout/logged-sets-folded"
       ]
     },
     {
@@ -8778,7 +8805,8 @@
         "workout/rest-done",
         "workout/swap-alternates",
         "workout/swap-reason",
-        "workout/deload-week"
+        "workout/deload-week",
+        "workout/logged-sets-folded"
       ]
     },
     {
@@ -8811,7 +8839,8 @@
         "workout/rest-running",
         "workout/rest-done",
         "workout/swap-alternates",
-        "workout/swap-reason"
+        "workout/swap-reason",
+        "workout/logged-sets-folded"
       ]
     },
     {
@@ -11756,7 +11785,8 @@
         "workout/why-manual",
         "workout/why-setup",
         "workout/rest-running",
-        "workout/rest-done"
+        "workout/rest-done",
+        "workout/logged-sets-folded"
       ]
     },
     {
@@ -11945,7 +11975,8 @@
         "workout/rest-done",
         "workout/exercise-note",
         "workout/stale-draft",
-        "workout/persist-retry"
+        "workout/persist-retry",
+        "workout/logged-sets-folded"
       ]
     },
     {
@@ -11959,7 +11990,8 @@
         "workout/focus",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/logged-sets-folded"
       ]
     }
   ],
@@ -12064,7 +12096,8 @@
       "catalogStates": [
         "workout/rest-running",
         "workout/logged-sets",
-        "workout/correction"
+        "workout/correction",
+        "workout/logged-sets-folded"
       ],
       "boundary": "required"
     },
@@ -12077,7 +12110,8 @@
         "workout/rest-running",
         "workout/rest-done",
         "workout/logged-sets",
-        "workout/correction"
+        "workout/correction",
+        "workout/logged-sets-folded"
       ]
     },
     {
@@ -12100,7 +12134,8 @@
         "workout/rest-running",
         "workout/logged-sets",
         "workout/rest-sheet",
-        "workout/correction"
+        "workout/correction",
+        "workout/logged-sets-folded"
       ]
     },
     {
@@ -12113,7 +12148,8 @@
         "workout/rest-done",
         "workout/logged-sets",
         "workout/rest-sheet",
-        "workout/correction"
+        "workout/correction",
+        "workout/logged-sets-folded"
       ]
     },
     {
@@ -12132,7 +12168,8 @@
         "workout/rest-done",
         "workout/exercise-note",
         "workout/stale-draft",
-        "workout/persist-retry"
+        "workout/persist-retry",
+        "workout/logged-sets-folded"
       ],
       "cssLiterals": [
         {
@@ -12159,7 +12196,8 @@
         "workout/focus",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/logged-sets-folded"
       ],
       "sourceOnly": true,
       "sourceOnlyReason": "Focus and library glossary popovers have rendered states; the workout overflow menu remains on-demand."
@@ -12178,7 +12216,8 @@
         "workout/focus",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/logged-sets-folded"
       ],
       "sourceOnly": true,
       "sourceOnlyReason": "The effort explanation opens after tapping the current-set value; canonical Focus frames keep it closed."
@@ -12382,7 +12421,8 @@
         "workout/focus",
         "workout/focus-glossary",
         "workout/persist-retry",
-        "workout/stale-draft"
+        "workout/stale-draft",
+        "workout/logged-sets-folded"
       ]
     },
     {

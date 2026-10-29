@@ -290,6 +290,7 @@ const SQUAT_ALTERNATES = Object.freeze(["1a25c6f170d88079a926dde776766181", "1a2
 const D_FIXTURE_STATES = new Set([
   "workout/focus", "workout/focus-glossary", "workout/correction", // R3c
   "workout/logged-sets", // #517: the logged sets shown in place, the rest running
+  "workout/logged-sets-folded", // #517: a banner shortens the window and the oldest logged set folds
   "workout/deload-week", // Plan 072 S4: the deload cue in Focus
   "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions", // R3d
   "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", // R3d
@@ -2099,6 +2100,24 @@ export const APP_SCENARIOS = {
       const box = document.querySelector("#draftRecovery")?.getBoundingClientRect();
       return box && box.top >= 0 && box.bottom <= innerHeight;
     });
+    await sleep(page, 400);
+  },
+  // #517: a banner above the deck shortens the window, so the oldest logged set folds behind the disclosure that counts it.
+  "workout/logged-sets-folded": async (page) => {
+    await focusMode(page);
+    await logCurrentSet(page);
+    await logCurrentSet(page);
+    await page.evaluate(() => { window.__repforgeDraftFault = "before-canonical-write"; });
+    await fillAdaptiveShelf(page, ADAPTIVE_WEIGHT_METRIC_ID, "82.5");
+    await page.waitForFunction(() => window.__repforgeWorkoutDraft.recovery()?.kind === "persist");
+    await page.waitForFunction(() => {
+      const box = document.querySelector("#draftRecovery")?.getBoundingClientRect();
+      return box && box.top >= 0 && box.bottom <= innerHeight;
+    });
+    // At 390 the window is too short for the logged rows; a wider phone may still have room for them.
+    await page.waitForSelector("#workout .exercise.is-current .ledger__more:not([hidden])", { timeout: 5000 }).catch(() => {});
+    await page.evaluate(() => Promise.all(document.getAnimations().filter((animation) => animation.effect?.getTiming?.().iterations !== Infinity)
+      .map((animation) => animation.finished.catch(() => {}))));
     await sleep(page, 400);
   },
   "workout/invalid-draft": async (page) => {
