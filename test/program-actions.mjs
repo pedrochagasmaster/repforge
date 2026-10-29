@@ -335,6 +335,42 @@ try {
   await page.click("#reviewBlockLink");
   await page.waitForSelector('#stats.view.active #statsSeg button[data-seg="review"].active', { timeout: 5000 });
   check(await page.locator("#stats.view.active").count() === 1, "Review block routes through Progress Review", await page.locator("#stats.view.active").count());
+
+  // #526: the Started date field stays inside the Program gutters, aligned with Program name, at every phone width,
+  // at 200% text and in Portuguese, and no ancestor clips it. iOS gives a native date field an intrinsic width wider
+  // than the column, so it drops the native appearance as the Session details date field does.
+  console.log("Program Started field geometry (#526)");
+  await openProgram(page);
+  const started = [];
+  for (const lang of ["en", "pt"]) {
+    await page.evaluate(async (lang) => { document.querySelector("#lang").value = lang; settingsEditRevision++; await commitSettings(true); renderProgram(); }, lang);
+    for (const width of [320, 390, 430]) for (const scale of [1, 2]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.evaluate((scale) => { document.documentElement.style.fontSize = scale === 1 ? "" : `${scale * 100}%`; renderProgram(); }, scale);
+      started.push(await page.evaluate(({ lang, width, scale }) => {
+        const input = document.querySelector("#programStarted"), name = document.querySelector(".pmeta__name input");
+        input.scrollIntoView({ block: "center" });
+        const box = input.getBoundingClientRect(), gutter = name.getBoundingClientRect();
+        const clippedBy = [];
+        for (let el = input.parentElement; el && el !== document.documentElement; el = el.parentElement) {
+          const cs = getComputedStyle(el);
+          if (cs.overflowX === "visible") continue;
+          const r = el.getBoundingClientRect();
+          if (box.left < r.left - 0.5 || box.right > r.right + 0.5) clippedBy.push(el.id || el.className);
+        }
+        return { lang, width, scale, left: box.left, right: box.right, nameLeft: gutter.left, nameRight: gutter.right, vw: innerWidth,
+          appearance: getComputedStyle(input).appearance, value: input.value, clippedBy, docLang: document.documentElement.lang };
+      }, { lang, width, scale }));
+    }
+  }
+  await page.evaluate(async () => { document.documentElement.style.fontSize = ""; document.querySelector("#lang").value = "en"; settingsEditRevision++; await commitSettings(true); });
+  await page.setViewportSize({ width: 390, height: 844 });
+  const misplaced = started.filter((r) => Math.abs(r.left - r.nameLeft) > 0.5 || Math.abs(r.right - r.nameRight) > 0.5 || r.right > r.vw - 16 + 0.5 || r.clippedBy.length);
+  check(started.every((r) => r.docLang.startsWith(r.lang)), "the geometry runs in each language", started.map((r) => r.docLang));
+  check(started.length === 12 && misplaced.length === 0,
+    "the Started field sits wholly inside the gutters, aligned with Program name, unclipped, at 320/390/430, 100%/200% text, EN/PT", misplaced.length ? misplaced : started.slice(0, 2));
+  check(started.every((r) => r.appearance === "none" && /^\d{4}-\d{2}-\d{2}$/.test(r.value)),
+    "the Started field drops iOS's native date appearance and keeps its date", started.map((r) => `${r.appearance}:${r.value}`));
 } finally {
   await context.close();
   await browser.close();
