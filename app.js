@@ -9598,7 +9598,9 @@ function syncFocusFloor(){
   if(openSet)sizeFocusCard(card);
   if(typeof ResizeObserver!=="function")return;
   // Observing starts with a notification of its own, so the watch is only re-pointed when its elements changed.
-  const watched=[head,shelf,$("#woProgress")].filter(Boolean);
+  // The context region too (#541): a banner that appears above the deck (a draft recovery, say) shrinks it, and the
+  // open set has to be brought back into it.
+  const watched=[head,shelf,$("#woProgress"),context].filter(Boolean);
   if(focusFloorWatched.length===watched.length&&watched.every((el,i)=>el===focusFloorWatched[i]))return;
   focusFloorWatch??=new ResizeObserver(()=>syncFocusFloor());
   focusFloorWatch.disconnect();
