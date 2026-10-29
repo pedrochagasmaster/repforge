@@ -1,4 +1,4 @@
-const CACHE = "repforge-v548";
+const CACHE = "repforge-v549";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./motion-polish.css", "./manifest.webmanifest",
   { url: "./vendor/motion/motion.js", owner: "RepForgeMotion", required: false, immutable: true },
@@ -8,7 +8,7 @@ const ASSETS = [
   "./telemetry.js", "./unsupported-workout-grammar.js", { url: "./posthog-config.js", owner: "RepForgeTelemetry", required: false }, "./posthog-init.js", "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js", "./exercises.js?v=067", "./exercise-catalog.js?v=459", "./assets/exercise-catalog.json?v=067", "./exercise-metrics.js?v=485", "./install-transfer-contract.js", "./install-transfer.js",
   "./generation-identity.js", "./generation-identity.js?v=459", "./generation-candidates.js", "./generation-candidates.js?v=466", "./generation-layout.js", "./engine-policy.js", "./engine-policy.js?v=486", "./generation-layout.js?v=486",
   "./progression-engine.js", "./progress-model.js", "./progress-model.js?v=309", "./program-compiler.js", "./program-compiler.js?v=486", "./program-entry.js", "./program-entry.js?v=515", "./program-entry-adapter.js", "./program-entry-adapter.js?v=515", "./program-editor.js", "./program-editor.js?v=525", "./program-review.js", "./program-review.js?v=525",
-  "./shared-setup.js", "./shared-setup.js?v=461", "./workout-draft.js", "./workout-draft.js?v=466", "./program-transition.js", "./program-transition.js?v=469", "./program-engine.js?v=486", "./install-policy.js", "./install-policy.js?v=307", "./guide-registry.js", "./guide-registry.js?v=423", "./durable-state.js", "./durable-state.js?v=447", "./history-ui.js", "./history-ui.js?v=533", "./app.js", "./app.js?v=544",
+  "./shared-setup.js", "./shared-setup.js?v=461", "./workout-draft.js", "./workout-draft.js?v=466", "./program-transition.js", "./program-transition.js?v=469", "./program-engine.js?v=486", "./install-policy.js", "./install-policy.js?v=307", "./guide-registry.js", "./guide-registry.js?v=423", "./durable-state.js", "./durable-state.js?v=447", "./history-ui.js", "./history-ui.js?v=533", "./app.js", "./app.js?v=545",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
