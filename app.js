@@ -9580,6 +9580,11 @@ function syncFocusFloor(){
   syncTextScale(card);
   const tall=el=>el&&el.getClientRects().length?el.getBoundingClientRect().height:0;
   const context=card.querySelector(".fcard__context");
+  // At enlarged text the context region's floor is the open set itself (#541): the shelf comes first, then the set
+  // being logged, and the banners and guides above give way and scroll inside themselves before it is squeezed out.
+  const openSet=card.classList.contains("is-text-scaled")?context?.querySelector(".ledgerline--open"):null;
+  if(openSet)card.style.setProperty("--focus-context-floor",`${Math.ceil(tall(openSet))}px`);
+  else card.style.removeProperty("--focus-context-floor");
   const least=context?getComputedStyle(context):null;
   // The card's own floor: the shelf whole, under the context region at its least. With the keyboard up the other
   // floors stand down, and this one makes what sits above the deck (the skip bar) give way instead of the shelf.
@@ -9589,9 +9594,13 @@ function syncFocusFloor(){
   for(const el of $("#workout")?.children||[])if(!el.matches(".deck"))form+=tall(el);
   shell.style.setProperty("--focus-form-floor",`${Math.ceil(form)}px`);
   shell.style.setProperty("--focus-floor",`${Math.ceil(form+tall(head))}px`);
+  // The floor just gave the context region its height; bring the open set into it again against that height.
+  if(openSet)sizeFocusCard(card);
   if(typeof ResizeObserver!=="function")return;
   // Observing starts with a notification of its own, so the watch is only re-pointed when its elements changed.
-  const watched=[head,shelf,$("#woProgress")].filter(Boolean);
+  // The context region too (#541): a banner that appears above the deck (a draft recovery, say) shrinks it, and the
+  // open set has to be brought back into it.
+  const watched=[head,shelf,$("#woProgress"),context].filter(Boolean);
   if(focusFloorWatched.length===watched.length&&watched.every((el,i)=>el===focusFloorWatched[i]))return;
   focusFloorWatch??=new ResizeObserver(()=>syncFocusFloor());
   focusFloorWatch.disconnect();
@@ -9615,6 +9624,9 @@ function sizeFocusCard(card){
   const box=context.getBoundingClientRect(),row=open.getBoundingClientRect();
   // The rest tab rises out of the shelf over the window's foot; the row is in view only above it.
   const tab=card.querySelector(".resttab"),bottom=tab?Math.min(box.bottom,tab.getBoundingClientRect().top-4):box.bottom;
+  // At large text the region is only as tall as the open set (#541): a margin, or moving back to show a cut line whole,
+  // would push the set itself out, so it is aligned to the region's top whenever it is not wholly in view.
+  if(scaled){if(row.top<box.top||row.bottom>bottom)context.scrollTop=Math.max(0,context.scrollTop+row.top-box.top);return}
   if(row.bottom>bottom){
     // The window moves on past a line it would cut.
     context.scrollTop=wholeLineScroll(context,context.scrollTop+row.bottom-bottom+8,1)}
