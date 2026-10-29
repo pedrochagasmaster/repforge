@@ -3573,6 +3573,25 @@ function normalizeProgramHistory(history,lookup){
       normalized.archiveId=entry.archiveId.trim();
     }
     return normalized})}
+/* #515: a saved session's wall-clock time, from the draft's start to the
+   explicit finish, kept beside its rows under the session id. Only a whole,
+   consistent record is kept: anything else, like a session saved before this
+   existed, is unknown rather than a guess. */
+function sessionTimingRecord(startedAt,completedAt){
+  const start=Date.parse(startedAt),end=Date.parse(completedAt);
+  if(!Number.isFinite(start)||!Number.isFinite(end)||end<start)return null;
+  const iso=value=>new Date(value).toISOString();
+  if(iso(start)!==startedAt||iso(end)!==completedAt)return null;
+  return{startedAt,completedAt,durationSeconds:Math.round((end-start)/1000)}}
+function normalizeSessionTiming(value,log){
+  if(!value||typeof value!=="object"||Array.isArray(value))return null;
+  const sessions=new Set((log||[]).map(row=>String(row?.session??"")));
+  const out={};
+  for(const [sid,entry] of Object.entries(value)){
+    if(!sessions.has(sid)||!entry||typeof entry!=="object")continue;
+    const record=sessionTimingRecord(entry.startedAt,entry.completedAt);
+    if(record&&record.durationSeconds===entry.durationSeconds)out[sid]=record}
+  return Object.keys(out).length?out:null}
 function normalizeLoaded(s,options={}){
   if(s==null)return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program:[],log:[],programHistory:[],customExercises:[],[STORAGE_REV]:0};
   if(!isValidStateShape(s))throw new TypeError("Invalid Taurifer state");
@@ -3601,6 +3620,9 @@ function normalizeLoaded(s,options={}){
     const normalized=window.RepForgeProgramEntry?.normalizeProfile?.(s.profile);
     out.profile=normalized?.ok&&Object.keys(normalized.value).length
       ?normalized.value:cloneSnapshot(s.profile)}
+  if(Object.prototype.hasOwnProperty.call(s,"sessionTiming")){
+    const timing=normalizeSessionTiming(s.sessionTiming,out.log);
+    if(timing)out.sessionTiming=timing}
   if(Object.prototype.hasOwnProperty.call(s,"programmingContext")){
     const Entry=typeof window!=="undefined"?window.RepForgeProgramEntry:null;
     if(Entry){
@@ -3630,6 +3652,8 @@ async function mergeImportedLog(incoming,io=storageIO){
   if(!added)return{revision:readRevision(state),localOk:true,idbOk:true,added:0};
   const proposal=cloneSnapshot(state);
   proposal.log=proposal.log.concat(cloneSnapshot(add));
+  const addedTiming=normalizeSessionTiming(incoming.sessionTiming,add);
+  if(addedTiming)proposal.sessionTiming={...(proposal.sessionTiming||{}),...addedTiming};
   migrateLogSnapshot(proposal);
   const result=await commitProposedState(proposal,io);
   result.added=added;
@@ -5408,7 +5432,7 @@ async function runInstallTransferPreBootRequest(){
   }catch(error){return{ok:false,code:error?.message||"preboot-import-failed"}}}
 async function deleteTrainingLog(io=storageIO,{discardDraftRaw=readDraftRaw()}={}){
   const proposal=cloneSnapshot(state);
-  proposal.log=[];
+  proposal.log=[];delete proposal.sessionTiming;
   const effect=destructiveDraftClearEffect(discardDraftRaw);
   const result=await commitProposedState(proposal,io,{effect});
   if(result.localOk||result.idbOk){
@@ -10030,6 +10054,8 @@ function normalFinishIssues(draft){
       if(set?.completion==="pending")issues.push({code:"incomplete-workout",exerciseInstanceId:exerciseId,setId})}}
   return issues}
 async function finish(io,{expectedDraft=null,completion="normal"}={}){
+  // The finish is the lifter's action, not the write that follows it.
+  const finishedAt=new Date().toISOString();
   await drainDraftWork();
   if(expectedDraft&&(activeWorkoutDraft?.draftId!==expectedDraft.draftId||activeWorkoutDraft?.revision!==expectedDraft.revision)){
     return{result:{localOk:false,idbOk:false,reason:"stale-confirmation"}}}
@@ -10053,12 +10079,14 @@ async function finish(io,{expectedDraft=null,completion="normal"}={}){
   if(WorkoutDraft.isDomainError(finishing))return{result:{localOk:false,idbOk:false,validation:true,issues:finishing.issues||[]}};
   const issues=WorkoutDraft.validateForSave(finishing);
   if(issues.length)return{result:{localOk:false,idbOk:false,validation:true,issues}};
-  const created=new Date().toISOString(),rows=WorkoutDraft.toHistoryRows(finishing,created);
+  const created=finishedAt,rows=WorkoutDraft.toHistoryRows(finishing,created);
   if(WorkoutDraft.isDomainError(rows))return{result:{localOk:false,idbOk:false,validation:true,issues:rows.issues}};
   const session=capturedDraft.draftId,date=capturedDraft.program.scheduleDate,
     savedDay=capturedDraft.program.dayLabel,startedAt=Date.parse(capturedDraft.session.startedAt)||0,
     prevLog=state.log.slice(),rawDraft=capturedRaw,savedDraft=capturedDraft;
   const proposal=cloneSnapshot(state);proposal.log=proposal.log.concat(cloneSnapshot(rows));
+  const timing=sessionTimingRecord(capturedDraft.session.startedAt,created);
+  if(timing)proposal.sessionTiming={...(proposal.sessionTiming||{}),[session]:timing};
   // DraftV2 save owns an exact aggregate revision. A second tab that changes
   // that revision before the durable log transaction wins keeps the draft and
   // rejects these rows instead of letting an old finish consume newer work.

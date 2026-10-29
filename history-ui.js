@@ -583,6 +583,11 @@ async function historyBeginDelete(sid){
     desiredFingerprint:null,workingCopy:null,removedRowIndices:[],dirty:false,validation:null,
     operation:"delete",operationId:uid()});
   renderHistory();historyFocus($("[data-history-delete-status]"));return true}
+/** A deleted session takes its recorded duration with it (#515). */
+function withoutSessionTiming(snapshot,sid){
+  if(!snapshot.sessionTiming||!Object.prototype.hasOwnProperty.call(snapshot.sessionTiming,String(sid)))return;
+  const{[String(sid)]:_removed,...rest}=snapshot.sessionTiming;
+  if(Object.keys(rest).length)snapshot.sessionTiming=rest;else delete snapshot.sessionTiming}
 async function deleteSession(sid,{originalFingerprint=null,operationId=null}={}){
   const original=typeof originalFingerprint==="string"?originalFingerprint:"";
   const ownOperation=operationId||historySelection.operationId;
@@ -592,6 +597,7 @@ async function deleteSession(sid,{originalFingerprint=null,operationId=null}={})
     return result}
   const proposal=cloneSnapshot(getState());
   proposal.log=proposal.log.filter(row=>String(row?.session??"")!==String(sid));
+  withoutSessionTiming(proposal,sid);
   const preflight=({head})=>{
     if(!historyOperationCurrent(ownOperation,sid,"delete"))return historyCancelledCommit(head);
     const current=historySessionRows(head.log,sid),fingerprint=historySessionFingerprint(current);
@@ -601,6 +607,7 @@ async function deleteSession(sid,{originalFingerprint=null,operationId=null}={})
       code:"history_stale",revision:readRevision(head),localOk:false,idbOk:false}};
     const next=cloneSnapshot(head);
     next.log=next.log.filter(row=>String(row?.session??"")!==String(sid));
+    withoutSessionTiming(next,sid);
     return{proposal:next};
   };
   const result=await commitProposedState(proposal,{preflight});

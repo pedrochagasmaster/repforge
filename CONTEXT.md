@@ -56,6 +56,9 @@ _PT (user-facing)_: sessão.
 _Avoid_: Workout (acceptable in casual copy; session is the domain term); in Portuguese user-facing copy, "treino" for one workout
 _PT rule_: countable "treino" (um treino, cada treino, durante o treino) means one session, so write "sessão". "Seu treino" means the program; when the sense is recent activity, write "suas sessões" ("suas sessões recentes"). Mass-noun uses ("dia de treino", "bloco de treino", "histórico de treino") stay. Stored program names are data and are never rewritten.
 
+**Session duration**:
+Wall-clock time from the workout's start (the draft's `startedAt`) to the lifter's explicit finish, background and away time included. It is not active lifting time. Stored once per session in the durable state's `sessionTiming` record, keyed by session id, as `startedAt`, `completedAt` and `durationSeconds`, in the same write as the session's rows. It is never copied onto set rows. A session saved without a consistent record (older releases, a clock that ran backwards) has an unknown duration, never zero. Telemetry sends only the coarse `session_completed.duration` bucket.
+
 **Session outcome**:
 How one lift's session compares with its previous session of the same lift: improved (Melhorou), maintained (Manteve), declined (Regressou), or not enough evidence. It describes the logged sets only, never what the engine prescribed. "Same load" means the top load is within 0.01 kg; strength is the RIR-blind Epley e1RM of the best set.
 - First exposure, or any set in either session without RIR: not enough evidence.
