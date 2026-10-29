@@ -2173,7 +2173,7 @@ export const APP_SCENARIOS = {
     await page.waitForFunction(() => {
       const tag = document.querySelector('#todayLive [data-live="elapsed"]')?.textContent || "";
       return !document.body.classList.contains("is-focus-wo") && restEnd > 0
-        && /\d:\d\d$/.test(tag) && getComputedStyle(document.querySelector("#restBar")).display === "none"
+        && /\d:\d\d$/.test(tag) && !document.querySelector("#restBar")
         && !document.querySelector("#restSheet.is-open");
     }, undefined, { timeout: 20000 });
     await sleep(page, 400);

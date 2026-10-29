@@ -6546,24 +6546,17 @@ async function runRefreshSuggestions(exId){
   return result}
 function refreshSuggestions(exId){return trackDraftRefresh(()=>runRefreshSuggestions(exId))}
 function fmtClock(s){const sec=Math.max(0,Math.round(Number(s)||0));const m=Math.floor(sec/60);return `${m}:${String(sec%60).padStart(2,"0")}`}
-/** Rest reads in three places outside the sheet: the tab over the Focus shelf, the floating pill outside the workout
- *  when no session is open, and the mini bar or the live card's tag on the other tabs (paintSessionRest).
- *  `over` is seconds elapsed past the bell: the clock then counts up as "+m:ss", calmly, and is not a warning. */
-function paintRest(text,done,over=0){
+/** Rest reads in two places outside the sheet: the tab over the Focus shelf, and the mini bar or the live card's tag on
+ *  the other tabs (paintSessionRest). A rest only runs inside a session (a logged set or the workout's rest action
+ *  starts it, and every way out of the session stops it), so the floating pill that once stood in for a missing
+ *  session is retired (owner, 2026-10-29). */
+function paintRest(){
   paintRestSheet();
   syncRestTab();
   paintSessionRest();
-  const b=$("#restBar");
-  if(b){const el=b.querySelector(".restbar__time");if(el)el.textContent=text;
-    b.classList.toggle("is-done",!!done);
-    b.classList.toggle("is-over",over>0);
-    b.classList.toggle("is-paused",restPaused!=null)}
   paintRestVisuals()}
-/** Keep the floating pill out of Focus; the tab over the shelf follows the session. */
-function updateRestChrome(){
-  const bar=$("#restBar");
-  if(bar)bar.classList.toggle("is-shadowed",workoutActive);
-  syncRestTab()}
+/** The tab over the shelf follows the session. */
+function updateRestChrome(){syncRestTab()}
 
 /* ---- The rest tab, the shelf's edge and the dial (rest timer redesign, owner-approved mock 2026-10-23) ----
    While a rest runs, a tab rises out of the current Focus shelf's top edge: a ring, "Rest", the time and a chevron;
@@ -6624,20 +6617,21 @@ function restReach(share,c){
 const restLightDash=length=>`0 0 ${Math.max(0,length).toFixed(2)} 99999`;
 function restTabHtml(){
   return `<button type="button" class="resttab" id="restTab" aria-haspopup="dialog" aria-controls="restSheet">`+
-    `<span class="restring" aria-hidden="true"><svg viewBox="0 0 24 24"><circle class="restring__track" cx="12" cy="12" r="10"/>`+
-    `<circle class="restring__arc" cx="12" cy="12" r="10" pathLength="100"/></svg>`+
-    `<span class="restglow"></span><span class="restring__check icon-mask icon-mask--check"></span></span>`+
     `<span class="resttab__label"></span><span class="resttab__time"></span>`+
     `<span class="resttab__chev icon-mask icon-mask--chev-up" aria-hidden="true"></span></button>`+restLightSvg()}
 /** Put the tab and the edge on the shelf now in Focus, or take them away when there is no rest or no Focus. */
 function syncRestTab(){
   const shelf=workoutActive?focusCard()?.querySelector(".focus-shelf"):null;
-  $$("#restTab,.restlight").forEach(el=>{if(!shelf||!shelf.contains(el)||!restEnd)el.remove()});
+  // The context region leaves a band for the tab's rise (fitFocusLedger measures it): a tab that comes or goes refits it.
+  let moved=false;
+  $$("#restTab,.restlight").forEach(el=>{if(!shelf||!shelf.contains(el)||!restEnd){if(el.id==="restTab")moved=true;el.remove()}});
+  if(moved)refitFocusSoon();
   $$(".focus-shelf.has-rest").forEach(el=>{if(el!==shelf||!restEnd)el.classList.remove("has-rest")});
   if(!shelf||!restEnd){restContourObserver?.disconnect();restContourObserver=null;restContour=null;stopRestFrames();return}
   if(!shelf.querySelector("#restTab")){
     shelf.insertAdjacentHTML("afterbegin",restTabHtml());
     shelf.querySelector("#restTab").onclick=()=>openRestSheet();
+    refitFocusSoon();
     shelf.classList.add("has-rest");
     layoutRestContour();
     // The contour follows the shelf and the tab: a rotation, a text size, or "Rest" becoming "Rest done +0:05".
@@ -6652,7 +6646,8 @@ function syncRestTab(){
 function paintRestTab(){
   const tab=$("#restTab");if(!tab)return;
   const left=restTimeLeftSec(),done=!!restEnd&&left<=0,over=restOverSec();
-  const label=t(done?"rest.inline.done":"rest.inline.label");
+  // The state is in the words: "Rest", "Paused" or "Rest done", and a countdown or a "+" count-up (owner, 2026-10-29).
+  const label=t(done?"rest.inline.done":restPaused!=null?"rest.tab.paused":"rest.inline.label");
   const time=done?`+${fmtClock(Math.max(0,over))}`:fmtClock(Math.max(0,left));
   const labelEl=tab.querySelector(".resttab__label"),timeEl=tab.querySelector(".resttab__time");
   if(labelEl.textContent!==label)labelEl.textContent=label;
@@ -6669,14 +6664,12 @@ function restShare(){return restEnd?Math.max(0,Math.min(1,restLeftMs()/(1000*Mat
 function restHead(share,radiusPct){
   const angle=share*2*Math.PI;
   return{x:50+radiusPct*Math.sin(angle),y:50-radiusPct*Math.cos(angle)}}
-/** The ring, the edge, the dial and the pill as the clock stands, in one write each. */
+/** The edge and the dial as the clock stands, in one write each. */
 function paintRestVisuals(){
   const share=restShare(),done=!!restEnd&&restLeftMs()<=0;
-  const ringHead=restHead(share,41.67),dialHead=restHead(share,44.8);
+  const dialHead=restHead(share,44.8);
   const arc=(el,length)=>{if(el)el.style.strokeDasharray=`${(share*length).toFixed(2)} ${length}`};
   const glow=(el,head)=>{if(el){el.style.left=`${head.x.toFixed(2)}%`;el.style.top=`${head.y.toFixed(2)}%`}};
-  for(const ring of $$(".resttab .restring,.restbar .restring")){
-    arc(ring.querySelector(".restring__arc"),100);glow(ring.querySelector(".restglow"),ringHead)}
   // The light along the contour reaches from the clock as far as the rest has left; held, it keeps its length and
   // greys. Past the bell it is a faint steady rim the whole way round (the flick, seen live, plays over it).
   const c=restContour;
@@ -6687,8 +6680,7 @@ function paintRestVisuals(){
     c.lit.style.opacity=String(done?rim:1);
     c.svg.classList.toggle("is-paused",!done&&!!restEnd&&restPaused!=null)}
   const dial=$("#restDial");
-  if(dial){arc(dial.querySelector(".restdial__arc"),1000);glow(dial.querySelector(".restdial__glow"),dialHead);dial.classList.toggle("is-done",done);dial.classList.toggle("is-idle",!restEnd);dial.classList.toggle("is-paused",!!restEnd&&restPaused!=null)}
-  $$(".restring").forEach(ring=>ring.classList.toggle("is-done",done))}
+  if(dial){arc(dial.querySelector(".restdial__arc"),1000);glow(dial.querySelector(".restdial__glow"),dialHead);dial.classList.toggle("is-done",done);dial.classList.toggle("is-idle",!restEnd);dial.classList.toggle("is-paused",!!restEnd&&restPaused!=null)}}
 function stopRestFrames(){if(restFrameId)cancelAnimationFrame(restFrameId);restFrameId=0}
 /** The continuous depletion: a frame while time remains, the clock runs and the page is visible. */
 function startRestFrames(){
@@ -6726,7 +6718,7 @@ function playRestFlick(){
   restFlickCount++;
   window.RepForgeMotion?.flickRestLight?.(c.lit,c.halves,c.length)}
 function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;restPaused=null;restAnnounced=false;
-  $("#restBar")?.classList.add("hidden");paintRest("—",false);
+  paintRest();
   updateRestChrome();
   const ra=$("#restAnnounce");if(ra)ra.textContent="";
   if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest")}
@@ -6752,9 +6744,9 @@ function ringRest(){
   if(document.visibilityState==="visible")navigator.vibrate?.([200,100,200]);
   else RepForgeNotify.fireOS({title:t("notify.title"),body:t("notify.rest.body"),tag:"repforge-rest",url:"./"})}
 function tickRest(){const left=Math.round(restLeftMs()/1000);
-  if(left>0){paintRest(fmtClock(left),false);return}
+  if(left>0){paintRest();return}
   const over=Math.min(-left,REST_OVERTIME_MAX);
-  paintRest(over>0?`+${fmtClock(over)}`:"0:00",true,over);
+  paintRest();
   if(over>=REST_OVERTIME_MAX&&restTick){clearInterval(restTick);restTick=null}
   ringRest()}
 function armRestTick(){clearInterval(restTick);restTick=setInterval(tickRest,250)}
@@ -6762,16 +6754,13 @@ function armRestTick(){clearInterval(restTick);restTick=setInterval(tickRest,250
  *  the next tick — a held clock has no tick, and a nudged one should read the
  *  new number the moment the button is released. */
 function syncRest(){
-  if(!restEnd){paintRest("—",false);updateRestChrome();return}
-  const left=Math.round(restLeftMs()/1000);
-  if(left>0)paintRest(fmtClock(left),false);
-  else{const over=Math.min(-left,REST_OVERTIME_MAX);paintRest(over>0?`+${fmtClock(over)}`:"0:00",true,over)}
+  paintRest();
   updateRestChrome()}
 function startRest(sec){const s=sec||restPlanSec();if(s<=0)return;
   restLength=s;restPaused=null;restFlickArmed=true;restLastLeft=null;
   restEnd=Date.now()+s*1000;restNotified=false;restAnnounced=false;if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");
   const ra=$("#restAnnounce");if(ra)ra.textContent="";
-  $("#restBar")?.classList.remove("hidden");updateRestChrome();paintRest(fmtClock(s),false);
+  updateRestChrome();paintRest();
   announceRestStart(s);
   armRestTick()}
 /** The start of a rest is one line in the live region, like its end; the clock
@@ -22640,7 +22629,6 @@ function init(){
   $("#guideReplayToggle").onclick=()=>setDisclosure($("#guideReplayToggle"),$("#guideReplayPanel"),!$("#guideReplayPanel")?.classList.contains("is-open"));
   $$('[data-guide-replay]').forEach(button=>button.onclick=()=>replayContextualGuide(button.dataset.guideReplay));
   $("#installApp").onclick=()=>triggerInstall("manual-settings");
-  $("#restBar").onclick=openRestSheet;
   // The sheet's one primary control: Start with no rest, else Pause or Resume.
   const restHold=$("#restHold");if(restHold)restHold.onclick=()=>{if(!restEnd)startRest();else toggleRestHold()};
   const restClose=$("#restSheetClose");if(restClose)restClose.onclick=closeRestSheet;

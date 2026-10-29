@@ -367,7 +367,7 @@ try {
       <p id="seedEmDash">Done — nice work</p>
       <p id="seedNotCatalog">Quantum flux capacitor engaged</p>
       <div class="resttab"><span id="seedHold">Hold</span></div>
-      <div class="restbar"><span id="seedHoldPad" aria-label="Hold">Hold</span></div>
+      <div id="restSheet"><span id="seedHoldPad" aria-label="Hold">Hold</span></div>
       <p id="seedCatalogOk"></p><p id="seedDataOk"></p><p id="seedNumbersOk">3 × 7 · 102,5 kg</p>`;
     const prepared = async (markup, lang = "en", options = {}) => {
       const evidence = await seeded(page, markup, options);
@@ -379,9 +379,10 @@ try {
     check(has(strings, "banned", "#seedEmDash"), "an em dash is rejected", show(strings));
     check(has(strings, "not a catalog", "Quantum flux capacitor engaged"), "a rendered string that is not a catalog key is rejected", show(strings));
     check(has(strings, "banned", "Hold", "timer", "at #seedHold:"), "'Hold' as a timer label is rejected on the rest tab", show(strings));
-    check(has(strings, "banned", "Hold", "timer", "at #seedHoldPad:"), "'Hold' on the rest pill is rejected", show(strings));
-    check(TIMER_SCOPES.includes(".resttab") && TIMER_SCOPES.includes(".restbar") && TIMER_SCOPES.includes("#restSheet"),
-    "the timer scopes name the rest tab, the pill and the rest sheet (which holds the dial)", TIMER_SCOPES.join(", "));
+    check(has(strings, "banned", "Hold", "timer", "at #seedHoldPad:"), "'Hold' in the rest sheet is rejected", show(strings));
+    // The floating pill is retired (owner, 2026-10-29): a rest only runs inside a session, read on the tab or the sheet.
+    check(TIMER_SCOPES.length === 2 && TIMER_SCOPES.includes(".resttab") && TIMER_SCOPES.includes("#restSheet"),
+    "the timer scopes name the rest tab and the rest sheet (which holds the dial)", TIMER_SCOPES.join(", "));
     // Compliant control: a real catalog string, a data string and bare numbers.
     const okMarkup = await page.evaluate(() => {
       const t = window.RepForgeI18n.t;
