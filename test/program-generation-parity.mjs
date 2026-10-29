@@ -115,8 +115,9 @@ for (const invalidBudget of [-1, "50", null]) {
   invalidDefinition.provenance.generationBudgetMinutes = invalidBudget;
   assert.equal(Compiler.validateProgramDefinition(invalidDefinition, catalog).ok, false, "invalid generation budgets are refused at the definition boundary");
 }
-const outside = Compiler.generateProgram({ ...request, cycles: 8 }, catalog);
-assert.equal(outside.ok, false, "eight positions without a deload are outside the seven-normal-cycle domain");
+// Plan 076: eleven regular weeks are outside the four-to-ten domain.
+const outside = Compiler.generateProgram({ ...request, cycles: 11 }, catalog);
+assert.equal(outside.ok, false, "eleven regular weeks are outside the four-to-ten domain");
 assert.equal(outside.value, null);
 // Preserve this exact pure8D fixture and change only its explicit goal.
 // These expected primary UUIDs come from independently reviewed source-model
@@ -295,7 +296,7 @@ for(const fixture of strengthSourceFixtures){
   }
  }}
  assert.equal(new Set(identities).size,identities.length);
- for(const change of [{timeCeilingMinutes:30},{experience:'none'},{cycles:8},{deloadCycles:[7]}]){
+ for(const change of [{timeCeilingMinutes:30},{experience:'none'},{cycles:3},{cycles:11},{deloadCycles:[4]}]){
   const outside={...sourceRequest,...change};const denied=Compiler.generateProgram(outside,catalog);assert.equal(denied.ok,false);assert.equal(denied.value,null);
   assert.equal(Compiler.availableSplits(outside).includes('upper_lower_full'),false);
  }
@@ -333,7 +334,7 @@ for(const experience of ['beginner','intermediate']){
  assert.equal(Compiler.validateProgramDefinition(compiled.value,catalog).ok,true);
  assert.deepEqual(experienceSemantics(compiled.value),experienceSemantics(first.value),'experience changes metadata/namespace, not controlled assembly or seven target values');
  assert.notEqual(compiled.value.days[0].id,first.value.days[0].id,'experience participates in generation identity');
- for(const patch of [{timeCeilingMinutes:30},{daysPerWeek:4},{cycles:8},{deloadCycles:[7]}]){
+ for(const patch of [{timeCeilingMinutes:30},{daysPerWeek:4},{cycles:3},{cycles:11},{deloadCycles:[4]}]){
   const denied=Compiler.generateProgram({...input,...patch},catalog);assert.equal(denied.ok,false);assert.equal(denied.value,null);
  }
  const noEquipment={...input,gymProfile:{equipmentIds:[]}};

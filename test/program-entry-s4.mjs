@@ -472,7 +472,7 @@ try {
     deload: document.querySelector("#reviewSheet [data-review-block-deload]")?.getAttribute("aria-checked"),
   }));
   const expectedBlockTitle = await page.evaluate(() => window.RepForgeI18n.t("entry.review.block.sheet.title"));
-  const expectedSevenWeeks = await page.evaluate(() => window.RepForgeI18n.t("entry.review.block.regular_weeks", { n: 7 }));
+  const expectedSevenWeeks = await page.evaluate(() => window.RepForgeI18n.t("entry.review.block.weeks", { n: 7 }));
   assert.equal(initialBlockSheet.title, expectedBlockTitle, "the block sheet uses the approved title");
   assert.equal(initialBlockSheet.weeks, expectedSevenWeeks, "the block sheet defaults to seven weeks");
   assert.equal(initialBlockSheet.patternCount, 4, "all four approved rep patterns are available");
@@ -496,8 +496,8 @@ try {
 
   await page.locator("#entryReview [data-review-block-edit]").click();
   await page.locator("#reviewSheet.is-open [data-review-block-weeks]").waitFor({ state: "visible", timeout: 5000 });
-  assert.equal(await page.locator('#reviewSheet [data-review-block-step]').count(), 0,
-    "the recovered block keeps seven regular weeks without unsupported length controls");
+  assert.equal(await page.locator('#reviewSheet [data-review-block-step]').count(), 2,
+    "the recovered block offers its four-to-ten-week stepper (Plan 076)");
   await page.locator('#reviewSheet [data-review-block-pattern="undulating"]').click();
   await page.locator("#reviewSheet [data-review-block-apply]").click();
   await page.waitForFunction(() => document.querySelector("#entryDialog")?.open === true,

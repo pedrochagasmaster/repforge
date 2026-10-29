@@ -70,8 +70,9 @@ test('option20 source identities, typed targets and production cycle consumer pr
   const supported={...request,...patch};assert.equal(Compiler.generateProgram(supported,catalog).ok,true,'option20 composes with recovered experience, goal and periodization rules');
   assert.equal(Compiler.availableSplits(supported).includes('upper_lower_full'),true);
  }
- for(const patch of [{cycles:8},{deloadCycles:[7]}]){
-  const outside={...request,...patch};assert.equal(Compiler.generateProgram(outside,catalog).ok,false,'seven normal positions remain mandatory');
+ // Plan 076: four to ten regular weeks, at most one first or last lighter week.
+ for(const patch of [{cycles:3},{cycles:11},{deloadCycles:[4]}]){
+  const outside={...request,...patch};assert.equal(Compiler.generateProgram(outside,catalog).ok,false,'regular weeks stay inside four to ten with an edge-only lighter week');
   assert.equal(Compiler.availableSplits(outside).includes('upper_lower_full'),false);
  }
  const exhausted=Compiler.generateProgram({...request,gymProfile:{equipmentIds:[]}},catalog);
