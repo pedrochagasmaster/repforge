@@ -335,6 +335,46 @@ async function run() {
     await rmContext.close();
   }
 
+  phase("a reorder keeps the editor where it was (#516)");
+  {
+    // A short phone, so the editor's own scroller (#programEditorWrap) has somewhere to scroll.
+    const shortContext = await browser.newContext({ viewport: { width: 390, height: 480 }, serviceWorkers: "block" });
+    const sp = await shortContext.newPage();
+    const spErrors = [];
+    sp.on("pageerror", (error) => spErrors.push(String(error)));
+    await sp.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForAppBoot(sp, { base: BASE });
+    await writeFixture(sp);
+    await openEditor(sp);
+    await enterReorderMode(sp);
+    const scrollToEnd = () => sp.evaluate(() => { const s = document.querySelector("#programEditorWrap"); s.scrollTop = s.scrollHeight; return s.scrollTop; });
+    const where = (id) => sp.evaluate((sel) => {
+      const s = document.querySelector("#programEditorWrap"), row = document.querySelector(sel), box = s.getBoundingClientRect(), r = row?.getBoundingClientRect();
+      return { top: s.scrollTop, visible: !!r && r.top >= box.top - 1 && r.bottom <= box.bottom + 1 };
+    }, ROW(id));
+    const before = await scrollToEnd();
+    assert(before > 40, "the reorder list scrolls on a short phone", String(before));
+    await sp.locator('#programEditor [data-role="reorder-move"][data-id="seed-ex-3"][data-delta="-1"]').click();
+    await settled(sp);
+    await sp.waitForTimeout(250);
+    const afterArrow = await where("seed-ex-3");
+    assert(Math.abs(afterArrow.top - before) <= 2 && afterArrow.visible, "Move up keeps the scroll position, and the moved row stays in view",
+      JSON.stringify({ before, after: afterArrow }));
+    await sp.locator('#programEditor [data-role="reorder-move"][data-id="seed-ex-3"][data-delta="-1"]').click();
+    await settled(sp);
+    await sp.waitForTimeout(250);
+    const again = await where("seed-ex-3");
+    assert(Math.abs(again.top - before) <= 2, "a second move in a row keeps it too", JSON.stringify({ before, after: again }));
+    const beforeDrag = await scrollToEnd();
+    const target = await sp.locator(ROW("seed-ex-2")).boundingBox();
+    await dragHandle(sp, "seed-ex-1", Math.round(target.y + target.height * 0.8));
+    await sp.waitForTimeout(250);
+    const afterDrag = await sp.evaluate(() => document.querySelector("#programEditorWrap").scrollTop);
+    assert(Math.abs(afterDrag - beforeDrag) <= 2, "a drag-and-drop does not jump the editor back to its top", JSON.stringify({ beforeDrag, afterDrag }));
+    assert(spErrors.length === 0, "no page errors while reordering on a short phone", spErrors.join(" | "));
+    await shortContext.close();
+  }
+
   await browser.close();
   console.log(`\nprogram editor sorting: ${results.passed} passed, ${results.failed} failed`);
   process.exit(results.failed ? 1 : 0);
