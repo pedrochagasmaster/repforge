@@ -21401,10 +21401,13 @@ function landingChartRows(){
  *  are measured from the live app by tools/capture-landing-proof.mjs. */
 const LANDING_SCENES=["focus","rest","actions","note"];
 const LANDING_SPOTS={
-  focus:{cue:[50,27.54,91.79,6.59],log:[50,95.02,91.79,6.16],last:[50,43.93,91.79,11.98]},
+  focus:{cue:[50,28.46,91.79,8.31],log:[50,95.02,91.79,6.16],last:{en:[50,45.95,91.79,11.98],pt:[50,48.43,91.79,11.98]}},
   rest:{dial:[50,44.34,46.08,21.29]},
   actions:{swap:[50,52.38,91.79,6.16]},
   note:{text:[50,64.93,91.28,2.94]}};
+/** A spot for the page's language: shared where English and Portuguese agree, else stored for each (the Focus proof's
+ *  evidence line wraps to another line in Portuguese, #550). */
+const landingSpot=(scene,name)=>{const spot=LANDING_SPOTS[scene]?.[name];return Array.isArray(spot)?spot:spot?.[landingLang()]||null};
 /** How the lens reads each element: magnification, shape, padding (px at 390 wide)
  *  and, for a button read edge to edge, the app's corner radius. */
 const LANDING_READ={
@@ -21479,7 +21482,7 @@ function landingSceneAlt(scene,add){
 /** The read of one step as a crop: the spot grown by the lens padding (a share of
  *  a 390 by 844 screen), as the five numbers the static card's CSS needs. */
 function landingCropBox(scene,reads){
-  const name=reads[reads.length-1],spot=LANDING_SPOTS[scene]?.[name],read=LANDING_READ[name];
+  const name=reads[reads.length-1],spot=landingSpot(scene,name),read=LANDING_READ[name];
   if(!spot||!read)return null;
   const padW=2*read.pad/390*100,padH=2*read.pad/844*100;
   return{x:spot[0],y:spot[1],w:Math.min(100,spot[2]+padW),h:Math.min(100,spot[3]+padH)}}
@@ -21595,7 +21598,7 @@ function createLandingController(root){
     steps.forEach(step=>{step.classList.remove("is-current");step.removeAttribute("aria-current")});
     pin=null}
   function lensTo(name){
-    const read=LANDING_READ[name],spot=LANDING_SPOTS[read.scene][name];
+    const read=LANDING_READ[name],spot=landingSpot(read.scene,name);
     const img=pin.imgs[read.scene],phone=pin.phone,glass=pin.glass,lens=pin.lens;
     const pw=phone.clientWidth,gw=glass.clientWidth,gh=glass.clientHeight,gx=glass.offsetLeft,gy=glass.offsetTop;
     if(!pw||!gw||!gh)return;

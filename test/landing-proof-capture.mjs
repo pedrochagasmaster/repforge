@@ -35,7 +35,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   CHART_FIGURES, CHART_FRAME, CHART_LIFT, CHART_MIN_SCALE, CHART_TARGETS, CHART_THEMES, DEFAULT_SPOTS_FILE, LANGS, PASTE_TARGETS, PASTE_THEMES, PROOF_FRAME,
-  PROOF_SCENES, RETIRED_SELECTORS, SPOT_SCHEMA, SPOT_TARGETS, SPOT_TOLERANCE, chartFile, compareSpots, outputFiles, pasteFile,
+  PROOF_SCENES, RETIRED_SELECTORS, SPOT_SCHEMA, SPOT_TARGETS, SPOT_TOLERANCE, chartFile, compareSpots, mergeSceneSpots, outputFiles, pasteFile,
   pasteSample, sceneFile, webpSize,
 } from "../tools/capture-landing-proof.mjs";
 
@@ -101,6 +101,8 @@ const measured = {
   pasteReview: { en: { linked: 1, review: 3, custom: 0 }, pt: { linked: 0, review: 4, custom: 0 } },
 };
 const stored = () => JSON.parse(JSON.stringify({ schema: SPOT_SCHEMA, ...measured }));
+/** A spot's boxes: the one both languages share, or each language's where they differ. */
+const spotBoxes = (spot) => Array.isArray(spot) ? [spot] : [spot?.en, spot?.pt];
 
 check("compareSpots: identical and within tolerance is clean", () => {
   assert.deepEqual(compareSpots(stored(), measured), []);
@@ -128,6 +130,27 @@ check("compareSpots: drift, missing and stale values are reported by name", () =
   frame.frame.height = 900;
   assert.match(compareSpots(frame, measured).join("\n"), /frame\.height/);
   assert.match(compareSpots(null, measured).join("\n"), /missing/);
+});
+check("mergeSceneSpots: a spot is shared where EN and PT agree and per language only where they differ", () => {
+  const en = {cue: [50, 28.46, 91.79, 8.31], last: [50, 45.95, 91.79, 11.98]};
+  const pt = {cue: [50, 28.5, 91.79, 8.31], last: [50, 48.43, 91.79, 11.98]};
+  assert.deepEqual(mergeSceneSpots(en, pt), {cue: en.cue, last: {en: en.last, pt: pt.last}});
+});
+check("compareSpots: a per-language spot is checked in each language, and one both languages agree on must be shared", () => {
+  const live = {schema: SPOT_SCHEMA, frame: { ...PROOF_FRAME }, scenes: {focus: {cue: [50, 28.46, 91.79, 8.31], last: {en: [50, 45.95, 91.79, 11.98], pt: [50, 48.43, 91.79, 11.98]}}}, pasteReview: measured.pasteReview};
+  const kept = structuredClone(live);
+  assert.deepEqual(compareSpots(kept, live), []);
+  const drifted = structuredClone(live);
+  drifted.scenes.focus.last.pt[1] = 46;
+  assert.match(compareSpots(drifted, live).join("\n"), /focus\.last\.pt: stored/);
+  const wasShared = structuredClone(live);
+  wasShared.scenes.focus.last = [50, 45.95, 91.79, 11.98];
+  assert.match(compareSpots(wasShared, live).join("\n"), /focus\.last: stored \[50,45\.95,91\.79,11\.98\] but live \[50,48\.43/);
+  const needless = structuredClone(live);
+  needless.scenes.focus.cue = {en: [50, 28.46, 91.79, 8.31], pt: [50, 28.46, 91.79, 8.31]};
+  const sharedLive = structuredClone(live);
+  sharedLive.scenes.focus.cue = [50, 28.46, 91.79, 8.31];
+  assert.match(compareSpots(needless, sharedLive).join("\n"), /focus\.cue: stored per language but both languages agree/);
 });
 check("compareSpots: the empty placeholder fails with a regenerate hint", () => {
   const placeholder = { schema: SPOT_SCHEMA, frame: { ...PROOF_FRAME }, scenes: {}, pasteReview: {} };
@@ -157,7 +180,7 @@ check("committed landing-proof-spots.json is well formed (placeholder or generat
   assert.deepEqual({ ...committed.frame }, PROOF_FRAME);
   for (const [scene, spots] of Object.entries(committed.scenes)) {
     assert(PROOF_SCENES.some((item) => item.name === scene), `unknown scene ${scene}`);
-    for (const box of Object.values(spots)) assert(Array.isArray(box) && box.length === 4 && box.every(Number.isFinite));
+    for (const spot of Object.values(spots)) for (const box of spotBoxes(spot)) assert(Array.isArray(box) && box.length === 4 && box.every(Number.isFinite));
   }
 });
 
@@ -177,7 +200,7 @@ try {
     const spots = JSON.parse(readFileSync(join(proof, "landing-proof-spots.json"), "utf8"));
     assert.deepEqual(Object.keys(spots.scenes), ["focus"]);
     assert.deepEqual(Object.keys(spots.scenes.focus).sort(), ["cue", "last", "log"]);
-    for (const box of Object.values(spots.scenes.focus)) assert(box.length === 4 && box.every((value) => value >= 0 && value <= 100));
+    for (const spot of Object.values(spots.scenes.focus)) for (const box of spotBoxes(spot)) assert(box.length === 4 && box.every((value) => value >= 0 && value <= 100));
   });
 
   const spotsFile = join(proof, "landing-proof-spots.json");
