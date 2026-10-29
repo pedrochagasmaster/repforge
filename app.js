@@ -21644,6 +21644,8 @@ function paintLandingDemo(now){
   // the rest tab rises out of the shelf, and the light draws out from it along the edge
   const up=seg(D.restAt-.3,D.restAt+.45),lift=(1-Math.min(1.06,1-Math.exp(-7*up)*Math.cos(9*up)))*(D.rise+6);
   set(d.bump,"transform",`translateY(${f(lift)}px)`);set(d.tab,"transform",`translateY(${f(lift)}px)`);
+  // The tab's words sit in the shelf's own layer, so they fade in with the rise rather than hide behind it.
+  set(d.tab,"opacity",f(Math.min(1,up*2)));
   let reveal=0,glow=0,label=t("rest.inline.label"),time="2:00",done=false;
   const clock=s=>`${Math.floor(s/60)}:${String(Math.floor(s)%60).padStart(2,"0")}`;
   if(now>=D.restAt){
