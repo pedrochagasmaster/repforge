@@ -30,6 +30,9 @@ const FAKE_SDK = `(() => {
           $session_id: "session_browser_1234",
           $window_id: "window_browser_1234",
           $current_url: location.href,
+          // posthog-js 1.400.0 sets this in _calculate_event_properties from
+          // person_profiles ("never" gives false), before before_send runs.
+          $process_person_profile: this.__config.person_profiles !== "never",
         },
       });
       if (!envelope) return;
@@ -107,6 +110,7 @@ try {
         distinct_id: config.bootstrap.distinctID,
         $session_id: "session_browser_1234",
         $window_id: "window_browser_1234",
+        $process_person_profile: config.person_profiles !== "never",
       };
       const auto = config.before_send({
         event: "$autocapture",
@@ -175,6 +179,10 @@ try {
     const servedIndex = new URL("index.html", BASE);
     ok(replay?.properties?.$current_url === servedIndex.origin + servedIndex.pathname,
       "replay URL is reduced to the safe origin and pathname");
+    // #529: without the flag, ingestion processes a person for every event.
+    ok(envelopes.length > 0 && envelopes.every(envelope => envelope.properties?.$process_person_profile === false),
+      "every request tells ingestion not to process a person profile",
+      envelopes.map(envelope => [envelope.event, envelope.properties?.$process_person_profile]));
 
     const beforeOptOut = requests.length;
     await page.evaluate(() => window.RepForgeTelemetry.setEnabled(false));
