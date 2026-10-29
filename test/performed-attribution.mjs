@@ -115,7 +115,8 @@ async function main() {
 
     await page.evaluate(() => document.querySelector('nav button[data-view="log"]')?.click());
     await settle(page);
-    await page.evaluate(() => window.__repforgeEnterWorkout?.({}));
+    // The seeded history trains this day, so boot defaults to the next one (#528); the proof is about this slot's day.
+    await page.evaluate((day) => window.__repforgeEnterWorkout?.({ day }), slot.day);
     await page.waitForSelector("#workout .exercise", { timeout: 5000 });
     await settle(page, 150);
     const beforeSwap = await page.evaluate((id) => ({

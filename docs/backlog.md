@@ -56,6 +56,30 @@ separate teams or synchronized delivery dates.
 
 ## 1. Now — make the deterministic alpha credible
 
+### Owner triage sequence — 2026-10-28
+
+The owner authorized the October 27 issue-triage addressing order on October
+28. This is the active order within the pre-059 candidate work above; it does
+not release Plan 059 or evidence-gated infrastructure.
+
+| Order | Work and smallest observable success | Dependencies / status |
+|---:|---|---|
+| 1 | #304 installed Android launch, #528 next-workout default, #300 Focus keyboard acceptance; then #529 startup-event delivery, first-working-set milestone and live privacy verification. Launch reaches the shell, next-day reopening starts the next active-program session, and eligible early events reach ingestion with privacy controls verified. | Now. #304's implementation already merged in #305: its issue comment records only physical WebAPK acceptance remaining. Both #304 and #300 still require physical devices. #529 is an umbrella with bounded implementation slices, not one infrastructure project. |
+| 2 | #519 floating rest timer, #521 obscured shelf, #524 set-table readability, #525 audit navigation and #526 date-input clipping. Each control is readable/reachable and opens the promised destination. | Now, after the reliability slices; retain each issue's acceptance contract. |
+| 3 | Design #517 completed-set access, #518 first recommendation explanation and #523 cue hierarchy together, then implement bounded slices. Focus makes the next instruction and prior set accessible and explains the recommendation. | Now, after interaction defects; one coherent Focus design. |
+| 4 | Investigate #527 lossless recipe-plus-edits sharing before server-backed sharing; keep #515 durable session metadata separate. | Next; existing data/privacy contracts apply. #387 remains evidence for #527. |
+
+Run targeted acceptance for older closure candidates #314, #318, #323 and
+#456 alongside this sequence; close only with evidence. Review #487 against
+the current wheel test before retaining it. #315 remains owner-led content
+review; #425 remains release acceptance with transfer deliberately disabled;
+#458 requires a naming decision and does not authorize uniqueness validation.
+#411/#462 and #516/#520 remain bounded maintenance after the sequence above.
+
+This amendment replaces the triage report as an execution queue. GitHub labels
+remain metadata; this file continues to own ordering.
+
+
 | Work | Required outcome | Governing detail |
 |---|---|---|
 | Deliver the owner-approved UI overhaul | Execute Plans 049–059 in DAG order with owner gates honored: reconciled contracts, verified defect fixes, DraftV2/transition/transfer foundations, landing/entry, Focus-only workout, truthful Progress, converged management surfaces, system migration, and same-SHA launch validation. The [post-058 audit](ui-overhaul-plans-049-057-audit.md) closes A01 through PR #284 and keeps A02–A04 open for narrow stage-4 evidence and focus fixes before #255. It assigns N01/N02 to Direction D acceptance and closes A05 with Plan 058 typography proof. No governing current-tense document contradicts G-01–G-88. | [Plan 049](../plans/049-ui-overhaul-canonical-reconciliation.md), [sequence](ui-overhaul-implementation-sequence.md), [dispositions](ui-overhaul-disposition-register.md) |

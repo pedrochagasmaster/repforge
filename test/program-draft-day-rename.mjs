@@ -154,6 +154,15 @@ function fixture() {
   };
 }
 
+/** The absent-draft races need a stale tab still on Day 1. Boot opens on the day after the last one trained (#528), so
+ *  here the last session trained is Day 2's; its row names neither the renamed day nor the race's exercise. */
+function staleDayOneFixture() {
+  const state = fixture();
+  state.log = [...state.log, { ...state.log[0], session: "rename-day2-session", date: "2026-08-09", day: "Day 2",
+    name: "Rename draft row", exerciseId: OTHER_EXERCISE_ID, created: "2026-08-09T12:00:00.000Z" }];
+  return state;
+}
+
 function raceFixture() {
   const state = fixture();
   state._storageRevision = 40;
@@ -1088,7 +1097,7 @@ async function runAbsentDraftConflict(browser) {
   });
   try {
     const writer = await openApp(context);
-    await seedScenario(writer, null);
+    await seedScenario(writer, null, staleDayOneFixture());
     const staleWorkout = await openApp(context);
     const locker = await openApp(context);
     const before = await readRuntime(writer);
@@ -1143,7 +1152,7 @@ async function runBootAbsentDraftConflict(browser) {
   });
   try {
     const writer = await openApp(context);
-    await seedScenario(writer, null);
+    await seedScenario(writer, null, staleDayOneFixture());
     const staleWorkout = await openApp(context);
     const locker = await openApp(context);
     await openProgramEditor(writer);

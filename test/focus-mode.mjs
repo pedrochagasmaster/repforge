@@ -112,9 +112,12 @@ async function reload(page) {
   await settle(page);
 }
 
+/** Enter the program's first day: boot defaults to the day after the last one trained (#528), and a state here that
+ *  seeds last session's sets means the same day again, not the next one. */
 async function enterFocus(page, index = 0) {
   await page.evaluate(async (i) => {
-    await window.__repforgeEnterWorkout({});
+    const day = JSON.parse(localStorage.getItem("repforge_v1") || "{}").program?.[0]?.day;
+    await window.__repforgeEnterWorkout(day ? { day } : {});
     window.__repforgeFocus.to(i);
   }, index);
   await page.waitForSelector("#workout.is-focus .exercise.is-current", { state: "attached", timeout: 5000 });
