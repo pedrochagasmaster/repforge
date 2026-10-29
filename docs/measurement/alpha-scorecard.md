@@ -60,6 +60,11 @@ changes the path-selector denominator. `first_set_logged` is installation-once:
 it cannot measure every later session or every reactivation. Returning-installation
 activation to a saved set requires a separately labelled view.
 
+`first_set_logged` fires when the first working-set commit applies, including
+a commit applied by Retry after a failed write. Releases before the #529 fix
+sent it when the first workout was saved, so their time to first set is really
+time to first saved workout: report those releases separately, never pooled.
+
 The compiled first-value and repeat views are conservative new-installation
 subsets, not all-activation or lifetime-history metrics. Show excluded returning
 or incomplete-history installations separately; do not count them as failures

@@ -2856,9 +2856,9 @@ function paintDraftRetryPending(){
 function focusDraftRecovery(){
   const root=$("#draftRecovery");if(!root)return;
   root.scrollIntoView({block:"start"});root.focus({preventScroll:true})}
-function showDraftCommandRecovery(status,attempt,{pendingValue=null,focus=null,retryAction=null}={}){
+function showDraftCommandRecovery(status,attempt,{pendingValue=null,focus=null,retryAction=null,telemetry=null}={}){
   draftUiRecovery={kind:draftRecoveryMessageKind(status),status,attempt,pendingValue,
-    copyValue:pendingValue,copyKind:"value",focus,retry:status!=="stale",retryAction,discard:false};
+    copyValue:pendingValue,copyKind:"value",focus,retry:status!=="stale",retryAction,discard:false,telemetry};
   renderDraftRecovery();focusDraftRecovery()}
 function showDraftInitializationRecovery(result,{retryMode="initialize",label=day,contextTouched=null}={}){
   // migrateLegacy's specific reason (e.g. invalid-migrated-draft) is the
@@ -2885,6 +2885,7 @@ async function copyDraftRecoveryValue(){const value=draftUiRecovery?.copyValue;i
   toast(t("draft.recovery.copy_failed"),{assertive:true});return false}
 async function applyDraftRetryResult(result,recovery){
   if(result.status==="applied"){activeWorkoutDraft=result.draft;activeWorkoutDraftRaw=result.raw;
+    if(recovery.telemetry)captureDraftCommandTelemetry(recovery.telemetry.command,recovery.telemetry.before,result.draft,recovery.telemetry.ui);
     hydrateDraftCollections(WorkoutSession.projection());clearDraftUiRecovery();renderWorkout();restoreDraftFocus(recovery.focus);return result}
   showDraftCommandRecovery(result.status,recovery.attempt,recovery);return result}
 function retryDraftRecovery(){
@@ -2958,6 +2959,11 @@ function noteCommittedWorkingSets(draft){
   for(const [exerciseId,exercise] of Object.entries(draft.exercises||{}))
     for(const [setId,set] of Object.entries(exercise?.sets||{}))
       if(set.role!=="warmup"&&set.completion!=="pending")countedWorkingSets.keys.add(`${exerciseId}\u0000${setId}`)}
+/* A completed set keeps what it was performed as after an uncommit, so a
+   draft that held a working set still says so across a reload. */
+function draftEverHeldWorkingSet(draft){
+  return Object.values(draft?.exercises||{}).some(exercise=>Object.values(exercise?.sets||{})
+    .some(set=>set.role!=="warmup"&&(set.completion!=="pending"||(set.performed&&typeof set.performed==="object"))))}
 /* A workout in progress thrown away by the lifter's own choice (Plan 071
    §5.5). The stage says whether a working set had been committed. */
 function reportWorkoutDiscarded(draft,cause){
@@ -2970,8 +2976,12 @@ function captureDraftCommandTelemetry(command,before,after,ui){
     noteCommittedWorkingSets(before);
     if(command.type==="completeSet"){
       const set=after?.exercises?.[command.exerciseInstanceId]?.sets?.[command.setId];
-      if(set&&set.role!=="warmup"&&!countedWorkingSets.keys.has(`${command.exerciseInstanceId}\u0000${command.setId}`))
-        captureEvent("set_saved",{vs_suggestion:setVsSuggestion(set,command.exerciseInstanceId)})}
+      if(set&&set.role!=="warmup"&&!countedWorkingSets.keys.has(`${command.exerciseInstanceId}\u0000${command.setId}`)){
+        captureEvent("set_saved",{vs_suggestion:setVsSuggestion(set,command.exerciseInstanceId)});
+        // Milestone (#529): the first working set this history ever commits.
+        // It recurs only once the history that held one is gone.
+        if(!countedWorkingSets.keys.size&&!draftEverHeldWorkingSet(before)&&!(state.log||[]).some(isWork))
+          captureEvent("first_set_logged",{})}}
     noteCommittedWorkingSets(after);
     // Q618: the lifter's own skips only; the bulk "skip flagged" offer opts out.
     if(command.type==="skipExercise"&&ui?.bulk!==true&&before?.exercises?.[command.exerciseInstanceId]?.status!=="skipped")captureEvent("exercise_skipped",{context:"planned_session"});
@@ -3002,14 +3012,14 @@ function enqueueDraftCommand(type,payload={},ui={}){
     const attempt={expectedDraftId:activeWorkoutDraft.draftId,expectedRevision:activeWorkoutDraft.revision,nextRaw,operationId};
     if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
     if(window.__repforgeDraftFault==="persist-failure"){
-      showDraftCommandRecovery("storage-error",attempt,{pendingValue,focus});
+      showDraftCommandRecovery("storage-error",attempt,{pendingValue,focus,telemetry:{command,before,ui}});
       return{status:"storage-error",code:"simulated-persist-failure"};
     }
     const written=await DraftStore.compareAndSwapV2(attempt);
     if(written.status==="applied"){activeWorkoutDraft=written.draft;activeWorkoutDraftRaw=written.raw;
       captureDraftCommandTelemetry(command,before,written.draft,ui);
       hydrateDraftCollections(WorkoutSession.projection());clearDraftUiRecovery()}
-    else showDraftCommandRecovery(written.status,attempt,{pendingValue,focus});
+    else showDraftCommandRecovery(written.status,attempt,{pendingValue,focus,telemetry:{command,before,ui}});
     return written});
   const settled=task.then(()=>undefined,()=>undefined);
   draftWriteTail=settled;
@@ -10011,7 +10021,7 @@ async function saveWorkoutV2(io,{expectedDraft=null,completion="normal"}={}){
   const {rows,prevLog,session,date,day:savedDay,startedAt,draftId}=completed;
   if(typeof window.__repforgeDraftAfterSaveCommit==="function")
     await window.__repforgeDraftAfterSaveCommit({session,draftId});
-  if(!prevLog.some(isWork)&&rows.some(isWork)){captureEvent("first_set_logged",{});requestPersistentStorage()}
+  if(!prevLog.some(isWork)&&rows.some(isWork))requestPersistentStorage();
   captureEvent("session_completed",{
     set_count:window.RepForgeTelemetry?.bucketCount(rows.filter(isWork).length,"sets"),
     exercise_count:window.RepForgeTelemetry?.bucketCount(new Set(rows.filter(isWork).map(row=>row.exerciseId)).size,"exercises"),
