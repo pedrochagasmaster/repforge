@@ -366,9 +366,9 @@ async function run() {
       shown.heroTitle
     );
     assert(
-      ["landing.demo.alt.focus", "landing.demo.alt.rest", "landing.demo.alt.actions", "landing.demo.alt.note", "landing.ways.paste.alt", "landing.chart.alt"]
+      ["landing.ways.paste.alt", "landing.chart.alt"]
         .every((key) => coversTemplate(shown.previewText || "", "en", key)),
-      "the renders describe the workout screen, rest, actions, notes, the import review and the strength trend",
+      "the captures describe the import review and the strength trend (the proof's phone is the app's own markup, not an image)",
       shown.previewText
     );
     assert(shown.privacy === "Privacy", "the landing links to Privacy", shown.privacy);

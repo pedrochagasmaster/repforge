@@ -5691,8 +5691,8 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-demo__face{display:contents}
 .firstrun-demo__bump{position:absolute;overflow:visible;fill:var(--color-surface)}
 .firstrun-demo__light{position:absolute;overflow:hidden;opacity:0}
-.firstrun-demo__light--l{-webkit-mask-image:linear-gradient(to right,transparent,#000 34px);mask-image:linear-gradient(to right,transparent,#000 34px)}
-.firstrun-demo__light--r{-webkit-mask-image:linear-gradient(to left,transparent,#000 34px);mask-image:linear-gradient(to left,transparent,#000 34px)}
+.firstrun-demo__light--l{-webkit-mask-image:linear-gradient(to right,transparent,var(--ink) 34px);mask-image:linear-gradient(to right,transparent,var(--ink) 34px)}
+.firstrun-demo__light--r{-webkit-mask-image:linear-gradient(to left,transparent,var(--ink) 34px);mask-image:linear-gradient(to left,transparent,var(--ink) 34px)}
 .firstrun-demo__lit{position:absolute;top:0;overflow:visible;opacity:var(--rest-light-gain)}
 .firstrun-demo__tap{
   position:absolute;z-index:3;width:46px;height:46px;border-radius:var(--radius-pill);opacity:0;
