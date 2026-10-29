@@ -5,7 +5,7 @@
   "prCommands": 106,
   "prFiles": 106,
   "fullCommands": 125,
-  "fullFiles": 108,
+  "fullFiles": 109,
   "history": "Supersedes the #446 ledger against 147e4afa (208 commands, 195 files). That ledger's 'reduced' rows are 'full' here: the owner decision of 2026-10-21 keeps them running on main.",
   "entries": [
     {
@@ -1519,106 +1519,99 @@
     {
       "baselineCommand": "node tools/check-ui-system.mjs --shard 1/7",
       "baselineLane": "workout",
-      "disposition": "consolidated",
-      "evidence": "Consolidated into the eight-stripe full-lane sweep (`--shard k/8`, #456): the same screen × theme × locale matrix, re-striped so every stripe stays under 85% of its timeout.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
+      "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
-        "tools/check-ui-system.mjs",
         "test/ui-system.mjs",
         "test/ui-screens.mjs",
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node tools/check-ui-system.mjs --shard 2/7",
       "baselineLane": "workout",
-      "disposition": "consolidated",
-      "evidence": "Consolidated into the eight-stripe full-lane sweep (`--shard k/8`, #456): the same screen × theme × locale matrix, re-striped so every stripe stays under 85% of its timeout.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
+      "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
-        "tools/check-ui-system.mjs",
         "test/ui-system.mjs",
         "test/ui-screens.mjs",
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node tools/check-ui-system.mjs --shard 3/7",
       "baselineLane": "workout",
-      "disposition": "consolidated",
-      "evidence": "Consolidated into the eight-stripe full-lane sweep (`--shard k/8`, #456): the same screen × theme × locale matrix, re-striped so every stripe stays under 85% of its timeout.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
+      "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
-        "tools/check-ui-system.mjs",
         "test/ui-system.mjs",
         "test/ui-screens.mjs",
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node tools/check-ui-system.mjs --shard 4/7",
       "baselineLane": "workout",
-      "disposition": "consolidated",
-      "evidence": "Consolidated into the eight-stripe full-lane sweep (`--shard k/8`, #456): the same screen × theme × locale matrix, re-striped so every stripe stays under 85% of its timeout.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
+      "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
-        "tools/check-ui-system.mjs",
         "test/ui-system.mjs",
         "test/ui-screens.mjs",
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node tools/check-ui-system.mjs --shard 5/7",
       "baselineLane": "workout",
-      "disposition": "consolidated",
-      "evidence": "Consolidated into the eight-stripe full-lane sweep (`--shard k/8`, #456): the same screen × theme × locale matrix, re-striped so every stripe stays under 85% of its timeout.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
+      "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
-        "tools/check-ui-system.mjs",
         "test/ui-system.mjs",
         "test/ui-screens.mjs",
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node tools/check-ui-system.mjs --shard 6/7",
       "baselineLane": "workout",
-      "disposition": "consolidated",
-      "evidence": "Consolidated into the eight-stripe full-lane sweep (`--shard k/8`, #456): the same screen × theme × locale matrix, re-striped so every stripe stays under 85% of its timeout.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
+      "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
-        "tools/check-ui-system.mjs",
         "test/ui-system.mjs",
         "test/ui-screens.mjs",
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
       "baselineCommand": "node tools/check-ui-system.mjs --shard 7/7",
       "baselineLane": "workout",
-      "disposition": "consolidated",
-      "evidence": "Consolidated into the eight-stripe full-lane sweep (`--shard k/8`, #456): the same screen × theme × locale matrix, re-striped so every stripe stays under 85% of its timeout.",
+      "disposition": "full",
+      "evidence": "Runs unchanged in the full lane (ci-full: every push to main, nightly and on demand). Pull requests rely on the retained risk owners instead.",
+      "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "owners": [
-        "tools/check-ui-system.mjs",
         "test/ui-system.mjs",
         "test/ui-screens.mjs",
         "tools/check-ui-screens.mjs",
         "test/motion-vocabulary.mjs"
       ],
-      "retainedRisk": "representative rendering/accessibility, catalog integrity, comparator negatives and cheap motion algorithms",
       "prGuaranteeReduced": "Its dedicated permutations run on main, not on pull requests."
     },
     {
