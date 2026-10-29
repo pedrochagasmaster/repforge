@@ -4,7 +4,7 @@
   "baselineFiles": 199,
   "prCommands": 106,
   "prFiles": 106,
-  "fullCommands": 125,
+  "fullCommands": 126,
   "fullFiles": 109,
   "history": "Supersedes the #446 ledger against 147e4afa (208 commands, 195 files). That ledger's 'reduced' rows are 'full' here: the owner decision of 2026-10-21 keeps them running on main.",
   "entries": [
