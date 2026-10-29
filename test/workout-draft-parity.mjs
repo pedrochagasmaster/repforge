@@ -133,9 +133,19 @@ async function fillShelf(page, field, value) {
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
 }
 
+/** Focus is up with its shelf drawn: what filling the shelf needs. A named 15 s deadline that says where the page
+ *  stood (a bare 5 s wait ran out on a loaded CI runner just as Focus appeared: rule 13). */
+async function focusReady(page, label) {
+  await page.waitForSelector("#workoutShell:not(.hidden) #workout.is-focus .exercise.is-current .focus-shelf input", { state: "attached", timeout: 15000 })
+    .catch(async () => {
+      const where = await page.evaluate(() => ({ body: document.body.className, workout: document.querySelector("#workout")?.className, shell: document.querySelector("#workoutShell")?.className }));
+      throw new Error(`${label}: Focus and its shelf were not ready within 15 s (${JSON.stringify(where)})`);
+    });
+}
+
 async function logPreviousSession(page, exerciseId, sets) {
   await page.evaluate(() => window.__repforgeEnterWorkout({ day: "Day 1" }));
-  await page.waitForSelector("#workoutShell:not(.hidden) #workout.is-focus", { timeout: 5000 });
+  await focusReady(page, "logPreviousSession");
   for (const [index, values] of sets.entries()) {
     await fillShelf(page, "load", values.load);
     await fillShelf(page, "reps", values.reps);
@@ -235,7 +245,7 @@ async function main() {
 
     console.log("\nFocus session: previous values, metadata, skip/restore, substitution, warm-up");
     await page.evaluate(() => window.__repforgeEnterWorkout({ day: "Day 1" }));
-    await page.waitForSelector("#workoutShell:not(.hidden) #workout.is-focus", { timeout: 5000 });
+    await focusReady(page, "enter workout #1");
     await exerciseAction(page, first.id, "#exActionRepeatBtn");
 
     const repeated = { first: await setValues(page, first.id, 1), second: await setValues(page, first.id, 2) };
@@ -355,7 +365,7 @@ async function main() {
     const corrected = await page.locator("#workout .exercise.is-current .ledgerline[data-editn] .ledgerline__vals > .fx-col:first-child").textContent();
     assert(corrected?.trim() === "55", "Focus correction updates the committed set in place", corrected || "missing row");
 
-    await page.waitForSelector("#workout.is-focus", { timeout: 5000 });
+    await focusReady(page, "enter workout #2");
     await page.locator(`#workout .exercise.is-current [data-editn="1"]`).click();
     await page.waitForFunction(({ id }) => {
       const draft = window.__repforgeWorkoutDraft.current();
@@ -472,7 +482,7 @@ async function main() {
     console.log("\nAd hoc substitution: performed identity changes without losing slot muscle provenance");
     await page.evaluate(() => window.closeSessionSummary?.());
     await page.evaluate(() => window.__repforgeEnterWorkout({day: "Day 1" }));
-    await page.waitForSelector("#workoutShell:not(.hidden) #workout.is-focus", { timeout: 5000 });
+    await focusReady(page, "enter workout #3");
     const adHocResult = await page.evaluate(async ({ exerciseId, primary, secondary }) => {
       return window.__repforgeWorkoutDraft.dispatch("substituteExercise", {
         exerciseInstanceId: exerciseId,
@@ -515,7 +525,7 @@ async function main() {
     console.log("\nCustom-movement substitution (#322): metric reprogramming and the no-composition refusal");
     await page.evaluate(() => window.closeSessionSummary?.());
     await page.evaluate(() => window.__repforgeEnterWorkout({ day: "Day 1" }));
-    await page.waitForSelector("#workoutShell:not(.hidden) #workout.is-focus", { timeout: 5000 });
+    await focusReady(page, "enter workout #4");
 
     // Typed pending values refuse a custom-movement swap exactly like a
     // library one: the picker never gets to apply over them.

@@ -2608,6 +2608,8 @@
   "entry.review.sheet.min_up": "Aumentar o mínimo",
   "entry.review.sheet.max_down": "Diminuir o máximo",
   "entry.review.sheet.max_up": "Aumentar o máximo",
+  "entry.review.sheet.range_min_n": "Mínimo de repetições, {n}",
+  "entry.review.sheet.range_max_n": "Máximo de repetições, {n}",
   "entry.review.sheet.rest": "Descanso entre séries",
   "entry.review.sheet.seconds": "{n} s",
   "entry.review.sheet.day_time": "Dia: cerca de {n} min",
