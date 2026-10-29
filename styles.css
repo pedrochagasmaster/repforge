@@ -12,9 +12,9 @@
 @font-face{font-family:"Plex Mono";src:url(fonts/plexmono-500.woff2) format("woff2");font-weight:500;font-display:swap}
 @font-face{font-family:"Plex Mono";src:url(fonts/plexmono-600.woff2) format("woff2");font-weight:600;font-display:swap}
 
-/* `.theme-dark` scopes the same tokens to one element, so a surface that must stay dark in either theme (the landing
-   proof's phone screen) reads the app's own dark palette rather than a copy of it. */
 :root,.theme-dark{
+  /* `.theme-dark` scopes the same tokens to one element, so a surface that must stay dark in either theme (the landing
+     proof's phone screen) reads the app's own dark palette rather than a copy of it. */
   container-type:inline-size;
   color-scheme:light;
   /* `color-scheme` is a keyword property, so the few rules that pin a native

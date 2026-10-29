@@ -137,7 +137,8 @@ const motionPolishCss = readFileSync(join(ROOT, "motion-polish.css"), "utf8");
     assert.ok(generated[`icon-mask--${name}`], `G's ${name} is in the generated set`);
   }
 }
-const rootCss = [...css.matchAll(/(?:^|\})\s*:root(?:\[data-theme="dark"\])?\s*\{([^}]*)\}/g)].map((match) => match[1]).join("\n");
+// The palettes also scope to `.theme-dark` (the landing proof's phone), so their blocks read `:root,.theme-dark{`.
+const rootCss = [...css.matchAll(/(?:^|\})\s*:root(?:\[data-theme="dark"\])?(?:,\.theme-dark)?\s*\{([^}]*)\}/g)].map((match) => match[1]).join("\n");
 assert.equal(new Set(inventory.rootRecipeOwners.map((item) => item.token)).size, inventory.rootRecipeOwners.length,
   "each P6 root helper recipe has one semantic owner, even when it serves multiple contexts");
 for (const recipe of inventory.rootRecipeOwners) {
