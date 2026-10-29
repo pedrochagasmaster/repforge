@@ -1135,6 +1135,16 @@ export const ONBOARDING_SCENARIOS = {
     const shown = await page.evaluate(() => document.querySelector("[data-review-block-weeks]")?.textContent.trim());
     const expected = await page.evaluate(() => window.RepForgeI18n.t("entry.review.block.weeks", { n: 5 }));
     if (shown !== expected) throw new Error(`The block sheet did not step to five weeks: ${JSON.stringify(shown)}`);
+    // Tapping the stepper can scroll the sheet; the frame is the sheet from its top.
+    await page.evaluate(() => {
+      for (let node = document.querySelector("[data-review-block-weeks]"); node; node = node.parentElement)
+        if (node.scrollHeight > node.clientHeight && getComputedStyle(node).overflowY !== "visible") node.scrollTop = 0;
+    });
+    await page.waitForFunction(() => {
+      const heading = document.querySelector("#reviewSheet .review-block__sec .sheetgroup__head");
+      const box = heading?.getBoundingClientRect();
+      return !!box && box.top >= 0 && box.bottom <= window.innerHeight;
+    }, undefined, { timeout: 5000 });
   },
   "onboarding-recommend/result-existing": (page) => recommendTo(page, { result: true, existing: true }),
   "onboarding-recommend/chip-editor-open": (page) => reviewWithEditor(page, "days"),
