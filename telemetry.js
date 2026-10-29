@@ -426,6 +426,9 @@
     const identity = installationIdentity();
     if (!identity || properties.distinct_id !== identity.installationId) return null;
     clean.distinct_id = identity.installationId;
+    // person_profiles "never" reaches ingestion only as this SDK flag; an
+    // event without it is person-processed (#529). Always false, never echoed.
+    clean.$process_person_profile = false;
     for (const key of ["$session_id", "$window_id"]) {
       if (properties[key] === undefined) continue;
       if (typeof properties[key] !== "string" || properties[key].length < 8 || properties[key].length > 64 || !/^[a-zA-Z0-9_-]+$/.test(properties[key])) return null;
@@ -485,6 +488,7 @@
         app_version: runtime.appVersion,
         release_channel: runtime.releaseChannel,
         ...transport,
+        $process_person_profile: false,
       }),
     });
   }
@@ -519,6 +523,7 @@
         $snapshot_data: properties.$snapshot_data,
         $current_url: `${safeLocation(runtime.location).origin}${safeLocation(runtime.location).pathname}`,
         ...transport,
+        $process_person_profile: false,
       }),
     });
   }
