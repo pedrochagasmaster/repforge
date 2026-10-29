@@ -350,6 +350,30 @@ try {
     await run.context.close();
   }
 
+  console.log("200% text with the rest running: the hero stays where it fits, and is first above the open set where not");
+  for (const [width, height, roomy] of [[390, 844, true], [320, 568, false]]) {
+    const run = await open(browser, { width, height, text: "text200" });
+    await logSet(run.page, run.target.slotId, 1, { load: 60, reps: 8, rir: 2 }, { stopRest: false });
+    const now = await card(run.page);
+    ok(now.open?.inView, `${width}×${height} at 200%: the open set is whole above the rest tab`, now);
+    if (roomy) ok(now.hero?.inView && now.heroBox.bottom <= now.open.top, `${width}×${height} at 200%: the hero's first line shows at rest scroll above the open set`, now);
+    else {
+      // Where both cannot fit, scrolling the window up reaches the hero whole before anything else above the open set.
+      const reached = await run.page.evaluate(() => {
+        const card = document.querySelector("#workout .exercise--focus.is-current"), context = card.querySelector(".fcard__context");
+        const lead = card.querySelector(".fx-cue__l1"), origin = context.getBoundingClientRect().top - context.scrollTop;
+        const top = lead.getBoundingClientRect().top - origin;
+        if (context.scrollTop <= top) return { already: true };
+        context.scrollTop = Math.floor(top);
+        const r = lead.getBoundingClientRect(), c = context.getBoundingClientRect();
+        return { whole: r.top >= c.top - 0.5 && r.bottom <= c.bottom + 0.5 };
+      });
+      ok(reached.already || reached.whole, `${width}×${height} at 200%: scrolling up reaches the hero whole`, reached);
+    }
+    ok(!run.errors.length, `${width}×${height} at 200%: no page errors`, run.errors);
+    await run.context.close();
+  }
+
   console.log("Every no-suggestion cause the engine reports says its own reason");
   {
     const run = await open(browser);

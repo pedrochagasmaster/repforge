@@ -9774,8 +9774,8 @@ function sizeFocusCard(card){
   if(!scaled&&+open.dataset.lrow<=1&&context.scrollTop===0)return;
   // At large text the region is only as tall as the open set (#541): a margin, or moving back to show a cut line whole,
   // would push the set itself out, so it is aligned to the region's top whenever it is not wholly in view.
-  if(scaled){if(row.top<box.top||row.bottom>bottom)context.scrollTop=Math.max(0,context.scrollTop+row.top-box.top);return}
-  if(row.bottom>bottom){
+  if(scaled){if(row.top<box.top||row.bottom>bottom)context.scrollTop=Math.max(0,context.scrollTop+row.top-box.top)}
+  else if(row.bottom>bottom){
     // The window moves on past a line it would cut.
     context.scrollTop=wholeLineScroll(context,context.scrollTop+row.bottom-bottom+8,1)}
   else if(row.top<box.top)context.scrollTop=wholeLineScroll(context,Math.max(0,context.scrollTop-(box.top-row.top)-8),-1);
@@ -9784,8 +9784,9 @@ function sizeFocusCard(card){
     const back=wholeLineScroll(context,context.scrollTop,-1);
     context.scrollTop=row.bottom+(context.scrollTop-back)<=bottom?back
       :wholeLineScroll(context,context.scrollTop,1,context.scrollTop+Math.max(0,row.top-box.top))}
-  // The hero's first line stays in view whenever the open set can stay whole below it (#523): the window scrolls only
-  // as far as the open set needs.
+  // The hero's first line stays in view whenever the open set can stay whole below it (#523), at large text too: the
+  // window scrolls only as far as the open set needs. Where both cannot fit, the open set comes first (#541) and the
+  // hero is the first thing scrolling up reaches.
   const lead=context.querySelector(".fx-cue__l1");if(!lead)return;
   const at=context.getBoundingClientRect(),origin=at.top-context.scrollTop;
   const foot=(tab?Math.min(at.bottom,tab.getBoundingClientRect().top):at.bottom)-at.top;
