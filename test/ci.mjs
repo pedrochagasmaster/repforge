@@ -6,7 +6,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import test from "node:test";
-import { BROWSER_LANES, CI_SHARDS, FULL_SHARDS, FULL_SUITES, INVENTORY, SUITES, SUPPORT, UI_SYSTEM_SHARDS, VISUAL_SHARDS, browserEntries, commandArgs, inventoryErrors, parseShard, shardSuites, suiteId, suiteSeconds } from "./suites.mjs";
+import { BROWSER_LANES, CI_SHARDS, FULL_SHARDS, FULL_SUITES, INVENTORY, SUITES, SUPPORT, UI_SYSTEM_SHARDS, UI_SYSTEM_STATE_SECONDS, VISUAL_SHARDS, browserEntries, commandArgs, inventoryErrors, parseShard, shardSuites, suiteId, suiteSeconds } from "./suites.mjs";
 import { changedFiles, selectVisuals } from "../tools/ci-selection.mjs";
 import { classifyChange, classifyVisualOnly, gateFullResults, gateResults, mergeFullUiSystemReports, planOutputs, pullRequestFiles, resolvePlan, shardMatrix } from "../tools/ci-plan.mjs";
 import { placeCiCaptures } from "../tools/fetch-ci-captures.mjs";
@@ -345,6 +345,20 @@ test("the entire declared critical matrix is required, with source and failure p
   assert.equal(scheduled.filter(s => s.file === "test/ui-system.mjs").length, 1);
   assert.equal(scheduled.some(s => ["tools/check-ui-system.mjs", "tools/capture-ui-screens.mjs"].includes(s.file)), false,
     "the exhaustive sweeps are full-lane commands, not PR evidence");
+});
+
+test("each UI-system shard's renders fit under 85% of its timeout at the measured per-state cost (#456)", () => {
+  const manifest = loadManifest();
+  const states = manifest.screens.length * manifest.themes.filter((theme) => ["light", "dark"].includes(theme)).length
+    * Object.keys(manifest.locales).length;
+  for (const suite of FULL_SUITES["full-browser"].filter((entry) => entry.file === "tools/check-ui-system.mjs")) {
+    const shard = parseShard(suite.args[1]);
+    const renders = shardCaptures(Array.from({ length: states }, (_, i) => i), shard).length;
+    const projected = renders * UI_SYSTEM_STATE_SECONDS;
+    const budget = 0.85 * suite.timeoutMs / 1000;
+    assert.ok(projected <= budget, `UI-system shard ${shard.index}/${shard.count} renders ${renders} states ≈ ${projected.toFixed(0)} s, over 85% of its ` +
+      `${suite.timeoutMs / 1000} s timeout (${budget.toFixed(0)} s): raise UI_SYSTEM_SHARDS`);
+  }
 });
 
 test("the full lane splits the two catalog sweeps into commands whose shards cover every render once", () => {

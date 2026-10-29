@@ -21,6 +21,11 @@ const TIER_VOCABULARY = new Set(["feedback", "packet", "candidate"]);
 export const CI_SHARDS = 5;
 export const FULL_SHARDS = 12;
 export const UI_SYSTEM_SHARDS = 7;
+/* The slowest measured cost of one UI-system render on ubuntu-latest: 6.42 s
+ * across 42 green `--shard k/7` runs on 2026-10-29 (#456), rounded up.
+ * test/ci.mjs holds every shard's states × this cost under 85% of its
+ * timeout, so the shard count rises before the catalog outgrows the budget. */
+export const UI_SYSTEM_STATE_SECONDS = 6.5;
 export const VISUAL_SHARDS = 6;
 const DEFAULT_SECONDS = { tiny: 1, normal: 5, long: 60 };
 const RENDERED_DOMAINS = ["shell", "entry", "program", "history", "today", "workout", "progress", "settings", "library", "install"];
