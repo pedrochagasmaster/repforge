@@ -154,6 +154,7 @@ function boot({ storage = memoryStorage(), adapter, onReject, crypto } = {}) {
     release_channel: "preview",
     distinct_id: FIXED_UUID,
     $session_id: "session_12345678",
+    $process_person_profile: false,
   });
   assert.equal(status.beforeSend({ event: "$pageview", properties: {} }), null);
   assert.equal(status.beforeSend({ event: "first_set_logged", properties: { telemetry_schema_version: 1 } }), null);
@@ -176,6 +177,7 @@ function boot({ storage = memoryStorage(), adapter, onReject, crypto } = {}) {
     release_channel: "preview",
     distinct_id: FIXED_UUID,
     $session_id: "session_12345678",
+    $process_person_profile: false,
   });
   assert.equal(JSON.stringify(auto).includes("TAURIFER_SENTINEL"), false);
   assert.equal(status.beforeSend({ event: "$autocapture", properties: { telemetry_action: "workout_value", distinct_id: FIXED_UUID } }), null);
@@ -191,6 +193,25 @@ function boot({ storage = memoryStorage(), adapter, onReject, crypto } = {}) {
   });
   assert.equal(replay.properties.$current_url, "https://taurifer.example/index.html");
   assert.equal(replay.properties.$window_id, "window_12345678");
+  assert.equal(replay.properties.$process_person_profile, false);
+
+  // #529: person_profiles "never" reaches ingestion only as the SDK's
+  // $process_person_profile flag, which the allowlist would otherwise drop.
+  // Every filter sends it as false, whatever the envelope claims.
+  for (const envelope of [
+    { event: "program_path_selected", properties: { route: "import", telemetry_schema_version: 1, app_version: "112.98d5335",
+      release_channel: "preview", distinct_id: FIXED_UUID } },
+    { event: "$autocapture", properties: { $event_type: "click", telemetry_action: "nav_history", distinct_id: FIXED_UUID } },
+    { event: "$snapshot", properties: { $snapshot_data: { type: 2, data: { text: "***" } }, distinct_id: FIXED_UUID } },
+  ]) {
+    for (const claimed of [undefined, false, true]) {
+      const outbound = status.beforeSend({ ...envelope, properties: { ...envelope.properties,
+        ...(claimed === undefined ? {} : { $process_person_profile: claimed }) } });
+      assert.ok(outbound, `${envelope.event} passes its filter`);
+      assert.equal(outbound.properties.$process_person_profile, false,
+        `${envelope.event} leaves with person processing off (input ${String(claimed)})`);
+    }
+  }
   for (const sentinel of HOSTILE_SENTINELS) {
     assert.equal(status.beforeSend({ event: "$snapshot", properties: { $snapshot_data: { data: { text: sentinel } }, distinct_id: FIXED_UUID } }), null);
   }
