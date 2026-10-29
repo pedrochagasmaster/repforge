@@ -8446,42 +8446,68 @@ function metricPendingValue(exId,n,field){
   const set=target?activeWorkoutDraft?.exercises?.[target.exerciseInstanceId]?.sets?.[target.setId]:null;
   const metric=draftSetMetrics(set).find(item=>METRIC_FIELD_SEMANTICS[field]?.includes(item.semantic));
   return metric?pendingFields.get(`${exId}_${n}_metric_${metric.id}`)?.value:undefined}
-/** The load a manual set shows before the lifter gives it one (owner, 2026-10-18). A set the engine does not load
- *  (manual, or still waiting on its setup) that has no programmed load target, no load of its own and no edit of the
- *  lifter's takes the load of the nearest set logged above it on the same exercise this session. It is a prefill only:
- *  nothing is stored until the set is logged, and logging it logs the load it shows. Warm-ups neither give nor take
- *  it, and nothing carries across sessions; that is Suggest loads' job. */
-function manualLoadCarry(exId,n,r){
-  if(r?.status!=="manual"&&r?.status!=="configuration_required")return null;
+/** Whether the engine suggests values for set `n`: a recommended target set. A legacy recommendation without target
+ *  sets suggests unless it is manual or still waiting on its setup. */
+function engineSuggestsSet(r,n){
+  if(!Array.isArray(r?.targetSets))return r?.status!=="manual"&&r?.status!=="configuration_required";
+  const item=r.targetSets.find(entry=>entry.prescription?.setIndex===n)||r.targetSets[n-1];
+  return item?.status==="recommended"}
+/** What a set the engine does not suggest shows before the lifter gives it values (owner, 2026-10-18 for a manual
+ *  set's load; widened to every field and every no-suggestion cause, 2026-10-29). A pending working set the engine has
+ *  no suggestion for (manual, waiting on its setup, no history, no effort, a mismatch, no fitting load, unsupported)
+ *  takes, field by field, the value of the nearest working set logged above it on the same exercise this session:
+ *  load, reps, and RIR or effort, and on a metric-backed set each of its metrics. A field the lifter has set (held,
+ *  touched or edited by them) keeps their value, and a programmed load target keeps its place. It is a prefill only:
+ *  nothing is stored until the set is logged, and logging it logs what it shows. Warm-ups neither give nor take it.
+ *  With nothing logged above, setFieldVals falls back to the previous session's set, then to the defaults.
+ *  Returns `{fields:{load,reps,rir,effort},metrics:{[metricId]}}`, each entry `{ordinal,value}` with the canonical
+ *  value of the set it came from, or null when nothing carries. */
+function lastSetCarry(exId,n,r){
+  if(engineSuggestsSet(r,n))return null;
   const stored=activeWorkoutDraft?.exercises?.[exId];if(!stored)return null;
   const at=k=>{const setId=stored.setOrder.find(id=>stored.sets[id]?.ordinal===k);return setId?stored.sets[setId]:null};
   const set=at(n);
   if(!set||set.completion!=="pending"||set.role==="warmup")return null;
-  const metric=draftSetMetrics(set).find(item=>METRIC_FIELD_SEMANTICS.load.includes(item.semantic))||null;
-  if(Array.isArray(set.programmed?.metrics)&&!metric)return null;
-  const loadOf=item=>metric?item.edited?.metrics?.[metric.id]:item.edited?.load;
-  const own=loadOf(set);
-  if(own!=null&&own!=="")return null;
-  if(metric?set.touched?.metrics?.[metric.id]||set.programmed.targets?.[metric.semantic]!=null:set.touched?.load)return null;
-  if(pendingFields.has(metric?`${exId}_${n}_metric_${metric.id}`:`${exId}_${n}_load`))return null;
-  for(let k=n-1;k>=1;k--){
-    const above=at(k);
-    if(!above||above.completion==="pending"||above.role==="warmup")continue;
-    const value=loadOf(above);
-    if(value!=null&&value!=="")return{metric,ordinal:k,value:String(value)}}
-  return null}
+  const sources=[];
+  for(let k=n-1;k>=1;k--){const above=at(k);if(above&&above.completion!=="pending"&&above.role!=="warmup")sources.push(above)}
+  if(!sources.length)return null;
+  const filled=value=>value!=null&&value!=="";
+  const nearest=read=>{for(const above of sources){const value=read(above);if(filled(value))return{ordinal:above.ordinal,value:String(value)}}return null};
+  const held=suffix=>pendingFields.has(`${exId}_${n}_${suffix}`);
+  const fields={},metrics={},metricDefs=draftSetMetrics(set);
+  for(const metric of metricDefs){
+    const isLoad=METRIC_FIELD_SEMANTICS.load.includes(metric.semantic);
+    if(set.touched?.metrics?.[metric.id]||held(`metric_${metric.id}`))continue;
+    if(isLoad&&set.programmed.targets?.[metric.semantic]!=null)continue;
+    const carried=nearest(above=>above.edited?.metrics?.[metric.id]);
+    if(carried)metrics[metric.id]=carried}
+  for(const field of ["load","reps"]){
+    if(metricDefs.length){
+      // A metric-backed set's load and reps are its metrics; the flat fields follow the metric they read from.
+      const metric=metricDefs.find(item=>METRIC_FIELD_SEMANTICS[field].includes(item.semantic));
+      if(metric&&metrics[metric.id])fields[field]=metrics[metric.id];
+      continue}
+    if(set.touched?.[field]||held(field))continue;
+    const carried=nearest(above=>above.edited?.[field]);
+    if(carried)fields[field]=carried}
+  if(!set.touched?.effort&&!held("rir")&&!held("effort"))
+    for(const field of ["rir","effort"]){const carried=nearest(above=>above.edited?.[field]);if(carried)fields[field]=carried}
+  return Object.keys(fields).length||Object.keys(metrics).length?{fields,metrics}:null}
 function setFieldVals(ex,n,r,draft,prev){
   // A field the lifter has just set and the draft has not yet acknowledged shows what they set.
   // A metric-backed set's pending value sits under its metric input's key.
   const pending=field=>pendingFields.get(`${ex.id}_${n}_${field}`)?.value??metricPendingValue(ex.id,n,field);
-  const old=prev.find(x=>x.set===n),draftKg=pending("load")??draft[`${ex.id}_${n}_load`],sg=setSuggestion(ex,n,r,draft,old);
-  // The carried load reads as the set it came from reads in the ledger.
-  const carry=manualLoadCarry(ex.id,n,r),carried=carry?String(draft[`${ex.id}_${carry.ordinal}_load`]??carry.value):null;
-  const kgVal=carried!=null?carried:draftKg!=null?draftKg:(sg.load!=null?fmtLoadPlain(sg.load):((r.status==="manual"||r.status==="configuration_required")?"":(old&&old.load!=null?fmtLoadPlain(old.load):"")));
-  const repsVal=pending("reps")??draft[`${ex.id}_${n}_reps`]??(sg.reps!=null?sg.reps:(r.status==="manual"?"":(old&&old.reps!=null?old.reps:ex.min)));
+  const old=prev.find(x=>x.set===n),sg=setSuggestion(ex,n,r,draft,old);
+  // With no engine suggestion the set shows what the set logged above it shows in the ledger (lastSetCarry);
+  // with none above, the previous session's set, then the defaults.
+  const carry=lastSetCarry(ex.id,n,r);
+  const carried=field=>{const item=carry?.fields[field];return item?String(draft[`${ex.id}_${item.ordinal}_${field}`]??item.value):null};
+  const kgVal=pending("load")??carried("load")??draft[`${ex.id}_${n}_load`]??(sg.load!=null?fmtLoadPlain(sg.load):(old&&old.load!=null?fmtLoadPlain(old.load):""));
+  const repsVal=pending("reps")??carried("reps")??draft[`${ex.id}_${n}_reps`]??(sg.reps!=null?sg.reps:(old&&old.reps!=null?old.reps:r.status==="manual"?"":ex.min));
   const key=`${ex.id}_${n}`,isW=warmups.has(key);
-  const effortVal=pending("effort")||draft[`${key}_effort`]||(old&&old.rir!=null?effortForRir(old.rir):"hard");
-  const rirVal=pending("rir")??draft[`${key}_rir`]??(old&&old.rir!=null?fmtPlain(old.rir):1);
+  const carriedRir=carried("rir"),carriedEffort=carried("effort")||(carriedRir!=null&&carriedRir!==""?effortForRir(parseDec(carriedRir)):null);
+  const effortVal=pending("effort")||carriedEffort||draft[`${key}_effort`]||(old&&old.rir!=null?effortForRir(old.rir):"hard");
+  const rirVal=pending("rir")??carriedRir??draft[`${key}_rir`]??(old&&old.rir!=null?fmtPlain(old.rir):1);
   return{key,isW,kgVal,repsVal,rirVal,effortVal}}
 /* ============================================================
    Focus mode
@@ -8937,8 +8963,8 @@ function shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek,carry,grouped=fal
   const key=`${ex.id}_${n}`,fieldId=`metric_${metric.id}`,inputKey=`${key}_${fieldId}`,selected=ui.field===fieldId;
   const live=selected&&ui.editing&&!peek;
   const pending=pendingFields.get(inputKey)?.value;
-  // A manual set's carried load fills the field (and the input the pads step from) while it stays untouched.
-  const carried=carry?.metric?.id===metric.id?carry.value:null;
+  // A value carried from the set logged above fills the field (and the input the pads step from) while it stays untouched.
+  const carried=carry?.metrics?.[metric.id]?.value??null;
   const raw=carried??pending??set.edited.metrics?.[metric.id]??"";
   const shown=raw!==""?shelfText(metricTextValue(raw,metric)):metricTargetText(set.programmed.targets?.[metric.semantic]);
   const target=metricTargetText(set.programmed.targets?.[metric.semantic]);
@@ -9059,7 +9085,8 @@ function focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
   // The fields read in the order of the set table's columns: load, then reps, then effort.
   const column=metric=>METRIC_FIELD_SEMANTICS.load.includes(metric.semantic)?0:METRIC_FIELD_SEMANTICS.reps.includes(metric.semantic)?1:2;
   const sorted=[...metricDefinitions].sort((a,b)=>column(a)-column(b));
-  const metricHtml=(metric,grouped)=>shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek,carry:manualLoadCarry(ex.id,n,r),grouped});
+  const carry=lastSetCarry(ex.id,n,r);
+  const metricHtml=(metric,grouped)=>shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek,carry,grouped});
   // The per-side fields that lead the row share one tile under a single "Per side" caption; the rest stand alone.
   let lead=0;while(lead<sorted.length&&SHELF_PER_SIDE_SHORT[sorted[lead].semantic])lead++;
   const side=sorted.slice(0,lead);
@@ -9885,16 +9912,22 @@ function bindWorkout(){
     const set=activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId];
     const editing=!!(focusEdit&&`${focusEdit.exId}_${focusEdit.n}`===key);
     const type=set.completion==="pending"?"completeSet":"uncommitSet";
-    // A manual set showing the load carried from the set above logs that load, not a blank under it.
+    // A set showing values carried from the set above (lastSetCarry) logs those values, not what lies under them.
     if(type==="completeSet"){
-      const base=prog.find(target.exerciseInstanceId);
-      const carry=base?manualLoadCarry(target.exerciseInstanceId,target.ordinal,recommendation(sessionExercise(base))):null;
+      const base=prog.find(target.exerciseInstanceId),ex=base?sessionExercise(base):null,r=ex?recommendation(ex):null;
+      const carry=ex?lastSetCarry(target.exerciseInstanceId,target.ordinal,r):null;
       if(carry){
-        const at={exerciseInstanceId:target.exerciseInstanceId,setId:target.setId};
-        const result=await WorkoutSession.dispatch(carry.metric?"editMetricValue":"editSetField",
-          carry.metric?{...at,metricId:carry.metric.id,value:carry.value}:{...at,field:"load",value:carry.value});
-        if(result.status==="domain-error"){applyDraftIssue(result.error?.issues);return}
-        if(result.status!=="applied")return}}
+        const at={exerciseInstanceId:target.exerciseInstanceId,setId:target.setId},effortField=isEffortMode()?"effort":"rir";
+        const vals=carry.fields.rir||carry.fields.effort?setFieldVals(ex,target.ordinal,r,hydrateWorkoutDraft(),last(ex)):null;
+        const edits=[
+          ...Object.entries(carry.metrics).map(([metricId,item])=>["editMetricValue",{...at,metricId,value:item.value}]),
+          ...(draftSetMetrics(set).length?[]:["load","reps"].filter(field=>carry.fields[field])
+            .map(field=>["editSetField",{...at,field,value:carry.fields[field].value}])),
+          ...(vals?[["editSetField",{...at,field:effortField,value:effortField==="effort"?vals.effortVal:String(vals.rirVal)}]]:[])];
+        for(const [command,payload] of edits){
+          const result=await WorkoutSession.dispatch(command,payload);
+          if(result.status==="domain-error"){applyDraftIssue(result.error?.issues);return}
+          if(result.status!=="applied")return}}}
     // A metric-backed set starts with no effort of its own, while its field shows one (the last session's, or the
     // default). Logging the set logs what the field shows, as it does for every other set.
     if(type==="completeSet"&&set.programmed?.metrics){

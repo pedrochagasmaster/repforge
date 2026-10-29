@@ -264,6 +264,7 @@ export const FULL_SUITES = {
     s("test/choice-rows-large-text.mjs", [], { domains: ["entry", "progress", "program"], seconds: 120 }),
     s("test/focus-space-summary.mjs", [], { domains: ["workout"], seconds: 124 }),
     s("test/manual-load-carry.mjs", [], { domains: ["workout"], seconds: 8 }),
+    s("test/prefill-last-set.mjs", [], { domains: ["workout"], seconds: 60 }),
     s("test/summary-evidence.mjs", [], { domains: ["workout", "progress"], seconds: 5 }),
     s("test/why-sheet.mjs", [], { domains: ["workout"], seconds: 23 }),
     s("test/focus-hero.mjs", [], { domains: ["workout"], seconds: 60 }),
