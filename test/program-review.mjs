@@ -410,6 +410,15 @@ console.log("program-review: add and rename");
     const duplicate = apply(deload, { kind: "day_name", dayId: day.id, name: otherDay.name });
     check(!duplicate.ok && duplicate.code === "day_name_exists", "rename: a stored duplicate name is refused at the edit boundary", duplicate);
   }
+  // #458 (owner, 2026-10-30): duplicate names only among rest days. A generated program's rest days all read "Rest".
+  const rests = deload.days.filter((item) => item.kind === "rest");
+  check(rests.length >= 2 && rests.every((item) => item.name === "Rest") && valid(deload), "rest days: a generated program keeps Rest for every rest day, and validates", rests.map((item) => item.name));
+  const restRenamed = apply(deload, { kind: "day_name", dayId: rests[0].id, name: "Recovery" });
+  const restBack = restRenamed.ok && apply(restRenamed.definition, { kind: "day_name", dayId: rests[0].id, name: "Rest" });
+  check(restRenamed.ok && restBack?.ok && restBack.definition.days.filter((item) => item.kind === "rest" && item.name === "Rest").length === rests.length
+    && valid(restBack.definition), "rest days: a rest day may share its name with another rest day", restBack);
+  check(!apply(deload, { kind: "day_name", dayId: day.id, name: "Rest" }).ok, "rest days: a training day may not take a rest day's name");
+  check(!apply(deload, { kind: "day_name", dayId: rests[0].id, name: day.name }).ok, "rest days: a rest day may not take a training day's name");
   check(!apply(deload, { kind: "day_name", dayId: day.id, name: "   " }).ok, "rename: an empty name is refused");
   check(!apply(deload, { kind: "day_name", dayId: day.id, name: "x".repeat(41) }).ok, "rename: more than 40 characters is refused");
   check(!apply(deload, { kind: "nonsense", slotId: day.slots[0].id }).ok, "edits: an unknown kind is refused");

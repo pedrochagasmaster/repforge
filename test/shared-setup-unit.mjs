@@ -285,6 +285,20 @@ console.log("the production compiler validates a complete generated definition")
   assert.deepEqual(validated.value.program.definition, generated.value,
     "the production compiler validates without dropping request, stable IDs, cycles, metric UUIDs, targets, or provenance");
   assert.deepEqual(validated.value.program.definition, generated.value);
+  // #458: a generated program names every rest day "Rest"; a setup link carries the repeated names as they are.
+  const rests = generated.value.days.filter((day) => day.kind === "rest");
+  assert.ok(rests.length >= 2 && rests.every((day) => day.name === "Rest"), "the generated program repeats Rest across its rest days");
+  const restInput = compactRepsDocument();
+  const restDays = restInput.program.definition.days;
+  // A week is seven days: the compact program's training days, then rest days, every one of them "Rest".
+  while (restDays.length < 7) restDays.push({ id: `rest_${restDays.length + 1}`, name: "Rest", kind: "rest", order: restDays.length + 1, slots: [] });
+  assert.ok(restDays.filter((day) => day.kind === "rest").length >= 2, "the fixture week holds at least two rest days");
+  const encodedRests = await Setup.encode(restInput, compilerOptions);
+  assert.equal(encodedRests.ok, true, JSON.stringify(encodedRests));
+  const decodedRests = await Setup.decode(encodedRests.value, compilerOptions);
+  assert.equal(decodedRests.ok, true, JSON.stringify(decodedRests));
+  assert.deepEqual(decodedRests.value.program.definition.days.map((day) => [day.kind, day.name]), restDays.map((day) => [day.kind, day.name]),
+    "duplicate rest-day names round-trip through a setup link");
 }
 
 console.log("v4 encoding preserves scalar leaves in a canonical definition");
