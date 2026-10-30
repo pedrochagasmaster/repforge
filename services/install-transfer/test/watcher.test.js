@@ -128,8 +128,45 @@ describe("scheduled health watcher", () => {
     expect(billing.body).toMatchObject({ checkVersion: "operator-attested-v1", result: "observed", evidenceRef: "owner-override-20261014", monthlyCostCents: 0 });
     expect(rest[6].authorization).toBe(`Bearer ${bearers.watchdog}`);
     const output = log.mock.calls.flat().join("\n");
-    expect(output).toBe("health pass ok; purge examined=3 purged=1; provider objects=2 purged=0 deferred=2 failed=0 attempts=1; createsEnabled=true");
+    expect(output).toBe("health pass ok; purge examined=3 purged=1; provider objects=2 skipped=0 purged=0 deferred=2 failed=0 attempts=1; createsEnabled=true");
     for (const secret of [...Object.values(bearers), API_TOKEN, ACCOUNT_ID]) expect(output).not.toContain(secret);
+  });
+
+  it("skips entries the provider lists with no stored data, and purges the rest", async () => {
+    const OBJECT_C = "c".repeat(64);
+    const target = mockTarget();
+    mockProvider(() => jsonResponse({
+      success: true,
+      result: [{ id: OBJECT_A, hasStoredData: true }, { id: OBJECT_B, hasStoredData: false }, { id: OBJECT_C }],
+    }));
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    await watcher.scheduled(controller(), watcherEnv(target), context());
+
+    const batches = target.calls.filter((call) => call.path === "/_ops/purge-objects");
+    expect(batches.map((call) => call.body.objectIds)).toEqual([[OBJECT_A, OBJECT_C]]);
+    expect(log.mock.calls.flat()).toEqual([
+      "health pass ok; purge examined=3 purged=1; provider objects=3 skipped=1 purged=0 deferred=2 failed=0 attempts=1; createsEnabled=true",
+    ]);
+  });
+
+  it("posts no purge batch when every listed entry has no stored data", async () => {
+    const target = mockTarget();
+    mockProvider(() => jsonResponse({ success: true, result: [{ id: OBJECT_A, hasStoredData: false }, { id: OBJECT_B, hasStoredData: false }] }));
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    await watcher.scheduled(controller(), watcherEnv(target), context());
+
+    expect(target.calls.some((call) => call.path === "/_ops/purge-objects")).toBe(false);
+    expect(log.mock.calls.flat().at(-1)).toContain("provider objects=2 skipped=2 purged=0 deferred=0 failed=0 attempts=1;");
+  });
+
+  it("still rejects a repeated entry even when it has no stored data", async () => {
+    const target = mockTarget();
+    mockProvider(() => jsonResponse({ success: true, result: [{ id: OBJECT_A, hasStoredData: false }, { id: OBJECT_A, hasStoredData: false }] }));
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    await expect(watcher.scheduled(controller(), watcherEnv(target), context()))
+      .rejects.toThrow("path=provider-list error=invalid-response");
   });
 
   it("retries the provider step once, then reports where it failed and renews nothing", async () => {
@@ -170,7 +207,7 @@ describe("scheduled health watcher", () => {
     expect(target.calls.filter((call) => call.body?.result === "fail")).toEqual([]);
     expect(log.mock.calls.flat()).toEqual([
       "provider step retry; path=provider-list error=request-failed",
-      "health pass ok; purge examined=3 purged=1; provider objects=1 purged=0 deferred=1 failed=0 attempts=2; createsEnabled=true",
+      "health pass ok; purge examined=3 purged=1; provider objects=1 skipped=0 purged=0 deferred=1 failed=0 attempts=2; createsEnabled=true",
     ]);
   });
 
@@ -425,7 +462,7 @@ describe("transfer-latched alert", () => {
     await watcher.scheduled(controller(), watcherEnv(mockTarget(), alertEnv), context());
     expect(log.mock.calls.flat()).toEqual([
       "latch alert failed: latch alert request rejected: GET 401",
-      "health pass ok; purge examined=3 purged=1; provider objects=0 purged=0 deferred=0 failed=0 attempts=1; createsEnabled=true",
+      "health pass ok; purge examined=3 purged=1; provider objects=0 skipped=0 purged=0 deferred=0 failed=0 attempts=1; createsEnabled=true",
     ]);
   });
 });

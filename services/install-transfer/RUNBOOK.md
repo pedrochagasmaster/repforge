@@ -324,8 +324,10 @@ and runs the same pass as one `production-health-loop.mjs` run:
 
 1. `POST /_ops/purge-due` with the purge bearer (the registry sweep);
 2. lists the production `TransferDurableObject` namespace through the
-   Cloudflare API with the scoped list token and posts due objects to
-   `POST /_ops/purge-objects` in batches of 32;
+   Cloudflare API with the scoped list token and posts the listed objects to
+   `POST /_ops/purge-objects` in batches of 32. Entries listed with
+   `hasStoredData: false` have nothing to delete and are skipped, counted as
+   `skipped` (owner decision, 2026-10-30); entries without the flag are purged;
    If that provider step fails, it is retried once in the same pass;
 3. on a registry purge failure, or a provider step that failed twice, posts a
    `deletion` `fail` heartbeat naming the failing path and error class (see
@@ -334,7 +336,7 @@ and runs the same pass as one `production-health-loop.mjs` run:
    `owner-billing-receipt`, stamped with `operator-attested-v1`,
    `owner-override-20261014`, and the current time (`src/attestation.js`);
 5. reads `GET /_ops/health` and logs one line:
-   `health pass ok; purge examined=N purged=N; provider objects=N purged=N deferred=N failed=N attempts=1|2; createsEnabled=true|false`;
+   `health pass ok; purge examined=N purged=N; provider objects=N skipped=N purged=N deferred=N failed=N attempts=1|2; createsEnabled=true|false`;
 6. after every pass, failed or not, syncs the `transfer-latched` GitHub issue
    (see "Latch alert").
 
