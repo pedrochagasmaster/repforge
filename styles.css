@@ -5790,23 +5790,22 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
    inside it never move the page. Each screen is the app's light theme (.theme-light), built 390 wide. */
 .firstrun-feat{display:grid;gap:var(--space-16);margin-top:var(--firstrun-gap-4)}
 .firstrun-feat__side{min-width:0}
-.firstrun-feat__tabs{display:flex;gap:var(--space-4);overflow-x:auto;scrollbar-width:none;margin-inline:calc(var(--gut) * -1);padding-inline:var(--gut);
+.firstrun-feat__tabs{display:flex;gap:0;overflow-x:auto;scrollbar-width:none;margin-inline:calc(var(--gut) * -1);padding-inline:var(--gut);
   scroll-padding-inline:var(--gut);
   -webkit-mask-image:linear-gradient(to right,transparent,var(--ink) var(--space-12),var(--ink) calc(100% - var(--space-26)),transparent);
   mask-image:linear-gradient(to right,transparent,var(--ink) var(--space-12),var(--ink) calc(100% - var(--space-26)),transparent)}
 .firstrun-feat__tabs::-webkit-scrollbar{display:none}
 .firstrun-feat__tab{
-  position:relative;flex:none;min-height:var(--control-target);padding:var(--space-8) var(--space-12) var(--space-14);border:0;background:none;
+  position:relative;flex:none;min-height:var(--control-target);margin:0 var(--space-12);padding:var(--space-8) 0 var(--space-14);border:0;
+  border-bottom:var(--space-4) solid var(--boundary-required);background:none;
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
   text-align:left;white-space:nowrap;color:var(--firstrun-ink-soft);cursor:pointer}
-.firstrun-feat__tab:first-child{padding-left:0}
+.firstrun-feat__tab:first-child{margin-left:0}
 .firstrun-feat__tab.is-current{color:var(--firstrun-ink)}
 .firstrun-feat__tab:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px;border-radius:var(--radius-control)}
 .firstrun-feat__title{display:block}
 .firstrun-feat__text{display:none}
-.firstrun-feat__bar{position:absolute;left:var(--space-12);right:var(--space-12);bottom:0;height:var(--space-4);overflow:hidden;border-radius:var(--radius-compact);
-  background:var(--firstrun-rule)}
-.firstrun-feat__tab:first-child .firstrun-feat__bar{left:0}
+.firstrun-feat__bar{position:absolute;left:0;right:0;bottom:calc(var(--space-4) * -1);height:var(--space-4);overflow:hidden}
 .firstrun-feat__fill{position:absolute;inset:0;background:var(--accent);transform-origin:0 50%;transform:scaleX(var(--feature-progress,0))}
 .firstrun-feat__caps{display:grid;margin-top:var(--space-12)}
 .firstrun-feat__cap{grid-area:1/1;margin:0;font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--firstrun-ink-soft);
@@ -5839,8 +5838,9 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   .firstrun-features .firstrun-sub{max-width:var(--maxw)}
   .firstrun-feat{grid-template-columns:minmax(0,360px) minmax(0,1fr);align-items:center;column-gap:var(--firstrun-gap-8)}
   .firstrun-feat__tabs{flex-direction:column;gap:var(--space-4);overflow:visible;margin:0;padding:0;-webkit-mask-image:none;mask-image:none}
-  .firstrun-feat__tab,.firstrun-feat__tab:first-child{white-space:normal;padding:var(--space-12) 0 var(--space-12) var(--space-26);font-size:var(--font-size-subtitle)}
-  .firstrun-feat__bar,.firstrun-feat__tab:first-child .firstrun-feat__bar{top:var(--space-12);bottom:var(--space-12);left:0;right:auto;width:var(--space-4);height:auto}
+  .firstrun-feat__tab,.firstrun-feat__tab:first-child{white-space:normal;margin:0;padding:var(--space-12) 0 var(--space-12) var(--space-26);font-size:var(--font-size-subtitle);
+    border-bottom:0;border-left:var(--space-4) solid var(--boundary-required)}
+  .firstrun-feat__bar{top:0;bottom:0;left:calc(var(--space-4) * -1);right:auto;width:var(--space-4);height:auto}
   .firstrun-feat__fill{transform-origin:50% 0;transform:scaleY(var(--feature-progress,0))}
   .firstrun-feat__tab.is-current .firstrun-feat__text{display:block;margin-top:var(--space-8);font-size:var(--font-size-body);font-weight:var(--weight-regular);
     line-height:var(--line-reading);color:var(--firstrun-ink-soft)}

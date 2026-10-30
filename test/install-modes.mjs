@@ -739,7 +739,7 @@ async function run() {
             secondaryCta: px("#firstRunImport"),
             sectionTitle: px("#firstRunProofTitle"),
             stepBody: px(".firstrun-chapter.is-current .firstrun-chapter__text"),
-            outcomeBody: px("[data-landing-explain]"),
+            featureText: px(".firstrun-feat__cap.is-current"),
             questionTitle: px(".firstrun-qa summary"),
             closingTitle: px("#firstRunCloseTitle"),
           };

@@ -815,8 +815,8 @@ async function finalPage(browser) {
   {
     const { context, page, errors } = await landingPage(browser, { lang: "en" });
     const open = await page.evaluate(proofState);
-    // observers: the dock's two, the status-bar band's one, and the player's resize and visibility watchers
-    assert(open?.open && open.listeners > 0 && open.observers === 5 && !open.playing,
+    // observers: the dock's two, the status-bar band's one, the player's resize and visibility watchers, and the feature tabs' two
+    assert(open?.open && open.listeners > 0 && open.observers === 7 && !open.playing && !open.featurePlaying,
       "opening the landing mounts the controller; the proof below the fold is not playing", JSON.stringify(open));
     const at = await page.evaluate(chapterState);
     assert(at.devices === 1 && at.screen && at.count === 4 && at.current.length === 1 && at.current[0] === 0 && at.captions === 1,
@@ -1079,7 +1079,7 @@ async function finalPage(browser) {
       assert(!gate.createVisible && !gate.importVisible, "no Build or Track is visible on the shared gate", JSON.stringify(gate));
     }
     const ctl = await page.evaluate(proofState);
-    assert(ctl?.open && ctl.observers === 3, "the shared gate watches no hero action: the dock logic is not mounted; the status-bar band and the proof's player observe", JSON.stringify(ctl));
+    assert(ctl?.open && ctl.observers === 5, "the shared gate watches no hero action: the dock logic is not mounted; the status-bar band, the proof's player and the feature tabs observe", JSON.stringify(ctl));
     const close = await page.evaluate(() => ({
       actions: getComputedStyle(document.querySelector(".firstrun-close__actions")).display,
       dockDisplay: getComputedStyle(document.querySelector("#firstRunDock")).display,

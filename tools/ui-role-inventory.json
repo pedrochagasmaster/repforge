@@ -3126,10 +3126,11 @@
         "default",
         "hover",
         "pressed",
+        "selected",
         "focus-visible",
         "disabled"
       ],
-      "rationale": "One of the landing's five feature tabs (owner, 2026-10-30): it moves the playing panel to its scene without committing any state. Its progress line is the tab's own bottom edge (a left rule from 900px) and the current tab is marked by aria-selected.",
+      "rationale": "One of the landing's five feature tabs (owner, 2026-10-30): it moves the playing panel to its scene without committing any state. The current tab is aria-selected; its required boundary is the tab's own bottom edge (a left edge from 900px), over which its scene's progress fills.",
       "owner": "landing-features",
       "catalogStates": [
         "onboarding-shared/gate",

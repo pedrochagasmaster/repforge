@@ -59,7 +59,8 @@ try {
     }
     return { urls: [...out], shots: [...shots] };
   });
-  assert(wanted.shots.length >= 2, `the landing names its shots: ${JSON.stringify(wanted)}`);
+  // One capture since the feature tabs replaced the chart image (2026-10-30): the paste review.
+  assert(wanted.shots.length >= 1, `the landing names its shots: ${JSON.stringify(wanted)}`);
 
   await context.setOffline(true);
   const results = await page.evaluate(async (urls) => {
