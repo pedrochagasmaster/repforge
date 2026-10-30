@@ -137,7 +137,8 @@ const motionPolishCss = readFileSync(join(ROOT, "motion-polish.css"), "utf8");
     assert.ok(generated[`icon-mask--${name}`], `G's ${name} is in the generated set`);
   }
 }
-const rootCss = [...css.matchAll(/(?:^|\})\s*:root(?:\[data-theme="dark"\])?\s*\{([^}]*)\}/g)].map((match) => match[1]).join("\n");
+// The palettes also scope to `.theme-dark` (the landing proof's phone), so their blocks read `:root,.theme-dark{`.
+const rootCss = [...css.matchAll(/(?:^|\})\s*:root(?:\[data-theme="dark"\])?(?:,\.theme-dark)?\s*\{([^}]*)\}/g)].map((match) => match[1]).join("\n");
 assert.equal(new Set(inventory.rootRecipeOwners.map((item) => item.token)).size, inventory.rootRecipeOwners.length,
   "each P6 root helper recipe has one semantic owner, even when it serves multiple contexts");
 for (const recipe of inventory.rootRecipeOwners) {
@@ -473,22 +474,21 @@ const landingEverywhere = ["onboarding-shared/gate", ...landingStates];
 const landingReturning = ["onboarding-start/first-run-returning", "onboarding-start/first-run-returning-resume"];
 const radiusRecipe = [
   { selector: ".firstrun-proof__glass", condition: "default", token: "--radius-landing-stage" },
-  { selector: ".firstrun-step__crop", condition: "default", token: "--radius-landing-crop" },
   { selector: ".firstrun-proof__glass", condition: "max-width:340px", token: "--radius-landing-stage-compact" },
 ];
 function radiusContractErrors(candidate) {
   const matches = candidate.contextualVariants.filter((item) => item.id === "landing-device-stage-radius");
   const variant = matches[0];
-  if (matches.length !== 1 || variant.selector !== ".firstrun-proof__glass, .firstrun-step__crop" || variant.role !== "radius:landing-device-stage" ||
+  if (matches.length !== 1 || variant.selector !== ".firstrun-proof__glass" || variant.role !== "radius:landing-device-stage" ||
       !sameSet(variant.catalogStates, landingEverywhere) ||
       JSON.stringify(variant.radiusRecipes) !== JSON.stringify(radiusRecipe)) return ["landing stage radius scope or recipe changed"];
   return [];
 }
 assert.equal(inventory.contextualVariants.length, 16, "the landing recipes, radius and headline, the workout shelf and the Focus hero (owner, 2026-10-28) make 16 contextual variants (the summary hero is a title-role consumer, not a variant)");
-assert.deepEqual(radiusContractErrors(inventory), [], "the proof's phone plate, its compact plate and the step crop retain the Plan 054 geometry");
+assert.deepEqual(radiusContractErrors(inventory), [], "the proof's phone plate and its compact plate retain the Plan 054 geometry");
 const flattenedRadius = structuredClone(inventory);
 flattenedRadius.contextualVariants.find((item) => item.id === "landing-device-stage-radius").radiusRecipes[1].token = "--radius-prominent";
-assert.ok(radiusContractErrors(flattenedRadius).length, "mapping the crop to prominent is rejected");
+assert.ok(radiusContractErrors(flattenedRadius).length, "mapping the compact plate to prominent is rejected");
 const widenedRadius = structuredClone(inventory);
 widenedRadius.contextualVariants.find((item) => item.id === "landing-device-stage-radius").selector = ".firstrun *";
 assert.ok(radiusContractErrors(widenedRadius).length, "landing radius cannot spread to the whole gate");
@@ -571,7 +571,7 @@ try {
       "--radius-none": "0", "--radius-compact": "4px", "--radius-control": "8px",
       "--radius-surface": "12px", "--radius-prominent": "16px", "--radius-pill": "999px",
       "--radius-round": "50%",
-      "--radius-landing-stage": "24px", "--radius-landing-stage-compact": "20px", "--radius-landing-crop": "14px",
+      "--radius-landing-stage": "24px", "--radius-landing-stage-compact": "20px",
       "--control-target": "44px", "--control-icon-size": "24px", "--control-disabled-opacity": ".4",
     };
     const errors = Object.entries(expected).filter(([name, wanted]) => value(name) !== wanted)
@@ -657,7 +657,7 @@ try {
     assert.ok(ratio("--band-night-ink", "--band-night-bg") >= 4.5 && ratio("--band-night-ink-soft", "--band-night-raised") >= 4.5 &&
       ratio("--band-night-ink-faint", "--band-night-bg") >= 4.5, `${theme} night-band text has AA contrast on both grounds`);
     assert.ok(ratio("--band-night-boundary-required", "--band-night-raised") >= 3, `${theme} the proof rail's inactive step has 3:1 on the raised night band`);
-    assert.ok(ratio("--band-night-accent", "--band-night-raised") >= 3, `${theme} the proof rail's current step has 3:1 on the raised night band`);
+    assert.ok(ratio("--band-night-accent", "--band-night-raised") >= 3, `${theme} the proof's current chapter line has 3:1 on the raised night band`);
     assert.ok(ratio("--band-ink-ink", "--band-ink-bg") >= 4.5, `${theme} text on the ink band has AA contrast`);
     assert.ok(ratio("--color-focus", "--bg") >= 3, `${theme} landing focus ring is visible outside the button`);
     assert.ok(ratio("--color-ink", "--control-primary-disabled-bg") >= 4.5, `${theme} disabled creation label remains readable`);
@@ -667,30 +667,26 @@ try {
     assert.ok(ratio("--color-focus", "--surface") >= 3, `${theme} preference focus outline is visible`);
     assert.ok(ratio("--color-disabled-reason", "--surface") >= 4.5, `${theme} disabled preference explanation remains readable`);
 
-    for (const [width, expectedStage, expectedCrop] of [[390, 24, 14], [340, 20, 14], [320, 20, 14]]) {
+    for (const [width, expectedStage] of [[390, 24], [340, 20], [320, 20]]) {
       await opened.page.setViewportSize({ width, height: 844 });
       await opened.page.waitForTimeout(250);
       const radii = await opened.page.evaluate(() => ({
         stages: [...document.querySelectorAll(".firstrun-proof__glass")].map((stage) => getComputedStyle(stage).borderTopLeftRadius),
-        crops: [...document.querySelectorAll(".firstrun-step__crop")].map((crop) => getComputedStyle(crop).borderTopLeftRadius),
       }));
-      assert.ok(radii.stages.length > 0, `${theme} landing has a pinned phone plate at ${width}px`);
-      assert.ok(radii.crops.length > 0, `${theme} landing has step crops at ${width}px`);
+      assert.ok(radii.stages.length > 0, `${theme} landing has the proof's phone plate at ${width}px`);
       assert.ok(radii.stages.every((radius) => radius === `${expectedStage}px`),
         `${theme} phone plate keeps ${expectedStage}px at ${width}px: ${JSON.stringify(radii)}`);
-      assert.ok(radii.crops.every((radius) => radius === `${expectedCrop}px`),
-        `${theme} step crop keeps ${expectedCrop}px at ${width}px: ${JSON.stringify(radii)}`);
     }
     await opened.page.setViewportSize({ width: 390, height: 844 });
     await opened.page.waitForTimeout(250);
     const typography = await opened.page.evaluate(() => ({
-      prose: getComputedStyle(document.querySelector(".firstrun-step__text")).fontFamily,
+      prose: getComputedStyle(document.querySelector(".firstrun-chapter__text")).fontFamily,
       data: getComputedStyle(document.querySelector(".firstrun-oc__n")).fontFamily,
-      proofData: getComputedStyle(document.querySelector(".firstrun-step__value")).fontFamily,
+      proofData: getComputedStyle(document.querySelector("#firstRunDemo .fx-cue__load")).fontFamily,
     }));
     assert.match(typography.prose, /Plex Sans/, `${theme} ordinary landing prose uses the language font`);
     assert.match(typography.data, /Plex Mono/, `${theme} the next targets keep Mono`);
-    assert.match(typography.proofData, /Plex Mono/, `${theme} the proof's result keeps Mono`);
+    assert.match(typography.proofData, /Plex Mono/, `${theme} the proof's phone sets its figures in Mono, as Focus does`);
 
     // The pressed state is the press module's `.is-pressed` (ADR 0023), not `:active`.
     assert.equal(await opened.page.locator("#firstRunImport").count(), 1, "landing Import control is present for pressed-state proof");
@@ -710,11 +706,11 @@ try {
   assert.ok((await tokenContract()).errors.some((error) => error.includes("--r must remain absent")), "a retired compatibility alias cannot be reintroduced");
   await opened.page.evaluate(() => {
     document.documentElement.style.removeProperty("--r");
-    document.documentElement.style.setProperty("--radius-landing-crop", "16px");
+    document.documentElement.style.setProperty("--radius-landing-stage", "16px");
   });
-  assert.ok((await tokenContract()).errors.some((error) => error.includes("--radius-landing-crop")), "flattening the crop's rendered token is rejected");
+  assert.ok((await tokenContract()).errors.some((error) => error.includes("--radius-landing-stage")), "flattening the plate's rendered token is rejected");
   await opened.page.evaluate(() => {
-    document.documentElement.style.removeProperty("--radius-landing-crop");
+    document.documentElement.style.removeProperty("--radius-landing-stage");
     document.documentElement.setAttribute("data-theme", "light");
   });
   const real = await opened.page.evaluate(measureRenderedRoles, [{ selector: "#firstRunCreate", kind: "text" }]);

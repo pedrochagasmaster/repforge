@@ -6595,10 +6595,7 @@ function layoutRestContour(){
   // A tab grown wide by large text keeps its whole shape: the shoulder fillets, then the shelf's corners, tighten.
   const room=Math.max(0,tab.offsetLeft),F=Math.min(REST_FILLET,room);
   const R=Math.min(parseFloat(getComputedStyle(shelf).borderTopLeftRadius)||28,room-F);
-  const CX=tab.offsetLeft+tab.offsetWidth/2,x0=tab.offsetLeft-F,x1=tab.offsetLeft+tab.offsetWidth+F,SH=T+H;
-  const top=`M0,${T+R} A${R},${R} 0 0 1 ${R},${T} H${x0} A${F},${F} 0 0 0 ${x0+F},${T-F} V${RT} A${RT},${RT} 0 0 1 ${x0+F+RT},0 H${x1-F-RT} A${RT},${RT} 0 0 1 ${x1-F},${RT} V${T-F} A${F},${F} 0 0 0 ${x1},${T} H${W-R} A${R},${R} 0 0 1 ${W},${T+R}`;
-  const left=`M${CX},0 H${x0+F+RT} A${RT},${RT} 0 0 0 ${x0+F},${RT} V${T-F} A${F},${F} 0 0 1 ${x0},${T} H${R} A${R},${R} 0 0 0 0,${T+R}`;
-  const right=`M${CX},0 H${x1-F-RT} A${RT},${RT} 0 0 1 ${x1-F},${RT} V${T-F} A${F},${F} 0 0 0 ${x1},${T} H${W-R} A${R},${R} 0 0 1 ${W},${T+R}`;
+  const SH=T+H,{top,left,right,tabLength,length}=restContourPaths({W,T,R,RT,F,tabLeft:tab.offsetLeft,tabWidth:tab.offsetWidth});
   svg.setAttribute("viewBox",`0 0 ${W} ${SH}`);
   Object.assign(svg.style,{top:`${-T-edge}px`,left:`${-shelf.clientLeft}px`,width:`${W}px`,height:`${SH}px`});
   for(const el of svg.querySelectorAll("filter,mask")){
@@ -6608,8 +6605,20 @@ function layoutRestContour(){
   for(const el of svg.querySelectorAll(".restlight__hair,.restlight__core,.restlight__bloom"))el.setAttribute("d",top);
   const halves=[...svg.querySelectorAll(".restlight__half")];
   halves[0].setAttribute("d",left);halves[1].setAttribute("d",right);
+  restContour={svg,lit:svg.querySelector(".restlight__lit"),halves,tabLength,length}}
+/** The contour's paths for a shelf W wide whose tab (tabLeft, tabWidth) rises T above its top edge, with the tab's top
+ *  corner radius RT, the shoulder fillet F and the shelf's corner radius R; y is 0 at the tab's top. `top` is the lit
+ *  edge, `left` and `right` its halves from the tab's top centre out, `bump` the raised part alone (closed a little below
+ *  the shelf's edge), and the lengths are the halves' and the tab's share of one. The landing's proof draws its phone's
+ *  rest tab from the same paths. */
+function restContourPaths({W,T,R,RT,F,tabLeft,tabWidth}){
+  const CX=tabLeft+tabWidth/2,x0=tabLeft-F,x1=tabLeft+tabWidth+F;
+  const top=`M0,${T+R} A${R},${R} 0 0 1 ${R},${T} H${x0} A${F},${F} 0 0 0 ${x0+F},${T-F} V${RT} A${RT},${RT} 0 0 1 ${x0+F+RT},0 H${x1-F-RT} A${RT},${RT} 0 0 1 ${x1-F},${RT} V${T-F} A${F},${F} 0 0 0 ${x1},${T} H${W-R} A${R},${R} 0 0 1 ${W},${T+R}`;
+  const left=`M${CX},0 H${x0+F+RT} A${RT},${RT} 0 0 0 ${x0+F},${RT} V${T-F} A${F},${F} 0 0 1 ${x0},${T} H${R} A${R},${R} 0 0 0 0,${T+R}`;
+  const right=`M${CX},0 H${x1-F-RT} A${RT},${RT} 0 0 1 ${x1-F},${RT} V${T-F} A${F},${F} 0 0 0 ${x1},${T} H${W-R} A${R},${R} 0 0 1 ${W},${T+R}`;
+  const bump=`M${x0},${T+4} V${T} A${F},${F} 0 0 0 ${x0+F},${T-F} V${RT} A${RT},${RT} 0 0 1 ${x0+F+RT},0 H${x1-F-RT} A${RT},${RT} 0 0 1 ${x1-F},${RT} V${T-F} A${F},${F} 0 0 0 ${x1},${T} V${T+4} Z`;
   const tabLength=(CX-(x0+F+RT))+Math.PI*RT/2+((T-F)-RT)+Math.PI*F/2;
-  restContour={svg,lit:svg.querySelector(".restlight__lit"),halves,tabLength,length:tabLength+(x0-R)+Math.PI*R/2}}
+  return{top,left,right,bump,CX,x0,x1,tabLength,length:tabLength+(x0-R)+Math.PI*R/2}}
 /** How far the light reaches from the clock for the share of the rest left: the shelf's edge carries the first 70% of
  *  the rest and the tab's outline the last 30% (the prototype's reach()). */
 function restReach(share,c){
@@ -8614,16 +8623,20 @@ function focusNoSuggestionKey(ex,r,n,kind){
     if(reasons.has("loading_convention_mismatch")||seen.every(set=>Number.isFinite(set.rir)))return"mismatch";
     return"new"}
   return"unsupported"}
+/** A catalog sentence as markup with each of `vars` (already markup) in its slot: the template is escaped first, so only
+ *  the slots carry markup. The evidence line and the landing's proof both say their figures through it. */
+function evidenceSay(key,vars){
+  const keys=Object.keys(vars),marks=keys.map((_,i)=>String.fromCharCode(0xE000+i));
+  let html=esc(t(key,Object.fromEntries(keys.map((k,i)=>[k,marks[i]]))));
+  keys.forEach((k,i)=>{html=html.replace(marks[i],vars[k])});return html}
+/** A performed set's figures ride in Mono inside the evidence line. */
+const evidenceFig=v=>`<span class="fx-cue__fig">${esc(v)}</span>`;
 /** The evidence line under the hero: the set the engine anchored on and the target it aims at, the same facts as the
  *  Why sheet (`engineSetFacts`), or, with no suggestion, the honest reason. Mono carries the figures. */
 function focusEvidenceText(ex,n,r,cue){
   if(cue.kind==="edit")return"";
   // One quiet sentence: only the performed set's figures ride in Mono (owner review of #550).
-  const effort=isEffortMode(),mono=v=>`<span class="fx-cue__fig">${esc(v)}</span>`,plain=v=>esc(v);
-  const say=(key,vars)=>{
-    const keys=Object.keys(vars),marks=keys.map((_,i)=>String.fromCharCode(0xE000+i));
-    let html=esc(t(key,Object.fromEntries(keys.map((k,i)=>[k,marks[i]]))));
-    keys.forEach((k,i)=>{html=html.replace(marks[i],vars[k])});return html};
+  const effort=isEffortMode(),mono=evidenceFig,plain=v=>esc(v),say=evidenceSay;
   if(cue.kind!=="now"){
     const key=focusNoSuggestionKey(ex,r,n,cue.kind);
     return say(`focus.evidence.none_${key}`,{what:esc(t(effort?"focus.evidence.what_effort":"focus.evidence.what_rir")),
@@ -21429,27 +21442,6 @@ function landingChartRows(){
       load:c.ladder[week],reps:Math.max(c.min,c.reps[week]-(set-1)),
       rir:Math.max(0,c.rir[week]-(set-1)),created:`${date}T18:${10+set}:00.000Z`})});
   return rows}
-/** The proof's screens (dark only, EN and PT) and where the lens reads on each:
- *  [centre x, centre y, width, height] as percentages of the screen. The numbers
- *  are measured from the live app by tools/capture-landing-proof.mjs. */
-const LANDING_SCENES=["focus","rest","actions","note"];
-const LANDING_SPOTS={
-  focus:{cue:[50,28.46,91.79,8.31],log:[50,95.02,91.79,6.16],last:{en:[50,45.95,91.79,11.98],pt:[50,48.43,91.79,11.98]}},
-  rest:{dial:[50,44.34,46.08,21.29]},
-  actions:{swap:[50,52.38,91.79,6.16]},
-  note:{text:[50,64.93,91.28,2.94]}};
-/** A spot for the page's language: shared where English and Portuguese agree, else stored for each (the Focus proof's
- *  evidence line wraps to another line in Portuguese, #550). */
-const landingSpot=(scene,name)=>{const spot=LANDING_SPOTS[scene]?.[name];return Array.isArray(spot)?spot:spot?.[landingLang()]||null};
-/** How the lens reads each element: magnification, shape, padding (px at 390 wide)
- *  and, for a button read edge to edge, the app's corner radius. */
-const LANDING_READ={
-  cue:{scene:"focus",m:1.95,shape:"pill",pad:10},
-  log:{scene:"focus",m:1.5,shape:"rect",pad:0,r:14},
-  dial:{scene:"rest",m:1.3,shape:"pill",pad:6},
-  swap:{scene:"actions",m:1.5,shape:"rect",pad:0,r:14},
-  text:{scene:"note",m:1.4,shape:"pill",pad:8},
-  last:{scene:"focus",m:1.55,shape:"rect",pad:10}};
 /** The import-review capture: its size per language, the counts its screen shows
  *  (they differ by language: the sample's names classify differently) and the
  *  library movement its first row suggests. Written by tools/capture-landing-proof.mjs
@@ -21502,51 +21494,187 @@ function landingChartFigures(){
 function landingRich(key,text,terms={}){
   return esc(t(key)).replace(/\{(\w+)\}/g,(whole,name)=>
     name in terms?`<b class="firstrun-ui">${esc(terms[name])}</b>`:name in text?esc(text[name]):whole)}
-function landingCue(status,c){
-  const move=status==="advance"?"up":status==="reduce"?"down":"hold";
-  return`${t(`focus.cue.${move}`,{load:landingNum(c.load),unit:LANDING_UNIT})} · ${t("focus.cue.reps",{reps:landingNum(c.reps)})}`}
-function landingSceneAlt(scene,add){
-  const c=LANDING_CASES.add,first=c.logged[0];
-  if(scene==="focus")return t("landing.demo.alt.focus",{exercise:landingExerciseName(c.ex),sets:landingNum(c.sets),
-    min:landingNum(c.repMin),max:landingNum(c.repMax),load:landingKg(first[0]),reps:landingNum(first[1]),rir:landingNum(first[2]),
-    cue:add?landingCue(add.status,add):"",action:t("today.log_set")});
-  if(scene==="actions")return t("landing.demo.alt.actions",{action:t("ex.actions.substitute")});
-  return scene==="rest"?t("landing.demo.alt.rest"):t("landing.demo.alt.note")}
-/** The read of one step as a crop: the spot grown by the lens padding (a share of
- *  a 390 by 844 screen), as the five numbers the static card's CSS needs. */
-function landingCropBox(scene,reads){
-  const name=reads[reads.length-1],spot=landingSpot(scene,name),read=LANDING_READ[name];
-  if(!spot||!read)return null;
-  const padW=2*read.pad/390*100,padH=2*read.pad/844*100;
-  return{x:spot[0],y:spot[1],w:Math.min(100,spot[2]+padW),h:Math.min(100,spot[3]+padH)}}
+/* ---- The proof: the workout screen, playing itself (owner, 2026-10-29: the landing-anim prototype's direction A) ----
+   One phone plays a set of the "add" case's bench press in four chapters of four seconds: the target arrives (1); Log
+   set is tapped, the row checks and the rest tab rises out of the shelf with its light (2); the rest runs down, time
+   compressed, to "Rest done" while set 2 waits prefilled (3); the next session's target rises in a sheet over the
+   session it came from (4). The screen is Focus's own markup, classes and strings under `.theme-dark` (the app's dark
+   tokens), so it changes when Focus does; the frame, the finger, the sheet and the light's moving windows are the
+   landing's. Every frame is a pure function of the timeline, so a chapter can be jumped to; a frame moves transforms
+   and opacities only, and writes text only when the rest clock ticks over a second. */
+const LANDING_DEMO={loop:16,chapter:4,stills:[3.6,7.2,11.6,14.6],rest:120,tap:4.95,restAt:5.3,fast:8,done:10.6,
+  rise:30,next:"1a05c6f170d8806b911acf558c5af4f6"};
+/** Every catalog string the proof's screen shows; test/landing-demo-copy.mjs fails when one leaves a catalog or Focus
+ *  stops saying it. */
+const LANDING_DEMO_KEYS=["focus.exmeta.range","program.progression.adaptive","focus.cue.up","focus.cue.reps",
+  "focus.evidence.history","focus.evidence.target","focus.evidence.why","log.set","log.reps","stats.table.rir",
+  "focus.prev_line","focus.next_row","focus.metric.load_kg","focus.metric.reps","focus.shelf.pad_load","focus.shelf.log_set",
+  "rest.inline.label","rest.inline.done","landing.outcomes.next_label","landing.outcomes.target","landing.outcomes.did_same"];
+let landingDemo=null;
+/** The proof's screen, from the "add" case and the engine's answer for it (`add`). */
+function landingDemoHtml(add){
+  const c=LANDING_CASES.add,[load0,reps0,rir0]=c.logged[0],target=add||{load:load0,reps:reps0},rir=1;
+  const kg=landingNum(target.load),reps=landingNum(target.reps),unit=LANDING_UNIT;
+  const button=(cls,inner,attrs="")=>`<button type="button" class="${cls}" tabindex="-1"${attrs}>${inner}</button>`;
+  const cells=(values,soft)=>`<span class="ledgerline__vals">${["load","reps","rir"].map((lv,i)=>
+    `<span class="fx-col${soft?" is-soft":""}" data-lv="${lv}">${esc(values[i])}</span>`).join("")}</span>`;
+  const prev=`<small class="ledgerline__prev">${esc(t("focus.prev_line",{load:landingNum(load0),reps:landingNum(reps0),rir:landingNum(rir0)}))}</small>`;
+  const line=(index,values,soft,extra="",last=prev)=>`<div class="ledgerline${last?" ledgerline--two":""}${extra}"><span class="ledgerline__idx">${index}</span>${cells(values,soft)}${last}</div>`;
+  const check=`<span class="fx-check" aria-hidden="true"></span>`;
+  const head=`<div class="ledgerline__head"><span>${esc(t("log.set"))}</span><span class="ledgerline__vals">`+
+    `<span class="fx-col">${esc(unit)}</span><span class="fx-col">${esc(t("log.reps"))}</span><span class="fx-col">${esc(t("stats.table.rir"))}</span></span></div>`;
+  const set=[kg,reps,landingNum(rir0)],aim=[kg,reps,landingNum(rir)];
+  const field=(short,label,shown,suffix,selected)=>`<div class="shelf__field is-untouched${selected?" is-sel":""}">`+
+    button("shelf__fieldbtn",`<span class="firstrun-demo__face">${shelfFaceHtml(short,label,shown,suffix)}</span>`,` aria-pressed="${selected?"true":"false"}"`)+`</div>`;
+  const load=metricLabel({semantic:"loadKg"}),repsLabel=metricLabel({semantic:"reps"});
+  const pad=sign=>button("stepbtn shelf__pad",esc(t("focus.shelf.pad_load",{sign,step:landingNum(2.5),unit})));
+  const filters=`<svg class="firstrun-demo__defs" width="0" height="0" aria-hidden="true" focusable="false"><defs>`+
+    `<filter id="landingLightWide" filterUnits="userSpaceOnUse" x="-80" y="-80" width="550" height="400"><feGaussianBlur stdDeviation="9"/></filter>`+
+    `<filter id="landingLightNear" filterUnits="userSpaceOnUse" x="-80" y="-80" width="550" height="400"><feGaussianBlur stdDeviation="3"/></filter></defs></svg>`;
+  const lit=side=>`<div class="firstrun-demo__light firstrun-demo__light--${side}"><svg class="firstrun-demo__lit" aria-hidden="true" focusable="false">`+
+    `<path class="restlight__bloom restlight__bloom--wide" filter="url(#landingLightWide)"/><path class="restlight__bloom restlight__bloom--near" filter="url(#landingLightNear)"/>`+
+    `<path class="restlight__core"/></svg></div>`;
+  const mark=`<span class="fx-cue__mark" aria-hidden="true">${verdictMarkHtml("up")}</span>`;
+  const head1=esc(t("focus.cue.up",{load:"\u0000",unit})).replace("\u0000",`<b class="fx-cue__load">${esc(kg)}</b>`);
+  const evidence=evidenceSay("focus.evidence.history",{load:evidenceFig(`${landingNum(load0)} × ${landingNum(reps0)}`),rir:esc(landingNum(rir0))})+" "+
+    evidenceSay("focus.evidence.target",{reps:esc(reps),rir:esc(landingNum(rir))})+` <span class="firstrun-demo__why">${esc(t("focus.evidence.why"))}</span>`;
+  const meta=`${singleRir(t("focus.exmeta.range",{sets:landingNum(c.sets),min:landingNum(c.repMin),max:landingNum(c.repMax),rmin:landingNum(rir),rmax:landingNum(rir)}))} · ${t("program.progression.adaptive")}`;
+  const nextRow=esc(t("focus.next_row",{name:"\u0000"})).replace("\u0000",`<b>${esc(landingExerciseName(LANDING_DEMO.next))}</b>`);
+  // The session the target came from, as its ledger read: no "last" line under rows that are the last session.
+  const lastSession=c.logged.map(([l,r,e])=>line(check,[landingNum(l),landingNum(r),landingNum(e)],false," firstrun-demo__last","")).join("");
+  return `<div class="firstrun-demo">`+filters+
+    `<div class="wo-head firstrun-demo__head">`+button("icon-btn icon-btn--ghost",`<span class="icon-mask icon-mask--chev-down" aria-hidden="true"></span>`)+
+      `<div class="wo-head__center"><div class="wo-head__title"><span class="wo-head__name">${esc(landingExerciseName(c.ex))}</span></div></div>`+
+      `<div class="wo-head__end">${button("icon-btn icon-btn--ghost",`<span class="icon-mask icon-mask--sheet" aria-hidden="true"></span>`)}`+
+      `${button("icon-btn icon-btn--ghost",`<span class="icon-mask icon-mask--overflow" aria-hidden="true"></span>`)}</div></div>`+
+    `<div class="segbar segbar--ex firstrun-demo__progress">${[0,1,2,3,4].map(i=>`<span class="segbar__seg${i?"":" is-current"}"></span>`).join("")}</div>`+
+    `<div class="firstrun-demo__card">`+
+      `<div class="fx-head"><p class="focus-ex__meta">${esc(meta)}</p></div>`+
+      `<div class="fx-cue is-now"><p class="fx-cue__l1 firstrun-demo__l1">${mark}${head1}</p>`+
+      `<p class="fx-cue__l2 firstrun-demo__l2">${esc(t("focus.cue.reps",{reps}))}</p>`+
+      `<p class="fx-cue__evidence firstrun-demo__ev">${evidence}</p></div>`+
+      `<div class="fcard__ledger">${head}`+
+        `<div class="firstrun-demo__row">${line(1,set,true,"")}<div class="firstrun-demo__over firstrun-demo__done1">${line(check,set,false)}</div>`+
+          `<span class="ledgerline__ring firstrun-demo__ring"></span></div>`+
+        `<div class="firstrun-demo__row">${line(2,aim,true)}<div class="firstrun-demo__over firstrun-demo__open2">${line(2,set,true)}</div></div>`+
+        line(3,aim,true)+`</div>`+
+      `<p class="fx-next firstrun-demo__next"><span>${nextRow}</span></p>`+
+    `</div>`+
+    lit("l")+lit("r")+`<svg class="firstrun-demo__bump" aria-hidden="true" focusable="false"><path/></svg>`+
+    `<div class="workshelf focus-shelf firstrun-demo__shelf">`+
+      `<span class="resttab firstrun-demo__tab"><span class="resttab__label"></span><span class="resttab__time"></span>`+
+      `<span class="resttab__chev icon-mask icon-mask--chev-up" aria-hidden="true"></span></span>`+
+      `<div class="shelf__fields firstrun-demo__fields">${field(load,`${load}, ${unit}`,kg,unit,true)}${field(repsLabel,repsLabel,reps,"",false)}`+
+        `${field(t("stats.table.rir"),t("stats.table.rir"),landingNum(rir0),"",false)}</div>`+
+      `<div class="shelf__pads">${pad("−")}${pad("+")}</div>`+
+      button("btn btn--cta btn--noarrow saveset firstrun-demo__log",`<span class="firstrun-demo__log1">${esc(t("focus.shelf.log_set",{n:1}))}</span>`+
+        `<span class="firstrun-demo__log2">${esc(t("focus.shelf.log_set",{n:2}))}</span>`)+
+    `</div>`+
+    `<span class="firstrun-demo__tap"></span>`+
+    `<div class="firstrun-demo__scrim"></div>`+
+    `<div class="firstrun-demo__sheet"><span class="firstrun-demo__grab"></span>`+
+      `<p class="firstrun-demo__eyebrow">${esc(t("landing.outcomes.next_label"))}</p>`+
+      `<p class="firstrun-demo__target">${mark}${esc(t("landing.outcomes.target",{load:landingKg(target.load),reps}))}</p>`+
+      `<p class="firstrun-demo__did">${esc(t("landing.outcomes.did_same",{reps:landingNum(reps0),load:landingKg(load0),sets:landingNum(c.sets),min:landingNum(c.repMin),max:landingNum(c.repMax)}))}</p>`+
+      `<div class="fcard__ledger firstrun-demo__history">${head}${lastSession}</div>`+
+    `</div>`+
+    `<div class="firstrun-demo__veil"></div></div>`}
+/** Lay the screen's rest contour out from where its tab and shelf fell (once per build, size and font load): the
+ *  raised part and the two halves of the light are Focus's own paths (`restContourPaths`). */
+function layoutLandingDemo(d){
+  const shelf=d.shelf,tab=d.tab;
+  if(!shelf.offsetWidth||!tab.offsetWidth)return false;
+  const W=shelf.offsetWidth,T=LANDING_DEMO.rise,top=shelf.offsetTop-T;
+  const R=parseFloat(getComputedStyle(shelf).borderTopLeftRadius)||28,RT=parseFloat(getComputedStyle(tab).borderTopLeftRadius)||16;
+  const paths=restContourPaths({W,T,R,RT,F:REST_FILLET,tabLeft:tab.offsetLeft,tabWidth:tab.offsetWidth});
+  const H=T+R+60,place=(el,left,width)=>Object.assign(el.style,{left:`${left}px`,top:`${top}px`,width:`${width}px`,height:`${H}px`});
+  place(d.bump,0,W);d.bump.setAttribute("viewBox",`0 0 ${W} ${H}`);d.bump.querySelector("path").setAttribute("d",paths.bump);
+  // Each half of the light sits in a window that the clock slides: the left from the left edge to the tab's centre, the
+  // right from the centre to the right edge, each drawn in shelf coordinates inside it.
+  const [left,right]=d.lights,cx=paths.CX;
+  place(left,0,cx+6);place(right,cx-6,W-cx+6);
+  for(const [box,path,x] of [[left,paths.left,0],[right,paths.right,-(cx-6)]]){
+    const svg=box.querySelector("svg");svg.setAttribute("viewBox",`0 0 ${W} ${H}`);
+    Object.assign(svg.style,{left:`${x}px`,width:`${W}px`,height:`${H}px`});
+    svg.querySelectorAll("path").forEach(node=>node.setAttribute("d",path))}
+  d.cx=cx;d.x0=paths.x0;
+  const log=d.log.getBoundingClientRect(),screen=d.root.getBoundingClientRect(),scale=screen.width/d.root.offsetWidth||1;
+  Object.assign(d.tap.style,{left:`${(log.left-screen.left+log.width/2)/scale-23}px`,top:`${(log.top-screen.top+log.height/2)/scale-23}px`});
+  d.rowStep=d.rows[1].offsetTop-d.rows[0].offsetTop;
+  d.last=new WeakMap();d.laid=true;
+  return true}
 function renderLandingProof(add){
-  const root=$("#firstRun");if(!root)return;
-  const lang=landingLang();
-  const fill=(key,html)=>{const node=root.querySelector(`[data-landing-fill="${key}"]`);if(node)node.innerHTML=html};
-  const text=(key,value)=>{const node=root.querySelector(`[data-landing-fill="${key}"]`);if(node)node.textContent=value};
+  const root=$("#firstRun"),screen=root?.querySelector("#firstRunDemo");if(!screen)return;
   const c=LANDING_CASES.add,first=c.logged[0];
-  text("s2",t("landing.demo.s2.text"));
-  text("s3",t("landing.demo.s3.title",{action:t("today.log_set")}));
-  fill("s5",landingRich("landing.demo.s5.text",{},{action:t("ex.actions.substitute")}));
-  if(add){
-    text("s7.value",t("landing.outcomes.target",{load:landingKg(add.load),reps:landingNum(add.reps)}));
-    text("s7.sets",t("landing.demo.s7.sets",{sets:landingNum(c.sets)}));
-    text("s7",t("landing.demo.s7.text",{done_reps:landingNum(first[1]),load:landingKg(first[0]),sets:landingNum(c.sets),
-      min:landingNum(c.repMin),max:landingNum(c.repMax),next_load:landingKg(add.load),next_reps:landingNum(add.reps)}))}
-  const seen=new Set();
-  root.querySelectorAll("[data-landing-step]").forEach(step=>{
-    const scene=step.dataset.scene,reads=(step.dataset.read||"").split(" ").filter(Boolean);
-    const crop=step.querySelector(".firstrun-step__crop"),img=step.querySelector("[data-landing-crop]");
-    if(img){
-      img.src=`assets/brand/wt-${scene}-${lang}-dark.webp`;
-      img.alt=seen.has(scene)?"":landingSceneAlt(scene,add)}
-    seen.add(scene);
-    const box=reads.length?landingCropBox(scene,reads):null;
-    if(crop){
-      for(const [name,value] of [["sx",box?.x],["sy",box?.y],["sw",box?.w],["sh",box?.h]]){
-        if(value==null)crop.style.removeProperty(`--firstrun-${name}`);
-        else crop.style.setProperty(`--firstrun-${name}`,String(Math.round(value*100)/100))}}});
-}
+  const ch4=root.querySelector('[data-landing-fill="ch4"]');
+  if(ch4&&add)ch4.textContent=t("landing.demo.s7.text",{done_reps:landingNum(first[1]),load:landingKg(first[0]),sets:landingNum(c.sets),
+    min:landingNum(c.repMin),max:landingNum(c.repMax),next_load:landingKg(add.load),next_reps:landingNum(add.reps)});
+  screen.innerHTML=landingDemoHtml(add);
+  const q=sel=>screen.querySelector(sel),qa=sel=>[...screen.querySelectorAll(sel)];
+  landingDemo={root:q(".firstrun-demo"),l1:q(".firstrun-demo__l1"),l2:q(".firstrun-demo__l2"),ev:q(".firstrun-demo__ev"),
+    done1:q(".firstrun-demo__done1"),open2:q(".firstrun-demo__open2"),ring:q(".firstrun-demo__ring"),rows:qa(".firstrun-demo__row"),
+    fields:q(".firstrun-demo__fields"),log:q(".firstrun-demo__log"),log1:q(".firstrun-demo__log1"),log2:q(".firstrun-demo__log2"),
+    tap:q(".firstrun-demo__tap"),shelf:q(".firstrun-demo__shelf"),tab:q(".firstrun-demo__tab"),bump:q(".firstrun-demo__bump"),
+    label:q(".resttab__label"),time:q(".resttab__time"),lights:qa(".firstrun-demo__light"),scrim:q(".firstrun-demo__scrim"),
+    sheet:q(".firstrun-demo__sheet"),did:q(".firstrun-demo__did"),history:qa(".firstrun-demo__last"),veil:q(".firstrun-demo__veil"),
+    laid:false,last:new WeakMap(),painted:null};
+  landingController?.refresh()}
+/** One frame of the proof at `now` seconds into its loop. */
+function paintLandingDemo(now){
+  const d=landingDemo;if(!d)return;
+  if(!d.laid&&!layoutLandingDemo(d))return;
+  d.painted=now;
+  const D=LANDING_DEMO,seg=(a,b)=>Math.min(1,Math.max(0,(now-a)/(b-a))),out=x=>1-Math.pow(1-x,3);
+  const inOut=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2,f=v=>String(Math.round(v*1000)/1000);
+  const set=(el,prop,value)=>{let was=d.last.get(el);if(!was)d.last.set(el,was={});if(was[prop]===value)return;was[prop]=value;el.style[prop]=value};
+  const rise=(el,a,b,by)=>{const v=out(seg(a,b));set(el,"opacity",f(v));set(el,"transform",`translateY(${f((1-v)*by)}px)`)};
+  // 1 · the target arrives: the hero, its second line, then the evidence
+  rise(d.l1,.25,.85,10);rise(d.l2,.45,1.05,8);set(d.ev,"opacity",f(out(seg(1.1,1.7))));
+  // 2 · the tap lands on Log set: the row checks, the ring moves to set 2, the shelf takes set 2
+  const press=now>=4.8&&now<5.1?Math.sin(seg(4.8,5.1)*Math.PI):0;
+  set(d.tap,"opacity",f(seg(4.35,4.7)*(1-seg(5.15,5.5))*.9));
+  set(d.tap,"transform",`scale(${f(1.25-.25*out(seg(4.35,4.7))-.14*press)})`);
+  set(d.log,"transform",`scale(${f(1-.025*press)})`);
+  const logged=out(seg(D.tap,D.tap+.28));
+  set(d.done1,"opacity",f(logged));set(d.open2,"opacity",f(logged));
+  set(d.log1,"opacity",f(1-logged));set(d.log2,"opacity",f(logged));
+  set(d.ring,"transform",`translateY(${f(d.rowStep*inOut(seg(D.tap+.05,D.tap+.45)))}px)`);
+  const swap=seg(D.tap+.02,D.tap+.32);
+  set(d.fields,"opacity",f(now<D.tap||swap>=1?1:1-.55*Math.sin(swap*Math.PI)));
+  // the rest tab rises out of the shelf, and the light draws out from it along the edge
+  const up=seg(D.restAt-.3,D.restAt+.45),lift=(1-Math.min(1.06,1-Math.exp(-7*up)*Math.cos(9*up)))*(D.rise+6);
+  set(d.bump,"transform",`translateY(${f(lift)}px)`);set(d.tab,"transform",`translateY(${f(lift)}px)`);
+  // The tab's words sit in the shelf's own layer, so they fade in with the rise rather than hide behind it.
+  set(d.tab,"opacity",f(Math.min(1,up*2)));
+  let reveal=0,glow=0,label=t("rest.inline.label"),time="2:00",done=false;
+  const clock=s=>`${Math.floor(s/60)}:${String(Math.floor(s)%60).padStart(2,"0")}`;
+  if(now>=D.restAt){
+    const a=D.fasnow-D.restAt,el=now<D.fast?now-D.restAt:now<D.done?a+(D.rest-a)*inOut(seg(D.fast,D.done)):D.rest;
+    if(now<D.done){
+      const drawIn=out(seg(D.restAt+.05,D.restAt+.65)),used=el/D.rest,share=1-REST_TAB_SHARE;
+      // used from the corners in: the shelf's edge carries the first 70% of the rest and the tab's outline the last 30%
+      reveal=drawIn<1?d.cx*(1-drawIn):used<=share?used/share*d.x0:d.x0+(used-share)/REST_TAB_SHARE*(d.cx-d.x0);
+      glow=drawIn;time=clock(Math.ceil(D.rest-el))}
+    else{
+      // at zero, one soft flick out along the edge from the clock, settling to a faint rim
+      const ms=(now-D.done)*1000;
+      reveal=d.cx*(1-out(Math.min(1,ms/260)));
+      glow=Math.max((ms<140?out(ms/140):Math.pow(Math.max(0,1-(ms-140)/460),2.2))*1.1,ms>300?.2*Math.min(1,(ms-300)/300):0);
+      label=t("rest.inline.done");time="+"+clock(now-D.done);done=true}}
+  const [left,right]=d.lights;
+  set(left,"transform",`translateX(${f(reveal)}px)`);set(left.firstChild,"transform",`translateX(${f(-reveal)}px)`);
+  set(right,"transform",`translateX(${f(-reveal)}px)`);set(right.firstChild,"transform",`translateX(${f(reveal)}px)`);
+  set(left,"opacity",f(glow));set(right,"opacity",f(glow));
+  if(d.label.textContent!==label)d.label.textContent=label;
+  if(d.time.textContent!==time)d.time.textContent=time;
+  d.tab.classList.toggle("is-done",done);
+  // 4 · the next session rises over the one it came from
+  const sheet=out(seg(12.05,12.6));
+  set(d.scrim,"opacity",f(.55*sheet));set(d.sheet,"transform",`translateY(${f((1-sheet)*100)}%)`);
+  set(d.did,"opacity",f(out(seg(12.5,13.1))));
+  d.history.forEach((row,i)=>rise(row,12.9+i*.22,13.4+i*.22,8));
+  // the loop closes through a short fade, so set 1 comes back clean
+  set(d.veil,"opacity",f(now>15.55?out(seg(15.55,15.95)):1-out(seg(0,.3))))}
 function renderLandingOutcomes(results){
   const root=$("#firstRun");if(!root)return;
   for(const [id,c] of Object.entries(LANDING_CASES)){
@@ -21594,150 +21722,70 @@ function renderLandingContent(){
   renderLandingChart();
   renderLandingWays()}
 
-/* The proof controller. One object per open landing: it adds the pinned stage
-   (phone, lens, rail) only when motion is welcome and the screen can hold it,
-   keeps the persistent Build control in step with the hero action, and wires the
-   two in-page controls. Everything it starts is recorded and removed by
-   dispose(), which suspendFirstRun runs, so no listener, observer, timer or frame
-   outlives the gate and the static cards remain once it is gone. */
+/* The landing controller. One object per open landing: it plays the proof's phone
+   while it is on screen and the page is visible (stills the chapters switch under
+   reduced motion), keeps the persistent Build control in step with the hero action,
+   and wires the two in-page controls. Everything it starts is recorded and removed
+   by dispose(), which suspendFirstRun runs, so no listener, observer, timer or frame
+   outlives the gate. */
 let landingController=null;
 function createLandingController(root){
-  const reg={offs:[],obs:[],timers:new Set(),frames:new Set(),nodes:[]};
-  const clamp=(x,lo,hi)=>x<lo?lo:x>hi?hi:x;
+  const reg={offs:[],obs:[],frames:new Set(),nodes:[]};
   const on=(target,type,fn,opts)=>{target.addEventListener(type,fn,opts);reg.offs.push(()=>target.removeEventListener(type,fn,opts))};
-  const later=(fn,ms)=>{const id=setTimeout(()=>{reg.timers.delete(id);fn()},ms);reg.timers.add(id);return id};
   const motionQuery=window.matchMedia?.("(prefers-reduced-motion: reduce)")||null;
   const reduced=()=>window.RepForgeMotion?.reducedMotion?.()??!!motionQuery?.matches;
-  const track=root.querySelector("#firstRunProofTrack"),stage=root.querySelector("#firstRunProofStage"),list=root.querySelector("#firstRunProofSteps");
-  const steps=[...root.querySelectorAll("[data-landing-step]")];
   const ticks=new Set();
-  let pin=null,pinOffs=[],tickPending=false,seq=null;
+  let tickPending=false;
   const requestTick=()=>{
     if(tickPending)return;tickPending=true;
     const id=requestAnimationFrame(()=>{reg.frames.delete(id);tickPending=false;ticks.forEach(fn=>fn())});
     reg.frames.add(id)};
-  /* ---- pinned stage ---- */
-  const shouldPin=()=>{
-    if(!track||!stage||!list||!steps.length||reduced()||landingReturning())return false;
-    const font=parseFloat(getComputedStyle(document.documentElement).fontSize)||16;
-    return root.clientHeight>=600&&font<=20};
-  function unpin(){
-    if(!pin)return;
-    if(seq){clearTimeout(seq);reg.timers.delete(seq);seq=null}
-    ticks.delete(pin.tick);
-    pinOffs.forEach(off=>off());pinOffs=[];
-    pin.nodes.forEach(node=>node.remove());
-    track.classList.remove("is-pinned","is-ready");track.style.removeProperty("--firstrun-steps");
-    steps.forEach(step=>{step.classList.remove("is-current");step.removeAttribute("aria-current")});
-    pin=null}
-  function lensTo(name){
-    const read=LANDING_READ[name],spot=landingSpot(read.scene,name);
-    const img=pin.imgs[read.scene],phone=pin.phone,glass=pin.glass,lens=pin.lens;
-    const pw=phone.clientWidth,gw=glass.clientWidth,gh=glass.clientHeight,gx=glass.offsetLeft,gy=glass.offsetTop;
-    if(!pw||!gw||!gh)return;
-    const tw=spot[2]/100*gw,th=spot[3]/100*gh;
-    const m=Math.min(read.m,(pw-16-2*read.pad)/tw);
-    let lw=tw*m+2*read.pad,lh=th*m+2*read.pad;
-    if(read.shape==="round")lw=lh=Math.max(lw,lh);
-    const cx=clamp(gx+spot[0]/100*gw,lw/2+8,pw-lw/2-8),cy=gy+spot[1]/100*gh;
-    lens.style.setProperty("--firstrun-lens-w",`${lw}px`);lens.style.setProperty("--firstrun-lens-h",`${lh}px`);
-    lens.style.setProperty("--firstrun-lens-radius",read.shape==="round"?"50%":read.shape==="pill"?`${Math.min(lh/2,22)}px`:`${read.r?read.r*gw/390*m:14}px`);
-    lens.style.left=`${cx}px`;lens.style.top=`${cy}px`;
-    lens.style.backgroundImage=`url("${img.currentSrc||img.src}")`;
-    lens.style.backgroundSize=`${gw*m}px ${gh*m}px`;
-    lens.style.backgroundPosition=`${lw/2-spot[0]/100*gw*m}px ${lh/2-spot[1]/100*gh*m}px`;
-    lens.dataset.read=name;lens.classList.add("is-on")}
-  function frame(index){
-    const step=steps[index],reads=(step.dataset.read||"").split(" ").filter(Boolean);
-    LANDING_SCENES.forEach(scene=>{
-      const shown=scene===step.dataset.scene;
-      pin.imgs[scene].classList.toggle("is-on",shown);
-      pin.imgs[scene].setAttribute("aria-hidden",shown?"false":"true")});
-    if(seq){clearTimeout(seq);reg.timers.delete(seq);seq=null}
-    pin.phone.classList.toggle("is-reading",reads.length>0);
-    if(!reads.length){pin.lens.classList.remove("is-on");delete pin.lens.dataset.read;return}
-    lensTo(reads[0]);
-    if(reads.length>1)seq=later(()=>{seq=null;if(pin)lensTo(reads[reads.length-1])},1500)}
-  function setStep(index,force){
-    if(!pin||(index===pin.current&&!force))return;
-    pin.current=index;
-    steps.forEach((step,j)=>{
-      step.classList.toggle("is-current",j===index);
-      if(j===index)step.setAttribute("aria-current","step");else step.removeAttribute("aria-current")});
-    pin.rail.forEach((button,j)=>{
-      button.classList.toggle("is-done",j<index);
-      if(j===index)button.setAttribute("aria-current","step");else button.removeAttribute("aria-current")});
-    frame(index)}
-  function pinStage(){
-    if(pin)return;
-    const lang=landingLang();
-    const loaded=()=>{if(pin)setStep(pin.current,true)};
-    const element=(tag,cls,attrs={})=>{const node=document.createElement(tag);if(cls)node.className=cls;for(const [k,v] of Object.entries(attrs))node.setAttribute(k,v);return node};
-    const phone=element("div","firstrun-proof__phone"),glass=element("div","firstrun-proof__glass");
-    const screen=element("div","firstrun-proof__screen"),imgs={};
-    LANDING_SCENES.forEach(scene=>{
-      const source=steps.map(step=>step.querySelector("[data-landing-crop]")).find(node=>node?.src.includes(`wt-${scene}-`));
-      const img=element("img","",{width:"780",height:"1688",decoding:"async",loading:"lazy",
-        src:`assets/brand/wt-${scene}-${lang}-dark.webp`,alt:source?.alt||""});
-      imgs[scene]=img;screen.append(img);
-      img.addEventListener("load",loaded);pinOffs.push(()=>img.removeEventListener("load",loaded))});
-    glass.append(screen);
-    const lens=element("span","firstrun-proof__lens",{"aria-hidden":"true"});
-    phone.append(glass,lens);
-    const railNav=element("div","firstrun-proof__rail",{role:"group","aria-label":t("landing.demo.steps_aria")});
-    const rail=steps.map((step,j)=>{
-      const button=element("button","",{type:"button","data-go":String(j),
-        "aria-label":t("landing.demo.step_aria",{n:landingNum(j+1),total:landingNum(steps.length)})});
-      const go=()=>{
-        const span=track.offsetHeight-stage.offsetHeight;
-        const top=track.getBoundingClientRect().top-root.getBoundingClientRect().top+root.scrollTop+span*(j+.5)/steps.length;
-        root.scrollTo({top,behavior:reduced()?"auto":"smooth"})};
-      button.addEventListener("click",go);pinOffs.push(()=>button.removeEventListener("click",go));
-      railNav.append(button);return button});
-    stage.insertBefore(phone,list);stage.insertBefore(railNav,list);
-    track.classList.add("is-pinned");track.style.setProperty("--firstrun-steps",String(steps.length));
-    const tick=()=>{
-      if(!pin)return;
-      const span=track.offsetHeight-stage.offsetHeight;if(span<=0)return;
-      if(!shouldPin()){layout();return}
-      const progress=clamp((root.getBoundingClientRect().top-track.getBoundingClientRect().top)/span,0,1);
-      setStep(Math.min(steps.length-1,Math.floor(progress*steps.length*.999+.0001)))};
-    pin={phone,glass,lens,imgs,rail,nodes:[phone,railNav],current:-1,tick};
-    ticks.add(tick);
-    setStep(0);
-    /* the steps fade only once the first state is painted, so none flashes on entry */
-    const id=requestAnimationFrame(()=>{reg.frames.delete(id);if(pin)track.classList.add("is-ready")});
-    reg.frames.add(id)}
-  /* ---- the stepped reveal (O1) ----
-     When the proof is the static cards (motion is welcome but the stage cannot
-     pin), each card arrives with `.motion-step` > `.is-in` as it scrolls into
-     view. The class that hides a step is `.motion-steps-ready` on the list and
-     is added here, after the first observation, so without JavaScript every step
-     is simply shown, a card already in view is never hidden and shown again, and
-     the pinned stage (which has its own crossfade) and reduced motion never get
-     it. Nothing about the stage or its steps changes: this only adds and removes
-     classes, and dispose() takes them all off. */
-  let reveal=null;
-  function stopReveal(){
-    if(!reveal)return;
-    reveal.io.disconnect();const k=reg.obs.indexOf(reveal.io);if(k>=0)reg.obs.splice(k,1);
-    list.classList.remove("motion-steps-ready");
-    steps.forEach(step=>step.classList.remove("motion-step","is-in"));reveal=null}
-  function syncReveal(){
-    const want=!!list&&steps.length>0&&!pin&&!reduced()&&!landingReturning()&&typeof IntersectionObserver!=="undefined";
-    if(!want){stopReveal();return}
-    if(reveal)return;
-    const state={io:null,armed:false};
-    state.io=new IntersectionObserver(entries=>{
-      if(reveal!==state)return;
-      for(const entry of entries)if(entry.isIntersecting){entry.target.classList.add("is-in");state.io.unobserve(entry.target)}
-      if(!state.armed){state.armed=true;list.classList.add("motion-steps-ready")}},{root,threshold:.15});
-    reveal=state;reg.obs.push(state.io);
-    steps.forEach(step=>{step.classList.add("motion-step");state.io.observe(step)})}
-  function layout(){
-    if(shouldPin()){if(pin)setStep(pin.current,true);else pinStage()}else unpin();
-    syncReveal();
-    requestTick()}
+  /* ---- the proof's player ----
+     A clock that runs only while the phone is on screen, the page is visible and motion is welcome; the chapters show
+     where it is and jump it. Under reduced motion there is no clock: each chapter is a still and the chapters switch it. */
+  const glass=root.querySelector(".firstrun-proof__glass"),screen=root.querySelector("#firstRunDemo");
+  const chapters=[...root.querySelectorAll("[data-landing-chapter]")];
+  const play={t:0,raf:0,last:0,seen:false,current:-1,held:false};
+  const chapterAt=time=>Math.floor((time%LANDING_DEMO.loop)/LANDING_DEMO.chapter);
+  function paintChapters(time){
+    const at=chapterAt(time),still=reduced();
+    const share=still?1:((time%LANDING_DEMO.loop)-at*LANDING_DEMO.chapter)/LANDING_DEMO.chapter;
+    if(at!==play.current){
+      play.current=at;
+      chapters.forEach((item,i)=>{
+        item.classList.toggle("is-current",i===at);item.classList.toggle("is-done",i<at&&!still);
+        const go=item.querySelector("[data-chapter]");if(i===at)go.setAttribute("aria-current","step");else go.removeAttribute("aria-current")})}
+    chapters.forEach((item,i)=>item.style.setProperty("--chapter-progress",i===at?String(Math.round(share*1000)/1000):i<at&&!still?"1":"0"))}
+  function paint(time){
+    play.t=time;
+    paintLandingDemo(reduced()?LANDING_DEMO.stills[chapterAt(time)]:time%LANDING_DEMO.loop);
+    paintChapters(time)}
+  function frame(now){
+    reg.frames.delete(play.raf);
+    if(!play.held)play.t+=Math.min(.05,(now-play.last)/1000);
+    play.last=now;
+    paint(play.t);
+    play.raf=requestAnimationFrame(frame);reg.frames.add(play.raf)}
+  function syncPlay(){
+    const run=play.seen&&!document.hidden&&!reduced()&&!landingReturning();
+    if(run&&!play.raf){play.last=performance.now();play.raf=requestAnimationFrame(frame);reg.frames.add(play.raf)}
+    if(!run&&play.raf){cancelAnimationFrame(play.raf);reg.frames.delete(play.raf);play.raf=0}}
+  function fit(){
+    if(!glass||!screen||!glass.clientWidth)return;
+    screen.style.transform=`scale(${glass.clientWidth/390})`;
+    if(landingDemo){landingDemo.laid=false;paint(play.t)}}
+  function mountPlayer(){
+    if(!glass||!screen||!chapters.length)return;
+    chapters.forEach((item,i)=>on(item.querySelector("[data-chapter]"),"click",()=>{
+      play.current=-1;paint(i*LANDING_DEMO.chapter+(reduced()?0:.001))}));
+    if(typeof ResizeObserver!=="undefined"){const ro=new ResizeObserver(fit);reg.obs.push(ro);ro.observe(glass)}
+    if(typeof IntersectionObserver!=="undefined"){
+      const io=new IntersectionObserver(entries=>{play.seen=entries[entries.length-1].isIntersecting;syncPlay()},{root,threshold:.25});
+      reg.obs.push(io);io.observe(glass)}
+    on(document,"visibilitychange",syncPlay);
+    document.fonts?.ready?.then(()=>{if(landingController&&landingDemo){landingDemo.laid=false;paint(play.t)}});
+    fit();paint(0)}
+  function layout(){play.current=-1;paint(reduced()?Math.floor(play.t/LANDING_DEMO.chapter)*LANDING_DEMO.chapter:play.t);syncPlay();requestTick()}
   /* ---- the persistent Build control ---- */
   function mountDock(){
     const dock=root.querySelector("#firstRunDock"),hero=root.querySelector("#firstRunCreate"),close=root.querySelector("#firstRunCreateClose");
@@ -21798,22 +21846,25 @@ function createLandingController(root){
       try{data.focus({preventScroll:true})}catch{}})}
   /* ---- lifecycle ---- */
   function mount(){
-    mountControls();mountDock();mountInsetBand();
+    mountControls();mountDock();mountInsetBand();mountPlayer();
     on(root,"scroll",requestTick,{passive:true});
     on(window,"resize",layout);
     if(motionQuery?.addEventListener)on(motionQuery,"change",layout);
     layout()}
   function dispose(){
-    unpin();stopReveal();
+    if(screen)screen.style.removeProperty("transform");
     reg.offs.forEach(off=>off());reg.offs.length=0;
     reg.obs.forEach(io=>io.disconnect());reg.obs.length=0;
-    reg.timers.forEach(clearTimeout);reg.timers.clear();
     reg.frames.forEach(cancelAnimationFrame);reg.frames.clear();
     reg.nodes.forEach(fn=>fn());reg.nodes.length=0;
     ticks.clear();tickPending=false}
-  const live=()=>({listeners:reg.offs.length+pinOffs.length,observers:reg.obs.length,timers:reg.timers.size,frames:reg.frames.size,
-    pinned:!!pin,step:pin?pin.current:null,ticks:ticks.size});
-  return{mount,dispose,live}}
+  const live=()=>({listeners:reg.offs.length,observers:reg.obs.length,frames:reg.frames.size,
+    playing:!!play.raf&&!play.held,held:play.held,chapter:play.current<0?null:play.current,time:Math.round(play.t*1000)/1000,ticks:ticks.size});
+  /** A rebuilt screen (a language change) is laid out and painted where the player is. */
+  const refresh=()=>{play.current=-1;paint(play.t)};
+  /** Harness seam: put the timeline at `time` and hold it there (`null` lets it run again). */
+  const seek=time=>{play.held=time!=null;if(time!=null){play.current=-1;paint(time)}};
+  return{mount,dispose,live,refresh,seek}}
 function mountLandingController(){
   disposeLandingController();
   const root=$("#firstRun");if(!root)return;
@@ -21826,7 +21877,9 @@ function disposeLandingController(){
   if(!landingController)return;
   landingController.dispose();landingController=null}
 /** Test hook: what the open landing's controller is holding (nothing once closed). */
-window.__repforgeLandingProof=()=>landingController?{open:true,...landingController.live()}:{open:false,listeners:0,observers:0,timers:0,frames:0,pinned:false,step:null,ticks:0};
+/** Test hook: hold the open landing's proof at a moment of its timeline (frames and fidelity captures). */
+window.__repforgeLandingSeek=time=>landingController?.seek(time);
+window.__repforgeLandingProof=()=>landingController?{open:true,...landingController.live()}:{open:false,listeners:0,observers:0,frames:0,playing:false,chapter:null,time:0,ticks:0};
 /** Real-app captures that follow the chosen appearance: swap the file on
  *  <html data-theme>, never on prefers-color-scheme, so the page and the app agree. */
 function renderLandingDevice(){

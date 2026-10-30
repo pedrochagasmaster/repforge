@@ -149,7 +149,6 @@ rounded:
   prominent: "16px"                      # token: --radius-prominent
   landing-stage: "24px"                  # token: --radius-landing-stage
   landing-stage-compact: "20px"          # token: --radius-landing-stage-compact
-  landing-crop: "14px"                   # token: --radius-landing-crop
   pill: "999px"                          # token: --radius-pill
   round: "50%"                           # token: --radius-round
 spacing:
@@ -598,9 +597,8 @@ prominent 16px, pill 999px and round 50%.
 - **Pill and round**: ghost buttons, the dock capsule and its lens; icon buttons and
   the sheet close.
 - **Landing stage** (`--radius-landing-stage` 24px, `--radius-landing-stage-compact`
-  20px at 340px and below, `--radius-landing-crop` 14px): the exact composition of
-  the proof's phone plate and step crops. They are stage geometry, not reusable
-  steps.
+  20px at 340px and below): the exact composition of the proof's phone plate. It is
+  stage geometry, not a reusable step.
 
 Where a surface meets the edge of its parent (a ledger row, a tab, a prescription
 row) the corner is squared with `--radius-none`, so nested surfaces never read as

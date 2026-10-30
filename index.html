@@ -600,8 +600,8 @@
        proposal is stored; every product render has a localized equivalent.
        Plan 064 R2: the final page's bands. Number-bearing copy is filled by
        renderFirstRun* in app.js from the engine and the i18n templates; the
-       proof's pinned stage is built and torn down by the proof controller, so
-       the seven steps below read as static cards without it. -->
+       proof's phone screen is built and played by the landing controller, and
+       without it the first chapter stands as a still. -->
   <div id="firstRun" class="firstrun hidden ph-no-capture" role="dialog" aria-modal="true" tabindex="-1" data-i18n-aria="setup.aria" aria-label="Set up Taurifer">
     <div class="firstrun__inner">
       <section class="firstrun-band firstrun-band--night firstrun-hero" data-landing-section="hero" aria-labelledby="firstRunHeadline">
@@ -659,46 +659,27 @@
       <section class="firstrun-band firstrun-band--raised firstrun-proof" id="firstRunProof" data-landing-section="proof" aria-labelledby="firstRunProofTitle">
         <div class="firstrun-wrap">
           <h2 class="firstrun-h2" id="firstRunProofTitle" data-i18n="landing.demo.title">See it in practice.</h2>
-          <p class="firstrun-sub" data-i18n="landing.demo.sub">This is the app's workout screen, in the middle of a bench press session, made for the moments between sets. Scroll to see what each part does.</p>
-        </div>
-        <div class="firstrun-proof__track" id="firstRunProofTrack">
-          <div class="firstrun-wrap firstrun-proof__stage" id="firstRunProofStage">
-            <ol class="firstrun-steps" id="firstRunProofSteps">
-              <li class="firstrun-step" data-landing-step data-scene="focus" data-read="">
-                <div class="firstrun-step__crop firstrun-step__crop--screen"><img data-landing-crop width="780" height="1688" src="assets/brand/wt-focus-en-dark.webp" alt="" loading="lazy" decoding="async"></div>
-                <h3 class="firstrun-step__title" data-i18n="landing.demo.s1.title">One screen per exercise.</h3>
-                <p class="firstrun-step__text" data-i18n="landing.demo.s1.text">Your target, your last session and the weight and reps to log are on one screen. RIR appears next to the reps.</p>
+          <p class="firstrun-sub" data-i18n="landing.anim.sub">This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time.</p>
+          <div class="firstrun-proof__stage">
+            <div class="firstrun-proof__device" aria-hidden="true" inert>
+              <div class="firstrun-proof__glass"><div class="firstrun-proof__screen theme-dark" id="firstRunDemo"></div></div>
+            </div>
+            <ol class="firstrun-chapters" id="firstRunChapters" data-i18n-aria="landing.demo.steps_aria" aria-label="Steps">
+              <li class="firstrun-chapter is-current" data-landing-chapter>
+                <button type="button" class="firstrun-chapter__go" data-chapter="0" aria-current="step"><span class="firstrun-chapter__title" data-i18n="landing.anim.ch1.title">Know the weight</span><span class="firstrun-chapter__bar" aria-hidden="true"><span class="firstrun-chapter__fill"></span></span></button>
+                <p class="firstrun-chapter__text" data-i18n="landing.anim.ch1.text">Open the exercise and today's weight and reps are already there, with the reason in one line.</p>
               </li>
-              <li class="firstrun-step" data-landing-step data-scene="focus" data-read="cue">
-                <div class="firstrun-step__crop"><img data-landing-crop width="780" height="1688" src="assets/brand/wt-focus-en-dark.webp" alt="" loading="lazy" decoding="async"></div>
-                <h3 class="firstrun-step__title" data-i18n="landing.demo.s2.title">Already filled in.</h3>
-                <p class="firstrun-step__text" data-landing-fill="s2"></p>
+              <li class="firstrun-chapter" data-landing-chapter>
+                <button type="button" class="firstrun-chapter__go" data-chapter="1"><span class="firstrun-chapter__title" data-i18n="landing.anim.ch2.title">Log in one tap</span><span class="firstrun-chapter__bar" aria-hidden="true"><span class="firstrun-chapter__fill"></span></span></button>
+                <p class="firstrun-chapter__text" data-i18n="landing.demo.s3.text">One tap logs the set. With rest time on, the timer starts counting.</p>
               </li>
-              <li class="firstrun-step" data-landing-step data-scene="focus" data-read="log">
-                <div class="firstrun-step__crop"><img data-landing-crop width="780" height="1688" src="assets/brand/wt-focus-en-dark.webp" alt="" loading="lazy" decoding="async"></div>
-                <h3 class="firstrun-step__title" data-landing-fill="s3"></h3>
-                <p class="firstrun-step__text" data-i18n="landing.demo.s3.text">One tap logs the set. With rest time on, the timer starts counting.</p>
+              <li class="firstrun-chapter" data-landing-chapter>
+                <button type="button" class="firstrun-chapter__go" data-chapter="2"><span class="firstrun-chapter__title" data-i18n="landing.anim.ch3.title">Rest at a glance</span><span class="firstrun-chapter__bar" aria-hidden="true"><span class="firstrun-chapter__fill"></span></span></button>
+                <p class="firstrun-chapter__text"><span data-i18n="landing.demo.s4.text">The timer counts your rest. With notifications on, it tells you when it's up.</span> <span data-i18n="landing.anim.prefilled">The next set is already filled in.</span></p>
               </li>
-              <li class="firstrun-step" data-landing-step data-scene="rest" data-read="dial">
-                <div class="firstrun-step__crop"><img data-landing-crop width="780" height="1688" src="assets/brand/wt-rest-en-dark.webp" alt="" loading="lazy" decoding="async"></div>
-                <h3 class="firstrun-step__title" data-i18n="landing.demo.s4.title">Rest.</h3>
-                <p class="firstrun-step__text" data-i18n="landing.demo.s4.text">The timer counts your rest. With notifications on, it tells you when it's up.</p>
-              </li>
-              <li class="firstrun-step" data-landing-step data-scene="actions" data-read="swap">
-                <div class="firstrun-step__crop"><img data-landing-crop width="780" height="1688" src="assets/brand/wt-actions-en-dark.webp" alt="" loading="lazy" decoding="async"></div>
-                <h3 class="firstrun-step__title" data-i18n="landing.demo.s5.title">Swap.</h3>
-                <p class="firstrun-step__text" data-landing-fill="s5"></p>
-              </li>
-              <li class="firstrun-step" data-landing-step data-scene="note" data-read="text">
-                <div class="firstrun-step__crop"><img data-landing-crop width="780" height="1688" src="assets/brand/wt-note-en-dark.webp" alt="" loading="lazy" decoding="async"></div>
-                <h3 class="firstrun-step__title" data-i18n="landing.demo.s6.title">Notes.</h3>
-                <p class="firstrun-step__text" data-i18n="landing.demo.s6.text">Jot down bench height, grip, machine settings. You write it once and the note shows up every time you do that exercise.</p>
-              </li>
-              <li class="firstrun-step" data-landing-step data-scene="focus" data-read="last cue">
-                <div class="firstrun-step__crop"><img data-landing-crop width="780" height="1688" src="assets/brand/wt-focus-en-dark.webp" alt="" loading="lazy" decoding="async"></div>
-                <h3 class="firstrun-step__title" data-i18n="landing.demo.s7.title">Next session</h3>
-                <p class="firstrun-step__result"><span class="firstrun-step__value" data-landing-fill="s7.value"></span><span class="firstrun-step__unit" data-landing-fill="s7.sets"></span></p>
-                <p class="firstrun-step__text" data-landing-fill="s7"></p>
+              <li class="firstrun-chapter" data-landing-chapter>
+                <button type="button" class="firstrun-chapter__go" data-chapter="3"><span class="firstrun-chapter__title" data-i18n="landing.anim.ch4.title">See it adapt</span><span class="firstrun-chapter__bar" aria-hidden="true"><span class="firstrun-chapter__fill"></span></span></button>
+                <p class="firstrun-chapter__text" data-landing-fill="ch4"></p>
               </li>
             </ol>
           </div>
@@ -1400,6 +1381,6 @@ Triceps pushdown 3x12-15</pre>
   <script src="durable-state.js?v=447"></script>
   <script src="progress-model.js?v=309"></script>
   <script src="history-ui.js?v=551"></script>
-  <script src="app.js?v=567"></script>
+  <script src="app.js?v=568"></script>
 </body>
 </html>

@@ -167,6 +167,7 @@ export const FULL_SUITES = {
   "full-fast": [
     s("test/runtime-budget.mjs"),
     s("tools/check-design-md.mjs", [], { domains: ["shell"], cost: "tiny" }),
+    s("test/landing-demo-copy.mjs", [], { domains: ["entry"], cost: "tiny" }),
     s("test/manual-matrix.mjs", ["--self-test"]),
     s("test/programlab-domain.mjs", [], { domains: ["program", "persistence"] }),
     s("test/programlab-archive.mjs", [], { domains: ["program", "persistence"] }),
@@ -222,7 +223,7 @@ export const FULL_SUITES = {
     s("test/entry-landing.mjs", [], { seconds: 68 }),
     s("test/landing-variants.mjs", [], { domains: ["entry"], seconds: 82 }),
     s("test/journeys-in.mjs", [], { domains: ["entry", "today", "workout", "progress", "transition"], seconds: 32 }),
-    s("test/landing-proof-capture.mjs", [], { domains: ["entry", "workout"], seconds: 97 }),
+    s("test/landing-proof-capture.mjs", [], { domains: ["entry"], seconds: 97 }),
     s("test/entry-chooser.mjs", [], { seconds: 15 }),
     s("test/entry-install-policy.mjs", [], { seconds: 12 }),
     s("test/entry-guides.mjs", [], { seconds: 6 }),

@@ -366,9 +366,9 @@ async function run() {
       shown.heroTitle
     );
     assert(
-      ["landing.demo.alt.focus", "landing.demo.alt.rest", "landing.demo.alt.actions", "landing.demo.alt.note", "landing.ways.paste.alt", "landing.chart.alt"]
+      ["landing.ways.paste.alt", "landing.chart.alt"]
         .every((key) => coversTemplate(shown.previewText || "", "en", key)),
-      "the renders describe the workout screen, rest, actions, notes, the import review and the strength trend",
+      "the captures describe the import review and the strength trend (the proof's phone is the app's own markup, not an image)",
       shown.previewText
     );
     assert(shown.privacy === "Privacy", "the landing links to Privacy", shown.privacy);
@@ -658,9 +658,9 @@ async function run() {
     assert(pt.heroTitle === tr("pt", "landing.headline"), "PT landing title", pt.heroTitle);
     assert(pt.heroBody === tr("pt", "landing.hero.sub"), "PT landing body", JSON.stringify(pt.heroBody));
     assert(
-      ["landing.demo.alt.focus", "landing.demo.alt.rest", "landing.demo.alt.actions", "landing.demo.alt.note", "landing.ways.paste.alt", "landing.chart.alt"]
+      ["landing.ways.paste.alt", "landing.chart.alt"]
         .every((key) => coversTemplate(pt.previewText || "", "pt", key)),
-      "PT renders are described in Portuguese",
+      "PT captures are described in Portuguese",
       pt.previewText
     );
     await context.close();
@@ -740,7 +740,7 @@ async function run() {
             primaryCta: px("#firstRunCreate"),
             secondaryCta: px("#firstRunImport"),
             sectionTitle: px("#firstRunProofTitle"),
-            stepBody: px(".firstrun-step__text"),
+            stepBody: px(".firstrun-chapter.is-current .firstrun-chapter__text"),
             outcomeBody: px("[data-landing-explain]"),
             questionTitle: px(".firstrun-qa summary"),
             closingTitle: px("#firstRunCloseTitle"),

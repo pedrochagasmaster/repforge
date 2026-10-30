@@ -31,24 +31,27 @@
  * history the chart image was captured from (tools/landing-prototype/fixture.mjs).
  *
  * PART 2 - the final page (always on since the page packet landed). It asserts
- * that each section exists, that the proof has seven steps, that the three
+ * that each section exists, that the proof has four chapters, that the three
  * outcome cases and the chart show the oracle's numbers, that the FAQ has five
  * <details>, that the persistent Build dock exists on the standard landing but
- * never on the shared-link gate, and that the proof controller mounts and
- * disposes with the gate (nothing it starts outlives the landing) and degrades
- * to static cards under reduced motion, enlarged text and short screens.
+ * never on the shared-link gate, and that the proof's player plays only while it
+ * is on screen and the page is visible, jumps by chapter, shows stills under
+ * reduced motion, fits a phone's viewport with its chapters, and mounts and
+ * disposes with the gate (nothing it starts outlives the landing).
  *
  * Hooks PART 2 reads (all inside #firstRun):
  *   [data-landing-section="hero|proof|ways|track|data|faq|close|footer"]
- *   [data-landing-step]            x7 in the proof section, in order; the last is
- *                                  the result step
+ *   [data-landing-chapter]         x4 in the proof section, in order, each a
+ *                                  [data-chapter] button and its caption; the last
+ *                                  caption is the result
  *   [data-landing-outcome="add|hold|reduce"]  x3 in the track section, each with a
  *                                  [data-landing-next] element holding the next target
  *   [data-landing-chart]           the chart figure (an <img alt> and a <figcaption>)
  *   details.faq                    x5 in the faq section
  *   #firstRunCreateDock            the persistent Build control; absent on the
  *                                  valid shared-link gate
- *   window.__repforgeLandingProof()  what the open landing's proof controller holds
+ *   window.__repforgeLandingProof()  what the open landing's controller holds
+ *   window.__repforgeLandingSeek(t)  holds the proof's timeline at t seconds (null runs it)
  *
  * Run: node test/landing-variants.mjs   (with a static server on REPFORGE_URL)
  */
@@ -619,6 +622,11 @@ const RETIRED_KEYS = [
   "landing.program.title", "landing.system.title", "landing.shot.focus.alt", "landing.proof.example",
   // Focus has no "Now" label since R3c: the walkthrough points at the target on the card (owner decision, #295).
   "focus.cue.now",
+  // The scroll walkthrough's steps and image descriptions, retired with it for the playing phone (2026-10-29).
+  "landing.demo.sub", "landing.demo.s1.title", "landing.demo.s1.text", "landing.demo.s2.title", "landing.demo.s2.text",
+  "landing.demo.s3.title", "landing.demo.s4.title", "landing.demo.s5.title", "landing.demo.s5.text", "landing.demo.s6.title",
+  "landing.demo.s6.text", "landing.demo.s7.title", "landing.demo.s7.sets", "landing.demo.step_aria",
+  "landing.demo.alt.focus", "landing.demo.alt.rest", "landing.demo.alt.actions", "landing.demo.alt.note",
 ];
 /** What the captured import-review screen shows for the sample message: the counts differ by language. */
 const PASTE_COUNTS = { en: { linked: 2, review: 2 }, pt: { linked: 0, review: 4 } };
@@ -640,30 +648,29 @@ function copyPins() {
     for (const key of ["landing.demo.s7.text", "landing.outcomes.did_same", "landing.outcomes.did_mixed", "landing.outcomes.target", "landing.chart.caption", "landing.chart.alt"]) {
       assert(!/\d/.test(CATALOG[lang][key].replace(/\{\w+\}/g, "").replace(/e1RM/g, "")), `[${lang}] ${key} carries no hard-coded number`, CATALOG[lang][key]);
     }
-    for (const key of ["landing.demo.s2.text", "landing.demo.s7.text", "landing.demo.alt.focus"]) {
+    for (const key of ["landing.demo.s7.text", "landing.anim.ch1.text"]) {
       assert(!CATALOG[lang][key].includes("{now}"), `[${lang}] ${key} names no "Now" line (Focus does not render one)`, CATALOG[lang][key]);
     }
     for (const key of RETIRED_KEYS) assert(!(key in CATALOG[lang]), `[${lang}] retired key ${key} is gone`);
   }
-  // The lens spots and the import-review counts are measured from the live app by
-  // tools/capture-landing-proof.mjs into assets/brand/landing-proof-spots.json; the
-  // page's own tables must be those numbers, so a recapture that moves a spot or a
-  // count fails here instead of shipping a lens over the wrong pixels.
+  // The import-review counts are measured from the live app by tools/capture-landing-proof.mjs
+  // into assets/brand/landing-proof-spots.json; the page's own table must be those numbers, so
+  // a recapture that moves a count fails here instead of shipping an alt that miscounts.
   const literal = (name) => {
     const match = new RegExp(`const ${name}=(\\{[\\s\\S]*?\\});\\n`).exec(APP_SOURCE);
     return match ? new Function(`"use strict";return (${match[1]});`)() : null;
   };
-  const pageSpots = literal("LANDING_SPOTS"), pagePaste = literal("LANDING_PASTE_SHOT");
-  assert(!!pageSpots && !!pagePaste, "app.js carries the proof's lens spots and the import-review figures");
+  const pagePaste = literal("LANDING_PASTE_SHOT");
+  assert(!!pagePaste && !/const LANDING_SPOTS=/.test(APP_SOURCE), "app.js carries the import-review figures and no retired lens spots");
   let stored = null;
   try { stored = JSON.parse(readFileSync(new URL("../assets/brand/landing-proof-spots.json", import.meta.url), "utf8")); } catch {}
-  if (stored && pageSpots && pagePaste) {
-    assert(isDeepStrictEqual(stored.scenes, pageSpots), "the lens spots in app.js equal the measured assets/brand/landing-proof-spots.json", JSON.stringify({ stored: stored.scenes, page: pageSpots }));
+  if (stored && pagePaste) {
+    assert(!("scenes" in stored), "the measured file keeps no retired lens spots", JSON.stringify(Object.keys(stored)));
     const counts = Object.fromEntries(Object.entries(stored.pasteReview).map(([lang, c]) => [lang, { linked: c.linked, review: c.review }]));
     assert(isDeepStrictEqual(counts, pagePaste.counts), "the import-review counts in app.js are each language's own measured counts", JSON.stringify({ stored: counts, page: pagePaste.counts }));
-    assert(stored.frame.width === 390 && stored.frame.height === 844, "the spots were measured on the 390 x 844 frame the static crops assume", JSON.stringify(stored.frame));
+    assert(stored.frame.width === 390, "the import review was measured on the 390-wide frame its capture is", JSON.stringify(stored.frame));
   } else {
-    console.log("  (assets/brand/landing-proof-spots.json is not written yet: the spot table is not compared)");
+    console.log("  (assets/brand/landing-proof-spots.json is not written yet: the counts are not compared)");
   }
 }
 
@@ -677,7 +684,7 @@ const readFinal = (sectionNames) => {
   const text = (node) => (node?.textContent || "").replace(/\s+/g, " ").trim();
   const section = (name) => root?.querySelector(`[data-landing-section="${name}"]`) || null;
   const sections = Object.fromEntries(sectionNames.map((name) => [name, !!section(name)]));
-  const steps = [...(section("proof")?.querySelectorAll("[data-landing-step]") || [])].map(text);
+  const steps = [...(section("proof")?.querySelectorAll("[data-landing-chapter]") || [])].map(text);
   const outcomes = {};
   for (const id of ["add", "hold", "reduce"]) {
     const node = section("track")?.querySelector(`[data-landing-outcome="${id}"]`);
@@ -715,22 +722,22 @@ const dockState = () => {
 };
 
 const proofState = () => window.__repforgeLandingProof?.() ?? null;
-const stepState = () => {
+/** The proof's chapters and phone as the lifter sees them. */
+const chapterState = () => {
   const root = document.querySelector("#firstRun");
-  const steps = [...root.querySelectorAll("[data-landing-step]")];
+  const items = [...root.querySelectorAll("[data-landing-chapter]")];
   const shown = (node) => {
     const box = node.getBoundingClientRect();
-    return box.width > 0 && box.height > 0 && Number.parseFloat(getComputedStyle(node).opacity) > 0;
+    return box.width > 0 && box.height > 0 && Number.parseFloat(getComputedStyle(node).opacity) > 0 && getComputedStyle(node).visibility !== "hidden";
   };
   return {
-    count: steps.length,
-    current: steps.filter((step) => step.getAttribute("aria-current") === "step").length,
-    visible: steps.filter(shown).length,
-    withText: steps.filter((step) => step.textContent.trim().length > 0).length,
-    pinnedClass: !!root.querySelector(".firstrun-proof__track.is-pinned"),
-    phones: root.querySelectorAll(".firstrun-proof__phone").length,
-    rail: root.querySelectorAll(".firstrun-proof__rail button").length,
-    crops: [...root.querySelectorAll(".firstrun-step__crop")].filter(shown).length,
+    count: items.length,
+    current: items.filter((item) => item.querySelector("[data-chapter]").getAttribute("aria-current") === "step").map((item) => items.indexOf(item)),
+    captions: items.filter((item) => shown(item.querySelector(".firstrun-chapter__text"))).length,
+    withText: items.filter((item) => item.textContent.trim().length > 0).length,
+    devices: root.querySelectorAll(".firstrun-proof__device").length,
+    screen: !!root.querySelector("#firstRunDemo .firstrun-demo .fx-cue"),
+    tab: root.querySelector("#firstRunDemo .resttab__label")?.textContent || "",
     overflowX: document.documentElement.scrollWidth > innerWidth || root.scrollWidth > root.clientWidth,
   };
 };
@@ -743,15 +750,13 @@ async function scrollLanding(page, selector, block = "start") {
   await page.waitForTimeout(700);
 }
 
-/** Scroll the landing so the pinned proof sits at the middle of step `index`. */
-async function scrollToStep(page, index) {
-  await page.evaluate((i) => {
-    const root = document.querySelector("#firstRun");
-    const track = document.querySelector("#firstRunProofTrack"), stage = document.querySelector("#firstRunProofStage");
-    const span = track.offsetHeight - stage.offsetHeight;
-    root.scrollTo({ top: track.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop + span * (i + 0.5) / 7, behavior: "instant" });
-  }, index);
-  await page.waitForTimeout(500);
+/** Scroll the landing so the proof's phone sits near the top of the viewport. */
+async function scrollToDevice(page, top = 16) {
+  await page.evaluate((top) => {
+    const root = document.querySelector("#firstRun"), device = document.querySelector(".firstrun-proof__device");
+    root.scrollTo({ top: root.scrollTop + device.getBoundingClientRect().top - top, behavior: "instant" });
+  }, top);
+  await page.waitForTimeout(400);
 }
 
 async function finalPage(browser) {
@@ -763,14 +768,14 @@ async function finalPage(browser) {
 
     for (const name of SECTIONS) assert(f.sections[name], `[${lang}] the ${name} section is present (data-landing-section="${name}")`);
 
-    assert(f.steps.length === 7, `[${lang}] the proof has seven steps in the document`, `found ${f.steps.length}`);
-    assert(f.steps.length > 0 && f.steps.every((step) => step.length > 0), `[${lang}] every proof step carries its text without the pinned stage`, JSON.stringify(f.steps.map((s) => s.length)));
+    assert(f.steps.length === 4, `[${lang}] the proof has four chapters in the document`, `found ${f.steps.length}`);
+    assert(f.steps.length > 0 && f.steps.every((step) => step.length > 0), `[${lang}] every chapter carries its title and caption`, JSON.stringify(f.steps.map((s) => s.length)));
     const add = LANDING_CASES.add;
     const last = f.steps.at(-1) || "";
     assert(
       hasNumber(last, ENGINE.add.load, lang) && hasNumber(last, ENGINE.add.reps, lang) && hasNumber(last, SETS, lang) &&
         hasNumber(last, add.logged[0][0], lang) && hasNumber(last, add.logged[0][1], lang) && hasNumber(last, add.repMin, lang) && hasNumber(last, add.repMax, lang),
-      `[${lang}] step 7 shows the engine's next target ${ENGINE.add.load} x ${ENGINE.add.reps} and the sets it came from`, last
+      `[${lang}] chapter 4 shows the engine's next target ${ENGINE.add.load} x ${ENGINE.add.reps} and the sets it came from`, last
     );
 
     assert(f.outcomeCount === 3, `[${lang}] the track section shows exactly three outcomes`, `found ${f.outcomeCount}`);
@@ -862,55 +867,72 @@ async function finalPage(browser) {
     const shots = await page.evaluate(() => ({
       theme: document.documentElement.dataset.theme,
       sources: [...document.querySelectorAll("#firstRun [data-shot]")].map((img) => img.getAttribute("src")),
-      proof: [...document.querySelectorAll("#firstRun [data-landing-crop]")].map((img) => img.getAttribute("src")),
+      proof: (() => { const screen = document.querySelector("#firstRunDemo .firstrun-demo"); return screen ? getComputedStyle(screen).backgroundColor : null; })(),
+      dark: document.querySelector("#firstRunDemo")?.classList.contains("theme-dark"),
     }));
     assert(shots.theme === theme && shots.sources.length === 2 && shots.sources.every((src) => src.endsWith(`-en-${theme}.webp`)),
       `[${theme}] the paste review and the chart swap to their ${theme} captures`, JSON.stringify(shots));
-    assert(shots.proof.length === 7 && shots.proof.every((src) => /wt-(focus|rest|actions|note)-en-dark\.webp$/.test(src)),
-      `[${theme}] the proof screens are the dark captures in either theme`, JSON.stringify(shots.proof));
+    assert(shots.dark && shots.proof === "rgb(20, 19, 16)", `[${theme}] the proof's screen is the app's dark theme in either theme`, JSON.stringify(shots));
     await context.close();
   }
 
-  // The proof controller: mounts with the gate, disposes with it.
-  phase("Proof controller: the pinned stage, its rail, and a clean exit");
+  // The proof's player: plays on screen, pauses off it and when hidden, jumps by chapter, and leaves nothing behind.
+  phase("Proof player: plays only on screen and visible, jumps by chapter, and a clean exit");
   {
     const { context, page, errors } = await landingPage(browser, { lang: "en" });
     const open = await page.evaluate(proofState);
-    assert(open?.open && open.pinned && open.listeners > 0 && open.observers === 3, "opening the landing mounts the controller with its pinned stage (observers: the dock's two and the status-bar band's one)", JSON.stringify(open));
+    // observers: the dock's two, the status-bar band's one, and the player's resize and visibility watchers
+    assert(open?.open && open.listeners > 0 && open.observers === 5 && !open.playing,
+      "opening the landing mounts the controller; the proof below the fold is not playing", JSON.stringify(open));
+    const at = await page.evaluate(chapterState);
+    assert(at.devices === 1 && at.screen && at.count === 4 && at.current.length === 1 && at.current[0] === 0 && at.captions === 1,
+      "one phone with Focus's screen, four chapters, the first current with its caption", JSON.stringify(at));
+    await scrollToDevice(page);
+    const t0 = (await page.evaluate(proofState)).time;
+    await page.waitForTimeout(900);
+    const playing = await page.evaluate(proofState);
+    assert(playing.playing && playing.time > t0 + .5, "on screen the phone plays its timeline", JSON.stringify({ t0, playing }));
+    // a chapter jumps the timeline to its start and becomes the one current chapter
+    await page.click('[data-chapter="2"]');
+    const jumped = await page.evaluate(() => ({ ...window.__repforgeLandingProof(), ...(() => {
+      const items = [...document.querySelectorAll("[data-landing-chapter]")];
+      return { current: items.map((item) => item.querySelector("[data-chapter]").getAttribute("aria-current") === "step") };
+    })() }));
+    assert(jumped.chapter === 2 && jumped.time >= 8 && jumped.time < 9 && jumped.current.filter(Boolean).length === 1 && jumped.current[2],
+      "a chapter jumps the phone to its start and is the one current chapter", JSON.stringify(jumped));
+    await page.evaluate(() => window.__repforgeLandingSeek(11));
+    const rest = await page.evaluate(chapterState);
+    assert(rest.tab === tr("en", "rest.inline.done"), "at 11 s the rest tab says the app's own Rest done", JSON.stringify(rest));
+    await page.evaluate(() => window.__repforgeLandingSeek(null));
+    // a hidden page stops the clock; visible again, it runs
+    await page.evaluate(() => { Object.defineProperty(document, "hidden", { configurable: true, get: () => true }); document.dispatchEvent(new Event("visibilitychange")); });
+    const hidden = await page.evaluate(proofState);
     await page.waitForTimeout(400);
-    const before = await page.evaluate(stepState);
-    assert(before.pinnedClass && before.phones === 1 && before.rail === 7 && before.count === 7 && before.current === 1,
-      "the pinned stage has one phone, a seven-step rail and exactly one current step", JSON.stringify(before));
-    assert(before.visible === 1, "only the current step is painted while pinned", JSON.stringify(before));
-    assert(!before.overflowX, "no horizontal scroll while pinned", JSON.stringify(before));
-    await scrollLanding(page, '#firstRun [data-landing-section="proof"]');
-    await scrollToStep(page, 3);
-    const mid = await page.evaluate(() => ({ ...window.__repforgeLandingProof(), current: document.querySelector("[data-landing-step][aria-current='step']")?.dataset.scene }));
-    assert(mid.step === 3 && mid.current === "rest", "scrolling the track moves the proof to step 4 (the rest screen)", JSON.stringify(mid));
-    await scrollToStep(page, 6);
-    const lens = await page.evaluate(() => ({ step: window.__repforgeLandingProof().step, read: document.querySelector(".firstrun-proof__lens")?.dataset.read || null }));
-    assert(lens.step === 6 && !!lens.read, "the last step puts the lens on an element", JSON.stringify(lens));
-    // A rail detent scrolls to its step and marks the button current.
-    await page.click('.firstrun-proof__rail button[data-go="1"]');
-    await page.waitForFunction(() => window.__repforgeLandingProof().step === 1, undefined, { timeout: 4000 }).catch(() => {});
-    const railed = await page.evaluate(() => ({ step: window.__repforgeLandingProof().step, current: [...document.querySelectorAll(".firstrun-proof__rail button")].map((b) => b.getAttribute("aria-current") === "step") }));
-    assert(railed.step === 1 && railed.current.filter(Boolean).length === 1 && railed.current[1] === true, "a rail button scrolls to its step and is the one current button", JSON.stringify(railed));
+    const stillHidden = await page.evaluate(proofState);
+    assert(!hidden.playing && stillHidden.time === hidden.time && stillHidden.frames === 0, "a hidden page stops the clock and holds no frame", JSON.stringify({ hidden, stillHidden }));
+    await page.evaluate(() => { delete document.hidden; document.dispatchEvent(new Event("visibilitychange")); });
+    assert((await page.evaluate(proofState)).playing, "visible again, the phone plays on");
+    // scrolled away, it pauses
+    await scrollLanding(page, '#firstRun [data-landing-section="faq"]');
+    const away = await page.evaluate(proofState);
+    assert(!away.playing && away.frames === 0, "scrolled off screen, the phone pauses and holds no frame", JSON.stringify(away));
 
     // Leaving the landing disposes everything the controller started.
     await page.evaluate(() => window.closeFirstRun());
-    const closed = await page.evaluate(() => ({ ...window.__repforgeLandingProof(), phones: document.querySelectorAll(".firstrun-proof__phone").length, pinned: !!document.querySelector(".is-pinned") }));
-    assert(closed.open === false && closed.listeners === 0 && closed.observers === 0 && closed.timers === 0 && closed.frames === 0 && closed.phones === 0 && !closed.pinned,
-      "closing the landing leaves no listener, observer, timer, frame or injected node", JSON.stringify(closed));
+    const closed = await page.evaluate(() => ({ ...window.__repforgeLandingProof(), scaled: !!document.querySelector("#firstRunDemo")?.style.transform }));
+    assert(closed.open === false && closed.listeners === 0 && closed.observers === 0 && closed.frames === 0 && !closed.scaled,
+      "closing the landing leaves no listener, observer, frame or scale behind", JSON.stringify(closed));
     // And scrolling a hidden landing starts nothing.
     await page.evaluate(() => { const r = document.querySelector("#firstRun"); r.scrollTop = 50; r.dispatchEvent(new Event("scroll")); window.dispatchEvent(new Event("resize")); });
     await page.waitForTimeout(150);
     const still = await page.evaluate(() => window.__repforgeLandingProof());
-    assert(still.frames === 0 && still.timers === 0 && still.listeners === 0, "scroll and resize on a closed landing start nothing", JSON.stringify(still));
+    assert(still.frames === 0 && still.listeners === 0, "scroll and resize on a closed landing start nothing", JSON.stringify(still));
     // Reopening on the same device is a return: a fresh controller mounts, and
-    // the condensed returning landing leaves the proof out, so nothing pins.
+    // the condensed returning landing leaves the proof out, so nothing plays.
     await page.evaluate(() => window.openFirstRun());
+    await page.waitForTimeout(300);
     const again = await page.evaluate(proofState);
-    assert(again?.open && again.listeners > 0 && !again.pinned && again.step === null, "reopening mounts a fresh controller; the returning landing does not pin the proof", JSON.stringify(again));
+    assert(again?.open && again.listeners > 0 && !again.playing && again.frames <= 1, "reopening mounts a fresh controller; the returning landing does not play the proof", JSON.stringify(again));
     await page.evaluate(() => window.closeFirstRun());
     // A device that has not seen the landing gets the full first-visit page again.
     await page.evaluate((key) => localStorage.removeItem(key), UIKEY);
@@ -918,43 +940,47 @@ async function finalPage(browser) {
     await waitForAppBoot(page, { base: BASE });
     await waitForFirstRun(page);
     const fresh = await page.evaluate(proofState);
-    assert(fresh?.open && fresh.pinned && fresh.step === 0, "a first visit mounts a fresh controller at step one", JSON.stringify(fresh));
+    assert(fresh?.open && fresh.chapter === 0, "a first visit mounts a fresh controller at chapter one", JSON.stringify(fresh));
     await page.evaluate(() => window.closeFirstRun());
     assert(errors.length === 0, "mounting and disposing raise no page errors", errors.slice(0, 2).join(" | "));
     await context.close();
   }
 
-  // Degradation: reduced motion, enlarged text and short screens get the seven static cards.
-  phase("Proof controller: static cards when the stage cannot or should not pin");
-  for (const [label, opts, prepare] of [
-    ["reduced motion", { reducedMotion: true }, null],
-    ["a short screen (320 x 560)", { width: 320, height: 560 }, null],
-    ["enlarged text (200%)", {}, async (page) => {
-      await page.evaluate(() => { document.documentElement.style.fontSize = "32px"; window.dispatchEvent(new Event("resize")); });
-      await page.waitForTimeout(300);
-    }],
-  ]) {
-    const { context, page } = await landingPage(browser, { lang: "pt", ...opts });
-    if (prepare) await prepare(page);
+  // Reduced motion: no clock, a still per chapter, and the chapters switch it.
+  phase("Proof player: stills under reduced motion");
+  {
+    const { context, page } = await landingPage(browser, { lang: "pt", reducedMotion: true });
+    await scrollToDevice(page);
+    await page.waitForTimeout(500);
+    const first = await page.evaluate(proofState);
+    assert(first.open && !first.playing && first.frames === 0 && first.chapter === 0, "reduced motion: on screen, nothing plays", JSON.stringify(first));
+    await page.click('[data-chapter="2"]');
+    await page.waitForTimeout(300);
+    const third = await page.evaluate(chapterState);
     const ctl = await page.evaluate(proofState);
-    // The static cards arrive as they scroll in (Plan 064 O1); scrolled through, all seven are painted.
-    for (let i = 0; i < 7; i++) {
-      await page.evaluate((index) => document.querySelectorAll("[data-landing-step]")[index].scrollIntoView({ block: "center" }), i);
-      await page.waitForTimeout(100);
-    }
-    await page.waitForTimeout(400);
-    const st = await page.evaluate(stepState);
-    assert(ctl?.open && ctl.pinned === false, `${label}: the stage is not pinned`, JSON.stringify(ctl));
-    assert(st.phones === 0 && st.rail === 0 && !st.pinnedClass, `${label}: no phone, lens or rail is built`, JSON.stringify(st));
-    assert(st.count === 7 && st.visible === 7 && st.withText === 7, `${label}: all seven steps are painted with their text`, JSON.stringify(st));
-    assert(st.crops === 7, `${label}: each step carries its own screen crop`, JSON.stringify(st));
-    assert(!st.overflowX, `${label}: no horizontal scroll`, JSON.stringify(st));
-    if (label === "enlarged text (200%)") {
-      await page.evaluate(() => { document.documentElement.style.fontSize = ""; window.dispatchEvent(new Event("resize")); });
-      await page.waitForTimeout(300);
-      const back = await page.evaluate(proofState);
-      assert(back?.pinned === true, "restoring the text size pins the stage again", JSON.stringify(back));
-    }
+    assert(ctl.chapter === 2 && !ctl.playing && third.current[0] === 2 && third.captions === 1 && third.tab === tr("pt", "rest.inline.done"),
+      "reduced motion: a chapter switches the still (Rest at a glance shows the app's Descanso concluído)", JSON.stringify({ ctl, third }));
+    assert(!third.overflowX, "reduced motion: no horizontal scroll", JSON.stringify(third));
+    await context.close();
+  }
+
+  // Phones: the device and its chapters fit one viewport above the Build control.
+  phase("Proof: the phone and its chapters fit the viewport");
+  for (const [width, height, strict] of [[390, 844, true], [375, 667, true], [320, 568, false]]) {
+    const { context, page } = await landingPage(browser, { lang: "en", width, height });
+    await scrollToDevice(page);
+    const fit = await page.evaluate(() => {
+      const device = document.querySelector(".firstrun-proof__device").getBoundingClientRect();
+      const chips = [...document.querySelectorAll("[data-chapter]")].map((button) => button.getBoundingClientRect());
+      const dock = document.querySelector("#firstRunDock")?.getBoundingClientRect();
+      return { deviceTop: Math.round(device.top), deviceBottom: Math.round(device.bottom), chipsBottom: Math.round(Math.max(...chips.map((b) => b.bottom))),
+        chipMin: Math.round(Math.min(...chips.map((b) => Math.min(b.width, b.height)))), dockTop: dock && dock.height ? Math.round(dock.top) : innerHeight,
+        overflowX: document.documentElement.scrollWidth > innerWidth };
+    });
+    const room = fit.dockTop - 4;
+    if (strict) assert(fit.chipsBottom <= room, `${width} x ${height}: the phone and its chapter chips fit above the Build control without scrolling`, JSON.stringify(fit));
+    else assert(fit.deviceBottom <= room, `${width} x ${height}: the phone fits above the Build control; its chips may sit just below`, JSON.stringify(fit));
+    assert(fit.chipMin >= 44 && !fit.overflowX, `${width} x ${height}: every chapter chip is at least 44 px and nothing scrolls sideways`, JSON.stringify(fit));
     await context.close();
   }
 
@@ -1050,7 +1076,7 @@ async function finalPage(browser) {
       assert(!gate.createVisible && !gate.importVisible, "no Build or Track is visible on the shared gate", JSON.stringify(gate));
     }
     const ctl = await page.evaluate(proofState);
-    assert(ctl?.open && ctl.observers === 1, "the shared gate watches no hero action: the dock logic is not mounted, only the status-bar band observes", JSON.stringify(ctl));
+    assert(ctl?.open && ctl.observers === 3, "the shared gate watches no hero action: the dock logic is not mounted; the status-bar band and the proof's player observe", JSON.stringify(ctl));
     const close = await page.evaluate(() => ({
       actions: getComputedStyle(document.querySelector(".firstrun-close__actions")).display,
       dockDisplay: getComputedStyle(document.querySelector("#firstRunDock")).display,
@@ -1145,12 +1171,11 @@ async function dockFocusRing(browser) {
 }
 
 /**
- * R7 V-04 and V-08 (owner decision #295 comment 5965828337 for the chart). The chart image must be drawn at or above
- * CHART_MIN_SCALE of the CSS size it was captured at (rendered width / natural CSS width, natural = pixels / capture
- * scale), and every proof-rail button is a full 44 x 44 target at the narrowest supported widths.
+ * R7 V-04 (owner decision #295 comment 5965828337). The chart image must be drawn at or above CHART_MIN_SCALE of the CSS
+ * size it was captured at (rendered width / natural CSS width, natural = pixels / capture scale).
  */
-async function chartScaleAndRailTargets(browser) {
-  phase("Final page: the chart image is legible at 360 and 390, and the proof rail buttons are 44 x 44 at 360 and 320");
+async function chartScale(browser) {
+  phase("Final page: the chart image is legible at 360 and 390");
   for (const lang of ["en", "pt"]) {
     for (const width of [320, 360, 390]) {
       const { context, page } = await landingPage(browser, { lang, width });
@@ -1165,19 +1190,6 @@ async function chartScaleAndRailTargets(browser) {
         assert(scale >= CHART_MIN_SCALE, `[${lang} ${width}] the chart image draws at ${scale.toFixed(2)} of its captured size, needs ${CHART_MIN_SCALE}`, JSON.stringify(read));
       }
       assert(!read.overflowX, `[${lang} ${width}] the chart does not overflow the page`, JSON.stringify(read));
-      if (width <= 360) {
-        const rail = await page.evaluate(() => {
-          const root = document.querySelector("#firstRun");
-          root.scrollTo({ top: document.querySelector("#firstRunProofTrack").getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop, behavior: "instant" });
-          return [...document.querySelectorAll(".firstrun-proof__rail button")].map((button) => {
-            const box = button.getBoundingClientRect();
-            return { width: Math.round(box.width * 10) / 10, height: Math.round(box.height * 10) / 10, left: Math.round(box.left), right: Math.round(box.right) };
-          });
-        });
-        assert(rail.length === 7, `[${lang} ${width}] the pinned proof builds its seven rail buttons`, JSON.stringify(rail));
-        assert(rail.every((box) => box.width >= 44 && box.height >= 44 && box.left >= 0 && box.right <= width),
-          `[${lang} ${width}] every rail button is at least 44 x 44 and on screen`, JSON.stringify(rail));
-      }
       await context.close();
     }
   }
@@ -1192,7 +1204,7 @@ async function main() {
   try {
     await characterize(browser);
     await finalPage(browser);
-    await chartScaleAndRailTargets(browser);
+    await chartScale(browser);
     await dockFocusRing(browser);
   } finally {
     await browser.close();

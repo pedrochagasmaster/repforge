@@ -234,19 +234,6 @@ nav button{transition-duration:.2s,var(--press-release-duration);transition-timi
   to{clip-path:inset(0 0 0 0)}
 }
 
-/* A stepped reveal on entry. The hidden state only exists once a script has
-   marked the group ready, so without JavaScript every step is simply shown. */
-.motion-steps-ready .motion-step{
-  opacity:0;
-  transform:translateY(8px);
-  transition:opacity .2s cubic-bezier(.2,.7,.2,1),
-             transform .2s cubic-bezier(.2,.7,.2,1);
-}
-.motion-steps-ready .motion-step.is-in{
-  opacity:1;
-  transform:none;
-}
-
 /* A generated list arriving in reading order, one item every 55ms. The caller
    sets --build-i on each item, counting from zero, once per generation. */
 .motion-build > .motion-build-item{
@@ -316,7 +303,6 @@ nav button{transition-duration:.2s,var(--press-release-duration);transition-timi
   .motion-fade-out,
   .motion-clip-reveal,
   .motion-build > .motion-build-item{animation:none}
-  .motion-steps-ready .motion-step{opacity:1;transform:none;transition:none}
   .motion-hairline.is-pending::after{animation:none;content:none}
   .motion-hairline.is-pending .motion-hairline__label{display:block}
   .toggle.is-pressed::after{transform:none}

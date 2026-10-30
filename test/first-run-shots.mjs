@@ -72,7 +72,7 @@ for (const [width, height] of VIEWPORTS) {
       firstControlTop: box("#firstRunCreate").top,
       trackBottom: box("#firstRunImport").bottom,
       proofTop: box('[data-landing-section="proof"]').top,
-      pinned: window.__repforgeLandingProof?.().pinned ?? null,
+      playing: window.__repforgeLandingProof?.().playing ?? null,
     };
   });
   await page.screenshot({ path: join(OUT, `first-run-${width}x${height}.png`) });

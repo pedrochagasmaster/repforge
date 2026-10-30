@@ -915,10 +915,10 @@ packet does not make, so the night pill draws its arrow in `--band-night-cta-ink
 The orange-band pill keeps its orange arrow (`--band-orange-cta-mark`, 6.33:1).
 
 **Device-stage radius.** `landing-device-stage-radius` is re-pointed from
-`.firstrun-stage` to the proof's phone plate and the step crop: `.firstrun-proof__glass`
-24px (`--radius-landing-stage`), 20px at 340px and below
-(`--radius-landing-stage-compact`), and `.firstrun-step__crop` 14px
-(`--radius-landing-crop`). The crop no longer takes the compact step.
+`.firstrun-stage` to the proof's phone plate: `.firstrun-proof__glass` 24px
+(`--radius-landing-stage`), 20px at 340px and below (`--radius-landing-stage-compact`).
+The walkthrough's step crop and its `--radius-landing-crop` retired with the walkthrough
+(2026-10-29).
 
 **Headline.** `.firstrun-h1` (the hero headline and the closing title) is the first-run
 headline variant `--font-size-landing-headline` (`-wide` from 700px, and
@@ -943,12 +943,11 @@ Spacing is composed from the `--space-*` scale (the prototype's 24, 40, 48, 64 a
 
 **Page structure.** Each band is a `section` with `data-landing-section`; the page
 scrolls inside the fixed `#firstRun` dialog, so every observer and sticky element is
-rooted on it. The proof's seven steps are static cards first (each with its own
-crop of the screen it reads); the controller adds the pinned phone, lens and rail
-only when motion is welcome, the screen is at least 600px tall and the root text
-is not enlarged, and removes them again with the gate. The seven rail buttons
-(`.firstrun-proof__rail button`, quiet-navigation, bottom edge as the bar, marked
-current by `aria-current="step"`), the paste disclosure `#firstRunHandBtn`
+rooted on it. The proof is a phone that plays Focus's own markup by itself in four
+chapters (2026-10-29, the landing-anim prototype's direction A; the scroll walkthrough's
+pinned phone, lens and rail are retired). The four chapter buttons
+(`.firstrun-chapter__go`, quiet-navigation, bottom edge as the progress line, a left
+rule from 900px, marked current by `aria-current="step"`), the paste disclosure `#firstRunHandBtn`
 (disclosure) and the five `summary` controls (the shared disclosure row) are
 inventoried; the footer Privacy link `#firstRunFooterPrivacy` moves to the data
 band and never opens the sheet, so `#firstRunPrivacy` stays the single opener.

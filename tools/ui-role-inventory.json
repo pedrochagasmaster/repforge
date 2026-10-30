@@ -16,7 +16,7 @@
     "onboarding-start/first-run-proof": {
       "owner": "plan-064/r2",
       "content": "flat",
-      "scenario": "The landing scrolled to the proof band: seven steps over the real workout screen, with the pinned phone, lens and rail, and the persistent Build control."
+      "scenario": "The landing scrolled to the proof band: the phone playing Focus's own screen, held mid-chapter 2 (the set logged, the rest tab risen with its light), its four chapters, and the persistent Build control."
     },
     "onboarding-start/first-run-ways": {
       "owner": "plan-064/r2",
@@ -3086,12 +3086,12 @@
       ]
     },
     {
-      "id": "firstrunproofrail",
-      "selector": ".firstrun-proof__rail button",
+      "id": "firstrunproofchapter",
+      "selector": ".firstrun-chapter__go",
       "roles": {
         "control": "quiet-navigation"
       },
-      "variant": "landing-proof-rail",
+      "variant": "landing-proof-chapter",
       "facets": [],
       "states": [
         "default",
@@ -3100,7 +3100,7 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "One of seven detents under the pinned proof: it scrolls the landing to its step without committing any state. The bar is the button's own bottom edge and the current step is marked by aria-current.",
+      "rationale": "One of the proof's four chapters: it moves the playing phone to its chapter without committing any state. Its progress line is the button's own bottom edge (a left rule from 900px) and the current chapter is marked by aria-current.",
       "owner": "plan-064/r2",
       "catalogStates": [
         "onboarding-shared/gate",
@@ -11707,9 +11707,9 @@
     },
     {
       "id": "landing-device-stage-radius",
-      "selector": ".firstrun-proof__glass, .firstrun-step__crop",
+      "selector": ".firstrun-proof__glass",
       "role": "radius:landing-device-stage",
-      "rationale": "The proof's phone plate uses 24px at normal width and 20px at compact width, and each static step crop uses 14px: the Plan 054 device-stage geometry, re-pointed from the retired .firstrun-stage to the final page's plate and crop.",
+      "rationale": "The proof's phone plate uses 24px at normal width and 20px at compact width: the Plan 054 device-stage geometry, re-pointed from the retired .firstrun-stage to the final page's plate.",
       "owner": "plan-064/r2",
       "catalogStates": [
         "onboarding-shared/gate",
@@ -11727,11 +11727,6 @@
           "selector": ".firstrun-proof__glass",
           "condition": "default",
           "token": "--radius-landing-stage"
-        },
-        {
-          "selector": ".firstrun-step__crop",
-          "condition": "default",
-          "token": "--radius-landing-crop"
         },
         {
           "selector": ".firstrun-proof__glass",

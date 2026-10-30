@@ -160564,128 +160564,52 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen, in the middle of a bench press session, made for the moments between sets. Scroll to see what each part does."
+          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
-          "tag": "div",
-          "role": "group",
-          "name": "Steps",
+          "tag": "ol",
           "label": "Steps"
         },
         {
           "tag": "button",
-          "name": "Step 1 of 7",
-          "label": "Step 1 of 7",
+          "name": "Know the weight",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Know the weight"
+        },
+        {
+          "tag": "button",
+          "name": "Log in one tap",
           "aria-current": "step",
           "type": "button"
         },
         {
-          "tag": "button",
-          "name": "Step 2 of 7",
-          "label": "Step 2 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 3 of 7",
-          "label": "Step 3 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 4 of 7",
-          "label": "Step 4 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 5 of 7",
-          "label": "Step 5 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 6 of 7",
-          "label": "Step 6 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 7 of 7",
-          "label": "Step 7 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "li",
-          "aria-current": "step"
-        },
-        {
-          "tag": "h3",
-          "text": "One screen per exercise."
-        },
-        {
-          "tag": "p",
-          "text": "Your target, your last session and the weight and reps to log are on one screen. RIR appears next to the reps."
-        },
-        {
-          "tag": "h3",
-          "text": "Already filled in."
-        },
-        {
-          "tag": "p",
-          "text": "Today's target shows at the top of the card, and the weight and reps are already filled in below it."
-        },
-        {
-          "tag": "h3",
-          "text": "Done? Tap Log set."
+          "tag": "span",
+          "text": "Log in one tap"
         },
         {
           "tag": "p",
           "text": "One tap logs the set. With rest time on, the timer starts counting."
         },
         {
-          "tag": "h3",
-          "text": "Rest."
-        },
-        {
-          "tag": "p",
-          "text": "The timer counts your rest. With notifications on, it tells you when it's up."
-        },
-        {
-          "tag": "h3",
-          "text": "Swap."
-        },
-        {
-          "tag": "p",
-          "text": "Equipment taken? In the exercise actions, tap . Taurifer records the one you actually did instead of the planned one."
-        },
-        {
-          "tag": "b",
-          "text": "Swap exercise"
-        },
-        {
-          "tag": "h3",
-          "text": "Notes."
-        },
-        {
-          "tag": "p",
-          "text": "Jot down bench height, grip, machine settings. You write it once and the note shows up every time you do that exercise."
-        },
-        {
-          "tag": "h3",
-          "text": "Next session"
+          "tag": "button",
+          "name": "Rest at a glance",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "62.5 kg × 9"
+          "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "See it adapt",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 sets"
-        },
-        {
-          "tag": "p",
-          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 9 reps per set. That's the target the card shows."
+          "text": "See it adapt"
         },
         {
           "tag": "section",
@@ -161153,128 +161077,52 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen, in the middle of a bench press session, made for the moments between sets. Scroll to see what each part does."
+          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
-          "tag": "div",
-          "role": "group",
-          "name": "Steps",
+          "tag": "ol",
           "label": "Steps"
         },
         {
           "tag": "button",
-          "name": "Step 1 of 7",
-          "label": "Step 1 of 7",
+          "name": "Know the weight",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Know the weight"
+        },
+        {
+          "tag": "button",
+          "name": "Log in one tap",
           "aria-current": "step",
           "type": "button"
         },
         {
-          "tag": "button",
-          "name": "Step 2 of 7",
-          "label": "Step 2 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 3 of 7",
-          "label": "Step 3 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 4 of 7",
-          "label": "Step 4 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 5 of 7",
-          "label": "Step 5 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 6 of 7",
-          "label": "Step 6 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 7 of 7",
-          "label": "Step 7 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "li",
-          "aria-current": "step"
-        },
-        {
-          "tag": "h3",
-          "text": "One screen per exercise."
-        },
-        {
-          "tag": "p",
-          "text": "Your target, your last session and the weight and reps to log are on one screen. RIR appears next to the reps."
-        },
-        {
-          "tag": "h3",
-          "text": "Already filled in."
-        },
-        {
-          "tag": "p",
-          "text": "Today's target shows at the top of the card, and the weight and reps are already filled in below it."
-        },
-        {
-          "tag": "h3",
-          "text": "Done? Tap Log set."
+          "tag": "span",
+          "text": "Log in one tap"
         },
         {
           "tag": "p",
           "text": "One tap logs the set. With rest time on, the timer starts counting."
         },
         {
-          "tag": "h3",
-          "text": "Rest."
-        },
-        {
-          "tag": "p",
-          "text": "The timer counts your rest. With notifications on, it tells you when it's up."
-        },
-        {
-          "tag": "h3",
-          "text": "Swap."
-        },
-        {
-          "tag": "p",
-          "text": "Equipment taken? In the exercise actions, tap . Taurifer records the one you actually did instead of the planned one."
-        },
-        {
-          "tag": "b",
-          "text": "Swap exercise"
-        },
-        {
-          "tag": "h3",
-          "text": "Notes."
-        },
-        {
-          "tag": "p",
-          "text": "Jot down bench height, grip, machine settings. You write it once and the note shows up every time you do that exercise."
-        },
-        {
-          "tag": "h3",
-          "text": "Next session"
+          "tag": "button",
+          "name": "Rest at a glance",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "62.5 kg × 9"
+          "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "See it adapt",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 sets"
-        },
-        {
-          "tag": "p",
-          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 9 reps per set. That's the target the card shows."
+          "text": "See it adapt"
         },
         {
           "tag": "section",
@@ -161742,128 +161590,52 @@
         },
         {
           "tag": "p",
-          "text": "Esta é a tela do app durante uma sessão, no meio do supino, feita para usar entre uma série e outra. Role e veja o que cada parte faz."
+          "text": "Esta é a tela de treino do app numa sessão de supino: a meta, um toque para registrar a série, o descanso e o que muda na próxima vez."
         },
         {
-          "tag": "div",
-          "role": "group",
-          "name": "Passos",
+          "tag": "ol",
           "label": "Passos"
         },
         {
           "tag": "button",
-          "name": "Passo 1 de 7",
-          "label": "Passo 1 de 7",
+          "name": "Saiba o peso",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Saiba o peso"
+        },
+        {
+          "tag": "button",
+          "name": "Registre com um toque",
           "aria-current": "step",
           "type": "button"
         },
         {
-          "tag": "button",
-          "name": "Passo 2 de 7",
-          "label": "Passo 2 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 3 de 7",
-          "label": "Passo 3 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 4 de 7",
-          "label": "Passo 4 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 5 de 7",
-          "label": "Passo 5 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 6 de 7",
-          "label": "Passo 6 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 7 de 7",
-          "label": "Passo 7 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "li",
-          "aria-current": "step"
-        },
-        {
-          "tag": "h3",
-          "text": "Uma tela por exercício."
-        },
-        {
-          "tag": "p",
-          "text": "Sua meta, a última sessão e o peso e as repetições para registrar ficam em uma tela. O RIR aparece ao lado das repetições."
-        },
-        {
-          "tag": "h3",
-          "text": "Já vem preenchido."
-        },
-        {
-          "tag": "p",
-          "text": "A meta de hoje aparece no alto do cartão, e o peso e as repetições já vêm preenchidos logo abaixo."
-        },
-        {
-          "tag": "h3",
-          "text": "Fez? Toque em Registrar série."
+          "tag": "span",
+          "text": "Registre com um toque"
         },
         {
           "tag": "p",
           "text": "Um toque registra a série. Com o descanso ligado, o timer começa a contar."
         },
         {
-          "tag": "h3",
-          "text": "Descanso."
-        },
-        {
-          "tag": "p",
-          "text": "O timer conta o seu descanso. Com as notificações ativadas, ele avisa quando acabar."
-        },
-        {
-          "tag": "h3",
-          "text": "Troca."
-        },
-        {
-          "tag": "p",
-          "text": "Equipamento ocupado? Nas ações do exercício, toque em . O Taurifer registra o exercício que você fez de verdade, no lugar do que estava planejado."
-        },
-        {
-          "tag": "b",
-          "text": "Substituir exercício"
-        },
-        {
-          "tag": "h3",
-          "text": "Notas."
-        },
-        {
-          "tag": "p",
-          "text": "Anote altura do banco, pegada, ajuste. Você escreve uma vez e a nota aparece sempre que for fazer esse exercício."
-        },
-        {
-          "tag": "h3",
-          "text": "Próxima sessão"
+          "tag": "button",
+          "name": "Descanso à vista",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "62,5 kg × 9"
+          "text": "Descanso à vista"
+        },
+        {
+          "tag": "button",
+          "name": "Veja o treino se ajustar",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 séries"
-        },
-        {
-          "tag": "p",
-          "text": "Você fez 10 repetições com 60 kg nas 3 séries, o máximo da sua meta (8 a 10). Por isso o peso sobe: na próxima sessão, use 62,5 kg e busque 9 repetições por série. É a meta que aparece no cartão."
+          "text": "Veja o treino se ajustar"
         },
         {
           "tag": "section",
@@ -166287,75 +166059,52 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen, in the middle of a bench press session, made for the moments between sets. Scroll to see what each part does."
+          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
-          "tag": "h3",
-          "text": "One screen per exercise."
+          "tag": "ol",
+          "label": "Steps"
         },
         {
-          "tag": "p",
-          "text": "Your target, your last session and the weight and reps to log are on one screen. RIR appears next to the reps."
+          "tag": "button",
+          "name": "Know the weight",
+          "type": "button"
         },
         {
-          "tag": "h3",
-          "text": "Already filled in."
+          "tag": "span",
+          "text": "Know the weight"
         },
         {
-          "tag": "p",
-          "text": "Today's target shows at the top of the card, and the weight and reps are already filled in below it."
+          "tag": "button",
+          "name": "Log in one tap",
+          "aria-current": "step",
+          "type": "button"
         },
         {
-          "tag": "h3",
-          "text": "Done? Tap Log set."
+          "tag": "span",
+          "text": "Log in one tap"
         },
         {
           "tag": "p",
           "text": "One tap logs the set. With rest time on, the timer starts counting."
         },
         {
-          "tag": "h3",
-          "text": "Rest."
-        },
-        {
-          "tag": "p",
-          "text": "The timer counts your rest. With notifications on, it tells you when it's up."
-        },
-        {
-          "tag": "h3",
-          "text": "Swap."
-        },
-        {
-          "tag": "p",
-          "text": "Equipment taken? In the exercise actions, tap . Taurifer records the one you actually did instead of the planned one."
-        },
-        {
-          "tag": "b",
-          "text": "Swap exercise"
-        },
-        {
-          "tag": "h3",
-          "text": "Notes."
-        },
-        {
-          "tag": "p",
-          "text": "Jot down bench height, grip, machine settings. You write it once and the note shows up every time you do that exercise."
-        },
-        {
-          "tag": "h3",
-          "text": "Next session"
+          "tag": "button",
+          "name": "Rest at a glance",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "62.5 kg × 9"
+          "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "See it adapt",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 sets"
-        },
-        {
-          "tag": "p",
-          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 9 reps per set. That's the target the card shows."
+          "text": "See it adapt"
         },
         {
           "tag": "section",
@@ -166817,128 +166566,52 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen, in the middle of a bench press session, made for the moments between sets. Scroll to see what each part does."
+          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
-          "tag": "div",
-          "role": "group",
-          "name": "Steps",
+          "tag": "ol",
           "label": "Steps"
         },
         {
           "tag": "button",
-          "name": "Step 1 of 7",
-          "label": "Step 1 of 7",
+          "name": "Know the weight",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Know the weight"
+        },
+        {
+          "tag": "button",
+          "name": "Log in one tap",
           "aria-current": "step",
           "type": "button"
         },
         {
-          "tag": "button",
-          "name": "Step 2 of 7",
-          "label": "Step 2 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 3 of 7",
-          "label": "Step 3 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 4 of 7",
-          "label": "Step 4 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 5 of 7",
-          "label": "Step 5 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 6 of 7",
-          "label": "Step 6 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 7 of 7",
-          "label": "Step 7 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "li",
-          "aria-current": "step"
-        },
-        {
-          "tag": "h3",
-          "text": "One screen per exercise."
-        },
-        {
-          "tag": "p",
-          "text": "Your target, your last session and the weight and reps to log are on one screen. RIR appears next to the reps."
-        },
-        {
-          "tag": "h3",
-          "text": "Already filled in."
-        },
-        {
-          "tag": "p",
-          "text": "Today's target shows at the top of the card, and the weight and reps are already filled in below it."
-        },
-        {
-          "tag": "h3",
-          "text": "Done? Tap Log set."
+          "tag": "span",
+          "text": "Log in one tap"
         },
         {
           "tag": "p",
           "text": "One tap logs the set. With rest time on, the timer starts counting."
         },
         {
-          "tag": "h3",
-          "text": "Rest."
-        },
-        {
-          "tag": "p",
-          "text": "The timer counts your rest. With notifications on, it tells you when it's up."
-        },
-        {
-          "tag": "h3",
-          "text": "Swap."
-        },
-        {
-          "tag": "p",
-          "text": "Equipment taken? In the exercise actions, tap . Taurifer records the one you actually did instead of the planned one."
-        },
-        {
-          "tag": "b",
-          "text": "Swap exercise"
-        },
-        {
-          "tag": "h3",
-          "text": "Notes."
-        },
-        {
-          "tag": "p",
-          "text": "Jot down bench height, grip, machine settings. You write it once and the note shows up every time you do that exercise."
-        },
-        {
-          "tag": "h3",
-          "text": "Next session"
+          "tag": "button",
+          "name": "Rest at a glance",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "62.5 kg × 9"
+          "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "See it adapt",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 sets"
-        },
-        {
-          "tag": "p",
-          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 9 reps per set. That's the target the card shows."
+          "text": "See it adapt"
         },
         {
           "tag": "section",
@@ -167400,128 +167073,52 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen, in the middle of a bench press session, made for the moments between sets. Scroll to see what each part does."
+          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
-          "tag": "div",
-          "role": "group",
-          "name": "Steps",
+          "tag": "ol",
           "label": "Steps"
         },
         {
           "tag": "button",
-          "name": "Step 1 of 7",
-          "label": "Step 1 of 7",
+          "name": "Know the weight",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Know the weight"
+        },
+        {
+          "tag": "button",
+          "name": "Log in one tap",
           "aria-current": "step",
           "type": "button"
         },
         {
-          "tag": "button",
-          "name": "Step 2 of 7",
-          "label": "Step 2 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 3 of 7",
-          "label": "Step 3 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 4 of 7",
-          "label": "Step 4 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 5 of 7",
-          "label": "Step 5 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 6 of 7",
-          "label": "Step 6 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 7 of 7",
-          "label": "Step 7 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "li",
-          "aria-current": "step"
-        },
-        {
-          "tag": "h3",
-          "text": "One screen per exercise."
-        },
-        {
-          "tag": "p",
-          "text": "Your target, your last session and the weight and reps to log are on one screen. RIR appears next to the reps."
-        },
-        {
-          "tag": "h3",
-          "text": "Already filled in."
-        },
-        {
-          "tag": "p",
-          "text": "Today's target shows at the top of the card, and the weight and reps are already filled in below it."
-        },
-        {
-          "tag": "h3",
-          "text": "Done? Tap Log set."
+          "tag": "span",
+          "text": "Log in one tap"
         },
         {
           "tag": "p",
           "text": "One tap logs the set. With rest time on, the timer starts counting."
         },
         {
-          "tag": "h3",
-          "text": "Rest."
-        },
-        {
-          "tag": "p",
-          "text": "The timer counts your rest. With notifications on, it tells you when it's up."
-        },
-        {
-          "tag": "h3",
-          "text": "Swap."
-        },
-        {
-          "tag": "p",
-          "text": "Equipment taken? In the exercise actions, tap . Taurifer records the one you actually did instead of the planned one."
-        },
-        {
-          "tag": "b",
-          "text": "Swap exercise"
-        },
-        {
-          "tag": "h3",
-          "text": "Notes."
-        },
-        {
-          "tag": "p",
-          "text": "Jot down bench height, grip, machine settings. You write it once and the note shows up every time you do that exercise."
-        },
-        {
-          "tag": "h3",
-          "text": "Next session"
+          "tag": "button",
+          "name": "Rest at a glance",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "62.5 kg × 9"
+          "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "See it adapt",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 sets"
-        },
-        {
-          "tag": "p",
-          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 9 reps per set. That's the target the card shows."
+          "text": "See it adapt"
         },
         {
           "tag": "section",
@@ -167983,75 +167580,52 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen, in the middle of a bench press session, made for the moments between sets. Scroll to see what each part does."
+          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
-          "tag": "h3",
-          "text": "One screen per exercise."
+          "tag": "ol",
+          "label": "Steps"
         },
         {
-          "tag": "p",
-          "text": "Your target, your last session and the weight and reps to log are on one screen. RIR appears next to the reps."
+          "tag": "button",
+          "name": "Know the weight",
+          "type": "button"
         },
         {
-          "tag": "h3",
-          "text": "Already filled in."
+          "tag": "span",
+          "text": "Know the weight"
         },
         {
-          "tag": "p",
-          "text": "Today's target shows at the top of the card, and the weight and reps are already filled in below it."
+          "tag": "button",
+          "name": "Log in one tap",
+          "aria-current": "step",
+          "type": "button"
         },
         {
-          "tag": "h3",
-          "text": "Done? Tap Log set."
+          "tag": "span",
+          "text": "Log in one tap"
         },
         {
           "tag": "p",
           "text": "One tap logs the set. With rest time on, the timer starts counting."
         },
         {
-          "tag": "h3",
-          "text": "Rest."
-        },
-        {
-          "tag": "p",
-          "text": "The timer counts your rest. With notifications on, it tells you when it's up."
-        },
-        {
-          "tag": "h3",
-          "text": "Swap."
-        },
-        {
-          "tag": "p",
-          "text": "Equipment taken? In the exercise actions, tap . Taurifer records the one you actually did instead of the planned one."
-        },
-        {
-          "tag": "b",
-          "text": "Swap exercise"
-        },
-        {
-          "tag": "h3",
-          "text": "Notes."
-        },
-        {
-          "tag": "p",
-          "text": "Jot down bench height, grip, machine settings. You write it once and the note shows up every time you do that exercise."
-        },
-        {
-          "tag": "h3",
-          "text": "Next session"
+          "tag": "button",
+          "name": "Rest at a glance",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "62.5 kg × 9"
+          "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "See it adapt",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 sets"
-        },
-        {
-          "tag": "p",
-          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 9 reps per set. That's the target the card shows."
+          "text": "See it adapt"
         },
         {
           "tag": "section",
@@ -168513,75 +168087,52 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen, in the middle of a bench press session, made for the moments between sets. Scroll to see what each part does."
+          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
-          "tag": "h3",
-          "text": "One screen per exercise."
+          "tag": "ol",
+          "label": "Steps"
         },
         {
-          "tag": "p",
-          "text": "Your target, your last session and the weight and reps to log are on one screen. RIR appears next to the reps."
+          "tag": "button",
+          "name": "Know the weight",
+          "type": "button"
         },
         {
-          "tag": "h3",
-          "text": "Already filled in."
+          "tag": "span",
+          "text": "Know the weight"
         },
         {
-          "tag": "p",
-          "text": "Today's target shows at the top of the card, and the weight and reps are already filled in below it."
+          "tag": "button",
+          "name": "Log in one tap",
+          "aria-current": "step",
+          "type": "button"
         },
         {
-          "tag": "h3",
-          "text": "Done? Tap Log set."
+          "tag": "span",
+          "text": "Log in one tap"
         },
         {
           "tag": "p",
           "text": "One tap logs the set. With rest time on, the timer starts counting."
         },
         {
-          "tag": "h3",
-          "text": "Rest."
-        },
-        {
-          "tag": "p",
-          "text": "The timer counts your rest. With notifications on, it tells you when it's up."
-        },
-        {
-          "tag": "h3",
-          "text": "Swap."
-        },
-        {
-          "tag": "p",
-          "text": "Equipment taken? In the exercise actions, tap . Taurifer records the one you actually did instead of the planned one."
-        },
-        {
-          "tag": "b",
-          "text": "Swap exercise"
-        },
-        {
-          "tag": "h3",
-          "text": "Notes."
-        },
-        {
-          "tag": "p",
-          "text": "Jot down bench height, grip, machine settings. You write it once and the note shows up every time you do that exercise."
-        },
-        {
-          "tag": "h3",
-          "text": "Next session"
+          "tag": "button",
+          "name": "Rest at a glance",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "62.5 kg × 9"
+          "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "See it adapt",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 sets"
-        },
-        {
-          "tag": "p",
-          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 9 reps per set. That's the target the card shows."
+          "text": "See it adapt"
         },
         {
           "tag": "section",
@@ -169043,128 +168594,52 @@
         },
         {
           "tag": "p",
-          "text": "Esta é a tela do app durante uma sessão, no meio do supino, feita para usar entre uma série e outra. Role e veja o que cada parte faz."
+          "text": "Esta é a tela de treino do app numa sessão de supino: a meta, um toque para registrar a série, o descanso e o que muda na próxima vez."
         },
         {
-          "tag": "div",
-          "role": "group",
-          "name": "Passos",
+          "tag": "ol",
           "label": "Passos"
         },
         {
           "tag": "button",
-          "name": "Passo 1 de 7",
-          "label": "Passo 1 de 7",
+          "name": "Saiba o peso",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Saiba o peso"
+        },
+        {
+          "tag": "button",
+          "name": "Registre com um toque",
           "aria-current": "step",
           "type": "button"
         },
         {
-          "tag": "button",
-          "name": "Passo 2 de 7",
-          "label": "Passo 2 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 3 de 7",
-          "label": "Passo 3 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 4 de 7",
-          "label": "Passo 4 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 5 de 7",
-          "label": "Passo 5 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 6 de 7",
-          "label": "Passo 6 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 7 de 7",
-          "label": "Passo 7 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "li",
-          "aria-current": "step"
-        },
-        {
-          "tag": "h3",
-          "text": "Uma tela por exercício."
-        },
-        {
-          "tag": "p",
-          "text": "Sua meta, a última sessão e o peso e as repetições para registrar ficam em uma tela. O RIR aparece ao lado das repetições."
-        },
-        {
-          "tag": "h3",
-          "text": "Já vem preenchido."
-        },
-        {
-          "tag": "p",
-          "text": "A meta de hoje aparece no alto do cartão, e o peso e as repetições já vêm preenchidos logo abaixo."
-        },
-        {
-          "tag": "h3",
-          "text": "Fez? Toque em Registrar série."
+          "tag": "span",
+          "text": "Registre com um toque"
         },
         {
           "tag": "p",
           "text": "Um toque registra a série. Com o descanso ligado, o timer começa a contar."
         },
         {
-          "tag": "h3",
-          "text": "Descanso."
-        },
-        {
-          "tag": "p",
-          "text": "O timer conta o seu descanso. Com as notificações ativadas, ele avisa quando acabar."
-        },
-        {
-          "tag": "h3",
-          "text": "Troca."
-        },
-        {
-          "tag": "p",
-          "text": "Equipamento ocupado? Nas ações do exercício, toque em . O Taurifer registra o exercício que você fez de verdade, no lugar do que estava planejado."
-        },
-        {
-          "tag": "b",
-          "text": "Substituir exercício"
-        },
-        {
-          "tag": "h3",
-          "text": "Notas."
-        },
-        {
-          "tag": "p",
-          "text": "Anote altura do banco, pegada, ajuste. Você escreve uma vez e a nota aparece sempre que for fazer esse exercício."
-        },
-        {
-          "tag": "h3",
-          "text": "Próxima sessão"
+          "tag": "button",
+          "name": "Descanso à vista",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "62,5 kg × 9"
+          "text": "Descanso à vista"
+        },
+        {
+          "tag": "button",
+          "name": "Veja o treino se ajustar",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 séries"
-        },
-        {
-          "tag": "p",
-          "text": "Você fez 10 repetições com 60 kg nas 3 séries, o máximo da sua meta (8 a 10). Por isso o peso sobe: na próxima sessão, use 62,5 kg e busque 9 repetições por série. É a meta que aparece no cartão."
+          "text": "Veja o treino se ajustar"
         },
         {
           "tag": "section",
@@ -169626,128 +169101,52 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen, in the middle of a bench press session, made for the moments between sets. Scroll to see what each part does."
+          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
-          "tag": "div",
-          "role": "group",
-          "name": "Steps",
+          "tag": "ol",
           "label": "Steps"
         },
         {
           "tag": "button",
-          "name": "Step 1 of 7",
-          "label": "Step 1 of 7",
+          "name": "Know the weight",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Know the weight"
+        },
+        {
+          "tag": "button",
+          "name": "Log in one tap",
           "aria-current": "step",
           "type": "button"
         },
         {
-          "tag": "button",
-          "name": "Step 2 of 7",
-          "label": "Step 2 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 3 of 7",
-          "label": "Step 3 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 4 of 7",
-          "label": "Step 4 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 5 of 7",
-          "label": "Step 5 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 6 of 7",
-          "label": "Step 6 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 7 of 7",
-          "label": "Step 7 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "li",
-          "aria-current": "step"
-        },
-        {
-          "tag": "h3",
-          "text": "One screen per exercise."
-        },
-        {
-          "tag": "p",
-          "text": "Your target, your last session and the weight and reps to log are on one screen. RIR appears next to the reps."
-        },
-        {
-          "tag": "h3",
-          "text": "Already filled in."
-        },
-        {
-          "tag": "p",
-          "text": "Today's target shows at the top of the card, and the weight and reps are already filled in below it."
-        },
-        {
-          "tag": "h3",
-          "text": "Done? Tap Log set."
+          "tag": "span",
+          "text": "Log in one tap"
         },
         {
           "tag": "p",
           "text": "One tap logs the set. With rest time on, the timer starts counting."
         },
         {
-          "tag": "h3",
-          "text": "Rest."
-        },
-        {
-          "tag": "p",
-          "text": "The timer counts your rest. With notifications on, it tells you when it's up."
-        },
-        {
-          "tag": "h3",
-          "text": "Swap."
-        },
-        {
-          "tag": "p",
-          "text": "Equipment taken? In the exercise actions, tap . Taurifer records the one you actually did instead of the planned one."
-        },
-        {
-          "tag": "b",
-          "text": "Swap exercise"
-        },
-        {
-          "tag": "h3",
-          "text": "Notes."
-        },
-        {
-          "tag": "p",
-          "text": "Jot down bench height, grip, machine settings. You write it once and the note shows up every time you do that exercise."
-        },
-        {
-          "tag": "h3",
-          "text": "Next session"
+          "tag": "button",
+          "name": "Rest at a glance",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "62.5 kg × 9"
+          "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "See it adapt",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 sets"
-        },
-        {
-          "tag": "p",
-          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 9 reps per set. That's the target the card shows."
+          "text": "See it adapt"
         },
         {
           "tag": "section",
@@ -170209,128 +169608,52 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen, in the middle of a bench press session, made for the moments between sets. Scroll to see what each part does."
+          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
-          "tag": "div",
-          "role": "group",
-          "name": "Steps",
+          "tag": "ol",
           "label": "Steps"
         },
         {
           "tag": "button",
-          "name": "Step 1 of 7",
-          "label": "Step 1 of 7",
+          "name": "Know the weight",
           "type": "button"
         },
         {
-          "tag": "button",
-          "name": "Step 2 of 7",
-          "label": "Step 2 of 7",
-          "type": "button"
+          "tag": "span",
+          "text": "Know the weight"
         },
         {
           "tag": "button",
-          "name": "Step 3 of 7",
-          "label": "Step 3 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 4 of 7",
-          "label": "Step 4 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 5 of 7",
-          "label": "Step 5 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 6 of 7",
-          "label": "Step 6 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 7 of 7",
-          "label": "Step 7 of 7",
+          "name": "Log in one tap",
           "aria-current": "step",
           "type": "button"
         },
         {
-          "tag": "h3",
-          "text": "One screen per exercise."
-        },
-        {
-          "tag": "p",
-          "text": "Your target, your last session and the weight and reps to log are on one screen. RIR appears next to the reps."
-        },
-        {
-          "tag": "h3",
-          "text": "Already filled in."
-        },
-        {
-          "tag": "p",
-          "text": "Today's target shows at the top of the card, and the weight and reps are already filled in below it."
-        },
-        {
-          "tag": "h3",
-          "text": "Done? Tap Log set."
+          "tag": "span",
+          "text": "Log in one tap"
         },
         {
           "tag": "p",
           "text": "One tap logs the set. With rest time on, the timer starts counting."
         },
         {
-          "tag": "h3",
-          "text": "Rest."
-        },
-        {
-          "tag": "p",
-          "text": "The timer counts your rest. With notifications on, it tells you when it's up."
-        },
-        {
-          "tag": "h3",
-          "text": "Swap."
-        },
-        {
-          "tag": "p",
-          "text": "Equipment taken? In the exercise actions, tap . Taurifer records the one you actually did instead of the planned one."
-        },
-        {
-          "tag": "b",
-          "text": "Swap exercise"
-        },
-        {
-          "tag": "h3",
-          "text": "Notes."
-        },
-        {
-          "tag": "p",
-          "text": "Jot down bench height, grip, machine settings. You write it once and the note shows up every time you do that exercise."
-        },
-        {
-          "tag": "li",
-          "aria-current": "step"
-        },
-        {
-          "tag": "h3",
-          "text": "Next session"
+          "tag": "button",
+          "name": "Rest at a glance",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "62.5 kg × 9"
+          "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "See it adapt",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 sets"
-        },
-        {
-          "tag": "p",
-          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 9 reps per set. That's the target the card shows."
+          "text": "See it adapt"
         },
         {
           "tag": "section",
@@ -170792,128 +170115,52 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen, in the middle of a bench press session, made for the moments between sets. Scroll to see what each part does."
+          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
-          "tag": "div",
-          "role": "group",
-          "name": "Steps",
+          "tag": "ol",
           "label": "Steps"
         },
         {
           "tag": "button",
-          "name": "Step 1 of 7",
-          "label": "Step 1 of 7",
+          "name": "Know the weight",
           "type": "button"
         },
         {
-          "tag": "button",
-          "name": "Step 2 of 7",
-          "label": "Step 2 of 7",
-          "type": "button"
+          "tag": "span",
+          "text": "Know the weight"
         },
         {
           "tag": "button",
-          "name": "Step 3 of 7",
-          "label": "Step 3 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 4 of 7",
-          "label": "Step 4 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 5 of 7",
-          "label": "Step 5 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 6 of 7",
-          "label": "Step 6 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 7 of 7",
-          "label": "Step 7 of 7",
+          "name": "Log in one tap",
           "aria-current": "step",
           "type": "button"
         },
         {
-          "tag": "h3",
-          "text": "One screen per exercise."
-        },
-        {
-          "tag": "p",
-          "text": "Your target, your last session and the weight and reps to log are on one screen. RIR appears next to the reps."
-        },
-        {
-          "tag": "h3",
-          "text": "Already filled in."
-        },
-        {
-          "tag": "p",
-          "text": "Today's target shows at the top of the card, and the weight and reps are already filled in below it."
-        },
-        {
-          "tag": "h3",
-          "text": "Done? Tap Log set."
+          "tag": "span",
+          "text": "Log in one tap"
         },
         {
           "tag": "p",
           "text": "One tap logs the set. With rest time on, the timer starts counting."
         },
         {
-          "tag": "h3",
-          "text": "Rest."
-        },
-        {
-          "tag": "p",
-          "text": "The timer counts your rest. With notifications on, it tells you when it's up."
-        },
-        {
-          "tag": "h3",
-          "text": "Swap."
-        },
-        {
-          "tag": "p",
-          "text": "Equipment taken? In the exercise actions, tap . Taurifer records the one you actually did instead of the planned one."
-        },
-        {
-          "tag": "b",
-          "text": "Swap exercise"
-        },
-        {
-          "tag": "h3",
-          "text": "Notes."
-        },
-        {
-          "tag": "p",
-          "text": "Jot down bench height, grip, machine settings. You write it once and the note shows up every time you do that exercise."
-        },
-        {
-          "tag": "li",
-          "aria-current": "step"
-        },
-        {
-          "tag": "h3",
-          "text": "Next session"
+          "tag": "button",
+          "name": "Rest at a glance",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "62.5 kg × 9"
+          "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "See it adapt",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 sets"
-        },
-        {
-          "tag": "p",
-          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 9 reps per set. That's the target the card shows."
+          "text": "See it adapt"
         },
         {
           "tag": "section",
@@ -171375,128 +170622,52 @@
         },
         {
           "tag": "p",
-          "text": "Esta é a tela do app durante uma sessão, no meio do supino, feita para usar entre uma série e outra. Role e veja o que cada parte faz."
+          "text": "Esta é a tela de treino do app numa sessão de supino: a meta, um toque para registrar a série, o descanso e o que muda na próxima vez."
         },
         {
-          "tag": "div",
-          "role": "group",
-          "name": "Passos",
+          "tag": "ol",
           "label": "Passos"
         },
         {
           "tag": "button",
-          "name": "Passo 1 de 7",
-          "label": "Passo 1 de 7",
+          "name": "Saiba o peso",
           "type": "button"
         },
         {
-          "tag": "button",
-          "name": "Passo 2 de 7",
-          "label": "Passo 2 de 7",
-          "type": "button"
+          "tag": "span",
+          "text": "Saiba o peso"
         },
         {
           "tag": "button",
-          "name": "Passo 3 de 7",
-          "label": "Passo 3 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 4 de 7",
-          "label": "Passo 4 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 5 de 7",
-          "label": "Passo 5 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 6 de 7",
-          "label": "Passo 6 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 7 de 7",
-          "label": "Passo 7 de 7",
+          "name": "Registre com um toque",
           "aria-current": "step",
           "type": "button"
         },
         {
-          "tag": "h3",
-          "text": "Uma tela por exercício."
-        },
-        {
-          "tag": "p",
-          "text": "Sua meta, a última sessão e o peso e as repetições para registrar ficam em uma tela. O RIR aparece ao lado das repetições."
-        },
-        {
-          "tag": "h3",
-          "text": "Já vem preenchido."
-        },
-        {
-          "tag": "p",
-          "text": "A meta de hoje aparece no alto do cartão, e o peso e as repetições já vêm preenchidos logo abaixo."
-        },
-        {
-          "tag": "h3",
-          "text": "Fez? Toque em Registrar série."
+          "tag": "span",
+          "text": "Registre com um toque"
         },
         {
           "tag": "p",
           "text": "Um toque registra a série. Com o descanso ligado, o timer começa a contar."
         },
         {
-          "tag": "h3",
-          "text": "Descanso."
-        },
-        {
-          "tag": "p",
-          "text": "O timer conta o seu descanso. Com as notificações ativadas, ele avisa quando acabar."
-        },
-        {
-          "tag": "h3",
-          "text": "Troca."
-        },
-        {
-          "tag": "p",
-          "text": "Equipamento ocupado? Nas ações do exercício, toque em . O Taurifer registra o exercício que você fez de verdade, no lugar do que estava planejado."
-        },
-        {
-          "tag": "b",
-          "text": "Substituir exercício"
-        },
-        {
-          "tag": "h3",
-          "text": "Notas."
-        },
-        {
-          "tag": "p",
-          "text": "Anote altura do banco, pegada, ajuste. Você escreve uma vez e a nota aparece sempre que for fazer esse exercício."
-        },
-        {
-          "tag": "li",
-          "aria-current": "step"
-        },
-        {
-          "tag": "h3",
-          "text": "Próxima sessão"
+          "tag": "button",
+          "name": "Descanso à vista",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "62,5 kg × 9"
+          "text": "Descanso à vista"
+        },
+        {
+          "tag": "button",
+          "name": "Veja o treino se ajustar",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 séries"
-        },
-        {
-          "tag": "p",
-          "text": "Você fez 10 repetições com 60 kg nas 3 séries, o máximo da sua meta (8 a 10). Por isso o peso sobe: na próxima sessão, use 62,5 kg e busque 9 repetições por série. É a meta que aparece no cartão."
+          "text": "Veja o treino se ajustar"
         },
         {
           "tag": "section",
@@ -171958,128 +171129,52 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen, in the middle of a bench press session, made for the moments between sets. Scroll to see what each part does."
+          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
-          "tag": "div",
-          "role": "group",
-          "name": "Steps",
+          "tag": "ol",
           "label": "Steps"
         },
         {
           "tag": "button",
-          "name": "Step 1 of 7",
-          "label": "Step 1 of 7",
+          "name": "Know the weight",
           "type": "button"
         },
         {
-          "tag": "button",
-          "name": "Step 2 of 7",
-          "label": "Step 2 of 7",
-          "type": "button"
+          "tag": "span",
+          "text": "Know the weight"
         },
         {
           "tag": "button",
-          "name": "Step 3 of 7",
-          "label": "Step 3 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 4 of 7",
-          "label": "Step 4 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 5 of 7",
-          "label": "Step 5 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 6 of 7",
-          "label": "Step 6 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 7 of 7",
-          "label": "Step 7 of 7",
+          "name": "Log in one tap",
           "aria-current": "step",
           "type": "button"
         },
         {
-          "tag": "h3",
-          "text": "One screen per exercise."
-        },
-        {
-          "tag": "p",
-          "text": "Your target, your last session and the weight and reps to log are on one screen. RIR appears next to the reps."
-        },
-        {
-          "tag": "h3",
-          "text": "Already filled in."
-        },
-        {
-          "tag": "p",
-          "text": "Today's target shows at the top of the card, and the weight and reps are already filled in below it."
-        },
-        {
-          "tag": "h3",
-          "text": "Done? Tap Log set."
+          "tag": "span",
+          "text": "Log in one tap"
         },
         {
           "tag": "p",
           "text": "One tap logs the set. With rest time on, the timer starts counting."
         },
         {
-          "tag": "h3",
-          "text": "Rest."
-        },
-        {
-          "tag": "p",
-          "text": "The timer counts your rest. With notifications on, it tells you when it's up."
-        },
-        {
-          "tag": "h3",
-          "text": "Swap."
-        },
-        {
-          "tag": "p",
-          "text": "Equipment taken? In the exercise actions, tap . Taurifer records the one you actually did instead of the planned one."
-        },
-        {
-          "tag": "b",
-          "text": "Swap exercise"
-        },
-        {
-          "tag": "h3",
-          "text": "Notes."
-        },
-        {
-          "tag": "p",
-          "text": "Jot down bench height, grip, machine settings. You write it once and the note shows up every time you do that exercise."
-        },
-        {
-          "tag": "li",
-          "aria-current": "step"
-        },
-        {
-          "tag": "h3",
-          "text": "Next session"
+          "tag": "button",
+          "name": "Rest at a glance",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "62.5 kg × 9"
+          "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "See it adapt",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 sets"
-        },
-        {
-          "tag": "p",
-          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 9 reps per set. That's the target the card shows."
+          "text": "See it adapt"
         },
         {
           "tag": "section",
@@ -172550,128 +171645,52 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen, in the middle of a bench press session, made for the moments between sets. Scroll to see what each part does."
+          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
-          "tag": "div",
-          "role": "group",
-          "name": "Steps",
+          "tag": "ol",
           "label": "Steps"
         },
         {
           "tag": "button",
-          "name": "Step 1 of 7",
-          "label": "Step 1 of 7",
+          "name": "Know the weight",
           "type": "button"
         },
         {
-          "tag": "button",
-          "name": "Step 2 of 7",
-          "label": "Step 2 of 7",
-          "type": "button"
+          "tag": "span",
+          "text": "Know the weight"
         },
         {
           "tag": "button",
-          "name": "Step 3 of 7",
-          "label": "Step 3 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 4 of 7",
-          "label": "Step 4 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 5 of 7",
-          "label": "Step 5 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 6 of 7",
-          "label": "Step 6 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 7 of 7",
-          "label": "Step 7 of 7",
+          "name": "Log in one tap",
           "aria-current": "step",
           "type": "button"
         },
         {
-          "tag": "h3",
-          "text": "One screen per exercise."
-        },
-        {
-          "tag": "p",
-          "text": "Your target, your last session and the weight and reps to log are on one screen. RIR appears next to the reps."
-        },
-        {
-          "tag": "h3",
-          "text": "Already filled in."
-        },
-        {
-          "tag": "p",
-          "text": "Today's target shows at the top of the card, and the weight and reps are already filled in below it."
-        },
-        {
-          "tag": "h3",
-          "text": "Done? Tap Log set."
+          "tag": "span",
+          "text": "Log in one tap"
         },
         {
           "tag": "p",
           "text": "One tap logs the set. With rest time on, the timer starts counting."
         },
         {
-          "tag": "h3",
-          "text": "Rest."
-        },
-        {
-          "tag": "p",
-          "text": "The timer counts your rest. With notifications on, it tells you when it's up."
-        },
-        {
-          "tag": "h3",
-          "text": "Swap."
-        },
-        {
-          "tag": "p",
-          "text": "Equipment taken? In the exercise actions, tap . Taurifer records the one you actually did instead of the planned one."
-        },
-        {
-          "tag": "b",
-          "text": "Swap exercise"
-        },
-        {
-          "tag": "h3",
-          "text": "Notes."
-        },
-        {
-          "tag": "p",
-          "text": "Jot down bench height, grip, machine settings. You write it once and the note shows up every time you do that exercise."
-        },
-        {
-          "tag": "li",
-          "aria-current": "step"
-        },
-        {
-          "tag": "h3",
-          "text": "Next session"
+          "tag": "button",
+          "name": "Rest at a glance",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "62.5 kg × 9"
+          "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "See it adapt",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 sets"
-        },
-        {
-          "tag": "p",
-          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 9 reps per set. That's the target the card shows."
+          "text": "See it adapt"
         },
         {
           "tag": "section",
@@ -173142,128 +172161,52 @@
         },
         {
           "tag": "p",
-          "text": "Esta é a tela do app durante uma sessão, no meio do supino, feita para usar entre uma série e outra. Role e veja o que cada parte faz."
+          "text": "Esta é a tela de treino do app numa sessão de supino: a meta, um toque para registrar a série, o descanso e o que muda na próxima vez."
         },
         {
-          "tag": "div",
-          "role": "group",
-          "name": "Passos",
+          "tag": "ol",
           "label": "Passos"
         },
         {
           "tag": "button",
-          "name": "Passo 1 de 7",
-          "label": "Passo 1 de 7",
+          "name": "Saiba o peso",
           "type": "button"
         },
         {
-          "tag": "button",
-          "name": "Passo 2 de 7",
-          "label": "Passo 2 de 7",
-          "type": "button"
+          "tag": "span",
+          "text": "Saiba o peso"
         },
         {
           "tag": "button",
-          "name": "Passo 3 de 7",
-          "label": "Passo 3 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 4 de 7",
-          "label": "Passo 4 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 5 de 7",
-          "label": "Passo 5 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 6 de 7",
-          "label": "Passo 6 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 7 de 7",
-          "label": "Passo 7 de 7",
+          "name": "Registre com um toque",
           "aria-current": "step",
           "type": "button"
         },
         {
-          "tag": "h3",
-          "text": "Uma tela por exercício."
-        },
-        {
-          "tag": "p",
-          "text": "Sua meta, a última sessão e o peso e as repetições para registrar ficam em uma tela. O RIR aparece ao lado das repetições."
-        },
-        {
-          "tag": "h3",
-          "text": "Já vem preenchido."
-        },
-        {
-          "tag": "p",
-          "text": "A meta de hoje aparece no alto do cartão, e o peso e as repetições já vêm preenchidos logo abaixo."
-        },
-        {
-          "tag": "h3",
-          "text": "Fez? Toque em Registrar série."
+          "tag": "span",
+          "text": "Registre com um toque"
         },
         {
           "tag": "p",
           "text": "Um toque registra a série. Com o descanso ligado, o timer começa a contar."
         },
         {
-          "tag": "h3",
-          "text": "Descanso."
-        },
-        {
-          "tag": "p",
-          "text": "O timer conta o seu descanso. Com as notificações ativadas, ele avisa quando acabar."
-        },
-        {
-          "tag": "h3",
-          "text": "Troca."
-        },
-        {
-          "tag": "p",
-          "text": "Equipamento ocupado? Nas ações do exercício, toque em . O Taurifer registra o exercício que você fez de verdade, no lugar do que estava planejado."
-        },
-        {
-          "tag": "b",
-          "text": "Substituir exercício"
-        },
-        {
-          "tag": "h3",
-          "text": "Notas."
-        },
-        {
-          "tag": "p",
-          "text": "Anote altura do banco, pegada, ajuste. Você escreve uma vez e a nota aparece sempre que for fazer esse exercício."
-        },
-        {
-          "tag": "li",
-          "aria-current": "step"
-        },
-        {
-          "tag": "h3",
-          "text": "Próxima sessão"
+          "tag": "button",
+          "name": "Descanso à vista",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "62,5 kg × 9"
+          "text": "Descanso à vista"
+        },
+        {
+          "tag": "button",
+          "name": "Veja o treino se ajustar",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 séries"
-        },
-        {
-          "tag": "p",
-          "text": "Você fez 10 repetições com 60 kg nas 3 séries, o máximo da sua meta (8 a 10). Por isso o peso sobe: na próxima sessão, use 62,5 kg e busque 9 repetições por série. É a meta que aparece no cartão."
+          "text": "Veja o treino se ajustar"
         },
         {
           "tag": "section",
@@ -173734,128 +172677,52 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen, in the middle of a bench press session, made for the moments between sets. Scroll to see what each part does."
+          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
-          "tag": "div",
-          "role": "group",
-          "name": "Steps",
+          "tag": "ol",
           "label": "Steps"
         },
         {
           "tag": "button",
-          "name": "Step 1 of 7",
-          "label": "Step 1 of 7",
+          "name": "Know the weight",
           "type": "button"
         },
         {
-          "tag": "button",
-          "name": "Step 2 of 7",
-          "label": "Step 2 of 7",
-          "type": "button"
+          "tag": "span",
+          "text": "Know the weight"
         },
         {
           "tag": "button",
-          "name": "Step 3 of 7",
-          "label": "Step 3 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 4 of 7",
-          "label": "Step 4 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 5 of 7",
-          "label": "Step 5 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 6 of 7",
-          "label": "Step 6 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 7 of 7",
-          "label": "Step 7 of 7",
+          "name": "Log in one tap",
           "aria-current": "step",
           "type": "button"
         },
         {
-          "tag": "h3",
-          "text": "One screen per exercise."
-        },
-        {
-          "tag": "p",
-          "text": "Your target, your last session and the weight and reps to log are on one screen. RIR appears next to the reps."
-        },
-        {
-          "tag": "h3",
-          "text": "Already filled in."
-        },
-        {
-          "tag": "p",
-          "text": "Today's target shows at the top of the card, and the weight and reps are already filled in below it."
-        },
-        {
-          "tag": "h3",
-          "text": "Done? Tap Log set."
+          "tag": "span",
+          "text": "Log in one tap"
         },
         {
           "tag": "p",
           "text": "One tap logs the set. With rest time on, the timer starts counting."
         },
         {
-          "tag": "h3",
-          "text": "Rest."
-        },
-        {
-          "tag": "p",
-          "text": "The timer counts your rest. With notifications on, it tells you when it's up."
-        },
-        {
-          "tag": "h3",
-          "text": "Swap."
-        },
-        {
-          "tag": "p",
-          "text": "Equipment taken? In the exercise actions, tap . Taurifer records the one you actually did instead of the planned one."
-        },
-        {
-          "tag": "b",
-          "text": "Swap exercise"
-        },
-        {
-          "tag": "h3",
-          "text": "Notes."
-        },
-        {
-          "tag": "p",
-          "text": "Jot down bench height, grip, machine settings. You write it once and the note shows up every time you do that exercise."
-        },
-        {
-          "tag": "li",
-          "aria-current": "step"
-        },
-        {
-          "tag": "h3",
-          "text": "Next session"
+          "tag": "button",
+          "name": "Rest at a glance",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "62.5 kg × 9"
+          "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "See it adapt",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 sets"
-        },
-        {
-          "tag": "p",
-          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 9 reps per set. That's the target the card shows."
+          "text": "See it adapt"
         },
         {
           "tag": "section",
@@ -174326,128 +173193,52 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen, in the middle of a bench press session, made for the moments between sets. Scroll to see what each part does."
+          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
-          "tag": "div",
-          "role": "group",
-          "name": "Steps",
+          "tag": "ol",
           "label": "Steps"
         },
         {
           "tag": "button",
-          "name": "Step 1 of 7",
-          "label": "Step 1 of 7",
+          "name": "Know the weight",
           "type": "button"
         },
         {
-          "tag": "button",
-          "name": "Step 2 of 7",
-          "label": "Step 2 of 7",
-          "type": "button"
+          "tag": "span",
+          "text": "Know the weight"
         },
         {
           "tag": "button",
-          "name": "Step 3 of 7",
-          "label": "Step 3 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 4 of 7",
-          "label": "Step 4 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 5 of 7",
-          "label": "Step 5 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 6 of 7",
-          "label": "Step 6 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 7 of 7",
-          "label": "Step 7 of 7",
+          "name": "Log in one tap",
           "aria-current": "step",
           "type": "button"
         },
         {
-          "tag": "h3",
-          "text": "One screen per exercise."
-        },
-        {
-          "tag": "p",
-          "text": "Your target, your last session and the weight and reps to log are on one screen. RIR appears next to the reps."
-        },
-        {
-          "tag": "h3",
-          "text": "Already filled in."
-        },
-        {
-          "tag": "p",
-          "text": "Today's target shows at the top of the card, and the weight and reps are already filled in below it."
-        },
-        {
-          "tag": "h3",
-          "text": "Done? Tap Log set."
+          "tag": "span",
+          "text": "Log in one tap"
         },
         {
           "tag": "p",
           "text": "One tap logs the set. With rest time on, the timer starts counting."
         },
         {
-          "tag": "h3",
-          "text": "Rest."
-        },
-        {
-          "tag": "p",
-          "text": "The timer counts your rest. With notifications on, it tells you when it's up."
-        },
-        {
-          "tag": "h3",
-          "text": "Swap."
-        },
-        {
-          "tag": "p",
-          "text": "Equipment taken? In the exercise actions, tap . Taurifer records the one you actually did instead of the planned one."
-        },
-        {
-          "tag": "b",
-          "text": "Swap exercise"
-        },
-        {
-          "tag": "h3",
-          "text": "Notes."
-        },
-        {
-          "tag": "p",
-          "text": "Jot down bench height, grip, machine settings. You write it once and the note shows up every time you do that exercise."
-        },
-        {
-          "tag": "li",
-          "aria-current": "step"
-        },
-        {
-          "tag": "h3",
-          "text": "Next session"
+          "tag": "button",
+          "name": "Rest at a glance",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "62.5 kg × 9"
+          "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "See it adapt",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 sets"
-        },
-        {
-          "tag": "p",
-          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 9 reps per set. That's the target the card shows."
+          "text": "See it adapt"
         },
         {
           "tag": "section",
@@ -174918,128 +173709,52 @@
         },
         {
           "tag": "p",
-          "text": "Esta é a tela do app durante uma sessão, no meio do supino, feita para usar entre uma série e outra. Role e veja o que cada parte faz."
+          "text": "Esta é a tela de treino do app numa sessão de supino: a meta, um toque para registrar a série, o descanso e o que muda na próxima vez."
         },
         {
-          "tag": "div",
-          "role": "group",
-          "name": "Passos",
+          "tag": "ol",
           "label": "Passos"
         },
         {
           "tag": "button",
-          "name": "Passo 1 de 7",
-          "label": "Passo 1 de 7",
+          "name": "Saiba o peso",
           "type": "button"
         },
         {
-          "tag": "button",
-          "name": "Passo 2 de 7",
-          "label": "Passo 2 de 7",
-          "type": "button"
+          "tag": "span",
+          "text": "Saiba o peso"
         },
         {
           "tag": "button",
-          "name": "Passo 3 de 7",
-          "label": "Passo 3 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 4 de 7",
-          "label": "Passo 4 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 5 de 7",
-          "label": "Passo 5 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 6 de 7",
-          "label": "Passo 6 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 7 de 7",
-          "label": "Passo 7 de 7",
+          "name": "Registre com um toque",
           "aria-current": "step",
           "type": "button"
         },
         {
-          "tag": "h3",
-          "text": "Uma tela por exercício."
-        },
-        {
-          "tag": "p",
-          "text": "Sua meta, a última sessão e o peso e as repetições para registrar ficam em uma tela. O RIR aparece ao lado das repetições."
-        },
-        {
-          "tag": "h3",
-          "text": "Já vem preenchido."
-        },
-        {
-          "tag": "p",
-          "text": "A meta de hoje aparece no alto do cartão, e o peso e as repetições já vêm preenchidos logo abaixo."
-        },
-        {
-          "tag": "h3",
-          "text": "Fez? Toque em Registrar série."
+          "tag": "span",
+          "text": "Registre com um toque"
         },
         {
           "tag": "p",
           "text": "Um toque registra a série. Com o descanso ligado, o timer começa a contar."
         },
         {
-          "tag": "h3",
-          "text": "Descanso."
-        },
-        {
-          "tag": "p",
-          "text": "O timer conta o seu descanso. Com as notificações ativadas, ele avisa quando acabar."
-        },
-        {
-          "tag": "h3",
-          "text": "Troca."
-        },
-        {
-          "tag": "p",
-          "text": "Equipamento ocupado? Nas ações do exercício, toque em . O Taurifer registra o exercício que você fez de verdade, no lugar do que estava planejado."
-        },
-        {
-          "tag": "b",
-          "text": "Substituir exercício"
-        },
-        {
-          "tag": "h3",
-          "text": "Notas."
-        },
-        {
-          "tag": "p",
-          "text": "Anote altura do banco, pegada, ajuste. Você escreve uma vez e a nota aparece sempre que for fazer esse exercício."
-        },
-        {
-          "tag": "li",
-          "aria-current": "step"
-        },
-        {
-          "tag": "h3",
-          "text": "Próxima sessão"
+          "tag": "button",
+          "name": "Descanso à vista",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "62,5 kg × 9"
+          "text": "Descanso à vista"
+        },
+        {
+          "tag": "button",
+          "name": "Veja o treino se ajustar",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 séries"
-        },
-        {
-          "tag": "p",
-          "text": "Você fez 10 repetições com 60 kg nas 3 séries, o máximo da sua meta (8 a 10). Por isso o peso sobe: na próxima sessão, use 62,5 kg e busque 9 repetições por série. É a meta que aparece no cartão."
+          "text": "Veja o treino se ajustar"
         },
         {
           "tag": "section",
@@ -175510,128 +174225,52 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen, in the middle of a bench press session, made for the moments between sets. Scroll to see what each part does."
+          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
-          "tag": "div",
-          "role": "group",
-          "name": "Steps",
+          "tag": "ol",
           "label": "Steps"
         },
         {
           "tag": "button",
-          "name": "Step 1 of 7",
-          "label": "Step 1 of 7",
+          "name": "Know the weight",
           "type": "button"
         },
         {
-          "tag": "button",
-          "name": "Step 2 of 7",
-          "label": "Step 2 of 7",
-          "type": "button"
+          "tag": "span",
+          "text": "Know the weight"
         },
         {
           "tag": "button",
-          "name": "Step 3 of 7",
-          "label": "Step 3 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 4 of 7",
-          "label": "Step 4 of 7",
+          "name": "Log in one tap",
           "aria-current": "step",
           "type": "button"
         },
         {
-          "tag": "button",
-          "name": "Step 5 of 7",
-          "label": "Step 5 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 6 of 7",
-          "label": "Step 6 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 7 of 7",
-          "label": "Step 7 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "h3",
-          "text": "One screen per exercise."
-        },
-        {
-          "tag": "p",
-          "text": "Your target, your last session and the weight and reps to log are on one screen. RIR appears next to the reps."
-        },
-        {
-          "tag": "h3",
-          "text": "Already filled in."
-        },
-        {
-          "tag": "p",
-          "text": "Today's target shows at the top of the card, and the weight and reps are already filled in below it."
-        },
-        {
-          "tag": "h3",
-          "text": "Done? Tap Log set."
+          "tag": "span",
+          "text": "Log in one tap"
         },
         {
           "tag": "p",
           "text": "One tap logs the set. With rest time on, the timer starts counting."
         },
         {
-          "tag": "li",
-          "aria-current": "step"
-        },
-        {
-          "tag": "h3",
-          "text": "Rest."
-        },
-        {
-          "tag": "p",
-          "text": "The timer counts your rest. With notifications on, it tells you when it's up."
-        },
-        {
-          "tag": "h3",
-          "text": "Swap."
-        },
-        {
-          "tag": "p",
-          "text": "Equipment taken? In the exercise actions, tap . Taurifer records the one you actually did instead of the planned one."
-        },
-        {
-          "tag": "b",
-          "text": "Swap exercise"
-        },
-        {
-          "tag": "h3",
-          "text": "Notes."
-        },
-        {
-          "tag": "p",
-          "text": "Jot down bench height, grip, machine settings. You write it once and the note shows up every time you do that exercise."
-        },
-        {
-          "tag": "h3",
-          "text": "Next session"
+          "tag": "button",
+          "name": "Rest at a glance",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "62.5 kg × 9"
+          "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "See it adapt",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 sets"
-        },
-        {
-          "tag": "p",
-          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 9 reps per set. That's the target the card shows."
+          "text": "See it adapt"
         },
         {
           "tag": "section",
@@ -176102,128 +174741,52 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen, in the middle of a bench press session, made for the moments between sets. Scroll to see what each part does."
+          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
-          "tag": "div",
-          "role": "group",
-          "name": "Steps",
+          "tag": "ol",
           "label": "Steps"
         },
         {
           "tag": "button",
-          "name": "Step 1 of 7",
-          "label": "Step 1 of 7",
+          "name": "Know the weight",
           "type": "button"
         },
         {
-          "tag": "button",
-          "name": "Step 2 of 7",
-          "label": "Step 2 of 7",
-          "type": "button"
+          "tag": "span",
+          "text": "Know the weight"
         },
         {
           "tag": "button",
-          "name": "Step 3 of 7",
-          "label": "Step 3 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 4 of 7",
-          "label": "Step 4 of 7",
+          "name": "Log in one tap",
           "aria-current": "step",
           "type": "button"
         },
         {
-          "tag": "button",
-          "name": "Step 5 of 7",
-          "label": "Step 5 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 6 of 7",
-          "label": "Step 6 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 7 of 7",
-          "label": "Step 7 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "h3",
-          "text": "One screen per exercise."
-        },
-        {
-          "tag": "p",
-          "text": "Your target, your last session and the weight and reps to log are on one screen. RIR appears next to the reps."
-        },
-        {
-          "tag": "h3",
-          "text": "Already filled in."
-        },
-        {
-          "tag": "p",
-          "text": "Today's target shows at the top of the card, and the weight and reps are already filled in below it."
-        },
-        {
-          "tag": "h3",
-          "text": "Done? Tap Log set."
+          "tag": "span",
+          "text": "Log in one tap"
         },
         {
           "tag": "p",
           "text": "One tap logs the set. With rest time on, the timer starts counting."
         },
         {
-          "tag": "li",
-          "aria-current": "step"
-        },
-        {
-          "tag": "h3",
-          "text": "Rest."
-        },
-        {
-          "tag": "p",
-          "text": "The timer counts your rest. With notifications on, it tells you when it's up."
-        },
-        {
-          "tag": "h3",
-          "text": "Swap."
-        },
-        {
-          "tag": "p",
-          "text": "Equipment taken? In the exercise actions, tap . Taurifer records the one you actually did instead of the planned one."
-        },
-        {
-          "tag": "b",
-          "text": "Swap exercise"
-        },
-        {
-          "tag": "h3",
-          "text": "Notes."
-        },
-        {
-          "tag": "p",
-          "text": "Jot down bench height, grip, machine settings. You write it once and the note shows up every time you do that exercise."
-        },
-        {
-          "tag": "h3",
-          "text": "Next session"
+          "tag": "button",
+          "name": "Rest at a glance",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "62.5 kg × 9"
+          "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "See it adapt",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 sets"
-        },
-        {
-          "tag": "p",
-          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 9 reps per set. That's the target the card shows."
+          "text": "See it adapt"
         },
         {
           "tag": "section",
@@ -176694,128 +175257,52 @@
         },
         {
           "tag": "p",
-          "text": "Esta é a tela do app durante uma sessão, no meio do supino, feita para usar entre uma série e outra. Role e veja o que cada parte faz."
+          "text": "Esta é a tela de treino do app numa sessão de supino: a meta, um toque para registrar a série, o descanso e o que muda na próxima vez."
         },
         {
-          "tag": "div",
-          "role": "group",
-          "name": "Passos",
+          "tag": "ol",
           "label": "Passos"
         },
         {
           "tag": "button",
-          "name": "Passo 1 de 7",
-          "label": "Passo 1 de 7",
+          "name": "Saiba o peso",
           "type": "button"
         },
         {
-          "tag": "button",
-          "name": "Passo 2 de 7",
-          "label": "Passo 2 de 7",
-          "type": "button"
+          "tag": "span",
+          "text": "Saiba o peso"
         },
         {
           "tag": "button",
-          "name": "Passo 3 de 7",
-          "label": "Passo 3 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 4 de 7",
-          "label": "Passo 4 de 7",
+          "name": "Registre com um toque",
           "aria-current": "step",
           "type": "button"
         },
         {
-          "tag": "button",
-          "name": "Passo 5 de 7",
-          "label": "Passo 5 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 6 de 7",
-          "label": "Passo 6 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 7 de 7",
-          "label": "Passo 7 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "h3",
-          "text": "Uma tela por exercício."
-        },
-        {
-          "tag": "p",
-          "text": "Sua meta, a última sessão e o peso e as repetições para registrar ficam em uma tela. O RIR aparece ao lado das repetições."
-        },
-        {
-          "tag": "h3",
-          "text": "Já vem preenchido."
-        },
-        {
-          "tag": "p",
-          "text": "A meta de hoje aparece no alto do cartão, e o peso e as repetições já vêm preenchidos logo abaixo."
-        },
-        {
-          "tag": "h3",
-          "text": "Fez? Toque em Registrar série."
+          "tag": "span",
+          "text": "Registre com um toque"
         },
         {
           "tag": "p",
           "text": "Um toque registra a série. Com o descanso ligado, o timer começa a contar."
         },
         {
-          "tag": "li",
-          "aria-current": "step"
-        },
-        {
-          "tag": "h3",
-          "text": "Descanso."
-        },
-        {
-          "tag": "p",
-          "text": "O timer conta o seu descanso. Com as notificações ativadas, ele avisa quando acabar."
-        },
-        {
-          "tag": "h3",
-          "text": "Troca."
-        },
-        {
-          "tag": "p",
-          "text": "Equipamento ocupado? Nas ações do exercício, toque em . O Taurifer registra o exercício que você fez de verdade, no lugar do que estava planejado."
-        },
-        {
-          "tag": "b",
-          "text": "Substituir exercício"
-        },
-        {
-          "tag": "h3",
-          "text": "Notas."
-        },
-        {
-          "tag": "p",
-          "text": "Anote altura do banco, pegada, ajuste. Você escreve uma vez e a nota aparece sempre que for fazer esse exercício."
-        },
-        {
-          "tag": "h3",
-          "text": "Próxima sessão"
+          "tag": "button",
+          "name": "Descanso à vista",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "62,5 kg × 9"
+          "text": "Descanso à vista"
+        },
+        {
+          "tag": "button",
+          "name": "Veja o treino se ajustar",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 séries"
-        },
-        {
-          "tag": "p",
-          "text": "Você fez 10 repetições com 60 kg nas 3 séries, o máximo da sua meta (8 a 10). Por isso o peso sobe: na próxima sessão, use 62,5 kg e busque 9 repetições por série. É a meta que aparece no cartão."
+          "text": "Veja o treino se ajustar"
         },
         {
           "tag": "section",
@@ -182410,128 +180897,52 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen, in the middle of a bench press session, made for the moments between sets. Scroll to see what each part does."
+          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
-          "tag": "div",
-          "role": "group",
-          "name": "Steps",
+          "tag": "ol",
           "label": "Steps"
         },
         {
           "tag": "button",
-          "name": "Step 1 of 7",
-          "label": "Step 1 of 7",
+          "name": "Know the weight",
           "type": "button"
         },
         {
-          "tag": "button",
-          "name": "Step 2 of 7",
-          "label": "Step 2 of 7",
-          "type": "button"
+          "tag": "span",
+          "text": "Know the weight"
         },
         {
           "tag": "button",
-          "name": "Step 3 of 7",
-          "label": "Step 3 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 4 of 7",
-          "label": "Step 4 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 5 of 7",
-          "label": "Step 5 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 6 of 7",
-          "label": "Step 6 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 7 of 7",
-          "label": "Step 7 of 7",
+          "name": "Log in one tap",
           "aria-current": "step",
           "type": "button"
         },
         {
-          "tag": "h3",
-          "text": "One screen per exercise."
-        },
-        {
-          "tag": "p",
-          "text": "Your target, your last session and the weight and reps to log are on one screen. RIR appears next to the reps."
-        },
-        {
-          "tag": "h3",
-          "text": "Already filled in."
-        },
-        {
-          "tag": "p",
-          "text": "Today's target shows at the top of the card, and the weight and reps are already filled in below it."
-        },
-        {
-          "tag": "h3",
-          "text": "Done? Tap Log set."
+          "tag": "span",
+          "text": "Log in one tap"
         },
         {
           "tag": "p",
           "text": "One tap logs the set. With rest time on, the timer starts counting."
         },
         {
-          "tag": "h3",
-          "text": "Rest."
-        },
-        {
-          "tag": "p",
-          "text": "The timer counts your rest. With notifications on, it tells you when it's up."
-        },
-        {
-          "tag": "h3",
-          "text": "Swap."
-        },
-        {
-          "tag": "p",
-          "text": "Equipment taken? In the exercise actions, tap . Taurifer records the one you actually did instead of the planned one."
-        },
-        {
-          "tag": "b",
-          "text": "Swap exercise"
-        },
-        {
-          "tag": "h3",
-          "text": "Notes."
-        },
-        {
-          "tag": "p",
-          "text": "Jot down bench height, grip, machine settings. You write it once and the note shows up every time you do that exercise."
-        },
-        {
-          "tag": "li",
-          "aria-current": "step"
-        },
-        {
-          "tag": "h3",
-          "text": "Next session"
+          "tag": "button",
+          "name": "Rest at a glance",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "62.5 kg × 9"
+          "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "See it adapt",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 sets"
-        },
-        {
-          "tag": "p",
-          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 9 reps per set. That's the target the card shows."
+          "text": "See it adapt"
         },
         {
           "tag": "section",
@@ -183002,128 +181413,52 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen, in the middle of a bench press session, made for the moments between sets. Scroll to see what each part does."
+          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
-          "tag": "div",
-          "role": "group",
-          "name": "Steps",
+          "tag": "ol",
           "label": "Steps"
         },
         {
           "tag": "button",
-          "name": "Step 1 of 7",
-          "label": "Step 1 of 7",
+          "name": "Know the weight",
           "type": "button"
         },
         {
-          "tag": "button",
-          "name": "Step 2 of 7",
-          "label": "Step 2 of 7",
-          "type": "button"
+          "tag": "span",
+          "text": "Know the weight"
         },
         {
           "tag": "button",
-          "name": "Step 3 of 7",
-          "label": "Step 3 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 4 of 7",
-          "label": "Step 4 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 5 of 7",
-          "label": "Step 5 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 6 of 7",
-          "label": "Step 6 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 7 of 7",
-          "label": "Step 7 of 7",
+          "name": "Log in one tap",
           "aria-current": "step",
           "type": "button"
         },
         {
-          "tag": "h3",
-          "text": "One screen per exercise."
-        },
-        {
-          "tag": "p",
-          "text": "Your target, your last session and the weight and reps to log are on one screen. RIR appears next to the reps."
-        },
-        {
-          "tag": "h3",
-          "text": "Already filled in."
-        },
-        {
-          "tag": "p",
-          "text": "Today's target shows at the top of the card, and the weight and reps are already filled in below it."
-        },
-        {
-          "tag": "h3",
-          "text": "Done? Tap Log set."
+          "tag": "span",
+          "text": "Log in one tap"
         },
         {
           "tag": "p",
           "text": "One tap logs the set. With rest time on, the timer starts counting."
         },
         {
-          "tag": "h3",
-          "text": "Rest."
-        },
-        {
-          "tag": "p",
-          "text": "The timer counts your rest. With notifications on, it tells you when it's up."
-        },
-        {
-          "tag": "h3",
-          "text": "Swap."
-        },
-        {
-          "tag": "p",
-          "text": "Equipment taken? In the exercise actions, tap . Taurifer records the one you actually did instead of the planned one."
-        },
-        {
-          "tag": "b",
-          "text": "Swap exercise"
-        },
-        {
-          "tag": "h3",
-          "text": "Notes."
-        },
-        {
-          "tag": "p",
-          "text": "Jot down bench height, grip, machine settings. You write it once and the note shows up every time you do that exercise."
-        },
-        {
-          "tag": "li",
-          "aria-current": "step"
-        },
-        {
-          "tag": "h3",
-          "text": "Next session"
+          "tag": "button",
+          "name": "Rest at a glance",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "62.5 kg × 9"
+          "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "See it adapt",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 sets"
-        },
-        {
-          "tag": "p",
-          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 9 reps per set. That's the target the card shows."
+          "text": "See it adapt"
         },
         {
           "tag": "section",
@@ -183594,128 +181929,52 @@
         },
         {
           "tag": "p",
-          "text": "Esta é a tela do app durante uma sessão, no meio do supino, feita para usar entre uma série e outra. Role e veja o que cada parte faz."
+          "text": "Esta é a tela de treino do app numa sessão de supino: a meta, um toque para registrar a série, o descanso e o que muda na próxima vez."
         },
         {
-          "tag": "div",
-          "role": "group",
-          "name": "Passos",
+          "tag": "ol",
           "label": "Passos"
         },
         {
           "tag": "button",
-          "name": "Passo 1 de 7",
-          "label": "Passo 1 de 7",
+          "name": "Saiba o peso",
           "type": "button"
         },
         {
-          "tag": "button",
-          "name": "Passo 2 de 7",
-          "label": "Passo 2 de 7",
-          "type": "button"
+          "tag": "span",
+          "text": "Saiba o peso"
         },
         {
           "tag": "button",
-          "name": "Passo 3 de 7",
-          "label": "Passo 3 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 4 de 7",
-          "label": "Passo 4 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 5 de 7",
-          "label": "Passo 5 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 6 de 7",
-          "label": "Passo 6 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 7 de 7",
-          "label": "Passo 7 de 7",
+          "name": "Registre com um toque",
           "aria-current": "step",
           "type": "button"
         },
         {
-          "tag": "h3",
-          "text": "Uma tela por exercício."
-        },
-        {
-          "tag": "p",
-          "text": "Sua meta, a última sessão e o peso e as repetições para registrar ficam em uma tela. O RIR aparece ao lado das repetições."
-        },
-        {
-          "tag": "h3",
-          "text": "Já vem preenchido."
-        },
-        {
-          "tag": "p",
-          "text": "A meta de hoje aparece no alto do cartão, e o peso e as repetições já vêm preenchidos logo abaixo."
-        },
-        {
-          "tag": "h3",
-          "text": "Fez? Toque em Registrar série."
+          "tag": "span",
+          "text": "Registre com um toque"
         },
         {
           "tag": "p",
           "text": "Um toque registra a série. Com o descanso ligado, o timer começa a contar."
         },
         {
-          "tag": "h3",
-          "text": "Descanso."
-        },
-        {
-          "tag": "p",
-          "text": "O timer conta o seu descanso. Com as notificações ativadas, ele avisa quando acabar."
-        },
-        {
-          "tag": "h3",
-          "text": "Troca."
-        },
-        {
-          "tag": "p",
-          "text": "Equipamento ocupado? Nas ações do exercício, toque em . O Taurifer registra o exercício que você fez de verdade, no lugar do que estava planejado."
-        },
-        {
-          "tag": "b",
-          "text": "Substituir exercício"
-        },
-        {
-          "tag": "h3",
-          "text": "Notas."
-        },
-        {
-          "tag": "p",
-          "text": "Anote altura do banco, pegada, ajuste. Você escreve uma vez e a nota aparece sempre que for fazer esse exercício."
-        },
-        {
-          "tag": "li",
-          "aria-current": "step"
-        },
-        {
-          "tag": "h3",
-          "text": "Próxima sessão"
+          "tag": "button",
+          "name": "Descanso à vista",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "62,5 kg × 9"
+          "text": "Descanso à vista"
+        },
+        {
+          "tag": "button",
+          "name": "Veja o treino se ajustar",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 séries"
-        },
-        {
-          "tag": "p",
-          "text": "Você fez 10 repetições com 60 kg nas 3 séries, o máximo da sua meta (8 a 10). Por isso o peso sobe: na próxima sessão, use 62,5 kg e busque 9 repetições por série. É a meta que aparece no cartão."
+          "text": "Veja o treino se ajustar"
         },
         {
           "tag": "section",
@@ -184186,128 +182445,52 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen, in the middle of a bench press session, made for the moments between sets. Scroll to see what each part does."
+          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
-          "tag": "div",
-          "role": "group",
-          "name": "Steps",
+          "tag": "ol",
           "label": "Steps"
         },
         {
           "tag": "button",
-          "name": "Step 1 of 7",
-          "label": "Step 1 of 7",
+          "name": "Know the weight",
           "type": "button"
         },
         {
-          "tag": "button",
-          "name": "Step 2 of 7",
-          "label": "Step 2 of 7",
-          "type": "button"
+          "tag": "span",
+          "text": "Know the weight"
         },
         {
           "tag": "button",
-          "name": "Step 3 of 7",
-          "label": "Step 3 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 4 of 7",
-          "label": "Step 4 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 5 of 7",
-          "label": "Step 5 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 6 of 7",
-          "label": "Step 6 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 7 of 7",
-          "label": "Step 7 of 7",
+          "name": "Log in one tap",
           "aria-current": "step",
           "type": "button"
         },
         {
-          "tag": "h3",
-          "text": "One screen per exercise."
-        },
-        {
-          "tag": "p",
-          "text": "Your target, your last session and the weight and reps to log are on one screen. RIR appears next to the reps."
-        },
-        {
-          "tag": "h3",
-          "text": "Already filled in."
-        },
-        {
-          "tag": "p",
-          "text": "Today's target shows at the top of the card, and the weight and reps are already filled in below it."
-        },
-        {
-          "tag": "h3",
-          "text": "Done? Tap Log set."
+          "tag": "span",
+          "text": "Log in one tap"
         },
         {
           "tag": "p",
           "text": "One tap logs the set. With rest time on, the timer starts counting."
         },
         {
-          "tag": "h3",
-          "text": "Rest."
-        },
-        {
-          "tag": "p",
-          "text": "The timer counts your rest. With notifications on, it tells you when it's up."
-        },
-        {
-          "tag": "h3",
-          "text": "Swap."
-        },
-        {
-          "tag": "p",
-          "text": "Equipment taken? In the exercise actions, tap . Taurifer records the one you actually did instead of the planned one."
-        },
-        {
-          "tag": "b",
-          "text": "Swap exercise"
-        },
-        {
-          "tag": "h3",
-          "text": "Notes."
-        },
-        {
-          "tag": "p",
-          "text": "Jot down bench height, grip, machine settings. You write it once and the note shows up every time you do that exercise."
-        },
-        {
-          "tag": "li",
-          "aria-current": "step"
-        },
-        {
-          "tag": "h3",
-          "text": "Next session"
+          "tag": "button",
+          "name": "Rest at a glance",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "62.5 kg × 9"
+          "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "See it adapt",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 sets"
-        },
-        {
-          "tag": "p",
-          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 9 reps per set. That's the target the card shows."
+          "text": "See it adapt"
         },
         {
           "tag": "section",
@@ -184778,128 +182961,52 @@
         },
         {
           "tag": "p",
-          "text": "This is the app's workout screen, in the middle of a bench press session, made for the moments between sets. Scroll to see what each part does."
+          "text": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time."
         },
         {
-          "tag": "div",
-          "role": "group",
-          "name": "Steps",
+          "tag": "ol",
           "label": "Steps"
         },
         {
           "tag": "button",
-          "name": "Step 1 of 7",
-          "label": "Step 1 of 7",
+          "name": "Know the weight",
           "type": "button"
         },
         {
-          "tag": "button",
-          "name": "Step 2 of 7",
-          "label": "Step 2 of 7",
-          "type": "button"
+          "tag": "span",
+          "text": "Know the weight"
         },
         {
           "tag": "button",
-          "name": "Step 3 of 7",
-          "label": "Step 3 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 4 of 7",
-          "label": "Step 4 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 5 of 7",
-          "label": "Step 5 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 6 of 7",
-          "label": "Step 6 of 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Step 7 of 7",
-          "label": "Step 7 of 7",
+          "name": "Log in one tap",
           "aria-current": "step",
           "type": "button"
         },
         {
-          "tag": "h3",
-          "text": "One screen per exercise."
-        },
-        {
-          "tag": "p",
-          "text": "Your target, your last session and the weight and reps to log are on one screen. RIR appears next to the reps."
-        },
-        {
-          "tag": "h3",
-          "text": "Already filled in."
-        },
-        {
-          "tag": "p",
-          "text": "Today's target shows at the top of the card, and the weight and reps are already filled in below it."
-        },
-        {
-          "tag": "h3",
-          "text": "Done? Tap Log set."
+          "tag": "span",
+          "text": "Log in one tap"
         },
         {
           "tag": "p",
           "text": "One tap logs the set. With rest time on, the timer starts counting."
         },
         {
-          "tag": "h3",
-          "text": "Rest."
-        },
-        {
-          "tag": "p",
-          "text": "The timer counts your rest. With notifications on, it tells you when it's up."
-        },
-        {
-          "tag": "h3",
-          "text": "Swap."
-        },
-        {
-          "tag": "p",
-          "text": "Equipment taken? In the exercise actions, tap . Taurifer records the one you actually did instead of the planned one."
-        },
-        {
-          "tag": "b",
-          "text": "Swap exercise"
-        },
-        {
-          "tag": "h3",
-          "text": "Notes."
-        },
-        {
-          "tag": "p",
-          "text": "Jot down bench height, grip, machine settings. You write it once and the note shows up every time you do that exercise."
-        },
-        {
-          "tag": "li",
-          "aria-current": "step"
-        },
-        {
-          "tag": "h3",
-          "text": "Next session"
+          "tag": "button",
+          "name": "Rest at a glance",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "62.5 kg × 9"
+          "text": "Rest at a glance"
+        },
+        {
+          "tag": "button",
+          "name": "See it adapt",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 sets"
-        },
-        {
-          "tag": "p",
-          "text": "You did 10 reps at 60 kg on all 3 sets, the most your target allows (8 to 10). So the weight goes up: next session, use 62.5 kg and aim for 9 reps per set. That's the target the card shows."
+          "text": "See it adapt"
         },
         {
           "tag": "section",
@@ -185370,128 +183477,52 @@
         },
         {
           "tag": "p",
-          "text": "Esta é a tela do app durante uma sessão, no meio do supino, feita para usar entre uma série e outra. Role e veja o que cada parte faz."
+          "text": "Esta é a tela de treino do app numa sessão de supino: a meta, um toque para registrar a série, o descanso e o que muda na próxima vez."
         },
         {
-          "tag": "div",
-          "role": "group",
-          "name": "Passos",
+          "tag": "ol",
           "label": "Passos"
         },
         {
           "tag": "button",
-          "name": "Passo 1 de 7",
-          "label": "Passo 1 de 7",
+          "name": "Saiba o peso",
           "type": "button"
         },
         {
-          "tag": "button",
-          "name": "Passo 2 de 7",
-          "label": "Passo 2 de 7",
-          "type": "button"
+          "tag": "span",
+          "text": "Saiba o peso"
         },
         {
           "tag": "button",
-          "name": "Passo 3 de 7",
-          "label": "Passo 3 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 4 de 7",
-          "label": "Passo 4 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 5 de 7",
-          "label": "Passo 5 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 6 de 7",
-          "label": "Passo 6 de 7",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Passo 7 de 7",
-          "label": "Passo 7 de 7",
+          "name": "Registre com um toque",
           "aria-current": "step",
           "type": "button"
         },
         {
-          "tag": "h3",
-          "text": "Uma tela por exercício."
-        },
-        {
-          "tag": "p",
-          "text": "Sua meta, a última sessão e o peso e as repetições para registrar ficam em uma tela. O RIR aparece ao lado das repetições."
-        },
-        {
-          "tag": "h3",
-          "text": "Já vem preenchido."
-        },
-        {
-          "tag": "p",
-          "text": "A meta de hoje aparece no alto do cartão, e o peso e as repetições já vêm preenchidos logo abaixo."
-        },
-        {
-          "tag": "h3",
-          "text": "Fez? Toque em Registrar série."
+          "tag": "span",
+          "text": "Registre com um toque"
         },
         {
           "tag": "p",
           "text": "Um toque registra a série. Com o descanso ligado, o timer começa a contar."
         },
         {
-          "tag": "h3",
-          "text": "Descanso."
-        },
-        {
-          "tag": "p",
-          "text": "O timer conta o seu descanso. Com as notificações ativadas, ele avisa quando acabar."
-        },
-        {
-          "tag": "h3",
-          "text": "Troca."
-        },
-        {
-          "tag": "p",
-          "text": "Equipamento ocupado? Nas ações do exercício, toque em . O Taurifer registra o exercício que você fez de verdade, no lugar do que estava planejado."
-        },
-        {
-          "tag": "b",
-          "text": "Substituir exercício"
-        },
-        {
-          "tag": "h3",
-          "text": "Notas."
-        },
-        {
-          "tag": "p",
-          "text": "Anote altura do banco, pegada, ajuste. Você escreve uma vez e a nota aparece sempre que for fazer esse exercício."
-        },
-        {
-          "tag": "li",
-          "aria-current": "step"
-        },
-        {
-          "tag": "h3",
-          "text": "Próxima sessão"
+          "tag": "button",
+          "name": "Descanso à vista",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "62,5 kg × 9"
+          "text": "Descanso à vista"
+        },
+        {
+          "tag": "button",
+          "name": "Veja o treino se ajustar",
+          "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 séries"
-        },
-        {
-          "tag": "p",
-          "text": "Você fez 10 repetições com 60 kg nas 3 séries, o máximo da sua meta (8 a 10). Por isso o peso sobe: na próxima sessão, use 62,5 kg e busque 9 repetições por série. É a meta que aparece no cartão."
+          "text": "Veja o treino se ajustar"
         },
         {
           "tag": "section",

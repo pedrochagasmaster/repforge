@@ -123,7 +123,7 @@ function landingSnapshot() {
     dataShown: shown('[data-landing-section="data"]'),
     faqShown: shown('[data-landing-section="faq"]'),
     closeShown: shown('[data-landing-section="close"]'),
-    pinned: window.__repforgeLandingProof?.().pinned ?? null,
+    playing: window.__repforgeLandingProof?.().playing ?? null,
     chooserOpen: !!document.querySelector("#onboarding")?.classList.contains("active"),
     resumeCard: shown("#entryResumeContinue"),
   };
@@ -1255,7 +1255,7 @@ try {
       "the returning landing leads with the entry actions: Build and Track", JSON.stringify(back));
     assert(!back.chipsShown && !back.proofShown && !back.trackShown, "the returning landing condenses the marketing: no chips, no proof, no outcomes", JSON.stringify(back));
     assert(back.waysShown && back.dataShown && back.faqShown && back.closeShown, "the returning landing keeps the ways, the data promise, the questions and the close", JSON.stringify(back));
-    assert(back.pinned === false, "the returning landing never pins the hidden proof", JSON.stringify(back));
+    assert(back.playing === false, "the returning landing never plays the hidden proof", JSON.stringify(back));
     assert(!back.chooserOpen, "the returning landing does not open the chooser by itself", JSON.stringify(back));
 
     await page.click("#firstRunCreate");

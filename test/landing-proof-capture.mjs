@@ -2,27 +2,19 @@
 /**
  * Landing proof-image capture tool (Plan 064 R2a-C): tools/capture-landing-proof.mjs.
  *
- * Part 1 (Node only): the scene table and the pure helpers.
- *   - 8 Focus-family images (focus/rest/actions/note x EN/PT), dark only, plus 4 paste-review
- *     images and 4 exercise-chart images (EN/PT x light/dark); no light wt-* file exists.
- *   - compareSpots tolerates movement inside the tolerance and reports drift, missing spots,
- *     a stale count, and the empty placeholder.
+ * Part 1 (Node only): the capture table and the pure helpers.
+ *   - 4 paste-review images and 4 exercise-chart images (EN/PT x light/dark), and no retired wt-* walkthrough screen.
+ *   - compareSpots reports a stale count, a changed frame, leftover walkthrough scenes, and the empty placeholder.
  *   - the paste sample is derived from landing.ways.paste.message in both catalogs.
- *   - the committed assets/brand/landing-proof-spots.json is well formed.
- *   - no scene targets retired UI (Plan 064 C-03, RF-8): the rest scene is the rest sheet's dial, opened from
- *     the rest tab, never the retired inline rest, and the import review is cropped from its current head.
+ *   - the committed assets/brand/landing-proof-spots.json is well formed and carries only the counts.
+ *   - no capture targets retired UI (Plan 064 C-03, RF-8): the import review is cropped from its current head.
  * Part 2 (browser, via the tool itself): the tool runs against the live app.
- *   - --proof writes real 780x1688 WebP files and a spots JSON for the focus scene;
- *   - --check against that JSON passes, and against a JSON with one hotspot moved fails
- *     naming the spot (the stale-lens gate bites);
- *   - the paste-review runner reaches the real import-review screen in both languages and
- *     reports integer counts that cover all four exercises;
- *   - the rest, actions and note scenes render through production code (the rest sheet opened from the tab,
- *     the exercise-actions sheet, the exercise-note sheet) and measure their hotspots;
+ *   - the paste-review runner reaches the real import-review screen in both languages and reports integer counts that
+ *     cover all four exercises; --check against them passes and against a changed count fails naming it;
  *   - exercise-chart opens the exercise page from Progress with best e1RM pressed and checks the figures it draws
  *     against the Progress model's reading of the chart fixture (the caption's 92.5 to 100 kg over 4 sessions);
- *   - --fault-retired puts a retired element on screen and the capture refuses it, in the rest scene and the
- *     paste-review scene (the retired-UI check bites).
+ *   - --fault-retired puts a retired element on screen and the capture refuses it, in the paste-review and
+ *     exercise-chart captures (the retired-UI check bites).
  * Files are written to a temporary directory, never to assets/brand/.
  *
  * Run: node test/landing-proof-capture.mjs   (with REPFORGE_URL set, or a server on :8000)
@@ -35,8 +27,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   CHART_FIGURES, CHART_FRAME, CHART_LIFT, CHART_MIN_SCALE, CHART_TARGETS, CHART_THEMES, DEFAULT_SPOTS_FILE, LANGS, PASTE_TARGETS, PASTE_THEMES, PROOF_FRAME,
-  PROOF_SCENES, RETIRED_SELECTORS, SPOT_SCHEMA, SPOT_TARGETS, SPOT_TOLERANCE, chartFile, compareSpots, mergeSceneSpots, outputFiles, pasteFile,
-  pasteSample, sceneFile, webpSize,
+  RETIRED_SELECTORS, SPOT_SCHEMA, chartFile, compareSpots, outputFiles, pasteFile, pasteSample, webpSize,
 } from "../tools/capture-landing-proof.mjs";
 
 const TOOL = fileURLToPath(new URL("../tools/capture-landing-proof.mjs", import.meta.url));
@@ -50,110 +41,66 @@ function tool(args) {
 }
 
 // ---- Part 1 ----------------------------------------------------------------
-check("scene table: 8 dark wt-* images, 4 paste-review images and 4 exercise-chart images", () => {
-  assert.deepEqual(PROOF_SCENES.map((scene) => scene.name), ["focus", "rest", "actions", "note"]);
+check("capture table: 4 paste-review images and 4 exercise-chart images, no retired walkthrough screen", () => {
   const files = outputFiles();
-  assert.equal(files.length, 16);
-  assert.equal(new Set(files).size, 16);
+  assert.equal(files.length, 8);
+  assert.equal(new Set(files).size, 8);
   assert.deepEqual(files.filter((file) => file.startsWith("exercise-chart-")).sort(),
     ["exercise-chart-en-dark.webp", "exercise-chart-en-light.webp", "exercise-chart-pt-dark.webp", "exercise-chart-pt-light.webp"]);
   assert.equal(chartFile("pt", "dark"), "exercise-chart-pt-dark.webp");
   assert.deepEqual(CHART_THEMES, ["light", "dark"]);
   assert.deepEqual(CHART_FIGURES, { from: 92.5, to: 100, sessions: 4 });
-  assert.equal(files.filter((file) => file.startsWith("wt-")).length, 8);
-  assert(files.filter((file) => file.startsWith("wt-")).every((file) => /^wt-(focus|rest|actions|note)-(en|pt)-dark\.webp$/.test(file)));
+  assert(!files.some((file) => file.startsWith("wt-")), "the retired walkthrough's wt-* screens are not captured");
   assert.deepEqual(LANGS, ["en", "pt"]);
   assert.deepEqual(PASTE_THEMES, ["light", "dark"]);
-  assert.equal(sceneFile("focus", "pt"), "wt-focus-pt-dark.webp");
   assert.equal(pasteFile("en", "light"), "paste-review-en-light.webp");
   assert.deepEqual(PROOF_FRAME, { width: 390, height: 844, scale: 2 });
-  assert(PROOF_SCENES.every((scene) => scene.spots.length > 0));
 });
-
-check("the exercise-chart scene is the Progress exercise page with best e1RM, not the pre-R3i canvas page", () => {
+check("the exercise-chart capture is the Progress exercise page with best e1RM, not the pre-R3i canvas page", () => {
   assert.equal(CHART_LIFT, "library:sq_bb");
   assert.match(CHART_TARGETS.page, /^#exercise\.exview--chart$/);
   assert.match(CHART_TARGETS.plot, /^#exDetail \.exchart__plot$/);
   assert.match(CHART_TARGETS.e1rm, /data-metric="e1rm"/);
   assert(![...Object.values(CHART_TARGETS)].some((selector) => /#exChart|restinline|exview-head/.test(selector)), "no chart target names a retired part");
 });
-
-check("no scene or crop targets retired UI: the rest scene is the rest sheet's dial, the import review has its current head", () => {
+check("no capture targets retired UI: the import review has its current head", () => {
   for (const retired of [".restinline", ".restpad", "#woRest"]) assert(RETIRED_SELECTORS.includes(retired), `${retired} is a retired selector`);
-  assert(!RETIRED_SELECTORS.some((selector) => /restSheet/.test(selector)), "the rest sheet is live again (the rest timer redesign)");
   assert(RETIRED_SELECTORS.includes("#importReview .exview-head"), "the old import-review head is a retired selector");
-  const targets = [...Object.values(SPOT_TARGETS), ...Object.values(PASTE_TARGETS)];
+  const targets = [...Object.values(PASTE_TARGETS), ...Object.values(CHART_TARGETS)];
   for (const retired of RETIRED_SELECTORS) {
     assert(!targets.some((selector) => selector.includes(retired)), `no capture target uses ${retired}`);
   }
-  assert(!targets.some((selector) => /restinline|restpad|woRest|exview-head/.test(selector)), "no capture target names a retired part");
-  assert.match(SPOT_TARGETS.rest, /#restSheet\.is-open #restDial/, "the rest scene reads the open rest sheet's dial");
-  assert.match(PROOF_SCENES.find((scene) => scene.name === "rest").shows, /rest tab opens the rest sheet/);
   assert.equal(PASTE_TARGETS.head, "#importReview .onb__head");
   const source = readFileSync(TOOL, "utf8");
   assert(!/querySelector\(['"]#importReview \.exview-head/.test(source), "the tool never queries the old head");
-  assert(/#restTab/.test(source), "the tool opens the rest sheet from the rest tab");
 });
 
 const measured = {
   frame: { ...PROOF_FRAME },
-  scenes: { focus: { cue: [50, 66.92, 81.03, 2.57] }, note: { text: [50, 46.79, 91.28, 2.94] } },
   pasteReview: { en: { linked: 1, review: 3, custom: 0 }, pt: { linked: 0, review: 4, custom: 0 } },
 };
 const stored = () => JSON.parse(JSON.stringify({ schema: SPOT_SCHEMA, ...measured }));
-/** A spot's boxes: the one both languages share, or each language's where they differ. */
-const spotBoxes = (spot) => Array.isArray(spot) ? [spot] : [spot?.en, spot?.pt];
 
-check("compareSpots: identical and within tolerance is clean", () => {
+check("compareSpots: identical counts are clean", () => {
   assert.deepEqual(compareSpots(stored(), measured), []);
-  const nudged = stored();
-  nudged.scenes.focus.cue[1] += SPOT_TOLERANCE / 2;
-  assert.deepEqual(compareSpots(nudged, measured), []);
 });
-check("compareSpots: drift, missing and stale values are reported by name", () => {
-  const moved = stored();
-  moved.scenes.focus.cue[1] += 1;
-  assert.match(compareSpots(moved, measured).join("\n"), /focus\.cue: stored/);
-  const missing = stored();
-  delete missing.scenes.note;
-  assert.match(compareSpots(missing, measured).join("\n"), /note: scene not stored/);
-  const lacking = stored();
-  delete lacking.scenes.focus.cue;
-  assert.match(compareSpots(lacking, measured).join("\n"), /focus\.cue: not stored/);
-  const extra = stored();
-  extra.scenes.focus.gone = [1, 2, 3, 4];
-  assert.match(compareSpots(extra, measured).join("\n"), /focus\.gone: stored but no longer measured/);
+check("compareSpots: a changed count, a missing language, a changed frame and retired scenes are reported by name", () => {
   const counts = stored();
   counts.pasteReview.pt.linked = 1;
   assert.match(compareSpots(counts, measured).join("\n"), /pasteReview\.pt\.linked: stored 1 but live 0/);
+  const missing = stored();
+  delete missing.pasteReview.en;
+  assert.match(compareSpots(missing, measured).join("\n"), /pasteReview\.en: not stored/);
   const frame = stored();
   frame.frame.height = 900;
   assert.match(compareSpots(frame, measured).join("\n"), /frame\.height/);
+  const scenes = stored();
+  scenes.scenes = { focus: { cue: [50, 28, 91, 8] } };
+  assert.match(compareSpots(scenes, measured).join("\n"), /retired walkthrough scenes/);
   assert.match(compareSpots(null, measured).join("\n"), /missing/);
 });
-check("mergeSceneSpots: a spot is shared where EN and PT agree and per language only where they differ", () => {
-  const en = {cue: [50, 28.46, 91.79, 8.31], last: [50, 45.95, 91.79, 11.98]};
-  const pt = {cue: [50, 28.5, 91.79, 8.31], last: [50, 48.43, 91.79, 11.98]};
-  assert.deepEqual(mergeSceneSpots(en, pt), {cue: en.cue, last: {en: en.last, pt: pt.last}});
-});
-check("compareSpots: a per-language spot is checked in each language, and one both languages agree on must be shared", () => {
-  const live = {schema: SPOT_SCHEMA, frame: { ...PROOF_FRAME }, scenes: {focus: {cue: [50, 28.46, 91.79, 8.31], last: {en: [50, 45.95, 91.79, 11.98], pt: [50, 48.43, 91.79, 11.98]}}}, pasteReview: measured.pasteReview};
-  const kept = structuredClone(live);
-  assert.deepEqual(compareSpots(kept, live), []);
-  const drifted = structuredClone(live);
-  drifted.scenes.focus.last.pt[1] = 46;
-  assert.match(compareSpots(drifted, live).join("\n"), /focus\.last\.pt: stored/);
-  const wasShared = structuredClone(live);
-  wasShared.scenes.focus.last = [50, 45.95, 91.79, 11.98];
-  assert.match(compareSpots(wasShared, live).join("\n"), /focus\.last: stored \[50,45\.95,91\.79,11\.98\] but live \[50,48\.43/);
-  const needless = structuredClone(live);
-  needless.scenes.focus.cue = {en: [50, 28.46, 91.79, 8.31], pt: [50, 28.46, 91.79, 8.31]};
-  const sharedLive = structuredClone(live);
-  sharedLive.scenes.focus.cue = [50, 28.46, 91.79, 8.31];
-  assert.match(compareSpots(needless, sharedLive).join("\n"), /focus\.cue: stored per language but both languages agree/);
-});
 check("compareSpots: the empty placeholder fails with a regenerate hint", () => {
-  const placeholder = { schema: SPOT_SCHEMA, frame: { ...PROOF_FRAME }, scenes: {}, pasteReview: {} };
+  const placeholder = { schema: SPOT_SCHEMA, frame: { ...PROOF_FRAME }, pasteReview: {} };
   assert.match(compareSpots(placeholder, measured).join("\n"), /placeholder/);
 });
 check("paste sample is derived from landing.ways.paste.message in both catalogs", () => {
@@ -174,60 +121,17 @@ check("webpSize reads dimensions and rejects non-WebP bytes", () => {
   vp8.writeUInt16LE(780, 26); vp8.writeUInt16LE(1688, 28);
   assert.deepEqual(webpSize(vp8), { width: 780, height: 1688 });
 });
-check("committed landing-proof-spots.json is well formed (placeholder or generated)", () => {
+check("committed landing-proof-spots.json is well formed and carries only the counts", () => {
   const committed = JSON.parse(readFileSync(DEFAULT_SPOTS_FILE, "utf8"));
   assert.equal(committed.schema, SPOT_SCHEMA);
   assert.deepEqual({ ...committed.frame }, PROOF_FRAME);
-  for (const [scene, spots] of Object.entries(committed.scenes)) {
-    assert(PROOF_SCENES.some((item) => item.name === scene), `unknown scene ${scene}`);
-    for (const spot of Object.values(spots)) for (const box of spotBoxes(spot)) assert(Array.isArray(box) && box.length === 4 && box.every(Number.isFinite));
-  }
+  assert.deepEqual(Object.keys(committed).sort(), ["frame", "pasteReview", "schema"]);
+  for (const lang of LANGS) assert(["linked", "review", "custom"].every((key) => Number.isInteger(committed.pasteReview[lang]?.[key])), lang);
 });
 
 // ---- Part 2 ----------------------------------------------------------------
 const dir = mkdtempSync(join(tmpdir(), "landing-proof-"));
 try {
-  const proof = join(dir, "proof");
-  const run = tool(["--proof", proof, "--scenes", "focus"]);
-  check("--proof focus exits 0 and writes real 780x1688 WebP files plus the spots JSON", () => {
-    assert.equal(run.status, 0, `${run.stdout}\n${run.stderr}`);
-    for (const lang of LANGS) {
-      const file = join(proof, sceneFile("focus", lang));
-      assert(existsSync(file), `${file} missing`);
-      assert.deepEqual(webpSize(readFileSync(file)), { width: 780, height: 1688 });
-    }
-    assert(!existsSync(join(proof, "wt-focus-en-light.webp")), "no light wt-* image is produced");
-    const spots = JSON.parse(readFileSync(join(proof, "landing-proof-spots.json"), "utf8"));
-    assert.deepEqual(Object.keys(spots.scenes), ["focus"]);
-    assert.deepEqual(Object.keys(spots.scenes.focus).sort(), ["cue", "last", "log"]);
-    for (const spot of Object.values(spots.scenes.focus)) for (const box of spotBoxes(spot)) assert(box.length === 4 && box.every((value) => value >= 0 && value <= 100));
-  });
-
-  const spotsFile = join(proof, "landing-proof-spots.json");
-  if (existsSync(spotsFile)) {
-    const clean = tool(["--check", "--scenes", "focus", "--spots", spotsFile]);
-    check("--check against freshly generated spots passes", () => {
-      assert.equal(clean.status, 0, `${clean.stdout}\n${clean.stderr}`);
-      assert.match(clean.stdout, /match the live DOM/);
-    });
-    const stale = JSON.parse(readFileSync(spotsFile, "utf8"));
-    stale.scenes.focus.cue[1] += 3;
-    const staleFile = join(dir, "stale.json");
-    writeFileSync(staleFile, JSON.stringify(stale));
-    const drift = tool(["--check", "--scenes", "focus", "--spots", staleFile]);
-    check("--check against a moved hotspot FAILS and names it (the stale-lens gate bites)", () => {
-      assert.notEqual(drift.status, 0, "a drifted spot must fail the check");
-      assert.match(drift.stderr, /focus\.cue/);
-    });
-    const placeholderFile = join(dir, "placeholder.json");
-    writeFileSync(placeholderFile, JSON.stringify({ schema: SPOT_SCHEMA, frame: PROOF_FRAME, scenes: {}, pasteReview: {} }));
-    const empty = tool(["--check", "--scenes", "focus", "--spots", placeholderFile]);
-    check("--check against the empty placeholder fails", () => {
-      assert.notEqual(empty.status, 0);
-      assert.match(empty.stderr, /placeholder/);
-    });
-  }
-
   const paste = tool(["--proof", join(dir, "paste"), "--scenes", "paste-review", "--spots-only"]);
   check("paste-review reaches the real import-review screen in EN and PT and reports true counts", () => {
     assert.equal(paste.status, 0, `${paste.stdout}\n${paste.stderr}`);
@@ -241,31 +145,23 @@ try {
     assert(!existsSync(join(dir, "paste", pasteFile("en", "light"))), "--spots-only writes no images");
   });
 
-  const scenes = tool(["--proof", join(dir, "scenes"), "--scenes", "rest,actions,note"]);
-  check("--proof rest,actions,note writes real 780x1688 frames and measures the live hotspots", () => {
-    assert.equal(scenes.status, 0, `${scenes.stdout}\n${scenes.stderr}`);
-    for (const scene of ["rest", "actions", "note"]) for (const lang of LANGS) {
-      const file = join(dir, "scenes", sceneFile(scene, lang));
-      assert(existsSync(file), `${file} missing`);
-      assert.deepEqual(webpSize(readFileSync(file)), { width: 780, height: 1688 });
-    }
-    const spots = JSON.parse(readFileSync(join(dir, "scenes", "landing-proof-spots.json"), "utf8"));
-    assert.deepEqual(Object.keys(spots.scenes), ["rest", "actions", "note"]);
-    assert.deepEqual(Object.keys(spots.scenes.rest), ["dial"]);
-    assert.deepEqual(Object.keys(spots.scenes.actions), ["swap"]);
-    assert.deepEqual(Object.keys(spots.scenes.note), ["text"]);
-    // The rest sheet's dial sits mid-frame; the retired inline clock sat in the card's cue slot at 29% of it.
-    assert(spots.scenes.rest.dial[1] > 38, `the rest hotspot is the sheet's dial, not the retired inline clock (${spots.scenes.rest.dial})`);
-    for (const box of Object.values(spots.scenes).flatMap((spot) => Object.values(spot))) {
-      assert(box.length === 4 && box.every((value) => value >= 0 && value <= 100));
-    }
-  });
-  const faultRest = tool(["--proof", join(dir, "fault-rest"), "--scenes", "rest", "--fault-retired", "--spots-only"]);
-  check("--fault-retired in the rest scene FAILS: the retired inline rest on screen is refused", () => {
-    assert.notEqual(faultRest.status, 0, "a retired element in the frame must fail the capture");
-    assert.match(faultRest.stderr, /rest-en: the frame shows retired UI/);
-    assert.match(faultRest.stderr, /\.restinline/);
-  });
+  const spotsFile = join(dir, "paste", "landing-proof-spots.json");
+  if (existsSync(spotsFile)) {
+    const clean = tool(["--check", "--scenes", "paste-review", "--spots", spotsFile]);
+    check("--check against freshly measured counts passes", () => {
+      assert.equal(clean.status, 0, `${clean.stdout}\n${clean.stderr}`);
+      assert.match(clean.stdout, /match the live DOM/);
+    });
+    const stale = JSON.parse(readFileSync(spotsFile, "utf8"));
+    stale.pasteReview.en.review += 1;
+    const staleFile = join(dir, "stale.json");
+    writeFileSync(staleFile, JSON.stringify(stale));
+    const drift = tool(["--check", "--scenes", "paste-review", "--spots", staleFile]);
+    check("--check against a changed count FAILS and names it", () => {
+      assert.notEqual(drift.status, 0, "a stale count must fail the check");
+      assert.match(drift.stderr, /pasteReview\.en\.review/);
+    });
+  }
   const faultPaste = tool(["--proof", join(dir, "fault-paste"), "--scenes", "paste-review", "--fault-retired", "--spots-only"]);
   check("--fault-retired in the paste-review scene FAILS: the old import-review head is refused", () => {
     assert.notEqual(faultPaste.status, 0, "a retired element in the frame must fail the capture");

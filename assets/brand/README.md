@@ -36,51 +36,47 @@ The name `exercise-chart-*` lives on as a live capture (below), not a studio ren
 
 ## Landing proof images
 
-The final landing's walkthrough and the paste-way disclosure use real-app
+The landing's paste-way disclosure and its strength-trend figure use real-app
 captures, regenerated with repo tooling and never copied from the #276
-prototype. `tools/capture-landing-proof.mjs` owns them:
+prototype. (The proof band itself is no longer an image: since 2026-10-29 it is
+Focus's own markup, played on the page; see `landingDemoHtml` in `app.js`.)
+`tools/capture-landing-proof.mjs` owns them:
 
 ```
-node tools/capture-landing-proof.mjs --proof <scratch-dir>   # capture 16 WebP files + the spots JSON
-node tools/capture-landing-proof.mjs --check                 # recapture nothing; fail on a stale lens
+node tools/capture-landing-proof.mjs --proof <scratch-dir>   # capture 8 WebP files + the counts JSON
+node tools/capture-landing-proof.mjs --check                 # recapture nothing; fail on a stale count
 ```
 
-`--proof` rebuilds the bench "add" state from `test/fixtures/landing-proof.json`
-(last session 3 x 60 kg x 10 at RIR 2), asserts the real Focus inputs are
-62.5 kg x 8, and writes to the directory you name, never into this one. Copy the
-files here deliberately. `REPFORGE_URL` names the served worktree and
-`REPFORGE_CHROME` the pinned Chromium. `landing-proof-spots.json` holds the lens
-hotspots (percentages of the 390x844 frame, measured from the live DOM, stored
-once per scene because EN and PT must agree) and the paste-review counts. Commit
-it with the images, and keep the `LANDING_SPOTS` table in `app.js` equal to it
-(`test/landing-variants.mjs` compares them). `--check` re-measures and fails when
-it drifts. Every scene refuses a retired selector on screen (the rest sheet, the
-import review's old head): a screenshot of retired UI never ships.
+`--proof` writes to the directory you name, never into this one. Copy the files
+here deliberately. `REPFORGE_URL` names the served worktree and `REPFORGE_CHROME`
+the pinned Chromium. `landing-proof-spots.json` holds the paste-review counts
+(`LANDING_PASTE_SHOT` in `app.js` must equal them; `test/landing-variants.mjs`
+compares them). `--check` re-measures and fails when they drift. Every capture
+refuses a retired selector on screen (the inline rest, the import review's old
+head): a screenshot of retired UI never ships.
 
 | Files | Frame | Shows |
 | --- | --- | --- |
-| `wt-focus-{en,pt}-dark.webp` | 390x844 @2x, dark only | Focus, set 1 of 3: the cue (up to 62.5 kg, aim for 8 reps), the ledger with last session, the shelf |
-| `wt-rest-{en,pt}-dark.webp` | same | Focus after Log set: the inline rest clock and drain bar in the card, set 2 cued |
-| `wt-actions-{en,pt}-dark.webp` | same | The redrawn exercise-actions sheet |
-| `wt-note-{en,pt}-dark.webp` | same | The exercise-note sheet over Focus with a typed note |
 | `paste-review-{en,pt}-{light,dark}.webp` | 390 CSS px wide @2x (780x1242), cropped from the import-review head through the first row | The review screen for the landing's sample coach message |
 | `exercise-chart-{en,pt}-{light,dark}.webp` | the chart region at 2x, from the metric toggle through the plot's readout line, on a 320 px phone (584x728 en, 584x766 pt: 292 CSS px wide, so the landing's 230 px slot draws it at 0.79) | The exercise page opened from Progress for the landing's squat, best e1RM selected: the figures, the plot and its readout (no table), from `tools/landing-prototype/fixture.mjs` (the history behind the caption's 92.5 to 100 kg over 4 sessions) |
 
 The paste-review counts are read off the captured DOM and can differ by
 language (the library's Portuguese names match the sample less exactly), so the
 landing's alt text uses each language's own count, as `--proof` prints them.
-`--source <dir>` captures the 430x932 @3x source PNGs of the same Focus state and
-checks the upcoming sets' targets; `--matrix <dir>` runs the generic landing
-geometry checks.
+`--matrix <dir>` runs the generic landing geometry checks.
 
 ## Removed renders
 
 Plan 064 R6d deleted the renders that no markup, service-worker entry, test or tool
 referenced any more. They live in git history only:
 
+- `wt-{focus,rest,actions,note}-{en,pt}-dark.webp`: the scroll walkthrough's eight
+  390x844 screens and their lens spots, retired on 2026-10-29 when the proof became
+  Focus's own markup, played on the page (the landing-anim prototype's direction A).
+
 - `landing-workout-{en,pt}-{light,dark}.webp`: four Form iPhone Studio renders of the
   Focus screen (iphone15, Soft Studio, near-frontal, 759x1566, WebP quality 88) from the
-  Plan 054 landing. Their sources came from `tools/capture-landing-proof.mjs --source`
+  Plan 054 landing. Their sources came from the retired `tools/capture-landing-proof.mjs --source`
   and `render/scene.json` (see `docs/pr-proof/premium-landing`).
 - the 28 sectioned renders `{today-ready,entry-hub,recommend-result,program-overview,
   focus,why-this-weight,session-summary}-{en,pt}-{light,dark}.webp`, retired with the

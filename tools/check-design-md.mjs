@@ -88,8 +88,9 @@ function declarations(body) {
 
 export function loadTokens(cssText) {
   const css = cssText.replace(/\/\*[\s\S]*?\*\//g, "");
-  const light = declarations(blockBody(css, ":root"));
-  const darkOnly = declarations(blockBody(css, ':root[data-theme="dark"]'));
+  // `.theme-dark` scopes the same palettes to one element (the landing proof's phone), so it shares their blocks.
+  const light = declarations(blockBody(css, ":root,.theme-dark"));
+  const darkOnly = declarations(blockBody(css, ':root[data-theme="dark"],.theme-dark'));
   return { light, dark: new Map([...light, ...darkOnly]) };
 }
 
