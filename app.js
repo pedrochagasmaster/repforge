@@ -9774,14 +9774,18 @@ function syncFocusFloor(){
   // The floor just gave the context region its height; bring the open set into it again against that height. Only
   // when the floor or the region's height changed: a sync that changed neither leaves the window where the lifter
   // scrolled it (a no-op sync after a scroll used to snap a large-text card back).
+  // Text above the set that reflows after it was placed (the hero settling at 200%) moves it under scroll anchoring,
+  // which rounds each move to a whole pixel; a set left cut by under 2px is that drift, not the lifter's scroll, so it
+  // is brought back too (#584).
   if(openSet){
     const placed=`${card.style.getPropertyValue("--focus-context-floor")}|${Math.round(context.clientHeight)}`;
-    if(card.dataset.floorPlaced!==placed){card.dataset.floorPlaced=placed;sizeFocusCard(card)}}
+    const cut=openSet.getBoundingClientRect().top-context.getBoundingClientRect().top;
+    if(card.dataset.floorPlaced!==placed||cut<0&&cut>-2){card.dataset.floorPlaced=placed;sizeFocusCard(card)}}
   if(typeof ResizeObserver!=="function")return;
   // Observing starts with a notification of its own, so the watch is only re-pointed when its elements changed.
   // The context region too (#541): a banner that appears above the deck (a draft recovery, say) shrinks it, and the
   // open set has to be brought back into it.
-  const watched=[head,shelf,$("#woProgress"),context].filter(Boolean);
+  const watched=[head,shelf,$("#woProgress"),context,...(context?.children||[])].filter(Boolean);
   if(focusFloorWatched.length===watched.length&&watched.every((el,i)=>el===focusFloorWatched[i]))return;
   focusFloorWatch??=new ResizeObserver(()=>syncFocusFloor());
   focusFloorWatch.disconnect();
@@ -9807,7 +9811,9 @@ function sizeFocusCard(card){
   if(!scaled&&+open.dataset.lrow<=1&&context.scrollTop===0)return;
   // At large text the region is only as tall as the open set (#541): a margin, or moving back to show a cut line whole,
   // would push the set itself out, so it is aligned to the region's top whenever it is not wholly in view.
-  if(scaled){if(row.top<box.top||row.bottom>bottom)context.scrollTop=Math.max(0,context.scrollTop+row.top-box.top)}
+  // Floored: the region's top can sit on a fraction of a pixel and the scroll on a whole one, and a rounded scroll
+  // would leave the set's top edge under the region's.
+  if(scaled){if(row.top<box.top||row.bottom>bottom)context.scrollTop=Math.max(0,Math.floor(context.scrollTop+row.top-box.top))}
   else if(row.bottom>bottom){
     // The window moves on past a line it would cut.
     context.scrollTop=wholeLineScroll(context,context.scrollTop+row.bottom-bottom+8,1)}
