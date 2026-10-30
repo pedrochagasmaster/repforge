@@ -815,8 +815,9 @@ async function finalPage(browser) {
   {
     const { context, page, errors } = await landingPage(browser, { lang: "en" });
     const open = await page.evaluate(proofState);
-    // observers: the dock's two, the status-bar band's one, the player's resize and visibility watchers, and the feature tabs' two
-    assert(open?.open && open.listeners > 0 && open.observers === 7 && !open.playing && !open.featurePlaying,
+    // observers: the dock's three (the hero, the close and the stages' band), the status-bar band's one, the player's
+    // resize and visibility watchers, and the feature tabs' two
+    assert(open?.open && open.listeners > 0 && open.observers === 8 && !open.playing && !open.featurePlaying,
       "opening the landing mounts the controller; the proof below the fold is not playing", JSON.stringify(open));
     const at = await page.evaluate(chapterState);
     assert(at.devices === 1 && at.screen && at.count === 4 && at.current.length === 1 && at.current[0] === 0 && at.captions === 1,
@@ -946,6 +947,34 @@ async function finalPage(browser) {
     assert(inStep(wrapped, 0) && wrapped.time < 1.5 && wrapped.checked === 0 && wrapped.turned === 0 && !wrapped.next,
       "the loop wraps into chapter 1 with set 1 unchecked and the chip back on chapter 1", JSON.stringify(wrapped));
     assert(errors.length === 0, "the timeline raises no page errors", errors.slice(0, 2).join(" | "));
+    await context.close();
+  }
+
+  // The Build control never covers a stage (the polish brief): scrolled through the page, wherever the control shows,
+  // its box meets no `data-landing-stage`; and it is back once the stages are past.
+  phase("The Build control steps aside for the stages");
+  for (const [width, height] of [[390, 844], [375, 667], [320, 568]]) {
+    const { context, page } = await landingPage(browser, { lang: "pt", width, height });
+    const sweep = await page.evaluate(async () => {
+      const root = document.querySelector("#firstRun"), dock = document.querySelector("#firstRunDock");
+      const stages = [...root.querySelectorAll("[data-landing-stage]")];
+      const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+      const hits = [], shown = [];
+      for (let top = 0; top <= root.scrollHeight - root.clientHeight; top += Math.round(root.clientHeight / 5)) {
+        root.scrollTo({ top, behavior: "instant" });
+        await wait(320);
+        if (!dock.classList.contains("is-on")) continue;
+        const d = dock.getBoundingClientRect();
+        shown.push(top);
+        for (const stage of stages) {
+          const r = stage.getBoundingClientRect();
+          if (r.bottom > d.top && r.top < d.bottom && r.bottom > 0 && r.top < innerHeight) hits.push({ top, stage: stage.className, dock: Math.round(d.top), from: Math.round(r.top), to: Math.round(r.bottom) });
+        }
+      }
+      return { stages: stages.length, hits: hits.slice(0, 4), shown: shown.length };
+    });
+    assert(sweep.stages === 2 && sweep.hits.length === 0, `[${width}×${height}] wherever the Build control shows, it covers no stage`, JSON.stringify(sweep));
+    assert(sweep.shown > 0, `[${width}×${height}] the Build control still shows past the stages`, JSON.stringify(sweep));
     await context.close();
   }
 

@@ -21479,6 +21479,59 @@ function landingEvaluate(c){
 function landingRich(key,text,terms={}){
   return esc(t(key)).replace(/\{(\w+)\}/g,(whole,name)=>
     name in terms?`<b class="firstrun-ui">${esc(terms[name])}</b>`:name in text?esc(text[name]):whole)}
+/* ---- The landing's stage kit (owner, 2026-10-30 polish brief): one camera, one touch and one rule for the Build
+   control, shared by the proof's phone and the feature panels. Every piece is a pure function of the timeline, so a
+   stage that uses them stays jumpable and paints transforms and opacities only. ---- */
+/** Px kept clear between the Build control's band and a stage it steps aside for. */
+const LANDING_DOCK_CLEAR=8;
+/** Seconds a camera move takes between two shots. */
+const LANDING_CAMERA_MOVE=.6;
+/** Where a camera looks at `now`: `shots` are `{at,x,y,w,h}` regions of the screen in its own px, in time order; from
+ *  each shot's `at` the camera eases from the region it held over LANDING_CAMERA_MOVE seconds (or the shot's `move`),
+ *  and holds. Before the first shot it holds the first. */
+function landingCameraAt(shots,now){
+  if(!shots.length)return null;
+  let i=0;while(i+1<shots.length&&now>=shots[i+1].at)i++;
+  const to=shots[i];if(!i||now<to.at)return{x:to.x,y:to.y,w:to.w,h:to.h};
+  const from=shots[i-1],u=Math.min(1,Math.max(0,(now-to.at)/(to.move??LANDING_CAMERA_MOVE)));
+  const e=u<.5?4*u*u*u:1-Math.pow(-2*u+2,3)/2,mix=(a,b)=>a+(b-a)*e;
+  // The size eases by its logarithm, so a zoom in and a zoom out of the same ratio take the same time to read.
+  const size=(a,b)=>Math.exp(mix(Math.log(a),Math.log(b)));
+  return{x:mix(from.x+from.w/2,to.x+to.w/2)-size(from.w,to.w)/2,y:mix(from.y+from.h/2,to.y+to.h/2)-size(from.h,to.h)/2,w:size(from.w,to.w),h:size(from.h,to.h)}}
+/** The scale and offset that frame `region` (screen px) in a view of `view.w` x `view.h`: as large as the region fits,
+ *  never smaller than the whole screen fits, centred on the region and clamped so the screen never leaves a gap the
+ *  screen could fill. `screen` is the size of what is framed; `pad` keeps that much of the view around the region. */
+function landingCameraFrame(region,view,screen,pad=0){
+  const fit=Math.min(view.w/screen.w,view.h/screen.h);
+  const k=Math.max(fit,Math.min((view.w-2*pad)/region.w,(view.h-2*pad)/region.h));
+  const place=(viewLen,screenLen,at,len)=>{
+    const centred=viewLen/2-(at+len/2)*k,span=screenLen*k;
+    return span<=viewLen?(viewLen-span)/2:Math.min(0,Math.max(viewLen-span,centred))};
+  return{k,x:place(view.w,screen.w,region.x,region.w),y:place(view.h,screen.h,region.y,region.h)}}
+/** The frame as a transform for an element whose transform-origin is its top left. */
+const landingCameraTransform=({k,x,y})=>`translate(${Math.round(x*100)/100}px,${Math.round(y*100)/100}px) scale(${Math.round(k*10000)/10000})`;
+/** The touch, drawn as a screen recording draws it: a soft disc that arrives just before the press, presses in, and on
+ *  release leaves a ring that widens and fades. The markup goes once into a stage; landingTouchAt paints it. */
+const landingTouchHtml=()=>`<span class="landing-touch" aria-hidden="true"><span class="landing-touch__ring"></span><span class="landing-touch__disc"></span></span>`;
+/** The touch at `now` for `presses` (`{at,up}`: down and release, in seconds; `up` defaults to a tap's 0.16 s later):
+ *  the disc's opacity and scale, the ring's opacity and scale, and which press it is (-1 between presses). */
+function landingTouchAt(presses,now){
+  const lead=.28,tail=.42;
+  for(let i=0;i<presses.length;i++){
+    const at=presses[i].at,up=presses[i].up??at+.16;
+    if(now<at-lead||now>up+tail)continue;
+    const seg=(a,b)=>Math.min(1,Math.max(0,(now-a)/(b-a))),out=x=>1-Math.pow(1-x,3);
+    const arrive=out(seg(at-lead,at-.06)),leave=1-seg(up+.12,up+tail);
+    const press=now<at?0:now<up?out(seg(at,at+.09)):1-out(seg(up,up+.12));
+    const ring=seg(up,up+tail);
+    return{i,opacity:arrive*leave,scale:(1.12-.12*arrive)-.1*press,ringOpacity:now<up?0:.55*(1-ring),ringScale:.9+.8*out(ring)}}
+  return{i:-1,opacity:0,scale:1,ringOpacity:0,ringScale:.9}}
+/** Paints a touch made by landingTouchHtml at `(x,y)` (its centre, in the stage's px) through a stage's style memo. */
+function paintLandingTouch(set,node,touch,x,y,f){
+  set(node,"opacity",f(touch.opacity));
+  set(node,"transform",`translate(${f(x)}px,${f(y)}px)`);
+  set(node.lastChild,"transform",`scale(${f(touch.scale)})`);
+  set(node.firstChild,"opacity",f(touch.ringOpacity));set(node.firstChild,"transform",`scale(${f(touch.ringScale)})`)}
 /* ---- The proof: the workout screen, playing itself (owner, 2026-10-29: the landing-anim prototype's direction A) ----
    One phone plays a set of the "add" case's bench press in four chapters: the target arrives, and the finger opens the
    Reps wheel and turns it one rep on (1, five seconds); Log set is tapped, the row checks and the rest tab rises out of
@@ -22229,7 +22282,21 @@ function createLandingController(root){
     const dock=root.querySelector("#firstRunDock"),hero=root.querySelector("#firstRunCreate"),close=root.querySelector("#firstRunCreateClose");
     if(!dock||!hero||!close||sharedSetupReady()||typeof IntersectionObserver==="undefined")return;
     let gone=false,closing=false;
-    const paint=()=>dock.classList.toggle("is-on",gone&&!closing);
+    // A stage (`data-landing-stage`: the proof's phone, the feature panel) is never under the control: one observer
+    // whose root box is the band the control takes at the foot of the screen, and any stage in that band sends the
+    // control away until it leaves. The band follows the screen's size, so a resize rebuilds it.
+    const stages=[...root.querySelectorAll("[data-landing-stage]")],under=new Set();
+    const paint=()=>dock.classList.toggle("is-on",gone&&!closing&&!under.size);
+    let band=null;
+    const watchBand=()=>{
+      band?.disconnect();under.clear();
+      if(!stages.length||!root.clientHeight)return;
+      const foot=(parseFloat(getComputedStyle(dock).bottom)||0)+dock.offsetHeight+LANDING_DOCK_CLEAR;
+      band=new IntersectionObserver(entries=>{entries.forEach(e=>e.isIntersecting?under.add(e.target):under.delete(e.target));paint()},
+        {root,rootMargin:`-${Math.max(0,Math.round(root.clientHeight-foot))}px 0px 0px 0px`});
+      stages.forEach(node=>band.observe(node))};
+    reg.obs.push({disconnect:()=>{band?.disconnect();band=null}});
+    on(window,"resize",watchBand);watchBand();
     const watch=(node,fn)=>{const io=new IntersectionObserver(fn,{root});reg.obs.push(io);io.observe(node)};
     watch(hero,entries=>{const e=entries[entries.length-1];gone=!e.isIntersecting&&e.boundingClientRect.bottom<(e.rootBounds?e.rootBounds.top:0)+1;paint()});
     watch(close,entries=>{const e=entries[entries.length-1];closing=e.isIntersecting||e.boundingClientRect.top<(e.rootBounds?e.rootBounds.top:0);paint()});

@@ -5598,6 +5598,13 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   --firstrun-focus:var(--band-night-ink);
 }
 .firstrun-dock.is-on{transform:none;visibility:visible;transition:transform .2s cubic-bezier(.2,.7,.2,1),visibility 0s}
+/* The stage kit's touch (landingTouchHtml): a screen recording's soft disc, pressed in, and the ring a release leaves.
+   The frame places its centre with a transform, so its box sits centred on the stage's origin. */
+.landing-touch{position:absolute;z-index:5;left:-22px;top:-22px;width:44px;height:44px;opacity:0;pointer-events:none;will-change:transform,opacity}
+.landing-touch__disc,.landing-touch__ring{position:absolute;inset:0;border-radius:var(--radius-pill);will-change:transform,opacity}
+.landing-touch__disc{background:radial-gradient(circle,rgba(var(--ink-rgb),.14),rgba(var(--ink-rgb),.24));
+  box-shadow:inset 0 0 0 1px rgba(var(--bg-rgb),.55),0 0 0 1px rgba(var(--ink-rgb),.1)}
+.landing-touch__ring{opacity:0;box-shadow:inset 0 0 0 1.5px rgba(var(--ink-rgb),.28)}
 .firstrun-dock .firstrun__cta{box-shadow:var(--elevation-floating-shadow)}
 .firstrun-dock[data-ground="light"]{
   --firstrun-cta-bg:var(--band-orange-ink);
