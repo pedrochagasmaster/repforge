@@ -115,6 +115,7 @@ authenticated provider gate has passed.
 |---|---|---|
 | Missing or stale health lease | `createsEnabled: false`; a static label cannot substitute for a fresh lease | `health-do.test.js` — `requires fresh watchdog evidence and a current billing observation`; `operations.test.js` |
 | Failed deletion health | The incident stays latched and creates remain disabled until current-generation acknowledgement; recovery routes remain available | `health-do.test.js` — `keeps a deletion incident latched...`; `ops.test.js` — `latches later service deletion failures...` |
+| One transient provider error | Retried once in the pass; if it still fails, a first strike with no latch; a second consecutive failing pass latches. Due rows and incomplete purges latch at once | `health-do.test.js` — `deletion check evidence and debounce`; `watcher.test.js` — `latches only when a transient provider failure repeats in the next pass` |
 | Billing at or above 1,000 cents, or stale billing evidence | New creates are disabled; billing threshold is not a hard cap and does not remove recovery paths | `health-do.test.js` threshold/age assertions; `observation.test.js` |
 | Kill switch or invalid/missing static health/configuration | New creates are disabled and the public transfer response is generic `503 {"state":"unavailable"}` | `operations.test.js`; `http.test.js` — `requires the exact configured origin...` |
 | Full page without cursor | Committed scheduler integration rejects the ambiguous page before positive health is posted | `health-producer.integration.mjs` |
@@ -131,9 +132,10 @@ redaction fixture has six cases across five unique channel values:
 service/client tests add storage, URL, cookie, and marker assertions without
 printing the canaries.
 
-For a deletion incident, submit a failed deletion heartbeat through the
-authenticated watchdog path (the scheduler does this when purge or provider
-enumeration fails) and set the kill switch before investigating. Run
+For a deletion incident, see "Deletion incidents" below for what latches and
+how the scheduler reports it. To raise one by hand, submit a failed deletion
+heartbeat through the authenticated watchdog path, and set the kill switch
+before investigating. Run
 `npm run ops:purge` with a bounded operation ID and evidence reference; the
 registry enumerates due route metadata and invokes the routed Durable Objects
 without requiring a user bearer or clone data. The scheduled provider pass is
@@ -324,13 +326,17 @@ and runs the same pass as one `production-health-loop.mjs` run:
 2. lists the production `TransferDurableObject` namespace through the
    Cloudflare API with the scoped list token and posts due objects to
    `POST /_ops/purge-objects` in batches of 32;
-3. on a purge or enumeration failure, posts a `deletion` `fail` heartbeat and
-   stops without any positive receipt;
+   If that provider step fails, it is retried once in the same pass;
+3. on a registry purge failure, or a provider step that failed twice, posts a
+   `deletion` `fail` heartbeat naming the failing path and error class (see
+   "Deletion incidents") and stops without any positive receipt;
 4. otherwise posts the five `owner-watchdog` heartbeats and the
    `owner-billing-receipt`, stamped with `operator-attested-v1`,
    `owner-override-20261014`, and the current time (`src/attestation.js`);
 5. reads `GET /_ops/health` and logs one line:
-   `health pass ok; purge examined=N purged=N; provider objects=N; createsEnabled=true|false`.
+   `health pass ok; purge examined=N purged=N; provider objects=N purged=N deferred=N failed=N attempts=1|2; createsEnabled=true|false`;
+6. after every pass, failed or not, syncs the `transfer-latched` GitHub issue
+   (see "Latch alert").
 
 **This does not change what the receipts mean.** They are still the owner's
 self-attestation stamped at run time, not independent monitoring, and the
@@ -352,7 +358,9 @@ skipped run is absorbed and two in a row lapse the lease. Per pass the
 watcher uses 6 of the watchdog role's 30 requests a minute and at most 10 of
 the purge role's 10 (one sweep plus up to nine batches for the 288-object
 bound). A one-minute cron would double that rate and could hit the purge
-limit under a full namespace.
+limit under a full namespace. A provider retry repeats the batches, so near
+the 288-object bound the retry can get a `429`; that is a `rejected` strike,
+not a latch, and the next pass starts with a fresh minute.
 
 **Secrets.** The watcher holds seven secrets, provisioned from the devbox
 ops env file by `npm run provision:watcher`
@@ -372,6 +380,14 @@ The ack bearer is not given to the watcher. Deletion-incident
 acknowledgement stays with the owner. The ops env file stays on the devbox:
 the ack procedure and `npm run ops:health-status` read it, and re-running the
 provisioning script after a rotation needs it.
+
+The latch alert's token is separate and optional, and is not in the ops env
+file: `TRANSFER_ALERT_GITHUB_TOKEN`, a fine-grained personal access token
+limited to the one repository named by `TRANSFER_ALERT_REPO` in
+`wrangler.watcher.jsonc`, with only **Issues: read and write** (GitHub adds
+read-only Metadata). It can't read code, push, or touch Actions. Set it with
+`npx wrangler secret put TRANSFER_ALERT_GITHUB_TOKEN --config wrangler.watcher.jsonc`,
+which prompts for the value, so it never reaches argv or shell history.
 
 **Deploy and verify** (from a checkout of the merged SHA, in
 `services/install-transfer`, with the deploy credentials in the environment):
@@ -411,7 +427,7 @@ the watcher's cron with `"crons": []` and redeploy it, or delete the watcher
 invocation is recorded as an error with its fixed message (never a value) in
 the Worker's cron events and Workers Logs (`observability.enabled` is on in
 `wrangler.watcher.jsonc`). Nothing pages anyone yet. Proposed, for the owner
-to decide (not configured here):
+to decide (not configured here), beyond the latch alert below:
 
 - turn on Workers Issues for the watcher (`observability.issues.enabled`,
   which needs Wrangler 4.134 or later; this package pins 4.130) and route
@@ -423,18 +439,94 @@ to decide (not configured here):
 The user-visible symptom is unchanged: about five minutes after the watcher
 stops renewing, new creates return `503 {"state":"unavailable"}`.
 
+### Latch alert
+
+After every pass the watcher reads `/_ops/health` and keeps one open GitHub
+issue labelled `transfer-latched` in `TRANSFER_ALERT_REPO`:
+
+- `incidentGeneration > ackGeneration` and no open issue: it creates the label
+  if needed and opens the issue, titled with the generation;
+- an open issue for an older generation: it retitles the issue and comments
+  with the new state;
+- once the generation is acknowledged: it comments and closes the issue.
+
+The issue holds only the two generations and `lastDeletionCheck` (check
+version, time, result, failing path, error class, consecutive failures). It
+never holds a bearer, token, object or claim ID, or cursor. The alert is
+best-effort: a GitHub error is logged as `latch alert failed: <fixed reason>`
+and never changes the pass's outcome. Without the token and repository it does
+nothing; with the repository but no token it logs
+`latch alert failed: latch alert token is not provisioned` each pass.
+
+It alerts on a latch, not on a lapsed lease: a watcher that stops running
+can't report itself. For that, see the proposals above.
+
+### Deletion incidents
+
+The health Durable Object latches a deletion incident by setting
+`deletion_healthy = 0` and incrementing `incident_generation`. Creates stay off
+until `npm run ops:ack` acknowledges exactly the current generation. A passing
+check never clears it. What latches:
+
+| Failure | Reported as | Latches |
+|---|---|---|
+| Registry purge left due rows (`remainingDue > 0`) | `registry-purge` / `due-rows` | at once |
+| Registry purge failed rows (`failed > 0`) | `registry-purge` / `incomplete` | at once |
+| `/_ops/purge-objects` could not purge an object | `provider-purge` / `incomplete` (recorded by the transfer Worker) | at once |
+| Provider enumeration over its bounded work limit | `provider-list` / `incomplete` | at once |
+| Cloudflare API listing: request failed, non-2xx, or malformed page/cursor | `provider-list` / `request-failed`, `rejected`, or `invalid-response` | on the second consecutive failing pass |
+| `/_ops/purge-objects` request failed, rejected, or answered malformed | `provider-purge` / `request-failed`, `rejected`, or `invalid-response` | on the second consecutive failing pass |
+| Transfer or registry record integrity, disposal, binding or lifetime failures inside the Worker | `internal` / the failure code | at once |
+| A failed heartbeat without a path (manual, or an older watcher) | `internal` / `unknown` | at once |
+
+The watcher retries the provider step once inside a pass before it reports.
+A transient failure that survives the retry is a **strike**: recorded in
+`lastDeletionCheck` with `result: "strike"` and `consecutiveFailures: 1`, with
+the lease and generation unchanged. The pass still fails and posts no positive
+receipt, but one skipped pass is inside the five-minute lease. A clean pass
+resets the count. A second failing pass in a row latches. A strike only
+applies to a healthy, acknowledged service; while an incident is open every
+failure increments the generation.
+
+`/_ops/health` (and `npm run ops:health-status`) returns `lastDeletionCheck`:
+`checkVersion`, `observedAt`, `result` (`pass`, `strike`, or `fail`), `path`,
+`errorClass` and `consecutiveFailures`, or `null` before the first check. It
+holds no IDs or tokens. Read it first: it names the path that latched and when.
+
+To re-enable after an incident, from the devbox ops checkout with the ops env
+sourced:
+
+1. Read `npm run ops:health-status` and note `lastDeletionCheck`.
+2. Fix or rule out the cause. For `registry-purge` or `provider-purge`
+   `incomplete`, run `npm run ops:purge` and expect all-zero counts.
+3. `npx wrangler tail taurifer-install-transfer-watcher` across two passes:
+   both must log `health pass ok`, and `lastDeletionCheck.result` must read
+   `pass`.
+4. Review redaction as the open gates require.
+5. `TRANSFER_ACK_CONFIRM=I_HAVE_REVIEWED_DELETION TRANSFER_ACK_EVIDENCE_REF=<ref> npm run ops:ack`.
+   The latch alert closes its issue on the next pass.
+6. `npm run ops:health-status` shows `createsEnabled: true`; then one
+   controlled transfer.
+
+**Deploying this change.** Both Workers changed. Either order works: the
+watcher, `ops:ack` and `ops:health-status` accept a health response with or
+without `lastDeletionCheck`. Deploy the transfer Worker, then the watcher,
+then set the alert token.
+
 ### Monitoring that exists
 
-- The watcher's cron events and Workers Logs (exit status and purge counts).
+- The watcher's cron events and Workers Logs (exit status, registry and
+  provider purge counts, provider retries).
+- The `transfer-latched` GitHub issue (see "Latch alert").
   Until the cutover above, the health-loop journal on the devbox.
 - `GET /_ops/health` with the watchdog bearer, which returns the lease and
   incident state. It is private and has no public health route.
 - Cloudflare's dashboard for the Worker (requests, errors, Durable Object
   usage) and the account's billing page.
 
-No alerting is configured, and no independent watchdog observes the service.
-The watcher is a scheduler for the owner's attestation, not an independent
-watchdog.
+The only alerting is the latch alert above, and no independent watchdog
+observes the service. The watcher is a scheduler for the owner's attestation,
+not an independent watchdog.
 The gates above stay open until the owner records that evidence.
 
 ### Turning creates off

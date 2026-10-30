@@ -51,7 +51,11 @@ if (JSON.stringify(watcher.triggers?.crons) !== JSON.stringify(["*/2 * * * *"]))
 if (JSON.stringify(watcher.services) !== JSON.stringify([{ binding: "TRANSFER", service: config.env?.production?.name }])) {
   throw new Error("watcher must bind TRANSFER to the production Worker");
 }
-if (JSON.stringify(watcher.vars) !== JSON.stringify({ TRANSFER_SERVICE_ORIGIN: "https://taurifer.com" })) throw new Error("watcher vars must hold only the target origin");
+// TRANSFER_ALERT_REPO names the one repository the latch alert writes to; its
+// token is a secret, never a var.
+if (JSON.stringify(watcher.vars) !== JSON.stringify({ TRANSFER_SERVICE_ORIGIN: "https://taurifer.com", TRANSFER_ALERT_REPO: "pedrochagasmaster/repforge" })) {
+  throw new Error("watcher vars must hold only the target origin and the alert repository");
+}
 if (watcher.durable_objects !== undefined || watcher.observability?.enabled !== true) throw new Error("watcher owns no Durable Objects and keeps Workers Logs on");
 
 console.log(`checked ${sourceFiles.length} service source files, ${scriptFiles.length} scripts, and Wrangler configuration`);

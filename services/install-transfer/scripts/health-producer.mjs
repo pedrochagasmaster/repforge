@@ -308,7 +308,9 @@ function assertPurgeResponse(value) {
 }
 
 function assertHealthResponse(value) {
-  if (!exactKeys(value, ["ok", "leaseFresh", "deletionHealthy", "billingHealthy", "createsEnabled", "incidentGeneration", "ackGeneration"])
+  const keys = ["ok", "leaseFresh", "deletionHealthy", "billingHealthy", "createsEnabled", "incidentGeneration", "ackGeneration"];
+  if (value && typeof value === "object" && "lastDeletionCheck" in value) keys.push("lastDeletionCheck");
+  if (!exactKeys(value, keys)
     || value.ok !== true
     || typeof value.leaseFresh !== "boolean"
     || typeof value.deletionHealthy !== "boolean"

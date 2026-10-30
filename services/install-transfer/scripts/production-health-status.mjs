@@ -1,12 +1,13 @@
 // Reads the production health lease once: GET /_ops/health with the watchdog
-// bearer from the 0600 ops env file. Prints only the lease and incident fields.
+// bearer from the 0600 ops env file. Prints only the lease and incident fields
+// and the last deletion check (versions, times and failure classes; no IDs).
 // Used to verify the scheduled watcher (#397) without putting a bearer in argv
 // or shell history.
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { assertPrivatePath, defaultOpsEnvPath, parseOpsEnv } from "./provision-production-secrets.mjs";
 
-const FIELDS = ["leaseFresh", "deletionHealthy", "billingHealthy", "createsEnabled", "incidentGeneration", "ackGeneration"];
+const FIELDS = ["leaseFresh", "deletionHealthy", "billingHealthy", "createsEnabled", "incidentGeneration", "ackGeneration", "lastDeletionCheck"];
 
 export async function readHealth(opsEnvPath = defaultOpsEnvPath()) {
   assertPrivatePath(opsEnvPath);

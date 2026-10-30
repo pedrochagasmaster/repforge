@@ -1,5 +1,7 @@
 import { base64UrlEncode, constantTimeEqual, utf8 } from "./crypto.js";
-import { BILLING_EVIDENCE_MAX_AGE_MS, HEALTH_CLOCK_SKEW_MS, HEALTH_SIGNAL_MAX_AGE_MS } from "./health-do.js";
+import {
+  BILLING_EVIDENCE_MAX_AGE_MS, DELETION_ERROR_CLASSES, DELETION_FAILURE_PATHS, HEALTH_CLOCK_SKEW_MS, HEALTH_SIGNAL_MAX_AGE_MS,
+} from "./health-do.js";
 import { euNamespace, euStub } from "./namespaces.js";
 import { assertJsonRequest, decodeJsonSyntax, readBoundedRequestBytes } from "./transport.js";
 import { REGISTRY_BATCH_LIMIT } from "./registry-do.js";
@@ -145,6 +147,7 @@ async function handleHealthGet(env, role) {
       createsEnabled: snapshot.createsEnabled === true,
       incidentGeneration: snapshot.incidentGeneration,
       ackGeneration: snapshot.ackGeneration,
+      lastDeletionCheck: snapshot.lastDeletionCheck ?? null,
     });
   } catch {
     return unavailable(503);
@@ -157,7 +160,14 @@ async function handleHeartbeat(request, env) {
   if (!rate.allowed) return unavailable(429);
   let value;
   try { value = await boundedBody(request); } catch { return unavailable(); }
-  if (!exactKeys(value, ["kind", "operationId", "checkVersion", "result", "observedAt", "evidenceRef"])
+  // A failed deletion heartbeat may name where it failed and the class of
+  // error, from closed lists, so the health record can debounce a transient
+  // provider error and an incident can be read without logs.
+  const failureKeys = value && typeof value === "object" && "failurePath" in value ? ["failurePath", "errorClass"] : [];
+  if (!exactKeys(value, ["kind", "operationId", "checkVersion", "result", "observedAt", "evidenceRef", ...failureKeys])
+    || (failureKeys.length > 0 && (value.kind !== "deletion" || value.result !== "fail"
+      || !DELETION_FAILURE_PATHS.includes(value.failurePath) || value.failurePath === "internal"
+      || !DELETION_ERROR_CLASSES.includes(value.errorClass)))
     || !HEARTBEAT_KINDS.has(value.kind)
     || !OPERATION_ID_RE.test(value.operationId)
     || !VERSION_RE.test(value.checkVersion)
@@ -180,7 +190,11 @@ async function handleHeartbeat(request, env) {
       now,
     };
     if (value.kind === "deletion") {
-      await stub.recordDeletionHealth({ healthy: value.result === "pass", ...metadata });
+      await stub.recordDeletionHealth({
+        healthy: value.result === "pass",
+        ...metadata,
+        ...(failureKeys.length > 0 ? { failurePath: value.failurePath, errorClass: value.errorClass } : {}),
+      });
     } else {
       await stub.recordHeartbeat({ kind: value.kind, ...metadata });
     }
@@ -345,6 +359,8 @@ async function handlePurgeObjects(request, env) {
         checkVersion: "provider-enumeration-v1",
         result: "fail",
         evidenceRef,
+        failurePath: "provider-purge",
+        errorClass: "incomplete",
         observedAt: now,
         now,
       });
