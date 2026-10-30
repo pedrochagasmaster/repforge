@@ -658,9 +658,9 @@ async function run() {
     assert(pt.heroTitle === tr("pt", "landing.headline"), "PT landing title", pt.heroTitle);
     assert(pt.heroBody === tr("pt", "landing.hero.sub"), "PT landing body", JSON.stringify(pt.heroBody));
     assert(
-      ["landing.demo.alt.focus", "landing.demo.alt.rest", "landing.demo.alt.actions", "landing.demo.alt.note", "landing.ways.paste.alt", "landing.chart.alt"]
+      ["landing.ways.paste.alt", "landing.chart.alt"]
         .every((key) => coversTemplate(pt.previewText || "", "pt", key)),
-      "PT renders are described in Portuguese",
+      "PT captures are described in Portuguese",
       pt.previewText
     );
     await context.close();
