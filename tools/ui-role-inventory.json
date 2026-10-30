@@ -23,10 +23,10 @@
       "content": "flat",
       "scenario": "The landing scrolled to the three ways to start, with the paste hand-off closed."
     },
-    "onboarding-start/first-run-track": {
+    "onboarding-start/first-run-features": {
       "owner": "plan-064/r2",
       "content": "flat",
-      "scenario": "The landing scrolled to the three engine outcomes and the strength-trend chart."
+      "scenario": "The landing scrolled to the feature tabs, held mid-scene on Progress."
     },
     "onboarding-start/first-run-data": {
       "owner": "plan-064/r2",
@@ -2852,7 +2852,7 @@
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-proof",
-        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-features",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-returning",
         "onboarding-start/first-run-returning-resume"
@@ -2884,7 +2884,7 @@
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-proof",
-        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-features",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-returning",
         "onboarding-start/first-run-returning-resume"
@@ -2916,7 +2916,7 @@
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-proof",
-        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-features",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-returning",
         "onboarding-start/first-run-returning-resume"
@@ -2946,7 +2946,7 @@
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-proof",
-        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-features",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-returning",
         "onboarding-start/first-run-returning-resume"
@@ -2976,7 +2976,7 @@
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-proof",
-        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-features",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-returning",
         "onboarding-start/first-run-returning-resume"
@@ -3007,7 +3007,7 @@
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-proof",
-        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-features",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-returning",
         "onboarding-start/first-run-returning-resume"
@@ -3079,7 +3079,7 @@
       "catalogStates": [
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-ways",
-        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-close"
@@ -3108,7 +3108,36 @@
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-ways",
-        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-features",
+        "onboarding-start/first-run-data",
+        "onboarding-start/first-run-faq-open",
+        "onboarding-start/first-run-close"
+      ]
+    },
+    {
+      "id": "firstrunfeaturetab",
+      "selector": ".firstrun-feat__tab",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": "landing-feature-tab",
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "One of the landing's five feature tabs (owner, 2026-10-30): it moves the playing panel to its scene without committing any state. Its progress line is the tab's own bottom edge (a left rule from 900px) and the current tab is marked by aria-selected.",
+      "owner": "landing-features",
+      "catalogStates": [
+        "onboarding-shared/gate",
+        "onboarding-shared/invalid",
+        "onboarding-start/first-run",
+        "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-ways",
+        "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-close"
@@ -3138,7 +3167,7 @@
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-ways",
-        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-close",
@@ -3169,7 +3198,7 @@
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-ways",
-        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-close",
@@ -8205,7 +8234,7 @@
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-proof",
-        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-features",
         "onboarding-start/first-run-ways",
         "program/editor-day-name-refused",
         "program/progression-editor",
@@ -8241,15 +8270,6 @@
       "rationale": "Glyph and word beside a rec.*.label: a redundant mark on flat content, neither a control nor a layer. Up uses the action color, records the improved color, declines ink; hold draws \"=\" and recover a return arrow, both in ink (owner decision on #295, 2026-10-01), while stalled and new stay word-only. The session outcome \"Maintained\" draws the same ink \"=\" as hold (one meaning per glyph, #295 comment 5940349337), so the summary, History session page and Progress Strength rows carry the glyph on every outcome word; the Focus cue draws hold and recover through it too. The landing's three outcomes render it first (R2a-B); Today's prescription rows and tally (R3b) and the Why sheet's headline (R3g) render it; the session summary (R3h) renders it for each lift's outcome word, its record line and the next target. The History session page renders it too (R3j): the lift's outcome word from compareExerciseSession and its record mark. The Program overview renders it too (R3k): the glyph alone beside the next load of a lift whose recommendation adds or backs off load; the row carries the verdict as visually hidden text. Progress renders it too (R3i): the attention rows' mark from the engine's recommendation for each lift whose load changes. The Focus cue draws it too (hold \"=\", up and down arrows) on every Focus state whose cue moves or holds the load.",
       "owner": "plan-064/r1a",
       "catalogStates": [
-        "onboarding-shared/gate",
-        "onboarding-shared/invalid",
-        "onboarding-start/first-run",
-        "onboarding-start/first-run-close",
-        "onboarding-start/first-run-data",
-        "onboarding-start/first-run-faq-open",
-        "onboarding-start/first-run-proof",
-        "onboarding-start/first-run-track",
-        "onboarding-start/first-run-ways",
         "today/draft-resume",
         "today/ready",
         "today/dock-viewer",
@@ -11662,7 +11682,7 @@
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-ways",
-        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-close",
@@ -11682,7 +11702,7 @@
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-ways",
-        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-close",
@@ -11699,7 +11719,7 @@
       "catalogStates": [
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-ways",
-        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-close"
@@ -11717,7 +11737,7 @@
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-ways",
-        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-close"
@@ -11869,7 +11889,7 @@
         "onboarding-shared/invalid",
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-ways",
-        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-close",
@@ -11915,7 +11935,7 @@
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-ways",
-        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-close",
@@ -12012,7 +12032,7 @@
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-proof",
-        "onboarding-start/first-run-track",
+        "onboarding-start/first-run-features",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-returning",
         "onboarding-start/first-run-returning-resume"

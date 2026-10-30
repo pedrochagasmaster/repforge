@@ -465,7 +465,7 @@ assert.ok(importReviewActionContractErrors(asymmetricImportReview).length,
 
 const sameSet = (left, right) => JSON.stringify([...left].sort()) === JSON.stringify([...right].sort());
 // The final landing's catalog states (Plan 064 R2): the hero, and the scrolled bands below it.
-const landingScrolled = ["proof", "ways", "track", "data", "faq-open", "close"].map((name) => `onboarding-start/first-run-${name}`);
+const landingScrolled = ["proof", "ways", "features", "data", "faq-open", "close"].map((name) => `onboarding-start/first-run-${name}`);
 const landingHero = ["onboarding-shared/invalid", "onboarding-start/first-run"];
 const landingStates = [...landingHero, ...landingScrolled];
 const landingEverywhere = ["onboarding-shared/gate", ...landingStates];
@@ -681,11 +681,11 @@ try {
     await opened.page.waitForTimeout(250);
     const typography = await opened.page.evaluate(() => ({
       prose: getComputedStyle(document.querySelector(".firstrun-chapter__text")).fontFamily,
-      data: getComputedStyle(document.querySelector(".firstrun-oc__n")).fontFamily,
+      data: getComputedStyle(document.querySelector(".firstrun-fx__fig")).fontFamily,
       proofData: getComputedStyle(document.querySelector("#firstRunDemo .fx-cue__load")).fontFamily,
     }));
     assert.match(typography.prose, /Plex Sans/, `${theme} ordinary landing prose uses the language font`);
-    assert.match(typography.data, /Plex Mono/, `${theme} the next targets keep Mono`);
+    assert.match(typography.data, /Plex Mono/, `${theme} the feature screens set their figures in Mono`);
     assert.match(typography.proofData, /Plex Mono/, `${theme} the proof's phone sets its figures in Mono, as Focus does`);
 
     // The pressed state is the press module's `.is-pressed` (ADR 0023), not `:active`.

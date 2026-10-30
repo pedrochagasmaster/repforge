@@ -23,16 +23,14 @@
  * writes a setup draft before the oracle runs; the suite must then FAIL, proving
  * the oracle bites (same idea as REPFORGE_ENTRY_LANDING_FAULT in entry-landing.mjs).
  *
- * Also always on, and Node-only: the engine-truth oracle. The three recommendation
- * cases the final page shows are evaluated here with the adaptive engine
- * (progression-engine.js recommendSets) and the app's default load step, and
- * each card's verdict (add/hold/reduce) must match the direction the engine moves the load; and the chart figures (92.5 -> 100 kg over 4
- * sessions, owner decision L-2) are derived with progress-model.js from the exact
- * history the chart image was captured from (tools/landing-prototype/fixture.mjs).
+ * Also always on, and Node-only: the engine-truth oracle. The proof's case is
+ * evaluated here with the adaptive engine (progression-engine.js recommendSets)
+ * and the app's default load step, and the load must move the way chapter 4 says.
  *
  * PART 2 - the final page (always on since the page packet landed). It asserts
- * that each section exists, that the proof has four chapters, that the three
- * outcome cases and the chart show the oracle's numbers, that the FAQ has five
+ * that each section exists, that the proof has four chapters and shows the
+ * oracle's numbers, that the feature tabs are five and name the library's real
+ * size (test/landing-features.mjs owns their frames), that the FAQ has five
  * <details>, that the persistent Build dock exists on the standard landing but
  * never on the shared-link gate, and that the proof's player plays only while it
  * is on screen and the page is visible, jumps by chapter, shows stills under
@@ -40,13 +38,11 @@
  * disposes with the gate (nothing it starts outlives the landing).
  *
  * Hooks PART 2 reads (all inside #firstRun):
- *   [data-landing-section="hero|proof|ways|track|data|faq|close|footer"]
+ *   [data-landing-section="hero|proof|ways|features|data|faq|close|footer"]
  *   [data-landing-chapter]         x4 in the proof section, in order, each a
  *                                  [data-chapter] button and its caption; the last
  *                                  caption is the result
- *   [data-landing-outcome="add|hold|reduce"]  x3 in the track section, each with a
- *                                  [data-landing-next] element holding the next target
- *   [data-landing-chart]           the chart figure (an <img alt> and a <figcaption>)
+ *   [data-feature]                 x5 tabs in the features section
  *   details.faq                    x5 in the faq section
  *   #firstRunCreateDock            the persistent Build control; absent on the
  *                                  valid shared-link gate
@@ -66,8 +62,7 @@ import {
   sharedGateSnapshot,
   waitForFirstRun,
 } from "./shared-setup-flow.mjs";
-import { realisticState } from "../tools/landing-prototype/fixture.mjs";
-import { CHART_FRAME, CHART_MIN_SCALE, webpSize } from "../tools/capture-landing-proof.mjs";
+import { webpSize } from "../tools/capture-landing-proof.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const FAULT = process.env.REPFORGE_LANDING_VARIANTS_FAULT;
@@ -121,7 +116,7 @@ function templateRe(lang, key) {
 }
 
 // ---------------------------------------------------------------------------
-// Engine-truth oracle (Node only). The three cases go through the adaptive
+// Engine-truth oracle (Node only). The proof's case goes through the adaptive
 // engine (recommendSets) exactly as the landing states them: one logged
 // session of external-load barbell sets, the app's default load step as the
 // gym's plate grid, a 1-RIR target and the catalog movement's own metrics.
@@ -130,12 +125,8 @@ function templateRe(lang, key) {
 const Engine = require("../progression-engine.js");
 const Compiler = require("../program-compiler.js");
 const Catalog = require("../assets/exercise-catalog.json");
-const ProgressModel = require("../progress-model.js");
 const { EXERCISE_LIBRARY } = require("../exercises.js");
-const libraryName = (id, lang) => {
-  const entry = EXERCISE_LIBRARY.find((item) => item.id === id);
-  return entry ? (lang === "pt" && entry.namePt) || entry.name : "";
-};
+const LIBRARY_SIZE = EXERCISE_LIBRARY.length;
 const APP_SOURCE = readFileSync(new URL("../app.js", import.meta.url), "latin1");
 const APP_DEFAULTS = (() => {
   const match = /const DEFAULTS=(\{[^\n]*?\});\n/.exec(APP_SOURCE);
@@ -144,14 +135,11 @@ const APP_DEFAULTS = (() => {
 })();
 
 /**
- * The inputs of the three outcome cases the final page shows, and the move each
- * card's verdict claims: add raises the load, hold keeps it, reduce lowers it.
+ * The input of the proof's case and the move chapter 4 claims: the load goes up.
  */
-const BENCH = "19f5c6f170d8808bb424e98de4472a7e", SQUAT = "1a25c6f170d8803d8231d083fdd65458";
+const BENCH = "19f5c6f170d8808bb424e98de4472a7e";
 const LANDING_CASES = Object.freeze({
   add: { exercise: BENCH, repMin: 8, repMax: 10, logged: [[60, 10, 2], [60, 10, 2], [60, 10, 2]], move: "up" },
-  hold: { exercise: SQUAT, repMin: 5, repMax: 8, logged: [[100, 7, 1], [100, 6, 0], [100, 6, 0]], move: "same" },
-  reduce: { exercise: BENCH, repMin: 8, repMax: 10, logged: [[70, 7, 0], [70, 6, 0], [70, 6, 0]], move: "down" },
 });
 const SETS = 3;
 const TARGET_RIR = 1;
@@ -191,15 +179,6 @@ function runEngineCase(c) {
   return { status: result.status, move, load: result.targets.loadKg, reps: result.targets.reps, name: exercise.name };
 }
 const ENGINE = Object.fromEntries(Object.entries(LANDING_CASES).map(([id, c]) => [id, runEngineCase(c)]));
-
-/** The chart figures, derived with the app's Progress model from the history the chart image is captured from. */
-const CHART_COPY = Object.freeze({ from: 92.5, to: 100, sessions: 4 });
-function deriveChart(lang) {
-  const state = realisticState(lang);
-  const series = ProgressModel.buildStrengthEvidence("all-history", "ex-squat", state.log, { started: state.programMeta.started });
-  const values = series.points.map((point) => point.value);
-  return { from: values[0], to: values.at(-1), sessions: series.evidenceCount, values, presentation: series.presentation };
-}
 
 // ---------------------------------------------------------------------------
 // Number matching: a number is present as its own token in the lang's format.
@@ -598,21 +577,6 @@ function engineTruth() {
     assert(got.move === c.move,
       `${id}: the engine's next load moves ${c.move} from the logged ${c.logged[0][0]} kg, as the card's verdict claims`, JSON.stringify(got));
   }
-
-  phase("Chart truth: 92.5 -> 100 kg over 4 sessions, from the Progress model over the chart's own history");
-  for (const lang of ["en", "pt"]) {
-    const chart = deriveChart(lang);
-    assert(chart.presentation === "trend", `[${lang}] the squat history is a trend (>=3 sessions)`, JSON.stringify(chart));
-    assert(chart.from === CHART_COPY.from && chart.to === CHART_COPY.to && chart.sessions === CHART_COPY.sessions,
-      `[${lang}] top load ${CHART_COPY.from} -> ${CHART_COPY.to} kg over ${CHART_COPY.sessions} sessions`, JSON.stringify(chart));
-  }
-  // An independent recomputation, so a Progress-model quirk cannot hide a fixture change.
-  const log = realisticState("en").log.filter((row) => row.exerciseId === "ex-squat");
-  const bySession = new Map();
-  for (const row of log) bySession.set(row.session, Math.max(bySession.get(row.session) ?? 0, row.load));
-  const tops = [...bySession.values()];
-  assert(tops.length === CHART_COPY.sessions && tops[0] === CHART_COPY.from && tops.at(-1) === CHART_COPY.to,
-    "recomputed from the raw rows: the same first and last top loads and session count", JSON.stringify(tops));
 }
 
 // ===========================================================================
@@ -628,6 +592,9 @@ const RETIRED_KEYS = [
   "landing.demo.s3.title", "landing.demo.s4.title", "landing.demo.s5.title", "landing.demo.s5.text", "landing.demo.s6.title",
   "landing.demo.s6.text", "landing.demo.s7.title", "landing.demo.s7.sets", "landing.demo.step_aria",
   "landing.demo.alt.focus", "landing.demo.alt.rest", "landing.demo.alt.actions", "landing.demo.alt.note",
+  // The three outcomes and the strength-trend chart, retired for the feature tabs (owner, 2026-10-30).
+  "landing.outcomes.title", "landing.outcomes.sub", "landing.outcomes.did_mixed", "landing.outcomes.tip",
+  "landing.chart.alt", "landing.chart.caption",
 ];
 /** What the captured import-review screen shows for the sample message: the counts differ by language. */
 const PASTE_COUNTS = { en: { linked: 2, review: 2 }, pt: { linked: 0, review: 4 } };
@@ -646,7 +613,7 @@ function copyPins() {
   assert(DEFAULT_WEEKS === 6, "the ways' {weeks} is the default programMeta.mesocycleLengthWeeks", String(DEFAULT_WEEKS));
   for (const lang of ["en", "pt"]) {
     assert(CATALOG[lang]["landing.ways.written.body"].includes("{weeks}"), `[${lang}] the program length is a placeholder, never typed into the catalog`);
-    for (const key of ["landing.demo.s7.text", "landing.outcomes.did_same", "landing.outcomes.did_mixed", "landing.outcomes.target", "landing.chart.caption", "landing.chart.alt"]) {
+    for (const key of ["landing.demo.s7.text", "landing.outcomes.did_same", "landing.outcomes.target", "landing.features.library.title", "landing.features.library.text"]) {
       assert(!/\d/.test(CATALOG[lang][key].replace(/\{\w+\}/g, "").replace(/e1RM/g, "")), `[${lang}] ${key} carries no hard-coded number`, CATALOG[lang][key]);
     }
     for (const key of ["landing.demo.s7.text", "landing.anim.ch1.text"]) {
@@ -678,7 +645,7 @@ function copyPins() {
 // ===========================================================================
 // PART 2 - the final page
 // ===========================================================================
-const SECTIONS = ["hero", "proof", "ways", "track", "data", "faq", "close", "footer"];
+const SECTIONS = ["hero", "proof", "ways", "features", "data", "faq", "close", "footer"];
 
 const readFinal = (sectionNames) => {
   const root = document.querySelector("#firstRun");
@@ -686,25 +653,14 @@ const readFinal = (sectionNames) => {
   const section = (name) => root?.querySelector(`[data-landing-section="${name}"]`) || null;
   const sections = Object.fromEntries(sectionNames.map((name) => [name, !!section(name)]));
   const steps = [...(section("proof")?.querySelectorAll("[data-landing-chapter]") || [])].map(text);
-  const outcomes = {};
-  for (const id of ["add", "hold", "reduce"]) {
-    const node = section("track")?.querySelector(`[data-landing-outcome="${id}"]`);
-    outcomes[id] = node ? { text: text(node), next: text(node.querySelector("[data-landing-next]")), explain: text(node.querySelector("[data-landing-explain]")) } : null;
-  }
-  const outcomeCount = section("track")?.querySelectorAll("[data-landing-outcome]").length ?? 0;
-  const chartNode = section("track")?.querySelector("[data-landing-chart]") || null;
-  const chart = chartNode ? {
-    alt: chartNode.querySelector("img")?.getAttribute("alt") || "",
-    src: chartNode.querySelector("img")?.getAttribute("src") || "",
-    width: chartNode.querySelector("img")?.getAttribute("width") || "",
-    height: chartNode.querySelector("img")?.getAttribute("height") || "",
-    caption: text(chartNode.querySelector("figcaption")),
-  } : null;
+  const tabs = [...(section("features")?.querySelectorAll("[data-feature]") || [])];
+  const features = { tabs: tabs.length, selected: tabs.filter((tab) => tab.getAttribute("aria-selected") === "true").length,
+    library: text(tabs[2]?.querySelector(".firstrun-feat__title")), screens: section("features")?.querySelectorAll("[data-feature-screen] .firstrun-fx").length ?? 0 };
   const faq = [...(section("faq")?.querySelectorAll("details") || [])];
   const footerLink = section("footer")?.querySelector('a[href^="#"]') || null;
   const target = footerLink ? root.querySelector(footerLink.getAttribute("href")) : null;
   return {
-    sections, steps, outcomes, outcomeCount, chart,
+    sections, steps, features,
     waysWritten: text(section("ways")?.querySelector('[data-landing-fill="ways.written"]')),
     faqCount: faq.length, faqQuestions: faq.map((d) => text(d.querySelector("summary"))), faqOpen: faq.filter((d) => d.open).length,
     rirAnswer: text(faq[2]?.querySelector(".firstrun-qa__a")),
@@ -779,51 +735,13 @@ async function finalPage(browser) {
       `[${lang}] chapter 4 shows the engine's next target ${ENGINE.add.load} x ${ENGINE.add.reps} and the sets it came from`, last
     );
 
-    assert(f.outcomeCount === 3, `[${lang}] the track section shows exactly three outcomes`, `found ${f.outcomeCount}`);
-    for (const id of ["add", "hold", "reduce"]) {
-      const c = LANDING_CASES[id], want = ENGINE[id];
-      const out = f.outcomes[id] ?? { text: "", next: "", explain: "" };
-      assert(!!f.outcomes[id], `[${lang}] the ${id} outcome is present`);
-      assert(hasNumber(out.next, want.load, lang) && hasNumber(out.next, want.reps, lang),
-        `[${lang}] ${id}: next target equals the engine's ${want.load} x ${want.reps}`, out.next);
-      const shownLoad = lang === "pt" ? String(want.load).replace(".", ",") : String(want.load);
-      assert(out.next === tr(lang, "landing.outcomes.target", { load: `${shownLoad} kg`, reps: want.reps }),
-        `[${lang}] ${id}: the next target is the catalog template filled with the engine's numbers`, out.next);
-      assert(hasNumber(out.text, c.logged[0][0], lang) && hasNumber(out.text, c.repMin, lang) && hasNumber(out.text, c.repMax, lang),
-        `[${lang}] ${id}: the card shows the logged load ${c.logged[0][0]} and the target range ${c.repMin}-${c.repMax}`, out.text);
-    }
-    for (const id of ["add", "hold", "reduce"]) {
-      const name = libraryName(LANDING_CASES[id].exercise, lang);
-      assert(!!name && (f.outcomes[id]?.text || "").includes(name), `[${lang}] ${id}: the card names its movement (${name})`, f.outcomes[id]?.text);
-    }
-    // {list}: the language chooses the conjunction.
-    const listed = lang === "pt" ? "7, 6 e 6" : "7, 6 and 6";
-    assert(f.outcomes.hold?.explain.startsWith(tr(lang, "landing.outcomes.did_mixed", { list: listed, load: "100 kg", min: 5, max: 8 })),
-      `[${lang}] hold: the mixed reps read "${listed}"`, f.outcomes.hold?.explain);
-    assert(f.outcomes.add?.explain.startsWith(tr(lang, "landing.outcomes.did_same", { reps: 10, load: "60 kg", sets: 3, min: 8, max: 10 })),
-      `[${lang}] add: identical reps use the same-reps sentence`, f.outcomes.add?.explain);
-    const labels = { add: "rec.add.label", hold: "rec.hold_add_reps.label", reduce: "rec.reduce.label" };
-    for (const id of Object.keys(labels)) {
-      assert(!!f.outcomes[id] && f.outcomes[id].text.includes(tr(lang, labels[id])), `[${lang}] ${id}: the verdict uses the app's own label (${labels[id]})`, f.outcomes[id]?.text);
-    }
+    // The feature tabs: five, one selected, each with its screen, and the library's size as the copy states it.
+    const count = Math.floor(LIBRARY_SIZE / 100) * 100, shownCount = count.toLocaleString(lang === "pt" ? "pt-BR" : "en-US");
+    assert(f.features.tabs === 5 && f.features.selected === 1 && f.features.screens === 5, `[${lang}] five feature tabs, one selected, five screens`, JSON.stringify(f.features));
+    assert(f.features.library === tr(lang, "landing.features.library.title", { count: shownCount }),
+      `[${lang}] the library tab names exercises.js's ${LIBRARY_SIZE} as ${shownCount}+`, f.features.library);
     assert(f.waysWritten === tr(lang, "landing.ways.written.body", { weeks: DEFAULT_WEEKS }), `[${lang}] the ways' program length is the default ${DEFAULT_WEEKS} weeks`, f.waysWritten);
 
-    const chart = deriveChart(lang);
-    assert(!!f.chart, `[${lang}] the strength-trend figure is present (data-landing-chart)`);
-    const shownChart = f.chart ?? { alt: "", caption: "", src: "", width: "", height: "" };
-    assert(hasNumber(shownChart.caption, chart.from, lang) && hasNumber(shownChart.caption, chart.to, lang) && hasNumber(shownChart.caption, chart.sessions, lang),
-      `[${lang}] chart caption states ${chart.from} -> ${chart.to} kg over ${chart.sessions} sessions (Progress model)`, shownChart.caption);
-    // R7 V-04 (owner decision #295 comment 5965828337): the image is the Best e1RM chart region with the newest top set read
-    // out under the plot, so the alt names that metric and those two numbers and never calls the picture a "top load" view.
-    assert(hasNumber(shownChart.alt, chart.to, lang) && hasNumber(shownChart.alt, chart.sessions, lang) && shownChart.alt.includes(tr(lang, "stats.metric.best_e1rm")),
-      `[${lang}] chart alt names ${tr(lang, "stats.metric.best_e1rm")}, the newest top set ${chart.to} kg and ${chart.sessions} sessions`, shownChart.alt);
-    const squatName = libraryName(SQUAT, lang);
-    assert(!!squatName && shownChart.alt.includes(squatName), `[${lang}] chart alt names the charted movement (${squatName})`, shownChart.alt);
-    assert(!new RegExp(escapeRe(tr(lang, "stats.metric.top_load")), "i").test(shownChart.alt), `[${lang}] chart alt does not describe a top-load chart`, shownChart.alt);
-    assert(shownChart.src.includes(`exercise-chart-${lang}-`), `[${lang}] the chart image is the ${lang} capture`, shownChart.src);
-    const chartFile = webpSize(readFileSync(new URL(`../assets/brand/exercise-chart-${lang}-light.webp`, import.meta.url)));
-    assert(shownChart.width === String(chartFile.width) && shownChart.height === String(chartFile.height),
-      `[${lang}] the chart image reserves its box, the committed capture's ${chartFile.width}x${chartFile.height}`, `${shownChart.width}x${shownChart.height}`);
 
     assert(f.faqCount === 5, `[${lang}] the questions section has five <details>`, `found ${f.faqCount}`);
     assert(f.faqOpen === 0, `[${lang}] every question starts closed`);
@@ -882,8 +800,8 @@ async function finalPage(browser) {
       light: document.querySelector("#firstRunDemo")?.classList.contains("theme-light"),
     }));
     palettes[theme] = await page.evaluate(phoneColours);
-    assert(shots.theme === shown && shots.sources.length === 2 && shots.sources.every((src) => src.endsWith(`-en-${shown}.webp`)),
-      `[${theme}] the paste review and the chart swap to their ${shown} captures`, JSON.stringify(shots));
+    assert(shots.theme === shown && shots.sources.length === 1 && shots.sources.every((src) => src.endsWith(`-en-${shown}.webp`)),
+      `[${theme}] the paste review swaps to its ${shown} capture`, JSON.stringify(shots));
     assert(shots.light && palettes[theme].ground?.startsWith("rgb(244, 242, 239)"), `[${theme}] the proof's screen is on the app's light paper`, JSON.stringify({ shots, colours: palettes[theme] }));
     await context.close();
   }
@@ -1184,7 +1102,7 @@ const RING_BANDS = [
   ['[data-landing-section="ways"] .firstrun-way--field', "ways: orange"],
   ['[data-landing-section="ways"] .firstrun-way--surface', "ways: surface"],
   ['[data-landing-section="ways"] .firstrun-way--ink', "ways: ink"],
-  ['[data-landing-section="track"]', "track band"],
+  ['[data-landing-section="features"]', "features band"],
   ['[data-landing-section="data"]', "data band (ink)"],
   ['[data-landing-section="faq"]', "faq band"],
 ];
@@ -1255,31 +1173,6 @@ async function dockFocusRing(browser) {
   }
 }
 
-/**
- * R7 V-04 (owner decision #295 comment 5965828337). The chart image must be drawn at or above CHART_MIN_SCALE of the CSS
- * size it was captured at (rendered width / natural CSS width, natural = pixels / capture scale).
- */
-async function chartScale(browser) {
-  phase("Final page: the chart image is legible at 360 and 390");
-  for (const lang of ["en", "pt"]) {
-    for (const width of [320, 360, 390]) {
-      const { context, page } = await landingPage(browser, { lang, width });
-      await page.evaluate(() => document.querySelector("[data-landing-chart] img").scrollIntoView({ block: "center", behavior: "instant" }));
-      await page.waitForFunction(() => { const img = document.querySelector("[data-landing-chart] img"); return img.complete && img.naturalWidth > 0; }, undefined, { timeout: 10000 });
-      const read = await page.evaluate(() => {
-        const img = document.querySelector("[data-landing-chart] img");
-        return { rendered: img.getBoundingClientRect().width, natural: img.naturalWidth, overflowX: document.documentElement.scrollWidth > innerWidth };
-      });
-      const scale = read.rendered / (read.natural / CHART_FRAME.scale);
-      if (width >= 360) {
-        assert(scale >= CHART_MIN_SCALE, `[${lang} ${width}] the chart image draws at ${scale.toFixed(2)} of its captured size, needs ${CHART_MIN_SCALE}`, JSON.stringify(read));
-      }
-      assert(!read.overflowX, `[${lang} ${width}] the chart does not overflow the page`, JSON.stringify(read));
-      await context.close();
-    }
-  }
-}
-
 // ---------------------------------------------------------------------------
 async function main() {
   console.log(`Landing variants\nTarget: ${BASE}${FAULT ? `\nFault: ${FAULT}` : ""}`);
@@ -1289,7 +1182,6 @@ async function main() {
   try {
     await characterize(browser);
     await finalPage(browser);
-    await chartScale(browser);
     await dockFocusRing(browser);
   } finally {
     await browser.close();

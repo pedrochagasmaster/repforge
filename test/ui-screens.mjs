@@ -240,14 +240,14 @@ if (existsSync(screensRoot) && existsSync(semanticPath)) {
     item.locale === "pt" && item.flow === "onboarding-import" && item.screen === "preview");
   assert.ok(preview, "locale fault injection has a real Portuguese preview");
   const withCopy = (item, copy) => ({ ...item, semantic: [{ text: copy }] });
-  assert.deepEqual(findLocaleLeaks([withCopy(preview, enCatalog["landing.outcomes.sub"])]), [],
+  assert.deepEqual(findLocaleLeaks([withCopy(preview, enCatalog["landing.features.sub"])]), [],
     "program text that equals a landing-only English string does not become English UI copy outside the landing");
   assert.ok(findLocaleLeaks([withCopy(preview, enCatalog["entry.hub.lede"])]).length > 0,
     "English entry UI copy still fails outside the landing");
   for (const key of landingScreens) {
     const item = semanticArtifact.captures.find((record) => record.locale === "pt" && `${record.flow}/${record.screen}` === key);
     assert.ok(item, `locale fault injection has a real Portuguese landing: ${key}`);
-    assert.ok(findLocaleLeaks([withCopy(item, enCatalog["landing.outcomes.sub"])]).length > 0,
+    assert.ok(findLocaleLeaks([withCopy(item, enCatalog["landing.features.sub"])]).length > 0,
       `${key}: an English landing string is rejected in a Portuguese frame`);
     assert.ok(findLocaleLeaks([withCopy(item, enCatalog["entry.hub.lede"])]).length > 0,
       `${key}: shared English UI markers are still rejected`);

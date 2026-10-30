@@ -889,7 +889,7 @@ async function activationConflict(page) {
 const FOCUS_SELECTOR = {
   // The landing is one scrolling page inside #firstRun; each scrolled state brings its band to the middle of the frame.
   "onboarding-start/first-run-ways": ".firstrun-way--surface",
-  "onboarding-start/first-run-track": '[data-landing-outcome="hold"]',
+  "onboarding-start/first-run-features": ".firstrun-feat__panel",
   "onboarding-start/first-run-data": ".firstrun-rows",
   "onboarding-start/first-run-faq-open": ".firstrun-qa[open]",
   "onboarding-start/first-run-close": ".firstrun-close__actions",
@@ -914,6 +914,8 @@ const FOCUS_SELECTOR = {
  * and the persistent Build control in view.
  */
 const PROOF_HOLD = 8.2;
+/** The feature tabs hold too: the Progress scene with the record landed and the week's hard sets risen. */
+const FEATURE_HOLD = [0, 4.8];
 const FOCUS_PROOF = new Set(["onboarding-start/first-run-proof"]);
 
 /**
@@ -958,7 +960,7 @@ export const ONBOARDING_SCENARIOS = {
   "onboarding-start/first-run": openLanding,
   "onboarding-start/first-run-proof": openLanding,
   "onboarding-start/first-run-ways": openLanding,
-  "onboarding-start/first-run-track": openLanding,
+  "onboarding-start/first-run-features": openLanding,
   "onboarding-start/first-run-data": openLanding,
   "onboarding-start/first-run-faq-open": openLandingQuestion,
   "onboarding-start/first-run-close": openLanding,
@@ -1377,7 +1379,8 @@ export async function focusOnboardingSubject(page, key) {
   }
   if (await page.evaluate(() => typeof window.__repforgeLandingSeek === "function" && !document.querySelector("#firstRun")?.classList.contains("hidden"))) {
     await page.evaluate((time) => window.__repforgeLandingSeek(time), PROOF_HOLD);
-    await sleep(page, 200);
+    await page.evaluate(([scene, at]) => window.__repforgeLandingFeatureSeek?.(scene, at), FEATURE_HOLD);
+    await sleep(page, 450);
   }
   await sleep(page, 200);
   if (key === "onboarding-recommend/activation-conflict") {
