@@ -313,3 +313,26 @@ describe("deletion check evidence and debounce", () => {
     await expect(stub.snapshot({ now: at + 2 })).resolves.toMatchObject({ lastDeletionCheck: { errorClass: "unknown" } });
   });
 });
+
+describe("deletion failure evidence", () => {
+  beforeEach(async () => {
+    await reset();
+  });
+
+  it("names an internal latch by actor and check version only", async () => {
+    const stub = await healthStub();
+    const at = Date.now();
+    await recordHealthy(stub, at);
+    await stub.markDeletionUnhealthy({ observedAt: at + 1, now: at + 1, code: "record-integrity" });
+    await expect(stub.deletionEvidence({ now: at + 1 })).resolves.toMatchObject({
+      lastDeletionFailure: { actor: "system", checkVersion: "internal-v1", observedAt: at + 1, evidenceKind: "internal" },
+    });
+  });
+
+  it("has no failure on a healthy, acknowledged service", async () => {
+    const stub = await healthStub();
+    const at = Date.now();
+    await recordHealthy(stub, at);
+    await expect(stub.deletionEvidence({ now: at })).resolves.toMatchObject({ lastDeletionFailure: null });
+  });
+});

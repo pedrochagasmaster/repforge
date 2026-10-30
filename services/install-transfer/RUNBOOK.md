@@ -491,7 +491,25 @@ failure increments the generation.
 `/_ops/health` (and `npm run ops:health-status`) returns `lastDeletionCheck`:
 `checkVersion`, `observedAt`, `result` (`pass`, `strike`, or `fail`), `path`,
 `errorClass` and `consecutiveFailures`, or `null` before the first check. It
-holds no IDs or tokens. Read it first: it names the path that latched and when.
+holds no IDs or tokens. It describes the latest check, so a later passing check
+replaces the failure that latched.
+
+The failure that raised the current generation is kept separately. `GET
+/_ops/deletion-evidence` (watchdog bearer; `ops:health-status` prints it as
+`lastDeletionFailure`) reads the persisted deletion evidence row. While an
+incident is open, passes never overwrite that row, and an acknowledgement
+replaces it, so it is `null` unless an unacknowledged failure exists. It
+returns `actor` (`watchdog`, `purge` or `system`), `checkVersion`,
+`observedAt`, and `evidenceKind` (a purge batch's digest shows only as
+`object-batch`). Read it first: it names who reported the latching failure and
+when.
+
+| actor / checkVersion | Reported by |
+|---|---|
+| `watchdog` / `scheduled-purge-failure-v1` | the watcher: registry purge left failed or due rows |
+| `watchdog` / `provider-enumeration-failure-v1` | the watcher: the provider step failed after its retry |
+| `purge` / `provider-enumeration-v1` | `/_ops/purge-objects`: an object purge failed |
+| `system` / `internal-v1` | inside the Worker: a transfer or registry object's disposal or record-integrity failure |
 
 To re-enable after an incident, from the devbox ops checkout with the ops env
 sourced:
@@ -508,7 +526,24 @@ sourced:
 6. `npm run ops:health-status` shows `createsEnabled: true`; then one
    controlled transfer.
 
-**Deploying this change.** Both Workers changed. Either order works: the
+### Deploying the transfer Worker
+
+Deploying the transfer Worker resets its running Durable Objects, and their
+in-flight calls fail. If that lands on a watcher pass (every even UTC minute,
+second 0), the pass can record a deletion failure; while an incident is open,
+that raises the generation (the most likely reason production moved from generation 3
+to 4 on 2026-10-30). `/_ops/purge-objects` now retries an object call once
+when the platform marks the error retryable, but a failure inside an object
+can still latch. So:
+
+- Start each production (and watcher) deploy in the first 30 seconds of an
+  **odd** UTC minute (`date -u +%M` is odd), and check it finished before the
+  next even minute. Deploy the Workers one at a time.
+- After deploying, read `ops:health-status`. If the generation moved, read
+  `lastDeletionFailure`: an `observedAt` inside the deploy window points to the
+  deploy rather than to a deletion fault.
+
+**Deploying #580.** Both Workers changed. Either order works: the
 watcher, `ops:ack` and `ops:health-status` accept a health response with or
 without `lastDeletionCheck`. Deploy the transfer Worker, then the watcher,
 then set the alert token.

@@ -1,6 +1,7 @@
 // Reads the production health lease once: GET /_ops/health with the watchdog
 // bearer from the 0600 ops env file. Prints only the lease and incident fields
-// and the last deletion check (versions, times and failure classes; no IDs).
+// and the last deletion check (versions, times and failure classes; no IDs),
+// plus the failure that raised the current generation.
 // Used to verify the scheduled watcher (#397) without putting a bearer in argv
 // or shell history.
 import { readFileSync } from "node:fs";
@@ -21,7 +22,15 @@ export async function readHealth(opsEnvPath = defaultOpsEnvPath()) {
   });
   if (!response.ok) throw new Error(`health request returned ${response.status}`);
   const body = await response.json();
-  return Object.fromEntries(FIELDS.map((field) => [field, body?.[field]]));
+  // The failure that raised the current generation, from its own route; a
+  // Worker without that route answers the generic 404.
+  const evidence = await fetch(new URL("/_ops/deletion-evidence", origin), {
+    headers: { Authorization: `Bearer ${values.TRANSFER_WATCHDOG_SECRET}`, "Cache-Control": "no-store" },
+    redirect: "error",
+    signal: AbortSignal.timeout(10_000),
+  });
+  const lastDeletionFailure = evidence.ok ? (await evidence.json())?.lastDeletionFailure ?? null : `unavailable (${evidence.status})`;
+  return { ...Object.fromEntries(FIELDS.map((field) => [field, body?.[field]])), lastDeletionFailure };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
