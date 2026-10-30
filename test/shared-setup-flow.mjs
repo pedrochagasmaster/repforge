@@ -47,7 +47,7 @@ const HANDOFF_COOKIE = "repforge_setup_v1";
 const MAX_ENCODED_CHARS = 3072;
 const KIND = "taurifer-shared-setup";
 const DOCUMENT_VERSION = 2;
-const ENCODING_VERSION = 4;
+const ENCODING_VERSION = 5;
 const SETTING_KEYS = ["jumpPct", "minJump", "rirHigh", "hardRir", "restSec", "unit", "lang", "rirMode"];
 const DEFAULT_SHARED_SETTINGS = Object.freeze({
   jumpPct: 2.5, minJump: 2.5, rirHigh: 2, hardRir: 4, restSec: 120, unit: "kg", lang: "en", rirMode: "numeric",

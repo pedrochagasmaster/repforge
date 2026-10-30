@@ -3,7 +3,12 @@
 
   const KIND = "taurifer-shared-setup";
   const VERSION = 2;
-  const ENCODING_VERSION = 4;
+  // The newest wire this app reads. Recipe and full links stay `v4.`; a recipe
+  // plus edits travels as `v5.`, which an app that only reads v4 refuses as a
+  // newer, unsupported link (#527).
+  const ENCODING_VERSION = 5;
+  const RECIPE_ENCODING_VERSION = 4;
+  const PATCH_ENCODING_VERSION = 5;
   const MAX_ENCODED_CHARS = 3072;
   const MAX_COMPRESSED_BYTES = 2301;
   const MAX_DECOMPRESSED_BYTES = 524288;
@@ -288,6 +293,256 @@
     return { ok: true, value: generated.value };
   }
 
+  /* ---- Recipe plus edits (#527) ----
+     An edited generated program travels as its generator request plus a patch
+     against what that request regenerates. The patch is id-keyed: arrays of
+     objects with an `id` (days, slots, sets) are matched by id, so a reorder is
+     one order list and an inserted element is a diff from its nearest preceding
+     original; other arrays are matched by index, and objects key by key, with
+     explicit deletions. Sibling entries with the identical diff are stored once
+     with every index they apply to, so "every set of this slot in every cycle"
+     is one entry. Replaced values use the compact tree, so catalog identities
+     travel as indices. A digest of the canonical edited definition travels with
+     it, and anything that does not reproduce it exactly is refused.
+
+     Node grammar:
+       ["=", compactValue]                  replace
+       ["-"]                                delete (an object member only)
+       ["o", keyToken, node, ...]           object members
+       ["x", [index|[indices], node], ...]  same-length array, by index
+       ["i", order|null, entry, ...]        id-keyed array; order lists base
+                                            indices and the new ids in place;
+                                            entry is [index|[indices], node] or
+                                            ["+", sourceIndex|null, node] */
+  const isIdList = (list) => list.length > 0 && list.every((item) => isPlainObject(item) && typeof item.id === "string");
+
+  function keyToken(key, identityContext) {
+    const known = COMPACT_KEY_BY_NAME.get(key);
+    if (known) return known;
+    const identity = identityContext?.indexById.get(key);
+    return identity !== undefined ? "^" + identity : "~" + toBase64Url(new TextEncoder().encode(key));
+  }
+
+  function keyFromToken(token, sourceIdentities) {
+    if (typeof token !== "string") return undefined;
+    let key = COMPACT_NAME_BY_KEY.get(token);
+    if (key === undefined && /^\^(0|[1-9][0-9]*)$/.test(token)) {
+      const index = Number(token.slice(1));
+      key = Array.isArray(sourceIdentities) && index < sourceIdentities.length ? sourceIdentities[index] : undefined;
+    }
+    if (key === undefined && token.startsWith("~")) {
+      if (token.length === 1) key = "";
+      else {
+        const bytes = fromBase64Url(token.slice(1));
+        if (!bytes) return undefined;
+        try { key = new TextDecoder("utf-8", { fatal: true }).decode(bytes); }
+        catch { return undefined; }
+      }
+    }
+    return key === undefined || FORBIDDEN_KEYS.has(key) ? undefined : key;
+  }
+
+  /** Entries with the identical node share one [indices, node] entry. */
+  function groupEntries(entries) {
+    const grouped = [];
+    const bySignature = new Map();
+    for (const [index, node] of entries) {
+      const signature = JSON.stringify(node);
+      const existing = bySignature.get(signature);
+      if (existing) existing[0].push(index);
+      else {
+        const entry = [[index], node];
+        bySignature.set(signature, entry);
+        grouped.push(entry);
+      }
+    }
+    return grouped.map(([indices, node]) => [indices.length === 1 ? indices[0] : indices, node]);
+  }
+
+  function definitionPatch(base, target, identityContext) {
+    if (stableStringify(base) === stableStringify(target)) return undefined;
+    const replace = () => ["=", compactTree(target, identityContext)];
+    if (Array.isArray(base) && Array.isArray(target)) {
+      if (isIdList(base) && isIdList(target) && new Set(target.map((item) => item.id)).size === target.length
+        && new Set(base.map((item) => item.id)).size === base.length) {
+        const position = new Map(base.map((item, index) => [item.id, index]));
+        const order = target.map((item) => (position.has(item.id) ? position.get(item.id) : compactString(item.id)));
+        const unchangedOrder = base.length === target.length && order.every((value, index) => value === index);
+        const changed = [];
+        const inserts = [];
+        target.forEach((item, at) => {
+          if (position.has(item.id)) {
+            const node = definitionPatch(base[position.get(item.id)], item, identityContext);
+            if (node !== undefined) changed.push([position.get(item.id), node]);
+            return;
+          }
+          let source = null;
+          for (let back = at - 1; back >= 0 && source === null; back--) {
+            if (position.has(target[back].id)) source = position.get(target[back].id);
+          }
+          inserts.push(["+", source, source === null ? ["=", compactTree(item, identityContext)]
+            : definitionPatch(base[source], item, identityContext)]);
+        });
+        return ["i", unchangedOrder ? null : order, ...groupEntries(changed), ...inserts];
+      }
+      if (base.length !== target.length) return replace();
+      const changed = [];
+      base.forEach((item, index) => {
+        const node = definitionPatch(item, target[index], identityContext);
+        if (node !== undefined) changed.push([index, node]);
+      });
+      return ["x", ...groupEntries(changed)];
+    }
+    if (isPlainObject(base) && isPlainObject(target)) {
+      const node = ["o"];
+      for (const key of new Set([...Object.keys(base), ...Object.keys(target)])) {
+        if (!own(target, key)) node.push(keyToken(key, identityContext), ["-"]);
+        else if (!own(base, key)) node.push(keyToken(key, identityContext), ["=", compactTree(target[key], identityContext)]);
+        else {
+          const child = definitionPatch(base[key], target[key], identityContext);
+          if (child !== undefined) node.push(keyToken(key, identityContext), child);
+        }
+      }
+      return node;
+    }
+    return replace();
+  }
+
+  /** Apply a received patch to the regenerated baseline. Untrusted: any malformed node refuses. */
+  function applyDefinitionPatch(base, node, sourceIdentities, depth = 0) {
+    const fail = { ok: false, code: "invalid-envelope" };
+    if (depth > MAX_STRUCTURE_DEPTH || !Array.isArray(node) || typeof node[0] !== "string") return fail;
+    if (node[0] === "=") return node.length === 2 ? expandTree(node[1], sourceIdentities) : fail;
+    const indices = (spec, length) => {
+      const list = Array.isArray(spec) ? spec : [spec];
+      return list.length > 0 && list.every((index) => Number.isSafeInteger(index) && index >= 0 && index < length)
+        && new Set(list).size === list.length ? list : null;
+    };
+    if (node[0] === "o") {
+      if (!isPlainObject(base) || node.length % 2 !== 1) return fail;
+      const result = cloneCanonical(base);
+      const seen = new Set();
+      for (let at = 1; at < node.length; at += 2) {
+        const key = keyFromToken(node[at], sourceIdentities);
+        if (key === undefined || seen.has(key)) return fail;
+        seen.add(key);
+        const child = node[at + 1];
+        if (Array.isArray(child) && child.length === 1 && child[0] === "-") {
+          if (!own(result, key)) return fail;
+          delete result[key];
+          continue;
+        }
+        const applied = own(result, key)
+          ? applyDefinitionPatch(result[key], child, sourceIdentities, depth + 1)
+          : (Array.isArray(child) && child[0] === "=" ? applyDefinitionPatch(undefined, child, sourceIdentities, depth + 1) : fail);
+        if (!applied.ok) return applied;
+        Object.defineProperty(result, key, { value: applied.value, enumerable: true, configurable: true, writable: true });
+      }
+      return { ok: true, value: result };
+    }
+    if (node[0] === "x") {
+      if (!Array.isArray(base)) return fail;
+      const result = cloneCanonical(base);
+      const touched = new Set();
+      for (const entry of node.slice(1)) {
+        if (!Array.isArray(entry) || entry.length !== 2) return fail;
+        const at = indices(entry[0], base.length);
+        if (!at || at.some((index) => touched.has(index))) return fail;
+        for (const index of at) {
+          touched.add(index);
+          const applied = applyDefinitionPatch(base[index], entry[1], sourceIdentities, depth + 1);
+          if (!applied.ok) return applied;
+          result[index] = applied.value;
+        }
+      }
+      return { ok: true, value: result };
+    }
+    if (node[0] === "i") {
+      if (!Array.isArray(base) || node.length < 2 || (node[1] !== null && !Array.isArray(node[1]))) return fail;
+      const patched = base.map((item) => cloneCanonical(item));
+      const touched = new Set();
+      const inserted = [];
+      for (const entry of node.slice(2)) {
+        if (!Array.isArray(entry)) return fail;
+        if (entry[0] === "+") {
+          if (entry.length !== 3) return fail;
+          const source = entry[1];
+          if (source !== null && !(Number.isSafeInteger(source) && source >= 0 && source < base.length)) return fail;
+          const applied = applyDefinitionPatch(source === null ? undefined : base[source], entry[2], sourceIdentities, depth + 1);
+          if (!applied.ok || !isPlainObject(applied.value) || typeof applied.value.id !== "string") return fail;
+          inserted.push(applied.value);
+          continue;
+        }
+        if (entry.length !== 2) return fail;
+        const at = indices(entry[0], base.length);
+        if (!at || at.some((index) => touched.has(index))) return fail;
+        for (const index of at) {
+          touched.add(index);
+          const applied = applyDefinitionPatch(base[index], entry[1], sourceIdentities, depth + 1);
+          if (!applied.ok) return applied;
+          patched[index] = applied.value;
+        }
+      }
+      if (node[1] === null) return inserted.length ? fail : { ok: true, value: patched };
+      const used = new Set();
+      const result = [];
+      let next = 0;
+      for (const item of node[1]) {
+        if (Number.isSafeInteger(item)) {
+          if (item < 0 || item >= base.length || used.has(item)) return fail;
+          used.add(item);
+          result.push(patched[item]);
+        } else if (typeof item === "string") {
+          const id = expandString(item);
+          if (!id.ok || next >= inserted.length || inserted[next].id !== id.value) return fail;
+          result.push(inserted[next++]);
+        } else return fail;
+      }
+      if (next !== inserted.length || [...touched].some((index) => !used.has(index))) return fail;
+      return { ok: true, value: result };
+    }
+    return fail;
+  }
+
+  async function definitionDigest(definition) {
+    const subtle = root.crypto?.subtle;
+    if (!subtle) return null;
+    const hash = await subtle.digest("SHA-256", new TextEncoder().encode(stableStringify(definition)));
+    return Array.from(new Uint8Array(hash).slice(0, 6), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  }
+
+  // An edited generated program whose request still regenerates under this
+  // generator: the request, the patch from that baseline, and the digest.
+  async function patchForm(definition, identityContext, options) {
+    if (typeof options?.generateProgram !== "function" || definition?.provenance?.source === "manual"
+      || !isPlainObject(definition?.request) || typeof definition.request.goal !== "string") return null;
+    const request = cloneCanonical(definition.request);
+    delete request.seed;
+    let regenerated;
+    try { regenerated = options.generateProgram(request, options.catalogSnapshot); }
+    catch { return null; }
+    if (!regenerated?.ok || typeof regenerated.value?.generatorVersion !== "string") return null;
+    const digest = await definitionDigest(definition);
+    if (!digest) return null;
+    const patch = definitionPatch(regenerated.value, definition, identityContext);
+    if (patch === undefined) return null;
+    return ["p", identityContext.fingerprint, regenerated.value.generatorVersion, compactTree(request, identityContext), patch, digest];
+  }
+
+  async function expandPatchForm(compact, identityContext, options) {
+    if (compact.length !== 6 || typeof compact[1] !== "string" || typeof compact[2] !== "string"
+      || !Array.isArray(compact[4]) || typeof compact[5] !== "string" || !/^[a-f0-9]{12}$/.test(compact[5])) {
+      return { ok: false, code: "invalid-envelope" };
+    }
+    const baseline = await regenerate(["g", compact[1], compact[2], compact[3]], identityContext, options);
+    if (!baseline.ok) return baseline;
+    const applied = applyDefinitionPatch(baseline.value, compact[4], identityContext.ids);
+    if (!applied.ok || !isPlainObject(applied.value)) return { ok: false, code: "invalid-envelope" };
+    const digest = await definitionDigest(applied.value);
+    if (digest !== compact[5]) return { ok: false, code: "invalid-envelope" };
+    return applied;
+  }
+
   function compactProgramDefinition(definition, identityContext, options) {
     const regenerable = regenerableForm(definition, identityContext, options);
     if (regenerable) return regenerable;
@@ -320,8 +575,12 @@
     return ["c", identityContext.fingerprint, compactTree(compact, identityContext)];
   }
 
-  function expandProgramDefinition(compact, identityContext, options) {
+  function expandProgramDefinition(compact, identityContext, options, wireVersion = RECIPE_ENCODING_VERSION) {
     if (Array.isArray(compact) && compact[0] === "g") return regenerate(compact, identityContext, options);
+    // The recipe-plus-edits form exists only on the v5 wire.
+    if (Array.isArray(compact) && compact[0] === "p") {
+      return wireVersion === PATCH_ENCODING_VERSION ? expandPatchForm(compact, identityContext, options) : { ok: false, code: "invalid-envelope" };
+    }
     let tree = compact;
     let sourceIdentities = null;
     if (Array.isArray(compact) && compact[0] === "c") {
@@ -630,7 +889,7 @@
     ];
   }
 
-  async function expandV4(value, identityContext, options) {
+  async function expandV4(value, identityContext, options, wireVersion = RECIPE_ENCODING_VERSION) {
     if (!Array.isArray(value) || value.length !== 6 || value[0] !== VERSION) {
       return { ok: false, code: "invalid-envelope" };
     }
@@ -643,7 +902,7 @@
       || !Number.isInteger(languageCode) || !LANGUAGES[languageCode]) {
       return { ok: false, code: "invalid-envelope" };
     }
-    const expandedDefinition = await expandProgramDefinition(compactDefinition, identityContext, options);
+    const expandedDefinition = await expandProgramDefinition(compactDefinition, identityContext, options, wireVersion);
     // Preserve the reason a current recipe cannot be regenerated.
     if (!expandedDefinition.ok && ["unsupported-version", "catalog-mismatch", "catalog-unavailable"].includes(expandedDefinition.code)) return expandedDefinition;
     const expandedCustomExercises = compactCustomExercises === null
@@ -678,28 +937,18 @@
     };
   }
 
-  async function encode(raw, options = {}) {
-    const checked = buildProposal(raw, options);
-    if (!checked.ok) return checked;
-    const identityContext = await sourceIdentityContext(options?.catalogSnapshot);
-    if (!identityContext) return { ok: false, code: "catalog-unavailable", issues: [], blockers: [] };
-    let json, form;
-    try {
-      const tuple = v4Tuple(checked.value, identityContext, options);
-      // "recipe": the generator request; "full": the whole definition.
-      form = Array.isArray(tuple[2]) && tuple[2][0] === "g" ? "recipe" : "full";
-      json = JSON.stringify(tuple);
-    }
+  /** Serialize, gzip and bound one wire tuple; a refusal still says the form and how large it would have been. */
+  async function packTuple(tuple, wireVersion, form) {
+    let json;
+    try { json = JSON.stringify(tuple); }
     catch { return { ok: false, code: "invalid-json", issues: [], blockers: [] }; }
     const bytes = new TextEncoder().encode(json);
-    // A refusal still says which form was tried and how large the link would
-    // have been, so callers can say how far over the limit a program is.
     if (bytes.byteLength > MAX_DECOMPRESSED_BYTES) {
       return { ok: false, code: "encoded-too-large", issues: [], blockers: [], form, decompressedBytes: bytes.byteLength };
     }
     const compressed = await gzipBytes(bytes);
-    if (!compressed.ok) return { ...compressed, issues: [], blockers: [] };
-    const encoded = "v4." + toBase64Url(compressed.value);
+    if (!compressed.ok) return { ...compressed, issues: [], blockers: [], form };
+    const encoded = "v" + wireVersion + "." + toBase64Url(compressed.value);
     if (encoded.length > MAX_ENCODED_CHARS) {
       return { ok: false, code: "encoded-too-large", issues: [], blockers: [], form,
         encodedChars: encoded.length, compressedBytes: compressed.value.byteLength, decompressedBytes: bytes.byteLength };
@@ -712,6 +961,28 @@
       compressedBytes: compressed.value.byteLength,
       decompressedBytes: bytes.byteLength,
     };
+  }
+
+  // Forms, smallest first: "recipe" (v4 `g`, the generator request), "patch"
+  // (v5 `p`, the request plus edits), "full" (v4 `c`, the whole definition).
+  // A program none of them fits is refused, and the share sheet offers a file.
+  async function encode(raw, options = {}) {
+    const checked = buildProposal(raw, options);
+    if (!checked.ok) return checked;
+    const identityContext = await sourceIdentityContext(options?.catalogSnapshot);
+    if (!identityContext) return { ok: false, code: "catalog-unavailable", issues: [], blockers: [] };
+    let tuple;
+    try { tuple = v4Tuple(checked.value, identityContext, options); }
+    catch { return { ok: false, code: "invalid-json", issues: [], blockers: [] }; }
+    if (Array.isArray(tuple[2]) && tuple[2][0] === "g") return packTuple(tuple, RECIPE_ENCODING_VERSION, "recipe");
+    let patched = null;
+    try { patched = await patchForm(checked.value.program.definition, identityContext, options); }
+    catch { patched = null; }
+    if (patched) {
+      const attempt = await packTuple([...tuple.slice(0, 2), patched, ...tuple.slice(3)], PATCH_ENCODING_VERSION, "patch");
+      if (attempt.ok || attempt.code !== "encoded-too-large") return attempt;
+    }
+    return packTuple(tuple, RECIPE_ENCODING_VERSION, "full");
   }
 
   function versionedUnsupported(encoded, match) {
@@ -733,7 +1004,7 @@
     const match = encoded.match(VERSION_PREFIX_RE);
     if (!match) return { ok: false, code: "invalid-base64", issues: [], blockers: [] };
     const wireVersion = Number(match[1]);
-    if (wireVersion !== ENCODING_VERSION) return versionedUnsupported(encoded, match);
+    if (wireVersion !== RECIPE_ENCODING_VERSION && wireVersion !== PATCH_ENCODING_VERSION) return versionedUnsupported(encoded, match);
     if (encoded.length > MAX_ENCODED_CHARS) return { ok: false, code: "encoded-too-large", issues: [], blockers: [] };
     const compressed = fromBase64Url(encoded.slice(match[0].length));
     if (!compressed) return { ok: false, code: "invalid-base64", issues: [], blockers: [] };
@@ -747,7 +1018,7 @@
     try { parsed = JSON.parse(text); }
     catch { return { ok: false, code: "invalid-json", issues: [], blockers: [] }; }
     const identityContext = await sourceIdentityContext(options?.catalogSnapshot);
-    const expanded = await expandV4(parsed, identityContext, options);
+    const expanded = await expandV4(parsed, identityContext, options, wireVersion);
     if (!expanded.ok) return { ...expanded, issues: [], blockers: [] };
     const checked = buildProposal(expanded.value, options);
     if (!checked.ok) return checked;
@@ -842,7 +1113,7 @@
 
   function isSafeHandoffEnvelope(value) {
     if (typeof value !== "string" || value.length > MAX_ENCODED_CHARS) return false;
-    const match = value.match(/^v4\.(.*)$/);
+    const match = value.match(/^v[45]\.(.*)$/);
     if (!match || !match[1] || !BASE64URL_RE.test(match[1]) || match[1].length % 4 === 1) return false;
     return true;
   }

@@ -1630,12 +1630,25 @@ async function clickWhy(page, selector) {
   }, undefined, { polling: "raf", timeout: 10000 });
   // The link may sit in Focus's own scroller, so the browser places it (whichever scroller holds it), centred first;
   // the first placement where nothing (a tall header at 200% text, the shelf) covers it is the same every run.
-  const point = await page.evaluate((sel) => {
+  // Focus answers a scroll of its own window by settling it again (the open set is kept in view), so a placement can
+  // move after it is made. Each placement is read only once the link has held its place for three frames.
+  const point = await page.evaluate(async (sel) => {
     const link = document.querySelector(sel);
+    const frame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+    const settled = async () => {
+      let last = null, still = 0;
+      for (let tries = 0; tries < 120 && still < 3; tries++) {
+        await frame();
+        const top = Math.round(link.getBoundingClientRect().top);
+        still = top === last ? still + 1 : 0;
+        last = top;
+      }
+      return link.getBoundingClientRect();
+    };
     for (const block of ["center", "start", "end"]) {
       window.scrollTo({ top: 0, behavior: "instant" });
       link.scrollIntoView({ block, behavior: "instant" });
-      const r = link.getBoundingClientRect();
+      const r = await settled();
       const p = { x: r.left + Math.min(r.width / 2, 40), y: r.top + Math.min(r.height / 2, 12) };
       if (p.y > 0 && p.y < innerHeight && document.elementFromPoint(p.x, p.y)?.closest(sel)) return p;
     }
@@ -2680,8 +2693,10 @@ export const APP_SCENARIOS = {
     await sleep(page, 400);
   },
   "program/share-too-large": async (page) => {
-    // An edited generated program cannot regenerate from its recipe and its
-    // full definition exceeds the link cap, so the sheet offers the file.
+    // An edited program generated before the last generator bump (073.4): its
+    // recipe no longer regenerates, so neither the recipe nor recipe-plus-edits
+    // (#527) can carry it, and its full definition exceeds the link cap, so the
+    // sheet offers the file.
     await page.waitForFunction(() => !!window.RepForgeExerciseCatalog?.snapshot?.() &&
       typeof window.__repforgeFinalizeProgramSetup === "function", undefined, { timeout: 15000 });
     await page.evaluate(async () => {
@@ -2690,7 +2705,7 @@ export const APP_SCENARIOS = {
         desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek: 4, sessionMinutes: 60,
         environment: { kind: "commercial_gym" },
       }, catalog).value;
-      const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog).value;
+      const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog, { asVersion: "073.4" }).value;
       definition.days.find((day) => day.kind === "training").slots[0].setupNotes = "Rack at 7";
       const finalized = await window.__repforgeFinalizeProgramSetup({
         programDefinition: definition, name: "Edited generated block", answers: {}, destination: "log",

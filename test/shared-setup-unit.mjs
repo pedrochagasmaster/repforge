@@ -564,7 +564,7 @@ console.log("v4 compact wire, roundtrip, and legacy byte retention");
   assert.equal(decoded.compressedBytes, encoded.compressedBytes);
   assert.deepEqual(Setup.buildProposal(decoded.value, compilerOptions).value, input);
 
-  for (const version of [1, 2, 3, 5, 99]) {
+  for (const version of [1, 2, 3, 6, 99]) {
     const sourceBytes = `v${version}.not-even-base64%2Fbytes`;
     const rejected = await Setup.decode(sourceBytes, options);
     assert.equal(rejected.ok, false);
@@ -683,11 +683,17 @@ console.log("fragment and cookie handoff helpers retain source bytes");
   assert.equal(otherVersion.ok, false, "a different generator version refuses rather than regenerating something else");
   assert.equal(otherVersion.code, "unsupported-version");
 
+  // #527: an edited generated program is never silently replaced by its regeneration; it travels as the request plus
+  // its edits and arrives exactly as the sender had it.
   const edited = structuredClone(generated.value);
   edited.days.find((day) => day.kind === "training").slots[0].setupNotes = "Rack at 7";
   const editedResult = await Setup.encode(document({ program: { name: "Edited", definition: edited } }), generatorOptions);
-  assert.equal(editedResult.ok, false, "an edited generated program is not silently replaced by its regeneration");
-  assert.equal(editedResult.code, "encoded-too-large", "it is refused whole, never truncated");
+  assert.equal(editedResult.ok, true, editedResult.code);
+  assert.equal(editedResult.form, "patch", "an edited generated program travels as its recipe plus the edit");
+  const editedReceived = await Setup.decode(editedResult.value, generatorOptions);
+  assert.equal(editedReceived.ok, true, editedReceived.code);
+  assert.equal(editedReceived.value.program.definition.days.find((day) => day.kind === "training").slots[0].setupNotes, "Rack at 7",
+    "the edit arrives, not the regeneration");
 }
 
 // #340 (Plan 072 OD-11): a plain GENERATOR_VERSION bump retires every recipe
@@ -735,10 +741,13 @@ console.log("fragment and cookie handoff helpers retain source bytes");
   const edited = document({ program: { name: "Generated with alternates", definition: editedDefinition,
     customExercises: [customAlternate] } });
   const before = structuredClone(edited);
-  const refused = await Setup.encode(edited, generatorOptions);
-  assert.equal(refused.ok, false);
-  assert.equal(refused.code, "encoded-too-large", "the complete edited source program requires a file instead of a recipe that loses alternates");
-  assert.deepEqual(edited, before, "size refusal preserves every authored alternate and prescription");
+  const patched = await Setup.encode(edited, generatorOptions);
+  assert.equal(patched.ok, true, patched.code);
+  assert.equal(patched.form, "patch", "the edited generated program travels as its recipe plus edits (#527)");
+  assert.deepEqual(edited, before, "encoding leaves every authored alternate and prescription in place");
+  const patchedReceived = await Setup.decode(patched.value, generatorOptions);
+  assert.equal(patchedReceived.ok, true, patchedReceived.code);
+  assert.deepEqual(patchedReceived.value, edited, "the alternates and the custom movement they name arrive unchanged");
 
   const compact = definition();
   const first = compact.days.flatMap((day) => day.slots)[0];
@@ -790,7 +799,146 @@ console.log("fragment and cookie handoff helpers retain source bytes");
   assert.equal(refused.code, "unsupported-version", "a 073.4 recipe is refused on 073.5, never rebuilt into a different program");
   const resent = await Setup.encode(document({ program: { name: "Before the update", definition: oldProgram.value } }), generatorOptions);
   assert.equal(resent.ok, false, "a 073.4 program no longer regenerates exactly, so it cannot be a recipe link now");
-  assert.equal(resent.code, "encoded-too-large", "it falls back to the full form, which is too large for a link");
+  assert.equal(resent.code, "encoded-too-large", "its patch against 073.5 (renamed ids) is too large, and so is the full form");
+}
+
+// #527: an edited generated program travels as its generator request plus an id-keyed patch against what that request
+// regenerates, on the v5 wire. The receiver regenerates, applies the patch, and must reproduce the sender's canonical
+// definition exactly (a digest travels with it); anything else is refused. Recipe and full links stay v4, unchanged.
+{
+  const generatorOptions = { ...compilerOptions, generateProgram: Compiler.generateProgram,
+    generatorVersion: Compiler.GENERATOR_VERSION };
+  const canonical = (value) => {
+    const order = (v) => Array.isArray(v) ? v.map(order) : v && typeof v === "object"
+      ? Object.fromEntries(Object.keys(v).sort().map((key) => [key, order(v[key])])) : v;
+    return JSON.stringify(order(value));
+  };
+  let uuid = 0;
+  const editorId = () => `5f0c${String(++uuid).padStart(4, "0")}-6f7e-4a1b-9c3d-${String(uuid * 7919).padStart(12, "0")}`;
+  const program = (daysPerWeek, minutes) => {
+    const request = structuredClone(workerFixture.request);
+    delete request.seed;
+    Object.assign(request, { daysPerWeek, timeCeilingMinutes: minutes, cycles: 7, deloadCycles: [], split: "auto" });
+    const generated = Compiler.generateProgram(request, source);
+    assert.equal(generated.ok, true, JSON.stringify(generated.conflicts));
+    return generated.value;
+  };
+  const trainingSlots = (definition) => definition.days.filter((day) => day.kind === "training").flatMap((day) => day.slots);
+  // The editor's own edits: a set added in every cycle (a fresh id each), rest, a rep range, a rename and a reorder.
+  const typicalReview = (base) => {
+    const edited = structuredClone(base);
+    const slots = trainingSlots(edited);
+    for (const target of [slots[0], slots[4]]) for (const cycle of target.prescriptionsByCycle) {
+      cycle.sets.push({ ...structuredClone(cycle.sets.at(-1)), id: editorId(), setIndex: cycle.sets.length + 1 });
+    }
+    for (const cycle of slots[2].prescriptionsByCycle) for (const set of cycle.sets) set.restSeconds = (set.restSeconds || 90) + 30;
+    for (const cycle of slots[3].prescriptionsByCycle) for (const set of cycle.sets) if (set.targets?.reps) set.targets.reps = { min: 6, max: 8 };
+    const day = edited.days.find((entry) => entry.kind === "training");
+    day.name = "Superior A";
+    [day.slots[0], day.slots[1]] = [day.slots[1], day.slots[0]];
+    day.slots.forEach((entry, index) => { entry.order = index + 1; });
+    return edited;
+  };
+  const swapTwo = (edited) => {
+    const swapped = structuredClone(edited);
+    const slots = trainingSlots(swapped);
+    let made = 0;
+    for (const target of [slots[5], slots[8]]) {
+      const alternate = source.exercises.find((entry) => entry.id !== target.exerciseId
+        && JSON.stringify(entry.exerciseMetrics) === JSON.stringify(target.metricIds)
+        && (entry.movementPattern || []).some((pattern) => (target.movementPatternIds || []).includes(pattern)));
+      if (!alternate) continue;
+      Object.assign(target, { exerciseId: alternate.id, sourceExerciseIds: [alternate.id], exerciseTypeId: alternate.exerciseType,
+        displayName: alternate.name, musclePurposeIds: [...alternate.primaryFeatureMuscle], movementPatternIds: [...alternate.movementPattern],
+        loadingModel: { ...target.loadingModel, bodyweightCoefficient: alternate.bodyweight } });
+      made++;
+    }
+    assert.equal(made, 2, "two catalog alternatives are swapped in");
+    return swapped;
+  };
+  const roundTrip = async (label, definition) => {
+    const sent = document({ program: { name: label, definition } });
+    const encoded = await Setup.encode(sent, generatorOptions);
+    assert.equal(encoded.ok, true, `${label}: ${encoded.code || ""}`);
+    assert.equal(encoded.form, "patch", `${label}: travels as the recipe plus its edits`);
+    assert.ok(encoded.value.startsWith("v5.") && encoded.compressedBytes <= Setup.MAX_COMPRESSED_BYTES && encoded.value.length <= Setup.MAX_ENCODED_CHARS,
+      `${label}: a v5 link within the limits (${encoded.value.length} chars, ${encoded.compressedBytes} B)`);
+    const received = await Setup.decode(encoded.value, generatorOptions);
+    assert.equal(received.ok, true, `${label}: ${received.code || ""}`);
+    assert.equal(canonical(received.value.program.definition), canonical(Setup.canonicalize(definition)),
+      `${label}: the receiver's definition is byte-identical to the sender's, canonically`);
+    return encoded;
+  };
+
+  // One edit: rest on one slot, in every cycle.
+  const small = program(3, 60);
+  const oneEdit = structuredClone(small);
+  for (const cycle of trainingSlots(oneEdit)[0].prescriptionsByCycle) for (const set of cycle.sets) set.restSeconds = (set.restSeconds || 90) + 30;
+  const one = await roundTrip("one edit", oneEdit);
+  assert.ok(one.compressedBytes < 1100, `one edit costs little over the recipe (${one.compressedBytes} B)`);
+
+  // A typical review, on each program shape the investigation measured, and the two-swap edge case on the 18-slot one.
+  for (const [days, minutes] of [[3, 60], [3, 90], [4, 60], [5, 60]]) {
+    const base = days === 3 && minutes === 60 ? small : program(days, minutes);
+    await roundTrip(`typical review, ${days} days x ${minutes} min`, typicalReview(base));
+  }
+  const edge = await roundTrip("typical review + 2 swaps, 18 slots", swapTwo(typicalReview(small)));
+  assert.equal(trainingSlots(small).length, 18, "the edge case is the 18-slot program");
+  assert.ok(edge.compressedBytes < Setup.MAX_COMPRESSED_BYTES, `the edge case fits (${edge.compressedBytes} of ${Setup.MAX_COMPRESSED_BYTES} B)`);
+
+  // Over the cap: edits too many to carry fall back to the full form, which is refused whole, so the share sheet offers
+  // the file; the sender's program is untouched.
+  const heavy = structuredClone(small);
+  for (const target of trainingSlots(heavy)) for (const cycle of target.prescriptionsByCycle) for (const set of cycle.sets) {
+    set.id = editorId();
+    set.restSeconds = 37 + (cycle.cycleIndex * 11 + set.setIndex * 3) % 50;
+  }
+  const heavyBefore = structuredClone(heavy);
+  const over = await Setup.encode(document({ program: { name: "Rewritten", definition: heavy } }), generatorOptions);
+  assert.equal(over.ok, false, "a patch over the cap is not sent");
+  assert.equal(over.code, "encoded-too-large");
+  assert.equal(over.form, "full", "it falls back to the full form, which is too large too, so the file is offered");
+  assert.deepEqual(heavy, heavyBefore, "the refusal leaves the program untouched");
+
+  // The patch must reproduce the sender's definition exactly; a changed digest, a patch that no longer applies, or the
+  // patch form on the v4 wire is refused, never a partial or different program.
+  const rewrap = async (encoded, change) => {
+    const wire = JSON.parse(await gunzipText(bytesFromBase64url(encoded.slice(3))));
+    change(wire);
+    const bytes = new TextEncoder().encode(JSON.stringify(wire));
+    const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream("gzip"));
+    const gz = new Uint8Array(await new Response(stream).arrayBuffer());
+    return encoded.slice(0, 3) + Buffer.from(gz).toString("base64url");
+  };
+  const digestChanged = await Setup.decode(await rewrap(one.value, (wire) => { wire[2][5] = "000000000000"; }), generatorOptions);
+  assert.equal(digestChanged.ok, false, "a digest the patched definition does not match is refused");
+  assert.equal(digestChanged.code, "invalid-envelope");
+  const badIndex = await Setup.decode(await rewrap(one.value, (wire) => { wire[2][4] = ["i", null, [999, ["o"]]]; }), generatorOptions);
+  assert.equal(badIndex.ok, false, "a patch naming an element that does not exist is refused");
+  const forbidden = await Setup.decode(await rewrap(one.value, (wire) => {
+    wire[2][4] = ["o", "~" + Buffer.from("__proto__").toString("base64url"), ["=", 1]];
+  }), generatorOptions);
+  assert.equal(forbidden.ok, false, "a patch cannot reach a forbidden key");
+  const onV4 = await Setup.decode("v4." + (await rewrap(one.value, () => {})).slice(3), generatorOptions);
+  assert.equal(onV4.ok, false, "the patch form exists only on the v5 wire");
+  const otherGenerator = await Setup.decode(one.value, { ...generatorOptions, generatorVersion: "999.0" });
+  assert.equal(otherGenerator.code, "unsupported-version", "a patch link from another generator version is refused as unsupported");
+
+  // An app that reads only v4 (main before #527) refuses the v5 link as a newer, unsupported one, and still reads v4.
+  // test/fixtures/shared-setup-v4-only.cjs is shared-setup.js as it was at b1aeedd8, before #527; it finds its sibling
+  // modules through the globals the app provides.
+  globalThis.RepForgeGenerationIdentity ||= require(join(root, "generation-identity.js"));
+  globalThis.RepForgeExerciseMetrics ||= Metrics;
+  const OldSetup = require(join(root, "test/fixtures/shared-setup-v4-only.cjs"));
+  const oldRefusal = await OldSetup.decode(one.value, generatorOptions);
+  assert.equal(oldRefusal.ok, false);
+  assert.equal(oldRefusal.code, "unsupported-version", "the v4-only reader refuses a v5 link cleanly");
+  assert.equal(oldRefusal.version, 5, "as a newer link (the app says setup.shared.unsupported)");
+  const unchangedRecipe = await Setup.encode(document({ program: { name: "Unchanged", definition: small } }), generatorOptions);
+  assert.equal(unchangedRecipe.form, "recipe");
+  assert.ok(unchangedRecipe.value.startsWith("v4."), "an unedited program is still a v4 recipe link");
+  const oldReads = await OldSetup.decode(unchangedRecipe.value, generatorOptions);
+  assert.equal(oldReads.ok, true, "and the v4-only reader still opens it");
 }
 
 console.log("PASS shared setup v4 protocol contract");

@@ -14380,12 +14380,15 @@ function sharedSetupErrorMessage(result,definition=null){
   if(result?.code==="encoded-too-large")return t(shareSetupWaitsForNextBlock(definition)?"program.share_setup_next_block":"program.share_setup_too_large");
   return t("program.share_setup_invalid")}
 /* Coarse facts about a setup-link attempt for telemetry: the kind of program,
-   the form the codec used, and its size against the link limit. */
+   the form the codec used, and its size against the link limit. The event's
+   forms are frozen (owner, 2026-10-30), so a recipe-plus-edits link (#527)
+   reports form "recipe" with program_kind "generated_edited": only it makes
+   that pair. */
 let shareSetupOutcome=null;
 function shareSetupTelemetry(definition,encoded){
   const generated=definition?.provenance?.source!=="manual"&&typeof definition?.request?.goal==="string";
-  const form=encoded?.form==="recipe"?"recipe":"full";
-  const program_kind=definition?.provenance?.source==="manual"?"manual":generated?(form==="recipe"?"generated":"generated_edited"):"other";
+  const form=encoded?.form==="recipe"||encoded?.form==="patch"?"recipe":"full";
+  const program_kind=definition?.provenance?.source==="manual"?"manual":generated?(encoded?.form==="recipe"?"generated":"generated_edited"):"other";
   const limit=SharedSetup?.MAX_ENCODED_CHARS||3072,chars=Number(encoded?.encodedChars);
   const ratio=Number.isFinite(chars)?chars/limit:Infinity;
   const size_vs_limit=ratio<=.5?"under_half":ratio<=1?"under_limit":ratio<=2?"over_limit":ratio<=4?"over_2x":"over_4x";

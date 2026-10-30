@@ -71,7 +71,7 @@ cover it. **New** means added by this plan; everything else exists.
 | 19 | History, Progress | nav autocapture, `history_session_outcome` |
 | 20 | Settings | `settings_open` autocapture, `settings_changed` (new) |
 | 21 | Program edits after activation | `active_program_edited` (new) |
-| 22 | Sharing, backup, transfer | `share_setup_outcome`, `late_install_transfer`. Backup stays untracked (Plan 045; owner question 6) |
+| 22 | Sharing, backup, transfer | `share_setup_outcome`, `late_install_transfer`. Backup stays untracked (Plan 045; owner question 6). A recipe-plus-edits link (#527, 2026-10-30) reports `program_kind: generated_edited` with `form: recipe`; the event list is frozen for launch, so no new form value |
 
 ## 3. Adoption questions
 
