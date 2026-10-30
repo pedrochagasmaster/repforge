@@ -17,7 +17,8 @@
  *      - Local device state (logs, drafts, history remain on device, no central cloud)
  *      - Setup-link fragment and repforge_setup_v1 cookie transport (7-day cookie, unencrypted proposal, bearer link)
  *      - Separate 1-hour Plan 053 install transfer (Cloudflare EU DO, AES-256-GCM, separate from setup proposal)
- *      - Telemetry consent (opted-in coarse funnels, no payloads, stable anonymous ID, toggleable)
+ *      - Telemetry consent (on by default with an off switch in Settings, coarse funnels, no payloads, pseudonymous
+ *        installation ID; Plan 045 decision 7, #529 finding 4)
  *      - Export and delete controls (JSON export backup, permanent deletion from local storage)
  *      - Limitations (no server backup, bearer link forwarding, browser clearing data loss)
  *   4. Works after online priming then offline via the service-worker shell.
@@ -118,13 +119,11 @@ export const PRIVACY_PILLARS = Object.freeze([
   {
     id: "telemetry",
     name: "Telemetry consent",
-    description: "Opted-in coarse telemetry funnels, anonymous identity, toggleable consent",
+    description: "Coarse telemetry funnels, on by default with an off switch, pseudonymous installation ID",
     enMatcher: (text) =>
-      (text.includes("funnel") || text.includes("opt-in") || text.includes("coarse") || text.includes("consent policy")) &&
-      text.includes("telemetry"),
+      text.includes("telemetry") && text.includes("on by default") && text.includes("pseudonymous") && text.includes("funnel"),
     ptMatcher: (text) =>
-      (text.includes("funil") || text.includes("opt-in") || text.includes("coarse") || text.includes("política de consentimento")) &&
-      text.includes("telemetria"),
+      text.includes("telemetria") && text.includes("ligada por padrão") && text.includes("pseudônimo") && text.includes("funis"),
   },
   {
     id: "export_delete",

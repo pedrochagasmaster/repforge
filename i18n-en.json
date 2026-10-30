@@ -1371,7 +1371,7 @@
   "privacy.setup.title": "Program setup links",
   "privacy.setup.body": "A setup link carries a program proposal in its #setup= fragment. It is an unencrypted bearer link, so anyone you forward it to can read and use it. For the iOS Home Screen handoff, the temporary repforge_setup_v1 cookie carries that proposal to the static host for up to seven days. It never includes workout logs or program history.",
   "privacy.telemetry.title": "Telemetry and consent",
-  "privacy.telemetry.body": "Telemetry is opt-in under the consent policy in Settings. It sends coarse product funnels with a stable anonymous identity, never workout values, exercise names, notes, free text, setup links, transfer tokens, or backup data. You can turn it off at any time.",
+  "privacy.telemetry.body": "Telemetry is on by default, and you can turn it off at any time in Settings. It sends coarse product funnels with a pseudonymous installation ID, never workout values, exercise names, notes, free text, setup links, transfer tokens, or backup data.",
   "privacy.controls.title": "Export and delete",
   "privacy.controls.body": "Use Settings to export a JSON backup before moving or clearing this browser. Delete workout history permanently removes logs and the active draft from local storage while keeping your program and Settings. The separate delete-all action names everything it removes before you confirm.",
   "privacy.limitations.title": "Limitations",
