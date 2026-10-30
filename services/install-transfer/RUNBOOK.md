@@ -539,7 +539,19 @@ sourced:
 5. `TRANSFER_ACK_CONFIRM=I_HAVE_REVIEWED_DELETION TRANSFER_ACK_EVIDENCE_REF=<ref> npm run ops:ack`.
    The latch alert closes its issue on the next pass.
 6. `npm run ops:health-status` shows `createsEnabled: true`; then one
-   controlled transfer.
+   controlled transfer:
+   `TRANSFER_CONTROLLED_CONFIRM=CREATE_ONE_SYNTHETIC_TRANSFER npm run ops:controlled-transfer`
+   (`TRANSFER_SERVICE_URL` comes from the sourced ops env).
+   - **What it does:** it creates one transfer of a synthetic, empty install
+     (no workouts or program, analytics off) through the public API. It claims
+     it, checks the claimed envelope matches, commits, and checks the transfer
+     reads `deleted` and refuses a second claim.
+   - **Output:** fixed step lines ending in `controlled transfer passed`; the
+     token and claim ID never leave memory. It uses one of the create route's
+     5 a minute per IP.
+   - **Afterwards:** the committed transfer's tombstone is disposed by its own
+     alarm (by minute 75), after which the provider listing shows that object
+     with no stored data and the watcher skips it.
 
 ### Deploying the transfer Worker
 
