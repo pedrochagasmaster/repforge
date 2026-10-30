@@ -513,6 +513,19 @@ when.
 | `purge` / `provider-enumeration-v1` | `/_ops/purge-objects`: an object purge failed |
 | `system` / `internal-v1` | inside the Worker: a transfer or registry object's disposal or record-integrity failure |
 
+The same route returns `providerRetries`, which `ops:health-status` prints too:
+counts of the provider steps the watcher retried within a pass, by `path`,
+`errorClass` and `outcome`:
+- `recovered`: the retry succeeded and the pass went on;
+- `failed`: the retry failed too and was reported as a strike or failure.
+
+It also returns `since`, `lastAt`, `total` and `recovered`. It holds counts and
+times only, never resets, and never changes deletion health. The watcher posts
+one `POST /_ops/provider-retry` per retried pass (watchdog bearer), best-effort:
+a Worker without the route logs `provider retry count failed` and the pass
+continues. At one pass every two minutes (720 a day), `total` over the hours
+since `since` gives the transient provider failure rate.
+
 To re-enable after an incident, from the devbox ops checkout with the ops env
 sourced:
 

@@ -66,6 +66,23 @@ const EVIDENCE_SCHEMA = `
   )
 `;
 
+// Provider-step failures the watcher retried within a pass, counted by path,
+// error class and whether the retry recovered. Counts and times only, so the
+// rate of transient listing failures can be measured without logs.
+const PROVIDER_RETRY_TABLE = "transfer_provider_retries";
+const PROVIDER_RETRY_SCHEMA = `
+  CREATE TABLE IF NOT EXISTS ${PROVIDER_RETRY_TABLE} (
+    path TEXT NOT NULL,
+    error_class TEXT NOT NULL,
+    outcome TEXT NOT NULL CHECK (outcome IN ('recovered', 'failed')),
+    count INTEGER NOT NULL,
+    first_at INTEGER NOT NULL,
+    last_at INTEGER NOT NULL,
+    PRIMARY KEY (path, error_class, outcome)
+  )
+`;
+export const PROVIDER_RETRY_OUTCOMES = Object.freeze(["recovered", "failed"]);
+
 const OPS_RATE_SCHEMA = `
   CREATE TABLE IF NOT EXISTS ${OPS_RATE_TABLE} (
     role TEXT PRIMARY KEY,
@@ -191,11 +208,12 @@ export class TransferHealthDurableObject extends DurableObject {
       }
       for (const [column, type] of [["deletion_strikes", "INTEGER NOT NULL DEFAULT 0"], ["last_check_operation", "TEXT"],
         ["last_check_version", "TEXT"], ["last_check_at", "INTEGER"], ["last_check_result", "TEXT"],
-        ["last_check_path", "TEXT"], ["last_check_error", "TEXT"]]) {
+        ["last_check_path", "TEXT"], ["last_check_error", "TEXT"], ["provider_retry_operation", "TEXT"]]) {
         if (!columns.has(column)) ctx.storage.sql.exec(`ALTER TABLE ${TABLE} ADD COLUMN ${column} ${type}`);
       }
       ctx.storage.sql.exec(EVIDENCE_SCHEMA);
       ctx.storage.sql.exec(OPS_RATE_SCHEMA);
+      ctx.storage.sql.exec(PROVIDER_RETRY_SCHEMA);
       ctx.storage.sql.exec(
         `INSERT OR IGNORE INTO ${TABLE} (singleton, deletion_healthy, incident_generation, ack_generation) VALUES (1, 0, 1, 0)`,
       );
@@ -439,6 +457,41 @@ export class TransferHealthDurableObject extends DurableObject {
         evidenceKind: evidence.evidence_ref.startsWith("objects-") ? "object-batch"
           : FAILURE_EVIDENCE_REFS.has(evidence.evidence_ref) ? evidence.evidence_ref : "other",
       } : null,
+      providerRetries: this._providerRetries(),
+    };
+  }
+
+  /** Counts one retried provider step. It never changes deletion health. */
+  async recordProviderRetry({ operationId, failurePath, errorClass, outcome, observedAt, now = Date.now() }) {
+    if (!OPERATION_ID_RE.test(operationId ?? "")) throw new TypeError("operationId is invalid");
+    if (!DEBOUNCED_PATHS.has(failurePath) || !DELETION_ERROR_CLASSES.includes(errorClass) || !PROVIDER_RETRY_OUTCOMES.includes(outcome)) {
+      throw new TypeError("provider retry is invalid");
+    }
+    safeTime(now, "now");
+    assertObservedAt(observedAt, now, HEALTH_SIGNAL_MAX_AGE_MS);
+    this.ctx.storage.transactionSync(() => {
+      if (this._read()?.provider_retry_operation === operationId) return;
+      this.ctx.storage.sql.exec(
+        `INSERT INTO ${PROVIDER_RETRY_TABLE} (path, error_class, outcome, count, first_at, last_at) VALUES (?, ?, ?, 1, ?, ?)
+         ON CONFLICT (path, error_class, outcome) DO UPDATE SET count = count + 1, last_at = MAX(last_at, excluded.last_at)`,
+        failurePath, errorClass, outcome, observedAt, observedAt,
+      );
+      this._execWrite(`UPDATE ${TABLE} SET provider_retry_operation = ? WHERE singleton = 1`, operationId);
+    });
+    return { accepted: true };
+  }
+
+  _providerRetries() {
+    const rows = this.ctx.storage.sql.exec(
+      `SELECT path, error_class, outcome, count, first_at, last_at FROM ${PROVIDER_RETRY_TABLE} ORDER BY path, error_class, outcome`,
+    ).toArray();
+    if (rows.length === 0) return null;
+    return {
+      since: Math.min(...rows.map((row) => row.first_at)),
+      lastAt: Math.max(...rows.map((row) => row.last_at)),
+      total: rows.reduce((sum, row) => sum + row.count, 0),
+      recovered: rows.filter((row) => row.outcome === "recovered").reduce((sum, row) => sum + row.count, 0),
+      counts: rows.map((row) => ({ path: row.path, errorClass: row.error_class, outcome: row.outcome, count: row.count, lastAt: row.last_at })),
     };
   }
 

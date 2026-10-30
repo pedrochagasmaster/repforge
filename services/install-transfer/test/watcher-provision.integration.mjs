@@ -92,7 +92,7 @@ assert.ok(existsSync(opsEnv));
   const server = createServer((request, response) => {
     if (request.url === "/_ops/deletion-evidence") {
       response.writeHead(200, { "Content-Type": "application/json" });
-      response.end(JSON.stringify({ ok: true, incidentGeneration: 1, ackGeneration: 1, lastDeletionFailure: null }));
+      response.end(JSON.stringify({ ok: true, incidentGeneration: 1, ackGeneration: 1, lastDeletionFailure: null, providerRetries: null }));
       return;
     }
     seen = { path: request.url, authorization: request.headers.authorization };
@@ -112,7 +112,7 @@ assert.ok(existsSync(opsEnv));
   assert.equal(status.code, 0, status.output);
   assert.deepEqual(seen, { path: "/_ops/health", authorization: `Bearer ${values.TRANSFER_WATCHDOG_SECRET}` });
   const printed = JSON.parse(status.output);
-  assert.deepEqual(Object.keys(printed), ["checkedAt", "leaseFresh", "deletionHealthy", "billingHealthy", "createsEnabled", "incidentGeneration", "ackGeneration", "lastDeletionCheck", "lastDeletionFailure"]);
+  assert.deepEqual(Object.keys(printed), ["checkedAt", "leaseFresh", "deletionHealthy", "billingHealthy", "createsEnabled", "incidentGeneration", "ackGeneration", "lastDeletionCheck", "lastDeletionFailure", "providerRetries"]);
   assert.equal(printed.lastDeletionFailure, null);
   assert.equal(printed.createsEnabled, true);
   assert.equal(status.output.includes(values.TRANSFER_WATCHDOG_SECRET), false);
