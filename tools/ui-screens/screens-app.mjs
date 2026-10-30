@@ -1634,59 +1634,69 @@ async function focusPerSideTarget(page) {
  * and then a real tap lands on it there (a tap, so the sheet's close takes a quiet focus, as on a phone).
  */
 async function clickWhy(page, selector) {
-  // Measure a settled card: the Focus window's scroll at rest and the card's finite motion finished, so nothing moves
-  // the link between the measure and the tap.
+  // The route's push into the workout (`body.is-pushing`, driven by script, so `getAnimations` does not see it) must be
+  // over first: while it runs, Today still lays out under the shell, and when it ends the shell grows and Focus re-places
+  // its window for the new height, carrying the link away from a spot measured before (#586: at 320 px PT 200% the tap
+  // then landed on the header's exercise name and opened the exercise page).
+  await page.waitForFunction(() => !document.body.classList.contains("is-pushing")
+    && !document.querySelector("#workoutShell")?.classList.contains("is-push-over"), undefined, { timeout: 15000 });
+  // Measure a settled card: the card's finite motion finished, and Focus's fit at rest (the window's scroll, its
+  // height and the floor it was placed for unchanged for six frames), so nothing moves the link between measure and tap.
   await page.evaluate(() => Promise.all(document.getAnimations()
     .filter((animation) => animation.effect?.getTiming?.().iterations !== Infinity).map((animation) => animation.finished.catch(() => {}))));
   await page.evaluate(() => { window.__catalogWhyRest = null; });
   await page.waitForFunction(() => {
-    const context = document.querySelector("#workout .exercise--focus.is-current .fcard__context");
-    const at = context ? Math.round(context.scrollTop) : -1, seen = window.__catalogWhyRest ||= { at: null, still: 0 };
+    const card = document.querySelector("#workout .exercise--focus.is-current"), context = card?.querySelector(".fcard__context");
+    const at = context ? `${Math.round(context.scrollTop)}|${context.clientHeight}|${card.dataset.floorPlaced || ""}` : "-";
+    const seen = window.__catalogWhyRest ||= { at: null, still: 0 };
     if (seen.at === at) seen.still++; else { seen.at = at; seen.still = 0; }
-    return seen.still >= 3;
+    return seen.still >= 6;
   }, undefined, { polling: "raf", timeout: 10000 });
   // The link may sit in Focus's own scroller, so the browser places it (whichever scroller holds it), centred first;
   // the first placement where nothing (a tall header at 200% text, the shelf) covers it is the same every run.
   // Focus answers a scroll of its own window by settling it again (the open set is kept in view), so a placement can
-  // move after it is made. Each placement is read only once the link has held its place for three frames.
-  const point = await page.evaluate(async (sel) => {
-    const link = document.querySelector(sel);
+  // move after it is made. Each placement is read only once the link has held its place for three frames, and the
+  // link is queried afresh each time.
+  const place = () => page.evaluate(async (sel) => {
     const frame = () => new Promise((resolve) => requestAnimationFrame(resolve));
     const settled = async () => {
       let last = null, still = 0;
       for (let tries = 0; tries < 120 && still < 3; tries++) {
         await frame();
-        const top = Math.round(link.getBoundingClientRect().top);
+        const top = Math.round(document.querySelector(sel)?.getBoundingClientRect().top ?? NaN);
         still = top === last ? still + 1 : 0;
         last = top;
       }
-      return link.getBoundingClientRect();
+      return document.querySelector(sel)?.getBoundingClientRect();
     };
     for (const block of ["center", "start", "end"]) {
+      const link = document.querySelector(sel);
+      if (!link) return null;
       window.scrollTo({ top: 0, behavior: "instant" });
       link.scrollIntoView({ block, behavior: "instant" });
       const r = await settled();
+      if (!r || !r.width || !r.height) continue;
       // The middle of the link's box: an edge spot is lost to a one-pixel settle (a 44 px target tapped 12 px in).
       const p = { x: r.left + Math.min(r.width / 2, 40), y: r.top + r.height / 2 };
       if (p.y > 0 && p.y < innerHeight && document.elementFromPoint(p.x, p.y)?.closest(sel)) return p;
     }
     return null;
   }, selector);
-  if (!point) throw new Error(`no clear spot to tap ${selector}`);
-  // Focus can re-place its window a little after a placement has looked still (a refit on a late resize or transition
-  // end), so the tap goes only to a spot the link still holds after a quiet spell; a link that moved is placed again.
-  let spot = point;
-  for (let attempt = 0; attempt < 4; attempt++) {
+  // Focus can re-place its window a little after a placement has looked still (a refit on a late resize), so the tap
+  // goes only to a spot the link, queried afresh, still holds after a quiet spell. A spot it has left is never tapped:
+  // the link is placed again, and a link that holds no spot fails here with what covered it.
+  let spot = await place(), held = null;
+  for (let attempt = 0; attempt < 6 && spot; attempt++) {
     await page.waitForTimeout(160);
-    const now = await page.evaluate(({ sel, p }) => {
+    held = await page.evaluate(({ sel, p }) => {
       const link = document.querySelector(sel), r = link?.getBoundingClientRect();
-      if (!r) return null;
-      const held = document.elementFromPoint(p.x, p.y)?.closest(sel);
-      return { held: !!held && p.y > r.top + 4 && p.y < r.bottom - 4, x: r.left + Math.min(r.width / 2, 40), y: r.top + r.height / 2 };
+      const hit = document.elementFromPoint(p.x, p.y);
+      return { held: !!r && r.width > 0 && !!hit?.closest(sel) && p.y > r.top + 4 && p.y < r.bottom - 4, hit: hit ? `${hit.tagName}.${hit.className}` : null };
     }, { sel: selector, p: spot });
-    if (now?.held) break;
-    if (now && now.y > 0 && now.y < (page.viewportSize()?.height || 844)) spot = { x: now.x, y: now.y };
+    if (held.held) break;
+    spot = await place();
   }
+  if (!spot || !held?.held) throw new Error(`no spot ${selector} holds to tap: ${JSON.stringify({ spot, held })}`);
   await page.mouse.click(spot.x, spot.y);
   // A tap that opens nothing names what it hit, so a failure carries its own evidence.
   const opened = await page.waitForSelector("#whySheet.is-open", { timeout: 15000 }).then(() => true, () => false);
