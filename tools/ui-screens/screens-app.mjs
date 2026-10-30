@@ -1630,12 +1630,25 @@ async function clickWhy(page, selector) {
   }, undefined, { polling: "raf", timeout: 10000 });
   // The link may sit in Focus's own scroller, so the browser places it (whichever scroller holds it), centred first;
   // the first placement where nothing (a tall header at 200% text, the shelf) covers it is the same every run.
-  const point = await page.evaluate((sel) => {
+  // Focus answers a scroll of its own window by settling it again (the open set is kept in view), so a placement can
+  // move after it is made. Each placement is read only once the link has held its place for three frames.
+  const point = await page.evaluate(async (sel) => {
     const link = document.querySelector(sel);
+    const frame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+    const settled = async () => {
+      let last = null, still = 0;
+      for (let tries = 0; tries < 120 && still < 3; tries++) {
+        await frame();
+        const top = Math.round(link.getBoundingClientRect().top);
+        still = top === last ? still + 1 : 0;
+        last = top;
+      }
+      return link.getBoundingClientRect();
+    };
     for (const block of ["center", "start", "end"]) {
       window.scrollTo({ top: 0, behavior: "instant" });
       link.scrollIntoView({ block, behavior: "instant" });
-      const r = link.getBoundingClientRect();
+      const r = await settled();
       const p = { x: r.left + Math.min(r.width / 2, 40), y: r.top + Math.min(r.height / 2, 12) };
       if (p.y > 0 && p.y < innerHeight && document.elementFromPoint(p.x, p.y)?.closest(sel)) return p;
     }
