@@ -7,7 +7,7 @@ and owner gates only.
 
 - **Plan number:** 059
 - **Phase:** 8 — Public-launch validation
-- **Status:** Planned; implementation has not started
+- **Status:** Refreshed (2026-10-30); owner decisions recorded below. Implementation has not started and stays on hold (#425) until #527 lands and install transfer is re-enabled; then 059-P1 pins the candidate SHA.
 - **Owner approval state:** Validation method is approved; final launch sign-off belongs to the owner
 - **Depends on:** Plans 049–058, the durable-state bridge, their architecture acceptance deltas, all existing owner gates, and completion or explicit owner disposition of the post-058 candidate-construction work selected in [`docs/post-058-open-pr-clearance-sequence.md`](../docs/post-058-open-pr-clearance-sequence.md), including the merged unified redesign ([Plan 064](./064-unified-redesign-convergence.md)). Plan 059 validates the resulting candidate; it does not authorize any implementation plan early by itself, and Plan 064 produces pre-059 implementation evidence only.
 - **Blocks:** Public-launch UI/UX acceptance; it does not authorize release/merge by itself
@@ -17,6 +17,91 @@ and owner gates only.
 - **Affected surfaces:** Entire shipped PWA, complete catalog, browser/installed modes, service worker/offline, accessibility, telemetry/privacy/release documentation
 - **Complexity:** High
 - **Risk:** Critical — this is the final evidence boundary before public launch
+
+## Proposed refresh (2026-10-30)
+
+The owner asked for this plan to match the app as it now is, for review before anything runs. The plan was written before
+the 10-14 hold. Its method (one immutable candidate SHA, a SHA-bound evidence manifest, a risk-based catalog and scroll
+matrix, browser accessibility, a telemetry freeze, human-only physical-device evidence, owner sign-off) still fits and is
+kept. What changed is what it validates and which gates are still open. Nothing in this section executes anything.
+
+### What shipped since the hold (main `b1aeedd8`, 122 merged PRs since 2026-10-14)
+
+- **Native feel (Plan 075, ADR 0023; #477 phases 1–5):** press feedback (#478), sheets with detents (#479), controls
+  (#482), the Load/Reps wheel (#483, #503), navigation with the history back-swipe and scroll-edge bar (#484), large text
+  (#499), and the fidelity pass (#485).
+- **Direction D / layout D for Focus:** the exercise in the header, the smaller shelf and the two-row table (#427, #436,
+  #440, #443, #474).
+- **Native UI kit and app-wide fidelity audit:** #504, kits A–C (#510, #509, #512), pills (#511), Today/Settings to the
+  prototype (#539), and the strict catalog verify with an honest refresh of every drifted frame (#514).
+- **Plans 067–076:** deterministic generation across split families (#422, Plan 067/073), the program editor A (Plan 074,
+  ADR 0021: #433, #437, #442, #559, #560), the onboarding engine slices (#498, #500, #501), variable block length 4–10
+  weeks (Plan 076: #565, #566), and Program Lab (#461).
+- **Workout surfaces:** the rest timer redesign and its text-only tab (#508, #540, #570), the Focus hero, evidence line
+  and visible logged sets (#550), prefill without a suggestion (#569), one live card on Today and the mini bar (#502,
+  #506), Session details (#548), and large-text banners giving way (#557).
+- **Telemetry (Plan 071, #529):** `first_set_logged` on the first working set (#551), consent-eligible startup events
+  kept through SDK load (#555), person processing off through the privacy filters (#558), and the live privacy findings
+  for the owner (#556). The consent policy is **on by default with an off switch** (Plan 045 decision 7); the Privacy
+  copy is being corrected in #575.
+- **CI (ADR 0022, ADR 0024):** fast PR lane plus a targeted full lane staged behind it (#460, #490), CI-captured frames
+  (`tools/fetch-ci-captures.mjs`), strict zero-threshold catalog verify (#514), the test retirement ledger, sharded
+  UI-system sweeps (#563), and fail-closed aggregate checks (#530).
+
+### Scope changes this refresh proposes
+
+1. **Candidate inventory, not the 049–058 list.** The candidate is everything above on one SHA. "Depends on Plans
+   049–058" stays as history; the live dependency is the owner's 2026-10-28 triage order in `docs/backlog.md` plus the
+   open gates below.
+2. **The catalog is already strict.** Since #514 every PR verifies its representative matrix with zero tolerance and
+   ci-full verifies every frame on main. 059-P2 no longer builds the catalog gate; it audits the live matrix
+   (230 screens / 1,331 frames on `b1aeedd8`) against the risk axes below and adds only what is missing.
+3. **New surfaces join the matrix and the physical journeys:**
+   - the wheel pickers and press feedback;
+   - sheets with detents and the history back-swipe;
+   - the Focus hero, the rest tab and the rest sheet;
+   - the mini bar and the live card;
+   - Session details;
+   - the program editor A, variable-length blocks and Program Lab.
+4. **Large text is a product mode now** (Plan 075 phase 5, #541): the 200% evidence must cover the large-text
+   rules (caps, the open set first where both cannot fit) rather than only overflow.
+5. **Telemetry freeze matches shipped Plan 071:** the allowlist is the events and properties `telemetry.js` already
+   enforces, under the default-on consent with its off switch, not an "opt-in" model (see Telemetry freeze below).
+6. **Revision contract:** `transitionAssets` in `test/exercise-library.mjs` now protects 16 query-versioned scripts, not
+   six. 059-P6 verifies that list against `index.html` and `sw.js` at the candidate, not a number written here.
+
+### Gates still open (from #425, `docs/backlog.md` and open issues)
+
+- **Physical devices, unconfirmed since the hold:**
+  - setup link to the installed app;
+  - #304 Android installed launch (code in #305; physical WebAPK acceptance outstanding);
+  - #300 the Focus keyboard and the load field;
+  - device checks of #427, #436, #440 and the 10-21 batch;
+  - the new engine sanity check (#422).
+
+  The UI shipped since (native feel, kits, Focus hero, rest tab) has had no recorded device pass at all.
+- **#315:** the owner's review of the PT exercise-name drafts (1,278 names) is open; the owner chose to launch and
+  review later (decision 3).
+- **Install transfer is off** after the 2026-10-24 deletion-health incident. It is being hardened and re-enabled before
+  the candidate (decision 2); critical journey 3 runs with it on.
+- **#527 and #387:** multi-week edited and Build programs often do not fit a setup link (file-only fallback). The owner
+  chose to fix this before launch (decision 1), and the candidate waits for it (decision 6).
+- **#528** is fixed by #536 but still open, so close it. **#458** is in #574.
+- **#338** (a rare renderer crash) has diagnostics in place but is not closed.
+
+### Owner decisions (decided 2026-10-30)
+
+1. **Freeze now.** Bug fixes only until launch, with one exception: #527/#387, lossless recipe-plus-edits setup links
+   (the owner chose "fix before launch").
+2. **Install transfer** is being hardened and re-enabled before the candidate (front 3). It blocks pinning the
+   candidate SHA, so critical journey 3 runs with transfer on.
+3. **#315 PT exercise names:** launch with the drafts, and review later.
+4. **Device scope:** an iPhone (Safari and installed PWA, VoiceOver) and an Android phone (Chrome and installed PWA,
+   TalkBack). The large-text and wheel journeys run on the iPhone only.
+5. **Telemetry:** default-on with the off switch in Settings, and the current event list in `telemetry.js` frozen as the
+   launch allowlist. #556's three PostHog project settings stay deferred.
+6. **Release:** pin the candidate SHA (059-P1) only after #527 lands and transfer is re-enabled. The hold remains until
+   then.
 
 ## Problem statement
 
@@ -48,14 +133,14 @@ Acceptance explicitly protects Taurifer's identity/palette, token-swap themes, S
 
 ## Current-state audit
 
-- Audit baseline (historical): `fe4bf52c`, 72 manifest screens, 221 PNG frames. Current main `c3491c5e` is **75 screens / 317 frames** with Plans 049/050/051 merged; Plans 052–058 change it further. The candidate SHA and its live counts are pinned by 059-P1, not by any figure in this plan.
-- Baseline manifest distribution: 31 `standard`, 26 `localized`, 7 `accessibility`, 8 `customAccessibility`; English 200% exists only in selected states and PT-BR + 200% does not.
-- `tools/check-ui-screens.mjs` verifies manifest/registration/dimensions. `tools/compare-ui-screens.mjs` enforces image drift. `test/ui-screens.mjs` checks coverage/mobile semantics. Plan 050 extends this with overflow/key/matrix gates; Plan 058 adds role/contrast inventory.
+- Audit baseline (historical): `fe4bf52c`, 72 manifest screens, 221 PNG frames; `c3491c5e`, 75 screens / 317 frames. **Refresh (2026-10-30):** main `b1aeedd8` is **230 screens / 1,331 frames**. The candidate SHA and its live counts are pinned by 059-P1, not by any figure in this plan.
+- Manifest distribution on `b1aeedd8`: 113 `demandingText` (EN and PT-BR at 200% included), 65 `localized`, 32 `standard`, 16 `accessibility`, 2 `programlab`, 1 `largeText`, 1 `demandingDockText`. PT-BR + 200% now exists for every demanding state.
+- `tools/check-ui-screens.mjs` verifies manifest/registration/dimensions. `tools/compare-ui-screens.mjs` enforces image drift. `test/ui-screens.mjs` checks coverage/mobile semantics. Plan 050 extends this with overflow/key/matrix gates; Plan 058 adds role/contrast inventory. **Refresh:** since #514 the PR lane verifies its representative matrix (`tools/critical-ui.mjs`) at zero tolerance, ci-full verifies every frame on main, frames are CI-rendered (`tools/fetch-ci-captures.mjs`), and `tools/check-ui-system.mjs` audits roles in eight shards (#563).
 - `body` already reserves dock/safe-area space, so apparent screenshot overlap is not a defect until real scroll-end reachability fails.
 - Browser boot tests use `window.__repforgeBooted`; no-program devices correctly never create a day tab.
 - Existing browser suites are strong; the planning-baseline counts (Focus 116, History 40, program entry 287, install modes 348, accessibility 171, session summary 45) are historical — 059-P1 re-measures them on the candidate SHA. Several tests will be replaced because they encode old List/tour/first-run behavior.
 - Plan 041's implemented accessibility hardening still lacks complete physical-device evidence; this phase absorbs the outstanding launch evidence rather than claiming it from automation.
-- The service-worker shell and the **six** protected script query revisions (`program-compiler.js`, `program-entry.js`, `program-entry-adapter.js`, `shared-setup.js`, `workout-draft.js`, `app.js`) must remain in lockstep at the live revision (`repforge-v188` / `?v=188` on `c3491c5e`), not any documented number.
+- The service-worker shell and the protected script query revisions must remain in lockstep at the live revision, not any documented number. **Refresh:** `transitionAssets` in `test/exercise-library.mjs` now protects 16 query-versioned scripts (`app.js`, the program compiler/editor/review/entry/adapter/transition, `shared-setup.js`, `workout-draft.js`, `motion-layer.js`, `progress-model.js`, the generation modules and the catalogs); `CACHE` is `repforge-v568` on `b1aeedd8`.
 
 ## Architecture
 
@@ -190,6 +275,8 @@ Use deterministic synthetic data on shared artifacts/devices. Do not record toke
 
 ## Telemetry freeze
 
+**Refresh (2026-10-30):** Plan 071 shipped the closed event and property boundary in `telemetry.js`, enforced by `test/telemetry-unit.mjs`, `test/telemetry-leakage.mjs` and `test/telemetry-runtime.mjs`; the consent policy is on by default with an off switch in Settings (Plan 045 decision 7), and the identity is a pseudonymous installation ID. 059-P4 freezes that shipped boundary on the candidate SHA and inspects real network output; it does not re-derive an allowlist. "Consent-off emits nothing" below still holds.
+
 Create one allowlist/schema document and executable payload test for the events already approved/implemented by prior plans. Allowed categories are:
 
 - comprehension/task funnels: landing → chooser → route → candidate → activation; guide shown/dismissed/completed;
@@ -244,6 +331,7 @@ Run, at minimum, current equivalents of:
 - `node test/generative/run.mjs --profile ci`
 - complete browser suite from the pinned `test/` environment
 - static service-worker/cache inventory/revision gate
+- **Refresh:** the authoritative broad evidence is a green `ci` and `ci-full` on the candidate SHA (ADR 0022/0024; `docs/ci.md`), with every frame verified; local `packet` runs are supplemental
 
 Record exact commands/results/SHA; do not substitute a proxy check for a real critical flow.
 
