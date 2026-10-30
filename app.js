@@ -21912,7 +21912,7 @@ function landingFeatureScreens(){
         `<span class="firstrun-fx__mark${ok?"":" is-likely"}"></span><span><b>${esc(name(id))}</b><small>${esc(t(ok?"import.status.exact":"import.status.probable"))}</small></span></p>`).join("")+
     `</div>${tap}</div>`;
   /* 5 · The gym floor */
-  const nav=[["nav.log","home"],["nav.stats","stats"],["nav.history","history"],["nav.program","program"]];
+  const nav=[["nav.log","log"],["nav.stats","stats"],["nav.history","history"],["nav.program","program"]];
   const monthName=m=>{const s=t("month."+m);return s?s.charAt(0).toUpperCase()+s.slice(1):s};
   const histRow=([iso,day,mus,setCount,vol,prs])=>{const d=new Date(`${iso}T12:00:00Z`);
     return`<div class="firstrun-fx__hrow"><span class="firstrun-fx__hd1"><small>${esc(t("weekday."+d.getUTCDay()))}</small><b>${esc(n(d.getUTCDate()))}</b></span>`+
@@ -21930,7 +21930,7 @@ function landingFeatureScreens(){
       `<span class="minibar__text"><span class="minibar__title"><span class="minibar__rest">${esc(t("rest.inline.label"))} <span class="minibar__clock firstrun-fx__clock"></span></span></span>`+
       `<span class="minibar__sub">${esc(t("minibar.next",{n:2,exercise:name("highRow")}))}</span></span>`+
       `<span class="minibar__actions"><span class="minibar__chip">${esc(t("rest.sheet.plus"))}</span><span class="minibar__go">${esc(t("minibar.resume"))}</span></span></div>`+
-    `<div class="firstrun-fx__dock">${nav.map(([key,icon],i)=>`<span class="${i===2?"is-on":""}"><span class="firstrun-fx__navicon firstrun-fx__navicon--${icon}"></span>${esc(t(key))}</span>`).join("")}</div></div>`;
+    `<div class="firstrun-fx__dock">${nav.map(([key,icon],i)=>`<span class="${i===2?"is-on":""}"><span class="nav__icon" data-i="${icon}"></span>${esc(t(key))}</span>`).join("")}</div></div>`;
   const icons=Array.from({length:16},(_,k)=>k===6?"":`<span class="firstrun-fx__icon" style="left:${28+(k%4)*90.7}px;top:${72+Math.floor(k/4)*98}px"></span>`).join("");
   const s5=`<div class="firstrun-fx firstrun-fx--gym">`+
     `<div class="firstrun-fx__home">${icons}<span class="firstrun-fx__icon firstrun-fx__icon--app"><img src="icons/icon-192.png" alt="" width="62" height="62" decoding="async"></span>`+
