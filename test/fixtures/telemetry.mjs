@@ -90,6 +90,11 @@ export const VALID_ALPHA_EVENTS = Object.freeze([
 export const INVALID_EVENTS = Object.freeze([
   ["unknown_event", {}],
   ["workout_completed", {}],
+  ["landing_action", { action: "proof_chapter", chapter: 0 }],
+  ["landing_action", { action: "proof_chapter", chapter: 5 }],
+  ["landing_action", { action: "proof_chapter", chapter: 2.5 }],
+  ["landing_action", { action: "proof_chapter", chapter: "2" }],
+  ["landing_action", { action: "proof_chapter", chapter: 2, label: "Rest at a glance" }],
   ["first_set_logged", { exercise_id: "sq_bb" }],
   ["program_import_unsupported_concept", { category: "unknown_user_text" }],
   ["program_import_unsupported_concept", { category: "tempo", free_text: "private" }],

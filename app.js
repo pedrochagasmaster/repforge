@@ -21121,7 +21121,7 @@ function installSurface(source){
   if(id.startsWith("firstRunInstall"))return"landing";
   return firstRunActive?"landing":"banner"}
 function reportInstall(surface,mode,outcome){captureEvent("install_prompt_outcome",{surface,mode,outcome})}
-function reportLandingAction(action){captureEvent("landing_action",{action})}
+function reportLandingAction(action,detail={}){captureEvent("landing_action",{action,...detail})}
 async function triggerInstall(source="automatic"){
   const surface=installSurface(source);
   const requestSource=source==="manual-settings"?"manual-settings":"automatic";
@@ -21776,8 +21776,10 @@ function createLandingController(root){
     if(landingDemo){landingDemo.laid=false;paint(play.t)}}
   function mountPlayer(){
     if(!glass||!screen||!chapters.length)return;
+    // Only a tap reports the chapter (owner, 2026-10-30); the player moving on by itself reports nothing.
     chapters.forEach((item,i)=>on(item.querySelector("[data-chapter]"),"click",()=>{
-      play.current=-1;paint(i*LANDING_DEMO.chapter+(reduced()?0:.001))}));
+      play.current=-1;paint(i*LANDING_DEMO.chapter+(reduced()?0:.001));
+      reportLandingAction("proof_chapter",{chapter:i+1})}));
     if(typeof ResizeObserver!=="undefined"){const ro=new ResizeObserver(fit);reg.obs.push(ro);ro.observe(glass)}
     if(typeof IntersectionObserver!=="undefined"){
       const io=new IntersectionObserver(entries=>{play.seen=entries[entries.length-1].isIntersecting;syncPlay()},{root,threshold:.25});
