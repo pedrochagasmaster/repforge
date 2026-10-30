@@ -12718,7 +12718,8 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
     const target=(definition.days||[]).find(item=>item.name===edit.targetDay);
     if(!target)return false;
     for(const slot of target.slots||[])dropPendingSuggestLoads(document,slot.id);
-    target.kind="rest";target.slots=[];
+    // A removed day is a rest day named as generated rest days are (#458): no hidden name is left to block a rename.
+    target.kind="rest";target.slots=[];target.name="Rest";
   }
   const checked=canonicalProgramDefinition(definition,document.customExercises||[]);
   if(!checked)return false;

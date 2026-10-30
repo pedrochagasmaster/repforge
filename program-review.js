@@ -375,10 +375,13 @@
     return null;
   }
 
+  /* Day names are unique except among rest days (owner, 2026-10-30, #458): every generated rest day is "Rest", so a
+     rest day may share its name with another rest day, while a training day may share it with no day of either kind. */
   function duplicateDayName(definition, day, name, ctx) {
     const wanted = String(name || "").trim();
     return definition.days.some((other) => {
       if (other.id === day.id) return false;
+      if (day.kind === "rest" && other.kind === "rest") return false;
       const stored = typeof other.name === "string" ? other.name.trim() : "";
       const shown = typeof ctx?.dayName === "function" ? ctx.dayName(other, definition) : null;
       return stored === wanted || (typeof shown === "string" && shown.trim() === wanted);

@@ -153,6 +153,52 @@ try {
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
   assert.deepEqual(await dayTabs(page), english, "language and custom day name survive reload");
+
+  // #458 (owner, 2026-10-30): names repeat only among rest days. Every generated rest day is "Rest", and a removed day
+  // becomes one, so its old name is free again; two training days may still not share a name.
+  page.on("dialog", (dialog) => dialog.accept().catch(() => {}));
+  const before = await stored(page);
+  const restNames = (state) => state.programMeta.programDefinition.days.filter((day) => day.kind === "rest").map((day) => day.name);
+  assert.ok(restNames(before).length >= 2 && restNames(before).every((name) => name === "Rest"), "the generated program keeps Rest for every rest day");
+  const removed = authored[3];
+  await view(page, "program");
+  await openInstalledEditor(page);
+  await showEditorDay(page, removed);
+  await page.locator(`${EDITOR} [data-role="day-menu"][data-day="${removed}"]`).click();
+  await page.locator(`${SHEET}.is-open [data-role="day-action"][data-action="remove-day"]`).click();
+  await waitForAsyncCondition(page, async (day) => {
+    const debug = await window.__debugProgramEditor?.();
+    return !(debug?.session?.document?.program || []).some((row) => row.day === day);
+  }, removed, { timeout: 5000 });
+  await applyInstalledEditor(page);
+  const afterRemove = await stored(page);
+  assert.deepEqual(trainingDayNames(afterRemove), ["My upper day", ...authored.slice(1, 3)], "removing a day applies cleanly");
+  assert.ok(restNames(afterRemove).every((name) => name === "Rest") && restNames(afterRemove).length === restNames(before).length + 1,
+    "the removed day becomes a rest day named Rest, beside the other Rest days");
+  // Its old name is free: no hidden rest day holds it.
+  await openInstalledEditor(page);
+  const reuse = await renameField(authored[2]);
+  await reuse.fill(removed);
+  await reuse.press("Enter");
+  await waitForAsyncCondition(page, async (day) => {
+    const debug = await window.__debugProgramEditor?.();
+    return (debug?.session?.document?.program || []).some((row) => row.day === day);
+  }, removed, { timeout: 5000 });
+  // Two training days still may not share a name.
+  const clash = await renameField(authored[1]);
+  await clash.fill(removed);
+  await clash.press("Enter");
+  await page.waitForSelector(`${SHEET} #programEditorRenameError`, { timeout: 5000 });
+  await clash.fill("");
+  await clash.press("Enter");
+  await page.waitForSelector(SHEET, { state: "hidden", timeout: 5000 });
+  await applyInstalledEditor(page);
+  const reused = await stored(page);
+  assert.deepEqual(trainingDayNames(reused), ["My upper day", authored[1], removed], "a removed day's name can be given to another training day, and a duplicate training name is still refused");
+  // A backup of the program reads back with its repeated rest days and its training names as they are.
+  const restored = await page.evaluate((key) => parseBackupFile(localStorage.getItem(key)), KEY);
+  assert.deepEqual(restored?.programMeta?.programDefinition?.days.map((day) => [day.kind, day.name]),
+    reused.programMeta.programDefinition.days.map((day) => [day.kind, day.name]), "the backup reads back the repeated rest days");
   await context.close();
   console.log("PASS browser day names: generated days follow the app language; a custom rename survives language switch and reload");
 } finally {
