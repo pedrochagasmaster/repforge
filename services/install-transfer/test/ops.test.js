@@ -205,6 +205,94 @@ describe("authenticated operations boundary", () => {
     expect(retry.status).toBe(200);
   });
 
+  function flakyObjects(errorFor) {
+    const calls = [];
+    const namespace = {
+      idFromString: (id) => id,
+      get: (id) => ({
+        async purgeDue() {
+          calls.push(id);
+          const error = errorFor(id, calls.filter((call) => call === id).length);
+          if (error) throw error;
+          return { purged: true };
+        },
+      }),
+    };
+    return { calls, objects: { jurisdiction: () => namespace } };
+  }
+
+  const platformError = (fields) => Object.assign(new Error("Durable Object reset because its code was updated."), fields);
+
+  it("retries an object purge once when the platform marks the error retryable", async () => {
+    const ids = ["c".repeat(64), "d".repeat(64)];
+    const { calls, objects } = flakyObjects((_id, attempt) => (attempt === 1 ? platformError({ retryable: true }) : null));
+    const before = await json(await worker.fetch(request("/_ops/deletion-evidence", "GET", undefined, "watchdog"), env));
+    const response = await worker.fetch(request("/_ops/purge-objects", "POST", {
+      operationId: "ops-purge-objects-retryable-20261030",
+      objectIds: ids,
+    }, "purge"), { ...env, TRANSFER_OBJECTS: objects });
+    expect(await json(response)).toEqual({ examined: 2, purged: 2, deferred: 0, failed: 0 });
+    expect(calls).toEqual([ids[0], ids[0], ids[1], ids[1]]);
+    const after = await json(await worker.fetch(request("/_ops/deletion-evidence", "GET", undefined, "watchdog"), env));
+    expect(after.incidentGeneration).toBe(before.incidentGeneration);
+  });
+
+  it("counts an overloaded, non-retryable or repeated failure as failed and records it", async () => {
+    for (const [index, errorFor] of [
+      () => platformError({ retryable: true, overloaded: true }),
+      () => platformError({}),
+      (_id, attempt) => platformError({ retryable: attempt <= 2 }),
+    ].entries()) {
+      const { calls, objects } = flakyObjects(errorFor);
+      const before = await json(await worker.fetch(request("/_ops/deletion-evidence", "GET", undefined, "watchdog"), env));
+      const response = await worker.fetch(request("/_ops/purge-objects", "POST", {
+        operationId: `ops-purge-objects-failing-${index}-20261030`,
+        objectIds: ["e".repeat(64)],
+      }, "purge"), { ...env, TRANSFER_OBJECTS: objects });
+      expect(await json(response)).toEqual({ examined: 1, purged: 0, deferred: 0, failed: 1 });
+      expect(calls).toHaveLength(index === 2 ? 2 : 1);
+      const after = await json(await worker.fetch(request("/_ops/deletion-evidence", "GET", undefined, "watchdog"), env));
+      expect(after.incidentGeneration).toBe(before.incidentGeneration + 1);
+      expect(after.lastDeletionFailure).toEqual({
+        actor: "purge",
+        checkVersion: "provider-enumeration-v1",
+        observedAt: expect.any(Number),
+        evidenceKind: "object-batch",
+      });
+    }
+  });
+
+  it("reports the failure that raised the current generation until it is acknowledged", async () => {
+    const anonymous = await worker.fetch(request("/_ops/deletion-evidence", "GET"), env);
+    expect(anonymous.status).toBe(404);
+    const posted = await worker.fetch(request("/_ops/deletion-evidence", "POST", {}, "watchdog"), env);
+    expect(posted.status).toBe(404);
+
+    const failedAt = Date.now();
+    const failed = await worker.fetch(request("/_ops/heartbeat", "POST", { ...evidence("deletion", failedAt, "fail"), checkVersion: "provider-enumeration-failure-v1", evidenceRef: "provider-enumeration-failed" }, "watchdog"), env);
+    expect(failed.status).toBe(200);
+    const expected = { actor: "watchdog", checkVersion: "provider-enumeration-failure-v1", observedAt: failedAt, evidenceKind: "provider-enumeration-failed" };
+    const read = async () => json(await worker.fetch(request("/_ops/deletion-evidence", "GET", undefined, "watchdog"), env));
+    const latched = await read();
+    expect(Object.keys(latched).sort()).toEqual(["ackGeneration", "incidentGeneration", "lastDeletionFailure", "ok"]);
+    expect(latched.lastDeletionFailure).toEqual(expected);
+
+    // Later passing checks do not overwrite it while the incident is open.
+    await makeFreshEvidence();
+    expect((await read()).lastDeletionFailure).toEqual(expected);
+
+    const ack = await worker.fetch(request("/_ops/deletion-ack", "POST", {
+      operationId: "ops-evidence-ack-operation-20261030",
+      generation: latched.incidentGeneration,
+      checkVersion: "ack-test-v1",
+      proofNonce: "Q".repeat(32),
+      observedAt: Date.now(),
+      evidenceRef: "fixture-ack",
+    }, "ack"), env);
+    expect(ack.status).toBe(200);
+    expect((await read()).lastDeletionFailure).toBeNull();
+  });
+
   it("purges only fixed-namespace object IDs and returns counts without identifiers", async () => {
     const objectId = env.TRANSFER_OBJECTS.idFromName("ops-object-purge-empty").toString();
     const body = {

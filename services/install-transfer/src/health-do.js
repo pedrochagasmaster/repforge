@@ -29,6 +29,8 @@ export const DELETION_ERROR_CLASSES = Object.freeze([
 // proves data was not deleted (incomplete purges, due rows) latches at once.
 const TRANSIENT_PROVIDER_ERRORS = new Set(["request-failed", "rejected", "invalid-response"]);
 const DEBOUNCED_PATHS = new Set(["provider-list", "provider-purge"]);
+const FAILURE_ACTORS = new Set(["watchdog", "purge", "system"]);
+const FAILURE_EVIDENCE_REFS = new Set(["provider-enumeration-failed", "purge-owner-override-20261014", "internal"]);
 const OPERATION_ID_RE = /^[A-Za-z0-9_-]{16,96}$/u;
 const ACTOR_RE = /^[A-Za-z0-9_-]{1,32}$/u;
 const VERSION_RE = /^[A-Za-z0-9._-]{1,32}$/u;
@@ -413,6 +415,31 @@ export class TransferHealthDurableObject extends DurableObject {
         path, errorClass: failureClass, strikes: strikes + 1 });
     });
     return this.snapshot({ now });
+  }
+
+  /**
+   * The failure that raised the current incident generation, read from the
+   * persisted deletion evidence row. Passes never overwrite that row while an
+   * incident is open (only an acknowledged service records a positive check),
+   * and an acknowledgement replaces it, so a `fail` row is the latest failure.
+   * The evidence reference is reduced to its kind: a purge batch's digest is
+   * reported as `object-batch`, never its value.
+   */
+  async deletionEvidence({ now = Date.now() } = {}) {
+    const snapshot = await this.snapshot({ now });
+    const evidence = this._readEvidence("deletion");
+    const failed = evidence?.result === "fail" && snapshot.incidentGeneration > snapshot.ackGeneration;
+    return {
+      incidentGeneration: snapshot.incidentGeneration,
+      ackGeneration: snapshot.ackGeneration,
+      lastDeletionFailure: failed ? {
+        actor: FAILURE_ACTORS.has(evidence.actor) ? evidence.actor : "other",
+        checkVersion: evidence.check_version,
+        observedAt: evidence.observed_at,
+        evidenceKind: evidence.evidence_ref.startsWith("objects-") ? "object-batch"
+          : FAILURE_EVIDENCE_REFS.has(evidence.evidence_ref) ? evidence.evidence_ref : "other",
+      } : null,
+    };
   }
 
   async markDeletionUnhealthy({ observedAt = Date.now(), now = Date.now(), code } = {}) {

@@ -142,6 +142,7 @@ export async function runWatcherPass(env, { now = () => Date.now() } = {}) {
     examined: purge.examined,
     purged: purge.purged,
     providerObjects: enumerated.examined,
+    providerSkipped: enumerated.skipped,
     providerPurged: enumerated.purged,
     providerDeferred: enumerated.deferred,
     providerFailed: enumerated.failed,
@@ -157,6 +158,7 @@ async function enumerateAndPurge(ops, config) {
   const seenIds = new Set();
   const pendingIds = [];
   const totals = { purged: 0, deferred: 0, failed: 0 };
+  let skipped = 0;
   const purgeBatch = async (objectIds) => {
     const result = await postPurgeBatch(ops, config, objectIds);
     for (const key of Object.keys(totals)) totals[key] += result[key];
@@ -169,12 +171,16 @@ async function enumerateAndPurge(ops, config) {
     for (const objectId of page.objectIds) {
       if (seenIds.has(objectId)) throw listError("invalid-response", "provider enumeration repeated an object");
       seenIds.add(objectId);
-      pendingIds.push(objectId);
+      // An entry the provider lists with no stored data has nothing to delete
+      // (owner decision, 2026-10-30): it is counted, not instantiated. An entry
+      // without the flag is purged as before.
+      if (page.emptyIds.has(objectId)) skipped += 1;
+      else pendingIds.push(objectId);
     }
     while (pendingIds.length >= PURGE_BATCH) await purgeBatch(pendingIds.splice(0, PURGE_BATCH));
     if (page.cursor === null) {
       if (pendingIds.length > 0) await purgeBatch(pendingIds.splice(0));
-      return { examined: seenIds.size, ...totals };
+      return { examined: seenIds.size, skipped, ...totals };
     }
     if (seenCursors.has(page.cursor)) throw listError("invalid-response", "provider enumeration cursor repeated");
     seenCursors.add(page.cursor);
@@ -228,12 +234,14 @@ function parseProviderPage(text) {
   const value = parseJson(text, "provider enumeration response");
   if (!value || value.success !== true || !Array.isArray(value.result)) throw new Error("provider enumeration response is not successful");
   if (value.result.length > PROVIDER_PAGE_LIMIT) throw new Error("provider page exceeded its limit");
+  const emptyIds = new Set();
   const objectIds = value.result.map((entry) => {
     if (!entry || typeof entry !== "object" || Array.isArray(entry)
       || typeof entry.id !== "string" || !/^[0-9a-f]{64}$/u.test(entry.id)
       || ("hasStoredData" in entry && typeof entry.hasStoredData !== "boolean")) {
       throw new Error("provider object entry is invalid");
     }
+    if (entry.hasStoredData === false) emptyIds.add(entry.id);
     return entry.id;
   });
   const info = value.result_info;
@@ -245,10 +253,10 @@ function parseProviderPage(text) {
       || (totalCount !== undefined && (!Number.isSafeInteger(totalCount) || totalCount > value.result.length))) {
       throw new Error("provider pagination ended without a cursor");
     }
-    return { objectIds, cursor: null };
+    return { objectIds, emptyIds, cursor: null };
   }
   if (typeof next !== "string" || next.length > 512 || !/^[\x21-\x7e]+$/u.test(next)) throw new Error("provider cursor is invalid");
-  return { objectIds, cursor: next };
+  return { objectIds, emptyIds, cursor: next };
 }
 
 async function reportDeletionFailure(ops, config, observedAt, checkVersion, evidenceRef, { failurePath, errorClass }) {
@@ -477,6 +485,6 @@ export default {
     } finally {
       await alertAfterPass(env, result?.snapshot);
     }
-    console.log(`health pass ok; purge examined=${result.examined} purged=${result.purged}; provider objects=${result.providerObjects} purged=${result.providerPurged} deferred=${result.providerDeferred} failed=${result.providerFailed} attempts=${result.providerAttempts}; createsEnabled=${result.createsEnabled}`);
+    console.log(`health pass ok; purge examined=${result.examined} purged=${result.purged}; provider objects=${result.providerObjects} skipped=${result.providerSkipped} purged=${result.providerPurged} deferred=${result.providerDeferred} failed=${result.providerFailed} attempts=${result.providerAttempts}; createsEnabled=${result.createsEnabled}`);
   },
 };

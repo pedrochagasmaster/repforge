@@ -8,6 +8,7 @@ import { REGISTRY_BATCH_LIMIT } from "./registry-do.js";
 
 const OPS_PREFIX = "/_ops/";
 const HEALTH_PATH = `${OPS_PREFIX}health`;
+const DELETION_EVIDENCE_PATH = `${OPS_PREFIX}deletion-evidence`;
 const HEARTBEAT_PATH = `${OPS_PREFIX}heartbeat`;
 const BILLING_PATH = `${OPS_PREFIX}billing`;
 const DELETION_ACK_PATH = `${OPS_PREFIX}deletion-ack`;
@@ -148,6 +149,27 @@ async function handleHealthGet(env, role) {
       incidentGeneration: snapshot.incidentGeneration,
       ackGeneration: snapshot.ackGeneration,
       lastDeletionCheck: snapshot.lastDeletionCheck ?? null,
+    });
+  } catch {
+    return unavailable(503);
+  }
+}
+
+// A separate route, so the readers already deployed against /_ops/health's
+// exact keys keep working.
+async function handleDeletionEvidenceGet(env, role) {
+  const rate = await consumeRoleRate(env, role);
+  if (rate.unavailable) return unavailable(503);
+  if (!rate.allowed) return unavailable(429);
+  const stub = healthStub(env);
+  if (!stub) return unavailable(503);
+  try {
+    const evidence = await stub.deletionEvidence({ now: Date.now() });
+    return json({
+      ok: true,
+      incidentGeneration: evidence.incidentGeneration,
+      ackGeneration: evidence.ackGeneration,
+      lastDeletionFailure: evidence.lastDeletionFailure ?? null,
     });
   } catch {
     return unavailable(503);
@@ -342,7 +364,16 @@ async function handlePurgeObjects(request, env) {
     examined += 1;
     try {
       const objectId = namespace.idFromString(id);
-      const result = await namespace.get(objectId).purgeDue({ now });
+      let result;
+      try {
+        result = await namespace.get(objectId).purgeDue({ now });
+      } catch (error) {
+        // A deploy resets running objects, and their in-flight calls throw
+        // with `retryable` set. purgeDue is idempotent, so retry once on a
+        // fresh stub; an overloaded or non-retryable error is a failure.
+        if (error?.retryable !== true || error?.overloaded === true) throw error;
+        result = await namespace.get(objectId).purgeDue({ now });
+      }
       if (result?.purged === true) purged += 1;
       else if (result?.purged === false && typeof result.state === "string" && result.state !== "unavailable") deferred += 1;
       else failed += 1;
@@ -382,11 +413,16 @@ async function handlePurgeObjects(request, env) {
 
 export async function handleOperations(request, env) {
   const url = new URL(request.url);
-  if (![HEALTH_PATH, HEARTBEAT_PATH, BILLING_PATH, DELETION_ACK_PATH, PURGE_PATH, PURGE_OBJECTS_PATH].includes(url.pathname) || url.search || url.hash) return null;
+  if (![HEALTH_PATH, DELETION_EVIDENCE_PATH, HEARTBEAT_PATH, BILLING_PATH, DELETION_ACK_PATH, PURGE_PATH, PURGE_OBJECTS_PATH].includes(url.pathname) || url.search || url.hash) return null;
   if (url.pathname === HEALTH_PATH) {
     if (request.method !== "GET") return unavailable();
     const role = await authorizedHealth(request, env);
     return role ? handleHealthGet(env, role) : unavailable();
+  }
+  if (url.pathname === DELETION_EVIDENCE_PATH) {
+    if (request.method !== "GET") return unavailable();
+    const role = await authorizedHealth(request, env);
+    return role ? handleDeletionEvidenceGet(env, role) : unavailable();
   }
   const role = url.pathname === HEARTBEAT_PATH ? "watchdog"
     : url.pathname === BILLING_PATH ? "billing"
