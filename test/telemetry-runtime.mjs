@@ -381,6 +381,28 @@ try {
     await context.close();
   }
 
+  phase("The landing proof reports a chapter only when the lifter taps it");
+  for (const telemetryEnabled of [undefined, false]) {
+    const { context, page } = await openApp(browser, telemetryEnabled === false ? { telemetryEnabled } : {});
+    const before = (await captured(page)).length;
+    // On screen the phone plays on by itself, crossing chapters: that is not a choice and reports nothing.
+    await page.evaluate(() => { const root = document.querySelector("#firstRun");
+      root.scrollTop += document.querySelector(".firstrun-proof__device").getBoundingClientRect().top - 16; });
+    await page.waitForFunction(() => (window.__repforgeLandingProof?.().chapter ?? 0) >= 1, undefined, { timeout: 8000 });
+    if (telemetryEnabled === undefined) {
+      assert(JSON.stringify(await eventsNamed(page, "landing_action")) === "[]", "autoplay crossing a chapter reports nothing",
+        JSON.stringify(await eventsNamed(page, "landing_action")));
+      await page.click('[data-chapter="2"]');
+      assert(JSON.stringify(await eventsNamed(page, "landing_action")) === JSON.stringify([{ action: "proof_chapter", chapter: 3 }]),
+        "tapping the third chapter reports proof_chapter with chapter 3, once", JSON.stringify(await eventsNamed(page, "landing_action")));
+    } else {
+      await page.click('[data-chapter="2"]');
+      assert((await captured(page)).length === before && before === 0, "opted out, a chapter tap reaches no adapter event",
+        JSON.stringify(await captured(page)));
+    }
+    await context.close();
+  }
+
   phase("An install offer reports the prompt and the browser's answer, and the install itself");
   {
     const { context, page } = await openApp(browser);

@@ -92,6 +92,19 @@ function boot({ storage = memoryStorage(), adapter, onReject, crypto } = {}) {
   assert.doesNotMatch(JSON.stringify(sent), /Bench press|private program/);
 }
 
+// The landing proof's chapter tap (owner, 2026-10-30): the action plus an integer chapter 1 to 4, and nothing else.
+{
+  const { sent } = boot();
+  for (const chapter of [1, 2, 3, 4]) {
+    assert.equal(Telemetry.capture("landing_action", { action: "proof_chapter", chapter }), true, `chapter ${chapter}`);
+  }
+  for (const chapter of [0, 5, -1, 2.5, "2", null, Number.NaN]) {
+    assert.equal(Telemetry.capture("landing_action", { action: "proof_chapter", chapter }), false, `chapter ${String(chapter)}`);
+  }
+  assert.equal(Telemetry.capture("landing_action", { action: "proof_chapter", chapter: 2, label: "Rest at a glance" }), false, "no free text rides along");
+  assert.deepEqual(sent.filter(([name]) => name === "landing_action").map(([, properties]) => properties.chapter), [1, 2, 3, 4]);
+}
+
 {
   const rejected = [];
   const { sent } = boot({ onReject: value => rejected.push(value) });

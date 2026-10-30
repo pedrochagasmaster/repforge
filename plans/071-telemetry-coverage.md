@@ -128,7 +128,7 @@ the code boundary, not a control.
 | Event | Properties | Duplicates | Trigger |
 |---|---|---|---|
 | `landing_viewed` | `landing`: generic, shared, shared_invalid; `visit`: first, returning | repeatable | `openFirstRun` after the landing kind and visit are set |
-| `landing_action` | `action`: create, import, continue_browser, shared_start, install, privacy | repeatable | each landing CTA handler in `init()` |
+| `landing_action` | `action`: create, import, continue_browser, shared_start, install, privacy, proof_chapter; optional `chapter`: integer 1–4, only with proof_chapter | repeatable | each landing CTA handler in `init()`; proof_chapter from a tap on one of the proof's four chapters (the landing controller's player), never from the phone playing on by itself |
 | `install_prompt_outcome` | `surface`: landing, banner, header, settings; `mode`: native, ios, manual; `outcome`: prompted, accepted, dismissed, instructions_shown | repeatable | `triggerInstall(source)`: the native prompt and its `userChoice`, the iOS sheet, the manual banner |
 | `app_installed` | none | milestone | the `appinstalled` listener |
 | `app_boot` (changed) | adds optional `display_mode`: standalone, browser | once_per_boot | `boot()`, from `isStandalone()` |
@@ -306,6 +306,11 @@ producer, then the proof passes.
    hub, an editor edit/undo/restore, and `review_changes` on activation.
 4. **Landing and install.** `landing_viewed`, `landing_action`,
    `install_prompt_outcome`, `app_installed`, `display_mode`.
+   Added 2026-10-30 (owner-approved with the playing proof, #572): `landing_action`
+   `{action: proof_chapter, chapter: 1–4}` for a tapped proof chapter. The schema
+   takes the action value and a closed integer range (`integerIn(1, 4)`) and no free
+   text; autoplay emits nothing and opt-out emits nothing (`test/telemetry-unit.mjs`,
+   `test/telemetry-runtime.mjs`).
 5. **Workout, block and management.** `substitution_used`,
    `workout_discarded`, `block_transition_chosen`, `active_program_edited`,
    `settings_changed`.

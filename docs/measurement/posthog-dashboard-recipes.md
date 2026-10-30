@@ -117,7 +117,9 @@ by a later onboarding change appears as a new row without a recipe change.
 
 1. **Landing outcome**: Trends, `landing_viewed` by `landing` and `visit`;
    `landing_action` by `action`. Create and import over first-visit views is
-   the landing's conversion.
+   the landing's conversion. Filter `action = proof_chapter` and break down by
+   `chapter` (1–4) to see which parts of the playing proof lifters tap back to;
+   autoplay never reports, so every count is a tap.
 2. **Install offers**: Trends, `install_prompt_outcome` by `surface`, `mode`
    and `outcome`. For native prompts, acceptance is `accepted` over `prompted`.
    iOS and manual offers can only report that instructions were shown.
