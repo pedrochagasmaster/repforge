@@ -21675,7 +21675,9 @@ function layoutLandingDemo(d){
   // a narrower frame frames less, so the screen's 14px text stays at 13px or more, down to 366px of screen (its
   // gutters' worth: below that a shot would cut the screen's own text at the frame's edges).
   const view={w:d.frame.clientWidth,h:d.frame.clientHeight},glassX=d.glass.offsetLeft,glassY=d.glass.offsetTop;
-  const rigBox={w:d.rig.offsetWidth,h:d.rig.offsetHeight},Z=Math.min(LANDING_DEMO.zoom,Math.max(366,view.w*14/13)),ZH=Z*view.h/view.w,zx=glassX+(d.root.offsetWidth-Z)/2;
+  // A frame of 400px or more (the desktop's) shows the phone's whole width, still at reading size.
+  const rigBox={w:d.rig.offsetWidth,h:d.rig.offsetHeight};
+  const Z=view.w>=400?rigBox.w:Math.min(LANDING_DEMO.zoom,Math.max(366,view.w*14/13)),ZH=Z*view.h/view.w,zx=glassX+(d.root.offsetWidth-Z)/2;
   const full={x:0,y:0,w:rigBox.w,h:rigBox.h},cue={x:zx,y:glassY+d.card.offsetTop-12,w:Z,h:ZH},foot={x:zx,y:glassY+d.root.offsetHeight-ZH,w:Z,h:ZH};
   d.view=view;d.rigBox=rigBox;
   d.shots=[{at:0,...full},{at:.45,...cue},{at:2.7,...foot},{at:LANDING_DEMO.wrap,...full}];
