@@ -236,7 +236,10 @@ server-backed setup links" backlog item. Each Share-sheet open reports one
 `program_kind` (`generated`, `generated_edited`, `manual`, `other`), `form`
 (`recipe` or `full`) and `size_vs_limit` (`under_half`, `under_limit`,
 `over_limit`, `over_2x`, `over_4x` against the link limit). No program
-content, names or sizes in bytes are sent.
+content, names or sizes in bytes are sent. Since #527 an edited generated
+program can travel as its recipe plus its edits; the event's values are frozen,
+so that link reports `program_kind=generated_edited` with `form=recipe`, the
+only way that pair occurs (`generated_edited` with `form=full` is the full form).
 
 1. **Link refusal rate**: Trends, unique installations performing
    `share_setup_outcome` with `action=link_refused` / unique installations

@@ -73,7 +73,25 @@ own generator, and the result must equal the shared definition, so this form is
 only chosen when the sender's regeneration is identical. A link from a
 different generator version decodes as `unsupported-version` rather than
 producing a different program. An edited generated program is never replaced
-by its regeneration: it travels in full, or is refused when too large.
+by its regeneration: it travels as its recipe plus its edits, in full, or is
+refused when too large.
+
+**Amendment, 2026-10-30 (#527): recipe plus edits.** An edited generated
+program whose request still regenerates under the receiver's generator travels
+on a `v5.` wire: the same tuple, whose definition is the form
+`["p", catalogFingerprint, generatorVersion, compactRequest, patch, digest]`.
+The patch is id-keyed against the regenerated baseline (days, slots and sets
+matched by `id`, inserted elements as diffs from their nearest preceding
+original, identical sibling diffs stored once), and the digest is the first 12
+hex characters of SHA-256 over the canonical edited definition. The receiver
+regenerates, applies the patch and recomputes the digest; any mismatch refuses
+the link, never yielding a partial or different program. The encoder tries the
+recipe, then recipe plus edits, then the full form, so unedited programs and
+Build or imported programs keep their `v4.` links byte for byte. An app that
+reads only `v4.` refuses `v5.` as a newer, unsupported link. The payload stays
+self-contained in the fragment; the privacy, cookie and "no hosted store"
+boundaries above are unchanged. Generator-version coupling is unchanged too: a
+program made by an earlier generator still needs the file until its next block.
 
 The previous `v1.`, `v2.`, and `v3.` wire formats are explicitly unsupported.
 Decoding one returns an `unsupported-version` result with the exact original
