@@ -1023,8 +1023,14 @@ async function openScheduleDiagnosis(page) {
   await openCompletedReview(page);
   await page.click('[data-review-action="schedule-repair"]');
   await page.waitForSelector("[data-diag-continue]");
-  // The click scrolls the action into view, and the page's scroll-edge bar follows its title through an
-  // IntersectionObserver that reports asynchronously: the frame waits until the bar agrees with where the title is.
+  await statsBarSettled(page);
+}
+
+/**
+ * A click scrolls its target into view, and Progress's scroll-edge bar follows the page title through an
+ * IntersectionObserver that reports asynchronously: the frame waits until the bar agrees with where the title is.
+ */
+async function statsBarSettled(page) {
   await page.waitForFunction(() => {
     const bar = document.querySelector("#statsTopbar"), title = document.querySelector("#stats .pagehead .page-title");
     if (!bar || !title) return true;
@@ -2369,7 +2375,7 @@ export const APP_SCENARIOS = {
   "progress/schedule-diagnosis": openScheduleDiagnosis,
   "progress/sibling-lower-frequency": (page) => openSiblingPreview(page, "fewer_days"),
   "progress/sibling-shorter-session": (page) => openSiblingPreview(page, "sessions_too_long"),
-  "progress/guided-repair": async (page) => { await openCompletedReview(page);await page.click('[data-review-action="guided-edit"]');await page.click('[data-diag-days="3"]');await page.click("[data-diag-continue]");await page.waitForSelector(".review__staged",{timeout:20000}); },
+  "progress/guided-repair": async (page) => { await openCompletedReview(page);await page.click('[data-review-action="guided-edit"]');await page.click('[data-diag-days="3"]');await page.click("[data-diag-continue]");await page.waitForSelector(".review__staged",{timeout:20000});await statsBarSettled(page); },
   "progress/volume-reduction-preview": async (page) => { await completeCompiledProgram(page);await openCompletedReview(page);await page.click('[data-review-action="reduce-volume"]');await page.click("[data-volume-confirm]");await page.waitForSelector("[data-preview-confirm]",{timeout:20000}); },
   "progress/recovery-ineligible": async (page) => { await openRecoveryPreview(page);await page.click('[data-recovery-answer="Not sure"]'); },
   "progress/recovery-questions": openRecoveryPreview,
