@@ -7,7 +7,7 @@ and owner gates only.
 
 - **Plan number:** 059
 - **Phase:** 8 — Public-launch validation
-- **Status:** Proposed refresh (2026-10-30), for owner review. Implementation has not started and stays on hold by owner decision (2026-10-22, #425) until the owner approves this refresh and releases the plan.
+- **Status:** Refreshed (2026-10-30); owner decisions recorded below. Implementation has not started and stays on hold (#425) until #527 lands and install transfer is re-enabled; then 059-P1 pins the candidate SHA.
 - **Owner approval state:** Validation method is approved; final launch sign-off belongs to the owner
 - **Depends on:** Plans 049–058, the durable-state bridge, their architecture acceptance deltas, all existing owner gates, and completion or explicit owner disposition of the post-058 candidate-construction work selected in [`docs/post-058-open-pr-clearance-sequence.md`](../docs/post-058-open-pr-clearance-sequence.md), including the merged unified redesign ([Plan 064](./064-unified-redesign-convergence.md)). Plan 059 validates the resulting candidate; it does not authorize any implementation plan early by itself, and Plan 064 produces pre-059 implementation evidence only.
 - **Blocks:** Public-launch UI/UX acceptance; it does not authorize release/merge by itself
@@ -80,28 +80,28 @@ kept. What changed is what it validates and which gates are still open. Nothing 
   - the new engine sanity check (#422).
 
   The UI shipped since (native feel, kits, Focus hero, rest tab) has had no recorded device pass at all.
-- **#315:** the owner's review of the PT exercise-name drafts (1,278 names) is open.
-- **Install transfer is off** after the 2026-10-24 deletion-health incident. Re-enabling needs a purge and an owner
-  acknowledgement, and Plan 059's transfer journeys (critical journey 3) cannot pass while it is off.
-- **#527 and #387:** multi-week edited and Build programs often do not fit a setup link (file-only fallback). Decide
-  whether that is a launch limitation or a fix first.
+- **#315:** the owner's review of the PT exercise-name drafts (1,278 names) is open; the owner chose to launch and
+  review later (decision 3).
+- **Install transfer is off** after the 2026-10-24 deletion-health incident. It is being hardened and re-enabled before
+  the candidate (decision 2); critical journey 3 runs with it on.
+- **#527 and #387:** multi-week edited and Build programs often do not fit a setup link (file-only fallback). The owner
+  chose to fix this before launch (decision 1), and the candidate waits for it (decision 6).
 - **#528** is fixed by #536 but still open, so close it. **#458** is in #574.
 - **#338** (a rare renderer crash) has diagnostics in place but is not closed.
 
-### Decisions this refresh needs from the owner
+### Owner decisions (decided 2026-10-30)
 
-1. **Release the hold:** approve this refresh as the plan of record, and say when 059-P1 may pin a candidate SHA.
-2. **Freeze line:** which in-flight work must land before the candidate freezes (#574, #575, the triage order's
-   remaining items), and what waits for after launch (#314, #296, #282, the legacy Custom route).
-3. **Install transfer:** re-enable it before the candidate (purge and acknowledgement), or launch with transfer off and
-   record it as an accepted limitation. Critical journey 3 depends on this.
-4. **Setup-link size (#527/#387):** a launch limitation with the file fallback, or a pre-launch fix.
-5. **#315 PT names:** finish before launch, or launch with the drafts as reviewed so far.
-6. **Device scope:** confirm the physical matrix is one current iPhone (Safari and installed, VoiceOver) and one
-   Android phone (Chrome and installed, TalkBack). Also say whether the large-text and wheel journeys are required on
-   both.
-7. **Telemetry at launch:** confirm the default-on posture and the frozen event list in `telemetry.js`, and decide the
-   three PostHog project settings #556 recommends turning off.
+1. **Freeze now.** Bug fixes only until launch, with one exception: #527/#387, lossless recipe-plus-edits setup links
+   (the owner chose "fix before launch").
+2. **Install transfer** is being hardened and re-enabled before the candidate (front 3). It blocks pinning the
+   candidate SHA, so critical journey 3 runs with transfer on.
+3. **#315 PT exercise names:** launch with the drafts, and review later.
+4. **Device scope:** an iPhone (Safari and installed PWA, VoiceOver) and an Android phone (Chrome and installed PWA,
+   TalkBack). The large-text and wheel journeys run on the iPhone only.
+5. **Telemetry:** default-on with the off switch in Settings, and the current event list in `telemetry.js` frozen as the
+   launch allowlist. #556's three PostHog project settings stay deferred.
+6. **Release:** pin the candidate SHA (059-P1) only after #527 lands and transfer is re-enabled. The hold remains until
+   then.
 
 ## Problem statement
 
