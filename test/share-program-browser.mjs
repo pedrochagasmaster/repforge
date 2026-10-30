@@ -346,10 +346,33 @@ async function main() {
       "the recipient is asked to have the program shared again", await recipient.page.locator("#firstRunSharedError").innerText());
     await recipient.context.close();
 
-    // An edited generated program that cannot fit is refused whole -------------
+    // #527: an edited generated program travels as its recipe plus its edits ---
+    const patcher = await fresh(browser);
+    errors.push(patcher.errors);
+    await activateGenerated(patcher.page, { edit: true });
+    const patchLink = await shareLink(patcher.page);
+    check(!!patchLink.link && /#setup=v5\./.test(patchLink.link), "an edited current program gets a v5 link (its recipe plus the edit)", patchLink);
+    const patchEvents = await shareEvents(patcher.page);
+    check(patchEvents.length === 1 && patchEvents[0].action === "link_ready" && patchEvents[0].program_kind === "generated_edited"
+      && patchEvents[0].form === "recipe", "the link reports an edited generated program by recipe, the frozen event's only such pair", patchEvents);
+    const patchedDefinition = (await state(patcher.page)).programMeta.programDefinition;
+    await patcher.context.close();
+    if (patchLink.link) {
+      const patchRecipient = await receive(browser, patchLink.link);
+      errors.push(patchRecipient.errors);
+      await startAndActivate(patchRecipient.page);
+      const patchReceived = (await state(patchRecipient.page)).programMeta.programDefinition;
+      check(same(patchReceived, patchedDefinition), "the recipient activates the edited program exactly, edit included",
+        firstDifference(patchedDefinition, patchReceived));
+      await patchRecipient.context.close();
+    }
+
+    // A program no link form can carry is refused whole -------------------------
+    // An edited program made before the 073.5 bump: its recipe no longer regenerates, so recipe plus edits cannot carry
+    // it either, and its full definition is too large.
     const edited = await fresh(browser);
     errors.push(edited.errors);
-    await activateGenerated(edited.page, { edit: true });
+    await activateGenerated(edited.page, { asVersion: "073.4", edit: true });
     const tooLarge = await shareLink(edited.page);
     check(!tooLarge.link && /too large|too long|grande|longo/i.test(tooLarge.status),
       "an edited generated program too large for a link is refused, not truncated", tooLarge);

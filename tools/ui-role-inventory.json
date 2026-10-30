@@ -706,7 +706,7 @@
     "program/share-too-large": {
       "owner": "plan-067",
       "content": "flat",
-      "scenario": "An edited generated program is too large for a setup link; the sheet offers sharing it as a program file."
+      "scenario": "An edited program generated before the last generator bump is too large for a setup link (neither its recipe nor recipe-plus-edits regenerates); the sheet offers sharing it as a program file."
     },
     "program/text-export": {
       "owner": "plan-057",

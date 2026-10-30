@@ -2680,8 +2680,10 @@ export const APP_SCENARIOS = {
     await sleep(page, 400);
   },
   "program/share-too-large": async (page) => {
-    // An edited generated program cannot regenerate from its recipe and its
-    // full definition exceeds the link cap, so the sheet offers the file.
+    // An edited program generated before the last generator bump (073.4): its
+    // recipe no longer regenerates, so neither the recipe nor recipe-plus-edits
+    // (#527) can carry it, and its full definition exceeds the link cap, so the
+    // sheet offers the file.
     await page.waitForFunction(() => !!window.RepForgeExerciseCatalog?.snapshot?.() &&
       typeof window.__repforgeFinalizeProgramSetup === "function", undefined, { timeout: 15000 });
     await page.evaluate(async () => {
@@ -2690,7 +2692,7 @@ export const APP_SCENARIOS = {
         desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek: 4, sessionMinutes: 60,
         environment: { kind: "commercial_gym" },
       }, catalog).value;
-      const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog).value;
+      const definition = window.RepForgeProgramCompiler.generateProgram(request, catalog, { asVersion: "073.4" }).value;
       definition.days.find((day) => day.kind === "training").slots[0].setupNotes = "Rack at 7";
       const finalized = await window.__repforgeFinalizeProgramSetup({
         programDefinition: definition, name: "Edited generated block", answers: {}, destination: "log",
