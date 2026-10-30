@@ -21760,6 +21760,9 @@ const LANDING_FEATURES={
   browse:[["rearFly",["Rear delts","Lats"],"cable"],["gluteLeg",["Glutes","Quads"],"machine"],["incBb",["Chest","Front delts"],"barbell"],["cgPress",["Triceps","Chest"],"barbell"]],
   press:[["bench",["Chest","Triceps"],"barbell"],["ohp",["Front delts","Triceps"],"barbell"],["dbBench",["Chest","Triceps"],"dumbbell"],["smith",["Chest","Triceps"],"smith"],["leg",["Glutes","Quads"],"machine"]],
   dumbbell:[["dbBench",["Chest","Triceps"],"dumbbell"],["seatedDb",["Front delts","Triceps"],"dumbbell"],["standDb",["Front delts","Triceps"],"dumbbell"],["incDb",["Chest","Front delts"],"dumbbell"],["lowDb",["Chest","Front delts"],"dumbbell"]],
+  /* in Portuguese the search is "supino", so both lists are the bench presses its names hold */
+  pressPt:[["bench",["Chest","Triceps"],"barbell"],["dbBench",["Chest","Triceps"],"dumbbell"],["smith",["Chest","Triceps"],"smith"],["incBb",["Chest","Front delts"],"barbell"],["nDb",["Chest","Triceps"],"dumbbell"]],
+  dumbbellPt:[["dbBench",["Chest","Triceps"],"dumbbell"],["nDb",["Chest","Triceps"],"dumbbell"],["incDb",["Chest","Front delts"],"dumbbell"],["lowDb",["Chest","Front delts"],"dumbbell"],["pDb",["Chest","Triceps"],"dumbbell"]],
   /* scene 5: two weeks of History */
   history:[["2026-10-30","strength_4_d3",["Lats","Chest","Quads"],13,5850,0],["2026-10-28","strength_4_d2",["Hamstrings","Glutes","Triceps"],17,14315,3],
     ["2026-10-26","strength_4_d1",["Glutes","Chest","Lats"],13,6875,2],["2026-10-24","strength_4_d4",["Front delts","Biceps"],12,4120,0],
@@ -21878,8 +21881,8 @@ function landingFeatureScreens(){
       ["barbell","dumbbell","machine","cable","smith"].map(k=>chip(t("picker.equipment."+k),false,k==="dumbbell"?" firstrun-fx__pick":"")).join("")+`</div>`+
     `<div class="firstrun-fx__lists">`+
       `<div class="firstrun-fx__list firstrun-fx__g0">${F.browse.map(libRow).join("")}</div>`+
-      `<div class="firstrun-fx__list firstrun-fx__g1">${F.press.map(libRow).join("")}</div>`+
-      `<div class="firstrun-fx__list firstrun-fx__g2">${F.dumbbell.map(libRow).join("")}</div></div>${tap}</div>`;
+      `<div class="firstrun-fx__list firstrun-fx__g1">${(lang==="pt"?F.pressPt:F.press).map(libRow).join("")}</div>`+
+      `<div class="firstrun-fx__list firstrun-fx__g2">${(lang==="pt"?F.dumbbellPt:F.dumbbell).map(libRow).join("")}</div></div>${tap}</div>`;
   /* 4 · Share a setup link; paste a program */
   const link="https://taurifer.com/#setup=v4.H4sIAAAAAAAAA9WdXW_bNhSG_4rKfQoW2KxSRGVdv1x9re7LcPsq1YSWRrQ5TE6HAQBaMmUj-mbByRfPq-1FI_iYnw-ifNkVCyLanou5GsxElJ34FaLyKFRWKpMiDerM1i5FVp4V0ZizIjPRKX16liHoU124AqfQvQIPyc6q58zFVJ8JWSQ";
   const message=String(t("landing.ways.paste.message")).split("\n"),typedNames=message.slice(1).map(row=>row.replace(/\s+\d+x[\d-]+\s*$/,""));

@@ -6017,7 +6017,8 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-fx__hist--big .firstrun-fx__hd2 small,.firstrun-fx__hist--big .firstrun-fx__hd3,.firstrun-fx__hist--big .firstrun-fx__hmonth span{font-size:var(--font-size-body)}
 .firstrun-fx__hist--big .firstrun-fx__hd1 b{font-size:var(--font-size-feature-title)}
 .firstrun-fx__band{position:absolute;left:0;right:0;top:0;height:46px;background:var(--bg)}
-.firstrun-fx__mini.minibar{position:absolute;left:12px;right:12px;bottom:90px;width:auto;transform:none;z-index:1;cursor:default}
+.firstrun-fx__mini.minibar{position:absolute;left:12px;right:12px;bottom:90px;width:auto;transform:none;z-index:1;cursor:default;background:var(--surface)}
+.firstrun-fx--editor .firstrun-fx__title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .firstrun-fx__hist--big .firstrun-fx__mini .minibar__title{font-size:var(--font-size-body)}
 .firstrun-fx__hist--big .firstrun-fx__mini .minibar__sub{font-size:var(--font-size-body-small)}
 .firstrun-fx__dock{position:absolute;left:12px;right:12px;bottom:14px;display:flex;height:64px;padding:4px;border-radius:32px;background:var(--menu-bg);
