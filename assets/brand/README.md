@@ -27,17 +27,16 @@ The Plan 054 landing used 32 renders named `{shot}-{en,pt}-{light,dark}.webp`
 `why-this-weight`, `session-summary`, `exercise-chart`). The final landing page
 (Plan 064 R2) shows none of them, and Plan 064 R6d deleted them (see "Removed
 renders"). The tools that made them (`tools/landing-prototype/capture.mjs`,
-`render.sh`) targeted that retired composition and were removed too;
-`tools/landing-prototype/fixture.mjs` stays because the landing's chart figures
-(92.5 to 100 kg over 4 sessions, owner decision L-2) are derived from it. The
+`render.sh`) targeted that retired composition and were removed too. The
 original reproduction notes live in
 [`docs/design/plan-054-landing-prototype`](../../docs/design/plan-054-landing-prototype/README.md).
-The name `exercise-chart-*` lives on as a live capture (below), not a studio render.
+The live `exercise-chart-*` capture and its fixture (`tools/landing-prototype/fixture.mjs`)
+retired on 2026-10-30 with the outcomes section: the feature tabs draw the Progress
+screen from the app's own markup instead of an image.
 
 ## Landing proof images
 
-The landing's paste-way disclosure and its strength-trend figure use real-app
-captures, regenerated with repo tooling and never copied from the #276
+The landing's paste-way disclosure uses a real-app capture, regenerated with repo tooling and never copied from the #276
 prototype. (The proof band itself is no longer an image: since 2026-10-29 it is
 Focus's own markup, played on the page; see `landingDemoHtml` in `app.js`.)
 `tools/capture-landing-proof.mjs` owns them:
@@ -58,7 +57,6 @@ head): a screenshot of retired UI never ships.
 | Files | Frame | Shows |
 | --- | --- | --- |
 | `paste-review-{en,pt}-{light,dark}.webp` | 390 CSS px wide @2x (780x1242), cropped from the import-review head through the first row | The review screen for the landing's sample coach message |
-| `exercise-chart-{en,pt}-{light,dark}.webp` | the chart region at 2x, from the metric toggle through the plot's readout line, on a 320 px phone (584x728 en, 584x766 pt: 292 CSS px wide, so the landing's 230 px slot draws it at 0.79) | The exercise page opened from Progress for the landing's squat, best e1RM selected: the figures, the plot and its readout (no table), from `tools/landing-prototype/fixture.mjs` (the history behind the caption's 92.5 to 100 kg over 4 sessions) |
 
 The paste-review counts are read off the captured DOM and can differ by
 language (the library's Portuguese names match the sample less exactly), so the

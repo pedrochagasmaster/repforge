@@ -118,7 +118,7 @@ function landingSnapshot() {
     dockLabel: text("#firstRunCreateDock"),
     chipsShown: shown(".firstrun-chips"),
     proofShown: shown('[data-landing-section="proof"]'),
-    trackShown: shown('[data-landing-section="track"]'),
+    featuresShown: shown('[data-landing-section="features"]'),
     waysShown: shown('[data-landing-section="ways"]'),
     dataShown: shown('[data-landing-section="data"]'),
     faqShown: shown('[data-landing-section="faq"]'),
@@ -1240,7 +1240,7 @@ try {
       "the first visit keeps its marketing headline and lede", JSON.stringify(first));
     assert(first.createShown && first.importShown && first.chipsShown && first.resumeRoute === null && first.resumeText === CATALOG.en["landing.build"],
       "the first visit keeps Build, Track and the chips, and offers no resume action", JSON.stringify(first));
-    assert(first.proofShown && first.trackShown && first.waysShown && first.dataShown && first.faqShown && first.closeShown,
+    assert(first.proofShown && first.featuresShown && first.waysShown && first.dataShown && first.faqShown && first.closeShown,
       "the first visit keeps every band of the page", JSON.stringify(first));
     assert(first.dockLabel === CATALOG.en["landing.build"], "the first visit's persistent control still says Build", first.dockLabel);
 
@@ -1253,7 +1253,7 @@ try {
     assert(back.draft === null && back.resumeRoute === null, "without a setup draft the returning landing offers no resume action", JSON.stringify(back));
     assert(back.createShown && back.importShown && back.resumeText === CATALOG.en["landing.build"] && back.dockLabel === CATALOG.en["landing.build"],
       "the returning landing leads with the entry actions: Build and Track", JSON.stringify(back));
-    assert(!back.chipsShown && !back.proofShown && !back.trackShown, "the returning landing condenses the marketing: no chips, no proof, no outcomes", JSON.stringify(back));
+    assert(!back.chipsShown && !back.proofShown && !back.featuresShown, "the returning landing condenses the marketing: no chips, no proof, no feature tabs", JSON.stringify(back));
     assert(back.waysShown && back.dataShown && back.faqShown && back.closeShown, "the returning landing keeps the ways, the data promise, the questions and the close", JSON.stringify(back));
     assert(back.playing === false, "the returning landing never plays the hidden proof", JSON.stringify(back));
     assert(!back.chooserOpen, "the returning landing does not open the chooser by itself", JSON.stringify(back));
@@ -1480,7 +1480,7 @@ try {
       "the shared landing keeps its own headline and offers no resume action", JSON.stringify(shared));
     assert(gate.startVisible && gate.startCap?.includes(SENTINELS.name) && !gate.createVisible && !gate.importVisible,
       "the shared landing offers See the program for the named program and neither Build nor Track", JSON.stringify(gate));
-    assert(!shared.chipsShown && !shared.proofShown && !shared.trackShown && !shared.waysShown && !shared.dataShown &&
+    assert(!shared.chipsShown && !shared.proofShown && !shared.featuresShown && !shared.waysShown && !shared.dataShown &&
       !shared.faqShown && !shared.closeShown && !gate.marketingSectionsVisible,
     "the received-link gate is the whole page: no landing tour below it", JSON.stringify(shared));
 

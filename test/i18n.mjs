@@ -176,6 +176,8 @@ const FOCUS_PREV_LINE_FAMILIES = Object.freeze([
 const FOCUS_PREV_LINE_ENDINGS = Object.freeze(["rir", "norir", "effort"]);
 
 const DYNAMIC_FAMILIES = [
+  // The landing's feature tabs name History's sessions by the generated program's day keys (owner, 2026-10-30).
+  { test: (s) => s === '"program.day."+', keys: () => ["strength_4_d1", "strength_4_d2", "strength_4_d3", "strength_4_d4"].map((day) => `program.day.${day}`) },
   // The Focus hero's evidence line (#518): the no-suggestion reasons, and the anchor and target sentences per source.
   { test: (s) => s.includes("focus.evidence.none_${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("focus.evidence.none_")) },
   { test: (s) => s.includes("focus.evidence.${source}"), keys: (en) => ["session", "session_effort", "history", "history_effort"].map((k) => `focus.evidence.${k}`) },

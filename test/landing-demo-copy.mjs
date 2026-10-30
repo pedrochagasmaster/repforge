@@ -29,10 +29,10 @@ const between = (from, to) => {
   return start >= 0 && end > start ? app.slice(start, end) : "";
 };
 const block = between("function landingDemoHtml(", "function renderLandingProof(") +
-  between("function paintLandingDemo(", "function renderLandingOutcomes(");
+  between("function paintLandingDemo(", "function renderLandingWays(");
 const said = [...block.matchAll(/\bt\("([\w.]+)"/g)].map((match) => match[1]);
 const outside = app.slice(0, app.indexOf("/* ---- The proof: the workout screen, playing itself")) +
-  app.slice(app.indexOf("function renderLandingOutcomes("));
+  app.slice(app.indexOf("/** Everything on the landing that is a number"));
 
 console.log("Landing proof copy");
 check("app.js lists the phone's strings and holds its builder", () => {

@@ -3,7 +3,8 @@
  * Landing proof-image capture tool (Plan 064 R2a-C): tools/capture-landing-proof.mjs.
  *
  * Part 1 (Node only): the capture table and the pure helpers.
- *   - 4 paste-review images and 4 exercise-chart images (EN/PT x light/dark), and no retired wt-* walkthrough screen.
+ *   - 4 paste-review images (EN/PT x light/dark), no exercise-chart (retired with the outcomes, 2026-10-30) and no
+ *     retired wt-* walkthrough screen.
  *   - compareSpots reports a stale count, a changed frame, leftover walkthrough scenes, and the empty placeholder.
  *   - the paste sample is derived from landing.ways.paste.message in both catalogs.
  *   - the committed assets/brand/landing-proof-spots.json is well formed and carries only the counts.
@@ -11,10 +12,8 @@
  * Part 2 (browser, via the tool itself): the tool runs against the live app.
  *   - the paste-review runner reaches the real import-review screen in both languages and reports integer counts that
  *     cover all four exercises; --check against them passes and against a changed count fails naming it;
- *   - exercise-chart opens the exercise page from Progress with best e1RM pressed and checks the figures it draws
- *     against the Progress model's reading of the chart fixture (the caption's 92.5 to 100 kg over 4 sessions);
- *   - --fault-retired puts a retired element on screen and the capture refuses it, in the paste-review and
- *     exercise-chart captures (the retired-UI check bites).
+ *   - --fault-retired puts a retired element on screen and the paste-review capture refuses it (the retired-UI
+ *     check bites).
  * Files are written to a temporary directory, never to assets/brand/.
  *
  * Run: node test/landing-proof-capture.mjs   (with REPFORGE_URL set, or a server on :8000)
@@ -26,8 +25,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  CHART_FIGURES, CHART_FRAME, CHART_LIFT, CHART_MIN_SCALE, CHART_TARGETS, CHART_THEMES, DEFAULT_SPOTS_FILE, LANGS, PASTE_TARGETS, PASTE_THEMES, PROOF_FRAME,
-  RETIRED_SELECTORS, SPOT_SCHEMA, chartFile, compareSpots, outputFiles, pasteFile, pasteSample, webpSize,
+  DEFAULT_SPOTS_FILE, LANGS, PASTE_TARGETS, PASTE_THEMES, PROOF_FRAME,
+  RETIRED_SELECTORS, SPOT_SCHEMA, compareSpots, outputFiles, pasteFile, pasteSample, webpSize,
 } from "../tools/capture-landing-proof.mjs";
 
 const TOOL = fileURLToPath(new URL("../tools/capture-landing-proof.mjs", import.meta.url));
@@ -41,32 +40,21 @@ function tool(args) {
 }
 
 // ---- Part 1 ----------------------------------------------------------------
-check("capture table: 4 paste-review images and 4 exercise-chart images, no retired walkthrough screen", () => {
+check("capture table: 4 paste-review images, no exercise-chart and no retired walkthrough screen", () => {
   const files = outputFiles();
-  assert.equal(files.length, 8);
-  assert.equal(new Set(files).size, 8);
-  assert.deepEqual(files.filter((file) => file.startsWith("exercise-chart-")).sort(),
-    ["exercise-chart-en-dark.webp", "exercise-chart-en-light.webp", "exercise-chart-pt-dark.webp", "exercise-chart-pt-light.webp"]);
-  assert.equal(chartFile("pt", "dark"), "exercise-chart-pt-dark.webp");
-  assert.deepEqual(CHART_THEMES, ["light", "dark"]);
-  assert.deepEqual(CHART_FIGURES, { from: 92.5, to: 100, sessions: 4 });
+  assert.equal(files.length, 4);
+  assert.equal(new Set(files).size, 4);
+  assert(!files.some((file) => file.startsWith("exercise-chart-")), "the retired chart is not captured");
   assert(!files.some((file) => file.startsWith("wt-")), "the retired walkthrough's wt-* screens are not captured");
   assert.deepEqual(LANGS, ["en", "pt"]);
   assert.deepEqual(PASTE_THEMES, ["light", "dark"]);
   assert.equal(pasteFile("en", "light"), "paste-review-en-light.webp");
   assert.deepEqual(PROOF_FRAME, { width: 390, height: 844, scale: 2 });
 });
-check("the exercise-chart capture is the Progress exercise page with best e1RM, not the pre-R3i canvas page", () => {
-  assert.equal(CHART_LIFT, "library:sq_bb");
-  assert.match(CHART_TARGETS.page, /^#exercise\.exview--chart$/);
-  assert.match(CHART_TARGETS.plot, /^#exDetail \.exchart__plot$/);
-  assert.match(CHART_TARGETS.e1rm, /data-metric="e1rm"/);
-  assert(![...Object.values(CHART_TARGETS)].some((selector) => /#exChart|restinline|exview-head/.test(selector)), "no chart target names a retired part");
-});
 check("no capture targets retired UI: the import review has its current head", () => {
   for (const retired of [".restinline", ".restpad", "#woRest"]) assert(RETIRED_SELECTORS.includes(retired), `${retired} is a retired selector`);
   assert(RETIRED_SELECTORS.includes("#importReview .exview-head"), "the old import-review head is a retired selector");
-  const targets = [...Object.values(PASTE_TARGETS), ...Object.values(CHART_TARGETS)];
+  const targets = [...Object.values(PASTE_TARGETS)];
   for (const retired of RETIRED_SELECTORS) {
     assert(!targets.some((selector) => selector.includes(retired)), `no capture target uses ${retired}`);
   }
@@ -167,37 +155,6 @@ try {
     assert.notEqual(faultPaste.status, 0, "a retired element in the frame must fail the capture");
     assert.match(faultPaste.stderr, /paste-review-en-light: the frame shows retired UI/);
     assert.match(faultPaste.stderr, /exview-head/);
-  });
-  const charts = tool(["--proof", join(dir, "charts"), "--scenes", "exercise-chart"]);
-  check("exercise-chart renders #exercise with the e1RM toggle pressed and draws the caption's figures", () => {
-    assert.equal(charts.status, 0, `${charts.stdout}\n${charts.stderr}`);
-    const report = JSON.parse(readFileSync(join(dir, "charts", "proof-report.json"), "utf8"));
-    for (const lang of LANGS) for (const theme of CHART_THEMES) {
-      const entry = report.pasteReview[`exercise-chart-${lang}-${theme}`];
-      assert(entry, `${lang} ${theme}: a chart entry in the report`);
-      assert.equal(entry.page, "#exercise");
-      assert(entry.plot, `${lang} ${theme}: the exercise page drew its chart plot`);
-      assert(entry.pressed.includes("e1rm"), `${lang} ${theme}: the best e1RM toggle is pressed (${entry.pressed})`);
-      assert.deepEqual(entry.figures, CHART_FIGURES, `${lang} ${theme}: the Progress model reads the caption's figures`);
-      assert.equal(entry.rows.length, CHART_FIGURES.sessions, `${lang} ${theme}: one table row per session`);
-      // The table is what the picture draws: oldest row is the "from" load, newest the "to" load.
-      assert.equal(entry.rows.at(-1).top, CHART_FIGURES.from);
-      assert.equal(entry.rows[0].top, CHART_FIGURES.to);
-      const size = webpSize(readFileSync(join(dir, "charts", chartFile(lang, theme))));
-      // R7 V-04: the chart region of a 320 px phone at 2x, so the 230 px landing slot draws it at CHART_MIN_SCALE or better.
-      assert.equal(size.width, 584, `${lang} ${theme}: 584 px wide (292 CSS px at 2x)`);
-      assert(230 / (size.width / CHART_FRAME.scale) >= CHART_MIN_SCALE, `${lang} ${theme}: legible at the 230 px slot`);
-      assert(size.height > 600 && size.height < 900, `${lang} ${theme}: the chart region, not the page (${size.height})`);
-    }
-    for (const lang of LANGS) {
-      const [light, dark] = CHART_THEMES.map((theme) => webpSize(readFileSync(join(dir, "charts", chartFile(lang, theme)))));
-      assert.equal(light.height, dark.height, `${lang}: light and dark are the same crop`);
-    }
-  });
-  const faultChart = tool(["--proof", join(dir, "fault-chart"), "--scenes", "exercise-chart", "--fault-retired", "--spots-only"]);
-  check("--fault-retired in the exercise-chart scene FAILS: a retired element in the frame is refused", () => {
-    assert.notEqual(faultChart.status, 0, "a retired element in the frame must fail the capture");
-    assert.match(faultChart.stderr, /exercise-chart-en-light: the frame shows retired UI/);
   });
   const pasteImages = tool(["--proof", join(dir, "paste-images"), "--scenes", "paste-review"]);
   check("paste-review images are 390 CSS px wide at 2x, cropped from the current head through the first row", () => {

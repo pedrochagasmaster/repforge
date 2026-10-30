@@ -312,9 +312,8 @@ const landingShape = () => {
   const intersects = (one, two) => one.left < two.right && one.right > two.left && one.top < two.bottom && one.bottom > two.top;
   const root = document.querySelector("#firstRun");
   const h = box(hero);
-  const sections = ["hero", "proof", "ways", "track", "data", "faq", "close", "footer"].map((name) => document.querySelector(`[data-landing-section="${name}"]`));
-  const nextTargets = [...document.querySelectorAll("[data-landing-next]")].map((node) => node.textContent.replace(/\s+/g, " ").trim());
-  const chart = document.querySelector("[data-landing-chart]");
+  const sections = ["hero", "proof", "ways", "features", "data", "faq", "close", "footer"].map((name) => document.querySelector(`[data-landing-section="${name}"]`));
+  const featureTabs = [...document.querySelectorAll("[data-feature]")].map((node) => node.querySelector(".firstrun-feat__title")?.textContent.trim() || "");
   return {
     titleAlign: getComputedStyle(title).textAlign,
     headlineSize: parseFloat(getComputedStyle(title).fontSize),
@@ -331,8 +330,7 @@ const landingShape = () => {
     wordmarkSize: parseFloat(getComputedStyle(wordmark).fontSize),
     lockupInsideViewport: lockup.left >= 0 && lockup.right <= innerWidth,
     sectionsInOrder: sections.every((node, i) => node && (i === 0 || box(sections[i - 1]).top <= box(node).top)),
-    nextTargets,
-    chartAlt: chart?.querySelector("img")?.getAttribute("alt") || "",
+    featureTabs,
   };
 };
 
@@ -366,9 +364,9 @@ async function run() {
       shown.heroTitle
     );
     assert(
-      ["landing.ways.paste.alt", "landing.chart.alt"]
+      ["landing.ways.paste.alt"]
         .every((key) => coversTemplate(shown.previewText || "", "en", key)),
-      "the captures describe the import review and the strength trend (the proof's phone is the app's own markup, not an image)",
+      "the capture describes the import review (the proof's phone and the feature screens are the app's own markup, not images)",
       shown.previewText
     );
     assert(shown.privacy === "Privacy", "the landing links to Privacy", shown.privacy);
@@ -658,9 +656,9 @@ async function run() {
     assert(pt.heroTitle === tr("pt", "landing.headline"), "PT landing title", pt.heroTitle);
     assert(pt.heroBody === tr("pt", "landing.hero.sub"), "PT landing body", JSON.stringify(pt.heroBody));
     assert(
-      ["landing.ways.paste.alt", "landing.chart.alt"]
+      ["landing.ways.paste.alt"]
         .every((key) => coversTemplate(pt.previewText || "", "pt", key)),
-      "PT captures are described in Portuguese",
+      "the PT capture is described in Portuguese",
       pt.previewText
     );
     await context.close();
@@ -693,9 +691,9 @@ async function run() {
         await page.waitForTimeout(150);
         const shape = await page.evaluate(landingShape);
         const at = `${width}px ${locale}`;
-        assert(shape.sectionsInOrder, `${at}: hero, proof, ways, track, data, questions, close and footer follow in order`, JSON.stringify(shape));
-        assert(shape.nextTargets.length === 3 && shape.nextTargets.every((text) => /\d/.test(text)) && /100/.test(shape.chartAlt) && /e1RM/.test(shape.chartAlt) && /\b4\b/.test(shape.chartAlt),
-          `${at}: the three next targets and the strength trend remain live text`, JSON.stringify(shape));
+        assert(shape.sectionsInOrder, `${at}: hero, proof, ways, features, data, questions, close and footer follow in order`, JSON.stringify(shape));
+        assert(shape.featureTabs.length === 5 && shape.featureTabs.every((text) => text.length > 0) && /\d/.test(shape.featureTabs[2]),
+          `${at}: the five feature tabs are live text, the library's with its size`, JSON.stringify(shape.featureTabs));
         assert(shape.titleAlign === "left", `${at}: the editorial headline stays left aligned`, shape.titleAlign);
         // The logo floor is 32, not the old 39: b83c3b8 rewrote this pin when the final landing page replaced the retired
         // hero. The lockup's mark is now a 32px paper plate (.firstrun__logo, built in 7d8ae3e), so 32 is its own size.
@@ -741,7 +739,7 @@ async function run() {
             secondaryCta: px("#firstRunImport"),
             sectionTitle: px("#firstRunProofTitle"),
             stepBody: px(".firstrun-chapter.is-current .firstrun-chapter__text"),
-            outcomeBody: px("[data-landing-explain]"),
+            featureText: px(".firstrun-feat__cap.is-current"),
             questionTitle: px(".firstrun-qa summary"),
             closingTitle: px("#firstRunCloseTitle"),
           };

@@ -1,4 +1,4 @@
-const CACHE = "repforge-v575";
+const CACHE = "repforge-v576";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./motion-polish.css", "./manifest.webmanifest",
   { url: "./vendor/motion/motion.js", owner: "RepForgeMotion", required: false, immutable: true },
@@ -8,14 +8,13 @@ const ASSETS = [
   "./telemetry.js", "./unsupported-workout-grammar.js", { url: "./posthog-config.js", owner: "RepForgeTelemetry", required: false }, "./posthog-init.js", "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js", "./exercises.js?v=067", "./exercise-catalog.js?v=459", "./assets/exercise-catalog.json?v=067", "./exercise-metrics.js?v=485", "./install-transfer-contract.js", "./install-transfer.js",
   "./generation-identity.js", "./generation-identity.js?v=459", "./generation-candidates.js", "./generation-candidates.js?v=466", "./generation-layout.js", "./engine-policy.js", "./engine-policy.js?v=560", "./generation-layout.js?v=560",
   "./progression-engine.js", "./progress-model.js", "./progress-model.js?v=309", "./program-compiler.js", "./program-compiler.js?v=560", "./program-entry.js", "./program-entry.js?v=515", "./program-entry-adapter.js", "./program-entry-adapter.js?v=560", "./program-editor.js", "./program-editor.js?v=557", "./program-review.js", "./program-review.js?v=572",
-  "./shared-setup.js", "./shared-setup.js?v=574", "./workout-draft.js", "./workout-draft.js?v=466", "./program-transition.js", "./program-transition.js?v=560", "./program-engine.js?v=486", "./install-policy.js", "./install-policy.js?v=307", "./guide-registry.js", "./guide-registry.js?v=423", "./durable-state.js", "./durable-state.js?v=447", "./history-ui.js", "./history-ui.js?v=551", "./app.js", "./app.js?v=575",
+  "./shared-setup.js", "./shared-setup.js?v=574", "./workout-draft.js", "./workout-draft.js?v=466", "./program-transition.js", "./program-transition.js?v=560", "./program-engine.js?v=486", "./install-policy.js", "./install-policy.js?v=307", "./guide-registry.js", "./guide-registry.js?v=423", "./durable-state.js", "./durable-state.js?v=447", "./history-ui.js", "./history-ui.js?v=551", "./app.js", "./app.js?v=576",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
   "./assets/brand/mark.png",
   "./assets/brand/paste-review-en-light.webp", "./assets/brand/paste-review-en-dark.webp", "./assets/brand/paste-review-pt-light.webp",
-  "./assets/brand/paste-review-pt-dark.webp", "./assets/brand/exercise-chart-en-light.webp", "./assets/brand/exercise-chart-en-dark.webp",
-  "./assets/brand/exercise-chart-pt-light.webp", "./assets/brand/exercise-chart-pt-dark.webp",
+  "./assets/brand/paste-review-pt-dark.webp",
   "./assets/exercises/ab_cb.webp", "./assets/exercises/ab_mc.webp", "./assets/exercises/abc_mc.webp", "./assets/exercises/abdb_bw.webp",
   "./assets/exercises/ablr_bw.webp", "./assets/exercises/abr_bw.webp", "./assets/exercises/abrt_bw.webp", "./assets/exercises/ad_mc.webp",
   "./assets/exercises/arn_db.webp", "./assets/exercises/be_mc.webp", "./assets/exercises/cd_bw.webp", "./assets/exercises/cf_db.webp",

@@ -246,6 +246,40 @@ reduced motion no clock runs: each chapter is a still (3.95s, 8.2s, 12.6s and 15
 of the timeline; the first holds the wheel turned, before Done), and the chapters switch it. The chapter captions say everything the
 phone shows; nothing depends on the motion to say it.
 
+
+## The landing's feature tabs
+
+The owner replaced the outcomes section ("Your next target follows what you did", its
+three example rows and the strength-trend image) with five feature tabs on 2026-10-30,
+from the landing-features prototype: each tab plays a short scene on the app's own
+screens in a soft tinted panel. It adds no runtime: the vendored Motion bundle is not
+involved.
+
+| What moves | How | Duration |
+| --- | --- | --- |
+| Progress: the strength trend draws in, its points land, a record lands with its PR tag and figures, the week's hard sets by muscle rise in a sheet and fill | the line sits in a window that slides (`transform` on the window, the inverse on the line); points, tag and sheet `transform` and `opacity`; bars `scaleX` | 6.8s |
+| The program editor: a tap opens an exercise's actions, Replace exercise raises the picker, a search is typed, a result is tapped, the card cross-fades to the new exercise | `transform` and `opacity`; the typed query is text written from the scene's time | 6.4s |
+| The Library: a search for "press" is typed, results land with their illustrations, the equipment chips slide to Dumbbell, which selects and narrows the list | `transform` and `opacity`; the chip's selected face is a second chip cross-faded | 6.6s |
+| A setup link: the share sheet rises, the link replaces "Preparing link…", Copy link is tapped and its toast drops; then a pasted message's lines slide into the import review's rows with their matches | `transform` and `opacity` | 8s |
+| The gym floor: the app grows out of its Home Screen icon, airplane mode comes on, the rest timer counts in the mini bar while History scrolls, then large text | `transform` and `opacity`; the clock is text written from the scene's time, whole seconds | 7.6s |
+| The playing tab's progress line; the panel's tint and the screen window between tabs | `transform` (`scaleX`, `scaleY` from 900px) from `--feature-progress`; the tint's and window's `opacity` and `transform` through a CSS transition | the scene's length; 0.3–0.6s |
+
+Every frame is a pure function of its scene's time (`paintLandingFeature`), so a tab can
+be jumped to. The clock is the tabs' own: seconds summed from the frames'
+`requestAnimationFrame` timestamps, each step clamped to 0–50ms; a frame that brings no
+finite timestamp counts as one 60 Hz frame. It never reads `performance.now()` for time.
+`test/landing-features.mjs` samples every scene every 0.2s in both languages for NaN,
+`undefined`, `null`, Infinity and unfilled placeholders, and runs the tabs with a
+platform that hands frames no timestamp and `performance.now()` that returns NaN.
+
+The loop runs only while the panel is at least a quarter on screen (an
+`IntersectionObserver` rooted on `#firstRun`), the page is visible and motion is welcome;
+a `ResizeObserver` scales each 390-wide screen into its window, whose size the panel's
+fixed height bounds, so nothing on the page moves. It lives in the landing controller
+beside the proof and is disposed with it. A tab tap reports nothing (the telemetry list
+is frozen). Under reduced motion no clock runs: each tab is a still at its scene's end
+state, and the tabs switch it.
+
 ## The motion vocabulary
 
 Nine named settings in `motion-layer.js`, and nothing else. A spring literal at a

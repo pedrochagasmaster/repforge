@@ -21433,29 +21433,12 @@ function closeFirstRunInstall(){
 }
 /* ---- Landing page: engine-true numbers, filled copy and the proof ----
    Every number the page shows is produced here at render time and poured into an
-   i18n template, never typed into markup or a catalog value. The three outcome
-   cases go through the real progression engine with the app's default settings;
-   the chart's figures come from the Progress model over the same four-session
-   history the chart image is captured from (owner decision L-2). The inputs
-   below are the only authored numbers: what the example lifter logged. */
+   i18n template, never typed into markup or a catalog value. The proof's case goes
+   through the real progression engine with the app's default settings. The input
+   below is the only authored number set: what the example lifter logged. */
 const LANDING_UNIT="kg";
 const LANDING_CASES={
-	add:{ex:"19f5c6f170d8808bb424e98de4472a7e",sets:3,repMin:8,repMax:10,logged:[[60,10,2],[60,10,2],[60,10,2]]},
-	hold:{ex:"1a25c6f170d8803d8231d083fdd65458",sets:3,repMin:5,repMax:8,logged:[[100,7,1],[100,6,0],[100,6,0]]},
-	reduce:{ex:"19f5c6f170d8808bb424e98de4472a7e",sets:3,repMin:8,repMax:10,logged:[[70,7,0],[70,6,0],[70,6,0]]}};
-/** The squat history behind the chart image: four sessions, one rung up each week. */
-const LANDING_CHART={exerciseId:"ex-squat",libraryId:"1a25c6f170d8803d8231d083fdd65458",started:"2026-08-03",
-  dates:["2026-08-03","2026-08-10","2026-08-17","2026-08-24"],
-  ladder:[92.5,95,97.5,100],reps:[6,7,7,8],rir:[2,2,1,1],sets:3,min:5,
-  /* the capture size per language (the Portuguese figure captions wrap, so it is taller), from tools/capture-landing-proof.mjs */
-  dims:{en:[584,728],pt:[584,766]}};
-function landingChartRows(){
-  const c=LANDING_CHART,rows=[];
-  c.dates.forEach((date,week)=>{
-    for(let set=1;set<=c.sets;set++)rows.push({session:`${date}_landing`,date,exerciseId:c.exerciseId,set,
-      load:c.ladder[week],reps:Math.max(c.min,c.reps[week]-(set-1)),
-      rir:Math.max(0,c.rir[week]-(set-1)),created:`${date}T18:${10+set}:00.000Z`})});
-  return rows}
+	add:{ex:"19f5c6f170d8808bb424e98de4472a7e",sets:3,repMin:8,repMax:10,logged:[[60,10,2],[60,10,2],[60,10,2]]}};
 /** The import-review capture: its size per language, the counts its screen shows
  *  (they differ by language: the sample's names classify differently) and the
  *  library movement its first row suggests. Written by tools/capture-landing-proof.mjs
@@ -21465,11 +21448,6 @@ const landingLang=()=>I18N?.getLang?.()==="pt"?"pt":"en";
 const landingNum=v=>{const s=fmtPlain(v);return landingLang()==="pt"?s.replace(".",","):s};
 const landingKg=v=>`${landingNum(v)} ${LANDING_UNIT}`;
 const landingExerciseName=id=>{const e=LIBRARY_BY_ID.get(id);return e?(landingLang()==="pt"&&e.namePt)||e.name:""};
-/** "7, 6 and 6" / "7, 6 e 6": the list pattern comes from the language, not from code. */
-function landingList(values){
-  const items=values.map(landingNum);
-  try{return new Intl.ListFormat(landingLang()==="pt"?"pt-BR":"en-GB",{style:"long",type:"conjunction"}).format(items)}
-  catch{return items.join(", ")}}
 function landingEvaluate(c){
   const engine=typeof RepForgeProgression!=="undefined"?RepForgeProgression:null;
   const exercise=rawExercise(c.ex),definitions=rawMetricDefinitions(c.ex);
@@ -21496,13 +21474,6 @@ function landingEvaluate(c){
     {weightMatch:false,expandRepRange:true})[0];
   if(result?.status!=="recommended")return null;
   return{status:result.status,load:result.targets.loadKg,reps:result.targets.reps}}
-/** Strength-trend figures for the chart, from the Progress model. */
-function landingChartFigures(){
-  const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
-  if(!Model)return null;
-  const series=Model.buildStrengthEvidence("all-history",LANDING_CHART.exerciseId,landingChartRows(),{started:LANDING_CHART.started});
-  if(!series?.points?.length)return null;
-  return{from:series.points[0].value,to:series.points.at(-1).value,sessions:series.evidenceCount}}
 /** A catalog template as markup: the template is escaped, then each {name} becomes
  *  escaped text or, for an app control's label, the bold interface term. */
 function landingRich(key,text,terms={}){
@@ -21748,29 +21719,6 @@ function paintLandingDemo(now){
   d.history.forEach((row,i)=>rise(row,13.9+i*.22,14.4+i*.22,8));
   // the loop closes through a short fade, so set 1 comes back clean
   set(d.veil,"opacity",f(now>16.55?out(seg(16.55,16.95)):1-out(seg(0,.3))))}
-function renderLandingOutcomes(results){
-  const root=$("#firstRun");if(!root)return;
-  for(const [id,c] of Object.entries(LANDING_CASES)){
-    const node=root.querySelector(`[data-landing-outcome="${id}"]`),got=results[id];
-    if(!node||!got)continue;
-    const reps=c.logged.map(set=>set[1]),same=reps.every(r=>r===reps[0]);
-    const did=same
-      ?t("landing.outcomes.did_same",{reps:landingNum(reps[0]),load:landingKg(c.logged[0][0]),sets:landingNum(c.sets),min:landingNum(c.repMin),max:landingNum(c.repMax)})
-      :t("landing.outcomes.did_mixed",{list:landingList(reps),load:landingKg(c.logged[0][0]),min:landingNum(c.repMin),max:landingNum(c.repMax)});
-    const rule=id==="add"?t("rec.add.text"):id==="hold"?t("rec.hold_add_reps.text"):t("rec.reduce.text",{min:landingNum(c.repMin)});
-    node.querySelector("[data-landing-next]").textContent=t("landing.outcomes.target",{load:landingKg(got.load),reps:landingNum(got.reps)});
-    node.querySelector("[data-landing-exercise]").textContent=landingExerciseName(c.ex);
-    node.querySelector("[data-landing-explain]").textContent=`${did} ${rule}`}}
-function renderLandingChart(){
-  const root=$("#firstRun");if(!root)return;
-  const figure=root.querySelector("[data-landing-chart]"),fig=landingChartFigures();
-  if(!figure||!fig)return;
-  const vars={exercise:landingExerciseName(LANDING_CHART.libraryId),from:landingNum(fig.from),to:landingKg(fig.to),sessions:landingNum(fig.sessions),metric:t("stats.metric.best_e1rm")};
-  const img=figure.querySelector("img");
-  if(img){
-    const dims=LANDING_CHART.dims[landingLang()];img.setAttribute("width",dims[0]);img.setAttribute("height",dims[1]);
-    img.alt=t("landing.chart.alt",vars)}
-  const caption=figure.querySelector("figcaption");if(caption)caption.textContent=t("landing.chart.caption",vars)}
 function renderLandingWays(){
   const root=$("#firstRun");if(!root)return;
   const fill=(key,html)=>{const node=root.querySelector(`[data-landing-fill="${key}"]`);if(node)node.innerHTML=html};
@@ -21786,13 +21734,354 @@ function renderLandingWays(){
     const typed=String(t("landing.ways.paste.message")).split("\n")[1]?.replace(/\s+\d+x[\d-]+\s*$/,"")||"";
     img.alt=t("landing.ways.paste.alt",{screen:t("import.heading"),linked:landingNum(shot.counts[lang].linked),review:landingNum(shot.counts[lang].review),
       typed,exercise:landingExerciseName(shot.exercise),status:t("import.status.probable")})}}
+/* ---- The feature tabs (owner, 2026-10-30: the landing-features prototype, built in) ----
+   Five tabs, each a short scene on the app's own screens: Progress drawing a strength trend with a record and the
+   week's hard sets (1); an exercise replaced in the program editor (2); a Library search for "press" narrowed by an
+   equipment chip (3); a setup link copied, then a pasted program reviewed (4); the app opened from the Home Screen,
+   in airplane mode, the rest timer in view while History scrolls, and large text (5). Every screen sits under
+   `.theme-light` (the app's light tokens, whatever the visitor's appearance) and is built from the app's own catalog
+   strings, library names and illustrations; where an app class reads the same outside its view (the Library's
+   header, search, tabs, chips and rows, the import counts, the mini bar) the screen uses it. Every frame is a pure
+   function of the scene's own time, so a tab can be jumped to; a frame moves transforms and opacities only, and writes
+   text only for typing and the rest clock, both read from that time and never from a platform clock. */
+const LANDING_FEATURES={
+  /* seconds per scene, the still reduced motion shows, and the screen's height at 390 wide */
+  scenes:[{len:6.8,still:6,h:640},{len:6.4,still:6,h:640},{len:6.6,still:5.9,h:660},{len:8,still:7.4,h:640},{len:7.6,still:4.1,h:700}],
+  ex:{bench:"19f5c6f170d8808bb424e98de4472a7e",dbBench:"1a05c6f170d8803ba48ec1443eab5978",nDb:"1a05c6f170d880a6b539ef74691f8c75",
+    pDb:"1a05c6f170d88017acc8c48b6ccdd639",sDb:"1a05c6f170d8803dad22e04308bd0a98",row:"1a15c6f170d880f89beacd8c81156f2d",
+    ohp:"1a05c6f170d880c5ad11c99b302b1bf9",push:"1a15c6f170d880479d38c49a76cb6b10",smith:"1a05c6f170d88058a3a0c07e098a9605",
+    leg:"1a25c6f170d88079a926dde776766181",seatedDb:"1a05c6f170d88060bbffeeb9acaa3c80",standDb:"1a05c6f170d8802ba26bf25efbec5e68",
+    incDb:"1a05c6f170d8806b911acf558c5af4f6",lowDb:"2245c6f170d880238f4ff9500137ec89",rearFly:"2a15c6f170d88066b38fd65f8757716f",
+    gluteLeg:"2aa5c6f170d880c08fcbf27e03a0e2dc",incBb:"1a05c6f170d880198e1aceac084f30eb",cgPress:"1a05c6f170d8809da1e7fbc50ae7575b",
+    fly:"1a05c6f170d880df946bdd6f42f0901c",barPush:"1a15c6f170d8801d9337dba3dcb34a88",highRow:"2c25c6f170d8802faccbc731f2c08731"},
+  /* scene 1: the bench press's top loads over five sessions, then a record */
+  trend:[55,57.5,57.5,60,60],record:62.5,dates:["2026-08-03","2026-08-31"],
+  /* scene 3: what the search and the chip show, with the muscles and equipment the app's rows name */
+  browse:[["rearFly",["Rear delts","Lats"],"cable"],["gluteLeg",["Glutes","Quads"],"machine"],["incBb",["Chest","Front delts"],"barbell"],["cgPress",["Triceps","Chest"],"barbell"]],
+  press:[["bench",["Chest","Triceps"],"barbell"],["ohp",["Front delts","Triceps"],"barbell"],["dbBench",["Chest","Triceps"],"dumbbell"],["smith",["Chest","Triceps"],"smith"],["leg",["Glutes","Quads"],"machine"]],
+  dumbbell:[["dbBench",["Chest","Triceps"],"dumbbell"],["seatedDb",["Front delts","Triceps"],"dumbbell"],["standDb",["Front delts","Triceps"],"dumbbell"],["incDb",["Chest","Front delts"],"dumbbell"],["lowDb",["Chest","Front delts"],"dumbbell"]],
+  /* in Portuguese the search is "supino", so both lists are the bench presses its names hold */
+  pressPt:[["bench",["Chest","Triceps"],"barbell"],["dbBench",["Chest","Triceps"],"dumbbell"],["smith",["Chest","Triceps"],"smith"],["incBb",["Chest","Front delts"],"barbell"],["nDb",["Chest","Triceps"],"dumbbell"]],
+  dumbbellPt:[["dbBench",["Chest","Triceps"],"dumbbell"],["nDb",["Chest","Triceps"],"dumbbell"],["incDb",["Chest","Front delts"],"dumbbell"],["lowDb",["Chest","Front delts"],"dumbbell"],["pDb",["Chest","Triceps"],"dumbbell"]],
+  /* scene 5: two weeks of History */
+  history:[["2026-10-30","strength_4_d3",["Lats","Chest","Quads"],13,5850,0],["2026-10-28","strength_4_d2",["Hamstrings","Glutes","Triceps"],17,14315,3],
+    ["2026-10-26","strength_4_d1",["Glutes","Chest","Lats"],13,6875,2],["2026-10-24","strength_4_d4",["Front delts","Biceps"],12,4120,0],
+    ["2026-10-23","strength_4_d3",["Lats","Chest","Quads"],13,5700,1],["2026-10-21","strength_4_d2",["Hamstrings","Glutes","Triceps"],17,13980,0]],
+  rest:90,notes:[[0,1.5],[1.6,2.65],[2.7,4.6],[4.75,99]]};
+const LANDING_FEATURE_MUSCLES=["Chest","Lats","Front delts","Triceps","Rear delts","Glutes","Quads","Hamstrings","Biceps"];
+const LANDING_FEATURE_DAYS=["strength_4_d1","strength_4_d2","strength_4_d3","strength_4_d4"];
+/** Every catalog string the feature screens and tabs show; test/landing-features.mjs fails when one leaves a catalog. */
+const LANDING_FEATURE_KEYS=["landing.features.title","landing.features.sub",
+  ...["progress","program","library","share","gym"].flatMap(k=>[`landing.features.${k}.title`,`landing.features.${k}.text`]),
+  "landing.features.gym.note1","landing.features.gym.note2","landing.features.gym.note3","landing.features.gym.note4",
+  "nav.stats","stats.scope.current_block","stats.scope.all_history","stats.metric.top_load","stats.metric.best_e1rm",
+  "exercise.chart.fig.top","exercise.chart.fig.change","plural.session.other","history.pr","summary.muscles.title",
+  "stats.volume.scope.this_week","stats.volume_on_target","stats.volume_below",
+  "nav.program","program.day.strength_4_d2","program.day.count","entry.catalogue.sets_exact","program.editor.replace_exercise",
+  "program.editor.remove_exercise","picker.search_placeholder",
+  "library.back","library.title","dialog.close","library.step","library.search_placeholder","picker.tab.search","picker.tab.browse",
+  "picker.tab.yours","picker.filter_all","picker.group.chest","picker.group.back","picker.group.shoulders","picker.group.arms",
+  "picker.equipment.barbell","picker.equipment.dumbbell","picker.equipment.machine","picker.equipment.cable","picker.equipment.smith",
+  "program.volume_audit.title","program.effective_sets","program.see_audit","program.export_text","program.export_text.sub",
+  "program.share_setup","program.share_setup_sub","program.share_setup_title","program.share_setup_body","program.share_setup_building",
+  "program.share_setup_copy","program.share_setup_share","toast.setup_link_copied","history.session.edit",
+  "landing.ways.paste.coach","landing.ways.paste.time","landing.ways.paste.message","import.heading","import.count_linked",
+  "import.count_review","import.count_custom","import.status.exact","import.status.probable",
+  "history.title","history.month_title","history.month_summary","count.sessions","count.sets","history.week",
+  "history.sets.one","history.prs","history.prs_many","rest.inline.label","minibar.next","rest.sheet.plus","minibar.resume",
+  "nav.log","nav.history","month.9",...[0,1,2,3,4,5,6].map(d=>`weekday.${d}`),
+  ...LANDING_FEATURE_MUSCLES.map(m=>`muscle.${m}`),...LANDING_FEATURE_DAYS.map(d=>`program.day.${d}`)];
+/** The scene at `time` seconds into the tabs' loop (any number; a non-finite or negative clock still names a frame). */
+function landingFeatureAt(time){
+  const S=LANDING_FEATURES.scenes,loop=S.reduce((sum,scene)=>sum+scene.len,0);
+  let at=Number.isFinite(time)?((time%loop)+loop)%loop:0,i=0;
+  // a tab's start lands in its own scene, whatever the float residue of folding it into the loop
+  while(i<S.length-1&&at>=S[i].len-1e-9){at=Math.max(0,at-S[i].len);i++}
+  return{i,u:at,loop}}
+const landingFeatureStart=i=>LANDING_FEATURES.scenes.slice(0,i).reduce((sum,scene)=>sum+scene.len,0);
+/** The library's size, floored to the hundred the copy names ("1,300+"). */
+const landingFeatureCount=()=>Math.floor(EXERCISE_LIBRARY.length/100)*100;
+let landingFeatures=null;
+function landingFeatureCopy(root){
+  const count=landingNum(landingFeatureCount()).replace(/\B(?=(\d{3})+(?!\d))/g,landingLang()==="pt"?".":",");
+  root.querySelectorAll("[data-feature-fill]").forEach(node=>{node.textContent=t(node.dataset.featureFill,{count})})}
+/** The five screens. Each returns its markup and, once in the page, the nodes its frames move. */
+function landingFeatureScreens(){
+  const X=LANDING_FEATURES.ex,ex=id=>LIBRARY_BY_ID.get(X[id]),name=id=>landingExerciseName(X[id]);
+  const thumb=(id,size="md")=>{const e=ex(id);return e?exerciseThumb(e,{size}):emptyThumb({size})};
+  const lang=landingLang(),locale=lang==="pt"?"pt-BR":"en-US",n=landingNum;
+  const list=items=>{try{return new Intl.ListFormat(locale,{style:"long",type:"conjunction"}).format(items)}catch{return items.join(", ")}};
+  const date=(iso,opts)=>{try{return new Intl.DateTimeFormat(locale,{timeZone:"UTC",...opts}).format(new Date(`${iso}T12:00:00Z`))}catch{return iso}};
+  const chev=`<span class="firstrun-fx__chev" aria-hidden="true">‹</span>`;
+  const tap=`<span class="firstrun-fx__tap"></span>`;
+  const lay=(a,b,cls="")=>`<span class="firstrun-fx__lay${cls}"><span class="firstrun-fx__a">${a}</span><span class="firstrun-fx__b">${b}</span></span>`;
+  const muscles=keys=>keys.map(key=>muscleLabel(key)).join(" · ");
+  /* 1 · Progress */
+  const F=LANDING_FEATURES,W=358,cx=i=>52+i*58,cy=v=>196-(v-52.5)*13;
+  const line=F.trend.map((v,i)=>`${i?"L":"M"}${cx(i)},${cy(v)}`).join(" ");
+  const vols=[["Chest",12,1],["Lats",14,1],["Front delts",9,1],["Triceps",5,0]];
+  const s1=`<div class="firstrun-fx firstrun-fx--progress">`+
+    `<p class="firstrun-fx__back">${chev}${esc(t("nav.stats"))}</p><p class="firstrun-fx__title">${esc(name("bench"))}</p>`+
+    `<div class="firstrun-fx__seg"><span class="is-on">${esc(t("stats.scope.current_block"))}</span><span>${esc(t("stats.scope.all_history"))}</span></div>`+
+    `<div class="firstrun-fx__seg"><span class="is-on">${esc(t("stats.metric.top_load"))}</span><span>${esc(t("stats.metric.best_e1rm"))}</span></div>`+
+    `<div class="firstrun-fx__figs">`+
+      `<p>${lay(esc(n(60)),esc(n(F.record))," firstrun-fx__fig")}<span>${esc(t("exercise.chart.fig.top",{unit:LANDING_UNIT}))}</span></p>`+
+      `<p>${lay(esc("+"+n(5)),esc("+"+n(7.5))," firstrun-fx__fig")}<span>${esc(t("exercise.chart.fig.change",{unit:LANDING_UNIT}))}</span></p>`+
+      `<p>${lay(esc(n(5)),esc(n(6))," firstrun-fx__fig")}<span>${esc(t("plural.session.other"))}</span></p></div>`+
+    `<div class="firstrun-fx__chart">`+
+      [55,57.5,60,62.5].map(v=>`<span class="firstrun-fx__grid" style="top:${cy(v)}px"></span><span class="firstrun-fx__gy" style="top:${cy(v)-8}px">${esc(n(v))}</span>`).join("")+
+      `<span class="firstrun-fx__gx" style="left:${cx(0)-14}px">${esc(date(F.dates[0],{month:"short",day:"numeric"}))}</span>`+
+      `<span class="firstrun-fx__gx firstrun-fx__gx--end">${esc(date(F.dates[1],{month:"short",day:"numeric"}))}</span>`+
+      `<div class="firstrun-fx__win1"><svg width="${W}" height="240" viewBox="0 0 ${W} 240" aria-hidden="true" focusable="false"><path class="firstrun-fx__line" d="${line}"/></svg></div>`+
+      `<div class="firstrun-fx__win2"><svg width="${W}" height="240" viewBox="0 0 ${W} 240" aria-hidden="true" focusable="false"><path class="firstrun-fx__line firstrun-fx__line--record" d="M${cx(4)},${cy(60)} L${cx(5)},${cy(F.record)}"/></svg></div>`+
+      `<span class="firstrun-fx__vline" style="left:${cx(5)}px;top:${cy(F.record)}px;height:${200-cy(F.record)}px"></span>`+
+      F.trend.map((v,i)=>`<span class="firstrun-fx__pt" style="left:${cx(i)}px;top:${cy(v)}px"></span>`).join("")+
+      `<span class="firstrun-fx__pt firstrun-fx__pt--record" style="left:${cx(5)}px;top:${cy(F.record)}px"></span>`+
+      `<span class="firstrun-fx__prtag" style="left:${cx(5)-56}px;top:${cy(F.record)-34}px">${esc(t("history.pr"))}</span></div>`+
+    `<div class="firstrun-fx__sheet firstrun-fx__vol"><span class="firstrun-fx__grab"></span>`+
+      `<p class="firstrun-fx__volhead"><b>${esc(t("summary.muscles.title"))}</b><span>${esc(t("stats.volume.scope.this_week"))}</span></p>`+
+      vols.map(([m,v,ok])=>`<div class="firstrun-fx__vrow"><p><span>${esc(muscleLabel(m))}</span><span><b>${esc(n(v))}</b>`+
+        `<em class="${ok?"":"is-below"}">${esc(t(ok?"stats.volume_on_target":"stats.volume_below"))}</em></span></p>`+
+        `<span class="firstrun-fx__vbar"><i class="${ok?"":"is-below"}" style="width:${(v/16*100).toFixed(1)}%"></i></span></div>`).join("")+
+    `</div>${tap}</div>`;
+  /* 2 · Replace an exercise */
+  const sets=(s,a,b)=>`${n(s)} × ${n(a)}–${n(b)}`;
+  const card=(id,sub,cls="")=>`<div class="firstrun-fx__card${cls}">${thumb(id)}<span class="firstrun-fx__cardtext"><b>${esc(name(id))}</b><span>${esc(sub)}</span></span>`+
+    `<span class="icon-mask icon-mask--chev-right firstrun-fx__cardchev" aria-hidden="true"></span></div>`;
+  const s2=`<div class="firstrun-fx firstrun-fx--editor">`+
+    `<p class="firstrun-fx__back">${chev}${esc(t("nav.program"))}</p><p class="firstrun-fx__title">${esc(t("program.day.strength_4_d2"))}</p>`+
+    `<p class="firstrun-fx__meta">${esc(t("program.day.count",{n:n(4),sets:t("entry.catalogue.sets_exact",{n:12})}))}</p>`+
+    `<div class="firstrun-fx__swap">${card("bench",sets(3,6,8)," firstrun-fx__swapa")}${card("dbBench",sets(3,6,8)," firstrun-fx__swapb")}<span class="firstrun-fx__flash"></span></div>`+
+    `<p class="firstrun-fx__acts"><span class="firstrun-fx__pill firstrun-fx__rep">${esc(t("program.editor.replace_exercise"))}</span>`+
+      `<span class="firstrun-fx__pill firstrun-fx__pill--danger">${esc(t("program.editor.remove_exercise"))}</span></p>`+
+    `<div class="firstrun-fx__below">${card("row",sets(3,8,10))}${card("ohp",sets(3,6,8))}${card("push",sets(3,12,15))}</div>`+
+    `<div class="firstrun-fx__scrim"></div>`+
+    `<div class="firstrun-fx__sheet firstrun-fx__picker"><span class="firstrun-fx__grab"></span>`+
+      `<p class="firstrun-fx__sheettitle">${esc(t("program.editor.replace_exercise"))}</p>`+
+      `<div class="pick__search firstrun-fx__search"><span class="firstrun-fx__ring"></span><span class="firstrun-fx__ph">${esc(t("picker.search_placeholder"))}</span>`+
+        `<span class="firstrun-fx__typed"><span class="firstrun-fx__q"></span><span class="firstrun-fx__caret"></span></span></div>`+
+      `<div class="firstrun-fx__results">`+["dbBench","nDb","pDb","sDb"].map(id=>`<div class="firstrun-fx__res">${thumb(id,"sm")}<span class="firstrun-fx__cardtext"><b>${esc(name(id))}</b><span>${esc(muscles(["Chest","Triceps"]))}</span></span><span class="firstrun-fx__hl"></span></div>`).join("")+
+    `</div></div>${tap}</div>`;
+  /* 3 · Library search */
+  const chip=(label,active,cls="")=>`<span class="firstrun-fx__chipw${cls}"><span class="pchip${active?" is-active":""}">${esc(label)}</span>`+
+    `<span class="pchip${active?"":" is-active"} firstrun-fx__chipx">${esc(label)}</span></span>`;
+  const libRow=([id,mus,eq])=>`<div class="librow"><span class="librow__preview">${thumb(id)}</span><div class="librow__text">`+
+    `<p class="librow__name">${esc(name(id))}</p><p class="librow__meta">${esc([muscles(mus),t("picker.equipment."+eq)].join(" · "))}</p></div>`+
+    `<span class="librow__check"></span></div>`;
+  const s3=`<div class="firstrun-fx firstrun-fx--library">`+
+    `<div class="exview-head"><span class="back-link">${esc(t("library.back"))}</span><p class="exview-head__title">${esc(t("library.title"))}</p>`+
+      `<div class="exview-head__right"><span class="link-accent">${esc(t("dialog.close"))}</span></div></div>`+
+    `<div class="libstep"><p class="libstep__lab">${esc(t("library.step",{n:1,total:2}))}</p><span class="libstep__bar"></span><span class="libstep__bar"></span></div>`+
+    `<div class="pick__search firstrun-fx__search"><span class="firstrun-fx__ring"></span><span class="firstrun-fx__ph">${esc(t("library.search_placeholder"))}</span>`+
+      `<span class="firstrun-fx__typed"><span class="firstrun-fx__q"></span><span class="firstrun-fx__caret"></span></span></div>`+
+    `<div class="picktabs firstrun-fx__tabs">${["search","browse","yours"].map(k=>`<span class="picktab">${esc(t("picker.tab."+k))}</span>`).join("")}<span class="firstrun-fx__ul"></span></div>`+
+    `<div class="pick__filters pick__filters--row firstrun-fx__chips">${chip(t("picker.filter_all"),true," firstrun-fx__all")}`+
+      ["chest","back","shoulders","arms"].map(k=>chip(t("picker.group."+k),false)).join("")+`</div>`+
+    `<div class="pick__filters pick__filters--row firstrun-fx__chips">`+
+      ["barbell","dumbbell","machine","cable","smith"].map(k=>chip(t("picker.equipment."+k),false,k==="dumbbell"?" firstrun-fx__pick":"")).join("")+`</div>`+
+    `<div class="firstrun-fx__lists">`+
+      `<div class="firstrun-fx__list firstrun-fx__g0">${F.browse.map(libRow).join("")}</div>`+
+      `<div class="firstrun-fx__list firstrun-fx__g1">${(lang==="pt"?F.pressPt:F.press).map(libRow).join("")}</div>`+
+      `<div class="firstrun-fx__list firstrun-fx__g2">${(lang==="pt"?F.dumbbellPt:F.dumbbell).map(libRow).join("")}</div></div>${tap}</div>`;
+  /* 4 · Share a setup link; paste a program */
+  const link="https://taurifer.com/#setup=v4.H4sIAAAAAAAAA9WdXW_bNhSG_4rKfQoW2KxSRGVdv1x9re7LcPsq1YSWRrQ5TE6HAQBaMmUj-mbByRfPq-1FI_iYnw-ifNkVCyLanou5GsxElJ34FaLyKFRWKpMiDerM1i5FVp4V0ZizIjPRKX16liHoU124AqfQvQIPyc6q58zFVJ8JWSQ";
+  const message=String(t("landing.ways.paste.message")).split("\n"),typedNames=message.slice(1).map(row=>row.replace(/\s+\d+x[\d-]+\s*$/,""));
+  const matches=[["bench",1],["incDb",0],["fly",1],["barPush",1]];
+  const s4=`<div class="firstrun-fx firstrun-fx--share">`+
+    `<div class="firstrun-fx__pa">`+
+      [["push",sets(2,12,15)],["row",sets(2,8,10)],["ohp",sets(2,6,8)]].map(([id,s])=>`<p class="firstrun-fx__prow"><b>${esc(name(id))}</b><span>${esc(s)}</span></p>`).join("")+
+      `<p class="firstrun-fx__prow firstrun-fx__prow--head"><b>${esc(t("program.volume_audit.title"))}</b></p>`+
+      `<p class="firstrun-fx__prow"><b>${esc(t("program.effective_sets",{n:83}))}</b><span>${esc(t("program.see_audit"))} ›</span></p>`+
+      `<p class="firstrun-fx__prow"><b>${esc(t("program.export_text"))}<small>${esc(t("program.export_text.sub"))}</small></b><span>›</span></p>`+
+      `<p class="firstrun-fx__prow firstrun-fx__srow"><b>${esc(t("program.share_setup"))}<small>${esc(t("program.share_setup_sub"))}</small></b><span>›</span></p>`+
+      `<div class="firstrun-fx__scrim"></div>`+
+      `<div class="firstrun-fx__sheet firstrun-fx__share"><span class="firstrun-fx__grab"></span>`+
+        `<p class="firstrun-fx__sheettitle">${esc(t("program.share_setup_title"))}</p><p class="firstrun-fx__body">${esc(t("program.share_setup_body"))}</p>`+
+        `<p class="firstrun-fx__link">${lay(esc(t("program.share_setup_building")),esc(link))}</p>`+
+        `<p class="firstrun-fx__btns"><span class="firstrun-fx__pill firstrun-fx__copy">${esc(t("program.share_setup_copy"))}</span>`+
+          `<span class="firstrun-fx__pill firstrun-fx__pill--fill">${esc(t("program.share_setup_share"))}</span></p></div>`+
+      `<p class="firstrun-fx__toast">${esc(t("toast.setup_link_copied"))}</p></div>`+
+    `<div class="firstrun-fx__pb">`+
+      `<p class="firstrun-fx__title firstrun-fx__hd">${esc(t("import.heading"))}</p>`+
+      `<p class="impcounts firstrun-fx__counts firstrun-fx__fg"><span class="impcount"><b>${n(3)}</b>${esc(t("import.count_linked"))}</span>`+
+        `<span class="impcount"><b>${n(1)}</b>${esc(t("import.count_review"))}</span><span class="impcount"><b>${n(0)}</b>${esc(t("import.count_custom"))}</span></p>`+
+      `<div class="firstrun-msg firstrun-fx__msg"><div class="firstrun-msg__who"><b>${esc(t("landing.ways.paste.coach"))}</b><span>${esc(t("landing.ways.paste.time"))}</span></div></div>`+
+      `<p class="firstrun-fx__pline firstrun-fx__mh">${esc(message[0]||"")}</p>`+
+      message.slice(1).map((row,i)=>`<p class="firstrun-fx__pline firstrun-fx__ln" style="top:${200+i*26}px"><span>${esc(typedNames[i])}</span><span class="firstrun-fx__tail">${esc(row.slice(typedNames[i].length))}</span></p>`).join("")+
+      matches.map(([id,ok],i)=>`<p class="firstrun-fx__match" style="top:${244+i*74}px"><span class="firstrun-fx__arrow">→</span>`+
+        `<span class="firstrun-fx__mark${ok?"":" is-likely"}"></span><span><b>${esc(name(id))}</b><small>${esc(t(ok?"import.status.exact":"import.status.probable"))}</small></span></p>`).join("")+
+    `</div>${tap}</div>`;
+  /* 5 · The gym floor */
+  const nav=[["nav.log","log"],["nav.stats","stats"],["nav.history","history"],["nav.program","program"]];
+  const monthName=m=>{const s=t("month."+m);return s?s.charAt(0).toUpperCase()+s.slice(1):s};
+  const histRow=([iso,day,mus,setCount,vol,prs])=>{const d=new Date(`${iso}T12:00:00Z`);
+    return`<div class="firstrun-fx__hrow"><span class="firstrun-fx__hd1"><small>${esc(t("weekday."+d.getUTCDay()))}</small><b>${esc(n(d.getUTCDate()))}</b></span>`+
+      `<span class="firstrun-fx__hd2"><b>${esc(t("program.day."+day))}</b><small>${esc(list(mus.map(muscleLabel)))}</small></span>`+
+      `<span class="firstrun-fx__hd3"><span>${esc(setCount===1?t("history.sets.one",{n:1}):t("entry.catalogue.sets_exact",{n:setCount}))}</span>`+
+      `<span><b>${esc(Number(vol).toLocaleString(locale))}</b> ${esc(LANDING_UNIT)}</span>${prs?`<em>${esc(prs===1?t("history.prs",{n:1}):t("history.prs_many",{n:prs}))}</em>`:""}</span></div>`};
+  const H=F.history,screen5=big=>`<div class="firstrun-fx__hist${big?" firstrun-fx__hist--big":""}">`+
+    `<div class="firstrun-fx__hlist"><p class="firstrun-fx__htitle">${esc(t("history.title"))}</p>`+
+      `<p class="firstrun-fx__hmonth"><b>${esc(t("history.month_title",{month:monthName(9),year:2026}))}</b>`+
+        `<span>${esc(t("history.month_summary",{sessions:t("count.sessions",{n:12}),sets:t("count.sets",{n:168})}))}</span></p>`+
+      `<p class="firstrun-fx__hweek">${esc(t("history.week",{n:3,done:4,planned:4}))}</p>${H.slice(0,4).map(histRow).join("")}`+
+      `<p class="firstrun-fx__hweek">${esc(t("history.week",{n:2,done:4,planned:4}))}</p>${H.slice(4).map(histRow).join("")}</div>`+
+    `<span class="firstrun-fx__band"></span>`+
+    `<div class="minibar is-rest firstrun-fx__mini"><span class="minibar__ring" style="--minibar-share:.38"></span>`+
+      `<span class="minibar__text"><span class="minibar__title"><span class="minibar__rest">${esc(t("rest.inline.label"))} <span class="minibar__clock firstrun-fx__clock"></span></span></span>`+
+      `<span class="minibar__sub">${esc(t("minibar.next",{n:2,exercise:name("highRow")}))}</span></span>`+
+      `<span class="minibar__actions"><span class="minibar__chip">${esc(t("rest.sheet.plus"))}</span><span class="minibar__go">${esc(t("minibar.resume"))}</span></span></div>`+
+    `<div class="firstrun-fx__dock">${nav.map(([key,icon],i)=>`<span class="${i===2?"is-on":""}"><span class="nav__icon" data-i="${icon}"></span>${esc(t(key))}</span>`).join("")}</div></div>`;
+  const icons=Array.from({length:16},(_,k)=>k===6?"":`<span class="firstrun-fx__icon" style="left:${28+(k%4)*90.7}px;top:${72+Math.floor(k/4)*98}px"></span>`).join("");
+  const s5=`<div class="firstrun-fx firstrun-fx--gym">`+
+    `<div class="firstrun-fx__home">${icons}<span class="firstrun-fx__icon firstrun-fx__icon--app"><img src="icons/icon-192.png" alt="" width="62" height="62" decoding="async"></span>`+
+      `<span class="firstrun-fx__ilbl">Taurifer</span><span class="firstrun-fx__hdock"></span></div>`+
+    `<div class="firstrun-fx__app">${screen5(false)}${screen5(true)}</div>`+
+    `<div class="firstrun-fx__sbar"><span class="firstrun-fx__time">9:41</span><span class="firstrun-fx__sig"></span><span class="firstrun-fx__air"></span><span class="firstrun-fx__bat"></span></div>`+
+    `${tap}</div>`;
+  return[s1,s2,s3,s4,s5]}
+/** Where a node's centre is in its screen's own 390-wide coordinates. */
+function landingFeatureCentre(root,node){
+  let x=0,y=0,el=node;
+  while(el&&el!==root){x+=el.offsetLeft;y+=el.offsetTop;el=el.offsetParent}
+  return{x:x+node.offsetWidth/2,y:y+node.offsetHeight/2}}
+function renderLandingFeatures(){
+  const root=$("#firstRun"),section=root?.querySelector("[data-landing-section=\"features\"]");if(!section)return;
+  landingFeatureCopy(section);
+  const hosts=[...section.querySelectorAll("[data-feature-screen]")];if(hosts.length!==5)return;
+  const html=landingFeatureScreens();
+  hosts.forEach((host,i)=>{host.innerHTML=html[i];host.style.height=`${LANDING_FEATURES.scenes[i].h}px`});
+  const q=(i,sel)=>hosts[i].querySelector(sel),qa=(i,sel)=>[...hosts[i].querySelectorAll(sel)];
+  const lang=landingLang();
+  landingFeatures={hosts,laid:false,last:new WeakMap(),painted:null,scenes:[
+    {root:q(0,".firstrun-fx"),win1:q(0,".firstrun-fx__win1"),win2:q(0,".firstrun-fx__win2"),pts:qa(0,".firstrun-fx__pt:not(.firstrun-fx__pt--record)"),
+      record:q(0,".firstrun-fx__pt--record"),tag:q(0,".firstrun-fx__prtag"),vline:q(0,".firstrun-fx__vline"),figs:qa(0,".firstrun-fx__fig"),
+      vol:q(0,".firstrun-fx__vol"),bars:qa(0,".firstrun-fx__vbar i"),tap:q(0,".firstrun-fx__tap")},
+    {root:q(1,".firstrun-fx"),swap:q(1,".firstrun-fx__swap"),a:q(1,".firstrun-fx__swapa"),b:q(1,".firstrun-fx__swapb"),flash:q(1,".firstrun-fx__flash"),
+      acts:q(1,".firstrun-fx__acts"),rep:q(1,".firstrun-fx__rep"),below:q(1,".firstrun-fx__below"),scrim:q(1,".firstrun-fx__scrim"),sheet:q(1,".firstrun-fx__picker"),
+      ring:q(1,".firstrun-fx__ring"),ph:q(1,".firstrun-fx__ph"),typed:q(1,".firstrun-fx__q"),caret:q(1,".firstrun-fx__caret"),res:qa(1,".firstrun-fx__res"),
+      hl:q(1,".firstrun-fx__hl"),tap:q(1,".firstrun-fx__tap"),query:lang==="pt"?"supino com halt":"dumbbell bench"},
+    {root:q(2,".firstrun-fx"),ring:q(2,".firstrun-fx__ring"),ph:q(2,".firstrun-fx__ph"),typed:q(2,".firstrun-fx__q"),caret:q(2,".firstrun-fx__caret"),
+      search:q(2,".firstrun-fx__search"),ul:q(2,".firstrun-fx__ul"),all:q(2,".firstrun-fx__all .firstrun-fx__chipx"),
+      pick:q(2,".firstrun-fx__pick"),pickOn:q(2,".firstrun-fx__pick .firstrun-fx__chipx"),g0:qa(2,".firstrun-fx__g0 .librow"),
+      g1:qa(2,".firstrun-fx__g1 .librow"),g2:qa(2,".firstrun-fx__g2 .librow"),tap:q(2,".firstrun-fx__tap"),query:lang==="pt"?"supino":"press"},
+    {root:q(3,".firstrun-fx"),pa:q(3,".firstrun-fx__pa"),pb:q(3,".firstrun-fx__pb"),scrim:q(3,".firstrun-fx__scrim"),sheet:q(3,".firstrun-fx__share"),
+      link:qa(3,".firstrun-fx__link .firstrun-fx__lay > span"),copy:q(3,".firstrun-fx__copy"),toast:q(3,".firstrun-fx__toast"),srow:q(3,".firstrun-fx__srow"),
+      msg:q(3,".firstrun-fx__msg"),mh:q(3,".firstrun-fx__mh"),lines:qa(3,".firstrun-fx__ln"),tails:qa(3,".firstrun-fx__tail"),matches:qa(3,".firstrun-fx__match"),
+      hd:qa(3,".firstrun-fx__hd"),fg:qa(3,".firstrun-fx__fg"),tap:q(3,".firstrun-fx__tap")},
+    {root:q(4,".firstrun-fx"),home:q(4,".firstrun-fx__home"),app:q(4,".firstrun-fx__app"),norm:q(4,".firstrun-fx__hist:not(.firstrun-fx__hist--big)"),
+      big:q(4,".firstrun-fx__hist--big"),list:q(4,".firstrun-fx__hist:not(.firstrun-fx__hist--big) .firstrun-fx__hlist"),clocks:qa(4,".firstrun-fx__clock"),
+      sig:q(4,".firstrun-fx__sig"),air:q(4,".firstrun-fx__air"),icon:q(4,".firstrun-fx__icon--app"),tap:q(4,".firstrun-fx__tap")}]};
+  landingController?.refreshFeatures?.()}
+/** Measure what the frames need from layout: where each finger lands and how far the chips slide. */
+function layoutLandingFeatures(f){
+  const [s1,s2,s3,s4,s5]=f.scenes;
+  if(!s2.root.offsetWidth)return false;
+  const c=node=>landingFeatureCentre(s2.root,node);
+  const card=c(s2.swap),rep=c(s2.rep),r0=c(s2.res[0]);
+  s2.taps=[{t0:.75,x:card.x-40,y:card.y},{t0:1.85,x:rep.x,y:rep.y},{t0:4.2,x:r0.x-60,y:r0.y}];
+  // the sheet is measured where it rests, not where the frame has it
+  const sheetTop=s2.sheet.offsetTop;s2.taps[2].y=sheetTop+s2.res[0].offsetTop+s2.res[0].offsetHeight/2;
+  const field=landingFeatureCentre(s3.root,s3.search),pick=landingFeatureCentre(s3.root,s3.pick);
+  s3.scroll=Math.max(0,pick.x+s3.pick.offsetWidth/2-(s3.root.offsetWidth-24));
+  s3.taps=[{t0:.5,x:field.x-40,y:field.y},{t0:3.75,x:pick.x-s3.scroll,y:pick.y}];
+  const srow=landingFeatureCentre(s4.root,s4.srow),copy=landingFeatureCentre(s4.root,s4.copy);
+  s4.taps=[{t0:.55,x:srow.x-40,y:srow.y},{t0:2.15,x:copy.x,y:s4.sheet.offsetTop+s4.copy.offsetTop+s4.copy.offsetHeight/2}];
+  s4.toastW=s4.toast.offsetWidth;
+  s4.dy=s4.lines.map((line,i)=>s4.matches[i].offsetTop-24-line.offsetTop);
+  const icon=landingFeatureCentre(s5.root,s5.icon);
+  s5.icon0={x:icon.x,y:icon.y,size:s5.icon.offsetWidth||62};
+  s5.taps=[{t0:.6,x:icon.x,y:icon.y}];
+  s1.taps=[];
+  f.last=new WeakMap();f.laid=true;
+  return true}
+/** One frame of scene `i` at `u` seconds into it. */
+function paintLandingFeature(i,u){
+  const f=landingFeatures;if(!f)return;
+  if(!f.laid&&!layoutLandingFeatures(f))return;
+  const time=Number.isFinite(u)?Math.max(0,u):0;f.painted=[i,time];
+  const seg=(a,b)=>Math.min(1,Math.max(0,(time-a)/(b-a))),out=x=>1-Math.pow(1-x,3);
+  const inOut=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2,spring=x=>x<=0?0:x>=1?1:1-Math.exp(-7*x)*Math.cos(9*x);
+  const r=v=>String(Math.round((Number.isFinite(v)?v:0)*1000)/1000);
+  const set=(el,prop,value)=>{if(!el)return;let was=f.last.get(el);if(!was)f.last.set(el,was={});if(was[prop]===value)return;was[prop]=value;el.style[prop]=value};
+  const op=(el,v)=>set(el,"opacity",r(Math.min(1,Math.max(0,v))));
+  const tf=(el,v)=>set(el,"transform",v);
+  const text=(el,v)=>{if(el&&el.textContent!==v)el.textContent=v};
+  const press=t0=>time>=t0-.08&&time<t0+.22?Math.sin(seg(t0-.08,t0+.22)*Math.PI):0;
+  const finger=s=>{
+    const p=(s.taps||[]).find(p=>time>=p.t0-.45&&time<=p.t0+.55);
+    if(!p){op(s.tap,0);return}
+    const a=seg(p.t0-.4,p.t0-.08),b=seg(p.t0+.22,p.t0+.5);
+    op(s.tap,a*(1-b)*.95);
+    tf(s.tap,`translate(${r(p.x-22)}px,${r(p.y-22)}px) scale(${r(1.3-.3*out(a)-.14*press(p.t0))})`)};
+  const typing=(s,a,step,end)=>{
+    const k=Math.round(seg(a,a+step*s.query.length)*s.query.length);
+    text(s.typed,s.query.slice(0,k));op(s.ph,k?0:1);
+    op(s.caret,time>a-.3&&time<end&&(k<s.query.length||Math.floor(time*2.4)%2===0)?1:0)};
+  const s=f.scenes[i];finger(s);
+  if(i===0){
+    const cx=k=>52+k*58,w=cx(4)+8,draw=inOut(seg(.25,1.75));
+    tf(s.win1,`translateX(${r(-(1-draw)*w)}px)`);tf(s.win1.firstChild,`translateX(${r((1-draw)*w)}px)`);
+    s.pts.forEach((p,k)=>{const at=.25+1.5*k/4,v=seg(at-.02,at+.3);op(p,v>0?1:0);tf(p,`scale(${r(spring(v))})`)});
+    const d2=inOut(seg(2.05,2.5)),w2=358-cx(4);
+    tf(s.win2,`translateX(${r(-(1-d2)*w2)}px)`);tf(s.win2.firstChild,`translateX(${r((1-d2)*w2)}px)`);
+    const pop=seg(2.45,2.95);op(s.record,pop>0?1:0);tf(s.record,`scale(${r(spring(pop))})`);
+    const tag=out(seg(2.7,3.05));op(s.tag,tag);tf(s.tag,`translateY(${r((1-tag)*6)}px)`);
+    op(s.vline,out(seg(2.6,3))*.7);
+    const fig=out(seg(2.65,2.95));s.figs.forEach(node=>{op(node.firstChild,1-fig);op(node.lastChild,fig)});
+    const up=out(seg(3.55,4.05));tf(s.vol,`translateY(${r((1-up)*270)}px)`);
+    s.bars.forEach((bar,k)=>tf(bar,`scaleX(${r(out(seg(3.95+k*.12,4.6+k*.12)))})`))}
+  else if(i===1){
+    const open=out(seg(.85,1.25))*(1-inOut(seg(5,5.4)));
+    op(s.acts,open);tf(s.acts,`translateY(${r((1-open)*-8)}px)`);tf(s.below,`translateY(${r(open*56)}px)`);
+    tf(s.swap,`scale(${r(1-.015*press(.75))})`);tf(s.rep,`scale(${r(1-.04*press(1.85))})`);
+    const up=out(seg(2.05,2.5))*(1-inOut(seg(4.45,4.85)));
+    tf(s.sheet,`translateY(${r((1-up)*104)}%)`);op(s.scrim,up*.32);
+    op(s.ring,seg(2.45,2.6));typing(s,2.65,.055,4.2);
+    s.res.forEach((row,k)=>{const v=out(seg(3.45+k*.08,3.8+k*.08));op(row,v);tf(row,`translateY(${r((1-v)*8)}px)`)});
+    op(s.hl,seg(4.12,4.2)*(1-seg(4.5,4.7)));
+    const sw=out(seg(4.6,4.9));op(s.a,1-sw);op(s.b,sw);
+    op(s.flash,time<4.7?0:seg(4.7,4.85)*(1-seg(5.3,5.9)))}
+  else if(i===2){
+    op(s.ring,seg(.55,.7));
+    tf(s.ul,`translateX(${r((1-out(seg(.7,1)))*100)}%)`);
+    typing(s,.85,.16,99);
+    const gone=seg(.95,1.2);s.g0.forEach(row=>op(row,1-gone));
+    const out1=seg(3.9,4.1);
+    s.g1.forEach((row,k)=>{const v=out(seg(1.45+k*.1,1.8+k*.1));op(row,v*(1-out1));tf(row,`translateY(${r((1-v)*10)}px)`)});
+    tf(s.pick.parentElement,`translateX(${r(-s.scroll*inOut(seg(2.9,3.35)))}px)`);
+    const sel=seg(3.75,3.85);op(s.pickOn,sel);op(s.all,sel);
+    tf(s.pick,`scale(${r(1-.05*press(3.75))})`);
+    s.g2.forEach((row,k)=>{const v=out(seg(4.1+k*.09,4.45+k*.09));op(row,v);tf(row,`translateY(${r((1-v)*10)}px)`)})}
+  else if(i===3){
+    const up=out(seg(.75,1.2));tf(s.sheet,`translateY(${r((1-up)*104)}%)`);op(s.scrim,up*.32);
+    const lk=out(seg(1.45,1.75));op(s.link[0],1-lk);op(s.link[1],lk);
+    tf(s.copy,`scale(${r(1-.04*press(2.15))})`);
+    const toast=out(seg(2.3,2.6))*(1-seg(3.25,3.5));
+    op(s.toast,toast);tf(s.toast,`translateX(${r(-s.toastW/2)}px) translateY(${r((1-toast)*-14)}px)`);
+    op(s.pb,out(seg(3.55,3.9)));op(s.pa,1-seg(3.75,3.95));
+    const m=out(seg(3.75,4.15)),go=inOut(seg(4.75,5.45)),chrome=1-out(seg(4.7,5));
+    tf(s.msg,`translateY(${r((1-m)*12)}px)`);op(s.msg,m*chrome);op(s.mh,m*chrome);
+    s.lines.forEach((line,k)=>{op(line,m);tf(line,`translate(${r(-16*go)}px,${r(s.dy[k]*go)}px)`)});
+    s.tails.forEach(tail=>op(tail,chrome));
+    const hd=out(seg(5,5.4));s.hd.forEach(node=>op(node,hd));
+    s.fg.forEach(node=>op(node,out(seg(6.1,6.45))));
+    s.matches.forEach((node,k)=>{const v=out(seg(5.4+k*.16,5.75+k*.16));op(node,v);tf(node,`translateX(${r((1-v)*10)}px)`)})}
+  else{
+    const p=out(seg(.72,1.3)),{x,y,size}=s.icon0,W=390,cy=350,k=size/W+(1-size/W)*p;
+    tf(s.app,`translate(${r((x-W/2)*(1-p))}px,${r((y-cy)*(1-p))}px) scale(${r(k)})`);op(s.app,seg(.72,.9));
+    tf(s.home,`scale(${r(1+.08*p)})`);op(s.home,1-seg(.9,1.3));
+    const air=seg(1.65,1.9);op(s.sig,1-air);op(s.air,air);
+    // the rest counts down from the scene's own time, whole seconds
+    const left=Math.max(0,Math.ceil(LANDING_FEATURES.rest-Math.max(0,time-1.2))),clock=`${Math.floor(left/60)}:${String(left%60).padStart(2,"0")}`;
+    s.clocks.forEach(node=>text(node,clock));
+    tf(s.list,`translateY(${r(-150*inOut(seg(2.75,3.7)))}px)`);
+    const big=out(seg(4.75,5.15));op(s.norm,1-big);op(s.big,big)}}
 /** Everything on the landing that is a number or is built from one. */
 function renderLandingContent(){
   const results={};
   for(const [id,c] of Object.entries(LANDING_CASES)){const got=landingEvaluate(c);if(got)results[id]=got}
   renderLandingProof(results.add||null);
-  renderLandingOutcomes(results);
-  renderLandingChart();
+  renderLandingFeatures();
   renderLandingWays()}
 
 /* The landing controller. One object per open landing: it plays the proof's phone
@@ -21864,7 +22153,77 @@ function createLandingController(root){
     on(document,"visibilitychange",syncPlay);
     document.fonts?.ready?.then(()=>{if(landingController&&landingDemo){landingDemo.laid=false;paint(play.t)}});
     fit();paint(0)}
-  function layout(){play.current=-1;paint(reduced()?starts[chapterAt(play.t)]:play.t);syncPlay();requestTick()}
+  function layout(){play.current=-1;paint(reduced()?starts[chapterAt(play.t)]:play.t);syncPlay();
+    feat.current=-1;paintFeat(reduced()?landingFeatureStart(landingFeatureAt(feat.t).i):feat.t);syncFeat();requestTick()}
+  /* ---- the feature tabs' player ----
+     The proof's rules: a clock made of frame deltas only, running while the panel is on screen, the page is visible
+     and motion is welcome; the tabs show where it is and jump it; under reduced motion each tab is a still. A tab tap
+     reports nothing (the event list is frozen). */
+  const featPanel=root.querySelector("#firstRunFeatPanel"),featTabs=[...root.querySelectorAll("[data-feature]")];
+  const featRow=root.querySelector(".firstrun-feat__tabs"),featWins=[...root.querySelectorAll(".firstrun-feat__win")];
+  const featTints=[...root.querySelectorAll(".firstrun-feat__tint")],featCaps=[...root.querySelectorAll(".firstrun-feat__cap")];
+  const featNotes=[...root.querySelectorAll(".firstrun-feat__note")];
+  const feat={t:0,raf:0,last:0,seen:false,current:-1,held:false};
+  function paintFeatTabs(i,share){
+    if(i!==feat.current){
+      const first=feat.current<0;feat.current=i;
+      featTabs.forEach((tab,k)=>{tab.setAttribute("aria-selected",String(k===i));tab.tabIndex=k===i?0:-1;tab.classList.toggle("is-current",k===i)});
+      featWins.forEach((win,k)=>win.classList.toggle("is-current",k===i));
+      featTints.forEach((tint,k)=>tint.classList.toggle("is-current",k===i));
+      featCaps.forEach((cap,k)=>cap.classList.toggle("is-current",k===i));
+      if(featTabs[i])featPanel?.setAttribute("aria-labelledby",featTabs[i].id);
+      if(i!==4)featNotes.forEach(note=>{note.style.opacity="0"});
+      // A narrow row scrolls sideways to keep the playing tab in view; it never scrolls the page.
+      const tab=featTabs[i];
+      if(featRow&&tab&&featRow.scrollWidth>featRow.clientWidth+1)
+        featRow.scrollTo({left:Math.max(0,tab.offsetLeft-featRow.offsetLeft-16),behavior:first||reduced()?"auto":"smooth"})}
+    featTabs.forEach((tab,k)=>tab.style.setProperty("--feature-progress",k===i?String(Math.round(share*1000)/1000):"0"))}
+  function paintFeat(time){
+    feat.t=Number.isFinite(time)?time:0;
+    const {i,u}=landingFeatureAt(feat.t),scene=LANDING_FEATURES.scenes[i],still=reduced(),at=still?scene.still:u;
+    paintLandingFeature(i,at);
+    if(i===4)featNotes.forEach((note,k)=>{
+      const [a,b]=LANDING_FEATURES.notes[k],v=Math.min(1,Math.max(0,(at-a)/.3))*(1-Math.min(1,Math.max(0,(at-(b-.2))/.2)));
+      note.style.opacity=String(Math.round(v*1000)/1000);note.style.transform=`translateX(-50%) translateY(${Math.round((1-v)*600)/100}px)`});
+    paintFeatTabs(i,still?1:Math.min(1,at/scene.len))}
+  function featFrame(now){
+    reg.frames.delete(feat.raf);
+    // A frame's own delta; a platform that hands no usable timestamp (iOS has given null) gets one 60 Hz frame.
+    const dt=Number.isFinite(now)&&Number.isFinite(feat.last)?(now-feat.last)/1000:1/60;
+    if(!feat.held)feat.t+=Math.min(.05,Math.max(0,dt));
+    if(Number.isFinite(now))feat.last=now;
+    paintFeat(feat.t);
+    feat.raf=requestAnimationFrame(featFrame);reg.frames.add(feat.raf)}
+  function syncFeat(){
+    const run=feat.seen&&!document.hidden&&!reduced()&&!landingReturning();
+    if(run&&!feat.raf){feat.last=performance.now();feat.raf=requestAnimationFrame(featFrame);reg.frames.add(feat.raf)}
+    if(!run&&feat.raf){cancelAnimationFrame(feat.raf);reg.frames.delete(feat.raf);feat.raf=0}}
+  /* Each screen is built 390 wide and scaled into its window; the panel's size is the stylesheet's, so nothing moves. */
+  function fitFeat(){
+    if(!featPanel||!featPanel.clientWidth||!landingFeatures)return;
+    const wide=featPanel.clientWidth>=480,pw=featPanel.clientWidth,ph=featPanel.clientHeight;
+    LANDING_FEATURES.scenes.forEach((scene,i)=>{
+      const padX=wide?56:20,padT=wide?44:20,padB=i===4?(wide?84:64):padT,win=featWins[i];
+      const k=Math.max(.1,Math.min((pw-2*padX)/390,(ph-padT-padB)/scene.h,1.05));
+      if(!win)return;
+      win.style.width=`${Math.round(390*k)}px`;win.style.height=`${Math.round(scene.h*k)}px`;win.style.marginTop=`${(padT-padB)/2}px`;
+      landingFeatures.hosts[i].style.transform=`scale(${Math.round(k*10000)/10000})`});
+    landingFeatures.laid=false;feat.current=-1;paintFeat(feat.t)}
+  function mountFeatures(){
+    if(!featPanel||featTabs.length!==5)return;
+    featTabs.forEach((tab,i)=>on(tab,"click",()=>{feat.current=-1;paintFeat(landingFeatureStart(i)+(reduced()?0:.001))}));
+    if(featRow)on(featRow,"keydown",event=>{
+      const step={ArrowRight:1,ArrowDown:1,ArrowLeft:-1,ArrowUp:-1}[event.key];
+      const to=event.key==="Home"?0:event.key==="End"?4:step?(Math.max(0,feat.current)+step+5)%5:null;
+      if(to==null)return;event.preventDefault();
+      feat.current=-1;paintFeat(landingFeatureStart(to)+(reduced()?0:.001));featTabs[to].focus()});
+    if(typeof ResizeObserver!=="undefined"){const ro=new ResizeObserver(fitFeat);reg.obs.push(ro);ro.observe(featPanel)}
+    if(typeof IntersectionObserver!=="undefined"){
+      const io=new IntersectionObserver(entries=>{feat.seen=entries[entries.length-1].isIntersecting;syncFeat()},{root,threshold:.25});
+      reg.obs.push(io);io.observe(featPanel)}
+    on(document,"visibilitychange",syncFeat);
+    document.fonts?.ready?.then(()=>{if(landingController&&landingFeatures){landingFeatures.laid=false;paintFeat(feat.t)}});
+    fitFeat()}
   /* ---- the persistent Build control ---- */
   function mountDock(){
     const dock=root.querySelector("#firstRunDock"),hero=root.querySelector("#firstRunCreate"),close=root.querySelector("#firstRunCreateClose");
@@ -21925,13 +22284,14 @@ function createLandingController(root){
       try{data.focus({preventScroll:true})}catch{}})}
   /* ---- lifecycle ---- */
   function mount(){
-    mountControls();mountDock();mountInsetBand();mountPlayer();
+    mountControls();mountDock();mountInsetBand();mountPlayer();mountFeatures();
     on(root,"scroll",requestTick,{passive:true});
     on(window,"resize",layout);
     if(motionQuery?.addEventListener)on(motionQuery,"change",layout);
     layout()}
   function dispose(){
     if(screen)screen.style.removeProperty("transform");
+    landingFeatures?.hosts.forEach(host=>host.style.removeProperty("transform"));
     reg.offs.forEach(off=>off());reg.offs.length=0;
     reg.obs.forEach(io=>io.disconnect());reg.obs.length=0;
     reg.frames.forEach(cancelAnimationFrame);reg.frames.clear();
@@ -21939,12 +22299,17 @@ function createLandingController(root){
     ticks.clear();tickPending=false}
   const live=()=>({listeners:reg.offs.length,observers:reg.obs.length,frames:reg.frames.size,
     playing:!!play.raf&&!play.held,held:play.held,chapter:play.current<0?null:play.current,time:Math.round(play.t*1000)/1000,ticks:ticks.size,
-    nonFinite:landingDemo?.nonFinite??0});
+    nonFinite:landingDemo?.nonFinite??0,feature:feat.current<0?null:feat.current,featurePlaying:!!feat.raf&&!feat.held,
+    featureTime:Math.round(feat.t*1000)/1000});
   /** A rebuilt screen (a language change) is laid out and painted where the player is. */
   const refresh=()=>{play.current=-1;paint(play.t)};
   /** Harness seam: put the timeline at `time` and hold it there (`null` lets it run again). */
   const seek=time=>{play.held=time!=null;if(time!=null){play.current=-1;paint(time)}};
-  return{mount,dispose,live,refresh,seek}}
+  /** A rebuilt feature screen (a language change) is fitted, laid out and painted where its player is. */
+  const refreshFeatures=()=>fitFeat();
+  /** Harness seam: put the feature tabs at `time` on their loop and hold them there (`null` lets them run again). */
+  const seekFeature=time=>{feat.held=time!=null;if(time!=null){feat.current=-1;paintFeat(time)}};
+  return{mount,dispose,live,refresh,seek,refreshFeatures,seekFeature}}
 function mountLandingController(){
   disposeLandingController();
   const root=$("#firstRun");if(!root)return;
@@ -21959,6 +22324,8 @@ function disposeLandingController(){
 /** Test hook: what the open landing's controller is holding (nothing once closed). */
 /** Test hook: hold the open landing's proof at a moment of its timeline (frames and fidelity captures). */
 window.__repforgeLandingSeek=time=>landingController?.seek(time);
+/** Test hook: hold the feature tabs at a moment of their loop (scene `i` at `u` seconds is landingFeatureStart(i)+u). */
+window.__repforgeLandingFeatureSeek=(i,u)=>landingController?.seekFeature(i==null?null:landingFeatureStart(i)+(+u||0));
 window.__repforgeLandingProof=()=>landingController?{open:true,...landingController.live()}:{open:false,listeners:0,observers:0,frames:0,playing:false,chapter:null,time:0,ticks:0};
 /** Real-app captures that follow the chosen appearance: swap the file on
  *  <html data-theme>, never on prefers-color-scheme, so the page and the app agree. */

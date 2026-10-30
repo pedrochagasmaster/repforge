@@ -514,10 +514,10 @@
       "variants": "standard"
     },
     {
-      "id": "first-run-track",
+      "id": "first-run-features",
       "flow": "onboarding-start",
-      "label": "One-time landing — outcomes",
-      "scenario": "Scrolled to the three engine outcomes (add, hold, back off) with their next targets, and the strength-trend chart.",
+      "label": "One-time landing — feature tabs",
+      "scenario": "Scrolled to the five feature tabs, held mid-scene on Progress: the strength trend with its record and the week's hard sets by muscle.",
       "variants": "standard"
     },
     {
