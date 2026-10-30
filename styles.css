@@ -489,15 +489,15 @@
    rectangles. These few rules restore the light theme's hierarchy without
    adding cards or glow. */
 :root[data-theme="dark"] .kg,
-:root[data-theme="dark"] .saveset:not(.theme-light *){
+:root[data-theme="dark"] .saveset:where(:not(.theme-light *)){
   border-color:var(--rule-strong);
 }
-:root[data-theme="dark"] .stepbtn:not(.theme-light *){
+:root[data-theme="dark"] .stepbtn:where(:not(.theme-light *)){
   background:var(--control-adjustment-bg);
   border-color:var(--control-adjustment-boundary);
   color:var(--control-adjustment-ink);
 }
-:root[data-theme="dark"] .saveset:not(.theme-light *){
+:root[data-theme="dark"] .saveset:where(:not(.theme-light *)){
   color:var(--ink);
 }
 /* Small artwork retains its stronger dark-theme edge on charcoal. */
