@@ -2235,6 +2235,24 @@ function measureLargeFocus() {
   };
 }
 
+/** Until the open set, its context, the shelf and the banner hold the same boxes for ten frames running: the open
+ *  set scrolls into place after the session opens, so a fixed wait can measure it mid-scroll. */
+async function focusSettled(page) {
+  await page.evaluate(() => new Promise((resolve, reject) => {
+    const sel = [".ledgerline--open", ".fcard__context", ".focus-shelf"].map((s) => `#workout .exercise--focus.is-current ${s}`).concat("#fatigue");
+    let last = "", same = 0, frames = 0;
+    const tick = () => {
+      const now = JSON.stringify(sel.map((s) => { const el = document.querySelector(s); if (!el) return null; const r = el.getBoundingClientRect(); return [r.top, r.bottom, r.height]; }))
+        + document.scrollingElement.scrollTop + [...document.querySelectorAll("#workout *")].filter((el) => el.scrollTop).map((el) => el.scrollTop).join();
+      same = now === last ? same + 1 : 0; last = now;
+      if (same >= 10) return resolve();
+      if (++frames > 600) return reject(new Error("Focus never settled"));
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }));
+}
+
 /** Phase 5 (F-1): Focus at 200% text, in both languages, on the canonical phone and an SE-class one. */
 async function largeTextFocus(browser) {
   phase("Focus holds together at 200% text");
@@ -2272,7 +2290,7 @@ async function largeTextFocus(browser) {
     try {
       await opened.page.evaluate(() => window.__repforgeEnterWorkout({ day: "Day 2" }));
       await opened.page.waitForSelector("#workout .exercise.is-current .focus-shelf", { timeout: 15000 });
-      await opened.page.waitForTimeout(600);
+      await focusSettled(opened.page);
       const m = await opened.page.evaluate(measureLargeFocus);
       const banner = await opened.page.evaluate(() => { const el = document.querySelector("#fatigue:not(.hidden)"); return el ? { height: el.getBoundingClientRect().height, scrolls: getComputedStyle(el).overflowY } : null; });
       if (m.error) { assert(false, label, m.error); continue; }

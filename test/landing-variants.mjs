@@ -226,9 +226,10 @@ async function clearSite(page) {
 }
 
 /** A clean, empty device showing the generic landing (or the gate the UA implies). */
-async function landingPage(browser, { ua = ANDROID_UA, lang = "en", standalone = false, width = 390, height = 844, reducedMotion = false, theme = null } = {}) {
+async function landingPage(browser, { ua = ANDROID_UA, lang = "en", standalone = false, width = 390, height = 844, reducedMotion = false, theme = null, colorScheme = null } = {}) {
   const { context, page, errors } = await openAppPage(browser, { ua, locale: LOCALE[lang], standalone, width, height });
   if (reducedMotion) await page.emulateMedia({ reducedMotion: "reduce" });
+  if (colorScheme) await page.emulateMedia({ colorScheme });
   await clearSite(page);
   if (theme) await page.evaluate(({ key, value }) => localStorage.setItem(key, JSON.stringify({ theme: value })), { key: UIKEY, value: theme });
   await page.reload({ waitUntil: "domcontentloaded" });
@@ -860,20 +861,35 @@ async function finalPage(browser) {
     await context.close();
   }
 
-  // Appearance follows <html data-theme>.
-  phase("Final page: captures follow the chosen appearance");
-  for (const theme of ["light", "dark"]) {
-    const { context, page } = await landingPage(browser, { lang: "en", theme });
+  // Appearance follows <html data-theme>; the proof's phone is the app's light theme whatever the page is (owner, iPhone,
+  // 2026-10-30): its computed colours under a dark page, an explicit or a system one, are the light page's.
+  phase("Final page: captures follow the chosen appearance; the proof's phone is always light");
+  const phoneColours = () => {
+    const screen = document.querySelector("#firstRunDemo");
+    const read = (sel, props) => { const node = screen.querySelector(sel); return node ? props.map((prop) => getComputedStyle(node)[prop]).join(" ") : null; };
+    return {
+      ground: read(".firstrun-demo", ["backgroundColor", "color"]), cue: read(".firstrun-demo__l1", ["color"]), log: read(".firstrun-demo__log", ["backgroundColor", "color", "borderTopColor"]),
+      pad: read(".shelf__pads .stepbtn", ["backgroundColor", "color", "borderTopColor"]), shelf: read(".firstrun-demo__shelf", ["backgroundColor"]),
+      wheel: read(".firstrun-demo__wheel", ["backgroundColor"]), row: read(".firstrun-demo__wheel .wheel__item", ["color"]), sheet: read(".firstrun-demo__sheet", ["backgroundColor"]),
+    };
+  };
+  const palettes = {};
+  for (const [theme, colorScheme, shown] of [["light", null, "light"], ["dark", null, "dark"], ["system", "dark", "dark"]]) {
+    const { context, page } = await landingPage(browser, { lang: "en", theme, colorScheme });
     const shots = await page.evaluate(() => ({
       theme: document.documentElement.dataset.theme,
       sources: [...document.querySelectorAll("#firstRun [data-shot]")].map((img) => img.getAttribute("src")),
-      proof: (() => { const screen = document.querySelector("#firstRunDemo .firstrun-demo"); return screen ? getComputedStyle(screen).backgroundColor : null; })(),
-      dark: document.querySelector("#firstRunDemo")?.classList.contains("theme-dark"),
+      light: document.querySelector("#firstRunDemo")?.classList.contains("theme-light"),
     }));
-    assert(shots.theme === theme && shots.sources.length === 2 && shots.sources.every((src) => src.endsWith(`-en-${theme}.webp`)),
-      `[${theme}] the paste review and the chart swap to their ${theme} captures`, JSON.stringify(shots));
-    assert(shots.dark && shots.proof === "rgb(20, 19, 16)", `[${theme}] the proof's screen is the app's dark theme in either theme`, JSON.stringify(shots));
+    palettes[theme] = await page.evaluate(phoneColours);
+    assert(shots.theme === shown && shots.sources.length === 2 && shots.sources.every((src) => src.endsWith(`-en-${shown}.webp`)),
+      `[${theme}] the paste review and the chart swap to their ${shown} captures`, JSON.stringify(shots));
+    assert(shots.light && palettes[theme].ground?.startsWith("rgb(244, 242, 239)"), `[${theme}] the proof's screen is on the app's light paper`, JSON.stringify({ shots, colours: palettes[theme] }));
     await context.close();
+  }
+  for (const theme of ["dark", "system"]) {
+    assert(Object.values(palettes.light).every(Boolean) && isDeepStrictEqual(palettes[theme], palettes.light),
+      `[${theme}] every colour the phone paints is the light page's`, JSON.stringify({ light: palettes.light, [theme]: palettes[theme] }));
   }
 
   // The proof's player: plays on screen, pauses off it and when hidden, jumps by chapter, and leaves nothing behind.
@@ -898,11 +914,11 @@ async function finalPage(browser) {
       const items = [...document.querySelectorAll("[data-landing-chapter]")];
       return { current: items.map((item) => item.querySelector("[data-chapter]").getAttribute("aria-current") === "step") };
     })() }));
-    assert(jumped.chapter === 2 && jumped.time >= 8 && jumped.time < 9 && jumped.current.filter(Boolean).length === 1 && jumped.current[2],
+    assert(jumped.chapter === 2 && jumped.time >= 9 && jumped.time < 10 && jumped.current.filter(Boolean).length === 1 && jumped.current[2],
       "a chapter jumps the phone to its start and is the one current chapter", JSON.stringify(jumped));
-    await page.evaluate(() => window.__repforgeLandingSeek(11));
+    await page.evaluate(() => window.__repforgeLandingSeek(12));
     const rest = await page.evaluate(chapterState);
-    assert(rest.tab === tr("en", "rest.inline.done"), "at 11 s the rest tab says the app's own Rest done", JSON.stringify(rest));
+    assert(rest.tab === tr("en", "rest.inline.done"), "at 12 s the rest tab says the app's own Rest done", JSON.stringify(rest));
     await page.evaluate(() => window.__repforgeLandingSeek(null));
     // a hidden page stops the clock; visible again, it runs
     await page.evaluate(() => { Object.defineProperty(document, "hidden", { configurable: true, get: () => true }); document.dispatchEvent(new Event("visibilitychange")); });
@@ -943,6 +959,75 @@ async function finalPage(browser) {
     assert(fresh?.open && fresh.chapter === 0, "a first visit mounts a fresh controller at chapter one", JSON.stringify(fresh));
     await page.evaluate(() => window.closeFirstRun());
     assert(errors.length === 0, "mounting and disposing raise no page errors", errors.slice(0, 2).join(" | "));
+    await context.close();
+  }
+
+  // The timeline (owner, iPhone, 2026-10-30: "Rest NaN:NaN", a chip ahead of its frame, set 1 checked at the start):
+  // every frame of the loop shows only finite values, and the chips, the frame and its state agree at every chapter's
+  // edge, whether the clock reaches it, a chip is tapped or the loop wraps. On a dark page, as the owner's phone was.
+  phase("Proof timeline: every frame is finite and in step with its chapter");
+  {
+    const { context, page, errors } = await landingPage(browser, { lang: "en", theme: "dark" });
+    await scrollToDevice(page);
+    const sweep = await page.evaluate(() => {
+      const screen = document.querySelector("#firstRunDemo"), items = [...document.querySelectorAll("[data-landing-chapter]")];
+      const bad = [];
+      for (let i = 0; i <= 17 * 30; i++) {
+        const time = i / 30;
+        window.__repforgeLandingSeek(time);
+        const said = [screen.textContent, ...[...screen.querySelectorAll("[style]"), ...items].map((node) => node.getAttribute("style") || "")].join(" ");
+        const found = /NaN|undefined|Infinity/.exec(said);
+        if (found) bad.push(`${time.toFixed(2)}s: ${said.slice(Math.max(0, found.index - 40), found.index + 20)}`);
+      }
+      return { bad: bad.slice(0, 5), count: bad.length, nonFinite: window.__repforgeLandingProof().nonFinite };
+    });
+    assert(sweep.count === 0 && sweep.nonFinite === 0, "no frame of the loop shows NaN, undefined or Infinity, nor computes a non-finite style", JSON.stringify(sweep));
+    // What the screen and the chips show, read from the page.
+    const read = () => {
+      const q = (sel) => document.querySelector(`#firstRunDemo ${sel}`), op = (sel) => Number(getComputedStyle(q(sel)).opacity);
+      const items = [...document.querySelectorAll("[data-landing-chapter]")];
+      return {
+        chapter: window.__repforgeLandingProof().chapter, time: window.__repforgeLandingProof().time,
+        current: items.map((item, i) => item.querySelector("[data-chapter]").getAttribute("aria-current") === "step" ? i : -1).filter((i) => i >= 0),
+        progress: items.map((item) => Number(item.style.getPropertyValue("--chapter-progress"))),
+        checked: op(".firstrun-demo__done1"), turned: op(".firstrun-demo__v1"), finger: op(".firstrun-demo__tap"),
+        wheel: q(".firstrun-demo__wheel").getBoundingClientRect().top < q(".firstrun-demo").getBoundingClientRect().bottom - 2,
+        next: q(".firstrun-demo__sheet").getBoundingClientRect().top < q(".firstrun-demo").getBoundingClientRect().bottom - 2,
+        tab: q(".resttab__label").textContent, clock: q(".resttab__time").textContent,
+      };
+    };
+    const starts = [0, 5, 9, 13], loop = 17;
+    // The screen at each chapter's start: the state the chapter opens on, and nothing a later chapter left.
+    const opens = [
+      (s) => s.checked === 0 && s.turned === 0 && s.finger === 0 && !s.wheel && !s.next && s.tab === tr("en", "rest.inline.label"),
+      (s) => s.checked === 0 && s.turned === 1 && s.finger === 0 && !s.wheel && !s.next,
+      (s) => s.checked === 1 && s.turned === 0 && !s.wheel && !s.next && s.tab === tr("en", "rest.inline.label") && /^1:\d\d$/.test(s.clock),
+      (s) => s.checked === 1 && !s.wheel && !s.next && s.tab === tr("en", "rest.inline.done"),
+    ];
+    const inStep = (s, i) => s.chapter === i && s.current.length === 1 && s.current[0] === i &&
+      s.progress.every((p, k) => k < i ? p === 1 : k > i ? p === 0 : p >= 0 && p <= 1);
+    for (const [i, start] of starts.entries()) {
+      const before = (i + starts.length - 1) % starts.length;
+      await page.evaluate((time) => window.__repforgeLandingSeek(time), (start - .02 + loop) % loop);
+      const edge = await page.evaluate(read);
+      await page.evaluate((time) => window.__repforgeLandingSeek(time), start + .02);
+      const after = await page.evaluate(read);
+      assert(inStep(edge, before) && inStep(after, i) && after.progress[i] < .05 && opens[i](after),
+        `chapter ${i + 1}'s edge: the chip and the frame change together, and the frame opens on its own state`, JSON.stringify({ edge, after }));
+      // A chip tapped from the end of the loop jumps the frame back to the same state.
+      await page.evaluate(() => window.__repforgeLandingSeek(16.5));
+      await page.click(`[data-chapter="${i}"]`);
+      const tapped = await page.evaluate(read);
+      assert(inStep(tapped, i) && opens[i](tapped), `tapping chapter ${i + 1} from the loop's end shows its opening state`, JSON.stringify(tapped));
+    }
+    // The clock itself wraps the loop into chapter 1 with set 1 open again.
+    await page.evaluate(() => window.__repforgeLandingSeek(16.8));
+    await page.evaluate(() => window.__repforgeLandingSeek(null));
+    await page.waitForTimeout(700);
+    const wrapped = await page.evaluate(read);
+    assert(inStep(wrapped, 0) && wrapped.time < 1.5 && wrapped.checked === 0 && wrapped.turned === 0 && !wrapped.next,
+      "the loop wraps into chapter 1 with set 1 unchecked and the chip back on chapter 1", JSON.stringify(wrapped));
+    assert(errors.length === 0, "the timeline raises no page errors", errors.slice(0, 2).join(" | "));
     await context.close();
   }
 

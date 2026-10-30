@@ -155,8 +155,8 @@ export function cssLiteralDebt(css, exceptions = []) {
     const brace = clean.lastIndexOf("{", match.index);
     const prior = clean.lastIndexOf("}", brace);
     const selector = clean.slice(prior + 1, brace).trim().replace(/\s+/g, " ");
-    // The palettes, also scoped to `.theme-dark` for the landing proof's phone.
-    const tokenDefinition = [":root", ':root[data-theme="dark"]', ":root,.theme-dark", ':root[data-theme="dark"],.theme-dark'].includes(selector);
+    // The palettes; the light one is also scoped to `.theme-light` for the landing proof's phone.
+    const tokenDefinition = [":root", ':root[data-theme="dark"]', ":root,.theme-light"].includes(selector);
     if (property.startsWith("--") && tokenDefinition) continue;
     const isType = property === "font-size";
     const isFontWeight = property === "font-weight";

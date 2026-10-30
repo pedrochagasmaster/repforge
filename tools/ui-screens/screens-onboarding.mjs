@@ -913,7 +913,7 @@ const FOCUS_SELECTOR = {
  * first-run-proof frame scrolls the phone to the top of the viewport, with its chapters
  * and the persistent Build control in view.
  */
-const PROOF_HOLD = 7.2;
+const PROOF_HOLD = 8.2;
 const FOCUS_PROOF = new Set(["onboarding-start/first-run-proof"]);
 
 /**

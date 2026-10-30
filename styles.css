@@ -12,9 +12,9 @@
 @font-face{font-family:"Plex Mono";src:url(fonts/plexmono-500.woff2) format("woff2");font-weight:500;font-display:swap}
 @font-face{font-family:"Plex Mono";src:url(fonts/plexmono-600.woff2) format("woff2");font-weight:600;font-display:swap}
 
-:root,.theme-dark{
-  /* `.theme-dark` scopes the same tokens to one element, so a surface that must stay dark in either theme (the landing
-     proof's phone screen) reads the app's own dark palette rather than a copy of it. */
+:root,.theme-light{
+  /* `.theme-light` scopes the same tokens to one element, so a surface that must stay light in either theme (the landing
+     proof's phone screen) reads the app's own light palette rather than a copy of it. */
   container-type:inline-size;
   color-scheme:light;
   /* `color-scheme` is a keyword property, so the few rules that pin a native
@@ -388,7 +388,7 @@
    disappears on this ground, so it becomes a light pill with dark ink, and the
    orange moves up rather than down (--accent-deep is the *lighter* orange here
    because its job is emphasis, and emphasis on dark means more light). */
-:root[data-theme="dark"],.theme-dark{
+:root[data-theme="dark"]{
   --rest-dial-glow:0 0 10px 4px rgba(var(--accent-rgb),.4);
   --rest-flick-glow:0 0 16px 4px rgba(var(--accent-rgb),.42);
   --rest-light-core:#FFB48A;--rest-light-bloom:var(--accent);--rest-light-gain:1;
@@ -489,15 +489,15 @@
    rectangles. These few rules restore the light theme's hierarchy without
    adding cards or glow. */
 :root[data-theme="dark"] .kg,
-:root[data-theme="dark"] .saveset,.theme-dark .saveset{
+:root[data-theme="dark"] .saveset:where(:not(.theme-light *)){
   border-color:var(--rule-strong);
 }
-:root[data-theme="dark"] .stepbtn,.theme-dark .stepbtn{
+:root[data-theme="dark"] .stepbtn:where(:not(.theme-light *)){
   background:var(--control-adjustment-bg);
   border-color:var(--control-adjustment-boundary);
   color:var(--control-adjustment-ink);
 }
-:root[data-theme="dark"] .saveset,.theme-dark .saveset{
+:root[data-theme="dark"] .saveset:where(:not(.theme-light *)){
   color:var(--ink);
 }
 /* Small artwork retains its stronger dark-theme edge on charcoal. */
@@ -1590,9 +1590,10 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 .wheel__body{padding:0 0 var(--space-16);overflow:hidden}
 /* As the prototype draws it: the title on the left at the section-title size,
    the keyboard button and Done together on the right, no rule under the head. */
-#wheelSheet .wheel__head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;min-height:52px;
+/* Scoped by the sheet's class, so the landing proof's phone draws the same head. */
+.sheet--wheel .wheel__head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;min-height:52px;
   padding:0 8px 0 var(--space-16);border-bottom:0}
-#wheelSheet .wheel__head .sheet__title{margin:0;text-align:left;font-size:var(--font-size-section-title);letter-spacing:-.01em}
+.sheet--wheel .wheel__head .sheet__title{margin:0;text-align:left;font-size:var(--font-size-section-title);letter-spacing:-.01em}
 .wheel__trail{display:inline-flex;align-items:center;gap:var(--space-4)}
 .wheel__trail .sheet__act{flex:none;width:auto;min-width:var(--control-target);padding:10px 8px}
 /* The selection band stays put while the rows move under it: a filled,
@@ -5618,7 +5619,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 
 /* ---- The proof: the workout screen, playing itself (owner, 2026-10-29: the landing-anim prototype's direction A) ----
    A phone plays one set of the bench press session in four chapters. Its screen is Focus's own markup at 390 x 844
-   under `.theme-dark`, scaled into the glass by the landing controller. On a phone the device is about 80% of the
+   under `.theme-light`, scaled into the glass by the landing controller. On a phone the device is about 80% of the
    old stage, so it and the chapter chips fit one 390 x 844 or 375 x 667 viewport above the Build control; the chips
    are the chapters' titles with a progress line, and the current one's caption sits under them in a row as tall as
    the longest, so nothing below moves. From 900px the chapters are a list beside the phone. */
@@ -5665,7 +5666,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   .firstrun-chapter__text{display:none;margin:0 0 var(--space-12);transition:none}
   .firstrun-chapter.is-current .firstrun-chapter__text{display:block;transition:none}
 }
-/* The phone's screen: Focus's own components under the app's dark tokens, laid out as the live card is, plus the
+/* The phone's screen: Focus's own components under the app's light tokens (in either appearance), laid out as the live card is, plus the
    landing's frame-only parts (the finger, the rest light's windows, the next-session sheet and the loop's veil). */
 .firstrun-demo{
   position:absolute;inset:0;overflow:hidden;background:var(--bg);color:var(--color-ink);font-family:var(--font-language);
@@ -5678,7 +5679,8 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-demo__card .fx-head{margin:var(--space-16) 0 0}
 .firstrun-demo__l1,.firstrun-demo__l2,.firstrun-demo__ev,.firstrun-demo__over,.firstrun-demo__ring,.firstrun-demo__tap,.firstrun-demo__log,
 .firstrun-demo__log1,.firstrun-demo__log2,.firstrun-demo__fields,.firstrun-demo__bump,.firstrun-demo__tab,.firstrun-demo__light,
-.firstrun-demo__lit,.firstrun-demo__scrim,.firstrun-demo__sheet,.firstrun-demo__did,.firstrun-demo__last,.firstrun-demo__veil{will-change:transform,opacity}
+.firstrun-demo__lit,.firstrun-demo__scrim,.firstrun-demo__sheet,.firstrun-demo__did,.firstrun-demo__last,.firstrun-demo__veil,
+.firstrun-demo__wheel,.firstrun-demo__wheel .wheel__item,.firstrun-demo__sel,.firstrun-demo__v0,.firstrun-demo__v1{will-change:transform,opacity}
 .firstrun-demo__why{font-weight:var(--weight-semibold);color:var(--accent-deep)}
 .firstrun-demo__row{position:relative}
 .firstrun-demo__over{position:absolute;inset:0;opacity:0;background:var(--bg)}
@@ -5689,6 +5691,20 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-demo__log1,.firstrun-demo__log2{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
 .firstrun-demo__log2{opacity:0}
 .firstrun-demo__face{display:contents}
+/* The selected field's outline (Focus's `aria-pressed` shadow), one element the frame slides from Load to Reps and back. */
+.firstrun-demo__fields{position:relative}
+.firstrun-demo__sel{position:absolute;pointer-events:none;box-shadow:var(--elevation-selected-quiet-shadow)}
+/* The Reps field's count before and after the wheel turns it, in one cell: the target untouched, the turned count typed. */
+.firstrun-demo__vals{display:inline-grid}
+.firstrun-demo__v0,.firstrun-demo__v1{grid-area:1/1}
+.firstrun-demo__v1{opacity:0;color:var(--color-ink)}
+/* Focus's wheel sheet (its `.sheet` surface without the class, so no sheet query meets it), placed in the phone and
+   moved by the frame. */
+.firstrun-demo__wheel{
+  position:absolute;z-index:3;left:0;right:0;bottom:0;display:flex;flex-direction:column;padding-bottom:34px;transform:translateY(101%);
+  background:var(--surface);border-radius:var(--radius-prominent) var(--radius-prominent) var(--radius-none) var(--radius-none);box-shadow:var(--elevation-sheet-shadow);
+}
+.firstrun-demo__wheel .wheel__item{visibility:visible}
 .firstrun-demo__bump{position:absolute;overflow:visible;fill:var(--color-surface)}
 .firstrun-demo__light{position:absolute;overflow:hidden;opacity:0}
 .firstrun-demo__light--l{-webkit-mask-image:linear-gradient(to right,transparent,var(--ink) 34px);mask-image:linear-gradient(to right,transparent,var(--ink) 34px)}
