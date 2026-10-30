@@ -206,19 +206,28 @@ the vendored Motion bundle is not involved.
 | What moves | How | Duration |
 | --- | --- | --- |
 | The hero cue arrives, then its evidence line | `transform` and `opacity` from the timeline | 0.6s; the evidence at 1.1s |
-| The finger presses Log set; the row checks; the open-row ring moves to set 2; the shelf takes set 2 | `transform` and `opacity` (the ring is Focus's own `.ledgerline__ring`, translated by the row step) | about 0.6s from 4.4s |
-| The rest tab rises out of the shelf; its light draws out from the tab, then retreats into it as the rest runs, the shelf's edge carrying the first 70% and the tab's outline the last 30% | the tab and its raised part translate; each half of the light is a static blurred path in a window that slides (`transform` on the window, the inverse on the path) with a feathered leading edge | rise 0.75s; the rest is compressed into 8.0–10.6s |
+| The finger taps Reps (the selected outline slides to it) and taps it again; Focus's wheel sheet rises, the finger drags the drum one rep on and it settles past and back; Done closes it with the turned count in the field | the finger, the outline and the sheet translate; each wheel row is placed, tilted, shrunk and faded as `RepForgeMotion.mountWheel` paints it; the field's two counts cross-fade | 1.85–4.5s |
+| The finger presses Log set; the row checks; the open-row ring moves to set 2; the shelf takes set 2 (the outline back on Load, the target count back in Reps) | `transform` and `opacity` (the ring is Focus's own `.ledgerline__ring`, translated by the row step) | about 0.6s from 5.35s |
+| The rest tab rises out of the shelf; its light draws out from the tab, then retreats into it as the rest runs, the shelf's edge carrying the first 70% and the tab's outline the last 30% | the tab and its raised part translate; each half of the light is a static blurred path in a window that slides (`transform` on the window, the inverse on the path) with a feathered leading edge | rise 0.75s; the rest is compressed into 9.0–11.6s |
 | "Rest done", one soft flick out along the edge, settling to a faint rim | the same windows and their `opacity` | 0.6s |
-| The next-session sheet rises over the session it came from | `transform` and `opacity` | 0.55s from 12.05s |
+| The next-session sheet rises over the session it came from | `transform` and `opacity` | 0.55s from 13.05s |
 | The loop closes | one veil's `opacity` | 0.4s |
-| The chapter's progress line | `transform` (`scaleX`, `scaleY` from 900px) from `--chapter-progress` | the chapter's 4s |
+| The chapter's progress line | `transform` (`scaleX`, `scaleY` from 900px) from `--chapter-progress` | the chapter's length: 5s, then 4s each |
 
 Every frame is a pure function of the timeline (`paintLandingDemo`), so a chapter
 can be jumped to; a frame writes `transform` and `opacity` only, and the rest tab's
 words only when its clock ticks over a second (`test/motion-integration.mjs` records
 every style the phone writes while it plays). The screen is Focus's own markup and
-classes under the app's dark tokens (`.theme-dark`), and its contour is Focus's own
-`restContourPaths`.
+classes under the app's light tokens (`.theme-light`, whatever the page's appearance),
+and its contour is Focus's own `restContourPaths`.
+
+The clock is the demo's own: seconds summed from the frames' `requestAnimationFrame`
+timestamps, each step clamped to 0–50ms and the first frame after a start counted as 0,
+folded into the 17s loop. It never reads `performance.now()` or any other clock, so it
+cannot run backwards, and the chapters and the screen are painted from the same instant.
+A value that is not a finite number never reaches a style (`test/landing-variants.mjs`
+samples the whole loop for NaN, `undefined` and Infinity, and checks the chips, the frame
+and its state at every chapter's edge, by the clock, by a tap and across the wrap).
 
 One `requestAnimationFrame` loop runs only while the phone is at least a quarter on
 screen (an `IntersectionObserver` rooted on `#firstRun`), the page is visible and
@@ -233,8 +242,8 @@ chips fit a 390 x 844 or 375 x 667 viewport above the Build control.
 Reduced motion is an alternate state, not a slower one. The controller reads the
 single decision in `motion-layer.js` (`RepForgeMotion.reducedMotion`, with the media
 query as the fallback) at mount and again when the preference changes, and under
-reduced motion no clock runs: each chapter is a still (3.6s, 7.2s, 11.6s and 14.6s
-of the timeline), and the chapters switch it. The chapter captions say everything the
+reduced motion no clock runs: each chapter is a still (3.95s, 8.2s, 12.6s and 15.6s
+of the timeline; the first holds the wheel turned, before Done), and the chapters switch it. The chapter captions say everything the
 phone shows; nothing depends on the motion to say it.
 
 ## The motion vocabulary

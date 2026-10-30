@@ -21503,21 +21503,27 @@ function landingRich(key,text,terms={}){
   return esc(t(key)).replace(/\{(\w+)\}/g,(whole,name)=>
     name in terms?`<b class="firstrun-ui">${esc(terms[name])}</b>`:name in text?esc(text[name]):whole)}
 /* ---- The proof: the workout screen, playing itself (owner, 2026-10-29: the landing-anim prototype's direction A) ----
-   One phone plays a set of the "add" case's bench press in four chapters of four seconds: the target arrives (1); Log
-   set is tapped, the row checks and the rest tab rises out of the shelf with its light (2); the rest runs down, time
-   compressed, to "Rest done" while set 2 waits prefilled (3); the next session's target rises in a sheet over the
-   session it came from (4). The screen is Focus's own markup, classes and strings under `.theme-dark` (the app's dark
-   tokens), so it changes when Focus does; the frame, the finger, the sheet and the light's moving windows are the
-   landing's. Every frame is a pure function of the timeline, so a chapter can be jumped to; a frame moves transforms
-   and opacities only, and writes text only when the rest clock ticks over a second. */
-const LANDING_DEMO={loop:16,chapter:4,stills:[3.6,7.2,11.6,14.6],rest:120,tap:4.95,restAt:5.3,fast:8,done:10.6,
+   One phone plays a set of the "add" case's bench press in four chapters: the target arrives, and the finger opens the
+   Reps wheel and turns it one rep on (1, five seconds); Log set is tapped, the row checks and the rest tab rises out of
+   the shelf with its light (2); the rest runs down, time compressed, to "Rest done" while set 2 waits prefilled (3); the
+   next session's target rises in a sheet over the session it came from (4). The screen is Focus's own markup, classes
+   and strings under `.theme-light` (the app's light tokens, whatever the visitor's appearance), so it changes when
+   Focus does; the frame, the finger, the sheets' placement and the light's moving windows are the landing's. Every
+   frame is a pure function of the timeline, so a chapter can be jumped to; a frame moves transforms and opacities
+   only, and writes text only when the rest clock ticks over a second. `chapters` are the chapters' starts. */
+const LANDING_DEMO={loop:17,chapters:[0,5,9,13],stills:[3.95,8.2,12.6,15.6],rest:120,tap:5.95,restAt:6.3,fast:9,done:11.6,
   rise:30,next:"1a05c6f170d8806b911acf558c5af4f6"};
+/** The chapter `time` (any finite number of seconds; the loop wraps it) falls in. */
+const landingChapterAt=time=>{const at=landingLoopTime(time);let i=0;while(i+1<LANDING_DEMO.chapters.length&&at>=LANDING_DEMO.chapters[i+1])i++;return i};
+/** `time` folded into one loop, so a negative, huge or non-finite clock still names a frame. */
+const landingLoopTime=time=>{const L=LANDING_DEMO.loop;return Number.isFinite(time)?((time%L)+L)%L:0};
 /** Every catalog string the proof's screen shows; test/landing-demo-copy.mjs fails when one leaves a catalog or Focus
  *  stops saying it. */
 const LANDING_DEMO_KEYS=["focus.exmeta.range","program.progression.adaptive","focus.cue.up","focus.cue.reps",
   "focus.evidence.history","focus.evidence.target","focus.evidence.why","log.set","log.reps","stats.table.rir",
   "focus.prev_line","focus.next_row","focus.metric.load_kg","focus.metric.reps","focus.shelf.pad_load","focus.shelf.log_set",
-  "rest.inline.label","rest.inline.done","landing.outcomes.next_label","landing.outcomes.target","landing.outcomes.did_same"];
+  "rest.inline.label","rest.inline.done","landing.outcomes.next_label","landing.outcomes.target","landing.outcomes.did_same",
+  "dialog.done"];
 let landingDemo=null;
 /** The proof's screen, from the "add" case and the engine's answer for it (`add`). */
 function landingDemoHtml(add){
@@ -21531,10 +21537,25 @@ function landingDemoHtml(add){
   const check=`<span class="fx-check" aria-hidden="true"></span>`;
   const head=`<div class="ledgerline__head"><span>${esc(t("log.set"))}</span><span class="ledgerline__vals">`+
     `<span class="fx-col">${esc(unit)}</span><span class="fx-col">${esc(t("log.reps"))}</span><span class="fx-col">${esc(t("stats.table.rir"))}</span></span></div>`;
-  const set=[kg,reps,landingNum(rir0)],aim=[kg,reps,landingNum(rir)];
-  const field=(short,label,shown,suffix,selected)=>`<div class="shelf__field is-untouched${selected?" is-sel":""}">`+
-    button("shelf__fieldbtn",`<span class="firstrun-demo__face">${shelfFaceHtml(short,label,shown,suffix)}</span>`,` aria-pressed="${selected?"true":"false"}"`)+`</div>`;
+  // Set 1 is logged at one rep over the target: the finger turns the Reps wheel to it in chapter 1.
+  const turned=landingNum(target.reps+1);
+  const set=[kg,reps,landingNum(rir0)],did=[kg,turned,landingNum(rir0)],aim=[kg,reps,landingNum(rir)];
+  // The selected field's outline is one element the frame slides between fields, as Focus's travelling outline does.
+  const field=(short,label,shown,suffix,extra="")=>`<div class="shelf__field is-untouched${extra}">`+
+    button("shelf__fieldbtn",`<span class="firstrun-demo__face">${shelfFaceHtml(short,label,shown,suffix)}</span>`,` aria-pressed="false"`)+`</div>`;
   const load=metricLabel({semantic:"loadKg"}),repsLabel=metricLabel({semantic:"reps"});
+  const repsField=field(repsLabel,repsLabel,reps,"",' firstrun-demo__repsfield').replace(`<span class="shelf__val">${esc(reps)}</span>`,
+    `<span class="shelf__val firstrun-demo__vals"><span class="firstrun-demo__v0">${esc(reps)}</span><span class="firstrun-demo__v1">${esc(turned)}</span></span>`);
+  // Focus's wheel sheet (openWheelSheet) on the reps around the target, its band on the target range. It is not a
+  // `.sheet`: the app's sheet queries never meet the phone's.
+  const wheelFrom=Math.max(1,target.reps-5),wheelRows=Array.from({length:12},(_,i)=>wheelFrom+i);
+  const wheel=`<div class="sheet--wheel firstrun-demo__wheel"><span class="sheet__grab"></span>`+
+    `<div class="sheet__head wheel__head"><p class="sheet__title">${esc(repsLabel)}</p><span class="wheel__trail">`+
+      button("sheet__act sheet__act--icon wheel__kb",`<span class="icon-mask icon-mask--keyboard" aria-hidden="true"></span>`)+
+      button("sheet__act sheet__act--done firstrun-demo__wdone",esc(t("dialog.done")))+`</span></div>`+
+    `<div class="sheet__body wheel__body"><div class="wheel__frame"><div class="wheel__band firstrun-demo__band"></div><div class="wheel">`+
+      `<div class="wheel__drum">${wheelRows.map(v=>`<div class="wheel__item${v>=c.repMin&&v<=c.repMax?" is-target":""}">${esc(landingNum(v))}</div>`).join("")}</div>`+
+    `</div></div></div></div>`;
   const pad=sign=>button("stepbtn shelf__pad",esc(t("focus.shelf.pad_load",{sign,step:landingNum(2.5),unit})));
   const filters=`<svg class="firstrun-demo__defs" width="0" height="0" aria-hidden="true" focusable="false"><defs>`+
     `<filter id="landingLightWide" filterUnits="userSpaceOnUse" x="-80" y="-80" width="550" height="400"><feGaussianBlur stdDeviation="9"/></filter>`+
@@ -21562,7 +21583,7 @@ function landingDemoHtml(add){
       `<p class="fx-cue__l2 firstrun-demo__l2">${esc(t("focus.cue.reps",{reps}))}</p>`+
       `<p class="fx-cue__evidence firstrun-demo__ev">${evidence}</p></div>`+
       `<div class="fcard__ledger">${head}`+
-        `<div class="firstrun-demo__row">${line(1,set,true,"")}<div class="firstrun-demo__over firstrun-demo__done1">${line(check,set,false)}</div>`+
+        `<div class="firstrun-demo__row">${line(1,set,true,"")}<div class="firstrun-demo__over firstrun-demo__done1">${line(check,did,false)}</div>`+
           `<span class="ledgerline__ring firstrun-demo__ring"></span></div>`+
         `<div class="firstrun-demo__row">${line(2,aim,true)}<div class="firstrun-demo__over firstrun-demo__open2">${line(2,set,true)}</div></div>`+
         line(3,aim,true)+`</div>`+
@@ -21572,14 +21593,14 @@ function landingDemoHtml(add){
     `<div class="workshelf focus-shelf firstrun-demo__shelf">`+
       `<span class="resttab firstrun-demo__tab"><span class="resttab__label"></span><span class="resttab__time"></span>`+
       `<span class="resttab__chev icon-mask icon-mask--chev-up" aria-hidden="true"></span></span>`+
-      `<div class="shelf__fields firstrun-demo__fields">${field(load,`${load}, ${unit}`,kg,unit,true)}${field(repsLabel,repsLabel,reps,"",false)}`+
-        `${field(t("stats.table.rir"),t("stats.table.rir"),landingNum(rir0),"",false)}</div>`+
+      `<div class="shelf__fields firstrun-demo__fields">${field(load,`${load}, ${unit}`,kg,unit)}${repsField}`+
+        `${field(t("stats.table.rir"),t("stats.table.rir"),landingNum(rir0),"")}<span class="firstrun-demo__sel"></span></div>`+
       `<div class="shelf__pads">${pad("−")}${pad("+")}</div>`+
       button("btn btn--cta btn--noarrow saveset firstrun-demo__log",`<span class="firstrun-demo__log1">${esc(t("focus.shelf.log_set",{n:1}))}</span>`+
         `<span class="firstrun-demo__log2">${esc(t("focus.shelf.log_set",{n:2}))}</span>`)+
     `</div>`+
+    `<div class="firstrun-demo__scrim"></div>`+wheel+
     `<span class="firstrun-demo__tap"></span>`+
-    `<div class="firstrun-demo__scrim"></div>`+
     `<div class="firstrun-demo__sheet"><span class="firstrun-demo__grab"></span>`+
       `<p class="firstrun-demo__eyebrow">${esc(t("landing.outcomes.next_label"))}</p>`+
       `<p class="firstrun-demo__target">${mark}${esc(t("landing.outcomes.target",{load:landingKg(target.load),reps}))}</p>`+
@@ -21606,8 +21627,19 @@ function layoutLandingDemo(d){
     Object.assign(svg.style,{left:`${x}px`,width:`${W}px`,height:`${H}px`});
     svg.querySelectorAll("path").forEach(node=>node.setAttribute("d",path))}
   d.cx=cx;d.x0=paths.x0;
-  const log=d.log.getBoundingClientRect(),screen=d.root.getBoundingClientRect(),scale=screen.width/d.root.offsetWidth||1;
-  Object.assign(d.tap.style,{left:`${(log.left-screen.left+log.width/2)/scale-23}px`,top:`${(log.top-screen.top+log.height/2)/scale-23}px`});
+  // Where the finger lands, measured with the wheel sheet in place: the Reps field, the wheel's band, Done and Log set.
+  const screen=d.root.getBoundingClientRect(),scale=screen.width/d.root.offsetWidth||1;
+  const was=d.wheel.style.transform;d.wheel.style.transform="none";
+  const at=el=>{const box=el.getBoundingClientRect();return[(box.left-screen.left+box.width/2)/scale-23,(box.top-screen.top+box.height/2)/scale-23]};
+  d.at={reps:at(d.repsBtn),band:at(d.band),done:at(d.wdone),log:at(d.log)};
+  d.wheel.style.transform=was;
+  Object.assign(d.tap.style,{left:"0px",top:"0px"});
+  // The selected field's outline: on Load, and one field's pitch away on Reps.
+  const loadBtn=d.loadBtn;
+  Object.assign(d.sel.style,{left:`${loadBtn.parentElement.offsetLeft}px`,top:`${loadBtn.parentElement.offsetTop}px`,
+    width:`${loadBtn.offsetWidth}px`,height:`${loadBtn.offsetHeight}px`,borderRadius:getComputedStyle(loadBtn).borderTopLeftRadius});
+  d.selDx=d.repsBtn.parentElement.offsetLeft-loadBtn.parentElement.offsetLeft;
+  d.rowH=d.items[0].offsetHeight||WHEEL_ITEM_H;d.wheelAt=Math.max(0,d.items.findIndex(row=>row.textContent===d.v0.textContent));
   d.rowStep=d.rows[1].offsetTop-d.rows[0].offsetTop;
   d.last=new WeakMap();d.laid=true;
   return true}
@@ -21625,24 +21657,51 @@ function renderLandingProof(add){
     tap:q(".firstrun-demo__tap"),shelf:q(".firstrun-demo__shelf"),tab:q(".firstrun-demo__tab"),bump:q(".firstrun-demo__bump"),
     label:q(".resttab__label"),time:q(".resttab__time"),lights:qa(".firstrun-demo__light"),scrim:q(".firstrun-demo__scrim"),
     sheet:q(".firstrun-demo__sheet"),did:q(".firstrun-demo__did"),history:qa(".firstrun-demo__last"),veil:q(".firstrun-demo__veil"),
-    laid:false,last:new WeakMap(),painted:null};
+    wheel:q(".firstrun-demo__wheel"),band:q(".firstrun-demo__band"),wdone:q(".firstrun-demo__wdone"),items:qa(".firstrun-demo__wheel .wheel__item"),
+    sel:q(".firstrun-demo__sel"),v0:q(".firstrun-demo__v0"),v1:q(".firstrun-demo__v1"),
+    loadBtn:q(".firstrun-demo__fields .shelf__fieldbtn"),repsBtn:q(".firstrun-demo__repsfield .shelf__fieldbtn"),
+    laid:false,last:new WeakMap(),painted:null,nonFinite:0};
   landingController?.refresh()}
-/** One frame of the proof at `now` seconds into its loop. */
+/** One frame of the proof at `now` seconds into its loop (folded into it first, so any clock names a frame). */
 function paintLandingDemo(now){
   const d=landingDemo;if(!d)return;
   if(!d.laid&&!layoutLandingDemo(d))return;
+  now=landingLoopTime(now);
+  // Going back in time (the loop's wrap, a chapter jumped to) repaints every style, so nothing a later frame left stays.
+  if(d.painted==null||now<d.painted)d.last=new WeakMap();
   d.painted=now;
   const D=LANDING_DEMO,seg=(a,b)=>Math.min(1,Math.max(0,(now-a)/(b-a))),out=x=>1-Math.pow(1-x,3);
-  const inOut=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2,f=v=>String(Math.round(v*1000)/1000);
+  const inOut=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2,back=x=>1+2.2*Math.pow(x-1,3)+1.2*Math.pow(x-1,2);
+  // A value that is not a number never reaches a style: it is counted (the harness reads the count) and drawn as 0.
+  const f=v=>{if(!Number.isFinite(v)){d.nonFinite++;v=0}return String(Math.round(v*1000)/1000)};
   const set=(el,prop,value)=>{let was=d.last.get(el);if(!was)d.last.set(el,was={});if(was[prop]===value)return;was[prop]=value;el.style[prop]=value};
   const rise=(el,a,b,by)=>{const v=out(seg(a,b));set(el,"opacity",f(v));set(el,"transform",`translateY(${f((1-v)*by)}px)`)};
+  const bump=(a,b)=>now>=a&&now<b?Math.sin(seg(a,b)*Math.PI):0;
   // 1 · the target arrives: the hero, its second line, then the evidence
   rise(d.l1,.25,.85,10);rise(d.l2,.45,1.05,8);set(d.ev,"opacity",f(out(seg(1.1,1.7))));
+  // then the finger taps Reps (the outline moves to it) and taps it again: Focus's wheel rises, the finger turns it one
+  // rep on, it settles, and Done closes it with the new count in the field.
+  const A=d.at,mix=(p,q,x)=>[p[0]+(q[0]-p[0])*x,p[1]+(q[1]-p[1])*x];
+  const drag=inOut(seg(3.2,3.45)),turn=now<3.45?.7*drag:.7+.3*back(seg(3.45,3.95));
+  const pos=now<2.85?A.reps:now<3.2?mix(A.reps,A.band,inOut(seg(2.85,3.15))):now<3.5?[A.band[0],A.band[1]-d.rowH*.7*drag]:
+    now<4.5?mix([A.band[0],A.band[1]-d.rowH*.7],A.done,inOut(seg(3.5,3.8))):A.log;
+  const press=bump(2.15,2.4)+bump(2.6,2.85)+bump(3.95,4.2)+bump(D.tap-.15,D.tap+.15);
+  const shown=now<5?out(seg(1.85,2.15))*(1-seg(4.2,4.5)):seg(D.tap-.6,D.tap-.25)*(1-seg(D.tap+.2,D.tap+.55));
+  const landed=now<5?out(seg(1.85,2.15)):out(seg(D.tap-.6,D.tap-.25));
+  set(d.tap,"opacity",f(shown*.9));
+  set(d.tap,"transform",`translate(${f(pos[0])}px,${f(pos[1])}px) scale(${f(1.25-.25*landed-.14*press)})`);
+  const lifted=out(seg(2.75,3.2))*(1-out(seg(4.15,4.5)));
+  set(d.wheel,"transform",`translateY(${f((1-lifted)*101)}%)`);
+  d.items.forEach((row,i)=>{
+    const off=i-(d.wheelAt+turn),far=Math.abs(off);
+    set(row,"transform",`translateY(${f(off*d.rowH)}px) rotateX(${f(-18*off)}deg) scale(${f(1-Math.min(far,3)*.07)})`);
+    set(row,"opacity",f(Math.max(.2,1-far*.22)))});
+  const repsSel=inOut(seg(2.25,2.55))*(1-inOut(seg(D.tap+.05,D.tap+.3)));
+  set(d.sel,"transform",`translateX(${f(d.selDx*repsSel)}px)`);
+  const typed=seg(4.15,4.35)*(1-seg(D.tap+.1,D.tap+.2));
+  set(d.v0,"opacity",f(1-typed));set(d.v1,"opacity",f(typed));
   // 2 · the tap lands on Log set: the row checks, the ring moves to set 2, the shelf takes set 2
-  const press=now>=4.8&&now<5.1?Math.sin(seg(4.8,5.1)*Math.PI):0;
-  set(d.tap,"opacity",f(seg(4.35,4.7)*(1-seg(5.15,5.5))*.9));
-  set(d.tap,"transform",`scale(${f(1.25-.25*out(seg(4.35,4.7))-.14*press)})`);
-  set(d.log,"transform",`scale(${f(1-.025*press)})`);
+  set(d.log,"transform",`scale(${f(1-.025*bump(D.tap-.15,D.tap+.15))})`);
   const logged=out(seg(D.tap,D.tap+.28));
   set(d.done1,"opacity",f(logged));set(d.open2,"opacity",f(logged));
   set(d.log1,"opacity",f(1-logged));set(d.log2,"opacity",f(logged));
@@ -21657,7 +21716,7 @@ function paintLandingDemo(now){
   let reveal=0,glow=0,label=t("rest.inline.label"),time="2:00",done=false;
   const clock=s=>`${Math.floor(s/60)}:${String(Math.floor(s)%60).padStart(2,"0")}`;
   if(now>=D.restAt){
-    const a=D.fasnow-D.restAt,el=now<D.fast?now-D.restAt:now<D.done?a+(D.rest-a)*inOut(seg(D.fast,D.done)):D.rest;
+    const a=D.fast-D.restAt,el=now<D.fast?now-D.restAt:now<D.done?a+(D.rest-a)*inOut(seg(D.fast,D.done)):D.rest;
     if(now<D.done){
       const drawIn=out(seg(D.restAt+.05,D.restAt+.65)),used=el/D.rest,share=1-REST_TAB_SHARE;
       // used from the corners in: the shelf's edge carries the first 70% of the rest and the tab's outline the last 30%
@@ -21677,12 +21736,12 @@ function paintLandingDemo(now){
   if(d.time.textContent!==time)d.time.textContent=time;
   d.tab.classList.toggle("is-done",done);
   // 4 · the next session rises over the one it came from
-  const sheet=out(seg(12.05,12.6));
-  set(d.scrim,"opacity",f(.55*sheet));set(d.sheet,"transform",`translateY(${f((1-sheet)*100)}%)`);
-  set(d.did,"opacity",f(out(seg(12.5,13.1))));
-  d.history.forEach((row,i)=>rise(row,12.9+i*.22,13.4+i*.22,8));
+  const sheet=out(seg(13.05,13.6));
+  set(d.scrim,"opacity",f(.55*Math.max(sheet,lifted)));set(d.sheet,"transform",`translateY(${f((1-sheet)*100)}%)`);
+  set(d.did,"opacity",f(out(seg(13.5,14.1))));
+  d.history.forEach((row,i)=>rise(row,13.9+i*.22,14.4+i*.22,8));
   // the loop closes through a short fade, so set 1 comes back clean
-  set(d.veil,"opacity",f(now>15.55?out(seg(15.55,15.95)):1-out(seg(0,.3))))}
+  set(d.veil,"opacity",f(now>16.55?out(seg(16.55,16.95)):1-out(seg(0,.3))))}
 function renderLandingOutcomes(results){
   const root=$("#firstRun");if(!root)return;
   for(const [id,c] of Object.entries(LANDING_CASES)){
@@ -21753,11 +21812,14 @@ function createLandingController(root){
      where it is and jump it. Under reduced motion there is no clock: each chapter is a still and the chapters switch it. */
   const glass=root.querySelector(".firstrun-proof__glass"),screen=root.querySelector("#firstRunDemo");
   const chapters=[...root.querySelectorAll("[data-landing-chapter]")];
-  const play={t:0,raf:0,last:0,seen:false,current:-1,held:false};
-  const chapterAt=time=>Math.floor((time%LANDING_DEMO.loop)/LANDING_DEMO.chapter);
+  /* The clock is the demo's own: seconds summed from the frames' timestamps, each step clamped to 0–50ms and the
+     first frame after a (re)start counted as 0, so it never reads another clock and never runs backwards. */
+  const play={t:0,raf:0,last:null,seen:false,current:-1,held:false};
+  const starts=LANDING_DEMO.chapters,chapterAt=landingChapterAt;
+  const chapterEnd=i=>starts[i+1]??LANDING_DEMO.loop;
   function paintChapters(time){
     const at=chapterAt(time),still=reduced();
-    const share=still?1:((time%LANDING_DEMO.loop)-at*LANDING_DEMO.chapter)/LANDING_DEMO.chapter;
+    const share=still?1:Math.min(1,Math.max(0,(landingLoopTime(time)-starts[at])/(chapterEnd(at)-starts[at])));
     if(at!==play.current){
       play.current=at;
       chapters.forEach((item,i)=>{
@@ -21765,18 +21827,19 @@ function createLandingController(root){
         const go=item.querySelector("[data-chapter]");if(i===at)go.setAttribute("aria-current","step");else go.removeAttribute("aria-current")})}
     chapters.forEach((item,i)=>item.style.setProperty("--chapter-progress",i===at?String(Math.round(share*1000)/1000):i<at&&!still?"1":"0"))}
   function paint(time){
-    play.t=time;
-    paintLandingDemo(reduced()?LANDING_DEMO.stills[chapterAt(time)]:time%LANDING_DEMO.loop);
-    paintChapters(time)}
-  function frame(now){
+    // The player's time stays inside one loop, so the screen and the chapters always read the same instant.
+    play.t=landingLoopTime(time);
+    paintLandingDemo(reduced()?LANDING_DEMO.stills[chapterAt(play.t)]:play.t);
+    paintChapters(play.t)}
+  function frame(stamp){
     reg.frames.delete(play.raf);
-    if(!play.held)play.t+=Math.min(.05,(now-play.last)/1000);
-    play.last=now;
-    paint(play.t);
+    const step=play.last==null||!Number.isFinite(stamp)?0:Math.min(.05,Math.max(0,(stamp-play.last)/1000));
+    play.last=Number.isFinite(stamp)?stamp:null;
+    paint(play.held?play.t:play.t+step);
     play.raf=requestAnimationFrame(frame);reg.frames.add(play.raf)}
   function syncPlay(){
     const run=play.seen&&!document.hidden&&!reduced()&&!landingReturning();
-    if(run&&!play.raf){play.last=performance.now();play.raf=requestAnimationFrame(frame);reg.frames.add(play.raf)}
+    if(run&&!play.raf){play.last=null;play.raf=requestAnimationFrame(frame);reg.frames.add(play.raf)}
     if(!run&&play.raf){cancelAnimationFrame(play.raf);reg.frames.delete(play.raf);play.raf=0}}
   function fit(){
     if(!glass||!screen||!glass.clientWidth)return;
@@ -21786,7 +21849,7 @@ function createLandingController(root){
     if(!glass||!screen||!chapters.length)return;
     // Only a tap reports the chapter (owner, 2026-10-30); the player moving on by itself reports nothing.
     chapters.forEach((item,i)=>on(item.querySelector("[data-chapter]"),"click",()=>{
-      play.current=-1;paint(i*LANDING_DEMO.chapter+(reduced()?0:.001));
+      play.current=-1;paint(starts[i]+(reduced()?0:.001));
       reportLandingAction("proof_chapter",{chapter:i+1})}));
     if(typeof ResizeObserver!=="undefined"){const ro=new ResizeObserver(fit);reg.obs.push(ro);ro.observe(glass)}
     if(typeof IntersectionObserver!=="undefined"){
@@ -21795,7 +21858,7 @@ function createLandingController(root){
     on(document,"visibilitychange",syncPlay);
     document.fonts?.ready?.then(()=>{if(landingController&&landingDemo){landingDemo.laid=false;paint(play.t)}});
     fit();paint(0)}
-  function layout(){play.current=-1;paint(reduced()?Math.floor(play.t/LANDING_DEMO.chapter)*LANDING_DEMO.chapter:play.t);syncPlay();requestTick()}
+  function layout(){play.current=-1;paint(reduced()?starts[chapterAt(play.t)]:play.t);syncPlay();requestTick()}
   /* ---- the persistent Build control ---- */
   function mountDock(){
     const dock=root.querySelector("#firstRunDock"),hero=root.querySelector("#firstRunCreate"),close=root.querySelector("#firstRunCreateClose");
@@ -21869,7 +21932,8 @@ function createLandingController(root){
     reg.nodes.forEach(fn=>fn());reg.nodes.length=0;
     ticks.clear();tickPending=false}
   const live=()=>({listeners:reg.offs.length,observers:reg.obs.length,frames:reg.frames.size,
-    playing:!!play.raf&&!play.held,held:play.held,chapter:play.current<0?null:play.current,time:Math.round(play.t*1000)/1000,ticks:ticks.size});
+    playing:!!play.raf&&!play.held,held:play.held,chapter:play.current<0?null:play.current,time:Math.round(play.t*1000)/1000,ticks:ticks.size,
+    nonFinite:landingDemo?.nonFinite??0});
   /** A rebuilt screen (a language change) is laid out and painted where the player is. */
   const refresh=()=>{play.current=-1;paint(play.t)};
   /** Harness seam: put the timeline at `time` and hold it there (`null` lets it run again). */

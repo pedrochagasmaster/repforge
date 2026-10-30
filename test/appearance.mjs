@@ -147,8 +147,8 @@ function stylesheetOutsideTokens() {
   const css = readFileSync(join(ROOT, "styles.css"), "utf8");
   // Both palettes are one top-level block each, so the first "\n}" closes them.
   let out = css.replace(/\/\*[\s\S]*?\*\//g, "");
-  // `.theme-dark` shares both blocks: it scopes the same palettes to one element (the landing proof's phone).
-  for (const open of [":root,.theme-dark{", ':root[data-theme="dark"],.theme-dark{']) {
+  // `.theme-light` shares the light block: it scopes that palette to one element (the landing proof's phone).
+  for (const open of [":root,.theme-light{", ':root[data-theme="dark"]{']) {
     const start = out.indexOf(open);
     if (start < 0) throw new Error(`${open} not found in styles.css`);
     const end = out.indexOf("\n}", start);
