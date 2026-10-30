@@ -579,6 +579,19 @@ async function openFoldedSets(page) {
   }, undefined, { timeout: 5000 });
 }
 async function logCurrentSet(page, values = { load: "100", reps: "6", rir: "1" }) {
+  // What a logged set changes: the shelf's action names the next set, or the card's logged rows grow. A second log
+  // must wait for the first to land, not for a fixed time: on a slow runner the render outlived 600 ms and the next
+  // tap went to a button that was being replaced.
+  const mark = () => page.evaluate(() => {
+    const card = document.querySelector("#workout .exercise.is-current") || document.querySelector("#workout .exercise");
+    return `${card?.querySelector(".saveset")?.textContent || ""}|${document.querySelectorAll("#workout [data-editn]").length}`;
+  });
+  await page.waitForFunction(() => {
+    const card = document.querySelector("#workout .exercise.is-current") || document.querySelector("#workout .exercise");
+    const button = card?.querySelector(".saveset");
+    return !button || (!button.disabled && button.isConnected);
+  }, undefined, { timeout: 10000 }).catch(() => {});
+  const before = await mark();
   await page.evaluate((values) => {
     const card = document.querySelector("#workout .exercise.is-current")
       || document.querySelector("#workout .exercise");
@@ -591,7 +604,11 @@ async function logCurrentSet(page, values = { load: "100", reps: "6", rir: "1" }
     });
     card?.querySelector(".saveset")?.click();
   }, values);
-  await sleep(page, 600);
+  await page.waitForFunction((was) => {
+    const card = document.querySelector("#workout .exercise.is-current") || document.querySelector("#workout .exercise");
+    return `${card?.querySelector(".saveset")?.textContent || ""}|${document.querySelectorAll("#workout [data-editn]").length}` !== was;
+  }, before, { timeout: 10000 }).catch(() => {});
+  await sleep(page, 300);
 }
 
 /** Open the session summary for a session already in the log, through the seam the finish path uses. */
@@ -1649,13 +1666,28 @@ async function clickWhy(page, selector) {
       window.scrollTo({ top: 0, behavior: "instant" });
       link.scrollIntoView({ block, behavior: "instant" });
       const r = await settled();
-      const p = { x: r.left + Math.min(r.width / 2, 40), y: r.top + Math.min(r.height / 2, 12) };
+      // The middle of the link's box: an edge spot is lost to a one-pixel settle (a 44 px target tapped 12 px in).
+      const p = { x: r.left + Math.min(r.width / 2, 40), y: r.top + r.height / 2 };
       if (p.y > 0 && p.y < innerHeight && document.elementFromPoint(p.x, p.y)?.closest(sel)) return p;
     }
     return null;
   }, selector);
   if (!point) throw new Error(`no clear spot to tap ${selector}`);
-  await page.mouse.click(point.x, point.y);
+  // Focus can re-place its window a little after a placement has looked still (a refit on a late resize or transition
+  // end), so the tap goes only to a spot the link still holds after a quiet spell; a link that moved is placed again.
+  let spot = point;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    await page.waitForTimeout(160);
+    const now = await page.evaluate(({ sel, p }) => {
+      const link = document.querySelector(sel), r = link?.getBoundingClientRect();
+      if (!r) return null;
+      const held = document.elementFromPoint(p.x, p.y)?.closest(sel);
+      return { held: !!held && p.y > r.top + 4 && p.y < r.bottom - 4, x: r.left + Math.min(r.width / 2, 40), y: r.top + r.height / 2 };
+    }, { sel: selector, p: spot });
+    if (now?.held) break;
+    if (now && now.y > 0 && now.y < (page.viewportSize()?.height || 844)) spot = { x: now.x, y: now.y };
+  }
+  await page.mouse.click(spot.x, spot.y);
   // A tap that opens nothing names what it hit, so a failure carries its own evidence.
   const opened = await page.waitForSelector("#whySheet.is-open", { timeout: 15000 }).then(() => true, () => false);
   if (!opened) {
@@ -1665,7 +1697,7 @@ async function clickWhy(page, selector) {
       return { point, hit: hit ? `${hit.tagName}.${hit.className}` : null, onLink: !!hit?.closest(sel),
         link: link ? JSON.stringify(link.getBoundingClientRect()) : null, scrollTop: context?.scrollTop ?? null,
         sheet: document.querySelector("#whySheet")?.className || null, lang: document.documentElement.lang };
-    }, { sel: selector, point });
+    }, { sel: selector, point: spot });
     throw new Error(`tapping ${selector} did not open the Why sheet: ${JSON.stringify(seen)}`);
   }
 }
