@@ -63,7 +63,10 @@ async function getHealth(origin, operatorSecret) {
   }
   if (!response.ok) throw new Error(`operator health request rejected (${response.status})`);
   const value = await boundedJson(response);
-  if (!exactKeys(value, ["ok", "leaseFresh", "deletionHealthy", "billingHealthy", "createsEnabled", "incidentGeneration", "ackGeneration"]) || value.ok !== true) {
+  // lastDeletionCheck is read-only evidence; a Worker without it is accepted too.
+  const keys = ["ok", "leaseFresh", "deletionHealthy", "billingHealthy", "createsEnabled", "incidentGeneration", "ackGeneration"];
+  if (value && typeof value === "object" && "lastDeletionCheck" in value) keys.push("lastDeletionCheck");
+  if (!exactKeys(value, keys) || value.ok !== true) {
     throw new Error("operator health response is invalid");
   }
   return value;

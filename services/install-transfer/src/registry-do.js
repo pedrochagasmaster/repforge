@@ -106,7 +106,7 @@ export class TransferRouteRegistryDurableObject extends DurableObject {
       const health = this.env.TRANSFER_HEALTH
         ? euStub(this.env.TRANSFER_HEALTH, "global", { allowLocalFallback: this.env.TRANSFER_LOCAL_TEST_EU === "true" })
         : null;
-      if (health?.markDeletionUnhealthy) await health.markDeletionUnhealthy();
+      if (health?.markDeletionUnhealthy) await health.markDeletionUnhealthy({ code: "storage-disposal" });
     } catch {
       // Create admission is already fail-closed if health reporting is unavailable.
     }

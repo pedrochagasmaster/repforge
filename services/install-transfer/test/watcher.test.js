@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import { reset } from "cloudflare:test";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import worker from "../src/index.js";
-import watcher from "../src/watcher.js";
+import watcher, { LATCH_LABEL, syncLatchAlert } from "../src/watcher.js";
 
 const ACCOUNT_ID = "0123456789abcdef0123456789abcdef";
 const NAMESPACE_ID = "transfer-namespace-0123";
@@ -51,7 +51,7 @@ function mockTarget(overrides = {}) {
       if (url.pathname === "/_ops/purge-objects") return jsonResponse({ examined: body.objectIds.length, purged: 0, deferred: body.objectIds.length, failed: 0 });
       if (url.pathname === "/_ops/heartbeat" || url.pathname === "/_ops/billing") return jsonResponse({ ok: true });
       if (url.pathname === "/_ops/health") {
-        return jsonResponse({ ok: true, leaseFresh: true, deletionHealthy: true, billingHealthy: true, createsEnabled: true, incidentGeneration: 0, ackGeneration: 0 });
+        return jsonResponse({ ok: true, leaseFresh: true, deletionHealthy: true, billingHealthy: true, createsEnabled: true, incidentGeneration: 0, ackGeneration: 0, lastDeletionCheck: null });
       }
       return jsonResponse({ state: "unavailable" }, 404);
     },
@@ -59,11 +59,12 @@ function mockTarget(overrides = {}) {
   return target;
 }
 
-/** Stands in for the Cloudflare API; anything else reaching global fetch fails the test. */
-function mockProvider(respond) {
+/** Stands in for the Cloudflare API (and GitHub, when given); anything else reaching global fetch fails the test. */
+function mockProvider(respond, github) {
   const calls = [];
   vi.stubGlobal("fetch", async (input, init) => {
     const request = new Request(input, init);
+    if (github && request.url.startsWith("https://api.github.com/")) return github(request);
     if (!request.url.startsWith(PROVIDER_PREFIX)) throw new Error(`unexpected global fetch ${request.url}`);
     calls.push({ url: new URL(request.url), authorization: request.headers.get("Authorization") });
     return respond(new URL(request.url));
@@ -127,22 +128,72 @@ describe("scheduled health watcher", () => {
     expect(billing.body).toMatchObject({ checkVersion: "operator-attested-v1", result: "observed", evidenceRef: "owner-override-20261014", monthlyCostCents: 0 });
     expect(rest[6].authorization).toBe(`Bearer ${bearers.watchdog}`);
     const output = log.mock.calls.flat().join("\n");
-    expect(output).toBe("health pass ok; purge examined=3 purged=1; provider objects=2; createsEnabled=true");
+    expect(output).toBe("health pass ok; purge examined=3 purged=1; provider objects=2 purged=0 deferred=2 failed=0 attempts=1; createsEnabled=true");
     for (const secret of [...Object.values(bearers), API_TOKEN, ACCOUNT_ID]) expect(output).not.toContain(secret);
   });
 
-  it("reports a deletion failure and renews nothing when the provider API errors", async () => {
+  it("retries the provider step once, then reports where it failed and renews nothing", async () => {
     const target = mockTarget();
-    mockProvider(() => jsonResponse({ success: false, errors: [{ code: 10000 }] }, 500));
-    vi.spyOn(console, "log").mockImplementation(() => {});
+    const provider = mockProvider(() => jsonResponse({ success: false, errors: [{ code: 10000 }] }, 500));
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
 
     await expect(watcher.scheduled(controller(), watcherEnv(target), context()))
-      .rejects.toThrow("provider enumeration did not complete");
+      .rejects.toThrow("provider enumeration did not complete; path=provider-list error=rejected");
 
+    expect(provider).toHaveLength(2);
     expect(target.calls.map((call) => call.path)).toEqual(["/_ops/purge-due", "/_ops/heartbeat"]);
     const report = target.calls[1];
     expect(report.authorization).toBe(`Bearer ${bearers.watchdog}`);
-    expect(report.body).toMatchObject({ kind: "deletion", result: "fail", checkVersion: "provider-enumeration-failure-v1", evidenceRef: "provider-enumeration-failed" });
+    expect(report.body).toMatchObject({
+      kind: "deletion",
+      result: "fail",
+      checkVersion: "provider-enumeration-failure-v1",
+      evidenceRef: "provider-enumeration-failed",
+      failurePath: "provider-list",
+      errorClass: "rejected",
+    });
+    expect(log.mock.calls.flat()).toEqual(["provider step retry; path=provider-list error=rejected"]);
+  });
+
+  it("completes the pass when the retry succeeds, without a deletion report", async () => {
+    const target = mockTarget();
+    let calls = 0;
+    mockProvider(() => {
+      calls += 1;
+      if (calls === 1) throw new TypeError("network connection lost");
+      return jsonResponse({ success: true, result: [{ id: OBJECT_A }] });
+    });
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    await watcher.scheduled(controller(), watcherEnv(target), context());
+
+    expect(target.calls.filter((call) => call.body?.result === "fail")).toEqual([]);
+    expect(log.mock.calls.flat()).toEqual([
+      "provider step retry; path=provider-list error=request-failed",
+      "health pass ok; purge examined=3 purged=1; provider objects=1 purged=0 deferred=1 failed=0 attempts=2; createsEnabled=true",
+    ]);
+  });
+
+  it("names the provider purge path when the purge batch is incomplete", async () => {
+    const target = mockTarget({
+      "/_ops/purge-objects": (body) => jsonResponse({ examined: body.objectIds.length, purged: 0, deferred: 0, failed: body.objectIds.length }),
+    });
+    mockProvider(() => jsonResponse({ success: true, result: [{ id: OBJECT_A }] }));
+    vi.spyOn(console, "log").mockImplementation(() => {});
+
+    await expect(watcher.scheduled(controller(), watcherEnv(target), context()))
+      .rejects.toThrow("path=provider-purge error=incomplete");
+    expect(target.calls.at(-1).body).toMatchObject({ kind: "deletion", result: "fail", failurePath: "provider-purge", errorClass: "incomplete" });
+  });
+
+  it("reports due rows left after the registry purge with the registry path", async () => {
+    const target = mockTarget({ "/_ops/purge-due": () => jsonResponse({ ok: true, examined: 100, purged: 100, failed: 0, remainingDue: 4 }) });
+    const provider = mockProvider(() => jsonResponse({ success: true, result: [] }));
+
+    await expect(watcher.scheduled(controller(), watcherEnv(target), context()))
+      .rejects.toThrow("scheduled purge did not clear due rows");
+    expect(provider).toEqual([]);
+    expect(target.calls.at(-1).body).toMatchObject({ kind: "deletion", result: "fail", failurePath: "registry-purge", errorClass: "due-rows" });
   });
 
   it("fails the run without positive receipts when the target answers 503", async () => {
@@ -168,6 +219,62 @@ describe("scheduled health watcher", () => {
   describe("against the real operations handlers", () => {
     beforeEach(async () => {
       await reset();
+    });
+
+    async function acknowledgeCurrent(target) {
+      const health = await (await target.fetch("https://taurifer.com/_ops/health", { headers: { Authorization: `Bearer ${bearers.watchdog}` } })).json();
+      const ack = await target.fetch("https://taurifer.com/_ops/deletion-ack", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${env.TRANSFER_ACK_SECRET}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          operationId: `watcher-test-ack-${health.incidentGeneration}-operation`,
+          generation: health.incidentGeneration,
+          checkVersion: "ack-test-v1",
+          proofNonce: "P".repeat(32),
+          observedAt: Date.now(),
+          evidenceRef: "fixture-ack",
+        }),
+      });
+      expect(ack.status).toBe(200);
+    }
+
+    async function health(target) {
+      return (await target.fetch("https://taurifer.com/_ops/health", { headers: { Authorization: `Bearer ${bearers.watchdog}` } })).json();
+    }
+
+    it("latches only when a transient provider failure repeats in the next pass", async () => {
+      const target = { fetch: (input, init) => worker.fetch(new Request(input, init), env) };
+      let failing = false;
+      mockProvider(() => (failing ? jsonResponse({ success: false }, 503) : jsonResponse({ success: true, result: [] })));
+      vi.spyOn(console, "log").mockImplementation(() => {});
+      await watcher.scheduled(controller(), watcherEnv(target), context());
+      await acknowledgeCurrent(target);
+      await watcher.scheduled(controller(), watcherEnv(target), context());
+      expect(await health(target)).toMatchObject({ createsEnabled: true, incidentGeneration: 1, ackGeneration: 1 });
+
+      failing = true;
+      await expect(watcher.scheduled(controller(), watcherEnv(target), context())).rejects.toThrow("provider enumeration did not complete");
+      expect(await health(target)).toMatchObject({
+        createsEnabled: true,
+        incidentGeneration: 1,
+        lastDeletionCheck: { result: "strike", path: "provider-list", errorClass: "rejected", consecutiveFailures: 1 },
+      });
+
+      // A clean pass in between resets the run.
+      failing = false;
+      await watcher.scheduled(controller(), watcherEnv(target), context());
+      failing = true;
+      await expect(watcher.scheduled(controller(), watcherEnv(target), context())).rejects.toThrow();
+      expect(await health(target)).toMatchObject({ createsEnabled: true, incidentGeneration: 1 });
+
+      await expect(watcher.scheduled(controller(), watcherEnv(target), context())).rejects.toThrow();
+      expect(await health(target)).toMatchObject({
+        createsEnabled: false,
+        deletionHealthy: false,
+        incidentGeneration: 2,
+        ackGeneration: 1,
+        lastDeletionCheck: { result: "fail", path: "provider-list", errorClass: "rejected", consecutiveFailures: 2 },
+      });
     });
 
     it("renews the lease so creates are enabled, and the handlers still require the bearer", async () => {
@@ -204,5 +311,121 @@ describe("scheduled health watcher", () => {
       });
       expect(forged.status).toBe(404);
     });
+  });
+});
+
+describe("transfer-latched alert", () => {
+  const REPO = "owner/repository";
+  const TOKEN = "github_pat_0123456789abcdefghijklmnop";
+  const alertEnv = { TRANSFER_ALERT_GITHUB_TOKEN: TOKEN, TRANSFER_ALERT_REPO: REPO };
+  const latched = {
+    ok: true,
+    leaseFresh: true,
+    deletionHealthy: false,
+    billingHealthy: true,
+    createsEnabled: false,
+    incidentGeneration: 3,
+    ackGeneration: 2,
+    lastDeletionCheck: {
+      checkVersion: "provider-enumeration-failure-v1",
+      observedAt: Date.UTC(2026, 9, 24, 9, 0),
+      result: "fail",
+      path: "provider-list",
+      errorClass: "rejected",
+      consecutiveFailures: 2,
+    },
+  };
+  const acked = { ...latched, deletionHealthy: true, createsEnabled: true, ackGeneration: 3 };
+
+  function github(openIssues) {
+    const calls = [];
+    const fetcher = async (input, init) => {
+      const request = new Request(input, init);
+      const url = new URL(request.url);
+      calls.push({
+        method: request.method,
+        path: `${url.pathname}${url.search}`,
+        authorization: request.headers.get("Authorization"),
+        body: request.method === "GET" ? undefined : await request.json(),
+      });
+      if (request.method === "GET") return jsonResponse(openIssues);
+      return jsonResponse({}, request.method === "POST" && url.pathname.endsWith("/issues") ? 201 : 200);
+    };
+    return { calls, fetcher };
+  }
+
+  it("does nothing when it is not configured, and refuses a repository without its token", async () => {
+    const { calls, fetcher } = github([]);
+    await expect(syncLatchAlert({}, latched, { fetcher })).resolves.toBe("unconfigured");
+    await expect(syncLatchAlert({ TRANSFER_ALERT_REPO: REPO }, latched, { fetcher })).rejects.toThrow("latch alert token is not provisioned");
+    await expect(syncLatchAlert({ ...alertEnv, TRANSFER_ALERT_REPO: "owner/repo/../x" }, latched, { fetcher })).rejects.toThrow("latch alert configuration is invalid");
+    expect(calls).toEqual([]);
+  });
+
+  it("opens one labelled issue with generations and the failure class only", async () => {
+    const { calls, fetcher } = github([]);
+    await expect(syncLatchAlert(alertEnv, latched, { fetcher })).resolves.toBe("opened");
+    expect(calls.map((call) => [call.method, call.path])).toEqual([
+      ["GET", `/repos/${REPO}/issues?labels=${LATCH_LABEL}&state=open&per_page=1`],
+      ["POST", `/repos/${REPO}/labels`],
+      ["POST", `/repos/${REPO}/issues`],
+    ]);
+    expect(calls.every((call) => call.authorization === `Bearer ${TOKEN}`)).toBe(true);
+    const issue = calls[2].body;
+    expect(issue.labels).toEqual([LATCH_LABEL]);
+    expect(issue.title).toBe("Install transfer creates are latched off: deletion incident generation 3");
+    expect(issue.body).toContain("- Incident generation: 3");
+    expect(issue.body).toContain("- Acknowledged generation: 2");
+    expect(issue.body).toContain("- Last deletion check: fail at 2026-10-24T09:00:00.000Z (provider-enumeration-failure-v1)");
+    expect(issue.body).toContain("- Failing path: provider-list; error class: rejected; consecutive failures: 2");
+    expect(JSON.stringify(calls.map((call) => call.body))).not.toContain(TOKEN);
+  });
+
+  it("leaves a current issue alone and moves an older one to the new generation", async () => {
+    const current = github([{ number: 7, title: "Install transfer creates are latched off: deletion incident generation 3" }]);
+    await expect(syncLatchAlert(alertEnv, latched, { fetcher: current.fetcher })).resolves.toBe("unchanged");
+    expect(current.calls.map((call) => call.method)).toEqual(["GET"]);
+
+    const older = github([{ number: 7, title: "Install transfer creates are latched off: deletion incident generation 2" }]);
+    await expect(syncLatchAlert(alertEnv, latched, { fetcher: older.fetcher })).resolves.toBe("updated");
+    expect(older.calls.slice(1).map((call) => [call.method, call.path])).toEqual([
+      ["PATCH", `/repos/${REPO}/issues/7`],
+      ["POST", `/repos/${REPO}/issues/7/comments`],
+    ]);
+    expect(older.calls[1].body).toEqual({ title: "Install transfer creates are latched off: deletion incident generation 3" });
+  });
+
+  it("comments and closes the open issue once the generation is acknowledged", async () => {
+    const { calls, fetcher } = github([{ number: 7, title: "Install transfer creates are latched off: deletion incident generation 3" }]);
+    await expect(syncLatchAlert(alertEnv, acked, { fetcher })).resolves.toBe("closed");
+    expect(calls.slice(1).map((call) => [call.method, call.path, call.body])).toEqual([
+      ["POST", `/repos/${REPO}/issues/7/comments`, { body: "Generation 3 is acknowledged; createsEnabled=true. Closing." }],
+      ["PATCH", `/repos/${REPO}/issues/7`, { state: "closed", state_reason: "completed" }],
+    ]);
+    const none = github([]);
+    await expect(syncLatchAlert(alertEnv, acked, { fetcher: none.fetcher })).resolves.toBe("clear");
+  });
+
+  it("runs after a failed pass too, and its own failure never changes the pass outcome", async () => {
+    const latchedTarget = mockTarget({ "/_ops/health": () => jsonResponse(latched) });
+    const githubCalls = [];
+    mockProvider(() => jsonResponse({ success: false }, 500), async (request) => {
+      githubCalls.push(request.method);
+      return request.method === "GET" ? jsonResponse([]) : jsonResponse({}, 201);
+    });
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    await expect(watcher.scheduled(controller(), watcherEnv(latchedTarget, alertEnv), context()))
+      .rejects.toThrow("provider enumeration did not complete");
+    expect(githubCalls).toEqual(["GET", "POST", "POST"]);
+    expect(log.mock.calls.flat()).toContain("latch alert opened; generation=3 ack=2");
+
+    vi.unstubAllGlobals();
+    mockProvider(() => jsonResponse({ success: true, result: [] }), async () => jsonResponse({ message: "Bad credentials" }, 401));
+    log.mockClear();
+    await watcher.scheduled(controller(), watcherEnv(mockTarget(), alertEnv), context());
+    expect(log.mock.calls.flat()).toEqual([
+      "latch alert failed: latch alert request rejected: GET 401",
+      "health pass ok; purge examined=3 purged=1; provider objects=0 purged=0 deferred=0 failed=0 attempts=1; createsEnabled=true",
+    ]);
   });
 });

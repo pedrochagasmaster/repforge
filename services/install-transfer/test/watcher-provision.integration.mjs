@@ -92,7 +92,7 @@ assert.ok(existsSync(opsEnv));
   const server = createServer((request, response) => {
     seen = { path: request.url, authorization: request.headers.authorization };
     response.writeHead(200, { "Content-Type": "application/json" });
-    response.end(JSON.stringify({ ok: true, leaseFresh: true, deletionHealthy: true, billingHealthy: true, createsEnabled: true, incidentGeneration: 1, ackGeneration: 1 }));
+    response.end(JSON.stringify({ ok: true, leaseFresh: true, deletionHealthy: true, billingHealthy: true, createsEnabled: true, incidentGeneration: 1, ackGeneration: 1, lastDeletionCheck: null, extra: "dropped" }));
   });
   await new Promise((resolve) => server.listen(0, "localhost", resolve));
   writeFileSync(opsEnv, serializeOpsEnv({ ...values, TRANSFER_SERVICE_URL: `http://localhost:${server.address().port}` }), { mode: 0o600 });
@@ -107,8 +107,51 @@ assert.ok(existsSync(opsEnv));
   assert.equal(status.code, 0, status.output);
   assert.deepEqual(seen, { path: "/_ops/health", authorization: `Bearer ${values.TRANSFER_WATCHDOG_SECRET}` });
   const printed = JSON.parse(status.output);
-  assert.deepEqual(Object.keys(printed), ["checkedAt", "leaseFresh", "deletionHealthy", "billingHealthy", "createsEnabled", "incidentGeneration", "ackGeneration"]);
+  assert.deepEqual(Object.keys(printed), ["checkedAt", "leaseFresh", "deletionHealthy", "billingHealthy", "createsEnabled", "incidentGeneration", "ackGeneration", "lastDeletionCheck"]);
   assert.equal(printed.createsEnabled, true);
   assert.equal(status.output.includes(values.TRANSFER_WATCHDOG_SECRET), false);
+}
+
+// The deletion ack reads the health response, including the last-check
+// evidence, and acknowledges exactly the current generation.
+{
+  const { createServer } = await import("node:http");
+  const seen = [];
+  const server = createServer((request, response) => {
+    let body = "";
+    request.on("data", (chunk) => { body += chunk; });
+    request.on("end", () => {
+      seen.push({ method: request.method, path: request.url, body: body ? JSON.parse(body) : undefined });
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.end(JSON.stringify(request.url === "/_ops/health"
+        ? {
+          ok: true, leaseFresh: true, deletionHealthy: false, billingHealthy: true, createsEnabled: false, incidentGeneration: 3, ackGeneration: 1,
+          lastDeletionCheck: { checkVersion: "operator-attested-v1", observedAt: Date.now(), result: "pass", path: null, errorClass: null, consecutiveFailures: 0 },
+        }
+        : { ok: true, acknowledged: true, createsEnabled: true }));
+    });
+  });
+  await new Promise((resolve) => server.listen(0, "localhost", resolve));
+  const ack = await new Promise((resolve) => {
+    const child = spawn(process.execPath, [fileURLToPath(new URL("../scripts/deletion-ack.mjs", import.meta.url))], {
+      env: {
+        PATH: process.env.PATH,
+        TRANSFER_SERVICE_URL: `http://localhost:${server.address().port}`,
+        TRANSFER_ACK_SECRET: "a".repeat(43),
+        TRANSFER_ACK_CONFIRM: "I_HAVE_REVIEWED_DELETION",
+        TRANSFER_ACK_EVIDENCE_REF: "fixture-ack",
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let output = "";
+    child.stdout.on("data", (chunk) => { output += chunk; });
+    child.stderr.on("data", (chunk) => { output += chunk; });
+    child.on("close", (code) => resolve({ code, output }));
+  });
+  server.close();
+  assert.equal(ack.code, 0, ack.output);
+  assert.equal(ack.output.trim(), "deletion incident acknowledgement accepted");
+  assert.deepEqual(seen.map((call) => [call.method, call.path]), [["GET", "/_ops/health"], ["POST", "/_ops/deletion-ack"]]);
+  assert.equal(seen[1].body.generation, 3);
 }
 console.log("watcher provisioning integration passed");

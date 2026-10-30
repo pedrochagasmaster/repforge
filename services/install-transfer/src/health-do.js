@@ -16,6 +16,19 @@ const HEARTBEAT_COLUMNS = Object.freeze({
   key: "key_at",
 });
 const EVIDENCE_KINDS = new Set(["alarm", "watchdog", "log", "key", "deletion", "billing", "purge"]);
+/* The last deletion check, kept so an incident can be read without logs: where
+   it failed and the class of error only, never a token, cursor or identifier. */
+export const DELETION_FAILURE_PATHS = Object.freeze(["registry-purge", "provider-list", "provider-purge", "internal"]);
+export const DELETION_ERROR_CLASSES = Object.freeze([
+  "request-failed", "rejected", "invalid-response", "incomplete", "due-rows",
+  "record-integrity", "storage-disposal", "registry-binding", "registry-reservation", "transfer-binding", "registry-lifetime",
+  "unknown",
+]);
+// A provider step that could not be completed for one of these reasons is a
+// strike: it latches only when the next pass fails the same way. Anything that
+// proves data was not deleted (incomplete purges, due rows) latches at once.
+const TRANSIENT_PROVIDER_ERRORS = new Set(["request-failed", "rejected", "invalid-response"]);
+const DEBOUNCED_PATHS = new Set(["provider-list", "provider-purge"]);
 const OPERATION_ID_RE = /^[A-Za-z0-9_-]{16,96}$/u;
 const ACTOR_RE = /^[A-Za-z0-9_-]{1,32}$/u;
 const VERSION_RE = /^[A-Za-z0-9._-]{1,32}$/u;
@@ -131,6 +144,14 @@ function rowHealth(row, evidence, now) {
     createsEnabled: leaseFresh && deletionHealthy && billingHealthy,
     incidentGeneration: Number.isSafeInteger(row?.incident_generation) ? row.incident_generation : 1,
     ackGeneration: Number.isSafeInteger(row?.ack_generation) ? row.ack_generation : 0,
+    lastDeletionCheck: Number.isSafeInteger(row?.last_check_at) ? {
+      checkVersion: row.last_check_version,
+      observedAt: row.last_check_at,
+      result: row.last_check_result,
+      path: row.last_check_path ?? null,
+      errorClass: row.last_check_error ?? null,
+      consecutiveFailures: Number.isSafeInteger(row.deletion_strikes) ? row.deletion_strikes : 0,
+    } : null,
   };
 }
 
@@ -165,6 +186,11 @@ export class TransferHealthDurableObject extends DurableObject {
       }
       if (!columns.has("ack_generation")) {
         ctx.storage.sql.exec(`ALTER TABLE ${TABLE} ADD COLUMN ack_generation INTEGER NOT NULL DEFAULT 0`);
+      }
+      for (const [column, type] of [["deletion_strikes", "INTEGER NOT NULL DEFAULT 0"], ["last_check_operation", "TEXT"],
+        ["last_check_version", "TEXT"], ["last_check_at", "INTEGER"], ["last_check_result", "TEXT"],
+        ["last_check_path", "TEXT"], ["last_check_error", "TEXT"]]) {
+        if (!columns.has(column)) ctx.storage.sql.exec(`ALTER TABLE ${TABLE} ADD COLUMN ${column} ${type}`);
       }
       ctx.storage.sql.exec(EVIDENCE_SCHEMA);
       ctx.storage.sql.exec(OPS_RATE_SCHEMA);
@@ -287,6 +313,14 @@ export class TransferHealthDurableObject extends DurableObject {
     return this.snapshot({ now });
   }
 
+  _noteCheck({ operationId, checkVersion, observedAt, result, path = null, errorClass = null, strikes }) {
+    this._execWrite(
+      `UPDATE ${TABLE} SET last_check_operation = ?, last_check_version = ?, last_check_at = ?, last_check_result = ?,
+         last_check_path = ?, last_check_error = ?, deletion_strikes = ? WHERE singleton = 1`,
+      operationId, checkVersion, observedAt, result, path, errorClass, strikes,
+    );
+  }
+
   async recordDeletionHealth({
     healthy,
     observedAt = Date.now(),
@@ -296,6 +330,8 @@ export class TransferHealthDurableObject extends DurableObject {
     checkVersion,
     result = "pass",
     evidenceRef,
+    failurePath,
+    errorClass,
   }) {
     if (typeof healthy !== "boolean") throw new TypeError("healthy must be boolean");
     safeTime(observedAt, "observedAt");
@@ -303,10 +339,13 @@ export class TransferHealthDurableObject extends DurableObject {
     if (healthy) {
       this.ctx.storage.transactionSync(() => {
         const row = this._read();
+        const defaults = defaultEvidence("deletion", observedAt);
+        // A passing check ends any run of provider strikes, latched or not.
+        this._noteCheck({ operationId: operationId ?? defaults.operationId, checkVersion: checkVersion ?? defaults.checkVersion,
+          observedAt, result: "pass", strikes: 0 });
         // A positive check cannot clear an incident. It refreshes only an
         // already acknowledged generation, using the actual check time.
         if (row?.deletion_healthy !== 1 || row.ack_generation !== row.incident_generation) return;
-        const defaults = defaultEvidence("deletion", observedAt);
         const write = this._writeEvidence({
           kind: "deletion",
           actor: actor ?? "watchdog",
@@ -327,7 +366,28 @@ export class TransferHealthDurableObject extends DurableObject {
     }
     assertObservedAt(observedAt, now, HEALTH_SIGNAL_MAX_AGE_MS);
     const defaults = defaultEvidence("deletion", observedAt);
+    const path = DELETION_FAILURE_PATHS.includes(failurePath) ? failurePath : "internal";
+    const failureClass = DELETION_ERROR_CLASSES.includes(errorClass) ? errorClass : "unknown";
+    const resolvedOperation = operationId ?? defaults.operationId;
+    const resolvedVersion = checkVersion ?? defaults.checkVersion;
+    let struck = false;
     this.ctx.storage.transactionSync(() => {
+      const row = this._read();
+      if (row?.last_check_operation === resolvedOperation && row.last_check_result === "strike") { struck = true; return; }
+      // The first transient provider failure on a healthy, acknowledged service
+      // is a strike: recorded, but the service stays as it was. A second one in a
+      // row, or any other failure, latches below.
+      if (DEBOUNCED_PATHS.has(path) && TRANSIENT_PROVIDER_ERRORS.has(failureClass)
+        && row?.deletion_healthy === 1 && row.ack_generation === row.incident_generation
+        && !(Number.isSafeInteger(row.deletion_strikes) && row.deletion_strikes > 0)) {
+        this._noteCheck({ operationId: resolvedOperation, checkVersion: resolvedVersion, observedAt, result: "strike",
+          path, errorClass: failureClass, strikes: 1 });
+        struck = true;
+      }
+    });
+    if (struck) return this.snapshot({ now });
+    this.ctx.storage.transactionSync(() => {
+      const before = this._read();
       const write = this._writeEvidence({
         kind: "deletion",
         actor: actor ?? defaults.actor,
@@ -348,12 +408,16 @@ export class TransferHealthDurableObject extends DurableObject {
         observedAt,
       );
       if (changed !== 1) throw new Error("deletion health row update failed");
+      const strikes = Number.isSafeInteger(before?.deletion_strikes) ? before.deletion_strikes : 0;
+      this._noteCheck({ operationId: resolvedOperation, checkVersion: resolvedVersion, observedAt, result: "fail",
+        path, errorClass: failureClass, strikes: strikes + 1 });
     });
     return this.snapshot({ now });
   }
 
-  async markDeletionUnhealthy({ observedAt = Date.now(), now = Date.now() } = {}) {
-    return this.recordDeletionHealth({ healthy: false, observedAt, now });
+  async markDeletionUnhealthy({ observedAt = Date.now(), now = Date.now(), code } = {}) {
+    return this.recordDeletionHealth({ healthy: false, observedAt, now, failurePath: "internal",
+      errorClass: DELETION_ERROR_CLASSES.includes(code) ? code : "unknown" });
   }
 
   async acknowledgeDeletion({
@@ -395,7 +459,7 @@ export class TransferHealthDurableObject extends DurableObject {
       }
       const changed = this._execWrite(
         `UPDATE ${TABLE}
-         SET deletion_at = ?, deletion_healthy = 1, ack_generation = ?
+         SET deletion_at = ?, deletion_healthy = 1, ack_generation = ?, deletion_strikes = 0
          WHERE singleton = 1 AND incident_generation = ?
            AND ack_generation < ? AND deletion_healthy = 0`,
         observedAt,

@@ -206,3 +206,110 @@ describe("fresh create health lease", () => {
     })).resolves.toMatchObject({ deletionHealthy: false });
   });
 });
+
+describe("deletion check evidence and debounce", () => {
+  beforeEach(async () => {
+    await reset();
+  });
+
+  const failure = (at, operationId, failurePath, errorClass) => ({
+    healthy: false,
+    observedAt: at,
+    now: at,
+    actor: "watchdog",
+    operationId,
+    checkVersion: "provider-enumeration-failure-v1",
+    result: "fail",
+    evidenceRef: "provider-enumeration-failed",
+    failurePath,
+    errorClass,
+  });
+  const pass = (at, operationId) => ({ healthy: true, observedAt: at, now: at, operationId, checkVersion: "operator-attested-v1" });
+
+  it("records one transient provider failure as a strike and latches on the second in a row", async () => {
+    const stub = await healthStub();
+    const at = Date.now();
+    await recordHealthy(stub, at);
+    const healthy = await stub.snapshot({ now: at });
+
+    await expect(stub.recordDeletionHealth(failure(at + 1, "provider-strike-operation-1", "provider-list", "rejected"))).resolves.toMatchObject({
+      deletionHealthy: true,
+      createsEnabled: true,
+      incidentGeneration: healthy.incidentGeneration,
+      lastDeletionCheck: {
+        checkVersion: "provider-enumeration-failure-v1",
+        observedAt: at + 1,
+        result: "strike",
+        path: "provider-list",
+        errorClass: "rejected",
+        consecutiveFailures: 1,
+      },
+    });
+    // The same report replayed is still the first strike.
+    await expect(stub.recordDeletionHealth(failure(at + 1, "provider-strike-operation-1", "provider-list", "rejected")))
+      .resolves.toMatchObject({ createsEnabled: true, incidentGeneration: healthy.incidentGeneration });
+
+    await expect(stub.recordDeletionHealth(failure(at + 2, "provider-strike-operation-2", "provider-purge", "request-failed"))).resolves.toMatchObject({
+      deletionHealthy: false,
+      createsEnabled: false,
+      incidentGeneration: healthy.incidentGeneration + 1,
+      lastDeletionCheck: { result: "fail", path: "provider-purge", errorClass: "request-failed", consecutiveFailures: 2 },
+    });
+  });
+
+  it("starts a fresh run after an acknowledgement", async () => {
+    const stub = await healthStub();
+    const at = Date.now();
+    await recordHealthy(stub, at);
+    await stub.recordDeletionHealth(failure(at + 1, "provider-strike-operation-1", "provider-list", "rejected"));
+    await stub.recordDeletionHealth(failure(at + 2, "provider-strike-operation-2", "provider-list", "rejected"));
+    const latched = await stub.snapshot({ now: at + 2 });
+    await stub.acknowledgeDeletion({ generation: latched.incidentGeneration, proofNonce: "G".repeat(32), observedAt: at + 3, now: at + 3 });
+    await expect(stub.recordDeletionHealth(failure(at + 4, "provider-strike-operation-3", "provider-list", "rejected"))).resolves.toMatchObject({
+      createsEnabled: true,
+      incidentGeneration: latched.incidentGeneration,
+      lastDeletionCheck: { result: "strike", consecutiveFailures: 1 },
+    });
+  });
+
+  it("clears a strike when the next pass deletes cleanly", async () => {
+    const stub = await healthStub();
+    const at = Date.now();
+    await recordHealthy(stub, at);
+    const healthy = await stub.snapshot({ now: at });
+    await stub.recordDeletionHealth(failure(at + 1, "provider-strike-operation-1", "provider-list", "request-failed"));
+    await expect(stub.recordDeletionHealth(pass(at + 2, "provider-pass-operation-1"))).resolves.toMatchObject({
+      createsEnabled: true,
+      lastDeletionCheck: { result: "pass", observedAt: at + 2, path: null, errorClass: null, consecutiveFailures: 0 },
+    });
+    await expect(stub.recordDeletionHealth(failure(at + 3, "provider-strike-operation-2", "provider-list", "invalid-response")))
+      .resolves.toMatchObject({ createsEnabled: true, incidentGeneration: healthy.incidentGeneration, lastDeletionCheck: { result: "strike" } });
+  });
+
+  for (const [failurePath, errorClass] of [["registry-purge", "due-rows"], ["registry-purge", "incomplete"], ["provider-purge", "incomplete"], ["provider-list", "incomplete"], [undefined, undefined]]) {
+    it(`latches at once for ${failurePath ?? "an unclassified report"} ${errorClass ?? ""}`.trim(), async () => {
+      const stub = await healthStub();
+      const at = Date.now();
+      await recordHealthy(stub, at);
+      const healthy = await stub.snapshot({ now: at });
+      await expect(stub.recordDeletionHealth(failure(at + 1, "immediate-latch-operation", failurePath, errorClass))).resolves.toMatchObject({
+        deletionHealthy: false,
+        createsEnabled: false,
+        incidentGeneration: healthy.incidentGeneration + 1,
+        lastDeletionCheck: { result: "fail", path: failurePath ?? "internal", errorClass: errorClass ?? "unknown", consecutiveFailures: 1 },
+      });
+    });
+  }
+
+  it("latches every further failure while an incident is open, and names internal failures by code", async () => {
+    const stub = await healthStub();
+    const at = Date.now();
+    await stub.markDeletionUnhealthy({ observedAt: at, now: at, code: "record-integrity" });
+    const open = await stub.snapshot({ now: at });
+    expect(open.lastDeletionCheck).toMatchObject({ result: "fail", path: "internal", errorClass: "record-integrity" });
+    await expect(stub.recordDeletionHealth(failure(at + 1, "provider-while-open-operation", "provider-list", "rejected")))
+      .resolves.toMatchObject({ incidentGeneration: open.incidentGeneration + 1 });
+    await stub.markDeletionUnhealthy({ observedAt: at + 2, now: at + 2, code: "not-a-known-code" });
+    await expect(stub.snapshot({ now: at + 2 })).resolves.toMatchObject({ lastDeletionCheck: { errorClass: "unknown" } });
+  });
+});

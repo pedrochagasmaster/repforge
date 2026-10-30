@@ -75,9 +75,37 @@ describe("authenticated operations boundary", () => {
       "createsEnabled",
       "deletionHealthy",
       "incidentGeneration",
+      "lastDeletionCheck",
       "leaseFresh",
       "ok",
     ]);
+  });
+
+  it("accepts a failed deletion heartbeat's path and error class only from the closed lists", async () => {
+    const now = Date.now();
+    const failed = { ...evidence("deletion", now, "fail"), failurePath: "provider-list", errorClass: "rejected" };
+    for (const invalid of [
+      { ...failed, failurePath: "internal" },
+      { ...failed, failurePath: "somewhere-else" },
+      { ...failed, errorClass: "token=abc" },
+      { ...evidence("deletion", now, "fail"), failurePath: "provider-list" },
+      { ...evidence("deletion", now, "pass"), failurePath: "provider-list", errorClass: "rejected" },
+      { ...evidence("alarm", now), failurePath: "provider-list", errorClass: "rejected" },
+    ]) {
+      const response = await worker.fetch(request("/_ops/heartbeat", "POST", invalid, "watchdog"), env);
+      expect(response.status).not.toBe(200);
+    }
+    const accepted = await worker.fetch(request("/_ops/heartbeat", "POST", failed, "watchdog"), env);
+    expect(accepted.status).toBe(200);
+    const health = await json(await worker.fetch(request("/_ops/health", "GET", undefined, "watchdog"), env));
+    expect(health.lastDeletionCheck).toEqual({
+      checkVersion: "cf-test-v1",
+      observedAt: now,
+      result: "fail",
+      path: "provider-list",
+      errorClass: "rejected",
+      consecutiveFailures: 1,
+    });
   });
 
   it("reports operator dependency failure as unavailable instead of rate limiting", async () => {

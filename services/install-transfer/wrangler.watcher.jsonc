@@ -15,7 +15,8 @@
     }
   ],
   "vars": {
-    "TRANSFER_SERVICE_ORIGIN": "https://taurifer.com"
+    "TRANSFER_SERVICE_ORIGIN": "https://taurifer.com",
+    "TRANSFER_ALERT_REPO": "pedrochagasmaster/repforge"
   },
   "observability": {
     "enabled": true
