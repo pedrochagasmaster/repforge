@@ -1,0 +1,54 @@
+# One open issue, labelled main-red, while CI on main is failing.
+#  - CI on main completes with failure: open the issue, or comment on the open one,
+#    with the run link, the failing jobs and the head SHA.
+#  - CI on main completes with success: comment and close the open issue.
+#  - Cancelled or skipped runs (a newer push superseded them) change nothing.
+# Event values reach the script through env, never interpolated into the shell.
+name: Main red alert
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+# issues: write to open, comment on and close the issue (and create its label);
+# actions: read only to name the failed run's failing jobs.
+permissions:
+  issues: write
+  actions: read
+
+concurrency:
+  group: main-red-alert
+  cancel-in-progress: false
+
+jobs:
+  alert:
+    if: github.event.workflow_run.head_branch == 'main' && (github.event.workflow_run.conclusion == 'failure' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Open, update or close the main-red issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          gh label create main-red --color B60205 --description "CI on main is failing" 2>/dev/null || true
+          open=$(gh issue list --label main-red --state open --limit 1 --json number --jq '.[0].number // empty')
+          if [ "$CONCLUSION" = "failure" ]; then
+            failing=$(gh run view "$RUN_ID" --json jobs --jq '[.jobs[] | select(.conclusion == "failure") | .name] | join(", ")')
+            body=$(printf 'CI failed on main.\n\n- Run: %s\n- Failing jobs: %s\n- Head: %s\n' "$RUN_URL" "${failing:-unknown}" "$HEAD_SHA")
+            if [ -n "$open" ]; then
+              gh issue comment "$open" --body "$body"
+            else
+              gh issue create --title "CI is failing on main" --label main-red --body "$body"
+            fi
+          elif [ -n "$open" ]; then
+            gh issue comment "$open" --body "$(printf 'CI is green on main again.\n\n- Run: %s\n- Head: %s\n' "$RUN_URL" "$HEAD_SHA")"
+            gh issue close "$open"
+          fi
