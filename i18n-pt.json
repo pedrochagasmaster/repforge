@@ -1371,7 +1371,7 @@
   "privacy.setup.title": "Links de configuração de treino",
   "privacy.setup.body": "Um link de configuração leva uma proposta de treino no fragmento #setup=. Ele é um link portador sem criptografia: qualquer pessoa para quem você o encaminhar pode ler e usar a proposta. Para a passagem à Tela de Início no iOS, o cookie temporário repforge_setup_v1 leva essa proposta ao host estático por até sete dias. Ele nunca inclui registros de sessão nem histórico de treinos anteriores.",
   "privacy.telemetry.title": "Telemetria e consentimento",
-  "privacy.telemetry.body": "A telemetria é opt-in conforme a política de consentimento em Configurações. Ela envia funis gerais do produto com uma identidade anônima estável, nunca valores de sessão, nomes de exercícios, notas, texto livre, links de configuração, tokens de transferência ou dados de backup. Você pode desativá-la a qualquer momento.",
+  "privacy.telemetry.body": "A telemetria vem ligada por padrão, e você pode desativá-la a qualquer momento em Configurações. Ela envia funis gerais do produto com um ID de instalação pseudônimo, nunca valores de sessão, nomes de exercícios, notas, texto livre, links de configuração, tokens de transferência ou dados de backup.",
   "privacy.controls.title": "Exportar e apagar",
   "privacy.controls.body": "Use Configurações para exportar uma cópia de segurança em JSON antes de mudar de navegador ou limpar este. Apagar o histórico de sessões remove definitivamente os registros e o rascunho ativo do armazenamento local, mas mantém seu treino e as Configurações. A ação separada de apagar tudo informa o que será removido antes da confirmação.",
   "privacy.limitations.title": "Limitações",
