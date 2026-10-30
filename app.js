@@ -9771,8 +9771,12 @@ function syncFocusFloor(){
   for(const el of $("#workout")?.children||[])if(!el.matches(".deck"))form+=tall(el);
   shell.style.setProperty("--focus-form-floor",`${Math.ceil(form)}px`);
   shell.style.setProperty("--focus-floor",`${Math.ceil(form+tall(head))}px`);
-  // The floor just gave the context region its height; bring the open set into it again against that height.
-  if(openSet)sizeFocusCard(card);
+  // The floor just gave the context region its height; bring the open set into it again against that height. Only
+  // when the floor or the region's height changed: a sync that changed neither leaves the window where the lifter
+  // scrolled it (a no-op sync after a scroll used to snap a large-text card back).
+  if(openSet){
+    const placed=`${card.style.getPropertyValue("--focus-context-floor")}|${Math.round(context.clientHeight)}`;
+    if(card.dataset.floorPlaced!==placed){card.dataset.floorPlaced=placed;sizeFocusCard(card)}}
   if(typeof ResizeObserver!=="function")return;
   // Observing starts with a notification of its own, so the watch is only re-pointed when its elements changed.
   // The context region too (#541): a banner that appears above the deck (a draft recovery, say) shrinks it, and the
