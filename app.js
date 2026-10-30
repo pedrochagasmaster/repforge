@@ -21541,8 +21541,8 @@ function paintLandingTouch(set,node,touch,x,y,f){
    Focus does; the frame, the finger, the sheets' placement and the light's moving windows are the landing's. Every
    frame is a pure function of the timeline, so a chapter can be jumped to; a frame moves transforms and opacities
    only, and writes text only when the rest clock ticks over a second. `chapters` are the chapters' starts. */
-const LANDING_DEMO={loop:17,chapters:[0,5,9,13],stills:[3.95,8.2,12.6,15.6],rest:120,tap:5.95,restAt:6.3,fast:9,done:11.6,
-  rise:30,next:"1a05c6f170d8806b911acf558c5af4f6"};
+const LANDING_DEMO={loop:18,chapters:[0,6,10,14],stills:[5,9.2,13.6,16.6],rest:120,tap:6.95,restAt:7.3,fast:10,done:12.6,
+  sheet:14.05,wrap:17.35,rise:30,zoom:378,next:"1a05c6f170d8806b911acf558c5af4f6"};
 /** The chapter `time` (any finite number of seconds; the loop wraps it) falls in. */
 const landingChapterAt=time=>{const at=landingLoopTime(time);let i=0;while(i+1<LANDING_DEMO.chapters.length&&at>=LANDING_DEMO.chapters[i+1])i++;return i};
 /** `time` folded into one loop, so a negative, huge or non-finite clock still names a frame. */
@@ -21630,14 +21630,13 @@ function landingDemoHtml(add){
         `<span class="firstrun-demo__log2">${esc(t("focus.shelf.log_set",{n:2}))}</span>`)+
     `</div>`+
     `<div class="firstrun-demo__scrim"></div>`+wheel+
-    `<span class="firstrun-demo__tap"></span>`+
+    landingTouchHtml()+
     `<div class="firstrun-demo__sheet"><span class="firstrun-demo__grab"></span>`+
       `<p class="firstrun-demo__eyebrow">${esc(t("landing.outcomes.next_label"))}</p>`+
       `<p class="firstrun-demo__target">${mark}${esc(t("landing.outcomes.target",{load:landingKg(target.load),reps}))}</p>`+
       `<p class="firstrun-demo__did">${esc(t("landing.outcomes.did_same",{reps:landingNum(reps0),load:landingKg(load0),sets:landingNum(c.sets),min:landingNum(c.repMin),max:landingNum(c.repMax)}))}</p>`+
       `<div class="fcard__ledger firstrun-demo__history">${head}${lastSession}</div>`+
-    `</div>`+
-    `<div class="firstrun-demo__veil"></div></div>`}
+    `</div></div>`}
 /** Lay the screen's rest contour out from where its tab and shelf fell (once per build, size and font load): the
  *  raised part and the two halves of the light are Focus's own paths (`restContourPaths`). */
 function layoutLandingDemo(d){
@@ -21660,10 +21659,9 @@ function layoutLandingDemo(d){
   // Where the finger lands, measured with the wheel sheet in place: the Reps field, the wheel's band, Done and Log set.
   const screen=d.root.getBoundingClientRect(),scale=screen.width/d.root.offsetWidth||1;
   const was=d.wheel.style.transform;d.wheel.style.transform="none";
-  const at=el=>{const box=el.getBoundingClientRect();return[(box.left-screen.left+box.width/2)/scale-23,(box.top-screen.top+box.height/2)/scale-23]};
+  const at=el=>{const box=el.getBoundingClientRect();return[(box.left-screen.left+box.width/2)/scale,(box.top-screen.top+box.height/2)/scale]};
   d.at={reps:at(d.repsBtn),band:at(d.band),done:at(d.wdone),log:at(d.log)};
   d.wheel.style.transform=was;
-  Object.assign(d.tap.style,{left:"0px",top:"0px"});
   // The selected field's outline: on Load, and one field's pitch away on Reps.
   const loadBtn=d.loadBtn;
   Object.assign(d.sel.style,{left:`${loadBtn.parentElement.offsetLeft}px`,top:`${loadBtn.parentElement.offsetTop}px`,
@@ -21671,6 +21669,16 @@ function layoutLandingDemo(d){
   d.selDx=d.repsBtn.parentElement.offsetLeft-loadBtn.parentElement.offsetLeft;
   d.rowH=d.items[0].offsetHeight||WHEEL_ITEM_H;d.wheelAt=Math.max(0,d.items.findIndex(row=>row.textContent===d.v0.textContent));
   d.rowStep=d.rows[1].offsetTop-d.rows[0].offsetTop;
+  // The camera's shots, in the rig's px (the phone's edge, then the screen): the whole phone; the cue, its evidence
+  // and the ledger from the card's top; the screen's foot, where the shelf, the wheel, the rest tab and the next
+  // session's sheet are. A zoomed shot is LANDING_DEMO.zoom px of the screen's width, as tall as the frame's shape;
+  // a narrower frame frames less, so the screen's 14px text stays at 13px or more, down to 366px of screen (its
+  // gutters' worth: below that a shot would cut the screen's own text at the frame's edges).
+  const view={w:d.frame.clientWidth,h:d.frame.clientHeight},glassX=d.glass.offsetLeft,glassY=d.glass.offsetTop;
+  const rigBox={w:d.rig.offsetWidth,h:d.rig.offsetHeight},Z=Math.min(LANDING_DEMO.zoom,Math.max(366,view.w*14/13)),ZH=Z*view.h/view.w,zx=glassX+(d.root.offsetWidth-Z)/2;
+  const full={x:0,y:0,w:rigBox.w,h:rigBox.h},cue={x:zx,y:glassY+d.card.offsetTop-12,w:Z,h:ZH},foot={x:zx,y:glassY+d.root.offsetHeight-ZH,w:Z,h:ZH};
+  d.view=view;d.rigBox=rigBox;
+  d.shots=[{at:0,...full},{at:.45,...cue},{at:2.7,...foot},{at:LANDING_DEMO.wrap,...full}];
   d.last=new WeakMap();d.laid=true;
   return true}
 function renderLandingProof(add){
@@ -21681,12 +21689,13 @@ function renderLandingProof(add){
     min:landingNum(c.repMin),max:landingNum(c.repMax),next_load:landingKg(add.load),next_reps:landingNum(add.reps)});
   screen.innerHTML=landingDemoHtml(add);
   const q=sel=>screen.querySelector(sel),qa=sel=>[...screen.querySelectorAll(sel)];
-  landingDemo={root:q(".firstrun-demo"),l1:q(".firstrun-demo__l1"),l2:q(".firstrun-demo__l2"),ev:q(".firstrun-demo__ev"),
+  landingDemo={root:q(".firstrun-demo"),ev:q(".firstrun-demo__ev"),
     done1:q(".firstrun-demo__done1"),open2:q(".firstrun-demo__open2"),ring:q(".firstrun-demo__ring"),rows:qa(".firstrun-demo__row"),
     fields:q(".firstrun-demo__fields"),log:q(".firstrun-demo__log"),log1:q(".firstrun-demo__log1"),log2:q(".firstrun-demo__log2"),
-    tap:q(".firstrun-demo__tap"),shelf:q(".firstrun-demo__shelf"),tab:q(".firstrun-demo__tab"),bump:q(".firstrun-demo__bump"),
+    tap:q(".landing-touch"),card:q(".firstrun-demo__card"),shelf:q(".firstrun-demo__shelf"),tab:q(".firstrun-demo__tab"),bump:q(".firstrun-demo__bump"),
     label:q(".resttab__label"),time:q(".resttab__time"),lights:qa(".firstrun-demo__light"),scrim:q(".firstrun-demo__scrim"),
-    sheet:q(".firstrun-demo__sheet"),did:q(".firstrun-demo__did"),history:qa(".firstrun-demo__last"),veil:q(".firstrun-demo__veil"),
+    sheet:q(".firstrun-demo__sheet"),did:q(".firstrun-demo__did"),history:qa(".firstrun-demo__last"),
+    frame:screen.closest(".firstrun-proof__device"),rig:screen.closest(".firstrun-proof__rig"),glass:screen.closest(".firstrun-proof__glass"),
     wheel:q(".firstrun-demo__wheel"),band:q(".firstrun-demo__band"),wdone:q(".firstrun-demo__wdone"),items:qa(".firstrun-demo__wheel .wheel__item"),
     sel:q(".firstrun-demo__sel"),v0:q(".firstrun-demo__v0"),v1:q(".firstrun-demo__v1"),
     loadBtn:q(".firstrun-demo__fields .shelf__fieldbtn"),repsBtn:q(".firstrun-demo__repsfield .shelf__fieldbtn"),
@@ -21705,44 +21714,48 @@ function paintLandingDemo(now){
   // A value that is not a number never reaches a style: it is counted (the harness reads the count) and drawn as 0.
   const f=v=>{if(!Number.isFinite(v)){d.nonFinite++;v=0}return String(Math.round(v*1000)/1000)};
   const set=(el,prop,value)=>{let was=d.last.get(el);if(!was)d.last.set(el,was={});if(was[prop]===value)return;was[prop]=value;el.style[prop]=value};
-  const rise=(el,a,b,by)=>{const v=out(seg(a,b));set(el,"opacity",f(v));set(el,"transform",`translateY(${f((1-v)*by)}px)`)};
-  const bump=(a,b)=>now>=a&&now<b?Math.sin(seg(a,b)*Math.PI):0;
-  // 1 · the target arrives: the hero, its second line, then the evidence
-  rise(d.l1,.25,.85,10);rise(d.l2,.45,1.05,8);set(d.ev,"opacity",f(out(seg(1.1,1.7))));
-  // then the finger taps Reps (the outline moves to it) and taps it again: Focus's wheel rises, the finger turns it one
-  // rep on, it settles, and Done closes it with the new count in the field.
+  // The loop closes by running back to its opening state while the camera pulls out to the whole phone: every part
+  // that changed fades or moves home, so the wrap is a cross-fade between two whole screens, never an empty one.
+  const home=inOut(seg(D.wrap,D.wrap+.5)),stay=1-home;
+  const rise=(el,a,b,by)=>{const v=out(seg(a,b));set(el,"opacity",f(v*stay));set(el,"transform",`translateY(${f((1-v)*by)}px)`)};
+  // the camera: the whole phone, the cue, then the screen's foot, and back out for the wrap
+  const frame=landingCameraFrame(landingCameraAt(d.shots,now),d.view,d.rigBox);
+  set(d.rig,"transform",landingCameraTransform(frame));
+  // 1 · the target is already there; as the camera settles on it, its evidence arrives
+  set(d.ev,"opacity",f(out(seg(1.3,1.9))*stay));
+  // then, at the screen's foot, the finger taps Reps (the outline moves to it) and taps it again: Focus's wheel rises,
+  // the finger turns it one rep on, it settles, and Done closes it with the new count in the field.
   const A=d.at,mix=(p,q,x)=>[p[0]+(q[0]-p[0])*x,p[1]+(q[1]-p[1])*x];
-  const drag=inOut(seg(3.2,3.45)),turn=now<3.45?.7*drag:.7+.3*back(seg(3.45,3.95));
-  const pos=now<2.85?A.reps:now<3.2?mix(A.reps,A.band,inOut(seg(2.85,3.15))):now<3.5?[A.band[0],A.band[1]-d.rowH*.7*drag]:
-    now<4.5?mix([A.band[0],A.band[1]-d.rowH*.7],A.done,inOut(seg(3.5,3.8))):A.log;
-  const press=bump(2.15,2.4)+bump(2.6,2.85)+bump(3.95,4.2)+bump(D.tap-.15,D.tap+.15);
-  const shown=now<5?out(seg(1.85,2.15))*(1-seg(4.2,4.5)):seg(D.tap-.6,D.tap-.25)*(1-seg(D.tap+.2,D.tap+.55));
-  const landed=now<5?out(seg(1.85,2.15)):out(seg(D.tap-.6,D.tap-.25));
-  set(d.tap,"opacity",f(shown*.9));
-  set(d.tap,"transform",`translate(${f(pos[0])}px,${f(pos[1])}px) scale(${f(1.25-.25*landed-.14*press)})`);
-  const lifted=out(seg(2.75,3.2))*(1-out(seg(4.15,4.5)));
-  set(d.wheel,"transform",`translateY(${f((1-lifted)*101)}%)`);
+  const drag=inOut(seg(4.6,4.85)),turn=now<4.85?.7*drag:.7+.3*back(seg(4.85,5.35));
+  const lifted=[A.band[0],A.band[1]-d.rowH*.7];
+  const pos=now<4.15?A.reps:now<4.6?mix(A.reps,A.band,inOut(seg(4.15,4.5))):now<4.9?[A.band[0],A.band[1]-d.rowH*.7*drag]:
+    now<6?mix(lifted,A.done,inOut(seg(4.9,5.2))):A.log;
+  const touch=landingTouchAt([{at:3.55},{at:4},{at:4.6,up:4.85},{at:5.4},{at:D.tap}],now);
+  paintLandingTouch(set,d.tap,touch,pos[0],pos[1],f);
+  const wheel=out(seg(4.1,4.55))*(1-out(seg(5.55,5.9)));
+  set(d.wheel,"transform",`translateY(${f((1-wheel)*101)}%)`);
   d.items.forEach((row,i)=>{
     const off=i-(d.wheelAt+turn),far=Math.abs(off);
     set(row,"transform",`translateY(${f(off*d.rowH)}px) rotateX(${f(-18*off)}deg) scale(${f(1-Math.min(far,3)*.07)})`);
     set(row,"opacity",f(Math.max(.2,1-far*.22)))});
-  const repsSel=inOut(seg(2.25,2.55))*(1-inOut(seg(D.tap+.05,D.tap+.3)));
+  const repsSel=inOut(seg(3.65,3.95))*(1-inOut(seg(D.tap+.05,D.tap+.3)));
   set(d.sel,"transform",`translateX(${f(d.selDx*repsSel)}px)`);
-  const typed=seg(4.15,4.35)*(1-seg(D.tap+.1,D.tap+.2));
+  const typed=seg(5.55,5.75)*(1-seg(D.tap+.1,D.tap+.2));
   set(d.v0,"opacity",f(1-typed));set(d.v1,"opacity",f(typed));
   // 2 · the tap lands on Log set: the row checks, the ring moves to set 2, the shelf takes set 2
-  set(d.log,"transform",`scale(${f(1-.025*bump(D.tap-.15,D.tap+.15))})`);
-  const logged=out(seg(D.tap,D.tap+.28));
+  set(d.log,"transform",`scale(${f(1-.025*(now>=D.tap&&now<D.tap+.16?Math.sin(seg(D.tap,D.tap+.16)*Math.PI):0))})`);
+  const logged=out(seg(D.tap,D.tap+.28))*stay;
   set(d.done1,"opacity",f(logged));set(d.open2,"opacity",f(logged));
   set(d.log1,"opacity",f(1-logged));set(d.log2,"opacity",f(logged));
-  set(d.ring,"transform",`translateY(${f(d.rowStep*inOut(seg(D.tap+.05,D.tap+.45)))}px)`);
+  set(d.ring,"transform",`translateY(${f(d.rowStep*inOut(seg(D.tap+.05,D.tap+.45))*stay)}px)`);
   const swap=seg(D.tap+.02,D.tap+.32);
   set(d.fields,"opacity",f(now<D.tap||swap>=1?1:1-.55*Math.sin(swap*Math.PI)));
-  // the rest tab rises out of the shelf, and the light draws out from it along the edge
+  // the rest tab rises out of the shelf, and the light draws out from it along the edge; at the wrap it sinks back
   const up=seg(D.restAt-.3,D.restAt+.45),lift=(1-Math.min(1.06,1-Math.exp(-7*up)*Math.cos(9*up)))*(D.rise+6);
-  set(d.bump,"transform",`translateY(${f(lift)}px)`);set(d.tab,"transform",`translateY(${f(lift)}px)`);
+  const sunk=lift+(D.rise+6-lift)*home;
+  set(d.bump,"transform",`translateY(${f(sunk)}px)`);set(d.tab,"transform",`translateY(${f(sunk)}px)`);
   // The tab's words sit in the shelf's own layer, so they fade in with the rise rather than hide behind it.
-  set(d.tab,"opacity",f(Math.min(1,up*2)));
+  set(d.tab,"opacity",f(Math.min(1,up*2)*stay));
   let reveal=0,glow=0,label=t("rest.inline.label"),time="2:00",done=false;
   const clock=s=>`${Math.floor(s/60)}:${String(Math.floor(s)%60).padStart(2,"0")}`;
   if(now>=D.restAt){
@@ -21758,6 +21771,7 @@ function paintLandingDemo(now){
       reveal=d.cx*(1-out(Math.min(1,ms/260)));
       glow=Math.max((ms<140?out(ms/140):Math.pow(Math.max(0,1-(ms-140)/460),2.2))*1.1,ms>300?.2*Math.min(1,(ms-300)/300):0);
       label=t("rest.inline.done");time="+"+clock(now-D.done);done=true}}
+  glow*=stay;
   const [left,right]=d.lights;
   set(left,"transform",`translateX(${f(reveal)}px)`);set(left.firstChild,"transform",`translateX(${f(-reveal)}px)`);
   set(right,"transform",`translateX(${f(-reveal)}px)`);set(right.firstChild,"transform",`translateX(${f(reveal)}px)`);
@@ -21765,13 +21779,11 @@ function paintLandingDemo(now){
   if(d.label.textContent!==label)d.label.textContent=label;
   if(d.time.textContent!==time)d.time.textContent=time;
   d.tab.classList.toggle("is-done",done);
-  // 4 · the next session rises over the one it came from
-  const sheet=out(seg(13.05,13.6));
-  set(d.scrim,"opacity",f(.55*Math.max(sheet,lifted)));set(d.sheet,"transform",`translateY(${f((1-sheet)*100)}%)`);
-  set(d.did,"opacity",f(out(seg(13.5,14.1))));
-  d.history.forEach((row,i)=>rise(row,13.9+i*.22,14.4+i*.22,8));
-  // the loop closes through a short fade, so set 1 comes back clean
-  set(d.veil,"opacity",f(now>16.55?out(seg(16.55,16.95)):1-out(seg(0,.3))))}
+  // 4 · the next session rises over the one it came from, and sinks again at the wrap
+  const sheet=out(seg(D.sheet,D.sheet+.55))*(1-home);
+  set(d.scrim,"opacity",f(.55*Math.max(sheet,wheel)));set(d.sheet,"transform",`translateY(${f((1-sheet)*100)}%)`);
+  set(d.did,"opacity",f(out(seg(D.sheet+.45,D.sheet+1.05))*stay));
+  d.history.forEach((row,i)=>rise(row,D.sheet+.85+i*.22,D.sheet+1.35+i*.22,8))}
 function renderLandingWays(){
   const root=$("#firstRun");if(!root)return;
   const fill=(key,html)=>{const node=root.querySelector(`[data-landing-fill="${key}"]`);if(node)node.innerHTML=html};
@@ -22158,7 +22170,7 @@ function createLandingController(root){
   /* ---- the proof's player ----
      A clock that runs only while the phone is on screen, the page is visible and motion is welcome; the chapters show
      where it is and jump it. Under reduced motion there is no clock: each chapter is a still and the chapters switch it. */
-  const glass=root.querySelector(".firstrun-proof__glass"),screen=root.querySelector("#firstRunDemo");
+  const glass=root.querySelector(".firstrun-proof__device"),screen=root.querySelector("#firstRunDemo");
   const chapters=[...root.querySelectorAll("[data-landing-chapter]")];
   /* The clock is the demo's own: seconds summed from the frames' timestamps, each step clamped to 0–50ms and the
      first frame after a (re)start counted as 0, so it never reads another clock and never runs backwards. */
@@ -22189,9 +22201,9 @@ function createLandingController(root){
     const run=play.seen&&!document.hidden&&!reduced()&&!landingReturning();
     if(run&&!play.raf){play.last=null;play.raf=requestAnimationFrame(frame);reg.frames.add(play.raf)}
     if(!run&&play.raf){cancelAnimationFrame(play.raf);reg.frames.delete(play.raf);play.raf=0}}
+  // The frame's size sets the camera's shots (layoutLandingDemo); the painter moves the phone inside it.
   function fit(){
     if(!glass||!screen||!glass.clientWidth)return;
-    screen.style.transform=`scale(${glass.clientWidth/390})`;
     if(landingDemo){landingDemo.laid=false;paint(play.t)}}
   function mountPlayer(){
     if(!glass||!screen||!chapters.length)return;
@@ -22357,7 +22369,7 @@ function createLandingController(root){
     if(motionQuery?.addEventListener)on(motionQuery,"change",layout);
     layout()}
   function dispose(){
-    if(screen)screen.style.removeProperty("transform");
+    screen?.closest(".firstrun-proof__rig")?.style.removeProperty("transform");
     landingFeatures?.hosts.forEach(host=>host.style.removeProperty("transform"));
     reg.offs.forEach(off=>off());reg.offs.length=0;
     reg.obs.forEach(io=>io.disconnect());reg.obs.length=0;

@@ -766,10 +766,11 @@ async function finalPage(browser) {
     const sources = await page.evaluate(() => [...document.querySelectorAll("#firstRun picture source")].length);
     assert(sources === 0, `[${lang}] no prefers-color-scheme <picture> source: themes swap by data-theme`, String(sources));
 
-    // The persistent Build control: hidden at the top, present once the hero action is behind, gone at the close.
+    // The persistent Build control: hidden at the top, present once the hero action is behind (past the stages, which
+    // it steps aside for), gone at the close.
     const top = await page.evaluate(dockState);
     assert(!top.visible, `[${lang}] the dock is hidden while the hero action is on screen`, JSON.stringify(top));
-    await scrollLanding(page, '#firstRun [data-landing-section="proof"]');
+    await scrollLanding(page, '#firstRun [data-landing-section="data"]');
     const past = await page.evaluate(dockState);
     assert(past.present && past.visible, `[${lang}] #firstRunCreateDock shows once the hero action has scrolled away`, JSON.stringify(past));
     await scrollLanding(page, '#firstRun [data-landing-section="close"]');
@@ -833,11 +834,11 @@ async function finalPage(browser) {
       const items = [...document.querySelectorAll("[data-landing-chapter]")];
       return { current: items.map((item) => item.querySelector("[data-chapter]").getAttribute("aria-current") === "step") };
     })() }));
-    assert(jumped.chapter === 2 && jumped.time >= 9 && jumped.time < 10 && jumped.current.filter(Boolean).length === 1 && jumped.current[2],
+    assert(jumped.chapter === 2 && jumped.time >= 10 && jumped.time < 11 && jumped.current.filter(Boolean).length === 1 && jumped.current[2],
       "a chapter jumps the phone to its start and is the one current chapter", JSON.stringify(jumped));
-    await page.evaluate(() => window.__repforgeLandingSeek(12));
+    await page.evaluate(() => window.__repforgeLandingSeek(13));
     const rest = await page.evaluate(chapterState);
-    assert(rest.tab === tr("en", "rest.inline.done"), "at 12 s the rest tab says the app's own Rest done", JSON.stringify(rest));
+    assert(rest.tab === tr("en", "rest.inline.done"), "at 13 s the rest tab says the app's own Rest done", JSON.stringify(rest));
     await page.evaluate(() => window.__repforgeLandingSeek(null));
     // a hidden page stops the clock; visible again, it runs
     await page.evaluate(() => { Object.defineProperty(document, "hidden", { configurable: true, get: () => true }); document.dispatchEvent(new Event("visibilitychange")); });
@@ -854,7 +855,7 @@ async function finalPage(browser) {
 
     // Leaving the landing disposes everything the controller started.
     await page.evaluate(() => window.closeFirstRun());
-    const closed = await page.evaluate(() => ({ ...window.__repforgeLandingProof(), scaled: !!document.querySelector("#firstRunDemo")?.style.transform }));
+    const closed = await page.evaluate(() => ({ ...window.__repforgeLandingProof(), scaled: !!document.querySelector(".firstrun-proof__rig")?.style.transform }));
     assert(closed.open === false && closed.listeners === 0 && closed.observers === 0 && closed.frames === 0 && !closed.scaled,
       "closing the landing leaves no listener, observer, frame or scale behind", JSON.stringify(closed));
     // And scrolling a hidden landing starts nothing.
@@ -909,13 +910,13 @@ async function finalPage(browser) {
         chapter: window.__repforgeLandingProof().chapter, time: window.__repforgeLandingProof().time,
         current: items.map((item, i) => item.querySelector("[data-chapter]").getAttribute("aria-current") === "step" ? i : -1).filter((i) => i >= 0),
         progress: items.map((item) => Number(item.style.getPropertyValue("--chapter-progress"))),
-        checked: op(".firstrun-demo__done1"), turned: op(".firstrun-demo__v1"), finger: op(".firstrun-demo__tap"),
+        checked: op(".firstrun-demo__done1"), turned: op(".firstrun-demo__v1"), finger: op(".landing-touch"),
         wheel: q(".firstrun-demo__wheel").getBoundingClientRect().top < q(".firstrun-demo").getBoundingClientRect().bottom - 2,
         next: q(".firstrun-demo__sheet").getBoundingClientRect().top < q(".firstrun-demo").getBoundingClientRect().bottom - 2,
         tab: q(".resttab__label").textContent, clock: q(".resttab__time").textContent,
       };
     };
-    const starts = [0, 5, 9, 13], loop = 17;
+    const starts = [0, 6, 10, 14], loop = 18;
     // The screen at each chapter's start: the state the chapter opens on, and nothing a later chapter left.
     const opens = [
       (s) => s.checked === 0 && s.turned === 0 && s.finger === 0 && !s.wheel && !s.next && s.tab === tr("en", "rest.inline.label"),
@@ -934,19 +935,68 @@ async function finalPage(browser) {
       assert(inStep(edge, before) && inStep(after, i) && after.progress[i] < .05 && opens[i](after),
         `chapter ${i + 1}'s edge: the chip and the frame change together, and the frame opens on its own state`, JSON.stringify({ edge, after }));
       // A chip tapped from the end of the loop jumps the frame back to the same state.
-      await page.evaluate(() => window.__repforgeLandingSeek(16.5));
+      await page.evaluate(() => window.__repforgeLandingSeek(17));
       await page.click(`[data-chapter="${i}"]`);
       const tapped = await page.evaluate(read);
       assert(inStep(tapped, i) && opens[i](tapped), `tapping chapter ${i + 1} from the loop's end shows its opening state`, JSON.stringify(tapped));
     }
     // The clock itself wraps the loop into chapter 1 with set 1 open again.
-    await page.evaluate(() => window.__repforgeLandingSeek(16.8));
+    await page.evaluate(() => window.__repforgeLandingSeek(17.8));
     await page.evaluate(() => window.__repforgeLandingSeek(null));
     await page.waitForTimeout(700);
     const wrapped = await page.evaluate(read);
     assert(inStep(wrapped, 0) && wrapped.time < 1.5 && wrapped.checked === 0 && wrapped.turned === 0 && !wrapped.next,
       "the loop wraps into chapter 1 with set 1 unchecked and the chip back on chapter 1", JSON.stringify(wrapped));
     assert(errors.length === 0, "the timeline raises no page errors", errors.slice(0, 2).join(" | "));
+    await context.close();
+  }
+
+  // The camera (the polish brief): at 390 every zoomed frame shows the screen's body text (14px and up in the app) at
+  // 13px or more; only the opening shot and the wrap's pull-back show the whole phone. And the captions are whole:
+  // each sits inside the stage, wraps inside its own box, and the row is as tall as the longest, in both languages at
+  // 390 and 320.
+  phase("Proof camera: legible zoomed text; whole captions");
+  {
+    const { context, page } = await landingPage(browser, { lang: "pt" });
+    await scrollToDevice(page);
+    const legible = await page.evaluate(() => {
+      const screen = document.querySelector("#firstRunDemo"), rig = document.querySelector(".firstrun-proof__rig"), frame = document.querySelector(".firstrun-proof__device").getBoundingClientRect();
+      const small = [];
+      let zoomed = 0;
+      for (let time = 1.05; time < 17.35; time += .25) {
+        window.__repforgeLandingSeek(time);
+        const k = rig.getBoundingClientRect().width / rig.offsetWidth;
+        zoomed++;
+        const walker = document.createTreeWalker(screen, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          const el = node.parentElement, text = node.textContent.trim();
+          if (!text || !el.getClientRects().length) continue;
+          const style = getComputedStyle(el), size = parseFloat(style.fontSize);
+          if (size < 14 || style.visibility === "hidden") continue;
+          let shown = 1; for (let n = el; n && n !== screen; n = n.parentElement) shown *= +getComputedStyle(n).opacity;
+          const r = el.getBoundingClientRect();
+          if (shown < .5 || r.bottom <= frame.top || r.top >= frame.bottom || r.right <= frame.left || r.left >= frame.right) continue;
+          if (size * k < 13 - .01) small.push(`${time.toFixed(2)}s ${text.slice(0, 16)} ${size}px x ${k.toFixed(3)}`);
+        }
+      }
+      return { zoomed, small: small.slice(0, 5), count: small.length };
+    });
+    assert(legible.zoomed > 50 && legible.count === 0, "at 390 every zoomed frame shows the screen's body text at 13px or more", JSON.stringify(legible));
+    await context.close();
+  }
+  for (const [width, height] of [[390, 844], [320, 568]]) for (const lang of ["en", "pt"]) {
+    const { context, page } = await landingPage(browser, { lang, width, height });
+    await scrollToDevice(page);
+    const captions = await page.evaluate(() => {
+      const stage = document.querySelector(".firstrun-proof__stage").getBoundingClientRect();
+      const texts = [...document.querySelectorAll(".firstrun-chapter__text")];
+      const row = Math.max(...texts.map((node) => node.getBoundingClientRect().height));
+      return texts.map((node, i) => {
+        const r = node.getBoundingClientRect();
+        return { i, inside: r.top >= stage.top - .5 && r.bottom <= stage.bottom + .5, whole: node.scrollHeight <= node.clientHeight + 1, row: Math.abs(r.height - row) < 1 };
+      }).filter((c) => !c.inside || !c.whole || !c.row);
+    });
+    assert(captions.length === 0, `[${lang} ${width}] every chapter caption is whole inside the stage, in a row as tall as the longest`, JSON.stringify(captions));
     await context.close();
   }
 
@@ -1020,7 +1070,7 @@ async function finalPage(browser) {
   phase("Final page: the dock, the footer link, the paste disclosure, the questions");
   {
     const { context, page } = await landingPage(browser, { lang: "en" });
-    await scrollLanding(page, '#firstRun [data-landing-section="proof"]');
+    await scrollLanding(page, '#firstRun [data-landing-section="data"]');
     await page.click("#firstRunCreateDock");
     await page.waitForSelector("#onboarding.active", { timeout: 10000 });
     await page.waitForSelector('[data-entry-hub="recommend"]', { timeout: 10000 });
@@ -1079,7 +1129,7 @@ async function finalPage(browser) {
     await page.goto(`${APP_INDEX}?landing-variants=final-invalid#setup=v1.not+base64`, { waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
     await waitForFirstRun(page);
-    await scrollLanding(page, '#firstRun [data-landing-section="proof"]');
+    await scrollLanding(page, '#firstRun [data-landing-section="data"]');
     const dock = await page.evaluate(dockState);
     assert(dock.present && dock.visible, "the dock shows on the invalid-link landing once the hero action is behind", JSON.stringify(dock));
     await context.close();

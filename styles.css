@@ -103,6 +103,8 @@
   /* Exact Plan 054 device-stage composition; these are not reusable scale steps. */
   --radius-landing-stage:24px;
   --radius-landing-stage-compact:20px;
+  /* The proof's phone drawn at its screen's own size (390 px wide), so its corner is a phone's, not a card's. */
+  --radius-landing-phone:44px;
   --radius-pill:999px;
   /* Every button is a pill (the native UI kit, owner decision 2026-10-24): one token so a variant cannot drift. It is
      half the single-line CTA (54px), not 999px: a one-line button is a pill, and one whose label wraps at large text
@@ -5625,21 +5627,27 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 
 /* ---- The proof: the workout screen, playing itself (owner, 2026-10-29: the landing-anim prototype's direction A) ----
    A phone plays one set of the bench press session in four chapters. Its screen is Focus's own markup at 390 x 844
-   under `.theme-light`, scaled into the glass by the landing controller. On a phone the device is about 80% of the
-   old stage, so it and the chapter chips fit one 390 x 844 or 375 x 667 viewport above the Build control; the chips
-   are the chapters' titles with a progress line, and the current one's caption sits under them in a row as tall as
-   the longest, so nothing below moves. From 900px the chapters are a list beside the phone. */
+   under `.theme-light`, inside a phone drawn at that size (the rig). The stage is a camera's frame (polish brief,
+   2026-10-30): the whole phone opens the loop, then the landing controller moves and scales the rig so each beat's
+   part of the screen fills the frame with its text at reading size. The frame keeps the old device's height, so it
+   and the chapter chips fit one 390 x 844 or 375 x 667 viewport above the Build control; the chips are the chapters'
+   titles with a progress line, and the current one's caption sits under them in a row as tall as the longest, so
+   nothing below moves. From 900px the chapters are a list beside the frame. */
 .firstrun-proof__stage{display:grid;justify-items:center;gap:var(--firstrun-gap-2)}
 .firstrun-proof__device{
   --proof-device-w:clamp(176px,calc((100svh - 236px) * 390 / 844),234px);
-  width:var(--proof-device-w);padding:var(--space-8);border-radius:calc(var(--radius-landing-stage) + var(--space-8));
-  border:1px solid var(--band-night-rule);background:var(--band-night-bg);box-shadow:var(--elevation-floating-shadow);
-}
-.firstrun-proof__glass{
-  position:relative;width:100%;aspect-ratio:390/844;overflow:hidden;isolation:isolate;
+  position:relative;width:100%;height:calc(var(--proof-device-w) * 844 / 390 + var(--space-16));overflow:hidden;isolation:isolate;
   border-radius:var(--radius-landing-stage);background:var(--band-night-bg);
 }
-.firstrun-proof__screen{position:absolute;left:0;top:0;width:390px;height:844px;transform-origin:0 0;pointer-events:none}
+.firstrun-proof__rig{
+  position:absolute;left:0;top:0;padding:var(--space-14);transform-origin:0 0;will-change:transform;
+  border:1px solid var(--band-night-rule);border-radius:calc(var(--radius-landing-phone) + var(--space-14));background:var(--band-night-bg);
+}
+.firstrun-proof__glass{
+  position:relative;width:390px;height:844px;overflow:hidden;isolation:isolate;
+  border-radius:var(--radius-landing-phone);background:var(--bg);
+}
+.firstrun-proof__screen{position:absolute;left:0;top:0;width:390px;height:844px;pointer-events:none}
 .firstrun-chapters{list-style:none;margin:0;padding:0;width:100%;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));column-gap:var(--space-8)}
 .firstrun-chapter{display:contents}
 .firstrun-chapter__go{
@@ -5658,12 +5666,12 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   color:var(--firstrun-ink-soft);text-wrap:pretty;opacity:0;visibility:hidden;transition:opacity .2s cubic-bezier(.2,.7,.2,1),visibility 0s .2s;
 }
 .firstrun-chapter.is-current .firstrun-chapter__text{opacity:1;visibility:visible;transition:opacity .2s cubic-bezier(.2,.7,.2,1)}
-@media(max-width:340px){.firstrun-proof__glass{border-radius:var(--radius-landing-stage-compact)}}
+@media(max-width:340px){.firstrun-proof__device{border-radius:var(--radius-landing-stage-compact)}}
 @media(min-width:900px){
   .firstrun-proof .firstrun-wrap{max-width:calc(var(--maxw) * 1.75)}
   .firstrun-proof .firstrun-sub{max-width:var(--maxw)}
   .firstrun-proof__stage{grid-template-columns:auto minmax(0,1fr);align-items:center;justify-items:start;column-gap:var(--firstrun-gap-8)}
-  .firstrun-proof__device{--proof-device-w:clamp(240px,calc((100svh - 200px) * 390 / 844),300px)}
+  .firstrun-proof__device{--proof-device-w:clamp(240px,calc((100svh - 200px) * 390 / 844),300px);width:clamp(360px,36vw,440px)}
   .firstrun-chapters{display:flex;flex-direction:column;gap:var(--space-4);max-width:var(--maxw)}
   .firstrun-chapter{display:block;position:relative;padding-left:var(--space-26)}
   .firstrun-chapter__go{position:static;width:100%;padding:var(--space-12) 0 var(--space-4);font-size:var(--font-size-subtitle);line-height:var(--line-standard)}
@@ -5683,9 +5691,9 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-demo__progress{margin:var(--space-8) var(--space-16) 0;gap:var(--space-8)}
 .firstrun-demo__card{padding:0 var(--space-16)}
 .firstrun-demo__card .fx-head{margin:var(--space-16) 0 0}
-.firstrun-demo__l1,.firstrun-demo__l2,.firstrun-demo__ev,.firstrun-demo__over,.firstrun-demo__ring,.firstrun-demo__tap,.firstrun-demo__log,
+.firstrun-demo__ev,.firstrun-demo__over,.firstrun-demo__ring,.firstrun-demo__log,
 .firstrun-demo__log1,.firstrun-demo__log2,.firstrun-demo__fields,.firstrun-demo__bump,.firstrun-demo__tab,.firstrun-demo__light,
-.firstrun-demo__lit,.firstrun-demo__scrim,.firstrun-demo__sheet,.firstrun-demo__did,.firstrun-demo__last,.firstrun-demo__veil,
+.firstrun-demo__lit,.firstrun-demo__scrim,.firstrun-demo__sheet,.firstrun-demo__did,.firstrun-demo__last,
 .firstrun-demo__wheel,.firstrun-demo__wheel .wheel__item,.firstrun-demo__sel,.firstrun-demo__v0,.firstrun-demo__v1{will-change:transform,opacity}
 .firstrun-demo__why{font-weight:var(--weight-semibold);color:var(--accent-deep)}
 .firstrun-demo__row{position:relative}
@@ -5716,10 +5724,6 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-demo__light--l{-webkit-mask-image:linear-gradient(to right,transparent,var(--ink) 34px);mask-image:linear-gradient(to right,transparent,var(--ink) 34px)}
 .firstrun-demo__light--r{-webkit-mask-image:linear-gradient(to left,transparent,var(--ink) 34px);mask-image:linear-gradient(to left,transparent,var(--ink) 34px)}
 .firstrun-demo__lit{position:absolute;top:0;overflow:visible;opacity:var(--rest-light-gain)}
-.firstrun-demo__tap{
-  position:absolute;z-index:3;width:46px;height:46px;border-radius:var(--radius-pill);opacity:0;
-  border:1px solid var(--boundary-required);background:rgba(var(--ink-rgb),.34);box-shadow:var(--elevation-floating-shadow);
-}
 .firstrun-demo__scrim{position:absolute;z-index:3;inset:0;background:rgb(var(--shadow-rgb));opacity:0}
 .firstrun-demo__sheet{
   position:absolute;z-index:3;left:0;right:0;bottom:0;padding:var(--space-32) var(--space-16) calc(var(--space-16) + 34px);transform:translateY(100%);
@@ -5734,7 +5738,6 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-demo__target .fx-cue__mark{display:inline-block;width:.62em;height:.62em;margin-right:.14em}
 .firstrun-demo__did{margin:var(--space-8) 0 0;font-size:var(--font-size-focus-evidence);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .firstrun-demo__history{margin-top:var(--space-16)}
-.firstrun-demo__veil{position:absolute;z-index:4;inset:0;background:var(--bg);pointer-events:none}
 
 /* ---- The three ways ---- */
 .firstrun-ways{padding-bottom:0}

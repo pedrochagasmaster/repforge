@@ -671,7 +671,8 @@ try {
       await opened.page.setViewportSize({ width, height: 844 });
       await opened.page.waitForTimeout(250);
       const radii = await opened.page.evaluate(() => ({
-        stages: [...document.querySelectorAll(".firstrun-proof__glass")].map((stage) => getComputedStyle(stage).borderTopLeftRadius),
+        // The proof's plate is the camera's frame (polish brief, 2026-10-30): the phone inside it is drawn at its own size.
+        stages: [...document.querySelectorAll(".firstrun-proof__device")].map((stage) => getComputedStyle(stage).borderTopLeftRadius),
       }));
       assert.ok(radii.stages.length > 0, `${theme} landing has the proof's phone plate at ${width}px`);
       assert.ok(radii.stages.every((radius) => radius === `${expectedStage}px`),
