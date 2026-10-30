@@ -262,6 +262,43 @@ describe("authenticated operations boundary", () => {
     }
   });
 
+  it("counts retried provider steps by path, class and outcome without touching deletion health", async () => {
+    const read = async () => json(await worker.fetch(request("/_ops/deletion-evidence", "GET", undefined, "watchdog"), env));
+    const before = await read();
+    expect(before.providerRetries).toBeNull();
+    const at = Date.now();
+    const retry = (operationId, fields = {}) => ({ operationId, failurePath: "provider-list", errorClass: "rejected", outcome: "recovered", observedAt: at, ...fields });
+    for (const invalid of [
+      retry("ops-retry-invalid-operation-1", { failurePath: "registry-purge" }),
+      retry("ops-retry-invalid-operation-2", { errorClass: "token=abc" }),
+      retry("ops-retry-invalid-operation-3", { outcome: "latched" }),
+      { ...retry("ops-retry-invalid-operation-4"), extra: 1 },
+    ]) {
+      expect((await worker.fetch(request("/_ops/provider-retry", "POST", invalid, "watchdog"), env)).status).not.toBe(200);
+    }
+    expect((await worker.fetch(request("/_ops/provider-retry", "POST", retry("ops-retry-wrong-role-operation"), "purge"), env)).status).toBe(404);
+    for (const body of [
+      retry("ops-retry-recovered-operation-1"),
+      retry("ops-retry-recovered-operation-1"),
+      retry("ops-retry-recovered-operation-2"),
+      retry("ops-retry-failed-operation-1", { failurePath: "provider-purge", errorClass: "request-failed", outcome: "failed", observedAt: at + 1 }),
+    ]) {
+      expect((await worker.fetch(request("/_ops/provider-retry", "POST", body, "watchdog"), env)).status).toBe(200);
+    }
+    const after = await read();
+    expect(after.providerRetries).toEqual({
+      since: at,
+      lastAt: at + 1,
+      total: 3,
+      recovered: 2,
+      counts: [
+        { path: "provider-list", errorClass: "rejected", outcome: "recovered", count: 2, lastAt: at },
+        { path: "provider-purge", errorClass: "request-failed", outcome: "failed", count: 1, lastAt: at + 1 },
+      ],
+    });
+    expect(after.incidentGeneration).toBe(before.incidentGeneration);
+  });
+
   it("reports the failure that raised the current generation until it is acknowledged", async () => {
     const anonymous = await worker.fetch(request("/_ops/deletion-evidence", "GET"), env);
     expect(anonymous.status).toBe(404);
@@ -274,7 +311,7 @@ describe("authenticated operations boundary", () => {
     const expected = { actor: "watchdog", checkVersion: "provider-enumeration-failure-v1", observedAt: failedAt, evidenceKind: "provider-enumeration-failed" };
     const read = async () => json(await worker.fetch(request("/_ops/deletion-evidence", "GET", undefined, "watchdog"), env));
     const latched = await read();
-    expect(Object.keys(latched).sort()).toEqual(["ackGeneration", "incidentGeneration", "lastDeletionFailure", "ok"]);
+    expect(Object.keys(latched).sort()).toEqual(["ackGeneration", "incidentGeneration", "lastDeletionFailure", "ok", "providerRetries"]);
     expect(latched.lastDeletionFailure).toEqual(expected);
 
     // Later passing checks do not overwrite it while the incident is open.

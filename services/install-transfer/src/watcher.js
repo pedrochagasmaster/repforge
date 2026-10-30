@@ -95,6 +95,7 @@ export async function runWatcherPass(env, { now = () => Date.now() } = {}) {
   }
 
   let enumerated;
+  let retried = null;
   for (let attempt = 1; !enumerated; attempt += 1) {
     try {
       enumerated = { ...(await enumerateAndPurge(ops, config)), attempt };
@@ -102,8 +103,10 @@ export async function runWatcherPass(env, { now = () => Date.now() } = {}) {
       const failure = error instanceof ProviderStepError ? error : new ProviderStepError("provider-list", "invalid-response", "");
       if (attempt < PROVIDER_ATTEMPTS) {
         console.log(`provider step retry; path=${failure.path} error=${failure.errorClass}`);
+        retried = failure;
         continue;
       }
+      await reportProviderRetry(ops, config, now(), retried, "failed");
       await reportDeletionFailure(ops, config, now(), "provider-enumeration-failure-v1", "provider-enumeration-failed", {
         failurePath: failure.path,
         errorClass: failure.errorClass,
@@ -111,6 +114,7 @@ export async function runWatcherPass(env, { now = () => Date.now() } = {}) {
       throw new Error(`provider enumeration did not complete; path=${failure.path} error=${failure.errorClass}`);
     }
   }
+  await reportProviderRetry(ops, config, now(), retried, "recovered");
 
   const stampedAt = now();
   const receipts = attestedReceipts(stampedAt, config.monthlyCostCents);
@@ -257,6 +261,22 @@ function parseProviderPage(text) {
   }
   if (typeof next !== "string" || next.length > 512 || !/^[\x21-\x7e]+$/u.test(next)) throw new Error("provider cursor is invalid");
   return { objectIds, emptyIds, cursor: next };
+}
+
+/** Best-effort: counts a retried provider step; it never changes the pass outcome. */
+async function reportProviderRetry(ops, config, observedAt, failure, outcome) {
+  if (!failure) return;
+  try {
+    await ops.post(config.watchdogSecret, "/_ops/provider-retry", {
+      operationId: crypto.randomUUID(),
+      failurePath: failure.path,
+      errorClass: failure.errorClass,
+      outcome,
+      observedAt,
+    });
+  } catch {
+    console.log("provider retry count failed");
+  }
 }
 
 async function reportDeletionFailure(ops, config, observedAt, checkVersion, evidenceRef, { failurePath, errorClass }) {

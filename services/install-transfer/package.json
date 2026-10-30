@@ -16,7 +16,8 @@
     "ops:production-health": "node scripts/production-health-loop.mjs",
     "deploy:dry:watcher": "wrangler deploy --dry-run --config wrangler.watcher.jsonc",
     "provision:watcher": "node scripts/provision-watcher-secrets.mjs",
-    "ops:health-status": "node scripts/production-health-status.mjs"
+    "ops:health-status": "node scripts/production-health-status.mjs",
+    "ops:controlled-transfer": "node scripts/controlled-transfer.mjs"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "^1.0.0",

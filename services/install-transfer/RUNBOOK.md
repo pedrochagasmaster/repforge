@@ -513,6 +513,19 @@ when.
 | `purge` / `provider-enumeration-v1` | `/_ops/purge-objects`: an object purge failed |
 | `system` / `internal-v1` | inside the Worker: a transfer or registry object's disposal or record-integrity failure |
 
+The same route returns `providerRetries`, which `ops:health-status` prints too:
+counts of the provider steps the watcher retried within a pass, by `path`,
+`errorClass` and `outcome`:
+- `recovered`: the retry succeeded and the pass went on;
+- `failed`: the retry failed too and was reported as a strike or failure.
+
+It also returns `since`, `lastAt`, `total` and `recovered`. It holds counts and
+times only, never resets, and never changes deletion health. The watcher posts
+one `POST /_ops/provider-retry` per retried pass (watchdog bearer), best-effort:
+a Worker without the route logs `provider retry count failed` and the pass
+continues. At one pass every two minutes (720 a day), `total` over the hours
+since `since` gives the transient provider failure rate.
+
 To re-enable after an incident, from the devbox ops checkout with the ops env
 sourced:
 
@@ -526,7 +539,19 @@ sourced:
 5. `TRANSFER_ACK_CONFIRM=I_HAVE_REVIEWED_DELETION TRANSFER_ACK_EVIDENCE_REF=<ref> npm run ops:ack`.
    The latch alert closes its issue on the next pass.
 6. `npm run ops:health-status` shows `createsEnabled: true`; then one
-   controlled transfer.
+   controlled transfer:
+   `TRANSFER_CONTROLLED_CONFIRM=CREATE_ONE_SYNTHETIC_TRANSFER npm run ops:controlled-transfer`
+   (`TRANSFER_SERVICE_URL` comes from the sourced ops env).
+   - **What it does:** it creates one transfer of a synthetic, empty install
+     (no workouts or program, analytics off) through the public API. It claims
+     it, checks the claimed envelope matches, commits, and checks the transfer
+     reads `deleted` and refuses a second claim.
+   - **Output:** fixed step lines ending in `controlled transfer passed`; the
+     token and claim ID never leave memory. It uses one of the create route's
+     5 a minute per IP.
+   - **Afterwards:** the committed transfer's tombstone is disposed by its own
+     alarm (by minute 75), after which the provider listing shows that object
+     with no stored data and the watcher skips it.
 
 ### Deploying the transfer Worker
 

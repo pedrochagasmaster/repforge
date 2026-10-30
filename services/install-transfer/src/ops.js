@@ -1,6 +1,6 @@
 import { base64UrlEncode, constantTimeEqual, utf8 } from "./crypto.js";
 import {
-  BILLING_EVIDENCE_MAX_AGE_MS, DELETION_ERROR_CLASSES, DELETION_FAILURE_PATHS, HEALTH_CLOCK_SKEW_MS, HEALTH_SIGNAL_MAX_AGE_MS,
+  BILLING_EVIDENCE_MAX_AGE_MS, DELETION_ERROR_CLASSES, DELETION_FAILURE_PATHS, PROVIDER_RETRY_OUTCOMES, HEALTH_CLOCK_SKEW_MS, HEALTH_SIGNAL_MAX_AGE_MS,
 } from "./health-do.js";
 import { euNamespace, euStub } from "./namespaces.js";
 import { assertJsonRequest, decodeJsonSyntax, readBoundedRequestBytes } from "./transport.js";
@@ -9,6 +9,7 @@ import { REGISTRY_BATCH_LIMIT } from "./registry-do.js";
 const OPS_PREFIX = "/_ops/";
 const HEALTH_PATH = `${OPS_PREFIX}health`;
 const DELETION_EVIDENCE_PATH = `${OPS_PREFIX}deletion-evidence`;
+const PROVIDER_RETRY_PATH = `${OPS_PREFIX}provider-retry`;
 const HEARTBEAT_PATH = `${OPS_PREFIX}heartbeat`;
 const BILLING_PATH = `${OPS_PREFIX}billing`;
 const DELETION_ACK_PATH = `${OPS_PREFIX}deletion-ack`;
@@ -170,7 +171,32 @@ async function handleDeletionEvidenceGet(env, role) {
       incidentGeneration: evidence.incidentGeneration,
       ackGeneration: evidence.ackGeneration,
       lastDeletionFailure: evidence.lastDeletionFailure ?? null,
+      providerRetries: evidence.providerRetries ?? null,
     });
+  } catch {
+    return unavailable(503);
+  }
+}
+
+async function handleProviderRetry(request, env) {
+  const rate = await consumeRoleRate(env, "watchdog");
+  if (rate.unavailable) return unavailable(503);
+  if (!rate.allowed) return unavailable(429);
+  let value;
+  try { value = await boundedBody(request); } catch { return unavailable(); }
+  if (!exactKeys(value, ["operationId", "failurePath", "errorClass", "outcome", "observedAt"])
+    || !OPERATION_ID_RE.test(value.operationId)
+    || !["provider-list", "provider-purge"].includes(value.failurePath)
+    || !DELETION_ERROR_CLASSES.includes(value.errorClass)
+    || !PROVIDER_RETRY_OUTCOMES.includes(value.outcome)
+    || !safeInteger(value.observedAt)) return unavailable();
+  const now = Date.now();
+  if (!observationInWindow(value.observedAt, now, HEALTH_SIGNAL_MAX_AGE_MS)) return unavailable(503);
+  const stub = healthStub(env);
+  if (!stub) return unavailable(503);
+  try {
+    await stub.recordProviderRetry({ ...value, now });
+    return json({ ok: true, accepted: true });
   } catch {
     return unavailable(503);
   }
@@ -413,7 +439,7 @@ async function handlePurgeObjects(request, env) {
 
 export async function handleOperations(request, env) {
   const url = new URL(request.url);
-  if (![HEALTH_PATH, DELETION_EVIDENCE_PATH, HEARTBEAT_PATH, BILLING_PATH, DELETION_ACK_PATH, PURGE_PATH, PURGE_OBJECTS_PATH].includes(url.pathname) || url.search || url.hash) return null;
+  if (![HEALTH_PATH, DELETION_EVIDENCE_PATH, PROVIDER_RETRY_PATH, HEARTBEAT_PATH, BILLING_PATH, DELETION_ACK_PATH, PURGE_PATH, PURGE_OBJECTS_PATH].includes(url.pathname) || url.search || url.hash) return null;
   if (url.pathname === HEALTH_PATH) {
     if (request.method !== "GET") return unavailable();
     const role = await authorizedHealth(request, env);
@@ -424,12 +450,13 @@ export async function handleOperations(request, env) {
     const role = await authorizedHealth(request, env);
     return role ? handleDeletionEvidenceGet(env, role) : unavailable();
   }
-  const role = url.pathname === HEARTBEAT_PATH ? "watchdog"
+  const role = url.pathname === HEARTBEAT_PATH || url.pathname === PROVIDER_RETRY_PATH ? "watchdog"
     : url.pathname === BILLING_PATH ? "billing"
       : url.pathname === PURGE_PATH || url.pathname === PURGE_OBJECTS_PATH ? "purge" : "ack";
   if (!(await authorizedRole(request, env, role))) return unavailable();
   if (request.method !== "POST") return unavailable();
   if (url.pathname === HEARTBEAT_PATH) return handleHeartbeat(request, env);
+  if (url.pathname === PROVIDER_RETRY_PATH) return handleProviderRetry(request, env);
   if (url.pathname === BILLING_PATH) return handleBilling(request, env);
   if (url.pathname === DELETION_ACK_PATH) return handleDeletionAck(request, env);
   if (url.pathname === PURGE_OBJECTS_PATH) return handlePurgeObjects(request, env);

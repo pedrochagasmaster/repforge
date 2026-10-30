@@ -2,7 +2,7 @@
 // pipes exactly the watcher's seven values to `wrangler secret bulk` for the
 // watcher config on stdin, never argv, and prints no value.
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -92,7 +92,7 @@ assert.ok(existsSync(opsEnv));
   const server = createServer((request, response) => {
     if (request.url === "/_ops/deletion-evidence") {
       response.writeHead(200, { "Content-Type": "application/json" });
-      response.end(JSON.stringify({ ok: true, incidentGeneration: 1, ackGeneration: 1, lastDeletionFailure: null }));
+      response.end(JSON.stringify({ ok: true, incidentGeneration: 1, ackGeneration: 1, lastDeletionFailure: null, providerRetries: null }));
       return;
     }
     seen = { path: request.url, authorization: request.headers.authorization };
@@ -112,7 +112,7 @@ assert.ok(existsSync(opsEnv));
   assert.equal(status.code, 0, status.output);
   assert.deepEqual(seen, { path: "/_ops/health", authorization: `Bearer ${values.TRANSFER_WATCHDOG_SECRET}` });
   const printed = JSON.parse(status.output);
-  assert.deepEqual(Object.keys(printed), ["checkedAt", "leaseFresh", "deletionHealthy", "billingHealthy", "createsEnabled", "incidentGeneration", "ackGeneration", "lastDeletionCheck", "lastDeletionFailure"]);
+  assert.deepEqual(Object.keys(printed), ["checkedAt", "leaseFresh", "deletionHealthy", "billingHealthy", "createsEnabled", "incidentGeneration", "ackGeneration", "lastDeletionCheck", "lastDeletionFailure", "providerRetries"]);
   assert.equal(printed.lastDeletionFailure, null);
   assert.equal(printed.createsEnabled, true);
   assert.equal(status.output.includes(values.TRANSFER_WATCHDOG_SECRET), false);
@@ -159,5 +159,17 @@ assert.ok(existsSync(opsEnv));
   assert.equal(ack.output.trim(), "deletion incident acknowledgement accepted");
   assert.deepEqual(seen.map((call) => [call.method, call.path]), [["GET", "/_ops/health"], ["POST", "/_ops/deletion-ack"]]);
   assert.equal(seen[1].body.generation, 3);
+}
+
+// The controlled transfer refuses to run without its explicit confirmation and
+// makes no request.
+{
+  const refused = spawnSync(process.execPath, [fileURLToPath(new URL("../scripts/controlled-transfer.mjs", import.meta.url))], {
+    env: { PATH: process.env.PATH, TRANSFER_SERVICE_URL: "http://localhost:9" },
+    encoding: "utf8",
+  });
+  assert.equal(refused.status, 1);
+  assert.equal(refused.stderr.trim(), "set TRANSFER_CONTROLLED_CONFIRM=CREATE_ONE_SYNTHETIC_TRANSFER to create one synthetic production transfer");
+  assert.equal(refused.stdout, "");
 }
 console.log("watcher provisioning integration passed");

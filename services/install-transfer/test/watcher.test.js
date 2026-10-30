@@ -49,7 +49,7 @@ function mockTarget(overrides = {}) {
       if (overrides[url.pathname]) return overrides[url.pathname](body);
       if (url.pathname === "/_ops/purge-due") return jsonResponse({ ok: true, examined: 3, purged: 1, failed: 0, remainingDue: 0 });
       if (url.pathname === "/_ops/purge-objects") return jsonResponse({ examined: body.objectIds.length, purged: 0, deferred: body.objectIds.length, failed: 0 });
-      if (url.pathname === "/_ops/heartbeat" || url.pathname === "/_ops/billing") return jsonResponse({ ok: true });
+      if (url.pathname === "/_ops/heartbeat" || url.pathname === "/_ops/billing" || url.pathname === "/_ops/provider-retry") return jsonResponse({ ok: true });
       if (url.pathname === "/_ops/health") {
         return jsonResponse({ ok: true, leaseFresh: true, deletionHealthy: true, billingHealthy: true, createsEnabled: true, incidentGeneration: 0, ackGeneration: 0, lastDeletionCheck: null });
       }
@@ -178,8 +178,10 @@ describe("scheduled health watcher", () => {
       .rejects.toThrow("provider enumeration did not complete; path=provider-list error=rejected");
 
     expect(provider).toHaveLength(2);
-    expect(target.calls.map((call) => call.path)).toEqual(["/_ops/purge-due", "/_ops/heartbeat"]);
-    const report = target.calls[1];
+    expect(target.calls.map((call) => call.path)).toEqual(["/_ops/purge-due", "/_ops/provider-retry", "/_ops/heartbeat"]);
+    expect(target.calls[1].authorization).toBe(`Bearer ${bearers.watchdog}`);
+    expect(target.calls[1].body).toMatchObject({ failurePath: "provider-list", errorClass: "rejected", outcome: "failed" });
+    const report = target.calls[2];
     expect(report.authorization).toBe(`Bearer ${bearers.watchdog}`);
     expect(report.body).toMatchObject({
       kind: "deletion",
@@ -205,9 +207,35 @@ describe("scheduled health watcher", () => {
     await watcher.scheduled(controller(), watcherEnv(target), context());
 
     expect(target.calls.filter((call) => call.body?.result === "fail")).toEqual([]);
+    const counted = target.calls.filter((call) => call.path === "/_ops/provider-retry");
+    expect(counted.map((call) => call.body)).toEqual([{
+      operationId: expect.any(String),
+      failurePath: "provider-list",
+      errorClass: "request-failed",
+      outcome: "recovered",
+      observedAt: expect.any(Number),
+    }]);
+    expect(target.calls.findIndex((call) => call.path === "/_ops/provider-retry"))
+      .toBeLessThan(target.calls.findIndex((call) => call.path === "/_ops/heartbeat"));
     expect(log.mock.calls.flat()).toEqual([
       "provider step retry; path=provider-list error=request-failed",
       "health pass ok; purge examined=3 purged=1; provider objects=1 skipped=0 purged=0 deferred=1 failed=0 attempts=2; createsEnabled=true",
+    ]);
+  });
+
+  it("keeps a pass healthy when the retry count can't be recorded (a Worker without the route)", async () => {
+    const target = mockTarget({ "/_ops/provider-retry": () => jsonResponse({ state: "unavailable" }, 404) });
+    let calls = 0;
+    mockProvider(() => {
+      calls += 1;
+      return calls === 1 ? jsonResponse({ success: false }, 502) : jsonResponse({ success: true, result: [] });
+    });
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    await watcher.scheduled(controller(), watcherEnv(target), context());
+    expect(log.mock.calls.flat()).toEqual([
+      "provider step retry; path=provider-list error=rejected",
+      "provider retry count failed",
+      "health pass ok; purge examined=3 purged=1; provider objects=0 skipped=0 purged=0 deferred=0 failed=0 attempts=2; createsEnabled=true",
     ]);
   });
 
@@ -305,6 +333,12 @@ describe("scheduled health watcher", () => {
       expect(await health(target)).toMatchObject({ createsEnabled: true, incidentGeneration: 1 });
 
       await expect(watcher.scheduled(controller(), watcherEnv(target), context())).rejects.toThrow();
+      const evidence = await (await target.fetch("https://taurifer.com/_ops/deletion-evidence", { headers: { Authorization: `Bearer ${bearers.watchdog}` } })).json();
+      expect(evidence.providerRetries).toMatchObject({
+        total: 3,
+        recovered: 0,
+        counts: [{ path: "provider-list", errorClass: "rejected", outcome: "failed", count: 3 }],
+      });
       expect(await health(target)).toMatchObject({
         createsEnabled: false,
         deletionHealthy: false,
