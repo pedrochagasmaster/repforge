@@ -78,6 +78,11 @@ const SCENES = (() => {
   const match = /scenes:(\[\{len:[^\]]+\])/.exec(app);
   return match ? new Function(`return ${match[1]}`)() : [];
 })();
+/** Each scene's camera shots, as app.js lists them. */
+const SHOTS = (() => {
+  const match = /shots:(\[\s*\[\{at:[\s\S]*?\][,\s]*\])\[i\]/.exec(app);
+  return match ? new Function(`return ${match[1]}`)() : [];
+})();
 
 async function landing(browser, { lang = "en", reducedMotion = "no-preference", hostileClock = false, width = 390, height = 844 } = {}) {
   const context = await browser.newContext({ viewport: { width, height }, locale: lang === "pt" ? "pt-BR" : "en-US", reducedMotion });
@@ -135,6 +140,22 @@ try {
       assert(library.includes(shown), `the library tab reads ${library}, expected ${shown}`);
     });
   }
+  await check("at 390 the camera keeps the app's body text at 13 px or more once each establishing shot has passed", async () => {
+    const { context, page } = await landing(browser);
+    await scrollToPanel(page);
+    const low = [];
+    for (let i = 0; i < SCENES.length; i++) {
+      // The establishing shot (the whole screen) and the move off it take the first two shots' time.
+      const from = SHOTS[i][1].at + 0.6;
+      for (let u = from; u <= SCENES[i].len; u += 0.25) {
+        await page.evaluate(([scene, at]) => window.__repforgeLandingFeatureSeek(scene, at), [i, u]);
+        const zoom = await page.evaluate(() => window.__repforgeLandingProof().featureZoom);
+        if (!(zoom * 16 >= 13)) low.push({ scene: i, at: Math.round(u * 100) / 100, zoom });
+      }
+    }
+    await context.close();
+    assert.deepEqual(low.slice(0, 5), []);
+  });
   await check("with no usable platform clock the tabs still play, on their own frame deltas, with finite text", async () => {
     const { context, page, errors } = await landing(browser, { hostileClock: true });
     await scrollToPanel(page);

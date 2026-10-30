@@ -21846,7 +21846,16 @@ function renderLandingWays(){
    text only for typing and the rest clock, both read from that time and never from a platform clock. */
 const LANDING_FEATURES={
   /* seconds per scene, the still reduced motion shows, and the screen's height at 390 wide */
-  scenes:[{len:6.8,still:6,h:640},{len:6.4,still:6,h:640},{len:6.6,still:5.9,h:660},{len:8,still:7.4,h:640},{len:7.6,still:4.1,h:700}],
+  scenes:[{len:6.8,still:6,h:640},{len:6.4,still:6,h:640},{len:6.6,still:5.9,h:660},{len:8,still:7.4,h:640},{len:7.6,still:4.1,h:700}].map((scene,i)=>({...scene,
+    /* The camera (landingCameraAt): an establishing look at the whole screen, then the region each beat happens in,
+       framed so the app's body text reads at its real size or close to it on a phone. */
+    shots:[
+      [{at:0,x:0,y:0,w:390,h:640},{at:.35,x:0,y:196,w:390,h:350},{at:3.45,x:0,y:386,w:390,h:254}],
+      [{at:0,x:0,y:0,w:390,h:640},{at:.35,x:0,y:44,w:390,h:400},{at:2.05,x:0,y:96,w:390,h:440},{at:4.55,x:0,y:44,w:390,h:400}],
+      [{at:0,x:0,y:0,w:390,h:660},{at:.3,x:0,y:0,w:390,h:340},{at:1.35,x:0,y:196,w:390,h:464}],
+      [{at:0,x:0,y:0,w:390,h:640},{at:.7,x:0,y:216,w:390,h:424},{at:3.55,x:0,y:110,w:390,h:400},{at:4.75,x:0,y:10,w:390,h:560}],
+      [{at:0,x:0,y:0,w:390,h:700},{at:1.35,x:0,y:0,w:390,h:440},{at:2.65,x:0,y:290,w:390,h:410},{at:4.75,x:0,y:40,w:390,h:520}],
+    ][i]})),
   ex:{bench:"19f5c6f170d8808bb424e98de4472a7e",dbBench:"1a05c6f170d8803ba48ec1443eab5978",nDb:"1a05c6f170d880a6b539ef74691f8c75",
     pDb:"1a05c6f170d88017acc8c48b6ccdd639",sDb:"1a05c6f170d8803dad22e04308bd0a98",row:"1a15c6f170d880f89beacd8c81156f2d",
     ohp:"1a05c6f170d880c5ad11c99b302b1bf9",push:"1a15c6f170d880479d38c49a76cb6b10",smith:"1a05c6f170d88058a3a0c07e098a9605",
@@ -21913,7 +21922,7 @@ function landingFeatureScreens(){
   const list=items=>{try{return new Intl.ListFormat(locale,{style:"long",type:"conjunction"}).format(items)}catch{return items.join(", ")}};
   const date=(iso,opts)=>{try{return new Intl.DateTimeFormat(locale,{timeZone:"UTC",...opts}).format(new Date(`${iso}T12:00:00Z`))}catch{return iso}};
   const chev=`<span class="firstrun-fx__chev" aria-hidden="true">‹</span>`;
-  const tap=`<span class="firstrun-fx__tap"></span>`;
+  const tap=landingTouchHtml();
   const lay=(a,b,cls="")=>`<span class="firstrun-fx__lay${cls}"><span class="firstrun-fx__a">${a}</span><span class="firstrun-fx__b">${b}</span></span>`;
   const muscles=keys=>keys.map(key=>muscleLabel(key)).join(" · ");
   /* 1 · Progress */
@@ -22031,7 +22040,8 @@ function landingFeatureScreens(){
       `<span class="minibar__sub">${esc(t("minibar.next",{n:2,exercise:name("highRow")}))}</span></span>`+
       `<span class="minibar__actions"><span class="minibar__chip">${esc(t("rest.sheet.plus"))}</span><span class="minibar__go">${esc(t("minibar.resume"))}</span></span></div>`+
     `<div class="firstrun-fx__dock">${nav.map(([key,icon],i)=>`<span class="${i===2?"is-on":""}"><span class="nav__icon" data-i="${icon}"></span>${esc(t(key))}</span>`).join("")}</div></div>`;
-  const icons=Array.from({length:16},(_,k)=>k===6?"":`<span class="firstrun-fx__icon" style="left:${28+(k%4)*90.7}px;top:${72+Math.floor(k/4)*98}px"></span>`).join("");
+  // A quiet Home Screen: neutral silhouettes around the real Taurifer icon, centred.
+  const icons=Array.from({length:8},(_,k)=>`<span class="firstrun-fx__icon" style="left:${28+(k%4)*90.7}px;top:${96+Math.floor(k/4)*98}px"></span>`).join("");
   const s5=`<div class="firstrun-fx firstrun-fx--gym">`+
     `<div class="firstrun-fx__home">${icons}<span class="firstrun-fx__icon firstrun-fx__icon--app"><img src="icons/icon-192.png" alt="" width="62" height="62" decoding="async"></span>`+
       `<span class="firstrun-fx__ilbl">Taurifer</span><span class="firstrun-fx__hdock"></span></div>`+
@@ -22052,25 +22062,25 @@ function renderLandingFeatures(){
   hosts.forEach((host,i)=>{host.innerHTML=html[i];host.style.height=`${LANDING_FEATURES.scenes[i].h}px`});
   const q=(i,sel)=>hosts[i].querySelector(sel),qa=(i,sel)=>[...hosts[i].querySelectorAll(sel)];
   const lang=landingLang();
-  landingFeatures={hosts,laid:false,last:new WeakMap(),painted:null,scenes:[
+  landingFeatures={hosts,laid:false,last:new WeakMap(),painted:null,views:[],zoom:[],scenes:[
     {root:q(0,".firstrun-fx"),win1:q(0,".firstrun-fx__win1"),win2:q(0,".firstrun-fx__win2"),pts:qa(0,".firstrun-fx__pt:not(.firstrun-fx__pt--record)"),
       record:q(0,".firstrun-fx__pt--record"),tag:q(0,".firstrun-fx__prtag"),vline:q(0,".firstrun-fx__vline"),figs:qa(0,".firstrun-fx__fig"),
-      vol:q(0,".firstrun-fx__vol"),bars:qa(0,".firstrun-fx__vbar i"),tap:q(0,".firstrun-fx__tap")},
+      vol:q(0,".firstrun-fx__vol"),bars:qa(0,".firstrun-fx__vbar i"),tap:q(0,".landing-touch")},
     {root:q(1,".firstrun-fx"),swap:q(1,".firstrun-fx__swap"),a:q(1,".firstrun-fx__swapa"),b:q(1,".firstrun-fx__swapb"),flash:q(1,".firstrun-fx__flash"),
       acts:q(1,".firstrun-fx__acts"),rep:q(1,".firstrun-fx__rep"),below:q(1,".firstrun-fx__below"),scrim:q(1,".firstrun-fx__scrim"),sheet:q(1,".firstrun-fx__picker"),
       ring:q(1,".firstrun-fx__ring"),ph:q(1,".firstrun-fx__ph"),typed:q(1,".firstrun-fx__q"),caret:q(1,".firstrun-fx__caret"),res:qa(1,".firstrun-fx__res"),
-      hl:q(1,".firstrun-fx__hl"),tap:q(1,".firstrun-fx__tap"),query:lang==="pt"?"supino com halt":"dumbbell bench"},
+      hl:q(1,".firstrun-fx__hl"),tap:q(1,".landing-touch"),query:lang==="pt"?"supino com halt":"dumbbell bench"},
     {root:q(2,".firstrun-fx"),ring:q(2,".firstrun-fx__ring"),ph:q(2,".firstrun-fx__ph"),typed:q(2,".firstrun-fx__q"),caret:q(2,".firstrun-fx__caret"),
       search:q(2,".firstrun-fx__search"),ul:q(2,".firstrun-fx__ul"),all:q(2,".firstrun-fx__all .firstrun-fx__chipx"),
       pick:q(2,".firstrun-fx__pick"),pickOn:q(2,".firstrun-fx__pick .firstrun-fx__chipx"),g0:qa(2,".firstrun-fx__g0 .librow"),
-      g1:qa(2,".firstrun-fx__g1 .librow"),g2:qa(2,".firstrun-fx__g2 .librow"),tap:q(2,".firstrun-fx__tap"),query:lang==="pt"?"supino":"press"},
+      g1:qa(2,".firstrun-fx__g1 .librow"),g2:qa(2,".firstrun-fx__g2 .librow"),tap:q(2,".landing-touch"),query:lang==="pt"?"supino":"press"},
     {root:q(3,".firstrun-fx"),pa:q(3,".firstrun-fx__pa"),pb:q(3,".firstrun-fx__pb"),scrim:q(3,".firstrun-fx__scrim"),sheet:q(3,".firstrun-fx__share"),
       link:qa(3,".firstrun-fx__link .firstrun-fx__lay > span"),copy:q(3,".firstrun-fx__copy"),toast:q(3,".firstrun-fx__toast"),srow:q(3,".firstrun-fx__srow"),
       msg:q(3,".firstrun-fx__msg"),mh:q(3,".firstrun-fx__mh"),lines:qa(3,".firstrun-fx__ln"),tails:qa(3,".firstrun-fx__tail"),matches:qa(3,".firstrun-fx__match"),
-      hd:qa(3,".firstrun-fx__hd"),fg:qa(3,".firstrun-fx__fg"),tap:q(3,".firstrun-fx__tap")},
+      hd:qa(3,".firstrun-fx__hd"),fg:qa(3,".firstrun-fx__fg"),tap:q(3,".landing-touch")},
     {root:q(4,".firstrun-fx"),home:q(4,".firstrun-fx__home"),app:q(4,".firstrun-fx__app"),norm:q(4,".firstrun-fx__hist:not(.firstrun-fx__hist--big)"),
       big:q(4,".firstrun-fx__hist--big"),list:q(4,".firstrun-fx__hist:not(.firstrun-fx__hist--big) .firstrun-fx__hlist"),clocks:qa(4,".firstrun-fx__clock"),
-      sig:q(4,".firstrun-fx__sig"),air:q(4,".firstrun-fx__air"),icon:q(4,".firstrun-fx__icon--app"),tap:q(4,".firstrun-fx__tap")}]};
+      sig:q(4,".firstrun-fx__sig"),air:q(4,".firstrun-fx__air"),icon:q(4,".firstrun-fx__icon--app"),tap:q(4,".landing-touch")}]};
   landingController?.refreshFeatures?.()}
 /** Measure what the frames need from layout: where each finger lands and how far the chips slide. */
 function layoutLandingFeatures(f){
@@ -22107,12 +22117,11 @@ function paintLandingFeature(i,u){
   const tf=(el,v)=>set(el,"transform",v);
   const text=(el,v)=>{if(el&&el.textContent!==v)el.textContent=v};
   const press=t0=>time>=t0-.08&&time<t0+.22?Math.sin(seg(t0-.08,t0+.22)*Math.PI):0;
+  // The stage kit's touch: a disc that arrives before the press, presses in and leaves a widening ring.
   const finger=s=>{
-    const p=(s.taps||[]).find(p=>time>=p.t0-.45&&time<=p.t0+.55);
-    if(!p){op(s.tap,0);return}
-    const a=seg(p.t0-.4,p.t0-.08),b=seg(p.t0+.22,p.t0+.5);
-    op(s.tap,a*(1-b)*.95);
-    tf(s.tap,`translate(${r(p.x-22)}px,${r(p.y-22)}px) scale(${r(1.3-.3*out(a)-.14*press(p.t0))})`)};
+    if(!s.tap)return;
+    const taps=s.taps||[],touch=landingTouchAt(taps.map(p=>({at:p.t0})),time),p=taps[touch.i];
+    paintLandingTouch(set,s.tap,touch,p?p.x:0,p?p.y:0,r)};
   const typing=(s,a,step,end)=>{
     const k=Math.round(seg(a,a+step*s.query.length)*s.query.length);
     text(s.typed,s.query.slice(0,k));op(s.ph,k?0:1);
@@ -22158,12 +22167,14 @@ function paintLandingFeature(i,u){
     tf(s.copy,`scale(${r(1-.04*press(2.15))})`);
     const toast=out(seg(2.3,2.6))*(1-seg(3.25,3.5));
     op(s.toast,toast);tf(s.toast,`translateX(${r(-s.toastW/2)}px) translateY(${r((1-toast)*-14)}px)`);
-    op(s.pb,out(seg(3.55,3.9)));op(s.pa,1-seg(3.75,3.95));
-    const m=out(seg(3.75,4.15)),go=inOut(seg(4.75,5.45)),chrome=1-out(seg(4.7,5));
+    // share → paste is one cross-fade onto a screen that already holds the pasted message: no empty frame between
+    const cross=inOut(seg(3.5,3.95));op(s.pb,cross);op(s.pa,1-cross);
+    const m=1,go=inOut(seg(4.75,5.45)),chrome=1-out(seg(4.7,5));
     tf(s.msg,`translateY(${r((1-m)*12)}px)`);op(s.msg,m*chrome);op(s.mh,m*chrome);
     s.lines.forEach((line,k)=>{op(line,m);tf(line,`translate(${r(-16*go)}px,${r(s.dy[k]*go)}px)`)});
     s.tails.forEach(tail=>op(tail,chrome));
-    const hd=out(seg(5,5.4));s.hd.forEach(node=>op(node,hd));
+    // the review's head arrives while the message's chrome leaves, so the lines are never alone on the screen
+    const hd=out(seg(4.7,5.05));s.hd.forEach(node=>op(node,hd));
     s.fg.forEach(node=>op(node,out(seg(6.1,6.45))));
     s.matches.forEach((node,k)=>{const v=out(seg(5.4+k*.16,5.75+k*.16));op(node,v);tf(node,`translateX(${r((1-v)*10)}px)`)})}
   else{
@@ -22175,7 +22186,12 @@ function paintLandingFeature(i,u){
     const left=Math.max(0,Math.ceil(LANDING_FEATURES.rest-Math.max(0,time-1.2))),clock=`${Math.floor(left/60)}:${String(left%60).padStart(2,"0")}`;
     s.clocks.forEach(node=>text(node,clock));
     tf(s.list,`translateY(${r(-150*inOut(seg(2.75,3.7)))}px)`);
-    const big=out(seg(4.75,5.15));op(s.norm,1-big);op(s.big,big)}}
+    const big=out(seg(4.75,5.15));op(s.norm,1-big);op(s.big,big)}
+  // The camera: the region the beat happens in, framed in the scene's window.
+  const view=f.views?.[i],scene=LANDING_FEATURES.scenes[i];
+  if(view){
+    const frame=landingCameraFrame(landingCameraAt(scene.shots,time),view,{w:390,h:scene.h});
+    f.zoom[i]=frame.k;set(f.hosts[i],"transform",landingCameraTransform(frame))}}
 /** Everything on the landing that is a number or is built from one. */
 function renderLandingContent(){
   const results={};
@@ -22275,8 +22291,11 @@ function createLandingController(root){
       if(i!==4)featNotes.forEach(note=>{note.style.opacity="0"});
       // A narrow row scrolls sideways to keep the playing tab in view; it never scrolls the page.
       const tab=featTabs[i];
-      if(featRow&&tab&&featRow.scrollWidth>featRow.clientWidth+1)
-        featRow.scrollTo({left:Math.max(0,tab.offsetLeft-featRow.offsetLeft-16),behavior:first||reduced()?"auto":"smooth"})}
+      // Read from the boxes, not offsetLeft (the row is not the tabs' offset parent): the tab lands 16px in from the
+      // row's left edge, whole, clear of the edge fade.
+      if(featRow&&tab&&featRow.scrollWidth>featRow.clientWidth+1){
+        const left=featRow.scrollLeft+tab.getBoundingClientRect().left-featRow.getBoundingClientRect().left-16;
+        featRow.scrollTo({left:Math.max(0,Math.round(left)),behavior:first||reduced()?"auto":"smooth"})}}
     featTabs.forEach((tab,k)=>tab.style.setProperty("--feature-progress",k===i?String(Math.round(share*1000)/1000):"0"))}
   function paintFeat(time){
     feat.t=Number.isFinite(time)?time:0;
@@ -22302,12 +22321,14 @@ function createLandingController(root){
   function fitFeat(){
     if(!featPanel||!featPanel.clientWidth||!landingFeatures)return;
     const wide=featPanel.clientWidth>=480,pw=featPanel.clientWidth,ph=featPanel.clientHeight;
+    // Each window is the camera's view: as wide as the panel lets it be on a phone (so the app's text reads at its
+    // own size or close), a device's width from 900px; its height is the panel's. The camera frames the screen in it.
     LANDING_FEATURES.scenes.forEach((scene,i)=>{
-      const padX=wide?56:20,padT=wide?44:20,padB=i===4?(wide?84:64):padT,win=featWins[i];
-      const k=Math.max(.1,Math.min((pw-2*padX)/390,(ph-padT-padB)/scene.h,1.05));
+      const pad=wide?44:8,padB=i===4?(wide?84:58):pad,win=featWins[i];
+      const w=Math.round(Math.min(pw-2*pad,wide?400:pw)),h=Math.round(ph-pad-padB);
       if(!win)return;
-      win.style.width=`${Math.round(390*k)}px`;win.style.height=`${Math.round(scene.h*k)}px`;win.style.marginTop=`${(padT-padB)/2}px`;
-      landingFeatures.hosts[i].style.transform=`scale(${Math.round(k*10000)/10000})`});
+      win.style.width=`${w}px`;win.style.height=`${h}px`;win.style.marginTop=`${(pad-padB)/2}px`;
+      landingFeatures.views[i]={w,h}});
     landingFeatures.laid=false;feat.current=-1;paintFeat(feat.t)}
   function mountFeatures(){
     if(!featPanel||featTabs.length!==5)return;
@@ -22414,7 +22435,7 @@ function createLandingController(root){
   const live=()=>({listeners:reg.offs.length,observers:reg.obs.length,frames:reg.frames.size,
     playing:!!play.raf&&!play.held,held:play.held,chapter:play.current<0?null:play.current,time:Math.round(play.t*1000)/1000,ticks:ticks.size,
     nonFinite:landingDemo?.nonFinite??0,feature:feat.current<0?null:feat.current,featurePlaying:!!feat.raf&&!feat.held,
-    featureTime:Math.round(feat.t*1000)/1000});
+    featureTime:Math.round(feat.t*1000)/1000,featureZoom:landingFeatures?.zoom?.[feat.current]??null});
   /** A rebuilt screen (a language change) is laid out and painted where the player is. */
   const refresh=()=>{play.current=-1;paint(play.t)};
   /** Harness seam: put the timeline at `time` and hold it there (`null` lets it run again). */

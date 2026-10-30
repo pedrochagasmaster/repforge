@@ -5824,7 +5824,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-feat__cap{grid-area:1/1;margin:0;font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--firstrun-ink-soft);
   opacity:0;visibility:hidden}
 .firstrun-feat__cap.is-current{opacity:1;visibility:visible;transition:opacity .2s cubic-bezier(.2,.7,.2,1)}
-.firstrun-feat__panel{position:relative;height:500px;overflow:hidden;isolation:isolate;border-radius:var(--radius-landing-stage);
+.firstrun-feat__panel{position:relative;height:540px;margin-inline:calc(var(--gut) * -1 + var(--space-8));overflow:hidden;isolation:isolate;border-radius:var(--radius-landing-stage);
   background:var(--well);border:1px solid var(--boundary-decorative)}
 .firstrun-feat__tint{position:absolute;inset:0;opacity:0;transition:opacity .6s cubic-bezier(.2,.7,.2,1)}
 .firstrun-feat__tint.is-current{opacity:1}
@@ -5834,12 +5834,13 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-feat__tint--4{background:radial-gradient(85% 70% at 20% 0%,rgba(var(--accent-rgb),.13),rgba(var(--accent-rgb),0) 60%),linear-gradient(160deg,rgba(var(--accent-rgb),.09),rgba(var(--accent-rgb),.05))}
 .firstrun-feat__tint--5{background:radial-gradient(85% 70% at 75% 0%,rgba(var(--accent-rgb),.12),rgba(var(--accent-rgb),0) 60%),linear-gradient(160deg,rgba(var(--accent-rgb),.06),rgba(var(--accent-rgb),.04))}
 .firstrun-feat__stage{position:absolute;inset:0;pointer-events:none}
-.firstrun-feat__win{position:absolute;left:50%;top:50%;overflow:hidden;border-radius:var(--radius-landing-stage);background:var(--bg);
+.firstrun-feat__win{position:absolute;left:50%;top:50%;overflow:hidden;border-radius:var(--radius-landing-stage-compact);background:var(--bg);
   box-shadow:var(--elevation-floating-shadow);border:1px solid rgba(var(--ink-rgb),.07);
   opacity:0;visibility:hidden;transform:translate(-50%,-50%) translateY(10px) scale(.985);
-  transition:opacity .26s cubic-bezier(.2,.7,.2,1),transform .45s cubic-bezier(.2,.7,.2,1),visibility 0s linear .26s;will-change:transform,opacity}
-.firstrun-feat__win.is-current{opacity:1;visibility:visible;transform:translate(-50%,-50%);
-  transition:opacity .3s cubic-bezier(.2,.7,.2,1) .12s,transform .5s cubic-bezier(.2,.7,.2,1) .12s,visibility 0s}
+  transition:opacity .36s cubic-bezier(.2,.7,.2,1),transform .45s cubic-bezier(.2,.7,.2,1),visibility 0s linear .36s;will-change:transform,opacity}
+/* A tab change is one cross-fade: the next screen fades in while the last fades out, so the panel is never empty. */
+.firstrun-feat__win.is-current{z-index:1;opacity:1;visibility:visible;transform:translate(-50%,-50%);
+  transition:opacity .36s cubic-bezier(.2,.7,.2,1),transform .45s cubic-bezier(.2,.7,.2,1),visibility 0s}
 .firstrun-feat__screen{position:absolute;left:0;top:0;width:390px;transform-origin:0 0;overflow:hidden;background:var(--bg);color:var(--color-ink);
   font-family:var(--font-language);contain:layout paint}
 .firstrun-feat__notes{position:absolute;inset:auto 0 var(--space-14);height:40px;pointer-events:none}
@@ -5858,16 +5859,15 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   .firstrun-feat__tab.is-current .firstrun-feat__text{display:block;margin-top:var(--space-8);font-size:var(--font-size-body);font-weight:var(--weight-regular);
     line-height:var(--line-reading);color:var(--firstrun-ink-soft)}
   .firstrun-feat__caps{display:none}
-  .firstrun-feat__panel{height:640px}
+  .firstrun-feat__panel{height:640px;margin-inline:0}
+  .firstrun-feat__win{border-radius:var(--radius-landing-stage)}
 }
 @media(prefers-reduced-motion:reduce){.firstrun-feat__win,.firstrun-feat__win.is-current,.firstrun-feat__tint,.firstrun-feat__cap.is-current{transition:none}}
 
 /* The screens. Positions are the scene's own 390-wide geometry; colours, type and radii are the app's tokens. */
 .firstrun-fx{position:absolute;inset:0;overflow:hidden;font-size:var(--font-size-body);line-height:var(--line-standard)}
 .firstrun-fx :where(p){margin:0}
-.firstrun-fx__tap{position:absolute;left:0;top:0;z-index:5;width:44px;height:44px;border-radius:var(--radius-round);background:rgba(var(--ink-rgb),.2);
-  border:1.5px solid var(--surface);box-shadow:var(--elevation-floating-shadow);opacity:0;pointer-events:none}
-.firstrun-fx__tap,.firstrun-fx__lay>span,.firstrun-fx__win1,.firstrun-fx__win1>svg,.firstrun-fx__win2,.firstrun-fx__win2>svg,.firstrun-fx__pt,.firstrun-fx__prtag,
+.firstrun-fx__lay>span,.firstrun-fx__win1,.firstrun-fx__win1>svg,.firstrun-fx__win2,.firstrun-fx__win2>svg,.firstrun-fx__pt,.firstrun-fx__prtag,
 .firstrun-fx__vline,.firstrun-fx__sheet,.firstrun-fx__vbar i,.firstrun-fx__swap>*,.firstrun-fx__acts,.firstrun-fx__below,.firstrun-fx__scrim,.firstrun-fx__ring,
 .firstrun-fx__ph,.firstrun-fx__caret,.firstrun-fx__res,.firstrun-fx__hl,.firstrun-fx__ul,.firstrun-fx__chipx,.firstrun-fx__chips,.firstrun-fx--library .librow,
 .firstrun-fx__pa,.firstrun-fx__pb,.firstrun-fx__toast,.firstrun-fx__msg,.firstrun-fx__pline,.firstrun-fx__tail,.firstrun-fx__match,.firstrun-fx__hd,.firstrun-fx__fg,
@@ -5989,7 +5989,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   font-size:var(--font-size-body-small);font-weight:var(--weight-medium);white-space:nowrap;opacity:0}
 .firstrun-fx__pb .firstrun-fx__title{top:24px}
 .firstrun-fx__counts{position:absolute;left:var(--space-16);right:var(--space-16);top:84px;margin:0;opacity:0}
-.firstrun-fx__msg{position:absolute;left:var(--space-16);right:var(--space-16);top:150px;height:166px;margin:0}
+.firstrun-fx__msg{position:absolute;left:var(--space-16);right:var(--space-16);top:150px;height:166px;margin:0;border:1px solid var(--boundary-decorative);box-shadow:var(--elevation-flat-shadow)}
 .firstrun-fx__pline{position:absolute;left:32px;top:0;font-family:var(--font-training-data);font-size:var(--font-size-body-small);white-space:nowrap}
 .firstrun-fx__mh{top:174px}
 .firstrun-fx__match{position:absolute;left:var(--space-16);right:var(--space-16);display:flex;align-items:flex-start;gap:var(--space-8);opacity:0}
@@ -6000,12 +6000,12 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-fx__mark.is-likely{box-sizing:border-box;background:none;border:1.6px solid var(--color-ink-secondary)}
 .firstrun-fx__mark.is-likely+span small{color:var(--color-ink-secondary)}
 /* 5 · The gym floor */
-.firstrun-fx__home{position:absolute;inset:0;background:linear-gradient(170deg,rgba(var(--accent-rgb),.22),rgba(var(--accent-rgb),.42))}
-.firstrun-fx__icon{position:absolute;width:62px;height:62px;border-radius:var(--radius-surface);background:rgba(var(--bg-rgb),.4)}
-.firstrun-fx__icon--app{left:209px;top:170px;overflow:hidden;background:none;box-shadow:var(--elevation-floating-shadow)}
+.firstrun-fx__home{position:absolute;inset:0;background:linear-gradient(170deg,var(--well),rgba(var(--accent-rgb),.10))}
+.firstrun-fx__icon{position:absolute;width:62px;height:62px;border-radius:var(--radius-surface);background:rgba(var(--ink-rgb),.07)}
+.firstrun-fx__icon--app{left:159px;top:318px;width:72px;height:72px;overflow:hidden;background:none;box-shadow:var(--elevation-floating-shadow)}
 .firstrun-fx__icon--app img{display:block;width:100%;height:100%}
-.firstrun-fx__ilbl{position:absolute;left:195px;top:238px;width:90px;text-align:center;font-size:var(--font-size-caption);font-weight:var(--weight-medium);color:var(--surface)}
-.firstrun-fx__hdock{position:absolute;left:14px;right:14px;bottom:14px;height:90px;border-radius:var(--radius-landing-stage);background:rgba(var(--bg-rgb),.3)}
+.firstrun-fx__ilbl{position:absolute;left:150px;top:398px;width:90px;text-align:center;font-size:var(--font-size-caption);font-weight:var(--weight-semibold);color:var(--color-ink)}
+.firstrun-fx__hdock{position:absolute;left:14px;right:14px;bottom:14px;height:90px;border-radius:var(--radius-landing-stage);background:rgba(var(--ink-rgb),.05)}
 .firstrun-fx__app{position:absolute;inset:0;overflow:hidden;border-radius:var(--radius-landing-stage);background:var(--bg);opacity:0;transform-origin:50% 50%}
 .firstrun-fx__hist{position:absolute;inset:0}
 .firstrun-fx__hist--big{opacity:0}
