@@ -1651,3 +1651,47 @@ test("fail-fast records unexecuted commands while keep-going runs them", async (
   assert.equal(second.failed, 1); assert.equal(second.notRun, 0);
   assert.equal(existsSync(join(cwd, "later-ran")), true);
 });
+
+test("a red main opens or updates one main-red issue and a green main closes it", (t) => {
+  const workflow = readFileSync(join(process.cwd(), ".github/workflows/main-red.yml"), "utf8");
+  const ciName = readFileSync(join(process.cwd(), ".github/workflows/ci.yml"), "utf8").match(/^name: (.+)$/m)?.[1];
+  assert.match(workflow, new RegExp(`on:\\n  workflow_run:\\n    workflows: \\[${ciName}\\]\\n    types: \\[completed\\]\\n    branches: \\[main\\]\\n`),
+    "it follows completed CI runs on main only");
+  const permissions = workflow.match(/^permissions:\n((?: {2}\S.*\n)+)/m)?.[1].trim().split("\n").map((line) => line.trim()).sort();
+  assert.deepEqual(permissions, ["actions: read", "issues: write"], "issues to write the alert; actions only to read the failed jobs");
+  assert.match(workflow, /if: github\.event\.workflow_run\.head_branch == 'main' && \(github\.event\.workflow_run\.conclusion == 'failure' \|\| github\.event\.workflow_run\.conclusion == 'success'\)/,
+    "cancelled or skipped runs change nothing");
+  const script = workflow.split("        run: |\n")[1].split("\n").map((line) => line.replace(/^ {10}/, "")).join("\n");
+  assert.doesNotMatch(script, /\$\{\{/, "event values reach the shell through env, never interpolated into it");
+
+  // Run the real script against a fake gh that records each call.
+  const dir = scratch(t);
+  const fake = join(dir, "gh");
+  writeFileSync(fake, `#!/bin/bash
+args="$*"; printf '%s\\n' "\${args//$'\\n'/ / }" >> "$GH_LOG"
+case "$1 $2" in
+  "issue list") [ -n "$OPEN_ISSUE" ] && echo "$OPEN_ISSUE" || true ;;
+  "run view") echo "browser (2/5), full-browser (7/12)" ;;
+esac
+`, { mode: 0o755 });
+  const run = (conclusion, open) => {
+    const log = join(dir, `log-${conclusion}-${open || "none"}`);
+    writeFileSync(log, "");
+    execFileSync("bash", ["-c", script], { env: { PATH: `${dir}:${process.env.PATH}`, GH_LOG: log, OPEN_ISSUE: open || "",
+      CONCLUSION: conclusion, RUN_ID: "41", RUN_URL: "https://github.com/o/r/actions/runs/41", HEAD_SHA: "abc1234" } });
+    return readFileSync(log, "utf8").trim().split("\n").filter(Boolean);
+  };
+  const created = run("failure", "");
+  assert.ok(created.some((call) => call.startsWith("issue create --title CI is failing on main --label main-red --body CI failed on main.")),
+    created.join("\n"));
+  const body = created.find((call) => call.startsWith("issue create"));
+  for (const part of ["https://github.com/o/r/actions/runs/41", "browser (2/5), full-browser (7/12)", "abc1234"]) assert.ok(body.includes(part), `the issue names ${part}`);
+  const updated = run("failure", "17");
+  assert.ok(updated.some((call) => call.startsWith("issue comment 17 --body CI failed on main.")) && !updated.some((call) => call.startsWith("issue create")),
+    "a second failure comments on the open issue instead of opening another");
+  const closed = run("success", "17");
+  assert.ok(closed.some((call) => call.startsWith("issue comment 17 --body CI is green on main again.")) && closed.includes("issue close 17"),
+    "a green main comments and closes the open issue");
+  const quiet = run("success", "");
+  assert.ok(!quiet.some((call) => /^issue (create|comment|close)/.test(call)), "a green main with nothing open writes nothing");
+});
