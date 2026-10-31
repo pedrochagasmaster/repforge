@@ -468,14 +468,17 @@ try {
           const tab = document.querySelector("#restTab"), shelf = tab.closest(".focus-shelf"), label = tab.querySelector(".resttab__label");
           const t = tab.getBoundingClientRect(), s = shelf.getBoundingClientRect();
           const parts = [...tab.querySelectorAll(".resttab__label,.resttab__time,.resttab__chev")].map((el) => el.getBoundingClientRect());
+          // The clock and its chevron are one: on one line together, wherever the word puts them (their middles level).
+          const mid = (r) => r.top + r.height / 2, clock = parts[1], chev = parts[2];
           done({ state, words: `${label.textContent} ${tab.querySelector(".resttab__time").textContent}`,
             cut: label.scrollWidth > label.clientWidth + .5 || tab.scrollWidth > tab.clientWidth + .5,
             inside: t.left >= s.left - .5 && t.right <= s.right + .5 && parts.every((r) => r.left >= t.left - .5 && r.right <= t.right + .5),
+            together: Math.abs(mid(chev) - mid(clock)) <= 2 && chev.left >= clock.right - .5,
             shadow: getComputedStyle(shelf).boxShadow, contour: shelf.classList.contains("has-rest") && !!shelf.querySelector(".restlight__shape") });
         }))), state));
       }
-      const bad = fits.filter((x) => x.cut || !x.inside || x.shadow !== "none" || !x.contour);
-      assert(bad.length === 0, `[${lang} ${width} ${text}] running, paused and done: the words fit the tab, the tab fits the shelf, and only the contour casts the shadow`, { bad, fits });
+      const bad = fits.filter((x) => x.cut || !x.inside || !x.together || x.shadow !== "none" || !x.contour);
+      assert(bad.length === 0, `[${lang} ${width} ${text}] running, paused and done: the words fit the tab, the clock keeps its chevron, the tab fits the shelf, and only the contour casts the shadow`, { bad, fits });
     } finally {
       await opened.context.close();
     }
