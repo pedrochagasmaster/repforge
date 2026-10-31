@@ -8,7 +8,7 @@
  *   2. shared link -> gate -> preview -> activation -> Today
  *   3. no-program Today, Program and Settings -> entry hub, and cancel back to
  *      where each one started
- *   4. returning landing -> chooser resume -> activation
+ *   4. landing (unchanged by a half-done setup) -> chooser resume -> activation
  *
  * At every hand-off the same questions are asked of the destination: it is the
  * only active view, the scroll is at the top, focus is on the new surface's
@@ -28,6 +28,8 @@ import { launchChromium, waitForAppBoot, answerRecommend } from "./browser.mjs";
 import { encodeSetupLink } from "./fixtures/setup-link-v4.mjs";
 import { APP_INDEX, waitForFirstRun } from "./shared-setup-flow.mjs";
 import { finishEarly } from "./fixtures/focus-workout.mjs";
+import { readFileSync } from "node:fs";
+const CATALOG = { en: JSON.parse(readFileSync(new URL("../i18n-en.json", import.meta.url), "utf8")) };
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const FAULT = process.env.REPFORGE_JOURNEYS_FAULT || "";
@@ -427,7 +429,7 @@ phase("Journey 3: no-program surfaces -> entry hub, cancel and return");
 }
 
 // ---------------------------------------------------------------------------
-phase("Journey 4: returning landing -> chooser resume -> activation");
+phase("Journey 4: landing (unchanged) -> chooser resume -> activation");
 {
   const { page, context } = await newDevice(browser);
   await page.click("#firstRunCreate");
@@ -444,16 +446,17 @@ phase("Journey 4: returning landing -> chooser resume -> activation");
 
   await reload(page);
   await waitForFirstRun(page);
-  const landing = await handoff(page, "reload -> returning landing", { view: "log", landing: true, focus: "#firstRun", top: false });
-  const lead = await page.evaluate(() => ({ visit: document.querySelector("#firstRun").dataset.entryVisit,
-    draft: document.querySelector("#firstRun").dataset.entryDraft, label: document.querySelector("#firstRunCreate").textContent.trim() }));
-  assert(lead.visit === "returning" && lead.draft === "recommend", "the landing is the returning one and names the half-done setup", JSON.stringify(lead));
+  const landing = await handoff(page, "reload -> landing", { view: "log", landing: true, focus: "#firstRun", top: false });
+  const lead = await page.evaluate(() => ({ headline: document.querySelector("#firstRunHeadline").textContent.trim(),
+    label: document.querySelector("#firstRunCreate").textContent.trim() }));
+  assert(lead.headline === CATALOG.en["landing.headline"] && lead.label === CATALOG.en["landing.build"],
+    "the landing is the same full page, with Build, whatever was left half done", JSON.stringify(lead));
   void landing;
 
   await mark(page);
   await page.click("#firstRunCreate");
   await page.waitForSelector("#entryResumeContinue", { timeout: 15000 });
-  await handoff(page, "returning landing -> resume prompt", { view: "onboarding", focus: "#entryResumeTitle" });
+  await handoff(page, "landing -> resume prompt", { view: "onboarding", focus: "#entryResumeTitle" });
 
   await mark(page);
   await page.click("#entryResumeContinue");

@@ -388,17 +388,18 @@ async function characterize(browser) {
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
     await page.waitForTimeout(300);
-    // Owner decision on #295 (landing until onboarding): a second empty visit
-    // shows the landing again, in its returning form, with Today's no-program
-    // state behind it and no chooser opened by itself.
+    // Owner decision on #295 (landing until onboarding), and 2026-10-31 (the
+    // landing never changes): a second empty visit shows the same landing again,
+    // with Today's no-program state behind it and no chooser opened by itself.
     const second = await page.evaluate(() => ({
       landing: !document.querySelector("#firstRun")?.classList.contains("hidden"),
-      visit: document.querySelector("#firstRun")?.dataset.entryVisit || null,
+      features: !document.querySelector('#firstRun [data-landing-section="features"]')?.closest(".hidden,[hidden]")
+        && getComputedStyle(document.querySelector('#firstRun [data-landing-section="features"]')).display !== "none",
       noProgram: !document.querySelector("#todayNoProgram")?.classList.contains("hidden"),
       chooser: !!document.querySelector("#onboarding")?.classList.contains("active"),
     }));
-    assert(second.landing && second.visit === "returning" && second.noProgram && !second.chooser,
-      "a second empty visit shows the returning landing over Today's no-program state, not the chooser", JSON.stringify(second));
+    assert(second.landing && second.features && second.noProgram && !second.chooser,
+      "a second empty visit shows the same full landing over Today's no-program state, not the chooser", JSON.stringify(second));
     await context.close();
   }
 
@@ -863,12 +864,11 @@ async function finalPage(browser) {
     await page.waitForTimeout(150);
     const still = await page.evaluate(() => window.__repforgeLandingProof());
     assert(still.frames === 0 && still.listeners === 0, "scroll and resize on a closed landing start nothing", JSON.stringify(still));
-    // Reopening on the same device is a return: a fresh controller mounts, and
-    // the condensed returning landing leaves the proof out, so nothing plays.
+    // Reopening on the same device mounts a fresh controller for the same full page.
     await page.evaluate(() => window.openFirstRun());
     await page.waitForTimeout(300);
     const again = await page.evaluate(proofState);
-    assert(again?.open && again.listeners > 0 && !again.playing && again.frames <= 1, "reopening mounts a fresh controller; the returning landing does not play the proof", JSON.stringify(again));
+    assert(again?.open && again.listeners > 0, "reopening mounts a fresh controller", JSON.stringify(again));
     await page.evaluate(() => window.closeFirstRun());
     // A device that has not seen the landing gets the full first-visit page again.
     await page.evaluate((key) => localStorage.removeItem(key), UIKEY);

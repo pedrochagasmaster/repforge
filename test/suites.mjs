@@ -223,6 +223,7 @@ export const FULL_SUITES = {
     s("test/entry-landing.mjs", [], { seconds: 68 }),
     s("test/landing-variants.mjs", [], { domains: ["entry"], seconds: 82 }),
     s("test/landing-features.mjs", [], { domains: ["entry"], seconds: 40 }),
+    s("test/boot-first-paint.mjs", [], { domains: ["shell", "entry", "today", "offline"], seconds: 45 }),
     s("test/journeys-in.mjs", [], { domains: ["entry", "today", "workout", "progress", "transition"], seconds: 32 }),
     s("test/landing-proof-capture.mjs", [], { domains: ["entry"], seconds: 97 }),
     s("test/entry-chooser.mjs", [], { seconds: 15 }),

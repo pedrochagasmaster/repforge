@@ -539,6 +539,24 @@ html{
   --dialog-max-height:calc(var(--vvh,100dvh) - 2 * max(var(--space-16),env(safe-area-inset-top,0px),env(safe-area-inset-bottom,0px)));
 }
 html,body{overscroll-behavior:none}
+/* The launch splash (index.html, #bootSplash). It is drawn from the first frame and covers everything until app.js has
+   drawn the surface this load lands on, then fades in 200ms (removed at once under reduced motion). The mark sits
+   where the iOS launch images put it, 39vw wide (the yoke itself about 32%) and centred at 47.5% of the height, on
+   the same ground, so the native launch image hands over without a jump. The stacking is above the page's own layers
+   and below the top layer, so a boot dialog (storage recovery, the exercise catalog) still shows over it. */
+.bootsplash{position:fixed;inset:0;z-index:2147483000;background:var(--bg);pointer-events:auto}
+.bootsplash__mark{position:absolute;left:50%;top:47.5%;width:39vw;max-width:420px;height:auto;transform:translate(-50%,-50%);user-select:none;-webkit-user-select:none}
+.bootsplash__fail{display:none}
+html.is-boot-failed .bootsplash__mark{top:calc(47.5% - 96px)}
+html.is-boot-failed .bootsplash__fail{
+  display:grid;gap:var(--space-12);justify-items:center;position:absolute;left:var(--gut);right:var(--gut);top:calc(47.5% - 16px);
+  text-align:center;font-family:var(--font-language);color:var(--color-ink)}
+.bootsplash__title{margin:0;font-size:var(--font-size-section-title);font-weight:var(--weight-semibold);line-height:var(--line-standard)}
+.bootsplash__body{margin:0;max-width:30ch;font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.bootsplash__reload{margin-top:var(--space-8);min-width:160px}
+.bootsplash.is-leaving{opacity:0;pointer-events:none}
+@media (prefers-reduced-motion:no-preference){.bootsplash.is-leaving{transition:opacity .2s ease}}
+
 button,input,select,textarea,label,summary,a,[role=button]{touch-action:manipulation}
 /* Only controls suppress long-press selection/callouts; links in prose remain copyable. */
 button,[role=button],summary,label.file,label[for],label:has(input[type=checkbox]),label:has(input[type=radio]),
@@ -5614,16 +5632,6 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   --firstrun-focus:var(--band-orange-ink);
 }
 .firstrun.is-shared .firstrun-dock{display:none}
-
-/* ---- The returning landing ----
-   A return to an un-onboarded device is the same page, condensed: the welcome-back
-   headline and the entry actions lead, and the long demonstration (the chips, the
-   pinned proof and the outcomes) is left out; the ways, the data promise, the
-   questions and the closing action stay. Only the generic landing is ever marked
-   returning, so the first visit and the shared-link landings are untouched. */
-.firstrun[data-entry-visit="returning"] .firstrun-chips,
-.firstrun[data-entry-visit="returning"] .firstrun-proof,
-.firstrun[data-entry-visit="returning"] .firstrun-features{display:none}
 
 /* ---- The proof: the workout screen, playing itself (owner, 2026-10-29: the landing-anim prototype's direction A) ----
    A phone plays one set of the bench press session in four chapters. Its screen is Focus's own markup at 390 x 844
