@@ -21479,6 +21479,63 @@ function landingEvaluate(c){
 function landingRich(key,text,terms={}){
   return esc(t(key)).replace(/\{(\w+)\}/g,(whole,name)=>
     name in terms?`<b class="firstrun-ui">${esc(terms[name])}</b>`:name in text?esc(text[name]):whole)}
+/* ---- The landing's stage kit (owner, 2026-10-30 polish brief): one camera, one touch and one rule for the Build
+   control, shared by the proof's phone and the feature panels. Every piece is a pure function of the timeline, so a
+   stage that uses them stays jumpable and paints transforms and opacities only. ---- */
+/** Px kept clear between the Build control's band and a stage it steps aside for. */
+const LANDING_DOCK_CLEAR=8;
+/** The parts of the proof's screen a camera shot may not cut at its edges. */
+const LANDING_SHOT_BLOCKS=".wo-head,.firstrun-demo__progress,.fx-head,.fx-cue__l1,.fx-cue__l2,.fx-cue__evidence,"+
+  ".firstrun-demo__card .fcard__ledger>.ledgerline__head,.firstrun-demo__row,.firstrun-demo__card .fcard__ledger>.ledgerline,"+
+  ".firstrun-demo__next,.firstrun-demo__shelf .shelf__field,.firstrun-demo__shelf .stepbtn,.firstrun-demo__shelf .saveset";
+/** Seconds a camera move takes between two shots. */
+const LANDING_CAMERA_MOVE=.6;
+/** Where a camera looks at `now`: `shots` are `{at,x,y,w,h}` regions of the screen in its own px, in time order; from
+ *  each shot's `at` the camera eases from the region it held over LANDING_CAMERA_MOVE seconds (or the shot's `move`),
+ *  and holds. Before the first shot it holds the first. */
+function landingCameraAt(shots,now){
+  if(!shots.length)return null;
+  let i=0;while(i+1<shots.length&&now>=shots[i+1].at)i++;
+  const to=shots[i];if(!i||now<to.at)return{x:to.x,y:to.y,w:to.w,h:to.h};
+  const from=shots[i-1],u=Math.min(1,Math.max(0,(now-to.at)/(to.move??LANDING_CAMERA_MOVE)));
+  const e=u<.5?4*u*u*u:1-Math.pow(-2*u+2,3)/2,mix=(a,b)=>a+(b-a)*e;
+  // The size eases by its logarithm, so a zoom in and a zoom out of the same ratio take the same time to read.
+  const size=(a,b)=>Math.exp(mix(Math.log(a),Math.log(b)));
+  return{x:mix(from.x+from.w/2,to.x+to.w/2)-size(from.w,to.w)/2,y:mix(from.y+from.h/2,to.y+to.h/2)-size(from.h,to.h)/2,w:size(from.w,to.w),h:size(from.h,to.h)}}
+/** The scale and offset that frame `region` (screen px) in a view of `view.w` x `view.h`: as large as the region fits,
+ *  never smaller than the whole screen fits, centred on the region and clamped so the screen never leaves a gap the
+ *  screen could fill. `screen` is the size of what is framed; `pad` keeps that much of the view around the region. */
+function landingCameraFrame(region,view,screen,pad=0){
+  const fit=Math.min(view.w/screen.w,view.h/screen.h);
+  const k=Math.max(fit,Math.min((view.w-2*pad)/region.w,(view.h-2*pad)/region.h));
+  const place=(viewLen,screenLen,at,len)=>{
+    const centred=viewLen/2-(at+len/2)*k,span=screenLen*k;
+    return span<=viewLen?(viewLen-span)/2:Math.min(0,Math.max(viewLen-span,centred))};
+  return{k,x:place(view.w,screen.w,region.x,region.w),y:place(view.h,screen.h,region.y,region.h)}}
+/** The frame as a transform for an element whose transform-origin is its top left. */
+const landingCameraTransform=({k,x,y})=>`translate(${Math.round(x*100)/100}px,${Math.round(y*100)/100}px) scale(${Math.round(k*10000)/10000})`;
+/** The touch, drawn as a screen recording draws it: a soft disc that arrives just before the press, presses in, and on
+ *  release leaves a ring that widens and fades. The markup goes once into a stage; landingTouchAt paints it. */
+const landingTouchHtml=()=>`<span class="landing-touch" aria-hidden="true"><span class="landing-touch__ring"></span><span class="landing-touch__disc"></span></span>`;
+/** The touch at `now` for `presses` (`{at,up}`: down and release, in seconds; `up` defaults to a tap's 0.16 s later):
+ *  the disc's opacity and scale, the ring's opacity and scale, and which press it is (-1 between presses). */
+function landingTouchAt(presses,now){
+  const lead=.28,tail=.42;
+  for(let i=0;i<presses.length;i++){
+    const at=presses[i].at,up=presses[i].up??at+.16;
+    if(now<at-lead||now>up+tail)continue;
+    const seg=(a,b)=>Math.min(1,Math.max(0,(now-a)/(b-a))),out=x=>1-Math.pow(1-x,3);
+    const arrive=out(seg(at-lead,at-.06)),leave=1-seg(up+.12,up+tail);
+    const press=now<at?0:now<up?out(seg(at,at+.09)):1-out(seg(up,up+.12));
+    const ring=seg(up,up+tail);
+    return{i,opacity:arrive*leave,scale:(1.12-.12*arrive)-.1*press,ringOpacity:now<up?0:.55*(1-ring),ringScale:.9+.8*out(ring)}}
+  return{i:-1,opacity:0,scale:1,ringOpacity:0,ringScale:.9}}
+/** Paints a touch made by landingTouchHtml at `(x,y)` (its centre, in the stage's px) through a stage's style memo. */
+function paintLandingTouch(set,node,touch,x,y,f){
+  set(node,"opacity",f(touch.opacity));
+  set(node,"transform",`translate(${f(x)}px,${f(y)}px)`);
+  set(node.lastChild,"transform",`scale(${f(touch.scale)})`);
+  set(node.firstChild,"opacity",f(touch.ringOpacity));set(node.firstChild,"transform",`scale(${f(touch.ringScale)})`)}
 /* ---- The proof: the workout screen, playing itself (owner, 2026-10-29: the landing-anim prototype's direction A) ----
    One phone plays a set of the "add" case's bench press in four chapters: the target arrives, and the finger opens the
    Reps wheel and turns it one rep on (1, five seconds); Log set is tapped, the row checks and the rest tab rises out of
@@ -21488,8 +21545,8 @@ function landingRich(key,text,terms={}){
    Focus does; the frame, the finger, the sheets' placement and the light's moving windows are the landing's. Every
    frame is a pure function of the timeline, so a chapter can be jumped to; a frame moves transforms and opacities
    only, and writes text only when the rest clock ticks over a second. `chapters` are the chapters' starts. */
-const LANDING_DEMO={loop:17,chapters:[0,5,9,13],stills:[3.95,8.2,12.6,15.6],rest:120,tap:5.95,restAt:6.3,fast:9,done:11.6,
-  rise:30,next:"1a05c6f170d8806b911acf558c5af4f6"};
+const LANDING_DEMO={loop:18,chapters:[0,6,10,14],stills:[5,9.2,13.6,16.6],rest:120,tap:6.95,restAt:7.3,fast:10,done:12.6,
+  sheet:14.05,wrap:16.9,reset:17.4,pull:17.6,rise:30,zoom:378,next:"1a05c6f170d8806b911acf558c5af4f6"};
 /** The chapter `time` (any finite number of seconds; the loop wraps it) falls in. */
 const landingChapterAt=time=>{const at=landingLoopTime(time);let i=0;while(i+1<LANDING_DEMO.chapters.length&&at>=LANDING_DEMO.chapters[i+1])i++;return i};
 /** `time` folded into one loop, so a negative, huge or non-finite clock still names a frame. */
@@ -21577,14 +21634,13 @@ function landingDemoHtml(add){
         `<span class="firstrun-demo__log2">${esc(t("focus.shelf.log_set",{n:2}))}</span>`)+
     `</div>`+
     `<div class="firstrun-demo__scrim"></div>`+wheel+
-    `<span class="firstrun-demo__tap"></span>`+
+    landingTouchHtml()+
     `<div class="firstrun-demo__sheet"><span class="firstrun-demo__grab"></span>`+
       `<p class="firstrun-demo__eyebrow">${esc(t("landing.outcomes.next_label"))}</p>`+
       `<p class="firstrun-demo__target">${mark}${esc(t("landing.outcomes.target",{load:landingKg(target.load),reps}))}</p>`+
       `<p class="firstrun-demo__did">${esc(t("landing.outcomes.did_same",{reps:landingNum(reps0),load:landingKg(load0),sets:landingNum(c.sets),min:landingNum(c.repMin),max:landingNum(c.repMax)}))}</p>`+
       `<div class="fcard__ledger firstrun-demo__history">${head}${lastSession}</div>`+
-    `</div>`+
-    `<div class="firstrun-demo__veil"></div></div>`}
+    `</div></div>`}
 /** Lay the screen's rest contour out from where its tab and shelf fell (once per build, size and font load): the
  *  raised part and the two halves of the light are Focus's own paths (`restContourPaths`). */
 function layoutLandingDemo(d){
@@ -21607,10 +21663,9 @@ function layoutLandingDemo(d){
   // Where the finger lands, measured with the wheel sheet in place: the Reps field, the wheel's band, Done and Log set.
   const screen=d.root.getBoundingClientRect(),scale=screen.width/d.root.offsetWidth||1;
   const was=d.wheel.style.transform;d.wheel.style.transform="none";
-  const at=el=>{const box=el.getBoundingClientRect();return[(box.left-screen.left+box.width/2)/scale-23,(box.top-screen.top+box.height/2)/scale-23]};
+  const at=el=>{const box=el.getBoundingClientRect();return[(box.left-screen.left+box.width/2)/scale,(box.top-screen.top+box.height/2)/scale]};
   d.at={reps:at(d.repsBtn),band:at(d.band),done:at(d.wdone),log:at(d.log)};
   d.wheel.style.transform=was;
-  Object.assign(d.tap.style,{left:"0px",top:"0px"});
   // The selected field's outline: on Load, and one field's pitch away on Reps.
   const loadBtn=d.loadBtn;
   Object.assign(d.sel.style,{left:`${loadBtn.parentElement.offsetLeft}px`,top:`${loadBtn.parentElement.offsetTop}px`,
@@ -21618,6 +21673,45 @@ function layoutLandingDemo(d){
   d.selDx=d.repsBtn.parentElement.offsetLeft-loadBtn.parentElement.offsetLeft;
   d.rowH=d.items[0].offsetHeight||WHEEL_ITEM_H;d.wheelAt=Math.max(0,d.items.findIndex(row=>row.textContent===d.v0.textContent));
   d.rowStep=d.rows[1].offsetTop-d.rows[0].offsetTop;
+  // The camera's shots, in the rig's px (the phone's edge, then the screen): the whole phone; the cue, its evidence
+  // and the ledger from the card's top; the screen's foot, where the shelf, the wheel, the rest tab and the next
+  // session's sheet are. A zoomed shot is LANDING_DEMO.zoom px of the screen's width, as tall as the frame's shape;
+  // a narrower frame frames less, so the screen's 14px text stays at 13px or more, down to 366px of screen (its
+  // gutters' worth: below that a shot would cut the screen's own text at the frame's edges).
+  const view={w:d.frame.clientWidth,h:d.frame.clientHeight},glassX=d.glass.offsetLeft+d.rig.clientLeft,glassY=d.glass.offsetTop+d.rig.clientTop;
+  // A frame of 400px or more (the desktop's) shows the phone's whole width, still at reading size.
+  const rigBox={w:d.rig.offsetWidth,h:d.rig.offsetHeight};
+  const Z=view.w>=400?rigBox.w:Math.min(LANDING_DEMO.zoom,Math.max(366,view.w*14/13)),ZH=Z*view.h/view.w,zx=glassX+(d.root.offsetWidth-Z)/2;
+  // A shot's edges never cut a part of the screen (polish review, 2026-10-31): each block (the header, the cue's lines,
+  // the ledger's rows, the shelf's fields, pads and Log set, and the two sheets where they rest) is either wholly in
+  // the shot or 8px or more outside it; the shot moves to the nearest place where all of them are.
+  const SH=d.root.offsetHeight,toScreen=box=>[(box.top-screen.top)/scale,(box.bottom-screen.top)/scale];
+  // A shelf control left outside keeps 8px clear of the edge; the ledger's rows touch, so a row may end right at it.
+  // The sheets end at the screen's own foot, so they count as in to within a pixel of it.
+  const blocks=[...d.root.querySelectorAll(LANDING_SHOT_BLOCKS)].map(el=>[...toScreen(el.getBoundingClientRect()),el.closest(".firstrun-demo__shelf")?8:0,0]);
+  const sheets=[d.wheel,d.sheet].map(el=>[SH-el.offsetHeight,SH,0,1]);
+  // The nearest place for a shot of the zoomed size; where there is none (a short frame), the nearest for a wider shot,
+  // up to the screen's whole width. The cue's shot looks upwards first, so it keeps the prescription line and ends in
+  // the space above the shelf.
+  const SW=d.root.offsetWidth,clean=(want,also=[],up=false)=>{
+    const all=blocks.concat(also);
+    const widest=Math.max(ZH,SW*view.h/view.w),heights=[];
+    for(let h=ZH;h<widest;h+=2)heights.push(h);heights.push(widest);
+    for(const h of heights){
+      // The places tried: every whole pixel, and each block's own edges, so a shot can end exactly where a row does.
+      const ok=y=>all.every(([a,b,m,tol])=>a>=y-tol&&b<=y+h+tol||b<=y-m||a>=y+h+m);
+      const at=want(h),w=h*view.w/view.h,shot=y=>({x:glassX+(SW-w)/2,y:glassY+y,w,h});
+      const tries=[];for(let y=Math.ceil(-glassY);y<=SH+glassY-h;y++)tries.push(y);
+      all.forEach(([a,b,m])=>tries.push(a,b+m,a-h-m,b-h));
+      const fit=tries.filter(y=>y>=-glassY&&y<=SH+glassY-h&&ok(y));
+      const above=fit.filter(y=>y<=at).sort((p,q)=>q-p);
+      const best=up&&above.length?above[0]:fit.sort((p,q)=>Math.abs(p-at)-Math.abs(q-at))[0];
+      if(best!=null)return shot(best)}
+    return{x:zx,y:glassY+want(ZH),w:Z,h:ZH}};
+  const full={x:0,y:0,w:rigBox.w,h:rigBox.h},cue=clean(()=>Math.round(d.card.offsetTop-12),[],true);
+  const foot=clean(h=>Math.round(SH-h),sheets);
+  d.view=view;d.rigBox=rigBox;
+  d.shots=[{at:0,...full},{at:.45,...cue},{at:2.7,...foot},{at:LANDING_DEMO.pull,move:.4,...full}];
   d.last=new WeakMap();d.laid=true;
   return true}
 function renderLandingProof(add){
@@ -21628,12 +21722,13 @@ function renderLandingProof(add){
     min:landingNum(c.repMin),max:landingNum(c.repMax),next_load:landingKg(add.load),next_reps:landingNum(add.reps)});
   screen.innerHTML=landingDemoHtml(add);
   const q=sel=>screen.querySelector(sel),qa=sel=>[...screen.querySelectorAll(sel)];
-  landingDemo={root:q(".firstrun-demo"),l1:q(".firstrun-demo__l1"),l2:q(".firstrun-demo__l2"),ev:q(".firstrun-demo__ev"),
+  landingDemo={root:q(".firstrun-demo"),ev:q(".firstrun-demo__ev"),
     done1:q(".firstrun-demo__done1"),open2:q(".firstrun-demo__open2"),ring:q(".firstrun-demo__ring"),rows:qa(".firstrun-demo__row"),
     fields:q(".firstrun-demo__fields"),log:q(".firstrun-demo__log"),log1:q(".firstrun-demo__log1"),log2:q(".firstrun-demo__log2"),
-    tap:q(".firstrun-demo__tap"),shelf:q(".firstrun-demo__shelf"),tab:q(".firstrun-demo__tab"),bump:q(".firstrun-demo__bump"),
+    tap:q(".landing-touch"),card:q(".firstrun-demo__card"),shelf:q(".firstrun-demo__shelf"),tab:q(".firstrun-demo__tab"),bump:q(".firstrun-demo__bump"),
     label:q(".resttab__label"),time:q(".resttab__time"),lights:qa(".firstrun-demo__light"),scrim:q(".firstrun-demo__scrim"),
-    sheet:q(".firstrun-demo__sheet"),did:q(".firstrun-demo__did"),history:qa(".firstrun-demo__last"),veil:q(".firstrun-demo__veil"),
+    sheet:q(".firstrun-demo__sheet"),did:q(".firstrun-demo__did"),history:qa(".firstrun-demo__last"),
+    frame:screen.closest(".firstrun-proof__device"),rig:screen.closest(".firstrun-proof__rig"),glass:screen.closest(".firstrun-proof__glass"),
     wheel:q(".firstrun-demo__wheel"),band:q(".firstrun-demo__band"),wdone:q(".firstrun-demo__wdone"),items:qa(".firstrun-demo__wheel .wheel__item"),
     sel:q(".firstrun-demo__sel"),v0:q(".firstrun-demo__v0"),v1:q(".firstrun-demo__v1"),
     loadBtn:q(".firstrun-demo__fields .shelf__fieldbtn"),repsBtn:q(".firstrun-demo__repsfield .shelf__fieldbtn"),
@@ -21652,44 +21747,50 @@ function paintLandingDemo(now){
   // A value that is not a number never reaches a style: it is counted (the harness reads the count) and drawn as 0.
   const f=v=>{if(!Number.isFinite(v)){d.nonFinite++;v=0}return String(Math.round(v*1000)/1000)};
   const set=(el,prop,value)=>{let was=d.last.get(el);if(!was)d.last.set(el,was={});if(was[prop]===value)return;was[prop]=value;el.style[prop]=value};
-  const rise=(el,a,b,by)=>{const v=out(seg(a,b));set(el,"opacity",f(v));set(el,"transform",`translateY(${f((1-v)*by)}px)`)};
-  const bump=(a,b)=>now>=a&&now<b?Math.sin(seg(a,b)*Math.PI):0;
-  // 1 · the target arrives: the hero, its second line, then the evidence
-  rise(d.l1,.25,.85,10);rise(d.l2,.45,1.05,8);set(d.ev,"opacity",f(out(seg(1.1,1.7))));
-  // then the finger taps Reps (the outline moves to it) and taps it again: Focus's wheel rises, the finger turns it one
-  // rep on, it settles, and Done closes it with the new count in the field.
+  // The loop closes in three steps (polish review, 2026-10-31): the next session's sheet slides away, the screen
+  // goes back to its opening state while the camera holds, and only then the camera pulls out to the whole phone, so
+  // no frame shows two states at once and none is empty.
+  const home=seg(D.reset,D.reset+.2),stay=1-home;
+  // A value that changes in place goes out, then the new one comes in: never two printed over each other.
+  const swap2=(from,to,u)=>{set(from,"opacity",f(u<.5?1-2*u:0));set(to,"opacity",f(u<.5?0:2*u-1))};
+  const rise=(el,a,b,by)=>{const v=out(seg(a,b));set(el,"opacity",f(v*stay));set(el,"transform",`translateY(${f((1-v)*by)}px)`)};
+  // the camera: the whole phone, the cue, then the screen's foot, and back out for the wrap
+  const frame=landingCameraFrame(landingCameraAt(d.shots,now),d.view,d.rigBox);
+  set(d.rig,"transform",landingCameraTransform(frame));
+  // 1 · the target is already there; as the camera settles on it, its evidence arrives
+  set(d.ev,"opacity",f(out(seg(1.3,1.9))*stay));
+  // then, at the screen's foot, the finger taps Reps (the outline moves to it) and taps it again: Focus's wheel rises,
+  // the finger turns it one rep on, it settles, and Done closes it with the new count in the field.
   const A=d.at,mix=(p,q,x)=>[p[0]+(q[0]-p[0])*x,p[1]+(q[1]-p[1])*x];
-  const drag=inOut(seg(3.2,3.45)),turn=now<3.45?.7*drag:.7+.3*back(seg(3.45,3.95));
-  const pos=now<2.85?A.reps:now<3.2?mix(A.reps,A.band,inOut(seg(2.85,3.15))):now<3.5?[A.band[0],A.band[1]-d.rowH*.7*drag]:
-    now<4.5?mix([A.band[0],A.band[1]-d.rowH*.7],A.done,inOut(seg(3.5,3.8))):A.log;
-  const press=bump(2.15,2.4)+bump(2.6,2.85)+bump(3.95,4.2)+bump(D.tap-.15,D.tap+.15);
-  const shown=now<5?out(seg(1.85,2.15))*(1-seg(4.2,4.5)):seg(D.tap-.6,D.tap-.25)*(1-seg(D.tap+.2,D.tap+.55));
-  const landed=now<5?out(seg(1.85,2.15)):out(seg(D.tap-.6,D.tap-.25));
-  set(d.tap,"opacity",f(shown*.9));
-  set(d.tap,"transform",`translate(${f(pos[0])}px,${f(pos[1])}px) scale(${f(1.25-.25*landed-.14*press)})`);
-  const lifted=out(seg(2.75,3.2))*(1-out(seg(4.15,4.5)));
-  set(d.wheel,"transform",`translateY(${f((1-lifted)*101)}%)`);
+  const drag=inOut(seg(4.6,4.85)),turn=now<4.85?.7*drag:.7+.3*back(seg(4.85,5.35));
+  const lifted=[A.band[0],A.band[1]-d.rowH*.7];
+  const pos=now<4.15?A.reps:now<4.6?mix(A.reps,A.band,inOut(seg(4.15,4.5))):now<4.9?[A.band[0],A.band[1]-d.rowH*.7*drag]:
+    now<6?mix(lifted,A.done,inOut(seg(4.9,5.2))):A.log;
+  const touch=landingTouchAt([{at:3.55},{at:4},{at:4.6,up:4.85},{at:5.4},{at:D.tap}],now);
+  paintLandingTouch(set,d.tap,touch,pos[0],pos[1],f);
+  const wheel=out(seg(4.1,4.55))*(1-out(seg(5.55,5.9)));
+  set(d.wheel,"transform",`translateY(${f((1-wheel)*101)}%)`);
   d.items.forEach((row,i)=>{
     const off=i-(d.wheelAt+turn),far=Math.abs(off);
     set(row,"transform",`translateY(${f(off*d.rowH)}px) rotateX(${f(-18*off)}deg) scale(${f(1-Math.min(far,3)*.07)})`);
     set(row,"opacity",f(Math.max(.2,1-far*.22)))});
-  const repsSel=inOut(seg(2.25,2.55))*(1-inOut(seg(D.tap+.05,D.tap+.3)));
+  const repsSel=inOut(seg(3.65,3.95))*(1-inOut(seg(D.tap+.05,D.tap+.3)));
   set(d.sel,"transform",`translateX(${f(d.selDx*repsSel)}px)`);
-  const typed=seg(4.15,4.35)*(1-seg(D.tap+.1,D.tap+.2));
-  set(d.v0,"opacity",f(1-typed));set(d.v1,"opacity",f(typed));
+  if(now<D.tap+.1)swap2(d.v0,d.v1,seg(5.55,5.75));else swap2(d.v1,d.v0,seg(D.tap+.1,D.tap+.24));
   // 2 · the tap lands on Log set: the row checks, the ring moves to set 2, the shelf takes set 2
-  set(d.log,"transform",`scale(${f(1-.025*bump(D.tap-.15,D.tap+.15))})`);
-  const logged=out(seg(D.tap,D.tap+.28));
-  set(d.done1,"opacity",f(logged));set(d.open2,"opacity",f(logged));
-  set(d.log1,"opacity",f(1-logged));set(d.log2,"opacity",f(logged));
-  set(d.ring,"transform",`translateY(${f(d.rowStep*inOut(seg(D.tap+.05,D.tap+.45)))}px)`);
+  set(d.log,"transform",`scale(${f(1-.025*(now>=D.tap&&now<D.tap+.16?Math.sin(seg(D.tap,D.tap+.16)*Math.PI):0))})`);
+  // set 1 checks and set 2 opens, and the button's label moves on; at the wrap each goes back the same way
+  const pairs=[[d.rows[0].firstElementChild,d.done1],[d.rows[1].firstElementChild,d.open2],[d.log1,d.log2]];
+  pairs.forEach(([was,is])=>now<D.reset?swap2(was,is,seg(D.tap,D.tap+.24)):swap2(is,was,home));
+  set(d.ring,"transform",`translateY(${f(d.rowStep*inOut(seg(D.tap+.05,D.tap+.45))*(1-inOut(home)))}px)`);
   const swap=seg(D.tap+.02,D.tap+.32);
   set(d.fields,"opacity",f(now<D.tap||swap>=1?1:1-.55*Math.sin(swap*Math.PI)));
-  // the rest tab rises out of the shelf, and the light draws out from it along the edge
+  // the rest tab rises out of the shelf, and the light draws out from it along the edge; at the wrap it sinks back
   const up=seg(D.restAt-.3,D.restAt+.45),lift=(1-Math.min(1.06,1-Math.exp(-7*up)*Math.cos(9*up)))*(D.rise+6);
-  set(d.bump,"transform",`translateY(${f(lift)}px)`);set(d.tab,"transform",`translateY(${f(lift)}px)`);
+  const sunk=lift+(D.rise+6-lift)*home;
+  set(d.bump,"transform",`translateY(${f(sunk)}px)`);set(d.tab,"transform",`translateY(${f(sunk)}px)`);
   // The tab's words sit in the shelf's own layer, so they fade in with the rise rather than hide behind it.
-  set(d.tab,"opacity",f(Math.min(1,up*2)));
+  set(d.tab,"opacity",f(Math.min(1,up*2)*stay));
   let reveal=0,glow=0,label=t("rest.inline.label"),time="2:00",done=false;
   const clock=s=>`${Math.floor(s/60)}:${String(Math.floor(s)%60).padStart(2,"0")}`;
   if(now>=D.restAt){
@@ -21705,6 +21806,7 @@ function paintLandingDemo(now){
       reveal=d.cx*(1-out(Math.min(1,ms/260)));
       glow=Math.max((ms<140?out(ms/140):Math.pow(Math.max(0,1-(ms-140)/460),2.2))*1.1,ms>300?.2*Math.min(1,(ms-300)/300):0);
       label=t("rest.inline.done");time="+"+clock(now-D.done);done=true}}
+  glow*=stay;
   const [left,right]=d.lights;
   set(left,"transform",`translateX(${f(reveal)}px)`);set(left.firstChild,"transform",`translateX(${f(-reveal)}px)`);
   set(right,"transform",`translateX(${f(-reveal)}px)`);set(right.firstChild,"transform",`translateX(${f(reveal)}px)`);
@@ -21712,13 +21814,11 @@ function paintLandingDemo(now){
   if(d.label.textContent!==label)d.label.textContent=label;
   if(d.time.textContent!==time)d.time.textContent=time;
   d.tab.classList.toggle("is-done",done);
-  // 4 · the next session rises over the one it came from
-  const sheet=out(seg(13.05,13.6));
-  set(d.scrim,"opacity",f(.55*Math.max(sheet,lifted)));set(d.sheet,"transform",`translateY(${f((1-sheet)*100)}%)`);
-  set(d.did,"opacity",f(out(seg(13.5,14.1))));
-  d.history.forEach((row,i)=>rise(row,13.9+i*.22,14.4+i*.22,8));
-  // the loop closes through a short fade, so set 1 comes back clean
-  set(d.veil,"opacity",f(now>16.55?out(seg(16.55,16.95)):1-out(seg(0,.3))))}
+  // 4 · the next session rises over the one it came from, and slides away to close the loop
+  const sheet=out(seg(D.sheet,D.sheet+.55))*(1-inOut(seg(D.wrap,D.wrap+.4)));
+  set(d.scrim,"opacity",f(.55*Math.max(sheet,wheel)));set(d.sheet,"transform",`translateY(${f((1-sheet)*100)}%)`);
+  set(d.did,"opacity",f(out(seg(D.sheet+.45,D.sheet+1.05))*stay));
+  d.history.forEach((row,i)=>rise(row,D.sheet+.85+i*.22,D.sheet+1.35+i*.22,8))}
 function renderLandingWays(){
   const root=$("#firstRun");if(!root)return;
   const fill=(key,html)=>{const node=root.querySelector(`[data-landing-fill="${key}"]`);if(node)node.innerHTML=html};
@@ -22105,7 +22205,7 @@ function createLandingController(root){
   /* ---- the proof's player ----
      A clock that runs only while the phone is on screen, the page is visible and motion is welcome; the chapters show
      where it is and jump it. Under reduced motion there is no clock: each chapter is a still and the chapters switch it. */
-  const glass=root.querySelector(".firstrun-proof__glass"),screen=root.querySelector("#firstRunDemo");
+  const glass=root.querySelector(".firstrun-proof__device"),screen=root.querySelector("#firstRunDemo");
   const chapters=[...root.querySelectorAll("[data-landing-chapter]")];
   /* The clock is the demo's own: seconds summed from the frames' timestamps, each step clamped to 0–50ms and the
      first frame after a (re)start counted as 0, so it never reads another clock and never runs backwards. */
@@ -22136,9 +22236,9 @@ function createLandingController(root){
     const run=play.seen&&!document.hidden&&!reduced()&&!landingReturning();
     if(run&&!play.raf){play.last=null;play.raf=requestAnimationFrame(frame);reg.frames.add(play.raf)}
     if(!run&&play.raf){cancelAnimationFrame(play.raf);reg.frames.delete(play.raf);play.raf=0}}
+  // The frame's size sets the camera's shots (layoutLandingDemo); the painter moves the phone inside it.
   function fit(){
     if(!glass||!screen||!glass.clientWidth)return;
-    screen.style.transform=`scale(${glass.clientWidth/390})`;
     if(landingDemo){landingDemo.laid=false;paint(play.t)}}
   function mountPlayer(){
     if(!glass||!screen||!chapters.length)return;
@@ -22229,7 +22329,21 @@ function createLandingController(root){
     const dock=root.querySelector("#firstRunDock"),hero=root.querySelector("#firstRunCreate"),close=root.querySelector("#firstRunCreateClose");
     if(!dock||!hero||!close||sharedSetupReady()||typeof IntersectionObserver==="undefined")return;
     let gone=false,closing=false;
-    const paint=()=>dock.classList.toggle("is-on",gone&&!closing);
+    // A stage (`data-landing-stage`: the proof's phone, the feature panel) is never under the control: one observer
+    // whose root box is the band the control takes at the foot of the screen, and any stage in that band sends the
+    // control away until it leaves. The band follows the screen's size, so a resize rebuilds it.
+    const stages=[...root.querySelectorAll("[data-landing-stage]")],under=new Set();
+    const paint=()=>dock.classList.toggle("is-on",gone&&!closing&&!under.size);
+    let band=null;
+    const watchBand=()=>{
+      band?.disconnect();under.clear();
+      if(!stages.length||!root.clientHeight)return;
+      const foot=(parseFloat(getComputedStyle(dock).bottom)||0)+dock.offsetHeight+LANDING_DOCK_CLEAR;
+      band=new IntersectionObserver(entries=>{entries.forEach(e=>e.isIntersecting?under.add(e.target):under.delete(e.target));paint()},
+        {root,rootMargin:`-${Math.max(0,Math.round(root.clientHeight-foot))}px 0px 0px 0px`});
+      stages.forEach(node=>band.observe(node))};
+    reg.obs.push({disconnect:()=>{band?.disconnect();band=null}});
+    on(window,"resize",watchBand);watchBand();
     const watch=(node,fn)=>{const io=new IntersectionObserver(fn,{root});reg.obs.push(io);io.observe(node)};
     watch(hero,entries=>{const e=entries[entries.length-1];gone=!e.isIntersecting&&e.boundingClientRect.bottom<(e.rootBounds?e.rootBounds.top:0)+1;paint()});
     watch(close,entries=>{const e=entries[entries.length-1];closing=e.isIntersecting||e.boundingClientRect.top<(e.rootBounds?e.rootBounds.top:0);paint()});
@@ -22290,7 +22404,7 @@ function createLandingController(root){
     if(motionQuery?.addEventListener)on(motionQuery,"change",layout);
     layout()}
   function dispose(){
-    if(screen)screen.style.removeProperty("transform");
+    screen?.closest(".firstrun-proof__rig")?.style.removeProperty("transform");
     landingFeatures?.hosts.forEach(host=>host.style.removeProperty("transform"));
     reg.offs.forEach(off=>off());reg.offs.length=0;
     reg.obs.forEach(io=>io.disconnect());reg.obs.length=0;

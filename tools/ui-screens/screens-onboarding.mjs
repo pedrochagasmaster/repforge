@@ -913,7 +913,7 @@ const FOCUS_SELECTOR = {
  * first-run-proof frame scrolls the phone to the top of the viewport, with its chapters
  * and the persistent Build control in view.
  */
-const PROOF_HOLD = 8.2;
+const PROOF_HOLD = 9.2;
 /** The feature tabs hold too: the Progress scene with the record landed and the week's hard sets risen. */
 const FEATURE_HOLD = [0, 4.8];
 const FOCUS_PROOF = new Set(["onboarding-start/first-run-proof"]);

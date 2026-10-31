@@ -660,9 +660,9 @@
         <div class="firstrun-wrap">
           <h2 class="firstrun-h2" id="firstRunProofTitle" data-i18n="landing.demo.title">See it in practice.</h2>
           <p class="firstrun-sub" data-i18n="landing.anim.sub">This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time.</p>
-          <div class="firstrun-proof__stage">
+          <div class="firstrun-proof__stage" data-landing-stage>
             <div class="firstrun-proof__device" aria-hidden="true" inert>
-              <div class="firstrun-proof__glass"><div class="firstrun-proof__screen theme-light" id="firstRunDemo"></div></div>
+              <div class="firstrun-proof__rig"><div class="firstrun-proof__glass"><div class="firstrun-proof__screen theme-light" id="firstRunDemo"></div></div></div>
             </div>
             <ol class="firstrun-chapters" id="firstRunChapters" data-i18n-aria="landing.demo.steps_aria" aria-label="Steps">
               <li class="firstrun-chapter is-current" data-landing-chapter>
@@ -751,7 +751,7 @@ Triceps pushdown 3x12-15</pre>
           <p class="firstrun-feat__cap" data-i18n="landing.features.gym.text">Opens from your Home Screen, works without a signal once it has been opened, keeps the rest timer in view while you browse, and stays readable at large text sizes.</p>
               </div>
             </div>
-            <div class="firstrun-feat__panel" id="firstRunFeatPanel" role="tabpanel" aria-labelledby="firstRunFeatTab0">
+            <div class="firstrun-feat__panel" data-landing-stage id="firstRunFeatPanel" role="tabpanel" aria-labelledby="firstRunFeatTab0">
               <div class="firstrun-feat__tints" aria-hidden="true"><span class="firstrun-feat__tint firstrun-feat__tint--1 is-current"></span><span class="firstrun-feat__tint firstrun-feat__tint--2"></span><span class="firstrun-feat__tint firstrun-feat__tint--3"></span><span class="firstrun-feat__tint firstrun-feat__tint--4"></span><span class="firstrun-feat__tint firstrun-feat__tint--5"></span></div>
               <div class="firstrun-feat__stage" aria-hidden="true" inert>
               <div class="firstrun-feat__win is-current"><div class="firstrun-feat__screen theme-light" data-feature-screen="0"></div></div>
@@ -1393,6 +1393,6 @@ Triceps pushdown 3x12-15</pre>
   <script src="durable-state.js?v=447"></script>
   <script src="progress-model.js?v=309"></script>
   <script src="history-ui.js?v=551"></script>
-  <script src="app.js?v=576"></script>
+  <script src="app.js?v=577"></script>
 </body>
 </html>
