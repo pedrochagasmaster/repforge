@@ -1126,7 +1126,7 @@
     "progress/minibar": {
       "owner": "plan-057",
       "content": "flat",
-      "scenario": "While a session is open, the frosted bar above the dock: a ring of the sets done, the session's name, the exercise and the time so far, and Resume."
+      "scenario": "While a session is open, the bar above the dock on the dock's own glass: the session's name, the exercise and the time so far, Resume, and the sets done as a thin light along its top edge."
     },
     "history/minibar-rest": {
       "owner": "plan-057",
@@ -11575,8 +11575,8 @@
       ]
     },
     {
-      "id": "minibar-ring",
-      "selector": "#miniBar .minibar__ring",
+      "id": "minibar-line",
+      "selector": "#miniBar .minibar__line",
       "roles": {
         "progress": "exercise-set",
         "boundary": "decorative"
@@ -11586,11 +11586,30 @@
       "states": [
         "current"
       ],
-      "rationale": "Progress dimension exercise-set; scope: the open session's working sets, or the rest counting down. The title and line say it in words.",
+      "rationale": "Progress dimension exercise-set; scope: the open session's working sets, or the rest counting down, as a thin light along the bar's top edge (no ring, owner 2026-10-31). The title and line say it in words.",
       "owner": "plan-057",
       "progressScopes": {
         "open-session-sets": "exercise-set"
       },
+      "catalogStates": [
+        "progress/minibar",
+        "history/minibar-rest",
+        "program/minibar-rest-done"
+      ]
+    },
+    {
+      "id": "minibar-fill",
+      "selector": "#miniBar .minibar__fill",
+      "roles": {
+        "boundary": "decorative"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The lit part of the bar's top-edge line: the rest light's colour and a soft glow, scaled to the share the line shows. Decorative; the words carry the state.",
+      "owner": "plan-057",
       "catalogStates": [
         "progress/minibar",
         "history/minibar-rest",
@@ -12449,6 +12468,6 @@
     ".blockprogress",
     ".vrow__bar",
     ".today-live__bar",
-    ".minibar__ring"
+    ".minibar__line"
   ]
 }
