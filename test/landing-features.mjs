@@ -166,6 +166,9 @@ try {
         for (const u of [(rest + end) / 2, end - 0.05]) {
           if (u < rest) continue;
           await page.evaluate(([scene, at]) => window.__repforgeLandingFeatureSeek(scene, at), [i, u]);
+          // a tab change cross-fades its window (a little scaled while it arrives): measure the window at rest
+          await page.evaluate(() => Promise.all(document.querySelector(".firstrun-feat__win.is-current").getAnimations()
+            .map((animation) => animation.finished.catch(() => {}))));
           const cut = await page.evaluate(() => {
             const win = document.querySelector(".firstrun-feat__win.is-current"), W = win.getBoundingClientRect(), out = [];
             const shown = (el) => { for (let n = el; n && n !== win; n = n.parentElement) if (+getComputedStyle(n).opacity < 0.05) return false; return true; };

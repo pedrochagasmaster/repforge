@@ -22178,7 +22178,7 @@ function renderLandingFeatures(){
       hd:qa(3,".firstrun-fx__hd"),fg:qa(3,".firstrun-fx__fg"),tap:q(3,".landing-touch")},
     {root:q(4,".firstrun-fx"),home:q(4,".firstrun-fx__home"),app:q(4,".firstrun-fx__app"),norm:q(4,".firstrun-fx__hist:not(.firstrun-fx__hist--big)"),
       big:q(4,".firstrun-fx__hist--big"),list:q(4,".firstrun-fx__hist:not(.firstrun-fx__hist--big) .firstrun-fx__hlist"),clocks:qa(4,".firstrun-fx__clock"),
-      sig:q(4,".firstrun-fx > .firstrun-fx__sbar .firstrun-fx__sig"),air:q(4,".firstrun-fx__air"),sbar:q(4,".firstrun-fx > .firstrun-fx__sbar"),icon:q(4,".firstrun-fx__icon--app"),tap:q(4,".landing-touch")}]};
+      sig:q(4,".firstrun-fx > .firstrun-fx__sbar .firstrun-fx__sig"),backdrop:hosts[4].parentElement.querySelector(".firstrun-feat__backdrop"),air:q(4,".firstrun-fx__air"),sbar:q(4,".firstrun-fx > .firstrun-fx__sbar"),icon:q(4,".firstrun-fx__icon--app"),tap:q(4,".landing-touch")}]};
   landingController?.refreshFeatures?.()}
 /** Measure what the frames need from layout: where each finger lands and how far the chips slide. */
 function layoutLandingFeatures(f){
@@ -22354,7 +22354,7 @@ function paintLandingFeature(i,u){
     tf(s.app,`translate(${r((x-W/2)*(1-p))}px,${r((y-cy)*(1-p))}px) scale(${r(k)})`);op(s.app,seg(.72,.9));
     // the Home Screen wears its own light status bar; the app's dark one arrives with the app
     op(s.sbar,seg(.85,1.1));
-    tf(s.home,`scale(${r(1+.08*p)})`);op(s.home,1-seg(.9,1.3));
+    tf(s.home,`scale(${r(1+.08*p)})`);op(s.home,1-seg(.9,1.3));op(s.backdrop,1-seg(.9,1.3));
     const air=seg(1.65,1.9);op(s.sig,1-air);op(s.air,air);
     // the rest counts down from the scene's own time, whole seconds
     const left=Math.max(0,Math.ceil(LANDING_FEATURES.rest-Math.max(0,time-1.2))),clock=`${Math.floor(left/60)}:${String(left%60).padStart(2,"0")}`;
@@ -22366,7 +22366,10 @@ function paintLandingFeature(i,u){
   const view=f.views?.[i],scene=LANDING_FEATURES.scenes[i];
   if(view){
     const frame=landingCameraFrame(landingCameraAt(f.shots?.[i]||scene.shots,time),view,{w:390,h:scene.h});
-    f.zoom[i]=frame.k;set(f.hosts[i],"transform",landingCameraTransform(frame))}}
+    // whole pixels for the edges of a screen smaller than its window, so it meets the backdrop without a seam; a screen
+    // that fills an axis keeps its exact place there, so an edge it shares with the window stays on it
+    const whole=(v,span,len)=>span<len?Math.round(v):v;
+    f.zoom[i]=frame.k;set(f.hosts[i],"transform",landingCameraTransform({...frame,x:whole(frame.x,390*frame.k,view.w),y:whole(frame.y,scene.h*frame.k,view.h)}))}}
 /** Everything on the landing that is a number or is built from one. */
 function renderLandingContent(){
   const results={};
