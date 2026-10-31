@@ -191,6 +191,32 @@ try {
       assert.deepEqual(cuts.slice(0, 4), []);
     });
   }
+  // Tab 5's bar is the app's (owner, iPhone, 2026-10-31): no ring, the +30s and Resume words centred in their pills, the
+  // bar 8 px above the dock, and the list ending 8 px or more above the bar, so nothing runs behind it.
+  for (const lang of ["en", "pt"]) {
+    await check(`[${lang}] the rest-timer beat's bar: no ring, centred pill words, 8 px above the dock, nothing behind it`, async () => {
+      const { context, page } = await landing(browser, { lang });
+      await scrollToPanel(page);
+      const bad = [];
+      for (const u of [2.5, 4.1, 6]) {
+        await page.evaluate(([scene, at]) => window.__repforgeLandingFeatureSeek(scene, at), [4, u]);
+        const m = await page.evaluate(() => [...document.querySelectorAll(".firstrun-feat__win.is-current .firstrun-fx__hist")]
+          .filter((h) => +getComputedStyle(h).opacity > .5).map((h) => {
+            const bar = h.querySelector(".minibar"), dock = h.querySelector(".firstrun-fx__dock"), clip = h.querySelector(".firstrun-fx__hclip");
+            const pills = [...bar.querySelectorAll(".minibar__chip,.minibar__go")].map((pill) => {
+              const r = pill.getBoundingClientRect(), range = document.createRange(); range.selectNodeContents(pill); const w = range.getBoundingClientRect();
+              const k = r.height / pill.offsetHeight;
+              return Math.abs((w.top + w.height / 2 - (r.top + r.height / 2)) / k);
+            });
+            return { rings: h.querySelectorAll(".minibar__ring").length, line: !!bar.querySelector(".minibar__line .minibar__fill"), pills,
+              gap: dock.offsetTop - (bar.offsetTop + bar.offsetHeight), clear: bar.offsetTop - (clip.offsetTop + clip.offsetHeight) };
+          }));
+        for (const x of m) if (x.rings || !x.line || x.pills.some((off) => off > 1) || x.gap !== 8 || x.clear < 8) bad.push({ u, ...x });
+      }
+      await context.close();
+      assert.deepEqual(bad, []);
+    });
+  }
   await check("with no usable platform clock the tabs still play, on their own frame deltas, with finite text", async () => {
     const { context, page, errors } = await landing(browser, { hostileClock: true });
     await scrollToPanel(page);

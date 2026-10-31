@@ -19,6 +19,7 @@
  */
 import { launchChromium } from "./browser.mjs";
 import { installSeedProgram, seedProgram } from "./fixtures/seed-program.mjs";
+import { openCatalogState } from "./fixtures/catalog-state.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -128,7 +129,9 @@ const above = (page) => page.evaluate(() => {
     sub: bar?.querySelector(".minibar__sub")?.textContent || "",
     resume: bar?.querySelector("#miniBarResume")?.textContent || "",
     plus: drawn(bar?.querySelector("#miniBarPlus")),
-    ring: bar ? getComputedStyle(bar.querySelector(".minibar__ring")).getPropertyValue("--minibar-p").trim() : "",
+    // The progress is the thin light along the top edge (no ring, owner 2026-10-31): the scale of its fill.
+    line: bar?.querySelector(".minibar__fill") ? new DOMMatrix(getComputedStyle(bar.querySelector(".minibar__fill")).transform).a : null,
+    rings: bar ? bar.querySelectorAll(".minibar__ring, [class*='ring']").length : 0,
     loops: bar ? bar.getAnimations({ subtree: true }).length : 0,
     tag: document.querySelector('#todayLive [data-live="elapsed"]')?.textContent || "",
   };
@@ -161,7 +164,7 @@ try {
         `${view}: exactly one element floats above the dock, the mini bar`, a);
       assert(a.title === "Day 1" && new RegExp(`^Exercise 3 of ${shape.count} · \\d+ min$`).test(a.sub) && a.resume === "Resume",
         `${view}: the session's name, where the lifter is and the time so far, and Resume`, a);
-      assert(!a.plus && parseFloat(a.ring) > 0, `${view}: no +30s without a rest, and the ring shows the sets done`, a);
+      assert(!a.plus && a.line > 0 && a.line < 1 && a.rings === 0, `${view}: no +30s without a rest, no ring, and the top edge's light shows the sets done`, a);
     }
 
     phase("The end of a tab scrolls clear of the bar");
@@ -235,7 +238,7 @@ try {
     await page.evaluate(() => { window.__repforgeRest.expire(2); window.syncRest(); });
     await page.waitForTimeout(300);
     const done = await above(page);
-    assert(done.title === "Rest done" && /^Set \d+ · .+/.test(done.sub) && !done.plus && !done.restBar, "just after the bell the bar says Rest done", done);
+    assert(/^Rest done \+\d:\d\d$/.test(done.title) && /^Set \d+ · .+/.test(done.sub) && !done.plus && !done.restBar, "just after the bell the bar says Rest done and counts the overrun", done);
     await page.evaluate(() => { window.__repforgeRest.expire(20); window.syncRest(); });
     await page.waitForTimeout(300);
     const back = await above(page);
@@ -265,6 +268,60 @@ try {
     assert(errors.length === 0, "no page errors", errors.join(" | "));
     await context.close();
   }
+  // The bar as the owner saw it on an iPhone (2026-10-31): no ring, the words carry the state, the pills' words sit in
+  // their middles (flex and line-height 1, so no font's metrics can lift them), and the tab's end clears the bar plus
+  // the dock, at 390 and 320, in both languages, at the usual and double text.
+  phase("The bar's words and pills hold at every size: centred labels, no ring, nothing left under it");
+  for (const width of [390, 320]) for (const lang of ["en", "pt"]) for (const text of ["normal", "text200"]) {
+    const opened = await openCatalogState(browser, "history/minibar-rest", width, lang, text);
+    try {
+      const m = await opened.page.evaluate(async () => {
+        const bar = document.querySelector("#miniBar"), nav = document.querySelector("nav").getBoundingClientRect(), box = bar.getBoundingClientRect();
+        const pills = ["#miniBarPlus", "#miniBarResume"].map((sel) => {
+          const pill = bar.querySelector(sel), r = pill.getBoundingClientRect(), range = document.createRange();
+          range.selectNodeContents(pill); const words = range.getBoundingClientRect();
+          return { sel, off: +((words.top + words.height / 2) - (r.top + r.height / 2)).toFixed(2), height: Math.round(r.height),
+            within: words.left >= r.left - .5 && words.right <= r.right + .5 };
+        });
+        // To the end of whichever box scrolls the tab (the document, or a scrolling ancestor of the view).
+        let scroller = document.querySelector("#history").parentElement;
+        while (scroller && !(scroller.scrollHeight > scroller.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(scroller).overflowY))) scroller = scroller.parentElement;
+        (scroller || document.scrollingElement).scrollTop = 1e7;
+        window.scrollTo(0, 1e7);
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        const top = bar.getBoundingClientRect().top;
+        // What is drawn: not hidden, not clipped out of sight by a box that hides its overflow (a pane off to the side), and
+        // not inside a closed disclosure (still measured, never shown).
+        const clipped = (el) => { const r = el.getBoundingClientRect();
+          for (let n = el.parentElement; n && n !== document.body; n = n.parentElement) {
+            if (getComputedStyle(n).overflow === "visible") continue;
+            const c = n.getBoundingClientRect(); if (r.bottom <= c.top || r.top >= c.bottom || r.right <= c.left || r.left >= c.right) return true;
+          } return false; };
+        const leaves = [...document.querySelectorAll("#history *")].filter((el) => el.children.length === 0 && el.getClientRects().length
+          && el.getBoundingClientRect().height > 0 && getComputedStyle(el).visibility !== "hidden" && getComputedStyle(el).position !== "fixed"
+          && !el.closest("[hidden],.hidden,[inert]") && !clipped(el) && !(el.closest("details:not([open])") && !el.closest("summary")));
+        return { pills, rings: bar.querySelectorAll(".minibar__ring").length, line: !!bar.querySelector(".minibar__line .minibar__fill"),
+          gap: Math.round(nav.top - box.bottom), lowest: Math.max(...leaves.map((el) => el.getBoundingClientRect().bottom)), barTop: top,
+          title: bar.querySelector(".minibar__title").textContent };
+      });
+      assert(m.pills.every((p) => Math.abs(p.off) <= 1 && p.within && p.height >= 44), `[${lang} ${width} ${text}] +30s and Resume: 44 px pills with their words centred within 1 px`, m.pills);
+      assert(m.rings === 0 && m.line && m.gap === 8 && /\d:\d\d$/.test(m.title), `[${lang} ${width} ${text}] no ring: the words and the top edge's light, 8 px above the dock`, m);
+      assert(m.lowest <= m.barTop + 1, `[${lang} ${width} ${text}] scrolled to the end, nothing on the tab is left under the bar`, m);
+    } finally {
+      await opened.context.close();
+    }
+  }
+  {
+    const opened = await openCatalogState(browser, "history/minibar-rest", 390, "en", "normal");
+    try {
+      const held = await opened.page.evaluate(() => { restPaused = Math.max(1000, restLeftMs()); syncRest(); paintSessionRest();
+        const bar = document.querySelector("#miniBar"); return { title: bar.querySelector(".minibar__title").textContent, paused: bar.classList.contains("is-paused") }; });
+      assert(/^Paused \d:\d\d$/.test(held.title) && held.paused, "held, the bar says Paused and the held time, as the tab does", held);
+    } finally {
+      await opened.context.close();
+    }
+  }
+
 } finally {
   await browser.close();
 }
