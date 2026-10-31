@@ -176,6 +176,9 @@ const FOCUS_PREV_LINE_FAMILIES = Object.freeze([
 const FOCUS_PREV_LINE_ENDINGS = Object.freeze(["rir", "norir", "effort"]);
 
 const DYNAMIC_FAMILIES = [
+  // The landing's feature tabs: the conversation's menu and the Home Screen's app labels (2026-10-31).
+  { test: (s) => s === '"landing.features.chat."+', keys: () => ["reply", "forward", "copy"].map((key) => `landing.features.chat.${key}`) },
+  { test: (s) => s === '"landing.features.home."+', keys: () => ["calendar", "clock", "notes", "maps", "reminders", "files", "stocks", "home", "fitness", "settings"].map((key) => `landing.features.home.${key}`) },
   // The landing's feature tabs name History's sessions by the generated program's day keys (owner, 2026-10-30).
   { test: (s) => s === '"program.day."+', keys: () => ["strength_4_d1", "strength_4_d2", "strength_4_d3", "strength_4_d4"].map((day) => `program.day.${day}`) },
   // The Focus hero's evidence line (#518): the no-suggestion reasons, and the anchor and target sentences per source.
