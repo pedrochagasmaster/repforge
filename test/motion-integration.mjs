@@ -471,11 +471,16 @@ async function focusMotion(browser, { reducedMotion = "no-preference" } = {}) {
       const committedBefore = (() => { const id = document.querySelector(card)?.dataset.ex, ex = window.__repforgeWorkoutDraft.current()?.exercises?.[id];
         return ex ? ex.setOrder.filter((sid) => ex.sets[sid].completion !== "pending").length : 0; })();
       const samples = await window.__fm.sample(`${card} .ledgerline__ring`, 520, () => document.querySelector(`${card} .saveset`).click());
-      // Read what is left only once the travelling outline's own animation has settled (it is removed then), never
-      // at the end of a fixed window: on a loaded runner the spring's last frames outlast it. Bounded, so a stuck one fails.
-      await Promise.race([Promise.all([...document.querySelectorAll(`${card} .ledgerline__ring`)]
-        .flatMap((el) => el.getAnimations().map((animation) => animation.finished.catch(() => {})))), new Promise((r) => setTimeout(r, 2000))]);
-      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      // Read what is left only once the travelling outline has been removed (travelOutline drops it when its animation
+      // settles), never at the end of a fixed window: on a loaded runner the spring outlasts it. Bounded, so a stuck one fails.
+      await new Promise((resolve) => {
+        const left = () => document.querySelectorAll(`${card} .ledgerline__ring`).length;
+        if (!left()) return resolve();
+        const stop = () => { observer.disconnect(); clearTimeout(timer); resolve(); };
+        const observer = new MutationObserver(() => { if (!left()) stop(); });
+        observer.observe(document.querySelector(card), { childList: true, subtree: true });
+        const timer = setTimeout(stop, 2000);
+      });
       const openAfter = document.querySelector(`${card} .ledgerline--open`);
       return { openBefore, committedBefore, committedAfter: (() => { const id = document.querySelector(card)?.dataset.ex, ex = window.__repforgeWorkoutDraft.current()?.exercises?.[id];
         return ex ? ex.setOrder.filter((sid) => ex.sets[sid].completion !== "pending").length : 0; })(),
@@ -521,9 +526,14 @@ async function focusMotion(browser, { reducedMotion = "no-preference" } = {}) {
     // spring's last frames land later than any fixed wait. A bound only turns a stuck outline into a clear failure.
     const rings = () => [...document.querySelectorAll(`${card} .ledgerline__ring`)];
     const t1 = performance.now();
-    const finished = Promise.all(rings().flatMap((el) => el.getAnimations().map((animation) => animation.finished.catch(() => {}))));
-    await Promise.race([finished, new Promise((r) => setTimeout(r, 2000))]);
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    // An outline can exist before its animation has started (nothing to await yet), so the event is its removal.
+    await new Promise((resolve) => {
+      if (!rings().length) return resolve();
+      const host = document.querySelector(card), stop = () => { observer.disconnect(); clearTimeout(timer); resolve(); };
+      const observer = new MutationObserver(() => { if (!rings().length) stop(); });
+      observer.observe(host, { childList: true, subtree: true });
+      const timer = setTimeout(stop, 2000);
+    });
     return { start, now: count(), landed, ringLeft: rings().length, ringGoneAfter: Math.round(performance.now() - t1) };
   }, CARD);
   assert(queued.now === queued.start + 1 && queued.landed != null && queued.landed < 500,
@@ -543,11 +553,16 @@ async function focusMotion(browser, { reducedMotion = "no-preference" } = {}) {
     const openBefore = document.querySelector(`${card} .ledgerline--open`)?.getBoundingClientRect().top ?? null;
     const row1Top = row1.getBoundingClientRect().top;
     const samples = await window.__fm.sample(`${card} .ledgerline__ring`, 520, () => row1.click());
-    // Read what is left only once the travelling outline's own animation has settled (it is removed then), never
-    // at the end of a fixed window: on a loaded runner the spring's last frames outlast it. Bounded, so a stuck one fails.
-    await Promise.race([Promise.all([...document.querySelectorAll(`${card} .ledgerline__ring`)]
-      .flatMap((el) => el.getAnimations().map((animation) => animation.finished.catch(() => {})))), new Promise((r) => setTimeout(r, 2000))]);
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    // Read what is left only once the travelling outline has been removed (travelOutline drops it when its animation
+    // settles), never at the end of a fixed window: on a loaded runner the spring outlasts it. Bounded, so a stuck one fails.
+    await new Promise((resolve) => {
+      const left = () => document.querySelectorAll(`${card} .ledgerline__ring`).length;
+      if (!left()) return resolve();
+      const stop = () => { observer.disconnect(); clearTimeout(timer); resolve(); };
+      const observer = new MutationObserver(() => { if (!left()) stop(); });
+      observer.observe(document.querySelector(card), { childList: true, subtree: true });
+      const timer = setTimeout(stop, 2000);
+    });
     const open = document.querySelector(`${card} .ledgerline--open`);
     return { openBefore, row1Top, samples, openN: open?.dataset.lrow, current: open?.getAttribute("aria-current"),
       ringAfter: document.querySelectorAll(`${card} .ledgerline__ring`).length };
