@@ -21854,8 +21854,8 @@ const LANDING_FEATURES={
       [{at:0,x:0,y:0,w:390,h:640},{at:.35,x:0,y:196,w:390,h:350},{at:3.45,x:0,y:0,w:390,h:640}],
       [{at:0,x:0,y:0,w:390,h:640},{at:.35,x:0,y:44,w:390,h:400},{at:2.05,x:0,y:96,w:390,h:440},{at:4.55,x:0,y:44,w:390,h:400}],
       [{at:0,x:0,y:0,w:390,h:660},{at:.3,x:0,y:0,w:390,h:340},{at:1.35,x:0,y:196,w:390,h:464}],
-      [{at:0,x:0,y:0,w:390,h:640},{at:.7,x:0,y:216,w:390,h:424},{at:3.55,x:0,y:0,w:390,h:440},{at:6.3,x:0,y:10,w:390,h:480}],
-      [{at:0,x:0,y:0,w:390,h:700},{at:1.35,x:0,y:0,w:390,h:440},{at:2.65,x:0,y:290,w:390,h:410},{at:4.75,x:0,y:40,w:390,h:440}],
+      [{at:0,x:0,y:0,w:390,h:640},{at:.7,x:0,y:216,w:390,h:424},{at:3.55,x:0,y:0,w:390,h:640},{at:6.3,x:0,y:10,w:390,h:480}],
+      [{at:0,x:0,y:0,w:390,h:700},{at:1.35,x:0,y:0,w:390,h:440},{at:2.65,x:0,y:290,w:390,h:410,pin:"bottom"},{at:4.75,x:0,y:40,w:390,h:440}],
     ][i]})),
   ex:{bench:"19f5c6f170d8808bb424e98de4472a7e",dbBench:"1a05c6f170d8803ba48ec1443eab5978",nDb:"1a05c6f170d880a6b539ef74691f8c75",
     pDb:"1a05c6f170d88017acc8c48b6ccdd639",sDb:"1a05c6f170d8803dad22e04308bd0a98",row:"1a15c6f170d880f89beacd8c81156f2d",
@@ -21883,7 +21883,7 @@ const LANDING_FEATURE_HOME={
   grid:[["calendar","cal","paper-red"],["clock","clock","ink"],["notes","pencil","accent"],["maps","pin","positive"],
     ["reminders","clipboard","paper-accent"],null,["files","sheet","slate"],["stocks","trend","ink-green"],
     ["home","house","accent"],["fitness","target","red"],["settings","gear","grey"]],
-  dock:[[null,"search","paper-ink"],[null,"wand","positive"],[null,"sliders","accent"],[null,"download","ink"]]};
+  dock:[[null,"fx-phone","positive"],[null,"fx-compass","paper-ink"],[null,"fx-message","accent"],[null,"fx-music","red"]]};
 const LANDING_FEATURE_MUSCLES=["Chest","Lats","Front delts","Triceps","Rear delts","Glutes","Quads","Hamstrings","Biceps"];
 const LANDING_FEATURE_DAYS=["strength_4_d1","strength_4_d2","strength_4_d3","strength_4_d4"];
 /** Every catalog string the feature screens and tabs show; test/landing-features.mjs fails when one leaves a catalog. */
@@ -22025,6 +22025,9 @@ function landingFeatureScreens(){
       `<div class="firstrun-fx__wahead"><span class="firstrun-fx__waback">‹</span><span class="firstrun-fx__waavatar">${esc((String(t("landing.features.chat.name")).trim().split(/\s+/).pop()||"R").charAt(0))}</span>`+
         `<span class="firstrun-fx__waname"><b>${esc(t("landing.features.chat.name"))}</b><small>${esc(t("landing.features.chat.online"))}</small></span>`+
         `<span class="firstrun-fx__waicon firstrun-fx__waicon--video"></span><span class="firstrun-fx__waicon firstrun-fx__waicon--call"></span></div>`+
+      `<span class="firstrun-fx__waday">${esc(t("nav.log"))}</span>`+
+      `<div class="firstrun-fx__wacompose"><span class="firstrun-fx__waplus">+</span><span class="firstrun-fx__wafield"></span>`+
+        `<span class="firstrun-fx__waicon firstrun-fx__waicon--camera"></span><span class="firstrun-fx__waicon firstrun-fx__waicon--mic"></span></div>`+
       `<div class="firstrun-fx__wadim"></div>`+
       `<div class="firstrun-fx__bubble"><span class="firstrun-fx__btext">${message.map(row=>esc(row)).join("<br>")}</span>`+
         `<span class="firstrun-fx__btime">${esc(t("landing.ways.paste.time"))}</span></div>`+
@@ -22065,7 +22068,8 @@ function landingFeatureScreens(){
   const HOME=LANDING_FEATURE_HOME;
   const slot=(c,r)=>({x:27+c*92,y:68+r*98});
   const appIcon=([key,glyph,tone],at,label=true)=>`<span class="firstrun-fx__icon firstrun-fx__icon--${tone}" style="left:${at.x}px;top:${at.y}px">`+
-    `<span class="icon-mask icon-mask--${glyph} firstrun-fx__glyph" aria-hidden="true"></span></span>`+
+    (glyph.startsWith("fx-")?`<span class="firstrun-fx__glyph firstrun-fx__glyph--${glyph.slice(3)}" aria-hidden="true"></span></span>`
+      :`<span class="icon-mask icon-mask--${glyph} firstrun-fx__glyph" aria-hidden="true"></span></span>`)+
     (label?`<span class="firstrun-fx__ilbl" style="left:${at.x-16}px;top:${at.y+66}px">${esc(t("landing.features.home."+key))}</span>`:"");
   const grid=HOME.grid.map((app,k)=>{const at=slot(k%4,Math.floor(k/4));return app?appIcon(app,at):
     `<span class="firstrun-fx__icon firstrun-fx__icon--app" style="left:${at.x}px;top:${at.y}px"><img src="icons/icon-192.png" alt="" width="60" height="60" decoding="async"></span>`+
@@ -22125,8 +22129,12 @@ function layoutLandingFeatures(f){
   s3.scroll=Math.max(0,pick.x+s3.pick.offsetWidth/2-(s3.root.offsetWidth-24));
   s3.taps=[{t0:.5,x:field.x-40,y:field.y},{t0:3.75,x:pick.x-s3.scroll,y:pick.y}];
   const srow=landingFeatureCentre(s4.root,s4.srow),copy=landingFeatureCentre(s4.root,s4.copy);
-  // the message menu opens under the bubble, as the messaging app places it
-  s4.menu.style.top=`${s4.bubble.offsetTop+s4.bubble.offsetHeight+10}px`;
+  // a conversation scrolled to its latest message: the bubble sits over the composer, its date chip above it, and the
+  // message menu opens above the bubble, where the screen has room
+  const composer=s4.root.querySelector(".firstrun-fx__wacompose"),day=s4.root.querySelector(".firstrun-fx__waday");
+  s4.bubble.style.top=`${composer.offsetTop-s4.bubble.offsetHeight-22}px`;
+  day.style.top=`${s4.bubble.offsetTop-40}px`;
+  s4.menu.style.top=`${s4.bubble.offsetTop-s4.menu.offsetHeight-12}px`;
   const bubble=landingFeatureCentre(s4.root,s4.bubble),copyItem=landingFeatureCentre(s4.root,s4.copyItem);
   s4.taps=[{t0:.55,x:srow.x-40,y:srow.y},{t0:2.15,x:copy.x,y:s4.sheet.offsetTop+s4.copy.offsetTop+s4.copy.offsetHeight/2},
     {t0:4.55,up:5.25,x:bubble.x-30,y:bubble.y},{t0:5.9,x:copyItem.x-40,y:copyItem.y}];
@@ -22184,7 +22192,9 @@ function snapLandingFeatureShots(f){
       const out=base.map(shot=>({...shot}));
       for(let k=1;k<out.length;k++){
         let found=false;
-        for(let d=0;d<=240&&!found;d+=2)for(const dy of d?[d,-d]:[0])if(clear(out[k],held[k],v,dy)){out[k].y+=dy;found=true;break}
+        // a shot that ends at the screen's bottom (the mini bar's beat) stays there: it may only move down
+        const pinned=out[k].pin==="bottom";
+        for(let d=0;d<=240&&!found;d+=2)for(const dy of d?(pinned?[d]:[d,-d]):[0])if(clear(out[k],held[k],v,dy)){out[k].y+=dy;found=true;break}
         if(!found)return null}
       return out};
     for(let trim=0;trim<=96;trim+=4){
