@@ -22366,8 +22366,10 @@ function paintLandingFeature(i,u){
   const view=f.views?.[i],scene=LANDING_FEATURES.scenes[i];
   if(view){
     const frame=landingCameraFrame(landingCameraAt(f.shots?.[i]||scene.shots,time),view,{w:390,h:scene.h});
-    // whole pixels for the screen's edges, so a frame narrower than its window meets the backdrop without a seam
-    f.zoom[i]=frame.k;set(f.hosts[i],"transform",landingCameraTransform({...frame,x:Math.round(frame.x),y:Math.round(frame.y)}))}}
+    // whole pixels for the edges of a screen smaller than its window, so it meets the backdrop without a seam; a screen
+    // that fills an axis keeps its exact place there, so an edge it shares with the window stays on it
+    const whole=(v,span,len)=>span<len?Math.round(v):v;
+    f.zoom[i]=frame.k;set(f.hosts[i],"transform",landingCameraTransform({...frame,x:whole(frame.x,390*frame.k,view.w),y:whole(frame.y,scene.h*frame.k,view.h)}))}}
 /** Everything on the landing that is a number or is built from one. */
 function renderLandingContent(){
   const results={};
