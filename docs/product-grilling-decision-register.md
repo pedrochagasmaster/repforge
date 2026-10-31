@@ -873,6 +873,14 @@ keeps its own landing whatever the device has seen. Q633's answer, "On the
 chooser only", stands for the card; its reason, "A returning lifter never sees
 the one-time landing", no longer holds.
 
+Amended on 2026-10-31 (owner, from an iPhone): the landing never changes. The
+condensed returning landing and its resume lead are retired: everyone without
+an activated program, for any reason (a return visit, a setup left half done,
+a dismissed install prompt or a Track start), gets the same full landing, and
+Build opens the chooser, where Q633's resume card still resumes or discards a
+saved setup. The landing remains the boot surface until a program is
+activated.
+
 ## Canonical decisions reached across the session
 
 The ledger above preserves sequence. This section is the consolidated product

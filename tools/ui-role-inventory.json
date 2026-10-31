@@ -43,16 +43,6 @@
       "content": "flat",
       "scenario": "The landing scrolled to the closing orange band; the persistent Build control has stepped aside."
     },
-    "onboarding-start/first-run-returning": {
-      "owner": "plan-064/r4",
-      "content": "flat",
-      "scenario": "A later visit to an empty device with nothing saved: the returning landing leads with a welcome back and the Build and Track actions, and condenses the page below."
-    },
-    "onboarding-start/first-run-returning-resume": {
-      "owner": "plan-064/r4",
-      "content": "flat",
-      "scenario": "A later visit with a half-finished Recommend setup saved: the lead action names the saved route and opens the chooser's resume card."
-    },
     "onboarding-start/hub": {
       "owner": "plan-072",
       "content": "flat",
@@ -2853,9 +2843,7 @@
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-features",
-        "onboarding-start/first-run-ways",
-        "onboarding-start/first-run-returning",
-        "onboarding-start/first-run-returning-resume"
+        "onboarding-start/first-run-ways"
       ]
     },
     {
@@ -2885,9 +2873,7 @@
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-features",
-        "onboarding-start/first-run-ways",
-        "onboarding-start/first-run-returning",
-        "onboarding-start/first-run-returning-resume"
+        "onboarding-start/first-run-ways"
       ]
     },
     {
@@ -2917,9 +2903,7 @@
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-features",
-        "onboarding-start/first-run-ways",
-        "onboarding-start/first-run-returning",
-        "onboarding-start/first-run-returning-resume"
+        "onboarding-start/first-run-ways"
       ]
     },
     {
@@ -2947,9 +2931,7 @@
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-features",
-        "onboarding-start/first-run-ways",
-        "onboarding-start/first-run-returning",
-        "onboarding-start/first-run-returning-resume"
+        "onboarding-start/first-run-ways"
       ]
     },
     {
@@ -2977,9 +2959,7 @@
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-features",
-        "onboarding-start/first-run-ways",
-        "onboarding-start/first-run-returning",
-        "onboarding-start/first-run-returning-resume"
+        "onboarding-start/first-run-ways"
       ]
     },
     {
@@ -3008,9 +2988,7 @@
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-features",
-        "onboarding-start/first-run-ways",
-        "onboarding-start/first-run-returning",
-        "onboarding-start/first-run-returning-resume"
+        "onboarding-start/first-run-ways"
       ]
     },
     {
@@ -3171,9 +3149,7 @@
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
-        "onboarding-start/first-run-close",
-        "onboarding-start/first-run-returning",
-        "onboarding-start/first-run-returning-resume"
+        "onboarding-start/first-run-close"
       ]
     },
     {
@@ -3202,9 +3178,7 @@
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
-        "onboarding-start/first-run-close",
-        "onboarding-start/first-run-returning",
-        "onboarding-start/first-run-returning-resume"
+        "onboarding-start/first-run-close"
       ]
     },
     {
@@ -8242,8 +8216,6 @@
         "onboarding-recommend/chip-editor-open",
         "onboarding-recommend/result-avoided",
         "onboarding-recommend/result-corrected",
-        "onboarding-start/first-run-returning",
-        "onboarding-start/first-run-returning-resume",
         "program/editor-alternates",
         "program/editor-suggest-loads",
         "onboarding-recommend/result-confirm-offer",
@@ -11686,9 +11658,7 @@
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
-        "onboarding-start/first-run-close",
-        "onboarding-start/first-run-returning",
-        "onboarding-start/first-run-returning-resume"
+        "onboarding-start/first-run-close"
       ]
     },
     {
@@ -11706,9 +11676,7 @@
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
-        "onboarding-start/first-run-close",
-        "onboarding-start/first-run-returning",
-        "onboarding-start/first-run-returning-resume"
+        "onboarding-start/first-run-close"
       ]
     },
     {
@@ -11893,9 +11861,7 @@
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
-        "onboarding-start/first-run-close",
-        "onboarding-start/first-run-returning",
-        "onboarding-start/first-run-returning-resume"
+        "onboarding-start/first-run-close"
       ]
     },
     {
@@ -11939,9 +11905,7 @@
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
-        "onboarding-start/first-run-close",
-        "onboarding-start/first-run-returning",
-        "onboarding-start/first-run-returning-resume"
+        "onboarding-start/first-run-close"
       ]
     },
     {
@@ -12034,9 +11998,7 @@
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-features",
-        "onboarding-start/first-run-ways",
-        "onboarding-start/first-run-returning",
-        "onboarding-start/first-run-returning-resume"
+        "onboarding-start/first-run-ways"
       ],
       "cssLiterals": [
         {
