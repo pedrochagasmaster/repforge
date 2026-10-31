@@ -17223,6 +17223,27 @@ function returnFromEntry(back){
   if(view==="settings")showSettings();
   else if(view!=="log")returnToTab(view);
   focusRoute(back?.control||routeHeading(view))}
+/** Resume card's Continue: go on from the saved step. The landing's Resume setup uses it too. */
+function continueEntryResume(){
+  entryUiNotice=null;
+  if(entryState.step==="editor")openEntryDraftEditor();else renderOnboarding()}
+/** The saved setup the landing can offer to resume, or null: a readable draft with a
+ *  route, no active program, and not the guided repair draft boot resumes by itself. */
+function landingSavedSetup(){
+  if(hasActiveProgram()||sharedSetupReady()||sharedSetupInvalid())return null;
+  const record=readSetupDraftRecord();
+  const saved=record?.ok&&record.envelope&&!isGuidedRepairSetupDraft(record.envelope)?record.envelope.state:null;
+  if(!saved?.route)return null;
+  const updated=saved.updatedAt?new Date(saved.updatedAt):null;
+  const when=updated&&!Number.isNaN(updated.valueOf())?updated.toLocaleDateString(locTag(),{month:"short",day:"numeric"}):"";
+  const where=[entryRouteLabel(saved.route),saved.step?t(entryStepTitleKey(saved.step)):""].filter(Boolean).join(" · ");
+  return{route:saved.route,step:saved.step||null,where,when}}
+function renderLandingSavedSetup(){
+  const box=$("#firstRunResume");if(!box)return;
+  const saved=landingSavedSetup();
+  box.classList.toggle("hidden",!saved);
+  const where=$("#firstRunResumeWhere");
+  if(where)where.textContent=saved?t("entry.resume.detail",{where:saved.where,when:saved.when||"—"}):"";}
 function startOnboarding(origin,opts={}){
   if(!ProgramEntry){console.warn("program entry unavailable");return}
   captureEntryReturn();
@@ -20553,9 +20574,7 @@ function wireEntryDom(){
   const editorActivate=$("#entryEditorActivate");if(editorActivate)editorActivate.onclick=()=>activateEntryPreview();
   const edit=$("#entryEdit");if(edit)edit.onclick=()=>openEntryDraftEditor();
   const restart=$("#entryRestart");if(restart)restart.onclick=()=>requestEntryStartOver();
-  const resumeContinue=$("#entryResumeContinue");if(resumeContinue)resumeContinue.onclick=()=>{
-    entryUiNotice=null;
-    if(entryState.step==="editor")openEntryDraftEditor();else renderOnboarding()};
+  const resumeContinue=$("#entryResumeContinue");if(resumeContinue)resumeContinue.onclick=continueEntryResume;
   const resumeRestart=$("#entryResumeRestart");if(resumeRestart)resumeRestart.onclick=()=>requestEntryStartOver();
   const rebuild=$("#entryRebuildRules");if(rebuild)rebuild.onclick=()=>rebuildEntryForCurrentRules();
   const keepPinned=$("#entryKeepPinned");if(keepPinned)keepPinned.onclick=()=>{
@@ -22627,6 +22646,7 @@ function renderLandingDevice(){
 }
 function renderFirstRun(){
   renderFirstRunProgramMode();
+  renderLandingSavedSetup();
   renderLandingDevice();
   renderLandingContent();
   const decision=installPolicyDecision(),mode=installMode();
@@ -23371,6 +23391,10 @@ function init(){
   $("#firstRunInstallLink").onclick=event=>{reportLandingAction("install");return triggerInstall(event)};
   $("#firstRunPrivacy").onclick=()=>{reportLandingAction("privacy");openPrivacySheet()};
   const openFirstRunCreate=()=>{reportLandingAction("create");closeFirstRun();startOnboarding("first-run")};
+  // Resume setup opens the same chooser and goes on from the saved step. Telemetry is frozen: it counts as create.
+  $("#firstRunResumeSetup").onclick=()=>{
+    reportLandingAction("create");closeFirstRun();startOnboarding("first-run");
+    if(entryUiNotice==="resume")continueEntryResume()};
   $("#firstRunCreate").onclick=openFirstRunCreate;
   $("#firstRunCreateClose").onclick=openFirstRunCreate;
   $("#firstRunCreateDock").onclick=openFirstRunCreate;

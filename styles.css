@@ -5622,6 +5622,11 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   -webkit-tap-highlight-color:transparent;
 }
 .firstrun__link.is-pressed:not(:disabled){text-decoration-color:currentColor}
+/* The saved-setup action: quieter than Track, with where the lifter left off under it. */
+.firstrun-resume{display:grid;justify-items:center;gap:var(--space-4);margin-top:var(--space-4)}
+.firstrun-resume.hidden{display:none}
+.firstrun-resume__go{font-weight:var(--weight-medium);color:var(--firstrun-ink-soft)}
+.firstrun-resume__where{margin:0;max-width:32ch;text-align:center;font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--firstrun-ink-soft)}
 .firstrun__link:disabled{color:var(--firstrun-ink-soft);cursor:default}
 @media(hover:hover){
   @media (hover: hover) and (pointer: fine){

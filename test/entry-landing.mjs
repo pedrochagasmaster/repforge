@@ -1262,6 +1262,63 @@ try {
     await context.close();
   }
 
+  phase("Phase 9i: A saved setup adds one quiet Resume setup action that goes on from its step (owner, 2026-10-31)");
+  for (const lang of ["en", "pt"]) {
+    const { context, page } = await openAppPage(browser, { locale: lang === "pt" ? "pt-BR" : "en-US" });
+    const copy = CATALOG[lang];
+    await dismissGuidesInTheWay(page);
+    await clearSite(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    await waitForFirstRun(page);
+    const resumeState = () => page.evaluate(() => {
+      const box = document.querySelector("#firstRunResume");
+      const shown = !!box && !box.classList.contains("hidden") && getComputedStyle(box).display !== "none";
+      return { shown, label: document.querySelector("#firstRunResumeSetup")?.textContent.trim() || "",
+        where: document.querySelector("#firstRunResumeWhere")?.textContent.trim() || "" };
+    });
+    const without = await resumeState();
+    assert(!without.shown, `[${lang}] with nothing saved the landing has no Resume setup action`, JSON.stringify(without));
+    const fresh = pageContent(await page.evaluate(landingSnapshot));
+
+    await leaveRecommendDraft(page);
+    await reloadToLanding(page);
+    const saved = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)).state, SETUP_DRAFT);
+    const withDraft = await resumeState();
+    assert(withDraft.shown && withDraft.label === copy["entry.resume.continue"],
+      `[${lang}] with a saved setup the landing adds Resume setup`, JSON.stringify(withDraft));
+    assert(withDraft.where.includes(copy["entry.route.recommend"]),
+      `[${lang}] its line names where the setup was left`, withDraft.where);
+    assert(JSON.stringify(pageContent(await page.evaluate(landingSnapshot))) === JSON.stringify(fresh),
+      `[${lang}] everything else on the landing is the same page`, null);
+
+    await page.click("#firstRunResumeSetup");
+    await page.waitForSelector("#onboarding.active", { timeout: 15000 });
+    await page.waitForFunction((step) => window.__repforgeOnboarding?.entry?.()?.step === step, saved.step, { timeout: 10000 });
+    const after = await page.evaluate(landingSnapshot);
+    const step = await page.evaluate(() => window.__repforgeOnboarding.entry());
+    assert(!after.open && after.chooserOpen && !after.resumeCard && step.route === saved.route && step.step === saved.step,
+      `[${lang}] Resume setup goes straight on from the saved step (${saved.route} / ${saved.step})`, JSON.stringify({ step, resumeCard: after.resumeCard }));
+    const kept = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) || "null")?.state?.answers, SETUP_DRAFT);
+    assert(JSON.stringify(kept) === JSON.stringify(saved.answers), `[${lang}] the saved answers are kept`, null);
+    await context.close();
+  }
+  {
+    // An activated program never shows it, even with a stale draft on the device.
+    const { context, page } = await openAppPage(browser);
+    await dismissGuidesInTheWay(page);
+    await clearSite(page);
+    await persistState(page, seededProgramState({ id: "resume-active", name: "Active Program", onboarded: true }));
+    await page.evaluate((d) => localStorage.setItem(d, JSON.stringify({ schemaVersion: 1, draftId: "resume-active", revision: 1, ownerId: "resume-active",
+      state: { route: "recommend", step: "background", answers: {} } })), SETUP_DRAFT);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    await page.evaluate(() => window.openFirstRun());
+    const shown = await page.evaluate(() => !document.querySelector("#firstRunResume")?.classList.contains("hidden"));
+    assert(!shown, "with an activated program the landing never offers Resume setup", String(shown));
+    await context.close();
+  }
+
   phase("Phase 9d: No saved route rewords the landing");
   {
     const { context, page } = await openAppPage(browser);
