@@ -7772,12 +7772,17 @@ function miniBarEl(){
   let bar=$("#miniBar");if(bar)return bar;
   bar=document.createElement("div");bar.id="miniBar";bar.className="minibar hidden";
   bar.setAttribute("role","group");bar.setAttribute("aria-labelledby","miniBarTitle");
-  bar.innerHTML=`<span class="minibar__ring" data-progress-dimension="exercise-set" data-progress-scope="open-session-sets" aria-hidden="true"></span>`+
+  // No ring (owner, iPhone, 2026-10-31, as the rest tab is words only): the state is in the words, and the progress is
+  // one thin light along the bar's top edge.
+  bar.innerHTML=`<span class="minibar__line" data-progress-dimension="exercise-set" data-progress-scope="open-session-sets" aria-hidden="true"><span class="minibar__fill"></span></span>`+
     `<span class="minibar__text"><span class="minibar__title" id="miniBarTitle"></span><span class="minibar__sub"></span></span>`+
     `<span class="minibar__actions"><button type="button" class="minibar__chip" id="miniBarPlus" hidden></button>`+
     `<button type="button" class="minibar__go" id="miniBarResume"></button></span>`;
   // The bar opens the session as Resume does: Focus lives on Today, so the tab changes first. +30s opens nothing.
   bar.onclick=event=>{if(event.target.closest?.("#miniBarPlus"))return;navTo("log");enterWorkout({})};
+  // The tab's end scrolls clear of the bar as it is drawn now: its words, a font arriving or larger text can make it
+  // taller after it was placed (owner, iPhone, 2026-10-31).
+  if(typeof ResizeObserver==="function")new ResizeObserver(()=>miniBarReserve(bar)).observe(bar);
   bar.querySelector("#miniBarPlus").onclick=()=>nudgeRest(30);
   document.body.append(bar);return bar}
 /** Root tabs other than Today, with nothing pushed over them and no session on screen. */
@@ -7799,23 +7804,26 @@ function sessionNextSet(live){
   const program=prog.find(live.current);
   const name=program?exerciseDisplayName(program):ex.displayName||"";
   return set&&name?{n:set.ordinal,name}:null}
-/** The rest as the bar and the card read it: running, just done (for a moment), or none. */
+/** The rest as the bar and the card read it: running, held, just done (for a moment, with its overrun), or none. */
 function sessionRestPhase(){
   if(!restEnd)return null;
   const left=Math.round(restLeftMs()/1000);
-  if(left>0)return{kind:"running",left,share:restLength?Math.max(0,Math.min(1,left/restLength)):0};
-  return restOvertimeSec()<=REST_DONE_HOLD_SEC?{kind:"done"}:null}
+  if(left>0)return{kind:restPaused!=null?"paused":"running",left,share:restLength?Math.max(0,Math.min(1,left/restLength)):0};
+  const over=restOvertimeSec();
+  return over<=REST_DONE_HOLD_SEC?{kind:"done",over:Math.max(0,over)}:null}
 function paintMiniBar(bar,live){
   const rest=sessionRestPhase(),next=rest?sessionNextSet(live):null;
-  const title=bar.querySelector(".minibar__title"),sub=bar.querySelector(".minibar__sub"),ring=bar.querySelector(".minibar__ring");
+  const title=bar.querySelector(".minibar__title"),sub=bar.querySelector(".minibar__sub"),fill=bar.querySelector(".minibar__fill");
   const plus=bar.querySelector("#miniBarPlus"),go=bar.querySelector("#miniBarResume");
   let titleHtml,subText,share;
-  if(rest?.kind==="running"){
-    titleHtml=`<span class="minibar__rest">${esc(t("rest.inline.label"))} <span class="minibar__clock">${esc(fmtClock(rest.left))}</span></span>`;
+  // The rest's words, as the tab says them: "Rest 1:27", "Paused 1:27", "Rest done +0:05".
+  const restTitle=(key,time)=>`<span class="minibar__rest">${esc(t(key))} <span class="minibar__clock">${esc(time)}</span></span>`;
+  if(rest?.kind==="running"||rest?.kind==="paused"){
+    titleHtml=restTitle(rest.kind==="paused"?"rest.tab.paused":"rest.inline.label",fmtClock(rest.left));
     subText=next?t("minibar.next",{n:next.n,exercise:next.name}):"";share=rest.share}
   else if(rest?.kind==="done"){
-    titleHtml=`<span class="minibar__rest">${esc(t("rest.inline.done"))}</span>`;
-    subText=next?t("minibar.set",{n:next.n,exercise:next.name}):"";share=1}
+    titleHtml=restTitle("rest.inline.done",`+${fmtClock(rest.over)}`);
+    subText=next?t("minibar.set",{n:next.n,exercise:next.name}):"";share=0}
   else{
     titleHtml=esc(live.name);
     subText=live.per?t("minibar.where",{i:live.index,n:live.count,time:todayLiveElapsed(live)}):todayLiveElapsed(live);
@@ -7823,7 +7831,10 @@ function paintMiniBar(bar,live){
   if(title.innerHTML!==titleHtml)title.innerHTML=titleHtml;
   if(sub.textContent!==subText)sub.textContent=subText;
   bar.classList.toggle("is-rest",!!rest);
-  ring.style.setProperty("--minibar-p",`${Math.round(share*1000)/10}%`);
+  bar.classList.toggle("is-paused",rest?.kind==="paused");bar.classList.toggle("is-done",rest?.kind==="done");
+  // The light drains towards the middle as the rest runs, as the shelf's edge light draws back into the tab; without a
+  // rest it is the share of the session's sets done.
+  const scale=`scaleX(${Math.round(share*1000)/1000})`;if(fill.style.transform!==scale)fill.style.transform=scale;
   plus.hidden=rest?.kind!=="running";
   const plusText=t("rest.sheet.plus");if(plus.textContent!==plusText)plus.textContent=plusText;
   plus.setAttribute("aria-label",t("rest.sheet.plus_aria"));
@@ -7836,10 +7847,15 @@ function syncMiniBar(){
   clearInterval(miniBarTimer);miniBarTimer=0;
   if(!on){document.body.style.removeProperty("--restbar-reserve");return}
   paintMiniBar(bar,live);
-  // The end of every tab scrolls clear of the bar, as it did of the rest pill (#440).
-  const gap=parseFloat(getComputedStyle(bar).bottom)||0,nav=$("nav"),dockTop=nav?window.innerHeight-nav.getBoundingClientRect().top:0;
-  document.body.style.setProperty("--restbar-reserve",`${Math.max(0,Math.round(gap-dockTop+bar.getBoundingClientRect().height))}px`);
+  miniBarReserve(bar);
   if(live.started!=null)miniBarTimer=setInterval(()=>{if(!restEnd)syncMiniBar()},30000)}
+/** The end of every tab scrolls clear of the bar, as it did of the rest pill (#440): the room above the dock the bar takes,
+ *  its 8 px gap and its height, rounded up. */
+function miniBarReserve(bar){
+  if(bar.classList.contains("hidden"))return;
+  const gap=parseFloat(getComputedStyle(bar).bottom)||0,nav=$("nav"),dockTop=nav?window.innerHeight-nav.getBoundingClientRect().top:0;
+  const reserve=`${Math.max(0,Math.ceil(gap-dockTop+bar.getBoundingClientRect().height))}px`;
+  if(document.body.style.getPropertyValue("--restbar-reserve")!==reserve)document.body.style.setProperty("--restbar-reserve",reserve)}
 /** A rest repaint reaches the bar on the other tabs and the tag of Today's card. */
 function paintSessionRest(){
   const bar=$("#miniBar");
@@ -7847,7 +7863,8 @@ function paintSessionRest(){
   else if(restEnd&&bar)syncMiniBar();
   const tag=$("#todayLive [data-live=\"elapsed\"]");if(!tag)return;
   const rest=sessionRestPhase();
-  const text=rest?.kind==="running"?`${t("rest.inline.label")} ${fmtClock(rest.left)}`:rest?.kind==="done"?t("rest.inline.done")
+  const text=rest?.kind==="running"||rest?.kind==="paused"?`${t(rest.kind==="paused"?"rest.tab.paused":"rest.inline.label")} ${fmtClock(rest.left)}`
+    :rest?.kind==="done"?t("rest.inline.done")
     :t("today.live.in_progress",{time:todayLiveElapsed(todayLiveSession())});
   if(tag.textContent!==text)tag.textContent=text;
   tag.closest(".today-live__tag")?.classList.toggle("is-rest",!!rest)}
@@ -22079,13 +22096,13 @@ function landingFeatureScreens(){
       `<span class="firstrun-fx__hd3"><span>${esc(setCount===1?t("history.sets.one",{n:1}):t("entry.catalogue.sets_exact",{n:setCount}))}</span>`+
       `<span><b>${esc(Number(vol).toLocaleString(locale))}</b> ${esc(LANDING_UNIT)}</span>${prs?`<em>${esc(prs===1?t("history.prs",{n:1}):t("history.prs_many",{n:prs}))}</em>`:""}</span></div>`};
   const H=F.history,screen5=big=>`<div class="firstrun-fx__hist${big?" firstrun-fx__hist--big":""}">`+
-    `<div class="firstrun-fx__hlist"><p class="firstrun-fx__htitle">${esc(t("history.title"))}</p>`+
+    `<div class="firstrun-fx__hclip"><div class="firstrun-fx__hlist"><p class="firstrun-fx__htitle">${esc(t("history.title"))}</p>`+
       `<p class="firstrun-fx__hmonth"><b>${esc(t("history.month_title",{month:monthName(9),year:2026}))}</b>`+
         `<span>${esc(t("history.month_summary",{sessions:t("count.sessions",{n:12}),sets:t("count.sets",{n:168})}))}</span></p>`+
       `<p class="firstrun-fx__hweek">${esc(t("history.week",{n:3,done:4,planned:4}))}</p>${H.slice(0,4).map(histRow).join("")}`+
-      `<p class="firstrun-fx__hweek">${esc(t("history.week",{n:2,done:4,planned:4}))}</p>${H.slice(4).map(histRow).join("")}</div>`+
+      `<p class="firstrun-fx__hweek">${esc(t("history.week",{n:2,done:4,planned:4}))}</p>${H.slice(4).map(histRow).join("")}</div></div>`+
     `<span class="firstrun-fx__band"></span>`+
-    `<div class="minibar is-rest firstrun-fx__mini"><span class="minibar__ring" style="--minibar-share:.38"></span>`+
+    `<div class="minibar is-rest firstrun-fx__mini"><span class="minibar__line" aria-hidden="true"><span class="minibar__fill firstrun-fx__minifill"></span></span>`+
       `<span class="minibar__text"><span class="minibar__title"><span class="minibar__rest">${esc(t("rest.inline.label"))} <span class="minibar__clock firstrun-fx__clock"></span></span></span>`+
       `<span class="minibar__sub">${esc(t("minibar.next",{n:2,exercise:name("highRow")}))}</span></span>`+
       `<span class="minibar__actions"><span class="minibar__chip">${esc(t("rest.sheet.plus"))}</span><span class="minibar__go">${esc(t("minibar.resume"))}</span></span></div>`+

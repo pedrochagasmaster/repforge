@@ -157,7 +157,8 @@
   /* The light behind the panel (owner, 2026-10-28): quieter in light, which can't be brighter than the paper. */
   --rest-light-core:var(--accent);--rest-light-bloom:var(--accent);--rest-light-gain:.62;
   /* The mini bar's lift, the prototype's soft float on the theme's shadow channel. */
-  --minibar-shadow:0 6px 20px rgba(var(--shadow-rgb),.14);
+  /* The mini bar is the dock's family (owner, iPhone, 2026-10-31): the dock's lift. */
+  --minibar-shadow:var(--elevation-nav-shadow);
   --live-dot-pulse-from:0 0 0 0 rgba(var(--accent-rgb),.45);
   --live-dot-pulse-to:0 0 0 9px rgba(var(--accent-rgb),0);
   --row-pressed-bg:rgba(var(--ink-rgb),.06);
@@ -328,10 +329,14 @@
   --dock-gap:10px;
   --dock-inset:14px;
   --nav:calc(var(--dock-h) + var(--dock-gap));
+  /* The dock's corner, which the mini bar above it shares at any height. */
+  --dock-radius:calc(var(--dock-h) / 2);
   /* Liquid Glass (#301): translucent enough that what scrolls under the dock reads through the frost, with a rim
      that catches light (--dock-rim) and a faint caustic under it (--dock-caustic) so the capsule reads as a lens
      suspended over the page rather than a plate laid on it. */
   --dock-glass:rgba(250,248,245,.5);
+  /* The mini bar's ground: the dock's glass, denser, so its words keep AA over whatever scrolls beneath. */
+  --minibar-glass:rgba(250,248,245,.86);
   --dock-glass-opaque:rgba(250,248,245,.97);
   --dock-edge:rgba(27,26,23,.10);
   --dock-sheen:rgba(255,255,255,.7);
@@ -434,6 +439,7 @@
   /* Dark content showing through glass becomes visual noise around the nav
      labels. Keep the material, but make it read as smoked glass, not a lens. */
   --dock-glass:rgba(30,28,24,.66);
+  --minibar-glass:rgba(30,28,24,.88);
   --dock-glass-opaque:rgba(24,22,19,.97);
   --dock-edge:rgba(255,255,255,.10);
   --dock-sheen:rgba(255,255,255,.04);
@@ -1682,35 +1688,53 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 .ledger__more.is-fresh{animation:setland-row .16s cubic-bezier(.2,.8,.2,1) both}
 @media (prefers-reduced-motion:reduce){.ledgerline.is-fresh,.ledger__more.is-fresh{animation:none}}
 
-/* The mini bar: one frosted bar above the dock while a session is open, on the root tabs other than Today. It is the
-   context menu's material (paper at 86% with a blur) on the prototype's lift, inset like the dock. */
+/* The mini bar: one bar above the dock while a session is open, on the root tabs other than Today. It is the dock's own
+   family (owner, iPhone, 2026-10-31): the dock's glass, edge, rim, blur and lift, the dock's corner, inset like it and
+   8 px above it. No ring: the state is in its words, as on the rest tab ("Rest 1:27", "Paused 1:27", "Rest done +0:05"),
+   and the progress is one thin light along its top edge. It wraps rather than squeezes: at large text the actions go
+   under the words. */
 .minibar{
   position:fixed;z-index:28;left:50%;transform:translateX(-50%);
   bottom:calc(var(--nav) + env(safe-area-inset-bottom) + var(--space-8));
   width:min(calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right) - 2*var(--dock-inset)),var(--maxw));
-  min-height:58px;box-sizing:border-box;padding:var(--space-8) var(--space-8) var(--space-8) var(--space-14);
-  display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:var(--space-12);
-  border-radius:var(--radius-prominent);background:var(--menu-bg);
-  backdrop-filter:var(--menu-blur);-webkit-backdrop-filter:var(--menu-blur);box-shadow:var(--minibar-shadow);
+  min-height:58px;box-sizing:border-box;padding:var(--space-8) var(--space-8) var(--space-8) var(--space-16);
+  display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-8) var(--space-12);isolation:isolate;
+  border:1px solid var(--dock-edge);border-radius:var(--dock-radius);background:var(--minibar-glass);
+  backdrop-filter:var(--dock-blur);-webkit-backdrop-filter:var(--dock-blur);box-shadow:var(--minibar-shadow);
   color:var(--color-ink);cursor:pointer;
+  /* Secondary words on glass take the glass ink (the almost-solid glass contract). */
+  --ink-soft:var(--glass-ink-soft);--color-ink-secondary:var(--glass-ink-soft);
+}
+/* The dock's lens rim along the top (nav::before); the bar keeps no caustic at its foot, where its second line sits. */
+.minibar::before{
+  content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(180deg,var(--dock-rim) 0,transparent 32%);box-shadow:var(--dock-rim-shadow);opacity:.9;
 }
 .minibar.hidden{display:none!important}
-.minibar__ring{position:relative;flex:none;width:30px;height:30px;border-radius:var(--radius-round);
-  background:conic-gradient(var(--accent) var(--minibar-p,0%),var(--rule) 0)}
-.minibar__ring::after{content:"";position:absolute;inset:4px;border-radius:var(--radius-round);background:var(--bg)}
-.minibar__text{display:grid;min-width:0}
+/* The progress: a hairline of the rest light along the straight part of the top edge, draining towards its middle. */
+.minibar__line{position:absolute;top:-1px;left:var(--dock-radius);right:var(--dock-radius);height:2px;border-radius:var(--radius-pill);
+  background:var(--rule);pointer-events:none}
+/* The rest light's colour, its ends soft, as the shelf's light fades into the edge. */
+.minibar__fill{position:absolute;inset:0;border-radius:inherit;transform:scaleX(0);transform-origin:50% 50%;
+  background:linear-gradient(90deg,transparent,var(--accent) 14%,var(--accent) 86%,transparent)}
+.minibar.is-paused .minibar__fill{background:linear-gradient(90deg,transparent,var(--color-ink-secondary) 14%,var(--color-ink-secondary) 86%,transparent)}
+.minibar__text{display:grid;flex:1 1 9em;min-width:0}
 .minibar__title{font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-semibold);line-height:var(--line-standard);overflow-wrap:anywhere}
 .minibar__sub{font-family:var(--font-language);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:anywhere}
-.minibar__rest{color:var(--accent-deep)}
+.minibar.is-paused .minibar__rest{color:var(--color-ink-secondary)}
+.minibar.is-done .minibar__rest{color:var(--accent-deep)}
 /* The rest's line stays one line (coordinator review, 2026-10-24): the exercise name, last in both languages, gives way
    with an ellipsis. The text itself is whole, so assistive technology reads all of it. */
 .minibar.is-rest .minibar__sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .minibar__clock{font-family:var(--font-training-data);font-variant-numeric:tabular-nums}
-.minibar__actions{display:flex;align-items:center;gap:var(--space-8)}
-.minibar__chip{min-height:var(--control-target);padding:0 var(--space-12);border:0;border-radius:var(--radius-pill);background:var(--control-track);color:var(--color-ink);
-  font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-semibold);cursor:pointer}
-.minibar__go{min-height:var(--control-target);padding:0 var(--space-14);border:0;border-radius:var(--radius-pill);background:var(--control-primary-bg);color:var(--control-primary-ink);
-  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);cursor:pointer}
+.minibar__actions{display:flex;flex:none;align-items:center;gap:var(--space-8);margin-left:auto}
+/* +30s the quiet pill, Resume the primary one: each a 44 px target with its word centred by flex and a line box the
+   height of the word (line-height 1), so no font's metrics can leave it sitting high (Safari did). */
+.minibar__chip,.minibar__go{display:inline-flex;align-items:center;justify-content:center;min-width:var(--control-target);min-height:var(--control-target);
+  border:0;border-radius:var(--radius-pill);font-family:var(--font-language);font-weight:var(--weight-semibold);line-height:1;white-space:nowrap;cursor:pointer}
+.minibar__chip{padding:0 var(--space-12);background:var(--control-track);color:var(--color-ink);font-size:var(--font-size-body-small)}
+.minibar__go{padding:0 var(--space-14);background:var(--control-primary-bg);color:var(--control-primary-ink);font-size:var(--font-size-control)}
+.minibar__chip[hidden]{display:none}
 .minibar__chip:focus-visible,.minibar__go:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .today-live__tag.is-rest [data-live="elapsed"]{font-variant-numeric:tabular-nums}
 /* Held in the timer sheet: the clock is frozen, so the live dot goes quiet. */
@@ -6121,12 +6145,18 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-fx__hist--big .firstrun-fx__hd2 small,.firstrun-fx__hist--big .firstrun-fx__hd3,.firstrun-fx__hist--big .firstrun-fx__hmonth span{font-size:var(--font-size-body)}
 .firstrun-fx__hist--big .firstrun-fx__hd1 b{font-size:var(--font-size-feature-title)}
 .firstrun-fx__band{position:absolute;left:0;right:0;top:0;height:46px;background:var(--bg)}
-.firstrun-fx__mini.minibar{position:absolute;left:12px;right:12px;bottom:90px;width:auto;transform:none;z-index:1;cursor:default;background:var(--surface)}
+/* The app's bar on the app's dock material, 8 px above the dock. */
+.firstrun-fx__mini.minibar{position:absolute;left:12px;right:12px;bottom:86px;width:auto;transform:none;z-index:1;cursor:default}
+.firstrun-fx__minifill{transform:scaleX(.62)}
+/* The list ends above the bar (its top is 148 px up) and fades out over its last 48 px, so no row or rule runs behind the
+   bar or shows past its corners while the list scrolls under the clip. */
+.firstrun-fx__hclip{position:absolute;left:0;right:0;top:0;bottom:156px;overflow:hidden;
+  -webkit-mask-image:linear-gradient(180deg,var(--ink) calc(100% - 48px),transparent);mask-image:linear-gradient(180deg,var(--ink) calc(100% - 48px),transparent)}
 .firstrun-fx--editor .firstrun-fx__title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .firstrun-fx__hist--big .firstrun-fx__mini .minibar__title{font-size:var(--font-size-body)}
 .firstrun-fx__hist--big .firstrun-fx__mini .minibar__sub{font-size:var(--font-size-body-small)}
-.firstrun-fx__dock{position:absolute;left:12px;right:12px;bottom:14px;display:flex;height:64px;padding:4px;border-radius:var(--radius-pill);background:var(--menu-bg);
-  box-shadow:var(--elevation-nav-shadow);border:1px solid var(--boundary-decorative)}
+.firstrun-fx__dock{position:absolute;z-index:1;left:12px;right:12px;bottom:14px;display:flex;height:64px;padding:4px;border-radius:var(--radius-pill);background:var(--dock-glass);
+  backdrop-filter:var(--dock-blur);-webkit-backdrop-filter:var(--dock-blur);box-shadow:var(--elevation-nav-shadow);border:1px solid var(--dock-edge)}
 .firstrun-fx__dock>span{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-radius:var(--radius-pill);
   font-size:var(--font-size-label);color:var(--color-ink-secondary)}
 .firstrun-fx__dock>span.is-on{color:var(--accent);background:rgba(var(--ink-rgb),.05)}
