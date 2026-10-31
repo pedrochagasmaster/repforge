@@ -21484,6 +21484,10 @@ function landingRich(key,text,terms={}){
    stage that uses them stays jumpable and paints transforms and opacities only. ---- */
 /** Px kept clear between the Build control's band and a stage it steps aside for. */
 const LANDING_DOCK_CLEAR=8;
+/** The parts of the proof's screen a camera shot may not cut at its edges. */
+const LANDING_SHOT_BLOCKS=".wo-head,.firstrun-demo__progress,.fx-head,.fx-cue__l1,.fx-cue__l2,.fx-cue__evidence,"+
+  ".firstrun-demo__card .fcard__ledger>.ledgerline__head,.firstrun-demo__row,.firstrun-demo__card .fcard__ledger>.ledgerline,"+
+  ".firstrun-demo__next,.firstrun-demo__shelf .shelf__field,.firstrun-demo__shelf .stepbtn,.firstrun-demo__shelf .saveset";
 /** Seconds a camera move takes between two shots. */
 const LANDING_CAMERA_MOVE=.6;
 /** Where a camera looks at `now`: `shots` are `{at,x,y,w,h}` regions of the screen in its own px, in time order; from
@@ -21542,7 +21546,7 @@ function paintLandingTouch(set,node,touch,x,y,f){
    frame is a pure function of the timeline, so a chapter can be jumped to; a frame moves transforms and opacities
    only, and writes text only when the rest clock ticks over a second. `chapters` are the chapters' starts. */
 const LANDING_DEMO={loop:18,chapters:[0,6,10,14],stills:[5,9.2,13.6,16.6],rest:120,tap:6.95,restAt:7.3,fast:10,done:12.6,
-  sheet:14.05,wrap:17.35,rise:30,zoom:378,next:"1a05c6f170d8806b911acf558c5af4f6"};
+  sheet:14.05,wrap:16.9,reset:17.4,pull:17.6,rise:30,zoom:378,next:"1a05c6f170d8806b911acf558c5af4f6"};
 /** The chapter `time` (any finite number of seconds; the loop wraps it) falls in. */
 const landingChapterAt=time=>{const at=landingLoopTime(time);let i=0;while(i+1<LANDING_DEMO.chapters.length&&at>=LANDING_DEMO.chapters[i+1])i++;return i};
 /** `time` folded into one loop, so a negative, huge or non-finite clock still names a frame. */
@@ -21674,13 +21678,40 @@ function layoutLandingDemo(d){
   // session's sheet are. A zoomed shot is LANDING_DEMO.zoom px of the screen's width, as tall as the frame's shape;
   // a narrower frame frames less, so the screen's 14px text stays at 13px or more, down to 366px of screen (its
   // gutters' worth: below that a shot would cut the screen's own text at the frame's edges).
-  const view={w:d.frame.clientWidth,h:d.frame.clientHeight},glassX=d.glass.offsetLeft,glassY=d.glass.offsetTop;
+  const view={w:d.frame.clientWidth,h:d.frame.clientHeight},glassX=d.glass.offsetLeft+d.rig.clientLeft,glassY=d.glass.offsetTop+d.rig.clientTop;
   // A frame of 400px or more (the desktop's) shows the phone's whole width, still at reading size.
   const rigBox={w:d.rig.offsetWidth,h:d.rig.offsetHeight};
   const Z=view.w>=400?rigBox.w:Math.min(LANDING_DEMO.zoom,Math.max(366,view.w*14/13)),ZH=Z*view.h/view.w,zx=glassX+(d.root.offsetWidth-Z)/2;
-  const full={x:0,y:0,w:rigBox.w,h:rigBox.h},cue={x:zx,y:glassY+d.card.offsetTop-12,w:Z,h:ZH},foot={x:zx,y:glassY+d.root.offsetHeight-ZH,w:Z,h:ZH};
+  // A shot's edges never cut a part of the screen (polish review, 2026-10-31): each block (the header, the cue's lines,
+  // the ledger's rows, the shelf's fields, pads and Log set, and the two sheets where they rest) is either wholly in
+  // the shot or 8px or more outside it; the shot moves to the nearest place where all of them are.
+  const SH=d.root.offsetHeight,toScreen=box=>[(box.top-screen.top)/scale,(box.bottom-screen.top)/scale];
+  // A shelf control left outside keeps 8px clear of the edge; the ledger's rows touch, so a row may end right at it.
+  // The sheets end at the screen's own foot, so they count as in to within a pixel of it.
+  const blocks=[...d.root.querySelectorAll(LANDING_SHOT_BLOCKS)].map(el=>[...toScreen(el.getBoundingClientRect()),el.closest(".firstrun-demo__shelf")?8:0,0]);
+  const sheets=[d.wheel,d.sheet].map(el=>[SH-el.offsetHeight,SH,0,1]);
+  // The nearest place for a shot of the zoomed size; where there is none (a short frame), the nearest for a wider shot,
+  // up to the screen's whole width. The cue's shot looks upwards first, so it keeps the prescription line and ends in
+  // the space above the shelf.
+  const SW=d.root.offsetWidth,clean=(want,also=[],up=false)=>{
+    const all=blocks.concat(also);
+    const widest=Math.max(ZH,SW*view.h/view.w),heights=[];
+    for(let h=ZH;h<widest;h+=2)heights.push(h);heights.push(widest);
+    for(const h of heights){
+      // The places tried: every whole pixel, and each block's own edges, so a shot can end exactly where a row does.
+      const ok=y=>all.every(([a,b,m,tol])=>a>=y-tol&&b<=y+h+tol||b<=y-m||a>=y+h+m);
+      const at=want(h),w=h*view.w/view.h,shot=y=>({x:glassX+(SW-w)/2,y:glassY+y,w,h});
+      const tries=[];for(let y=Math.ceil(-glassY);y<=SH+glassY-h;y++)tries.push(y);
+      all.forEach(([a,b,m])=>tries.push(a,b+m,a-h-m,b-h));
+      const fit=tries.filter(y=>y>=-glassY&&y<=SH+glassY-h&&ok(y));
+      const above=fit.filter(y=>y<=at).sort((p,q)=>q-p);
+      const best=up&&above.length?above[0]:fit.sort((p,q)=>Math.abs(p-at)-Math.abs(q-at))[0];
+      if(best!=null)return shot(best)}
+    return{x:zx,y:glassY+want(ZH),w:Z,h:ZH}};
+  const full={x:0,y:0,w:rigBox.w,h:rigBox.h},cue=clean(()=>Math.round(d.card.offsetTop-12),[],true);
+  const foot=clean(h=>Math.round(SH-h),sheets);
   d.view=view;d.rigBox=rigBox;
-  d.shots=[{at:0,...full},{at:.45,...cue},{at:2.7,...foot},{at:LANDING_DEMO.wrap,...full}];
+  d.shots=[{at:0,...full},{at:.45,...cue},{at:2.7,...foot},{at:LANDING_DEMO.pull,move:.4,...full}];
   d.last=new WeakMap();d.laid=true;
   return true}
 function renderLandingProof(add){
@@ -21716,9 +21747,12 @@ function paintLandingDemo(now){
   // A value that is not a number never reaches a style: it is counted (the harness reads the count) and drawn as 0.
   const f=v=>{if(!Number.isFinite(v)){d.nonFinite++;v=0}return String(Math.round(v*1000)/1000)};
   const set=(el,prop,value)=>{let was=d.last.get(el);if(!was)d.last.set(el,was={});if(was[prop]===value)return;was[prop]=value;el.style[prop]=value};
-  // The loop closes by running back to its opening state while the camera pulls out to the whole phone: every part
-  // that changed fades or moves home, so the wrap is a cross-fade between two whole screens, never an empty one.
-  const home=inOut(seg(D.wrap,D.wrap+.5)),stay=1-home;
+  // The loop closes in three steps (polish review, 2026-10-31): the next session's sheet slides away, the screen
+  // goes back to its opening state while the camera holds, and only then the camera pulls out to the whole phone, so
+  // no frame shows two states at once and none is empty.
+  const home=seg(D.reset,D.reset+.2),stay=1-home;
+  // A value that changes in place goes out, then the new one comes in: never two printed over each other.
+  const swap2=(from,to,u)=>{set(from,"opacity",f(u<.5?1-2*u:0));set(to,"opacity",f(u<.5?0:2*u-1))};
   const rise=(el,a,b,by)=>{const v=out(seg(a,b));set(el,"opacity",f(v*stay));set(el,"transform",`translateY(${f((1-v)*by)}px)`)};
   // the camera: the whole phone, the cue, then the screen's foot, and back out for the wrap
   const frame=landingCameraFrame(landingCameraAt(d.shots,now),d.view,d.rigBox);
@@ -21742,14 +21776,13 @@ function paintLandingDemo(now){
     set(row,"opacity",f(Math.max(.2,1-far*.22)))});
   const repsSel=inOut(seg(3.65,3.95))*(1-inOut(seg(D.tap+.05,D.tap+.3)));
   set(d.sel,"transform",`translateX(${f(d.selDx*repsSel)}px)`);
-  const typed=seg(5.55,5.75)*(1-seg(D.tap+.1,D.tap+.2));
-  set(d.v0,"opacity",f(1-typed));set(d.v1,"opacity",f(typed));
+  if(now<D.tap+.1)swap2(d.v0,d.v1,seg(5.55,5.75));else swap2(d.v1,d.v0,seg(D.tap+.1,D.tap+.24));
   // 2 · the tap lands on Log set: the row checks, the ring moves to set 2, the shelf takes set 2
   set(d.log,"transform",`scale(${f(1-.025*(now>=D.tap&&now<D.tap+.16?Math.sin(seg(D.tap,D.tap+.16)*Math.PI):0))})`);
-  const logged=out(seg(D.tap,D.tap+.28))*stay;
-  set(d.done1,"opacity",f(logged));set(d.open2,"opacity",f(logged));
-  set(d.log1,"opacity",f(1-logged));set(d.log2,"opacity",f(logged));
-  set(d.ring,"transform",`translateY(${f(d.rowStep*inOut(seg(D.tap+.05,D.tap+.45))*stay)}px)`);
+  // set 1 checks and set 2 opens, and the button's label moves on; at the wrap each goes back the same way
+  const pairs=[[d.rows[0].firstElementChild,d.done1],[d.rows[1].firstElementChild,d.open2],[d.log1,d.log2]];
+  pairs.forEach(([was,is])=>now<D.reset?swap2(was,is,seg(D.tap,D.tap+.24)):swap2(is,was,home));
+  set(d.ring,"transform",`translateY(${f(d.rowStep*inOut(seg(D.tap+.05,D.tap+.45))*(1-inOut(home)))}px)`);
   const swap=seg(D.tap+.02,D.tap+.32);
   set(d.fields,"opacity",f(now<D.tap||swap>=1?1:1-.55*Math.sin(swap*Math.PI)));
   // the rest tab rises out of the shelf, and the light draws out from it along the edge; at the wrap it sinks back
@@ -21781,8 +21814,8 @@ function paintLandingDemo(now){
   if(d.label.textContent!==label)d.label.textContent=label;
   if(d.time.textContent!==time)d.time.textContent=time;
   d.tab.classList.toggle("is-done",done);
-  // 4 · the next session rises over the one it came from, and sinks again at the wrap
-  const sheet=out(seg(D.sheet,D.sheet+.55))*(1-home);
+  // 4 · the next session rises over the one it came from, and slides away to close the loop
+  const sheet=out(seg(D.sheet,D.sheet+.55))*(1-inOut(seg(D.wrap,D.wrap+.4)));
   set(d.scrim,"opacity",f(.55*Math.max(sheet,wheel)));set(d.sheet,"transform",`translateY(${f((1-sheet)*100)}%)`);
   set(d.did,"opacity",f(out(seg(D.sheet+.45,D.sheet+1.05))*stay));
   d.history.forEach((row,i)=>rise(row,D.sheet+.85+i*.22,D.sheet+1.35+i*.22,8))}

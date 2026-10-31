@@ -5634,6 +5634,9 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
    titles with a progress line, and the current one's caption sits under them in a row as tall as the longest, so
    nothing below moves. From 900px the chapters are a list beside the frame. */
 .firstrun-proof__stage{display:grid;justify-items:center;gap:var(--firstrun-gap-2)}
+/* The caption row keeps the longest caption's height so nothing below moves; the band's foot gives that reserve back,
+   so a short caption is not left above an empty strip of band (polish review, 2026-10-31). */
+.firstrun-proof{padding-bottom:var(--firstrun-gap-3)}
 .firstrun-proof__device{
   --proof-device-w:clamp(176px,calc((100svh - 236px) * 390 / 844),234px);
   position:relative;width:100%;height:calc(var(--proof-device-w) * 844 / 390 + var(--space-16));overflow:hidden;isolation:isolate;
@@ -5668,6 +5671,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-chapter.is-current .firstrun-chapter__text{opacity:1;visibility:visible;transition:opacity .2s cubic-bezier(.2,.7,.2,1)}
 @media(max-width:340px){.firstrun-proof__device{border-radius:var(--radius-landing-stage-compact)}}
 @media(min-width:900px){
+  .firstrun-proof{padding-bottom:var(--firstrun-gap-8)}
   .firstrun-proof .firstrun-wrap{max-width:calc(var(--maxw) * 1.75)}
   .firstrun-proof .firstrun-sub{max-width:var(--maxw)}
   .firstrun-proof__stage{grid-template-columns:auto minmax(0,1fr);align-items:center;justify-items:start;column-gap:var(--firstrun-gap-8)}

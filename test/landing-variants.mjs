@@ -984,6 +984,33 @@ async function finalPage(browser) {
     assert(legible.zoomed > 50 && legible.count === 0, "at 390 every zoomed frame shows the screen's body text at 13px or more", JSON.stringify(legible));
     await context.close();
   }
+  // No shot cuts a part of the screen at its edges (polish review, 2026-10-31): at each settled zoomed moment the
+  // shelf's fields, pads and Log set are wholly in the frame or 8 screen px or more outside it, and the header, the
+  // cue's lines and the ledger's rows are wholly in or wholly out.
+  for (const [width, height, lang] of [[390, 844, "en"], [390, 844, "pt"], [375, 667, "en"], [320, 568, "pt"]]) {
+    const { context, page } = await landingPage(browser, { lang, width, height });
+    await scrollToDevice(page);
+    const cuts = await page.evaluate(() => {
+      const frame = document.querySelector(".firstrun-proof__device").getBoundingClientRect(), rig = document.querySelector(".firstrun-proof__rig");
+      const screen = document.querySelector("#firstRunDemo");
+      const out = [];
+      for (const time of [2, 3.6, 5, 9.2, 13.6, 16.6]) {
+        window.__repforgeLandingSeek(time);
+        const k = rig.getBoundingClientRect().width / rig.offsetWidth;
+        const check = (selector, margin) => screen.querySelectorAll(selector).forEach((node) => {
+          const r = node.getBoundingClientRect();
+          const inside = r.top >= frame.top - k && r.bottom <= frame.bottom + k;
+          const outside = r.bottom <= frame.top - margin * k + .5 || r.top >= frame.bottom + margin * k - .5;
+          if (!inside && !outside) out.push(`${time}s ${node.className.split(" ")[0]} ${Math.round(r.top - frame.top)}..${Math.round(r.bottom - frame.top)} of ${Math.round(frame.height)}`);
+        });
+        check(".firstrun-demo__shelf .shelf__field, .firstrun-demo__shelf .stepbtn, .firstrun-demo__shelf .saveset", 8);
+        check(".wo-head, .fx-cue__l1, .fx-cue__l2, .fx-cue__evidence, .firstrun-demo__card .fcard__ledger > .ledgerline__head, .firstrun-demo__row, .firstrun-demo__card .fcard__ledger > .ledgerline, .firstrun-demo__next", 0);
+      }
+      return out;
+    });
+    assert(cuts.length === 0, `[${lang} ${width}] no settled shot cuts the shelf's controls, the cue or the ledger at the frame's edges`, JSON.stringify(cuts.slice(0, 6)));
+    await context.close();
+  }
   for (const [width, height] of [[390, 844], [320, 568]]) for (const lang of ["en", "pt"]) {
     const { context, page } = await landingPage(browser, { lang, width, height });
     await scrollToDevice(page);
