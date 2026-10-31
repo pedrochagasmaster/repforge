@@ -21848,13 +21848,14 @@ const LANDING_FEATURES={
   /* seconds per scene, the still reduced motion shows, and the screen's height at 390 wide */
   scenes:[{len:6.8,still:6,h:640},{len:6.4,still:6,h:640},{len:6.6,still:5.9,h:660},{len:8,still:7.4,h:640},{len:7.6,still:4.1,h:700}].map((scene,i)=>({...scene,
     /* The camera (landingCameraAt): an establishing look at the whole screen, then the region each beat happens in,
-       framed so the app's body text reads at its real size or close to it on a phone. */
+       framed so the app's body text reads at its real size or close to it on a phone. A held shot is short enough that
+       the window's width sets the zoom, so the edge snapping (snapLandingFeatureShots) can move its edges. */
     shots:[
-      [{at:0,x:0,y:0,w:390,h:640},{at:.35,x:0,y:196,w:390,h:350},{at:3.45,x:0,y:386,w:390,h:254}],
+      [{at:0,x:0,y:0,w:390,h:640},{at:.35,x:0,y:196,w:390,h:350},{at:3.45,x:0,y:0,w:390,h:640}],
       [{at:0,x:0,y:0,w:390,h:640},{at:.35,x:0,y:44,w:390,h:400},{at:2.05,x:0,y:96,w:390,h:440},{at:4.55,x:0,y:44,w:390,h:400}],
       [{at:0,x:0,y:0,w:390,h:660},{at:.3,x:0,y:0,w:390,h:340},{at:1.35,x:0,y:196,w:390,h:464}],
-      [{at:0,x:0,y:0,w:390,h:640},{at:.7,x:0,y:216,w:390,h:424},{at:3.55,x:0,y:110,w:390,h:400},{at:4.75,x:0,y:10,w:390,h:560}],
-      [{at:0,x:0,y:0,w:390,h:700},{at:1.35,x:0,y:0,w:390,h:440},{at:2.65,x:0,y:290,w:390,h:410},{at:4.75,x:0,y:40,w:390,h:520}],
+      [{at:0,x:0,y:0,w:390,h:640},{at:.7,x:0,y:216,w:390,h:424},{at:3.55,x:0,y:110,w:390,h:400},{at:4.75,x:0,y:10,w:390,h:480}],
+      [{at:0,x:0,y:0,w:390,h:700},{at:1.35,x:0,y:0,w:390,h:440},{at:2.65,x:0,y:290,w:390,h:410},{at:4.75,x:0,y:40,w:390,h:440}],
     ][i]})),
   ex:{bench:"19f5c6f170d8808bb424e98de4472a7e",dbBench:"1a05c6f170d8803ba48ec1443eab5978",nDb:"1a05c6f170d880a6b539ef74691f8c75",
     pDb:"1a05c6f170d88017acc8c48b6ccdd639",sDb:"1a05c6f170d8803dad22e04308bd0a98",row:"1a15c6f170d880f89beacd8c81156f2d",
@@ -22103,7 +22104,63 @@ function layoutLandingFeatures(f){
   s5.taps=[{t0:.6,x:icon.x,y:icon.y}];
   s1.taps=[];
   f.last=new WeakMap();f.laid=true;
+  snapLandingFeatureShots(f);
   return true}
+/** Every text line and control box a feature screen shows (opacity above nothing, not covered by a sheet, the mini bar
+ *  or the dock), as [top, bottom] in its own px. */
+function landingFeatureBoxes(host){
+  const was=host.style.transform;host.style.transform="none";
+  const origin=host.getBoundingClientRect().top,boxes=[];
+  const shown=el=>{for(let node=el;node&&node!==host;node=node.parentElement)if(+getComputedStyle(node).opacity<.05)return false;return true};
+  const covers=[...host.querySelectorAll(".firstrun-fx__sheet,.minibar,.firstrun-fx__dock")].filter(shown)
+    .map(el=>({el,r:el.getBoundingClientRect()})).filter(c=>c.r.height>1);
+  const add=(el,r)=>{
+    if(r.height<=1)return;
+    if(covers.some(c=>!c.el.contains(el)&&r.top>=c.r.top-1&&r.bottom<=c.r.bottom+1))return;
+    // the screen clips what lies past its own height, so only the part inside it can be cut by a frame edge
+    const top=Math.max(0,r.top-origin),bottom=Math.min(host.offsetHeight,r.bottom-origin);
+    if(bottom-top>1)boxes.push([top,bottom])};
+  const walker=document.createTreeWalker(host,NodeFilter.SHOW_TEXT);
+  while(walker.nextNode()){
+    const text=walker.currentNode;if(!text.nodeValue.trim()||!shown(text.parentElement))continue;
+    const range=document.createRange();range.selectNodeContents(text);
+    for(const r of range.getClientRects())add(text.parentElement,r)}
+  for(const el of host.querySelectorAll(".pchip,.picktab,.firstrun-fx__pill,.firstrun-fx__search,.firstrun-fx__seg,.librow__check,.firstrun-fx__card,.firstrun-fx__res,.minibar,.firstrun-fx__dock,.firstrun-fx__vrow,.librow__preview"))
+    if(shown(el))add(el,el.getBoundingClientRect());
+  host.style.transform=was;
+  return boxes}
+/** The camera never cuts a line: every held shot is placed so that each text line and control the scene shows while it
+ *  holds ends at least 8 view px before a frame edge or starts 8 px after it (the screen's own top and bottom are not
+ *  edges). Two freedoms, the least of each: a shot moves up to 240 px, and the scene's window gives up to 96 px of its
+ *  height (once, for all its shots). Measured per window size and language, at layout. */
+function snapLandingFeatureShots(f){
+  f.shots=[];
+  LANDING_FEATURES.scenes.forEach((scene,i)=>{
+    const view=f.views?.[i],host=f.hosts[i],screen={w:390,h:scene.h},base=scene.shots.map(shot=>({...shot}));
+    f.shots[i]=base;
+    if(!view||!host?.offsetWidth)return;
+    const held=base.map((shot,k)=>{
+      if(!k)return null;
+      const rest=shot.at+(shot.move??LANDING_CAMERA_MOVE),end=k+1<base.length?base[k+1].at:scene.len,boxes=[];
+      for(const at of [(rest+end)/2,end-.05])if(at>=rest){paintLandingFeature(i,at);boxes.push(...landingFeatureBoxes(host))}
+      return boxes});
+    const clear=(shot,boxes,v,dy)=>{
+      const frame=landingCameraFrame({...shot,y:shot.y+dy},v,screen),top=-frame.y/frame.k,bottom=top+v.h/frame.k,gap=8/frame.k;
+      const edges=[top>.5?top:null,bottom<screen.h-.5?bottom:null].filter(edge=>edge!=null);
+      return boxes.every(([a,b])=>edges.every(edge=>b<=edge-gap||a>=edge+gap))};
+    const place=v=>{
+      const out=base.map(shot=>({...shot}));
+      for(let k=1;k<out.length;k++){
+        let found=false;
+        for(let d=0;d<=240&&!found;d+=2)for(const dy of d?[d,-d]:[0])if(clear(out[k],held[k],v,dy)){out[k].y+=dy;found=true;break}
+        if(!found)return null}
+      return out};
+    for(let trim=0;trim<=96;trim+=4){
+      const v={w:view.w,h:view.h-trim},out=place(v);
+      if(!out)continue;
+      f.shots[i]=out;
+      if(trim){f.views[i]=v;const win=host.parentElement;win.style.height=`${v.h}px`}
+      return}})}
 /** One frame of scene `i` at `u` seconds into it. */
 function paintLandingFeature(i,u){
   const f=landingFeatures;if(!f)return;
@@ -22136,7 +22193,10 @@ function paintLandingFeature(i,u){
     const pop=seg(2.45,2.95);op(s.record,pop>0?1:0);tf(s.record,`scale(${r(spring(pop))})`);
     const tag=out(seg(2.7,3.05));op(s.tag,tag);tf(s.tag,`translateY(${r((1-tag)*6)}px)`);
     op(s.vline,out(seg(2.6,3))*.7);
-    const fig=out(seg(2.65,2.95));s.figs.forEach(node=>{op(node.firstChild,1-fig);op(node.lastChild,fig)});
+    // a changing figure swaps, never overprints: the old value rolls up and out, then the new one rolls in (160 ms)
+    const gone=seg(2.65,2.73),come=out(seg(2.73,2.81));
+    s.figs.forEach(node=>{op(node.firstChild,1-gone);tf(node.firstChild,`translateY(${r(-6*gone)}px)`);
+      op(node.lastChild,come);tf(node.lastChild,`translateY(${r(6*(1-come))}px)`)});
     const up=out(seg(3.55,4.05));tf(s.vol,`translateY(${r((1-up)*270)}px)`);
     s.bars.forEach((bar,k)=>tf(bar,`scaleX(${r(out(seg(3.95+k*.12,4.6+k*.12)))})`))}
   else if(i===1){
@@ -22169,14 +22229,19 @@ function paintLandingFeature(i,u){
     op(s.toast,toast);tf(s.toast,`translateX(${r(-s.toastW/2)}px) translateY(${r((1-toast)*-14)}px)`);
     // share → paste is one cross-fade onto a screen that already holds the pasted message: no empty frame between
     const cross=inOut(seg(3.5,3.95));op(s.pb,cross);op(s.pa,1-cross);
-    const m=1,go=inOut(seg(4.75,5.45)),chrome=1-out(seg(4.7,5));
-    tf(s.msg,`translateY(${r((1-m)*12)}px)`);op(s.msg,m*chrome);op(s.mh,m*chrome);
-    s.lines.forEach((line,k)=>{op(line,m);tf(line,`translate(${r(-16*go)}px,${r(s.dy[k]*go)}px)`)});
-    s.tails.forEach(tail=>op(tail,chrome));
-    // the review's head arrives while the message's chrome leaves, so the lines are never alone on the screen
-    const hd=out(seg(4.7,5.05));s.hd.forEach(node=>op(node,hd));
-    s.fg.forEach(node=>op(node,out(seg(6.1,6.45))));
-    s.matches.forEach((node,k)=>{const v=out(seg(5.4+k*.16,5.75+k*.16));op(node,v);tf(node,`translateX(${r((1-v)*10)}px)`)})}
+    // the message's chrome leaves first, then the review's head arrives: never both on screen at once
+    // The pasted message leaves whole (4.6–4.78 s), then the review's head arrives, then each row rises into the place
+    // it keeps (its typed name with its match), one after another: no line slides across the screen, no gap waits below.
+    const chrome=1-out(seg(4.6,4.78)),moved=time>=4.78;
+    op(s.msg,chrome);op(s.mh,chrome);
+    const rowIn=k=>out(seg(4.9+k*.09,5.2+k*.09));
+    s.lines.forEach((line,k)=>{
+      const v=moved?rowIn(k):chrome;op(line,v);
+      tf(line,moved?`translate(-16px,${r(s.dy[k]+(1-v)*8)}px)`:"translate(0px,0px)")});
+    s.tails.forEach(tail=>op(tail,moved?0:chrome));
+    const hd=out(seg(4.78,5));s.hd.forEach(node=>op(node,hd));
+    s.fg.forEach(node=>op(node,out(seg(5.3,5.6))));
+    s.matches.forEach((node,k)=>{const v=rowIn(k);op(node,v);tf(node,`translateY(${r((1-v)*8)}px)`)})}
   else{
     const p=out(seg(.72,1.3)),{x,y,size}=s.icon0,W=390,cy=350,k=size/W+(1-size/W)*p;
     tf(s.app,`translate(${r((x-W/2)*(1-p))}px,${r((y-cy)*(1-p))}px) scale(${r(k)})`);op(s.app,seg(.72,.9));
@@ -22185,12 +22250,13 @@ function paintLandingFeature(i,u){
     // the rest counts down from the scene's own time, whole seconds
     const left=Math.max(0,Math.ceil(LANDING_FEATURES.rest-Math.max(0,time-1.2))),clock=`${Math.floor(left/60)}:${String(left%60).padStart(2,"0")}`;
     s.clocks.forEach(node=>text(node,clock));
-    tf(s.list,`translateY(${r(-150*inOut(seg(2.75,3.7)))}px)`);
+    // History scrolls while the camera moves to the mini bar, so the shot holds on a list at rest
+    tf(s.list,`translateY(${r(-150*inOut(seg(2.65,3.25)))}px)`);
     const big=out(seg(4.75,5.15));op(s.norm,1-big);op(s.big,big)}
   // The camera: the region the beat happens in, framed in the scene's window.
   const view=f.views?.[i],scene=LANDING_FEATURES.scenes[i];
   if(view){
-    const frame=landingCameraFrame(landingCameraAt(scene.shots,time),view,{w:390,h:scene.h});
+    const frame=landingCameraFrame(landingCameraAt(f.shots?.[i]||scene.shots,time),view,{w:390,h:scene.h});
     f.zoom[i]=frame.k;set(f.hosts[i],"transform",landingCameraTransform(frame))}}
 /** Everything on the landing that is a number or is built from one. */
 function renderLandingContent(){

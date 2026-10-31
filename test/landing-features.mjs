@@ -156,6 +156,41 @@ try {
     await context.close();
     assert.deepEqual(low.slice(0, 5), []);
   });
+  for (const [width, height] of [[390, 844], [1440, 900]]) for (const lang of ["en", "pt"]) {
+    await check(`[${width} ${lang}] no frame edge cuts a text line or a control while a shot holds`, async () => {
+      const { context, page } = await landing(browser, { lang, width, height });
+      await scrollToPanel(page);
+      const cuts = [];
+      for (let i = 0; i < SCENES.length; i++) for (let k = 1; k < SHOTS[i].length; k++) {
+        const rest = SHOTS[i][k].at + 0.6, end = k + 1 < SHOTS[i].length ? SHOTS[i][k + 1].at : SCENES[i].len;
+        for (const u of [(rest + end) / 2, end - 0.05]) {
+          if (u < rest) continue;
+          await page.evaluate(([scene, at]) => window.__repforgeLandingFeatureSeek(scene, at), [i, u]);
+          const cut = await page.evaluate(() => {
+            const win = document.querySelector(".firstrun-feat__win.is-current"), W = win.getBoundingClientRect(), out = [];
+            const shown = (el) => { for (let n = el; n && n !== win; n = n.parentElement) if (+getComputedStyle(n).opacity < 0.05) return false; return true; };
+            const rects = [], walker = document.createTreeWalker(win, NodeFilter.SHOW_TEXT);
+            while (walker.nextNode()) {
+              const t = walker.currentNode; if (!t.nodeValue.trim() || !shown(t.parentElement)) continue;
+              const range = document.createRange(); range.selectNodeContents(t);
+              for (const q of range.getClientRects()) rects.push([t.nodeValue.trim().slice(0, 24), q]);
+            }
+            for (const el of win.querySelectorAll(".pchip,.picktab,.firstrun-fx__pill,.minibar__go,.minibar__chip,.firstrun-fx__search,.firstrun-fx__seg span,.librow__check,.firstrun-fx__card,.firstrun-fx__res,.minibar,.firstrun-fx__dock"))
+              if (shown(el)) rects.push([el.className.split(" ")[0], el.getBoundingClientRect()]);
+            for (const [name, q] of rects) {
+              if (q.height < 2) continue;
+              const crosses = (edge) => q.top < edge - 0.5 && q.bottom > edge + 0.5;
+              if (crosses(W.top) || crosses(W.bottom)) out.push(name);
+            }
+            return out;
+          });
+          if (cut.length) cuts.push({ scene: i, shot: k, at: Math.round(u * 100) / 100, cut: cut.slice(0, 3) });
+        }
+      }
+      await context.close();
+      assert.deepEqual(cuts.slice(0, 4), []);
+    });
+  }
   await check("with no usable platform clock the tabs still play, on their own frame deltas, with finite text", async () => {
     const { context, page, errors } = await landing(browser, { hostileClock: true });
     await scrollToPanel(page);
