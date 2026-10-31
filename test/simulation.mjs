@@ -7100,18 +7100,18 @@ async function main() {
   );
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => typeof window.__repforgeStorage?.flush === "function", { timeout: 10000 });
-  // Owner decision on #295 (landing until onboarding): a retained setup draft
-  // brings the returning landing back, naming the saved route; the chooser
-  // with its resume card is one step from it, never opened by itself.
+  // Owner decision on #295 (landing until onboarding), and 2026-10-31 (the
+  // landing never changes): a retained setup draft brings the same landing back;
+  // the chooser with its resume card is one step from it, never opened by itself.
   await page.waitForSelector("#firstRun:not(.hidden)", { timeout: 10000 });
   const returningLanding = await page.evaluate(() => ({
-    visit: document.querySelector("#firstRun")?.dataset.entryVisit || null,
-    draft: document.querySelector("#firstRun")?.dataset.entryDraft || null,
+    build: document.querySelector("#firstRunCreateLabel")?.dataset.i18n || null,
+    resume: document.querySelector("#firstRunCreate")?.dataset.entryResume ?? null,
     chooser: !!document.querySelector("#onboarding")?.classList.contains("active"),
   }));
   assert(
-    returningLanding.visit === "returning" && !!returningLanding.draft && !returningLanding.chooser,
-    "A retained setup draft returns to the landing, which names the saved route and does not open the chooser by itself",
+    returningLanding.build === "landing.build" && returningLanding.resume === null && !returningLanding.chooser,
+    "A retained setup draft returns to the same landing, which does not open the chooser by itself",
     JSON.stringify(returningLanding),
     "Reload with a setup draft and no program"
   );

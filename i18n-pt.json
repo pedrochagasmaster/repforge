@@ -1180,15 +1180,6 @@
   "landing.shared.body": "Este link traz um treino e seus ajustes. Nenhum histórico vem junto. Nada muda até você tocar em Usar este treino.",
   "landing.shared.invalid_headline": "Este link de treino não pode ser usado.",
   "landing.shared.invalid_body": "Nada do link foi salvo. Você ainda pode montar ou importar um treino.",
-  "landing.returning.headline": "Escolha como você quer treinar.",
-  "landing.returning.sub": "O Taurifer monta um treino para você, ou você acompanha o treino que já faz.",
-  "landing.returning.resume.recommend": "Continuar a escolher seu treino",
-  "landing.returning.resume.custom": "Continuar seu treino personalizado",
-  "landing.returning.resume.browse": "Continuar explorando os treinos Taurifer",
-  "landing.returning.resume.build": "Continuar a montar seu treino",
-  "landing.returning.resume.import": "Continuar a importar seu treino",
-  "landing.returning.resume.shared": "Continuar o treino compartilhado",
-  "landing.returning.resume.generic": "Continuar sua configuração",
   "notify.title": "Taurifer",
   "notify.unfinished.body": "Ainda treinando? Finalize ou salve sua sessão.",
   "notify.rest.body": "O descanso acabou. Comece a próxima série.",
@@ -2856,5 +2847,8 @@
   "settings.rest_longer": "Descanso mais longo",
   "program.editor.step_smaller": "Passo menor",
   "program.editor.step_larger": "Passo maior",
-  "focus.per_side": "por lado"
+  "focus.per_side": "por lado",
+  "boot.failed.title": "O Taurifer não abriu",
+  "boot.failed.body": "Algo impediu o app de carregar. Recarregue para tentar de novo.",
+  "boot.failed.reload": "Recarregar"
 }

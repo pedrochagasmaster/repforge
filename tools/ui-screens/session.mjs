@@ -36,7 +36,9 @@ export function waitForApp(page) {
   return page.waitForFunction(
     () => typeof window.__repforgeStorage?.flush === "function"
       && typeof window.__repforgeUi?.setTheme === "function"
-      && window.__repforgeBooted === true,
+      && window.__repforgeBooted === true
+      // The launch splash fades out after boot; a frame taken during the fade is not the screen.
+      && !document.getElementById("bootSplash"),
     undefined,
     { timeout: 20000 }
   );

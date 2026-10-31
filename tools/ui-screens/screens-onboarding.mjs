@@ -919,35 +919,13 @@ const FEATURE_HOLD = [0, 4.8];
 const FOCUS_PROOF = new Set(["onboarding-start/first-run-proof"]);
 
 /**
- * The landing in its first-visit form. A seeded empty device boots straight into
- * it, and that boot is what marks the device as having seen it: opening it a
- * second time would draw the returning form. So the boot's own landing is the
- * frame, and one is opened only if the boot did not.
+ * The landing. A seeded empty device boots straight into it (it is the same page
+ * on every visit), and one is opened only if the boot did not.
  */
 async function openLanding(page) {
-  const first = '#firstRun:not(.hidden)[data-entry-visit="first"]';
-  if (!(await page.locator(first).count())) await page.evaluate(() => window.openFirstRun());
-  await step("first-visit landing did not open", () => page.waitForSelector(first, { timeout: 20000 }));
-}
-
-/**
- * A return to the same empty device. The first visit has marked the landing
- * seen, so the next boot opens the returning landing; with `draft`, a setup the
- * lifter left half done (Recommend, answered to its last step) is named on it.
- */
-async function returnToLanding(page, { draft = false } = {}) {
-  if (draft) {
-    await recommendTo(page);
-    await step("setup draft was not saved", () => page.waitForFunction((draftKey) => {
-      try { return JSON.parse(localStorage.getItem(draftKey) || "{}").state?.step === "abilities"; }
-      catch { return false; }
-    }, SETUP_DRAFT, { timeout: 25000 }));
-  }
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await waitForApp(page);
-  const mark = draft ? '[data-entry-draft="recommend"]' : ":not([data-entry-draft])";
-  await step("returning landing did not open", () => page.waitForSelector(
-    `#firstRun:not(.hidden)[data-entry-visit="returning"]${mark}`, { timeout: 20000 }));
+  const open = "#firstRun:not(.hidden)";
+  if (!(await page.locator(open).count())) await page.evaluate(() => window.openFirstRun());
+  await step("landing did not open", () => page.waitForSelector(open, { timeout: 20000 }));
 }
 
 async function openLandingQuestion(page) {
@@ -964,8 +942,6 @@ export const ONBOARDING_SCENARIOS = {
   "onboarding-start/first-run-data": openLanding,
   "onboarding-start/first-run-faq-open": openLandingQuestion,
   "onboarding-start/first-run-close": openLanding,
-  "onboarding-start/first-run-returning": (page) => returnToLanding(page),
-  "onboarding-start/first-run-returning-resume": (page) => returnToLanding(page, { draft: true }),
   "onboarding-start/hub": (page) => openHub(page),
   "onboarding-start/hub-existing": (page) => openHub(page, { existing: true }),
   "onboarding-start/hub-guide": async (page) => { await openHub(page); await replayGuide(page, "entry"); },
