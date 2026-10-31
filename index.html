@@ -74,7 +74,7 @@
         if(!root.classList.contains("is-booting"))return;
         if(document.querySelector("dialog[open]")){window.__repforgeBootStall=setTimeout(stalled,BOOT_STALL_MS);return}
         if(typeof window.__repforgeShowBootFailure==="function")window.__repforgeShowBootFailure("stalled");
-        else root.classList.add("is-boot-failed");
+        else{var panel=document.querySelector(".bootsplash__fail");if(panel)panel.setAttribute("role","alert");root.classList.add("is-boot-failed")}
       },BOOT_STALL_MS);
     })();
   </script>
@@ -85,7 +85,7 @@
        content (releaseBootSplash); its failure panel is the boot error state. -->
   <div id="bootSplash" class="bootsplash">
     <img class="bootsplash__mark" src="assets/brand/mark.png" alt="" width="192" height="192" decoding="sync" aria-hidden="true">
-    <div class="bootsplash__fail" role="alert">
+    <div class="bootsplash__fail">
       <p class="bootsplash__title" data-i18n="boot.failed.title">Taurifer didn't start</p>
       <p class="bootsplash__body" data-i18n="boot.failed.body">Something stopped the app from loading. Reload to try again.</p>
       <button type="button" class="btn btn--cta bootsplash__reload" id="bootReload" data-i18n="boot.failed.reload">Reload</button>

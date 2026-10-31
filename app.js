@@ -24116,6 +24116,9 @@ function showBootFailure(reason){
   for(const el of document.querySelectorAll("#bootSplash [data-i18n]")){
     const text=typeof t==="function"?t(el.dataset.i18n):"";
     if(text&&text!==el.dataset.i18n)el.textContent=text}
+  // The panel becomes an alert only now, so its hidden text, translated with the
+  // rest of the page during boot, is never announced.
+  document.querySelector("#bootSplash .bootsplash__fail")?.setAttribute("role","alert");
   root.classList.add("is-boot-failed");
   const reload=document.getElementById("bootReload");
   if(reload){reload.onclick=()=>location.reload();try{reload.focus({preventScroll:true})}catch{}}}

@@ -309,7 +309,8 @@ try {
     assert.equal(seeded.step, "exercise_preferences");
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
-    await page.waitForSelector("#firstRun:not(.hidden) #firstRunCreate[data-entry-resume='custom']", { timeout: 15000 });
+    // The landing is the same page with a saved setup (owner, 2026-10-31); Build reaches the chooser's resume card.
+    await page.waitForSelector("#firstRun:not(.hidden) #firstRunCreate", { timeout: 15000 });
     await page.click("#firstRunCreate");
     await page.waitForSelector("#onboarding.active #entryResumeContinue", { timeout: 15000 });
     assert.equal(await page.locator('[data-entry-hub="custom"]').count(), 0,

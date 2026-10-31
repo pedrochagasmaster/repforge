@@ -67,6 +67,7 @@ function recordFrames() {
       workout: shown(shell),
       view: d.querySelector(".view.active")?.id || null,
       booted: window.__repforgeBooted === true,
+      alert: !!d.querySelector('#bootSplash [role="alert"]'),
     });
     if (frames.length < 3000) requestAnimationFrame(sample);
   }
@@ -162,6 +163,7 @@ function checkSequence(label, frames, expected) {
   assert(firstSurface === expected, `${label}: the first frame past the splash is ${expected}`, `${firstSurface} — ${sequence}`);
   const after = kinds.slice(kinds.indexOf(firstSurface));
   assert(after.every((kind) => kind === expected), `${label}: it stays ${expected} once shown`, sequence);
+  assert(frames.every((frame) => !frame.alert), `${label}: the splash's error panel is never an alert on a boot that succeeds`, sequence);
 }
 
 async function activatedContext(browser, options = {}) {
@@ -287,9 +289,10 @@ try {
     const failure = await page.evaluate(() => {
       const panel = document.querySelector("#bootSplash .bootsplash__fail");
       const reload = document.getElementById("bootReload");
-      return { shown: !!panel && getComputedStyle(panel).display !== "none", text: panel?.innerText || "", reload: !!reload && reload.getBoundingClientRect().height >= 44 };
+      return { shown: !!panel && getComputedStyle(panel).display !== "none", text: panel?.innerText || "", role: panel?.getAttribute("role") || null,
+        reload: !!reload && reload.getBoundingClientRect().height >= 44 };
     });
-    assert(failure.shown && /Reload|Recarregar/.test(failure.text) && failure.reload, "when boot never finishes, the splash becomes the error state with a Reload action", JSON.stringify(failure));
+    assert(failure.shown && failure.role === "alert" && /Reload|Recarregar/.test(failure.text) && failure.reload, "when boot never finishes, the splash becomes the error state with a Reload action", JSON.stringify(failure));
     await context.close();
   }
 } finally {
