@@ -471,6 +471,11 @@ async function focusMotion(browser, { reducedMotion = "no-preference" } = {}) {
       const committedBefore = (() => { const id = document.querySelector(card)?.dataset.ex, ex = window.__repforgeWorkoutDraft.current()?.exercises?.[id];
         return ex ? ex.setOrder.filter((sid) => ex.sets[sid].completion !== "pending").length : 0; })();
       const samples = await window.__fm.sample(`${card} .ledgerline__ring`, 520, () => document.querySelector(`${card} .saveset`).click());
+      // Read what is left only once the travelling outline's own animation has settled (it is removed then), never
+      // at the end of a fixed window: on a loaded runner the spring's last frames outlast it. Bounded, so a stuck one fails.
+      await Promise.race([Promise.all([...document.querySelectorAll(`${card} .ledgerline__ring`)]
+        .flatMap((el) => el.getAnimations().map((animation) => animation.finished.catch(() => {})))), new Promise((r) => setTimeout(r, 2000))]);
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
       const openAfter = document.querySelector(`${card} .ledgerline--open`);
       return { openBefore, committedBefore, committedAfter: (() => { const id = document.querySelector(card)?.dataset.ex, ex = window.__repforgeWorkoutDraft.current()?.exercises?.[id];
         return ex ? ex.setOrder.filter((sid) => ex.sets[sid].completion !== "pending").length : 0; })(),
@@ -511,8 +516,15 @@ async function focusMotion(browser, { reducedMotion = "no-preference" } = {}) {
       await new Promise((r) => requestAnimationFrame(r));
       if (count() === start + 1) { landed = performance.now() - t0; break; }
     }
-    await new Promise((r) => setTimeout(r, 520));
-    return { start, now: count(), landed, ringLeft: document.querySelectorAll(`${card} .ledgerline__ring`).length };
+    // The travelling outline is removed when its own animation settles (travelOutline: animateIndicator(...).then(done)),
+    // so wait for that animation to finish and the frame after it, never a guessed duration: on a loaded runner the
+    // spring's last frames land later than any fixed wait. A bound only turns a stuck outline into a clear failure.
+    const rings = () => [...document.querySelectorAll(`${card} .ledgerline__ring`)];
+    const t1 = performance.now();
+    const finished = Promise.all(rings().flatMap((el) => el.getAnimations().map((animation) => animation.finished.catch(() => {}))));
+    await Promise.race([finished, new Promise((r) => setTimeout(r, 2000))]);
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    return { start, now: count(), landed, ringLeft: rings().length, ringGoneAfter: Math.round(performance.now() - t1) };
   }, CARD);
   assert(queued.now === queued.start + 1 && queued.landed != null && queued.landed < 500,
     "a set logged straight after another commits at once: nothing queues behind the outline", JSON.stringify(queued));
@@ -531,6 +543,11 @@ async function focusMotion(browser, { reducedMotion = "no-preference" } = {}) {
     const openBefore = document.querySelector(`${card} .ledgerline--open`)?.getBoundingClientRect().top ?? null;
     const row1Top = row1.getBoundingClientRect().top;
     const samples = await window.__fm.sample(`${card} .ledgerline__ring`, 520, () => row1.click());
+    // Read what is left only once the travelling outline's own animation has settled (it is removed then), never
+    // at the end of a fixed window: on a loaded runner the spring's last frames outlast it. Bounded, so a stuck one fails.
+    await Promise.race([Promise.all([...document.querySelectorAll(`${card} .ledgerline__ring`)]
+      .flatMap((el) => el.getAnimations().map((animation) => animation.finished.catch(() => {})))), new Promise((r) => setTimeout(r, 2000))]);
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     const open = document.querySelector(`${card} .ledgerline--open`);
     return { openBefore, row1Top, samples, openN: open?.dataset.lrow, current: open?.getAttribute("aria-current"),
       ringAfter: document.querySelectorAll(`${card} .ledgerline__ring`).length };
