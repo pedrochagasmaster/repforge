@@ -6626,8 +6626,8 @@ function restReach(share,c){
 const restLightDash=length=>`0 0 ${Math.max(0,length).toFixed(2)} 99999`;
 function restTabHtml(){
   return `<button type="button" class="resttab" id="restTab" aria-haspopup="dialog" aria-controls="restSheet">`+
-    `<span class="resttab__label"></span><span class="resttab__time"></span>`+
-    `<span class="resttab__chev icon-mask icon-mask--chev-up" aria-hidden="true"></span></button>`+restLightSvg()}
+    `<span class="resttab__label"></span><span class="resttab__end"><span class="resttab__time"></span>`+
+    `<span class="resttab__chev icon-mask icon-mask--chev-up" aria-hidden="true"></span></span></button>`+restLightSvg()}
 /** Put the tab and the edge on the shelf now in Focus, or take them away when there is no rest or no Focus. */
 function syncRestTab(){
   const shelf=workoutActive?focusCard()?.querySelector(".focus-shelf"):null;
@@ -21597,6 +21597,16 @@ function landingDemoHtml(add){
   const lit=side=>`<div class="firstrun-demo__light firstrun-demo__light--${side}"><svg class="firstrun-demo__lit" aria-hidden="true" focusable="false">`+
     `<path class="restlight__bloom restlight__bloom--wide" filter="url(#landingLightWide)"/><path class="restlight__bloom restlight__bloom--near" filter="url(#landingLightNear)"/>`+
     `<path class="restlight__core"/></svg></div>`;
+  // The shelf and its tab as Focus draws them: one shape under one shadow (the filter is on the group, so it shadows the
+  // union), one hairline, and no box beneath (owner, iPhone, 2026-10-31). The tab is three pieces, its two ends and the
+  // run between, so the frame can rise it out of the edge and widen it for "Rest done" by moving them, clipped to above
+  // the edge so a tab still inside the shelf shows nothing.
+  const tabParts=cls=>`<g class="firstrun-demo__rise"><path class="${cls} firstrun-demo__end"/><path class="${cls} firstrun-demo__run"/><path class="${cls} firstrun-demo__end"/></g>`;
+  const contour=`<svg class="firstrun-demo__contour" aria-hidden="true" focusable="false"><defs>`+
+    `<filter id="landingContourShadow" filterUnits="userSpaceOnUse"><feDropShadow class="restlight__shadow" dx="0" dy="-4" stdDeviation="8"/></filter>`+
+    `<clipPath id="landingAboveEdge"><rect/></clipPath><clipPath id="landingAboveHair"><rect/></clipPath></defs>`+
+    `<g filter="url(#landingContourShadow)"><path class="restlight__shape firstrun-demo__base"/><path class="restlight__hair firstrun-demo__base"/>`+
+    `<g clip-path="url(#landingAboveEdge)">${tabParts("restlight__shape")}</g><g clip-path="url(#landingAboveHair)">${tabParts("restlight__hair")}</g></g></svg>`;
   const mark=`<span class="fx-cue__mark" aria-hidden="true">${verdictMarkHtml("up")}</span>`;
   const head1=esc(t("focus.cue.up",{load:"\u0000",unit})).replace("\u0000",`<b class="fx-cue__load">${esc(kg)}</b>`);
   const evidence=evidenceSay("focus.evidence.history",{load:evidenceFig(`${landingNum(load0)} × ${landingNum(reps0)}`),rir:esc(landingNum(rir0))})+" "+
@@ -21623,10 +21633,11 @@ function landingDemoHtml(add){
         line(3,aim,true)+`</div>`+
       `<p class="fx-next firstrun-demo__next"><span>${nextRow}</span></p>`+
     `</div>`+
-    lit("l")+lit("r")+`<svg class="firstrun-demo__bump" aria-hidden="true" focusable="false"><path/></svg>`+
+    // the light along the running tab's contour and along the done tab's (wider: "Rest done +0:05"), then the contour
+    lit("l")+lit("r")+lit("l")+lit("r")+contour+
     `<div class="workshelf focus-shelf firstrun-demo__shelf">`+
-      `<span class="resttab firstrun-demo__tab"><span class="resttab__label"></span><span class="resttab__time"></span>`+
-      `<span class="resttab__chev icon-mask icon-mask--chev-up" aria-hidden="true"></span></span>`+
+      `<span class="resttab firstrun-demo__tab"><span class="resttab__label"></span><span class="resttab__end"><span class="resttab__time"></span>`+
+      `<span class="resttab__chev icon-mask icon-mask--chev-up" aria-hidden="true"></span></span></span>`+
       `<div class="shelf__fields firstrun-demo__fields">${field(load,`${load}, ${unit}`,kg,unit)}${repsField}`+
         `${field(t("stats.table.rir"),t("stats.table.rir"),landingNum(rir0),"")}<span class="firstrun-demo__sel"></span></div>`+
       `<div class="shelf__pads">${pad("−")}${pad("+")}</div>`+
@@ -21646,20 +21657,49 @@ function landingDemoHtml(add){
 function layoutLandingDemo(d){
   const shelf=d.shelf,tab=d.tab;
   if(!shelf.offsetWidth||!tab.offsetWidth)return false;
-  const W=shelf.offsetWidth,T=LANDING_DEMO.rise,top=shelf.offsetTop-T;
+  const W=shelf.offsetWidth,T=LANDING_DEMO.rise,top=shelf.offsetTop-T,CH=T+shelf.offsetHeight,F=REST_FILLET;
   const R=parseFloat(getComputedStyle(shelf).borderTopLeftRadius)||28,RT=parseFloat(getComputedStyle(tab).borderTopLeftRadius)||16;
-  const paths=restContourPaths({W,T,R,RT,F:REST_FILLET,tabLeft:tab.offsetLeft,tabWidth:tab.offsetWidth});
-  const H=T+R+60,place=(el,left,width)=>Object.assign(el.style,{left:`${left}px`,top:`${top}px`,width:`${width}px`,height:`${H}px`});
-  place(d.bump,0,W);d.bump.setAttribute("viewBox",`0 0 ${W} ${H}`);d.bump.querySelector("path").setAttribute("d",paths.bump);
+  // The tab sized to its words in both states it shows: "Rest 2:00" and "Rest done +0:00".
+  const words=[d.label.textContent,d.time.textContent],measure=(label,time)=>{d.label.textContent=label;d.time.textContent=time;return{left:tab.offsetLeft,width:tab.offsetWidth}};
+  const sizes={run:measure(t("rest.inline.label"),"2:00"),done:measure(t("rest.inline.done"),"+0:00")};
+  [d.label.textContent,d.time.textContent]=words;
+  const paths={run:restContourPaths({W,T,R,RT,F,tabLeft:sizes.run.left,tabWidth:sizes.run.width}),
+    done:restContourPaths({W,T,R,RT,F,tabLeft:sizes.done.left,tabWidth:sizes.done.width})};
+  // the contour: the shelf with its hairline, and the tab's ends and run for the running tab
+  const svg=d.contour;
+  Object.assign(svg.style,{left:"0px",top:`${top}px`,width:`${W}px`,height:`${CH}px`});
+  svg.setAttribute("viewBox",`0 0 ${W} ${CH}`);
+  const filter=svg.querySelector("filter");
+  for(const [k,v] of [["x",-80],["y",-80],["width",W+160],["height",CH+160]])filter.setAttribute(k,v);
+  const clips=svg.querySelectorAll("clipPath rect");
+  [[clips[0],T+4],[clips[1],T]].forEach(([rect,to])=>{rect.setAttribute("x",-100);rect.setAttribute("y",-100);rect.setAttribute("width",W+200);rect.setAttribute("height",to+100)});
+  const edge=`M0,${T+R} A${R},${R} 0 0 1 ${R},${T} H${W-R} A${R},${R} 0 0 1 ${W},${T+R}`;
+  const [base,baseHair]=svg.querySelectorAll(".firstrun-demo__base");base.setAttribute("d",`${edge} V${CH} H0 Z`);baseHair.setAttribute("d",edge);
+  const p=paths.run,x0=p.x0,x1=p.x1,a=x0+F+RT,b=x1-F-RT;
+  const shapes={
+    shape:[`M${x0},${T+4} V${T} A${F},${F} 0 0 0 ${x0+F},${T-F} V${RT} A${RT},${RT} 0 0 1 ${a},0 H${a+1} V${T+4} Z`,`M${a},0 H${b} V${T+4} H${a} Z`,
+      `M${b-1},0 H${b} A${RT},${RT} 0 0 1 ${x1-F},${RT} V${T-F} A${F},${F} 0 0 0 ${x1},${T} V${T+4} H${b-1} Z`],
+    hair:[`M${x0},${T} A${F},${F} 0 0 0 ${x0+F},${T-F} V${RT} A${RT},${RT} 0 0 1 ${a},0`,`M${a},0 H${b}`,
+      `M${b},0 A${RT},${RT} 0 0 1 ${x1-F},${RT} V${T-F} A${F},${F} 0 0 0 ${x1},${T}`]};
+  const [fillTab,hairTab]=svg.querySelectorAll(".firstrun-demo__rise");
+  [[fillTab,shapes.shape],[hairTab,shapes.hair]].forEach(([g,ds])=>[...g.children].forEach((el,i)=>el.setAttribute("d",ds[i])));
+  d.rises=[fillTab,hairTab];d.tabParts=[...fillTab.children,...hairTab.children];
+  // "Rest done" widens the tab about its centre: its ends move out by half the growth and the run between stretches.
+  const grow=(sizes.done.width-sizes.run.width)/2;
+  d.widen={grow,cx:p.CX,stretch:(b-a+2*grow)/Math.max(1,b-a)};
   // Each half of the light sits in a window that the clock slides: the left from the left edge to the tab's centre, the
-  // right from the centre to the right edge, each drawn in shelf coordinates inside it.
-  const [left,right]=d.lights,cx=paths.CX;
-  place(left,0,cx+6);place(right,cx-6,W-cx+6);
-  for(const [box,path,x] of [[left,paths.left,0],[right,paths.right,-(cx-6)]]){
-    const svg=box.querySelector("svg");svg.setAttribute("viewBox",`0 0 ${W} ${H}`);
-    Object.assign(svg.style,{left:`${x}px`,width:`${W}px`,height:`${H}px`});
-    svg.querySelectorAll("path").forEach(node=>node.setAttribute("d",path))}
-  d.cx=cx;d.x0=paths.x0;
+  // right from the centre to the right edge, each drawn in shelf coordinates inside it. The window reaches well above
+  // the tab, so the bloom over its top fades out in the open rather than at a window's edge.
+  const H=T+R+60,LIFT=48,place=(el,left,width)=>Object.assign(el.style,{left:`${left}px`,top:`${top-LIFT}px`,width:`${width}px`,height:`${H+LIFT}px`});
+  d.lights={run:d.lightNodes.slice(0,2),done:d.lightNodes.slice(2,4)};
+  for(const state of ["run","done"]){
+    const [left,right]=d.lights[state],q=paths[state],cx=q.CX;
+    place(left,0,cx+6);place(right,cx-6,W-cx+6);
+    for(const [box,path,x] of [[left,q.left,0],[right,q.right,-(cx-6)]]){
+      const lit=box.querySelector("svg");lit.setAttribute("viewBox",`0 0 ${W} ${H}`);
+      Object.assign(lit.style,{left:`${x}px`,top:`${LIFT}px`,width:`${W}px`,height:`${H}px`});
+      lit.querySelectorAll("path").forEach(node=>node.setAttribute("d",path))}}
+  d.cx=paths.run.CX;d.x0=paths.run.x0;
   // Where the finger lands, measured with the wheel sheet in place: the Reps field, the wheel's band, Done and Log set.
   const screen=d.root.getBoundingClientRect(),scale=screen.width/d.root.offsetWidth||1;
   const was=d.wheel.style.transform;d.wheel.style.transform="none";
@@ -21725,8 +21765,8 @@ function renderLandingProof(add){
   landingDemo={root:q(".firstrun-demo"),ev:q(".firstrun-demo__ev"),
     done1:q(".firstrun-demo__done1"),open2:q(".firstrun-demo__open2"),ring:q(".firstrun-demo__ring"),rows:qa(".firstrun-demo__row"),
     fields:q(".firstrun-demo__fields"),log:q(".firstrun-demo__log"),log1:q(".firstrun-demo__log1"),log2:q(".firstrun-demo__log2"),
-    tap:q(".landing-touch"),card:q(".firstrun-demo__card"),shelf:q(".firstrun-demo__shelf"),tab:q(".firstrun-demo__tab"),bump:q(".firstrun-demo__bump"),
-    label:q(".resttab__label"),time:q(".resttab__time"),lights:qa(".firstrun-demo__light"),scrim:q(".firstrun-demo__scrim"),
+    tap:q(".landing-touch"),card:q(".firstrun-demo__card"),shelf:q(".firstrun-demo__shelf"),tab:q(".firstrun-demo__tab"),contour:q(".firstrun-demo__contour"),
+    label:q(".resttab__label"),time:q(".resttab__time"),lightNodes:qa(".firstrun-demo__light"),scrim:q(".firstrun-demo__scrim"),
     sheet:q(".firstrun-demo__sheet"),did:q(".firstrun-demo__did"),history:qa(".firstrun-demo__last"),
     frame:screen.closest(".firstrun-proof__device"),rig:screen.closest(".firstrun-proof__rig"),glass:screen.closest(".firstrun-proof__glass"),
     wheel:q(".firstrun-demo__wheel"),band:q(".firstrun-demo__band"),wdone:q(".firstrun-demo__wdone"),items:qa(".firstrun-demo__wheel .wheel__item"),
@@ -21788,9 +21828,11 @@ function paintLandingDemo(now){
   // the rest tab rises out of the shelf, and the light draws out from it along the edge; at the wrap it sinks back
   const up=seg(D.restAt-.3,D.restAt+.45),lift=(1-Math.min(1.06,1-Math.exp(-7*up)*Math.cos(9*up)))*(D.rise+6);
   const sunk=lift+(D.rise+6-lift)*home;
-  set(d.bump,"transform",`translateY(${f(sunk)}px)`);set(d.tab,"transform",`translateY(${f(sunk)}px)`);
-  // The tab's words sit in the shelf's own layer, so they fade in with the rise rather than hide behind it.
-  set(d.tab,"opacity",f(Math.min(1,up*2)*stay));
+  d.rises.forEach(g=>set(g,"transform",`translateY(${f(sunk)}px)`));set(d.tab,"transform",`translateY(${f(sunk)}px)`);
+  // The tab's words sit in the shelf's own layer, so they fade in with the rise rather than hide behind it; the tab's
+  // shape fades in with them, so the shelf's edge is whole until the tab breaks it.
+  const shown=Math.min(1,up*2)*stay;
+  set(d.tab,"opacity",f(shown));d.rises.forEach(g=>set(g,"opacity",f(shown)));
   let reveal=0,glow=0,label=t("rest.inline.label"),time="2:00",done=false;
   const clock=s=>`${Math.floor(s/60)}:${String(Math.floor(s)%60).padStart(2,"0")}`;
   if(now>=D.restAt){
@@ -21807,10 +21849,18 @@ function paintLandingDemo(now){
       glow=Math.max((ms<140?out(ms/140):Math.pow(Math.max(0,1-(ms-140)/460),2.2))*1.1,ms>300?.2*Math.min(1,(ms-300)/300):0);
       label=t("rest.inline.done");time="+"+clock(now-D.done);done=true}}
   glow*=stay;
-  const [left,right]=d.lights;
-  set(left,"transform",`translateX(${f(reveal)}px)`);set(left.firstChild,"transform",`translateX(${f(-reveal)}px)`);
-  set(right,"transform",`translateX(${f(-reveal)}px)`);set(right.firstChild,"transform",`translateX(${f(reveal)}px)`);
-  set(left,"opacity",f(glow));set(right,"opacity",f(glow));
+  // The light runs along the contour the tab has: the running one, then from the bell the done one (the running light
+  // has drawn back into the clock by then, so the switch is never seen).
+  for(const state of ["run","done"]){
+    const [left,right]=d.lights[state],on=(state==="done")===done;
+    set(left,"transform",`translateX(${f(reveal)}px)`);set(left.firstChild,"transform",`translateX(${f(-reveal)}px)`);
+    set(right,"transform",`translateX(${f(-reveal)}px)`);set(right.firstChild,"transform",`translateX(${f(reveal)}px)`);
+    set(left,"opacity",f(on?glow:0));set(right,"opacity",f(on?glow:0))}
+  // the tab's shape follows its words: wider from the bell on
+  const g=done?d.widen.grow:0,k=done?d.widen.stretch:1,[fl,fr,fm]=[0,2,1];
+  for(const parts of [d.tabParts.slice(0,3),d.tabParts.slice(3)]){
+    set(parts[fl],"transform",`translateX(${f(-g)}px)`);set(parts[fr],"transform",`translateX(${f(g)}px)`);
+    set(parts[fm],"transform",`translateX(${f(d.widen.cx)}px) scaleX(${f(k)}) translateX(${f(-d.widen.cx)}px)`)}
   if(d.label.textContent!==label)d.label.textContent=label;
   if(d.time.textContent!==time)d.time.textContent=time;
   d.tab.classList.toggle("is-done",done);
