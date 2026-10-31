@@ -67,6 +67,10 @@ export function collectCatalogEvidence(config = {}) {
     if (!element) return { ...allowance, missing: true };
     const children = [...element.children].filter(visible).map((child) => rect(child));
     const box = rect(element);
+    // A rail that fades out at its edge (a mask gradient) shows its cue in the fade: a chip reaching into the last
+    // 16px is drawn partly faded. A rail without a fade needs a chip that crosses its edge.
+    const style = getComputedStyle(element);
+    const fade = /gradient/.test(style.maskImage || style.webkitMaskImage || "") ? 16 : 0;
     return {
       ...allowance,
       missing: false,
@@ -78,7 +82,8 @@ export function collectCatalogEvidence(config = {}) {
       marker: element.getAttribute("data-allow-horizontal-scroll"),
       cue: element.getAttribute("data-horizontal-scroll-cue"),
       box,
-      hasPartialChild: children.some((child) => child.left < box.right - 1 && child.right > box.right + 1),
+      fade,
+      hasPartialChild: children.some((child) => child.left < box.right - 1 && child.right > box.right - fade + 1),
     };
   });
   const copyAllowances = (config.renderedCopyAllowances || []).map((allowance) => {

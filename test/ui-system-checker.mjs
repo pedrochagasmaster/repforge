@@ -888,6 +888,9 @@ try {
       <button id="uiRequiredSelectedMark" aria-pressed="true" style="position:relative;display:block;width:60px;height:32px;border:2px solid #111;background:#fff;color:#111">
         <span>Selected with required boundary</span>
       </button>
+      <button id="uiSelectedDotGood" aria-pressed="true" style="position:relative;display:block;width:60px;height:44px;border:2px solid #111;background:#fff;color:#111">Dot</button>
+      <button id="uiSelectedDotBad" aria-pressed="true" style="position:relative;display:block;width:60px;height:44px;border:2px solid #111;background:#fff;color:#111">Dot</button>
+      <button id="uiSelectedSurface" aria-pressed="true" style="position:relative;isolation:isolate;display:block;width:80px;height:44px;border:0;background:none;color:#111">Pill</button>
       <button id="uiPseudoGood" role="checkbox" aria-checked="false" style="display:block;width:44px;height:32px;border:0;background:transparent"></button>
       <button id="uiPseudoBad" role="checkbox" aria-checked="false" style="display:block;width:44px;height:32px;border:0;background:transparent"></button>
       <style>
@@ -895,12 +898,19 @@ try {
         #uiPseudoGood::before,#uiPseudoBad::before{content:"";display:inline-block;width:16px;height:16px;border-radius:50%}
         #uiPseudoGood::before{border:2px solid #6e6a63}
         #uiPseudoBad::before{border:2px solid #ddd}
+        #uiSelectedDotGood::before,#uiSelectedDotBad::before{content:"";position:absolute;right:4px;top:4px;width:8px;height:8px;border-radius:50%}
+        #uiSelectedDotGood::before{background:#111}
+        #uiSelectedDotBad::before{background:#f1f1f1}
+        #uiSelectedSurface::before{content:"";position:absolute;inset:4px;z-index:-1;border:1px solid #111;border-radius:999px;background:#f3f2ef}
       </style>
     </div>`));
   const contextualRoles = await opened.page.evaluate(measureRenderedRoles, { components: [
     { selector: ".radio-card", roles: { control: "selection", boundary: "required" } },
     { selector: "#uiSelectedMark", roles: { control: "selection" } },
     { selector: "#uiRequiredSelectedMark", roles: { control: "selection", boundary: "required" } },
+    { selector: "#uiSelectedDotGood", roles: { control: "selection", boundary: "required" } },
+    { selector: "#uiSelectedDotBad", roles: { control: "selection", boundary: "required" } },
+    { selector: "#uiSelectedSurface", roles: { control: "selection", boundary: "required" } },
     { selector: "#uiPseudoGood", roles: { control: "selection", boundary: "required" } },
     { selector: "#uiPseudoBad", roles: { control: "selection", boundary: "required" } },
   ] });
@@ -918,6 +928,16 @@ try {
     "selected state measures its visible stripe rather than its quiet background wash");
   assert.equal(contextualRoles.find((item) => item.kind === "state-mark" && item.selector.includes("uiRequiredSelectedMark"))?.status, "pass",
     "a required control boundary does not suppress selected state-mark contrast");
+  // A surface-sized pseudo-element (the filter chip's drawn pill) is the control's surface, measured by its boundary;
+  // a small one is a state mark and is still measured, so a faint dot or tick cannot pass as a surface.
+  assert.equal(contextualRoles.find((item) => item.kind === "state-mark" && item.selector.includes("uiSelectedDotGood"))?.status, "pass",
+    `a small selected dot is measured as a state mark: ${JSON.stringify(contextualRoles)}`);
+  assert.equal(contextualRoles.find((item) => item.kind === "state-mark" && item.selector.includes("uiSelectedDotBad"))?.status, "fail",
+    `a faint small selected dot is still a deliberate state-mark failure: ${JSON.stringify(contextualRoles)}`);
+  assert.ok(!contextualRoles.some((item) => item.kind === "state-mark" && item.selector.includes("uiSelectedSurface")),
+    `a pseudo-element covering the control is its surface, not a state mark: ${JSON.stringify(contextualRoles)}`);
+  assert.equal(contextualRoles.find((item) => item.kind === "boundary" && item.selector.includes("uiSelectedSurface"))?.status, "pass",
+    `the surface pseudo-element's boundary is what is measured: ${JSON.stringify(contextualRoles)}`);
   await opened.page.evaluate(() => document.querySelector("#uiSystemFaults")?.remove());
   // A heading is read whole (R7 V-05): a line clamp that cuts one short fails the audit; one that only reserves room does not.
   await opened.page.evaluate(() => document.body.insertAdjacentHTML("beforeend", `

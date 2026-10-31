@@ -214,6 +214,7 @@ export const FULL_SUITES = {
     s("test/program-text-export.mjs", [], { seconds: 4 }),
     s("test/exercise-picker.mjs", [], { domains: ["program", "library", "workout"], seconds: 19 }),
     s("test/library-flow.mjs", [], { seconds: 29 }),
+    s("test/library-picker-spacing.mjs", [], { domains: ["library"], seconds: 20 }),
     s("test/custom-delete-editor-race.mjs", [], { domains: ["program", "library"], seconds: 34 }),
     s("test/performed-attribution.mjs", [], { domains: ["workout", "history", "progress"], seconds: 12 }),
     s("test/import-matching.mjs", [], { domains: ["entry", "program", "library"], seconds: 2 }),
