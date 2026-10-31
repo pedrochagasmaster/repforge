@@ -477,9 +477,14 @@ export async function measureRenderedRoles(input) {
       }
       if (!disabled && selected && item.roles?.boundary === "state-cues") results.push(stateCues(node, item));
       else if (!disabled && (selected || invalid) && !node.matches(".toggle")) {
+        // A state mark is an indicator inside the control (a dot, a tick, a bar). A pseudo-element that covers most of
+        // the control is the control's own drawn surface (the filter chip's pill, styles.css .pchip::before): its
+        // selected cue is its boundary, measured above as the pseudo boundary, not its fill.
+        const nodeBox = node.getBoundingClientRect();
         const marker = ["::before", "::after"].find((pseudo) => {
           const style = getComputedStyle(node, pseudo), fill = color(style.backgroundColor);
-          return style.content !== "none" && style.display !== "none" && (fill?.[3] || 0) > 0;
+          const surface = parseFloat(style.width) * parseFloat(style.height) >= 0.6 * nodeBox.width * nodeBox.height;
+          return style.content !== "none" && style.display !== "none" && (fill?.[3] || 0) > 0 && !surface;
         });
         const group = selected && node.closest(".native-segments[role=radiogroup]");
         if (group) {
