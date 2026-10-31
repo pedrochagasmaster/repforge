@@ -51,6 +51,9 @@ function recordFrames() {
     const splash = d.getElementById("bootSplash");
     const splashStyle = splash ? getComputedStyle(splash) : null;
     const covering = !!splash && splashStyle.display !== "none" && parseFloat(splashStyle.opacity) >= 0.99;
+    const mark = splash?.querySelector(".bootsplash__mark");
+    const markStyle = mark ? getComputedStyle(mark) : null;
+    const firstRun = d.getElementById("firstRun");
     const log = d.getElementById("log");
     const session = d.getElementById("todaySession");
     const shell = d.getElementById("workoutShell");
@@ -59,6 +62,9 @@ function recordFrames() {
       body: !!d.body,
       covering,
       splash: !!splash,
+      splashOpacity: splashStyle ? +parseFloat(splashStyle.opacity).toFixed(3) : 0,
+      markShown: !!markStyle && markStyle.display !== "none" && parseFloat(markStyle.opacity) > 0.01,
+      landingOpacity: firstRun ? +parseFloat(getComputedStyle(firstRun).opacity).toFixed(3) : 0,
       failed: root.classList.contains("is-boot-failed"),
       landing: shown(d.getElementById("firstRun")),
       today: !!log && log.classList.contains("active") && shown(log) && !shown(shell),
@@ -164,6 +170,15 @@ function checkSequence(label, frames, expected) {
   const after = kinds.slice(kinds.indexOf(firstSurface));
   assert(after.every((kind) => kind === expected), `${label}: it stays ${expected} once shown`, sequence);
   assert(frames.every((frame) => !frame.alert), `${label}: the splash's error panel is never an alert on a boot that succeeds`, sequence);
+  // The cover may only be translucent once its mark has gone: the mark is never seen over content.
+  const ghosted = frames.filter((frame) => frame.splash && frame.splashOpacity < 0.99 && frame.markShown);
+  assert(ghosted.length === 0, `${label}: no frame shows the splash mark over painted content`, JSON.stringify(ghosted.slice(0, 3)));
+  if (expected === "landing") {
+    const first = frames.find((frame) => classify(frame) === "landing");
+    assert(!!first && !first.splash && first.landingOpacity === 1, `${label}: the first frame with content is the whole landing at full opacity, with no cover left`, JSON.stringify(first));
+    assert(frames.every((frame) => !frame.splash || frame.splashOpacity >= 0.99), `${label}: a landing boot never fades a cover over the landing`, sequence);
+    assert(frames.every((frame) => !frame.splash || !frame.markShown), `${label}: a landing boot never shows the launch mark`, sequence);
+  }
 }
 
 async function activatedContext(browser, options = {}) {

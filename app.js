@@ -24194,14 +24194,17 @@ function releaseBootSplash(){
   bootSplashState="released";
   const root=document.documentElement,splash=document.getElementById("bootSplash");
   clearTimeout(window.__repforgeBootStall);
-  root.dataset.bootSurface=firstRunOpen()?"landing":"app";
+  const landing=firstRunOpen();
+  root.dataset.bootSurface=landing?"landing":"app";
   root.classList.remove("is-booting");
   if(!splash)return;
   const remove=()=>splash.remove();
-  if(matchMedia("(prefers-reduced-motion: reduce)").matches){remove();return}
+  // The landing is whole the moment it is drawn, so its plain cover just goes.
+  if(landing||matchMedia("(prefers-reduced-motion: reduce)").matches){remove();return}
+  // Onto the app: the mark fades first, then the cover (styles.css, .bootsplash.is-leaving).
   splash.classList.add("is-leaving");
-  splash.addEventListener("transitionend",remove,{once:true});
-  setTimeout(remove,400)}
+  splash.addEventListener("transitionend",event=>{if(event.target===splash)remove()});
+  setTimeout(remove,600)}
 function showBootFailure(reason){
   if(bootSplashState==="released")return;
   bootSplashState="failed";

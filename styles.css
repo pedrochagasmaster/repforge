@@ -540,10 +540,13 @@ html{
 }
 html,body{overscroll-behavior:none}
 /* The launch splash (index.html, #bootSplash). It is drawn from the first frame and covers everything until app.js has
-   drawn the surface this load lands on, then fades in 200ms (removed at once under reduced motion). The mark sits
-   where the iOS launch images put it, 39vw wide (the yoke itself about 32%) and centred at 47.5% of the height, on
-   the same ground, so the native launch image hands over without a jump. The stacking is above the page's own layers
-   and below the top layer, so a boot dialog (storage recovery, the exercise catalog) still shows over it. */
+   drawn the surface this load lands on. The mark sits where the iOS launch images put it, 39vw wide (the yoke itself
+   about 32%) and centred at 47.5% of the height, on the same ground, so the native launch image hands over without a
+   jump. Leaving onto the app, the mark goes first (120ms, easing down to 94%) and only then does the cover dissolve
+   (160ms) onto the Today already drawn under it, so the mark is never seen over content; under reduced motion it is
+   removed at once. A landing boot (data-boot="landing") needs no launch look: the cover is the landing hero's own night
+   ground with no mark, and it is removed at once, so the first frame with content is the whole landing. The stacking
+   is above the page's own layers and below the top layer, so a boot dialog still shows over it. */
 .bootsplash{position:fixed;inset:0;z-index:2147483000;background:var(--bg);pointer-events:auto}
 .bootsplash__mark{position:absolute;left:50%;top:47.5%;width:39vw;max-width:420px;height:auto;transform:translate(-50%,-50%);user-select:none;-webkit-user-select:none}
 .bootsplash__fail{display:none}
@@ -554,8 +557,16 @@ html.is-boot-failed .bootsplash__fail{
 .bootsplash__title{margin:0;font-size:var(--font-size-section-title);font-weight:var(--weight-semibold);line-height:var(--line-standard)}
 .bootsplash__body{margin:0;max-width:30ch;font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 .bootsplash__reload{margin-top:var(--space-8);min-width:160px}
+html[data-boot="landing"] .bootsplash{background:var(--band-night-bg)}
+html[data-boot="landing"] .bootsplash__mark{display:none}
+html.is-boot-failed .bootsplash{background:var(--bg)}
+html.is-boot-failed .bootsplash__mark{display:block}
 .bootsplash.is-leaving{opacity:0;pointer-events:none}
-@media (prefers-reduced-motion:no-preference){.bootsplash.is-leaving{transition:opacity .2s ease}}
+.bootsplash.is-leaving .bootsplash__mark{opacity:0;transform:translate(-50%,-50%) scale(.94)}
+@media (prefers-reduced-motion:no-preference){
+  .bootsplash.is-leaving{transition:opacity .16s ease .12s}
+  .bootsplash.is-leaving .bootsplash__mark{transition:opacity .12s ease,transform .12s ease}
+}
 
 button,input,select,textarea,label,summary,a,[role=button]{touch-action:manipulation}
 /* Only controls suppress long-press selection/callouts; links in prose remain copyable. */
