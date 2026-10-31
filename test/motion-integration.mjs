@@ -1369,10 +1369,24 @@ async function progressMotion(browser, { reducedMotion = "no-preference" } = {})
       return { ghost: !!ghost, ghostOp: ghost ? +getComputedStyle(ghost).opacity : null, newOp: +getComputedStyle(svg).opacity, y: +sel.getAttribute("cy"), x: +sel.getAttribute("cx"),
         n: svg.querySelectorAll(".ex-pt").length };
     };
+    // The crossfade, read off its own animations at their start, middle and end (paused, seeked, then put back where
+    // they were), so a runner that drops frames still sees it whole.
+    let fade = null;
+    const probe = () => {
+      const ghost = document.querySelector(".exchart__ghost"), svg = document.querySelector(".exchart__svg");
+      const anims = ghost ? [...ghost.getAnimations(), ...svg.getAnimations()] : [];
+      if (fade || anims.length < 2) return;
+      const at = anims.map((a) => [a, a.currentTime, a.playState]);
+      fade = [0, 0.5, 0.98].map((u) => {
+        for (const [a] of at) { a.pause(); a.currentTime = a.effect.getComputedTiming().activeDuration * u; }
+        return [+getComputedStyle(svg).opacity, +getComputedStyle(ghost).opacity];
+      });
+      for (const [a, t, state] of at) { a.currentTime = t; if (state === "running") a.play(); }
+    };
     const before = { ...read(), fig: document.querySelector(".exchart__figs div b").textContent };
     let table = null;
-    const frames = await window.__pm.frames(read, 400, () => { document.querySelector('#exDetail [data-metric="e1rm"]').click(); table = document.querySelector(".exchart__figs div b").textContent; });
-    return { before, frames, table, liveGhosts: document.querySelectorAll(".exchart__ghost").length, ticksInGhost: document.querySelectorAll(".exchart__svg .ex-tick").length };
+    const frames = await window.__pm.frames(() => { probe(); return read(); }, 400, () => { document.querySelector('#exDetail [data-metric="e1rm"]').click(); table = document.querySelector(".exchart__figs div b").textContent; });
+    return { before, frames, fade, table, liveGhosts: document.querySelectorAll(".exchart__ghost").length, ticksInGhost: document.querySelectorAll(".exchart__svg .ex-tick").length };
   });
   assert(metric.table && metric.table !== metric.before.fig, "the figures change at once", JSON.stringify({ now: metric.table, before: metric.before.fig }));
   const ys = metric.frames.map((f) => f.v.y);
@@ -1381,9 +1395,9 @@ async function progressMotion(browser, { reducedMotion = "no-preference" } = {})
   if (reduced) {
     assert(metric.frames.every((f) => !f.v.ghost && f.v.newOp === 1), "under reduced motion the new metric replaces the old on the first frame");
   } else {
-    const both = metric.frames.filter((f) => f.v.ghost);
-    assert(both.length > 3 && both[0].v.newOp < 0.5 && both[0].v.ghostOp > 0.5 && both.at(-1).v.newOp > 0.5 && both.at(-1).v.ghostOp < 0.5,
-      "the old drawing fades out as the new one fades in", JSON.stringify(both.filter((_, i) => i % 3 === 0).map((f) => [f.v.newOp, f.v.ghostOp])));
+    const [start, middle, end] = metric.fade || [];
+    assert(start && start[0] < 0.2 && start[1] > 0.8 && middle[0] > start[0] && middle[1] < start[1] && end[0] > 0.8 && end[1] < 0.2,
+      "the old drawing fades out as the new one fades in", JSON.stringify(metric.fade));
     const last = metric.frames.at(-1).v;
     assert(!last.ghost && last.newOp === 1 && metric.liveGhosts === 0, "afterwards only the new drawing is left, at full strength", JSON.stringify(last));
   }
@@ -2425,6 +2439,15 @@ async function run() {
     await edgeBack(browser, { reducedMotion: "reduce" });
     await browser.close();
     console.log(`\nmotion integration (pages): ${results.passed} passed, ${results.failed} failed`);
+    process.exit(results.failed ? 1 : 0);
+  }
+
+  // REPFORGE_MOTION_ONLY=progress runs only the Progress chart sections: the crossfade and travel proofs.
+  if (process.env.REPFORGE_MOTION_ONLY === "progress") {
+    await progressMotion(browser);
+    await progressMotion(browser, { reducedMotion: "reduce" });
+    await browser.close();
+    console.log(`\nmotion integration (progress): ${results.passed} passed, ${results.failed} failed`);
     process.exit(results.failed ? 1 : 0);
   }
 
