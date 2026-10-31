@@ -1973,13 +1973,16 @@ body.is-sheet-open{overflow:hidden}
 #library #libClose{min-height:var(--control-target);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-action-text)}
 #library #libCustom{min-height:var(--control-target);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-action-text)}
 #library #libCustom:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-.libstep{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:12px 0 18px}
+.libstep{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-8);margin:var(--space-12) 0 var(--space-16)}
 .libstep__lab{grid-column:1/-1;margin:0;font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);letter-spacing:.06em;line-height:var(--line-standard);text-transform:uppercase;color:var(--color-ink-secondary)}
 .libstep__bar{height:3px;border-radius:var(--radius-compact);background:var(--boundary-required)}
 .libstep__bar.is-done{background:var(--color-action)}
 #libSearch{margin:0 0 12px}
-#libFilters{display:block;overflow:visible;margin:0;padding:0}
-.pick__filters--row{margin:10px -16px 0;padding:0 16px 2px}
+/* The rails sit a step below the tabs' hairline; their chips draw 4px inside their own 44px targets, so the rows stack
+   with no gap and still show 8px between pills. */
+#libFilters{display:block;overflow:visible;margin:var(--space-8) 0 0;padding:0}
+.pick__filters--row{margin:0 -16px;padding:0 12px}
+.picktabs+.pick__filters--row{margin-top:var(--space-8)}
 .pick__list--page{max-height:none;overflow:visible;margin:12px -16px 0;padding:0 16px}
 
 .librow{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--boundary-decorative)}
@@ -2127,30 +2130,45 @@ body.is-sheet-open{overflow:hidden}
 .pick__search::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
 /* The filter row scrolls sideways rather than wrapping to three lines and
    eating the list it is meant to narrow. */
+/* Chips abut: each one draws its pill 4px inside a full 44px target (.pchip below), so the pills stand 8px apart with no
+   dead strip between targets. The rail's padding is the gutter less that 4px, so the first pill lines up with the
+   content edge; a chip scrolled under either edge fades out over 16px instead of being cut. */
 .pick__filters{
-  display:flex;gap:9px;overflow-x:auto;scrollbar-width:none;
-  margin:0 -16px;padding:0 16px 2px;overscroll-behavior:contain;}
+  display:flex;gap:0;overflow-x:auto;scrollbar-width:none;
+  margin:0 -16px;padding:0 12px;overscroll-behavior:contain;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 var(--space-16),#000 calc(100% - var(--space-16)),transparent);
+  mask-image:linear-gradient(90deg,transparent,#000 var(--space-16),#000 calc(100% - var(--space-16)),transparent)}
 .pick__filters::-webkit-scrollbar{display:none}
 /* The swap sheet's optional reason: chips at the head of the scrolling list, none chosen by default. */
 .pick__reasons{display:flex;flex-direction:column;gap:var(--space-8);padding:var(--space-4) 0 var(--space-12)}
 .pick__reasons-label{margin:0;font-family:var(--font-language);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
-.pick__reasons-chips{display:flex;flex-wrap:wrap;gap:9px}
+.pick__reasons-chips{display:flex;flex-wrap:wrap;gap:0;margin-inline:calc(-1 * var(--space-4))}
+/* A filter chip is a full 44px target with its pill drawn 4px inside it, so neighbouring pills keep 8px between them
+   while their targets touch. The label is centred by the flex box at line-height 1, not by padding around a line box:
+   Plex's ascent and descent differ between platforms, and padding around a 1.4 line box put the label off centre on
+   iOS. State paints the pill through the --pchip-* properties. */
 .pchip{
-  flex:none;min-height:var(--control-target);padding:7px 13px;border:1px solid var(--control-selection-boundary);border-radius:var(--radius-pill);
-  background:var(--control-selection-bg);color:var(--control-selection-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
+  --pchip-bg:var(--control-selection-bg);--pchip-boundary:var(--control-selection-boundary);--pchip-shadow:none;
+  position:relative;isolation:isolate;flex:none;display:inline-flex;align-items:center;justify-content:center;
+  min-height:var(--control-target);padding:var(--space-12) calc(var(--space-4) + var(--space-12));border:0;border-radius:var(--radius-pill);
+  background:none;color:var(--control-selection-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:1;
   cursor:pointer;white-space:nowrap;
 }
-@media (hover: hover) and (pointer: fine){
-.pchip:hover:not(:disabled){background:var(--well);border-color:var(--control-selection-boundary);color:var(--control-selection-ink)}
+.pchip::before{
+  content:"";position:absolute;inset:var(--space-4);z-index:-1;border:1px solid var(--pchip-boundary);border-radius:var(--radius-pill);
+  background:var(--pchip-bg);box-shadow:var(--pchip-shadow);
 }
-.pchip.is-pressed:not(:disabled){background:var(--row-pressed-bg);border-color:var(--control-selection-boundary);color:var(--control-selection-ink);transform:var(--control-pressed-transform)}
-.pchip:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-.pchip.is-active{background:var(--control-selection-active-bg);border-color:var(--control-selected-boundary);color:var(--control-selection-ink);box-shadow:var(--elevation-selected-shadow)}
 @media (hover: hover) and (pointer: fine){
-.pchip.is-active:hover:not(:disabled){background:var(--control-selection-active-bg);border-color:var(--control-selected-boundary);color:var(--control-selection-ink)}
+.pchip:hover:not(:disabled){--pchip-bg:var(--well);--pchip-boundary:var(--control-selection-boundary);color:var(--control-selection-ink)}
 }
-.pchip.is-active.is-pressed:not(:disabled){background:var(--control-selection-active-bg);border-color:var(--control-selected-boundary);color:var(--control-selection-ink)}
-.pchip:disabled{background:var(--control-selection-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none;box-shadow:none}
+.pchip.is-pressed:not(:disabled){--pchip-bg:var(--row-pressed-bg);--pchip-boundary:var(--control-selection-boundary);color:var(--control-selection-ink);transform:var(--control-pressed-transform)}
+.pchip:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
+.pchip.is-active{--pchip-bg:var(--control-selection-active-bg);--pchip-boundary:var(--control-selected-boundary);--pchip-shadow:var(--elevation-selected-shadow);color:var(--control-selection-ink)}
+@media (hover: hover) and (pointer: fine){
+.pchip.is-active:hover:not(:disabled){--pchip-bg:var(--control-selection-active-bg);--pchip-boundary:var(--control-selected-boundary);color:var(--control-selection-ink)}
+}
+.pchip.is-active.is-pressed:not(:disabled){--pchip-bg:var(--control-selection-active-bg);--pchip-boundary:var(--control-selected-boundary);color:var(--control-selection-ink)}
+.pchip:disabled{--pchip-bg:var(--control-selection-bg);--pchip-boundary:var(--boundary-decorative);--pchip-shadow:none;color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 /* Artwork tiles. The empty variant is the same box with nothing in it — no
    glyph, no initials, no shimmer — so illustrated and plain rows line up and a
    missing illustration never looks like a failure. */
@@ -2228,7 +2246,7 @@ body.is-sheet-open{overflow:hidden}
 .custom__lab{margin:16px 0 8px;font-size:var(--font-size-caption);font-weight:600;color:var(--ink-soft)}
 /* Tagging muscles means reading all nineteen, not swiping a rail to find
    Calves. The form scrolls vertically, so these wrap instead. */
-.custom__form .pick__filters{flex-wrap:wrap;overflow:visible;margin:0;padding:0}
+.custom__form .pick__filters{flex-wrap:wrap;overflow:visible;margin:0 calc(-1 * var(--space-4));padding:0;-webkit-mask-image:none;mask-image:none}
 .custom__delete{margin-top:22px;width:100%;color:var(--danger)}
 .custom__note{margin-top:16px;font-size:var(--font-size-body-small);color:var(--ink-faint)}
 .custom__recovery{border-top:1px solid var(--rule);padding:16px 18px 8px}
@@ -8513,12 +8531,12 @@ body.is-entry-editor #entryProgramName,
 #library .picktab.is-active.is-pressed:not(:disabled){border-bottom-color:var(--boundary-selected-quiet)}
 @media (hover: hover) and (pointer: fine){
 :is(#library,#exPickSheet,#exCustomSheet) .pchip.is-active:hover:not(:disabled){
-  background:var(--well);border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow)
+  --pchip-bg:var(--well);--pchip-boundary:var(--boundary-selected-quiet);--pchip-shadow:var(--elevation-selected-quiet-shadow)
 }
 }
 :is(#library,#exPickSheet,#exCustomSheet) .pchip.is-active,
 :is(#library,#exPickSheet,#exCustomSheet) .pchip.is-active.is-pressed:not(:disabled){
-  background:var(--row-pressed-bg);border-color:var(--boundary-selected-quiet);box-shadow:var(--elevation-selected-quiet-shadow)
+  --pchip-bg:var(--row-pressed-bg);--pchip-boundary:var(--boundary-selected-quiet);--pchip-shadow:var(--elevation-selected-quiet-shadow)
 }
 #library .librow__check{position:relative}
 @media (hover: hover) and (pointer: fine){
@@ -8538,6 +8556,9 @@ body.is-entry-editor #entryProgramName,
 #library .librow__meta,.pickrow__meta{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
 /* The filter rails bleed to the screen edge too, so their two wrappers carry the gutter the same way. */
 #libBrowse,#libFilters{margin-inline:calc(-1 * var(--gut));padding-inline:var(--gut)}
+/* The library page sits two gutters in (the main column's and its own), so its rails reach back by both to meet the
+   screen edge, where they fade, and pad by both less the chip's 4px so the first pill lines up with the search field. */
+#libFilters .pick__filters--row{margin-inline:calc(-2 * var(--gut));padding-inline:calc(2 * var(--gut) - var(--space-4))}
 /* The illustration field bleeds to the screen edge. Its box carries the gutter, so the bleed stays inside it. */
 #exercise,#exDetail{
   margin-left:calc(-1 * max(16px,env(safe-area-inset-left)));margin-right:calc(-1 * max(16px,env(safe-area-inset-right)));
