@@ -6626,8 +6626,8 @@ function restReach(share,c){
 const restLightDash=length=>`0 0 ${Math.max(0,length).toFixed(2)} 99999`;
 function restTabHtml(){
   return `<button type="button" class="resttab" id="restTab" aria-haspopup="dialog" aria-controls="restSheet">`+
-    `<span class="resttab__label"></span><span class="resttab__time"></span>`+
-    `<span class="resttab__chev icon-mask icon-mask--chev-up" aria-hidden="true"></span></button>`+restLightSvg()}
+    `<span class="resttab__label"></span><span class="resttab__end"><span class="resttab__time"></span>`+
+    `<span class="resttab__chev icon-mask icon-mask--chev-up" aria-hidden="true"></span></span></button>`+restLightSvg()}
 /** Put the tab and the edge on the shelf now in Focus, or take them away when there is no rest or no Focus. */
 function syncRestTab(){
   const shelf=workoutActive?focusCard()?.querySelector(".focus-shelf"):null;
@@ -21597,6 +21597,16 @@ function landingDemoHtml(add){
   const lit=side=>`<div class="firstrun-demo__light firstrun-demo__light--${side}"><svg class="firstrun-demo__lit" aria-hidden="true" focusable="false">`+
     `<path class="restlight__bloom restlight__bloom--wide" filter="url(#landingLightWide)"/><path class="restlight__bloom restlight__bloom--near" filter="url(#landingLightNear)"/>`+
     `<path class="restlight__core"/></svg></div>`;
+  // The shelf and its tab as Focus draws them: one shape under one shadow (the filter is on the group, so it shadows the
+  // union), one hairline, and no box beneath (owner, iPhone, 2026-10-31). The tab is three pieces, its two ends and the
+  // run between, so the frame can rise it out of the edge and widen it for "Rest done" by moving them, clipped to above
+  // the edge so a tab still inside the shelf shows nothing.
+  const tabParts=cls=>`<g class="firstrun-demo__rise"><path class="${cls} firstrun-demo__end"/><path class="${cls} firstrun-demo__run"/><path class="${cls} firstrun-demo__end"/></g>`;
+  const contour=`<svg class="firstrun-demo__contour" aria-hidden="true" focusable="false"><defs>`+
+    `<filter id="landingContourShadow" filterUnits="userSpaceOnUse"><feDropShadow class="restlight__shadow" dx="0" dy="-4" stdDeviation="8"/></filter>`+
+    `<clipPath id="landingAboveEdge"><rect/></clipPath><clipPath id="landingAboveHair"><rect/></clipPath></defs>`+
+    `<g filter="url(#landingContourShadow)"><path class="restlight__shape firstrun-demo__base"/><path class="restlight__hair firstrun-demo__base"/>`+
+    `<g clip-path="url(#landingAboveEdge)">${tabParts("restlight__shape")}</g><g clip-path="url(#landingAboveHair)">${tabParts("restlight__hair")}</g></g></svg>`;
   const mark=`<span class="fx-cue__mark" aria-hidden="true">${verdictMarkHtml("up")}</span>`;
   const head1=esc(t("focus.cue.up",{load:"\u0000",unit})).replace("\u0000",`<b class="fx-cue__load">${esc(kg)}</b>`);
   const evidence=evidenceSay("focus.evidence.history",{load:evidenceFig(`${landingNum(load0)} × ${landingNum(reps0)}`),rir:esc(landingNum(rir0))})+" "+
@@ -21623,10 +21633,11 @@ function landingDemoHtml(add){
         line(3,aim,true)+`</div>`+
       `<p class="fx-next firstrun-demo__next"><span>${nextRow}</span></p>`+
     `</div>`+
-    lit("l")+lit("r")+`<svg class="firstrun-demo__bump" aria-hidden="true" focusable="false"><path/></svg>`+
+    // the light along the running tab's contour and along the done tab's (wider: "Rest done +0:05"), then the contour
+    lit("l")+lit("r")+lit("l")+lit("r")+contour+
     `<div class="workshelf focus-shelf firstrun-demo__shelf">`+
-      `<span class="resttab firstrun-demo__tab"><span class="resttab__label"></span><span class="resttab__time"></span>`+
-      `<span class="resttab__chev icon-mask icon-mask--chev-up" aria-hidden="true"></span></span>`+
+      `<span class="resttab firstrun-demo__tab"><span class="resttab__label"></span><span class="resttab__end"><span class="resttab__time"></span>`+
+      `<span class="resttab__chev icon-mask icon-mask--chev-up" aria-hidden="true"></span></span></span>`+
       `<div class="shelf__fields firstrun-demo__fields">${field(load,`${load}, ${unit}`,kg,unit)}${repsField}`+
         `${field(t("stats.table.rir"),t("stats.table.rir"),landingNum(rir0),"")}<span class="firstrun-demo__sel"></span></div>`+
       `<div class="shelf__pads">${pad("−")}${pad("+")}</div>`+
@@ -21646,20 +21657,49 @@ function landingDemoHtml(add){
 function layoutLandingDemo(d){
   const shelf=d.shelf,tab=d.tab;
   if(!shelf.offsetWidth||!tab.offsetWidth)return false;
-  const W=shelf.offsetWidth,T=LANDING_DEMO.rise,top=shelf.offsetTop-T;
+  const W=shelf.offsetWidth,T=LANDING_DEMO.rise,top=shelf.offsetTop-T,CH=T+shelf.offsetHeight,F=REST_FILLET;
   const R=parseFloat(getComputedStyle(shelf).borderTopLeftRadius)||28,RT=parseFloat(getComputedStyle(tab).borderTopLeftRadius)||16;
-  const paths=restContourPaths({W,T,R,RT,F:REST_FILLET,tabLeft:tab.offsetLeft,tabWidth:tab.offsetWidth});
-  const H=T+R+60,place=(el,left,width)=>Object.assign(el.style,{left:`${left}px`,top:`${top}px`,width:`${width}px`,height:`${H}px`});
-  place(d.bump,0,W);d.bump.setAttribute("viewBox",`0 0 ${W} ${H}`);d.bump.querySelector("path").setAttribute("d",paths.bump);
+  // The tab sized to its words in both states it shows: "Rest 2:00" and "Rest done +0:00".
+  const words=[d.label.textContent,d.time.textContent],measure=(label,time)=>{d.label.textContent=label;d.time.textContent=time;return{left:tab.offsetLeft,width:tab.offsetWidth}};
+  const sizes={run:measure(t("rest.inline.label"),"2:00"),done:measure(t("rest.inline.done"),"+0:00")};
+  [d.label.textContent,d.time.textContent]=words;
+  const paths={run:restContourPaths({W,T,R,RT,F,tabLeft:sizes.run.left,tabWidth:sizes.run.width}),
+    done:restContourPaths({W,T,R,RT,F,tabLeft:sizes.done.left,tabWidth:sizes.done.width})};
+  // the contour: the shelf with its hairline, and the tab's ends and run for the running tab
+  const svg=d.contour;
+  Object.assign(svg.style,{left:"0px",top:`${top}px`,width:`${W}px`,height:`${CH}px`});
+  svg.setAttribute("viewBox",`0 0 ${W} ${CH}`);
+  const filter=svg.querySelector("filter");
+  for(const [k,v] of [["x",-80],["y",-80],["width",W+160],["height",CH+160]])filter.setAttribute(k,v);
+  const clips=svg.querySelectorAll("clipPath rect");
+  [[clips[0],T+4],[clips[1],T]].forEach(([rect,to])=>{rect.setAttribute("x",-100);rect.setAttribute("y",-100);rect.setAttribute("width",W+200);rect.setAttribute("height",to+100)});
+  const edge=`M0,${T+R} A${R},${R} 0 0 1 ${R},${T} H${W-R} A${R},${R} 0 0 1 ${W},${T+R}`;
+  const [base,baseHair]=svg.querySelectorAll(".firstrun-demo__base");base.setAttribute("d",`${edge} V${CH} H0 Z`);baseHair.setAttribute("d",edge);
+  const p=paths.run,x0=p.x0,x1=p.x1,a=x0+F+RT,b=x1-F-RT;
+  const shapes={
+    shape:[`M${x0},${T+4} V${T} A${F},${F} 0 0 0 ${x0+F},${T-F} V${RT} A${RT},${RT} 0 0 1 ${a},0 H${a+1} V${T+4} Z`,`M${a},0 H${b} V${T+4} H${a} Z`,
+      `M${b-1},0 H${b} A${RT},${RT} 0 0 1 ${x1-F},${RT} V${T-F} A${F},${F} 0 0 0 ${x1},${T} V${T+4} H${b-1} Z`],
+    hair:[`M${x0},${T} A${F},${F} 0 0 0 ${x0+F},${T-F} V${RT} A${RT},${RT} 0 0 1 ${a},0`,`M${a},0 H${b}`,
+      `M${b},0 A${RT},${RT} 0 0 1 ${x1-F},${RT} V${T-F} A${F},${F} 0 0 0 ${x1},${T}`]};
+  const [fillTab,hairTab]=svg.querySelectorAll(".firstrun-demo__rise");
+  [[fillTab,shapes.shape],[hairTab,shapes.hair]].forEach(([g,ds])=>[...g.children].forEach((el,i)=>el.setAttribute("d",ds[i])));
+  d.rises=[fillTab,hairTab];d.tabParts=[...fillTab.children,...hairTab.children];
+  // "Rest done" widens the tab about its centre: its ends move out by half the growth and the run between stretches.
+  const grow=(sizes.done.width-sizes.run.width)/2;
+  d.widen={grow,cx:p.CX,stretch:(b-a+2*grow)/Math.max(1,b-a)};
   // Each half of the light sits in a window that the clock slides: the left from the left edge to the tab's centre, the
-  // right from the centre to the right edge, each drawn in shelf coordinates inside it.
-  const [left,right]=d.lights,cx=paths.CX;
-  place(left,0,cx+6);place(right,cx-6,W-cx+6);
-  for(const [box,path,x] of [[left,paths.left,0],[right,paths.right,-(cx-6)]]){
-    const svg=box.querySelector("svg");svg.setAttribute("viewBox",`0 0 ${W} ${H}`);
-    Object.assign(svg.style,{left:`${x}px`,width:`${W}px`,height:`${H}px`});
-    svg.querySelectorAll("path").forEach(node=>node.setAttribute("d",path))}
-  d.cx=cx;d.x0=paths.x0;
+  // right from the centre to the right edge, each drawn in shelf coordinates inside it. The window reaches well above
+  // the tab, so the bloom over its top fades out in the open rather than at a window's edge.
+  const H=T+R+60,LIFT=48,place=(el,left,width)=>Object.assign(el.style,{left:`${left}px`,top:`${top-LIFT}px`,width:`${width}px`,height:`${H+LIFT}px`});
+  d.lights={run:d.lightNodes.slice(0,2),done:d.lightNodes.slice(2,4)};
+  for(const state of ["run","done"]){
+    const [left,right]=d.lights[state],q=paths[state],cx=q.CX;
+    place(left,0,cx+6);place(right,cx-6,W-cx+6);
+    for(const [box,path,x] of [[left,q.left,0],[right,q.right,-(cx-6)]]){
+      const lit=box.querySelector("svg");lit.setAttribute("viewBox",`0 0 ${W} ${H}`);
+      Object.assign(lit.style,{left:`${x}px`,top:`${LIFT}px`,width:`${W}px`,height:`${H}px`});
+      lit.querySelectorAll("path").forEach(node=>node.setAttribute("d",path))}}
+  d.cx=paths.run.CX;d.x0=paths.run.x0;
   // Where the finger lands, measured with the wheel sheet in place: the Reps field, the wheel's band, Done and Log set.
   const screen=d.root.getBoundingClientRect(),scale=screen.width/d.root.offsetWidth||1;
   const was=d.wheel.style.transform;d.wheel.style.transform="none";
@@ -21725,8 +21765,8 @@ function renderLandingProof(add){
   landingDemo={root:q(".firstrun-demo"),ev:q(".firstrun-demo__ev"),
     done1:q(".firstrun-demo__done1"),open2:q(".firstrun-demo__open2"),ring:q(".firstrun-demo__ring"),rows:qa(".firstrun-demo__row"),
     fields:q(".firstrun-demo__fields"),log:q(".firstrun-demo__log"),log1:q(".firstrun-demo__log1"),log2:q(".firstrun-demo__log2"),
-    tap:q(".landing-touch"),card:q(".firstrun-demo__card"),shelf:q(".firstrun-demo__shelf"),tab:q(".firstrun-demo__tab"),bump:q(".firstrun-demo__bump"),
-    label:q(".resttab__label"),time:q(".resttab__time"),lights:qa(".firstrun-demo__light"),scrim:q(".firstrun-demo__scrim"),
+    tap:q(".landing-touch"),card:q(".firstrun-demo__card"),shelf:q(".firstrun-demo__shelf"),tab:q(".firstrun-demo__tab"),contour:q(".firstrun-demo__contour"),
+    label:q(".resttab__label"),time:q(".resttab__time"),lightNodes:qa(".firstrun-demo__light"),scrim:q(".firstrun-demo__scrim"),
     sheet:q(".firstrun-demo__sheet"),did:q(".firstrun-demo__did"),history:qa(".firstrun-demo__last"),
     frame:screen.closest(".firstrun-proof__device"),rig:screen.closest(".firstrun-proof__rig"),glass:screen.closest(".firstrun-proof__glass"),
     wheel:q(".firstrun-demo__wheel"),band:q(".firstrun-demo__band"),wdone:q(".firstrun-demo__wdone"),items:qa(".firstrun-demo__wheel .wheel__item"),
@@ -21788,9 +21828,11 @@ function paintLandingDemo(now){
   // the rest tab rises out of the shelf, and the light draws out from it along the edge; at the wrap it sinks back
   const up=seg(D.restAt-.3,D.restAt+.45),lift=(1-Math.min(1.06,1-Math.exp(-7*up)*Math.cos(9*up)))*(D.rise+6);
   const sunk=lift+(D.rise+6-lift)*home;
-  set(d.bump,"transform",`translateY(${f(sunk)}px)`);set(d.tab,"transform",`translateY(${f(sunk)}px)`);
-  // The tab's words sit in the shelf's own layer, so they fade in with the rise rather than hide behind it.
-  set(d.tab,"opacity",f(Math.min(1,up*2)*stay));
+  d.rises.forEach(g=>set(g,"transform",`translateY(${f(sunk)}px)`));set(d.tab,"transform",`translateY(${f(sunk)}px)`);
+  // The tab's words sit in the shelf's own layer, so they fade in with the rise rather than hide behind it; the tab's
+  // shape fades in with them, so the shelf's edge is whole until the tab breaks it.
+  const shown=Math.min(1,up*2)*stay;
+  set(d.tab,"opacity",f(shown));d.rises.forEach(g=>set(g,"opacity",f(shown)));
   let reveal=0,glow=0,label=t("rest.inline.label"),time="2:00",done=false;
   const clock=s=>`${Math.floor(s/60)}:${String(Math.floor(s)%60).padStart(2,"0")}`;
   if(now>=D.restAt){
@@ -21807,10 +21849,18 @@ function paintLandingDemo(now){
       glow=Math.max((ms<140?out(ms/140):Math.pow(Math.max(0,1-(ms-140)/460),2.2))*1.1,ms>300?.2*Math.min(1,(ms-300)/300):0);
       label=t("rest.inline.done");time="+"+clock(now-D.done);done=true}}
   glow*=stay;
-  const [left,right]=d.lights;
-  set(left,"transform",`translateX(${f(reveal)}px)`);set(left.firstChild,"transform",`translateX(${f(-reveal)}px)`);
-  set(right,"transform",`translateX(${f(-reveal)}px)`);set(right.firstChild,"transform",`translateX(${f(reveal)}px)`);
-  set(left,"opacity",f(glow));set(right,"opacity",f(glow));
+  // The light runs along the contour the tab has: the running one, then from the bell the done one (the running light
+  // has drawn back into the clock by then, so the switch is never seen).
+  for(const state of ["run","done"]){
+    const [left,right]=d.lights[state],on=(state==="done")===done;
+    set(left,"transform",`translateX(${f(reveal)}px)`);set(left.firstChild,"transform",`translateX(${f(-reveal)}px)`);
+    set(right,"transform",`translateX(${f(-reveal)}px)`);set(right.firstChild,"transform",`translateX(${f(reveal)}px)`);
+    set(left,"opacity",f(on?glow:0));set(right,"opacity",f(on?glow:0))}
+  // the tab's shape follows its words: wider from the bell on
+  const g=done?d.widen.grow:0,k=done?d.widen.stretch:1,[fl,fr,fm]=[0,2,1];
+  for(const parts of [d.tabParts.slice(0,3),d.tabParts.slice(3)]){
+    set(parts[fl],"transform",`translateX(${f(-g)}px)`);set(parts[fr],"transform",`translateX(${f(g)}px)`);
+    set(parts[fm],"transform",`translateX(${f(d.widen.cx)}px) scaleX(${f(k)}) translateX(${f(-d.widen.cx)}px)`)}
   if(d.label.textContent!==label)d.label.textContent=label;
   if(d.time.textContent!==time)d.time.textContent=time;
   d.tab.classList.toggle("is-done",done);
@@ -21846,7 +21896,7 @@ function renderLandingWays(){
    text only for typing and the rest clock, both read from that time and never from a platform clock. */
 const LANDING_FEATURES={
   /* seconds per scene, the still reduced motion shows, and the screen's height at 390 wide */
-  scenes:[{len:6.8,still:6,h:640},{len:6.4,still:6,h:640},{len:6.6,still:5.9,h:660},{len:8,still:7.4,h:640},{len:7.6,still:4.1,h:700}].map((scene,i)=>({...scene,
+  scenes:[{len:6.8,still:6,h:640},{len:6.4,still:6,h:640},{len:6.6,still:5.9,h:660},{len:9.4,still:9,h:640},{len:7.6,still:4.1,h:700}].map((scene,i)=>({...scene,
     /* The camera (landingCameraAt): an establishing look at the whole screen, then the region each beat happens in,
        framed so the app's body text reads at its real size or close to it on a phone. A held shot is short enough that
        the window's width sets the zoom, so the edge snapping (snapLandingFeatureShots) can move its edges. */
@@ -21854,8 +21904,8 @@ const LANDING_FEATURES={
       [{at:0,x:0,y:0,w:390,h:640},{at:.35,x:0,y:196,w:390,h:350},{at:3.45,x:0,y:0,w:390,h:640}],
       [{at:0,x:0,y:0,w:390,h:640},{at:.35,x:0,y:44,w:390,h:400},{at:2.05,x:0,y:96,w:390,h:440},{at:4.55,x:0,y:44,w:390,h:400}],
       [{at:0,x:0,y:0,w:390,h:660},{at:.3,x:0,y:0,w:390,h:340},{at:1.35,x:0,y:196,w:390,h:464}],
-      [{at:0,x:0,y:0,w:390,h:640},{at:.7,x:0,y:216,w:390,h:424},{at:3.55,x:0,y:110,w:390,h:400},{at:4.75,x:0,y:10,w:390,h:480}],
-      [{at:0,x:0,y:0,w:390,h:700},{at:1.35,x:0,y:0,w:390,h:440},{at:2.65,x:0,y:290,w:390,h:410},{at:4.75,x:0,y:40,w:390,h:440}],
+      [{at:0,x:0,y:0,w:390,h:640},{at:.7,x:0,y:216,w:390,h:424},{at:3.55,x:0,y:0,w:390,h:640},{at:6.3,x:0,y:10,w:390,h:480}],
+      [{at:0,x:0,y:0,w:390,h:700},{at:1.35,x:0,y:0,w:390,h:440},{at:2.65,x:0,y:290,w:390,h:410,pin:"bottom"},{at:4.75,x:0,y:40,w:390,h:440}],
     ][i]})),
   ex:{bench:"19f5c6f170d8808bb424e98de4472a7e",dbBench:"1a05c6f170d8803ba48ec1443eab5978",nDb:"1a05c6f170d880a6b539ef74691f8c75",
     pDb:"1a05c6f170d88017acc8c48b6ccdd639",sDb:"1a05c6f170d8803dad22e04308bd0a98",row:"1a15c6f170d880f89beacd8c81156f2d",
@@ -21878,12 +21928,20 @@ const LANDING_FEATURES={
     ["2026-10-26","strength_4_d1",["Glutes","Chest","Lats"],13,6875,2],["2026-10-24","strength_4_d4",["Front delts","Biceps"],12,4120,0],
     ["2026-10-23","strength_4_d3",["Lats","Chest","Quads"],13,5700,1],["2026-10-21","strength_4_d2",["Hamstrings","Glutes","Triceps"],17,13980,0]],
   rest:90,notes:[[0,1.5],[1.6,2.65],[2.7,4.6],[4.75,99]]};
+/** Tab 5's Home Screen: twelve grid slots (null is Taurifer's) and the dock, as [label key, glyph, tone]. */
+const LANDING_FEATURE_HOME={
+  grid:[["calendar","cal","paper-red"],["clock","clock","ink"],["notes","pencil","accent"],["maps","pin","positive"],
+    ["reminders","clipboard","paper-accent"],null,["files","sheet","slate"],["stocks","trend","ink-green"],
+    ["home","house","accent"],["fitness","target","red"],["settings","gear","grey"]],
+  dock:[[null,"fx-phone","positive"],[null,"fx-compass","paper-ink"],[null,"fx-message","accent"],[null,"fx-music","red"]]};
 const LANDING_FEATURE_MUSCLES=["Chest","Lats","Front delts","Triceps","Rear delts","Glutes","Quads","Hamstrings","Biceps"];
 const LANDING_FEATURE_DAYS=["strength_4_d1","strength_4_d2","strength_4_d3","strength_4_d4"];
 /** Every catalog string the feature screens and tabs show; test/landing-features.mjs fails when one leaves a catalog. */
 const LANDING_FEATURE_KEYS=["landing.features.title","landing.features.sub",
   ...["progress","program","library","share","gym"].flatMap(k=>[`landing.features.${k}.title`,`landing.features.${k}.text`]),
   "landing.features.gym.note1","landing.features.gym.note2","landing.features.gym.note3","landing.features.gym.note4",
+  "landing.features.chat.name","landing.features.chat.online","landing.features.chat.reply","landing.features.chat.forward","landing.features.chat.copy",
+  ...["calendar","clock","notes","maps","reminders","files","stocks","home","fitness","settings"].map(k=>`landing.features.home.${k}`),
   "nav.stats","stats.scope.current_block","stats.scope.all_history","stats.metric.top_load","stats.metric.best_e1rm",
   "exercise.chart.fig.top","exercise.chart.fig.change","plural.session.other","history.pr","summary.muscles.title",
   "stats.volume.scope.this_week","stats.volume_on_target","stats.volume_below",
@@ -21895,7 +21953,7 @@ const LANDING_FEATURE_KEYS=["landing.features.title","landing.features.sub",
   "program.volume_audit.title","program.effective_sets","program.see_audit","program.export_text","program.export_text.sub",
   "program.share_setup","program.share_setup_sub","program.share_setup_title","program.share_setup_body","program.share_setup_building",
   "program.share_setup_copy","program.share_setup_share","toast.setup_link_copied","history.session.edit",
-  "landing.ways.paste.coach","landing.ways.paste.time","landing.ways.paste.message","import.heading","import.count_linked",
+  "landing.ways.paste.time","landing.ways.paste.message","import.heading","import.count_linked",
   "import.count_review","import.count_custom","import.status.exact","import.status.probable",
   "history.title","history.month_title","history.month_summary","count.sessions","count.sets","history.week",
   "history.sets.one","history.prs","history.prs_many","rest.inline.label","minibar.next","rest.sheet.plus","minibar.resume",
@@ -22011,13 +22069,26 @@ function landingFeatureScreens(){
         `<p class="firstrun-fx__btns"><span class="firstrun-fx__pill firstrun-fx__copy">${esc(t("program.share_setup_copy"))}</span>`+
           `<span class="firstrun-fx__pill firstrun-fx__pill--fill">${esc(t("program.share_setup_share"))}</span></p></div>`+
       `<p class="firstrun-fx__toast">${esc(t("toast.setup_link_copied"))}</p></div>`+
+    // A messaging app's conversation, in its familiar light look (no name or mark of any app): the coach's message
+    // arrives as an incoming bubble, a long press opens the message menu, Copy takes it into Taurifer's import.
+    `<div class="firstrun-fx__chat">`+
+      `<div class="firstrun-fx__wahead"><span class="firstrun-fx__waback">‹</span><span class="firstrun-fx__waavatar">${esc((String(t("landing.features.chat.name")).trim().split(/\s+/).pop()||"R").charAt(0))}</span>`+
+        `<span class="firstrun-fx__waname"><b>${esc(t("landing.features.chat.name"))}</b><small>${esc(t("landing.features.chat.online"))}</small></span>`+
+        `<span class="firstrun-fx__waicon firstrun-fx__waicon--video"></span><span class="firstrun-fx__waicon firstrun-fx__waicon--call"></span></div>`+
+      `<span class="firstrun-fx__waday">${esc(t("nav.log"))}</span>`+
+      `<div class="firstrun-fx__wacompose"><span class="firstrun-fx__waplus">+</span><span class="firstrun-fx__wafield"></span>`+
+        `<span class="firstrun-fx__waicon firstrun-fx__waicon--camera"></span><span class="firstrun-fx__waicon firstrun-fx__waicon--mic"></span></div>`+
+      `<div class="firstrun-fx__wadim"></div>`+
+      `<div class="firstrun-fx__bubble"><span class="firstrun-fx__btext">${message.map(row=>esc(row)).join("<br>")}</span>`+
+        `<span class="firstrun-fx__btime">${esc(t("landing.ways.paste.time"))}</span></div>`+
+      `<div class="firstrun-fx__wamenu">${[["reply","reply"],["forward","forward"],["copy","copy"]].map(([key,icon])=>
+        `<span class="firstrun-fx__waitem firstrun-fx__waitem--${icon}"><span class="firstrun-fx__wahl"></span>${esc(t("landing.features.chat."+key))}<i class="firstrun-fx__waglyph firstrun-fx__waglyph--${icon}"></i></span>`).join("")}</div>`+
+    `</div>`+
     `<div class="firstrun-fx__pb">`+
       `<p class="firstrun-fx__title firstrun-fx__hd">${esc(t("import.heading"))}</p>`+
       `<p class="impcounts firstrun-fx__counts firstrun-fx__fg"><span class="impcount"><b>${n(3)}</b>${esc(t("import.count_linked"))}</span>`+
         `<span class="impcount"><b>${n(1)}</b>${esc(t("import.count_review"))}</span><span class="impcount"><b>${n(0)}</b>${esc(t("import.count_custom"))}</span></p>`+
-      `<div class="firstrun-msg firstrun-fx__msg"><div class="firstrun-msg__who"><b>${esc(t("landing.ways.paste.coach"))}</b><span>${esc(t("landing.ways.paste.time"))}</span></div></div>`+
-      `<p class="firstrun-fx__pline firstrun-fx__mh">${esc(message[0]||"")}</p>`+
-      message.slice(1).map((row,i)=>`<p class="firstrun-fx__pline firstrun-fx__ln" style="top:${200+i*26}px"><span>${esc(typedNames[i])}</span><span class="firstrun-fx__tail">${esc(row.slice(typedNames[i].length))}</span></p>`).join("")+
+      typedNames.map((typed,i)=>`<p class="firstrun-fx__pline firstrun-fx__ln" style="top:${220+i*74}px">${esc(typed)}</p>`).join("")+
       matches.map(([id,ok],i)=>`<p class="firstrun-fx__match" style="top:${244+i*74}px"><span class="firstrun-fx__arrow">→</span>`+
         `<span class="firstrun-fx__mark${ok?"":" is-likely"}"></span><span><b>${esc(name(id))}</b><small>${esc(t(ok?"import.status.exact":"import.status.probable"))}</small></span></p>`).join("")+
     `</div>${tap}</div>`;
@@ -22042,10 +22113,20 @@ function landingFeatureScreens(){
       `<span class="minibar__actions"><span class="minibar__chip">${esc(t("rest.sheet.plus"))}</span><span class="minibar__go">${esc(t("minibar.resume"))}</span></span></div>`+
     `<div class="firstrun-fx__dock">${nav.map(([key,icon],i)=>`<span class="${i===2?"is-on":""}"><span class="nav__icon" data-i="${icon}"></span>${esc(t(key))}</span>`).join("")}</div></div>`;
   // A quiet Home Screen: neutral silhouettes around the real Taurifer icon, centred.
-  const icons=Array.from({length:8},(_,k)=>`<span class="firstrun-fx__icon" style="left:${28+(k%4)*90.7}px;top:${96+Math.floor(k/4)*98}px"></span>`).join("");
+  // An iOS Home Screen at 390 pt: four columns of 60 pt squircles on a 92 pt pitch, labels under them, page dots and a
+  // dock. The placeholders are soft fills with the app's own glyphs; Taurifer is its real icon, in the grid.
+  const HOME=LANDING_FEATURE_HOME;
+  const slot=(c,r)=>({x:27+c*92,y:68+r*98});
+  const appIcon=([key,glyph,tone],at,label=true)=>`<span class="firstrun-fx__icon firstrun-fx__icon--${tone}" style="left:${at.x}px;top:${at.y}px">`+
+    (glyph.startsWith("fx-")?`<span class="firstrun-fx__glyph firstrun-fx__glyph--${glyph.slice(3)}" aria-hidden="true"></span></span>`
+      :`<span class="icon-mask icon-mask--${glyph} firstrun-fx__glyph" aria-hidden="true"></span></span>`)+
+    (label?`<span class="firstrun-fx__ilbl" style="left:${at.x-16}px;top:${at.y+66}px">${esc(t("landing.features.home."+key))}</span>`:"");
+  const grid=HOME.grid.map((app,k)=>{const at=slot(k%4,Math.floor(k/4));return app?appIcon(app,at):
+    `<span class="firstrun-fx__icon firstrun-fx__icon--app" style="left:${at.x}px;top:${at.y}px"><img src="icons/icon-192.png" alt="" width="60" height="60" decoding="async"></span>`+
+    `<span class="firstrun-fx__ilbl" style="left:${at.x-16}px;top:${at.y+66}px">Taurifer</span>`}).join("");
   const s5=`<div class="firstrun-fx firstrun-fx--gym">`+
-    `<div class="firstrun-fx__home">${icons}<span class="firstrun-fx__icon firstrun-fx__icon--app"><img src="icons/icon-192.png" alt="" width="62" height="62" decoding="async"></span>`+
-      `<span class="firstrun-fx__ilbl">Taurifer</span><span class="firstrun-fx__hdock"></span></div>`+
+    `<div class="firstrun-fx__home"><div class="firstrun-fx__sbar firstrun-fx__sbar--light"><span class="firstrun-fx__time">9:41</span><span class="firstrun-fx__sig"></span><span class="firstrun-fx__bat"></span></div>${grid}<span class="firstrun-fx__dots"><i class="is-on"></i><i></i><i></i></span>`+
+      `<span class="firstrun-fx__hdock">${HOME.dock.map((app,c)=>appIcon(app,{x:15+c*92,y:16},false)).join("")}</span></div>`+
     `<div class="firstrun-fx__app">${screen5(false)}${screen5(true)}</div>`+
     `<div class="firstrun-fx__sbar"><span class="firstrun-fx__time">9:41</span><span class="firstrun-fx__sig"></span><span class="firstrun-fx__air"></span><span class="firstrun-fx__bat"></span></div>`+
     `${tap}</div>`;
@@ -22077,11 +22158,13 @@ function renderLandingFeatures(){
       g1:qa(2,".firstrun-fx__g1 .librow"),g2:qa(2,".firstrun-fx__g2 .librow"),tap:q(2,".landing-touch"),query:lang==="pt"?"supino":"press"},
     {root:q(3,".firstrun-fx"),pa:q(3,".firstrun-fx__pa"),pb:q(3,".firstrun-fx__pb"),scrim:q(3,".firstrun-fx__scrim"),sheet:q(3,".firstrun-fx__share"),
       link:qa(3,".firstrun-fx__link .firstrun-fx__lay > span"),copy:q(3,".firstrun-fx__copy"),toast:q(3,".firstrun-fx__toast"),srow:q(3,".firstrun-fx__srow"),
-      msg:q(3,".firstrun-fx__msg"),mh:q(3,".firstrun-fx__mh"),lines:qa(3,".firstrun-fx__ln"),tails:qa(3,".firstrun-fx__tail"),matches:qa(3,".firstrun-fx__match"),
+      chat:q(3,".firstrun-fx__chat"),bubble:q(3,".firstrun-fx__bubble"),dim:q(3,".firstrun-fx__wadim"),menu:q(3,".firstrun-fx__wamenu"),
+      copyItem:q(3,".firstrun-fx__waitem--copy"),copyHl:q(3,".firstrun-fx__waitem--copy .firstrun-fx__wahl"),
+      lines:qa(3,".firstrun-fx__ln"),matches:qa(3,".firstrun-fx__match"),
       hd:qa(3,".firstrun-fx__hd"),fg:qa(3,".firstrun-fx__fg"),tap:q(3,".landing-touch")},
     {root:q(4,".firstrun-fx"),home:q(4,".firstrun-fx__home"),app:q(4,".firstrun-fx__app"),norm:q(4,".firstrun-fx__hist:not(.firstrun-fx__hist--big)"),
       big:q(4,".firstrun-fx__hist--big"),list:q(4,".firstrun-fx__hist:not(.firstrun-fx__hist--big) .firstrun-fx__hlist"),clocks:qa(4,".firstrun-fx__clock"),
-      sig:q(4,".firstrun-fx__sig"),air:q(4,".firstrun-fx__air"),icon:q(4,".firstrun-fx__icon--app"),tap:q(4,".landing-touch")}]};
+      sig:q(4,".firstrun-fx > .firstrun-fx__sbar .firstrun-fx__sig"),air:q(4,".firstrun-fx__air"),sbar:q(4,".firstrun-fx > .firstrun-fx__sbar"),icon:q(4,".firstrun-fx__icon--app"),tap:q(4,".landing-touch")}]};
   landingController?.refreshFeatures?.()}
 /** Measure what the frames need from layout: where each finger lands and how far the chips slide. */
 function layoutLandingFeatures(f){
@@ -22096,9 +22179,16 @@ function layoutLandingFeatures(f){
   s3.scroll=Math.max(0,pick.x+s3.pick.offsetWidth/2-(s3.root.offsetWidth-24));
   s3.taps=[{t0:.5,x:field.x-40,y:field.y},{t0:3.75,x:pick.x-s3.scroll,y:pick.y}];
   const srow=landingFeatureCentre(s4.root,s4.srow),copy=landingFeatureCentre(s4.root,s4.copy);
-  s4.taps=[{t0:.55,x:srow.x-40,y:srow.y},{t0:2.15,x:copy.x,y:s4.sheet.offsetTop+s4.copy.offsetTop+s4.copy.offsetHeight/2}];
+  // a conversation scrolled to its latest message: the bubble sits over the composer, its date chip above it, and the
+  // message menu opens above the bubble, where the screen has room
+  const composer=s4.root.querySelector(".firstrun-fx__wacompose"),day=s4.root.querySelector(".firstrun-fx__waday");
+  s4.bubble.style.top=`${composer.offsetTop-s4.bubble.offsetHeight-22}px`;
+  day.style.top=`${s4.bubble.offsetTop-40}px`;
+  s4.menu.style.top=`${s4.bubble.offsetTop-s4.menu.offsetHeight-12}px`;
+  const bubble=landingFeatureCentre(s4.root,s4.bubble),copyItem=landingFeatureCentre(s4.root,s4.copyItem);
+  s4.taps=[{t0:.55,x:srow.x-40,y:srow.y},{t0:2.15,x:copy.x,y:s4.sheet.offsetTop+s4.copy.offsetTop+s4.copy.offsetHeight/2},
+    {t0:4.55,up:5.25,x:bubble.x-30,y:bubble.y},{t0:5.9,x:copyItem.x-40,y:copyItem.y}];
   s4.toastW=s4.toast.offsetWidth;
-  s4.dy=s4.lines.map((line,i)=>s4.matches[i].offsetTop-24-line.offsetTop);
   const icon=landingFeatureCentre(s5.root,s5.icon);
   s5.icon0={x:icon.x,y:icon.y,size:s5.icon.offsetWidth||62};
   s5.taps=[{t0:.6,x:icon.x,y:icon.y}];
@@ -22106,13 +22196,13 @@ function layoutLandingFeatures(f){
   f.last=new WeakMap();f.laid=true;
   snapLandingFeatureShots(f);
   return true}
-/** Every text line and control box a feature screen shows (opacity above nothing, not covered by a sheet, the mini bar
- *  or the dock), as [top, bottom] in its own px. */
+/** Every text line and control box a feature screen shows (opacity above nothing, not covered by a sheet, the mini bar,
+ *  the dock or a screen that slid over it), as [top, bottom] in its own px. */
 function landingFeatureBoxes(host){
   const was=host.style.transform;host.style.transform="none";
   const origin=host.getBoundingClientRect().top,boxes=[];
   const shown=el=>{for(let node=el;node&&node!==host;node=node.parentElement)if(+getComputedStyle(node).opacity<.05)return false;return true};
-  const covers=[...host.querySelectorAll(".firstrun-fx__sheet,.minibar,.firstrun-fx__dock")].filter(shown)
+  const covers=[...host.querySelectorAll(".firstrun-fx__sheet,.minibar,.firstrun-fx__dock,.firstrun-fx__chat,.firstrun-fx__pb")].filter(shown)
     .map(el=>({el,r:el.getBoundingClientRect()})).filter(c=>c.r.height>1);
   const add=(el,r)=>{
     if(r.height<=1)return;
@@ -22152,7 +22242,9 @@ function snapLandingFeatureShots(f){
       const out=base.map(shot=>({...shot}));
       for(let k=1;k<out.length;k++){
         let found=false;
-        for(let d=0;d<=240&&!found;d+=2)for(const dy of d?[d,-d]:[0])if(clear(out[k],held[k],v,dy)){out[k].y+=dy;found=true;break}
+        // a shot that ends at the screen's bottom (the mini bar's beat) stays there: it may only move down
+        const pinned=out[k].pin==="bottom";
+        for(let d=0;d<=240&&!found;d+=2)for(const dy of d?(pinned?[d]:[d,-d]):[0])if(clear(out[k],held[k],v,dy)){out[k].y+=dy;found=true;break}
         if(!found)return null}
       return out};
     for(let trim=0;trim<=96;trim+=4){
@@ -22177,7 +22269,7 @@ function paintLandingFeature(i,u){
   // The stage kit's touch: a disc that arrives before the press, presses in and leaves a widening ring.
   const finger=s=>{
     if(!s.tap)return;
-    const taps=s.taps||[],touch=landingTouchAt(taps.map(p=>({at:p.t0})),time),p=taps[touch.i];
+    const taps=s.taps||[],touch=landingTouchAt(taps.map(p=>({at:p.t0,up:p.up})),time),p=taps[touch.i];
     paintLandingTouch(set,s.tap,touch,p?p.x:0,p?p.y:0,r)};
   const typing=(s,a,step,end)=>{
     const k=Math.round(seg(a,a+step*s.query.length)*s.query.length);
@@ -22227,24 +22319,27 @@ function paintLandingFeature(i,u){
     tf(s.copy,`scale(${r(1-.04*press(2.15))})`);
     const toast=out(seg(2.3,2.6))*(1-seg(3.25,3.5));
     op(s.toast,toast);tf(s.toast,`translateX(${r(-s.toastW/2)}px) translateY(${r((1-toast)*-14)}px)`);
-    // share → paste is one cross-fade onto a screen that already holds the pasted message: no empty frame between
-    const cross=inOut(seg(3.5,3.95));op(s.pb,cross);op(s.pa,1-cross);
-    // the message's chrome leaves first, then the review's head arrives: never both on screen at once
-    // The pasted message leaves whole (4.6–4.78 s), then the review's head arrives, then each row rises into the place
-    // it keeps (its typed name with its match), one after another: no line slides across the screen, no gap waits below.
-    const chrome=1-out(seg(4.6,4.78)),moved=time>=4.78;
-    op(s.msg,chrome);op(s.mh,chrome);
-    const rowIn=k=>out(seg(4.9+k*.09,5.2+k*.09));
-    s.lines.forEach((line,k)=>{
-      const v=moved?rowIn(k):chrome;op(line,v);
-      tf(line,moved?`translate(-16px,${r(s.dy[k]+(1-v)*8)}px)`:"translate(0px,0px)")});
-    s.tails.forEach(tail=>op(tail,moved?0:chrome));
-    const hd=out(seg(4.78,5));s.hd.forEach(node=>op(node,hd));
-    s.fg.forEach(node=>op(node,out(seg(5.3,5.6))));
+    // share → the coach's conversation slides in over it, as switching apps does: one screen at a time, never two
+    // overprinted, never an empty one
+    const slide=inOut(seg(3.5,3.95));op(s.chat,slide>0?1:0);tf(s.chat,`translateX(${r((1-slide)*100)}%)`);op(s.pa,slide<1?1:0);
+    // a long press: the bubble gives under the finger, then lifts over a dimmed chat with its menu under it
+    const sink=out(seg(4.6,4.85))*(1-seg(4.95,5.15)),lift=out(seg(5,5.2))*(1-out(seg(6.05,6.25)));
+    tf(s.bubble,`scale(${r(1-.03*sink+.02*lift)})`);
+    op(s.dim,.32*lift);
+    const menu=out(seg(5.05,5.3))*(1-seg(6.05,6.2));op(s.menu,menu);tf(s.menu,`scale(${r(.92+.08*menu)})`);
+    tf(s.copyItem,`scale(${r(1-.03*press(5.9))})`);op(s.copyHl,seg(5.84,5.92)*(1-seg(6.05,6.15)));
+    // Copy → Taurifer's import: the review's head, then each row rising into the place it keeps
+    const into=inOut(seg(6.3,6.7));op(s.pb,into>0?1:0);tf(s.pb,`translateX(${r((1-into)*100)}%)`);if(into>=1)op(s.chat,0);
+    s.hd.forEach(node=>op(node,1));
+    s.fg.forEach(node=>op(node,out(seg(7.05,7.35))));
+    const rowIn=k=>out(seg(6.6+k*.09,6.9+k*.09));
+    s.lines.forEach((line,k)=>{const v=rowIn(k);op(line,v);tf(line,`translateY(${r((1-v)*8)}px)`)});
     s.matches.forEach((node,k)=>{const v=rowIn(k);op(node,v);tf(node,`translateY(${r((1-v)*8)}px)`)})}
   else{
     const p=out(seg(.72,1.3)),{x,y,size}=s.icon0,W=390,cy=350,k=size/W+(1-size/W)*p;
     tf(s.app,`translate(${r((x-W/2)*(1-p))}px,${r((y-cy)*(1-p))}px) scale(${r(k)})`);op(s.app,seg(.72,.9));
+    // the Home Screen wears its own light status bar; the app's dark one arrives with the app
+    op(s.sbar,seg(.85,1.1));
     tf(s.home,`scale(${r(1+.08*p)})`);op(s.home,1-seg(.9,1.3));
     const air=seg(1.65,1.9);op(s.sig,1-air);op(s.air,air);
     // the rest counts down from the scene's own time, whole seconds
