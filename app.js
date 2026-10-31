@@ -21846,7 +21846,7 @@ function renderLandingWays(){
    text only for typing and the rest clock, both read from that time and never from a platform clock. */
 const LANDING_FEATURES={
   /* seconds per scene, the still reduced motion shows, and the screen's height at 390 wide */
-  scenes:[{len:6.8,still:6,h:640},{len:6.4,still:6,h:640},{len:6.6,still:5.9,h:660},{len:8,still:7.4,h:640},{len:7.6,still:4.1,h:700}].map((scene,i)=>({...scene,
+  scenes:[{len:6.8,still:6,h:640},{len:6.4,still:6,h:640},{len:6.6,still:5.9,h:660},{len:9.4,still:9,h:640},{len:7.6,still:4.1,h:700}].map((scene,i)=>({...scene,
     /* The camera (landingCameraAt): an establishing look at the whole screen, then the region each beat happens in,
        framed so the app's body text reads at its real size or close to it on a phone. A held shot is short enough that
        the window's width sets the zoom, so the edge snapping (snapLandingFeatureShots) can move its edges. */
@@ -21854,8 +21854,8 @@ const LANDING_FEATURES={
       [{at:0,x:0,y:0,w:390,h:640},{at:.35,x:0,y:196,w:390,h:350},{at:3.45,x:0,y:0,w:390,h:640}],
       [{at:0,x:0,y:0,w:390,h:640},{at:.35,x:0,y:44,w:390,h:400},{at:2.05,x:0,y:96,w:390,h:440},{at:4.55,x:0,y:44,w:390,h:400}],
       [{at:0,x:0,y:0,w:390,h:660},{at:.3,x:0,y:0,w:390,h:340},{at:1.35,x:0,y:196,w:390,h:464}],
-      [{at:0,x:0,y:0,w:390,h:640},{at:.7,x:0,y:216,w:390,h:424},{at:3.55,x:0,y:110,w:390,h:400},{at:4.75,x:0,y:10,w:390,h:480}],
-      [{at:0,x:0,y:0,w:390,h:700},{at:1.35,x:0,y:0,w:390,h:440},{at:2.65,x:0,y:290,w:390,h:410},{at:4.75,x:0,y:40,w:390,h:440}],
+      [{at:0,x:0,y:0,w:390,h:640},{at:.7,x:0,y:216,w:390,h:424},{at:3.55,x:0,y:0,w:390,h:640},{at:6.3,x:0,y:10,w:390,h:480}],
+      [{at:0,x:0,y:0,w:390,h:700},{at:1.35,x:0,y:0,w:390,h:440},{at:2.65,x:0,y:290,w:390,h:410,pin:"bottom"},{at:4.75,x:0,y:40,w:390,h:440}],
     ][i]})),
   ex:{bench:"19f5c6f170d8808bb424e98de4472a7e",dbBench:"1a05c6f170d8803ba48ec1443eab5978",nDb:"1a05c6f170d880a6b539ef74691f8c75",
     pDb:"1a05c6f170d88017acc8c48b6ccdd639",sDb:"1a05c6f170d8803dad22e04308bd0a98",row:"1a15c6f170d880f89beacd8c81156f2d",
@@ -21878,12 +21878,20 @@ const LANDING_FEATURES={
     ["2026-10-26","strength_4_d1",["Glutes","Chest","Lats"],13,6875,2],["2026-10-24","strength_4_d4",["Front delts","Biceps"],12,4120,0],
     ["2026-10-23","strength_4_d3",["Lats","Chest","Quads"],13,5700,1],["2026-10-21","strength_4_d2",["Hamstrings","Glutes","Triceps"],17,13980,0]],
   rest:90,notes:[[0,1.5],[1.6,2.65],[2.7,4.6],[4.75,99]]};
+/** Tab 5's Home Screen: twelve grid slots (null is Taurifer's) and the dock, as [label key, glyph, tone]. */
+const LANDING_FEATURE_HOME={
+  grid:[["calendar","cal","paper-red"],["clock","clock","ink"],["notes","pencil","accent"],["maps","pin","positive"],
+    ["reminders","clipboard","paper-accent"],null,["files","sheet","slate"],["stocks","trend","ink-green"],
+    ["home","house","accent"],["fitness","target","red"],["settings","gear","grey"]],
+  dock:[[null,"fx-phone","positive"],[null,"fx-compass","paper-ink"],[null,"fx-message","accent"],[null,"fx-music","red"]]};
 const LANDING_FEATURE_MUSCLES=["Chest","Lats","Front delts","Triceps","Rear delts","Glutes","Quads","Hamstrings","Biceps"];
 const LANDING_FEATURE_DAYS=["strength_4_d1","strength_4_d2","strength_4_d3","strength_4_d4"];
 /** Every catalog string the feature screens and tabs show; test/landing-features.mjs fails when one leaves a catalog. */
 const LANDING_FEATURE_KEYS=["landing.features.title","landing.features.sub",
   ...["progress","program","library","share","gym"].flatMap(k=>[`landing.features.${k}.title`,`landing.features.${k}.text`]),
   "landing.features.gym.note1","landing.features.gym.note2","landing.features.gym.note3","landing.features.gym.note4",
+  "landing.features.chat.name","landing.features.chat.online","landing.features.chat.reply","landing.features.chat.forward","landing.features.chat.copy",
+  ...["calendar","clock","notes","maps","reminders","files","stocks","home","fitness","settings"].map(k=>`landing.features.home.${k}`),
   "nav.stats","stats.scope.current_block","stats.scope.all_history","stats.metric.top_load","stats.metric.best_e1rm",
   "exercise.chart.fig.top","exercise.chart.fig.change","plural.session.other","history.pr","summary.muscles.title",
   "stats.volume.scope.this_week","stats.volume_on_target","stats.volume_below",
@@ -21895,7 +21903,7 @@ const LANDING_FEATURE_KEYS=["landing.features.title","landing.features.sub",
   "program.volume_audit.title","program.effective_sets","program.see_audit","program.export_text","program.export_text.sub",
   "program.share_setup","program.share_setup_sub","program.share_setup_title","program.share_setup_body","program.share_setup_building",
   "program.share_setup_copy","program.share_setup_share","toast.setup_link_copied","history.session.edit",
-  "landing.ways.paste.coach","landing.ways.paste.time","landing.ways.paste.message","import.heading","import.count_linked",
+  "landing.ways.paste.time","landing.ways.paste.message","import.heading","import.count_linked",
   "import.count_review","import.count_custom","import.status.exact","import.status.probable",
   "history.title","history.month_title","history.month_summary","count.sessions","count.sets","history.week",
   "history.sets.one","history.prs","history.prs_many","rest.inline.label","minibar.next","rest.sheet.plus","minibar.resume",
@@ -22011,13 +22019,26 @@ function landingFeatureScreens(){
         `<p class="firstrun-fx__btns"><span class="firstrun-fx__pill firstrun-fx__copy">${esc(t("program.share_setup_copy"))}</span>`+
           `<span class="firstrun-fx__pill firstrun-fx__pill--fill">${esc(t("program.share_setup_share"))}</span></p></div>`+
       `<p class="firstrun-fx__toast">${esc(t("toast.setup_link_copied"))}</p></div>`+
+    // A messaging app's conversation, in its familiar light look (no name or mark of any app): the coach's message
+    // arrives as an incoming bubble, a long press opens the message menu, Copy takes it into Taurifer's import.
+    `<div class="firstrun-fx__chat">`+
+      `<div class="firstrun-fx__wahead"><span class="firstrun-fx__waback">‹</span><span class="firstrun-fx__waavatar">${esc((String(t("landing.features.chat.name")).trim().split(/\s+/).pop()||"R").charAt(0))}</span>`+
+        `<span class="firstrun-fx__waname"><b>${esc(t("landing.features.chat.name"))}</b><small>${esc(t("landing.features.chat.online"))}</small></span>`+
+        `<span class="firstrun-fx__waicon firstrun-fx__waicon--video"></span><span class="firstrun-fx__waicon firstrun-fx__waicon--call"></span></div>`+
+      `<span class="firstrun-fx__waday">${esc(t("nav.log"))}</span>`+
+      `<div class="firstrun-fx__wacompose"><span class="firstrun-fx__waplus">+</span><span class="firstrun-fx__wafield"></span>`+
+        `<span class="firstrun-fx__waicon firstrun-fx__waicon--camera"></span><span class="firstrun-fx__waicon firstrun-fx__waicon--mic"></span></div>`+
+      `<div class="firstrun-fx__wadim"></div>`+
+      `<div class="firstrun-fx__bubble"><span class="firstrun-fx__btext">${message.map(row=>esc(row)).join("<br>")}</span>`+
+        `<span class="firstrun-fx__btime">${esc(t("landing.ways.paste.time"))}</span></div>`+
+      `<div class="firstrun-fx__wamenu">${[["reply","reply"],["forward","forward"],["copy","copy"]].map(([key,icon])=>
+        `<span class="firstrun-fx__waitem firstrun-fx__waitem--${icon}"><span class="firstrun-fx__wahl"></span>${esc(t("landing.features.chat."+key))}<i class="firstrun-fx__waglyph firstrun-fx__waglyph--${icon}"></i></span>`).join("")}</div>`+
+    `</div>`+
     `<div class="firstrun-fx__pb">`+
       `<p class="firstrun-fx__title firstrun-fx__hd">${esc(t("import.heading"))}</p>`+
       `<p class="impcounts firstrun-fx__counts firstrun-fx__fg"><span class="impcount"><b>${n(3)}</b>${esc(t("import.count_linked"))}</span>`+
         `<span class="impcount"><b>${n(1)}</b>${esc(t("import.count_review"))}</span><span class="impcount"><b>${n(0)}</b>${esc(t("import.count_custom"))}</span></p>`+
-      `<div class="firstrun-msg firstrun-fx__msg"><div class="firstrun-msg__who"><b>${esc(t("landing.ways.paste.coach"))}</b><span>${esc(t("landing.ways.paste.time"))}</span></div></div>`+
-      `<p class="firstrun-fx__pline firstrun-fx__mh">${esc(message[0]||"")}</p>`+
-      message.slice(1).map((row,i)=>`<p class="firstrun-fx__pline firstrun-fx__ln" style="top:${200+i*26}px"><span>${esc(typedNames[i])}</span><span class="firstrun-fx__tail">${esc(row.slice(typedNames[i].length))}</span></p>`).join("")+
+      typedNames.map((typed,i)=>`<p class="firstrun-fx__pline firstrun-fx__ln" style="top:${220+i*74}px">${esc(typed)}</p>`).join("")+
       matches.map(([id,ok],i)=>`<p class="firstrun-fx__match" style="top:${244+i*74}px"><span class="firstrun-fx__arrow">→</span>`+
         `<span class="firstrun-fx__mark${ok?"":" is-likely"}"></span><span><b>${esc(name(id))}</b><small>${esc(t(ok?"import.status.exact":"import.status.probable"))}</small></span></p>`).join("")+
     `</div>${tap}</div>`;
@@ -22042,10 +22063,20 @@ function landingFeatureScreens(){
       `<span class="minibar__actions"><span class="minibar__chip">${esc(t("rest.sheet.plus"))}</span><span class="minibar__go">${esc(t("minibar.resume"))}</span></span></div>`+
     `<div class="firstrun-fx__dock">${nav.map(([key,icon],i)=>`<span class="${i===2?"is-on":""}"><span class="nav__icon" data-i="${icon}"></span>${esc(t(key))}</span>`).join("")}</div></div>`;
   // A quiet Home Screen: neutral silhouettes around the real Taurifer icon, centred.
-  const icons=Array.from({length:8},(_,k)=>`<span class="firstrun-fx__icon" style="left:${28+(k%4)*90.7}px;top:${96+Math.floor(k/4)*98}px"></span>`).join("");
+  // An iOS Home Screen at 390 pt: four columns of 60 pt squircles on a 92 pt pitch, labels under them, page dots and a
+  // dock. The placeholders are soft fills with the app's own glyphs; Taurifer is its real icon, in the grid.
+  const HOME=LANDING_FEATURE_HOME;
+  const slot=(c,r)=>({x:27+c*92,y:68+r*98});
+  const appIcon=([key,glyph,tone],at,label=true)=>`<span class="firstrun-fx__icon firstrun-fx__icon--${tone}" style="left:${at.x}px;top:${at.y}px">`+
+    (glyph.startsWith("fx-")?`<span class="firstrun-fx__glyph firstrun-fx__glyph--${glyph.slice(3)}" aria-hidden="true"></span></span>`
+      :`<span class="icon-mask icon-mask--${glyph} firstrun-fx__glyph" aria-hidden="true"></span></span>`)+
+    (label?`<span class="firstrun-fx__ilbl" style="left:${at.x-16}px;top:${at.y+66}px">${esc(t("landing.features.home."+key))}</span>`:"");
+  const grid=HOME.grid.map((app,k)=>{const at=slot(k%4,Math.floor(k/4));return app?appIcon(app,at):
+    `<span class="firstrun-fx__icon firstrun-fx__icon--app" style="left:${at.x}px;top:${at.y}px"><img src="icons/icon-192.png" alt="" width="60" height="60" decoding="async"></span>`+
+    `<span class="firstrun-fx__ilbl" style="left:${at.x-16}px;top:${at.y+66}px">Taurifer</span>`}).join("");
   const s5=`<div class="firstrun-fx firstrun-fx--gym">`+
-    `<div class="firstrun-fx__home">${icons}<span class="firstrun-fx__icon firstrun-fx__icon--app"><img src="icons/icon-192.png" alt="" width="62" height="62" decoding="async"></span>`+
-      `<span class="firstrun-fx__ilbl">Taurifer</span><span class="firstrun-fx__hdock"></span></div>`+
+    `<div class="firstrun-fx__home"><div class="firstrun-fx__sbar firstrun-fx__sbar--light"><span class="firstrun-fx__time">9:41</span><span class="firstrun-fx__sig"></span><span class="firstrun-fx__bat"></span></div>${grid}<span class="firstrun-fx__dots"><i class="is-on"></i><i></i><i></i></span>`+
+      `<span class="firstrun-fx__hdock">${HOME.dock.map((app,c)=>appIcon(app,{x:15+c*92,y:16},false)).join("")}</span></div>`+
     `<div class="firstrun-fx__app">${screen5(false)}${screen5(true)}</div>`+
     `<div class="firstrun-fx__sbar"><span class="firstrun-fx__time">9:41</span><span class="firstrun-fx__sig"></span><span class="firstrun-fx__air"></span><span class="firstrun-fx__bat"></span></div>`+
     `${tap}</div>`;
@@ -22077,11 +22108,13 @@ function renderLandingFeatures(){
       g1:qa(2,".firstrun-fx__g1 .librow"),g2:qa(2,".firstrun-fx__g2 .librow"),tap:q(2,".landing-touch"),query:lang==="pt"?"supino":"press"},
     {root:q(3,".firstrun-fx"),pa:q(3,".firstrun-fx__pa"),pb:q(3,".firstrun-fx__pb"),scrim:q(3,".firstrun-fx__scrim"),sheet:q(3,".firstrun-fx__share"),
       link:qa(3,".firstrun-fx__link .firstrun-fx__lay > span"),copy:q(3,".firstrun-fx__copy"),toast:q(3,".firstrun-fx__toast"),srow:q(3,".firstrun-fx__srow"),
-      msg:q(3,".firstrun-fx__msg"),mh:q(3,".firstrun-fx__mh"),lines:qa(3,".firstrun-fx__ln"),tails:qa(3,".firstrun-fx__tail"),matches:qa(3,".firstrun-fx__match"),
+      chat:q(3,".firstrun-fx__chat"),bubble:q(3,".firstrun-fx__bubble"),dim:q(3,".firstrun-fx__wadim"),menu:q(3,".firstrun-fx__wamenu"),
+      copyItem:q(3,".firstrun-fx__waitem--copy"),copyHl:q(3,".firstrun-fx__waitem--copy .firstrun-fx__wahl"),
+      lines:qa(3,".firstrun-fx__ln"),matches:qa(3,".firstrun-fx__match"),
       hd:qa(3,".firstrun-fx__hd"),fg:qa(3,".firstrun-fx__fg"),tap:q(3,".landing-touch")},
     {root:q(4,".firstrun-fx"),home:q(4,".firstrun-fx__home"),app:q(4,".firstrun-fx__app"),norm:q(4,".firstrun-fx__hist:not(.firstrun-fx__hist--big)"),
       big:q(4,".firstrun-fx__hist--big"),list:q(4,".firstrun-fx__hist:not(.firstrun-fx__hist--big) .firstrun-fx__hlist"),clocks:qa(4,".firstrun-fx__clock"),
-      sig:q(4,".firstrun-fx__sig"),air:q(4,".firstrun-fx__air"),icon:q(4,".firstrun-fx__icon--app"),tap:q(4,".landing-touch")}]};
+      sig:q(4,".firstrun-fx > .firstrun-fx__sbar .firstrun-fx__sig"),air:q(4,".firstrun-fx__air"),sbar:q(4,".firstrun-fx > .firstrun-fx__sbar"),icon:q(4,".firstrun-fx__icon--app"),tap:q(4,".landing-touch")}]};
   landingController?.refreshFeatures?.()}
 /** Measure what the frames need from layout: where each finger lands and how far the chips slide. */
 function layoutLandingFeatures(f){
@@ -22096,9 +22129,16 @@ function layoutLandingFeatures(f){
   s3.scroll=Math.max(0,pick.x+s3.pick.offsetWidth/2-(s3.root.offsetWidth-24));
   s3.taps=[{t0:.5,x:field.x-40,y:field.y},{t0:3.75,x:pick.x-s3.scroll,y:pick.y}];
   const srow=landingFeatureCentre(s4.root,s4.srow),copy=landingFeatureCentre(s4.root,s4.copy);
-  s4.taps=[{t0:.55,x:srow.x-40,y:srow.y},{t0:2.15,x:copy.x,y:s4.sheet.offsetTop+s4.copy.offsetTop+s4.copy.offsetHeight/2}];
+  // a conversation scrolled to its latest message: the bubble sits over the composer, its date chip above it, and the
+  // message menu opens above the bubble, where the screen has room
+  const composer=s4.root.querySelector(".firstrun-fx__wacompose"),day=s4.root.querySelector(".firstrun-fx__waday");
+  s4.bubble.style.top=`${composer.offsetTop-s4.bubble.offsetHeight-22}px`;
+  day.style.top=`${s4.bubble.offsetTop-40}px`;
+  s4.menu.style.top=`${s4.bubble.offsetTop-s4.menu.offsetHeight-12}px`;
+  const bubble=landingFeatureCentre(s4.root,s4.bubble),copyItem=landingFeatureCentre(s4.root,s4.copyItem);
+  s4.taps=[{t0:.55,x:srow.x-40,y:srow.y},{t0:2.15,x:copy.x,y:s4.sheet.offsetTop+s4.copy.offsetTop+s4.copy.offsetHeight/2},
+    {t0:4.55,up:5.25,x:bubble.x-30,y:bubble.y},{t0:5.9,x:copyItem.x-40,y:copyItem.y}];
   s4.toastW=s4.toast.offsetWidth;
-  s4.dy=s4.lines.map((line,i)=>s4.matches[i].offsetTop-24-line.offsetTop);
   const icon=landingFeatureCentre(s5.root,s5.icon);
   s5.icon0={x:icon.x,y:icon.y,size:s5.icon.offsetWidth||62};
   s5.taps=[{t0:.6,x:icon.x,y:icon.y}];
@@ -22106,13 +22146,13 @@ function layoutLandingFeatures(f){
   f.last=new WeakMap();f.laid=true;
   snapLandingFeatureShots(f);
   return true}
-/** Every text line and control box a feature screen shows (opacity above nothing, not covered by a sheet, the mini bar
- *  or the dock), as [top, bottom] in its own px. */
+/** Every text line and control box a feature screen shows (opacity above nothing, not covered by a sheet, the mini bar,
+ *  the dock or a screen that slid over it), as [top, bottom] in its own px. */
 function landingFeatureBoxes(host){
   const was=host.style.transform;host.style.transform="none";
   const origin=host.getBoundingClientRect().top,boxes=[];
   const shown=el=>{for(let node=el;node&&node!==host;node=node.parentElement)if(+getComputedStyle(node).opacity<.05)return false;return true};
-  const covers=[...host.querySelectorAll(".firstrun-fx__sheet,.minibar,.firstrun-fx__dock")].filter(shown)
+  const covers=[...host.querySelectorAll(".firstrun-fx__sheet,.minibar,.firstrun-fx__dock,.firstrun-fx__chat,.firstrun-fx__pb")].filter(shown)
     .map(el=>({el,r:el.getBoundingClientRect()})).filter(c=>c.r.height>1);
   const add=(el,r)=>{
     if(r.height<=1)return;
@@ -22152,7 +22192,9 @@ function snapLandingFeatureShots(f){
       const out=base.map(shot=>({...shot}));
       for(let k=1;k<out.length;k++){
         let found=false;
-        for(let d=0;d<=240&&!found;d+=2)for(const dy of d?[d,-d]:[0])if(clear(out[k],held[k],v,dy)){out[k].y+=dy;found=true;break}
+        // a shot that ends at the screen's bottom (the mini bar's beat) stays there: it may only move down
+        const pinned=out[k].pin==="bottom";
+        for(let d=0;d<=240&&!found;d+=2)for(const dy of d?(pinned?[d]:[d,-d]):[0])if(clear(out[k],held[k],v,dy)){out[k].y+=dy;found=true;break}
         if(!found)return null}
       return out};
     for(let trim=0;trim<=96;trim+=4){
@@ -22177,7 +22219,7 @@ function paintLandingFeature(i,u){
   // The stage kit's touch: a disc that arrives before the press, presses in and leaves a widening ring.
   const finger=s=>{
     if(!s.tap)return;
-    const taps=s.taps||[],touch=landingTouchAt(taps.map(p=>({at:p.t0})),time),p=taps[touch.i];
+    const taps=s.taps||[],touch=landingTouchAt(taps.map(p=>({at:p.t0,up:p.up})),time),p=taps[touch.i];
     paintLandingTouch(set,s.tap,touch,p?p.x:0,p?p.y:0,r)};
   const typing=(s,a,step,end)=>{
     const k=Math.round(seg(a,a+step*s.query.length)*s.query.length);
@@ -22227,24 +22269,27 @@ function paintLandingFeature(i,u){
     tf(s.copy,`scale(${r(1-.04*press(2.15))})`);
     const toast=out(seg(2.3,2.6))*(1-seg(3.25,3.5));
     op(s.toast,toast);tf(s.toast,`translateX(${r(-s.toastW/2)}px) translateY(${r((1-toast)*-14)}px)`);
-    // share → paste is one cross-fade onto a screen that already holds the pasted message: no empty frame between
-    const cross=inOut(seg(3.5,3.95));op(s.pb,cross);op(s.pa,1-cross);
-    // the message's chrome leaves first, then the review's head arrives: never both on screen at once
-    // The pasted message leaves whole (4.6–4.78 s), then the review's head arrives, then each row rises into the place
-    // it keeps (its typed name with its match), one after another: no line slides across the screen, no gap waits below.
-    const chrome=1-out(seg(4.6,4.78)),moved=time>=4.78;
-    op(s.msg,chrome);op(s.mh,chrome);
-    const rowIn=k=>out(seg(4.9+k*.09,5.2+k*.09));
-    s.lines.forEach((line,k)=>{
-      const v=moved?rowIn(k):chrome;op(line,v);
-      tf(line,moved?`translate(-16px,${r(s.dy[k]+(1-v)*8)}px)`:"translate(0px,0px)")});
-    s.tails.forEach(tail=>op(tail,moved?0:chrome));
-    const hd=out(seg(4.78,5));s.hd.forEach(node=>op(node,hd));
-    s.fg.forEach(node=>op(node,out(seg(5.3,5.6))));
+    // share → the coach's conversation slides in over it, as switching apps does: one screen at a time, never two
+    // overprinted, never an empty one
+    const slide=inOut(seg(3.5,3.95));op(s.chat,slide>0?1:0);tf(s.chat,`translateX(${r((1-slide)*100)}%)`);op(s.pa,slide<1?1:0);
+    // a long press: the bubble gives under the finger, then lifts over a dimmed chat with its menu under it
+    const sink=out(seg(4.6,4.85))*(1-seg(4.95,5.15)),lift=out(seg(5,5.2))*(1-out(seg(6.05,6.25)));
+    tf(s.bubble,`scale(${r(1-.03*sink+.02*lift)})`);
+    op(s.dim,.32*lift);
+    const menu=out(seg(5.05,5.3))*(1-seg(6.05,6.2));op(s.menu,menu);tf(s.menu,`scale(${r(.92+.08*menu)})`);
+    tf(s.copyItem,`scale(${r(1-.03*press(5.9))})`);op(s.copyHl,seg(5.84,5.92)*(1-seg(6.05,6.15)));
+    // Copy → Taurifer's import: the review's head, then each row rising into the place it keeps
+    const into=inOut(seg(6.3,6.7));op(s.pb,into>0?1:0);tf(s.pb,`translateX(${r((1-into)*100)}%)`);if(into>=1)op(s.chat,0);
+    s.hd.forEach(node=>op(node,1));
+    s.fg.forEach(node=>op(node,out(seg(7.05,7.35))));
+    const rowIn=k=>out(seg(6.6+k*.09,6.9+k*.09));
+    s.lines.forEach((line,k)=>{const v=rowIn(k);op(line,v);tf(line,`translateY(${r((1-v)*8)}px)`)});
     s.matches.forEach((node,k)=>{const v=rowIn(k);op(node,v);tf(node,`translateY(${r((1-v)*8)}px)`)})}
   else{
     const p=out(seg(.72,1.3)),{x,y,size}=s.icon0,W=390,cy=350,k=size/W+(1-size/W)*p;
     tf(s.app,`translate(${r((x-W/2)*(1-p))}px,${r((y-cy)*(1-p))}px) scale(${r(k)})`);op(s.app,seg(.72,.9));
+    // the Home Screen wears its own light status bar; the app's dark one arrives with the app
+    op(s.sbar,seg(.85,1.1));
     tf(s.home,`scale(${r(1+.08*p)})`);op(s.home,1-seg(.9,1.3));
     const air=seg(1.65,1.9);op(s.sig,1-air);op(s.air,air);
     // the rest counts down from the scene's own time, whole seconds
