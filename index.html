@@ -671,6 +671,12 @@
                 <span id="firstRunCreateLabel" data-i18n="landing.build">Build my program</span><span class="firstrun-row__go" aria-hidden="true"></span>
               </button>
               <button type="button" class="firstrun__link" id="firstRunImport" data-i18n="landing.track">Track my current program</button>
+              <!-- Shown only while a setup is saved and no program is active (owner, 2026-10-31): one quiet extra
+                   action that resumes it at its step. The rest of the landing is the same page. -->
+              <div id="firstRunResume" class="firstrun-resume hidden">
+                <button type="button" class="firstrun__link firstrun-resume__go" id="firstRunResumeSetup" aria-describedby="firstRunResumeWhere" data-i18n="entry.resume.continue">Resume setup</button>
+                <p class="firstrun-resume__where" id="firstRunResumeWhere"></p>
+              </div>
             </div>
             <div id="firstRunSharedProgram" class="firstrun__actions hidden">
               <button type="button" class="firstrun__cta" id="firstRunSharedStart" aria-describedby="firstRunSharedName">
@@ -1428,6 +1434,6 @@ Triceps pushdown 3x12-15</pre>
   <script src="durable-state.js?v=447"></script>
   <script src="progress-model.js?v=309"></script>
   <script src="history-ui.js?v=551"></script>
-  <script src="app.js?v=585"></script>
+  <script src="app.js?v=586"></script>
 </body>
 </html>
