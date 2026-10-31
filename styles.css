@@ -5923,7 +5923,14 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 /* A tab change is one cross-fade: the next screen fades in while the last fades out, so the panel is never empty. */
 .firstrun-feat__win.is-current{z-index:1;opacity:1;visibility:visible;transform:translate(-50%,-50%);
   transition:opacity .36s cubic-bezier(.2,.7,.2,1),transform .45s cubic-bezier(.2,.7,.2,1),visibility 0s}
-.firstrun-feat__screen{position:absolute;left:0;top:0;width:390px;transform-origin:0 0;overflow:hidden;background:var(--bg);color:var(--color-ink);
+/* The window behind a whole-screen frame is the screen's own ground: the paper (the window is light-themed) or the
+   Home Screen's wallpaper, faded with it, so no strip of another colour shows. (The chat carries its own ground past
+   the screen's edges instead.) */
+.firstrun-feat__backdrop{position:absolute;inset:0;opacity:0}
+.firstrun-feat__backdrop--home{background:radial-gradient(120% 70% at 15% 0%,rgba(var(--accent-rgb),.7),rgba(var(--accent-rgb),0) 62%),
+  linear-gradient(172deg,rgba(var(--accent-rgb),.5),rgba(var(--ink-rgb),.94) 82%)}
+.firstrun-feat__screen[data-feature-screen="3"],.firstrun-fx.firstrun-fx--share{overflow:visible;contain:none}
+.firstrun-feat__screen{position:absolute;left:0;top:0;width:390px;transform-origin:0 0;overflow:hidden;color:var(--color-ink);
   font-family:var(--font-language);contain:layout paint}
 .firstrun-feat__notes{position:absolute;inset:auto 0 var(--space-14);height:40px;pointer-events:none}
 .firstrun-feat__note{position:absolute;left:50%;bottom:0;padding:var(--space-8) var(--space-14);border-radius:var(--radius-pill);white-space:nowrap;
@@ -6103,12 +6110,15 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-fx__dots i.is-on{background:var(--surface)}
 .firstrun-fx__hdock{position:absolute;left:12px;right:12px;bottom:12px;height:92px;border-radius:var(--radius-landing-stage);background:rgba(var(--bg-rgb),.26)}
 /* 4 · a messaging app's conversation, in its familiar light look */
-.firstrun-fx__chat{position:absolute;inset:0;opacity:0;background-color:var(--well);background-color:color-mix(in srgb,var(--accent-deep) 6%,color-mix(in srgb,var(--ink) 4%,var(--bg)))}
+.firstrun-fx__chat{position:absolute;inset:0;opacity:0}
+/* the chat's ground runs 80 px past the screen's edges, so a whole-screen frame in a wider window shows the wallpaper
+   there too; the window clips it */
+.firstrun-fx__chat::after{content:"";position:absolute;z-index:-1;top:0;bottom:0;left:-80px;right:-80px;background-color:var(--well);background-color:color-mix(in srgb,var(--accent-deep) 6%,color-mix(in srgb,var(--ink) 4%,var(--bg)))}
 /* the wallpaper's doodles: a mask the ink shows through faintly, so no colour is baked into the drawing */
-.firstrun-fx__chat::before{content:"";position:absolute;inset:0;background:rgba(var(--ink-rgb),.07);
+.firstrun-fx__chat::before{content:"";position:absolute;top:0;bottom:0;left:-80px;right:-80px;background:rgba(var(--ink-rgb),.07);
   -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='132' height='132' viewBox='0 0 132 132' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 22h10M12 18v8M26 18v8M10 20v4M28 20v4'/%3E%3Ccircle cx='62' cy='18' r='6'/%3E%3Cpath d='M104 12l3 6 6 1-4 4 1 6-6-3-6 3 1-6-4-4 6-1z'/%3E%3Cpath d='M20 66c-3-4-9-1-7 4l7 7 7-7c2-5-4-8-7-4z'/%3E%3Crect x='54' y='58' width='18' height='13' rx='4'/%3E%3Cpath d='M58 71l-3 5 6-5'/%3E%3Cpath d='M98 60q8-10 16 0t16 0'/%3E%3Cpath d='M16 108l8-8 8 8'/%3E%3Ccircle cx='66' cy='106' r='3'/%3E%3Cpath d='M98 100h14v12H98z'/%3E%3C/svg%3E") repeat 0 0/132px 132px;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='132' height='132' viewBox='0 0 132 132' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 22h10M12 18v8M26 18v8M10 20v4M28 20v4'/%3E%3Ccircle cx='62' cy='18' r='6'/%3E%3Cpath d='M104 12l3 6 6 1-4 4 1 6-6-3-6 3 1-6-4-4 6-1z'/%3E%3Cpath d='M20 66c-3-4-9-1-7 4l7 7 7-7c2-5-4-8-7-4z'/%3E%3Crect x='54' y='58' width='18' height='13' rx='4'/%3E%3Cpath d='M58 71l-3 5 6-5'/%3E%3Cpath d='M98 60q8-10 16 0t16 0'/%3E%3Cpath d='M16 108l8-8 8 8'/%3E%3Ccircle cx='66' cy='106' r='3'/%3E%3Cpath d='M98 100h14v12H98z'/%3E%3C/svg%3E") repeat 0 0/132px 132px}
-.firstrun-fx__wahead{position:absolute;z-index:1;left:0;right:0;top:0;height:64px;display:flex;align-items:center;gap:var(--space-8);
-  padding:0 var(--space-16) 0 var(--space-8);background:var(--surface);border-bottom:1px solid var(--boundary-decorative);font-family:-apple-system,system-ui,var(--font-language)}
+.firstrun-fx__wahead{position:absolute;z-index:1;left:-80px;right:-80px;top:0;height:64px;display:flex;align-items:center;gap:var(--space-8);
+  padding:0 calc(80px + var(--space-16)) 0 calc(80px + var(--space-8));background:var(--surface);border-bottom:1px solid var(--boundary-decorative);font-family:-apple-system,system-ui,var(--font-language)}
 .firstrun-fx__waback{font-size:var(--font-size-display);font-weight:var(--weight-regular);line-height:1;color:var(--ink)}
 .firstrun-fx__waavatar{display:flex;align-items:center;justify-content:center;flex:none;width:38px;height:38px;border-radius:var(--radius-round);
   background:rgba(var(--accent-rgb),.18);color:var(--accent-deep);font-weight:var(--weight-semibold)}
@@ -6128,12 +6138,12 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-fx__waicon--mic{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='3.5' width='6' height='11' rx='3'/%3E%3Cpath d='M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='3.5' width='6' height='11' rx='3'/%3E%3Cpath d='M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3'/%3E%3C/svg%3E")}
 .firstrun-fx__waday{position:absolute;z-index:1;left:50%;top:300px;transform:translateX(-50%);padding:var(--space-4) var(--space-12);border-radius:var(--radius-control);
   background:var(--surface);box-shadow:var(--elevation-flat-shadow);font-family:-apple-system,system-ui,var(--font-language);font-size:var(--font-size-caption);color:var(--color-ink-secondary)}
-.firstrun-fx__wacompose{position:absolute;z-index:1;left:0;right:0;bottom:0;height:58px;display:flex;align-items:center;gap:var(--space-12);padding:0 var(--space-14);
+.firstrun-fx__wacompose{position:absolute;z-index:1;left:-80px;right:-80px;bottom:0;height:58px;display:flex;align-items:center;gap:var(--space-12);padding:0 calc(80px + var(--space-14));
   background:var(--surface);border-top:1px solid var(--boundary-decorative)}
 .firstrun-fx__waplus{font-family:-apple-system,system-ui,var(--font-language);font-size:var(--font-size-section-title);font-weight:var(--weight-regular);line-height:1;color:var(--ink)}
 .firstrun-fx__wafield{flex:1;height:36px;border-radius:var(--radius-pill);border:1px solid var(--rule-strong);background:var(--surface)}
 .firstrun-fx__wacompose .firstrun-fx__waicon{margin-left:0}
-.firstrun-fx__wadim{position:absolute;z-index:1;inset:0;background:var(--scrim);opacity:0}
+.firstrun-fx__wadim{position:absolute;z-index:1;top:0;bottom:0;left:-80px;right:-80px;background:var(--scrim);opacity:0}
 .firstrun-fx__bubble{position:absolute;z-index:2;left:24px;top:86px;max-width:300px;padding:var(--space-8) var(--space-12);background:var(--surface);
   border-radius:var(--radius-control);border-top-left-radius:0;box-shadow:var(--elevation-flat-shadow);transform-origin:0 0;
   font-family:-apple-system,system-ui,var(--font-language);font-size:var(--font-size-body);line-height:1.38;color:var(--ink)}
