@@ -1983,6 +1983,9 @@ body.is-sheet-open{overflow:hidden}
 #libFilters{display:block;overflow:visible;margin:var(--space-8) 0 0;padding:0}
 .pick__filters--row{margin:0 -16px;padding:0 12px}
 .picktabs+.pick__filters--row{margin-top:var(--space-8)}
+/* The landing's library scene is cropped to a fixed frame: its first rail takes 4px, so the pills still clear the
+   hairline by 8px and the list below sits exactly where the scene's crop expects it. */
+.firstrun-fx--library .picktabs+.pick__filters--row{margin-top:var(--space-4)}
 .pick__list--page{max-height:none;overflow:visible;margin:12px -16px 0;padding:0 16px}
 
 .librow{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--boundary-decorative)}
@@ -2136,13 +2139,13 @@ body.is-sheet-open{overflow:hidden}
 .pick__filters{
   display:flex;gap:0;overflow-x:auto;scrollbar-width:none;
   margin:0 -16px;padding:0 12px;overscroll-behavior:contain;
-  -webkit-mask-image:linear-gradient(90deg,transparent,#000 var(--space-16),#000 calc(100% - var(--space-16)),transparent);
-  mask-image:linear-gradient(90deg,transparent,#000 var(--space-16),#000 calc(100% - var(--space-16)),transparent)}
+  -webkit-mask-image:linear-gradient(90deg,transparent,var(--color-ink) var(--space-16),var(--color-ink) calc(100% - var(--space-16)),transparent);
+  mask-image:linear-gradient(90deg,transparent,var(--color-ink) var(--space-16),var(--color-ink) calc(100% - var(--space-16)),transparent)}
 .pick__filters::-webkit-scrollbar{display:none}
 /* The swap sheet's optional reason: chips at the head of the scrolling list, none chosen by default. */
 .pick__reasons{display:flex;flex-direction:column;gap:var(--space-8);padding:var(--space-4) 0 var(--space-12)}
 .pick__reasons-label{margin:0;font-family:var(--font-language);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
-.pick__reasons-chips{display:flex;flex-wrap:wrap;gap:0;margin-inline:calc(-1 * var(--space-4))}
+.pick__reasons-chips{display:flex;flex-wrap:wrap}
 /* A filter chip is a full 44px target with its pill drawn 4px inside it, so neighbouring pills keep 8px between them
    while their targets touch. The label is centred by the flex box at line-height 1, not by padding around a line box:
    Plex's ascent and descent differ between platforms, and padding around a 1.4 line box put the label off centre on
@@ -2168,6 +2171,11 @@ body.is-sheet-open{overflow:hidden}
 .pchip.is-active:hover:not(:disabled){--pchip-bg:var(--control-selection-active-bg);--pchip-boundary:var(--control-selected-boundary);color:var(--control-selection-ink)}
 }
 .pchip.is-active.is-pressed:not(:disabled){--pchip-bg:var(--control-selection-active-bg);--pchip-boundary:var(--control-selected-boundary);color:var(--control-selection-ink)}
+/* Wrapping chip groups line their pills up on the content edge: the pill is inset 4px only above and below, so rows
+   that touch still show 8px between pills, and the 8px column gap does the same across a row. */
+:is(.custom__form .pick__filters,.pick__reasons-chips,.session-abandon__reasons){gap:0 var(--space-8)}
+:is(.custom__form .pick__filters,.pick__reasons-chips,.session-abandon__reasons) .pchip{padding-inline:var(--space-12)}
+:is(.custom__form .pick__filters,.pick__reasons-chips,.session-abandon__reasons) .pchip::before{inset:var(--space-4) 0}
 .pchip:disabled{--pchip-bg:var(--control-selection-bg);--pchip-boundary:var(--boundary-decorative);--pchip-shadow:none;color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 /* Artwork tiles. The empty variant is the same box with nothing in it — no
    glyph, no initials, no shimmer — so illustrated and plain rows line up and a
@@ -2246,7 +2254,7 @@ body.is-sheet-open{overflow:hidden}
 .custom__lab{margin:16px 0 8px;font-size:var(--font-size-caption);font-weight:600;color:var(--ink-soft)}
 /* Tagging muscles means reading all nineteen, not swiping a rail to find
    Calves. The form scrolls vertically, so these wrap instead. */
-.custom__form .pick__filters{flex-wrap:wrap;overflow:visible;margin:0 calc(-1 * var(--space-4));padding:0;-webkit-mask-image:none;mask-image:none}
+.custom__form .pick__filters{flex-wrap:wrap;overflow:visible;margin:0;padding:0;-webkit-mask-image:none;mask-image:none}
 .custom__delete{margin-top:22px;width:100%;color:var(--danger)}
 .custom__note{margin-top:16px;font-size:var(--font-size-body-small);color:var(--ink-faint)}
 .custom__recovery{border-top:1px solid var(--rule);padding:16px 18px 8px}
