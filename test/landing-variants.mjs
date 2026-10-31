@@ -984,6 +984,29 @@ async function finalPage(browser) {
     assert(legible.zoomed > 50 && legible.count === 0, "at 390 every zoomed frame shows the screen's body text at 13px or more", JSON.stringify(legible));
     await context.close();
   }
+  // The phone's rest tab (owner, iPhone, 2026-10-31): the tab and the shelf are one contour, so the shelf's box casts no
+  // shadow; and through the rest and its overrun the tab's words fit the tab and the drawn tab holds them, both languages.
+  for (const lang of ["en", "pt"]) {
+    const { context, page } = await landingPage(browser, { lang });
+    await scrollToDevice(page);
+    const tabs = await page.evaluate(() => {
+      const screen = document.querySelector("#firstRunDemo"), tab = screen.querySelector(".resttab"), label = tab.querySelector(".resttab__label");
+      const shelf = screen.querySelector(".firstrun-demo__shelf"), drawn = screen.querySelector(".firstrun-demo__contour .firstrun-demo__rise");
+      const bad = [];
+      for (let time = 7.8; time < 17.3; time += .1) {
+        window.__repforgeLandingSeek(time);
+        const words = [...tab.querySelectorAll(".resttab__label,.resttab__time,.resttab__chev")].map((el) => el.getBoundingClientRect());
+        const shape = drawn.getBoundingClientRect(), k = screen.getBoundingClientRect().width / screen.offsetWidth;
+        const held = words.every((r) => r.left >= shape.left + 4 * k && r.right <= shape.right - 4 * k);
+        if (label.scrollWidth > label.clientWidth + .5 || !held) bad.push(`${time.toFixed(1)}s ${label.textContent}`);
+      }
+      return { bad: bad.slice(0, 4), count: bad.length, shadow: getComputedStyle(shelf).boxShadow, ground: getComputedStyle(shelf).backgroundColor };
+    });
+    assert(tabs.count === 0, `[${lang}] through the rest and its overrun the tab's words fit, inside the drawn tab`, JSON.stringify(tabs));
+    assert(tabs.shadow === "none" && tabs.ground === "rgba(0, 0, 0, 0)", `[${lang}] the shelf's box paints no shadow or ground: the contour is the one shape`, JSON.stringify(tabs));
+    await context.close();
+  }
+
   // No shot cuts a part of the screen at its edges (polish review, 2026-10-31): at each settled zoomed moment the
   // shelf's fields, pads and Log set are wholly in the frame or 8 screen px or more outside it, and the header, the
   // cue's lines and the ledger's rows are wholly in or wholly out.

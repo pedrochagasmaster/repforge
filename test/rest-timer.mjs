@@ -15,6 +15,7 @@
  */
 import { launchChromium } from "./browser.mjs";
 import { installSeedProgram, seedProgram } from "./fixtures/seed-program.mjs";
+import { openCatalogState } from "./fixtures/catalog-state.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -447,6 +448,40 @@ try {
       "with a rest running, Settings shows no rest pill and no floating clock (and no mini bar)", settings);
     assert(!errors.length, "no page errors in the text-only tab run", errors);
     await context.close();
+  }
+
+  // The tab fits its words (owner, iPhone, 2026-10-31: "Descanso concluído +0:15" at double text ran past the screen):
+  // running, paused and done, in both languages, at 390 and 320, at the usual and double text, the word is never cut,
+  // the tab stays inside the shelf, and the shelf's own box casts no shadow under the tab (the contour draws it).
+  phase("The tab fits its words in every state, language and text size, and the shelf casts no shadow under it");
+  for (const width of [390, 320]) for (const lang of ["en", "pt"]) for (const text of ["normal", "text200"]) {
+    const opened = await openCatalogState(browser, "workout/rest-running", width, lang, text);
+    try {
+      const fits = [];
+      for (const state of ["running", "paused", "done"]) {
+        await opened.page.evaluate((state) => {
+          if (state === "paused") { restPaused = Math.max(1000, restLeftMs()); syncRest(); }
+          if (state === "done") { restEnd = Date.now() + (restPaused || 1000); restPaused = null; window.__repforgeRest.expire(5); syncRest(); }
+        }, state);
+        if (state === "done") await opened.page.waitForFunction(() => /^\+/.test(document.querySelector("#restTab .resttab__time")?.textContent || ""), undefined, { timeout: 5000 });
+        fits.push(await opened.page.evaluate((state) => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => {
+          const tab = document.querySelector("#restTab"), shelf = tab.closest(".focus-shelf"), label = tab.querySelector(".resttab__label");
+          const t = tab.getBoundingClientRect(), s = shelf.getBoundingClientRect();
+          const parts = [...tab.querySelectorAll(".resttab__label,.resttab__time,.resttab__chev")].map((el) => el.getBoundingClientRect());
+          // The clock and its chevron are one: on one line together, wherever the word puts them (their middles level).
+          const mid = (r) => r.top + r.height / 2, clock = parts[1], chev = parts[2];
+          done({ state, words: `${label.textContent} ${tab.querySelector(".resttab__time").textContent}`,
+            cut: label.scrollWidth > label.clientWidth + .5 || tab.scrollWidth > tab.clientWidth + .5,
+            inside: t.left >= s.left - .5 && t.right <= s.right + .5 && parts.every((r) => r.left >= t.left - .5 && r.right <= t.right + .5),
+            together: Math.abs(mid(chev) - mid(clock)) <= 2 && chev.left >= clock.right - .5,
+            shadow: getComputedStyle(shelf).boxShadow, contour: shelf.classList.contains("has-rest") && !!shelf.querySelector(".restlight__shape") });
+        }))), state));
+      }
+      const bad = fits.filter((x) => x.cut || !x.inside || !x.together || x.shadow !== "none" || !x.contour);
+      assert(bad.length === 0, `[${lang} ${width} ${text}] running, paused and done: the words fit the tab, the clock keeps its chevron, the tab fits the shelf, and only the contour casts the shadow`, { bad, fits });
+    } finally {
+      await opened.context.close();
+    }
   }
 
 } finally {

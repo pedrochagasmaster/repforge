@@ -2738,7 +2738,10 @@ article.exercise--focus:has(.resttab) .fcard__context{margin-bottom:var(--rest-t
 /* The tab is the contour's raised part (.restlight draws its surface), so it paints no box of its own. */
 .resttab{
   position:absolute;z-index:2;left:0;right:0;bottom:calc(100% - var(--space-14));width:max-content;margin:0 auto;
-  display:flex;align-items:center;gap:var(--space-8);min-height:var(--control-target);padding:0 var(--space-16) var(--space-14) var(--space-12);
+  /* Never wider than the shelf less its corners (owner, iPhone, 2026-10-31: "Descanso concluído +0:15" at double text
+     ran past the screen): past that the word wraps and the tab grows upwards, and the contour follows it. */
+  max-width:calc(100% - 2 * var(--shelf-inset));
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:0 var(--space-8);min-height:var(--control-target);padding:0 var(--space-16) var(--space-14) var(--space-12);
   border:0;border-radius:var(--radius-prominent) var(--radius-prominent) var(--radius-none) var(--radius-none);
   background:transparent;color:var(--color-ink);cursor:pointer;
   font-family:var(--font-language);-webkit-tap-highlight-color:transparent;
@@ -2753,9 +2756,11 @@ article.exercise--focus:has(.resttab) .fcard__context{margin-bottom:var(--rest-t
 .resttab.is-pressed > *{opacity:.45;transition:none}
 /* The tab is words only (owner, 2026-10-29): "Rest" and the countdown in ink, "Paused" and the held time in
    secondary ink, "Rest done" and the count-up in the deep accent. The word and countdown-or-count-up carry the state. */
-.resttab__label{font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink);white-space:nowrap}
-.resttab__time{font-family:var(--font-training-data);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);font-variant-numeric:tabular-nums;display:inline-block;min-width:2.6em;text-align:left}
-.resttab__chev{width:14px;height:14px;background:var(--color-ink-secondary)}
+.resttab__label{min-width:0;font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink);text-wrap:balance}
+.resttab__time{font-family:var(--font-training-data);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);font-variant-numeric:tabular-nums;display:inline-block;flex:none;min-width:2.6em;text-align:left;white-space:nowrap}
+/* The clock and its chevron wrap as one, under the word, when the word takes the tab's width. */
+.resttab__end{display:inline-flex;flex:none;align-items:center;gap:var(--space-8)}
+.resttab__chev{flex:none;width:14px;height:14px;background:var(--color-ink-secondary)}
 .resttab.is-paused .resttab__time,.resttab.is-paused .resttab__label{color:var(--color-ink-secondary)}
 .resttab.is-done .resttab__time,.resttab.is-done .resttab__label{color:var(--accent-deep)}
 /* One contour (owner, 2026-10-28, the rest-glow prototype): during a rest the shelf and its tab are one SVG shape under
@@ -5704,7 +5709,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-demo__card{padding:0 var(--space-16)}
 .firstrun-demo__card .fx-head{margin:var(--space-16) 0 0}
 .firstrun-demo__ev,.firstrun-demo__over,.firstrun-demo__ring,.firstrun-demo__log,
-.firstrun-demo__log1,.firstrun-demo__log2,.firstrun-demo__fields,.firstrun-demo__bump,.firstrun-demo__tab,.firstrun-demo__light,
+.firstrun-demo__log1,.firstrun-demo__log2,.firstrun-demo__fields,.firstrun-demo__rise,.firstrun-demo__end,.firstrun-demo__run,.firstrun-demo__tab,.firstrun-demo__light,
 .firstrun-demo__lit,.firstrun-demo__scrim,.firstrun-demo__sheet,.firstrun-demo__did,.firstrun-demo__last,
 .firstrun-demo__wheel,.firstrun-demo__wheel .wheel__item,.firstrun-demo__sel,.firstrun-demo__v0,.firstrun-demo__v1{will-change:transform,opacity}
 .firstrun-demo__why{font-weight:var(--weight-semibold);color:var(--accent-deep)}
@@ -5731,7 +5736,10 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   background:var(--surface);border-radius:var(--radius-prominent) var(--radius-prominent) var(--radius-none) var(--radius-none);box-shadow:var(--elevation-sheet-shadow);
 }
 .firstrun-demo__wheel .wheel__item{visibility:visible}
-.firstrun-demo__bump{position:absolute;overflow:visible;fill:var(--color-surface)}
+/* The shelf and its tab are the contour's one shape (Focus's .has-rest): the shelf's own box paints no fill, edge or
+   shadow, so nothing lies across the tab where it meets the shelf. */
+.firstrun-demo__contour{position:absolute;overflow:visible}
+.workshelf.firstrun-demo__shelf{background:transparent;border-top-color:transparent;box-shadow:none}
 .firstrun-demo__light{position:absolute;overflow:hidden;opacity:0}
 .firstrun-demo__light--l{-webkit-mask-image:linear-gradient(to right,transparent,var(--ink) 34px);mask-image:linear-gradient(to right,transparent,var(--ink) 34px)}
 .firstrun-demo__light--r{-webkit-mask-image:linear-gradient(to left,transparent,var(--ink) 34px);mask-image:linear-gradient(to left,transparent,var(--ink) 34px)}
