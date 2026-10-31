@@ -88,7 +88,7 @@ function showExerciseCatalogUnavailable(){
       status.textContent=t("catalog.unavailable.retry_failed");retry.disabled=false;exerciseCatalogRetryBusy=false;return}
     window.__repforgeCatalogUnavailable=null;
     if(dialog.open)dialog.close();
-    try{await boot()}finally{exerciseCatalogRetryBusy=false}
+    try{await runBoot()}finally{exerciseCatalogRetryBusy=false}
   };
   if(!dialog.open)dialog.showModal();
   retry.focus();
@@ -21392,37 +21392,15 @@ function setFirstRunOffer(offer){
   $("#firstRunContinue")?.classList.toggle("hidden",!offer);
 }
 /** The hero's headline and lede follow the landing in view: a shared link, a
- *  link that cannot be used, a return to an un-onboarded device, or the first visit. */
+ *  link that cannot be used, or the landing itself. The landing is one page for
+ *  everyone without an activated program (owner, 2026-10-31): a return visit,
+ *  a setup left half done or a dismissed install prompt does not change it. */
 function renderFirstRunHeroCopy(){
-  const shared=sharedSetupReady(),invalid=sharedSetupInvalid(),back=landingReturning();
+  const shared=sharedSetupReady(),invalid=sharedSetupInvalid();
   const headline=$("#firstRunHeadline"),lede=$("#firstRunLede");
-  if(headline)headline.textContent=t(shared?"setup.shared.title":invalid?"landing.shared.invalid_headline":back?"landing.returning.headline":"landing.headline");
-  if(lede)lede.textContent=t(shared?"landing.shared.body":invalid?"landing.shared.invalid_body":back?"landing.returning.sub":"landing.hero.sub");
+  if(headline)headline.textContent=t(shared?"setup.shared.title":invalid?"landing.shared.invalid_headline":"landing.headline");
+  if(lede)lede.textContent=t(shared?"landing.shared.body":invalid?"landing.shared.invalid_body":"landing.hero.sub");
 }
-/* ---- The returning landing (owner decision on #295, comment 5941692606) ----
-   The generic landing is marked data-entry-visit="returning" by openFirstRun when
-   the lifter has seen the full page before; a setup left half done also marks
-   data-entry-draft with its route. Both are read from the marks, never from
-   storage, so a re-render cannot turn a first visit into a return. */
-const LANDING_RESUME_ROUTES=["recommend","custom","browse","build","import","shared"];
-function landingReturning(){
-  const root=$("#firstRun");
-  return!!root&&root.dataset.entryVisit==="returning"&&!sharedSetupReady()&&!sharedSetupInvalid()}
-/** The saved route, when the returning landing has a setup to continue. */
-function landingResumeRoute(){
-  return landingReturning()?String($("#firstRun").dataset.entryDraft||""):""}
-function landingResumeLabel(route){
-  return LANDING_RESUME_ROUTES.includes(route)?t(`landing.returning.resume.${route}`):t("landing.returning.resume.generic")}
-/** With a saved setup, the landing's one creation action says so: the hero, the
- *  persistent control and the closing action all name the saved route instead of
- *  Build. They stay the same control and open the same chooser, whose resume card
- *  takes it from there; it does not jump to the saved step. */
-function renderLandingResume(){
-  const route=landingResumeRoute(),label=route?landingResumeLabel(route):t("landing.build");
-  for(const name of["firstRunCreate","firstRunCreateClose","firstRunCreateDock"]){
-    const button=$("#"+name),text=$(`#${name}Label`);
-    if(text)text.textContent=label;
-    if(button){if(route)button.dataset.entryResume=route;else delete button.dataset.entryResume}}}
 /** Chrome accepted the install, or the app reports itself installed. Either way
  *  there is nothing left to install: the section goes, the choices stay. */
 function closeFirstRunInstall(){
@@ -22410,7 +22388,7 @@ function createLandingController(root){
     paint(play.held?play.t:play.t+step);
     play.raf=requestAnimationFrame(frame);reg.frames.add(play.raf)}
   function syncPlay(){
-    const run=play.seen&&!document.hidden&&!reduced()&&!landingReturning();
+    const run=play.seen&&!document.hidden&&!reduced();
     if(run&&!play.raf){play.last=null;play.raf=requestAnimationFrame(frame);reg.frames.add(play.raf)}
     if(!run&&play.raf){cancelAnimationFrame(play.raf);reg.frames.delete(play.raf);play.raf=0}}
   // The frame's size sets the camera's shots (layoutLandingDemo); the painter moves the phone inside it.
@@ -22475,7 +22453,7 @@ function createLandingController(root){
     paintFeat(feat.t);
     feat.raf=requestAnimationFrame(featFrame);reg.frames.add(feat.raf)}
   function syncFeat(){
-    const run=feat.seen&&!document.hidden&&!reduced()&&!landingReturning();
+    const run=feat.seen&&!document.hidden&&!reduced();
     if(run&&!feat.raf){feat.last=performance.now();feat.raf=requestAnimationFrame(featFrame);reg.frames.add(feat.raf)}
     if(!run&&feat.raf){cancelAnimationFrame(feat.raf);reg.frames.delete(feat.raf);feat.raf=0}}
   /* Each screen is built 390 wide and scaled into its window; the panel's size is the stylesheet's, so nothing moves. */
@@ -22609,9 +22587,7 @@ function createLandingController(root){
 function mountLandingController(){
   disposeLandingController();
   const root=$("#firstRun");if(!root)return;
-  // openFirstRun marks the landing first or returning after it renders, so the
-  // marks are applied to the hero here, before the controller reads it.
-  renderFirstRunHeroCopy();renderLandingResume();
+  renderFirstRunHeroCopy();
   landingController=createLandingController(root);
   landingController.mount()}
 function disposeLandingController(){
@@ -22651,13 +22627,8 @@ function openFirstRun(kind=currentEntryLanding()){
   firstRunActive=true;
   renderFirstRun();
   el.dataset.entryLanding=kind;
-  // The generic landing tells a first visit from a return, and names the setup
-  // the lifter left half done, so the returning landing can lead with it.
+  // Telemetry still tells a first view from a return; the page itself is the same.
   const returning=kind==="generic"&&uiPrefs.entryLandingSeen===true;
-  el.dataset.entryVisit=returning?"returning":"first";
-  const draft=returning?readSetupDraftRecord():null;
-  const draftRoute=draft?.ok&&draft.envelope&&!isGuidedRepairSetupDraft(draft.envelope)?String(draft.envelope.state?.route||""):"";
-  if(draftRoute)el.dataset.entryDraft=draftRoute;else delete el.dataset.entryDraft;
   el.classList.remove("hidden");
   document.body.classList.add("is-firstrun");
   captureEvent("landing_viewed",{landing:kind==="shared-invalid"?"shared_invalid":kind==="shared"?"shared":"generic",visit:returning?"returning":"first"});
@@ -22706,8 +22677,8 @@ const firstRunPending=()=>!state.programMeta?.onboarded&&!state.log.length;
 /** Resolve the landing before ordinary navigation. A valid or invalid shared
  *  handoff always gets its complete fail-closed surface. Otherwise the landing
  *  is the boot surface until the device is onboarded (owner decision on #295,
- *  amending G-47/L-08 and Q633): the full landing on the first visit, the
- *  returning landing on later ones; the chooser is reached from it. */
+ *  amending G-47/L-08 and Q633): the same full landing on every visit
+ *  (owner, 2026-10-31); the chooser is reached from it. */
 function maybeShowFirstRun(){
   if(sharedSetupDraft.status==="existing")return false;
   if(!firstRunPending())return false;
@@ -23849,6 +23820,9 @@ function init(){
     window.__repforgeGestureHandle = mountFallbackGestures();
   }
 
+  // The surface this load lands on (the landing, or the restored view with its
+  // program) has just been drawn, so the launch splash can give way to it.
+  releaseBootSplash();
   // The one signal that the whole boot pipeline — replica recovery, first-run
   // persistence, the first render — has finished. Test gates used to wait for a
   // day tab, which a device with no program never grows.
@@ -24206,4 +24180,48 @@ if(DurableState){
     programTransition:typeof RepForgeProgramTransition!=="undefined"?RepForgeProgramTransition:null
   });
 }
-boot();
+/* ---- The launch splash (index.html #bootSplash) ----
+   It covers the page from the first frame. Boot releases it once the surface this
+   load lands on has drawn its real content: init() releases it after the first
+   render and the landing decision, the landing or the restored view with the
+   lifter's program in it, never an empty shell. A boot dialog (storage recovery,
+   the exercise catalog) shows over it from the top layer. A thrown boot, or the
+   head script's stall timer, turns it into the error state instead of leaving
+   the lifter on the mark. */
+let bootSplashState="covering";
+function releaseBootSplash(){
+  if(bootSplashState!=="covering")return;
+  bootSplashState="released";
+  const root=document.documentElement,splash=document.getElementById("bootSplash");
+  clearTimeout(window.__repforgeBootStall);
+  const landing=firstRunOpen();
+  root.dataset.bootSurface=landing?"landing":"app";
+  root.classList.remove("is-booting");
+  if(!splash)return;
+  const remove=()=>splash.remove();
+  // The landing is whole the moment it is drawn, so its plain cover just goes.
+  if(landing||matchMedia("(prefers-reduced-motion: reduce)").matches){remove();return}
+  // Onto the app: the mark fades first, then the cover (styles.css, .bootsplash.is-leaving).
+  splash.classList.add("is-leaving");
+  splash.addEventListener("transitionend",event=>{if(event.target===splash)remove()});
+  setTimeout(remove,600)}
+function showBootFailure(reason){
+  if(bootSplashState==="released")return;
+  bootSplashState="failed";
+  const root=document.documentElement;
+  clearTimeout(window.__repforgeBootStall);
+  window.__repforgeBootFailureState=String(reason||"failed");
+  for(const el of document.querySelectorAll("#bootSplash [data-i18n]")){
+    const text=typeof t==="function"?t(el.dataset.i18n):"";
+    if(text&&text!==el.dataset.i18n)el.textContent=text}
+  // The panel becomes an alert only now, so its hidden text, translated with the
+  // rest of the page during boot, is never announced.
+  document.querySelector("#bootSplash .bootsplash__fail")?.setAttribute("role","alert");
+  root.classList.add("is-boot-failed");
+  const reload=document.getElementById("bootReload");
+  if(reload){reload.onclick=()=>location.reload();try{reload.focus({preventScroll:true})}catch{}}}
+window.__repforgeShowBootFailure=showBootFailure;
+async function runBoot(){
+  try{return await boot()}
+  catch(error){showBootFailure("boot-error");throw error}}
+runBoot();

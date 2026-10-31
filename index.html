@@ -35,27 +35,62 @@
   <link rel="apple-touch-startup-image" href="icons/splash-1536x2048.png" media="screen and (device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="motion-polish.css">
-  <!-- app.js owns the Appearance setting, but it is the last script on the page
-       and a dark install would spend that whole load painted cream. This replays
-       the resolved theme onto <html> before the first paint and does nothing
-       else: it never writes, and if the read fails the markup default (light)
-       stands until app.js gets there. The default is light regardless of the
-       device; only an explicit "dark", or "system" on a dark device, paints
-       dark here. Keep the key, the values and the dark theme-colour in step
-       with applyTheme() in app.js. -->
+  <!-- Runs before the first paint, and only reads.
+       Theme: app.js owns the Appearance setting, but it is the last script on the
+       page and a dark install would spend that whole load painted cream. This
+       replays the resolved theme onto <html>. The default is light regardless of
+       the device; only an explicit "dark", or "system" on a dark device, paints
+       dark here. Keep the key, the values and the dark theme-colour in step with
+       applyTheme() in app.js.
+       Boot surface: <html data-boot> says which surface this load will land on,
+       "app" when the saved state has an activated program (onboarded, a logged
+       set or a program) and "landing" otherwise, the same facts app.js decides
+       on. The launch splash (#bootSplash, first in <body>) covers the page from
+       the first frame until app.js has drawn that surface's real content, so
+       neither the landing nor Today is ever seen as an empty shell. If boot has
+       not finished in BOOT_STALL_MS and no dialog of its own is asking the
+       lifter something, the splash turns into its error state instead of
+       holding the lifter there. -->
   <script>
     (function(){
+      var root=document.documentElement;
       try{
         var pref=(JSON.parse(localStorage.getItem("repforge_ui_v1"))||{}).theme;
         var dark=pref==="dark"||(pref==="system"&&matchMedia("(prefers-color-scheme: dark)").matches);
-        if(!dark)return;
-        document.documentElement.dataset.theme="dark";
-        document.querySelector('meta[name="theme-color"]').setAttribute("content","#141310");
+        if(dark){
+          root.dataset.theme="dark";
+          document.querySelector('meta[name="theme-color"]').setAttribute("content","#141310");
+        }
       }catch(e){}
+      var surface="landing";
+      try{
+        var saved=JSON.parse(localStorage.getItem("repforge_v1"));
+        if(saved&&(saved.programMeta&&saved.programMeta.onboarded===true||Array.isArray(saved.log)&&saved.log.length>0||Array.isArray(saved.program)&&saved.program.length>0))surface="app";
+      }catch(e){}
+      root.dataset.boot=surface;
+      root.classList.add("is-booting");
+      var BOOT_STALL_MS=12000;
+      window.__repforgeBootStall=setTimeout(function stalled(){
+        if(!root.classList.contains("is-booting"))return;
+        if(document.querySelector("dialog[open]")){window.__repforgeBootStall=setTimeout(stalled,BOOT_STALL_MS);return}
+        if(typeof window.__repforgeShowBootFailure==="function")window.__repforgeShowBootFailure("stalled");
+        else{var panel=document.querySelector(".bootsplash__fail");if(panel)panel.setAttribute("role","alert");root.classList.add("is-boot-failed")}
+      },BOOT_STALL_MS);
     })();
   </script>
 </head>
 <body>
+  <!-- The launch splash: the mark on the app's ground, placed as the iOS launch images place it, so the native launch
+       hands over to it without a jump. app.js removes it once the surface this load lands on has drawn its real
+       content (releaseBootSplash); its failure panel is the boot error state. -->
+  <div id="bootSplash" class="bootsplash">
+    <img class="bootsplash__mark" src="assets/brand/mark.png" alt="" width="192" height="192" decoding="sync" aria-hidden="true">
+    <div class="bootsplash__fail">
+      <p class="bootsplash__title" data-i18n="boot.failed.title">Taurifer didn't start</p>
+      <p class="bootsplash__body" data-i18n="boot.failed.body">Something stopped the app from loading. Reload to try again.</p>
+      <button type="button" class="btn btn--cta bootsplash__reload" id="bootReload" data-i18n="boot.failed.reload">Reload</button>
+    </div>
+  </div>
   <!-- Legacy hooks kept for JS/tests; visually relocated or hidden -->
   <button id="heatGauge" type="button" class="visually-hidden" hidden aria-hidden="true" data-i18n-title="top.heat_title" title="Number of lifts ready for more load" tabindex="-1">
     <span class="gauge__fill"></span>
@@ -1393,6 +1428,6 @@ Triceps pushdown 3x12-15</pre>
   <script src="durable-state.js?v=447"></script>
   <script src="progress-model.js?v=309"></script>
   <script src="history-ui.js?v=551"></script>
-  <script src="app.js?v=581"></script>
+  <script src="app.js?v=582"></script>
 </body>
 </html>

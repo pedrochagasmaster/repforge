@@ -436,8 +436,8 @@ const PRIVACY_SHEET = { sheet: "#privacySheet", scrim: "#privacyScrim", closeBut
 async function landingJourney(browser, { returning, motion = false }) {
   const tag = `${returning ? "returning" : "first-visit"} landing${motion ? " (full motion)" : ""}`;
   const { context, page, errors } = await landingPage(browser, { returning, motion });
-  const visit = returning ? "returning" : "first";
-  check("landing", (await page.evaluate(() => document.querySelector("#firstRun").dataset.entryVisit)) === visit, `${tag}: the landing in front is the ${visit} landing`);
+  check("landing", await page.evaluate(() => !document.querySelector("#firstRun").classList.contains("hidden")
+    && !!document.querySelector('#firstRun [data-landing-section="features"]')), `${tag}: the full landing is in front`);
   // Plan 075 phase 2 retired the instructions' Done — × is the one way out,
   // so initial focus in that state is the sheet's title, not a Done button.
   const trips = [
