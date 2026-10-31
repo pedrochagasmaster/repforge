@@ -1973,7 +1973,7 @@ body.is-sheet-open{overflow:hidden}
 #library #libClose{min-height:var(--control-target);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-action-text)}
 #library #libCustom{min-height:var(--control-target);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-action-text)}
 #library #libCustom:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-.libstep{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-8);margin:var(--space-12) 0 var(--space-16)}
+.libstep{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:12px 0 18px}
 .libstep__lab{grid-column:1/-1;margin:0;font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);letter-spacing:.06em;line-height:var(--line-standard);text-transform:uppercase;color:var(--color-ink-secondary)}
 .libstep__bar{height:3px;border-radius:var(--radius-compact);background:var(--boundary-required)}
 .libstep__bar.is-done{background:var(--color-action)}
