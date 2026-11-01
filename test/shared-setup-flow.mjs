@@ -89,7 +89,8 @@ export const SHARED_COPY = Object.freeze({
     shareUnsupported: "This browser cannot create setup links.",
     saved: "Program saved.",
     shareTitle: "Share program setup",
-    shareBody: "Create a setup link for this program. Copy the link or open the system Share sheet.",
+    // The sheet leads with what the link carries (refine 2026-11, P2): the Program row's own line.
+    shareBody: "Program, settings and app language · no workout history",
   },
   pt: {
     lede: "Este link traz um treino e seus ajustes. Nenhum histórico vem junto. Nada muda até você tocar em Usar este treino.",
@@ -729,12 +730,23 @@ export async function runSharedSetupFlow(browser) {
       const share = document.querySelector("#shareSetupShare");
       const hidden = (node) =>
         !node || node.hidden === true || node.classList.contains("hidden") || !!node.closest(".hidden,[hidden]");
-      return { body: (body?.textContent || "").trim(), bodyVisible: !hidden(body), shareHidden: hidden(share), shareDisabled: !!share?.disabled };
+      const link = document.querySelector("#shareSetupLink"), linkStyle = link ? getComputedStyle(link) : null;
+      const lineHeight = linkStyle ? parseFloat(linkStyle.lineHeight) : 0;
+      return { body: (body?.textContent || "").trim(), bodyVisible: !hidden(body), shareHidden: hidden(share), shareDisabled: !!share?.disabled,
+        scopeFirst: !!body && !!link && (body.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
+        // One line, cut with an ellipsis, no taller than a single 44px target (focusable elements keep that height).
+        linkOneLine: !!link && link.getClientRects().length === 1 && link.getBoundingClientRect().height <= Math.max(44, lineHeight) + 0.5
+          && linkStyle.whiteSpace === "nowrap" && linkStyle.textOverflow === "ellipsis" && link.textContent.startsWith("http"),
+        linkSelectable: linkStyle?.userSelect === "text" || linkStyle?.webkitUserSelect === "text",
+        primary: share?.classList.contains("btn--cta") || getComputedStyle(share).backgroundColor !== getComputedStyle(document.querySelector("#shareSetupCopy")).backgroundColor };
     });
     const link = await readShareSetupLink(page);
     const url = link ? new URL(link) : null;
     const fragment = url?.hash.startsWith("#setup=") ? url.hash.slice("#setup=".length) : "";
-    assert(sheet.bodyVisible && sheet.body === SHARED_COPY.en.shareBody, "share sheet keeps only task guidance", sheet.body);
+    assert(sheet.bodyVisible && sheet.body === SHARED_COPY.en.shareBody, "share sheet leads with what the link carries, task-only", sheet.body);
+    assert(sheet.scopeFirst && sheet.linkOneLine && sheet.linkSelectable,
+      "the encoded link is a quiet one-line, selectable detail below what it carries", JSON.stringify(sheet));
+    assert(!sheet.shareHidden && sheet.primary, "Share is the one primary action, Copy link beside it", JSON.stringify(sheet));
     assert(url?.pathname.endsWith("/index.html") && url.search === "" && fragment.startsWith("v4.") && fragment.length <= MAX_ENCODED_CHARS,
       "the link is index.html#setup=v4.… within the 3072-character limit", { link, length: fragment.length });
     const decoded = await decodeSetup(page, fragment);
