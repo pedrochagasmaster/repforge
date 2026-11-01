@@ -223,6 +223,18 @@ try {
     "zero readiness renders no ready action, 0-ready chip or up verdict", overview);
   check(overview.reviewRole === "navigation", "Review block is marked as navigation", overview.reviewRole);
   check(overview.volumeAuditAction, "effective-set audit action remains in Program overview", overview);
+  // Refinement audit A8: the progression method most lifts use is named once, under the first day; a row names its
+  // method only where it differs.
+  const methods = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll("#programOverview .rxrow")];
+    const names = [...prog.days()].flatMap((day) => prog.forDay(day)).map(programStrategyName);
+    const counts = new Map(); names.forEach((name) => counts.set(name, (counts.get(name) || 0) + 1));
+    const common = [...counts].sort((a, b) => b[1] - a[1])[0]?.[0];
+    return { common, lines: [...document.querySelectorAll("#programOverview .prog-legend--method")].map((el) => el.textContent.trim()),
+      subs: rows.map((row) => row.querySelector(".rxrow__sub")?.textContent.trim() || "") };
+  });
+  check(methods.lines.length === 1 && methods.lines[0].includes(methods.common) && methods.subs.every((sub) => sub !== methods.common),
+    "the usual progression method is named once, and rows name only a method that differs", methods);
   // #525: "See audit" opens a read-only explanation of the planned weekly total, never the editor.
   const storedBefore = await page.evaluate((key) => localStorage.getItem(key), KEY);
   const scrollBefore = await page.evaluate(() => { document.querySelector("#seeVolumeAudit").scrollIntoView({ block: "center" }); return scrollY; });
