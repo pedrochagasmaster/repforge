@@ -5396,7 +5396,8 @@ async function main() {
     "Seed 100×8 → save 100×10 → summary mentions improved"
   );
   assert(
-    /OUTCOME AND NEXT TARGET\s+Hack squat\s+Improved/i.test(deltaSummary) &&
+    // The lift's outcome is its labelled "vs last time" line, under the sets (refinement A3).
+    /OUTCOME AND NEXT TARGET\s+Hack squat\s+[\d.,]+ kg × [\d, ]+\s+vs last time\s+Improved/i.test(deltaSummary) &&
       !/\b\d+\s+improved\b/i.test(deltaSummary),
     "Session summary uses canonical outcome rows without a second delta count",
     `Summary: ${JSON.stringify(deltaSummary)}`,

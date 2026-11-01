@@ -437,7 +437,7 @@ async function run() {
 
   assert(s.outcomeRoles.filter((row) => row.outcome === "improved").length === 2,
     "canonical lift outcomes are on the screen", JSON.stringify(s.outcomeRoles));
-  const LABEL = { outcome: "vs last time", record: "Record", next: "Next" };
+  const LABEL = { outcome: "vs last time", record: "PR", next: "Next" };
   assert(s.ledgers.length && s.ledgers.every((g) => !g.nameRowExtra && g.rows.length &&
       g.rows.every(([label, kind]) => LABEL[kind] === label) &&
       g.rows.map(([, kind]) => kind).join() === ["outcome", "record", "next"].filter((kind) => g.rows.some(([, k]) => k === kind)).join()),

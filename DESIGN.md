@@ -750,7 +750,7 @@ The saved-session summary is a full-screen modal read as a ledger, not a reward.
 Eyebrow, the day and its totals, then one flat group per lift: the lift's name, the
 performed sets in Mono, and a small ledger whose caption column names the question
 each line answers, because the three signals have different referents. *vs last time*
-is the outcome word in ink with the shared verdict mark; *Record* is the check and its
+is the outcome word in ink with the shared verdict mark; *PR* is the check and its
 margin in `--color-improved`, when there is one; *Next* is the engine's target, the
 strongest line. No signal stands beside the name as the lift's status. Today's
 finished day uses the same ledger without the sets and the record line. The first
