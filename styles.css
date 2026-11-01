@@ -3741,7 +3741,6 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .sum-grp__h{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-12)}
 .sum-grp__n{min-width:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink);overflow-wrap:anywhere}
 .sum-grp .sum-outcome,.sum-word{flex:none;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink);text-align:right}
-.sum-grp .sum-outcome.verdictmark--maintained{color:var(--color-ink)}
 .sum-grp__sets{margin:var(--space-4) 0 0;font-family:var(--font-training-data);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:anywhere}
 .sum-pr{display:flex;align-items:baseline;flex-wrap:wrap;gap:var(--space-8);margin:var(--space-4) 0 0}
 .sum-pr__over{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-improved)}
@@ -7791,15 +7790,15 @@ body.is-entry-editor #entryProgramName,
 #volumeDash .vrow__bar{box-sizing:border-box;height:6px;border:1px solid var(--boundary-required)}
 #stats #reviewPanel .blockprogress > p b{font-weight:var(--weight-semibold);color:var(--color-ink)}
 #stats #reviewPanel .review__outcomes{color:var(--color-ink)}
-/* Observed outcomes, one flat group per verdict: a hairline per group, the shared verdict mark and word as the group's
-   heading with its count in Mono, and the lifts beneath, indented to the word. The maintained word is ink here, as in
-   the summary ledger. */
+/* Observed outcomes, one flat group per verdict: a hairline per group, the outcome's word as the group's heading with
+   its count in Mono, and the lifts beneath. An outcome is a word: glyphs belong to the next target alone (owner
+   decision, 2026-11-01). */
 #stats #reviewPanel .review__verdicts{margin:0;padding:0;list-style:none;border-bottom:1px solid var(--boundary-decorative)}
 #stats #reviewPanel .review__verdict{padding:var(--space-12) 0 var(--space-14);border-top:1px solid var(--boundary-decorative)}
 #stats #reviewPanel .review__verdicthead{display:flex;align-items:center;gap:var(--space-8);margin:0 0 var(--space-4)}
-#stats #reviewPanel .review__verdicthead .verdictmark{font-size:var(--font-size-body);color:var(--color-ink)}
+#stats #reviewPanel .review__verdictword{font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
 #stats #reviewPanel .review__verdictn{margin-left:auto;font-family:var(--font-training-data);font-size:var(--font-size-body);font-weight:var(--weight-medium);color:var(--color-ink-secondary)}
-#stats #reviewPanel .review__lifts{margin:0;padding:0 0 0 22px;list-style:none}
+#stats #reviewPanel .review__lifts{margin:0;padding:0;list-style:none}
 #stats #reviewPanel .review__lifts li{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink);overflow-wrap:anywhere}
 #stats #reviewPanel .review__uncompared,#stats #reviewPanel .review__none{margin:var(--space-12) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 #stats #reviewPanel .review__none{margin:0}
@@ -8360,10 +8359,9 @@ body.is-entry-editor #entryProgramName,
 }
 .verdictmark--up .verdictmark__glyph{background:var(--color-action);transform:rotate(-90deg)}
 .verdictmark--down .verdictmark__glyph{background:var(--color-ink);transform:rotate(90deg)}
-/* Hold (and the maintained outcome) draw "=", recover a clockwise return, in ink: orange is only the up glyph
-   (section 8.8). Stalled and new stay word-only. */
-.verdictmark--hold .verdictmark__glyph,
-.verdictmark--maintained .verdictmark__glyph{
+/* Hold draws "=", recover a clockwise return, in ink: orange is only the up glyph (section 8.8). Stalled and new stay
+   word-only. */
+.verdictmark--hold .verdictmark__glyph{
   background:var(--color-ink);
   -webkit-mask:var(--verdict-hold) no-repeat center/contain;mask:var(--verdict-hold) no-repeat center/contain;
 }
@@ -8376,8 +8374,9 @@ body.is-entry-editor #entryProgramName,
   background:var(--color-improved);
   -webkit-mask:var(--check) no-repeat center/contain;mask:var(--check) no-repeat center/contain;
 }
-/* The session outcome "Maintained" draws the same ink "=" as the hold recommendation: one meaning per glyph
-   (owner decision on #295, 2026-10-01). Improved keeps the up arrow, declined the ink down arrow. */
+/* Glyphs only for Next (owner decision, 2026-11-01, superseding #295's maintained "="): an outcome (how a session
+   went against the last comparable one) is a word with no glyph, so an arrow or "=" always means the next target.
+   The maintained word keeps its colour. */
 .verdictmark--maintained{color:var(--color-maintained)}
 
 /* Sheet header band: one band for every sheet. Handle, section-title title,
