@@ -341,8 +341,18 @@ async function runChartRepaint(browser) {
   console.log("\n5. The canvas chart is repainted, not left on the old palette");
   const { context, page } = await freshPage(browser, "light");
   try {
-    // The exercise page owns the canvas chart (the overview carries none).
-    await page.evaluate(() => openExerciseView("library:sq_bb", "log"));
+    // The exercise page owns the canvas chart (the overview carries none), and
+    // draws it from a lift's second session: seed two in memory.
+    await page.evaluate(() => {
+      for (const [n, date, load] of [[1, "2026-09-09", 80], [2, "2026-09-16", 82.5]]) {
+        state.log.push({
+          session: `appearance-${n}`, date, created: `${date}T09:00:00.000Z`, day: "Day 1",
+          name: "Barbell squat", exerciseId: "appearance-squat", set: 1, load, reps: 8, rir: 2, work: true,
+          primary: "Quads", secondary: "Glutes", performedName: "Barbell squat", performedMovementId: "library:sq_bb",
+        });
+      }
+      openExerciseView("library:sq_bb", "log");
+    });
     await page.waitForSelector("#exercise.view.active", { timeout: 5000 });
     await page.waitForFunction(() => {
       const c = document.querySelector("#exChart");
