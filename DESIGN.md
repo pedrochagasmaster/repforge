@@ -747,13 +747,21 @@ sentence and no calculation.
 ### Summary ledger
 
 The saved-session summary is a full-screen modal read as a ledger, not a reward.
-Eyebrow, the day and its totals, then one flat group per lift: the lift's name and
-its outcome word in ink with the shared verdict mark, the performed sets in Mono, a
-record line in `--color-improved` when there is one, and the next target as the
-strongest line. The first session of a lift shows a neutral baseline and no outcome
-words. Hard sets by muscle are ranked counts, and the week line follows. The totals
-keep a count ramp, and there is no check circle and no row stagger. Done is a pinned
-persistent action at the end.
+Eyebrow, the day and its totals, then one flat group per lift: the lift's name, the
+performed sets in Mono, and a small ledger whose caption column names the question
+each line answers, because the three signals have different referents. *vs last time*
+is the outcome word in ink with the shared verdict mark; *Record* is the check and its
+margin in `--color-improved`, when there is one; *Next* is the engine's target, the
+strongest line. No signal stands beside the name as the lift's status. Today's
+finished day uses the same ledger without the sets and the record line. The first
+session of a lift shows a neutral baseline and no outcome words. Hard sets by muscle
+are ranked counts, and the week line follows. The totals keep a count ramp, and there
+is no check circle and no row stagger. Done is a pinned persistent action at the end.
+
+The Progress Review speaks the same vocabulary for a block: its observed outcomes
+are one flat group per verdict (improved, maintained, declined), headed by the verdict
+mark and word with the count in Mono, the lifts beneath as a list, and the lifts not
+compared yet counted rather than named.
 
 ### Icons (the G set)
 

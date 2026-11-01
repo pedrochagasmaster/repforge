@@ -310,6 +310,12 @@ const readSummary = (page) =>
       prMarks: body.querySelectorAll(".sum-pr .verdictmark--record").length,
       prNames: [...body.querySelectorAll(".sum-grp")].filter((g) => g.querySelector(".sum-pr")).map((g) => g.querySelector(".sum-grp__n").textContent.trim()),
       prOver: txt(".sum-pr__over"),
+      // Refinement A3: each lift is a small ledger; every line names its question beside its value.
+      ledgers: [...body.querySelectorAll(".sum-grp")].map((g) => ({
+        nameRowExtra: g.querySelector(".sum-grp__h").textContent.trim() !== g.querySelector(".sum-grp__n").textContent.trim(),
+        rows: [...g.querySelectorAll(".sum-ledger > .sum-ledger__row")].map((row) => [row.querySelector("dt")?.textContent.trim(),
+          row.querySelector("dd .sum-outcome, dd .sum-word") ? "outcome" : row.querySelector("dd .sum-pr") ? "record" : row.querySelector("dd .sum-grp__next") ? "next" : "?"]),
+      })),
       prSets: [...body.querySelectorAll(".sum-grp")].filter((g) => g.querySelector(".sum-pr")).map((g) => g.querySelector(".sum-grp__sets").textContent.trim()),
       overflowLine: !!body.querySelector(".sum-more"),
       chips: txt(".sum-chip"),
@@ -431,6 +437,14 @@ async function run() {
 
   assert(s.outcomeRoles.filter((row) => row.outcome === "improved").length === 2,
     "canonical lift outcomes are on the screen", JSON.stringify(s.outcomeRoles));
+  const LABEL = { outcome: "vs last time", record: "Record", next: "Next" };
+  assert(s.ledgers.length && s.ledgers.every((g) => !g.nameRowExtra && g.rows.length &&
+      g.rows.every(([label, kind]) => LABEL[kind] === label) &&
+      g.rows.map(([, kind]) => kind).join() === ["outcome", "record", "next"].filter((kind) => g.rows.some(([, k]) => k === kind)).join()),
+    "every signal sits on a line that names its question (how it went, the record, next), in that order, and no word floats beside the name",
+    JSON.stringify(s.ledgers));
+  assert(s.ledgers.filter((g) => g.rows.some(([, kind]) => kind === "record")).length === s.prNames.length,
+    "each record is a labelled line in its own lift's ledger", JSON.stringify(s.ledgers));
   assert(!s.baseline, "a session with history is not called a baseline", s.baseline);
   assert(
     s.muscles.join(",") === "Chest,Mid/upper back,Biceps,Triceps" && /^2 sets$/.test(s.muscleNums[0]),

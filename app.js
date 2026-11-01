@@ -10412,8 +10412,8 @@ function sessionPRHtml(p){
   const unit=unitLabel(),over=p.kind==="load"?t("summary.pr.over_load",{n:fmtLoad(p.delta),unit})
     :p.kind==="reps"?t("summary.pr.over_reps",{n:fmt(p.delta),reps:tp(p.delta,"rep")})
     :t("summary.pr.over_e1rm",{n:fmtLoad(p.delta),unit});
-  return `<p class="sum-pr"><span class="verdictmark verdictmark--record"><span class="verdictmark__glyph" aria-hidden="true"></span>${esc(t("summary.pr.label"))}</span>`+
-    `<span class="sum-pr__over">${esc(over)}</span></p>`}
+  return `<span class="sum-pr"><span class="verdictmark verdictmark--record"><span class="verdictmark__glyph" aria-hidden="true"></span></span>`+
+    `<span class="sum-pr__over">${esc(over)}</span></span>`}
 /** The lift's outcome word. Only a canonical outcome carries the .sum-outcome role. */
 function summaryWordHtml(lift,session,{mark=true}={}){
   const st=lift.state,parity=lift.exerciseId?` data-parity-outcome="${esc(lift.exerciseId)}" data-parity-session="${esc(session)}"`:"";
@@ -10427,14 +10427,20 @@ function summaryWordHtml(lift,session,{mark=true}={}){
   if(st.reason==="missing-effort")return `<span class="sum-word">${esc(t("stats.outcome_short.missing_effort"))}</span>`;
   const key=st.reason==="changed-load"?"delta.changed_load.label":"delta.not_comparable.label";
   return `<span class="sum-word"${parity}>${esc(t(key))}</span>`}
-/** `compact` is Today's finished day: the name and its word, then the next target, without the sets or the record line. */
+/** One lift as a small ledger whose every line names its question: how it went against the last comparable session,
+ *  the record it set, and what next time asks. The three signals have different referents, so none of them stands
+ *  alone as the lift's status (refinement A3). `compact` is Today's finished day: the name, how it went and the next
+ *  target, without the sets or the record line. */
 function summaryGroupHtml(lift,s,{compact=false}={}){
   const session=compact?lift.session??s.session:s.session;
-  return `<div class="sum-grp"><div class="sum-grp__h"><span class="sum-grp__n">${esc(liftDisplayName(lift.name,lift.liftKey))}</span>${s.showBaseline?"":summaryWordHtml(lift,session,{mark:!compact})}</div>`+
+  const row=(key,value,attrs="")=>`<div class="sum-ledger__row"><dt class="sum-ledger__k">${esc(t(key))}</dt><dd class="sum-ledger__v"${attrs}>${value}</dd></div>`;
+  const rows=(s.showBaseline?"":row("summary.ledger.outcome",summaryWordHtml(lift,session,{mark:!compact})))+
+    (lift.pr&&!compact?row("summary.ledger.record",sessionPRHtml(lift.pr)):"")+
+    (lift.next?row("summary.ledger.next",`<span class="sum-grp__next"${lift.exerciseId?` data-parity-target="${esc(lift.exerciseId)}"`:""}>`+
+      `${verdictMarkHtml(lift.next.glyph)}<span>${esc(lift.next.line)}</span></span>`):"");
+  return `<div class="sum-grp"><div class="sum-grp__h"><span class="sum-grp__n">${esc(liftDisplayName(lift.name,lift.liftKey))}</span></div>`+
     (compact?"":`<p class="sum-grp__sets">${esc(rxSetsLine(lift.sets,true))}</p>`)+
-    (lift.pr&&!compact?sessionPRHtml(lift.pr):"")+
-    (lift.next?`<p class="sum-grp__next"${lift.exerciseId?` data-parity-target="${esc(lift.exerciseId)}"`:""}>${verdictMarkHtml(lift.next.glyph)}`+
-      `<span>${esc(t("summary.next_target",{target:lift.next.line}))}</span></p>`:"")+`</div>`}
+    (rows?`<dl class="sum-ledger">${rows}</dl>`:"")+`</div>`}
 
 function sessionSummaryHtml(s){
   const unit=unitLabel(),out=[];
