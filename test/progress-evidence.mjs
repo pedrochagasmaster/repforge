@@ -182,6 +182,52 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   await page.evaluate(() => window.__repforgeStatsNav.setStatsSeg("review"));
   assert.match(await page.locator("#reviewPanel").textContent(), /Incline chest press/,
     "the same sufficient record reaches the live Review renderer");
+  // Review groups the observed outcomes by verdict: each sufficient lift under its own outcome, the groups in a fixed
+  // order, each count its list's length, and the lifts not compared yet counted rather than named.
+  const reviewGroups = await page.evaluate(() => ({
+    groups: [...document.querySelectorAll("#reviewPanel .review__verdict")].map((group) => ({
+      outcome: group.dataset.outcome,
+      count: group.querySelector(".review__verdictn")?.textContent.trim(),
+      lifts: [...group.querySelectorAll(".review__lifts > li")].map((li) => li.dataset.exerciseId),
+    })),
+    uncompared: document.querySelector("#reviewPanel .review__uncompared")?.textContent.trim() || "",
+  }));
+  const sufficient = canonicalJourney.records.filter((record) => record.evidenceState === "sufficient");
+  const order = ["improved", "maintained", "declined"];
+  assert.deepEqual(reviewGroups.groups.map((group) => group.outcome),
+    order.filter((outcome) => sufficient.some((record) => record.outcome === outcome)),
+    "Review has one group per observed verdict, in the fixed order");
+  for (const group of reviewGroups.groups) {
+    assert.equal(group.count, String(group.lifts.length), `the ${group.outcome} count is its list's length`);
+    assert.deepEqual([...group.lifts].sort(),
+      sufficient.filter((record) => record.outcome === group.outcome).map((record) => record.exerciseId).sort(),
+      `the ${group.outcome} group lists exactly the producer's ${group.outcome} lifts`);
+  }
+  const uncompared = canonicalJourney.records.length - sufficient.length;
+  assert.match(reviewGroups.uncompared, new RegExp(`^${uncompared} lifts? (isn't|aren't) compared yet`),
+    "the lifts without a comparable pair are counted, not listed as outcomes");
+  // A mixed block, given in no particular order: the groups still come improved, maintained, declined, each with its
+  // own lifts, and a name is text, never markup.
+  const mixed = await page.evaluate(() => {
+    const host = document.createElement("div");
+    host.innerHTML = reviewOutcomesHtml([
+      { exerciseId: "d1", outcome: "declined" }, { exerciseId: "i1", outcome: "improved" },
+      { exerciseId: "m1", outcome: "maintained" }, { exerciseId: "i2", outcome: "improved" },
+    ], 1, (key) => (key === "i2" ? "<b>Row</b>" : key.toUpperCase()));
+    return {
+      groups: [...host.querySelectorAll(".review__verdict")].map((group) => [group.dataset.outcome,
+        group.querySelector(".review__verdictn").textContent, [...group.querySelectorAll(".review__lifts > li")].map((li) => li.textContent)]),
+      headings: host.querySelectorAll("h4.review__verdicthead").length,
+      glyphsHidden: [...host.querySelectorAll(".verdictmark__glyph")].every((glyph) => glyph.getAttribute("aria-hidden") === "true"),
+      bold: host.querySelectorAll("b").length,
+      uncompared: host.querySelector(".review__uncompared")?.textContent,
+    };
+  });
+  assert.deepEqual(mixed.groups, [["improved", "2", ["I1", "<b>Row</b>"]], ["maintained", "1", ["M1"]], ["declined", "1", ["D1"]]],
+    "a mixed block groups by verdict in the fixed order, each lift under its own outcome, names as text");
+  assert.equal(mixed.headings, 3, "each verdict group is a heading for assistive navigation");
+  assert.ok(mixed.glyphsHidden && mixed.bold === 0, "the verdict glyph is decorative and a name never becomes markup");
+  assert.equal(mixed.uncompared, "1 lift isn't compared yet: it needs two comparable sessions.", "one uncompared lift reads in the singular");
   await page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("strength"));
 
   // Drill-in reveals the complete evidence table for one lift.
@@ -319,6 +365,9 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   await page.evaluate(() => window.__repforgeStatsNav.setStatsSeg("review"));
   assert.match(await page.locator("#reviewPanel").textContent(), /baseline building/i,
     "the same insufficient records reach Review as neutral baseline state");
+  assert.equal(((await page.locator("#reviewPanel").textContent()).match(/baseline building/gi) || []).length, 1,
+    "Review says it once: the empty state is not read twice by a screen reader");
+  assert.equal(await page.locator("#reviewPanel .review__verdict").count(), 0, "no verdict group without an observed outcome");
   await context.close();
 }
 
