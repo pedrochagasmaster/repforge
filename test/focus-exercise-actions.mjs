@@ -353,7 +353,9 @@ async function main() {
     // Pick a replacement exercise from the library
     const firstPickerItem = page.locator("#exPickList .pickrow").first();
     await firstPickerItem.click();
-    await page.waitForTimeout(300);
+    await page.waitForSelector("#exPickSheet.is-reason-step", { timeout: 5000 });
+    await page.click("#exPickReasonSkip");
+    await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
 
     // Verify DraftV2 substitution record
     const subCheck = await page.evaluate(() => {

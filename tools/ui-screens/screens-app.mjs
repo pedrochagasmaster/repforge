@@ -2031,6 +2031,8 @@ export const APP_SCENARIOS = {
     await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
     await page.locator("#exActionSubstBtn").click();
     await page.locator("#exPickList .pickrow").first().click();
+    await page.locator("#exPickSheet.is-reason-step").waitFor();
+    await page.locator("#exPickReasonSkip").click();
     await page.locator("#exPickSheet").waitFor({state:"hidden"});
     await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
     // The reopened sheet keeps its body's last scroll until it has opened; a reset before then was undone, and the frame

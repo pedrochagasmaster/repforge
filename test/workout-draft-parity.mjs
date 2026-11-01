@@ -174,6 +174,11 @@ async function pickExactRow(page, name) {
     row?.click();
     return Boolean(row);
   }, name);
+  await page.waitForFunction(() => {
+    const sheet = document.querySelector("#exPickSheet");
+    return !sheet?.classList.contains("is-open") || sheet.classList.contains("is-reason-step");
+  }, undefined, { timeout: 5000 });
+  if (await page.locator("#exPickSheet.is-reason-step").count()) await page.click("#exPickReasonSkip");
   await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
   return picked;
 }

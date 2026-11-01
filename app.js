@@ -23538,7 +23538,8 @@ function init(){
         // the new movement already ticked; a single pick is finished by it.
         const entry=choice?.entry||choice;
         if(multi){backToPicker(entry.id);return}
-        if(onPick)return onPick(stageOnly?choice:entry)}})};
+        // A custom swap has no picker left to ask its reason, so its event goes out now, without one.
+        if(onPick)return Promise.resolve(onPick(stageOnly?choice:entry)).finally(()=>settleSubstitutionEvent(null))}})};
   const cuCancel=$("#exCustomCancel");if(cuCancel)cuCancel.onclick=cancelCustomExerciseSheet;
   const cuScrim=$("#exCustomScrim");if(cuScrim)cuScrim.onclick=cancelCustomExerciseSheet;
   const cuSave=$("#exCustomSave");if(cuSave)cuSave.onclick=saveCustomExerciseSheet;

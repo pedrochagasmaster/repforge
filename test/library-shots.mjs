@@ -52,13 +52,21 @@ async function openEditor(page) {
 async function pickExact(page, name) {
   await page.fill("#exPickSearch", name);
   await settle(page, 200);
-  return page.evaluate((n) => {
+  const picked = await page.evaluate((n) => {
     const row = [...document.querySelectorAll("#exPickList .pickrow")]
       .find((r) => (r.querySelector(".pickrow__name")?.textContent || "").trim().toLowerCase() === n.toLowerCase());
     if (!row) return false;
     row.click();
     return true;
   }, name);
+  if (picked) {
+    await page.waitForFunction(() => {
+      const sheet = document.querySelector("#exPickSheet");
+      return !sheet?.classList.contains("is-open") || sheet.classList.contains("is-reason-step");
+    }, undefined, { timeout: 5000 });
+    if (await page.locator("#exPickSheet.is-reason-step").count()) await page.click("#exPickReasonSkip");
+  }
+  return picked;
 }
 
 const browser = await launchChromium();
