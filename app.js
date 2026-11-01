@@ -11387,15 +11387,23 @@ function renderPRTimeline(){const el=$("#prTimeline");if(!el)return;
   const delta=ev=>ev.kind==="load"?(ev.deltaLoad!=null?`+${fmtLoad(ev.deltaLoad)}${unitLabel()}`:"")
     :ev.kind==="reps"?(ev.deltaReps!=null?`+${ev.deltaReps}`:"")
     :(ev.deltaE1rm!=null?`+${fmt(Math.round(toDisplay(ev.deltaE1rm)))}${unitLabel()}`:"");
-  el.innerHTML=events.map((ev,i)=>{const kc=ev.kind==="load"?"pr-kind--load":ev.kind==="reps"?"pr-kind--reps":"pr-kind--e1rm";
-    const d=delta(ev);
+  // One row per set (refinement audit A7): a set that raised more than one record carries each kind and its gain, in
+  // the same order, rather than repeating the set once per record.
+  const sets=new Map();
+  for(const ev of events){const key=[ev.liftKey,ev.date,ev.session??"",ev.load,ev.reps].join("|");
+    if(!sets.has(key))sets.set(key,[]);sets.get(key).push(ev)}
+  el.innerHTML=[...sets.values()].map((group,i)=>{const ev=group[0];
+    // Each record with its own gain beside it: "LOAD +2.5kg", "E1RM +3kg".
+    const records=group.map(item=>{const d=delta(item);
+      return `<span class="prtl__rec"><span class="pr-kind ${item.kind==="load"?"pr-kind--load":item.kind==="reps"?"pr-kind--reps":"pr-kind--e1rm"}">${esc(kindLbl(item.kind))}</span>`+
+        (d?`<span class="prtl__delta">${esc(d)}</span>`:"")+`</span>`}).join("");
     return `<button type="button" class="prtl__row" data-prrow="${i}" aria-expanded="false"><span class="prtl__date">${esc(prDate(ev.date))}</span>`+
       `<span class="prtl__ex">${esc(liftDisplayName(ev.exerciseName,ev.liftKey))}</span>`+
-      `<span class="pr-kind ${kc}">${esc(kindLbl(ev.kind))}</span>`+
+      `<span class="prtl__records">${records}</span>`+
       `<span class="prtl__set">${esc(fmtLoad(ev.load))}${unitLabel()} × ${esc(ev.reps)}</span>`+
-      (d?`<span class="prtl__delta">${esc(d)}</span>`:"")+`<span class="chevron" aria-hidden="true"></span></button>`+
+      `<span class="chevron" aria-hidden="true"></span></button>`+
       `<div class="evrow__detail" data-prdetail="${i}" hidden><p class="lede">${esc(longDate(ev.date))}</p>`+
-      `<p class="lede">${esc(`${kindLbl(ev.kind)} · ${fmtLoad(ev.load)}${unitLabel()} × ${ev.reps}`)}${d?` · ${esc(d)}`:""}</p></div>`}).join("");
+      group.map(item=>{const d=delta(item);return `<p class="lede">${esc(`${kindLbl(item.kind)} · ${fmtLoad(item.load)}${unitLabel()} × ${item.reps}`)}${d?` · ${esc(d)}`:""}</p>`}).join("")+`</div>`}).join("");
   $$("#prTimeline [data-prrow]").forEach(b=>b.onclick=()=>{
     const detail=$(`[data-prdetail="${b.dataset.prrow}"]`);if(!detail)return;
     const open=detail.hidden;detail.hidden=!open;b.setAttribute("aria-expanded",open?"true":"false")})}
@@ -11636,8 +11644,9 @@ function renderVolumeDash(){const el=$("#volumeDash");if(!el)return;
   const rows=[...names].sort((a,b)=>muscleLabel(a).localeCompare(muscleLabel(b),locTag())).map(m=>{
     const planned=volEff(plannedMap,m),done=volEff(completed,m);
     const inProgress=ev.periodStatus!=="complete"&&ev.period.end&&String(ev.period.end)>=today();
-    const caption=planned?(!inProgress&&done<planned?t("stats.volume.partial_period")
-      :inProgress?t("stats.volume.in_progress",{done:fmt(done),planned:fmt(planned)}):""):"";
+    // The count is the numeral and the bar (refinement audit A5): a sentence restating it is left out. A period that
+    // ended short still says so, which the numeral cannot.
+    const caption=planned&&!inProgress&&done<planned?t("stats.volume.partial_period"):"";
     const detail=volumeDetailTable(m,ev);
     return `<button type="button" class="vrow evrow" data-volume-muscle="${esc(m)}" aria-expanded="false"><span class="vrow__name">${esc(muscleLabel(m))}</span>`+
       `<span class="vrow__bar" data-progress-dimension="${progressDimension}" data-progress-scope="${progressScope}" aria-hidden="true"><span class="vrow__fill${done>=planned&&planned?" is-on":""}" style="width:${planned?Math.min(100,Math.round(done/planned*100)):0}%"></span></span>`+
@@ -12047,20 +12056,23 @@ function chartSvg(model,{reveal=null}={}){
     `<g class="ch-axes">${chartAxesSvg(model,geo)}</g><g class="ch-series">${chartSeriesSvg(items,model.metric,{reveal})}</g></svg>`,
     xs,geo,items}}
 function chartReadout(model){
-  const p=model.pts[model.sel],loadCue=model.pts.every(point=>point.perSideLoad)?` · ${t("focus.metric.load_per_side_kg")}`:"",
-    repsCue=model.pts.every(point=>point.perSideReps)?` · ${t("focus.metric.reps_per_side")}`:"",
-    label=(model.metric==="top"?t("stats.metric.top_load"):t("stats.metric.best_e1rm"))+loadCue;
+  // The per-side convention is said once, under the chart's toggles (chartPerSideHtml), not in every label.
+  const p=model.pts[model.sel],label=model.metric==="top"?t("stats.metric.top_load"):t("stats.metric.best_e1rm");
   return t("exercise.chart.readout",{date:esc(shortDate(p.date)),metric:esc(label),unit:esc(unitLabel()),
     value:`<b class="exchart__mono">${esc(chartNum(model.value(p),model.metric))}</b>`,
-    set:`<b class="exchart__mono">${esc(fmtLoad(p.top))} × ${esc(p.reps)}${esc(repsCue)}</b>`})}
+    set:`<b class="exchart__mono">${esc(fmtLoad(p.top))} × ${esc(p.reps)}</b>`})}
 function chartRowHtml(model,i){
   const p=model.pts[i],prev=model.pts[i-1],v=model.value(p),pv=prev?model.value(prev):null;
   const delta=pv==null?"–":Math.abs(v-pv)<.05?"0":`${v>pv?"+":"−"}${chartNum(Math.abs(v-pv),model.metric)}`;
-  const perSideLoad=model.pts.every(point=>point.perSideLoad),perSideReps=model.pts.every(point=>point.perSideReps);
   return `<button type="button" class="exrow${i===model.sel?" is-sel":""}${p.block?"":" is-old"}" data-pt="${i}" aria-pressed="${i===model.sel}">`+
-    // The qualifier sits beside the Mono figure, not inside it: the figure stays a bare number.
-    `<span>${esc(shortDate(p.date))}</span><span><span class="exchart__mono">${esc(fmtLoad(p.top))} × ${esc(p.reps)}</span>${perSideSetQualifier(perSideLoad,perSideReps)}</span>`+
-    `<span><span class="exchart__mono">${esc(fmt(Math.round(toDisplay(p.e1rm)*10)/10))}</span>${perSideQualifier(perSideLoad)}</span><span class="exchart__mono exchart__soft">${esc(delta)}</span></button>`}
+    `<span>${esc(shortDate(p.date))}</span><span><span class="exchart__mono">${esc(fmtLoad(p.top))} × ${esc(p.reps)}</span></span>`+
+    `<span><span class="exchart__mono">${esc(fmt(Math.round(toDisplay(p.e1rm)*10)/10))}</span></span><span class="exchart__mono exchart__soft">${esc(delta)}</span></button>`}
+/** The chart's one statement of a per-side convention (refinement audit A6): loads, reps or both, said once under the
+ *  toggles rather than after every figure, column and reading. */
+function chartPerSideHtml(model){
+  const load=model.pts.every(point=>point.perSideLoad),reps=model.pts.every(point=>point.perSideReps);
+  const key=load&&reps?"both":load?"load":reps?"reps":null;
+  return key?`<p class="exchart__per-side">${esc(t(`exercise.chart.per_side.${key}`))}</p>`:""}
 function renderExerciseChart(el,key,sessions,tmpl){
   const latest=sessions.at(-1)?.rows.at(-1),name=latest?exerciseDisplayName(latest):((tmpl&&exerciseDisplayName(tmpl))||key);
   const model=chartModel(key),{metric,scope}=chartView;
@@ -12077,17 +12089,17 @@ function renderExerciseChart(el,key,sessions,tmpl){
   const live=chartLive={key,view:exView,model,scope,metric,geo:plot.geo,items:plot.items,
     keys:model.pts.map(p=>p.sessionKey),drawn:new Map(plot.items.map(it=>[it.key,[it.x,it.y]]))};
   const vals=model.vals,change=vals.at(-1)-vals[0];
+  // The plot's accessible name keeps the convention, so it travels with the chart for assistive technology.
   const cue=model.pts.every(point=>point.perSideLoad)?` · ${t("focus.metric.load_per_side_kg")}`:"";
-  const repsCue=model.pts.every(point=>point.perSideReps)?` · ${t("focus.metric.reps_per_side")}`:"";
-  const figs=[[chartNum(Math.max(...vals),metric),`${t(metric==="top"?"exercise.chart.fig.top":"exercise.chart.fig.e1rm",{unit:unitLabel()})}${cue}`],
-    [`${change<0?"−":"+"}${chartNum(Math.abs(change),metric)}`,`${t("exercise.chart.fig.change",{unit:unitLabel()})}${cue}`],
+  const figs=[[chartNum(Math.max(...vals),metric),t(metric==="top"?"exercise.chart.fig.top":"exercise.chart.fig.e1rm",{unit:unitLabel()})],
+    [`${change<0?"−":"+"}${chartNum(Math.abs(change),metric)}`,t("exercise.chart.fig.change",{unit:unitLabel()})],
     [String(vals.length),t(vals.length===1?"plural.session.one":"plural.session.other")]];
   const metricLabel=`${metric==="top"?t("stats.metric.top_load"):t("stats.metric.best_e1rm")}${cue}`;
-  el.innerHTML=head+chartTogglesHtml(scope,metric)+
+  el.innerHTML=head+chartTogglesHtml(scope,metric)+chartPerSideHtml(model)+
     `<div class="exchart__figs">${figs.map(([v,l])=>`<div><b>${esc(v)}</b><span>${esc(l)}</span></div>`).join("")}</div>`+
     `<div class="exchart__plot" role="img" aria-label="${esc(t("exercise.chart.aria",{metric:metricLabel,name}))}" data-xs="${plot.xs.map(v=>v.toFixed(1)).join(",")}" data-w="${CHART_W}">${plot.svg}</div>`+
     `<p class="exchart__readout" aria-live="polite">${chartReadout(model)}</p>`+
-    `<div class="exchart__cols"><span>${esc(t("stats.table.date"))}</span><span>${esc(t("ledger.col.top_set"))}${esc(cue+repsCue)}</span><span>${esc(t("stats.table.e1rm"))}${esc(cue)}</span><span>${esc(t("exercise.chart.col.delta"))}</span></div>`+
+    `<div class="exchart__cols"><span>${esc(t("stats.table.date"))}</span><span>${esc(t("ledger.col.top_set"))}</span><span>${esc(t("stats.table.e1rm"))}</span><span>${esc(t("exercise.chart.col.delta"))}</span></div>`+
     model.pts.map((_,i)=>i).reverse().map(i=>chartRowHtml(model,i)).join("");
   bindChartToggles();
   const surface=$("#exDetail .exchart__plot");
@@ -13534,13 +13546,14 @@ function programNameList(items){
 /** One ledger row of the Program overview: the exercise and its strategy, sets x range, and the load
  *  `recommendation()` says comes next with the verdict mark. A manual row, or one with no history, has no
  *  load to show: the program carries no authored load yet. */
-function programRowHtml(e){
+function programRowHtml(e,common=null){
   const rec=recommendation(e),move=rec.status==="add"||rec.status==="add2"?"up":rec.status==="reduce"?"down":"",
     showLoad=rec.status!=="manual"&&rec.load!=null&&Number.isFinite(+rec.load);
   const mark=move?`<span class="rxrow__mark" aria-hidden="true"><span class="verdictmark verdictmark--${move}"><span class="verdictmark__glyph"></span></span></span>`:"";
   const word=move==="up"?t("rec.add.label"):move==="down"?t("rec.reduce.label"):"";
   return `<button type="button" class="rxrow" data-exopen="${esc(e.id)}" data-action-role="navigation">`+
-    `<span class="rxrow__name">${esc(exerciseDisplayName(e))}<span class="rxrow__sub">${esc(programStrategyName(e))}</span></span>`+
+    // The method is named under a lift only where it differs from the program's usual one (refinement audit A8).
+    `<span class="rxrow__name">${esc(exerciseDisplayName(e))}${programStrategyName(e)===common?"":`<span class="rxrow__sub">${esc(programStrategyName(e))}</span>`}</span>`+
     `<span class="rxrow__target">${esc(e.hasRepTarget===false?programPrescriptionSummary(e):`${e.sets} × ${e.min}–${e.max}`)}</span>`+
     `<span class="rxrow__load"${showLoad?` data-parity-target="${esc(e.id)}"`:""}>${showLoad?mark+(word?`<span class="visually-hidden">${esc(word)} </span>`:"")+esc(fmtLoad(rec.load)):""}</span></button>`}
 /** A program's goal as the lifter chose it: the engine's goals (hypertrophy, strength, hybrid) read with the entry's
@@ -13560,13 +13573,18 @@ function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
   const plainWeek=!mc.isComplete&&!mc.isFinalWeek&&mc.current!=null;
   const lede=goal&&plainWeek?t("program.overview.lede",{goal,days:ds.length,n:mc.current,total:mc.total})
     :[goal,tOne("program.days_per_week",ds.length),plainWeek?t("program.week_chip",{n:mc.current,total:mc.total}):""].filter(Boolean).join(" · ");
+  // The progression method most lifts use is said once, under the first day's legend; a lift that differs names its own.
+  const methods=ds.flatMap(d=>prog.forDay(d)).map(programStrategyName),counts=new Map();
+  methods.forEach(name=>counts.set(name,(counts.get(name)||0)+1));
+  const common=[...counts].sort((a,b)=>b[1]-a[1])[0]?.[0]||null;
+  const methodLine=common?t(counts.size===1?"program.overview.progression_all":"program.overview.progression_common",{name:common}):"";
   let daysHtml="";
   ds.forEach((d,i)=>{const exs=prog.forDay(d),sets=sum(exs.map(e=>e.sets)),mus=dayMuscles(d).map(muscleLabel);
     daysHtml+=`<section class="prog-day" aria-labelledby="progDay${i}"><div class="prog-day__head"><h4 class="prog-day__title" id="progDay${i}">${esc(dayLabel(d))}</h4>`+
       `<p class="prog-day__meta">${mus.length?programNameList(mus)+`<span aria-hidden="true"> · </span>`:""}<span>${esc(sets===1?t("history.sets.one",{n:sets}):t("entry.catalogue.sets_exact",{n:sets}))}</span></p></div>`+
       `<div class="prog-cols" aria-hidden="true"><span>${esc(t("stats.exercise"))}</span><span>${esc(t("ledger.col.sets_range"))}</span><span>${esc(t("ledger.col.next",{unit:unitLabel()}))}</span></div>`+
-      (i===0?`<p class="prog-legend">${esc(t("program.overview.legend"))}</p>`:"")+
-      exs.map(programRowHtml).join("")+`</section>`});
+      (i===0?`<p class="prog-legend">${esc(t("program.overview.legend"))}</p>`+(methodLine?`<p class="prog-legend prog-legend--method">${esc(methodLine)}</p>`:""):"")+
+      exs.map(e=>programRowHtml(e,common)).join("")+`</section>`});
   const planned=prog.volume();let plannedTotal=0;for(const[,v] of planned)plannedTotal+=v.d+v.p;
   el.innerHTML=`<h3 class="prog-overview__name">${esc(meta.name||t("untitled_program"))}</h3>`+
     `<p class="prog-overview__meta">${esc(lede)}</p>`+

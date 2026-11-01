@@ -332,13 +332,18 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   const week = await page.evaluate(() => ({
     ev: window.__repforgeProgressEvidence.volume("this-week"),
     periodText: document.querySelector("#volumePeriod")?.textContent || "",
+    // Refinement audit A5: an open week reads as its numeral and bar, with no verdict and no sentence restating them.
     caption: document.body.textContent.includes("toward the full period"),
+    verdict: [...document.querySelectorAll("#volumeDash .vrow__status")].some((el) => el.textContent.trim()),
+    counted: [...document.querySelectorAll("#volumeDash .vrow__num")].every((el) => /^\d+(?:[.,]\d+)? \/ \d+(?:[.,]\d+)?$/.test(el.textContent.trim())),
   }));
   assert.equal(week.ev.scope, "this-week");
   assert.equal(week.ev.completedWorkingSets, 6, "this-week completed sets come from the program week");
   assert.equal(week.ev.plannedWorkingSets, PLANNED_WEEK, "this-week planned is one canonical week (18 rows x 2 sets)");
   assert.match(week.periodText, /From /, "period bounds are stated in accessible text");
-  assert.equal(week.caption, true, "partial week reads as progress toward the period, not a verdict");
+  assert.equal(week.caption, false, "an open week's count is not restated in a sentence");
+  assert.equal(week.verdict, false, "an open week reads as progress, not a verdict");
+  assert.equal(week.counted, true, "each muscle reads done / planned once");
   await page.locator("#volumeDash [data-volume-muscle]").first().click();
   assert.ok(await page.locator("#volumeDash .evrow__detail:not([hidden]) tbody tr").count() > 0,
     "a primary Volume muscle row drills into its scoped sessions");
@@ -472,6 +477,19 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
     return d ? d.textContent : "";
   });
   assert.match(detail, /September 17, 2026|17 September 2026/, "drill-in shows the long locale date");
+  // Refinement audit A7: one row per set. A set that raised several records carries each kind with its own gain, and no
+  // two rows show the same set.
+  const rowsBySet = await page.evaluate(() => {
+    const events = window.__repforgePrTimeline("all");
+    const sets = new Set(events.map((ev) => [ev.liftKey, ev.date, ev.session ?? "", ev.load, ev.reps].join("|")));
+    const rows = [...document.querySelectorAll("#prTimeline .prtl__row")].map((row) => ({
+      key: [row.querySelector(".prtl__ex")?.textContent, row.querySelector(".prtl__date")?.textContent, row.querySelector(".prtl__set")?.textContent].join("|"),
+      kinds: row.querySelectorAll(".pr-kind").length, recs: row.querySelectorAll(".prtl__rec").length }));
+    return { sets: sets.size, events: events.length, rows: rows.length, unique: new Set(rows.map((r) => r.key)).size, paired: rows.every((r) => r.kinds === r.recs && r.kinds >= 1) };
+  });
+  assert.equal(rowsBySet.rows, rowsBySet.sets, `one PR row per set, not per record (${JSON.stringify(rowsBySet)})`);
+  assert.equal(rowsBySet.unique, rowsBySet.rows, "no two PR rows show the same set");
+  assert.ok(rowsBySet.paired, "each record on a row carries its kind with its gain");
   await context.close();
 }
 

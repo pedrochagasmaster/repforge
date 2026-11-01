@@ -2915,19 +2915,23 @@ article.exercise--focus:has(.resttab) .fcard__context{margin-bottom:var(--rest-t
 .pr-kind--reps{color:var(--ink);background:rgba(var(--ink-rgb),.05)}
 .pr-kind--e1rm{color:var(--accent-deep);background:rgba(var(--accent-rgb),.06)}
 .prtimeline{display:flex;flex-direction:column;gap:0;margin-top:4px}
-.prtl__row{display:grid;grid-template-columns:auto 1fr auto auto auto;gap:6px 10px;align-items:center;
+.prtl__row{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto auto;gap:6px 10px;align-items:center;
   width:100%;padding:14px 0;border-radius:0;background:transparent;border:0;border-bottom:1px solid var(--rule);font-size:var(--font-size-body-small);line-height:1.35;text-align:left;cursor:pointer}
 .prtl__date{font-size:var(--font-size-caption);color:var(--ink-soft);white-space:nowrap}
+/* One row per set (refinement audit A7): each record it raised with its own gain beside it, the records wrapping as
+   whole pairs when the text is large. */
+.prtl__records{display:inline-flex;flex-wrap:wrap;align-items:center;gap:var(--space-4) var(--space-12);min-width:0}
+.prtl__rec{display:inline-flex;align-items:center;gap:var(--space-4);white-space:nowrap}
 .prtl__ex{font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .prtl__set{font-size:var(--font-size-body-small);color:var(--ink);white-space:nowrap;font-variant-numeric:tabular-nums}
 .prtl__delta{font-size:var(--font-size-body-small);font-weight:600;color:var(--accent-deep);white-space:nowrap}
 /* On a phone a record is one list row (the native UI kit): the lift and its set on the first line, the date, kind
    and gain under them, and the drill-in chevron trailing both lines instead of falling onto a line of its own. */
 @media(max-width:520px){
-  .prtl__row{grid-template-columns:auto minmax(0,1fr) auto var(--control-icon-size);grid-template-areas:"ex ex set chev" "date kind delta chev";gap:4px 8px}
+  .prtl__row{grid-template-columns:auto minmax(0,1fr) auto var(--control-icon-size);grid-template-areas:"ex ex set chev" "date rec rec chev";gap:4px 8px}
   .prtl__ex{grid-area:ex}.prtl__set{grid-area:set;text-align:right}
-  .prtl__date{grid-area:date}.pr-kind{grid-area:kind;justify-self:start}
-  .prtl__delta{grid-area:delta;text-align:right}.prtl__row>.chevron{grid-area:chev;justify-self:end}}
+  .prtl__date{grid-area:date}.prtl__records{grid-area:rec;justify-self:end;justify-content:flex-end}
+  .prtl__row>.chevron{grid-area:chev;justify-self:end}}
 canvas{width:100%;display:block;margin-top:6px}
 
 /* ---- Tables ---- */
@@ -5214,6 +5218,8 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 .exchart__title{margin:var(--space-8) 0 0;overflow-wrap:anywhere}
 .exchart__toggles{display:grid;gap:var(--space-8);margin-top:var(--space-12)}
 .exchart__toggles .segpill{margin:0}
+/* The chart's one statement of a per-side convention (refinement audit A6), under the toggles it qualifies. */
+.exchart__per-side{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .exchart__figs{
   display:grid;grid-template-columns:repeat(auto-fit,minmax(5.25rem,1fr));gap:var(--space-12);
   margin-top:var(--space-18);padding:var(--space-12) 0;border-top:1px solid var(--boundary-decorative);border-bottom:1px solid var(--boundary-decorative);
