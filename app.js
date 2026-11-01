@@ -23538,8 +23538,13 @@ function init(){
         // the new movement already ticked; a single pick is finished by it.
         const entry=choice?.entry||choice;
         if(multi){backToPicker(entry.id);return}
-        // A custom swap has no picker left to ask its reason, so its event goes out now, without one.
-        if(onPick)return Promise.resolve(onPick(stageOnly?choice:entry)).finally(()=>settleSubstitutionEvent(null))}})};
+        if(!onPick)return;
+        return Promise.resolve(onPick(stageOnly?choice:entry)).then(result=>{
+          // A swap to the new movement asks its reason as a library pick does: the picker comes back on that question.
+          if(pendingSubstitutionEvent&&reopen?.reasons){
+            openExercisePicker(reopen);
+            if(pickerState){pickerState.completed=true;showPickerReasonStep(entry)}}
+          return result})}})};
   const cuCancel=$("#exCustomCancel");if(cuCancel)cuCancel.onclick=cancelCustomExerciseSheet;
   const cuScrim=$("#exCustomScrim");if(cuScrim)cuScrim.onclick=cancelCustomExerciseSheet;
   const cuSave=$("#exCustomSave");if(cuSave)cuSave.onclick=saveCustomExerciseSheet;

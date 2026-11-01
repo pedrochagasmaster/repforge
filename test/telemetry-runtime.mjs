@@ -1008,6 +1008,25 @@ try {
     used = await eventsNamed(page, "substitution_used");
     assert(used.length === 3 && JSON.stringify(used[2]) === JSON.stringify({ source: "library" }),
       "closing the question is a skip: the swap reports its source once", JSON.stringify(used));
+
+    // A swap to a movement created from the search is asked the same question once the movement exists.
+    await exerciseAction(page, SEED_B, "#exActionSubstBtn");
+    await page.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
+    await page.fill("#exPickSearch", "Telemetry custom lift");
+    await page.click("#exPickCustom");
+    await page.waitForSelector("#exCustomSheet.is-open", { timeout: 5000 });
+    await page.evaluate(() => {
+      [...document.querySelectorAll("#exCustomEquip .pchip")].find((b) => b.textContent.trim() === "Machine")?.click();
+      [...document.querySelectorAll("#exCustomPrimary .pchip")].find((b) => b.textContent.trim() === "Quads")?.click();
+    });
+    await page.click("#exCustomSave");
+    await page.waitForSelector("#exPickSheet.is-reason-step .pick__followup", { timeout: 10000 });
+    assert((await eventsNamed(page, "substitution_used")).length === 3, "a custom swap waits for its reason before it reports");
+    await page.click('#exPickSheet [data-pick-reason="equipment"]');
+    await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+    used = await eventsNamed(page, "substitution_used");
+    assert(used.length === 4 && JSON.stringify(used[3]) === JSON.stringify({ source: "library", reason: "equipment" }),
+      "a custom swap carries the reason asked after the movement is created", JSON.stringify(used));
     await context.close();
   }
 
