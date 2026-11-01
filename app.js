@@ -14146,6 +14146,8 @@ function renderSettings(){
   const langDisp=$("#langDisplay");if(langDisp)langDisp.textContent=t("settings.lang."+(I18N?.normalizeLang(state.settings.lang)||"en"));
   const le=state.settings.lastExport,ago=le?t("settings.storage.last_backup",{lastBackup:le.slice(0,10)}):t("settings.storage.last_backup_never");
   paintStorageNote(ago);
+  // The warning carries its remedy while there is no backup (refinement audit A2, 2026-11-01).
+  const backupNow=$("#storageBackupNow");if(backupNow)backupNow.hidden=!!le;
   if(window.RepForgeMotion?.syncNativeControls)window.RepForgeMotion.syncNativeControls($("#settings"));
   else{
     $$("#settings [data-segment-input]").forEach(group=>{
@@ -23832,6 +23834,13 @@ function init(){
     setDisclosure(dataBackup,$("#dataBackupPanel"),open);
     if(open)requestAnimationFrame(()=>maybeShowContextualGuides(["backup"]));
   };
+  // "Back up now" opens the same Backup & export the row does, brings it into view and puts focus on the backup.
+  const backupNow=$("#storageBackupNow");if(backupNow)backupNow.onclick=()=>{
+    const panel=$("#dataBackupPanel");if(!panel)return;
+    if(!panel.classList.contains("is-open"))dataBackup?.onclick?.();
+    requestAnimationFrame(()=>{
+      panel.scrollIntoView({block:"center",behavior:window.RepForgeMotion?.reducedMotion?.()?"auto":"smooth"});
+      $("#exportJson")?.focus({preventScroll:true})})};
   const profileRow=$("#profileRow");if(profileRow)profileRow.onclick=()=>setDisclosure(profileRow,$("#profilePanel"),!$("#profilePanel")?.classList.contains("is-open"));
   const profileClear=$("#profileClear");if(profileClear)profileClear.onclick=()=>clearProfile();
   const dataImport=$("#dataImportRow");if(dataImport)dataImport.onclick=()=>setDisclosure(dataImport,$("#dataImportPanel"),!$("#dataImportPanel")?.classList.contains("is-open"));

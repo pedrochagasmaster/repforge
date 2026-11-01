@@ -4365,6 +4365,10 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 .settings-identity__mark{width:52px;height:52px;border-radius:var(--radius-prominent);overflow:hidden;background:#efe5df;box-shadow:0 1px 2px rgba(23,23,25,.12),0 6px 18px rgba(23,23,25,.08);flex:none}
 .settings-identity__mark img{display:block;width:100%;height:100%;object-fit:cover}
 .settings-identity__name{font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
+/* The backup warning's remedy: a quiet action in the ink, a full target, under the note it answers. */
+.settings-identity__backup{display:inline-flex;align-items:center;min-height:var(--control-target);padding:0;color:var(--control-quiet-ink);
+  font-size:var(--font-size-body-small);font-weight:var(--weight-semibold);text-decoration:underline;text-underline-offset:.2em}
+.settings-identity__backup[hidden]{display:none}
 .settings-identity__cap{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin-top:2px}
 /* A panel is the tail of the row that opened it: it shares that row's text
    column, and the rule that closes it is the next row's. */
