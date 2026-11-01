@@ -11929,7 +11929,8 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
     `<div class="recblock__head">${esc(recWords.head)}</div>`+
     (recWords.body?`<p class="recblock__body">${esc(recWords.body)}</p>`:"")+`</div>`+
     `<button type="button" class="link-accent" data-term="RIR">${esc(t("exercise.understand"))}</button>`+
-    (rec.status!=="new"?`<button type="button" class="text-link recblock__why" data-why="${esc(tmpl.id)}" aria-label="${esc(t("why.open_aria",{name}))}">${esc(t("why.open"))}</button>`:"")+
+    // "Why this weight?" explains a weight, so it shows only when there is one; "Understand RIR" stays either way.
+    (rec.load!=null?`<button type="button" class="text-link recblock__why" data-why="${esc(tmpl.id)}" aria-label="${esc(t("why.open_aria",{name}))}">${esc(t("why.open"))}</button>`:"")+
     `</div></div>`:"";
 
   const work=state.log.filter(r=>liftKey(r)===key&&isWork(r));
@@ -11959,7 +11960,7 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
     `<p class="exdet__meta">${tmpl?`${esc(dayLabel(tmpl.day))} · ${esc(tmpl.hasRepTarget===false?programPrescriptionSummary(tmpl):`${tmpl.sets} × ${tmpl.min}–${tmpl.max} ${t("log.reps")}`)}${tmpl.hasRepTarget===false?"":` · RIR 0–${fmt(state.settings.rirHigh)}`}`:esc(t("exercise.not_in_program"))}</p>`+
     artHtml+
     recHtml+
-    `<div class="statrow statrow--4 exdet__stats">${tiles.map(tile=>`<div class="statrow__cell"><div class="statrow__val">${tile.val}</div><div class="statrow__cap">${tile.label}</div></div>`).join("")}</div>`+
+    `<div class="exdet__stats-wrap"><div class="statrow statrow--4 exdet__stats">${tiles.map(tile=>`<div class="statrow__cell"><div class="statrow__val">${tile.val}</div><div class="statrow__cap">${tile.label}</div></div>`).join("")}</div></div>`+
     `<p class="section-label section-label--row"><span>${esc(t("exercise.progression"))}</span><span class="range-static">${esc(t("exercise.range_12w"))}</span></p>`+
     // A trend needs two sessions: one is a statement (it is in the records below), not an axis stepped to fit it.
     (sums.length>=2?`<p class="lede">${esc(t("stats.e1rm_caption"))}</p>`+

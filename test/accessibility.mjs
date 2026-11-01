@@ -1648,6 +1648,21 @@ export async function runExerciseIllustrationAccessibility(browser, check = asse
         sessions: Number(stats.querySelector(".statrow__val")?.textContent) || 0,
         chart: !!document.querySelector("#exChart"),
         trendWait: document.querySelector("#exDetail .exdet__trend-wait")?.textContent.trim() || "",
+        // "Why this weight?" only with a weight, and the block's links share one size.
+        recLoad: rec && exView?.exercise ? recommendation(exView.exercise)?.load ?? null : null,
+        whyLink: !!document.querySelector("#exDetail .recblock .recblock__why"),
+        linkSizes: [...document.querySelectorAll("#exDetail .recblock button")].map((b) => getComputedStyle(b).fontSize),
+        // Each caption word sits on one line: wrapped at whole words, never broken inside one.
+        brokenCapWords: [...stats.querySelectorAll(".statrow__cap")].flatMap((cap) => {
+          const text = cap.firstChild, words = [];
+          if (!text) return words;
+          for (const m of text.textContent.matchAll(/\S+/g)) {
+            const range = document.createRange();
+            range.setStart(text, m.index); range.setEnd(text, m.index + m[0].length);
+            if (new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size > 1) words.push(m[0]);
+          }
+          return words;
+        }),
         recBorderLeft: recCs ? recCs.borderLeftWidth : null,
         recBorderColor: recCs ? recCs.borderLeftColor : null,
       };
@@ -1683,6 +1698,16 @@ export async function runExerciseIllustrationAccessibility(browser, check = asse
     check(
       info.sessions >= 2 ? info.chart && !info.trendWait : !info.chart && info.trendWait.length > 0,
       `The progression chart draws from two sessions; before that it says so (${vp.name})`,
+      JSON.stringify(info)
+    );
+    check(
+      info.recHead === null || (info.whyLink === (info.recLoad != null) && new Set(info.linkSizes).size === 1),
+      `"Why this weight?" shows only with a weight, and the block's links share one size (${vp.name})`,
+      JSON.stringify(info)
+    );
+    check(
+      info.brokenCapWords.length === 0,
+      `Exercise metric captions wrap at whole words (${vp.name})`,
       JSON.stringify(info)
     );
     check(
