@@ -4989,7 +4989,27 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
    flat hairline-separated bands (never cards), figures are Mono, and the accent
    appears only on an up verdict glyph. Nothing here animates but the tab indicator below. Every length is
    a --space-* step or a multiple of --control-target. */
-#stats .tabrow{margin:var(--space-14) 0 0}
+/* Five tabs, one row (refine 2026-11, P2). At 390 and 430 the five labels fit when each tab pads 8px a side, so
+   none is clipped by a few pixels at the gutter. The row reaches the screen edges (its padding is the gutter), so where
+   it still overflows (320, enlarged text) the tab it hides is cut at the edge of the phone, as a scrolling row is, with
+   a 4px softening there (short, so the cut letters still show as the cue), never at the gutter, where a cut reads as a fault. The hairline belongs to the wrapper and
+   keeps the gutter's width, crisp, whatever the row does. app.js keeps data-overflow ("end", "start" or "both") in
+   step with the scroll position, and the selected tab in view. */
+#stats .stats-tabs{position:relative;margin:var(--space-14) 0 0;padding-bottom:1px}
+#stats .stats-tabs::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:var(--boundary-decorative)}
+#stats .tabrow{margin:0 calc(-1 * var(--gut));padding:0 var(--gut);gap:0;border-bottom:0}
+#stats .tabrow__tab{padding:0 var(--space-8)}
+/* Below 360 the row cannot hold five; 6px a side leaves the fifth label's first letters on screen as the cue. */
+@media (max-width:359px){#stats .tabrow__tab{padding:0 6px}}
+#stats .tabrow[data-overflow="end"]{
+  -webkit-mask-image:linear-gradient(90deg,var(--color-ink) calc(100% - var(--space-4)),transparent);
+  mask-image:linear-gradient(90deg,var(--color-ink) calc(100% - var(--space-4)),transparent)}
+#stats .tabrow[data-overflow="start"]{
+  -webkit-mask-image:linear-gradient(90deg,transparent,var(--color-ink) var(--space-4));
+  mask-image:linear-gradient(90deg,transparent,var(--color-ink) var(--space-4))}
+#stats .tabrow[data-overflow="both"]{
+  -webkit-mask-image:linear-gradient(90deg,transparent,var(--color-ink) var(--space-4),var(--color-ink) calc(100% - var(--space-4)),transparent);
+  mask-image:linear-gradient(90deg,transparent,var(--color-ink) var(--space-4),var(--color-ink) calc(100% - var(--space-4)),transparent)}
 /* N3: the indicator in flight between tabs. Drawn by app.js only while `animateIndicator` carries it,
    over the foot border of the tab it is going to (the shared `.tabrow` is left as drawn);
    that tab sets its own border aside until it arrives. */

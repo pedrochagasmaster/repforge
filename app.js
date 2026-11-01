@@ -5856,7 +5856,14 @@ function paintStatsTabs(){
       const row=b.parentElement,left=b.offsetLeft-row.offsetLeft;
       if(left<row.scrollLeft||left+b.offsetWidth>row.scrollLeft+row.clientWidth)row.scrollLeft=Math.max(0,left-16)}});
   const now=row?.querySelector('.tabrow__tab[aria-selected="true"]');
-  if(fromRect&&was&&now&&now!==was){fromRect.left-=row.scrollLeft-scrolled;travelTabIndicator(now,fromRect)}}
+  if(fromRect&&was&&now&&now!==was){fromRect.left-=row.scrollLeft-scrolled;travelTabIndicator(now,fromRect)}
+  syncTabrowOverflow(row)}
+/** Which side of a scrolling tab row hides tabs: the stylesheet fades that edge. Empty when all tabs fit. */
+function syncTabrowOverflow(row){
+  if(!row)return;
+  const max=row.scrollWidth-row.clientWidth;
+  const at=max<=1?"":row.scrollLeft<=1?"end":row.scrollLeft>=max-1?"start":"both";
+  if(at)row.dataset.overflow=at;else delete row.dataset.overflow}
 /** The rect of a tab's indicator: the 2px border along its foot, or a travelling indicator as drawn. */
 function tabIndicatorRect(el,isRing){
   if(!el)return null;
@@ -6032,6 +6039,12 @@ function wireStatsTabs(){
     const panel=$("#"+(b.getAttribute("aria-controls")||""));
     if(panel)panel.setAttribute("aria-labelledby",b.id);
     b.onclick=()=>setStatsSeg(b.dataset.seg)});
+  // The fade follows the scroll, the row's width and the labels' (language, text size).
+  row.addEventListener("scroll",()=>syncTabrowOverflow(row),{passive:true});
+  if(typeof ResizeObserver==="function"){
+    const observer=new ResizeObserver(()=>syncTabrowOverflow(row));
+    observer.observe(row);tabs.forEach(tab=>observer.observe(tab))}
+  syncTabrowOverflow(row);
   row.onkeydown=e=>{
     if(e.altKey||e.ctrlKey||e.metaKey||e.shiftKey)return;
     const at=tabs.indexOf(document.activeElement);if(at<0)return;
