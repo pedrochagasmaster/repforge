@@ -6330,11 +6330,16 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   flex-direction:column;gap:14px;overflow:auto;overscroll-behavior:contain;
   -webkit-overflow-scrolling:touch;padding-bottom:8px;
 }
+/* The sheet leads with what the link carries; the encoded link is a detail. It shows on one quiet line, cut with an
+   ellipsis, still whole in the document: selectable, and read in full by assistive technology. Share and Copy link
+   are how it leaves the sheet. */
+.share-setup__scope{margin:0;font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink);overflow-wrap:anywhere}
 .share-setup__link{
-  margin:0;min-width:0;padding:12px;background:var(--control-field-bg);border:1px solid var(--control-field-boundary);border-radius:var(--radius-control);
-  overflow:auto;overflow-wrap:anywhere;word-break:break-all;max-height:12em;
-  font-family:var(--font-training-data);font-size:var(--font-size-caption);line-height:var(--line-reading);color:var(--control-field-ink);
-  -webkit-user-select:text;user-select:text;overscroll-behavior:contain;}
+  margin:0;min-width:0;padding:0;border:0;background:none;
+  overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+  font-family:var(--font-training-data);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary);
+  -webkit-user-select:text;user-select:text;}
+.share-setup__link:focus-visible{outline:var(--control-focus-outline);outline-offset:2px;border-radius:var(--radius-compact)}
 .share-setup__link:empty{display:none}
 .share-setup__blocker-summary{margin:0;font-size:var(--font-size-body-small);line-height:var(--line-reading);font-weight:var(--weight-semibold);color:var(--color-warning);overflow-wrap:anywhere}
 .share-setup__blockers{display:flex;flex-direction:column;gap:0;border-block:1px solid var(--boundary-decorative)}
