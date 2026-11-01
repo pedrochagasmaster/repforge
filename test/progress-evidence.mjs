@@ -218,7 +218,7 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
       groups: [...host.querySelectorAll(".review__verdict")].map((group) => [group.dataset.outcome,
         group.querySelector(".review__verdictn").textContent, [...group.querySelectorAll(".review__lifts > li")].map((li) => li.textContent)]),
       headings: host.querySelectorAll("h4.review__verdicthead").length,
-      glyphsHidden: [...host.querySelectorAll(".verdictmark__glyph")].every((glyph) => glyph.getAttribute("aria-hidden") === "true"),
+      glyphs: host.querySelectorAll(".verdictmark, .verdictmark__glyph").length,
       bold: host.querySelectorAll("b").length,
       uncompared: host.querySelector(".review__uncompared")?.textContent,
     };
@@ -226,7 +226,8 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   assert.deepEqual(mixed.groups, [["improved", "2", ["I1", "<b>Row</b>"]], ["maintained", "1", ["M1"]], ["declined", "1", ["D1"]]],
     "a mixed block groups by verdict in the fixed order, each lift under its own outcome, names as text");
   assert.equal(mixed.headings, 3, "each verdict group is a heading for assistive navigation");
-  assert.ok(mixed.glyphsHidden && mixed.bold === 0, "the verdict glyph is decorative and a name never becomes markup");
+  assert.ok(mixed.glyphs === 0 && mixed.bold === 0,
+    "an outcome heading is its word with no glyph (glyphs only for Next, owner 2026-11-01), and a name never becomes markup");
   assert.equal(mixed.uncompared, "1 lift isn't compared yet: it needs two comparable sessions.", "one uncompared lift reads in the singular");
   await page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("strength"));
 
