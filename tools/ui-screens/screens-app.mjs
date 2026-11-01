@@ -2814,9 +2814,15 @@ export const APP_SCENARIOS = {
     await openSettings(page); await page.click('#restSecRow');
     await page.locator('#restSecPanel').scrollIntoViewIfNeeded();
   },
+  // The Progression row opens a disclosure that animates its height. Scrolling while it grows placed the frame a few
+  // pixels differently run to run (CI, 2026-11-01), so the scroll waits for the final height and the fonts, and centres
+  // the row outright rather than "if needed", which depends on where the page happened to be.
   "settings/load-controls": async page => {
     await openSettings(page); await page.click('#progressionRow');
-    await page.locator('#minJumpRow').scrollIntoViewIfNeeded();
+    await disclosureSettled(page);
+    await page.evaluate(() => document.fonts.ready);
+    await page.locator('#minJumpRow').evaluate((row) => row.scrollIntoView({ block: "center" }));
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   },
   "settings/main": (page) => openSettings(page),
   // Language as a native pull-down anchored to its row (the prototype, owner 2026-10-28), the current one checked.
