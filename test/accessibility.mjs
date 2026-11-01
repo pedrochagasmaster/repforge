@@ -1641,6 +1641,13 @@ export async function runExerciseIllustrationAccessibility(browser, check = asse
         statsTop: statsCs.borderTopWidth,
         statsBottom: statsCs.borderBottomWidth,
         cellSep: cell ? getComputedStyle(cell, "::after").content : null,
+        // Refinement audit A1 (2026-11-01): the block always says something (a Manual or new lift gets Focus's own words),
+        // and the trend draws only from two sessions.
+        recHead: rec ? rec.querySelector(".recblock__head")?.textContent.trim() || "" : null,
+        recEmptyBody: rec ? [...rec.querySelectorAll(".recblock__body")].some((p) => !p.textContent.trim()) : null,
+        sessions: Number(stats.querySelector(".statrow__val")?.textContent) || 0,
+        chart: !!document.querySelector("#exChart"),
+        trendWait: document.querySelector("#exDetail .exdet__trend-wait")?.textContent.trim() || "",
         recBorderLeft: recCs ? recCs.borderLeftWidth : null,
         recBorderColor: recCs ? recCs.borderLeftColor : null,
       };
@@ -1666,6 +1673,16 @@ export async function runExerciseIllustrationAccessibility(browser, check = asse
     check(
       info.statsTop === "0px" && info.statsBottom === "0px" && info.cellSep === "none",
       `Exercise summary metrics carry no enclosing or internal rules (${vp.name})`,
+      JSON.stringify(info)
+    );
+    check(
+      info.recHead === null || (info.recHead.length > 0 && !info.recEmptyBody),
+      `The recommendation block says something, never a heading over nothing (${vp.name})`,
+      JSON.stringify(info)
+    );
+    check(
+      info.sessions >= 2 ? info.chart && !info.trendWait : !info.chart && info.trendWait.length > 0,
+      `The progression chart draws from two sessions; before that it says so (${vp.name})`,
       JSON.stringify(info)
     );
     check(
@@ -2382,7 +2399,14 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
         const key = state.program?.[0]?.id;
         if (key && typeof openExerciseView === "function") openExerciseView(key, "log");
       });
-      await page.waitForSelector("#exChart", { timeout: 8000 });
+      // With fewer than two sessions the detail says so in text (the page's contrast audit covers it) and draws no canvas.
+      await page.waitForSelector("#exChart, #exDetail .exdet__trend-wait", { timeout: 8000 });
+      if (!(await page.locator("#exChart").count())) {
+        const wait = await page.locator("#exDetail .exdet__trend-wait").textContent();
+        assert(!!wait?.trim(), `the progression says in words that it needs two sessions (${lang}, ${populated ? "populated" : "empty"})`, wait);
+        await page.evaluate(() => { document.body.classList.remove("is-exercise"); if (typeof closeExerciseView === "function") closeExerciseView(); });
+        continue;
+      }
       await page.evaluate((populated) => {
         const ex = document.querySelector("#exChart");
         if (ex) ex.__fillTexts = [];
