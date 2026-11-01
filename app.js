@@ -3982,10 +3982,10 @@ function renderReview(){const el=$("#reviewPanel");if(!el)return;
   if(!state.programMeta?.started){el.innerHTML=`<p class="lede">${esc(t("review.no_start"))}</p>`;return}
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
   if(!Model){legacyReviewPanel(el);return}
-  const meta=state.programMeta||{};
+  const meta=state.programMeta||{},records=reviewObservedOutcomes();
   const checkpoint=Model.buildReviewCheckpoint(prog.toJSON(),
     {started:meta.started,mesocycleLengthWeeks:meta.mesocycleLengthWeeks||6,
-     mesocycleStatus:meta.mesocycleStatus,evidenceRecords:reviewObservedOutcomes(),
+     mesocycleStatus:meta.mesocycleStatus,evidenceRecords:records,
      recoveryEligible:true},
     readLogRows(),today());
   const life=mesocycleLifecycle(meta);
@@ -3994,10 +3994,8 @@ function renderReview(){const el=$("#reviewPanel");if(!el)return;
     progressEvidenceMeta(),readLogRows(),today());
   const pct=volume.plannedWorkingSets?Math.min(100,Math.round(volume.completedWorkingSets/volume.plannedWorkingSets*100)):0;
   const nameForLiftKey=key=>currentExerciseForLiftKey(key)?.name||key;
-  const outcomes=checkpoint.observedOutcomes;
-  const outcomeLine=outcomes.length
-    ?outcomes.map(o=>`${esc(liftDisplayName(nameForLiftKey(o.exerciseId),o.exerciseId))} · ${esc(t(EVIDENCE_OUTCOME_KEYS[o.outcome]||""))}`).join("<br>")
-    :`<span class="visually-hidden">${esc(t("review.outcomes.none_aria"))}</span>${esc(t("review.outcomes.none"))}`;
+  const outcomeLine=reviewOutcomesHtml(checkpoint.observedOutcomes,
+    records.filter(r=>r.evidenceState!=="sufficient").length,key=>liftDisplayName(nameForLiftKey(key),key));
   const actions=checkpoint.lifecycle==="block-complete"?renderReviewActions(checkpoint):"";
   const readOnlyNote=checkpoint.lifecycle==="active-block"
     ?`<p class="review__readonly" role="note">${esc(t("review.active_readonly"))}</p>`:"";
@@ -4012,6 +4010,21 @@ function renderReview(){const el=$("#reviewPanel");if(!el)return;
     `<p class="section-label">${esc(t("review.outcomes.label"))}</p><div class="review__outcomes">${outcomeLine}</div>`+
     evidenceNote+readOnlyNote+actions;
   bindReviewActions()}
+const REVIEW_OUTCOME_ORDER=["improved","maintained","declined"];
+const REVIEW_OUTCOME_MARKS={improved:"up",maintained:"maintained",declined:"down"};
+const REVIEW_UNCOMPARED_KEYS=["review.outcomes.uncompared.one","review.outcomes.uncompared.other"];
+/** The block's observed outcomes, one group per verdict: the shared verdict mark and its word once, the count, and the
+ *  lifts beneath as a list, so the block reads at a glance and a decline is never lost in a run of the same word. The
+ *  lifts not compared yet are counted, never named as outcomes. */
+function reviewOutcomesHtml(outcomes,uncompared,nameOf){
+  if(!outcomes.length)return `<p class="review__none">${esc(t("review.outcomes.none"))}</p>`;
+  const groups=REVIEW_OUTCOME_ORDER.map(outcome=>[outcome,outcomes.filter(o=>o.outcome===outcome)]).filter(([,list])=>list.length);
+  return `<ul class="review__verdicts">`+groups.map(([outcome,list])=>
+    `<li class="review__verdict" data-outcome="${outcome}"><h4 class="review__verdicthead">`+
+      `<span class="verdictmark verdictmark--${REVIEW_OUTCOME_MARKS[outcome]}"><span class="verdictmark__glyph" aria-hidden="true"></span>${esc(t(EVIDENCE_OUTCOME_KEYS[outcome]))}</span>`+
+      `<span class="review__verdictn">${list.length}</span></h4>`+
+      `<ul class="review__lifts">${list.map(o=>`<li data-exercise-id="${esc(o.exerciseId)}">${esc(nameOf(o.exerciseId))}</li>`).join("")}</ul></li>`).join("")+
+    `</ul>`+(uncompared?`<p class="review__uncompared">${esc(t(REVIEW_UNCOMPARED_KEYS[uncompared===1?0:1],{n:uncompared}))}</p>`:"")}
 // Observed outcomes are engine facts (paired-exposure comparison), never
 // representation-derived. Insufficient lifts never enter this list.
 function reviewObservedOutcomes(){
