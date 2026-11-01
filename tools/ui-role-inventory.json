@@ -2654,7 +2654,12 @@
       "owner": "plan-058",
       "neverDisabledReason": "Shown only while no backup exists, and opening Backup & export is always possible.",
       "catalogStates": [
-        "settings/main"
+        "settings/appearance",
+        "settings/guides",
+        "settings/load-controls",
+        "settings/main",
+        "settings/privacy",
+        "settings/rest-controls"
       ]
     },
     {
