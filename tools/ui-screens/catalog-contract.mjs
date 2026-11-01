@@ -156,6 +156,8 @@ export function collectCatalogEvidence(config = {}) {
 }
 
 const rawKey = /\b[a-z][\w-]*(?:\.[a-z][\w-]*){1,}\b/g;
+const keyShapedText = /^[a-z]+(?:\.[a-z_]+){2,}$/;
+const keyShapedToken = /\b[a-z]+(?:\.[a-z_]+)+\.(?:label|sub)\b/g;
 const unresolved = /\b(?:undefined|null)\b|\[object Object\]|\{[A-Za-z][\w.-]*\}/;
 const stableIdLocator = /^#[A-Za-z][\w-]*$/;
 
@@ -255,6 +257,10 @@ export function validateCatalogEvidence(evidence, config, { knownKeyNamespaces =
         failures.push(`raw translation key ${token}: ${excerpt(source)}`);
       }
     }
+    // A key built from data names no namespace the catalog knows when the data is new (onb.goal.hybrid.label, owner,
+    // iPhone, 2026-11-01): a whole text that is a dotted key, or any token ending in a key's .label or .sub, fails too.
+    if (keyShapedText.test(permitted.trim())) failures.push(`key-shaped text ${permitted.trim()}`);
+    for (const token of permitted.match(keyShapedToken) || []) failures.push(`key-shaped token ${token}: ${excerpt(source)}`);
   }
   return failures;
 }
