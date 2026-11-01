@@ -11915,9 +11915,19 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
     `decoding="async" width="768" height="768"></div></div>`:"";
 
   const rec=tmpl?recommendation(tmpl):null;
+  // With no weight to suggest (a Manual lift, one that needs setup, one with no usable history) the block says what
+  // Focus says for the same lift, its cue and its one sentence of why, rather than a heading over nothing (refinement
+  // audit A1, 2026-11-01).
+  const recWords=rec?(()=>{
+    if(rec.load!=null)return{head:recCueLoad(rec),body:rec.text};
+    const kind=rec.status==="manual"?"manual":rec.status==="configuration_required"?"setup":"start";
+    const head=kind==="manual"?t("focus.cue.your_targets"):kind==="setup"?t("focus.cue.needs_setup"):t("focus.cue.pick_load",{min:tmpl.min,max:tmpl.max});
+    const key=focusNoSuggestionKey(tmpl,rec,1,kind);
+    const body=t(`focus.evidence.none_${key}`,{what:t(isEffortMode()?"focus.evidence.what_effort":"focus.evidence.what_rir"),min:tmpl.min,max:tmpl.max});
+    return{head,body}})():null;
   const recHtml=rec?`<div class="recblock is-${rec.status}"><div class="recblock__row"><div><div class="recblock__lab">${esc(t("today.recommendation"))}</div>`+
-    `<div class="recblock__head">${esc(rec.load!=null?recCueLoad(rec):rec.label)}</div>`+
-    `<p class="recblock__body">${esc(rec.text)}</p></div>`+
+    `<div class="recblock__head">${esc(recWords.head)}</div>`+
+    (recWords.body?`<p class="recblock__body">${esc(recWords.body)}</p>`:"")+`</div>`+
     `<button type="button" class="link-accent" data-term="RIR">${esc(t("exercise.understand"))}</button>`+
     (rec.status!=="new"?`<button type="button" class="text-link recblock__why" data-why="${esc(tmpl.id)}" aria-label="${esc(t("why.open_aria",{name}))}">${esc(t("why.open"))}</button>`:"")+
     `</div></div>`:"";
@@ -11951,8 +11961,10 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
     recHtml+
     `<div class="statrow statrow--4 exdet__stats">${tiles.map(tile=>`<div class="statrow__cell"><div class="statrow__val">${tile.val}</div><div class="statrow__cap">${tile.label}</div></div>`).join("")}</div>`+
     `<p class="section-label section-label--row"><span>${esc(t("exercise.progression"))}</span><span class="range-static">${esc(t("exercise.range_12w"))}</span></p>`+
-    `<p class="lede">${esc(t("stats.e1rm_caption"))}</p>`+
-    `<div class="chart-wrap"><canvas id="exChart" height="240" aria-label="${esc(t("exercise.chart_aria",{name}))}"></canvas></div>`+
+    // A trend needs two sessions: one is a statement (it is in the records below), not an axis stepped to fit it.
+    (sums.length>=2?`<p class="lede">${esc(t("stats.e1rm_caption"))}</p>`+
+      `<div class="chart-wrap"><canvas id="exChart" height="240" aria-label="${esc(t("exercise.chart_aria",{name}))}"></canvas></div>`
+      :`<p class="lede exdet__trend-wait">${esc(t(sums.length?"exercise.chart_needs_two":"stats.chart.empty"))}</p>`)+
     `<p class="section-label">${esc(t("exercise.records"))}</p>`+
     (loadPr?`<div class="listrow listrow--static"><div class="listrow__main"><div class="listrow__title">${esc(t("stats.pr.load"))}</div><div class="listrow__sub">${fmtLoad(loadPr.load)} ${unitLabel()} × ${loadPr.reps}</div></div><span class="listrow__meta">${esc(shortDate(loadPr.date))}</span></div>`:"")+
     (e1Pr?`<div class="listrow listrow--static"><div class="listrow__main"><div class="listrow__title">${esc(t("stats.pr.e1rm"))}</div><div class="listrow__sub">${fmt(Math.round(toDisplay(e1rm(e1Pr.load,e1Pr.reps))))} ${unitLabel()}</div></div><span class="listrow__meta">${esc(shortDate(e1Pr.date))}</span></div>`:"")+
