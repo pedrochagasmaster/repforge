@@ -30,12 +30,17 @@ function measure() {
   const vw = document.documentElement.clientWidth;
   const row = document.querySelector("#statsSeg"), wrap = row.parentElement;
   const rb = row.getBoundingClientRect(), hairline = getComputedStyle(wrap, "::after");
+  // Progress clips sideways overflow at its own box (overflow-x: clip), so what a lifter sees ends there, not at the
+  // row's box: measure against it.
+  const stats = document.querySelector("#stats"), clip = stats.getBoundingClientRect();
+  const left = Math.max(0, clip.left), right = Math.min(vw, clip.right);
   const tabs = [...row.querySelectorAll('[role="tab"]')].map((tab) => {
     const b = tab.getBoundingClientRect();
-    return { seg: tab.dataset.seg, l: b.left, r: b.right, shown: Math.max(0, Math.min(b.right, vw) - Math.max(b.left, 0)), w: b.width, whole: b.left >= -0.5 && b.right <= vw + 0.5 };
+    return { seg: tab.dataset.seg, l: b.left, r: b.right, shown: Math.max(0, Math.min(b.right, right) - Math.max(b.left, left)), w: b.width,
+      whole: b.left >= left - 0.5 && b.right <= right + 0.5 };
   });
   const style = getComputedStyle(row);
-  return { vw, row: { l: rb.left, r: rb.right }, overflow: row.dataset.overflow || "", mask: style.maskImage !== "none" ? style.maskImage : style.webkitMaskImage,
+  return { vw, clip: { l: clip.left, r: clip.right, mode: getComputedStyle(stats).overflowX }, row: { l: rb.left, r: rb.right }, overflow: row.dataset.overflow || "", mask: style.maskImage !== "none" ? style.maskImage : style.webkitMaskImage,
     scrolls: row.scrollWidth > row.clientWidth + 1, tabs, hairline: { width: parseFloat(hairline.width), wrapLeft: wrap.getBoundingClientRect().left } };
 }
 
@@ -54,7 +59,8 @@ try {
       await APP_SCENARIOS["progress/overview-action"](page);
       await settle(page);
       const m = await page.evaluate(measure);
-      assert(Math.abs(m.row.l) < 0.5 && Math.abs(m.row.r - m.vw) < 0.5, `${tag}: the tab row reaches both screen edges`, JSON.stringify(m.row));
+      assert(Math.abs(m.row.l) < 0.5 && Math.abs(m.row.r - m.vw) < 0.5 && Math.abs(m.clip.l) < 0.5 && Math.abs(m.clip.r - m.vw) < 0.5,
+        `${tag}: the tab row reaches both screen edges, and so does the box that clips it`, JSON.stringify({ row: m.row, clip: m.clip }));
       assert(Math.abs(m.hairline.width - (m.vw - 2 * 16)) < 1, `${tag}: the hairline keeps the gutter's width`, JSON.stringify(m.hairline));
       const wide = (viewport === "phone-390" || viewport === "phone-430") && text === "normal";
       if (wide) {

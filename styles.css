@@ -4995,9 +4995,13 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
    a 4px softening there (short, so the cut letters still show as the cue), never at the gutter, where a cut reads as a fault. The hairline belongs to the wrapper and
    keeps the gutter's width, crisp, whatever the row does. app.js keeps data-overflow ("end", "start" or "both") in
    step with the scroll position, and the selected tab in view. */
-#stats .stats-tabs{position:relative;margin:var(--space-14) 0 0;padding-bottom:1px}
-#stats .stats-tabs::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:var(--boundary-decorative)}
-#stats .tabrow{margin:0 calc(-1 * var(--gut));padding:0 var(--gut);gap:0;border-bottom:0}
+/* Progress clips sideways overflow at its own box (no page ever scrolls sideways), so it spans the screen and carries
+   the gutter as padding: content sits where it did, and what reaches the gutter can reach the screen edge. */
+#stats{--stats-gut-l:max(var(--gut),env(safe-area-inset-left));--stats-gut-r:max(var(--gut),env(safe-area-inset-right));
+  margin-inline:calc(-1 * var(--stats-gut-l)) calc(-1 * var(--stats-gut-r));padding-inline:var(--stats-gut-l) var(--stats-gut-r)}
+#stats .stats-tabs{position:relative;margin:var(--space-14) calc(-1 * var(--stats-gut-r)) 0 calc(-1 * var(--stats-gut-l));padding-bottom:1px}
+#stats .stats-tabs::after{content:"";position:absolute;left:var(--stats-gut-l);right:var(--stats-gut-r);bottom:0;height:1px;background:var(--boundary-decorative)}
+#stats .tabrow{margin:0;padding:0 var(--stats-gut-r) 0 var(--stats-gut-l);gap:0;border-bottom:0}
 #stats .tabrow__tab{padding:0 var(--space-8)}
 /* Below 360 the row cannot hold five; 6px a side leaves the fifth label's first letters on screen as the cue. */
 @media (max-width:359px){#stats .tabrow__tab{padding:0 6px}}
