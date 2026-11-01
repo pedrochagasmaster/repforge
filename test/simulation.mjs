@@ -2196,8 +2196,14 @@ async function main() {
     "Stats tab → Strength this block"
   );
 
-  // The canvas chart lives on the exercise page.
-  await page.evaluate((id) => openExerciseView(id, "log"), state.program[0].id);
+  // The canvas chart lives on the exercise page, drawn from a lift's second session.
+  const chartLift = await page.evaluate(() => (() => {
+    const n = new Map();
+    for (const s of summaries()) n.set(s.liftKey, (n.get(s.liftKey) || 0) + 1);
+    return [...n].find(([, c]) => c >= 2)?.[0] || null;
+  })());
+  assert(chartLift, "A lift has two sessions to chart", "No lift with two sessions", "Exercise page → chart");
+  await page.evaluate((id) => openExerciseView(id, "log"), chartLift);
   await page.waitForSelector("#exercise.view.active #exChart", { timeout: 5000 });
   const chartRendered = await page.evaluate(() => {
     const c = document.querySelector("#exChart");
@@ -5915,8 +5921,17 @@ async function main() {
     `Session history: ${(exSessionNote || "").slice(0, 300)}`,
     "Log a note → tap the exercise name → Session history"
   );
-  const exChart = await page.$("#exChart");
-  assert(exChart, "Exercise page renders its chart canvas", "Missing #exChart", "Exercise page");
+  const chartAudit = await page.evaluate(() => ({
+    sessions: summaries().filter((x) => x.liftKey === exView?.key).length,
+    canvas: !!document.querySelector("#exChart"),
+    wait: !!document.querySelector("#exDetail .exdet__trend-wait"),
+  }));
+  assert(
+    chartAudit.sessions >= 2 ? chartAudit.canvas && !chartAudit.wait : !chartAudit.canvas && chartAudit.wait,
+    "Exercise page draws its chart from the second session and says so before it",
+    JSON.stringify(chartAudit),
+    "Exercise page"
+  );
   const navActiveWhileDetail = await page.$$eval("nav button.active", (b) => b.length);
   assert(
     navActiveWhileDetail === 0,
@@ -8557,9 +8572,16 @@ async function main() {
     "__repforgeOverviewVolume.pct for Biceps with no plan"
   );
 
+  // The chart draws from a lift's second session: this fixture logs each lift once, so give the first one an earlier
+  // session in memory.
   await page.evaluate(() => {
-    const lift = state.log.find((row) => row.exerciseId)?.exerciseId;
-    openExerciseView(lift, "log");
+    const first = state.log.find((row) => row.exerciseId);
+    const rows = state.log.filter((row) => row.session === first.session && row.exerciseId === first.exerciseId);
+    const day = new Date(`${first.date}T12:00:00Z`);
+    day.setUTCDate(day.getUTCDate() - 7);
+    const date = day.toISOString().slice(0, 10);
+    state.log.unshift(...rows.map((row) => ({ ...row, session: `${row.session}-earlier`, date, created: `${date}T09:00:00.000Z` })));
+    openExerciseView(first.exerciseId, "log");
   });
   await page.waitForSelector("#exercise.view.active #exChart", { timeout: 5000 });
   await page.waitForFunction(() => {
@@ -8794,6 +8816,7 @@ async function main() {
         hasRec: !!detail.querySelector(".recblock"),
         hasStats: detail.querySelectorAll(".exdet__stats .statrow__cell").length,
         hasChart: !!detail.querySelector("#exChart"),
+        trendWait: !!detail.querySelector(".exdet__trend-wait"),
       };
     });
   const openArtDetail = async (page, id) => {
@@ -8836,8 +8859,8 @@ async function main() {
     "Exercise page → DOM order of .exdet__meta, .exdet-art, .recblock"
   );
   assert(
-    artEmpty.hasRec && artEmpty.hasStats === 4 && artEmpty.hasChart,
-    "No-history exercise page keeps its recommendation, four metrics, and chart",
+    artEmpty.hasRec && artEmpty.hasStats === 4 && !artEmpty.hasChart && artEmpty.trendWait,
+    "No-history exercise page keeps its recommendation and four metrics, and says the trend waits for sessions",
     JSON.stringify(artEmpty),
     "Exercise page with no logged sets"
   );
