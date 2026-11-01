@@ -2052,8 +2052,9 @@ export const APP_SCENARIOS = {
     await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
     await page.locator("#exActionSubstBtn").click();
     await page.locator("#exPickSheet.is-open .pick__section").first().waitFor();
-    await page.locator('#exPickReasons [data-pick-reason="crowded"]').click();
-    await resetSheetScroll(page, "#exPickList");
+    // The reason is asked after the pick (refinement audit A4): pick the first alternate, then the sheet asks why.
+    await page.locator("#exPickList .pickrow").first().click();
+    await page.locator("#exPickSheet.is-reason-step .pick__followup").waitFor();
     await sleep(page, 400);
   },
   "workout/warmup-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click(); await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); await resetSheetScroll(page, ".exactions-sheet__body"); },

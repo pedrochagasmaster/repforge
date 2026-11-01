@@ -958,36 +958,56 @@ try {
     }
   }
 
-  phase("A library swap reports where the replacement came from, and nothing about it");
+  phase("A library swap reports where the replacement came from, and the reason asked after the pick");
   {
+    // Refinement audit A4 (owner, 2026-11-01): the reason is asked after the pick, on the same sheet. The event and its
+    // properties are the ones the reason-first sheet sent: { source } with no reason, { source, reason } with one,
+    // once per swap, whether the lifter answers, skips or closes the sheet.
     const { context, page } = await openApp(browser, { seed: loggableProgram() });
     await enterWorkout(page, "Day 1");
-    await exerciseAction(page, SEED_A, "#exActionSubstBtn");
-    await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
-    const own = await page.evaluate((id) => window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.programmed?.libraryId ?? null, SEED_A);
-    const pick = page.locator(own ? `#exPickList .pickrow:not([data-pick="${own}"])` : "#exPickList .pickrow").first();
-    await pick.click();
+    const pickOther = async (exercise) => {
+      await exerciseAction(page, exercise, "#exActionSubstBtn");
+      await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+      const own = await page.evaluate((id) => window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.programmed?.libraryId ?? null, exercise);
+      assert(await page.locator("#exPickSheet [data-pick-reason]").count() === 0, "the swap list carries no reason chips before the pick");
+      await page.locator(own ? `#exPickList .pickrow:not([data-pick="${own}"])` : "#exPickList .pickrow").first().click();
+      await page.waitForFunction((id) => !!window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.substitution, exercise, { timeout: 10000 });
+      await page.waitForSelector("#exPickSheet.is-reason-step .pick__followup", { timeout: 5000 });
+      const asked = await page.evaluate(() => ({ chips: document.querySelectorAll("#exPickSheet [data-pick-reason]").length,
+        chosen: document.querySelectorAll('#exPickSheet [data-pick-reason][aria-pressed="true"]').length }));
+      assert(asked.chips === 5 && asked.chosen === 0, "after the pick the sheet asks why, with the five reasons and none chosen", JSON.stringify(asked));
+    };
+    await pickOther(SEED_A);
+    await page.click("#exPickReasonSkip");
     await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
-    await page.waitForFunction((id) => !!window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.substitution, SEED_A, { timeout: 10000 });
     let used = await eventsNamed(page, "substitution_used");
     assert(JSON.stringify(used) === JSON.stringify([{ source: "library" }]),
-      "a swap with no reason chosen reports its source once, with no reason invented", JSON.stringify(used));
+      "a skipped reason reports the swap's source once, with no reason invented", JSON.stringify(used));
 
-    // The optional reason: one tap on a chip, then the pick swaps as before.
+    await pickOther(SEED_B);
+    await page.click('#exPickSheet [data-pick-reason="crowded"]');
+    await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+    used = await eventsNamed(page, "substitution_used");
+    assert(used.length === 2 && JSON.stringify(used[1]) === JSON.stringify({ source: "library", reason: "crowded" }),
+      "one tap on a reason closes the sheet and the reason rides on the swap it was asked for", JSON.stringify(used));
+
+    // Swapping back to the slot's own movement is an undo: no event, and nothing is asked.
     await exerciseAction(page, SEED_B, "#exActionSubstBtn");
     await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
-    assert(await page.locator('#exPickReasons [data-pick-reason][aria-pressed="true"]').count() === 0,
-      "the swap sheet opens with no reason chosen");
-    await page.click('#exPickReasons [data-pick-reason="crowded"]');
-    assert(await page.locator('#exPickReasons [data-pick-reason="crowded"]').getAttribute("aria-pressed") === "true",
-      "tapping a reason chip selects it");
+    await page.locator("#exPickSheet .pickrow").first().waitFor();
     const ownB = await page.evaluate((id) => window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.programmed?.libraryId ?? null, SEED_B);
-    await page.locator(ownB ? `#exPickList .pickrow:not([data-pick="${ownB}"])` : "#exPickList .pickrow").first().click();
+    if (ownB && await page.locator(`#exPickList .pickrow[data-pick="${ownB}"]`).count()) {
+      await page.locator(`#exPickList .pickrow[data-pick="${ownB}"]`).click();
+      await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+      assert((await eventsNamed(page, "substitution_used")).length === 2, "undoing a swap reports nothing and asks nothing");
+    } else await page.click("#exPickCancel");
+
+    await pickOther(SEED_A);
+    await page.click("#exPickCancel");
     await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
-    await page.waitForFunction((id) => !!window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.substitution, SEED_B, { timeout: 10000 });
     used = await eventsNamed(page, "substitution_used");
-    assert(JSON.stringify(used[1]) === JSON.stringify({ source: "library", reason: "crowded" }),
-      "a chosen reason rides on the swap it was chosen for", JSON.stringify(used));
+    assert(used.length === 3 && JSON.stringify(used[2]) === JSON.stringify({ source: "library" }),
+      "closing the question is a skip: the swap reports its source once", JSON.stringify(used));
     await context.close();
   }
 

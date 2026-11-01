@@ -907,6 +907,8 @@
   "picker.filters_aria": "Filter exercises",
   "picker.filter_all": "All",
   "picker.reason_label": "Why swap? (optional)",
+  "picker.reason_swapped": "Swapped to {name}.",
+  "picker.reason_skip": "Skip",
   "picker.reason.equipment": "Equipment",
   "picker.reason.preference": "Preference",
   "picker.reason.pain": "Pain",
