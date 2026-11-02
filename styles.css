@@ -2199,6 +2199,13 @@ body.is-sheet-open{overflow:hidden}
 .pick__reasons{display:flex;flex-direction:column;gap:var(--space-8);padding:var(--space-4) 0 var(--space-12)}
 .pick__reasons-label{margin:0;font-family:var(--font-language);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .pick__reasons-chips{display:flex;flex-wrap:wrap}
+/* The reason, asked after the pick (refinement audit A4): the sheet sheds its search, filters and actions and holds one
+   short question under what it just did. */
+.sheet--pick.is-reason-step .pick__tools,.sheet--pick.is-reason-step .sheet__foot{display:none}
+.sheet--pick.is-reason-step{height:auto;padding-top:0}
+.pick__followup{display:flex;flex-direction:column;gap:var(--space-8);padding:var(--space-8) 0 var(--space-16)}
+.pick__followup-done{margin:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink)}
+.pick__skip{align-self:flex-start;min-height:var(--control-target);padding:0;color:var(--control-quiet-ink);font-size:var(--font-size-body-small)}
 /* A filter chip is a full 44px target with its pill drawn 4px inside it, so neighbouring pills keep 8px between them
    while their targets touch. The label is centred by the flex box at line-height 1, not by padding around a line box:
    Plex's ascent and descent differ between platforms, and padding around a 1.4 line box put the label off centre on

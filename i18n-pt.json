@@ -907,6 +907,8 @@
   "picker.filters_aria": "Filtrar exercícios",
   "picker.filter_all": "Todos",
   "picker.reason_label": "Por que trocar? (opcional)",
+  "picker.reason_swapped": "Trocado por {name}.",
+  "picker.reason_skip": "Pular",
   "picker.reason.equipment": "Equipamento",
   "picker.reason.preference": "Preferência",
   "picker.reason.pain": "Dor",

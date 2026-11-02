@@ -308,6 +308,8 @@ try {
     await page.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
     await page.fill("#exPickSearch", "Dumbbell renegade row");
     await page.locator(`#exPickList [data-pick="${RENEGADE_ID}"]`).first().click();
+    await page.waitForSelector("#exPickSheet.is-reason-step");
+    await page.click("#exPickReasonSkip");
     await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
     await page.waitForFunction(({ id, renegadeId }) => window.__repforgeWorkoutDraft.current()?.exercises?.[id]
       ?.substitution?.replacement?.sourceExerciseId === renegadeId, { id: row.id, renegadeId: RENEGADE_ID }, { timeout: 10000 });
