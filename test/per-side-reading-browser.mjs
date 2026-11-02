@@ -308,9 +308,12 @@ async function main() {
     await page.locator('#exDetail [data-metric="e1rm"]').click();
     const exerciseChartRead = await page.locator("#exDetail .exchart__readout").textContent().catch(() => "");
     const exerciseChartColumns = await page.locator("#exDetail .exchart__cols").textContent().catch(() => "");
-    observations.exerciseChart = { readout: exerciseChartRead, columns: exerciseChartColumns };
-    check(/34\.8/.test(exerciseChartRead) && /per side/i.test(exerciseChartRead) && /Load per side/i.test(exerciseChartColumns),
-      "exercise-detail e1RM chart and table label the per-side load convention", observations.exerciseChart);
+    const exerciseChartPerSide = await page.locator("#exDetail .exchart__per-side").textContent().catch(() => "");
+    observations.exerciseChart = { readout: exerciseChartRead, columns: exerciseChartColumns, perSide: exerciseChartPerSide };
+    // Refinement audit A6: the convention is said once, under the toggles, not after every label.
+    check(/34\.8/.test(exerciseChartRead) && /^Loads( and reps)? are per side\.$/.test(exerciseChartPerSide.trim()) &&
+      !/per side/i.test(exerciseChartRead) && !/per side/i.test(exerciseChartColumns),
+      "exercise-detail e1RM chart states the per-side load convention once", observations.exerciseChart);
     await page.locator("#exBack").click();
     await page.waitForSelector("#stats.view.active", { timeout: 10000 });
     await page.evaluate(() => window.openExerciseView("library:" + "1a55c6f170d88031b658c6e278a82a88", "stats"));
@@ -318,10 +321,10 @@ async function main() {
     await page.locator('#exDetail [data-metric="e1rm"]').click();
     const totalLoadChartRead = await page.locator("#exDetail .exchart__readout").textContent().catch(() => "");
     const totalLoadChartColumns = await page.locator("#exDetail .exchart__cols").textContent().catch(() => "");
-    observations.totalLoadChart = { readout: totalLoadChartRead, columns: totalLoadChartColumns };
-    check(/20/.test(totalLoadChartRead) && /Reps per side/i.test(totalLoadChartRead) && /Reps per side/i.test(totalLoadChartColumns) &&
-      !/Load per side/i.test(totalLoadChartColumns),
-      "exercise-detail keeps total Weight total while labeling the actual per-side repetitions", observations.totalLoadChart);
+    const totalLoadPerSide = await page.locator("#exDetail .exchart__per-side").textContent().catch(() => "");
+    observations.totalLoadChart = { readout: totalLoadChartRead, columns: totalLoadChartColumns, perSide: totalLoadPerSide };
+    check(/20/.test(totalLoadChartRead) && totalLoadPerSide.trim() === "Reps are per side." && !/per side/i.test(totalLoadChartColumns),
+      "exercise-detail keeps total Weight total while stating once that the repetitions are per side", observations.totalLoadChart);
 
     await page.locator("#exBack").click();
     await page.waitForFunction(() => {
