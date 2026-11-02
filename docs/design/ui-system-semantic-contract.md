@@ -714,7 +714,8 @@ both blocks so each theme block shows the whole set; the spacing lengths are not
   target draw them where the engine's verdict is hold or recover. No role, tier,
   radius or colour is added; `.verdictmark` keeps its inventory row.
 
-- **Verdict mark: the maintained outcome (2026-10-01).** The owner decided on
+- **Verdict mark: the maintained outcome (2026-10-01; superseded 2026-11-01, see
+  "glyphs only for Next" below).** The owner decided on
   [#295, comment 5940349337](https://github.com/pedrochagasmaster/repforge/pull/295#issuecomment-5940349337)
   (recorded in Plan 064 section 8 rule 11 as amended) that one meaning has one
   glyph: the session outcome "Maintained" (PT "Manteve") draws the same ink "="
@@ -726,6 +727,19 @@ both blocks so each theme block shows the whole set; the spacing lengths are not
   draws hold "=" and recover "↻" through the same shared mark. The word is still
   `--color-maintained`; the glyph is never the accent. No role, tier, radius or
   colour is added.
+
+- **Verdict mark: glyphs only for Next (2026-11-01).** The owner decided, in the
+  design refinement that followed #603 (refinement P1 and audit A3), that an
+  arrow, "=" or "↻" means only what the engine asks of the next session. A session
+  outcome (Improved, Maintained, Declined: how a lift went against its last
+  comparable session) is a word with no glyph, wherever it renders: the session
+  summary and Today's finished day (the ledger's *vs last time* line), the History
+  session page, and the Progress Review's group headings. This reverses the
+  2026-10-01 entry above: `.verdictmark--maintained` no longer draws the
+  `--verdict-hold` mask and keeps only the word's `--color-maintained`. Hold and
+  recover still draw "=" and "↻" for the engine's verdict (Today's rows and tally,
+  the Why headline, the Focus cue, the summary's next target), and up stays the only
+  accent glyph. No role, tier, radius or colour is added.
 
 - **Icons: one set, G's (2026-10-01).** The owner decided Q-D on #295
   (comment 5927122354): onboarding direction G's glyphs are the app-wide icons

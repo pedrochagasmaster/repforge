@@ -636,11 +636,11 @@ function historySetsLine(rows){
 function historyOutcomeMark(group,sid){
   const cmp=typeof deps.sessionOutcome==="function"?deps.sessionOutcome(group.rows):null;
   if(!cmp)return"";
-  const kind={improved:" verdictmark--up",flat:" verdictmark--maintained",regressed:" verdictmark--down"}[cmp.status];
+  // An outcome is a word; the arrows and "=" belong to the next target alone (owner decision, 2026-11-01).
+  const kind={improved:"",flat:" verdictmark--maintained",regressed:""}[cmp.status];
   const exerciseId=group.rows[0]?.exerciseId;
   const parity=exerciseId?` data-parity-outcome="${esc(exerciseId)}" data-parity-session="${esc(sid)}"`:"";
-  return`<span class="verdictmark${kind||" is-insufficient"}"${parity}>`+
-    (kind?`<span class="verdictmark__glyph" aria-hidden="true"></span>`:"")+`${esc(cmp.label)}</span>`}
+  return`<span class="verdictmark${kind??" is-insufficient"}"${parity}>${esc(cmp.label)}</span>`}
 function historyReadingView(s,rows){
   const sid=String(s.session),index=historyIndexFor(state.log);
   const volumeRows=rows.map(row=>({row,reading:typeof deps.readLogRow==="function"?deps.readLogRow(row):row}))

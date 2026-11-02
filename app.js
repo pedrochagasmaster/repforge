@@ -4025,17 +4025,16 @@ function renderReview(){const el=$("#reviewPanel");if(!el)return;
     evidenceNote+readOnlyNote+actions;
   bindReviewActions()}
 const REVIEW_OUTCOME_ORDER=["improved","maintained","declined"];
-const REVIEW_OUTCOME_MARKS={improved:"up",maintained:"maintained",declined:"down"};
 const REVIEW_UNCOMPARED_KEYS=["review.outcomes.uncompared.one","review.outcomes.uncompared.other"];
-/** The block's observed outcomes, one group per verdict: the shared verdict mark and its word once, the count, and the
- *  lifts beneath as a list, so the block reads at a glance and a decline is never lost in a run of the same word. The
+/** The block's observed outcomes, one group per verdict: its word once, as a heading with the count, and the
+ *  lifts beneath as a list (an outcome is a word; glyphs belong to the next target, owner 2026-11-01), so the block reads at a glance and a decline is never lost in a run of the same word. The
  *  lifts not compared yet are counted, never named as outcomes. */
 function reviewOutcomesHtml(outcomes,uncompared,nameOf){
   if(!outcomes.length)return `<p class="review__none">${esc(t("review.outcomes.none"))}</p>`;
   const groups=REVIEW_OUTCOME_ORDER.map(outcome=>[outcome,outcomes.filter(o=>o.outcome===outcome)]).filter(([,list])=>list.length);
   return `<ul class="review__verdicts">`+groups.map(([outcome,list])=>
     `<li class="review__verdict" data-outcome="${outcome}"><h4 class="review__verdicthead">`+
-      `<span class="verdictmark verdictmark--${REVIEW_OUTCOME_MARKS[outcome]}"><span class="verdictmark__glyph" aria-hidden="true"></span>${esc(t(EVIDENCE_OUTCOME_KEYS[outcome]))}</span>`+
+      `<span class="review__verdictword">${esc(t(EVIDENCE_OUTCOME_KEYS[outcome]))}</span>`+
       `<span class="review__verdictn">${list.length}</span></h4>`+
       `<ul class="review__lifts">${list.map(o=>`<li data-exercise-id="${esc(o.exerciseId)}">${esc(nameOf(o.exerciseId))}</li>`).join("")}</ul></li>`).join("")+
     `</ul>`+(uncompared?`<p class="review__uncompared">${esc(t(REVIEW_UNCOMPARED_KEYS[uncompared===1?0:1],{n:uncompared}))}</p>`:"")}
@@ -10429,14 +10428,11 @@ function sessionPRHtml(p){
   return `<span class="sum-pr"><span class="verdictmark verdictmark--record"><span class="verdictmark__glyph" aria-hidden="true"></span></span>`+
     `<span class="sum-pr__over">${esc(over)}</span></span>`}
 /** The lift's outcome word. Only a canonical outcome carries the .sum-outcome role. */
-function summaryWordHtml(lift,session,{mark=true}={}){
+function summaryWordHtml(lift,session){
   const st=lift.state,parity=lift.exerciseId?` data-parity-outcome="${esc(lift.exerciseId)}" data-parity-session="${esc(session)}"`:"";
   if(st.kind==="outcome"){
-    const variant={improved:"up",maintained:"maintained",declined:"down"}[st.outcome];
-    // Today's finished day says the word alone: its glyph rides the next target below (OG-6 `today/done`).
-    if(!mark)return `<span class="sum-outcome" data-exercise-id="${esc(lift.liftKey)}" data-outcome="${esc(st.outcome)}"${parity}>${esc(t(EVIDENCE_OUTCOME_KEYS[st.outcome]))}</span>`;
-    return `<span class="sum-outcome verdictmark verdictmark--${variant}" data-exercise-id="${esc(lift.liftKey)}" data-outcome="${esc(st.outcome)}"${parity}>`+
-      `<span class="verdictmark__glyph" aria-hidden="true"></span>${esc(t(EVIDENCE_OUTCOME_KEYS[st.outcome]))}</span>`}
+    // An outcome is a word: the arrows and "=" belong to the next target alone (owner decision, 2026-11-01).
+    return `<span class="sum-outcome" data-exercise-id="${esc(lift.liftKey)}" data-outcome="${esc(st.outcome)}"${parity}>${esc(t(EVIDENCE_OUTCOME_KEYS[st.outcome]))}</span>`}
   if(st.kind==="baseline")return `<span class="sum-word">${esc(t("stats.outcome_short.single_observation"))}</span>`;
   if(st.reason==="missing-effort")return `<span class="sum-word">${esc(t("stats.outcome_short.missing_effort"))}</span>`;
   const key=st.reason==="changed-load"?"delta.changed_load.label":"delta.not_comparable.label";
@@ -10448,7 +10444,7 @@ function summaryWordHtml(lift,session,{mark=true}={}){
 function summaryGroupHtml(lift,s,{compact=false}={}){
   const session=compact?lift.session??s.session:s.session;
   const row=(key,value,attrs="")=>`<div class="sum-ledger__row"><dt class="sum-ledger__k">${esc(t(key))}</dt><dd class="sum-ledger__v"${attrs}>${value}</dd></div>`;
-  const rows=(s.showBaseline?"":row("summary.ledger.outcome",summaryWordHtml(lift,session,{mark:!compact})))+
+  const rows=(s.showBaseline?"":row("summary.ledger.outcome",summaryWordHtml(lift,session)))+
     (lift.pr&&!compact?row("summary.ledger.record",sessionPRHtml(lift.pr)):"")+
     (lift.next?row("summary.ledger.next",`<span class="sum-grp__next"${lift.exerciseId?` data-parity-target="${esc(lift.exerciseId)}"`:""}>`+
       `${verdictMarkHtml(lift.next.glyph)}<span>${esc(lift.next.line)}</span></span>`):"");

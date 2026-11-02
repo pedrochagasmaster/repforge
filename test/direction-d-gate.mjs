@@ -537,8 +537,8 @@ try {
   console.log("  ! today/mixed-strategies, workout/why-rep-goal, session/summary-mixed are retired;"
     + " the hold/recover mark proof needs a canonical adaptive-engine fixture (not yet built) to replace them");
 
-  // ------------------------------------------------ maintained outcome mark (owner decision, #295)
-  console.log("\nMaintained outcome mark");
+  // ------------------------------------------------ glyphs only for Next (owner decision, 2026-11-01; supersedes #295's maintained "=")
+  console.log("\nOutcome words carry no glyph");
   const maintained = await markEvidence("session/summary-maintained");
   const declined = await markEvidence("session/summary-declined");
   // today/ready's own prescription tally is the hold-glyph reference now that the
@@ -548,17 +548,13 @@ try {
   const keep = outcomeOf(maintained, "maintained");
   const rise = outcomeOf(maintained, "improved");
   const fall = outcomeOf(declined, "declined");
-  check(keep.length > 0 && keep.every((mark) => mark.drawn && mark.background === maintained.inkColor && mark.mask !== "none"),
-    "the maintained outcome draws a glyph, in ink and never the accent", JSON.stringify(keep));
   check(keep.length > 0 && rise.length > 0 && fall.length > 0, "the summary states carry maintained, improved and declined words",
     JSON.stringify({ keep: keep.length, rise: rise.length, fall: fall.length }));
-  const holdMask = maintained.hold[0]?.mask || ready.hold[0]?.mask;
-  check(!!holdMask && keep.every((mark) => mark.mask === holdMask),
-    "maintained draws the same \"=\" as the hold recommendation: one meaning per glyph", JSON.stringify({ keep: keep[0]?.mask, hold: holdMask }));
-  check(rise.length > 0 && fall.length > 0 && keep.every((mark) => [...rise, ...fall].every((other) => other.mask !== mark.mask)),
-    "maintained is distinct from the up and down arrows", JSON.stringify({ keep: keep[0]?.mask, rise: rise[0]?.mask, fall: fall[0]?.mask }));
-  check(rise.every((mark) => mark.drawn && mark.background !== maintained.inkColor) && fall.every((mark) => mark.drawn && mark.background === declined.inkColor),
-    "improved stays the only accent mark and declined stays ink", JSON.stringify({ rise: rise.map((mark) => mark.background), fall: fall.map((mark) => mark.background) }));
+  check([...keep, ...rise, ...fall].every((mark) => !mark.drawn && mark.word.length > 0),
+    "an outcome is its word alone: no arrow and no \"=\" beside Improved, Maintained or Declined", JSON.stringify([...keep, ...rise, ...fall]));
+  const holds = [...maintained.hold, ...declined.hold, ...ready.hold];
+  check(holds.length > 0 && holds.every((mark) => mark.drawn && mark.mask !== "none"),
+    "\"=\" still draws for the engine's hold verdict, so it means the next target alone", JSON.stringify(holds.slice(0, 3)));
 } finally {
   await browser.close();
   preview.cleanup();
