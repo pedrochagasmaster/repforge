@@ -183,6 +183,7 @@ const DYNAMIC_FAMILIES = [
   { test: (s) => s === '"program.day."+', keys: () => ["strength_4_d1", "strength_4_d2", "strength_4_d3", "strength_4_d4"].map((day) => `program.day.${day}`) },
   // The Focus hero's evidence line (#518): the no-suggestion reasons, and the anchor and target sentences per source.
   { test: (s) => s.includes("focus.evidence.none_${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("focus.evidence.none_")) },
+  { test: (s) => s.includes("exercise.chart.per_side.${"), keys: () => ["exercise.chart.per_side.both", "exercise.chart.per_side.load", "exercise.chart.per_side.reps"] },
   { test: (s) => s.includes("focus.evidence.${source}"), keys: (en) => ["session", "session_effort", "history", "history_effort"].map((k) => `focus.evidence.${k}`) },
   { test: (s) => s.includes("focus.evidence.target${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("focus.evidence.target")) },
   { test: (s) => s.includes("guide.${id}.title") || s.includes("guide.${id}.body") || s.includes("guide.${guide.id}.title") || s.includes("guide.${guide.id}.body"), keys: (en) => Object.keys(en).filter((k) => /^guide\.[^.]+\.(title|body)$/.test(k)) },
