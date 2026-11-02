@@ -3747,14 +3747,13 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .sum-grp__next{display:flex;align-items:center;gap:var(--space-8);margin:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink);font-variant-numeric:tabular-nums}
 /* The lift's ledger (refinement A3): a caption column that names each line's question (how it went against the last
    comparable session, the record, what next time asks) beside its value. The column is sized in em so it grows with
-   the text; every value starts on one edge, a word without a glyph keeping the glyph's room. */
+   the text; every value starts at the column's edge, so an outcome word lines up with the PR check and the Next glyph beneath it. */
 .sum-ledger{display:grid;grid-template-columns:minmax(5em,max-content) minmax(0,1fr);align-items:center;gap:var(--space-8) var(--space-12);margin:var(--space-8) 0 0}
 .sum-ledger__row{display:contents}
 .sum-ledger__k{font-family:var(--font-language);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:anywhere}
 .sum-ledger__v{min-width:0;margin:0;display:flex;align-items:center}
 .sum-ledger .verdictmark{gap:var(--space-8)}
 .sum-ledger .sum-outcome,.sum-ledger .sum-word{text-align:left}
-.sum-ledger .sum-outcome:not(.verdictmark),.sum-ledger .sum-word{padding-left:calc(16px + var(--space-8))}
 .sum-ledger .sum-pr{flex-wrap:nowrap;align-items:flex-start;margin:0}
 .sum-ledger .sum-pr__over{min-width:0}
 .sum-ledger .sum-pr .verdictmark{flex:none;padding-top:2px}
