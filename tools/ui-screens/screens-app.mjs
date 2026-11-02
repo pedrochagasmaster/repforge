@@ -289,6 +289,7 @@ const SQUAT_ALTERNATES = Object.freeze(["1a25c6f170d88079a926dde776766181", "1a2
 /** Catalog states built on the Direction D fixture; each R3 sub-slice adds its own. */
 const D_FIXTURE_STATES = new Set([
   "workout/focus", "workout/focus-glossary", "workout/correction", // R3c
+  "library/exercise-detail-suggested", // refinement A1: an Adaptive lift, so the detail has a weight and its Why link
   "workout/logged-sets", // #517: the logged sets shown in place, the rest running
   "workout/logged-sets-folded", // #517: a banner shortens the window and the oldest logged set folds
   "workout/deload-week", // Plan 072 S4: the deload cue in Focus
@@ -2546,6 +2547,16 @@ export const APP_SCENARIOS = {
     const row = page.locator("#woDayTitle [data-exopen]").first();
     await row.scrollIntoViewIfNeeded({ timeout: 20000 });
     await row.click({ timeout: 20000 });
+    await sleep(page, 800);
+  },
+  "library/exercise-detail-suggested": async (page) => {
+    // The Direction D lifter's session opens on an Adaptive lift (Barbell Romanian deadlift, "Hold 82.5 kg"), so the
+    // block carries its weight and both of its links (refinement A1: "Why this weight?" shows only with a weight).
+    await enterWorkout(page);
+    const row = page.locator("#woDayTitle [data-exopen]").first();
+    await row.scrollIntoViewIfNeeded({ timeout: 20000 });
+    await row.click({ timeout: 20000 });
+    await page.waitForSelector("#exDetail .recblock .recblock__why", { timeout: 20000 });
     await sleep(page, 800);
   },
   "library/exercise-detail-glossary": async (page) => {

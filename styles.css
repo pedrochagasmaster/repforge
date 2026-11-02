@@ -6451,7 +6451,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .whysheet__evidence{margin:var(--space-12) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 /* The affordance itself: a quiet text link under the recommendation, never a
    button that competes with logging a set. */
-.recblock__why,.focus-ex__why{font-size:var(--font-size-body-small);padding:6px 0 0}
+.recblock__why,.focus-ex__why,#exDetail .recblock .link-accent{font-size:var(--font-size-body-small);padding:6px 0 0}
 .focus-ex__why{display:block}
 
 /* One row, the way iOS draws it now: back on the left, the address pill in the
@@ -8778,7 +8778,16 @@ body.is-entry-editor #entryProgramName,
 #exDetail .recblock{border-left-color:var(--boundary-selected-quiet)}
 #exDetail .recblock__lab{color:var(--color-ink-secondary)}
 #exDetail :is(.link-accent,.recblock__why){color:var(--control-quiet-ink);text-decoration:underline;text-underline-offset:.2em}
-#exDetail :is(.listrow__sub,.statrow__cap){white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+/* The block's two links are one kind of link, set like "Why this weight?" (refinement A1). */
+#exDetail .recblock .link-accent{margin-inline-end:var(--space-16)}
+#exDetail .listrow__sub{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+/* The stat captions wrap at whole words (#548's rule): hyphenated where the language allows, never broken mid-word,
+   and at enlarged text the four tiles take two rows so a word like "sessões" has the width it needs. */
+#exDetail .statrow__cap{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:normal;-webkit-hyphens:auto;hyphens:auto;hyphenate-limit-chars:10 4 4;-webkit-hyphenate-limit-before:4;-webkit-hyphenate-limit-after:4}
+.exdet__stats-wrap{container-type:inline-size}
+@container (max-width:17rem){
+  .exdet__stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
 
 /* Install: the drawn Safari bar points with ink, step numbers are secondary ink and the status rail is the quiet boundary. */
 .safaribar__target::before{border-color:var(--boundary-selected-quiet)}

@@ -1591,6 +1591,7 @@
   "exercise.top_load": "top load",
   "exercise.progression": "Progression",
   "exercise.range_12w": "12 weeks",
+  "exercise.chart_needs_two": "One session so far. The trend starts after your second.",
   "exercise.records": "Records",
   "exercise.see_all_prs": "See all",
   "exercise.recent_sessions": "Recent sessions",

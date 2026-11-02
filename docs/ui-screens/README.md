@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 230 screens,
-1331 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 229 screens,
+1320 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -288,6 +288,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Exercise library — selected movement](screens/library/list-selected__phone-390-light-en.png) | 8 | One movement is selected and the persistent add bar is visible. |
 | [Exercise library — preview](screens/library/exercise-preview__phone-390-light-en.png) | 3 | An illustrated movement preview. |
 | [Exercise library — detail](screens/library/exercise-detail__phone-390-light-en.png) | 3 | The full movement detail surface. |
+| [Exercise library — detail with a suggestion](screens/library/exercise-detail-suggested__phone-390-light-en.png) | 3 | Movement detail for an Adaptive lift: the suggested weight with Understand RIR and Why this weight?. |
 | [Exercise library — detail glossary definition](screens/library/exercise-detail-glossary__phone-390-light-en.png) | 8 | A definition is open after tapping a term in movement detail. |
 
 ### Program

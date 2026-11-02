@@ -618,6 +618,11 @@
       "content": "flat",
       "scenario": "The full movement detail surface."
     },
+    "library/exercise-detail-suggested": {
+      "owner": "plan-058",
+      "content": "flat",
+      "scenario": "Movement detail for an Adaptive lift, with its suggested weight and both of the block's links."
+    },
     "library/exercise-detail-glossary": {
       "owner": "plan-058",
       "content": "flat",
@@ -2328,6 +2333,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "library/exercise-detail",
+        "library/exercise-detail-suggested",
         "library/exercise-detail-glossary",
         "progress/exercise-chart"
       ]
@@ -2791,6 +2797,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "library/exercise-detail",
+        "library/exercise-detail-suggested",
         "library/exercise-detail-glossary"
       ]
     },
@@ -3868,6 +3875,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "library/exercise-detail",
+        "library/exercise-detail-suggested",
         "library/exercise-detail-glossary",
         "library/exercise-preview",
         "library/list",
@@ -7091,6 +7099,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "library/exercise-detail",
+        "library/exercise-detail-suggested",
         "library/exercise-detail-glossary"
       ]
     },
@@ -7836,6 +7845,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "library/exercise-detail",
+        "library/exercise-detail-suggested",
         "library/exercise-detail-glossary"
       ]
     },
@@ -12069,6 +12079,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "library/exercise-detail",
+        "library/exercise-detail-suggested",
         "library/exercise-detail-glossary",
         "library/exercise-preview"
       ],
@@ -12177,6 +12188,7 @@
       "owner": "plan-055/058",
       "catalogStates": [
         "library/exercise-detail",
+        "library/exercise-detail-suggested",
         "library/exercise-detail-glossary",
         "workout/correction",
         "workout/focus",
