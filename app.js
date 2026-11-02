@@ -884,6 +884,9 @@ function enqueueStateChange(base,proposal,io,options={}){return DurableState.enq
 const $=s=>document.querySelector(s),$$=s=>Array.from(document.querySelectorAll(s));
 const I18N=window.RepForgeI18n;
 const t=(k,v)=>I18N?I18N.t(k,v):k;
+/** t() answers a missing key with the key itself, so `t(key)||fallback` never falls back. For keys built from data
+ *  (a stored goal, a codec's reason code, a saved movement), tOr gives the fallback instead of a raw key. */
+const tOr=(k,fallback,v)=>{const s=t(k,v);return s&&s!==k?s:fallback};
 /** "1 session" / "2 sessions": the count catalog keeps a `_one` form for exactly 1 (R7 V-14). kind: sessions, sets, exercises. */
 const countText=(kind,n)=>t(n===1?`count.${kind}_one`:`count.${kind}`,{n});
 /** Words in the language font, figures in Plex Mono: a line of copy with its numbers (5, 11–12, 39.5) wrapped in `.num`, the
@@ -909,7 +912,7 @@ const bootTelemetry=()=>{if(installTransferMutationFrozen())return null;try{
 const telemetryPlatformClass=()=>{if(isIOS())return"ios";const ua=navigator.userAgent||"";if(/android/i.test(ua))return"android";if(/windows|macintosh|linux|cros/i.test(ua))return"desktop";return"other"};
 const applyI18n=()=>{if(!I18N)return;I18N.applyDom();
   const langSel=$("#lang");if(langSel){if(state?.settings?.lang)langSel.value=state.settings.lang;[...langSel.options].forEach(o=>{o.textContent=t("settings.lang."+o.value)})}
-  $$("[data-term]").forEach(b=>{const key=b.dataset.term;b.textContent=t(`glossary.term.${key}`)||key;if(!b.onclick)b.onclick=e=>{e.stopPropagation();glossaryPopover(key,b)}});
+  $$("[data-term]").forEach(b=>{const key=b.dataset.term;b.textContent=tOr(`glossary.term.${key}`,key);if(!b.onclick)b.onclick=e=>{e.stopPropagation();glossaryPopover(key,b)}});
 };
 /* An explicit choice wins; otherwise follow the browser. `setLang` falls back
    to English on anything it does not recognise, so the detected language has to
@@ -1615,8 +1618,8 @@ function closeGlossary({restore=true}={}){
   return true}
 function glossaryPopover(termKey,anchor){const g=$("#glossary");if(!g)return;
   if(glossaryOpener&&glossaryOpener!==anchor)glossaryOpener.setAttribute("aria-expanded","false");
-  g.querySelector(".glossary__term").textContent=t(`glossary.term.${termKey}`)||termKey;
-  g.querySelector(".glossary__body").textContent=t(`glossary.${termKey}`)||"";
+  g.querySelector(".glossary__term").textContent=tOr(`glossary.term.${termKey}`,termKey);
+  g.querySelector(".glossary__body").textContent=tOr(`glossary.${termKey}`,"");
   g.classList.remove("hidden");
   glossaryOpener=anchor;anchor.setAttribute("aria-haspopup","dialog");anchor.setAttribute("aria-expanded","true");
   anchor.setAttribute("aria-controls","glossary");
@@ -1678,7 +1681,7 @@ const parseLoadInput=(raw,unit=state.settings.unit)=>ExerciseMetrics.parseLoadIn
 const loadInputToast=p=>t(p.kind==="empty"?"toast.enter_weight_before_save_set":"toast.invalid_weight");
 const fmtLoad=kg=>fmt(toDisplay(kg));
 const fmtLoadPlain=kg=>fmtPlain(toDisplay(kg));
-const term=key=>`<button type="button" class="term" data-term="${esc(key)}">${esc(t(`glossary.term.${key}`)||key)}</button>`;
+const term=key=>`<button type="button" class="term" data-term="${esc(key)}">${esc(tOr(`glossary.term.${key}`,key))}</button>`;
 function resetWorkoutSessionIdentity(){
   clearUnfinishedWatch();
   lastCommitAt=0;sessionStartedAt=0;
@@ -3982,10 +3985,10 @@ function renderReview(){const el=$("#reviewPanel");if(!el)return;
   if(!state.programMeta?.started){el.innerHTML=`<p class="lede">${esc(t("review.no_start"))}</p>`;return}
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
   if(!Model){legacyReviewPanel(el);return}
-  const meta=state.programMeta||{};
+  const meta=state.programMeta||{},records=reviewObservedOutcomes();
   const checkpoint=Model.buildReviewCheckpoint(prog.toJSON(),
     {started:meta.started,mesocycleLengthWeeks:meta.mesocycleLengthWeeks||6,
-     mesocycleStatus:meta.mesocycleStatus,evidenceRecords:reviewObservedOutcomes(),
+     mesocycleStatus:meta.mesocycleStatus,evidenceRecords:records,
      recoveryEligible:true},
     readLogRows(),today());
   const life=mesocycleLifecycle(meta);
@@ -3994,10 +3997,8 @@ function renderReview(){const el=$("#reviewPanel");if(!el)return;
     progressEvidenceMeta(),readLogRows(),today());
   const pct=volume.plannedWorkingSets?Math.min(100,Math.round(volume.completedWorkingSets/volume.plannedWorkingSets*100)):0;
   const nameForLiftKey=key=>currentExerciseForLiftKey(key)?.name||key;
-  const outcomes=checkpoint.observedOutcomes;
-  const outcomeLine=outcomes.length
-    ?outcomes.map(o=>`${esc(liftDisplayName(nameForLiftKey(o.exerciseId),o.exerciseId))} · ${esc(t(EVIDENCE_OUTCOME_KEYS[o.outcome]||""))}`).join("<br>")
-    :`<span class="visually-hidden">${esc(t("review.outcomes.none_aria"))}</span>${esc(t("review.outcomes.none"))}`;
+  const outcomeLine=reviewOutcomesHtml(checkpoint.observedOutcomes,
+    records.filter(r=>r.evidenceState!=="sufficient").length,key=>liftDisplayName(nameForLiftKey(key),key));
   const actions=checkpoint.lifecycle==="block-complete"?renderReviewActions(checkpoint):"";
   const readOnlyNote=checkpoint.lifecycle==="active-block"
     ?`<p class="review__readonly" role="note">${esc(t("review.active_readonly"))}</p>`:"";
@@ -4012,6 +4013,21 @@ function renderReview(){const el=$("#reviewPanel");if(!el)return;
     `<p class="section-label">${esc(t("review.outcomes.label"))}</p><div class="review__outcomes">${outcomeLine}</div>`+
     evidenceNote+readOnlyNote+actions;
   bindReviewActions()}
+const REVIEW_OUTCOME_ORDER=["improved","maintained","declined"];
+const REVIEW_OUTCOME_MARKS={improved:"up",maintained:"maintained",declined:"down"};
+const REVIEW_UNCOMPARED_KEYS=["review.outcomes.uncompared.one","review.outcomes.uncompared.other"];
+/** The block's observed outcomes, one group per verdict: the shared verdict mark and its word once, the count, and the
+ *  lifts beneath as a list, so the block reads at a glance and a decline is never lost in a run of the same word. The
+ *  lifts not compared yet are counted, never named as outcomes. */
+function reviewOutcomesHtml(outcomes,uncompared,nameOf){
+  if(!outcomes.length)return `<p class="review__none">${esc(t("review.outcomes.none"))}</p>`;
+  const groups=REVIEW_OUTCOME_ORDER.map(outcome=>[outcome,outcomes.filter(o=>o.outcome===outcome)]).filter(([,list])=>list.length);
+  return `<ul class="review__verdicts">`+groups.map(([outcome,list])=>
+    `<li class="review__verdict" data-outcome="${outcome}"><h4 class="review__verdicthead">`+
+      `<span class="verdictmark verdictmark--${REVIEW_OUTCOME_MARKS[outcome]}"><span class="verdictmark__glyph" aria-hidden="true"></span>${esc(t(EVIDENCE_OUTCOME_KEYS[outcome]))}</span>`+
+      `<span class="review__verdictn">${list.length}</span></h4>`+
+      `<ul class="review__lifts">${list.map(o=>`<li data-exercise-id="${esc(o.exerciseId)}">${esc(nameOf(o.exerciseId))}</li>`).join("")}</ul></li>`).join("")+
+    `</ul>`+(uncompared?`<p class="review__uncompared">${esc(t(REVIEW_UNCOMPARED_KEYS[uncompared===1?0:1],{n:uncompared}))}</p>`:"")}
 // Observed outcomes are engine facts (paired-exposure comparison), never
 // representation-derived. Insufficient lifts never enter this list.
 function reviewObservedOutcomes(){
@@ -10412,8 +10428,8 @@ function sessionPRHtml(p){
   const unit=unitLabel(),over=p.kind==="load"?t("summary.pr.over_load",{n:fmtLoad(p.delta),unit})
     :p.kind==="reps"?t("summary.pr.over_reps",{n:fmt(p.delta),reps:tp(p.delta,"rep")})
     :t("summary.pr.over_e1rm",{n:fmtLoad(p.delta),unit});
-  return `<p class="sum-pr"><span class="verdictmark verdictmark--record"><span class="verdictmark__glyph" aria-hidden="true"></span>${esc(t("summary.pr.label"))}</span>`+
-    `<span class="sum-pr__over">${esc(over)}</span></p>`}
+  return `<span class="sum-pr"><span class="verdictmark verdictmark--record"><span class="verdictmark__glyph" aria-hidden="true"></span></span>`+
+    `<span class="sum-pr__over">${esc(over)}</span></span>`}
 /** The lift's outcome word. Only a canonical outcome carries the .sum-outcome role. */
 function summaryWordHtml(lift,session,{mark=true}={}){
   const st=lift.state,parity=lift.exerciseId?` data-parity-outcome="${esc(lift.exerciseId)}" data-parity-session="${esc(session)}"`:"";
@@ -10427,14 +10443,20 @@ function summaryWordHtml(lift,session,{mark=true}={}){
   if(st.reason==="missing-effort")return `<span class="sum-word">${esc(t("stats.outcome_short.missing_effort"))}</span>`;
   const key=st.reason==="changed-load"?"delta.changed_load.label":"delta.not_comparable.label";
   return `<span class="sum-word"${parity}>${esc(t(key))}</span>`}
-/** `compact` is Today's finished day: the name and its word, then the next target, without the sets or the record line. */
+/** One lift as a small ledger whose every line names its question: how it went against the last comparable session,
+ *  the record it set, and what next time asks. The three signals have different referents, so none of them stands
+ *  alone as the lift's status (refinement A3). `compact` is Today's finished day: the name, how it went and the next
+ *  target, without the sets or the record line. */
 function summaryGroupHtml(lift,s,{compact=false}={}){
   const session=compact?lift.session??s.session:s.session;
-  return `<div class="sum-grp"><div class="sum-grp__h"><span class="sum-grp__n">${esc(liftDisplayName(lift.name,lift.liftKey))}</span>${s.showBaseline?"":summaryWordHtml(lift,session,{mark:!compact})}</div>`+
+  const row=(key,value,attrs="")=>`<div class="sum-ledger__row"><dt class="sum-ledger__k">${esc(t(key))}</dt><dd class="sum-ledger__v"${attrs}>${value}</dd></div>`;
+  const rows=(s.showBaseline?"":row("summary.ledger.outcome",summaryWordHtml(lift,session,{mark:!compact})))+
+    (lift.pr&&!compact?row("summary.ledger.record",sessionPRHtml(lift.pr)):"")+
+    (lift.next?row("summary.ledger.next",`<span class="sum-grp__next"${lift.exerciseId?` data-parity-target="${esc(lift.exerciseId)}"`:""}>`+
+      `${verdictMarkHtml(lift.next.glyph)}<span>${esc(lift.next.line)}</span></span>`):"");
+  return `<div class="sum-grp"><div class="sum-grp__h"><span class="sum-grp__n">${esc(liftDisplayName(lift.name,lift.liftKey))}</span></div>`+
     (compact?"":`<p class="sum-grp__sets">${esc(rxSetsLine(lift.sets,true))}</p>`)+
-    (lift.pr&&!compact?sessionPRHtml(lift.pr):"")+
-    (lift.next?`<p class="sum-grp__next"${lift.exerciseId?` data-parity-target="${esc(lift.exerciseId)}"`:""}>${verdictMarkHtml(lift.next.glyph)}`+
-      `<span>${esc(t("summary.next_target",{target:lift.next.line}))}</span></p>`:"")+`</div>`}
+    (rows?`<dl class="sum-ledger">${rows}</dl>`:"")+`</div>`}
 
 function sessionSummaryHtml(s){
   const unit=unitLabel(),out=[];
@@ -13510,13 +13532,23 @@ function programRowHtml(e){
     `<span class="rxrow__name">${esc(exerciseDisplayName(e))}<span class="rxrow__sub">${esc(programStrategyName(e))}</span></span>`+
     `<span class="rxrow__target">${esc(e.hasRepTarget===false?programPrescriptionSummary(e):`${e.sets} × ${e.min}–${e.max}`)}</span>`+
     `<span class="rxrow__load"${showLoad?` data-parity-target="${esc(e.id)}"`:""}>${showLoad?mark+(word?`<span class="visually-hidden">${esc(word)} </span>`:"")+esc(fmtLoad(rec.load)):""}</span></button>`}
+/** A program's goal as the lifter chose it: the engine's goals (hypertrophy, strength, hybrid) read with the entry's
+ *  approved labels, and the retired onboarding's goals stored on older programs with theirs. Any other value has no
+ *  label, so it is left out: t() answers a missing key with the key itself, and that once reached the Program tab
+ *  as "onb.goal.hybrid.label". */
+const PROGRAM_GOAL_LABEL_KEYS=Object.freeze({hypertrophy:"entry.goal.muscle_growth",strength:"entry.goal.strength",hybrid:"entry.goal.balanced",
+  strength_hypertrophy:"onb.goal.strength_hypertrophy.label",beginner_consistency:"onb.goal.beginner_consistency.label"});
+function programGoalLabel(goal){
+  const key=Object.prototype.hasOwnProperty.call(PROGRAM_GOAL_LABEL_KEYS,goal)?PROGRAM_GOAL_LABEL_KEYS[goal]:null;
+  const label=key?t(key):"";
+  return label&&label!==key?label:""}
 function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
   const meta=state.programMeta||defaultProgramMeta(state.log),mc=mesocycleWeek(),ad=programAdherence(),health=programProgressionHealth();
-  const ds=prog.days(),goal=meta.goal?t("onb.goal."+meta.goal+".label")||meta.goal:"";
+  const ds=prog.days(),goal=programGoalLabel(meta.goal);
   const segs=mc.total||6,cur=mc.current||0;
   const plainWeek=!mc.isComplete&&!mc.isFinalWeek&&mc.current!=null;
   const lede=goal&&plainWeek?t("program.overview.lede",{goal,days:ds.length,n:mc.current,total:mc.total})
-    :[goal,tOne("program.days_per_week",ds.length)].filter(Boolean).join(" · ");
+    :[goal,tOne("program.days_per_week",ds.length),plainWeek?t("program.week_chip",{n:mc.current,total:mc.total}):""].filter(Boolean).join(" · ");
   let daysHtml="";
   ds.forEach((d,i)=>{const exs=prog.forDay(d),sets=sum(exs.map(e=>e.sets)),mus=dayMuscles(d).map(muscleLabel);
     daysHtml+=`<section class="prog-day" aria-labelledby="progDay${i}"><div class="prog-day__head"><h4 class="prog-day__title" id="progDay${i}">${esc(dayLabel(d))}</h4>`+
@@ -14376,7 +14408,7 @@ function renderShareSetupBlockers(){
   list.innerHTML=blockers.map(blocker=>{
     const id=String(blocker?.exerciseInstanceId??"");
     const name=blocker?.displayName||t("program.share_setup_exercise");
-    const reason=t(`program.share_setup_reason.${blocker?.reasonCode}`)||t("program.share_setup_reason.unknown");
+    const reason=tOr(`program.share_setup_reason.${blocker?.reasonCode}`,t("program.share_setup_reason.unknown"));
     return `<div class="share-setup__blocker" data-share-blocker-id="${esc(id)}" data-share-day-id="${esc(blocker?.dayId||"")}" data-share-reason="${esc(blocker?.reasonCode||"")}" role="listitem">`+
       `<div class="share-setup__blocker-copy"><strong>${esc(name)}</strong>`+
       `<span>${esc(reason)}</span></div>`+
@@ -17979,7 +18011,7 @@ function entryAboutGoal(){
   const goal=entryState.answers.desiredResult;
   if(goal&&!entryGoalOpen)
     return `<div class="entry__carried"><div class="entry__carried-text"><span class="entry__carried-k">${esc(t("entry.about.goal"))}</span>`+
-      `<span class="entry__carried-v">${esc(t(`entry.goal.${goal}`))}</span></div>`+
+      `<span class="entry__carried-v">${esc(tOr(`entry.goal.${goal}`,""))}</span></div>`+
       `<button type="button" class="btn btn--steel entry__carried-change" id="entryGoalChange" aria-label="${esc(t("entry.about.goal_change"))}">${esc(t("entry.about.change"))}</button></div>`;
   return entryGroupLab(t("entry.goal.title"),"",` id="entryGoalLab"`)+entryGoalGroup()}
 function renderBackgroundStep(){
@@ -18067,14 +18099,14 @@ function entryMuscleStatusOption(muscle,status){
   const selected=entryMuscleStatus(muscle)===status;
   const disabled=entryMuscleStatusDisabled(muscle,status);
   const label=entryMuscleStateLabel(status);
-  const muscleLabel=t(`entry.muscle.${muscle}`)||muscle;
+  const muscleLabel=tOr(`entry.muscle.${muscle}`,muscle);
   return `<button type="button" class="entry__muscle-state${selected?" is-selected":""}${disabled?" is-disabled":""}" data-entry-pick="musclePriority" data-entry-val="${esc(`${muscle}|${status}`)}"${disabled?` disabled aria-disabled="true" aria-label="${esc(`${muscleLabel}: ${label}. ${t("entry.choice.disabled")}`)}"`:` aria-label="${esc(`${muscleLabel}: ${label}`)}"`} role="radio" aria-checked="${selected?"true":"false"}"><span>${esc(label)}</span></button>`}
 function renderCustomMusclePriorities(){
   return `<p class="entry__group-lab" id="entryMuscleStatesLab">${esc(t("entry.priorities.states"))}</p>`+
     `<p class="entry__hint entry__muscle-state-hint">${esc(t("entry.priorities.state_hint"))}</p>`+
     `<div class="entry__muscle-list" role="group" aria-labelledby="entryMuscleStatesLab">`+
     ENTRY_MUSCLES.map(muscle=>{
-      const label=t(`entry.muscle.${muscle}`)||muscle;
+      const label=tOr(`entry.muscle.${muscle}`,muscle);
       const current=entryMuscleStateLabel(entryMuscleStatus(muscle));
       return `<div class="entry__muscle-row"><div class="entry__muscle-name" id="entryMuscleLabel-${esc(muscle)}"><span>${esc(label)}</span><span class="entry__muscle-current">${esc(current)}</span></div>`+
         `<div class="entry__muscle-states" role="radiogroup" aria-labelledby="entryMuscleLabel-${esc(muscle)}">`+
@@ -18213,14 +18245,14 @@ function entryPrioritiesBody(){
   if(custom){
     return renderCustomMusclePriorities()+
       `<p class="entry__group-lab">${esc(t("entry.priorities.movements"))}</p><div class="onb__opts onb__grid onb__grid--balanced" role="group">`+
-      ENTRY_MOVEMENTS.map(m=>entryOpt("priorityMovements",m,t(`entry.movement.${m}`)||m,"",{multi:true,role:"checkbox"})).join("")+`</div>`}
+      ENTRY_MOVEMENTS.map(m=>entryOpt("priorityMovements",m,tOr(`entry.movement.${m}`,m),"",{multi:true,role:"checkbox"})).join("")+`</div>`}
   const primary=a.primaryMuscles||[];
   return `<div class="onb__opts entry__none" role="radiogroup" aria-label="${esc(t("entry.priorities.primary"))}"><button type="button" class="radio-card${primary.length===0?" is-selected":""}" data-entry-action="clear-priorities" role="radio" aria-checked="${primary.length===0?"true":"false"}"><span class="radio-card__body"><span class="radio-card__title">${esc(t("entry.priorities.none"))}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button></div>`+
     `<p class="entry__group-lab">${esc(t("entry.priorities.primary"))}</p><div class="onb__opts onb__grid onb__grid--balanced" role="group">`+
-    ENTRY_MUSCLES.map(m=>entryOpt("primaryMuscles",m,t(`entry.muscle.${m}`)||m,"",{multi:true,disabled:entryMuscleBlocked("primaryMuscles",m),role:"checkbox"})).join("")+`</div>`+
+    ENTRY_MUSCLES.map(m=>entryOpt("primaryMuscles",m,tOr(`entry.muscle.${m}`,m),"",{multi:true,disabled:entryMuscleBlocked("primaryMuscles",m),role:"checkbox"})).join("")+`</div>`+
     (primary.length>=ProgramEntry.MAX_PRIORITY_MUSCLES?`<p class="entry__hint entry__limit" id="entryPrimaryLimit">${esc(t("entry.priorities.limit"))}</p>`:"")+
     `<p class="entry__group-lab">${esc(t("entry.priorities.movements"))}</p><div class="onb__opts onb__grid onb__grid--balanced" role="group">`+
-    ENTRY_MOVEMENTS.map(m=>entryOpt("priorityMovements",m,t(`entry.movement.${m}`)||m,"",{multi:true,role:"checkbox"})).join("")+`</div>`+
+    ENTRY_MOVEMENTS.map(m=>entryOpt("priorityMovements",m,tOr(`entry.movement.${m}`,m),"",{multi:true,role:"checkbox"})).join("")+`</div>`+
     renderAvoidanceSection()}
 function renderPrioritiesStep(){
   const custom=entryState.route==="custom";
@@ -18731,7 +18763,7 @@ function entryPriorityLabel(answers=entryState?.answers||{}){
         const label=t(`entry.muscle.${muscle}`);return label===`entry.muscle.${muscle}`?muscle:label;
       }).join(", ")}`)}}
   const movements=answers.priorityMovements||[];
-  if(movements.length)facts.push(movements.map(movement=>t(`entry.movement.${movement}`)||movement).join(", "));
+  if(movements.length)facts.push(movements.map(movement=>tOr(`entry.movement.${movement}`,movement)).join(", "));
   if(!custom){
     const mustHave=(answers.mustHaveExercises||[]).map(exerciseId=>libraryEntry(exerciseId)).filter(Boolean);
     if(mustHave.length)facts.push(t("entry.preview.must_have",{exercises:mustHave.map(libraryName).join(", ")}))}
@@ -18916,7 +18948,7 @@ function entrySameSet(left,right){return JSON.stringify([...(left||[])].sort())=
 function entryChipList(){
   const a=entryState.answers||{},custom=entryState.route==="custom",out=[];
   const add=(chip,text)=>out.push({chip,text,what:t(`entry.chip.what.${chip}`)});
-  if(a.desiredResult)add("goal",t(`entry.chip.goal.${a.desiredResult}`));
+  if(a.desiredResult)add("goal",tOr(`entry.chip.goal.${a.desiredResult}`,""));
   if(a.structuredExperience)add("exp",t(`entry.lifting.${a.structuredExperience}`));
   if(a.daysPerWeek)add("days",t("entry.chip.days",{n:a.daysPerWeek}));
   if(a.sessionMinutes)add("minutes",t("entry.chip.minutes",{n:a.sessionMinutes}));
@@ -19172,7 +19204,7 @@ function renderResultStep(){
     return entryHeading(t("entry.result.error_title"))+`<div class="entry__notice entry__notice--error" role="alert"><p>${esc(entryFailureText(failure||entryCompileError)||t("entry.issue.compile"))}</p></div>`}
   reportGeneratorCompleted(result);
   const preview=result.preview||{},explanation=result.explanation||{};
-  const goal=explanation.desiredResult?t(`entry.goal.${explanation.desiredResult}`):"";
+  const goal=explanation.desiredResult?tOr(`entry.goal.${explanation.desiredResult}`,""):"";
   const days=explanation.daysPerWeek||preview.frequency||"";
   const minutes=explanation.sessionMinutes||"";
   const environmentKind=explanation.mainConstraint;
@@ -20115,7 +20147,7 @@ function renderEntryRail(){
     if(!text||steps.indexOf(target)<0||steps.indexOf(target)>=index)return;
     chips.push(`<button type="button" class="entry-rail__chip" data-entry-rail="${target}" aria-label="${esc(t("entry.rail.edit",{what}))}: ${esc(text)}">`+
       `<span class="entry-rail__text">${esc(text)}</span><span class="entry-rail__edit icon-mask icon-mask--pencil icon-mask--sm" aria-hidden="true"></span></button>`)};
-  if(a.desiredResult)add("desired_result",t("entry.rail.what.goal"),t(`entry.goal.${a.desiredResult}`));
+  if(a.desiredResult)add("desired_result",t("entry.rail.what.goal"),tOr(`entry.goal.${a.desiredResult}`,""));
   if(a.structuredExperience)add("background",t("entry.rail.what.background"),t(`entry.lifting.${a.structuredExperience}`));
   if(a.daysPerWeek&&a.sessionMinutes)add("schedule",t("entry.rail.what.schedule"),
     t("entry.rail.schedule",{days:a.daysPerWeek,minutes:a.sessionMinutes}));

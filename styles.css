@@ -3738,7 +3738,20 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .sum-grp__sets{margin:var(--space-4) 0 0;font-family:var(--font-training-data);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:anywhere}
 .sum-pr{display:flex;align-items:baseline;flex-wrap:wrap;gap:var(--space-8);margin:var(--space-4) 0 0}
 .sum-pr__over{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-improved)}
-.sum-grp__next{display:flex;align-items:center;gap:var(--space-8);margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink);font-variant-numeric:tabular-nums}
+.sum-grp__next{display:flex;align-items:center;gap:var(--space-8);margin:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink);font-variant-numeric:tabular-nums}
+/* The lift's ledger (refinement A3): a caption column that names each line's question (how it went against the last
+   comparable session, the record, what next time asks) beside its value. The column is sized in em so it grows with
+   the text; every value starts on one edge, a word without a glyph keeping the glyph's room. */
+.sum-ledger{display:grid;grid-template-columns:minmax(5em,max-content) minmax(0,1fr);align-items:center;gap:var(--space-8) var(--space-12);margin:var(--space-8) 0 0}
+.sum-ledger__row{display:contents}
+.sum-ledger__k{font-family:var(--font-language);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:anywhere}
+.sum-ledger__v{min-width:0;margin:0;display:flex;align-items:center}
+.sum-ledger .verdictmark{gap:var(--space-8)}
+.sum-ledger .sum-outcome,.sum-ledger .sum-word{text-align:left}
+.sum-ledger .sum-outcome:not(.verdictmark),.sum-ledger .sum-word{padding-left:calc(16px + var(--space-8))}
+.sum-ledger .sum-pr{flex-wrap:nowrap;align-items:flex-start;margin:0}
+.sum-ledger .sum-pr__over{min-width:0}
+.sum-ledger .sum-pr .verdictmark{flex:none;padding-top:2px}
 .sum-muscles__note{margin:var(--space-8) 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 #sessionSummary .sum-muscles .vrow__name{font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink)}
 #sessionSummary .sum-muscles .vrow__num{font-family:var(--font-training-data);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
@@ -7795,6 +7808,18 @@ body.is-entry-editor #entryProgramName,
 #volumeDash .vrow__bar{box-sizing:border-box;height:6px;border:1px solid var(--boundary-required)}
 #stats #reviewPanel .blockprogress > p b{font-weight:var(--weight-semibold);color:var(--color-ink)}
 #stats #reviewPanel .review__outcomes{color:var(--color-ink)}
+/* Observed outcomes, one flat group per verdict: a hairline per group, the shared verdict mark and word as the group's
+   heading with its count in Mono, and the lifts beneath, indented to the word. The maintained word is ink here, as in
+   the summary ledger. */
+#stats #reviewPanel .review__verdicts{margin:0;padding:0;list-style:none;border-bottom:1px solid var(--boundary-decorative)}
+#stats #reviewPanel .review__verdict{padding:var(--space-12) 0 var(--space-14);border-top:1px solid var(--boundary-decorative)}
+#stats #reviewPanel .review__verdicthead{display:flex;align-items:center;gap:var(--space-8);margin:0 0 var(--space-4)}
+#stats #reviewPanel .review__verdicthead .verdictmark{font-size:var(--font-size-body);color:var(--color-ink)}
+#stats #reviewPanel .review__verdictn{margin-left:auto;font-family:var(--font-training-data);font-size:var(--font-size-body);font-weight:var(--weight-medium);color:var(--color-ink-secondary)}
+#stats #reviewPanel .review__lifts{margin:0;padding:0 0 0 22px;list-style:none}
+#stats #reviewPanel .review__lifts li{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink);overflow-wrap:anywhere}
+#stats #reviewPanel .review__uncompared,#stats #reviewPanel .review__none{margin:var(--space-12) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+#stats #reviewPanel .review__none{margin:0}
 #stats #reviewPanel .review__readonly{color:var(--color-warning)}
 #stats #reviewPanel .review__hash{font-family:var(--font-training-data);font-size:var(--font-size-caption);line-height:var(--line-reading)}
 #stats #reviewPanel .btn--cta,#stats #reviewPanel .btn--steel{min-height:var(--control-target);border-radius:var(--radius-button);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard)}
