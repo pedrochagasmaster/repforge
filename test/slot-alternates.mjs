@@ -63,6 +63,11 @@ async function pickExact(page, name) {
   const row = page.locator("#exPickList .pickrow").filter({ has: page.locator(".pickrow__name", { hasText: new RegExp(`^${name}$`, "i") }) });
   await row.first().waitFor({ timeout: 5000 });
   await row.first().click();
+  await page.waitForFunction(() => {
+    const sheet = document.querySelector("#exPickSheet");
+    return !sheet?.classList.contains("is-open") || sheet.classList.contains("is-reason-step");
+  }, undefined, { timeout: 5000 });
+  if (await page.locator("#exPickSheet.is-reason-step").count()) await page.click("#exPickReasonSkip");
   await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
 }
 
@@ -194,6 +199,8 @@ async function main() {
     await exerciseAction(page, SLOT, "#exActionSubstBtn");
     await page.waitForSelector(`#exPickList .pickrow[data-pick="${LAT.id}"]`, { timeout: 5000 });
     await page.locator(`#exPickList .pickrow[data-pick="${LAT.id}"]`).click();
+    await page.waitForSelector("#exPickSheet.is-reason-step", { timeout: 5000 });
+    await page.click("#exPickReasonSkip");
     await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
     await page.waitForFunction(({ id, lat }) => window.__repforgeWorkoutDraft.current()?.exercises?.[id]
       ?.substitution?.replacement?.libraryId === lat, { id: SLOT, lat: LAT.id }, { timeout: 10000 });

@@ -2993,11 +2993,23 @@ function captureDraftCommandTelemetry(command,before,after,ui){
     noteCommittedWorkingSets(after);
     // Q618: the lifter's own skips only; the bulk "skip flagged" offer opts out.
     if(command.type==="skipExercise"&&ui?.bulk!==true&&before?.exercises?.[command.exerciseInstanceId]?.status!=="skipped")captureEvent("exercise_skipped",{context:"planned_session"});
-    // Plan 071 §5.5: where the replacement came from; no reason is asked, so none is sent.
-    if(command.type==="substituteExercise"&&(ui?.substitutionSource==="alternate"||ui?.substitutionSource==="library"))
-      captureEvent("substitution_used",SUBSTITUTION_REASONS.includes(ui.substitutionReason)
-        ?{source:ui.substitutionSource,reason:ui.substitutionReason}:{source:ui.substitutionSource})}
+    // Plan 071 §5.5: where the replacement came from, and the optional reason when one is given. The swap sheet asks
+    // the reason after the pick (refinement audit A4, owner 2026-11-01), so its swap's event waits for that answer and
+    // goes out then, with the payload it had when the reason was asked first.
+    if(command.type==="substituteExercise"&&(ui?.substitutionSource==="alternate"||ui?.substitutionSource==="library")){
+      if(ui.reasonAfter)pendingSubstitutionEvent={source:ui.substitutionSource};
+      else captureEvent("substitution_used",SUBSTITUTION_REASONS.includes(ui.substitutionReason)
+        ?{source:ui.substitutionSource,reason:ui.substitutionReason}:{source:ui.substitutionSource})}}
   catch{}}
+/* The swap whose optional reason is still being asked: its event, held until the answer. */
+let pendingSubstitutionEvent=null;
+/** Send the held swap event with the reason chosen, or with none for a skip, a dismissal or the page going away: the
+ *  same event and properties as when the reason was chosen before the pick, once. */
+function settleSubstitutionEvent(reason){
+  const pending=pendingSubstitutionEvent;pendingSubstitutionEvent=null;
+  if(!pending)return;
+  captureEvent("substitution_used",SUBSTITUTION_REASONS.includes(reason)?{source:pending.source,reason}:{source:pending.source})}
+addEventListener("pagehide",()=>settleSubstitutionEvent(null));
 function enqueueDraftCommand(type,payload={},ui={}){
   const operationId=`draft-${uid()}`;
   const focus=draftFocusIdentity(payload),pendingValue=Object.prototype.hasOwnProperty.call(ui,"pendingValue")?
@@ -3275,10 +3287,9 @@ function openSubstitutePicker(id){
     reasons:SUBSTITUTION_REASONS,
     returnFocus:workoutActive?null:()=>document.querySelector(`#todayExList [data-row-menu="${CSS.escape(id)}"]`),
     onPick:entry=>{
-      const reason=pickerState?.reason||null;
       if(self&&entry.id===self.id)return applyPredefinedSub(id,"");
       return applyCustomSub(id,libraryName(entry),entry.id,
-        {substitutionSource:(slot?.alternates||[]).includes(entry.id)?"alternate":"library",substitutionReason:reason})}})}
+        {substitutionSource:(slot?.alternates||[]).includes(entry.id)?"alternate":"library",reasonAfter:true})}})}
 function fatigueFlagged(){return exercises().filter(e=>{const r=recommendation(sessionExercise(e));return r.status==="reduce"||r.stalled})}
 async function applyFatigueTrim(){
   const flagged=new Set(fatigueFlagged().map(e=>e.id));
@@ -14658,24 +14669,26 @@ function pickerRow(e,{selected=false,checkbox=false}={}){
     `<span class="pickrow__tick" aria-hidden="true"></span>`+
   `</button>`}
 
-/* The swap sheet's optional reason (Plan 071 §10): one tap, none by default,
-   and picking an exercise never waits on it. The chips lead the scrolling list
-   rather than the fixed tools, so enlarged text can never crowd the list out. */
+/* The swap sheet's optional reason (Plan 071 §10), asked after the pick (refinement audit A4, owner 2026-11-01): the
+   pick swaps at once, then the same sheet asks why in one tap, or Skip. None is chosen by default, and leaving the
+   sheet any other way is a skip. Before, the reasons stood between the filter and the list as more of the same pills. */
 const SUBSTITUTION_REASONS=Object.freeze(["equipment","preference","pain","crowded","other"]);
 const SUBSTITUTION_REASON_LABELS=Object.freeze({equipment:"picker.reason.equipment",preference:"picker.reason.preference",
   pain:"picker.reason.pain",crowded:"picker.reason.crowded",other:"picker.reason.other"});
-function renderPickerReasons(){
-  const el=$("#exPickReasons");if(!el)return;
-  const reasons=pickerState?.reasons;
-  if(!reasons){el.innerHTML="";return}
-  el.innerHTML=`<p class="pick__reasons-label" id="exPickReasonsLabel">${esc(t("picker.reason_label"))}</p><div class="pick__reasons-chips">`+
-    reasons.map(reason=>{const on=pickerState.reason===reason;
-      return `<button type="button" class="pchip${on?" is-active":""}" data-pick-reason="${reason}" aria-pressed="${on}">${esc(t(SUBSTITUTION_REASON_LABELS[reason]))}</button>`}).join("")+`</div>`;
-  el.querySelectorAll("[data-pick-reason]").forEach(button=>button.onclick=()=>{
-    const reason=button.dataset.pickReason;
-    pickerState.reason=pickerState.reason===reason?null:reason;
-    renderPickerReasons();
-    el.querySelector(`[data-pick-reason="${reason}"]`)?.focus()})}
+function showPickerReasonStep(entry){
+  const sheet=$("#exPickSheet"),list=$("#exPickList");if(!sheet||!list||!pickerState)return;
+  sheet.classList.add("is-reason-step");
+  list.innerHTML=`<div class="pick__followup">`+
+    `<p class="pick__followup-done">${esc(t("picker.reason_swapped",{name:libraryName(entry)}))}</p>`+
+    `<div class="pick__reasons" role="group" aria-labelledby="exPickReasonsLabel">`+
+      `<p class="pick__reasons-label" id="exPickReasonsLabel">${esc(t("picker.reason_label"))}</p><div class="pick__reasons-chips">`+
+      pickerState.reasons.map(reason=>`<button type="button" class="pchip" data-pick-reason="${reason}">${esc(t(SUBSTITUTION_REASON_LABELS[reason]))}</button>`).join("")+
+    `</div></div>`+
+    `<button type="button" class="text-link pick__skip" id="exPickReasonSkip">${esc(t("picker.reason_skip"))}</button></div>`;
+  list.querySelectorAll("[data-pick-reason]").forEach(button=>button.onclick=()=>{
+    settleSubstitutionEvent(button.dataset.pickReason);closeExercisePicker()});
+  const skip=$("#exPickReasonSkip");if(skip)skip.onclick=()=>{settleSubstitutionEvent(null);closeExercisePicker()};
+  list.querySelector("[data-pick-reason]")?.focus({preventScroll:true})}
 function renderPickerFilters(){
   const el=$("#exPickFilters");if(!el||!pickerState)return;
   const chip=(kind,val,label,active)=>
@@ -14731,9 +14744,7 @@ function renderPickerList(){
       section("picker.section_custom",custom)+
       section("picker.section_known",known)+
       section("picker.section_all",rest);
-  el.innerHTML=(pickerState?.reasons?`<div id="exPickReasons" class="pick__reasons" role="group" aria-labelledby="exPickReasonsLabel"></div>`:"")+
-    (html||`<p class="pick__empty">${esc(t("picker.empty",{q:query}))}</p>`);
-  renderPickerReasons();
+  el.innerHTML=html||`<p class="pick__empty">${esc(t("picker.empty",{q:query}))}</p>`;
   $$("#exPickList .pickrow").forEach(b=>b.onclick=()=>choosePicked(b.dataset.pick));
   const done=$("#exPickDone");
   if(done)done.textContent=multi&&selected.size?t("picker.done_count",{n:selected.size}):t("dialog.done")}
@@ -14750,7 +14761,11 @@ async function choosePicked(id){
   active.choosing=true;
   active.completed=true;
   const sheet=$("#exPickSheet");if(sheet)sheet.setAttribute("aria-busy","true");
-  try{if(handler)await handler(entry);await closeExercisePicker();focusEntryEditorStatus()}
+  try{
+    if(handler)await handler(entry);
+    // A swap that went in, with its reason to ask: the sheet stays for that one question.
+    if(active.reasons&&pendingSubstitutionEvent&&pickerState===active){showPickerReasonStep(entry);return}
+    await closeExercisePicker();focusEntryEditorStatus()}
   finally{if(pickerState===active)active.choosing=false;if(sheet)sheet.removeAttribute("aria-busy")}}
 
 /* mode "single" fires onPick with one entry and closes; "multi" collects and
@@ -14766,11 +14781,12 @@ function openExercisePicker({title=null,subtitle="",mode="single",selected=[],ex
     extras:extras.filter(Boolean),
     leading:{title:leading?.title||"",ids:(leading?.ids||[]).filter(Boolean).map(String)},
     quick,day:dayName,tab:quick&&(LIB_TABS.includes(tab)?tab:"suggested"),
-    reasons:Array.isArray(reasons)?reasons:null,reason:null,
+    reasons:Array.isArray(reasons)?reasons:null,
     // Kept so the custom-exercise detour can put this exact picker back, with
     // whatever was typed and filtered still in place.
     reopen:{title,subtitle,mode,exclude:[...exclude],extras:[...extras],onPick,onCancel,stageOnly,repairSeed,quick,day:dayName,leading,catalogOnly,reasons,returnFocus}};
   pickerReturn=returnFocus||document.activeElement;
+  sheet.classList.remove("is-reason-step");
   $("#exPickTitle").textContent=title||t("picker.title");
   const sub=$("#exPickFor");if(sub)sub.textContent=subtitle||"";
   if(search)search.value=pickerState.query;
@@ -14796,6 +14812,8 @@ function closeExercisePicker(){
   if(!sheet)return Promise.resolve(false);
   if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
   const active=pickerState,notifyCancel=!!active&&!active.choosing&&!active.completed&&typeof active.onCancel==="function";
+  // Closing on the reason question by any other way than a reason is a skip.
+  settleSubstitutionEvent(null);
   pickerReturn=null;
   return closeModal(sheet).then(result=>{if(notifyCancel)active.onCancel();return result})}
 
@@ -23520,7 +23538,13 @@ function init(){
         // the new movement already ticked; a single pick is finished by it.
         const entry=choice?.entry||choice;
         if(multi){backToPicker(entry.id);return}
-        if(onPick)return onPick(stageOnly?choice:entry)}})};
+        if(!onPick)return;
+        return Promise.resolve(onPick(stageOnly?choice:entry)).then(result=>{
+          // A swap to the new movement asks its reason as a library pick does: the picker comes back on that question.
+          if(pendingSubstitutionEvent&&reopen?.reasons){
+            openExercisePicker(reopen);
+            if(pickerState){pickerState.completed=true;showPickerReasonStep(entry)}}
+          return result})}})};
   const cuCancel=$("#exCustomCancel");if(cuCancel)cuCancel.onclick=cancelCustomExerciseSheet;
   const cuScrim=$("#exCustomScrim");if(cuScrim)cuScrim.onclick=cancelCustomExerciseSheet;
   const cuSave=$("#exCustomSave");if(cuSave)cuSave.onclick=saveCustomExerciseSheet;

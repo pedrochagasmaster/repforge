@@ -1462,6 +1462,8 @@ async function main() {
   await draftPage.fill("#exPickSearch", alt);
   const altRow = draftPage.locator("#exPickList .pickrow").filter({ has: draftPage.locator(".pickrow__name", { hasText: new RegExp(`^${alt}$`) }) });
   await altRow.first().click();
+  await draftPage.waitForSelector("#exPickSheet.is-reason-step", { timeout: 5000 });
+  await draftPage.click("#exPickReasonSkip");
   await draftPage.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
   await exerciseAction(draftPage, skipEx.id, "#exActionSkipBtn");
   const resumedSets = await draftPage.evaluate(async ({ id, weight, reps }) => {

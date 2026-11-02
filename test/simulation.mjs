@@ -3074,13 +3074,21 @@ async function main() {
   const pickExact = async (name) => {
     await page.fill("#exPickSearch", name);
     await page.waitForTimeout(150);
-    return page.evaluate((n) => {
+    const picked = await page.evaluate((n) => {
       const rows = [...document.querySelectorAll("#exPickList .pickrow")];
       const row = rows.find((r) => (r.querySelector(".pickrow__name")?.textContent || "").trim().toLowerCase() === n.toLowerCase());
       if (!row) return false;
       row.click();
       return true;
     }, name);
+    if (picked) {
+      await page.waitForFunction(() => {
+        const sheet = document.querySelector("#exPickSheet");
+        return !sheet?.classList.contains("is-open") || sheet.classList.contains("is-reason-step");
+      }, undefined, { timeout: 5000 });
+      if (await page.locator("#exPickSheet.is-reason-step").count()) await page.click("#exPickReasonSkip");
+    }
+    return picked;
   };
   // The editor's own Alternates row was removed (#317 option B: the Focus
   // swap picker never read it, so the control only stored a note the
@@ -5987,6 +5995,8 @@ async function main() {
     row.click();
     return name;
   });
+  await page.waitForSelector("#exPickSheet.is-reason-step", { timeout: 5000 });
+  await page.click("#exPickReasonSkip");
   await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
   await fillExerciseSets(page, draftExA.id, 1, 77, 6, 1);
   // Swap to something the library has never heard of. The typed search carries
@@ -6134,6 +6144,8 @@ async function main() {
         const rows = [...document.querySelectorAll("#exPickList .pickrow")];
         (rows.find((r) => (r.querySelector(".pickrow__name")?.textContent || "").trim() !== slot) || rows[0])?.click();
       });
+      await page.waitForSelector("#exPickSheet.is-reason-step", { timeout: 5000 });
+      await page.click("#exPickReasonSkip");
       await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
     }],
     ["note-only", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await page.evaluate(() => { const el = document.querySelector("#sessionNotes"); el.value = "only"; el.dispatchEvent(new Event("input", { bubbles: true })); }); }],

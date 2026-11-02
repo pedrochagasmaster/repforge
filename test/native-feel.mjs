@@ -691,7 +691,10 @@ async function nativeControls(browser) {
     await page.fill('#exPickSearch', 'Leg press');
     const pick = page.locator('#exPickList [data-pick]').first();
     const replacementName = await pick.locator('.pickrow__name').textContent();
-    await pick.click(); await page.waitForSelector('#exPickSheet', { state: 'hidden' });
+    await pick.click();
+    await page.waitForSelector('#exPickSheet.is-reason-step');
+    await page.click('#exPickReasonSkip');
+    await page.waitForSelector('#exPickSheet', { state: 'hidden' });
     assert((await page.locator('#todayExList .rxrow__name').first().textContent()).includes(replacementName), 'Today shows the replacement chosen through its context menu');
     assert(await page.locator('#todayExList [data-row-menu]').first().evaluate(el => el === document.activeElement), 'the swap picker returns focus to the rebuilt Today row');
     assert(await page.evaluate(() => JSON.stringify(JSON.parse(localStorage.getItem('repforge_v1')).program)) === programBefore, 'Today actions preserve the durable program');

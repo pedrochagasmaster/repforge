@@ -896,7 +896,7 @@
     "workout/swap-reason": {
       "owner": "plan-071",
       "content": "flat",
-      "scenario": "The mid-workout swap picker with the crowded reason chip chosen above the search."
+      "scenario": "Just after a mid-workout swap: the same sheet asks why in one tap (five reasons, none chosen) or Skip, the reason asked after the pick (refinement audit A4)."
     },
     "onboarding-recommend/chip-editor-open": {
       "owner": "plan-064/r4b",
@@ -2613,6 +2613,27 @@
       "owner": "plan-058",
       "catalogStates": [
         "workout/exercise-note"
+      ]
+    },
+    {
+      "id": "expickreasonskip",
+      "selector": "#exPickReasonSkip",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Skips the optional swap reason asked after the pick and closes the sheet; the swap already went in (refinement audit A4).",
+      "owner": "plan-071",
+      "neverDisabledReason": "The reason is optional: skipping it is always possible.",
+      "catalogStates": [
+        "workout/swap-reason"
       ]
     },
     {
