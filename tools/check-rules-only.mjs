@@ -46,7 +46,7 @@ export const RULES_ONLY_STATES = Object.freeze([
   "progress/guided-repair", "progress/volume-reduction-preview", "progress/recovery-ineligible", "progress/recovery-questions",
   "progress/recovery-preview", "progress/recovery-active", "progress/recovery-reassessment",
   "history/delete-confirm", "history/conflict",
-  "library/list", "library/list-selected", "library/exercise-preview", "library/exercise-detail", "library/exercise-detail-glossary",
+  "library/list", "library/list-selected", "library/exercise-preview", "library/exercise-detail", "library/exercise-detail-suggested", "library/exercise-detail-glossary",
   "program/no-program", "program/progression-editor", "program/exercise-picker", "program/custom-exercise",
   "program/custom-exercise-saving", "program/custom-exercise-deleting", "program/custom-exercise-archiving",
   "program/custom-exercise-recovery", "program/share-setup",
