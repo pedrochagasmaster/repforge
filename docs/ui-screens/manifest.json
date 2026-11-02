@@ -1606,6 +1606,13 @@
       "variants": "standard"
     },
     {
+      "id": "exercise-detail-suggested",
+      "flow": "library",
+      "label": "Exercise library — detail with a suggestion",
+      "scenario": "Movement detail for an Adaptive lift: the suggested weight with Understand RIR and Why this weight?.",
+      "variants": "standard"
+    },
+    {
       "id": "exercise-detail-glossary",
       "flow": "library",
       "label": "Exercise library — detail glossary definition",
