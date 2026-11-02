@@ -7837,7 +7837,9 @@
       "catalogStates": [
         "library/exercise-detail",
         "library/exercise-detail-glossary"
-      ]
+      ],
+      "sourceOnly": true,
+      "sourceOnlyReason": "Refinement A1: \"Why this weight?\" shows only when the exercise page suggests a weight, and the catalog's exercise detail is a Manual lift (library/exercise-detail, its glossary variant and progress/exercise-chart carry no suggestion). The accessibility suite proves it shows exactly when the block has a weight and shares the block's link size; the Focus why link is the same control."
     },
     {
       "id": "vrow-evrow-not-id",
