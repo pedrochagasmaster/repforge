@@ -2637,6 +2637,32 @@
       ]
     },
     {
+      "id": "storagebackupnow",
+      "selector": "#storageBackupNow",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "The backup warning's remedy: opens Backup & export in view with focus on the backup, shown only while no backup exists (refinement audit A2).",
+      "owner": "plan-058",
+      "neverDisabledReason": "Shown only while no backup exists, and opening Backup & export is always possible.",
+      "catalogStates": [
+        "settings/appearance",
+        "settings/guides",
+        "settings/load-controls",
+        "settings/main",
+        "settings/privacy",
+        "settings/rest-controls"
+      ]
+    },
+    {
       "id": "expickcancel",
       "selector": "#exPickCancel",
       "roles": {

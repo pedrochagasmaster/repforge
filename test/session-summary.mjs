@@ -846,6 +846,35 @@ async function run() {
   const unavailable = await page.evaluate(() => document.querySelector("#storageNote")?.textContent.trim() || "");
   assert(unavailable.includes(DURABILITY.en.mayClear), "Settings still renders when persisted() is unavailable", unavailable);
 
+  // The warning carries its remedy (refinement audit A2, 2026-11-01): with no backup yet, "Back up now" sits under the
+  // note, opens Backup & export and puts focus on the backup; once a backup exists it is gone.
+  {
+    const fresh = fixture();
+    delete fresh.settings.lastExport;
+    await seed(page, fresh);
+    await page.click("#openSettings");
+    await page.waitForSelector("#settings.view.active");
+    const shown = await page.evaluate(() => { const b = document.querySelector("#storageBackupNow"), r = b?.getBoundingClientRect();
+      return { visible: !!b && !b.hidden && r.height > 0, text: b?.textContent.trim(), height: r ? Math.round(r.height) : 0 }; });
+    assert(shown.visible && shown.text === "Back up now" && shown.height >= 44, "with no backup yet, the warning offers Back up now as a full target", JSON.stringify(shown));
+    await page.click("#storageBackupNow");
+    await page.waitForFunction(() => document.activeElement?.id === "exportJson", undefined, { timeout: 3000 }).catch(() => {});
+    // The panel arrives by a smooth scroll: wait until it is in view rather than for a fixed time.
+    await page.waitForFunction(() => { const r = document.querySelector("#dataBackupPanel").getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; }, undefined, { timeout: 3000 }).catch(() => {});
+    const opened = await page.evaluate(() => { const panel = document.querySelector("#dataBackupPanel"), r = panel.getBoundingClientRect();
+      return { open: panel.classList.contains("is-open"), expanded: document.querySelector("#dataBackupRow").getAttribute("aria-expanded"),
+        focus: document.activeElement?.id, inView: r.top >= 0 && r.bottom <= innerHeight }; });
+    assert(opened.open && opened.expanded === "true" && opened.focus === "exportJson" && opened.inView,
+      "Back up now opens Backup & export in view, with focus on the backup", JSON.stringify(opened));
+    const done = fixture();
+    done.settings.lastExport = "2026-08-30T10:00:00.000Z";
+    await seed(page, done);
+    await page.click("#openSettings");
+    await page.waitForSelector("#settings.view.active");
+    const gone = await page.evaluate(() => { const b = document.querySelector("#storageBackupNow"); return { hidden: !b || b.hidden || !b.getClientRects().length }; });
+    assert(gone.hidden, "once a backup exists, the action is gone", JSON.stringify(gone));
+  }
+
   assert(!errors.length, "no uncaught page errors", errors.slice(0, 3).join(" | "));
 
   await browser.close();
