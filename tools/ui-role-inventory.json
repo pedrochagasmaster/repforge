@@ -618,6 +618,11 @@
       "content": "flat",
       "scenario": "The full movement detail surface."
     },
+    "library/exercise-detail-suggested": {
+      "owner": "plan-058",
+      "content": "flat",
+      "scenario": "Movement detail for an Adaptive lift, with its suggested weight and both of the block's links."
+    },
     "library/exercise-detail-glossary": {
       "owner": "plan-058",
       "content": "flat",
@@ -2328,6 +2333,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "library/exercise-detail",
+        "library/exercise-detail-suggested",
         "library/exercise-detail-glossary",
         "progress/exercise-chart"
       ]
@@ -2791,6 +2797,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "library/exercise-detail",
+        "library/exercise-detail-suggested",
         "library/exercise-detail-glossary"
       ]
     },
@@ -3868,6 +3875,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "library/exercise-detail",
+        "library/exercise-detail-suggested",
         "library/exercise-detail-glossary",
         "library/exercise-preview",
         "library/list",
@@ -7091,6 +7099,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "library/exercise-detail",
+        "library/exercise-detail-suggested",
         "library/exercise-detail-glossary"
       ]
     },
@@ -7836,10 +7845,9 @@
       "owner": "plan-058",
       "catalogStates": [
         "library/exercise-detail",
+        "library/exercise-detail-suggested",
         "library/exercise-detail-glossary"
-      ],
-      "sourceOnly": true,
-      "sourceOnlyReason": "Refinement A1: \"Why this weight?\" shows only when the exercise page suggests a weight, and the catalog's exercise detail is a Manual lift (library/exercise-detail, its glossary variant and progress/exercise-chart carry no suggestion). The accessibility suite proves it shows exactly when the block has a weight and shares the block's link size; the Focus why link is the same control."
+      ]
     },
     {
       "id": "vrow-evrow-not-id",
@@ -12071,6 +12079,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "library/exercise-detail",
+        "library/exercise-detail-suggested",
         "library/exercise-detail-glossary",
         "library/exercise-preview"
       ],
@@ -12179,6 +12188,7 @@
       "owner": "plan-055/058",
       "catalogStates": [
         "library/exercise-detail",
+        "library/exercise-detail-suggested",
         "library/exercise-detail-glossary",
         "workout/correction",
         "workout/focus",
