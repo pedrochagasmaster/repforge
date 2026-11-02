@@ -688,11 +688,16 @@ one tab row of five.
 A drawn glyph and a word beside a `rec.*.label`, on flat content. The glyph is
 redundant, so it is `aria-hidden`; the word carries the meaning. Up is the arrow in
 `--color-action` (the only accent glyph) and down is the same arrow in ink. `=`
-(`.verdictmark--hold`, and `.verdictmark--maintained` for the session outcome Maintained) and
-the clockwise return `↻` (`.verdictmark--recover`) are drawn masks in ink, never
-typed characters. A record is a check in `--color-improved`. Stalled and new stay
-word-only. One meaning has one glyph, so the maintained outcome and the hold
-recommendation draw the same `=`.
+(`.verdictmark--hold`) and the clockwise return `↻` (`.verdictmark--recover`) are
+drawn masks in ink, never typed characters. A record is a check in
+`--color-improved`. Stalled and new stay word-only.
+
+**Glyphs only for Next** (owner decision, 2026-11-01, superseding #295's maintained
+`=`). An arrow, `=` or `↻` always means what the engine asks of the next session.
+A session outcome (how a lift went against its last comparable session: Improved,
+Maintained, Declined) is a word with no glyph, wherever it appears: the session
+summary, Today's finished day, the History session page and the Progress Review.
+`.verdictmark--maintained` keeps only the maintained word's colour.
 
 ### Frequency count (`.freqcount`)
 
@@ -750,7 +755,7 @@ The saved-session summary is a full-screen modal read as a ledger, not a reward.
 Eyebrow, the day and its totals, then one flat group per lift: the lift's name, the
 performed sets in Mono, and a small ledger whose caption column names the question
 each line answers, because the three signals have different referents. *vs last time*
-is the outcome word in ink with the shared verdict mark; *PR* is the check and its
+is the outcome word in ink, with no glyph; *PR* is the check and its
 margin in `--color-improved`, when there is one; *Next* is the engine's target, the
 strongest line. No signal stands beside the name as the lift's status. Today's
 finished day uses the same ledger without the sets and the record line. The first
@@ -759,9 +764,9 @@ are ranked counts, and the week line follows. The totals keep a count ramp, and 
 is no check circle and no row stagger. Done is a pinned persistent action at the end.
 
 The Progress Review speaks the same vocabulary for a block: its observed outcomes
-are one flat group per verdict (improved, maintained, declined), headed by the verdict
-mark and word with the count in Mono, the lifts beneath as a list, and the lifts not
-compared yet counted rather than named.
+are one flat group per verdict (improved, maintained, declined), headed by the
+outcome's word (no glyph) with the count in Mono, the lifts beneath as a list, and the
+lifts not compared yet counted rather than named.
 
 ### Icons (the G set)
 
