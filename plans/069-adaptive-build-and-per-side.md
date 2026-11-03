@@ -426,6 +426,25 @@ decisions that gate the slice (see §6).
     session outcomes" that links this plan. Mark S1 as a data-accuracy fix,
     and keep S2–S4 behind D1–D13.
 
+### D3 amendment (2026-11-03, owner direction)
+
+Editing an already adaptive exercise must not silently revoke its suggestions.
+Retain per-set `ready` and its adaptive provenance when changing repetition
+targets, RIR, rest, set count, or other authored targets. Replacing its movement
+with another supported catalog movement carries the adaptive choice forward,
+but refreshes the movement's metrics, loading model, laterality and execution
+mode. Preserve each week's rep target when the repetition semantic changes.
+If the replacement needs an execution-mode answer, the engine remains
+configuration-required until it is supplied; never reuse the prior movement's
+answer. A pending opt-in survives a supported movement swap and is still
+subject to confirmation at commit.
+
+This replaces D3's earlier movement-change-to-manual rule. It does **not**
+create progression support for custom movements or unsupported metric
+compositions, nor opt manual programs in by default. Explicitly switching
+Suggest loads off is still the action that revokes adaptation for an eligible
+movement. New sets inherit their parent slot's status.
+
 ## 10. Completion of this planning PR
 
 This PR changes only this file. It verifies through the prose-only CI path.

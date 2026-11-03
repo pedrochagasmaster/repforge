@@ -339,6 +339,14 @@ The Program editor selects the method for each exercise and shows only its
 reviewed basic values. Total reps owns its set count, total, per-set limits,
 effort window, and load step. Heavy-and-lighter owns one heavy-set window, the
 number and rep window of lighter sets, their percentage, and the load step.
+Editing reps, RIR, rest or the number of sets does not turn off load
+suggestions on an adaptive exercise. Replacing an exercise with another
+supported catalog movement also keeps them on; the new movement uses its own
+loading convention and may need you to confirm how you perform it. Custom
+movements and unsupported metric combinations cannot generate loads, even if
+the previous movement could. Only explicitly turning off **Suggest loads**
+disables it on an otherwise eligible movement.
+
 Saving validates the whole prescription first. An unsupported imported method
 is preserved and named as incompatible until you explicitly replace it.
 

@@ -280,6 +280,89 @@ async function editJourney(page) {
   check(workout.sets === 3 && workout.name?.includes(LAT.name), "the next workout is built from the edited program", workout);
 }
 
+
+/** Regression: editing an adaptive exercise must not silently opt it out. */
+async function adaptiveEditingJourney(page) {
+  console.log("P069-EDIT-PRESERVES-ADAPTIVE");
+  await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
+  // A Build exercise explicitly opted in before this journey; its neighbour remains manual.
+  await page.evaluate(async ({ key, id }) => {
+    const snapshot = JSON.parse(localStorage.getItem(key));
+    const slot = snapshot.programMeta.programDefinition.days.flatMap((day) => day.slots).find((row) => row.id === id);
+    for (const cycle of slot.prescriptionsByCycle) for (const set of cycle.sets) {
+      set.status = "ready";
+      set.rir = 2;
+      set.provenance = { source: "manual", policyVersion: "manual-adaptive@1" };
+    }
+    localStorage.setItem(key, JSON.stringify(snapshot));
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open("repforge", 1);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction("kv", "readwrite");
+      tx.objectStore("kv").put(snapshot, key);
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+  }, { key: KEY, id: SLOT });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  const allReady = (slot) => slot?.prescriptionsByCycle?.every((cycle) => cycle.sets.every((set) => set.status === "ready"));
+  check(allReady(await storedSlot(page)), "fixture starts with opt-in enabled");
+
+  await openEditor(page);
+  await openSheet(page);
+  check(await page.locator(`${SHEET} [data-role="suggest-loads"]`).getAttribute("aria-checked") === "true",
+    "an adaptive slot shows Suggest loads on");
+  await sheetTap(page, '[data-role="rest-preset"][data-seconds="120"]');
+  await sheetTap(page, '[data-role="sets-step"][data-delta="1"]');
+  await page.locator(`${SHEET} [data-role="range-end"][data-bound="max"]`).click();
+  await sheetTap(page, '[data-role="range-step"][data-delta="-1"]');
+  await sheetTap(page, '[data-role="rir-step"][data-set-index="1"][data-delta="1"]');
+  await page.locator(`${SHEET} [data-role="weeks-open"]`).click();
+  await page.locator(`${SHEET} [data-role="week-row"][data-cycle-index="7"]`).click();
+  // Even an authored load in the week table must not turn off the exercise's
+  // overall adaptation; the engine remains responsible for its live suggestion.
+  const authoredLoad = page.locator(`${SHEET} [data-role="metric-target"][data-cycle-index="7"][data-set-index="1"][data-semantic="loadKg"]`);
+  await authoredLoad.fill("35");
+  await authoredLoad.blur();
+  await settled(page);
+  const rest = page.locator(`${SHEET} [data-role="prescription-field"][data-cycle-index="7"][data-set-index="1"][data-field="restSeconds"]`);
+  await rest.fill("180");
+  await rest.blur();
+  await settled(page);
+  await page.locator(`${SHEET} [data-role="weeks-back"]`).click();
+  await page.locator(`${SHEET} [data-role="add-alternate"]`).click();
+  await pickExact(page, LAT.name);
+  await page.locator(`${SHEET} [data-role="swap-open"]`).click();
+  await page.locator(`${SHEET} [data-role="swap-choice"][data-exercise-id="${LAT.id}"]`).click();
+  await settled(page);
+  if (await page.locator(`${SHEET}.is-open`).count()) await closeSheet(page);
+  await page.locator("#programEditDone").click();
+  await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), undefined, { timeout: 10000 });
+  await waitForSheetGone(page);
+
+  const after = await storedSlot(page);
+  check(after?.exerciseId === LAT.id && allReady(after), "rest, sets, reps, RIR and a compatible swap preserve adaptation", after);
+  check(after?.prescriptionsByCycle?.every((cycle) => cycle.sets.every((set) => set.rir != null)),
+    "every preserved adaptive set still has a target RIR");
+  check((await storedSlot(page, OTHER))?.prescriptionsByCycle?.every((cycle) => cycle.sets.every((set) => set.status === "manual")),
+    "an unrelated manual exercise remains manual");
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  check(allReady(await storedSlot(page)), "adaptive state survives reload");
+  await openEditor(page);
+  await openSheet(page);
+  check(await page.locator(`${SHEET} [data-role="suggest-loads"]`).getAttribute("aria-checked") === "true",
+    "after a compatible swap, Suggest loads is still on");
+  await closeSheet(page);
+  await page.locator("#programEditCancel").click();
+  await waitForSheetGone(page);
+}
+
 async function cancelJourney(page) {
   console.log("P074-S1-CANCEL");
   await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
@@ -620,6 +703,7 @@ async function main() {
     await waitForApp(page);
     await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
     await editJourney(page);
+    await adaptiveEditingJourney(page);
     await cancelJourney(page);
     await sheetJourney(page);
     await emptyDayJourney(page);

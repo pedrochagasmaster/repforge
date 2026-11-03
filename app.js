@@ -12526,6 +12526,10 @@ function editorSlotForRow(row,document,slotId,order,existing=null){
     Array.isArray(custom?.metricDefinitions)?custom.metricDefinitions.map(cloneSnapshot):[];
   const metricIds=definitions.map(definition=>definition.id);
   const origin=raw?"source_catalog":"user_defined";
+  const canSuggest=raw&&editorSuggestLoadsPolicy.eligibility({
+    exerciseId,metricOrigin:origin,metricDefinitions:definitions})==="eligible";
+  const oldRepSemantic=existing?.metricDefinitions?.find(definition=>
+    definition.semantic==="reps"||definition.semantic==="repsPerSide")?.semantic;
   const sourceSetsByCycle=new Map((existing?.prescriptionsByCycle||[]).map(cycle=>[cycle.cycleIndex,cycle]));
   const cycles=Number.isInteger(document?.programMeta?.programDefinition?.cycles)
     ?document.programMeta.programDefinition.cycles:1;
@@ -12545,14 +12549,18 @@ function editorSlotForRow(row,document,slotId,order,existing=null){
       const retainedTargets=existing&&old?cloneSnapshot(old.targets||{}):cloneSnapshot(targets);
       const filteredTargets=Object.fromEntries(Object.entries(retainedTargets).filter(([semantic])=>
         definitions.some(definition=>definition.semantic===semantic)));
-      if(reps&&filteredTargets[reps.semantic]==null&&targets[reps.semantic])
-        filteredTargets[reps.semantic]=cloneSnapshot(targets[reps.semantic]);
+      // Preserve week-specific repetition targets across equivalent rep
+      // semantics; a new movement must not inherit an unrelated load target.
+      if(reps&&filteredTargets[reps.semantic]==null){
+        const oldRange=oldRepSemantic?old?.targets?.[oldRepSemantic]:null;
+        filteredTargets[reps.semantic]=editorRepRangeValid(oldRange)
+          ?cloneSnapshot(oldRange):cloneSnapshot(targets[reps.semantic])}
+      const stillAdaptive=old?.status==="ready"&&canSuggest;
       const built=editorNewPrescription(slotId,cycleIndex,setIndex,metricIds,definitions,filteredTargets,
-        definitions.length?"manual":"configuration_required");
-      // Plan 069 D3: a new movement is not what the lifter opted in for, so
-      // a replaced slot keeps its values but returns to manual.
+        stillAdaptive?"ready":definitions.length?"manual":"configuration_required");
       if(existing&&old){built.id=old.id;built.rir=old.rir??null;built.restSeconds=old.restSeconds??null;
-        built.provenance={...cloneSnapshot(old.provenance||{}),source:"manual",policyVersion:"manual@1"}}
+        built.provenance={...cloneSnapshot(old.provenance||{}),source:"manual",
+          policyVersion:stillAdaptive?"manual-adaptive@1":"manual@1"}}
       sets.push(built)}
     prescriptionsByCycle.push({cycleIndex,sets})}
   const primaryIds=Array.isArray(raw?.primaryFeatureMuscle)?raw.primaryFeatureMuscle:[];
@@ -12563,6 +12571,9 @@ function editorSlotForRow(row,document,slotId,order,existing=null){
   return{...prior,id:slotId,purposeId:"manual",exerciseId,sourceExerciseIds:[exerciseId],role:"manual",
     musclePurposeIds:[...new Set([...primaryIds,...secondaryIds])],movementPatternIds:[...new Set(patternIds)],
     ...(sourceType?{exerciseTypeId:sourceType}:{}),order,metricOrigin:origin,metricIds,metricDefinitions:definitions,
+    lateralityIds:raw?[...(raw.laterality||[])]:[],
+    // An old bilateral/unilateral answer cannot describe a different movement.
+    executionMode:existing?.exerciseId===exerciseId?existing.executionMode??null:catalogExecutionMode(exerciseId),
     ...(row.displayName?{displayName:String(row.displayName)}:{}),setupNotes:String(row.notes||""),
     ...(!raw?manualAttributionFor(row):{}),
     loadingModel:{bodyweightCoefficient:Number.isFinite(raw?.bodyweight)?raw.bodyweight:null,assistanceDirection:"subtract"},
@@ -12610,13 +12621,12 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
     const current=Object.prototype.hasOwnProperty.call(set.targets||{},edit.semantic)
       ?{present:true,value:set.targets[edit.semantic]}:{present:false,value:null};
     if(!changeValueEqualForEditor(current,edit.after)&&!changeValueEqualForEditor(current,edit.before))return false;
-    // Plan 069 D3: the rep range feeds the suggestion, so an adaptive set
-    // keeps adapting through a range edit and cannot lose its range.
-    const keepsAdaptive=set.status==="ready"&&(metric.semantic==="reps"||metric.semantic==="repsPerSide");
-    if(keepsAdaptive&&!(edit.after?.present&&editorRepRangeValid(edit.after.value)))return false;
+    // Canonical replay must match the editor: no target edit disables
+    // adaptation. A ready set cannot lose its engine-required rep target.
+    const needsRange=set.status==="ready"&&(metric.semantic==="reps"||metric.semantic==="repsPerSide");
+    if(needsRange&&!(edit.after?.present&&editorRepRangeValid(edit.after.value)))return false;
     if(edit.after?.present)set.targets[edit.semantic]=cloneSnapshot(edit.after.value);
     else delete set.targets[edit.semantic];
-    if(!keepsAdaptive){set.status="manual";set.provenance={source:"manual",policyVersion:"manual@1"}}
     syncEditorRowFromCanonical(document,slot,Number(edit.cycleIndex));
   }else if(edit?.kind==="metric_composition"){
     const {slot}=find(slotId);
@@ -12677,10 +12687,8 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
     if(current!==edit.before&&current!==edit.after)return false;
     if(edit.field==="rir"&&edit.after!==null&&(!Number.isFinite(edit.after)||edit.after<0||edit.after>6))return false;
     if(edit.field==="restSeconds"&&edit.after!==null&&(!Number.isSafeInteger(edit.after)||edit.after<0||edit.after>86400))return false;
-    const keepsAdaptive=edit.field==="rir"&&set.status==="ready";
-    if(keepsAdaptive&&edit.after===null)return false;
+    if(edit.field==="rir"&&set.status==="ready"&&edit.after===null)return false;
     set[edit.field]=edit.after;
-    if(!keepsAdaptive){set.status="manual";set.provenance={source:"manual",policyVersion:"manual@1"}}
     const {slot:rowSlot}=find(slotId);syncEditorRowFromCanonical(document,rowSlot,Number(edit.cycleIndex));
   }else if(edit?.kind==="suggest_loads"){
     const {slot}=find(slotId);
@@ -12763,7 +12771,11 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
       if(!newSlot.alternates.length)delete newSlot.alternates}
     if(edit.kind==="exercise_replace"){
       for(const container of definition.days||[])container.slots=container.slots.filter(slot=>slot.id!==slotId)}
-    if(edit.kind==="exercise_replace")dropPendingSuggestLoads(document,slotId);
+    // Pending opt-in is an exercise-level preference, not an approval of a
+    // particular movement. Keep it when the replacement still supports it;
+    // a custom or unsupported composition cannot be activated.
+    if(edit.kind==="exercise_replace"&&editorSuggestLoadsPolicy.eligibility(newSlot)!=="eligible")
+      dropPendingSuggestLoads(document,slotId);
     const current=day.slots.findIndex(item=>item.id===slotId);
     if(current>=0)day.slots[current]=newSlot;else day.slots.push(newSlot);
     day.slots.sort((a,b)=>a.order-b.order);
