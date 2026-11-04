@@ -386,6 +386,27 @@ draft = apply(draft, "restoreExercise", { exerciseInstanceId: "slot-curl" });
 assert(JSON.stringify(draft.exercises["slot-curl"]) === beforeSkip,
   "skip and restore preserve the complete exercise subtree");
 
+// Owner decision 2026-11-04: a lift hidden by Trim is marked as trimmed, on the draft, so it survives a reload; a manual
+// skip carries no reason, and restoring clears it. History rows keep their meaning: a skipped lift records nothing.
+{
+  let trimmed = apply(draft, "skipExercise", { exerciseInstanceId: "slot-curl", reason: "trim" });
+  assert(trimmed.exercises["slot-curl"].status === "skipped" && trimmed.exercises["slot-curl"].skipReason === "trim",
+    "a Trim skip records why it was hidden", JSON.stringify(trimmed.exercises["slot-curl"].skipReason));
+  assert(Draft.validate(trimmed).ok, "a draft with a trimmed lift validates", JSON.stringify(Draft.validate(trimmed).issues));
+  const reread = JSON.parse(JSON.stringify(trimmed));
+  assert(Draft.validate(reread).ok && reread.exercises["slot-curl"].skipReason === "trim", "the reason survives a stored round trip");
+  const manual = apply(draft, "skipExercise", { exerciseInstanceId: "slot-curl" });
+  assert(!Object.prototype.hasOwnProperty.call(manual.exercises["slot-curl"], "skipReason"), "a manual skip carries no reason");
+  const retrimmedManual = apply(trimmed, "skipExercise", { exerciseInstanceId: "slot-curl" });
+  assert(!Object.prototype.hasOwnProperty.call(retrimmedManual.exercises["slot-curl"], "skipReason"), "skipping by hand replaces a trim reason");
+  const restored = apply(trimmed, "restoreExercise", { exerciseInstanceId: "slot-curl" });
+  assert(JSON.stringify(restored.exercises["slot-curl"]) === beforeSkip, "restoring a trimmed lift clears its reason and returns the subtree whole");
+  const bad = structuredClone(trimmed); bad.exercises["slot-curl"].skipReason = "other";
+  assert(!Draft.validate(bad).ok, "only trim is a skip reason");
+  const activeWithReason = structuredClone(trimmed); activeWithReason.exercises["slot-curl"].status = "active";
+  assert(!Draft.validate(activeWithReason).ok, "an active lift carries no skip reason");
+}
+
 const replacement = {
   exerciseInstanceId: "replacement-pulldown-051",
   sourceExerciseId: "pd_mc",

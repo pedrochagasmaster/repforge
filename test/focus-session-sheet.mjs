@@ -353,11 +353,59 @@ async function hiddenBarAt(browser, height) {
   }
 }
 
+/**
+ * Owner decision 2026-11-04 (after report A): a Trim names the lifts it set aside, with Undo, and they read as trimmed
+ * (not skipped) in the hidden bar and in Session details, across a reload. History rows are unchanged.
+ */
+async function trimNamesItsLifts(browser) {
+  phase("Trim names the lifts it sets aside, Undo puts them back, and they read as trimmed after a reload");
+  const { context, page } = await freshPage(browser);
+  const flagged = ["seed-ex-2", "seed-ex-4", "seed-ex-5"];
+  const trim = () => page.evaluate(async (ids) => {
+    window.fatigueFlagged = () => exercises().filter((e) => ids.includes(e.id));
+    await applyFatigueTrim();
+    await window.__repforgeWorkoutDraft.flush();
+  }, flagged);
+  const bar = () => page.evaluate(() => document.querySelector("#workout .exercise.is-current:not(.is-peek) .skipbar")?.firstChild?.textContent.trim() || "");
+  try {
+    await page.evaluate(async () => { await window.__repforgeEnterWorkout({ day: "Day 1" }); });
+    await page.waitForSelector("#workout .exercise.is-current", { timeout: 5000 });
+    await trim();
+    const toast = await page.evaluate(() => { const el = document.querySelector(".trim-toast");
+      return { text: el?.querySelector(".review-toast__text")?.textContent || "", undo: !!el?.querySelector("[data-role=trim-undo]") }; });
+    assert(toast.text === "Trimmed: Seated leg curl, Chest supported row and 1 more" && toast.undo,
+      "the toast names the first two lifts Trim set aside, counts the rest, and offers Undo", JSON.stringify(toast));
+    assert(await bar() === "3 trimmed today", "the bar says the lifts were trimmed, not just hidden", await bar());
+    await page.locator(".trim-toast [data-role=trim-undo]").click();
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    const undone = await page.evaluate(() => { const d = window.__repforgeWorkoutDraft.current();
+      return { skipped: d.exerciseOrder.filter((id) => d.exercises[id].status === "skipped"), reasons: d.exerciseOrder.filter((id) => d.exercises[id].skipReason) }; });
+    assert(!undone.skipped.length && !undone.reasons.length && await bar() === "", "Undo puts every trimmed lift back and leaves no reason behind", JSON.stringify(undone));
+    await trim();
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await page.evaluate(async () => { await window.__repforgeEnterWorkout({}); });
+    await page.waitForSelector("#workout .exercise.is-current .skipbar", { timeout: 5000 });
+    assert(await bar() === "3 trimmed today", "after a reload the bar still says trimmed", await bar());
+    await page.locator("#sessionSheetBtn").click();
+    await page.waitForSelector("#sessionSheet.is-open", { timeout: 5000 });
+    const notes = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll("#sessionMap .session-map__row")]
+      .map((row) => [row.dataset.sessionMapEx, row.querySelector(".session-map__note")?.textContent || ""])));
+    assert(flagged.every((id) => notes[id] === "Trimmed"), "Session details marks each trimmed lift Trimmed", JSON.stringify(notes));
+    await page.locator("#sessionSheetClose").click();
+    await page.waitForSelector("#sessionSheet", { state: "hidden" });
+    await page.evaluate(async () => { await window.__repforgeWorkoutDraft.dispatch("skipExercise", { exerciseInstanceId: "seed-ex-6" }); await window.__repforgeWorkoutDraft.flush(); renderWorkout(); });
+    assert(await bar() === "4 hidden today · 3 trimmed", "a lift hidden by hand on top reads apart from the trimmed ones", await bar());
+  } finally {
+    await context.close();
+  }
+}
+
 async function main() {
   const browser = await launchChromium();
   // REPFORGE_SESSION_ONLY=finish runs only the finish-with-hidden-lifts proofs.
   if (process.env.REPFORGE_SESSION_ONLY === "finish") {
-    try { await finishWithHiddenLifts(browser); await hiddenBarInContext(browser); } finally { await browser.close(); }
+    try { await finishWithHiddenLifts(browser); await hiddenBarInContext(browser); await trimNamesItsLifts(browser); } finally { await browser.close(); }
     console.log(`\n${results.passed} passed, ${results.failed} failed`);
     if (results.failed) process.exitCode = 1;
     return;
@@ -554,6 +602,7 @@ async function main() {
     await sessionHubChecks(browser);
     await finishWithHiddenLifts(browser);
     await hiddenBarInContext(browser);
+    await trimNamesItsLifts(browser);
   } finally {
     await context.close();
     await browser.close();

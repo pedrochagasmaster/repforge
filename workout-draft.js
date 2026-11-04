@@ -523,6 +523,7 @@
       }
     }
     if (value.status !== "active" && value.status !== "skipped") issues.push(`${path}.status`);
+    if (hasOwn(value, "skipReason") && (value.skipReason !== "trim" || value.status !== "skipped")) issues.push(`${path}.skipReason`);
     if (!isText(value.setupNotes, { empty: true })) issues.push(`${path}.setupNotes`);
     if (!Array.isArray(value.setOrder)) issues.push(`${path}.setOrder`);
     if (!isPlainObject(value.sets)) issues.push(`${path}.sets`);
@@ -1376,6 +1377,10 @@
         item = targetExercise(next, command);
         if (isDomainError(item)) return item;
         item.exercise.status = command.type === "skipExercise" ? "skipped" : "active";
+        // Why it is hidden: only Trim says so ("trim"), so its lifts read as trimmed after a reload. A skip by hand or a
+        // restore clears it. History rows never carry it: a skipped lift records nothing either way.
+        if (command.type === "skipExercise" && command.reason === "trim") item.exercise.skipReason = "trim";
+        else delete item.exercise.skipReason;
         if (command.type === "skipExercise" && next.session.selectedExerciseId === item.exercise.exerciseInstanceId) {
           next.session.selectedExerciseId = next.exerciseOrder.find((id) => next.exercises[id].status === "active") ?? null;
         }
