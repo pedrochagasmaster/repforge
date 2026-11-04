@@ -217,6 +217,11 @@ async function plannedStart(browser) {
     await page.click(`${card} .focus-shelf .saveset`);
     await page.waitForFunction(() => { const ex = prog.forDay(day)[0], stored = activeWorkoutDraft?.exercises?.[ex.id];
       return stored && stored.sets[stored.setOrder[0]].completion !== "pending"; }, undefined, { timeout: 10000 });
+    // The shelf re-renders onto set 2 after the commit settles; read the cue once it has moved off set 1.
+    await page.waitForFunction((selector) => {
+      const element = document.querySelector(selector);
+      return element?.querySelector(".fx-cue__l1") && !/^Your planned/.test(element.querySelector(".fx-cue__l1").textContent.trim());
+    }, card, { timeout: 10000 }).catch(() => {});
     const after = await page.evaluate((selector) => {
       const ex = prog.forDay(day)[0], stored = activeWorkoutDraft.exercises[ex.id], first = stored.sets[stored.setOrder[0]];
       const loadMetric = first.programmed.metrics.find((metric) => metric.semantic === "loadKg");
