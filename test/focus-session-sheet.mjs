@@ -228,8 +228,140 @@ async function sessionHubChecks(browser) {
   }
 }
 
+/**
+ * Owner report 2026-11-03 (A): every lift the lifter didn't skip was logged, the shelf said "Workout complete · every set
+ * logged", and its Finish refused with "Complete the planned sets, or use Finish session early." Hidden (skipped) lifts
+ * are a choice, not unfinished work: a normal finish succeeds with them and records no rows for them. Pending sets on a
+ * shown lift still block a normal finish, and then the shelf offers the early finish instead of a Finish it would refuse.
+ */
+async function finishWithHiddenLifts(browser) {
+  phase("Finish with lifts hidden today: the shelf and the finish gate agree (owner report A)");
+  const logDay = (page, { skip = [], leave = [] }) => page.evaluate(async ({ skip, leave, weight, reps }) => {
+    await window.__repforgeEnterWorkout({ day: "Day 1" });
+    const api = window.__repforgeWorkoutDraft, draft = api.current();
+    for (const id of skip) await api.dispatch("skipExercise", { exerciseInstanceId: id });
+    for (const id of draft.exerciseOrder) {
+      if (skip.includes(id)) continue;
+      for (const setId of api.current().exercises[id].setOrder) {
+        if (leave.includes(`${id}:${api.current().exercises[id].sets[setId].ordinal}`)) continue;
+        await api.dispatch("editMetricValue", { exerciseInstanceId: id, setId, metricId: weight, value: "50" });
+        await api.dispatch("editMetricValue", { exerciseInstanceId: id, setId, metricId: reps, value: "10" });
+        await api.dispatch("editSetField", { exerciseInstanceId: id, setId, field: "rir", value: "2" });
+        await api.dispatch("completeSet", { exerciseInstanceId: id, setId, completedAt: new Date().toISOString() });
+      }
+    }
+    const shown = draft.exerciseOrder.filter((id) => !skip.includes(id));
+    await api.dispatch("selectExercise", { exerciseInstanceId: shown.at(-1) });
+    await api.flush();
+    // Focus shows the last shown lift, as it does once the lifter has worked through the day.
+    focusIndex = focusList().length - 1;
+    renderWorkout();
+    document.querySelector("#toast").textContent = "";
+  }, { skip, leave, weight: WEIGHT, reps: REPS });
+  const shelf = "#workout .exercise.is-current:not(.is-peek) .focus-shelf";
+  const incomplete = (page) => page.evaluate(() => window.RepForgeI18n.t("toast.finish_incomplete"));
+  {
+    const { context, page } = await freshPage(browser);
+    try {
+      await logDay(page, { skip: ["seed-ex-2", "seed-ex-4"] });
+      await page.waitForSelector(`${shelf} [data-ffinish]`, { timeout: 5000 });
+      const said = await page.locator(`${shelf} .focus-done__title`).textContent();
+      assert(said.trim() === "Workout complete", "with two lifts hidden and the rest logged, the shelf says the workout is complete", said);
+      await page.locator(`${shelf} [data-ffinish]`).click();
+      const finished = await page.waitForFunction(() => window.__repforgeWorkoutDraft.current() === null, undefined, { timeout: 8000 })
+        .then(() => true, () => false);
+      const toast = (await page.locator("#toast").textContent()).trim();
+      const rows = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_v1")).log.filter((row) => !row.warmup));
+      assert(finished && toast !== await incomplete(page),
+        "the shelf's Finish runs a normal finish: hidden lifts are a choice, not unfinished work", JSON.stringify({ finished, toast }));
+      assert(rows.length === 8 && !rows.some((row) => ["seed-ex-2", "seed-ex-4"].includes(row.exerciseId)),
+        "the finished session records the logged sets of the shown lifts and nothing for the hidden ones",
+        JSON.stringify(rows.map((row) => [row.exerciseId, row.set])));
+    } finally {
+      await context.close();
+    }
+  }
+  {
+    const { context, page } = await freshPage(browser);
+    try {
+      await logDay(page, { leave: ["seed-ex-1:2"] });
+      await page.waitForSelector(`${shelf}.is-done`, { timeout: 5000 });
+      const offer = await page.evaluate((shelf) => {
+        const el = document.querySelector(shelf);
+        return { finish: !!el.querySelector("[data-ffinish]"), early: !!el.querySelector("[data-fearly]"),
+          label: el.querySelector("[data-fearly]")?.textContent.trim() || "", expected: window.RepForgeI18n.t("session.sheet.early_finish") };
+      }, shelf);
+      assert(!offer.finish && offer.early && offer.label === offer.expected,
+        "on the last lift with a set left on an earlier one, the shelf offers the early finish, never a Finish the gate refuses", JSON.stringify(offer));
+      if (offer.early) await page.locator(`${shelf} [data-fearly]`).click();
+      const opened = await page.waitForSelector("#sessionSheet.is-open #sessionEarlyPrompt:not(.hidden)", { timeout: 5000 }).then(() => true, () => false);
+      const omitted = opened ? (await page.locator("#sessionEarlyPrompt").textContent()).replace(/\s+/g, " ") : "";
+      const toast = (await page.locator("#toast").textContent()).trim();
+      assert(opened && /Hack squat/.test(omitted) && toast !== await incomplete(page),
+        "it opens the early-finish confirmation, which names the set left, and no refusal toast", JSON.stringify({ opened, omitted, toast }));
+    } finally {
+      await context.close();
+    }
+  }
+}
+
+/**
+ * Owner report 2026-11-03 (B): the "N hidden today" bar sat pinned between the header and the card, outside the card's
+ * scroll, and the card's own scroll slid the hero cue up under it. It belongs to the card's context, at its top: it scrolls
+ * away with the content, scrolling up brings it back, and it never covers the cue.
+ */
+async function hiddenBarInContext(browser) {
+  phase("The hidden-today bar lives in the card's context and never covers the cue (owner report B)");
+  // 640 tall makes the card scroll to the second set, as the owner's longer cue and three sets did.
+  for (const height of [844, 640]) await hiddenBarAt(browser, height);
+}
+async function hiddenBarAt(browser, height) {
+  const { context, page } = await freshPage(browser);
+  await page.setViewportSize({ width: 390, height });
+  try {
+    await page.evaluate(async ({ weight, reps }) => {
+      await window.__repforgeEnterWorkout({ day: "Day 1" });
+      const api = window.__repforgeWorkoutDraft, draft = api.current(), id = draft.exerciseOrder[0];
+      await api.dispatch("skipExercise", { exerciseInstanceId: draft.exerciseOrder[1] });
+      const setId = draft.exercises[id].setOrder[0];
+      await api.dispatch("editMetricValue", { exerciseInstanceId: id, setId, metricId: weight, value: "55" });
+      await api.dispatch("editMetricValue", { exerciseInstanceId: id, setId, metricId: reps, value: "8" });
+      await api.dispatch("editSetField", { exerciseInstanceId: id, setId, field: "rir", value: "0" });
+      await api.dispatch("completeSet", { exerciseInstanceId: id, setId, completedAt: new Date().toISOString() });
+      await api.flush();
+      focusIndex = 0;
+      renderWorkout();
+    }, { weight: WEIGHT, reps: REPS });
+    const card = "#workout .exercise.is-current:not(.is-peek)";
+    await page.waitForSelector(`${card} .fx-cue__l1`, { timeout: 5000 });
+    const read = () => page.evaluate((card) => {
+      const bar = document.querySelector("#workout .skipbar"), ctx = document.querySelector(`${card} .fcard__context`);
+      const lead = document.querySelector(`${card} .fx-cue__l1`), b = bar?.getBoundingClientRect(), l = lead.getBoundingClientRect(), c = ctx.getBoundingClientRect();
+      return { inContext: !!bar && ctx.contains(bar), pinned: !!bar && bar.parentElement?.id === "workout",
+        overlap: !!b && b.bottom > l.top + 0.5 && b.top < l.bottom - 0.5 && b.right > l.left && b.left < l.right,
+        leadCut: l.top < c.top - 0.5 && l.bottom > c.top + 0.5, above: !!b && b.bottom <= l.top + 0.5, scrollTop: ctx.scrollTop,
+        live: !!document.querySelector(`${card} .skipbar__show:not([disabled])`) };
+    }, card);
+    const after = await read();
+    assert(after.inContext && !after.pinned, `${height}px: the bar is part of the card's scrolling context, not pinned above it`, JSON.stringify(after));
+    assert(!after.overlap && !after.leadCut, `${height}px: at the second set the bar covers no part of the cue and the cue's first line is not cut`, JSON.stringify(after));
+    await page.evaluate((card) => { document.querySelector(`${card} .fcard__context`).scrollTop = 0; }, card);
+    const top = await read();
+    assert(top.above && top.live, `${height}px: scrolling the context to its top shows the bar above the cue, with Show all live`, JSON.stringify(top));
+  } finally {
+    await context.close();
+  }
+}
+
 async function main() {
   const browser = await launchChromium();
+  // REPFORGE_SESSION_ONLY=finish runs only the finish-with-hidden-lifts proofs.
+  if (process.env.REPFORGE_SESSION_ONLY === "finish") {
+    try { await finishWithHiddenLifts(browser); await hiddenBarInContext(browser); } finally { await browser.close(); }
+    console.log(`\n${results.passed} passed, ${results.failed} failed`);
+    if (results.failed) process.exitCode = 1;
+    return;
+  }
   const { context, page, errors } = await freshPage(browser);
   try {
     /* ---- Enter workout in Focus mode ---- */
@@ -420,6 +552,8 @@ async function main() {
 
     await earlyFinishFitsLargeText(browser);
     await sessionHubChecks(browser);
+    await finishWithHiddenLifts(browser);
+    await hiddenBarInContext(browser);
   } finally {
     await context.close();
     await browser.close();
