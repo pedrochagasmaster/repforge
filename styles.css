@@ -150,8 +150,6 @@
   /* Today's live card: the prototype's raised paper (a hairline drop and a soft lift), on the theme's shadow channel. */
   --live-card-shadow:0 1px 0 rgba(var(--shadow-rgb),.04),0 6px 18px rgba(var(--shadow-rgb),.06);
   --live-dot-halo:0 0 0 4px rgba(var(--accent-rgb),.18);
-  /* The rest timer's glow at a ring's leading end and the bell's flick (owner, 2026-10-23: subtle, classy). Dark tunes
-     them below: a tighter spread at a little more strength, so the bloom reads on the dark paper without smearing. */
   /* The light behind the panel (owner, 2026-10-28): quieter in light, which can't be brighter than the paper. */
   --rest-light-core:var(--accent);--rest-light-bloom:var(--accent);--rest-light-gain:.62;
   /* The mini bar's lift, the prototype's soft float on the theme's shadow channel. */
@@ -2789,9 +2787,6 @@ textarea.sheetfield__input{
    No pill in the header and no clock in the card: while a rest runs a tab rises out of the Focus shelf's top edge
    (a ring, "Rest", the time, a chevron) and the edge fills with the rest; the sheet behind the tab holds the dial and
    every control. The tab is the only way in during a rest, so it is a full 44 px target. */
-/* The glow: a soft accent bloom on the leading end that moves with it and never pulses. It is a shadow round a point, so
-   it paints past its box without adding scrollable overflow. */
-/* The flick: one soft bloom over the tab or the dial, played once at the bell by motion-layer (`flickRest`). */
 /* The tab rises out of the shelf over the card's window: the window keeps room under its last line so the open set
    scrolls clear of it (sizeFocusCard keeps the row above the tab). */
 /* The context region ends above the rest tab's rise, so nothing in it ever sits beside or under the tab (owner review
@@ -2849,8 +2844,9 @@ article.exercise--focus:has(.resttab) .fcard__context{margin-bottom:var(--rest-t
    control, and Restart and End rest as quiet text actions. Concentric with the shelf (28 / 16 / 12). */
 .restsheet{flex-direction:column;align-items:stretch;gap:var(--space-16);padding:var(--space-8) var(--shelf-inset) calc(var(--shelf-inset) + env(safe-area-inset-bottom))}
 /* The dial turns under the finger (owner, 2026-11-04): it keeps its own touches, so a drag on it never scrolls or
-   pulls the sheet down; everywhere else the sheet's swipe still works. */
-.restdial{position:relative;align-self:center;width:min(250px,64vw);aspect-ratio:1;border-radius:var(--radius-round);
+   pulls the sheet down; everywhere else the sheet's swipe still works. It is focusable, so the target-size rule gives
+   it a 44 px minimum; it never shrinks under that rule on a short phone (flex:none). */
+.restdial{position:relative;align-self:center;flex:none;width:min(250px,64vw);aspect-ratio:1;border-radius:var(--radius-round);
   touch-action:none;cursor:grab;-webkit-user-select:none;user-select:none}
 .restdial.is-turning{cursor:grabbing}
 .restdial__svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);overflow:visible}
