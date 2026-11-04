@@ -283,6 +283,46 @@ const missingHistoricalBodyweight = recommend(bodyweightPrescription, [{
 assert.notEqual(missingHistoricalBodyweight.status, "recommended", "current weight cannot fill missing historical bodyweight");
 assert.ok(missingHistoricalBodyweight.reasonCodes.includes("historical_bodyweight_required"));
 
+// Owner report C1 (2026-11-03) and decision (2026-11-04): a bodyweight on file (setup or last logged) turns the slot's
+// contribution on, while a set logged with no session bodyweight recorded none (bodyweightKg null, contribution off).
+// That set is "contribution unknown", not a different loading setup: the current configuration stands for it.
+{
+  const ezPrescription = (setIndex) => prescription({ setIndex, targets: { reps: { min: 8, max: 12 } }, rir: 1,
+    loadingModel: { bodyweightCoefficient: 0.046 } });
+  const ezContext = context({ bySlotId: { "slot-a": {
+    equipmentId: "rack-a", availableLoadsKg: [45, 47.5, 50, 52.5, 55, 57.5, 60],
+    loadingConvention: "external", bodyweightContributionEnabled: true, bodyweightKg: 80, externalLoadMultiplier: 1,
+  } } });
+  const unknownSet = (setIndex = 0, extra = {}) => performedSet({ loadKg: 55, reps: 8, rir: 0, setIndex, bodyweightCoefficient: 0.046,
+    loadingContext: { bodyweightKg: null, bodyweightContributionEnabled: false, externalLoadMultiplier: 1, ...extra } });
+  const live = recommend(ezPrescription(2), [], [unknownSet()], ezContext);
+  assert.equal(live.status, "recommended", "the owner's set 2: a set logged with no session bodyweight anchors the next one");
+  assert.ok(!live.reasonCodes.includes("loading_convention_mismatch"), "an unrecorded bodyweight is never a different loading setup");
+  assert.equal(live.historyAnchor.effectiveLoadKg, 55 + 0.046 * 80, "the unknown set is valued with the resolved bodyweight");
+  const old = recommend(ezPrescription(1), [{ sessionId: "saved-the-old-way", completed: true, sets: [unknownSet()] }], [], ezContext);
+  assert.equal(old.status, "recommended", "a previous session saved without a bodyweight still anchors the next session");
+  const nullFlag = recommend(ezPrescription(1), [{ sessionId: "null-flag", completed: true,
+    sets: [unknownSet(0, { bodyweightContributionEnabled: null })] }], [], ezContext);
+  assert.equal(nullFlag.status, "recommended", "an unset contribution flag with no bodyweight is unknown too");
+  const recorded = recommend(ezPrescription(1), [{ sessionId: "recorded-70", completed: true,
+    sets: [unknownSet(0, { bodyweightKg: 70, bodyweightContributionEnabled: true })] }], [], ezContext);
+  assert.equal(recorded.status, "recommended", "a recorded bodyweight keeps today's comparison");
+  assert.equal(recorded.historyAnchor.effectiveLoadKg, 55 + 0.046 * 70, "a recorded bodyweight is used as recorded, not replaced");
+  const recordedOff = recommend(ezPrescription(1), [{ sessionId: "recorded-off", completed: true,
+    sets: [unknownSet(0, { bodyweightKg: 70, bodyweightContributionEnabled: false })] }], [], ezContext);
+  assert.notEqual(recordedOff.status, "recommended", "a set that recorded a bodyweight with contribution off is still a different setup");
+  assert.ok(recordedOff.reasonCodes.includes("loading_convention_mismatch"));
+  const pullup = prescription({ metricIds: [METRIC.reps], metricDefinitions: [metricDefinitions[METRIC.reps]],
+    targets: { reps: { min: 7, max: 9 } }, loadingModel: { bodyweightCoefficient: 1 } });
+  const pullups = recommend(pullup, [{ sessionId: "pullups-no-session-weight", completed: true, sets: [performedSet({
+    reps: 8, rir: 2, setIndex: 0, metricIds: [METRIC.reps], bodyweightCoefficient: 1, equipmentId: null, loadingConvention: "bodyweight",
+    loadingContext: { bodyweightKg: null, bodyweightContributionEnabled: false, externalLoadMultiplier: 0, loadingConvention: "bodyweight" },
+  })] }], [], context({ bySlotId: { "slot-a": { equipmentId: null, availableLoadsKg: [], loadingConvention: "bodyweight",
+    bodyweightContributionEnabled: true, bodyweightKg: 80, externalLoadMultiplier: 0 } } }));
+  assert.equal(pullups.status, "recommended", "pull-ups logged with no session bodyweight progress on the setup weight");
+  assert.ok(!pullups.reasonCodes.some((code) => /bodyweight_required/.test(code)), "and never ask for a bodyweight");
+}
+
 const bodyweightOnlyPrescription = prescription({
   metricType: "source_metrics@1",
   metricIds: [METRIC.reps],
