@@ -3,11 +3,16 @@
  * Adaptive progression survives Program-editor edits (Plan 069 D3, owner amendment 2026-11-03):
  * what it means in the workout, and that its marker travels.
  *
- * A. An authored load on an adaptive set. A program with history, its next session's first
- *    exercise adaptive; the lifter types a load for that week's first set in the installed
- *    editor. The set stays adaptive (ready), the typed load is kept as the set's target, and
- *    the workout's load field shows the ENGINE's recommendation, not the typed load: while a
- *    set adapts, the engine decides its load.
+ * A. An authored load on an adaptive set WITH history. A program with history, its next
+ *    session's first exercise adaptive; the lifter types a load for that week's first set in the
+ *    installed editor. The set stays adaptive (ready), the typed load is kept as the set's target,
+ *    and the workout's load field shows the ENGINE's recommendation, not the typed load: once
+ *    there is history, the engine decides (owner, 2026-11-04).
+ * C. An authored load on an adaptive set with NO history (owner, 2026-11-04). A fresh program;
+ *    the lifter types a load for the first set. The workout offers it as an untouched suggestion
+ *    with a cue that says it is the program's ("Your planned 77.5 kg"); logging the set logs it,
+ *    and the next set is the engine's own recommendation. An exercise with no authored load is
+ *    still "Pick a load": no load is invented.
  * B. The marker of an edited adaptive set, provenance policyVersion "manual-adaptive@1", made
  *    through the real path (generate, activate, swap an exercise in the installed editor):
  *    each week keeps its set count; the program validates; a setup link carries it (a v5 link within the limit that decodes
@@ -73,7 +78,7 @@ async function authoredLoad(browser) {
       return { value: input?.value ?? null, placeholder: input?.placeholder ?? null };
     });
     assert(Number(shown.value) === before.engine && Number(shown.value) !== typed,
-      "the workout shows the engine's recommendation, not the typed load", JSON.stringify({ ...shown, engine: before.engine, typed }));
+      "with history, the workout shows the engine's recommendation, not the typed load", JSON.stringify({ ...shown, engine: before.engine, typed }));
   } finally {
     await opened.context.close();
   }
@@ -154,9 +159,83 @@ async function policyTravels(browser) {
   }
 }
 
+async function plannedStart(browser) {
+  console.log("\nC. A new lift starts from its authored load");
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  try {
+    await page.goto(BASE);
+    await waitForAppBoot(page, { base: BASE });
+    await page.click("#firstRunCreate");
+    await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
+    await answerRecommend(page, { days: 4, minutes: 60, skipBasics: true });
+    await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "result", undefined, { timeout: 30000 });
+    await page.click("#entryActivate");
+    await page.waitForFunction(() => !document.querySelector("#onboarding.active"), undefined, { timeout: 20000 });
+    await waitForAppBoot(page, { base: BASE });
+    const before = await page.evaluate(() => {
+      const ex = prog.forDay(day)[0], other = prog.forDay(day)[1], r = recommendation(ex), ro = recommendation(other);
+      return { slot: ex.id, cycle: mesocycleWeek().current ?? 1, status: r.status, reasons: r.reasonCodes, planned: r.plannedLoad,
+        other: { status: ro.status, planned: ro.plannedLoad, any: ro.targetSets.some((item) => item.planned) } };
+    });
+    assert(before.status === "new" && before.reasons.includes("no_comparable_history") && before.planned == null,
+      "a fresh program's first exercise has no history and, with no authored load, nothing planned", JSON.stringify(before));
+    const typed = 77.5;
+    await page.click('nav [data-view="program"]');
+    await openInstalledEditor(page);
+    await openExerciseSheet(page, before.slot);
+    await page.locator('#reviewSheet [data-role="weeks-open"]').click();
+    await page.locator(`#reviewSheet [data-role="week-row"][data-cycle-index="${before.cycle}"]`).click();
+    const field = page.locator(`#reviewSheet [data-role="metric-target"][data-cycle-index="${before.cycle}"][data-set-index="1"][data-semantic="loadKg"]`);
+    await field.fill(String(typed));
+    await field.blur();
+    await editorSettled(page);
+    await page.locator('#reviewSheet [data-role="weeks-back"]').click();
+    await applyInstalledEditor(page);
+    const planned = await page.evaluate(() => { const r = recommendation(prog.forDay(day)[0]); return { status: r.status, load: r.load, planned: r.plannedLoad }; });
+    assert(planned.status === "new" && planned.load == null && planned.planned === typed,
+      "the engine still has no recommendation; the set's authored load is its planned start", JSON.stringify(planned));
+    await page.click('nav [data-view="log"]');
+    await page.click("#startWorkout");
+    await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 15000 });
+    const card = "#workout .exercise.is-current";
+    await page.waitForFunction((selector) => document.querySelector(`${selector} .shelf__field input`)?.value === "77.5", card, { timeout: 10000 }).catch(() => {});
+    const shown = await page.evaluate((selector) => {
+      const element = document.querySelector(selector), load = element?.querySelector(".shelf__field");
+      return { cue: element?.querySelector(".fx-cue__l1")?.textContent?.trim(), sub: element?.querySelector(".fx-cue__l2")?.textContent?.trim(),
+        evidence: element?.querySelector(".fx-cue__evidence")?.textContent?.trim(), value: load?.querySelector("input")?.value ?? null,
+        untouched: load?.classList.contains("is-untouched") === true };
+    }, card);
+    assert(shown.value === "77.5" && shown.untouched, "the load field offers the planned load as an untouched suggestion", JSON.stringify(shown));
+    assert(shown.cue === "Your planned 77.5 kg" && /^No history for this lift yet, so this is your program's load\. Log this set and Taurifer suggests the next one\./.test(shown.evidence || ""),
+      "the cue says the load is the program's, and why", JSON.stringify(shown));
+    const other = await page.evaluate(() => { const ro = recommendation(prog.forDay(day)[1]); return { status: ro.status, planned: ro.plannedLoad, any: ro.targetSets.some((item) => item.planned) }; });
+    assert(other.status === "new" && other.planned == null && !other.any, "an exercise with no authored load gets no planned load", JSON.stringify(other));
+    // Log the set as shown, with its reps.
+    await page.locator(`${card} .shelf__field`).nth(1).click();
+    await page.locator(`${card} .shelf__field`).nth(1).locator("input").fill("8");
+    await page.click(`${card} .focus-shelf .saveset`);
+    await page.waitForFunction(() => { const ex = prog.forDay(day)[0], stored = activeWorkoutDraft?.exercises?.[ex.id];
+      return stored && stored.sets[stored.setOrder[0]].completion !== "pending"; }, undefined, { timeout: 10000 });
+    const after = await page.evaluate((selector) => {
+      const ex = prog.forDay(day)[0], stored = activeWorkoutDraft.exercises[ex.id], first = stored.sets[stored.setOrder[0]];
+      const loadMetric = first.programmed.metrics.find((metric) => metric.semantic === "loadKg");
+      const r = recommendation(ex), second = r.targetSets.find((item) => item.prescription.setIndex === 2);
+      return { logged: first.edited.metrics[loadMetric.id], second: { status: second?.status, planned: !!second?.planned },
+        cue: document.querySelector(`${selector} .fx-cue__l1`)?.textContent?.trim() };
+    }, card);
+    assert(Number(after.logged) === typed, "logging the set logs the planned load", JSON.stringify(after));
+    assert(after.second.status === "recommended" && !after.second.planned && !/^Your planned/.test(after.cue || ""),
+      "with a set logged, the next set is the engine's recommendation", JSON.stringify(after));
+  } finally {
+    await context.close();
+  }
+}
+
 const browser = await launchChromium();
 try {
   await authoredLoad(browser);
+  await plannedStart(browser);
   await policyTravels(browser);
 } finally {
   await browser.close();

@@ -347,6 +347,12 @@ movements and unsupported metric combinations cannot generate loads, even if
 the previous movement could. Only explicitly turning off **Suggest loads**
 disables it on an otherwise eligible movement.
 
+A load typed for a set of an adaptive exercise is where that exercise starts
+while it has no comparable history: the workout offers it as a suggestion and
+says it is the program's ("Your planned 77.5 kg"). Once a set is logged, the
+engine's recommendation takes over and the typed load is only the planned
+value. No load is invented for a set that has none (owner, 2026-11-04).
+
 Saving validates the whole prescription first. An unsupported imported method
 is preserved and named as incompatible until you explicitly replace it.
 

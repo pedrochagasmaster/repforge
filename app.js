@@ -2647,6 +2647,7 @@ function displayDraftText(field,value){
 /* A DraftV2 set's programmed metric composition ({id, semantic, ...}). */
 const draftSetMetrics=set=>Array.isArray(set?.programmed?.metrics)?set.programmed.metrics:[];
 const METRIC_FIELD_SEMANTICS={load:["loadKg","loadPerSideKg","persistentLoadPerSideKg","assistanceKg"],reps:["reps","repsPerSide"]};
+const PLANNED_LOAD_SEMANTICS=METRIC_FIELD_SEMANTICS.load;
 function metricFieldValue(set,field){
   const semantics=METRIC_FIELD_SEMANTICS[field],definitions=draftSetMetrics(set);
   if(!semantics||!Array.isArray(definitions))return null;
@@ -6250,10 +6251,20 @@ function recommendation(ex){
   const loadingContext={bySlotId:{[matched.slot.id]:slotLoadingContext(matched.slot)}};
   const results=engine.recommendSets(prescriptions,history,currentSession,loadingContext,{
     weightMatch:state.settings.weightMatch===true,expandRepRange:state.settings.expandRepRange!==false});
+  // Owner, 2026-11-04: an adaptive set with no comparable history starts from the load the program authored for it,
+  // offered as a suggestion; once history exists the engine's recommendation takes over. No load is invented.
+  const plannedSemantic=(matched.slot.metricDefinitions||[]).find(metric=>PLANNED_LOAD_SEMANTICS.includes(metric.semantic))?.semantic||null;
   const targetSets=prescriptions.map((prescription,index)=>{
     const result=results[index]||null;
-    return{prescription,result,targets:result?.status==="recommended"?result.targets:prescription.targets,
-      rir:prescription.rir,status:result?.status||"manual"}});
+    const item={prescription,result,targets:result?.status==="recommended"?result.targets:prescription.targets,
+      rir:prescription.rir,status:result?.status||"manual"};
+    const codes=result?.reasonCodes||[],authoredLoad=plannedSemantic?prescription.targets?.[plannedSemantic]:null;
+    const planned=result?.status!=="recommended"&&prescription.status==="ready"&&codes.includes("no_comparable_history")&&
+      !codes.includes("configuration_required")&&typeof authoredLoad==="number"&&Number.isFinite(authoredLoad)&&authoredLoad>0
+      ?{semantic:plannedSemantic,value:authoredLoad}:null;
+    // Not enumerable: the recommendation that serialises (and that the parity proofs compare) is unchanged.
+    Object.defineProperty(item,"planned",{value:planned});
+    return item});
   const firstActual=targetSets.find(item=>item.prescription.setIndex===1)||targetSets[0];
   const result=firstActual?.result,definitions=matched.slot.metricDefinitions||[];
   const requiresExecutionMode=definitions.some(metric=>
@@ -6289,6 +6300,7 @@ function recommendation(ex){
   // The observations the engine was given, so a surface can read back the set it anchored on. Not enumerable, so the
   // recommendation that serialises (and that the parity proofs compare) is exactly what it was.
   Object.defineProperty(rec,"progressionInputs",{value:{history,currentSession}});
+  Object.defineProperty(rec,"plannedLoad",{value:status==="new"?firstActual?.planned?.value??null:null});
   return rec;
 }
 // Re-entry after a load change: the reps this capacity predicts at the NEW load,
@@ -6409,6 +6421,8 @@ function completedCurrentSets(ex,n,draft){
    moved from the last completed set this session. */
 function engineSetSuggestion(ex,n,rec,draft){
   const item=rec.targetSets.find(entry=>entry.prescription?.setIndex===n)||rec.targetSets[n-1];
+  // A new lift's authored load is its starting suggestion; its reps stay the range.
+  if(item&&item.status!=="recommended"&&item.planned)return{load:item.planned.value,reps:null,src:"planned"};
   if(!item||item.status!=="recommended")return{load:null,reps:null,src:"manual"};
   const definitions=rec.metricDefinitions||[];
   const loadMetric=definitions.find(metric=>METRIC_FIELD_SEMANTICS.load.includes(metric.semantic));
@@ -6524,6 +6538,11 @@ function metricSuggestionUpdates(stored,rec){
     const set=stored.sets[setId];
     if(!set||set.role==="warmup"||set.completion!=="pending")continue;
     const target=rec.targetSets?.find(item=>item.prescription.setIndex===set.ordinal);
+    if(target&&target.status!=="recommended"&&target.planned){
+      const metric=(set.programmed.metrics||[]).find(entry=>entry.semantic===target.planned.semantic);
+      if(metric&&!set.touched.metrics?.[metric.id])
+        updates.push({exerciseInstanceId:stored.exerciseInstanceId,setId,fields:{metrics:{[metric.id]:canonicalNumberText(target.planned.value)}}});
+      continue}
     if(target?.status!=="recommended")continue;
     const metrics={};
     for(const metric of set.programmed.metrics||[]){
@@ -8617,6 +8636,12 @@ function focusCue(ex,n,r,draft,prev,editing){
       ?head.replace("\u0000",`<b class="fx-cue__load">${esc(ex.min)}`).replace("\u0001",`${esc(ex.max)}</b>`)
       :head.replace("\u0000",esc(ex.min)).replace("\u0001",esc(ex.max));
     return{kind:"start",move:"",headHtml:ranged,sub:""}}
+  // A new lift's authored load, said as the program's and not as the engine's move (owner, 2026-11-04).
+  if(sg.src==="planned"){
+    const loadText=fmtLoad(sg.load),sentence=t("focus.cue.planned",{load:"\u0000",unit});
+    return{kind:"planned",move:"",loadText,reps:ex.min,
+      headHtml:esc(sentence).replace("\u0000",`<b class="fx-cue__load">${esc(loadText)}</b>`),
+      sub:t("focus.cue.range_reps",{reps:`${ex.min}–${ex.max}`})}}
   // A canonical target's move is the engine's: against this session's last set
   // once one is logged, else the recommendation's own verdict.
   const ref=Array.isArray(r.targetSets)?null:focusRefLoad(ex,n,draft,prev);
@@ -8693,6 +8718,7 @@ function focusEvidenceText(ex,n,r,cue){
   if(cue.kind==="edit")return"";
   // One quiet sentence: only the performed set's figures ride in Mono (owner review of #550).
   const effort=isEffortMode(),mono=evidenceFig,plain=v=>esc(v),say=evidenceSay;
+  if(cue.kind==="planned")return esc(t("focus.evidence.planned"));
   if(cue.kind!=="now"){
     const key=focusNoSuggestionKey(ex,r,n,cue.kind);
     return say(`focus.evidence.none_${key}`,{what:esc(t(effort?"focus.evidence.what_effort":"focus.evidence.what_rir")),
@@ -11925,6 +11951,7 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
   // audit A1, 2026-11-01).
   const recWords=rec?(()=>{
     if(rec.load!=null)return{head:recCueLoad(rec),body:rec.text};
+    if(rec.plannedLoad!=null)return{head:t("focus.cue.planned",{load:fmtLoad(rec.plannedLoad),unit:unitLabel()}),body:t("focus.evidence.planned")};
     const kind=rec.status==="manual"?"manual":rec.status==="configuration_required"?"setup":"start";
     const head=kind==="manual"?t("focus.cue.your_targets"):kind==="setup"?t("focus.cue.needs_setup"):t("focus.cue.pick_load",{min:tmpl.min,max:tmpl.max});
     const key=focusNoSuggestionKey(tmpl,rec,1,kind);
