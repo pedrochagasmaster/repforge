@@ -8696,7 +8696,10 @@ function engineAnchorSet(rec,facts){
 /** Why there is no suggested load, said from the engine's own reason for this set and what would change it. */
 function focusNoSuggestionKey(ex,r,n,kind){
   const item=r.targetSets?.find(entry=>entry.prescription?.setIndex===n);
-  const reasons=new Set([...(item?.result?.reasonCodes||[]),...(r.reasonCodes||[])]);
+  // The set's own reasons: the exercise-level codes are the first set's, and a later set can be declined for another
+  // reason (owner report, 2026-11-03). Only the slot-level setup the recommendation adds applies to every set.
+  const reasons=new Set(item?[...(item.result?.reasonCodes||[]),
+    ...(r.reasonCodes||[]).filter(code=>code==="execution_context_required")]:r.reasonCodes||[]);
   if(kind==="manual"&&canonicalSlotFacts(ex)?.adaptive===false)return"manual";
   if(reasons.has("execution_context_required"))return"setup_execution";
   if(reasons.has("per_side_convention_required"))return"setup_per_side";
@@ -8704,11 +8707,14 @@ function focusNoSuggestionKey(ex,r,n,kind){
   if(kind==="setup"||(item?.status||r.status)==="configuration_required")return"setup";
   if(reasons.has("no_candidate_in_range")||reasons.has("no_candidate_after_expansion"))return"range";
   if(reasons.has("no_comparable_history")){
-    // Which history there is decides the reason: none at all, sets logged without an effort, or sets logged another way.
+    // Which history there is decides the reason: sets logged another way (only when the engine says so), none at all, or
+    // sets logged without an effort. Declined with every set's effort logged, it says those sets couldn't be used and
+    // promises nothing: the effort the other lines ask for is already there (owner wording, 2026-11-04).
     const inputs=r.progressionInputs,seen=[...(inputs?.history||[]).flatMap(session=>session.sets||[]),...(inputs?.currentSession||[])];
-    if(!seen.length&&!reasons.has("loading_convention_mismatch"))return"history";
-    if(reasons.has("loading_convention_mismatch")||seen.every(set=>Number.isFinite(set.rir)))return"mismatch";
-    return"new"}
+    if(reasons.has("loading_convention_mismatch"))return"mismatch";
+    if(!seen.length)return"history";
+    if(seen.some(set=>!Number.isFinite(set.rir)))return"new";
+    return"unused"}
   return"unsupported"}
 /** A catalog sentence as markup with each of `vars` (already markup) in its slot: the template is escaped first, so only
  *  the slots carry markup. The evidence line and the landing's proof both say their figures through it. */

@@ -42,6 +42,7 @@
   "focus.evidence.none_history": "Ainda não há histórico neste exercício, então o Taurifer não vai adivinhar uma carga. Registre esta série e ele sugere a próxima.",
   "focus.evidence.none_new": "Ainda não há esforço registrado neste exercício, então o Taurifer não vai adivinhar uma carga. Registre {what} nesta série e ele sugere a próxima.",
   "focus.evidence.none_mismatch": "Suas séries anteriores neste exercício usaram outra configuração de carga, então o Taurifer não vai adivinhar uma carga. Registre {what} nesta série e ele sugere a próxima.",
+  "focus.evidence.none_unused": "O Taurifer não conseguiu usar suas séries anteriores para esta, então a carga fica com você.",
   "focus.evidence.none_range": "Nenhuma carga dos seus incrementos cabe em {min}–{max} reps no esforço-alvo, então a carga fica com você.",
   "focus.evidence.none_manual": "Este exercício está em Manual, então o Taurifer não sugere carga. Mude para Adaptativa no seu programa para receber sugestões.",
   "focus.evidence.none_unsupported": "O Taurifer não consegue sugerir carga para as metas deste exercício, então a carga fica com você.",
