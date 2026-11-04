@@ -1315,13 +1315,11 @@ Triceps pushdown 3x12-15</pre>
       <button type="button" class="sheet__act sheet__act--icon" id="restSheetClose" data-i18n-aria="rest.sheet.close_aria" aria-label="Close rest timer"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
     </div>
     <div class="sheet__body restsheet">
-      <div class="restdial" id="restDial">
+      <div class="restdial" id="restDial" role="slider" tabindex="0" data-sheet-hold aria-valuemin="15" aria-valuemax="600" data-i18n-aria="rest.dial.aria" aria-label="Rest time left">
         <svg class="restdial__svg" viewBox="0 0 250 250" aria-hidden="true">
           <circle class="restdial__track" cx="125" cy="125" r="112"/>
           <circle class="restdial__arc" cx="125" cy="125" r="112" pathLength="1000"/>
         </svg>
-        <span class="restglow restdial__glow" aria-hidden="true"></span>
-        <span class="restflick" aria-hidden="true"></span>
         <div class="restdial__c" role="timer" aria-live="off">
           <span class="restdial__time" id="restDialTime"></span>
           <span class="restdial__of" id="restDialOf"></span>
@@ -1336,7 +1334,7 @@ Triceps pushdown 3x12-15</pre>
         </button>
         <button type="button" class="restround" id="restPlus" data-i18n-aria="rest.sheet.plus_aria" aria-label="Add 30 seconds"><span data-i18n="rest.sheet.plus">+30s</span></button>
       </div>
-      <p class="restsheet__cap" id="restPresetsLabel" data-i18n="rest.sheet.default">Default rest</p>
+      <p class="restsheet__cap" id="restPresetsLabel" data-i18n="rest.sheet.this_exercise">Rest for this exercise</p>
       <select id="restPresetInput" class="visually-hidden" aria-hidden="true" tabindex="-1"></select>
       <div class="native-segments restsheet__presets" id="restPresets" data-segment-input="restPresetInput" role="radiogroup" aria-labelledby="restPresetsLabel"><span class="native-segments__thumb" data-state-indicator aria-hidden="true"></span></div>
       <div class="restsheet__links">
@@ -1419,7 +1417,7 @@ Triceps pushdown 3x12-15</pre>
   <script src="vendor/motion/motion.js" data-optional-runtime="RepForgeMotion"></script>
   <script src="vendor/dnd-kit/dnd-kit.js" data-optional-runtime="RepForgeDndRuntime"></script>
   <div hidden inert aria-hidden="true" id="legacyWorkoutShell"><span id="modeFull"></span><span id="modeFocus"></span><input id="date" type="date"><input id="bodyweight"><textarea id="notes"></textarea></div>
-  <script src="motion-layer.js?v=530"></script>
+  <script src="motion-layer.js?v=621"></script>
   <script src="generation-candidates.js?v=466"></script>
   <script src="engine-policy.js?v=560"></script>
   <script src="generation-layout.js?v=560"></script>
@@ -1439,6 +1437,6 @@ Triceps pushdown 3x12-15</pre>
   <script src="durable-state.js?v=447"></script>
   <script src="progress-model.js?v=309"></script>
   <script src="history-ui.js?v=604"></script>
-  <script src="app.js?v=617"></script>
+  <script src="app.js?v=621"></script>
 </body>
 </html>

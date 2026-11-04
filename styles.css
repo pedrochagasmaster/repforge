@@ -150,10 +150,6 @@
   /* Today's live card: the prototype's raised paper (a hairline drop and a soft lift), on the theme's shadow channel. */
   --live-card-shadow:0 1px 0 rgba(var(--shadow-rgb),.04),0 6px 18px rgba(var(--shadow-rgb),.06);
   --live-dot-halo:0 0 0 4px rgba(var(--accent-rgb),.18);
-  /* The rest timer's glow at a ring's leading end and the bell's flick (owner, 2026-10-23: subtle, classy). Dark tunes
-     them below: a tighter spread at a little more strength, so the bloom reads on the dark paper without smearing. */
-  --rest-dial-glow:0 0 14px 6px rgba(var(--accent-rgb),.28);
-  --rest-flick-glow:0 0 22px 6px rgba(var(--accent-rgb),.34);
   /* The light behind the panel (owner, 2026-10-28): quieter in light, which can't be brighter than the paper. */
   --rest-light-core:var(--accent);--rest-light-bloom:var(--accent);--rest-light-gain:.62;
   /* The mini bar's lift, the prototype's soft float on the theme's shadow channel. */
@@ -396,8 +392,6 @@
    orange moves up rather than down (--accent-deep is the *lighter* orange here
    because its job is emphasis, and emphasis on dark means more light). */
 :root[data-theme="dark"]{
-  --rest-dial-glow:0 0 10px 4px rgba(var(--accent-rgb),.4);
-  --rest-flick-glow:0 0 16px 4px rgba(var(--accent-rgb),.42);
   --rest-light-core:#FFB48A;--rest-light-bloom:var(--accent);--rest-light-gain:1;
   --switch-off-track:rgba(255,255,255,.10);
   --segment-thumb-bg:#3A3630;
@@ -2793,10 +2787,6 @@ textarea.sheetfield__input{
    No pill in the header and no clock in the card: while a rest runs a tab rises out of the Focus shelf's top edge
    (a ring, "Rest", the time, a chevron) and the edge fills with the rest; the sheet behind the tab holds the dial and
    every control. The tab is the only way in during a rest, so it is a full 44 px target. */
-/* The glow: a soft accent bloom on the leading end that moves with it and never pulses. It is a shadow round a point, so
-   it paints past its box without adding scrollable overflow. */
-/* The flick: one soft bloom over the tab or the dial, played once at the bell by motion-layer (`flickRest`). */
-.restflick{position:absolute;inset:0;border-radius:inherit;box-shadow:var(--rest-flick-glow);opacity:0;pointer-events:none}
 /* The tab rises out of the shelf over the card's window: the window keeps room under its last line so the open set
    scrolls clear of it (sizeFocusCard keeps the row above the tab). */
 /* The context region ends above the rest tab's rise, so nothing in it ever sits beside or under the tab (owner review
@@ -2853,15 +2843,16 @@ article.exercise--focus:has(.resttab) .fcard__context{margin-bottom:var(--rest-t
 /* The sheet: the dial with the time, one primary control between ±30 s, the presets as the native segmented
    control, and Restart and End rest as quiet text actions. Concentric with the shelf (28 / 16 / 12). */
 .restsheet{flex-direction:column;align-items:stretch;gap:var(--space-16);padding:var(--space-8) var(--shelf-inset) calc(var(--shelf-inset) + env(safe-area-inset-bottom))}
-.restdial{position:relative;align-self:center;width:min(250px,64vw);aspect-ratio:1;border-radius:var(--radius-round)}
+/* The dial turns under the finger (owner, 2026-11-04): it keeps its own touches, so a drag on it never scrolls or
+   pulls the sheet down; everywhere else the sheet's swipe still works. It is focusable, so the target-size rule gives
+   it a 44 px minimum; it never shrinks under that rule on a short phone (flex:none). */
+.restdial{position:relative;align-self:center;flex:none;width:min(250px,64vw);aspect-ratio:1;border-radius:var(--radius-round);
+  touch-action:none;cursor:grab;-webkit-user-select:none;user-select:none}
+.restdial.is-turning{cursor:grabbing}
 .restdial__svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);overflow:visible}
 .restdial__track{fill:none;stroke:var(--rule);stroke-width:10}
 .restdial__arc{fill:none;stroke:var(--accent);stroke-width:10;stroke-linecap:round;stroke-dasharray:1000 1000}
 .restdial.is-done .restdial__track{stroke:var(--accent)}
-.restdial.is-done .restdial__glow,.restdial.is-idle .restdial__glow,.restdial.is-paused .restdial__glow{display:none}
-.restglow{position:absolute;border-radius:var(--radius-round);pointer-events:none}
-.restdial__glow{width:4px;height:4px;margin:-2px 0 0 -2px;box-shadow:var(--rest-dial-glow)}
-@media (prefers-reduced-transparency:reduce){.restglow{display:none}}
 .restdial__c{position:absolute;inset:14%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
 .restdial__time{font-family:var(--font-training-data);font-size:var(--font-size-rest-clock);font-weight:var(--weight-medium);line-height:var(--line-tight);letter-spacing:-.02em;font-variant-numeric:tabular-nums;display:inline-block}
 .restdial.is-done .restdial__time{color:var(--accent-deep)}
