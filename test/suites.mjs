@@ -217,6 +217,7 @@ export const FULL_SUITES = {
     s("test/library-flow.mjs", [], { seconds: 29 }),
     s("test/library-picker-spacing.mjs", [], { domains: ["library"], seconds: 20 }),
     s("test/share-edited-programs.mjs", [], { domains: ["program", "entry"], seconds: 120 }),
+    s("test/adaptive-edit-proofs.mjs", [], { domains: ["program", "workout", "persistence"], seconds: 60 }),
     s("test/progress-tabs.mjs", [], { domains: ["progress"], seconds: 25 }),
     s("test/program-goal-label.mjs", [], { domains: ["program"], seconds: 30 }),
     s("test/custom-delete-editor-race.mjs", [], { domains: ["program", "library"], seconds: 34 }),

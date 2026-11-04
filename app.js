@@ -2647,6 +2647,7 @@ function displayDraftText(field,value){
 /* A DraftV2 set's programmed metric composition ({id, semantic, ...}). */
 const draftSetMetrics=set=>Array.isArray(set?.programmed?.metrics)?set.programmed.metrics:[];
 const METRIC_FIELD_SEMANTICS={load:["loadKg","loadPerSideKg","persistentLoadPerSideKg","assistanceKg"],reps:["reps","repsPerSide"]};
+const PLANNED_LOAD_SEMANTICS=METRIC_FIELD_SEMANTICS.load;
 function metricFieldValue(set,field){
   const semantics=METRIC_FIELD_SEMANTICS[field],definitions=draftSetMetrics(set);
   if(!semantics||!Array.isArray(definitions))return null;
@@ -6276,10 +6277,20 @@ function recommendation(ex){
   const loadingContext={bySlotId:{[matched.slot.id]:slotLoadingContext(matched.slot)}};
   const results=engine.recommendSets(prescriptions,history,currentSession,loadingContext,{
     weightMatch:state.settings.weightMatch===true,expandRepRange:state.settings.expandRepRange!==false});
+  // Owner, 2026-11-04: an adaptive set with no comparable history starts from the load the program authored for it,
+  // offered as a suggestion; once history exists the engine's recommendation takes over. No load is invented.
+  const plannedSemantic=(matched.slot.metricDefinitions||[]).find(metric=>PLANNED_LOAD_SEMANTICS.includes(metric.semantic))?.semantic||null;
   const targetSets=prescriptions.map((prescription,index)=>{
     const result=results[index]||null;
-    return{prescription,result,targets:result?.status==="recommended"?result.targets:prescription.targets,
-      rir:prescription.rir,status:result?.status||"manual"}});
+    const item={prescription,result,targets:result?.status==="recommended"?result.targets:prescription.targets,
+      rir:prescription.rir,status:result?.status||"manual"};
+    const codes=result?.reasonCodes||[],authoredLoad=plannedSemantic?prescription.targets?.[plannedSemantic]:null;
+    const planned=result?.status!=="recommended"&&prescription.status==="ready"&&codes.includes("no_comparable_history")&&
+      !codes.includes("configuration_required")&&typeof authoredLoad==="number"&&Number.isFinite(authoredLoad)&&authoredLoad>0
+      ?{semantic:plannedSemantic,value:authoredLoad}:null;
+    // Not enumerable: the recommendation that serialises (and that the parity proofs compare) is unchanged.
+    Object.defineProperty(item,"planned",{value:planned});
+    return item});
   const firstActual=targetSets.find(item=>item.prescription.setIndex===1)||targetSets[0];
   const result=firstActual?.result,definitions=matched.slot.metricDefinitions||[];
   const requiresExecutionMode=definitions.some(metric=>
@@ -6315,6 +6326,7 @@ function recommendation(ex){
   // The observations the engine was given, so a surface can read back the set it anchored on. Not enumerable, so the
   // recommendation that serialises (and that the parity proofs compare) is exactly what it was.
   Object.defineProperty(rec,"progressionInputs",{value:{history,currentSession}});
+  Object.defineProperty(rec,"plannedLoad",{value:status==="new"?firstActual?.planned?.value??null:null});
   return rec;
 }
 // Re-entry after a load change: the reps this capacity predicts at the NEW load,
@@ -6435,6 +6447,8 @@ function completedCurrentSets(ex,n,draft){
    moved from the last completed set this session. */
 function engineSetSuggestion(ex,n,rec,draft){
   const item=rec.targetSets.find(entry=>entry.prescription?.setIndex===n)||rec.targetSets[n-1];
+  // A new lift's authored load is its starting suggestion; its reps stay the range.
+  if(item&&item.status!=="recommended"&&item.planned)return{load:item.planned.value,reps:null,src:"planned"};
   if(!item||item.status!=="recommended")return{load:null,reps:null,src:"manual"};
   const definitions=rec.metricDefinitions||[];
   const loadMetric=definitions.find(metric=>METRIC_FIELD_SEMANTICS.load.includes(metric.semantic));
@@ -6550,6 +6564,11 @@ function metricSuggestionUpdates(stored,rec){
     const set=stored.sets[setId];
     if(!set||set.role==="warmup"||set.completion!=="pending")continue;
     const target=rec.targetSets?.find(item=>item.prescription.setIndex===set.ordinal);
+    if(target&&target.status!=="recommended"&&target.planned){
+      const metric=(set.programmed.metrics||[]).find(entry=>entry.semantic===target.planned.semantic);
+      if(metric&&!set.touched.metrics?.[metric.id])
+        updates.push({exerciseInstanceId:stored.exerciseInstanceId,setId,fields:{metrics:{[metric.id]:canonicalNumberText(target.planned.value)}}});
+      continue}
     if(target?.status!=="recommended")continue;
     const metrics={};
     for(const metric of set.programmed.metrics||[]){
@@ -8770,6 +8789,12 @@ function focusCue(ex,n,r,draft,prev,editing){
       ?head.replace("\u0000",`<b class="fx-cue__load">${esc(ex.min)}`).replace("\u0001",`${esc(ex.max)}</b>`)
       :head.replace("\u0000",esc(ex.min)).replace("\u0001",esc(ex.max));
     return{kind:"start",move:"",headHtml:ranged,sub:""}}
+  // A new lift's authored load, said as the program's and not as the engine's move (owner, 2026-11-04).
+  if(sg.src==="planned"){
+    const loadText=fmtLoad(sg.load),sentence=t("focus.cue.planned",{load:"\u0000",unit});
+    return{kind:"planned",move:"",loadText,reps:ex.min,
+      headHtml:esc(sentence).replace("\u0000",`<b class="fx-cue__load">${esc(loadText)}</b>`),
+      sub:t("focus.cue.range_reps",{reps:`${ex.min}–${ex.max}`})}}
   // A canonical target's move is the engine's: against this session's last set
   // once one is logged, else the recommendation's own verdict.
   const ref=Array.isArray(r.targetSets)?null:focusRefLoad(ex,n,draft,prev);
@@ -8852,6 +8877,7 @@ function focusEvidenceText(ex,n,r,cue){
   if(cue.kind==="edit")return"";
   // One quiet sentence: only the performed set's figures ride in Mono (owner review of #550).
   const effort=isEffortMode(),mono=evidenceFig,plain=v=>esc(v),say=evidenceSay;
+  if(cue.kind==="planned")return esc(t("focus.evidence.planned"));
   if(cue.kind!=="now"){
     const key=focusNoSuggestionKey(ex,r,n,cue.kind);
     return say(`focus.evidence.none_${key}`,{what:esc(t(effort?"focus.evidence.what_effort":"focus.evidence.what_rir")),
@@ -12108,6 +12134,7 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
   // audit A1, 2026-11-01).
   const recWords=rec?(()=>{
     if(rec.load!=null)return{head:recCueLoad(rec),body:rec.text};
+    if(rec.plannedLoad!=null)return{head:t("focus.cue.planned",{load:fmtLoad(rec.plannedLoad),unit:unitLabel()}),body:t("focus.evidence.planned")};
     const kind=rec.status==="manual"?"manual":rec.status==="configuration_required"?"setup":"start";
     const head=kind==="manual"?t("focus.cue.your_targets"):kind==="setup"?t("focus.cue.needs_setup"):t("focus.cue.pick_load",{min:tmpl.min,max:tmpl.max});
     const key=focusNoSuggestionKey(tmpl,rec,1,kind);
@@ -12709,6 +12736,10 @@ function editorSlotForRow(row,document,slotId,order,existing=null){
     Array.isArray(custom?.metricDefinitions)?custom.metricDefinitions.map(cloneSnapshot):[];
   const metricIds=definitions.map(definition=>definition.id);
   const origin=raw?"source_catalog":"user_defined";
+  const canSuggest=raw&&editorSuggestLoadsPolicy.eligibility({
+    exerciseId,metricOrigin:origin,metricDefinitions:definitions})==="eligible";
+  const oldRepSemantic=existing?.metricDefinitions?.find(definition=>
+    definition.semantic==="reps"||definition.semantic==="repsPerSide")?.semantic;
   const sourceSetsByCycle=new Map((existing?.prescriptionsByCycle||[]).map(cycle=>[cycle.cycleIndex,cycle]));
   const cycles=Number.isInteger(document?.programMeta?.programDefinition?.cycles)
     ?document.programMeta.programDefinition.cycles:1;
@@ -12722,20 +12753,26 @@ function editorSlotForRow(row,document,slotId,order,existing=null){
   const prescriptionsByCycle=[];
   for(let cycleIndex=1;cycleIndex<=cycles;cycleIndex++){
     const previous=sourceSetsByCycle.get(cycleIndex)?.sets||[];
+    // A replacement keeps each week's volume (a one-set deload week stays one set).
+    const weekSetCount=existing&&previous.length?previous.length:setCount;
     const sets=[];
-    for(let setIndex=1;setIndex<=setCount;setIndex++){
+    for(let setIndex=1;setIndex<=weekSetCount;setIndex++){
       const old=previous[setIndex-1];
       const retainedTargets=existing&&old?cloneSnapshot(old.targets||{}):cloneSnapshot(targets);
       const filteredTargets=Object.fromEntries(Object.entries(retainedTargets).filter(([semantic])=>
         definitions.some(definition=>definition.semantic===semantic)));
-      if(reps&&filteredTargets[reps.semantic]==null&&targets[reps.semantic])
-        filteredTargets[reps.semantic]=cloneSnapshot(targets[reps.semantic]);
+      // Preserve week-specific repetition targets across equivalent rep
+      // semantics; a new movement must not inherit an unrelated load target.
+      if(reps&&filteredTargets[reps.semantic]==null){
+        const oldRange=oldRepSemantic?old?.targets?.[oldRepSemantic]:null;
+        filteredTargets[reps.semantic]=editorRepRangeValid(oldRange)
+          ?cloneSnapshot(oldRange):cloneSnapshot(targets[reps.semantic])}
+      const stillAdaptive=old?.status==="ready"&&canSuggest;
       const built=editorNewPrescription(slotId,cycleIndex,setIndex,metricIds,definitions,filteredTargets,
-        definitions.length?"manual":"configuration_required");
-      // Plan 069 D3: a new movement is not what the lifter opted in for, so
-      // a replaced slot keeps its values but returns to manual.
+        stillAdaptive?"ready":definitions.length?"manual":"configuration_required");
       if(existing&&old){built.id=old.id;built.rir=old.rir??null;built.restSeconds=old.restSeconds??null;
-        built.provenance={...cloneSnapshot(old.provenance||{}),source:"manual",policyVersion:"manual@1"}}
+        built.provenance={...cloneSnapshot(old.provenance||{}),source:"manual",
+          policyVersion:stillAdaptive?"manual-adaptive@1":"manual@1"}}
       sets.push(built)}
     prescriptionsByCycle.push({cycleIndex,sets})}
   const primaryIds=Array.isArray(raw?.primaryFeatureMuscle)?raw.primaryFeatureMuscle:[];
@@ -12746,6 +12783,9 @@ function editorSlotForRow(row,document,slotId,order,existing=null){
   return{...prior,id:slotId,purposeId:"manual",exerciseId,sourceExerciseIds:[exerciseId],role:"manual",
     musclePurposeIds:[...new Set([...primaryIds,...secondaryIds])],movementPatternIds:[...new Set(patternIds)],
     ...(sourceType?{exerciseTypeId:sourceType}:{}),order,metricOrigin:origin,metricIds,metricDefinitions:definitions,
+    lateralityIds:raw?[...(raw.laterality||[])]:[],
+    // An old bilateral/unilateral answer cannot describe a different movement.
+    executionMode:existing?.exerciseId===exerciseId?existing.executionMode??null:catalogExecutionMode(exerciseId),
     ...(row.displayName?{displayName:String(row.displayName)}:{}),setupNotes:String(row.notes||""),
     ...(!raw?manualAttributionFor(row):{}),
     loadingModel:{bodyweightCoefficient:Number.isFinite(raw?.bodyweight)?raw.bodyweight:null,assistanceDirection:"subtract"},
@@ -12793,13 +12833,12 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
     const current=Object.prototype.hasOwnProperty.call(set.targets||{},edit.semantic)
       ?{present:true,value:set.targets[edit.semantic]}:{present:false,value:null};
     if(!changeValueEqualForEditor(current,edit.after)&&!changeValueEqualForEditor(current,edit.before))return false;
-    // Plan 069 D3: the rep range feeds the suggestion, so an adaptive set
-    // keeps adapting through a range edit and cannot lose its range.
-    const keepsAdaptive=set.status==="ready"&&(metric.semantic==="reps"||metric.semantic==="repsPerSide");
-    if(keepsAdaptive&&!(edit.after?.present&&editorRepRangeValid(edit.after.value)))return false;
+    // Canonical replay must match the editor: no target edit disables
+    // adaptation. A ready set cannot lose its engine-required rep target.
+    const needsRange=set.status==="ready"&&(metric.semantic==="reps"||metric.semantic==="repsPerSide");
+    if(needsRange&&!(edit.after?.present&&editorRepRangeValid(edit.after.value)))return false;
     if(edit.after?.present)set.targets[edit.semantic]=cloneSnapshot(edit.after.value);
     else delete set.targets[edit.semantic];
-    if(!keepsAdaptive){set.status="manual";set.provenance={source:"manual",policyVersion:"manual@1"}}
     syncEditorRowFromCanonical(document,slot,Number(edit.cycleIndex));
   }else if(edit?.kind==="metric_composition"){
     const {slot}=find(slotId);
@@ -12860,10 +12899,8 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
     if(current!==edit.before&&current!==edit.after)return false;
     if(edit.field==="rir"&&edit.after!==null&&(!Number.isFinite(edit.after)||edit.after<0||edit.after>6))return false;
     if(edit.field==="restSeconds"&&edit.after!==null&&(!Number.isSafeInteger(edit.after)||edit.after<0||edit.after>86400))return false;
-    const keepsAdaptive=edit.field==="rir"&&set.status==="ready";
-    if(keepsAdaptive&&edit.after===null)return false;
+    if(edit.field==="rir"&&set.status==="ready"&&edit.after===null)return false;
     set[edit.field]=edit.after;
-    if(!keepsAdaptive){set.status="manual";set.provenance={source:"manual",policyVersion:"manual@1"}}
     const {slot:rowSlot}=find(slotId);syncEditorRowFromCanonical(document,rowSlot,Number(edit.cycleIndex));
   }else if(edit?.kind==="suggest_loads"){
     const {slot}=find(slotId);
@@ -12946,7 +12983,11 @@ function syncEditorCanonicalIntent(document,baseDocument,edit,{cycleIndex=1}={})
       if(!newSlot.alternates.length)delete newSlot.alternates}
     if(edit.kind==="exercise_replace"){
       for(const container of definition.days||[])container.slots=container.slots.filter(slot=>slot.id!==slotId)}
-    if(edit.kind==="exercise_replace")dropPendingSuggestLoads(document,slotId);
+    // Pending opt-in is an exercise-level preference, not an approval of a
+    // particular movement. Keep it when the replacement still supports it;
+    // a custom or unsupported composition cannot be activated.
+    if(edit.kind==="exercise_replace"&&editorSuggestLoadsPolicy.eligibility(newSlot)!=="eligible")
+      dropPendingSuggestLoads(document,slotId);
     const current=day.slots.findIndex(item=>item.id===slotId);
     if(current>=0)day.slots[current]=newSlot;else day.slots.push(newSlot);
     day.slots.sort((a,b)=>a.order-b.order);

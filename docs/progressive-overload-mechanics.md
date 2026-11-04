@@ -349,6 +349,20 @@ The Program editor selects the method for each exercise and shows only its
 reviewed basic values. Total reps owns its set count, total, per-set limits,
 effort window, and load step. Heavy-and-lighter owns one heavy-set window, the
 number and rep window of lighter sets, their percentage, and the load step.
+Editing reps, RIR, rest or the number of sets does not turn off load
+suggestions on an adaptive exercise. Replacing an exercise with another
+supported catalog movement also keeps them on; the new movement uses its own
+loading convention and may need you to confirm how you perform it. Custom
+movements and unsupported metric combinations cannot generate loads, even if
+the previous movement could. Only explicitly turning off **Suggest loads**
+disables it on an otherwise eligible movement.
+
+A load typed for a set of an adaptive exercise is where that exercise starts
+while it has no comparable history: the workout offers it as a suggestion and
+says it is the program's ("Your planned 77.5 kg"). Once a set is logged, the
+engine's recommendation takes over and the typed load is only the planned
+value. No load is invented for a set that has none (owner, 2026-11-04).
+
 Saving validates the whole prescription first. An unsupported imported method
 is preserved and named as incompatible until you explicitly replace it.
 

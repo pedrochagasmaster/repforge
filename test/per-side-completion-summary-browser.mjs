@@ -537,8 +537,14 @@ try {
   await replacedPage.evaluate(() => window.__repforgeStorage.flush());
   const afterReplace = await readReplaced();
   observations.editorReplaced.after = afterReplace;
-  check(afterReplace.slot?.exerciseId === BARBELL_RDL_ID && afterReplace.slot?.executionMode === "unilateral",
-    "#413 the replaced slot holds the barbell RDL and keeps an explicit execution mode", afterReplace.slot);
+  // Plan 069 D3 as the owner amended it (2026-11-03) supersedes #413's "keeps an explicit execution mode" clause: a
+  // replacement never reuses the previous movement's answer. The slot takes the new movement's catalog mode, or none
+  // (null), when the catalog cannot tell and the lifter must answer. The rest of #413 below is its substance: the older
+  // RDL rows still add no tonnage, PR or comparable point once the slot holds another movement.
+  const replacedCatalogMode = await replacedPage.evaluate((id) => catalogExecutionMode(id), BARBELL_RDL_ID);
+  check(afterReplace.slot?.exerciseId === BARBELL_RDL_ID && (afterReplace.slot?.executionMode ?? null) === replacedCatalogMode,
+    "#413 the replaced slot holds the barbell RDL in the barbell RDL's own catalog mode (D3, owner 2026-11-03), never the old answer",
+    { slot: afterReplace.slot, catalogMode: replacedCatalogMode });
   check(!(afterReplace.history[earlierSession] > 0) && !(afterReplace.history[latestSession] > 0) &&
     !(afterReplace.today > 0) && afterReplace.summary.volume === 0,
   "#413 the older RDL rows add no tonnage to History, Today or the summary after the replacement", afterReplace);
