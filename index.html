@@ -1387,6 +1387,13 @@ Triceps pushdown 3x12-15</pre>
       <button type="button" id="programEditorKeep" class="text-link text-link--center">Keep editing</button>
     </div>
   </dialog>
+  <dialog id="programEditorIssues" class="program-editor-leave program-editor-issues" aria-modal="true" aria-labelledby="programEditorIssuesTitle">
+    <h2 id="programEditorIssuesTitle" data-i18n="program.editor.issues.title">Finish these first</h2>
+    <ul id="programEditorIssuesList" class="program-editor-issues__list"></ul>
+    <div class="program-editor-leave__actions">
+      <button type="button" id="programEditorIssuesKeep" class="text-link text-link--center" data-i18n="program.editor.keep_editing">Keep editing</button>
+    </div>
+  </dialog>
   <div id="sessionSummary" class="sumsheet hidden" role="dialog" aria-modal="true" data-i18n-aria="dialog.session_summary.aria" aria-label="Session summary" hidden>
     <div id="sessionSummaryBody" class="sumsheet__body"></div>
   </div>
@@ -1426,7 +1433,7 @@ Triceps pushdown 3x12-15</pre>
   <script src="program-compiler.js?v=560"></script>
   <script src="program-entry.js?v=515"></script>
   <script src="program-entry-adapter.js?v=560"></script>
-  <script src="program-editor.js?v=557"></script>
+  <script src="program-editor.js?v=559"></script>
   <script src="program-review.js?v=572"></script>
   <script src="shared-setup.js?v=574"></script>
   <script src="workout-draft.js?v=466"></script>
@@ -1439,6 +1446,6 @@ Triceps pushdown 3x12-15</pre>
   <script src="durable-state.js?v=447"></script>
   <script src="progress-model.js?v=309"></script>
   <script src="history-ui.js?v=604"></script>
-  <script src="app.js?v=609"></script>
+  <script src="app.js?v=611"></script>
 </body>
 </html>

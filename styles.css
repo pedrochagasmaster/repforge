@@ -2370,6 +2370,10 @@ body.is-sheet-open{overflow:hidden}
    .5px divider, each button a 44px touch box. The value is drawn first (order) so the markup keeps its − value + order. */
 .review-step{display:inline-flex;align-items:center;gap:0;border:0;border-radius:var(--radius-none);background:transparent;overflow:visible}
 .review-step b{order:-1;min-width:40px;padding:0 var(--space-12) 0 0;text-align:right;font-family:var(--font-training-data);font-weight:var(--weight-regular);font-size:var(--font-size-control);color:var(--color-ink)}
+/* A value said in words ("Varies by set") rather than a number. */
+.review-step b.review-step__words{font-family:var(--font-language);font-size:var(--font-size-body-small);color:var(--color-ink-secondary);white-space:nowrap}
+/* The value a refused commit points at (not its minus button). */
+.review-step b[aria-invalid="true"]{padding:0 var(--space-8);text-align:center;margin-right:var(--space-4);outline:2px solid var(--control-error-boundary);outline-offset:2px;border-radius:var(--radius-compact)}
 .review-step button{
   position:relative;flex:none;display:grid;place-items:center;width:47px;min-width:47px;height:36px;min-height:36px;padding:0;border:0;
   background:var(--control-track);color:var(--ink);font-family:var(--font-language);font-size:var(--control-icon-size);line-height:1;cursor:pointer
@@ -3472,6 +3476,10 @@ body:has(:is(#program,[data-copy-id="program"]).program-editor-installed) nav{di
 .program-editor-leave p{margin:0 0 18px;color:var(--color-ink-secondary);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading)}
 .program-editor-leave__actions{display:flex;flex-direction:column;gap:8px}
 .program-editor-leave__actions .btn,.program-editor-leave__actions .text-link{width:100%}
+.program-editor-issues__list{list-style:none;margin:0 0 18px;padding:0;display:flex;flex-direction:column;gap:12px}
+.program-editor-issues__item{display:flex;align-items:center;gap:12px}
+.program-editor-issues__text{flex:1;min-width:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink)}
+.program-editor-issues__go{flex:none}
 
 /* @ci-domain global */
 /* ---- Bottom nav — floating glass dock ----

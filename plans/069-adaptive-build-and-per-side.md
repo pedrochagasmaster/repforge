@@ -122,7 +122,7 @@ editor and the Why sheet name the first one that fails.
 | R1 | A catalog movement (source-catalog metrics) | Slot | "Custom exercises use the targets you set." Manual. |
 | R2 | A supported composition (§1 table plus the three added in S3) | Catalog | "Taurifer doesn't suggest loads for timed or distance work." Manual. |
 | R3 | A rep target (a range, or a single number) | Slot, per cycle and set | The opt-in control is unavailable until a range is set. |
-| R4 | A target RIR (0–4) on every set | Slot, per cycle and set | The opt-in control requires it. No default is invented. |
+| R4 | A target RIR on every set (0–6, the engine's bound; owner amendment 2026-11-04) | Slot, per cycle and set | The opt-in control requires it. No default is invented. Sets may differ: they keep their own RIRs and the control reads "Varies by set" / "Varia por série". |
 | R5 | A loading convention, and for per-side loads a known execution mode | Catalog laterality, else the lifter's answer | EN: "Tell Taurifer how you do this: both sides together, or one side at a time." PT: "Diga ao Taurifer como você faz este movimento: os dois lados juntos ou um lado de cada vez." Configuration required. |
 | R6 | A bodyweight, when the movement counts bodyweight | Session or latest logged bodyweight | Existing `bodyweight_required` copy. Configuration required. |
 | R7 | A load step | Per-exercise load step, else the global minimum jump | Always present. The editor shows the value it will use. |
@@ -143,7 +143,12 @@ explanation.
   field together and requires both. The rep range is prefilled with the stored
   value and labelled as the current target. That includes Build's 6–10
   default, so the lifter confirms the default rather than inheriting it
-  unseen. RIR starts empty (D2). The switch also shows the load step it will
+  unseen. RIR starts empty (D2) when the sets have none. *Amendment (owner,
+  2026-11-04):* sets that each already have an RIR (0–6) keep their own, so a
+  generated slot switched off and on again needs no answer; the RIR row reads
+  "Varies by set" and its stepper still applies one value to every set. A
+  refused commit lists each missing input in a modal, naming the exercise and
+  what it needs, with Go to opening that field. The switch also shows the load step it will
   use (R7). For an asymmetrical per-side movement it asks for the execution
   mode (R5).
 - **Effect:** every set in the slot gets `status: "ready"` and the chosen

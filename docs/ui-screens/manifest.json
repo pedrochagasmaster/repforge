@@ -1669,6 +1669,20 @@
       "variants": "localized"
     },
     {
+      "id": "editor-issues",
+      "flow": "program",
+      "label": "Program — Apply refused, problems listed",
+      "scenario": "The installed Program editor after Done is pressed with Suggest loads on but no RIR target: a modal names the exercise and what it needs, with Go to on its row and Keep editing below; nothing has opened behind it.",
+      "variants": "localized"
+    },
+    {
+      "id": "editor-issue-field",
+      "flow": "program",
+      "label": "Program — the field a refused Apply needs",
+      "scenario": "The exercise sheet after Go to in the refused-Apply modal: the empty RIR value is outlined and the reason sits under its row.",
+      "variants": "localized"
+    },
+    {
       "id": "exercise-picker",
       "flow": "program",
       "label": "Program — exercise picker",

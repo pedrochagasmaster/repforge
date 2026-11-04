@@ -132,31 +132,69 @@ try {
   await page.locator("#whyClose").click();
   await page.waitForSelector("#whySheet", { state: "hidden", timeout: 5000 });
 
-  // On again: the mixed RIRs leave the field empty, so Done refuses at it.
+  // On again (owner, 2026-11-04, option A): sets that each have an RIR keep
+  // their own, so the switch turns back on with no question.
   await page.evaluate(() => window.__repforgeLeaveWorkout());
   await page.locator('nav button[data-view="program"]').waitFor({ state: "visible", timeout: 10000 });
   row = await openInstalledEditor(page);
   await row.locator('[data-role="suggest-loads"]').click();
   await page.locator('#reviewSheet [data-role="suggest-loads-rir-step-value"]').waitFor({ timeout: 5000 });
   await settled(page);
-  check(await optInRir(page) === "–", "with mixed set RIRs the opt-in RIR starts empty", await optInRir(page));
+  check(await optInRir(page) === "Varies by set", "with different set RIRs the opt-in row reads Varies by set", await optInRir(page));
+  await done(page);
+  const mixed = await durableSlot(page);
+  check(mixed.statuses.join() === "ready" && mixed.policies.join() === "manual/manual-adaptive@1"
+    && JSON.stringify(mixed.rirs) === JSON.stringify(off.rirs),
+  "Apply confirms the opt-in and keeps every set's own RIR", { mixed, off: off.rirs });
+
+  // Off, and week 1's first set loses its RIR: on again, the opt-in needs one.
+  row = await openInstalledEditor(page);
+  await row.locator('[data-role="suggest-loads"]').click();
+  await page.waitForFunction(() => document.querySelector('#reviewSheet [data-role="suggest-loads"][aria-checked="false"]'),
+    undefined, { timeout: 5000 });
+  await settled(page);
+  await page.locator('#reviewSheet [data-role="weeks-open"]').click();
+  await page.locator('#reviewSheet [data-role="week-row"][data-cycle-index="1"]').click();
+  await commitField(page.locator('#reviewSheet [data-role="prescription-field"][data-cycle-index="1"][data-set-index="1"][data-field="rir"]'), "");
+  await settled(page);
+  await page.locator('#reviewSheet [data-role="weeks-back"]').click();
+  await page.locator('#reviewSheet [data-role="suggest-loads"]').click();
+  await page.locator('#reviewSheet [data-role="suggest-loads-rir-step-value"]').waitFor({ timeout: 5000 });
+  await settled(page);
+  check(await optInRir(page) === "–", "a set with no RIR leaves the opt-in RIR empty", await optInRir(page));
   await pressApply(page);
+  // A refused Apply says why in a modal, naming the exercise and what it needs,
+  // and does not jump on its own.
+  await page.waitForSelector("#programEditorIssues[open]", { timeout: 5000 });
+  const issues = await page.evaluate(() => ({
+    rows: [...document.querySelectorAll('#programEditorIssues .program-editor-issues__text')].map((row) => row.textContent.trim()),
+    sheetOpen: !!document.querySelector("#reviewSheet.is-open"),
+  }));
+  check(issues.rows.length === 1 && issues.rows[0].includes(programRow.name) && issues.rows[0].includes("set an RIR target. Suggest loads needs one.")
+    && !issues.sheetOpen,
+  "Apply refuses with a modal naming the exercise and the RIR it needs, before opening anything", issues);
+  await page.locator('#programEditorIssues [data-issue-index="0"]').click();
+  await page.waitForSelector("#programEditorIssues", { state: "hidden", timeout: 5000 });
   await page.waitForFunction(() =>
-    document.querySelector('#reviewSheet [data-role="suggest-loads-rir-step"]')?.getAttribute("aria-invalid") === "true",
+    document.querySelector('#reviewSheet [data-role="suggest-loads-rir-step-value"]')?.getAttribute("aria-invalid") === "true",
   undefined, { timeout: 5000 }).catch(() => {});
   const refused = await page.evaluate(() => {
-    const input = document.querySelector('#reviewSheet [data-role="suggest-loads-rir-step"]');
+    const value = document.querySelector('#reviewSheet [data-role="suggest-loads-rir-step-value"]');
+    const note = document.getElementById(value?.getAttribute("aria-describedby") || "");
     return {
       editorOpen: !document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"),
-      invalid: input?.getAttribute("aria-invalid"),
-      note: document.getElementById(input?.getAttribute("aria-describedby") || "")?.getAttribute("role") || null,
-      focused: document.activeElement === input,
+      invalid: value?.getAttribute("aria-invalid"),
+      minusMarked: document.querySelector('#reviewSheet [data-role="suggest-loads-rir-step"][data-delta="-1"]')?.getAttribute("aria-invalid") || null,
+      note: note?.getAttribute("role") || null,
+      noteText: note?.textContent || "",
+      focused: document.activeElement === value,
     };
   });
   const stillOff = await durableSlot(page);
-  check(refused.editorOpen && refused.invalid === "true" && refused.note === "alert" && refused.focused
-    && stillOff.statuses.join() === "manual",
-  "Apply refuses an incomplete opt-in in the installed editor and commits nothing", { refused, stillOff });
+  check(refused.editorOpen && refused.invalid === "true" && refused.minusMarked === null && refused.note === "alert"
+    && refused.noteText === "Set an RIR target to use Suggest loads." && refused.focused
+    && stillOff.statuses.join() === "ready" && stillOff.rirs[0] === 3,
+  "Go to opens the exercise with the error on the RIR value itself, and nothing is committed (durably the slot is still the earlier adaptive one)", { refused, stillOff });
   // From an empty RIR the stepper starts at 2: one step down gives 1.
   await page.locator('#reviewSheet [data-role="suggest-loads-rir-step"][data-delta="-1"]').click();
   await settled(page);
