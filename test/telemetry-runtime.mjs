@@ -728,6 +728,34 @@ try {
     await context.close();
   }
 
+  phase("A normal finish with lifts hidden today reports the same session_completed, once (owner report A)");
+  {
+    const { context, page } = await openApp(browser, { seed: loggableProgram() });
+    await enterWorkout(page, "Day 1");
+    const hidden = ["seed-ex-3", "seed-ex-4", "seed-ex-5", "seed-ex-6"];
+    for (const id of hidden) await exerciseAction(page, id, "#exActionSkipBtn");
+    for (const [exerciseId, set, load, reps] of [[SEED_A, 1, 60, 8], [SEED_A, 2, 60, 7], [SEED_B, 1, 50, 10], [SEED_B, 2, 50, 9]]) {
+      await saveSetByHand(page, exerciseId, set, load, { reps });
+    }
+    // The last shown lift is done: its shelf finishes the workout, through the normal finish.
+    const finish = page.locator("#workout .exercise.is-current:not(.is-peek) .focus-shelf [data-ffinish]");
+    await finish.waitFor({ state: "visible", timeout: 5000 });
+    await finish.click();
+    await page.waitForFunction(() => window.__captured.some(([n]) => n === "session_completed"), undefined, { timeout: 10000 });
+    const events = await captured(page);
+    const session = propsOf(events, "session_completed");
+    assert(countOf(events, "session_completed") === 1, "the session is reported once", namesOf(events).join(","));
+    // Every event carries the shared envelope; the event's own properties are what a finish could change.
+    const envelope = new Set(["telemetry_schema_version", "app_version", "release_channel"]);
+    assert(JSON.stringify(Object.keys(session || {}).filter((key) => !envelope.has(key)).sort()) === JSON.stringify(["days_since_last", "duration", "exercise_count", "set_count"]),
+      "session_completed keeps exactly its four properties: no finish kind and no skipped count is added", JSON.stringify(session));
+    assert(session?.set_count === "1_5" && session?.exercise_count === "1_3" && session?.days_since_last === "first",
+      "its buckets count the logged work alone, exactly as the early finish of the same sets does", JSON.stringify(session));
+    assert(countOf(events, "exercise_skipped") === hidden.length,
+      "each lift the lifter hid is still reported as skipped, once", String(countOf(events, "exercise_skipped")));
+    await context.close();
+  }
+
   phase("The first working set is reported when its commit applies, once for the history");
   {
     const { context, page } = await openApp(browser, { seed: loggableProgram() });

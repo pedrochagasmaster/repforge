@@ -1319,7 +1319,6 @@ body.is-workout.is-focus-wo #workoutShell > :not(.wo-head):not(#logForm){
    banners above the deck, so a short band still holds the whole shelf. It clips rather than scrolls: Show all's target
    reaches past the thin line, and that overhang is not something to scroll to. */
 :root[data-keyboard="up"] body.is-workout.is-focus-wo #workout > .deck{min-height:var(--focus-deck-floor,0px)}
-:root[data-keyboard="up"] body.is-workout.is-focus-wo #workout > .skipbar{flex:0 1 auto;min-height:0;overflow-y:clip}
 :root[data-keyboard="up"] body.is-workout.is-focus-wo #workoutShell,
 :root[data-keyboard="up"] body.is-workout.is-focus-wo #logForm{min-height:0}
 :root[data-keyboard="up"] body.is-workout.is-focus-wo article.exercise--focus .fcard__context{min-height:0}

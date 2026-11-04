@@ -463,7 +463,7 @@ try {
         await exerciseAction(page, other, "#exActionSkipBtn");
         await selectExercise(page, first);
         await page.waitForFunction((id) => document.querySelector("#workout .exercise--focus.is-current")?.dataset.ex === id
-          && document.querySelector("#workout .skipbar"), first, { timeout: 15000 });
+          && document.querySelector("#workout .exercise.is-current:not(.is-peek) .skipbar"), first, { timeout: 15000 });
       }
       await page.waitForFunction(() => !!document.querySelector("#restTab") && !document.querySelector("#workout .motion-fade-out"), undefined, { timeout: 15000 });
       await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
@@ -472,7 +472,7 @@ try {
         const context = art.querySelector(".fcard__context"), box = context.getBoundingClientRect();
         const c = document.querySelector("#restTab").getBoundingClientRect();
         const o = art.querySelector(".ledgerline--open")?.getBoundingClientRect();
-        const bar = document.querySelector("#workout .skipbar"), show = bar?.querySelector(".skipbar__show");
+        const bar = document.querySelector("#workout .exercise.is-current:not(.is-peek) .skipbar"), show = bar?.querySelector(".skipbar__show");
         const b = bar?.getBoundingClientRect(), s = show?.getBoundingClientRect();
         return { skipbar: !!bar, top: box.top, bottom: box.bottom, scrollTop: context.scrollTop,
           clockTop: c.top, clockBottom: c.bottom, clockLeft: c.left, clockRight: c.right, open: art.querySelector(".ledgerline--open")?.dataset.lrow,
@@ -550,7 +550,7 @@ try {
         const other = await page.evaluate((id) => window.__repforgeFocus.list().find((e) => e.id !== id)?.id, first);
         await exerciseAction(page, other, "#exActionSkipBtn");
         await selectExercise(page, first);
-        await page.waitForSelector("#workout .skipbar");
+        await page.waitForSelector("#workout .exercise.is-current:not(.is-peek) .skipbar");
       }
       const before = await kbGeometry(page);
       await openField(page);
