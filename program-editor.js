@@ -370,16 +370,15 @@
   function replaceMetricTarget(document, slotId, cycleIndex, setIndex, semantic, after) {
     const set = definitionSet(document, slotId, cycleIndex, setIndex);
     if (!set) return false;
+    if (set.status === "ready" && REP_TARGET_SEMANTICS.has(semantic) &&
+        !(after.present && repRange(after.value))) return false;
     const targets = { ...(set.targets || {}) };
     if (after.present) targets[semantic] = clone(after.value);
     else delete targets[semantic];
     set.targets = targets;
-    // Plan 069 D3: the rep range is an input of the suggestion, so editing it
-    // keeps an adaptive set adaptive. Any other target is the lifter's own.
-    if (!(set.status === "ready" && REP_TARGET_SEMANTICS.has(semantic))) {
-      set.status = "manual";
-      set.provenance = { ...(set.provenance || {}), source: "manual", policyVersion: "manual@1" };
-    }
+    // Editing a target does not opt a lifter out of adaptive progression.
+    // A ready set must retain a usable rep target; authored values remain
+    // present without replacing the set's progression policy.
     const row = (document.program || []).find(candidate => (candidate.slotId || candidate.id) === slotId);
     const slot = definitionSlot(document, slotId);
     if (row && slot) row.prescriptionsByCycle = clone(slot.prescriptionsByCycle || []);
@@ -1465,10 +1464,10 @@
       }
       const before = currentSet[field] == null ? null : currentSet[field];
       if (Object.is(before, after)) return;
-      // Plan 069 D3: an adaptive set keeps adapting through an RIR edit, and
-      // cannot lose the RIR its suggestion needs.
-      const keepsAdaptive = field === "rir" && currentSet.status === "ready";
-      if (keepsAdaptive && after == null) {
+      // Program edits never revoke a ready set's adaptive policy. Clearing
+      // its RIR is refused because the engine requires that target.
+      const needsRir = field === "rir" && currentSet.status === "ready";
+      if (needsRir && after == null) {
         input.value = String(before);
         setStatus(label("invalid"), { error: true });
         return;
@@ -1476,10 +1475,6 @@
       const next = clone(document), set = definitionSet(next, slotId, cycleIndex, setIndex);
       if (!set) return;
       set[field] = after;
-      if (!keepsAdaptive) {
-        set.status = "manual";
-        set.provenance = { ...(set.provenance || {}), source: "manual", policyVersion: "manual@1" };
-      }
       const row = (next.program || []).find(candidate => (candidate.slotId || candidate.id) === slotId);
       if (row) row.prescriptionsByCycle = clone(definitionSlot(next, slotId).prescriptionsByCycle || []);
       const result = stage(next, { kind: "prescription_field", slotId, cycleIndex, setIndex, field, before, after }, { redraw: false });
@@ -2259,14 +2254,9 @@
       if (!current || (field !== "rir" && field !== "restSeconds")) return null;
       const before = current[field] == null ? null : current[field];
       if (Object.is(before, after)) return null;
-      const keepsAdaptive = field === "rir" && current.status === "ready";
-      if (keepsAdaptive && after == null) return null;
+      if (field === "rir" && current.status === "ready" && after == null) return null;
       const next = clone(doc), set = definitionSet(next, slotId, cycleIndex, setIndex);
       set[field] = after;
-      if (!keepsAdaptive) {
-        set.status = "manual";
-        set.provenance = { ...(set.provenance || {}), source: "manual", policyVersion: "manual@1" };
-      }
       const row = (next.program || []).find(candidate => (candidate.slotId || candidate.id) === slotId);
       if (row) row.prescriptionsByCycle = clone(definitionSlot(next, slotId).prescriptionsByCycle || []);
       return { next, edit: { kind: "prescription_field", slotId, cycleIndex, setIndex, field, before, after } };

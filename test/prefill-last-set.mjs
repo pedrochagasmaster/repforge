@@ -226,6 +226,13 @@ try {
         check(r.stored.load == null && r.stored.reps == null && untouched(r.stored), "the prefill stores nothing for set 2", r.stored);
         check(same([r.ledger.load, r.ledger.reps, r.ledger.rir], [{ value: "1.3", soft: true }, { value: "15", soft: true }, { value: "2", soft: true }]),
           "the ledger's open row shows the same 1.3 / 15 / 2, soft", r.ledger);
+        // Owner report 2026-11-03 (C2): the row after the open one showed the carried load and reps beside the program's
+        // target RIR (55 / 8 / 1 under a 55 / 8 / 0 row). Every unlogged set shows the same carried values.
+        const next = await page.evaluate(() => {
+          const row = document.querySelector("#workout .exercise.is-current .ledgerline[data-lrow='3']");
+          return row ? ["load", "reps", "rir"].map((lv) => row.querySelector(`[data-lv='${lv}']`)?.textContent.trim()) : null;
+        });
+        check(same(next, ["1.3", "15", "2"]), "the unlogged row after it carries the same 1.3 / 15 / 2, RIR included", next);
         await logShown(page);
         r = await reading(page, 2);
         check(r.stored.done && Number(r.stored.load) === 1.3 && Number(r.stored.reps) === 15 && Number(r.stored.rir) === 2,

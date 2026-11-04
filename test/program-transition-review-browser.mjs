@@ -179,6 +179,11 @@ async function checkEditorEdit(page, { slotId, cycleIndex, sets }, label) {
     { want: sets, live: setsIn(live), local: setsIn(durable.local), idb: setsIn(durable.idb) });
   check([durable.local, durable.idb].every((snapshot) => snapshot.program.every((row) => !("prescriptionsByCycle" in row))),
     `${label}: the durable program rows keep the canonical row shape`);
+  // Plan 069 D3 as the owner amended it (2026-11-03): an edit in the installed editor keeps an adaptive set adaptive.
+  const statuses = slots(live.programMeta.programDefinition).find((slot) => slot.id === slotId)
+    ?.prescriptionsByCycle.find((cycle) => cycle.cycleIndex === cycleIndex)?.sets.map((set) => set.status) || [];
+  check(statuses.length === sets && statuses.every((status) => status === "ready"),
+    `${label}: every set of the edited week stays adaptive (ready)`, statuses);
 }
 
 async function freshPage(browser, errors, { locale } = {}) {
@@ -350,6 +355,9 @@ async function main() {
     check(carriedSlot?.prescriptionsByCycle[editedWeek - 1].sets.length === setsBeforeEdit + 1,
       "the committed successor holds the set count the preview showed",
       carriedSlot?.prescriptionsByCycle.map((cycle) => cycle.sets.length));
+    check(carriedSlot?.prescriptionsByCycle[editedWeek - 1].sets.every((set) => set.status === "ready"),
+      "the successor keeps the edited exercise adaptive: the edit and the adaptation both carry (D3, owner 2026-11-03)",
+      carriedSlot?.prescriptionsByCycle[editedWeek - 1].sets.map((set) => set.status));
     // The regenerated successor stays editable (#388).
     await checkEditorDays(page, "fewer days successor");
     await checkEditorEdit(page, await addSetInEditor(page), "fewer days successor");
