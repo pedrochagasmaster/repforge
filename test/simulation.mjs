@@ -4131,7 +4131,7 @@ async function main() {
   const afterSkip = await page.evaluate(() => ({
     ex: document.querySelector("#workout .exercise.is-current")?.dataset.ex,
     count: document.querySelectorAll("#woProgress .segbar--ex .segbar__seg").length,
-    skipbar: !!document.querySelector("#workout .skipbar"),
+    skipbar: !!document.querySelector("#workout .exercise.is-current:not(.is-peek) .skipbar"),
   }));
   assert(
     afterSkip.ex !== beforeSkip.ex && afterSkip.count === beforeSkip.count - 1 && afterSkip.skipbar,
@@ -4139,7 +4139,7 @@ async function main() {
     `${JSON.stringify(beforeSkip)} -> ${JSON.stringify(afterSkip)}`,
     "Focus → tap skip → the deck moves on and the hidden-exercises bar appears"
   );
-  await page.click("#workout .skipbar__show");
+  await page.click("#workout .exercise.is-current:not(.is-peek) .skipbar__show");
   await page.waitForTimeout(320);
   assert(
     (await page.evaluate(() => document.querySelectorAll("#woProgress .segbar--ex .segbar__seg").length)) === beforeSkip.count,
@@ -6234,8 +6234,8 @@ async function main() {
     "skip class missing",
     "Skip → reload"
   );
-  if (await page.locator(".skipbar__show").count()) {
-    await page.click(".skipbar__show");
+  if (await page.locator("#workout .exercise.is-current:not(.is-peek) .skipbar__show").count()) {
+    await page.click("#workout .exercise.is-current:not(.is-peek) .skipbar__show");
     await flushDraftWork(page);
     await page.waitForFunction((id) => {
       const draft = window.__repforgeWorkoutDraft?.current?.();
