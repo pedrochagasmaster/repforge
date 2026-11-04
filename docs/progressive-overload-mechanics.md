@@ -96,6 +96,16 @@ Two small conventions:
 - Sets marked as warm-ups are ignored by everything below. Only working
   sets teach the app anything.
 
+Some exercises move part of your body as well as the weight (a pull-up all of
+it, an overhead triceps extension a little). For these the app counts your
+bodyweight too, and it uses your **last known weight**: the bodyweight you
+entered for this session, else the last one you logged, else the weight you
+gave in setup. A set logged without a session bodyweight records none, and
+the app values it with that same last known weight rather than treating it as
+a different setup (owner decision, 2026-11-04). The trade-off: if your setup
+or logged weight later changes, those sets follow the new value; a set logged
+with its own bodyweight keeps it.
+
 ## 3. The core idea: effort counts as reps
 
 The engine's central concept is called **capacity**: what a set proved you
