@@ -121,7 +121,7 @@ export const ORANGE_CATEGORIES = Object.freeze([
   // Owner-approved Today mock A (2026-10-23): the live session card's dot, its "In progress" tag and its sets bar, and
   // the current lift's ring in the rows below it.
   "live-session",
-  // The rest timer (owner-approved mock, 2026-10-23): the bell's words and check in accent, the flick, and End rest.
+  // The rest timer (owner-approved mock, 2026-10-23): the bell's words and check in accent, and End rest.
   "rest-timer",
   // The Focus hero (owner-approved direction A of focus-hero.html, 2026-10-28): the evidence line's inline Why? action.
   "focus-hero-why",
@@ -150,15 +150,13 @@ export const ORANGE_ALLOWLIST = [
   // The running rest's drain (rest timer redesign): the dial's arc and the light along the shelf's contour (its core and
   // blooms, owner 2026-10-28). The tab is words only (owner, 2026-10-29): its ring and glow are retired.
   { category: "timer-drain-bar", selector: ".restdial__arc" },
-  { category: "timer-drain-bar", selector: ".restglow" },
   { category: "timer-drain-bar", selector: ".restlight__core" },
   { category: "timer-drain-bar", selector: ".restlight__bloom" },
-  // The rest timer's own accent (owner-approved mock): the dial's run-out ring, the "Rest done" words and time, the flick and End rest.
+  // The rest timer's own accent (owner-approved mock): the dial's run-out ring, the "Rest done" words and time, and End rest.
   { category: "rest-timer", selector: ".restdial.is-done .restdial__track" },
   { category: "rest-timer", selector: ".resttab.is-done .resttab__label" },
   { category: "rest-timer", selector: ".resttab.is-done .resttab__time" },
   { category: "rest-timer", selector: ".restdial.is-done .restdial__time" },
-  { category: "rest-timer", selector: ".restflick" },
   { category: "rest-timer", selector: ".restlink--end" },
   // R3j: the dock's active item. Direction D leaves the dock as shipped (spec section 7), so the
   // active tab keeps painting its icon, its label and its selection edge in the accent.
