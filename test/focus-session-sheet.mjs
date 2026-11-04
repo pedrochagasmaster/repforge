@@ -394,6 +394,8 @@ async function trimNamesItsLifts(browser) {
     assert(flagged.every((id) => notes[id] === "Trimmed"), "Session details marks each trimmed lift Trimmed", JSON.stringify(notes));
     await page.locator("#sessionSheetClose").click();
     await page.waitForSelector("#sessionSheet", { state: "hidden" });
+    const actions = await page.evaluate((id) => { renderExActionsSheet(id); return document.querySelector("#exActionsStatus").textContent.trim(); }, flagged[0]);
+    assert(actions === "Trimmed", "the exercise's actions say Trimmed too", actions);
     await page.evaluate(async () => { await window.__repforgeWorkoutDraft.dispatch("skipExercise", { exerciseInstanceId: "seed-ex-6" }); await window.__repforgeWorkoutDraft.flush(); renderWorkout(); });
     assert(await bar() === "4 hidden today · 3 trimmed", "a lift hidden by hand on top reads apart from the trimmed ones", await bar());
   } finally {

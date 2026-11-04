@@ -8467,7 +8467,12 @@ function renderExActionsSheet(exId) {
   const isSkipped = draftEx.status === "skipped";
   if (skipLabel) skipLabel.textContent = t(isSkipped ? "ex.actions.restore" : "ex.actions.skip");
   // A skipped exercise says so in its status group, not only in the changed button label.
-  $("#exActionsStatus")?.classList.toggle("hidden", !isSkipped);
+  const statusEl = $("#exActionsStatus");
+  if (statusEl) {
+    statusEl.classList.toggle("hidden", !isSkipped);
+    // A lift Trim set aside says Trimmed here too, as the hidden bar and Session details do (owner, 2026-11-04).
+    statusEl.textContent = t(isSkipped && draftEx.skipReason === "trim" ? "log.trimmed" : "log.skipped");
+  }
 }
 
 /** "100 × 8, 8, 8" for one load across the sets, "100 × 8, 90 × 10" when the load moved. */
