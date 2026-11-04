@@ -756,6 +756,24 @@ try {
     await context.close();
   }
 
+  phase("Trim and its Undo report nothing new: the bulk path stays out of exercise_skipped (owner decision 2026-11-04)");
+  {
+    const { context, page } = await openApp(browser, { seed: loggableProgram() });
+    await enterWorkout(page, "Day 1");
+    const before = (await captured(page)).length;
+    await page.evaluate(async () => {
+      window.fatigueFlagged = () => exercises().filter((e) => ["seed-ex-3", "seed-ex-4"].includes(e.id));
+      await applyFatigueTrim();
+      await window.__repforgeWorkoutDraft.flush();
+    });
+    await page.locator(".trim-toast [data-role=trim-undo]").click();
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    const after = (await captured(page)).slice(before);
+    assert(countOf(after, "exercise_skipped") === 0 && after.length === 0,
+      "a Trim and its Undo send no event of their own", namesOf(after).join(","));
+    await context.close();
+  }
+
   phase("The first working set is reported when its commit applies, once for the history");
   {
     const { context, page } = await openApp(browser, { seed: loggableProgram() });

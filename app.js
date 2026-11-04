@@ -3294,9 +3294,35 @@ function fatigueFlagged(){return exercises().filter(e=>{const r=recommendation(s
 async function applyFatigueTrim(){
   const flagged=new Set(fatigueFlagged().map(e=>e.id));
   if(!activeWorkoutDraft)return;
-  for(const id of [...skipped])if(!flagged.has(id)){const result=await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
-  for(const id of flagged)if(!skipped.has(id)){const result=await WorkoutSession.dispatch("skipExercise",{exerciseInstanceId:id},{bulk:true});if(result.status!=="applied")return}
-  renderWorkout();toast(t("toast.trimmed_priority"))}
+  // What this Trim changes, so its toast names the lifts and Undo puts back exactly that (owner, 2026-11-04).
+  const restored=[],trimmed=[];
+  for(const id of [...skipped])if(!flagged.has(id)){const result=await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return;restored.push(id)}
+  for(const id of flagged)if(!skipped.has(id)){const result=await WorkoutSession.dispatch("skipExercise",{exerciseInstanceId:id,reason:"trim"},{bulk:true});if(result.status!=="applied")return;trimmed.push(id)}
+  renderWorkout();
+  if(trimmed.length)showTrimToast(trimmed,restored)}
+/** The lifts a Trim hid, by name: two, then how many more. */
+function trimmedNamesText(ids){
+  const names=ids.map(id=>exerciseDisplayName(sessionExercise(prog.find(id))));
+  if(names.length===1)return t("log.trimmed_named.one",{name:names[0]});
+  if(names.length===2)return t("log.trimmed_named.two",{a:names[0],b:names[1]});
+  return t("log.trimmed_named.more",{a:names[0],b:names[1],n:names.length-2})}
+/* The Trim toast: the day-change toast's shape (an Undo beside the text, no focus moved, a second one replaces it).
+   Undo restores the lifts this Trim hid and re-hides any it had brought back, by hand, so no reason is recorded. */
+let trimToastEl=null,trimToastTimer=null;
+function hideTrimToast(){clearTimeout(trimToastTimer);trimToastTimer=null;trimToastEl?.remove();trimToastEl=null}
+function showTrimToast(trimmed,restored){
+  hideTrimToast();
+  const el=document.createElement("div");
+  el.className="review-toast trim-toast";el.setAttribute("role","status");
+  el.innerHTML=`<span class="review-toast__text">${esc(trimmedNamesText(trimmed))}</span>`+
+    `<button type="button" class="review-toast__undo" data-role="trim-undo">${esc(t("common.undo"))}</button>`;
+  el.querySelector('[data-role="trim-undo"]').onclick=async()=>{hideTrimToast();await undoFatigueTrim(trimmed,restored)};
+  document.body.append(el);trimToastEl=el;trimToastTimer=setTimeout(hideTrimToast,6000)}
+async function undoFatigueTrim(trimmed,restored){
+  if(!activeWorkoutDraft)return;
+  for(const id of trimmed)if(skipped.has(id)){const result=await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
+  for(const id of restored)if(!skipped.has(id)){const result=await WorkoutSession.dispatch("skipExercise",{exerciseInstanceId:id},{bulk:true});if(result.status!=="applied")return}
+  renderWorkout()}
 let focusIndex=0,statsSeg="overview",evidenceView=null,prFilter="all";
 let strengthScope="current-block",volumeScope="this-week",volumeDrillMuscle=null;
 let focusDrag=null,focusFlinging=false;
@@ -8185,7 +8211,7 @@ function renderSessionSheet(){
       const statusText = `${doneCount}/${totalCount}`;
       // The state is a mark and, for the lift Focus is on and a skipped one, a word: never colour alone (#522).
       const state = isSkipped ? "skipped" : isComplete ? "complete" : isCurrent ? "current" : "pending";
-      const note = isSkipped ? t("log.skipped") : isCurrent ? t("session.sheet.now") : "";
+      const note = isSkipped ? t(ex.skipReason === "trim" ? "log.trimmed" : "log.skipped") : isCurrent ? t("session.sheet.now") : "";
       // Reorder as the editor does (UI kit, owner 2026-10-24): drag the grip, or long-press the row (or its menu, the
       // keyboard path) for Move up and Move down. The ↑ ↓ buttons are gone.
       const name = exerciseDisplayName(ex);
@@ -8441,7 +8467,12 @@ function renderExActionsSheet(exId) {
   const isSkipped = draftEx.status === "skipped";
   if (skipLabel) skipLabel.textContent = t(isSkipped ? "ex.actions.restore" : "ex.actions.skip");
   // A skipped exercise says so in its status group, not only in the changed button label.
-  $("#exActionsStatus")?.classList.toggle("hidden", !isSkipped);
+  const statusEl = $("#exActionsStatus");
+  if (statusEl) {
+    statusEl.classList.toggle("hidden", !isSkipped);
+    // A lift Trim set aside says Trimmed here too, as the hidden bar and Session details do (owner, 2026-11-04).
+    statusEl.textContent = t(isSkipped && draftEx.skipReason === "trim" ? "log.trimmed" : "log.skipped");
+  }
 }
 
 /** "100 × 8, 8, 8" for one load across the sets, "100 × 8, 90 × 10" when the load moved. */
@@ -9485,9 +9516,16 @@ function shelfReveal(input){
  *  What a peek does not carry is behaviour — its controls hold no hooks and no
  *  tab stop — and no `data-k` field, which would duplicate the draft keys the
  *  live card owns. */
+const SKIPBAR_TRIMMED_KEYS=["log.skipbar.trimmed.one","log.skipbar.trimmed.other"];
+const SKIPBAR_MIXED_KEYS=["log.skipbar.mixed.one","log.skipbar.mixed.other"];
 function focusSkipbarHtml(peek){
-  const hiddenCount=exercises().filter(e=>skipped.has(e.id)).length;
-  return hiddenCount?`<div class="skipbar">${esc(t("log.skipbar",{n:hiddenCount}))} <button type="button" class="skipbar__show"${peek?dead():""}>${esc(t("log.skipbar.show_all"))}</button></div>`:""}
+  const hidden=exercises().filter(e=>skipped.has(e.id)),hiddenCount=hidden.length;
+  // The lifts Trim set aside say so, apart from the ones hidden by hand (owner, 2026-11-04).
+  const trimmedCount=hidden.filter(e=>activeWorkoutDraft?.exercises?.[e.id]?.skipReason==="trim").length;
+  const label=!trimmedCount?t("log.skipbar",{n:hiddenCount})
+    :trimmedCount===hiddenCount?t(SKIPBAR_TRIMMED_KEYS[hiddenCount===1?0:1],{n:hiddenCount})
+      :t(SKIPBAR_MIXED_KEYS[trimmedCount===1?0:1],{n:hiddenCount,m:trimmedCount});
+  return hiddenCount?`<div class="skipbar">${esc(label)} <button type="button" class="skipbar__show"${peek?dead():""}>${esc(t("log.skipbar.show_all"))}</button></div>`:""}
 function focusCardHtml(ex,r,draft,prev,opts){
   const{peek=false,hasNext=true,allDone=false,nextName=""}=opts;
   const effortMode=isEffortMode();
