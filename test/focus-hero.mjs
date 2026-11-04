@@ -400,6 +400,26 @@ try {
         max: await page.evaluate((id) => window.__repforgeProgression.programSlot(id).max, target.rowId) });
       ok(said?.key === key && said.text === expected && !/\d+(?:[.,]\d+)?\s*kg/.test(said.text), `${reasonCodes.join(" + ")} (${kind}) says ${key}`, said);
     }
+    // Owner report 2026-11-03 (C): set 1 logged at RIR 0, set 2 declined, and the cue said "a different loading setup
+    // … log RIR and it suggests the next one". A later set says its own reason, never the first set's, and "mismatch" only
+    // when the engine reports one; declined with a comparable RIR set above, it says it can't suggest and promises nothing.
+    const live = { history: [], currentSession: [{ setIndex: 0, rir: 0 }] };
+    const laterCases = [
+      ["unsupported", ["no_comparable_history"], live, "declined with a logged RIR set above"],
+      ["unsupported", ["manual_prescription"], live, "the first set's no-history reason does not leak into the second"],
+      ["mismatch", ["no_comparable_history", "loading_convention_mismatch"], live, "a real loading-convention mismatch"],
+      ["new", ["no_comparable_history"], { history: [], currentSession: [{ setIndex: 0, rir: null }] }, "a set above without RIR"],
+    ];
+    for (const [key, ownCodes, inputs, why] of laterCases) {
+      const said = await page.evaluate(({ id, ownCodes, inputs }) => window.__repforgeFocus.noSuggestion(id, {
+        status: "new", reasonCodes: ["no_comparable_history"],
+        targetSets: [{ prescription: { setIndex: 1 }, status: "manual", result: { reasonCodes: ["no_comparable_history"] } },
+          { prescription: { setIndex: 2 }, status: "manual", result: { reasonCodes: ownCodes } }],
+        progressionInputs: inputs }, 2, "start"), { id: target.rowId, ownCodes, inputs });
+      const expected = await t(page, `focus.evidence.none_${key}`, { what: "RIR", min: await page.evaluate((id) => window.__repforgeProgression.programSlot(id).min, target.rowId),
+        max: await page.evaluate((id) => window.__repforgeProgression.programSlot(id).max, target.rowId) });
+      ok(said?.key === key && said.text === expected, `set 2, ${why}: says ${key}`, said);
+    }
     await run.context.close();
   }
 
