@@ -289,6 +289,15 @@
       && capturedContext?.externalLoadMultiplier === null) {
       normalizedCapturedContext = { ...capturedContext, externalLoadMultiplier: config.multiplier };
     }
+    // Contribution unknown (owner decision 2026-11-04): a set recorded with no bodyweight (bodyweightKg null, contribution
+    // not on) does not say what its bodyweight was, so it is not a different loading setup. The current configuration
+    // stands for it: its contribution and the bodyweight it resolves (session, last logged, setup). A set that recorded a
+    // bodyweight keeps its own. Unknown sets therefore follow a later change to the resolved bodyweight.
+    if (normalizedCapturedContext && shape.coefficient > 0 && normalizedCapturedContext.bodyweightKg == null
+      && normalizedCapturedContext.bodyweightContributionEnabled !== true) {
+      normalizedCapturedContext = { ...normalizedCapturedContext,
+        bodyweightContributionEnabled: config.bodyweightContributionEnabled, bodyweightKg: config.bodyweightKg };
+    }
     if (normalizedCapturedContext) {
       const capturedMultiplier = normalizedCapturedContext.externalLoadMultiplier;
       if (capturedMultiplier !== config.multiplier) return { ok: false, reason: "loading_convention_mismatch" };
