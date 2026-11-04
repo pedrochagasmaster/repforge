@@ -658,6 +658,16 @@
       "content": "flat",
       "scenario": "The installed editor after a refused day rename: the field shows the day's own name again and the reason sits under the day header."
     },
+    "program/editor-issues": {
+      "owner": "plan-069",
+      "content": "flat",
+      "scenario": "The installed editor after Done is refused: a modal lists each problem with the exercise and what it needs, Go to on its row, and Keep editing."
+    },
+    "program/editor-issue-field": {
+      "owner": "plan-069",
+      "content": "flat",
+      "scenario": "The exercise sheet after Go to: the empty RIR value is outlined and the reason sits under its row."
+    },
     "program/exercise-picker": {
       "owner": "plan-057",
       "content": "flat",
