@@ -2373,7 +2373,7 @@ body.is-sheet-open{overflow:hidden}
 /* A value said in words ("Varies by set") rather than a number. */
 .review-step b.review-step__words{font-family:var(--font-language);font-size:var(--font-size-body-small);color:var(--color-ink-secondary);white-space:nowrap}
 /* The value a refused commit points at (not its minus button). */
-.review-step b[aria-invalid="true"]{padding:0 var(--space-8);text-align:center;margin-right:var(--space-4);outline:2px solid var(--control-error-boundary);outline-offset:2px;border-radius:var(--radius-compact)}
+.review-step b[aria-invalid="true"]{padding:var(--space-4) var(--space-8);text-align:center;margin-right:var(--space-4);border:2px solid var(--control-error-boundary);outline:none;border-radius:var(--radius-compact)}
 .review-step button{
   position:relative;flex:none;display:grid;place-items:center;width:47px;min-width:47px;height:36px;min-height:36px;padding:0;border:0;
   background:var(--control-track);color:var(--ink);font-family:var(--font-language);font-size:var(--control-icon-size);line-height:1;cursor:pointer
