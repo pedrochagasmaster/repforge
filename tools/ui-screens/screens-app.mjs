@@ -428,11 +428,19 @@ export function appState(key, lang) {
   // richer fixture so their progress and volume evidence remains meaningful.
   // The editor reads the canonical ProgramDefinition, not the flat `program`
   // projection, so both have to be narrowed together to the same two slots.
-  if (["program/progression-editor","program/editor-context-menu"].includes(key) || ["program/editor-alternates","program/editor-alternate-context-menu"].includes(key) || key === "program/editor-suggest-loads") {
+  if (["program/progression-editor","program/editor-context-menu"].includes(key) || ["program/editor-alternates","program/editor-alternate-context-menu"].includes(key) || ["program/editor-suggest-loads","program/editor-issues","program/editor-issue-field"].includes(key)) {
     const kept = new Set(["seed-ex-1", "seed-ex-2"]);
     state.program = state.program.filter((exercise) => exercise.day !== "Day 1" || kept.has(exercise.id));
     for (const day of state.programMeta.programDefinition.days) {
       if (day.name === "Day 1") day.slots = day.slots.filter((slot) => kept.has(slot.id));
+    }
+  }
+  // A manual exercise with no RIR: switching Suggest loads on leaves the opt-in incomplete.
+  if (["program/editor-issues","program/editor-issue-field"].includes(key)) {
+    const slot = state.programMeta.programDefinition.days.flatMap((day) => day.slots).find((entry) => entry.id === "seed-ex-1");
+    for (const set of slot.prescriptionsByCycle.flatMap((cycle) => cycle.sets)) {
+      set.status = "manual"; set.rir = null;
+      set.provenance = { ...(set.provenance || {}), source: "manual", policyVersion: "manual@1" };
     }
   }
   if (["program/editor-alternates","program/editor-alternate-context-menu"].includes(key)) {
@@ -444,6 +452,20 @@ export function appState(key, lang) {
 }
 
 /* Plan 074: the installed editor (candidate A) and its exercise sheet. */
+/** Suggest loads switched on for the first exercise with no RIR, then Done: the refusal's modal is open. */
+async function refuseEditorApplyA(page) {
+  await openProgram(page);
+  await openEditorA(page);
+  await openEditorSheetA(page, "seed-ex-1");
+  await page.locator('#reviewSheet [data-role="suggest-loads"]').click();
+  await editorIdleA(page);
+  await page.locator('#reviewSheet [data-role="sheet-done"]').click();
+  await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 20000 });
+  await page.waitForFunction(() => document.querySelector("#toast")?.classList.contains("hidden") !== false, undefined, { timeout: 20000 });
+  await page.click("#programEditDone");
+  await page.waitForSelector("#programEditorIssues[open]", { timeout: 20000 });
+  await page.waitForFunction(() => document.getAnimations().every((animation) => animation.playState !== "running" || animation.effect?.getTiming().iterations === Infinity), undefined, { timeout: 20000 });
+}
 async function editorIdleA(page) {
   await page.waitForSelector('#programEditor [data-role="editor"][data-layout="review"]:not([aria-busy="true"])', { timeout: 20000 });
 }
@@ -2617,6 +2639,19 @@ export const APP_SCENARIOS = {
     const section = page.locator('#reviewSheet [data-role="loads"]');
     await section.locator('[data-role="execution-mode"]').first().waitFor({ timeout: 20000 });
     await section.evaluate((node) => node.scrollIntoView({ block: "center" }));
+    await sleep(page, 400);
+  },
+  // The opt-in is left without an RIR, so Done is refused and lists why.
+  "program/editor-issues": async (page) => {
+    await refuseEditorApplyA(page);
+    await sleep(page, 400);
+  },
+  "program/editor-issue-field": async (page) => {
+    await refuseEditorApplyA(page);
+    await page.locator('#programEditorIssues [data-issue-index="0"]').click();
+    await page.waitForSelector("#programEditorIssues", { state: "hidden", timeout: 20000 });
+    await page.waitForSelector('#reviewSheet.is-open [data-role="suggest-loads-rir-step-value"][aria-invalid="true"]', { timeout: 20000 });
+    await page.locator('#reviewSheet [data-role="suggest-loads-rir-line"]').evaluate((node) => node.scrollIntoView({ block: "center" }));
     await sleep(page, 400);
   },
   "program/editor-day-name-refused": async (page) => {

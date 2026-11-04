@@ -13181,6 +13181,7 @@ function createInstalledProgramEditorAdapter(){
     context:()=>{const mc=mesocycleWeek();return mc.current!=null?mesocycleWeekCopy(mc):""},
     status:()=>"",
     confirm:({kind,day})=>kind==="day_remove"?confirm(t("confirm.delete_day",{day:dayLabel(day)})):true,
+    reportIssues:showEditorIssues,
     reducedMotion:()=>reducedMotion(),
     announce:announceEditorChange,
     // The Settings rest length, which a slot with no stored rest inherits (owner, 2026-10-25: option A).
@@ -13253,6 +13254,7 @@ function createOnboardingProgramEditorAdapter(){
     status:()=>{const message=onboardingEditorStatus().message;return message===onboardingEditorAnnounced?message:""},
     afterRender:()=>updateOnboardingEditorActions(),
     confirm:()=>true,
+    reportIssues:showEditorIssues,
     reducedMotion:()=>reducedMotion(),
     announce:announceEditorChange,
     // The Settings rest length, which a slot with no stored rest inherits (owner, 2026-10-25: option A).
@@ -13444,6 +13446,28 @@ function disarmInstalledEditorHistory({historyAlreadyPopped=false}={}){
   installedEditorHistoryRelease=true;
   try{history.back()}catch{installedEditorHistoryRelease=false}
 }
+// A refused editor commit lists each problem in plain words; "Go to" resolves
+// with that problem's index once the dialog has closed, Keep editing with null.
+function showEditorIssues(items){
+  const dialog=$("#programEditorIssues"),list=$("#programEditorIssuesList"),keep=$("#programEditorIssuesKeep");
+  if(!dialog||!list||!Array.isArray(items)||!items.length)return Promise.resolve(null);
+  return new Promise(resolve=>{
+    let chosen=null,done=false;
+    const finish=()=>{
+      if(done)return;done=true;
+      list.removeEventListener("click",onPick);keep?.removeEventListener("click",onKeep);
+      closeModal(dialog).then(()=>afterModalSettles(()=>resolve(chosen)))};
+    const onPick=e=>{const button=e.target instanceof Element?e.target.closest("[data-issue-index]"):null;
+      if(!button)return;chosen=Number(button.dataset.issueIndex);finish()};
+    const onKeep=()=>finish();
+    $("#programEditorIssuesTitle").textContent=t("program.editor.issues.title");
+    if(keep)keep.textContent=t("program.editor.keep_editing");
+    list.innerHTML=items.map((item,index)=>`<li class="program-editor-issues__item" data-role="editor-issue">`+
+      `<span class="program-editor-issues__text">${esc(item.text)}</span>`+
+      `<button type="button" class="btn btn--steel program-editor-issues__go" data-issue-index="${index}">${esc(t("program.editor.issues.go"))}</button></li>`).join("");
+    list.addEventListener("click",onPick);keep?.addEventListener("click",onKeep);
+    if(!openModal(dialog,{handoff:true,initialFocus:list.querySelector("[data-issue-index]"),onEscape:finish})){done=true;resolve(0)}
+  })}
 function closeInstalledLeaveDialog(){
   const dialog=$("#programEditorLeave");
   installedLeaveMode=null;
@@ -13494,7 +13518,7 @@ async function applyInstalledEditorAndContinue(){
     // When this tab's copy has nothing to fix, another tab changed the slot.
     if(installedLeaveMode)closeInstalledLeaveDialog();
     pendingEditorNavigation=null;
-    if(editor.checkSuggestLoads?.()?.ok!==false){
+    if(editor.checkSuggestLoads?.({report:false})?.ok!==false){
       const status=$("#programEditor [data-role=\"editor-status\"]");
       if(status){status.textContent=t("program.editor.conflict");status.hidden=false;status.classList.add("is-error")}}
     return result;

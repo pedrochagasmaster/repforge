@@ -425,6 +425,11 @@
   function validRir(value) {
     return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 6;
   }
+  /** Every set has an RIR, but not the same one: the opt-in keeps them as they are. */
+  function variedRir(slot) {
+    const values = slotSets(slot).map(set => set.rir);
+    return values.length > 1 && values.every(validRir) && values.some(value => value !== values[0]);
+  }
   function uniformRir(slot) {
     const values = slotSets(slot).map(set => set.rir);
     return values.length && values.every(value => validRir(value) && value === values[0]) ? values[0] : null;
@@ -434,14 +439,15 @@
   }
   /**
    * The first input a pending slot still needs, or null when it can be
-   * confirmed. The opt-in asks for one RIR for the slot: sets that disagree
-   * leave its field empty, so they need the lifter's answer too.
+   * confirmed. Every set needs an RIR; sets that already have different ones
+   * keep them, and the slot's single RIR control reads "Varies by set".
    */
   function suggestLoadsIssue(slot, policy) {
     if (!slot || policy?.eligibility?.(slot) !== "eligible") return "eligibility";
     const semantic = slotRepSemantic(slot), sets = slotSets(slot);
     if (!semantic || !sets.length || sets.some(set => !repRange(set.targets?.[semantic]))) return "range";
-    if (uniformRir(slot) == null) return "rir";
+    // Each set needs an RIR the engine accepts (0–6); they may differ (owner, 2026-11-04).
+    if (!sets.every(set => validRir(set.rir))) return "rir";
     if (executionModeRequired(slot, policy)) return "execution_mode";
     return null;
   }
@@ -999,13 +1005,13 @@
       if (reviewLayout && (pendingRename() || heldRename)) return flushPendingRename().then(saved => saved === false
         ? { ok: false, invalid: true, renameRefused: true } : apply({ kind }));
       if (!edits.length && !changed()) return Promise.resolve({ ok: true, unchanged: true, document: clone(document), token: clone(token) });
-      const issues = validation(document);
-      if (issues.length) {
-        setStatus(label("invalid"), { error: true });
-        return Promise.resolve({ ok: false, invalid: true, issues });
+      const issues = validation(document), blocked = blockers();
+      if (blocked.length) {
+        const optIn = suggestLoadsIssues(document, adapter.suggestLoads)[0] || null;
+        setStatus(blocked.length === 1 ? blocked[0].text : issueText("program.editor.issues_count", { n: blocked.length }), { error: true });
+        return (reviewLayout ? closeSheetView() : Promise.resolve()).then(() => reportBlockers(blocked)).then(() =>
+          issues.length ? { ok: false, invalid: true, issues } : { ok: false, invalid: true, suggestLoads: optIn });
       }
-      const optIn = checkSuggestLoads();
-      if (!optIn.ok) return Promise.resolve(optIn);
       const result = adapter.commit({ expectedToken: clone(token), nextDocument: clone(document), intent: intent(kind, { edits: clone(edits) }) });
       return Promise.resolve(result).then(value => {
         if (value?.ok === false || value?.conflict || value?.staleRevision) return value;
@@ -1282,7 +1288,7 @@
         `</div>` : "";
       return `<section class="program-editor__suggest-loads is-on" data-role="suggest-loads-section" data-slot-id="${esc(slot.id)}">${toggle}` +
         (range ? `<p class="program-editor__suggest-loads-range" data-role="suggest-loads-range">${esc(label("suggestLoadsRange", { min: format(adapter, range.min), max: format(adapter, range.max) }))}</p>` : "") +
-        `<label class="program-editor__metric-field"><span>${esc(label("metricRir"))}</span><input type="number" inputmode="decimal" min="0" max="6" step="any" required data-role="suggest-loads-rir" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}" value="${rir == null ? "" : esc(String(rir))}"></label>` +
+        `<label class="program-editor__metric-field"><span>${esc(label("metricRir"))}</span><input type="number" inputmode="decimal" min="0" max="6" step="any" required data-role="suggest-loads-rir" data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}" value="${rir == null ? "" : esc(String(rir))}"${rir == null && variedRir(slot) ? ` placeholder="${esc(rirVaries())}"` : ""}></label>` +
         renderLoadStep(exercise, slot) + mode + `</section>`;
     }
     function toggleSuggestLoads(button) {
@@ -1343,29 +1349,98 @@
       input.setAttribute("aria-describedby", note.id);
     }
     /**
-     * A commit point's check. An incomplete opt-in opens its exercise, puts
-     * the error on the first field it still needs and refuses the commit.
+     * What stops a commit, in plain words: each entry names the exercise or
+     * day, what it needs, and where goToBlocker takes the lifter to fix it.
      */
-    function checkSuggestLoads() {
-      const issue = suggestLoadsIssues(document, adapter.suggestLoads)[0];
-      if (!issue) return { ok: true };
-      const exercise = (document.program || []).find(item => (item.slotId || item.id) === issue.slotId);
-      if (exercise) {
-        expandedExercises.add(exercise.id);
-        const day = exercise.day;
-        if (collapsedDays.has(day)) collapsedDays.delete(day);
-        if (reviewLayout) { view.tab = day; openSheetView({ kind: "exercise", id: exercise.id }); }
+    const ISSUE_COPY = {
+      "program.editor.issue.rir": ({ name }) => `${name}: set an RIR target. Suggest loads needs one.`,
+      "program.editor.issue.range": ({ name }) => `${name}: set a rep range. Suggest loads needs one.`,
+      "program.editor.issue.execution_mode": ({ name }) => `${name}: choose how you do it, both sides together or one side at a time.`,
+      "program.editor.issue.eligibility": ({ name }) => `${name}: Suggest loads isn't available for this exercise. Turn it off.`,
+      "program.editor.issue.day_empty": ({ day }) => `${day}: add an exercise or remove the day.`,
+      "program.editor.issue.name": () => "An exercise needs a name.",
+      "program.editor.issue.prescription": ({ name }) => `${name}: needs at least one set and a rep range.`,
+      "program.editor.issues_count": ({ n }) => `${n} things to fix before saving.`,
+      "program.editor.field_error.rir": () => "Set an RIR target to use Suggest loads.",
+    };
+    const issueText = (key, vars = {}) => rt(key, vars, ISSUE_COPY[key](vars));
+    const rirVaries = () => rt("program.editor.rir_varies", undefined, "Varies by set");
+    function blockers() {
+      const items = [];
+      const exerciseById = id => (document.program || []).find(item => item.id === id) || null;
+      const name = exercise => exercise ? exerciseDisplayLabel(adapter, exercise) : "";
+      for (const issue of validation(document)) {
+        const [kind, id, field] = issue.split(":");
+        if (kind === "day_empty") {
+          const day = issue.slice("day_empty:".length), index = labels(document).indexOf(day);
+          items.push({ kind: "day", day, text: issueText("program.editor.issue.day_empty", { day: dayDisplay(adapter, document, day, Math.max(0, index)) }) });
+        } else if (kind === "exercise_invalid" && field) {
+          const exercise = exerciseById(id);
+          items.push({ kind: "exercise", exerciseId: id, field,
+            text: issueText(field === "name" ? "program.editor.issue.name" : "program.editor.issue.prescription", { name: name(exercise) }) });
+        }
       }
+      for (const issue of suggestLoadsIssues(document, adapter.suggestLoads)) {
+        const exercise = (document.program || []).find(item => (item.slotId || item.id) === issue.slotId);
+        const key = issue.field === "rir" ? "program.editor.issue.rir" : issue.field === "range" ? "program.editor.issue.range"
+          : issue.field === "execution_mode" ? "program.editor.issue.execution_mode" : "program.editor.issue.eligibility";
+        items.push({ kind: "suggest_loads", slotId: issue.slotId, exerciseId: exercise?.id || null, field: issue.field,
+          text: issueText(key, { name: name(exercise) }) });
+      }
+      // A structural problem with no field to name still refuses the commit, and says so.
+      if (!items.length && validation(document).length) items.push({ kind: "none", text: label("invalid") });
+      return items;
+    }
+    function openBlockedExercise(exerciseId) {
+      const exercise = (document.program || []).find(item => item.id === exerciseId);
+      if (!exercise) return;
+      expandedExercises.add(exercise.id);
+      if (collapsedDays.has(exercise.day)) collapsedDays.delete(exercise.day);
+      if (reviewLayout) { view.tab = exercise.day; openSheetView({ kind: "exercise", id: exercise.id }); }
+    }
+    /** Opens what a blocker names and, for an opt-in, marks the field it still needs. */
+    function goToBlocker(item) {
+      if (!item) return;
+      if (item.kind === "none") return;
+      if (item.kind === "day") {
+        if (reviewLayout) view.tab = item.day;
+        collapsedDays.delete(item.day);
+        render();
+        return;
+      }
+      openBlockedExercise(item.exerciseId);
       render();
-      const selector = issue.field === "execution_mode"
-        ? `[data-role="execution-mode"][data-slot-id="${cssEscape(issue.slotId)}"]`
-        : issue.field === "rir" ? `[data-role="${reviewLayout ? "suggest-loads-rir-step" : "suggest-loads-rir"}"][data-slot-id="${cssEscape(issue.slotId)}"]`
-          : `[data-role="suggest-loads"][data-slot-id="${cssEscape(issue.slotId)}"]`;
+      if (item.kind !== "suggest_loads") return;
+      const slot = cssEscape(item.slotId);
+      const selector = item.field === "execution_mode" ? `[data-role="execution-mode"][data-slot-id="${slot}"]`
+        : item.field === "rir" ? (reviewLayout ? `[data-role="suggest-loads-rir-step-value"][data-slot-id="${slot}"]` : `[data-role="suggest-loads-rir"][data-slot-id="${slot}"]`)
+          : `[data-role="suggest-loads"][data-slot-id="${slot}"]`;
       const field = host.querySelector(selector) || (reviewLayout ? sheetParts()?.el?.querySelector(selector) : null);
       if (field) {
-        setFieldError(field, label("invalid"));
+        if (field.tagName === "B") field.tabIndex = -1;
+        setFieldError(field, item.field === "rir" ? issueText("program.editor.field_error.rir") : label("invalid"));
         try { field.focus(); } catch { /* detached */ }
       }
+    }
+    /**
+     * A refused commit says why: the host lists every blocker and the lifter
+     * picks one to fix. Without that host hook the first blocker opens.
+     */
+    async function reportBlockers(items) {
+      if (!items.length) return;
+      if (typeof adapter.reportIssues !== "function") { goToBlocker(items[0]); return; }
+      let chosen = null;
+      try { chosen = await adapter.reportIssues(items.map(({ text }) => ({ text }))); } catch { chosen = null; }
+      if (Number.isInteger(chosen) && items[chosen]) goToBlocker(items[chosen]);
+    }
+    /**
+     * A commit point's check for incomplete opt-ins. By default it reports
+     * them; { report: false } only reads.
+     */
+    function checkSuggestLoads({ report = true } = {}) {
+      const issue = suggestLoadsIssues(document, adapter.suggestLoads)[0];
+      if (!issue) return { ok: true };
+      if (report) reportBlockers(blockers().filter(item => item.kind === "suggest_loads"));
       return { ok: false, invalid: true, suggestLoads: issue };
     }
     function editPrescriptionField(input) {
@@ -2413,9 +2488,9 @@
       view.sheet = null;
       try { await adapter.closeSheet?.(); } catch { /* already closed */ }
     }
-    function stepper(role, attrs, value, { down = true, up = true, downLabel = "−", upLabel = "+", small = false } = {}) {
+    function stepper(role, attrs, value, { down = true, up = true, downLabel = "−", upLabel = "+", small = false, words = false } = {}) {
       return `<span class="review-step${small ? " review-step--sm" : ""}"><button type="button" data-role="${role}" ${attrs} data-delta="-1" aria-label="${esc(downLabel)}"${down ? "" : " disabled"}>−</button>` +
-        `<b class="num" data-role="${role}-value">${esc(value)}</b><button type="button" data-role="${role}" ${attrs} data-delta="1" aria-label="${esc(upLabel)}"${up ? "" : " disabled"}>+</button></span>`;
+        `<b class="${words ? "review-step__words" : "num"}" data-role="${role}-value" ${attrs}>${esc(value)}</b><button type="button" data-role="${role}" ${attrs} data-delta="1" aria-label="${esc(upLabel)}"${up ? "" : " disabled"}>+</button></span>`;
     }
     function loadsHtml(exercise, slot) {
       const policy = adapter.suggestLoads;
@@ -2447,8 +2522,8 @@
       return `<section class="review-sheet__sec program-editor__suggest-loads is-on" data-role="loads">${toggle}` +
         (range ? `<p class="review-sheet__note program-editor__suggest-loads-range" data-role="suggest-loads-range">${nums(label("suggestLoadsRange", { min: format(adapter, range.min), max: format(adapter, range.max) }))}</p>` : "") +
         `<div class="program-editor-a__line" data-role="suggest-loads-rir-line"><span class="review-sheet__lab">${esc(rt("program.editor.rir_all", undefined, "RIR on every set"))}</span>` +
-        stepper("suggest-loads-rir-step", `data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}"`, rir == null ? "–" : format(adapter, rir),
-          { down: rir == null || rir > 0, up: rir == null || rir < MAX_OPT_IN_RIR, downLabel: label("metricRir"), upLabel: label("metricRir") }) + `</div>` +
+        stepper("suggest-loads-rir-step", `data-id="${esc(exercise.id)}" data-slot-id="${esc(slot.id)}"`, rir == null ? (variedRir(slot) ? rirVaries() : "–") : format(adapter, rir),
+          { down: rir == null || rir > 0, up: rir == null || rir < MAX_OPT_IN_RIR, downLabel: label("metricRir"), upLabel: label("metricRir"), words: rir == null && variedRir(slot) }) + `</div>` +
         stepLine + mode + `</section>`;
     }
     function alternatesHtml(exercise, slot) {

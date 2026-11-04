@@ -658,6 +658,16 @@
       "content": "flat",
       "scenario": "The installed editor after a refused day rename: the field shows the day's own name again and the reason sits under the day header."
     },
+    "program/editor-issues": {
+      "owner": "plan-069",
+      "content": "flat",
+      "scenario": "The installed editor after Done is refused: a modal lists each problem with the exercise and what it needs, Go to on its row, and Keep editing."
+    },
+    "program/editor-issue-field": {
+      "owner": "plan-069",
+      "content": "flat",
+      "scenario": "The exercise sheet after Go to: the empty RIR value is outlined and the reason sits under its row."
+    },
     "program/exercise-picker": {
       "owner": "plan-057",
       "content": "flat",
@@ -2848,6 +2858,7 @@
       "catalogStates": [
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor"
       ]
@@ -4453,6 +4464,7 @@
       "catalogStates": [
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "program/overview",
         "program/editor-day-name-refused",
         "program/progression-editor",
@@ -4481,6 +4493,7 @@
       "catalogStates": [
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor"
       ]
@@ -4506,6 +4519,7 @@
       "catalogStates": [
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "program/overview",
         "program/editor-day-name-refused",
         "program/progression-editor",
@@ -4536,6 +4550,7 @@
         "program/custom-exercise-saving",
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "program/exercise-picker",
         "program/no-program",
         "program/overview",
@@ -4594,6 +4609,7 @@
       "catalogStates": [
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "program/overview",
         "program/editor-day-name-refused",
         "program/progression-editor",
@@ -5051,7 +5067,8 @@
         "onboarding-build/editor-partial",
         "onboarding-build/editor-ready",
         "program/editor-alternates",
-        "program/editor-suggest-loads"
+        "program/editor-suggest-loads",
+        "program/editor-issue-field"
       ]
     },
     {
@@ -5334,6 +5351,7 @@
       "catalogStates": [
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor"
       ]
@@ -6686,6 +6704,7 @@
         "program/progression-editor",
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "program/editor-day-name-refused",
         "workout/logged-sets-folded"
       ]
@@ -6758,6 +6777,7 @@
         "history/session",
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "onboarding-recommend/review-sheet",
         "onboarding-recommend/review-sheet-swap",
         "history/per-side-session",
@@ -6767,7 +6787,8 @@
         "onboarding-recommend/result-changed",
         "onboarding-recommend/chip-editor-open",
         "onboarding-recommend/result-corrected",
-        "onboarding-recommend/result-existing"
+        "onboarding-recommend/result-existing",
+        "program/editor-issues"
       ]
     },
     {
@@ -7261,6 +7282,7 @@
       "catalogStates": [
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor"
       ],
@@ -7291,6 +7313,7 @@
         "onboarding-build/editor-ready",
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
         "onboarding-build/editor-alternates"
@@ -7320,6 +7343,7 @@
         "onboarding-build/editor-ready",
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
         "onboarding-build/editor-alternates"
@@ -7349,6 +7373,7 @@
         "onboarding-build/editor-ready",
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
         "onboarding-build/editor-alternates"
@@ -7379,6 +7404,7 @@
         "onboarding-build/editor-partial",
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
         "onboarding-build/editor-alternates"
@@ -7407,6 +7433,7 @@
         "onboarding-build/editor-ready",
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
         "onboarding-build/editor-alternates"
@@ -7437,6 +7464,7 @@
         "onboarding-build/editor-ready",
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
         "onboarding-build/editor-alternates"
@@ -7464,6 +7492,7 @@
         "onboarding-build/editor-ready",
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
         "onboarding-build/editor-alternates"
@@ -7492,6 +7521,7 @@
         "onboarding-build/editor-ready",
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
         "onboarding-build/editor-alternates"
@@ -7566,6 +7596,7 @@
         "onboarding-recommend/result-block-5",
         "onboarding-recommend/review-sheet-execution-mode",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "onboarding-recommend/deload",
         "onboarding-recommend/deload-start"
       ]
@@ -7607,6 +7638,7 @@
         "onboarding-recommend/result-block-5",
         "onboarding-recommend/review-sheet-execution-mode",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "onboarding-recommend/deload",
         "onboarding-recommend/deload-start"
       ]
@@ -7942,6 +7974,7 @@
         "onboarding-build/editor-ready",
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
         "onboarding-build/editor-alternates"
@@ -7991,6 +8024,7 @@
         "onboarding-build/editor-ready",
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
         "progress/schedule-diagnosis",
@@ -8022,6 +8056,7 @@
         "install/banner",
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "program/no-program",
         "program/overview",
         "program/editor-day-name-refused",
@@ -8097,6 +8132,7 @@
         "install/banner",
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "program/no-program",
         "program/overview",
         "program/editor-day-name-refused",
@@ -8181,6 +8217,7 @@
         "install/banner",
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "program/no-program",
         "program/overview",
         "program/editor-day-name-refused",
@@ -8296,6 +8333,7 @@
         "onboarding-recommend/result-corrected",
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "onboarding-recommend/result-confirm-offer",
         "onboarding-recommend/result-confirmed",
         "onboarding-build/editor-alternates",
@@ -8434,6 +8472,7 @@
         "onboarding-recommend/review-day-name-refused",
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/volume-audit"
       ]
@@ -8473,6 +8512,7 @@
         "onboarding-recommend/review-day-name-refused",
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "program/editor-day-name-refused"
       ]
     },
@@ -8934,6 +8974,44 @@
         "catalog-recovery/unavailable",
         "catalog-recovery/retry-failed"
       ]
+    },
+    {
+      "id": "programeditorissues",
+      "selector": "#programEditorIssues",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "centered-dialog",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "A refused editor commit: blocks the editor behind it with dialog semantics, lists each problem with Go to, and Escape or Keep editing returns focus to the editor.",
+      "owner": "plan-069",
+      "catalogStates": [
+        "program/editor-issues"
+      ]
+    },
+    {
+      "id": "programeditorissueskeep",
+      "selector": "#programEditorIssuesKeep",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Dismisses the problem list and stays in the editor without opening anything.",
+      "owner": "plan-069",
+      "catalogStates": [
+        "program/editor-issues"
+      ],
+      "neverDisabledReason": "The list is only shown when there is something to dismiss."
     },
     {
       "id": "retryexercisecatalog",
@@ -9695,6 +9773,7 @@
         "onboarding-build/editor-ready",
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/progression-editor",
         "onboarding-build/editor-alternates"
@@ -9723,6 +9802,7 @@
       "catalogStates": [
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "onboarding-build/editor-alternates"
       ]
     },
@@ -9748,6 +9828,7 @@
       "catalogStates": [
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "onboarding-build/editor-alternates"
       ]
     },
@@ -9993,7 +10074,8 @@
         "onboarding-recommend/result-block-5",
         "onboarding-recommend/review-sheet-execution-mode",
         "program/editor-alternates",
-        "program/editor-suggest-loads"
+        "program/editor-suggest-loads",
+        "program/editor-issue-field"
       ]
     },
     {
@@ -10023,7 +10105,8 @@
         "onboarding-recommend/review-sheet-swap",
         "onboarding-recommend/review-sheet-execution-mode",
         "program/editor-alternates",
-        "program/editor-suggest-loads"
+        "program/editor-suggest-loads",
+        "program/editor-issue-field"
       ],
       "neverDisabledReason": "Every rest preset is always a valid choice."
     },
@@ -10048,7 +10131,8 @@
         "onboarding-recommend/review-sheet-swap",
         "onboarding-recommend/review-sheet-execution-mode",
         "program/editor-alternates",
-        "program/editor-suggest-loads"
+        "program/editor-suggest-loads",
+        "program/editor-issue-field"
       ],
       "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
     },
@@ -10116,7 +10200,8 @@
         "onboarding-recommend/review-sheet-swap",
         "onboarding-recommend/review-sheet-execution-mode",
         "program/editor-alternates",
-        "program/editor-suggest-loads"
+        "program/editor-suggest-loads",
+        "program/editor-issue-field"
       ],
       "neverDisabledReason": "Every review edit is always available; a refused edit says why instead of disabling the control."
     },
@@ -10143,6 +10228,7 @@
         "onboarding-recommend/review-day-name-refused",
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "program/editor-day-name-refused"
       ]
     },
@@ -10169,6 +10255,7 @@
         "onboarding-recommend/review-day-name-refused",
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "program/editor-day-name-refused"
       ]
     },
@@ -10481,6 +10568,7 @@
         "program/progression-editor",
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "program/editor-day-name-refused",
         "onboarding-build/editor-alternates"
       ]
@@ -10844,7 +10932,8 @@
       "owner": "plan-074",
       "catalogStates": [
         "program/editor-alternates",
-        "program/editor-suggest-loads"
+        "program/editor-suggest-loads",
+        "program/editor-issue-field"
       ],
       "neverDisabledReason": "Opening the exercise's Weeks or Swap sheet is always available while its sheet is open."
     },
@@ -10926,6 +11015,7 @@
         "program/progression-editor",
         "program/editor-alternates",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "program/editor-day-name-refused"
       ]
     },
@@ -10947,7 +11037,8 @@
       "owner": "plan-074",
       "catalogStates": [
         "program/editor-alternates",
-        "program/editor-suggest-loads"
+        "program/editor-suggest-loads",
+        "program/editor-issue-field"
       ],
       "neverDisabledReason": "Any exercise can be removed; an emptied day blocks Apply instead."
     },
@@ -10968,7 +11059,8 @@
       "owner": "plan-074",
       "catalogStates": [
         "program/editor-alternates",
-        "program/editor-suggest-loads"
+        "program/editor-suggest-loads",
+        "program/editor-issue-field"
       ]
     },
     {
@@ -11019,6 +11111,7 @@
         "program/editor-alternates",
         "program/editor-day-name-refused",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "program/progression-editor",
         "today/deload-week",
         "today/dock-viewer",
@@ -11060,6 +11153,7 @@
         "program/editor-alternates",
         "program/editor-day-name-refused",
         "program/editor-suggest-loads",
+        "program/editor-issue-field",
         "settings/appearance",
         "settings/guides",
         "settings/guides-replay",
