@@ -8890,7 +8890,10 @@ function focusLedgerRowsHtml(ex,r,draft,prev,{effortMode,peek=false}){
     const prevLine=focusPrevLine(prev.find(x=>x.set===n),effortMode);
     const touched=open||done?shelfTouched(ex.id,n):{};
     const soft=field=>!done&&!(field==="rir"?touched.effort:touched[field])?" is-soft":"";
-    const rirText=open||done?vals.eff:focusTargetEffort(ex);
+    // An unlogged row reads its target effort, unless it carries the set logged above it (#569): then its RIR is carried
+    // with its load and reps, so every unlogged set shows the same values (owner report, 2026-11-03).
+    const carry=!open&&!done?lastSetCarry(ex.id,n,r):null;
+    const rirText=open||done||carry?.fields?.rir||carry?.fields?.effort?vals.eff:focusTargetEffort(ex);
     const idx=done?`<span class="fx-check" aria-hidden="true"></span>`
       :!peek&&ledgerSetIsWarmup(ex.id,n)?`<span aria-hidden="true">${esc(t("ledger.set.warmup"))}</span><span class="visually-hidden">${esc(t("ex.actions.role_warmup"))}</span>`:n;
     const cells=`<span class="ledgerline__idx">${idx}</span>`+
