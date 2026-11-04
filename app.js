@@ -2394,7 +2394,7 @@ let activeRecoveryRecord=null,activeRecoveryRecordBlockId=null;
 let restEnd=0,restTick=null,restNotified=false,restAnnounced=false;
 // restPaused holds the milliseconds left while the clock is held (null while it
 // runs); restLength is the length the current or next rest is armed at.
-let restPaused=null,restLength=0;
+let restPaused=null,restLength=0,restExerciseId=null;
 // A tap on a shelf field brings the field pads back for the rest of this rest;
 // the next rest starts with the rest controls again. Transient, never stored.
 // True from the set commit that starts a rest until the render that draws it: that render owns the swap
@@ -6760,9 +6760,7 @@ function restHead(share,radiusPct){
 /** The edge and the dial as the clock stands, in one write each. */
 function paintRestVisuals(){
   const share=restShare(),done=!!restEnd&&restLeftMs()<=0;
-  const dialHead=restHead(share,44.8);
   const arc=(el,length)=>{if(el)el.style.strokeDasharray=`${(share*length).toFixed(2)} ${length}`};
-  const glow=(el,head)=>{if(el){el.style.left=`${head.x.toFixed(2)}%`;el.style.top=`${head.y.toFixed(2)}%`}};
   // The light along the contour reaches from the clock as far as the rest has left; held, it keeps its length and
   // greys. Past the bell it is a faint steady rim the whole way round (the flick, seen live, plays over it).
   const c=restContour;
@@ -6773,7 +6771,7 @@ function paintRestVisuals(){
     c.lit.style.opacity=String(done?rim:1);
     c.svg.classList.toggle("is-paused",!done&&!!restEnd&&restPaused!=null)}
   const dial=$("#restDial");
-  if(dial){arc(dial.querySelector(".restdial__arc"),1000);glow(dial.querySelector(".restdial__glow"),dialHead);dial.classList.toggle("is-done",done);dial.classList.toggle("is-idle",!restEnd);dial.classList.toggle("is-paused",!!restEnd&&restPaused!=null)}}
+  if(dial){arc(dial.querySelector(".restdial__arc"),1000);dial.classList.toggle("is-done",done);dial.classList.toggle("is-idle",!restEnd);dial.classList.toggle("is-paused",!!restEnd&&restPaused!=null)}}
 function stopRestFrames(){if(restFrameId)cancelAnimationFrame(restFrameId);restFrameId=0}
 /** The continuous depletion: a frame while time remains, the clock runs and the page is visible. */
 function startRestFrames(){
@@ -6799,18 +6797,15 @@ function restFrame(now){
     restFlickArmed=false}
   restLastLeft=left;
   if(left>0&&restPaused==null)restFrameId=requestAnimationFrame(restFrame)}
-/** One soft light flick where the lifter is looking: the dial when the sheet is open, else along the shelf's edge, out
- *  from the clock. Once per bell. */
+/** One soft light flick along the shelf's edge, out from the clock. Once per bell. The sheet's dial carries no light of
+ *  its own (owner, 2026-11-04): no bloom at its head and no flick. */
 function playRestFlick(){
   if(reducedMotion())return;
-  const sheet=$("#restSheet"),open=sheet&&!sheet.hidden&&sheet.classList.contains("is-open");
-  if(open){
-    const target=$("#restDial .restflick");if(!target)return;
-    restFlickCount++;window.RepForgeMotion?.flickRest?.(target);return}
   const c=restContour;if(!c?.svg.isConnected)return;
   restFlickCount++;
   window.RepForgeMotion?.flickRestLight?.(c.lit,c.halves,c.length)}
 function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;restPaused=null;restAnnounced=false;
+  restLength=0;restExerciseId=null;
   paintRest();
   updateRestChrome();
   const ra=$("#restAnnounce");if(ra)ra.textContent="";
@@ -6849,7 +6844,11 @@ function armRestTick(){clearInterval(restTick);restTick=setInterval(tickRest,250
 function syncRest(){
   paintRest();
   updateRestChrome()}
-function startRest(sec){const s=sec||restPlanSec();if(s<=0)return;
+function startRest(sec,exerciseId){
+  // The rest belongs to the exercise whose set started it, or, from the sheet, to the one Focus is on.
+  const owner=exerciseId??(restEnd?restExerciseId:focusCard()?.dataset.ex)??null;
+  if(exerciseId!==undefined||!restEnd)restExerciseId=owner;
+  const s=sec||restPlanSec();if(s<=0)return;
   restLength=s;restPaused=null;restFlickArmed=true;restLastLeft=null;
   restEnd=Date.now()+s*1000;restNotified=false;restAnnounced=false;if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");
   const ra=$("#restAnnounce");if(ra)ra.textContent="";
@@ -6882,30 +6881,75 @@ window.__repforgeRest={
 const REST_PRESETS=[60,90,180,300];
 const REST_NUDGE=30;
 const REST_MIN_SEC=15,REST_MAX_SEC=60*60;
+/** The dial's own range and step (owner, 2026-11-04): turned by hand it sets 0:15 to 10:00 in 15-second detents. */
+const REST_DIAL_MIN=15,REST_DIAL_MAX=10*60,REST_DIAL_STEP=15;
 let restSheetReturn=null;
-/** The length this rest was armed at — the ring's full turn, and the length the
- *  next one starts at until Settings changes the default again. */
+/** The exercise whose rest this is: the one whose set started it, else the one Focus is on. */
+function restExercise(){
+  const id=(restEnd&&restExerciseId)||focusCard()?.dataset.ex;
+  return id?prog.find(id):null}
+function restSlotOf(ex,snapshot=state){
+  const slotId=String(ex?.slotId||ex?.id||"");if(!slotId)return null;
+  return(snapshot?.programMeta?.programDefinition?.days||[]).flatMap(day=>day.slots||[]).find(slot=>slot?.id===slotId)||null}
+/** The rest the program stores for an exercise this week, or null where it inherits the Settings default. */
+function exerciseStoredRest(ex,snapshot=state){
+  const slot=restSlotOf(ex,snapshot);if(!slot)return null;
+  const week=mesocycleLifecycle(snapshot.programMeta).current||1;
+  const cycle=slot.prescriptionsByCycle?.find(item=>item.cycleIndex===week)||slot.prescriptionsByCycle?.[0];
+  const rest=cycle?.sets?.[0]?.restSeconds;
+  return Number.isSafeInteger(rest)&&rest>=0?rest:null}
+/** How long an exercise rests: its own rest in the program, else the default from Settings. */
+function exerciseRestSec(ex){
+  const stored=ex?exerciseStoredRest(ex):null;
+  return stored??normalizeRestSec(state?.settings?.restSec)}
+/** The length this rest was armed at — the ring's full turn. Idle, it is what the next rest would run for: the
+ *  exercise's own rest. */
 function restPlanSec(){
   if(restLength>0)return restLength;
-  return normalizeRestSec(state?.settings?.restSec)}
+  return exerciseRestSec(restExercise())}
 const clampRestSec=s=>Math.min(REST_MAX_SEC,Math.max(REST_MIN_SEC,Math.round(s)||0));
-function restPresetSecs(){
+/** The presets, and the exercise's own rest among them when it is none of them. */
+function restPresetSecs(ex){
   const secs=new Set(REST_PRESETS);
-  const dflt=normalizeRestSec(state?.settings?.restSec);
-  if(dflt>0)secs.add(dflt);
+  const own=exerciseRestSec(ex);
+  if(own>0)secs.add(own);
   return [...secs].sort((a,b)=>a-b)}
-/** The presets as the native segmented control (#485): a hidden select is the value, the segments its face. */
+/** The presets as the native segmented control (#485): a hidden select is the value, the segments its face. They set
+ *  this exercise's rest in the program, not the default (owner, 2026-11-04; the default is edited in Settings). An
+ *  exercise with no rest of its own shows the default it inherits as chosen, and a tap on it stores it (option A). */
 function renderRestPresets(){
-  const host=$("#restPresets"),input=$("#restPresetInput");if(!host||!input)return;
-  const secs=restPresetSecs();
+  const host=$("#restPresets"),input=$("#restPresetInput"),cap=$("#restPresetsLabel");if(!host||!input)return;
+  const ex=restExercise(),owned=!!restSlotOf(ex);
+  host.hidden=!owned;if(cap)cap.hidden=!owned;
+  if(!owned)return;
+  const secs=restPresetSecs(ex);
   input.innerHTML=secs.map(s=>`<option value="${s}">${esc(fmtClock(s))}</option>`).join("");
   host.querySelectorAll('[role="radio"]').forEach(b=>b.remove());
   host.insertAdjacentHTML("beforeend",secs.map(s=>
     `<button type="button" role="radio" data-value="${s}" data-restpreset="${s}" aria-checked="false" tabindex="-1" aria-label="${esc(t("rest.sheet.preset_aria",{time:fmtClock(s)}))}">${esc(fmtClock(s))}</button>`).join(""));
-  input.value=String(restPlanSec());
-  input.onchange=()=>setRestLength(+input.value);
+  input.value=String(exerciseRestSec(ex));
+  input.onchange=()=>chooseRestPreset(+input.value);
   if(window.RepForgeMotion?.syncNativeControls)window.RepForgeMotion.syncNativeControls(host.parentElement);
-  else host.querySelectorAll('[role="radio"]').forEach(b=>{b.onclick=()=>{input.value=b.dataset.value;setRestLength(+b.dataset.value)}})}
+  else host.querySelectorAll('[role="radio"]').forEach(b=>{b.onclick=()=>{input.value=b.dataset.value;chooseRestPreset(+b.dataset.value)}})}
+/** Store an exercise's rest in the program: every set of the slot that carried the rest shown takes the new one, as
+ *  the program editor's rest does. Only the definition changes, so the workout in progress keeps its draft. */
+async function saveExerciseRest(ex,sec){
+  if(!restSlotOf(ex)||exerciseStoredRest(ex)===sec)return false;
+  const shown=exerciseStoredRest(ex);
+  const proposal=cloneSnapshot(state),slot=restSlotOf(ex,proposal);
+  if(!slot)return false;
+  for(const cycle of slot.prescriptionsByCycle||[])for(const set of cycle.sets||[])
+    if((set.restSeconds??null)===shown)set.restSeconds=sec;
+  const result=await commitProposedState(proposal,storageIO);
+  return!!(result?.localOk||result?.idbOk)}
+/** A preset sets this exercise's rest, and the rest on the clock restarts at it; idle, it is what the next one runs for. */
+async function chooseRestPreset(sec){
+  const s=clampRestSec(sec),ex=restExercise();
+  if(restEnd)startRest(s);
+  else{restLength=0;syncRest()}
+  paintRestSheet();
+  if(ex)await saveExerciseRest(ex,s);
+  renderRestPresets();paintRestSheet()}
 /** The next set, for the dial: the set the Focus shelf is on, its load and reps. */
 function restNextLine(){
   const card=focusCard();if(!card||!activeWorkoutDraft)return"";
@@ -6924,14 +6968,15 @@ function paintRestSheet(){
   const left=restTimeLeftSec(),done=!!restEnd&&left<=0,over=restOverSec();
   const time=!restEnd?fmtClock(restPlanSec()):done?`+${fmtClock(Math.max(0,over))}`:fmtClock(Math.max(0,left));
   const timeEl=$("#restDialTime");
-  if(timeEl&&timeEl.textContent!==time){const had=timeEl.textContent;timeEl.textContent=time;if(had&&restEnd&&!done)window.RepForgeMotion?.rollValue?.(timeEl)}
+  if(timeEl&&timeEl.textContent!==time){const had=timeEl.textContent;timeEl.textContent=time;if(had&&restEnd&&!done&&!restDialDrag)window.RepForgeMotion?.rollValue?.(timeEl)}
   const of=$("#restDialOf"),ofText=done?t("rest.inline.done"):t("rest.inline.of",{t:fmtClock(restPlanSec())});
   if(of&&of.textContent!==ofText)of.textContent=ofText;
   const next=$("#restDialNext"),nextText=restNextLine();
   if(next&&next.textContent!==nextText){next.textContent=nextText;next.hidden=!nextText}
-  const input=$("#restPresetInput");
-  if(input&&input.value!==String(restPlanSec())){input.value=String(restPlanSec());window.RepForgeMotion?.syncNativeControls?.(input.parentElement)}
-  $$("#restPresets [data-restpreset]").forEach(b=>b.classList.toggle("is-active",+b.dataset.restpreset===restPlanSec()));
+  // The presets show the exercise's rest, not the clock: a nudge or a turn of the dial moves only this rest.
+  const input=$("#restPresetInput"),own=exerciseRestSec(restExercise());
+  if(input&&input.value!==String(own)&&[...input.options].some(o=>o.value===String(own))){input.value=String(own);window.RepForgeMotion?.syncNativeControls?.(input.parentElement)}
+  $$("#restPresets [data-restpreset]").forEach(b=>b.classList.toggle("is-active",+b.dataset.restpreset===own));
   const hold=$("#restHold");
   if(hold){
     const mode=!restEnd?"start":restPaused!=null?"resume":"pause";
@@ -6939,6 +6984,7 @@ function paintRestSheet(){
     hold.setAttribute("aria-label",mode==="start"?t("focus.rest.start_aria"):t(mode==="resume"?"rest.inline.resume":"rest.inline.pause"))}
   const reset=$("#restReset");if(reset)reset.disabled=!restEnd;
   const stop=$("#restStop");if(stop)stop.disabled=!restEnd;
+  paintRestDialSlider();
   paintRestVisuals()}
 function openRestSheet(){
   const sheet=$("#restSheet"),scrim=$("#restSheetScrim");
@@ -6952,6 +6998,7 @@ function openRestSheet(){
     scrim,
     delayHide:reducedMotion()?0:280
   });
+  bindRestDial();
   renderRestPresets();
   paintRestSheet();
   startRestFrames();
@@ -6975,17 +7022,92 @@ function setRestLength(sec){
 function nudgeRest(delta){
   if(!restEnd){setRestLength(restPlanSec()+delta);return}
   const next=Math.min(REST_MAX_SEC*1000,Math.max(-REST_OVERTIME_MAX*1000,restLeftMs()+delta*1000));
-  if(restPaused!=null)restPaused=next;else restEnd=Date.now()+next;
   const left=Math.ceil(next/1000);
-  if(left>restLength)restLength=Math.min(REST_MAX_SEC,left);
+  setRestLeftMs(next,left>restLength?Math.min(REST_MAX_SEC,left):restLength)}
+/** Put `ms` on the running clock, with `length` as the ring's full turn. */
+function setRestLeftMs(ms,length){
+  if(restPaused!=null)restPaused=ms;else restEnd=Date.now()+ms;
+  restLength=length;
   // Time added past the bell puts the rest back on the clock, so the line, the
   // buzz and the OS notice all have to be able to fire again.
-  if(next>0){
+  if(ms>0){
     restNotified=false;restAnnounced=false;restFlickArmed=true;
     const ra=$("#restAnnounce");if(ra)ra.textContent="";
     if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");
-    if(restPaused==null&&!restTick)armRestTick()}
+    if(restPaused==null&&!restTick)armRestTick();
+    startRestFrames()}
   syncRest()}
+
+/* ---- The dial, turned by hand (owner, 2026-11-04) ----
+   Like a volume dial: a drag around the ring sets the time left, clockwise adds and counter-clockwise takes away, in
+   15-second detents between 0:15 and 10:00. The grab keeps its offset (the time moves by the angle turned, never
+   jumps to where the finger landed), and one turn is the rest's full length as the drag began, so a quarter-turn is
+   always a quarter of it. Past that length the ring stays full and the length grows with the time. Idle, it sets
+   the next rest. It is a slider for the keyboard and assistive technology: the arrows step 15 seconds. */
+const snapDialSec=sec=>Math.min(REST_DIAL_MAX,Math.max(REST_DIAL_MIN,Math.round(sec/REST_DIAL_STEP)*REST_DIAL_STEP));
+let restDialDrag=null;
+/** Set the time left from the dial. `scale` is the full turn the drag began on. */
+function setRestFromDial(sec,scale=restPlanSec()){
+  if(!restEnd){restLength=sec;syncRest();paintRestSheet();return}
+  setRestLeftMs(sec*1000,Math.max(scale,sec));
+  paintRestSheet()}
+/** The angle of a point around the dial's centre: 0 at the top, growing clockwise, in turns. */
+function restDialAngle(dial,x,y){
+  const r=dial.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
+  return Math.atan2(x-cx,cy-y)/(2*Math.PI)}
+function restDialValueText(sec){
+  const total=Math.max(0,Math.round(sec)),m=Math.floor(total/60),s=total%60;
+  if(!m)return t("rest.dial.value_s",{s,su:tp(s,"second")});
+  if(!s)return t("rest.dial.value_m",{m,mu:tp(m,"minute")});
+  return t("rest.dial.value_ms",{m,mu:tp(m,"minute"),s,su:tp(s,"second")})}
+function paintRestDialSlider(){
+  const dial=$("#restDial");if(!dial)return;
+  const left=restEnd?Math.max(0,restTimeLeftSec()):restPlanSec();
+  // The slider's value stays in its range; the words say the time as it is (over the bell, or nudged past 10:00).
+  const now=String(Math.min(REST_DIAL_MAX,Math.max(REST_DIAL_MIN,left))),text=restDialValueText(left);
+  if(dial.getAttribute("aria-valuenow")!==now)dial.setAttribute("aria-valuenow",now);
+  if(dial.getAttribute("aria-valuetext")!==text)dial.setAttribute("aria-valuetext",text)}
+function restDialLeftSec(){return restEnd?Math.max(0,restTimeLeftSec()):restPlanSec()}
+function bindRestDial(){
+  const dial=$("#restDial");if(!dial||dial.dataset.bound)return;
+  dial.dataset.bound="1";
+  dial.addEventListener("pointerdown",event=>{
+    if(event.button!==0||restDialDrag)return;
+    const angle=restDialAngle(dial,event.clientX,event.clientY);
+    restDialDrag={id:event.pointerId,last:angle,turns:0,from:restDialLeftSec(),scale:restPlanSec(),value:null};
+    try{dial.setPointerCapture(event.pointerId)}catch{}
+    dial.classList.add("is-turning");
+    event.preventDefault()});
+  dial.addEventListener("pointermove",event=>{
+    const drag=restDialDrag;if(!drag||event.pointerId!==drag.id)return;
+    const angle=restDialAngle(dial,event.clientX,event.clientY);
+    // The shortest way round from the last sample, so a drag across the top keeps counting instead of wrapping.
+    let step=angle-drag.last;if(step>.5)step-=1;else if(step<-.5)step+=1;
+    drag.last=angle;drag.turns+=step;
+    const value=snapDialSec(drag.from+drag.turns*drag.scale);
+    if(value===drag.value)return;
+    const first=drag.value==null;drag.value=value;
+    // A light detent where the hardware has one; the time and the arc step with it.
+    if(!first)navigator.vibrate?.(4);
+    setRestFromDial(value,drag.scale)});
+  const end=event=>{
+    const drag=restDialDrag;if(!drag||event.pointerId!==drag.id)return;
+    restDialDrag=null;dial.classList.remove("is-turning");
+    try{dial.releasePointerCapture(event.pointerId)}catch{}};
+  dial.addEventListener("pointerup",end);
+  dial.addEventListener("pointercancel",end);
+  dial.addEventListener("keydown",event=>{
+    const steps={ArrowRight:1,ArrowUp:1,ArrowLeft:-1,ArrowDown:-1,PageUp:4,PageDown:-4}[event.key];
+    let value=null;
+    // From 4:58 an arrow up lands on 5:00 and one down on 4:45: the next detent each way.
+    const left=restDialLeftSec();
+    if(steps)value=snapDialSec(steps>0?Math.floor(left/REST_DIAL_STEP)*REST_DIAL_STEP+steps*REST_DIAL_STEP
+      :Math.ceil(left/REST_DIAL_STEP)*REST_DIAL_STEP+steps*REST_DIAL_STEP);
+    else if(event.key==="Home")value=REST_DIAL_MIN;
+    else if(event.key==="End")value=REST_DIAL_MAX;
+    if(value==null)return;
+    event.preventDefault();
+    setRestFromDial(value)})}
 function toggleRestHold(){
   if(!restEnd){startRest(restPlanSec());return}
   if(restPaused!=null){
@@ -10100,7 +10222,9 @@ function bindWorkout(){
       const nowDone=activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId].completion!=="pending";
       // The corrected row redraws with its new figures, so the confirmation is said rather than shown (#521).
       if(editing&&nowDone){focusEdit=null;focusLedgerOpen=null;toast(t("toast.set_updated"),{quiet:true})}
-      if(nowDone&&!editing){lastCommitAt=Date.now();if(!sessionStartedAt)sessionStartedAt=lastCommitAt;startRest();armUnfinishedWatch()}
+      // The rest runs for the exercise just logged: its own rest in the program, else the Settings default.
+      if(nowDone&&!editing){lastCommitAt=Date.now();if(!sessionStartedAt)sessionStartedAt=lastCommitAt;
+        restLength=0;startRest(exerciseRestSec(prog.find(target.exerciseInstanceId)),target.exerciseInstanceId);armUnfinishedWatch()}
       if(nowDone&&!editing)focusLogged={exId:target.exerciseInstanceId,n:target.ordinal};
       if(nowDone&&refreshReservation){refreshStarted=true;const refreshed=await refreshReservation.start(()=>runRefreshSuggestions(target.exerciseInstanceId));
         if(refreshed.status!=="applied"&&refreshed.status!=="unchanged")return}

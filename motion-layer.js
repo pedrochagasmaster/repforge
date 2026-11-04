@@ -1938,20 +1938,6 @@
     return el.animate([{ transform: "translateY(35%)", opacity: 0.25 }, { transform: "none", opacity: 1 }],
       { duration: duration * 1000, easing: cubic(ease) });
   }
-  /** The rest's zero flick on a glow layer: it brightens and widens once and is gone. Played once per bell by the
-   *  caller; nothing under reduced motion. Returns the animation (its id is "rest-flick"). */
-  function flickRest(el) {
-    if (!el || reducedMotion() || typeof el.animate !== "function") return null;
-    const { duration, ease } = VOCABULARY.restFlick;
-    const run = el.animate([
-      { opacity: 0, transform: "scale(.9)" },
-      { opacity: 1, transform: "scale(1)", offset: 0.28 },
-      { opacity: 0, transform: "scale(1.18)" },
-    ], { duration: duration * 1000, easing: cubic(ease) });
-    run.id = "rest-flick";
-    return run;
-  }
-
   /** The rest's zero flick along the contour: `lit` is the light's group, `halves` the two mask strokes that run out
    *  from the clock, `length` a half's length. One run of restFlick, sampled into linear keyframes, over the steady rim
    *  the caller has already drawn (the animations fill nothing, so the rim stands when they end). Nothing under reduced
@@ -1973,7 +1959,6 @@
 
   global.RepForgeMotion = {
     rollValue,
-    flickRest,
     flickRestLight,
     syncNativeControls,
     animateContextMenu,

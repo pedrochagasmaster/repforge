@@ -4873,7 +4873,7 @@
         "focus-visible",
         "selected"
       ],
-      "rationale": "Chooses the default rest length through the native segmented radiogroup; the chosen preset is aria-checked and restarts a running rest at that length.",
+      "rationale": "Chooses this exercise's rest through the native segmented radiogroup (owner, 2026-11-04): it stores the slot's rest in the program, never the Settings default; the chosen preset is aria-checked, an exercise with no rest of its own shows the default it inherits as chosen, and a running rest restarts at the length picked.",
       "owner": "rest-timer-redesign",
       "catalogStates": [
         "workout/rest-sheet",
@@ -4926,6 +4926,27 @@
         "workout/rest-sheet",
         "workout/rest-sheet-idle"
       ]
+    },
+    {
+      "id": "restdial",
+      "selector": "#restDial",
+      "roles": {
+        "control": "adjustment"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Turned by hand like a volume dial (owner, 2026-11-04): a drag around the ring sets the time left in 15-second detents between 0:15 and 10:00, clockwise adding; a slider with a spoken value for the keyboard (the arrows step 15 seconds) and assistive technology.",
+      "owner": "rest-timer-redesign",
+      "catalogStates": [
+        "workout/rest-sheet",
+        "workout/rest-sheet-idle"
+      ],
+      "neverDisabledReason": "A rest can always be set: idle, the dial sets the next one."
     },
     {
       "id": "restplus",
@@ -12254,15 +12275,6 @@
         "workout/rest-sheet",
         "workout/correction",
         "workout/logged-sets-folded"
-      ]
-    },
-    {
-      "selector": ".restglow",
-      "role": "countdown glow, not elevation",
-      "rationale": "The soft light at the head of the dial's depletion in the rest sheet: a point with an accent box-shadow that marks where the clock stands. It lifts no surface, never pulses, and is hidden when the rest is paused, done, idle or under reduced transparency. The tab over the shelf is words only (owner, 2026-10-29).",
-      "owner": "rest-timer-redesign",
-      "catalogStates": [
-        "workout/rest-sheet"
       ]
     },
     {

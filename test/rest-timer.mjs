@@ -484,6 +484,142 @@ try {
     }
   }
 
+  // The rest sheet as the owner asked for it (2026-11-04): its presets set this exercise's rest in the program and never
+  // the default, the dial carries no light, and the dial turns under the finger like a volume dial.
+  phase("The presets set this exercise's rest, not the default");
+  {
+    const { context, page, errors } = await focusPage(browser);
+    const before = await page.evaluate(() => ({ dflt: state.settings.restSec, ex: focusCard()?.dataset.ex, stored: exerciseStoredRest(restExercise()) }));
+    await logSet(page);
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    const first = await read(page);
+    assert(first.length === before.dflt, "an exercise with no rest of its own rests for the Settings default", { first: first.length, before });
+    await page.locator("#restTab").click();
+    await page.waitForSelector("#restSheet.is-open", { timeout: 5000 });
+    const shown = await page.evaluate(() => ({
+      label: document.querySelector("#restPresetsLabel")?.textContent,
+      checked: [...document.querySelectorAll('#restPresets [role="radio"][aria-checked="true"]')].map((b) => b.dataset.value),
+      light: document.querySelectorAll("#restSheet .restglow, #restSheet .restflick, #restDial [class*='glow']").length,
+    }));
+    assert(shown.label === "Rest for this exercise" && shown.checked.join() === String(before.dflt),
+      "the section reads Rest for this exercise, with the default it inherits shown as chosen", shown);
+    assert(shown.light === 0, "the dial carries no light: no bloom at its head and no flick layer", shown);
+    await page.locator('#restPresets [data-value="90"]').click();
+    await page.waitForFunction((ex) => exerciseStoredRest(prog.find(ex)) === 90, before.ex, { timeout: 5000 });
+    const after = await page.evaluate((ex) => {
+      const slot = restSlotOf(prog.find(ex)), sets = slot.prescriptionsByCycle.flatMap((cycle) => cycle.sets);
+      const others = state.programMeta.programDefinition.days.flatMap((day) => day.slots).filter((other) => other.id !== slot.id)
+        .flatMap((other) => other.prescriptionsByCycle.flatMap((cycle) => cycle.sets.map((set) => set.restSeconds ?? null)));
+      const stored = JSON.parse(localStorage.getItem("repforge_v1"));
+      const storedSlot = stored.programMeta.programDefinition.days.flatMap((day) => day.slots).find((other) => other.id === slot.id);
+      return { rests: [...new Set(sets.map((set) => set.restSeconds))], statuses: [...new Set(sets.map((set) => set.status))],
+        others: [...new Set(others)], dflt: state.settings.restSec, storedDflt: stored.settings.restSec,
+        storedRests: [...new Set(storedSlot.prescriptionsByCycle.flatMap((cycle) => cycle.sets.map((set) => set.restSeconds)))],
+        draft: !!window.__repforgeWorkoutDraft.current(), recovery: localStorage.getItem("repforge_draft_v1:recovery"),
+        length: restLength, left: restLeftMs() };
+    }, before.ex);
+    assert(after.rests.join() === "90" && after.storedRests.join() === "90", "the preset stores 1:30 on every set of this exercise, in the program and on disk", after);
+    assert(after.dflt === before.dflt && after.storedDflt === before.dflt && after.others.every((v) => v === null),
+      "the Settings default and every other exercise keep their rest", after);
+    assert(after.draft && after.recovery === null, "the workout in progress keeps its draft: no recovery", after);
+    assert(after.length === 90 && after.left > 85000, "the running rest restarts at 1:30", after);
+    const reopen = await page.evaluate(() => [...document.querySelectorAll('#restPresets [role="radio"][aria-checked="true"]')].map((b) => b.dataset.value));
+    assert(reopen.join() === "90", "the chosen preset is the exercise's rest", reopen);
+    await page.locator("#restStop").click();
+    await page.waitForFunction(() => !document.querySelector("#restSheet.is-open"), undefined, { timeout: 5000 });
+    await logSet(page);
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    const next = await read(page);
+    assert(next.length === 90, "the exercise's next set rests for its own 1:30", next);
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  phase("The dial turns under the finger: a quarter-turn is a quarter of the rest, in 15-second detents");
+  {
+    const { context, page, errors } = await focusPage(browser);
+    await logSet(page);
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    await page.locator("#restTab").click();
+    await page.waitForSelector("#restSheet.is-open", { timeout: 5000 });
+    await page.waitForTimeout(400);
+    // A held clock at a known time, so the mapping is exact: 4:58 of 5:00.
+    await page.evaluate(() => { restLength = 300; restPaused = 298000; syncRest(); });
+    /** Drag around the ring from one angle to another (turns, 0 at the top, clockwise), in small steps. */
+    const turn = async (from, to) => {
+      const box = await page.locator("#restDial").boundingBox();
+      const cx = box.x + box.width / 2, cy = box.y + box.height / 2, r = box.width * 0.448;
+      const at = (a) => [cx + r * Math.sin(a * 2 * Math.PI), cy - r * Math.cos(a * 2 * Math.PI)];
+      await page.mouse.move(...at(from));
+      await page.mouse.down();
+      const steps = Math.max(2, Math.ceil(Math.abs(to - from) * 72));
+      for (let i = 1; i <= steps; i++) await page.mouse.move(...at(from + (to - from) * i / steps));
+      await page.mouse.up();
+      return page.evaluate(() => ({ left: Math.round(restLeftMs() / 1000), length: restLength, open: !!document.querySelector("#restSheet.is-open"),
+        dragging: document.querySelector("#restSheet")?.classList.contains("is-dragging"), time: document.querySelector("#restDialTime")?.textContent,
+        now: document.querySelector("#restDial").getAttribute("aria-valuenow"), text: document.querySelector("#restDial").getAttribute("aria-valuetext") }));
+    };
+    let r = await turn(0.125, 0.375);
+    assert(r.left === 375 && r.time === "6:15" && r.open, "a quarter-turn clockwise from 4:58 of 5:00 adds a quarter (1:15), snapped to 6:15; the grab keeps its offset", r);
+    assert(r.length === 375, "past the rest's length the ring stays full and the length grows with the time", r);
+    await page.evaluate(() => { restLength = 300; restPaused = 298000; syncRest(); });
+    r = await turn(0.375, 0.125);
+    assert(r.left === 225 && r.time === "3:45", "a quarter-turn counter-clockwise takes a quarter away: 4:58 to 3:45", r);
+    r = await turn(0.9, 0.95);
+    assert(r.left % 15 === 0, "every turn lands on a 15-second detent", r);
+    r = await turn(0, 3);
+    assert(r.left === 600 && r.time === "10:00", "turning on clockwise stops at 10:00", r);
+    r = await turn(0, -4);
+    assert(r.left === 15 && r.time === "0:15", "turning on counter-clockwise stops at 0:15", r);
+    // The ring is the dial's: a drag down its side turns the clock and never pulls the sheet down.
+    await page.evaluate(() => { restLength = 300; restPaused = 298000; syncRest(); });
+    r = await turn(0.7, 0.55);
+    assert(r.open && !r.dragging && r.left < 298, "a drag down the ring turns the dial and the sheet stays open", r);
+    assert(await page.evaluate(() => getComputedStyle(document.querySelector("#restDial")).touchAction) === "none" &&
+      await page.evaluate(() => getComputedStyle(document.querySelector("#restSheet .restsheet__controls")).touchAction) !== "none",
+      "only the dial keeps its touches; the rest of the sheet still swipes");
+
+    phase("The dial is a slider for the keyboard and assistive technology");
+    await page.evaluate(() => { restLength = 300; restPaused = 298000; syncRest(); });
+    const slider = await page.evaluate(() => { const d = document.querySelector("#restDial");
+      return { role: d.getAttribute("role"), tab: d.tabIndex, name: d.getAttribute("aria-label"), min: d.getAttribute("aria-valuemin"), max: d.getAttribute("aria-valuemax"),
+        now: d.getAttribute("aria-valuenow"), text: d.getAttribute("aria-valuetext") }; });
+    assert(slider.role === "slider" && slider.tab === 0 && slider.name === "Rest time left" && slider.min === "15" && slider.max === "600"
+      && slider.now === "298" && slider.text === "4 minutes 58 seconds", "role slider, its name, its range, and the time in words", slider);
+    await page.locator("#restDial").focus();
+    await page.keyboard.press("ArrowUp");
+    let k = await page.evaluate(() => ({ left: Math.round(restLeftMs() / 1000), text: document.querySelector("#restDial").getAttribute("aria-valuetext") }));
+    assert(k.left === 300 && k.text === "5 minutes", "ArrowUp steps to the next detent: 4:58 to 5:00", k);
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("ArrowLeft");
+    k = await page.evaluate(() => ({ left: Math.round(restLeftMs() / 1000), text: document.querySelector("#restDial").getAttribute("aria-valuetext") }));
+    assert(k.left === 270 && k.text === "4 minutes 30 seconds", "ArrowDown and ArrowLeft step 15 seconds down each", k);
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  phase("The bell with the sheet open: the light flicks along the shelf, never on the dial");
+  {
+    const { context, page, errors } = await focusPage(browser);
+    await logSet(page);
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    await page.locator("#restTab").click();
+    await page.waitForSelector("#restSheet.is-open", { timeout: 5000 });
+    const bell = await page.evaluate(async () => {
+      const seen = [];
+      const origin = Element.prototype.animate;
+      Element.prototype.animate = function (...args) { const run = origin.apply(this, args); seen.push(this.closest("#restDial") ? "dial" : this.getAttribute("class") || ""); return run; };
+      window.__repforgeRest.expire(0);
+      document.dispatchEvent(new Event("visibilitychange"));
+      await new Promise((r) => setTimeout(r, 1200));
+      Element.prototype.animate = origin;
+      return { seen, flicks: window.__repforgeRest.flicks() };
+    });
+    assert(!bell.seen.includes("dial") && bell.seen.includes("restlight__lit"), "the bell's flick runs on the shelf's light and nothing animates on the dial", bell);
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
 } finally {
   await browser.close();
 }
