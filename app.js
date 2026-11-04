@@ -3295,9 +3295,35 @@ function fatigueFlagged(){return exercises().filter(e=>{const r=recommendation(s
 async function applyFatigueTrim(){
   const flagged=new Set(fatigueFlagged().map(e=>e.id));
   if(!activeWorkoutDraft)return;
-  for(const id of [...skipped])if(!flagged.has(id)){const result=await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
-  for(const id of flagged)if(!skipped.has(id)){const result=await WorkoutSession.dispatch("skipExercise",{exerciseInstanceId:id},{bulk:true});if(result.status!=="applied")return}
-  renderWorkout();toast(t("toast.trimmed_priority"))}
+  // What this Trim changes, so its toast names the lifts and Undo puts back exactly that (owner, 2026-11-04).
+  const restored=[],trimmed=[];
+  for(const id of [...skipped])if(!flagged.has(id)){const result=await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return;restored.push(id)}
+  for(const id of flagged)if(!skipped.has(id)){const result=await WorkoutSession.dispatch("skipExercise",{exerciseInstanceId:id,reason:"trim"},{bulk:true});if(result.status!=="applied")return;trimmed.push(id)}
+  renderWorkout();
+  if(trimmed.length)showTrimToast(trimmed,restored)}
+/** The lifts a Trim hid, by name: two, then how many more. */
+function trimmedNamesText(ids){
+  const names=ids.map(id=>exerciseDisplayName(sessionExercise(prog.find(id))));
+  if(names.length===1)return t("log.trimmed_named.one",{name:names[0]});
+  if(names.length===2)return t("log.trimmed_named.two",{a:names[0],b:names[1]});
+  return t("log.trimmed_named.more",{a:names[0],b:names[1],n:names.length-2})}
+/* The Trim toast: the day-change toast's shape (an Undo beside the text, no focus moved, a second one replaces it).
+   Undo restores the lifts this Trim hid and re-hides any it had brought back, by hand, so no reason is recorded. */
+let trimToastEl=null,trimToastTimer=null;
+function hideTrimToast(){clearTimeout(trimToastTimer);trimToastTimer=null;trimToastEl?.remove();trimToastEl=null}
+function showTrimToast(trimmed,restored){
+  hideTrimToast();
+  const el=document.createElement("div");
+  el.className="review-toast trim-toast";el.setAttribute("role","status");
+  el.innerHTML=`<span class="review-toast__text">${esc(trimmedNamesText(trimmed))}</span>`+
+    `<button type="button" class="review-toast__undo" data-role="trim-undo">${esc(t("common.undo"))}</button>`;
+  el.querySelector('[data-role="trim-undo"]').onclick=async()=>{hideTrimToast();await undoFatigueTrim(trimmed,restored)};
+  document.body.append(el);trimToastEl=el;trimToastTimer=setTimeout(hideTrimToast,6000)}
+async function undoFatigueTrim(trimmed,restored){
+  if(!activeWorkoutDraft)return;
+  for(const id of trimmed)if(skipped.has(id)){const result=await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
+  for(const id of restored)if(!skipped.has(id)){const result=await WorkoutSession.dispatch("skipExercise",{exerciseInstanceId:id},{bulk:true});if(result.status!=="applied")return}
+  renderWorkout()}
 let focusIndex=0,statsSeg="overview",evidenceView=null,prFilter="all";
 let strengthScope="current-block",volumeScope="this-week",volumeDrillMuscle=null;
 let focusDrag=null,focusFlinging=false;
@@ -8204,7 +8230,7 @@ function renderSessionSheet(){
       const statusText = `${doneCount}/${totalCount}`;
       // The state is a mark and, for the lift Focus is on and a skipped one, a word: never colour alone (#522).
       const state = isSkipped ? "skipped" : isComplete ? "complete" : isCurrent ? "current" : "pending";
-      const note = isSkipped ? t("log.skipped") : isCurrent ? t("session.sheet.now") : "";
+      const note = isSkipped ? t(ex.skipReason === "trim" ? "log.trimmed" : "log.skipped") : isCurrent ? t("session.sheet.now") : "";
       // Reorder as the editor does (UI kit, owner 2026-10-24): drag the grip, or long-press the row (or its menu, the
       // keyboard path) for Move up and Move down. The ↑ ↓ buttons are gone.
       const name = exerciseDisplayName(ex);
@@ -8460,7 +8486,12 @@ function renderExActionsSheet(exId) {
   const isSkipped = draftEx.status === "skipped";
   if (skipLabel) skipLabel.textContent = t(isSkipped ? "ex.actions.restore" : "ex.actions.skip");
   // A skipped exercise says so in its status group, not only in the changed button label.
-  $("#exActionsStatus")?.classList.toggle("hidden", !isSkipped);
+  const statusEl = $("#exActionsStatus");
+  if (statusEl) {
+    statusEl.classList.toggle("hidden", !isSkipped);
+    // A lift Trim set aside says Trimmed here too, as the hidden bar and Session details do (owner, 2026-11-04).
+    statusEl.textContent = t(isSkipped && draftEx.skipReason === "trim" ? "log.trimmed" : "log.skipped");
+  }
 }
 
 /** "100 × 8, 8, 8" for one load across the sets, "100 × 8, 90 × 10" when the load moved. */
@@ -9153,9 +9184,14 @@ function focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
     // L4: the render that completes the exercise lets its actions rise in.
     // The class is on for that render alone; the button is live throughout.
     const rise=focusIsFresh(ex,peek)&&beatsOn()?" motion-rise":"";
-    const cta=allDone||!hasNext
+    // The shelf offers only the finish the gate will take: the same normalFinishIssues decides both. With sets left on
+    // a shown lift it offers the early finish, whose confirmation names them.
+    const left=!!activeWorkoutDraft&&normalFinishIssues(activeWorkoutDraft).length>0;
+    const cta=(allDone||!hasNext)&&!left
       ?`<button type="button" class="btn btn--cta btn--noarrow${rise}"${peek?dead():" data-ffinish"}>${esc(t("log.finish"))}</button>`
-      :`<button type="button" class="btn btn--cta${rise}"${peek?dead():" data-fnext"}>${esc(t("focus.next_ex"))}</button>`;
+      :allDone||!hasNext
+        ?`<button type="button" class="btn btn--cta btn--noarrow${rise}"${peek?dead():" data-fearly"}>${esc(t("session.sheet.early_finish"))}</button>`
+        :`<button type="button" class="btn btn--cta${rise}"${peek?dead():" data-fnext"}>${esc(t("focus.next_ex"))}</button>`;
     return `<div class="focus-shelf workshelf is-done" role="region" aria-label="${esc(title)}">`+
       `<div class="focus-done${rise}"><p class="focus-done__title">${esc(title)}</p><p class="focus-done__sub">${esc(sub)}</p></div>`+cta+`</div>`}
   const effortMode=isEffortMode();
@@ -9506,6 +9542,16 @@ function shelfReveal(input){
  *  What a peek does not carry is behaviour — its controls hold no hooks and no
  *  tab stop — and no `data-k` field, which would duplicate the draft keys the
  *  live card owns. */
+const SKIPBAR_TRIMMED_KEYS=["log.skipbar.trimmed.one","log.skipbar.trimmed.other"];
+const SKIPBAR_MIXED_KEYS=["log.skipbar.mixed.one","log.skipbar.mixed.other"];
+function focusSkipbarHtml(peek){
+  const hidden=exercises().filter(e=>skipped.has(e.id)),hiddenCount=hidden.length;
+  // The lifts Trim set aside say so, apart from the ones hidden by hand (owner, 2026-11-04).
+  const trimmedCount=hidden.filter(e=>activeWorkoutDraft?.exercises?.[e.id]?.skipReason==="trim").length;
+  const label=!trimmedCount?t("log.skipbar",{n:hiddenCount})
+    :trimmedCount===hiddenCount?t(SKIPBAR_TRIMMED_KEYS[hiddenCount===1?0:1],{n:hiddenCount})
+      :t(SKIPBAR_MIXED_KEYS[trimmedCount===1?0:1],{n:hiddenCount,m:trimmedCount});
+  return hiddenCount?`<div class="skipbar">${esc(label)} <button type="button" class="skipbar__show"${peek?dead():""}>${esc(t("log.skipbar.show_all"))}</button></div>`:""}
 function focusCardHtml(ex,r,draft,prev,opts){
   const{peek=false,hasNext=true,allDone=false,nextName=""}=opts;
   const effortMode=isEffortMode();
@@ -9523,6 +9569,9 @@ function focusCardHtml(ex,r,draft,prev,opts){
   return `<article class="exercise exercise--focus is-${r.status}${peek?" is-peek":" is-current"}${focusHeroCompact.has(ex.id)?" is-hero-compact":""}"`+
     (peek?` aria-hidden="true" inert data-peek="${esc(ex.id)}"`:` data-ex="${esc(ex.id)}"`)+`>`+
     `<div class="fcard__context" role="region" aria-label="${esc(name)}" tabindex="${peek?-1:0}">`+
+    // The lifts hidden today head the context and scroll with it (owner, 2026-11-03): scrolling up brings the bar back,
+    // and it never sits over the cue. A neighbour carries the same bar, inert, so a swipe lands on what it showed.
+    focusSkipbarHtml(peek)+
     // The header names the exercise (layout D), so its row here is the prescription line alone.
     `<div class="fx-head"><p class="focus-ex__meta">${esc(focusExMeta(ex))}</p></div>`+
     slotHtml+note+
@@ -9560,8 +9609,6 @@ function renderWorkout(){
   const lc=$("#logContext");if(lc){const nm=state.programMeta?.name,mc=mesocycleWeek();
     lc.textContent=nm||mc.current!=null||mc.isComplete?programWeekContext(nm,mc):t("log.context.today")}
   const draft=hydrateWorkoutDraft();
-  const hiddenCount=exercises().filter(e=>skipped.has(e.id)).length;
-  const banner=hiddenCount?`<div class="skipbar">${esc(t("log.skipbar",{n:hiddenCount}))} <button type="button" class="skipbar__show">${esc(t("log.skipbar.show_all"))}</button></div>`:"";
   const fl=focusList();
   if(fl.length)focusIndex=Math.min(focusIndex,fl.length-1);
   const at=fl.length?Math.min(focusIndex,fl.length-1):0;
@@ -9573,7 +9620,7 @@ function renderWorkout(){
   const openRow=focusMotion()?focusOpenRow():null;
   // Focus survives the rebuild when the lifter is still on the same exercise: the control is asked for again by its keys.
   const heldFocus=focusCard()?.contains(document.activeElement)?{ex:focusCard().dataset.ex,key:workoutFocusKey(document.activeElement)}:null;
-  wk.innerHTML=banner+(current ? focusDeckHtml(current,recommendation(current),draft,last(current),{fl,at}) : "");
+  wk.innerHTML=(current ? focusDeckHtml(current,recommendation(current),draft,last(current),{fl,at}) : "");
   // The landing animation belongs to this render alone: the markup that plays
   // it has been written, so the next render draws the same card at rest.
   focusLogged=null;
@@ -9844,7 +9891,7 @@ function syncFocusFloor(){
   else card.style.removeProperty("--focus-context-floor");
   const least=context?getComputedStyle(context):null;
   // The card's own floor: the shelf whole, under the context region at its least. With the keyboard up the other
-  // floors stand down, and this one makes what sits above the deck (the skip bar) give way instead of the shelf.
+  // floors stand down, and this one makes what sits above the deck (a draft recovery) give way instead of the shelf.
   // The band the region leaves for the rest tab's rise (#550) is part of its floor; it stands down with the keyboard up.
   const rise=least?parseFloat(least.marginBottom)||0:0;
   const deck=tall(shelf)+rise+(least?(parseFloat(least.paddingTop)||0)+(parseFloat(least.paddingBottom)||0):0);
@@ -10112,7 +10159,7 @@ function bindWorkout(){
       if(wheelKind){openWheelSheet(key,id,wheelKind);return}
       shelfSelect(key,id,true);refreshShelf({focus:id});return}
     closeEffortPop();shelfSelect(key,id,false);refreshShelf({focus:id})});
-  const sb=$("#workout .skipbar__show");if(sb)sb.onclick=()=>applyShowAll();
+  const sb=$("#workout .exercise.is-current:not(.is-peek) .skipbar__show");if(sb)sb.onclick=()=>applyShowAll();
   {const fl=focusList();const at=fl.length?Math.min(focusIndex,fl.length-1):0;
     const progEl=$("#woProgress");
     if(progEl){progEl.classList.remove("hidden");
@@ -10127,6 +10174,8 @@ function bindWorkout(){
             `aria-label="${esc(t("today.exercise_of",{n:i+1,m:fl.length}))}"><span class="segbar__bar" aria-hidden="true"></span></button>`).join("")+`</div>`;
       progEl.querySelectorAll("button[data-focusgo]").forEach(b=>b.onclick=()=>focusJump(+b.dataset.focusgo))}
     const f=$w("[data-ffinish]")[0];if(f)f.onclick=()=>$("#logForm").requestSubmit();
+    // The early finish starts where Session details asks for it: the same confirmation, naming the sets left.
+    const fe=$w("[data-fearly]")[0];if(fe)fe.onclick=()=>{openSessionSheet();$("#sessionEarlyFinish")?.click()};
     $w("[data-fnext],[data-fnextrow]").forEach(b=>b.onclick=()=>focusAnimateTo(1));
     $w("[data-ledgermore]").forEach(b=>b.onclick=()=>toggleFocusLedger(b));
     // Tap a logged row to reopen that set in the shelf, with a way back out.
@@ -10328,6 +10377,19 @@ function updateSaveMeta(){const exs=exercises(),planned=sum(exs.map(e=>e.sets));
     0;
   $("#saveMeta").textContent=done?t("log.save_meta.done",{day:dayLabel(day),done,planned}):(entered?t("log.save_meta.entered",{day:dayLabel(day),entered,planned}):t("log.save_meta.planned",{day:dayLabel(day),planned}));}
 
+/** What keeps a normal finish back: a pending set on a shown lift. The shelf and the finish read the same answer. */
+function normalFinishIssues(draft){
+  const issues=[];
+  for(const exerciseId of draft?.exerciseOrder||[]){
+    const exercise=draft.exercises?.[exerciseId];
+    if(!exercise)continue;
+    // A lift hidden today is the lifter's choice, not unfinished work (owner, 2026-11-03): it records nothing and does
+    // not hold the normal finish back. Pending sets on a shown lift still do.
+    if(exercise.status==="skipped")continue;
+    for(const setId of exercise.setOrder||[]){
+      const set=exercise.sets?.[setId];
+      if(set?.completion==="pending")issues.push({code:"incomplete-workout",exerciseInstanceId:exerciseId,setId})}}
+  return issues}
 const EARLY_FINISH_CONFIRMATION=Symbol("confirmed early finish");
 const WorkoutSession=(()=>{
   async function start(label,options){
@@ -10336,18 +10398,6 @@ const WorkoutSession=(()=>{
   async function leave(){
     await drainDraftWork();
     return !draftUiRecovery?.attempt&&!draftUiRecovery?.status&&window.__repforgeDraftFault!=="persist-failure"}
-function normalFinishIssues(draft){
-  const issues=[];
-  for(const exerciseId of draft?.exerciseOrder||[]){
-    const exercise=draft.exercises?.[exerciseId];
-    if(!exercise)continue;
-    if(exercise.status==="skipped"){
-      issues.push({code:"incomplete-workout",exerciseInstanceId:exerciseId});
-      continue}
-    for(const setId of exercise.setOrder||[]){
-      const set=exercise.sets?.[setId];
-      if(set?.completion==="pending")issues.push({code:"incomplete-workout",exerciseInstanceId:exerciseId,setId})}}
-  return issues}
 async function finish(io,{expectedDraft=null,completion="normal"}={}){
   // The finish is the lifter's action, not the write that follows it.
   const finishedAt=new Date().toISOString();

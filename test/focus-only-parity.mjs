@@ -425,12 +425,12 @@ async function main() {
     const afterSkip = await page.evaluate((id) => ({
       inList: window.__repforgeFocus.list().map((e) => e.id).includes(id),
       current: document.querySelector("#workout .exercise.is-current")?.dataset.ex,
-      bar: document.querySelector("#workout .skipbar")?.textContent?.trim(),
+      bar: document.querySelector("#workout .exercise.is-current:not(.is-peek) .skipbar")?.textContent?.trim(),
       firstId: window.__repforgeFocus.list()[0]?.id,
     }), first.id);
     assert(!afterSkip.inList && afterSkip.current !== first.id && afterSkip.bar,
       "a skipped exercise leaves Focus, the next one becomes current, and the skip bar counts it", JSON.stringify(afterSkip));
-    await page.locator("#workout .skipbar__show").click();
+    await page.locator("#workout .exercise.is-current:not(.is-peek) .skipbar__show").click();
     await page.waitForFunction((id) => {
       const draft = window.__repforgeWorkoutDraft.current();
       return draft?.exercises?.[id]?.status === "active";
