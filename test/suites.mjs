@@ -198,6 +198,7 @@ export const FULL_SUITES = {
     s("test/generative-entry-runtime.mjs", [], { seconds: 68 }),
     s("test/generate-program-browser.mjs", [], { domains: ["entry", "persistence"], seconds: 390 }),
     s("test/adaptive-workout-browser.mjs", [], { domains: ["workout", "program", "persistence"], seconds: 12 }),
+    s("test/bodyweight-source-browser.mjs", [], { domains: ["workout", "program", "persistence"], seconds: 12 }),
     s("test/per-side-engine-transfer-browser.mjs", [], { domains: ["install", "workout", "persistence"], tier: "packet", seconds: 14, timeoutMs: 900000 }),
     s("test/session-duration-browser.mjs", [], { domains: ["workout", "history", "install", "persistence"], seconds: 20, timeoutMs: 900000 }),
     s("test/per-side-focus-cues-browser.mjs", [], { domains: ["workout", "program", "persistence"], tier: "packet", seconds: 22, timeoutMs: 900000 }),
