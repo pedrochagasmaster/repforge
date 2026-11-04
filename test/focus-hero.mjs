@@ -402,10 +402,11 @@ try {
     }
     // Owner report 2026-11-03 (C): set 1 logged at RIR 0, set 2 declined, and the cue said "a different loading setup
     // … log RIR and it suggests the next one". A later set says its own reason, never the first set's, and "mismatch" only
-    // when the engine reports one; declined with a comparable RIR set above, it says it can't suggest and promises nothing.
+    // when the engine reports one; declined with a comparable RIR set above, it says those sets couldn't be used and promises
+    // nothing (owner wording, 2026-11-04), and a genuinely unsupported target keeps its own line.
     const live = { history: [], currentSession: [{ setIndex: 0, rir: 0 }] };
     const laterCases = [
-      ["unsupported", ["no_comparable_history"], live, "declined with a logged RIR set above"],
+      ["unused", ["no_comparable_history"], live, "declined with a logged RIR set above"],
       ["unsupported", ["manual_prescription"], live, "the first set's no-history reason does not leak into the second"],
       ["mismatch", ["no_comparable_history", "loading_convention_mismatch"], live, "a real loading-convention mismatch"],
       ["new", ["no_comparable_history"], { history: [], currentSession: [{ setIndex: 0, rir: null }] }, "a set above without RIR"],

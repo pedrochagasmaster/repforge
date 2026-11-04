@@ -8708,13 +8708,13 @@ function focusNoSuggestionKey(ex,r,n,kind){
   if(reasons.has("no_candidate_in_range")||reasons.has("no_candidate_after_expansion"))return"range";
   if(reasons.has("no_comparable_history")){
     // Which history there is decides the reason: sets logged another way (only when the engine says so), none at all, or
-    // sets logged without an effort. Declined with every set's effort logged, it says it can't suggest and promises
-    // nothing: the effort the other lines ask for is already there.
+    // sets logged without an effort. Declined with every set's effort logged, it says those sets couldn't be used and
+    // promises nothing: the effort the other lines ask for is already there (owner wording, 2026-11-04).
     const inputs=r.progressionInputs,seen=[...(inputs?.history||[]).flatMap(session=>session.sets||[]),...(inputs?.currentSession||[])];
     if(reasons.has("loading_convention_mismatch"))return"mismatch";
     if(!seen.length)return"history";
     if(seen.some(set=>!Number.isFinite(set.rir)))return"new";
-    return"unsupported"}
+    return"unused"}
   return"unsupported"}
 /** A catalog sentence as markup with each of `vars` (already markup) in its slot: the template is escaped first, so only
  *  the slots carry markup. The evidence line and the landing's proof both say their figures through it. */
