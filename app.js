@@ -12543,8 +12543,10 @@ function editorSlotForRow(row,document,slotId,order,existing=null){
   const prescriptionsByCycle=[];
   for(let cycleIndex=1;cycleIndex<=cycles;cycleIndex++){
     const previous=sourceSetsByCycle.get(cycleIndex)?.sets||[];
+    // A replacement keeps each week's volume (a one-set deload week stays one set).
+    const weekSetCount=existing&&previous.length?previous.length:setCount;
     const sets=[];
-    for(let setIndex=1;setIndex<=setCount;setIndex++){
+    for(let setIndex=1;setIndex<=weekSetCount;setIndex++){
       const old=previous[setIndex-1];
       const retainedTargets=existing&&old?cloneSnapshot(old.targets||{}):cloneSnapshot(targets);
       const filteredTargets=Object.fromEntries(Object.entries(retainedTargets).filter(([semantic])=>
