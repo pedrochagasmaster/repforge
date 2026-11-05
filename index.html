@@ -919,6 +919,33 @@ Triceps pushdown 3x12-15</pre>
       </div>
     </div>
   </div>
+  <!-- Share (finish-share PR 2; owner decisions, 2026-11-05): the card the finish screen previews, drawn on the
+       device and handed to the system share sheet. Only the image leaves the phone. -->
+  <div id="shareCardScrim" class="sheet-scrim hidden"></div>
+  <div id="shareCardSheet" class="sheet sheet--sharecard hidden" role="dialog" aria-modal="true" aria-labelledby="shareCardTitle" hidden>
+    <div class="sheetband">
+      <span class="sheetband__handle" aria-hidden="true"></span>
+      <h2 class="sheetband__title" id="shareCardTitle" data-i18n="share.title">Share</h2>
+      <button type="button" class="sheetband__close" id="shareCardClose" data-i18n-aria="dialog.close" aria-label="Close"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
+    </div>
+    <div class="sharesheet" data-sheet-scroll>
+      <figure class="sharesheet__preview"><img id="shareCardPreview" alt="" width="1080" height="1920"></figure>
+      <span class="visually-hidden" id="shareKindLabel" data-i18n="share.group_card">Card</span>
+      <select id="shareCardKind" hidden tabindex="-1" aria-hidden="true"><option value="record">record</option><option value="stats">stats</option></select>
+      <div class="native-segments sharesheet__segments" id="shareKindSegments" data-segment-input="shareCardKind" role="radiogroup" aria-labelledby="shareKindLabel"><span class="native-segments__thumb" data-state-indicator aria-hidden="true"></span><button type="button" role="radio" data-value="record" aria-checked="false" tabindex="-1" data-i18n="share.card_record">Record</button><button type="button" role="radio" data-value="stats" aria-checked="false" tabindex="-1" data-i18n="share.card_stats">Stats</button></div>
+      <span class="visually-hidden" id="shareSizeLabel" data-i18n="share.group_format">Format</span>
+      <select id="shareCardSize" hidden tabindex="-1" aria-hidden="true"><option value="story">story</option><option value="square">square</option></select>
+      <div class="native-segments sharesheet__segments" id="shareSizeSegments" data-segment-input="shareCardSize" role="radiogroup" aria-labelledby="shareSizeLabel"><span class="native-segments__thumb" data-state-indicator aria-hidden="true"></span><button type="button" role="radio" data-value="story" aria-checked="false" tabindex="-1" data-i18n="share.story">Story</button><button type="button" role="radio" data-value="square" aria-checked="false" tabindex="-1" data-i18n="share.square">Square</button></div>
+      <span class="visually-hidden" id="shareStyleLabel" data-i18n="share.group_style">Style</span>
+      <select id="shareCardStyle" hidden tabindex="-1" aria-hidden="true"><option value="primary">primary</option><option value="alternate">alternate</option></select>
+      <div class="native-segments sharesheet__segments" id="shareStyleSegments" data-segment-input="shareCardStyle" role="radiogroup" aria-labelledby="shareStyleLabel"><span class="native-segments__thumb" data-state-indicator aria-hidden="true"></span><button type="button" role="radio" data-value="primary" aria-checked="false" tabindex="-1" data-i18n="share.style_orange">Orange</button><button type="button" role="radio" data-value="alternate" aria-checked="false" tabindex="-1" data-i18n="share.style_dark">Dark</button></div>
+      <p class="sharesheet__note" data-i18n="share.note">Only this image leaves your phone, with the Taurifer name and taurifer.com.</p>
+    </div>
+    <div class="sharesheet__actions">
+      <button type="button" class="btn btn--cta btn--noarrow" id="shareCardShare" data-i18n="share.share">Share…</button>
+      <button type="button" class="btn btn--steel" id="shareCardSave" data-i18n="share.save">Save image</button>
+    </div>
+  </div>
   <!-- "Why this weight?" — the sanctioned place the engine may show its
        arithmetic. Inline recommendation copy still names the signal, not the
        maths; this sheet answers only when the lifter taps to ask. -->
@@ -1439,6 +1466,7 @@ Triceps pushdown 3x12-15</pre>
   <script src="durable-state.js?v=447"></script>
   <script src="progress-model.js?v=309"></script>
   <script src="history-ui.js?v=604"></script>
-  <script src="app.js?v=627"></script>
+  <script src="share-cards.js?v=628"></script>
+  <script src="app.js?v=628"></script>
 </body>
 </html>

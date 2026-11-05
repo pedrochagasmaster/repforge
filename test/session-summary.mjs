@@ -482,7 +482,8 @@ async function run() {
     "each of the three lifts is a group; a manual prescription shows no engine next target", JSON.stringify(ledger));
   assert(ledger.words.length === 3 && ledger.words.every((w) => w.id && w.session),
     "outcome words carry the parity markers the Direction D gate reads", JSON.stringify(ledger.words));
-  assert(ledger.actions.join(",") === "sumSee,sumDone", "both actions sit in one pinned bar", JSON.stringify(ledger.actions));
+  assert(ledger.actions.join(",") === "sumShare,sumDone", "Share and Done sit in one pinned bar; See the session follows the report",
+    JSON.stringify(ledger.actions));
 
   // The pinned bar is the persistent-action role, like the onboarding pinned region and the workout shelf: one
   // surface on the paper from edge to edge under a persistent hairline. Held inside the text column it read as a
@@ -517,9 +518,9 @@ async function run() {
     return { stops, last: document.activeElement?.id };
   });
   assert(
-    // Tab order follows the screen: the detour, then the pinned way out.
-    trap.stops.join(",") === "sumSee,sumDone" && trap.last === "sumSee",
-    "both actions are reachable by keyboard",
+    // Tab order follows the screen: the detour after the report, then Share and the way out in the pinned bar.
+    trap.stops.join(",") === "sumSee,sumShare,sumDone" && trap.last === "sumSee",
+    "every action is reachable by keyboard",
     JSON.stringify(trap)
   );
 
