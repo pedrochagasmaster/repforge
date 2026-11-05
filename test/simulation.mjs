@@ -5852,8 +5852,7 @@ async function main() {
   await setLogDate(page, isoDateFromWeeksAgo(0));
   await fillExerciseSets(page, noteEx.id, noteEx.sets, 90, 8, 2);
   await selectFocusExercise(page, noteEx.id);
-  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
-  await page.locator("#exActionNotesBtn").click();
+  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="note"]').click();
   await page.locator("#exNoteSheet.is-open").waitFor({ state: "visible" });
   await page.fill("#exNoteText", NOTE_TEXT);
   await page.click("#exNoteSave");
@@ -5886,8 +5885,17 @@ async function main() {
     "Log a session with an exercise note → inspect state.log"
   );
   await selectFocusExercise(page, noteEx.id);
-  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
-  await page.locator("#exActionNotesBtn").click();
+  const carried = await page.evaluate(() => {
+    const card = document.querySelector("#workout .exercise.is-current");
+    return { line: card?.querySelector(".fx-note__text")?.textContent || "", add: !!card?.querySelector(".fx-note-add") };
+  });
+  assert(
+    carried.line === NOTE_TEXT && !carried.add,
+    "Next session shows the carried note on the card, in place of the note icon",
+    JSON.stringify(carried),
+    "Save a session with a note → the next session's Focus card"
+  );
+  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="note"]').click();
   await page.locator("#exNoteSheet.is-open").waitFor({ state: "visible" });
   const notePrefill = await page.inputValue("#exNoteText");
   await page.click("#exNoteCancel");

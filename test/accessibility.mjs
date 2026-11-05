@@ -741,10 +741,9 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   const { context, page } = await freshPage(browser);
   await page.click("#startWorkout");
   await page.waitForSelector("#workoutShell:not(.hidden)");
-  // The note opens from the exercise actions, which the header's three-dot button opens.
+  // The note opens from the header's three-dot menu (owner, 2026-11-05: one tap, beside the exercise actions).
   const noteId = "woOverflowBtn";
-  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
-  await page.locator("#exActionNotesBtn").click();
+  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="note"]').click();
   await page.waitForFunction(() => {
     const s = document.querySelector("#exNoteSheet");
     return s && !s.hidden && !s.classList.contains("hidden");
@@ -767,8 +766,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   assert(after.leaked.length === 0, "Exercise Note: close restores inertness", JSON.stringify(after.leaked));
   assert(after.focusNote === noteId, "Exercise Note: Cancel returns focus to the exact note trigger", JSON.stringify({ noteId, after }));
 
-  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
-  await page.locator("#exActionNotesBtn").click();
+  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="note"]').click();
   await page.waitForSelector("#exNoteSheet:not([hidden])", { timeout: 8000 });
   await page.locator("#exNoteText").fill("Saved focus note");
   await page.locator("#exNoteSave").click();

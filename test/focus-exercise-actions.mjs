@@ -133,7 +133,7 @@ async function main() {
       return {
         heads: heads.map((el) => el.textContent.trim()),
         expected: ["ex.actions.setup_notes", "ex.actions.history_title", "ex.actions.subst_title", "ex.actions.warmup_title",
-          "ex.actions.skip_title", "ex.actions.notes_title"].map(t),
+          "ex.actions.skip_title"].map(t),
         transforms: heads.map((el) => getComputedStyle(el).textTransform),
         sessionOnly: sessionOnly.length + labelled.length,
         closeInBand: !!close?.closest(".sheetband"),

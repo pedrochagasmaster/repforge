@@ -353,6 +353,11 @@
       "content": "flat",
       "scenario": "The rest has run out: the tab reads Rest done in accent with a check and counts the overrun up (+0:15); the cue and the shelf are as they were."
     },
+    "workout/exercise-note-line": {
+      "owner": "plan-058",
+      "content": "flat",
+      "scenario": "The exercise's note as one quiet line on the Focus card, in place of the note icon."
+    },
     "workout/exercise-note": {
       "owner": "plan-055",
       "content": "flat",
@@ -2143,29 +2148,79 @@
       ]
     },
     {
-      "id": "exactionnotesbtn",
-      "selector": "#exActionNotesBtn",
+      "id": "fx-note-add",
+      "selector": ".fx-note-add",
       "roles": {
-        "control": "secondary"
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "The invitation to write the exercise note (owner, 2026-11-05): a quiet note icon at the end of the prescription line while the exercise has none, a full target whose glyph keeps the line's height; it opens the note sheet.",
+      "owner": "plan-058",
+      "catalogStates": [
+        "workout/focus",
+        "workout/first-set-guide",
+        "workout/focus-utilities-guide",
+        "workout/focus-per-side",
+        "workout/why-per-side",
+        "workout/deload-week",
+        "workout/focus-glossary",
+        "workout/stale-draft",
+        "workout/persist-retry",
+        "workout/rest-running",
+        "workout/rest-done",
+        "workout/rest-sheet",
+        "workout/rest-sheet-idle",
+        "workout/exercise-note",
+        "workout/wheel-load",
+        "workout/wheel-reps",
+        "workout/why-this-weight",
+        "workout/why-in-session",
+        "workout/why-manual",
+        "workout/why-setup",
+        "workout/session",
+        "workout/early-finish",
+        "workout/abandon",
+        "workout/exercise-actions",
+        "workout/warmup-actions",
+        "workout/reorder",
+        "workout/correction",
+        "workout/logged-sets",
+        "workout/logged-sets-folded",
+        "workout/skipped-actions",
+        "workout/substituted-actions",
+        "workout/swap-alternates",
+        "workout/swap-reason",
+        "workout/actions"
+      ],
+      "neverDisabledReason": "A note can always be written for the exercise in progress."
+    },
+    {
+      "id": "fx-note",
+      "selector": ".fx-note",
+      "roles": {
+        "control": "quiet-navigation"
       },
       "variant": null,
       "facets": [],
       "states": [
         "default",
-        "hover",
         "pressed",
-        "focus-visible",
-        "disabled",
-        "loading"
+        "focus-visible"
       ],
-      "rationale": "Performs a reversible supporting action without becoming the screen commitment.",
+      "rationale": "The exercise's note on the Focus card (owner, 2026-11-05): one quiet line under the prescription, cut with an ellipsis and named with its whole text; it opens the note sheet to read and edit.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/exercise-actions",
-        "workout/skipped-actions",
-        "workout/substituted-actions",
-        "workout/warmup-actions"
-      ]
+        "workout/exercise-note-line"
+      ],
+      "neverDisabledReason": "The note can always be read and edited."
     },
     {
       "id": "exactionrepeatbtn",
@@ -3767,7 +3822,8 @@
         "workout/swap-alternates",
         "workout/swap-reason",
         "workout/deload-week",
-        "workout/logged-sets-folded"
+        "workout/logged-sets-folded",
+        "workout/exercise-note-line"
       ]
     },
     {
@@ -5640,7 +5696,8 @@
         "workout/swap-alternates",
         "workout/swap-reason",
         "workout/deload-week",
-        "workout/logged-sets-folded"
+        "workout/logged-sets-folded",
+        "workout/exercise-note-line"
       ]
     },
     {
@@ -6530,7 +6587,8 @@
         "workout/swap-alternates",
         "workout/swap-reason",
         "workout/deload-week",
-        "workout/logged-sets-folded"
+        "workout/logged-sets-folded",
+        "workout/exercise-note-line"
       ]
     },
     {
@@ -6576,7 +6634,8 @@
         "workout/swap-alternates",
         "workout/swap-reason",
         "workout/deload-week",
-        "workout/logged-sets-folded"
+        "workout/logged-sets-folded",
+        "workout/exercise-note-line"
       ],
       "progressScopes": {
         "workout-exercise-order": "exercise-set"
@@ -6716,7 +6775,8 @@
         "program/editor-suggest-loads",
         "program/editor-issue-field",
         "program/editor-day-name-refused",
-        "workout/logged-sets-folded"
+        "workout/logged-sets-folded",
+        "workout/exercise-note-line"
       ]
     },
     {
@@ -6953,7 +7013,8 @@
         "workout/swap-alternates",
         "workout/swap-reason",
         "workout/deload-week",
-        "workout/logged-sets-folded"
+        "workout/logged-sets-folded",
+        "workout/exercise-note-line"
       ],
       "neverDisabledReason": "The header draws the name only while the workout has an exercise to open, and opening it is always available."
     },
@@ -7009,7 +7070,8 @@
         "workout/swap-alternates",
         "workout/swap-reason",
         "workout/deload-week",
-        "workout/logged-sets-folded"
+        "workout/logged-sets-folded",
+        "workout/exercise-note-line"
       ]
     },
     {
@@ -7802,7 +7864,8 @@
         "workout/swap-alternates",
         "workout/deload-week",
         "workout/rest-running",
-        "workout/logged-sets-folded"
+        "workout/logged-sets-folded",
+        "workout/exercise-note-line"
       ]
     },
     {
@@ -7857,7 +7920,8 @@
         "workout/swap-alternates",
         "workout/swap-reason",
         "workout/deload-week",
-        "workout/logged-sets-folded"
+        "workout/logged-sets-folded",
+        "workout/exercise-note-line"
       ]
     },
     {
@@ -7890,7 +7954,8 @@
         "workout/swap-alternates",
         "workout/swap-reason",
         "workout/deload-week",
-        "workout/logged-sets-folded"
+        "workout/logged-sets-folded",
+        "workout/exercise-note-line"
       ]
     },
     {
@@ -8415,7 +8480,8 @@
         "progress/minibar",
         "program/minibar-rest-done",
         "workout/logged-sets",
-        "workout/logged-sets-folded"
+        "workout/logged-sets-folded",
+        "workout/exercise-note-line"
       ]
     },
     {
@@ -8558,7 +8624,8 @@
         "workout/swap-alternates",
         "history/per-side-session",
         "workout/deload-week",
-        "workout/logged-sets-folded"
+        "workout/logged-sets-folded",
+        "workout/exercise-note-line"
       ]
     },
     {
@@ -8621,7 +8688,8 @@
         "workout/swap-alternates",
         "workout/swap-reason",
         "workout/deload-week",
-        "workout/logged-sets-folded"
+        "workout/logged-sets-folded",
+        "workout/exercise-note-line"
       ]
     },
     {
@@ -8773,7 +8841,8 @@
         "history/edit-invalid",
         "workout/swap-alternates",
         "workout/deload-week",
-        "workout/logged-sets-folded"
+        "workout/logged-sets-folded",
+        "workout/exercise-note-line"
       ]
     },
     {
@@ -8812,7 +8881,8 @@
         "workout/swap-alternates",
         "workout/swap-reason",
         "workout/deload-week",
-        "workout/logged-sets-folded"
+        "workout/logged-sets-folded",
+        "workout/exercise-note-line"
       ]
     },
     {
@@ -8844,7 +8914,8 @@
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/swap-alternates",
-        "workout/logged-sets-folded"
+        "workout/logged-sets-folded",
+        "workout/exercise-note-line"
       ]
     },
     {
@@ -8877,7 +8948,8 @@
         "workout/swap-alternates",
         "workout/swap-reason",
         "workout/deload-week",
-        "workout/logged-sets-folded"
+        "workout/logged-sets-folded",
+        "workout/exercise-note-line"
       ]
     },
     {
@@ -8910,7 +8982,8 @@
         "workout/swap-alternates",
         "workout/swap-reason",
         "workout/deload-week",
-        "workout/logged-sets-folded"
+        "workout/logged-sets-folded",
+        "workout/exercise-note-line"
       ]
     },
     {
@@ -8944,7 +9017,8 @@
         "workout/rest-done",
         "workout/swap-alternates",
         "workout/swap-reason",
-        "workout/logged-sets-folded"
+        "workout/logged-sets-folded",
+        "workout/exercise-note-line"
       ]
     },
     {
@@ -11955,7 +12029,8 @@
         "workout/why-setup",
         "workout/rest-running",
         "workout/rest-done",
-        "workout/logged-sets-folded"
+        "workout/logged-sets-folded",
+        "workout/exercise-note-line"
       ]
     },
     {
@@ -12141,7 +12216,8 @@
         "workout/exercise-note",
         "workout/stale-draft",
         "workout/persist-retry",
-        "workout/logged-sets-folded"
+        "workout/logged-sets-folded",
+        "workout/exercise-note-line"
       ]
     },
     {
@@ -12156,7 +12232,8 @@
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
-        "workout/logged-sets-folded"
+        "workout/logged-sets-folded",
+        "workout/exercise-note-line"
       ]
     }
   ],
@@ -12307,7 +12384,8 @@
         "workout/exercise-note",
         "workout/stale-draft",
         "workout/persist-retry",
-        "workout/logged-sets-folded"
+        "workout/logged-sets-folded",
+        "workout/exercise-note-line"
       ],
       "cssLiterals": [
         {
