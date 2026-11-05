@@ -6229,7 +6229,7 @@ function progressionCurrentSession(prescription){
     loadingContext.loadingConvention=exercise.programmed?.loadingConvention||loadingContext.loadingConvention;
     loadingContext.bodyweightKg=activeWorkoutDraft.session?.bodyweight==null||activeWorkoutDraft.session.bodyweight===""?null:Number(activeWorkoutDraft.session.bodyweight);
     if(typeof loadingContext.bodyweightContributionEnabled!=="boolean")
-      loadingContext.bodyweightContributionEnabled=(loadingContext.bodyweightCoefficient??0)>0&&loadingContext.bodyweightKg>0;
+      loadingContext.bodyweightContributionEnabled=materialBodyweightCoefficient(loadingContext.bodyweightCoefficient,loadingContext.loadingConvention)>0&&loadingContext.bodyweightKg>0;
     sets.push({exerciseId:prescription.exerciseId,completed:true,setIndex:set.ordinal-1,
       rir:Number.isFinite(rir)&&rir>=0?rir:null,equipmentId:exercise.programmed?.equipmentId??null,
       loadingConvention:exercise.programmed?.loadingConvention,metricIds:[...prescription.metricIds],metricValues:values,
@@ -6253,11 +6253,17 @@ function sessionBodyweightKg(){
   const profileWeight=interpretedProfile(state.profile).weightKg;
   if(!rows.length)return profileWeight>0?profileWeight:null;
   return+rows.reduce((latest,row)=>compareLogChronology(latest,row)<0?row:latest).bodyweight}
+/** The share of the body a lift's load counts, as the engine reads it (owner rule, 2026-11-05): below
+ *  BODYWEIGHT_MATERIAL_THRESHOLD a loaded lift counts none. The engine owns the threshold; a stored coefficient is read
+ *  through it and never rewritten. */
+function materialBodyweightCoefficient(coefficient,loadingConvention){
+  const raw=+coefficient||0,engine=typeof window!=="undefined"?window.RepForgeProgression:null;
+  return engine?.effectiveBodyweightCoefficient?engine.effectiveBodyweightCoefficient(raw,loadingConvention==="bodyweight"?"bodyweight":"external"):raw}
 /* Keep the engine's current loading context on the program slot boundary.
    The numeric multiplier is also copied into each new log row by workoutProgramContext. */
 function slotLoadingContext(slot){
   const projection=slotLoadingProjection(slot),{loadingConvention,executionMode,externalLoadMultiplier}=projection;
-  const coefficient=+slot.loadingModel?.bodyweightCoefficient||0,bodyweight=sessionBodyweightKg();
+  const coefficient=materialBodyweightCoefficient(slot.loadingModel?.bodyweightCoefficient,loadingConvention),bodyweight=sessionBodyweightKg();
   return{equipmentId:null,availableLoadsKg:loadGridKg(loadStepKg(slot.exerciseId)),loadingConvention,
     bodyweightContributionEnabled:coefficient>0&&bodyweight>0,bodyweightKg:bodyweight||null,
     executionMode,externalLoadMultiplier}}
@@ -8279,8 +8285,11 @@ function mountSessionSorting(mapEl) {
 function sessionBodyweightLifts(draft){
   const definition = state.programMeta?.programDefinition;
   return (draft?.exerciseOrder || []).map(id => {
-    const ex = draft.exercises[id], base = ex && prog.find(id), slot = base && definition ? canonicalPrescriptionSlot(base, definition) : null;
-    return (+slot?.loadingModel?.bodyweightCoefficient || 0) > 0 ? exerciseDisplayName(ex) : null;
+    // canonicalPrescriptionSlot answers {day, slot}: the slot is what carries the loading model.
+    const ex = draft.exercises[id], base = ex && prog.find(id), slot = base && definition ? canonicalPrescriptionSlot(base, definition)?.slot : null;
+    // Only where bodyweight is a material share of the load (owner rule, 2026-11-05).
+    return slot && materialBodyweightCoefficient(slot.loadingModel?.bodyweightCoefficient, slotLoadingProjection(slot).loadingConvention) > 0
+      ? exerciseDisplayName(ex) : null;
   }).filter(Boolean);
 }
 /** The bodyweight row shows its unit once it has a value; empty, it reads Optional. */

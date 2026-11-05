@@ -3,6 +3,8 @@
 
   const ENGINE_VERSION = "069.1";
   const FORMULA_VERSION = "rir-adjusted-epley@067.1";
+  /** The share of the body a lift must move before bodyweight counts toward its load (owner rule, 2026-11-05). */
+  const BODYWEIGHT_MATERIAL_THRESHOLD = 0.3;
   const METRIC_DOMAIN = root?.RepForgeExerciseMetrics ||
     (typeof require === "function" ? require("./exercise-metrics.js") : null);
   if (!METRIC_DOMAIN) throw new Error("RepForgeExerciseMetrics unavailable");
@@ -103,7 +105,7 @@
     }
     if (value.status !== "ready") return { ok: false, reasons: ["invalid_prescription"] };
     return { ok: true, supported: true, composition, kind, semantics, repSemantic, requiresExecutionMode,
-      range, coefficient, reasons: [] };
+      range, coefficient: effectiveBodyweightCoefficient(coefficient, kind), catalogCoefficient: coefficient, reasons: [] };
   }
 
   function normalizeSettings(value) {
@@ -212,6 +214,17 @@
     return values;
   }
 
+  /** Bodyweight counts toward a lift's load only where it is a material share of it (owner rule, 2026-11-05): from
+   *  BODYWEIGHT_MATERIAL_THRESHOLD of the body up (pull-ups, dips, push-ups, squats, lunges, calf raises…). Below it a
+   *  loaded lift's effective coefficient is 0: no bodyweight contribution, no bodyweight dependency, no mismatch. A
+   *  reps-only bodyweight movement has no external load, so its coefficient is its whole load and is kept. Stored
+   *  coefficients stay as the catalog gives them; this reads them. */
+  function effectiveBodyweightCoefficient(coefficient, kind = "external") {
+    if (!finite(coefficient)) return coefficient;
+    if (kind === "bodyweight") return coefficient;
+    return coefficient >= BODYWEIGHT_MATERIAL_THRESHOLD ? coefficient : 0;
+  }
+
   function transformActualLoad(values, shape, convention, capturedContext) {
     if (!isPlainObject(capturedContext)) {
       if (shape.coefficient > 0) return { ok: false, reason: "historical_bodyweight_required" };
@@ -220,7 +233,8 @@
     if (capturedContext.loadingConvention !== convention) {
       return { ok: false, reason: "loading_convention_mismatch" };
     }
-    if (capturedContext.bodyweightCoefficient !== shape.coefficient) {
+    // Compared as the engine reads them, so a set recorded under a coefficient now below the threshold anchors normally.
+    if (effectiveBodyweightCoefficient(capturedContext.bodyweightCoefficient, shape.kind) !== shape.coefficient) {
       return { ok: false, reason: "loading_convention_mismatch" };
     }
     let bodyweightContributionKg = 0;
@@ -608,7 +622,8 @@
     ));
   }
 
-  const api = Object.freeze({ ENGINE_VERSION, FORMULA_VERSION, SUPPORTED_SEMANTICS, recommendSets });
+  const api = Object.freeze({ ENGINE_VERSION, FORMULA_VERSION, SUPPORTED_SEMANTICS, BODYWEIGHT_MATERIAL_THRESHOLD,
+    effectiveBodyweightCoefficient, recommendSets });
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.RepForgeProgression = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
