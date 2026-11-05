@@ -1638,8 +1638,9 @@ async function focusPerSideTarget(page) {
     };
   }, { id: row.id, loadMetricId: PER_SIDE_LOAD_METRIC });
   if (result.engineStatus !== "recommended" || !(result.targetLoad > 0) || !result.prefillsPerSide
-    || result.assumptions?.externalLoadMultiplier !== 2 || !(result.assumptions?.bodyweightContributionKg > 0)) {
-    throw new Error(`The generated Focus fixture does not show its per-side target and bodyweight assumption: ${JSON.stringify(result)}`);
+    // The press moves 0.038 of the body, below the material threshold (owner rule, 2026-11-05): it counts no bodyweight.
+    || result.assumptions?.externalLoadMultiplier !== 2 || result.assumptions?.bodyweightContributionKg !== 0) {
+    throw new Error(`The generated Focus fixture does not show its per-side target with no bodyweight share: ${JSON.stringify(result)}`);
   }
   const presentation = await page.evaluate((metricId) => {
     const field = document.querySelector(`#workout .exercise.is-current [data-metric="${metricId}"]`);
@@ -1751,10 +1752,12 @@ async function whyPerSideAssumption(page) {
     ? "por lado × 2" : "per side × 2";
   const localizedAnchor = lang.toLowerCase().startsWith("pt")
     ? "mais recentemente com 27,5 kg por lado" : "last at 27.5 kg per side";
-  if (!text.includes(localizedAssumption) || !/3[,.]04/.test(text)
+  // The press moves 0.038 of the body, below the material threshold (owner rule, 2026-11-05): its Why explains the
+  // per-side multiplier and counts no bodyweight.
+  if (!text.includes(localizedAssumption) || /3[,.]04/.test(text)
     || !text.includes(localizedAnchor)
-    || !(lang.toLowerCase().startsWith("pt") ? text.includes("peso corporal") : text.includes("bodyweight"))) {
-    throw new Error(`The rendered Why sheet omits the approved per-side anchor or multiplier/bodyweight assumption: ${JSON.stringify({ text, lang })}`);
+    || (lang.toLowerCase().startsWith("pt") ? text.includes("peso corporal") : /bodyweight/i.test(text))) {
+    throw new Error(`The rendered Why sheet omits the approved per-side anchor or multiplier, or counts bodyweight: ${JSON.stringify({ text, lang })}`);
   }
   await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions"]);
 }
