@@ -100,9 +100,13 @@ try {
   const listed = await page.evaluate((id) => {
     const slot = state.programMeta.programDefinition.days.flatMap((d) => d.slots).find((s) => s.id === id), was = slot.loadingModel.bodyweightCoefficient;
     slot.loadingModel.bodyweightCoefficient = 0.626;
-    try { return sessionBodyweightLifts(activeWorkoutDraft); } finally { slot.loadingModel.bodyweightCoefficient = was; }
+    try {
+      renderSessionSheet();
+      return { names: sessionBodyweightLifts(activeWorkoutDraft), note: document.querySelector("#sessionBodyweightNote").textContent };
+    } finally { slot.loadingModel.bodyweightCoefficient = was; renderSessionSheet(); }
   }, target.id);
-  check(listed.includes(material.name), "at a material share the same lift is listed, so the note prompts only where bodyweight counts", listed);
+  check(listed.names.includes(material.name), "at a material share the same lift is listed, so the note prompts only where bodyweight counts", listed);
+  check(listed.note === `Your bodyweight counts in the load for ${material.name}.`, "the note reads as words, never as markup", listed.note);
   check(JSON.stringify(material.kept) === JSON.stringify([0.626, 1, 0]), "a squat and a pull-up keep their share; the extension reads as none", material.kept);
 
   console.log("\n2. The session saved that way anchors the next one, and its rows keep their shape");

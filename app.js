@@ -8340,7 +8340,8 @@ function renderSessionSheet(){
   const bwNote = $("#sessionBodyweightNote");
   if (bwNote) {
     const names = sessionBodyweightLifts(draft);
-    bwNote.textContent = names.length ? t("session.sheet.bodyweight_note", { names: programNameList(names) }) : "";
+    // Plain text: the note is set as text, so the names are listed in words, not as the Program view's markup.
+    bwNote.textContent = names.length ? t("session.sheet.bodyweight_note", { names: whyList(names) }) : "";
     bwNote.classList.toggle("hidden", !names.length);
   }
 
