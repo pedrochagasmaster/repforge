@@ -8,7 +8,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
 const Engine = require(path.join(root, "progression-engine.js"));
 const Metrics = require(path.join(root, "exercise-metrics.js"));
-assert.equal(Engine.ENGINE_VERSION, "069.1");
+assert.equal(Engine.ENGINE_VERSION, "077.1");
+assert.equal(Engine.RIR_CREDIT_CAP, 5);
 assert.equal(Engine.FORMULA_VERSION, "rir-adjusted-epley@067.1");
 
 // These cases isolate arithmetic and convention boundaries that are unsafe to
@@ -145,6 +146,23 @@ assert.equal(weighted.targets.rir, 1);
 assert.ok(Math.abs(weighted.historyAnchor.effectiveLoadKg - 110) < 1e-9);
 assert.ok(Math.abs(weighted.historyAnchor.capacityKg - 110 * (1 + (6 + 2) / 30)) < 1e-9);
 assert.deepEqual(weighted.loadingAssumptions.availableLoadsKg, [100, 102.5, 105, 107.5, 110]);
+
+// RIR credit cap (owner, 2026-11-05; Plan 077 OD-23b): a performed set earns
+// capacity for at most five reps in reserve, in history and in the live session.
+const cappedHistory = (rir) => recommend(prescription(), [{
+  sessionId: `cap-${rir}`, completed: true,
+  sets: [performedSet({ loadKg: 100, reps: 6, rir, setIndex: 0 })],
+}]);
+const atCap = cappedHistory(5), overCap = cappedHistory(9);
+assert.ok(Math.abs(overCap.historyAnchor.capacityKg - 100 * (1 + (6 + 5) / 30)) < 1e-9,
+  "a logged RIR above five earns only five reps of capacity");
+assert.deepEqual(overCap.targets, atCap.targets, "RIR 9 and RIR 5 give the same suggestion");
+assert.ok(Math.abs(cappedHistory(4).historyAnchor.capacityKg - 100 * (1 + (6 + 4) / 30)) < 1e-9,
+  "a logged RIR at or below the cap keeps its full credit");
+const liveOverCap = recommend(prescription({ setIndex: 2 }), [], [
+  performedSet({ loadKg: 100, reps: 6, rir: 9, setIndex: 0 })]);
+assert.ok(Math.abs(liveOverCap.historyAnchor.capacityKg - 100 * (1 + (6 + 5) / 30)) < 1e-9,
+  "the live-session anchor applies the same cap");
 
 const nonCanonicalExternalMultiplier = recommend(prescription(), [{
   sessionId: "external-multiplier-two",
@@ -884,8 +902,9 @@ const highPerformedRir = recommend(prescription(), [{
   completed: true,
   sets: [performedSet({ loadKg: 100, reps: 6, rir: 6, setIndex: 0 })],
 }]);
-assert.equal(highPerformedRir.status, "recommended", "performed RIR is evidence, not capped to the authored target range");
-assert.equal(highPerformedRir.historyAnchor.capacityKg, 100 * (1 + (6 + 6) / 30));
+assert.equal(highPerformedRir.status, "recommended", "performed RIR is evidence, not refused by the authored target range");
+assert.equal(highPerformedRir.historyAnchor.capacityKg, 100 * (1 + (6 + 5) / 30),
+  "a performed RIR above the credit cap earns the cap (owner, 2026-11-05)");
 
 const distanceMetricIds = [METRIC.weight, METRIC.distanceShort];
 const distanceMetricDefinitions = distanceMetricIds.map((id) => metricDefinitions[id]);
