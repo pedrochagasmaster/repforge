@@ -4634,7 +4634,7 @@ const PT = {
   "summary.tile.strength": "Desde a semana 1",
   "summary.tile.records": "Recordes",
   "summary.tile.streak": "Semanas seguidas",
-  "summary.tile.moved": "Movimentado",
+  "summary.tile.moved": "Carga total",
   "summary.tile.sets": "Séries",
   "summary.tile.reps": "Reps totais",
   "summary.records_head": "Recordes",
