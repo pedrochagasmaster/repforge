@@ -457,6 +457,8 @@ function isSafeLogRow(entry){
     if(Object.prototype.hasOwnProperty.call(entry,key)&&!isValidStoredMuscleField(entry[key],true))return false;
   if(Object.prototype.hasOwnProperty.call(entry,"blockId")&&!isValidBlockId(entry.blockId))return false;
   if(Object.prototype.hasOwnProperty.call(entry,"rirMeasured")&&typeof entry.rirMeasured!=="boolean")return false;
+  // How the effort was entered (Plan 077, OD-1): the draft's enum, or absent (unknown, never backfilled).
+  if(Object.prototype.hasOwnProperty.call(entry,"effortSource")&&!(WorkoutDraft?.EFFORT_SOURCES||[]).includes(entry.effortSource))return false;
   for(const key of ["performedName","performedLibraryId","performedMovementId","performedPrimary","performedSecondary"])
     if(Object.prototype.hasOwnProperty.call(entry,key)&&entry[key]!=null&&typeof entry[key]!=="string")
       return false;
@@ -1631,6 +1633,9 @@ function glossaryPopover(termKey,anchor){const g=$("#glossary");if(!g)return;
   g.style.top=`${window.scrollY+top}px`;g.style.left=`${window.scrollX+left}px`}
 const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",lang:null,rirMode:"numeric",voiceInputEnabled:false,notify:{enabled:false,timer:true,session:true,unfinished:true,missed:true}};
 const normSetting=(v,def,min=0)=>Number.isFinite(+v)&&+v>=min?+v:def;
+/** The hard-set threshold is an RIR a set must be at or under to count as hard: 1 to 10, else the default (Plan 077,
+ *  OD-23e). A setup link may still carry 0–100; the device applies it within these bounds. */
+const normHardRir=v=>Number.isFinite(+v)&&+v>=1&&+v<=10?+v:DEFAULTS.hardRir;
 const normalizeRestSec=v=>{const n=+v;if(!Number.isFinite(n)||n<0)return DEFAULTS.restSec;return Math.round(n)};
 const normBool=(v,def)=>typeof v==="boolean"?v:def;
 /* A settings blob written by a newer build carries keys this one has no field
@@ -1646,7 +1651,7 @@ function withUnknownKeys(raw,known){
   return Object.assign(out,known)}
 function normalizeNotify(n){
   return withUnknownKeys(n,{enabled:!!(n&&n.enabled),timer:n?.timer!==false,session:n?.session!==false,unfinished:n?.unfinished!==false,missed:n?.missed!==false})}
-const normalizeSettings=s=>{const lang=I18N?.normalizeLang(s?.lang)||I18N?.detectLang()||"en";return withUnknownKeys(s,{jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normSetting(s?.hardRir,DEFAULTS.hardRir,0),restSec:normalizeRestSec(s?.restSec),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",lang,rirMode:s?.rirMode==="effort"?"effort":"numeric",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled),notify:normalizeNotify(s?.notify)})};
+const normalizeSettings=s=>{const lang=I18N?.normalizeLang(s?.lang)||I18N?.detectLang()||"en";return withUnknownKeys(s,{jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normHardRir(s?.hardRir),restSec:normalizeRestSec(s?.restSec),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",lang,rirMode:s?.rirMode==="effort"?"effort":"numeric",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled),notify:normalizeNotify(s?.notify)})};
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const LB=2.2046226218;
 /* Locale keyboards (pt-BR, de, fr, …) put a comma on the decimal pad. HTML
@@ -4572,7 +4577,7 @@ function sharedSettingsPatch(raw){
   return{jumpPct:normSetting(raw?.jumpPct,DEFAULTS.jumpPct,0),
     minJump:normSetting(raw?.minJump,DEFAULTS.minJump,0.01),
     rirHigh:normSetting(raw?.rirHigh,DEFAULTS.rirHigh,0),
-    hardRir:normSetting(raw?.hardRir,DEFAULTS.hardRir,0),
+    hardRir:normHardRir(raw?.hardRir),
     restSec:normalizeRestSec(raw?.restSec),
     unit:raw?.unit==="lb"?"lb":"kg",
     lang:I18N?.normalizeLang(raw?.lang)||"en",
@@ -10206,38 +10211,31 @@ function bindWorkout(){
     const editing=!!(focusEdit&&`${focusEdit.exId}_${focusEdit.n}`===key);
     const type=set.completion==="pending"?"completeSet":"uncommitSet";
     // A set showing values carried from the set above (lastSetCarry) logs those values, not what lies under them.
+    let prefill=null;
     if(type==="completeSet"){
       const base=prog.find(target.exerciseInstanceId),ex=base?sessionExercise(base):null,r=ex?recommendation(ex):null;
       const carry=ex?lastSetCarry(target.exerciseInstanceId,target.ordinal,r):null;
       if(carry){
-        const at={exerciseInstanceId:target.exerciseInstanceId,setId:target.setId},effortField=isEffortMode()?"effort":"rir";
-        const vals=carry.fields.rir||carry.fields.effort?setFieldVals(ex,target.ordinal,r,hydrateWorkoutDraft(),last(ex)):null;
+        const at={exerciseInstanceId:target.exerciseInstanceId,setId:target.setId};
         const edits=[
           ...Object.entries(carry.metrics).map(([metricId,item])=>["editMetricValue",{...at,metricId,value:item.value}]),
           ...(draftSetMetrics(set).length?[]:["load","reps"].filter(field=>carry.fields[field])
-            .map(field=>["editSetField",{...at,field,value:carry.fields[field].value}])),
-          ...(vals?[["editSetField",{...at,field:effortField,value:effortField==="effort"?vals.effortVal:String(vals.rirVal)}]]:[])];
+            .map(field=>["editSetField",{...at,field,value:carry.fields[field].value}]))];
         for(const [command,payload] of edits){
           const result=await WorkoutSession.dispatch(command,payload);
           if(result.status==="domain-error"){applyDraftIssue(result.error?.issues);return}
-          if(result.status!=="applied")return}}}
-    // A metric-backed set starts with no effort of its own, while its field shows one (the last session's, or the
-    // default). Logging the set logs what the field shows, as it does for every other set.
-    if(type==="completeSet"&&set.programmed?.metrics){
+          if(result.status!=="applied")return}}
+      // Effort the lifter never touched logs what its field shows (the last session's, the set above's, or the
+      // default). It goes with the commit as a prefill, so the set records that it was shown, not entered (Plan 077).
       const field=isEffortMode()?"effort":"rir";
-      const base=prog.find(target.exerciseInstanceId);
-      if(base&&set.edited[field]==null&&!pendingFields.has(`${key}_${field}`)){
-        const ex=sessionExercise(base);
-        const vals=setFieldVals(ex,target.ordinal,recommendation(ex),hydrateWorkoutDraft(),last(ex));
+      if(ex&&!activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId].touched?.effort&&!pendingFields.has(`${key}_${field}`)){
+        const vals=setFieldVals(ex,target.ordinal,r,hydrateWorkoutDraft(),last(ex));
         const shown=field==="effort"?vals.effortVal:String(vals.rirVal??"");
-        if(shown!==""){
-          const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,setId:target.setId,field,value:shown});
-          if(result.status==="domain-error"){applyDraftIssue(result.error?.issues);return}
-          if(result.status!=="applied")return}}}
+        if(shown)prefill={field,value:shown}}}
     const refreshReservation=type==="completeSet"?reserveDraftRefresh():null;
     let refreshStarted=false;
     try{
-      const result=await WorkoutSession.dispatch(type,{exerciseInstanceId:target.exerciseInstanceId,setId:target.setId});
+      const result=await WorkoutSession.dispatch(type,{exerciseInstanceId:target.exerciseInstanceId,setId:target.setId,...(prefill?{prefill}:{})});
       if(result.status==="domain-error"){applyDraftIssue(result.error?.issues);return}
       if(result.status!=="applied")return;
       const nowDone=activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId].completion!=="pending";
@@ -10358,8 +10356,10 @@ function bindWorkout(){
           if(current[metricId]===value)continue;
           const result=await WorkoutSession.dispatch("editMetricValue",{exerciseInstanceId:exId,setId:target.setId,metricId,value});
           if(result.status!=="applied")return}}
+      // A field the correction left as it was is not re-entered, so a prefilled effort stays a prefill (Plan 077).
+      const held=activeWorkoutDraft.exercises[exId].sets[target.setId].edited||{};
       for(const field of metricBacked?["rir","effort"]:["load","reps","rir","effort"]){
-        if(snap[field]==null)continue;const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:exId,
+        if(snap[field]==null||held[field]===snap[field])continue;const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:exId,
           setId:target.setId,field,value:snap[field]});if(result.status!=="applied")return}
       const restored=await WorkoutSession.dispatch("completeSet",{exerciseInstanceId:exId,setId:target.setId,completedAt:snap.completedAt||new Date().toISOString()});
       if(restored.status!=="applied")return;focusEdit=null;focusLedgerOpen=null;renderWorkout();focusWorkoutHandoff("row",{exId,n})});
