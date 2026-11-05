@@ -1427,7 +1427,7 @@ article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
 .fx-head__row .focus-ex__meta{flex:1;min-width:0}
 .fx-note-add{
   flex:none;display:grid;place-items:center;width:var(--control-target);height:var(--control-target);
-  margin:calc((var(--control-target) - 1lh) / -2) calc(var(--space-12) * -1) calc((var(--control-target) - 1lh) / -2) 0;
+  margin-block:calc((var(--control-target) - 1lh) / -2);
   padding:0;border:0;border-radius:var(--radius-round);background:none;color:var(--color-ink-secondary);
   font-size:var(--font-size-focus-meta);line-height:var(--line-reading);cursor:pointer;
 }
