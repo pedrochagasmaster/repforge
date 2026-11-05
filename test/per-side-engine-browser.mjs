@@ -239,8 +239,8 @@ async function main() {
     const why = await page.locator("#whyBody").innerText();
     // The 45° incline dumbbell press moves 0.038 of the body: below the material threshold (owner rule, 2026-11-05) it
     // counts no bodyweight, so its Why says nothing about bodyweight.
-    check(why.includes("per side") && !/bodyweight/i.test(why),
-      "Why reads the per-side load and counts no bodyweight for a lift below the material threshold", why);
+    check(why.includes("total load") && why.includes("per side") && why.includes("× 2") && !/bodyweight/i.test(why),
+      "Why explains the bilateral multiplier and counts no bodyweight for a lift below the material threshold", why);
     check(why.includes("last at 25 kg per side"),
       "Why labels its generated historical strength anchor as a per-side load", why);
     await page.locator("#whyClose").click();

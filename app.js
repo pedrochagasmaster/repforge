@@ -23213,6 +23213,10 @@ function engineWhyRows(ex,rec,n=1){
         load:fmtLoad(result.targets?.[loadMetric.semantic]),unit:u,
         multiplier:assumptions.externalLoadMultiplier,bw:fmtLoad(assumptions.bodyweightContributionKg)})}));
     else rows.push(whyRow("bodyweight",{text:t("why.engine.bodyweight",{bw:fmtLoad(assumptions.bodyweightContributionKg),unit:u})}))}
+  // A per-side lift that counts no bodyweight still says how its total is reached (owner, 2026-11-05).
+  else if(loadMetric&&["loadPerSideKg","persistentLoadPerSideKg"].includes(loadMetric.semantic)&&assumptions.externalLoadMultiplier>1)
+    rows.push(whyRow("per_side",{text:t("why.engine.per_side",{
+      load:fmtLoad(result.targets?.[loadMetric.semantic]),unit:u,multiplier:assumptions.externalLoadMultiplier})}));
   return rows}
 function engineWhyModel(ex,rec,model,head){
   const n=head.inSession&&head.set?head.set.n:1,rows=engineWhyRows(ex,rec,n),take=kind=>rows.find(row=>row.kind===kind);
@@ -23221,7 +23225,7 @@ function engineWhyModel(ex,rec,model,head){
   block("engine-anchor",t("why.lead.engine_anchor"),[performed,take("anchor")?.text,take("fatigue")?.text].filter(Boolean).join(" "));
   block("engine-target",t(n>1?"why.lead.set2":"why.lead.engine_target",{n}),take("target")?.text);
   block("engine-assumptions",t("why.lead.engine_assumptions"),
-    [take("step")?.text,take("per_side_bodyweight")?.text,take("bodyweight")?.text].filter(Boolean).join(" "));
+    [take("step")?.text,take("per_side")?.text,take("per_side_bodyweight")?.text,take("bodyweight")?.text].filter(Boolean).join(" "));
   if(prev.length){model.calc.push({group:t("why.calc.last",{date:shortDate(prev[0].date)})});
     prev.forEach((x,i)=>model.calc.push({k:t("why.calc.set",{n:i+1}),v:`${fmtLoad(x.load)} × ${x.reps}`,rir:effortOrRirLabel(x.rir)}));
     model.evidence=t("why.evidence",{n:1,date:shortDate(prev[0].date)})}
