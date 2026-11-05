@@ -1060,6 +1060,7 @@ Triceps pushdown 3x12-15</pre>
       <button type="button" data-workout-action="finish" data-i18n="log.finish">Finish workout</button>
       <button type="button" data-workout-action="reorder" data-i18n="program.editor.reorder">Reorder exercises</button>
       <button type="button" data-workout-action="exercise" data-i18n="ex.actions.title">Exercise actions</button>
+      <button type="button" data-workout-action="note" data-i18n="focus.note.title">Exercise note</button>
       <button type="button" data-workout-action="rest" data-i18n="rest.sheet.title">Rest timer</button>
       <button type="button" id="voiceBtn" class="hidden" data-workout-action="voice" data-i18n="log.command.voice">Voice input</button>
       <button type="button" data-workout-action="abandon" class="is-destructive" data-i18n="session.sheet.abandon">End without saving</button>
@@ -1153,12 +1154,6 @@ Triceps pushdown 3x12-15</pre>
         <p class="exactions__status hidden" id="exActionsStatus" data-i18n="log.skipped">Skipped</p>
         <div class="exactions__rows">
           <button type="button" class="exactions__act" id="exActionSkipBtn"><span class="icon-mask icon-mask--skip" aria-hidden="true"></span><span class="exactions__act-text"><span id="exActionSkipLabel" data-i18n="ex.actions.skip">Skip exercise</span></span></button>
-        </div>
-      </section>
-      <section class="exactions__section" id="exActionsNotesSection">
-        <h3 class="sheetgroup__head" data-i18n="ex.actions.notes_title">Exercise notes</h3>
-        <div class="exactions__rows">
-          <button type="button" class="exactions__act" id="exActionNotesBtn"><span class="icon-mask icon-mask--note" aria-hidden="true"></span><span class="exactions__act-text"><span data-i18n="ex.actions.open_notes">Edit exercise notes</span></span></button>
         </div>
       </section>
     </div>
@@ -1444,6 +1439,6 @@ Triceps pushdown 3x12-15</pre>
   <script src="durable-state.js?v=447"></script>
   <script src="progress-model.js?v=309"></script>
   <script src="history-ui.js?v=604"></script>
-  <script src="app.js?v=624"></script>
+  <script src="app.js?v=626"></script>
 </body>
 </html>

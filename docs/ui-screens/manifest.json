@@ -1221,6 +1221,13 @@
       "variants": "localized"
     },
     {
+      "id": "exercise-note-line",
+      "flow": "workout",
+      "label": "Workout — exercise note on the card",
+      "scenario": "The exercise's note as one quiet line under the prescription, in place of the note icon; the line opens it to edit.",
+      "variants": "demandingText"
+    },
+    {
       "id": "exercise-note",
       "flow": "workout",
       "label": "Workout — exercise note",

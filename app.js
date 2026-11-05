@@ -9605,6 +9605,7 @@ function workoutFocusKey(el){
   if(el.matches(".shelf__pad")&&d.dir)return{sel:`.focus-shelf .shelf__pad[data-dir="${q(d.dir)}"]`};
   if(el.matches(".saveset"))return{sel:".focus-shelf .saveset"};
   if(d.editex&&d.editn)return{sel:`.ledgerline[data-editex="${q(d.editex)}"][data-editn="${q(d.editn)}"]`};
+  if(d.fnote)return{sel:`[data-fnote="${q(d.fnote)}"]`};
   for(const name of["fcancel","fnext","ffinish","fnextrow","ledgermore"])if(name in d||el.hasAttribute(`data-${name}`))return{sel:`[data-${name}]`};
   return null}
 /* A hand-off moves focus without the lifter having moved it: after a tap, the control it lands on must not light a
@@ -9698,8 +9699,15 @@ function focusCardHtml(ex,r,draft,prev,opts){
   const effortMode=isEffortMode();
   const n=focusActiveSet(ex);
   const name=exerciseDisplayName(ex);
-  const noteVal=draft.__exnotes?.[ex.id]??lastExerciseNote(ex);
-  const note=noteVal?`<p class="fx-note"><span class="icon-mask icon-mask--sm icon-mask--note" aria-hidden="true"></span><span>${esc(noteVal)}</span></p>`:"";
+  // The exercise note (owner, 2026-11-05): with none, a quiet note icon at the end of the prescription line invites one;
+  // with one (the lifter's, or carried from the last session), the note itself as one quiet line under it, the whole
+  // line the way to edit it. Both sit above the hero, so they scroll away first and never push the open set down.
+  const noteVal=String(draft.__exnotes?.[ex.id]??lastExerciseNote(ex)).trim();
+  const noteAct=peek?dead():` data-fnote="${esc(ex.id)}"`;
+  const noteAdd=noteVal?"":`<button type="button" class="fx-note-add"${noteAct} aria-label="${esc(t("focus.note.add_aria"))}">`+
+    `<span class="icon-mask icon-mask--note" aria-hidden="true"></span></button>`;
+  const note=noteVal?`<button type="button" class="fx-note"${noteAct} aria-label="${esc(t("focus.note.open_aria",{note:noteVal}))}">`+
+    `<span class="icon-mask icon-mask--sm icon-mask--note" aria-hidden="true"></span><span class="fx-note__text">${esc(noteVal)}</span></button>`:"";
   const editing=!!(focusEdit&&focusEdit.exId===ex.id&&n);
   const cue=n?focusCue(ex,n,r,draft,prev,editing):null;
   // The cue slot holds the cue, or while a rest runs the inline rest in its place (L3 swaps the one for the other).
@@ -9714,8 +9722,8 @@ function focusCardHtml(ex,r,draft,prev,opts){
     // and it never sits over the cue. A neighbour carries the same bar, inert, so a swipe lands on what it showed.
     focusSkipbarHtml(peek)+
     // The header names the exercise (layout D), so its row here is the prescription line alone.
-    `<div class="fx-head"><p class="focus-ex__meta">${esc(focusExMeta(ex))}</p></div>`+
-    slotHtml+note+
+    `<div class="fx-head"><div class="fx-head__row"><p class="focus-ex__meta">${esc(focusExMeta(ex))}</p>${noteAdd}</div>${note}</div>`+
+    slotHtml+
     `<div class="fcard__ledger">`+
     `${focusLedgerHtml(ex,r,draft,prev,{effortMode,peek})}</div>`+nextRow+`</div>`+
     focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek})+`</article>`}
@@ -9836,7 +9844,10 @@ async function performWorkoutAction(action){
   if(action==="voice"){startVoiceInput();return}
   // With no rest running there is no tab; the sheet opens from here (rest timer redesign).
   if(action==="rest"){openRestSheet();return}
-  const card=focusCard();if(card)openExActionsSheet(card.dataset.ex);
+  const card=focusCard();if(!card)return;
+  // The exercise note is one tap from the menu (owner, 2026-11-05), beside the exercise's other actions.
+  if(action==="note"){openExNoteSheet(card.dataset.ex);return}
+  openExActionsSheet(card.dataset.ex);
 }
 
 /* A native dialog permits a context menu over an editor sheet without tearing
@@ -10321,6 +10332,7 @@ function bindWorkout(){
     const fe=$w("[data-fearly]")[0];if(fe)fe.onclick=()=>{openSessionSheet();$("#sessionEarlyFinish")?.click()};
     $w("[data-fnext],[data-fnextrow]").forEach(b=>b.onclick=()=>focusAnimateTo(1));
     $w("[data-ledgermore]").forEach(b=>b.onclick=()=>toggleFocusLedger(b));
+    $w("[data-fnote]").forEach(b=>b.onclick=()=>openExNoteSheet(b.dataset.fnote));
     // Tap a logged row to reopen that set in the shelf, with a way back out.
     $w("[data-editn]").forEach(b=>b.onclick=async()=>{
       const exId=b.dataset.editex,n=+b.dataset.editn,key=`${exId}_${n}`,d=loadDraft(),target=draftTargetFromKey(key);
@@ -24042,14 +24054,6 @@ function init(){
         closeExActionsSheet();
       }
     }
-  };
-
-  const exActionNotes=$("#exActionNotesBtn");
-  if(exActionNotes)exActionNotes.onclick=()=>{
-    const id=activeExActionsId;
-    closeExActionsSheet().then(()=>{
-      if(id)openExNoteSheet(id);
-    });
   };
 
   const exActionsClose=$("#exActionsClose");

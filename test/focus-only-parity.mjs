@@ -399,8 +399,7 @@ async function main() {
 
     /* ---- User exercise note ---- */
     phase("Exercise note: save, reload, restoration");
-    await openActions(page);
-    await page.locator("#exActionNotesBtn").click();
+    await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="note"]').click();
     await page.waitForSelector("#exNoteSheet.is-open", { timeout: 5000 });
     await page.fill("#exNoteText", "Seat 4, handles chest height.");
     await page.locator("#exNoteSave").click();
