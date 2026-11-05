@@ -3779,19 +3779,8 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .sum-ledger .sum-pr{flex-wrap:nowrap;align-items:flex-start;margin:0}
 .sum-ledger .sum-pr__over{min-width:0}
 .sum-ledger .sum-pr .verdictmark{flex:none;padding-top:2px}
-.sum-muscles__note{margin:var(--space-8) 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
-#sessionSummary .sum-muscles .vrow__name{font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink)}
-#sessionSummary .sum-muscles .vrow__num{font-family:var(--font-training-data);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
-.sum-muscles__more{
-  display:flex;align-items:center;min-height:var(--control-target);margin:var(--space-4) 0 0;padding:0;background:var(--control-disclosure-bg);border:0;cursor:pointer;text-align:left;
-  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--control-disclosure-ink);
-}
 @media (hover: hover) and (pointer: fine){
-.sum-muscles__more:hover:not(:disabled){background:var(--well);color:var(--control-disclosure-ink)}
 }
-.sum-muscles__more.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-disclosure-ink);transform:var(--control-pressed-transform)}
-.sum-muscles__more:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-.sum-muscles__more:disabled{background:var(--control-disclosure-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 
 .sum-baseline{
   margin-top:var(--space-18);padding-left:14px;border-left:2px solid var(--boundary-selected-quiet);

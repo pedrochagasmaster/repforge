@@ -5795,28 +5795,6 @@
       }
     },
     {
-      "id": "summary-volume-row",
-      "selector": "#sessionSummary div.vrow:not(.evrow):not([id])",
-      "roles": {
-        "elevation": "flat",
-        "boundary": "decorative"
-      },
-      "variant": "summary-data",
-      "facets": [],
-      "states": [
-        "default"
-      ],
-      "rationale": "Summary muscle volume is read-only data, not a drill-in control.",
-      "owner": "plan-057/058",
-      "catalogStates": [
-        "session/summary",
-        "session/summary-lifts",
-        "session/summary-maintained",
-        "session/summary-declined",
-        "session/summary-first"
-      ]
-    },
-    {
       "id": "settingsback",
       "selector": "#settingsBack",
       "roles": {
@@ -9541,32 +9519,6 @@
         "workout/why-this-weight",
         "workout/why-per-side",
         "workout/why-in-session"
-      ]
-    },
-    {
-      "id": "summuscles",
-      "selector": "#sumMuscles",
-      "roles": {
-        "control": "disclosure"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "expanded"
-      ],
-      "rationale": "Expands or collapses information; expanded state is separate from navigation. It lists the muscles beyond the top six.",
-      "owner": "plan-064/r3h",
-      "catalogStates": [
-        "session/summary",
-        "session/summary-lifts",
-        "session/summary-maintained",
-        "session/summary-declined",
-        "session/summary-first"
       ]
     },
     {
