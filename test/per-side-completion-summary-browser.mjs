@@ -174,18 +174,15 @@ async function finishAndReadSummary(page) {
   await page.locator("#sessionEarlyConfirm").click();
   await page.waitForFunction(() => document.querySelector("#sessionSummary")?.hidden === false, undefined, { timeout: 15000 });
   const summary = await page.locator("#sessionSummary").evaluate(root => ({
-    lifts: [...root.querySelectorAll(".sum-grp")].map(group => ({
+    lifts: [...root.querySelectorAll(".sum-lift")].map(group => ({
       name: group.querySelector(".sum-grp__n")?.textContent.trim() || "",
       sets: group.querySelector(".sum-grp__sets")?.textContent.replace(/\s+/g, " ").trim() || "",
-      pr: !!group.querySelector(".sum-pr .verdictmark--record"),
+      pr: !!group.querySelector(".sum-lift__pr .verdictmark--record"),
       outcome: group.querySelector(".sum-outcome")?.dataset.outcome || null,
     })),
-    liftCount: Number([...root.querySelectorAll(".sum-stats .statrow__cell")]
-      .find(cell => /lift/i.test(cell.querySelector(".statrow__cap")?.textContent || ""))
-      ?.querySelector(".statrow__val")?.dataset.ramp),
-    moved: Number([...root.querySelectorAll(".sum-stats .statrow__cell")]
-      .find(cell => /moved/i.test(cell.querySelector(".statrow__cap")?.textContent || ""))
-      ?.querySelector(".statrow__val")?.dataset.ramp),
+    // The finish screen (owner decisions, 2026-11-05) lists every lift; its Moved tile carries the moved total.
+    liftCount: root.querySelectorAll(".sum-lift").length,
+    moved: Number(root.querySelector('.sum-tile[data-tile="volume"] [data-ramp]')?.dataset.ramp),
   }));
   await page.locator("#sumDone").click();
   await page.waitForFunction(() => document.querySelector("#sessionSummary")?.hidden === true, undefined, { timeout: 10000 });

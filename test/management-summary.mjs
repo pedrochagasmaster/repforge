@@ -98,8 +98,9 @@ try {
     "summary exposes only canonical outcome roles");
   assert.ok(result.summary.muscles.length > 0 && result.summary.muscles.every(row => row.sets > 0),
     "summary muscle work omits zero rows and retains numeric weighted totals");
-  assert.ok(rendered.muscleNumbers.length > 0 && rendered.muscleNumbers.every(text => /\d/.test(text)) && rendered.relativeBars === 0 && rendered.inlineWidths.length === 0,
-    "summary renders numeric muscle totals without relative bars", JSON.stringify(rendered));
+  // The finish screen dropped the hard-sets-by-muscle list (owner decisions, 2026-11-05); the model keeps the totals.
+  assert.ok(rendered.muscleNumbers.length === 0 && rendered.relativeBars === 0 && rendered.inlineWidths.length === 0,
+    "the finish screen draws no muscle list and no relative bars", JSON.stringify(rendered));
 
   // F057-02: deliberately fail the canonical post-commit derivation through
   // the real completion path. The durable result, not the presentation, is

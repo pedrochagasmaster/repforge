@@ -206,7 +206,7 @@ async function enterLog(page) {
 /** Record every figure the stat row paints from before the summary opens, so the ramp is read, not guessed. */
 async function recordRamp(page) {
   await page.evaluate(() => {
-    const read = () => [...document.querySelectorAll("#sessionSummary .sum-stats .statrow__val")].map((n) => n.textContent);
+    const read = () => [...document.querySelectorAll("#sessionSummary .sum-stats [data-ramp]")].map((n) => n.textContent);
     const series = [];
     const body = document.querySelector("#sessionSummaryBody");
     const observer = new MutationObserver(() => {
@@ -236,8 +236,8 @@ async function assertCountRamp(page, { reduced }) {
     page.evaluate(() => {
       const el = document.querySelector("#sessionSummary");
       return {
-        figures: [...el.querySelectorAll(".sum-stats .statrow__val")].map((n) => n.textContent),
-        final: [...el.querySelectorAll(".sum-stats .statrow__val")].map((n) => n.dataset.ramp),
+        figures: [...el.querySelectorAll(".sum-stats [data-ramp]")].map((n) => n.textContent),
+        final: [...el.querySelectorAll(".sum-stats [data-ramp]")].map((n) => n.dataset.ramp),
         running: el.getAnimations({ subtree: true }).length,
         played: el.classList.contains("is-played"),
         staged: !!el.querySelector("[style*='--i']"),
@@ -304,19 +304,25 @@ const readSummary = (page) =>
       eyebrow: body.querySelector(".sum-eyebrow")?.textContent.trim() || "",
       hero: body.querySelector(".sum-hero")?.textContent.trim() || "",
       sub: body.querySelector(".sum-sub")?.textContent.trim() || "",
-      statCaps: txt(".sum-stats .statrow__cap"),
-      statVals: txt(".sum-stats .statrow__val"),
-      // Direction D (spec 4.4): a record is one line inside the group of the lift that set it.
-      prMarks: body.querySelectorAll(".sum-pr .verdictmark--record").length,
-      prNames: [...body.querySelectorAll(".sum-grp")].filter((g) => g.querySelector(".sum-pr")).map((g) => g.querySelector(".sum-grp__n").textContent.trim()),
-      prOver: txt(".sum-pr__over"),
-      // Refinement A3: each lift is a small ledger; every line names its question beside its value.
-      ledgers: [...body.querySelectorAll(".sum-grp")].map((g) => ({
-        nameRowExtra: g.querySelector(".sum-grp__h").textContent.trim() !== g.querySelector(".sum-grp__n").textContent.trim(),
-        rows: [...g.querySelectorAll(".sum-ledger > .sum-ledger__row")].map((row) => [row.querySelector("dt")?.textContent.trim(),
-          row.querySelector("dd .sum-outcome, dd .sum-word") ? "outcome" : row.querySelector("dd .sum-pr") ? "record" : row.querySelector("dd .sum-grp__next") ? "next" : "?"]),
+      // The finish screen (owner decisions, 2026-11-05): four tiles, then every lift with its word, sets, record and next.
+      tiles: [...body.querySelectorAll(".sum-tiles .sum-tile")].map((tile) => ({ id: tile.dataset.tile,
+        label: tile.querySelector(".sum-tile__lab")?.textContent.trim(), value: tile.querySelector(".sum-tile__val")?.textContent.trim(),
+        sub: tile.querySelector(".sum-tile__sub")?.textContent.trim() || "" })),
+      prMarks: body.querySelectorAll(".sum-lift__pr .verdictmark--record").length,
+      prNames: [...body.querySelectorAll(".sum-lift")].filter((g) => g.querySelector(".sum-lift__pr")).map((g) => g.querySelector(".sum-grp__n").textContent.trim()),
+      prOver: txt(".sum-lift__pr"),
+      lifts: [...body.querySelectorAll(".sum-lift")].map((g) => ({
+        name: g.querySelector(".sum-grp__n")?.textContent.trim(),
+        word: g.querySelector(".sum-grp__h .sum-outcome, .sum-grp__h .sum-word")?.textContent.trim() || "",
+        sets: g.querySelector(".sum-grp__sets")?.textContent.trim(),
+        record: g.querySelector(".sum-lift__pr")?.textContent.trim() || "",
+        next: !!g.querySelector(".sum-lift__next .sum-grp__next"),
       })),
-      prSets: [...body.querySelectorAll(".sum-grp")].filter((g) => g.querySelector(".sum-pr")).map((g) => g.querySelector(".sum-grp__sets").textContent.trim()),
+      prSets: [...body.querySelectorAll(".sum-lift")].filter((g) => g.querySelector(".sum-lift__pr")).map((g) => g.querySelector(".sum-grp__sets").textContent.trim()),
+      recordTiles: txt(".sum-rtile__n"),
+      cards: [...body.querySelectorAll(".sum-cards .sharecard")].map((card) => ({ kind: card.classList.contains("sharecard--poster") ? "poster" : "stats",
+        label: card.getAttribute("aria-label"), role: card.tagName === "FIGURE" && card.querySelector(".sharecard__in")?.getAttribute("aria-hidden") === "true" ? "figure" : "?", lifts: card.querySelectorAll(".sharecard__lifts li").length,
+        brand: card.querySelector(".sharecard__brand")?.textContent.trim() || "" })),
       overflowLine: !!body.querySelector(".sum-more"),
       chips: txt(".sum-chip"),
       outcomeRoles: [...body.querySelectorAll(".sum-outcome")].map((row) => ({
@@ -326,7 +332,6 @@ const readSummary = (page) =>
       })),
       baseline: body.querySelector(".sum-baseline")?.textContent.trim() || "",
       muscles: txt(".sum-muscles .vrow__name"),
-      muscleNums: txt(".sum-muscles .vrow__num"),
       week: body.querySelector(".sum-week")?.textContent.trim() || "",
       weekDone: body.querySelectorAll(".sum-segbar .segbar__seg.is-done").length,
       weekSegs: body.querySelectorAll(".sum-segbar .segbar__seg").length,
@@ -417,17 +422,26 @@ async function run() {
   assert(s.open, "finishing opens the session summary", JSON.stringify({ open: s.open }));
   assert(/session saved/i.test(s.eyebrow), "the screen names the moment", s.eyebrow);
   assert(s.hero === "Day 1", "the hero is the training day just finished", s.hero);
-  assert(s.statVals[0] === "5" && /^sets logged$/.test(s.statCaps[0]), "sets logged leads the stat row", JSON.stringify(s.statVals));
-  // 62.5×8 + 62.5×7 + 50×10 + 50×9 + 10×8 = 1967.5 kg through the hands.
-  assert(s.statVals[1] === "1,968" && /kg moved/.test(s.statCaps[1]), "volume is the load actually moved", JSON.stringify([s.statVals[1], s.statCaps[1]]));
-  assert(s.statVals[2] === "3" && /^lifts$/.test(s.statCaps[2]), "the third figure counts lifts, not sets again", JSON.stringify(s.statVals));
+  // The block's first bench session was 60 kg; this one tops out at 62.5 kg. Two weeks in a row is a streak.
+  assert(s.tiles.map((tile) => tile.id).join() === "strength,records,streak,volume",
+    "the tiles are the four owner defaults: strength gained, records, weeks in a row, kg moved", JSON.stringify(s.tiles));
+  assert(s.tiles[0].value === "+2.5kg" && s.tiles[0].sub === "Bench press" && s.tiles[1].value === "2" && s.tiles[2].value === "2",
+    "strength gained names the day's first lift; records and weeks in a row read as figures", JSON.stringify(s.tiles));
+  // 62.5×8 + 62.5×7 + 50×10 + 50×9 + 10×8 = 1967.5 kg through the hands; the unit is said once.
+  assert(s.tiles[3].value === "1,968kg" && s.tiles[3].label === "Moved", "volume is the load actually moved, its unit once", JSON.stringify(s.tiles[3]));
+  assert(s.cards.length === 2 && s.cards[0].kind === "poster" && s.cards[1].kind === "stats" && s.cards.every((card) => card.role === "figure" && card.lifts === 3
+      && /Taurifer\s*taurifer\.com/.test(card.brand)),
+    "the card row opens on the record poster, then the stats card; each is one labelled figure that lists every lift and carries the brand",
+    JSON.stringify(s.cards));
+  assert(/New record, Bench press, 62\.5 kg × 8/.test(s.cards[0].label), "the poster is the session's heaviest record", s.cards[0].label);
+  assert(s.recordTiles.join() === "Bench press,Barbell row", "each record has its own tile", JSON.stringify(s.recordTiles));
 
   assert(s.prMarks === 2 && s.prNames.length === 2, "only the lifts that set a record get a line", JSON.stringify([s.prMarks, s.prNames]));
   assert(s.prNames[0] === "Bench press", "a load record sits in its lift's group", JSON.stringify(s.prNames));
-  assert(/\+2\.5 kg over your best/.test(s.prOver[0]), "a load record says how much heavier", s.prOver[0]);
+  assert(s.prOver[0] === "PR +2.5 kg", "a load record says how much heavier", s.prOver[0]);
   assert(s.prSets[0].startsWith("62.5 kg × 8"), "the group above the record carries the set that set it", s.prSets[0]);
   assert(s.prNames[1] === "Barbell row", "holding the load and adding reps is a reps record", JSON.stringify(s.prNames));
-  assert(/\+2 reps at that load/.test(s.prOver[1]), "a reps record says how many more reps", s.prOver[1]);
+  assert(s.prOver[1] === "PR +2 reps", "a reps record says how many more reps", s.prOver[1]);
   assert(
     !s.prNames.includes("Dumbbell curl"),
     "repeating last session's numbers sets no record",
@@ -437,25 +451,13 @@ async function run() {
 
   assert(s.outcomeRoles.filter((row) => row.outcome === "improved").length === 2,
     "canonical lift outcomes are on the screen", JSON.stringify(s.outcomeRoles));
-  const LABEL = { outcome: "vs last time", record: "PR", next: "Next" };
-  assert(s.ledgers.length && s.ledgers.every((g) => !g.nameRowExtra && g.rows.length &&
-      g.rows.every(([label, kind]) => LABEL[kind] === label) &&
-      g.rows.map(([, kind]) => kind).join() === ["outcome", "record", "next"].filter((kind) => g.rows.some(([, k]) => k === kind)).join()),
-    "every signal sits on a line that names its question (how it went, the record, next), in that order, and no word floats beside the name",
-    JSON.stringify(s.ledgers));
-  assert(s.ledgers.filter((g) => g.rows.some(([, kind]) => kind === "record")).length === s.prNames.length,
-    "each record is a labelled line in its own lift's ledger", JSON.stringify(s.ledgers));
+  assert(s.lifts.length === 3 && s.lifts.every((lift) => lift.name && lift.word && lift.sets),
+    "every lift is listed with its outcome word and its sets", JSON.stringify(s.lifts));
+  assert(s.lifts.filter((lift) => lift.record).length === s.prNames.length,
+    "each record sits on its own lift's row", JSON.stringify(s.lifts));
   assert(!s.baseline, "a session with history is not called a baseline", s.baseline);
-  assert(
-    s.muscles.join(",") === "Chest,Mid/upper back,Biceps,Triceps" && /^2 sets$/.test(s.muscleNums[0]),
-    "hard sets break down by muscle, and direct work outranks an equal share of assisting",
-    JSON.stringify([s.muscles, s.muscleNums])
-  );
-  assert(
-    s.muscles.includes("Triceps") && /^1 set$/.test(s.muscleNums[3]),
-    "a muscle that only assisted still earns its half sets",
-    JSON.stringify([s.muscles, s.muscleNums])
-  );
+  assert(!s.muscles.length, "the hard-sets-by-muscle list left the finish screen (owner decisions, 2026-11-05); Progress keeps the volume view",
+    JSON.stringify(s.muscles));
   assert(/1 of 2 sessions/.test(s.week), "the week says where the session leaves it", s.week);
   assert(s.weekSegs === 2 && s.weekDone === 1, "the week bar fills the session just logged", JSON.stringify({ segs: s.weekSegs, done: s.weekDone }));
   assert(s.next === "Day 2", "the next training day is named", s.next);
@@ -582,11 +584,9 @@ async function run() {
   );
   assert(!s.chips.length, "a baseline is not also counted as a new lift", JSON.stringify(s.chips));
   assert(!s.outcomeRoles.length, "a baseline has no sufficient outcome rows", JSON.stringify(s.outcomeRoles));
-  assert(
-    s.statVals[0] === "1" && s.statCaps[0] === "set logged",
-    "one set reads as one set, not '1 sets'",
-    JSON.stringify([s.statVals[0], s.statCaps[0]])
-  );
+  assert(s.tiles.map((tile) => tile.id).join() === "sets,reps,volume" && s.tiles[0].value === "1",
+    "a first session has no gain, record or streak to show, so the fallbacks stand in and nothing reads zero", JSON.stringify(s.tiles));
+  assert(s.cards.length === 1 && s.cards[0].kind === "stats", "with no record and no improved lift, the stats card is the only card", JSON.stringify(s.cards));
 
   // A second completed session must not ask again.
   await page.keyboard.press("Escape");
@@ -634,10 +634,58 @@ async function run() {
   assert(s.prNames.length === 3, "all three lifts set a record", JSON.stringify(s.prNames));
   assert(s.prMarks === 3, "each record carries the record mark", String(s.prMarks));
   assert(
-    s.prOver.every((o) => /over your best/.test(o)),
-    "the sentence under each name still says what kind of record it is",
+    s.prOver.every((o) => /^PR \+2\.5 kg$/.test(o)),
+    "each record says what kind it is and by how much",
     JSON.stringify(s.prOver)
   );
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
+
+  // ---- 6b — no gain, no record, a missed week ----------------------------------
+  phase("A missed week ends the streak and a lighter top set claims no gain");
+  await seed(
+    page,
+    fixture({
+      log: history(isoDaysAgo(14), [
+        ["ex0", "Bench press", 1, 70, 8, 1, "Chest", "Triceps"],
+        ["ex1", "Barbell row", 1, 60, 10, 1, "Mid/upper back", "Biceps"],
+      ]),
+    })
+  );
+  await enterLog(page);
+  await logSet(page, "ex0", 1, 62.5, 8, 1);
+  await logSet(page, "ex1", 1, 55, 8, 1);
+  await finish(page);
+  s = await readSummary(page);
+  assert(s.tiles.map((tile) => tile.id).join() === "sets,reps,volume",
+    "no gain, no record and a one-week streak give their places to sets and total reps, and nothing reads as a loss",
+    JSON.stringify(s.tiles));
+  assert(s.tiles[1].value === "16", "total reps counts the working reps", JSON.stringify(s.tiles[1]));
+  assert(!s.recordTiles.length && s.cards.every((card) => card.kind === "stats"),
+    "with no record and nothing improved there is no poster", JSON.stringify(s.cards));
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
+
+  // ---- 6c — better than last time, short of the best ----------------------------
+  phase("With no record, the card row opens on the most-improved lift");
+  await seed(
+    page,
+    fixture({
+      log: [
+        ...history(isoDaysAgo(14), [["ex0", "Bench press", 1, 70, 8, 1, "Chest", "Triceps"], ["ex0", "Bench press", 2, 70, 8, 1, "Chest", "Triceps"]]),
+        ...history(isoDaysAgo(7), [["ex0", "Bench press", 1, 60, 6, 1, "Chest", "Triceps"], ["ex0", "Bench press", 2, 60, 6, 1, "Chest", "Triceps"]]),
+      ],
+    })
+  );
+  await enterLog(page);
+  await logSet(page, "ex0", 1, 60, 8, 1);
+  await logSet(page, "ex0", 2, 60, 8, 1);
+  await finish(page);
+  s = await readSummary(page);
+  assert(!s.prMarks && s.lifts.find((lift) => lift.name === "Bench press")?.word === "Improved",
+    "the bench beat last time without beating its best", JSON.stringify(s.lifts));
+  assert(s.cards.length === 2 && s.cards[0].kind === "poster" && /Most improved, Bench press, 60 kg × 8/.test(s.cards[0].label),
+    "the poster names the most-improved lift and its top set, not a record", JSON.stringify(s.cards));
   await page.keyboard.press("Escape");
   await page.waitForTimeout(200);
 

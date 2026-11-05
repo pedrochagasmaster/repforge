@@ -125,6 +125,9 @@ export const ORANGE_CATEGORIES = Object.freeze([
   "rest-timer",
   // The Focus hero (owner-approved direction A of focus-hero.html, 2026-10-28): the evidence line's inline Why? action.
   "focus-hero-why",
+  // Finish and share (owner decisions, 2026-11-05, prototype v2): the record poster's ground, the stats card's accent
+  // figure and improvement mark, and the finish screen's gain and record figures.
+  "finish-share",
 ]);
 /**
  * [{ category, selector, pseudo?: "::before" | "::after" }]. Each R3 sub-slice adds the entries its
@@ -165,6 +168,11 @@ export const ORANGE_ALLOWLIST = [
   { category: "active-dock-icon", selector: "nav button.active" },
   // The Program page's Edit, in its navigation bar's trailing slot (owner-approved bar-actions mock, 2026-10-23).
   { category: "bar-text-button", selector: "#program.program-ledger:not(.sheet) #programEditToggle" },
+  { category: "finish-share", selector: "#sessionSummary .sharecard--poster" },
+  { category: "finish-share", selector: "#sessionSummary .sharecard__val.is-accent" },
+  { category: "finish-share", selector: "#sessionSummary .sharecard__mark.is-up" },
+  { category: "finish-share", selector: "#sessionSummary .sum-tile__val.is-accent" },
+  { category: "finish-share", selector: "#sessionSummary .sum-tile__val.is-accent > span" },
   // Today's live card (owner-approved mock A, 2026-10-23): the live dot and its pulse, the tag, the sets bar's fill, and
   // the current lift's status ring.
   { category: "live-session", selector: "#todayLive .today-live__dot" },
@@ -181,6 +189,9 @@ export const OVERFLOW_EXCEPTIONS = [
   // Layout D (owner, 2026-10-17/18): the Focus header's exercise name clamps to two lines beside the rest pill; the
   // clamp's ellipsis can sit a pixel or two past the box. The heading's accessible name keeps the whole name.
   { id: "focus-header-name-clamp", selector: ".wo-head__name" },
+  // Finish-share (owner, 2026-11-05): the finish screen's card row and record tiles scroll sideways by design.
+  { id: "finish-card-row", selector: "#sessionSummary .sum-cards" },
+  { id: "finish-record-tiles", selector: "#sessionSummary .sum-rtiles" },
 ];
 /** Where "Hold" as a label is banned: the rest surfaces, the sheet and the tab (the floating pill is retired, 2026-10-29). */
 export const TIMER_SCOPES = ["#restSheet", ".resttab"];

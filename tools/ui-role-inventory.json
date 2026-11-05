@@ -396,7 +396,12 @@
     "session/summary": {
       "owner": "plan-064/r3h",
       "content": "flat",
-      "scenario": "The Direction D lifter's Day 1: maintained, improved and declined words, records in green, and each lift ending on its next target."
+      "scenario": "The Direction D lifter's Day 1 finish screen: the card row (record poster, then the stats card) and the four tiles."
+    },
+    "session/summary-lifts": {
+      "owner": "plan-064/r3h",
+      "content": "flat",
+      "scenario": "The Day 1 finish screen scrolled to the record tiles and every lift: outcome word, sets, record and next target."
     },
     "session/summary-maintained": {
       "owner": "plan-064/r3h",
@@ -5756,6 +5761,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
         "session/summary-first"
@@ -5779,6 +5785,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
         "session/summary-first"
@@ -5786,27 +5793,6 @@
       "progressScopes": {
         "completed-session-week": "week"
       }
-    },
-    {
-      "id": "summary-volume-row",
-      "selector": "#sessionSummary div.vrow:not(.evrow):not([id])",
-      "roles": {
-        "elevation": "flat",
-        "boundary": "decorative"
-      },
-      "variant": "summary-data",
-      "facets": [],
-      "states": [
-        "default"
-      ],
-      "rationale": "Summary muscle volume is read-only data, not a drill-in control.",
-      "owner": "plan-057/058",
-      "catalogStates": [
-        "session/summary",
-        "session/summary-maintained",
-        "session/summary-declined",
-        "session/summary-first"
-      ]
     },
     {
       "id": "settingsback",
@@ -6122,6 +6108,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
         "session/summary-first"
@@ -6146,6 +6133,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
         "session/summary-first"
@@ -7873,6 +7861,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
         "session/summary-first"
@@ -8438,6 +8427,7 @@
         "workout/why-per-side",
         "workout/why-in-session",
         "session/summary",
+        "session/summary-lifts",
         "session/summary-maintained",
         "session/summary-declined",
         "session/summary-first",
@@ -9529,31 +9519,6 @@
         "workout/why-this-weight",
         "workout/why-per-side",
         "workout/why-in-session"
-      ]
-    },
-    {
-      "id": "summuscles",
-      "selector": "#sumMuscles",
-      "roles": {
-        "control": "disclosure"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "expanded"
-      ],
-      "rationale": "Expands or collapses information; expanded state is separate from navigation. It lists the muscles beyond the top six.",
-      "owner": "plan-064/r3h",
-      "catalogStates": [
-        "session/summary",
-        "session/summary-maintained",
-        "session/summary-declined",
-        "session/summary-first"
       ]
     },
     {

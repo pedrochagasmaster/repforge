@@ -199,6 +199,10 @@ try {
       const outcome = await page.evaluate(() => [...document.querySelectorAll("#sessionSummary .sum-grp .sum-grp__h")].map((h) => h.textContent.replace(/\s+/g, " ").trim()));
       check(outcome.length && outcome.every((line) => !/No RIR/.test(line)), "the summary does not report the logged set as missing its RIR", outcome);
 
+      // The finish screen's card row (owner decisions, 2026-11-05) makes even one set taller than a 844px phone, so the
+      // short case is measured on a tall screen: what is under test is where the bar sits when the report fits.
+      await page.setViewportSize({ width: 390, height: 1600 });
+      await page.waitForTimeout(300);
       const bar = await page.evaluate(() => {
         const sheet = document.querySelector("#sessionSummary"), actions = sheet.querySelector(".sum-actions"), done = sheet.querySelector("#sumDone");
         return { height: innerHeight, short: sheet.scrollHeight <= sheet.clientHeight + 1, bar: actions.getBoundingClientRect().bottom,
