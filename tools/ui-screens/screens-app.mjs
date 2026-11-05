@@ -337,6 +337,7 @@ export const DIRECTION_D_SUMMARY_SESSION = Object.freeze({
   "session/summary-maintained": "dd-2026-08-26-day2",
   "session/summary-declined": "dd-2026-08-28-day3",
   "session/summary-first": "dd-2026-08-12-day2-mixed",
+  "session/summary-lifts": "dd-2026-08-31-day1",
 });
 function directionDThroughSession(sessionId) {
   const state = directionDState();
@@ -2319,6 +2320,15 @@ export const APP_SCENARIOS = {
   "session/summary": async (page) => {
     await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary"]);
     await page.waitForSelector('.sum-outcome[data-outcome="improved"]', { timeout: 20000 });
+  },
+  // The same finish screen scrolled past its card row and numbers, to the records and every lift.
+  "session/summary-lifts": async (page) => {
+    await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-lifts"]);
+    await page.evaluate(() => {
+      const sheet = document.querySelector("#sessionSummary"), head = sheet.querySelector(".sum-rtiles")?.previousElementSibling;
+      sheet.scrollTop = Math.max(0, head.getBoundingClientRect().top - sheet.getBoundingClientRect().top + sheet.scrollTop - 24);
+    });
+    await sleep(page, 400);
   },
   "session/summary-maintained": async (page) => {
     await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-maintained"]);

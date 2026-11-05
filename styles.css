@@ -37,6 +37,13 @@
   /* Ink for copy sitting on a filled --accent-deep ground. It is not --cta-ink:
      in dark the CTA inverts to a light pill while the orange stays orange, so
      the two inks move in opposite directions. */
+  /* The share cards are pictures that leave the app, so they keep one palette in both themes (owner, 2026-11-05). */
+  --share-card-orange:#B8410E;
+  --share-card-orange-ink:#FFFFFF;
+  --share-card-dark:#141310;
+  --share-card-dark-ink:#F2EFE9;
+  --share-card-accent:#F2703B;
+  --share-card-positive:#6FBF73;
   --accent-ink:#FFFFFF;
   --danger:#C93A2B;
   /* Channel triplets for the tints, focus rings and washes that need the theme
@@ -3777,6 +3784,68 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
   margin-top:var(--space-18);padding-left:14px;border-left:2px solid var(--boundary-selected-quiet);
   font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink-secondary);
 }
+/* The finish screen (owner decisions, 2026-11-05: B + C). The card row previews the images Share will send: they are
+   pictures, so their type scales with the card (container units), and their grounds are the accent and the inverted
+   ink rather than the page. */
+.sum-cards{display:flex;gap:var(--space-12);margin:var(--space-18) calc(-1 * var(--sum-pad-r)) 0 calc(-1 * var(--sum-pad-l));padding:0 var(--sum-pad-r) 0 var(--sum-pad-l);scroll-padding-inline:var(--sum-pad-l) var(--sum-pad-r);
+  overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain}
+.sum-cards::-webkit-scrollbar{display:none}
+.sharecard{--sharecard-text-xs:2.5cqi;--sharecard-text-s:3.2cqi;--sharecard-text-m:3.6cqi;--sharecard-text-l:5.6cqi;--sharecard-text-xl:10cqi;--sharecard-text-figure:21cqi;flex:none;width:calc(100% - var(--sum-pad-l) - var(--sum-pad-r) - var(--space-32));scroll-snap-align:start;aspect-ratio:1;container-type:inline-size;border-radius:var(--radius-prominent);overflow:hidden}
+.sum-cards .sharecard:only-child{width:calc(100% - var(--sum-pad-l) - var(--sum-pad-r))}
+.sharecard--poster{background:var(--share-card-orange);color:var(--share-card-orange-ink)}
+.sharecard--stats{background:var(--share-card-dark);color:var(--share-card-dark-ink);outline:1px solid var(--boundary-decorative);outline-offset:-1px}
+.sharecard__in{display:flex;flex-direction:column;height:100%;padding:7.5cqi 7.5cqi 6cqi;font-family:var(--font-language);line-height:1.2}
+.sharecard p{margin:0}
+.sharecard__kicker{display:flex;justify-content:space-between;gap:3cqi;font-size:var(--sharecard-text-s);align-items:baseline}
+.sharecard__kicker b{font-weight:var(--weight-semibold);letter-spacing:.18em;text-transform:uppercase}
+.sharecard__kicker span{opacity:.82;white-space:nowrap}
+.sharecard__lift{margin-top:2.5cqi!important;font-size:var(--sharecard-text-l);font-weight:var(--weight-semibold);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sharecard__fig{font-size:var(--sharecard-text-figure);font-weight:var(--weight-semibold);line-height:.95;letter-spacing:-.03em;font-variant-numeric:tabular-nums;margin-top:1.5cqi!important}
+.sharecard__meta{display:flex;flex-wrap:wrap;gap:1cqi 3cqi;align-items:baseline;margin-top:1.5cqi!important;font-size:var(--sharecard-text-m)}
+.sharecard__reps{font-family:var(--font-training-data)}
+.sharecard__over{font-weight:var(--weight-medium)}
+.sharecard__day{font-size:var(--sharecard-text-l);font-weight:var(--weight-semibold)}
+.sharecard__date{font-size:var(--sharecard-text-s);opacity:.78;margin-top:1cqi!important}
+.sharecard__tiles{display:grid;grid-template-columns:1fr 1fr;gap:3cqi 4cqi;margin-top:4cqi}
+.sharecard__lab{font-size:var(--sharecard-text-xs);font-weight:var(--weight-semibold);letter-spacing:.12em;text-transform:uppercase;opacity:.75}
+.sharecard__val{font-size:var(--sharecard-text-xl);font-weight:var(--weight-semibold);line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin-top:1cqi!important}
+.sharecard__val small{font-size:var(--sharecard-text-m);font-weight:var(--weight-medium);margin-left:.2em;letter-spacing:0;opacity:.78}
+.sharecard__val.is-accent{color:var(--share-card-accent)}
+.sharecard__lifts{list-style:none;margin:4cqi 0 0;padding:3cqi 0 0;border-top:1px solid color-mix(in srgb,currentColor 35%,transparent);
+  display:grid;grid-template-columns:minmax(0,max-content) minmax(0,1fr) max-content;gap:1.8cqi 2cqi;font-size:var(--sharecard-text-xs);align-items:baseline}
+.sharecard__lifts li{display:contents}
+.sharecard__name{grid-column:1;font-weight:var(--weight-medium);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sharecard__sets{grid-column:2;font-family:var(--font-training-data);opacity:.8;white-space:nowrap}
+.sharecard__mark{grid-column:3;font-family:var(--font-training-data);font-weight:var(--weight-medium);white-space:nowrap;text-align:right}
+.sharecard--stats .sharecard__mark.is-pr{color:var(--share-card-positive)}
+.sharecard--stats .sharecard__mark.is-up{color:var(--share-card-accent)}
+.sharecard__brand{display:flex;align-items:center;gap:1.8cqi;margin-top:auto!important;padding-top:3.5cqi;font-size:var(--sharecard-text-s)}
+.sharecard__brand img{width:4.4cqi;height:4.4cqi;border-radius:1cqi}
+.sharecard__brand b{font-weight:var(--weight-semibold)}
+.sharecard__brand span{opacity:.75}
+/* The four numbers: Sans with tabular numerals (Mono's comma opens a gap in "6,453"), the unit once, small. */
+#sessionSummary .sum-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,8.5rem),1fr));gap:var(--space-18) var(--space-14);margin-top:var(--space-26);padding:0;border:0}
+.sum-tile{min-width:0}
+.sum-tile p{margin:0}
+.sum-tile__lab{font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);letter-spacing:.1em;text-transform:uppercase;line-height:var(--line-standard);color:var(--color-ink-secondary);text-wrap:balance}
+.sum-tile__val{margin-top:var(--space-4)!important;font-family:var(--font-language);font-size:var(--font-size-display);font-weight:var(--weight-semibold);line-height:1.05;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--color-ink);white-space:nowrap}
+.sum-tile__val.is-accent{color:var(--accent-deep)}
+.sum-tile__val small{margin-left:.18em;font-size:var(--font-size-body);font-weight:var(--weight-medium);letter-spacing:0;color:var(--color-ink-secondary)}
+.sum-tile__sub{margin-top:var(--space-4)!important;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary);text-wrap:balance;overflow-wrap:anywhere}
+/* The records, as tiles that scroll sideways under the heading. */
+.sum-rtiles{display:flex;gap:var(--space-8);overflow-x:auto;margin:var(--space-12) calc(-1 * var(--sum-pad-r)) 0 calc(-1 * var(--sum-pad-l));padding:0 var(--sum-pad-r) var(--space-4) var(--sum-pad-l);scrollbar-width:none}
+.sum-rtiles::-webkit-scrollbar{display:none}
+.sum-rtile{flex:none;width:11.5em;max-width:70%;padding:var(--space-12) var(--space-14);border:1px solid var(--boundary-decorative);border-radius:var(--radius-surface);background:var(--surface)}
+.sum-rtile p{margin:0}
+.sum-rtile__n{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:anywhere}
+.sum-rtile__v{margin-top:var(--space-4)!important;font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);font-variant-numeric:tabular-nums;color:var(--color-ink)}
+.sum-rtile__d,.sum-lift__pr{display:flex;align-items:center;gap:var(--space-4);margin-top:var(--space-4)!important;font-family:var(--font-training-data);font-size:var(--font-size-body-small);color:var(--color-improved)}
+/* Every lift: the name and its outcome word, then its sets with its record, then the next target. */
+.sum-lift .sum-grp__h{flex-wrap:wrap;gap:var(--space-4) var(--space-12)}
+.sum-lift__r{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:0 var(--space-12)}
+.sum-lift__r .sum-lift__pr{margin:var(--space-4) 0 0!important}
+.sum-lift__next{display:flex;align-items:center;gap:var(--space-8);margin:var(--space-8) 0 0}
+.sum-lift__k{font-family:var(--font-language);font-size:var(--font-size-body-small);color:var(--color-ink-secondary)}
 .sum-split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-12);margin-top:var(--space-26)}
 .sum-split__k{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .sum-week{margin:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink)}

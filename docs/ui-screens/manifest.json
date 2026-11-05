@@ -1273,28 +1273,35 @@
       "id": "summary",
       "flow": "session",
       "label": "Session summary",
-      "scenario": "The Direction D lifter's Day 1 summary: an outcome word per lift, the sets, records in green and the next target as the strongest line.",
+      "scenario": "The Direction D lifter's Day 1 finish screen (owner decisions, 2026-11-05): the card row opening on the squat record poster, then the stats card; the four tiles (strength gained, records, weeks in a row, kg moved).",
       "variants": "demandingText"
     },
     {
       "id": "summary-maintained",
       "flow": "session",
       "label": "Session summary — maintained",
-      "scenario": "A finished Day 2 whose Romanian deadlift is maintained, with its other lifts improved and a record.",
+      "scenario": "A finished Day 2 whose Romanian deadlift is maintained, with its other lifts improved and an e1RM record leading the card row.",
       "variants": "demandingText"
     },
     {
       "id": "summary-declined",
       "flow": "session",
       "label": "Session summary — declined",
-      "scenario": "A finished Day 3 that reports declined lifts in ink, without turning the result into a prescription.",
+      "scenario": "A finished Day 3 with no record and nothing improved: the stats card is the only card, and declined lifts read in ink without turning into a prescription.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "summary-lifts",
+      "flow": "session",
+      "label": "Session summary — records and every lift",
+      "scenario": "The Day 1 finish screen scrolled past its card row and tiles: the record tiles, then every lift with its outcome word, sets, record and next target.",
       "variants": "demandingText"
     },
     {
       "id": "summary-first",
       "flow": "session",
       "label": "Session summary — first session",
-      "scenario": "Every lift is a first exposure: the baseline sentence, no outcome words, and the next targets from the engine.",
+      "scenario": "Every lift is a first exposure: only the stats card, the fallback tiles (sets, total reps, kg moved), the baseline sentence, no outcome words, and the next targets from the engine.",
       "variants": "demandingText"
     },
     {

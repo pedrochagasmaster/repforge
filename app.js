@@ -10479,6 +10479,45 @@ function sessionOutcomeGroups(rows,prs=[]){
       next:line?{glyph:rxVerdict(rec),line}:null}});
   return{evidence,showBaseline,liftGroups}}
 
+/* ---- The finish screen's numbers (owner decisions, 2026-11-05) ----
+   Four tiles: strength gained this block, records, weeks in a row and the load moved. A tile the session cannot
+   back (no gain, no record, a streak under two weeks) gives its place to the fallbacks, sets then total reps. */
+const SUMMARY_TILES=["strength","records","streak","volume"],SUMMARY_TILE_FALLBACKS=["sets","reps"];
+const strengthKey=row=>`${liftKey(row)}\u0000${row.strengthConvention||"load"}`;
+/** Consecutive Monday–Sunday weeks with at least one logged session, counting back from the week of `date`. */
+function weeksInARow(log,date){
+  const weeks=new Set((log||[]).map(row=>weekStart(row.date)));
+  let count=0;
+  for(let week=weekStart(date);weeks.has(week);week=shiftDate(week,-7))count++;
+  return count}
+/** The day's first lift that can set a record, and how much heavier its top working set is than in the block's first
+ *  session with that lift, in the same convention. Null outside a block, in week 1, or when it is not heavier. */
+function strengthGainedThisBlock(rows,prevLog){
+  const started=state.programMeta?.started,week=mesocycleWeek().current;
+  if(!started||!(week>=2))return null;
+  const mine=performedWorkingRows(rows).filter(row=>row.strengthComparable);
+  if(!mine.length)return null;
+  const key=strengthKey(mine[0]);
+  const past=performedWorkingRows(prevLog).filter(row=>row.strengthComparable&&strengthKey(row)===key&&String(row.date)>=started);
+  if(!past.length)return null;
+  const first=past.reduce((a,b)=>compareLogChronology(a,b)<=0?a:b).session;
+  const then=Math.max(...past.filter(row=>row.session===first).map(row=>+row.load));
+  const now=Math.max(...mine.filter(row=>strengthKey(row)===key).map(row=>+row.load));
+  return now>then&&!sameLoad(now,then)?{name:displayName(mine[0]),liftKey:liftKey(mine[0]),delta:now-then}:null}
+/** The tiles in order: each default the session can back, else the next fallback. */
+function summaryTiles(facts){
+  // A tile says something the session achieved: no records, or a streak of one week, gives its place to a fallback.
+  const backed={strength:!!facts.strength,records:facts.records>0,streak:facts.streak>=2,volume:true,sets:true,reps:true};
+  const fallbacks=SUMMARY_TILE_FALLBACKS.filter(id=>backed[id]);
+  return SUMMARY_TILES.map(id=>backed[id]?id:fallbacks.shift()).filter(Boolean)}
+/** The card the row opens on: the session's heaviest record, else its first improved lift; none otherwise. */
+function summaryLeadCard(prs,liftGroups){
+  if(prs.length)return{kind:"record",name:prs[0].name,liftKey:prs[0].liftKey,load:prs[0].load,reps:prs[0].reps,pr:prs[0]};
+  const lift=liftGroups.find(group=>group.state.kind==="outcome"&&group.state.outcome==="improved");
+  if(!lift)return null;
+  const top=lift.sets.reduce((a,b)=>b.load>a.load||(sameLoad(b.load,a.load)&&b.reps>a.reps)?b:a);
+  return{kind:"improved",name:lift.name,liftKey:lift.liftKey,load:top.load,reps:top.reps,pr:null}}
+
 /** Everything the finished session earns the right to say about itself. */
 function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
   // Test-only fault seam for the post-commit boundary. The completion owner
@@ -10495,7 +10534,12 @@ function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
   // A clock only earns a slot when it plausibly measured this session: a draft
   // resumed the next morning would otherwise report a nine-hour workout.
   const mins=startedAt?Math.round((Date.now()-startedAt)/60000):0;
+  const strength=strengthGainedThisBlock(rows,prevLog),streak=weeksInARow([...(prevLog||[]),...rows],date);
   return{session,date,day:sessDay,
+    strength,streak,
+    reps:sum(performedWorkingRows(rows).map(row=>+row.reps)),
+    tiles:summaryTiles({strength,streak,records:prs.length}),
+    lead:summaryLeadCard(prs,liftGroups),
     sets:rows.length,
     volume:movedTonnage(rows),
     lifts:new Set(performedWorkingRows(rows).map(liftKey)).size,
@@ -10651,7 +10695,6 @@ async function saveWorkout(e,io,options={}){if(e&&e.preventDefault)e.preventDefa
    One group per lift: its outcome word, the sets it performed, a record line when it set one, and the
    engine's next target as the strongest line. The word is the canonical session outcome (the
    compareExerciseSession rule in CONTEXT.md, read through the evidence record); the target is recommendation(). */
-const SUMMARY_MUSCLES_SHOWN=6;
 /** One PR line: a record mark and how far past the best it went. The sentence names the kind. */
 function sessionPRHtml(p){
   const unit=unitLabel(),over=p.kind==="load"?t("summary.pr.over_load",{n:fmtLoad(p.delta),unit})
@@ -10684,33 +10727,88 @@ function summaryGroupHtml(lift,s,{compact=false}={}){
     (compact?"":`<p class="sum-grp__sets">${esc(rxSetsLine(lift.sets,true))}</p>`)+
     (rows?`<dl class="sum-ledger">${rows}</dl>`:"")+`</div>`}
 
+/** A record's margin in the short form the finish screen and its cards use ("PR +2.5 kg"). */
+function sessionPRShort(p){
+  const unit=unitLabel();
+  return p.kind==="load"?t("summary.pr.short_load",{n:fmtLoad(p.delta),unit})
+    :p.kind==="reps"?t("summary.pr.short_reps",{n:fmt(p.delta),reps:tp(p.delta,"rep")})
+    :t("summary.pr.short_e1rm",{n:fmtLoad(p.delta),unit})}
+const SHARE_MARK_SRC="icons/icon-192.png";
+const recordMarkHtml=()=>`<span class="verdictmark verdictmark--record"><span class="verdictmark__glyph" aria-hidden="true"></span></span>`;
+/** The foot every share card carries (owner, 2026-11-05): the mark, the name and the site. */
+const shareCardBrandHtml=()=>`<p class="sharecard__brand"><img src="${SHARE_MARK_SRC}" alt="" width="24" height="24">`+
+  `<b>Taurifer</b><span>taurifer.com</span></p>`;
+/** Every lift as a card lists it: the name, its sets in Mono, and its record or improvement. */
+function shareCardLiftsHtml(s){
+  return `<ul class="sharecard__lifts">${s.liftGroups.map(lift=>{
+    const mark=lift.pr?`<span class="sharecard__mark is-pr">${esc(sessionPRShort(lift.pr))}</span>`
+      :lift.state.kind==="outcome"&&lift.state.outcome==="improved"?`<span class="sharecard__mark is-up">${esc(t(EVIDENCE_OUTCOME_KEYS.improved))}</span>`:"";
+    return `<li><span class="sharecard__name">${esc(liftDisplayName(lift.name,lift.liftKey))}</span>`+
+      `<span class="sharecard__sets">${esc(rxSetsLine(lift.sets,true))}</span>${mark}</li>`}).join("")}</ul>`}
+/** The finish screen's card row (owner, 2026-11-05: B + C). A static preview of the cards Share will send: the
+ *  record poster (or the most-improved lift) first, then the stats card. Each reads as one image. */
+function summaryCardsHtml(s){
+  const unit=unitLabel(),date=shortDate(s.date),cards=[];
+  if(s.lead){
+    const kicker=t(s.lead.kind==="record"?"summary.card.new_record":"summary.card.most_improved"),name=liftDisplayName(s.lead.name,s.lead.liftKey);
+    const label=t("summary.card.aria_poster",{kicker,lift:name,load:fmtLoad(s.lead.load),unit,reps:s.lead.reps});
+    cards.push(`<div class="sharecard sharecard--poster" role="img" aria-label="${esc(label)}"><div class="sharecard__in" aria-hidden="true">`+
+      `<p class="sharecard__kicker"><b>${esc(kicker)}</b><span>${esc(`${dayLabel(s.day)} · ${date}`)}</span></p>`+
+      `<p class="sharecard__lift">${esc(name)}</p><p class="sharecard__fig">${esc(fmtLoad(s.lead.load))}</p>`+
+      `<p class="sharecard__meta"><span class="sharecard__reps">${esc(t("summary.card.reps",{unit,n:s.lead.reps}))}</span>`+
+      (s.lead.pr?`<span class="sharecard__over">${esc(sessionPRShort(s.lead.pr))}</span>`:"")+`</p>`+
+      shareCardLiftsHtml(s)+shareCardBrandHtml()+`</div></div>`)}
+  const tiles=summaryTileValues(s);
+  const statsLabel=t("summary.card.aria_stats",{day:dayLabel(s.day),date});
+  cards.push(`<div class="sharecard sharecard--stats" role="img" aria-label="${esc(statsLabel)}"><div class="sharecard__in" aria-hidden="true">`+
+    `<p class="sharecard__day">${esc(dayLabel(s.day))}</p><p class="sharecard__date">${esc(summarySubLine(s))}</p>`+
+    `<div class="sharecard__tiles">${tiles.map(tile=>`<div><p class="sharecard__lab">${esc(tile.label)}</p>`+
+      `<p class="sharecard__val${tile.accent?" is-accent":""}">${esc(tile.text)}${tile.unit?`<small>${esc(tile.unit)}</small>`:""}</p></div>`).join("")}</div>`+
+    shareCardLiftsHtml(s)+shareCardBrandHtml()+`</div></div>`);
+  return `<div class="sum-cards">${cards.join("")}</div>`}
+/** Each tile's label, figure and unit; the figure ramps unless it is a signed margin. */
+function summaryTileValues(s){
+  const unit=unitLabel();
+  return s.tiles.map(id=>id==="strength"?{id,label:t("summary.tile.strength"),text:`+${fmtLoad(s.strength.delta)}`,unit,accent:true,
+      sub:liftDisplayName(s.strength.name,s.strength.liftKey)}
+    :id==="records"?{id,label:t("summary.tile.records"),text:fmt(s.prs.length),ramp:s.prs.length,accent:s.prs.length>0}
+    :id==="streak"?{id,label:t("summary.tile.streak"),text:fmt(s.streak),ramp:s.streak}
+    :id==="volume"?{id,label:t("summary.tile.moved"),text:kfmt(toDisplay(s.volume)),ramp:toDisplay(s.volume),kfmt:true,unit}
+    :id==="sets"?{id,label:t("summary.tile.sets"),text:fmt(s.sets),ramp:s.sets}
+    :{id,label:t("summary.tile.reps"),text:fmt(s.reps),ramp:s.reps})}
+function summarySubLine(s){
+  const date=s.meso.current!=null?t("summary.saved_week",{date:formatLongDate(s.date),n:s.meso.current}):formatLongDate(s.date);
+  return s.minutes!=null?`${date} · ${t("summary.minutes",{n:s.minutes})}`:date}
+/** One lift on the finish screen: its name and outcome word, its sets and record, and the engine's next target. */
+function summaryLiftHtml(lift,s){
+  return `<div class="sum-grp sum-lift"><div class="sum-grp__h"><span class="sum-grp__n">${esc(liftDisplayName(lift.name,lift.liftKey))}</span>`+
+    (s.showBaseline?"":summaryWordHtml(lift,s.session))+`</div>`+
+    `<div class="sum-lift__r"><p class="sum-grp__sets">${esc(rxSetsLine(lift.sets,true))}</p>`+
+    (lift.pr?`<p class="sum-lift__pr">${recordMarkHtml()}<span>${esc(sessionPRShort(lift.pr))}</span></p>`:"")+`</div>`+
+    (lift.next?`<p class="sum-lift__next"><span class="sum-lift__k">${esc(t("summary.ledger.next"))}</span>`+
+      `<span class="sum-grp__next"${lift.exerciseId?` data-parity-target="${esc(lift.exerciseId)}"`:""}>`+
+      `${verdictMarkHtml(lift.next.glyph)}<span>${esc(lift.next.line)}</span></span></p>`:"")+`</div>`}
+
 function sessionSummaryHtml(s){
-  const unit=unitLabel(),out=[];
+  const out=[];
   out.push(`<p class="sum-eyebrow">${esc(t("summary.eyebrow"))}</p>`);
   out.push(`<h2 class="sum-hero" id="sumTitle" tabindex="-1">${esc(dayLabel(s.day))}</h2>`);
-  out.push(`<p class="sum-sub">${esc(s.meso.current!=null?t("summary.saved_week",{date:formatLongDate(s.date),n:s.meso.current}):formatLongDate(s.date))}</p>`);
-  // What the work itself was: sets, load moved, lifts touched, plus the clock when it measured this session.
-  const cell=(n,cap,k)=>`<div class="statrow__cell"><div class="statrow__val" data-ramp="${esc(n)}"`+
-    `${k?' data-kfmt="1"':""}>${esc(k?kfmt(n):fmt(n))}</div>`+
-    `<div class="statrow__cap">${esc(cap)}</div></div>`;
-  const cells=[cell(s.sets,tp(s.sets,"logged set")),
-    cell(toDisplay(s.volume),t("summary.stat.moved",{unit}),true),
-    cell(s.lifts,tp(s.lifts,"lift"))];
-  if(s.minutes!=null)cells.push(cell(s.minutes,tp(s.minutes,"minute")));
-  out.push(`<div class="statrow${cells.length>3?" statrow--4":""} sum-stats">${cells.join("")}</div>`);
+  out.push(`<p class="sum-sub">${esc(summarySubLine(s))}</p>`);
+  out.push(summaryCardsHtml(s));
+  // The four numbers. The counts ramp (motion amendment M2); a signed margin does not.
+  out.push(`<div class="sum-stats sum-tiles">${summaryTileValues(s).map(tile=>`<div class="sum-tile" data-tile="${tile.id}">`+
+    `<p class="sum-tile__lab">${esc(tile.label)}</p><p class="sum-tile__val${tile.accent?" is-accent":""}">`+
+    (tile.ramp!=null?`<span data-ramp="${esc(tile.ramp)}"${tile.kfmt?' data-kfmt="1"':""}>${esc(tile.text)}</span>`:`<span>${esc(tile.text)}</span>`)+
+    (tile.unit?`<small>${esc(tile.unit)}</small>`:"")+`</p>`+(tile.sub?`<p class="sum-tile__sub">${esc(tile.sub)}</p>`:"")+`</div>`).join("")}</div>`);
   // A session whose lifts have no past says so, instead of grading itself against nothing.
   if(s.showBaseline===true)out.push(`<p class="sum-baseline">${esc(t("summary.baseline"))}</p>`);
+  if(s.prs.length)
+    out.push(`<h3 class="sum-sec">${esc(t("summary.records_head"))}</h3><div class="sum-rtiles">${s.prs.map(p=>
+      `<div class="sum-rtile"><p class="sum-rtile__n">${esc(liftDisplayName(p.name,p.liftKey))}</p>`+
+      `<p class="sum-rtile__v">${esc(`${fmtLoad(p.load)} ${unitLabel()} × ${p.reps}`)}</p>`+
+      `<p class="sum-rtile__d">${recordMarkHtml()}<span>${esc(sessionPRShort(p))}</span></p></div>`).join("")}</div>`);
   if(s.liftGroups.length)
-    out.push(`<h3 class="sum-sec">${esc(t("summary.outcome_head"))}</h3><div class="sum-grps">${s.liftGroups.map(lift=>summaryGroupHtml(lift,s)).join("")}</div>`);
-  if(s.muscles.length){
-    const shown=s.muscles.slice(0,SUMMARY_MUSCLES_SHOWN),rest=s.muscles.slice(SUMMARY_MUSCLES_SHOWN);
-    out.push(`<h3 class="sum-sec">${esc(t("summary.muscles.title"))}</h3>`+
-      `<p class="sum-muscles__note">${esc(t("summary.muscles.note"))}</p>`+
-      `<div class="volume sum-muscles">`+
-      [...shown.map(m=>[m,false]),...rest.map(m=>[m,true])].map(([m,extra])=>
-        `<div class="vrow${extra?" hidden":""}"${extra?" data-muscle-extra":""}><span class="vrow__name">${esc(muscleLabel(m.name))}</span>`+
-        `<span class="vrow__num"><b>${fmt(m.sets)}</b> ${esc(tp(m.sets,"set"))}</span></div>`).join("")+`</div>`+
-      (rest.length?`<button type="button" class="sum-muscles__more" id="sumMuscles" aria-expanded="false" data-total="${s.muscles.length}">${esc(t("summary.muscles_all",{n:s.muscles.length}))}</button>`:""))}
+    out.push(`<h3 class="sum-sec">${esc(t("summary.lifts_head"))}</h3><div class="sum-grps">${s.liftGroups.map(lift=>summaryLiftHtml(lift,s)).join("")}</div>`);
   // Where the session leaves the week, and what comes next.
   if(s.week.planned||s.next){
     const segs=Math.max(s.week.planned,s.week.done,1),done=Math.min(s.week.done,segs);
@@ -10722,7 +10820,7 @@ function sessionSummaryHtml(s){
       (s.next?`<div class="sum-next sum-split__cell"><p class="sum-split__k sum-next__lab">${esc(t("summary.next"))}</p>`+
         `<p class="sum-next__day">${esc(dayLabel(s.next.day))}</p>`+
         `<p class="sum-next__meta">${esc(tOne("today.exercise_count",s.next.exercises))}</p></div>`:"")+`</div>`)}
-  // The detour beside the door, both pinned: the report scrolls under them.
+  // The detour beside the door, both pinned: the report scrolls under them. Share joins them with the card renderer.
   out.push(`<div class="sum-actions"><button type="button" class="btn btn--steel" id="sumSee">${esc(t("summary.see_session"))}</button>`+
     `<button type="button" class="btn btn--cta btn--noarrow" id="sumDone">${esc(t("summary.done"))}</button></div>`);
   return out.join("")}
@@ -10768,11 +10866,6 @@ function renderSessionSummary(s){
   stopSummaryRamp();
   body.innerHTML=sessionSummaryHtml(s);
   const done=$("#sumDone");if(done)done.onclick=()=>closeSessionSummary();
-  const more=$("#sumMuscles");if(more)more.onclick=()=>{
-    const open=more.getAttribute("aria-expanded")!=="true";
-    more.setAttribute("aria-expanded",open?"true":"false");
-    more.textContent=t(open?"summary.muscles_fewer":"summary.muscles_all",{n:more.dataset.total});
-    $$("#sessionSummary [data-muscle-extra]").forEach(row=>row.classList.toggle("hidden",!open))};
   const see=$("#sumSee");if(see)see.onclick=()=>{
     HistoryUi.startReading(s.session);
     closeSessionSummary({nav:"history"})}}
