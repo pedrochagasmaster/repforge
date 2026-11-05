@@ -1792,6 +1792,7 @@
   "why.engine.target_norir": "The closest load is {load} {unit} for {reps} reps.",
   "why.engine.step": "Loads move in {step} {unit} steps.",
   "why.engine.bodyweight": "It counts {bw} {unit} of your bodyweight as part of the load.",
+  "why.engine.per_side": "It estimates total load as {load} {unit} per side × {multiplier}.",
   "why.engine.per_side_bodyweight": "It estimates total load as {load} {unit} per side × {multiplier}, plus {bw} {unit} from your bodyweight.",
   "why.ok": "Got it",
   "why.performed": "{reps} reps at {load} {unit}, RIR {rirs}.",

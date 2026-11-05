@@ -96,9 +96,17 @@ Two small conventions:
 - Sets marked as warm-ups are ignored by everything below. Only working
   sets teach the app anything.
 
-Some exercises move part of your body as well as the weight (a pull-up all of
-it, an overhead triceps extension a little). For these the app counts your
-bodyweight too, and it uses your **last known weight**: the bodyweight you
+Some exercises move a large part of your body as well as the weight (a pull-up
+all of it, a dip, a squat, a lunge, a calf raise). For these the app counts
+your bodyweight too. It counts it only where it is a material share of the
+load: **0.30 of your bodyweight or more** (owner rule, 2026-11-05;
+`BODYWEIGHT_MATERIAL_THRESHOLD` in `progression-engine.js`). A loaded lift that
+moves less (wrist curls, an overhead triceps extension, a machine or Smith
+press) counts none of it, so it never asks for your bodyweight and its
+suggestions follow the weight alone. The catalog's own share is kept as it is;
+the app reads it through that rule. Your strength charts and estimated 1RMs
+always use the weight you lifted, so this rule moves none of them. Where
+bodyweight does count, the app uses your **last known weight**: the bodyweight you
 entered for this session, else the last one you logged, else the weight you
 gave in setup. A set logged without a session bodyweight records none, and
 the app values it with that same last known weight rather than treating it as

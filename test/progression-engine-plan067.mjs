@@ -231,14 +231,14 @@ assert.notEqual(expansionLimit.status, "recommended", "range expansion stops aft
 const bodyweightPrescription = prescription({
   metricIds: [METRIC.weight, METRIC.reps],
   metricDefinitions: [metricDefinitions[METRIC.weight], metricDefinitions[METRIC.reps]],
-  loadingModel: { bodyweightCoefficient: 0.25 },
+  loadingModel: { bodyweightCoefficient: 0.5 },
 });
 const bodyweight = recommend(bodyweightPrescription, [{
   sessionId: "weighted-bodyweight",
   completed: true,
   sets: [performedSet({
     loadKg: 80, reps: 6, rir: 2, setIndex: 0,
-    bodyweightCoefficient: 0.25,
+    bodyweightCoefficient: 0.5,
     loadingContext: { bodyweightKg: 80, bodyweightContributionEnabled: true, externalLoadMultiplier: 1 },
   })],
 }], [], context({ bySlotId: { "slot-a": {
@@ -247,8 +247,8 @@ const bodyweight = recommend(bodyweightPrescription, [{
   bodyweightKg: 80, externalLoadMultiplier: 1,
 } } }));
 assert.equal(bodyweight.status, "recommended");
-assert.equal(bodyweight.historyAnchor.effectiveLoadKg, 100, "fractional bodyweight load contributes once to the anchor");
-assert.equal(bodyweight.loadingAssumptions.bodyweightContributionKg, 20);
+assert.equal(bodyweight.historyAnchor.effectiveLoadKg, 120, "fractional bodyweight load contributes once to the anchor");
+assert.equal(bodyweight.loadingAssumptions.bodyweightContributionKg, 40);
 assert.equal(bodyweight.targets.loadKg + bodyweight.loadingAssumptions.bodyweightContributionKg,
   bodyweight.targetEffectiveLoadKg, "candidate and anchor use the same bodyweight transform");
 
@@ -257,7 +257,7 @@ const changedBodyweight = recommend(bodyweightPrescription, [{
   completed: true,
   sets: [performedSet({
     loadKg: 80, reps: 6, rir: 2, setIndex: 0,
-    bodyweightCoefficient: 0.25,
+    bodyweightCoefficient: 0.5,
     loadingContext: { bodyweightKg: 80, bodyweightContributionEnabled: true, externalLoadMultiplier: 1 },
   })],
 }], [], context({ bySlotId: { "slot-a": {
@@ -266,15 +266,15 @@ const changedBodyweight = recommend(bodyweightPrescription, [{
   bodyweightKg: 90, externalLoadMultiplier: 1,
 } } }));
 assert.equal(changedBodyweight.status, "recommended", "a changed bodyweight is comparable under the same recorded convention");
-assert.equal(changedBodyweight.historyAnchor.effectiveLoadKg, 100, "history uses the body's recorded 80 kg, not current 90 kg");
-assert.equal(changedBodyweight.loadingAssumptions.bodyweightContributionKg, 22.5, "candidates use the current bodyweight");
-assert.equal(changedBodyweight.targets.loadKg + 22.5, changedBodyweight.targetEffectiveLoadKg);
+assert.equal(changedBodyweight.historyAnchor.effectiveLoadKg, 120, "history uses the body's recorded 80 kg, not current 90 kg");
+assert.equal(changedBodyweight.loadingAssumptions.bodyweightContributionKg, 45, "candidates use the current bodyweight");
+assert.equal(changedBodyweight.targets.loadKg + 45, changedBodyweight.targetEffectiveLoadKg);
 
 const missingHistoricalBodyweight = recommend(bodyweightPrescription, [{
   sessionId: "missing-historic-bodyweight",
   completed: true,
   sets: [performedSet({ loadKg: 80, reps: 6, rir: 2, setIndex: 0,
-    bodyweightCoefficient: 0.25, loadingContext: null })],
+    bodyweightCoefficient: 0.5, loadingContext: null })],
 }], [], context({ bySlotId: { "slot-a": {
   equipmentId: "rack-a", availableLoadsKg: [60, 65, 70, 75, 80, 85],
   loadingConvention: "external", bodyweightContributionEnabled: true,
@@ -285,31 +285,32 @@ assert.ok(missingHistoricalBodyweight.reasonCodes.includes("historical_bodyweigh
 
 // Owner report C1 (2026-11-03) and decision (2026-11-04): a bodyweight on file (setup or last logged) turns the slot's
 // contribution on, while a set logged with no session bodyweight recorded none (bodyweightKg null, contribution off).
-// That set is "contribution unknown", not a different loading setup: the current configuration stands for it.
+// That set is "contribution unknown", not a different loading setup: the current configuration stands for it. Since
+// 2026-11-05 this matters only where bodyweight is material (a coefficient of 0.30 or more), so it is proven on a squat.
 {
-  const ezPrescription = (setIndex) => prescription({ setIndex, targets: { reps: { min: 8, max: 12 } }, rir: 1,
-    loadingModel: { bodyweightCoefficient: 0.046 } });
-  const ezContext = context({ bySlotId: { "slot-a": {
-    equipmentId: "rack-a", availableLoadsKg: [45, 47.5, 50, 52.5, 55, 57.5, 60],
+  const squat = (setIndex) => prescription({ setIndex, targets: { reps: { min: 8, max: 12 } }, rir: 1,
+    loadingModel: { bodyweightCoefficient: 0.626 } });
+  const squatContext = context({ bySlotId: { "slot-a": {
+    equipmentId: "rack-a", availableLoadsKg: [45, 47.5, 50, 52.5, 55, 57.5, 60, 62.5, 65],
     loadingConvention: "external", bodyweightContributionEnabled: true, bodyweightKg: 80, externalLoadMultiplier: 1,
   } } });
-  const unknownSet = (setIndex = 0, extra = {}) => performedSet({ loadKg: 55, reps: 8, rir: 0, setIndex, bodyweightCoefficient: 0.046,
+  const unknownSet = (setIndex = 0, extra = {}) => performedSet({ loadKg: 55, reps: 8, rir: 0, setIndex, bodyweightCoefficient: 0.626,
     loadingContext: { bodyweightKg: null, bodyweightContributionEnabled: false, externalLoadMultiplier: 1, ...extra } });
-  const live = recommend(ezPrescription(2), [], [unknownSet()], ezContext);
-  assert.equal(live.status, "recommended", "the owner's set 2: a set logged with no session bodyweight anchors the next one");
+  const live = recommend(squat(2), [], [unknownSet()], squatContext);
+  assert.equal(live.status, "recommended", "a set logged with no session bodyweight anchors the next one");
   assert.ok(!live.reasonCodes.includes("loading_convention_mismatch"), "an unrecorded bodyweight is never a different loading setup");
-  assert.equal(live.historyAnchor.effectiveLoadKg, 55 + 0.046 * 80, "the unknown set is valued with the resolved bodyweight");
-  const old = recommend(ezPrescription(1), [{ sessionId: "saved-the-old-way", completed: true, sets: [unknownSet()] }], [], ezContext);
+  assert.equal(live.historyAnchor.effectiveLoadKg, 55 + 0.626 * 80, "the unknown set is valued with the resolved bodyweight");
+  const old = recommend(squat(1), [{ sessionId: "saved-the-old-way", completed: true, sets: [unknownSet()] }], [], squatContext);
   assert.equal(old.status, "recommended", "a previous session saved without a bodyweight still anchors the next session");
-  const nullFlag = recommend(ezPrescription(1), [{ sessionId: "null-flag", completed: true,
-    sets: [unknownSet(0, { bodyweightContributionEnabled: null })] }], [], ezContext);
+  const nullFlag = recommend(squat(1), [{ sessionId: "null-flag", completed: true,
+    sets: [unknownSet(0, { bodyweightContributionEnabled: null })] }], [], squatContext);
   assert.equal(nullFlag.status, "recommended", "an unset contribution flag with no bodyweight is unknown too");
-  const recorded = recommend(ezPrescription(1), [{ sessionId: "recorded-70", completed: true,
-    sets: [unknownSet(0, { bodyweightKg: 70, bodyweightContributionEnabled: true })] }], [], ezContext);
+  const recorded = recommend(squat(1), [{ sessionId: "recorded-70", completed: true,
+    sets: [unknownSet(0, { bodyweightKg: 70, bodyweightContributionEnabled: true })] }], [], squatContext);
   assert.equal(recorded.status, "recommended", "a recorded bodyweight keeps today's comparison");
-  assert.equal(recorded.historyAnchor.effectiveLoadKg, 55 + 0.046 * 70, "a recorded bodyweight is used as recorded, not replaced");
-  const recordedOff = recommend(ezPrescription(1), [{ sessionId: "recorded-off", completed: true,
-    sets: [unknownSet(0, { bodyweightKg: 70, bodyweightContributionEnabled: false })] }], [], ezContext);
+  assert.equal(recorded.historyAnchor.effectiveLoadKg, 55 + 0.626 * 70, "a recorded bodyweight is used as recorded, not replaced");
+  const recordedOff = recommend(squat(1), [{ sessionId: "recorded-off", completed: true,
+    sets: [unknownSet(0, { bodyweightKg: 70, bodyweightContributionEnabled: false })] }], [], squatContext);
   assert.notEqual(recordedOff.status, "recommended", "a set that recorded a bodyweight with contribution off is still a different setup");
   assert.ok(recordedOff.reasonCodes.includes("loading_convention_mismatch"));
   const pullup = prescription({ metricIds: [METRIC.reps], metricDefinitions: [metricDefinitions[METRIC.reps]],
@@ -321,6 +322,47 @@ assert.ok(missingHistoricalBodyweight.reasonCodes.includes("historical_bodyweigh
     bodyweightContributionEnabled: true, bodyweightKg: 80, externalLoadMultiplier: 0 } } }));
   assert.equal(pullups.status, "recommended", "pull-ups logged with no session bodyweight progress on the setup weight");
   assert.ok(!pullups.reasonCodes.some((code) => /bodyweight_required/.test(code)), "and never ask for a bodyweight");
+}
+
+// Owner rule (2026-11-05): bodyweight counts only where it is a material share of the load, a coefficient of 0.30 or
+// more. A loaded lift below it (wrist curls 0.006, EZ-bar triceps extension 0.046, Smith or machine press 0.076) counts
+// no bodyweight: no contribution, no bodyweight dependency, no mismatch, whatever its rows recorded.
+{
+  assert.equal(Engine.BODYWEIGHT_MATERIAL_THRESHOLD, 0.3, "one named threshold");
+  assert.deepEqual([0.006, 0.046, 0.076, 0.29, 0.3, 0.626, 0.99].map((c) => Engine.effectiveBodyweightCoefficient(c)),
+    [0, 0, 0, 0, 0.3, 0.626, 0.99], "below 0.30 a loaded lift's coefficient reads as 0; from 0.30 it is kept");
+  assert.equal(Engine.effectiveBodyweightCoefficient(0.1, "bodyweight"), 0.1, "a reps-only bodyweight movement keeps its whole load");
+  const withBodyweight = context({ bySlotId: { "slot-a": {
+    equipmentId: "rack-a", availableLoadsKg: [40, 42.5, 45, 47.5, 50, 52.5, 55, 57.5, 60, 62.5],
+    loadingConvention: "external", bodyweightContributionEnabled: true, bodyweightKg: 80, externalLoadMultiplier: 1,
+  } } });
+  const setAt = (coefficient, loadingContext) => performedSet({ loadKg: 55, reps: 8, rir: 1, setIndex: 0, bodyweightCoefficient: coefficient,
+    loadingContext: { externalLoadMultiplier: 1, ...loadingContext } });
+  for (const [name, coefficient] of [["the EZ-bar overhead triceps extension", 0.046], ["an incline machine press", 0.076]]) {
+    const lift = prescription({ setIndex: 1, targets: { reps: { min: 8, max: 12 } }, rir: 1, loadingModel: { bodyweightCoefficient: coefficient } });
+    const fresh = recommend(lift, [{ sessionId: "s", completed: true, sets: [setAt(coefficient, { bodyweightKg: null, bodyweightContributionEnabled: false })] }], [], withBodyweight);
+    assert.equal(fresh.status, "recommended", `${name} is recommended`);
+    assert.equal(fresh.loadingAssumptions.bodyweightContributionKg, 0, `${name} counts no bodyweight, with 80 kg on file`);
+    assert.equal(fresh.historyAnchor.effectiveLoadKg, 55, `${name}'s anchor is the external load alone`);
+    const recordedWithBodyweight = recommend(lift, [{ sessionId: "recorded-80", completed: true,
+      sets: [setAt(coefficient, { bodyweightKg: 80, bodyweightContributionEnabled: true })] }], [], withBodyweight);
+    assert.equal(recordedWithBodyweight.status, "recommended", `${name}: a row recorded with a bodyweight anchors normally`);
+    assert.equal(recordedWithBodyweight.historyAnchor.effectiveLoadKg, 55, `${name}: its recorded bodyweight is irrelevant`);
+    const recordedOff = recommend(lift, [{ sessionId: "recorded-off", completed: true,
+      sets: [setAt(coefficient, { bodyweightKg: 80, bodyweightContributionEnabled: false })] }], [], withBodyweight);
+    assert.equal(recordedOff.status, "recommended", `${name}: no contribution setting can make it a different setup`);
+    const noWeight = recommend(lift, [{ sessionId: "s", completed: true, sets: [setAt(coefficient, {})] }], [],
+      context({ bySlotId: { "slot-a": { equipmentId: "rack-a", availableLoadsKg: [50, 52.5, 55, 57.5], loadingConvention: "external",
+        bodyweightContributionEnabled: true, bodyweightKg: null, externalLoadMultiplier: 1 } } }));
+    assert.ok(!noWeight.reasonCodes.includes("bodyweight_required"), `${name} never asks for a bodyweight`);
+  }
+  const squat = prescription({ setIndex: 1, targets: { reps: { min: 8, max: 12 } }, rir: 1, loadingModel: { bodyweightCoefficient: 0.626 } });
+  const squatResult = recommend(squat, [{ sessionId: "s", completed: true, sets: [setAt(0.626, { bodyweightKg: 80, bodyweightContributionEnabled: true })] }], [], withBodyweight);
+  assert.equal(squatResult.loadingAssumptions.bodyweightContributionKg, 0.626 * 80, "a squat keeps its bodyweight share");
+  const squatNoWeight = recommend(squat, [{ sessionId: "s", completed: true, sets: [setAt(0.626, { bodyweightKg: 80, bodyweightContributionEnabled: true })] }], [],
+    context({ bySlotId: { "slot-a": { equipmentId: "rack-a", availableLoadsKg: [50, 55], loadingConvention: "external",
+      bodyweightContributionEnabled: true, bodyweightKg: null, externalLoadMultiplier: 1 } } }));
+  assert.ok(squatNoWeight.reasonCodes.includes("bodyweight_required"), "a squat still needs a bodyweight to count it");
 }
 
 const bodyweightOnlyPrescription = prescription({
@@ -548,20 +590,20 @@ const totalWeightSideRepPrescription = prescription({
   metricIds: totalWeightSideRepIds,
   metricDefinitions: totalWeightSideRepDefinitions,
   targets: { repsPerSide: { min: 7, max: 9 } },
-  loadingModel: { bodyweightCoefficient: 0.25 },
+  loadingModel: { bodyweightCoefficient: 0.5 },
 });
 assert.equal(Metrics.validateDefinitions(totalWeightSideRepIds, totalWeightSideRepDefinitions).ok, true,
   "Weight + Reps per side preserves the catalog's ordered source composition");
 
 const totalWeightSideRepActual = (bodyweightContributionEnabled) => performedSet({
   loadKg: 20, repsPerSide: 6, rir: 2, metricIds: totalWeightSideRepIds,
-  loadingConvention: "external", bodyweightCoefficient: 0.25,
+  loadingConvention: "external", bodyweightCoefficient: 0.5,
   loadingContext: { loadingConvention: "external", externalLoadMultiplier: 1,
-    bodyweightCoefficient: 0.25, bodyweightKg: 80, bodyweightContributionEnabled },
+    bodyweightCoefficient: 0.5, bodyweightKg: 40, bodyweightContributionEnabled },
 });
 const totalWeightSideRepContext = (bodyweightContributionEnabled) => context({ bySlotId: { "slot-a": {
   equipmentId: "rack-a", availableLoadsKg: [10, 20, 30, 40, 50], loadingConvention: "external",
-  bodyweightContributionEnabled, bodyweightKg: 80, externalLoadMultiplier: 1,
+  bodyweightContributionEnabled, bodyweightKg: 40, externalLoadMultiplier: 1,
   executionMode: "bilateral",
 } } });
 const totalWeightSideRepWithBodyweight = recommend(totalWeightSideRepPrescription, [{
@@ -641,15 +683,15 @@ const totalRepSideLoadPrescription = prescription({
   metricIds: totalRepSideLoadIds,
   metricDefinitions: totalRepSideLoadDefinitions,
   targets: { reps: { min: 7, max: 9 } },
-  loadingModel: { bodyweightCoefficient: 0.25 },
+  loadingModel: { bodyweightCoefficient: 0.5 },
 });
 assert.equal(Metrics.validateDefinitions(totalRepSideLoadIds, totalRepSideLoadDefinitions).ok, true,
   "Reps + Weight per side preserves the catalog's ordered source composition");
 const totalRepSideLoadActual = ({ multiplier, bodyweightContributionEnabled }) => performedSet({
   loadPerSideKg: 20, reps: 6, rir: 2, metricIds: totalRepSideLoadIds,
-  loadingConvention: "per_side", bodyweightCoefficient: 0.25,
+  loadingConvention: "per_side", bodyweightCoefficient: 0.5,
   loadingContext: { loadingConvention: "per_side", externalLoadMultiplier: multiplier,
-    bodyweightCoefficient: 0.25, bodyweightKg: 80, bodyweightContributionEnabled },
+    bodyweightCoefficient: 0.5, bodyweightKg: 40, bodyweightContributionEnabled },
 });
 const totalRepSideLoadResult = ({ multiplier, executionMode, bodyweightContributionEnabled }) => recommend(
   totalRepSideLoadPrescription,
@@ -658,7 +700,7 @@ const totalRepSideLoadResult = ({ multiplier, executionMode, bodyweightContribut
   [],
   context({ bySlotId: { "slot-a": {
     equipmentId: "rack-a", availableLoadsKg: [10, 15, 20, 25], loadingConvention: "per_side",
-    bodyweightContributionEnabled, bodyweightKg: 80, externalLoadMultiplier: multiplier, executionMode,
+    bodyweightContributionEnabled, bodyweightKg: 40, externalLoadMultiplier: multiplier, executionMode,
   } } }),
 );
 const bilateralPerSideTotalReps = totalRepSideLoadResult({

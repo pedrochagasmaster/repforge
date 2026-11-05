@@ -11,6 +11,10 @@
  * 2. The session saved that way (no bodyweight recorded) anchors the next session's first set.
  * 3. Its stored rows are unchanged in shape: loadingContext.bodyweightKg stays null, as the row's bodyweight is.
  *
+ * Owner rule 2026-11-05: bodyweight counts only where it is a material share of the load (coefficient ≥ 0.30). The
+ * extension (0.046) counts none: no contribution, no Why line about bodyweight, not in Session details' bodyweight
+ * note, and Progress's strength, which never counted bodyweight, keeps its chart without a step.
+ *
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
@@ -74,6 +78,37 @@ try {
     "set 2 gets a real recommendation: an unrecorded bodyweight is not a different loading setup", second);
   check(second.cue === "now" && Number(second.load) > 0, "the cue gives set 2 a load", second);
 
+  console.log("\n1b. Bodyweight is not a material share of this lift (owner rule, 2026-11-05)");
+  const material = await page.evaluate((id) => {
+    const ex = sessionExercise(prog.find(id)), rec = recommendation(ex);
+    const rows = engineWhyRows(ex, rec, 2) || [];
+    return {
+      whyBodyweight: rows.filter((row) => row.kind === "bodyweight" || row.kind === "per_side_bodyweight").map((row) => row.text),
+      whyText: rows.map((row) => row.text).join(" "),
+      contribution: rec.targetSets.find((t) => t.prescription?.setIndex === 2)?.result?.loadingAssumptions?.bodyweightContributionKg ?? null,
+      noteLifts: sessionBodyweightLifts(activeWorkoutDraft),
+      name: exerciseDisplayName(ex),
+      kept: typeof materialBodyweightCoefficient === "function"
+        ? [materialBodyweightCoefficient(0.626, "external"), materialBodyweightCoefficient(1, "bodyweight"), materialBodyweightCoefficient(0.046, "external")] : null,
+    };
+  }, target.id);
+  check(material.contribution === 0, "the engine counts none of the 80 kg on file toward the EZ-bar extension's load", material);
+  check(!material.whyBodyweight.length && !/of your bodyweight/.test(material.whyText),
+    "the Why sheet no longer says it counts kilograms of your bodyweight for it", material);
+  check(!material.noteLifts.includes(material.name), "Session details does not list it among the lifts that count bodyweight", material);
+  // The same lift at a material share (as a squat's 0.626) is listed: the note names the lifts that do count bodyweight.
+  const listed = await page.evaluate((id) => {
+    const slot = state.programMeta.programDefinition.days.flatMap((d) => d.slots).find((s) => s.id === id), was = slot.loadingModel.bodyweightCoefficient;
+    slot.loadingModel.bodyweightCoefficient = 0.626;
+    try {
+      renderSessionSheet();
+      return { names: sessionBodyweightLifts(activeWorkoutDraft), note: document.querySelector("#sessionBodyweightNote").textContent };
+    } finally { slot.loadingModel.bodyweightCoefficient = was; renderSessionSheet(); }
+  }, target.id);
+  check(listed.names.includes(material.name), "at a material share the same lift is listed, so the note prompts only where bodyweight counts", listed);
+  check(listed.note === `Your bodyweight counts in the load for ${material.name}.`, "the note reads as words, never as markup", listed.note);
+  check(JSON.stringify(material.kept) === JSON.stringify([0.626, 1, 0]), "a squat and a pull-up keep their share; the extension reads as none", material.kept);
+
   console.log("\n2. The session saved that way anchors the next one, and its rows keep their shape");
   await logSet(2, 55, 8, 0);
   await finishEarly(page);
@@ -81,6 +116,11 @@ try {
     .map((row) => ({ bodyweight: row.bodyweight ?? null, contextBodyweight: row.loadingContext?.bodyweightKg ?? null, flag: row.loadingContext?.bodyweightContributionEnabled })), target.id);
   check(rows.length >= 2 && rows.every((row) => row.bodyweight === null && row.contextBodyweight === null && row.flag === false),
     "the stored rows record no bodyweight, exactly as before the change", rows);
+  // Progress reads strength from the external load alone, so the rule moves no chart: no step between sessions.
+  const strength = await page.evaluate((id) => readLogRows().filter((row) => row.performedLibraryId === "1a15c6f170d88047b7a9c99076376323" || row.exerciseId === id)
+    .map((row) => ({ e1rm: Math.round(row.e1rm * 1000) / 1000, external: Math.round(row.load * (1 + row.reps / 30) * 1000) / 1000 })), target.id);
+  check(strength.length >= 2 && strength.every((row) => row.e1rm === row.external),
+    "Progress's e1RM for the lift is its external load alone, so its chart has no bodyweight step", strength);
   await page.evaluate((day) => window.__repforgeEnterWorkout({ day }), target.day);
   await page.waitForFunction(() => !!window.__repforgeWorkoutDraft.current());
   const next = await readSet(1);
