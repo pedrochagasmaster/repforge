@@ -1406,10 +1406,10 @@ async function main() {
   sessionCount++;
   uiSaveCount++;
   assert(
-    /(^|\n)set logged(\n|$)/.test(smokeSummary),
-    "Session summary uses singular set for one-set save",
+    /(^|\n)every lift(\n|$)/i.test(smokeSummary) && !/\b1 sets\b/.test(smokeSummary),
+    "Session summary lists every lift and never reads '1 sets'",
     `Summary: ${JSON.stringify(smokeSummary)}`,
-    "Log tab → fill one set → Save workout → summary reads 'set logged'"
+    "Log tab → fill one set → Save workout → the finish screen lists every lift"
   );
   assert(
     !/sets logged/.test(smokeSummary),

@@ -10754,29 +10754,29 @@ const shareCardBrandHtml=()=>`<p class="sharecard__brand"><img src="${SHARE_MARK
 function shareCardLiftsHtml(s){
   return `<ul class="sharecard__lifts">${s.liftGroups.map(lift=>{
     const mark=lift.pr?`<span class="sharecard__mark is-pr">${esc(sessionPRShort(lift.pr))}</span>`
-      :lift.state.kind==="outcome"&&lift.state.outcome==="improved"?`<span class="sharecard__mark is-up">${esc(t(EVIDENCE_OUTCOME_KEYS.improved))}</span>`:"";
+      :lift.state.kind==="outcome"&&lift.state.outcome==="improved"?`<span class="sharecard__mark is-up"${lift.exerciseId?` data-parity-outcome="${esc(lift.exerciseId)}" data-parity-session="${esc(lift.session??s.session)}"`:""}>${esc(t(EVIDENCE_OUTCOME_KEYS.improved))}</span>`:"";
     return `<li><span class="sharecard__name">${esc(liftDisplayName(lift.name,lift.liftKey))}</span>`+
       `<span class="sharecard__sets">${esc(rxSetsLine(lift.sets,true))}</span>${mark}</li>`}).join("")}</ul>`}
 /** The finish screen's card row (owner, 2026-11-05: B + C). A static preview of the cards Share will send: the
- *  record poster (or the most-improved lift) first, then the stats card. Each reads as one image. */
+ *  record poster (or the most-improved lift) first, then the stats card. Each is a labelled figure read as one line. */
 function summaryCardsHtml(s){
   const unit=unitLabel(),date=shortDate(s.date),cards=[];
   if(s.lead){
     const kicker=t(s.lead.kind==="record"?"summary.card.new_record":"summary.card.most_improved"),name=liftDisplayName(s.lead.name,s.lead.liftKey);
     const label=t("summary.card.aria_poster",{kicker,lift:name,load:fmtLoad(s.lead.load),unit,reps:s.lead.reps});
-    cards.push(`<div class="sharecard sharecard--poster" role="img" aria-label="${esc(label)}"><div class="sharecard__in" aria-hidden="true">`+
+    cards.push(`<figure class="sharecard sharecard--poster" aria-label="${esc(label)}"><div class="sharecard__in" aria-hidden="true">`+
       `<p class="sharecard__kicker"><b>${esc(kicker)}</b><span>${esc(`${dayLabel(s.day)} · ${date}`)}</span></p>`+
       `<p class="sharecard__lift">${esc(name)}</p><p class="sharecard__fig">${esc(fmtLoad(s.lead.load))}</p>`+
       `<p class="sharecard__meta"><span class="sharecard__reps">${esc(t("summary.card.reps",{unit,n:s.lead.reps}))}</span>`+
       (s.lead.pr?`<span class="sharecard__over">${esc(sessionPRShort(s.lead.pr))}</span>`:"")+`</p>`+
-      shareCardLiftsHtml(s)+shareCardBrandHtml()+`</div></div>`)}
+      shareCardLiftsHtml(s)+shareCardBrandHtml()+`</div></figure>`)}
   const tiles=summaryTileValues(s);
   const statsLabel=t("summary.card.aria_stats",{day:dayLabel(s.day),date});
-  cards.push(`<div class="sharecard sharecard--stats" role="img" aria-label="${esc(statsLabel)}"><div class="sharecard__in" aria-hidden="true">`+
+  cards.push(`<figure class="sharecard sharecard--stats" aria-label="${esc(statsLabel)}"><div class="sharecard__in" aria-hidden="true">`+
     `<p class="sharecard__day">${esc(dayLabel(s.day))}</p><p class="sharecard__date">${esc(summarySubLine(s))}</p>`+
     `<div class="sharecard__tiles">${tiles.map(tile=>`<div><p class="sharecard__lab">${esc(tile.label)}</p>`+
       `<p class="sharecard__val${tile.accent?" is-accent":""}">${esc(tile.text)}${tile.unit?`<small>${esc(tile.unit)}</small>`:""}</p></div>`).join("")}</div>`+
-    shareCardLiftsHtml(s)+shareCardBrandHtml()+`</div></div>`);
+    shareCardLiftsHtml(s)+shareCardBrandHtml()+`</div></figure>`);
   return `<div class="sum-cards">${cards.join("")}</div>`}
 /** Each tile's label, figure and unit; the figure ramps unless it is a signed margin. */
 function summaryTileValues(s){

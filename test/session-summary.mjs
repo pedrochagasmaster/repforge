@@ -321,7 +321,7 @@ const readSummary = (page) =>
       prSets: [...body.querySelectorAll(".sum-lift")].filter((g) => g.querySelector(".sum-lift__pr")).map((g) => g.querySelector(".sum-grp__sets").textContent.trim()),
       recordTiles: txt(".sum-rtile__n"),
       cards: [...body.querySelectorAll(".sum-cards .sharecard")].map((card) => ({ kind: card.classList.contains("sharecard--poster") ? "poster" : "stats",
-        label: card.getAttribute("aria-label"), role: card.getAttribute("role"), lifts: card.querySelectorAll(".sharecard__lifts li").length,
+        label: card.getAttribute("aria-label"), role: card.tagName === "FIGURE" && card.querySelector(".sharecard__in")?.getAttribute("aria-hidden") === "true" ? "figure" : "?", lifts: card.querySelectorAll(".sharecard__lifts li").length,
         brand: card.querySelector(".sharecard__brand")?.textContent.trim() || "" })),
       overflowLine: !!body.querySelector(".sum-more"),
       chips: txt(".sum-chip"),
@@ -429,9 +429,9 @@ async function run() {
     "strength gained names the day's first lift; records and weeks in a row read as figures", JSON.stringify(s.tiles));
   // 62.5×8 + 62.5×7 + 50×10 + 50×9 + 10×8 = 1967.5 kg through the hands; the unit is said once.
   assert(s.tiles[3].value === "1,968kg" && s.tiles[3].label === "Moved", "volume is the load actually moved, its unit once", JSON.stringify(s.tiles[3]));
-  assert(s.cards.length === 2 && s.cards[0].kind === "poster" && s.cards[1].kind === "stats" && s.cards.every((card) => card.role === "img" && card.lifts === 3
+  assert(s.cards.length === 2 && s.cards[0].kind === "poster" && s.cards[1].kind === "stats" && s.cards.every((card) => card.role === "figure" && card.lifts === 3
       && /Taurifer\s*taurifer\.com/.test(card.brand)),
-    "the card row opens on the record poster, then the stats card; each reads as one image, lists every lift and carries the brand",
+    "the card row opens on the record poster, then the stats card; each is one labelled figure that lists every lift and carries the brand",
     JSON.stringify(s.cards));
   assert(/New record, Bench press, 62\.5 kg × 8/.test(s.cards[0].label), "the poster is the session's heaviest record", s.cards[0].label);
   assert(s.recordTiles.join() === "Bench press,Barbell row", "each record has its own tile", JSON.stringify(s.recordTiles));
