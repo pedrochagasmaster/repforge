@@ -1,6 +1,6 @@
 # Plan 077: effort calibration, Free layer
 
-Status: **owner interview recorded (2026-11-05); the remaining proposed ODs await the owner** (§3). Docs only.
+Status: **approved (owner, 2026-11-05)**. Product ODs are decided; the remaining technical ODs (storage keys, estimator, resets, validation) take their proposed defaults; copy (OD-22) is reviewed in each PR; OD-21 stays open (§3). Docs only.
 The RIR credit cap (OD-23b) shipped first as its own engine PR, #624.
 Source: the owner on 2026-11-05 ("Let's build this before the alpha release") and the strategy synthesis
 `calibration-strategy-2026-11-05.md` (§3, §3.1, §4, §5, §9.1, §12). Owner corrections from 2026-11-05 are
@@ -144,12 +144,12 @@ The owner was interviewed on 2026-11-05. The decisions are recorded in the brief
 | OD-17 | `calibration` row key | Proposed |
 | OD-18 | Engine shift and load bound | **Decided** |
 | OD-19 | The max set counts for progression | **Decided** (fatigue exclusion proposed) |
-| OD-20 | User-level gauge: six signals | **Decided** in shape; weights and rules proposed |
+| OD-20 | User-level gauge: six signals | **Decided** (weights approved 2026-11-05; real counts in the breakdown; small gauge on Today from the first workout) |
 | OD-21 | The gauge and Pro | **Open** |
 | OD-22 | Why and result copy | Proposed (copy review) |
 | OD-23 | Audit follow-ups | (b) **Decided and shipped in #624**; (a) partly shipped; the rest proposed |
 | OD-24 | Strict transfer validation | Proposed |
-| OD-25 | "Was the last rep slow?" storage | Proposed |
+| OD-25 | "Was the last rep slow?" | **Decided**: asked on the last set of each exercise only; storage as proposed |
 
 ### Effort provenance and stages
 
