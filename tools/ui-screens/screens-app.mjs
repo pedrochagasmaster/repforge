@@ -294,6 +294,7 @@ const D_FIXTURE_STATES = new Set([
   "workout/logged-sets-folded", // #517: a banner shortens the window and the oldest logged set folds
   "workout/deload-week", // Plan 072 S4: the deload cue in Focus
   "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions", // R3d
+  "workout/exercise-note-line", // the exercise note on the card (owner, 2026-11-05)
   "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", // R3d
   "workout/actions", "workout/exercise-actions", // R3x: the redrawn sheet, on the lifter the drawing shows
   "workout/swap-alternates", // #317: the swap picker leads with the squat slot's alternates
@@ -2270,10 +2271,21 @@ export const APP_SCENARIOS = {
   },
   "workout/exercise-note": async (page) => {
     await focusMode(page);
-    // The header's ⋯ opens the exercise actions; the note is one of them.
-    await page.locator("#woOverflowBtn").click({ timeout: 20000 }); await page.locator('[data-workout-action="exercise"]').click();
-    await page.locator("#exActionNotesBtn").click({ timeout: 20000 });
+    // The header's ⋯ has Exercise note directly (owner, 2026-11-05).
+    await page.locator("#woOverflowBtn").click({ timeout: 20000 }); await page.locator('[data-workout-action="note"]').click();
     await page.waitForSelector("#exNoteSheet.is-open", { timeout: 20000 });
+    await sleep(page, 400);
+  },
+  // The exercise note on the card (owner, 2026-11-05): written through the ⋯ menu's Exercise note, it shows as one quiet
+  // line under the prescription, cut with an ellipsis, in place of the note icon.
+  "workout/exercise-note-line": async (page) => {
+    await focusMode(page);
+    await page.locator("#woOverflowBtn").click({ timeout: 20000 }); await page.locator('[data-workout-action="note"]').click();
+    await page.waitForSelector("#exNoteSheet.is-open", { timeout: 20000 });
+    await page.fill("#exNoteText", "Seat 4, pin 3. Wide grip and pause at the bottom of each rep.");
+    await page.locator("#exNoteSave").click();
+    await page.waitForSelector("#workout .exercise.is-current .fx-note", { timeout: 20000 });
+    await page.waitForFunction(() => document.querySelector("#exNoteSheet")?.hidden === true, undefined, { timeout: 20000 });
     await sleep(page, 400);
   },
   // Plan 075 phase 2W: a second tap on the selected Load or Reps field opens the

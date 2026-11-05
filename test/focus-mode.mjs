@@ -748,9 +748,17 @@ async function main() {
 
   // ---- 08 — the note sheet ---------------------------------------------------
   phase("State 08: exercise-note editor");
-  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
-  await page.waitForSelector("#exActionsSheet.is-open");
-  await page.locator("#exActionNotesBtn").click();
+  // The exercise note (owner, 2026-11-05): with none, a quiet icon on the card invites one, and the ⋯ menu has it.
+  const noNote = await page.evaluate(() => {
+    const card = document.querySelector("#workout .exercise.is-current"), add = card.querySelector(".fx-note-add"), r = add?.getBoundingClientRect();
+    return { add: !!add && add.getClientRects().length > 0, name: add?.getAttribute("aria-label"), w: r?.width, h: r?.height,
+      line: !!card.querySelector(".fx-note"), menu: !!document.querySelector('#workoutActionSheet [data-workout-action="note"]'),
+      nested: !!document.querySelector("#exActionNotesBtn") };
+  });
+  assert(noNote.add && noNote.name === "Add an exercise note" && noNote.w >= 44 && noNote.h >= 44 && !noNote.line && noNote.menu && !noNote.nested,
+    "with no note, a quiet note icon (a full, named target) invites one; the ⋯ menu has Exercise note, and Exercise actions no longer nests it",
+    JSON.stringify(noNote));
+  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="note"]').click();
   await page.waitForSelector("#exNoteSheet:not(.hidden)");
   await page.waitForTimeout(280);
   const sheet = await page.evaluate(() => {
@@ -827,9 +835,23 @@ async function main() {
   assert(noteSaved.marked, "the card's note line shows the exercise now has one");
   assert(await page.evaluate(() => document.activeElement?.id === "woOverflowBtn" && document.activeElement.isConnected),
     "saving the sheet returns focus to the header's actions button");
-  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
-  await page.waitForSelector("#exActionsSheet.is-open");
-  await page.locator("#exActionNotesBtn").click();
+  const withNote = await page.evaluate(() => {
+    const card = document.querySelector("#workout .exercise.is-current"), line = card.querySelector(".fx-note"), text = line?.querySelector(".fx-note__text");
+    return { add: !!card.querySelector(".fx-note-add"), name: line?.getAttribute("aria-label"), tag: line?.tagName,
+      oneLine: !!text && text.getClientRects().length === 1 && getComputedStyle(text).whiteSpace === "nowrap" && getComputedStyle(text).textOverflow === "ellipsis" };
+  });
+  assert(!withNote.add && withNote.tag === "BUTTON" && withNote.name === "Exercise note: Seat 4, feet high." && withNote.oneLine,
+    "with a note the icon goes, and the note shows as one quiet line (cut with an ellipsis) named with its words", JSON.stringify(withNote));
+  await page.locator("#workout .exercise.is-current .fx-note").click();
+  await page.waitForSelector("#exNoteSheet:not(.hidden)");
+  await page.waitForTimeout(280);
+  assert(await page.inputValue("#exNoteText") === "Seat 4, feet high.", "tapping the note line opens the editor with its whole text");
+  await page.fill("#exNoteText", "Seat 4, feet high, wide grip.");
+  await page.click("#exNoteSave");
+  await page.waitForFunction(() => document.querySelector("#exNoteSheet").hidden, undefined, { timeout: 2000 });
+  const noteUpdated = await page.evaluate(() => document.querySelector("#workout .exercise.is-current .fx-note__text")?.textContent);
+  assert(noteUpdated === "Seat 4, feet high, wide grip.", "saving from the line updates it", noteUpdated);
+  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="note"]').click();
   await page.waitForSelector("#exNoteSheet:not(.hidden)");
   await page.waitForTimeout(250);
   await page.keyboard.press("Escape");

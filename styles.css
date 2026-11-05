@@ -574,7 +574,7 @@ button,[role=button],summary,label.file,label[for],label:has(input[type=checkbox
 a.btn,a.text-link,.entry__freeform-app,.sheet__grab,.sheet__head,.sheetband,.program-editor__drag-handle{
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
 }
-.focus-ex__meta,.fx-cue__l1,.fx-cue__l2,.fx-note,.sheet__pre,.share-setup__link,.privacy-sheet__body,.entry-dialog__body,.storage-recovery__copy{
+.focus-ex__meta,.fx-cue__l1,.fx-cue__l2,.sheet__pre,.share-setup__link,.privacy-sheet__body,.entry-dialog__body,.storage-recovery__copy{
   -webkit-user-select:text;user-select:text;
 }
 input:not([type=checkbox]):not([type=radio]),textarea{
@@ -1420,12 +1420,24 @@ article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
 .exercise--focus .text-link.focus-ex__why.is-pressed:not(:disabled),.exercise--focus .fx-cue__cancel.is-pressed:not(:disabled){background:var(--row-pressed-bg);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
 .exercise--focus .text-link.focus-ex__why:focus-visible,.exercise--focus .fx-cue__cancel:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .exercise--focus .text-link.focus-ex__why:disabled,.exercise--focus .fx-cue__cancel:disabled{background:var(--control-quiet-bg);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
-.fx-note{
-  display:flex;align-items:flex-start;gap:var(--space-8);margin:0 0 var(--space-12);padding:var(--space-12) 0 0;
-  border-top:1px solid var(--boundary-decorative);font-family:var(--font-language);font-size:var(--font-size-body-small);
-  line-height:var(--line-reading);color:var(--color-ink-secondary);overflow-wrap:anywhere;
+/* The exercise note (owner, 2026-11-05). With none, a quiet note icon ends the prescription line: a full target whose
+   glyph sits in the line's own height, so the row does not grow. With one, the note is one quiet line under it,
+   cut with an ellipsis; the whole line opens it to read and edit. Both sit above the hero and scroll away first. */
+.fx-head__row{display:flex;align-items:center;gap:var(--space-8)}
+.fx-head__row .focus-ex__meta{flex:1;min-width:0}
+.fx-note-add{
+  flex:none;display:grid;place-items:center;width:var(--control-target);height:var(--control-target);
+  margin:calc((var(--control-target) - 1lh) / -2) calc(var(--space-12) * -1) calc((var(--control-target) - 1lh) / -2) 0;
+  padding:0;border:0;border-radius:var(--radius-round);background:none;color:var(--color-ink-secondary);
+  font-size:var(--font-size-focus-meta);line-height:var(--line-reading);cursor:pointer;
 }
-.fx-note .icon-mask{flex:none;margin-top:2px}
+.fx-note-add .icon-mask{width:18px;height:18px}
+.fx-note{
+  display:flex;align-items:center;gap:var(--space-8);width:100%;min-width:0;margin:var(--space-4) 0 0;padding:0;
+  border:0;background:none;text-align:start;cursor:pointer;
+  font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);
+}
+.fx-note__text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 .exercise--focus .term{background:var(--control-quiet-bg);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary);font-family:var(--font-language)}
 @media (hover: hover) and (pointer: fine){

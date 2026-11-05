@@ -368,7 +368,9 @@ async function visitFocus(page, { pt, label }) {
   await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click();
   await page.waitForSelector("#exActionsSheet:not(.hidden)");
   expectNames(`${label} exercise actions title`, await joined(page, "#exActionsName"), { shown: [name("sq")], gone: pt ? [en("sq")] : [] });
-  await page.locator("#exActionNotesBtn").click();
+  await page.locator("#exActionsClose").click();
+  await page.locator("#exActionsSheet").waitFor({ state: "hidden" });
+  await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="note"]').click();
   await page.waitForSelector("#exNoteSheet:not(.hidden)");
   expectNames(`${label} exercise note sheet`, await joined(page, "#exNoteFor"), { shown: [name("sq")], gone: pt ? [en("sq")] : [] });
   await page.keyboard.press("Escape");
