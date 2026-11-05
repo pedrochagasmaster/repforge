@@ -91,8 +91,12 @@ reps in reserve.
 
 Two small conventions:
 
-- If you leave effort blank, the app assumes 1 rep in reserve — a cautious
-  middle guess.
+- If you leave effort blank, that set doesn't count toward your suggestions:
+  the app doesn't guess how much you had left. The starting suggestion for
+  your next workout reads the first working set of your recent sessions, so a
+  session only counts there when its first set has effort recorded. If none
+  of your recent comparable sets has effort, the app can't suggest a weight
+  and leaves the choice to you.
 - Sets marked as warm-ups are ignored by everything below. Only working
   sets teach the app anything.
 
@@ -144,10 +148,10 @@ This one idea fixes a family of problems at once:
 
 Reps-in-reserve estimates are accurate near failure and increasingly a
 guess far from it — nobody really knows whether they had 6 or 9 reps left.
-So the app only credits reps in reserve **up to a ceiling of 4** (the same
-"hard set" threshold you can adjust in Settings). Log a set at 7 in
-reserve and it counts as 4 for capacity purposes. The word-based effort
-mode never exceeds 3, so it always sits inside the ceiling.
+So the app only credits reps in reserve **up to a fixed ceiling of 5**.
+Log a set at 7 in reserve and it counts as 5 for capacity purposes. The
+word-based effort mode never exceeds 3, so it always sits inside the
+ceiling.
 
 ### One strength number across different weights
 
@@ -349,8 +353,8 @@ Device settings establish the normal load grid and effort trust boundary:
 - **Minimum jump** — the smallest sensible increment for your equipment
   (default 2.5 kg); also the floor a back-off can never go below.
 - **Hard-set ceiling** — the reps-in-reserve value above which a set no
-  longer counts as hard (default 4). The same number is the capacity
-  trust ceiling from section 3.
+  longer counts as hard (default 4). It sets the hard-set volume count
+  only; the capacity trust ceiling from section 3 is a fixed 5.
 - **Rep range per exercise** — used by the rep-range method.
 
 The Program editor selects the method for each exercise and shows only its

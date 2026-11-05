@@ -1,7 +1,10 @@
 (function (root) {
   "use strict";
 
-  const ENGINE_VERSION = "069.1";
+  const ENGINE_VERSION = "077.1";
+  // Reps in reserve are reliable near failure and guesses far from it, so a performed set earns capacity for at most
+  // this many (owner, 2026-11-05; Plan 077 OD-23b). Targets keep their own 0–6 bound.
+  const RIR_CREDIT_CAP = 5;
   const FORMULA_VERSION = "rir-adjusted-epley@067.1";
   /** The share of the body a lift must move before bodyweight counts toward its load (owner rule, 2026-11-05). */
   const BODYWEIGHT_MATERIAL_THRESHOLD = 0.3;
@@ -322,7 +325,7 @@
     }
     const transformed = transformActualLoad(values, shape, config.convention, normalizedCapturedContext);
     if (!transformed.ok) return transformed;
-    const capacityKg = transformed.effectiveLoadKg * (1 + (transformed.reps + value.rir) / 30);
+    const capacityKg = transformed.effectiveLoadKg * (1 + (transformed.reps + Math.min(value.rir, RIR_CREDIT_CAP)) / 30);
     return {
       ...transformed,
       capacityKg,
@@ -622,7 +625,7 @@
     ));
   }
 
-  const api = Object.freeze({ ENGINE_VERSION, FORMULA_VERSION, SUPPORTED_SEMANTICS, BODYWEIGHT_MATERIAL_THRESHOLD,
+  const api = Object.freeze({ ENGINE_VERSION, RIR_CREDIT_CAP, FORMULA_VERSION, SUPPORTED_SEMANTICS, BODYWEIGHT_MATERIAL_THRESHOLD,
     effectiveBodyweightCoefficient, recommendSets });
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.RepForgeProgression = api;
