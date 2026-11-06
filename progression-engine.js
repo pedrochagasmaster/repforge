@@ -1,10 +1,16 @@
 (function (root) {
   "use strict";
 
-  const ENGINE_VERSION = "077.1";
+  const ENGINE_VERSION = "077.2";
   // Reps in reserve are reliable near failure and guesses far from it, so a performed set earns capacity for at most
   // this many (owner, 2026-11-05; Plan 077 OD-23b). Targets keep their own 0–6 bound.
   const RIR_CREDIT_CAP = 5;
+  // Effort calibration (Plan 077, OD-18): the caller's per-lift shift, read as `rir − delta` on reported sets. Only this
+  // version is understood; any other, or a delta outside [−1, 2], leaves the engine as it was (delta 0).
+  const CALIBRATION_VERSION = "calibration@077.1";
+  const CALIBRATION_DELTA = Object.freeze({ min: -1, max: 2 });
+  // A shifted suggestion stays within one available-load step above, and two below, the unshifted one.
+  const CALIBRATION_STEPS = Object.freeze({ up: 1, down: 2 });
   const FORMULA_VERSION = "rir-adjusted-epley@067.1";
   /** The share of the body a lift must move before bodyweight counts toward its load (owner rule, 2026-11-05). */
   const BODYWEIGHT_MATERIAL_THRESHOLD = 0.3;
@@ -29,7 +35,7 @@
     per_side_reps: "per_side",
   });
   const LOADING_CONVENTIONS = new Set(["external", "assistance", "bodyweight", "per_side"]);
-  const DEFAULT_SETTINGS = Object.freeze({ expandRepRange: true, weightMatch: false });
+  const DEFAULT_SETTINGS = Object.freeze({ expandRepRange: true, weightMatch: false, calibrationDelta: 0 });
   const REASONS = Object.freeze({
     available_loads_required: "Set the available loads for this equipment before requesting an automatic load.",
     bodyweight_required: "Record the current bodyweight before using bodyweight contribution.",
@@ -120,6 +126,11 @@
         if (typeof value[key] !== "boolean") return { ok: false, reasons: ["invalid_prescription"] };
         result[key] = value[key];
       }
+    }
+    const calibration = value.calibration;
+    if (isPlainObject(calibration) && calibration.version === CALIBRATION_VERSION && finite(calibration.delta)
+      && calibration.delta >= CALIBRATION_DELTA.min && calibration.delta <= CALIBRATION_DELTA.max) {
+      result.calibrationDelta = calibration.delta;
     }
     return { ok: true, value: result };
   }
@@ -293,7 +304,7 @@
     };
   }
 
-  function parsePerformedSet(value, shape, prescription, config) {
+  function parsePerformedSet(value, shape, prescription, config, delta = 0) {
     if (!isPlainObject(value) || value.completed !== true || value.exerciseId !== prescription.exerciseId
       || !Number.isInteger(value.setIndex) || value.setIndex < 0 || !finite(value.rir) || value.rir < 0) return null;
     if (!Array.isArray(value.metricIds) || !same(value.metricIds, prescription.metricIds)) return null;
@@ -325,8 +336,12 @@
     }
     const transformed = transformActualLoad(values, shape, config.convention, normalizedCapturedContext);
     if (!transformed.ok) return transformed;
-    const capacityKg = transformed.effectiveLoadKg * (1 + (transformed.reps + Math.min(value.rir, RIR_CREDIT_CAP)) / 30);
+    // A max set's 0 is measured, not reported, so the calibration shift never moves it (Plan 077, OD-18).
+    const failure = value.effortSource === "failure";
+    const rir = failure || !delta ? value.rir : Math.max(0, value.rir - delta);
+    const capacityKg = transformed.effectiveLoadKg * (1 + (transformed.reps + Math.min(rir, RIR_CREDIT_CAP)) / 30);
     return {
+      failure,
       ...transformed,
       capacityKg,
       sessionId: typeof value.sessionId === "string" ? value.sessionId : null,
@@ -337,14 +352,14 @@
     };
   }
 
-  function parseSession(session, shape, prescription, config) {
+  function parseSession(session, shape, prescription, config, delta = 0) {
     if (!isPlainObject(session) || session.completed !== true || !Array.isArray(session.sets)) return { sessionId: null, sets: [], reasons: [] };
     const sessionId = typeof session.sessionId === "string" ? session.sessionId : null;
     const sets = [];
     const reasons = new Set();
     for (const value of session.sets) {
       if (!isPlainObject(value) || value.exerciseId !== prescription.exerciseId) continue;
-      const parsed = parsePerformedSet(value, shape, prescription, config);
+      const parsed = parsePerformedSet(value, shape, prescription, config, delta);
       if (parsed?.ok === false) reasons.add(parsed.reason);
       else if (parsed) sets.push({ ...parsed, sessionId });
     }
@@ -364,7 +379,8 @@
       for (const session of sample) {
         const previous = session.sets.find((set) => set.setIndex === fromSetIndex);
         const next = session.sets.find((set) => set.setIndex === fromSetIndex + 1);
-        if (!previous || !next || previous.capacityKg <= 0) continue;
+        // The drop into a max set mixes the lifter's reporting error with fatigue, so it is not fatigue (Plan 077, OD-19).
+        if (!previous || !next || previous.capacityKg <= 0 || previous.failure || next.failure) continue;
         drops.push((previous.capacityKg - next.capacityKg) / previous.capacityKg);
       }
       adjacentDrops.push({
@@ -410,14 +426,14 @@
     };
   }
 
-  function currentSessionAnchor(currentRows, shape, prescription, config) {
+  function currentSessionAnchor(currentRows, shape, prescription, config, delta = 0) {
     const eligible = [];
     const reasons = new Set();
     const targetSetIndex = prescription.setIndex - 1;
     for (const value of Array.isArray(currentRows) ? currentRows : []) {
       if (!isPlainObject(value) || value.exerciseId !== prescription.exerciseId
         || value.completed !== true || !Number.isInteger(value.setIndex) || value.setIndex >= targetSetIndex) continue;
-      const parsed = parsePerformedSet(value, shape, prescription, config);
+      const parsed = parsePerformedSet(value, shape, prescription, config, delta);
       if (parsed?.ok === false) reasons.add(parsed.reason);
       else if (parsed) eligible.push(parsed);
     }
@@ -467,10 +483,11 @@
     return leftLoad - rightLoad || left.reps - right.reps;
   }
 
-  function candidatesForRange(range, shape, config, projectedCapacityKg, targetRir, settings, anchor) {
+  function candidatesForRange(range, shape, config, projectedCapacityKg, targetRir, settings, anchor, bound = null) {
     const midpoint = (range.min + range.max) / 2;
     const candidates = [];
-    const loads = config.displayLoadSemantic ? config.loads : [null];
+    const loads = (config.displayLoadSemantic ? config.loads : [null])
+      .filter((load) => !bound || (load != null && load >= bound.min - 1e-9 && load <= bound.max + 1e-9));
     for (const displayLoadKg of loads) {
       const effectiveLoadKg = toEffectiveLoad(displayLoadKg, shape, config);
       if (effectiveLoadKg == null) continue;
@@ -535,10 +552,51 @@
     if (!settingsResult.ok) return makeRecommendation(prescription, "invalid", settingsResult.reasons, { shape });
     const options = settingsResult.value;
 
-    const parsedHistory = (Array.isArray(history) ? history : [])
-      .map((session) => parseSession(session, shape, prescription, config));
-    const live = currentSessionAnchor(currentSession, shape, prescription, config);
-    const anchor = live.anchor || makeHistoryAnchor(parsedHistory);
+    // One solve per reading of the lifter's reported RIR: as logged (delta 0), and shifted by their calibration within
+    // the load bound of the unshifted suggestion (Plan 077, OD-18).
+    const solve = (delta, bound) => {
+      const parsedHistory = (Array.isArray(history) ? history : [])
+        .map((session) => parseSession(session, shape, prescription, config, delta));
+      const live = currentSessionAnchor(currentSession, shape, prescription, config, delta);
+      const anchor = live.anchor || makeHistoryAnchor(parsedHistory);
+      if (!anchor) return { parsedHistory, live, anchor: null };
+      const fatigue = fatigueFrom(parsedHistory);
+      const projectedCapacityKg = live.anchor
+        ? live.anchor.capacityKg * (1 - fatigueDropAfter(fatigue, live.anchor.setIndex))
+        : futureCapacity(anchor.capacityKg, prescription.setIndex, fatigue);
+      let selected = null;
+      let searchedRange = { ...shape.range };
+      let candidates = candidatesForRange(searchedRange, shape, config, projectedCapacityKg,
+        prescription.rir, options, anchor, bound);
+      if (candidates.length) selected = candidates[0];
+      if (!selected && options.expandRepRange) {
+        for (let pass = 0; pass < 4 && !selected; pass += 1) {
+          searchedRange = {
+            min: Math.max(3, searchedRange.min - 1),
+            max: Math.min(30, searchedRange.max + 1),
+          };
+          candidates = candidatesForRange(searchedRange, shape, config, projectedCapacityKg,
+            prescription.rir, options, anchor, bound);
+          if (candidates.length) selected = candidates[0];
+          if (searchedRange.min === 3 && searchedRange.max === 30) break;
+        }
+      }
+      return { parsedHistory, live, anchor, fatigue, projectedCapacityKg, selected, searchedRange };
+    };
+    const baseline = solve(0, null);
+    let run = baseline;
+    const delta = options.calibrationDelta;
+    if (delta && baseline.selected) {
+      const at = baseline.selected.displayLoadKg == null ? -1 : config.loads.indexOf(baseline.selected.displayLoadKg);
+      const bound = at < 0 ? null : {
+        min: config.loads[Math.max(0, at - CALIBRATION_STEPS.down)],
+        max: config.loads[Math.min(config.loads.length - 1, at + CALIBRATION_STEPS.up)],
+      };
+      const shifted = solve(delta, bound);
+      // A shift that finds nothing inside the bound leaves the unshifted suggestion: calibration never removes one.
+      if (shifted.selected) run = shifted;
+    }
+    const { parsedHistory, live, anchor, fatigue, projectedCapacityKg, selected, searchedRange } = run;
     if (!anchor) {
       const reasons = new Set(["no_comparable_history", ...parsedHistory.flatMap((session) => session.reasons), ...live.reasons]);
       return makeRecommendation(prescription,
@@ -546,28 +604,7 @@
           ? "configuration_required" : "manual",
         [...reasons], { shape });
     }
-    const fatigue = fatigueFrom(parsedHistory);
-    const projectedCapacityKg = live.anchor
-      ? live.anchor.capacityKg * (1 - fatigueDropAfter(fatigue, live.anchor.setIndex))
-      : futureCapacity(anchor.capacityKg, prescription.setIndex, fatigue);
     const displayLoadSemantic = config.displayLoadSemantic;
-    let selected = null;
-    let searchedRange = { ...shape.range };
-    let candidates = candidatesForRange(searchedRange, shape, config, projectedCapacityKg,
-      prescription.rir, options, anchor);
-    if (candidates.length) selected = candidates[0];
-    if (!selected && options.expandRepRange) {
-      for (let pass = 0; pass < 4 && !selected; pass += 1) {
-        searchedRange = {
-          min: Math.max(3, searchedRange.min - 1),
-          max: Math.min(30, searchedRange.max + 1),
-        };
-        candidates = candidatesForRange(searchedRange, shape, config, projectedCapacityKg,
-          prescription.rir, options, anchor);
-        if (candidates.length) selected = candidates[0];
-        if (searchedRange.min === 3 && searchedRange.max === 30) break;
-      }
-    }
     if (!selected) {
       const expanded = !same(searchedRange, shape.range);
       return makeRecommendation(prescription, "manual",
@@ -613,6 +650,13 @@
       predictedRir: selected.predictedRir,
       repRange: searchedRange,
       displayLoadSemantic,
+      calibration: {
+        version: CALIBRATION_VERSION,
+        delta: run === baseline ? 0 : delta,
+        // Whether the shift moved what the lifter is asked to do (the Why line says so only then).
+        moved: run !== baseline && (selected.displayLoadKg !== baseline.selected.displayLoadKg || selected.reps !== baseline.selected.reps),
+        baseline: run === baseline ? null : { displayLoadKg: baseline.selected.displayLoadKg, reps: baseline.selected.reps },
+      },
     });
   }
 
@@ -625,7 +669,7 @@
     ));
   }
 
-  const api = Object.freeze({ ENGINE_VERSION, RIR_CREDIT_CAP, FORMULA_VERSION, SUPPORTED_SEMANTICS, BODYWEIGHT_MATERIAL_THRESHOLD,
+  const api = Object.freeze({ ENGINE_VERSION, RIR_CREDIT_CAP, CALIBRATION_VERSION, CALIBRATION_DELTA, CALIBRATION_STEPS, FORMULA_VERSION, SUPPORTED_SEMANTICS, BODYWEIGHT_MATERIAL_THRESHOLD,
     effectiveBodyweightCoefficient, recommendSets });
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.RepForgeProgression = api;

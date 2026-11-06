@@ -174,7 +174,7 @@ try {
   assert(done.rir === "0" && done.source === "failure" && done.calibration === 12, "the max set logs 0 reps left as failure", done);
   await page.evaluate(() => document.querySelector("#workout .exercise.is-current [data-ledgermore][aria-expanded='false']:not([hidden])")?.click());
   const result = await page.locator(`#workout .exercise.is-current .ledgerline__result`).innerText();
-  assert(/12/.test(result) && /14/.test(result) && /2 more than you guessed/.test(result) && /Nothing changes yet/.test(result),
+  assert(/12/.test(result) && /14/.test(result) && /2 more than you guessed/.test(result) && /Nothing changes yet: after 2 more test sets/.test(result),
     "the row compares the guess with the reps", result);
 
   phase("Once a workout, and the Settings switch");
@@ -212,6 +212,43 @@ try {
   const off = await page.evaluate(() => focusList().map((ex) => maxSetOffer(sessionExercise(ex),
     Object.values(window.__repforgeWorkoutDraft.current().exercises[ex.id]?.sets || {}).filter((set) => set.role === "working").length)).filter(Boolean).length);
   assert(off === 0, "with the prompts switched off, nothing is offered", off);
+  phase("Three checks: the lift's suggestions start allowing for them (Plan 077 PR 5)");
+  // Two earlier sessions of the same lift, each with a max set guessed 12 and done 14, ten and twenty days ago.
+  await persist(page, `
+    const today = s.log.find((row) => row.calibration).date;
+    const shift = (days) => new Date(Date.parse(today + "T00:00:00Z") - days * 864e5).toISOString().slice(0, 10);
+    const first = s.log.filter((row) => row.session === s.log.find((r) => r.calibration).session);
+    for (const days of [10, 20]) for (const row of first)
+      s.log.push({ ...JSON.parse(JSON.stringify(row)), session: row.session + "-" + days, date: shift(days), created: row.created - days * 864e5 });`);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await settle(page);
+  const cal = await page.evaluate((id) => {
+    // The seed program's sets carry no target RIR, so the engine leaves them manual; what matters here is what the app
+    // hands it. (The engine's own reading of the shift is proved in test/progression-engine-plan067.mjs.)
+    const engine = window.RepForgeProgression, given = [];
+    window.RepForgeProgression = { ...engine, recommendSets: (...args) => { given.push(args[4]); return engine.recommendSets(...args); } };
+    try {
+      const ex = sessionExercise(prog.find(id)), rec = recommendation(ex);
+      return { n: rec.calibration.n, state: rec.calibration.state, delta: rec.calibration.delta, moved: rec.calibration.moved,
+        given: given.at(-1)?.calibration ?? null, why: whySheetModel(ex).blocks.some((block) => block.leadKey === "engine-calibration") };
+    } finally { window.RepForgeProgression = engine; }
+  }, exId);
+  assert(cal.n === 3 && cal.state === "under" && Math.abs(cal.delta + 1) < 1e-9, "three checks of −2 read as under-estimating, shift −1", cal);
+  assert(cal.given?.version === "calibration@077.1" && cal.given?.delta === -1, "the engine is given the lift's shift", cal);
+  const line = await page.evaluate((id) => {
+    // Today's max set on top of the three in the log: its result line says suggestions now allow for it.
+    const ex = sessionExercise(prog.find(id)), de = window.__repforgeWorkoutDraft.current().exercises[id];
+    const set = JSON.parse(JSON.stringify(de.sets[de.setOrder.at(-1)]));
+    const reps = set.programmed.metrics.find((metric) => metric.semantic === "reps");
+    set.completion = { completedAt: new Date().toISOString(), effortSource: "failure" };
+    set.calibration = { v: 1, predictedReps: 12, predictionEdited: false, prefillBasis: "reps_rir" };
+    set.edited.metrics[reps.id] = "14";
+    const box = document.createElement("div"); box.innerHTML = maxSetResultHtml(set, recommendation(ex));
+    return box.textContent;
+  }, exId);
+  assert(/2 more than you guessed\. Suggestions on this exercise now allow for this\./.test(line), "from the third check the result line says suggestions now allow for it", line);
+  assert(cal.why === cal.moved, "the Why sheet names the tendency exactly when the shift moved the suggestion", cal);
+
   assert(errors.length === 0, "no page errors", errors.join(" | "));
 } finally {
   await browser.close();

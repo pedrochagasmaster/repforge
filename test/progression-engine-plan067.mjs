@@ -8,7 +8,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
 const Engine = require(path.join(root, "progression-engine.js"));
 const Metrics = require(path.join(root, "exercise-metrics.js"));
-assert.equal(Engine.ENGINE_VERSION, "077.1");
+assert.equal(Engine.ENGINE_VERSION, "077.2");
 assert.equal(Engine.RIR_CREDIT_CAP, 5);
 assert.equal(Engine.FORMULA_VERSION, "rir-adjusted-epley@067.1");
 
@@ -163,6 +163,62 @@ const liveOverCap = recommend(prescription({ setIndex: 2 }), [], [
   performedSet({ loadKg: 100, reps: 6, rir: 9, setIndex: 0 })]);
 assert.ok(Math.abs(liveOverCap.historyAnchor.capacityKg - 100 * (1 + (6 + 5) / 30)) < 1e-9,
   "the live-session anchor applies the same cap");
+
+// Effort calibration (Plan 077 PR 5, OD-18/19): the caller's shift reads reported RIR as rir − delta, within one
+// available-load step up and two down from the unshifted suggestion; a max set's measured 0 never shifts and never
+// counts as fatigue.
+assert.equal(Engine.CALIBRATION_VERSION, "calibration@077.1");
+const calibrated = (delta) => ({ calibration: { version: "calibration@077.1", delta } });
+const loadsContext = (loads) => context({ bySlotId: { "slot-a": { equipmentId: "rack-a", availableLoadsKg: loads,
+  loadingConvention: "external", bodyweightContributionEnabled: true, bodyweightKg: 0, externalLoadMultiplier: 1 } } });
+const calPrescription = prescription({ targets: { reps: { min: 8, max: 12 } }, rir: 2 });
+const anchorAt = (loadKg, rir) => [{ sessionId: `cal-${loadKg}-${rir}`, completed: true, sets: [performedSet({ loadKg, reps: 10, rir, setIndex: 0 })] }];
+{
+  // W2: an under-estimator (delta −1) on a 2.5 kg chest press: 60 × 10 at RIR 2 reads at RIR 3, capacity 84 → 86.
+  const chest = loadsContext([50, 52.5, 55, 57.5, 60, 62.5, 65, 67.5, 70]);
+  const base = recommend(calPrescription, anchorAt(60, 2), [], chest);
+  const w2 = recommend(calPrescription, anchorAt(60, 2), [], chest, calibrated(-1));
+  assert.ok(Math.abs(base.historyAnchor.capacityKg - 84) < 1e-9 && Math.abs(w2.historyAnchor.capacityKg - 86) < 1e-9,
+    "W2: the shift raises the anchor's capacity from 84 to 86");
+  assert.deepEqual(w2.targets, base.targets, "W2: within the range's midpoint the target holds at 60 × 10");
+  assert.equal(w2.calibration.moved, false, "W2: an unmoved target is reported as not moved, so no 'tends to' line shows");
+  // W3: an over-estimator (delta 4/3) on a 5 kg stack: 70 × 10 at RIR 3 reads at 1.67, capacity 100.3 → 97.2.
+  const stack = loadsContext([50, 55, 60, 65, 70, 75, 80]);
+  const base3 = recommend(calPrescription, anchorAt(70, 3), [], stack);
+  const w3 = recommend(calPrescription, anchorAt(70, 3), [], stack, calibrated(4 / 3));
+  assert.ok(Math.abs(w3.historyAnchor.capacityKg - 70 * (1 + (10 + 5 / 3) / 30)) < 1e-9, "W3: the anchor reads at RIR 1.67");
+  assert.deepEqual([base3.targets.loadKg, base3.targets.reps, w3.targets.loadKg, w3.targets.reps], [70, 10, 70, 9],
+    "W3: 70 × 10 becomes 70 × 9");
+  assert.deepEqual(w3.calibration, { version: "calibration@077.1", delta: 4 / 3, moved: true, baseline: { displayLoadKg: 70, reps: 10 } },
+    "W3: the recommendation says it moved and from what");
+  // Only a known version and a delta in [−1, 2] apply; anything else is the unshifted engine.
+  for (const settings of [{ calibration: { version: "calibration@076.9", delta: 1 } }, calibrated(2.5), calibrated(-1.5), calibrated(Number.NaN), { calibration: "x" }]) {
+    assert.deepEqual(recommend(calPrescription, anchorAt(70, 3), [], stack, settings).targets, base3.targets, `ignored: ${JSON.stringify(settings)}`);
+  }
+  // Delta 0 is byte-identical to no calibration at all.
+  assert.deepEqual(recommend(calPrescription, anchorAt(70, 3), [], stack, calibrated(0)), base3, "delta 0 leaves the recommendation unchanged");
+  // The load bound: on 0.5 kg steps, a delta of 2 unbounded would take 71.5 kg down to 68 kg; bounded, the load stays
+  // within two steps (70.5 kg) and the reps come down instead.
+  const fine = loadsContext(Array.from({ length: 81 }, (_, i) => 50 + i * 0.5));
+  const fineBase = recommend(calPrescription, anchorAt(70, 3), [], fine);
+  const unbounded = recommend(calPrescription, anchorAt(70, 1), [], fine);
+  const bounded = recommend(calPrescription, anchorAt(70, 3), [], fine, calibrated(2));
+  assert.equal(fineBase.targets.loadKg, 71.5);
+  assert.ok(unbounded.targets.loadKg < 70.5, `the unbounded reading would go below the floor: ${unbounded.targets.loadKg}`);
+  assert.ok(bounded.targets.loadKg >= 70.5 && bounded.targets.loadKg <= 72, `the shifted load stays within the bound: ${JSON.stringify(bounded.targets)}`);
+  // A max set's RIR 0 is measured: no shift reaches it, and the drop into it is not fatigue.
+  const withMax = (source) => [{ sessionId: "max", completed: true, sets: [
+    performedSet({ loadKg: 70, reps: 10, rir: 2, setIndex: 0 }),
+    { ...performedSet({ loadKg: 70, reps: 9, rir: 0, setIndex: 1 }), ...(source ? { effortSource: source } : {}) }] }];
+  const second = prescription({ targets: { reps: { min: 8, max: 12 } }, rir: 2, setIndex: 2 });
+  const asReported = recommend(second, withMax(null), [], stack);
+  const asMeasured = recommend(second, withMax("failure"), [], stack);
+  assert.ok(asReported.fatigue.adjacentDrops[0].drop > 0, "a reported second set at 9 × 0 reads as a fatigue drop");
+  assert.equal(asMeasured.fatigue.adjacentDrops.length ? asMeasured.fatigue.adjacentDrops[0].drop : 0, 0, "a max set is left out of the fatigue estimate");
+  const liveMax = recommend(prescription({ targets: { reps: { min: 8, max: 12 } }, rir: 2, setIndex: 3 }), [], [
+    { ...performedSet({ loadKg: 70, reps: 12, rir: 0, setIndex: 1 }), effortSource: "failure" }], stack, calibrated(2));
+  assert.ok(Math.abs(liveMax.historyAnchor.capacityKg - 70 * (1 + 12 / 30)) < 1e-9, "a max set's 0 is never shifted");
+}
 
 const nonCanonicalExternalMultiplier = recommend(prescription(), [{
   sessionId: "external-multiplier-two",

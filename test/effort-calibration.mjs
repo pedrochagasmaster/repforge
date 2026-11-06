@@ -71,4 +71,48 @@ assert.deepEqual(Calibration.result(13, 16), { guess: 13, did: 16, error: -3 });
 assert.deepEqual(Calibration.result(10, 9), { guess: 10, did: 9, error: 1 });
 assert.equal(Calibration.result(10, null), null);
 
+// The estimator (Plan 077 PR 5, OD-14 to OD-18), on the plan's worked examples.
+const near = (actual, expected) => Math.abs(actual - expected) < 1e-9;
+assert.equal(Calibration.CALIBRATION_VERSION, "calibration@077.1");
+{
+  // W1: one check of −3 shrinks to −1, but under three checks nothing changes.
+  const w1 = Calibration.estimate([-3]);
+  assert.ok(w1.n === 1 && near(w1.bias, -1) && w1.spread === null && w1.state === "uncalibrated" && w1.reason === "few" && w1.delta === 0, JSON.stringify(w1));
+  // W2: −3, −2, −2.5 → bias −1.5, spread 0.5: tends to under-estimate; the shift is held at −1.
+  const w2 = Calibration.estimate([-3, -2, -2.5]);
+  assert.ok(near(w2.bias, -1.5) && near(w2.spread, 0.5) && w2.state === "under" && w2.delta === -1, JSON.stringify(w2));
+  // W3: +2, +1, +3, +2 → bias 4/3, spread 0.82: tends to over-estimate; the shift is the bias.
+  const w3 = Calibration.estimate([2, 1, 3, 2]);
+  assert.ok(near(w3.bias, 4 / 3) && Math.abs(w3.spread - 0.8165) < 1e-4 && w3.state === "over" && near(w3.delta, 4 / 3), JSON.stringify(w3));
+  // W4: 0, −1, +0.5, 0, +0.5 → bias 0, spread 0.61: on target, no shift.
+  const w4 = Calibration.estimate([0, -1, 0.5, 0, 0.5]);
+  assert.ok(near(w4.bias, 0) && Math.abs(w4.spread - 0.6124) < 1e-4 && w4.state === "calibrated" && w4.delta === 0, JSON.stringify(w4));
+  // W5: −2, +1, −3 → bias −0.8 but spread 2.08: inconsistent, so no shift; the mirror +2, −1, +3 over-estimates (its
+  // shift only lowers loads, so it needs no agreement).
+  const w5 = Calibration.estimate([-2, 1, -3]);
+  assert.ok(near(w5.bias, -0.8) && w5.state === "uncalibrated" && w5.reason === "inconsistent" && w5.delta === 0, JSON.stringify(w5));
+  const w5m = Calibration.estimate([2, -1, 3]);
+  assert.ok(near(w5m.bias, 0.8) && w5m.state === "over" && near(w5m.delta, 0.8), JSON.stringify(w5m));
+  // Bounds: a large over-estimate shifts at most 2; errors are clipped to ±5.
+  assert.equal(Calibration.estimate([5, 5, 5, 5, 5, 5]).delta, 2);
+  assert.ok(near(Calibration.estimate([9, 9, 9]).bias, 3), "a +9 counts as +5");
+}
+{
+  // checkErrors: the last six of the counted checks, oldest first.
+  const at = (date, ...pairs) => ({ date, checks: pairs.map(([predictedReps, reps]) => ({ predictedReps, reps })) });
+  const steady = [at("2026-10-01", [11, 14]), at("2026-10-08"), at("2026-10-15", [10, 12]), at("2026-10-22", [12, 12])];
+  assert.deepEqual(Calibration.checkErrors({ sessions: steady, today: "2026-10-29" }), [-3, -2, 0]);
+  // W6, a long break: sessions on 1 June then 20 July (49 days): the June check no longer counts.
+  const brk = [at("2026-06-01", [11, 14]), at("2026-07-20", [10, 10])];
+  assert.deepEqual(Calibration.checkErrors({ sessions: brk, today: "2026-07-20" }), [0]);
+  // A break since the last session counts too: returning after 42 days starts again.
+  assert.deepEqual(Calibration.checkErrors({ sessions: steady, today: "2026-12-03" }), []);
+  // Older than 180 days drops out even without a break (sessions every few weeks).
+  const long = Array.from({ length: 8 }, (_, i) => at(new Date(Date.UTC(2026, 0, 1 + i * 30)).toISOString().slice(0, 10), [10, 10 + i]));
+  assert.deepEqual(Calibration.checkErrors({ sessions: long, today: "2026-08-10" }), [-2, -3, -4, -5, -6, -7]);
+  assert.deepEqual(Calibration.checkErrors({ sessions: long, today: "2026-08-30" }), [-3, -4, -5, -6, -7], "by 30 August the March check is over 180 days old");
+  const weekly = Array.from({ length: 8 }, (_, i) => at(new Date(Date.UTC(2026, 9, 1 + i * 7)).toISOString().slice(0, 10), [10, 10 + i]));
+  assert.deepEqual(Calibration.checkErrors({ sessions: weekly, today: "2026-11-20" }), [-2, -3, -4, -5, -6, -7], "the window keeps the last six");
+}
+
 console.log("PASS effort calibration (Plan 077 PR 3)");

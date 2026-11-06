@@ -91,7 +91,71 @@
     return { guess, did: done, error: guess - done };
   }
 
-  const api = Object.freeze({ VERSION, LIMITS, BIG_LIFT_PATTERNS, PRESS_PATTERNS, eligibility, prefillGuess, frequencyAllows, result });
+  /* The per-lift estimate (Plan 077, OD-14 to OD-18), versioned apart from eligibility: the engine accepts a shift only
+     from this version. */
+  const CALIBRATION_VERSION = "calibration@077.1";
+  const ESTIMATOR = Object.freeze({
+    window: 6, // the last checks that count
+    maxAgeDays: 180, // older checks drop out
+    gapDays: 42, // a break this long between sessions of the lift starts its estimate again
+    prior: 2, // pseudo-checks at 0 that the mean is shrunk towards
+    clip: 5, // each error is held to ±5 reps
+    minChecks: 3, // nothing changes before this many
+    bias: 0.75, // a mean beyond this, in reps, is a tendency
+    underSpread: 1.5, // under-estimating only counts when the checks agree this well
+    calibratedSpread: 1.25, // "on target" needs this much agreement
+    under: -1, // the shift is held within these: one rep up, two down
+    over: 2,
+  });
+
+  /** The errors (guess − did) that count for a lift today, oldest first. `sessions` are the lift's comparable sessions,
+   *  each `{date, checks:[{predictedReps, reps}]}`; a session without a check still marks the lift as trained. A gap of
+   *  `gapDays` between consecutive sessions, or since the last one, discards everything before it (OD-16). */
+  function checkErrors({ sessions = [], today } = {}) {
+    const now = dayNumber(today);
+    if (now == null) return [];
+    const dated = (Array.isArray(sessions) ? sessions : [])
+      .map((session) => ({ day: dayNumber(session?.date), checks: Array.isArray(session?.checks) ? session.checks : [] }))
+      .filter((session) => session.day != null && session.day <= now)
+      .sort((left, right) => left.day - right.day);
+    let from = 0;
+    for (let i = 1; i <= dated.length; i++) {
+      const next = i < dated.length ? dated[i].day : now;
+      if (next - dated[i - 1].day >= ESTIMATOR.gapDays) from = i;
+    }
+    const errors = [];
+    for (const session of dated.slice(from)) {
+      if (now - session.day > ESTIMATOR.maxAgeDays) continue;
+      for (const check of session.checks) {
+        const outcome = result(check?.predictedReps, check?.reps);
+        if (outcome) errors.push(outcome.error);
+      }
+    }
+    return errors.slice(-ESTIMATOR.window);
+  }
+
+  /** What a lift's checks say: their count, the shrunken mean error (positive: fewer reps than guessed), its spread, the
+   *  state, and the shift the engine reads reported RIR with. Under three checks the shift is 0 whatever they say. */
+  function estimate(errors) {
+    const clipped = (Array.isArray(errors) ? errors : []).filter((value) => Number.isFinite(value))
+      .map((value) => Math.max(-ESTIMATOR.clip, Math.min(ESTIMATOR.clip, value)));
+    const n = clipped.length;
+    const sum = clipped.reduce((total, value) => total + value, 0);
+    const bias = n ? sum / (n + ESTIMATOR.prior) : 0;
+    const mean = n ? sum / n : 0;
+    const spread = n >= 2 ? Math.sqrt(clipped.reduce((total, value) => total + (value - mean) ** 2, 0) / (n - 1)) : null;
+    let state = "uncalibrated", reason = n < ESTIMATOR.minChecks ? "few" : "inconsistent";
+    if (n >= ESTIMATOR.minChecks) {
+      if (bias >= ESTIMATOR.bias) { state = "over"; reason = null; }
+      else if (bias <= -ESTIMATOR.bias && spread <= ESTIMATOR.underSpread) { state = "under"; reason = null; }
+      else if (Math.abs(bias) < ESTIMATOR.bias && spread <= ESTIMATOR.calibratedSpread) { state = "calibrated"; reason = null; }
+    }
+    const delta = state === "over" ? Math.min(bias, ESTIMATOR.over) : state === "under" ? Math.max(bias, ESTIMATOR.under) : 0;
+    return { version: CALIBRATION_VERSION, n, bias, spread, state, reason, delta };
+  }
+
+  const api = Object.freeze({ VERSION, CALIBRATION_VERSION, LIMITS, ESTIMATOR, BIG_LIFT_PATTERNS, PRESS_PATTERNS, eligibility,
+    prefillGuess, frequencyAllows, result, checkErrors, estimate });
   if (typeof module === "object" && module.exports) module.exports = api;
   if (root) root.RepForgeEffortCalibration = api;
 })(typeof window !== "undefined" ? window : globalThis);

@@ -6249,9 +6249,27 @@ function enginePerformedRow(row,exerciseId,metricIds){
   const values=ExerciseMetrics?.validateMetricValues?.(metricIds,row.metricValues);
   if(!values?.ok)return null;
   const rir=typeof row.rir==="number"&&Number.isFinite(row.rir)&&row.rir>=0?row.rir:null;
+  // How the effort was entered rides along: a max set's measured 0 is never shifted (Plan 077, OD-18), and its guess
+  // is a calibration check.
   return{exerciseId,completed:true,setIndex:row.setIndex,rir,equipmentId:row.equipmentId??null,
     loadingConvention:row.loadingConvention,metricIds:[...row.metricIds],metricValues:cloneSnapshot(row.metricValues),
-    loadingContext:isPlainStateObject(row.loadingContext)?cloneSnapshot(row.loadingContext):null}}
+    loadingContext:isPlainStateObject(row.loadingContext)?cloneSnapshot(row.loadingContext):null,
+    ...(row.effortSource?{effortSource:row.effortSource}:{}),
+    ...(row.effortSource==="failure"&&WorkoutDraft?.validCalibration?.(row.calibration)?{calibration:cloneSnapshot(row.calibration)}:{})}}
+/** A lift's calibration checks: its max sets in the comparable history (same equipment and loading as today), with any
+ *  of `extra` (sessions not yet in the log), read by the estimator. */
+function liftCheckSessions(history,context,metricDefinitions,extra=[]){
+  const repsMetric=(metricDefinitions||[]).find(metric=>metric.semantic==="reps"||metric.semantic==="repsPerSide")?.id;
+  const comparable=set=>(set.equipmentId??null)===(context?.equipmentId??null)&&set.loadingConvention===context?.loadingConvention;
+  return[...history,...extra].map(session=>({date:session.date,checks:(session.sets||[])
+    .filter(set=>set.effortSource==="failure"&&set.calibration&&comparable(set))
+    .map(set=>({predictedReps:set.calibration.predictedReps,reps:set.metricValues?.find(value=>value.metricId===repsMetric)?.value}))}))}
+/** `asOf` (an ISO date) reads the lift as it stood that day, for a replay of an earlier suggestion; by default, today. */
+function liftCalibration(history,context,metricDefinitions,extra=[],asOf=null){
+  const sessions=liftCheckSessions(history,context,metricDefinitions,extra);
+  const Calibration=window.RepForgeEffortCalibration;
+  const errors=Calibration?.checkErrors?.({sessions,today:asOf||activeWorkoutDraft?.program?.scheduleDate||today()})||[];
+  return Calibration?.estimate?.(errors)||{version:null,n:0,bias:0,spread:null,state:"uncalibrated",reason:"few",delta:0}}
 function progressionHistoryFor(exerciseId,metricIds,slotProjection,metricDefinitions){
   const grouped=new Map();
   const requiresExecutionMode=(metricDefinitions||[]).some(metric=>
@@ -6265,7 +6283,7 @@ function progressionHistoryFor(exerciseId,metricIds,slotProjection,metricDefinit
     if(!grouped.has(sessionId))grouped.set(sessionId,{sessionId,date:row.date,created:row.created,completed:true,sets:[]});
     grouped.get(sessionId).sets.push(performed)}
   return[...grouped.values()].sort(compareLogChronology).map(session=>({
-    sessionId:session.sessionId,completed:true,sets:session.sets.sort((a,b)=>a.setIndex-b.setIndex)}))}
+    sessionId:session.sessionId,date:session.date,completed:true,sets:session.sets.sort((a,b)=>a.setIndex-b.setIndex)}))}
 function progressionCurrentSession(prescription){
   if(!activeWorkoutDraft?.exercises)return[];
   const exercise=activeWorkoutDraft.exercises[prescription.slotId]||
@@ -6293,7 +6311,8 @@ function progressionCurrentSession(prescription){
     sets.push({exerciseId:prescription.exerciseId,completed:true,setIndex:set.ordinal-1,
       rir:Number.isFinite(rir)&&rir>=0?rir:null,equipmentId:exercise.programmed?.equipmentId??null,
       loadingConvention:exercise.programmed?.loadingConvention,metricIds:[...prescription.metricIds],metricValues:values,
-      loadingContext})}
+      loadingContext,...(set.completion?.effortSource?{effortSource:set.completion.effortSource}:{}),
+      ...(set.completion?.effortSource==="failure"&&set.calibration?{calibration:cloneSnapshot(set.calibration)}:{})})}
   return sets}
 /* The lifter's smallest load change for a movement owns its candidate loads:
    set per exercise in the program editor, else the global minimum jump. */
@@ -6341,8 +6360,12 @@ function recommendation(ex){
   const history=progressionHistoryFor(first.exerciseId,first.metricIds,slotProjection,matched.slot.metricDefinitions);
   const currentSession=progressionCurrentSession(first);
   const loadingContext={bySlotId:{[matched.slot.id]:slotLoadingContext(matched.slot)}};
+  // The lift's own max sets say how its reported RIR reads (Plan 077, OD-14 to OD-18): from three checks, the engine
+  // reads it shifted, within its load bound. Today's checks count from the next session on.
+  const calibration=liftCalibration(history,loadingContext.bySlotId[matched.slot.id],matched.slot.metricDefinitions);
   const results=engine.recommendSets(prescriptions,history,currentSession,loadingContext,{
-    weightMatch:state.settings.weightMatch===true,expandRepRange:state.settings.expandRepRange!==false});
+    weightMatch:state.settings.weightMatch===true,expandRepRange:state.settings.expandRepRange!==false,
+    ...(calibration.delta?{calibration:{version:calibration.version,delta:calibration.delta}}:{})});
   // Owner, 2026-11-04: an adaptive set with no comparable history starts from the load the program authored for it,
   // offered as a suggestion; once history exists the engine's recommendation takes over. No load is invented.
   const plannedSemantic=(matched.slot.metricDefinitions||[]).find(metric=>PLANNED_LOAD_SEMANTICS.includes(metric.semantic))?.semantic||null;
@@ -6393,6 +6416,8 @@ function recommendation(ex){
   // recommendation that serialises (and that the parity proofs compare) is exactly what it was.
   Object.defineProperty(rec,"progressionInputs",{value:{history,currentSession}});
   Object.defineProperty(rec,"plannedLoad",{value:status==="new"?firstActual?.planned?.value??null:null});
+  // Not enumerable either: what the lift's checks say, and whether the shift moved any of its targets.
+  Object.defineProperty(rec,"calibration",{value:{...calibration,moved:results.some(item=>item?.calibration?.moved===true)}});
   return rec;
 }
 // Re-entry after a load change: the reps this capacity predicts at the NEW load,
@@ -7511,16 +7536,24 @@ async function cancelMaxSet(exId,n){
   const set=draftSetAt(exId,n);if(!set?.calibration)return;
   const result=await WorkoutSession.dispatch("cancelMaxSet",{exerciseInstanceId:exId,setId:set.setId});
   if(result.status==="applied"){maxSetDeclined.add(`${activeWorkoutDraft.draftId}:${exId}`);renderWorkout()}}
-/** Under a logged max set: the guess beside what was done, and what one check means. */
-function maxSetResultHtml(set){
+/** Under a logged max set: the guess beside what was done, and what the lift's checks now mean for its suggestions
+ *  (Plan 077, OD-22): how many more before they count, or that they count now. */
+function maxSetResultHtml(set,r){
   const res=set?.completion!=="pending"&&set?.completion?.effortSource==="failure"&&set.calibration
     ?EffortCalibration?.result(set.calibration.predictedReps,draftSetReps(set)):null;
   if(!res)return"";
-  const line=res.error<0?t("maxset.result_more",{n:-res.error}):res.error>0?t("maxset.result_fewer",{n:res.error}):t("maxset.result_same");
+  const diff=res.error<0?t("maxset.result_more",{n:-res.error}):res.error>0?t("maxset.result_fewer",{n:res.error}):t("maxset.result_same");
+  const inputs=r?.progressionInputs,context={equipmentId:set.programmed?.equipmentId??null,loadingConvention:set.programmed?.loadingConvention};
+  const est=liftCalibration(inputs?.history||[],context,set.programmed?.metrics,
+    [{date:activeWorkoutDraft?.program?.scheduleDate||today(),sets:inputs?.currentSession||[]}]);
+  const left=EffortCalibration.ESTIMATOR.minChecks-est.n;
+  const status=left>0?t(left===1?"maxset.status_wait_one":"maxset.status_wait",{n:left})
+    :est.state==="under"||est.state==="over"?t("maxset.status_shifted")
+      :est.state==="calibrated"?t("maxset.status_calibrated"):t("maxset.status_varies");
   return `<span class="ledgerline__result"><span class="ledgerline__pair">`+
     `<span>${esc(t("maxset.guessed"))}<b>${esc(fmt(res.guess))}</b></span><span class="ledgerline__arrow" aria-hidden="true">→</span>`+
     `<span>${esc(t("maxset.did"))}<b>${esc(fmt(res.did))}</b></span></span>`+
-    `<span class="ledgerline__resline">${esc(line)}</span></span>`}
+    `<span class="ledgerline__resline">${esc(`${diff} ${status}`)}</span></span>`}
 /* ---- Exercise note sheet ---- */
 let exNoteFor=null,exNoteReturn=null;
 function openExNoteSheet(exId){
@@ -9369,7 +9402,7 @@ function focusLedgerRowsHtml(ex,r,draft,prev,{peek=false}){
       (prevLine?`<small class="ledgerline__prev">${esc(prevLine)}</small>`:"");
     // A max set reads as one while it is pending, and its logged row compares the guess with the reps (Plan 077).
     const maxSet=peek?null:draftSetAt(ex.id,n);
-    const extra=!maxSet?.calibration?"":done?maxSetResultHtml(maxSet)
+    const extra=!maxSet?.calibration?"":done?maxSetResultHtml(maxSet,r)
       :`<small class="ledgerline__tag">${esc(t("maxset.tag",{n:maxSet.calibration.predictedReps}))}</small>`;
     const cls=`ledgerline${prevLine||extra?" ledgerline--two":""}${open?" ledgerline--open":""}${n===freshN?" is-fresh":""}`;
     if(done)rows.push(`<button type="button" class="${cls}" data-ldone${fold?" hidden":""}${peek?dead()
@@ -23824,6 +23857,13 @@ function engineWhyModel(ex,rec,model,head){
   block("engine-target",t(n>1?"why.lead.set2":"why.lead.engine_target",{n}),take("target")?.text);
   block("engine-assumptions",t("why.lead.engine_assumptions"),
     [take("step")?.text,take("per_side")?.text,take("per_side_bodyweight")?.text,take("bodyweight")?.text].filter(Boolean).join(" "));
+  // What the lift's test sets say (Plan 077, OD-22), in words and only once there is one: a tendency only when it moved
+  // this suggestion.
+  const cal=rec.calibration;
+  if(cal?.n>0){
+    const key=cal.state==="under"?(cal.moved?"why.calibration.under":null):cal.state==="over"?(cal.moved?"why.calibration.over":null)
+      :cal.state==="calibrated"?"why.calibration.calibrated":"why.calibration.uncalibrated";
+    if(key)block("engine-calibration",t("why.lead.calibration"),t(key))}
   if(prev.length){model.calc.push({group:t("why.calc.last",{date:shortDate(prev[0].date)})});
     prev.forEach((x,i)=>model.calc.push({k:t("why.calc.set",{n:i+1}),v:`${fmtLoad(x.load)} × ${x.reps}`,rir:effortOrRirLabel(x.rir)}));
     model.evidence=t("why.evidence",{n:1,date:shortDate(prev[0].date)})}
