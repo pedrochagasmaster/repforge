@@ -69,6 +69,10 @@ try {
       const ui = await page.evaluate(() => ({ open: !document.querySelector("#shareCardSheet").hidden, focus: document.activeElement?.id,
         share: !document.querySelector("#shareCardShare").classList.contains("hidden"), alt: document.querySelector("#shareCardPreview").alt }));
       check(ui.open && ui.focus === "shareCardClose", "Share opens the sheet, focus on its close button", ui);
+      const buttons = await page.evaluate(() => ({ share: document.querySelector("#shareCardShare").textContent.trim(),
+        save: document.querySelector("#shareCardSave").className }));
+      check(ui.share && buttons.share === "Share…" && /btn--steel/.test(buttons.save) && !/btn--cta/.test(buttons.save),
+        "with file sharing, Share… leads and Save image is the secondary choice", { ui, buttons });
       check(s.kind === "record" && s.size === "story" && s.style === "orange", "it opens on the card the row opens on: the record poster, Story, orange", s);
       check(s.file?.type === "image/png" && s.file.name === "taurifer-2026-08-31-record-story.png" && s.file.size > 50000
         && s.drawn.width === 1080 && s.drawn.height === 1920, "the card is a 1080×1920 PNG made on the device", s);
