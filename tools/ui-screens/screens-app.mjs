@@ -2484,6 +2484,31 @@ export const APP_SCENARIOS = {
     await sleep(page, 400);
     await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions"]);
   },
+  // Plan 077 PR 5: a lift with three on-target test sets: the Why sheet's effort-estimate line says so.
+  "workout/why-calibration": async (page) => {
+    const state = await installGeneratedProgram(page, { name: "Why sheet proof" });
+    const day = state.program[0]?.day;
+    const row = state.program.find((candidate) => candidate.day === day && isWeightRepsSlot(definitionSlot(state.programMeta, candidate)));
+    if (!row) throw new Error("calibration Why fixture: no Weight+Reps slot on the generated program's first day");
+    const daysAgo = (days) => new Date(Date.parse(CAPTURE_NOW) - days * 864e5).toISOString().slice(0, 10);
+    state.log = [21, 14, 7].flatMap((days) => [
+      metricLogRow(state.programMeta, row, { session: `cal-${days}`, date: daysAgo(days), set: 1, load: 40, reps: 8, rir: 2 }),
+      { ...metricLogRow(state.programMeta, row, { session: `cal-${days}`, date: daysAgo(days), set: 2, load: 40, reps: 10, rir: 0 }),
+        effortSource: "failure", calibration: { v: 1, predictedReps: 10, predictionEdited: false, prefillBasis: "reps_rir" } },
+    ]);
+    await seed(page, state);
+    await page.evaluate((d) => window.__repforgeEnterWorkout({ day: d }), day);
+    await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 15000 });
+    await clickWhy(page, "#workout .exercise.is-current [data-why]");
+    await page.waitForSelector("#whySheet.is-open", { timeout: 20000 });
+    await sleep(page, 400);
+    await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-calibration"]);
+    // The line is the sheet's last block: the sheet raised to its large detent and read to its end, as the lifter would.
+    await page.evaluate(() => { document.querySelector("#whySheet").dataset.detent = "large"; });
+    await sleep(page, 400);
+    await pinSheetScrollToEnd(page, "#whySheet .whysheet");
+    await sleep(page, 300);
+  },
   "workout/why-in-session": async (page) => {
     const row = await adaptiveWhyFixture(page);
     await logAdaptiveSet(page, row.slotId || row.id, 1, { load: 45, reps: 8, rir: 2 });

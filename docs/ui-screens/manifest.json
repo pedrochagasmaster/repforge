@@ -1326,6 +1326,13 @@
       "variants": "demandingText"
     },
     {
+      "id": "why-calibration",
+      "flow": "workout",
+      "label": "Workout — Why, effort estimate",
+      "scenario": "The Why sheet for a lift with three on-target test sets: its effort-estimate line says the lifter's estimates have matched their test sets.",
+      "variants": "localized"
+    },
+    {
       "id": "why-in-session",
       "flow": "workout",
       "label": "Workout — why this weight, mid-session",

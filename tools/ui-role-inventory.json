@@ -428,6 +428,11 @@
       "content": "flat",
       "scenario": "The recommendation inspector for a range lift: sentences first, each under a bold lead, the working behind See the working, the evidence footer."
     },
+    "workout/why-calibration": {
+      "owner": "plan-077",
+      "content": "flat",
+      "scenario": "The Why sheet with the effort-estimate line for a lift whose test sets have matched its logged effort."
+    },
     "workout/why-in-session": {
       "owner": "plan-064/r3g",
       "content": "flat",
@@ -2275,6 +2280,7 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
+        "workout/why-calibration",
         "workout/last-rep-slow"
       ],
       "neverDisabledReason": "A note can always be written for the exercise in progress."
@@ -6757,7 +6763,8 @@
         "workout/why-per-side",
         "workout/why-in-session",
         "workout/why-manual",
-        "workout/why-setup"
+        "workout/why-setup",
+        "workout/why-calibration"
       ]
     },
     {
@@ -6778,7 +6785,8 @@
         "workout/why-per-side",
         "workout/why-in-session",
         "workout/why-manual",
-        "workout/why-setup"
+        "workout/why-setup",
+        "workout/why-calibration"
       ]
     },
     {
@@ -6799,7 +6807,8 @@
         "workout/why-per-side",
         "workout/why-in-session",
         "workout/why-manual",
-        "workout/why-setup"
+        "workout/why-setup",
+        "workout/why-calibration"
       ]
     },
     {
@@ -6898,6 +6907,7 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
+        "workout/why-calibration",
         "workout/last-rep-slow"
       ],
       "progressScopes": {
@@ -8818,6 +8828,7 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
+        "workout/why-calibration",
         "workout/last-rep-slow",
         "progress/overview-calibration",
         "today/calibration-mini"
@@ -8893,7 +8904,8 @@
         "program/editor-day-name-refused",
         "program/volume-audit",
         "workout/max-set-guess",
-        "session/summary-share"
+        "session/summary-share",
+        "workout/why-calibration"
       ]
     },
     {
@@ -8932,7 +8944,8 @@
         "program/editor-alternates",
         "program/editor-suggest-loads",
         "program/editor-issue-field",
-        "program/editor-day-name-refused"
+        "program/editor-day-name-refused",
+        "workout/why-calibration"
       ]
     },
     {
@@ -10124,7 +10137,8 @@
       "catalogStates": [
         "workout/why-this-weight",
         "workout/why-per-side",
-        "workout/why-in-session"
+        "workout/why-in-session",
+        "workout/why-calibration"
       ]
     },
     {
@@ -12760,6 +12774,7 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
+        "workout/why-calibration",
         "workout/last-rep-slow"
       ]
     },
@@ -13256,7 +13271,8 @@
         "workout/why-in-session",
         "workout/why-manual",
         "workout/why-setup",
-        "workout/max-set-guess"
+        "workout/max-set-guess",
+        "workout/why-calibration"
       ]
     },
     {
