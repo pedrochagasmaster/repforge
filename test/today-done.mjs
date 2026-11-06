@@ -338,7 +338,9 @@ console.log("\nToday — completed session state");
     const durable = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
     const today = document.querySelector(".today-done");
     const cells = [...document.querySelectorAll(".today-done .statrow__cell")].map((cell) => ({
-      value: cell.querySelector(".statrow__val")?.textContent.trim(), caption: cell.querySelector(".statrow__cap")?.textContent.trim() }));
+      value: cell.querySelector(".statrow__val")?.firstChild?.textContent.trim(), caption: cell.querySelector(".statrow__cap")?.textContent.trim(),
+      unit: [...cell.querySelectorAll(".statrow__val small")].map((small) => small.textContent),
+      family: getComputedStyle(cell.querySelector(".statrow__val")).fontFamily }));
     const groups = [...document.querySelectorAll(".today-done__lifts .sum-grp")].map((group) => {
       const word = group.querySelector(".sum-outcome, .sum-word"), next = group.querySelector("[data-parity-target]");
       // A lift with a canonical outcome carries the parity markup; a first observation says so in words and carries none.
@@ -381,6 +383,10 @@ console.log("\nToday — completed session state");
   const setsToday = one.length + two.length + three.length;
   assert(done.cells.length === 3 && done.cells[0].value === String(setsToday) && done.cells[2].value === String(lifts),
     "The recap totals the whole day: sets, kg moved and exercises across both sessions", JSON.stringify(done.cells));
+  // The finish screen's stat treatment (#621): Plex Sans figures, the unit once, small, after the moved figure.
+  assert(done.cells.every((cell) => /Plex Sans/.test(cell.family) && !/Mono/.test(cell.family)) &&
+    JSON.stringify(done.cells.map((cell) => cell.unit)) === JSON.stringify([[], ["kg"], []]) && /^[\d,.]+k?$/.test(done.cells[1].value) &&
+    !/kg/.test(done.cells[1].caption), "The recap's figures are Sans, with the unit once beside the moved figure", JSON.stringify(done.cells));
   assert(done.groups.length === lifts, "One outcome and next target per lift trained today", `${done.groups.length} groups for ${lifts} lifts`);
   assert(done.groups.some((group) => group.canonical) && done.groups.some((group) => !group.canonical),
     "The day mixes lifts with an outcome and first observations", JSON.stringify(done.groups.map((g) => [g.id, g.canonical])));

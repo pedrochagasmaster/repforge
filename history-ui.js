@@ -682,9 +682,10 @@ function historyReadingView(s,rows){
     return`<section class="histlift" data-lift="${esc(g.key)}" data-history-exercise-id="${esc(exerciseId)}"><div class="histlift__head"><h3 class="histlift__name">${esc(shownName(g.rows[0]))}</h3>`+
       `<span class="histlift__tags">${record}${historyOutcomeMark(g,sid)}</span></div>`+
       (before?`<p class="histlift__before">${esc(before)}</p>`:"")+groupHeader+`<div class="histlift__sets">${setRows}</div></section>`}).join("");
-  const total=(value,label)=>`<div><b>${esc(value)}</b><span>${esc(label)}</span></div>`;
+  // The figure in Sans with its unit once, small, as the finish screen draws it (#621).
+  const total=(value,label,unit)=>`<div><b>${esc(value)}${unit?`<small>${esc(unit)}</small>`:""}</b><span>${esc(label)}</span></div>`;
   const totals=total(historyInt(setCount),setCount===1?t("plural.set.one"):t("plural.set.other"))+
-    (hasStrengthProjection?total(historyInt(toDisplay(volume)),t("summary.stat.moved",{unit:unitLabel()}))+
+    (hasStrengthProjection?total(historyInt(toDisplay(volume)),t("stats.cap.moved"),unitLabel())+
       total(historyInt(prLifts.size),t("stats.metric.prs")):"");
   return`<article class="session session--read histpage" data-reading="${esc(sid)}" data-sess="${esc(sid)}">`+
     `<div class="histpage__totals">${totals}</div>`+
