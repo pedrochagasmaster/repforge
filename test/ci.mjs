@@ -21,6 +21,7 @@ import { stabilizeShareUrlForCapture } from "../tools/ui-screens/screens-app.mjs
 import { changedFilesForTests, changedFilesForEdit, changedFilesForPacket, fullLaneEntries, fullShardCount, selectAffected, selectEdit, selectFullLane, selectPacket } from "../tools/test-selection.mjs";
 import { execute, maybeStartLocalPreview, runLane, shardPlan } from "../tools/run-tests.mjs";
 import { summarizeBenchmark } from "../tools/benchmark-tests.mjs";
+import { parseArgs as parseRevisionArgs, planRevision, revisionOf } from "../tools/next-revision.mjs";
 
 /** A fixture lane's progress lines stay out of this file's stdout: under node --test that stream is also the runner's
  *  message channel, and a progress line written into it could split a frame ("Unable to deserialize cloned data"). */
@@ -1694,4 +1695,65 @@ esac
     "a green main comments and closes the open issue");
   const quiet = run("success", "");
   assert.ok(!quiet.some((call) => /^issue (create|comment|close)/.test(call)), "a green main with nothing open writes nothing");
+});
+
+const revisionTree = (cache, ...scripts) => ({
+  sw: `const CACHE = "repforge-v${cache}";\nconst ASSETS = [];\n`,
+  index: scripts.map(([file, v]) => `<script src="${file}?v=${v}"></script>`).join("\n"),
+});
+
+test("next-revision: the shipped tree's revision is its CACHE, at or above every script query", () => {
+  const sw = readFileSync("sw.js", "utf8");
+  const index = readFileSync("index.html", "utf8");
+  const cache = Number(sw.match(/const CACHE = "repforge-v(\d+)";/)[1]);
+  assert.equal(revisionOf({ sw, index }), cache);
+});
+
+test("next-revision: a script query above CACHE still counts as the tree's claim", () => {
+  assert.equal(revisionOf(revisionTree(629, ["app.js", 631])), 631);
+  assert.equal(revisionOf({ sw: "", index: "" }), null);
+});
+
+test("next-revision: next is above main and every open claim; stale branches claim nothing", () => {
+  const plan = planRevision({
+    main: revisionTree(629, ["app.js", 627]),
+    prs: [
+      { number: 630, branch: "front-1", ...revisionTree(630) },
+      { number: 631, branch: "front-3", ...revisionTree(629, ["app.js", 631]) },
+      { number: 590, branch: "stale", ...revisionTree(612) },
+    ],
+  });
+  assert.equal(plan.main, 629);
+  assert.deepEqual(plan.claims.map((c) => [c.number, c.revision]), [[630, 630], [631, 631]]);
+  assert.deepEqual(plan.collisions, []);
+  assert.equal(plan.next, 632);
+});
+
+test("next-revision: a PR keeps a unique claim and moves off a shared one", () => {
+  const main = revisionTree(629);
+  const prs = [{ number: 1, ...revisionTree(630) }, { number: 2, ...revisionTree(631) }, { number: 3, ...revisionTree(631) }];
+  assert.deepEqual(planRevision({ main, prs, self: 1 }), {
+    main: 629, self: 1, keep: true, next: 630,
+    claims: [{ number: 1, branch: null, revision: 630 }, { number: 2, branch: null, revision: 631 }, { number: 3, branch: null, revision: 631 }],
+    collisions: [{ revision: 631, prs: [2, 3] }],
+  });
+  assert.equal(planRevision({ main, prs, self: 3 }).next, 632);
+  assert.equal(planRevision({ main, prs, self: 3 }).keep, false);
+  assert.equal(planRevision({ main, prs, self: 9 }).next, 632, "a PR with no claim yet takes the next free one");
+});
+
+test("next-revision: main without a CACHE declaration is an error, not a guess", () => {
+  assert.throws(() => planRevision({ main: { sw: "", index: "" } }), /no CACHE revision/);
+});
+
+test("next-revision: the CLI prints the plan from a recorded state without calling gh", () => {
+  const dir = mkdtempSync(join(tmpdir(), "next-revision-"));
+  const input = join(dir, "state.json");
+  writeFileSync(input, JSON.stringify({ main: revisionTree(629), prs: [{ number: 7, branch: "b", ...revisionTree(630) }] }));
+  const out = execFileSync(process.execPath, ["tools/next-revision.mjs", "--input", input, "--pr", "8"], { encoding: "utf8" });
+  assert.equal(out.trim(), "main: v629\n#7 b: v630\nnext: v631");
+  const json = JSON.parse(execFileSync(process.execPath, ["tools/next-revision.mjs", "--input", input, "--json"], { encoding: "utf8" }));
+  assert.equal(json.next, 631);
+  assert.throws(() => parseRevisionArgs(["--pr", "x"]), /--pr needs a PR number/);
+  assert.throws(() => parseRevisionArgs(["--bogus"]), /unknown argument/);
 });
