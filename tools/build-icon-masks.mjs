@@ -44,6 +44,8 @@ export const GLYPHS = {
   pencil: { d: "M4 20l.9-4.2L15.9 4.8a2.1 2.1 0 0 1 3 0l.3.3a2.1 2.1 0 0 1 0 3L8.2 19.1 4 20zM14.6 6.1l3.3 3.3" },
   clipboard: { d: "M9 5H7.4A1.9 1.9 0 0 0 5.5 6.9v11.6a1.9 1.9 0 0 0 1.9 1.9h9.2a1.9 1.9 0 0 0 1.9-1.9V6.9A1.9 1.9 0 0 0 16.6 5H15M9.2 14l2 2 3.8-4.2", extra: "<rect x='9' y='3.2' width='6' height='3.6' rx='1.2'/>" },
   download: { d: "M12 3.8v11.2M7.8 11l4.2 4.2 4.2-4.2M4.5 17v1.6A2.4 2.4 0 0 0 6.9 21h10.2a2.4 2.4 0 0 0 2.4-2.4V17" },
+  // Share (finish-share PR 4): not in G's table; drawn on the same grid and stroke as download, its arrow leaving the box.
+  share: { d: "M12 3.5v11M8 7.2l4-3.7 4 3.7M8.5 10.5H6.8a1.8 1.8 0 0 0-1.8 1.8v6.4a1.8 1.8 0 0 0 1.8 1.8h10.4a1.8 1.8 0 0 0 1.8-1.8v-6.4a1.8 1.8 0 0 0-1.8-1.8h-1.7" },
   sheet: { d: "M3.5 9.8h17M10 9.8v9.7M3.5 14.6h17", extra: "<rect x='3.5' y='4.5' width='17' height='15' rx='2.4'/>" },
   flex: { d: "M5.5 7.4V5.5a2 2 0 0 1 2-2h1.2a2 2 0 0 1 2 2v4.1C12.5 8 15 7.6 17 8.4c2.3.9 3.5 3.1 3.5 5.6v3.5a3 3 0 0 1-3 3H7A3.5 3.5 0 0 1 3.5 17v-3.5c0-2.5.7-4.5 2-6.1zM10.7 9.6c-.7 1.5-1 3-1 4.6" },
   scale: { d: "M12 4v16.5M8 20.5h8M4.5 8h15M7 8l-3 6M7 8l3 6M17 8l-3 6M17 8l3 6M4 14a3 3 0 0 0 6 0M14 14a3 3 0 0 0 6 0" },
@@ -81,7 +83,7 @@ export const CHEVRON_UP = { d: "M6.4 14.6l5.6-5.6 5.6 5.6" };
    which the review editor's empty-day warning draws (Plan 070). `arrow` and `chevron` are emitted as the
    --arrow token and the .chevron family, not as classes. */
 export const CLASS_NAMES = [
-  "wand", "sliders", "search", "pencil", "clipboard", "download", "sheet", "flex", "scale",
+  "wand", "sliders", "search", "pencil", "clipboard", "download", "share", "sheet", "flex", "scale",
   "dumbbell", "building", "house", "kettlebell", "rack", "target", "trend", "cal", "clock",
   "shield", "pin", "alert", "gear", "check", "plus", "minus", "close", "reset", "keyboard",
 ];
