@@ -12,7 +12,8 @@ numbers that briefs and history already cite.
    `/home/ubuntu/repforge`. Work in your own fresh worktree:
    `git -C /tmp/taurifer-engine067 fetch origin main && git -C /tmp/taurifer-engine067 worktree add -b <branch> /tmp/<name> origin/main`
    (`worktree add /tmp/<name> <branch>` for an existing branch). Never edit
-   another session's worktree. Test dependencies:
+   another session's worktree unless that session has handed it over (it says
+   so, or reports it is blocked and asks the coordinator to finish). Test dependencies:
    `ln -s /tmp/taurifer-engine067/test/node_modules test/node_modules`, and
    remove the link before committing.
 2. **Test first.** Each behaviour change starts with a proof that fails for the
