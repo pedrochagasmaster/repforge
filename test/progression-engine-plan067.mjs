@@ -932,4 +932,36 @@ const unavailableGrid = recommend(prescription(), [{
 assert.equal(unavailableGrid.status, "configuration_required");
 assert.ok(unavailableGrid.reasonCodes.includes("available_loads_required"));
 
+// Fatigue is a drop in the lift's own performance, not a lighter suggestion (owner, 2026-11-06). The question needs
+// at least two comparable earlier sessions, and the latest one must have done fewer reps or less load at the same or
+// a harder effort than the one before it.
+const session = (sessionId, ...sets) => ({ sessionId, completed: true,
+  sets: sets.map(([loadKg, reps, rir], setIndex) => performedSet({ loadKg, reps, rir, setIndex })) });
+const trend = (history) => Engine.performanceTrend(prescription(), history, context());
+assert.equal(typeof Engine.performanceTrend, "function", "the engine answers whether a lift's performance dropped");
+// The owner's second session: one earlier session, too heavy for the 7–9 range at RIR 0. The engine lowers the load
+// to fit the range; that is calibration, and one session is not enough to call a drop.
+const tooHeavy = [session("s1", [110, 6, 0], [110, 6, 0])];
+assert.equal(recommend(prescription(), tooHeavy).targets.loadKg < 110, true, "a set too heavy for its range is suggested lighter");
+assert.deepEqual(trend(tooHeavy), { status: "insufficient_history", comparableSessions: 1, dropped: false },
+  "a lighter suggestion after one session is not fatigue");
+assert.equal(trend([]).dropped, false);
+// Calibrated down and performed: less load, more reps. Not a drop.
+assert.equal(trend([...tooHeavy, session("s2", [100, 9, 0])]).dropped, false, "a lighter load for more reps is calibration");
+// The same load for fewer reps at the same effort is a drop.
+const dropped = trend([session("s1", [105, 9, 1]), session("s2", [105, 7, 1])]);
+assert.equal(dropped.status, "dropped", "fewer reps at the same load and effort is a performance drop");
+assert.equal(dropped.dropped, true);
+assert.equal(dropped.comparableSessions, 2);
+assert.equal(trend([session("s1", [105, 8, 1]), session("s2", [102.5, 8, 0])]).dropped, true,
+  "less load for the same reps at a harder effort is a drop");
+// Fewer reps but an easier effort, or more load for fewer reps, is not a drop.
+assert.equal(trend([session("s1", [105, 9, 1]), session("s2", [105, 8, 3])]).dropped, false, "an easier effort is not a drop");
+assert.equal(trend([session("s1", [100, 9, 1]), session("s2", [105, 7, 1])]).dropped, false, "more load for fewer reps is not a drop");
+assert.equal(trend([session("s1", [105, 9, 1]), session("s2", [105, 9, 1])]).status, "steady");
+// Only the latest two comparable sessions are compared: an old drop that recovered is not reported.
+assert.equal(trend([session("s1", [105, 9, 1]), session("s2", [105, 7, 1]), session("s3", [105, 9, 1])]).dropped, false);
+// Sessions without a comparable first set (another loading setup, a missing effort) do not count.
+assert.equal(trend([session("s1", [105, 9, 1]), session("s2", [105, 7, null])]).status, "insufficient_history");
+
 console.log("PASS Plan 067 adaptive progression algorithm contract");

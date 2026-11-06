@@ -145,6 +145,7 @@ export const SUITES = {
     s("test/focus-pending-field.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback", "seconds": 67}),
     s("test/workout-draft-parity.mjs", [], {"domains": ["workout"], "cost": "normal", "tier": "feedback", "seconds": 53}),
     s("test/workout-finish-boundary.mjs", [], {"domains": ["workout"], "cost": "normal", "tier": "feedback", "seconds": 8}),
+    s("test/fatigue-signal.mjs", [], {"domains": ["workout", "today"], "cost": "normal", "tier": "feedback", "seconds": 10}),
     s("test/management-summary.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback", "seconds": 3}),
     s("test/progress-lifecycle.mjs", [], {"domains": ["progress"], "cost": "long", "tier": "candidate", "env": {"REPFORGE_LIFECYCLE_BROWSER": "1"}, "timeoutMs": 900000, "seconds": 23}),
     s("test/progress-recovery.mjs", [], {"domains": ["progress"], "cost": "long", "tier": "candidate", "timeoutMs": 900000, "seconds": 7}),

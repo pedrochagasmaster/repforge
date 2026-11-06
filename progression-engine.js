@@ -616,6 +616,27 @@
     });
   }
 
+  /** Did this lift's performance drop (owner rule, 2026-11-06)? A lighter suggestion is not evidence of fatigue: the
+   *  engine also lowers a load to fit the rep range or the effort target. A drop is read only from what was performed,
+   *  on the first working set the anchor reads: at least two comparable earlier sessions, and the latest one did fewer
+   *  reps or less load than the one before it at the same or a harder effort, so its capacity is lower. */
+  function performanceTrend(prescription, history = [], loadingContext = {}) {
+    const result = (status, comparableSessions) => ({ status, comparableSessions, dropped: status === "dropped" });
+    const shape = prescriptionShape(prescription);
+    if (!shape.ok || !shape.supported) return result("insufficient_history", 0);
+    const config = currentConfiguration(prescription, shape, loadingContext);
+    if (!config.ok) return result("insufficient_history", 0);
+    const firsts = (Array.isArray(history) ? history.slice(-1000) : [])
+      .map((session) => sessionFirstSet(parseSession(session, shape, prescription, config)))
+      .filter(Boolean);
+    if (firsts.length < 2) return result("insufficient_history", firsts.length);
+    const [previous, latest] = firsts.slice(-2);
+    const dropped = latest.rir <= previous.rir
+      && latest.effectiveLoadKg <= previous.effectiveLoadKg + 1e-9 && latest.reps <= previous.reps
+      && latest.capacityKg < previous.capacityKg - 1e-9;
+    return result(dropped ? "dropped" : "steady", firsts.length);
+  }
+
   function recommendSets(prescriptions, history = [], currentSession = [], loadingContext = {}, settings = {}) {
     if (!Array.isArray(prescriptions)) return [];
     const boundedHistory = Array.isArray(history) ? history.slice(-1000) : [];
@@ -626,7 +647,7 @@
   }
 
   const api = Object.freeze({ ENGINE_VERSION, RIR_CREDIT_CAP, FORMULA_VERSION, SUPPORTED_SEMANTICS, BODYWEIGHT_MATERIAL_THRESHOLD,
-    effectiveBodyweightCoefficient, recommendSets });
+    effectiveBodyweightCoefficient, performanceTrend, recommendSets });
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.RepForgeProgression = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
