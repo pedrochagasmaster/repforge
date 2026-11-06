@@ -301,8 +301,18 @@ async function edgeSwipe(browser, { reducedMotion = "no-preference" } = {}) {
 
   phase(`disposal cancels a live pull, and mounting is idempotent${tag}`);
   await edge(() => window.__edge.reset());
-  const handle = await edge(() => ({ same: window.RepForgeMotion.mountGestureController() === window.__repforgeGestureHandle }));
+  const handle = await edge(() => {
+    const c1 = window.RepForgeMotion.mountGestureController();
+    const c2 = window.RepForgeMotion.mountGestureController();
+    return {
+      same: c1 === window.__repforgeGestureHandle && c2 === c1,
+      state: c1?.state,
+      motionState: window.RepForgeMotion.gestureControllerState?.(),
+    };
+  });
   assert(handle.same, "mounting twice returns the one controller");
+  assert(handle.state === "mounted-motion", "gesture controller is in mounted-motion state", handle.state);
+  assert(handle.motionState === "mounted-motion", "RepForgeMotion reports mounted-motion state", handle.motionState);
   await edge(async () => {
     window.__edge.fire("pointerdown", 4);
     window.__edge.fire("pointermove", 30);
@@ -312,6 +322,14 @@ async function edgeSwipe(browser, { reducedMotion = "no-preference" } = {}) {
   const live = await edge(() => window.__edge.state());
   assert(live.swiping && live.x > 0, "a pull is live before the controller is disposed", JSON.stringify(live));
   await edge(() => window.__repforgeGestureHandle.dispose());
+  const disposedInfo = await edge(() => ({
+    state: window.__repforgeGestureHandle?.state,
+    motionState: window.RepForgeMotion.gestureControllerState?.(),
+    nav: window.__repforgeGestureHandle?.navigate?.(1),
+  }));
+  assert(disposedInfo.state === "disposed", "disposed controller is in disposed state", disposedInfo.state);
+  assert(disposedInfo.motionState === "unmounted", "RepForgeMotion reports unmounted after disposal", disposedInfo.motionState);
+  assert(disposedInfo.nav === false, "navigation on disposed controller is retired", String(disposedInfo.nav));
   const torn = await edge(() => window.__edge.state());
   assert(!torn.swiping && !torn.inline && !torn.hint && torn.x === 0, "disposal puts the page back and releases the layer hint", JSON.stringify(torn));
   await edge(() => { window.__edge.fire("pointermove", 300); window.__edge.fire("pointerup", 300); });
@@ -320,6 +338,12 @@ async function edgeSwipe(browser, { reducedMotion = "no-preference" } = {}) {
   const dead = await edge(() => window.__edge.drag([30, 90, 160, 240], { wait: 16 }));
   assert(dead.every((s) => !s.inline), "a disposed controller leaves the page inert", JSON.stringify(dead));
   await edge(() => { window.__repforgeGestureHandle = window.RepForgeMotion.mountGestureController(); window.__edge.reset(); });
+  const remountState = await edge(() => ({
+    state: window.__repforgeGestureHandle?.state,
+    motionState: window.RepForgeMotion.gestureControllerState?.(),
+  }));
+  assert(remountState.state === "mounted-motion", "re-mounted controller is in mounted-motion state", remountState.state);
+  assert(remountState.motionState === "mounted-motion", "RepForgeMotion reports mounted-motion after remount", remountState.motionState);
   await edge(() => window.__edge.drag([40, 120, 220, 310], { wait: 16 }));
   await still(reduced ? 80 : 700);
   assert((await edge(() => window.__edge.state())).commits === 1, "a fresh mount brings the owner back");
@@ -552,6 +576,141 @@ async function run() {
   assert(rest.running, "the rest keeps running, exactly as Close leaves it", JSON.stringify(rest));
   assert(rest.focus === "restTab", "focus returns to the tab that opened it", rest.focus);
   await page.evaluate(() => window.stopRest());
+
+  // ---- modal lifecycle and race recovery (Row 38) -------------------------------
+  phase("modal lifecycle: explicit states, reopen-while-closing and handoff-while-closing");
+  // 1. Initial state is closed
+  const initialModalState = await page.evaluate(() => window.modalState ? window.modalState() : (window.activeModal ? "open" : "closed"));
+  assert(initialModalState === "closed", "modal lifecycle starts in closed state", initialModalState);
+
+  // 2. Open sheet -> state becomes open
+  await page.evaluate(() => {
+    const sheet = document.querySelector("#programTextSheet");
+    const scrim = document.querySelector("#programTextScrim");
+    window.openModal(sheet, { scrim, delayHide: 200 });
+  });
+  const openState = await page.evaluate(() => ({
+    state: window.modalState ? window.modalState() : (window.activeModal ? "open" : "closed"),
+    sheet: window.__sheet("#programTextSheet"),
+    inert: window.__inert("#program")
+  }));
+  assert(openState.state === "open" && !openState.sheet.hidden && openState.inert, "opened modal is in open state and body is inert", JSON.stringify(openState));
+
+  // 3. Reopen while closing:
+  // Trigger closeModal with delayHide: 200, then immediately call openModal again
+  await page.evaluate(() => {
+    const sheet = document.querySelector("#programTextSheet");
+    const scrim = document.querySelector("#programTextScrim");
+    window.closeModal(sheet);
+    window.openModal(sheet, { scrim, delayHide: 200 });
+  });
+  const reopenImmediate = await page.evaluate(() => ({
+    state: window.modalState ? window.modalState() : (window.activeModal ? "open" : "closed"),
+    sheet: window.__sheet("#programTextSheet"),
+    inert: window.__inert("#program")
+  }));
+  assert(reopenImmediate.state === "open" && !reopenImmediate.sheet.hidden && reopenImmediate.inert, "reopen-while-closing transitions back to open immediately", JSON.stringify(reopenImmediate));
+
+  // Wait 300ms (longer than delayHide: 200ms) to ensure pending finish does NOT hide or steal focus
+  await page.waitForTimeout(300);
+  const reopenAfterTimeout = await page.evaluate(() => ({
+    state: window.modalState ? window.modalState() : (window.activeModal ? "open" : "closed"),
+    sheet: window.__sheet("#programTextSheet"),
+    inert: window.__inert("#program")
+  }));
+  assert(reopenAfterTimeout.state === "open" && !reopenAfterTimeout.sheet.hidden && reopenAfterTimeout.inert, "reopened modal survives the close timeout and remains open and inert", JSON.stringify(reopenAfterTimeout));
+
+  // Clean close
+  await page.evaluate(async () => {
+    const sheet = document.querySelector("#programTextSheet");
+    await window.closeModal(sheet);
+  });
+  await page.waitForTimeout(250);
+  const closedState = await page.evaluate(() => ({
+    state: window.modalState ? window.modalState() : (window.activeModal ? "open" : "closed"),
+    sheet: window.__sheet("#programTextSheet"),
+    inert: window.__inert("#program")
+  }));
+  assert(closedState.state === "closed" && closedState.sheet.hidden && !closedState.inert, "closed modal settles in closed state with inert restored", JSON.stringify(closedState));
+
+  // 4. Handoff while closing (Section D3 in audit-main.md: tap x on the day picker, then a row)
+  phase("handoff-while-closing: tap x on day picker, then a row within delayHide");
+  // Clean up any remaining rest or workout state
+  await page.evaluate(() => {
+    window.stopRest?.();
+    window.__repforgeLeaveWorkout?.();
+  });
+  await page.waitForSelector("#todayDash:not(.hidden)", { timeout: 5000 });
+
+  // Enter workout and log a set to guarantee draft has progress
+  await page.evaluate(() => window.__repforgeEnterWorkout({}));
+  await page.waitForSelector("#workoutShell:not(.hidden) #workout .exercise.is-current .focus-shelf", { timeout: 5000 });
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+    const ex = state.program?.[0];
+    if (ex) {
+      for (const [suffix, val] of [["load", 100], ["reps", 10], ["rir", 2]]) {
+        const el = document.querySelector(`[data-k="${ex.id}_1_${suffix}"]`);
+        if (el) {
+          el.value = String(val);
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+      }
+    }
+  });
+  await page.evaluate(() => window.__repforgeLeaveWorkout?.());
+  await page.waitForSelector("#todayDash:not(.hidden)", { timeout: 5000 });
+
+  const days = await page.evaluate(() => [
+    ...new Set(JSON.parse(localStorage.getItem("repforge_v1") || "{}").program.map((e) => e.day)),
+  ]);
+  const otherDay = days[1] || "Day 2";
+
+  // Open day picker
+  await page.click("#chooseAnotherDay");
+  await page.waitForSelector("#dayPickSheet.is-open", { timeout: 5000 });
+  assert(await page.evaluate(() => window.modalState() === "open"), "day picker opens in open state");
+
+  // Tap x on day picker to initiate closing (delayHide: 280ms)
+  await page.click("#dayPickSheet [data-daypick-close]");
+  assert(await page.evaluate(() => window.modalState() === "closing"), "day picker transitions to closing state");
+
+  // While closing (within 280ms), tap a different day row (evaluate bypasses Playwright motion stability wait)
+  await page.evaluate((d) => document.querySelector(`[data-daypick="${d}"]`)?.click(), otherDay);
+
+  // Handoff occurs: #draftDiscardSheet opens
+  await page.waitForSelector("#draftDiscardSheet.is-open", { timeout: 5000 });
+  const discardImmediate = await page.evaluate(() => ({
+    state: window.modalState(),
+    pickerHidden: document.querySelector("#dayPickSheet")?.hidden === true,
+    discardHidden: document.querySelector("#draftDiscardSheet")?.hidden === true,
+    locked: document.body.classList.contains("is-sheet-open"),
+    inert: window.__inert("#log"),
+    focus: document.activeElement?.id
+  }));
+  assert(discardImmediate.state === "open" && discardImmediate.pickerHidden && !discardImmediate.discardHidden && discardImmediate.locked && discardImmediate.inert,
+    "handoff while closing immediately hides day picker, opens discard question, locks sheet and marks page inert",
+    JSON.stringify(discardImmediate));
+
+  // Wait 400ms (longer than the day picker's 280ms delayHide timeout)
+  await page.waitForTimeout(400);
+
+  const discardAfterTimeout = await page.evaluate(() => ({
+    state: window.modalState(),
+    discardHidden: document.querySelector("#draftDiscardSheet")?.hidden === true,
+    locked: document.body.classList.contains("is-sheet-open"),
+    inert: window.__inert("#log"),
+    focus: document.activeElement?.id
+  }));
+  assert(discardAfterTimeout.state === "open" && !discardAfterTimeout.discardHidden && discardAfterTimeout.locked && discardAfterTimeout.inert && discardAfterTimeout.focus === "draftDiscardKeep",
+    "discard sheet survives the day picker close timeout: still open, sheet locked, background inert, focus intact on Keep",
+    JSON.stringify(discardAfterTimeout));
+
+  // Clean close discard sheet (declining discard reopens day picker via resume)
+  await page.click("#draftDiscardKeep");
+  await page.waitForSelector("#dayPickSheet.is-open", { timeout: 5000 });
+  await page.click("#dayPickSheet [data-daypick-close]");
+  await page.waitForTimeout(350);
 
   assert(!errors.length, "no uncaught page errors", errors.slice(0, 3).join(" | "));
 
