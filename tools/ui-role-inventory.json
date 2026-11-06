@@ -271,7 +271,12 @@
     "today/calibration-mini": {
       "owner": "plan-077",
       "content": "flat",
-      "scenario": "The small effort calibration row on Today."
+      "scenario": "The calibration ring beside Today's large title."
+    },
+    "today/calibration-ring-bar": {
+      "owner": "plan-077",
+      "content": "flat",
+      "scenario": "Today scrolled, the calibration ring in the bar beside the gear."
     },
     "today/dock-viewer": {
       "owner": "plan-075-phase-5",
@@ -1335,7 +1340,8 @@
         "today/deload-week",
         "today/ready-scrolled",
         "today/in-progress",
-        "today/calibration-mini"
+        "today/calibration-mini",
+        "today/calibration-ring-bar"
       ]
     },
     {
@@ -4479,8 +4485,53 @@
         "today/deload-week",
         "today/ready-scrolled",
         "today/in-progress",
-        "today/calibration-mini"
+        "today/calibration-mini",
+        "today/calibration-ring-bar"
       ]
+    },
+    {
+      "id": "calring-title",
+      "selector": "#todayCalRing",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "The calibration ring beside Today's large title: the gauge's number and test-set dots; opens Progress › Overview at the calibration card.",
+      "owner": "plan-077",
+      "catalogStates": [
+        "today/calibration-mini",
+        "today/calibration-ring-bar"
+      ],
+      "neverDisabledReason": "The ring is shown only when there is a gauge to open; with none it is hidden, not disabled."
+    },
+    {
+      "id": "calring-bar",
+      "selector": "#todayCalRingBar",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "pressed"
+      ],
+      "rationale": "The calibration ring's twin in the bar beside the gear once Today's title has scrolled under the bar; a pointer shortcut (the title ring is the one keyboard and VoiceOver reach).",
+      "owner": "plan-077",
+      "catalogStates": [
+        "today/calibration-ring-bar"
+      ],
+      "neverDisabledReason": "Shown only with the gauge; hidden otherwise."
     },
     {
       "id": "previewadd",
@@ -6126,7 +6177,8 @@
         "workout/invalid-draft",
         "today/deload-week",
         "today/ready-scrolled",
-        "today/calibration-mini"
+        "today/calibration-mini",
+        "today/calibration-ring-bar"
       ]
     },
     {
@@ -6594,7 +6646,8 @@
         "today/deload-week",
         "today/ready-scrolled",
         "today/in-progress",
-        "today/calibration-mini"
+        "today/calibration-mini",
+        "today/calibration-ring-bar"
       ],
       "progressScopes": {
         "active-program-week": "block"
@@ -6651,7 +6704,8 @@
         "today/deload-week",
         "today/ready-scrolled",
         "today/in-progress",
-        "today/calibration-mini"
+        "today/calibration-mini",
+        "today/calibration-ring-bar"
       ],
       "progressScopes": {
         "current-week-trained-days": "week"
@@ -6717,7 +6771,8 @@
         "today/deload-week",
         "today/ready-scrolled",
         "today/in-progress",
-        "today/calibration-mini"
+        "today/calibration-mini",
+        "today/calibration-ring-bar"
       ]
     },
     {
@@ -8558,7 +8613,8 @@
         "history/minibar-rest",
         "program/minibar-rest-done",
         "progress/overview-calibration",
-        "today/calibration-mini"
+        "today/calibration-mini",
+        "today/calibration-ring-bar"
       ]
     },
     {
@@ -8636,7 +8692,8 @@
         "history/minibar-rest",
         "program/minibar-rest-done",
         "progress/overview-calibration",
-        "today/calibration-mini"
+        "today/calibration-mini",
+        "today/calibration-ring-bar"
       ]
     },
     {
@@ -8723,7 +8780,8 @@
         "history/minibar-rest",
         "program/minibar-rest-done",
         "progress/overview-calibration",
-        "today/calibration-mini"
+        "today/calibration-mini",
+        "today/calibration-ring-bar"
       ]
     },
     {
@@ -8874,7 +8932,8 @@
         "workout/why-calibration",
         "workout/last-rep-slow",
         "progress/overview-calibration",
-        "today/calibration-mini"
+        "today/calibration-mini",
+        "today/calibration-ring-bar"
       ]
     },
     {
@@ -9066,7 +9125,8 @@
         "today/ready-scrolled",
         "today/in-progress",
         "program/minibar-rest-done",
-        "today/calibration-mini"
+        "today/calibration-mini",
+        "today/calibration-ring-bar"
       ]
     },
     {
@@ -11811,7 +11871,8 @@
         "workout/invalid-draft",
         "workout/reorder",
         "workout/session",
-        "today/calibration-mini"
+        "today/calibration-mini",
+        "today/calibration-ring-bar"
       ],
       "neverDisabledReason": "The menu or choice stays reachable whenever its owning row is present."
     },
@@ -12251,7 +12312,8 @@
         "workout/invalid-draft",
         "progress/strength-comparison",
         "progress/strength-sparse",
-        "today/calibration-mini"
+        "today/calibration-mini",
+        "today/calibration-ring-bar"
       ]
     },
     {

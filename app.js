@@ -6081,7 +6081,10 @@ function mountTopBars(){
       const bar=$(barSel),title=document.querySelector(`${viewSel} .pagehead .page-title`);
       if(!bar||!title)return;
       // A title that isn't laid out (its page is hidden) hasn't scrolled under anything.
-      new IntersectionObserver(([entry])=>{bar.classList.toggle("is-scrolled",!entry.isIntersecting&&entry.boundingClientRect.height>0)},
+      new IntersectionObserver(([entry])=>{const scrolled=!entry.isIntersecting&&entry.boundingClientRect.height>0;
+        bar.classList.toggle("is-scrolled",scrolled);
+        // Today's calibration ring hands over to its bar twin as the title goes under the bar.
+        if(barSel==="#logTopbar")$("#todayCalRingBar")?.classList.toggle("is-shown",scrolled)},
         {threshold:0,rootMargin}).observe(title)})}
 mountTopBars();
 /* ---- The dock's large-content viewer (Plan 075 phase 5, audit F-5) ----
@@ -7533,12 +7536,41 @@ function renderOverviewCalibration(){
       `<ul class="calsigs">${signals.map(([label,value,share,lead])=>`<li class="calsig${lead?" calsig--lead":""}"><span>${esc(t(label))}</span><span>${esc(value)}</span>${gaugeBar(share*100," calbar--thin")}</li>`).join("")}</ul>`+
       `<p class="calcard__fade">${esc(t("calib.fade"))}</p></div>`+
     `<div class="ovsec"><h3 class="ovsec__title">${esc(t("calib.recent"))}</h3></div><ul class="calchecks">${rows}</ul>`}
-/** Today: the same number in one quiet row, from the first logged workout. */
+/* ---- The calibration ring on Today (owner direction B, 2026-11-06) ----
+   The gauge's number inside an arc that fills with it, open at the foot, where one dot per test set the gauge counts
+   (two per exercise, up to four exercises) fills as each is done: at 7% the lifter sees the one test set behind it.
+   No % sign in the ring; its label says percent. Drawn on a 46-unit square; CSS sets the size (46 px beside the large
+   title, up to 1.3× under large text; 30 px in the bar). */
+const CALRING_GAP=116;
+function calRingSvg(percent,counted,needed){
+  const c=23,r=19.55,pct=Math.max(0,Math.min(100,Math.round(percent))),a0=180+CALRING_GAP/2,a1=540-CALRING_GAP/2;
+  const at=deg=>{const rad=(deg-90)*Math.PI/180;return[c+r*Math.cos(rad),c+r*Math.sin(rad)]};
+  const arc=(from,to)=>{const [x0,y0]=at(from),[x1,y1]=at(to);return `M${x0.toFixed(2)} ${y0.toFixed(2)}A${r} ${r} 0 ${to-from>180?1:0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`};
+  let out=`<path class="calring__track" d="${arc(a0,a1)}"/>`;
+  if(pct>0)out+=`<path class="calring__fill" d="${arc(a0,Math.max(a0+2,a0+(a1-a0)*pct/100))}"/>`;
+  // The dots keep clear of the arc's round ends, so the first test set reads as its own dot.
+  const n=Math.max(1,Math.min(8,needed|0)),done=Math.max(0,Math.min(n,counted|0)),span=CALRING_GAP-32;
+  for(let i=0;i<n;i++){
+    const [x,y]=at(a0-16-(n>1?i*span/(n-1):span/2));
+    out+=`<circle class="calring__dot${i<done?" is-done":""}" cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${i<done?1.8:1.25}"/>`}
+  out+=`<text class="calring__n${pct?"":" is-empty"}" x="${c}" y="${c+(pct===100?4.2:5)}" text-anchor="middle" font-size="${pct===100?13.8:16.5}">${pct}</text>`;
+  return `<svg viewBox="0 0 46 46" aria-hidden="true" focusable="false">${out}</svg>`}
+/** Today: the ring beside the large title and its twin in the bar, from the first logged workout. */
 function renderTodayCalibration(){
-  const el=$("#todayCalibration");if(!el)return;
+  const ring=$("#todayCalRing"),bar=$("#todayCalRingBar");if(!ring)return;
   const g=calibrationGauge();
-  el.classList.toggle("hidden",!g);if(!g){el.innerHTML="";return}
-  el.innerHTML=`<span class="today-cal__label">${esc(t("calib.today"))}</span><b class="today-cal__n">${esc(t("calib.percent",{n:g.percent}))}</b>${gaugeBar(g.percent," calbar--thin")}`}
+  for(const el of [ring,bar])if(el){el.classList.toggle("hidden",!g);el.hidden=!g}
+  if(!g){ring.innerHTML="";if(bar)bar.innerHTML="";return}
+  const c=g.counts,svg=calRingSvg(g.percent,c.counted,c.needed);
+  ring.innerHTML=svg;ring.setAttribute("aria-label",t("calib.ring_aria",{n:g.percent,done:c.counted,m:c.needed}));
+  if(bar)bar.innerHTML=svg}
+/** The ring's tap: Progress › Overview, at the calibration card. */
+function openCalibrationFromToday(){
+  navTo("stats");setStatsSeg("overview");
+  requestAnimationFrame(()=>{const card=$("#overviewCalibration");if(!card||card.classList.contains("hidden"))return;
+    card.scrollIntoView({block:"start",behavior:scrollBehavior()});
+    const head=card.querySelector(".ovsec__title");
+    if(head){head.tabIndex=-1;try{head.focus({preventScroll:true})}catch{}}})}
 /* "Not now" closes the prompt for that exercise in this workout. */
 const maxSetDeclined=new Set();
 let maxSetUi=null;
@@ -8518,7 +8550,7 @@ function paintSessionRest(){
 function renderTodayNoProgram(){
   for(const sel of["#todayProgram","#todaySessionLabel","#todaySession","#startWorkout","#chooseAnotherDay",
     "#reviewTodaySession","#logAnotherSession","#todayWeekLabel","#todayWeek",
-    "#todayUpNextLabel","#todayUpNext","#todayLast","#todayCalibration"]){
+    "#todayUpNextLabel","#todayUpNext","#todayLast","#todayCalRing","#todayCalRingBar"]){
     const el=$(sel);if(el)el.classList.add("hidden")}
   const sess=$("#todaySession");parkDayAction();if(sess)sess.innerHTML="";
   renderTodayLive(null);
@@ -24774,6 +24806,7 @@ function init(){
   trackSheetViewport();
   // Sheet and card deck gestures are mounted via explicit gesture controller lifetime.
   const openSettingsBtn=$("#openSettings");if(openSettingsBtn)openSettingsBtn.onclick=()=>openSettingsView();
+  for(const id of ["#todayCalRing","#todayCalRingBar"]){const ring=$(id);if(ring)ring.onclick=()=>openCalibrationFromToday()}
   const settingsBack=$("#settingsBack");if(settingsBack)settingsBack.onclick=()=>{navTo("log");focusRoute("#openSettings")};
   const startWo=$("#startWorkout");if(startWo)startWo.onclick=()=>enterWorkout({});
   const otherDay=$("#chooseAnotherDay");if(otherDay)otherDay.onclick=()=>openDayPickSheet();
