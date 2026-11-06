@@ -13,6 +13,8 @@
  *  - closing (×, Escape) returns to the summary with focus on Share;
  *  - a session with no record and nothing improved offers only the stats card;
  *  - no request leaves the app's origin while sharing;
+ *  - from History (PR 4): a past session's page offers Share, which opens the same sheet on that session's card,
+ *    the same card the finish screen drew for it; closing returns to the page with focus on Share;
  *  - Photo (PR 3): choosing it opens the picker; until a photo is chosen nothing can be sent; the chosen photo is
  *    scaled down, drawn dimmed under the card and kept across card and format choices; a file that isn't a picture
  *    says so; closing the sheet lets the photo go, and nothing about it reaches storage.
@@ -41,7 +43,7 @@ const pixel = (page, x, y) => page.evaluate(async ([px, py]) => {
   return `#${[d[0], d[1], d[2]].map((v) => v.toString(16).padStart(2, "0")).join("").toUpperCase()}`;
 }, [x, y]);
 async function openSummary(browser, key, { canShare }) {
-  const capture = { flow: "session", screen: key.split("/")[1], viewport: "phone-390", theme: "light", locale: "en", text: "normal", motion: "reduced" };
+  const capture = { flow: key.split("/")[0], screen: key.split("/")[1], viewport: "phone-390", theme: "light", locale: "en", text: "normal", motion: "reduced" };
   const opened = await openPage(browser, manifest, capture, appState(key, "en"));
   const page = opened.page, errors = [], foreign = [];
   page.on("pageerror", (e) => errors.push(e.message));
@@ -182,6 +184,47 @@ try {
       await page.waitForFunction(() => window.__repforgeShareSheet.state()?.file, undefined, { timeout: 15000 });
       s = await state(page);
       check(s.photo === null && s.style !== "photo", "the next share starts without it", s);
+      check(!foreign.length, "nothing is requested outside the app's origin", foreign);
+      check(!errors.length, "no page errors", errors);
+    } finally { await context.close(); }
+  }
+
+  console.log("\nShare from History");
+  {
+    // The finish screen's card for Day 1, to compare with the one History draws for the same session.
+    const finish = await openSummary(browser, "session/summary", { canShare: true });
+    let finishCard;
+    try {
+      await finish.page.click("#sumShare");
+      await finish.page.waitForFunction(() => window.__repforgeShareSheet.state()?.file, undefined, { timeout: 15000 });
+      finishCard = { state: await state(finish.page), alt: await finish.page.evaluate(() => document.querySelector("#shareCardPreview").alt) };
+    } finally { await finish.context.close(); }
+    const { context, page, errors, foreign } = await openSummary(browser, "history/session", { canShare: true });
+    try {
+      const share = page.locator("[data-history-share]");
+      check(await share.count() === 1 && (await share.textContent()).trim() === "Share", "the session's page offers Share", await share.count());
+      await share.click();
+      await page.waitForFunction(() => window.__repforgeShareSheet.state()?.file, undefined, { timeout: 15000 });
+      const s = await state(page);
+      const alt = await page.evaluate(() => document.querySelector("#shareCardPreview").alt);
+      check(s.kind === "record" && s.size === "story" && s.style === "orange" && s.file.name === finishCard.state.file.name,
+        "it opens the same sheet on that session's record poster", { history: s.file, finish: finishCard.state.file });
+      check(alt === finishCard.alt && s.drawn.lifts === finishCard.state.drawn.lifts && s.file.size === finishCard.state.file.size,
+        "the card is the one the finish screen drew for the session", { alt, finishAlt: finishCard.alt, size: s.file.size, finishSize: finishCard.state.file.size });
+      const under = await page.evaluate(() => ({ summary: document.querySelector("#sessionSummary").hidden, history: !!document.querySelector(".session--read") }));
+      check(under.summary && under.history, "the History page stays under the sheet; the finish screen doesn't appear", under);
+      await page.locator('#shareKindSegments [data-value="stats"]').click();
+      await page.waitForFunction(() => window.__repforgeShareSheet.state()?.drawn?.kind === "stats", undefined, { timeout: 15000 });
+      check((await state(page)).drawn.lifts === finishCard.state.drawn.lifts, "the stats card lists every lift too");
+      await page.click("#shareCardShare");
+      await page.waitForFunction(() => window.__shared.length === 1, undefined, { timeout: 5000 }).catch(() => {});
+      check((await page.evaluate(() => window.__shared)).length === 1, "Share hands the system sheet the PNG");
+      await page.keyboard.press("Escape");
+      await page.waitForFunction(() => document.querySelector("#shareCardSheet").hidden, undefined, { timeout: 5000 }).catch(() => {});
+      await page.waitForTimeout(400);
+      const back = await page.evaluate(() => ({ focus: document.activeElement?.matches?.("[data-history-share]"), summary: document.querySelector("#sessionSummary").hidden,
+        reading: !!document.querySelector(".session--read"), state: window.__repforgeShareSheet.state() }));
+      check(back.focus && back.summary && back.reading && back.state === null, "closing returns to the session's page, focus on Share", back);
       check(!foreign.length, "nothing is requested outside the app's origin", foreign);
       check(!errors.length, "no page errors", errors);
     } finally { await context.close(); }

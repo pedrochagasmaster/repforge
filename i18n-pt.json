@@ -266,6 +266,7 @@
   "history.search_input_aria": "Filtrar sessões por dia ou exercício",
   "history.session_open_aria": "Abrir a sessão {day}",
   "history.session.sub": "{date} · {sets} séries · maior {top} · {vol} {unit}",
+  "history.session.share": "Compartilhar",
   "history.session.edit": "Editar",
   "history.session.delete": "Excluir sessão",
   "history.selected": "Sessão selecionada",
