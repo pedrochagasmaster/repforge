@@ -550,6 +550,60 @@ effortDraft = apply(effortDraft, "beginFinish");
 const effortRows = Draft.toHistoryRows(effortDraft, "2026-08-15T11:00:00.000Z");
 assert(effortRows[0].rir === 0, "effort mode compiles its locale-neutral value to current numeric History RIR");
 
+console.log("\nEffort provenance (Plan 077 PR 1, OD-1)");
+{
+  const at = { exerciseInstanceId: "slot-squat", setId: "squat-set-1", completedAt: "2026-08-15T10:00:00.000Z" };
+  // An untouched effort-mode set logs the value its field shows: completion materialises it and says it was a prefill.
+  let prefilled = fresh({ rirMode: "effort" });
+  prefilled = apply(prefilled, "completeSet", { ...at, prefill: { field: "effort", value: "hard" } });
+  const pset = prefilled.exercises["slot-squat"].sets["squat-set-1"];
+  assert(pset.edited.effort === "hard" && pset.completion.effortSource === "prefilled",
+    "completing an untouched effort-mode set materialises the shown effort and records effortSource prefilled", JSON.stringify(pset));
+  // A label the lifter chose is effort; a typed number is rir.
+  let label = fresh({ rirMode: "effort" });
+  label = apply(label, "editSetField", { exerciseInstanceId: "slot-squat", setId: "squat-set-1", field: "effort", value: "max" });
+  label = apply(label, "completeSet", { ...at, prefill: { field: "effort", value: "hard" } });
+  const lset = label.exercises["slot-squat"].sets["squat-set-1"];
+  assert(lset.edited.effort === "max" && lset.completion.effortSource === "effort", "a chosen label records effortSource effort and keeps the lifter's value over the prefill", JSON.stringify(lset));
+  let typed = fresh();
+  typed = apply(typed, "editSetField", { exerciseInstanceId: "slot-squat", setId: "squat-set-1", field: "rir", value: "1" });
+  typed = apply(typed, "completeSet", at);
+  assert(typed.exercises["slot-squat"].sets["squat-set-1"].completion.effortSource === "rir", "a typed RIR records effortSource rir");
+  // Untouched in numeric mode with no prefill passed: the programmed target is what the field showed.
+  let target = fresh();
+  target = apply(target, "completeSet", at);
+  const tset = target.exercises["slot-squat"].sets["squat-set-1"];
+  assert(tset.edited.rir === "2" && tset.completion.effortSource === "prefilled", "an untouched numeric set materialises its target RIR as a prefill", JSON.stringify(tset));
+  // Uncommitting a prefilled set returns it to untouched, so logging it again is still a prefill.
+  let again = apply(prefilled, "uncommitSet", { exerciseInstanceId: "slot-squat", setId: "squat-set-1" });
+  assert(again.exercises["slot-squat"].sets["squat-set-1"].touched.effort === false, "uncommitting a prefilled set leaves its effort untouched");
+  again = apply(again, "completeSet", { ...at, prefill: { field: "effort", value: "hard" } });
+  assert(again.exercises["slot-squat"].sets["squat-set-1"].completion.effortSource === "prefilled", "re-logging it records prefilled again");
+  // History rows carry the source.
+  let finished = apply(prefilled, "beginFinish");
+  const provRows = Draft.toHistoryRows(finished, "2026-08-15T11:00:00.000Z");
+  assert(!Draft.isDomainError(provRows) && provRows[0].effortSource === "prefilled" && provRows[0].rir === 1, "toHistoryRows emits effortSource beside the mapped RIR", JSON.stringify(provRows[0]));
+  const typedRows = Draft.toHistoryRows(apply(typed, "beginFinish"), "2026-08-15T11:00:00.000Z");
+  assert(!Draft.isDomainError(typedRows) && typedRows[0].effortSource === "rir", "a typed RIR row says rir");
+  // A draft from before PR 1: its completed set has no source, it still validates and finishes, and its row has no key.
+  const legacy = JSON.parse(JSON.stringify(typed));
+  delete legacy.exercises["slot-squat"].sets["squat-set-1"].completion.effortSource;
+  const legacyParsed = Draft.parse(JSON.stringify(legacy));
+  assert(legacyParsed.kind === "valid", "a pre-PR draft without completion.effortSource still parses", JSON.stringify(legacyParsed.issues || ""));
+  const legacyRows = Draft.toHistoryRows(apply(legacyParsed.draft, "beginFinish"), "2026-08-15T11:00:00.000Z");
+  assert(!Draft.isDomainError(legacyRows) && !Object.hasOwn(legacyRows[0], "effortSource"), "a pre-PR completed set saves without effortSource: nothing is fabricated", JSON.stringify(legacyRows[0]));
+  // Validation: only the enum.
+  for (const value of ["rir", "effort", "reps_left", "reps_left_3plus", "unsure", "prefilled", "failure"]) {
+    const withSource = JSON.parse(JSON.stringify(typed));
+    withSource.exercises["slot-squat"].sets["squat-set-1"].completion.effortSource = value;
+    assert(Draft.validate(withSource).ok, `completion.effortSource ${value} validates`);
+  }
+  const unknown = JSON.parse(JSON.stringify(typed));
+  unknown.exercises["slot-squat"].sets["squat-set-1"].completion.effortSource = "x";
+  assert(!Draft.validate(unknown).ok, "an unknown completion.effortSource is refused");
+  assert(Array.isArray(Draft.EFFORT_SOURCES) && Draft.EFFORT_SOURCES.length === 7, "the enum is exported for the app and the contract", String(Draft.EFFORT_SOURCES));
+}
+
 console.log("\nDeterministic current-meaning History compilation");
 let historyDraft = fresh();
 historyDraft = apply(historyDraft, "substituteExercise", { exerciseInstanceId: "slot-squat", replacement, selectedAt: "2026-08-15T10:19:00.000Z" });

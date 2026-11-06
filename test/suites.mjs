@@ -254,6 +254,7 @@ export const FULL_SUITES = {
     s("test/per-side-reading-browser.mjs", [], { domains: ["history", "progress", "workout"], tier: "packet", seconds: 21, timeoutMs: 900000 }),
     s("test/per-side-completion-summary-browser.mjs", [], { domains: ["workout", "history", "progress"], seconds: 79 }),
     s("test/history-edit.mjs", [], { seconds: 42 }),
+    s("test/effort-provenance.mjs", [], { domains: ["workout", "history", "persistence"], seconds: 20 }),
     s("test/history-persistence-race.mjs", [], { seconds: 5 }),
     s("test/today-done.mjs", [], { seconds: 19 }),
     s("test/today-day-picker.mjs", [], { seconds: 33 }),

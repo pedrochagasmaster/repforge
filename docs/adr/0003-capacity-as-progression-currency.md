@@ -1,5 +1,11 @@
 # Capacity (reps + trusted RIR) replaces threshold-RIR rules as the progression currency
 
+> **Superseded for engine arithmetic by [Plan 067](../../plans/067-engine-replacement.md)** (owner decision OD-23a in
+> [Plan 077](../../plans/077-calibration-free-layer.md), 2026-11-05). Suggestions come from
+> `progression-engine.js`; the capacity layer described here no longer runs (Plan 077 audit A3), RIR is credited up
+> to a cap of 5 (#624), and how each effort value was entered is recorded as the row's `effortSource` (Plan 077,
+> OD-1). The reasoning below is kept as history.
+
 The deterministic suggestion engine (`recommendation`, `baseSetReps`,
 `setSuggestion` in `app.js`) read performed reps and RIR through fixed
 thresholds: load jumps required *performed* reps at the range top, RIR

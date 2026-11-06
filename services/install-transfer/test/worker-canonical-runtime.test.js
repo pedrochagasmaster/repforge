@@ -226,6 +226,15 @@ fiveWeekEnvelope.durableState.program = rowsFor(fiveWeeks.value);
 fiveWeekEnvelope.integrity = { canonicalPayloadHash: createHash("sha256")
   .update(contract.canonicalJson({ ...fiveWeekEnvelope, integrity: {} }), "utf8").digest("hex") };
 
+// Plan 077 PR 1: a History row says how its effort was entered; the Worker accepts the enum and refuses anything else.
+const sourcedEnvelope = (effortSource) => {
+  const envelope = structuredClone(sourceEnvelope);
+  envelope.durableState.log[0].effortSource = effortSource;
+  envelope.integrity = { canonicalPayloadHash: createHash("sha256")
+    .update(contract.canonicalJson({ ...envelope, integrity: {} }), "utf8").digest("hex") };
+  return envelope;
+};
+
 function createRequest(envelope, idempotencyKey) {
   return new Request("https://transfer.example/v1/transfers", {
     method: "POST",
@@ -292,6 +301,19 @@ describe("Worker canonical runtime dependencies", () => {
     expect(fiveWeeks.value.generatorVersion).toBe(ProgramCompiler.GENERATOR_VERSION);
     const response = await worker.fetch(createRequest(fiveWeekEnvelope, "canonical-worker-five-weeks"), env);
     expect(response.status).toBe(201);
+  });
+
+  it("accepts a row's effortSource from the enum (Plan 077)", async () => {
+    const response = await worker.fetch(createRequest(sourcedEnvelope("prefilled"), "canonical-worker-effort-source"), env);
+    expect(response.status).toBe(201);
+  });
+
+  it("refuses a row whose effortSource is not in the enum (Plan 077)", async () => {
+    const response = await worker.fetch(createRequest(sourcedEnvelope("x"), "canonical-worker-effort-source-x"), env);
+    expect(response.status).toBeGreaterThanOrEqual(400);
+    expect(response.status).toBeLessThan(500);
+    // The Worker refuses without detail (no token, no code), as it does every invalid envelope.
+    expect(await response.json()).toEqual({ state: "unavailable" });
   });
 
   it("accepts a durable state that carries session timing (#515)", async () => {

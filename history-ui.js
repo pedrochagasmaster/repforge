@@ -401,13 +401,14 @@ function historySessionFromWorkingCopy(card){
         if(edit){
           if(edit.valid!==true)return{error:{field:rirEl,key:edit.key||"validation.rir"},dateP};
           next.rir=edit.value;
-          if(edit.value==null)delete next.rirMeasured;else next.rirMeasured=true}}
+          // A corrected RIR is the lifter's own number (Plan 077, OD-1); a cleared one is unknown again.
+          if(edit.value==null){delete next.rirMeasured;delete next.effortSource}else{next.rirMeasured=true;next.effortSource="rir"}}}
     }else{
       const loadEl=rowEl.querySelector('[data-ek^="load|"]'),repsEl=rowEl.querySelector('[data-ek^="reps|"]');
       const loadEdit=historyInputEdit(selection,loadEl),repsEdit=historyInputEdit(selection,repsEl),rirEdit=historyInputEdit(selection,rirEl);
       if(loadEdit){if(loadEdit.valid!==true)return{error:{field:loadEl,key:loadEdit.key||"validation.load"},dateP};next.load=loadEdit.value}
       if(repsEdit){if(repsEdit.valid!==true)return{error:{field:repsEl,key:repsEdit.key||"validation.reps"},dateP};next.reps=repsEdit.value}
-      if(rirEdit){if(rirEdit.valid!==true)return{error:{field:rirEl,key:rirEdit.key||"validation.rir"},dateP};next.rir=rirEdit.value;next.rirMeasured=true}}
+      if(rirEdit){if(rirEdit.valid!==true)return{error:{field:rirEl,key:rirEdit.key||"validation.rir"},dateP};next.rir=rirEdit.value;next.rirMeasured=true;next.effortSource="rir"}}
     next.date=dateP.value;out.push(next)}
   return{rows:out,dateP}
 }
@@ -457,7 +458,8 @@ function historyApplyWorkingInput(event){
           valueRecord.value=parsed.value;historyMetricProjection(historySelection.workingCopy[i],parts[2],parsed.value)}}
       else if(key==="rir"){
         historySelection.workingCopy[i].rir=parsed.value;
-        if(parsed.value==null)delete historySelection.workingCopy[i].rirMeasured;else historySelection.workingCopy[i].rirMeasured=true}
+        if(parsed.value==null){delete historySelection.workingCopy[i].rirMeasured;delete historySelection.workingCopy[i].effortSource}
+        else{historySelection.workingCopy[i].rirMeasured=true;historySelection.workingCopy[i].effortSource="rir"}}
       else historySelection.workingCopy[i][key]=parsed.value;
       // A valid RIR entry is the user's explicit correction, so it is measured evidence.
     }}

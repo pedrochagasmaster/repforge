@@ -35,6 +35,11 @@
     claimCommitStatusRatePerTokenPerMinute: 60,
   });
 
+  /* How a set's effort was entered (Plan 077, OD-1): the same enum as workout-draft.js's EFFORT_SOURCES, held here
+     because the contract validates on its own (test/effort-provenance-contract.mjs keeps the two equal). */
+  const EFFORT_SOURCES = Object.freeze(["rir", "effort", "reps_left", "reps_left_3plus", "unsure", "prefilled", "failure"]);
+  const validEffortSource = (holder) => !hasOwn(holder, "effortSource") || EFFORT_SOURCES.includes(holder.effortSource);
+
   const ERROR_CODES = Object.freeze({
     INVALID_INPUT: "invalid-input",
     INVALID_ENDPOINT: "invalid-endpoint",
@@ -734,7 +739,8 @@
     for (const field of ["load", "reps", "effort"]) if (typeof value.touched[field] !== "boolean") return false;
     if (hasOwn(value.touched, "rir") && typeof value.touched.rir !== "boolean") return false;
     if (value.completion !== "pending" &&
-      (!isPlainObject(value.completion) || !validString(value.completion.completedAt, true))) return false;
+      (!isPlainObject(value.completion) || !validString(value.completion.completedAt, true) ||
+        !validEffortSource(value.completion))) return false;
     return true;
   }
 
@@ -1005,6 +1011,7 @@
   }
 
   function validateCanonicalLogRow(row, catalog) {
+    if (!validEffortSource(row)) return ERROR_CODES.INVALID_ENVELOPE;
     const metricFields = ["metricType", "metricIds", "metricDefinitions", "metricValues", "equipmentId", "loadingConvention", "loadingContext", "restSeconds"];
     const hasMetricFields = metricFields.some((field) => hasOwn(row, field));
     const isWorkSet = hasOwn(row, "exerciseId") || hasOwn(row, "set") || hasOwn(row, "setIndex");
@@ -1349,6 +1356,7 @@
 
   const api = Object.freeze({
     LIMITS,
+    EFFORT_SOURCES,
     ERROR_CODES,
     ENDPOINTS,
     canonicalJson,
