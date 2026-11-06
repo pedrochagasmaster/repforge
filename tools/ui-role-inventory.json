@@ -4496,9 +4496,7 @@
         "control": "quiet-navigation"
       },
       "variant": null,
-      "facets": [
-        "icon-only"
-      ],
+      "facets": [],
       "states": [
         "default",
         "pressed",
@@ -4507,8 +4505,24 @@
       "rationale": "The calibration ring beside Today's large title: the gauge's number and test-set dots; opens Progress › Overview at the calibration card.",
       "owner": "plan-077",
       "catalogStates": [
+        "catalog-recovery/retry-failed",
+        "catalog-recovery/unavailable",
+        "install/banner",
+        "today/done",
+        "today/draft-resume",
+        "today/no-program",
+        "today/ready",
+        "today/dock-viewer",
+        "today/skipped",
+        "today/rest-bar",
+        "workout/invalid-draft",
+        "today/deload-week",
+        "today/ready-scrolled",
+        "today/in-progress",
         "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/calibration-ring-bar",
+        "install/transfer-destination",
+        "program/custom-exercise-recovery"
       ],
       "neverDisabledReason": "The ring is shown only when there is a gauge to open; with none it is hidden, not disabled."
     },
@@ -4519,16 +4533,17 @@
         "control": "quiet-navigation"
       },
       "variant": null,
-      "facets": [
-        "icon-only"
-      ],
+      "facets": [],
       "states": [
         "default",
-        "pressed"
+        "pressed",
+        "focus-visible"
       ],
       "rationale": "The calibration ring's twin in the bar beside the gear once Today's title has scrolled under the bar; a pointer shortcut (the title ring is the one keyboard and VoiceOver reach).",
       "owner": "plan-077",
       "catalogStates": [
+        "today/ready-scrolled",
+        "workout/invalid-draft",
         "today/calibration-ring-bar"
       ],
       "neverDisabledReason": "Shown only with the gauge; hidden otherwise."
