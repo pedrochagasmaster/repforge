@@ -944,8 +944,10 @@ Triceps pushdown 3x12-15</pre>
       <select id="shareCardSize" hidden tabindex="-1" aria-hidden="true"><option value="story">story</option><option value="square">square</option></select>
       <div class="native-segments sharesheet__segments" id="shareSizeSegments" data-segment-input="shareCardSize" role="radiogroup" aria-labelledby="shareSizeLabel"><span class="native-segments__thumb" data-state-indicator aria-hidden="true"></span><button type="button" role="radio" data-value="story" aria-checked="false" tabindex="-1" data-i18n="share.story">Story</button><button type="button" role="radio" data-value="square" aria-checked="false" tabindex="-1" data-i18n="share.square">Square</button></div>
       <span class="visually-hidden" id="shareStyleLabel" data-i18n="share.group_style">Style</span>
-      <select id="shareCardStyle" hidden tabindex="-1" aria-hidden="true"><option value="primary">primary</option><option value="alternate">alternate</option></select>
-      <div class="native-segments sharesheet__segments" id="shareStyleSegments" data-segment-input="shareCardStyle" role="radiogroup" aria-labelledby="shareStyleLabel"><span class="native-segments__thumb" data-state-indicator aria-hidden="true"></span><button type="button" role="radio" data-value="primary" aria-checked="false" tabindex="-1" data-i18n="share.style_orange">Orange</button><button type="button" role="radio" data-value="alternate" aria-checked="false" tabindex="-1" data-i18n="share.style_dark">Dark</button></div>
+      <select id="shareCardStyle" hidden tabindex="-1" aria-hidden="true"><option value="primary">primary</option><option value="alternate">alternate</option><option value="photo">photo</option></select>
+      <div class="native-segments sharesheet__segments" id="shareStyleSegments" data-segment-input="shareCardStyle" role="radiogroup" aria-labelledby="shareStyleLabel"><span class="native-segments__thumb" data-state-indicator aria-hidden="true"></span><button type="button" role="radio" data-value="primary" aria-checked="false" tabindex="-1" data-i18n="share.style_orange">Orange</button><button type="button" role="radio" data-value="alternate" aria-checked="false" tabindex="-1" data-i18n="share.style_dark">Dark</button><button type="button" role="radio" data-value="photo" aria-checked="false" tabindex="-1" data-i18n="share.style_photo">Photo</button></div>
+      <p class="sharesheet__photo hidden" id="sharePhotoRow" hidden><button type="button" id="sharePhotoPick" data-i18n="share.choose_photo">Choose photo</button></p>
+      <input type="file" id="sharePhotoInput" accept="image/*" hidden tabindex="-1" aria-hidden="true">
       <p class="sharesheet__note" data-i18n="share.note">Only this image leaves your phone, with the Taurifer name and taurifer.com.</p>
     </div>
     <div class="sharesheet__actions">
@@ -1496,7 +1498,7 @@ Triceps pushdown 3x12-15</pre>
   <script src="durable-state.js?v=447"></script>
   <script src="progress-model.js?v=309"></script>
   <script src="history-ui.js?v=634"></script>
-  <script src="share-cards.js?v=631"></script>
-  <script src="app.js?v=637"></script>
+  <script src="share-cards.js?v=639"></script>
+  <script src="app.js?v=639"></script>
 </body>
 </html>
