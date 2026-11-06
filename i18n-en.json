@@ -165,7 +165,7 @@
   "log.focus.next": "Next",
   "log.focus.progress": "{a} of {b}",
   "log.fatigue.title": "Possible fatigue.",
-  "log.fatigue.body": "{n} lifts have lower targets or have stalled today.",
+  "log.fatigue.body": "{n} lifts dropped compared with your previous session.",
   "log.fatigue.trim": "Trim to essentials",
   "log.fatigue.dismiss_aria": "Dismiss fatigue warning",
   "session_banner.dismiss_aria": "Dismiss for today",

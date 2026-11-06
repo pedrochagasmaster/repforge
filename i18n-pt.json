@@ -165,7 +165,7 @@
   "log.focus.next": "Próximo",
   "log.focus.progress": "{a} de {b}",
   "log.fatigue.title": "Possível fadiga.",
-  "log.fatigue.body": "{n} exercícios têm metas menores ou estão travados hoje.",
+  "log.fatigue.body": "{n} exercícios caíram em relação à sessão anterior.",
   "log.fatigue.trim": "Ficar só no essencial",
   "log.fatigue.dismiss_aria": "Dispensar aviso de fadiga",
   "session_banner.dismiss_aria": "Ocultar por hoje",
