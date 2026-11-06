@@ -257,6 +257,7 @@ export const FULL_SUITES = {
     s("test/history-edit.mjs", [], { seconds: 42 }),
     s("test/effort-provenance.mjs", [], { domains: ["workout", "history", "persistence"], seconds: 20 }),
     s("test/max-set-browser.mjs", [], { domains: ["workout", "settings", "history"], seconds: 25 }),
+    s("test/effort-stages.mjs", [], { domains: ["workout", "settings", "persistence"], seconds: 60 }),
     s("test/history-persistence-race.mjs", [], { seconds: 5 }),
     s("test/today-done.mjs", [], { seconds: 19 }),
     s("test/today-day-picker.mjs", [], { seconds: 33 }),

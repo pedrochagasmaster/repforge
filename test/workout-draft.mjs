@@ -661,6 +661,60 @@ console.log("\nMax sets (Plan 077 PR 3, OD-7 and OD-17)");
   assert(Draft.validCalibration(guess) && !Draft.validCalibration(null), "validCalibration is exported for the app and the contract");
 }
 
+console.log("\nEffort stages (Plan 077 PR 2, OD-2 to OD-5)");
+{
+  const at = { exerciseInstanceId: "slot-squat", setId: "squat-set-1", completedAt: "2026-08-15T10:00:00.000Z" };
+  const logWith = (mode, field, value) => {
+    let d = fresh({ rirMode: mode });
+    d = apply(d, "editSetField", { exerciseInstanceId: "slot-squat", setId: "squat-set-1", field, value });
+    d = apply(d, "completeSet", at);
+    const set = d.exercises["slot-squat"].sets["squat-set-1"];
+    const rows = Draft.toHistoryRows(apply(d, "beginFinish"), "2026-08-15T11:00:00.000Z");
+    return { set, row: Draft.isDomainError(rows) ? rows : rows[0] };
+  };
+  // Stage B tokens save with their RIR and say they were reps left.
+  for (const [token, rir, source] of [["r0", 0, "reps_left"], ["r1", 1, "reps_left"], ["r2", 2, "reps_left"], ["r3p", 3, "reps_left_3plus"]]) {
+    const { set, row } = logWith("effort", "effort", token);
+    assert(set.completion.effortSource === source && row.rir === rir && row.effortSource === source,
+      `stage-B ${token} saves rir ${rir} with effortSource ${source}`, JSON.stringify({ completion: set.completion, row }));
+  }
+  // "Not sure" is unknown effort: rir null, in either mode.
+  for (const mode of ["effort", "numeric"]) {
+    const { set, row } = logWith(mode, "effort", "unsure");
+    assert(set.completion.effortSource === "unsure" && row.rir === null && row.effortSource === "unsure",
+      `"Not sure" in ${mode} mode saves rir null with effortSource unsure`, JSON.stringify({ completion: set.completion, row }));
+  }
+  // An edit of one vocabulary clears the other on that set (OD-5).
+  let both = fresh({ rirMode: "effort" });
+  both = apply(both, "editSetField", { exerciseInstanceId: "slot-squat", setId: "squat-set-1", field: "effort", value: "hard" });
+  both = apply(both, "editSetField", { exerciseInstanceId: "slot-squat", setId: "squat-set-1", field: "rir", value: "2" });
+  const bset = both.exercises["slot-squat"].sets["squat-set-1"];
+  assert(bset.edited.rir === "2" && bset.edited.effort == null, "a rir edit clears the set's effort word", JSON.stringify(bset.edited));
+  both = apply(both, "editSetField", { exerciseInstanceId: "slot-squat", setId: "squat-set-1", field: "effort", value: "r1" });
+  assert(both.exercises["slot-squat"].sets["squat-set-1"].edited.rir == null, "an effort edit clears the set's number");
+  // Switching mode mid-workout: completed sets keep value and source, a touched pending set keeps its edit, an
+  // untouched pending set takes the new mode's prefill.
+  let mid = fresh();
+  mid = apply(mid, "editSetField", { exerciseInstanceId: "slot-squat", setId: "squat-set-1", field: "rir", value: "1" });
+  mid = apply(mid, "completeSet", at);
+  mid = apply(mid, "editSetField", { exerciseInstanceId: "slot-curl", setId: mid.exercises["slot-curl"].setOrder[0], field: "rir", value: "3" });
+  mid = apply(mid, "setRirMode", { value: "effort" });
+  assert(mid.program.rirMode === "effort", "setRirMode switches the workout's mode");
+  const done = mid.exercises["slot-squat"].sets["squat-set-1"];
+  assert(done.edited.rir === "1" && done.completion.effortSource === "rir", "a completed set keeps its value and source across the switch", JSON.stringify(done));
+  const curlId = mid.exercises["slot-curl"].setOrder[0];
+  mid = apply(mid, "completeSet", { exerciseInstanceId: "slot-curl", setId: curlId, completedAt: "2026-08-15T10:10:00.000Z" });
+  const curl = mid.exercises["slot-curl"].sets[curlId];
+  assert(curl.edited.rir === "3" && curl.completion.effortSource === "rir", "a pending set edited before the switch keeps its edit and logs as rir", JSON.stringify(curl));
+  mid = apply(mid, "completeSet", { exerciseInstanceId: "slot-squat", setId: "squat-set-2", completedAt: "2026-08-15T10:12:00.000Z", prefill: { field: "effort", value: "r2" } });
+  const second = mid.exercises["slot-squat"].sets["squat-set-2"];
+  assert(second.edited.effort === "r2" && second.completion.effortSource === "prefilled", "an untouched pending set takes the new mode's prefill", JSON.stringify(second));
+  const midRows = Draft.toHistoryRows(apply(mid, "beginFinish"), "2026-08-15T11:00:00.000Z");
+  assert(!Draft.isDomainError(midRows) && midRows.map((row) => row.rir).join() === "1,2,3", "History reads each set from its own field", JSON.stringify(Draft.isDomainError(midRows) ? midRows : midRows.map((row) => [row.set, row.rir, row.effortSource])));
+  const badMode = fresh();
+  assert(Draft.isDomainError(command(badMode, "setRirMode", { value: "loud" }).result), "setRirMode refuses an unknown mode");
+}
+
 console.log("\nDeterministic current-meaning History compilation");
 let historyDraft = fresh();
 historyDraft = apply(historyDraft, "substituteExercise", { exerciseInstanceId: "slot-squat", replacement, selectedAt: "2026-08-15T10:19:00.000Z" });

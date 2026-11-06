@@ -1256,6 +1256,34 @@
       "variants": "demandingText"
     },
     {
+      "id": "effort-stage-a",
+      "flow": "workout",
+      "label": "Workout — effort stage A, Easy / Hard / Max",
+      "scenario": "The effort field selected in stage A: Easy, Hard and Max as chips under it, the offered word marked until the lifter chooses (Plan 077, OD-4).",
+      "variants": "demandingText"
+    },
+    {
+      "id": "effort-stage-b",
+      "flow": "workout",
+      "label": "Workout — effort stage B, reps left",
+      "scenario": "Stage B: the field reads Reps left, the column Left, and the chips 0 · 1 · 2 · 3+ with 2 chosen (Plan 077, OD-4).",
+      "variants": "demandingText"
+    },
+    {
+      "id": "effort-menu",
+      "flow": "workout",
+      "label": "Workout — effort menu",
+      "scenario": "The effort field's arrow opened: How you log effort, the three stages with the current one checked, and Not sure for this set under them (Plan 077, OD-2 and OD-4).",
+      "variants": "demandingText"
+    },
+    {
+      "id": "stage-tip",
+      "flow": "workout",
+      "label": "Workout — the stage tip in the rest",
+      "scenario": "During the rest after a set, after six workouts logged with chosen words: Try counting reps left?, with Not now, Try it and a close button, over the shelf with Log set live (Plan 077, OD-6).",
+      "variants": "demandingText"
+    },
+    {
       "id": "exercise-note",
       "flow": "workout",
       "label": "Workout — exercise note",
@@ -1827,6 +1855,13 @@
       "flow": "settings",
       "label": "Settings language menu",
       "scenario": "Language opened as a native pull-down anchored to its row: English and Português, the current one checked.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "effort-menu",
+      "flow": "settings",
+      "label": "Settings effort logging menu",
+      "scenario": "Effort logging opened as a native pull-down anchored to its row: Easy / Hard / Max, Reps left and RIR (a number), the current one checked.",
       "variants": "demandingText"
     },
     {

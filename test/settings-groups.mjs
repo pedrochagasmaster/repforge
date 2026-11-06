@@ -172,7 +172,7 @@ try {
   });
   check(rowLook.labelWeight === "400" && Number(rowLook.valueWeight) <= 400 && rowLook.valueColor !== rowLook.labelColor,
     "a row's label is regular and its value is grey, not bold", rowLook);
-  for (const [row, label, values] of [["#langRow", "Language", ["en", "pt"]], ["#rirModeRow", "RIR logging", ["numeric", "effort"]]]) {
+  for (const [row, label, values, current] of [["#langRow", "Language", ["en", "pt"], "en"], ["#rirModeRow", "Effort logging", ["effort", "reps", "numeric"], "numeric"]]) {
     const named = await page.evaluate((sel) => {
       const el = document.querySelector(sel);
       const ids = (el.getAttribute("aria-labelledby") || "").split(/\s+/).filter(Boolean);
@@ -186,7 +186,7 @@ try {
     await page.waitForSelector("#nativeContextMenu[open]", { timeout: 5000 });
     const menu = await page.evaluate(() => [...document.querySelectorAll('#nativeContextMenu [role="menuitemradio"]')].map((item) => ({
       value: item.dataset.menuValue, checked: item.getAttribute("aria-checked") === "true", mark: !!item.querySelector(".icon-mask--check") })));
-    check(menu.map((item) => item.value).join() === values.join() && menu.filter((item) => item.checked && item.mark).length === 1 && menu[0].checked,
+    check(menu.map((item) => item.value).join() === values.join() && menu.filter((item) => item.checked && item.mark).length === 1 && menu.find((item) => item.checked)?.value === current,
       `${label}: the menu lists the choices, the current one checked`, menu);
     await page.keyboard.press("Escape");
     await page.waitForFunction(() => !document.querySelector("#nativeContextMenu"), undefined, { timeout: 5000 });

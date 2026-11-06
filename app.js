@@ -1464,12 +1464,34 @@ async function shareOrDownload(text,name,type,title="Taurifer backup"){
   try{if(navigator.canShare){const file=new File([text],name,{type});
     if(navigator.canShare({files:[file]})){await navigator.share({files:[file],title});return}}}catch{}
   download(text,name,type)}
-const EFFORT_RIR={easy:3,hard:1,max:0};
+/* The effort vocabulary (Plan 077, OD-2 to OD-4): stage A's words, stage B's reps left ("3+" credited as 3) and
+   "Not sure", which saves no RIR. The draft owns the same map. */
+const EFFORT_RIR={easy:3,hard:1,max:0,r0:0,r1:1,r2:2,r3p:3,unsure:null};
 const EFFORT_STEPS=["easy","hard","max"];
+const EFFORT_LEFT=["r0","r1","r2","r3p"];
 const isEffortMode=()=>state?.settings?.rirMode==="effort";
+/** The app-wide effort stage (OD-4): "a" Easy / Hard / Max, "b" reps left, "c" numeric RIR. Stages A and B are
+ *  both `rirMode:"effort"`; the device-local `effortScale` tells them apart. */
+const effortStage=()=>!isEffortMode()?"c":state.settings.effortScale==="reps"?"b":"a";
+/** The choices a stage's chips offer, or null for the numeric field. */
+const stageTokens=stage=>stage==="a"?EFFORT_STEPS:stage==="b"?EFFORT_LEFT:null;
+/** The stage a token belongs to; "Not sure" belongs to none. */
+const tokenStage=e=>EFFORT_STEPS.includes(e)?"a":EFFORT_LEFT.includes(e)?"b":null;
 /** Bucket a logged RIR into the effort word closest to it. */
 const effortForRir=rir=>+rir>=2.5?"easy":+rir<=0.5?"max":"hard";
-const effortLabel=e=>t("effort."+e);
+/** Bucket a logged RIR into the reps-left chip closest to it. */
+const leftForRir=rir=>+rir>=2.5?"r3p":+rir>=1.5?"r2":+rir>=0.5?"r1":"r0";
+/** A token in a stage's own vocabulary: the same token when it already is one, else its RIR bucketed; "Not sure"
+ *  and unknown values give null. */
+const tokenInStage=(e,stage)=>{
+  if(tokenStage(e)===stage)return e;
+  const rir=EFFORT_RIR[e];
+  return rir==null?null:stage==="b"?leftForRir(rir):effortForRir(rir)};
+/** Words in copy only in stage A; stage B's reps left read as the numbers they are. */
+const isWordMode=()=>effortStage()==="a";
+/** The token the app's stage logs for a RIR (stages A and B). */
+const stageEffortForRir=rir=>effortStage()==="b"?leftForRir(rir):effortForRir(rir);
+const effortLabel=e=>EFFORT_LEFT.includes(e)?(e==="r3p"?"3+":e.slice(1)):t("effort."+e);
 /** The same word inside a sentence ("… at hard effort", "… esforço difícil"). */
 const effortWord=e=>effortLabel(e).toLocaleLowerCase(locTag());
 const effortHint=e=>t("effort.hint."+e);
@@ -1477,7 +1499,7 @@ const EFFORT_TERM={easy:"Easy effort",hard:"Hard effort",max:"Max effort"};
 /** The effort a working set is aimed at, read off the program's RIR ceiling. */
 const targetEffort=()=>effortForRir(state?.settings?.rirHigh);
 /** How a set reads once it is logged: the word in effort mode, else "@RIR". */
-const effortOrRirLabel=rir=>isEffortMode()?effortLabel(effortForRir(rir)):`@${fmt(rir)}`;
+const effortOrRirLabel=rir=>isWordMode()?effortLabel(effortForRir(rir)):`@${fmt(rir)}`;
 /* ---- Focus motion (Plan 064 rule 11: owner picks T1, L2, L4 and M1) ----
    Everything animated here goes through `RepForgeMotion`: the travelling
    outlines through `animateIndicator`, the short beats through the classes in
@@ -1554,16 +1576,10 @@ function setEffortPick(key,eff,dir=0){
     const rowCell=el.closest(".exercise")?.querySelector('.ledgerline--open [data-lv="rir"]');
     if(rowCell){rowCell.textContent=effortLabel(eff);rowCell.classList.remove("is-soft")}
     el.closest(".shelf__field")?.classList.remove("is-untouched");
-    // The pads name the word they step to, so they follow the word.
-    $$(`[data-effstep="${key}"]`).forEach(b=>{
-      const dir=+b.dataset.dir,to=EFFORT_STEPS[Math.max(0,EFFORT_STEPS.indexOf(eff))+dir];
-      b.textContent=t("focus.shelf.pad_effort",{sign:dir>0?"+":"−",effort:effortLabel(to||eff)});
-      b.disabled=!to});
-    if(el.getAttribute("role")==="spinbutton"){
-      el.setAttribute("aria-valuenow",String(EFFORT_STEPS.indexOf(eff)+1));
-      el.setAttribute("aria-valuetext",effortLabel(eff))}
     const pop=el.closest(".shelf__field")?.querySelector(".effortpop");
-    fillEffortPop(pop,eff,{bump:!!pop?.classList.contains("is-open")})})}
+    fillEffortPop(pop,eff,{bump:!!pop?.classList.contains("is-open")})});
+  // The chips mark the one chosen: a choice is the lifter's own, so none stays merely offered.
+  $$(`[data-effchip="${key}"]`).forEach(b=>{b.setAttribute("aria-pressed",b.dataset.e===eff?"true":"false");b.classList.remove("is-offered")})}
 
 /* ---- Effort explainer ----
    How many reps an effort leaves in the tank ("≈1 left") used to sit as a
@@ -1633,7 +1649,7 @@ function glossaryPopover(termKey,anchor){const g=$("#glossary");if(!g)return;
   const viewportHeight=document.documentElement.clientHeight||window.innerHeight;
   const top=Math.max(8,Math.min(r.bottom+6,viewportHeight-bounds.height-8));
   g.style.top=`${window.scrollY+top}px`;g.style.left=`${window.scrollX+left}px`}
-const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",lang:null,rirMode:"numeric",voiceInputEnabled:false,maxSetPrompts:true,notify:{enabled:false,timer:true,session:true,unfinished:true,missed:true}};
+const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",lang:null,rirMode:"numeric",effortScale:"feel",voiceInputEnabled:false,maxSetPrompts:true,notify:{enabled:false,timer:true,session:true,unfinished:true,missed:true}};
 const normSetting=(v,def,min=0)=>Number.isFinite(+v)&&+v>=min?+v:def;
 /** The hard-set threshold is an RIR a set must be at or under to count as hard: 1 to 10, else the default (Plan 077,
  *  OD-23e). A setup link may still carry 0–100; the device applies it within these bounds. */
@@ -1653,7 +1669,7 @@ function withUnknownKeys(raw,known){
   return Object.assign(out,known)}
 function normalizeNotify(n){
   return withUnknownKeys(n,{enabled:!!(n&&n.enabled),timer:n?.timer!==false,session:n?.session!==false,unfinished:n?.unfinished!==false,missed:n?.missed!==false})}
-const normalizeSettings=s=>{const lang=I18N?.normalizeLang(s?.lang)||I18N?.detectLang()||"en";return withUnknownKeys(s,{jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normHardRir(s?.hardRir),restSec:normalizeRestSec(s?.restSec),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",lang,rirMode:s?.rirMode==="effort"?"effort":"numeric",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled),maxSetPrompts:normBool(s?.maxSetPrompts,DEFAULTS.maxSetPrompts),notify:normalizeNotify(s?.notify)})};
+const normalizeSettings=s=>{const lang=I18N?.normalizeLang(s?.lang)||I18N?.detectLang()||"en";return withUnknownKeys(s,{jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normHardRir(s?.hardRir),restSec:normalizeRestSec(s?.restSec),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",lang,rirMode:s?.rirMode==="effort"?"effort":"numeric",effortScale:s?.effortScale==="reps"?"reps":"feel",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled),maxSetPrompts:normBool(s?.maxSetPrompts,DEFAULTS.maxSetPrompts),notify:normalizeNotify(s?.notify)})};
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const LB=2.2046226218;
 /* Locale keyboards (pt-BR, de, fr, …) put a comma on the decimal pad. HTML
@@ -3232,15 +3248,50 @@ async function requestWorkoutDay(nextDay,{undo=false}={}){
     return false;
   }
   return true}
-function changeRirMode(newMode){
-  const old=state.settings.rirMode==="effort"?"effort":"numeric";
-  const next=newMode==="effort"?"effort":"numeric";
-  if(old===next) return true;
-  if(draftHasProgress()){
-    $$('input[name="rirMode"]').forEach(r=>{r.checked=old==="effort"?r.value==="effort":r.value!=="effort"});
-    toast(t("toast.rir_locked_draft"));
-    return false}
-  return true}
+/* ---- Effort stages (Plan 077, OD-4 and OD-5) ----
+   The stage is one app-wide choice, made in Settings or from the arrow on the shelf's effort field. A workout in
+   progress takes it from the next set on: the live DraftV2 switches its mode in the same commit as the setting, and
+   every set it already holds keeps the vocabulary it was entered in. */
+/** The Settings radio that stands for each stage, and the stage's name. */
+const STAGE_LABEL={a:"settings.rir_effort",b:"settings.rir_reps",c:"settings.rir_numbers"};
+const STAGE_SUB={a:"focus.effort_menu.sub_a",b:"focus.effort_menu.sub_b",c:"focus.effort_menu.sub_c"};
+const STAGE_PICK={a:"effort",b:"reps",c:"numeric"};
+const stageForPick=v=>v==="reps"?"b":v==="effort"?"a":"c";
+/** The two settings a stage is stored as. Stage C keeps the scale, so a return to words finds the lifter's last one. */
+const stageSettings=(stage,settings=state.settings)=>({rirMode:stage==="c"?"numeric":"effort",
+  effortScale:stage==="b"?"reps":stage==="a"?"feel":settings.effortScale==="reps"?"reps":"feel"});
+/** The draft side of a mode change: a live DraftV2 takes `setRirMode` in the settings commit, so the two never
+ *  disagree. No draft needs nothing; a draft that refuses (one that is finishing) blocks the change. */
+function draftRirModeEffect(expectedRaw,newMode){
+  if(expectedRaw==null)return null;
+  const parsed=WorkoutDraft?.parse(expectedRaw);
+  if(parsed?.kind!=="valid")return{status:DRAFT_EFFECT_INVALID,effect:null,reason:"v2-rir-mode"};
+  if(parsed.draft.program.rirMode===newMode)return null;
+  const operationId=`rir-mode-${uid()}`;
+  const next=WorkoutDraft.reduce(parsed.draft,{type:"setRirMode",value:newMode,operationId,
+    expectedRevision:parsed.draft.revision,updatedAt:new Date().toISOString(),writer:draftWriter(operationId)});
+  if(WorkoutDraft.isDomainError(next))return{status:DRAFT_EFFECT_INVALID,effect:null,reason:"v2-rir-mode"};
+  return draftEffectOutcome({required:true,kind:"replace-draft",expectedRaw,
+    replacementRaw:JSON.stringify(WorkoutDraft.serialize(next)),precondition:DRAFT_PRECONDITION_ABORT_CHANGED})}
+/** After a commit replaced the live draft, read it back so the session works on what was stored. */
+async function reloadDraftAfterEffect(){
+  if(!activeWorkoutDraft)return;
+  const loaded=await initializeWorkoutDraft();
+  if(loaded.status==="ready")hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:false})}
+/** Store a stage chosen outside Settings (the shelf's arrow menu). */
+async function commitEffortStage(stage){
+  if(stage===effortStage())return true;
+  const next=stageSettings(stage);
+  await draftWriteTail;
+  const effect=next.rirMode===state.settings.rirMode?null:draftRirModeEffect(readDraftRaw(),next.rirMode);
+  if(effect?.status===DRAFT_EFFECT_INVALID){toast(t("toast.rir_locked_draft"));return false}
+  const settingsBefore=cloneSnapshot(state.settings),proposal=cloneSnapshot(state);
+  proposal.settings=normalizeSettings({...state.settings,...next});
+  const result=await commitProposedState(proposal,storageIO,{effect});
+  if(!(result.localOk||result.idbOk))return false;
+  reportSettingsChanged(settingsBefore,state.settings);
+  if(effect)await reloadDraftAfterEffect();
+  render();return true}
 async function applyShowAll(){
   if(!activeWorkoutDraft)return false;
   for(const id of [...skipped]){const result=await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return false}
@@ -6230,8 +6281,10 @@ function progressionCurrentSession(prescription){
       values.push({metricId:metric.id,value:parsed.value,unit:metric.unit})}
     if(!valid||JSON.stringify(values.map(value=>value.metricId))!==JSON.stringify(prescription.metricIds))continue;
     const rawRir=set.edited?.rir??set.programmed?.targetRir;
-    const rir=activeWorkoutDraft.program?.rirMode==="effort"?EFFORT_RIR[set.edited?.effort]
-      :rawRir==null?null:Number(rawRir);
+    // A set reads its own field: a word or chip it was logged with, else its number (Plan 077, OD-5).
+    const word=set.edited?.effort,effortMode=activeWorkoutDraft.program?.rirMode==="effort";
+    const byWord=Object.prototype.hasOwnProperty.call(EFFORT_RIR,word??"")&&(effortMode||set.edited?.rir==null);
+    const rir=byWord?EFFORT_RIR[word]:effortMode&&set.edited?.rir==null?null:rawRir==null?null:Number(rawRir);
     const loadingContext=cloneSnapshot(exercise.programmed?.loadingContext||{});
     loadingContext.loadingConvention=exercise.programmed?.loadingConvention||loadingContext.loadingConvention;
     loadingContext.bodyweightKg=activeWorkoutDraft.session?.bodyweight==null||activeWorkoutDraft.session.bodyweight===""?null:Number(activeWorkoutDraft.session.bodyweight);
@@ -6406,8 +6459,7 @@ function sessionFreshness(ex,draft){
       if(!done.has(key)||warm.has(key))continue;
       const ld=fromDisplay(parseDec(draft[`${key}_load`])||0),rp=parseDec(draft[`${key}_reps`])||0;
       if(!(ld>0&&rp>0))continue;
-      let rir;if(isEffortMode())rir=EFFORT_RIR[draft[`${key}_effort`]]??1;
-      else{rir=parseDec(draft[`${key}_rir`]);if(!Number.isFinite(rir))rir=1}
+      const rir=flatSetRir(draft,key)??1;
       caps.push(capE1rm(ld,rp,rir))}
     if(!caps.length)continue;
     setCount+=caps.length;
@@ -6441,6 +6493,13 @@ function baseSuggestion(ex,rec,draft,old){
 //  3. block trend (folded into rec) — weak
 // In-session prediction is anticipatory: it reads every completed set so far and
 // projects the NEXT one, rather than echoing the last set back at the lifter.
+/** A completed set's RIR from the field it was logged with, so a set keeps its own vocabulary across a stage switch
+ *  (Plan 077, OD-5): its word or chip, else its number. "Not sure" and a set with neither give null. */
+function flatSetRir(draft,key){
+  const word=draft[`${key}_effort`],byWord=Object.prototype.hasOwnProperty.call(EFFORT_RIR,word??"");
+  const n=parseDec(draft[`${key}_rir`]),byNumber=Number.isFinite(n);
+  if(byWord&&(isEffortMode()||!byNumber))return EFFORT_RIR[word];
+  return byNumber?n:null}
 /* Working sets this lift has already completed earlier in THIS session, in
    order. Shared by every strategy's in-session path. */
 function completedCurrentSets(ex,n,draft){
@@ -6450,8 +6509,7 @@ function completedCurrentSets(ex,n,draft){
     if(!done.has(key)||warm.has(key))continue;
     const ld=fromDisplay(parseDec(draft[`${key}_load`])||0),rp=parseDec(draft[`${key}_reps`])||0;
     if(!(ld>0&&rp>0))continue;
-    let rir;if(isEffortMode())rir=EFFORT_RIR[draft[`${key}_effort`]]??(preserveMissingRir?null:1);
-    else{rir=parseDec(draft[`${key}_rir`]);if(!Number.isFinite(rir))rir=preserveMissingRir?null:1}
+    const rir=flatSetRir(draft,key)??(preserveMissingRir?null:1);
     sets.push({load:ld,reps:rp,rir,cap:capE1rm(ld,rp,rir)})}
   return sets}
 /* A canonical program's per-set target is the adaptive engine's own result for
@@ -6536,7 +6594,7 @@ function explainRecommendation(ex){
   const prev=last(ex).filter(x=>+x.load>0);
   if(prev.length)rows.push(whyRow("last",{label:t("why.last"),
     text:prev.map(x=>`${fmtLoad(x.load)}\u00d7${x.reps} ${effortOrRirLabel(x.rir)}`).join(" \u00b7 ")}));
-  rows.push(whyRow("showed",{text:t(isEffortMode()?"why.showed_effort":"why.showed",
+  rows.push(whyRow("showed",{text:t(isWordMode()?"why.showed_effort":"why.showed",
     {cr:Math.round(rec.cr),load:fmtLoad(rec.lastLoad),unit:u,cap:fmt(+state.settings.hardRir||4)})}));
   // The tempered line already names both the rule and the tempering, so it stands alone.
   rows.push(whyRow("rule",{text:rec.temperedBlock?t("rec.add.tempered.text")
@@ -6556,7 +6614,7 @@ function explainRecommendation(ex){
   else rows.push(whyRow("load",{text:t("why.load_snap",{step:fmtLoad(minJ),load:fmtLoad(rec.load),unit:u})}));
   if(rec.reenterReps){const repsFacts={pred:Math.round(repsAtLoad(rec.cap,rec.load)),typrir:fmt(rec.typRir),reps:reentryReps(ex,rec.cap,rec.load,rec.typRir),
       capacity:repsAtLoad(rec.cap,rec.load),rirValue:+rec.typRir||0,min:ex.min,max:ex.max};
-    rows.push(whyRow("reps",{text:t(isEffortMode()?"why.reps_effort":"why.reps",{load:fmtLoad(rec.load),unit:u,...repsFacts})},repsFacts))}
+    rows.push(whyRow("reps",{text:t(isWordMode()?"why.reps_effort":"why.reps",{load:fmtLoad(rec.load),unit:u,...repsFacts})},repsFacts))}
   else if(rec.pushReps)rows.push(whyRow("reps",{text:t("why.reps_chase",{min:ex.min,max:ex.max})}));
   else rows.push(whyRow("reps",{text:t("why.reps_hold")}));
   if(rec.blockNote&&!rec.temperedBlock)rows.push(whyRow("block",{text:rec.blockNote}));
@@ -6725,12 +6783,90 @@ function restTabHtml(){
   return `<button type="button" class="resttab" id="restTab" aria-haspopup="dialog" aria-controls="restSheet">`+
     `<span class="resttab__label"></span><span class="resttab__end"><span class="resttab__time"></span>`+
     `<span class="resttab__chev icon-mask icon-mask--chev-up" aria-hidden="true"></span></span></button>`+restLightSvg()}
+/* ---- Between-sets tips (Plan 077, OD-6) ----
+   At most one tip, during a rest only, standing over the shelf; it never covers the shelf, so logging stays live under
+   it. Each entry decides for the open set whether it applies, draws itself, and binds its own buttons; the first that
+   applies is shown. */
+const restTips=[
+  // The test-set prompt (Plan 077 PR 3) comes first: it belongs to this exact set, and it stays while the lifter enters
+  // the set, since the guess is made in the rest.
+  {id:"max-set",eligible:(ex,n)=>!!maxSetOffer(ex,n),html:(ex,n)=>maxSetTipHtml(ex,n,false),bind:bindMaxSetTip},
+  {id:"stage-tip",eligible:(ex,n)=>!stageTipEntering(ex,n)&&!!stageTipTarget(),html:()=>stageTipHtml(stageTipTarget()),bind:bindStageTip}];
+const restTipFor=(ex,n)=>restEnd&&ex&&n?restTips.find(tip=>tip.eligible(ex,n))||null:null;
+function focusRestTipHtml(ex,n){return restTipFor(ex,n)?.html(ex,n)||""}
+function focusDraftSet(exId,n){
+  const draft=activeWorkoutDraft?.exercises?.[exId];
+  return draft?.sets?.[draft.setOrder.find(id=>draft.sets[id].ordinal===n)]||null}
+/** Put the tip on the shelf, or take it away; one already showing stays as it is. */
+function syncRestTip(shelf){
+  const card=shelf?.closest(".exercise"),base=card?prog.find(card.dataset.ex):null,ex=base?sessionExercise(base):null;
+  const n=ex?focusActiveSet(ex):0,entry=shelf?restTipFor(ex,n):null;
+  $$(".resttip").forEach(el=>{if(el.parentElement!==shelf||el.dataset.tip!==entry?.id)el.remove()});
+  if(!entry||shelf.querySelector(`.resttip[data-tip="${entry.id}"]`))return;
+  shelf.insertAdjacentHTML("afterbegin",entry.html(ex,n));
+  entry.bind?.(shelf.querySelector(".resttip"),shelf,ex,n)}
+
+/** The set the lifter has started entering during this rest: the stage tip never sits over a set being entered. */
+let stageTipEnteringKey=null;
+const stageTipEntering=(ex,n)=>stageTipEnteringKey===`${ex.id}_${n}`||draftSetTouched(focusDraftSet(ex.id,n));
+function bindStageTip(tip,shelf,ex,n){
+  const away=()=>{stageTipEnteringKey=`${ex.id}_${n}`;tip.remove()};
+  shelf.querySelector(".shelf__fields")?.addEventListener("pointerdown",away,{once:true});
+  shelf.querySelector(".shelf__pads")?.addEventListener("pointerdown",away,{once:true});
+  tip.querySelectorAll("[data-tipdismiss]").forEach(b=>b.onclick=()=>{dismissStageTip(tip.dataset.to);tip.remove();quietFocus(shelf.querySelector(".saveset"))});
+  tip.querySelector("[data-tipaccept]")?.addEventListener("click",async()=>{
+    const to=tip.dataset.to;acceptStageTip(to);tip.remove();
+    if(await commitEffortStage(to))toast(t("toast.effort_stage",{stage:t(STAGE_LABEL[to])}),{quiet:true})})}
+/* The stage tip (OD-6): Taurifer suggests the next stage up, never down, once the lifter has settled into this one.
+   A→B after 6 workouts in stage A with at least 80% of their working sets given a word by the lifter (not left at the
+   offered one); B→C after 6 workouts in stage B with at most 10% "Not sure". A dismissal keeps it quiet for 4 weeks,
+   a second for good; trying it ends it too. Its state is this device's, like the stage itself. */
+const STAGE_TIP_WORKOUTS=6,STAGE_TIP_SNOOZE_DAYS=28;
+const STAGE_TIP_COPY={b:{title:"focus.stage_tip.b_title",body:"focus.stage_tip.b_body"},c:{title:"focus.stage_tip.c_title",body:"focus.stage_tip.c_body"}};
+/** Workouts in the log that qualify a stage for its tip, counted from the rows' recorded effortSource. */
+function stageTipQualifyingWorkouts(stage){
+  const sessions=new Map();
+  for(const row of state.log||[]){
+    if(!row||row.warmup||typeof row.session!=="string"||!row.effortSource||row.effortSource==="failure")continue;
+    const s=sessions.get(row.session)||{n:0,words:0,left:0,unsure:0,numbers:0};
+    s.n++;
+    if(row.effortSource==="effort")s.words++;
+    else if(row.effortSource==="reps_left"||row.effortSource==="reps_left_3plus")s.left++;
+    else if(row.effortSource==="unsure")s.unsure++;
+    else if(row.effortSource==="rir")s.numbers++;
+    sessions.set(row.session,s)}
+  let count=0;
+  for(const s of sessions.values()){
+    if(s.numbers)continue;
+    if(stage==="a"&&!s.left&&s.words>=0.8*s.n)count++;
+    if(stage==="b"&&!s.words&&s.left>0&&s.unsure<=0.1*s.n)count++}
+  return count}
+const stageTipPref=to=>{const v=uiPrefs.stageTip?.[to];return{n:Number.isInteger(v?.n)?v.n:0,until:typeof v?.until==="string"?v.until:""}};
+/** The stage the tip suggests now, or null. */
+function stageTipTarget(){
+  const stage=effortStage();if(stage==="c")return null;
+  const to=stage==="a"?"b":"c",pref=stageTipPref(to);
+  if(pref.n>=2||pref.until&&Date.now()<Date.parse(pref.until))return null;
+  return stageTipQualifyingWorkouts(stage)>=STAGE_TIP_WORKOUTS?to:null}
+function setStageTipPref(to,value){setUiPref("stageTip",{...(uiPrefs.stageTip||{}),[to]:value})}
+function dismissStageTip(to){
+  const n=stageTipPref(to).n+1;
+  setStageTipPref(to,n>=2?{n:2}:{n,until:new Date(Date.now()+STAGE_TIP_SNOOZE_DAYS*864e5).toISOString()})}
+const acceptStageTip=to=>setStageTipPref(to,{n:2});
+function stageTipHtml(to){
+  const copy=STAGE_TIP_COPY[to],title=t(copy.title);
+  return `<section class="resttip" data-tip="stage-tip" data-to="${to}" aria-label="${esc(title)}">`+
+    `<p class="resttip__text"><b>${esc(title)}</b> ${esc(t(copy.body))}</p>`+
+    `<div class="resttip__acts"><button type="button" class="resttip__no" data-tipdismiss>${esc(t("focus.stage_tip.not_now"))}</button>`+
+    `<button type="button" class="resttip__yes" data-tipaccept>${esc(t("focus.stage_tip.try"))}</button></div>`+
+    `<button type="button" class="resttip__x" data-tipdismiss aria-label="${esc(t("focus.stage_tip.dismiss"))}"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button></section>`}
 /** Put the tab and the edge on the shelf now in Focus, or take them away when there is no rest or no Focus. */
 function syncRestTab(){
   const shelf=workoutActive?focusCard()?.querySelector(".focus-shelf"):null;
   // The context region leaves a band for the tab's rise (fitFocusLedger measures it): a tab that comes or goes refits it.
   let moved=false;
   $$("#restTab,.restlight").forEach(el=>{if(!shelf||!shelf.contains(el)||!restEnd){if(el.id==="restTab")moved=true;el.remove()}});
+  syncRestTip(shelf);
   if(moved)refitFocusSoon();
   $$(".focus-shelf.has-rest").forEach(el=>{if(el!==shelf||!restEnd)el.classList.remove("has-rest")});
   if(!shelf||!restEnd){restContourObserver?.disconnect();restContourObserver=null;restContour=null;stopRestFrames();return}
@@ -7311,15 +7447,18 @@ function maxSetOffer(ex,n){
 function maxSetTipHtml(ex,n,peek){
   if(peek)return"";
   const offer=maxSetOffer(ex,n);if(!offer)return"";
-  const body=t(offer.load?"maxset.invite_body":"maxset.invite_body_noload",{load:offer.load});
-  return `<div class="resttip" role="note" data-maxset-tip="${esc(ex.id)}">`+
-    `<button type="button" class="resttip__x" data-maxset-no="${esc(ex.id)}" aria-label="${esc(t("maxset.not_now"))}"><span aria-hidden="true">×</span></button>`+
-    `<p class="resttip__text"><b>${esc(t("maxset.invite_title"))}</b> ${esc(body)}</p>`+
-    `<div class="resttip__acts"><button type="button" class="resttip__no" data-maxset-no="${esc(ex.id)}">${esc(t("maxset.not_now"))}</button>`+
-    `<button type="button" class="resttip__yes" data-maxset-guess="${esc(ex.id)}">${esc(t("maxset.make_guess"))}</button></div></div>`}
+  const title=t("maxset.invite_title"),body=t(offer.load?"maxset.invite_body":"maxset.invite_body_noload",{load:offer.load});
+  return `<section class="resttip" data-tip="max-set" aria-label="${esc(title)}">`+
+    `<p class="resttip__text"><b>${esc(title)}</b> ${esc(body)}</p>`+
+    `<div class="resttip__acts"><button type="button" class="resttip__no" data-maxset-no>${esc(t("maxset.not_now"))}</button>`+
+    `<button type="button" class="resttip__yes" data-maxset-guess>${esc(t("maxset.make_guess"))}</button></div>`+
+    `<button type="button" class="resttip__x" data-maxset-no aria-label="${esc(t("maxset.not_now"))}"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button></section>`}
 function declineMaxSet(exId){
   if(activeWorkoutDraft)maxSetDeclined.add(`${activeWorkoutDraft.draftId}:${exId}`);
-  $w(`[data-maxset-tip="${CSS.escape(exId)}"]`).forEach(el=>el.remove())}
+  $$('.resttip[data-tip="max-set"]').forEach(el=>el.remove())}
+function bindMaxSetTip(tip,shelf,ex){
+  tip.querySelectorAll("[data-maxset-no]").forEach(b=>b.onclick=()=>{declineMaxSet(ex.id);quietFocus(shelf.querySelector(".saveset"))});
+  tip.querySelector("[data-maxset-guess]")?.addEventListener("click",()=>openMaxSetSheet(ex.id))}
 function paintMaxSetGuess(){
   const n=$("#maxSetCount");if(n&&maxSetUi)n.textContent=String(maxSetUi.guess);
   const less=$("#maxSetLess"),more=$("#maxSetMore");
@@ -8878,10 +9017,27 @@ function setFieldVals(ex,n,r,draft,prev){
   const kgVal=pending("load")??carried("load")??draft[`${ex.id}_${n}_load`]??(sg.load!=null?fmtLoadPlain(sg.load):(old&&old.load!=null?fmtLoadPlain(old.load):""));
   const repsVal=pending("reps")??carried("reps")??draft[`${ex.id}_${n}_reps`]??(sg.reps!=null?sg.reps:(old&&old.reps!=null?old.reps:r.status==="manual"?"":ex.min));
   const key=`${ex.id}_${n}`,isW=warmups.has(key);
-  const carriedRir=carried("rir"),carriedEffort=carried("effort")||(carriedRir!=null&&carriedRir!==""?effortForRir(parseDec(carriedRir)):null);
-  const effortVal=pending("effort")||carriedEffort||draft[`${key}_effort`]||(old&&old.rir!=null?effortForRir(old.rir):"hard");
+  // A set the lifter entered keeps the vocabulary they entered it in; any other shows the app's stage, its offered
+  // value (the set above's, then what was there, then last session's, then about 1 left) put into that stage's words.
+  const stage=setStageOf(ex.id,n),words=stage==="b"?"b":"a";
+  const own=pending("effort")??(shelfTouched(ex.id,n).effort?draft[`${key}_effort`]:null);
+  const bucket=rir=>words==="b"?leftForRir(rir):effortForRir(rir);
+  const carriedRir=carried("rir"),carriedEffort=tokenInStage(carried("effort"),words)||(carriedRir!=null&&carriedRir!==""?bucket(parseDec(carriedRir)):null);
+  const effortVal=own&&(own==="unsure"||tokenStage(own)===stage)?own
+    :carriedEffort||tokenInStage(draft[`${key}_effort`],words)||bucket(old&&old.rir!=null?old.rir:1);
   const rirVal=pending("rir")??carriedRir??draft[`${key}_rir`]??(old&&old.rir!=null?fmtPlain(old.rir):1);
-  return{key,isW,kgVal,repsVal,rirVal,effortVal}}
+  return{key,isW,kgVal,repsVal,rirVal,effortVal,stage,unsure:own==="unsure"}}
+/** The stage a set is drawn in (Plan 077, OD-5): the vocabulary the lifter entered its effort in, else the app's.
+ *  "Not sure" belongs to no stage, so a set marked so is drawn in the app's. */
+function setStageOf(exId,n){
+  const held=pendingFields.get(`${exId}_${n}_effort`)?.value;
+  if(held!=null)return tokenStage(held)||effortStage();
+  if(pendingFields.has(`${exId}_${n}_rir`))return"c";
+  const draft=activeWorkoutDraft?.exercises?.[exId],set=draft?.sets?.[draft.setOrder.find(id=>draft.sets[id].ordinal===n)];
+  if(set?.touched?.effort){
+    if(set.edited.effort!=null)return tokenStage(set.edited.effort)||effortStage();
+    if(set.edited.rir!=null)return"c"}
+  return effortStage()}
 /* ============================================================
    Focus mode
    One full-height card per exercise: a scrolling ledger of what has been
@@ -9030,7 +9186,7 @@ const evidenceFig=v=>`<span class="fx-cue__fig">${esc(v)}</span>`;
 function focusEvidenceText(ex,n,r,cue){
   if(cue.kind==="edit")return"";
   // One quiet sentence: only the performed set's figures ride in Mono (owner review of #550).
-  const effort=isEffortMode(),mono=evidenceFig,plain=v=>esc(v),say=evidenceSay;
+  const effort=isWordMode(),mono=evidenceFig,plain=v=>esc(v),say=evidenceSay;
   if(cue.kind==="planned")return esc(t("focus.evidence.planned"));
   if(cue.kind==="maxset")return esc(t("maxset.fail_rule"));
   if(cue.kind!=="now"){
@@ -9064,11 +9220,11 @@ function focusCueBlockHtml(ex,n,r,cue,{peek,name,draft}){
 function focusSlotHtml(ex,n,r,cue,opts){
   return `<div class="fx-slot">${focusCueBlockHtml(ex,n,r,cue,opts)}</div>`}
 /** How a logged set reads back in the ledger. */
-function focusRowVals(ex,n,r,draft,prev,effortMode){
-  const{kgVal,repsVal,rirVal,effortVal}=setFieldVals(ex,n,r,draft,prev);
+function focusRowVals(ex,n,r,draft,prev){
+  const{kgVal,repsVal,rirVal,effortVal,stage,unsure}=setFieldVals(ex,n,r,draft,prev);
   const load=(()=>{const v=parseDec(kgVal);return Number.isFinite(v)?fmt(v):kgVal})();
-  // A set logged as a word reads back as that word — never as the RIR it maps to.
-  const eff=effortMode?effortLabel(effortVal)
+  // A set reads back in the vocabulary it was logged in — a word as that word, never as the RIR it maps to.
+  const eff=unsure?effortLabel("unsure"):stage!=="c"?effortLabel(effortVal)
     :(()=>{const v=parseDec(rirVal);return Number.isFinite(v)?fmt(v):rirVal})();
   return{load,reps:String(repsVal),eff}}
 
@@ -9087,7 +9243,7 @@ function canonicalSlotFacts(ex){
   return{adaptive:sets.some(set=>set.status==="ready"),
     rirMin:rirs.length?Math.min(...rirs):null,rirMax:rirs.length?Math.max(...rirs):null}}
 function focusTargetEffort(ex){
-  if(isEffortMode())return effortLabel(targetEffort());
+  if(effortStage()==="a")return effortLabel(targetEffort());
   const facts=canonicalSlotFacts(ex);
   if(facts)return facts.rirMin==null?"—":facts.rirMin===facts.rirMax?fmt(facts.rirMin):`${fmt(facts.rirMin)}–${fmt(facts.rirMax)}`;
   const p=progressionForExercise(ex)?.strategy?.params||{};
@@ -9096,8 +9252,11 @@ function focusTargetEffort(ex){
   return `${fmt(lo)}–${fmt(hi)}`}
 
 /** The previous session's matching set, as the second line of a ledger row. */
-function focusPrevLine(x,effortMode){
+function focusPrevLine(x){
   if(!x)return"";
+  // The last session's effort in the stage's own words: a word, reps left, or RIR.
+  const stage=effortStage(),ending=x.rir==null||x.rir===""?"norir":stage==="a"?"effort":stage==="b"?"left":"rir";
+  const left=x.rir==null||x.rir===""?"":effortLabel(leftForRir(x.rir));
   const projection=readLogRow(x),definitions=Array.isArray(x.metricDefinitions)?x.metricDefinitions:[];
   const hasSideLoad=definitions.some(metric=>PER_SIDE_LOAD_SEMANTICS.has(metric?.semantic));
   const hasSideReps=definitions.some(metric=>metric?.semantic==="repsPerSide");
@@ -9106,14 +9265,13 @@ function focusPrevLine(x,effortMode){
     :hasSideReps&&hasTotalLoad?"total_load_reps_per_side"
       :hasSideReps?"bodyweight_reps_per_side":null;
   if(family){
-    const ending=x.rir==null||x.rir===""?"norir":effortMode?"effort":"rir";
     return t(`focus.prev_line.${family}.${ending}`,{
       load:fmtLoad(projection.load),unit:unitLabel(),reps:projection.reps,
-      rir:fmt(x.rir),effort:effortLabel(effortForRir(x.rir))})}
+      rir:fmt(x.rir),effort:effortLabel(effortForRir(x.rir)),left})}
   const load=fmtLoad(projection.load??x.load),reps=projection.reps??x.reps;
   if(x.rir==null||x.rir==="")return t("focus.prev_line_norir",{load,reps});
-  return effortMode?t("focus.prev_line_effort",{load,reps,effort:effortLabel(effortForRir(x.rir))})
-    :t("focus.prev_line",{load,reps,rir:fmt(x.rir)})}
+  return ending==="effort"?t("focus.prev_line_effort",{load,reps,effort:effortLabel(effortForRir(x.rir))})
+    :ending==="left"?t("focus.prev_line_left",{load,reps,left}):t("focus.prev_line",{load,reps,rir:fmt(x.rir)})}
 
 /** What the lifter has confirmed on a set. `touched.effort` also covers RIR. */
 function shelfTouched(exId,n){
@@ -9169,13 +9327,17 @@ function focusLedgerToggleHtml(ex,{peek=false}={}){
  *  to do show their targets in soft ink. The second line of every row is the
  *  previous session's matching set. Collapsed (layout D), only the open set and
  *  the next one to do are drawn. */
-function focusLedgerHtml(ex,r,draft,prev,{effortMode,peek=false}){
+/** The ledger's effort column is named for the app's stage; each row still reads in the vocabulary it was logged in. */
+function effortColumnHead(peek){
+  const stage=effortStage();
+  return stage==="a"?(peek?esc(t("log.effort")):term("Effort")):stage==="b"?esc(t("focus.col.left")):(peek?"RIR":term("RIR"))}
+function focusLedgerHtml(ex,r,draft,prev,{peek=false}){
   const head=`<div class="ledgerline__head"><span>${esc(t("log.set"))}</span><span class="ledgerline__vals">`+
     `<span class="fx-col">${esc(unitLabel())}</span><span class="fx-col">${esc(t("log.reps"))}</span>`+
-    `<span class="fx-col">${effortMode?(peek?esc(t("log.effort")):term("Effort")):(peek?"RIR":term("RIR"))}</span></span></div>`;
+    `<span class="fx-col">${effortColumnHead(peek)}</span></span></div>`;
   return head+focusLedgerToggleHtml(ex,{peek})+
-    `<div class="ledger__rows" id="ledger_${esc(ex.id)}">${focusLedgerRowsHtml(ex,r,draft,prev,{effortMode,peek})}</div>`}
-function focusLedgerRowsHtml(ex,r,draft,prev,{effortMode,peek=false}){
+    `<div class="ledger__rows" id="ledger_${esc(ex.id)}">${focusLedgerRowsHtml(ex,r,draft,prev,{peek})}</div>`}
+function focusLedgerRowsHtml(ex,r,draft,prev,{peek=false}){
   const active=focusActiveSet(ex);
   const editN=focusEdit&&focusEdit.exId===ex.id?focusEdit.n:0;
   const freshN=focusIsFresh(ex,peek)?focusLogged.n:0;
@@ -9189,14 +9351,14 @@ function focusLedgerRowsHtml(ex,r,draft,prev,{effortMode,peek=false}){
     if(!expanded&&!done&&n!==active&&n!==after)continue;
     const fold=!expanded&&done&&folded-->0;
     const open=n===active;
-    const vals=focusRowVals(ex,n,r,draft,prev,effortMode);
-    const prevLine=focusPrevLine(prev.find(x=>x.set===n),effortMode);
+    const vals=focusRowVals(ex,n,r,draft,prev);
+    const prevLine=focusPrevLine(prev.find(x=>x.set===n));
     const touched=open||done?shelfTouched(ex.id,n):{};
     const soft=field=>!done&&!(field==="rir"?touched.effort:touched[field])?" is-soft":"";
     // An unlogged row reads its target effort, unless it carries the set logged above it (#569): then its RIR is carried
     // with its load and reps, so every unlogged set shows the same values (owner report, 2026-11-03).
     const carry=!open&&!done?lastSetCarry(ex.id,n,r):null;
-    const rirText=!done&&!peek&&draftSetAt(ex.id,n)?.calibration?(effortMode?effortLabel("max"):"0")
+    const rirText=!done&&!peek&&draftSetAt(ex.id,n)?.calibration?(isEffortMode()?effortLabel(state.settings.effortScale==="reps"?"r0":"max"):"0")
       :open||done||carry?.fields?.rir||carry?.fields?.effort?vals.eff:focusTargetEffort(ex);
     const idx=done?`<span class="fx-check" aria-hidden="true"></span>`
       :!peek&&ledgerSetIsWarmup(ex.id,n)?`<span aria-hidden="true">${esc(t("ledger.set.warmup"))}</span><span class="visually-hidden">${esc(t("ex.actions.role_warmup"))}</span>`:n;
@@ -9223,7 +9385,7 @@ function toggleFocusLedger(button){
   const draft=hydrateWorkoutDraft(),r=recommendation(ex),prev=last(ex);
   const apply=()=>{
     focusLedgerOpen=open?ex.id:null;
-    rows.innerHTML=focusLedgerRowsHtml(ex,r,draft,prev,{effortMode:isEffortMode(),peek:false});
+    rows.innerHTML=focusLedgerRowsHtml(ex,r,draft,prev,{peek:false});
     button.setAttribute("aria-expanded",open?"true":"false");
     // Closed again, the table folds what no longer fits, measured now rather than restored from before.
     if(!open)fitFocusLedger(card);
@@ -9404,27 +9566,31 @@ const shelfFaceHtml=(short,label,shown,unit)=>{
   return `<span class="shelf__lab">${lab}</span><span class="shelf__valrow"><span class="shelf__val">${esc(shown||"—")}</span>`+
     `${unit?`<span class="shelf__unit" aria-hidden="true">${esc(unit)}</span>`:""}</span>`};
 
-function shelfFieldHtml(ex,n,id,vals,{ui,touched,effortMode,peek}){
+function shelfFieldHtml(ex,n,id,vals,{ui,touched,peek}){
   const key=`${ex.id}_${n}`,sel=ui.field===id;
   // A max set's effort is failure: the field says so and offers nothing to change (Plan 077 PR 3).
   if(id==="rir"&&draftSetAt(ex.id,n)?.calibration){
     const cls=`shelf__field shelf__field--failure${sel?" is-sel":""}`,face=shelfFaceHtml(t("log.effort"),t("log.effort"),t("maxset.failure"),"");
     return peek?`<div class="${cls}"><span class="shelf__fieldbtn">${face}</span></div>`
       :`<div class="${cls}" data-field="rir" data-set="${esc(key)}"><button type="button" class="shelf__fieldbtn" data-shelf-field="rir" data-set="${esc(key)}" aria-pressed="${sel?"true":"false"}">${face}</button></div>`}
-  const effortField=id==="rir"&&effortMode;
+  const stage=vals.stage,effortField=id==="rir"&&stage!=="c";
   const live=sel&&ui.editing&&!effortField&&!peek;
   const label=id==="load"?t("focus.shelf.field_load",{unit:unitLabel()}):id==="reps"?t("stats.table.reps")
-    :effortField?t("log.effort"):t("stats.table.rir");
+    :stage==="a"?t("log.effort"):stage==="b"?t("focus.field.left"):t("stats.table.rir");
   const short=id==="load"?t("focus.metric.load_kg"):label;
   const name=`${label}, ${t("focus.set_label",{n})}`;
-  const raw=id==="load"?vals.kgVal:id==="reps"?vals.repsVal:vals.rirVal;
-  const shown=effortField?effortLabel(vals.effortVal):id==="reps"?String(vals.repsVal??""):shelfText(raw);
+  const raw=id==="load"?vals.kgVal:id==="reps"?vals.repsVal:vals.unsure?"":vals.rirVal;
+  const shown=id==="rir"&&vals.unsure?effortLabel("unsure"):effortField?effortLabel(vals.effortVal)
+    :id==="reps"?String(vals.repsVal??""):shelfText(raw);
   const soft=!(id==="load"?touched.load:id==="reps"?touched.reps:touched.effort);
-  const cls=`shelf__field${sel?" is-sel":""}${soft?" is-untouched":""}${live?" is-editing":""}`;
+  const word=effortField||id==="rir"&&vals.unsure;
+  const cls=`shelf__field${sel?" is-sel":""}${soft?" is-untouched":""}${live?" is-editing":""}${word?" is-word":""}`;
   const face=shelfFaceHtml(short,label,shown,id==="load"?unitLabel():"");
-  if(peek)return `<div class="${cls}"><span class="shelf__fieldbtn">${face}</span></div>`;
-  const hooks=effortField
-    ?` data-effspin="${esc(key)}" data-e="${esc(vals.effortVal)}" aria-describedby="effpop_${esc(key)}"`:"";
+  const chev=`<span class="icon-mask icon-mask--chev-down shelf__chev" aria-hidden="true"></span>`;
+  if(peek)return `<div class="${cls}"><span class="shelf__fieldbtn">${face}</span>${id==="rir"?`<span class="shelf__menu">${chev}</span>`:""}</div>`;
+  // Stage A's word explains itself on a second tap ("≈1 left"); stage B's chips are the count already.
+  const explain=effortField&&stage==="a";
+  const hooks=effortField?` data-effspin="${esc(key)}" data-e="${esc(vals.effortVal)}" data-stage="${stage}"${explain?` aria-describedby="effpop_${esc(key)}"`:""}`:"";
   // A selected Load or Reps field's name gains the picker hint: a second tap opens the wheel (ADR 0023 choice 8).
   const pickerHint=sel&&(id==="load"||id==="reps")?` aria-label="${esc(`${label} ${shown||"—"}, ${t("focus.field.picker_hint")}`)}"`:"";
   const button=`<button type="button" class="shelf__fieldbtn" data-shelf-field="${id}" data-set="${esc(key)}" aria-pressed="${sel?"true":"false"}"${hooks}${pickerHint}>${face}</button>`;
@@ -9435,19 +9601,27 @@ function shelfFieldHtml(ex,n,id,vals,{ui,touched,effortMode,peek}){
     `enterkeyhint="${id==="rir"?"done":"next"}" aria-label="${esc(name)}" autocomplete="off" value="${esc(String(raw??""))}"`+
     `${live?"":' tabindex="-1" aria-hidden="true"'}>`;
   const caption=live?`<span class="shelf__lab shelf__lab--edit" aria-hidden="true">${esc(short)}</span>`:"";
-  return `<div class="${cls}" data-field="${id}" data-set="${esc(key)}">${button}${input}${caption}${effortField?effortPopHtml(key,vals.effortVal):""}</div>`}
+  // The effort field's arrow, in its top corner: how effort is logged, and "Not sure" for this set (Plan 077, OD-2
+  // and OD-4). It is its own 44px target; the rest of the field still selects it.
+  const menu=id==="rir"&&!live?`<button type="button" class="shelf__menu" data-effmenu="${esc(key)}" aria-haspopup="menu" `+
+    `aria-label="${esc(t("focus.effort_menu.button",{field:label}))}">${chev}</button>`:"";
+  return `<div class="${cls}" data-field="${id}" data-set="${esc(key)}">${button}${input}${caption}${menu}${explain?effortPopHtml(key,vals.effortVal):""}</div>`}
 
-function shelfPadsHtml(ex,n,ui,vals,{effortMode,peek}){
+function shelfPadsHtml(ex,n,ui,vals,{peek}){
   const key=`${ex.id}_${n}`,id=ui.field;
   const pad=(dir,text,{attrs="",off=false}={})=>`<button type="button" class="stepbtn shelf__pad"${peek?dead()
     :`${attrs} data-dir="${dir}"${off?" disabled":""}`}>${esc(text)}</button>`;
   const sign=dir=>dir>0?"+":"−";
   if(id==="rir"&&draftSetAt(ex.id,n)?.calibration)
     return `<button type="button" class="stepbtn shelf__pad shelf__pad--wide"${peek?dead():` data-maxset-cancel="${esc(key)}"`}>${esc(t("maxset.cancel"))}</button>`;
-  if(id==="rir"&&effortMode){
-    const at=Math.max(0,EFFORT_STEPS.indexOf(vals.effortVal));
-    return [-1,1].map(dir=>{const to=EFFORT_STEPS[at+dir],word=effortLabel(to||vals.effortVal);
-      return pad(dir,t("focus.shelf.pad_effort",{sign:sign(dir),effort:word}),{attrs:` data-effstep="${esc(key)}"`,off:!to})}).join("")}
+  const tokens=id==="rir"?stageTokens(vals.stage):null;
+  if(tokens){
+    // Stages A and B: one tap on the choice (Plan 077, OD-4). The offered value is marked but not pressed until the
+    // lifter confirms it.
+    const confirmed=!!shelfTouched(ex.id,n).effort&&!vals.unsure;
+    return tokens.map(e=>{const on=e===vals.effortVal&&!vals.unsure;
+      return `<button type="button" class="shelf__pad shelf__chip${vals.stage==="b"?" shelf__chip--num":""}${on&&!confirmed?" is-offered":""}"`+
+        `${peek?dead():` data-effchip="${esc(key)}" data-e="${e}" aria-pressed="${on&&confirmed?"true":"false"}"`}>${esc(effortLabel(e))}</button>`}).join("")}
   const metricId=id.startsWith("metric_")?id.slice(7):null;
   const metric=metricId?focusMetricDefinitions(ex.id,n).find(item=>item.id===metricId):null;
   if(metric){
@@ -9465,8 +9639,10 @@ function shelfPadsHtml(ex,n,ui,vals,{effortMode,peek}){
     :id==="reps"?t("focus.shelf.pad_reps",{sign:sign(dir)}):t("focus.shelf.pad_rir",{sign:sign(dir)}),{attrs})).join("")}
 
 /** The pad row: the pads for the selected field. Rest controls live in the rest sheet behind the tab. */
-function focusPadsHtml(ex,n,ui,vals,{effortMode,peek}){
-  return `<div class="shelf__pads">`+shelfPadsHtml(ex,n,ui,vals,{effortMode,peek})+`</div>`}
+function focusPadsHtml(ex,n,ui,vals,{peek}){
+  const chips=ui.field==="rir"&&vals.stage!=="c";
+  return `<div class="shelf__pads${chips?" shelf__pads--chips":""}"${chips&&!peek?` role="group" aria-label="${esc(t(vals.stage==="b"?"focus.field.left":"log.effort"))}"`:""}>`+
+    shelfPadsHtml(ex,n,ui,vals,{peek})+`</div>`}
 
 /** The shelf: the fields of the active set, the pads for the selected one and
  *  the single action that commits it — or, once the exercise is complete, the
@@ -9492,7 +9668,6 @@ function focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
         :`<button type="button" class="btn btn--cta${rise}"${peek?dead():" data-fnext"}>${esc(t("focus.next_ex"))}</button>`;
     return `<div class="focus-shelf workshelf is-done" role="region" aria-label="${esc(title)}">`+
       `<div class="focus-done${rise}"><p class="focus-done__title">${esc(title)}</p><p class="focus-done__sub">${esc(sub)}</p></div>`+cta+`</div>`}
-  const effortMode=isEffortMode();
   const key=`${ex.id}_${n}`,metricDefinitions=focusMetricDefinitions(ex.id,n),ui=shelfFor(key,metricDefinitions[0]?"metric_"+metricDefinitions[0].id:"reps");
   const editing=!!(focusEdit&&focusEdit.exId===ex.id);
   const vals=setFieldVals(ex,n,r,draft,prev);
@@ -9511,12 +9686,11 @@ function focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
   const group=side.length?`<p class="shelf__cap" aria-hidden="true"><span class="icon-mask icon-mask--dumbbell"></span>${esc(t("focus.per_side"))}</p>`+
     `<div class="shelf__group" style="--shelf-group-n:${side.length}">${side.map(metric=>metricHtml(metric,true)).join("")}</div>`:"";
   const fields=metricDefinitions.length
-    ?group+sorted.slice(lead).map(metric=>metricHtml(metric,false)).join("")+shelfFieldHtml(ex,n,"rir",vals,{ui,touched,effortMode,peek})
-    :["load","reps","rir"].map(id=>shelfFieldHtml(ex,n,id,vals,{ui,touched,effortMode,peek})).join("");
+    ?group+sorted.slice(lead).map(metric=>metricHtml(metric,false)).join("")+shelfFieldHtml(ex,n,"rir",vals,{ui,touched,peek})
+    :["load","reps","rir"].map(id=>shelfFieldHtml(ex,n,id,vals,{ui,touched,peek})).join("");
   return `<div class="focus-shelf workshelf${editing?" is-editing":""}" role="region" aria-label="${esc(label)}">`+
-    (editing?"":maxSetTipHtml(ex,n,peek))+
     `<div class="shelf__fields">${fields}</div>`+
-    focusPadsHtml(ex,n,ui,vals,{effortMode,peek,editing})+
+    focusPadsHtml(ex,n,ui,vals,{peek})+
     `<button type="button" class="btn btn--cta btn--noarrow saveset"${peek?dead():` data-save="${esc(key)}"`}>${esc(label)}</button></div>`}
 
 /* ---- Wheel picker for Load and Reps (Plan 075 phase 2W, ADR 0023 choice 8) ----
@@ -9760,6 +9934,8 @@ function workoutFocusKey(el){
   const d=el.dataset;
   if(el.matches(".shelf__input")&&d.k)return{sel:`.focus-shelf .shelf__input[data-k="${q(d.k)}"]`,start:el.selectionStart,end:el.selectionEnd};
   if(d.shelfField&&d.set)return{sel:`.focus-shelf [data-shelf-field="${q(d.shelfField)}"][data-set="${q(d.set)}"]`};
+  if(d.effchip&&d.e)return{sel:`.focus-shelf [data-effchip="${q(d.effchip)}"][data-e="${q(d.e)}"]`};
+  if(d.effmenu)return{sel:`.focus-shelf [data-effmenu="${q(d.effmenu)}"]`};
   if(el.matches(".shelf__pad")&&d.dir)return{sel:`.focus-shelf .shelf__pad[data-dir="${q(d.dir)}"]`};
   if(el.matches(".saveset"))return{sel:".focus-shelf .saveset"};
   if(d.editex&&d.editn)return{sel:`.ledgerline[data-editex="${q(d.editex)}"][data-editn="${q(d.editn)}"]`};
@@ -9854,7 +10030,6 @@ function focusSkipbarHtml(peek){
   return hiddenCount?`<div class="skipbar">${esc(label)} <button type="button" class="skipbar__show"${peek?dead():""}>${esc(t("log.skipbar.show_all"))}</button></div>`:""}
 function focusCardHtml(ex,r,draft,prev,opts){
   const{peek=false,hasNext=true,allDone=false,nextName=""}=opts;
-  const effortMode=isEffortMode();
   const n=focusActiveSet(ex);
   const name=exerciseDisplayName(ex);
   // The exercise note (owner, 2026-11-05): with none, a quiet note icon at the end of the prescription line invites one;
@@ -9883,7 +10058,7 @@ function focusCardHtml(ex,r,draft,prev,opts){
     `<div class="fx-head"><div class="fx-head__row"><p class="focus-ex__meta">${esc(focusExMeta(ex))}</p>${noteAdd}</div>${note}</div>`+
     slotHtml+
     `<div class="fcard__ledger">`+
-    `${focusLedgerHtml(ex,r,draft,prev,{effortMode,peek})}</div>`+nextRow+`</div>`+
+    `${focusLedgerHtml(ex,r,draft,prev,{peek})}</div>`+nextRow+`</div>`+
     focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek})+`</article>`}
 
 /** The deck: the live card plus an inert copy of each neighbour, parked off
@@ -10038,7 +10213,7 @@ function contextMenuKeys(panel,dismiss){
     list[event.key==="Home"?0:event.key==="End"?list.length-1:(index+(back?-1:1)+list.length)%list.length]?.focus();
   };
 }
-function openRowContextMenu({anchor,items,opener=anchor}){
+function openRowContextMenu({anchor,items,opener=anchor,title=""}){
   if(nativeMenuClose)return Promise.resolve(null);
   if(opener===anchor&&anchor.contains(document.activeElement))opener=document.activeElement;
   return new Promise(resolve=>{
@@ -10051,9 +10226,14 @@ function openRowContextMenu({anchor,items,opener=anchor}){
     preview.className+=" native-context__preview";preview.inert=true;preview.setAttribute("aria-hidden","true");
     Object.assign(preview.style,{left:`${rect.left}px`,top:`${rect.top}px`,width:`${rect.width}px`,height:`${rect.height}px`});
     // A pull-down's items carry `checked` (the kit, §6): a radio menu item, its check in the icon slot.
-    dialog.innerHTML=`<div class="native-context__menu" role="menu">${items.map(item=>{
+    // A menu may carry a title over its items, an item a subtitle under its label, and `separatorBefore` starts a new
+    // group (the kit's grouped menu, as for a destructive item).
+    const titleId=title?`nativeContextTitle_${uid()}`:"";
+    dialog.innerHTML=`<div class="native-context__menu" role="menu"${title?` aria-labelledby="${titleId}"`:""}>${title?`<p class="native-context__title" id="${titleId}">${esc(title)}</p>`:""}${items.map(item=>{
       const radio=typeof item.checked==="boolean",icon=radio?(item.checked?"check":""):item.icon;
-      return `<button type="button" role="${radio?"menuitemradio":"menuitem"}"${radio?` aria-checked="${item.checked}"`:""} data-menu-value="${esc(item.value)}"${item.destructive?' class="is-destructive"':""}${item.disabled?" disabled":""}><span>${esc(item.label)}</span>${icon?`<span class="icon-mask icon-mask--${esc(icon)} native-context__icon" aria-hidden="true"></span>`:radio?`<span class="native-context__icon" aria-hidden="true"></span>`:""}</button>`}).join("")}</div>`;
+      const cls=[item.destructive?"is-destructive":"",item.separatorBefore?"is-group":""].filter(Boolean).join(" ");
+      const label=item.sub?`<span class="native-context__label"><span>${esc(item.label)}</span><span class="native-context__sub">${esc(item.sub)}</span></span>`:`<span>${esc(item.label)}</span>`;
+      return `<button type="button" role="${radio?"menuitemradio":"menuitem"}"${radio?` aria-checked="${item.checked}"`:""} data-menu-value="${esc(item.value)}"${cls?` class="${cls}"`:""}${item.disabled?" disabled":""}>${label}${icon?`<span class="icon-mask icon-mask--${esc(icon)} native-context__icon" aria-hidden="true"></span>`:radio||item.sub?`<span class="native-context__icon" aria-hidden="true"></span>`:""}</button>`}).join("")}</div>`;
     dialog.prepend(preview);document.body.append(dialog);
     const panel=dialog.querySelector('[role="menu"]');
     let closing=false,untrack=null;
@@ -10082,6 +10262,17 @@ function openRowContextMenu({anchor,items,opener=anchor}){
     quietFocus(panel.querySelector("button:not(:disabled)"));
   });
 }
+/** The effort field's arrow (Plan 077, OD-2 and OD-4): the three ways to log effort, the app's checked, and "Not sure"
+ *  for this set under them. A stage applies app-wide from the next set; "Not sure" is this set's value. */
+async function openEffortMenu(key,opener,pick){
+  const field=opener.closest(".shelf__field");if(!field)return;
+  const stage=effortStage();
+  const value=await openRowContextMenu({anchor:field,opener,title:t("focus.effort_menu.title"),items:[
+    ...["a","b","c"].map(s=>({label:t(STAGE_LABEL[s]),sub:t(STAGE_SUB[s]),value:s,checked:s===stage})),
+    {label:t("focus.effort_menu.unsure"),sub:t("focus.effort_menu.unsure_sub"),value:"unsure",separatorBefore:true}]});
+  if(value==="unsure"){await pick(key,"unsure");return}
+  if(value!=="a"&&value!=="b"&&value!=="c"||value===stage)return;
+  if(await commitEffortStage(value))toast(t("toast.effort_stage",{stage:t(STAGE_LABEL[value])}),{quiet:true})}
 async function todayRowContext(row,opener=row){
   if(opener===row&&row.contains(document.activeElement))opener=document.activeElement;
   const focusAttribute=opener.matches("[data-row-menu]")?"data-row-menu":opener.matches("[data-exopen]")?"data-exopen":"data-context-row";
@@ -10429,12 +10620,11 @@ function bindWorkout(){
     }
     padTap.set(inp,dir);
     await inp.oninput?.()});
-  const stepEffort=async(key,dir)=>{
-    const el=$(`[data-effspin="${key}"]`);if(!el)return;
-    const i=Math.max(0,EFFORT_STEPS.indexOf(el.dataset.e));
-    const next=EFFORT_STEPS[Math.min(EFFORT_STEPS.length-1,Math.max(0,i+dir))];
-    if(next===el.dataset.e)return;
+  /** Record one effort choice for a set: a word, a reps-left chip or "Not sure". The shelf shows it at once; a choice
+   *  that changes how the field is drawn ("Not sure" on a stage C set, or back) redraws the card once it is stored. */
+  const pickEffort=async(key,next,dir=0)=>{
     const target=draftTargetFromKey(key);if(!activeWorkoutDraft||!target)return;
+    const[exId,n]=setKeyParts(key),before=setStageOf(exId,n),wasUnsure=activeWorkoutDraft.exercises[exId]?.sets?.[target.setId]?.edited?.effort==="unsure";
     setEffortPick(key,next,dir);
     const pendingKey=`${key}_effort`,token=holdPendingField(pendingKey,next);
     let result;
@@ -10443,24 +10633,36 @@ function bindWorkout(){
     finally{releasePendingField(pendingKey,token)}
     if(result.status!=="applied")return;
     updateSaveMeta();
+    if(next==="unsure"||wasUnsure||setStageOf(exId,n)!==before){renderWorkout();return}
     const live=liveEffortField(key);
     if(live)refreshAfterCommittedEdit(live)};
-  $w("[data-effstep]").forEach(b=>b.onclick=()=>stepEffort(b.dataset.effstep,+b.dataset.dir||0));
+  const stepEffort=(key,dir)=>{
+    const el=$(`[data-effspin="${key}"]`);if(!el)return;
+    const tokens=stageTokens(el.dataset.stage)||EFFORT_STEPS;
+    const i=Math.max(0,tokens.indexOf(el.dataset.e));
+    const next=tokens[Math.min(tokens.length-1,Math.max(0,i+dir))];
+    if(next===el.dataset.e)return;
+    return pickEffort(key,next,dir)};
+  $w("[data-effchip]").forEach(b=>b.onclick=()=>{
+    if(b.getAttribute("aria-pressed")==="true")return;
+    const from=stageTokens(setStageOf(...setKeyParts(b.dataset.effchip)))||[],at=$(`[data-effspin="${b.dataset.effchip}"]`)?.dataset.e;
+    pickEffort(b.dataset.effchip,b.dataset.e,Math.sign(from.indexOf(b.dataset.e)-from.indexOf(at)))});
+  $w("[data-effmenu]").forEach(b=>b.onclick=()=>openEffortMenu(b.dataset.effmenu,b,pickEffort));
   $w("[data-effspin]").forEach(el=>{
     // The tap belongs to the field handler (select, then explain); the arrow
-    // keys step the word the way the pads do.
+    // keys step through the stage's choices the way the chips set them.
     el.onkeydown=e=>{
       if(e.key==="Escape"){closeEffortPop();return}
       const step=e.key==="ArrowUp"||e.key==="ArrowRight"?1:e.key==="ArrowDown"||e.key==="ArrowLeft"?-1:0;
-      const jump=e.key==="Home"?-EFFORT_STEPS.length:e.key==="End"?EFFORT_STEPS.length:null;
+      const jump=e.key==="Home"?-4:e.key==="End"?4:null;
       if(!step&&jump==null)return;
       e.preventDefault();stepEffort(el.dataset.effspin,jump??step)}});
   $w("[data-shelf-field]").forEach(b=>b.onclick=()=>{
     const key=b.dataset.set,id=b.dataset.shelfField,ui=shelfFor(key);
-    const effortField=id==="rir"&&isEffortMode();
+    const effortField=!!b.dataset.effspin;
     // A second tap on the selected field opens it: the wheel for Load or Reps
     // (Plan 075 phase 2W), a typed value for anything else, or the word's explainer.
-    if(ui.field===id&&effortField){toggleEffortPop(key);return}
+    if(ui.field===id&&effortField){if(b.dataset.stage==="a")toggleEffortPop(key);return}
     if(ui.field===id&&!ui.editing){
       const[exId,n]=setKeyParts(key),wheelKind=fieldWheelKind(exId,n,id);
       if(wheelKind){openWheelSheet(key,id,wheelKind);return}
@@ -10486,8 +10688,6 @@ function bindWorkout(){
     $w("[data-fnext],[data-fnextrow]").forEach(b=>b.onclick=()=>focusAnimateTo(1));
     $w("[data-ledgermore]").forEach(b=>b.onclick=()=>toggleFocusLedger(b));
     $w("[data-fnote]").forEach(b=>b.onclick=()=>openExNoteSheet(b.dataset.fnote));
-    $w("[data-maxset-no]").forEach(b=>b.onclick=()=>declineMaxSet(b.dataset.maxsetNo));
-    $w("[data-maxset-guess]").forEach(b=>b.onclick=()=>openMaxSetSheet(b.dataset.maxsetGuess));
     $w("[data-maxset-cancel]").forEach(b=>b.onclick=()=>{const key=b.dataset.maxsetCancel,at=key.lastIndexOf("_");
       cancelMaxSet(key.slice(0,at),+key.slice(at+1))});
     // Tap a logged row to reopen that set in the shelf, with a way back out.
@@ -11936,7 +12136,7 @@ async function applyParsedCommand(parsed,context){
         setId:target.setId,metricId:metric.id,value});if(result.status!=="applied")return}
   }else fields.push({field:"load",value:canonicalDraftField("load",canonicalNumberText(loadDisp))},
     {field:"reps",value:String(parsed.reps)});
-  if(isEffortMode())fields.push({field:"effort",value:parsed.effort||(parsed.rir!=null?effortForRir(parsed.rir):"hard")});
+  if(isEffortMode())fields.push({field:"effort",value:tokenInStage(parsed.effort,effortStage())||stageEffortForRir(parsed.rir??1)});
   else fields.push({field:"rir",value:parsed.rir!=null?canonicalNumberText(parsed.rir):""});
   for(const field of fields){const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
       setId:target.setId,field:field.field,value:field.value});if(result.status!=="applied")return}
@@ -12528,7 +12728,7 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
     const kind=rec.status==="manual"?"manual":rec.status==="configuration_required"?"setup":"start";
     const head=kind==="manual"?t("focus.cue.your_targets"):kind==="setup"?t("focus.cue.needs_setup"):t("focus.cue.pick_load",{min:tmpl.min,max:tmpl.max});
     const key=focusNoSuggestionKey(tmpl,rec,1,kind);
-    const body=t(`focus.evidence.none_${key}`,{what:t(isEffortMode()?"focus.evidence.what_effort":"focus.evidence.what_rir"),min:tmpl.min,max:tmpl.max});
+    const body=t(`focus.evidence.none_${key}`,{what:t(isWordMode()?"focus.evidence.what_effort":"focus.evidence.what_rir"),min:tmpl.min,max:tmpl.max});
     return{head,body}})():null;
   const recHtml=rec?`<div class="recblock is-${rec.status}"><div class="recblock__row"><div><div class="recblock__lab">${esc(t("today.recommendation"))}</div>`+
     `<div class="recblock__head">${esc(recWords.head)}</div>`+
@@ -14794,7 +14994,7 @@ function renderSettings(){
   if(rs)rs.value=state.settings.restSec;if(un)un.value=state.settings.unit;
   const langSel=$("#lang");if(langSel){langSel.value=state.settings.lang;[...langSel.options].forEach(o=>{o.textContent=t("settings.lang."+o.value)})}
   const themeSel=$("#theme");if(themeSel){themeSel.value=currentTheme();[...themeSel.options].forEach(o=>{o.textContent=t("settings.appearance."+o.value)})}
-  $$('input[name="rirMode"]').forEach(r=>{r.checked=r.value===state.settings.rirMode});
+  $$('input[name="rirMode"]').forEach(r=>{r.checked=r.value===STAGE_PICK[effortStage()]});
   const vi=$("#voiceInputEnabled");if(vi)vi.checked=!!state.settings.voiceInputEnabled;
   const vt=$("#voiceToggle");if(vt){vt.classList.toggle("is-on",!!state.settings.voiceInputEnabled);vt.setAttribute("aria-pressed",state.settings.voiceInputEnabled?"true":"false")}
   const msOn=state.settings.maxSetPrompts!==false,ms=$("#maxSetPrompts");if(ms)ms.checked=msOn;
@@ -14811,9 +15011,10 @@ function renderSettings(){
   const sec=normalizeRestSec(state.settings.restSec),disp=$("#restSecDisplay");
   if(disp)disp.textContent=sec?fmtClock(sec):t("settings.rest_off");
   const jumpDisp=$("#minJumpDisplay");if(jumpDisp)jumpDisp.textContent=fmt(+state.settings.minJump||DEFAULTS.minJump);
-  const rirDisp=$("#rirModeDisplay");if(rirDisp)rirDisp.textContent=state.settings.rirMode==="effort"?t("settings.rir_effort"):t("settings.rir_numbers");
-  // The effort scale's explanation stands under its row while that is the mode (it was the panel's lede).
-  const effortLede=$("#rirEffortLede");if(effortLede)effortLede.hidden=state.settings.rirMode!=="effort";
+  const rirDisp=$("#rirModeDisplay");if(rirDisp)rirDisp.textContent=t(STAGE_LABEL[effortStage()]);
+  // A word or chip stage's explanation stands under its row while that is the stage (it was the panel's lede).
+  const effortLede=$("#rirEffortLede");
+  if(effortLede){effortLede.hidden=effortStage()==="c";effortLede.textContent=t(effortStage()==="b"?"settings.effort_lede_reps":"settings.effort_lede")}
   const langDisp=$("#langDisplay");if(langDisp)langDisp.textContent=t("settings.lang."+(I18N?.normalizeLang(state.settings.lang)||"en"));
   const le=state.settings.lastExport,ago=le?t("settings.storage.last_backup",{lastBackup:le.slice(0,10)}):t("settings.storage.last_backup_never");
   paintStorageNote(ago);
@@ -14843,8 +15044,17 @@ function reportSettingsChanged(before,after){
 async function commitSettings(silent){const editRevision=settingsEditRevision;const settingsBefore=cloneSnapshot(state.settings);
   const num=(sel,def,min)=>{const n=parseDec($(sel).value);return Number.isFinite(n)&&n>=min?n:def};
   const oldUnit=state.settings.unit,newUnit=$("#unit").value==="lb"?"lb":"kg",oldLang=state.settings.lang,newLang=I18N?.normalizeLang($("#lang")?.value)||oldLang;
-  const newRirMode=$('input[name="rirMode"]:checked')?.value==="effort"?"effort":"numeric";
-  if(!changeRirMode(newRirMode))return{revision:readRevision(state),localOk:false,idbOk:false,cancelled:true};
+  const stagePick=stageSettings(stageForPick($('input[name="rirMode"]:checked')?.value));
+  // A unit change commits on its own; the stage holds still under it.
+  const{rirMode:newRirMode,effortScale:newEffortScale}=oldUnit===newUnit?stagePick
+    :{rirMode:state.settings.rirMode,effortScale:state.settings.effortScale};
+  // No wait for draft writes here: Settings commits synchronously up to its enqueue, like every other setting. A draft
+  // write still in flight changes the raw, and the effect's abort-if-changed precondition refuses the commit for a retry.
+  const modeEffect=newRirMode===state.settings.rirMode?null:draftRirModeEffect(readDraftRaw(),newRirMode);
+  if(modeEffect?.status===DRAFT_EFFECT_INVALID){
+    $$('input[name="rirMode"]').forEach(r=>{r.checked=r.value===STAGE_PICK[effortStage()]});
+    toast(t("toast.rir_locked_draft"));
+    return{revision:readRevision(state),localOk:false,idbOk:false,cancelled:true}}
   const rsEl=$("#restSec");let restSec;
   const restN=parseDec(rsEl?.value);
   if(Number.isFinite(restN)&&restN>=0&&!Number.isInteger(restN)){
@@ -14855,10 +15065,11 @@ async function commitSettings(silent){const editRevision=settingsEditRevision;co
   const originalDraftRaw=oldUnit===newUnit?null:readDraftRaw();
   const unitEffect=draftUnitConversionEffect(originalDraftRaw,oldUnit,newUnit);
   const proposal=cloneSnapshot(state);
-  proposal.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=parseDec($("#minJump").value);return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec,lastExport:state.settings.lastExport,unit:newUnit,lang:newLang,rirMode:newRirMode,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked,maxSetPrompts:$("#maxSetPrompts")?$("#maxSetPrompts").checked:state.settings.maxSetPrompts!==false,notify:normalizeNotify({enabled:!!state.settings.notify?.enabled,timer:!!$("#notifyTimer")?.checked,session:!!$("#notifySession")?.checked,unfinished:!!$("#notifyUnfinished")?.checked,missed:!!$("#notifyMissed")?.checked})});
-  const result=await commitProposedState(proposal,storageIO,{effect:unitEffect});
+  proposal.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=parseDec($("#minJump").value);return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec,lastExport:state.settings.lastExport,unit:newUnit,lang:newLang,rirMode:newRirMode,effortScale:newEffortScale,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked,maxSetPrompts:$("#maxSetPrompts")?$("#maxSetPrompts").checked:state.settings.maxSetPrompts!==false,notify:normalizeNotify({enabled:!!state.settings.notify?.enabled,timer:!!$("#notifyTimer")?.checked,session:!!$("#notifySession")?.checked,unfinished:!!$("#notifyUnfinished")?.checked,missed:!!$("#notifyMissed")?.checked})});
+  const result=await commitProposedState(proposal,storageIO,{effect:unitEffect||modeEffect});
   if(!(result.localOk||result.idbOk)){if(editRevision===settingsEditRevision)renderSettings();return result}
   reportSettingsChanged(settingsBefore,state.settings);
+  if(modeEffect)await reloadDraftAfterEffect();
   // A length picked in the timer sheet holds for the session, but a new default
   // in Settings is the lifter saying it plainly — it wins.
   if(oldRestSec!==state.settings.restSec)restLength=0;
@@ -23500,7 +23711,7 @@ function whyPerformedText(prev,u){
   // One sentence per run of sets at the same load, so a backoff set never borrows the first set's load.
   const runs=[];
   for(const x of rows){const run=runs.at(-1);if(run&&sameLoad(+run.load,+x.load))run.sets.push(x);else runs.push({load:x.load,sets:[x]})}
-  const effort=isEffortMode();
+  const effort=isWordMode();
   return runs.map(run=>{
     const reps=whyList(run.sets.map(x=>x.reps)),load=fmtLoad(run.load);
     if(effort)return t("why.performed_effort",{reps,load,unit:u,efforts:whyList(run.sets.map(x=>effortLabel(effortForRir(x.rir))))});
@@ -23653,7 +23864,7 @@ function whySheetModel(ex,surface="focus"){
   if(isRange&&rec.status!=="new"&&session.length&&nextSet!=null){
     // In-session: the capacity the set showed comes before the prediction for the next one, never the reverse.
     const seen=session.at(-1),sg=setSuggestion(ex,nextSet,rec,draft,last(ex).find(x=>+x.set===nextSet)),note=take("session"),observed=Math.round(repsAtLoad(seen.cap,seen.load));
-    block("set1",t("why.lead.set1",{n:session.length}),isEffortMode()
+    block("set1",t("why.lead.set1",{n:session.length}),isWordMode()
       ?t("why.set1_effort",{n:session.length,cap:observed,reps:seen.reps,load:fmtLoad(seen.load),unit:u,effort:effortLabel(effortForRir(seen.rir))})
       :t("why.set1",{n:session.length,cap:observed,reps:seen.reps,load:fmtLoad(seen.load),unit:u,rir:fmt(seen.rir)}),t("why.session"));
     const predicted=sg.src==="session-hold"&&sg.pred!=null?t("why.set2",{pred:fmt(sg.pred),rir:fmt(sg.typ),reps:sg.reps}):"";
@@ -24075,7 +24286,7 @@ window.__repforgeFocus={
   noSuggestion(exId,rec,n=1,kind="start"){
     const base=prog.find(exId),ex=base?sessionExercise(base):null;if(!ex)return null;
     const key=focusNoSuggestionKey(ex,rec,n,kind);
-    return{key,text:t(`focus.evidence.none_${key}`,{what:t(isEffortMode()?"focus.evidence.what_effort":"focus.evidence.what_rir"),min:ex.min,max:ex.max})}},
+    return{key,text:t(`focus.evidence.none_${key}`,{what:t(isWordMode()?"focus.evidence.what_effort":"focus.evidence.what_rir"),min:ex.min,max:ex.max})}},
   to(i){
     focusIndex=Math.max(0,i);focusEdit=null;
     const fl=focusList();
@@ -24088,7 +24299,8 @@ window.__repforgeShowSettings=showSettings;
 window.__repforgeUi={loadUiPrefs,isStandalone,isIOS,showInstallBanner,currentTheme,resolvedTheme,setTheme,
   installPolicyDecision:()=>installPolicyDecision(),guideState:contextualGuideState,
   replayGuide:replayContextualGuide,showGuide:showContextualGuide,
-  openInstallTransferState:stateName=>openIosInstallSheet(stateName),openPrivacy:()=>openPrivacySheet()};
+  openInstallTransferState:stateName=>openIosInstallSheet(stateName),openPrivacy:()=>openPrivacySheet(),
+  setPref:(key,value)=>setUiPref(key,value),sharedSettings:()=>sharedSettings(state.settings)};
 function resumeProgramEditFollowUp(){
   if(state?.[STORAGE_FOLLOWUP]?.kind!=="onboarding-edit")return false;
   programEditMode=true;
@@ -24307,7 +24519,7 @@ function init(){
   // a swipe of the card underneath. Capture, so a card drag never outlives it.
   document.addEventListener("pointerdown",e=>{
     const el=e.target instanceof Element?e.target:null;
-    if(el?.closest(".effortpop, [data-effspin], [data-effstep]"))return;
+    if(el?.closest(".effortpop, [data-effspin], [data-effchip]"))return;
     closeEffortPop()},{capture:true});
   let deckResize;
   window.addEventListener("resize",()=>{clearTimeout(deckResize);deckResize=setTimeout(sizeFocusDeck,120)});
@@ -24391,9 +24603,9 @@ function init(){
     const values=prevSets.map(s=>Array.isArray(s.metricValues)?({
       ordinal:s.set,
       metrics:Object.fromEntries(s.metricValues.map(value=>[value.metricId,canonicalNumberText(value.value)])),
-      ...(s.rir==null?{}:isEffortMode()?{effort:effortForRir(s.rir)}:{rir:canonicalNumberText(s.rir)})
+      ...(s.rir==null?{}:isEffortMode()?{effort:stageEffortForRir(s.rir)}:{rir:canonicalNumberText(s.rir)})
     }):({ordinal:s.set,load:canonicalNumberText(s.load),reps:canonicalNumberText(s.reps),
-      ...(isEffortMode()?{effort:effortForRir(s.rir)}:{rir:canonicalNumberText(s.rir)})}));
+      ...(isEffortMode()?{effort:stageEffortForRir(s.rir)}:{rir:canonicalNumberText(s.rir)})}));
     const res=await WorkoutSession.dispatch("repeatPreviousSetValues",{exerciseInstanceId:id,values});
     if(res.status==="applied"){
       renderWorkout();
@@ -24493,8 +24705,8 @@ function init(){
     const value=await openRowContextMenu({anchor:row,items:options.map(([v,label])=>({label,value:v,checked:v===current()}))});
     if(value!=null&&value!==current())apply(value)};
   const rirRow=$("#rirModeRow");if(rirRow)rirRow.onclick=()=>pullDown(rirRow,
-    [["numeric",t("settings.rir_numbers")],["effort",t("settings.rir_effort")]],
-    ()=>$('input[name="rirMode"]:checked')?.value==="effort"?"effort":"numeric",
+    ["a","b","c"].map(stage=>[STAGE_PICK[stage],t(STAGE_LABEL[stage])]),
+    ()=>$('input[name="rirMode"]:checked')?.value||"numeric",
     value=>{const radio=$(`input[name="rirMode"][value="${value}"]`);if(radio){radio.checked=true;commitChangedSettings().then(renderSettings)}});
   const langRow=$("#langRow");if(langRow)langRow.onclick=()=>pullDown(langRow,
     [["en",t("settings.lang.en")],["pt",t("settings.lang.pt")]],
