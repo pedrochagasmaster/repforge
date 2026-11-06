@@ -411,15 +411,16 @@
         </div>
         <!-- A choice row opens a native pull-down anchored to it (the prototype, owner 2026-10-28); the radios keep the value. -->
         <button type="button" class="settings-row settings-row--pull" id="rirModeRow" aria-haspopup="menu" aria-labelledby="rirModeLabel rirModeDisplay">
-          <span class="settings-row__label" id="rirModeLabel" data-i18n="settings.rir_logging">RIR logging</span>
-          <span class="settings-row__value"><span id="rirModeDisplay">Numbers</span> <span class="icon-mask icon-mask--chev-down settings-row__pull" aria-hidden="true"></span></span>
+          <span class="settings-row__label" id="rirModeLabel" data-i18n="settings.rir_logging">Effort logging</span>
+          <span class="settings-row__value"><span id="rirModeDisplay">RIR (a number)</span> <span class="icon-mask icon-mask--chev-down settings-row__pull" aria-hidden="true"></span></span>
         </button>
         <div id="rirModePanel" hidden>
           <fieldset class="field rirmode">
-            <legend class="visually-hidden" data-i18n="settings.rir_logging">RIR logging</legend>
+            <legend class="visually-hidden" data-i18n="settings.rir_logging">Effort logging</legend>
             <div class="rirmode__opts">
-              <label class="rirmode__opt"><input type="radio" name="rirMode" value="numeric" checked> <span data-i18n="settings.rir_numbers">Numbers</span></label>
               <label class="rirmode__opt"><input type="radio" name="rirMode" value="effort"> <span data-i18n="settings.rir_effort">Easy / Hard / Max</span></label>
+              <label class="rirmode__opt"><input type="radio" name="rirMode" value="reps"> <span data-i18n="settings.rir_reps">Reps left</span></label>
+              <label class="rirmode__opt"><input type="radio" name="rirMode" value="numeric" checked> <span data-i18n="settings.rir_numbers">RIR (a number)</span></label>
             </div>
           </fieldset>
         </div>
@@ -1456,7 +1457,7 @@ Triceps pushdown 3x12-15</pre>
   <script src="program-editor.js?v=559"></script>
   <script src="program-review.js?v=572"></script>
   <script src="shared-setup.js?v=574"></script>
-  <script src="workout-draft.js?v=630"></script>
+  <script src="workout-draft.js?v=633"></script>
   <script src="program-transition.js?v=560"></script>
   <script src="program-engine.js?v=486"></script>
   <script src="install-transfer-contract.js"></script>
@@ -1467,6 +1468,6 @@ Triceps pushdown 3x12-15</pre>
   <script src="progress-model.js?v=309"></script>
   <script src="history-ui.js?v=630"></script>
   <script src="share-cards.js?v=631"></script>
-  <script src="app.js?v=631"></script>
+  <script src="app.js?v=633"></script>
 </body>
 </html>

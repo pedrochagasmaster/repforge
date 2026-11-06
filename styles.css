@@ -1629,6 +1629,41 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 .focus-done__sub{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);margin:var(--space-4) 0 0}
 /* The effort word's explainer opens over its field, as it did over the old cell. */
 .shelf__field .effortpop{bottom:calc(100% + 4px)}
+/* Effort stages (Plan 077, OD-4): the effort field carries its menu's arrow in its top corner, a 44px button of its own
+   so the rest of the field still selects it. Stages A and B set the value with one tap on a chip. */
+.shelf__menu{
+  position:absolute;z-index:1;top:0;right:0;display:flex;align-items:flex-start;justify-content:flex-end;width:var(--control-target);height:var(--control-target);
+  margin:0;padding:calc(var(--space-4) + 3px) var(--space-8) 0 0;border:0;border-radius:0 var(--shelf-inner-radius) 0 var(--shelf-inner-radius);background:transparent;
+  color:var(--color-ink-secondary);cursor:pointer;
+}
+.shelf__menu:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
+.shelf__chev{display:block;width:16px;height:16px;background:currentColor}
+.shelf__field[data-field="rir"] .shelf__lab{padding-right:var(--space-14)}
+/* A word in the effort field keeps the numerals' line box, so the three fields share one baseline. */
+.shelf__field.is-word .shelf__val{font-family:var(--font-language);font-weight:var(--weight-semibold);font-size:min(var(--font-size-subtitle),var(--shelf-numeral-fit));
+  line-height:calc(min(var(--font-size-metric),var(--shelf-numeral-fit)) * var(--line-tight))}
+.shelf__pads--chips{gap:6px}
+.shelf__pads .shelf__chip{padding:0 var(--space-4);border:1px solid var(--control-selection-boundary);background:var(--control-selection-bg);color:var(--control-selection-ink);cursor:pointer;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.shelf__pads .shelf__chip.is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
+.shelf__pads .shelf__chip:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.shelf__pads .shelf__chip--num{font-family:var(--font-training-data);font-variant-numeric:tabular-nums}
+.shelf__pads .shelf__chip.is-offered{border-color:var(--color-ink-secondary)}
+.shelf__pads .shelf__chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--boundary-selected-quiet)}
+/* The between-sets tip (OD-6): over the shelf and its rest tab, never on them, so Log set stays live under it. */
+.resttip{
+  position:absolute;z-index:3;left:var(--shelf-inset);right:var(--shelf-inset);bottom:calc(100% + var(--control-target) + var(--space-8));
+  padding:var(--space-12) var(--space-14);border-radius:var(--radius-surface);background:var(--toast-bg);color:var(--toast-ink);
+  box-shadow:var(--elevation-floating-shadow);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);
+}
+.resttip__text{margin:0;padding-right:var(--space-26)}
+.resttip__text b{font-weight:var(--weight-semibold)}
+.resttip__acts{display:flex;justify-content:flex-end;gap:var(--space-4);margin:var(--space-4) calc(-1 * var(--space-8)) calc(-1 * var(--space-8)) 0}
+.resttip__no,.resttip__yes{min-height:var(--control-target);padding:0 var(--space-8);border:0;background:transparent;color:inherit;font:inherit;font-weight:var(--weight-semibold);cursor:pointer}
+.resttip__no{font-weight:var(--weight-regular);opacity:.75}
+.resttip__x{position:absolute;top:0;right:0;display:grid;place-items:center;width:var(--control-target);height:var(--control-target);padding:0;border:0;background:transparent;color:inherit;opacity:.75;cursor:pointer}
+.resttip__x .icon-mask{width:18px;height:18px;background:currentColor}
+.resttip :focus-visible{outline:2px solid currentColor;outline-offset:-2px;border-radius:var(--radius-button)}
 
 /* ---- The wheel picker (Plan 075 phase 2W, ADR 0023 choice 8) ----
    A second tap on the selected Load or Reps field opens this in a fit sheet.
@@ -9065,6 +9100,8 @@ body.is-entry-editor #entryProgramName,
 .native-context__preview{position:fixed!important;display:flex;align-items:center;padding-inline:var(--space-12);pointer-events:none;background:var(--surface);border-radius:var(--radius-surface);box-shadow:var(--elevation-drag-shadow);transform:scale(1.03)}
 .native-context__preview.today-rx__row{background:var(--bg);display:grid;grid-template-columns:1rem minmax(0,1fr) auto auto;gap:var(--space-8)}
 .native-context__preview .native-row-menu{display:none}
+.native-context__preview.shelf__field{padding:0;background:transparent;box-shadow:none}
+.native-context__preview.shelf__field .shelf__fieldbtn{box-shadow:var(--elevation-drag-shadow)}
 .native-context__preview .rxrow,.native-context__preview .program-editor-a__row{border-bottom:0}
 .native-context__menu{position:fixed;min-width:min(230px,calc(100vw - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px) - 24px));max-width:min(300px,calc(100vw - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px) - 24px));max-height:calc(var(--vvh,100dvh) - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 24px);overflow-y:auto;background:var(--menu-bg);-webkit-backdrop-filter:var(--menu-blur);backdrop-filter:var(--menu-blur);border:0;border-radius:var(--radius-surface);box-shadow:var(--menu-shadow)}
 .native-context__menu button{display:flex;align-items:center;justify-content:space-between;gap:var(--space-16);width:100%;min-height:var(--control-target);padding:10px var(--space-16);text-align:left;border:0;background:transparent;color:var(--ink);font-size:var(--font-size-body);line-height:var(--line-standard)}
@@ -9072,6 +9109,12 @@ body.is-entry-editor #entryProgramName,
 /* The destructive choice sits apart, as iOS separates it in a context menu. */
 .native-context__menu button:not(.is-destructive)+button.is-destructive{border-top:var(--space-8) solid var(--menu-separator)}
 .native-context__menu button.is-pressed{background:var(--row-pressed-bg)}
+/* A titled menu, an item's subtitle, and a group start (the effort menu, Plan 077). */
+.native-context__title{margin:0;padding:var(--space-8) var(--space-16) 6px;font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.native-context__title+button{border-top:.5px solid var(--rule)}
+.native-context__label{display:flex;flex-direction:column;min-width:0}
+.native-context__sub{font-size:var(--font-size-caption);color:var(--color-ink-secondary)}
+.native-context__menu button.is-group{border-top:var(--space-8) solid var(--menu-separator)}
 .native-context__icon{flex:none;width:20px;height:20px}
 /* A pull-down's checked item: the check in the icon slot and a medium label (contract: state cues). */
 .native-context__menu [role="menuitemradio"][aria-checked="true"]{font-weight:var(--weight-medium)}

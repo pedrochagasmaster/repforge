@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 234 screens,
-1350 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 239 screens,
+1390 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -200,6 +200,10 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Rest sheet](screens/workout/rest-sheet__phone-390-light-en.png) | 8 | The tab opens the rest sheet: the dial at 1:24 of 2:00 with the next set, Pause between -30s and +30s, the presets as the segmented control, and Restart and End rest. |
 | [Rest sheet, no rest running](screens/workout/rest-sheet-idle__phone-390-light-en.png) | 3 | With no rest running the sheet opens from the actions sheet's Rest timer row: the dial at the default length and Start. |
 | [Workout — exercise note on the card](screens/workout/exercise-note-line__phone-390-light-en.png) | 8 | The exercise's note as one quiet line under the prescription, in place of the note icon; the line opens it to edit. |
+| [Workout — effort stage A, Easy / Hard / Max](screens/workout/effort-stage-a__phone-390-light-en.png) | 8 | The effort field selected in stage A: Easy, Hard and Max as chips under it, the offered word marked until the lifter chooses (Plan 077, OD-4). |
+| [Workout — effort stage B, reps left](screens/workout/effort-stage-b__phone-390-light-en.png) | 8 | Stage B: the field reads Reps left, the column Left, and the chips 0 · 1 · 2 · 3+ with 2 chosen (Plan 077, OD-4). |
+| [Workout — effort menu](screens/workout/effort-menu__phone-390-light-en.png) | 8 | The effort field's arrow opened: How you log effort, the three stages with the current one checked, and Not sure for this set under them (Plan 077, OD-2 and OD-4). |
+| [Workout — the stage tip in the rest](screens/workout/stage-tip__phone-390-light-en.png) | 8 | During the rest after a set, after six workouts logged with chosen words: Try counting reps left?, with Not now, Try it and a close button, over the shelf with Log set live (Plan 077, OD-6). |
 | [Workout — exercise note](screens/workout/exercise-note__phone-390-light-en.png) | 8 | The per-exercise note sheet. |
 | [Workout — wheel picker, Load](screens/workout/wheel-load__phone-390-light-en.png) | 8 | A second tap on the selected Load field opens the wheel: the rail centred on its current value, with the keyboard button and Done in the sheet's bar. |
 | [Workout — wheel picker, Reps](screens/workout/wheel-reps__phone-390-light-en.png) | 8 | A second tap on the selected Reps field opens the wheel, 1 to 30, with the prescription's target range marked on the rail. |
@@ -328,6 +332,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Settings](screens/settings/main__phone-390-light-en.png) | 3 | The settings list. |
 | [Settings — Appearance](screens/settings/appearance__phone-390-light-en.png) | 3 | The appearance/theme row. |
 | [Settings language menu](screens/settings/language-menu__phone-390-light-en.png) | 8 | Language opened as a native pull-down anchored to its row: English and Português, the current one checked. |
+| [Settings effort logging menu](screens/settings/effort-menu__phone-390-light-en.png) | 8 | Effort logging opened as a native pull-down anchored to its row: Easy / Hard / Max, Reps left and RIR (a number), the current one checked. |
 | [Settings — contextual guides](screens/settings/guides__phone-390-light-en.png) | 3 | The per-guide replay controls; replay changes presentation state only. |
 | [Settings — replayed guide](screens/settings/guides-replay__phone-390-light-en.png) | 3 | A real contextual guide replayed from Settings: the privacy guide dialog, centred over the dimmed list. |
 | [Settings — backup guide](screens/settings/backup-guide__phone-390-light-en.png) | 3 | The backup guide in the open backup group: the guide dialog centred over the dimmed Settings. |

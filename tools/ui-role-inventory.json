@@ -358,6 +358,26 @@
       "content": "flat",
       "scenario": "The exercise's note as one quiet line on the Focus card, in place of the note icon."
     },
+    "workout/effort-stage-a": {
+      "owner": "plan-077",
+      "content": "flat",
+      "scenario": "Stage A: the effort field selected, Easy, Hard and Max as chips, the offered word marked."
+    },
+    "workout/effort-stage-b": {
+      "owner": "plan-077",
+      "content": "flat",
+      "scenario": "Stage B: Reps left with the chips 0 · 1 · 2 · 3+, 2 chosen."
+    },
+    "workout/effort-menu": {
+      "owner": "plan-077",
+      "content": "flat",
+      "scenario": "The effort field's arrow opened: the three stages, the current one checked, and Not sure for this set."
+    },
+    "workout/stage-tip": {
+      "owner": "plan-077",
+      "content": "flat",
+      "scenario": "During the rest after a set, the stage tip over the shelf: Try counting reps left?, with Not now, Try it and a close button; Log set stays live."
+    },
     "workout/exercise-note": {
       "owner": "plan-055",
       "content": "flat",
@@ -752,6 +772,11 @@
       "owner": "today-settings-proto",
       "content": "flat",
       "scenario": "Language opened as a native pull-down anchored to its row: English and Português, the current one checked."
+    },
+    "settings/effort-menu": {
+      "owner": "plan-077",
+      "content": "flat",
+      "scenario": "Effort logging opened as a native pull-down: the three stages, the current one checked."
     },
     "settings/guides": {
       "owner": "plan-057",
@@ -1287,7 +1312,8 @@
         "settings/main",
         "settings/privacy",
         "settings/rest-controls",
-        "settings/language-menu"
+        "settings/language-menu",
+        "settings/effort-menu"
       ]
     },
     {
@@ -1316,7 +1342,8 @@
         "settings/main",
         "settings/privacy",
         "settings/rest-controls",
-        "settings/language-menu"
+        "settings/language-menu",
+        "settings/effort-menu"
       ]
     },
     {
@@ -1345,7 +1372,8 @@
         "settings/main",
         "settings/privacy",
         "settings/rest-controls",
-        "settings/language-menu"
+        "settings/language-menu",
+        "settings/effort-menu"
       ]
     },
     {
@@ -2203,7 +2231,10 @@
         "workout/substituted-actions",
         "workout/swap-alternates",
         "workout/swap-reason",
-        "workout/actions"
+        "workout/actions",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip"
       ],
       "neverDisabledReason": "A note can always be written for the exercise in progress."
     },
@@ -3377,7 +3408,8 @@
         "settings/main",
         "settings/privacy",
         "settings/rest-controls",
-        "settings/language-menu"
+        "settings/language-menu",
+        "settings/effort-menu"
       ]
     },
     {
@@ -3792,7 +3824,8 @@
         "settings/main",
         "settings/privacy",
         "settings/rest-controls",
-        "settings/language-menu"
+        "settings/language-menu",
+        "settings/effort-menu"
       ]
     },
     {
@@ -3828,7 +3861,10 @@
         "workout/swap-reason",
         "workout/deload-week",
         "workout/logged-sets-folded",
-        "workout/exercise-note-line"
+        "workout/exercise-note-line",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip"
       ]
     },
     {
@@ -4036,7 +4072,8 @@
         "settings/main",
         "settings/privacy",
         "settings/rest-controls",
-        "settings/language-menu"
+        "settings/language-menu",
+        "settings/effort-menu"
       ]
     },
     {
@@ -4067,7 +4104,8 @@
         "settings/main",
         "settings/privacy",
         "settings/rest-controls",
-        "settings/language-menu"
+        "settings/language-menu",
+        "settings/effort-menu"
       ]
     },
     {
@@ -4472,7 +4510,8 @@
         "settings/main",
         "settings/privacy",
         "settings/rest-controls",
-        "settings/language-menu"
+        "settings/language-menu",
+        "settings/effort-menu"
       ]
     },
     {
@@ -4866,7 +4905,8 @@
         "settings/main",
         "settings/privacy",
         "settings/rest-controls",
-        "settings/language-menu"
+        "settings/language-menu",
+        "settings/effort-menu"
       ]
     },
     {
@@ -4894,7 +4934,8 @@
         "settings/main",
         "settings/privacy",
         "settings/rest-controls",
-        "settings/language-menu"
+        "settings/language-menu",
+        "settings/effort-menu"
       ]
     },
     {
@@ -4919,7 +4960,8 @@
         "workout/logged-sets",
         "workout/rest-sheet",
         "workout/correction",
-        "workout/logged-sets-folded"
+        "workout/logged-sets-folded",
+        "workout/stage-tip"
       ],
       "neverDisabledReason": "The tab exists only while a rest runs or has just run out, and it always opens the sheet."
     },
@@ -5085,7 +5127,8 @@
         "settings/main",
         "settings/privacy",
         "settings/rest-controls",
-        "settings/language-menu"
+        "settings/language-menu",
+        "settings/effort-menu"
       ]
     },
     {
@@ -5393,7 +5436,8 @@
         "settings/main",
         "settings/privacy",
         "settings/rest-controls",
-        "settings/language-menu"
+        "settings/language-menu",
+        "settings/effort-menu"
       ]
     },
     {
@@ -5702,7 +5746,10 @@
         "workout/swap-reason",
         "workout/deload-week",
         "workout/logged-sets-folded",
-        "workout/exercise-note-line"
+        "workout/exercise-note-line",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip"
       ]
     },
     {
@@ -5824,7 +5871,8 @@
         "settings/main",
         "settings/privacy",
         "settings/rest-controls",
-        "settings/language-menu"
+        "settings/language-menu",
+        "settings/effort-menu"
       ]
     },
     {
@@ -6322,7 +6370,8 @@
         "settings/main",
         "settings/privacy",
         "settings/rest-controls",
-        "settings/language-menu"
+        "settings/language-menu",
+        "settings/effort-menu"
       ]
     },
     {
@@ -6352,7 +6401,8 @@
         "settings/main",
         "settings/privacy",
         "settings/rest-controls",
-        "settings/language-menu"
+        "settings/language-menu",
+        "settings/effort-menu"
       ]
     },
     {
@@ -6524,7 +6574,8 @@
         "settings/main",
         "settings/privacy",
         "settings/rest-controls",
-        "settings/language-menu"
+        "settings/language-menu",
+        "settings/effort-menu"
       ]
     },
     {
@@ -6586,7 +6637,8 @@
         "settings/main",
         "settings/privacy",
         "settings/rest-controls",
-        "settings/language-menu"
+        "settings/language-menu",
+        "settings/effort-menu"
       ]
     },
     {
@@ -6721,7 +6773,10 @@
         "workout/swap-reason",
         "workout/deload-week",
         "workout/logged-sets-folded",
-        "workout/exercise-note-line"
+        "workout/exercise-note-line",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip"
       ]
     },
     {
@@ -6768,7 +6823,10 @@
         "workout/swap-reason",
         "workout/deload-week",
         "workout/logged-sets-folded",
-        "workout/exercise-note-line"
+        "workout/exercise-note-line",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip"
       ],
       "progressScopes": {
         "workout-exercise-order": "exercise-set"
@@ -6909,7 +6967,10 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "workout/logged-sets-folded",
-        "workout/exercise-note-line"
+        "workout/exercise-note-line",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip"
       ]
     },
     {
@@ -7147,7 +7208,10 @@
         "workout/swap-reason",
         "workout/deload-week",
         "workout/logged-sets-folded",
-        "workout/exercise-note-line"
+        "workout/exercise-note-line",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip"
       ],
       "neverDisabledReason": "The header draws the name only while the workout has an exercise to open, and opening it is always available."
     },
@@ -7174,7 +7238,8 @@
         "workout/logged-sets",
         "workout/rest-running",
         "workout/rest-done",
-        "workout/logged-sets-folded"
+        "workout/logged-sets-folded",
+        "workout/stage-tip"
       ]
     },
     {
@@ -7204,7 +7269,10 @@
         "workout/swap-reason",
         "workout/deload-week",
         "workout/logged-sets-folded",
-        "workout/exercise-note-line"
+        "workout/exercise-note-line",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip"
       ]
     },
     {
@@ -7965,7 +8033,8 @@
         "settings/main",
         "settings/privacy",
         "settings/rest-controls",
-        "settings/language-menu"
+        "settings/language-menu",
+        "settings/effort-menu"
       ]
     },
     {
@@ -7998,7 +8067,10 @@
         "workout/deload-week",
         "workout/rest-running",
         "workout/logged-sets-folded",
-        "workout/exercise-note-line"
+        "workout/exercise-note-line",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip"
       ]
     },
     {
@@ -8054,7 +8126,10 @@
         "workout/swap-reason",
         "workout/deload-week",
         "workout/logged-sets-folded",
-        "workout/exercise-note-line"
+        "workout/exercise-note-line",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip"
       ]
     },
     {
@@ -8088,7 +8163,10 @@
         "workout/swap-reason",
         "workout/deload-week",
         "workout/logged-sets-folded",
-        "workout/exercise-note-line"
+        "workout/exercise-note-line",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip"
       ]
     },
     {
@@ -8614,7 +8692,10 @@
         "program/minibar-rest-done",
         "workout/logged-sets",
         "workout/logged-sets-folded",
-        "workout/exercise-note-line"
+        "workout/exercise-note-line",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip"
       ]
     },
     {
@@ -8759,7 +8840,10 @@
         "history/per-side-session",
         "workout/deload-week",
         "workout/logged-sets-folded",
-        "workout/exercise-note-line"
+        "workout/exercise-note-line",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip"
       ]
     },
     {
@@ -8823,7 +8907,10 @@
         "workout/swap-reason",
         "workout/deload-week",
         "workout/logged-sets-folded",
-        "workout/exercise-note-line"
+        "workout/exercise-note-line",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip"
       ]
     },
     {
@@ -8976,7 +9063,10 @@
         "workout/swap-alternates",
         "workout/deload-week",
         "workout/logged-sets-folded",
-        "workout/exercise-note-line"
+        "workout/exercise-note-line",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip"
       ]
     },
     {
@@ -9016,8 +9106,135 @@
         "workout/swap-reason",
         "workout/deload-week",
         "workout/logged-sets-folded",
-        "workout/exercise-note-line"
+        "workout/exercise-note-line",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip"
       ]
+    },
+    {
+      "id": "shelf-effort-menu",
+      "selector": "button.shelf__menu",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "The effort field's arrow (Plan 077, OD-2 and OD-4): opens how effort is logged and Not sure for this set. A 44px corner target of its own, so the rest of the field still selects it.",
+      "owner": "plan-077",
+      "catalogStates": [
+        "workout/correction",
+        "workout/logged-sets",
+        "workout/focus",
+        "workout/focus-per-side",
+        "workout/focus-glossary",
+        "workout/persist-retry",
+        "workout/stale-draft",
+        "workout/rest-running",
+        "workout/rest-done",
+        "workout/swap-alternates",
+        "workout/swap-reason",
+        "workout/deload-week",
+        "workout/logged-sets-folded",
+        "workout/exercise-note-line",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip",
+        "workout/effort-menu"
+      ],
+      "neverDisabledReason": "The way to change how effort is logged stays reachable whenever the shelf is."
+    },
+    {
+      "id": "shelf-effort-chip",
+      "selector": ".shelf__chip",
+      "roles": {
+        "control": "selection",
+        "boundary": "state-cues"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected"
+      ],
+      "rationale": "Stages A and B set the set's effort with one tap (Plan 077, OD-4): the chosen chip is pressed in ink, the offered one carries a quiet boundary until the lifter confirms it.",
+      "owner": "plan-077",
+      "catalogStates": [
+        "workout/effort-stage-a",
+        "workout/effort-stage-b"
+      ],
+      "neverDisabledReason": "Every choice of the stage is always available."
+    },
+    {
+      "id": "rest-tip",
+      "selector": ".resttip",
+      "roles": {
+        "elevation": "floating"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "A between-sets tip (Plan 077, OD-6): a dismissible ink card over the shelf during the rest, never over the shelf itself, so logging stays live.",
+      "owner": "plan-077",
+      "catalogStates": [
+        "workout/stage-tip"
+      ],
+      "neverDisabledReason": "A card, not a control."
+    },
+    {
+      "id": "rest-tip-actions",
+      "selector": ".resttip__acts > button",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "The tip's two answers, Not now and its offer, as text buttons on the ink card; neither commits training data on its own.",
+      "owner": "plan-077",
+      "catalogStates": [
+        "workout/stage-tip"
+      ],
+      "neverDisabledReason": "A tip shows only while both answers apply."
+    },
+    {
+      "id": "rest-tip-close",
+      "selector": ".resttip__x",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Dismisses the tip, the same as Not now.",
+      "owner": "plan-077",
+      "catalogStates": [
+        "workout/stage-tip"
+      ],
+      "neverDisabledReason": "A tip can always be dismissed."
     },
     {
       "id": "shelf-input-not-id",
@@ -9049,7 +9266,10 @@
         "workout/stale-draft",
         "workout/swap-alternates",
         "workout/logged-sets-folded",
-        "workout/exercise-note-line"
+        "workout/exercise-note-line",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip"
       ]
     },
     {
@@ -9083,7 +9303,10 @@
         "workout/swap-reason",
         "workout/deload-week",
         "workout/logged-sets-folded",
-        "workout/exercise-note-line"
+        "workout/exercise-note-line",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip"
       ]
     },
     {
@@ -9117,7 +9340,10 @@
         "workout/swap-reason",
         "workout/deload-week",
         "workout/logged-sets-folded",
-        "workout/exercise-note-line"
+        "workout/exercise-note-line",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip"
       ]
     },
     {
@@ -9152,7 +9378,10 @@
         "workout/swap-alternates",
         "workout/swap-reason",
         "workout/logged-sets-folded",
-        "workout/exercise-note-line"
+        "workout/exercise-note-line",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip"
       ]
     },
     {
@@ -11356,7 +11585,8 @@
         "settings/main",
         "settings/privacy",
         "settings/rest-controls",
-        "settings/language-menu"
+        "settings/language-menu",
+        "settings/effort-menu"
       ]
     },
     {
@@ -11376,7 +11606,9 @@
         "today/context-menu",
         "program/editor-context-menu",
         "program/editor-alternate-context-menu",
-        "settings/language-menu"
+        "settings/language-menu",
+        "settings/effort-menu",
+        "workout/effort-menu"
       ]
     },
     {
@@ -11396,7 +11628,9 @@
         "today/context-menu",
         "program/editor-context-menu",
         "program/editor-alternate-context-menu",
-        "settings/language-menu"
+        "settings/language-menu",
+        "settings/effort-menu",
+        "workout/effort-menu"
       ]
     },
     {
@@ -11420,7 +11654,9 @@
         "today/context-menu",
         "program/editor-context-menu",
         "program/editor-alternate-context-menu",
-        "settings/language-menu"
+        "settings/language-menu",
+        "settings/effort-menu",
+        "workout/effort-menu"
       ]
     },
     {
@@ -11442,7 +11678,9 @@
       "rationale": "A pull-down's choice (Settings Language and RIR logging, the prototype, owner 2026-10-28): the checked one carries the check in the icon slot and a medium label (contract: state cues).",
       "neverDisabledReason": "Every option of a settings pull-down is always a valid choice.",
       "catalogStates": [
-        "settings/language-menu"
+        "settings/language-menu",
+        "settings/effort-menu",
+        "workout/effort-menu"
       ]
     },
     {
@@ -11485,7 +11723,8 @@
       "owner": "plan-075-phase-4",
       "catalogStates": [
         "today/context-menu",
-        "settings/language-menu"
+        "settings/language-menu",
+        "settings/effort-menu"
       ],
       "neverDisabledReason": "The menu or choice stays reachable whenever its owning row is present."
     },
@@ -11611,6 +11850,7 @@
         "workout/rest-sheet",
         "workout/rest-sheet-idle",
         "settings/language-menu",
+        "settings/effort-menu",
         "session/summary-share"
       ]
     },
@@ -11639,6 +11879,7 @@
         "workout/rest-sheet",
         "workout/rest-sheet-idle",
         "settings/language-menu",
+        "settings/effort-menu",
         "session/summary-share"
       ]
     },
@@ -12140,7 +12381,10 @@
         "workout/rest-running",
         "workout/rest-done",
         "workout/logged-sets-folded",
-        "workout/exercise-note-line"
+        "workout/exercise-note-line",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip"
       ]
     },
     {
@@ -12327,7 +12571,10 @@
         "workout/stale-draft",
         "workout/persist-retry",
         "workout/logged-sets-folded",
-        "workout/exercise-note-line"
+        "workout/exercise-note-line",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip"
       ]
     },
     {
@@ -12343,7 +12590,10 @@
         "workout/persist-retry",
         "workout/stale-draft",
         "workout/logged-sets-folded",
-        "workout/exercise-note-line"
+        "workout/exercise-note-line",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip"
       ]
     }
   ],
@@ -12361,7 +12611,8 @@
         "settings/main",
         "settings/privacy",
         "settings/rest-controls",
-        "settings/language-menu"
+        "settings/language-menu",
+        "settings/effort-menu"
       ],
       "cssLiterals": [
         {
@@ -12449,7 +12700,8 @@
         "workout/rest-done",
         "workout/logged-sets",
         "workout/correction",
-        "workout/logged-sets-folded"
+        "workout/logged-sets-folded",
+        "workout/stage-tip"
       ]
     },
     {
@@ -12474,7 +12726,8 @@
         "workout/logged-sets",
         "workout/rest-sheet",
         "workout/correction",
-        "workout/logged-sets-folded"
+        "workout/logged-sets-folded",
+        "workout/stage-tip"
       ]
     },
     {
@@ -12495,7 +12748,10 @@
         "workout/stale-draft",
         "workout/persist-retry",
         "workout/logged-sets-folded",
-        "workout/exercise-note-line"
+        "workout/exercise-note-line",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip"
       ],
       "cssLiterals": [
         {
@@ -12524,7 +12780,10 @@
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
-        "workout/logged-sets-folded"
+        "workout/logged-sets-folded",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip"
       ],
       "sourceOnly": true,
       "sourceOnlyReason": "Focus and library glossary popovers have rendered states; the workout overflow menu remains on-demand."
@@ -12544,7 +12803,10 @@
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
-        "workout/logged-sets-folded"
+        "workout/logged-sets-folded",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip"
       ],
       "sourceOnly": true,
       "sourceOnlyReason": "The effort explanation opens after tapping the current-set value; canonical Focus frames keep it closed."
@@ -12749,7 +13011,10 @@
         "workout/focus-glossary",
         "workout/persist-retry",
         "workout/stale-draft",
-        "workout/logged-sets-folded"
+        "workout/logged-sets-folded",
+        "workout/effort-stage-a",
+        "workout/effort-stage-b",
+        "workout/stage-tip"
       ]
     },
     {

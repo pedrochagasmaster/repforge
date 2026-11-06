@@ -295,6 +295,7 @@ const D_FIXTURE_STATES = new Set([
   "workout/deload-week", // Plan 072 S4: the deload cue in Focus
   "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions", // R3d
   "workout/exercise-note-line", // the exercise note on the card (owner, 2026-11-05)
+  "workout/effort-stage-a", "workout/effort-stage-b", "workout/effort-menu", "workout/stage-tip", // Plan 077 PR 2
   "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", // R3d
   "workout/actions", "workout/exercise-actions", // R3x: the redrawn sheet, on the lifter the drawing shows
   "workout/swap-alternates", // #317: the swap picker leads with the squat slot's alternates
@@ -370,7 +371,23 @@ const APP_ASOF = {
   "progress/strength-sparse": "2026-08-16",
 };
 
+/** Plan 077 PR 2: the effort stage each state is drawn in (OD-4), and for the stage tip a lifter whose last workouts
+ *  were logged with words they chose (OD-6). */
+const EFFORT_STAGE_STATES = Object.freeze({
+  "workout/effort-stage-a": { rirMode: "effort", effortScale: "feel" },
+  "workout/effort-stage-b": { rirMode: "effort", effortScale: "reps" },
+  "workout/effort-menu": { rirMode: "effort", effortScale: "feel" },
+  "workout/stage-tip": { rirMode: "effort", effortScale: "feel" },
+});
+function effortStageState(key, lang) {
+  const drawn = localeState(directionDState(), lang);
+  drawn.settings = { ...drawn.settings, ...EFFORT_STAGE_STATES[key] };
+  if (key === "workout/stage-tip") drawn.log = drawn.log.map((row) => row.warmup ? row : { ...row, effortSource: "effort" });
+  return drawn;
+}
+
 export function appState(key, lang) {
+  if (EFFORT_STAGE_STATES[key]) return effortStageState(key, lang);
   if (key === "today/no-program" || key === "program/no-program") {
     return emptyEntryState(lang);
   }
@@ -2290,6 +2307,34 @@ export const APP_SCENARIOS = {
     await page.waitForFunction(() => document.querySelector("#exNoteSheet")?.hidden === true, undefined, { timeout: 20000 });
     await sleep(page, 400);
   },
+  // Plan 077 PR 2: stage A sets the word with one tap on a chip; before the lifter chooses, the offered word is marked.
+  "workout/effort-stage-a": async (page) => {
+    await focusMode(page);
+    await page.locator("#workout .exercise.is-current .focus-shelf [data-shelf-field='rir']").click({ timeout: 20000 });
+    await sleep(page, 400);
+  },
+  // Stage B asks how many more clean reps: 0 · 1 · 2 · 3+, here with 2 chosen.
+  "workout/effort-stage-b": async (page) => {
+    await focusMode(page);
+    const shelf = "#workout .exercise.is-current .focus-shelf";
+    await page.locator(`${shelf} [data-shelf-field='rir']`).click({ timeout: 20000 });
+    await page.locator(`${shelf} [data-effchip][data-e='r2']`).click({ timeout: 20000 });
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    await sleep(page, 400);
+  },
+  // The effort field's arrow: the three ways to log effort, the current one checked, and Not sure for this set.
+  "workout/effort-menu": async (page) => {
+    await focusMode(page);
+    await page.locator("#workout .exercise.is-current .focus-shelf [data-effmenu]").click({ timeout: 20000 });
+    await page.waitForSelector('#nativeContextMenu[open] [role="menuitemradio"][aria-checked="true"]', { timeout: 20000 });
+    await sleep(page, 400);
+  },
+  // The stage tip, during the rest after a set, over the shelf with Log set live under it (OD-6).
+  "workout/stage-tip": async (page) => {
+    await startInlineRest(page);
+    await page.waitForSelector("#workout .exercise.is-current .focus-shelf .resttip", { timeout: 20000 });
+    await sleep(page, 400);
+  },
   // Plan 075 phase 2W: a second tap on the selected Load or Reps field opens the
   // wheel. Load is the default-selected field, so the dance moves through Reps
   // and back so the final tap is a genuine second one, the way the test suite does.
@@ -2913,6 +2958,13 @@ export const APP_SCENARIOS = {
   "settings/language-menu": async (page) => {
     await openSettings(page, "#langRow");
     await page.click("#langRow");
+    await page.waitForSelector('#nativeContextMenu[open] [role="menuitemradio"][aria-checked="true"]');
+    await sleep(page, 400);
+  },
+  // Plan 077 PR 2: Effort logging as a pull-down, the three stages, the current one checked.
+  "settings/effort-menu": async (page) => {
+    await openSettings(page, "#rirModeRow");
+    await page.click("#rirModeRow");
     await page.waitForSelector('#nativeContextMenu[open] [role="menuitemradio"][aria-checked="true"]');
     await sleep(page, 400);
   },
