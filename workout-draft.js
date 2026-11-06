@@ -12,6 +12,9 @@
   // absent; those stay on the flat edited fields for every slot.
   const LEGACY_METRIC_SEMANTIC = Object.freeze({ load: "loadKg", reps: "reps" });
   const EFFORT_RIR = Object.freeze({ easy: 3, hard: 1, max: 0 });
+  /* How a set's effort value was entered (Plan 077, OD-1): recorded at completion, carried to History as the row's
+     effortSource. Absent means unknown (drafts and rows from before it existed); it is never inferred afterwards. */
+  const EFFORT_SOURCES = Object.freeze(["rir", "effort", "reps_left", "reps_left_3plus", "unsure", "prefilled", "failure"]);
   const DECIMAL = /^\d+(?:\.\d+)?$/;
   const INTEGER = /^\d+$/;
   const MAX_TEXT = 10000;
@@ -430,6 +433,8 @@
     if (value.completion !== "pending") {
       if (!isPlainObject(value.completion) || !isText(value.completion.completedAt, { max: 100 })) {
         issues.push(`${path}.completion`);
+      } else if (hasOwn(value.completion, "effortSource") && !EFFORT_SOURCES.includes(value.completion.effortSource)) {
+        issues.push(`${path}.completion.effortSource`);
       }
     }
     if (hasOwn(value, "performed")) validateMovementSnapshot(value.performed, `${path}.performed`, issues);
@@ -1351,9 +1356,21 @@
       case "completeSet": {
         item = targetSet(next, command);
         if (isDomainError(item)) return item;
+        // Effort the lifter never touched logs what its field shows (the caller's `prefill`, else the programmed
+        // target), written into the set so the live session and History read the same value (Plan 077, A5), and
+        // recorded as a prefill rather than an entry.
+        const effortField = next.program.rirMode === "effort" ? "effort" : "rir";
+        const enteredEffort = !!item.set.touched.effort;
+        if (!enteredEffort) {
+          const offered = isPlainObject(command.prefill) && command.prefill.field === effortField ? command.prefill.value : null;
+          const shown = typeof offered === "string" ? offered
+            : item.set.edited[effortField] ?? (effortField === "effort" ? item.set.programmed.suggestedEffort ?? null : effectiveText(item.set, "rir"));
+          const valid = effortField === "effort" ? hasOwn(EFFORT_RIR, shown) : validDecimal(shown) != null;
+          if (valid) item.set.edited[effortField] = shown;
+        }
         const issues = [...sessionSaveIssues(next), ...setSaveIssues(next, item.exercise, item.set)];
         if (issues.length) return error("set-not-saveable", { issues });
-        item.set.completion = { completedAt: command.completedAt };
+        item.set.completion = { completedAt: command.completedAt, effortSource: enteredEffort ? effortField : "prefilled" };
         item.set.performed = jsonClone(item.exercise.substitution?.replacement || snapshotFromExercise(item.exercise));
         item.set.touched = { ...item.set.touched, load: true, reps: true, effort: true,
           ...(item.set.touched.metrics ? { metrics: Object.fromEntries(Object.keys(item.set.touched.metrics).map(id => [id, true])) } : {}) };
@@ -1362,6 +1379,8 @@
       case "uncommitSet": {
         item = targetSet(next, command);
         if (isDomainError(item)) return item;
+        // A prefilled effort goes back to untouched, so logging the set again is still a prefill.
+        if (item.set.completion?.effortSource === "prefilled") item.set.touched = { ...item.set.touched, effort: false };
         item.set.completion = "pending";
         break;
       }
@@ -1546,6 +1565,13 @@
     return { load, reps, rir };
   }
 
+  /** A row's effortSource is what completion recorded. A set saved without completing, or completed before Plan 077,
+   *  has none: its touched flags can come from a legacy migration, so nothing is inferred from them. */
+  function effortSourceOf(set) {
+    return set.completion !== "pending" && EFFORT_SOURCES.includes(set.completion?.effortSource)
+      ? { effortSource: set.completion.effortSource } : {};
+  }
+
   function toHistoryRows(draft, completedAt) {
     const issues = validateForSave(draft);
     if (issues.length) return error("draft-not-saveable", { issues });
@@ -1590,6 +1616,7 @@
             : values.rir,
           notes: draft.session.notes.trim(),
           created: completedAt,
+          ...effortSourceOf(set),
           ...(hasOwn(draft.program, "blockId") ? { blockId: draft.program.blockId } : {}),
           primary: original.primary,
           secondary: original.secondary,
@@ -1942,6 +1969,7 @@
 
   const api = Object.freeze({
     SCHEMA_VERSION,
+    EFFORT_SOURCES,
     create,
     parse,
     migrateLegacy,

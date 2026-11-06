@@ -756,4 +756,19 @@ unsupportedEntryDraft.integrity.canonicalPayloadHash = canonicalHash(unsupported
 const refusedEntryDraft = await Contract.validateEnvelopeIntegrity(unsupportedEntryDraft, webcrypto);
 assert.equal(refusedEntryDraft.ok, false, "legacy compiler-envelope drafts are refused instead of reconstructed");
 
+// Plan 077 PR 1: the contract holds the draft's effortSource enum and refuses a completed draft set outside it.
+assert.deepEqual([...Contract.EFFORT_SOURCES], [...WorkoutDraft.EFFORT_SOURCES], "the contract and the draft share one effortSource enum");
+const sourcedDraft = (effortSource) => {
+  const envelope = structuredClone(valid);
+  const exercise = envelope.workoutDraft.exercises[activeSlot.id];
+  const set = exercise.sets[exercise.setOrder[0]];
+  set.completion = { completedAt: "2026-10-06T09:10:00.000Z", effortSource };
+  envelope.integrity.canonicalPayloadHash = canonicalHash(envelope);
+  return envelope;
+};
+const acceptedSource = await Contract.validateEnvelopeIntegrity(sourcedDraft("prefilled"), webcrypto);
+assert.equal(acceptedSource.ok, true, `a draft set completed with effortSource prefilled crosses the contract: ${JSON.stringify(acceptedSource.error || "")}`);
+const refusedSource = await Contract.validateEnvelopeIntegrity(sourcedDraft("x"), webcrypto);
+assert.equal(refusedSource.ok, false, "a draft set completed with an unknown effortSource is refused");
+
 console.log("PASS Plan 067 install-transfer clone contract");

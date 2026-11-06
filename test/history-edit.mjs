@@ -651,6 +651,10 @@ async function main() {
     assert(canonical(a02Saved.local) === canonical(a02Saved.idb) && a02Row.rir === 2 && a02Row.rirMeasured === true,
       "A02 History RIR correction persists rir:2 with rirMeasured:true in both replicas",
       JSON.stringify({ rir: a02Row.rir, rirMeasured: a02Row.rirMeasured }));
+    const a02Idb = a02Saved.idb.log.find((row) => row.session === "a02-old");
+    assert(a02Row.effortSource === "rir" && a02Idb?.effortSource === "rir",
+      "Plan 077: a History RIR correction records effortSource rir in both replicas",
+      JSON.stringify({ local: a02Row.effortSource, idb: a02Idb?.effortSource }));
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(page);
     const a02Evidence = await page.evaluate(() => window.__repforgeProgressEvidence.records().filter((r) => r.evidenceCount));

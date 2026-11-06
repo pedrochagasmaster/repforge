@@ -1,5 +1,10 @@
 # Progression strategy contract
 
+> **Superseded for engine arithmetic by [Plan 067](../plans/067-engine-replacement.md)** (owner decision OD-23a in
+> [Plan 077](../plans/077-calibration-free-layer.md), 2026-11-05). The strategies below have no runtime
+> implementation (Plan 077 audit A4); `progression-engine.js` owns the arithmetic. The contract is kept as the record
+> of what was approved.
+
 Status: contract version 1, **owner-approved on 2026-08-28**. The `range@1`
 numbers come from released behavior in
 [Plan 039](../plans/039-capacity-driven-suggestions.md),
