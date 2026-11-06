@@ -3252,6 +3252,7 @@ async function requestWorkoutDay(nextDay,{undo=false}={}){
    every set it already holds keeps the vocabulary it was entered in. */
 /** The Settings radio that stands for each stage, and the stage's name. */
 const STAGE_LABEL={a:"settings.rir_effort",b:"settings.rir_reps",c:"settings.rir_numbers"};
+const STAGE_SUB={a:"focus.effort_menu.sub_a",b:"focus.effort_menu.sub_b",c:"focus.effort_menu.sub_c"};
 const STAGE_PICK={a:"effort",b:"reps",c:"numeric"};
 const stageForPick=v=>v==="reps"?"b":v==="effort"?"a":"c";
 /** The two settings a stage is stored as. Stage C keeps the scale, so a return to words finds the lifter's last one. */
@@ -6817,6 +6818,7 @@ function bindStageTip(tip,shelf,ex,n){
    offered one); B→C after 6 workouts in stage B with at most 10% "Not sure". A dismissal keeps it quiet for 4 weeks,
    a second for good; trying it ends it too. Its state is this device's, like the stage itself. */
 const STAGE_TIP_WORKOUTS=6,STAGE_TIP_SNOOZE_DAYS=28;
+const STAGE_TIP_COPY={b:{title:"focus.stage_tip.b_title",body:"focus.stage_tip.b_body"},c:{title:"focus.stage_tip.c_title",body:"focus.stage_tip.c_body"}};
 /** Workouts in the log that qualify a stage for its tip, counted from the rows' recorded effortSource. */
 function stageTipQualifyingWorkouts(stage){
   const sessions=new Map();
@@ -6848,9 +6850,9 @@ function dismissStageTip(to){
   setStageTipPref(to,n>=2?{n:2}:{n,until:new Date(Date.now()+STAGE_TIP_SNOOZE_DAYS*864e5).toISOString()})}
 const acceptStageTip=to=>setStageTipPref(to,{n:2});
 function stageTipHtml(to){
-  const title=t(`focus.stage_tip.${to}_title`);
+  const copy=STAGE_TIP_COPY[to],title=t(copy.title);
   return `<section class="resttip" data-tip="stage-tip" data-to="${to}" aria-label="${esc(title)}">`+
-    `<p class="resttip__text"><b>${esc(title)}</b> ${esc(t(`focus.stage_tip.${to}_body`))}</p>`+
+    `<p class="resttip__text"><b>${esc(title)}</b> ${esc(t(copy.body))}</p>`+
     `<div class="resttip__acts"><button type="button" class="resttip__no" data-tipdismiss>${esc(t("focus.stage_tip.not_now"))}</button>`+
     `<button type="button" class="resttip__yes" data-tipaccept>${esc(t("focus.stage_tip.try"))}</button></div>`+
     `<button type="button" class="resttip__x" data-tipdismiss aria-label="${esc(t("focus.stage_tip.dismiss"))}"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button></section>`}
@@ -10111,7 +10113,7 @@ async function openEffortMenu(key,opener,pick){
   const field=opener.closest(".shelf__field");if(!field)return;
   const stage=effortStage();
   const value=await openRowContextMenu({anchor:field,opener,title:t("focus.effort_menu.title"),items:[
-    ...["a","b","c"].map(s=>({label:t(STAGE_LABEL[s]),sub:t(`focus.effort_menu.sub_${s}`),value:s,checked:s===stage})),
+    ...["a","b","c"].map(s=>({label:t(STAGE_LABEL[s]),sub:t(STAGE_SUB[s]),value:s,checked:s===stage})),
     {label:t("focus.effort_menu.unsure"),sub:t("focus.effort_menu.unsure_sub"),value:"unsure",separatorBefore:true}]});
   if(value==="unsure"){await pick(key,"unsure");return}
   if(value!=="a"&&value!=="b"&&value!=="c"||value===stage)return;
