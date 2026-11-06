@@ -620,6 +620,76 @@ try {
     await context.close();
   }
 
+  // The clock's guards: the bell once per deadline, a nudge back above zero re-arming it, a start or restart moving the
+  // deadline, paused overtime holding and resuming, and the count-up stopping its ticks at the cap.
+  const overSecs = (time) => { const [m, s] = time.replace("+", "").split(":").map(Number); return m * 60 + s; };
+  phase("The bell rings once per deadline; a nudge back above zero re-arms it; a start or restart moves the deadline");
+  {
+    const { context, page, errors } = await focusPage(browser);
+    await logSet(page);
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    await page.evaluate(() => {
+      window.__completeWrites = 0;
+      const live = document.querySelector("#restAnnounce");
+      new MutationObserver(() => { if (live.textContent === window.RepForgeI18n.t("rest.complete")) window.__completeWrites++; })
+        .observe(live, { childList: true, characterData: true, subtree: true });
+    });
+    const flicksBefore = await page.evaluate(() => window.__repforgeRest.flicks());
+    await page.evaluate(() => startRest(1));
+    await page.waitForFunction(() => document.querySelector("#restTab")?.classList.contains("is-done"), undefined, { timeout: 5000 });
+    await page.waitForTimeout(1500);
+    const once = await page.evaluate(() => ({ writes: window.__completeWrites, flicks: window.__repforgeRest.flicks() }));
+    assert(once.writes === 1 && once.flicks === flicksBefore + 1,
+      "the bell announces and flicks once, and the overrun keeps counting without a repeat", { flicksBefore, once });
+
+    await page.evaluate(() => nudgeRest(30));
+    await page.waitForTimeout(300);
+    const rearmed = await page.evaluate(() => ({ done: document.querySelector("#restTab").classList.contains("is-done"), left: restLeftMs() }));
+    assert(!rearmed.done && rearmed.left > 25000, "a nudge back above zero puts the rest back on the clock", rearmed);
+    await page.evaluate(() => { window.__repforgeRest.expire(0); document.dispatchEvent(new Event("visibilitychange")); });
+    await page.waitForFunction(() => window.__completeWrites === 2, undefined, { timeout: 5000 });
+    await page.waitForTimeout(1500);
+    const again = await page.evaluate(() => window.__completeWrites);
+    assert(again === 2, "re-armed by the nudge, the bell announces again, once", { again });
+
+    phase("A start or a restart moves the deadline");
+    const leftNow = () => page.evaluate(() => restLeftMs());
+    await page.evaluate(() => startRest(60));
+    await page.waitForTimeout(200);
+    const sixty = await leftNow();
+    assert(sixty > 55000 && sixty <= 60000, "starting a rest sets the deadline to its length", { sixty });
+    await page.evaluate(() => startRest(120));
+    await page.waitForTimeout(200);
+    const restarted = await leftNow();
+    assert(restarted > 115000 && restarted <= 120000, "starting again while running moves the deadline to the new length", { restarted });
+    await page.evaluate(() => resetRest());
+    await page.waitForTimeout(200);
+    const reset = await leftNow();
+    assert(reset > 115000 && reset <= 120000, "a reset moves the deadline back to the armed length", { reset });
+
+    phase("Paused overtime is a real state: it holds the overrun, and resuming counts on from it");
+    await page.evaluate(() => window.__repforgeRest.expire(5));
+    await page.evaluate(() => toggleRestHold());
+    const held = await page.evaluate(() => ({ paused: restPaused, label: document.querySelector("#restTab .resttab__label").textContent,
+      isPaused: document.querySelector("#restTab").classList.contains("is-paused"), time: document.querySelector("#restTab .resttab__time").textContent }));
+    assert(held.paused < 0 && held.label === "Rest done" && held.isPaused, "paused past the bell: the clock holds a negative remainder and the tab says Rest done, paused", held);
+    await page.waitForTimeout(1200);
+    const still = await page.evaluate(() => document.querySelector("#restTab .resttab__time").textContent);
+    assert(still === held.time, "a held overrun does not count", { held: held.time, still });
+    await page.evaluate(() => toggleRestHold());
+    await page.waitForTimeout(1200);
+    const resumed = await page.evaluate(() => ({ paused: restPaused, time: document.querySelector("#restTab .resttab__time").textContent }));
+    assert(resumed.paused == null && overSecs(resumed.time) > overSecs(still), "resuming counts the overrun on from where it was held", { still, resumed });
+
+    phase("The count-up stops ticking at its cap");
+    await page.evaluate(() => { stopRest(); startRest(90); restEnd = Date.now() - 3601 * 1000; syncRest(); });
+    await page.waitForFunction(() => restTick === null, undefined, { timeout: 5000 });
+    const capped = await page.evaluate(() => document.querySelector("#restTab .resttab__time").textContent);
+    assert(capped === "+60:00", "past the hour the count-up reads +60:00 and no tick is left running", { capped });
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
 } finally {
   await browser.close();
 }
