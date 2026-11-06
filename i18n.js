@@ -1665,7 +1665,6 @@ const EN = {
   "dialog.save": "Save",
   "toast.set_updated": "Set updated.",
   "summary.eyebrow": "Session saved",
-  "summary.stat.moved": "{unit} moved",
   "summary.pr.over_load": "+{n} {unit} over your best",
   "summary.pr.over_reps": "+{n} {reps} at that load",
   "summary.pr.over_e1rm": "+{n} {unit} estimated 1RM",
@@ -3043,6 +3042,10 @@ const EN = {
   "calib.lifts_one": "{n} lift",
   "calib.lifts_other": "{n} lifts",
   "calib.no_tests": "No test sets yet",
+  "exercise.chart.cap.top": "top load",
+  "exercise.chart.cap.e1rm": "best e1RM",
+  "exercise.chart.cap.change": "this block",
+  "stats.cap.moved": "moved",
 };
 const PT = {
   "catalog.unavailable.title": "Biblioteca de exercícios indisponível",
@@ -4709,7 +4712,6 @@ const PT = {
   "dialog.save": "Salvar",
   "toast.set_updated": "Série atualizada.",
   "summary.eyebrow": "Sessão salva",
-  "summary.stat.moved": "{unit} movimentados",
   "summary.pr.over_load": "+{n} {unit} acima do seu melhor",
   "summary.pr.over_reps": "+{n} {reps} nessa carga",
   "summary.pr.over_e1rm": "+{n} {unit} de 1RM estimado",
@@ -6087,6 +6089,10 @@ const PT = {
   "calib.lifts_one": "{n} exercício",
   "calib.lifts_other": "{n} exercícios",
   "calib.no_tests": "Nenhuma série-teste ainda",
+  "exercise.chart.cap.top": "maior carga",
+  "exercise.chart.cap.e1rm": "melhor e1RM",
+  "exercise.chart.cap.change": "no bloco",
+  "stats.cap.moved": "carga total",
 };
 (function (root) {
   const STRINGS = { en: EN, pt: PT };

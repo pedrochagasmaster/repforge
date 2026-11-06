@@ -36,7 +36,7 @@ async function readHistorySession(page, sessionId) {
   const reading = page.locator(`.session--read[data-reading="${sessionId}"]`);
   await reading.waitFor({ state: "visible", timeout: 10000 });
   const totals = await reading.evaluate(root => [...root.querySelectorAll(".histpage__totals > div")].map(cell => ({
-    value: cell.querySelector("b")?.textContent.trim() || "",
+    value: cell.querySelector("b")?.firstChild?.textContent.trim() || "",
     label: cell.querySelector("span")?.textContent.trim() || "",
   })));
   await page.locator("#history [data-history-back]").click();

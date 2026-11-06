@@ -198,7 +198,7 @@ async function readTodayMoved(page) {
   await page.waitForSelector("#todaySession .today-done", { timeout: 10000 });
   return movedNumber(await page.locator("#todaySession .today-done .sum-stats .statrow__cell").evaluateAll(cells => cells
     .find(cell => /moved/i.test(cell.querySelector(".statrow__cap")?.textContent || ""))
-    ?.querySelector(".statrow__val")?.textContent.trim() ?? null));
+    ?.querySelector(".statrow__val")?.firstChild?.textContent.trim() ?? null));
 }
 
 /** History's "moved" total for each saved session, as rendered. */
@@ -211,7 +211,7 @@ async function readHistoryMoved(page, sessions) {
     const reading = page.locator(`.session--read[data-reading="${session}"]`);
     await reading.waitFor({ state: "visible", timeout: 10000 });
     moved[session] = movedNumber(await reading.evaluate(root => [...root.querySelectorAll(".histpage__totals > div")]
-      .find(cell => /moved/i.test(cell.querySelector("span")?.textContent || ""))?.querySelector("b")?.textContent.trim() ?? null));
+      .find(cell => /moved/i.test(cell.querySelector("span")?.textContent || ""))?.querySelector("b")?.firstChild?.textContent.trim() ?? null));
     await page.locator("#history [data-history-back]").click();
   }
   await page.locator('nav button[data-view="log"]').click();
