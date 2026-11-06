@@ -751,7 +751,7 @@ body.is-sheet-open .topbar,
 .is-pressed:not(:disabled){--control-primary-bg:var(--control-primary-pressed-bg);--cta:var(--control-primary-pressed-bg)}
 :is(.btn--cta,.firstrun__cta,.program-editor__activate,#onbNext,#entryActivate,#entryRebuildRules,#entryResumeContinue,
   #entryFreeformContinue,#entryFreeformClipboard,#entryFreeformReview,#entryFreeformSubmitGaps,#importCommit,#libPrimary,
-  #previewAdd,#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep,#draftDiscardKeep,#sumDone,#shareSetupShare).is-pressed:not(:disabled){--control-pressed-transform:var(--control-primary-pressed-transform)}
+  #previewAdd,#sessionEarlyConfirm,#exNoteSave,#historyDiscardKeep,#draftDiscardKeep,#sumShare,#shareSetupShare).is-pressed:not(:disabled){--control-pressed-transform:var(--control-primary-pressed-transform)}
 .btn:disabled{opacity:var(--control-disabled-opacity);cursor:default}
 /* A blanket 40% on the near-black CTA produced a mid-grey fill with washed
    white text (~2.5:1) that read as an enabled secondary button rather than a
@@ -3884,6 +3884,20 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .sum-lift__pr .verdictmark,.sum-rtile__d .verdictmark{flex:none}
 .sum-lift__next{display:flex;align-items:center;gap:var(--space-8);margin:var(--space-8) 0 0}
 .sum-lift__k{font-family:var(--font-language);font-size:var(--font-size-body-small);color:var(--color-ink-secondary)}
+/* While the share sheet is up the finish screen stays in view beneath its scrim. */
+.sumsheet.is-under-sheet{z-index:39}
+/* The share sheet (finish-share PR 2): the card as it will be sent, then its card, format and style. */
+.sheet--sharecard{height:auto;max-height:calc(var(--vvh,100dvh) - 56px);display:flex;flex-direction:column}
+.sharesheet{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 var(--space-16) var(--space-12);display:flex;flex-direction:column;gap:var(--space-12)}
+.sharesheet__preview{margin:var(--space-4) 0 0;display:flex;justify-content:center}
+.sharesheet__preview img{display:block;width:auto;height:auto;max-width:100%;max-height:min(40vh,22rem);border-radius:var(--radius-surface)}
+.sharesheet__segments{width:100%}
+.sharesheet__note{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.sharesheet__actions{display:flex;flex-direction:column;gap:var(--space-8);padding:var(--space-12) var(--space-16) calc(var(--space-16) + env(safe-area-inset-bottom));border-top:1px solid var(--boundary-persistent)}
+.sharesheet__actions .btn{width:100%}
+.sum-cards__hint{margin:var(--space-8) 0 0;text-align:center;text-wrap:balance;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.sum-see{display:flex;margin:var(--space-18) 0 0}
+.sum-see #sumSee{width:100%}
 .sum-split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-12);margin-top:var(--space-26)}
 .sum-split__k{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .sum-week{margin:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink)}
@@ -3912,23 +3926,26 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
    persistent-action surface runs edge to edge under its hairline instead of sitting in
    the text column as a box. */
 .sum-actions{
-  position:sticky;bottom:calc(-1 * var(--sum-pad-b));z-index:1;display:flex;gap:var(--space-12);order:1;
+  position:sticky;bottom:calc(-1 * var(--sum-pad-b));z-index:1;display:flex;flex-wrap:wrap;gap:var(--space-12);order:1;
   margin:0 calc(-1 * var(--sum-pad-r)) 0 calc(-1 * var(--sum-pad-l));
   padding:var(--space-12) var(--sum-pad-r) var(--sum-pad-b) var(--sum-pad-l);
   background:var(--bg);border-top:1px solid var(--boundary-persistent);
   box-shadow:var(--elevation-persistent-shadow);
 }
-#sumDone{
-  flex:1 1 0;min-height:54px;border:1px solid var(--control-primary-boundary);border-radius:var(--radius-button);
+/* Share is the finish screen's strong action (owner decisions, 2026-11-05); Done sits beside it at the same width. */
+/* Each takes at least 8rem, so at large text sizes they stack rather than clip their words. */
+#sumDone{flex:1 1 8rem;min-height:54px;padding-inline:var(--space-8)}
+#sumShare{
+  flex:1 1 8rem;padding-inline:var(--space-8);min-height:54px;border:1px solid var(--control-primary-boundary);border-radius:var(--radius-button);
   background:var(--control-primary-bg);color:var(--control-primary-ink);
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
 }
 @media (hover: hover) and (pointer: fine){
-#sumDone:hover:not(:disabled){background:var(--control-primary-bg);border-color:var(--control-primary-boundary);color:var(--control-primary-ink)}
+#sumShare:hover:not(:disabled){background:var(--control-primary-bg);border-color:var(--control-primary-boundary);color:var(--control-primary-ink)}
 }
-#sumDone.is-pressed:not(:disabled){background:var(--control-primary-bg);border-color:var(--control-primary-boundary);color:var(--control-primary-ink);transform:var(--control-pressed-transform)}
-#sumDone:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-#sumDone:disabled{background:var(--control-primary-disabled-bg);border-color:var(--boundary-decorative);color:var(--control-primary-disabled-ink);opacity:1;cursor:not-allowed;transform:none}
+#sumShare.is-pressed:not(:disabled){background:var(--control-primary-bg);border-color:var(--control-primary-boundary);color:var(--control-primary-ink);transform:var(--control-pressed-transform)}
+#sumShare:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+#sumShare:disabled{background:var(--control-primary-disabled-bg);border-color:var(--boundary-decorative);color:var(--control-primary-disabled-ink);opacity:1;cursor:not-allowed;transform:none}
 
 /* The restore-backup and end-block panels: native <dialog> elements sharing the
    shape of the storage-recovery dialog above them, scrim included. Neither

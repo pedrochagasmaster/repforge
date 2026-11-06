@@ -10975,7 +10975,7 @@ function summaryCardsHtml(s){
     `<div class="sharecard__tiles">${tiles.map(tile=>`<div><p class="sharecard__lab">${esc(tile.label)}</p>`+
       `<p class="sharecard__val${tile.accent?" is-accent":""}">${esc(tile.text)}${tile.unit?`<small>${esc(tile.unit)}</small>`:""}</p></div>`).join("")}</div>`+
     shareCardLiftsHtml(s)+shareCardBrandHtml()+`</div></figure>`);
-  return `<div class="sum-cards">${cards.join("")}</div>`}
+  return `<div class="sum-cards">${cards.join("")}</div><p class="sum-cards__hint">${esc(t("share.hint"))}</p>`}
 /** Each tile's label, figure and unit; the figure ramps unless it is a signed margin. */
 function summaryTileValues(s){
   const unit=unitLabel();
@@ -11030,9 +11030,11 @@ function sessionSummaryHtml(s){
       (s.next?`<div class="sum-next sum-split__cell"><p class="sum-split__k sum-next__lab">${esc(t("summary.next"))}</p>`+
         `<p class="sum-next__day">${esc(dayLabel(s.next.day))}</p>`+
         `<p class="sum-next__meta">${esc(tOne("today.exercise_count",s.next.exercises))}</p></div>`:"")+`</div>`)}
-  // The detour beside the door, both pinned: the report scrolls under them. Share joins them with the card renderer.
-  out.push(`<div class="sum-actions"><button type="button" class="btn btn--steel" id="sumSee">${esc(t("summary.see_session"))}</button>`+
-    `<button type="button" class="btn btn--cta btn--noarrow" id="sumDone">${esc(t("summary.done"))}</button></div>`);
+  // The session in History, after the report it summarises.
+  out.push(`<p class="sum-see"><button type="button" id="sumSee">${esc(t("summary.see_session"))}</button></p>`);
+  // Share is the strong action (owner decisions, 2026-11-05) and sends the card in view; Done ends the session.
+  out.push(`<div class="sum-actions"><button type="button" class="btn btn--cta btn--noarrow" id="sumShare">${esc(t("summary.share"))}</button>`+
+    `<button type="button" class="btn btn--steel" id="sumDone">${esc(t("summary.done"))}</button></div>`);
   return out.join("")}
 
 /** The summary's totals count up to their figures over 600 ms (motion amendment M2, owner decision on #295).
@@ -11076,6 +11078,7 @@ function renderSessionSummary(s){
   stopSummaryRamp();
   body.innerHTML=sessionSummaryHtml(s);
   const done=$("#sumDone");if(done)done.onclick=()=>closeSessionSummary();
+  const share=$("#sumShare");if(share)share.onclick=()=>openShareSheet(share);
   const see=$("#sumSee");if(see)see.onclick=()=>{
     HistoryUi.startReading(s.session);
     closeSessionSummary({nav:"history"})}}
@@ -11119,6 +11122,119 @@ function closeSessionSummary(opts={}){
   if(!opts.nav){const next=resolveReturnFocus(todayPrimaryControl);
     if(next){try{next.focus({preventScroll:true})}catch{}}}
   maybeShowInstallBanner()}
+/* ---- Share (finish-share PR 2; owner decisions, 2026-11-05) ----
+   The card the finish screen previews, drawn on the device by share-cards.js and handed to the system share sheet as
+   one PNG. The image is rendered when the sheet opens and on every choice, so Share hands over a ready file inside
+   the tap (iOS ties navigator.share to the gesture). Nothing else leaves the phone, and nothing is recorded. */
+const SHARE_STYLES=Object.freeze({record:["orange","dark"],stats:["dark","light"]});
+const SHARE_STYLE_KEYS=Object.freeze({orange:"share.style_orange",dark:"share.style_dark",light:"share.style_light"});
+let shareSheet=null,shareMarkImage=null;
+/** What a card draws, in the lifter's language and unit. */
+function shareCardModel(s){
+  const unit=unitLabel(),day=dayLabel(s.day);
+  const over=p=>p.kind==="load"?t("summary.pr.over_load",{n:fmtLoad(p.delta),unit})
+    :p.kind==="reps"?t("summary.pr.over_reps",{n:fmt(p.delta),reps:tp(p.delta,"rep")}):t("summary.pr.over_e1rm",{n:fmtLoad(p.delta),unit});
+  return{day,unit,dayDate:`${day} · ${shortDate(s.date)}`,dateLine:summarySubLine(s),
+    lead:s.lead?{kicker:t(s.lead.kind==="record"?"summary.card.new_record":"summary.card.most_improved"),
+      name:liftDisplayName(s.lead.name,s.lead.liftKey),load:fmtLoad(s.lead.load),
+      unitReps:t("summary.card.reps",{unit,n:s.lead.reps}),over:s.lead.pr?over(s.lead.pr):""}:null,
+    tiles:summaryTileValues(s).map(({label,text,unit:u,accent})=>({label,text,unit:u||"",accent:!!accent})),
+    lifts:s.liftGroups.map(lift=>({name:liftDisplayName(lift.name,lift.liftKey),sets:rxSetsLine(lift.sets,true),
+      mark:lift.pr?{kind:"record",text:sessionPRShort(lift.pr)}
+        :lift.state.kind==="outcome"&&lift.state.outcome==="improved"?{kind:"up",text:t(EVIDENCE_OUTCOME_KEYS.improved)}:null}))}}
+/** The card in view in the finish screen's row: the poster when the row is at its start. */
+function shareCardInView(s){
+  const row=$("#sessionSummary .sum-cards"),cards=row?[...row.querySelectorAll(".sharecard")]:[];
+  if(!cards.length)return s.lead?"record":"stats";
+  const left=row.getBoundingClientRect().left;
+  const nearest=cards.reduce((a,b)=>Math.abs(b.getBoundingClientRect().left-left)<Math.abs(a.getBoundingClientRect().left-left)?b:a);
+  return nearest.classList.contains("sharecard--poster")?"record":"stats"}
+const shareCanFiles=()=>{try{return typeof navigator.share==="function"&&navigator.canShare?.({files:[new File([""],"t.png",{type:"image/png"})]})===true}catch{return false}};
+function shareFileName(st){return `taurifer-${st.summary.date}-${st.kind}-${st.size}.png`}
+function loadShareMark(){
+  if(shareMarkImage)return Promise.resolve(shareMarkImage);
+  return new Promise(resolve=>{const img=new Image();img.onload=()=>{shareMarkImage=img;resolve(img)};img.onerror=()=>resolve(null);img.src=SHARE_MARK_SRC})}
+function syncShareControls(st){
+  const kind=$("#shareCardKind"),size=$("#shareCardSize"),style=$("#shareCardStyle");
+  if(kind)kind.value=st.kind;if(size)size.value=st.size;if(style)style.value=st.styleIndex?"alternate":"primary";
+  // A session with no record and nothing improved has only the stats card.
+  const record=$('#shareKindSegments [data-value="record"]');if(record)record.hidden=!st.model.lead;
+  const styles=SHARE_STYLES[st.kind];
+  $$("#shareStyleSegments [role=radio]").forEach((button,index)=>{button.textContent=t(SHARE_STYLE_KEYS[styles[index]])});
+  window.RepForgeMotion?.syncNativeControls?.($("#shareCardSheet"))}
+/** Draws the chosen card and keeps it ready as a file; a newer choice wins over a slower older one. */
+async function paintShareCard(){
+  const st=shareSheet;if(!st||!window.TauriferShareCards)return;
+  const token=++st.token,share=$("#shareCardShare"),save=$("#shareCardSave");
+  if(share)share.disabled=true;if(save)save.disabled=true;
+  await TauriferShareCards.ready();
+  const mark=await loadShareMark();
+  if(shareSheet!==st||token!==st.token)return;
+  const style=SHARE_STYLES[st.kind][st.styleIndex];
+  const out=TauriferShareCards.render(st.model,{kind:st.kind,size:st.size,style,mark});
+  if(!out)return;
+  const blob=await TauriferShareCards.toBlob(out.canvas);
+  if(shareSheet!==st||token!==st.token||!blob)return;
+  if(st.url)URL.revokeObjectURL(st.url);
+  st.url=URL.createObjectURL(blob);
+  st.file=new File([blob],shareFileName(st),{type:"image/png"});
+  st.drawn={...out.drawn,kind:st.kind,size:st.size,style,width:out.canvas.width,height:out.canvas.height,bytes:blob.size};
+  const img=$("#shareCardPreview");
+  if(img){img.src=st.url;img.width=out.canvas.width;img.height=out.canvas.height;
+    img.alt=st.kind==="record"&&st.model.lead?t("summary.card.aria_poster",{kicker:st.model.lead.kicker,lift:st.model.lead.name,load:st.model.lead.load,unit:st.model.unit,reps:st.summary.lead.reps})
+      :t("summary.card.aria_stats",{day:st.model.day,date:shortDate(st.summary.date)})}
+  if(share)share.disabled=false;if(save)save.disabled=false}
+function openShareSheet(opener){
+  const s=sessionSummaryCurrent,sheet=$("#shareCardSheet"),scrim=$("#shareCardScrim");
+  if(!s||!sheet)return;
+  const model=shareCardModel(s);
+  shareSheet={summary:s,model,kind:model.lead?shareCardInView(s):"stats",size:"story",styleIndex:0,token:0,url:"",file:null,drawn:null};
+  syncShareControls(shareSheet);
+  // Without file sharing (desktop Firefox, some web views) the image is saved instead: Save leads.
+  const canShare=shareCanFiles(),share=$("#shareCardShare"),save=$("#shareCardSave");
+  if(share){share.hidden=!canShare;share.classList.toggle("hidden",!canShare)}
+  if(save){save.classList.toggle("btn--cta",!canShare);save.classList.toggle("btn--noarrow",!canShare);save.classList.toggle("btn--steel",canShare)}
+  document.body.classList.add("is-sheet-open");
+  // The summary steps aside while the sheet is up and comes back when it closes.
+  openModal(sheet,{handoff:true,initialFocus:$("#shareCardClose"),returnFocus:opener,onEscape:closeShareSheet,scrim,
+    delayHide:reducedMotion()?0:280});
+  // The finish screen stays in view under the sheet, out of reach, as a sheet's page does.
+  const summary=$("#sessionSummary");
+  if(summary){summary.hidden=false;summary.classList.remove("hidden");summary.classList.add("is-under-sheet");summary.inert=true}
+  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open");syncShareControls(shareSheet)});
+  paintShareCard()}
+function closeShareSheet(){
+  const sheet=$("#shareCardSheet"),st=shareSheet;
+  if(!sheet||!st)return Promise.resolve(false);
+  shareSheet=null;
+  const summary=$("#sessionSummary");
+  return closeModal(sheet).then(()=>{
+    if(summary){summary.inert=false;summary.classList.remove("is-under-sheet")}
+    if(st.url)setTimeout(()=>URL.revokeObjectURL(st.url),60000);
+    if(sessionSummaryCurrent!==st.summary){if(summary&&!activeModal){summary.hidden=true;summary.classList.add("hidden")}return}
+    afterModalSettles(()=>{openModal($("#sessionSummary"),{initialFocus:()=>$("#sumShare"),onEscape:()=>closeSessionSummary()})})})}
+function shareCardSave(){
+  const st=shareSheet;if(!st?.url)return;
+  const a=document.createElement("a");a.href=st.url;a.download=st.file.name;a.hidden=true;
+  document.body.append(a);a.click();a.remove();
+  toast(t("share.saved"))}
+function shareCardShare(){
+  const st=shareSheet;if(!st?.file)return;
+  const data={files:[st.file]};
+  if(!(navigator.canShare?.(data)))return shareCardSave();
+  // The lifter closing the system sheet is not an error.
+  return navigator.share(data).catch(()=>{})}
+function bindShareSheet(){
+  const on=(id,fn)=>{const el=$(id);if(el)el.onclick=fn};
+  on("#shareCardClose",()=>closeShareSheet());on("#shareCardScrim",()=>closeShareSheet());
+  on("#shareCardShare",()=>shareCardShare());on("#shareCardSave",()=>shareCardSave());
+  const change=(id,apply)=>{const el=$(id);if(el)el.addEventListener("change",()=>{if(!shareSheet)return;apply(el.value);syncShareControls(shareSheet);paintShareCard()})};
+  change("#shareCardKind",v=>{shareSheet.kind=v==="record"&&shareSheet.model.lead?"record":"stats";shareSheet.styleIndex=0});
+  change("#shareCardSize",v=>{shareSheet.size=v==="square"?"square":"story"});
+  change("#shareCardStyle",v=>{shareSheet.styleIndex=v==="alternate"?1:0})}
+window.__repforgeShareSheet={state:()=>shareSheet?{kind:shareSheet.kind,size:shareSheet.size,style:SHARE_STYLES[shareSheet.kind][shareSheet.styleIndex],
+  file:shareSheet.file?{name:shareSheet.file.name,type:shareSheet.file.type,size:shareSheet.file.size}:null,drawn:shareSheet.drawn}:null};
+
 window.__repforgeSessionSummary={
   open:openSessionSummary,close:closeSessionSummary,
   build:buildSessionSummary,current:()=>sessionSummaryCurrent};
@@ -24098,6 +24214,7 @@ function init(){
     reportLandingAction("shared_start");
     await commitSharedSetup(storageIO)};
   $("#whyClose").onclick=closeWhySheet;
+  bindShareSheet();
   $("#installTransferStart").onclick=installTransferCreateFromSafari;
   $("#installTransferPrivacy").onclick=()=>openPrivacySheet({fromTransfer:true});
   $("#privacyDetails").onclick=()=>openPrivacySheet();
