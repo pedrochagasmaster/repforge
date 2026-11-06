@@ -408,6 +408,11 @@
       "content": "flat",
       "scenario": "The share sheet over the Day 1 finish screen: the record poster as the image to send, its card, format and style choices, and Share and Save."
     },
+    "session/summary-share-photo": {
+      "owner": "plan-064/r3h",
+      "content": "flat",
+      "scenario": "The share sheet's Photo style over a chosen picture: the record poster on the dimmed photo, Change photo, and Share and Save."
+    },
     "session/summary-maintained": {
       "owner": "plan-064/r3h",
       "content": "flat",
@@ -6159,7 +6164,8 @@
       "rationale": "Blocks the finish screen with dialog semantics while the card is chosen and shared; the summary comes back when it closes.",
       "owner": "finish-share",
       "catalogStates": [
-        "session/summary-share"
+        "session/summary-share",
+        "session/summary-share-photo"
       ]
     },
     {
@@ -6176,7 +6182,8 @@
       "rationale": "Scrim suppresses the page behind its blocking sheet.",
       "owner": "finish-share",
       "catalogStates": [
-        "session/summary-share"
+        "session/summary-share",
+        "session/summary-share-photo"
       ]
     },
     {
@@ -6198,7 +6205,8 @@
       "rationale": "Dismisses the share sheet back to the finish screen without sharing.",
       "owner": "finish-share",
       "catalogStates": [
-        "session/summary-share"
+        "session/summary-share",
+        "session/summary-share-photo"
       ],
       "neverDisabledReason": "Closing is always available."
     },
@@ -6222,7 +6230,8 @@
       "sourceOnly": true,
       "sourceOnlyReason": "pending: shown only where the browser can share files (navigator.canShare with files); the headless catalog browser cannot, so the sheet's Save leads there. test/share-card.mjs proves it with a stubbed share sheet.",
       "catalogStates": [
-        "session/summary-share"
+        "session/summary-share",
+        "session/summary-share-photo"
       ]
     },
     {
@@ -6243,8 +6252,30 @@
       "rationale": "Saves the drawn PNG; it leads (primary weight) where file sharing is unavailable.",
       "owner": "finish-share",
       "catalogStates": [
-        "session/summary-share"
+        "session/summary-share",
+        "session/summary-share-photo"
       ]
+    },
+    {
+      "id": "sharephotopick",
+      "selector": "#sharePhotoPick",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Opens the system photo picker for the Photo style; it reads Change photo once a picture is in use.",
+      "owner": "finish-share",
+      "catalogStates": [
+        "session/summary-share-photo"
+      ],
+      "neverDisabledReason": "Choosing a photo is always available while the Photo style is chosen."
     },
     {
       "id": "sharecardsegments",
@@ -6265,7 +6296,8 @@
       "rationale": "Chooses the card, its format and its style through native segmented radiogroups.",
       "owner": "finish-share",
       "catalogStates": [
-        "session/summary-share"
+        "session/summary-share",
+        "session/summary-share-photo"
       ],
       "neverDisabledReason": "Every choice the sheet offers can be drawn; a card the session cannot back is hidden, not disabled."
     },
@@ -8686,7 +8718,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/volume-audit",
-        "session/summary-share"
+        "session/summary-share",
+        "session/summary-share-photo"
       ]
     },
     {
@@ -11611,7 +11644,8 @@
         "workout/rest-sheet",
         "workout/rest-sheet-idle",
         "settings/language-menu",
-        "session/summary-share"
+        "session/summary-share",
+        "session/summary-share-photo"
       ]
     },
     {
@@ -11639,7 +11673,8 @@
         "workout/rest-sheet",
         "workout/rest-sheet-idle",
         "settings/language-menu",
-        "session/summary-share"
+        "session/summary-share",
+        "session/summary-share-photo"
       ]
     },
     {

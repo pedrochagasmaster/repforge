@@ -3857,6 +3857,12 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .sharesheet__preview{margin:var(--space-4) 0 0;display:flex;justify-content:center}
 .sharesheet__preview img{display:block;width:auto;height:auto;max-width:100%;max-height:min(40vh,22rem);border-radius:var(--radius-surface)}
 .sharesheet__segments{width:100%}
+/* Three styles share the row: each label takes the width it needs, so a long one ("Laranja" at 200% on 320) isn't
+   crushed by a short one beside it. */
+#shareStyleSegments{grid-auto-columns:auto}
+#shareStyleSegments button{overflow-wrap:anywhere}
+.sharesheet__photo{display:flex;margin:0}
+.sharesheet__photo #sharePhotoPick{width:100%}
 .sharesheet__note{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .sharesheet__actions{display:flex;flex-direction:column;gap:var(--space-8);padding:var(--space-12) var(--space-16) calc(var(--space-16) + env(safe-area-inset-bottom));border-top:1px solid var(--boundary-persistent)}
 .sharesheet__actions .btn{width:100%}
@@ -3873,18 +3879,18 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .sum-next__lab{letter-spacing:0;text-transform:none;font-weight:var(--weight-regular)}
 .sum-next__day{margin:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink)}
 .sum-next__meta{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
-#sumSee{
+#sumSee,#sharePhotoPick{
   display:flex;align-items:center;justify-content:center;min-height:54px;flex:1 1 0;
   border:1px solid var(--control-quiet-boundary);border-radius:var(--radius-control);
   background:var(--control-quiet-bg);color:var(--control-quiet-ink);
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
 }
 @media (hover: hover) and (pointer: fine){
-#sumSee:hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
+#sumSee:hover:not(:disabled),#sharePhotoPick:hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
 }
-#sumSee.is-pressed:not(:disabled){background:var(--row-pressed-bg);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
-#sumSee:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-#sumSee:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
+#sumSee.is-pressed:not(:disabled),#sharePhotoPick.is-pressed:not(:disabled){background:var(--row-pressed-bg);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+#sumSee:focus-visible,#sharePhotoPick:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+#sumSee:disabled,#sharePhotoPick:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 /* The way out is never below the fold. A session ends with a lifter holding a
    phone and breathing hard, so both actions stay put and the report moves under them.
    Like the onboarding pinned region it reaches through the body's side padding, so the

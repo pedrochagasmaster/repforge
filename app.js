@@ -10927,9 +10927,14 @@ function closeSessionSummary(opts={}){
 /* ---- Share (finish-share PR 2; owner decisions, 2026-11-05) ----
    The card the finish screen previews, drawn on the device by share-cards.js and handed to the system share sheet as
    one PNG. The image is rendered when the sheet opens and on every choice, so Share hands over a ready file inside
-   the tap (iOS ties navigator.share to the gesture). Nothing else leaves the phone, and nothing is recorded. */
-const SHARE_STYLES=Object.freeze({record:["orange","dark"],stats:["dark","light"]});
-const SHARE_STYLE_KEYS=Object.freeze({orange:"share.style_orange",dark:"share.style_dark",light:"share.style_light"});
+   the tap (iOS ties navigator.share to the gesture). Nothing else leaves the phone, and nothing is recorded.
+   The Photo style (PR 3) draws the card over a picture the lifter picks. The picture is decoded in memory, held only
+   while the sheet is open and released when it closes: it is never written to storage or sent anywhere. */
+const SHARE_STYLES=Object.freeze({record:["orange","dark","photo"],stats:["dark","light","photo"]});
+const SHARE_STYLE_KEYS=Object.freeze({orange:"share.style_orange",dark:"share.style_dark",light:"share.style_light",photo:"share.style_photo"});
+const SHARE_STYLE_VALUES=["primary","alternate","photo"];
+// A photo is scaled down to this long edge as it is decoded: enough to cover a 1080×1920 card, far less memory.
+const SHARE_PHOTO_EDGE=2160;
 let shareSheet=null,shareMarkImage=null;
 /** What a card draws, in the lifter's language and unit. */
 function shareCardModel(s){
@@ -10952,17 +10957,38 @@ function shareCardInView(s){
   const nearest=cards.reduce((a,b)=>Math.abs(b.getBoundingClientRect().left-left)<Math.abs(a.getBoundingClientRect().left-left)?b:a);
   return nearest.classList.contains("sharecard--poster")?"record":"stats"}
 const shareCanFiles=()=>{try{return typeof navigator.share==="function"&&navigator.canShare?.({files:[new File([""],"t.png",{type:"image/png"})]})===true}catch{return false}};
-function shareFileName(st){return `taurifer-${st.summary.date}-${st.kind}-${st.size}.png`}
+function shareFileName(st){return `taurifer-${st.summary.date}-${st.kind}-${st.size}${st.styleIndex===2?"-photo":""}.png`}
+const sharePhotoStyle=st=>SHARE_STYLES[st.kind][st.styleIndex]==="photo";
+/** Decodes the chosen picture, upright and scaled to fit SHARE_PHOTO_EDGE. Resolves null when it can't be read. */
+async function decodeSharePhoto(file){
+  let source=null;
+  try{source=await createImageBitmap(file,{imageOrientation:"from-image"})}
+  catch{source=await new Promise(resolve=>{const url=URL.createObjectURL(file),img=new Image();
+    img.onload=()=>{URL.revokeObjectURL(url);resolve(img)};img.onerror=()=>{URL.revokeObjectURL(url);resolve(null)};img.src=url})}
+  const w=source?.naturalWidth||source?.width,h=source?.naturalHeight||source?.height;
+  if(!w||!h)return null;
+  const r=Math.min(1,SHARE_PHOTO_EDGE/Math.max(w,h));
+  if(r===1)return source;
+  const canvas=document.createElement("canvas");canvas.width=Math.round(w*r);canvas.height=Math.round(h*r);
+  canvas.getContext("2d").drawImage(source,0,0,canvas.width,canvas.height);
+  source.close?.();
+  return canvas}
+function releaseSharePhoto(st){if(st?.photo){st.photo.close?.();if(st.photo.width!=null&&st.photo.getContext){st.photo.width=0;st.photo.height=0}st.photo=null}}
+function pickSharePhoto(){const input=$("#sharePhotoInput");if(input&&shareSheet){input.value="";input.click()}}
 function loadShareMark(){
   if(shareMarkImage)return Promise.resolve(shareMarkImage);
   return new Promise(resolve=>{const img=new Image();img.onload=()=>{shareMarkImage=img;resolve(img)};img.onerror=()=>resolve(null);img.src=SHARE_MARK_SRC})}
 function syncShareControls(st){
   const kind=$("#shareCardKind"),size=$("#shareCardSize"),style=$("#shareCardStyle");
-  if(kind)kind.value=st.kind;if(size)size.value=st.size;if(style)style.value=st.styleIndex?"alternate":"primary";
+  if(kind)kind.value=st.kind;if(size)size.value=st.size;if(style)style.value=SHARE_STYLE_VALUES[st.styleIndex];
   // A session with no record and nothing improved has only the stats card.
   const record=$('#shareKindSegments [data-value="record"]');if(record)record.hidden=!st.model.lead;
   const styles=SHARE_STYLES[st.kind];
   $$("#shareStyleSegments [role=radio]").forEach((button,index)=>{button.textContent=t(SHARE_STYLE_KEYS[styles[index]])});
+  const photo=sharePhotoStyle(st),row=$("#sharePhotoRow"),pick=$("#sharePhotoPick"),note=$("#shareCardSheet .sharesheet__note");
+  if(row){row.hidden=!photo;row.classList.toggle("hidden",!photo)}
+  if(pick)pick.textContent=t(st.photo?"share.change_photo":"share.choose_photo");
+  if(note)note.textContent=t(photo?"share.photo_note":"share.note");
   window.RepForgeMotion?.syncNativeControls?.($("#shareCardSheet"))}
 /** Draws the chosen card and keeps it ready as a file; a newer choice wins over a slower older one. */
 async function paintShareCard(){
@@ -10973,7 +10999,7 @@ async function paintShareCard(){
   const mark=await loadShareMark();
   if(shareSheet!==st||token!==st.token)return;
   const style=SHARE_STYLES[st.kind][st.styleIndex];
-  const out=TauriferShareCards.render(st.model,{kind:st.kind,size:st.size,style,mark});
+  const out=TauriferShareCards.render(st.model,{kind:st.kind,size:st.size,style,mark,photo:style==="photo"?st.photo:null});
   if(!out)return;
   const blob=await TauriferShareCards.toBlob(out.canvas);
   if(shareSheet!==st||token!==st.token||!blob)return;
@@ -10985,12 +11011,14 @@ async function paintShareCard(){
   if(img){img.src=st.url;img.width=out.canvas.width;img.height=out.canvas.height;
     img.alt=st.kind==="record"&&st.model.lead?t("summary.card.aria_poster",{kicker:st.model.lead.kicker,lift:st.model.lead.name,load:st.model.lead.load,unit:st.model.unit,reps:st.summary.lead.reps})
       :t("summary.card.aria_stats",{day:st.model.day,date:shortDate(st.summary.date)})}
-  if(share)share.disabled=false;if(save)save.disabled=false}
+  // Until a photo is chosen the Photo preview is a stand-in ground, so there is nothing to send yet.
+  const ready=style!=="photo"||!!st.photo;
+  if(share)share.disabled=!ready;if(save)save.disabled=!ready}
 function openShareSheet(opener){
   const s=sessionSummaryCurrent,sheet=$("#shareCardSheet"),scrim=$("#shareCardScrim");
   if(!s||!sheet)return;
   const model=shareCardModel(s);
-  shareSheet={summary:s,model,kind:model.lead?shareCardInView(s):"stats",size:"story",styleIndex:0,token:0,url:"",file:null,drawn:null};
+  shareSheet={summary:s,model,kind:model.lead?shareCardInView(s):"stats",size:"story",styleIndex:0,token:0,url:"",file:null,drawn:null,photo:null};
   syncShareControls(shareSheet);
   // Without file sharing (desktop Firefox, some web views) the image is saved instead: Save leads.
   const canShare=shareCanFiles(),share=$("#shareCardShare"),save=$("#shareCardSave");
@@ -11009,6 +11037,8 @@ function closeShareSheet(){
   const sheet=$("#shareCardSheet"),st=shareSheet;
   if(!sheet||!st)return Promise.resolve(false);
   shareSheet=null;
+  releaseSharePhoto(st);
+  const input=$("#sharePhotoInput");if(input)input.value="";
   const summary=$("#sessionSummary");
   return closeModal(sheet).then(()=>{
     if(summary){summary.inert=false;summary.classList.remove("is-under-sheet")}
@@ -11031,11 +11061,28 @@ function bindShareSheet(){
   on("#shareCardClose",()=>closeShareSheet());on("#shareCardScrim",()=>closeShareSheet());
   on("#shareCardShare",()=>shareCardShare());on("#shareCardSave",()=>shareCardSave());
   const change=(id,apply)=>{const el=$(id);if(el)el.addEventListener("change",()=>{if(!shareSheet)return;apply(el.value);syncShareControls(shareSheet);paintShareCard()})};
-  change("#shareCardKind",v=>{shareSheet.kind=v==="record"&&shareSheet.model.lead?"record":"stats";shareSheet.styleIndex=0});
+  change("#shareCardKind",v=>{const photo=sharePhotoStyle(shareSheet);
+    shareSheet.kind=v==="record"&&shareSheet.model.lead?"record":"stats";shareSheet.styleIndex=photo?SHARE_STYLES[shareSheet.kind].indexOf("photo"):0});
   change("#shareCardSize",v=>{shareSheet.size=v==="square"?"square":"story"});
-  change("#shareCardStyle",v=>{shareSheet.styleIndex=v==="alternate"?1:0})}
+  change("#shareCardStyle",v=>{shareSheet.styleIndex=Math.max(0,SHARE_STYLE_VALUES.indexOf(v));
+    // Choosing Photo with no picture yet goes straight to the picker, inside the same tap.
+    if(sharePhotoStyle(shareSheet)&&!shareSheet.photo)pickSharePhoto()});
+  on("#sharePhotoPick",()=>pickSharePhoto());
+  const input=$("#sharePhotoInput");
+  if(input)input.addEventListener("change",async()=>{
+    const st=shareSheet,file=input.files?.[0];
+    input.value="";
+    if(!st||!file)return;
+    const photo=await decodeSharePhoto(file);
+    if(shareSheet!==st){photo?.close?.();return}
+    if(!photo)return toast(t("share.photo_error"),{placement:"top"});
+    releaseSharePhoto(st);st.photo=photo;
+    st.styleIndex=SHARE_STYLES[st.kind].indexOf("photo");
+    syncShareControls(st);paintShareCard()})}
 window.__repforgeShareSheet={state:()=>shareSheet?{kind:shareSheet.kind,size:shareSheet.size,style:SHARE_STYLES[shareSheet.kind][shareSheet.styleIndex],
-  file:shareSheet.file?{name:shareSheet.file.name,type:shareSheet.file.type,size:shareSheet.file.size}:null,drawn:shareSheet.drawn}:null};
+  file:shareSheet.file?{name:shareSheet.file.name,type:shareSheet.file.type,size:shareSheet.file.size}:null,drawn:shareSheet.drawn,
+  photo:shareSheet.photo?{width:shareSheet.photo.width,height:shareSheet.photo.height}:null,
+  shareDisabled:!!$("#shareCardShare")?.disabled,saveDisabled:!!$("#shareCardSave")?.disabled}:null};
 
 window.__repforgeSessionSummary={
   open:openSessionSummary,close:closeSessionSummary,

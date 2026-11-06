@@ -1312,6 +1312,13 @@
       "variants": "demandingText"
     },
     {
+      "id": "summary-share-photo",
+      "flow": "session",
+      "label": "Session summary — share over a photo",
+      "scenario": "The share sheet's Photo style after a picture is chosen: the record poster drawn over the dimmed photo, Change photo, the line that the photo isn't kept, and Share and Save.",
+      "variants": "demandingText"
+    },
+    {
       "id": "summary-first",
       "flow": "session",
       "label": "Session summary — first session",
