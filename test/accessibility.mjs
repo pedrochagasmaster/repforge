@@ -1989,7 +1989,7 @@ async function runTouchTarget320Regression(browser) {
         tag: element.tagName.toLowerCase(),
         id: element.id || null,
         aria: element.getAttribute("aria-label") || null,
-        k: element.dataset.k || element.dataset.step || element.dataset.effstep || null,
+        k: element.dataset.k || element.dataset.step || element.dataset.effchip || element.dataset.effmenu || null,
         rect: rectOf(element),
       }));
 

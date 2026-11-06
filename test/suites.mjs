@@ -20,7 +20,7 @@ const TIER_VOCABULARY = new Set(["feedback", "packet", "candidate"]);
  */
 export const CI_SHARDS = 5;
 export const FULL_SHARDS = 12;
-export const UI_SYSTEM_SHARDS = 8;
+export const UI_SYSTEM_SHARDS = 9;
 /* The slowest measured cost of one UI-system render on ubuntu-latest: 6.42 s
  * across 42 green `--shard k/7` runs on 2026-10-29 (#456), rounded up.
  * test/ci.mjs holds every shard's states × this cost under 85% of its
@@ -254,6 +254,7 @@ export const FULL_SUITES = {
     s("test/per-side-completion-summary-browser.mjs", [], { domains: ["workout", "history", "progress"], seconds: 79 }),
     s("test/history-edit.mjs", [], { seconds: 42 }),
     s("test/effort-provenance.mjs", [], { domains: ["workout", "history", "persistence"], seconds: 20 }),
+    s("test/effort-stages.mjs", [], { domains: ["workout", "settings", "persistence"], seconds: 60 }),
     s("test/history-persistence-race.mjs", [], { seconds: 5 }),
     s("test/today-done.mjs", [], { seconds: 19 }),
     s("test/today-day-picker.mjs", [], { seconds: 33 }),
