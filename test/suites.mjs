@@ -43,6 +43,7 @@ export const SUITES = {
     s("test/pages-deploy-boundary.mjs", [], {"domains": ["privacy", "offline"], "cost": "normal", "tier": "feedback", "nodeArgs": ["--test"]}),
     s("test/generative/self-test.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback", "nodeArgs": ["--test"]}),
     s("test/shared-setup-unit.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback"}),
+    s("test/rest-timer-model.mjs", [], {"domains": ["workout"], "cost": "tiny", "tier": "feedback"}),
     s("test/program-day-names.mjs", [], {"domains": ["program"], "cost": "normal", "tier": "feedback"}),
     s("test/program-day-move-shape.mjs", [], {"domains": ["program"], "cost": "normal", "tier": "feedback"}),
     s("test/program-transition-plan067.mjs", [], {"domains": ["program", "transition"], "cost": "normal", "tier": "feedback"}),

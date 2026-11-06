@@ -584,7 +584,7 @@ async function restPillJourney(browser) {
   });
   await page.evaluate(() => window.__repforgeLeaveWorkout?.());
   await page.waitForSelector("#todayDash:not(.hidden)", { timeout: 5000 });
-  const clock = () => page.evaluate(() => ({ end: restEnd, paused: restPaused, length: restLength }));
+  const clock = () => page.evaluate(() => { const s = window.__repforgeRest.state(); return { end: s.endMs, paused: s.pausedMs, length: s.lengthSec }; });
   const shown = () => page.evaluate(() => {
     const visible = (el) => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden";
     return { pill: visible(document.querySelector("#restBar")), mini: visible(document.querySelector("#miniBar")),

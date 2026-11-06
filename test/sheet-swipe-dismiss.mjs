@@ -545,7 +545,7 @@ async function run() {
   await page.waitForTimeout(520);
   const rest = await page.evaluate(() => ({
     ...window.__sheet("#restSheet"),
-    running: restEnd > 0,
+    running: window.__repforgeRest.state().active,
     focus: document.activeElement?.id || "",
   }));
   assert(rest.hidden && !rest.locked, "the swipe closes the rest sheet", JSON.stringify(rest));
