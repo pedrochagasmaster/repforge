@@ -90,13 +90,38 @@ page.on("pageerror", (e) => errors.push(String(e)));
 try {
   phase("No gauge before the first workout");
   await boot(page, { history: [] });
-  assert(await page.evaluate(() => document.querySelector("#todayCalibration").classList.contains("hidden")), "Today shows no gauge with no logged workout");
+  assert(await page.evaluate(() => document.querySelector("#todayCalRing").hidden && document.querySelector("#todayCalRingBar").hidden),
+    "Today shows no calibration ring with no logged workout");
 
-  phase("The gauge on Today and Progress › Overview");
+  phase("The calibration ring on Today, and its tap to Progress › Overview");
   await boot(page);
-  const todayRow = await page.evaluate(() => { const el = document.querySelector("#todayCalibration"); return { hidden: el.classList.contains("hidden"), text: el.innerText.replace(/\s+/g, " ").trim() }; });
-  assert(!todayRow.hidden && /^Effort calibration \d+%$/.test(todayRow.text), "Today shows the small row from the first workout", todayRow);
-  await page.evaluate(() => document.querySelector('nav [data-view="stats"]')?.click());
+  const ring = await page.evaluate(() => {
+    const el = document.querySelector("#todayCalRing"), box = el.getBoundingClientRect(), title = document.querySelector("#todayDash .page-title").getBoundingClientRect();
+    return { hidden: el.hidden, label: el.getAttribute("aria-label"), number: el.querySelector(".calring__n")?.textContent,
+      dots: el.querySelectorAll(".calring__dot").length, done: el.querySelectorAll(".calring__dot.is-done").length,
+      fill: !!el.querySelector(".calring__fill"), size: Math.round(box.width), right: box.left > title.right,
+      row: !!document.querySelector("#todayCalibration") };
+  });
+  const todayN = Number(ring.number);
+  assert(!ring.hidden && todayN > 0 && !/%/.test(ring.number) && ring.fill && ring.size === 46 && ring.right && !ring.row,
+    "Today shows the ring beside the large title, its number without a % sign, and no calibration row", ring);
+  assert(ring.dots === 8 && ring.done === 1, "its foot has one dot per test set the gauge counts, the one done filled", ring);
+  assert(ring.label === `Effort calibration ${todayN}%, 1 of 8 test sets. Opens your calibration in Progress.`, "its label says percent and the test sets", ring.label);
+  const barBefore = await page.evaluate(() => document.querySelector("#todayCalRingBar").classList.contains("is-shown"));
+  await page.evaluate(() => window.scrollTo(0, 400));
+  await page.waitForFunction(() => document.querySelector("#todayCalRingBar").classList.contains("is-shown"), undefined, { timeout: 5000 }).catch(() => {});
+  const bar = await page.evaluate(() => {
+    const el = document.querySelector("#todayCalRingBar"), svg = el.querySelector("svg").getBoundingClientRect(), gear = document.querySelector("#openSettings").getBoundingClientRect();
+    return { shown: el.classList.contains("is-shown"), size: Math.round(svg.width), beside: Math.abs(svg.top + svg.height / 2 - (gear.top + gear.height / 2)) < 2 && svg.right <= gear.left + 1,
+      number: el.querySelector(".calring__n")?.textContent, hidden: el.getAttribute("aria-hidden") };
+  });
+  assert(!barBefore && bar.shown && bar.size === 30 && bar.beside && bar.number === ring.number && bar.hidden === "true",
+    "scrolled, the ring rides in the bar at 30 px beside the gear (once, for the eye)", { barBefore, bar });
+  await page.click("#todayCalRingBar");
+  await page.waitForSelector("#stats.active #overviewCalibration:not(.hidden) .calcard", { timeout: 10000 });
+  const landed = await page.evaluate(() => { const card = document.querySelector("#overviewCalibration").getBoundingClientRect();
+    return { top: Math.round(card.top), inView: card.top >= 0 && card.top < innerHeight / 2, focus: document.activeElement?.closest("#overviewCalibration") != null }; });
+  assert(landed.inView && landed.focus, "a tap opens Progress › Overview at the calibration card", landed);
   await page.waitForSelector("#overviewCalibration:not(.hidden) .calcard", { timeout: 10000 });
   const card = await page.evaluate(() => {
     const el = document.querySelector("#overviewCalibration");
@@ -104,7 +129,7 @@ try {
       signals: [...el.querySelectorAll(".calsig")].map((s) => [...s.querySelectorAll(":scope > span")].map((x) => x.textContent)),
       checks: [...el.querySelectorAll(".calcheck")].map((c) => c.innerText.replace(/\s+/g, " ").trim()) };
   });
-  const today = Number(/\d+/.exec(todayRow.text)?.[0]);
+  const today = todayN;
   assert(card.big === `${today}%` && card.overall === "1 test set · 1 lift", "Overview's number matches Today's, with its test sets and lifts", { card, today });
   assert(card.signals.map((s) => s[0]).join() === "Test sets,Sets that agree,Hitting the suggestion,Week to week,Slow last rep,History" &&
     card.signals[0][1] === "1 of 8" && /^\d+ of 20 pairs · \d+% agree$/.test(card.signals[1][1]) && card.signals[2][1] === "0 of 20 sets" &&

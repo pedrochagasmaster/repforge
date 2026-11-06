@@ -1083,8 +1083,15 @@
     {
       "id": "calibration-mini",
       "flow": "today",
-      "label": "Today — effort calibration",
-      "scenario": "The small effort calibration row on Today, above the session's action: the label, the number and a thin bar (Plan 077, OD-20).",
+      "label": "Today — calibration ring",
+      "scenario": "The calibration ring beside Today's large title (owner direction B, 2026-11-06): the gauge's number in an accent arc, and one dot per test set across its foot, the done ones in the accent.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "calibration-ring-bar",
+      "flow": "today",
+      "label": "Today — calibration ring in the bar",
+      "scenario": "Today scrolled: the large title has gone under the bar, and the calibration ring rides in the bar at 30 px beside the gear.",
       "variants": "demandingText"
     },
     {
