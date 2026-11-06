@@ -268,6 +268,11 @@
       "content": "flat",
       "scenario": "The Direction D lifter before Day 1 starts: the prescription table reads recommendation() for every exercise, with the verdict tally above it."
     },
+    "today/calibration-mini": {
+      "owner": "plan-077",
+      "content": "flat",
+      "scenario": "The small effort calibration row on Today."
+    },
     "today/dock-viewer": {
       "owner": "plan-075-phase-5",
       "content": "flat",
@@ -398,6 +403,11 @@
       "content": "flat",
       "scenario": "During the rest after a set, the stage tip over the shelf: Try counting reps left?, with Not now, Try it and a close button; Log set stays live."
     },
+    "workout/last-rep-slow": {
+      "owner": "plan-077",
+      "content": "flat",
+      "scenario": "Last rep slow? with Yes and No under the exercise's last logged set, during its rest."
+    },
     "workout/exercise-note": {
       "owner": "plan-055",
       "content": "flat",
@@ -477,6 +487,11 @@
       "owner": "plan-056",
       "content": "flat",
       "scenario": "The Progress landing tab."
+    },
+    "progress/overview-calibration": {
+      "owner": "plan-077",
+      "content": "flat",
+      "scenario": "The effort calibration gauge, its six signals with plain counts, and the recent test sets."
     },
     "progress/overview-guide": {
       "owner": "tip-modal-2026-10-17",
@@ -1319,7 +1334,8 @@
         "workout/invalid-draft",
         "today/deload-week",
         "today/ready-scrolled",
-        "today/in-progress"
+        "today/in-progress",
+        "today/calibration-mini"
       ]
     },
     {
@@ -2274,7 +2290,8 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/why-calibration"
+        "workout/why-calibration",
+        "workout/last-rep-slow"
       ],
       "neverDisabledReason": "A note can always be written for the exercise in progress."
     },
@@ -3908,7 +3925,8 @@
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/last-rep-slow"
       ]
     },
     {
@@ -4460,7 +4478,8 @@
         "workout/invalid-draft",
         "today/deload-week",
         "today/ready-scrolled",
-        "today/in-progress"
+        "today/in-progress",
+        "today/calibration-mini"
       ]
     },
     {
@@ -5009,7 +5028,8 @@
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/last-rep-slow"
       ],
       "neverDisabledReason": "The tab exists only while a rest runs or has just run out, and it always opens the sheet."
     },
@@ -5801,7 +5821,8 @@
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/last-rep-slow"
       ]
     },
     {
@@ -6104,7 +6125,8 @@
         "today/dock-viewer",
         "workout/invalid-draft",
         "today/deload-week",
-        "today/ready-scrolled"
+        "today/ready-scrolled",
+        "today/calibration-mini"
       ]
     },
     {
@@ -6159,7 +6181,8 @@
         "progress/volume-block",
         "progress/volume-drill-in",
         "progress/volume-reduction-preview",
-        "progress/minibar"
+        "progress/minibar",
+        "progress/overview-calibration"
       ]
     },
     {
@@ -6570,7 +6593,8 @@
         "workout/invalid-draft",
         "today/deload-week",
         "today/ready-scrolled",
-        "today/in-progress"
+        "today/in-progress",
+        "today/calibration-mini"
       ],
       "progressScopes": {
         "active-program-week": "block"
@@ -6626,7 +6650,8 @@
         "workout/invalid-draft",
         "today/deload-week",
         "today/ready-scrolled",
-        "today/in-progress"
+        "today/in-progress",
+        "today/calibration-mini"
       ],
       "progressScopes": {
         "current-week-trained-days": "week"
@@ -6691,7 +6716,8 @@
         "workout/invalid-draft",
         "today/deload-week",
         "today/ready-scrolled",
-        "today/in-progress"
+        "today/in-progress",
+        "today/calibration-mini"
       ]
     },
     {
@@ -6868,7 +6894,8 @@
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/last-rep-slow"
       ]
     },
     {
@@ -6923,7 +6950,8 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/why-calibration"
+        "workout/why-calibration",
+        "workout/last-rep-slow"
       ],
       "progressScopes": {
         "workout-exercise-order": "exercise-set"
@@ -6949,7 +6977,8 @@
       "catalogStates": [
         "progress/overview",
         "progress/overview-action",
-        "progress/minibar"
+        "progress/minibar",
+        "progress/overview-calibration"
       ]
     },
     {
@@ -7071,7 +7100,8 @@
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/last-rep-slow"
       ]
     },
     {
@@ -7316,7 +7346,8 @@
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/last-rep-slow"
       ],
       "neverDisabledReason": "The header draws the name only while the workout has an exercise to open, and opening it is always available."
     },
@@ -7348,7 +7379,8 @@
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/last-rep-slow"
       ]
     },
     {
@@ -7385,7 +7417,8 @@
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/last-rep-slow"
       ]
     },
     {
@@ -8187,7 +8220,8 @@
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/last-rep-slow"
       ]
     },
     {
@@ -8250,7 +8284,8 @@
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/last-rep-slow"
       ]
     },
     {
@@ -8291,7 +8326,8 @@
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/last-rep-slow"
       ]
     },
     {
@@ -8520,7 +8556,9 @@
         "today/in-progress",
         "progress/minibar",
         "history/minibar-rest",
-        "program/minibar-rest-done"
+        "program/minibar-rest-done",
+        "progress/overview-calibration",
+        "today/calibration-mini"
       ]
     },
     {
@@ -8596,7 +8634,9 @@
         "today/in-progress",
         "progress/minibar",
         "history/minibar-rest",
-        "program/minibar-rest-done"
+        "program/minibar-rest-done",
+        "progress/overview-calibration",
+        "today/calibration-mini"
       ]
     },
     {
@@ -8681,7 +8721,9 @@
         "today/in-progress",
         "progress/minibar",
         "history/minibar-rest",
-        "program/minibar-rest-done"
+        "program/minibar-rest-done",
+        "progress/overview-calibration",
+        "today/calibration-mini"
       ]
     },
     {
@@ -8829,7 +8871,10 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/why-calibration"
+        "workout/why-calibration",
+        "workout/last-rep-slow",
+        "progress/overview-calibration",
+        "today/calibration-mini"
       ]
     },
     {
@@ -8986,7 +9031,8 @@
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/last-rep-slow"
       ]
     },
     {
@@ -9019,7 +9065,8 @@
         "today/deload-week",
         "today/ready-scrolled",
         "today/in-progress",
-        "program/minibar-rest-done"
+        "program/minibar-rest-done",
+        "today/calibration-mini"
       ]
     },
     {
@@ -9057,7 +9104,8 @@
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/last-rep-slow"
       ]
     },
     {
@@ -9102,7 +9150,8 @@
         "progress/volume-block",
         "progress/volume-drill-in",
         "progress/volume-reduction-preview",
-        "progress/minibar"
+        "progress/minibar",
+        "progress/overview-calibration"
       ]
     },
     {
@@ -9156,7 +9205,8 @@
         "progress/volume-block",
         "progress/volume-drill-in",
         "progress/volume-reduction-preview",
-        "progress/minibar"
+        "progress/minibar",
+        "progress/overview-calibration"
       ]
     },
     {
@@ -9217,7 +9267,8 @@
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/last-rep-slow"
       ]
     },
     {
@@ -9264,7 +9315,8 @@
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/last-rep-slow"
       ]
     },
     {
@@ -9307,7 +9359,8 @@
         "workout/max-set-prompt",
         "workout/max-set-guess",
         "workout/max-set-active",
-        "workout/max-set-result"
+        "workout/max-set-result",
+        "workout/last-rep-slow"
       ],
       "neverDisabledReason": "The way to change how effort is logged stays reachable whenever the shelf is."
     },
@@ -9402,6 +9455,28 @@
       "neverDisabledReason": "A tip can always be dismissed."
     },
     {
+      "id": "last-rep-slow-answer",
+      "selector": ".ledgerslow__pill",
+      "roles": {
+        "control": "selection"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected"
+      ],
+      "rationale": "Answers Was the last rep slow? on the exercise's last logged set (Plan 077, OD-25): an optional one-tap Yes or No that never sits on the shelf. The given answer stays as a selected word, and a tap on it takes it back.",
+      "owner": "plan-077",
+      "catalogStates": [
+        "workout/last-rep-slow"
+      ],
+      "neverDisabledReason": "The question shows only while it can be answered."
+    },
+    {
       "id": "shelf-input-not-id",
       "selector": ".shelf__input:not([id])",
       "roles": {
@@ -9479,7 +9554,8 @@
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/last-rep-slow"
       ]
     },
     {
@@ -9520,7 +9596,8 @@
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/last-rep-slow"
       ]
     },
     {
@@ -9562,7 +9639,8 @@
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/last-rep-slow"
       ]
     },
     {
@@ -10108,7 +10186,8 @@
       "catalogStates": [
         "progress/overview",
         "progress/overview-action",
-        "progress/minibar"
+        "progress/minibar",
+        "progress/overview-calibration"
       ]
     },
     {
@@ -11731,7 +11810,8 @@
         "workout/early-finish",
         "workout/invalid-draft",
         "workout/reorder",
-        "workout/session"
+        "workout/session",
+        "today/calibration-mini"
       ],
       "neverDisabledReason": "The menu or choice stays reachable whenever its owning row is present."
     },
@@ -12170,7 +12250,8 @@
         "history/delete-confirm",
         "workout/invalid-draft",
         "progress/strength-comparison",
-        "progress/strength-sparse"
+        "progress/strength-sparse",
+        "today/calibration-mini"
       ]
     },
     {
@@ -12602,6 +12683,37 @@
         "settings/rest-controls",
         "settings/language-menu"
       ]
+    },
+    {
+      "id": "slowreptoggle",
+      "selector": "#slowRepToggle",
+      "roles": {
+        "control": "selection"
+      },
+      "variant": null,
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected",
+        "disabled"
+      ],
+      "rationale": "Turns the \"Last rep slow?\" question on or off (Plan 077, OD-25): a setting, not training data.",
+      "owner": "plan-077",
+      "catalogStates": [
+        "settings/appearance",
+        "settings/guides",
+        "settings/guides-replay",
+        "settings/load-controls",
+        "settings/main",
+        "settings/privacy",
+        "settings/rest-controls",
+        "settings/language-menu"
+      ]
     }
   ],
   "contextualVariants": [
@@ -12722,7 +12834,8 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/why-calibration"
+        "workout/why-calibration",
+        "workout/last-rep-slow"
       ]
     },
     {
@@ -12791,7 +12904,9 @@
         "program/editor-day-name-refused",
         "program/progression-editor",
         "install/banner",
-        "today/draft-resume"
+        "today/draft-resume",
+        "progress/overview-calibration",
+        "today/calibration-mini"
       ]
     },
     {
@@ -12916,7 +13031,8 @@
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/last-rep-slow"
       ]
     },
     {
@@ -13047,7 +13163,8 @@
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/last-rep-slow"
       ]
     },
     {
@@ -13077,7 +13194,8 @@
         "workout/max-set-guess",
         "workout/max-set-active",
         "workout/max-set-result",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/last-rep-slow"
       ]
     },
     {
@@ -13105,7 +13223,8 @@
         "workout/max-set-result",
         "workout/effort-stage-a",
         "workout/effort-stage-b",
-        "workout/stage-tip"
+        "workout/stage-tip",
+        "workout/last-rep-slow"
       ],
       "cssLiterals": [
         {
@@ -13290,7 +13409,9 @@
         "program/editor-day-name-refused",
         "program/progression-editor",
         "install/banner",
-        "today/draft-resume"
+        "today/draft-resume",
+        "progress/overview-calibration",
+        "today/calibration-mini"
       ]
     },
     {
@@ -13349,7 +13470,9 @@
         "program/editor-day-name-refused",
         "program/progression-editor",
         "install/banner",
-        "today/draft-resume"
+        "today/draft-resume",
+        "progress/overview-calibration",
+        "today/calibration-mini"
       ]
     },
     {

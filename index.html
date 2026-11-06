@@ -128,6 +128,7 @@
         </div>
         <p class="section-label" id="todaySessionLabel" data-i18n="today.session_label">Today's session</p>
         <div id="todaySession" class="today-session"></div>
+        <div id="todayCalibration" class="today-cal hidden"></div>
         <button type="button" class="btn btn--cta" id="startWorkout"><span data-i18n="today.start">Start workout</span></button>
         <!-- "Change day" stands beside the day's title (the prototype, owner 2026-10-28): renderToday moves it into that
              row, and parks it here while Today draws no day. -->
@@ -206,6 +207,7 @@
       </div>
       <div id="segOverview" role="tabpanel" class="stats-seg active">
         <div id="statsIntro" class="emptystate hidden"></div>
+        <div id="overviewCalibration" class="ovcal hidden"></div>
         <div id="thisWeek" class="ovweek"></div>
         <div id="attention" class="attention"></div>
         <div id="overviewStrength" class="ovstrength"></div>
@@ -431,6 +433,12 @@
           <input type="checkbox" id="maxSetPrompts" class="visually-hidden" tabindex="-1" aria-hidden="true" checked>
         </div>
         <p class="lede" data-i18n="settings.max_set_lede">Before an exercise's last set, Taurifer sometimes offers to make it a test set: guess your reps, then go to failure.</p>
+        <div class="settings-row" style="cursor:default">
+          <span class="settings-row__label" data-i18n="settings.slow_rep_taps">Last-rep question</span>
+          <button type="button" class="toggle" id="slowRepToggle" aria-pressed="true" data-i18n-aria="settings.slow_rep_taps"></button>
+          <input type="checkbox" id="slowRepTaps" class="visually-hidden" tabindex="-1" aria-hidden="true" checked>
+        </div>
+        <p class="lede" data-i18n="settings.slow_rep_lede">After an exercise's last set, a one-tap question while you rest. Your answers help calibrate your effort estimates.</p>
         <button type="button" class="settings-row" id="createProgram">
           <span class="settings-row__label" data-i18n="settings.create_program">Create new program</span>
           <span class="settings-row__value"><span class="chevron" aria-hidden="true"></span></span>
@@ -1487,8 +1495,9 @@ Triceps pushdown 3x12-15</pre>
   <script src="program-editor.js?v=559"></script>
   <script src="program-review.js?v=572"></script>
   <script src="shared-setup.js?v=574"></script>
-  <script src="workout-draft.js?v=634"></script>
-  <script src="effort-calibration.js?v=637"></script>
+  <script src="workout-draft.js?v=640"></script>
+  <script src="effort-calibration.js?v=640"></script>
+  <script src="calibration-gauge.js?v=640"></script>
   <script src="program-transition.js?v=560"></script>
   <script src="program-engine.js?v=486"></script>
   <script src="install-transfer-contract.js"></script>

@@ -19,6 +19,7 @@ const expected = [
   "app.js",
   "durable-state.js",
   "effort-calibration.js",
+  "calibration-gauge.js",
   "engine-policy.js",
   "exercise-catalog.js",
   "exercise-metrics.js",

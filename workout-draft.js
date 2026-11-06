@@ -443,6 +443,8 @@
         issues.push(`${path}.completion`);
       } else if (hasOwn(value.completion, "effortSource") && !EFFORT_SOURCES.includes(value.completion.effortSource)) {
         issues.push(`${path}.completion.effortSource`);
+      } else if (hasOwn(value.completion, "lastRepSlow") && typeof value.completion.lastRepSlow !== "boolean") {
+        issues.push(`${path}.completion.lastRepSlow`);
       }
     }
     if (hasOwn(value, "performed")) validateMovementSnapshot(value.performed, `${path}.performed`, issues);
@@ -1310,6 +1312,21 @@
         item.set.calibration = jsonClone(command.calibration);
         break;
       }
+      case "setLastRepSlow": {
+        // "Was the last rep slow?" (Plan 077, OD-25): an optional answer on a completed set; null takes it back.
+        item = targetSet(next, command);
+        if (isDomainError(item)) return item;
+        if (item.set.completion === "pending") return error("set-not-completed");
+        if (command.value !== null && typeof command.value !== "boolean") return error("invalid-last-rep-slow");
+        if (command.value === null) {
+          if (!hasOwn(item.set.completion, "lastRepSlow")) return draft;
+          delete item.set.completion.lastRepSlow;
+        } else {
+          if (item.set.completion.lastRepSlow === command.value) return draft;
+          item.set.completion.lastRepSlow = command.value;
+        }
+        break;
+      }
       case "cancelMaxSet": {
         item = targetSet(next, command);
         if (isDomainError(item)) return item;
@@ -1711,6 +1728,7 @@
           notes: draft.session.notes.trim(),
           created: completedAt,
           ...effortSourceOf(set),
+          ...(set.completion !== "pending" && typeof set.completion?.lastRepSlow === "boolean" ? { lastRepSlow: set.completion.lastRepSlow } : {}),
           ...(set.completion !== "pending" && set.completion?.effortSource === "failure" && validCalibration(set.calibration)
             ? { calibration: jsonClone(set.calibration) } : {}),
           ...(hasOwn(draft.program, "blockId") ? { blockId: draft.program.blockId } : {}),

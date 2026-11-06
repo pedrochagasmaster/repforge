@@ -5234,6 +5234,40 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 }
 .attention{margin-bottom:0}
 
+/* Effort calibration (Plan 077, OD-20): one number, a bar, what it is, the six signals with their plain counts, and the
+   recent test sets. The bars are quiet ink on the well; the lead signal (test sets) is the one drawn darker. */
+.ovcal{margin-bottom:var(--space-8)}
+.ovcal .ovsec:first-child{margin-top:var(--space-12)}
+.calcard{padding-top:var(--space-12)}
+.calcard__big{display:flex;align-items:baseline;flex-wrap:wrap;gap:var(--space-4) var(--space-8);margin:0}
+.calcard__big b{font-family:var(--font-training-data);font-size:var(--font-size-metric);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink);font-variant-numeric:tabular-nums}
+.calcard__big span{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.calbar{display:block;height:8px;margin-top:var(--space-8);border-radius:var(--radius-pill);background:var(--well);overflow:hidden}
+.calbar--thin{height:4px;margin-top:var(--space-4)}
+.calbar__fill{display:block;height:100%;border-radius:inherit;background:var(--ink)}
+.calcard__what,.calcard__fade{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.calsigs{list-style:none;margin:var(--space-12) 0 0;padding:0}
+.calsig{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:var(--space-8);align-items:baseline;padding:6px 0;
+  font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink)}
+.calsig > span:nth-child(2){color:var(--color-ink-secondary);font-variant-numeric:tabular-nums}
+.calsig .calbar{grid-column:1/-1}
+.calsig:not(.calsig--lead) .calbar__fill{background:var(--color-ink-secondary)}
+.calsig--lead > span:first-child{font-weight:var(--weight-semibold)}
+.calchecks{list-style:none;margin:0;padding:0}
+.calcheck{display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-12);padding:10px 0;border-bottom:1px solid var(--boundary-decorative);
+  font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink)}
+.calcheck__name{min-width:0;overflow-wrap:anywhere}
+.calcheck__name small{display:block;font-size:var(--font-size-caption);color:var(--color-ink-secondary)}
+.calcheck__gd{flex:none;font-family:var(--font-training-data);font-size:var(--font-size-body-small);color:var(--color-ink-secondary);white-space:nowrap}
+.calcheck__gd b{font-weight:var(--weight-semibold);color:var(--color-ink)}
+.calcheck--empty{color:var(--color-ink-secondary);font-size:var(--font-size-body-small)}
+/* Today: the same number in one quiet row above the session's action. */
+.today-cal{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;column-gap:var(--space-12);margin:var(--space-12) 0 var(--space-4);
+  padding:var(--space-12) 0;border-top:1px solid var(--boundary-decorative);border-bottom:1px solid var(--boundary-decorative)}
+.today-cal__label{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.today-cal__n{font-family:var(--font-training-data);font-size:var(--font-size-body);font-weight:var(--weight-semibold);color:var(--color-ink);font-variant-numeric:tabular-nums}
+.today-cal .calbar{grid-column:1/-1}
+
 /* Needs attention: the mark, the lift and its figure share the first line; the
    verdict and its reason run the full width under them, the evidence kind in
    soft text below. The whole row is one button. */
@@ -8629,6 +8663,15 @@ body.is-entry-editor #entryProgramName,
   min-width:0;display:flex;justify-content:flex-end;gap:12px;text-align:right;
   font-family:var(--font-training-data);font-size:var(--font-size-body);font-weight:var(--weight-regular);line-height:var(--line-standard);
 }
+/* "Was the last rep slow?" (Plan 077, OD-25): a quiet line under the exercise's last logged set, during its rest. */
+.ledgerslow{display:flex;align-items:center;justify-content:flex-end;gap:var(--space-8);padding:0 0 var(--space-8);
+  font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.ledgerslow__q{flex:1}
+.ledgerslow__pill{min-width:var(--control-target);min-height:var(--control-target);padding:0 var(--space-12);border:0;border-radius:var(--radius-button);
+  background:var(--well);color:var(--color-ink);font:inherit;font-weight:var(--weight-semibold);cursor:pointer}
+/* The answer stays as a plain word; a tap on it takes it back. */
+.ledgerslow__pill[aria-pressed="true"]{background:transparent}
+.ledgerslow__pill:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .ledgerline__prev{
   grid-column:2;min-width:0;text-align:right;
   font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);

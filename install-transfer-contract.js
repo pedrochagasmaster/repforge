@@ -47,6 +47,8 @@
     Number.isSafeInteger(value.predictedReps) && value.predictedReps >= 1 && value.predictedReps <= 30 &&
     typeof value.predictionEdited === "boolean" && ["reps_rir", "reps"].includes(value.prefillBasis);
   const validCalibration = (holder) => !hasOwn(holder, "calibration") || validCalibrationShape(holder.calibration);
+  /* "Was the last rep slow?" (Plan 077, OD-25): a boolean on a completed draft set and on its row, or absent. */
+  const validLastRepSlow = (holder) => !hasOwn(holder, "lastRepSlow") || typeof holder.lastRepSlow === "boolean";
 
   const ERROR_CODES = Object.freeze({
     INVALID_INPUT: "invalid-input",
@@ -748,7 +750,7 @@
     if (hasOwn(value.touched, "rir") && typeof value.touched.rir !== "boolean") return false;
     if (value.completion !== "pending" &&
       (!isPlainObject(value.completion) || !validString(value.completion.completedAt, true) ||
-        !validEffortSource(value.completion))) return false;
+        !validEffortSource(value.completion) || !validLastRepSlow(value.completion))) return false;
     if (!validCalibration(value)) return false;
     return true;
   }
@@ -1020,7 +1022,7 @@
   }
 
   function validateCanonicalLogRow(row, catalog) {
-    if (!validEffortSource(row) || !validCalibration(row)) return ERROR_CODES.INVALID_ENVELOPE;
+    if (!validEffortSource(row) || !validCalibration(row) || !validLastRepSlow(row)) return ERROR_CODES.INVALID_ENVELOPE;
     const metricFields = ["metricType", "metricIds", "metricDefinitions", "metricValues", "equipmentId", "loadingConvention", "loadingContext", "restSeconds"];
     const hasMetricFields = metricFields.some((field) => hasOwn(row, field));
     const isWorkSet = hasOwn(row, "exerciseId") || hasOwn(row, "set") || hasOwn(row, "setIndex");
