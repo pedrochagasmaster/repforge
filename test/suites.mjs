@@ -285,6 +285,7 @@ export const FULL_SUITES = {
     s("test/prefill-last-set.mjs", [], { domains: ["workout"], seconds: 60 }),
     s("test/summary-evidence.mjs", [], { domains: ["workout", "progress"], seconds: 5 }),
     s("test/why-sheet.mjs", [], { domains: ["workout"], seconds: 23 }),
+    s("test/fatigue-signal.mjs", [], { domains: ["workout", "today"], seconds: 16 }),
     s("test/focus-hero.mjs", [], { domains: ["workout"], seconds: 60 }),
     s("test/why-verb-locale.mjs", [], { domains: ["workout"], seconds: 48 }),
     s("test/progress-navigation.mjs", [], { seconds: 15 }),

@@ -2284,14 +2284,15 @@ async function largeTextFocus(browser) {
       await opened.context.close();
     }
   }
-  // #541: a banner-bearing session (Day 2 raises "Possible fatigue") at 200% on the SE-class and canonical phones, in
+  // #541: a banner-bearing session (Day 3 raises "Possible fatigue": two of its lifts did worse than the session
+  // before at the same effort) at 200% on the SE-class and canonical phones, in
   // both languages. The banner gives way, scrolling inside itself, and the open set stays whole between it and the shelf.
   phase("Focus at 200% text with a fatigue banner: the open set stays whole");
   for (const lang of ["pt", "en"]) for (const phone of phones) {
     const label = `fatigue banner ${lang} ${phone.width}×${phone.height}`;
     const opened = await openCatalogState(browser, "today/ready", phone.width, lang, "text200", { height: phone.height, safe: phone.safe });
     try {
-      await opened.page.evaluate(() => window.__repforgeEnterWorkout({ day: "Day 2" }));
+      await opened.page.evaluate(() => window.__repforgeEnterWorkout({ day: "Day 3" }));
       await opened.page.waitForSelector("#workout .exercise.is-current .focus-shelf", { timeout: 15000 });
       await focusSettled(opened.page);
       const m = await opened.page.evaluate(measureLargeFocus);

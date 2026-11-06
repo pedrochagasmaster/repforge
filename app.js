@@ -3351,7 +3351,10 @@ function openSubstitutePicker(id){
       if(self&&entry.id===self.id)return applyPredefinedSub(id,"");
       return applyCustomSub(id,libraryName(entry),entry.id,
         {substitutionSource:(slot?.alternates||[]).includes(entry.id)?"alternate":"library",reasonAfter:true})}})}
-function fatigueFlagged(){return exercises().filter(e=>{const r=recommendation(sessionExercise(e));return r.status==="reduce"||r.stalled})}
+/** Fatigue is a drop in the lift's own performance against its earlier sessions (owner, 2026-11-06). A lighter
+ *  suggestion alone is not: the engine also lowers a load that was too heavy for the rep range or the effort target. */
+function fatigueSignal(rec){return rec?.performanceTrend?.dropped===true}
+function fatigueFlagged(){return exercises().filter(e=>fatigueSignal(recommendation(sessionExercise(e))))}
 async function applyFatigueTrim(){
   const flagged=new Set(fatigueFlagged().map(e=>e.id));
   if(!activeWorkoutDraft)return;
@@ -3887,7 +3890,7 @@ function weeklySnapshot(date=today()){const{start,end}=weekRange(date),weekStart
     const rows=state.log.filter(r=>r.session===sess.session&&liftKey(r)===k);if(!rows.length)continue;
     const current=currentExerciseForLiftKey(k),ex=current||exerciseIdentityFromRow(rows[0]),cmp=compareExerciseSession(ex,rows);
     if(cmp.status==="improved")improvedLifts++;else if(cmp.status==="flat")flatLifts++;else if(cmp.status==="regressed")regressedLifts++;
-    if(current){const r=recommendation(current);if(r.status==="reduce"||r.stalled)fatigueFlags++}}
+    if(current&&fatigueSignal(recommendation(current)))fatigueFlags++}
   let readyToAdd=0;for(const ex of prog.exercises){const st=recommendation(ex).status;if(st==="add"||st==="add2")readyToAdd++}
   let status;if(completedSessions===0)status=t("status.needs_more_data");
   else if(adherence>=.85&&improvedLifts>=flatLifts)status=t("status.on_track");
@@ -6423,6 +6426,10 @@ function recommendation(ex){
   Object.defineProperty(rec,"plannedLoad",{value:status==="new"?firstActual?.planned?.value??null:null});
   // Not enumerable either: what the lift's checks say, and whether the shift moved any of its targets.
   Object.defineProperty(rec,"calibration",{value:{...calibration,moved:results.some(item=>item?.calibration?.moved===true)}});
+  // Whether the lift's own performance dropped, the one fatigue signal (owner, 2026-11-06). Not enumerable, like the above.
+  // Read lazily: only the fatigue surfaces ask, and most recommendations are drawn without them.
+  let trend;
+  Object.defineProperty(rec,"performanceTrend",{get:()=>trend===undefined?(trend=engine.performanceTrend?.(first,history,loadingContext)||null):trend});
   return rec;
 }
 // Re-entry after a load change: the reps this capacity predicts at the NEW load,
@@ -7340,11 +7347,18 @@ function onAppVisible(){
   updateSessionBanner();
 }
 
+function noteWorkoutStartedToday(){
+  const m=loadNotifyMeta();if(m.workoutStartedOn===today())return;
+  m.workoutStartedOn=today();saveNotifyMeta(m)}
 function updateSessionBanner(){
   const el=$("#sessionBanner"); if(!el) return;
   const n=state.settings.notify;
   const hide=()=>{el.className="sessionbanner hidden"; el.innerHTML=""; el.onclick=null};
   if(!n||!n.enabled) return hide();
+  // An open workout is not in the log until it is saved: it hides the banner, and so does any workout started today,
+  // for the rest of the day, even one later abandoned (owner, 2026-11-06).
+  if(activeWorkoutDraft){noteWorkoutStartedToday();return hide()}
+  if(loadNotifyMeta().workoutStartedOn===today()) return hide();
   if(RepForgeSchedule.hasLoggedOn(state.log, today())) return hide();
   if(!state.log.length) return hide();
 
@@ -8925,7 +8939,7 @@ async function abandonWorkout(){
   if(!await clearDraft())return false;
   captureEvent("session_abandoned",reason?{stage:working?"working":"before_set",reason}:{stage:working?"working":"before_set"});
   resetSessionContextFields();
-  workoutLeft=true;focusEdit=null;setWorkoutActive(false);document.body.classList.remove("is-focus-wo");renderToday();window.scrollTo({top:0});
+  workoutLeft=true;focusEdit=null;setWorkoutActive(false);document.body.classList.remove("is-focus-wo");renderToday();updateSessionBanner();window.scrollTo({top:0});
   toast(t("toast.session_abandoned"));
   return true}
 

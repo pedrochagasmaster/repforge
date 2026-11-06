@@ -950,9 +950,13 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
       "session banner Space action opens the advertised workout day",
       JSON.stringify(afterSpace)
     );
+    // The Space action opened a workout; an open workout hides the banner (owner, 2026-11-06), so the dismiss check
+    // starts again from a day with no workout, as the Space check does.
     await page.evaluate(
       async ({ k, blob }) => {
         localStorage.setItem(k, JSON.stringify(blob));
+        localStorage.removeItem("repforge_draft_v1");
+        localStorage.removeItem("repforge_draft_v1:v2-checkpoint");
         localStorage.removeItem("repforge_notify_v1");
       },
       { k: KEY, blob: state }

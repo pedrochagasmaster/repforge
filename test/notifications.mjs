@@ -390,6 +390,51 @@ console.log("\nNotification surfaces");
 }
 
 // ---------------------------------------------------------------------------
+// 4b. An open workout hides the banner (owner, 2026-11-06): with Workout A open and no set saved, the banner still
+// said "Today's workout is Workout A". It stays hidden for the rest of the day once a workout started, even one later
+// abandoned.
+// ---------------------------------------------------------------------------
+{
+  const { context, page } = await freshPage(browser);
+  const ex = await day1Exercise(page);
+  const date = ymdDaysAgo(2);
+  const created = new Date(`${date}T12:00:00Z`).toISOString();
+  let state = await enableNotify(await readDefaultState(page), { missed: false });
+  state = { ...state, log: setRows(ex, "Day 1", date, created) };
+  await persistState(page, state);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  const bannerHidden = () => page.evaluate(() => document.querySelector("#sessionBanner")?.classList.contains("hidden"));
+  assert(await bannerHidden() === false, "Open workout setup: the soft banner is visible before a workout starts");
+
+  await page.evaluate(() => window.__repforgeEnterWorkout({ day: "Day 2" }));
+  await page.waitForFunction(() => document.body.classList.contains("is-focus-wo"), undefined, { timeout: 10000 });
+  const open = await page.evaluate(() => ({
+    hidden: document.querySelector("#sessionBanner")?.classList.contains("hidden"),
+    text: document.querySelector("#sessionBanner")?.textContent || "",
+    log: JSON.parse(localStorage.getItem("repforge_v1") || "{}").log?.length,
+  }));
+  assert(open.hidden === true && open.log === 2, "Open workout: no set saved and the banner is hidden", JSON.stringify(open));
+
+  await page.click("#sessionSheetBtn");
+  await page.waitForSelector("#sessionSheet.is-open", { timeout: 5000 });
+  await page.click("#sessionAbandon");
+  await page.waitForSelector("#sessionAbandonPrompt:not(.hidden)", { timeout: 5000 });
+  await page.click("#sessionAbandonConfirm");
+  await page.waitForFunction(() => !document.body.classList.contains("is-focus-wo"), undefined, { timeout: 10000 });
+  await page.evaluate(() => window.__repforgeLastAbandon);
+  assert(await bannerHidden() === true, "Abandoned workout: the banner stays hidden today");
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  const reloaded = await page.evaluate(() => ({
+    hidden: document.querySelector("#sessionBanner")?.classList.contains("hidden"),
+    draft: localStorage.getItem("repforge_draft_v1"),
+  }));
+  assert(reloaded.hidden === true, "Abandoned workout: still hidden after a reload", JSON.stringify(reloaded));
+  await context.close();
+}
+
+// ---------------------------------------------------------------------------
 // 5. ?goto=Day 2 selects day tab and strips query
 // ---------------------------------------------------------------------------
 {
