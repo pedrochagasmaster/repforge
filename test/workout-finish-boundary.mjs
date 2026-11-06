@@ -129,6 +129,93 @@ try {
       "explicit confirmed early finish saves and clears the draft");
     await context.close();
   }
+
+  {
+    const { context, page } = await freshWorkout(browser);
+    const [first] = await draftTargets(page);
+    await completeSet(page, first.exerciseInstanceId, first.setId);
+    await page.locator("#sessionSheetBtn").click();
+    await page.locator("#sessionEarlyFinish").click();
+    await page.waitForSelector("#sessionEarlyPrompt:not(.hidden)");
+    await page.evaluate((draftKey) => {
+      window.__finishOperationIds = [];
+      window.__repforgeDraftBeforeSaveCommit = ({ operationId }) => {
+        window.__finishOperationIds.push(operationId);
+      };
+      const originalRemoveItem = Storage.prototype.removeItem;
+      let fail = true;
+      Storage.prototype.removeItem = function (key) {
+        if (fail && String(key).startsWith(`${draftKey}:closing:`)) {
+          fail = false;
+          throw new Error("injected closing-marker finalization failure");
+        }
+        return originalRemoveItem.apply(this, arguments);
+      };
+      window.__restoreFinishFault = () => { Storage.prototype.removeItem = originalRemoveItem; };
+    }, "repforge_draft_v1");
+    await page.locator("#sessionEarlyConfirm").click();
+    await page.waitForFunction(() => window.__repforgeLastWorkoutFinish != null);
+    const deferred = await page.evaluate(async () => {
+      const result = await window.__repforgeLastWorkoutFinish;
+      window.__restoreFinishFault?.();
+      return {
+        result,
+        recoveryVisible: !document.querySelector("#draftRecovery")?.classList.contains("hidden"),
+        summaryVisible: !document.querySelector("#sessionSummary")?.classList.contains("hidden"),
+      };
+    });
+    assert.equal(deferred.result?.committed, false,
+      "an unsettled save stays out of Saved: " + JSON.stringify(deferred.result));
+    assert.equal(deferred.recoveryVisible, true,
+      "an unsettled save enters recovery instead of opening the summary");
+    assert.equal(deferred.summaryVisible, false,
+      "an unsettled save has no post-save presentation");
+    const originalOperationId = await page.evaluate(() => window.__finishOperationIds[0]);
+
+    await page.evaluate(() => {
+      let release;
+      const gate = new Promise((resolve) => { release = resolve; });
+      window.__retryFinishGate = { calls: [], release };
+      window.__repforgeDraftBeforeSaveCommit = ({ operationId }) => {
+        const gateState = window.__retryFinishGate;
+        gateState.calls.push(operationId);
+        return gateState.calls.length === 1 ? gate : undefined;
+      };
+    });
+    await page.locator("#draftRecoveryRetry").click();
+    await page.waitForFunction(() => window.__retryFinishGate?.calls.length === 1);
+    await page.locator("#draftRecoveryRetry").click();
+    const competingSave = await page.evaluate(async () => await window.__repforgeSaveWorkout());
+    const duringRetry = await page.evaluate(() => ({
+      retryCalls: window.__retryFinishGate.calls.slice(),
+      summaryVisible: !document.querySelector("#sessionSummary")?.classList.contains("hidden"),
+    }));
+    assert.equal(competingSave?.ignored, true,
+      "a second Save during a recovery retry is ignored by the active save operation");
+    assert.deepEqual(duringRetry, { retryCalls: [originalOperationId], summaryVisible: false },
+      "retry and Save taps do not start another finish while the original retry is committing");
+    await page.evaluate(() => window.__retryFinishGate.release());
+    await page.waitForSelector("#sessionSummary:not(.hidden)", { timeout: 10000 });
+    const retried = await page.evaluate((key) => {
+      const saved = JSON.parse(localStorage.getItem(key) || "{}");
+      return {
+        recoveryVisible: !document.querySelector("#draftRecovery")?.classList.contains("hidden"),
+        summaryVisible: !document.querySelector("#sessionSummary")?.classList.contains("hidden"),
+        retryCalls: window.__retryFinishGate.calls,
+        sessions: new Set((saved.log || []).map((row) => row.session)).size,
+        rows: (saved.log || []).length,
+      };
+    }, stateKey);
+    assert.deepEqual(retried, {
+      recoveryVisible: false,
+      summaryVisible: true,
+      retryCalls: [originalOperationId],
+      sessions: 1,
+      rows: 1,
+    },
+      "retry settles the same finish operation once, then leaves recovery for its summary");
+    await context.close();
+  }
 } finally {
   await browser.close();
 }
