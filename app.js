@@ -6264,10 +6264,11 @@ function liftCheckSessions(history,context,metricDefinitions,extra=[]){
   return[...history,...extra].map(session=>({date:session.date,checks:(session.sets||[])
     .filter(set=>set.effortSource==="failure"&&set.calibration&&comparable(set))
     .map(set=>({predictedReps:set.calibration.predictedReps,reps:set.metricValues?.find(value=>value.metricId===repsMetric)?.value}))}))}
-function liftCalibration(history,context,metricDefinitions,extra=[]){
+/** `asOf` (an ISO date) reads the lift as it stood that day, for a replay of an earlier suggestion; by default, today. */
+function liftCalibration(history,context,metricDefinitions,extra=[],asOf=null){
   const sessions=liftCheckSessions(history,context,metricDefinitions,extra);
   const Calibration=window.RepForgeEffortCalibration;
-  const errors=Calibration?.checkErrors?.({sessions,today:activeWorkoutDraft?.program?.scheduleDate||today()})||[];
+  const errors=Calibration?.checkErrors?.({sessions,today:asOf||activeWorkoutDraft?.program?.scheduleDate||today()})||[];
   return Calibration?.estimate?.(errors)||{version:null,n:0,bias:0,spread:null,state:"uncalibrated",reason:"few",delta:0}}
 function progressionHistoryFor(exerciseId,metricIds,slotProjection,metricDefinitions){
   const grouped=new Map();
