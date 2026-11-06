@@ -340,6 +340,7 @@ export const DIRECTION_D_SUMMARY_SESSION = Object.freeze({
   "session/summary-declined": "dd-2026-08-28-day3",
   "session/summary-first": "dd-2026-08-12-day2-mixed",
   "session/summary-lifts": "dd-2026-08-31-day1",
+  "session/summary-share": "dd-2026-08-31-day1",
 });
 function directionDThroughSession(sessionId) {
   const state = directionDState();
@@ -2426,6 +2427,15 @@ export const APP_SCENARIOS = {
       sheet.scrollTop = Math.max(0, head.getBoundingClientRect().top - sheet.getBoundingClientRect().top + sheet.scrollTop - 24);
     });
     await sleep(page, 400);
+  },
+  // Share on the finish screen: the sheet with the record poster drawn on the device, Story, orange.
+  "session/summary-share": async (page) => {
+    await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-share"]);
+    await page.click("#sumShare");
+    await page.waitForFunction(() => window.__repforgeShareSheet?.state()?.file, undefined, { timeout: 20000 });
+    await page.waitForSelector("#shareCardSheet.is-open", { timeout: 20000 });
+    await page.waitForFunction(() => document.querySelector("#shareCardPreview")?.complete, undefined, { timeout: 20000 });
+    await sleep(page, 700);
   },
   "session/summary-maintained": async (page) => {
     await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-maintained"]);

@@ -171,6 +171,16 @@ substantive work. It governs acceptance evidence, first-contract proof,
 correction review, and completion claims. For Plans 049–059, also read the
 matching checkpoint in `docs/agents/ui-overhaul-proof-checkpoints.md`.
 
+## Agent sessions
+
+Every agent session follows the standing owner rules in
+`docs/agents/hard-rules.md`: workspace, verification, the shared machine, and
+merging and production. They are numbered so briefs can cite them; briefs and
+skills link to that file instead of copying it. Repository-specific Claude Code
+skills live in `.claude/skills/`: `taurifer-orchestrator` (the coordinator
+role), `taurifer-judge-merge`, `taurifer-rebump`, `taurifer-fidelity-gate` and
+`ci-watch-and-flakes`.
+
 ## Agent skills
 
 Matt Pocock's engineering skills are installed under `.agents/skills/` (see `skills-lock.json`). The configuration below tells those skills where this repo tracks work, which triage labels it uses, and how its domain docs are laid out.

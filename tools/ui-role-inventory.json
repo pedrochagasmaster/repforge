@@ -423,6 +423,11 @@
       "content": "flat",
       "scenario": "The Day 1 finish screen scrolled to the record tiles and every lift: outcome word, sets, record and next target."
     },
+    "session/summary-share": {
+      "owner": "plan-064/r3h",
+      "content": "flat",
+      "scenario": "The share sheet over the Day 1 finish screen: the record poster as the image to send, its card, format and style choices, and Share and Save."
+    },
     "session/summary-maintained": {
       "owner": "plan-064/r3h",
       "content": "flat",
@@ -6128,7 +6133,7 @@
       "id": "sumdone",
       "selector": "#sumDone",
       "roles": {
-        "control": "primary"
+        "control": "secondary"
       },
       "variant": null,
       "facets": [],
@@ -6140,7 +6145,7 @@
         "disabled",
         "loading"
       ],
-      "rationale": "Advances the current task with the strongest action weight.",
+      "rationale": "Ends the session beside Share: the way out, at the same width as the strong action (owner, 2026-11-05).",
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
@@ -6149,6 +6154,156 @@
         "session/summary-maintained",
         "session/summary-first"
       ]
+    },
+    {
+      "id": "sumshare",
+      "selector": "#sumShare",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Shares the card in view: the finish screen's strongest action (owner decisions, 2026-11-05).",
+      "owner": "finish-share",
+      "catalogStates": [
+        "session/summary",
+        "session/summary-lifts",
+        "session/summary-declined",
+        "session/summary-maintained",
+        "session/summary-first"
+      ],
+      "neverDisabledReason": "The finish screen always has a card to share."
+    },
+    {
+      "id": "sharecardsheet",
+      "selector": "#shareCardSheet",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "bottom-sheet",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Blocks the finish screen with dialog semantics while the card is chosen and shared; the summary comes back when it closes.",
+      "owner": "finish-share",
+      "catalogStates": [
+        "session/summary-share"
+      ]
+    },
+    {
+      "id": "sharecardscrim",
+      "selector": "#shareCardScrim",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "scrim",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Scrim suppresses the page behind its blocking sheet.",
+      "owner": "finish-share",
+      "catalogStates": [
+        "session/summary-share"
+      ]
+    },
+    {
+      "id": "sharecardclose",
+      "selector": "#shareCardClose",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Dismisses the share sheet back to the finish screen without sharing.",
+      "owner": "finish-share",
+      "catalogStates": [
+        "session/summary-share"
+      ],
+      "neverDisabledReason": "Closing is always available."
+    },
+    {
+      "id": "sharecardshare",
+      "selector": "#shareCardShare",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Hands the drawn PNG to the system share sheet; disabled while the card is being drawn.",
+      "owner": "finish-share",
+      "sourceOnly": true,
+      "sourceOnlyReason": "pending: shown only where the browser can share files (navigator.canShare with files); the headless catalog browser cannot, so the sheet's Save leads there. test/share-card.mjs proves it with a stubbed share sheet.",
+      "catalogStates": [
+        "session/summary-share"
+      ]
+    },
+    {
+      "id": "sharecardsave",
+      "selector": "#shareCardSave",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Saves the drawn PNG; it leads (primary weight) where file sharing is unavailable.",
+      "owner": "finish-share",
+      "catalogStates": [
+        "session/summary-share"
+      ]
+    },
+    {
+      "id": "sharecardsegments",
+      "selector": "#shareCardSheet .native-segments [role=\"radio\"]",
+      "roles": {
+        "control": "selection",
+        "boundary": "state-cues"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected"
+      ],
+      "rationale": "Chooses the card, its format and its style through native segmented radiogroups.",
+      "owner": "finish-share",
+      "catalogStates": [
+        "session/summary-share"
+      ],
+      "neverDisabledReason": "Every choice the sheet offers can be drawn; a card the session cannot back is hidden, not disabled."
     },
     {
       "id": "sumsee",
@@ -8611,7 +8766,8 @@
         "program/editor-issue-field",
         "program/editor-day-name-refused",
         "program/volume-audit",
-        "workout/max-set-guess"
+        "workout/max-set-guess",
+        "session/summary-share"
       ]
     },
     {
@@ -11567,7 +11723,8 @@
         "settings/rest-controls",
         "workout/rest-sheet",
         "workout/rest-sheet-idle",
-        "settings/language-menu"
+        "settings/language-menu",
+        "session/summary-share"
       ]
     },
     {
@@ -11594,7 +11751,8 @@
         "settings/rest-controls",
         "workout/rest-sheet",
         "workout/rest-sheet-idle",
-        "settings/language-menu"
+        "settings/language-menu",
+        "session/summary-share"
       ]
     },
     {
