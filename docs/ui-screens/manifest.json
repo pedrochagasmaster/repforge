@@ -1305,6 +1305,13 @@
       "variants": "demandingText"
     },
     {
+      "id": "summary-share",
+      "flow": "session",
+      "label": "Session summary — share sheet",
+      "scenario": "Share on the Day 1 finish screen: the record poster drawn on the device as the image to send (Story, orange), its card, format and style choices, the line on what leaves the phone, and Share and Save.",
+      "variants": "demandingText"
+    },
+    {
       "id": "summary-first",
       "flow": "session",
       "label": "Session summary — first session",
