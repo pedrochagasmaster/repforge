@@ -3891,16 +3891,17 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
    persistent-action surface runs edge to edge under its hairline instead of sitting in
    the text column as a box. */
 .sum-actions{
-  position:sticky;bottom:calc(-1 * var(--sum-pad-b));z-index:1;display:flex;gap:var(--space-12);order:1;
+  position:sticky;bottom:calc(-1 * var(--sum-pad-b));z-index:1;display:flex;flex-wrap:wrap;gap:var(--space-12);order:1;
   margin:0 calc(-1 * var(--sum-pad-r)) 0 calc(-1 * var(--sum-pad-l));
   padding:var(--space-12) var(--sum-pad-r) var(--sum-pad-b) var(--sum-pad-l);
   background:var(--bg);border-top:1px solid var(--boundary-persistent);
   box-shadow:var(--elevation-persistent-shadow);
 }
 /* Share is the finish screen's strong action (owner decisions, 2026-11-05); Done sits beside it at the same width. */
-#sumDone{flex:1 1 0;min-height:54px;padding-inline:var(--space-8)}
+/* Each takes at least 8rem, so at large text sizes they stack rather than clip their words. */
+#sumDone{flex:1 1 8rem;min-height:54px;padding-inline:var(--space-8)}
 #sumShare{
-  flex:1 1 0;padding-inline:var(--space-8);min-height:54px;border:1px solid var(--control-primary-boundary);border-radius:var(--radius-button);
+  flex:1 1 8rem;padding-inline:var(--space-8);min-height:54px;border:1px solid var(--control-primary-boundary);border-radius:var(--radius-button);
   background:var(--control-primary-bg);color:var(--control-primary-ink);
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
 }
