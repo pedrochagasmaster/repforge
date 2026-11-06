@@ -43,7 +43,9 @@ async function boot(page, { settings = {}, log = [], uiPrefs = null } = {}) {
     window.stopRest?.();
     for (const key of Object.keys(localStorage)) if (key.startsWith("repforge_draft")) localStorage.removeItem(key);
     const s = JSON.parse(localStorage.getItem(k) || "{}");
-    s.settings = { ...(s.settings || {}), lang: "en", rirMode: "numeric", effortScale: "feel", ...settings };
+    // The test-set prompt (Plan 077 PR 3) takes the rest-tip slot first; these lifters' lifts would qualify, so it is
+    // off here unless a phase turns it on to prove that order.
+    s.settings = { ...(s.settings || {}), lang: "en", rirMode: "numeric", effortScale: "feel", maxSetPrompts: false, ...settings };
     s.program = program; s.programMeta = meta; s.log = log;
     localStorage.setItem(k, JSON.stringify(s));
     const db = await new Promise((res, rej) => {
@@ -212,6 +214,9 @@ try {
   let shown = await tip(page);
   assert(shown?.id === "stage-tip" && shown.to === "b" && /reps left/i.test(shown.text),
     "after 6 qualifying workouts the tip suggests reps left during the rest", shown);
+  const first = await page.evaluate(() => { state.settings.maxSetPrompts = true; syncRestTab(); return document.querySelector(".resttip")?.dataset.tip || null; });
+  assert(first === "max-set", "where a test set is also on offer, its prompt takes the slot first", first);
+  await page.evaluate(() => { state.settings.maxSetPrompts = false; syncRestTab(); });
   const cta = await page.evaluate((shelf) => {
     const button = document.querySelector(`${shelf} .saveset`), r = button.getBoundingClientRect();
     const at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);

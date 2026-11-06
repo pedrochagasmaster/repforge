@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 239 screens,
-1390 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 243 screens,
+1417 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -199,6 +199,10 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Workout — rest done](screens/workout/rest-done__phone-390-light-en.png) | 8 | The rest has run out: the tab reads Rest done in accent with a check and counts the overrun up (+0:15); the cue and the shelf are as they were. |
 | [Rest sheet](screens/workout/rest-sheet__phone-390-light-en.png) | 8 | The tab opens the rest sheet: the dial at 1:24 of 2:00 with the next set, Pause between -30s and +30s, the presets as the segmented control, and Restart and End rest. |
 | [Rest sheet, no rest running](screens/workout/rest-sheet-idle__phone-390-light-en.png) | 3 | With no rest running the sheet opens from the actions sheet's Rest timer row: the dial at the default length and Start. |
+| [Workout — test-set prompt](screens/workout/max-set-prompt__phone-390-light-en.png) | 8 | During the rest before a lift's last set, the prompt above the shelf offers to make it a test set: guess the reps at the load, then go to failure. Not now and × close it. |
+| [Workout — test-set guess](screens/workout/max-set-guess__phone-390-light-en.png) | 8 | The guess sheet, still resting: How many reps at the load, prefilled from the set before (reps + reps left − 1) with − and +, the failure rule and the safety line, then Not now or Use as my last set. |
+| [Workout — test set](screens/workout/max-set-active__phone-390-light-en.png) | 3 | The last set as a test set: the effort field reads Failure with one pad to make it a normal set again, and the row carries the guess. |
+| [Workout — test-set result](screens/workout/max-set-result__phone-390-light-en.png) | 8 | The logged test set: under its row, the guess and the reps side by side and one line on the difference; nothing changes yet. |
 | [Workout — exercise note on the card](screens/workout/exercise-note-line__phone-390-light-en.png) | 8 | The exercise's note as one quiet line under the prescription, in place of the note icon; the line opens it to edit. |
 | [Workout — effort stage A, Easy / Hard / Max](screens/workout/effort-stage-a__phone-390-light-en.png) | 8 | The effort field selected in stage A: Easy, Hard and Max as chips under it, the offered word marked until the lifter chooses (Plan 077, OD-4). |
 | [Workout — effort stage B, reps left](screens/workout/effort-stage-b__phone-390-light-en.png) | 8 | Stage B: the field reads Reps left, the column Left, and the chips 0 · 1 · 2 · 3+ with 2 chosen (Plan 077, OD-4). |
