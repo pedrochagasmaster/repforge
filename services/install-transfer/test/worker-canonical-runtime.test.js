@@ -244,6 +244,15 @@ const calibratedEnvelope = (calibration) => {
   return envelope;
 };
 
+// Plan 077 PR 4: "Was the last rep slow?" rides on a row as a boolean; the Worker refuses anything else.
+const tappedEnvelope = (lastRepSlow) => {
+  const envelope = structuredClone(sourceEnvelope);
+  Object.assign(envelope.durableState.log[0], { effortSource: "rir", lastRepSlow });
+  envelope.integrity = { canonicalPayloadHash: createHash("sha256")
+    .update(contract.canonicalJson({ ...envelope, integrity: {} }), "utf8").digest("hex") };
+  return envelope;
+};
+
 function createRequest(envelope, idempotencyKey) {
   return new Request("https://transfer.example/v1/transfers", {
     method: "POST",
@@ -334,6 +343,18 @@ describe("Worker canonical runtime dependencies", () => {
   it("refuses a malformed calibration (Plan 077)", async () => {
     const calibration = { v: 1, predictedReps: 13.5, predictionEdited: false, prefillBasis: "reps_rir" };
     const response = await worker.fetch(createRequest(calibratedEnvelope(calibration), "canonical-worker-calibration-bad"), env);
+    expect(response.status).toBeGreaterThanOrEqual(400);
+    expect(response.status).toBeLessThan(500);
+    expect(await response.json()).toEqual({ state: "unavailable" });
+  });
+
+  it("accepts a row's lastRepSlow answer (Plan 077)", async () => {
+    const response = await worker.fetch(createRequest(tappedEnvelope(false), "canonical-worker-last-rep-slow"), env);
+    expect(response.status).toBe(201);
+  });
+
+  it("refuses a lastRepSlow that is not a boolean (Plan 077)", async () => {
+    const response = await worker.fetch(createRequest(tappedEnvelope("yes"), "canonical-worker-last-rep-slow-bad"), env);
     expect(response.status).toBeGreaterThanOrEqual(400);
     expect(response.status).toBeLessThan(500);
     expect(await response.json()).toEqual({ state: "unavailable" });

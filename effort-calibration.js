@@ -68,7 +68,7 @@
 
   /** Whether the frequency limits allow a max set today (Plan 077, OD-12). `history` is the log's max-set rows as
    *  `{exerciseKey, date}`, `today` an ISO date, `exerciseKey` the lift's key, `inWorkout` how many this workout has. */
-  function frequencyAllows({ history = [], today, exerciseKey, inWorkout = 0 } = {}) {
+  function frequencyAllows({ history = [], today, exerciseKey, inWorkout = 0, gaugeFull = false } = {}) {
     if (inWorkout >= LIMITS.perWorkout) return { ok: false, reason: "per_workout" };
     const day = dayNumber(today);
     if (day == null) return { ok: false, reason: "no_date" };
@@ -76,6 +76,8 @@
     for (const entry of Array.isArray(history) ? history : []) {
       const at = dayNumber(entry?.date);
       if (at == null || at > day) continue;
+      // At a gauge of 100 % (OD-20) checks keep coming, at most once a month across every exercise.
+      if (gaugeFull && day - at < 30) return { ok: false, reason: "monthly" };
       if (entry.exerciseKey === exerciseKey && day - at < LIMITS.perExerciseDays) return { ok: false, reason: "per_exercise" };
       if (weekOf(at) === weekOf(day)) week++;
     }

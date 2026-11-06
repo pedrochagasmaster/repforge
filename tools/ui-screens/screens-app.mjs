@@ -379,11 +379,30 @@ const EFFORT_STAGE_STATES = Object.freeze({
   "workout/effort-stage-b": { rirMode: "effort", effortScale: "reps" },
   "workout/effort-menu": { rirMode: "effort", effortScale: "feel" },
   "workout/stage-tip": { rirMode: "effort", effortScale: "feel" },
+  // Plan 077 PR 4: the gauge and the last-rep question, on a lifter who logged RIR and took two test sets.
+  "progress/overview-calibration": { rirMode: "numeric" },
+  "today/calibration-mini": { rirMode: "numeric" },
+  "workout/last-rep-slow": { rirMode: "numeric" },
 });
+/** Two test sets on the lifter's newest session, on its first two exercises: the guess beside a set to failure. */
+function withTestSets(log) {
+  const work = log.filter((row) => !row.warmup);
+  const newest = [...work].sort((a, b) => String(b.created).localeCompare(String(a.created)))[0];
+  const session = work.filter((row) => row.session === newest.session);
+  // Test sets are never offered on the big barbell lifts (OD-11), so the fixture takes them on the others.
+  const lifts = [...new Map(session.filter((row) => !/squat|bench|deadlift/i.test(row.name || "")).map((row) => [row.name, row])).values()].slice(0, 2);
+  const tests = lifts.map((row, i) => ({ ...row, set: Math.max(...session.filter((x) => x.name === row.name).map((x) => Number(x.set) || 0)) + 1,
+    ...(Number.isInteger(row.setIndex) ? { setIndex: Math.max(...session.filter((x) => x.name === row.name).map((x) => x.setIndex)) + 1 } : {}),
+    rir: 0, effortSource: "failure",
+    calibration: { v: 1, predictedReps: Math.max(1, (Number(row.reps) || 10) + (i ? 1 : -2)), predictionEdited: false, prefillBasis: "reps_rir" } }));
+  return [...log.map((row) => row.warmup ? row : { ...row, effortSource: "rir" }), ...tests];
+}
 function effortStageState(key, lang) {
-  const drawn = localeState(directionDState(), lang);
+  // Today's states read the log as it stood that morning (DIRECTION_D_BEFORE_SESSION's rule).
+  const drawn = localeState(key.startsWith("today/") ? directionDBeforeSession() : directionDState(), lang);
   drawn.settings = { ...drawn.settings, ...EFFORT_STAGE_STATES[key] };
   if (key === "workout/stage-tip") drawn.log = drawn.log.map((row) => row.warmup ? row : { ...row, effortSource: "effort" });
+  if (key === "progress/overview-calibration" || key === "today/calibration-mini" || key === "workout/last-rep-slow") drawn.log = withTestSets(drawn.log);
   return drawn;
 }
 
@@ -1902,6 +1921,13 @@ export const APP_SCENARIOS = {
     const copy = await page.evaluate(() => window.RepForgeI18n.t("today.deload_week"));
     if ((await note.innerText()).trim() !== copy) throw new Error("Today shows the wrong deload recovery note");
   },
+  // Plan 077 PR 4: the small gauge on Today, above the session's action.
+  "today/calibration-mini": async (page) => {
+    await dismissChrome(page);
+    await page.waitForSelector("#todayCalibration:not(.hidden)", { timeout: 20000 });
+    await page.locator("#todayCalibration").evaluate((row) => row.scrollIntoView({ block: "center" }));
+    await sleep(page, 300);
+  },
   "today/ready": async (page) => {
     await dismissChrome(page);
     const rows = page.locator("#todayExList .rxrow");
@@ -2415,6 +2441,15 @@ export const APP_SCENARIOS = {
     await sleep(page, 400);
   },
   // The stage tip, during the rest after a set, over the shelf with Log set live under it (OD-6).
+  // Plan 077 PR 4: the question under the exercise's last logged set, during its rest.
+  "workout/last-rep-slow": async (page) => {
+    await focusMode(page);
+    for (let i = 0; i < 8 && !(await page.locator("#workout .exercise.is-current .ledgerslow").count()); i++) {
+      await logCurrentSet(page, { load: "102.5", reps: "8", rir: "1" });
+    }
+    await page.waitForSelector("#workout .exercise.is-current .ledgerslow [data-slow]", { timeout: 20000 });
+    await sleep(page, 400);
+  },
   "workout/stage-tip": async (page) => {
     await startInlineRest(page);
     await page.waitForSelector("#workout .exercise.is-current .focus-shelf .resttip", { timeout: 20000 });
@@ -2496,6 +2531,12 @@ export const APP_SCENARIOS = {
   },
 
   "progress/overview": (page) => view(page, "stats"),
+  // Plan 077 PR 4: the calibration gauge with its six signals and the recent test sets.
+  "progress/overview-calibration": async (page) => {
+    await view(page, "stats");
+    await page.waitForSelector("#overviewCalibration:not(.hidden) .calcard", { timeout: 20000 });
+    await sleep(page, 300);
+  },
   "progress/overview-guide": async (page) => { await view(page, "stats"); await replayGuide(page, "progress"); },
   "progress/overview-baseline": (page) => view(page, "stats"),
   "progress/overview-action": (page) => view(page, "stats"),

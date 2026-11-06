@@ -788,4 +788,19 @@ for (const bad of [{ ...guess, predictedReps: 31 }, { ...guess, prefillBasis: "x
   assert.equal(refused.ok, false, `the contract refuses ${JSON.stringify(bad)} as the draft does`);
 }
 
+// Plan 077 PR 4: "Was the last rep slow?" is a boolean on a completed set and on its row, checked as the draft does.
+const tappedDraft = (lastRepSlow) => {
+  const envelope = structuredClone(valid);
+  const exercise = envelope.workoutDraft.exercises[activeSlot.id];
+  exercise.sets[exercise.setOrder[0]].completion = { completedAt: "2026-10-06T09:10:00.000Z", effortSource: "rir", lastRepSlow };
+  envelope.integrity.canonicalPayloadHash = canonicalHash(envelope);
+  return envelope;
+};
+const acceptedTap = await Contract.validateEnvelopeIntegrity(tappedDraft(true), webcrypto);
+assert.equal(acceptedTap.ok, true, `a draft set with lastRepSlow true crosses the contract: ${JSON.stringify(acceptedTap.error || "")}`);
+for (const bad of ["yes", 1, null]) {
+  const refused = await Contract.validateEnvelopeIntegrity(tappedDraft(bad), webcrypto);
+  assert.equal(refused.ok, false, `the contract refuses a completed set's lastRepSlow ${JSON.stringify(bad)}`);
+}
+
 console.log("PASS Plan 067 install-transfer clone contract");
