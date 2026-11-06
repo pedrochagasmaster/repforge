@@ -14883,7 +14883,8 @@ async function commitSettings(silent){const editRevision=settingsEditRevision;co
   // A unit change commits on its own; the stage holds still under it.
   const{rirMode:newRirMode,effortScale:newEffortScale}=oldUnit===newUnit?stagePick
     :{rirMode:state.settings.rirMode,effortScale:state.settings.effortScale};
-  if(newRirMode!==state.settings.rirMode)await draftWriteTail;
+  // No wait for draft writes here: Settings commits synchronously up to its enqueue, like every other setting. A draft
+  // write still in flight changes the raw, and the effect's abort-if-changed precondition refuses the commit for a retry.
   const modeEffect=newRirMode===state.settings.rirMode?null:draftRirModeEffect(readDraftRaw(),newRirMode);
   if(modeEffect?.status===DRAFT_EFFECT_INVALID){
     $$('input[name="rirMode"]').forEach(r=>{r.checked=r.value===STAGE_PICK[effortStage()]});
