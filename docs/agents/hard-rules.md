@@ -29,8 +29,10 @@ numbers that briefs and history already cite.
    `git update-index --cacheinfo`. After committing, check that
    `git show HEAD:index.html` has no `posthog-config` tag and that every
    versioned script is precached in `sw.js`.
-5. **Revisions** follow `AGENTS.md`: a changed query-versioned script gets a
-   new `?v=` and its exact `sw.js` precache URL; a shipped asset change bumps
+5. **Revisions** follow `AGENTS.md`: a changed query-versioned script or
+   stylesheet (including `i18n.js`, `styles.css` and `motion-polish.css`) gets a
+   new `?v=` and its exact `sw.js` precache URL, which `test/asset-revisions.mjs`
+   enforces against main; a shipped asset change bumps
    `CACHE` (`transitionAssets` in `test/exercise-library.mjs`). Parallel PRs
    share one revision line. Take the number `node tools/next-revision.mjs
    --pr <n>` prints, which sits above main and every other open PR's claim, or
