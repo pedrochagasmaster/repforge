@@ -30,7 +30,7 @@ The coordinator does not write the application code. It turns the owner's intent
 - **Tools:** `create_session` to start a front; `send_message` to brief, answer or relay; `list_events` to see what a front did when it is unclear; `get_session` for status; `archive_session` when its packet is merged and it has cleaned up.
 - **Budgets:** run only the number of fronts the owner approved (rule 16). The owner has had to say "too much running in parallel again" twice. Overnight or at high weekly quota, run one at a time. The devbox has 2 CPUs: one browser at a time (rule 15). Check disk before capture-heavy packets, and prune only merged worktrees from a list you report.
 - **Revision claims:** assign each front its number from `tools/next-revision.mjs` when two fronts will touch revision lines.
-- **Blocked fronts:** a front's permission policy may refuse a decision it only received in a cross-session message. Put the decision in its brief, or start a fresh session with it. If a front cannot commit, push or delete, take the work over from its worktree: commit, push and report it yourself. A front that died on quota is resumed with `takeover` or replaced by a fresh session briefed with its state, never a duplicate on the same branch.
+- **Blocked fronts:** a front's permission policy may refuse a decision it only received in a cross-session message. Put the decision in its brief, or start a fresh session with it. If a front cannot commit, push or delete, it hands its worktree over: it says so, or reports that it is blocked and asks you to finish. Only then do you commit, push and report that work yourself, and the front stops editing the worktree. A front that died on quota is resumed with `takeover` or replaced by a fresh session briefed with its state, never a duplicate on the same branch.
 - **Idle:** when a front finishes, it removes its own worktrees, branches and processes. Then archive it. Never leave servers or tunnels running.
 
 ## Who decides
@@ -70,6 +70,6 @@ At a quota stop ("let's stop at a clean stop point"), bring every front to a com
 - Merge on one green lane, on "close enough" frames, or with copy the owner has not approved.
 - Make a product, design or copy decision for the owner, or act on a guess about their intent.
 - Re-run CI to get green, run broad suites locally, or `pkill` by pattern.
-- Touch the owner's checkout, or edit another session's worktree.
+- Touch the owner's checkout, or edit another session's worktree unless that front has handed it over (see "Blocked fronts").
 - Poll fronts on a timer, or leave fronts, servers or tunnels running after their work ends.
 - Put model names in commits, PRs or code.
