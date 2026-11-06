@@ -94,6 +94,9 @@ export function directionDState() {
     settings: {
       ...catalogState().settings,
       jumpPct: settings.jumpPct, minJump: settings.minJump, rirHigh: settings.rirHigh, hardRir: settings.hardRir,
+      // The test-set prompt (Plan 077 PR 3) is drawn by its own states, which switch it on; elsewhere it would sit over
+      // whatever the state is about.
+      maxSetPrompts: false,
     },
     programMeta, program, log, programHistory: [], customExercises, _storageRevision: 40,
   };

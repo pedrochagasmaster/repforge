@@ -1239,6 +1239,7 @@ async function startInlineRest(page) {
  *  2 left, and the rest running, so the prompt is up. */
 async function maxSetRest(page) {
   await focusMode(page);
+  await page.evaluate(() => { state.settings.maxSetPrompts = true; });
   const at = await page.evaluate(() => {
     const draft = window.__repforgeWorkoutDraft.current();
     return focusList().findIndex((ex) => {

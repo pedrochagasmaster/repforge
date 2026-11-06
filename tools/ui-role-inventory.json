@@ -8610,7 +8610,8 @@
         "program/editor-suggest-loads",
         "program/editor-issue-field",
         "program/editor-day-name-refused",
-        "program/volume-audit"
+        "program/volume-audit",
+        "workout/max-set-guess"
       ]
     },
     {
@@ -12799,7 +12800,8 @@
         "workout/why-this-weight",
         "workout/why-in-session",
         "workout/why-manual",
-        "workout/why-setup"
+        "workout/why-setup",
+        "workout/max-set-guess"
       ]
     },
     {
