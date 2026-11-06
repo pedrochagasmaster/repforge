@@ -12654,6 +12654,37 @@
         "settings/rest-controls",
         "settings/language-menu"
       ]
+    },
+    {
+      "id": "slowreptoggle",
+      "selector": "#slowRepToggle",
+      "roles": {
+        "control": "selection"
+      },
+      "variant": null,
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "selected",
+        "disabled"
+      ],
+      "rationale": "Turns the \"Last rep slow?\" question on or off (Plan 077, OD-25): a setting, not training data.",
+      "owner": "plan-077",
+      "catalogStates": [
+        "settings/appearance",
+        "settings/guides",
+        "settings/guides-replay",
+        "settings/load-controls",
+        "settings/main",
+        "settings/privacy",
+        "settings/rest-controls",
+        "settings/language-menu"
+      ]
     }
   ],
   "contextualVariants": [
