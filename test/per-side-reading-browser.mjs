@@ -168,7 +168,8 @@ async function readSession(page, sessionId) {
   await reading.waitFor({ state: "visible", timeout: 10000 });
   return reading.evaluate(root => ({
     totals: [...root.querySelectorAll(".histpage__totals > div")].map(cell => ({
-      value: cell.querySelector("b")?.textContent.trim() || "",
+      // The figure alone; its unit is said once after it, small (#621's stat treatment).
+      value: cell.querySelector("b")?.firstChild?.textContent.trim() || "",
       label: cell.querySelector("span")?.textContent.trim() || "",
     })),
     lifts: [...root.querySelectorAll("section[data-history-exercise-id]")].map(section => ({
