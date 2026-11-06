@@ -3028,5 +3028,11 @@
   "focus.slow.no": "Não",
   "focus.slow.clear_aria": "Última rep lenta: {answer}. Toque para apagar.",
   "settings.slow_rep_taps": "Pergunta da última rep",
-  "settings.slow_rep_lede": "Depois da última série de um exercício, uma pergunta de um toque enquanto você descansa. Suas respostas ajudam a calibrar suas estimativas de esforço."
+  "settings.slow_rep_lede": "Depois da última série de um exercício, uma pergunta de um toque enquanto você descansa. Suas respostas ajudam a calibrar suas estimativas de esforço.",
+  "calib.ev.pairs": "{n} de {m} pares",
+  "calib.ev.sets": "{n} de {m} séries",
+  "calib.ev.weeks": "{n} de {m} semanas",
+  "calib.ev.taps": "{n} de {m} toques",
+  "calib.ev.history": "{n} de {m} séries por exercício",
+  "calib.ev.agree": "{pct}% concordam"
 }

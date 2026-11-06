@@ -107,8 +107,9 @@ try {
   const today = Number(/\d+/.exec(todayRow.text)?.[0]);
   assert(card.big === `${today}%` && card.overall === "1 test set · 1 lift", "Overview's number matches Today's, with its test sets and lifts", { card, today });
   assert(card.signals.map((s) => s[0]).join() === "Test sets,Sets that agree,Hitting the suggestion,Week to week,Slow last rep,History" &&
-    card.signals[0][1] === "1 of 8" && /^\d+ of \d+$/.test(card.signals[1][1]) && card.signals[5][1] === "6 sessions",
-  "the breakdown lists the six signals with plain counts", card.signals);
+    card.signals[0][1] === "1 of 8" && /^\d+ of 20 pairs · \d+% agree$/.test(card.signals[1][1]) && card.signals[2][1] === "0 of 20 sets" &&
+    /^\d+ of 24 sets per lift$/.test(card.signals[5][1]),
+  "each signal reads its evidence against its target, with the share that agrees", card.signals);
   assert(card.checks.length === 1 && /Seated leg curl/.test(card.checks[0]) && /Guessed 10 → Did 12/.test(card.checks[0]),
     "the recent test sets list the guess and the result", card.checks);
 

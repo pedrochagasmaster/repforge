@@ -395,7 +395,10 @@ function withTestSets(log) {
     ...(Number.isInteger(row.setIndex) ? { setIndex: Math.max(...session.filter((x) => x.name === row.name).map((x) => x.setIndex)) + 1 } : {}),
     rir: 0, effortSource: "failure",
     calibration: { v: 1, predictedReps: Math.max(1, (Number(row.reps) || 10) + (i ? 1 : -2)), predictionEdited: false, prefillBasis: "reps_rir" } }));
-  return [...log.map((row) => row.warmup ? row : { ...row, effortSource: "rir" }), ...tests];
+  // A lifter's RIR moves from set to set and session to session, so the sets that agree are not a trivial 100 %.
+  const sessions = [...new Set(log.map((row) => row.session))];
+  const varied = (row) => ({ ...row, effortSource: "rir", rir: (sessions.indexOf(row.session) + (Number(row.set) || 0) * 2) % 3 });
+  return [...log.map((row) => row.warmup ? row : varied(row)), ...tests];
 }
 function effortStageState(key, lang) {
   // Today's states read the log as it stood that morning (DIRECTION_D_BEFORE_SESSION's rule).

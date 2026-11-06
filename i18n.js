@@ -3031,6 +3031,12 @@ const EN = {
   "focus.slow.clear_aria": "Last rep slow: {answer}. Tap to clear.",
   "settings.slow_rep_taps": "Last-rep question",
   "settings.slow_rep_lede": "After an exercise's last set, a one-tap question while you rest. Your answers help calibrate your effort estimates.",
+  "calib.ev.pairs": "{n} of {m} pairs",
+  "calib.ev.sets": "{n} of {m} sets",
+  "calib.ev.weeks": "{n} of {m} weeks",
+  "calib.ev.taps": "{n} of {m} taps",
+  "calib.ev.history": "{n} of {m} sets per lift",
+  "calib.ev.agree": "{pct}% agree",
 };
 const PT = {
   "catalog.unavailable.title": "Biblioteca de exercícios indisponível",
@@ -6063,6 +6069,12 @@ const PT = {
   "focus.slow.clear_aria": "Última rep lenta: {answer}. Toque para apagar.",
   "settings.slow_rep_taps": "Pergunta da última rep",
   "settings.slow_rep_lede": "Depois da última série de um exercício, uma pergunta de um toque enquanto você descansa. Suas respostas ajudam a calibrar suas estimativas de esforço.",
+  "calib.ev.pairs": "{n} de {m} pares",
+  "calib.ev.sets": "{n} de {m} séries",
+  "calib.ev.weeks": "{n} de {m} semanas",
+  "calib.ev.taps": "{n} de {m} toques",
+  "calib.ev.history": "{n} de {m} séries por exercício",
+  "calib.ev.agree": "{pct}% concordam",
 };
 (function (root) {
   const STRINGS = { en: EN, pt: PT };

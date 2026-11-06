@@ -3028,5 +3028,11 @@
   "focus.slow.no": "No",
   "focus.slow.clear_aria": "Last rep slow: {answer}. Tap to clear.",
   "settings.slow_rep_taps": "Last-rep question",
-  "settings.slow_rep_lede": "After an exercise's last set, a one-tap question while you rest. Your answers help calibrate your effort estimates."
+  "settings.slow_rep_lede": "After an exercise's last set, a one-tap question while you rest. Your answers help calibrate your effort estimates.",
+  "calib.ev.pairs": "{n} of {m} pairs",
+  "calib.ev.sets": "{n} of {m} sets",
+  "calib.ev.weeks": "{n} of {m} weeks",
+  "calib.ev.taps": "{n} of {m} taps",
+  "calib.ev.history": "{n} of {m} sets per lift",
+  "calib.ev.agree": "{pct}% agree"
 }

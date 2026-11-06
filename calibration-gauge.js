@@ -57,8 +57,8 @@
     return Math.min(1, sum / (CHECKS_PER_KEY * K));
   }
 
-  /** A supporting component: its weighted agreement rate times how much of its target the weighted evidence meets. */
-  function supporting(items, target, now) {
+  /** The weighted evidence behind a supporting component and the weighted share of it that agrees. */
+  function evidenceOf(items, now) {
     let total = 0, agreed = 0;
     for (const item of Array.isArray(items) ? items : []) {
       const w = decay(item.date, now) * (Number.isFinite(item.q) ? item.q : 1);
@@ -66,7 +66,12 @@
       total += w;
       if (item.agree) agreed += w;
     }
-    return total > 0 ? (agreed / total) * Math.min(1, total / target) : 0;
+    return { n: total, rate: total > 0 ? agreed / total : null };
+  }
+  /** A supporting component: its weighted agreement rate times how much of its target the weighted evidence meets. */
+  function supporting(items, target, now) {
+    const { n, rate } = evidenceOf(items, now);
+    return n > 0 ? rate * Math.min(1, n / target) : 0;
   }
 
   const countable = (obs) => obs && obs.q > 0 && Number.isFinite(obs.load) && obs.load > 0 &&
@@ -79,7 +84,8 @@
   const capacityOf = (capacity, obs) => capacity(obs.load, obs.reps, Math.min(RIR_CREDIT, obs.rir));
 
   /** A: consecutive working sets of one exercise in one workout, both with countable effort. They agree when the
-   *  second capacity is 85–103 % of the first: a plausible fatigue drop, or a small rise. */
+   *  second capacity is 85–103 % of the first: a plausible fatigue drop, or a small rise. Two identical sets (same
+   *  load, reps and RIR) are usually values carried down, not two judgements, so they form no pair. */
   function pairsFrom(observations, capacity) {
     const out = [];
     for (const sets of groupBy((observations || []).filter(Boolean), (obs) => `${obs.key}\u0000${obs.session}`).values()) {
@@ -87,6 +93,7 @@
       for (let i = 1; i < sets.length; i++) {
         const a = sets[i - 1], b = sets[i];
         if (!countable(a) || !countable(b)) continue;
+        if (a.load === b.load && a.reps === b.reps && a.rir === b.rir) continue;
         const ratio = capacityOf(capacity, b) / capacityOf(capacity, a);
         out.push({ date: b.date, q: Math.min(a.q, b.q), agree: ratio >= PAIR_RANGE[0] && ratio <= PAIR_RANGE[1] });
       }
@@ -138,16 +145,21 @@
 
   /** R: for each exercise in the active program, its weighted countable working sets over 24; the mean of those. */
   function historyComponent(observations, programKeys, now) {
+    return historyEvidence(observations, programKeys, now).component;
+  }
+  /** R's evidence: each program exercise's weighted sets, capped at the target, averaged; and the component. */
+  function historyEvidence(observations, programKeys, now) {
     const keys = [...new Set(programKeys || [])];
-    if (!keys.length) return 0;
+    if (!keys.length) return { n: 0, component: 0 };
     const sums = new Map(keys.map((key) => [key, 0]));
     for (const obs of observations || []) {
       if (!obs || !sums.has(obs.key) || !(obs.q > 0)) continue;
       sums.set(obs.key, sums.get(obs.key) + decay(obs.date, now) * obs.q);
     }
-    let total = 0;
-    for (const sum of sums.values()) total += Math.min(1, sum / TARGETS.R);
-    return total / keys.length;
+    let capped = 0;
+    for (const sum of sums.values()) capped += Math.min(TARGETS.R, sum);
+    const n = capped / keys.length;
+    return { n, component: n / TARGETS.R };
   }
 
   /** H: replay the engine on the history before each of an exercise's recent workouts (the sessions that hold its
@@ -209,9 +221,15 @@
     for (const check of checks || []) perKey.set(check.key, Math.min(CHECKS_PER_KEY, (perKey.get(check.key) || 0) + 1));
     const keys = new Set((checks || []).map((check) => check.key));
     const sessions = new Set((observations || []).filter((obs) => obs && obs.q > 0).map((obs) => obs.session));
+    // Each signal's weighted evidence against its target and its agreement rate: the numbers the breakdown shows,
+    // so its text and its bar (min(1, n / target) × rate) read the same thing.
+    const shown = (items, target) => ({ ...evidenceOf(items, now), target });
+    const evidence = { A: shown(pairs, TARGETS.A), H: shown(hits, TARGETS.H), W: shown(weeks, TARGETS.W),
+      S: shown(recentTaps ? taps : [], TARGETS.S), R: { n: historyEvidence(observations, programKeys, now).n, rate: null, target: TARGETS.R } };
     return {
       version: VERSION,
       percent: combine({ ...components, taps: recentTaps }),
+      evidence,
       components,
       taps: recentTaps,
       // Plain counts for the breakdown: the max sets that count (two per exercise) out of 2·K, and agreed of total.

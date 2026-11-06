@@ -7507,15 +7507,20 @@ function renderOverviewCalibration(){
   const el=$("#overviewCalibration");if(!el)return;
   const g=calibrationGauge();
   el.classList.toggle("hidden",!g);if(!g){el.innerHTML="";return}
-  const c=g.counts,comp=g.components;
-  const of=(count,unit)=>t("calib.of",{n:count.agree,m:count.total});
+  const c=g.counts,comp=g.components,ev=g.evidence;
+  // Each signal reads its evidence against its target and, where there is any, the share that agrees: the same two
+  // numbers its bar multiplies (min(1, n / target) × agreement). Evidence is weighted (it fades, coarse rows count
+  // half), so the counts never run past the target.
+  const reading=(item,unitKey)=>{const n=Math.floor(Math.min(item.n,item.target)+1e-9);
+    const base=t(unitKey,{n,m:item.target});
+    return item.rate==null||item.n<=0?base:`${base} · ${t("calib.ev.agree",{pct:Math.round(item.rate*100)})}`};
   const signals=[
     ["calib.sig.tests",t("calib.of",{n:c.counted,m:c.needed}),comp.T,true],
-    ["calib.sig.agree",of(c.pairs),comp.A],
-    ["calib.sig.hit",of(c.hits),comp.H],
-    ["calib.sig.weeks",of(c.weeks),comp.W],
-    ["calib.sig.slow",state.settings.slowRepTaps===false?t("calib.off"):of(c.taps),comp.S],
-    ["calib.sig.history",`${c.sessions} ${tp(c.sessions,"session")}`,comp.R]];
+    ["calib.sig.agree",reading(ev.A,"calib.ev.pairs"),comp.A],
+    ["calib.sig.hit",reading(ev.H,"calib.ev.sets"),comp.H],
+    ["calib.sig.weeks",reading(ev.W,"calib.ev.weeks"),comp.W],
+    ["calib.sig.slow",state.settings.slowRepTaps===false?t("calib.off"):reading(ev.S,"calib.ev.taps"),comp.S],
+    ["calib.sig.history",reading(ev.R,"calib.ev.history"),comp.R]];
   const lifts=c.checkKeys;
   const rows=g.recent.length?g.recent.map(item=>`<li class="calcheck"><span class="calcheck__name">${esc(item.name)}<small>${esc(shortDate(item.date))}</small></span>`+
     `<span class="calcheck__gd">${esc(t("maxset.guessed"))} <b>${esc(String(item.guess))}</b> → ${esc(t("maxset.did"))} <b>${esc(String(item.did??"—"))}</b></span></li>`).join("")

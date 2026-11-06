@@ -70,6 +70,16 @@ console.log("\nThe supporting components");
   const pairs = Gauge.pairsFrom(obs, cap);
   assert(pairs.length === 2 && pairs[0].agree === true && pairs[1].agree === false,
     "consecutive countable sets agree on a plausible fatigue drop and not on a collapse", pairs);
+  const twins = Gauge.pairsFrom([
+    { key: "a", session: "t", date: daysAgo(1), set: 1, load: 100, reps: 8, rir: 2, q: 1 },
+    { key: "a", session: "t", date: daysAgo(1), set: 2, load: 100, reps: 8, rir: 2, q: 1 },
+    { key: "a", session: "t", date: daysAgo(1), set: 3, load: 100, reps: 7, rir: 2, q: 1 },
+  ], cap);
+  assert(twins.length === 1, "identical consecutive sets (same load, reps and RIR) are no evidence: they form no pair", twins);
+  const ev = Gauge.compute({ now: NOW, capacity: cap, programKeys: ["a"], eligibleKeys: 1,
+    observations: Array.from({ length: 6 }, (_, i) => ({ key: "a", session: `e${i >> 1}`, date: daysAgo(0), set: (i % 2) + 1, load: 100, reps: 8 - (i % 2), rir: 2, q: 0.5 })) }).evidence;
+  assert(ev.A.n === 1.5 && ev.A.target === 20 && ev.A.rate === 1 && ev.R.n === 3 && ev.R.target === 24 && ev.W.target === 8,
+    "the breakdown reads each signal's weighted evidence against its target, with its agreement rate", ev);
   const weekly = [
     { key: "a", session: "w1", date: "2026-10-05", set: 1, load: 100, reps: 8, rir: 2, q: 1 },
     { key: "a", session: "w2", date: "2026-10-12", set: 1, load: 100, reps: 8, rir: 3, q: 1 },
