@@ -5,6 +5,8 @@
    Two cards, each in Story 9:16 (1080×1920) and Square 1:1 (1080×1080):
    - record: the session's heaviest record (or, with none, its most-improved lift) as a poster, then every lift;
    - stats: the finish screen's four numbers, then every lift.
+   Each comes on a flat ground or over the lifter's own photo (PR 3). The photo is only a drawing source here: it is
+   painted into the card and nothing keeps it.
    Every card lists every lift with its sets and marks records and improvements, and its foot carries the mark,
    "Taurifer" and "taurifer.com". Big figures are Plex Sans with tabular numerals; set lines are Plex Mono. */
 (function (root) {
@@ -16,12 +18,14 @@
     orange: { bg: "#B8410E", ink: "#FFFFFF", soft: "#FFFFFF", rule: "rgba(255,255,255,.4)", accent: "#FFFFFF", positive: "#FFFFFF", up: "#FFFFFF" },
     dark: { bg: "#141310", ink: "#F2EFE9", soft: "#ADA79D", rule: "#3A3630", accent: "#F2703B", positive: "#6FBF73", up: "#F2703B" },
     light: { bg: "#F4F2EF", ink: "#1B1A17", soft: "#6A665F", rule: "#D9D5CD", accent: "#B8410E", positive: "#2F7D33", up: "#B8410E" },
+    // Over a photo: white type on a dimmed picture, with a soft shadow under every glyph for bright spots.
+    photo: { bg: "#141310", ink: "#FFFFFF", soft: "#FFFFFF", rule: "rgba(255,255,255,.45)", accent: "#FF9A5C", positive: "#8BE08F", up: "#FFB27A" },
   };
   const SANS = '"Plex Sans", system-ui, sans-serif';
   const MONO = '"Plex Mono", ui-monospace, monospace';
   const SITE = "taurifer.com";
   const SIZES = Object.freeze({ story: [1080, 1920], square: [1080, 1080] });
-  const KINDS = Object.freeze({ record: ["orange", "dark"], stats: ["dark", "light"] });
+  const KINDS = Object.freeze({ record: ["orange", "dark", "photo"], stats: ["dark", "light", "photo"] });
 
   /** Every face the cards use, loaded before the first paint: a canvas draws with whatever font is ready and never
    *  repaints, so an unloaded face would bake the fallback into the image. */
@@ -71,6 +75,26 @@
     text(ctx, SITE, left + nameW + gap * 1.4, y, { size: size * 0.9, color: p.soft });
   }
 
+  /** The card's ground. A photo covers the card (cropped, never stretched) and is dimmed, the foot more than the top,
+   *  where the lifts run. Before a photo is chosen the preview shows a dark warm ground in its place. */
+  function ground(ctx, w, h, style, photo) {
+    const p = PALETTE[style];
+    if (style !== "photo") { ctx.fillStyle = p.bg; ctx.fillRect(0, 0, w, h); return; }
+    if (photo) {
+      const pw0 = photo.width, ph0 = photo.height, r = Math.max(w / pw0, h / ph0), pw = pw0 * r, ph = ph0 * r;
+      ctx.drawImage(photo, (w - pw) / 2, (h - ph) / 2, pw, ph);
+    } else {
+      const g = ctx.createLinearGradient(0, 0, w * 0.4, h);
+      g.addColorStop(0, "#6A5544"); g.addColorStop(0.45, "#2C241E"); g.addColorStop(1, "#0F0D0B");
+      ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    }
+    ctx.fillStyle = "rgba(0,0,0,.42)"; ctx.fillRect(0, 0, w, h);
+    const foot = ctx.createLinearGradient(0, h * 0.35, 0, h);
+    foot.addColorStop(0, "rgba(0,0,0,0)"); foot.addColorStop(1, "rgba(0,0,0,.6)");
+    ctx.fillStyle = foot; ctx.fillRect(0, h * 0.35, w, h * 0.65);
+    ctx.shadowColor = "rgba(0,0,0,.55)"; ctx.shadowBlur = 14; ctx.shadowOffsetY = 2;
+  }
+
   /** Every lift: in Stories, the name at the full width and the sets with the mark under it; on squares, a table with
    *  one name size and one set column. Rows grow into the space they have and shrink when there are more lifts. */
   function liftList(ctx, card, p, { x, right, top, bottom, story }) {
@@ -116,7 +140,7 @@
   /* ---- The record poster ---- */
   function drawRecord(ctx, w, h, card, o) {
     const story = h > w, p = PALETTE[o.style], lead = card.lead;
-    ctx.fillStyle = p.bg; ctx.fillRect(0, 0, w, h);
+    ground(ctx, w, h, o.style, o.photo);
     const pad = story ? 96 : 80, right = w - pad;
     const figure = o.style === "dark" ? p.accent : p.ink;
     let y = story ? 190 : 120;
@@ -145,13 +169,13 @@
     const foot = story ? h - 120 : h - 70;
     const lifts = liftList(ctx, card, p, { x: pad, right, top: y, bottom: foot - (story ? 90 : 56), story });
     brand(ctx, pad, foot, story ? 36 : 28, p, o.mark);
-    return { lifts, brand: true };
+    return { lifts, brand: true, photo: o.style === "photo" && !!o.photo };
   }
 
   /* ---- The stats card ---- */
   function drawStats(ctx, w, h, card, o) {
     const story = h > w, p = PALETTE[o.style];
-    ctx.fillStyle = p.bg; ctx.fillRect(0, 0, w, h);
+    ground(ctx, w, h, o.style, o.photo);
     const pad = story ? 96 : 80, right = w - pad, colW = (right - pad) / 2;
     let y = story ? 190 : 118;
     text(ctx, card.day, pad, y, { weight: 600, size: fit(ctx, card.day, 600, story ? 72 : 48, right - pad), color: p.ink });
@@ -175,16 +199,17 @@
     const foot = story ? h - 120 : h - 70;
     const lifts = liftList(ctx, card, p, { x: pad, right, top: y, bottom: foot - (story ? 90 : 52), story });
     brand(ctx, pad, foot, story ? 36 : 28, p, o.mark);
-    return { lifts, brand: true };
+    return { lifts, brand: true, photo: o.style === "photo" && !!o.photo };
   }
 
-  /** Paints one card into a new canvas. Returns the canvas and what it drew, so a proof can read it back. */
-  function render(card, { kind, size, style, mark = null, doc = root.document } = {}) {
+  /** Paints one card into a new canvas. Returns the canvas and what it drew, so a proof can read it back. `photo` is
+   *  any drawable (an ImageBitmap or a canvas) and is used only by the photo style. */
+  function render(card, { kind, size, style, mark = null, photo = null, doc = root.document } = {}) {
     if (!SIZES[size] || !KINDS[kind]?.includes(style) || (kind === "record" && !card.lead)) return null;
     const [w, h] = SIZES[size];
     const canvas = doc.createElement("canvas");
     canvas.width = w; canvas.height = h;
-    const drawn = (kind === "record" ? drawRecord : drawStats)(canvas.getContext("2d"), w, h, card, { style, mark });
+    const drawn = (kind === "record" ? drawRecord : drawStats)(canvas.getContext("2d"), w, h, card, { style, mark, photo });
     return { canvas, drawn };
   }
   /** The PNG that is shared or saved. */

@@ -12,7 +12,10 @@
  *  - without it, Share is hidden and Save downloads the PNG;
  *  - closing (×, Escape) returns to the summary with focus on Share;
  *  - a session with no record and nothing improved offers only the stats card;
- *  - no request leaves the app's origin while sharing.
+ *  - no request leaves the app's origin while sharing;
+ *  - Photo (PR 3): choosing it opens the picker; until a photo is chosen nothing can be sent; the chosen photo is
+ *    scaled down, drawn dimmed under the card and kept across card and format choices; a file that isn't a picture
+ *    says so; closing the sheet lets the photo go, and nothing about it reaches storage.
  *
  * Run: node test/share-card.mjs   (requires the app served over HTTP; REPFORGE_URL)
  */
@@ -110,6 +113,76 @@ try {
       check(await page.evaluate(() => !document.querySelector("#sessionSummary").hidden && document.activeElement?.id === "sumShare"),
         "the close button does the same");
       check(!foreign.length, "nothing is requested outside the app's origin while sharing", foreign);
+      check(!errors.length, "no page errors", errors);
+    } finally { await context.close(); }
+  }
+
+  console.log("\nShare over a photo");
+  {
+    const { context, page, errors, foreign } = await openSummary(browser, "session/summary", { canShare: true });
+    try {
+      // A large, plain white picture: the worst ground for white type, and big enough to be scaled down.
+      const photo = Buffer.from(await page.evaluate(async () => {
+        const canvas = new OffscreenCanvas(3000, 2000), ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, 3000, 2000);
+        return [...new Uint8Array(await (await canvas.convertToBlob({ type: "image/png" })).arrayBuffer())];
+      }));
+      const stored = () => page.evaluate(async () => ({ local: JSON.stringify(Object.entries(localStorage).sort()),
+        session: JSON.stringify(Object.entries(sessionStorage).sort()), dbs: JSON.stringify((await indexedDB.databases()).map((d) => d.name).sort()) }));
+      await page.click("#sumShare");
+      await page.waitForFunction(() => window.__repforgeShareSheet.state()?.file, undefined, { timeout: 15000 });
+      const before = await stored();
+
+      const [firstChooser] = await Promise.all([page.waitForEvent("filechooser", { timeout: 5000 }).catch(() => null),
+        page.locator('#shareStyleSegments [data-value="photo"]').click()]);
+      await page.waitForFunction(() => window.__repforgeShareSheet.state()?.drawn?.style === "photo", undefined, { timeout: 15000 });
+      let s = await state(page);
+      let ui = await page.evaluate(() => ({ row: !document.querySelector("#sharePhotoRow").hidden, pick: document.querySelector("#sharePhotoPick").textContent.trim(),
+        note: document.querySelector("#shareCardSheet .sharesheet__note").textContent.trim() }));
+      check(!!firstChooser && firstChooser.isMultiple() === false, "choosing Photo opens the photo picker in the same tap", !!firstChooser);
+      check(s.photo === null && s.shareDisabled && s.saveDisabled && !s.drawn.photo, "until a photo is chosen, the stand-in preview can't be sent", s);
+      check(ui.row && ui.pick === "Choose photo" && /Taurifer doesn't keep it/.test(ui.note), "the sheet offers Choose photo and says the photo isn't kept", ui);
+
+      const [badChooser] = await Promise.all([page.waitForEvent("filechooser", { timeout: 5000 }), page.click("#sharePhotoPick")]);
+      await badChooser.setFiles({ name: "notes.jpg", mimeType: "image/jpeg", buffer: Buffer.from("not a picture") });
+      await page.waitForFunction(() => /couldn't be opened/.test(document.querySelector("#toast")?.textContent || ""), undefined, { timeout: 5000 }).catch(() => {});
+      check(/couldn't be opened/.test(await page.evaluate(() => document.querySelector("#toast")?.textContent || "")) && (await state(page)).photo === null,
+        "a file that isn't a picture says so and changes nothing", await page.evaluate(() => document.querySelector("#toast")?.textContent));
+
+      const [chooser] = await Promise.all([page.waitForEvent("filechooser", { timeout: 5000 }), page.click("#sharePhotoPick")]);
+      await chooser.setFiles({ name: "gym.png", mimeType: "image/png", buffer: photo });
+      await page.waitForFunction(() => window.__repforgeShareSheet.state()?.drawn?.photo && !window.__repforgeShareSheet.state().shareDisabled, undefined, { timeout: 15000 });
+      s = await state(page);
+      const corner = await pixel(page, 8, 8), channel = parseInt(corner.slice(1, 3), 16);
+      check(s.photo.width === 2160 && s.photo.height === 1440, "the photo is scaled down as it is decoded", s.photo);
+      check(s.file.name === "taurifer-2026-08-31-record-story-photo.png" && s.drawn.lifts === 5 && s.drawn.brand && !s.shareDisabled && !s.saveDisabled,
+        "the card is drawn over the photo, every lift and the brand on it, ready to send", s);
+      check(channel >= 0x80 && channel <= 0xA0, "the photo is dimmed under the type", corner);
+      check(await page.evaluate(() => document.querySelector("#sharePhotoPick").textContent.trim()) === "Change photo", "the picker now offers Change photo");
+
+      await page.locator('#shareKindSegments [data-value="stats"]').click();
+      await page.waitForFunction(() => window.__repforgeShareSheet.state()?.drawn?.kind === "stats", undefined, { timeout: 15000 });
+      await page.locator('#shareSizeSegments [data-value="square"]').click();
+      await page.waitForFunction(() => window.__repforgeShareSheet.state()?.drawn?.height === 1080, undefined, { timeout: 15000 });
+      s = await state(page);
+      check(s.style === "photo" && s.drawn.photo && s.file.name === "taurifer-2026-08-31-stats-square-photo.png", "the photo stays through card and format choices", s);
+      await page.click("#shareCardShare");
+      await page.waitForFunction(() => window.__shared.length === 1, undefined, { timeout: 5000 }).catch(() => {});
+      const shared = await page.evaluate(() => window.__shared);
+      check(shared.length === 1 && shared[0].length === 1 && shared[0][0].name === s.file.name, "Share hands over the one composed PNG, not the photo", shared);
+
+      await page.keyboard.press("Escape");
+      await page.waitForFunction(() => document.querySelector("#shareCardSheet").hidden, undefined, { timeout: 5000 }).catch(() => {});
+      const after = await stored();
+      const input = await page.evaluate(() => ({ value: document.querySelector("#sharePhotoInput").value, files: document.querySelector("#sharePhotoInput").files.length }));
+      check(input.value === "" && input.files === 0 && (await state(page)) === null, "closing the sheet lets the photo go", input);
+      check(after.local === before.local && after.session === before.session && after.dbs === before.dbs, "nothing about the photo reaches storage",
+        { before: before.dbs, after: after.dbs });
+      await page.click("#sumShare");
+      await page.waitForFunction(() => window.__repforgeShareSheet.state()?.file, undefined, { timeout: 15000 });
+      s = await state(page);
+      check(s.photo === null && s.style !== "photo", "the next share starts without it", s);
+      check(!foreign.length, "nothing is requested outside the app's origin", foreign);
       check(!errors.length, "no page errors", errors);
     } finally { await context.close(); }
   }
