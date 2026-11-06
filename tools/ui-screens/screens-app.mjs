@@ -301,7 +301,7 @@ const D_FIXTURE_STATES = new Set([
   "workout/actions", "workout/exercise-actions", // R3x: the redrawn sheet, on the lifter the drawing shows
   "workout/swap-alternates", // #317: the swap picker leads with the squat slot's alternates
   "workout/abandon", "workout/swap-reason", // Plan 071 §10: end-without-saving and the swap reason chips
-  "history/list", "history/list-scrolled", "history/session", "history/edit-dirty", "history/edit-invalid", // R3j, R3j2
+  "history/list", "history/list-scrolled", "history/session", "history/session-share", "history/edit-dirty", "history/edit-invalid", // R3j, R3j2
   "program/overview", // R3k
   "today/done", // R3x: the finished day, on the lifter whose Monday session is in the log
   "today/deload-week", // Plan 072 S4: the deload cue in Today
@@ -342,6 +342,7 @@ export const DIRECTION_D_SUMMARY_SESSION = Object.freeze({
   "session/summary-first": "dd-2026-08-12-day2-mixed",
   "session/summary-lifts": "dd-2026-08-31-day1",
   "session/summary-share": "dd-2026-08-31-day1",
+  "session/summary-share-photo": "dd-2026-08-31-day1",
 });
 function directionDThroughSession(sessionId) {
   const state = directionDState();
@@ -379,11 +380,33 @@ const EFFORT_STAGE_STATES = Object.freeze({
   "workout/effort-stage-b": { rirMode: "effort", effortScale: "reps" },
   "workout/effort-menu": { rirMode: "effort", effortScale: "feel" },
   "workout/stage-tip": { rirMode: "effort", effortScale: "feel" },
+  // Plan 077 PR 4: the gauge and the last-rep question, on a lifter who logged RIR and took two test sets.
+  "progress/overview-calibration": { rirMode: "numeric" },
+  "today/calibration-mini": { rirMode: "numeric" },
+  "workout/last-rep-slow": { rirMode: "numeric" },
 });
+/** Two test sets on the lifter's newest session, on its first two exercises: the guess beside a set to failure. */
+function withTestSets(log) {
+  const work = log.filter((row) => !row.warmup);
+  const newest = [...work].sort((a, b) => String(b.created).localeCompare(String(a.created)))[0];
+  const session = work.filter((row) => row.session === newest.session);
+  // Test sets are never offered on the big barbell lifts (OD-11), so the fixture takes them on the others.
+  const lifts = [...new Map(session.filter((row) => !/squat|bench|deadlift/i.test(row.name || "")).map((row) => [row.name, row])).values()].slice(0, 2);
+  const tests = lifts.map((row, i) => ({ ...row, set: Math.max(...session.filter((x) => x.name === row.name).map((x) => Number(x.set) || 0)) + 1,
+    ...(Number.isInteger(row.setIndex) ? { setIndex: Math.max(...session.filter((x) => x.name === row.name).map((x) => x.setIndex)) + 1 } : {}),
+    rir: 0, effortSource: "failure",
+    calibration: { v: 1, predictedReps: Math.max(1, (Number(row.reps) || 10) + (i ? 1 : -2)), predictionEdited: false, prefillBasis: "reps_rir" } }));
+  // A lifter's RIR moves from set to set and session to session, so the sets that agree are not a trivial 100 %.
+  const sessions = [...new Set(log.map((row) => row.session))];
+  const varied = (row) => ({ ...row, effortSource: "rir", rir: (sessions.indexOf(row.session) + (Number(row.set) || 0) * 2) % 3 });
+  return [...log.map((row) => row.warmup ? row : varied(row)), ...tests];
+}
 function effortStageState(key, lang) {
-  const drawn = localeState(directionDState(), lang);
+  // Today's states read the log as it stood that morning (DIRECTION_D_BEFORE_SESSION's rule).
+  const drawn = localeState(key.startsWith("today/") ? directionDBeforeSession() : directionDState(), lang);
   drawn.settings = { ...drawn.settings, ...EFFORT_STAGE_STATES[key] };
   if (key === "workout/stage-tip") drawn.log = drawn.log.map((row) => row.warmup ? row : { ...row, effortSource: "effort" });
+  if (key === "progress/overview-calibration" || key === "today/calibration-mini" || key === "workout/last-rep-slow") drawn.log = withTestSets(drawn.log);
   return drawn;
 }
 
@@ -404,7 +427,7 @@ export function appState(key, lang) {
   // the review page draws. Every other state keeps catalogState().
   if (D_FIXTURE_STATES.has(key)) {
     const drawn = localeState(directionDState(), lang);
-    if (key === "history/session") {
+    if (key === "history/session" || key === "history/session-share") {
       // #515: the session the page opens (the newest) has a recorded duration.
       const newest = [...drawn.log].sort((a, b) => String(b.created).localeCompare(String(a.created)))[0];
       const completedAt = new Date(Date.parse(newest.created)).toISOString();
@@ -1902,6 +1925,13 @@ export const APP_SCENARIOS = {
     const copy = await page.evaluate(() => window.RepForgeI18n.t("today.deload_week"));
     if ((await note.innerText()).trim() !== copy) throw new Error("Today shows the wrong deload recovery note");
   },
+  // Plan 077 PR 4: the small gauge on Today, above the session's action.
+  "today/calibration-mini": async (page) => {
+    await dismissChrome(page);
+    await page.waitForSelector("#todayCalibration:not(.hidden)", { timeout: 20000 });
+    await page.locator("#todayCalibration").evaluate((row) => row.scrollIntoView({ block: "center" }));
+    await sleep(page, 300);
+  },
   "today/ready": async (page) => {
     await dismissChrome(page);
     const rows = page.locator("#todayExList .rxrow");
@@ -2415,6 +2445,15 @@ export const APP_SCENARIOS = {
     await sleep(page, 400);
   },
   // The stage tip, during the rest after a set, over the shelf with Log set live under it (OD-6).
+  // Plan 077 PR 4: the question under the exercise's last logged set, during its rest.
+  "workout/last-rep-slow": async (page) => {
+    await focusMode(page);
+    for (let i = 0; i < 8 && !(await page.locator("#workout .exercise.is-current .ledgerslow").count()); i++) {
+      await logCurrentSet(page, { load: "102.5", reps: "8", rir: "1" });
+    }
+    await page.waitForSelector("#workout .exercise.is-current .ledgerslow [data-slow]", { timeout: 20000 });
+    await sleep(page, 400);
+  },
   "workout/stage-tip": async (page) => {
     await startInlineRest(page);
     await page.waitForSelector("#workout .exercise.is-current .focus-shelf .resttip", { timeout: 20000 });
@@ -2507,6 +2546,31 @@ export const APP_SCENARIOS = {
     await page.waitForFunction(() => document.querySelector("#shareCardPreview")?.complete, undefined, { timeout: 20000 });
     await sleep(page, 700);
   },
+  // The Photo style over a picture chosen in the system picker. The picture is a drawn stand-in for a gym photo
+  // (bright window, warm wall, dark racks), made in the page so the frame is the same on every run.
+  "session/summary-share-photo": async (page) => {
+    await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-share-photo"]);
+    await page.click("#sumShare");
+    await page.waitForFunction(() => window.__repforgeShareSheet?.state()?.file, undefined, { timeout: 20000 });
+    await page.waitForSelector("#shareCardSheet.is-open", { timeout: 20000 });
+    const photo = Buffer.from(await page.evaluate(async () => {
+      const w = 1512, h = 2016, c = new OffscreenCanvas(w, h), x = c.getContext("2d");
+      const g = x.createLinearGradient(0, 0, 0, h);
+      g.addColorStop(0, "#E9E4DA"); g.addColorStop(0.35, "#B49A7C"); g.addColorStop(0.7, "#4A3D33"); g.addColorStop(1, "#1D1915");
+      x.fillStyle = g; x.fillRect(0, 0, w, h);
+      x.fillStyle = "#FBFAF5"; x.fillRect(w * 0.55, h * 0.05, w * 0.35, h * 0.22);
+      x.fillStyle = "#26221F"; for (let i = 0; i < 4; i++) x.fillRect(w * (0.1 + i * 0.22), h * 0.3, w * 0.05, h * 0.55);
+      x.fillStyle = "#9A9A9A"; x.fillRect(w * 0.05, h * 0.52, w * 0.9, h * 0.025);
+      x.fillStyle = "#B03030"; x.beginPath(); x.arc(w * 0.2, h * 0.53, h * 0.09, 0, Math.PI * 2); x.fill();
+      return [...new Uint8Array(await (await c.convertToBlob({ type: "image/png" })).arrayBuffer())];
+    }));
+    const [chooser] = await Promise.all([page.waitForEvent("filechooser", { timeout: 20000 }),
+      page.locator('#shareStyleSegments [data-value="photo"]').click()]);
+    await chooser.setFiles({ name: "gym.png", mimeType: "image/png", buffer: photo });
+    await page.waitForFunction(() => window.__repforgeShareSheet?.state()?.drawn?.photo, undefined, { timeout: 20000 });
+    await page.waitForFunction(() => document.querySelector("#shareCardPreview")?.complete, undefined, { timeout: 20000 });
+    await sleep(page, 700);
+  },
   "session/summary-maintained": async (page) => {
     await openFixtureSummary(page, DIRECTION_D_SUMMARY_SESSION["session/summary-maintained"]);
     await page.waitForSelector('.sum-outcome[data-outcome="maintained"]', { timeout: 20000 });
@@ -2521,6 +2585,12 @@ export const APP_SCENARIOS = {
   },
 
   "progress/overview": (page) => view(page, "stats"),
+  // Plan 077 PR 4: the calibration gauge with its six signals and the recent test sets.
+  "progress/overview-calibration": async (page) => {
+    await view(page, "stats");
+    await page.waitForSelector("#overviewCalibration:not(.hidden) .calcard", { timeout: 20000 });
+    await sleep(page, 300);
+  },
   "progress/overview-guide": async (page) => { await view(page, "stats"); await replayGuide(page, "progress"); },
   "progress/overview-baseline": (page) => view(page, "stats"),
   "progress/overview-action": (page) => view(page, "stats"),
@@ -2637,6 +2707,15 @@ export const APP_SCENARIOS = {
     // the PT+200 matrix.
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     await sleep(page, 400);
+  },
+  // Share from a past session's page (finish-share PR 4): the same sheet, on that session's record poster.
+  "history/session-share": async (page) => {
+    await APP_SCENARIOS["history/session"](page);
+    await page.click("[data-history-share]");
+    await page.waitForFunction(() => window.__repforgeShareSheet?.state()?.file, undefined, { timeout: 20000 });
+    await page.waitForSelector("#shareCardSheet.is-open", { timeout: 20000 });
+    await page.waitForFunction(() => document.querySelector("#shareCardPreview")?.complete, undefined, { timeout: 20000 });
+    await sleep(page, 700);
   },
   "history/edit-dirty": async (page) => {
     await openHistoryEditor(page);

@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 244 screens,
-1420 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 249 screens,
+1460 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -170,6 +170,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | --- | --- | --- |
 | [Today — no program](screens/today/no-program__phone-390-light-en.png) | 3 | A fresh device after leaving setup, with no program or workout controls. |
 | [Today — ready to start](screens/today/ready__phone-390-light-en.png) | 12 | The Direction D lifter before Day 1 starts: the prescription table reads recommendation() for every exercise, with the verdict tally above it. |
+| [Today — effort calibration](screens/today/calibration-mini__phone-390-light-en.png) | 8 | The small effort calibration row on Today, above the session's action: the label, the number and a thin bar (Plan 077, OD-20). |
 | [Today — dock large-content viewer](screens/today/dock-viewer__phone-390-light-en.png) | 4 | A finger holds the dock's Progress tab. At 200% text the large-content viewer shows its icon and name large over Today, which keeps its one-row dock with capped labels; at the usual size (the canonical frame) the labels are whole, so the hold is only a press and no viewer is offered. |
 | [Today — ready to start, scrolled](screens/today/ready-scrolled__phone-390-light-en.png) | 3 | Plan 075 phase 3: the same ready state, scrolled past the large title, so the scroll-edge bar's material and its mirrored inline title are showing. |
 | [Today — running rest bar](screens/today/rest-bar__phone-390-light-en.png) | 8 | A rest running after leaving the workout: the live card's tag counts it down, and no rest pill floats above the dock. |
@@ -208,6 +209,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Workout — effort stage B, reps left](screens/workout/effort-stage-b__phone-390-light-en.png) | 8 | Stage B: the field reads Reps left, the column Left, and the chips 0 · 1 · 2 · 3+ with 2 chosen (Plan 077, OD-4). |
 | [Workout — effort menu](screens/workout/effort-menu__phone-390-light-en.png) | 8 | The effort field's arrow opened: How you log effort, the three stages with the current one checked, and Not sure for this set under them (Plan 077, OD-2 and OD-4). |
 | [Workout — the stage tip in the rest](screens/workout/stage-tip__phone-390-light-en.png) | 8 | During the rest after a set, after six workouts logged with chosen words: Try counting reps left?, with Not now, Try it and a close button, over the shelf with Log set live (Plan 077, OD-6). |
+| [Workout — Last rep slow?](screens/workout/last-rep-slow__phone-390-light-en.png) | 8 | After an exercise's last set, during its rest: Last rep slow? with Yes and No under that set's row, off the shelf (Plan 077, OD-25). |
 | [Workout — exercise note](screens/workout/exercise-note__phone-390-light-en.png) | 8 | The per-exercise note sheet. |
 | [Workout — wheel picker, Load](screens/workout/wheel-load__phone-390-light-en.png) | 8 | A second tap on the selected Load field opens the wheel: the rail centred on its current value, with the keyboard button and Done in the sheet's bar. |
 | [Workout — wheel picker, Reps](screens/workout/wheel-reps__phone-390-light-en.png) | 8 | A second tap on the selected Reps field opens the wheel, 1 to 30, with the prescription's target range marked on the rail. |
@@ -240,6 +242,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Session summary — declined](screens/session/summary-declined__phone-390-light-en.png) | 8 | A finished Day 3 with no record and nothing improved: the stats card is the only card, and declined lifts read in ink without turning into a prescription. |
 | [Session summary — records and every lift](screens/session/summary-lifts__phone-390-light-en.png) | 8 | The Day 1 finish screen scrolled past its card row and tiles: the record tiles, then every lift with its outcome word, sets, record and next target. |
 | [Session summary — share sheet](screens/session/summary-share__phone-390-light-en.png) | 8 | Share on the Day 1 finish screen: the record poster drawn on the device as the image to send (Story, orange), its card, format and style choices, the line on what leaves the phone, and Share and Save. |
+| [Session summary — share over a photo](screens/session/summary-share-photo__phone-390-light-en.png) | 8 | The share sheet's Photo style after a picture is chosen: the record poster drawn over the dimmed photo, Change photo, the line that the photo isn't kept, and Share and Save. |
 | [Session summary — first session](screens/session/summary-first__phone-390-light-en.png) | 8 | Every lift is a first exposure: only the stats card, the fallback tiles (sets, total reps, kg moved), the baseline sentence, no outcome words, and the next targets from the engine. |
 
 ### Progress
@@ -247,6 +250,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | Screen | Frames | What it shows |
 | --- | --- | --- |
 | [Progress — overview](screens/progress/overview__phone-390-light-en.png) | 8 | The Progress landing tab. |
+| [Progress — effort calibration](screens/progress/overview-calibration__phone-390-light-en.png) | 8 | Overview opens on the effort calibration gauge: the number with its test sets and lifts, what it measures, the six signals with plain counts, how evidence fades, and the recent test sets as guess and result (Plan 077, OD-20). |
 | [Mini bar on Progress](screens/progress/minibar__phone-390-light-en.png) | 8 | While a session is open, the frosted bar above the dock: a ring of the sets done, the session's name, the exercise and the time so far, and Resume. |
 | [Progress — overview guide](screens/progress/overview-guide__phone-390-light-en.png) | 8 | The progress guide on arrival: the guide dialog centred over the dimmed Overview. |
 | [Progress — baseline-building overview](screens/progress/overview-baseline__phone-390-light-en.png) | 8 | Sparse evidence remains neutral and contributes no Needs action items. |
@@ -286,6 +290,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Mini bar on History, rest running](screens/history/minibar-rest__phone-390-light-en.png) | 3 | A rest running while a session is open: the bar is the rest timer, Rest 1:24 with the next set, +30s and Resume, and no separate rest pill. |
 | [History — list, scrolled](screens/history/list-scrolled__phone-390-light-en.png) | 3 | Plan 075 phase 3: the same session list, scrolled past the large title, so the scroll-edge bar's material and its mirrored inline title are showing. |
 | [History — expanded session](screens/history/session__phone-390-light-en.png) | 8 | One session expanded in place. |
+| [History — share a past session](screens/history/session-share__phone-390-light-en.png) | 8 | Share on a past session's page: the finish screen's share sheet over History, on that session's record poster, with its card, format and style choices, and Share and Save. |
 | [History — per-side session](screens/history/per-side-session__phone-390-light-en.png) | 8 | A saved unilateral and bilateral per-side session shows physical tonnage and a per-side personal record. |
 | [History — dirty edit](screens/history/edit-dirty__phone-390-light-en.png) | 8 | A session edit with an unsaved canonical change and its destructive actions still visible. |
 | [History — invalid edit](screens/history/edit-invalid__phone-390-light-en.png) | 8 | An invalid set value is held at the field boundary with the editor's validation state visible. |

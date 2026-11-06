@@ -715,6 +715,30 @@ console.log("\nEffort stages (Plan 077 PR 2, OD-2 to OD-5)");
   assert(Draft.isDomainError(command(badMode, "setRirMode", { value: "loud" }).result), "setRirMode refuses an unknown mode");
 }
 
+console.log("\nWas the last rep slow? (Plan 077 PR 4, OD-25)");
+{
+  const at = { exerciseInstanceId: "slot-squat", setId: "squat-set-1" };
+  let d = fresh();
+  d = apply(d, "editSetField", { ...at, field: "rir", value: "1" });
+  assert(Draft.isDomainError(command(d, "setLastRepSlow", { ...at, value: true }).result), "a pending set takes no answer");
+  d = apply(d, "completeSet", { ...at, completedAt: "2026-08-15T10:00:00.000Z" });
+  d = apply(d, "setLastRepSlow", { ...at, value: true });
+  assert(d.exercises["slot-squat"].sets["squat-set-1"].completion.lastRepSlow === true, "an answer is stored on the completed set");
+  for (const bad of ["yes", 1, undefined]) {
+    assert(Draft.isDomainError(command(d, "setLastRepSlow", { ...at, value: bad }).result), `setLastRepSlow refuses ${JSON.stringify(bad)}`);
+  }
+  let both = apply(d, "editSetField", { exerciseInstanceId: "slot-squat", setId: "squat-set-2", field: "rir", value: "2" });
+  both = apply(both, "completeSet", { exerciseInstanceId: "slot-squat", setId: "squat-set-2", completedAt: "2026-08-15T10:05:00.000Z" });
+  const rows = Draft.toHistoryRows(apply(both, "beginFinish"), "2026-08-15T11:00:00.000Z");
+  assert(!Draft.isDomainError(rows) && rows.length >= 2 && rows[0].lastRepSlow === true && !("lastRepSlow" in rows[1]),
+    "the row carries the answer; an unanswered set's row has no key", Draft.isDomainError(rows) ? rows : rows.slice(0, 2));
+  const cleared = apply(d, "setLastRepSlow", { ...at, value: null });
+  assert(!("lastRepSlow" in cleared.exercises["slot-squat"].sets["squat-set-1"].completion), "null clears the answer");
+  const tampered = JSON.parse(JSON.stringify(d));
+  tampered.exercises["slot-squat"].sets["squat-set-1"].completion.lastRepSlow = "yes";
+  assert(!Draft.validate(tampered).ok, "validation refuses a non-boolean answer");
+}
+
 console.log("\nDeterministic current-meaning History compilation");
 let historyDraft = fresh();
 historyDraft = apply(historyDraft, "substituteExercise", { exerciseInstanceId: "slot-squat", replacement, selectedAt: "2026-08-15T10:19:00.000Z" });

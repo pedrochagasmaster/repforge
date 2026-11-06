@@ -3914,6 +3914,12 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .sharesheet__preview{margin:var(--space-4) 0 0;display:flex;justify-content:center}
 .sharesheet__preview img{display:block;width:auto;height:auto;max-width:100%;max-height:min(40vh,22rem);border-radius:var(--radius-surface)}
 .sharesheet__segments{width:100%}
+/* Three styles share the row: each label takes the width it needs, so a long one ("Laranja" at 200% on 320) isn't
+   crushed by a short one beside it. */
+#shareStyleSegments{grid-auto-columns:auto}
+#shareStyleSegments button{overflow-wrap:anywhere}
+.sharesheet__photo{display:flex;margin:0}
+.sharesheet__photo #sharePhotoPick{width:100%}
 .sharesheet__note{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .sharesheet__actions{display:flex;flex-direction:column;gap:var(--space-8);padding:var(--space-12) var(--space-16) calc(var(--space-16) + env(safe-area-inset-bottom));border-top:1px solid var(--boundary-persistent)}
 .sharesheet__actions .btn{width:100%}
@@ -3930,18 +3936,18 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .sum-next__lab{letter-spacing:0;text-transform:none;font-weight:var(--weight-regular)}
 .sum-next__day{margin:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-medium);line-height:var(--line-standard);color:var(--color-ink)}
 .sum-next__meta{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
-#sumSee{
+#sumSee,#sharePhotoPick{
   display:flex;align-items:center;justify-content:center;min-height:54px;flex:1 1 0;
   border:1px solid var(--control-quiet-boundary);border-radius:var(--radius-control);
   background:var(--control-quiet-bg);color:var(--control-quiet-ink);
   font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
 }
 @media (hover: hover) and (pointer: fine){
-#sumSee:hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
+#sumSee:hover:not(:disabled),#sharePhotoPick:hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
 }
-#sumSee.is-pressed:not(:disabled){background:var(--row-pressed-bg);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
-#sumSee:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-#sumSee:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
+#sumSee.is-pressed:not(:disabled),#sharePhotoPick.is-pressed:not(:disabled){background:var(--row-pressed-bg);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+#sumSee:focus-visible,#sharePhotoPick:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+#sumSee:disabled,#sharePhotoPick:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 /* The way out is never below the fold. A session ends with a lifter holding a
    phone and breathing hard, so both actions stay put and the report moves under them.
    Like the onboarding pinned region it reaches through the body's side padding, so the
@@ -4452,6 +4458,7 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 .icon-mask--pencil{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M4%2020l.9-4.2L15.9%204.8a2.1%202.1%200%200%201%203%200l.3.3a2.1%202.1%200%200%201%200%203L8.2%2019.1%204%2020zM14.6%206.1l3.3%203.3%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M4%2020l.9-4.2L15.9%204.8a2.1%202.1%200%200%201%203%200l.3.3a2.1%202.1%200%200%201%200%203L8.2%2019.1%204%2020zM14.6%206.1l3.3%203.3%27%2F%3E%3C%2Fsvg%3E")}
 .icon-mask--clipboard{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M9%205H7.4A1.9%201.9%200%200%200%205.5%206.9v11.6a1.9%201.9%200%200%200%201.9%201.9h9.2a1.9%201.9%200%200%200%201.9-1.9V6.9A1.9%201.9%200%200%200%2016.6%205H15M9.2%2014l2%202%203.8-4.2%27%2F%3E%3Crect%20x%3D%279%27%20y%3D%273.2%27%20width%3D%276%27%20height%3D%273.6%27%20rx%3D%271.2%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M9%205H7.4A1.9%201.9%200%200%200%205.5%206.9v11.6a1.9%201.9%200%200%200%201.9%201.9h9.2a1.9%201.9%200%200%200%201.9-1.9V6.9A1.9%201.9%200%200%200%2016.6%205H15M9.2%2014l2%202%203.8-4.2%27%2F%3E%3Crect%20x%3D%279%27%20y%3D%273.2%27%20width%3D%276%27%20height%3D%273.6%27%20rx%3D%271.2%27%2F%3E%3C%2Fsvg%3E")}
 .icon-mask--download{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M12%203.8v11.2M7.8%2011l4.2%204.2%204.2-4.2M4.5%2017v1.6A2.4%202.4%200%200%200%206.9%2021h10.2a2.4%202.4%200%200%200%202.4-2.4V17%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M12%203.8v11.2M7.8%2011l4.2%204.2%204.2-4.2M4.5%2017v1.6A2.4%202.4%200%200%200%206.9%2021h10.2a2.4%202.4%200%200%200%202.4-2.4V17%27%2F%3E%3C%2Fsvg%3E")}
+.icon-mask--share{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M12%203.5v11M8%207.2l4-3.7%204%203.7M8.5%2010.5H6.8a1.8%201.8%200%200%200-1.8%201.8v6.4a1.8%201.8%200%200%200%201.8%201.8h10.4a1.8%201.8%200%200%200%201.8-1.8v-6.4a1.8%201.8%200%200%200-1.8-1.8h-1.7%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M12%203.5v11M8%207.2l4-3.7%204%203.7M8.5%2010.5H6.8a1.8%201.8%200%200%200-1.8%201.8v6.4a1.8%201.8%200%200%200%201.8%201.8h10.4a1.8%201.8%200%200%200%201.8-1.8v-6.4a1.8%201.8%200%200%200-1.8-1.8h-1.7%27%2F%3E%3C%2Fsvg%3E")}
 .icon-mask--sheet{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M3.5%209.8h17M10%209.8v9.7M3.5%2014.6h17%27%2F%3E%3Crect%20x%3D%273.5%27%20y%3D%274.5%27%20width%3D%2717%27%20height%3D%2715%27%20rx%3D%272.4%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M3.5%209.8h17M10%209.8v9.7M3.5%2014.6h17%27%2F%3E%3Crect%20x%3D%273.5%27%20y%3D%274.5%27%20width%3D%2717%27%20height%3D%2715%27%20rx%3D%272.4%27%2F%3E%3C%2Fsvg%3E")}
 .icon-mask--flex{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M5.5%207.4V5.5a2%202%200%200%201%202-2h1.2a2%202%200%200%201%202%202v4.1C12.5%208%2015%207.6%2017%208.4c2.3.9%203.5%203.1%203.5%205.6v3.5a3%203%200%200%201-3%203H7A3.5%203.5%200%200%201%203.5%2017v-3.5c0-2.5.7-4.5%202-6.1zM10.7%209.6c-.7%201.5-1%203-1%204.6%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M5.5%207.4V5.5a2%202%200%200%201%202-2h1.2a2%202%200%200%201%202%202v4.1C12.5%208%2015%207.6%2017%208.4c2.3.9%203.5%203.1%203.5%205.6v3.5a3%203%200%200%201-3%203H7A3.5%203.5%200%200%201%203.5%2017v-3.5c0-2.5.7-4.5%202-6.1zM10.7%209.6c-.7%201.5-1%203-1%204.6%27%2F%3E%3C%2Fsvg%3E")}
 .icon-mask--scale{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M12%204v16.5M8%2020.5h8M4.5%208h15M7%208l-3%206M7%208l3%206M17%208l-3%206M17%208l3%206M4%2014a3%203%200%200%200%206%200M14%2014a3%203%200%200%200%206%200%27%2F%3E%3C%2Fsvg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M12%204v16.5M8%2020.5h8M4.5%208h15M7%208l-3%206M7%208l3%206M17%208l-3%206M17%208l3%206M4%2014a3%203%200%200%200%206%200M14%2014a3%203%200%200%200%206%200%27%2F%3E%3C%2Fsvg%3E")}
@@ -5227,6 +5234,40 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 }
 .attention{margin-bottom:0}
 
+/* Effort calibration (Plan 077, OD-20): one number, a bar, what it is, the six signals with their plain counts, and the
+   recent test sets. The bars are quiet ink on the well; the lead signal (test sets) is the one drawn darker. */
+.ovcal{margin-bottom:var(--space-8)}
+.ovcal .ovsec:first-child{margin-top:var(--space-12)}
+.calcard{padding-top:var(--space-12)}
+.calcard__big{display:flex;align-items:baseline;flex-wrap:wrap;gap:var(--space-4) var(--space-8);margin:0}
+.calcard__big b{font-family:var(--font-training-data);font-size:var(--font-size-metric);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink);font-variant-numeric:tabular-nums}
+.calcard__big span{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.calbar{display:block;height:8px;margin-top:var(--space-8);border-radius:var(--radius-pill);background:var(--well);overflow:hidden}
+.calbar--thin{height:4px;margin-top:var(--space-4)}
+.calbar__fill{display:block;height:100%;border-radius:inherit;background:var(--ink)}
+.calcard__what,.calcard__fade{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.calsigs{list-style:none;margin:var(--space-12) 0 0;padding:0}
+.calsig{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:var(--space-8);align-items:baseline;padding:6px 0;
+  font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink)}
+.calsig > span:nth-child(2){color:var(--color-ink-secondary);font-variant-numeric:tabular-nums}
+.calsig .calbar{grid-column:1/-1}
+.calsig:not(.calsig--lead) .calbar__fill{background:var(--color-ink-secondary)}
+.calsig--lead > span:first-child{font-weight:var(--weight-semibold)}
+.calchecks{list-style:none;margin:0;padding:0}
+.calcheck{display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-12);padding:10px 0;border-bottom:1px solid var(--boundary-decorative);
+  font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink)}
+.calcheck__name{min-width:0;overflow-wrap:anywhere}
+.calcheck__name small{display:block;font-size:var(--font-size-caption);color:var(--color-ink-secondary)}
+.calcheck__gd{flex:none;font-family:var(--font-training-data);font-size:var(--font-size-body-small);color:var(--color-ink-secondary);white-space:nowrap}
+.calcheck__gd b{font-weight:var(--weight-semibold);color:var(--color-ink)}
+.calcheck--empty{color:var(--color-ink-secondary);font-size:var(--font-size-body-small)}
+/* Today: the same number in one quiet row above the session's action. */
+.today-cal{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;column-gap:var(--space-12);margin:var(--space-12) 0 var(--space-4);
+  padding:var(--space-12) 0;border-top:1px solid var(--boundary-decorative);border-bottom:1px solid var(--boundary-decorative)}
+.today-cal__label{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.today-cal__n{font-family:var(--font-training-data);font-size:var(--font-size-body);font-weight:var(--weight-semibold);color:var(--color-ink);font-variant-numeric:tabular-nums}
+.today-cal .calbar{grid-column:1/-1}
+
 /* Needs attention: the mark, the lift and its figure share the first line; the
    verdict and its reason run the full width under them, the evidence kind in
    soft text below. The whole row is one button. */
@@ -5514,6 +5555,8 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 #history .histpage__actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,9rem),1fr));gap:var(--space-12);align-items:center;margin-top:var(--space-26)}
 #history .histpage__actions .btn{width:100%;min-height:var(--control-target);white-space:normal}
 #history .histpage__actions .session__del{padding:0 var(--space-8)}
+/* With Share beside Edit, Delete takes its own row under them, centred, rather than a stray half column. */
+#history .histpage__actions:has([data-history-share]) .session__del{grid-column:1/-1;justify-self:center}
 
 #historyCalSheet{height:auto}
 #historyCalSheet .sheetband{flex:none;touch-action:none}
@@ -8620,6 +8663,15 @@ body.is-entry-editor #entryProgramName,
   min-width:0;display:flex;justify-content:flex-end;gap:12px;text-align:right;
   font-family:var(--font-training-data);font-size:var(--font-size-body);font-weight:var(--weight-regular);line-height:var(--line-standard);
 }
+/* "Was the last rep slow?" (Plan 077, OD-25): a quiet line under the exercise's last logged set, during its rest. */
+.ledgerslow{display:flex;align-items:center;justify-content:flex-end;gap:var(--space-8);padding:0 0 var(--space-8);
+  font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.ledgerslow__q{flex:1}
+.ledgerslow__pill{min-width:var(--control-target);min-height:var(--control-target);padding:0 var(--space-12);border:0;border-radius:var(--radius-button);
+  background:var(--well);color:var(--color-ink);font:inherit;font-weight:var(--weight-semibold);cursor:pointer}
+/* The answer stays as a plain word; a tap on it takes it back. */
+.ledgerslow__pill[aria-pressed="true"]{background:transparent}
+.ledgerslow__pill:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .ledgerline__prev{
   grid-column:2;min-width:0;text-align:right;
   font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);
