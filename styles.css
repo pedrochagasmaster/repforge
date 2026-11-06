@@ -1210,15 +1210,7 @@ body:has(.exercise--focus.is-text-scaled) .wo-head__title{font-size:min(var(--fo
 .exercise--focus.is-text-scaled .ledgerline__vals{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr);font-size:min(var(--font-size-body),var(--large-cap-data))}
 .exercise--focus.is-text-scaled .ledgerline__vals > .fx-col{min-width:0}
 .exercise--focus.is-text-scaled .ledgerline__idx{font-size:min(var(--font-size-body-small),var(--large-cap-small))}
-.exercise--focus.is-text-scaled /* "Was the last rep slow?" (Plan 077, OD-25): a quiet line under the exercise's last logged set, during its rest. */
-.ledgerslow{display:flex;align-items:center;justify-content:flex-end;gap:var(--space-8);padding:0 0 var(--space-8);
-  font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
-.ledgerslow__q{flex:1}
-.ledgerslow__pill,.ledgerslow__answer{min-width:var(--control-target);min-height:var(--control-target);padding:0 var(--space-12);border:0;border-radius:var(--radius-button);
-  background:var(--well);color:var(--color-ink);font:inherit;font-weight:var(--weight-semibold);cursor:pointer}
-.ledgerslow__answer{background:transparent;font-weight:var(--weight-semibold);color:var(--color-ink)}
-.ledgerslow__pill:focus-visible,.ledgerslow__answer:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
-.ledgerline__prev{font-size:min(var(--font-size-body-small),var(--large-cap-body))}
+.exercise--focus.is-text-scaled .ledgerline__prev{font-size:min(var(--font-size-body-small),var(--large-cap-body))}
 .exercise--focus.is-text-scaled .ledger__more{font-size:min(var(--font-size-body-small),var(--large-cap-small))}
 .exercise--focus.is-text-scaled .shelf__lab{font-size:min(var(--font-size-body-small),var(--large-cap-caption))}
 .exercise--focus.is-text-scaled .shelf__unit,.exercise--focus.is-text-scaled .shelf__cap{font-size:min(var(--font-size-caption),var(--large-cap-caption))}
@@ -8662,6 +8654,14 @@ body.is-entry-editor #entryProgramName,
   min-width:0;display:flex;justify-content:flex-end;gap:12px;text-align:right;
   font-family:var(--font-training-data);font-size:var(--font-size-body);font-weight:var(--weight-regular);line-height:var(--line-standard);
 }
+/* "Was the last rep slow?" (Plan 077, OD-25): a quiet line under the exercise's last logged set, during its rest. */
+.ledgerslow{display:flex;align-items:center;justify-content:flex-end;gap:var(--space-8);padding:0 0 var(--space-8);
+  font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.ledgerslow__q{flex:1}
+.ledgerslow__pill,.ledgerslow__answer{min-width:var(--control-target);min-height:var(--control-target);padding:0 var(--space-12);border:0;border-radius:var(--radius-button);
+  background:var(--well);color:var(--color-ink);font:inherit;font-weight:var(--weight-semibold);cursor:pointer}
+.ledgerslow__answer{background:transparent;font-weight:var(--weight-semibold);color:var(--color-ink)}
+.ledgerslow__pill:focus-visible,.ledgerslow__answer:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 .ledgerline__prev{
   grid-column:2;min-width:0;text-align:right;
   font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);
