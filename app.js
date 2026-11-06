@@ -459,6 +459,8 @@ function isSafeLogRow(entry){
   if(Object.prototype.hasOwnProperty.call(entry,"rirMeasured")&&typeof entry.rirMeasured!=="boolean")return false;
   // How the effort was entered (Plan 077, OD-1): the draft's enum, or absent (unknown, never backfilled).
   if(Object.prototype.hasOwnProperty.call(entry,"effortSource")&&!(WorkoutDraft?.EFFORT_SOURCES||[]).includes(entry.effortSource))return false;
+  // "Was the last rep slow?" (Plan 077, OD-25): a boolean, or absent.
+  if(Object.prototype.hasOwnProperty.call(entry,"lastRepSlow")&&typeof entry.lastRepSlow!=="boolean")return false;
   // A max set's guess (Plan 077, OD-17): the draft's shape, or absent.
   if(Object.prototype.hasOwnProperty.call(entry,"calibration")&&!WorkoutDraft?.validCalibration?.(entry.calibration))return false;
   for(const key of ["performedName","performedLibraryId","performedMovementId","performedPrimary","performedSecondary"])
@@ -1649,7 +1651,7 @@ function glossaryPopover(termKey,anchor){const g=$("#glossary");if(!g)return;
   const viewportHeight=document.documentElement.clientHeight||window.innerHeight;
   const top=Math.max(8,Math.min(r.bottom+6,viewportHeight-bounds.height-8));
   g.style.top=`${window.scrollY+top}px`;g.style.left=`${window.scrollX+left}px`}
-const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",lang:null,rirMode:"numeric",effortScale:"feel",voiceInputEnabled:false,maxSetPrompts:true,notify:{enabled:false,timer:true,session:true,unfinished:true,missed:true}};
+const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",lang:null,rirMode:"numeric",effortScale:"feel",voiceInputEnabled:false,maxSetPrompts:true,slowRepTaps:true,notify:{enabled:false,timer:true,session:true,unfinished:true,missed:true}};
 const normSetting=(v,def,min=0)=>Number.isFinite(+v)&&+v>=min?+v:def;
 /** The hard-set threshold is an RIR a set must be at or under to count as hard: 1 to 10, else the default (Plan 077,
  *  OD-23e). A setup link may still carry 0–100; the device applies it within these bounds. */
@@ -1669,7 +1671,7 @@ function withUnknownKeys(raw,known){
   return Object.assign(out,known)}
 function normalizeNotify(n){
   return withUnknownKeys(n,{enabled:!!(n&&n.enabled),timer:n?.timer!==false,session:n?.session!==false,unfinished:n?.unfinished!==false,missed:n?.missed!==false})}
-const normalizeSettings=s=>{const lang=I18N?.normalizeLang(s?.lang)||I18N?.detectLang()||"en";return withUnknownKeys(s,{jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normHardRir(s?.hardRir),restSec:normalizeRestSec(s?.restSec),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",lang,rirMode:s?.rirMode==="effort"?"effort":"numeric",effortScale:s?.effortScale==="reps"?"reps":"feel",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled),maxSetPrompts:normBool(s?.maxSetPrompts,DEFAULTS.maxSetPrompts),notify:normalizeNotify(s?.notify)})};
+const normalizeSettings=s=>{const lang=I18N?.normalizeLang(s?.lang)||I18N?.detectLang()||"en";return withUnknownKeys(s,{jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normHardRir(s?.hardRir),restSec:normalizeRestSec(s?.restSec),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",lang,rirMode:s?.rirMode==="effort"?"effort":"numeric",effortScale:s?.effortScale==="reps"?"reps":"feel",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled),maxSetPrompts:normBool(s?.maxSetPrompts,DEFAULTS.maxSetPrompts),slowRepTaps:normBool(s?.slowRepTaps,DEFAULTS.slowRepTaps),notify:normalizeNotify(s?.notify)})};
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const LB=2.2046226218;
 /* Locale keyboards (pt-BR, de, fr, …) put a comma on the decimal pad. HTML
@@ -7420,6 +7422,123 @@ function updateFocusChrome(){document.body.classList.toggle("is-focus-wo",workou
  * most once a workout, once a lift in 14 days and twice a week, never in a lighter week or right after a 0-RIR set
  * (owner, 2026-11-05). Nothing in the engine reads it yet. */
 const EffortCalibration=window.RepForgeEffortCalibration;
+const CalibrationGauge=window.RepForgeCalibrationGauge;
+/* ---- Calibration evidence (Plan 077, OD-20) ----
+   One user-level number, read off the log: the max sets (T), sets that agree within a workout (A), hitting the
+   suggestion (H, the engine replayed on the history before each recent workout), week-to-week consistency (W), the
+   "last rep slow?" answers (S) and history (R). Pure arithmetic lives in calibration-gauge.js; this gathers its inputs,
+   once per log and day. */
+let gaugeCache={key:"",value:null};
+const programGaugeKey=ex=>String(ex?.libraryId||ex?.name||"");
+function gaugeHits(){
+  const engine=window.RepForgeProgression,compiler=window.RepForgeProgramCompiler,definition=state.programMeta?.programDefinition;
+  if(!CalibrationGauge||!engine?.recommendSets||!compiler?.prescriptionsForCycle||!Array.isArray(definition?.days))return[];
+  try{
+    const cycles=Number.isInteger(definition.cycles)&&definition.cycles>0?definition.cycles:1;
+    const cycle=Math.min(cycles,Math.max(1,mesocycleLifecycle(state.programMeta).current||1));
+    const all=compiler.prescriptionsForCycle(definition,cycle),sessionsByKey={},plans={},seen=new Set();
+    const loadSemantics=["loadKg","assistanceKg","loadPerSideKg","persistentLoadPerSideKg"];
+    for(const day of definition.days)for(const slot of day.slots||[]){
+      const prescriptions=all.filter(item=>item.slotId===slot.id);if(!prescriptions.length)continue;
+      const first=prescriptions[0],key=`${first.exerciseId}|${JSON.stringify(first.metricIds)}`;
+      if(seen.has(key))continue;seen.add(key);
+      const metrics=slot.metricDefinitions||[];
+      const repSemantic=metrics.find(m=>m.semantic==="reps"||m.semantic==="repsPerSide")?.semantic;
+      const loadSemantic=metrics.find(m=>loadSemantics.includes(m.semantic))?.semantic;
+      if(!repSemantic||!loadSemantic)continue;
+      const grouped=new Map();
+      for(const row of state.log||[]){
+        if(!row||row.warmup)continue;
+        const performed=enginePerformedRow(row,first.exerciseId,first.metricIds);if(!performed)continue;
+        const sessionId=String(row.session||"");if(!sessionId)continue;
+        if(!grouped.has(sessionId))grouped.set(sessionId,{sessionId,date:row.date,created:row.created,engine:[],sets:[]});
+        const group=grouped.get(sessionId),read=readLogRow(row);
+        group.engine.push(performed);
+        group.sets.push({setIndex:row.setIndex,load:read.load,reps:read.reps,rir:performed.rir,q:CalibrationGauge.rowQuality(row)})}
+      const sessions=[...grouped.values()].sort(compareLogChronology);if(!sessions.length)continue;
+      sessionsByKey[key]=sessions.map(session=>({date:session.date,sets:session.sets,
+        engine:{sessionId:session.sessionId,completed:true,date:session.date,sets:session.engine.sort((a,b)=>a.setIndex-b.setIndex)}}));
+      plans[key]={prescriptions,repSemantic,loadSemantic,slotId:slot.id,metricDefinitions:slot.metricDefinitions,
+        context:{bySlotId:{[slot.id]:slotLoadingContext(slot)}}}}
+    const settings={weightMatch:state.settings.weightMatch===true,expandRepRange:state.settings.expandRepRange!==false};
+    return CalibrationGauge.hitsFrom(sessionsByKey,(prior,session,key)=>{
+      // The shift the lifter had that day (Plan 077 PR 5): only the test sets before this workout count.
+      const plan=plans[key],history=prior.map(item=>item.engine);
+      const calibration=liftCalibration(history,plan.context.bySlotId[plan.slotId],plan.metricDefinitions,[],session.date);
+      const results=engine.recommendSets(plan.prescriptions,history,[],plan.context,
+        {...settings,...(calibration.delta?{calibration:{version:calibration.version,delta:calibration.delta}}:{})});
+      return plan.prescriptions.map((prescription,index)=>{
+        const result=results[index];if(result?.status!=="recommended")return null;
+        const reps=result.targets?.[plan.repSemantic];
+        return{setIndex:prescription.setIndex-1,load:result.targets?.[plan.loadSemantic],
+          reps:typeof reps==="number"?reps:reps?.min,rir:prescription.rir}})})}
+  catch(error){console.warn("calibration replay failed",error);return[]}}
+/** The gauge and its breakdown, or null without a program or any logged workout. */
+function calibrationGauge(){
+  if(!CalibrationGauge||!Array.isArray(state.log)||!state.log.length||!state.program?.length)return null;
+  const log=state.log,lastRow=log[log.length-1];
+  const key=JSON.stringify([log.length,lastRow?.created,lastRow?.session,state.programMeta?.id,state.programMeta?.blockId,today(),state.settings.slowRepTaps!==false]);
+  if(gaugeCache.key===key)return gaugeCache.value;
+  const observations=[],checks=[],recent=[];
+  for(const row of log){
+    if(!row||row.warmup)continue;
+    const keyOf=maxSetRowKey(row);
+    if(row.effortSource==="failure"&&row.calibration){
+      const read=readLogRow(row);
+      checks.push({key:keyOf,date:row.date});
+      recent.push({date:row.date,name:row.performedName||row.name||"",guess:row.calibration.predictedReps,did:read.reps});
+      continue}
+    const read=readLogRow(row),rir=typeof row.rir==="number"&&Number.isFinite(row.rir)?row.rir:null;
+    observations.push({key:keyOf,session:String(row.session||""),date:row.date,set:Number(row.set)||Number(row.setIndex)+1||0,
+      load:read.load,reps:read.reps,rir,q:CalibrationGauge.rowQuality(row),
+      ...(typeof row.lastRepSlow==="boolean"?{lastRepSlow:row.lastRepSlow}:{})})}
+  const programKeys=[...new Set(state.program.map(programGaugeKey).filter(Boolean))];
+  const eligibleKeys=EffortCalibration?state.program.filter((ex,index,list)=>list.findIndex(other=>programGaugeKey(other)===programGaugeKey(ex))===index)
+    .filter(ex=>{const exercise=ex.libraryId?rawExercise(ex.libraryId):null;
+      return EffortCalibration.eligibility({exercise,lookup:id=>rawCatalogObject(id),equipmentName:null,customName:exercise?"":String(ex.name||"")}).eligible}).length:0;
+  const value=CalibrationGauge.compute({now:today(),checks,observations,hits:gaugeHits(),programKeys,eligibleKeys:Math.max(1,eligibleKeys),
+    capacity:(load,reps,rir)=>capE1rm(load,reps,rir),slowTapOn:state.settings.slowRepTaps!==false});
+  value.recent=recent.sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,3);
+  gaugeCache={key,value};
+  return value}
+const gaugeBar=(pct,cls="")=>`<span class="calbar${cls}" aria-hidden="true"><span class="calbar__fill" style="width:${Math.max(0,Math.min(100,pct))}%"></span></span>`;
+/** Progress › Overview: the number, what it is, the six signals with their plain counts, and the recent max sets. */
+function renderOverviewCalibration(){
+  const el=$("#overviewCalibration");if(!el)return;
+  const g=calibrationGauge();
+  el.classList.toggle("hidden",!g);if(!g){el.innerHTML="";return}
+  const c=g.counts,comp=g.components,ev=g.evidence;
+  // Each signal reads its evidence against its target and, where there is any, the share that agrees: the same two
+  // numbers its bar multiplies (min(1, n / target) × agreement). Evidence is weighted (it fades, coarse rows count
+  // half), so the counts never run past the target.
+  const reading=(item,unitKey)=>{const n=Math.floor(Math.min(item.n,item.target)+1e-9);
+    const base=t(unitKey,{n,m:item.target});
+    return item.rate==null||item.n<=0?base:`${base} · ${t("calib.ev.agree",{pct:Math.round(item.rate*100)})}`};
+  const signals=[
+    ["calib.sig.tests",t("calib.of",{n:c.counted,m:c.needed}),comp.T,true],
+    ["calib.sig.agree",reading(ev.A,"calib.ev.pairs"),comp.A],
+    ["calib.sig.hit",reading(ev.H,"calib.ev.sets"),comp.H],
+    ["calib.sig.weeks",reading(ev.W,"calib.ev.weeks"),comp.W],
+    ["calib.sig.slow",state.settings.slowRepTaps===false?t("calib.off"):reading(ev.S,"calib.ev.taps"),comp.S],
+    ["calib.sig.history",reading(ev.R,"calib.ev.history"),comp.R]];
+  const lifts=c.checkKeys;
+  const rows=g.recent.length?g.recent.map(item=>`<li class="calcheck"><span class="calcheck__name">${esc(item.name)}<small>${esc(shortDate(item.date))}</small></span>`+
+    `<span class="calcheck__gd">${esc(t("maxset.guessed"))} <b>${esc(String(item.guess))}</b> → ${esc(t("maxset.did"))} <b>${esc(String(item.did??"—"))}</b></span></li>`).join("")
+    :`<li class="calcheck calcheck--empty">${esc(t("calib.empty"))}</li>`;
+  el.innerHTML=`<div class="ovsec"><h3 class="ovsec__title">${esc(t("calib.title"))}</h3></div>`+
+    `<div class="calcard" role="group" aria-label="${esc(t("calib.aria",{n:g.percent}))}">`+
+      `<p class="calcard__big"><b>${esc(t("calib.percent",{n:g.percent}))}</b><span>${esc(c.checks?`${t(c.checks===1?"calib.tests_one":"calib.tests_other",{n:c.checks})} · ${t(lifts===1?"calib.lifts_one":"calib.lifts_other",{n:lifts})}`:t("calib.no_tests"))}</span></p>`+
+      gaugeBar(g.percent)+
+      `<p class="calcard__what">${esc(t(g.percent>=100?"calib.full":"calib.what"))}</p>`+
+      `<ul class="calsigs">${signals.map(([label,value,share,lead])=>`<li class="calsig${lead?" calsig--lead":""}"><span>${esc(t(label))}</span><span>${esc(value)}</span>${gaugeBar(share*100," calbar--thin")}</li>`).join("")}</ul>`+
+      `<p class="calcard__fade">${esc(t("calib.fade"))}</p></div>`+
+    `<div class="ovsec"><h3 class="ovsec__title">${esc(t("calib.recent"))}</h3></div><ul class="calchecks">${rows}</ul>`}
+/** Today: the same number in one quiet row, from the first logged workout. */
+function renderTodayCalibration(){
+  const el=$("#todayCalibration");if(!el)return;
+  const g=calibrationGauge();
+  el.classList.toggle("hidden",!g);if(!g){el.innerHTML="";return}
+  el.innerHTML=`<span class="today-cal__label">${esc(t("calib.today"))}</span><b class="today-cal__n">${esc(t("calib.percent",{n:g.percent}))}</b>${gaugeBar(g.percent," calbar--thin")}`}
 /* "Not now" closes the prompt for that exercise in this workout. */
 const maxSetDeclined=new Set();
 let maxSetUi=null;
@@ -7464,7 +7583,9 @@ function maxSetOffer(ex,n){
   const fit=maxSetEligibility(de,set);if(!fit.eligible)return null;
   const inWorkout=Object.values(draft.exercises).reduce((count,item)=>count+Object.values(item.sets).filter(other=>other.calibration).length,0);
   const history=(state.log||[]).filter(row=>row?.calibration&&row.effortSource==="failure").map(row=>({exerciseKey:maxSetRowKey(row),date:row.date}));
-  if(!EffortCalibration.frequencyAllows({history,today:draft.program.scheduleDate||today(),exerciseKey:maxSetDraftKey(de,set),inWorkout}).ok)return null;
+  // At a gauge of 100 % the checks keep coming, at most once a month (OD-12).
+  const gaugeFull=(calibrationGauge()?.percent??0)>=100;
+  if(!EffortCalibration.frequencyAllows({history,today:draft.program.scheduleDate||today(),exerciseKey:maxSetDraftKey(de,set),inWorkout,gaugeFull}).ok)return null;
   const guess=EffortCalibration.prefillGuess(reps,rir);if(!guess)return null;
   const kg=parseDec(setFieldVals(ex,before.ordinal,recommendation(ex),hydrateWorkoutDraft(),last(ex)).kgVal);
   return{set,before,guess,reps,rir,press:fit.press,load:Number.isFinite(kg)&&kg>0?`${fmt(kg)} ${unitLabel()}`:""}}
@@ -8397,7 +8518,7 @@ function paintSessionRest(){
 function renderTodayNoProgram(){
   for(const sel of["#todayProgram","#todaySessionLabel","#todaySession","#startWorkout","#chooseAnotherDay",
     "#reviewTodaySession","#logAnotherSession","#todayWeekLabel","#todayWeek",
-    "#todayUpNextLabel","#todayUpNext","#todayLast"]){
+    "#todayUpNextLabel","#todayUpNext","#todayLast","#todayCalibration"]){
     const el=$(sel);if(el)el.classList.add("hidden")}
   const sess=$("#todaySession");parkDayAction();if(sess)sess.innerHTML="";
   renderTodayLive(null);
@@ -8418,6 +8539,7 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
   if(empty)empty.classList.add("hidden");
   for(const sel of["#todaySessionLabel","#todaySession","#todayWeekLabel","#todayWeek","#todayUpNextLabel","#todayUpNext","#todayLast"]){
     const el=$(sel);if(el)el.classList.remove("hidden")}
+  renderTodayCalibration();
   const week=weeklySnapshot();
   const mc=mesocycleWeek(),nm=state.programMeta?.name,progEl=$("#todayProgram");
   if(progEl){if(nm||mc.current!=null||mc.isComplete){progEl.classList.remove("hidden");
@@ -9406,9 +9528,34 @@ function focusLedgerRowsHtml(ex,r,draft,prev,{peek=false}){
       :`<small class="ledgerline__tag">${esc(t("maxset.tag",{n:maxSet.calibration.predictedReps}))}</small>`;
     const cls=`ledgerline${prevLine||extra?" ledgerline--two":""}${open?" ledgerline--open":""}${n===freshN?" is-fresh":""}`;
     if(done)rows.push(`<button type="button" class="${cls}" data-ldone${fold?" hidden":""}${peek?dead()
-      :` data-editex="${esc(ex.id)}" data-editn="${n}" aria-label="${esc(t("focus.edit_set_aria",{n}))}"`}>${cells}${extra}</button>`);
+      :` data-editex="${esc(ex.id)}" data-editn="${n}" aria-label="${esc(t("focus.edit_set_aria",{n}))}"`}>${cells}${extra}</button>`+
+      (fold?"":lastRepSlowHtml(ex,n,peek)));
     else rows.push(`<div class="${cls}"${n===editN?' aria-current="true"':""} data-lrow="${n}">${cells}${extra}</div>`)}
   return rows.join("")}
+/** "Was the last rep slow?" (Plan 077, OD-25; owner: on the last set of each exercise only). A quiet line under that
+ *  set's row while its rest runs, never on the shelf, so it can't slow logging; one tap answers, and the answer stays
+ *  as a word that a second tap takes back. A max set is never asked: it went to failure. */
+function lastRepSlowHtml(ex,n,peek){
+  if(peek||state.settings.slowRepTaps===false||!activeWorkoutDraft)return"";
+  const de=activeWorkoutDraft.exercises?.[ex.id];if(!de||de.status!=="active")return"";
+  const set=de.setOrder.map(id=>de.sets[id]).filter(item=>item.role==="working").at(-1);
+  if(!set||set.ordinal!==n||set.completion==="pending"||set.calibration)return"";
+  const key=`${ex.id}_${n}`,answer=set.completion.lastRepSlow,q=t("focus.slow.q");
+  if(typeof answer==="boolean"){
+    const word=t(answer?"focus.slow.yes":"focus.slow.no");
+    return `<div class="ledgerslow"><span class="ledgerslow__q" aria-hidden="true">${esc(q)}</span>`+
+      `<button type="button" class="ledgerslow__pill" data-slowclear="${esc(key)}" aria-pressed="true" aria-label="${esc(t("focus.slow.clear_aria",{answer:word}))}">${esc(word)}</button></div>`}
+  if(!(restEnd&&restExerciseId===ex.id))return"";
+  return `<div class="ledgerslow" role="group" aria-label="${esc(q)}"><span class="ledgerslow__q" aria-hidden="true">${esc(q)}</span>`+
+    `<button type="button" class="ledgerslow__pill" data-slow="${esc(key)}" data-v="1">${esc(t("focus.slow.yes"))}</button>`+
+    `<button type="button" class="ledgerslow__pill" data-slow="${esc(key)}" data-v="0">${esc(t("focus.slow.no"))}</button></div>`}
+async function answerLastRepSlow(key,value){
+  const target=draftTargetFromKey(key);if(!activeWorkoutDraft||!target)return;
+  const result=await WorkoutSession.dispatch("setLastRepSlow",{exerciseInstanceId:target.exerciseInstanceId,setId:target.setId,value});
+  if(result.status!=="applied")return;
+  renderWorkout();
+  // The answer, or the question again, takes the place of the button that was tapped.
+  quietFocus($(`#workout .exercise.is-current [data-slowclear="${CSS.escape(key)}"]`)||$(`#workout .exercise.is-current [data-slow="${CSS.escape(key)}"]`))}
 /** The disclosure trades the table's rows in place, in the measured height run the cue slot uses (`animateSlot`):
  *  drawn at once under reduced motion or without the runtime. The disclosure itself is not rebuilt, so it keeps focus. */
 function toggleFocusLedger(button){
@@ -10720,6 +10867,8 @@ function bindWorkout(){
     const fe=$w("[data-fearly]")[0];if(fe)fe.onclick=()=>{openSessionSheet();$("#sessionEarlyFinish")?.click()};
     $w("[data-fnext],[data-fnextrow]").forEach(b=>b.onclick=()=>focusAnimateTo(1));
     $w("[data-ledgermore]").forEach(b=>b.onclick=()=>toggleFocusLedger(b));
+    $w("[data-slow]").forEach(b=>b.onclick=()=>answerLastRepSlow(b.dataset.slow,b.dataset.v==="1"));
+    $w("[data-slowclear]").forEach(b=>b.onclick=()=>answerLastRepSlow(b.dataset.slowclear,null));
     $w("[data-fnote]").forEach(b=>b.onclick=()=>openExNoteSheet(b.dataset.fnote));
     $w("[data-maxset-cancel]").forEach(b=>b.onclick=()=>{const key=b.dataset.maxsetCancel,at=key.lastIndexOf("_");
       cancelMaxSet(key.slice(0,at),+key.slice(at+1))});
@@ -11710,7 +11859,7 @@ function renderStats(){
     for(const sel of["#thisWeek","#attention","#overviewStrength"]){const el=$(sel);if(el)el.classList.toggle("hidden",!hasLog)}
   }
   renderThisWeek();
-  renderAttention();renderOverviewStrength();renderReview();
+  renderAttention();renderOverviewStrength();renderOverviewCalibration();renderReview();
   if(statsSeg==="review")renderReview();
   renderEvidenceView();
   if($("#stats")?.classList.contains("active")&&!evidenceView)
@@ -15079,6 +15228,8 @@ function renderSettings(){
   const vt=$("#voiceToggle");if(vt){vt.classList.toggle("is-on",!!state.settings.voiceInputEnabled);vt.setAttribute("aria-pressed",state.settings.voiceInputEnabled?"true":"false")}
   const msOn=state.settings.maxSetPrompts!==false,ms=$("#maxSetPrompts");if(ms)ms.checked=msOn;
   const mt=$("#maxSetToggle");if(mt){mt.classList.toggle("is-on",msOn);mt.setAttribute("aria-pressed",msOn?"true":"false")}
+  const srOn=state.settings.slowRepTaps!==false,sr=$("#slowRepTaps");if(sr)sr.checked=srOn;
+  const st=$("#slowRepToggle");if(st){st.classList.toggle("is-on",srOn);st.setAttribute("aria-pressed",srOn?"true":"false")}
   const telemetryEnabled=window.RepForgeTelemetry?.isEnabled?.()!==false;
   const tt=$("#telemetryToggle");if(tt){tt.classList.toggle("is-on",telemetryEnabled);tt.setAttribute("aria-pressed",telemetryEnabled?"true":"false")}
   reconcileNotifyPermission();
@@ -15145,7 +15296,7 @@ async function commitSettings(silent){const editRevision=settingsEditRevision;co
   const originalDraftRaw=oldUnit===newUnit?null:readDraftRaw();
   const unitEffect=draftUnitConversionEffect(originalDraftRaw,oldUnit,newUnit);
   const proposal=cloneSnapshot(state);
-  proposal.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=parseDec($("#minJump").value);return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec,lastExport:state.settings.lastExport,unit:newUnit,lang:newLang,rirMode:newRirMode,effortScale:newEffortScale,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked,maxSetPrompts:$("#maxSetPrompts")?$("#maxSetPrompts").checked:state.settings.maxSetPrompts!==false,notify:normalizeNotify({enabled:!!state.settings.notify?.enabled,timer:!!$("#notifyTimer")?.checked,session:!!$("#notifySession")?.checked,unfinished:!!$("#notifyUnfinished")?.checked,missed:!!$("#notifyMissed")?.checked})});
+  proposal.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=parseDec($("#minJump").value);return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec,lastExport:state.settings.lastExport,unit:newUnit,lang:newLang,rirMode:newRirMode,effortScale:newEffortScale,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked,maxSetPrompts:$("#maxSetPrompts")?$("#maxSetPrompts").checked:state.settings.maxSetPrompts!==false,slowRepTaps:$("#slowRepTaps")?$("#slowRepTaps").checked:state.settings.slowRepTaps!==false,notify:normalizeNotify({enabled:!!state.settings.notify?.enabled,timer:!!$("#notifyTimer")?.checked,session:!!$("#notifySession")?.checked,unfinished:!!$("#notifyUnfinished")?.checked,missed:!!$("#notifyMissed")?.checked})});
   const result=await commitProposedState(proposal,storageIO,{effect:unitEffect||modeEffect});
   if(!(result.localOk||result.idbOk)){if(editRevision===settingsEditRevision)renderSettings();return result}
   reportSettingsChanged(settingsBefore,state.settings);
@@ -24822,6 +24973,7 @@ function init(){
   $("#settings").addEventListener("input",()=>{settingsEditRevision++});
   const voiceTog=$("#voiceToggle");if(voiceTog)voiceTog.onclick=()=>{const c=$("#voiceInputEnabled");if(c){c.checked=!c.checked;commitChangedSettings()}};
   const maxTog=$("#maxSetToggle");if(maxTog)maxTog.onclick=()=>{const c=$("#maxSetPrompts");if(c){c.checked=!c.checked;commitChangedSettings()}};
+  const slowTog=$("#slowRepToggle");if(slowTog)slowTog.onclick=()=>{const c=$("#slowRepTaps");if(c){c.checked=!c.checked;commitChangedSettings()}};
   const telemetryTog=$("#telemetryToggle");if(telemetryTog)telemetryTog.onclick=()=>{
     try{window.RepForgeTelemetry?.setEnabled(!(window.RepForgeTelemetry?.isEnabled?.()!==false))}catch{}
     renderSettings()};

@@ -1081,6 +1081,13 @@
       "variants": "demandingDockText"
     },
     {
+      "id": "calibration-mini",
+      "flow": "today",
+      "label": "Today — effort calibration",
+      "scenario": "The small effort calibration row on Today, above the session's action: the label, the number and a thin bar (Plan 077, OD-20).",
+      "variants": "demandingText"
+    },
+    {
       "id": "dock-viewer",
       "flow": "today",
       "label": "Today — dock large-content viewer",
@@ -1284,6 +1291,13 @@
       "variants": "demandingText"
     },
     {
+      "id": "last-rep-slow",
+      "flow": "workout",
+      "label": "Workout — Last rep slow?",
+      "scenario": "After an exercise's last set, during its rest: Last rep slow? with Yes and No under that set's row, off the shelf (Plan 077, OD-25).",
+      "variants": "demandingText"
+    },
+    {
       "id": "exercise-note",
       "flow": "workout",
       "label": "Workout — exercise note",
@@ -1393,6 +1407,13 @@
       "flow": "progress",
       "label": "Progress — overview",
       "scenario": "The Progress landing tab.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "overview-calibration",
+      "flow": "progress",
+      "label": "Progress — effort calibration",
+      "scenario": "Overview opens on the effort calibration gauge: the number with its test sets and lifts, what it measures, the six signals with plain counts, how evidence fades, and the recent test sets as guess and result (Plan 077, OD-20).",
       "variants": "demandingText"
     },
     {
