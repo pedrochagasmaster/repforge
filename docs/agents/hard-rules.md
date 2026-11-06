@@ -65,8 +65,8 @@ numbers that briefs and history already cite.
     the sense of `AGENTS.md`. Recapture catalog frames only for the states your
     change affects, or fetch CI's frames with `tools/fetch-ci-captures.mjs`.
 12. **Watch your own CI** (owner, 2026-10-23). After every push, start a
-    background watch on your run and react to red at once. `ci-full` starts by
-    itself after `ci`; watch it, and never dispatch it by hand. Never sit idle
+    background watch on your run and react to red at once. `ci-full` runs in the
+    same workflow run after `ci`; check both, and never dispatch it by hand. Never sit idle
     on unwatched CI.
 13. **A flake is a defect** (owner, 2026-10-23). A test that fails and then
     passes on the diagnostic replay is fixed in the same PR at its source:

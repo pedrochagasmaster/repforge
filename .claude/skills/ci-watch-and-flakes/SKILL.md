@@ -13,11 +13,11 @@ Right after each push, start a background watcher on your own run, then keep wor
 
 ```bash
 R=pedrochagasmaster/repforge
-id=$(gh run list -R $R --branch "$(git branch --show-current)" --workflow ci --limit 1 --json databaseId -q '.[0].databaseId')
+id=$(gh run list -R $R --branch "$(git branch --show-current)" --workflow CI --limit 1 --json databaseId -q '.[0].databaseId')
 gh run watch "$id" -R $R --exit-status >/dev/null 2>&1; echo "$id $(gh run view "$id" -R $R --json conclusion -q .conclusion)"
 ```
 
-Run it in the background (`run_in_background` or a Monitor) so its exit wakes you. When `ci` passes, `ci-full` starts by itself; watch that run the same way. Do not poll on a timer, and never dispatch `ci-full`.
+Run it in the background (`run_in_background` or a Monitor) so its exit wakes you. `ci` and `ci-full` are checks inside that one `CI` workflow run: the full-lane jobs start by themselves after the PR lane passes (or are skipped when the change reaches none), so the same watch covers both. When it ends, confirm with `gh pr checks <n>` that both `ci` and `ci-full` passed on your head. Do not poll on a timer, and never dispatch `ci-full`.
 
 On red, at once:
 1. Read the failing job's log. If it is empty, read the run's artifacts, the evidence JSON and the fixture diffs. `node tools/fetch-ci-captures.mjs <run-id>` brings back frames that rendered differently.
