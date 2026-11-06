@@ -9454,35 +9454,15 @@
         "default",
         "hover",
         "pressed",
-        "focus-visible"
+        "focus-visible",
+        "selected"
       ],
-      "rationale": "Answers Was the last rep slow? on the exercise's last logged set (Plan 077, OD-25): an optional, one-tap Yes or No that never sits on the shelf.",
+      "rationale": "Answers Was the last rep slow? on the exercise's last logged set (Plan 077, OD-25): an optional one-tap Yes or No that never sits on the shelf. The given answer stays as a selected word, and a tap on it takes it back.",
       "owner": "plan-077",
       "catalogStates": [
         "workout/last-rep-slow"
       ],
       "neverDisabledReason": "The question shows only while it can be answered."
-    },
-    {
-      "id": "last-rep-slow-clear",
-      "selector": ".ledgerslow__answer",
-      "roles": {
-        "control": "quiet-navigation"
-      },
-      "variant": null,
-      "facets": [],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible"
-      ],
-      "rationale": "The given answer as a word; a tap takes it back so the question asks again.",
-      "owner": "plan-077",
-      "catalogStates": [
-        "workout/last-rep-slow"
-      ],
-      "neverDisabledReason": "An answer can always be taken back while the set is in the workout."
     },
     {
       "id": "shelf-input-not-id",

@@ -9544,7 +9544,7 @@ function lastRepSlowHtml(ex,n,peek){
   if(typeof answer==="boolean"){
     const word=t(answer?"focus.slow.yes":"focus.slow.no");
     return `<div class="ledgerslow"><span class="ledgerslow__q" aria-hidden="true">${esc(q)}</span>`+
-      `<button type="button" class="ledgerslow__answer" data-slowclear="${esc(key)}" aria-label="${esc(t("focus.slow.clear_aria",{answer:word}))}">${esc(word)}</button></div>`}
+      `<button type="button" class="ledgerslow__pill" data-slowclear="${esc(key)}" aria-pressed="true" aria-label="${esc(t("focus.slow.clear_aria",{answer:word}))}">${esc(word)}</button></div>`}
   if(!(restEnd&&restExerciseId===ex.id))return"";
   return `<div class="ledgerslow" role="group" aria-label="${esc(q)}"><span class="ledgerslow__q" aria-hidden="true">${esc(q)}</span>`+
     `<button type="button" class="ledgerslow__pill" data-slow="${esc(key)}" data-v="1">${esc(t("focus.slow.yes"))}</button>`+
