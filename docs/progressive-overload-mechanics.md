@@ -153,6 +153,28 @@ Log a set at 7 in reserve and it counts as 5 for capacity purposes. The
 word-based effort mode never exceeds 3, so it always sits inside the
 ceiling.
 
+### Test sets: how your own estimates are corrected
+
+Before an exercise's last set, the app sometimes offers a test set: you
+guess how many reps you can do at that weight, then take the set to
+failure. Your guess against what you did shows how well you judge what's
+left on that exercise.
+
+Nothing changes until an exercise has **three test sets**. From then on,
+if your guesses keep landing high (you did fewer reps than you guessed),
+the app reads the reps in reserve you log on that exercise as a little
+lower, so its suggestions get a little more conservative. If they keep
+landing low, it reads them as a little higher, so it allows a little more.
+The correction is the average miss pulled towards zero, at most one rep
+upward or two downward, and the suggested weight never moves more than one
+step up or two steps down because of it. If your test sets disagree with
+each other, nothing changes.
+
+Each machine or loading setup is its own exercise here, only the last six
+test sets in the past six months count, and a break of six weeks or more
+starts the count again. A test set's own 0 in reserve is measured, not
+estimated, so it is never corrected and never counted as fatigue.
+
 ### One strength number across different weights
 
 Comparing "100 kg for 8" with "102.5 kg for 6" needs a common yardstick.
