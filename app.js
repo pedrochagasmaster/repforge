@@ -459,6 +459,8 @@ function isSafeLogRow(entry){
   if(Object.prototype.hasOwnProperty.call(entry,"rirMeasured")&&typeof entry.rirMeasured!=="boolean")return false;
   // How the effort was entered (Plan 077, OD-1): the draft's enum, or absent (unknown, never backfilled).
   if(Object.prototype.hasOwnProperty.call(entry,"effortSource")&&!(WorkoutDraft?.EFFORT_SOURCES||[]).includes(entry.effortSource))return false;
+  // A max set's guess (Plan 077, OD-17): the draft's shape, or absent.
+  if(Object.prototype.hasOwnProperty.call(entry,"calibration")&&!WorkoutDraft?.validCalibration?.(entry.calibration))return false;
   for(const key of ["performedName","performedLibraryId","performedMovementId","performedPrimary","performedSecondary"])
     if(Object.prototype.hasOwnProperty.call(entry,key)&&entry[key]!=null&&typeof entry[key]!=="string")
       return false;
@@ -1631,7 +1633,7 @@ function glossaryPopover(termKey,anchor){const g=$("#glossary");if(!g)return;
   const viewportHeight=document.documentElement.clientHeight||window.innerHeight;
   const top=Math.max(8,Math.min(r.bottom+6,viewportHeight-bounds.height-8));
   g.style.top=`${window.scrollY+top}px`;g.style.left=`${window.scrollX+left}px`}
-const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",lang:null,rirMode:"numeric",voiceInputEnabled:false,notify:{enabled:false,timer:true,session:true,unfinished:true,missed:true}};
+const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",lang:null,rirMode:"numeric",voiceInputEnabled:false,maxSetPrompts:true,notify:{enabled:false,timer:true,session:true,unfinished:true,missed:true}};
 const normSetting=(v,def,min=0)=>Number.isFinite(+v)&&+v>=min?+v:def;
 /** The hard-set threshold is an RIR a set must be at or under to count as hard: 1 to 10, else the default (Plan 077,
  *  OD-23e). A setup link may still carry 0–100; the device applies it within these bounds. */
@@ -1651,7 +1653,7 @@ function withUnknownKeys(raw,known){
   return Object.assign(out,known)}
 function normalizeNotify(n){
   return withUnknownKeys(n,{enabled:!!(n&&n.enabled),timer:n?.timer!==false,session:n?.session!==false,unfinished:n?.unfinished!==false,missed:n?.missed!==false})}
-const normalizeSettings=s=>{const lang=I18N?.normalizeLang(s?.lang)||I18N?.detectLang()||"en";return withUnknownKeys(s,{jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normHardRir(s?.hardRir),restSec:normalizeRestSec(s?.restSec),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",lang,rirMode:s?.rirMode==="effort"?"effort":"numeric",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled),notify:normalizeNotify(s?.notify)})};
+const normalizeSettings=s=>{const lang=I18N?.normalizeLang(s?.lang)||I18N?.detectLang()||"en";return withUnknownKeys(s,{jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normHardRir(s?.hardRir),restSec:normalizeRestSec(s?.restSec),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",lang,rirMode:s?.rirMode==="effort"?"effort":"numeric",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled),maxSetPrompts:normBool(s?.maxSetPrompts,DEFAULTS.maxSetPrompts),notify:normalizeNotify(s?.notify)})};
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const LB=2.2046226218;
 /* Locale keyboards (pt-BR, de, fr, …) put a comma on the decimal pad. HTML
@@ -7250,6 +7252,136 @@ function playPanelAnimation(el,cls){if(!el)return;
 function updateFocusChrome(){document.body.classList.toggle("is-focus-wo",workoutActive);
   updateRestChrome()}
 
+/* ---- Max set (Plan 077 PR 3) ----
+ * Before an exercise's last working set, while the rest runs, Taurifer can offer a max set: the lifter guesses how many
+ * reps they can do at the set's load, then takes the set to failure. The set is a normal set at 0 reps left; the guess
+ * is stored beside it, and its row compares the two. It is offered on everything except the big barbell lifts, at
+ * most once a workout, once a lift in 14 days and twice a week, never in a lighter week or right after a 0-RIR set
+ * (owner, 2026-11-05). Nothing in the engine reads it yet. */
+const EffortCalibration=window.RepForgeEffortCalibration;
+/* "Not now" closes the prompt for that exercise in this workout. */
+const maxSetDeclined=new Set();
+let maxSetUi=null;
+function draftSetAt(exId,n){
+  const de=activeWorkoutDraft?.exercises?.[exId];if(!de)return null;
+  const id=de.setOrder.find(setId=>de.sets[setId].ordinal===n);return id?de.sets[id]:null}
+/** A set's reps as logged: the flat field, or its reps metric. */
+function draftSetReps(set){
+  const metric=set?.programmed?.metrics?.find(item=>item.semantic==="reps"||item.semantic==="repsPerSide");
+  const raw=metric?set.edited?.metrics?.[metric.id]:set?.edited?.reps;
+  const value=parseDec(raw);return Number.isFinite(value)?value:null}
+/** A set's reps left as logged: a word maps to its RIR, "Not sure" and a blank to nothing. */
+function draftSetRir(set){
+  const effort=set?.edited?.effort;
+  if(effort!=null)return Object.prototype.hasOwnProperty.call(EFFORT_RIR,effort)?EFFORT_RIR[effort]:null;
+  const value=parseDec(set?.edited?.rir);return Number.isFinite(value)&&value>=0?value:null}
+/* One lift, one key: the catalog movement it was performed as, else its name. A History row and a draft set agree. */
+const maxSetRowKey=row=>String(row?.sourceLibraryId||row?.performedLibraryId||row?.performedName||row?.name||"");
+function maxSetDraftKey(de,set){
+  return String(set?.programmed?.sourceLibraryId||de?.substitution?.replacement?.libraryId||de?.libraryId||de?.displayName||"")}
+function maxSetEligibility(de,set){
+  const libraryId=set?.programmed?.sourceLibraryId||de?.substitution?.replacement?.libraryId||de?.libraryId||null;
+  const exercise=libraryId?rawExercise(libraryId):null;
+  const equipmentId=set?.programmed?.equipmentId??null;
+  const equipmentName=equipmentId?rawCatalogObject(equipmentId)?.name??null:null;
+  return EffortCalibration.eligibility({exercise,lookup:id=>rawCatalogObject(id),equipmentName,
+    customName:exercise?"":String(de?.substitution?.replacement?.displayName||de?.displayName||"")})}
+/** The max set Taurifer may offer on this exercise's set n now, or null. */
+function maxSetOffer(ex,n){
+  const draft=activeWorkoutDraft;
+  if(!EffortCalibration||state.settings.maxSetPrompts===false||!draft||!n||draft.session.status!=="active")return null;
+  const de=draft.exercises?.[ex.id];if(!de||de.status!=="active")return null;
+  const working=de.setOrder.map(id=>de.sets[id]).filter(set=>set.role==="working");
+  if(working.length<EffortCalibration.LIMITS.minWorkingSets)return null;
+  const set=working.at(-1),before=working.at(-2);
+  if(set.ordinal!==n||set.completion!=="pending"||set.calibration||before.completion==="pending")return null;
+  if(maxSetDeclined.has(`${draft.draftId}:${ex.id}`)||isProgramDeloadWeek())return null;
+  const top=Number(ex.max);
+  if(ex.hasRepTarget!==false&&Number.isFinite(top)&&top>EffortCalibration.LIMITS.maxRepTarget)return null;
+  const reps=draftSetReps(before),rir=draftSetRir(before);
+  if(rir===0||reps==null)return null;
+  const fit=maxSetEligibility(de,set);if(!fit.eligible)return null;
+  const inWorkout=Object.values(draft.exercises).reduce((count,item)=>count+Object.values(item.sets).filter(other=>other.calibration).length,0);
+  const history=(state.log||[]).filter(row=>row?.calibration&&row.effortSource==="failure").map(row=>({exerciseKey:maxSetRowKey(row),date:row.date}));
+  if(!EffortCalibration.frequencyAllows({history,today:draft.program.scheduleDate||today(),exerciseKey:maxSetDraftKey(de,set),inWorkout}).ok)return null;
+  const guess=EffortCalibration.prefillGuess(reps,rir);if(!guess)return null;
+  const kg=parseDec(setFieldVals(ex,before.ordinal,recommendation(ex),hydrateWorkoutDraft(),last(ex)).kgVal);
+  return{set,before,guess,reps,rir,press:fit.press,load:Number.isFinite(kg)&&kg>0?`${fmt(kg)} ${unitLabel()}`:""}}
+/** The prompt above the shelf while the rest runs (CSS hides it once the rest ends). */
+function maxSetTipHtml(ex,n,peek){
+  if(peek)return"";
+  const offer=maxSetOffer(ex,n);if(!offer)return"";
+  const body=t(offer.load?"maxset.invite_body":"maxset.invite_body_noload",{load:offer.load});
+  return `<div class="resttip" role="note" data-maxset-tip="${esc(ex.id)}">`+
+    `<button type="button" class="resttip__x" data-maxset-no="${esc(ex.id)}" aria-label="${esc(t("maxset.not_now"))}"><span aria-hidden="true">×</span></button>`+
+    `<p class="resttip__text"><b>${esc(t("maxset.invite_title"))}</b> ${esc(body)}</p>`+
+    `<div class="resttip__acts"><button type="button" class="resttip__no" data-maxset-no="${esc(ex.id)}">${esc(t("maxset.not_now"))}</button>`+
+    `<button type="button" class="resttip__yes" data-maxset-guess="${esc(ex.id)}">${esc(t("maxset.make_guess"))}</button></div></div>`}
+function declineMaxSet(exId){
+  if(activeWorkoutDraft)maxSetDeclined.add(`${activeWorkoutDraft.draftId}:${exId}`);
+  $w(`[data-maxset-tip="${CSS.escape(exId)}"]`).forEach(el=>el.remove())}
+function paintMaxSetGuess(){
+  const n=$("#maxSetCount");if(n&&maxSetUi)n.textContent=String(maxSetUi.guess);
+  const less=$("#maxSetLess"),more=$("#maxSetMore");
+  if(less)less.disabled=!maxSetUi||maxSetUi.guess<=EffortCalibration.LIMITS.minGuess;
+  if(more)more.disabled=!maxSetUi||maxSetUi.guess>=EffortCalibration.LIMITS.maxGuess}
+function openMaxSetSheet(exId){
+  const base=prog.find(exId),ex=base?sessionExercise(base):null;if(!ex)return;
+  const offer=maxSetOffer(ex,focusActiveSet(ex));if(!offer)return;
+  const sheet=$("#maxSetSheet"),scrim=$("#maxSetScrim");if(!sheet)return;
+  maxSetUi={exId,setId:offer.set.setId,guess:offer.guess.predictedReps,prefill:offer.guess.predictedReps,basis:offer.guess.prefillBasis};
+  $("#maxSetTitle").textContent=t(offer.load?"maxset.guess_q":"maxset.guess_q_noload",{load:offer.load});
+  $("#maxSetFrom").textContent=offer.guess.prefillBasis==="reps_rir"
+    ?t("maxset.guess_from",{n:offer.before.ordinal,reps:fmt(offer.reps),left:fmt(offer.rir)})
+    :t("maxset.guess_from_reps",{n:offer.before.ordinal,reps:fmt(offer.reps)});
+  $("#maxSetPress").hidden=!offer.press;
+  paintMaxSetGuess();
+  document.body.classList.add("is-sheet-open");
+  openModal(sheet,{initialFocus:$("#maxSetStart"),returnFocus:document.activeElement,onEscape:closeMaxSetSheet,scrim,
+    delayHide:reducedMotion()?0:280});
+  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
+function closeMaxSetSheet(){
+  const sheet=$("#maxSetSheet");maxSetUi=null;
+  if(!sheet||(sheet.hidden&&!(activeModal&&activeModal.el===sheet)))return Promise.resolve(false);
+  return closeModal(sheet)}
+function stepMaxSetGuess(dir){
+  if(!maxSetUi)return;
+  const L=EffortCalibration.LIMITS;maxSetUi.guess=Math.min(L.maxGuess,Math.max(L.minGuess,maxSetUi.guess+dir));
+  paintMaxSetGuess();
+  const n=$("#maxSetCount");if(n)window.RepForgeMotion?.rollValue?.(n)}
+/** "Use as my last set": the set takes the load of the set before (the guess was made at it) and holds the guess. */
+async function startMaxSetFromSheet(){
+  const ui=maxSetUi;if(!ui||!activeWorkoutDraft)return;
+  const de=activeWorkoutDraft.exercises[ui.exId],set=de?.sets?.[ui.setId];
+  const before=set?de.setOrder.map(id=>de.sets[id]).find(other=>other.ordinal===set.ordinal-1):null;
+  if(!before)return closeMaxSetSheet();
+  const at={exerciseInstanceId:ui.exId,setId:ui.setId};
+  const loadMetrics=(set.programmed.metrics||[]).filter(metric=>METRIC_FIELD_SEMANTICS.load.includes(metric.semantic));
+  const edits=set.programmed.metrics
+    ?loadMetrics.filter(metric=>before.edited.metrics?.[metric.id]!=null&&before.edited.metrics[metric.id]!==set.edited.metrics?.[metric.id])
+      .map(metric=>["editMetricValue",{...at,metricId:metric.id,value:before.edited.metrics[metric.id]}])
+    :before.edited.load!=null&&before.edited.load!==set.edited.load?[["editSetField",{...at,field:"load",value:before.edited.load}]]:[];
+  for(const [command,payload] of [...edits,["startMaxSet",{...at,calibration:{v:1,predictedReps:ui.guess,
+    predictionEdited:ui.guess!==ui.prefill,prefillBasis:ui.basis}}]]){
+    const result=await WorkoutSession.dispatch(command,payload);
+    if(result.status!=="applied"){await closeMaxSetSheet();return}}
+  // The shelf changes under the sheet, so it reads as a max set the moment the sheet lets go.
+  renderWorkout();
+  await closeMaxSetSheet()}
+async function cancelMaxSet(exId,n){
+  const set=draftSetAt(exId,n);if(!set?.calibration)return;
+  const result=await WorkoutSession.dispatch("cancelMaxSet",{exerciseInstanceId:exId,setId:set.setId});
+  if(result.status==="applied"){maxSetDeclined.add(`${activeWorkoutDraft.draftId}:${exId}`);renderWorkout()}}
+/** Under a logged max set: the guess beside what was done, and what one check means. */
+function maxSetResultHtml(set){
+  const res=set?.completion!=="pending"&&set?.completion?.effortSource==="failure"&&set.calibration
+    ?EffortCalibration?.result(set.calibration.predictedReps,draftSetReps(set)):null;
+  if(!res)return"";
+  const line=res.error<0?t("maxset.result_more",{n:-res.error}):res.error>0?t("maxset.result_fewer",{n:res.error}):t("maxset.result_same");
+  return `<span class="ledgerline__result"><span class="ledgerline__pair">`+
+    `<span>${esc(t("maxset.guessed"))}<b>${esc(fmt(res.guess))}</b></span><span class="ledgerline__arrow" aria-hidden="true">→</span>`+
+    `<span>${esc(t("maxset.did"))}<b>${esc(fmt(res.did))}</b></span></span>`+
+    `<span class="ledgerline__resline">${esc(line)}</span></span>`}
 /* ---- Exercise note sheet ---- */
 let exNoteFor=null,exNoteReturn=null;
 function openExNoteSheet(exId){
@@ -8792,6 +8924,13 @@ function focusCue(ex,n,r,draft,prev,editing){
   const unit=unitLabel();
   if(editing){const text=t("focus.cue.editing_set",{n,total:ex.sets});
     return{kind:"edit",move:"",headHtml:esc(text),sub:""}}
+  // A test set is taken to failure at its own load: the cue says that and the guess, not the engine's move (Plan 077).
+  const maxSet=draftSetAt(ex.id,n);
+  if(maxSet?.calibration){
+    const kg=parseDec(setFieldVals(ex,n,r,draft,prev).kgVal),loadText=Number.isFinite(kg)?fmtLoad(kg):"";
+    const sentence=t(loadText?"maxset.cue_head":"maxset.cue_head_noload",{load:"\u0000",unit});
+    return{kind:"maxset",move:"",loadText,headHtml:esc(sentence).replace("\u0000",`<b class="fx-cue__load">${esc(loadText)}</b>`),
+      sub:t("maxset.cue_sub",{n:maxSet.calibration.predictedReps})}}
   const sg=setSuggestion(ex,n,r,draft,prev.find(x=>x.set===n));
   if(r.status==="manual")return{kind:"manual",move:"",headHtml:esc(t("focus.cue.your_targets")),
     sub:t("focus.cue.range_reps",{reps:`${ex.min}–${ex.max}`})};
@@ -8893,6 +9032,7 @@ function focusEvidenceText(ex,n,r,cue){
   // One quiet sentence: only the performed set's figures ride in Mono (owner review of #550).
   const effort=isEffortMode(),mono=evidenceFig,plain=v=>esc(v),say=evidenceSay;
   if(cue.kind==="planned")return esc(t("focus.evidence.planned"));
+  if(cue.kind==="maxset")return esc(t("maxset.fail_rule"));
   if(cue.kind!=="now"){
     const key=focusNoSuggestionKey(ex,r,n,cue.kind);
     return say(`focus.evidence.none_${key}`,{what:esc(t(effort?"focus.evidence.what_effort":"focus.evidence.what_rir")),
@@ -9056,7 +9196,8 @@ function focusLedgerRowsHtml(ex,r,draft,prev,{effortMode,peek=false}){
     // An unlogged row reads its target effort, unless it carries the set logged above it (#569): then its RIR is carried
     // with its load and reps, so every unlogged set shows the same values (owner report, 2026-11-03).
     const carry=!open&&!done?lastSetCarry(ex.id,n,r):null;
-    const rirText=open||done||carry?.fields?.rir||carry?.fields?.effort?vals.eff:focusTargetEffort(ex);
+    const rirText=!done&&!peek&&draftSetAt(ex.id,n)?.calibration?(effortMode?effortLabel("max"):"0")
+      :open||done||carry?.fields?.rir||carry?.fields?.effort?vals.eff:focusTargetEffort(ex);
     const idx=done?`<span class="fx-check" aria-hidden="true"></span>`
       :!peek&&ledgerSetIsWarmup(ex.id,n)?`<span aria-hidden="true">${esc(t("ledger.set.warmup"))}</span><span class="visually-hidden">${esc(t("ex.actions.role_warmup"))}</span>`:n;
     const cells=`<span class="ledgerline__idx">${idx}</span>`+
@@ -9064,10 +9205,14 @@ function focusLedgerRowsHtml(ex,r,draft,prev,{effortMode,peek=false}){
       `<span class="fx-col${open||done?soft("reps"):" is-soft"}" data-lv="reps">${esc(vals.reps)}</span>`+
       `<span class="fx-col${open||done?soft("rir"):" is-soft"}" data-lv="rir">${esc(rirText)}</span></span>`+
       (prevLine?`<small class="ledgerline__prev">${esc(prevLine)}</small>`:"");
-    const cls=`ledgerline${prevLine?" ledgerline--two":""}${open?" ledgerline--open":""}${n===freshN?" is-fresh":""}`;
+    // A max set reads as one while it is pending, and its logged row compares the guess with the reps (Plan 077).
+    const maxSet=peek?null:draftSetAt(ex.id,n);
+    const extra=!maxSet?.calibration?"":done?maxSetResultHtml(maxSet)
+      :`<small class="ledgerline__tag">${esc(t("maxset.tag",{n:maxSet.calibration.predictedReps}))}</small>`;
+    const cls=`ledgerline${prevLine||extra?" ledgerline--two":""}${open?" ledgerline--open":""}${n===freshN?" is-fresh":""}`;
     if(done)rows.push(`<button type="button" class="${cls}" data-ldone${fold?" hidden":""}${peek?dead()
-      :` data-editex="${esc(ex.id)}" data-editn="${n}" aria-label="${esc(t("focus.edit_set_aria",{n}))}"`}>${cells}</button>`);
-    else rows.push(`<div class="${cls}"${n===editN?' aria-current="true"':""} data-lrow="${n}">${cells}</div>`)}
+      :` data-editex="${esc(ex.id)}" data-editn="${n}" aria-label="${esc(t("focus.edit_set_aria",{n}))}"`}>${cells}${extra}</button>`);
+    else rows.push(`<div class="${cls}"${n===editN?' aria-current="true"':""} data-lrow="${n}">${cells}${extra}</div>`)}
   return rows.join("")}
 /** The disclosure trades the table's rows in place, in the measured height run the cue slot uses (`animateSlot`):
  *  drawn at once under reduced motion or without the runtime. The disclosure itself is not rebuilt, so it keeps focus. */
@@ -9261,6 +9406,11 @@ const shelfFaceHtml=(short,label,shown,unit)=>{
 
 function shelfFieldHtml(ex,n,id,vals,{ui,touched,effortMode,peek}){
   const key=`${ex.id}_${n}`,sel=ui.field===id;
+  // A max set's effort is failure: the field says so and offers nothing to change (Plan 077 PR 3).
+  if(id==="rir"&&draftSetAt(ex.id,n)?.calibration){
+    const cls=`shelf__field shelf__field--failure${sel?" is-sel":""}`,face=shelfFaceHtml(t("log.effort"),t("log.effort"),t("maxset.failure"),"");
+    return peek?`<div class="${cls}"><span class="shelf__fieldbtn">${face}</span></div>`
+      :`<div class="${cls}" data-field="rir" data-set="${esc(key)}"><button type="button" class="shelf__fieldbtn" data-shelf-field="rir" data-set="${esc(key)}" aria-pressed="${sel?"true":"false"}">${face}</button></div>`}
   const effortField=id==="rir"&&effortMode;
   const live=sel&&ui.editing&&!effortField&&!peek;
   const label=id==="load"?t("focus.shelf.field_load",{unit:unitLabel()}):id==="reps"?t("stats.table.reps")
@@ -9292,6 +9442,8 @@ function shelfPadsHtml(ex,n,ui,vals,{effortMode,peek}){
   const pad=(dir,text,{attrs="",off=false}={})=>`<button type="button" class="stepbtn shelf__pad"${peek?dead()
     :`${attrs} data-dir="${dir}"${off?" disabled":""}`}>${esc(text)}</button>`;
   const sign=dir=>dir>0?"+":"−";
+  if(id==="rir"&&draftSetAt(ex.id,n)?.calibration)
+    return `<button type="button" class="stepbtn shelf__pad shelf__pad--wide"${peek?dead():` data-maxset-cancel="${esc(key)}"`}>${esc(t("maxset.cancel"))}</button>`;
   if(id==="rir"&&effortMode){
     const at=Math.max(0,EFFORT_STEPS.indexOf(vals.effortVal));
     return [-1,1].map(dir=>{const to=EFFORT_STEPS[at+dir],word=effortLabel(to||vals.effortVal);
@@ -9362,6 +9514,7 @@ function focusShelfHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
     ?group+sorted.slice(lead).map(metric=>metricHtml(metric,false)).join("")+shelfFieldHtml(ex,n,"rir",vals,{ui,touched,effortMode,peek})
     :["load","reps","rir"].map(id=>shelfFieldHtml(ex,n,id,vals,{ui,touched,effortMode,peek})).join("");
   return `<div class="focus-shelf workshelf${editing?" is-editing":""}" role="region" aria-label="${esc(label)}">`+
+    (editing?"":maxSetTipHtml(ex,n,peek))+
     `<div class="shelf__fields">${fields}</div>`+
     focusPadsHtml(ex,n,ui,vals,{effortMode,peek,editing})+
     `<button type="button" class="btn btn--cta btn--noarrow saveset"${peek?dead():` data-save="${esc(key)}"`}>${esc(label)}</button></div>`}
@@ -10250,6 +10403,8 @@ function bindWorkout(){
       renderWorkout();
       // The action's own button is rebuilt: a corrected set returns to its row, a logged one hands on to the next set.
       if(nowDone)focusWorkoutHandoff(editing?"row":"next",{exId:target.exerciseInstanceId,n:target.ordinal});
+      // A logged test set's result sits under its row: bring it into the window (Plan 077 PR 3).
+      if(nowDone&&!editing)focusCard()?.querySelector(".ledgerline__result")?.scrollIntoView({block:"nearest"});
     }finally{if(refreshReservation&&!refreshStarted)refreshReservation.cancel()}});
   $w("[data-warm]").forEach(b=>b.onclick=async()=>{const key=b.dataset.warm,target=draftTargetFromKey(key);
     if(!activeWorkoutDraft||!target)return;
@@ -10331,6 +10486,10 @@ function bindWorkout(){
     $w("[data-fnext],[data-fnextrow]").forEach(b=>b.onclick=()=>focusAnimateTo(1));
     $w("[data-ledgermore]").forEach(b=>b.onclick=()=>toggleFocusLedger(b));
     $w("[data-fnote]").forEach(b=>b.onclick=()=>openExNoteSheet(b.dataset.fnote));
+    $w("[data-maxset-no]").forEach(b=>b.onclick=()=>declineMaxSet(b.dataset.maxsetNo));
+    $w("[data-maxset-guess]").forEach(b=>b.onclick=()=>openMaxSetSheet(b.dataset.maxsetGuess));
+    $w("[data-maxset-cancel]").forEach(b=>b.onclick=()=>{const key=b.dataset.maxsetCancel,at=key.lastIndexOf("_");
+      cancelMaxSet(key.slice(0,at),+key.slice(at+1))});
     // Tap a logged row to reopen that set in the shelf, with a way back out.
     $w("[data-editn]").forEach(b=>b.onclick=async()=>{
       const exId=b.dataset.editex,n=+b.dataset.editn,key=`${exId}_${n}`,d=loadDraft(),target=draftTargetFromKey(key);
@@ -14518,6 +14677,8 @@ function renderSettings(){
   $$('input[name="rirMode"]').forEach(r=>{r.checked=r.value===state.settings.rirMode});
   const vi=$("#voiceInputEnabled");if(vi)vi.checked=!!state.settings.voiceInputEnabled;
   const vt=$("#voiceToggle");if(vt){vt.classList.toggle("is-on",!!state.settings.voiceInputEnabled);vt.setAttribute("aria-pressed",state.settings.voiceInputEnabled?"true":"false")}
+  const msOn=state.settings.maxSetPrompts!==false,ms=$("#maxSetPrompts");if(ms)ms.checked=msOn;
+  const mt=$("#maxSetToggle");if(mt){mt.classList.toggle("is-on",msOn);mt.setAttribute("aria-pressed",msOn?"true":"false")}
   const telemetryEnabled=window.RepForgeTelemetry?.isEnabled?.()!==false;
   const tt=$("#telemetryToggle");if(tt){tt.classList.toggle("is-on",telemetryEnabled);tt.setAttribute("aria-pressed",telemetryEnabled?"true":"false")}
   reconcileNotifyPermission();
@@ -14574,7 +14735,7 @@ async function commitSettings(silent){const editRevision=settingsEditRevision;co
   const originalDraftRaw=oldUnit===newUnit?null:readDraftRaw();
   const unitEffect=draftUnitConversionEffect(originalDraftRaw,oldUnit,newUnit);
   const proposal=cloneSnapshot(state);
-  proposal.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=parseDec($("#minJump").value);return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec,lastExport:state.settings.lastExport,unit:newUnit,lang:newLang,rirMode:newRirMode,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked,notify:normalizeNotify({enabled:!!state.settings.notify?.enabled,timer:!!$("#notifyTimer")?.checked,session:!!$("#notifySession")?.checked,unfinished:!!$("#notifyUnfinished")?.checked,missed:!!$("#notifyMissed")?.checked})});
+  proposal.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=parseDec($("#minJump").value);return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec,lastExport:state.settings.lastExport,unit:newUnit,lang:newLang,rirMode:newRirMode,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked,maxSetPrompts:$("#maxSetPrompts")?$("#maxSetPrompts").checked:state.settings.maxSetPrompts!==false,notify:normalizeNotify({enabled:!!state.settings.notify?.enabled,timer:!!$("#notifyTimer")?.checked,session:!!$("#notifySession")?.checked,unfinished:!!$("#notifyUnfinished")?.checked,missed:!!$("#notifyMissed")?.checked})});
   const result=await commitProposedState(proposal,storageIO,{effect:unitEffect});
   if(!(result.localOk||result.idbOk)){if(editRevision===settingsEditRevision)renderSettings();return result}
   reportSettingsChanged(settingsBefore,state.settings);
@@ -23910,6 +24071,11 @@ function init(){
   const noteCancel=$("#exNoteCancel");if(noteCancel)noteCancel.onclick=closeExNoteSheet;
   const noteSave=$("#exNoteSave");if(noteSave)noteSave.onclick=saveExNoteSheet;
   const noteScrim=$("#exNoteScrim");if(noteScrim)noteScrim.onclick=closeExNoteSheet;
+  const maxScrim=$("#maxSetScrim");if(maxScrim)maxScrim.onclick=closeMaxSetSheet;
+  const maxNo=$("#maxSetNo");if(maxNo)maxNo.onclick=()=>{const exId=maxSetUi?.exId;closeMaxSetSheet();if(exId)declineMaxSet(exId)};
+  const maxStart=$("#maxSetStart");if(maxStart)maxStart.onclick=startMaxSetFromSheet;
+  const maxLess=$("#maxSetLess");if(maxLess)maxLess.onclick=()=>stepMaxSetGuess(-1);
+  const maxMore=$("#maxSetMore");if(maxMore)maxMore.onclick=()=>stepMaxSetGuess(1);
   const dayPickScrim=$("#dayPickScrim");if(dayPickScrim)dayPickScrim.onclick=closeDayPickSheet;
   const pkCancel=$("#exPickCancel");if(pkCancel)pkCancel.onclick=closeExercisePicker;
   const pkScrim=$("#exPickScrim");if(pkScrim)pkScrim.onclick=closeExercisePicker;
@@ -24235,6 +24401,7 @@ function init(){
   const commitChangedSettings=()=>{settingsEditRevision++;return commitSettings(true)};
   $("#settings").addEventListener("input",()=>{settingsEditRevision++});
   const voiceTog=$("#voiceToggle");if(voiceTog)voiceTog.onclick=()=>{const c=$("#voiceInputEnabled");if(c){c.checked=!c.checked;commitChangedSettings()}};
+  const maxTog=$("#maxSetToggle");if(maxTog)maxTog.onclick=()=>{const c=$("#maxSetPrompts");if(c){c.checked=!c.checked;commitChangedSettings()}};
   const telemetryTog=$("#telemetryToggle");if(telemetryTog)telemetryTog.onclick=()=>{
     try{window.RepForgeTelemetry?.setEnabled(!(window.RepForgeTelemetry?.isEnabled?.()!==false))}catch{}
     renderSettings()};

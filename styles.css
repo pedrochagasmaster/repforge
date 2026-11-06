@@ -1611,6 +1611,42 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 }
 .fx-slot{position:relative}
 .shelf__pads{position:relative}
+/* Max set (Plan 077 PR 3). The prompt sits above the shelf, clear of the rest tab, only while the rest runs: the ink
+   card with the paper text is the prototype's between-sets tip. */
+.focus-shelf .resttip{
+  position:absolute;left:var(--space-8);right:var(--space-8);bottom:calc(100% + 52px);z-index:3;
+  padding:var(--space-12) var(--space-14);border-radius:var(--radius-surface);background:var(--ink);color:var(--bg);
+  box-shadow:var(--elevation-floating-shadow);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);
+}
+.focus-shelf:not(.has-rest) .resttip{display:none}
+.resttip__text{margin:0;padding-right:var(--space-32)}
+.resttip__text b{font-weight:var(--weight-semibold)}
+.resttip__x{position:absolute;top:2px;right:2px;width:44px;height:44px;border:0;background:none;color:inherit;font-size:var(--font-size-subtitle);line-height:1;opacity:.75;cursor:pointer}
+.resttip__acts{display:flex;justify-content:flex-end;gap:var(--space-8);margin-top:var(--space-4)}
+.resttip__no,.resttip__yes{min-height:44px;padding:0 var(--space-12);border:0;background:none;color:inherit;font:inherit;font-weight:var(--weight-semibold);cursor:pointer}
+.resttip__no{font-weight:var(--weight-medium);opacity:.8}
+.resttip button:focus-visible{outline:2px solid currentColor;outline-offset:-2px;border-radius:var(--radius-control)}
+.shelf__pads .shelf__pad--wide{flex:1 1 100%}
+.shelf__field--failure .shelf__fieldbtn{cursor:default}
+.ledgerline__tag{
+  grid-column:2;text-align:right;font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);
+  letter-spacing:var(--track-label);text-transform:uppercase;color:var(--color-ink-secondary);
+}
+.ledgerline__result{grid-column:1 / -1;display:grid;gap:var(--space-4);margin:var(--space-4) 0 0;padding:var(--space-8) var(--space-12);border-radius:var(--radius-surface);background:var(--well);text-align:left}
+.ledgerline__pair{display:flex;align-items:baseline;gap:var(--space-12);flex-wrap:wrap}
+.ledgerline__pair > span{font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--color-ink-secondary)}
+.ledgerline__pair b{margin-left:var(--space-4);font-family:var(--font-training-data);font-size:var(--font-size-metric);font-weight:var(--weight-semibold);letter-spacing:0;color:var(--color-ink)}
+.ledgerline__pair > .ledgerline__arrow{font-size:var(--font-size-body);letter-spacing:0;text-transform:none}
+.ledgerline__resline{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+/* Sized to its content: it is read in the rest, so it stays low enough to keep the lift in view. */
+.sheet.sheet--maxset{height:auto}
+.sheetbody--maxset{display:grid;gap:var(--space-8);padding-top:var(--space-4)}
+.maxset__count{display:grid;grid-template-columns:72px minmax(0,1fr) 72px;align-items:center;margin-bottom:var(--space-4)}
+.maxset__pad{height:56px;min-height:56px;font-size:var(--font-size-metric)}
+.maxset__n{text-align:center;font-family:var(--font-training-data);font-size:var(--font-size-display);font-weight:var(--weight-semibold);line-height:1;font-variant-numeric:tabular-nums;color:var(--color-ink)}
+.maxset__rule,.maxset__safety{margin:0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink)}
+.maxset__safety{color:var(--color-ink-secondary)}
+.maxset__safety[hidden]{display:none}
 .focus-shelf .btn--cta{margin:0}
 .focus-shelf .btn--cta.saveset{
   border:1px solid var(--control-primary-boundary);background:var(--control-primary-bg);color:var(--control-primary-ink);

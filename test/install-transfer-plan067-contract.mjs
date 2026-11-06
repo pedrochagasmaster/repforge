@@ -771,4 +771,21 @@ assert.equal(acceptedSource.ok, true, `a draft set completed with effortSource p
 const refusedSource = await Contract.validateEnvelopeIntegrity(sourcedDraft("x"), webcrypto);
 assert.equal(refusedSource.ok, false, "a draft set completed with an unknown effortSource is refused");
 
+// Plan 077 PR 3: a pending max set carries the guess; the contract checks its shape as workout-draft.js does.
+const guessedDraft = (calibration) => {
+  const envelope = structuredClone(valid);
+  const exercise = envelope.workoutDraft.exercises[activeSlot.id];
+  exercise.sets[exercise.setOrder[exercise.setOrder.length - 1]].calibration = calibration;
+  envelope.integrity.canonicalPayloadHash = canonicalHash(envelope);
+  return envelope;
+};
+const guess = { v: 1, predictedReps: 13, predictionEdited: true, prefillBasis: "reps_rir" };
+const acceptedGuess = await Contract.validateEnvelopeIntegrity(guessedDraft(guess), webcrypto);
+assert.equal(acceptedGuess.ok, true, `a draft with a max set's guess crosses the contract: ${JSON.stringify(acceptedGuess.error || "")}`);
+for (const bad of [{ ...guess, predictedReps: 31 }, { ...guess, prefillBasis: "x" }, { ...guess, extra: true }]) {
+  assert.equal(WorkoutDraft.validCalibration(bad), false, `the draft refuses ${JSON.stringify(bad)}`);
+  const refused = await Contract.validateEnvelopeIntegrity(guessedDraft(bad), webcrypto);
+  assert.equal(refused.ok, false, `the contract refuses ${JSON.stringify(bad)} as the draft does`);
+}
+
 console.log("PASS Plan 067 install-transfer clone contract");

@@ -295,6 +295,7 @@ const D_FIXTURE_STATES = new Set([
   "workout/deload-week", // Plan 072 S4: the deload cue in Focus
   "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions", // R3d
   "workout/exercise-note-line", // the exercise note on the card (owner, 2026-11-05)
+  "workout/max-set-prompt", "workout/max-set-guess", "workout/max-set-active", "workout/max-set-result", // Plan 077 PR 3
   "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", // R3d
   "workout/actions", "workout/exercise-actions", // R3x: the redrawn sheet, on the lifter the drawing shows
   "workout/swap-alternates", // #317: the swap picker leads with the squat slot's alternates
@@ -1232,6 +1233,66 @@ async function startInlineRest(page) {
   await logCurrentSet(page, { load: "102.5", reps: "8", rir: "1" });
   // The rest timer redesign: the rest rises as a tab out of the shelf's top edge (no clock in the card).
   await page.waitForSelector("#workout .exercise.is-current .focus-shelf #restTab", { timeout: 20000 });
+}
+
+/** Plan 077 PR 3: Focus on the first lift that can take a max set, every working set but its last logged at 45 × 12 with
+ *  2 left, and the rest running, so the prompt is up. */
+async function maxSetRest(page) {
+  await focusMode(page);
+  const at = await page.evaluate(() => {
+    const draft = window.__repforgeWorkoutDraft.current();
+    return focusList().findIndex((ex) => {
+      const de = draft.exercises[ex.id];
+      const working = de ? de.setOrder.map((id) => de.sets[id]).filter((set) => set.role === "working") : [];
+      return working.length >= 2 && maxSetEligibility(de, working.at(-1)).eligible;
+    });
+  });
+  if (at < 0) throw new Error("No lift in the fixture can take a max set");
+  await page.evaluate((i) => window.__repforgeFocus.to(i), at);
+  await page.waitForFunction((i) => focusIndex === i, at, { timeout: 20000 });
+  for (let guard = 0; guard < 12; guard++) {
+    const left = await page.evaluate(() => {
+      const draft = window.__repforgeWorkoutDraft.current(), ex = focusList()[focusIndex], de = draft.exercises[ex.id];
+      return de.setOrder.map((id) => de.sets[id]).filter((set) => set.role === "working" && set.completion === "pending").length;
+    });
+    if (left <= 1) break;
+    await logFixtureSet(page, { load: "45", reps: "12", rir: "2" });
+  }
+  await page.waitForSelector("#workout .exercise.is-current .focus-shelf.has-rest .resttip", { state: "visible", timeout: 20000 });
+}
+
+/** Log the current lift's next set at these values, through the draft's own commands (its fields are metrics, which
+ *  logCurrentSet does not type into), then Log set. */
+async function logFixtureSet(page, values) {
+  const target = await page.evaluate(async (v) => {
+    const draft = window.__repforgeWorkoutDraft.current(), ex = focusList()[focusIndex], de = draft.exercises[ex.id];
+    const set = de.setOrder.map((id) => de.sets[id]).find((item) => item.completion === "pending");
+    const at = { exerciseInstanceId: ex.id, setId: set.setId };
+    const bySemantic = { loadKg: v.load, reps: v.reps };
+    for (const metric of set.programmed.metrics || []) {
+      if (bySemantic[metric.semantic] != null) await window.__repforgeWorkoutDraft.dispatch("editMetricValue", { ...at, metricId: metric.id, value: bySemantic[metric.semantic] });
+    }
+    if (!set.programmed.metrics) for (const field of ["load", "reps"]) {
+      if (v[field] != null) await window.__repforgeWorkoutDraft.dispatch("editSetField", { ...at, field, value: v[field] });
+    }
+    if (v.rir != null) await window.__repforgeWorkoutDraft.dispatch("editSetField", { ...at, field: "rir", value: v.rir });
+    await window.__repforgeWorkoutDraft.flush();
+    window.renderWorkout?.();
+    return at;
+  }, values);
+  await page.locator("#workout .exercise.is-current .saveset").click({ timeout: 20000 });
+  await page.waitForFunction((at) => window.__repforgeWorkoutDraft.current()?.exercises?.[at.exerciseInstanceId]?.sets?.[at.setId]?.completion !== "pending",
+    target, { timeout: 20000 });
+  await sleep(page, 300);
+}
+
+async function maxSetStarted(page) {
+  await maxSetRest(page);
+  await page.locator("#workout .exercise.is-current [data-maxset-guess]").click({ timeout: 20000 });
+  await page.waitForSelector("#maxSetSheet.is-open", { timeout: 20000 });
+  await page.locator("#maxSetStart").click();
+  await page.waitForFunction(() => document.querySelector("#maxSetSheet")?.hidden === true, undefined, { timeout: 20000 });
+  await page.waitForSelector("#workout .exercise.is-current .shelf__field--failure", { timeout: 20000 });
 }
 
 /** The sheet's blocks are the spec 4.3 contract: each carries the lead it opens with. */
@@ -2287,6 +2348,29 @@ export const APP_SCENARIOS = {
     await page.locator("#exNoteSave").click();
     await page.waitForSelector("#workout .exercise.is-current .fx-note", { timeout: 20000 });
     await page.waitForFunction(() => document.querySelector("#exNoteSheet")?.hidden === true, undefined, { timeout: 20000 });
+    await sleep(page, 400);
+  },
+  // Plan 077 PR 3, the max set: during the rest before a lift's last set, the prompt; the guess sheet; the set itself;
+  // and the logged row with the guess beside the reps. The fixture's first lift is a barbell squat, which never takes
+  // one, so the states move to the first lift that can.
+  "workout/max-set-prompt": async (page) => {
+    await maxSetRest(page);
+    await sleep(page, 400);
+  },
+  "workout/max-set-guess": async (page) => {
+    await maxSetRest(page);
+    await page.locator("#workout .exercise.is-current [data-maxset-guess]").click({ timeout: 20000 });
+    await page.waitForSelector("#maxSetSheet.is-open", { timeout: 20000 });
+    await sleep(page, 500);
+  },
+  "workout/max-set-active": async (page) => {
+    await maxSetStarted(page);
+    await sleep(page, 400);
+  },
+  "workout/max-set-result": async (page) => {
+    await maxSetStarted(page);
+    await logFixtureSet(page, { reps: "16" });
+    await page.waitForSelector("#workout .exercise.is-current .ledgerline__result", { timeout: 20000 });
     await sleep(page, 400);
   },
   // Plan 075 phase 2W: a second tap on the selected Load or Reps field opens the

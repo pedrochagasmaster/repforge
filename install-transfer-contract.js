@@ -39,6 +39,14 @@
      because the contract validates on its own (test/effort-provenance-contract.mjs keeps the two equal). */
   const EFFORT_SOURCES = Object.freeze(["rir", "effort", "reps_left", "reps_left_3plus", "unsure", "prefilled", "failure"]);
   const validEffortSource = (holder) => !hasOwn(holder, "effortSource") || EFFORT_SOURCES.includes(holder.effortSource);
+  /* A max set's guess (Plan 077, OD-17), the same shape as workout-draft.js's validCalibration
+     (test/install-transfer-plan067-contract.mjs keeps the two in step). */
+  const CALIBRATION_KEYS = Object.freeze(["v", "predictedReps", "predictionEdited", "prefillBasis"]);
+  const validCalibrationShape = (value) => isPlainObject(value) && Object.keys(value).length === CALIBRATION_KEYS.length &&
+    CALIBRATION_KEYS.every((key) => hasOwn(value, key)) && value.v === 1 &&
+    Number.isSafeInteger(value.predictedReps) && value.predictedReps >= 1 && value.predictedReps <= 30 &&
+    typeof value.predictionEdited === "boolean" && ["reps_rir", "reps"].includes(value.prefillBasis);
+  const validCalibration = (holder) => !hasOwn(holder, "calibration") || validCalibrationShape(holder.calibration);
 
   const ERROR_CODES = Object.freeze({
     INVALID_INPUT: "invalid-input",
@@ -741,6 +749,7 @@
     if (value.completion !== "pending" &&
       (!isPlainObject(value.completion) || !validString(value.completion.completedAt, true) ||
         !validEffortSource(value.completion))) return false;
+    if (!validCalibration(value)) return false;
     return true;
   }
 
@@ -1011,7 +1020,7 @@
   }
 
   function validateCanonicalLogRow(row, catalog) {
-    if (!validEffortSource(row)) return ERROR_CODES.INVALID_ENVELOPE;
+    if (!validEffortSource(row) || !validCalibration(row)) return ERROR_CODES.INVALID_ENVELOPE;
     const metricFields = ["metricType", "metricIds", "metricDefinitions", "metricValues", "equipmentId", "loadingConvention", "loadingContext", "restSeconds"];
     const hasMetricFields = metricFields.some((field) => hasOwn(row, field));
     const isWorkSet = hasOwn(row, "exerciseId") || hasOwn(row, "set") || hasOwn(row, "setIndex");

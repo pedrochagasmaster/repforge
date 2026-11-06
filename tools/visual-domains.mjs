@@ -17,6 +17,7 @@ const MAPPING = [
   [/^progress-model\.js$/, ["progress", "history"]],
   [/^progression-engine\.js$/, ["progress", "workout", "today"]],
   [/^history-ui\.js$/, ["history", "progress"]],
+  [/^effort-calibration\.js$/, ["workout", "settings"]],
   [/^guide-registry\.js$/, ["entry", "settings", "progress", "workout", "today"]],
   [/^install-(?:policy|transfer)\.js$/, ["install", "entry", "settings"]],
   [/^notify\.js$/, ["today", "settings"]],

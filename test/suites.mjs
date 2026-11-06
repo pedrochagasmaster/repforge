@@ -20,7 +20,7 @@ const TIER_VOCABULARY = new Set(["feedback", "packet", "candidate"]);
  */
 export const CI_SHARDS = 5;
 export const FULL_SHARDS = 12;
-export const UI_SYSTEM_SHARDS = 8;
+export const UI_SYSTEM_SHARDS = 9;
 /* The slowest measured cost of one UI-system render on ubuntu-latest: 6.42 s
  * across 42 green `--shard k/7` runs on 2026-10-29 (#456), rounded up.
  * test/ci.mjs holds every shard's states × this cost under 85% of its
@@ -168,6 +168,7 @@ export const FULL_SUITES = {
     s("test/runtime-budget.mjs"),
     s("tools/check-design-md.mjs", [], { domains: ["shell"], cost: "tiny" }),
     s("test/landing-demo-copy.mjs", [], { domains: ["entry"], cost: "tiny" }),
+    s("test/effort-calibration.mjs", [], { domains: ["workout"], cost: "tiny" }),
     s("test/manual-matrix.mjs", ["--self-test"]),
     s("test/programlab-domain.mjs", [], { domains: ["program", "persistence"] }),
     s("test/programlab-archive.mjs", [], { domains: ["program", "persistence"] }),
@@ -254,6 +255,7 @@ export const FULL_SUITES = {
     s("test/per-side-completion-summary-browser.mjs", [], { domains: ["workout", "history", "progress"], seconds: 79 }),
     s("test/history-edit.mjs", [], { seconds: 42 }),
     s("test/effort-provenance.mjs", [], { domains: ["workout", "history", "persistence"], seconds: 20 }),
+    s("test/max-set-browser.mjs", [], { domains: ["workout", "settings", "history"], seconds: 25 }),
     s("test/history-persistence-race.mjs", [], { seconds: 5 }),
     s("test/today-done.mjs", [], { seconds: 19 }),
     s("test/today-day-picker.mjs", [], { seconds: 33 }),

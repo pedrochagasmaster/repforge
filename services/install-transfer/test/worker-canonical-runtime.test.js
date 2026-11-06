@@ -235,6 +235,15 @@ const sourcedEnvelope = (effortSource) => {
   return envelope;
 };
 
+// Plan 077 PR 3: a max set's History row carries the guess; the Worker accepts the shape and refuses anything else.
+const calibratedEnvelope = (calibration) => {
+  const envelope = structuredClone(sourceEnvelope);
+  Object.assign(envelope.durableState.log[0], { rir: 0, effortSource: "failure", calibration });
+  envelope.integrity = { canonicalPayloadHash: createHash("sha256")
+    .update(contract.canonicalJson({ ...envelope, integrity: {} }), "utf8").digest("hex") };
+  return envelope;
+};
+
 function createRequest(envelope, idempotencyKey) {
   return new Request("https://transfer.example/v1/transfers", {
     method: "POST",
@@ -313,6 +322,20 @@ describe("Worker canonical runtime dependencies", () => {
     expect(response.status).toBeGreaterThanOrEqual(400);
     expect(response.status).toBeLessThan(500);
     // The Worker refuses without detail (no token, no code), as it does every invalid envelope.
+    expect(await response.json()).toEqual({ state: "unavailable" });
+  });
+
+  it("accepts a max set's calibration (Plan 077)", async () => {
+    const calibration = { v: 1, predictedReps: 13, predictionEdited: false, prefillBasis: "reps_rir" };
+    const response = await worker.fetch(createRequest(calibratedEnvelope(calibration), "canonical-worker-calibration"), env);
+    expect(response.status).toBe(201);
+  });
+
+  it("refuses a malformed calibration (Plan 077)", async () => {
+    const calibration = { v: 1, predictedReps: 13.5, predictionEdited: false, prefillBasis: "reps_rir" };
+    const response = await worker.fetch(createRequest(calibratedEnvelope(calibration), "canonical-worker-calibration-bad"), env);
+    expect(response.status).toBeGreaterThanOrEqual(400);
+    expect(response.status).toBeLessThan(500);
     expect(await response.json()).toEqual({ state: "unavailable" });
   });
 
