@@ -7527,7 +7527,7 @@ function renderOverviewCalibration(){
     :`<li class="calcheck calcheck--empty">${esc(t("calib.empty"))}</li>`;
   el.innerHTML=`<div class="ovsec"><h3 class="ovsec__title">${esc(t("calib.title"))}</h3></div>`+
     `<div class="calcard" role="group" aria-label="${esc(t("calib.aria",{n:g.percent}))}">`+
-      `<p class="calcard__big"><b>${esc(t("calib.percent",{n:g.percent}))}</b><span>${esc(t("calib.overall",{n:c.checks,tests:tp(c.checks,"test set"),k:lifts,lifts:tp(lifts,"lift")}))}</span></p>`+
+      `<p class="calcard__big"><b>${esc(t("calib.percent",{n:g.percent}))}</b><span>${esc(c.checks?`${t(c.checks===1?"calib.tests_one":"calib.tests_other",{n:c.checks})} · ${t(lifts===1?"calib.lifts_one":"calib.lifts_other",{n:lifts})}`:t("calib.no_tests"))}</span></p>`+
       gaugeBar(g.percent)+
       `<p class="calcard__what">${esc(t(g.percent>=100?"calib.full":"calib.what"))}</p>`+
       `<ul class="calsigs">${signals.map(([label,value,share,lead])=>`<li class="calsig${lead?" calsig--lead":""}"><span>${esc(t(label))}</span><span>${esc(value)}</span>${gaugeBar(share*100," calbar--thin")}</li>`).join("")}</ul>`+

@@ -3008,13 +3008,10 @@
   "why.calibration.under": "Your test sets show you usually have more reps left than you log, so this allows a little more.",
   "why.calibration.over": "Your test sets show you usually have fewer reps left than you log, so this is a little more conservative.",
   "why.calibration.calibrated": "Your effort estimates on this exercise have matched your test sets.",
-  "plural.test set.one": "test set",
-  "plural.test set.other": "test sets",
   "calib.title": "Effort calibration",
   "calib.today": "Effort calibration",
   "calib.percent": "{n}%",
   "calib.aria": "Effort calibration {n}%",
-  "calib.overall": "{n} {tests} · {k} {lifts}",
   "calib.what": "How much evidence Taurifer has about your effort estimates, not how good they are.",
   "calib.full": "Plenty of recent evidence. It keeps counting; test sets now come at most once a month.",
   "calib.fade": "Older evidence fades slowly, losing half its weight in about 90 days.",
@@ -3039,5 +3036,10 @@
   "calib.ev.weeks": "{n} of {m} weeks",
   "calib.ev.taps": "{n} of {m} taps",
   "calib.ev.history": "{n} of {m} sets per lift",
-  "calib.ev.agree": "{pct}% agree"
+  "calib.ev.agree": "{pct}% agree",
+  "calib.tests_one": "{n} test set",
+  "calib.tests_other": "{n} test sets",
+  "calib.lifts_one": "{n} lift",
+  "calib.lifts_other": "{n} lifts",
+  "calib.no_tests": "No test sets yet"
 }
