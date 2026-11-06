@@ -249,6 +249,10 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+          filter: blob:none
+          # test/asset-revisions.mjs compares the branch with its fork point on main: a changed shell asset must move
+          # its ?v= revision. Missing older blobs are fetched on demand from this public repo.
+          fetch-depth: 0
       - uses: actions/setup-node@v5
         with:
           node-version: "22"
