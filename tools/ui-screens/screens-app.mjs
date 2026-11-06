@@ -384,6 +384,7 @@ const EFFORT_STAGE_STATES = Object.freeze({
   // Plan 077 PR 4: the gauge and the last-rep question, on a lifter who logged RIR and took two test sets.
   "progress/overview-calibration": { rirMode: "numeric" },
   "today/calibration-mini": { rirMode: "numeric" },
+  "today/calibration-ring-bar": { rirMode: "numeric" },
   "workout/last-rep-slow": { rirMode: "numeric" },
 });
 /** Two test sets on the lifter's newest session, on its first two exercises: the guess beside a set to failure. */
@@ -407,7 +408,7 @@ function effortStageState(key, lang) {
   const drawn = localeState(key.startsWith("today/") ? directionDBeforeSession() : directionDState(), lang);
   drawn.settings = { ...drawn.settings, ...EFFORT_STAGE_STATES[key] };
   if (key === "workout/stage-tip") drawn.log = drawn.log.map((row) => row.warmup ? row : { ...row, effortSource: "effort" });
-  if (key === "progress/overview-calibration" || key === "today/calibration-mini" || key === "workout/last-rep-slow") drawn.log = withTestSets(drawn.log);
+  if (key === "progress/overview-calibration" || key === "today/calibration-mini" || key === "today/calibration-ring-bar" || key === "workout/last-rep-slow") drawn.log = withTestSets(drawn.log);
   return drawn;
 }
 
@@ -1926,12 +1927,20 @@ export const APP_SCENARIOS = {
     const copy = await page.evaluate(() => window.RepForgeI18n.t("today.deload_week"));
     if ((await note.innerText()).trim() !== copy) throw new Error("Today shows the wrong deload recovery note");
   },
-  // Plan 077 PR 4: the small gauge on Today, above the session's action.
+  // The calibration ring (owner direction B, 2026-11-06) beside Today's large title.
   "today/calibration-mini": async (page) => {
     await dismissChrome(page);
-    await page.waitForSelector("#todayCalibration:not(.hidden)", { timeout: 20000 });
-    await page.locator("#todayCalibration").evaluate((row) => row.scrollIntoView({ block: "center" }));
+    await page.waitForSelector("#todayCalRing:not(.hidden) svg", { timeout: 20000 });
+    await page.evaluate(() => window.scrollTo(0, 0));
     await sleep(page, 300);
+  },
+  // Scrolled: the title under the bar, and the ring at 30 px in the bar beside the gear.
+  "today/calibration-ring-bar": async (page) => {
+    await dismissChrome(page);
+    await page.waitForSelector("#todayCalRing:not(.hidden) svg", { timeout: 20000 });
+    await page.evaluate(() => window.scrollTo(0, 320));
+    await page.waitForSelector("#todayCalRingBar.is-shown", { timeout: 20000 });
+    await sleep(page, 400);
   },
   "today/ready": async (page) => {
     await dismissChrome(page);
