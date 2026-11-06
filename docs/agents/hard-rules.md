@@ -8,14 +8,13 @@ numbers that briefs and history already cite.
 
 ## Workspace
 
-1. **Never touch the owner's checkout.** On the shared devbox that is
-   `/home/ubuntu/repforge`. Work in your own fresh worktree:
-   `git -C /tmp/taurifer-engine067 fetch origin main && git -C /tmp/taurifer-engine067 worktree add -b <branch> /tmp/<name> origin/main`
-   (`worktree add /tmp/<name> <branch>` for an existing branch). Never edit
-   another session's worktree unless that session has handed it over (it says
-   so, or reports it is blocked and asks the coordinator to finish). Test dependencies:
-   `ln -s /tmp/taurifer-engine067/test/node_modules test/node_modules`, and
-   remove the link before committing.
+1. **Never touch the owner's checkout.** Work in your own fresh worktree off
+   `origin/main` (or your existing branch), created from the machine's shared
+   base clone. Never edit another session's worktree unless that session has
+   handed it over (it says so, or reports it is blocked and asks the
+   coordinator to finish). Link the test dependencies from the base clone and
+   remove the link before committing. The concrete paths for a shared machine
+   live in its environment notes, outside this repository.
 2. **Test first.** Each behaviour change starts with a proof that fails for the
    stated reason, at the highest realistic boundary. Then the fix, then the
    proof passing. No arbitrary sleeps and no longer timeouts as a fix. Never
@@ -83,9 +82,9 @@ numbers that briefs and history already cite.
 14. **Own processes only.** Kill only PIDs you started; never `pkill` by
     pattern. Stop every server, tunnel and browser you started when your work
     ends, and remove only your own worktrees and branches.
-15. **One browser at a time.** Wrap every command that launches Chromium in
-    `flock /tmp/taurifer-browser.lock` (run-tests, capture-ui-screens,
-    check-ui-system). At most one browser-running helper agent per session.
+15. **One browser at a time.** On a shared machine, hold its machine-wide
+    browser lock (`flock <lock>`) around every command that launches Chromium
+    (run-tests, capture-ui-screens, check-ui-system). At most one browser-running helper agent per session.
 16. **Parallelism is the owner's call.** Run only the number of fronts the
     owner has currently approved (the coordinator's queue records it). Under
     quota pressure or overnight, run one at a time. Check free disk before

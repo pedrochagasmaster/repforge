@@ -37,9 +37,9 @@ On red, at once:
 
 1. Find the race. In this repo it has usually been one of these: clicking or measuring while a sheet or animation is still moving, a fixed wait (`520 ms`) instead of an end event, polling before `popstate` after `history.go(-1)`, a page still growing when the scroll lands, or a screenshot taken before a painted frame.
 2. Fix it by waiting on a real event or a settled state, through the helpers in `test/browser.mjs`. Search the same file for the same pattern and fix those too.
-3. Prove it on the single affected suite, under the browser lock:
+3. Prove it on the single affected suite, holding the machine's browser lock (rule 15):
    ```bash
-   for i in $(seq 10); do flock /tmp/taurifer-browser.lock node tools/run-tests.mjs <lane> --suite <stem> || break; done
+   for i in $(seq 10); do flock "$BROWSER_LOCK" node tools/run-tests.mjs <lane> --suite <stem> || break; done
    ```
    Use 20 runs when the failure rate is low.
 4. If the cause is deterministic and the fix is obvious, or the 2-CPU devbox cannot finish the loop in reasonable time, skip the loop and say why. The pushed head's CI is then the evidence.

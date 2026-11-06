@@ -13,7 +13,7 @@ Use the approved prototype or mock for this change, as named in the packet brief
 
 ## 2. Capture the matrix
 
-For each state the change affects, capture into the design refs `fidelity/<PR>/` folder. Prefer the frames CI already rendered (`node tools/fetch-ci-captures.mjs <run-id>`) over long local captures. Wrap any local capture in `flock /tmp/taurifer-browser.lock`.
+For each state the change affects, capture into the design refs `fidelity/<PR>/` folder. Prefer the frames CI already rendered (`node tools/fetch-ci-captures.mjs <run-id>`) over long local captures. Hold the machine's browser lock around any local capture (rule 15).
 
 | Axis | Values |
 | --- | --- |
