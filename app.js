@@ -8245,11 +8245,12 @@ function dayAfterTrainedToday(){const done=sessionsToday();
    session summary reads (`sessionOutcomeGroups`), so Today can never disagree with the screen it sends you to. */
 function todayDoneHtml(recap){
   const{liftGroups,showBaseline}=sessionOutcomeGroups(recap.rows),s={showBaseline,session:recap.session};
-  const cell=(n,cap)=>`<div class="statrow__cell"><div class="statrow__val">${esc(n)}</div><div class="statrow__cap">${esc(cap)}</div></div>`;
+  // The figure in Sans with its unit once, small, as the finish screen draws it (#621).
+  const cell=(n,cap,unit)=>`<div class="statrow__cell"><div class="statrow__val">${esc(n)}${unit?`<small>${esc(unit)}</small>`:""}</div><div class="statrow__cap">${esc(cap)}</div></div>`;
   return `<div class="today-done">`+
     `<div class="today-session__name today-session__name--day today-done__name"><span class="today-done__check" aria-hidden="true"></span>`+
     `${esc(recap.days.join(" \u00b7 ")||t("today.done_title"))}</div>`+
-    `<div class="statrow sum-stats">${cell(fmt(recap.sets),tp(recap.sets,"set"))}${cell(kfmt(toDisplay(recap.volume)),t("summary.stat.moved",{unit:unitLabel()}))}`+
+    `<div class="statrow sum-stats">${cell(fmt(recap.sets),tp(recap.sets,"set"))}${cell(kfmt(toDisplay(recap.volume)),t("stats.cap.moved"),unitLabel())}`+
     `${cell(fmt(recap.lifts),tp(recap.lifts,"lift"))}</div>`+
     (recap.prs?`<p class="today-done__pr">${esc(recap.prs===1?t("today.done_pr_one"):t("today.done_prs",{n:recap.prs}))}</p>`:"")+
     `<p class="today-done__note">${esc(t("today.done_note"))}</p>`+
@@ -13161,8 +13162,8 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
   const lcFirst=s=>s?s.charAt(0).toLowerCase()+s.slice(1):s;
   const tiles=[
     {label:lcFirst(t("stats.metric.sessions")),val:sessions.length},
-    {label:t("exercise.top_load"),val:topLoad?`${fmtLoad(topLoad)} ${unitLabel()}`:"—"},
-    {label:lcFirst(t("stats.metric.best_e1rm")),val:bestE?`${fmt(Math.round(toDisplay(bestE)))} ${unitLabel()}`:"—"},
+    {label:t("exercise.top_load"),val:topLoad?`${esc(fmtLoad(topLoad))}<small>${esc(unitLabel())}</small>`:"—"},
+    {label:lcFirst(t("stats.metric.best_e1rm")),val:bestE?`${esc(fmt(Math.round(toDisplay(bestE))))}<small>${esc(unitLabel())}</small>`:"—"},
     {label:t("stats.metric.prs"),val:prCount},
   ];
   const sums=summaries().filter(x=>x.liftKey===key);
@@ -13316,12 +13317,13 @@ function renderExerciseChart(el,key,sessions,tmpl){
   const vals=model.vals,change=vals.at(-1)-vals[0];
   // The plot's accessible name keeps the convention, so it travels with the chart for assistive technology.
   const cue=model.pts.every(point=>point.perSideLoad)?` · ${t("focus.metric.load_per_side_kg")}`:"";
-  const figs=[[chartNum(Math.max(...vals),metric),t(metric==="top"?"exercise.chart.fig.top":"exercise.chart.fig.e1rm",{unit:unitLabel()})],
-    [`${change<0?"−":"+"}${chartNum(Math.abs(change),metric)}`,t("exercise.chart.fig.change",{unit:unitLabel()})],
+  // Each load figure carries its unit once, small, after it; the caption names the figure (#621's stat treatment).
+  const figs=[[chartNum(Math.max(...vals),metric),t(metric==="top"?"exercise.chart.cap.top":"exercise.chart.cap.e1rm"),unitLabel()],
+    [`${change<0?"−":"+"}${chartNum(Math.abs(change),metric)}`,t("exercise.chart.cap.change"),unitLabel()],
     [String(vals.length),t(vals.length===1?"plural.session.one":"plural.session.other")]];
   const metricLabel=`${metric==="top"?t("stats.metric.top_load"):t("stats.metric.best_e1rm")}${cue}`;
   el.innerHTML=head+chartTogglesHtml(scope,metric)+chartPerSideHtml(model)+
-    `<div class="exchart__figs">${figs.map(([v,l])=>`<div><b>${esc(v)}</b><span>${esc(l)}</span></div>`).join("")}</div>`+
+    `<div class="exchart__figs">${figs.map(([v,l,unit])=>`<div><b>${esc(v)}${unit?`<small>${esc(unit)}</small>`:""}</b><span>${esc(l)}</span></div>`).join("")}</div>`+
     `<div class="exchart__plot" role="img" aria-label="${esc(t("exercise.chart.aria",{metric:metricLabel,name}))}" data-xs="${plot.xs.map(v=>v.toFixed(1)).join(",")}" data-w="${CHART_W}">${plot.svg}</div>`+
     `<p class="exchart__readout" aria-live="polite">${chartReadout(model)}</p>`+
     `<div class="exchart__cols"><span>${esc(t("stats.table.date"))}</span><span>${esc(t("ledger.col.top_set"))}</span><span>${esc(t("stats.table.e1rm"))}</span><span>${esc(t("exercise.chart.col.delta"))}</span></div>`+

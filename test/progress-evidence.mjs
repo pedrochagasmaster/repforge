@@ -788,10 +788,14 @@ async function openExerciseCanvas(page) {
   await page.evaluate((k) => openExerciseView(k, "stats"), key);
   await page.waitForSelector(".exchart__plot", { timeout: 5000 });
   const text = await page.evaluate(() => ({
-    figs: [...document.querySelectorAll(".exchart__figs span")].map((s) => s.textContent),
+    figs: [...document.querySelectorAll(".exchart__figs b small")].map((s) => s.textContent),
+    captions: [...document.querySelectorAll(".exchart__figs span")].map((s) => s.textContent),
+    family: getComputedStyle(document.querySelector(".exchart__figs b")).fontFamily,
     readout: document.querySelector(".exchart__readout").textContent,
   }));
-  assert.ok(text.figs[0].includes("lb") && text.figs[1].includes("lb"), `figures follow the unit setting (${text.figs})`);
+  assert.ok(text.figs[0] === "lb" && text.figs[1] === "lb" && text.figs.length === 2, `figures follow the unit setting, said once after each load figure (${text.figs})`);
+  assert.ok(text.captions.every((caption) => !/lb|kg/.test(caption)) && /Plex Sans/.test(text.family),
+    `the captions name the figures without the unit, and the figures are Sans (#621) (${text.captions}; ${text.family})`);
   assert.match(text.readout, /132[,.]\d+/, "the readout converts 60 kg to pounds once");
   await context.close();
 }
