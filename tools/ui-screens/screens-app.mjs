@@ -321,6 +321,7 @@ const DIRECTION_D_BEFORE_SESSION = new Set([
   "today/skipped", "today/context-menu", "today/ready", "today/dock-viewer", "today/ready-scrolled", "today/day-picker", "today/rest-bar", "today/draft-resume",
   "today/in-progress", "progress/minibar", "history/minibar-rest", "program/minibar-rest-done",
   "workout/why-this-weight", "workout/why-in-session",
+  "workout/fatigue", // owner, 2026-11-06: the fatigue banner on the day two lifts did worse than the session before
   "workout/rest-running", "workout/rest-done", "workout/rest-sheet", "workout/rest-sheet-idle",
 ]);
 function directionDBeforeSession() {
@@ -2131,6 +2132,13 @@ export const APP_SCENARIOS = {
     }));
     const copy = await page.evaluate(() => window.RepForgeI18n.t("today.deload_week"));
     if (!cue.visible || cue.text !== copy) throw new Error(`Focus deload note is missing: ${JSON.stringify(cue)}`);
+  },
+  // Owner, 2026-11-06: "Possible fatigue" counts a lift only when it did worse than the session before at the same or a
+  // harder effort. The fixture lifter's Day 3 has two such lifts, so its session raises the banner.
+  "workout/fatigue": async (page) => {
+    await enterWorkout(page, { day: "Day 3" });
+    await page.locator("#fatigue:not(.hidden) .fatigue__trim").waitFor({ state: "visible", timeout: 20000 });
+    await page.locator("#workout .exercise.is-current").waitFor({ state: "attached", timeout: 20000 });
   },
   "workout/focus-glossary": async (page) => {
     await focusMode(page);

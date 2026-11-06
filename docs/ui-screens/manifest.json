@@ -1172,6 +1172,13 @@
       "variants": "localized"
     },
     {
+      "id": "fatigue",
+      "flow": "workout",
+      "label": "Workout — possible fatigue",
+      "scenario": "Two of the day's lifts did worse than the session before at the same effort, so Focus raises the fatigue banner with Trim.",
+      "variants": "localized"
+    },
+    {
       "id": "focus-glossary",
       "flow": "workout",
       "label": "Workout — Focus glossary definition",
