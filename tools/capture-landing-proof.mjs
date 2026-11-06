@@ -130,7 +130,8 @@ const QUIET_GUIDES = Object.fromEntries(GUIDE_DEFINITIONS.map(guide =>
 const base = process.env.REPFORGE_URL || 'http://localhost:8000/';
 
 async function safeInsets(page) {
-  await page.route('**/styles.css', async route => {
+  // The stylesheet is query-versioned (styles.css?v=N); match its path, whatever the revision.
+  await page.route(url => new URL(url).pathname.endsWith('/styles.css'), async route => {
     const response = await route.fetch();
     await route.fulfill({response, body: (await response.text())
       .replaceAll('env(safe-area-inset-top)', `${SAFE_INSETS.top}px`)
