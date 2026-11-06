@@ -689,7 +689,10 @@ function historyReadingView(s,rows){
   return`<article class="session session--read histpage" data-reading="${esc(sid)}" data-sess="${esc(sid)}">`+
     `<div class="histpage__totals">${totals}</div>`+
     lifts+
-    `<div class="histpage__actions"><button type="button" class="btn btn--steel" data-history-edit="${esc(sid)}"><span class="icon-mask icon-mask--pencil" aria-hidden="true"></span>${esc(t("history.session.edit"))}</button>`+
+    // Share (finish-share PR 4): the session's card, drawn by the same share sheet the finish screen opens.
+    `<div class="histpage__actions">${typeof deps.canShareSession==="function"&&deps.canShareSession(sid)?
+      `<button type="button" class="btn btn--steel" data-history-share="${esc(sid)}"><span class="icon-mask icon-mask--share" aria-hidden="true"></span>${esc(t("history.session.share"))}</button>`:""}`+
+    `<button type="button" class="btn btn--steel" data-history-edit="${esc(sid)}"><span class="icon-mask icon-mask--pencil" aria-hidden="true"></span>${esc(t("history.session.edit"))}</button>`+
     `<button type="button" class="session__del" data-del="${esc(sid)}">${esc(t("history.session.delete"))}</button></div></article>`}
 /** #515: the session's recorded wall-clock minutes, inside the summary's own
  *  window, as quiet metadata after the date. Unknown reads as nothing. */
@@ -749,6 +752,9 @@ async function historyCancelOperation(){
 function bindHistorySelection(){
   $("[data-history-back]")?.addEventListener("click",historyBackToCalendar);
   $("[data-history-edit]")?.addEventListener("click",historyStartEditing);
+  $("[data-history-share]")?.addEventListener("click",event=>{
+    const button=event.currentTarget,sid=button.dataset.historyShare,record=historySessionRows(state.log,sid)[0];
+    deps.shareSession?.(sid,{week:record?historyWeekOf(record.date):null,opener:button})});
   $("[data-history-delete-cancel]")?.addEventListener("click",historyCancelOperation);
   $("[data-history-delete-confirm]")?.addEventListener("click",()=>deleteSession($("[data-history-delete-confirm]").dataset.historyDeleteConfirm,{originalFingerprint:historySelection.originalFingerprint,operationId:historySelection.operationId}));
   $$("[data-del]").forEach(b=>b.addEventListener("click",async e=>{

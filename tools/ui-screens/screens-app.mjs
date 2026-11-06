@@ -301,7 +301,7 @@ const D_FIXTURE_STATES = new Set([
   "workout/actions", "workout/exercise-actions", // R3x: the redrawn sheet, on the lifter the drawing shows
   "workout/swap-alternates", // #317: the swap picker leads with the squat slot's alternates
   "workout/abandon", "workout/swap-reason", // Plan 071 §10: end-without-saving and the swap reason chips
-  "history/list", "history/list-scrolled", "history/session", "history/edit-dirty", "history/edit-invalid", // R3j, R3j2
+  "history/list", "history/list-scrolled", "history/session", "history/session-share", "history/edit-dirty", "history/edit-invalid", // R3j, R3j2
   "program/overview", // R3k
   "today/done", // R3x: the finished day, on the lifter whose Monday session is in the log
   "today/deload-week", // Plan 072 S4: the deload cue in Today
@@ -405,7 +405,7 @@ export function appState(key, lang) {
   // the review page draws. Every other state keeps catalogState().
   if (D_FIXTURE_STATES.has(key)) {
     const drawn = localeState(directionDState(), lang);
-    if (key === "history/session") {
+    if (key === "history/session" || key === "history/session-share") {
       // #515: the session the page opens (the newest) has a recorded duration.
       const newest = [...drawn.log].sort((a, b) => String(b.created).localeCompare(String(a.created)))[0];
       const completedAt = new Date(Date.parse(newest.created)).toISOString();
@@ -2663,6 +2663,15 @@ export const APP_SCENARIOS = {
     // the PT+200 matrix.
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     await sleep(page, 400);
+  },
+  // Share from a past session's page (finish-share PR 4): the same sheet, on that session's record poster.
+  "history/session-share": async (page) => {
+    await APP_SCENARIOS["history/session"](page);
+    await page.click("[data-history-share]");
+    await page.waitForFunction(() => window.__repforgeShareSheet?.state()?.file, undefined, { timeout: 20000 });
+    await page.waitForSelector("#shareCardSheet.is-open", { timeout: 20000 });
+    await page.waitForFunction(() => document.querySelector("#shareCardPreview")?.complete, undefined, { timeout: 20000 });
+    await sleep(page, 700);
   },
   "history/edit-dirty": async (page) => {
     await openHistoryEditor(page);

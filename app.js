@@ -11406,11 +11406,38 @@ async function paintShareCard(){
   // Until a photo is chosen the Photo preview is a stand-in ground, so there is nothing to send yet.
   const ready=style!=="photo"||!!st.photo;
   if(share)share.disabled=!ready;if(save)save.disabled=!ready}
-function openShareSheet(opener){
-  const s=sessionSummaryCurrent,sheet=$("#shareCardSheet"),scrim=$("#shareCardScrim");
+/** A past session as the cards draw it (finish-share PR 4): the same numbers the finish screen gave it, read from the
+ *  log as it stood when the session was saved. Records compare with what came before it; outcome words are History's
+ *  own per-session outcomes, not the current block's; the week is the block week History shows. Null for a session
+ *  with no working sets. */
+function historyShareSummary(sid,{week=null}={}){
+  const id=String(sid),rows=state.log.filter(row=>String(row?.session??"")===id),work=performedWorkingRows(rows);
+  if(!work.length)return null;
+  const first=rows.reduce((a,b)=>compareLogChronology(a,b)<=0?a:b);
+  const prevLog=state.log.filter(row=>String(row?.session??"")!==id&&compareLogChronology(row,first)<0);
+  const prs=sessionPRs(rows,prevLog),byLift=new Map();
+  for(const row of work){const key=liftKey(row);if(!byLift.has(key))byLift.set(key,{liftKey:key,name:displayName(row),rows:[]});byLift.get(key).rows.push(row)}
+  const raw=new Map();for(const row of rows.filter(isWork)){const key=liftKey(row);if(!raw.has(key))raw.set(key,[]);raw.get(key).push(row)}
+  const liftGroups=[...byLift.values()].map(group=>{
+    const outcome=historySessionOutcome(raw.get(group.liftKey)||[])?.status;
+    return{liftKey:group.liftKey,name:group.name,session:id,
+      sets:[...group.rows].sort((a,b)=>(+a.set||0)-(+b.set||0)).map(row=>({load:+row.load,reps:+row.reps})),
+      state:outcome==="improved"?{kind:"outcome",outcome:"improved"}:{kind:"insufficient",reason:null},
+      pr:prs.find(entry=>entry.liftKey===group.liftKey)||null,next:null}});
+  const date=first.date,strength=week>=2?strengthGainedThisBlock(rows,prevLog):null,streak=weeksInARow([...prevLog,...rows],date);
+  const seconds=state.sessionTiming?.[id]?.durationSeconds,mins=Number.isFinite(seconds)?Math.round(seconds/60):null;
+  return{session:id,date,day:first.day,strength,streak,
+    reps:sum(work.map(row=>+row.reps)),
+    tiles:summaryTiles({strength,streak,records:prs.length}),
+    lead:summaryLeadCard(prs,liftGroups),
+    sets:rows.length,volume:movedTonnage(rows),prs,liftGroups,
+    minutes:mins>=1&&mins<=480?mins:null,
+    meso:{current:week??null}}}
+function openShareSheet(opener,{summary:given=null,origin="summary"}={}){
+  const s=given||sessionSummaryCurrent,sheet=$("#shareCardSheet"),scrim=$("#shareCardScrim");
   if(!s||!sheet)return;
   const model=shareCardModel(s);
-  shareSheet={summary:s,model,kind:model.lead?shareCardInView(s):"stats",size:"story",styleIndex:0,token:0,url:"",file:null,drawn:null,photo:null};
+  shareSheet={summary:s,origin,model,kind:model.lead?shareCardInView(s):"stats",size:"story",styleIndex:0,token:0,url:"",file:null,drawn:null,photo:null};
   syncShareControls(shareSheet);
   // Without file sharing (desktop Firefox, some web views) the image is saved instead: Save leads.
   const canShare=shareCanFiles(),share=$("#shareCardShare"),save=$("#shareCardSave");
@@ -11421,7 +11448,7 @@ function openShareSheet(opener){
   openModal(sheet,{handoff:true,initialFocus:$("#shareCardClose"),returnFocus:opener,onEscape:closeShareSheet,scrim,
     delayHide:reducedMotion()?0:280});
   // The finish screen stays in view under the sheet, out of reach, as a sheet's page does.
-  const summary=$("#sessionSummary");
+  const summary=origin==="summary"?$("#sessionSummary"):null;
   if(summary){summary.hidden=false;summary.classList.remove("hidden");summary.classList.add("is-under-sheet");summary.inert=true}
   requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open");syncShareControls(shareSheet)});
   paintShareCard()}
@@ -11433,6 +11460,8 @@ function closeShareSheet(){
   const input=$("#sharePhotoInput");if(input)input.value="";
   const summary=$("#sessionSummary");
   return closeModal(sheet).then(()=>{
+    // From History the sheet closes back to the session's page, focus on its Share.
+    if(st.origin==="history"){if(st.url)setTimeout(()=>URL.revokeObjectURL(st.url),60000);return}
     if(summary){summary.inert=false;summary.classList.remove("is-under-sheet")}
     if(st.url)setTimeout(()=>URL.revokeObjectURL(st.url),60000);
     if(sessionSummaryCurrent!==st.summary){if(summary&&!activeModal){summary.hidden=true;summary.classList.add("hidden")}return}
@@ -12732,6 +12761,8 @@ const HistoryUi=window.RepForgeHistoryUi.create({
   settleHistoryAlreadyCommitted:opts=>DurableState.settleHistoryAlreadyCommitted(opts),
   settlePendingJournal,
   getState:()=>state, renderApp:()=>render(),
+  canShareSession:sid=>!!window.TauriferShareCards&&state.log.some(row=>String(row?.session??"")===String(sid)&&isWork(row)&&+row.load>0&&+row.reps>0),
+  shareSession:(sid,{week,opener})=>{const s=historyShareSummary(sid,{week});if(s)openShareSheet(opener,{summary:s,origin:"history"})},
   adoptHistoryDurableHead, captureEvent,
 });
 window.__repforgeHistory=HistoryUi;

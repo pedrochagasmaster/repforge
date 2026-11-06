@@ -1634,6 +1634,13 @@
       "variants": "demandingText"
     },
     {
+      "id": "session-share",
+      "flow": "history",
+      "label": "History — share a past session",
+      "scenario": "Share on a past session's page: the finish screen's share sheet over History, on that session's record poster, with its card, format and style choices, and Share and Save.",
+      "variants": "demandingText"
+    },
+    {
       "id": "per-side-session",
       "flow": "history",
       "label": "History — per-side session",

@@ -266,6 +266,7 @@
   "history.search_input_aria": "Filter sessions by day or exercise",
   "history.session_open_aria": "Open session {day}",
   "history.session.sub": "{date} · {sets} sets · {top} top · {vol} {unit}",
+  "history.session.share": "Share",
   "history.session.edit": "Edit",
   "history.session.delete": "Delete session",
   "history.selected": "Selected session",

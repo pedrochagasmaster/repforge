@@ -638,6 +638,11 @@
       "content": "flat",
       "scenario": "One session expanded in place."
     },
+    "history/session-share": {
+      "owner": "plan-064/r3h",
+      "content": "flat",
+      "scenario": "The share sheet over a past session's page in History, on that session's record poster."
+    },
     "history/per-side-session": {
       "owner": "plan-069-s2",
       "content": "flat",
@@ -6255,7 +6260,8 @@
       "owner": "finish-share",
       "catalogStates": [
         "session/summary-share",
-        "session/summary-share-photo"
+        "session/summary-share-photo",
+        "history/session-share"
       ]
     },
     {
@@ -6273,7 +6279,8 @@
       "owner": "finish-share",
       "catalogStates": [
         "session/summary-share",
-        "session/summary-share-photo"
+        "session/summary-share-photo",
+        "history/session-share"
       ]
     },
     {
@@ -6296,7 +6303,8 @@
       "owner": "finish-share",
       "catalogStates": [
         "session/summary-share",
-        "session/summary-share-photo"
+        "session/summary-share-photo",
+        "history/session-share"
       ],
       "neverDisabledReason": "Closing is always available."
     },
@@ -6321,7 +6329,8 @@
       "sourceOnlyReason": "pending: shown only where the browser can share files (navigator.canShare with files); the headless catalog browser cannot, so the sheet's Save leads there. test/share-card.mjs proves it with a stubbed share sheet.",
       "catalogStates": [
         "session/summary-share",
-        "session/summary-share-photo"
+        "session/summary-share-photo",
+        "history/session-share"
       ]
     },
     {
@@ -6343,7 +6352,8 @@
       "owner": "finish-share",
       "catalogStates": [
         "session/summary-share",
-        "session/summary-share-photo"
+        "session/summary-share-photo",
+        "history/session-share"
       ]
     },
     {
@@ -6387,7 +6397,8 @@
       "owner": "finish-share",
       "catalogStates": [
         "session/summary-share",
-        "session/summary-share-photo"
+        "session/summary-share-photo",
+        "history/session-share"
       ],
       "neverDisabledReason": "Every choice the sheet offers can be drawn; a card the session cannot back is hidden, not disabled."
     },
@@ -8893,7 +8904,8 @@
         "workout/max-set-guess",
         "session/summary-share",
         "session/summary-share-photo",
-        "workout/why-calibration"
+        "workout/why-calibration",
+        "history/session-share"
       ]
     },
     {
@@ -12022,7 +12034,8 @@
         "settings/language-menu",
         "settings/effort-menu",
         "session/summary-share",
-        "session/summary-share-photo"
+        "session/summary-share-photo",
+        "history/session-share"
       ]
     },
     {
@@ -12052,7 +12065,8 @@
         "settings/language-menu",
         "settings/effort-menu",
         "session/summary-share",
-        "session/summary-share-photo"
+        "session/summary-share-photo",
+        "history/session-share"
       ]
     },
     {
