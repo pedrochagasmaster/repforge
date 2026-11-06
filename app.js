@@ -14607,14 +14607,18 @@ function renderGuideReplayList(){
 // earlier render must not overwrite a newer one, and a browser without the API
 // reads the same as one that will not promise.
 // @ci-domain settings
-let storageNoteGen=0;
+// Each render paints the last answer at once and corrects it if the browser's has changed: painting the line alone
+// first made the note shrink and grow back on every save, which jolted everything below it.
+let storageNoteGen=0,storagePersisted=null;
 function paintStorageNote(backupLine){
   const sn=$("#storageNote");if(!sn)return;
-  sn.textContent=backupLine;
+  const line=kept=>kept==null?backupLine:`${backupLine} ${t(kept?"settings.storage.persisted":"settings.storage.not_persisted")}`;
+  sn.textContent=line(storagePersisted);
   const gen=++storageNoteGen;
   (async()=>{let kept=false;try{kept=(await navigator.storage?.persisted?.())===true}catch{}
+    storagePersisted=kept;
     if(gen!==storageNoteGen)return;
-    sn.textContent=`${backupLine} ${t(kept?"settings.storage.persisted":"settings.storage.not_persisted")}`})()}
+    const text=line(kept);if(sn.textContent!==text)sn.textContent=text})()}
 
 /* Activation keeps the Basics on this device as the lifter's profile
    (OD-4): answered fields replace their old values, skipped ones leave them.
