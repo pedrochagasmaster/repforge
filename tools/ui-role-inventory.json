@@ -9245,7 +9245,11 @@
         "workout/effort-stage-a",
         "workout/effort-stage-b",
         "workout/stage-tip",
-        "workout/effort-menu"
+        "workout/effort-menu",
+        "workout/max-set-prompt",
+        "workout/max-set-guess",
+        "workout/max-set-active",
+        "workout/max-set-result"
       ],
       "neverDisabledReason": "The way to change how effort is logged stays reachable whenever the shelf is."
     },
