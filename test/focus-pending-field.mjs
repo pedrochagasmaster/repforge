@@ -251,17 +251,17 @@ async function main() {
   await page.locator(field("rir")).click();
   const effort0 = await readField(page, "effort");
   await holdLock(page);
-  await page.locator(`${SHELF} [data-effstep] >> nth=0`).click();
+  await page.locator(`${SHELF} [data-effchip][data-e="easy"]`).click();
   await page.locator(field("load")).click(); // rebuild
   const effortWaiting = await readField(page, "effort");
   await page.locator(field("rir")).click();
-  await page.locator(`${SHELF} [data-effstep] >> nth=1`).click(); // second step reads the rebuilt control
+  await page.locator(`${SHELF} [data-effchip][data-e="max"]`).click(); // the second choice reads the rebuilt chips
   await releaseLock(page);
   const effort1 = await readField(page, "effort");
   assert(effort1.label && effort1.label === effort1.ledger && String(effort1.draft).toLowerCase() === effort1.effortAttr,
-    "RT-03: effort label, ledger, control and acknowledged draft agree after two steps across rebuilds", { effort0, effortWaiting, effort1 });
+    "RT-03: effort label, ledger, control and acknowledged draft agree after two choices across rebuilds", { effort0, effortWaiting, effort1 });
   assert(effortWaiting.label === effortWaiting.ledger && effortWaiting.label !== effort0.label && effort1.label !== effortWaiting.label,
-    "RT-03: each step moved the word, and the rebuilt shelf kept the first one", { effort0, effortWaiting, effort1 });
+    "RT-03: each choice moved the word, and the rebuilt shelf kept the first one", { effort0, effortWaiting, effort1 });
 
   // ---- f: exercise navigation while waiting ---------------------------------
   phase("RT-03: leaving the exercise while the write waits");

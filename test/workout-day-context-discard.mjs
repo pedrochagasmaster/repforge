@@ -195,7 +195,8 @@ async function main() {
     const beforeDraft = JSON.parse(beforeSwitch.draftRaw || "{}");
     const beforeSet = beforeDraft.exercises?.[DAY_1_EXERCISE]?.sets?.["set-1"];
     check(
-      beforeSet?.edited?.effort === "hard" && beforeSet?.touched?.effort === true,
+      // A typed RIR is the set's one effort value: it clears any word the set held (Plan 077, OD-5).
+      beforeSet?.edited?.rir === "1" && beforeSet?.edited?.effort == null && beforeSet?.touched?.effort === true,
       "Pre-cancel snapshot acknowledges the entered effort field",
       { beforeSet }
     );

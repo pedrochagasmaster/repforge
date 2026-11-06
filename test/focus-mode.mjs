@@ -960,8 +960,8 @@ async function main() {
     open: !!document.querySelector(".focus-shelf .effortpop.is-open"),
     pads: [...document.querySelectorAll("#workout .exercise.is-current .shelf__pad")].map((b) => b.textContent.trim()),
   }));
-  assert(selected.pressed === "true" && !selected.open && selected.pads.length === 2 && selected.pads.every((t) => /easy|hard|max/i.test(t)),
-    "a first tap selects the effort field and its pads name the words they step to", JSON.stringify(selected));
+  assert(selected.pressed === "true" && !selected.open && selected.pads.join() === "Easy,Hard,Max",
+    "a first tap selects the effort field and its chips offer the three words (Plan 077, OD-4)", JSON.stringify(selected));
   await page.locator(".focus-shelf [data-effspin]").click();
   await page.waitForTimeout(420);
   const popOpen = await page.evaluate(() => {
@@ -983,30 +983,20 @@ async function main() {
   assert(popOpen.open && popOpen.text && popOpen.above >= 0 && popOpen.above <= 60 &&
     popOpen.offCentre <= 2 && popOpen.inside && popOpen.opacity > .9,
     "tapping the selected effort field pops its shorthand open just above it", JSON.stringify(popOpen));
-  // Stepping the word under an open pill rewrites the pill rather than closing it.
-  await page.locator(".exercise.is-current .focus-shelf [data-effstep]").last().click();
+  // Choosing another word under an open pill rewrites the pill rather than closing it.
+  await page.locator(".exercise.is-current .focus-shelf [data-effchip][data-e='max']").click();
   await page.waitForTimeout(300);
   const popStepped = await page.evaluate(() => {
     const pop = document.querySelector(".focus-shelf .effortpop");
     return { open: pop.classList.contains("is-open"),
       text: pop.querySelector(".effortpop__hint")?.textContent?.trim() || "",
-      pads: [...document.querySelectorAll("#workout .exercise.is-current .shelf__pad")].map((b) => `${b.textContent.trim()}${b.disabled ? " (off)" : ""}`),
+      pressed: [...document.querySelectorAll("#workout .exercise.is-current .shelf__chip[aria-pressed='true']")].map((b) => b.textContent.trim()),
       soft: document.querySelector(".focus-shelf [data-effspin]").closest(".shelf__field").classList.contains("is-untouched") };
   });
   assert(popStepped.open && popStepped.text && popStepped.text !== popOpen.text,
-    "the open shorthand follows the effort word as it steps", JSON.stringify(popStepped));
-  assert(popStepped.soft === false && /max.*\(off\)/i.test(popStepped.pads[1] || ""),
-    "stepping confirms the word, and the pad that cannot go further says so", JSON.stringify(popStepped));
-  const disabledPad = await page.evaluate(() => {
-    const lin = (c) => { const v = c / 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
-    const lum = (r, g, b) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
-    const rgb = (c) => String(c).match(/\d+(?:\.\d+)?/g).slice(0, 3).map(Number);
-    const pad = document.querySelector("#workout .exercise.is-current .shelf__pad:disabled");
-    const style = getComputedStyle(pad);
-    const [a, b] = [lum(...rgb(style.color)), lum(...rgb(style.backgroundColor))].sort((x, y) => y - x);
-    return { color: style.color, background: style.backgroundColor, contrast: (a + 0.05) / (b + 0.05) };
-  });
-  assert(disabledPad.contrast >= 3, "a disabled pad stays readable (3:1 against its ground)", JSON.stringify(disabledPad));
+    "the open shorthand follows the effort word as it changes", JSON.stringify(popStepped));
+  assert(popStepped.soft === false && popStepped.pressed.join() === "Max",
+    "a chip confirms the word, and only the chosen chip is pressed", JSON.stringify(popStepped));
   await page.locator(".exercise.is-current .focus-ex__meta").click();
   await page.waitForTimeout(400);
   const popDismissed = await page.evaluate(() => {
@@ -1036,7 +1026,7 @@ async function main() {
     "editing an effort set reopens the word it was logged with", JSON.stringify(editEffort));
   // Correcting a set starts on reps again; the effort field is one tap away.
   await page.click("#workout .exercise.is-current .focus-shelf [data-shelf-field='rir']");
-  await page.click("#workout .exercise.is-current .focus-shelf [data-effstep][data-dir='-1']");
+  await page.click(`#workout .exercise.is-current .focus-shelf [data-effchip]:not([data-e="${editEffort.spin}"])`);
   await page.locator("#workout .exercise.is-current .focus-shelf .saveset").click();
   await page.waitForTimeout(250);
   await openLoggedSets(page);
@@ -1195,7 +1185,7 @@ async function main() {
       // Composed, not wired: a peek carries no draft field and no hook that a
       // handler could fire on the neighbour's behalf.
       peekWired: !!peek.querySelector("[data-k], [data-save], [data-shelf-field], [data-step], [data-why], [data-fcancel]," +
-        "[data-effstep], [data-effspin], [data-editn], [data-exopen], [data-fnext], [data-fnextrow], [data-ffinish]"),
+        "[data-effchip], [data-effmenu], [data-effspin], [data-editn], [data-exopen], [data-fnext], [data-fnextrow], [data-ffinish]"),
       peekInert: !!peek.querySelector(".exercise--focus[inert]"),
       peekTabbable: [...peek.querySelectorAll("button, input, textarea")]
         .filter((el) => el.tabIndex >= 0).length,

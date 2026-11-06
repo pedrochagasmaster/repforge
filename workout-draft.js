@@ -11,10 +11,18 @@
   // allowedFields loop below (issue #332). rir/effort are intentionally
   // absent; those stay on the flat edited fields for every slot.
   const LEGACY_METRIC_SEMANTIC = Object.freeze({ load: "loadKg", reps: "reps" });
-  const EFFORT_RIR = Object.freeze({ easy: 3, hard: 1, max: 0 });
+  /* The effort vocabulary (Plan 077, OD-2 to OD-4): the words of stage A, the reps-left chips of stage B ("3+" is
+     credited as 3, a floor) and "Not sure", the one token that saves with no RIR. */
+  const EFFORT_RIR = Object.freeze({ easy: 3, hard: 1, max: 0, r0: 0, r1: 1, r2: 2, r3p: 3, unsure: null });
+  const EFFORT_TOKEN_SOURCE = Object.freeze({ easy: "effort", hard: "effort", max: "effort",
+    r0: "reps_left", r1: "reps_left", r2: "reps_left", r3p: "reps_left_3plus", unsure: "unsure" });
   /* How a set's effort value was entered (Plan 077, OD-1): recorded at completion, carried to History as the row's
      effortSource. Absent means unknown (drafts and rows from before it existed); it is never inferred afterwards. */
   const EFFORT_SOURCES = Object.freeze(["rir", "effort", "reps_left", "reps_left_3plus", "unsure", "prefilled", "failure"]);
+  /* A max set's guess (Plan 077, OD-17): what the lifter expected to do at the set's load, whether they changed the
+     prefill, and what the prefill came from. Held on the set while it is pending and carried to its History row. */
+  const CALIBRATION_KEYS = Object.freeze(["v", "predictedReps", "predictionEdited", "prefillBasis"]);
+  const PREFILL_BASES = Object.freeze(["reps_rir", "reps"]);
   const DECIMAL = /^\d+(?:\.\d+)?$/;
   const INTEGER = /^\d+$/;
   const MAX_TEXT = 10000;
@@ -438,6 +446,14 @@
       }
     }
     if (hasOwn(value, "performed")) validateMovementSnapshot(value.performed, `${path}.performed`, issues);
+    if (hasOwn(value, "calibration") && !validCalibration(value.calibration)) issues.push(`${path}.calibration`);
+  }
+
+  function validCalibration(value) {
+    return isPlainObject(value) && Object.keys(value).length === CALIBRATION_KEYS.length &&
+      CALIBRATION_KEYS.every(key => hasOwn(value, key)) && value.v === 1 &&
+      Number.isSafeInteger(value.predictedReps) && value.predictedReps >= 1 && value.predictedReps <= 30 &&
+      typeof value.predictionEdited === "boolean" && PREFILL_BASES.includes(value.prefillBasis);
   }
 
   function validateProgrammedExercise(value, path, issues) {
@@ -956,6 +972,23 @@
     return { installationId: writer.installationId, tabId: writer.tabId, operationId: command.operationId };
   }
 
+  /** Which field holds a set's effort: the one the lifter last edited (an edit clears the other), else the
+   *  workout's mode. A set keeps its own vocabulary when the mode changes mid-workout (OD-5). */
+  function effortFieldOf(draft, set) {
+    if (set.touched.effort) {
+      if (set.edited.effort != null) return "effort";
+      if (set.edited.rir != null) return "rir";
+    }
+    return draft.program.rirMode === "effort" ? "effort" : "rir";
+  }
+
+  /** A set's RIR from its own field: an effort token maps (null for "Not sure"), a number parses. */
+  function effortRir(draft, set) {
+    return effortFieldOf(draft, set) === "effort"
+      ? hasOwn(EFFORT_RIR, effectiveText(set, "effort")) ? EFFORT_RIR[effectiveText(set, "effort")] : undefined
+      : validDecimal(effectiveText(set, "rir"));
+  }
+
   function effectiveText(set, field) {
     const edited = set.edited[field];
     if (edited != null) return edited;
@@ -1007,7 +1040,7 @@
         }
       }
       if (set.edited.rir != null || set.edited.effort != null) {
-        if (draft.program.rirMode === "effort") {
+        if (effortFieldOf(draft, set) === "effort") {
           if (set.edited.effort != null && !hasOwn(EFFORT_RIR, set.edited.effort)) issues.push({ code: "invalid-effort", exerciseInstanceId: exercise.exerciseInstanceId, setId: set.setId, field: "effort" });
         } else if (set.edited.rir != null && validDecimal(set.edited.rir) == null) {
           issues.push({ code: "invalid-rir", exerciseInstanceId: exercise.exerciseInstanceId, setId: set.setId, field: "rir" });
@@ -1019,7 +1052,7 @@
     const reps = validInteger(effectiveText(set, "reps"), { positive: true });
     if (load == null) issues.push({ code: "invalid-load", exerciseInstanceId: exercise.exerciseInstanceId, setId: set.setId, field: "load" });
     if (reps == null) issues.push({ code: "invalid-reps", exerciseInstanceId: exercise.exerciseInstanceId, setId: set.setId, field: "reps" });
-    if (draft.program.rirMode === "effort") {
+    if (effortFieldOf(draft, set) === "effort") {
       const effort = effectiveText(set, "effort");
       if (!hasOwn(EFFORT_RIR, effort)) issues.push({ code: "invalid-effort", exerciseInstanceId: exercise.exerciseInstanceId, setId: set.setId, field: "effort" });
     } else if (validDecimal(effectiveText(set, "rir")) == null) {
@@ -1259,7 +1292,30 @@
         const value = editableText(command.value);
         if (value === undefined) return error("invalid-set-field-value", { field: command.field });
         item.set.edited[command.field] = value;
+        // One effort value per set: a number clears the word and a word clears the number (Plan 077, OD-5).
+        if (command.field === "rir") item.set.edited.effort = null;
+        if (command.field === "effort") item.set.edited.rir = null;
         item.set.touched[command.field === "rir" || command.field === "effort" ? "effort" : command.field] = true;
+        // A max set is at 0 reps left; any other effort makes it a normal set again (Plan 077, OD-17).
+        if (item.set.calibration && (command.field === "rir" || command.field === "effort") && !failureEffort(command.field, value)) {
+          delete item.set.calibration;
+        }
+        break;
+      }
+      case "startMaxSet": {
+        item = targetSet(next, command);
+        if (isDomainError(item)) return item;
+        if (item.set.completion !== "pending" || item.set.role !== "working") return error("max-set-not-pending");
+        if (!validCalibration(command.calibration)) return error("invalid-calibration");
+        item.set.calibration = jsonClone(command.calibration);
+        break;
+      }
+      case "cancelMaxSet": {
+        item = targetSet(next, command);
+        if (isDomainError(item)) return item;
+        if (!item.set.calibration) return draft;
+        if (item.set.completion !== "pending") return error("max-set-not-pending");
+        delete item.set.calibration;
         break;
       }
       case "editMetricValue": {
@@ -1360,6 +1416,16 @@
         // target), written into the set so the live session and History read the same value (Plan 077, A5), and
         // recorded as a prefill rather than an entry.
         const effortField = next.program.rirMode === "effort" ? "effort" : "rir";
+        // A max set logs 0 reps left, at the load of the set before; at another load it is a normal set (Plan 077).
+        if (item.set.calibration && !sameLoadAsSetBefore(next, item.exercise, item.set)) delete item.set.calibration;
+        const maxSet = !!item.set.calibration;
+        if (maxSet) {
+          // Failure goes in the set's own effort field (Plan 077 PR 2's per-set rule), and its sibling clears.
+          const maxField = effortFieldOf(next, item.set);
+          item.set.edited[maxField] = maxField === "effort" ? "max" : "0";
+          item.set.edited[maxField === "effort" ? "rir" : "effort"] = null;
+          item.set.touched.effort = true;
+        }
         const enteredEffort = !!item.set.touched.effort;
         if (!enteredEffort) {
           const offered = isPlainObject(command.prefill) && command.prefill.field === effortField ? command.prefill.value : null;
@@ -1370,7 +1436,9 @@
         }
         const issues = [...sessionSaveIssues(next), ...setSaveIssues(next, item.exercise, item.set)];
         if (issues.length) return error("set-not-saveable", { issues });
-        item.set.completion = { completedAt: command.completedAt, effortSource: enteredEffort ? effortField : "prefilled" };
+        const entered = effortFieldOf(next, item.set) === "effort"
+          ? EFFORT_TOKEN_SOURCE[item.set.edited.effort] || "effort" : "rir";
+        item.set.completion = { completedAt: command.completedAt, effortSource: maxSet ? "failure" : enteredEffort ? entered : "prefilled" };
         item.set.performed = jsonClone(item.exercise.substitution?.replacement || snapshotFromExercise(item.exercise));
         item.set.touched = { ...item.set.touched, load: true, reps: true, effort: true,
           ...(item.set.touched.metrics ? { metrics: Object.fromEntries(Object.keys(item.set.touched.metrics).map(id => [id, true])) } : {}) };
@@ -1511,6 +1579,14 @@
         item.exercise.setupNotes = command.value;
         break;
       }
+      case "setRirMode": {
+        // The workout's effort vocabulary changes from the next set on (Plan 077, OD-5): completed sets and any set
+        // the lifter already edited keep their own value; untouched sets take the new mode's control and prefill.
+        if (!RIR_MODES.has(command.value)) return error("invalid-rir-mode", { value: command.value });
+        if (next.program.rirMode === command.value) return draft;
+        next.program.rirMode = command.value;
+        break;
+      }
       case "setSessionNotes":
         if (!isText(command.value, { empty: true })) return error("invalid-session-notes");
         next.session.notes = command.value;
@@ -1559,14 +1635,32 @@
   function numericSetValues(draft, set) {
     const load = validDecimal(effectiveText(set, "load"), { positive: true, max: 1000 });
     const reps = validInteger(effectiveText(set, "reps"), { positive: true });
-    const rir = draft.program.rirMode === "effort"
-      ? EFFORT_RIR[effectiveText(set, "effort")]
-      : validDecimal(effectiveText(set, "rir"));
-    return { load, reps, rir };
+    const rir = effortRir(draft, set);
+    return { load, reps, rir: rir === undefined ? null : rir };
   }
 
   /** A row's effortSource is what completion recorded. A set saved without completing, or completed before Plan 077,
    *  has none: its touched flags can come from a legacy migration, so nothing is inferred from them. */
+  function failureEffort(field, value) {
+    // "r0" is stage B's "0 left" (Plan 077 PR 2); "max" is stage A's.
+    return field === "effort" ? value === "max" || value === "r0" : validDecimal(value) === 0;
+  }
+
+  /** The set's load as a comparable value: the flat load, or its load metrics' values; "" for a set without load. */
+  function loadSignature(set) {
+    if (Array.isArray(set.programmed.metrics)) {
+      return JSON.stringify(set.programmed.metrics.filter(metric => LOAD_SEMANTICS.has(metric.semantic))
+        .map(metric => [metric.semantic, metricValue(set.edited.metrics?.[metric.id], metric)]));
+    }
+    return JSON.stringify(validDecimal(effectiveText(set, "load"), { positive: true, max: 1000 }));
+  }
+
+  function sameLoadAsSetBefore(draft, exercise, set) {
+    const before = exercise.setOrder.map(id => exercise.sets[id])
+      .find(other => other.ordinal === set.ordinal - 1 && other.role === "working" && other.completion !== "pending");
+    return !!before && loadSignature(before) === loadSignature(set);
+  }
+
   function effortSourceOf(set) {
     return set.completion !== "pending" && EFFORT_SOURCES.includes(set.completion?.effortSource)
       ? { effortSource: set.completion.effortSource } : {};
@@ -1610,13 +1704,15 @@
           load: metricBySemantic.has("loadKg") ? metricBySemantic.get("loadKg") : metricDefinitions ? null : values.load,
           reps: metricBySemantic.has("reps") ? metricBySemantic.get("reps") : metricDefinitions ? null : values.reps,
           rir: metricDefinitions
-            ? draft.program.rirMode === "effort"
+            ? effortFieldOf(draft, set) === "effort"
               ? hasOwn(EFFORT_RIR, set.edited.effort) ? EFFORT_RIR[set.edited.effort] : null
               : set.edited.rir == null ? null : validDecimal(set.edited.rir)
             : values.rir,
           notes: draft.session.notes.trim(),
           created: completedAt,
           ...effortSourceOf(set),
+          ...(set.completion !== "pending" && set.completion?.effortSource === "failure" && validCalibration(set.calibration)
+            ? { calibration: jsonClone(set.calibration) } : {}),
           ...(hasOwn(draft.program, "blockId") ? { blockId: draft.program.blockId } : {}),
           primary: original.primary,
           secondary: original.secondary,
@@ -1970,6 +2066,7 @@
   const api = Object.freeze({
     SCHEMA_VERSION,
     EFFORT_SOURCES,
+    validCalibration,
     create,
     parse,
     migrateLegacy,

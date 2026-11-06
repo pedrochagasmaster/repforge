@@ -346,6 +346,18 @@ async function chooseRirMode(page, value) {
   await page.waitForSelector("#nativeContextMenu", { state: "detached" });
 }
 
+/** Plan 077, OD-5: a mode change mid-workout switches the draft's mode and nothing else in it. */
+function onlyModeChanged(beforeRaw, afterRaw, mode) {
+  const rest = (raw) => {
+    const d = JSON.parse(raw);
+    const at = d.program.rirMode;
+    delete d.revision; delete d.writer; delete d.session.updatedAt; delete d.program.rirMode;
+    return { at, body: JSON.stringify(d) };
+  };
+  const before = rest(beforeRaw), after = rest(afterRaw);
+  return after.at === mode && before.body === after.body;
+}
+
 async function rawState(page) {
   return page.evaluate(({ state, draft, checkpoint, recovery }) => {
     const parse = (key) => { try { return JSON.parse(localStorage.getItem(key) || "null"); } catch { return "invalid"; } };
@@ -526,12 +538,13 @@ async function main() {
     await page.evaluate(() => window.__repforgeShowSettings());
     await page.waitForSelector("#settings.active");
     await chooseRirMode(page, "effort");
-    const refusedContext = await settledRawState(page);
-    check(refusedContext.state.settings.rirMode === "numeric" && refusedContext.raw === clearedContextBefore.raw,
-      "context intent refuses RIR mode change and preserves the exact DraftV2 bytes", {
-        mode: refusedContext.state.settings.rirMode,
-        exact: refusedContext.raw === clearedContextBefore.raw,
+    const switchedContext = await settledRawState(page);
+    check(switchedContext.state.settings.rirMode === "effort" && onlyModeChanged(clearedContextBefore.raw, switchedContext.raw, "effort"),
+      "a workout with context intent takes the RIR mode change and keeps every other byte of its intent", {
+        mode: switchedContext.state.settings.rirMode,
+        only: onlyModeChanged(clearedContextBefore.raw, switchedContext.raw, "effort"),
       });
+    await chooseRirMode(page, "numeric");
 
     await reset(page);
     await enter(page, "Day 1");
@@ -547,9 +560,10 @@ async function main() {
     await page.evaluate(() => window.__repforgeShowSettings());
     await page.waitForSelector("#settings.active");
     await chooseRirMode(page, "effort");
-    const dayRefused = await settledRawState(page);
-    check(dayRefused.state.settings.rirMode === "numeric" && dayRefused.raw === dayBeforeMode,
-      "day-only intent refuses RIR mode change and preserves exact bytes");
+    const daySwitched = await settledRawState(page);
+    check(daySwitched.state.settings.rirMode === "effort" && onlyModeChanged(dayBeforeMode, daySwitched.raw, "effort"),
+      "day-only intent takes the RIR mode change and keeps its day intent");
+    await chooseRirMode(page, "numeric");
 
     await reset(page);
     await enter(page);
@@ -573,9 +587,10 @@ async function main() {
     await page.evaluate(() => window.__repforgeShowSettings());
     await page.waitForSelector("#settings.active");
     await chooseRirMode(page, "effort");
-    const noteOnlyRefused = await settledRawState(page);
-    check(noteOnlyRefused.state.settings.rirMode === "numeric" && noteOnlyRefused.raw === noteOnlyBefore.raw,
-      "a cleared-note-only draft refuses RIR mode change without changing its bytes");
+    const noteOnlySwitched = await settledRawState(page);
+    check(noteOnlySwitched.state.settings.rirMode === "effort" && onlyModeChanged(noteOnlyBefore.raw, noteOnlySwitched.raw, "effort"),
+      "a cleared-note-only draft takes the RIR mode change and keeps its note marker");
+    await chooseRirMode(page, "numeric");
 
     await reset(page);
     await enter(page);

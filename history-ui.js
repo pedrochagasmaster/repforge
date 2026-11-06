@@ -409,6 +409,9 @@ function historySessionFromWorkingCopy(card){
       if(loadEdit){if(loadEdit.valid!==true)return{error:{field:loadEl,key:loadEdit.key||"validation.load"},dateP};next.load=loadEdit.value}
       if(repsEdit){if(repsEdit.valid!==true)return{error:{field:repsEl,key:repsEdit.key||"validation.reps"},dateP};next.reps=repsEdit.value}
       if(rirEdit){if(rirEdit.valid!==true)return{error:{field:rirEl,key:rirEdit.key||"validation.rir"},dateP};next.rir=rirEdit.value;next.rirMeasured=true;next.effortSource="rir"}}
+    // A max set's guess holds while the set stays a 0-RIR set at its load; a new load or other reps left make it a
+    // normal set (Plan 077, OD-17). A corrected rep count keeps it: the lifter is fixing what they did.
+    if(next.calibration&&(next.load!==baseline.load||next.rir!==0))delete next.calibration;
     next.date=dateP.value;out.push(next)}
   return{rows:out,dateP}
 }

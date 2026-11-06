@@ -295,6 +295,8 @@ const D_FIXTURE_STATES = new Set([
   "workout/deload-week", // Plan 072 S4: the deload cue in Focus
   "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions", // R3d
   "workout/exercise-note-line", // the exercise note on the card (owner, 2026-11-05)
+  "workout/max-set-prompt", "workout/max-set-guess", "workout/max-set-active", "workout/max-set-result", // Plan 077 PR 3
+  "workout/effort-stage-a", "workout/effort-stage-b", "workout/effort-menu", "workout/stage-tip", // Plan 077 PR 2
   "workout/reorder", "workout/skipped-actions", "workout/substituted-actions", // R3d
   "workout/actions", "workout/exercise-actions", // R3x: the redrawn sheet, on the lifter the drawing shows
   "workout/swap-alternates", // #317: the swap picker leads with the squat slot's alternates
@@ -371,7 +373,23 @@ const APP_ASOF = {
   "progress/strength-sparse": "2026-08-16",
 };
 
+/** Plan 077 PR 2: the effort stage each state is drawn in (OD-4), and for the stage tip a lifter whose last workouts
+ *  were logged with words they chose (OD-6). */
+const EFFORT_STAGE_STATES = Object.freeze({
+  "workout/effort-stage-a": { rirMode: "effort", effortScale: "feel" },
+  "workout/effort-stage-b": { rirMode: "effort", effortScale: "reps" },
+  "workout/effort-menu": { rirMode: "effort", effortScale: "feel" },
+  "workout/stage-tip": { rirMode: "effort", effortScale: "feel" },
+});
+function effortStageState(key, lang) {
+  const drawn = localeState(directionDState(), lang);
+  drawn.settings = { ...drawn.settings, ...EFFORT_STAGE_STATES[key] };
+  if (key === "workout/stage-tip") drawn.log = drawn.log.map((row) => row.warmup ? row : { ...row, effortSource: "effort" });
+  return drawn;
+}
+
 export function appState(key, lang) {
+  if (EFFORT_STAGE_STATES[key]) return effortStageState(key, lang);
   if (key === "today/no-program" || key === "program/no-program") {
     return emptyEntryState(lang);
   }
@@ -1234,6 +1252,67 @@ async function startInlineRest(page) {
   await logCurrentSet(page, { load: "102.5", reps: "8", rir: "1" });
   // The rest timer redesign: the rest rises as a tab out of the shelf's top edge (no clock in the card).
   await page.waitForSelector("#workout .exercise.is-current .focus-shelf #restTab", { timeout: 20000 });
+}
+
+/** Plan 077 PR 3: Focus on the first lift that can take a max set, every working set but its last logged at 45 × 12 with
+ *  2 left, and the rest running, so the prompt is up. */
+async function maxSetRest(page) {
+  await focusMode(page);
+  await page.evaluate(() => { state.settings.maxSetPrompts = true; });
+  const at = await page.evaluate(() => {
+    const draft = window.__repforgeWorkoutDraft.current();
+    return focusList().findIndex((ex) => {
+      const de = draft.exercises[ex.id];
+      const working = de ? de.setOrder.map((id) => de.sets[id]).filter((set) => set.role === "working") : [];
+      return working.length >= 2 && maxSetEligibility(de, working.at(-1)).eligible;
+    });
+  });
+  if (at < 0) throw new Error("No lift in the fixture can take a max set");
+  await page.evaluate((i) => window.__repforgeFocus.to(i), at);
+  await page.waitForFunction((i) => focusIndex === i, at, { timeout: 20000 });
+  for (let guard = 0; guard < 12; guard++) {
+    const left = await page.evaluate(() => {
+      const draft = window.__repforgeWorkoutDraft.current(), ex = focusList()[focusIndex], de = draft.exercises[ex.id];
+      return de.setOrder.map((id) => de.sets[id]).filter((set) => set.role === "working" && set.completion === "pending").length;
+    });
+    if (left <= 1) break;
+    await logFixtureSet(page, { load: "45", reps: "12", rir: "2" });
+  }
+  await page.waitForSelector("#workout .exercise.is-current .focus-shelf.has-rest .resttip", { state: "visible", timeout: 20000 });
+}
+
+/** Log the current lift's next set at these values, through the draft's own commands (its fields are metrics, which
+ *  logCurrentSet does not type into), then Log set. */
+async function logFixtureSet(page, values) {
+  const target = await page.evaluate(async (v) => {
+    const draft = window.__repforgeWorkoutDraft.current(), ex = focusList()[focusIndex], de = draft.exercises[ex.id];
+    const set = de.setOrder.map((id) => de.sets[id]).find((item) => item.completion === "pending");
+    const at = { exerciseInstanceId: ex.id, setId: set.setId };
+    const bySemantic = { loadKg: v.load, reps: v.reps };
+    for (const metric of set.programmed.metrics || []) {
+      if (bySemantic[metric.semantic] != null) await window.__repforgeWorkoutDraft.dispatch("editMetricValue", { ...at, metricId: metric.id, value: bySemantic[metric.semantic] });
+    }
+    if (!set.programmed.metrics) for (const field of ["load", "reps"]) {
+      if (v[field] != null) await window.__repforgeWorkoutDraft.dispatch("editSetField", { ...at, field, value: v[field] });
+    }
+    if (v.rir != null) await window.__repforgeWorkoutDraft.dispatch("editSetField", { ...at, field: "rir", value: v.rir });
+    await window.__repforgeWorkoutDraft.flush();
+    window.renderWorkout?.();
+    return at;
+  }, values);
+  await page.locator("#workout .exercise.is-current .saveset").click({ timeout: 20000 });
+  await page.waitForFunction((at) => window.__repforgeWorkoutDraft.current()?.exercises?.[at.exerciseInstanceId]?.sets?.[at.setId]?.completion !== "pending",
+    target, { timeout: 20000 });
+  await sleep(page, 300);
+}
+
+async function maxSetStarted(page) {
+  await maxSetRest(page);
+  await page.locator("#workout .exercise.is-current [data-maxset-guess]").click({ timeout: 20000 });
+  await page.waitForSelector("#maxSetSheet.is-open", { timeout: 20000 });
+  await page.locator("#maxSetStart").click();
+  await page.waitForFunction(() => document.querySelector("#maxSetSheet")?.hidden === true, undefined, { timeout: 20000 });
+  await page.waitForSelector("#workout .exercise.is-current .shelf__field--failure", { timeout: 20000 });
 }
 
 /** The sheet's blocks are the spec 4.3 contract: each carries the lead it opens with. */
@@ -2291,6 +2370,57 @@ export const APP_SCENARIOS = {
     await page.waitForFunction(() => document.querySelector("#exNoteSheet")?.hidden === true, undefined, { timeout: 20000 });
     await sleep(page, 400);
   },
+  // Plan 077 PR 3, the max set: during the rest before a lift's last set, the prompt; the guess sheet; the set itself;
+  // and the logged row with the guess beside the reps. The fixture's first lift is a barbell squat, which never takes
+  // one, so the states move to the first lift that can.
+  "workout/max-set-prompt": async (page) => {
+    await maxSetRest(page);
+    await sleep(page, 400);
+  },
+  "workout/max-set-guess": async (page) => {
+    await maxSetRest(page);
+    await page.locator("#workout .exercise.is-current [data-maxset-guess]").click({ timeout: 20000 });
+    await page.waitForSelector("#maxSetSheet.is-open", { timeout: 20000 });
+    await sleep(page, 500);
+  },
+  "workout/max-set-active": async (page) => {
+    await maxSetStarted(page);
+    await sleep(page, 400);
+  },
+  "workout/max-set-result": async (page) => {
+    await maxSetStarted(page);
+    await logFixtureSet(page, { reps: "16" });
+    await page.waitForSelector("#workout .exercise.is-current .ledgerline__result", { timeout: 20000 });
+    await sleep(page, 400);
+  },
+  // Plan 077 PR 2: stage A sets the word with one tap on a chip; before the lifter chooses, the offered word is marked.
+  "workout/effort-stage-a": async (page) => {
+    await focusMode(page);
+    await page.locator("#workout .exercise.is-current .focus-shelf [data-shelf-field='rir']").click({ timeout: 20000 });
+    await sleep(page, 400);
+  },
+  // Stage B asks how many more clean reps: 0 · 1 · 2 · 3+, here with 2 chosen.
+  "workout/effort-stage-b": async (page) => {
+    await focusMode(page);
+    const shelf = "#workout .exercise.is-current .focus-shelf";
+    await page.locator(`${shelf} [data-shelf-field='rir']`).click({ timeout: 20000 });
+    await page.locator(`${shelf} [data-effchip][data-e='r2']`).click({ timeout: 20000 });
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    await sleep(page, 400);
+  },
+  // The effort field's arrow: the three ways to log effort, the current one checked, and Not sure for this set.
+  "workout/effort-menu": async (page) => {
+    await focusMode(page);
+    await page.locator("#workout .exercise.is-current .focus-shelf [data-effmenu]").click({ timeout: 20000 });
+    await page.waitForSelector('#nativeContextMenu[open] [role="menuitemradio"][aria-checked="true"]', { timeout: 20000 });
+    await sleep(page, 400);
+  },
+  // The stage tip, during the rest after a set, over the shelf with Log set live under it (OD-6).
+  "workout/stage-tip": async (page) => {
+    await startInlineRest(page);
+    await page.waitForSelector("#workout .exercise.is-current .focus-shelf .resttip", { timeout: 20000 });
+    await sleep(page, 400);
+  },
   // Plan 075 phase 2W: a second tap on the selected Load or Reps field opens the
   // wheel. Load is the default-selected field, so the dance moves through Reps
   // and back so the final tap is a genuine second one, the way the test suite does.
@@ -2319,6 +2449,31 @@ export const APP_SCENARIOS = {
     await page.waitForSelector("#whySheet.is-open", { timeout: 20000 });
     await sleep(page, 400);
     await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-assumptions"]);
+  },
+  // Plan 077 PR 5: a lift with three on-target test sets: the Why sheet's effort-estimate line says so.
+  "workout/why-calibration": async (page) => {
+    const state = await installGeneratedProgram(page, { name: "Why sheet proof" });
+    const day = state.program[0]?.day;
+    const row = state.program.find((candidate) => candidate.day === day && isWeightRepsSlot(definitionSlot(state.programMeta, candidate)));
+    if (!row) throw new Error("calibration Why fixture: no Weight+Reps slot on the generated program's first day");
+    const daysAgo = (days) => new Date(Date.parse(CAPTURE_NOW) - days * 864e5).toISOString().slice(0, 10);
+    state.log = [21, 14, 7].flatMap((days) => [
+      metricLogRow(state.programMeta, row, { session: `cal-${days}`, date: daysAgo(days), set: 1, load: 40, reps: 8, rir: 2 }),
+      { ...metricLogRow(state.programMeta, row, { session: `cal-${days}`, date: daysAgo(days), set: 2, load: 40, reps: 10, rir: 0 }),
+        effortSource: "failure", calibration: { v: 1, predictedReps: 10, predictionEdited: false, prefillBasis: "reps_rir" } },
+    ]);
+    await seed(page, state);
+    await page.evaluate((d) => window.__repforgeEnterWorkout({ day: d }), day);
+    await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 15000 });
+    await clickWhy(page, "#workout .exercise.is-current [data-why]");
+    await page.waitForSelector("#whySheet.is-open", { timeout: 20000 });
+    await sleep(page, 400);
+    await expectWhyLeads(page, ["engine-anchor", "engine-target", "engine-calibration"]);
+    // The line is the sheet's last block: the sheet raised to its large detent and read to its end, as the lifter would.
+    await page.evaluate(() => { document.querySelector("#whySheet").dataset.detent = "large"; });
+    await sleep(page, 400);
+    await pinSheetScrollToEnd(page, "#whySheet .whysheet");
+    await sleep(page, 300);
   },
   "workout/why-in-session": async (page) => {
     const row = await adaptiveWhyFixture(page);
@@ -2939,6 +3094,13 @@ export const APP_SCENARIOS = {
   "settings/language-menu": async (page) => {
     await openSettings(page, "#langRow");
     await page.click("#langRow");
+    await page.waitForSelector('#nativeContextMenu[open] [role="menuitemradio"][aria-checked="true"]');
+    await sleep(page, 400);
+  },
+  // Plan 077 PR 2: Effort logging as a pull-down, the three stages, the current one checked.
+  "settings/effort-menu": async (page) => {
+    await openSettings(page, "#rirModeRow");
+    await page.click("#rirModeRow");
     await page.waitForSelector('#nativeContextMenu[open] [role="menuitemradio"][aria-checked="true"]');
     await sleep(page, 400);
   },

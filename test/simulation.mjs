@@ -3385,11 +3385,11 @@ async function main() {
 
   await page.waitForTimeout(200);
   const focusEffort = await page.evaluate(() => {
-    // Effort is the shelf's third field; selecting it brings its two word pads.
+    // Effort is the shelf's third field; selecting it brings its three word chips (Plan 077, OD-4).
     document.querySelector("#workout .exercise.is-current .focus-shelf [data-shelf-field='rir']")?.click();
     const cell = document.querySelector("#workout .exercise.is-current .focus-shelf .shelf__field[data-field='rir']");
     const spin = cell?.querySelector("[data-effspin]");
-    const steps = [...document.querySelectorAll("#workout .exercise.is-current .focus-shelf [data-effstep]")];
+    const steps = [...document.querySelectorAll("#workout .exercise.is-current .focus-shelf [data-effchip]")];
     return {
       hasCell: !!cell,
       role: spin?.tagName === "BUTTON" ? "spinbutton" : "",
@@ -3405,11 +3405,11 @@ async function main() {
   });
   assert(
     focusEffort.hasCell && focusEffort.role === "spinbutton" && focusEffort.named &&
-      focusEffort.valueText && focusEffort.hint && focusEffort.steps === 2 &&
+      focusEffort.valueText && focusEffort.hint && focusEffort.steps === 3 &&
       focusEffort.tall && !focusEffort.clipped && !focusEffort.radioLeak,
-    "Focus mode logs effort with a labelled spinner and two 44px nudge buttons",
+    "Focus mode logs effort with a labelled spinner and three 44px word chips",
     JSON.stringify(focusEffort),
-    "Settings effort mode → Log → Focus → the well's third column steps through the effort words"
+    "Settings effort mode → Log → Focus → the well's third column offers the effort words"
   );
   const focusAlign = await page.evaluate(() => {
     const cells = [...document.querySelectorAll(".exercise.is-current .focus-shelf .shelf__field")];
@@ -3466,33 +3466,26 @@ async function main() {
   );
   await editSimField(page, `${effEx.id}_1_load`, "97");
   await editSimField(page, `${effEx.id}_1_reps`, "5");
-  // The spinner walks the three words in order, and each step is announced.
-  const STEPS = ["easy", "hard", "max"];
+  // A chip sets its word in one tap, and the chips mark the one chosen.
   const effAt = () => page.evaluate((k) => {
     const el = document.querySelector(`.focus-shelf [data-effspin="${k}"]`);
-    return { e: el?.dataset.e, now: String(["easy", "hard", "max"].indexOf(el?.dataset.e) + 1), text: el?.querySelector(".shelf__val")?.textContent?.trim() };
+    const pressed = [...document.querySelectorAll(`.focus-shelf [data-effchip="${k}"][aria-pressed="true"]`)].map((b) => b.dataset.e);
+    return { e: el?.dataset.e, pressed: pressed.join(), text: el?.querySelector(".shelf__val")?.textContent?.trim() };
   }, `${effEx.id}_1`);
   const effStart = await effAt();
-  await page.click(`.focus-shelf [data-effstep="${effEx.id}_1"][data-dir="-1"]`);
+  await page.click(`.focus-shelf [data-effchip="${effEx.id}_1"][data-e="easy"]`);
   await page.waitForTimeout(80);
-  const effDown = await effAt();
-  await page.click(`.focus-shelf [data-effstep="${effEx.id}_1"][data-dir="1"]`);
+  const effEasy = await effAt();
+  // Land on Hard, so the saved RIR is checkable.
+  await page.click(`.focus-shelf [data-effchip="${effEx.id}_1"][data-e="hard"]`);
   await page.waitForTimeout(80);
-  const effUp = await effAt();
+  const effHard = await effAt();
   assert(
-    effDown.e === STEPS[Math.max(0, STEPS.indexOf(effStart.e) - 1)] &&
-      effUp.e === effStart.e &&
-      effUp.now === String(STEPS.indexOf(effUp.e) + 1) && !!effUp.text,
-    "The effort spinner steps down and back up through the effort words",
-    JSON.stringify({ effStart, effDown, effUp }),
-    "Focus → effort column → − then + → one step back, one step forward"
+    effEasy.e === "easy" && effEasy.pressed === "easy" && effHard.e === "hard" && effHard.pressed === "hard" && !!effHard.text,
+    "An effort chip sets its word in one tap and is the one marked",
+    JSON.stringify({ effStart, effEasy, effHard }),
+    "Focus → effort column → Easy, then Hard → the field and the chips follow"
   );
-  // Land on Hard, whatever the card was showing, so the saved RIR is checkable.
-  while ((await effAt()).e !== "hard") {
-    const dir = STEPS.indexOf((await effAt()).e) > STEPS.indexOf("hard") ? -1 : 1;
-    await page.click(`.focus-shelf [data-effstep="${effEx.id}_1"][data-dir="${dir}"]`);
-    await page.waitForTimeout(80);
-  }
   await page.click("#workout .exercise.is-current .focus-shelf .saveset");
   await page.waitForTimeout(300);
   await openLoggedSets(page);
@@ -6185,12 +6178,22 @@ async function main() {
     const raw = await readDraftRaw(page);
     await clickRir("effort");
     rs = await rirState();
+    // Plan 077, OD-5: the change applies mid-workout from the next set on. The draft takes the new mode and nothing else.
+    const rest = (text) => {
+      if (text == null) return null;
+      const d = JSON.parse(text);
+      const mode = d.program?.rirMode;
+      delete d.revision; delete d.writer; if (d.session) delete d.session.updatedAt; if (d.program) delete d.program.rirMode;
+      return { mode, body: JSON.stringify(d) };
+    };
+    const before = rest(raw), after = rest(rs.draft);
     assert(
-      rs.mode !== "effort" && rs.radio === "numeric" && rs.draft === raw,
-      `RIR change with ${name} progress is refused and preserves the raw draft`,
-      JSON.stringify({ name, mode: rs.mode, radio: rs.radio, same: rs.draft === raw, rawLen: raw?.length }),
+      rs.mode === "effort" && rs.radio === "effort" && (before == null ? after == null : after?.mode === "effort" && after.body === before.body),
+      `RIR change with ${name} progress applies and changes only the draft's mode`,
+      JSON.stringify({ name, mode: rs.mode, radio: rs.radio, before: before?.mode, after: after?.mode, same: before?.body === after?.body }),
       `Seed ${name} progress → Settings → effort`
     );
+    await clickRir("numeric");
   }
 
   await clearDraftFixture(page);
