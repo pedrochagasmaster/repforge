@@ -569,6 +569,26 @@ no longer paints exactly one ground of that colour, because that means the mark
 itself changed. Re-run it when a new mark lands; the output is generated art,
 replaced wholesale and never hand-edited (`docs/brand-guide.md`, "The mark").
 
+## next-revision.mjs
+
+Prints the next free `CACHE`/script revision for a PR. Parallel PRs share one
+revision line: `const CACHE = "repforge-vN"` in `sw.js` and the `?v=N` query
+revisions in `index.html` (AGENTS.md, "Service worker caching gotcha"). A
+tree's revision is the highest of those numbers, and an open PR claims it only
+when it is above main's.
+
+```bash
+node tools/next-revision.mjs            # main, every open PR's claim, next free
+node tools/next-revision.mjs --pr 622   # keep #622's claim if no other PR holds it
+node tools/next-revision.mjs --json     # the same plan as JSON
+```
+
+It reads main and each open PR head through `gh`, so it needs an
+authenticated `gh` and changes nothing. Collisions (two PRs holding the same
+number) are listed. Use the printed `next` for every revision line the PR bumps.
+`--input state.json` replays a recorded state without `gh`;
+`test/ci.mjs` covers the rules (the "next-revision:" tests).
+
 ## Critical verification
 
 Pull requests verify rendering through the 21-cell matrix in `critical-ui.mjs`,
