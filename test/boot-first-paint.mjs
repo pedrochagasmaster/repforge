@@ -103,6 +103,13 @@ function shortenBootStall(options = {}) {
   };
 }
 
+/** Settles with `promise`, or fails if it has not settled within the bound: a hold must be reached, never assumed. */
+function reachedWithin(promise, label, ms = 15000) {
+  let timer;
+  return Promise.race([promise, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`not reached: ${label}`)), ms); })])
+    .finally(() => clearTimeout(timer));
+}
+
 /** Runs before the page's scripts: IndexedDB successes are held until the test releases them. */
 function holdIndexedDbOpens() {
   window.__holdIdb = false;
@@ -403,8 +410,11 @@ try {
     const page = await context.newPage();
     let releaseCatalog;
     const catalogHeld = new Promise((resolve) => { releaseCatalog = resolve; });
-    await page.route(/assets\/exercise-catalog\.json/u, async (route) => { await catalogHeld; await route.continue(); });
+    let reachedCatalog;
+    const catalogReached = new Promise((resolve) => { reachedCatalog = resolve; });
+    await page.route(/assets\/exercise-catalog\.json/u, async (route) => { reachedCatalog(); await catalogHeld; await route.continue(); });
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
+    await reachedWithin(catalogReached, "the held catalog request");
     await page.waitForFunction(() => document.documentElement.classList.contains("is-boot-failed"), undefined, { timeout: 10000 });
     const stalled = await page.evaluate(() => {
       window.__reloadRef = document.getElementById("bootReload");
@@ -475,6 +485,93 @@ try {
       failed: document.documentElement.classList.contains("is-boot-failed"),
     }));
     assert(!after.splash && !after.failed, "the retried boot that finishes lifts the error panel", JSON.stringify(after));
+    await context.close();
+  }
+
+  console.log("\nA catalog failure after the stall panel: its recovery dialog is usable, and Retry completes the boot");
+  {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block" });
+    await context.addInitScript(shortenBootStall);
+    const page = await context.newPage();
+    let catalogCalls = 0;
+    let reachedCatalog;
+    const catalogReached = new Promise((resolve) => { reachedCatalog = resolve; });
+    let failCatalog;
+    const catalogFails = new Promise((resolve) => { failCatalog = resolve; });
+    await page.route(/assets\/exercise-catalog\.json/u, async (route) => {
+      catalogCalls += 1;
+      if (catalogCalls > 1) return route.continue();
+      reachedCatalog();
+      await catalogFails;
+      return route.fulfill({ status: 503, body: "" });
+    });
+    await page.goto(BASE, { waitUntil: "domcontentloaded" });
+    await reachedWithin(catalogReached, "the first catalog request");
+    await page.waitForFunction(() => document.documentElement.classList.contains("is-boot-failed"), undefined, { timeout: 10000 });
+    failCatalog();
+    await page.waitForSelector("#exerciseCatalogRecovery[open]", { timeout: 15000 });
+    const recovery = await page.evaluate(() => {
+      const retry = document.getElementById("retryExerciseCatalog");
+      const box = retry.getBoundingClientRect();
+      const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+      return { dialogInert: document.getElementById("exerciseCatalogRecovery").inert, hitRetry: !!hit?.closest("#retryExerciseCatalog") };
+    });
+    assert(!recovery.dialogInert && recovery.hitRetry, "a catalog failure after the stall panel leaves its Retry usable under the pointer", JSON.stringify(recovery));
+    let clicked = false;
+    try { await page.click("#retryExerciseCatalog", { timeout: 4000 }); clicked = true; } catch {}
+    assert(clicked, "a real click on the catalog Retry reaches its handler");
+    await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 20000 }).catch(() => {});
+    const after = await page.evaluate(() => ({
+      booted: window.__repforgeBooted === true,
+      dialogOpen: document.getElementById("exerciseCatalogRecovery").open,
+      splash: !!document.getElementById("bootSplash"),
+      failed: document.documentElement.classList.contains("is-boot-failed"),
+      mainInert: document.querySelector("main")?.inert === true,
+    }));
+    assert(after.booted && !after.dialogOpen && !after.splash && !after.failed && !after.mainInert,
+      "after Retry the boot completes, the panel is gone, and the page is interactive again", JSON.stringify(after));
+    await context.close();
+  }
+
+  console.log("\nA storage recovery that opens after the stall panel: its Retry is usable, and boot completes");
+  {
+    const context = await activatedContext(browser, { serviceWorkers: "block" });
+    const seed = await context.newPage();
+    await seed.goto(BASE);
+    await waitForAppBoot(seed, { base: BASE });
+    const savedRaw = await seed.evaluate(() => localStorage.getItem("repforge_v1"));
+    await seed.evaluate(() => localStorage.setItem("repforge_v1", "{not json"));
+    await seed.close();
+    // The first IndexedDB read is held, so the stall panel comes up before the replicas are judged.
+    await context.addInitScript(shortenBootStall);
+    await context.addInitScript(holdIndexedDbOpens);
+    await context.addInitScript(() => { window.__holdIdb = true; });
+    const page = await context.newPage();
+    await page.goto(BASE, { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => document.documentElement.classList.contains("is-boot-failed"), undefined, { timeout: 15000 });
+    await page.evaluate(() => window.__releaseIdb());
+    await page.waitForSelector("#storageRecovery[open]", { timeout: 20000 });
+    const recovery = await page.evaluate(() => {
+      const retry = document.getElementById("storageRetry");
+      const box = retry.getBoundingClientRect();
+      const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+      return { dialogInert: document.getElementById("storageRecovery").inert, hitRetry: !!hit?.closest("#storageRetry") };
+    });
+    assert(!recovery.dialogInert && recovery.hitRetry, "a storage recovery that opens after the stall panel leaves its Retry usable under the pointer", JSON.stringify(recovery));
+    await page.evaluate((raw) => localStorage.setItem("repforge_v1", raw), savedRaw);
+    let clicked = false;
+    try { await page.click("#storageRetry", { timeout: 4000 }); clicked = true; } catch {}
+    assert(clicked, "a real click on the storage recovery Retry reaches its handler");
+    await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 20000 }).catch(() => {});
+    const after = await page.evaluate(() => ({
+      booted: window.__repforgeBooted === true,
+      recoveryOpen: document.getElementById("storageRecovery")?.open === true,
+      splash: !!document.getElementById("bootSplash"),
+      failed: document.documentElement.classList.contains("is-boot-failed"),
+      mainInert: document.querySelector("main")?.inert === true,
+    }));
+    assert(after.booted && !after.recoveryOpen && !after.splash && !after.failed && !after.mainInert,
+      "after Retry the boot completes, the panel is gone, and the page is interactive again", JSON.stringify(after));
     await context.close();
   }
 
