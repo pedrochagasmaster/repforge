@@ -46,6 +46,123 @@ async function draftTargets(page) {
   });
 }
 
+/* Voice input. A recognizer is retained with the draft it was started for. The
+   fake keeps every instance so a test can end, deliver or leave one at will. */
+const VOICE_FAKE = () => {
+  window.__recognizers = [];
+  window.SpeechRecognition = class {
+    constructor() { this.lang = ""; this.onresult = null; this.onerror = null; this.onend = null; window.__recognizers.push(this); }
+    start() { this.started = true; }
+    abort() { this.aborted = true; }
+  };
+};
+
+async function voiceWorkout(browser) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block" });
+  await context.addInitScript(VOICE_FAKE);
+  const page = await context.newPage();
+  await page.goto(base, { waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  await page.evaluate((k) => {
+    const saved = JSON.parse(localStorage.getItem(k) || "{}");
+    localStorage.setItem(k, JSON.stringify({ ...saved, settings: { ...(saved.settings || {}), voiceInputEnabled: true } }));
+  }, stateKey);
+  await installSeedProgram(page, { key: stateKey, waitFor: waitForApp });
+  await page.locator("#startWorkout").click();
+  await page.waitForSelector("#workoutShell:not(.hidden)");
+  return { context, page };
+}
+
+async function tapVoice(page) {
+  await page.locator("#woOverflowBtn").click();
+  await page.locator('#workoutActionSheet [data-workout-action="voice"]').click();
+  await page.waitForSelector("#workoutActionSheet", { state: "hidden" });
+}
+
+const recognizerCount = (page) => page.evaluate(() => window.__recognizers.length);
+const recognizerAborted = (page, index) => page.evaluate((i) => window.__recognizers[i]?.aborted === true, index);
+const draftRevision = (page) => page.evaluate(() => window.__repforgeWorkoutDraft.current()?.revision ?? null);
+
+/** Delivers a transcript the way the browser does, then drains the draft queue so
+ *  any edit it dispatched has been acknowledged before the revision is read. */
+async function deliverTranscript(page, index, transcript) {
+  await page.evaluate(({ index, transcript }) => window.__recognizers[index].onresult({ results: [[{ transcript }]] }),
+    { index, transcript });
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+}
+
+async function voiceProof(browser) {
+  const failures = [];
+  const expect = (condition, message, detail) => {
+    if (condition) return console.log(`  ✓ ${message}`);
+    failures.push(message);
+    console.error(`  ✗ ${message}${detail === undefined ? "" : ` ${JSON.stringify(detail)}`}`);
+  };
+
+  // A tap while listening stops that recognizer and starts nothing, so the next tap starts cleanly.
+  {
+    const { context, page } = await voiceWorkout(browser);
+    await tapVoice(page);
+    expect(await recognizerCount(page) === 1, "a tap starts one recognizer");
+    await tapVoice(page);
+    expect(await recognizerCount(page) === 1 && await recognizerAborted(page, 0),
+      "a second tap aborts the first recognizer and starts no second one", await recognizerCount(page));
+    await tapVoice(page);
+    expect(await recognizerCount(page) === 2, "a third tap starts a new recognizer after the abort", await recognizerCount(page));
+    const before = await draftRevision(page);
+    await deliverTranscript(page, 1, "62.5 x 8 @2");
+    expect(await draftRevision(page) > before, "a transcript from the live recognizer applies to the workout it was started in");
+    await page.evaluate(() => window.__recognizers[1].onend?.());
+    await tapVoice(page);
+    expect(await recognizerCount(page) === 3, "after the recognizer ends, the next tap starts a new one");
+    // Leaving the workout aborts the listening recognizer, so no microphone stays open for a transcript that would be dropped.
+    const beforeLeave = await draftRevision(page);
+    await page.locator("#leaveWorkout").click();
+    await page.waitForSelector("#workoutShell", { state: "hidden" });
+    expect(await recognizerAborted(page, 2), "leaving the workout aborts its recognizer");
+    await deliverTranscript(page, 2, "70 x 5 @2");
+    expect(await draftRevision(page) === beforeLeave, "a transcript that arrives after leaving the workout does not dispatch edits",
+      { before: beforeLeave, after: await draftRevision(page) });
+    await context.close();
+  }
+
+  // A transcript for a workout that has finished, or been replaced, never reaches the next one.
+  {
+    const { context, page } = await voiceWorkout(browser);
+    await tapVoice(page);
+    const firstIndex = (await recognizerCount(page)) - 1;
+    for (const target of await draftTargets(page)) await completeSet(page, target.exerciseInstanceId, target.setId);
+    await page.evaluate(() => document.querySelector("#logForm").requestSubmit());
+    await page.waitForSelector("#sessionSummary:not(.hidden)");
+    await page.keyboard.press("Escape");
+    await page.waitForSelector("#sessionSummary", { state: "hidden" });
+    await page.locator("#logAnotherSession").click();
+    await page.waitForSelector("#workoutShell:not(.hidden)");
+    expect(await recognizerAborted(page, firstIndex), "finishing the workout aborts its recognizer");
+    const replaced = await draftRevision(page);
+    await deliverTranscript(page, firstIndex, "62.5 x 8 @2");
+    expect(await draftRevision(page) === replaced, "a late transcript from a finished workout does not edit the next workout",
+      { before: replaced, after: await draftRevision(page) });
+    await tapVoice(page);
+    expect(await recognizerCount(page) === firstIndex + 2, "a stale listening recognizer does not block the next workout's voice input");
+    await context.close();
+  }
+
+  // Ending the workout without saving also drops the draft, and must abort the recognizer too.
+  {
+    const { context, page } = await voiceWorkout(browser);
+    await tapVoice(page);
+    await page.locator("#sessionSheetBtn").click();
+    await page.locator("#sessionAbandon").click();
+    await page.locator("#sessionAbandonConfirm").click();
+    await page.waitForSelector("#workoutShell", { state: "hidden" });
+    expect(await recognizerAborted(page, 0), "ending the workout without saving aborts its recognizer");
+    await context.close();
+  }
+
+  if (failures.length) throw new Error(`voice proofs failed: ${failures.join("; ")}`);
+}
+
 const browser = await launchChromium();
 try {
   {
@@ -129,6 +246,8 @@ try {
       "explicit confirmed early finish saves and clears the draft");
     await context.close();
   }
+
+  await voiceProof(browser);
 } finally {
   await browser.close();
 }

@@ -63,9 +63,10 @@ const shareEvents = (page) => page.evaluate(() => window.__captured
   .filter(([name]) => name === "share_setup_outcome")
   .map(([, { action, program_kind, form, size_vs_limit }]) => ({ action, program_kind, form, size_vs_limit })));
 
-async function fresh(browser) {
+async function fresh(browser, { gateShares = false } = {}) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, acceptDownloads: true });
   await context.addInitScript(RECORDER);
+  if (gateShares) await context.addInitScript(SHARE_ENCODE_GATE);
   await context.addInitScript(() => window.localStorage.setItem("repforge_telemetry_enabled_v1", "true"));
   const page = await context.newPage();
   const errors = [];
@@ -116,6 +117,116 @@ async function receive(browser, link) {
   await run.page.goto(link, { waitUntil: "domcontentloaded" });
   await waitForAppBoot(run.page, { base: BASE });
   return run;
+}
+
+/* Share generation awaits the codec, so an encode can land after the sheet has
+   closed, the program has changed or a newer build has begun. The codec export
+   is frozen, so the gate wraps it as it is installed, before the app reads it:
+   every encode the app starts is held until the test releases it, and the test
+   chooses the order in which builds land. */
+const SHARE_ENCODE_GATE = () => {
+  let codec = null;
+  window.__shareGate = [];
+  Object.defineProperty(window, "RepForgeSharedSetup", {
+    configurable: true,
+    get: () => codec,
+    set(api) {
+      codec = Object.freeze({
+        ...api,
+        encode: (value, options) => new Promise((resolve, reject) => {
+          const entry = { program: value?.program?.name, settled: false, out: null };
+          entry.release = () => api.encode(value, options).then((out) => {
+            entry.out = out; entry.settled = true; resolve(out);
+          }, (error) => { entry.settled = true; reject(error); });
+          window.__shareGate.push(entry);
+        }),
+      });
+    },
+  });
+};
+const heldShareEncodes = (page) => page.evaluate(() => window.__shareGate.map((entry) => entry.program));
+async function releaseShareEncode(page, index) {
+  await page.evaluate((i) => window.__shareGate[i].release(), index);
+  await page.waitForFunction((i) => window.__shareGate[i]?.settled === true, index, { timeout: 15000 });
+}
+async function waitForShareEncodes(page, count) {
+  return page.waitForFunction((n) => window.__shareGate.length >= n, count, { timeout: 15000 }).then(() => true, () => false);
+}
+const shownShareLink = (page) => page.evaluate(() => {
+  const link = document.querySelector("#shareSetupLink");
+  return link && ("value" in link ? link.value : link.textContent) || "";
+});
+async function openShareSheet(page) {
+  await page.locator('nav button[data-view="program"]').click();
+  await page.waitForSelector("#program.view.active");
+  await page.locator("#shareProgramSetup").click();
+  await page.waitForSelector("#shareSetupSheet:not(.hidden)", { timeout: 15000 });
+}
+async function closeShareSheet(page) {
+  await page.keyboard.press("Escape");
+  await page.waitForSelector("#shareSetupSheet", { state: "hidden", timeout: 15000 });
+}
+async function activateNamedProgram(page, { name, daysPerWeek }) {
+  return page.evaluate(async ({ name, daysPerWeek }) => {
+    const catalog = window.RepForgeExerciseCatalog.snapshot();
+    const mapped = window.RepForgeProgramEntryAdapter.programRequestFromAnswers({
+      desiredResult: "muscle_growth", structuredExperience: "6_to_24m", daysPerWeek, sessionMinutes: 60,
+      environment: { kind: "commercial_gym" },
+    }, catalog);
+    const definition = window.RepForgeProgramCompiler.generateProgram(mapped.value, catalog).value;
+    const result = await window.__repforgeFinalizeProgramSetup({
+      programDefinition: definition, name, answers: {}, destination: "log",
+      origin: "first-run", draftConfirmed: true, telemetryRoute: "recommend",
+      entrySource: { route: "recommend", fingerprint: `share-race-${name}` },
+    });
+    await window.__repforgeStorage.flush();
+    return !!(result?.localOk || result?.idbOk);
+  }, { name, daysPerWeek });
+}
+
+/* #A race: a build that began before the sheet closed or the program changed
+   must never publish its link into the sheet. */
+async function shareRaceProof(browser, errors) {
+  // Closed, the program changes, the sheet reopens, and the first build lands last.
+  const closedThenReopened = await fresh(browser, { gateShares: true });
+  errors.push(closedThenReopened.errors);
+  const { page: reopen } = closedThenReopened;
+  check(await activateNamedProgram(reopen, { name: "Race block one", daysPerWeek: 4 }), "race: the first program is active");
+  await openShareSheet(reopen);
+  check(await waitForShareEncodes(reopen, 1), "race: the first build is held mid-encode");
+  await closeShareSheet(reopen);
+  check(await activateNamedProgram(reopen, { name: "Race block two", daysPerWeek: 3 }), "race: the program changes while the first build is held");
+  await openShareSheet(reopen);
+  check(await waitForShareEncodes(reopen, 2), "race: reopening starts a build for the new program");
+  await releaseShareEncode(reopen, 1);
+  const newest = await reopen.evaluate(() => window.__shareGate[1].out?.value);
+  await releaseShareEncode(reopen, 0);
+  const stale = await reopen.evaluate(() => window.__shareGate[0].out?.value);
+  const shown = await shownShareLink(reopen);
+  check(!!newest && shown.endsWith(`#setup=${newest}`) && !shown.endsWith(`#setup=${stale}`),
+    "a build for the old program that lands after reopening does not replace the link for the new one",
+    { shownTail: shown.slice(-40), newestTail: String(newest).slice(-40), staleTail: String(stale).slice(-40) });
+  await closedThenReopened.context.close();
+
+  // Still open, the program changes mid-encode: the link for the old program is dropped.
+  const changedOpen = await fresh(browser, { gateShares: true });
+  errors.push(changedOpen.errors);
+  const { page: open } = changedOpen;
+  check(await activateNamedProgram(open, { name: "Race block three", daysPerWeek: 4 }), "race: the open-sheet program is active");
+  await openShareSheet(open);
+  check(await waitForShareEncodes(open, 1), "race: the open-sheet build is held");
+  check(await activateNamedProgram(open, { name: "Race block four", daysPerWeek: 3 }), "race: the program changes while the sheet is open");
+  await releaseShareEncode(open, 0);
+  const obsolete = await open.evaluate(() => window.__shareGate[0].out?.value);
+  const rebuilt = await waitForShareEncodes(open, 2);
+  check(rebuilt && !(await shownShareLink(open)).endsWith(`#setup=${obsolete}`),
+    "a link for the program that changed mid-encode is not published", { rebuilt });
+  if (rebuilt) {
+    await releaseShareEncode(open, 1);
+    const current = await open.evaluate(() => window.__shareGate[1].out?.value);
+    check((await shownShareLink(open)).endsWith(`#setup=${current}`), "the sheet then shows the link for the current program");
+  }
+  await changedOpen.context.close();
 }
 
 async function startAndActivate(page) {
@@ -420,6 +531,8 @@ async function main() {
     check(!!refused.error && JSON.parse(refused.stored || "{}")?.programMeta?.onboarded !== true,
       "the refusal is explained and no program is written", { error: refused.error, before: !!before });
     await legacy.context.close();
+
+    await shareRaceProof(browser, errors);
 
     check(errors.flat().length === 0, "no page errors while sharing", errors.flat());
   } catch (error) {
