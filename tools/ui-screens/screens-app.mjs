@@ -2164,8 +2164,16 @@ export const APP_SCENARIOS = {
   // The live count-up carried past the one-hour cap ends the rest and offers the question with its reason line (owner, 2026-11-07).
   "workout/rest-overrun-finish": async page => {
     await focusMode(page); await logCurrentSet(page);
-    // The catalog clock is fixed, so the count-up is carried to the cap by one tick of the production clock, not by time.
-    await page.evaluate(() => { startRest(120); window.__repforgeRest.setLeft(-3600 * 1000); tickRest(); });
+    // The catalog clock is pinned, so the count-up is carried to the cap the way the app carries it: the rest runs down to one
+    // second short of the cap, the clock moves on one second, and the production tick finds the cap. The offer is for the
+    // count-up reaching the cap, so the rest is never set past it directly.
+    await page.evaluate(() => {
+      startRest(120);
+      window.__repforgeRest.setLeft(-3599 * 1000);
+      const pinned = Date.now();
+      Date.now = () => pinned + 1000;
+      tickRest();
+    });
     await page.waitForSelector("#sessionEarlyReason:not(.hidden)", { timeout: 8000 });
     await pinSheetScrollToEnd(page, ".session-sheet__body");
   },

@@ -401,7 +401,8 @@ check("a nudge while held keeps the expiry; a resume and a new hold take a new o
   assert.equal(snapshot(nudged, T0 + 20 * SEC).expiresAt, expiry, "a nudge while held keeps the expiry");
   const resumed = toggleHold(nudged, T0 + 30 * SEC).state;
   const reheld = toggleHold(resumed, T0 + 40 * SEC).state;
-  assert.equal(snapshot(reheld, T0 + 40 * SEC).expiresAt, T0 + 40 * SEC + 160 * SEC + OVERTIME_MAX_SEC * SEC,
+  // Resumed at T0+30 with 200 s left, so the deadline is T0+230; at T0+40, 190 s remain. The new hold's expiry follows from that.
+  assert.equal(snapshot(reheld, T0 + 40 * SEC).expiresAt, T0 + 40 * SEC + 190 * SEC + OVERTIME_MAX_SEC * SEC,
     "a new hold after a resume takes the expiry of that hold");
 });
 
