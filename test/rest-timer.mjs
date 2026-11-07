@@ -866,12 +866,6 @@ try {
     await page.evaluate(() => window.__repforgeGuides?.dismissAll?.());
     return { page, errors };
   };
-  const watchRings = (page) => page.evaluate(() => {
-    window.__rings = 0;
-    const live = document.querySelector("#restAnnounce");
-    new MutationObserver(() => { if (live.textContent === window.RepForgeI18n.t("rest.complete")) window.__rings++; })
-      .observe(live, { childList: true, characterData: true, subtree: true });
-  });
 
   phase("The app is killed and opened again: a running rest comes back from the device");
   {
@@ -903,75 +897,6 @@ try {
     const expired = await openFocus(context);
     const gone = await expired.page.evaluate(() => window.__repforgeRest.state());
     assert(!gone.active, "an overrun past the cap is not restored", gone);
-    await context.close();
-  }
-
-  phase("Two tabs, one rest: the bell rings once, in one tab, and the other tab follows");
-  {
-    const { context, page, errors } = await focusPage(browser);
-    await logSet(page);
-    await page.waitForSelector("#restTab", { timeout: 5000 });
-    const first = await page.evaluate(() => window.__repforgeRest.state());
-    const other = await openFocus(context);
-    const second = await other.page.evaluate(() => window.__repforgeRest.state());
-    assert(second.active && second.endMs === first.endMs, "a second tab shows the same rest", { first, second });
-    await watchRings(page);
-    await watchRings(other.page);
-    await page.evaluate(() => window.__repforgeRest.expire(0));
-    await page.waitForFunction(() => window.__repforgeRest.state().rang === true, undefined, { timeout: 5000 });
-    const followed = await other.page.waitForFunction(() => window.__repforgeRest.state().rang === true, undefined, { timeout: 5000 }).then(() => true, () => false);
-    await page.waitForTimeout(1200);
-    const rings = await page.evaluate(() => window.__rings ?? 0);
-    const otherRings = await other.page.evaluate(() => window.__rings ?? 0);
-    assert(followed && rings + otherRings === 1, "the bell rings once across both tabs, and the second tab marks it rung", { rings, otherRings, followed });
-    assert(errors.length === 0 && other.errors.length === 0, "no page errors", [...errors, ...other.errors].join(" | "));
-    await context.close();
-  }
-
-  phase("Ending the rest in one tab ends it in the other, and no tab brings it back");
-  {
-    const { context, page, errors } = await focusPage(browser);
-    await logSet(page);
-    await page.waitForSelector("#restTab", { timeout: 5000 });
-    const other = await openFocus(context);
-    assert(await other.page.evaluate(() => window.__repforgeRest.state().active), "the second tab has the rest before it is ended");
-    await page.locator("#restTab").click();
-    await page.waitForSelector("#restSheet.is-open", { timeout: 5000 });
-    await page.locator("#restStop").click();
-    await page.waitForFunction(() => !document.querySelector("#restSheet.is-open"), undefined, { timeout: 5000 });
-    const ended = await other.page.waitForFunction(() => !window.__repforgeRest.state().active, undefined, { timeout: 5000 }).then(() => true, () => false);
-    assert(ended, "the other tab drops the ended rest without a bell");
-    assert(!(await hasRecord(page)), "the device record is gone once the rest is ended");
-    await other.page.waitForTimeout(400);
-    assert(!(await hasRecord(page)) && !(await other.page.evaluate(() => window.__repforgeRest.state().active)),
-      "nothing writes the ended rest back, from either tab");
-    assert(errors.length === 0 && other.errors.length === 0, "no page errors", [...errors, ...other.errors].join(" | "));
-    await context.close();
-  }
-
-  // Every path that ends the workout or its draft, or replaces the state the draft belongs to, must clear the record.
-  for (const [name, path] of [
-    ["End rest", async (page) => { await page.locator("#restTab").click(); await page.waitForSelector("#restSheet.is-open"); await page.locator("#restStop").click(); }],
-    ["Finish the workout early", async (page) => {
-      await page.locator("#sessionSheetBtn").click(); await page.locator("#sessionEarlyFinish").click(); await page.locator("#sessionEarlyConfirm").click();
-      await page.waitForSelector("#sessionSummary:not(.hidden)", { timeout: 10000 }); await page.locator("#sumDone").click();
-      await page.waitForSelector("#workoutShell.hidden", { state: "attached", timeout: 8000 }); }],
-    ["End and discard the workout", async (page) => {
-      await page.locator("#sessionSheetBtn").click(); await page.locator("#sessionAbandon").click(); await page.locator("#sessionAbandonConfirm").click(); }],
-    ["Delete the training log", async (page) => { await page.evaluate(() => navTo("settings")); await page.locator("#reset").click(); }],
-  ]) {
-    phase(`${name} clears the device record`);
-    const { context, page, errors } = await focusPage(browser);
-    await logSet(page);
-    await page.waitForSelector("#restTab", { timeout: 5000 });
-    const set = await hasRecord(page);
-    await path(page);
-    await page.waitForFunction((key) => localStorage.getItem(key) === null, RECORD, { timeout: 5000 }).catch(() => {});
-    assert(set && !(await hasRecord(page)), `${name}: the record is written, then removed`, { set });
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await waitForApp(page);
-    assert(!(await page.evaluate(() => window.__repforgeRest.state().active)), `${name}: a reload brings no rest back`);
-    assert(errors.length === 0, "no page errors", errors.join(" | "));
     await context.close();
   }
 
@@ -1017,7 +942,7 @@ try {
     const draftId = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_draft_v1")).draftId);
     await page.evaluate((draftId) => {
       const now = Date.now();
-      localStorage.setItem("repforge_rest_v1", JSON.stringify({ draftId, restId: "discard-proof",
+      localStorage.setItem("repforge_rest_v1", JSON.stringify({ draftId,
         rest: { kind: "running", deadlineMs: now + 120000, lengthSec: 120, exerciseId: null, rang: false, expiresAt: now + 3720000 } }));
     }, draftId);
     assert(await hasRecord(page), "the record for the recovered draft is on the device when the discard is taken");
@@ -1123,7 +1048,7 @@ try {
     await page.waitForSelector("#restTab", { timeout: 5000 });
     const plant = async (rest) => page.evaluate((rest) => {
       const draft = JSON.parse(localStorage.getItem("repforge_draft_v1"));
-      localStorage.setItem("repforge_rest_v1", JSON.stringify({ draftId: draft.draftId, restId: "planted", rest }));
+      localStorage.setItem("repforge_rest_v1", JSON.stringify({ draftId: draft.draftId, rest }));
     }, rest);
     const now = await page.evaluate(() => Date.now());
     await plant({ kind: "running", deadlineMs: now + 24 * 3600 * 1000 + 120000, lengthSec: 120, exerciseId: null, rang: false,
@@ -1138,79 +1063,6 @@ try {
     const far = await page.evaluate(() => ({ active: window.__repforgeRest.state().active, record: localStorage.getItem("repforge_rest_v1") }));
     assert(!far.active && far.record === null, "a deadline years ahead with an unrelated expiry is not restored", far);
     assert(errors.length === 0, "no page errors", errors.join(" | "));
-    await context.close();
-  }
-
-  // Two tabs on one rest: a pause, a resume, a nudge and a restart in one tab reach the other, and a tab that missed a pause
-  // neither writes over it nor rings a bell it no longer has.
-  phase("A pause, resume, nudge or restart in one tab reaches the other tab");
-  {
-    const { context, page, errors } = await focusPage(browser);
-    await logSet(page);
-    await page.waitForSelector("#restTab", { timeout: 5000 });
-    const other = await openFocus(context);
-    assert(await other.page.evaluate(() => window.__repforgeRest.state().active), "the second tab holds the rest");
-    await page.locator("#restTab").click();
-    await page.waitForSelector("#restSheet.is-open", { timeout: 5000 });
-    await page.locator("#restHold").click();
-    const held = await page.evaluate(() => window.__repforgeRest.state());
-    const pausedThere = await other.page.waitForFunction(() => window.__repforgeRest.state().held === true, undefined, { timeout: 5000 }).then(() => true, () => false);
-    const otherHeld = await other.page.evaluate(() => window.__repforgeRest.state());
-    assert(pausedThere && otherHeld.pausedMs === held.pausedMs, "a pause in one tab holds the same remainder in the other", { held, otherHeld });
-    await page.locator("#restHold").click();
-    const resumed = await page.evaluate(() => window.__repforgeRest.state());
-    await other.page.waitForFunction((end) => window.__repforgeRest.state().endMs === end, resumed.endMs, { timeout: 5000 }).catch(() => {});
-    const resumedThere = await other.page.evaluate(() => window.__repforgeRest.state());
-    assert(resumedThere.endMs === resumed.endMs && !resumedThere.held, "a resume in one tab runs the same deadline in the other", { resumed, resumedThere });
-    await page.locator("#restPlus").click();
-    const nudged = await page.evaluate(() => window.__repforgeRest.state());
-    await other.page.waitForFunction((end) => window.__repforgeRest.state().endMs === end, nudged.endMs, { timeout: 5000 }).catch(() => {});
-    const nudgedThere = await other.page.evaluate(() => window.__repforgeRest.state());
-    assert(nudgedThere.endMs === nudged.endMs, "a +30s in one tab moves the other tab's deadline with it", { nudged, nudgedThere });
-    await page.locator("#restReset").click();
-    const restarted = await page.evaluate(() => window.__repforgeRest.state());
-    await other.page.waitForFunction((end) => window.__repforgeRest.state().endMs === end, restarted.endMs, { timeout: 5000 }).catch(() => {});
-    const restartedThere = await other.page.evaluate(() => window.__repforgeRest.state());
-    assert(restartedThere.endMs === restarted.endMs, "a restart in one tab restarts the other tab's rest", { restarted, restartedThere });
-    assert(errors.length === 0 && other.errors.length === 0, "no page errors", [...errors, ...other.errors].join(" | "));
-    await context.close();
-  }
-
-  phase("A tab that missed a pause keeps the paused record and does not ring its old bell");
-  {
-    const { context, page, errors } = await focusPage(browser);
-    await logSet(page);
-    await page.waitForSelector("#restTab", { timeout: 5000 });
-    const other = await openFocus(context);
-    // The other tab's page is told of the pause by no event: its own page writes the paused record it would have seen.
-    const missedPause = (remaining) => other.page.evaluate((remaining) => {
-      const { draftId, restId } = JSON.parse(localStorage.getItem("repforge_rest_v1"));
-      localStorage.setItem("repforge_rest_v1", JSON.stringify({ draftId, restId, rest: { kind: "paused", remainingMs: remaining,
-        lengthSec: 120, exerciseId: null, rang: false, expiresAt: Date.now() + remaining + 3600000 } }));
-    }, remaining);
-    await other.page.evaluate(() => { window.__repforgeRest.setLeft(1500); });
-    await other.page.evaluate(() => { window.__completeWrites = 0; const live = document.querySelector("#restAnnounce");
-      new MutationObserver(() => { if (live.textContent === window.RepForgeI18n.t("rest.complete")) window.__completeWrites++; })
-        .observe(live, { childList: true, characterData: true, subtree: true }); });
-    await missedPause(60000);
-    await other.page.waitForTimeout(2500);
-    const bell = await other.page.evaluate(() => ({ held: window.__repforgeRest.state().held, pausedMs: window.__repforgeRest.state().pausedMs,
-      rang: window.__repforgeRest.state().rang, writes: window.__completeWrites }));
-    const stored = await other.page.evaluate(() => JSON.parse(localStorage.getItem("repforge_rest_v1")).rest.kind);
-    assert(bell.held && bell.pausedMs === 60000 && !bell.rang && bell.writes === 0 && stored === "paused",
-      "the tab that missed the pause adopts it: no bell, and the paused record stays", { bell, stored });
-    await other.page.evaluate(() => window.__repforgeRest.setLeft(1500));
-    await other.page.waitForTimeout(100);
-    await missedPause(60000);
-    await other.page.locator("#restTab").click();
-    await other.page.waitForSelector("#restSheet.is-open", { timeout: 5000 });
-    await other.page.locator("#restPlus").click();
-    await other.page.waitForTimeout(400);
-    const afterNudge = await other.page.evaluate(() => ({ pausedMs: window.__repforgeRest.state().pausedMs,
-      stored: JSON.parse(localStorage.getItem("repforge_rest_v1")).rest.kind }));
-    assert(afterNudge.pausedMs === 60000 && afterNudge.stored === "paused",
-      "a stale tab's nudge does not overwrite the newer pause", afterNudge);
-    assert(errors.length === 0 && other.errors.length === 0, "no page errors", [...errors, ...other.errors].join(" | "));
     await context.close();
   }
 

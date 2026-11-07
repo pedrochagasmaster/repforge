@@ -165,11 +165,11 @@ async function promptOpen(page) {
 
 
 /* Writes a record for the draft the lifter is in, as the app itself would have left it. */
-async function plantRest(page, rest, restId = "planted") {
-  await page.evaluate(({ rest, restId }) => {
+async function plantRest(page, rest) {
+  await page.evaluate(({ rest }) => {
     const draft = JSON.parse(localStorage.getItem("repforge_draft_v1"));
-    localStorage.setItem("repforge_rest_v1", JSON.stringify({ draftId: draft.draftId, restId, rest }));
-  }, { rest, restId });
+    localStorage.setItem("repforge_rest_v1", JSON.stringify({ draftId: draft.draftId, rest }));
+  }, { rest });
 }
 
 /* A guard reports its own failure and lets the rest run, so one run shows every guard that fails. */
@@ -283,7 +283,7 @@ async function restOverrunOffer(browser) {
   await softly("A record that is malformed, or whose deadline and expiry disagree, opens no question and is dropped without a word", async () => {
     const { context, page } = await freshWorkout(browser);
     await logOneSet(page);
-    await plantRest(page, { kind: "running", expiresAt: 1 }, "malformed");
+    await plantRest(page, { kind: "running", expiresAt: 1 });
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(page);
     await page.waitForTimeout(1500);
@@ -296,7 +296,7 @@ async function restOverrunOffer(browser) {
     const { context, page } = await freshWorkout(browser);
     await logOneSet(page);
     const now = await page.evaluate(() => Date.now());
-    await plantRest(page, { kind: "running", deadlineMs: now + 120000, lengthSec: 120, exerciseId: null, rang: false, expiresAt: now - 1000 }, "disagree");
+    await plantRest(page, { kind: "running", deadlineMs: now + 120000, lengthSec: 120, exerciseId: null, rang: false, expiresAt: now - 1000 });
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(page);
     await page.waitForTimeout(1500);

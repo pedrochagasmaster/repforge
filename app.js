@@ -2478,10 +2478,9 @@ let activeRecoveryRecord=null,activeRecoveryRecordBlockId=null;
 // cap read from the deadline). This file reads the wall clock, keeps the one interval the clock asks for, and carries out
 // the effects each transition names.
 let restClock=RepForgeRestTimer.createRestClock(0),restIntervalId=null;
-// The armed rest is kept on the device (see saveRestRecord). restDraftId is the workout it started in and restId names this
-// rest, so a tab can tell its own rest from one another tab has ended or replaced.
+// The armed rest is kept on the device (see saveRestRecord). restDraftId is the workout it started in.
 const REST_RECORD_KEY="repforge_rest_v1";
-let restDraftId=null,restId=null;
+let restDraftId=null;
 // A tap on a shelf field brings the field pads back for the rest of this rest;
 // the next rest starts with the rest controls again. Transient, never stored.
 // True from the set commit that starts a rest until the render that draws it: that render owns the swap
@@ -7086,9 +7085,9 @@ function playRestFlick(){
   const c=restContour;if(!c?.svg.isConnected)return;
   restFlickCount++;
   window.RepForgeMotion?.flickRestLight?.(c.lit,c.halves,c.length)}
-/* Ending the rest removes its device record. A tab's own End rest removes only its own record (forgetRestRecord). */
+/* Ending the rest removes its device record. */
 function stopRest(){applyRest(RepForgeRestTimer.stop());
-  forgetRestRecord();
+  removeRestRecord();
   paintRest();
   updateRestChrome()}
 /* The workout, its draft or the state they belong to has ended or been replaced on this device: every rest record goes,
@@ -7120,13 +7119,7 @@ function applyRest(result,{timed=false}={}){
   const before=restClock;
   let next=result.state,effects=result.effects,offerCap=false;
   // A rest belongs to the workout it started in, so its record names that draft for as long as the rest runs.
-  if(before.kind==="idle"&&next.kind!=="idle"){restDraftId=activeWorkoutDraft?.draftId??null;restPublished=false;restSeen=null}
-  if(before.kind!=="idle"&&next.kind!=="idle"&&restEndedElsewhere()){next=RepForgeRestTimer.stop().state;effects=[RepForgeRestTimer.EFFECTS.CLEARED]}
-  else if(effects.includes(RepForgeRestTimer.EFFECTS.BELL)){
-    const claim=claimRestBell();
-    // Another tab holds a newer snapshot of this rest: it is adopted, and its bell is that tab's to ring, not this one's.
-    if(claim.kind==="adopt"){adoptRestRecord(claim.record);return}
-    if(claim.kind!=="ring")effects=effects.filter(effect=>effect!==RepForgeRestTimer.EFFECTS.BELL)}
+  if(before.kind==="idle"&&next.kind!=="idle")restDraftId=activeWorkoutDraft?.draftId??null;
   if(next.kind!=="idle"&&RepForgeRestTimer.view(next,Date.now()).phase==="capped"){
     next=RepForgeRestTimer.stop().state;effects=[RepForgeRestTimer.EFFECTS.CLEARED];offerCap=timed}
   restClock=next;
@@ -7138,81 +7131,39 @@ function applyRest(result,{timed=false}={}){
   restReconcileTicker();
   if(offerCap)offerRestOverrunFinish()}
 /* The armed rest is kept on the device (localStorage), so a phone that kills the app brings it back when the app is opened
-   again. The record names the workout it belongs to (draftId), this rest (restId), the rest-timer snapshot, and the wall
-   time after which the count-up would have passed the one-hour cap. It is never in the state, a backup, the install
-   transfer, a setup link or telemetry. A record is written on each change of an armed clock and removed when the rest
-   stops; see stopRest for the paths that end the workout or its draft.
-   Publishing is tracked: a write that failed leaves a working rest in this tab (restPublished is false), and only a rest
-   this tab has published is ended by a record that another tab removed or replaced. restSeen is the snapshot this tab last
-   published or adopted, so a newer snapshot from another tab is adopted, never overwritten. */
-let restPublished=false,restSeen=null;
-const restKey=rest=>rest?JSON.stringify([rest.kind,rest.deadlineMs??null,rest.remainingMs??null,rest.lengthSec,rest.exerciseId??null,rest.rang]):null;
+   again. The record is {draftId, rest}: the workout the rest belongs to, and the rest-timer snapshot. There is one record per
+   device and the last writer wins. It is read only when a clock is restored: a live tab never reads another tab's record and
+   is never changed by it, so two tabs on one rest each keep their own clock. It is never in the state, a backup, the install
+   transfer, a setup link or telemetry. A record is written on each change of an armed clock and removed when the rest stops. */
+/* restUnsaved: the last write was refused. The rest keeps running, and the write is tried again on the next tick or return
+   to the page, until storage takes it. */
+let restUnsaved=false;
 function readRestRecord(){
   try{const raw=localStorage.getItem(REST_RECORD_KEY);
     return{ok:true,record:raw===null?null:JSON.parse(raw)}}
   catch{return{ok:false,record:null}}}
-/* Removes the record only when it is this tab's rest, or there is none: another tab's rest is never removed by a stop here. */
-function forgetRestRecord(){
-  const stored=readRestRecord();
-  if(stored.ok&&stored.record&&stored.record.restId!==restId)return;
-  removeRestRecord()}
 function removeRestRecord(){try{localStorage.removeItem(REST_RECORD_KEY)}catch{}}
 function saveRestRecord(){
   const rest=RepForgeRestTimer.snapshot(restClock,Date.now());
-  if(!rest)return forgetRestRecord();
+  if(!rest){restUnsaved=false;removeRestRecord();return}
   if(!restDraftId)return;
-  if(restPublished){
-    const stored=readRestRecord();
-    if(stored.ok&&stored.record?.restId===restId&&restKey(stored.record.rest)!==restSeen){adoptRestRecord(stored.record);return}}
-  const key=restKey(rest);
-  if(restPublished&&key===restSeen)return;
-  try{localStorage.setItem(REST_RECORD_KEY,JSON.stringify({draftId:restDraftId,restId,rest}));restPublished=true;restSeen=key}
-  catch{restPublished=false}}
-/* Another tab's newer snapshot of this rest becomes this tab's clock, when it is a live clock this device could have written.
-   Anything else ends the rest here: a malformed or capped record is not a rest to keep. */
-function adoptRestRecord(record){
-  const clock=RepForgeRestTimer.fromSnapshot(record.rest,Date.now());
-  if(!clock){applyRest(RepForgeRestTimer.stop());return false}
-  restSeen=restKey(record.rest);restPublished=true;
-  restClock=clock;restReconcileTicker();return true}
-/* One bell per rest across tabs. A tab that reads the record as rung does not ring; a tab whose copy of the rest is older than
-   the record adopts the record instead. A tab that has not published the rest has nothing to coordinate with, so it rings. */
-function claimRestBell(){
-  const stored=readRestRecord();
-  if(!stored.ok||!restDraftId||!restPublished)return{kind:"ring"};
-  if(!stored.record||stored.record.restId!==restId)return{kind:"stale"};
-  if(restKey(stored.record.rest)!==restSeen)return{kind:"adopt",record:stored.record};
-  return{kind:stored.record.rest?.rang?"rung":"ring"}}
-/* Another tab ended this rest, or started another one. Only a rest this tab has published can be ended that way. */
-function restEndedElsewhere(){
-  if(!restDraftId||!restPublished)return false;
-  const stored=readRestRecord();
-  return stored.ok&&(!stored.record||stored.record.restId!==restId)}
-/* A record another tab writes is followed here: an ended or replaced rest is dropped without a bell, and a newer snapshot of
-   this rest is adopted. A draft removed or replaced in another tab takes its rest with it. */
-window.addEventListener("storage",event=>{
-  if(event.key===REST_RECORD_KEY){
-    if(restClock.kind==="idle")return;
-    let record=null;try{record=event.newValue===null?null:JSON.parse(event.newValue)}catch{}
-    if(!record||record.restId!==restId){applyRest(RepForgeRestTimer.stop());return}
-    adoptRestRecord(record);
-    return}
-  if(event.key===DRAFT&&restClock.kind!=="idle"){
-    let draftId=null;
-    try{draftId=event.newValue===null?null:JSON.parse(event.newValue)?.draftId??null}catch{}
-    if(draftId!==restDraftId)stopRest()}});
+  try{localStorage.setItem(REST_RECORD_KEY,JSON.stringify({draftId:restDraftId,rest}));restUnsaved=false}
+  catch{restUnsaved=true}}
+/* A rest whose write was refused is written again on the next tick or return to the page. Nothing is written once it has taken. */
+function retryRestRecord(){if(restUnsaved&&restClock.kind!=="idle")saveRestRecord()}
 /* After a reload, the device's record comes back only for the draft it was written for, only while its clock is valid, and
    only while it has not reached the cap. A running rest that reached the cap while the app was away ends here and may offer
    the finish question. A bell that is due is settled at once: a deadline passed while the app was gone has no ticker to
    ring it. A rung bell or a held clock is left as it is. */
 function restoreRest(draftId){
+  // The tab-scoped record of the build before this one is dropped: its one rest timer is lost on upgrade, by choice.
   try{sessionStorage.removeItem(REST_RECORD_KEY)}catch{}
   const stored=readRestRecord(),record=stored.ok?stored.record:null,now=Date.now();
-  if(!draftId||record?.draftId!==draftId||typeof record.restId!=="string"||!RepForgeRestTimer.snapshotValid(record.rest,now)){removeRestRecord();return}
+  if(!draftId||record?.draftId!==draftId||!RepForgeRestTimer.snapshotValid(record.rest,now)){removeRestRecord();return}
   if(RepForgeRestTimer.capReached(record.rest,now)){removeRestRecord();offerRestOverrunFinish();return}
   const restored=RepForgeRestTimer.restore(restClock,record.rest,now);
   if(restored.state.kind==="idle"){removeRestRecord();return}
-  restId=record.restId;restDraftId=draftId;
+  restDraftId=draftId;
   const settled=RepForgeRestTimer.settle(restored.state,now);
   applyRest({state:settled.state,effects:[...restored.effects,...settled.effects]});
   syncRest()}
@@ -7242,6 +7193,7 @@ function restReconcileTicker(){
 /** An interval tick, or a catch-up on return to the page: settle the bell if its deadline has passed, then repaint. */
 function tickRest(){
   applyRest(RepForgeRestTimer.settle(restClock,Date.now()),{timed:true});
+  retryRestRecord();
   paintRest()}
 /** Repaint every rest surface from the clock as it stands, without waiting for
  *  the next tick — a held clock has no tick, and a nudged one should read the
@@ -7251,7 +7203,6 @@ function syncRest(){
   updateRestChrome()}
 function startRest(sec,exerciseId){
   const v=restState();
-  if(restClock.kind==="idle")restId=uid();
   // The rest belongs to the exercise whose set started it, or, from the sheet, to the one Focus is on.
   const owner=exerciseId??(v.active?v.exerciseId:focusCard()?.dataset.ex)??null;
   // Without a length given, the rest runs for the length armed on the clock, else the owner's own rest.
@@ -7552,6 +7503,7 @@ function onAppVisible(){
   // clock now. The tick (re)starts from the state the settle leaves, if the count-up still needs one.
   const v=restState();
   if(v.active&&!v.held&&v.leftMs<=0)tickRest();
+  else retryRestRecord();
   reconcileNotifyPermission();
   paintNotifyControls();
   updateSessionBanner();
