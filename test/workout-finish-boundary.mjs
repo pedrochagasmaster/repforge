@@ -46,6 +46,58 @@ async function draftTargets(page) {
   });
 }
 
+async function beginEarlyFinishPrompt(page) {
+  await page.locator("#sessionSheetBtn").click();
+  await page.waitForSelector("#sessionSheet.is-open");
+  await page.locator("#sessionEarlyFinish").click();
+  await page.waitForSelector("#sessionEarlyPrompt:not(.hidden)");
+}
+
+async function dismissSessionSheet(page, route) {
+  if (route === "close button") {
+    await page.locator("#sessionSheetClose").click();
+  } else if (route === "scrim") {
+    const point = await page.evaluate(() => {
+      const scrim = document.querySelector("#sessionSheetScrim").getBoundingClientRect();
+      const sheet = document.querySelector("#sessionSheet").getBoundingClientRect();
+      return { x: 12, y: Math.max(1, Math.floor(Math.min(sheet.top - 1, scrim.height - 1) / 2)) };
+    });
+    await page.locator("#sessionSheetScrim").click({ position: point });
+  } else if (route === "Escape") {
+    await page.keyboard.press("Escape");
+  } else if (route === "swipe") {
+    const start = await page.locator("#sessionSheet .sheetband__handle").boundingBox();
+    assert.ok(start, "the session sheet grab handle is visible for swipe dismissal");
+    const x = start.x + start.width / 2;
+    const y = start.y + start.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x, y + 240, { steps: 5 });
+    await page.mouse.up();
+  } else {
+    throw new Error(`unknown session sheet dismissal route: ${route}`);
+  }
+  await page.waitForSelector("#sessionSheet", { state: "hidden", timeout: 5000 });
+}
+
+async function finishThroughButton(page) {
+  await page.evaluate(() => {
+    window.__finishOperationIds = [];
+    window.__repforgeDraftBeforeSaveCommit = ({ operationId }) => window.__finishOperationIds.push(operationId);
+  });
+  const lastExercise = await page.evaluate(() => window.__repforgeFocus.list().at(-1)?.id || null);
+  assert.ok(lastExercise, "the workout has a final exercise to finish from");
+  const currentExercise = await page.locator("#workout .exercise.is-current:not(.is-peek)").getAttribute("data-ex");
+  if (currentExercise !== lastExercise) {
+    const lastProgressIndex = await page.evaluate((id) => window.__repforgeFocus.list().findIndex((item) => item.id === id), lastExercise);
+    await page.locator(`#woProgress button[data-focusgo="${lastProgressIndex}"]`).click();
+    await page.waitForFunction((id) => document.querySelector("#workout .exercise.is-current:not(.is-peek)")?.dataset.ex === id,
+      lastExercise, { timeout: 5000 });
+  }
+  await page.locator("#workout .exercise.is-current:not(.is-peek) [data-ffinish]").click();
+  await page.waitForSelector("#sessionSummary:not(.hidden)", { timeout: 5000 });
+}
+
 async function failSaveBeforePersistence(page) {
   await page.evaluate(() => {
     window.__finishAttempts = [];
@@ -183,6 +235,56 @@ async function voiceProof(browser) {
 
 const browser = await launchChromium();
 try {
+  for (const route of ["close button", "scrim", "Escape", "swipe"]) {
+    const { context, page } = await freshWorkout(browser);
+    const targets = await draftTargets(page);
+    const sessionId = await page.evaluate(() => window.__repforgeWorkoutDraft.current().draftId);
+    await beginEarlyFinishPrompt(page);
+    await dismissSessionSheet(page, route);
+    for (const target of targets) await completeSet(page, target.exerciseInstanceId, target.setId);
+    await finishThroughButton(page);
+    const finished = await page.evaluate((id) => {
+      const state = window.__repforgeWorkoutDraft.state();
+      return {
+        rows: state.log.filter((row) => row.session === id).length,
+        operations: window.__finishOperationIds,
+        draftActive: Boolean(window.__repforgeWorkoutDraft.current()),
+      };
+    }, sessionId);
+    assert.ok(finished.rows > 0, `normal Finish saves the workout after ${route} dismissal: ${JSON.stringify(finished)}`);
+    assert.equal(finished.operations.length, 1, `the ${route} path starts one save operation: ${JSON.stringify(finished)}`);
+    assert.equal(finished.draftActive, false, `the ${route} path clears the finished draft`);
+    await context.close();
+  }
+
+  {
+    const { context, page } = await freshWorkout(browser);
+    const sessionId = await page.evaluate(() => window.__repforgeWorkoutDraft.current().draftId);
+    await beginEarlyFinishPrompt(page);
+    await dismissSessionSheet(page, "Escape");
+    const reps = page.locator(`#workout .exercise.is-current:not(.is-peek) [data-metric-id="${REPS}"]`).first();
+    await reps.focus();
+    await reps.press("Enter");
+    await page.waitForFunction(() => {
+      const toast = document.querySelector("#toast");
+      const summary = document.querySelector("#sessionSummary");
+      return (!toast?.classList.contains("hidden") && toast.textContent.includes("Complete the planned sets")) ||
+        !summary?.classList.contains("hidden");
+    }, null, { timeout: 5000 });
+    const incomplete = await page.evaluate((id) => ({
+      toast: document.querySelector("#toast")?.textContent || "",
+      summaryVisible: !document.querySelector("#sessionSummary")?.classList.contains("hidden"),
+      draftActive: Boolean(window.__repforgeWorkoutDraft.current()),
+      sessionRows: window.__repforgeWorkoutDraft.state().log.filter((row) => row.session === id).length,
+    }), sessionId);
+    assert.equal(incomplete.toast, "Complete the planned sets, or use Finish session early.",
+      "normal Finish after dismissing early consent gives the usual incomplete-workout message: " + JSON.stringify(incomplete));
+    assert.equal(incomplete.summaryVisible, false, "incomplete work cannot be saved using stale early consent");
+    assert.equal(incomplete.draftActive, true, "incomplete normal Finish keeps the draft");
+    assert.equal(incomplete.sessionRows, 0, "incomplete normal Finish adds no history rows");
+    await context.close();
+  }
+
   {
     const { context, page } = await freshWorkout(browser);
     const [first] = await draftTargets(page);
