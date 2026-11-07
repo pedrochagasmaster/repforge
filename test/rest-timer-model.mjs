@@ -19,7 +19,7 @@ import assert from "node:assert/strict";
 const require = createRequire(import.meta.url);
 const clock = require("../rest-timer.js");
 
-const { createRestClock, view, start, toggleHold, setRemaining, nudge, setLength, settle, stop, snapshot, restore, consume, expiresAt, snapshotValid, capReached, fromSnapshot, EFFECTS, OVERTIME_MAX_SEC, MAX_SEC } = clock;
+const { createRestClock, view, start, toggleHold, setRemaining, nudge, setLength, settle, stop, snapshot, restore, expiresAt, snapshotValid, capReached, fromSnapshot, EFFECTS, OVERTIME_MAX_SEC, MAX_SEC } = clock;
 const T0 = 1_000_000;
 const SEC = 1000;
 let passed = 0;
@@ -341,16 +341,6 @@ check("a snapshot with no expiry is not restored", () => {
   assert.equal(restore(createRestClock(0), noExpiry, T0).state.kind, "idle");
 });
 
-check("consume marks a running bell as rung without any effect, so no tab rings it again", () => {
-  const due = settle(running(60), T0 + 61 * SEC).state;
-  const pending = running(60);
-  const consumed = consume(pending);
-  assert.deepEqual(consumed.effects, []);
-  assert.equal(consumed.state.rang, true);
-  assert.equal(view(consumed.state, T0 + 61 * SEC).phase, "overtime");
-  assert.deepEqual(settle(consumed.state, T0 + 90 * SEC).effects, [], "a later settle does not ring it");
-  assert.equal(due.rang, true);
-});
 
 // A record is data the device wrote, and this device can be given a bad one: an expiry that does not agree with its deadline,
 // time left beyond a rest's maximum (a clock rolled back), or a paused remainder written in the future are not restorable.
@@ -385,7 +375,7 @@ check("a valid record becomes the clock it describes, and an invalid one becomes
   assert.equal(view(armed, T0).leftMs, 120 * SEC);
   assert.equal(fromSnapshot({ kind: "running", expiresAt: 1 }, T0), null);
   assert.equal(fromSnapshot(savedRunning(T0 + 120 * SEC, T0 - SEC), T0), null);
-  assert.equal(fromSnapshot(savedRunning(T0 + CAP), T0 + CAP), null, "a capped record is not adopted as a live rest");
+  assert.equal(fromSnapshot(savedRunning(T0), T0 + CAP), null, "a capped record is not adopted as a live rest");
 });
 
 check("restore refuses a record that claims more time than a rest allows", () => {

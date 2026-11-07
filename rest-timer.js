@@ -140,30 +140,52 @@
       : state.deadlineMs + OVERTIME_MAX_SEC * 1000;
   }
 
-  /** The bell was rung by another tab that shares this rest: the clock keeps running with the bell marked rung, and no effect. */
-  function consume(state) {
-    if (state.kind === "idle") return unchanged(state);
-    return result(freeze({ ...state, rang: true }), NO_EFFECTS);
+  /**
+   * Whether a saved snapshot describes a clock this device could have written: well formed, its expiry agreeing with its
+   * own deadline (a running rest) or with its remainder and the moment it was written (a held one), and its time left
+   * within the rest maximum. Only a snapshot that passes is restored, adopted from another tab, or trusted for the cap.
+   */
+  function snapshotValid(saved, now) {
+    if (saved === null || typeof saved !== "object" || !Number.isFinite(now)) return false;
+    const { kind, lengthSec, rang, expiresAt: expires } = saved;
+    const exerciseId = saved.exerciseId ?? null;
+    if (!(Number.isFinite(lengthSec) && lengthSec >= 0 && lengthSec <= MAX_SEC)) return false;
+    if (!((exerciseId === null || typeof exerciseId === "string") && typeof rang === "boolean" && Number.isFinite(expires))) return false;
+    if (kind === "running") {
+      return Number.isFinite(saved.deadlineMs) && expires === saved.deadlineMs + OVERTIME_MAX_SEC * 1000
+        && saved.deadlineMs - now <= MAX_SEC * 1000;
+    }
+    if (kind === "paused") {
+      const remaining = saved.remainingMs;
+      const writtenAt = expires - remaining - OVERTIME_MAX_SEC * 1000;
+      return Number.isFinite(remaining) && remaining <= MAX_SEC * 1000 && remaining >= -OVERTIME_MAX_SEC * 1000 && writtenAt <= now;
+    }
+    return false;
+  }
+
+  /** A valid running snapshot whose count-up has reached the one-hour cap by `now`: its rest ends, and the question may open. */
+  function capReached(saved, now) {
+    return saved?.kind === "running" && snapshotValid(saved, now) && now >= saved.expiresAt;
+  }
+
+  /** The live clock a valid snapshot describes, or null. Malformed, expired and capped snapshots describe no live clock. */
+  function fromSnapshot(saved, now) {
+    if (!snapshotValid(saved, now) || saved.expiresAt <= now) return null;
+    const common = { lengthSec: saved.lengthSec, exerciseId: saved.exerciseId ?? null, rang: saved.rang };
+    return freeze(saved.kind === "paused"
+      ? { kind: "paused", remainingMs: saved.remainingMs, ...common }
+      : { kind: "running", deadlineMs: saved.deadlineMs, ...common });
   }
 
   /**
    * Put back a clock read from a snapshot after a reload: the same deadline or held remainder, and the same bell. Only an
-   * idle clock takes one, and only a well-formed snapshot; anything else leaves the clock as it is. No effect is named,
-   * because a restored clock is the same rest, not a new one: its bell was settled before the reload, or is still due.
+   * idle clock takes one, and only a live, valid snapshot. No effect is named, because a restored clock is the same rest,
+   * not a new one: its bell was settled before the reload, or is still due.
    */
   function restore(state, saved, now) {
-    if (state.kind !== "idle" || saved === null || typeof saved !== "object") return unchanged(state);
-    const { kind, lengthSec, rang, expiresAt: expires } = saved;
-    const exerciseId = saved.exerciseId ?? null;
-    const timed = kind === "paused" ? "remainingMs" : kind === "running" ? "deadlineMs" : null;
-    const valid = timed !== null && Number.isFinite(saved[timed]) && Number.isFinite(lengthSec) && lengthSec >= 0
-      && (exerciseId === null || typeof exerciseId === "string") && typeof rang === "boolean"
-      && Number.isFinite(expires) && Number.isFinite(now) && expires > now;
-    if (!valid) return unchanged(state);
-    const common = { lengthSec, exerciseId, rang };
-    return result(freeze(kind === "paused"
-      ? { kind, remainingMs: saved.remainingMs, ...common }
-      : { kind, deadlineMs: saved.deadlineMs, ...common }), NO_EFFECTS);
+    if (state.kind !== "idle") return unchanged(state);
+    const clock = fromSnapshot(saved, now);
+    return clock ? result(clock, NO_EFFECTS) : unchanged(state);
   }
 
   return Object.freeze({
@@ -182,7 +204,9 @@
     stop,
     snapshot,
     expiresAt,
+    snapshotValid,
+    capReached,
+    fromSnapshot,
     restore,
-    consume,
   });
 });
