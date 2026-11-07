@@ -2467,6 +2467,9 @@ let activeRecoveryRecord=null,activeRecoveryRecordBlockId=null;
 // cap read from the deadline). This file reads the wall clock, keeps the one interval the clock asks for, and carries out
 // the effects each transition names.
 let restClock=RepForgeRestTimer.createRestClock(0),restIntervalId=null;
+// The armed rest survives a reload of this tab, for the workout it started in (see saveRestRecord and restoreRest).
+const REST_RECORD_KEY="repforge_rest_v1";
+let restDraftId=null;
 // A tap on a shelf field brings the field pads back for the rest of this rest;
 // the next rest starts with the rest controls again. Transient, never stored.
 // True from the set commit that starts a rest until the render that draws it: that render owns the swap
@@ -7065,12 +7068,32 @@ function ringRest(){
   else RepForgeNotify.fireOS({title:t("notify.title"),body:t("notify.rest.body"),tag:"repforge-rest",url:"./"})}
 /** Keep a transition's new state, carry out its effects, then run the one interval the clock asks for. */
 function applyRest(result){
+  const before=restClock;
   restClock=result.state;
+  // A rest belongs to the workout it started in, so its record names that draft for as long as the rest runs.
+  if(before.kind==="idle"&&restClock.kind!=="idle")restDraftId=activeWorkoutDraft?.draftId??null;
+  if(restClock!==before&&(before.kind!=="idle"||restClock.kind!=="idle"))saveRestRecord();
   for(const effect of result.effects){
     if(effect===RepForgeRestTimer.EFFECTS.BELL)ringRest();
     else if(effect===RepForgeRestTimer.EFFECTS.REARMED){restFlickArmed=true;clearRestNotices()}
     else if(effect===RepForgeRestTimer.EFFECTS.CLEARED)clearRestNotices()}
   restReconcileTicker()}
+/* Tab-scoped, like the entry review's undo log: a reload of this tab finds the rest again, and nothing else keeps it. It is
+   never in the state, a backup, the install transfer or telemetry. Stopping the rest clears it. */
+function saveRestRecord(){
+  const rest=RepForgeRestTimer.snapshot(restClock);
+  if(!rest)return forgetRestRecord();
+  if(!restDraftId)return;
+  try{sessionStorage.setItem(REST_RECORD_KEY,JSON.stringify({draftId:restDraftId,rest}))}catch{}}
+function forgetRestRecord(){try{sessionStorage.removeItem(REST_RECORD_KEY)}catch{}}
+/* After a reload, the tab's record comes back only for the draft it was written for; any other draft, or none, forgets it. */
+function restoreRest(draftId){
+  let saved=null;
+  try{saved=JSON.parse(sessionStorage.getItem(REST_RECORD_KEY)||"null")}catch{}
+  if(!draftId||saved?.draftId!==draftId){forgetRestRecord();return}
+  applyRest(RepForgeRestTimer.restore(restClock,saved.rest));
+  if(restClock.kind==="idle")forgetRestRecord();
+  else syncRest()}
 function clearRestNotices(){
   const ra=$("#restAnnounce");if(ra)ra.textContent="";
   if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest")}
@@ -25709,6 +25732,7 @@ async function boot(){
   if(draftBoot.status==="ready")hydrateWorkoutDraft({restoreDay:true});
   resumeProgramEditFollowUp();
   init();
+  restoreRest(draftBoot.status==="ready"?activeWorkoutDraft.draftId:null);
   if(transferResult.transferResult?.localOk===true){
     openIosInstallSheet(transferResult.transferResult.cleanup?.ok===true?"success":"cleanup")}
   if(draftBoot.status!=="ready"&&draftBoot.status!=="absent")showDraftInitializationRecovery(draftBoot);

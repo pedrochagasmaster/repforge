@@ -298,8 +298,9 @@ check("a restored overrun whose bell already rang does not ring again", () => {
 check("a restored running rest whose deadline passed while the page was gone rings once, as it was due", () => {
   const { state } = restore(createRestClock(0), JSON.parse(JSON.stringify(snapshot(running(60)))));
   assert.deepEqual(settle(state, T0 + 30 * SEC).effects, []);
-  assert.deepEqual(settle(state, T0 + 61 * SEC).effects, [EFFECTS.BELL]);
-  assert.deepEqual(settle(state, T0 + 90 * SEC).effects, []);
+  const rung = settle(state, T0 + 61 * SEC);
+  assert.deepEqual(rung.effects, [EFFECTS.BELL]);
+  assert.deepEqual(settle(rung.state, T0 + 90 * SEC).effects, []);
 });
 
 check("restore takes only a well-formed snapshot into an idle clock, and anything else leaves the clock as it is", () => {
