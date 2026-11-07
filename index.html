@@ -74,7 +74,7 @@
         if(!root.classList.contains("is-booting"))return;
         if(document.querySelector("dialog[open]")){window.__repforgeBootStall=setTimeout(stalled,BOOT_STALL_MS);return}
         if(typeof window.__repforgeShowBootFailure==="function")window.__repforgeShowBootFailure("stalled");
-        else{var panel=document.querySelector(".bootsplash__fail");if(panel)panel.setAttribute("role","alert");root.classList.add("is-boot-failed")}
+        else{var panel=document.querySelector(".bootsplash__fail");if(panel)panel.setAttribute("role","alert");var reload=document.getElementById("bootReload");if(reload){reload.onclick=function(){location.reload()};try{reload.focus({preventScroll:true})}catch(e){}}root.classList.add("is-boot-failed")}
       },BOOT_STALL_MS);
     })();
   </script>
@@ -1513,6 +1513,6 @@ Triceps pushdown 3x12-15</pre>
   <script src="progress-model.js?v=309"></script>
   <script src="history-ui.js?v=647"></script>
   <script src="share-cards.js?v=639"></script>
-  <script src="app.js?v=654"></script>
+  <script src="app.js?v=657"></script>
 </body>
 </html>

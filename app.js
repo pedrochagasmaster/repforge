@@ -984,6 +984,8 @@ function snapshotBodyInert(){
 function applyModalInert(keep){
   const allow=new Set(keep.filter(Boolean));
   allow.add($("#announcementHost"));
+  // A boot error panel is the lifter's way out (Reload), so no sheet opened over it may disable it.
+  if(bootSplashState==="stalled"||bootSplashState==="failed")allow.add(document.getElementById("bootSplash"));
   for(const child of document.body.children){
     if(allow.has(child)){child.inert=false;continue}
     child.inert=true}}
@@ -25672,6 +25674,8 @@ async function boot(){
     if(transferResult.productRecovery!==true)throw new Error(transferResult?.code||"install-transfer-failed");
     const blockedImportMarker=await installTransferReadMarker();
     if(blockedImportMarker){
+      // The interrupted-transfer sheet is the surface this load shows, so the splash gives way to it.
+      releaseBootSplash();
       openIosInstallSheet("interrupted");
       return;
     }
@@ -25741,30 +25745,48 @@ if(DurableState){
    It covers the page from the first frame. Boot releases it once the surface this
    load lands on has drawn its real content: init() releases it after the first
    render and the landing decision, the landing or the restored view with the
-   lifter's program in it, never an empty shell. A boot dialog (storage recovery,
-   the exercise catalog) shows over it from the top layer. A thrown boot, or the
-   head script's stall timer, turns it into the error state instead of leaving
-   the lifter on the mark. */
-let bootSplashState="covering";
+   lifter's program in it, never an empty shell. A boot sheet that must be seen
+   (an interrupted transfer) releases it as it opens, because the splash would
+   otherwise cover it. A dialog (storage recovery, the exercise catalog) shows over
+   it from the top layer.
+   The boot surface has four states:
+     covering  the splash covers the page while boot runs;
+     stalled   boot has run past the stall deadline: the error panel shows, and boot
+               may still finish;
+     released  the splash is gone for good;
+     failed    boot threw. Terminal for this load.
+   covering -> released  init() has drawn the surface, or a boot sheet takes it over
+   covering -> stalled   the head script's stall deadline
+   stalled  -> released  boot completes after all: the panel lifts with the splash
+   covering|stalled -> failed  boot threw
+   The head script shows the panel itself when app.js has not arrived, and app.js
+   starts out stalled when it finds that panel. */
+let bootSplashState=document.documentElement.classList.contains("is-boot-failed")?"stalled":"covering";
 function releaseBootSplash(){
-  if(bootSplashState!=="covering")return;
+  if(bootSplashState!=="covering"&&bootSplashState!=="stalled")return;
+  const lifting=bootSplashState==="stalled";
   bootSplashState="released";
   const root=document.documentElement,splash=document.getElementById("bootSplash");
   clearTimeout(window.__repforgeBootStall);
   const landing=firstRunOpen();
   root.dataset.bootSurface=landing?"landing":"app";
-  root.classList.remove("is-booting");
+  root.classList.remove("is-booting","is-boot-failed");
+  if(lifting)window.__repforgeBootFailureState=null;
   if(!splash)return;
   const remove=()=>splash.remove();
-  // The landing is whole the moment it is drawn, so its plain cover just goes.
-  if(landing||matchMedia("(prefers-reduced-motion: reduce)").matches){remove();return}
+  // The landing is whole the moment it is drawn, so its plain cover just goes; so does an error panel the lifter is reading.
+  if(lifting||landing||matchMedia("(prefers-reduced-motion: reduce)").matches){remove();return}
   // Onto the app: the mark fades first, then the cover (styles.css, .bootsplash.is-leaving).
   splash.classList.add("is-leaving");
   splash.addEventListener("transitionend",event=>{if(event.target===splash)remove()});
   setTimeout(remove,600)}
 function showBootFailure(reason){
-  if(bootSplashState==="released")return;
-  bootSplashState="failed";
+  // A stall is a verdict on the wait, so a boot that completes later lifts it. A
+  // thrown boot is not, and neither is anything once the splash has been released.
+  const stalled=reason==="stalled";
+  if(bootSplashState==="released"||bootSplashState==="failed")return;
+  if(bootSplashState==="stalled"&&stalled)return;
+  bootSplashState=stalled?"stalled":"failed";
   const root=document.documentElement;
   clearTimeout(window.__repforgeBootStall);
   window.__repforgeBootFailureState=String(reason||"failed");
@@ -25775,6 +25797,9 @@ function showBootFailure(reason){
   // rest of the page during boot, is never announced.
   document.querySelector("#bootSplash .bootsplash__fail")?.setAttribute("role","alert");
   root.classList.add("is-boot-failed");
+  // A sheet that was already open made the splash inert; the panel has to take input.
+  const splash=document.getElementById("bootSplash");
+  if(splash)splash.inert=false;
   const reload=document.getElementById("bootReload");
   if(reload){reload.onclick=()=>location.reload();try{reload.focus({preventScroll:true})}catch{}}}
 window.__repforgeShowBootFailure=showBootFailure;
