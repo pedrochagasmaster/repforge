@@ -579,8 +579,10 @@ async function run() {
 
   // ---- modal lifecycle and race recovery (Row 38) -------------------------------
   phase("modal lifecycle: explicit states, reopen-while-closing and handoff-while-closing");
+  const readModalState = () => page.evaluate(() => window.__repforgeModalState());
+
   // 1. Initial state is closed
-  const initialModalState = await page.evaluate(() => window.modalState ? window.modalState() : (window.activeModal ? "open" : "closed"));
+  const initialModalState = await readModalState();
   assert(initialModalState === "closed", "modal lifecycle starts in closed state", initialModalState);
 
   // 2. Open sheet -> state becomes open
@@ -590,7 +592,7 @@ async function run() {
     window.openModal(sheet, { scrim, delayHide: 200 });
   });
   const openState = await page.evaluate(() => ({
-    state: window.modalState ? window.modalState() : (window.activeModal ? "open" : "closed"),
+    state: window.__repforgeModalState(),
     sheet: window.__sheet("#programTextSheet"),
     inert: window.__inert("#program")
   }));
@@ -605,16 +607,16 @@ async function run() {
     window.openModal(sheet, { scrim, delayHide: 200 });
   });
   const reopenImmediate = await page.evaluate(() => ({
-    state: window.modalState ? window.modalState() : (window.activeModal ? "open" : "closed"),
+    state: window.__repforgeModalState(),
     sheet: window.__sheet("#programTextSheet"),
     inert: window.__inert("#program")
   }));
   assert(reopenImmediate.state === "open" && !reopenImmediate.sheet.hidden && reopenImmediate.inert, "reopen-while-closing transitions back to open immediately", JSON.stringify(reopenImmediate));
 
-  // Wait 300ms (longer than delayHide: 200ms) to ensure pending finish does NOT hide or steal focus
+  // Legitimate timer assertion: must outlast the cancelled 200ms delayHide timer to prove it does not fire and hide the sheet.
   await page.waitForTimeout(300);
   const reopenAfterTimeout = await page.evaluate(() => ({
-    state: window.modalState ? window.modalState() : (window.activeModal ? "open" : "closed"),
+    state: window.__repforgeModalState(),
     sheet: window.__sheet("#programTextSheet"),
     inert: window.__inert("#program")
   }));
@@ -625,9 +627,13 @@ async function run() {
     const sheet = document.querySelector("#programTextSheet");
     await window.closeModal(sheet);
   });
-  await page.waitForTimeout(250);
+  // Settle condition: wait until modalState is closed and sheet is hidden (replaces fixed sleep)
+  await page.waitForFunction(() => {
+    const s = document.querySelector("#programTextSheet");
+    return window.__repforgeModalState() === "closed" && (!s || s.hidden);
+  }, { timeout: 5000 });
   const closedState = await page.evaluate(() => ({
-    state: window.modalState ? window.modalState() : (window.activeModal ? "open" : "closed"),
+    state: window.__repforgeModalState(),
     sheet: window.__sheet("#programTextSheet"),
     inert: window.__inert("#program")
   }));
@@ -669,19 +675,22 @@ async function run() {
   // Open day picker
   await page.click("#chooseAnotherDay");
   await page.waitForSelector("#dayPickSheet.is-open", { timeout: 5000 });
-  assert(await page.evaluate(() => window.modalState() === "open"), "day picker opens in open state");
+  assert((await readModalState()) === "open", "day picker opens in open state");
 
-  // Tap x on day picker to initiate closing (delayHide: 280ms)
-  await page.click("#dayPickSheet [data-daypick-close]");
-  assert(await page.evaluate(() => window.modalState() === "closing"), "day picker transitions to closing state");
-
-  // While closing (within 280ms), tap a different day row (evaluate bypasses Playwright motion stability wait)
-  await page.evaluate((d) => document.querySelector(`[data-daypick="${d}"]`)?.click(), otherDay);
+  // Synchronously tap close (initiating delayHide: 280ms), read closing state, and tap next day row
+  // inside one page.evaluate to prevent round-trip race against the 280ms timer.
+  const closingTransition = await page.evaluate((d) => {
+    document.querySelector("#dayPickSheet [data-daypick-close]")?.click();
+    const state = window.__repforgeModalState();
+    document.querySelector(`[data-daypick="${d}"]`)?.click();
+    return state;
+  }, otherDay);
+  assert(closingTransition === "closing", "day picker transitions to closing state", closingTransition);
 
   // Handoff occurs: #draftDiscardSheet opens
   await page.waitForSelector("#draftDiscardSheet.is-open", { timeout: 5000 });
   const discardImmediate = await page.evaluate(() => ({
-    state: window.modalState(),
+    state: window.__repforgeModalState(),
     pickerHidden: document.querySelector("#dayPickSheet")?.hidden === true,
     discardHidden: document.querySelector("#draftDiscardSheet")?.hidden === true,
     locked: document.body.classList.contains("is-sheet-open"),
@@ -692,11 +701,11 @@ async function run() {
     "handoff while closing immediately hides day picker, opens discard question, locks sheet and marks page inert",
     JSON.stringify(discardImmediate));
 
-  // Wait 400ms (longer than the day picker's 280ms delayHide timeout)
+  // Legitimate timer assertion: must outlast the day picker's cancelled 280ms delayHide timer to prove it does not fire and clear discard sheet state.
   await page.waitForTimeout(400);
 
   const discardAfterTimeout = await page.evaluate(() => ({
-    state: window.modalState(),
+    state: window.__repforgeModalState(),
     discardHidden: document.querySelector("#draftDiscardSheet")?.hidden === true,
     locked: document.body.classList.contains("is-sheet-open"),
     inert: window.__inert("#log"),
@@ -710,7 +719,11 @@ async function run() {
   await page.click("#draftDiscardKeep");
   await page.waitForSelector("#dayPickSheet.is-open", { timeout: 5000 });
   await page.click("#dayPickSheet [data-daypick-close]");
-  await page.waitForTimeout(350);
+  // Settle condition: wait until modalState is closed and dayPickSheet is hidden (replaces fixed sleep)
+  await page.waitForFunction(() => {
+    const s = document.querySelector("#dayPickSheet");
+    return window.__repforgeModalState() === "closed" && (!s || s.hidden);
+  }, { timeout: 5000 });
 
   assert(!errors.length, "no uncaught page errors", errors.slice(0, 3).join(" | "));
 

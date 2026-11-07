@@ -1263,7 +1263,7 @@ function pushRoute(direction,pages,change){
 function routeViewEl(id){return $(`#${id}`)}
 const SHEET_FADE_MS=180;
 function modalState(){return activeModal?activeModal.state:"closed"}
-window.modalState=modalState;
+window.__repforgeModalState=modalState;
 function openModal(el,opts={}){
   if(!el)return false;
   const extras=opts.extras||[];

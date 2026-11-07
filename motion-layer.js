@@ -573,7 +573,7 @@
      replacement's inline height, so each run holds a token. */
   function runMeasuredHeight(panel, from, to, tween) {
     disclosureRuns.get(panel)?.abandon?.();
-    const token = { state: to > from ? "expanding" : "collapsing" };
+    const token = {};
     disclosureRuns.set(panel, token);
     panel.style.overflow = "hidden";
     // Hold the measured start while Motion schedules its first keyframe.
