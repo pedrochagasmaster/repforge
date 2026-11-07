@@ -469,6 +469,59 @@ async function restDayNames(browser) {
   }
 }
 
+/**
+ * Packet G (Audit N2, rows 17 and 25): owner-on-owner history stack interleavings.
+ * Pushed routes, installed editor, and entry sentinel share one history stack.
+ */
+async function historyStackInterleavings(browser) {
+  console.log("\nHistory stack interleavings (Packet G, rows 17, 25, N2)");
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block" });
+  const page = await context.newPage();
+  try {
+    await page.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await writeFixture(page, fixture());
+
+    // Proof: Editor programmatic exit when a pushed route sits above its sentinel.
+    // 1. Open installed editor (pushes editor sentinel).
+    await openInstalledEditor(page);
+    // 2. Open exercise library (pushes route entry above editor sentinel).
+    await page.evaluate(() => window.openLibrary?.({ editorScope: true }));
+    await page.waitForFunction(() => document.body.classList.contains("is-library") &&
+      history.state?.tauriferRoute?.view === "library", undefined, { timeout: 5000 });
+
+    const openState = await page.evaluate(() => ({
+      library: document.body.classList.contains("is-library"),
+      routeView: history.state?.tauriferRoute?.view || null,
+      historyLength: history.length,
+    }));
+    check(openState.library && openState.routeView === "library", "library route pushed above editor sentinel", openState);
+
+    // 3. Programmatic clean editor exit while library route is open.
+    // On main, finishInstalledEditor calls disarmInstalledEditorHistory(), which sets
+    // installedEditorHistoryRelease = true and calls history.back().
+    // The history.back() pops the ROUTE entry, not the editor sentinel!
+    // onRoutePopState handles the pop and returns true, bypassing onInstalledEditorPopState.
+    // As a result, installedEditorHistoryRelease remains true and the editor sentinel
+    // is left stranded on top of the history stack.
+    await page.evaluate(() => window.attemptProgramEditorDismiss?.());
+    await page.waitForFunction(() => !document.body.classList.contains("is-library") &&
+      document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), undefined, { timeout: 5000 });
+
+    // The history state after editor and route close:
+    // Both entries must be released, and the editor sentinel must not linger.
+    const stateAfterClose = await page.evaluate(() => ({
+      hasEditor: !!history.state?.tauriferProgramEditor?.active,
+      hasRoute: !!history.state?.tauriferRoute,
+      editorArmed: window.__installedEditorHistoryArmed === true,
+      releaseDangling: window.__installedEditorHistoryRelease === true,
+    }));
+    check(!stateAfterClose.hasEditor, "editor sentinel released when editor closes with route open", stateAfterClose);
+  } finally {
+    await context.close();
+  }
+}
+
 async function main() {
   console.log("Program editor text-field regression");
   console.log(`Target: ${BASE}\n`);
@@ -478,6 +531,7 @@ async function main() {
     await installedPart(browser);
     await renameBack(browser);
     await restDayNames(browser);
+    await historyStackInterleavings(browser);
   } finally {
     await browser.close();
   }
