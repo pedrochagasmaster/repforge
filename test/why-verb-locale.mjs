@@ -99,11 +99,11 @@ async function logSet(page, slotId, ordinal, { load, reps, rir }) {
     const setId = exercise?.setOrder?.find((id) => exercise.sets[id].ordinal === ordinal);
     return typeof exercise?.sets?.[setId]?.completion === "object";
   }, { slotId, ordinal }, { timeout: 15000 });
-  const resting = await page.waitForFunction(() => restEnd > 0,
+  const resting = await page.waitForFunction(() => window.__repforgeRest.state().active,
     undefined, { timeout: 3000 }).then(() => true, () => false);
   if (resting) {
     await page.evaluate(() => window.stopRest());
-    await page.waitForFunction(() => !restEnd, undefined, { timeout: 10000 });
+    await page.waitForFunction(() => !window.__repforgeRest.state().active, undefined, { timeout: 10000 });
   }
 }
 

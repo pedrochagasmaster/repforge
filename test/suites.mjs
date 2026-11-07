@@ -170,6 +170,7 @@ export const FULL_SUITES = {
     s("test/landing-demo-copy.mjs", [], { domains: ["entry"], cost: "tiny" }),
     s("test/effort-calibration.mjs", [], { domains: ["workout"], cost: "tiny" }),
     s("test/calibration-gauge.mjs", [], { domains: ["workout", "progress"], cost: "tiny" }),
+    s("test/rest-timer-model.mjs", [], { domains: ["workout"], cost: "tiny" }),
     s("test/asset-revisions.mjs", [], { domains: ["global"], cost: "tiny" }),
     s("test/manual-matrix.mjs", ["--self-test"]),
     s("test/programlab-domain.mjs", [], { domains: ["program", "persistence"] }),

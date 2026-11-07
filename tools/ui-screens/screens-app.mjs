@@ -2391,7 +2391,7 @@ export const APP_SCENARIOS = {
     // The session is open, so the live card's tag carries the rest and no pill floats (owner addendum, 2026-10-23).
     await page.waitForFunction(() => {
       const tag = document.querySelector('#todayLive [data-live="elapsed"]')?.textContent || "";
-      return !document.body.classList.contains("is-focus-wo") && restEnd > 0
+      return !document.body.classList.contains("is-focus-wo") && window.__repforgeRest.state().active
         && /\d:\d\d$/.test(tag) && !document.querySelector("#restBar")
         && !document.querySelector("#restSheet.is-open");
     }, undefined, { timeout: 20000 });
