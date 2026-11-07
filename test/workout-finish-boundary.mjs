@@ -163,9 +163,30 @@ async function promptOpen(page) {
   return page.evaluate(() => !document.querySelector("#sessionEarlyPrompt").classList.contains("hidden"));
 }
 
+
+/* Writes a record for the draft the lifter is in, as the app itself would have left it. */
+async function plantRest(page, rest, restId = "planted") {
+  await page.evaluate(({ rest, restId }) => {
+    const draft = JSON.parse(localStorage.getItem("repforge_draft_v1"));
+    localStorage.setItem("repforge_rest_v1", JSON.stringify({ draftId: draft.draftId, restId, rest }));
+  }, { rest, restId });
+}
+
+/* A guard reports its own failure and lets the rest run, so one run shows every guard that fails. */
+const guardFailures = [];
+async function softly(name, guard) {
+  try {
+    await guard();
+    console.log(`  ✓ ${name}`);
+  } catch (error) {
+    guardFailures.push(name);
+    console.log(`  ✗ ${name}\n    ${String(error.message).split("\n")[0]}`);
+  }
+}
+
 async function restOverrunOffer(browser) {
   // Offered at the live cap: the question opens with its reason line, the rest is ended, nothing saved.
-  {
+  await softly("Offered at the live cap: the question opens with its reason line, the rest is ended, nothing saved", async () => {
     const { context, page } = await freshWorkout(browser);
     await logOneSet(page);
     assert.equal(await runRestToCap(page), true, "a rest reaching the one-hour cap ends");
@@ -180,10 +201,10 @@ async function restOverrunOffer(browser) {
     assert.equal(await promptOpen(page) && await page.evaluate(() => window.__repforgeLastWorkoutFinish == null), true,
       "nothing saves without the confirm tap, however long the question stays open");
     await context.close();
-  }
+  });
 
   // Dismissal leaves the workout open, and the same rest offers nothing again.
-  {
+  await softly("Dismissal leaves the workout open, and the same rest offers nothing again", async () => {
     const { context, page } = await freshWorkout(browser);
     await logOneSet(page);
     assert.equal(await runRestToCap(page), true, "a rest reaching the one-hour cap ends");
@@ -200,10 +221,10 @@ async function restOverrunOffer(browser) {
     assert.equal(await page.evaluate(() => !!window.__repforgeWorkoutDraft.current() && window.__repforgeLastWorkoutFinish == null), true,
       "dismissal saves nothing");
     await context.close();
-  }
+  });
 
   // The lifter's own Early finish never shows the reason line.
-  {
+  await softly("The lifter's own Early finish never shows the reason line", async () => {
     const { context, page } = await freshWorkout(browser);
     await logOneSet(page);
     await page.evaluate(() => startRest(120));
@@ -213,20 +234,20 @@ async function restOverrunOffer(browser) {
     assert.equal(reason.omissionShown, true, "the omission sentence is unchanged for the lifter's own Early finish");
     await page.locator("#sessionEarlyCancel").click();
     await context.close();
-  }
+  });
 
   // Nothing logged: the rest just ends, no question.
-  {
+  await softly("Nothing logged: the rest just ends, no question", async () => {
     const { context, page } = await freshWorkout(browser);
     assert.equal(await runRestToCap(page), true, "with nothing logged, a rest reaching the cap still ends");
     await page.waitForTimeout(1500);
     assert.equal(await promptOpen(page), false, "with nothing logged, a rest past the cap offers no finish question");
     assert.equal(await page.evaluate(() => !!window.__repforgeWorkoutDraft.current()), true, "with nothing logged the workout stays open");
     await context.close();
-  }
+  });
 
   // Another modal open: the rest ends, the question does not open over it.
-  {
+  await softly("Another modal open: the rest ends, the question does not open over it", async () => {
     const { context, page } = await freshWorkout(browser);
     await logOneSet(page);
     await page.locator("#woOverflowBtn").click();
@@ -238,10 +259,10 @@ async function restOverrunOffer(browser) {
     assert.equal(await promptOpen(page), false, "a rest past the cap does not open the question over another modal");
     assert.equal(await page.evaluate(() => !!activeModal), true, "the modal the lifter had open stays open");
     await context.close();
-  }
+  });
 
   // A recovery panel showing: the rest ends, the question does not stack on the panel.
-  {
+  await softly("A recovery panel showing: the rest ends, the question does not stack on the panel", async () => {
     const { context, page } = await freshWorkout(browser);
     await logOneSet(page);
     await page.evaluate(() => startRest(120));
@@ -256,10 +277,49 @@ async function restOverrunOffer(browser) {
     assert.equal(await promptOpen(page), false, "a recovery panel showing means the rest passing the cap offers no question");
     assert.equal(await page.locator("#draftRecovery").isVisible(), true, "the recovery panel stays as it was");
     await context.close();
-  }
+  });
+
+  // A record that is malformed, or whose deadline and expiry disagree, opens no question and is dropped without a word.
+  await softly("A record that is malformed, or whose deadline and expiry disagree, opens no question and is dropped without a word", async () => {
+    const { context, page } = await freshWorkout(browser);
+    await logOneSet(page);
+    await plantRest(page, { kind: "running", expiresAt: 1 }, "malformed");
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await page.waitForTimeout(1500);
+    assert.equal(await promptOpen(page), false, "a malformed record opens no finish question");
+    assert.deepEqual(await page.evaluate(() => ({ active: window.__repforgeRest.state().active, record: localStorage.getItem("repforge_rest_v1") })),
+      { active: false, record: null }, "a malformed record restores no rest and is dropped");
+    await context.close();
+  });
+  await softly("A deadline still ahead with an expiry past opens no finish question", async () => {
+    const { context, page } = await freshWorkout(browser);
+    await logOneSet(page);
+    const now = await page.evaluate(() => Date.now());
+    await plantRest(page, { kind: "running", deadlineMs: now + 120000, lengthSec: 120, exerciseId: null, rang: false, expiresAt: now - 1000 }, "disagree");
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await page.waitForTimeout(1500);
+    assert.equal(await promptOpen(page), false, "a deadline still ahead with an expiry past opens no finish question");
+    assert.equal(await page.evaluate(() => window.__repforgeRest.state().active), false, "and restores no rest");
+    await context.close();
+  });
+
+  // The minus control that carries a rest past the cap ends it, with the sheet open (so no question opens over the sheet).
+  await softly("The minus control that carries a rest past the cap ends it, with the sheet open (so no question opens over the sheet)", async () => {
+    const { context, page } = await freshWorkout(browser);
+    await logOneSet(page);
+    await page.evaluate(() => { startRest(120); window.__repforgeRest.setLeft(-3590 * 1000); });
+    await page.locator("#restTab").click();
+    await page.waitForSelector("#restSheet.is-open", { timeout: 5000 });
+    await page.locator("#restMinus").click();
+    assert.equal(await endedAtCap(page), true, "minus 30 seconds from +59:50 ends the rest at the cap");
+    assert.equal(await page.evaluate(() => localStorage.getItem("repforge_rest_v1")), null, "and its record goes");
+    await context.close();
+  });
 
   // Another route (the Program tab): the rest ends and the offer is dropped.
-  {
+  await softly("Another route (the Program tab): the rest ends and the offer is dropped", async () => {
     const { context, page } = await freshWorkout(browser);
     await logOneSet(page);
     await page.evaluate(() => { startRest(120); navTo("program"); });
@@ -268,14 +328,16 @@ async function restOverrunOffer(browser) {
     await page.waitForTimeout(1200);
     assert.equal(await promptOpen(page), false, "on another route a rest past the cap offers no finish question");
     await context.close();
-  }
+  });
 
-  // Restore: a rest that passed the cap while the app was away opens the question after a reload, on the logging route.
-  {
+  // Restore: a rest that passed the cap while the app was away opens the question after a reload, on the logging route. The
+  // stored record is written as the app leaves it: a running rest whose deadline is an hour and ten minutes past, its expiry
+  // one hour after that deadline.
+  await softly("Restore: a stored, consistent rest past the cap opens the question after a reload, once", async () => {
     const { context, page } = await freshWorkout(browser);
     await logOneSet(page);
-    await page.evaluate(() => startRest(120));
-    await page.evaluate(() => window.__repforgeRest.setLeft(-3700 * 1000));
+    await plantRest(page, { kind: "running", deadlineMs: Date.now() - 4200000, lengthSec: 120, exerciseId: null, rang: false,
+      expiresAt: Date.now() - 4200000 + 3600000 });
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(page);
     await page.waitForSelector("#sessionEarlyPrompt:not(.hidden)", { timeout: 5000 }).catch(() => {});
@@ -288,7 +350,7 @@ async function restOverrunOffer(browser) {
     await page.waitForTimeout(1200);
     assert.equal(await promptOpen(page), false, "a second reload offers nothing: the rest was offered once");
     await context.close();
-  }
+  });
 }
 
 async function voiceWorkout(browser) {
@@ -1053,4 +1115,5 @@ try {
   await browser.close();
 }
 
+if (guardFailures.length) throw new Error(`guards failed: ${guardFailures.join("; ")}`);
 console.log("PASS: workout finish boundary");

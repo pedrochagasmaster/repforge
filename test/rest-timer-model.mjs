@@ -19,7 +19,7 @@ import assert from "node:assert/strict";
 const require = createRequire(import.meta.url);
 const clock = require("../rest-timer.js");
 
-const { createRestClock, view, start, toggleHold, setRemaining, nudge, setLength, settle, stop, snapshot, restore, consume, expiresAt, EFFECTS, OVERTIME_MAX_SEC } = clock;
+const { createRestClock, view, start, toggleHold, setRemaining, nudge, setLength, settle, stop, snapshot, restore, consume, expiresAt, snapshotValid, capReached, fromSnapshot, EFFECTS, OVERTIME_MAX_SEC, MAX_SEC } = clock;
 const T0 = 1_000_000;
 const SEC = 1000;
 let passed = 0;
@@ -350,6 +350,48 @@ check("consume marks a running bell as rung without any effect, so no tab rings 
   assert.equal(view(consumed.state, T0 + 61 * SEC).phase, "overtime");
   assert.deepEqual(settle(consumed.state, T0 + 90 * SEC).effects, [], "a later settle does not ring it");
   assert.equal(due.rang, true);
+});
+
+// A record is data the device wrote, and this device can be given a bad one: an expiry that does not agree with its deadline,
+// time left beyond a rest's maximum (a clock rolled back), or a paused remainder written in the future are not restorable.
+const CAP = OVERTIME_MAX_SEC * SEC;
+const savedRunning = (deadlineMs, expires = deadlineMs + CAP) => ({ kind: "running", deadlineMs, lengthSec: 120, exerciseId: null, rang: false, expiresAt: expires });
+
+check("a record must agree with itself: running needs the expiry its deadline implies, and time left within the rest maximum", () => {
+  assert.equal(snapshotValid(savedRunning(T0 + 120 * SEC), T0), true, "a consistent running record is valid");
+  assert.equal(snapshotValid({ kind: "running", lengthSec: 120, exerciseId: null, rang: false, expiresAt: 1 }, T0), false, "an expiry alone is not a clock");
+  assert.equal(snapshotValid(savedRunning(T0 + 120 * SEC, T0 - SEC), T0), false, "a deadline ahead with an expiry already past is refused");
+  assert.equal(snapshotValid(savedRunning(T0 + 120 * SEC, T0 + 120 * SEC + CAP + SEC), T0), false, "an expiry not one cap past the deadline is refused");
+  assert.equal(snapshotValid(savedRunning(T0 + 24 * 3600 * SEC + 120 * SEC), T0), false, "a rolled-back clock: a day of time left is refused");
+  assert.equal(snapshotValid(savedRunning(T0 + 864_000_000_000, T0 + CAP), T0), false, "a far-future deadline with an unrelated expiry is refused");
+});
+
+check("a paused remainder must be within the rest maximum and must not come from the future", () => {
+  const held = toggleHold(running(120), T0 + 10 * SEC).state;
+  const saved = JSON.parse(JSON.stringify(snapshot(held, T0 + 10 * SEC)));
+  assert.equal(snapshotValid(saved, T0 + 10 * SEC), true, "a held snapshot is valid where it was written");
+  assert.equal(snapshotValid({ ...saved, remainingMs: MAX_SEC * SEC + SEC }, T0 + 10 * SEC), false, "a remainder beyond the maximum is refused");
+  assert.equal(snapshotValid(saved, T0 - 60 * SEC), false, "a record written after the clock now reads is refused");
+});
+
+check("a record past the cap is capped; a malformed record is not", () => {
+  assert.equal(capReached(savedRunning(T0), T0 + CAP), true, "a valid running record at its expiry has reached the cap");
+  assert.equal(capReached(savedRunning(T0), T0 + CAP - 1), false, "one millisecond short of the cap has not");
+  assert.equal(capReached({ kind: "running", expiresAt: 1, rang: false }, T0 + CAP), false, "a malformed record never reports the cap");
+});
+
+check("a valid record becomes the clock it describes, and an invalid one becomes nothing", () => {
+  const armed = fromSnapshot(savedRunning(T0 + 120 * SEC), T0);
+  assert.equal(view(armed, T0).leftMs, 120 * SEC);
+  assert.equal(fromSnapshot({ kind: "running", expiresAt: 1 }, T0), null);
+  assert.equal(fromSnapshot(savedRunning(T0 + 120 * SEC, T0 - SEC), T0), null);
+  assert.equal(fromSnapshot(savedRunning(T0 + CAP), T0 + CAP), null, "a capped record is not adopted as a live rest");
+});
+
+check("restore refuses a record that claims more time than a rest allows", () => {
+  const rolled = restore(createRestClock(0), savedRunning(T0 + 24 * 3600 * SEC + 120 * SEC), T0);
+  assert.equal(rolled.state.kind, "idle");
+  assert.deepEqual(rolled.effects, []);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
