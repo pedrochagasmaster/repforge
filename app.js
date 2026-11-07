@@ -9046,10 +9046,12 @@ function openSessionSheet(){
 }
 
 function closeSessionSheet({preserveEarlyConfirmation=false}={}){
-  if(!preserveEarlyConfirmation)WorkoutSession.cancelEarlyFinish();
   const sheet = $("#sessionSheet");
   if (!sheet) return Promise.resolve(false);
-  if (sheet.hidden && !(activeModal && activeModal.el === sheet)) return Promise.resolve(false);
+  const modal = activeModal?.el === sheet ? activeModal : null;
+  if (sheet.hidden && !modal) return Promise.resolve(false);
+  if (modal && (modal.state === "closing" || modal.state === "closed")) return Promise.resolve(false);
+  if(!preserveEarlyConfirmation)WorkoutSession.cancelEarlyFinish();
   teardownSessionSorting();
   return closeModal(sheet);
 }
