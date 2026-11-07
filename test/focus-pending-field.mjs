@@ -121,6 +121,31 @@ async function typeField(page, id, value) {
   await input.fill(value);
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
 }
+async function failLoadEdit(page, value) {
+  await page.evaluate((checkpointKey) => {
+    const original = Storage.prototype.setItem;
+    window.__restoreCheckpointQuotaFault = () => { Storage.prototype.setItem = original; };
+    window.__checkpointQuotaFaults = 0;
+    Storage.prototype.setItem = function (key, stored) {
+      if (this === window.localStorage && key === checkpointKey && window.__checkpointQuotaFaults === 0) {
+        window.__checkpointQuotaFaults++;
+        throw new DOMException("proof draft checkpoint quota", "QuotaExceededError");
+      }
+      return original.call(this, key, stored);
+    };
+  }, `${DRAFT}:v2-checkpoint`);
+  try {
+    await typeField(page, "load", value);
+    await page.waitForSelector("#draftRecovery:not(.hidden)", { timeout: 5000 });
+  } finally {
+    const faultCount = await page.evaluate(() => {
+      window.__restoreCheckpointQuotaFault?.();
+      delete window.__restoreCheckpointQuotaFault;
+      return window.__checkpointQuotaFaults;
+    });
+    assert(faultCount === 1, "RT-03: the field write hit the real DraftV2 checkpoint storage boundary", faultCount);
+  }
+}
 const pad = (dir) => `${SHELF} .shelf__pad[data-dir="${dir}"]`;
 
 /** Hold the real cross-tab write lock: every DraftV2 write now waits. */
@@ -369,6 +394,63 @@ async function main() {
   const retriedRow = retriedRows.find(row => row.set === 1);
   assert(retriedSave && retriedRow && Number(retriedRow.load) === 52.5 && Number(retriedRow.reps) === 7,
     "RT-03: the retried value is the value in the immutable saved row", { retriedSave, retriedRow });
+
+  phase("RT-03: Back to Today preserves the exact failed field through a shelf rebuild and Retry");
+  await boot(page);
+  await typeField(page, "load", "50.5");
+  await failLoadEdit(page, "100");
+  await page.locator("#leaveWorkout").click();
+  await page.waitForFunction(() => document.activeElement?.id === "draftRecovery", undefined, { timeout: 5000 });
+  await page.locator(field("rir")).click();
+  const backRecovery = await readField(page, "load");
+  const backRecoveryUi = await page.evaluate(() => ({
+    banner: document.querySelector("#draftRecoveryPending")?.textContent || "",
+    copyVisible: !document.querySelector("#draftRecoveryCopy")?.classList.contains("hidden"),
+  }));
+  assert(num(backRecovery.input) === 100 && num(backRecovery.label) === 100 && num(backRecovery.ledger) === 100 &&
+    num(backRecovery.draft) === 50.5 && backRecoveryUi.banner.includes("100") && backRecoveryUi.copyVisible,
+    "RT-03: Back to Today and a shelf rebuild keep the pending load, banner, and Copy action aligned while the draft remains acknowledged at 50.5",
+    { backRecovery, backRecoveryUi });
+  await page.locator("#draftRecoveryRetry").click();
+  await page.locator("#draftRecovery").waitFor({ state: "hidden", timeout: 5000 });
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  agree("RT-03 Back recovery Retry", await readField(page, "load"), 100);
+  await page.locator(".focus-shelf .saveset").first().click();
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  await page.waitForFunction(() => Object.values(window.__repforgeWorkoutDraft.current().exercises["seed-ex-1"].sets)
+    .some(set => set.ordinal === 1 && set.completion !== "pending"));
+  const backSave = await finishEarly(page);
+  const backRows = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)).log.filter(row => row.exerciseId === "seed-ex-1"), KEY);
+  const backRow = backRows.find(row => row.set === 1);
+  assert(backSave && backRow && Number(backRow.load) === 100 && Number(backRow.reps) === 6,
+    "RT-03: Back recovery Retry saves the load shown in every field surface", { backSave, backRow });
+
+  phase("RT-03: a rejected follow-up field edit redraws from its real owner and returns focus to recovery");
+  await boot(page);
+  await failLoadEdit(page, "100");
+  await typeField(page, "reps", "9");
+  const rejectedReps = await readField(page, "reps");
+  const rejectedRecoveryUi = await page.evaluate(() => ({
+    focus: document.activeElement?.id || "",
+    banner: document.querySelector("#draftRecoveryPending")?.textContent || "",
+  }));
+  assert(num(rejectedReps.input) === 6 && num(rejectedReps.label) === 6 && num(rejectedReps.ledger) === 6 &&
+    num(rejectedReps.draft) === 6 && rejectedRecoveryUi.focus === "draftRecovery" && rejectedRecoveryUi.banner.includes("100"),
+    "RT-03: a rejected reps edit is not shown as accepted and recovery keeps focus", { rejectedReps, rejectedRecoveryUi });
+  await page.locator("#draftRecoveryRetry").click();
+  await page.locator("#draftRecovery").waitFor({ state: "hidden", timeout: 5000 });
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  agree("RT-03 follow-up recovery Retry", await readField(page, "load"), 100);
+  agree("RT-03 rejected follow-up reps", await readField(page, "reps"), 6);
+  await page.locator(".focus-shelf .saveset").first().click();
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  await page.waitForFunction(() => Object.values(window.__repforgeWorkoutDraft.current().exercises["seed-ex-1"].sets)
+    .some(set => set.ordinal === 1 && set.completion !== "pending"));
+  const followupSave = await finishEarly(page);
+  const followupRows = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)).log.filter(row => row.exerciseId === "seed-ex-1"), KEY);
+  const followupRow = followupRows.find(row => row.set === 1);
+  assert(followupSave && followupRow && Number(followupRow.load) === 100 && Number(followupRow.reps) === 6,
+    "RT-03: Retry saves the 100 × 6 values the lifter saw", { followupSave, followupRow });
 
   phase("RT-03: a stale write (another tab won the lock first) ends on the draft the other tab saved");
   await boot(page);
