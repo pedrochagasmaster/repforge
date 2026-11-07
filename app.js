@@ -7145,12 +7145,35 @@ function restoreRest(draftId){
   const stored=readRestRecord(),record=stored.ok?stored.record:null;
   if(!draftId||record?.draftId!==draftId||typeof record.restId!=="string"){removeRestRecord();return}
   const now=Date.now();
+  if(record.rest?.kind==="running"&&Number.isFinite(record.rest.expiresAt)&&record.rest.expiresAt<=now){
+    removeRestRecord();offerRestOverrunFinish();return}
   const restored=RepForgeRestTimer.restore(restClock,record.rest,now);
   if(restored.state.kind==="idle"){removeRestRecord();return}
   restId=record.restId;restDraftId=draftId;
   const settled=RepForgeRestTimer.settle(restored.state,now);
   applyRest({state:settled.state,effects:[...restored.effects,...settled.effects]});
   syncRest()}
+/* The rest reached the cap in this tab. Claiming it removes its record, so a second tab that reaches the cap too does not
+   offer the question as well. A rest another tab has already ended is simply stopped here. */
+function endRestAtCap(){
+  const stored=readRestRecord();
+  if(stored.ok&&stored.record?.restId!==restId){stopRest();return false}
+  stopRest();removeRestRecord();return true}
+/* The question a rest over the cap may open. It can apply only when the draft is open, the lifter is on the logging route,
+   at least one set is logged, nothing else is open and no recovery panel is showing. It never saves: it waits for its
+   confirm tap. The reason line is shown for this one opening (restOverrunReasonPending), never for the lifter's own. */
+let restOverrunReasonPending=false;
+function restOverrunFinishOfferable(){
+  const draft=activeWorkoutDraft;
+  if(!draft||!workoutActive||currentViewId()!=="log"||activeModal||draftUiRecovery||workoutDraftRecovery)return false;
+  if(WorkoutSession.earlyFinishDraft())return false;
+  return Object.values(draft.exercises||{}).some(exercise=>Object.values(exercise?.sets||{})
+    .some(set=>set.role!=="warmup"&&set.completion!=="pending"))}
+function offerRestOverrunFinish(){
+  if(!restOverrunFinishOfferable())return;
+  restOverrunReasonPending=true;
+  openSessionSheet();
+  $("#sessionEarlyFinish")?.click()}
 function clearRestNotices(){
   const ra=$("#restAnnounce");if(ra)ra.textContent="";
   if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest")}
@@ -7162,6 +7185,8 @@ function restReconcileTicker(){
 /** An interval tick, or a catch-up on return to the page: settle the bell if its deadline has passed, then repaint. */
 function tickRest(){
   applyRest(RepForgeRestTimer.settle(restClock,Date.now()));
+  // The count-up reached the one-hour cap on a tick: the rest ends, and the workout may be finished (offerRestOverrunFinish).
+  if(restState().phase==="capped"&&endRestAtCap()){offerRestOverrunFinish();return}
   paintRest()}
 /** Repaint every rest surface from the clock as it stands, without waiting for
  *  the next tick — a held clock has no tick, and a nudged one should read the
@@ -9006,6 +9031,7 @@ function renderSessionSheet(){
   WorkoutSession.cancelEarlyFinish();
   const earlyPrompt = $("#sessionEarlyPrompt");
   if (earlyPrompt) earlyPrompt.classList.add("hidden");
+  $("#sessionEarlyReason")?.classList.add("hidden");
   const earlyBtn = $("#sessionEarlyFinish");
   if (earlyBtn) earlyBtn.classList.remove("hidden");
   const earlyMsg = $("#sessionEarlyMsg");
@@ -25199,10 +25225,12 @@ function init(){
 
   const earlyBtn=$("#sessionEarlyFinish");if(earlyBtn)earlyBtn.onclick=async()=>{
     await WorkoutSession.flush();
+    const restReason=restOverrunReasonPending;restOverrunReasonPending=false;
     if(!activeWorkoutDraft)return;
     if(!WorkoutSession.captureEarlyFinish(activeWorkoutDraft)){
       await focusSaveRecovery();return}
     renderEarlyFinishPreview();
+    $("#sessionEarlyReason")?.classList.toggle("hidden",!restReason);
     const earlyMsg=$("#sessionEarlyMsg");
     if(earlyMsg){earlyMsg.classList.remove("is-error");earlyMsg.textContent=t("session.sheet.early_prompt")}
     const earlyPrompt=$("#sessionEarlyPrompt");if(earlyPrompt)earlyPrompt.classList.remove("hidden");
@@ -25216,6 +25244,7 @@ function init(){
 
   const earlyCancel=$("#sessionEarlyCancel");if(earlyCancel)earlyCancel.onclick=()=>{
     WorkoutSession.cancelEarlyFinish();
+    $("#sessionEarlyReason")?.classList.add("hidden");
     const earlyPrompt=$("#sessionEarlyPrompt");if(earlyPrompt)earlyPrompt.classList.add("hidden");
     const earlyBtn=$("#sessionEarlyFinish");if(earlyBtn)earlyBtn.classList.remove("hidden");
     $("#sessionAbandon")?.classList.remove("hidden");

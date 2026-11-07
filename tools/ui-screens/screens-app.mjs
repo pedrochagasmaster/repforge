@@ -293,7 +293,7 @@ const D_FIXTURE_STATES = new Set([
   "workout/logged-sets", // #517: the logged sets shown in place, the rest running
   "workout/logged-sets-folded", // #517: a banner shortens the window and the oldest logged set folds
   "workout/deload-week", // Plan 072 S4: the deload cue in Focus
-  "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions", // R3d
+  "workout/session", "workout/early-finish", "workout/rest-overrun-finish", "workout/exercise-note", "workout/warmup-actions", // R3d
   "workout/exercise-note-line", // the exercise note on the card (owner, 2026-11-05)
   "workout/max-set-prompt", "workout/max-set-guess", "workout/max-set-active", "workout/max-set-result", // Plan 077 PR 3
   "workout/effort-stage-a", "workout/effort-stage-b", "workout/effort-menu", "workout/stage-tip", // Plan 077 PR 2
@@ -2161,6 +2161,14 @@ export const APP_SCENARIOS = {
   "workout/session": async page => { await focusMode(page); await page.click("#sessionSheetBtn"); await resetSheetScroll(page, ".session-sheet__body"); },
   // #522: the confirmation opens at the end of the scroll, so the frame shows the scroll pinned to its end.
   "workout/early-finish": async page => { await focusMode(page); await logCurrentSet(page); await page.click("#sessionSheetBtn"); await page.click("#sessionEarlyFinish"); await pinSheetScrollToEnd(page, ".session-sheet__body"); },
+  // The live count-up carried past the one-hour cap ends the rest and offers the question with its reason line (owner, 2026-11-07).
+  "workout/rest-overrun-finish": async page => {
+    await focusMode(page); await logCurrentSet(page);
+    // The catalog clock is fixed, so the count-up is carried to the cap by one tick of the production clock, not by time.
+    await page.evaluate(() => { startRest(120); window.__repforgeRest.setLeft(-3600 * 1000); tickRest(); });
+    await page.waitForSelector("#sessionEarlyReason:not(.hidden)", { timeout: 8000 });
+    await pinSheetScrollToEnd(page, ".session-sheet__body");
+  },
   "workout/abandon": async page => {
     await focusMode(page);
     await logCurrentSet(page);
