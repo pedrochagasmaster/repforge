@@ -1300,6 +1300,7 @@ const BrowserHistory=(()=>{
     for(let i=removed.length-1;i>=0;i--){
       const e=removed[i];
       if(e.name==="route"&&e.meta?.view){
+        routeHistory=routeHistory.filter(id=>id!==e.meta.view);
         $(EDGE_BACK[e.meta.view])?.click();
       }
     }
@@ -22463,7 +22464,8 @@ Object.defineProperty(window,"__installedEditorHistoryRelease",{
   get(){return BrowserHistory.isExpectedPopPending("installedEditor")},
   configurable:true
 });
-window.__repforgeHistory=BrowserHistory;
+window.BrowserHistory=BrowserHistory;
+window.__repforgeBrowserHistory=BrowserHistory;
 // @ci-domain global
 async function activateEntryPreview({destination="log",manualBuild=false,skipReplaceConfirm=false,io=storageIO}={}){
   if(!ProgramEntry||!entryState)return;
