@@ -1242,7 +1242,6 @@ async function main() {
       "deadline keeps the original claim marker available for recovery");
 
     let reads = 0;
-    const responseRead = deferred();
     const responseBody = new TextEncoder().encode(JSON.stringify({ envelope: canonicalFixture, expiresAt: "2099-01-01T00:00:00.000Z" }));
     resolveFetch({
       status: 200,
@@ -1251,8 +1250,8 @@ async function main() {
         getReader() {
           return {
             async read() {
-              if (reads++ === 0) return { done: false, value: responseBody };
-              responseRead.resolve();
+              reads += 1;
+              if (reads === 1) return { done: false, value: responseBody };
               return { done: true };
             },
             async cancel() {},
@@ -1260,7 +1259,8 @@ async function main() {
         },
       },
     });
-    await responseRead.promise;
+    await new Promise((resolve) => setImmediate(resolve));
+    check(reads === 0, "a late fetch response is rejected before any body can reach the parser");
     check(client.state() === "unknown-outcome" && JSON.stringify(inbound.peek()) === JSON.stringify(markerAtTimeout),
       "a successful response arriving after timeout cannot change client state or publish the claim");
   });
