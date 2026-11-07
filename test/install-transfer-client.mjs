@@ -26,6 +26,8 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const canonicalFixture = JSON.parse(readFileSync(join(ROOT, "test/fixtures/install-transfer-clone-v1.json"), "utf8"));
 const EXPECTATIONS = JSON.parse(readFileSync(join(ROOT, "test/fixtures/install-transfer-client/expectations.json"), "utf8"));
 const FAULT_EXPECTATIONS = JSON.parse(readFileSync(join(ROOT, "test/fixtures/install-transfer-client/fault-expectations.json"), "utf8"));
+const REQUEST_HEADERS_TIMEOUT_MS = 65_000;
+const RESPONSE_BODY_IDLE_TIMEOUT_MS = 65_000;
 
 const results = { passed: 0, failed: 0 };
 const textEncoder = new TextEncoder();
@@ -1102,11 +1104,14 @@ async function main() {
     });
     const client = makeClient({ contract: Contract, transport, context: "standalone", inbound, vault, document });
     const pending = client.claim();
+    const bodyIdleMs = RESPONSE_BODY_IDLE_TIMEOUT_MS;
+    const headerWaitMs = REQUEST_HEADERS_TIMEOUT_MS;
     const chunkSize = 240 * 1024;
     const chunks = [];
     for (let offset = 0; offset < responseBytes.byteLength; offset += chunkSize)
       chunks.push(responseBytes.slice(offset, Math.min(responseBytes.byteLength, offset + chunkSize)));
     await stream.waitForRead(1);
+    check(clock.nextDelay() === bodyIdleMs, "the body idle window starts when response headers arrive");
 
     let elapsed = 0;
     for (let index = 0; index < chunks.length; index += 1) {
@@ -1115,11 +1120,14 @@ async function main() {
         elapsed += 10_000;
       }
       check(stream.push(chunks[index]), `body chunk ${index + 1} arrived before the idle deadline`);
-      if (index < chunks.length - 1) await stream.waitForRead(index + 2);
+      if (index < chunks.length - 1) {
+        await stream.waitForRead(index + 2);
+        check(clock.nextDelay() === bodyIdleMs, `body chunk ${index + 1} resets the idle window`);
+      }
     }
     stream.close();
     const result = await pending;
-    check(elapsed > 65_000, "the streamed maximum response takes longer than the header deadline");
+    check(elapsed > headerWaitMs, "the streamed maximum response takes longer than the header deadline");
     check(result.ok && result.state === "validating" && result.envelope.integrity.canonicalPayloadHash === envelope.integrity.canonicalPayloadHash,
       "the complete maximum envelope reaches the app's import-validation handoff");
     check(client.state() === "validating" && inbound.peek()?.phase === "claimed",
@@ -1150,11 +1158,13 @@ async function main() {
     let claimSettled = false;
     const pending = client.claim().finally(() => { claimSettled = true; });
     await stream.waitForRead(1);
+    const bodyIdleMs = RESPONSE_BODY_IDLE_TIMEOUT_MS;
     clock.advance(10_000);
     check(stream.push(textEncoder.encode('{"envelope":')), "the response starts with a body chunk");
     await stream.waitForRead(2);
+    check(clock.nextDelay() === bodyIdleMs, "the first body chunk starts a fresh idle window");
 
-    clock.advance(65_000 - 1);
+    clock.advance(bodyIdleMs - 1);
     await new Promise((resolve) => setImmediate(resolve));
     check(!claimSettled && client.state() === "claiming" && inbound.peek()?.phase === "claiming",
       "a body that recently progressed remains in claiming until the full idle window passes");
@@ -1192,8 +1202,8 @@ async function main() {
       const pending = transport.request({ path, body });
       const call = fetchCalls.at(-1);
       check(call.options.signal && typeof call.options.signal.aborted === "boolean", `${path} carries an abort signal`);
-      check(clock.nextDelay() === Transfer.REQUEST_TIMEOUT_MS, `${path} arms the shared request deadline`);
-      clock.advance(Transfer.REQUEST_TIMEOUT_MS);
+      check(clock.nextDelay() === REQUEST_HEADERS_TIMEOUT_MS, `${path} arms the shared header deadline`);
+      clock.advance(REQUEST_HEADERS_TIMEOUT_MS);
       await assert.rejects(pending, (error) => error?.code === "request-timeout");
       check(call.options.signal.aborted, `${path} aborts when its deadline expires`);
       call.result.resolve(new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } }));
@@ -1222,8 +1232,8 @@ async function main() {
     const pending = client.claim();
 
     await requestStarted.promise;
-    check(clock.nextDelay() === Transfer.REQUEST_TIMEOUT_MS, "claim attempt arms its request deadline");
-    clock.advance(Transfer.REQUEST_TIMEOUT_MS);
+    check(clock.nextDelay() === REQUEST_HEADERS_TIMEOUT_MS, "claim attempt arms its header deadline");
+    clock.advance(REQUEST_HEADERS_TIMEOUT_MS);
     const timedOut = await pending;
     const markerAtTimeout = inbound.peek();
     check(!timedOut.ok && timedOut.state === "unknown-outcome" && !Object.hasOwn(timedOut, "envelope"),
@@ -1255,7 +1265,7 @@ async function main() {
       "a successful response arriving after timeout cannot change client state or publish the claim");
   });
 
-  await test("a maximum-size claim can finish just inside its deadline and a lost reply retries the same claim", async () => {
+  await test("a maximum-size claim can arrive just inside its header deadline and a lost reply retries the same claim", async () => {
     const envelope = envelopeOfBytes(Contract.LIMITS.envelopeBytes);
     check((await Contract.validateEnvelopeIntegrity(envelope, webcrypto)).ok, "maximum logical clone passes the real transfer contract");
     const expiresAt = "2099-01-01T00:00:00.000Z";
@@ -1348,9 +1358,9 @@ async function main() {
       const slowAttempt = slowClient.claim();
       pendingCalls.push(slowAttempt);
       await slowSeen.promise;
-      check(clock.nextDelay() === Transfer.REQUEST_TIMEOUT_MS, "real claim request starts the configured deadline");
-      clock.advance(Transfer.REQUEST_TIMEOUT_MS - 1);
-      check(clock.nextDelay() === 1, "the maximum-size response still has time before the deadline");
+      check(clock.nextDelay() === REQUEST_HEADERS_TIMEOUT_MS, "real claim request starts the configured header deadline");
+      clock.advance(REQUEST_HEADERS_TIMEOUT_MS - 1);
+      check(clock.nextDelay() === 1, "the maximum-size response headers still have time before the deadline");
       check(sendClaimResponse(heldResponses.get("slow")), "server releases the maximum-size response before expiry");
       const slowResult = await slowAttempt;
       check(slowResult.ok && slowResult.state === "validating" && slowResult.envelope.integrity.canonicalPayloadHash === envelope.integrity.canonicalPayloadHash,
@@ -1361,8 +1371,8 @@ async function main() {
       pendingCalls.push(lostAttempt);
       const firstRequest = await retryFirstSeen.promise;
       check(firstRequest.claimId === boundClaims.get(retryToken), "server binds the original claim identity before losing its response");
-      check(clock.nextDelay() === Transfer.REQUEST_TIMEOUT_MS, "lost-response claim has the same deadline");
-      clock.advance(Transfer.REQUEST_TIMEOUT_MS);
+      check(clock.nextDelay() === REQUEST_HEADERS_TIMEOUT_MS, "lost-response claim has the same header deadline");
+      clock.advance(REQUEST_HEADERS_TIMEOUT_MS);
       const lostResult = await lostAttempt;
       check(!lostResult.ok && lostResult.state === "unknown-outcome" && !Object.hasOwn(lostResult, "envelope"),
         "a server-bound claim with no answer ends in the existing unknown-outcome");
