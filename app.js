@@ -1603,14 +1603,25 @@ window.__repforgeShelfValueBeat=mode=>{if(mode==="directional"||mode==="fade"||m
 const padTap=new WeakMap();
 /** Edits the lifter has made that DraftV2 has not yet acknowledged (a write waits for the cross-tab lock and the
  *  ordered queue). Keyed like the draft's own flat keys (`<exerciseId>_<set>_<field>`), holding the value as the
- *  lifter sees it. The shelf and the ledger read it through `setFieldVals`, so a rebuild while a write is in flight
- *  draws the value the lifter set, not the older acknowledged one; the entry is released the moment its write
- *  settles, whichever way it ends, and the draft is the only record of what is saved. */
+ *  lifter sees it. A failed field write transfers ownership to its exact CAS attempt before this overlay is released;
+ *  renderers then read the attempt until retry, reload or discard resolves it, so the same value cannot live in both. */
 const pendingFields=new Map();
 let pendingFieldSeq=0;
 function holdPendingField(key,value){
   const token=++pendingFieldSeq;pendingFields.set(key,{value:String(value??""),token});return token}
 function releasePendingField(key,token){if(pendingFields.get(key)?.token===token)pendingFields.delete(key)}
+function pendingFieldValue(key){
+  const pending=pendingFields.get(key)?.value;
+  if(pending!==undefined)return pending;
+  if(draftUiRecovery?.recoveryField?.key===key){
+    const value=recoveryAttemptFieldValue(draftUiRecovery);
+    if(value!==undefined)return value}
+  return undefined}
+function hasPendingField(key){return pendingFieldValue(key)!==undefined}
+function settlePendingField(key,token,{rejected=false}={}){
+  releasePendingField(key,token);
+  if(draftUiRecovery?.recoveryField?.key===key||(rejected&&draftUiRecovery)){
+    renderWorkout();focusDraftRecovery()}}
 function shelfValueMove(val,dir){
   if(!val||!dir||shelfValueBeat==="off")return;
   playBeat(val,shelfValueBeat==="fade"?"motion-value-fade":dir>0?"motion-value-up":"motion-value-down")}
@@ -2754,6 +2765,25 @@ function workoutDraftProjection(draft=activeWorkoutDraft){
       if(draftSetTouched(set))out.__touched.push(key);
       if(set.role==="warmup")out.__warm.push(key)}}
   return out}
+function recoveryAttemptFieldValue(recovery=draftUiRecovery){
+  const field=recovery?.recoveryField;
+  if(!field||!recovery.attempt?.nextRaw)return undefined;
+  const parsed=WorkoutDraft.parse(recovery.attempt.nextRaw);
+  if(parsed.kind!=="valid")return undefined;
+  const set=parsed.draft.exercises?.[field.exerciseInstanceId]?.sets?.[field.setId];
+  if(!set)return undefined;
+  // Keep the exact entered text with its failed attempt for display; nextRaw remains the canonical value Retry commits.
+  if(typeof recovery.attempt.fieldDisplayValue==="string")return recovery.attempt.fieldDisplayValue;
+  if(field.metricId){
+    const metric=set.programmed.metrics?.find(item=>item.id===field.metricId);
+    return metric?metricTextValue(set.edited.metrics?.[field.metricId],metric):undefined}
+  const raw=set.edited?.[field.field];
+  return raw==null?"":displayDraftText(field.field,raw)}
+function draftRecoveryPendingValue(recovery=draftUiRecovery){
+  const value=recoveryAttemptFieldValue(recovery);
+  return value===undefined?recovery?.pendingValue:value}
+function draftRecoveryCopyValue(recovery=draftUiRecovery){
+  return recovery?.recoveryField?draftRecoveryPendingValue(recovery):recovery?.copyValue}
 function draftTargetFromKey(key){
   const text=String(key);
   for(const exId of activeWorkoutDraft?.exerciseOrder||[]){
@@ -2912,14 +2942,14 @@ function renderDraftRecovery(){
   root.classList.remove("hidden");
   if(title)title.textContent=t(`draft.recovery.${kind}.title`);
   if(body)body.textContent=t(`draft.recovery.${kind}.body`);
-  const pendingValue=draftUiRecovery.pendingValue;
+  const pendingValue=draftRecoveryPendingValue(draftUiRecovery),copyValue=draftRecoveryCopyValue(draftUiRecovery);
   if(pending){pending.classList.toggle("hidden",pendingValue==null);pending.textContent=pendingValue==null?"":
     t("draft.recovery.pending",{value:pendingValue===""?'""':pendingValue})}
   const configure=(id,show,key,handler)=>{const button=$(id);if(!button)return;button.classList.toggle("hidden",!show);
     button.textContent=show?t(key):"";button.onclick=show?handler:null};
   configure("#draftRecoveryRetry",!!draftUiRecovery.retry,"draft.recovery.retry",retryDraftRecovery);
   configure("#draftRecoveryReload",kind==="stale","draft.recovery.reload",reloadLatestWorkoutDraft);
-  configure("#draftRecoveryCopy",draftUiRecovery.copyValue!=null,
+  configure("#draftRecoveryCopy",copyValue!=null,
     draftUiRecovery.copyKind==="data"?"draft.recovery.copy_data":"draft.recovery.copy_value",copyDraftRecoveryValue);
   configure("#draftRecoveryDiscard",!!draftUiRecovery.discard,"draft.recovery.discard",discardRecoveredWorkoutDraft);
   paintDraftRetryPending()}
@@ -2942,9 +2972,13 @@ function paintDraftRetryPending(){
 function focusDraftRecovery(){
   const root=$("#draftRecovery");if(!root)return;
   root.scrollIntoView({block:"start"});root.focus({preventScroll:true})}
-function showDraftCommandRecovery(status,attempt,{pendingValue=null,focus=null,retryAction=null,telemetry=null}={}){
-  draftUiRecovery={kind:draftRecoveryMessageKind(status),status,attempt,pendingValue,
-    copyValue:pendingValue,copyKind:"value",focus,retry:status!=="stale",retryAction,discard:false,telemetry};
+function showDraftCommandRecovery(status,attempt,{pendingValue=null,pendingField=null,recoveryField=null,focus=null,retryAction=null,telemetry=null}={}){
+  const recoveryAttempt=attempt&&recoveryField?{...attempt,fieldDisplayValue:
+    typeof attempt.fieldDisplayValue==="string"?attempt.fieldDisplayValue:String(pendingValue??"")}:attempt;
+  if(pendingField)releasePendingField(pendingField.key,pendingField.token);
+  draftUiRecovery={kind:draftRecoveryMessageKind(status),status,attempt:recoveryAttempt,
+    pendingValue:recoveryField?null:pendingValue,recoveryField:recoveryField||null,
+    copyValue:recoveryField?null:pendingValue,copyKind:"value",focus,retry:status!=="stale",retryAction,discard:false,telemetry};
   renderDraftRecovery();focusDraftRecovery()}
 function showDraftInitializationRecovery(result,{retryMode="initialize",label=day,contextTouched=null}={}){
   // migrateLegacy's specific reason (e.g. invalid-migrated-draft) is the
@@ -2963,7 +2997,7 @@ function showDraftInitializationRecovery(result,{retryMode="initialize",label=da
     discard:kind==="program"&&(!!identity||!!discardRaw)};
   renderDraftRecovery();focusDraftRecovery()}
 function clearDraftUiRecovery(){draftUiRecovery=null;WorkoutSession.clearRecovery();renderDraftRecovery()}
-async function copyDraftRecoveryValue(){const value=draftUiRecovery?.copyValue;if(value==null)return false;
+async function copyDraftRecoveryValue(){const value=draftRecoveryCopyValue(draftUiRecovery);if(value==null)return false;
   try{if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(String(value));toast(t("draft.recovery.copied"));return true}}catch{}
   try{const ta=document.createElement("textarea");ta.value=String(value);ta.setAttribute("readonly","");
     ta.style.cssText="position:fixed;top:0;left:0;opacity:0";document.body.append(ta);ta.select();
@@ -3094,11 +3128,12 @@ function enqueueDraftCommand(type,payload={},ui={}){
   const operationId=`draft-${uid()}`;
   const focus=draftFocusIdentity(payload),pendingValue=Object.prototype.hasOwnProperty.call(ui,"pendingValue")?
     String(ui.pendingValue??""):Object.prototype.hasOwnProperty.call(payload,"value")?String(payload.value??""):null;
+  const recoveryField=ui.recoveryField||null;
   const task=draftWriteTail.then(async()=>{
     if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
     if(!activeWorkoutDraft)return{status:"missing"};
     if((draftUiRecovery?.attempt||draftUiRecovery?.status==="refresh-failed")&&!draftUiRecovery.allowRetry){
-      renderWorkout();restoreDraftFocus(focus);return{status:"recovery-pending"}}
+      focusDraftRecovery();return{status:"recovery-pending"}}
     if(type==="refreshUntouchedSuggestions"&&window.__repforgeDraftFault==="stale-suggestion-loop")
       return{status:"domain-error",error:{kind:"domain-error",code:"stale-suggestion"}};
     const now=new Date().toISOString(),command={type,...payload,operationId,expectedRevision:activeWorkoutDraft.revision,
@@ -3112,14 +3147,14 @@ function enqueueDraftCommand(type,payload={},ui={}){
     const attempt={expectedDraftId:activeWorkoutDraft.draftId,expectedRevision:activeWorkoutDraft.revision,nextRaw,operationId};
     if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
     if(window.__repforgeDraftFault==="persist-failure"){
-      showDraftCommandRecovery("storage-error",attempt,{pendingValue,focus,telemetry:{command,before,ui}});
+      showDraftCommandRecovery("storage-error",attempt,{pendingValue,pendingField:ui.pendingField,recoveryField,focus,telemetry:{command,before,ui}});
       return{status:"storage-error",code:"simulated-persist-failure"};
     }
     const written=await DraftStore.compareAndSwapV2(attempt);
     if(written.status==="applied"){activeWorkoutDraft=written.draft;activeWorkoutDraftRaw=written.raw;
       captureDraftCommandTelemetry(command,before,written.draft,ui);
       hydrateDraftCollections(WorkoutSession.projection());clearDraftUiRecovery()}
-    else showDraftCommandRecovery(written.status,attempt,{pendingValue,focus,telemetry:{command,before,ui}});
+    else showDraftCommandRecovery(written.status,attempt,{pendingValue,pendingField:ui.pendingField,recoveryField,focus,telemetry:{command,before,ui}});
     return written});
   const settled=task.then(()=>undefined,()=>undefined);
   draftWriteTail=settled;
@@ -7738,7 +7773,7 @@ function openMaxSetSheet(exId){
   const base=prog.find(exId),ex=base?sessionExercise(base):null;if(!ex)return;
   const offer=maxSetOffer(ex,focusActiveSet(ex));if(!offer)return;
   const sheet=$("#maxSetSheet"),scrim=$("#maxSetScrim");if(!sheet)return;
-  maxSetUi={exId,setId:offer.set.setId,guess:offer.guess.predictedReps,prefill:offer.guess.predictedReps,basis:offer.guess.prefillBasis};
+  maxSetUi={exId,setId:offer.set.setId,guess:offer.guess.predictedReps,prefill:offer.guess.predictedReps,basis:offer.guess.prefillBasis,phase:"guessing"};
   $("#maxSetTitle").textContent=t(offer.load?"maxset.guess_q":"maxset.guess_q_noload",{load:offer.load});
   $("#maxSetFrom").textContent=offer.guess.prefillBasis==="reps_rir"
     ?t("maxset.guess_from",{n:offer.before.ordinal,reps:fmt(offer.reps),left:fmt(offer.rir)})
@@ -7749,34 +7784,31 @@ function openMaxSetSheet(exId){
   openModal(sheet,{initialFocus:$("#maxSetStart"),returnFocus:document.activeElement,onEscape:closeMaxSetSheet,scrim,
     delayHide:reducedMotion()?0:280});
   requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
-function closeMaxSetSheet(){
+function closeMaxSetSheet({force=false}={}){
+  if(!force&&maxSetUi?.phase==="starting")return Promise.resolve(false);
   const sheet=$("#maxSetSheet");maxSetUi=null;
   if(!sheet||(sheet.hidden&&!(activeModal&&activeModal.el===sheet)))return Promise.resolve(false);
   return closeModal(sheet)}
 function stepMaxSetGuess(dir){
-  if(!maxSetUi)return;
+  if(!maxSetUi||maxSetUi.phase!=="guessing")return;
   const L=EffortCalibration.LIMITS;maxSetUi.guess=Math.min(L.maxGuess,Math.max(L.minGuess,maxSetUi.guess+dir));
   paintMaxSetGuess();
   const n=$("#maxSetCount");if(n)window.RepForgeMotion?.rollValue?.(n)}
 /** "Use as my last set": the set takes the load of the set before (the guess was made at it) and holds the guess. */
 async function startMaxSetFromSheet(){
-  const ui=maxSetUi;if(!ui||!activeWorkoutDraft)return;
+  const ui=maxSetUi;if(!ui||ui.phase!=="guessing"||!activeWorkoutDraft)return;
   const de=activeWorkoutDraft.exercises[ui.exId],set=de?.sets?.[ui.setId];
   const before=set?de.setOrder.map(id=>de.sets[id]).find(other=>other.ordinal===set.ordinal-1):null;
   if(!before)return closeMaxSetSheet();
   const at={exerciseInstanceId:ui.exId,setId:ui.setId};
-  const loadMetrics=(set.programmed.metrics||[]).filter(metric=>METRIC_FIELD_SEMANTICS.load.includes(metric.semantic));
-  const edits=set.programmed.metrics
-    ?loadMetrics.filter(metric=>before.edited.metrics?.[metric.id]!=null&&before.edited.metrics[metric.id]!==set.edited.metrics?.[metric.id])
-      .map(metric=>["editMetricValue",{...at,metricId:metric.id,value:before.edited.metrics[metric.id]}])
-    :before.edited.load!=null&&before.edited.load!==set.edited.load?[["editSetField",{...at,field:"load",value:before.edited.load}]]:[];
-  for(const [command,payload] of [...edits,["startMaxSet",{...at,calibration:{v:1,predictedReps:ui.guess,
-    predictionEdited:ui.guess!==ui.prefill,prefillBasis:ui.basis}}]]){
-    const result=await WorkoutSession.dispatch(command,payload);
-    if(result.status!=="applied"){await closeMaxSetSheet();return}}
-  // The shelf changes under the sheet, so it reads as a max set the moment the sheet lets go.
-  renderWorkout();
-  await closeMaxSetSheet()}
+  ui.phase="starting";
+  try{
+    const result=await WorkoutSession.dispatch("startMaxSet",{...at,copyLoadFromSetId:before.setId,calibration:{v:1,predictedReps:ui.guess,
+      predictionEdited:ui.guess!==ui.prefill,prefillBasis:ui.basis}});
+    if(result.status!=="applied")return;
+    // The shelf changes under the sheet, so it reads as a max set the moment the sheet lets go.
+    renderWorkout();
+  }finally{if(maxSetUi===ui)await closeMaxSetSheet({force:true})}}
 async function cancelMaxSet(exId,n){
   const set=draftSetAt(exId,n);if(!set?.calibration)return;
   const result=await WorkoutSession.dispatch("cancelMaxSet",{exerciseInstanceId:exId,setId:set.setId});
@@ -8255,7 +8287,9 @@ async function leaveWorkout(){
   }
   if(!await WorkoutSession.leave()){
     toast(t("workout.leave_failed"));
-    showDraftCommandRecovery("storage-error",draftUiRecovery?.attempt||{});
+    if(draftUiRecovery?.attempt||draftUiRecovery?.status){
+      renderDraftRecovery();focusDraftRecovery();
+    }else showDraftCommandRecovery("storage-error",{});
     return false;
   }
   workoutLeft=true;focusEdit=null;setWorkoutActive(false);document.body.classList.remove("is-focus-wo");renderToday();window.scrollTo({top:0});
@@ -9236,7 +9270,7 @@ function metricPendingValue(exId,n,field){
   const target=draftTargetFromKey(`${exId}_${n}`);
   const set=target?activeWorkoutDraft?.exercises?.[target.exerciseInstanceId]?.sets?.[target.setId]:null;
   const metric=draftSetMetrics(set).find(item=>METRIC_FIELD_SEMANTICS[field]?.includes(item.semantic));
-  return metric?pendingFields.get(`${exId}_${n}_metric_${metric.id}`)?.value:undefined}
+  return metric?pendingFieldValue(`${exId}_${n}_metric_${metric.id}`):undefined}
 /** Whether the engine suggests values for set `n`: a recommended target set. A legacy recommendation without target
  *  sets suggests unless it is manual or still waiting on its setup. */
 function engineSuggestsSet(r,n){
@@ -9264,7 +9298,7 @@ function lastSetCarry(exId,n,r){
   if(!sources.length)return null;
   const filled=value=>value!=null&&value!=="";
   const nearest=read=>{for(const above of sources){const value=read(above);if(filled(value))return{ordinal:above.ordinal,value:String(value)}}return null};
-  const held=suffix=>pendingFields.has(`${exId}_${n}_${suffix}`);
+  const held=suffix=>hasPendingField(`${exId}_${n}_${suffix}`);
   const fields={},metrics={},metricDefs=draftSetMetrics(set);
   for(const metric of metricDefs){
     const isLoad=METRIC_FIELD_SEMANTICS.load.includes(metric.semantic);
@@ -9287,7 +9321,7 @@ function lastSetCarry(exId,n,r){
 function setFieldVals(ex,n,r,draft,prev){
   // A field the lifter has just set and the draft has not yet acknowledged shows what they set.
   // A metric-backed set's pending value sits under its metric input's key.
-  const pending=field=>pendingFields.get(`${ex.id}_${n}_${field}`)?.value??metricPendingValue(ex.id,n,field);
+  const pending=field=>pendingFieldValue(`${ex.id}_${n}_${field}`)??metricPendingValue(ex.id,n,field);
   const old=prev.find(x=>x.set===n),sg=setSuggestion(ex,n,r,draft,old);
   // With no engine suggestion the set shows what the set logged above it shows in the ledger (lastSetCarry);
   // with none above, the previous session's set, then the defaults.
@@ -9309,9 +9343,9 @@ function setFieldVals(ex,n,r,draft,prev){
 /** The stage a set is drawn in (Plan 077, OD-5): the vocabulary the lifter entered its effort in, else the app's.
  *  "Not sure" belongs to no stage, so a set marked so is drawn in the app's. */
 function setStageOf(exId,n){
-  const held=pendingFields.get(`${exId}_${n}_effort`)?.value;
+  const held=pendingFieldValue(`${exId}_${n}_effort`);
   if(held!=null)return tokenStage(held)||effortStage();
-  if(pendingFields.has(`${exId}_${n}_rir`))return"c";
+  if(hasPendingField(`${exId}_${n}_rir`))return"c";
   const draft=activeWorkoutDraft?.exercises?.[exId],set=draft?.sets?.[draft.setOrder.find(id=>draft.sets[id].ordinal===n)];
   if(set?.touched?.effort){
     if(set.edited.effort!=null)return tokenStage(set.edited.effort)||effortStage();
@@ -9557,7 +9591,7 @@ function shelfTouched(exId,n){
   const draft=activeWorkoutDraft?.exercises?.[exId];if(!draft)return{};
   const setId=draft.setOrder.find(id=>draft.sets[id].ordinal===n);
   // An edit the draft has not yet acknowledged is already the lifter's own value.
-  const held=field=>pendingFields.has(`${exId}_${n}_${field}`);
+  const held=field=>hasPendingField(`${exId}_${n}_${field}`);
   const touched={...(draft.sets[setId]?.touched||{})};
   if(held("load"))touched.load=true;
   if(held("reps"))touched.reps=true;
@@ -9834,18 +9868,20 @@ function parseHistoryMetricInput(metric,raw){
 function shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek,carry,grouped=false}){
   const key=`${ex.id}_${n}`,fieldId=`metric_${metric.id}`,inputKey=`${key}_${fieldId}`,selected=ui.field===fieldId;
   const live=selected&&ui.editing&&!peek;
-  const pending=pendingFields.get(inputKey)?.value;
+  const pending=pendingFieldValue(inputKey);
   // A value carried from the set logged above fills the field (and the input the pads step from) while it stays untouched.
   const carried=carry?.metrics?.[metric.id]?.value??null;
-  const raw=carried??pending??set.edited.metrics?.[metric.id]??"";
-  const shown=raw!==""?shelfText(metricTextValue(raw,metric)):metricTargetText(set.programmed.targets?.[metric.semantic]);
+  // Pending overlay/recovery values are already display text; carry and draft values are canonical metric values.
+  const raw=carried??set.edited.metrics?.[metric.id]??"";
+  const display=pending??metricTextValue(raw,metric);
+  const shown=display!==""?shelfText(display):metricTargetText(set.programmed.targets?.[metric.semantic]);
   const target=metricTargetText(set.programmed.targets?.[metric.semantic]);
   // The name says it all ("Load per side, kg"); the tile shows the short label, the unit beside the value, and a
   // per-side pair says "Per side" once above its group (Plan 075 phase 5 addendum).
   const unit=metricDisplayUnit(metric);
   const label=`${metricLabel(metric)}${unit?`, ${unit}`:""}`;
   const name=`${label}, ${t("focus.set_label",{n})}`;
-  const soft=!touched.metrics?.[metric.id]&&!pendingFields.has(inputKey);
+  const soft=!touched.metrics?.[metric.id]&&!hasPendingField(inputKey);
   const cls=`shelf__field${selected?" is-sel":""}${soft?" is-untouched":""}${live?" is-editing":""}`;
   const short=grouped?shelfShortLabel(metric):metricLabel(metric);
   const face=shelfFaceHtml(short,label,shown,unit);
@@ -9854,7 +9890,7 @@ function shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek,carry,grouped=fal
   const pickerHint=selected&&metricWheelKind(metric)?` aria-label="${esc(`${label} ${shown||"—"}, ${t("focus.field.picker_hint")}`)}"`:"";
   const button=`<button type="button" class="shelf__fieldbtn" data-shelf-field="${esc(fieldId)}" data-set="${esc(key)}" aria-pressed="${selected?"true":"false"}"${pickerHint}>${face}</button>`;
   const input=`<input class="shelf__input" data-k="${esc(inputKey)}" data-metric-id="${esc(metric.id)}" type="text" inputmode="${metric.semantic==="reps"||metric.semantic==="repsPerSide"?"numeric":"decimal"}" `+
-    `enterkeyhint="next" aria-label="${esc(name)}" autocomplete="off" value="${esc(metricTextValue(raw,metric))}" placeholder="${esc(target)}"`+
+    `enterkeyhint="next" aria-label="${esc(name)}" autocomplete="off" value="${esc(display)}" placeholder="${esc(target)}"`+
     `${live?"":' tabindex="-1" aria-hidden="true"'}>`;
   const caption=live?`<span class="shelf__lab shelf__lab--edit" aria-hidden="true">${esc(short)}</span>`:"";
   return `<div class="${cls}" data-field="metric" data-metric="${esc(metric.id)}" data-set="${esc(key)}"><span data-lv="${esc(fieldId)}"></span>${button}${input}${caption}</div>`}
@@ -10835,16 +10871,20 @@ function bindWorkout(){
     row?.classList.remove("is-suggested");
     // The write may wait on the lock while the lifter moves on and the shelf is rebuilt: the value is held for
     // those rebuilds, and the acknowledgement is applied to the control that is on screen then, not to this node.
-    const key=i.dataset.k,token=holdPendingField(key,i.value);
+    const key=i.dataset.k,token=holdPendingField(key,i.value),recoveryField={key,
+      exerciseInstanceId:target.exerciseInstanceId,setId:target.setId,field:target.metricId?null:target.field,
+      metricId:target.metricId||null};
     let result;
     try{
       if(target.metricId){
         const metric=activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId].programmed.metrics.find(item=>item.id===target.metricId);
         result=await WorkoutSession.dispatch("editMetricValue",{exerciseInstanceId:target.exerciseInstanceId,
-          setId:target.setId,metricId:target.metricId,value:canonicalMetricInput(metric,i.value)},{pendingValue:i.value})
+          setId:target.setId,metricId:target.metricId,value:canonicalMetricInput(metric,i.value)},
+          {pendingValue:i.value,pendingField:{key,token},recoveryField})
       }else result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
-        setId:target.setId,field:target.field,value:canonicalDraftField(target.field,i.value)},{pendingValue:i.value})}
-    finally{releasePendingField(key,token)}
+        setId:target.setId,field:target.field,value:canonicalDraftField(target.field,i.value)},
+        {pendingValue:i.value,pendingField:{key,token},recoveryField})}
+    finally{settlePendingField(key,token,{rejected:result?.status!=="applied"})}
     if(result.status!=="applied")return;
     const live=liveShelfInput(key);
     if(!live)return;
@@ -10876,7 +10916,7 @@ function bindWorkout(){
       // Effort the lifter never touched logs what its field shows (the last session's, the set above's, or the
       // default). It goes with the commit as a prefill, so the set records that it was shown, not entered (Plan 077).
       const field=isEffortMode()?"effort":"rir";
-      if(ex&&!activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId].touched?.effort&&!pendingFields.has(`${key}_${field}`)){
+      if(ex&&!activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId].touched?.effort&&!hasPendingField(`${key}_${field}`)){
         const vals=setFieldVals(ex,target.ordinal,r,hydrateWorkoutDraft(),last(ex));
         const shown=field==="effort"?vals.effortVal:String(vals.rirVal??"");
         if(shown)prefill={field,value:shown}}}
@@ -10930,11 +10970,12 @@ function bindWorkout(){
     const target=draftTargetFromKey(key);if(!activeWorkoutDraft||!target)return;
     const[exId,n]=setKeyParts(key),before=setStageOf(exId,n),wasUnsure=activeWorkoutDraft.exercises[exId]?.sets?.[target.setId]?.edited?.effort==="unsure";
     setEffortPick(key,next,dir);
-    const pendingKey=`${key}_effort`,token=holdPendingField(pendingKey,next);
+    const pendingKey=`${key}_effort`,token=holdPendingField(pendingKey,next),recoveryField={key:pendingKey,
+      exerciseInstanceId:target.exerciseInstanceId,setId:target.setId,field:"effort",metricId:null};
     let result;
     try{result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
-      setId:target.setId,field:"effort",value:next})}
-    finally{releasePendingField(pendingKey,token)}
+      setId:target.setId,field:"effort",value:next},{pendingField:{key:pendingKey,token},recoveryField})}
+    finally{settlePendingField(pendingKey,token,{rejected:result?.status!=="applied"})}
     if(result.status!=="applied")return;
     updateSaveMeta();
     if(next==="unsure"||wasUnsure||setStageOf(exId,n)!==before){renderWorkout();return}
@@ -25006,8 +25047,8 @@ function init(){
   const noteCancel=$("#exNoteCancel");if(noteCancel)noteCancel.onclick=closeExNoteSheet;
   const noteSave=$("#exNoteSave");if(noteSave)noteSave.onclick=saveExNoteSheet;
   const noteScrim=$("#exNoteScrim");if(noteScrim)noteScrim.onclick=closeExNoteSheet;
-  const maxScrim=$("#maxSetScrim");if(maxScrim)maxScrim.onclick=closeMaxSetSheet;
-  const maxNo=$("#maxSetNo");if(maxNo)maxNo.onclick=()=>{const exId=maxSetUi?.exId;closeMaxSetSheet();if(exId)declineMaxSet(exId)};
+  const maxScrim=$("#maxSetScrim");if(maxScrim)maxScrim.onclick=()=>closeMaxSetSheet();
+  const maxNo=$("#maxSetNo");if(maxNo)maxNo.onclick=()=>{if(maxSetUi?.phase==="starting")return;const exId=maxSetUi?.exId;closeMaxSetSheet();if(exId)declineMaxSet(exId)};
   const maxStart=$("#maxSetStart");if(maxStart)maxStart.onclick=startMaxSetFromSheet;
   const maxLess=$("#maxSetLess");if(maxLess)maxLess.onclick=()=>stepMaxSetGuess(-1);
   const maxMore=$("#maxSetMore");if(maxMore)maxMore.onclick=()=>stepMaxSetGuess(1);
