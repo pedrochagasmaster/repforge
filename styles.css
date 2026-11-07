@@ -5249,10 +5249,13 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 .calbar__fill{display:block;height:100%;border-radius:inherit;background:var(--ink)}
 .calcard__what,.calcard__fade{margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 .calsigs{list-style:none;margin:var(--space-12) 0 0;padding:0}
-.calsig{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:var(--space-8);align-items:baseline;padding:6px 0;
+/* The label and its reading share a line while they fit; at large text or a narrow screen the reading drops under the
+   label instead of overprinting it, and the bar always takes its own line. */
+.calsig{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;column-gap:var(--space-8);padding:6px 0;
   font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink)}
-.calsig > span:nth-child(2){color:var(--color-ink-secondary);font-variant-numeric:tabular-nums}
-.calsig .calbar{grid-column:1/-1}
+.calsig > span:first-child{flex:1 1 auto;min-width:0;overflow-wrap:anywhere}
+.calsig > span:nth-child(2){flex:0 1 auto;min-width:0;margin-left:auto;text-align:right;color:var(--color-ink-secondary);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.calsig .calbar{flex:1 0 100%}
 .calsig:not(.calsig--lead) .calbar__fill{background:var(--color-ink-secondary)}
 .calsig--lead > span:first-child{font-weight:var(--weight-semibold)}
 .calchecks{list-style:none;margin:0;padding:0}
