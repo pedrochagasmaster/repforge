@@ -2771,6 +2771,8 @@ function recoveryAttemptFieldValue(recovery=draftUiRecovery){
   if(parsed.kind!=="valid")return undefined;
   const set=parsed.draft.exercises?.[field.exerciseInstanceId]?.sets?.[field.setId];
   if(!set)return undefined;
+  // Keep the exact entered text with its failed attempt for display; nextRaw remains the canonical value Retry commits.
+  if(typeof recovery.attempt.fieldDisplayValue==="string")return recovery.attempt.fieldDisplayValue;
   if(field.metricId){
     const metric=set.programmed.metrics?.find(item=>item.id===field.metricId);
     return metric?metricTextValue(set.edited.metrics?.[field.metricId],metric):undefined}
@@ -2970,8 +2972,10 @@ function focusDraftRecovery(){
   const root=$("#draftRecovery");if(!root)return;
   root.scrollIntoView({block:"start"});root.focus({preventScroll:true})}
 function showDraftCommandRecovery(status,attempt,{pendingValue=null,pendingField=null,recoveryField=null,focus=null,retryAction=null,telemetry=null}={}){
+  const recoveryAttempt=attempt&&recoveryField?{...attempt,fieldDisplayValue:
+    typeof attempt.fieldDisplayValue==="string"?attempt.fieldDisplayValue:String(pendingValue??"")}:attempt;
   if(pendingField)releasePendingField(pendingField.key,pendingField.token);
-  draftUiRecovery={kind:draftRecoveryMessageKind(status),status,attempt,
+  draftUiRecovery={kind:draftRecoveryMessageKind(status),status,attempt:recoveryAttempt,
     pendingValue:recoveryField?null:pendingValue,recoveryField:recoveryField||null,
     copyValue:recoveryField?null:pendingValue,copyKind:"value",focus,retry:status!=="stale",retryAction,discard:false,telemetry};
   renderDraftRecovery();focusDraftRecovery()}
@@ -9855,8 +9859,10 @@ function shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek,carry,grouped=fal
   const pending=pendingFieldValue(inputKey);
   // A value carried from the set logged above fills the field (and the input the pads step from) while it stays untouched.
   const carried=carry?.metrics?.[metric.id]?.value??null;
-  const raw=carried??pending??set.edited.metrics?.[metric.id]??"";
-  const shown=raw!==""?shelfText(metricTextValue(raw,metric)):metricTargetText(set.programmed.targets?.[metric.semantic]);
+  // Pending overlay/recovery values are already display text; carry and draft values are canonical metric values.
+  const raw=carried??set.edited.metrics?.[metric.id]??"";
+  const display=pending??metricTextValue(raw,metric);
+  const shown=display!==""?shelfText(display):metricTargetText(set.programmed.targets?.[metric.semantic]);
   const target=metricTargetText(set.programmed.targets?.[metric.semantic]);
   // The name says it all ("Load per side, kg"); the tile shows the short label, the unit beside the value, and a
   // per-side pair says "Per side" once above its group (Plan 075 phase 5 addendum).
@@ -9872,7 +9878,7 @@ function shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek,carry,grouped=fal
   const pickerHint=selected&&metricWheelKind(metric)?` aria-label="${esc(`${label} ${shown||"—"}, ${t("focus.field.picker_hint")}`)}"`:"";
   const button=`<button type="button" class="shelf__fieldbtn" data-shelf-field="${esc(fieldId)}" data-set="${esc(key)}" aria-pressed="${selected?"true":"false"}"${pickerHint}>${face}</button>`;
   const input=`<input class="shelf__input" data-k="${esc(inputKey)}" data-metric-id="${esc(metric.id)}" type="text" inputmode="${metric.semantic==="reps"||metric.semantic==="repsPerSide"?"numeric":"decimal"}" `+
-    `enterkeyhint="next" aria-label="${esc(name)}" autocomplete="off" value="${esc(metricTextValue(raw,metric))}" placeholder="${esc(target)}"`+
+    `enterkeyhint="next" aria-label="${esc(name)}" autocomplete="off" value="${esc(display)}" placeholder="${esc(target)}"`+
     `${live?"":' tabindex="-1" aria-hidden="true"'}>`;
   const caption=live?`<span class="shelf__lab shelf__lab--edit" aria-hidden="true">${esc(short)}</span>`:"";
   return `<div class="${cls}" data-field="metric" data-metric="${esc(metric.id)}" data-set="${esc(key)}"><span data-lv="${esc(fieldId)}"></span>${button}${input}${caption}</div>`}
