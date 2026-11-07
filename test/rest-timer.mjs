@@ -8,7 +8,9 @@
  *     End rest; with no rest, the actions sheet's Rest timer row opens it on Start, and Start starts one;
  *   - depletion is continuous: the tab's ring and the shelf's edge differ between two frames 100 ms apart;
  *   - the bell plays one soft flick, once, and none under reduced motion;
- *   - a bell that passes while the page is hidden shows the done state on return, with no flick.
+ *   - a bell that passes while the page is hidden shows the done state on return, with no flick;
+ *   - a reload (the rest-done notice's tap reloads the app) keeps a running rest, an overrun and a held rest where they
+ *     stood, and the bell does not ring again; a rest never outlives its workout.
  *
  * Run: node test/rest-timer.mjs
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
@@ -686,6 +688,128 @@ try {
     await page.waitForFunction(() => !window.__repforgeRest.state().ticking, undefined, { timeout: 5000 });
     const capped = await page.evaluate(() => document.querySelector("#restTab .resttab__time").textContent);
     assert(capped === "+60:00", "past the hour the count-up reads +60:00 and no tick is left running", { capped });
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  // The rest-done notice's tap reloads the app. The clock is tab-scoped and keyed to its workout: a reload brings it back
+  // where it stood, and no end of the rest or the workout, and no other draft, can bring it back.
+  const reloadIntoFocus = async (page) => {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await page.evaluate(() => window.__repforgeEnterWorkout({}));
+    await page.waitForSelector("#workout.is-focus .exercise.is-current .focus-shelf", { timeout: 10000 });
+    await page.evaluate(() => window.__repforgeGuides?.dismissAll?.());
+  };
+  const watchBell = (page) => page.evaluate(() => {
+    window.__completeWrites = 0;
+    const live = document.querySelector("#restAnnounce");
+    new MutationObserver(() => { if (live.textContent === window.RepForgeI18n.t("rest.complete")) window.__completeWrites++; })
+      .observe(live, { childList: true, characterData: true, subtree: true });
+  });
+
+  phase("A reload keeps a running rest where it stood");
+  {
+    const { context, page, errors } = await focusPage(browser);
+    await logSet(page);
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    const runBefore = await page.evaluate(() => window.__repforgeRest.state());
+    await reloadIntoFocus(page);
+    const runAfter = await page.evaluate(() => window.__repforgeRest.state());
+    assert(runAfter.active && !runAfter.held && runAfter.endMs === runBefore.endMs && runAfter.lengthSec === runBefore.lengthSec,
+      "a running rest keeps its deadline across a reload", { before: runBefore, after: runAfter });
+    const tabAfter = await read(page);
+    assert(tabAfter.tab, "and its tab is back", tabAfter);
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  phase("A reload brings an overrun back as an overrun, and the bell does not ring again");
+  {
+    const { context, page, errors } = await focusPage(browser);
+    await logSet(page);
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    await page.evaluate(() => window.__repforgeRest.expire(5));
+    await page.waitForFunction(() => window.__repforgeRest.state().rang === true, undefined, { timeout: 5000 });
+    const overBefore = await page.evaluate(() => window.__repforgeRest.state());
+    await reloadIntoFocus(page);
+    await watchBell(page);
+    const overAfter = await page.evaluate(() => window.__repforgeRest.state());
+    assert(overAfter.phase === "overtime" && overAfter.rang && overAfter.endMs === overBefore.endMs,
+      "an overrun comes back as an overrun, with its bell already rung", { before: overBefore, after: overAfter });
+    await page.waitForTimeout(1200);
+    const overLater = await page.evaluate(() => ({ left: window.__repforgeRest.state().leftMs, writes: window.__completeWrites, flicks: window.__repforgeRest.flicks() }));
+    assert(overLater.left < overAfter.leftMs - 500 && overLater.writes === 0 && overLater.flicks === 0,
+      "the overrun counts on from the reload, and the bell does not ring again", { after: overAfter.leftMs, later: overLater });
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  phase("A reload brings a held rest back held, with the same remainder");
+  {
+    const { context, page, errors } = await focusPage(browser);
+    await logSet(page);
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    await page.evaluate(() => { window.__repforgeRest.setLeft(45000, { held: true }); syncRest(); });
+    const heldBefore = await page.evaluate(() => window.__repforgeRest.state());
+    await reloadIntoFocus(page);
+    const heldAfter = await page.evaluate(() => window.__repforgeRest.state());
+    assert(heldAfter.held && heldAfter.pausedMs === 45000 && heldAfter.pausedMs === heldBefore.pausedMs,
+      "a held rest comes back held, with the same remainder", { before: heldBefore, after: heldAfter });
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  phase("A rest never outlives its workout: End rest, a finished workout, or a draft that is gone");
+  {
+    const { context, page, errors } = await focusPage(browser);
+    await logSet(page);
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    await page.locator("#restTab").click();
+    await page.waitForSelector("#restSheet.is-open", { timeout: 5000 });
+    await page.locator("#restStop").click();
+    await page.waitForFunction(() => !document.querySelector("#restSheet.is-open"), undefined, { timeout: 5000 });
+    await reloadIntoFocus(page);
+    const ended = await page.evaluate(() => window.__repforgeRest.state());
+    assert(!ended.active, "End rest is not undone by a reload", ended);
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+  {
+    const { context, page, errors } = await focusPage(browser);
+    await logSet(page);
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    await page.locator("#sessionSheetBtn").click();
+    await page.locator("#sessionEarlyFinish").click();
+    await page.locator("#sessionEarlyConfirm").click();
+    await page.waitForSelector("#sessionSummary:not(.hidden)", { timeout: 10000 });
+    await page.locator("#sumDone").click();
+    await page.waitForSelector("#workoutShell.hidden", { state: "attached", timeout: 8000 });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    const finished = await page.evaluate(() => window.__repforgeRest.state());
+    assert(!finished.active, "a finished workout leaves no rest behind, even after a reload", finished);
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+  {
+    const { context, page, errors } = await focusPage(browser);
+    await logSet(page);
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    assert(await page.evaluate(() => window.__repforgeRest.state().active), "the rest runs in its workout before the draft goes");
+    await page.evaluate(async () => {
+      const draft = activeWorkoutDraft;
+      const removed = await DraftStore.removeV2({ expectedDraftId: draft.draftId, expectedRevision: draft.revision, operationId: "rest-deadline-gone" });
+      if (removed.status !== "applied") throw new Error(`draft removal ${removed.status}`);
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    const noWorkout = await page.evaluate(() => window.__repforgeRest.state());
+    assert(!noWorkout.active, "with its draft gone, a reload brings no rest back", noWorkout);
+    await page.evaluate(() => window.__repforgeEnterWorkout({}));
+    await page.waitForSelector("#workout.is-focus .exercise.is-current .focus-shelf", { timeout: 10000 });
+    const another = await page.evaluate(() => window.__repforgeRest.state());
+    assert(!another.active, "a new workout in its place does not inherit the rest", another);
     assert(errors.length === 0, "no page errors", errors.join(" | "));
     await context.close();
   }

@@ -9,7 +9,8 @@
  *   - a nudge back above zero re-arms the bell, and a nudge that stays at or below zero does not;
  *   - paused overtime is a real state: it holds the overrun, resumes into overtime, and never rings while held;
  *   - the count-up stops ticking at its cap, and a catch-up after a long hidden stretch rings once and caps;
- *   - stopping returns to idle with the armed length cleared.
+ *   - stopping returns to idle with the armed length cleared;
+ *   - a snapshot read back after a reload restores the same clock, and restoring never rings or re-arms the bell.
  * The browser suite keeps the end-to-end guards; this file owns the transitions.
  */
 import { createRequire } from "node:module";
@@ -18,7 +19,7 @@ import assert from "node:assert/strict";
 const require = createRequire(import.meta.url);
 const clock = require("../rest-timer.js");
 
-const { createRestClock, view, start, toggleHold, setRemaining, nudge, setLength, settle, stop, EFFECTS, OVERTIME_MAX_SEC } = clock;
+const { createRestClock, view, start, toggleHold, setRemaining, nudge, setLength, settle, stop, snapshot, restore, EFFECTS, OVERTIME_MAX_SEC } = clock;
 const T0 = 1_000_000;
 const SEC = 1000;
 let passed = 0;
@@ -261,6 +262,57 @@ check("only overtime and running tick; capped, held and idle never do", () => {
   assert.equal(ticking(toggleHold(running(60), T0).state, T0), false);
   assert.equal(ticking(createRestClock(60), T0), false);
   assert.equal(ticking(settle(running(60), T0 + (60 + 3600) * SEC).state, T0 + (60 + 3600) * SEC), false);
+});
+
+check("an idle clock has no snapshot, and a running, held or overrun clock snapshots its deadline or remainder", () => {
+  assert.equal(snapshot(createRestClock(90)), null);
+  assert.equal(snapshot(running(60)).deadlineMs, T0 + 60 * SEC);
+  assert.equal(snapshot(toggleHold(running(60), T0 + 10 * SEC).state).remainingMs, 50 * SEC);
+  assert.equal(snapshot(settle(running(60), T0 + 63 * SEC).state).rang, true);
+});
+
+check("a snapshot read back restores the same clock at any later time: deadline, held remainder, overrun and bell", () => {
+  const cases = [
+    { name: "running", state: running(60) },
+    { name: "held", state: toggleHold(running(120), T0 + 10 * SEC).state },
+    { name: "overrun", state: settle(running(60), T0 + 63 * SEC).state },
+    { name: "held overrun", state: toggleHold(settle(running(60), T0 + 63 * SEC).state, T0 + 63 * SEC).state },
+  ];
+  for (const { name, state } of cases) {
+    const saved = JSON.parse(JSON.stringify(snapshot(state)));
+    const { state: restored, effects } = restore(createRestClock(0), saved);
+    assert.deepEqual(effects, [], `${name}: restoring makes no sound and no notice`);
+    for (const later of [T0 + 61 * SEC, T0 + 200 * SEC]) {
+      assert.deepEqual(view(restored, later), view(state, later), `${name} at +${(later - T0) / SEC}s reads the same`);
+    }
+  }
+});
+
+check("a restored overrun whose bell already rang does not ring again", () => {
+  const saved = JSON.parse(JSON.stringify(snapshot(settle(running(60), T0 + 61 * SEC).state)));
+  const { state } = restore(createRestClock(0), saved);
+  assert.deepEqual(settle(state, T0 + 400 * SEC).effects, []);
+  assert.equal(view(state, T0 + 400 * SEC).rang, true);
+});
+
+check("a restored running rest whose deadline passed while the page was gone rings once, as it was due", () => {
+  const { state } = restore(createRestClock(0), JSON.parse(JSON.stringify(snapshot(running(60)))));
+  assert.deepEqual(settle(state, T0 + 30 * SEC).effects, []);
+  assert.deepEqual(settle(state, T0 + 61 * SEC).effects, [EFFECTS.BELL]);
+  assert.deepEqual(settle(state, T0 + 90 * SEC).effects, []);
+});
+
+check("restore takes only a well-formed snapshot into an idle clock, and anything else leaves the clock as it is", () => {
+  const idle = createRestClock(90);
+  for (const bad of [null, undefined, "running", 7, {}, { kind: "idle" }, { kind: "running", lengthSec: 60, rang: false },
+    { kind: "running", deadlineMs: Number.NaN, lengthSec: 60, rang: false }, { kind: "paused", lengthSec: 60, rang: false },
+    { kind: "paused", remainingMs: 1000, lengthSec: -5, rang: false }, { kind: "running", deadlineMs: T0, lengthSec: 60, rang: "yes" }]) {
+    const result = restore(idle, bad);
+    assert.equal(result.state, idle, `refused: ${JSON.stringify(bad)}`);
+    assert.deepEqual(result.effects, []);
+  }
+  const armed = running(60);
+  assert.equal(restore(armed, snapshot(running(90, T0 + 5 * SEC))).state, armed, "a clock already armed keeps its own deadline");
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
