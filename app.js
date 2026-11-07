@@ -1769,7 +1769,7 @@ function resetDraftSessionPresentation(){
 }
 /* Ending a session by any route (discard, replace, clear) ends its rest clock with it: a
    running rest belongs to the session it was started in. */
-function resetDraftSessionState(){resetWorkoutSessionIdentity();resetDraftSessionPresentation();stopRest()}
+function resetDraftSessionState(){resetWorkoutSessionIdentity();WorkoutSession.resetAfterDraftRemoval();resetDraftSessionPresentation();stopRest()}
 async function clearDraft(){
   if(draftUiRecovery?.attempt||draftUiRecovery?.status==="refresh-failed"){
     renderDraftRecovery();focusDraftRecovery();return false}
@@ -2461,7 +2461,7 @@ function equipmentSupportsSplit(daysPerWeek,splitType,equipment,experience){
   return resolveSplit(daysPerWeek,splitType).every(dt=>dayTypeHasPrimary(dt,equipment,experience))}
 function muscleHit(ex,muscle){const m=muscle.toLowerCase();
   return muscles(ex.primary).concat(muscles(ex.secondary)).some(x=>x.toLowerCase()===m||x.toLowerCase().includes(m))}
-let state,prog,day,installPrompt=null,saving=false;
+let state,prog,day,installPrompt=null;
 let activeRecoveryRecord=null,activeRecoveryRecordBlockId=null;
 // The rest clock is one state value: rest-timer.js decides every transition (idle, running, paused, with overtime and the
 // cap read from the deadline). This file reads the wall clock, keeps the one interval the clock asks for, and carries out
@@ -2959,7 +2959,7 @@ function showDraftInitializationRecovery(result,{retryMode="initialize",label=da
     focus:null,retry:true,retryMode,label,contextTouched,discardIdentity:identity,discardRaw,
     discard:kind==="program"&&(!!identity||!!discardRaw)};
   renderDraftRecovery();focusDraftRecovery()}
-function clearDraftUiRecovery(){draftUiRecovery=null;renderDraftRecovery()}
+function clearDraftUiRecovery(){draftUiRecovery=null;WorkoutSession.clearRecovery();renderDraftRecovery()}
 async function copyDraftRecoveryValue(){const value=draftUiRecovery?.copyValue;if(value==null)return false;
   try{if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(String(value));toast(t("draft.recovery.copied"));return true}}catch{}
   try{const ta=document.createElement("textarea");ta.value=String(value);ta.setAttribute("readonly","");
@@ -2981,6 +2981,7 @@ function retryDraftRecovery(){
   try{run=Promise.resolve(runDraftRetry(recovery))}catch(error){settled();throw error}
   run.then(settled,settled);return run}
 function runDraftRetry(recovery){
+  if(recovery.retryKind==="workout-save")return Promise.resolve(recovery.retryAction());
   if(recovery.retryAction)return Promise.resolve(recovery.retryAction()).then(result=>{
     if(result?.status==="applied"){clearDraftUiRecovery();renderWorkout()}
     else showDraftCommandRecovery(result?.status,null,recovery);return result});
@@ -2997,6 +2998,7 @@ function runDraftRetry(recovery){
 async function reloadLatestWorkoutDraft(){
   const recovery=draftUiRecovery,loaded=await initializeWorkoutDraft({restoreDay:true});
   if(loaded.status!=="ready"){showDraftInitializationRecovery(loaded);return loaded}
+  WorkoutSession.reloadLatest();
   hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});clearDraftUiRecovery();renderTabs();renderWorkout();renderToday();
   restoreDraftFocus(recovery?.focus);return loaded}
 async function discardRecoveredWorkoutDraft(){
@@ -8707,8 +8709,6 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
 }
 // @ci-domain workout,session,today
 /* ---- Session sheet (Focus workout) ---- */
-let sessionEarlyRevision = null;
-let sessionEarlyDraftId = null;
 
 /** Move one exercise of the open session to `to` (0-based) through the draft, then redraw and say where it went. */
 async function moveSessionExercise(exId, to, { focus = "row" } = {}) {
@@ -8921,9 +8921,8 @@ function renderSessionSheet(){
     mountSessionSorting(mapEl);
   }
 
-  // Reset early finish prompt
-  sessionEarlyRevision = null;
-  sessionEarlyDraftId = null;
+  // Reopening or repainting the sheet cancels an unconfirmed early finish.
+  WorkoutSession.cancelEarlyFinish();
   const earlyPrompt = $("#sessionEarlyPrompt");
   if (earlyPrompt) earlyPrompt.classList.add("hidden");
   const earlyBtn = $("#sessionEarlyFinish");
@@ -11225,61 +11224,176 @@ function normalFinishIssues(draft){
   return issues}
 const EARLY_FINISH_CONFIRMATION=Symbol("confirmed early finish");
 const WorkoutSession=(()=>{
+  const transitions=Object.freeze({
+    editing:["early-confirmation","draining"],
+    "early-confirmation":["editing","early-confirmation","draining"],
+    draining:["validating","editing","recovery"],
+    validating:["editing","committing","recovery"],
+    committing:["recovery","saved"],
+    recovery:["draining","editing"],
+    saved:["editing"]});
+  const busyPhases=new Set(["draining","validating","committing"]);
+  let saveState={phase:"editing"};
+  const sameDraft=(left,right)=>!!left&&!!right&&left.draftId===right.draftId&&left.revision===right.revision;
+  function syncSaveControls(previousOperation,nextState){
+    const form=$("#logForm");if(!form)return;
+    if(busyPhases.has(nextState.phase)){
+      const operation=nextState.operation;
+      if(operation&&!operation.formSnapshot)operation.formSnapshot={inert:!!form.inert,busy:form.getAttribute("aria-busy")};
+      form.inert=true;form.setAttribute("aria-busy","true");return}
+    const snapshot=previousOperation?.formSnapshot;
+    if(!snapshot)return;
+    form.inert=snapshot.inert;
+    if(snapshot.busy==null)form.removeAttribute("aria-busy");
+    else form.setAttribute("aria-busy",snapshot.busy);
+    previousOperation.formSnapshot=null}
+  function move(phase,{operation=saveState.operation,expectedDraft=null}={}){
+    const previous=saveState;
+    if(!transitions[previous.phase]?.includes(phase))
+      throw new Error(`Invalid workout-save transition: ${previous.phase} -> ${phase}`);
+    if(phase==="editing")saveState={phase};
+    else if(phase==="early-confirmation")saveState={phase,expectedDraft};
+    else saveState={phase,operation};
+    syncSaveControls(previous.operation,saveState);
+    return saveState}
+  function reopenAfterTotalFailure(draft){
+    if(saveState.phase!=="recovery")return false;
+    const operation=saveState.operation,result=operation?.result,prepared=operation?.prepared;
+    const safeToStartFresh=result?.status==="failed"&&result?.kind==="rejected_failure"&&
+      result?.localOk===false&&result?.idbOk===false&&result?.committed===false&&
+      result?.pendingJournalCleanup===false&&result?.conflict===false&&result?.journalFailed!==true&&
+      result?.finalizationPending!==true;
+    if(!safeToStartFresh||!sameDraft(draft,prepared?.draft)||activeWorkoutDraftRaw!==prepared.rawDraft)return false;
+    move("editing");
+    clearDraftUiRecovery();
+    return true}
+  function captureEarlyFinish(draft){
+    if(saveState.phase==="recovery"&&!reopenAfterTotalFailure(draft))return null;
+    if(saveState.phase!=="editing"||!draft)return null;
+    const expectedDraft={draftId:draft.draftId,revision:draft.revision};
+    move("early-confirmation",{expectedDraft});
+    return expectedDraft}
+  function refreshEarlyFinish(draft){
+    if(saveState.phase!=="early-confirmation")return captureEarlyFinish(draft);
+    const expectedDraft=draft?{draftId:draft.draftId,revision:draft.revision}:null;
+    move("early-confirmation",{expectedDraft});
+    return expectedDraft}
+  function earlyFinishDraft(){return saveState.phase==="early-confirmation"?saveState.expectedDraft:null}
+  function earlyFinishMatches(draft){return sameDraft(earlyFinishDraft(),draft)}
+  function cancelEarlyFinish(){if(saveState.phase==="early-confirmation")move("editing")}
+  function canBeginSave(options={}){
+    const completion=options.completion||"normal";
+    if(saveState.phase==="recovery"&&completion==="normal"&&
+      !reopenAfterTotalFailure(activeWorkoutDraft))return false;
+    if(saveState.phase==="editing")return completion==="normal";
+    return saveState.phase==="early-confirmation"&&completion===EARLY_FINISH_CONFIRMATION&&
+      sameDraft(saveState.expectedDraft,options.expectedDraft)}
+  function beginSave(io,options={}){
+    if(!canBeginSave(options))return null;
+    const early=options.completion===EARLY_FINISH_CONFIRMATION;
+    const operation={operationId:`finish-${uid()}`,io:io||storageIO,
+      expectedDraft:early?{...options.expectedDraft}:null,
+      completion:early?EARLY_FINISH_CONFIRMATION:"normal",
+      finishedAt:new Date().toISOString(),prepared:null,result:null,completed:null,formSnapshot:null};
+    move("draining",{operation});
+    return operation}
+  function retrySave(){
+    if(saveState.phase!=="recovery")return null;
+    const operation=saveState.operation;
+    move("draining",{operation});
+    return operation}
+  function clearRecovery(){if(saveState.phase==="recovery")move("editing")}
+  function returnToEditing(){
+    if(saveState.phase==="recovery")move("editing");
+    return saveState.phase==="editing"}
+  function resetAfterDraftRemoval(){
+    if(busyPhases.has(saveState.phase))return false;
+    if(saveState.phase!=="editing")move("editing");
+    return true}
+  function recover(operation,result,capturedRaw){
+    if(saveState.operation!==operation||!busyPhases.has(saveState.phase))return false;
+    operation.result=result;
+    if(capturedRaw==null){move("editing");return false}
+    move("recovery",{operation});
+    return true}
   async function start(label,options){
     await drainDraftWork();
-    return createWorkoutDraft(label,options)}
+    const result=await createWorkoutDraft(label,options);
+    if(result.status==="ready"&&saveState.phase==="saved")move("editing");
+    return result}
   async function leave(){
     await drainDraftWork();
     return !draftUiRecovery?.attempt&&!draftUiRecovery?.status&&window.__repforgeDraftFault!=="persist-failure"}
-async function finish(io,{expectedDraft=null,completion="normal"}={}){
-  // The finish is the lifter's action, not the write that follows it.
-  const finishedAt=new Date().toISOString();
+async function finish(operation){
+  if(saveState.phase!=="draining"||saveState.operation!==operation)return{ignored:true};
   await drainDraftWork();
-  if(expectedDraft&&(activeWorkoutDraft?.draftId!==expectedDraft.draftId||activeWorkoutDraft?.revision!==expectedDraft.revision)){
-    return{result:{localOk:false,idbOk:false,reason:"stale-confirmation"}}}
-  if(!activeWorkoutDraft)return{result:null};
-  if(draftUiRecovery?.attempt||draftUiRecovery?.status==="refresh-failed")return{result:{localOk:false,idbOk:false,reason:"recovery-pending"}};
-  const earlyConfirmed=completion===EARLY_FINISH_CONFIRMATION;
-  if(completion!=="normal"&&!earlyConfirmed)return{result:{localOk:false,idbOk:false,reason:"invalid-finish-kind"}};
-  if(!earlyConfirmed){
-    // Surface malformed user input before the completeness boundary. A
-    // touched invalid set is not an invitation to take the early-finish path;
-    // it must remain an ordinary validation error while untouched/pending
-    // planned work is what makes normal completion incomplete.
-    const inputIssues=WorkoutDraft.validateForSave(activeWorkoutDraft)
-      .filter(issue=>issue.code!=="finish-required"&&issue.code!=="no-work");
-    if(inputIssues.length)return{result:{localOk:false,idbOk:false,validation:true,issues:inputIssues}};
-    const issues=normalFinishIssues(activeWorkoutDraft);
-    if(issues.length)return{result:{localOk:false,idbOk:false,validation:true,issues}}}
-  const capturedDraft=activeWorkoutDraft,capturedRaw=activeWorkoutDraftRaw,operationId=`finish-${uid()}`,now=new Date().toISOString();
-  const finishing=WorkoutDraft.reduce(capturedDraft,{type:"beginFinish",operationId,
-    expectedRevision:capturedDraft.revision,updatedAt:now,writer:draftWriter(operationId)});
-  if(WorkoutDraft.isDomainError(finishing))return{result:{localOk:false,idbOk:false,validation:true,issues:finishing.issues||[]}};
-  const issues=WorkoutDraft.validateForSave(finishing);
-  if(issues.length)return{result:{localOk:false,idbOk:false,validation:true,issues}};
-  const created=finishedAt,rows=WorkoutDraft.toHistoryRows(finishing,created);
-  if(WorkoutDraft.isDomainError(rows))return{result:{localOk:false,idbOk:false,validation:true,issues:rows.issues}};
-  const session=capturedDraft.draftId,date=capturedDraft.program.scheduleDate,
-    savedDay=capturedDraft.program.dayLabel,startedAt=Date.parse(capturedDraft.session.startedAt)||0,
-    prevLog=state.log.slice(),rawDraft=capturedRaw,savedDraft=capturedDraft;
-  const proposal=cloneSnapshot(state);proposal.log=proposal.log.concat(cloneSnapshot(rows));
-  const timing=sessionTimingRecord(capturedDraft.session.startedAt,created);
-  if(timing)proposal.sessionTiming={...(proposal.sessionTiming||{}),[session]:timing};
-  // DraftV2 save owns an exact aggregate revision. A second tab that changes
-  // that revision before the durable log transaction wins keeps the draft and
-  // rejects these rows instead of letting an old finish consume newer work.
-  const effect=destructiveDraftClearEffect(rawDraft);
+  if(saveState.phase!=="draining"||saveState.operation!==operation)return{ignored:true};
+  move("validating",{operation});
+  let prepared=operation.prepared;
+  if(prepared){
+    if(!sameDraft(activeWorkoutDraft,prepared.draft)||activeWorkoutDraftRaw!==prepared.rawDraft){
+      return{result:{localOk:false,idbOk:false,draftConflict:true,reason:"stale-save-retry"},capturedRaw:prepared.rawDraft}}
+  }else{
+    if(operation.expectedDraft&&!sameDraft(activeWorkoutDraft,operation.expectedDraft)){
+      move("editing");return{result:{localOk:false,idbOk:false,reason:"stale-confirmation"}}}
+    if(!activeWorkoutDraft){move("editing");return{result:null}}
+    if(draftUiRecovery?.attempt||draftUiRecovery?.status==="refresh-failed"){
+      move("editing");return{result:{localOk:false,idbOk:false,reason:"recovery-pending"}}}
+    const earlyConfirmed=operation.completion===EARLY_FINISH_CONFIRMATION;
+    if(!earlyConfirmed){
+      // Surface malformed user input before the completeness boundary. A
+      // touched invalid set is not an invitation to take the early-finish path;
+      // it must remain an ordinary validation error while untouched/pending
+      // planned work is what makes normal completion incomplete.
+      const inputIssues=WorkoutDraft.validateForSave(activeWorkoutDraft)
+        .filter(issue=>issue.code!=="finish-required"&&issue.code!=="no-work");
+      if(inputIssues.length){move("editing");return{result:{localOk:false,idbOk:false,validation:true,issues:inputIssues}}}
+      const issues=normalFinishIssues(activeWorkoutDraft);
+      if(issues.length){move("editing");return{result:{localOk:false,idbOk:false,validation:true,issues}}}}
+    const capturedDraft=activeWorkoutDraft,capturedRaw=activeWorkoutDraftRaw,now=new Date().toISOString();
+    const finishing=WorkoutDraft.reduce(capturedDraft,{type:"beginFinish",operationId:operation.operationId,
+      expectedRevision:capturedDraft.revision,updatedAt:now,writer:draftWriter(operation.operationId)});
+    if(WorkoutDraft.isDomainError(finishing)){
+      move("editing");return{result:{localOk:false,idbOk:false,validation:true,issues:finishing.issues||[]}}}
+    const issues=WorkoutDraft.validateForSave(finishing);
+    if(issues.length){move("editing");return{result:{localOk:false,idbOk:false,validation:true,issues}}}
+    const rows=WorkoutDraft.toHistoryRows(finishing,operation.finishedAt);
+    if(WorkoutDraft.isDomainError(rows)){
+      move("editing");return{result:{localOk:false,idbOk:false,validation:true,issues:rows.issues}}}
+    const session=capturedDraft.draftId,date=capturedDraft.program.scheduleDate,
+      savedDay=capturedDraft.program.dayLabel,startedAt=Date.parse(capturedDraft.session.startedAt)||0,
+      prevLog=state.log.slice(),savedDraft=capturedDraft;
+    const timing=sessionTimingRecord(capturedDraft.session.startedAt,operation.finishedAt);
+    // The captured rows and exact draft removal stay attached to this operation;
+    // each attempt rebuilds its state proposal from the current durable snapshot.
+    const effect=destructiveDraftClearEffect(capturedRaw);
+    const expectedBlockId=Object.prototype.hasOwnProperty.call(savedDraft.program||{},"blockId")
+      ?savedDraft.program.blockId:null;
+    prepared=operation.prepared={
+      draft:savedDraft,rawDraft:capturedRaw,effect,session,rows,timing,
+      expectedProgramId:savedDraft.program.programId,expectedBlockId,
+      completed:{rows,prevLog,session,date,day:savedDay,startedAt,draftId:savedDraft.draftId}}}
+  move("committing",{operation});
   if(typeof window.__repforgeDraftBeforeSaveCommit==="function")
-    await window.__repforgeDraftBeforeSaveCommit({session,draftId:savedDraft.draftId,revision:savedDraft.revision});
-  const expectedBlockId=Object.prototype.hasOwnProperty.call(savedDraft.program||{},"blockId")
-    ?savedDraft.program.blockId:null;
-  const result=await commitProposedState(proposal,io||storageIO,
-    {effect,reconcileSessionIds:[session],expectedProgramId:savedDraft.program.programId,
-      expectedBlockId});
-  if(result.committed!==true||result.settled!==true)return{result,capturedRaw};
+    await window.__repforgeDraftBeforeSaveCommit({session:prepared.session,draftId:prepared.draft.draftId,
+      revision:prepared.draft.revision,operationId:operation.operationId});
+  const proposal=cloneSnapshot(state);
+  if(!(proposal.log||[]).some(row=>row.session===prepared.session))
+    proposal.log=(proposal.log||[]).concat(cloneSnapshot(prepared.rows));
+  if(prepared.timing)proposal.sessionTiming={...(proposal.sessionTiming||{}),[prepared.session]:prepared.timing};
+  const result=await commitProposedState(proposal,operation.io,
+    {effect:prepared.effect,reconcileSessionIds:[prepared.session],expectedProgramId:prepared.expectedProgramId,
+      expectedBlockId:prepared.expectedBlockId});
+  operation.result=result;
+  if(result.committed!==true||result.settled!==true)return{result,capturedRaw:prepared.rawDraft};
+  operation.completed=prepared.completed;
+  move("saved",{operation});
   resetWorkoutSessionIdentity();
-  return{result,completed:{rows,prevLog,session,date,day:savedDay,startedAt,draftId:savedDraft.draftId}}}
-  return Object.freeze({start,leave,finish,dispatch:enqueueDraftCommand,projection:workoutDraftProjection,flush:drainDraftWork})})();
+  return{result,completed:prepared.completed}}
+  return Object.freeze({start,leave,finish,beginSave,canBeginSave,retrySave,clearRecovery,recover,
+    captureEarlyFinish,refreshEarlyFinish,earlyFinishDraft,earlyFinishMatches,cancelEarlyFinish,
+    reloadLatest:returnToEditing,resetAfterDraftRemoval,dispatch:enqueueDraftCommand,
+    projection:workoutDraftProjection,flush:drainDraftWork})})();
 
 // Asked once, at the first completed session: a device with nothing logged has
 // nothing to protect, and Firefox turns the request into a permission prompt.
@@ -11288,18 +11402,26 @@ async function requestPersistentStorage(){try{
   if(!navigator.storage?.persist||await navigator.storage.persisted?.())return;
   await navigator.storage.persist()}catch{}}
 
-async function saveWorkoutV2(io,{expectedDraft=null,completion="normal"}={}){
-  const {result,completed,capturedRaw}=await WorkoutSession.finish(io,{expectedDraft,completion});
+async function saveWorkoutV2(operation){
+  let outcome;
+  try{outcome=await WorkoutSession.finish(operation)}
+  catch(error){
+    if(operation.result?.committed===true&&operation.result?.settled===true)
+      outcome={result:operation.result,completed:operation.completed};
+    else outcome={result:{localOk:false,idbOk:false,reason:"save-operation-failed",error},
+      capturedRaw:operation.prepared?.rawDraft}}
+  const {result,completed,capturedRaw}=outcome||{};
   if(!completed){
     if(result?.reason==="stale-confirmation")toast(t("session.sheet.stale_error"));
     if(result?.validation&&!applyDraftIssue(result.issues||[]))
       toast(t(result.issues?.some(issue=>issue.code==="incomplete-workout")?"toast.finish_incomplete":
         result.issues?.some(issue=>issue.code==="no-work")?"toast.enter_weight_before_save":"validation.load"));
+    WorkoutSession.recover(operation,result,capturedRaw);
     if(capturedRaw!=null){
       const stale=!!result.draftConflict;
       draftUiRecovery={kind:stale?"stale":"persist",status:stale?"stale":"save-failed",attempt:null,pendingValue:null,
         copyValue:capturedRaw,copyKind:"data",focus:draftFocusIdentity(),retry:!stale,
-        retryAction:stale?null:()=>saveWorkoutV2(io,{expectedDraft,completion}),discard:false};
+        retryKind:"workout-save",retryAction:stale?null:()=>retryWorkoutSave(operation),discard:false};
       renderDraftRecovery();focusDraftRecovery()}
     return result}
   resetDraftSessionPresentation();resetSessionContextFields();stopRest();
@@ -11327,14 +11449,28 @@ async function saveWorkoutV2(io,{expectedDraft=null,completion="normal"}={}){
   catch{savedFallback()}
   return result}
 
-async function saveWorkout(e,io,options={}){if(e&&e.preventDefault)e.preventDefault();if(saving)return;
-  const form=$("#logForm"),formWasInert=!!form?.inert,formBusy=form?.getAttribute("aria-busy")??null;
+async function retryWorkoutSave(){
+  const operation=WorkoutSession.retrySave();
+  if(!operation)return{ignored:true};
+  return saveWorkoutV2(operation)}
+async function focusSaveRecovery(){
+  if(!draftUiRecovery)return false;
+  const sheet=$("#sessionSheet");
+  while(sheet&&activeModal?.el===sheet){
+    const closed=await closeSessionSheet();
+    if(closed||activeModal?.el!==sheet)continue;
+    if(activeModal.state==="open")continue;
+    await new Promise(resolve=>requestAnimationFrame(resolve))}
+  renderDraftRecovery();focusDraftRecovery();return true}
+
+async function saveWorkout(e,io,options={}){if(e&&e.preventDefault)e.preventDefault();
+  if(!WorkoutSession.canBeginSave(options)){await focusSaveRecovery();return{ignored:true}}
   if(!activeWorkoutDraft){showDraftInitializationRecovery({status:"invalid",raw:DraftStore.readRaw()});return{localOk:false,idbOk:false,reason:"missing-active-draft"}}
-  saving=true;if(form){form.inert=true;form.setAttribute("aria-busy","true")}
-  try{return await saveWorkoutV2(io,options)}finally{
-    if(form){form.inert=formWasInert;if(formBusy==null)form.removeAttribute("aria-busy");else form.setAttribute("aria-busy",formBusy)}
-    if(form&&!form.inert){const invalid=form.querySelector("[aria-invalid='true']");if(invalid){try{invalid.focus()}catch{}}}
-    saving=false}}
+  const operation=WorkoutSession.beginSave(io,options);
+  if(!operation)return{ignored:true};
+  const result=await saveWorkoutV2(operation),form=$("#logForm");
+  if(form&&!form.inert){const invalid=form.querySelector("[aria-invalid='true']");if(invalid){try{invalid.focus()}catch{}}}
+  return result}
 
 // @ci-domain session,today
 /* ---- Session summary (Direction D, spec 4.4) ----
@@ -24979,9 +25115,9 @@ function init(){
   const earlyBtn=$("#sessionEarlyFinish");if(earlyBtn)earlyBtn.onclick=async()=>{
     await WorkoutSession.flush();
     if(!activeWorkoutDraft)return;
+    if(!WorkoutSession.captureEarlyFinish(activeWorkoutDraft)){
+      await focusSaveRecovery();return}
     renderEarlyFinishPreview();
-    sessionEarlyRevision=activeWorkoutDraft.revision;
-    sessionEarlyDraftId=activeWorkoutDraft.draftId;
     const earlyMsg=$("#sessionEarlyMsg");
     if(earlyMsg){earlyMsg.classList.remove("is-error");earlyMsg.textContent=t("session.sheet.early_prompt")}
     const earlyPrompt=$("#sessionEarlyPrompt");if(earlyPrompt)earlyPrompt.classList.remove("hidden");
@@ -24994,7 +25130,7 @@ function init(){
   };
 
   const earlyCancel=$("#sessionEarlyCancel");if(earlyCancel)earlyCancel.onclick=()=>{
-    sessionEarlyRevision=null;
+    WorkoutSession.cancelEarlyFinish();
     const earlyPrompt=$("#sessionEarlyPrompt");if(earlyPrompt)earlyPrompt.classList.add("hidden");
     const earlyBtn=$("#sessionEarlyFinish");if(earlyBtn)earlyBtn.classList.remove("hidden");
     $("#sessionAbandon")?.classList.remove("hidden");
@@ -25068,16 +25204,15 @@ function init(){
 
   const earlyConfirm=$("#sessionEarlyConfirm");if(earlyConfirm)earlyConfirm.onclick=async()=>{
     if(!activeWorkoutDraft)return;
-    if(sessionEarlyRevision==null||activeWorkoutDraft.revision!==sessionEarlyRevision||activeWorkoutDraft.draftId!==sessionEarlyDraftId){
+    if(!WorkoutSession.earlyFinishMatches(activeWorkoutDraft)){
       const earlyMsg=$("#sessionEarlyMsg");
       if(earlyMsg){earlyMsg.classList.add("is-error");earlyMsg.textContent=t("session.sheet.stale_error")}
       toast(t("session.sheet.stale_error"));
-      sessionEarlyRevision=activeWorkoutDraft.revision;
-      sessionEarlyDraftId=activeWorkoutDraft.draftId;
+      WorkoutSession.refreshEarlyFinish(activeWorkoutDraft);
       renderEarlyFinishPreview();
       return;
     }
-    const expectedDraft={draftId:activeWorkoutDraft.draftId,revision:sessionEarlyRevision};
+    const expectedDraft=WorkoutSession.earlyFinishDraft();
     const p=closeSessionSheet();if(p&&typeof p.then==="function")await p;
     const finishPromise=saveWorkout(null,null,{expectedDraft,completion:EARLY_FINISH_CONFIRMATION});
     window.__repforgeLastWorkoutFinish=finishPromise;
