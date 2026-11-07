@@ -7113,8 +7113,10 @@ function ringRest(){
   if(document.visibilityState==="visible")navigator.vibrate?.([200,100,200]);
   else RepForgeNotify.fireOS({title:t("notify.title"),body:t("notify.rest.body"),tag:"repforge-rest",url:"./"})}
 /** Keep a transition's new state, carry out its effects, then run the one interval the clock asks for. A clock that this
-    transition takes to the one-hour cap ends here, whatever carried it there: a tick, a nudge, a resume or a restore. */
-function applyRest(result){
+    transition takes to the one-hour cap ends here, whatever carried it there. The finish question is offered only when the
+    count-up itself reached the cap (`timed`, a tick or a return to the page): a hand nudge, a resume or a dial turn ends the
+    rest and offers nothing. */
+function applyRest(result,{timed=false}={}){
   const before=restClock;
   let next=result.state,effects=result.effects,offerCap=false;
   // A rest belongs to the workout it started in, so its record names that draft for as long as the rest runs.
@@ -7126,7 +7128,7 @@ function applyRest(result){
     if(claim.kind==="adopt"){adoptRestRecord(claim.record);return}
     if(claim.kind!=="ring")effects=effects.filter(effect=>effect!==RepForgeRestTimer.EFFECTS.BELL)}
   if(next.kind!=="idle"&&RepForgeRestTimer.view(next,Date.now()).phase==="capped"){
-    next=RepForgeRestTimer.stop().state;effects=[RepForgeRestTimer.EFFECTS.CLEARED];offerCap=true}
+    next=RepForgeRestTimer.stop().state;effects=[RepForgeRestTimer.EFFECTS.CLEARED];offerCap=timed}
   restClock=next;
   if(next!==before&&(before.kind!=="idle"||next.kind!=="idle"))saveRestRecord();
   for(const effect of effects){
@@ -7239,7 +7241,7 @@ function restReconcileTicker(){
   else if(!want&&restIntervalId){clearInterval(restIntervalId);restIntervalId=null}}
 /** An interval tick, or a catch-up on return to the page: settle the bell if its deadline has passed, then repaint. */
 function tickRest(){
-  applyRest(RepForgeRestTimer.settle(restClock,Date.now()));
+  applyRest(RepForgeRestTimer.settle(restClock,Date.now()),{timed:true});
   paintRest()}
 /** Repaint every rest surface from the clock as it stands, without waiting for
  *  the next tick — a held clock has no tick, and a nudged one should read the
