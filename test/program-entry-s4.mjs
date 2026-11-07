@@ -266,10 +266,46 @@ async function returnToCommittedAnswerWhileRebuildPending(browser) {
   await context.close();
 }
 
+/* #656: a rebuild is pending and the Days editor is collapsed. Activation must
+   stay unavailable through its control and its handler, so the previous
+   program can never be what gets committed. */
+async function activationWaitsForPendingAnswerRebuild(browser) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: "UTC" });
+  const page = await context.newPage();
+  await page.clock.setFixedTime(START);
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+  await page.click("#firstRunCreate");
+  await answerRecommend(page, { skipBasics: true });
+  const original = await page.evaluate(() => window.__repforgeEntryState()?.answers?.daysPerWeek);
+  const other = original === 3 ? 4 : 3;
+  await holdAnswerRebuilds(page);
+  await openDaysEditorAndApply(page, other);
+  await page.waitForFunction(() => window.__repforgeHeldRebuilds?.length === 1, undefined, { timeout: 10000 });
+  await page.locator('[data-entry-chip="days"]').click();
+  assert.equal(await page.locator("#entryActivate").isEnabled(), false,
+    "activation is unavailable while the rebuild for the lifter's newer answer is pending");
+  await page.evaluate(() => window.__repforgeActivateEntryPreview());
+  assert.equal(await page.evaluate(() => window.__repforgeWorkoutDraft.state()?.programMeta?.onboarded === true), false,
+    "the activation handler refuses while the rebuild is pending");
+  await page.evaluate(() => window.__repforgeHeldRebuilds.forEach((release) => release()));
+  await page.waitForFunction((want) => window.__repforgeEntryState()?.answers.daysPerWeek === want &&
+    !document.querySelector("#entryEditor"), other, { timeout: 10000 });
+  await page.waitForFunction(() => document.querySelector("#entryActivate") && !document.querySelector("#entryActivate").disabled,
+    undefined, { timeout: 10000 });
+  await page.locator("#entryActivate").click();
+  await page.waitForFunction(() => window.__repforgeWorkoutDraft.state()?.programMeta?.onboarded === true,
+    undefined, { timeout: 10000 });
+  const active = await page.evaluate(() => window.__repforgeWorkoutDraft.state().programMeta.programDefinition);
+  assert.equal(trainingDayCount(active), other, "the activated program is the one for the latest answer");
+  await context.close();
+}
+
 const browser = await launchChromium();
 try {
   await sameStateAnswerRebuild(browser);
   await returnToCommittedAnswerWhileRebuildPending(browser);
+  await activationWaitsForPendingAnswerRebuild(browser);
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: "UTC" });
   const page = await context.newPage();
   await installOfferWorkerHarness(page);
