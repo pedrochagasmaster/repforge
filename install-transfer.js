@@ -36,6 +36,10 @@
   // wrapper. The parser owns the envelope bound; the transport keeps enough
   // bounded headroom for that wrapper without accepting an unbounded body.
   const CLAIM_RESPONSE_MAX_BYTES = ENVELOPE_MAX_BYTES + SMALL_RESPONSE_MAX_BYTES;
+  // Cloudflare's default paid CPU allowance is 30s; a 2,004,096-byte claim
+  // response at 64 KiB/s takes about 30.6s. Round their sum up to 65s. Worker
+  // HTTP wall time is otherwise unbounded while the client remains connected.
+  const REQUEST_TIMEOUT_MS = 65_000;
   const RESPONSE_LIMITS = Object.freeze({
     [ENDPOINTS.create]: SMALL_RESPONSE_MAX_BYTES,
     [ENDPOINTS.claim]: CLAIM_RESPONSE_MAX_BYTES,
@@ -473,26 +477,42 @@
     return value;
   }
 
-  function createFetchTransport({ fetch: fetchFn = root.fetch, baseUrl = root.location?.href } = {}) {
+  function createFetchTransport({ fetch: fetchFn = root.fetch, baseUrl = root.location?.href, clock = root } = {}) {
     return {
       async request({ path, body, maxResponseBytes = RESPONSE_LIMITS[path] || SMALL_RESPONSE_MAX_BYTES }) {
         if (typeof fetchFn !== "function" || typeof path !== "string" || !Object.values(ENDPOINTS).includes(path)) throw new Error("invalid-transport-request");
+        if (typeof root.AbortController !== "function" || typeof clock?.setTimeout !== "function" || typeof clock?.clearTimeout !== "function") {
+          throw new Error("request-abort-unavailable");
+        }
         const approvedLimit = RESPONSE_LIMITS[path] || SMALL_RESPONSE_MAX_BYTES;
         const requestedLimit = Number.isSafeInteger(maxResponseBytes) && maxResponseBytes >= 0 ? maxResponseBytes : approvedLimit;
         const responseLimit = Math.min(approvedLimit, requestedLimit);
         const url = new URL(path, baseUrl);
         if (url.pathname !== path || url.search || url.hash) throw new Error("endpoint-must-be-exact");
-        const response = await fetchFn(url.href, {
-          method: "POST",
-          headers: { "Accept": "application/json", "Content-Type": "application/json", "Cache-Control": "no-store" },
-          body: JSON.stringify(body),
-          cache: "no-store",
-          redirect: "error",
-          credentials: "omit",
-          mode: "cors",
+        const controller = new root.AbortController();
+        let timeoutId;
+        const deadline = new Promise((_, reject) => {
+          timeoutId = clock.setTimeout(() => {
+            reject(codedError("request-timeout"));
+            controller.abort();
+          }, REQUEST_TIMEOUT_MS);
         });
-        const bytes = await readBoundedResponse(response, responseLimit);
-        return { status: response.status, bytes };
+        const response = (async () => {
+          const fetched = await fetchFn(url.href, {
+            method: "POST",
+            headers: { "Accept": "application/json", "Content-Type": "application/json", "Cache-Control": "no-store" },
+            body: JSON.stringify(body),
+            cache: "no-store",
+            redirect: "error",
+            credentials: "omit",
+            mode: "cors",
+            signal: controller.signal,
+          });
+          const bytes = await readBoundedResponse(fetched, responseLimit);
+          return { status: fetched.status, bytes };
+        })();
+        try { return await Promise.race([response, deadline]); }
+        finally { clock.clearTimeout(timeoutId); }
       },
     };
   }
@@ -1048,6 +1068,7 @@
     COOKIE_MAX_AGE,
     ENDPOINTS,
     RESPONSE_LIMITS,
+    REQUEST_TIMEOUT_MS,
     OPERATION_NAMES,
     CLIENT_STATES,
     RECOVERY_STATES,
