@@ -17750,13 +17750,21 @@ function parseBackupFile(text){
   const parsed=boundedImportJson(text,{maxBytes:BACKUP_MAX_BYTES,maxNodes:BACKUP_MAX_NODES});
   return isImportableState(parsed)?parsed:null}
 
+/* The latest program-file pick, and the flow it was picked in. A read from slow
+   storage can still be arriving after another pick, a Cancel or a change of
+   flow; only the read that is still current may open a review. */
+let programFileRead=null;
 /* Reading a file no longer changes anything: it opens the review screen. The
    old path linked names and wrote the program behind one confirm(), which meant
    a wrong file had already replaced the program by the time you saw it. */
 async function importProgramFile(e,io){const f=e.target.files?.[0];if(!f)return;
+  const read={flow:entryState};
+  programFileRead=read;
+  const current=()=>programFileRead===read&&entryState===read.flow;
   try{
     if(Number.isFinite(f.size)&&f.size>BACKUP_MAX_BYTES)throw Error();
     const text=await f.text();
+    if(!current()){e.target.value="";return}
     const parsedBackup=parseBackupFile(text),legacyBackup=isLegacyBackup(parsedBackup);
     const backup=legacyBackup?null:parsedBackup;
     const source=parseProgramSource(text,f.name);
@@ -17781,7 +17789,7 @@ async function importProgramFile(e,io){const f=e.target.files?.[0];if(!f)return;
       openImportChoice(Object.assign(importChoiceContext(backup,e.target,io),
         {bodyKey:"dialog.import.body_program",programOnly:draft?()=>openImportReview(draft):null}));
     else openImportReview(draft);
-  }catch{toast(t("toast.program_import_invalid"))}
+  }catch{if(current())toast(t("toast.program_import_invalid"))}
   e.target.value=""}
 let pendingImportIo=null;
 // @ci-domain entry
@@ -18734,6 +18742,8 @@ function disarmEntryHistory(){
 function closeOnboarding(){
   // The pasted program and the reply belong to the flow that asked for them.
   resetFreeformImport();
+  // So does a program file still being read: a Cancel must not reopen its review.
+  programFileRead=null;
   cancelEntryGeneration();
   entryPickerInput=null;entryDialog=null;entryReplaceResolve?.(false);entryReplaceResolve=null;closeEntryDialog();
   onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;setupEditorOpen=false;
