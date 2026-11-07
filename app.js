@@ -1186,7 +1186,185 @@ function scheduleEdgeSwipeSync(){
    SAFARI_SWIPE_MS of a touch at the left edge it is Safari's own swipe, which
    has already animated, so the route just changes. */
 const ROUTE_HISTORY_KEY="tauriferRoute",SAFARI_SWIPE_MS=900,SAFARI_EDGE=30;
-let routeHistory=[],routeHistoryIgnore=0,routeEdgeTouchAt=-Infinity;
+const INSTALLED_EDITOR_HISTORY_STATE_KEY="tauriferProgramEditor";
+const ENTRY_HISTORY_STATE_KEY="tauriferProgramEntry";
+let installedEditorHistoryArmed=false,installedEditorHistoryRelease=false;
+
+/* ---- Browser history single owner (Packet G, rows 17, 25, N2) ----
+   One owner for the browser history stack. Named entries ("route", "installedEditor", "entry")
+   register with it. Programmatic steps back carry an explicit expected-pop token that replaces
+   the naked ignore counter, auto-expires if dropped, and ensures programmatic pops are never
+   mistaken for a lifter's Back. */
+const BrowserHistory=(()=>{
+  const registry=new Map();
+  let stack=[];
+  let expectedPop=null;
+  let nextTokenId=0;
+
+  function register(name,handlers){
+    registry.set(name,handlers);
+  }
+
+  function currentTop(){
+    return stack.length?stack[stack.length-1]:null;
+  }
+
+  function has(name){
+    return stack.some(e=>e.name===name);
+  }
+
+  function count(name){
+    return stack.filter(e=>e.name===name).length;
+  }
+
+  function isExpectedPopPending(name){
+    if(!expectedPop)return false;
+    return name?expectedPop.name===name:true;
+  }
+
+  function push(name,meta={}){
+    const token=`pop_${name}_${++nextTokenId}_${Date.now()}`;
+    const entry={name,meta,token};
+    stack.push(entry);
+    const current=history.state&&typeof history.state==="object"?history.state:{};
+    const state={
+      ...current,
+      repforgeHistory:{name,token,depth:stack.length},
+    };
+    if(name==="route"){
+      state[ROUTE_HISTORY_KEY]={view:meta.view,depth:meta.depth??stack.length};
+    }else if(name==="installedEditor"){
+      state[INSTALLED_EDITOR_HISTORY_STATE_KEY]={active:true};
+    }else if(name==="entry"){
+      state[ENTRY_HISTORY_STATE_KEY]={active:true,draftId:meta.draftId||null};
+    }
+    try{history.pushState(state,"",location.href)}catch{}
+    return token;
+  }
+
+  function replace(name,meta={}){
+    const current=history.state&&typeof history.state==="object"?history.state:{};
+    const top=currentTop();
+    const token=top?.name===name?top.token:`pop_${name}_${++nextTokenId}_${Date.now()}`;
+    if(top&&top.name===name){
+      top.meta=meta;
+    }else{
+      stack.push({name,meta,token});
+    }
+    const state={
+      ...current,
+      repforgeHistory:{name,token,depth:stack.length},
+    };
+    if(name==="route"){
+      state[ROUTE_HISTORY_KEY]={view:meta.view,depth:meta.depth??stack.length};
+    }else if(name==="installedEditor"){
+      state[INSTALLED_EDITOR_HISTORY_STATE_KEY]={active:true};
+    }else if(name==="entry"){
+      state[ENTRY_HISTORY_STATE_KEY]={active:true,draftId:meta.draftId||null};
+    }
+    try{history.replaceState(state,"",location.href)}catch{}
+    return token;
+  }
+
+  function expectPop(name){
+    if(expectedPop?.timer)clearTimeout(expectedPop.timer);
+    const token=`exp_${name}_${++nextTokenId}_${Date.now()}`;
+    expectedPop={
+      token,
+      name,
+      timer:setTimeout(()=>{
+        if(expectedPop?.token===token)expectedPop=null;
+      },600),
+    };
+    return token;
+  }
+
+  function stepBack(name,count=1){
+    if(count<=0)return;
+    const token=expectPop(name);
+    try{
+      history.go(-count);
+    }catch{
+      if(expectedPop?.token===token){
+        clearTimeout(expectedPop.timer);
+        expectedPop=null;
+      }
+    }
+  }
+
+  function release(name){
+    const idx=stack.map(e=>e.name).lastIndexOf(name);
+    if(idx===-1)return false;
+    const count=stack.length-idx;
+    const removed=stack.splice(idx,count);
+    for(let i=removed.length-1;i>=0;i--){
+      const e=removed[i];
+      if(e.name==="route"&&e.meta?.view){
+        $(EDGE_BACK[e.meta.view])?.click();
+      }
+    }
+    stepBack(name,count);
+    return true;
+  }
+
+  function onPopState(event){
+    if(expectedPop){
+      clearTimeout(expectedPop.timer);
+      expectedPop=null;
+      syncRouteHistory();
+      return true;
+    }
+
+    const state=event?.state||history.state;
+    let targetDepth=0;
+    if(state?.repforgeHistory&&typeof state.repforgeHistory.depth==="number"){
+      targetDepth=state.repforgeHistory.depth;
+    }else if(state?.[ROUTE_HISTORY_KEY]&&typeof state[ROUTE_HISTORY_KEY].depth==="number"){
+      targetDepth=state[ROUTE_HISTORY_KEY].depth;
+    }else if(state?.[INSTALLED_EDITOR_HISTORY_STATE_KEY]?.active){
+      targetDepth=1;
+    }else if(state?.[ENTRY_HISTORY_STATE_KEY]?.active){
+      targetDepth=1;
+    }
+
+    const popped=[];
+    while(stack.length>targetDepth){
+      popped.push(stack.pop());
+    }
+
+    if(popped.length>0){
+      for(const entry of popped){
+        const handler=registry.get(entry.name);
+        if(handler?.onPop){
+          handler.onPop(entry,event);
+        }
+      }
+      return true;
+    }
+
+    for(const[name,handler]of registry.entries()){
+      if(handler.onPopFallback&&handler.onPopFallback(event)){
+        return true;
+      }
+    }
+    return false;
+  }
+
+  return{
+    register,
+    push,
+    replace,
+    stepBack,
+    release,
+    has,
+    count,
+    isExpectedPopPending,
+    onPopState,
+    get stack(){return stack}
+  };
+})();
+
+let routeHistory=[],routeEdgeTouchAt=-Infinity;
 function openPushedRoutes(){
   const body=document.body.classList,history=$("#history"),open=[];
   if(body.contains("is-library"))open.push("library");
@@ -1195,20 +1373,25 @@ function openPushedRoutes(){
   if(history?.classList.contains("active")&&history.classList.contains("is-session-page"))open.push("history");
   return open}
 function syncRouteHistory(){
-  if(routeHistoryIgnore)return;
+  if(BrowserHistory.isExpectedPopPending())return;
   const open=openPushedRoutes(),kept=routeHistory.filter(id=>open.includes(id)),closed=routeHistory.length-kept.length;
   const depth=routeHistory.length;
   routeHistory=kept;
-  // Step back only over entries that are ours and on top: another owner (the editor, onboarding) may have pushed
-  // since, and history.go would pop its entry instead. A route closed under one is forgotten, its entry left.
-  // Pages opened in the same change are pushed once the browser has stepped back (onRoutePopState).
-  if(closed&&history.state?.[ROUTE_HISTORY_KEY]?.depth===depth){routeHistoryIgnore++;try{history.go(-closed)}catch{routeHistoryIgnore--}return}
+  if(closed){
+    const poppedRoutes=depth-kept.length;
+    if(poppedRoutes>0){
+      while(BrowserHistory.count("route")>kept.length){
+        const idx=BrowserHistory.stack.map(e=>e.name).lastIndexOf("route");
+        if(idx!==-1)BrowserHistory.stack.splice(idx,1);
+      }
+      BrowserHistory.stepBack("route",poppedRoutes);
+      return;
+    }
+  }
   for(const id of open)if(!routeHistory.includes(id)){
     routeHistory.push(id);
-    const current=history.state&&typeof history.state==="object"?history.state:{};
-    try{history.pushState({...current,[ROUTE_HISTORY_KEY]:{view:id,depth:routeHistory.length}},"",location.href)}catch{}}}
+    BrowserHistory.push("route",{view:id,depth:routeHistory.length});}}
 function onRoutePopState(){
-  if(routeHistoryIgnore){routeHistoryIgnore--;syncRouteHistory();return true}
   const depth=history.state?.[ROUTE_HISTORY_KEY]?.depth||0;
   if(routeHistory.length<=depth)return false;
   const swiped=performance.now()-routeEdgeTouchAt<SAFARI_SWIPE_MS;
@@ -1217,6 +1400,14 @@ function onRoutePopState(){
     routeSwipeCommitting=swiped;
     try{releaseSwallowedClick();$(EDGE_BACK[id])?.click()}finally{routeSwipeCommitting=false}}
   return true}
+BrowserHistory.register("route",{
+  onPop(entry,event){
+    onRoutePopState();
+  },
+  onPopFallback(event){
+    return onRoutePopState();
+  }
+});
 document.addEventListener("touchstart",e=>{if(e.touches[0]?.clientX<SAFARI_EDGE)routeEdgeTouchAt=performance.now()},{capture:true,passive:true});
 /* History swaps its list for a session page inside one view, so there is no second
    page to keep mounted. A still copy of the surface as it was, taken as the lifter
@@ -1239,7 +1430,7 @@ function watchRouteSurfaces(){
   // The library, preview and exercise routes are body classes.
   new MutationObserver(scheduleEdgeSwipeSync).observe(document.body,{attributes:true,attributeFilter:["class"]});
   // A reload starts with no page pushed, so an entry left by the last session is no longer one.
-  try{const st=history.state;if(st&&typeof st==="object"&&st[ROUTE_HISTORY_KEY]){const{[ROUTE_HISTORY_KEY]:_,...rest}=st;history.replaceState(rest,"",location.href)}}catch{}
+  try{const st=history.state;if(st&&typeof st==="object"&&(st[ROUTE_HISTORY_KEY]||st.repforgeHistory?.name==="route")){const{[ROUTE_HISTORY_KEY]:_,repforgeHistory:__, ...rest}=st;history.replaceState(rest,"",location.href)}}catch{}
   if(history){
     historySessionOpen=history.classList.contains("is-session-page");
     new MutationObserver(()=>{
@@ -14444,6 +14635,7 @@ function attemptProgramEditorDismiss(){
   if(installedProgramEditor?.isDirty()){pendingEditorNavigation=null;openInstalledLeaveDialog();return}
   finishInstalledEditor();
 }
+window.attemptProgramEditorDismiss=attemptProgramEditorDismiss;
 function updateInstalledEditorDoneButton(){
   const done=$("#programEditDone");if(!done)return;
   done.disabled=installedProgramEditor?.canApply?.()===false;
@@ -14539,19 +14731,15 @@ function installedEditorHistoryState(){
   const current=history.state&&typeof history.state==="object"?history.state:{};
   return{...current,[INSTALLED_EDITOR_HISTORY_STATE_KEY]:{active:true}}}
 function armInstalledEditorHistory(){
-  if(installedEditorHistoryArmed)return;
-  try{
-    if(history.state?.[INSTALLED_EDITOR_HISTORY_STATE_KEY]?.active===true){installedEditorHistoryArmed=true;return}
-    history.pushState(installedEditorHistoryState(),"",location.href);
-    installedEditorHistoryArmed=true;
-  }catch{}
+  if(installedEditorHistoryArmed||BrowserHistory.has("installedEditor"))return;
+  installedEditorHistoryArmed=true;
+  BrowserHistory.push("installedEditor",{active:true});
 }
 function disarmInstalledEditorHistory({historyAlreadyPopped=false}={}){
-  if(!installedEditorHistoryArmed)return;
+  if(!installedEditorHistoryArmed&&!BrowserHistory.has("installedEditor"))return;
   installedEditorHistoryArmed=false;
   if(historyAlreadyPopped)return;
-  installedEditorHistoryRelease=true;
-  try{history.back()}catch{installedEditorHistoryRelease=false}
+  BrowserHistory.release("installedEditor");
 }
 // A refused editor commit lists each problem in plain words; "Go to" resolves
 // with that problem's index once the dialog has closed, Keep editing with null.
@@ -18402,9 +18590,6 @@ let entryDialog=null,entryChange=null,entryGoalFromHub=false,entryPickerInput=nu
    copy of the answers it edits), and the program the lifter just left, for the
    change statement when the same walk comes back to a result. */
 let entryGoalOpen=false,entryEditor=null,entryEditorSwap=false,entryEditorRerender=false,entryLastPreview=null,entryReviewError=null;
-const ENTRY_HISTORY_STATE_KEY="tauriferProgramEntry";
-const INSTALLED_EDITOR_HISTORY_STATE_KEY="tauriferProgramEditor";
-let installedEditorHistoryArmed=false,installedEditorHistoryRelease=false;
 const setupDraftOwnerId=uid();
 let entryDraftHandle=null;
 let setupDraftWriteQueue=Promise.resolve();
@@ -18642,18 +18827,15 @@ function entryHistoryState(active=true){
   return{...current,[ENTRY_HISTORY_STATE_KEY]:{
     active,draftId:entryState?.draftId||null}}}
 function armEntryHistory(){
-  try{
-    const existing=history.state?.[ENTRY_HISTORY_STATE_KEY];
-    const method=existing?"replaceState":"pushState";
-    history[method](entryHistoryState(true),"",location.href)}catch{}}
+  if(BrowserHistory.has("entry"))return;
+  BrowserHistory.push("entry",{active:true,draftId:entryState?.draftId||null});
+}
 function syncEntryHistory(){
-  try{
-    if(history.state?.[ENTRY_HISTORY_STATE_KEY]?.active)
-      history.replaceState(entryHistoryState(true),"",location.href)}catch{}}
+  BrowserHistory.replace("entry",{active:true,draftId:entryState?.draftId||null});
+}
 function disarmEntryHistory(){
-  try{
-    if(history.state?.[ENTRY_HISTORY_STATE_KEY])
-      history.replaceState(entryHistoryState(false),"",location.href)}catch{}}
+  BrowserHistory.release("entry");
+}
 function closeOnboarding(){
   // The pasted program and the reply belong to the flow that asked for them.
   resetFreeformImport();
@@ -22234,21 +22416,12 @@ function entryBack(){
   if(previous.route==="recommend"&&previous.step==="split"&&!entrySplitStepShown(previous.answers))previous=ProgramEntry.back(previous);
   entrySetState(previous)}
 function onInstalledEditorPopState(){
-  // Explicit editor exits release the same sentinel with history.back(). Its
-  // popstate is expected and must not reopen the leave surface.
-  if(installedEditorHistoryRelease){installedEditorHistoryRelease=false;return true}
+  if(BrowserHistory.isExpectedPopPending("installedEditor"))return true;
   if(!programEditMode||!installedProgramEditor)return false;
-  // Back has already consumed the editor sentinel. Dirty work is restored to
-  // the top of the stack before asking the existing three-way decision, so a
-  // second Back cannot unload the document while the decision is open.
   installedEditorHistoryArmed=false;
   if(installedProgramEditor.isDirty()){
-    try{
-      history.pushState(installedEditorHistoryState(),"",location.href);
-      installedEditorHistoryArmed=true;
-    }catch{}
-    // A name still typed in the editor's rename sheet is held while the sheet steps aside (#445),
-    // then the decision opens over the editor.
+    BrowserHistory.push("installedEditor",{active:true});
+    installedEditorHistoryArmed=true;
     const held=installedProgramEditor.holdPendingRename?.();
     if(held)held.then(()=>afterModalSettles(()=>{if(programEditMode&&!$("#programEditorLeave")?.open)openInstalledLeaveDialog()}));
     else if(!$("#programEditorLeave")?.open)openInstalledLeaveDialog();
@@ -22257,12 +22430,40 @@ function onInstalledEditorPopState(){
   finishInstalledEditor({historyAlreadyPopped:true});
   return true;
 }
-function onEntryPopState(){
-  if(onRoutePopState())return;
-  if(onInstalledEditorPopState())return;
-  if(!$("#onboarding")?.classList.contains("active")||!entryState)return;
-  try{history.pushState(entryHistoryState(true),"",location.href)}catch{}
-  entryBack()}
+BrowserHistory.register("installedEditor",{
+  onPop(entry,event){
+    onInstalledEditorPopState();
+  },
+  onPopFallback(event){
+    return onInstalledEditorPopState();
+  }
+});
+function onEntrySentinelPopState(){
+  if(!$("#onboarding")?.classList.contains("active")||!entryState)return false;
+  BrowserHistory.push("entry",{active:true,draftId:entryState?.draftId||null});
+  entryBack();
+  return true;
+}
+BrowserHistory.register("entry",{
+  onPop(entry,event){
+    onEntrySentinelPopState();
+  },
+  onPopFallback(event){
+    return onEntrySentinelPopState();
+  }
+});
+function onEntryPopState(e){
+  return BrowserHistory.onPopState(e);
+}
+Object.defineProperty(window,"__installedEditorHistoryArmed",{
+  get(){return installedEditorHistoryArmed||BrowserHistory.has("installedEditor")},
+  configurable:true
+});
+Object.defineProperty(window,"__installedEditorHistoryRelease",{
+  get(){return BrowserHistory.isExpectedPopPending("installedEditor")},
+  configurable:true
+});
+window.__repforgeHistory=BrowserHistory;
 // @ci-domain global
 async function activateEntryPreview({destination="log",manualBuild=false,skipReplaceConfirm=false,io=storageIO}={}){
   if(!ProgramEntry||!entryState)return;
@@ -25291,7 +25492,7 @@ function init(){
     const on=notifyPending||notifyEffective();
     setNotificationsEnabled(!on)};
   const onbCancel=$("#onbCancel");if(onbCancel)onbCancel.onclick=()=>requestEntryCancel();
-  window.addEventListener("popstate",onEntryPopState);
+  window.addEventListener("popstate",BrowserHistory.onPopState);
   document.addEventListener("visibilitychange",onAppVisible);
   $("#glossary .glossary__close").onclick=()=>closeGlossary();
   document.addEventListener("click",e=>{const g=$("#glossary");if(!g||g.classList.contains("hidden"))return;
