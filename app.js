@@ -985,7 +985,7 @@ function applyModalInert(keep){
   const allow=new Set(keep.filter(Boolean));
   allow.add($("#announcementHost"));
   // A boot error panel is the lifter's way out (Reload), so no sheet opened over it may disable it.
-  if(bootSplashState==="stalled"||bootSplashState==="failed")allow.add(document.getElementById("bootSplash"));
+  if(bootPanelShowing())allow.add(document.getElementById("bootSplash"));
   for(const child of document.body.children){
     if(allow.has(child)){child.inert=false;continue}
     child.inert=true}}
@@ -1327,12 +1327,14 @@ function openModal(el,opts={}){
       if(typeof rec.onEscape==="function")rec.onEscape();
       return}
     if(e.key!=="Tab")return;
-    const stops=modalFocusables(el);
+    // While the boot error panel owns the presentation, the trap holds focus on its Reload: the sheet under it has no visible control.
+    const scope=bootPanelShowing()?document.getElementById("bootSplash"):el;
+    const stops=modalFocusables(scope);
     if(!stops.length){e.preventDefault();return}
     const first=stops[0],last=stops[stops.length-1];
     if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}
     else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}
-    else if(!el.contains(document.activeElement)){e.preventDefault();(e.shiftKey?last:first).focus()}};
+    else if(!scope.contains(document.activeElement)){e.preventDefault();(e.shiftKey?last:first).focus()}};
   rec.onPointer=e=>{
     if(!activeModal||activeModal.el!==el||$("#nativeContextMenu")?.open)return;
     const t=e.target instanceof Element?e.target:null;
@@ -25762,6 +25764,8 @@ if(DurableState){
    The head script shows the panel itself when app.js has not arrived, and app.js
    starts out stalled when it finds that panel. */
 let bootSplashState=document.documentElement.classList.contains("is-boot-failed")?"stalled":"covering";
+/* The error panel owns the presentation while it is up: its Reload is the only control the lifter can see. */
+function bootPanelShowing(){return(bootSplashState==="stalled"||bootSplashState==="failed")&&!!document.getElementById("bootSplash")}
 function releaseBootSplash(){
   if(bootSplashState!=="covering"&&bootSplashState!=="stalled")return;
   const lifting=bootSplashState==="stalled";
