@@ -376,14 +376,20 @@ try {
       const box = sheet.getBoundingClientRect();
       const x = box.left + box.width / 2;
       const y = box.top + box.height / 2;
-      const splashBox = splash?.getBoundingClientRect();
-      const style = splash ? getComputedStyle(splash) : null;
-      const covers = !!splash && style.display !== "none" && style.visibility !== "hidden" && parseFloat(style.opacity) > 0.5 &&
-        !!splashBox && x >= splashBox.left && x <= splashBox.right && y >= splashBox.top && y <= splashBox.bottom;
+      // The launch cover is the background: opaque above the sheet, so no empty Today shows through the scrim.
+      const coverAt = (px, py) => {
+        if (!splash) return false;
+        const b = splash.getBoundingClientRect();
+        const s = getComputedStyle(splash);
+        return s.display !== "none" && s.visibility !== "hidden" && parseFloat(s.opacity) > 0.9 &&
+          px >= b.left && px <= b.right && py >= b.top && py <= b.bottom;
+      };
+      const hitAtSheet = document.elementFromPoint(x, y);
       return {
         state: sheet.dataset.transferState,
         sheetShown: sheet.hidden === false,
-        covers,
+        coverAboveSheet: coverAt(window.innerWidth / 2, 120),
+        sheetAboveCover: !!hitAtSheet?.closest("#iosInstallSheet"),
         panel: document.documentElement.classList.contains("is-boot-failed") || !!document.querySelector('#bootSplash [role="alert"]'),
         focusInSheet: sheet.contains(document.activeElement),
       };
@@ -391,7 +397,8 @@ try {
     assert.equal(surface.panel, false, `a claim running past the stall deadline shows no failure panel (${JSON.stringify(surface)})`);
     assert.equal(surface.state, "claiming", "the claiming sheet is still the surface");
     assert.equal(surface.sheetShown, true, "the claiming sheet is shown");
-    assert.equal(surface.covers, false, "the boot splash does not cover the claiming sheet");
+    assert.equal(surface.coverAboveSheet, true, `the launch cover is the background above the claiming sheet, so no empty Today shows (${JSON.stringify(surface)})`);
+    assert.equal(surface.sheetAboveCover, true, "the claiming sheet is above the launch cover");
     assert.equal(surface.focusInSheet, true, "keyboard focus is inside the claiming sheet before the Tab check");
     // Tab and Shift+Tab stay within the visible sheet: the sheet has no focusable control, so the modal's
     // trap keeps focus on the sheet itself.

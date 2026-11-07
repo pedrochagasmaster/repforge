@@ -379,6 +379,11 @@ try {
       hookDefined: typeof window.__repforgeShowBootFailure === "function",
     }));
     assert(fallback.panel && !fallback.hookDefined, "before app.js arrives, the head script shows the error panel itself", JSON.stringify(fallback));
+    await page.keyboard.press("Tab");
+    const fallbackTab = await page.evaluate(() => document.activeElement?.id || document.activeElement?.tagName || null);
+    const fallbackInert = await page.evaluate(() => document.querySelector("main")?.inert === true);
+    assert(fallbackTab === "bootReload" && fallbackInert, `the head script's own panel contains Tab on its Reload and makes the page inert (focus: ${fallbackTab})`,
+      JSON.stringify({ fallbackTab, fallbackInert }));
     releaseApp();
     await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
     const after = await page.evaluate(() => ({
@@ -386,6 +391,8 @@ try {
       failed: document.documentElement.classList.contains("is-boot-failed"),
     }));
     assert(!after.splash && !after.failed, "when app.js arrives and boots, the fallback panel is lifted and its failed state is cleared", JSON.stringify(after));
+    const restored = await page.evaluate(() => document.querySelector("main")?.inert === false);
+    assert(restored, "when the late boot succeeds, the page is no longer inert");
     await context.close();
   }
 
@@ -410,6 +417,15 @@ try {
     });
     assert(!stalled.booted && stalled.panel && stalled.alert, "a boot still running past the deadline shows the error panel", JSON.stringify(stalled));
     assert(stalled.reloadFocused, "the error panel takes keyboard focus on its Reload button", JSON.stringify(stalled));
+    // The covered page is not reachable from the panel: Tab and Shift+Tab stay on its Reload.
+    await page.keyboard.press("Tab");
+    const tabFocus = await page.evaluate(() => document.activeElement?.id || document.activeElement?.tagName || null);
+    await page.keyboard.press("Shift+Tab");
+    const shiftTabFocus = await page.evaluate(() => document.activeElement?.id || document.activeElement?.tagName || null);
+    const covered = await page.evaluate(() => ({ mainInert: document.querySelector("main")?.inert === true }));
+    assert(tabFocus === "bootReload" && shiftTabFocus === "bootReload" && covered.mainInert,
+      `while the error panel owns the screen, Tab and Shift+Tab stay on its Reload and the page is inert (focus: ${tabFocus}, ${shiftTabFocus})`,
+      JSON.stringify({ tabFocus, shiftTabFocus, ...covered }));
     releaseCatalog();
     await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
     const after = await page.evaluate(() => {
