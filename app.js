@@ -12252,6 +12252,7 @@ window.__repforgeCommitProposedState=proposal=>commitProposedState(proposal,stor
 window.__repforgeInstallTransferImport=(envelope,options)=>importInstallTransfer(envelope,options);
 window.__repforgePersistSetupDraft=next=>persistSetupDraft(next);
 window.__repforgeEntryState=()=>cloneSnapshot(entryState);
+window.__repforgeRecommitEntryState=()=>{entrySetState(entryState,{persist:false});return true};
 // The mounted Build editor's own client-side document (program-editor.js's
 // local copy, which is what #onbProgramEditor actually renders from). It is
 // kept separately from entryState and only adopts a commit's own canonical
@@ -18876,7 +18877,7 @@ async function discardEntryDraftAndCancel(){
   cancelOnboarding()}
 function entrySetState(next,{persist=true}={}){
   // Anything that moves the flow on supersedes a program still generating for it.
-  if(entryResultJob){entryResultJob.controller.abort();entryResultJob=null}
+  supersedeEntryGeneration();
   const offerKey=entryOfferKey(next);
   if(entryOfferJob&&(next?.step!=="result"||offerKey!==entryOfferJob.key)){
     entryOfferJob.controller.abort();entryOfferJob=null}
@@ -18886,8 +18887,7 @@ function entrySetState(next,{persist=true}={}){
   const outgoing=direction&&entryMotionAvailable()?cloneEntryMotionPage(entryMotionLivePage()):null;
   if(next?.step!==entryState?.step||next?.route!==entryState?.route){
     entryPickerDraft={};entryPriorityLimitShown=false;
-    if(entryBuilding){entryBuilding.timers.forEach(clearTimeout);entryBuilding.release()}
-    entryBuilding=null}
+  }
   entryState=next;
   if(next?.step!=="background")entryGoalFromHub=false;
   entryValidationNotice=false;
@@ -19807,11 +19807,23 @@ function settleGeneration(token,outcome){
   let duration=null;
   try{duration=window.RepForgeTelemetry?.bucketGeneration?.(generationClock()-token.at)}catch{}
   if(duration)captureEvent("generation_settled",{route:token.route,outcome,duration})}
-/* Generation is deterministic in its canonical request, so the last few
-   outputs are kept: the review's recommendation is then at hand on the render
-   that follows its own generation. A test's services override is never cached. */
+/* One status owns the exclusive result and answer jobs; the review baseline
+   and four-output cache keep their independent lifetimes. */
+const ENTRY_GENERATION_STATUS=Object.freeze({IDLE:"idle",GENERATING_RESULT:"generating-result",
+  REBUILDING_ANSWER:"rebuilding-answer"});
+const ENTRY_GENERATION_IDLE=Object.freeze({status:ENTRY_GENERATION_STATUS.IDLE});
+let entryGeneration=ENTRY_GENERATION_IDLE;
 const entryGenerated=new Map();
 const entryGeneratedKey=request=>ProgramCompiler.generationIdentity(request,rawExerciseCatalog);
+function releaseEntryBuilding(checklist){
+  if(!checklist)return;
+  checklist.timers.forEach(clearTimeout);checklist.timers.length=0;checklist.release()}
+function supersedeEntryGeneration(){
+  const current=entryGeneration;
+  if(current.status===ENTRY_GENERATION_STATUS.GENERATING_RESULT){
+    current.controller?.abort();releaseEntryBuilding(current.checklist);
+    entryGeneration=ENTRY_GENERATION_IDLE}
+  syncEntryBusy()}
 function entryGeneratedPeek(from){
   if(!from||window.__repforgeProgramEntryServicesOverride||!ProgramEntryAdapter?.programRequestFromAnswers)return null;
   const services=entryServices(),mapped=entryGeneratorRequest(from);
@@ -19917,15 +19929,20 @@ let entryBuildArmed=null;
    resumed draft). Until it lands the lifter stays where they were, so the
    committed state never holds a result step without its program; anything
    that moves the flow on meanwhile supersedes it. */
-let entryResultJob=null,entryAnswerJob=null;
 function cancelEntryGeneration(){
-  entryResultJob?.controller.abort();entryAnswerJob?.controller.abort();
-  entryResultJob=null;entryAnswerJob=null;syncEntryBusy()}
+  const current=entryGeneration;
+  if(current.status===ENTRY_GENERATION_STATUS.GENERATING_RESULT||current.status===ENTRY_GENERATION_STATUS.REBUILDING_ANSWER)
+    current.controller?.abort();
+  releaseEntryBuilding(current.checklist);
+  entryGeneration=ENTRY_GENERATION_IDLE;syncEntryBusy()}
 function syncEntryBusy(){
+  const status=entryGeneration.status;
+  const resultBusy=status===ENTRY_GENERATION_STATUS.GENERATING_RESULT&&entryGeneration.from===entryState;
+  const answerBusy=status===ENTRY_GENERATION_STATUS.REBUILDING_ANSWER&&entryGeneration.committed===entryState;
   const next=$("#onbNext");
-  if(next){if(entryResultJob)next.setAttribute("aria-busy","true");else next.removeAttribute("aria-busy")}
+  if(next){if(resultBusy)next.setAttribute("aria-busy","true");else next.removeAttribute("aria-busy")}
   const review=$("#entryCandidateReview");
-  if(review){if(entryAnswerJob)review.setAttribute("aria-busy","true");else review.removeAttribute("aria-busy")}}
+  if(review){if(answerBusy)review.setAttribute("aria-busy","true");else review.removeAttribute("aria-busy")}}
 /* B's building moment (Plan 072): a four-line checklist and a thin bar while
    the program generates. The step moves to the result when the checklist has
    finished, or the lifter skipped it, and the program has landed; if the
@@ -19933,7 +19950,6 @@ function syncEntryBusy(){
    every line done. Nothing here is persisted: a reload on this step starts
    it again, and Back returns to the abilities with the job aborted. */
 const ENTRY_BUILDING_LINE_MS=260;
-let entryBuilding=null;
 function renderBuildingStep(){
   const minutes=entryState.answers.sessionMinutes||60;
   const deload=entryState.answers.deload!==false;
@@ -19951,17 +19967,18 @@ function mountEntryBuilding(){
   if(entryState?.step!=="building"||entryUiNotice)return;
   const root=$("#entryBuilding");if(!root)return;
   // One checklist per arrival on the step; a re-render keeps its progress.
-  if(!entryBuilding){
+  if(entryGeneration.status!==ENTRY_GENERATION_STATUS.GENERATING_RESULT||!entryGeneration.checklist){
     let release;const gate=new Promise(resolve=>{release=resolve});
-    entryBuilding={gate,release,done:false,timers:[]};
+    const checklist={gate,release,done:false,timers:[]};
     const target=ProgramEntry.advance(entryState);
-    if(target.ok)startEntryResult(target.state,{gate})}
-  const run=entryBuilding,items=[...root.querySelectorAll(".entry-building__steps li")];
+    if(target.ok)startEntryResult(target.state,{checklist})}
+  const run=entryGeneration.checklist,items=[...root.querySelectorAll(".entry-building__steps li")];
+  if(!run)return;
   const finish=()=>{
     if(run.done)return;run.done=true;run.timers.forEach(clearTimeout);
     items.forEach(li=>{li.classList.remove("is-now");li.classList.add("is-done")});
     root.classList.add("is-done");run.release();
-    entryBuildingPending(!!entryResultJob?.settled)};
+    entryBuildingPending(!!entryGeneration.settled)};
   $("#entryBuildingSkip")?.addEventListener("click",finish);
   if(run.done||!beatsOn()){finish();return}
   if(run.timers.length)return;
@@ -19974,13 +19991,13 @@ function mountEntryBuilding(){
    the hairline appears only while the checklist is done and the job is not. */
 function entryBuildingPending(settled){
   const wait=$("#entryBuildingWait");if(!wait)return;
-  const pending=!settled&&!!entryBuilding?.done;
+  const pending=!settled&&!!entryGeneration.checklist?.done;
   wait.hidden=!pending;
   wait.classList.toggle("is-pending",pending)}
-async function startEntryResult(target,{gate=null}={}){
-  entryResultJob?.controller.abort();
-  const job={from:entryState,target,controller:new AbortController()};
-  entryResultJob=job;entryCompileError=null;
+async function startEntryResult(target,{checklist=null}={}){
+  supersedeEntryGeneration();
+  const job={status:ENTRY_GENERATION_STATUS.GENERATING_RESULT,from:entryState,target,controller:new AbortController(),checklist};
+  entryGeneration=job;entryCompileError=null;
   syncEntryBusy();
   let outcome,without=null;
   try{
@@ -19990,16 +20007,17 @@ async function startEntryResult(target,{gate=null}={}){
       const bare=await generateEntryCandidate({...target,answers:{...target.answers,exerciseConstraints:[]}},{signal:job.controller.signal});
       without=bare.ok?bare.result:null}}
   catch{return}
-  if(entryResultJob!==job)return;
+  if(entryGeneration!==job)return;
   // B's building moment shows its checklist through, unless the lifter skips
   // it; a conflict is shown at once.
-  if(gate&&outcome.ok){
+  if(checklist&&outcome.ok){
     job.settled=true;entryBuildingPending(true);
-    await gate;
-    if(entryResultJob!==job)return}
-  entryResultJob=null;
-  if(entryState!==job.from){syncEntryBusy();return}
+    await checklist.gate;
+    if(entryGeneration!==job)return}
+  entryGeneration=ENTRY_GENERATION_IDLE;syncEntryBusy();
+  if(entryState!==job.from){releaseEntryBuilding(checklist);return}
   if(!outcome.ok){
+    releaseEntryBuilding(checklist);
     entryCompileError=outcome.failure;
     entrySetState(target);
     return}
@@ -20529,20 +20547,21 @@ async function applyEntryAnswerEdit(patch,{lead,beforeLabel,afterLabel}={}){
   const route=entryState.route;
   if(route!=="recommend"&&route!=="custom")return{ok:false};
   const committed=entryState,before=committed.result;
-  const next=ProgramEntry.setAnswers(entryAnswerJob?.committed===committed?entryAnswerJob.next:committed,patch);
+  const current=entryGeneration;
+  const next=ProgramEntry.setAnswers(current.status===ENTRY_GENERATION_STATUS.REBUILDING_ANSWER&&current.committed===committed?current.next:committed,patch);
   if(before.preview.programDefinition?.provenance?.source==="recovered_generation_rules"){
     const mapped=entryGeneratorRequest(next);
     if(!mapped.ok)return{ok:false,failure:{code:"generation_conflict",conflicts:mapped.failure?.conflicts||[]}};
     if(!ProgramCompiler.availableSplits(mapped.request).includes(mapped.request.split))return{ok:false,failure:{code:"generation_conflict",
       conflicts:[{code:"unsupported_generation_domain"}]}}}
-  entryAnswerJob?.controller.abort();
-  const job={committed,next,controller:new AbortController()};
-  entryAnswerJob=job;syncEntryBusy();
+  if(current.status===ENTRY_GENERATION_STATUS.REBUILDING_ANSWER)current.controller?.abort();
+  const job={status:ENTRY_GENERATION_STATUS.REBUILDING_ANSWER,committed,next,controller:new AbortController()};
+  entryGeneration=job;syncEntryBusy();
   let outcome;
   try{outcome=await generateEntryCandidate(next,{signal:job.controller.signal,timed:true})}
   catch{return{ok:false,superseded:true}}
-  if(entryAnswerJob!==job)return{ok:false,superseded:true};
-  entryAnswerJob=null;syncEntryBusy();
+  if(entryGeneration!==job)return{ok:false,superseded:true};
+  entryGeneration=ENTRY_GENERATION_IDLE;syncEntryBusy();
   if(entryState!==committed)return{ok:false,superseded:true};
   if(!outcome.ok)return{ok:false,failure:outcome.failure};
   const compiled=outcome.result;
@@ -20666,7 +20685,7 @@ function renderResultStep(){
   const result=entryState.result?.preview?entryState.result:null;
   if(!result&&!entryCompileError){
     // A resumed draft can stand on the result step without its program.
-    if(!entryResultJob)startEntryResult(entryState);
+    if(entryGeneration.status!==ENTRY_GENERATION_STATUS.GENERATING_RESULT)startEntryResult(entryState);
     return entryHeading(resultTitle)+`<p class="visually-hidden" role="status">${esc(t("entry.result.building"))}</p>`}
   if(!result){
     const failure=entryCompileError&&typeof entryCompileError==="object"?entryCompileError:null;
@@ -20706,7 +20725,7 @@ function renderResultStep(){
   /* Plan 070: the program is onboarding B's review editor, mounted into
      #entryReview after this render (mountEntryAdjust). What the program was
      built from stays below it until B's question screens replace these. */
-  return `<section id="entryCandidateReview" class="entry__review" aria-labelledby="entryHeading"${entryAnswerJob?` aria-busy="true"`:""}>`+
+  return `<section id="entryCandidateReview" class="entry__review" aria-labelledby="entryHeading">`+
     `<div id="entryReview" class="entry__adjust ph-no-capture"></div>`+
     renderEntryChangeStatement(entryChange)+
     (hasActiveProgram()&&!entryUiNotice?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
@@ -20889,7 +20908,7 @@ function resolveEntryAdjustDialog(confirmed){
 async function guardEntryRebuild(rebuild){
   // A rebuild of this same result is already generating: its guard has dealt
   // with the adjustments, and the next answer builds on that rebuild.
-  const rebuilding=entryAnswerJob&&entryAnswerJob.committed===entryState;
+  const rebuilding=entryGeneration.status===ENTRY_GENERATION_STATUS.REBUILDING_ANSWER&&entryGeneration.committed===entryState;
   if(!rebuilding&&await entryAdjusted()){
     const count=window.RepForgeProgramReview.changes(entryAdjust.baseline.preview.programDefinition,
       entryState.result.preview.programDefinition).count||1;
@@ -21703,7 +21722,6 @@ function renderOnboarding({pageTransition=null}={}){
     const needsChoice=!hideNext&&!isEditor&&entryNeedsChoice(stepId);
     const blocked=!hideNext&&!isEditor&&(needsChoice||!hub&&ProgramEntry.validationIssues(entryState).length>0);
     next.disabled=!!pendingReason||blocked;
-    if(entryResultJob)next.setAttribute("aria-busy","true");else next.removeAttribute("aria-busy");
     /* A blocked primary says why, in text above it, and drops its arrow. */
     const showReason=blocked&&!pendingReason;
     if(reason){reason.hidden=!showReason;reason.textContent=showReason?t(stepId==="build_setup"?"entry.pinned.reason_name":needsChoice?"entry.required":"entry.pinned.reason"):""}
@@ -21762,6 +21780,7 @@ function renderOnboarding({pageTransition=null}={}){
     updateOnboardingEditorActions();
   }
   setupEntryRovingFocus();
+  syncEntryBusy();
   if(!dialogOpen){
     if(!restoreEntryFocus(focusToken)){
       const header=headerFocus&&sameScreen?$("#"+CSS.escape(headerFocus)):null;
@@ -22188,7 +22207,7 @@ async function surfaceEntryDurableConflict(){
   return recovered;
 }
 function entryAdvance(){
-  if(!ProgramEntry||!entryState||entryResultJob)return;
+  if(!ProgramEntry||!entryState||entryGeneration.status===ENTRY_GENERATION_STATUS.GENERATING_RESULT)return;
   if(entryHubMode()){entryChooseHubRoute();return}
   entryGoalOpen=false;
   if(entryState.step==="split")stopEntrySplitEstimates();
