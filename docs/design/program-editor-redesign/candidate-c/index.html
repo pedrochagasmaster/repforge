@@ -1,0 +1,144 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Candidate C: compact table</title>
+<link rel="stylesheet" href="../shared/editor.css">
+<style>
+/* Candidate C: one page, one table per day, a week selector and a value pad. */
+.c-weeks{display:flex;gap:4px;margin:12px calc(-1*var(--gut)) 0;padding:0 var(--gut) 10px;border-bottom:1px solid var(--rule);overflow:hidden}
+.c-weeks>span{min-width:38px;height:38px;padding:0 8px;border-radius:999px;border:1px solid var(--boundary);display:flex;align-items:center;justify-content:center;font:500 14px var(--sans);flex:none;background:var(--surface);position:relative}
+.c-weeks>span.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.c-weeks>span.has::after{content:"";position:absolute;top:4px;right:6px;width:5px;height:5px;border-radius:50%;background:currentColor}
+.c-day{margin-top:18px}
+.c-dayhd{display:flex;align-items:center;justify-content:space-between;min-height:40px}
+.c-dayhd .more{width:44px;height:44px;display:flex;align-items:center;justify-content:center;font:600 18px var(--sans);margin-right:-12px}
+.c-grid{display:grid;grid-template-columns:1fr 40px 58px 54px 50px;column-gap:4px;align-items:stretch}
+.c-grid .h{font:500 11px var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft);min-height:28px;display:flex;align-items:end;justify-content:flex-end;padding-bottom:6px;border-bottom:1px solid var(--rule)}
+.c-grid .h:first-child{justify-content:flex-start}
+.c-grid .nm{font:400 15px/1.3 var(--sans);display:flex;align-items:center;min-height:52px;border-bottom:1px solid var(--rule);padding:6px 6px 6px 0;position:relative}
+.c-grid .cv{display:flex;align-items:center;justify-content:flex-end;min-height:52px;border-bottom:1px solid var(--rule);font:500 15px var(--mono);padding-right:4px;position:relative}
+.c-grid .cv.sel{box-shadow:inset 0 0 0 2px var(--ink);border-radius:8px;background:var(--well);justify-content:center;padding:0}
+.c-grid .cv.diff::before{content:"";position:absolute;inset:6px 0;border:2px solid var(--ink);border-radius:8px}
+.c-grid .cv.bad{color:var(--danger)}
+.c-grid .cv.bad::before{content:"";position:absolute;inset:6px 0;border:2px solid var(--danger);border-radius:8px}
+.c-grid .cv.soft{color:var(--ink-soft);font-family:var(--sans);font-weight:400}
+.c-grid .sub{font:400 13px var(--sans);color:var(--ink-soft);padding-left:14px;min-height:44px;border-bottom:1px solid var(--rule);display:flex;align-items:center;background:var(--well)}
+.c-grid .subv{min-height:44px;border-bottom:1px solid var(--rule);display:flex;align-items:center;justify-content:flex-end;padding-right:4px;font:500 14px var(--mono);background:var(--well);position:relative}
+.c-grid .subv.diff::before{content:"";position:absolute;inset:5px 0;border:2px solid var(--ink);border-radius:8px}
+.c-grid .chg{position:absolute;left:-11px;top:50%;width:6px;height:6px;margin-top:-3px;border-radius:50%;background:var(--ink)}
+.c-add{display:flex;align-items:center;min-height:48px;font:500 15px var(--sans);color:var(--ink);gap:6px;border-bottom:1px solid var(--rule)}
+.c-pad{position:absolute;left:0;right:0;bottom:0;background:var(--surface);border-radius:16px 16px 0 0;box-shadow:0 -4px 16px rgba(var(--shadow-rgb),.09);border-top:1px solid var(--rule-strong);padding:14px var(--gut) 30px}
+.c-pad .fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.c-pad .f{background:var(--well);border-radius:8px;min-height:56px;display:flex;flex-direction:column;justify-content:center;padding:0 14px}
+.c-pad .f.on{box-shadow:inset 0 0 0 2px var(--ink)}
+.c-pad .f i{font:500 11px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);font-style:normal}
+.c-pad .f b{font:500 22px var(--mono)}
+.c-keys{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}
+.c-keys span{min-height:46px;border-radius:8px;background:var(--bg);display:flex;align-items:center;justify-content:center;font:500 20px var(--mono)}
+.c-keys span.w{font:500 15px var(--sans)}
+.c-keys span.ok{background:var(--cta);color:var(--cta-ink);font:600 16px var(--sans)}
+.c-menu{position:absolute;right:16px;width:240px;background:var(--surface);border-radius:12px;box-shadow:0 8px 24px rgba(var(--shadow-rgb),.18);border:1px solid var(--rule-strong);overflow:hidden}
+.c-menu div{min-height:48px;display:flex;align-items:center;padding:0 16px;border-bottom:1px solid var(--rule-on-surface);font:400 16px var(--sans)}
+.c-menu div:last-child{border-bottom:0}
+.c-swipe{display:flex;margin:0 calc(-1*var(--gut));}
+.c-swipe .del{background:var(--danger);color:#fff;font:600 15px var(--sans);display:flex;align-items:center;justify-content:center;width:96px;flex:none}
+:root[data-theme="dark"] .c-swipe .del{color:#141310}
+.c-sheet{top:120px}
+.c-sheet .body{padding:0 var(--gut);margin:0 calc(-1*var(--gut))}
+.c-line{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:56px;border-bottom:1px solid var(--rule-on-surface)}
+.c-line small{display:block;font:400 13px/1.35 var(--sans);color:var(--ink-soft)}
+.c-pick{display:flex;gap:12px;align-items:center;min-height:60px;border-bottom:1px solid var(--rule-on-surface)}
+.c-err{font:500 13px/1.35 var(--sans);color:var(--danger);grid-column:1/-1;padding:6px 0 8px;border-bottom:1px solid var(--rule)}
+</style>
+</head><body>
+<script src="../shared/kit.js"></script>
+<script>
+const { t, n, v, reps, img, EX, DAYS, exName } = Kit;
+const nav = (right) => `<div class="navbar"><button class="link">${t("Cancelar","Cancel")}</button><span class="t-sub" style="font-size:16px">${n("Editar treino","Edit program")}</span><button class="link strong">${right || t("Aplicar","Apply")}</button></div>`;
+const restMin = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+const head = (week = "all", extra = "") => `<div style="display:flex;align-items:center;gap:8px;margin-top:6px"><span class="t-feature">GodMode</span><span class="soft" style="font-size:14px">✎</span></div>
+  <p class="t-small" style="margin-top:2px">${n("4 dias · 3 alterações não aplicadas","4 days · 3 unapplied changes")}</p>
+  <div class="c-weeks"><span class="${week === "all" ? "on" : ""}">${n("Todas","All")}</span>${[1, 2, 3, 4, 5, 6, 7].map(w => `<span class="${week === w ? "on " : ""}${w === 7 ? "has" : ""}"><span class="num">${w}</span></span>`).join("")}</div>${extra}`;
+const gridHead = () => `<span class="h">${t("Exercício","Exercise")}</span><span class="h">${n("Sér.","Sets")}</span><span class="h">Reps</span><span class="h">RIR</span><span class="h">${n("Desc.","Rest")}</span>`;
+const cells = (e, o = {}) => `<span class="nm">${o.chg ? '<span class="chg"></span>' : ""}${exName(e)}</span>
+  <span class="cv${o.c === "sets" ? " " + o.k : ""}">${o.sets ?? e.sets}</span><span class="cv${o.c === "reps" ? " " + o.k : ""}">${o.reps ?? `${e.min}–${e.max}`}</span><span class="cv${o.c === "rir" ? " " + o.k : ""}">${o.rir ?? e.rir.join("·")}</span><span class="cv">${restMin(e.rest)}</span>`;
+const day = (d, list, o = {}) => `<div class="c-day"><div class="c-dayhd"><span class="t-sub">${t(d.pt, d.en)}</span><button class="more">···</button></div>
+  <p class="t-small" style="margin:-4px 0 6px">${list.length ? t(`${list.length} exercícios · cerca de ${d.min} min`,`${list.length} exercises · about ${d.min} min`) : `<span class="danger">${t("Sem exercícios","No exercises")}</span>`}</p>
+  <div class="c-grid">${gridHead()}${list.map((e, i) => o.row ? o.row(e, i) : cells(e, i === 0 && o.firstChg ? { chg: true } : {})).join("")}</div>
+  <div class="c-add"><span class="plus"></span>${t("Adicionar exercício","Add exercise")}</div></div>`;
+const LOWER = [
+  { pt: "Agachamento livre com barra", en: "Barbell back squat", sets: 3, min: 4, max: 6, rir: [2, 2, 1], rest: 180 },
+  { pt: "Levantamento terra romeno com barra", en: "Barbell Romanian deadlift", sets: 3, min: 6, max: 8, rir: [2, 1, 1], rest: 150 },
+];
+const S = [];
+
+// 1. Overview: every day is a table; the selector shows all weeks or one week.
+S.push({ id: "c1-overview", title: "Overview table", html: () => `<div class="scroll">${nav()}${head()}${day(DAYS[0], EX, { firstChg: true })}${day(DAYS[1], LOWER)}</div>` });
+
+// 2. Editing a cell: the value pad, with the scope of the change.
+S.push({ id: "c2-cell", title: "Edit a cell (value pad)", html: () => `<div class="scroll">${nav()}${head()}${day(DAYS[0], EX, { row: (e, i) => cells(e, i === 1 ? { c: "reps", k: "sel" } : {}) })}</div>
+  <div class="c-pad"><div style="display:flex;justify-content:space-between;align-items:center"><span><span class="t-sub" style="font-size:16px">${exName(EX[1])}</span><br><span class="t-small">${t("Faixa de repetições","Rep range")}</span></span><button class="close" style="position:relative;margin:0 -10px 0 0"></button></div>
+  <div class="fields"><span class="f on"><i>${n("Mínimo","Minimum")}</i><b>7</b></span><span class="f"><i>${n("Máximo","Maximum")}</i><b>9</b></span></div>
+  <div class="seg" style="margin-top:10px"><span class="is-on">${n("Todas as semanas","All weeks")}</span><span>${n("Só a semana 1","Week 1 only")}</span></div>
+  <div class="c-keys">${["1", "2", "3", "−", "4", "5", "6", "+", "7", "8", "9", "⌫"].map(k => `<span>${k}</span>`).join("")}<span class="w">${n("Anterior","Previous")}</span><span>0</span><span class="w">${t("Próximo","Next")}</span><span class="ok">OK</span></div></div>` });
+
+// 3. Exercise sheet from the row's name: everything the grid does not hold.
+S.push({ id: "c3-exercise", title: "Exercise sheet: loads, per side, alternates", html: () => `<div class="scroll">${nav()}${head()}${day(DAYS[0], EX)}</div><div class="scrim"></div>
+  <div class="sheet c-sheet"><div class="sheet__handle"></div><div class="sheet__head"><span class="t-section">${exName(EX[4])}</span><button class="close"></button></div>
+  <div class="body">
+  <div class="c-line" style="border-top:1px solid var(--rule-on-surface)"><span>${t("Sugerir cargas","Suggest loads")}<small>${t("Meta atual de repetições · 12–15","Current rep target · 12–15")} · RIR ${v(1)}</small></span><span class="switch on"></span></div>
+  <div class="c-line"><span>${t("Menor variação de carga","Smallest load change")}</span><span class="stepper"><button>−</button><output>1 kg</output><button>+</button></span></div>
+  <div class="c-line" style="display:block;padding:12px 0"><p style="margin-bottom:8px">${t("Como você faz este exercício?","How do you do this exercise?")}</p>
+    <div class="seg"><span>${n("Juntos","Together")}</span><span class="is-on">${n("Um lado por vez","One side at a time")}</span></div>
+    <p class="t-small" style="margin-top:8px">${n("Carga e repetições contadas por lado.","Load and reps counted per side.")}</p></div>
+  <div class="c-line"><span>${t("Alternativas","Alternates")}<small>${t("Elevação lateral na polia","Cable lateral raise")}</small></span><span class="chev"></span></div>
+  <div class="c-line"><span>${t("Notas de preparação","Setup notes")}<small>${n("Banco no 4","Bench on 4")}</small></span><span class="chev"></span></div>
+  <div class="c-line"><span>${t("Trocar exercício","Swap exercise")}</span><span class="chev"></span></div>
+  <div class="c-line"><span>${t("Mover para outro dia","Move to another day")}</span><span class="chev"></span></div>
+  <div class="c-line danger" style="border:0">${t("Remover exercício","Remove exercise")}</div>
+  </div></div>` });
+
+// 4. One week selected: the table shows that week; outlined cells differ; a row opens into sets.
+S.push({ id: "c4-exceptions", title: "Week 7 and per-set rows", html: () => `<div class="scroll">${nav()}${head(7, `<p class="t-small" style="margin-top:8px">${n("Semana 7 · contornado: diferente das outras semanas.","Week 7 · outlined: differs from the other weeks.")}</p>`)}
+  <div class="c-day"><div class="c-dayhd"><span class="t-sub">${t(DAYS[0].pt, DAYS[0].en)}</span><button class="more">···</button></div>
+  <div class="c-grid">${gridHead()}${cells(EX[0], { sets: 2, rir: "3·3", c: "rir", k: "diff" }).replace('<span class="cv">2</span>', '<span class="cv diff">2</span>')}
+    ${[1, 2].map(s => `<span class="sub">${n(`Série ${s}`,`Set ${s}`)} · ${n("carga auto","load auto")}</span><span class="subv"></span><span class="subv">4–6</span><span class="subv diff">3</span><span class="subv">3:00</span>`).join("")}
+    ${EX.slice(1).map(e => cells(e)).join("")}</div>
+  <div class="c-add"><span class="plus"></span>${t("Adicionar exercício","Add exercise")}</div></div>
+  <p class="t-small" style="margin-top:12px">${n("Toque no nome para abrir as séries. Toque num valor para mudar.","Tap a name to open its sets. Tap a value to change it.")}</p></div>` });
+
+// 5. Swap: the same picker as Add, with the slot's alternates pinned first.
+S.push({ id: "c5-replace", title: "Swap exercise", html: () => `<div class="scroll">${nav()}${head()}${day(DAYS[0], EX)}</div><div class="scrim"></div>
+  <div class="sheet c-sheet" style="top:90px"><div class="sheet__handle"></div><div class="sheet__head"><span class="t-section">${t("Trocar exercício","Swap exercise")}</span><button class="close"></button></div>
+  <div class="body"><div class="field" style="color:var(--ink-soft)">${t("Buscar no catálogo","Search the catalog")}</div>
+  <p class="t-label" style="margin:16px 0 4px">${n("Suas alternativas","Your alternates")}</p>
+  <div class="c-pick" style="border-top:1px solid var(--rule-on-surface)"><span class="grow">${t("Supino reto com halteres","Dumbbell bench press")}</span><span class="t-small">${n("1ª alternativa","1st alternate")}</span></div>
+  <p class="t-label" style="margin:16px 0 4px">${n("Mesma função","Same job")}</p>
+  ${[t("Supino reto no Smith","Smith machine bench press"), t("Supino máquina","Machine chest press"), t("Supino inclinado 45° com barra","45° incline barbell press"), t("Supino com barra e elástico","Banded barbell bench press")].map((nm, i) => `<div class="c-pick"${i === 0 ? ' style="border-top:1px solid var(--rule-on-surface)"' : ""}><span class="grow">${nm}</span></div>`).join("")}
+  </div></div>` });
+
+// 6. Remove by swiping a row; add from the day's last row.
+S.push({ id: "c6-remove-add", title: "Swipe to remove, add row", html: () => `<div class="scroll">${nav()}${head()}<div class="c-day"><div class="c-dayhd"><span class="t-sub">${t(DAYS[0].pt, DAYS[0].en)}</span><button class="more">···</button></div>
+  <div class="c-grid">${gridHead()}${EX.slice(0, 2).map(e => cells(e)).join("")}</div>
+  <div class="c-swipe"><div style="flex:1;transform:translateX(-96px);margin-left:var(--gut);margin-right:-96px;background:var(--bg)"><div class="c-grid">${cells(EX[2])}</div></div><span class="del">${t("Remover","Remove")}</span></div>
+  <div class="c-grid">${EX.slice(3).map(e => cells(e)).join("")}</div>
+  <div class="c-add"><span class="plus"></span>${t("Adicionar exercício","Add exercise")}</div></div>${day(DAYS[1], LOWER)}</div>
+  <div class="toast" style="bottom:34px"><span>${t("Exercício removido.","Exercise removed.")}</span><b>${t("Desfazer","Undo")}</b></div>` });
+
+// 7. Days: the day's ··· menu renames, moves the day and adds or removes.
+S.push({ id: "c7-days", title: "Day menu: rename and move", html: () => `<div class="scroll">${nav()}${head()}${day(DAYS[0], EX)}${day(DAYS[1], LOWER)}</div>
+  <div class="c-menu" style="top:268px"><div>${t("Renomear dia","Rename day")}</div><div>${n("Mover dia para cima","Move day up")}</div><div>${n("Mover dia para baixo","Move day down")}</div><div>${t("Reordenar exercícios","Reorder exercises")}</div><div class="danger">${t("Remover dia","Remove day")}</div></div>` });
+
+// 8. Validation: the cell, the reason under its row, and the blocked Apply.
+S.push({ id: "c8-validation", title: "Validation", html: () => `<div class="scroll">${nav(`<span class="soft">${t("Aplicar","Apply")}</span>`)}${head()}
+  <div class="banner-err" style="margin-top:12px">${n("Corrija 2 itens para aplicar.","Fix 2 items to apply.")}</div>
+  ${day(DAYS[0], EX.slice(0, 3), { row: (e, i) => cells(e, i === 1 ? { c: "reps", k: "bad", reps: "10–8" } : {}) + (i === 1 ? `<span class="c-err">${n("O mínimo não pode passar do máximo.","The minimum can't be above the maximum.")}</span>` : "") })}
+  ${day({ ...DAYS[3], min: 0 }, [])}<p class="err">${t("Este dia ficou sem exercícios. Adicione um para poder usar o treino.","This day has no exercises. Add one to use the program.")}</p></div>` });
+
+// 9. Cancel with changes: today's dialog.
+S.push({ id: "c9-done", title: "Cancel with unapplied changes", html: () => `<div class="scroll">${nav()}${head()}${day(DAYS[0], EX, { firstChg: true })}</div><div class="scrim"></div><div class="dialog">
+  <p class="d-title">${t("Alterações não aplicadas","Unapplied changes")}</p><p>${t("Suas alterações ainda não foram aplicadas.","Your changes haven't been applied yet.")}</p>
+  <div class="stack"><button class="cta noarrow">${t("Aplicar alterações","Apply changes")}</button><button class="btn2">${t("Descartar alterações","Discard changes")}</button><button class="btn2" style="border:0">${t("Continuar editando","Keep editing")}</button></div></div>` });
+
+Kit.render(S);
+</script>
+</body></html>

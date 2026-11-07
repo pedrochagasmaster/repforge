@@ -1,0 +1,173 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Candidate B: progressive disclosure</title>
+<link rel="stylesheet" href="../shared/editor.css">
+<style>
+/* Candidate B: three levels (program, day, exercise), each a pushed page. */
+.b-sec{margin-top:26px}
+.b-sec>.t-label{display:block;margin-bottom:8px}
+.b-row{display:flex;align-items:center;gap:12px;min-height:64px;border-bottom:1px solid var(--rule);padding:8px 0}
+.b-rows>.b-row:first-child{border-top:1px solid var(--rule)}
+.b-row .name{font:500 17px/1.3 var(--sans)}
+.b-row .line{font:400 14px/1.4 var(--sans);color:var(--ink-soft);margin-top:2px}
+.b-row .line .num{color:var(--ink)}
+.b-chg{width:7px;height:7px;border-radius:50%;background:var(--ink);flex:none;align-self:flex-start;margin-top:13px;margin-left:-14px;margin-right:-5px}
+.b-kv{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:60px;border-bottom:1px solid var(--rule)}
+.b-kv .k{font:400 16px var(--sans)}
+.b-kv .k small{display:block;font:400 13px/1.35 var(--sans);color:var(--ink-soft);margin-top:2px}
+.b-rirs{display:flex;gap:6px}
+.b-rirs span{width:44px;height:44px;border:1px solid var(--boundary);border-radius:8px;background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center;font:500 16px/1 var(--mono)}
+.b-rirs span i{font:400 10px var(--sans);font-style:normal;color:var(--ink-soft);margin-bottom:3px}
+.b-rirs span.on{box-shadow:inset 0 0 0 2px var(--ink);border-color:var(--ink)}
+.b-sum{display:flex;align-items:center;gap:12px;min-height:64px;border-bottom:1px solid var(--rule);border-top:1px solid var(--rule)}
+.b-sum .k{flex:1}
+.b-sum .k b{display:block;font:500 16px var(--sans)}
+.b-sum .k span{font:400 14px/1.4 var(--sans);color:var(--ink-soft)}
+.b-exc{background:var(--well);border-radius:12px;box-shadow:inset 0 0 0 2px var(--ink);padding:4px 14px 14px;margin-top:10px}
+.b-exc .hd{display:flex;align-items:center;justify-content:space-between;min-height:48px}
+.b-grid{display:grid;grid-template-columns:28px 1.15fr 1fr .8fr 1fr;gap:6px;align-items:center}
+.b-grid .h{font:500 11px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);min-height:24px;display:flex;align-items:end}
+.b-cell{min-height:44px;border:1px solid var(--boundary);border-radius:8px;background:var(--surface);display:flex;align-items:center;justify-content:center;font:500 16px var(--mono)}
+.b-cell.diff{box-shadow:inset 0 0 0 2px var(--ink);border-color:var(--ink)}
+.b-cell.soft{color:var(--ink-soft);font:400 15px var(--sans)}
+.b-act{display:flex;align-items:center;min-height:52px;border-bottom:1px solid var(--rule);font:500 16px var(--sans);justify-content:space-between}
+.b-act:first-child{border-top:1px solid var(--rule)}
+.b-pick{display:flex;gap:12px;align-items:center;min-height:68px;border-bottom:1px solid var(--rule)}
+.b-pick .thumb{width:48px;height:48px}
+.b-head{margin-top:6px}
+.b-chgrow{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid var(--rule)}
+.b-chgrow .k{flex:1;font:400 15px/1.45 var(--sans)}
+.b-chgrow .k b{font-weight:500;display:block}
+.b-chgrow .ulink{min-height:24px;font-size:14px}
+.cta.is-disabled{background:#E4E1DA;color:#6A665F}
+:root[data-theme="dark"] .cta.is-disabled{background:#2E2B26;color:#ADA79D}
+.cta.is-disabled::before,.cta.is-disabled::after{display:none}
+.toast{bottom:150px}
+.b-bar{display:flex;align-items:center;justify-content:space-between;min-height:36px;margin-bottom:8px;font:500 15px var(--sans)}
+</style>
+</head><body>
+<script src="../shared/kit.js"></script>
+<script>
+const { t, n, v, reps, img, EX, DAYS, exName } = Kit;
+const nav = (back, title = "", right = "") => `<div class="navbar"><button class="link${back ? " chev-l" : ""}">${back || t("Cancelar","Cancel")}</button><span class="t-sub" style="font-size:16px">${title}</span><span>${right}</span></div>`;
+const bar = (count = 3, opts = {}) => `<div class="actionbar">${count ? `<div class="b-bar"><span><span class="dot"></span>${n(`${count} alterações`,`${count} changes`)}</span><button class="ulink" style="min-height:36px">${n("Revisar","Review")}</button></div>` : ""}
+  ${opts.reason ? `<p class="t-small" style="color:var(--ink);margin:0 0 10px">${opts.reason}</p>` : ""}<button class="cta${opts.disabled ? " is-disabled" : ""}">${t("Aplicar alterações","Apply changes")}</button></div>`;
+const restMin = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+const rxLine = e => `${v(e.sets)} × ${reps(e.min, e.max)} · RIR ${v(e.rir.join("·"))} · ${v(restMin(e.rest))}`;
+
+const S = [];
+
+// 1. Program overview: a ledger of days.
+const overview = (opts = {}) => `<div class="scroll">${nav("", n("Editar treino","Edit program"))}
+  <div class="b-head"><label class="t-label">${t("Nome do treino","Program name")}</label><div class="field" style="margin-top:6px">GodMode</div>
+  <p class="t-small" style="margin-top:10px">${n("7 semanas · você está na semana 1","7 weeks · you are in week 1")}</p></div>
+  <div class="b-sec"><div style="display:flex;justify-content:space-between;align-items:end"><span class="t-label">${t("Dias de treino","Training days")}</span>${opts.reorder ? `<button class="ulink" style="min-height:32px">${t("Concluir","Done")}</button>` : `<button class="ulink" style="min-height:32px">${n("Reordenar","Reorder")}</button>`}</div>
+  <div class="b-rows" style="margin-top:6px">${DAYS.map((d, i) => opts.reorder
+    ? `<div class="b-row"><span class="handle" style="margin-left:-10px"></span><div class="grow">${i === 1 ? `<div class="field is-focus" style="min-height:44px;padding:10px 12px">Inferior @ Casa</div>` : `<div class="name">${t(d.pt, d.en)}</div>`}</div></div>`
+    : `<div class="b-row">${i === 0 ? '<span class="b-chg"></span>' : ""}<div class="grow"><div class="name">${t(d.pt, d.en)}</div><div class="line">${opts.empty === i ? `<span class="danger">${t("Sem exercícios","No exercises")}</span>` : t(`${d.n} exercícios · cerca de ${d.min} min`,`${d.n} exercises · about ${d.min} min`)}</div></div><span class="chev"></span></div>`).join("")}</div>
+  <button class="ghost plus" style="margin-top:6px">${n("Adicionar dia","Add day")}</button></div>
+  ${opts.reorder ? `<p class="t-small" style="margin-top:8px">${n("Arraste pela alça para mudar a ordem. Toque no nome para renomear.","Drag by the handle to change the order. Tap a name to rename it.")}</p>` : ""}
+</div>`;
+S.push({ id: "b1-overview", title: "Program overview", html: () => overview() + bar() });
+
+// 2. Day page.
+const dayPage = (opts = {}) => {
+  const list = opts.list || EX;
+  return `<div class="scroll">${nav(t("Treino","Program"), "", `<button class="link">${n("Reordenar","Reorder")}</button>`)}
+  <label class="t-label" style="display:block;margin-top:6px">${t("Nome do dia","Day name")}</label><div class="field" style="margin-top:6px;font-weight:600">${t(DAYS[0].pt, DAYS[0].en)}</div>
+  <p class="t-small" style="margin-top:10px">${t(`${list.length} exercícios · cerca de ${opts.min || 58} min`,`${list.length} exercises · about ${opts.min || 58} min`)}</p>
+  <div class="b-rows" style="margin-top:14px">${list.map((e, i) => `<div class="b-row">${i === 0 && !opts.noChange ? '<span class="b-chg"></span>' : ""}<div class="grow"><div class="name">${exName(e)}</div><div class="line">${rxLine(e)}</div></div><span class="chev"></span></div>`).join("")}</div>
+  <button class="ghost plus" style="margin-top:6px">${t("Adicionar exercício","Add exercise")}</button></div>`;
+};
+S.push({ id: "b2-day", title: "Day page", html: () => dayPage() + bar() });
+
+// 3. Exercise page: the prescription, then one summary line for exceptions.
+const exTop = (e, opts = {}) => `${nav(t(DAYS[0].pt, DAYS[0].en).replace(/ @.*/, ""))}
+  <div style="display:flex;gap:14px;align-items:center;margin-top:8px"><div class="thumb" style="width:64px;height:64px"><img src="${img(e.art)}" alt=""></div>
+  <div><p class="t-section">${exName(e)}</p><p class="t-small" style="margin-top:2px">${t(e.musclesPt, e.musclesEn)}</p></div></div>
+  ${opts.banner ? `<div class="banner-err" style="margin-top:14px">${opts.banner}</div>` : ""}
+  <div class="b-sec" style="margin-top:20px"><span class="t-label">${n("Prescrição","Prescription")}</span>
+    <div class="b-kv" style="border-top:1px solid var(--rule)"><span class="k">${t("Séries","Sets")}</span><span class="stepper"><button>−</button><output>${e.sets}</output><button>+</button></span></div>
+    <div class="b-kv" style="flex-wrap:wrap;padding:10px 0"><span class="k" style="width:100%">${t("Faixa de repetições","Rep range")}</span>
+      <span style="display:flex;gap:8px;align-items:center"><span class="stepper"${opts.err ? ' style="border-color:var(--danger);box-shadow:inset 0 0 0 1px var(--danger)"' : ""}><button>−</button><output>${opts.err ? 10 : e.min}</output><button>+</button></span><span class="soft">–</span><span class="stepper"><button>−</button><output>${opts.err ? 8 : e.max}</output><button>+</button></span></span>
+      ${opts.err ? `<p class="err" style="width:100%">${n("O mínimo não pode passar do máximo.","The minimum can't be above the maximum.")}</p>` : ""}</div>
+    <div class="b-kv"><span class="k">RIR<small>${n("Por série. Toque para mudar.","Per set. Tap to change.")}</small></span><span class="b-rirs">${e.rir.map((r, i) => `<span${i === 0 && opts.rirOn ? ' class="on"' : ""}><i>${i + 1}</i>${r}</span>`).join("")}</span></div>
+    <div class="b-kv"><span class="k">${t("Descanso entre séries","Rest between sets")}</span><span class="stepper"><button>−</button><output>${restMin(e.rest)}</output><button>+</button></span></div>
+  </div>`;
+const excSummary = (open) => `<div class="b-sum" style="margin-top:18px"><span class="k"><b>${n("Semanas e séries","Weeks and sets")}</b><span>${open ? n("1 exceção · semana 7","1 exception · week 7") : n("Igual em todas as semanas","Same in every week")}</span></span><span class="t-small" style="color:var(--ink)">${open ? "" : n("Ajustar","Adjust")}</span><span class="chev${open ? " up" : " down"}"></span></div>`;
+S.push({ id: "b3-exercise", title: "Exercise page", html: () => `<div class="scroll">${exTop(EX[0])}${excSummary(false)}
+  <div class="b-sec"><span class="t-label">${n("Cargas","Loads")}</span>
+  <div class="b-kv" style="border-top:1px solid var(--rule)"><span class="k">${t("Sugerir cargas","Suggest loads")}</span><span class="switch"></span></div>
+  <div class="b-kv"><span class="k">${t("Menor variação de carga","Smallest load change")}<small>${t("As cargas sugeridas mudam em passos deste tamanho.","Suggested loads move in steps of this size.")}</small></span><span class="stepper"><button>−</button><output>2,5 kg</output><button>+</button></span></div></div>
+</div>` + bar() });
+
+// 4. Exceptions open: only what differs is listed; a week opens as a per-set table.
+S.push({ id: "b4-exceptions", title: "Week and set exceptions", html: () => `<div class="scroll" style="top:47px">${nav(t(DAYS[0].pt, DAYS[0].en).replace(/ @.*/, ""))}
+  <p class="t-section" style="margin-top:8px">${exName(EX[0])}</p>
+  <div class="b-sum" style="margin-top:14px"><span class="k"><b>${n("Prescrição","Prescription")}</b><span>${rxLine(EX[0])}</span></span><span class="chev down"></span></div>
+  ${excSummary(true)}
+  <p class="t-small" style="margin-top:12px">${n("As outras semanas seguem a prescrição acima.","The other weeks follow the prescription above.")}</p>
+  <div class="b-exc"><div class="hd"><span class="t-sub" style="font-size:17px">${n("Semana 7","Week 7")}</span><button class="ulink" style="min-height:40px">${n("Remover exceção","Remove exception")}</button></div>
+    <div class="b-grid"><span class="h">#</span><span class="h">${n("Carga kg","Load kg")}</span><span class="h">Reps</span><span class="h">RIR</span><span class="h">${n("Desc.","Rest")}</span>
+      <span class="num soft">1</span><span class="b-cell soft">${n("auto","auto")}</span><span class="b-cell">4–6</span><span class="b-cell diff">3</span><span class="b-cell">3:00</span>
+      <span class="num soft">2</span><span class="b-cell soft">${n("auto","auto")}</span><span class="b-cell">4–6</span><span class="b-cell diff">3</span><span class="b-cell">3:00</span>
+    </div>
+    <p class="t-small" style="margin-top:10px">${n("Contornado: diferente da prescrição. Carga vazia: o Taurifer sugere.","Outlined: differs from the prescription. Empty load: Taurifer suggests it.")}</p>
+    <div class="b-kv" style="border:0;min-height:48px"><span class="k">${t("Séries","Sets")}</span><span class="stepper"><button>−</button><output>2</output><button>+</button></span></div>
+  </div>
+  <button class="ghost plus" style="margin-top:8px">${n("Adicionar exceção","Add exception")}</button>
+</div>` + bar(4) });
+
+// 5. Loads: Suggest loads on, a uniform RIR, and the per-side question.
+S.push({ id: "b5-loads", title: "Suggest loads and per side", html: () => `<div class="scroll">${nav(t(DAYS[0].pt, DAYS[0].en).replace(/ @.*/, ""))}
+  <p class="t-section" style="margin-top:8px">${exName(EX[4])}</p>
+  <div class="b-sum" style="margin-top:14px"><span class="k"><b>${n("Prescrição","Prescription")}</b><span>${v(3)} × ${reps(12, 15)} · RIR ${v(1)} · ${v("1:30")}</span></span><span class="chev down"></span></div>
+  <div class="b-sec"><span class="t-label">${n("Cargas","Loads")}</span>
+  <div class="b-kv" style="border-top:1px solid var(--rule)"><span class="k">${t("Sugerir cargas","Suggest loads")}<small>${t("Meta atual de repetições · 12–15","Current rep target · 12–15")}</small></span><span class="switch on"></span></div>
+  <div class="b-kv" style="min-height:auto;padding:12px 0;display:block"><p class="t-small" style="color:var(--ink)">${n("Sugerir cargas usa o mesmo RIR em todas as séries. As séries 1 a 3 ficaram com RIR 1.","Suggest loads uses one RIR on every set. Sets 1 to 3 now have RIR 1.")}</p><button class="ulink" style="min-height:36px">${t("Desfazer","Undo")}</button></div>
+  <div class="b-kv"><span class="k">${t("Menor variação de carga","Smallest load change")}</span><span class="stepper"><button>−</button><output>1 kg</output><button>+</button></span></div>
+  <p class="t-body" style="margin:18px 0 6px">${t("Como você faz este exercício?","How do you do this exercise?")}</p>
+  <div class="b-kv" style="border-top:1px solid var(--rule);min-height:52px"><span class="k">${t("Os dois lados juntos","Both sides together")}</span><span class="radio"></span></div>
+  <div class="b-kv" style="min-height:52px"><span class="k">${t("Um lado de cada vez","One side at a time")}<small>${n("Carga e repetições contadas por lado.","Load and reps counted per side.")}</small></span><span class="radio on"></span></div></div>
+  <div class="b-sec"><span class="t-label">${t("Alternativas","Alternates")}</span>
+  <div class="b-kv" style="border-top:1px solid var(--rule);min-height:52px"><span class="k">${t("Elevação lateral na polia","Cable lateral raise")}</span><span class="close" style="position:relative;margin:0"></span></div></div>
+</div>` + bar(5) });
+
+// 6. Swap: a pushed page, alternates first, then the engine's picks, then search.
+S.push({ id: "b6-replace", title: "Swap exercise", html: () => `<div class="scroll">${nav(exName(EX[0]).split(" ").slice(0, 2).join(" "))}
+  <p class="t-section" style="margin-top:8px">${t("Trocar exercício","Swap exercise")}</p>
+  <div class="field" style="margin-top:14px;color:var(--ink-soft)">${t("Buscar no catálogo","Search the catalog")}</div>
+  <div class="b-sec" style="margin-top:20px"><span class="t-label">${n("Suas alternativas","Your alternates")}</span>
+  <div class="b-pick" style="border-top:1px solid var(--rule)"><div class="thumb mono">SH</div><span class="grow">${t("Supino reto com halteres","Dumbbell bench press")}</span><span class="chev"></span></div></div>
+  <div class="b-sec"><span class="t-label">${n("Mesma função","Same job")}</span>
+  <p class="t-small" style="margin-bottom:6px">${t("Escolhidos pelo Taurifer para a mesma função, com o seu equipamento.","Picked by Taurifer for the same job, with your equipment.")}</p>
+  ${[["ip_sm", t("Supino reto no Smith","Smith machine bench press")], ["pr_mc", t("Supino máquina","Machine chest press")], ["ip_bb", t("Supino inclinado 45° com barra","45° incline barbell press")]].map(([a, nm], i) => `<div class="b-pick"${i === 0 ? ' style="border-top:1px solid var(--rule)"' : ""}><div class="thumb"><img src="${img(a)}" alt=""></div><span class="grow">${nm}</span><span class="chev"></span></div>`).join("")}
+  <button class="ulink">${t("Mostrar mais 6","Show 6 more")}</button></div>
+  <p class="t-small" style="margin-top:10px">${n("A troca mantém séries, repetições e alternativas.","Swapping keeps sets, reps and alternates.")}</p>
+</div>` });
+
+// 7. Remove (from the exercise page's action list) returns to the day with undo.
+S.push({ id: "b7-remove-add", title: "Remove (undo) and add", html: () => dayPage({ list: EX.filter(e => e.id !== "ohp"), min: 51, noChange: true }) +
+  `<div class="toast"><span>${t("Exercício removido.","Exercise removed.")}</span><b>${t("Desfazer","Undo")}</b></div>` + bar(4) });
+
+// 8. Days: reorder and rename on the overview.
+S.push({ id: "b8-days", title: "Rename and reorder days", html: () => overview({ reorder: true }) + bar(3) });
+
+// 9. Validation: the field says what is wrong; Apply says why it is blocked.
+S.push({ id: "b9-validation", title: "Validation", html: () => `<div class="scroll">${exTop(EX[1], { err: true, banner: t("Corrija os valores destacados antes de continuar.","Fix the highlighted values before continuing.") })}</div>` +
+  bar(4, { disabled: true, reason: n("Corrija 1 valor em Remada curvada com barra.","Fix 1 value in Bent-over barbell row.") }) });
+
+// 10. Done: Review lists every change with its own undo before Apply.
+S.push({ id: "b10-done", title: "Review changes before applying", html: () => `<div class="scroll">${nav(t("Editar","Edit"), "")}
+  <p class="t-section" style="margin-top:8px">${n("Revisar alterações","Review changes")}</p>
+  <p class="t-small" style="margin-top:4px">${n("Valem a partir da próxima sessão. O histórico não muda.","They apply from the next session. Your history doesn't change.")}</p>
+  <div class="b-sec" style="margin-top:18px"><span class="t-label">${t(DAYS[0].pt, DAYS[0].en)}</span>
+  <div class="b-chgrow" style="border-top:1px solid var(--rule)"><span class="k"><b>${exName(EX[0])}</b>${t("Séries","Sets")}: ${v(3)} → ${v(4)}</span><button class="ulink">${t("Desfazer","Undo")}</button></div>
+  <div class="b-chgrow"><span class="k"><b>${exName(EX[0])}</b>${n("Semana 7","Week 7")}: RIR ${v("1")} → ${v("3")}</span><button class="ulink">${t("Desfazer","Undo")}</button></div></div>
+  <div class="b-sec"><span class="t-label">${t("Dias de treino","Training days")}</span>
+  <div class="b-chgrow" style="border-top:1px solid var(--rule)"><span class="k"><b>${t("Nome do dia","Day name")}</b>Inferior @ Academia → Inferior @ Casa</span><button class="ulink">${t("Desfazer","Undo")}</button></div></div>
+</div><div class="actionbar"><button class="cta">${t("Aplicar alterações","Apply changes")}</button><button class="btn2" style="border:0;margin-top:4px;background:transparent">${t("Descartar alterações","Discard changes")}</button></div>` });
+
+Kit.render(S);
+</script>
+</body></html>
