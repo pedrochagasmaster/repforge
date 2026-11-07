@@ -955,6 +955,8 @@ try {
       await page.locator("#sessionSheetBtn").click(); await page.locator("#sessionEarlyFinish").click(); await page.locator("#sessionEarlyConfirm").click();
       await page.waitForSelector("#sessionSummary:not(.hidden)", { timeout: 10000 }); await page.locator("#sumDone").click();
       await page.waitForSelector("#workoutShell.hidden", { state: "attached", timeout: 8000 }); }],
+    ["End and discard the workout", async (page) => {
+      await page.locator("#sessionSheetBtn").click(); await page.locator("#sessionAbandon").click(); await page.locator("#sessionAbandonConfirm").click(); }],
     ["Delete the training log", async (page) => { await page.evaluate(() => navTo("settings")); await page.locator("#reset").click(); }],
   ]) {
     phase(`${name} clears the device record`);

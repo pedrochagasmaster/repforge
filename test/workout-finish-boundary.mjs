@@ -192,8 +192,10 @@ async function restOverrunOffer(browser) {
     await page.waitForSelector("#sessionEarlyPrompt.hidden", { state: "attached", timeout: 3000 });
     await page.waitForTimeout(2500);
     assert.equal(await promptOpen(page), false, "dismissing the question does not offer it again");
-    assert.equal(await page.evaluate(() => document.querySelector("#sessionSheet").classList.contains("is-open")), false,
-      "dismissing the question leaves no sheet open");
+    assert.equal(await page.locator("#sessionEarlyFinish").isVisible(), true,
+      "dismissing the question returns the sheet to its own Early finish control");
+    assert.equal(await page.evaluate(() => document.querySelector("#sessionEarlyReason").classList.contains("hidden")), true,
+      "dismissing the question hides the reason line with it");
     assert.equal(await page.locator("#workoutShell").isVisible(), true, "the workout stays open after dismissal");
     assert.equal(await page.evaluate(() => !!window.__repforgeWorkoutDraft.current() && window.__repforgeLastWorkoutFinish == null), true,
       "dismissal saves nothing");
@@ -245,6 +247,9 @@ async function restOverrunOffer(browser) {
     await page.evaluate(() => startRest(120));
     await failSaveBeforePersistence(page);
     await page.waitForSelector("#draftRecovery:not(.hidden)", { timeout: 5000 });
+    // The failed save leaves its own Early finish question open: close that first, so the check below sees only the cap.
+    await page.evaluate(() => { if (!document.querySelector("#sessionEarlyPrompt").classList.contains("hidden")) document.querySelector("#sessionEarlyCancel").click(); });
+    await page.waitForSelector("#sessionEarlyPrompt.hidden", { state: "attached", timeout: 3000 });
     await page.evaluate(() => { window.__repforgeRest.setLeft(-3599 * 1000); });
     assert.equal(await endedAtCap(page), true, "a rest reaching the cap ends with a recovery panel showing");
     await page.waitForTimeout(1200);
