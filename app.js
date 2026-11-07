@@ -11214,6 +11214,7 @@ const WorkoutSession=(()=>{
       result?.committed===false&&result?.finalizationPending!==true;
     if(!safeToStartFresh||!sameDraft(draft,prepared?.draft)||activeWorkoutDraftRaw!==prepared.rawDraft)return false;
     move("editing");
+    clearDraftUiRecovery();
     return true}
   function captureEarlyFinish(draft){
     if(saveState.phase==="recovery"&&!reopenAfterTotalFailure(draft))return null;

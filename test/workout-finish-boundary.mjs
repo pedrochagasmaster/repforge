@@ -126,6 +126,13 @@ try {
     await page.waitForSelector("#sessionEarlyPrompt:not(.hidden)", { timeout: 3000 });
     assert.equal(await page.locator("#sessionEarlyConfirm").isVisible(), true,
       "after total failure, early finish can be offered again for the unchanged draft");
+    assert.equal(await page.locator("#draftRecovery").isHidden(), true,
+      "starting a fresh finish removes the previous operation's Retry action");
+    await page.locator("#sessionEarlyCancel").click();
+    assert.equal(await page.locator("#draftRecovery").isHidden(), true,
+      "canceling the fresh early-finish prompt leaves no stale Retry action");
+    await page.locator("#sessionEarlyFinish").click();
+    await page.waitForSelector("#sessionEarlyPrompt:not(.hidden)");
     await page.locator("#sessionEarlyConfirm").click();
     await page.waitForSelector("#sessionSummary:not(.hidden)", { timeout: 10000 });
     const retried = await page.evaluate((key) => {
