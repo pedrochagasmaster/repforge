@@ -69,12 +69,48 @@
       }catch(e){}
       root.dataset.boot=surface;
       root.classList.add("is-booting");
+      // The failure panel owns the screen while it is up: the covered page is inert and Tab stays on the panel. The
+      // head script's own fallback uses this, and app.js drives the same object once it runs. A transfer sheet is not
+      // inerted by it, and a dialog that opens above the panel keeps its own handling.
+      var panelHold=null;
+      // The keyboard yields only to a dialog that can take input, never to one the sweep or another sheet made inert.
+      function usableDialogOpen(){return[].some.call(document.querySelectorAll("dialog[open]"),function(d){return!d.inert})}
+      window.__repforgeBootPanel={
+        contain:function(){
+          if(panelHold)return;
+          var splash=document.getElementById("bootSplash");
+          if(!splash)return;
+          var saved=[];
+          for(var i=0;i<document.body.children.length;i++){
+            var el=document.body.children[i];
+            // A native dialog owns its own modality through showModal(), open or closed, so the sweep never marks one inert.
+            if(el===splash||el.id==="announcementHost"||el.id==="iosInstallSheet"||el.id==="iosInstallScrim"||el.tagName==="DIALOG")continue;
+            saved.push([el,el.inert]);el.inert=true}
+          saved.push([splash,splash.inert]);splash.inert=false;
+          var handler=function(e){
+            if(usableDialogOpen())return;
+            if(e.key==="Escape"){e.preventDefault();e.stopImmediatePropagation();return}
+            if(e.key!=="Tab")return;
+            e.preventDefault();e.stopImmediatePropagation();
+            var stops=[].slice.call(splash.querySelectorAll('button:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])')).filter(function(n){return n.getClientRects().length>0});
+            if(!stops.length)return;
+            var at=stops.indexOf(document.activeElement);
+            var next=e.shiftKey?(at<=0?stops[stops.length-1]:stops[at-1]):(at<0||at===stops.length-1?stops[0]:stops[at+1]);
+            next.focus({preventScroll:true})};
+          window.addEventListener("keydown",handler,true);
+          panelHold={saved:saved,handler:handler}},
+        release:function(){
+          if(!panelHold)return;
+          window.removeEventListener("keydown",panelHold.handler,true);
+          for(var j=0;j<panelHold.saved.length;j++)panelHold.saved[j][0].inert=panelHold.saved[j][1];
+          panelHold=null}
+      };
       var BOOT_STALL_MS=12000;
       window.__repforgeBootStall=setTimeout(function stalled(){
         if(!root.classList.contains("is-booting"))return;
         if(document.querySelector("dialog[open]")){window.__repforgeBootStall=setTimeout(stalled,BOOT_STALL_MS);return}
         if(typeof window.__repforgeShowBootFailure==="function")window.__repforgeShowBootFailure("stalled");
-        else{var panel=document.querySelector(".bootsplash__fail");if(panel)panel.setAttribute("role","alert");root.classList.add("is-boot-failed")}
+        else{var panel=document.querySelector(".bootsplash__fail");if(panel)panel.setAttribute("role","alert");var reload=document.getElementById("bootReload");if(reload){reload.onclick=function(){location.reload()};try{reload.focus({preventScroll:true})}catch(e){}}root.classList.add("is-boot-failed");window.__repforgeBootPanel.contain()}
       },BOOT_STALL_MS);
     })();
   </script>
@@ -1513,6 +1549,6 @@ Triceps pushdown 3x12-15</pre>
   <script src="progress-model.js?v=309"></script>
   <script src="history-ui.js?v=647"></script>
   <script src="share-cards.js?v=639"></script>
-  <script src="app.js?v=669"></script>
+  <script src="app.js?v=670"></script>
 </body>
 </html>
