@@ -7086,12 +7086,16 @@ function saveRestRecord(){
   if(!restDraftId)return;
   try{sessionStorage.setItem(REST_RECORD_KEY,JSON.stringify({draftId:restDraftId,rest}))}catch{}}
 function forgetRestRecord(){try{sessionStorage.removeItem(REST_RECORD_KEY)}catch{}}
-/* After a reload, the tab's record comes back only for the draft it was written for; any other draft, or none, forgets it. */
+/* After a reload, the tab's record comes back only for the draft it was written for; any other draft, or none, forgets it.
+   The restored clock is settled against the wall time at once: a deadline passed while the page was gone has no ticker to
+   ring it (a capped clock stops ticking), so its bell is consumed here, once. A rung bell or a held clock is left as it is. */
 function restoreRest(draftId){
   let saved=null;
   try{saved=JSON.parse(sessionStorage.getItem(REST_RECORD_KEY)||"null")}catch{}
   if(!draftId||saved?.draftId!==draftId){forgetRestRecord();return}
-  applyRest(RepForgeRestTimer.restore(restClock,saved.rest));
+  const restored=RepForgeRestTimer.restore(restClock,saved.rest);
+  const settled=RepForgeRestTimer.settle(restored.state,Date.now());
+  applyRest({state:settled.state,effects:[...restored.effects,...settled.effects]});
   if(restClock.kind==="idle")forgetRestRecord();
   else syncRest()}
 function clearRestNotices(){
