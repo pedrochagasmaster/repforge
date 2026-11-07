@@ -992,6 +992,45 @@ try {
     await context.close();
   }
 
+  // Discarding a recovered draft (its program changed, so the workout cannot be restored as it was) clears the record. A
+  // reload first shows the recovery; the boot path ends a rest whose draft cannot be restored, so the record is planted
+  // once the recovery is showing, the state the discard is taken from.
+  phase("Discarding a recovered draft clears the device record");
+  {
+    const { context, page, errors } = await focusPage(browser);
+    await logSet(page);
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    assert(await hasRecord(page), "a running rest over a logged set is on the device before the program changes");
+    await page.evaluate((key) => {
+      const state = JSON.parse(localStorage.getItem(key));
+      state.programMeta = { ...state.programMeta, name: "Changed program" };
+      state.program = state.program.map((exercise) => ({ ...exercise, notes: `${exercise.notes || ""} changed` }));
+      state._storageRevision = (state._storageRevision || 0) + 1;
+      localStorage.setItem(key, JSON.stringify(state));
+    }, "repforge_v1");
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await page.waitForSelector("#draftRecovery:not(.hidden)", { timeout: 8000 });
+    const discardable = await page.evaluate(() => !document.querySelector("#draftRecoveryDiscard").classList.contains("hidden"));
+    assert(discardable, "the stale-program recovery offers its discard");
+    const draftId = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_draft_v1")).draftId);
+    await page.evaluate((draftId) => {
+      const now = Date.now();
+      localStorage.setItem("repforge_rest_v1", JSON.stringify({ draftId, restId: "discard-proof",
+        rest: { kind: "running", deadlineMs: now + 120000, lengthSec: 120, exerciseId: null, rang: false, expiresAt: now + 3720000 } }));
+    }, draftId);
+    assert(await hasRecord(page), "the record for the recovered draft is on the device when the discard is taken");
+    await page.locator("#draftRecoveryDiscard").click();
+    await page.waitForFunction(() => document.querySelector("#draftRecovery")?.classList.contains("hidden"), undefined, { timeout: 8000 });
+    await page.waitForFunction((key) => localStorage.getItem(key) === null, RECORD, { timeout: 5000 }).catch(() => {});
+    assert(!(await hasRecord(page)), "discarding the recovered draft removes the device record");
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    assert(!(await page.evaluate(() => window.__repforgeRest.state().active)), "after the discard, a reload brings no rest back");
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
 } finally {
   await browser.close();
 }
