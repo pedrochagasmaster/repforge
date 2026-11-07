@@ -5218,9 +5218,8 @@ async function installTransferPrepareStandaloneBoot(){
     // cookie it wrote; only the installed app claims it.
     const cookie=transfer.contextFrom()==="standalone"?transfer.readTransferCookie({document}):null;
     if(!cookie&&!inboundBefore)return{ok:true,absent:true};
-    // The claiming sheet is the surface for as long as the claim or the import that follows runs. The splash gives
-    // way to it, so the stall deadline has nothing to declare here.
-    releaseBootSplash();
+    // A transfer owns the screen while its sheet is up: the cover stays beneath it, and the stall verdict is suppressed.
+    enterBootTransfer();
     openIosInstallSheet("claiming");
     if(inboundBefore?.phase==="local-committed"||inboundBefore?.phase==="cleanup-pending"){
       const standalone=await installTransferStandaloneClient();
@@ -25709,8 +25708,8 @@ async function boot(){
     if(transferResult.productRecovery!==true)throw new Error(transferResult?.code||"install-transfer-failed");
     const blockedImportMarker=await installTransferReadMarker();
     if(blockedImportMarker){
-      // The interrupted-transfer sheet is the surface this load shows, so the splash gives way to it.
-      releaseBootSplash();
+      // The interrupted-transfer sheet is the surface this load shows: a transfer owns the screen, and boot does not init.
+      enterBootTransfer();
       openIosInstallSheet("interrupted");
       return;
     }
@@ -25778,50 +25777,66 @@ if(DurableState){
   });
 }
 /* ---- The launch splash (index.html #bootSplash) ----
-   It covers the page from the first frame. Boot releases it once the surface this
-   load lands on has drawn its real content: init() releases it after the first
-   render and the landing decision, the landing or the restored view with the
-   lifter's program in it, never an empty shell. A boot sheet that must be seen
-   (an interrupted transfer) releases it as it opens, because the splash would
-   otherwise cover it. A dialog (storage recovery, the exercise catalog) shows over
-   it from the top layer.
-   The boot surface has four states:
-     covering  the splash covers the page while boot runs;
-     stalled   boot has run past the stall deadline: the error panel shows, and boot
-               may still finish;
-     released  the splash is gone for good;
+   The cover covers the page from the first frame, and boot owns the screen through five states:
+     covering  the launch cover covers the page while boot runs;
+     transfer  a transfer sheet (a claim, or an interrupted import) takes the screen. The cover stays beneath the
+               sheet and its scrim, so no empty shell shows. The stall verdict is suppressed, and a real boot error
+               still shows the failure panel, above the sheet;
+     stalled   boot has run past the stall deadline: the error panel shows, and boot may still finish;
+     released  the real app or landing has rendered, and the cover is gone for good;
      failed    boot threw. Terminal for this load.
-   covering -> released  init() has drawn the surface, or a boot sheet takes it over
-   covering -> stalled   the head script's stall deadline
-   stalled  -> released  boot completes after all: the panel lifts with the splash
-   covering|stalled -> failed  boot threw
-   The head script shows the panel itself when app.js has not arrived, and app.js
-   starts out stalled when it finds that panel. */
+   covering -> transfer  a transfer sheet takes the screen
+   covering -> stalled   the head script's stall deadline (never while a transfer owns the screen)
+   transfer -> released  init() has drawn the app or the landing
+   transfer -> failed    boot threw
+   stalled  -> released  boot completes after all: the panel lifts with the cover
+   stalled  -> transfer  a claim starts after the stall: the panel lifts for the sheet
+   covering|stalled|transfer -> failed  boot threw; a stall stays a stall
+   While the panel owns the screen (stalled or failed), the covered page is inert and Tab stays on the panel. The
+   head script's own panel does the same, and app.js starts out stalled when it finds that panel. A transfer sheet is
+   not panel-owned: it keeps its own handling and is never made inert by the panel. */
 let bootSplashState=document.documentElement.classList.contains("is-boot-failed")?"stalled":"covering";
-function releaseBootSplash(){
+/* A transfer sheet and its scrim sit above the cover while a transfer owns the screen, and fall back below the panel. */
+function bootSheetLayer(raised){
+  const sheet=document.getElementById("iosInstallSheet"),scrim=document.getElementById("iosInstallScrim");
+  if(scrim)scrim.style.zIndex=raised?"2147483001":"";
+  if(sheet)sheet.style.zIndex=raised?"2147483002":""}
+function enterBootTransfer(){
   if(bootSplashState!=="covering"&&bootSplashState!=="stalled")return;
-  const lifting=bootSplashState==="stalled";
+  if(bootSplashState==="stalled"){
+    window.__repforgeBootPanel?.release();
+    document.documentElement.classList.remove("is-boot-failed");
+    window.__repforgeBootFailureState=null}
+  bootSplashState="transfer";
+  clearTimeout(window.__repforgeBootStall);
+  bootSheetLayer(true)}
+function releaseBootSplash(){
+  if(bootSplashState!=="covering"&&bootSplashState!=="stalled"&&bootSplashState!=="transfer")return;
+  // Released means the real app or landing has rendered. A panel or a transfer sheet gives way at once.
+  const lifting=bootSplashState!=="covering";
   bootSplashState="released";
   const root=document.documentElement,splash=document.getElementById("bootSplash");
   clearTimeout(window.__repforgeBootStall);
+  window.__repforgeBootPanel?.release();
+  bootSheetLayer(false);
   const landing=firstRunOpen();
   root.dataset.bootSurface=landing?"landing":"app";
   root.classList.remove("is-booting","is-boot-failed");
   if(lifting)window.__repforgeBootFailureState=null;
   if(!splash)return;
   const remove=()=>splash.remove();
-  // The landing is whole the moment it is drawn, so its plain cover just goes; so does an error panel the lifter is reading.
+  // The landing is whole the moment it is drawn, so its plain cover just goes; so does a panel or sheet it gives way to.
   if(lifting||landing||matchMedia("(prefers-reduced-motion: reduce)").matches){remove();return}
   // Onto the app: the mark fades first, then the cover (styles.css, .bootsplash.is-leaving).
   splash.classList.add("is-leaving");
   splash.addEventListener("transitionend",event=>{if(event.target===splash)remove()});
   setTimeout(remove,600)}
 function showBootFailure(reason){
-  // A stall is a verdict on the wait, so a boot that completes later lifts it. A
-  // thrown boot is not, and neither is anything once the splash has been released.
+  // A stall is a verdict on the wait, so a boot that completes later lifts it. A thrown boot is not, and a
+  // transfer owns the screen during its sheet, so it takes no stall verdict.
   const stalled=reason==="stalled";
   if(bootSplashState==="released"||bootSplashState==="failed")return;
-  if(bootSplashState==="stalled"&&stalled)return;
+  if(stalled&&(bootSplashState==="stalled"||bootSplashState==="transfer"))return;
   bootSplashState=stalled?"stalled":"failed";
   const root=document.documentElement;
   clearTimeout(window.__repforgeBootStall);
@@ -25833,6 +25848,9 @@ function showBootFailure(reason){
   // rest of the page during boot, is never announced.
   document.querySelector("#bootSplash .bootsplash__fail")?.setAttribute("role","alert");
   root.classList.add("is-boot-failed");
+  // The panel is above the cover and any sheet beneath it, and it owns the keyboard until boot completes.
+  bootSheetLayer(false);
+  window.__repforgeBootPanel?.contain();
   const reload=document.getElementById("bootReload");
   if(reload){reload.onclick=()=>location.reload();try{reload.focus({preventScroll:true})}catch{}}}
 window.__repforgeShowBootFailure=showBootFailure;

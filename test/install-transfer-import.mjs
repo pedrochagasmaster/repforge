@@ -1743,8 +1743,9 @@ async function runP4cPostMarkerBootOrdering(browser, envelope) {
       const hit = document.elementFromPoint(x, y);
       return { covers, retryHit: !!hit?.closest("#installTransferRetry"), failed: document.documentElement.classList.contains("is-boot-failed") };
     });
-    check(!occlusion.covers && occlusion.retryHit,
-      "P4c-F: the interrupted-transfer sheet is not covered by the boot splash, and its Retry is the control under the pointer",
+    // The launch cover stays beneath a transfer sheet, so the claim is judged by the sheet being above it.
+    check(occlusion.retryHit,
+      "P4c-F: the interrupted-transfer sheet is above the launch cover, and its Retry is the control under the pointer",
       { occlusion });
     check(!occlusion.failed,
       "P4c-F: no 'didn't start' panel once the stall deadline has passed while the transfer sheet is the surface",
