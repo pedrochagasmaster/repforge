@@ -764,7 +764,7 @@ async function openFreshContext(browser, { guides } = {}) {
   return { context, page };
 }
 
-async function interceptP3Endpoints(page, envelope, events, { commitFailures = 0 } = {}) {
+async function interceptP3Endpoints(page, envelope, events, { commitFailures = 0, claimGate = null, onClaim = null } = {}) {
   const expiresAt = "2099-01-01T00:00:00.000Z";
   let remainingCommitFailures = commitFailures;
   const handler = async (route) => {
@@ -774,6 +774,8 @@ async function interceptP3Endpoints(page, envelope, events, { commitFailures = 0
     try { body = request.postDataJSON(); } catch {}
     if (request.method() === "POST" && pathname === "/v1/transfers/claims") {
       events.push({ kind: "claim", body });
+      if (onClaim) onClaim();
+      if (claimGate) await claimGate;
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -1647,6 +1649,20 @@ async function runP4cPostMarkerBootOrdering(browser, envelope) {
       } catch { return "invalid"; }
     };
     window.__p4cBootTrace = trace;
+    // The head script's 12 s stall timer runs at 300 ms, once app.js has defined its
+    // failure hook. A probe on the same delay counts the deadline, so the test can
+    // wait for it to pass without sleeping.
+    const realSetTimeout = window.setTimeout.bind(window);
+    window.__bootDeadlinePasses = 0;
+    window.setTimeout = (fn, ms, ...rest) => {
+      if (ms !== 12000) return realSetTimeout(fn, ms, ...rest);
+      realSetTimeout(() => { window.__bootDeadlinePasses += 1; }, 300);
+      const run = () => {
+        if (typeof window.__repforgeShowBootFailure !== "function") return void realSetTimeout(run, 20);
+        fn();
+      };
+      return realSetTimeout(run, 300);
+    };
     let booted = false;
     Object.defineProperty(window, "__repforgeBooted", {
       configurable: true,
@@ -1709,11 +1725,140 @@ async function runP4cPostMarkerBootOrdering(browser, envelope) {
       visible: document.querySelector("#iosInstallSheet")?.hidden === false,
       retryVisible: !document.querySelector("#installTransferRetry")?.classList.contains("hidden"),
     }));
+    // Occlusion, not visibility: the splash is inert once the sheet opens, so hit-testing skips it.
+    // The check reads the splash's own box and opacity at the Retry's centre.
+    await page.waitForFunction(() => window.__bootDeadlinePasses >= 1 &&
+      document.querySelector("#iosInstallSheet")?.dataset.transferState === "interrupted" &&
+      document.getAnimations().every((animation) => animation.playState !== "running"), undefined, { timeout: 10000 });
+    const occlusion = await page.evaluate(() => {
+      const retry = document.getElementById("installTransferRetry");
+      const splash = document.getElementById("bootSplash");
+      const box = retry.getBoundingClientRect();
+      const x = box.left + box.width / 2;
+      const y = box.top + box.height / 2;
+      const splashBox = splash?.getBoundingClientRect();
+      const style = splash ? getComputedStyle(splash) : null;
+      const covers = !!splash && style.display !== "none" && style.visibility !== "hidden" && parseFloat(style.opacity) > 0.5 &&
+        !!splashBox && x >= splashBox.left && x <= splashBox.right && y >= splashBox.top && y <= splashBox.bottom;
+      const hit = document.elementFromPoint(x, y);
+      return { covers, retryHit: !!hit?.closest("#installTransferRetry"), failed: document.documentElement.classList.contains("is-boot-failed") };
+    });
+    // The launch cover stays beneath a transfer sheet, so the claim is judged by the sheet being above it.
+    check(occlusion.retryHit,
+      "P4c-F: the interrupted-transfer sheet is above the launch cover, and its Retry is the control under the pointer",
+      { occlusion });
+    check(!occlusion.failed,
+      "P4c-F: no 'didn't start' panel once the stall deadline has passed while the transfer sheet is the surface",
+      { occlusion });
     check(trace.faulted === true && trace.booted === false && localMarker?.phase === "importing" &&
       idbMarker?.phase === "importing" && telemetryAfterMarker.length === 0 && initAfterMarker.length === 0 &&
       recoveryUi.state === "interrupted" && recoveryUi.visible && recoveryUi.retryVisible,
     "P4c-F: a post-marker standalone failure blocks unsafe app boot but renders retry UI over mirrored importing markers",
     { trace, localPhase: localMarker?.phase, idbPhase: idbMarker?.phase, telemetryAfterMarker, initAfterMarker, recoveryUi, events });
+  } finally {
+    await removeRoutes();
+    await context.close();
+  }
+}
+
+/* The claim is held past the 12 s stall deadline with its sheet up, then released, and the transfer runs to
+   completion. With failAfterImport, draft initialization throws once the import has committed: a real boot error,
+   which must show the failure panel with a working Reload above the sheet. Without it, a successful claim renders
+   the real app and the launch cover is gone. */
+function slowClaimBootInit({ failAfterImport, markerKey }) {
+  const realSetTimeout = window.setTimeout.bind(window);
+  window.__holdBootDeadline = true;
+  window.__bootDeadlinePasses = 0;
+  window.setTimeout = (fn, ms, ...rest) => {
+    if (ms !== 12000) return realSetTimeout(fn, ms, ...rest);
+    const held = () => window.__holdBootDeadline === true;
+    const run = () => (held() || typeof window.__repforgeShowBootFailure !== "function" ? realSetTimeout(run, 20) : fn());
+    const probe = () => (held() ? realSetTimeout(probe, 20) : void (window.__bootDeadlinePasses += 1));
+    const id = realSetTimeout(run, 300);
+    realSetTimeout(probe, 300);
+    return id;
+  };
+  if (!failAfterImport) return;
+  // The shipped API object is frozen, so the fault is a frozen wrapper with the same members.
+  let api = null;
+  Object.defineProperty(window, "RepForgeWorkoutDraft", {
+    configurable: true,
+    get: () => api,
+    set: (next) => {
+      if (next && typeof next.parse === "function") {
+        const parse = next.parse;
+        api = Object.freeze({
+          ...next,
+          parse(...args) {
+            // Once the claim has started (its sheet is up) and the import marker is gone, the import has committed.
+            const phase = document.getElementById("iosInstallSheet")?.dataset.transferState;
+            if (localStorage.getItem(markerKey) === null && ["importing", "success", "cleanup"].includes(phase)) {
+              window.__draftFault = true;
+              throw new Error("fault: draft initialization after the import committed");
+            }
+            return parse.apply(next, args);
+          },
+        });
+        return;
+      }
+      api = next;
+    },
+  });
+}
+
+async function runP4cSlowClaimBoot(browser, envelope, { failAfterImport }) {
+  console.log(`\nPlan 053-P4c G slow claim, ${failAfterImport ? "then a boot error after the import committed" : "then a successful claim"}`);
+  const events = [];
+  let claimSeen;
+  const claimRequested = new Promise((resolve) => { claimSeen = resolve; });
+  let releaseClaim;
+  const claimGate = new Promise((resolve) => { releaseClaim = resolve; });
+  const { context, page, removeRoutes } = await openStandaloneTransferPage(browser, envelope, events, {
+    waitForBoot: false,
+    initScript: slowClaimBootInit,
+    initArg: { failAfterImport, markerKey: INSTALL_MARKER_KEY },
+    claimGate,
+    onClaim: () => claimSeen(),
+  });
+  try {
+    await claimRequested;
+    await page.evaluate(() => { window.__holdBootDeadline = false; });
+    await page.waitForFunction(() => window.__bootDeadlinePasses > 0 &&
+      document.getAnimations().every((animation) => animation.playState !== "running"), undefined, { timeout: 15000 });
+    const during = await page.evaluate(() => ({
+      sheetState: document.getElementById("iosInstallSheet")?.dataset.transferState ?? null,
+      panel: document.documentElement.classList.contains("is-boot-failed"),
+    }));
+    check(during.sheetState === "claiming" && during.panel === false,
+      "P4c-G: a claim running past the stall deadline shows no failure panel, and the claiming sheet is the surface", during);
+    releaseClaim();
+    await page.waitForFunction(() => window.__repforgeBooted === true || window.__draftFault === true, undefined, { timeout: 30000 }).catch(() => {});
+    await page.waitForTimeout(500);
+    if (failAfterImport) {
+      const outcome = await page.evaluate(() => {
+        const reload = document.getElementById("bootReload");
+        const box = reload?.getBoundingClientRect();
+        const hit = box && box.width > 0 ? document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2) : null;
+        return {
+          fault: window.__draftFault === true,
+          booted: window.__repforgeBooted === true,
+          panel: document.documentElement.classList.contains("is-boot-failed"),
+          reloadAboveSheet: !!hit?.closest("#bootReload"),
+          sheetState: document.getElementById("iosInstallSheet")?.dataset.transferState ?? null,
+        };
+      });
+      check(outcome.fault && !outcome.booted && outcome.panel && outcome.reloadAboveSheet,
+        "P4c-G: a boot error after the claim's import shows the failure panel, with a working Reload above the sheet", outcome);
+    } else {
+      const outcome = await page.evaluate(() => ({
+        booted: window.__repforgeBooted === true,
+        splash: !!document.getElementById("bootSplash"),
+        panel: document.documentElement.classList.contains("is-boot-failed"),
+        sheetState: document.getElementById("iosInstallSheet")?.dataset.transferState ?? null,
+      }));
+      check(outcome.booted && !outcome.splash && !outcome.panel && ["success", "cleanup"].includes(outcome.sheetState),
+        "P4c-G: a successful claim renders the real app, and the launch cover is gone", outcome);
+    }
   } finally {
     await removeRoutes();
     await context.close();
@@ -2277,6 +2422,8 @@ async function main() {
       await runP4cSettingsOnlyDestination(browser, envelope);
       await runP4cCommittedMutationRecovery(browser, envelope);
       await runP4cPostMarkerBootOrdering(browser, envelope);
+      await runP4cSlowClaimBoot(browser, envelope, { failAfterImport: true });
+      await runP4cSlowClaimBoot(browser, envelope, { failAfterImport: false });
       await runP4cMarkerRecoveryBeforeHealing(browser, envelope);
       await runP4cSiblingFreezeBoundary(browser, envelope);
       await runP4cForeignFreezeDraftBoundary(browser);

@@ -1603,14 +1603,25 @@ window.__repforgeShelfValueBeat=mode=>{if(mode==="directional"||mode==="fade"||m
 const padTap=new WeakMap();
 /** Edits the lifter has made that DraftV2 has not yet acknowledged (a write waits for the cross-tab lock and the
  *  ordered queue). Keyed like the draft's own flat keys (`<exerciseId>_<set>_<field>`), holding the value as the
- *  lifter sees it. The shelf and the ledger read it through `setFieldVals`, so a rebuild while a write is in flight
- *  draws the value the lifter set, not the older acknowledged one; the entry is released the moment its write
- *  settles, whichever way it ends, and the draft is the only record of what is saved. */
+ *  lifter sees it. A failed field write transfers ownership to its exact CAS attempt before this overlay is released;
+ *  renderers then read the attempt until retry, reload or discard resolves it, so the same value cannot live in both. */
 const pendingFields=new Map();
 let pendingFieldSeq=0;
 function holdPendingField(key,value){
   const token=++pendingFieldSeq;pendingFields.set(key,{value:String(value??""),token});return token}
 function releasePendingField(key,token){if(pendingFields.get(key)?.token===token)pendingFields.delete(key)}
+function pendingFieldValue(key){
+  const pending=pendingFields.get(key)?.value;
+  if(pending!==undefined)return pending;
+  if(draftUiRecovery?.recoveryField?.key===key){
+    const value=recoveryAttemptFieldValue(draftUiRecovery);
+    if(value!==undefined)return value}
+  return undefined}
+function hasPendingField(key){return pendingFieldValue(key)!==undefined}
+function settlePendingField(key,token,{rejected=false}={}){
+  releasePendingField(key,token);
+  if(draftUiRecovery?.recoveryField?.key===key||(rejected&&draftUiRecovery)){
+    renderWorkout();focusDraftRecovery()}}
 function shelfValueMove(val,dir){
   if(!val||!dir||shelfValueBeat==="off")return;
   playBeat(val,shelfValueBeat==="fade"?"motion-value-fade":dir>0?"motion-value-up":"motion-value-down")}
@@ -2754,6 +2765,25 @@ function workoutDraftProjection(draft=activeWorkoutDraft){
       if(draftSetTouched(set))out.__touched.push(key);
       if(set.role==="warmup")out.__warm.push(key)}}
   return out}
+function recoveryAttemptFieldValue(recovery=draftUiRecovery){
+  const field=recovery?.recoveryField;
+  if(!field||!recovery.attempt?.nextRaw)return undefined;
+  const parsed=WorkoutDraft.parse(recovery.attempt.nextRaw);
+  if(parsed.kind!=="valid")return undefined;
+  const set=parsed.draft.exercises?.[field.exerciseInstanceId]?.sets?.[field.setId];
+  if(!set)return undefined;
+  // Keep the exact entered text with its failed attempt for display; nextRaw remains the canonical value Retry commits.
+  if(typeof recovery.attempt.fieldDisplayValue==="string")return recovery.attempt.fieldDisplayValue;
+  if(field.metricId){
+    const metric=set.programmed.metrics?.find(item=>item.id===field.metricId);
+    return metric?metricTextValue(set.edited.metrics?.[field.metricId],metric):undefined}
+  const raw=set.edited?.[field.field];
+  return raw==null?"":displayDraftText(field.field,raw)}
+function draftRecoveryPendingValue(recovery=draftUiRecovery){
+  const value=recoveryAttemptFieldValue(recovery);
+  return value===undefined?recovery?.pendingValue:value}
+function draftRecoveryCopyValue(recovery=draftUiRecovery){
+  return recovery?.recoveryField?draftRecoveryPendingValue(recovery):recovery?.copyValue}
 function draftTargetFromKey(key){
   const text=String(key);
   for(const exId of activeWorkoutDraft?.exerciseOrder||[]){
@@ -2912,14 +2942,14 @@ function renderDraftRecovery(){
   root.classList.remove("hidden");
   if(title)title.textContent=t(`draft.recovery.${kind}.title`);
   if(body)body.textContent=t(`draft.recovery.${kind}.body`);
-  const pendingValue=draftUiRecovery.pendingValue;
+  const pendingValue=draftRecoveryPendingValue(draftUiRecovery),copyValue=draftRecoveryCopyValue(draftUiRecovery);
   if(pending){pending.classList.toggle("hidden",pendingValue==null);pending.textContent=pendingValue==null?"":
     t("draft.recovery.pending",{value:pendingValue===""?'""':pendingValue})}
   const configure=(id,show,key,handler)=>{const button=$(id);if(!button)return;button.classList.toggle("hidden",!show);
     button.textContent=show?t(key):"";button.onclick=show?handler:null};
   configure("#draftRecoveryRetry",!!draftUiRecovery.retry,"draft.recovery.retry",retryDraftRecovery);
   configure("#draftRecoveryReload",kind==="stale","draft.recovery.reload",reloadLatestWorkoutDraft);
-  configure("#draftRecoveryCopy",draftUiRecovery.copyValue!=null,
+  configure("#draftRecoveryCopy",copyValue!=null,
     draftUiRecovery.copyKind==="data"?"draft.recovery.copy_data":"draft.recovery.copy_value",copyDraftRecoveryValue);
   configure("#draftRecoveryDiscard",!!draftUiRecovery.discard,"draft.recovery.discard",discardRecoveredWorkoutDraft);
   paintDraftRetryPending()}
@@ -2942,9 +2972,13 @@ function paintDraftRetryPending(){
 function focusDraftRecovery(){
   const root=$("#draftRecovery");if(!root)return;
   root.scrollIntoView({block:"start"});root.focus({preventScroll:true})}
-function showDraftCommandRecovery(status,attempt,{pendingValue=null,focus=null,retryAction=null,telemetry=null}={}){
-  draftUiRecovery={kind:draftRecoveryMessageKind(status),status,attempt,pendingValue,
-    copyValue:pendingValue,copyKind:"value",focus,retry:status!=="stale",retryAction,discard:false,telemetry};
+function showDraftCommandRecovery(status,attempt,{pendingValue=null,pendingField=null,recoveryField=null,focus=null,retryAction=null,telemetry=null}={}){
+  const recoveryAttempt=attempt&&recoveryField?{...attempt,fieldDisplayValue:
+    typeof attempt.fieldDisplayValue==="string"?attempt.fieldDisplayValue:String(pendingValue??"")}:attempt;
+  if(pendingField)releasePendingField(pendingField.key,pendingField.token);
+  draftUiRecovery={kind:draftRecoveryMessageKind(status),status,attempt:recoveryAttempt,
+    pendingValue:recoveryField?null:pendingValue,recoveryField:recoveryField||null,
+    copyValue:recoveryField?null:pendingValue,copyKind:"value",focus,retry:status!=="stale",retryAction,discard:false,telemetry};
   renderDraftRecovery();focusDraftRecovery()}
 function showDraftInitializationRecovery(result,{retryMode="initialize",label=day,contextTouched=null}={}){
   // migrateLegacy's specific reason (e.g. invalid-migrated-draft) is the
@@ -2963,7 +2997,7 @@ function showDraftInitializationRecovery(result,{retryMode="initialize",label=da
     discard:kind==="program"&&(!!identity||!!discardRaw)};
   renderDraftRecovery();focusDraftRecovery()}
 function clearDraftUiRecovery(){draftUiRecovery=null;WorkoutSession.clearRecovery();renderDraftRecovery()}
-async function copyDraftRecoveryValue(){const value=draftUiRecovery?.copyValue;if(value==null)return false;
+async function copyDraftRecoveryValue(){const value=draftRecoveryCopyValue(draftUiRecovery);if(value==null)return false;
   try{if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(String(value));toast(t("draft.recovery.copied"));return true}}catch{}
   try{const ta=document.createElement("textarea");ta.value=String(value);ta.setAttribute("readonly","");
     ta.style.cssText="position:fixed;top:0;left:0;opacity:0";document.body.append(ta);ta.select();
@@ -3094,11 +3128,12 @@ function enqueueDraftCommand(type,payload={},ui={}){
   const operationId=`draft-${uid()}`;
   const focus=draftFocusIdentity(payload),pendingValue=Object.prototype.hasOwnProperty.call(ui,"pendingValue")?
     String(ui.pendingValue??""):Object.prototype.hasOwnProperty.call(payload,"value")?String(payload.value??""):null;
+  const recoveryField=ui.recoveryField||null;
   const task=draftWriteTail.then(async()=>{
     if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
     if(!activeWorkoutDraft)return{status:"missing"};
     if((draftUiRecovery?.attempt||draftUiRecovery?.status==="refresh-failed")&&!draftUiRecovery.allowRetry){
-      renderWorkout();restoreDraftFocus(focus);return{status:"recovery-pending"}}
+      focusDraftRecovery();return{status:"recovery-pending"}}
     if(type==="refreshUntouchedSuggestions"&&window.__repforgeDraftFault==="stale-suggestion-loop")
       return{status:"domain-error",error:{kind:"domain-error",code:"stale-suggestion"}};
     const now=new Date().toISOString(),command={type,...payload,operationId,expectedRevision:activeWorkoutDraft.revision,
@@ -3112,14 +3147,14 @@ function enqueueDraftCommand(type,payload={},ui={}){
     const attempt={expectedDraftId:activeWorkoutDraft.draftId,expectedRevision:activeWorkoutDraft.revision,nextRaw,operationId};
     if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
     if(window.__repforgeDraftFault==="persist-failure"){
-      showDraftCommandRecovery("storage-error",attempt,{pendingValue,focus,telemetry:{command,before,ui}});
+      showDraftCommandRecovery("storage-error",attempt,{pendingValue,pendingField:ui.pendingField,recoveryField,focus,telemetry:{command,before,ui}});
       return{status:"storage-error",code:"simulated-persist-failure"};
     }
     const written=await DraftStore.compareAndSwapV2(attempt);
     if(written.status==="applied"){activeWorkoutDraft=written.draft;activeWorkoutDraftRaw=written.raw;
       captureDraftCommandTelemetry(command,before,written.draft,ui);
       hydrateDraftCollections(WorkoutSession.projection());clearDraftUiRecovery()}
-    else showDraftCommandRecovery(written.status,attempt,{pendingValue,focus,telemetry:{command,before,ui}});
+    else showDraftCommandRecovery(written.status,attempt,{pendingValue,pendingField:ui.pendingField,recoveryField,focus,telemetry:{command,before,ui}});
     return written});
   const settled=task.then(()=>undefined,()=>undefined);
   draftWriteTail=settled;
@@ -5218,6 +5253,8 @@ async function installTransferPrepareStandaloneBoot(){
     // cookie it wrote; only the installed app claims it.
     const cookie=transfer.contextFrom()==="standalone"?transfer.readTransferCookie({document}):null;
     if(!cookie&&!inboundBefore)return{ok:true,absent:true};
+    // A transfer owns the screen while its sheet is up: the cover stays beneath it, and the stall verdict is suppressed.
+    enterBootTransfer();
     openIosInstallSheet("claiming");
     if(inboundBefore?.phase==="local-committed"||inboundBefore?.phase==="cleanup-pending"){
       const standalone=await installTransferStandaloneClient();
@@ -7086,12 +7123,16 @@ function saveRestRecord(){
   if(!restDraftId)return;
   try{sessionStorage.setItem(REST_RECORD_KEY,JSON.stringify({draftId:restDraftId,rest}))}catch{}}
 function forgetRestRecord(){try{sessionStorage.removeItem(REST_RECORD_KEY)}catch{}}
-/* After a reload, the tab's record comes back only for the draft it was written for; any other draft, or none, forgets it. */
+/* After a reload, the tab's record comes back only for the draft it was written for; any other draft, or none, forgets it.
+   The restored clock is settled against the wall time at once: a deadline passed while the page was gone has no ticker to
+   ring it (a capped clock stops ticking), so its bell is consumed here, once. A rung bell or a held clock is left as it is. */
 function restoreRest(draftId){
   let saved=null;
   try{saved=JSON.parse(sessionStorage.getItem(REST_RECORD_KEY)||"null")}catch{}
   if(!draftId||saved?.draftId!==draftId){forgetRestRecord();return}
-  applyRest(RepForgeRestTimer.restore(restClock,saved.rest));
+  const restored=RepForgeRestTimer.restore(restClock,saved.rest);
+  const settled=RepForgeRestTimer.settle(restored.state,Date.now());
+  applyRest({state:settled.state,effects:[...restored.effects,...settled.effects]});
   if(restClock.kind==="idle")forgetRestRecord();
   else syncRest()}
 function clearRestNotices(){
@@ -7732,7 +7773,7 @@ function openMaxSetSheet(exId){
   const base=prog.find(exId),ex=base?sessionExercise(base):null;if(!ex)return;
   const offer=maxSetOffer(ex,focusActiveSet(ex));if(!offer)return;
   const sheet=$("#maxSetSheet"),scrim=$("#maxSetScrim");if(!sheet)return;
-  maxSetUi={exId,setId:offer.set.setId,guess:offer.guess.predictedReps,prefill:offer.guess.predictedReps,basis:offer.guess.prefillBasis};
+  maxSetUi={exId,setId:offer.set.setId,guess:offer.guess.predictedReps,prefill:offer.guess.predictedReps,basis:offer.guess.prefillBasis,phase:"guessing"};
   $("#maxSetTitle").textContent=t(offer.load?"maxset.guess_q":"maxset.guess_q_noload",{load:offer.load});
   $("#maxSetFrom").textContent=offer.guess.prefillBasis==="reps_rir"
     ?t("maxset.guess_from",{n:offer.before.ordinal,reps:fmt(offer.reps),left:fmt(offer.rir)})
@@ -7743,34 +7784,31 @@ function openMaxSetSheet(exId){
   openModal(sheet,{initialFocus:$("#maxSetStart"),returnFocus:document.activeElement,onEscape:closeMaxSetSheet,scrim,
     delayHide:reducedMotion()?0:280});
   requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
-function closeMaxSetSheet(){
+function closeMaxSetSheet({force=false}={}){
+  if(!force&&maxSetUi?.phase==="starting")return Promise.resolve(false);
   const sheet=$("#maxSetSheet");maxSetUi=null;
   if(!sheet||(sheet.hidden&&!(activeModal&&activeModal.el===sheet)))return Promise.resolve(false);
   return closeModal(sheet)}
 function stepMaxSetGuess(dir){
-  if(!maxSetUi)return;
+  if(!maxSetUi||maxSetUi.phase!=="guessing")return;
   const L=EffortCalibration.LIMITS;maxSetUi.guess=Math.min(L.maxGuess,Math.max(L.minGuess,maxSetUi.guess+dir));
   paintMaxSetGuess();
   const n=$("#maxSetCount");if(n)window.RepForgeMotion?.rollValue?.(n)}
 /** "Use as my last set": the set takes the load of the set before (the guess was made at it) and holds the guess. */
 async function startMaxSetFromSheet(){
-  const ui=maxSetUi;if(!ui||!activeWorkoutDraft)return;
+  const ui=maxSetUi;if(!ui||ui.phase!=="guessing"||!activeWorkoutDraft)return;
   const de=activeWorkoutDraft.exercises[ui.exId],set=de?.sets?.[ui.setId];
   const before=set?de.setOrder.map(id=>de.sets[id]).find(other=>other.ordinal===set.ordinal-1):null;
   if(!before)return closeMaxSetSheet();
   const at={exerciseInstanceId:ui.exId,setId:ui.setId};
-  const loadMetrics=(set.programmed.metrics||[]).filter(metric=>METRIC_FIELD_SEMANTICS.load.includes(metric.semantic));
-  const edits=set.programmed.metrics
-    ?loadMetrics.filter(metric=>before.edited.metrics?.[metric.id]!=null&&before.edited.metrics[metric.id]!==set.edited.metrics?.[metric.id])
-      .map(metric=>["editMetricValue",{...at,metricId:metric.id,value:before.edited.metrics[metric.id]}])
-    :before.edited.load!=null&&before.edited.load!==set.edited.load?[["editSetField",{...at,field:"load",value:before.edited.load}]]:[];
-  for(const [command,payload] of [...edits,["startMaxSet",{...at,calibration:{v:1,predictedReps:ui.guess,
-    predictionEdited:ui.guess!==ui.prefill,prefillBasis:ui.basis}}]]){
-    const result=await WorkoutSession.dispatch(command,payload);
-    if(result.status!=="applied"){await closeMaxSetSheet();return}}
-  // The shelf changes under the sheet, so it reads as a max set the moment the sheet lets go.
-  renderWorkout();
-  await closeMaxSetSheet()}
+  ui.phase="starting";
+  try{
+    const result=await WorkoutSession.dispatch("startMaxSet",{...at,copyLoadFromSetId:before.setId,calibration:{v:1,predictedReps:ui.guess,
+      predictionEdited:ui.guess!==ui.prefill,prefillBasis:ui.basis}});
+    if(result.status!=="applied")return;
+    // The shelf changes under the sheet, so it reads as a max set the moment the sheet lets go.
+    renderWorkout();
+  }finally{if(maxSetUi===ui)await closeMaxSetSheet({force:true})}}
 async function cancelMaxSet(exId,n){
   const set=draftSetAt(exId,n);if(!set?.calibration)return;
   const result=await WorkoutSession.dispatch("cancelMaxSet",{exerciseInstanceId:exId,setId:set.setId});
@@ -8249,7 +8287,9 @@ async function leaveWorkout(){
   }
   if(!await WorkoutSession.leave()){
     toast(t("workout.leave_failed"));
-    showDraftCommandRecovery("storage-error",draftUiRecovery?.attempt||{});
+    if(draftUiRecovery?.attempt||draftUiRecovery?.status){
+      renderDraftRecovery();focusDraftRecovery();
+    }else showDraftCommandRecovery("storage-error",{});
     return false;
   }
   workoutLeft=true;focusEdit=null;setWorkoutActive(false);document.body.classList.remove("is-focus-wo");renderToday();window.scrollTo({top:0});
@@ -9045,10 +9085,13 @@ function openSessionSheet(){
   requestAnimationFrame(() => { sheet.classList.add("is-open"); scrim?.classList.add("is-open"); });
 }
 
-function closeSessionSheet(){
+function closeSessionSheet({preserveEarlyConfirmation=false}={}){
   const sheet = $("#sessionSheet");
   if (!sheet) return Promise.resolve(false);
-  if (sheet.hidden && !(activeModal && activeModal.el === sheet)) return Promise.resolve(false);
+  const modal = activeModal?.el === sheet ? activeModal : null;
+  if (sheet.hidden && !modal) return Promise.resolve(false);
+  if (modal && (modal.state === "closing" || modal.state === "closed")) return Promise.resolve(false);
+  if(!preserveEarlyConfirmation)WorkoutSession.cancelEarlyFinish();
   teardownSessionSorting();
   return closeModal(sheet);
 }
@@ -9227,7 +9270,7 @@ function metricPendingValue(exId,n,field){
   const target=draftTargetFromKey(`${exId}_${n}`);
   const set=target?activeWorkoutDraft?.exercises?.[target.exerciseInstanceId]?.sets?.[target.setId]:null;
   const metric=draftSetMetrics(set).find(item=>METRIC_FIELD_SEMANTICS[field]?.includes(item.semantic));
-  return metric?pendingFields.get(`${exId}_${n}_metric_${metric.id}`)?.value:undefined}
+  return metric?pendingFieldValue(`${exId}_${n}_metric_${metric.id}`):undefined}
 /** Whether the engine suggests values for set `n`: a recommended target set. A legacy recommendation without target
  *  sets suggests unless it is manual or still waiting on its setup. */
 function engineSuggestsSet(r,n){
@@ -9255,7 +9298,7 @@ function lastSetCarry(exId,n,r){
   if(!sources.length)return null;
   const filled=value=>value!=null&&value!=="";
   const nearest=read=>{for(const above of sources){const value=read(above);if(filled(value))return{ordinal:above.ordinal,value:String(value)}}return null};
-  const held=suffix=>pendingFields.has(`${exId}_${n}_${suffix}`);
+  const held=suffix=>hasPendingField(`${exId}_${n}_${suffix}`);
   const fields={},metrics={},metricDefs=draftSetMetrics(set);
   for(const metric of metricDefs){
     const isLoad=METRIC_FIELD_SEMANTICS.load.includes(metric.semantic);
@@ -9278,7 +9321,7 @@ function lastSetCarry(exId,n,r){
 function setFieldVals(ex,n,r,draft,prev){
   // A field the lifter has just set and the draft has not yet acknowledged shows what they set.
   // A metric-backed set's pending value sits under its metric input's key.
-  const pending=field=>pendingFields.get(`${ex.id}_${n}_${field}`)?.value??metricPendingValue(ex.id,n,field);
+  const pending=field=>pendingFieldValue(`${ex.id}_${n}_${field}`)??metricPendingValue(ex.id,n,field);
   const old=prev.find(x=>x.set===n),sg=setSuggestion(ex,n,r,draft,old);
   // With no engine suggestion the set shows what the set logged above it shows in the ledger (lastSetCarry);
   // with none above, the previous session's set, then the defaults.
@@ -9300,9 +9343,9 @@ function setFieldVals(ex,n,r,draft,prev){
 /** The stage a set is drawn in (Plan 077, OD-5): the vocabulary the lifter entered its effort in, else the app's.
  *  "Not sure" belongs to no stage, so a set marked so is drawn in the app's. */
 function setStageOf(exId,n){
-  const held=pendingFields.get(`${exId}_${n}_effort`)?.value;
+  const held=pendingFieldValue(`${exId}_${n}_effort`);
   if(held!=null)return tokenStage(held)||effortStage();
-  if(pendingFields.has(`${exId}_${n}_rir`))return"c";
+  if(hasPendingField(`${exId}_${n}_rir`))return"c";
   const draft=activeWorkoutDraft?.exercises?.[exId],set=draft?.sets?.[draft.setOrder.find(id=>draft.sets[id].ordinal===n)];
   if(set?.touched?.effort){
     if(set.edited.effort!=null)return tokenStage(set.edited.effort)||effortStage();
@@ -9548,7 +9591,7 @@ function shelfTouched(exId,n){
   const draft=activeWorkoutDraft?.exercises?.[exId];if(!draft)return{};
   const setId=draft.setOrder.find(id=>draft.sets[id].ordinal===n);
   // An edit the draft has not yet acknowledged is already the lifter's own value.
-  const held=field=>pendingFields.has(`${exId}_${n}_${field}`);
+  const held=field=>hasPendingField(`${exId}_${n}_${field}`);
   const touched={...(draft.sets[setId]?.touched||{})};
   if(held("load"))touched.load=true;
   if(held("reps"))touched.reps=true;
@@ -9825,18 +9868,20 @@ function parseHistoryMetricInput(metric,raw){
 function shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek,carry,grouped=false}){
   const key=`${ex.id}_${n}`,fieldId=`metric_${metric.id}`,inputKey=`${key}_${fieldId}`,selected=ui.field===fieldId;
   const live=selected&&ui.editing&&!peek;
-  const pending=pendingFields.get(inputKey)?.value;
+  const pending=pendingFieldValue(inputKey);
   // A value carried from the set logged above fills the field (and the input the pads step from) while it stays untouched.
   const carried=carry?.metrics?.[metric.id]?.value??null;
-  const raw=carried??pending??set.edited.metrics?.[metric.id]??"";
-  const shown=raw!==""?shelfText(metricTextValue(raw,metric)):metricTargetText(set.programmed.targets?.[metric.semantic]);
+  // Pending overlay/recovery values are already display text; carry and draft values are canonical metric values.
+  const raw=carried??set.edited.metrics?.[metric.id]??"";
+  const display=pending??metricTextValue(raw,metric);
+  const shown=display!==""?shelfText(display):metricTargetText(set.programmed.targets?.[metric.semantic]);
   const target=metricTargetText(set.programmed.targets?.[metric.semantic]);
   // The name says it all ("Load per side, kg"); the tile shows the short label, the unit beside the value, and a
   // per-side pair says "Per side" once above its group (Plan 075 phase 5 addendum).
   const unit=metricDisplayUnit(metric);
   const label=`${metricLabel(metric)}${unit?`, ${unit}`:""}`;
   const name=`${label}, ${t("focus.set_label",{n})}`;
-  const soft=!touched.metrics?.[metric.id]&&!pendingFields.has(inputKey);
+  const soft=!touched.metrics?.[metric.id]&&!hasPendingField(inputKey);
   const cls=`shelf__field${selected?" is-sel":""}${soft?" is-untouched":""}${live?" is-editing":""}`;
   const short=grouped?shelfShortLabel(metric):metricLabel(metric);
   const face=shelfFaceHtml(short,label,shown,unit);
@@ -9845,7 +9890,7 @@ function shelfMetricFieldHtml(ex,n,metric,set,{ui,touched,peek,carry,grouped=fal
   const pickerHint=selected&&metricWheelKind(metric)?` aria-label="${esc(`${label} ${shown||"—"}, ${t("focus.field.picker_hint")}`)}"`:"";
   const button=`<button type="button" class="shelf__fieldbtn" data-shelf-field="${esc(fieldId)}" data-set="${esc(key)}" aria-pressed="${selected?"true":"false"}"${pickerHint}>${face}</button>`;
   const input=`<input class="shelf__input" data-k="${esc(inputKey)}" data-metric-id="${esc(metric.id)}" type="text" inputmode="${metric.semantic==="reps"||metric.semantic==="repsPerSide"?"numeric":"decimal"}" `+
-    `enterkeyhint="next" aria-label="${esc(name)}" autocomplete="off" value="${esc(metricTextValue(raw,metric))}" placeholder="${esc(target)}"`+
+    `enterkeyhint="next" aria-label="${esc(name)}" autocomplete="off" value="${esc(display)}" placeholder="${esc(target)}"`+
     `${live?"":' tabindex="-1" aria-hidden="true"'}>`;
   const caption=live?`<span class="shelf__lab shelf__lab--edit" aria-hidden="true">${esc(short)}</span>`:"";
   return `<div class="${cls}" data-field="metric" data-metric="${esc(metric.id)}" data-set="${esc(key)}"><span data-lv="${esc(fieldId)}"></span>${button}${input}${caption}</div>`}
@@ -10826,16 +10871,20 @@ function bindWorkout(){
     row?.classList.remove("is-suggested");
     // The write may wait on the lock while the lifter moves on and the shelf is rebuilt: the value is held for
     // those rebuilds, and the acknowledgement is applied to the control that is on screen then, not to this node.
-    const key=i.dataset.k,token=holdPendingField(key,i.value);
+    const key=i.dataset.k,token=holdPendingField(key,i.value),recoveryField={key,
+      exerciseInstanceId:target.exerciseInstanceId,setId:target.setId,field:target.metricId?null:target.field,
+      metricId:target.metricId||null};
     let result;
     try{
       if(target.metricId){
         const metric=activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId].programmed.metrics.find(item=>item.id===target.metricId);
         result=await WorkoutSession.dispatch("editMetricValue",{exerciseInstanceId:target.exerciseInstanceId,
-          setId:target.setId,metricId:target.metricId,value:canonicalMetricInput(metric,i.value)},{pendingValue:i.value})
+          setId:target.setId,metricId:target.metricId,value:canonicalMetricInput(metric,i.value)},
+          {pendingValue:i.value,pendingField:{key,token},recoveryField})
       }else result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
-        setId:target.setId,field:target.field,value:canonicalDraftField(target.field,i.value)},{pendingValue:i.value})}
-    finally{releasePendingField(key,token)}
+        setId:target.setId,field:target.field,value:canonicalDraftField(target.field,i.value)},
+        {pendingValue:i.value,pendingField:{key,token},recoveryField})}
+    finally{settlePendingField(key,token,{rejected:result?.status!=="applied"})}
     if(result.status!=="applied")return;
     const live=liveShelfInput(key);
     if(!live)return;
@@ -10867,7 +10916,7 @@ function bindWorkout(){
       // Effort the lifter never touched logs what its field shows (the last session's, the set above's, or the
       // default). It goes with the commit as a prefill, so the set records that it was shown, not entered (Plan 077).
       const field=isEffortMode()?"effort":"rir";
-      if(ex&&!activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId].touched?.effort&&!pendingFields.has(`${key}_${field}`)){
+      if(ex&&!activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId].touched?.effort&&!hasPendingField(`${key}_${field}`)){
         const vals=setFieldVals(ex,target.ordinal,r,hydrateWorkoutDraft(),last(ex));
         const shown=field==="effort"?vals.effortVal:String(vals.rirVal??"");
         if(shown)prefill={field,value:shown}}}
@@ -10921,11 +10970,12 @@ function bindWorkout(){
     const target=draftTargetFromKey(key);if(!activeWorkoutDraft||!target)return;
     const[exId,n]=setKeyParts(key),before=setStageOf(exId,n),wasUnsure=activeWorkoutDraft.exercises[exId]?.sets?.[target.setId]?.edited?.effort==="unsure";
     setEffortPick(key,next,dir);
-    const pendingKey=`${key}_effort`,token=holdPendingField(pendingKey,next);
+    const pendingKey=`${key}_effort`,token=holdPendingField(pendingKey,next),recoveryField={key:pendingKey,
+      exerciseInstanceId:target.exerciseInstanceId,setId:target.setId,field:"effort",metricId:null};
     let result;
     try{result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
-      setId:target.setId,field:"effort",value:next})}
-    finally{releasePendingField(pendingKey,token)}
+      setId:target.setId,field:"effort",value:next},{pendingField:{key:pendingKey,token},recoveryField})}
+    finally{settlePendingField(pendingKey,token,{rejected:result?.status!=="applied"})}
     if(result.status!=="applied")return;
     updateSaveMeta();
     if(next==="unsure"||wasUnsure||setStageOf(exId,n)!==before){renderWorkout();return}
@@ -11309,6 +11359,7 @@ const WorkoutSession=(()=>{
     if(saveState.phase==="recovery"&&completion==="normal"&&
       !reopenAfterTotalFailure(activeWorkoutDraft))return false;
     if(saveState.phase==="editing")return completion==="normal";
+    if(saveState.phase==="early-confirmation"&&completion==="normal")return true;
     return saveState.phase==="early-confirmation"&&completion===EARLY_FINISH_CONFIRMATION&&
       sameDraft(saveState.expectedDraft,options.expectedDraft)}
   function beginSave(io,options={}){
@@ -12244,6 +12295,7 @@ window.__repforgeCommitProposedState=proposal=>commitProposedState(proposal,stor
 window.__repforgeInstallTransferImport=(envelope,options)=>importInstallTransfer(envelope,options);
 window.__repforgePersistSetupDraft=next=>persistSetupDraft(next);
 window.__repforgeEntryState=()=>cloneSnapshot(entryState);
+window.__repforgeRecommitEntryState=()=>{entrySetState(entryState,{persist:false});return true};
 // The mounted Build editor's own client-side document (program-editor.js's
 // local copy, which is what #onbProgramEditor actually renders from). It is
 // kept separately from entryState and only adopts a commit's own canonical
@@ -12672,7 +12724,7 @@ function updateVoiceBtn(){const b=$("#voiceBtn");if(!b)return;b.classList.toggle
    for, so a transcript that arrives after the lifter has left that workout, or
    after its draft has gone, is dropped rather than edited into the one now open. */
 function voiceTranscriptCurrent(op){
-  return voiceOp===op&&op.phase==="resolving"&&!!activeWorkoutDraft&&activeWorkoutDraft.draftId===op.draftId&&workoutActive;
+  return voiceOp===op&&op.phase==="resolving"&&!!activeWorkoutDraft&&activeWorkoutDraft.draftId===op.draftId&&workoutActive&&currentViewId()==="log";
 }
 function endVoiceOp(op){if(voiceOp===op)voiceOp=null}
 function abandonVoiceOp(){
@@ -13208,6 +13260,8 @@ function exerciseSessionsDetail(key){const m=new Map();
 
 function currentViewId(){return $$(".view").find(v=>v.classList.contains("active"))?.id||"log"}
 function openExerciseView(key,from){if(!key)return;
+  // Leaving the logging route retires voice: a recognizer started in Focus must not outlive it.
+  abandonVoiceOp();
   const slot=prog.find(key),movement=slot?(workoutActive?sessionExercise(slot):slot):null;
   exView={key:movement?exerciseLiftKey(movement):key,openKey:key,from:from||currentViewId(),exercise:movement?Object.assign({},movement):null};
   chartView={scope:"current-block",metric:"top",pt:null};
@@ -18866,7 +18920,7 @@ async function discardEntryDraftAndCancel(){
   cancelOnboarding()}
 function entrySetState(next,{persist=true}={}){
   // Anything that moves the flow on supersedes a program still generating for it.
-  if(entryResultJob){entryResultJob.controller.abort();entryResultJob=null}
+  supersedeEntryGeneration();
   const offerKey=entryOfferKey(next);
   if(entryOfferJob&&(next?.step!=="result"||offerKey!==entryOfferJob.key)){
     entryOfferJob.controller.abort();entryOfferJob=null}
@@ -18876,8 +18930,7 @@ function entrySetState(next,{persist=true}={}){
   const outgoing=direction&&entryMotionAvailable()?cloneEntryMotionPage(entryMotionLivePage()):null;
   if(next?.step!==entryState?.step||next?.route!==entryState?.route){
     entryPickerDraft={};entryPriorityLimitShown=false;
-    if(entryBuilding){entryBuilding.timers.forEach(clearTimeout);entryBuilding.release()}
-    entryBuilding=null}
+  }
   entryState=next;
   if(next?.step!=="background")entryGoalFromHub=false;
   entryValidationNotice=false;
@@ -19797,11 +19850,23 @@ function settleGeneration(token,outcome){
   let duration=null;
   try{duration=window.RepForgeTelemetry?.bucketGeneration?.(generationClock()-token.at)}catch{}
   if(duration)captureEvent("generation_settled",{route:token.route,outcome,duration})}
-/* Generation is deterministic in its canonical request, so the last few
-   outputs are kept: the review's recommendation is then at hand on the render
-   that follows its own generation. A test's services override is never cached. */
+/* One status owns the exclusive result and answer jobs; the review baseline
+   and four-output cache keep their independent lifetimes. */
+const ENTRY_GENERATION_STATUS=Object.freeze({IDLE:"idle",GENERATING_RESULT:"generating-result",
+  REBUILDING_ANSWER:"rebuilding-answer"});
+const ENTRY_GENERATION_IDLE=Object.freeze({status:ENTRY_GENERATION_STATUS.IDLE});
+let entryGeneration=ENTRY_GENERATION_IDLE;
 const entryGenerated=new Map();
 const entryGeneratedKey=request=>ProgramCompiler.generationIdentity(request,rawExerciseCatalog);
+function releaseEntryBuilding(checklist){
+  if(!checklist)return;
+  checklist.timers.forEach(clearTimeout);checklist.timers.length=0;checklist.release()}
+function supersedeEntryGeneration(){
+  const current=entryGeneration;
+  if(current.status===ENTRY_GENERATION_STATUS.GENERATING_RESULT){
+    current.controller?.abort();releaseEntryBuilding(current.checklist);
+    entryGeneration=ENTRY_GENERATION_IDLE}
+  syncEntryBusy()}
 function entryGeneratedPeek(from){
   if(!from||window.__repforgeProgramEntryServicesOverride||!ProgramEntryAdapter?.programRequestFromAnswers)return null;
   const services=entryServices(),mapped=entryGeneratorRequest(from);
@@ -19907,15 +19972,20 @@ let entryBuildArmed=null;
    resumed draft). Until it lands the lifter stays where they were, so the
    committed state never holds a result step without its program; anything
    that moves the flow on meanwhile supersedes it. */
-let entryResultJob=null,entryAnswerJob=null;
 function cancelEntryGeneration(){
-  entryResultJob?.controller.abort();entryAnswerJob?.controller.abort();
-  entryResultJob=null;entryAnswerJob=null;syncEntryBusy()}
+  const current=entryGeneration;
+  if(current.status===ENTRY_GENERATION_STATUS.GENERATING_RESULT||current.status===ENTRY_GENERATION_STATUS.REBUILDING_ANSWER)
+    current.controller?.abort();
+  releaseEntryBuilding(current.checklist);
+  entryGeneration=ENTRY_GENERATION_IDLE;syncEntryBusy()}
 function syncEntryBusy(){
+  const status=entryGeneration.status;
+  const resultBusy=status===ENTRY_GENERATION_STATUS.GENERATING_RESULT&&entryGeneration.from===entryState;
+  const answerBusy=status===ENTRY_GENERATION_STATUS.REBUILDING_ANSWER&&entryGeneration.committed===entryState;
   const next=$("#onbNext");
-  if(next){if(entryResultJob)next.setAttribute("aria-busy","true");else next.removeAttribute("aria-busy")}
+  if(next){if(resultBusy)next.setAttribute("aria-busy","true");else next.removeAttribute("aria-busy")}
   const review=$("#entryCandidateReview");
-  if(review){if(entryAnswerJob)review.setAttribute("aria-busy","true");else review.removeAttribute("aria-busy")}}
+  if(review){if(answerBusy)review.setAttribute("aria-busy","true");else review.removeAttribute("aria-busy")}}
 /* B's building moment (Plan 072): a four-line checklist and a thin bar while
    the program generates. The step moves to the result when the checklist has
    finished, or the lifter skipped it, and the program has landed; if the
@@ -19923,7 +19993,6 @@ function syncEntryBusy(){
    every line done. Nothing here is persisted: a reload on this step starts
    it again, and Back returns to the abilities with the job aborted. */
 const ENTRY_BUILDING_LINE_MS=260;
-let entryBuilding=null;
 function renderBuildingStep(){
   const minutes=entryState.answers.sessionMinutes||60;
   const deload=entryState.answers.deload!==false;
@@ -19941,17 +20010,18 @@ function mountEntryBuilding(){
   if(entryState?.step!=="building"||entryUiNotice)return;
   const root=$("#entryBuilding");if(!root)return;
   // One checklist per arrival on the step; a re-render keeps its progress.
-  if(!entryBuilding){
+  if(entryGeneration.status!==ENTRY_GENERATION_STATUS.GENERATING_RESULT||!entryGeneration.checklist){
     let release;const gate=new Promise(resolve=>{release=resolve});
-    entryBuilding={gate,release,done:false,timers:[]};
+    const checklist={gate,release,done:false,timers:[]};
     const target=ProgramEntry.advance(entryState);
-    if(target.ok)startEntryResult(target.state,{gate})}
-  const run=entryBuilding,items=[...root.querySelectorAll(".entry-building__steps li")];
+    if(target.ok)startEntryResult(target.state,{checklist})}
+  const run=entryGeneration.checklist,items=[...root.querySelectorAll(".entry-building__steps li")];
+  if(!run)return;
   const finish=()=>{
     if(run.done)return;run.done=true;run.timers.forEach(clearTimeout);
     items.forEach(li=>{li.classList.remove("is-now");li.classList.add("is-done")});
     root.classList.add("is-done");run.release();
-    entryBuildingPending(!!entryResultJob?.settled)};
+    entryBuildingPending(!!entryGeneration.settled)};
   $("#entryBuildingSkip")?.addEventListener("click",finish);
   if(run.done||!beatsOn()){finish();return}
   if(run.timers.length)return;
@@ -19964,13 +20034,13 @@ function mountEntryBuilding(){
    the hairline appears only while the checklist is done and the job is not. */
 function entryBuildingPending(settled){
   const wait=$("#entryBuildingWait");if(!wait)return;
-  const pending=!settled&&!!entryBuilding?.done;
+  const pending=!settled&&!!entryGeneration.checklist?.done;
   wait.hidden=!pending;
   wait.classList.toggle("is-pending",pending)}
-async function startEntryResult(target,{gate=null}={}){
-  entryResultJob?.controller.abort();
-  const job={from:entryState,target,controller:new AbortController()};
-  entryResultJob=job;entryCompileError=null;
+async function startEntryResult(target,{checklist=null}={}){
+  supersedeEntryGeneration();
+  const job={status:ENTRY_GENERATION_STATUS.GENERATING_RESULT,from:entryState,target,controller:new AbortController(),checklist};
+  entryGeneration=job;entryCompileError=null;
   syncEntryBusy();
   let outcome,without=null;
   try{
@@ -19980,16 +20050,17 @@ async function startEntryResult(target,{gate=null}={}){
       const bare=await generateEntryCandidate({...target,answers:{...target.answers,exerciseConstraints:[]}},{signal:job.controller.signal});
       without=bare.ok?bare.result:null}}
   catch{return}
-  if(entryResultJob!==job)return;
+  if(entryGeneration!==job)return;
   // B's building moment shows its checklist through, unless the lifter skips
   // it; a conflict is shown at once.
-  if(gate&&outcome.ok){
+  if(checklist&&outcome.ok){
     job.settled=true;entryBuildingPending(true);
-    await gate;
-    if(entryResultJob!==job)return}
-  entryResultJob=null;
-  if(entryState!==job.from){syncEntryBusy();return}
+    await checklist.gate;
+    if(entryGeneration!==job)return}
+  entryGeneration=ENTRY_GENERATION_IDLE;syncEntryBusy();
+  if(entryState!==job.from){releaseEntryBuilding(checklist);return}
   if(!outcome.ok){
+    releaseEntryBuilding(checklist);
     entryCompileError=outcome.failure;
     entrySetState(target);
     return}
@@ -20519,20 +20590,21 @@ async function applyEntryAnswerEdit(patch,{lead,beforeLabel,afterLabel}={}){
   const route=entryState.route;
   if(route!=="recommend"&&route!=="custom")return{ok:false};
   const committed=entryState,before=committed.result;
-  const next=ProgramEntry.setAnswers(entryAnswerJob?.committed===committed?entryAnswerJob.next:committed,patch);
+  const current=entryGeneration;
+  const next=ProgramEntry.setAnswers(current.status===ENTRY_GENERATION_STATUS.REBUILDING_ANSWER&&current.committed===committed?current.next:committed,patch);
   if(before.preview.programDefinition?.provenance?.source==="recovered_generation_rules"){
     const mapped=entryGeneratorRequest(next);
     if(!mapped.ok)return{ok:false,failure:{code:"generation_conflict",conflicts:mapped.failure?.conflicts||[]}};
     if(!ProgramCompiler.availableSplits(mapped.request).includes(mapped.request.split))return{ok:false,failure:{code:"generation_conflict",
       conflicts:[{code:"unsupported_generation_domain"}]}}}
-  entryAnswerJob?.controller.abort();
-  const job={committed,next,controller:new AbortController()};
-  entryAnswerJob=job;syncEntryBusy();
+  if(current.status===ENTRY_GENERATION_STATUS.REBUILDING_ANSWER)current.controller?.abort();
+  const job={status:ENTRY_GENERATION_STATUS.REBUILDING_ANSWER,committed,next,controller:new AbortController()};
+  entryGeneration=job;syncEntryBusy();
   let outcome;
   try{outcome=await generateEntryCandidate(next,{signal:job.controller.signal,timed:true})}
   catch{return{ok:false,superseded:true}}
-  if(entryAnswerJob!==job)return{ok:false,superseded:true};
-  entryAnswerJob=null;syncEntryBusy();
+  if(entryGeneration!==job)return{ok:false,superseded:true};
+  entryGeneration=ENTRY_GENERATION_IDLE;syncEntryBusy();
   if(entryState!==committed)return{ok:false,superseded:true};
   if(!outcome.ok)return{ok:false,failure:outcome.failure};
   const compiled=outcome.result;
@@ -20656,7 +20728,7 @@ function renderResultStep(){
   const result=entryState.result?.preview?entryState.result:null;
   if(!result&&!entryCompileError){
     // A resumed draft can stand on the result step without its program.
-    if(!entryResultJob)startEntryResult(entryState);
+    if(entryGeneration.status!==ENTRY_GENERATION_STATUS.GENERATING_RESULT)startEntryResult(entryState);
     return entryHeading(resultTitle)+`<p class="visually-hidden" role="status">${esc(t("entry.result.building"))}</p>`}
   if(!result){
     const failure=entryCompileError&&typeof entryCompileError==="object"?entryCompileError:null;
@@ -20696,7 +20768,7 @@ function renderResultStep(){
   /* Plan 070: the program is onboarding B's review editor, mounted into
      #entryReview after this render (mountEntryAdjust). What the program was
      built from stays below it until B's question screens replace these. */
-  return `<section id="entryCandidateReview" class="entry__review" aria-labelledby="entryHeading"${entryAnswerJob?` aria-busy="true"`:""}>`+
+  return `<section id="entryCandidateReview" class="entry__review" aria-labelledby="entryHeading">`+
     `<div id="entryReview" class="entry__adjust ph-no-capture"></div>`+
     renderEntryChangeStatement(entryChange)+
     (hasActiveProgram()&&!entryUiNotice?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
@@ -20879,7 +20951,7 @@ function resolveEntryAdjustDialog(confirmed){
 async function guardEntryRebuild(rebuild){
   // A rebuild of this same result is already generating: its guard has dealt
   // with the adjustments, and the next answer builds on that rebuild.
-  const rebuilding=entryAnswerJob&&entryAnswerJob.committed===entryState;
+  const rebuilding=entryGeneration.status===ENTRY_GENERATION_STATUS.REBUILDING_ANSWER&&entryGeneration.committed===entryState;
   if(!rebuilding&&await entryAdjusted()){
     const count=window.RepForgeProgramReview.changes(entryAdjust.baseline.preview.programDefinition,
       entryState.result.preview.programDefinition).count||1;
@@ -21693,7 +21765,6 @@ function renderOnboarding({pageTransition=null}={}){
     const needsChoice=!hideNext&&!isEditor&&entryNeedsChoice(stepId);
     const blocked=!hideNext&&!isEditor&&(needsChoice||!hub&&ProgramEntry.validationIssues(entryState).length>0);
     next.disabled=!!pendingReason||blocked;
-    if(entryResultJob)next.setAttribute("aria-busy","true");else next.removeAttribute("aria-busy");
     /* A blocked primary says why, in text above it, and drops its arrow. */
     const showReason=blocked&&!pendingReason;
     if(reason){reason.hidden=!showReason;reason.textContent=showReason?t(stepId==="build_setup"?"entry.pinned.reason_name":needsChoice?"entry.required":"entry.pinned.reason"):""}
@@ -21752,6 +21823,7 @@ function renderOnboarding({pageTransition=null}={}){
     updateOnboardingEditorActions();
   }
   setupEntryRovingFocus();
+  syncEntryBusy();
   if(!dialogOpen){
     if(!restoreEntryFocus(focusToken)){
       const header=headerFocus&&sameScreen?$("#"+CSS.escape(headerFocus)):null;
@@ -22178,7 +22250,7 @@ async function surfaceEntryDurableConflict(){
   return recovered;
 }
 function entryAdvance(){
-  if(!ProgramEntry||!entryState||entryResultJob)return;
+  if(!ProgramEntry||!entryState||entryGeneration.status===ENTRY_GENERATION_STATUS.GENERATING_RESULT)return;
   if(entryHubMode()){entryChooseHubRoute();return}
   entryGoalOpen=false;
   if(entryState.step==="split")stopEntrySplitEstimates();
@@ -24975,8 +25047,8 @@ function init(){
   const noteCancel=$("#exNoteCancel");if(noteCancel)noteCancel.onclick=closeExNoteSheet;
   const noteSave=$("#exNoteSave");if(noteSave)noteSave.onclick=saveExNoteSheet;
   const noteScrim=$("#exNoteScrim");if(noteScrim)noteScrim.onclick=closeExNoteSheet;
-  const maxScrim=$("#maxSetScrim");if(maxScrim)maxScrim.onclick=closeMaxSetSheet;
-  const maxNo=$("#maxSetNo");if(maxNo)maxNo.onclick=()=>{const exId=maxSetUi?.exId;closeMaxSetSheet();if(exId)declineMaxSet(exId)};
+  const maxScrim=$("#maxSetScrim");if(maxScrim)maxScrim.onclick=()=>closeMaxSetSheet();
+  const maxNo=$("#maxSetNo");if(maxNo)maxNo.onclick=()=>{if(maxSetUi?.phase==="starting")return;const exId=maxSetUi?.exId;closeMaxSetSheet();if(exId)declineMaxSet(exId)};
   const maxStart=$("#maxSetStart");if(maxStart)maxStart.onclick=startMaxSetFromSheet;
   const maxLess=$("#maxSetLess");if(maxLess)maxLess.onclick=()=>stepMaxSetGuess(-1);
   const maxMore=$("#maxSetMore");if(maxMore)maxMore.onclick=()=>stepMaxSetGuess(1);
@@ -25236,7 +25308,7 @@ function init(){
       return;
     }
     const expectedDraft=WorkoutSession.earlyFinishDraft();
-    const p=closeSessionSheet();if(p&&typeof p.then==="function")await p;
+    const p=closeSessionSheet({preserveEarlyConfirmation:true});if(p&&typeof p.then==="function")await p;
     const finishPromise=saveWorkout(null,null,{expectedDraft,completion:EARLY_FINISH_CONFIRMATION});
     window.__repforgeLastWorkoutFinish=finishPromise;
     await finishPromise;
@@ -25376,6 +25448,7 @@ function init(){
     }
     if(programEditMode)finishInstalledEditor();
     if(dockRetap(b))return;
+    abandonVoiceOp();
     exView=null;workoutActive=false;workoutLeft=true;
     // Progress remembers its segment, so arriving there can itself open the review.
     const opensReview=b.dataset.view==="stats"&&statsSeg==="review"&&!evidenceView&&!$("#stats")?.classList.contains("active");
@@ -25695,6 +25768,8 @@ async function boot(){
     if(transferResult.productRecovery!==true)throw new Error(transferResult?.code||"install-transfer-failed");
     const blockedImportMarker=await installTransferReadMarker();
     if(blockedImportMarker){
+      // The interrupted-transfer sheet is the surface this load shows: a transfer owns the screen, and boot does not init.
+      enterBootTransfer();
       openIosInstallSheet("interrupted");
       return;
     }
@@ -25762,33 +25837,67 @@ if(DurableState){
   });
 }
 /* ---- The launch splash (index.html #bootSplash) ----
-   It covers the page from the first frame. Boot releases it once the surface this
-   load lands on has drawn its real content: init() releases it after the first
-   render and the landing decision, the landing or the restored view with the
-   lifter's program in it, never an empty shell. A boot dialog (storage recovery,
-   the exercise catalog) shows over it from the top layer. A thrown boot, or the
-   head script's stall timer, turns it into the error state instead of leaving
-   the lifter on the mark. */
-let bootSplashState="covering";
+   The cover covers the page from the first frame, and boot owns the screen through five states:
+     covering  the launch cover covers the page while boot runs;
+     transfer  a transfer sheet (a claim, or an interrupted import) takes the screen. The cover stays beneath the
+               sheet and its scrim, so no empty shell shows. The stall verdict is suppressed, and a real boot error
+               still shows the failure panel, above the sheet;
+     stalled   boot has run past the stall deadline: the error panel shows, and boot may still finish;
+     released  the real app or landing has rendered, and the cover is gone for good;
+     failed    boot threw. Terminal for this load.
+   covering -> transfer  a transfer sheet takes the screen
+   covering -> stalled   the head script's stall deadline (never while a transfer owns the screen)
+   transfer -> released  init() has drawn the app or the landing
+   transfer -> failed    boot threw
+   stalled  -> released  boot completes after all: the panel lifts with the cover
+   stalled  -> transfer  a claim starts after the stall: the panel lifts for the sheet
+   covering|stalled|transfer -> failed  boot threw; a stall stays a stall
+   While the panel owns the screen (stalled or failed), the covered page is inert and Tab stays on the panel. The
+   head script's own panel does the same, and app.js starts out stalled when it finds that panel. A transfer sheet is
+   not panel-owned: it keeps its own handling and is never made inert by the panel. */
+let bootSplashState=document.documentElement.classList.contains("is-boot-failed")?"stalled":"covering";
+/* A transfer sheet and its scrim sit above the cover while a transfer owns the screen, and fall back below the panel. */
+function bootSheetLayer(raised){
+  const sheet=document.getElementById("iosInstallSheet"),scrim=document.getElementById("iosInstallScrim");
+  if(scrim)scrim.style.zIndex=raised?"2147483001":"";
+  if(sheet)sheet.style.zIndex=raised?"2147483002":""}
+function enterBootTransfer(){
+  if(bootSplashState!=="covering"&&bootSplashState!=="stalled")return;
+  if(bootSplashState==="stalled"){
+    window.__repforgeBootPanel?.release();
+    document.documentElement.classList.remove("is-boot-failed");
+    window.__repforgeBootFailureState=null}
+  bootSplashState="transfer";
+  clearTimeout(window.__repforgeBootStall);
+  bootSheetLayer(true)}
 function releaseBootSplash(){
-  if(bootSplashState!=="covering")return;
+  if(bootSplashState!=="covering"&&bootSplashState!=="stalled"&&bootSplashState!=="transfer")return;
+  // Released means the real app or landing has rendered. A panel or a transfer sheet gives way at once.
+  const lifting=bootSplashState!=="covering";
   bootSplashState="released";
   const root=document.documentElement,splash=document.getElementById("bootSplash");
   clearTimeout(window.__repforgeBootStall);
+  window.__repforgeBootPanel?.release();
+  bootSheetLayer(false);
   const landing=firstRunOpen();
   root.dataset.bootSurface=landing?"landing":"app";
-  root.classList.remove("is-booting");
+  root.classList.remove("is-booting","is-boot-failed");
+  if(lifting)window.__repforgeBootFailureState=null;
   if(!splash)return;
   const remove=()=>splash.remove();
-  // The landing is whole the moment it is drawn, so its plain cover just goes.
-  if(landing||matchMedia("(prefers-reduced-motion: reduce)").matches){remove();return}
+  // The landing is whole the moment it is drawn, so its plain cover just goes; so does a panel or sheet it gives way to.
+  if(lifting||landing||matchMedia("(prefers-reduced-motion: reduce)").matches){remove();return}
   // Onto the app: the mark fades first, then the cover (styles.css, .bootsplash.is-leaving).
   splash.classList.add("is-leaving");
   splash.addEventListener("transitionend",event=>{if(event.target===splash)remove()});
   setTimeout(remove,600)}
 function showBootFailure(reason){
-  if(bootSplashState==="released")return;
-  bootSplashState="failed";
+  // A stall is a verdict on the wait, so a boot that completes later lifts it. A thrown boot is not, and a
+  // transfer owns the screen during its sheet, so it takes no stall verdict.
+  const stalled=reason==="stalled";
+  if(bootSplashState==="released"||bootSplashState==="failed")return;
+  if(stalled&&(bootSplashState==="stalled"||bootSplashState==="transfer"))return;
+  bootSplashState=stalled?"stalled":"failed";
   const root=document.documentElement;
   clearTimeout(window.__repforgeBootStall);
   window.__repforgeBootFailureState=String(reason||"failed");
@@ -25799,6 +25908,9 @@ function showBootFailure(reason){
   // rest of the page during boot, is never announced.
   document.querySelector("#bootSplash .bootsplash__fail")?.setAttribute("role","alert");
   root.classList.add("is-boot-failed");
+  // The panel is above the cover and any sheet beneath it, and it owns the keyboard until boot completes.
+  bootSheetLayer(false);
+  window.__repforgeBootPanel?.contain();
   const reload=document.getElementById("bootReload");
   if(reload){reload.onclick=()=>location.reload();try{reload.focus({preventScroll:true})}catch{}}}
 window.__repforgeShowBootFailure=showBootFailure;
