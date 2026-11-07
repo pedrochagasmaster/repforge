@@ -47,6 +47,8 @@ edits). It is never exported, transferred or logged, is kept after a reload
 only when replaying it rebuilds the saved definition, and is cleared on
 activation and whenever the setup draft is removed.
 
+The armed rest clock survives a reload of its tab the same way: tab-scoped `sessionStorage` (`repforge_rest_v1`: the draft id it started in, its deadline or held remainder, its length, exercise and whether its bell has rung). It is restored only for that draft, is never exported, transferred or logged, and is cleared when the rest stops or the workout ends. `rest-timer.js` stays free of storage; `snapshot` and `restore` are its only contact with it.
+
 Generation policy is owned by `program-compiler.js`, `generation-candidates.js`
 and `generation-layout.js`. When changing generation, split choices, cycle
 prescriptions, recipes or rebuild, read `plans/073/implementation-status.md` and
