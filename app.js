@@ -12244,6 +12244,7 @@ window.__repforgeCommitProposedState=proposal=>commitProposedState(proposal,stor
 window.__repforgeInstallTransferImport=(envelope,options)=>importInstallTransfer(envelope,options);
 window.__repforgePersistSetupDraft=next=>persistSetupDraft(next);
 window.__repforgeEntryState=()=>cloneSnapshot(entryState);
+window.__repforgeRecommitEntryState=()=>{entrySetState(entryState,{persist:false});return true};
 // The mounted Build editor's own client-side document (program-editor.js's
 // local copy, which is what #onbProgramEditor actually renders from). It is
 // kept separately from entryState and only adopts a commit's own canonical
