@@ -2462,17 +2462,16 @@ function muscleHit(ex,muscle){const m=muscle.toLowerCase();
   return muscles(ex.primary).concat(muscles(ex.secondary)).some(x=>x.toLowerCase()===m||x.toLowerCase().includes(m))}
 let state,prog,day,installPrompt=null,saving=false;
 let activeRecoveryRecord=null,activeRecoveryRecordBlockId=null;
-let restEnd=0,restTick=null,restNotified=false,restAnnounced=false;
-// restPaused holds the milliseconds left while the clock is held (null while it
-// runs); restLength is the length the current or next rest is armed at.
-let restPaused=null,restLength=0,restExerciseId=null;
+// The rest clock is one state value: rest-timer.js decides every transition (idle, running, paused, with overtime and the
+// cap read from the deadline). This file reads the wall clock, keeps the one interval the clock asks for, and carries out
+// the effects each transition names.
+let restClock=RepForgeRestTimer.createRestClock(0),restIntervalId=null;
 // A tap on a shelf field brings the field pads back for the rest of this rest;
 // the next rest starts with the rest controls again. Transient, never stored.
 // True from the set commit that starts a rest until the render that draws it: that render owns the swap
 // into the cue slot, so the clock's own repaint leaves the slot's structure alone in between.
+/** The bell's line in the live region. The clock settles the bell once per deadline, so this is said once with it. */
 function announceRestDone(){
-  if(restAnnounced)return;
-  restAnnounced=true;
   const el=$("#restAnnounce");if(!el)return;
   el.textContent="";
   requestAnimationFrame(()=>requestAnimationFrame(()=>{el.textContent=t("rest.complete")}))}
@@ -6875,7 +6874,7 @@ const restTips=[
   // the set, since the guess is made in the rest.
   {id:"max-set",eligible:(ex,n)=>!!maxSetOffer(ex,n),html:(ex,n)=>maxSetTipHtml(ex,n,false),bind:bindMaxSetTip},
   {id:"stage-tip",eligible:(ex,n)=>!stageTipEntering(ex,n)&&!!stageTipTarget(),html:()=>stageTipHtml(stageTipTarget()),bind:bindStageTip}];
-const restTipFor=(ex,n)=>restEnd&&ex&&n?restTips.find(tip=>tip.eligible(ex,n))||null:null;
+const restTipFor=(ex,n)=>restState().active&&ex&&n?restTips.find(tip=>tip.eligible(ex,n))||null:null;
 function focusRestTipHtml(ex,n){return restTipFor(ex,n)?.html(ex,n)||""}
 function focusDraftSet(exId,n){
   const draft=activeWorkoutDraft?.exercises?.[exId];
@@ -6948,11 +6947,12 @@ function syncRestTab(){
   const shelf=workoutActive?focusCard()?.querySelector(".focus-shelf"):null;
   // The context region leaves a band for the tab's rise (fitFocusLedger measures it): a tab that comes or goes refits it.
   let moved=false;
-  $$("#restTab,.restlight").forEach(el=>{if(!shelf||!shelf.contains(el)||!restEnd){if(el.id==="restTab")moved=true;el.remove()}});
+  const live=restState().active;
+  $$("#restTab,.restlight").forEach(el=>{if(!shelf||!shelf.contains(el)||!live){if(el.id==="restTab")moved=true;el.remove()}});
   syncRestTip(shelf);
   if(moved)refitFocusSoon();
-  $$(".focus-shelf.has-rest").forEach(el=>{if(el!==shelf||!restEnd)el.classList.remove("has-rest")});
-  if(!shelf||!restEnd){restContourObserver?.disconnect();restContourObserver=null;restContour=null;stopRestFrames();return}
+  $$(".focus-shelf.has-rest").forEach(el=>{if(el!==shelf||!live)el.classList.remove("has-rest")});
+  if(!shelf||!live){restContourObserver?.disconnect();restContourObserver=null;restContour=null;stopRestFrames();return}
   if(!shelf.querySelector("#restTab")){
     shelf.insertAdjacentHTML("afterbegin",restTabHtml());
     shelf.querySelector("#restTab").onclick=()=>openRestSheet();
@@ -6970,28 +6970,28 @@ function syncRestTab(){
 /** The tab's words: "Rest" and the time left, or "Rest done" and the overrun. The time rolls when its second changes. */
 function paintRestTab(){
   const tab=$("#restTab");if(!tab)return;
-  const left=restTimeLeftSec(),done=!!restEnd&&left<=0,over=restOverSec();
+  const v=restState(),left=restTimeLeftSec(),done=v.active&&left<=0,over=restOverSec();
   // The state is in the words: "Rest", "Paused" or "Rest done", and a countdown or a "+" count-up (owner, 2026-10-29).
-  const label=t(done?"rest.inline.done":restPaused!=null?"rest.tab.paused":"rest.inline.label");
+  const label=t(done?"rest.inline.done":v.held?"rest.tab.paused":"rest.inline.label");
   const time=done?`+${fmtClock(Math.max(0,over))}`:fmtClock(Math.max(0,left));
   const labelEl=tab.querySelector(".resttab__label"),timeEl=tab.querySelector(".resttab__time");
   if(labelEl.textContent!==label)labelEl.textContent=label;
   if(timeEl.textContent!==time){const had=timeEl.textContent;timeEl.textContent=time;if(had&&!done)window.RepForgeMotion?.rollValue?.(timeEl)}
   tab.classList.toggle("is-done",done);
-  tab.classList.toggle("is-paused",restPaused!=null);
-  const aria=restPaused!=null?t("focus.rest.paused_aria",{time})
+  tab.classList.toggle("is-paused",v.held);
+  const aria=v.held?t("focus.rest.paused_aria",{time})
     :done?(over>0?t("focus.rest.over_aria",{time:fmtClock(over)}):t("focus.rest.done_aria"))
     :t("focus.rest.running_aria",{time});
   if(tab.getAttribute("aria-label")!==aria)tab.setAttribute("aria-label",aria)}
 /** Time left as a share of the length this rest is armed at: 1 at the start, 0 at the bell. */
-function restShare(){return restEnd?Math.max(0,Math.min(1,restLeftMs()/(1000*Math.max(1,restPlanSec())))):1}
+function restShare(){return restState().active?Math.max(0,Math.min(1,restLeftMs()/(1000*Math.max(1,restPlanSec())))):1}
 /** Where an arc that starts at the top and runs clockwise for `share` of a turn ends, in percent of its box. */
 function restHead(share,radiusPct){
   const angle=share*2*Math.PI;
   return{x:50+radiusPct*Math.sin(angle),y:50-radiusPct*Math.cos(angle)}}
 /** The edge and the dial as the clock stands, in one write each. */
 function paintRestVisuals(){
-  const share=restShare(),done=!!restEnd&&restLeftMs()<=0;
+  const v=restState(),share=restShare(),done=v.active&&restLeftMs()<=0;
   const arc=(el,length)=>{if(el)el.style.strokeDasharray=`${(share*length).toFixed(2)} ${length}`};
   // The light along the contour reaches from the clock as far as the rest has left; held, it keeps its length and
   // greys. Past the bell it is a faint steady rim the whole way round (the flick, seen live, plays over it).
@@ -7001,13 +7001,13 @@ function paintRestVisuals(){
     const length=done?c.length:restReach(share,c);
     for(const half of c.halves)half.style.strokeDasharray=restLightDash(length);
     c.lit.style.opacity=String(done?rim:1);
-    c.svg.classList.toggle("is-paused",!done&&!!restEnd&&restPaused!=null)}
+    c.svg.classList.toggle("is-paused",!done&&v.held)}
   const dial=$("#restDial");
-  if(dial){arc(dial.querySelector(".restdial__arc"),1000);dial.classList.toggle("is-done",done);dial.classList.toggle("is-idle",!restEnd);dial.classList.toggle("is-paused",!!restEnd&&restPaused!=null)}}
+  if(dial){arc(dial.querySelector(".restdial__arc"),1000);dial.classList.toggle("is-done",done);dial.classList.toggle("is-idle",!v.active);dial.classList.toggle("is-paused",v.held)}}
 function stopRestFrames(){if(restFrameId)cancelAnimationFrame(restFrameId);restFrameId=0}
 /** The continuous depletion: a frame while time remains, the clock runs and the page is visible. */
 function startRestFrames(){
-  if(restFrameId||!restEnd||document.hidden)return;
+  if(restFrameId||!restState().active||document.hidden)return;
   // A loop that starts reads the clock as it stands: a bell that passed while nothing was drawing (a hidden page, a
   // closed Focus) is not seen live, so it plays no flick.
   restLastLeft=restLeftMs();
@@ -7016,7 +7016,7 @@ function startRestFrames(){
   restFrameId=requestAnimationFrame(restFrame)}
 function restFrame(now){
   restFrameId=0;
-  if(!restEnd||document.hidden)return;
+  if(!restState().active||document.hidden)return;
   const left=restLeftMs(),gap=now-restFrameLast;
   restFrameLast=now;
   paintRestVisuals();
@@ -7028,7 +7028,7 @@ function restFrame(now){
     if(restFlickArmed&&restLastLeft!=null&&restLastLeft>0&&gap<1000)playRestFlick();
     restFlickArmed=false}
   restLastLeft=left;
-  if(left>0&&restPaused==null)restFrameId=requestAnimationFrame(restFrame)}
+  if(left>0&&!restState().held)restFrameId=requestAnimationFrame(restFrame)}
 /** One soft light flick along the shelf's edge, out from the clock. Once per bell. The sheet's dial carries no light of
  *  its own (owner, 2026-11-04): no bloom at its head and no flick. */
 function playRestFlick(){
@@ -7036,40 +7036,47 @@ function playRestFlick(){
   const c=restContour;if(!c?.svg.isConnected)return;
   restFlickCount++;
   window.RepForgeMotion?.flickRestLight?.(c.lit,c.halves,c.length)}
-function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;restPaused=null;restAnnounced=false;
-  restLength=0;restExerciseId=null;
+function stopRest(){applyRest(RepForgeRestTimer.stop());
   paintRest();
-  updateRestChrome();
-  const ra=$("#restAnnounce");if(ra)ra.textContent="";
-  if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest")}
+  updateRestChrome()}
 /** Past the bell the clock keeps running as a "+m:ss" count-up, so a glance
  *  says how long the set has been waiting. It stops climbing after an hour —
  *  by then the number has stopped meaning anything. */
-const REST_OVERTIME_MAX=60*60;
+const REST_OVERTIME_MAX=RepForgeRestTimer.OVERTIME_MAX_SEC;
+/** The clock as it stands now (rest-timer.js). */
+function restState(){return RepForgeRestTimer.view(restClock,Date.now())}
 /** Milliseconds left on the clock: frozen while held, and negative once the
  *  rest has run past the bell. Idle, it reads as the length the next rest
  *  would run for — which is what the sheet shows before anything is armed. */
-function restLeftMs(){
-  if(restPaused!=null)return restPaused;
-  return restEnd?restEnd-Date.now():restPlanSec()*1000}
-function restOvertimeSec(){return restEnd?Math.round(-restLeftMs()/1000):0}
+function restLeftMs(){const v=restState();return v.active?v.leftMs:restPlanSec()*1000}
 /** Whole seconds left, as the clock reads them: zero or negative once the bell has gone. */
 const restTimeLeftSec=()=>Math.round(restLeftMs()/1000);
-/** One-shot side effects at zero: the live-region line, buzz, or OS notice. */
+/** The bell: the live-region line, then the buzz, or the OS notice when the page is hidden. The clock rings it once per deadline. */
 function ringRest(){
   announceRestDone();
-  if(restNotified)return;
-  restNotified=true;
   if(!window.RepForgeNotify||!RepForgeNotify.enabledFor(state.settings,"timer"))return;
   if(document.visibilityState==="visible")navigator.vibrate?.([200,100,200]);
   else RepForgeNotify.fireOS({title:t("notify.title"),body:t("notify.rest.body"),tag:"repforge-rest",url:"./"})}
-function tickRest(){const left=Math.round(restLeftMs()/1000);
-  if(left>0){paintRest();return}
-  const over=Math.min(-left,REST_OVERTIME_MAX);
-  paintRest();
-  if(over>=REST_OVERTIME_MAX&&restTick){clearInterval(restTick);restTick=null}
-  ringRest()}
-function armRestTick(){clearInterval(restTick);restTick=setInterval(tickRest,250)}
+/** Keep a transition's new state, carry out its effects, then run the one interval the clock asks for. */
+function applyRest(result){
+  restClock=result.state;
+  for(const effect of result.effects){
+    if(effect===RepForgeRestTimer.EFFECTS.BELL)ringRest();
+    else if(effect===RepForgeRestTimer.EFFECTS.REARMED){restFlickArmed=true;clearRestNotices()}
+    else if(effect===RepForgeRestTimer.EFFECTS.CLEARED)clearRestNotices()}
+  restReconcileTicker()}
+function clearRestNotices(){
+  const ra=$("#restAnnounce");if(ra)ra.textContent="";
+  if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest")}
+/** The one interval: on while the clock counts down or runs past the bell, off while it is held, capped or idle. */
+function restReconcileTicker(){
+  const want=restState().ticking;
+  if(want&&!restIntervalId)restIntervalId=setInterval(tickRest,250);
+  else if(!want&&restIntervalId){clearInterval(restIntervalId);restIntervalId=null}}
+/** An interval tick, or a catch-up on return to the page: settle the bell if its deadline has passed, then repaint. */
+function tickRest(){
+  applyRest(RepForgeRestTimer.settle(restClock,Date.now()));
+  paintRest()}
 /** Repaint every rest surface from the clock as it stands, without waiting for
  *  the next tick — a held clock has no tick, and a nudged one should read the
  *  new number the moment the button is released. */
@@ -7077,31 +7084,35 @@ function syncRest(){
   paintRest();
   updateRestChrome()}
 function startRest(sec,exerciseId){
+  const v=restState();
   // The rest belongs to the exercise whose set started it, or, from the sheet, to the one Focus is on.
-  const owner=exerciseId??(restEnd?restExerciseId:focusCard()?.dataset.ex)??null;
-  if(exerciseId!==undefined||!restEnd)restExerciseId=owner;
-  const s=sec||restPlanSec();if(s<=0)return;
-  restLength=s;restPaused=null;restFlickArmed=true;restLastLeft=null;
-  restEnd=Date.now()+s*1000;restNotified=false;restAnnounced=false;if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");
-  const ra=$("#restAnnounce");if(ra)ra.textContent="";
+  const owner=exerciseId??(v.active?v.exerciseId:focusCard()?.dataset.ex)??null;
+  // Without a length given, the rest runs for the length armed on the clock, else the owner's own rest.
+  const s=sec||(v.lengthSec>0?v.lengthSec:exerciseRestSec(prog.find(owner||focusCard()?.dataset.ex)));
+  if(s<=0)return;
+  restLastLeft=null;
+  applyRest(RepForgeRestTimer.start(restClock,{sec:s,exerciseId:owner,now:Date.now()}));
   updateRestChrome();paintRest();
-  announceRestStart(s);
-  armRestTick()}
+  announceRestStart(s)}
 /** The start of a rest is one line in the live region, like its end; the clock
  *  itself is never announced second by second. */
 function announceRestStart(sec){
   const el=$("#restAnnounce");if(!el)return;
   el.textContent="";
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{if(restEnd&&!restAnnounced)el.textContent=t("rest.inline.started",{time:fmtClock(sec)})}))}
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{const v=restState();if(v.active&&!v.rang)el.textContent=t("rest.inline.started",{time:fmtClock(sec)})}))}
 window.__repforgeRest={
   /** Test seam: how many zero flicks have played (one per bell seen live). */
   flicks:()=>restFlickCount,
+  /** Test seam: what the clock is doing. `endMs` is the deadline while it runs; `pausedMs` the held remainder. */
+  state(){const v=restState();return{active:v.active,held:v.held,phase:v.phase,rang:v.rang,ticking:v.ticking,lengthSec:v.lengthSec,
+    endMs:v.active&&!v.held?restClock.deadlineMs:null,pausedMs:v.held?v.leftMs:null,leftMs:v.active?v.leftMs:null}},
+  /** Test seam: put the clock `ms` left, running or held (`held`), with `lengthSec` as its full turn. False when idle. */
+  setLeft(ms,{held=false,lengthSec}={}){
+    if(!restState().active)return false;
+    applyRest(RepForgeRestTimer.setRemaining(restClock,{ms,held,lengthSec,now:Date.now()}));
+    return true},
   /** Test seam: run the clock out, `over` seconds past the bell. */
-  expire(over=0){
-    if(!restEnd)return false;
-    restEnd=Date.now()-1-Math.max(0,Math.round(+over||0))*1000;restPaused=null;
-    if(restTick){clearInterval(restTick);restTick=null}
-    return true}};
+  expire(over=0){return window.__repforgeRest.setLeft(-1-Math.max(0,Math.round(+over||0))*1000)}};
 
 /* ---- Rest presets sheet ---- */
 /* The running clock lives inline in the Focus cue slot (see "Inline rest"
@@ -7112,13 +7123,13 @@ window.__repforgeRest={
    tapped, while a set is corrected, and at large text. */
 const REST_PRESETS=[60,90,180,300];
 const REST_NUDGE=30;
-const REST_MIN_SEC=15,REST_MAX_SEC=60*60;
+const REST_MIN_SEC=15,REST_MAX_SEC=RepForgeRestTimer.MAX_SEC;
 /** The dial's own range and step (owner, 2026-11-04): turned by hand it sets 0:15 to 10:00 in 15-second detents. */
 const REST_DIAL_MIN=15,REST_DIAL_MAX=10*60,REST_DIAL_STEP=15;
 let restSheetReturn=null;
 /** The exercise whose rest this is: the one whose set started it, else the one Focus is on. */
 function restExercise(){
-  const id=(restEnd&&restExerciseId)||focusCard()?.dataset.ex;
+  const v=restState(),id=(v.active&&v.exerciseId)||focusCard()?.dataset.ex;
   return id?prog.find(id):null}
 function restSlotOf(ex,snapshot=state){
   const slotId=String(ex?.slotId||ex?.id||"");if(!slotId)return null;
@@ -7137,7 +7148,7 @@ function exerciseRestSec(ex){
 /** The length this rest was armed at — the ring's full turn. Idle, it is what the next rest would run for: the
  *  exercise's own rest. */
 function restPlanSec(){
-  if(restLength>0)return restLength;
+  const v=restState();if(v.lengthSec>0)return v.lengthSec;
   return exerciseRestSec(restExercise())}
 const clampRestSec=s=>Math.min(REST_MAX_SEC,Math.max(REST_MIN_SEC,Math.round(s)||0));
 /** The presets, and the exercise's own rest among them when it is none of them. */
@@ -7177,8 +7188,8 @@ async function saveExerciseRest(ex,sec){
 /** A preset sets this exercise's rest, and the rest on the clock restarts at it; idle, it is what the next one runs for. */
 async function chooseRestPreset(sec){
   const s=clampRestSec(sec),ex=restExercise();
-  if(restEnd)startRest(s);
-  else{restLength=0;syncRest()}
+  if(restState().active)startRest(s);
+  else{applyRest(RepForgeRestTimer.setLength(restClock,0));syncRest()}
   paintRestSheet();
   if(ex)await saveExerciseRest(ex,s);
   renderRestPresets();paintRestSheet()}
@@ -7196,11 +7207,12 @@ function restNextLine(){
  *  for a rest to act on. */
 function paintRestSheet(){
   const sheet=$("#restSheet");if(!sheet||sheet.hidden)return;
-  sheet.classList.toggle("is-idle",!restEnd);
-  const left=restTimeLeftSec(),done=!!restEnd&&left<=0,over=restOverSec();
-  const time=!restEnd?fmtClock(restPlanSec()):done?`+${fmtClock(Math.max(0,over))}`:fmtClock(Math.max(0,left));
+  const v=restState();
+  sheet.classList.toggle("is-idle",!v.active);
+  const left=restTimeLeftSec(),done=v.active&&left<=0,over=restOverSec();
+  const time=!v.active?fmtClock(restPlanSec()):done?`+${fmtClock(Math.max(0,over))}`:fmtClock(Math.max(0,left));
   const timeEl=$("#restDialTime");
-  if(timeEl&&timeEl.textContent!==time){const had=timeEl.textContent;timeEl.textContent=time;if(had&&restEnd&&!done&&!restDialDrag)window.RepForgeMotion?.rollValue?.(timeEl)}
+  if(timeEl&&timeEl.textContent!==time){const had=timeEl.textContent;timeEl.textContent=time;if(had&&v.active&&!done&&!restDialDrag)window.RepForgeMotion?.rollValue?.(timeEl)}
   const of=$("#restDialOf"),ofText=done?t("rest.inline.done"):t("rest.inline.of",{t:fmtClock(restPlanSec())});
   if(of&&of.textContent!==ofText)of.textContent=ofText;
   const next=$("#restDialNext"),nextText=restNextLine();
@@ -7211,11 +7223,11 @@ function paintRestSheet(){
   $$("#restPresets [data-restpreset]").forEach(b=>b.classList.toggle("is-active",+b.dataset.restpreset===own));
   const hold=$("#restHold");
   if(hold){
-    const mode=!restEnd?"start":restPaused!=null?"resume":"pause";
+    const mode=!v.active?"start":v.held?"resume":"pause";
     hold.dataset.mode=mode;
     hold.setAttribute("aria-label",mode==="start"?t("focus.rest.start_aria"):t(mode==="resume"?"rest.inline.resume":"rest.inline.pause"))}
-  const reset=$("#restReset");if(reset)reset.disabled=!restEnd;
-  const stop=$("#restStop");if(stop)stop.disabled=!restEnd;
+  const reset=$("#restReset");if(reset)reset.disabled=!v.active;
+  const stop=$("#restStop");if(stop)stop.disabled=!v.active;
   paintRestDialSlider();
   paintRestVisuals()}
 function openRestSheet(){
@@ -7245,29 +7257,21 @@ function closeRestSheet(){
  *  one will run for. */
 function setRestLength(sec){
   const s=clampRestSec(sec);
-  restLength=s;
-  if(restEnd)startRest(s);
-  else syncRest();
+  if(restState().active)startRest(s);
+  else{applyRest(RepForgeRestTimer.setLength(restClock,s));syncRest()}
   paintRestSheet()}
 /** ±30s moves the clock, not the plan — except when the nudge pushes past the
  *  length it was armed at, which becomes the new full length of the drain bar. */
 function nudgeRest(delta){
-  if(!restEnd){setRestLength(restPlanSec()+delta);return}
-  const next=Math.min(REST_MAX_SEC*1000,Math.max(-REST_OVERTIME_MAX*1000,restLeftMs()+delta*1000));
-  const left=Math.ceil(next/1000);
-  setRestLeftMs(next,left>restLength?Math.min(REST_MAX_SEC,left):restLength)}
-/** Put `ms` on the running clock, with `length` as the ring's full turn. */
+  if(!restState().active){setRestLength(restPlanSec()+delta);return}
+  applyRest(RepForgeRestTimer.nudge(restClock,{deltaSec:delta,now:Date.now()}));
+  if(restState().leftMs>0)startRestFrames();
+  syncRest()}
+/** Put `ms` on the running clock, with `length` as the ring's full turn. A time above zero re-arms the bell (the clock
+ *  says so through its effects), so the line, the buzz and the OS notice can fire again. */
 function setRestLeftMs(ms,length){
-  if(restPaused!=null)restPaused=ms;else restEnd=Date.now()+ms;
-  restLength=length;
-  // Time added past the bell puts the rest back on the clock, so the line, the
-  // buzz and the OS notice all have to be able to fire again.
-  if(ms>0){
-    restNotified=false;restAnnounced=false;restFlickArmed=true;
-    const ra=$("#restAnnounce");if(ra)ra.textContent="";
-    if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");
-    if(restPaused==null&&!restTick)armRestTick();
-    startRestFrames()}
+  applyRest(RepForgeRestTimer.setRemaining(restClock,{ms,lengthSec:length,now:Date.now()}));
+  if(restState().leftMs>0)startRestFrames();
   syncRest()}
 
 /* ---- The dial, turned by hand (owner, 2026-11-04) ----
@@ -7280,7 +7284,7 @@ const snapDialSec=sec=>Math.min(REST_DIAL_MAX,Math.max(REST_DIAL_MIN,Math.round(
 let restDialDrag=null;
 /** Set the time left from the dial. `scale` is the full turn the drag began on. */
 function setRestFromDial(sec,scale=restPlanSec()){
-  if(!restEnd){restLength=sec;syncRest();paintRestSheet();return}
+  if(!restState().active){applyRest(RepForgeRestTimer.setLength(restClock,sec));syncRest();paintRestSheet();return}
   setRestLeftMs(sec*1000,Math.max(scale,sec));
   paintRestSheet()}
 /** The angle of a point around the dial's centre: 0 at the top, growing clockwise, in turns. */
@@ -7294,12 +7298,12 @@ function restDialValueText(sec){
   return t("rest.dial.value_ms",{m,mu:tp(m,"minute"),s,su:tp(s,"second")})}
 function paintRestDialSlider(){
   const dial=$("#restDial");if(!dial)return;
-  const left=restEnd?Math.max(0,restTimeLeftSec()):restPlanSec();
+  const left=restState().active?Math.max(0,restTimeLeftSec()):restPlanSec();
   // The slider's value stays in its range; the words say the time as it is (over the bell, or nudged past 10:00).
   const now=String(Math.min(REST_DIAL_MAX,Math.max(REST_DIAL_MIN,left))),text=restDialValueText(left);
   if(dial.getAttribute("aria-valuenow")!==now)dial.setAttribute("aria-valuenow",now);
   if(dial.getAttribute("aria-valuetext")!==text)dial.setAttribute("aria-valuetext",text)}
-function restDialLeftSec(){return restEnd?Math.max(0,restTimeLeftSec()):restPlanSec()}
+function restDialLeftSec(){return restState().active?Math.max(0,restTimeLeftSec()):restPlanSec()}
 function bindRestDial(){
   const dial=$("#restDial");if(!dial||dial.dataset.bound)return;
   dial.dataset.bound="1";
@@ -7341,15 +7345,10 @@ function bindRestDial(){
     event.preventDefault();
     setRestFromDial(value)})}
 function toggleRestHold(){
-  if(!restEnd){startRest(restPlanSec());return}
-  if(restPaused!=null){
-    restEnd=Date.now()+restPaused;restPaused=null;
-    if(restOvertimeSec()<REST_OVERTIME_MAX)armRestTick()}
-  else{
-    restPaused=restEnd-Date.now();
-    if(restTick){clearInterval(restTick);restTick=null}}
+  if(!restState().active){startRest(restPlanSec());return}
+  applyRest(RepForgeRestTimer.toggleHold(restClock,Date.now()));
   syncRest()}
-function resetRest(){if(!restEnd)return;startRest(restPlanSec())}
+function resetRest(){if(!restState().active)return;startRest(restPlanSec())}
 function endRestFromSheet(){stopRest();closeRestSheet()}
 /** What a host shows right now, without a crossfade layer that is still leaving it (a second swap during the first
  *  fades out what the lifter sees, not the layer on top of it). */
@@ -7382,12 +7381,10 @@ function settleFocusContext(moved){Promise.resolve(moved).then(()=>sizeFocusCard
 /** Shared visibility handler — rest-timer catch-up + session banner. */
 function onAppVisible(){
   if(document.visibilityState!=="visible")return;
-  if(restEnd&&restPaused==null&&Date.now()>=restEnd){
-    // Background throttling freezes the tick; repaint from the clock, then let
-    // the count-up carry on unless it has already run out its overtime.
-    tickRest();
-    if(!restTick&&restOvertimeSec()<REST_OVERTIME_MAX)armRestTick();
-  }
+  // Background throttling freezes the tick: a deadline that passed while the page was hidden is settled from the wall
+  // clock now. The tick (re)starts from the state the settle leaves, if the count-up still needs one.
+  const v=restState();
+  if(v.active&&!v.held&&v.leftMs<=0)tickRest();
   reconcileNotifyPermission();
   paintNotifyControls();
   updateSessionBanner();
@@ -8541,11 +8538,10 @@ function sessionNextSet(live){
   return set&&name?{n:set.ordinal,name}:null}
 /** The rest as the bar and the card read it: running, held, just done (for a moment, with its overrun), or none. */
 function sessionRestPhase(){
-  if(!restEnd)return null;
-  const left=Math.round(restLeftMs()/1000);
-  if(left>0)return{kind:restPaused!=null?"paused":"running",left,share:restLength?Math.max(0,Math.min(1,left/restLength)):0};
-  const over=restOvertimeSec();
-  return over<=REST_DONE_HOLD_SEC?{kind:"done",over:Math.max(0,over)}:null}
+  const v=restState();if(!v.active)return null;
+  const left=v.leftSec;
+  if(left>0)return{kind:v.held?"paused":"running",left,share:v.lengthSec?Math.max(0,Math.min(1,left/v.lengthSec)):0};
+  return v.overSec<=REST_DONE_HOLD_SEC?{kind:"done",over:v.overSec}:null}
 function paintMiniBar(bar,live){
   const rest=sessionRestPhase(),next=rest?sessionNextSet(live):null;
   const title=bar.querySelector(".minibar__title"),sub=bar.querySelector(".minibar__sub"),fill=bar.querySelector(".minibar__fill");
@@ -8583,7 +8579,7 @@ function syncMiniBar(){
   if(!on){document.body.style.removeProperty("--restbar-reserve");return}
   paintMiniBar(bar,live);
   miniBarReserve(bar);
-  if(live.started!=null)miniBarTimer=setInterval(()=>{if(!restEnd)syncMiniBar()},30000)}
+  if(live.started!=null)miniBarTimer=setInterval(()=>{if(!restState().active)syncMiniBar()},30000)}
 /** The end of every tab scrolls clear of the bar, as it did of the rest pill (#440): the room above the dock the bar takes,
  *  its 8 px gap and its height, rounded up. */
 function miniBarReserve(bar){
@@ -8595,7 +8591,7 @@ function miniBarReserve(bar){
 function paintSessionRest(){
   const bar=$("#miniBar");
   if(bar&&!bar.classList.contains("hidden")){const live=todayLiveSession();if(live)paintMiniBar(bar,live)}
-  else if(restEnd&&bar)syncMiniBar();
+  else if(restState().active&&bar)syncMiniBar();
   const tag=$("#todayLive [data-live=\"elapsed\"]");if(!tag)return;
   const rest=sessionRestPhase();
   const text=rest?.kind==="running"||rest?.kind==="paused"?`${t(rest.kind==="paused"?"rest.tab.paused":"rest.inline.label")} ${fmtClock(rest.left)}`
@@ -9372,11 +9368,11 @@ function focusCue(ex,n,r,draft,prev,editing){
     sub:t("focus.cue.reps",{reps})}}
 
 /* ---- The rest clock's readings (rest timer redesign, owner-approved mock 2026-10-23) ----
-   The rest reads the one timer (`restEnd`, `restPaused`, `restLength`): there is no second clock and nothing stored.
+   The rest reads the one clock (rest-timer.js): there is no second clock and nothing stored.
    It no longer takes the cue slot or the shelf's pad row; the rest tab over the shelf and the rest sheet carry it. */
 /** What the timer is doing, said once for every consumer: no rest, time left, or past the bell. */
 function restInlineMode(){
-  if(!restEnd)return"none";
+  if(!restState().active)return"none";
   return restTimeLeftSec()>0?"running":"done"}
 /** Time left on the drain bar, as the share of the length this rest is armed at. */
 function restFraction(){return Math.max(0,Math.min(1,restLeftMs()/1000/Math.max(1,restPlanSec())))}
@@ -9638,7 +9634,7 @@ function lastRepSlowHtml(ex,n,peek){
     const word=t(answer?"focus.slow.yes":"focus.slow.no");
     return `<div class="ledgerslow"><span class="ledgerslow__q" aria-hidden="true">${esc(q)}</span>`+
       `<button type="button" class="ledgerslow__pill" data-slowclear="${esc(key)}" aria-pressed="true" aria-label="${esc(t("focus.slow.clear_aria",{answer:word}))}">${esc(word)}</button></div>`}
-  if(!(restEnd&&restExerciseId===ex.id))return"";
+  const rv=restState();if(!(rv.active&&rv.exerciseId===ex.id))return"";
   return `<div class="ledgerslow" role="group" aria-label="${esc(q)}"><span class="ledgerslow__q" aria-hidden="true">${esc(q)}</span>`+
     `<button type="button" class="ledgerslow__pill" data-slow="${esc(key)}" data-v="1">${esc(t("focus.slow.yes"))}</button>`+
     `<button type="button" class="ledgerslow__pill" data-slow="${esc(key)}" data-v="0">${esc(t("focus.slow.no"))}</button></div>`}
@@ -10860,7 +10856,7 @@ function bindWorkout(){
       if(editing&&nowDone){focusEdit=null;focusLedgerOpen=null;toast(t("toast.set_updated"),{quiet:true})}
       // The rest runs for the exercise just logged: its own rest in the program, else the Settings default.
       if(nowDone&&!editing){lastCommitAt=Date.now();if(!sessionStartedAt)sessionStartedAt=lastCommitAt;
-        restLength=0;startRest(exerciseRestSec(prog.find(target.exerciseInstanceId)),target.exerciseInstanceId);armUnfinishedWatch()}
+        applyRest(RepForgeRestTimer.setLength(restClock,0));startRest(exerciseRestSec(prog.find(target.exerciseInstanceId)),target.exerciseInstanceId);armUnfinishedWatch()}
       if(nowDone&&!editing)focusLogged={exId:target.exerciseInstanceId,n:target.ordinal};
       if(nowDone&&refreshReservation){refreshStarted=true;const refreshed=await refreshReservation.start(()=>runRefreshSuggestions(target.exerciseInstanceId));
         if(refreshed.status!=="applied"&&refreshed.status!=="unchanged")return}
@@ -15428,7 +15424,7 @@ async function commitSettings(silent){const editRevision=settingsEditRevision;co
   if(modeEffect)await reloadDraftAfterEffect();
   // A length picked in the timer sheet holds for the session, but a new default
   // in Settings is the lifter saying it plainly — it wins.
-  if(oldRestSec!==state.settings.restSec)restLength=0;
+  if(oldRestSec!==state.settings.restSec)applyRest(RepForgeRestTimer.setLength(restClock,0));
   if(oldUnit!==newUnit){
     const bw=$("#sessionBodyweight");if(bw&&bw.value!==""){const n=parseDec(bw.value);if(Number.isFinite(n))bw.value=fmtPlain(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit))}}
   if(oldLang!==state.settings.lang&&I18N)I18N.setLang(state.settings.lang);
@@ -24757,7 +24753,7 @@ function init(){
   $$('[data-guide-replay]').forEach(button=>button.onclick=()=>replayContextualGuide(button.dataset.guideReplay));
   $("#installApp").onclick=()=>triggerInstall("manual-settings");
   // The sheet's one primary control: Start with no rest, else Pause or Resume.
-  const restHold=$("#restHold");if(restHold)restHold.onclick=()=>{if(!restEnd)startRest();else toggleRestHold()};
+  const restHold=$("#restHold");if(restHold)restHold.onclick=()=>{if(!restState().active)startRest();else toggleRestHold()};
   const restClose=$("#restSheetClose");if(restClose)restClose.onclick=closeRestSheet;
   const restScrim=$("#restSheetScrim");if(restScrim)restScrim.onclick=closeRestSheet;
   const restMinus=$("#restMinus");if(restMinus)restMinus.onclick=()=>nudgeRest(-REST_NUDGE);

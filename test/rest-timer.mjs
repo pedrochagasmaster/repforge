@@ -96,7 +96,7 @@ const read = (page) => page.evaluate(() => {
     label: tab?.querySelector(".resttab__label")?.textContent || "", time: tab?.querySelector(".resttab__time")?.textContent || "",
     ring: !!tab?.querySelector(".restring, svg, .icon-mask--check"),
     edge: document.querySelector(".restlight__half")?.style.strokeDasharray || "",
-    restEnd: restEnd, left: restLeftMs(), paused: restPaused, length: restLength,
+    restEnd: window.__repforgeRest.state().active, left: restLeftMs(), paused: window.__repforgeRest.state().pausedMs, length: window.__repforgeRest.state().lengthSec,
     sheet: !!document.querySelector("#restSheet.is-open"),
     hold: document.querySelector("#restHold")?.dataset.mode || "",
     dialTime: document.querySelector("#restDialTime")?.textContent || "",
@@ -142,7 +142,7 @@ const offSurface = (colours, surface) => colours.map((c, i) => [i, c]).filter(([
 /** The reach the prototype's reach() gives for `share` of the rest left, from the contour's own half path: the shelf's
  *  edge carries the first 70% of the rest and the tab's outline (up to where it meets the shelf's top) the last 30%. */
 const reachProbe = (page, share) => page.evaluate((share) => {
-  restPaused = Math.round(share * restPlanSec() * 1000);
+  window.__repforgeRest.setLeft(Math.round(share * restPlanSec() * 1000), { held: true });
   syncRest();
   const half = document.querySelector(".restlight__half"), svg = half.ownerSVGElement;
   const T = document.querySelector("#workout .exercise.is-current .focus-shelf").getBoundingClientRect().top - svg.getBoundingClientRect().top;
@@ -259,7 +259,7 @@ try {
     const { context, page, errors } = await focusPage(browser);
     await logSet(page);
     await page.waitForSelector("#restTab", { timeout: 5000 });
-    await page.evaluate(() => { restEnd = Date.now() + Math.round(0.5 * restPlanSec() * 1000); syncRest(); });
+    await page.evaluate(() => { window.__repforgeRest.setLeft(Math.round(0.5 * restPlanSec() * 1000)); syncRest(); });
     await page.waitForTimeout(300);
 
     const contour = await page.evaluate(() => {
@@ -297,13 +297,13 @@ try {
     assert(paused.paused && paused.stroke === paused.faint && paused.before === paused.after && Math.abs(paused.opacity - 0.62 * 0.55) < 0.01,
       "held, the light keeps its length and turns ink-faint at 55%", paused);
 
-    await page.evaluate(() => { restEnd = Date.now() + Math.round(0.4 * restPlanSec() * 1000); restPaused = null; syncRest(); });
+    await page.evaluate(() => { window.__repforgeRest.setLeft(Math.round(0.4 * restPlanSec() * 1000), { held: false }); syncRest(); });
     await page.waitForTimeout(200);
     const flick = await page.evaluate(() => {
       const seen = [];
       const origin = Element.prototype.animate;
       Element.prototype.animate = function (...args) { const run = origin.apply(this, args); seen.push({ run, on: this.getAttribute("class") || "" }); return run; };
-      restEnd = Date.now() - 1; syncRest(); playRestFlick();
+      window.__repforgeRest.expire(0); syncRest(); playRestFlick();
       Element.prototype.animate = origin;
       for (const entry of seen) entry.id = entry.run.id;
       const runs = document.getAnimations().filter((a) => String(a.id).startsWith("rest-flick"));
@@ -377,12 +377,12 @@ try {
     const running = await look();
     assert(running.label === "Rest" && /^\d:\d\d$/.test(running.time) && running.labelColor === running.ink && running.timeColor === running.ink && !running.ring,
       "running: Rest and the countdown, in ink, with no ring", running);
-    await page.evaluate(() => { restPaused = Math.max(1000, restLeftMs()); syncRest(); });
+    await page.evaluate(() => { window.__repforgeRest.setLeft(Math.max(1000, restLeftMs()), { held: true }); syncRest(); });
     const paused = await look();
     assert(paused.label === "Paused" && /^\d:\d\d$/.test(paused.time) && paused.labelColor === paused.secondary && paused.timeColor === paused.secondary,
       "paused: the word Paused and the held time, in secondary ink", paused);
     assert(/paused/i.test(paused.aria), "the paused tab announces Paused", paused.aria);
-    await page.evaluate(() => { restEnd = Date.now() + restPaused; restPaused = null; window.__repforgeRest.expire(5); syncRest(); });
+    await page.evaluate(() => { window.__repforgeRest.expire(5); syncRest(); });
     await page.waitForFunction(() => /^\+/.test(document.querySelector("#restTab .resttab__time")?.textContent || ""), undefined, { timeout: 5000 });
     const done = await look();
     assert(done.label === "Rest done" && /^\+\d:\d\d$/.test(done.time) && done.labelColor === done.accent && !done.ring,
@@ -439,7 +439,7 @@ try {
         const st = getComputedStyle(el);
         return st.position === "fixed" && el.getClientRects().length && /\b\d:\d\d\b/.test(el.textContent || "") && !el.closest("#miniBar") && el.checkVisibility?.();
       }).map((el) => el.id || el.className).slice(0, 4),
-      mini: !document.querySelector("#miniBar")?.classList.contains("hidden"), restEnd,
+      mini: !document.querySelector("#miniBar")?.classList.contains("hidden"), restEnd: window.__repforgeRest.state().active,
     }));
     await page.evaluate(() => window.__repforgeShowSettings());
     await page.waitForTimeout(400);
@@ -460,8 +460,8 @@ try {
       const fits = [];
       for (const state of ["running", "paused", "done"]) {
         await opened.page.evaluate((state) => {
-          if (state === "paused") { restPaused = Math.max(1000, restLeftMs()); syncRest(); }
-          if (state === "done") { restEnd = Date.now() + (restPaused || 1000); restPaused = null; window.__repforgeRest.expire(5); syncRest(); }
+          if (state === "paused") { window.__repforgeRest.setLeft(Math.max(1000, restLeftMs()), { held: true }); syncRest(); }
+          if (state === "done") { window.__repforgeRest.expire(5); syncRest(); }
         }, state);
         if (state === "done") await opened.page.waitForFunction(() => /^\+/.test(document.querySelector("#restTab .resttab__time")?.textContent || ""), undefined, { timeout: 5000 });
         fits.push(await opened.page.evaluate((state) => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -516,7 +516,7 @@ try {
         others: [...new Set(others)], dflt: state.settings.restSec, storedDflt: stored.settings.restSec,
         storedRests: [...new Set(storedSlot.prescriptionsByCycle.flatMap((cycle) => cycle.sets.map((set) => set.restSeconds)))],
         draft: !!window.__repforgeWorkoutDraft.current(), recovery: localStorage.getItem("repforge_draft_v1:recovery"),
-        length: restLength, left: restLeftMs() };
+        length: window.__repforgeRest.state().lengthSec, left: restLeftMs() };
     }, before.ex);
     assert(after.rests.join() === "90" && after.storedRests.join() === "90", "the preset stores 1:30 on every set of this exercise, in the program and on disk", after);
     assert(after.dflt === before.dflt && after.storedDflt === before.dflt && after.others.every((v) => v === null),
@@ -544,7 +544,7 @@ try {
     await page.waitForSelector("#restSheet.is-open", { timeout: 5000 });
     await page.waitForTimeout(400);
     // A held clock at a known time, so the mapping is exact: 4:58 of 5:00.
-    await page.evaluate(() => { restLength = 300; restPaused = 298000; syncRest(); });
+    await page.evaluate(() => { window.__repforgeRest.setLeft(298000, { held: true, lengthSec: 300 }); syncRest(); });
     /** Drag around the ring from one angle to another (turns, 0 at the top, clockwise), in small steps. */
     const turn = async (from, to) => {
       const box = await page.locator("#restDial").boundingBox();
@@ -555,14 +555,14 @@ try {
       const steps = Math.max(2, Math.ceil(Math.abs(to - from) * 72));
       for (let i = 1; i <= steps; i++) await page.mouse.move(...at(from + (to - from) * i / steps));
       await page.mouse.up();
-      return page.evaluate(() => ({ left: Math.round(restLeftMs() / 1000), length: restLength, open: !!document.querySelector("#restSheet.is-open"),
+      return page.evaluate(() => ({ left: Math.round(restLeftMs() / 1000), length: window.__repforgeRest.state().lengthSec, open: !!document.querySelector("#restSheet.is-open"),
         dragging: document.querySelector("#restSheet")?.classList.contains("is-dragging"), time: document.querySelector("#restDialTime")?.textContent,
         now: document.querySelector("#restDial").getAttribute("aria-valuenow"), text: document.querySelector("#restDial").getAttribute("aria-valuetext") }));
     };
     let r = await turn(0.125, 0.375);
     assert(r.left === 375 && r.time === "6:15" && r.open, "a quarter-turn clockwise from 4:58 of 5:00 adds a quarter (1:15), snapped to 6:15; the grab keeps its offset", r);
     assert(r.length === 375, "past the rest's length the ring stays full and the length grows with the time", r);
-    await page.evaluate(() => { restLength = 300; restPaused = 298000; syncRest(); });
+    await page.evaluate(() => { window.__repforgeRest.setLeft(298000, { held: true, lengthSec: 300 }); syncRest(); });
     r = await turn(0.375, 0.125);
     assert(r.left === 225 && r.time === "3:45", "a quarter-turn counter-clockwise takes a quarter away: 4:58 to 3:45", r);
     r = await turn(0.9, 0.95);
@@ -572,7 +572,7 @@ try {
     r = await turn(0, -4);
     assert(r.left === 15 && r.time === "0:15", "turning on counter-clockwise stops at 0:15", r);
     // The ring is the dial's: a drag down its side turns the clock and never pulls the sheet down.
-    await page.evaluate(() => { restLength = 300; restPaused = 298000; syncRest(); });
+    await page.evaluate(() => { window.__repforgeRest.setLeft(298000, { held: true, lengthSec: 300 }); syncRest(); });
     r = await turn(0.7, 0.55);
     assert(r.open && !r.dragging && r.left < 298, "a drag down the ring turns the dial and the sheet stays open", r);
     assert(await page.evaluate(() => getComputedStyle(document.querySelector("#restDial")).touchAction) === "none" &&
@@ -580,7 +580,7 @@ try {
       "only the dial keeps its touches; the rest of the sheet still swipes");
 
     phase("The dial is a slider for the keyboard and assistive technology");
-    await page.evaluate(() => { restLength = 300; restPaused = 298000; syncRest(); });
+    await page.evaluate(() => { window.__repforgeRest.setLeft(298000, { held: true, lengthSec: 300 }); syncRest(); });
     const slider = await page.evaluate(() => { const d = document.querySelector("#restDial");
       return { role: d.getAttribute("role"), tab: d.tabIndex, name: d.getAttribute("aria-label"), min: d.getAttribute("aria-valuemin"), max: d.getAttribute("aria-valuemax"),
         now: d.getAttribute("aria-valuenow"), text: d.getAttribute("aria-valuetext") }; });
@@ -616,6 +616,76 @@ try {
       return { seen, flicks: window.__repforgeRest.flicks() };
     });
     assert(!bell.seen.includes("dial") && bell.seen.includes("restlight__lit"), "the bell's flick runs on the shelf's light and nothing animates on the dial", bell);
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  // The clock's guards: the bell once per deadline, a nudge back above zero re-arming it, a start or restart moving the
+  // deadline, paused overtime holding and resuming, and the count-up stopping its ticks at the cap.
+  const overSecs = (time) => { const [m, s] = time.replace("+", "").split(":").map(Number); return m * 60 + s; };
+  phase("The bell rings once per deadline; a nudge back above zero re-arms it; a start or restart moves the deadline");
+  {
+    const { context, page, errors } = await focusPage(browser);
+    await logSet(page);
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    await page.evaluate(() => {
+      window.__completeWrites = 0;
+      const live = document.querySelector("#restAnnounce");
+      new MutationObserver(() => { if (live.textContent === window.RepForgeI18n.t("rest.complete")) window.__completeWrites++; })
+        .observe(live, { childList: true, characterData: true, subtree: true });
+    });
+    const flicksBefore = await page.evaluate(() => window.__repforgeRest.flicks());
+    await page.evaluate(() => startRest(1));
+    await page.waitForFunction(() => document.querySelector("#restTab")?.classList.contains("is-done"), undefined, { timeout: 5000 });
+    await page.waitForTimeout(1500);
+    const once = await page.evaluate(() => ({ writes: window.__completeWrites, flicks: window.__repforgeRest.flicks() }));
+    assert(once.writes === 1 && once.flicks === flicksBefore + 1,
+      "the bell announces and flicks once, and the overrun keeps counting without a repeat", { flicksBefore, once });
+
+    await page.evaluate(() => nudgeRest(30));
+    await page.waitForTimeout(300);
+    const rearmed = await page.evaluate(() => ({ done: document.querySelector("#restTab").classList.contains("is-done"), left: restLeftMs() }));
+    assert(!rearmed.done && rearmed.left > 25000, "a nudge back above zero puts the rest back on the clock", rearmed);
+    await page.evaluate(() => { window.__repforgeRest.expire(0); document.dispatchEvent(new Event("visibilitychange")); });
+    await page.waitForFunction(() => window.__completeWrites === 2, undefined, { timeout: 5000 });
+    await page.waitForTimeout(1500);
+    const again = await page.evaluate(() => window.__completeWrites);
+    assert(again === 2, "re-armed by the nudge, the bell announces again, once", { again });
+
+    phase("A start or a restart moves the deadline");
+    const leftNow = () => page.evaluate(() => restLeftMs());
+    await page.evaluate(() => startRest(60));
+    await page.waitForTimeout(200);
+    const sixty = await leftNow();
+    assert(sixty > 55000 && sixty <= 60000, "starting a rest sets the deadline to its length", { sixty });
+    await page.evaluate(() => startRest(120));
+    await page.waitForTimeout(200);
+    const restarted = await leftNow();
+    assert(restarted > 115000 && restarted <= 120000, "starting again while running moves the deadline to the new length", { restarted });
+    await page.evaluate(() => resetRest());
+    await page.waitForTimeout(200);
+    const reset = await leftNow();
+    assert(reset > 115000 && reset <= 120000, "a reset moves the deadline back to the armed length", { reset });
+
+    phase("Paused overtime is a real state: it holds the overrun, and resuming counts on from it");
+    await page.evaluate(() => window.__repforgeRest.expire(5));
+    await page.evaluate(() => toggleRestHold());
+    const held = await page.evaluate(() => ({ paused: window.__repforgeRest.state().pausedMs, label: document.querySelector("#restTab .resttab__label").textContent,
+      isPaused: document.querySelector("#restTab").classList.contains("is-paused"), time: document.querySelector("#restTab .resttab__time").textContent }));
+    assert(held.paused < 0 && held.label === "Rest done" && held.isPaused, "paused past the bell: the clock holds a negative remainder and the tab says Rest done, paused", held);
+    await page.waitForTimeout(1200);
+    const still = await page.evaluate(() => document.querySelector("#restTab .resttab__time").textContent);
+    assert(still === held.time, "a held overrun does not count", { held: held.time, still });
+    await page.evaluate(() => toggleRestHold());
+    await page.waitForTimeout(1200);
+    const resumed = await page.evaluate(() => ({ paused: window.__repforgeRest.state().pausedMs, time: document.querySelector("#restTab .resttab__time").textContent }));
+    assert(resumed.paused == null && overSecs(resumed.time) > overSecs(still), "resuming counts the overrun on from where it was held", { still, resumed });
+
+    phase("The count-up stops ticking at its cap");
+    await page.evaluate(() => { stopRest(); startRest(90); window.__repforgeRest.setLeft(-3601 * 1000); syncRest(); });
+    await page.waitForFunction(() => !window.__repforgeRest.state().ticking, undefined, { timeout: 5000 });
+    const capped = await page.evaluate(() => document.querySelector("#restTab .resttab__time").textContent);
+    assert(capped === "+60:00", "past the hour the count-up reads +60:00 and no tick is left running", { capped });
     assert(errors.length === 0, "no page errors", errors.join(" | "));
     await context.close();
   }
