@@ -20642,10 +20642,16 @@ async function undoEntryMovementConfirmation(exerciseId){
   const outcome=await guardEntryRebuild(()=>applyEntryAnswerEdit({movementConfirmations:confirmations},{lead:t("entry.change.lead.answer")}));
   return outcome===false?{ok:false,cancelled:true}:outcome?.ok?outcome:
     {...outcome,message:entryFailureText(outcome?.failure)||t("entry.issue.compile")}}
+/* The answers the lifter has asked for: a rebuild still building on the
+   committed state owns the newest ones, so a change is judged against those. */
+function entryAskedAnswers(){
+  const current=entryGeneration;
+  return current.status===ENTRY_GENERATION_STATUS.REBUILDING_ANSWER&&current.committed===entryState
+    ?current.next.answers:entryState.answers}
 async function applyEntryEditor(){
   const editor=entryEditor;
   if(!editor||entryPendingAvoid)return;
-  const base=entryState.answers,draft=editor.draft.answers,patch={};
+  const base=entryAskedAnswers(),draft=editor.draft.answers,patch={};
   for(const key of Object.keys(draft))if(entryCanon(base[key])!==entryCanon(draft[key]))patch[key]=draft[key];
   if(!Object.keys(patch).length){closeEntryEditor();return}
   const outcome=await applyEntryAnswerEdit(patch,{lead:t("entry.change.lead.answer")});
