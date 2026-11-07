@@ -315,22 +315,60 @@ async function main() {
     "RT-03: correcting a logged set through two pad taps across a rebuild ends on the same draft as without one", corrected);
 
   // ---- h: failed and stale writes --------------------------------------------
-  phase("RT-03: a failed write leaves the banner in charge, and its retry agrees everywhere");
+  phase("RT-03: recovery takes over an in-flight edit, and Retry keeps it through another edit");
   await boot(page);
   await page.locator(field("load")).click();
-  await page.evaluate(() => { window.__repforgeDraftFault = "persist-failure"; });
+  await holdLock(page);
+  const recoveryStartRevision = await page.evaluate(() => window.__repforgeWorkoutDraft.current().revision);
+  await page.evaluate(() => {
+    window.__repforgeQueuedPriorWrite = window.__repforgeWorkoutDraft.dispatch("setSessionNotes", { value: "queued before field edit" });
+  });
+  const queuedPriorWrite = await page.evaluate(async (name) => {
+    const locks = await navigator.locks.query();
+    return locks.held.some(lock => lock.name === name) && locks.pending.some(lock => lock.name === name);
+  }, LOCK);
+  assert(queuedPriorWrite, "RT-03: an earlier draft write is waiting on the held cross-tab lock");
   await page.locator(pad(1)).click();
-  await page.locator(field("rir")).click(); // rebuild after the failure
+  await page.waitForFunction((sel) => document.querySelector(sel)?.value === "52.5", inputFor("load"));
+  await page.evaluate(() => { window.__repforgeDraftFault = "persist-failure"; });
+  await releaseLock(page);
+  const priorWriteApplied = await page.evaluate(async (revision) => {
+    const result = await window.__repforgeQueuedPriorWrite;
+    return result.status === "applied" && window.__repforgeWorkoutDraft.current().revision === revision + 1;
+  }, recoveryStartRevision);
+  assert(priorWriteApplied, "RT-03: the earlier write settles before recovery starts");
   await page.waitForSelector("#draftRecovery:not(.hidden)", { timeout: 5000 });
+  await page.locator(field("rir")).click(); // rebuild after the failed write
   const failed = await readField(page, "load");
-  assert(num(failed.draft) === 50 && num(failed.label) === num(failed.ledger) && num(failed.ledger) === 50,
-    "RT-03: after a failed write the rebuilt shelf and ledger show what the draft holds, and the banner carries the typed value", failed);
+  assert(num(failed.draft) === 50 && num(failed.input) === 52.5 && num(failed.label) === 52.5 && num(failed.ledger) === 52.5,
+    "RT-03: recovery shows the exact in-flight value while the acknowledged draft remains unchanged", failed);
   assert((await page.locator("#draftRecoveryPending").textContent()).includes("52.5"), "RT-03: the recovery banner names the pending value");
   await page.evaluate(() => { delete window.__repforgeDraftFault; });
+  await holdLock(page);
   await page.locator("#draftRecoveryRetry").click();
+  await page.waitForFunction(() => document.querySelector("#draftRecovery")?.classList.contains("is-pending"));
+  const repsInput = page.locator(inputFor("reps"));
+  for (let tap = 0; tap < 2 && await repsInput.getAttribute("aria-hidden") === "true"; tap++) await openShelfField(page, field("reps"));
+  await repsInput.fill("7"); // queued behind Retry while recovery still owns the failed load edit
+  const inFlightReps = await readField(page, "reps");
+  assert((await page.locator("#draftRecovery").isVisible()) && num(inFlightReps.input) === 7,
+    "RT-03: a separate edit remains live while Retry is in flight", inFlightReps);
+  await releaseLock(page);
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
-  await page.waitForTimeout(100);
+  assert(await page.locator("#draftRecovery").isHidden(), "RT-03: successful Retry clears its recovery record");
   agree("RT-03 after Retry", await readField(page, "load"), 52.5);
+  const retriedReps = await readField(page, "reps");
+  assert(num(retriedReps.input) === 7 && num(retriedReps.label) === 7 && num(retriedReps.ledger) === 7 && num(retriedReps.draft) === 7,
+    "RT-03: clearing recovery leaves the queued edit visible and durable", retriedReps);
+  await page.locator(".focus-shelf .saveset").first().click();
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  await page.waitForFunction(() => window.__repforgeWorkoutDraft.current().exercises["seed-ex-1"]
+    && Object.values(window.__repforgeWorkoutDraft.current().exercises["seed-ex-1"].sets).some(set => set.ordinal === 1 && set.completion !== "pending"));
+  const retriedSave = await finishEarly(page);
+  const retriedRows = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)).log.filter(row => row.exerciseId === "seed-ex-1"), KEY);
+  const retriedRow = retriedRows.find(row => row.set === 1);
+  assert(retriedSave && retriedRow && Number(retriedRow.load) === 52.5 && Number(retriedRow.reps) === 7,
+    "RT-03: the retried value is the value in the immutable saved row", { retriedSave, retriedRow });
 
   phase("RT-03: a stale write (another tab won the lock first) ends on the draft the other tab saved");
   await boot(page);
@@ -467,6 +505,88 @@ async function main() {
   await page.waitForTimeout(1300);
   const correctResumed = secs(await clock(page));
   assert(correctResumed <= correctHeld && correctResumed >= correctHeld - 3, "RT-04: Resume continues from the held remaining time", { correctHeld, correctResumed });
+
+  phase("N8: Start max set cannot persist a copied load without its calibration");
+  async function openMaxSetSheet(candidatePage) {
+    await boot(candidatePage, { restSec: 90 });
+    await candidatePage.locator(`${SHELF} .saveset`).first().click();
+    await candidatePage.waitForFunction(() => {
+      const set = Object.values(window.__repforgeWorkoutDraft.current().exercises["seed-ex-1"].sets)
+        .find(item => item.ordinal === 1);
+      return set?.completion !== "pending";
+    });
+    await candidatePage.waitForSelector(`${SHELF} .resttip[data-tip="max-set"]`, { state: "visible", timeout: 5000 });
+    await candidatePage.locator(`${SHELF} .resttip [data-maxset-guess]`).click();
+    await candidatePage.waitForSelector("#maxSetSheet.is-open", { timeout: 5000 });
+  }
+
+  const atomicContext = await browser.newContext({ viewport: { width: 393, height: 852 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const atomicPage = await atomicContext.newPage();
+  atomicPage.on("pageerror", (e) => errors.push(e.message));
+  await openMaxSetSheet(atomicPage);
+  const maxSetBefore = await atomicPage.evaluate(({ loadMetric }) => {
+    const draft = window.__repforgeWorkoutDraft.current(), exercise = draft.exercises["seed-ex-1"];
+    const before = Object.values(exercise.sets).find(set => set.ordinal === 1);
+    const target = Object.values(exercise.sets).find(set => set.ordinal === 2);
+    return { revision: draft.revision, setId: target.setId,
+      sourceLoad: before.edited.metrics[loadMetric], targetLoad: target.edited.metrics?.[loadMetric] ?? null };
+  }, { loadMetric: WEIGHT });
+  await atomicPage.evaluate(({ exId, setId, loadMetric, sourceLoad, targetLoad }) => {
+    const original = Storage.prototype.setItem;
+    window.__repforgeRestoreSetItem = () => { Storage.prototype.setItem = original; };
+    window.__repforgeLegacyBoundaryFaulted = false;
+    Storage.prototype.setItem = function (key, value) {
+      const result = original.call(this, key, value);
+      if (this === window.localStorage && key === "repforge_draft_v1") {
+        try {
+          const persisted = JSON.parse(value), set = persisted.exercises?.[exId]?.sets?.[setId];
+          if (set && !set.calibration && set.edited.metrics?.[loadMetric] === sourceLoad &&
+            set.edited.metrics?.[loadMetric] !== targetLoad) {
+            window.__repforgeLegacyBoundaryFaulted = true;
+            window.__repforgeDraftFault = "persist-failure";
+          }
+        } catch {}
+      }
+      return result;
+    };
+  }, { exId: "seed-ex-1", ...maxSetBefore, loadMetric: WEIGHT });
+  await atomicPage.locator("#maxSetStart").click();
+  await atomicPage.waitForFunction(() => !document.querySelector("#maxSetSheet.is-open"), undefined, { timeout: 5000 });
+  await atomicPage.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  const atomicResult = await atomicPage.evaluate(({ setId, loadMetric, revision }) => {
+    window.__repforgeRestoreSetItem();
+    delete window.__repforgeDraftFault;
+    const draft = window.__repforgeWorkoutDraft.current(), set = draft.exercises["seed-ex-1"].sets[setId];
+    return { revisionDelta: draft.revision - revision, load: set.edited.metrics?.[loadMetric] ?? null,
+      calibration: set.calibration, boundaryFaulted: window.__repforgeLegacyBoundaryFaulted };
+  }, { ...maxSetBefore, loadMetric: WEIGHT });
+  assert(!atomicResult.boundaryFaulted,
+    "N8: the persistence fault at the old load-only boundary is never armed", atomicResult);
+  assert(atomicResult.revisionDelta === 1 && atomicResult.load === maxSetBefore.sourceLoad && atomicResult.calibration,
+    "N8: one command commits both the copied load and calibration", atomicResult);
+  await atomicContext.close();
+
+  phase("N8: a double tap starts only one max set");
+  const doubleContext = await browser.newContext({ viewport: { width: 393, height: 852 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const doublePage = await doubleContext.newPage();
+  doublePage.on("pageerror", (e) => errors.push(e.message));
+  await openMaxSetSheet(doublePage);
+  const doubleBefore = await doublePage.evaluate(() => window.__repforgeWorkoutDraft.current().revision);
+  await holdLock(doublePage);
+  await doublePage.locator("#maxSetStart").click();
+  await doublePage.locator("#maxSetStart").dispatchEvent("click");
+  await releaseLock(doublePage);
+  await doublePage.waitForFunction(() => !document.querySelector("#maxSetSheet.is-open"), undefined, { timeout: 5000 });
+  await doublePage.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  const doubleResult = await doublePage.evaluate(({ revision, loadMetric }) => {
+    const draft = window.__repforgeWorkoutDraft.current(), exercise = draft.exercises["seed-ex-1"];
+    const set = Object.values(exercise.sets).find(item => item.ordinal === 2);
+    return { revisionDelta: draft.revision - revision, load: set.edited.metrics?.[loadMetric] ?? null,
+      calibration: set.calibration };
+  }, { revision: doubleBefore, loadMetric: WEIGHT });
+  assert(doubleResult.revisionDelta === 1 && doubleResult.calibration,
+    "N8: the double tap leaves one durable max-set command", doubleResult);
+  await doubleContext.close();
 
   await browser.close();
   assert(errors.length === 0, "no page errors", errors);
