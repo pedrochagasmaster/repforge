@@ -327,115 +327,82 @@ try {
   }
 
   if (CASE === "all" || CASE === "slow-claim") {
-    // A slow installed claim: the 12 s stall panel comes up while the claiming sheet is open
-    // under it. The panel is the lifter's way out, so it keeps its pointer and keyboard behaviour,
-    // and focus goes to the sheet once the panel lifts.
-    const openStalledClaim = async () => {
-      const context = await browser.newContext({
-        viewport: { width: 390, height: 844 }, userAgent: IOS_UA, locale: "en-US", hasTouch: true,
-        reducedMotion: "reduce",
-      });
-      await context.addInitScript(standaloneInit);
-      await context.addInitScript(() => localStorage.clear());
-      // Same stall seam as test/boot-first-paint.mjs: the 12 s head timer runs at 300 ms once app.js is defined.
-      await context.addInitScript(() => {
-        const realSetTimeout = window.setTimeout.bind(window);
-        window.setTimeout = (fn, ms, ...rest) => {
-          if (ms !== 12000) return realSetTimeout(fn, ms, ...rest);
-          const run = () => (typeof window.__repforgeShowBootFailure === "function" ? fn() : void realSetTimeout(run, 20));
-          return realSetTimeout(run, 300);
-        };
-      });
-      const held = [];
-      let claimSeen;
-      const claimRequested = new Promise((resolve) => { claimSeen = resolve; });
-      await context.route("**/v1/transfers/claims", (route) => { held.push(route); claimSeen(); });
-      const encoded = Buffer.from(JSON.stringify({ token: TOKEN, expiresAt: EXPIRES_AT })).toString("base64url");
-      await context.addCookies([{
-        name: "repforge_transfer_v1", value: `v1.${encoded}`, domain: new URL(BASE).hostname,
-        path: "/index.html", sameSite: "Lax",
-      }]);
-      const page = await context.newPage();
-      await page.goto(new URL("index.html", BASE).href, { waitUntil: "domcontentloaded" });
-      await page.waitForFunction(() => document.documentElement.classList.contains("is-boot-failed") &&
-        document.getElementById("iosInstallSheet")?.dataset.transferState === "claiming", undefined, { timeout: 20000 });
-      await claimRequested;
-      return { context, page, held };
-    };
-    const focusedId = (page) => page.evaluate(() => document.activeElement?.id || document.activeElement?.tagName || null);
-
-    {
-      // Pointer: Reload is the control under the pointer, and a click reloads.
-      const { context, page } = await openStalledClaim();
-      const reload = await page.evaluate(() => {
-        const box = document.getElementById("bootReload").getBoundingClientRect();
-        const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
-        return { reachable: !!hit?.closest("#bootReload"), hit: hit?.id || hit?.className || hit?.tagName || null };
-      });
-      assert.equal(reload.reachable, true, `a claiming sheet opened under the stall panel does not disable its Reload (hit: ${reload.hit})`);
-      let reloaded = false;
-      try {
-        await Promise.all([
-          page.waitForNavigation({ waitUntil: "commit", timeout: 8000 }),
-          page.click("#bootReload", { timeout: 4000 }),
-        ]);
-        reloaded = true;
-      } catch {}
-      assert.equal(reloaded, true, "Reload from the stall panel reloads the page while the claiming sheet is open");
-      checks += 2;
-      await context.close();
-    }
-
-    {
-      // Keyboard, from where focus actually is once the claiming sheet has opened under the panel
-      // (its title): Tab reaches the panel's Reload, Shift+Tab stays on it, and Enter activates it.
-      const { context, page } = await openStalledClaim();
-      const start = await focusedId(page);
-      await page.keyboard.press("Tab");
-      const afterTab = await focusedId(page);
-      assert.equal(afterTab, "bootReload", `Tab from the claiming sheet reaches the stall panel's Reload (focus was ${start}, now ${afterTab})`);
-      await page.keyboard.press("Shift+Tab");
-      const afterShiftTab = await focusedId(page);
-      assert.equal(afterShiftTab, "bootReload", `Shift+Tab keeps focus on the stall panel's Reload (focus: ${afterShiftTab})`);
-      let reloadedByKey = false;
-      try {
-        await Promise.all([
-          page.waitForNavigation({ waitUntil: "commit", timeout: 8000 }),
-          page.keyboard.press("Enter"),
-        ]);
-        reloadedByKey = true;
-      } catch {}
-      assert.equal(reloadedByKey, true, "Enter on the focused Reload reloads the page while the claiming sheet is open");
-      checks += 3;
-      await context.close();
-    }
-
-    {
-      // Lift: focus is on the panel's Reload when the claim ends. The panel lifts, and focus is
-      // in the claiming sheet rather than on body.
-      const { context, page, held } = await openStalledClaim();
-      await page.focus("#bootReload");
-      await page.evaluate(() => {
-        window.__liftFocus = null;
-        new MutationObserver(() => {
-          if (window.__liftFocus !== null || document.getElementById("bootSplash")) return;
-          const active = document.activeElement;
-          window.__liftFocus = { id: active?.id || active?.tagName || null, inSheet: !!active?.closest("#iosInstallSheet") };
-        }).observe(document.body, { childList: true });
-      });
-      await held[0].abort("connectionfailed");
-      await page.waitForFunction(() => window.__liftFocus !== null, undefined, { timeout: 15000 }).catch(() => {});
-      const lift = await page.evaluate(() => ({
-        sample: window.__liftFocus,
-        sheetVisible: document.getElementById("iosInstallSheet")?.hidden === false,
-        splash: !!document.getElementById("bootSplash"),
-      }));
-      assert.equal(lift.splash, false, `the claim's end lifts the stall panel (${JSON.stringify(lift)})`);
-      assert.equal(lift.sample?.inSheet, true, `after the panel lifts, focus is in the claiming sheet, not on body (focus at removal: ${JSON.stringify(lift.sample)})`);
-      assert.equal(lift.sheetVisible, true, "the sheet is the visible surface after the lift");
-      checks += 3;
-      await context.close();
-    }
+    // A slow installed claim runs under the boot owner's watch. The claiming sheet is the surface, so the
+    // stall deadline must not declare a failure, the splash must not cover the sheet, and the sheet's own
+    // keyboard behaviour is what the lifter gets. The claim is never answered here: the client has no
+    // timeout of its own, so the sheet stays claiming and nothing replaces it.
+    const context = await browser.newContext({
+      viewport: { width: 390, height: 844 }, userAgent: IOS_UA, locale: "en-US", hasTouch: true,
+      reducedMotion: "reduce",
+    });
+    await context.addInitScript(standaloneInit);
+    await context.addInitScript(() => localStorage.clear());
+    // The 12 s head timer is held until the claim is in flight, then fires at its next poll once app.js
+    // has defined its failure hook. A probe polls on the same hold and counts the deadline after the stall
+    // callback has had its chance, so the test waits for "the deadline passed during the claim" as a state.
+    await context.addInitScript(() => {
+      const realSetTimeout = window.setTimeout.bind(window);
+      window.__holdBootDeadline = true;
+      window.__bootDeadlinePasses = 0;
+      window.setTimeout = (fn, ms, ...rest) => {
+        if (ms !== 12000) return realSetTimeout(fn, ms, ...rest);
+        const held = () => window.__holdBootDeadline === true;
+        const run = () => (held() || typeof window.__repforgeShowBootFailure !== "function" ? realSetTimeout(run, 20) : fn());
+        const probe = () => (held() ? realSetTimeout(probe, 20) : void (window.__bootDeadlinePasses += 1));
+        const id = realSetTimeout(run, 300);
+        realSetTimeout(probe, 300);
+        return id;
+      };
+    });
+    let claimSeen;
+    const claimRequested = new Promise((resolve) => { claimSeen = resolve; });
+    await context.route("**/v1/transfers/claims", () => { claimSeen(); });
+    const encoded = Buffer.from(JSON.stringify({ token: TOKEN, expiresAt: EXPIRES_AT })).toString("base64url");
+    await context.addCookies([{
+      name: "repforge_transfer_v1", value: `v1.${encoded}`, domain: new URL(BASE).hostname,
+      path: "/index.html", sameSite: "Lax",
+    }]);
+    const page = await context.newPage();
+    await page.goto(new URL("index.html", BASE).href, { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => document.getElementById("iosInstallSheet")?.dataset.transferState === "claiming", undefined, { timeout: 20000 });
+    await claimRequested;
+    // The deadline now falls while the claim is in flight.
+    await page.evaluate(() => { window.__holdBootDeadline = false; });
+    await page.waitForFunction(() => window.__bootDeadlinePasses > 0 &&
+      document.getAnimations().every((animation) => animation.playState !== "running"), undefined, { timeout: 10000 });
+    const surface = await page.evaluate(() => {
+      const sheet = document.getElementById("iosInstallSheet");
+      const splash = document.getElementById("bootSplash");
+      const box = sheet.getBoundingClientRect();
+      const x = box.left + box.width / 2;
+      const y = box.top + box.height / 2;
+      const splashBox = splash?.getBoundingClientRect();
+      const style = splash ? getComputedStyle(splash) : null;
+      const covers = !!splash && style.display !== "none" && style.visibility !== "hidden" && parseFloat(style.opacity) > 0.5 &&
+        !!splashBox && x >= splashBox.left && x <= splashBox.right && y >= splashBox.top && y <= splashBox.bottom;
+      return {
+        state: sheet.dataset.transferState,
+        sheetShown: sheet.hidden === false,
+        covers,
+        panel: document.documentElement.classList.contains("is-boot-failed") || !!document.querySelector('#bootSplash [role="alert"]'),
+        focusInSheet: sheet.contains(document.activeElement),
+      };
+    });
+    assert.equal(surface.panel, false, `a claim running past the stall deadline shows no failure panel (${JSON.stringify(surface)})`);
+    assert.equal(surface.state, "claiming", "the claiming sheet is still the surface");
+    assert.equal(surface.sheetShown, true, "the claiming sheet is shown");
+    assert.equal(surface.covers, false, "the boot splash does not cover the claiming sheet");
+    assert.equal(surface.focusInSheet, true, "keyboard focus is inside the claiming sheet before the Tab check");
+    // Tab and Shift+Tab stay within the visible sheet: the sheet has no focusable control, so the modal's
+    // trap keeps focus on the sheet itself.
+    await page.keyboard.press("Tab");
+    const afterTab = await page.evaluate(() => document.getElementById("iosInstallSheet").contains(document.activeElement));
+    assert.equal(afterTab, true, "Tab stays within the visible claiming sheet");
+    await page.keyboard.press("Shift+Tab");
+    const afterShiftTab = await page.evaluate(() => document.getElementById("iosInstallSheet").contains(document.activeElement));
+    assert.equal(afterShiftTab, true, "Shift+Tab stays within the visible claiming sheet");
+    checks += 6;
+    await context.close();
   }
 } finally {
   await browser.close();
