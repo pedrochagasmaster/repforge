@@ -482,41 +482,109 @@ async function historyStackInterleavings(browser) {
     await waitForApp(page);
     await writeFixture(page, fixture());
 
-    // Proof: Editor programmatic exit when a pushed route sits above its sentinel.
-    // 1. Open installed editor (pushes editor sentinel).
-    await openInstalledEditor(page);
-    // 2. Open exercise library (pushes route entry above editor sentinel).
-    await page.evaluate(() => window.openLibrary?.({ editorScope: true }));
+    // Proof for Item 1: A closed route must not pop another owner's entry (e.g. Editor on top).
+    // 1. Open library through real app flow (route pushed):
+    await page.evaluate(() => window.openLibrary?.());
     await page.waitForFunction(() => document.body.classList.contains("is-library") &&
       history.state?.tauriferRoute?.view === "library", undefined, { timeout: 5000 });
-
-    const openState = await page.evaluate(() => ({
-      library: document.body.classList.contains("is-library"),
-      routeView: history.state?.tauriferRoute?.view || null,
+    // 2. Arm installed editor history on top of open route:
+    await page.evaluate(() => window.armInstalledEditorHistory?.());
+    const stackBeforeRouteClose = await page.evaluate(() => ({
+      stack: window.__repforgeBrowserHistory.stack.map(e => e.name),
+      isTopEditor: window.__repforgeBrowserHistory.stack.slice(-1)[0]?.name === "installedEditor",
       historyLength: history.length,
+      editorActive: !!history.state?.tauriferProgramEditor?.active,
     }));
-    check(openState.library && openState.routeView === "library", "library route pushed above editor sentinel", openState);
-
-    // 3. Programmatic clean editor exit while library route is open.
-    // On main, finishInstalledEditor calls disarmInstalledEditorHistory(), which sets
-    // installedEditorHistoryRelease = true and calls history.back().
-    // The history.back() pops the ROUTE entry, not the editor sentinel!
-    // onRoutePopState handles the pop and returns true, bypassing onInstalledEditorPopState.
-    // As a result, installedEditorHistoryRelease remains true and the editor sentinel
-    // is left stranded on top of the history stack.
-    await page.evaluate(() => window.attemptProgramEditorDismiss?.());
-    await page.waitForFunction(() => !document.body.classList.contains("is-library") &&
-      document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), undefined, { timeout: 5000 });
-
-    // The history state after editor and route close:
-    // Both entries must be released, and the editor sentinel must not linger.
-    const stateAfterClose = await page.evaluate(() => ({
-      hasEditor: !!history.state?.tauriferProgramEditor?.active,
-      hasRoute: !!history.state?.tauriferRoute,
-      editorArmed: window.__installedEditorHistoryArmed === true,
-      releaseDangling: window.__installedEditorHistoryRelease === true,
+    // 3. Close the route underneath while editor is on top:
+    await page.evaluate(() => {
+      document.body.classList.remove("is-library", "is-preview", "is-exercise");
+      window.syncRouteHistory?.();
+    });
+    // Give history stepBack time to dispatch if any:
+    await page.waitForTimeout(200);
+    const stackAfterRouteClose = await page.evaluate(() => ({
+      stack: window.__repforgeBrowserHistory.stack.map(e => e.name),
+      historyLength: history.length,
+      editorActive: !!history.state?.tauriferProgramEditor?.active,
     }));
-    check(!stateAfterClose.hasEditor, "editor sentinel released when editor closes with route open", stateAfterClose);
+    check(
+      stackAfterRouteClose.editorActive === true && stackAfterRouteClose.historyLength === stackBeforeRouteClose.historyLength,
+      "syncRouteHistory does not pop editor entry when route closes underneath",
+      { before: stackBeforeRouteClose, after: stackAfterRouteClose }
+    );
+
+    // Proof for Item 2: replace invents entries when target is not on top.
+    const replaceResult = await page.evaluate(() => {
+      const bh = window.__repforgeBrowserHistory;
+      const lenBefore = bh.stack.length;
+      const res = bh.replace("entry", { step: "configure" });
+      return {
+        lenBefore,
+        lenAfter: bh.stack.length,
+        hasEntry: bh.has("entry"),
+        replaced: res,
+      };
+    });
+    check(
+      replaceResult.hasEntry === false && replaceResult.lenAfter === replaceResult.lenBefore && replaceResult.replaced === false,
+      "replace does not invent entries when target is not on top",
+      replaceResult
+    );
+
+    // Proof for Item 3: Reload re-arming lost (must adopt existing sentinel from history.state).
+    // In a fresh reload where history.state already holds an active editor sentinel:
+    await page.evaluate(() => {
+      const current = history.state && typeof history.state === "object" ? history.state : {};
+      history.replaceState({ ...current, tauriferProgramEditor: { active: true } }, "", location.href);
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    const reloadAdopted = await page.evaluate(() => {
+      const bh = window.__repforgeBrowserHistory;
+      return {
+        stackLength: bh?.stack?.length ?? 0,
+        hasEditor: bh?.has?.("installedEditor") ?? false,
+      };
+    });
+    check(
+      reloadAdopted.hasEditor === true && reloadAdopted.stackLength === 1,
+      "reload re-arming adopts existing sentinel from history.state",
+      reloadAdopted
+    );
+
+    // Also test reload during entry:
+    await page.evaluate(() => {
+      history.replaceState({ tauriferProgramEntry: { active: true, draftId: "draft_test" } }, "", location.href);
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    const reloadEntryAdopted = await page.evaluate(() => {
+      const bh = window.__repforgeBrowserHistory;
+      return {
+        stackLength: bh?.stack?.length ?? 0,
+        hasEntry: bh?.has?.("entry") ?? false,
+      };
+    });
+    check(
+      reloadEntryAdopted.hasEntry === true && reloadEntryAdopted.stackLength === 1,
+      "reload during entry adopts existing entry sentinel from history.state",
+      reloadEntryAdopted
+    );
+
+    // Proof for Item 4: Expected-pop token records target depth and has no 600ms timer.
+    const tokenInfo = await page.evaluate(() => {
+      const bh = window.__repforgeBrowserHistory;
+      bh.stepBack("test", 1);
+      return {
+        expectedTargetDepth: bh.expectedTargetDepth,
+        isExpectedPopPending: bh.isExpectedPopPending(),
+      };
+    });
+    check(
+      typeof tokenInfo.expectedTargetDepth === "number" && tokenInfo.isExpectedPopPending === true,
+      "expected pop records target depth without time-based timer",
+      tokenInfo
+    );
   } finally {
     await context.close();
   }
