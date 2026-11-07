@@ -377,9 +377,12 @@ try {
     const page = await context.newPage();
     let releaseApp;
     const appHeld = new Promise((resolve) => { releaseApp = resolve; });
-    await page.route(/app\.js(\?|$)/u, async (route) => { await appHeld; await route.continue(); });
+    let reachedApp;
+    const appReached = new Promise((resolve) => { reachedApp = resolve; });
+    await page.route(/app\.js(\?|$)/u, async (route) => { reachedApp(); await appHeld; await route.continue(); });
     // app.js is a blocking script at the end of the body, so DOMContentLoaded waits for it.
     await page.goto(BASE, { waitUntil: "commit" });
+    await reachedWithin(appReached, "the held app.js request");
     await page.waitForFunction(() => document.documentElement.classList.contains("is-boot-failed"), undefined, { timeout: 10000 });
     const fallback = await page.evaluate(() => ({
       panel: !!document.querySelector("#bootSplash .bootsplash__fail"),
@@ -405,7 +408,8 @@ try {
 
   console.log("\nSlow boot: the stall deadline passes while boot is still running");
   {
-    const context = await activatedContext(browser);
+    // Service workers are blocked: a controlling worker would answer the catalog request and the held route would hold nothing.
+    const context = await activatedContext(browser, { serviceWorkers: "block" });
     await context.addInitScript(shortenBootStall);
     const page = await context.newPage();
     let releaseCatalog;
