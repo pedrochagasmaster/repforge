@@ -1079,6 +1079,43 @@ try {
   }
 
   // A record whose clock is impossible is refused on restore: a clock rolled back a day, a deadline far in the future.
+  // A rest whose record could not be written is written again once storage takes it: on the next tick, or on the return to
+  // the page. Without another edit, a reload then brings the rest back. Both denials are proved: writes alone, and reads too.
+  for (const [label, reads] of [["writes", false], ["reads and writes", true]]) {
+    phase(`A rest whose ${label} were refused is published on the next tick after storage recovers, and survives a reload`);
+    const { context, page, errors } = await focusPage(browser);
+    await page.evaluate((reads) => {
+      window.__origGetItem = Storage.prototype.getItem;
+      window.__origSetItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (key, value) {
+        if (key === "repforge_rest_v1") throw new DOMException("full", "QuotaExceededError");
+        return window.__origSetItem.call(this, key, value);
+      };
+      if (reads) {
+        Storage.prototype.getItem = function (key) {
+          if (key === "repforge_rest_v1") throw new DOMException("denied", "SecurityError");
+          return window.__origGetItem.call(this, key);
+        };
+      }
+    }, reads);
+    await logSet(page);
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    await page.waitForTimeout(1200);
+    const denied = await page.evaluate(() => ({ active: window.__repforgeRest.state().active, ticking: window.__repforgeRest.state().ticking }));
+    await page.evaluate(() => { Storage.prototype.getItem = window.__origGetItem; Storage.prototype.setItem = window.__origSetItem; });
+    await page.waitForFunction(() => localStorage.getItem("repforge_rest_v1") !== null, undefined, { timeout: 5000 }).then(() => true, () => false);
+    const published = await hasRecord(page);
+    const endMs = await page.evaluate(() => window.__repforgeRest.state().endMs);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    const back = await page.evaluate(() => window.__repforgeRest.state());
+    assert(denied.active && denied.ticking, "the rest runs while its record is refused", denied);
+    assert(published, "the next tick after storage recovers publishes the record, with no other edit");
+    assert(back.active && back.endMs === endMs, "a reload brings the rest back at its deadline", { endMs, back });
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
   phase("A reload refuses a record that claims more time than a rest allows");
   {
     const { context, page, errors } = await focusPage(browser);
