@@ -13,7 +13,7 @@
  */
 import { launchChromium } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
-import { SHEET, applyInstalledEditor, editorSettled, openExerciseSheet, openInstalledEditor } from "./fixtures/installed-editor.mjs";
+import { SHEET, applyInstalledEditor, closeEditorSheet, editorSettled, openExerciseSheet, openInstalledEditor, setSheetSetCount } from "./fixtures/installed-editor.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -482,109 +482,89 @@ async function historyStackInterleavings(browser) {
     await waitForApp(page);
     await writeFixture(page, fixture());
 
-    // Proof for Item 1: A closed route must not pop another owner's entry (e.g. Editor on top).
-    // 1. Open library through real app flow (route pushed):
-    await page.evaluate(() => window.openLibrary?.());
-    await page.waitForFunction(() => document.body.classList.contains("is-library") &&
-      history.state?.tauriferRoute?.view === "library", undefined, { timeout: 5000 });
-    // 2. Arm installed editor history on top of open route:
-    await page.evaluate(() => window.armInstalledEditorHistory?.());
-    const stackBeforeRouteClose = await page.evaluate(() => ({
-      stack: window.__repforgeBrowserHistory.stack.map(e => e.name),
-      isTopEditor: window.__repforgeBrowserHistory.stack.slice(-1)[0]?.name === "installedEditor",
-      historyLength: history.length,
-      editorActive: !!history.state?.tauriferProgramEditor?.active,
-    }));
-    // 3. Close the route underneath while editor is on top:
-    await page.evaluate(() => {
-      document.body.classList.remove("is-library", "is-preview", "is-exercise");
-      window.syncRouteHistory?.();
-    });
-    // Give history stepBack time to dispatch if any:
+    // Proof for Item 1: Pushed pages must not overwrite each other.
+    await page.evaluate(() => window.__repforgeOpenLibrary ? window.__repforgeOpenLibrary() : window.openLibrary?.());
+    await page.waitForFunction(() => document.body.classList.contains("is-library"), undefined, { timeout: 5000 });
+    await page.locator('#library [data-lib-preview]').first().click();
+    await page.waitForFunction(() => document.body.classList.contains("is-preview"), undefined, { timeout: 5000 });
+    await page.goBack();
     await page.waitForTimeout(200);
-    const stackAfterRouteClose = await page.evaluate(() => ({
-      stack: window.__repforgeBrowserHistory.stack.map(e => e.name),
-      historyLength: history.length,
-      editorActive: !!history.state?.tauriferProgramEditor?.active,
+    const isLibraryAfterFirstBack = await page.evaluate(() => document.body.classList.contains("is-library") && !document.body.classList.contains("is-preview"));
+    check(isLibraryAfterFirstBack === true, "browser Back from preview returns to library", { isLibraryAfterFirstBack });
+    await page.goBack();
+    await page.waitForTimeout(200);
+    const isBaseAfterSecondBack = await page.evaluate(() => !document.body.classList.contains("is-library") && !document.body.classList.contains("is-preview"));
+    check(isBaseAfterSecondBack === true, "browser Back from library returns to page beneath", { isBaseAfterSecondBack });
+
+    // Proof for Item 2A: Clean editor over in-app library close.
+    const page2 = await context.newPage();
+    await page2.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForApp(page2);
+    await writeFixture(page2, fixture());
+    await openInstalledEditor(page2);
+    await page2.locator('#programEditor [data-role="add-exercise"]').first().click();
+    await page2.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
+    await page2.locator("#exPickFull").click();
+    await page2.waitForFunction(() => document.body.classList.contains("is-library"), undefined, { timeout: 5000 });
+    await page2.locator("#libBack").click();
+    await page2.waitForFunction(() => !document.body.classList.contains("is-library"), undefined, { timeout: 5000 });
+    await page2.waitForTimeout(200);
+    const cleanEditorState = await page2.evaluate(() => ({
+      editorOpen: !!document.querySelector("#programEditor [data-role='editor']"),
+      leaveDialogOpen: !!document.querySelector("#programEditorLeave")?.open,
     }));
-    check(
-      stackAfterRouteClose.editorActive === true && stackAfterRouteClose.historyLength === stackBeforeRouteClose.historyLength,
-      "syncRouteHistory does not pop editor entry when route closes underneath",
-      { before: stackBeforeRouteClose, after: stackAfterRouteClose }
-    );
+    check(cleanEditorState.editorOpen === true && cleanEditorState.leaveDialogOpen === false,
+      "in-app library close over clean editor does not close editor", cleanEditorState);
+    await page2.close();
 
-    // Proof for Item 2: replace invents entries when target is not on top.
-    const replaceResult = await page.evaluate(() => {
-      const bh = window.__repforgeBrowserHistory;
-      const lenBefore = bh.stack.length;
-      const res = bh.replace("entry", { step: "configure" });
-      return {
-        lenBefore,
-        lenAfter: bh.stack.length,
-        hasEntry: bh.has("entry"),
-        replaced: res,
-      };
-    });
-    check(
-      replaceResult.hasEntry === false && replaceResult.lenAfter === replaceResult.lenBefore && replaceResult.replaced === false,
-      "replace does not invent entries when target is not on top",
-      replaceResult
-    );
+    // Proof for Item 2B: Dirty editor over in-app library close.
+    const page3 = await context.newPage();
+    await page3.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForApp(page3);
+    await writeFixture(page3, fixture());
+    await openInstalledEditor(page3);
+    await openExerciseSheet(page3, EXERCISE_ID);
+    await setSheetSetCount(page3, 5);
+    await closeEditorSheet(page3);
+    await page3.locator('#programEditor [data-role="add-exercise"]').first().click();
+    await page3.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
+    await page3.locator("#exPickFull").click();
+    await page3.waitForFunction(() => document.body.classList.contains("is-library"), undefined, { timeout: 5000 });
+    await page3.locator("#libBack").click();
+    await page3.waitForFunction(() => !document.body.classList.contains("is-library"), undefined, { timeout: 5000 });
+    await page3.waitForTimeout(200);
+    const dirtyEditorState = await page3.evaluate(() => ({
+      editorOpen: !!document.querySelector("#programEditor [data-role='editor']"),
+      leaveDialogOpen: !!document.querySelector("#programEditorLeave")?.open,
+    }));
+    check(dirtyEditorState.editorOpen === true && dirtyEditorState.leaveDialogOpen === false,
+      "in-app library close over dirty editor does not open leave dialog", dirtyEditorState);
+    await page3.close();
 
-    // Proof for Item 3: Reload re-arming lost (must adopt existing sentinel from history.state).
-    // In a fresh reload where history.state already holds an active editor sentinel:
-    await page.evaluate(() => {
-      const current = history.state && typeof history.state === "object" ? history.state : {};
-      history.replaceState({ ...current, tauriferProgramEditor: { active: true } }, "", location.href);
-    });
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await waitForApp(page);
-    const reloadAdopted = await page.evaluate(() => {
-      const bh = window.__repforgeBrowserHistory;
-      return {
-        stackLength: bh?.stack?.length ?? 0,
-        hasEditor: bh?.has?.("installedEditor") ?? false,
-      };
-    });
-    check(
-      reloadAdopted.hasEditor === true && reloadAdopted.stackLength === 1,
-      "reload re-arming adopts existing sentinel from history.state",
-      reloadAdopted
-    );
-
-    // Also test reload during entry:
-    await page.evaluate(() => {
-      history.replaceState({ tauriferProgramEntry: { active: true, draftId: "draft_test" } }, "", location.href);
-    });
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await waitForApp(page);
-    const reloadEntryAdopted = await page.evaluate(() => {
-      const bh = window.__repforgeBrowserHistory;
-      return {
-        stackLength: bh?.stack?.length ?? 0,
-        hasEntry: bh?.has?.("entry") ?? false,
-      };
-    });
-    check(
-      reloadEntryAdopted.hasEntry === true && reloadEntryAdopted.stackLength === 1,
-      "reload during entry adopts existing entry sentinel from history.state",
-      reloadEntryAdopted
-    );
-
-    // Proof for Item 4: Expected-pop token records target depth and has no 600ms timer.
-    const tokenInfo = await page.evaluate(() => {
-      const bh = window.__repforgeBrowserHistory;
-      bh.stepBack("test", 1);
-      return {
-        expectedTargetDepth: bh.expectedTargetDepth,
-        isExpectedPopPending: bh.isExpectedPopPending(),
-      };
-    });
-    check(
-      typeof tokenInfo.expectedTargetDepth === "number" && tokenInfo.isExpectedPopPending === true,
-      "expected pop records target depth without time-based timer",
-      tokenInfo
-    );
+    // Proof for Item 3: Reload with editor open, Back, Keep editing, Back.
+    const page4 = await context.newPage();
+    await page4.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForApp(page4);
+    await writeFixture(page4, fixture());
+    await openInstalledEditor(page4);
+    await page4.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page4);
+    await openInstalledEditor(page4);
+    await page4.locator('#programEditor [data-role="program-name-edit"]').click();
+    const renameInput = page4.locator(`${SHEET}.is-open [data-role="rename-input"]`);
+    await renameInput.waitFor({ timeout: 5000 });
+    await renameInput.fill("Reload dirty name");
+    await page4.goBack();
+    await page4.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
+    const dialogOpened = await page4.evaluate(() => !!document.querySelector("#programEditorLeave")?.open);
+    check(dialogOpened === true, "browser Back after reload opens leave dialog for dirty editor");
+    await page4.locator("#programEditorKeep").click();
+    await page4.waitForFunction(() => !document.querySelector("#programEditorLeave")?.open, undefined, { timeout: 5000 });
+    await page4.goBack();
+    await page4.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
+    const dialogOpenedAgain = await page4.evaluate(() => !!document.querySelector("#programEditorLeave")?.open);
+    check(dialogOpenedAgain === true, "browser Back again after Keep editing reopens leave dialog");
+    await page4.close();
   } finally {
     await context.close();
   }

@@ -1186,206 +1186,7 @@ function scheduleEdgeSwipeSync(){
    SAFARI_SWIPE_MS of a touch at the left edge it is Safari's own swipe, which
    has already animated, so the route just changes. */
 const ROUTE_HISTORY_KEY="tauriferRoute",SAFARI_SWIPE_MS=900,SAFARI_EDGE=30;
-const INSTALLED_EDITOR_HISTORY_STATE_KEY="tauriferProgramEditor";
-const ENTRY_HISTORY_STATE_KEY="tauriferProgramEntry";
-let installedEditorHistoryArmed=false;
-
-/* ---- Browser history single owner (Packet G, rows 17, 25, N2) ----
-   One owner for the browser history stack. Named entries ("route", "installedEditor", "entry")
-   register with it. Programmatic steps back record the expected target depth (replacing the
-   naked ignore counter) so programmatic pops are never mistaken for a lifter's Back, without
-   relying on timers. Entries are adopted on reload from history.state. */
-const BrowserHistory=(()=>{
-  const registry=new Map();
-  let stack=[];
-  let expectedTargetDepth=null;
-  let nextTokenId=0;
-
-  function adoptExisting(){
-    const state=history.state;
-    if(!state||typeof state!=="object")return;
-    if(state.repforgeHistory?.name&&typeof state.repforgeHistory.depth==="number"){
-      stack.push({
-        name:state.repforgeHistory.name,
-        meta:state.repforgeHistory.meta||{},
-        token:state.repforgeHistory.token||`pop_${state.repforgeHistory.name}_init`,
-      });
-      return;
-    }
-    if(state[INSTALLED_EDITOR_HISTORY_STATE_KEY]?.active){
-      stack.push({name:"installedEditor",meta:{active:true},token:"pop_editor_init"});
-    }else if(state[ENTRY_HISTORY_STATE_KEY]?.active){
-      stack.push({name:"entry",meta:{active:true,draftId:state[ENTRY_HISTORY_STATE_KEY]?.draftId||null},token:"pop_entry_init"});
-    }else if(state[ROUTE_HISTORY_KEY]){
-      stack.push({name:"route",meta:{view:state[ROUTE_HISTORY_KEY].view,depth:state[ROUTE_HISTORY_KEY].depth},token:"pop_route_init"});
-    }
-  }
-  adoptExisting();
-
-  function register(name,handlers){
-    registry.set(name,handlers);
-  }
-
-  function currentTop(){
-    return stack.length?stack[stack.length-1]:null;
-  }
-
-  function isTop(name){
-    const top=currentTop();
-    return top?top.name===name:false;
-  }
-
-  function has(name){
-    return stack.some(e=>e.name===name);
-  }
-
-  function count(name){
-    return stack.filter(e=>e.name===name).length;
-  }
-
-  function isExpectedPopPending(){
-    return expectedTargetDepth!==null;
-  }
-
-  function adopt(name,meta={}){
-    if(has(name))return;
-    const token=`pop_${name}_${++nextTokenId}_${Date.now()}`;
-    stack.push({name,meta,token});
-  }
-
-  function push(name,meta={}){
-    expectedTargetDepth=null;
-    if(has(name)){
-      replace(name,meta);
-      return currentTop()?.token;
-    }
-    const token=`pop_${name}_${++nextTokenId}_${Date.now()}`;
-    const entry={name,meta,token};
-    stack.push(entry);
-    const current=history.state&&typeof history.state==="object"?history.state:{};
-    const state={
-      ...current,
-      repforgeHistory:{name,token,depth:stack.length,meta},
-    };
-    if(name==="route"){
-      state[ROUTE_HISTORY_KEY]={view:meta.view,depth:meta.depth??stack.length};
-    }else if(name==="installedEditor"){
-      state[INSTALLED_EDITOR_HISTORY_STATE_KEY]={active:true};
-    }else if(name==="entry"){
-      state[ENTRY_HISTORY_STATE_KEY]={active:true,draftId:meta.draftId||null};
-    }
-    try{history.pushState(state,"",location.href)}catch{}
-    return token;
-  }
-
-  function replace(name,meta={}){
-    const top=currentTop();
-    if(!top||top.name!==name)return false;
-    top.meta=meta;
-    const current=history.state&&typeof history.state==="object"?history.state:{};
-    const state={
-      ...current,
-      repforgeHistory:{name,token:top.token,depth:stack.length,meta},
-    };
-    if(name==="route"){
-      state[ROUTE_HISTORY_KEY]={view:meta.view,depth:meta.depth??stack.length};
-    }else if(name==="installedEditor"){
-      state[INSTALLED_EDITOR_HISTORY_STATE_KEY]={active:true};
-    }else if(name==="entry"){
-      state[ENTRY_HISTORY_STATE_KEY]={active:true,draftId:meta.draftId||null};
-    }
-    try{history.replaceState(state,"",location.href)}catch{}
-    return true;
-  }
-
-  function stepBack(name,count=1){
-    if(count<=0)return;
-    expectedTargetDepth=Math.max(0,stack.length-count);
-    try{
-      history.go(-count);
-    }catch{
-      expectedTargetDepth=null;
-    }
-  }
-
-  function popRecord(name){
-    const idx=stack.map(e=>e.name).lastIndexOf(name);
-    if(idx!==-1)stack.splice(idx,1);
-  }
-
-  function markInactive(name){
-    popRecord(name);
-  }
-
-  function getDepthFromState(state){
-    if(!state||typeof state!=="object")return 0;
-    if(state.repforgeHistory&&typeof state.repforgeHistory.depth==="number"){
-      return state.repforgeHistory.depth;
-    }
-    if(state[ROUTE_HISTORY_KEY]&&typeof state[ROUTE_HISTORY_KEY].depth==="number"){
-      return state[ROUTE_HISTORY_KEY].depth;
-    }
-    if(state[INSTALLED_EDITOR_HISTORY_STATE_KEY]?.active)return 1;
-    if(state[ENTRY_HISTORY_STATE_KEY]?.active)return 1;
-    return 0;
-  }
-
-  function onPopState(event){
-    const state=event?.state||history.state;
-    const arrivingDepth=getDepthFromState(state);
-
-    if(expectedTargetDepth!==null){
-      if(arrivingDepth===expectedTargetDepth){
-        expectedTargetDepth=null;
-        syncRouteHistory();
-        return true;
-      }
-      expectedTargetDepth=null;
-    }
-
-    let targetDepth=arrivingDepth;
-    const popped=[];
-    while(stack.length>targetDepth){
-      popped.push(stack.pop());
-    }
-
-    if(popped.length>0){
-      for(const entry of popped){
-        const handler=registry.get(entry.name);
-        if(handler?.onPop){
-          handler.onPop(entry,event);
-        }
-      }
-      return true;
-    }
-
-    for(const[name,handler]of registry.entries()){
-      if(handler.onPopFallback&&handler.onPopFallback(event)){
-        return true;
-      }
-    }
-    return false;
-  }
-
-  return{
-    register,
-    adopt,
-    push,
-    replace,
-    stepBack,
-    popRecord,
-    markInactive,
-    has,
-    count,
-    isTop,
-    isExpectedPopPending,
-    onPopState,
-    get expectedTargetDepth(){return expectedTargetDepth},
-    get stack(){return stack}
-  };
-})();
-
-let routeHistory=[],routeEdgeTouchAt=-Infinity;
+let routeHistory=[],expectedRouteDepth=null,routeEdgeTouchAt=-Infinity;
 function openPushedRoutes(){
   const body=document.body.classList,history=$("#history"),open=[];
   if(body.contains("is-library"))open.push("library");
@@ -1394,34 +1195,31 @@ function openPushedRoutes(){
   if(history?.classList.contains("active")&&history.classList.contains("is-session-page"))open.push("history");
   return open}
 function syncRouteHistory(){
-  if(BrowserHistory.isExpectedPopPending())return;
+  if(expectedRouteDepth!==null)return;
   const open=openPushedRoutes(),kept=routeHistory.filter(id=>open.includes(id)),closed=routeHistory.length-kept.length;
   const depth=routeHistory.length;
   routeHistory=kept;
   // Step back only over entries that are ours and on top: another owner (the editor, onboarding) may have pushed
   // since, and history.go would pop its entry instead. A route closed under one is forgotten, its entry left.
   // Pages opened in the same change are pushed once the browser has stepped back (onRoutePopState).
-  if(closed){
-    const poppedRoutes=depth-kept.length;
-    if(BrowserHistory.isTop("route")&&history.state?.[ROUTE_HISTORY_KEY]?.depth===depth){
-      while(BrowserHistory.count("route")>kept.length){
-        const idx=BrowserHistory.stack.map(e=>e.name).lastIndexOf("route");
-        if(idx!==-1)BrowserHistory.stack.splice(idx,1);
-      }
-      BrowserHistory.stepBack("route",poppedRoutes);
-      return;
-    }else{
-      // A route closed under another owner: forget in order, do not step back over the active owner!
-      while(BrowserHistory.count("route")>kept.length){
-        const idx=BrowserHistory.stack.map(e=>e.name).lastIndexOf("route");
-        if(idx!==-1)BrowserHistory.stack.splice(idx,1);
-      }
-    }
-  }
+  if(closed&&history.state?.[ROUTE_HISTORY_KEY]?.depth===depth){
+    expectedRouteDepth=kept.length;
+    try{history.go(-closed)}catch{expectedRouteDepth=null}
+    return}
   for(const id of open)if(!routeHistory.includes(id)){
     routeHistory.push(id);
-    BrowserHistory.push("route",{view:id,depth:routeHistory.length});}}
+    const current=history.state&&typeof history.state==="object"?history.state:{};
+    try{history.pushState({...current,[ROUTE_HISTORY_KEY]:{view:id,depth:routeHistory.length}},"",location.href)}catch{}}}
 function onRoutePopState(){
+  if(expectedRouteDepth!==null){
+    const arrivingDepth=history.state?.[ROUTE_HISTORY_KEY]?.depth||0;
+    if(arrivingDepth===expectedRouteDepth){
+      expectedRouteDepth=null;
+      syncRouteHistory();
+      return true;
+    }
+    expectedRouteDepth=null;
+  }
   const depth=history.state?.[ROUTE_HISTORY_KEY]?.depth||0;
   if(routeHistory.length<=depth)return false;
   const swiped=performance.now()-routeEdgeTouchAt<SAFARI_SWIPE_MS;
@@ -1430,14 +1228,6 @@ function onRoutePopState(){
     routeSwipeCommitting=swiped;
     try{releaseSwallowedClick();$(EDGE_BACK[id])?.click()}finally{routeSwipeCommitting=false}}
   return true}
-BrowserHistory.register("route",{
-  onPop(entry,event){
-    onRoutePopState();
-  },
-  onPopFallback(event){
-    return onRoutePopState();
-  }
-});
 document.addEventListener("touchstart",e=>{if(e.touches[0]?.clientX<SAFARI_EDGE)routeEdgeTouchAt=performance.now()},{capture:true,passive:true});
 /* History swaps its list for a session page inside one view, so there is no second
    page to keep mounted. A still copy of the surface as it was, taken as the lifter
@@ -1460,7 +1250,7 @@ function watchRouteSurfaces(){
   // The library, preview and exercise routes are body classes.
   new MutationObserver(scheduleEdgeSwipeSync).observe(document.body,{attributes:true,attributeFilter:["class"]});
   // A reload starts with no page pushed, so an entry left by the last session is no longer one.
-  try{const st=history.state;if(st&&typeof st==="object"&&(st[ROUTE_HISTORY_KEY]||st.repforgeHistory?.name==="route")){const{[ROUTE_HISTORY_KEY]:_,repforgeHistory:__, ...rest}=st;history.replaceState(rest,"",location.href)}}catch{}
+  try{const st=history.state;if(st&&typeof st==="object"&&st[ROUTE_HISTORY_KEY]){const{[ROUTE_HISTORY_KEY]:_,...rest}=st;history.replaceState(rest,"",location.href)}}catch{}
   if(history){
     historySessionOpen=history.classList.contains("is-session-page");
     new MutationObserver(()=>{
@@ -14779,33 +14569,40 @@ function exitProgramEditorSheet(){
   view?.addEventListener("transitionend",onEnd);
 }
 let installedLeaveMode=null;
+function installedEditorHistoryState(){
+  const current=history.state&&typeof history.state==="object"?history.state:{};
+  return{...current,[INSTALLED_EDITOR_HISTORY_STATE_KEY]:{active:true}}}
 function armInstalledEditorHistory(){
   if(installedEditorHistoryArmed)return;
-  installedEditorHistoryArmed=true;
-  if(BrowserHistory.has("installedEditor")||history.state?.[INSTALLED_EDITOR_HISTORY_STATE_KEY]?.active){
-    if(!BrowserHistory.has("installedEditor")){
-      BrowserHistory.adopt("installedEditor",{active:true});
-    }
-    return;
-  }
-  BrowserHistory.push("installedEditor",{active:true});
+  try{
+    if(history.state?.[INSTALLED_EDITOR_HISTORY_STATE_KEY]?.active===true){installedEditorHistoryArmed=true;return}
+    history.pushState(installedEditorHistoryState(),"",location.href);
+    installedEditorHistoryArmed=true;
+  }catch{}
 }
 function disarmInstalledEditorHistory({historyAlreadyPopped=false}={}){
-  if(!installedEditorHistoryArmed&&!BrowserHistory.has("installedEditor"))return;
+  if(!installedEditorHistoryArmed)return;
   installedEditorHistoryArmed=false;
-  if(historyAlreadyPopped){
-    BrowserHistory.popRecord("installedEditor");
+  if(historyAlreadyPopped)return;
+  const routesOnTop=Math.max(routeHistory.length,history.state?.[ROUTE_HISTORY_KEY]?.depth||0);
+  if(routesOnTop>0){
+    const toClose=routeHistory.slice().reverse();
+    routeHistory=[];
+    for(const id of toClose){
+      try{releaseSwallowedClick();$(EDGE_BACK[id])?.click()}catch{}
+    }
+    installedEditorHistoryRelease=true;
+    try{history.go(-(1+routesOnTop))}catch{installedEditorHistoryRelease=false}
     return;
   }
-  if(BrowserHistory.isTop("installedEditor")){
-    BrowserHistory.popRecord("installedEditor");
-    BrowserHistory.stepBack("installedEditor",1);
-  }else{
-    BrowserHistory.markInactive("installedEditor");
-    const current=history.state&&typeof history.state==="object"?history.state:{};
-    try{history.replaceState({...current,[INSTALLED_EDITOR_HISTORY_STATE_KEY]:{active:false}},"",location.href)}catch{}
-  }
+  installedEditorHistoryRelease=true;
+  try{history.back()}catch{installedEditorHistoryRelease=false}
 }
+try{
+  window.attemptProgramEditorDismiss=attemptProgramEditorDismiss;
+  Object.defineProperty(window,"__installedEditorHistoryArmed",{get:()=>installedEditorHistoryArmed,configurable:true});
+  Object.defineProperty(window,"__installedEditorHistoryRelease",{get:()=>installedEditorHistoryRelease,configurable:true});
+}catch{}
 // A refused editor commit lists each problem in plain words; "Go to" resolves
 // with that problem's index once the dialog has closed, Keep editing with null.
 function showEditorIssues(items){
@@ -18655,6 +18452,9 @@ let entryDialog=null,entryChange=null,entryGoalFromHub=false,entryPickerInput=nu
    copy of the answers it edits), and the program the lifter just left, for the
    change statement when the same walk comes back to a result. */
 let entryGoalOpen=false,entryEditor=null,entryEditorSwap=false,entryEditorRerender=false,entryLastPreview=null,entryReviewError=null;
+const ENTRY_HISTORY_STATE_KEY="tauriferProgramEntry";
+const INSTALLED_EDITOR_HISTORY_STATE_KEY="tauriferProgramEditor";
+let installedEditorHistoryArmed=false,installedEditorHistoryRelease=false;
 const setupDraftOwnerId=uid();
 let entryDraftHandle=null;
 let setupDraftWriteQueue=Promise.resolve();
@@ -18887,28 +18687,23 @@ function programmingContextFromAnswers(answers){
     reviewedAt:entryNow()})}
 function showOnboardingView(){entryVisibleScreenKey=null;$("#onboarding").classList.remove("hidden");$("#onboarding").classList.add("active");document.body.classList.add("is-onboarding");
   $$(".view").forEach(v=>{if(v.id!=="onboarding")v.classList.remove("active")})}
-let entryHistoryArmed=false;
-function armEntryHistory(meta={}){
-  if(entryHistoryArmed)return;
-  entryHistoryArmed=true;
-  if(BrowserHistory.has("entry")||history.state?.[ENTRY_HISTORY_STATE_KEY]?.active){
-    if(!BrowserHistory.has("entry")){
-      BrowserHistory.adopt("entry",{active:true,draftId:entryState?.draftId||null});
-    }
-    syncEntryHistory(meta);
-    return;
-  }
-  BrowserHistory.push("entry",{active:true,draftId:entryState?.draftId||null,...meta});
-}
-function syncEntryHistory(meta={}){
-  BrowserHistory.replace("entry",{active:true,draftId:entryState?.draftId||null,...meta});
-}
-function disarmEntryHistory(){
-  if(!entryHistoryArmed)return;
-  entryHistoryArmed=false;
-  BrowserHistory.markInactive("entry");
+function entryHistoryState(active=true){
   const current=history.state&&typeof history.state==="object"?history.state:{};
-  try{history.replaceState({...current,[ENTRY_HISTORY_STATE_KEY]:{active:false}},"",location.href)}catch{}}
+  return{...current,[ENTRY_HISTORY_STATE_KEY]:{
+    active,draftId:entryState?.draftId||null}}}
+function armEntryHistory(){
+  try{
+    const existing=history.state?.[ENTRY_HISTORY_STATE_KEY];
+    const method=existing?"replaceState":"pushState";
+    history[method](entryHistoryState(true),"",location.href)}catch{}}
+function syncEntryHistory(){
+  try{
+    if(history.state?.[ENTRY_HISTORY_STATE_KEY]?.active)
+      history.replaceState(entryHistoryState(true),"",location.href)}catch{}}
+function disarmEntryHistory(){
+  try{
+    if(history.state?.[ENTRY_HISTORY_STATE_KEY])
+      history.replaceState(entryHistoryState(false),"",location.href)}catch{}}
 function closeOnboarding(){
   // The pasted program and the reply belong to the flow that asked for them.
   resetFreeformImport();
@@ -22489,12 +22284,21 @@ function entryBack(){
   if(previous.route==="recommend"&&previous.step==="split"&&!entrySplitStepShown(previous.answers))previous=ProgramEntry.back(previous);
   entrySetState(previous)}
 function onInstalledEditorPopState(){
-  if(BrowserHistory.isExpectedPopPending("installedEditor"))return true;
+  // Explicit editor exits release the same sentinel with history.back(). Its
+  // popstate is expected and must not reopen the leave surface.
+  if(installedEditorHistoryRelease){installedEditorHistoryRelease=false;return true}
   if(!programEditMode||!installedProgramEditor)return false;
+  // Back has already consumed the editor sentinel. Dirty work is restored to
+  // the top of the stack before asking the existing three-way decision, so a
+  // second Back cannot unload the document while the decision is open.
   installedEditorHistoryArmed=false;
   if(installedProgramEditor.isDirty()){
-    BrowserHistory.push("installedEditor",{active:true});
-    installedEditorHistoryArmed=true;
+    try{
+      history.pushState(installedEditorHistoryState(),"",location.href);
+      installedEditorHistoryArmed=true;
+    }catch{}
+    // A name still typed in the editor's rename sheet is held while the sheet steps aside (#445),
+    // then the decision opens over the editor.
     const held=installedProgramEditor.holdPendingRename?.();
     if(held)held.then(()=>afterModalSettles(()=>{if(programEditMode&&!$("#programEditorLeave")?.open)openInstalledLeaveDialog()}));
     else if(!$("#programEditorLeave")?.open)openInstalledLeaveDialog();
@@ -22503,29 +22307,12 @@ function onInstalledEditorPopState(){
   finishInstalledEditor({historyAlreadyPopped:true});
   return true;
 }
-BrowserHistory.register("installedEditor",{
-  onPop(entry,event){
-    onInstalledEditorPopState();
-  },
-  onPopFallback(event){
-    return onInstalledEditorPopState();
-  }
-});
-function onEntrySentinelPopState(){
-  if(!$("#onboarding")?.classList.contains("active")||!entryState)return false;
-  BrowserHistory.push("entry",{active:true,draftId:entryState?.draftId||null});
-  entryBack();
-  return true;
-}
-BrowserHistory.register("entry",{
-  onPop(entry,event){
-    onEntrySentinelPopState();
-  },
-  onPopFallback(event){
-    return onEntrySentinelPopState();
-  }
-});
-window.__repforgeBrowserHistory=BrowserHistory;
+function onEntryPopState(){
+  if(onRoutePopState())return;
+  if(onInstalledEditorPopState())return;
+  if(!$("#onboarding")?.classList.contains("active")||!entryState)return;
+  try{history.pushState(entryHistoryState(true),"",location.href)}catch{}
+  entryBack()}
 // @ci-domain global
 async function activateEntryPreview({destination="log",manualBuild=false,skipReplaceConfirm=false,io=storageIO}={}){
   if(!ProgramEntry||!entryState)return;
@@ -25554,7 +25341,7 @@ function init(){
     const on=notifyPending||notifyEffective();
     setNotificationsEnabled(!on)};
   const onbCancel=$("#onbCancel");if(onbCancel)onbCancel.onclick=()=>requestEntryCancel();
-  window.addEventListener("popstate",BrowserHistory.onPopState);
+  window.addEventListener("popstate",onEntryPopState);
   document.addEventListener("visibilitychange",onAppVisible);
   $("#glossary .glossary__close").onclick=()=>closeGlossary();
   document.addEventListener("click",e=>{const g=$("#glossary");if(!g||g.classList.contains("hidden"))return;
