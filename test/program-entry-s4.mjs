@@ -154,8 +154,48 @@ async function fallbackOfferFlow(browser) {
   await context.close();
 }
 
+async function sameStateAnswerRebuild(browser) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: "UTC" });
+  const page = await context.newPage();
+  await page.clock.setFixedTime(START);
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+  await page.click("#firstRunCreate");
+  await answerRecommend(page, { skipBasics: true });
+  await page.locator('#entryCandidateReview [data-entry-chip="days"]').click();
+  const currentDays = await page.evaluate(() => window.__repforgeEntryState()?.answers?.daysPerWeek);
+  const editedDays = currentDays === 3 ? 4 : 3;
+  await page.locator(`#entryEditor [data-entry-pick="daysPerWeek"][data-entry-val="${editedDays}"]`).click();
+  await page.evaluate(() => {
+    const base = window.RepForgeProgramEntryAdapter.createProductionServices({
+      Compiler: window.RepForgeProgramCompiler,
+      catalog: window.RepForgeExerciseCatalog.snapshot(),
+    });
+    window.__repforgeHeldAnswerRebuilds = [];
+    window.__repforgeProgramEntryServicesOverride = {
+      ...base,
+      generateProgram: ({ request }) => {
+        const generated = base.generateProgram({ request });
+        return new Promise((resolve) => window.__repforgeHeldAnswerRebuilds.push(() => resolve(generated)));
+      },
+    };
+  });
+  await page.locator("#entryChipApply").click();
+  await page.waitForFunction(() => window.__repforgeHeldAnswerRebuilds?.length === 1, undefined, { timeout: 10000 });
+  assert.equal(await page.evaluate(() => window.__repforgeRecommitEntryState?.()), true,
+    "the same committed state can be re-committed while its answer rebuild is pending");
+  await page.evaluate(async () => {
+    window.__repforgeHeldAnswerRebuilds[0]();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  assert.equal((await entry(page)).answers.daysPerWeek, editedDays,
+    "the pending answer edit still lands after a same-state commit");
+  await context.close();
+}
+
 const browser = await launchChromium();
 try {
+  await sameStateAnswerRebuild(browser);
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: "UTC" });
   const page = await context.newPage();
   await installOfferWorkerHarness(page);

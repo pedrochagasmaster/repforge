@@ -70,9 +70,12 @@
     const opts = options || {};
     const counts = { worker: 0, main: 0 };
     const queue = [];
+    const timers = opts.timers || root;
+    const workerTimeoutMs = 60_000;
     let mode = opts.worker && typeof root.Worker === "function" ? "pending"
       : opts.allowMainThreadFallback === false ? "failed" : "main";
-    let worker = null, started = null, active = null, disposed = false;
+    let worker = null, started = null, active = null;
+    let startupTimer = null, activeTimer = null;
     let settleStart = () => {};
 
     function workerUnavailable() {
@@ -89,7 +92,11 @@
 
     // A failed worker either falls back or closes this executor to computation.
     function fallBack() {
-      if (disposed) return;
+      if (mode === "disposed") return;
+      if (startupTimer !== null) timers.clearTimeout(startupTimer);
+      if (activeTimer !== null) timers.clearTimeout(activeTimer);
+      startupTimer = null;
+      activeTimer = null;
       if (worker) { try { worker.terminate(); } catch {} }
       worker = null;
       mode = opts.allowMainThreadFallback === false ? "failed" : "main";
@@ -108,9 +115,23 @@
       try { job.resolve(compute()); } catch (error) { job.reject(error); }
     }
 
+    function armStartupWatchdog(instance) {
+      startupTimer = timers.setTimeout(() => {
+        startupTimer = null;
+        if (mode === "pending" && worker === instance) fallBack();
+      }, workerTimeoutMs);
+    }
+
+    function armActiveWatchdog(instance, job) {
+      activeTimer = timers.setTimeout(() => {
+        activeTimer = null;
+        if (mode === "worker" && worker === instance && active === job) fallBack();
+      }, workerTimeoutMs);
+    }
+
     function start() {
       if (started) return started;
-      if (disposed) return Promise.resolve("disposed");
+      if (mode === "disposed") return Promise.resolve("disposed");
       started = new Promise((resolve) => { settleStart = resolve; });
       if (mode === "main" || mode === "failed") { settleStart(mode); return started; }
       try {
@@ -122,12 +143,19 @@
       worker.onerror = (event) => { event?.preventDefault?.(); fallBack(); };
       worker.onmessageerror = () => fallBack();
       worker.onmessage = (event) => {
-        if (disposed || mode === "failed" || mode === "main") return;
+        if (mode === "disposed" || mode === "failed" || mode === "main") return;
         const message = event.data || {};
-        if (message.type === "ready") { mode = "worker"; settleStart("worker"); pump(); return; }
+        if (message.type === "ready") {
+          if (mode !== "pending") return;
+          if (startupTimer !== null) timers.clearTimeout(startupTimer);
+          startupTimer = null;
+          mode = "worker"; settleStart("worker"); pump(); return;
+        }
         if (message.type === "failed") { fallBack(); return; }
         const job = active;
         if (!job || message.id !== job.id) return;
+        if (activeTimer !== null) timers.clearTimeout(activeTimer);
+        activeTimer = null;
         active = null;
         counts.worker++;
         if (job.signal?.aborted) job.reject(abortError());
@@ -135,6 +163,7 @@
         else job.reject(new Error(message.message));
         pump();
       };
+      armStartupWatchdog(worker);
       try {
         worker.postMessage({ type: "init", scripts: opts.worker.scripts, catalogSha256: opts.worker.catalogSha256 });
       } catch { fallBack(); }
@@ -144,12 +173,13 @@
     // One job at a time is in the worker, so a superseded job still waiting
     // here is dropped before it costs anything.
     function pump() {
-      if (disposed) return;
+      if (mode === "disposed") return;
       while (!active && queue.length) {
         const job = queue.shift();
         if (job.signal?.aborted) { job.reject(abortError()); continue; }
         if (mode === "main") { settle(job, () => runOnMain(job)); continue; }
         active = job;
+        armActiveWatchdog(worker, job);
         const { resolve, reject, signal, ...message } = job;
         try { worker.postMessage(message); } catch { fallBack(); }
       }
@@ -158,7 +188,7 @@
     let nextId = 0;
     function submit(job, signal) {
       return new Promise((resolve, reject) => {
-        if (disposed) { reject(abortError()); return; }
+        if (mode === "disposed") { reject(abortError()); return; }
         if (signal?.aborted) { reject(abortError()); return; }
         if (mode === "failed") { reject(workerUnavailable()); return; }
         const entry = { ...job, id: ++nextId, signal, resolve, reject };
@@ -178,8 +208,11 @@
     }
 
     function dispose() {
-      if (disposed) return;
-      disposed = true;
+      if (mode === "disposed") return;
+      if (startupTimer !== null) timers.clearTimeout(startupTimer);
+      if (activeTimer !== null) timers.clearTimeout(activeTimer);
+      startupTimer = null;
+      activeTimer = null;
       const pending = active ? [active, ...queue] : [...queue];
       active = null;
       queue.length = 0;
@@ -194,7 +227,7 @@
     return Object.freeze({
       /** generateProgram(request, catalog), resolved off the main thread when possible. */
       generate: (request, { signal, enginePolicy, diagnostics } = {}) => {
-        if (disposed || signal?.aborted) return Promise.reject(abortError());
+        if (mode === "disposed" || signal?.aborted) return Promise.reject(abortError());
         if (mode === "failed") return Promise.reject(workerUnavailable());
         if (diagnostics !== undefined && diagnostics !== "allocation-lineage@1") return Promise.resolve({ ok: false, value: null,
           conflicts: [{ field: "diagnostics", code: "invalid_diagnostics", message: "Choose allocation-lineage@1 or omit diagnostics." }], explanations: [] });

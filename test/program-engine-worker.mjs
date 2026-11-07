@@ -185,6 +185,110 @@ async function disposeActiveEngine() {
   }
 }
 
+async function workerWatchdogChecks() {
+  const originalWorker = globalThis.Worker;
+  class FakeClock {
+    now = 0;
+    nextId = 0;
+    timers = new Map();
+    setTimeout(callback, delay) {
+      const id = ++this.nextId;
+      this.timers.set(id, { at: this.now + delay, callback });
+      return id;
+    }
+    clearTimeout(id) { this.timers.delete(id); }
+    delays() { return [...this.timers.values()].map(timer => timer.at - this.now); }
+    runAll() {
+      while (this.timers.size) {
+        const [id, timer] = [...this.timers].sort((a, b) => a[1].at - b[1].at)[0];
+        this.timers.delete(id);
+        this.now = timer.at;
+        timer.callback();
+      }
+    }
+  }
+  const createEngine = (clock, compiler) => ProgramEngine.create({
+    compiler: { generateProgram: compiler },
+    transition: { deriveSuccessor: () => ({}) },
+    catalog: () => ({}),
+    worker: { url: "program-engine-test.js", scripts: [], catalogSha256: "test" },
+    timers: clock,
+  });
+  try {
+    const startupClock = new FakeClock();
+    class SilentStartupWorker {
+      static instance = null;
+      constructor() { this.terminated = 0; SilentStartupWorker.instance = this; }
+      postMessage() {}
+      terminate() { this.terminated++; }
+    }
+    globalThis.Worker = SilentStartupWorker;
+    const startupEngine = createEngine(startupClock, request => ({ ok: true, value: request }));
+    const startupResult = startupEngine.generate({ id: "startup" });
+    const startupDelay = startupClock.delays()[0];
+    check(startupDelay === 60_000, "worker watchdog: a silent startup gets a 60-second readiness deadline", startupClock.delays());
+    if (startupDelay === 60_000) startupClock.runAll();
+    const startupOutcome = await Promise.race([
+      startupResult.then(value => ({ value }), error => ({ error: error?.name })),
+      Promise.resolve().then(() => ({ pending: true })),
+    ]);
+    if (startupDelay === 60_000) {
+      const worker = SilentStartupWorker.instance;
+      check(startupOutcome.value?.value?.id === "startup" && startupEngine.stats().mode === "main" && worker.terminated === 1,
+        "worker watchdog: a worker that never becomes ready falls back and runs the queued request on main", {
+          outcome: startupOutcome, stats: startupEngine.stats(), terminated: worker.terminated,
+        });
+    } else {
+      startupEngine.dispose();
+      await startupResult.catch(() => {});
+    }
+    startupEngine.dispose();
+
+    const activeClock = new FakeClock();
+    class SilentJobWorker {
+      static instance = null;
+      constructor() { this.terminated = 0; this.messages = []; SilentJobWorker.instance = this; }
+      postMessage(message) {
+        this.messages.push(message);
+        if (message.type === "init") queueMicrotask(() => this.onmessage?.({ data: { type: "ready" } }));
+      }
+      terminate() { this.terminated++; }
+    }
+    globalThis.Worker = SilentJobWorker;
+    const mainRequests = [];
+    const activeEngine = createEngine(activeClock, request => {
+      mainRequests.push(request.id);
+      return { ok: true, value: request };
+    });
+    await activeEngine.ready();
+    const activeResult = activeEngine.generate({ id: "active" });
+    const queuedResult = activeEngine.generate({ id: "queued" });
+    const activeDelay = activeClock.delays()[0];
+    check(activeDelay === 60_000, "worker watchdog: an unanswered active job gets a 60-second deadline", activeClock.delays());
+    if (activeDelay === 60_000) activeClock.runAll();
+    if (activeDelay === 60_000) {
+      const outcomes = await Promise.all([activeResult, queuedResult]);
+      const worker = SilentJobWorker.instance;
+      check(JSON.stringify(outcomes.map(item => item.value.id)) === JSON.stringify(["active", "queued"]) &&
+        JSON.stringify(mainRequests) === JSON.stringify(["active", "queued"]),
+      "worker watchdog: a stalled active job and queued jobs fall back in order", {
+        outcomes, mainRequests, stats: activeEngine.stats(), terminated: worker.terminated,
+      });
+      check(activeEngine.stats().mode === "main" && activeEngine.stats().main === 2 && worker.terminated === 1,
+        "worker watchdog: the timed-out worker is terminated and the executor stays on main", {
+          stats: activeEngine.stats(), terminated: worker.terminated,
+        });
+    } else {
+      activeEngine.dispose();
+      await Promise.all([activeResult.catch(() => {}), queuedResult.catch(() => {})]);
+    }
+    activeEngine.dispose();
+  } finally {
+    if (originalWorker === undefined) delete globalThis.Worker;
+    else globalThis.Worker = originalWorker;
+  }
+}
+
 const engineMode = (page) => page.evaluate(async () => {
   const engine = window.__repforgeProgramEngine;
   if (!engine) return { mode: "absent" };
@@ -366,6 +470,7 @@ async function main() {
   console.log("#353 Generate in a worker: equivalence, fallback and responsiveness");
   await (await import("./fixtures/programlab-worker-proof.mjs")).default();
   await disposeActiveEngine();
+  await workerWatchdogChecks();
   if (process.env.REPFORGE_ENGINE_LIFECYCLE_ONLY === "1") {
     console.log(`\n${passed} lifecycle checks passed, ${failures.length} failed`);
     if (failures.length) process.exit(1);
