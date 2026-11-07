@@ -122,6 +122,62 @@ function manualClock() {
   };
 }
 
+function manualReadableBody() {
+  let reads = 0;
+  let cancelled = false;
+  let closed = false;
+  const pendingReads = [];
+  const readWatchers = [];
+  function cancel() {
+    cancelled = true;
+    for (const pending of pendingReads.splice(0)) pending.resolve({ done: true });
+  }
+  const body = {
+    getReader() {
+      return {
+        read() {
+          reads += 1;
+          for (const watcher of readWatchers.splice(0)) {
+            if (watcher.count <= reads) watcher.result.resolve();
+            else readWatchers.push(watcher);
+          }
+          if (cancelled || closed) return Promise.resolve({ done: true });
+          const result = deferred();
+          pendingReads.push(result);
+          return result.promise;
+        },
+        cancel() {
+          cancel();
+          return Promise.resolve();
+        },
+      };
+    },
+  };
+  return {
+    body,
+    readCount: () => reads,
+    cancelled: () => cancelled,
+    abort: cancel,
+    waitForRead(count) {
+      if (reads >= count) return Promise.resolve();
+      const result = deferred();
+      readWatchers.push({ count, result });
+      return result.promise;
+    },
+    push(value) {
+      if (cancelled || closed) return false;
+      const pending = pendingReads.shift();
+      if (!pending) throw new Error("test stream has no pending read");
+      pending.resolve({ done: false, value });
+      return true;
+    },
+    close() {
+      closed = true;
+      for (const pending of pendingReads.splice(0)) pending.resolve({ done: true });
+    },
+  };
+}
+
 function base64url(bytes) {
   return Buffer.from(bytes).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
 }
@@ -1014,6 +1070,103 @@ async function main() {
     check(calls[0].options.cache === "no-store" && calls[0].options.redirect === "error", "transport allows caching or redirects");
     check(calls[0].options.headers["Cache-Control"] === "no-store" && calls[0].options.credentials === "omit", "transport headers/credentials drifted");
     check(!calls[0].url.includes("F".repeat(43)), "transport put token in the URL");
+  });
+
+  await test("a maximum-size claim reaches import validation after body progress passes 65 seconds", async () => {
+    const envelope = envelopeOfBytes(Contract.LIMITS.envelopeBytes);
+    check((await Contract.validateEnvelopeIntegrity(envelope, webcrypto)).ok, "maximum logical clone passes the real transfer contract");
+    const responseBytes = textEncoder.encode(JSON.stringify({ envelope, expiresAt: "2099-01-01T00:00:00.000Z" }));
+    check(responseBytes.byteLength <= Contract.LIMITS.claimResponseBytes, "maximum clone plus wrapper fits the production response limit");
+    const stream = manualReadableBody();
+    const clock = manualClock();
+    const token = tokenFixture("S");
+    const vault = Transfer.createCredentialVault({ crypto: webcrypto, keyStore: memoryKeyStore() });
+    const inbound = markerStore();
+    const document = cookieDocument();
+    Transfer.writeTransferCookie({ token, expiresAt: "2099-01-01T00:00:00.000Z" }, {
+      document,
+      location: { href: "https://pedrochagasmaster.github.io/repforge/index.html" },
+      now: NOW,
+    });
+    const transport = Transfer.createFetchTransport({
+      fetch: (_url, options) => {
+        options.signal.addEventListener("abort", stream.abort, { once: true });
+        return Promise.resolve({
+          status: 200,
+          headers: { get: () => String(responseBytes.byteLength) },
+          body: stream.body,
+        });
+      },
+      baseUrl: "https://transfer.example/",
+      clock,
+    });
+    const client = makeClient({ contract: Contract, transport, context: "standalone", inbound, vault, document });
+    const pending = client.claim();
+    const chunkSize = 240 * 1024;
+    const chunks = [];
+    for (let offset = 0; offset < responseBytes.byteLength; offset += chunkSize)
+      chunks.push(responseBytes.slice(offset, Math.min(responseBytes.byteLength, offset + chunkSize)));
+    await stream.waitForRead(1);
+
+    let elapsed = 0;
+    for (let index = 0; index < chunks.length; index += 1) {
+      if (index > 0) {
+        clock.advance(10_000);
+        elapsed += 10_000;
+      }
+      check(stream.push(chunks[index]), `body chunk ${index + 1} arrived before the idle deadline`);
+      if (index < chunks.length - 1) await stream.waitForRead(index + 2);
+    }
+    stream.close();
+    const result = await pending;
+    check(elapsed > 65_000, "the streamed maximum response takes longer than the header deadline");
+    check(result.ok && result.state === "validating" && result.envelope.integrity.canonicalPayloadHash === envelope.integrity.canonicalPayloadHash,
+      "the complete maximum envelope reaches the app's import-validation handoff");
+    check(client.state() === "validating" && inbound.peek()?.phase === "claimed",
+      "a progressing response advances the claim marker for import");
+  });
+
+  await test("a body stall times out from its last chunk, and a late chunk cannot change the claim", async () => {
+    const stream = manualReadableBody();
+    const clock = manualClock();
+    const token = tokenFixture("T");
+    const vault = Transfer.createCredentialVault({ crypto: webcrypto, keyStore: memoryKeyStore() });
+    const inbound = markerStore();
+    const document = cookieDocument();
+    Transfer.writeTransferCookie({ token, expiresAt: "2099-01-01T00:00:00.000Z" }, {
+      document,
+      location: { href: "https://pedrochagasmaster.github.io/repforge/index.html" },
+      now: NOW,
+    });
+    const transport = Transfer.createFetchTransport({
+      fetch: (_url, options) => {
+        options.signal.addEventListener("abort", stream.abort, { once: true });
+        return Promise.resolve({ status: 200, headers: { get: () => null }, body: stream.body });
+      },
+      baseUrl: "https://transfer.example/",
+      clock,
+    });
+    const client = makeClient({ contract: Contract, transport, context: "standalone", inbound, vault, document });
+    let claimSettled = false;
+    const pending = client.claim().finally(() => { claimSettled = true; });
+    await stream.waitForRead(1);
+    clock.advance(10_000);
+    check(stream.push(textEncoder.encode('{"envelope":')), "the response starts with a body chunk");
+    await stream.waitForRead(2);
+
+    clock.advance(65_000 - 1);
+    await new Promise((resolve) => setImmediate(resolve));
+    check(!claimSettled && client.state() === "claiming" && inbound.peek()?.phase === "claiming",
+      "a body that recently progressed remains in claiming until the full idle window passes");
+    clock.advance(1);
+    const acceptedAtDeadline = stream.push(textEncoder.encode("late completion"));
+    const timedOut = await pending;
+    const markerAtTimeout = inbound.peek();
+    check(!timedOut.ok && timedOut.state === "unknown-outcome" && client.state() === "unknown-outcome",
+      "a body stalled for the idle window enters the existing unknown-outcome state");
+    await Promise.resolve();
+    check(stream.cancelled() && !acceptedAtDeadline && JSON.stringify(inbound.peek()) === JSON.stringify(markerAtTimeout),
+      "a same-tick chunk after the idle deadline cannot resume reading or change the claim marker");
   });
 
   await test("request deadlines abort create, claim, remote deletion, and status calls", async () => {
