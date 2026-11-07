@@ -204,11 +204,11 @@ async function logSet(page, slotId, ordinal, { load, reps, rir }) {
   // is what's on screen right after a save.
   // The timer arms just after the completion lands (not every set rests):
   // give it a moment to start, and end it if it did.
-  const resting = await page.waitForFunction(() => restEnd > 0,
+  const resting = await page.waitForFunction(() => window.__repforgeRest.state().active,
     undefined, { timeout: 3000 }).then(() => true, () => false);
   if (resting) {
     await page.evaluate(() => window.stopRest());
-    await page.waitForFunction(() => !restEnd, undefined, { timeout: 10000 });
+    await page.waitForFunction(() => !window.__repforgeRest.state().active, undefined, { timeout: 10000 });
   }
 }
 

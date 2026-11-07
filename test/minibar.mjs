@@ -314,7 +314,7 @@ try {
   {
     const opened = await openCatalogState(browser, "history/minibar-rest", 390, "en", "normal");
     try {
-      const held = await opened.page.evaluate(() => { restPaused = Math.max(1000, restLeftMs()); syncRest(); paintSessionRest();
+      const held = await opened.page.evaluate(() => { window.__repforgeRest.setLeft(Math.max(1000, restLeftMs()), { held: true }); syncRest(); paintSessionRest();
         const bar = document.querySelector("#miniBar"); return { title: bar.querySelector(".minibar__title").textContent, paused: bar.classList.contains("is-paused") }; });
       assert(/^Paused \d:\d\d$/.test(held.title) && held.paused, "held, the bar says Paused and the held time, as the tab does", held);
     } finally {
