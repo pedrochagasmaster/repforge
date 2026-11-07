@@ -12412,6 +12412,8 @@ function resolveExerciseFromCommand(parsed,currentExercises){
 }
 async function applyParsedCommand(parsed,context){
   const d=context?.day??day,exs=exercises(d).filter(e=>!skipped.has(e.id)),ex=resolveExerciseFromCommand(parsed,exs);
+  const current=context?.current??(()=>true);
+  const dispatch=(type,payload)=>current()?WorkoutSession.dispatch(type,payload):{status:"stale"};
   if(!ex)return;
   const pick=n=>{if(n<1||n>ex.sets)return null;const k=`${ex.id}_${n}`;return committed.has(k)?null:n};
   let setN=null;
@@ -12433,34 +12435,59 @@ async function applyParsedCommand(parsed,context){
     const repsMetric=definitions.find(metric=>METRIC_FIELD_SEMANTICS.reps.includes(metric.semantic));
     if(!loadMetric||!repsMetric){toast(t("command.error.no_exercise_match"));return}
     for(const [metric,value] of [[loadMetric,canonicalNumberText(fromDisplay(loadDisp))],[repsMetric,String(parsed.reps)]]){
-      const result=await WorkoutSession.dispatch("editMetricValue",{exerciseInstanceId:target.exerciseInstanceId,
+      const result=await dispatch("editMetricValue",{exerciseInstanceId:target.exerciseInstanceId,
         setId:target.setId,metricId:metric.id,value});if(result.status!=="applied")return}
   }else fields.push({field:"load",value:canonicalDraftField("load",canonicalNumberText(loadDisp))},
     {field:"reps",value:String(parsed.reps)});
   if(isEffortMode())fields.push({field:"effort",value:tokenInStage(parsed.effort,effortStage())||stageEffortForRir(parsed.rir??1)});
   else fields.push({field:"rir",value:parsed.rir!=null?canonicalNumberText(parsed.rir):""});
-  for(const field of fields){const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
+  for(const field of fields){const result=await dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
       setId:target.setId,field:field.field,value:field.value});if(result.status!=="applied")return}
   renderWorkout();return{ex,set:setN}}
 /** Fill the next open set from a spoken set, e.g. "80 x 8 @1". Returns true when applied. */
-async function applyCommandText(text){
-  const v=String(text||"").trim();if(!v)return false;
+async function applyCommandText(text,{current=()=>true}={}){
+  const v=String(text||"").trim();if(!v||!current())return false;
   const parsed=parseSetCommand(v);
   if(!parsed.ok){toast(parsed.error);return false}
   const exs=exercises().filter(e=>!skipped.has(e.id)),ex=resolveExerciseFromCommand(parsed,exs);
   if(!ex){toast(t("command.error.no_exercise_match"));return false}
-  const r=await applyParsedCommand(parsed,{day});
+  const r=await applyParsedCommand(parsed,{day,current});
   if(!r)return false;
   const rirBit=parsed.rir!=null?` @${fmt(parsed.rir)}`:parsed.effort?` ${effortLabel(parsed.effort)}`:"";
   toast(t("toast.command_applied",{load:fmt(parsed.load),reps:parsed.reps,rir:rirBit}));
   return true}
 window.__repforgeApplyCommandText=applyCommandText;
 function updateVoiceBtn(){const b=$("#voiceBtn");if(!b)return;b.classList.toggle("hidden",!(SR&&state.settings.voiceInputEnabled));syncWorkoutMore()}
+/* One voice command at a time. Idle is no operation; listening and resolving are
+   its two phases. The operation keeps the recognizer and the draft it was started
+   for, so a transcript that arrives after the lifter has left that workout, or
+   after its draft has gone, is dropped rather than edited into the one now open. */
+let voiceOp=null;
+function voiceTranscriptCurrent(op){
+  return voiceOp===op&&op.phase==="resolving"&&!!activeWorkoutDraft&&activeWorkoutDraft.draftId===op.draftId&&workoutActive;
+}
+function endVoiceOp(op){if(voiceOp===op)voiceOp=null}
+function abandonVoiceOp(){
+  const op=voiceOp;voiceOp=null;
+  try{op?.recognizer.abort()}catch{}
+}
 function startVoiceInput(){
-  if(!SR)return;const rec=new SR();rec.lang=I18N?I18N.speechLang():"en-US";rec.interimResults=false;rec.maxAlternatives=1;
-  rec.onresult=e=>{const said=e.results[0]?.[0]?.transcript;if(said)applyCommandText(said)};
-  rec.onerror=()=>toast(t("toast.voice_failed"));
-  try{rec.start()}catch{toast(t("toast.voice_failed"))}}
+  if(!SR||!activeWorkoutDraft)return;
+  if(voiceOp?.phase==="listening"&&voiceOp.draftId!==activeWorkoutDraft.draftId)abandonVoiceOp();
+  if(voiceOp)return;
+  const rec=new SR();rec.lang=I18N?I18N.speechLang():"en-US";rec.interimResults=false;rec.maxAlternatives=1;
+  const op={phase:"listening",draftId:activeWorkoutDraft.draftId,recognizer:rec};
+  voiceOp=op;
+  rec.onresult=e=>{
+    if(voiceOp!==op||op.phase!=="listening")return;
+    const said=e.results[0]?.[0]?.transcript;
+    op.phase="resolving";
+    if(!said){endVoiceOp(op);return}
+    applyCommandText(said,{current:()=>voiceTranscriptCurrent(op)}).finally(()=>endVoiceOp(op))};
+  rec.onerror=()=>{if(voiceOp!==op)return;endVoiceOp(op);toast(t("toast.voice_failed"))};
+  // The recognizer ends after its result; its end must not close an operation still resolving.
+  rec.onend=()=>{if(voiceOp===op&&op.phase==="listening")endVoiceOp(op)};
+  try{rec.start()}catch{endVoiceOp(op);toast(t("toast.voice_failed"))}}
 window.__repforgeBlockSnapshot=blockSnapshot;
 window.__repforgeBuildPlainSummary=buildPlainSummary;
 
@@ -15662,29 +15689,49 @@ function shareSetupTelemetry(definition,encoded){
   const ratio=Number.isFinite(chars)?chars/limit:Infinity;
   const size_vs_limit=ratio<=.5?"under_half":ratio<=1?"under_limit":ratio<=2?"over_limit":ratio<=4?"over_2x":"over_4x";
   return{program_kind,form,size_vs_limit}}
+/* Share generation awaits the codec, so each build takes a request number and
+   publishes only while it is still the newest. The phase states what the sheet
+   may offer: a link exists only in "ready". Closing the sheet retires the build
+   in flight, and a build that finds the program changed during its encode starts
+   again for the program it now describes. */
+let shareSetupRequest=0,shareSetupPhase="idle";
+function settleShareSetup(request,phase,message,options){
+  if(request!==shareSetupRequest)return;
+  shareSetupPhase=phase;setShareSetupState(message,options);
+}
 async function buildShareSetupLink(){
-  shareSetupLink="";shareSetupOutcome=null;
+  const request=++shareSetupRequest;
+  shareSetupLink="";shareSetupOutcome=null;shareSetupPhase="building";
   setShareSetupState(t("program.share_setup_building"),{blockers:[]});
-  if(!SharedSetup){setShareSetupState(t("program.share_setup_unsupported"));return}
+  if(!SharedSetup){settleShareSetup(request,"error",t("program.share_setup_unsupported"));return}
   let built;
-  try{built=buildSharedSetupValidation()}catch{setShareSetupState(t("program.share_setup_invalid"));return}
+  try{built=buildSharedSetupValidation()}catch{settleShareSetup(request,"error",t("program.share_setup_invalid"));return}
+  const basis=JSON.stringify(built.payload);
   const checked=SharedSetup.validate(built.payload,{...sharedSetupCodecOptions(),diagnostics:built.diagnostics});
-  if(!checked.ok){setShareSetupState(sharedSetupErrorMessage(checked),{blockers:checked.blockers||[]});return}
+  if(!checked.ok){
+    const blockers=checked.blockers||[];
+    settleShareSetup(request,blockers.length?"blocked":"error",sharedSetupErrorMessage(checked),{blockers});return}
   let encoded;
   try{encoded=await SharedSetup.encode(checked.value,sharedSetupCodecOptions())}
-  catch{setShareSetupState(t("program.share_setup_unsupported"));return}
+  catch{settleShareSetup(request,"error",t("program.share_setup_unsupported"));return}
+  if(request!==shareSetupRequest)return;
+  if(!shareSetupProgramUnchanged(basis))return buildShareSetupLink();
   shareSetupOutcome=shareSetupTelemetry(checked.value.program.definition,encoded);
   if(!encoded.ok){
     const tooLarge=encoded.code==="encoded-too-large";
     if(tooLarge)captureEvent("share_setup_outcome",{action:"link_refused",...shareSetupOutcome});
-    setShareSetupState(sharedSetupErrorMessage(encoded,checked.value.program.definition),{fileFallback:tooLarge});return}
+    settleShareSetup(request,"error",sharedSetupErrorMessage(encoded,checked.value.program.definition),{fileFallback:tooLarge});return}
   captureEvent("share_setup_outcome",{action:"link_ready",...shareSetupOutcome});
   const local=/^(localhost|127(?:\.\d{1,3}){3}|\[::1\])$/i.test(location.hostname);
   const url=new URL("index.html",local?location.href:"https://pedrochagasmaster.github.io/repforge/index.html");
   url.search="";
   url.hash=`setup=${encoded.value}`;
   shareSetupLink=url.href;
-  setShareSetupState("",{ready:true,blockers:[]})}
+  settleShareSetup(request,"ready","",{ready:true,blockers:[]})}
+function shareSetupProgramUnchanged(basis){
+  try{return JSON.stringify(buildSharedSetupValidation().payload)===basis}
+  catch{return false}
+}
 function shareRepairToken(){
   return{surface:"share",programId:state?.programMeta?.id||null,blockId:snapshotBlockId(state),exerciseInstanceId:null};
 }
@@ -15758,9 +15805,11 @@ function closeShareSetupSheet(){
   if(!sheet)return Promise.resolve(false);
   if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
   shareSetupReturn=null;
+  // A build still encoding belongs to the sheet that was closed; it must not land in the next one.
+  shareSetupRequest++;shareSetupPhase="idle";
   return closeModal(sheet)}
 async function copySetupLink(){
-  if(!shareSetupLink||shareSetupBlockers.length)return false;
+  if(shareSetupPhase!=="ready")return false;
   try{if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(shareSetupLink);
     toast(t("toast.setup_link_copied"));if(shareSetupOutcome)captureEvent("share_setup_outcome",{action:"copied",...shareSetupOutcome});return true}}catch{}
   try{const ta=document.createElement("textarea");ta.value=shareSetupLink;ta.setAttribute("readonly","");
@@ -15769,7 +15818,7 @@ async function copySetupLink(){
     if(ok){toast(t("toast.setup_link_copied"));if(shareSetupOutcome)captureEvent("share_setup_outcome",{action:"copied",...shareSetupOutcome});return true}}catch{}
   return false}
 async function shareSetupLinkNow(){
-  if(!shareSetupLink||shareSetupBlockers.length||typeof navigator.share!=="function")return false;
+  if(shareSetupPhase!=="ready"||typeof navigator.share!=="function")return false;
   try{await navigator.share({title:t("program.share_setup_title"),url:shareSetupLink});if(shareSetupOutcome)captureEvent("share_setup_outcome",{action:"shared",...shareSetupOutcome});return true}
   catch{return false}}
 /* ============================================================
