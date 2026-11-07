@@ -325,6 +325,53 @@ try {
       await context.close();
     }
   }
+
+  if (CASE === "all" || CASE === "slow-claim") {
+    // A slow installed claim: the 12 s stall panel comes up while the claiming sheet is open
+    // under it. The panel's Reload is the lifter's way out, so it has to stay usable.
+    const context = await browser.newContext({
+      viewport: { width: 390, height: 844 }, userAgent: IOS_UA, locale: "en-US", hasTouch: true,
+      reducedMotion: "reduce",
+    });
+    await context.addInitScript(standaloneInit);
+    await context.addInitScript(() => localStorage.clear());
+    // Same stall seam as test/boot-first-paint.mjs: the 12 s head timer runs at 300 ms once app.js is defined.
+    await context.addInitScript(() => {
+      const realSetTimeout = window.setTimeout.bind(window);
+      window.setTimeout = (fn, ms, ...rest) => {
+        if (ms !== 12000) return realSetTimeout(fn, ms, ...rest);
+        const run = () => (typeof window.__repforgeShowBootFailure === "function" ? fn() : void realSetTimeout(run, 20));
+        return realSetTimeout(run, 300);
+      };
+    });
+    await context.route("**/v1/transfers/claims", () => {});
+    const encoded = Buffer.from(JSON.stringify({ token: TOKEN, expiresAt: EXPIRES_AT })).toString("base64url");
+    await context.addCookies([{
+      name: "repforge_transfer_v1", value: `v1.${encoded}`, domain: new URL(BASE).hostname,
+      path: "/index.html", sameSite: "Lax",
+    }]);
+    const page = await context.newPage();
+    await page.goto(new URL("index.html", BASE).href, { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => document.documentElement.classList.contains("is-boot-failed") &&
+      document.getElementById("iosInstallSheet")?.dataset.transferState === "claiming", undefined, { timeout: 20000 });
+    const reload = await page.evaluate(() => {
+      const box = document.getElementById("bootReload").getBoundingClientRect();
+      const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+      return { reachable: !!hit?.closest("#bootReload"), hit: hit?.id || hit?.className || hit?.tagName || null };
+    });
+    assert.equal(reload.reachable, true, `a claiming sheet opened under the stall panel does not disable its Reload (hit: ${reload.hit})`);
+    let reloaded = false;
+    try {
+      await Promise.all([
+        page.waitForNavigation({ waitUntil: "commit", timeout: 8000 }),
+        page.click("#bootReload", { timeout: 4000 }),
+      ]);
+      reloaded = true;
+    } catch {}
+    assert.equal(reloaded, true, "Reload from the stall panel reloads the page while the claiming sheet is open");
+    checks += 2;
+    await context.close();
+  }
 } finally {
   await browser.close();
 }
