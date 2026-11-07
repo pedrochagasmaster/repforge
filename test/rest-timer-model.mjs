@@ -384,5 +384,26 @@ check("restore refuses a record that claims more time than a rest allows", () =>
   assert.deepEqual(rolled.effects, []);
 });
 
+// A held rest keeps the expiry it was first held with. Restoring it and writing it again move nothing; a nudge while held
+// moves nothing; a resume and a new hold take a new expiry, because that is a new hold.
+check("a held rest keeps the expiry it was first held with, through a restore and a later rewrite", () => {
+  const held = toggleHold(running(120), T0 + 10 * SEC).state;
+  const first = JSON.parse(JSON.stringify(snapshot(held, T0 + 10 * SEC)));
+  const restored = restore(createRestClock(0), first, T0 + 30 * SEC).state;
+  assert.equal(snapshot(restored, T0 + 30 * SEC).expiresAt, first.expiresAt, "a restore does not renew the expiry");
+  assert.equal(snapshot(restored, T0 + 60 * SEC).expiresAt, first.expiresAt, "a later rewrite does not renew it either");
+});
+
+check("a nudge while held keeps the expiry; a resume and a new hold take a new one", () => {
+  const held = toggleHold(running(120), T0 + 10 * SEC).state;
+  const expiry = snapshot(held, T0 + 10 * SEC).expiresAt;
+  const nudged = setRemaining(held, { ms: 200 * SEC, now: T0 + 20 * SEC }).state;
+  assert.equal(snapshot(nudged, T0 + 20 * SEC).expiresAt, expiry, "a nudge while held keeps the expiry");
+  const resumed = toggleHold(nudged, T0 + 30 * SEC).state;
+  const reheld = toggleHold(resumed, T0 + 40 * SEC).state;
+  assert.equal(snapshot(reheld, T0 + 40 * SEC).expiresAt, T0 + 40 * SEC + 160 * SEC + OVERTIME_MAX_SEC * SEC,
+    "a new hold after a resume takes the expiry of that hold");
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

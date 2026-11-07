@@ -1041,6 +1041,104 @@ try {
     await context.close();
   }
 
+  // A refused removal of an ended rest's record: the rest must not come back. It must be removed once storage takes it, and a
+  // reload while storage still refuses must not bring it back either.
+  phase("A rest ended while its record could not be removed does not come back after storage recovers and a reload");
+  {
+    const { context, page, errors } = await focusPage(browser);
+    await logSet(page);
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    await page.evaluate(() => {
+      window.__origRemove = Storage.prototype.removeItem;
+      Storage.prototype.removeItem = function (key) {
+        if (key === "repforge_rest_v1") throw new DOMException("denied", "SecurityError");
+        return window.__origRemove.call(this, key);
+      };
+    });
+    await page.locator("#restTab").click();
+    await page.waitForSelector("#restSheet.is-open", { timeout: 5000 });
+    await page.locator("#restStop").click();
+    await page.waitForFunction(() => !window.__repforgeRest.state().active, undefined, { timeout: 5000 });
+    await page.evaluate(() => { Storage.prototype.removeItem = window.__origRemove; });
+    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+    const removed = await page.waitForFunction((key) => localStorage.getItem(key) === null, RECORD, { timeout: 5000 }).then(() => true, () => false);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    const back = await page.evaluate(() => window.__repforgeRest.state());
+    assert(removed && !back.active, "after storage recovers, the ended rest's record is removed and a reload brings no rest back", { removed, back });
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  phase("A rest ended while storage still refuses its removal does not come back on a reload that is also refused");
+  {
+    const { context, page, errors } = await focusPage(browser);
+    await logSet(page);
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    await page.evaluate(() => sessionStorage.setItem("__denyRestRemove", "1"));
+    await page.addInitScript(() => {
+      if (sessionStorage.getItem("__denyRestRemove") !== "1") return;
+      const remove = Storage.prototype.removeItem;
+      Storage.prototype.removeItem = function (key) {
+        if (key === "repforge_rest_v1") throw new DOMException("denied", "SecurityError");
+        return remove.call(this, key);
+      };
+    });
+    await page.evaluate(() => {
+      const remove = Storage.prototype.removeItem;
+      Storage.prototype.removeItem = function (key) {
+        if (key === "repforge_rest_v1") throw new DOMException("denied", "SecurityError");
+        return remove.call(this, key);
+      };
+    });
+    await page.locator("#restTab").click();
+    await page.waitForSelector("#restSheet.is-open", { timeout: 5000 });
+    await page.locator("#restStop").click();
+    await page.waitForFunction(() => !window.__repforgeRest.state().active, undefined, { timeout: 5000 });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    const refused = await page.evaluate(() => window.__repforgeRest.state().active);
+    assert(!refused, "a reload while storage still refuses the removal brings no rest back");
+    await page.evaluate(() => { sessionStorage.removeItem("__denyRestRemove"); });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    const after = await page.evaluate(() => ({ active: window.__repforgeRest.state().active, record: localStorage.getItem("repforge_rest_v1") }));
+    assert(!after.active && after.record === null, "once storage takes the removal, the record is gone and nothing returns", after);
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  // A held rest is not given a new lifetime by being restored: its expiry is the one it was first held with, and reloads
+  // across that moment must end it. The record's expiry is brought forward here so the lifetime can pass within the test.
+  phase("A held rest keeps its first expiry through reloads and expires on it");
+  {
+    const { context, page, errors } = await focusPage(browser);
+    await logSet(page);
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    await page.locator("#restTab").click();
+    await page.waitForSelector("#restSheet.is-open", { timeout: 5000 });
+    await page.locator("#restHold").click();
+    await page.waitForFunction(() => window.__repforgeRest.state().held === true, undefined, { timeout: 5000 });
+    const soon = await page.evaluate((key) => {
+      const record = JSON.parse(localStorage.getItem(key));
+      record.rest.expiresAt = Date.now() + 3000;
+      localStorage.setItem(key, JSON.stringify(record));
+      return record.rest.expiresAt;
+    }, RECORD);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    const held = await page.evaluate(() => window.__repforgeRest.state());
+    const kept = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).rest.expiresAt, RECORD);
+    assert(held.held && kept === soon, "a reload restores the held rest and leaves its expiry as it was", { soon, kept, held });
+    await page.waitForTimeout(3500);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    const expired = await page.evaluate(() => window.__repforgeRest.state().active);
+    assert(!expired, "a reload after the first expiry brings no held rest back");
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
   phase("A reload refuses a record that claims more time than a rest allows");
   {
     const { context, page, errors } = await focusPage(browser);
