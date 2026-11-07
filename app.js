@@ -7120,12 +7120,16 @@ function saveRestRecord(){
   if(!restDraftId)return;
   try{sessionStorage.setItem(REST_RECORD_KEY,JSON.stringify({draftId:restDraftId,rest}))}catch{}}
 function forgetRestRecord(){try{sessionStorage.removeItem(REST_RECORD_KEY)}catch{}}
-/* After a reload, the tab's record comes back only for the draft it was written for; any other draft, or none, forgets it. */
+/* After a reload, the tab's record comes back only for the draft it was written for; any other draft, or none, forgets it.
+   The restored clock is settled against the wall time at once: a deadline passed while the page was gone has no ticker to
+   ring it (a capped clock stops ticking), so its bell is consumed here, once. A rung bell or a held clock is left as it is. */
 function restoreRest(draftId){
   let saved=null;
   try{saved=JSON.parse(sessionStorage.getItem(REST_RECORD_KEY)||"null")}catch{}
   if(!draftId||saved?.draftId!==draftId){forgetRestRecord();return}
-  applyRest(RepForgeRestTimer.restore(restClock,saved.rest));
+  const restored=RepForgeRestTimer.restore(restClock,saved.rest);
+  const settled=RepForgeRestTimer.settle(restored.state,Date.now());
+  applyRest({state:settled.state,effects:[...restored.effects,...settled.effects]});
   if(restClock.kind==="idle")forgetRestRecord();
   else syncRest()}
 function clearRestNotices(){
@@ -9076,10 +9080,13 @@ function openSessionSheet(){
   requestAnimationFrame(() => { sheet.classList.add("is-open"); scrim?.classList.add("is-open"); });
 }
 
-function closeSessionSheet(){
+function closeSessionSheet({preserveEarlyConfirmation=false}={}){
   const sheet = $("#sessionSheet");
   if (!sheet) return Promise.resolve(false);
-  if (sheet.hidden && !(activeModal && activeModal.el === sheet)) return Promise.resolve(false);
+  const modal = activeModal?.el === sheet ? activeModal : null;
+  if (sheet.hidden && !modal) return Promise.resolve(false);
+  if (modal && (modal.state === "closing" || modal.state === "closed")) return Promise.resolve(false);
+  if(!preserveEarlyConfirmation)WorkoutSession.cancelEarlyFinish();
   teardownSessionSorting();
   return closeModal(sheet);
 }
@@ -11347,6 +11354,7 @@ const WorkoutSession=(()=>{
     if(saveState.phase==="recovery"&&completion==="normal"&&
       !reopenAfterTotalFailure(activeWorkoutDraft))return false;
     if(saveState.phase==="editing")return completion==="normal";
+    if(saveState.phase==="early-confirmation"&&completion==="normal")return true;
     return saveState.phase==="early-confirmation"&&completion===EARLY_FINISH_CONFIRMATION&&
       sameDraft(saveState.expectedDraft,options.expectedDraft)}
   function beginSave(io,options={}){
@@ -12710,7 +12718,7 @@ function updateVoiceBtn(){const b=$("#voiceBtn");if(!b)return;b.classList.toggle
    for, so a transcript that arrives after the lifter has left that workout, or
    after its draft has gone, is dropped rather than edited into the one now open. */
 function voiceTranscriptCurrent(op){
-  return voiceOp===op&&op.phase==="resolving"&&!!activeWorkoutDraft&&activeWorkoutDraft.draftId===op.draftId&&workoutActive;
+  return voiceOp===op&&op.phase==="resolving"&&!!activeWorkoutDraft&&activeWorkoutDraft.draftId===op.draftId&&workoutActive&&currentViewId()==="log";
 }
 function endVoiceOp(op){if(voiceOp===op)voiceOp=null}
 function abandonVoiceOp(){
@@ -13246,6 +13254,8 @@ function exerciseSessionsDetail(key){const m=new Map();
 
 function currentViewId(){return $$(".view").find(v=>v.classList.contains("active"))?.id||"log"}
 function openExerciseView(key,from){if(!key)return;
+  // Leaving the logging route retires voice: a recognizer started in Focus must not outlive it.
+  abandonVoiceOp();
   const slot=prog.find(key),movement=slot?(workoutActive?sessionExercise(slot):slot):null;
   exView={key:movement?exerciseLiftKey(movement):key,openKey:key,from:from||currentViewId(),exercise:movement?Object.assign({},movement):null};
   chartView={scope:"current-block",metric:"top",pt:null};
@@ -25274,7 +25284,7 @@ function init(){
       return;
     }
     const expectedDraft=WorkoutSession.earlyFinishDraft();
-    const p=closeSessionSheet();if(p&&typeof p.then==="function")await p;
+    const p=closeSessionSheet({preserveEarlyConfirmation:true});if(p&&typeof p.then==="function")await p;
     const finishPromise=saveWorkout(null,null,{expectedDraft,completion:EARLY_FINISH_CONFIRMATION});
     window.__repforgeLastWorkoutFinish=finishPromise;
     await finishPromise;
@@ -25414,6 +25424,7 @@ function init(){
     }
     if(programEditMode)finishInstalledEditor();
     if(dockRetap(b))return;
+    abandonVoiceOp();
     exView=null;workoutActive=false;workoutLeft=true;
     // Progress remembers its segment, so arriving there can itself open the review.
     const opensReview=b.dataset.view==="stats"&&statsSeg==="review"&&!evidenceView&&!$("#stats")?.classList.contains("active");
