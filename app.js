@@ -11206,7 +11206,17 @@ const WorkoutSession=(()=>{
     else saveState={phase,operation};
     syncSaveControls(previous.operation,saveState);
     return saveState}
+  function reopenAfterTotalFailure(draft){
+    if(saveState.phase!=="recovery")return false;
+    const operation=saveState.operation,result=operation?.result,prepared=operation?.prepared;
+    const safeToStartFresh=result?.localOk===false&&result?.idbOk===false&&
+      result?.pendingJournalCleanup===false&&result?.accepted!==true&&result?.deferred!==true&&
+      result?.committed===false&&result?.finalizationPending!==true;
+    if(!safeToStartFresh||!sameDraft(draft,prepared?.draft)||activeWorkoutDraftRaw!==prepared.rawDraft)return false;
+    move("editing");
+    return true}
   function captureEarlyFinish(draft){
+    if(saveState.phase==="recovery"&&!reopenAfterTotalFailure(draft))return null;
     if(saveState.phase!=="editing"||!draft)return null;
     const expectedDraft={draftId:draft.draftId,revision:draft.revision};
     move("early-confirmation",{expectedDraft});
@@ -11221,6 +11231,8 @@ const WorkoutSession=(()=>{
   function cancelEarlyFinish(){if(saveState.phase==="early-confirmation")move("editing")}
   function canBeginSave(options={}){
     const completion=options.completion||"normal";
+    if(saveState.phase==="recovery"&&completion==="normal"&&
+      !reopenAfterTotalFailure(activeWorkoutDraft))return false;
     if(saveState.phase==="editing")return completion==="normal";
     return saveState.phase==="early-confirmation"&&completion===EARLY_FINISH_CONFIRMATION&&
       sameDraft(saveState.expectedDraft,options.expectedDraft)}

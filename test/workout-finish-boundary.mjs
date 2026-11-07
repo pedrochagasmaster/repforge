@@ -84,6 +84,61 @@ try {
 
   {
     const { context, page } = await freshWorkout(browser);
+    const [first] = await draftTargets(page);
+    await completeSet(page, first.exerciseInstanceId, first.setId);
+    const before = await page.evaluate((key) => ({
+      raw: localStorage.getItem("repforge_draft_v1"),
+      rows: JSON.parse(localStorage.getItem(key) || "{}").log?.length || 0,
+    }), stateKey);
+    await page.evaluate(() => {
+      const adapter = window.RepForgeDurableState?.storageIO;
+      if (!adapter || typeof adapter.writeLocal !== "function" || typeof adapter.writeIdb !== "function") {
+        throw new Error("durable storage adapter unavailable");
+      }
+      const writeLocal = adapter.writeLocal.bind(adapter);
+      const writeIdb = adapter.writeIdb.bind(adapter);
+      adapter.writeLocal = async () => false;
+      adapter.writeIdb = async () => false;
+      window.__restoreFinishAdapter = () => {
+        adapter.writeLocal = writeLocal;
+        adapter.writeIdb = writeIdb;
+        delete window.__restoreFinishAdapter;
+      };
+    });
+    await page.locator("#sessionSheetBtn").click();
+    await page.locator("#sessionEarlyFinish").click();
+    await page.waitForSelector("#sessionEarlyPrompt:not(.hidden)");
+    await page.locator("#sessionEarlyConfirm").click();
+    await page.waitForFunction(() => window.__repforgeLastWorkoutFinish != null);
+    const failed = await page.evaluate(async () => {
+      try { return await window.__repforgeLastWorkoutFinish; }
+      finally { window.__restoreFinishAdapter?.(); }
+    });
+    assert.equal(failed?.committed, false,
+      "the first total save failure is not treated as committed: " + JSON.stringify(failed));
+    assert.deepEqual(await page.evaluate((key) => ({
+      raw: localStorage.getItem("repforge_draft_v1"),
+      rows: JSON.parse(localStorage.getItem(key) || "{}").log?.length || 0,
+    }), stateKey), before, "a total save failure retains the exact draft and adds no history");
+
+    await page.locator("#sessionSheetBtn").click();
+    await page.locator("#sessionEarlyFinish").click();
+    await page.waitForSelector("#sessionEarlyPrompt:not(.hidden)", { timeout: 3000 });
+    assert.equal(await page.locator("#sessionEarlyConfirm").isVisible(), true,
+      "after total failure, early finish can be offered again for the unchanged draft");
+    await page.locator("#sessionEarlyConfirm").click();
+    await page.waitForSelector("#sessionSummary:not(.hidden)", { timeout: 10000 });
+    const retried = await page.evaluate((key) => {
+      const saved = JSON.parse(localStorage.getItem(key) || "{}");
+      return { rows: saved.log?.length || 0, draft: localStorage.getItem("repforge_draft_v1") };
+    }, stateKey);
+    assert.deepEqual(retried, { rows: before.rows + 1, draft: null },
+      "the newly confirmed finish saves the retained draft once");
+    await context.close();
+  }
+
+  {
+    const { context, page } = await freshWorkout(browser);
     for (const target of await draftTargets(page)) await completeSet(page, target.exerciseInstanceId, target.setId);
     await page.evaluate(() => document.querySelector("#logForm").requestSubmit());
     await page.waitForSelector("#sessionSummary:not(.hidden)");
