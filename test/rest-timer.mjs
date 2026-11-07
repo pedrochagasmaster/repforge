@@ -760,6 +760,37 @@ try {
     await context.close();
   }
 
+  // The page can be gone for longer than the cap before its bell is settled. Restored past the cap, the clock has no ticker,
+  // so nothing else would ring that bell; the restore itself must consume it, once, and a rung bell must stay quiet.
+  phase("A reload past the one-hour cap, with its bell never rung, rings that bell once; a rung bell stays quiet");
+  {
+    const { context, page, errors } = await focusPage(browser);
+    await logSet(page);
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    await page.evaluate(() => window.__repforgeRest.setLeft(-3601 * 1000));
+    const capped = await page.evaluate(() => window.__repforgeRest.state());
+    assert(capped.phase === "capped" && !capped.rang && !capped.ticking, "set up: past the cap, the bell not yet rung, and no ticker", capped);
+    await reloadIntoFocus(page);
+    const restored = await page.evaluate(() => window.__repforgeRest.state());
+    const rang = await page.waitForFunction(() => window.__repforgeRest.state().rang === true, undefined, { timeout: 3000 }).then(() => true, () => false);
+    const announced = await page.waitForFunction(() => document.querySelector("#restAnnounce")?.textContent === window.RepForgeI18n.t("rest.complete"),
+      undefined, { timeout: 3000 }).then(() => true, () => false);
+    const afterBell = await page.evaluate(() => window.__repforgeRest.state());
+    assert(rang && announced && afterBell.phase === "capped" && afterBell.endMs === capped.endMs,
+      "the restored overdue bell rings once on the restore, and the capped count-up keeps its deadline", { restored, afterBell, announced });
+
+    await reloadIntoFocus(page);
+    await watchBell(page);
+    const again = await page.evaluate(() => window.__repforgeRest.state());
+    await page.waitForTimeout(1200);
+    const quiet = await page.evaluate(() => ({ writes: window.__completeWrites, flicks: window.__repforgeRest.flicks(),
+      text: document.querySelector("#restAnnounce")?.textContent || "" }));
+    assert(again.rang && quiet.writes === 0 && quiet.text === "" && quiet.flicks === 0,
+      "after the bell has rung, a further reload does not ring it again", { again, quiet });
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
   phase("A rest never outlives its workout: End rest, a finished workout, or a draft that is gone");
   {
     const { context, page, errors } = await focusPage(browser);
