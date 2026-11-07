@@ -12680,7 +12680,7 @@ function updateVoiceBtn(){const b=$("#voiceBtn");if(!b)return;b.classList.toggle
    for, so a transcript that arrives after the lifter has left that workout, or
    after its draft has gone, is dropped rather than edited into the one now open. */
 function voiceTranscriptCurrent(op){
-  return voiceOp===op&&op.phase==="resolving"&&!!activeWorkoutDraft&&activeWorkoutDraft.draftId===op.draftId&&workoutActive;
+  return voiceOp===op&&op.phase==="resolving"&&!!activeWorkoutDraft&&activeWorkoutDraft.draftId===op.draftId&&workoutActive&&currentViewId()==="log";
 }
 function endVoiceOp(op){if(voiceOp===op)voiceOp=null}
 function abandonVoiceOp(){
@@ -13216,6 +13216,8 @@ function exerciseSessionsDetail(key){const m=new Map();
 
 function currentViewId(){return $$(".view").find(v=>v.classList.contains("active"))?.id||"log"}
 function openExerciseView(key,from){if(!key)return;
+  // Leaving the logging route retires voice: a recognizer started in Focus must not outlive it.
+  abandonVoiceOp();
   const slot=prog.find(key),movement=slot?(workoutActive?sessionExercise(slot):slot):null;
   exView={key:movement?exerciseLiftKey(movement):key,openKey:key,from:from||currentViewId(),exercise:movement?Object.assign({},movement):null};
   chartView={scope:"current-block",metric:"top",pt:null};
@@ -25384,6 +25386,7 @@ function init(){
     }
     if(programEditMode)finishInstalledEditor();
     if(dockRetap(b))return;
+    abandonVoiceOp();
     exView=null;workoutActive=false;workoutLeft=true;
     // Progress remembers its segment, so arriving there can itself open the review.
     const opensReview=b.dataset.view==="stats"&&statsSeg==="review"&&!evidenceView&&!$("#stats")?.classList.contains("active");
