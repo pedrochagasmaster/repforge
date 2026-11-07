@@ -119,12 +119,31 @@
   }
 
   /** The armed clock as plain data a reload can read back, or null when idle. The deadline or held remainder is all the time it keeps. */
-  function snapshot(state) {
+  function snapshot(state, now) {
     if (state.kind === "idle") return null;
     const { lengthSec, exerciseId, rang } = state;
+    const expires = expiresAt(state, now);
     return state.kind === "paused"
-      ? { kind: "paused", remainingMs: state.remainingMs, lengthSec, exerciseId, rang }
-      : { kind: "running", deadlineMs: state.deadlineMs, lengthSec, exerciseId, rang };
+      ? { kind: "paused", remainingMs: state.remainingMs, lengthSec, exerciseId, rang, expiresAt: expires }
+      : { kind: "running", deadlineMs: state.deadlineMs, lengthSec, exerciseId, rang, expiresAt: expires };
+  }
+
+  /**
+   * The wall time after which a snapshot of this clock is no longer worth restoring: the moment its count-up reaches the
+   * one-hour cap, measured on the clock's own timeline. A running rest runs out from its deadline. A held rest is measured
+   * as if it had kept running from `now`, so holding it does not keep it alive for longer than the cap allows.
+   */
+  function expiresAt(state, now) {
+    if (state.kind === "idle") return null;
+    return state.kind === "paused"
+      ? now + state.remainingMs + OVERTIME_MAX_SEC * 1000
+      : state.deadlineMs + OVERTIME_MAX_SEC * 1000;
+  }
+
+  /** The bell was rung by another tab that shares this rest: the clock keeps running with the bell marked rung, and no effect. */
+  function consume(state) {
+    if (state.kind === "idle") return unchanged(state);
+    return result(freeze({ ...state, rang: true }), NO_EFFECTS);
   }
 
   /**
@@ -132,13 +151,14 @@
    * idle clock takes one, and only a well-formed snapshot; anything else leaves the clock as it is. No effect is named,
    * because a restored clock is the same rest, not a new one: its bell was settled before the reload, or is still due.
    */
-  function restore(state, saved) {
+  function restore(state, saved, now) {
     if (state.kind !== "idle" || saved === null || typeof saved !== "object") return unchanged(state);
-    const { kind, lengthSec, rang } = saved;
+    const { kind, lengthSec, rang, expiresAt: expires } = saved;
     const exerciseId = saved.exerciseId ?? null;
     const timed = kind === "paused" ? "remainingMs" : kind === "running" ? "deadlineMs" : null;
     const valid = timed !== null && Number.isFinite(saved[timed]) && Number.isFinite(lengthSec) && lengthSec >= 0
-      && (exerciseId === null || typeof exerciseId === "string") && typeof rang === "boolean";
+      && (exerciseId === null || typeof exerciseId === "string") && typeof rang === "boolean"
+      && Number.isFinite(expires) && Number.isFinite(now) && expires > now;
     if (!valid) return unchanged(state);
     const common = { lengthSec, exerciseId, rang };
     return result(freeze(kind === "paused"
@@ -161,6 +181,8 @@
     settle,
     stop,
     snapshot,
+    expiresAt,
     restore,
+    consume,
   });
 });

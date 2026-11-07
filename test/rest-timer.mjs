@@ -18,6 +18,9 @@
 import { launchChromium } from "./browser.mjs";
 import { installSeedProgram, seedProgram } from "./fixtures/seed-program.mjs";
 import { openCatalogState } from "./fixtures/catalog-state.mjs";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -692,7 +695,7 @@ try {
     await context.close();
   }
 
-  // The rest-done notice's tap reloads the app. The clock is tab-scoped and keyed to its workout: a reload brings it back
+  // The rest-done notice's tap reloads the app. The clock is kept on the device and keyed to its workout: a reload brings it back
   // where it stood, and no end of the rest or the workout, and no other draft, can bring it back.
   const reloadIntoFocus = async (page) => {
     await page.reload({ waitUntil: "domcontentloaded" });
@@ -762,22 +765,22 @@ try {
 
   // The page can be gone for longer than the cap before its bell is settled. Restored past the cap, the clock has no ticker,
   // so nothing else would ring that bell; the restore itself must consume it, once, and a rung bell must stay quiet.
-  phase("A reload past the one-hour cap, with its bell never rung, rings that bell once; a rung bell stays quiet");
+  phase("A reload of an overdue rest, with its bell never rung, rings that bell once; a rung bell stays quiet");
   {
     const { context, page, errors } = await focusPage(browser);
     await logSet(page);
     await page.waitForSelector("#restTab", { timeout: 5000 });
-    await page.evaluate(() => window.__repforgeRest.setLeft(-3601 * 1000));
+    await page.evaluate(() => window.__repforgeRest.setLeft(-600 * 1000));
     const capped = await page.evaluate(() => window.__repforgeRest.state());
-    assert(capped.phase === "capped" && !capped.rang && !capped.ticking, "set up: past the cap, the bell not yet rung, and no ticker", capped);
+    assert(capped.phase === "overtime" && !capped.rang, "set up: ten minutes past the bell, not yet rung", capped);
     await reloadIntoFocus(page);
     const restored = await page.evaluate(() => window.__repforgeRest.state());
     const rang = await page.waitForFunction(() => window.__repforgeRest.state().rang === true, undefined, { timeout: 3000 }).then(() => true, () => false);
     const announced = await page.waitForFunction(() => document.querySelector("#restAnnounce")?.textContent === window.RepForgeI18n.t("rest.complete"),
       undefined, { timeout: 3000 }).then(() => true, () => false);
     const afterBell = await page.evaluate(() => window.__repforgeRest.state());
-    assert(rang && announced && afterBell.phase === "capped" && afterBell.endMs === capped.endMs,
-      "the restored overdue bell rings once on the restore, and the capped count-up keeps its deadline", { restored, afterBell, announced });
+    assert(rang && announced && afterBell.phase === "overtime" && afterBell.endMs === capped.endMs,
+      "the restored overdue bell rings once on the restore, and the count-up keeps its deadline", { restored, afterBell, announced });
 
     await reloadIntoFocus(page);
     await watchBell(page);
@@ -841,6 +844,189 @@ try {
     await page.waitForSelector("#workout.is-focus .exercise.is-current .focus-shelf", { timeout: 10000 });
     const another = await page.evaluate(() => window.__repforgeRest.state());
     assert(!another.active, "a new workout in its place does not inherit the rest", another);
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  // The rest is kept on the device, not in the tab: the phone can kill the app, and a rest must come back when it is
+  // opened again. A rest is one rest across tabs: one bell, and an ended rest is ended everywhere. Its record is
+  // removed by every path that ends the workout, its draft or the state it belongs to.
+  const RECORD = "repforge_rest_v1";
+  const hasRecord = (page) => page.evaluate((key) => localStorage.getItem(key) !== null, RECORD);
+  const openFocus = async (context) => {
+    const page = await context.newPage();
+    const errors = [];
+    page.on("pageerror", (error) => errors.push(String(error)));
+    page.on("dialog", (d) => d.accept());
+    await page.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await page.evaluate(() => window.__repforgeEnterWorkout({}));
+    await page.waitForSelector("#workout.is-focus .exercise.is-current .focus-shelf", { timeout: 10000 });
+    await page.evaluate(() => window.__repforgeGuides?.dismissAll?.());
+    return { page, errors };
+  };
+  const watchRings = (page) => page.evaluate(() => {
+    window.__rings = 0;
+    const live = document.querySelector("#restAnnounce");
+    new MutationObserver(() => { if (live.textContent === window.RepForgeI18n.t("rest.complete")) window.__rings++; })
+      .observe(live, { childList: true, characterData: true, subtree: true });
+  });
+
+  phase("The app is killed and opened again: a running rest comes back from the device");
+  {
+    const { context, page, errors } = await focusPage(browser);
+    await logSet(page);
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    const before = await page.evaluate(() => window.__repforgeRest.state());
+    assert(await hasRecord(page), "the running rest is written to the device record");
+    await page.close();
+    const next = await openFocus(context);
+    const after = await next.page.evaluate(() => window.__repforgeRest.state());
+    assert(after.active && after.endMs === before.endMs, "a new tab after the app was killed restores the same deadline", { before, after });
+    assert(next.errors.length === 0 && errors.length === 0, "no page errors", [...errors, ...next.errors].join(" | "));
+    await context.close();
+  }
+
+  phase("An overrun inside the one-hour window comes back; one past the window is dropped");
+  {
+    const { context, page } = await focusPage(browser);
+    await logSet(page);
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    await page.evaluate(() => window.__repforgeRest.setLeft(-3000 * 1000));
+    await page.close();
+    const inside = await openFocus(context);
+    const back = await inside.page.evaluate(() => window.__repforgeRest.state());
+    assert(back.active && back.phase === "overtime", "an overrun of fifty minutes is still inside the cap and comes back", back);
+    await inside.page.evaluate(() => window.__repforgeRest.setLeft(-3700 * 1000));
+    await inside.page.close();
+    const expired = await openFocus(context);
+    const gone = await expired.page.evaluate(() => window.__repforgeRest.state());
+    assert(!gone.active, "an overrun past the cap is not restored", gone);
+    await context.close();
+  }
+
+  phase("Two tabs, one rest: the bell rings once, in one tab, and the other tab follows");
+  {
+    const { context, page, errors } = await focusPage(browser);
+    await logSet(page);
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    const first = await page.evaluate(() => window.__repforgeRest.state());
+    const other = await openFocus(context);
+    const second = await other.page.evaluate(() => window.__repforgeRest.state());
+    assert(second.active && second.endMs === first.endMs, "a second tab shows the same rest", { first, second });
+    await watchRings(page);
+    await watchRings(other.page);
+    await page.evaluate(() => window.__repforgeRest.expire(0));
+    await page.waitForFunction(() => window.__repforgeRest.state().rang === true, undefined, { timeout: 5000 });
+    const followed = await other.page.waitForFunction(() => window.__repforgeRest.state().rang === true, undefined, { timeout: 5000 }).then(() => true, () => false);
+    await page.waitForTimeout(1200);
+    const rings = await page.evaluate(() => window.__rings ?? 0);
+    const otherRings = await other.page.evaluate(() => window.__rings ?? 0);
+    assert(followed && rings + otherRings === 1, "the bell rings once across both tabs, and the second tab marks it rung", { rings, otherRings, followed });
+    assert(errors.length === 0 && other.errors.length === 0, "no page errors", [...errors, ...other.errors].join(" | "));
+    await context.close();
+  }
+
+  phase("Ending the rest in one tab ends it in the other, and no tab brings it back");
+  {
+    const { context, page, errors } = await focusPage(browser);
+    await logSet(page);
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    const other = await openFocus(context);
+    assert(await other.page.evaluate(() => window.__repforgeRest.state().active), "the second tab has the rest before it is ended");
+    await page.locator("#restTab").click();
+    await page.waitForSelector("#restSheet.is-open", { timeout: 5000 });
+    await page.locator("#restStop").click();
+    await page.waitForFunction(() => !document.querySelector("#restSheet.is-open"), undefined, { timeout: 5000 });
+    const ended = await other.page.waitForFunction(() => !window.__repforgeRest.state().active, undefined, { timeout: 5000 }).then(() => true, () => false);
+    assert(ended, "the other tab drops the ended rest without a bell");
+    assert(!(await hasRecord(page)), "the device record is gone once the rest is ended");
+    await other.page.waitForTimeout(400);
+    assert(!(await hasRecord(page)) && !(await other.page.evaluate(() => window.__repforgeRest.state().active)),
+      "nothing writes the ended rest back, from either tab");
+    assert(errors.length === 0 && other.errors.length === 0, "no page errors", [...errors, ...other.errors].join(" | "));
+    await context.close();
+  }
+
+  // Every path that ends the workout or its draft, or replaces the state the draft belongs to, must clear the record.
+  for (const [name, path] of [
+    ["End rest", async (page) => { await page.locator("#restTab").click(); await page.waitForSelector("#restSheet.is-open"); await page.locator("#restStop").click(); }],
+    ["Finish the workout early", async (page) => {
+      await page.locator("#sessionSheetBtn").click(); await page.locator("#sessionEarlyFinish").click(); await page.locator("#sessionEarlyConfirm").click();
+      await page.waitForSelector("#sessionSummary:not(.hidden)", { timeout: 10000 }); await page.locator("#sumDone").click();
+      await page.waitForSelector("#workoutShell.hidden", { state: "attached", timeout: 8000 }); }],
+    ["End and discard the workout", async (page) => {
+      await page.locator("#sessionSheetBtn").click(); await page.locator("#sessionAbandon").click(); await page.locator("#sessionAbandonConfirm").click(); }],
+    ["Delete the training log", async (page) => { await page.evaluate(() => navTo("settings")); await page.locator("#reset").click(); }],
+  ]) {
+    phase(`${name} clears the device record`);
+    const { context, page, errors } = await focusPage(browser);
+    await logSet(page);
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    const set = await hasRecord(page);
+    await path(page);
+    await page.waitForFunction((key) => localStorage.getItem(key) === null, RECORD, { timeout: 5000 }).catch(() => {});
+    assert(set && !(await hasRecord(page)), `${name}: the record is written, then removed`, { set });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    assert(!(await page.evaluate(() => window.__repforgeRest.state().active)), `${name}: a reload brings no rest back`);
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  phase("Replacing everything from a backup clears the device record");
+  {
+    const { context, page, errors } = await focusPage(browser);
+    await logSet(page);
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    const dir = mkdtempSync(join(tmpdir(), "taurifer-rest-backup-"));
+    const file = join(dir, "backup.json");
+    writeFileSync(file, await page.evaluate(() => JSON.stringify(exportableState(state))));
+    const set = await hasRecord(page);
+    await page.setInputFiles("#importJson", file);
+    await page.waitForFunction(() => document.querySelector("#importChoice")?.open === true, undefined, { timeout: 10000 });
+    await page.locator("#importReplace").click();
+    await page.waitForFunction(() => document.querySelector("#importChoice")?.open !== true, undefined, { timeout: 10000 });
+    assert(set && !(await hasRecord(page)), "replacing from a backup removes the device record", { set });
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  // Discarding a recovered draft (its program changed, so the workout cannot be restored as it was) clears the record. A
+  // reload first shows the recovery; the boot path ends a rest whose draft cannot be restored, so the record is planted
+  // once the recovery is showing, the state the discard is taken from.
+  phase("Discarding a recovered draft clears the device record");
+  {
+    const { context, page, errors } = await focusPage(browser);
+    await logSet(page);
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    assert(await hasRecord(page), "a running rest over a logged set is on the device before the program changes");
+    await page.evaluate((key) => {
+      const state = JSON.parse(localStorage.getItem(key));
+      state.programMeta = { ...state.programMeta, name: "Changed program" };
+      state.program = state.program.map((exercise) => ({ ...exercise, notes: `${exercise.notes || ""} changed` }));
+      state._storageRevision = (state._storageRevision || 0) + 1;
+      localStorage.setItem(key, JSON.stringify(state));
+    }, "repforge_v1");
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await page.waitForSelector("#draftRecovery:not(.hidden)", { timeout: 8000 });
+    const discardable = await page.evaluate(() => !document.querySelector("#draftRecoveryDiscard").classList.contains("hidden"));
+    assert(discardable, "the stale-program recovery offers its discard");
+    const draftId = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_draft_v1")).draftId);
+    await page.evaluate((draftId) => {
+      const now = Date.now();
+      localStorage.setItem("repforge_rest_v1", JSON.stringify({ draftId, restId: "discard-proof",
+        rest: { kind: "running", deadlineMs: now + 120000, lengthSec: 120, exerciseId: null, rang: false, expiresAt: now + 3720000 } }));
+    }, draftId);
+    assert(await hasRecord(page), "the record for the recovered draft is on the device when the discard is taken");
+    await page.locator("#draftRecoveryDiscard").click();
+    await page.waitForFunction(() => document.querySelector("#draftRecovery")?.classList.contains("hidden"), undefined, { timeout: 8000 });
+    await page.waitForFunction((key) => localStorage.getItem(key) === null, RECORD, { timeout: 5000 }).catch(() => {});
+    assert(!(await hasRecord(page)), "discarding the recovered draft removes the device record");
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    assert(!(await page.evaluate(() => window.__repforgeRest.state().active)), "after the discard, a reload brings no rest back");
     assert(errors.length === 0, "no page errors", errors.join(" | "));
     await context.close();
   }
