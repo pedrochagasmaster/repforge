@@ -36,6 +36,11 @@
   // wrapper. The parser owns the envelope bound; the transport keeps enough
   // bounded headroom for that wrapper without accepting an unbounded body.
   const CLAIM_RESPONSE_MAX_BYTES = ENVELOPE_MAX_BYTES + SMALL_RESPONSE_MAX_BYTES;
+  // The paid Worker default CPU allowance is 30s; network waits do not count
+  // against it. Give headers and a stalled body 35s beyond that allowance, but
+  // reset the body window for every chunk so total transfer time is unbounded.
+  const REQUEST_HEADERS_TIMEOUT_MS = 65_000;
+  const RESPONSE_BODY_IDLE_TIMEOUT_MS = 65_000;
   const RESPONSE_LIMITS = Object.freeze({
     [ENDPOINTS.create]: SMALL_RESPONSE_MAX_BYTES,
     [ENDPOINTS.claim]: CLAIM_RESPONSE_MAX_BYTES,
@@ -170,25 +175,34 @@
     return error;
   }
 
-  async function readBoundedResponse(response, maxBytes) {
+  async function readBoundedResponse(response, maxBytes, { signal, isTimedOut = () => false, onProgress = () => {} } = {}) {
     if (!response || !response.body || typeof response.body.getReader !== "function") throw codedError("response-body-unavailable");
     const declared = response.headers?.get?.("content-length");
     if (declared !== null && declared !== undefined && /^\d+$/.test(String(declared)) && Number(declared) > maxBytes) throw codedError("response-too-large");
     const reader = response.body.getReader();
+    const cancelReader = () => {
+      try { Promise.resolve(reader.cancel()).catch(() => {}); }
+      catch {}
+    };
+    signal?.addEventListener?.("abort", cancelReader, { once: true });
     const bytes = new Uint8Array(maxBytes);
     let total = 0;
     try {
       while (true) {
         const next = await reader.read();
+        if (isTimedOut()) throw codedError("request-timeout");
         if (next.done) break;
+        onProgress();
         if (!(next.value instanceof Uint8Array)) throw codedError("invalid-response-body");
         total += next.value.byteLength;
         if (total > maxBytes) throw codedError("response-too-large");
         bytes.set(next.value, total - next.value.byteLength);
       }
     } catch (error) {
-      await reader.cancel().catch(() => {});
+      await Promise.resolve().then(() => reader.cancel()).catch(() => {});
       throw error;
+    } finally {
+      signal?.removeEventListener?.("abort", cancelReader);
     }
     return total === bytes.byteLength ? bytes : bytes.slice(0, total);
   }
@@ -473,26 +487,59 @@
     return value;
   }
 
-  function createFetchTransport({ fetch: fetchFn = root.fetch, baseUrl = root.location?.href } = {}) {
+  function createFetchTransport({ fetch: fetchFn = root.fetch, baseUrl = root.location?.href, clock = root } = {}) {
     return {
       async request({ path, body, maxResponseBytes = RESPONSE_LIMITS[path] || SMALL_RESPONSE_MAX_BYTES }) {
         if (typeof fetchFn !== "function" || typeof path !== "string" || !Object.values(ENDPOINTS).includes(path)) throw new Error("invalid-transport-request");
+        if (typeof root.AbortController !== "function" || typeof clock?.setTimeout !== "function" || typeof clock?.clearTimeout !== "function") {
+          throw new Error("request-abort-unavailable");
+        }
         const approvedLimit = RESPONSE_LIMITS[path] || SMALL_RESPONSE_MAX_BYTES;
         const requestedLimit = Number.isSafeInteger(maxResponseBytes) && maxResponseBytes >= 0 ? maxResponseBytes : approvedLimit;
         const responseLimit = Math.min(approvedLimit, requestedLimit);
         const url = new URL(path, baseUrl);
         if (url.pathname !== path || url.search || url.hash) throw new Error("endpoint-must-be-exact");
-        const response = await fetchFn(url.href, {
-          method: "POST",
-          headers: { "Accept": "application/json", "Content-Type": "application/json", "Cache-Control": "no-store" },
-          body: JSON.stringify(body),
-          cache: "no-store",
-          redirect: "error",
-          credentials: "omit",
-          mode: "cors",
-        });
-        const bytes = await readBoundedResponse(response, responseLimit);
-        return { status: response.status, bytes };
+        const controller = new root.AbortController();
+        let timeoutId = null;
+        let timedOut = false;
+        let rejectTimeout;
+        const deadline = new Promise((_, reject) => { rejectTimeout = reject; });
+        const expire = () => {
+          if (timedOut) return;
+          timedOut = true;
+          rejectTimeout(codedError("request-timeout"));
+          controller.abort();
+        };
+        const armTimeout = (duration) => {
+          if (timeoutId !== null) clock.clearTimeout(timeoutId);
+          timeoutId = clock.setTimeout(expire, duration);
+        };
+        armTimeout(REQUEST_HEADERS_TIMEOUT_MS);
+        const response = (async () => {
+          const fetched = await fetchFn(url.href, {
+            method: "POST",
+            headers: { "Accept": "application/json", "Content-Type": "application/json", "Cache-Control": "no-store" },
+            body: JSON.stringify(body),
+            cache: "no-store",
+            redirect: "error",
+            credentials: "omit",
+            mode: "cors",
+            signal: controller.signal,
+          });
+          if (timedOut) throw codedError("request-timeout");
+          armTimeout(RESPONSE_BODY_IDLE_TIMEOUT_MS);
+          const bytes = await readBoundedResponse(fetched, responseLimit, {
+            signal: controller.signal,
+            isTimedOut: () => timedOut,
+            onProgress: () => armTimeout(RESPONSE_BODY_IDLE_TIMEOUT_MS),
+          });
+          if (timedOut) throw codedError("request-timeout");
+          return { status: fetched.status, bytes };
+        })();
+        try { return await Promise.race([response, deadline]); }
+        finally {
+          if (timeoutId !== null) clock.clearTimeout(timeoutId);
+        }
       },
     };
   }
@@ -1048,6 +1095,8 @@
     COOKIE_MAX_AGE,
     ENDPOINTS,
     RESPONSE_LIMITS,
+    REQUEST_HEADERS_TIMEOUT_MS,
+    RESPONSE_BODY_IDLE_TIMEOUT_MS,
     OPERATION_NAMES,
     CLIENT_STATES,
     RECOVERY_STATES,

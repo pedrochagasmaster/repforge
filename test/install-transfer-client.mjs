@@ -11,7 +11,9 @@
  */
 import assert from "node:assert/strict";
 import { createHash, webcrypto } from "node:crypto";
+import { once } from "node:events";
 import { readFileSync } from "node:fs";
+import { createServer } from "node:http";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -19,13 +21,18 @@ import { runInNewContext } from "node:vm";
 
 const require = createRequire(import.meta.url);
 const Transfer = require("../install-transfer.js");
+const Contract = require("../install-transfer-contract.js");
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const canonicalFixture = JSON.parse(readFileSync(join(ROOT, "test/fixtures/install-transfer-clone-v1.json"), "utf8"));
 const EXPECTATIONS = JSON.parse(readFileSync(join(ROOT, "test/fixtures/install-transfer-client/expectations.json"), "utf8"));
 const FAULT_EXPECTATIONS = JSON.parse(readFileSync(join(ROOT, "test/fixtures/install-transfer-client/fault-expectations.json"), "utf8"));
+const REQUEST_HEADERS_TIMEOUT_MS = 65_000;
+const RESPONSE_BODY_IDLE_TIMEOUT_MS = 65_000;
 
 const results = { passed: 0, failed: 0 };
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder("utf-8", { fatal: true });
+const NOW = "2026-09-08T19:00:00.000Z";
 
 function check(condition, message) {
   if (!condition) throw new Error(message);
@@ -58,6 +65,119 @@ function hashOf(value) {
   const preimage = clone(value);
   if (preimage.integrity) delete preimage.integrity.canonicalPayloadHash;
   return createHash("sha256").update(canonicalJson(preimage), "utf8").digest("hex");
+}
+
+function envelopeOfBytes(targetBytes) {
+  const measure = (value) => new TextEncoder().encode(canonicalJson(value)).byteLength;
+  const value = clone(canonicalFixture);
+  value.durableState.settings.boundaryPadding = "";
+  value.integrity.canonicalPayloadHash = "0".repeat(64);
+  const entry = (index) => ({ id: `boundary-${String(index).padStart(4, "0")}`, padding: "p".repeat(959) });
+  value.durableState.programHistory = [entry(0)];
+  const perEntry = measure(value);
+  value.durableState.programHistory = [];
+  const base = measure(value);
+  const entryBytes = perEntry - base - 1;
+  const count = Math.max(0, Math.floor((targetBytes - base - 64) / (entryBytes + 1)));
+  value.durableState.programHistory = Array.from({ length: count }, (_, index) => entry(index));
+  while (value.durableState.programHistory.length && measure(value) > targetBytes) value.durableState.programHistory.pop();
+  value.durableState.settings.boundaryPadding = "x".repeat(targetBytes - measure(value));
+  value.integrity.canonicalPayloadHash = hashOf(value);
+  if (measure(value) !== targetBytes) throw new Error("claim envelope did not reach its exact byte size");
+  return value;
+}
+
+function deferred() {
+  let resolve;
+  const promise = new Promise((done) => { resolve = done; });
+  return { promise, resolve };
+}
+
+function manualClock() {
+  let now = 0;
+  let nextId = 0;
+  const timers = new Map();
+  return {
+    setTimeout(callback, delay) {
+      const id = ++nextId;
+      timers.set(id, { at: now + delay, callback });
+      return id;
+    },
+    clearTimeout(id) { timers.delete(id); },
+    advance(milliseconds) {
+      const target = now + milliseconds;
+      while (true) {
+        const next = [...timers].filter(([, timer]) => timer.at <= target)
+          .sort((left, right) => left[1].at - right[1].at || left[0] - right[0])[0];
+        if (!next) break;
+        now = next[1].at;
+        timers.delete(next[0]);
+        next[1].callback();
+      }
+      now = target;
+    },
+    nextDelay() {
+      const next = [...timers.values()].sort((left, right) => left.at - right.at)[0];
+      return next ? next.at - now : null;
+    },
+    pendingCount: () => timers.size,
+  };
+}
+
+function manualReadableBody() {
+  let reads = 0;
+  let cancelled = false;
+  let closed = false;
+  const pendingReads = [];
+  const readWatchers = [];
+  function cancel() {
+    cancelled = true;
+    for (const pending of pendingReads.splice(0)) pending.resolve({ done: true });
+  }
+  const body = {
+    getReader() {
+      return {
+        read() {
+          reads += 1;
+          for (const watcher of readWatchers.splice(0)) {
+            if (watcher.count <= reads) watcher.result.resolve();
+            else readWatchers.push(watcher);
+          }
+          if (cancelled || closed) return Promise.resolve({ done: true });
+          const result = deferred();
+          pendingReads.push(result);
+          return result.promise;
+        },
+        cancel() {
+          cancel();
+          return Promise.resolve();
+        },
+      };
+    },
+  };
+  return {
+    body,
+    readCount: () => reads,
+    cancelled: () => cancelled,
+    abort: cancel,
+    waitForRead(count) {
+      if (reads >= count) return Promise.resolve();
+      const result = deferred();
+      readWatchers.push({ count, result });
+      return result.promise;
+    },
+    push(value) {
+      if (cancelled || closed) return false;
+      const pending = pendingReads.shift();
+      if (!pending) throw new Error("test stream has no pending read");
+      pending.resolve({ done: false, value });
+      return true;
+    },
+    close() {
+      closed = true;
+      for (const pending of pendingReads.splice(0)) pending.resolve({ done: true });
+    },
+  };
 }
 
 function base64url(bytes) {
@@ -952,6 +1072,337 @@ async function main() {
     check(calls[0].options.cache === "no-store" && calls[0].options.redirect === "error", "transport allows caching or redirects");
     check(calls[0].options.headers["Cache-Control"] === "no-store" && calls[0].options.credentials === "omit", "transport headers/credentials drifted");
     check(!calls[0].url.includes("F".repeat(43)), "transport put token in the URL");
+  });
+
+  await test("a maximum-size claim reaches import validation after body progress passes 65 seconds", async () => {
+    const envelope = envelopeOfBytes(Contract.LIMITS.envelopeBytes);
+    check((await Contract.validateEnvelopeIntegrity(envelope, webcrypto)).ok, "maximum logical clone passes the real transfer contract");
+    const responseBytes = textEncoder.encode(JSON.stringify({ envelope, expiresAt: "2099-01-01T00:00:00.000Z" }));
+    check(responseBytes.byteLength <= Contract.LIMITS.claimResponseBytes, "maximum clone plus wrapper fits the production response limit");
+    const stream = manualReadableBody();
+    const clock = manualClock();
+    const token = tokenFixture("S");
+    const vault = Transfer.createCredentialVault({ crypto: webcrypto, keyStore: memoryKeyStore() });
+    const inbound = markerStore();
+    const document = cookieDocument();
+    Transfer.writeTransferCookie({ token, expiresAt: "2099-01-01T00:00:00.000Z" }, {
+      document,
+      location: { href: "https://pedrochagasmaster.github.io/repforge/index.html" },
+      now: NOW,
+    });
+    const transport = Transfer.createFetchTransport({
+      fetch: (_url, options) => {
+        options.signal.addEventListener("abort", stream.abort, { once: true });
+        return Promise.resolve({
+          status: 200,
+          headers: { get: () => String(responseBytes.byteLength) },
+          body: stream.body,
+        });
+      },
+      baseUrl: "https://transfer.example/",
+      clock,
+    });
+    const client = makeClient({ contract: Contract, transport, context: "standalone", inbound, vault, document });
+    const pending = client.claim();
+    const bodyIdleMs = RESPONSE_BODY_IDLE_TIMEOUT_MS;
+    const headerWaitMs = REQUEST_HEADERS_TIMEOUT_MS;
+    const chunkSize = 240 * 1024;
+    const chunks = [];
+    for (let offset = 0; offset < responseBytes.byteLength; offset += chunkSize)
+      chunks.push(responseBytes.slice(offset, Math.min(responseBytes.byteLength, offset + chunkSize)));
+    await stream.waitForRead(1);
+    check(clock.nextDelay() === bodyIdleMs, "the body idle window starts when response headers arrive");
+
+    let elapsed = 0;
+    for (let index = 0; index < chunks.length; index += 1) {
+      if (index > 0) {
+        clock.advance(10_000);
+        elapsed += 10_000;
+      }
+      check(stream.push(chunks[index]), `body chunk ${index + 1} arrived before the idle deadline`);
+      if (index < chunks.length - 1) {
+        await stream.waitForRead(index + 2);
+        check(clock.nextDelay() === bodyIdleMs, `body chunk ${index + 1} resets the idle window`);
+      }
+    }
+    stream.close();
+    const result = await pending;
+    check(elapsed > headerWaitMs, "the streamed maximum response takes longer than the header deadline");
+    check(result.ok && result.state === "validating" && result.envelope.integrity.canonicalPayloadHash === envelope.integrity.canonicalPayloadHash,
+      "the complete maximum envelope reaches the app's import-validation handoff");
+    check(client.state() === "validating" && inbound.peek()?.phase === "claimed",
+      "a progressing response advances the claim marker for import");
+  });
+
+  await test("a body stall times out from its last chunk, and a late chunk cannot change the claim", async () => {
+    const stream = manualReadableBody();
+    const clock = manualClock();
+    const token = tokenFixture("T");
+    const vault = Transfer.createCredentialVault({ crypto: webcrypto, keyStore: memoryKeyStore() });
+    const inbound = markerStore();
+    const document = cookieDocument();
+    Transfer.writeTransferCookie({ token, expiresAt: "2099-01-01T00:00:00.000Z" }, {
+      document,
+      location: { href: "https://pedrochagasmaster.github.io/repforge/index.html" },
+      now: NOW,
+    });
+    const transport = Transfer.createFetchTransport({
+      fetch: (_url, options) => {
+        options.signal.addEventListener("abort", stream.abort, { once: true });
+        return Promise.resolve({ status: 200, headers: { get: () => null }, body: stream.body });
+      },
+      baseUrl: "https://transfer.example/",
+      clock,
+    });
+    const client = makeClient({ contract: Contract, transport, context: "standalone", inbound, vault, document });
+    let claimSettled = false;
+    const pending = client.claim().finally(() => { claimSettled = true; });
+    await stream.waitForRead(1);
+    const bodyIdleMs = RESPONSE_BODY_IDLE_TIMEOUT_MS;
+    clock.advance(10_000);
+    check(stream.push(textEncoder.encode('{"envelope":')), "the response starts with a body chunk");
+    await stream.waitForRead(2);
+    check(clock.nextDelay() === bodyIdleMs, "the first body chunk starts a fresh idle window");
+
+    clock.advance(bodyIdleMs - 1);
+    await new Promise((resolve) => setImmediate(resolve));
+    check(!claimSettled && client.state() === "claiming" && inbound.peek()?.phase === "claiming",
+      "a body that recently progressed remains in claiming until the full idle window passes");
+    clock.advance(1);
+    const acceptedAtDeadline = stream.push(textEncoder.encode("late completion"));
+    const timedOut = await pending;
+    const markerAtTimeout = inbound.peek();
+    check(!timedOut.ok && timedOut.state === "unknown-outcome" && client.state() === "unknown-outcome",
+      "a body stalled for the idle window enters the existing unknown-outcome state");
+    await Promise.resolve();
+    check(stream.cancelled() && !acceptedAtDeadline && JSON.stringify(inbound.peek()) === JSON.stringify(markerAtTimeout),
+      "a same-tick chunk after the idle deadline cannot resume reading or change the claim marker");
+  });
+
+  await test("request deadlines abort create, claim, remote deletion, and status calls", async () => {
+    const clock = manualClock();
+    const fetchCalls = [];
+    const transport = Transfer.createFetchTransport({
+      fetch: (url, options) => {
+        const result = deferred();
+        fetchCalls.push({ url: String(url), options, result });
+        return result.promise;
+      },
+      baseUrl: "https://transfer.example/",
+      clock,
+    });
+    const requests = [
+      [EXPECTATIONS.endpoints.create, { idempotencyKey: "create-key", envelope: {} }],
+      [EXPECTATIONS.endpoints.claim, { token: tokenFixture("A"), claimId: "B".repeat(22) }],
+      [EXPECTATIONS.endpoints.commit, { token: tokenFixture("C"), claimId: "D".repeat(22) }],
+      [EXPECTATIONS.endpoints.status, { token: tokenFixture("E") }],
+    ];
+
+    for (const [path, body] of requests) {
+      const pending = transport.request({ path, body });
+      const call = fetchCalls.at(-1);
+      check(call.options.signal && typeof call.options.signal.aborted === "boolean", `${path} carries an abort signal`);
+      check(clock.nextDelay() === REQUEST_HEADERS_TIMEOUT_MS, `${path} arms the shared header deadline`);
+      clock.advance(REQUEST_HEADERS_TIMEOUT_MS);
+      await assert.rejects(pending, (error) => error?.code === "request-timeout");
+      check(call.options.signal.aborted, `${path} aborts when its deadline expires`);
+      call.result.resolve(new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } }));
+    }
+    check(clock.pendingCount() === 0, "completed and timed-out requests leave no deadline behind");
+  });
+
+  await test("a timed-out claim ignores a later successful fetch result", async () => {
+    const clock = manualClock();
+    const token = tokenFixture("L");
+    const claimId = "M".repeat(22);
+    const vault = Transfer.createCredentialVault({ crypto: webcrypto, keyStore: memoryKeyStore() });
+    const sealed = await vault.seal("standalone-inbound", { token, claimId });
+    const inbound = markerStore({ version: 1, phase: "claiming", sealedCredentials: sealed, expiresAt: "2099-01-01T00:00:00.000Z" });
+    const requestStarted = deferred();
+    let resolveFetch;
+    const transport = Transfer.createFetchTransport({
+      fetch: () => {
+        requestStarted.resolve();
+        return new Promise((resolve) => { resolveFetch = resolve; });
+      },
+      baseUrl: "https://transfer.example/",
+      clock,
+    });
+    const client = makeClient({ contract: Contract, transport, context: "standalone", inbound, vault });
+    const pending = client.claim();
+
+    await requestStarted.promise;
+    check(clock.nextDelay() === REQUEST_HEADERS_TIMEOUT_MS, "claim attempt arms its header deadline");
+    clock.advance(REQUEST_HEADERS_TIMEOUT_MS);
+    const timedOut = await pending;
+    const markerAtTimeout = inbound.peek();
+    check(!timedOut.ok && timedOut.state === "unknown-outcome" && !Object.hasOwn(timedOut, "envelope"),
+      "deadline returns the existing unknown-outcome without publishing a claim envelope");
+    check(client.state() === "unknown-outcome" && markerAtTimeout.phase === "claiming",
+      "deadline keeps the original claim marker available for recovery");
+
+    let reads = 0;
+    const responseBody = new TextEncoder().encode(JSON.stringify({ envelope: canonicalFixture, expiresAt: "2099-01-01T00:00:00.000Z" }));
+    resolveFetch({
+      status: 200,
+      headers: { get: () => null },
+      body: {
+        getReader() {
+          return {
+            async read() {
+              reads += 1;
+              if (reads === 1) return { done: false, value: responseBody };
+              return { done: true };
+            },
+            async cancel() {},
+          };
+        },
+      },
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    check(reads === 0, "a late fetch response is rejected before any body can reach the parser");
+    check(client.state() === "unknown-outcome" && JSON.stringify(inbound.peek()) === JSON.stringify(markerAtTimeout),
+      "a successful response arriving after timeout cannot change client state or publish the claim");
+  });
+
+  await test("a maximum-size claim can arrive just inside its header deadline and a lost reply retries the same claim", async () => {
+    const envelope = envelopeOfBytes(Contract.LIMITS.envelopeBytes);
+    check((await Contract.validateEnvelopeIntegrity(envelope, webcrypto)).ok, "maximum logical clone passes the real transfer contract");
+    const expiresAt = "2099-01-01T00:00:00.000Z";
+    const claimResponse = JSON.stringify({ envelope, expiresAt });
+    check(Buffer.byteLength(claimResponse) <= Contract.LIMITS.claimResponseBytes, "maximum clone plus wrapper fits the Worker claim-response limit");
+    const responseBytes = Buffer.byteLength(claimResponse);
+    const clock = manualClock();
+    const slowToken = tokenFixture("N");
+    const retryToken = tokenFixture("P");
+    const heldResponses = new Map();
+    const requests = [];
+    const counts = new Map();
+    const boundClaims = new Map();
+    const slowSeen = deferred();
+    const retryFirstSeen = deferred();
+    const retrySecondSeen = deferred();
+    const retryFirstClosed = deferred();
+    const server = createServer((incoming, outgoing) => {
+      const chunks = [];
+      incoming.on("data", (chunk) => chunks.push(chunk));
+      incoming.on("end", () => {
+        const path = new URL(incoming.url, "http://127.0.0.1").pathname;
+        let body;
+        try { body = JSON.parse(Buffer.concat(chunks).toString("utf8")); }
+        catch { outgoing.writeHead(400).end(); return; }
+        requests.push({ path, body });
+        if (path !== EXPECTATIONS.endpoints.claim) { outgoing.writeHead(404).end(); return; }
+        const boundClaimId = boundClaims.get(body.token);
+        if (boundClaimId === undefined) boundClaims.set(body.token, body.claimId);
+        else if (boundClaimId !== body.claimId) { outgoing.writeHead(404).end(JSON.stringify({ state: "unavailable" })); return; }
+        const count = (counts.get(body.token) || 0) + 1;
+        counts.set(body.token, count);
+        if (body.token === slowToken && count === 1) {
+          heldResponses.set("slow", outgoing);
+          slowSeen.resolve(body);
+          return;
+        }
+        if (body.token === retryToken && count === 1) {
+          heldResponses.set("lost", outgoing);
+          outgoing.once("close", () => retryFirstClosed.resolve());
+          retryFirstSeen.resolve(body);
+          return;
+        }
+        if (body.token === retryToken && count === 2) {
+          retrySecondSeen.resolve(body);
+          outgoing.writeHead(200, { "Content-Type": "application/json" });
+          outgoing.end(claimResponse);
+          return;
+        }
+        outgoing.writeHead(404).end(JSON.stringify({ state: "unavailable" }));
+      });
+    });
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    const address = server.address();
+    const transport = Transfer.createFetchTransport({
+      fetch: (...args) => globalThis.fetch(...args),
+      baseUrl: `http://127.0.0.1:${address.port}/`,
+      clock,
+    });
+    const vault = Transfer.createCredentialVault({ crypto: webcrypto, keyStore: memoryKeyStore() });
+    const pendingCalls = [];
+    const documentFor = (token) => {
+      const document = cookieDocument();
+      Transfer.writeTransferCookie({ token, expiresAt }, {
+        document,
+        location: { href: "https://pedrochagasmaster.github.io/repforge/index.html" },
+        now: NOW,
+      });
+      return document;
+    };
+    const slowInbound = markerStore();
+    const slowClient = makeClient({
+      contract: Contract, transport, context: "standalone", inbound: slowInbound,
+      document: documentFor(slowToken), vault,
+    });
+    const retryInbound = markerStore();
+    const retryClient = makeClient({
+      contract: Contract, transport, context: "standalone", inbound: retryInbound,
+      document: documentFor(retryToken), vault,
+    });
+    const sendClaimResponse = (outgoing) => {
+      if (!outgoing || outgoing.destroyed || outgoing.writableEnded) return false;
+      outgoing.writeHead(200, { "Content-Type": "application/json" });
+      outgoing.end(claimResponse);
+      return true;
+    };
+
+    try {
+      const slowAttempt = slowClient.claim();
+      pendingCalls.push(slowAttempt);
+      await slowSeen.promise;
+      check(clock.nextDelay() === REQUEST_HEADERS_TIMEOUT_MS, "real claim request starts the configured header deadline");
+      clock.advance(REQUEST_HEADERS_TIMEOUT_MS - 1);
+      check(clock.nextDelay() === 1, "the maximum-size response headers still have time before the deadline");
+      check(sendClaimResponse(heldResponses.get("slow")), "server releases the maximum-size response before expiry");
+      const slowResult = await slowAttempt;
+      check(slowResult.ok && slowResult.state === "validating" && slowResult.envelope.integrity.canonicalPayloadHash === envelope.integrity.canonicalPayloadHash,
+        "maximum-size claim completed inside the deadline without truncation");
+      check(clock.pendingCount() === 0 && slowInbound.peek()?.phase === "claimed", "successful claim clears its deadline and advances the marker");
+
+      const lostAttempt = retryClient.claim();
+      pendingCalls.push(lostAttempt);
+      const firstRequest = await retryFirstSeen.promise;
+      check(firstRequest.claimId === boundClaims.get(retryToken), "server binds the original claim identity before losing its response");
+      check(clock.nextDelay() === REQUEST_HEADERS_TIMEOUT_MS, "lost-response claim has the same header deadline");
+      clock.advance(REQUEST_HEADERS_TIMEOUT_MS);
+      const lostResult = await lostAttempt;
+      check(!lostResult.ok && lostResult.state === "unknown-outcome" && !Object.hasOwn(lostResult, "envelope"),
+        "a server-bound claim with no answer ends in the existing unknown-outcome");
+      check(retryClient.state() === "unknown-outcome" && retryInbound.peek()?.phase === "claiming",
+        "timed-out claim leaves its recoverable marker in place");
+      await retryFirstClosed.promise;
+      check(!sendClaimResponse(heldResponses.get("lost")), "the server cannot deliver the first reply after the client aborts it");
+      check(retryClient.state() === "unknown-outcome" && retryInbound.peek()?.phase === "claiming",
+        "a late server write cannot change the client state or claim marker");
+
+      const retryAttempt = retryClient.claim();
+      pendingCalls.push(retryAttempt);
+      const secondRequest = await retrySecondSeen.promise;
+      const retryResult = await retryAttempt;
+      check(retryResult.ok && retryResult.state === "validating" && retryResult.envelope.integrity.canonicalPayloadHash === envelope.integrity.canonicalPayloadHash,
+        "same-claim retry recovers the full idempotent response");
+      check(firstRequest.token === secondRequest.token && firstRequest.claimId === secondRequest.claimId && counts.get(retryToken) === 2,
+        "retry reuses one claim identity and does not create a second server claim");
+      check(retryInbound.peek()?.phase === "claimed" && requests.every((request) => request.path === EXPECTATIONS.endpoints.claim),
+        "only the successful retry publishes the claim and the timeout does not issue remote deletion");
+      check(responseBytes > Contract.LIMITS.envelopeBytes && responseBytes <= Contract.LIMITS.claimResponseBytes,
+        "the exercised response uses the real maximum envelope and approved wrapper headroom");
+    } finally {
+      for (const outgoing of heldResponses.values()) sendClaimResponse(outgoing);
+      await Promise.allSettled(pendingCalls);
+      await new Promise((resolve) => {
+        server.close(resolve);
+        server.closeAllConnections?.();
+      });
+    }
   });
 
   await test("bounds streamed responses before materializing their bytes", async () => {
