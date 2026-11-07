@@ -178,6 +178,41 @@ async function voiceProof(browser) {
     await context.close();
   }
 
+  // Opening an exercise page leaves the workout. The recognizer is aborted, a late transcript writes nothing, and
+  // returning to the workout does not revive the old operation.
+  {
+    const { context, page } = await voiceWorkout(browser);
+    await tapVoice(page);
+    await page.locator("#woDayTitle [data-exopen]").click();
+    await page.waitForSelector("#exercise.active");
+    expect(await recognizerAborted(page, 0), "opening an exercise page aborts the listening recognizer");
+    const onExercise = await draftRevision(page);
+    await deliverTranscript(page, 0, "62.5 x 8 @2");
+    expect(await draftRevision(page) === onExercise, "a transcript delivered on the exercise page writes nothing",
+      { before: onExercise, after: await draftRevision(page) });
+    await page.locator("#exBack").click();
+    await page.waitForSelector("#exercise", { state: "hidden" });
+    await deliverTranscript(page, 0, "62.5 x 8 @2");
+    expect(await draftRevision(page) === onExercise, "returning to the workout does not revive the old transcript",
+      { before: onExercise, after: await draftRevision(page) });
+    await tapVoice(page);
+    expect(await recognizerCount(page) === 2, "voice starts again after returning from the exercise page");
+    await context.close();
+  }
+
+  // The dock leaves the workout too. Focus hides the dock, so the proof calls the dock button's own handler.
+  {
+    const { context, page } = await voiceWorkout(browser);
+    await tapVoice(page);
+    await page.evaluate(() => document.querySelector('nav button[data-view="history"]').click());
+    expect(await recognizerAborted(page, 0), "navigating from the dock aborts the listening recognizer");
+    const left = await draftRevision(page);
+    await deliverTranscript(page, 0, "62.5 x 8 @2");
+    expect(await draftRevision(page) === left, "a transcript after dock navigation writes nothing",
+      { before: left, after: await draftRevision(page) });
+    await context.close();
+  }
+
   if (failures.length) throw new Error(`voice proofs failed: ${failures.join("; ")}`);
 }
 
