@@ -1309,6 +1309,24 @@
         if (isDomainError(item)) return item;
         if (item.set.completion !== "pending" || item.set.role !== "working") return error("max-set-not-pending");
         if (!validCalibration(command.calibration)) return error("invalid-calibration");
+        if (command.copyLoadFromSetId != null) {
+          if (typeof command.copyLoadFromSetId !== "string") return error("invalid-max-set-load-source");
+          const source = hasOwn(item.exercise.sets, command.copyLoadFromSetId)
+            ? item.exercise.sets[command.copyLoadFromSetId] : null;
+          if (!source || source.ordinal !== item.set.ordinal - 1) return error("invalid-max-set-load-source");
+          if (item.set.programmed.metrics?.length) {
+            for (const metric of item.set.programmed.metrics) {
+              if (!LOAD_SEMANTICS.has(metric.semantic)) continue;
+              const value = source.edited.metrics?.[metric.id];
+              if (value == null || value === item.set.edited.metrics?.[metric.id]) continue;
+              item.set.edited.metrics[metric.id] = value;
+              item.set.touched.metrics[metric.id] = true;
+            }
+          } else if (source.edited.load != null && source.edited.load !== item.set.edited.load) {
+            item.set.edited.load = source.edited.load;
+            item.set.touched.load = true;
+          }
+        }
         item.set.calibration = jsonClone(command.calibration);
         break;
       }
