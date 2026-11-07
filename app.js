@@ -1618,9 +1618,10 @@ function pendingFieldValue(key){
     if(value!==undefined)return value}
   return undefined}
 function hasPendingField(key){return pendingFieldValue(key)!==undefined}
-function settlePendingField(key,token){
+function settlePendingField(key,token,{rejected=false}={}){
   releasePendingField(key,token);
-  if(draftUiRecovery?.recoveryField?.key===key){renderWorkout();focusDraftRecovery()}}
+  if(draftUiRecovery?.recoveryField?.key===key||(rejected&&draftUiRecovery)){
+    renderWorkout();focusDraftRecovery()}}
 function shelfValueMove(val,dir){
   if(!val||!dir||shelfValueBeat==="off")return;
   playBeat(val,shelfValueBeat==="fade"?"motion-value-fade":dir>0?"motion-value-up":"motion-value-down")}
@@ -3132,7 +3133,7 @@ function enqueueDraftCommand(type,payload={},ui={}){
     if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
     if(!activeWorkoutDraft)return{status:"missing"};
     if((draftUiRecovery?.attempt||draftUiRecovery?.status==="refresh-failed")&&!draftUiRecovery.allowRetry){
-      renderWorkout();restoreDraftFocus(focus);return{status:"recovery-pending"}}
+      focusDraftRecovery();return{status:"recovery-pending"}}
     if(type==="refreshUntouchedSuggestions"&&window.__repforgeDraftFault==="stale-suggestion-loop")
       return{status:"domain-error",error:{kind:"domain-error",code:"stale-suggestion"}};
     const now=new Date().toISOString(),command={type,...payload,operationId,expectedRevision:activeWorkoutDraft.revision,
@@ -8284,7 +8285,9 @@ async function leaveWorkout(){
   }
   if(!await WorkoutSession.leave()){
     toast(t("workout.leave_failed"));
-    showDraftCommandRecovery("storage-error",draftUiRecovery?.attempt||{});
+    if(draftUiRecovery?.attempt||draftUiRecovery?.status){
+      renderDraftRecovery();focusDraftRecovery();
+    }else showDraftCommandRecovery("storage-error",{});
     return false;
   }
   workoutLeft=true;focusEdit=null;setWorkoutActive(false);document.body.classList.remove("is-focus-wo");renderToday();window.scrollTo({top:0});
@@ -10879,7 +10882,7 @@ function bindWorkout(){
       }else result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
         setId:target.setId,field:target.field,value:canonicalDraftField(target.field,i.value)},
         {pendingValue:i.value,pendingField:{key,token},recoveryField})}
-    finally{settlePendingField(key,token)}
+    finally{settlePendingField(key,token,{rejected:result?.status!=="applied"})}
     if(result.status!=="applied")return;
     const live=liveShelfInput(key);
     if(!live)return;
@@ -10970,7 +10973,7 @@ function bindWorkout(){
     let result;
     try{result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
       setId:target.setId,field:"effort",value:next},{pendingField:{key:pendingKey,token},recoveryField})}
-    finally{settlePendingField(pendingKey,token)}
+    finally{settlePendingField(pendingKey,token,{rejected:result?.status!=="applied"})}
     if(result.status!=="applied")return;
     updateSaveMeta();
     if(next==="unsure"||wasUnsure||setStageOf(exId,n)!==before){renderWorkout();return}
