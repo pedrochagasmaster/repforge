@@ -19981,11 +19981,15 @@ function cancelEntryGeneration(){
 function syncEntryBusy(){
   const status=entryGeneration.status;
   const resultBusy=status===ENTRY_GENERATION_STATUS.GENERATING_RESULT&&entryGeneration.from===entryState;
-  const answerBusy=status===ENTRY_GENERATION_STATUS.REBUILDING_ANSWER&&entryGeneration.committed===entryState;
+  const answerBusy=entryAnswerRebuildPending();
   const next=$("#onbNext");
   if(next){if(resultBusy)next.setAttribute("aria-busy","true");else next.removeAttribute("aria-busy")}
   const review=$("#entryCandidateReview");
-  if(review){if(answerBusy)review.setAttribute("aria-busy","true");else review.removeAttribute("aria-busy")}}
+  if(review){if(answerBusy)review.setAttribute("aria-busy","true");else review.removeAttribute("aria-busy")}
+  // Activation waits for the rebuild it would commit; a control that is blocked
+  // for its own reason stays disabled when the rebuild settles.
+  const activate=$("#entryActivate");
+  if(activate)activate.disabled=answerBusy||activate.dataset.entryBlocked==="true"}
 /* B's building moment (Plan 072): a four-line checklist and a thin bar while
    the program generates. The step moves to the result when the checklist has
    finished, or the lifter skipped it, and the program has landed; if the
@@ -20642,12 +20646,15 @@ async function undoEntryMovementConfirmation(exerciseId){
   const outcome=await guardEntryRebuild(()=>applyEntryAnswerEdit({movementConfirmations:confirmations},{lead:t("entry.change.lead.answer")}));
   return outcome===false?{ok:false,cancelled:true}:outcome?.ok?outcome:
     {...outcome,message:entryFailureText(outcome?.failure)||t("entry.issue.compile")}}
+/* A rebuild still building on the committed state: the program it will settle
+   is not the one the lifter has been shown, so it is not yet the program. */
+function entryAnswerRebuildPending(){
+  const current=entryGeneration;
+  return current.status===ENTRY_GENERATION_STATUS.REBUILDING_ANSWER&&current.committed===entryState}
 /* The answers the lifter has asked for: a rebuild still building on the
    committed state owns the newest ones, so a change is judged against those. */
 function entryAskedAnswers(){
-  const current=entryGeneration;
-  return current.status===ENTRY_GENERATION_STATUS.REBUILDING_ANSWER&&current.committed===entryState
-    ?current.next.answers:entryState.answers}
+  return entryAnswerRebuildPending()?entryGeneration.next.answers:entryState.answers}
 async function applyEntryEditor(){
   const editor=entryEditor;
   if(!editor||entryPendingAvoid)return;
@@ -21339,7 +21346,8 @@ function renderEntryPinned({progressionIssue=false,configurationIssue=false,revi
   const reason=progressionIssue?t("entry.preview.activation_blocked"):reviewIssue?t(reviewIssue):t("entry.preview.metrics_required");
   return `<div class="entry__pinned">`+
     (blocked?`<p id="entryActivationStatus" class="entry__reason" role="alert" tabindex="-1">${esc(reason)}</p>`:"")+
-    `<button type="button" id="entryActivate" class="btn btn--cta${blocked?" btn--noarrow":""}"${blocked?` disabled aria-describedby="entryActivationStatus"`:""}>${esc(activateLabel)}</button></div>`}
+    `<button type="button" id="entryActivate" class="btn btn--cta${blocked?" btn--noarrow":""}" data-entry-blocked="${blocked?"true":"false"}"`+
+    `${blocked||entryAnswerRebuildPending()?" disabled":""}${blocked?` aria-describedby="entryActivationStatus"`:""}>${esc(activateLabel)}</button></div>`}
 function renderEntryNotice(){
   if(!entryUiNotice)return"";
   // Cancel is a dialog and Resume is a card on the hub; neither is a notice.
@@ -22366,7 +22374,7 @@ function onEntryPopState(){
   entryBack()}
 // @ci-domain global
 async function activateEntryPreview({destination="log",manualBuild=false,skipReplaceConfirm=false,io=storageIO}={}){
-  if(!ProgramEntry||!entryState)return;
+  if(!ProgramEntry||!entryState||entryAnswerRebuildPending())return;
   await setupDraftWriteQueue;
   const activationDraftHandle=entryDraftHandle;
   // A previous attempt may already have committed the exact draft and then
