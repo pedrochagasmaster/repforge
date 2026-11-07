@@ -406,5 +406,29 @@ check("a nudge while held keeps the expiry; a resume and a new hold take a new o
     "a new hold after a resume takes the expiry of that hold");
 });
 
+// A held rest whose remainder is moved after its hold is still a record this device wrote: taking time off, or turning the
+// dial, changes the remainder and not the expiry, so the record must stay valid. The record is checked a moment later.
+check("a held rest taken off by −30 s is still a valid record a moment later", () => {
+  const held = toggleHold(running(120), T0 + 10 * SEC).state;
+  const nudged = setRemaining(held, { ms: 80 * SEC, now: T0 + 10 * SEC }).state;
+  const saved = JSON.parse(JSON.stringify(snapshot(nudged, T0 + 10 * SEC)));
+  assert.equal(snapshotValid(saved, T0 + 20 * SEC), true, "a −30 s record is valid at T0+20 s");
+  assert.equal(fromSnapshot(saved, T0 + 20 * SEC).remainingMs, 80 * SEC, "and restores the remainder it was taken down to");
+});
+
+check("a held rest whose dial was turned down after the hold is still a valid record a moment later", () => {
+  const held = toggleHold(running(120), T0 + 10 * SEC).state;
+  const turned = setRemaining(held, { ms: 60 * SEC, now: T0 + 10 * SEC }).state;
+  const saved = JSON.parse(JSON.stringify(snapshot(turned, T0 + 10 * SEC)));
+  assert.equal(snapshotValid(saved, T0 + 20 * SEC), true, "a dial-turned record is valid at T0+20 s");
+});
+
+check("a held record whose expiry lies further from its hold than any held rest can last is refused", () => {
+  const held = toggleHold(running(120), T0 + 10 * SEC).state;
+  const saved = JSON.parse(JSON.stringify(snapshot(held, T0 + 10 * SEC)));
+  saved.expiresAt = saved.heldAt + MAX_SEC * SEC + OVERTIME_MAX_SEC * SEC + SEC;
+  assert.equal(snapshotValid(saved, T0 + 20 * SEC), false, "one second past the longest held lifetime is refused");
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

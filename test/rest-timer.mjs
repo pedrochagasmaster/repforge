@@ -1139,6 +1139,51 @@ try {
     await context.close();
   }
 
+  // A held rest whose time is taken off (−30 s, or the dial) and which the phone then kills before that much time passes must
+  // come back held, not be deleted. The remainder changed after the hold; the record must still be one this device wrote.
+  phase("A paused rest taken off by −30 s survives a reload at once");
+  {
+    const { context, page, errors } = await focusPage(browser);
+    await logSet(page);
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    await page.locator("#restTab").click();
+    await page.waitForSelector("#restSheet.is-open", { timeout: 5000 });
+    await page.locator("#restHold").click();
+    await page.waitForFunction(() => window.__repforgeRest.state().held === true, undefined, { timeout: 5000 });
+    await page.locator("#restMinus").click();
+    await page.waitForTimeout(200);
+    const before = await page.evaluate(() => window.__repforgeRest.state());
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    const back = await page.evaluate(() => window.__repforgeRest.state());
+    assert(back.active && back.held && back.pausedMs === before.pausedMs && back.pausedMs <= 90000,
+      "a paused rest with −30 s reloads still paused at the same remainder", { before, back });
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  phase("A paused rest whose dial was turned down survives a reload at once");
+  {
+    const { context, page, errors } = await focusPage(browser);
+    await logSet(page);
+    await page.waitForSelector("#restTab", { timeout: 5000 });
+    await page.locator("#restTab").click();
+    await page.waitForSelector("#restSheet.is-open", { timeout: 5000 });
+    await page.locator("#restHold").click();
+    await page.waitForFunction(() => window.__repforgeRest.state().held === true, undefined, { timeout: 5000 });
+    await page.locator("#restDial").focus();
+    for (let i = 0; i < 4; i++) await page.keyboard.press("ArrowDown");
+    await page.waitForTimeout(200);
+    const before = await page.evaluate(() => window.__repforgeRest.state());
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    const back = await page.evaluate(() => window.__repforgeRest.state());
+    assert(back.active && back.held && back.pausedMs === before.pausedMs && back.pausedMs <= 65000,
+      "a paused rest turned down on the dial reloads still paused at the same remainder", { before, back });
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
   phase("A reload refuses a record that claims more time than a rest allows");
   {
     const { context, page, errors } = await focusPage(browser);
