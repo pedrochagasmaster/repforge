@@ -66,8 +66,9 @@
   /** Hold a running clock where it stands, or let a held one run again from its remainder. */
   function toggleHold(state, now) {
     if (state.kind === "running") {
-      return result(freeze({ kind: "paused", remainingMs: state.deadlineMs - now, lengthSec: state.lengthSec,
-        exerciseId: state.exerciseId, rang: state.rang }), NO_EFFECTS);
+      const remainingMs = state.deadlineMs - now;
+      return result(freeze({ kind: "paused", remainingMs, lengthSec: state.lengthSec, exerciseId: state.exerciseId, rang: state.rang,
+        expiresAt: now + remainingMs + OVERTIME_MAX_SEC * 1000 }), NO_EFFECTS);
     }
     if (state.kind === "paused") {
       return result(freeze({ kind: "running", deadlineMs: now + state.remainingMs, lengthSec: state.lengthSec,
@@ -85,8 +86,10 @@
     const length = lengthSec === undefined ? state.lengthSec : lengthSec;
     const nextHeld = held === undefined ? state.kind === "paused" : held;
     const rang = ms > 0 ? false : state.rang;
+    // A held rest keeps the expiry it was first held with: moving its remainder while held does not renew it.
+    const expires = state.kind === "paused" && state.expiresAt !== undefined ? state.expiresAt : now + ms + OVERTIME_MAX_SEC * 1000;
     const next = nextHeld
-      ? { kind: "paused", remainingMs: ms, lengthSec: length, exerciseId: state.exerciseId, rang }
+      ? { kind: "paused", remainingMs: ms, lengthSec: length, exerciseId: state.exerciseId, rang, expiresAt: expires }
       : { kind: "running", deadlineMs: now + ms, lengthSec: length, exerciseId: state.exerciseId, rang };
     return result(freeze(next), ms > 0 ? [EFFECTS.REARMED] : NO_EFFECTS);
   }
@@ -135,9 +138,8 @@
    */
   function expiresAt(state, now) {
     if (state.kind === "idle") return null;
-    return state.kind === "paused"
-      ? now + state.remainingMs + OVERTIME_MAX_SEC * 1000
-      : state.deadlineMs + OVERTIME_MAX_SEC * 1000;
+    if (state.kind === "paused") return state.expiresAt ?? now + state.remainingMs + OVERTIME_MAX_SEC * 1000;
+    return state.deadlineMs + OVERTIME_MAX_SEC * 1000;
   }
 
   /**
@@ -173,7 +175,7 @@
     if (!snapshotValid(saved, now) || saved.expiresAt <= now) return null;
     const common = { lengthSec: saved.lengthSec, exerciseId: saved.exerciseId ?? null, rang: saved.rang };
     return freeze(saved.kind === "paused"
-      ? { kind: "paused", remainingMs: saved.remainingMs, ...common }
+      ? { kind: "paused", remainingMs: saved.remainingMs, expiresAt: saved.expiresAt, ...common }
       : { kind: "running", deadlineMs: saved.deadlineMs, ...common });
   }
 

@@ -7140,17 +7140,43 @@ function applyRest(result,{timed=false}={}){
 let restUnsaved=false;
 function readRestRecord(){
   try{const raw=localStorage.getItem(REST_RECORD_KEY);
-    return{ok:true,record:raw===null?null:JSON.parse(raw)}}
-  catch{return{ok:false,record:null}}}
-function removeRestRecord(){try{localStorage.removeItem(REST_RECORD_KEY)}catch{}}
+    return{ok:true,raw,record:raw===null?null:JSON.parse(raw)}}
+  catch{return{ok:false,raw:null,record:null}}}
+/* A removal that storage refuses leaves the record it meant to remove. This tab keeps a note of it, tab-scoped so a reload
+   still has it: the draft, and the record's exact text when it could be read. A readable record that the note matches is the
+   rest this tab ended, so it is never restored, and its removal is retried on tick, on return to the page and before a
+   restore. A save or a clear in this tab drops the note. */
+const REST_ENDED_KEY="repforge_rest_ended_v1";
+let restRemovalPending=false;
+function endedRestNote(){try{return JSON.parse(sessionStorage.getItem(REST_ENDED_KEY)||"null")}catch{return null}}
+function forgetEndedRest(){restRemovalPending=false;try{sessionStorage.removeItem(REST_ENDED_KEY)}catch{}}
+function endedHere(stored){
+  const note=endedRestNote();
+  if(!note||!stored.ok||stored.raw===null)return false;
+  return note.raw!==null?note.raw===stored.raw:stored.record?.draftId===note.draftId}
+function removeRestRecord(){
+  const stored=readRestRecord();
+  try{localStorage.removeItem(REST_RECORD_KEY);forgetEndedRest()}
+  catch{
+    if(stored.ok&&stored.raw===null)return;
+    restRemovalPending=true;
+    try{sessionStorage.setItem(REST_ENDED_KEY,JSON.stringify({draftId:stored.record?.draftId??restDraftId??null,raw:stored.raw}))}catch{}}}
 function saveRestRecord(){
   const rest=RepForgeRestTimer.snapshot(restClock,Date.now());
   if(!rest){restUnsaved=false;removeRestRecord();return}
   if(!restDraftId)return;
-  try{localStorage.setItem(REST_RECORD_KEY,JSON.stringify({draftId:restDraftId,rest}));restUnsaved=false}
+  try{localStorage.setItem(REST_RECORD_KEY,JSON.stringify({draftId:restDraftId,rest}));restUnsaved=false;forgetEndedRest()}
   catch{restUnsaved=true}}
-/* A rest whose write was refused is written again on the next tick or return to the page. Nothing is written once it has taken. */
-function retryRestRecord(){if(restUnsaved&&restClock.kind!=="idle")saveRestRecord()}
+/* A refused write or a refused removal is tried again on the next tick or return to the page. Nothing is written or removed
+   once storage has taken it, and a record this tab did not end is never removed here. */
+function retryRestRecord(){
+  if(restRemovalPending||endedRestNote()){
+    const stored=readRestRecord();
+    if(stored.ok){
+      if(stored.raw===null)forgetEndedRest();
+      else if(endedHere(stored))removeRestRecord();
+      else forgetEndedRest()}}
+  if(restUnsaved&&restClock.kind!=="idle")saveRestRecord()}
 /* After a reload, the device's record comes back only for the draft it was written for, only while its clock is valid, and
    only while it has not reached the cap. A running rest that reached the cap while the app was away ends here and may offer
    the finish question. A bell that is due is settled at once: a deadline passed while the app was gone has no ticker to
@@ -7159,6 +7185,8 @@ function restoreRest(draftId){
   // The tab-scoped record of the build before this one is dropped: its one rest timer is lost on upgrade, by choice.
   try{sessionStorage.removeItem(REST_RECORD_KEY)}catch{}
   const stored=readRestRecord(),record=stored.ok?stored.record:null,now=Date.now();
+  // A rest this tab ended whose removal was refused is never restored; its removal is owed, and is tried again here.
+  if(endedHere(stored)){removeRestRecord();return}
   if(!draftId||record?.draftId!==draftId||!RepForgeRestTimer.snapshotValid(record.rest,now)){removeRestRecord();return}
   if(RepForgeRestTimer.capReached(record.rest,now)){removeRestRecord();offerRestOverrunFinish();return}
   const restored=RepForgeRestTimer.restore(restClock,record.rest,now);
