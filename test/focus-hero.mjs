@@ -114,10 +114,10 @@ async function logSet(page, slotId, ordinal, { load, reps, rir }, { stopRest = t
     return typeof exercise?.sets?.[setId]?.completion === "object";
   }, { slotId, ordinal }, { timeout: 15000 });
   if (stopRest) {
-    const resting = await page.waitForFunction(() => restEnd > 0, undefined, { timeout: 3000 }).then(() => true, () => false);
+    const resting = await page.waitForFunction(() => window.__repforgeRest.state().active, undefined, { timeout: 3000 }).then(() => true, () => false);
     if (resting) {
       await page.evaluate(() => window.stopRest());
-      await page.waitForFunction(() => !restEnd, undefined, { timeout: 10000 });
+      await page.waitForFunction(() => !window.__repforgeRest.state().active, undefined, { timeout: 10000 });
     }
   } else await page.waitForSelector("#restTab", { timeout: 10000 });
   await page.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished.catch(() => {}))));

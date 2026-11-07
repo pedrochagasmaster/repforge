@@ -830,7 +830,7 @@ async function saveSettingsAndFlush(page) {
 }
 
 async function stopRestIfRunning(page) {
-  await page.evaluate(() => { if (restEnd) window.stopRest(); });
+  await page.evaluate(() => { if (window.__repforgeRest.state().active) window.stopRest(); });
 }
 
 async function setWorkoutField(page, selector, value) {
@@ -3720,7 +3720,7 @@ async function main() {
   );
   await page.click("#restTab");
   await page.waitForTimeout(350);
-  const restTabTap = await page.evaluate(() => ({ sheet: !document.querySelector("#restSheet").hidden, running: restEnd > 0 }));
+  const restTabTap = await page.evaluate(() => ({ sheet: !document.querySelector("#restSheet").hidden, running: window.__repforgeRest.state().active }));
   assert(
     restTabTap.sheet && restTabTap.running,
     "tapping the rest tab opens the rest sheet with the clock still running",
@@ -3730,9 +3730,9 @@ async function main() {
   await page.click("#restStop");
   await page.waitForTimeout(350);
   assert(
-    await page.evaluate(() => !restEnd && !document.querySelector("#restTab")),
+    await page.evaluate(() => !window.__repforgeRest.state().active && !document.querySelector("#restTab")),
     "End rest in the sheet ends the rest and takes the tab away",
-    `restEnd=${await page.evaluate(() => restEnd)}`,
+    `restEnd=${await page.evaluate(() => window.__repforgeRest.state().active)}`,
     "Rest sheet → End rest → the tab is gone"
   );
 
@@ -6539,11 +6539,11 @@ async function main() {
   await fillValidCandidate();
   await stopRestIfRunning(page);
   await setWorkoutField(page, `[data-k="${valKey}_metric_2555c6f170d8805cafa6d16d3fdddbaa"]`, "");
-  const restHiddenBefore = await page.evaluate(() => !restEnd);
+  const restHiddenBefore = await page.evaluate(() => !window.__repforgeRest.state().active);
   const doneBefore = (await draftSetState(page,valKey)).done;
   await clickSaveSet(page, valKey);
   await page.waitForTimeout(80);
-  const restHiddenAfter = await page.evaluate(() => !restEnd);
+  const restHiddenAfter = await page.evaluate(() => !window.__repforgeRest.state().active);
   const doneAfter = (await draftSetState(page,valKey)).done;
   const draftForDone = await readDraft(page);
   const draftDone = draftForDone?.exerciseOrder.flatMap((id) =>
