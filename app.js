@@ -11209,9 +11209,10 @@ const WorkoutSession=(()=>{
   function reopenAfterTotalFailure(draft){
     if(saveState.phase!=="recovery")return false;
     const operation=saveState.operation,result=operation?.result,prepared=operation?.prepared;
-    const safeToStartFresh=result?.localOk===false&&result?.idbOk===false&&
-      result?.pendingJournalCleanup===false&&result?.accepted!==true&&result?.deferred!==true&&
-      result?.committed===false&&result?.finalizationPending!==true;
+    const safeToStartFresh=result?.status==="failed"&&result?.kind==="rejected_failure"&&
+      result?.localOk===false&&result?.idbOk===false&&result?.committed===false&&
+      result?.pendingJournalCleanup===false&&result?.conflict===false&&result?.journalFailed!==true&&
+      result?.finalizationPending!==true;
     if(!safeToStartFresh||!sameDraft(draft,prepared?.draft)||activeWorkoutDraftRaw!==prepared.rawDraft)return false;
     move("editing");
     clearDraftUiRecovery();
