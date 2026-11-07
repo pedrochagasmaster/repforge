@@ -1708,6 +1708,7 @@ const fmtLoad=kg=>fmt(toDisplay(kg));
 const fmtLoadPlain=kg=>fmtPlain(toDisplay(kg));
 const term=key=>`<button type="button" class="term" data-term="${esc(key)}">${esc(tOr(`glossary.term.${key}`,key))}</button>`;
 function resetWorkoutSessionIdentity(){
+  abandonVoiceOp();
   clearUnfinishedWatch();
   lastCommitAt=0;sessionStartedAt=0;
   committed.clear();touched.clear();warmups.clear();skipped.clear();substituted.clear();substitutedRef.clear();
@@ -2503,6 +2504,9 @@ const warmups=new Set();
 let contextTouched={day:false,date:false,sessionNotes:false,bodyweight:false};
 const DRAFT_RECOVERY=`${DRAFT}:recovery`,draftTabId=uid();
 let activeWorkoutDraft=null,activeWorkoutDraftRaw=null,workoutDraftRecovery=null;
+/* The one voice operation, if any: see startVoiceInput. Declared with the draft state
+   because draft resets abort it. */
+let voiceOp=null;
 let draftUiRecovery=null;
 let draftWriteTail=Promise.resolve();
 let draftRefreshTail=Promise.resolve();
@@ -2763,7 +2767,7 @@ async function initializeWorkoutDraft({restoreDay=false}={}){
     if(early.kind==="stale"&&isDisposableDraft(early.draft)){
       const dropped=await DraftStore.removeV2({expectedDraftId:early.draft.draftId,
         expectedRevision:early.draft.revision,operationId:`stale-pristine-${uid()}`});
-      if(dropped.status==="applied"){activeWorkoutDraft=null;activeWorkoutDraftRaw=null;return{status:"absent"}}}}
+      if(dropped.status==="applied"){activeWorkoutDraft=null;activeWorkoutDraftRaw=null;abandonVoiceOp();return{status:"absent"}}}}
   read=await reconcileV2Checkpoint(read,checkpointLabel);
   if(read.status!=="ok")return read;
   let parsed=WorkoutDraft.parse(read.raw);
@@ -2794,12 +2798,12 @@ async function initializeWorkoutDraft({restoreDay=false}={}){
       // removal race falls through to it as well.
       const dropped=await DraftStore.removeV2({expectedDraftId:checked.draft.draftId,
         expectedRevision:checked.draft.revision,operationId:`stale-pristine-${uid()}`});
-      if(dropped.status==="applied"){activeWorkoutDraft=null;activeWorkoutDraftRaw=null;return{status:"absent"}}}
+      if(dropped.status==="applied"){activeWorkoutDraft=null;activeWorkoutDraftRaw=null;abandonVoiceOp();return{status:"absent"}}}
     if(checked.kind!=="valid"){storeDraftRecovery(read.raw,checked.kind==="stale"?`stale-${checked.reason}`:checked.code);return{status:checked.kind,error:checked,raw:read.raw}}
     activeWorkoutDraft=checked.draft;activeWorkoutDraftRaw=read.raw;
     if(restoreDay&&days().includes(activeWorkoutDraft.program.dayLabel))day=activeWorkoutDraft.program.dayLabel;
     return{status:"ready",draft:activeWorkoutDraft}}
-  if(parsed.kind==="absent"){activeWorkoutDraft=null;activeWorkoutDraftRaw=null;return{status:"absent"}}
+  if(parsed.kind==="absent"){activeWorkoutDraft=null;activeWorkoutDraftRaw=null;abandonVoiceOp();return{status:"absent"}}
   storeDraftRecovery(read.raw,parsed.code||parsed.kind);return{status:parsed.kind,error:parsed,raw:read.raw}}
 async function createWorkoutDraft(label=day,{contextTouched:selectionContextTouched}={}){
   const existing=await initializeWorkoutDraft();if(existing.status==="ready")return existing;
@@ -7409,7 +7413,7 @@ function setWorkoutActive(on){const was=workoutActive;workoutActive=!!on;
   document.body.classList.toggle("is-workout",workoutActive);
   if(dash)dash.classList.toggle("hidden",workoutActive);
   if(shell)shell.classList.toggle("hidden",!workoutActive);
-  if(!workoutActive){document.body.classList.remove("is-focus-wo");if(activeModal?.el===$("#workoutActionSheet"))closeWorkoutActions()}
+  if(!workoutActive){abandonVoiceOp();document.body.classList.remove("is-focus-wo");if(activeModal?.el===$("#workoutActionSheet"))closeWorkoutActions()}
   updateFocusChrome();
   if(workoutActive!==was){
     if(settle)settle();
@@ -12462,7 +12466,6 @@ function updateVoiceBtn(){const b=$("#voiceBtn");if(!b)return;b.classList.toggle
    its two phases. The operation keeps the recognizer and the draft it was started
    for, so a transcript that arrives after the lifter has left that workout, or
    after its draft has gone, is dropped rather than edited into the one now open. */
-let voiceOp=null;
 function voiceTranscriptCurrent(op){
   return voiceOp===op&&op.phase==="resolving"&&!!activeWorkoutDraft&&activeWorkoutDraft.draftId===op.draftId&&workoutActive;
 }
@@ -12473,8 +12476,9 @@ function abandonVoiceOp(){
 }
 function startVoiceInput(){
   if(!SR||!activeWorkoutDraft)return;
-  if(voiceOp?.phase==="listening"&&voiceOp.draftId!==activeWorkoutDraft.draftId)abandonVoiceOp();
-  if(voiceOp)return;
+  // A tap while listening stops that recognizer and starts nothing. A recognizer that never reports
+  // its end must not strand voice until a reload; the next tap then starts cleanly.
+  if(voiceOp){if(voiceOp.phase==="listening")abandonVoiceOp();return}
   const rec=new SR();rec.lang=I18N?I18N.speechLang():"en-US";rec.interimResults=false;rec.maxAlternatives=1;
   const op={phase:"listening",draftId:activeWorkoutDraft.draftId,recognizer:rec};
   voiceOp=op;
@@ -24571,7 +24575,7 @@ function showSettings(){
   $$("nav button").forEach(x=>{x.classList.remove("active");x.setAttribute("aria-current","false")});
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="settings"));
   document.body.classList.add("is-settings");document.body.classList.remove("is-exercise","is-onboarding","is-workout");
-  workoutActive=false;workoutLeft=true;window.scrollTo({top:0});render();
+  abandonVoiceOp();workoutActive=false;workoutLeft=true;window.scrollTo({top:0});render();
   // Settings opens on its heading (R7 J-09); Back, below, returns to the control that opened it.
   focusRoute(routeHeading("settings"));
   queueMicrotask(()=>maybeShowContextualGuides(["install","privacy"]))}
