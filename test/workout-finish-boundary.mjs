@@ -46,6 +46,58 @@ async function draftTargets(page) {
   });
 }
 
+async function beginEarlyFinishPrompt(page) {
+  await page.locator("#sessionSheetBtn").click();
+  await page.waitForSelector("#sessionSheet.is-open");
+  await page.locator("#sessionEarlyFinish").click();
+  await page.waitForSelector("#sessionEarlyPrompt:not(.hidden)");
+}
+
+async function dismissSessionSheet(page, route) {
+  if (route === "close button") {
+    await page.locator("#sessionSheetClose").click();
+  } else if (route === "scrim") {
+    const point = await page.evaluate(() => {
+      const scrim = document.querySelector("#sessionSheetScrim").getBoundingClientRect();
+      const sheet = document.querySelector("#sessionSheet").getBoundingClientRect();
+      return { x: 12, y: Math.max(1, Math.floor(Math.min(sheet.top - 1, scrim.height - 1) / 2)) };
+    });
+    await page.locator("#sessionSheetScrim").click({ position: point });
+  } else if (route === "Escape") {
+    await page.keyboard.press("Escape");
+  } else if (route === "swipe") {
+    const start = await page.locator("#sessionSheet .sheetband__handle").boundingBox();
+    assert.ok(start, "the session sheet grab handle is visible for swipe dismissal");
+    const x = start.x + start.width / 2;
+    const y = start.y + start.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x, y + 240, { steps: 5 });
+    await page.mouse.up();
+  } else {
+    throw new Error(`unknown session sheet dismissal route: ${route}`);
+  }
+  await page.waitForSelector("#sessionSheet", { state: "hidden", timeout: 5000 });
+}
+
+async function finishThroughButton(page) {
+  await page.evaluate(() => {
+    window.__finishOperationIds = [];
+    window.__repforgeDraftBeforeSaveCommit = ({ operationId }) => window.__finishOperationIds.push(operationId);
+  });
+  const lastExercise = await page.evaluate(() => window.__repforgeFocus.list().at(-1)?.id || null);
+  assert.ok(lastExercise, "the workout has a final exercise to finish from");
+  const currentExercise = await page.locator("#workout .exercise.is-current:not(.is-peek)").getAttribute("data-ex");
+  if (currentExercise !== lastExercise) {
+    const lastProgressIndex = await page.evaluate((id) => window.__repforgeFocus.list().findIndex((item) => item.id === id), lastExercise);
+    await page.locator(`#woProgress button[data-focusgo="${lastProgressIndex}"]`).click();
+    await page.waitForFunction((id) => document.querySelector("#workout .exercise.is-current:not(.is-peek)")?.dataset.ex === id,
+      lastExercise, { timeout: 5000 });
+  }
+  await page.locator("#workout .exercise.is-current:not(.is-peek) [data-ffinish]").click();
+  await page.waitForSelector("#sessionSummary:not(.hidden)", { timeout: 5000 });
+}
+
 async function failSaveBeforePersistence(page) {
   await page.evaluate(() => {
     window.__finishAttempts = [];
@@ -178,11 +230,131 @@ async function voiceProof(browser) {
     await context.close();
   }
 
+  // Opening an exercise page leaves the workout. The recognizer is aborted, a late transcript writes nothing, and
+  // returning to the workout does not revive the old operation.
+  {
+    const { context, page } = await voiceWorkout(browser);
+    await tapVoice(page);
+    await page.locator("#woDayTitle [data-exopen]").click();
+    await page.waitForSelector("#exercise.active");
+    expect(await recognizerAborted(page, 0), "opening an exercise page aborts the listening recognizer");
+    const onExercise = await draftRevision(page);
+    await deliverTranscript(page, 0, "62.5 x 8 @2");
+    expect(await draftRevision(page) === onExercise, "a transcript delivered on the exercise page writes nothing",
+      { before: onExercise, after: await draftRevision(page) });
+    await page.locator("#exBack").click();
+    await page.waitForSelector("#exercise", { state: "hidden" });
+    await deliverTranscript(page, 0, "62.5 x 8 @2");
+    expect(await draftRevision(page) === onExercise, "returning to the workout does not revive the old transcript",
+      { before: onExercise, after: await draftRevision(page) });
+    await tapVoice(page);
+    expect(await recognizerCount(page) === 2, "voice starts again after returning from the exercise page");
+    await context.close();
+  }
+
+  // The dock leaves the workout too. Focus hides the dock, so the proof calls the dock button's own handler.
+  {
+    const { context, page } = await voiceWorkout(browser);
+    await tapVoice(page);
+    await page.evaluate(() => document.querySelector('nav button[data-view="history"]').click());
+    expect(await recognizerAborted(page, 0), "navigating from the dock aborts the listening recognizer");
+    const left = await draftRevision(page);
+    await deliverTranscript(page, 0, "62.5 x 8 @2");
+    expect(await draftRevision(page) === left, "a transcript after dock navigation writes nothing",
+      { before: left, after: await draftRevision(page) });
+    await context.close();
+  }
+
   if (failures.length) throw new Error(`voice proofs failed: ${failures.join("; ")}`);
 }
 
 const browser = await launchChromium();
 try {
+  for (const route of ["close button", "scrim", "Escape", "swipe"]) {
+    const { context, page } = await freshWorkout(browser);
+    const targets = await draftTargets(page);
+    const sessionId = await page.evaluate(() => window.__repforgeWorkoutDraft.current().draftId);
+    await beginEarlyFinishPrompt(page);
+    await dismissSessionSheet(page, route);
+    for (const target of targets) await completeSet(page, target.exerciseInstanceId, target.setId);
+    await finishThroughButton(page);
+    const finished = await page.evaluate((id) => {
+      const state = window.__repforgeWorkoutDraft.state();
+      return {
+        rows: state.log.filter((row) => row.session === id).length,
+        operations: window.__finishOperationIds,
+        draftActive: Boolean(window.__repforgeWorkoutDraft.current()),
+      };
+    }, sessionId);
+    assert.ok(finished.rows > 0, `normal Finish saves the workout after ${route} dismissal: ${JSON.stringify(finished)}`);
+    assert.equal(finished.operations.length, 1, `the ${route} path starts one save operation: ${JSON.stringify(finished)}`);
+    assert.equal(finished.draftActive, false, `the ${route} path clears the finished draft`);
+    await context.close();
+  }
+
+  {
+    const { context, page } = await freshWorkout(browser);
+    const [first] = await draftTargets(page);
+    await completeSet(page, first.exerciseInstanceId, first.setId);
+    const sessionId = await page.evaluate(() => window.__repforgeWorkoutDraft.current().draftId);
+    await page.evaluate(() => {
+      window.__finishOperationIds = [];
+      window.__repforgeDraftBeforeSaveCommit = ({ operationId }) => window.__finishOperationIds.push(operationId);
+    });
+    await page.locator("#sessionSheetBtn").click();
+    await page.locator("#sessionEarlyFinish").click();
+    await page.waitForSelector("#sessionEarlyPrompt:not(.hidden)");
+    await page.locator("#sessionEarlyConfirm").click();
+    await page.waitForFunction(() => window.__repforgeModalState() === "closing", null,
+      { polling: 10, timeout: 3000 });
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => window.__repforgeLastWorkoutFinish != null, null, { timeout: 5000 });
+    const result = await page.evaluate(async () => await window.__repforgeLastWorkoutFinish);
+    assert.equal(result?.committed, true,
+      "Escape during the confirmed sheet close does not cancel its save: " + JSON.stringify(result));
+    await page.waitForSelector("#sessionSummary:not(.hidden)");
+    const saved = await page.evaluate((id) => {
+      const state = window.__repforgeWorkoutDraft.state();
+      return {
+        rows: state.log.filter((row) => row.session === id).length,
+        operations: window.__finishOperationIds,
+        draftActive: Boolean(window.__repforgeWorkoutDraft.current()),
+      };
+    }, sessionId);
+    assert.equal(saved.rows, 1, "the interrupted confirmation commits the completed set once: " + JSON.stringify(saved));
+    assert.equal(saved.operations.length, 1, "the interrupted confirmation starts one save operation: " + JSON.stringify(saved));
+    assert.equal(saved.draftActive, false, "the interrupted confirmation clears the completed draft");
+    await context.close();
+  }
+
+  {
+    const { context, page } = await freshWorkout(browser);
+    const sessionId = await page.evaluate(() => window.__repforgeWorkoutDraft.current().draftId);
+    await beginEarlyFinishPrompt(page);
+    await dismissSessionSheet(page, "Escape");
+    const reps = page.locator(`#workout .exercise.is-current:not(.is-peek) [data-metric-id="${REPS}"]`).first();
+    await reps.focus();
+    await reps.press("Enter");
+    await page.waitForFunction(() => {
+      const toast = document.querySelector("#toast");
+      const summary = document.querySelector("#sessionSummary");
+      return (!toast?.classList.contains("hidden") && toast.textContent.includes("Complete the planned sets")) ||
+        !summary?.classList.contains("hidden");
+    }, null, { timeout: 5000 });
+    const incomplete = await page.evaluate((id) => ({
+      toast: document.querySelector("#toast")?.textContent || "",
+      summaryVisible: !document.querySelector("#sessionSummary")?.classList.contains("hidden"),
+      draftActive: Boolean(window.__repforgeWorkoutDraft.current()),
+      sessionRows: window.__repforgeWorkoutDraft.state().log.filter((row) => row.session === id).length,
+    }), sessionId);
+    assert.equal(incomplete.toast, "Complete the planned sets, or use Finish session early.",
+      "normal Finish after dismissing early consent gives the usual incomplete-workout message: " + JSON.stringify(incomplete));
+    assert.equal(incomplete.summaryVisible, false, "incomplete work cannot be saved using stale early consent");
+    assert.equal(incomplete.draftActive, true, "incomplete normal Finish keeps the draft");
+    assert.equal(incomplete.sessionRows, 0, "incomplete normal Finish adds no history rows");
+    await context.close();
+  }
+
   {
     const { context, page } = await freshWorkout(browser);
     const [first] = await draftTargets(page);
