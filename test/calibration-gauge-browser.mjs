@@ -137,6 +137,26 @@ try {
   "each signal reads its evidence against its target, with the share that agrees", card.signals);
   assert(card.checks.length === 1 && /Seated leg curl/.test(card.checks[0]) && /Guessed 10 → Did 12/.test(card.checks[0]),
     "the recent test sets list the guess and the result", card.checks);
+  // #632 follow-up: at 200 % text in PT (and EN, and at 320) a signal's label and its reading wrap or stack, never
+  // overprint each other.
+  const overlaps = async () => page.evaluate(() => [...document.querySelectorAll("#overviewCalibration .calsig")].map((row) => {
+    const [label, value] = row.querySelectorAll(":scope > span");
+    const range = document.createRange();
+    const boxes = (el) => { range.selectNodeContents(el); return [...range.getClientRects()]; };
+    const hit = boxes(label).some((a) => boxes(value).some((b) => a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5));
+    const outside = [label, value].some((el) => el.getBoundingClientRect().right > row.getBoundingClientRect().right + 0.5);
+    return hit || outside ? label.textContent : null;
+  }).filter(Boolean));
+  const sizes = [];
+  for (const [lang, width] of [["pt", 390], ["en", 390], ["pt", 320]]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.evaluate((lang) => { I18N.setLang(lang); document.documentElement.style.fontSize = "200%"; render(); }, lang);
+    await page.waitForTimeout(200);
+    sizes.push([`${lang} ${width}`, await overlaps()]);
+  }
+  await page.evaluate(() => { document.documentElement.style.fontSize = ""; I18N.setLang("en"); render(); });
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert(sizes.every(([, rows]) => rows.length === 0), "at 200 % text no signal's label and reading overprint or overflow (PT and EN at 390, PT at 320)", sizes);
 
   phase("Was the last rep slow? Only after an exercise's last set");
   await boot(page);
