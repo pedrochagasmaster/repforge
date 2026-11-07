@@ -259,6 +259,41 @@ try {
 
   {
     const { context, page } = await freshWorkout(browser);
+    const [first] = await draftTargets(page);
+    await completeSet(page, first.exerciseInstanceId, first.setId);
+    const sessionId = await page.evaluate(() => window.__repforgeWorkoutDraft.current().draftId);
+    await page.evaluate(() => {
+      window.__finishOperationIds = [];
+      window.__repforgeDraftBeforeSaveCommit = ({ operationId }) => window.__finishOperationIds.push(operationId);
+    });
+    await page.locator("#sessionSheetBtn").click();
+    await page.locator("#sessionEarlyFinish").click();
+    await page.waitForSelector("#sessionEarlyPrompt:not(.hidden)");
+    await page.locator("#sessionEarlyConfirm").click();
+    await page.waitForFunction(() => window.__repforgeModalState() === "closing", null,
+      { polling: 10, timeout: 3000 });
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => window.__repforgeLastWorkoutFinish != null, null, { timeout: 5000 });
+    const result = await page.evaluate(async () => await window.__repforgeLastWorkoutFinish);
+    assert.equal(result?.committed, true,
+      "Escape during the confirmed sheet close does not cancel its save: " + JSON.stringify(result));
+    await page.waitForSelector("#sessionSummary:not(.hidden)");
+    const saved = await page.evaluate((id) => {
+      const state = window.__repforgeWorkoutDraft.state();
+      return {
+        rows: state.log.filter((row) => row.session === id).length,
+        operations: window.__finishOperationIds,
+        draftActive: Boolean(window.__repforgeWorkoutDraft.current()),
+      };
+    }, sessionId);
+    assert.equal(saved.rows, 1, "the interrupted confirmation commits the completed set once: " + JSON.stringify(saved));
+    assert.equal(saved.operations.length, 1, "the interrupted confirmation starts one save operation: " + JSON.stringify(saved));
+    assert.equal(saved.draftActive, false, "the interrupted confirmation clears the completed draft");
+    await context.close();
+  }
+
+  {
+    const { context, page } = await freshWorkout(browser);
     const sessionId = await page.evaluate(() => window.__repforgeWorkoutDraft.current().draftId);
     await beginEarlyFinishPrompt(page);
     await dismissSessionSheet(page, "Escape");
