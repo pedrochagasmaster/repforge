@@ -595,8 +595,28 @@
   }
   function animateDisclosure(panel, open, applyVisualState) {
     const apply = typeof applyVisualState === "function" ? applyVisualState : () => {};
-    if (!available || !panel) { apply(); return null; }
-    if (reducedMotion()) { apply(); panel.classList.remove(COLLAPSING); return settled; }
+    if (!available || !panel) {
+      if (panel) {
+        disclosureRuns.get(panel)?.abandon?.();
+        disclosureRuns.delete(panel);
+        panel.classList.remove(COLLAPSING);
+        panel.style.height = "";
+        panel.style.overflow = "";
+        hint(panel, null);
+      }
+      apply();
+      return null;
+    }
+    if (reducedMotion()) {
+      disclosureRuns.get(panel)?.abandon?.();
+      disclosureRuns.delete(panel);
+      apply();
+      panel.classList.remove(COLLAPSING);
+      panel.style.height = "";
+      panel.style.overflow = "";
+      hint(panel, null);
+      return settled;
+    }
 
     const from = panel.getBoundingClientRect().height;
     apply();
@@ -604,7 +624,10 @@
     panel.style.height = "";
     const to = open ? panel.getBoundingClientRect().height : 0;
     if (Math.abs(to - from) < 1) {
+      disclosureRuns.get(panel)?.abandon?.();
+      disclosureRuns.delete(panel);
       panel.classList.remove(COLLAPSING);
+      panel.style.height = "";
       panel.style.overflow = "";
       hint(panel, null);
       return settled;
@@ -619,15 +642,36 @@
      minimum height and the crossfade of the content are the caller's CSS. */
   function animateSlot(slot, swap) {
     const apply = typeof swap === "function" ? swap : () => {};
-    if (!available || !slot) { apply(); return null; }
-    if (reducedMotion()) { apply(); return settled; }
+    if (!available || !slot) {
+      if (slot) {
+        disclosureRuns.get(slot)?.abandon?.();
+        disclosureRuns.delete(slot);
+        slot.style.height = "";
+        slot.style.overflow = "";
+        hint(slot, null);
+      }
+      apply();
+      return null;
+    }
+    if (reducedMotion()) {
+      disclosureRuns.get(slot)?.abandon?.();
+      disclosureRuns.delete(slot);
+      apply();
+      slot.style.height = "";
+      slot.style.overflow = "";
+      hint(slot, null);
+      return settled;
+    }
 
     const from = slot.getBoundingClientRect().height;
     apply();
     slot.style.height = "";
     const to = slot.getBoundingClientRect().height;
     if (Math.abs(to - from) < 1) {
+      disclosureRuns.get(slot)?.abandon?.();
+      disclosureRuns.delete(slot);
       slot.style.overflow = "";
+      slot.style.height = "";
       hint(slot, null);
       return settled;
     }
@@ -1260,15 +1304,30 @@
   let activeGestureController = null;
 
   function mountGestureController() {
-    if (activeGestureController) return activeGestureController;
+    if (activeGestureController && activeGestureController.state !== "disposed") {
+      return activeGestureController;
+    }
 
     if (!available) {
-      const fallback=global.mountFallbackGestures();
-      const controller={isFluid:false,navigate:dir=>activeGestureController===controller && global.fallbackFocusAnimateTo(dir),dispose(){
-        fallback.dispose();
-        if(activeGestureController===controller)activeGestureController=null;
-      }};
-      activeGestureController=controller;
+      const fallback = global.mountFallbackGestures();
+      let state = "mounted-fallback";
+      const controller = {
+        get state() { return state; },
+        isFluid: false,
+        navigate(dir) {
+          if (state !== "mounted-fallback" || activeGestureController !== controller) return false;
+          return global.fallbackFocusAnimateTo?.(dir) || false;
+        },
+        dispose() {
+          if (state === "disposed") return;
+          state = "disposed";
+          fallback?.dispose?.();
+          if (activeGestureController === controller) {
+            activeGestureController = null;
+          }
+        }
+      };
+      activeGestureController = controller;
       return controller;
     }
     const useFluid = available;
@@ -1327,14 +1386,17 @@
       global.__tauriferFluidControllersInstalled = true;
     }
 
-
-    let disposed = false;
+    let state = "mounted-motion";
     const controller = {
+      get state() { return state; },
       isFluid: useFluid,
-      navigate: dir => !disposed && (useFluid ? fluidFocusAnimateTo(dir) : global.fallbackFocusAnimateTo?.(dir)),
+      navigate(dir) {
+        if (state !== "mounted-motion" || activeGestureController !== controller) return false;
+        return fluidFocusAnimateTo(dir);
+      },
       dispose() {
-        if (disposed) return;
-        disposed = true;
+        if (state === "disposed") return;
+        state = "disposed";
 
         if (focusSlide) cleanupFocusSlide(focusSlide);
         if (sheetGesture) clearSheetGesture({ clearRun: true });
@@ -1987,6 +2049,7 @@
     crossFadeIn,
     registerEdgeSwipeBack,
     mountGestureController,
+    gestureControllerState: () => (activeGestureController ? activeGestureController.state : "unmounted"),
     mountWheel,
   };
 

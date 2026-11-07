@@ -501,6 +501,28 @@ try {
     assert.equal(refusedSave?.ignored, true, "Save remains refused while Recovery owns the operation");
     assert.deepEqual(saveUi, { sheetOpen: false, recoveryVisible: true, recoveryFocused: true },
       "a refused Save focuses the existing recovery explanation: " + JSON.stringify(saveUi));
+
+    await page.evaluate(() => window.__repforgeSessionSheet.open());
+    await page.evaluate(() => {
+      window.__recoveryFocusAttempt = document.querySelector("#sessionEarlyFinish").onclick();
+    });
+    await page.waitForFunction(() => window.__repforgeModalState() === "closing", null, { timeout: 5000 });
+    const cancelledClose = await page.evaluate(async () => {
+      window.__repforgeSessionSheet.open();
+      await window.__recoveryFocusAttempt;
+      return {
+        modal: window.__repforgeModalState(),
+        sheetOpen: !document.querySelector("#sessionSheet").hidden,
+        recoveryVisible: !document.querySelector("#draftRecovery").classList.contains("hidden"),
+        recoveryFocused: document.activeElement === document.querySelector("#draftRecovery"),
+      };
+    });
+    assert.deepEqual(cancelledClose, {
+      modal: "closed",
+      sheetOpen: false,
+      recoveryVisible: true,
+      recoveryFocused: true,
+    }, "a refused Early finish still exposes Recovery when reopening cancels the sheet close: " + JSON.stringify(cancelledClose));
     await context.close();
   }
 } finally {
