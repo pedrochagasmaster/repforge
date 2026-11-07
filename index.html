@@ -73,6 +73,8 @@
       // head script's own fallback uses this, and app.js drives the same object once it runs. A transfer sheet is not
       // inerted by it, and a dialog that opens above the panel keeps its own handling.
       var panelHold=null;
+      // The keyboard yields only to a dialog that can take input, never to one the sweep or another sheet made inert.
+      function usableDialogOpen(){return[].some.call(document.querySelectorAll("dialog[open]"),function(d){return!d.inert})}
       window.__repforgeBootPanel={
         contain:function(){
           if(panelHold)return;
@@ -81,11 +83,12 @@
           var saved=[];
           for(var i=0;i<document.body.children.length;i++){
             var el=document.body.children[i];
-            if(el===splash||el.id==="announcementHost"||el.id==="iosInstallSheet"||el.id==="iosInstallScrim"||(el.tagName==="DIALOG"&&el.open))continue;
+            // A native dialog owns its own modality through showModal(), open or closed, so the sweep never marks one inert.
+            if(el===splash||el.id==="announcementHost"||el.id==="iosInstallSheet"||el.id==="iosInstallScrim"||el.tagName==="DIALOG")continue;
             saved.push([el,el.inert]);el.inert=true}
           saved.push([splash,splash.inert]);splash.inert=false;
           var handler=function(e){
-            if(document.querySelector("dialog[open]"))return;
+            if(usableDialogOpen())return;
             if(e.key==="Escape"){e.preventDefault();e.stopImmediatePropagation();return}
             if(e.key!=="Tab")return;
             e.preventDefault();e.stopImmediatePropagation();
