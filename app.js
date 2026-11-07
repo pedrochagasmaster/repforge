@@ -18843,7 +18843,7 @@ async function discardEntryDraftAndCancel(){
   cancelOnboarding()}
 function entrySetState(next,{persist=true}={}){
   // Anything that moves the flow on supersedes a program still generating for it.
-  if(entryResultJob){entryResultJob.controller.abort();entryResultJob=null}
+  supersedeEntryGeneration(next);
   const offerKey=entryOfferKey(next);
   if(entryOfferJob&&(next?.step!=="result"||offerKey!==entryOfferJob.key)){
     entryOfferJob.controller.abort();entryOfferJob=null}
@@ -18853,8 +18853,7 @@ function entrySetState(next,{persist=true}={}){
   const outgoing=direction&&entryMotionAvailable()?cloneEntryMotionPage(entryMotionLivePage()):null;
   if(next?.step!==entryState?.step||next?.route!==entryState?.route){
     entryPickerDraft={};entryPriorityLimitShown=false;
-    if(entryBuilding){entryBuilding.timers.forEach(clearTimeout);entryBuilding.release()}
-    entryBuilding=null}
+  }
   entryState=next;
   if(next?.step!=="background")entryGoalFromHub=false;
   entryValidationNotice=false;
@@ -19774,15 +19773,34 @@ function settleGeneration(token,outcome){
   let duration=null;
   try{duration=window.RepForgeTelemetry?.bucketGeneration?.(generationClock()-token.at)}catch{}
   if(duration)captureEvent("generation_settled",{route:token.route,outcome,duration})}
-/* Generation is deterministic in its canonical request, so the last few
-   outputs are kept: the review's recommendation is then at hand on the render
-   that follows its own generation. A test's services override is never cached. */
-const entryGenerated=new Map();
+/* One owner holds every generation phase and the current canonical output. */
+const ENTRY_GENERATION_STATUS=Object.freeze({IDLE:"idle",GENERATING_RESULT:"generating-result",
+  REBUILDING_ANSWER:"rebuilding-answer",LOADING_BASELINE:"loading-baseline",READY:"ready"});
+const ENTRY_GENERATION_IDLE=Object.freeze({status:ENTRY_GENERATION_STATUS.IDLE});
+let entryGeneration=ENTRY_GENERATION_IDLE;
 const entryGeneratedKey=request=>ProgramCompiler.generationIdentity(request,rawExerciseCatalog);
+function entryGenerationCache(){
+  if(entryGeneration.status===ENTRY_GENERATION_STATUS.READY)return entryGeneration;
+  return entryGeneration.previous?.status===ENTRY_GENERATION_STATUS.READY?entryGeneration.previous:null}
+function entryGenerationReady(outcome,from,{reveal=null}={}){
+  return{status:ENTRY_GENERATION_STATUS.READY,draftId:from?.draftId||null,key:outcome?.request?entryGeneratedKey(outcome.request):"",
+    generated:window.__repforgeProgramEntryServicesOverride?null:outcome?.generated||null,reveal}}
+function releaseEntryBuilding(checklist){
+  if(!checklist)return;
+  checklist.timers.forEach(clearTimeout);checklist.timers.length=0;checklist.release()}
+function supersedeEntryGeneration(next){
+  const current=entryGeneration,cached=entryGenerationCache();
+  if(current.status===ENTRY_GENERATION_STATUS.GENERATING_RESULT||current.status===ENTRY_GENERATION_STATUS.REBUILDING_ANSWER||
+    current.status===ENTRY_GENERATION_STATUS.LOADING_BASELINE){
+    current.controller?.abort();releaseEntryBuilding(current.checklist)}
+  entryGeneration=cached&&cached.draftId===next?.draftId?cached:ENTRY_GENERATION_IDLE;
+  syncEntryBusy()}
 function entryGeneratedPeek(from){
   if(!from||window.__repforgeProgramEntryServicesOverride||!ProgramEntryAdapter?.programRequestFromAnswers)return null;
   const services=entryServices(),mapped=entryGeneratorRequest(from);
-  const generated=services&&mapped.ok?entryGenerated.get(entryGeneratedKey(mapped.request)):null;
+  const cached=entryGenerationCache();
+  const generated=services&&mapped.ok&&cached?.draftId===from.draftId&&cached.key===entryGeneratedKey(mapped.request)
+    ?cached.generated:null;
   if(!generated?.ok)return null;
   const result=entryCandidate(from,services,mapped.request,cloneSnapshot(generated.value));
   startEntryOfferVerification(from,{confirmationOffers:generated.confirmationOffers,request:mapped.request,
@@ -19857,7 +19875,6 @@ async function runEntryGeneration(from,services,signal){
   const mapped=entryGeneratorRequest(from);
   if(!mapped.ok)return mapped;
   const override=window.__repforgeProgramEntryServicesOverride,engine=override?null:programEngine();
-  const key=entryGeneratedKey(mapped.request);
   let generated;
   try{
     generated=override?await services.generateProgram({request:mapped.request})
@@ -19868,31 +19885,31 @@ async function runEntryGeneration(from,services,signal){
     console.warn("program generation failed",error);return{ok:false,failure:{code:"rebuild_failed"}}}
   if(signal?.aborted)throw new DOMException("The generation request was superseded","AbortError");
   if(!generated?.ok)return{ok:false,failure:{code:"generation_conflict",conflicts:generated?.conflicts||[]}};
-  if(!override){entryGenerated.delete(key);entryGenerated.set(key,generated);
-    while(entryGenerated.size>4)entryGenerated.delete(entryGenerated.keys().next().value)}
   const definition=cloneSnapshot(generated.value);
   return{ok:true,result:entryCandidate(from,services,mapped.request,definition),
     confirmationOffers:Array.isArray(generated.confirmationOffers)?cloneSnapshot(generated.confirmationOffers):[],
-    request:cloneSnapshot(mapped.request),definition}}
+    request:cloneSnapshot(mapped.request),definition,generated}}
 /** O3: the generation whose program has not been drawn yet. Only a compile
  *  arms it (a saved draft that is reopened, and every later render of a result
  *  that already exists, never do), and the first render of that result takes it,
  *  so the build plays once per generation. In memory only. */
-let entryBuildArmed=null;
 /* The generation that will produce the result screen's program: started by
    Continue on the last question, or by a result screen that has none (a
    resumed draft). Until it lands the lifter stays where they were, so the
    committed state never holds a result step without its program; anything
    that moves the flow on meanwhile supersedes it. */
-let entryResultJob=null,entryAnswerJob=null;
 function cancelEntryGeneration(){
-  entryResultJob?.controller.abort();entryAnswerJob?.controller.abort();
-  entryResultJob=null;entryAnswerJob=null;syncEntryBusy()}
+  const current=entryGeneration,cached=entryGenerationCache();
+  if(current.status===ENTRY_GENERATION_STATUS.GENERATING_RESULT||current.status===ENTRY_GENERATION_STATUS.REBUILDING_ANSWER||
+    current.status===ENTRY_GENERATION_STATUS.LOADING_BASELINE){
+    current.controller?.abort();releaseEntryBuilding(current.checklist)}
+  entryGeneration=cached||ENTRY_GENERATION_IDLE;syncEntryBusy()}
 function syncEntryBusy(){
+  const status=entryGeneration.status;
   const next=$("#onbNext");
-  if(next){if(entryResultJob)next.setAttribute("aria-busy","true");else next.removeAttribute("aria-busy")}
+  if(next){if(status===ENTRY_GENERATION_STATUS.GENERATING_RESULT)next.setAttribute("aria-busy","true");else next.removeAttribute("aria-busy")}
   const review=$("#entryCandidateReview");
-  if(review){if(entryAnswerJob)review.setAttribute("aria-busy","true");else review.removeAttribute("aria-busy")}}
+  if(review){if(status===ENTRY_GENERATION_STATUS.REBUILDING_ANSWER)review.setAttribute("aria-busy","true");else review.removeAttribute("aria-busy")}}
 /* B's building moment (Plan 072): a four-line checklist and a thin bar while
    the program generates. The step moves to the result when the checklist has
    finished, or the lifter skipped it, and the program has landed; if the
@@ -19900,7 +19917,6 @@ function syncEntryBusy(){
    every line done. Nothing here is persisted: a reload on this step starts
    it again, and Back returns to the abilities with the job aborted. */
 const ENTRY_BUILDING_LINE_MS=260;
-let entryBuilding=null;
 function renderBuildingStep(){
   const minutes=entryState.answers.sessionMinutes||60;
   const deload=entryState.answers.deload!==false;
@@ -19918,17 +19934,18 @@ function mountEntryBuilding(){
   if(entryState?.step!=="building"||entryUiNotice)return;
   const root=$("#entryBuilding");if(!root)return;
   // One checklist per arrival on the step; a re-render keeps its progress.
-  if(!entryBuilding){
+  if(entryGeneration.status!==ENTRY_GENERATION_STATUS.GENERATING_RESULT||!entryGeneration.checklist){
     let release;const gate=new Promise(resolve=>{release=resolve});
-    entryBuilding={gate,release,done:false,timers:[]};
+    const checklist={gate,release,done:false,timers:[]};
     const target=ProgramEntry.advance(entryState);
-    if(target.ok)startEntryResult(target.state,{gate})}
-  const run=entryBuilding,items=[...root.querySelectorAll(".entry-building__steps li")];
+    if(target.ok)startEntryResult(target.state,{checklist})}
+  const run=entryGeneration.checklist,items=[...root.querySelectorAll(".entry-building__steps li")];
+  if(!run)return;
   const finish=()=>{
     if(run.done)return;run.done=true;run.timers.forEach(clearTimeout);
     items.forEach(li=>{li.classList.remove("is-now");li.classList.add("is-done")});
     root.classList.add("is-done");run.release();
-    entryBuildingPending(!!entryResultJob?.settled)};
+    entryBuildingPending(!!entryGeneration.settled)};
   $("#entryBuildingSkip")?.addEventListener("click",finish);
   if(run.done||!beatsOn()){finish();return}
   if(run.timers.length)return;
@@ -19941,13 +19958,14 @@ function mountEntryBuilding(){
    the hairline appears only while the checklist is done and the job is not. */
 function entryBuildingPending(settled){
   const wait=$("#entryBuildingWait");if(!wait)return;
-  const pending=!settled&&!!entryBuilding?.done;
+  const pending=!settled&&!!entryGeneration.checklist?.done;
   wait.hidden=!pending;
   wait.classList.toggle("is-pending",pending)}
-async function startEntryResult(target,{gate=null}={}){
-  entryResultJob?.controller.abort();
-  const job={from:entryState,target,controller:new AbortController()};
-  entryResultJob=job;entryCompileError=null;
+async function startEntryResult(target,{checklist=null}={}){
+  supersedeEntryGeneration(entryState);
+  const previous=entryGenerationCache();
+  const job={status:ENTRY_GENERATION_STATUS.GENERATING_RESULT,from:entryState,target,controller:new AbortController(),checklist,previous};
+  entryGeneration=job;entryCompileError=null;
   syncEntryBusy();
   let outcome,without=null;
   try{
@@ -19957,16 +19975,17 @@ async function startEntryResult(target,{gate=null}={}){
       const bare=await generateEntryCandidate({...target,answers:{...target.answers,exerciseConstraints:[]}},{signal:job.controller.signal});
       without=bare.ok?bare.result:null}}
   catch{return}
-  if(entryResultJob!==job)return;
+  if(entryGeneration!==job)return;
   // B's building moment shows its checklist through, unless the lifter skips
   // it; a conflict is shown at once.
-  if(gate&&outcome.ok){
+  if(checklist&&outcome.ok){
     job.settled=true;entryBuildingPending(true);
-    await gate;
-    if(entryResultJob!==job)return}
-  entryResultJob=null;
-  if(entryState!==job.from){syncEntryBusy();return}
+    await checklist.gate;
+    if(entryGeneration!==job)return}
+  if(entryState!==job.from){releaseEntryBuilding(checklist);entryGeneration=previous||ENTRY_GENERATION_IDLE;syncEntryBusy();return}
   if(!outcome.ok){
+    releaseEntryBuilding(checklist);
+    entryGeneration=previous||ENTRY_GENERATION_IDLE;syncEntryBusy();
     entryCompileError=outcome.failure;
     entrySetState(target);
     return}
@@ -19975,7 +19994,9 @@ async function startEntryResult(target,{gate=null}={}){
   const sameGeneratedResult=job.from.draftId===target.draftId&&job.from.route===target.route&&
     job.from.result?.fingerprint===outcome.result.fingerprint;
   entryState=ProgramEntry.setResult(target,outcome.result);
-  entryBuildArmed=sameGeneratedResult?null:{draftId:entryState.draftId,fingerprint:outcome.result.fingerprint};
+  entryGeneration=entryGenerationReady(outcome,entryState,{reveal:sameGeneratedResult?null:
+    {draftId:entryState.draftId,fingerprint:outcome.result.fingerprint}});
+  syncEntryBusy();
   entryNoteFirstResult(outcome.result,without);
   // The program that just landed is the review's recommendation.
   if(entryAdjustRoute())adoptEntryAdjust(cloneSnapshot(outcome.result));
@@ -20112,6 +20133,7 @@ async function rebuildEntryForCurrentRules(){
       if(!entryUiNotice)entryUiNotice="rules_changed";
       renderOnboarding();
       return saved}
+    entryGeneration=entryGenerationReady(outcome,entryState);syncEntryBusy();
     entryCompileError=null;
     entryUiNotice=null;
     reportGeneratorCompleted(entryState.result);
@@ -20496,20 +20518,23 @@ async function applyEntryAnswerEdit(patch,{lead,beforeLabel,afterLabel}={}){
   const route=entryState.route;
   if(route!=="recommend"&&route!=="custom")return{ok:false};
   const committed=entryState,before=committed.result;
-  const next=ProgramEntry.setAnswers(entryAnswerJob?.committed===committed?entryAnswerJob.next:committed,patch);
+  const current=entryGeneration;
+  const next=ProgramEntry.setAnswers(current.status==="rebuilding-answer"&&current.committed===committed?current.next:committed,patch);
   if(before.preview.programDefinition?.provenance?.source==="recovered_generation_rules"){
     const mapped=entryGeneratorRequest(next);
     if(!mapped.ok)return{ok:false,failure:{code:"generation_conflict",conflicts:mapped.failure?.conflicts||[]}};
     if(!ProgramCompiler.availableSplits(mapped.request).includes(mapped.request.split))return{ok:false,failure:{code:"generation_conflict",
       conflicts:[{code:"unsupported_generation_domain"}]}}}
-  entryAnswerJob?.controller.abort();
-  const job={committed,next,controller:new AbortController()};
-  entryAnswerJob=job;syncEntryBusy();
+  const previous=entryGenerationCache();
+  if(current.status==="generating-result"||current.status==="rebuilding-answer"||current.status==="loading-baseline"){
+    current.controller?.abort();releaseEntryBuilding(current.checklist)}
+  const job={status:ENTRY_GENERATION_STATUS.REBUILDING_ANSWER,committed,next,controller:new AbortController(),previous};
+  entryGeneration=job;syncEntryBusy();
   let outcome;
   try{outcome=await generateEntryCandidate(next,{signal:job.controller.signal,timed:true})}
   catch{return{ok:false,superseded:true}}
-  if(entryAnswerJob!==job)return{ok:false,superseded:true};
-  entryAnswerJob=null;syncEntryBusy();
+  if(entryGeneration!==job)return{ok:false,superseded:true};
+  entryGeneration=previous||ENTRY_GENERATION_IDLE;syncEntryBusy();
   if(entryState!==committed)return{ok:false,superseded:true};
   if(!outcome.ok)return{ok:false,failure:outcome.failure};
   const compiled=outcome.result;
@@ -20522,6 +20547,8 @@ async function applyEntryAnswerEdit(patch,{lead,beforeLabel,afterLabel}={}){
   entryEditor=null;entryResetEditorFields();entryReviewError=null;
   entryPinnedVersionsExecutable=false;
   entryState=final;
+  entryGeneration=entryGenerationReady(outcome,final);
+  syncEntryBusy();
   if(entryAdjustRoute())adoptEntryAdjust(cloneSnapshot(compiled));
   entrySetState(entryState);
   startEntryOfferVerification(entryState,outcome);
@@ -20633,7 +20660,7 @@ function renderResultStep(){
   const result=entryState.result?.preview?entryState.result:null;
   if(!result&&!entryCompileError){
     // A resumed draft can stand on the result step without its program.
-    if(!entryResultJob)startEntryResult(entryState);
+    if(entryGeneration.status!==ENTRY_GENERATION_STATUS.GENERATING_RESULT)startEntryResult(entryState);
     return entryHeading(resultTitle)+`<p class="visually-hidden" role="status">${esc(t("entry.result.building"))}</p>`}
   if(!result){
     const failure=entryCompileError&&typeof entryCompileError==="object"?entryCompileError:null;
@@ -20673,7 +20700,7 @@ function renderResultStep(){
   /* Plan 070: the program is onboarding B's review editor, mounted into
      #entryReview after this render (mountEntryAdjust). What the program was
      built from stays below it until B's question screens replace these. */
-  return `<section id="entryCandidateReview" class="entry__review" aria-labelledby="entryHeading"${entryAnswerJob?` aria-busy="true"`:""}>`+
+  return `<section id="entryCandidateReview" class="entry__review" aria-labelledby="entryHeading"${entryGeneration.status===ENTRY_GENERATION_STATUS.REBUILDING_ANSWER?` aria-busy="true"`:""}>`+
     `<div id="entryReview" class="entry__adjust ph-no-capture"></div>`+
     renderEntryChangeStatement(entryChange)+
     (hasActiveProgram()&&!entryUiNotice?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
@@ -20733,21 +20760,28 @@ function adoptEntryAdjust(baseline){
   return entryAdjust}
 /* After a reload the recommendation is not at hand: generate it, then mount
    the review it belongs to if that result is still on screen. */
-let entryAdjustLoading=null;
 function loadEntryAdjustBaseline(){
   if(!entryGeneratorReviewRoute()||entryState?.result?.preview?.programDefinition?.generatorVersion!==ProgramCompiler.GENERATOR_VERSION)return Promise.resolve(null);
   const from=entryState,answers=from?.result?.answersFingerprint;
-  if(entryAdjustLoading?.draftId===from?.draftId&&entryAdjustLoading?.answers===answers)return entryAdjustLoading.promise;
-  const promise=generateEntryCandidate(from).catch(()=>({ok:false})).then(outcome=>{
-    if(entryAdjustLoading?.promise===promise)entryAdjustLoading=null;
+  if(entryGeneration.status===ENTRY_GENERATION_STATUS.LOADING_BASELINE&&entryGeneration.draftId===from?.draftId&&entryGeneration.answers===answers)
+    return entryGeneration.promise;
+  if(entryGeneration.status===ENTRY_GENERATION_STATUS.GENERATING_RESULT||entryGeneration.status===ENTRY_GENERATION_STATUS.REBUILDING_ANSWER)
+    return Promise.resolve(null);
+  const previous=entryGenerationCache(),job={status:ENTRY_GENERATION_STATUS.LOADING_BASELINE,draftId:from?.draftId,answers,
+    controller:new AbortController(),previous,promise:null};
+  entryGeneration=job;syncEntryBusy();
+  const promise=generateEntryCandidate(from,{signal:job.controller.signal}).catch(()=>({ok:false})).then(outcome=>{
+    if(entryGeneration!==job)return null;
     if(!outcome.ok||!entryAdjustRoute()||entryState?.draftId!==from.draftId||entryState.result?.answersFingerprint!==answers||
-      !entryState.result?.preview?.programDefinition)return null;
+      !entryState.result?.preview?.programDefinition){
+      entryGeneration=previous||ENTRY_GENERATION_IDLE;syncEntryBusy();return null}
+    entryGeneration=entryGenerationReady(outcome,from);syncEntryBusy();
     if(entryAdjust&&entryAdjust.draftId===from.draftId&&entryAdjust.answers===answers)return entryAdjust;
     startEntryOfferVerification(entryState,outcome);
     const review=adoptEntryAdjust(outcome.result);
     if($("#entryReview")&&!entryAdjustMount)mountEntryAdjust();
     return review});
-  entryAdjustLoading={draftId:from?.draftId,answers,promise};
+  job.promise=promise;
   return promise}
 async function entryAdjustReady(){return ensureEntryAdjust()||(entryAdjustRoute()?await loadEntryAdjustBaseline():null)}
 /* What still keeps Activate disabled on the review: an emptied training day. */
@@ -20856,7 +20890,7 @@ function resolveEntryAdjustDialog(confirmed){
 async function guardEntryRebuild(rebuild){
   // A rebuild of this same result is already generating: its guard has dealt
   // with the adjustments, and the next answer builds on that rebuild.
-  const rebuilding=entryAnswerJob&&entryAnswerJob.committed===entryState;
+  const rebuilding=entryGeneration.status===ENTRY_GENERATION_STATUS.REBUILDING_ANSWER&&entryGeneration.committed===entryState;
   if(!rebuilding&&await entryAdjusted()){
     const count=window.RepForgeProgramReview.changes(entryAdjust.baseline.preview.programDefinition,
       entryState.result.preview.programDefinition).count||1;
@@ -21670,7 +21704,7 @@ function renderOnboarding({pageTransition=null}={}){
     const needsChoice=!hideNext&&!isEditor&&entryNeedsChoice(stepId);
     const blocked=!hideNext&&!isEditor&&(needsChoice||!hub&&ProgramEntry.validationIssues(entryState).length>0);
     next.disabled=!!pendingReason||blocked;
-    if(entryResultJob)next.setAttribute("aria-busy","true");else next.removeAttribute("aria-busy");
+    if(entryGeneration.status===ENTRY_GENERATION_STATUS.GENERATING_RESULT)next.setAttribute("aria-busy","true");else next.removeAttribute("aria-busy");
     /* A blocked primary says why, in text above it, and drops its arrow. */
     const showReason=blocked&&!pendingReason;
     if(reason){reason.hidden=!showReason;reason.textContent=showReason?t(stepId==="build_setup"?"entry.pinned.reason_name":needsChoice?"entry.required":"entry.pinned.reason"):""}
@@ -21753,7 +21787,8 @@ function renderOnboarding({pageTransition=null}={}){
  *  classes come off when the last block lands, and a render that follows draws
  *  the program at rest. Reduced motion draws it all at once with no classes. */
 function playEntryBuild(body){
-  const armed=entryBuildArmed;entryBuildArmed=null;
+  const armed=entryGeneration.status===ENTRY_GENERATION_STATUS.READY?entryGeneration.reveal:null;
+  if(armed)entryGeneration={...entryGeneration,reveal:null};
   const result=entryState?.result;
   if(!armed||!result?.fingerprint||armed.draftId!==entryState.draftId||armed.fingerprint!==result.fingerprint||!beatsOn())return;
   const review=body.querySelector("#entryReview .review"),panel=review?.querySelector(":scope > .review__panel");
@@ -22155,7 +22190,7 @@ async function surfaceEntryDurableConflict(){
   return recovered;
 }
 function entryAdvance(){
-  if(!ProgramEntry||!entryState||entryResultJob)return;
+  if(!ProgramEntry||!entryState||entryGeneration.status===ENTRY_GENERATION_STATUS.GENERATING_RESULT)return;
   if(entryHubMode()){entryChooseHubRoute();return}
   entryGoalOpen=false;
   if(entryState.step==="split")stopEntrySplitEstimates();
