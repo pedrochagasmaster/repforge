@@ -984,8 +984,6 @@ function snapshotBodyInert(){
 function applyModalInert(keep){
   const allow=new Set(keep.filter(Boolean));
   allow.add($("#announcementHost"));
-  // A boot error panel is the lifter's way out (Reload), so no sheet opened over it may disable it.
-  if(bootPanelShowing())allow.add(document.getElementById("bootSplash"));
   for(const child of document.body.children){
     if(allow.has(child)){child.inert=false;continue}
     child.inert=true}}
@@ -1327,14 +1325,12 @@ function openModal(el,opts={}){
       if(typeof rec.onEscape==="function")rec.onEscape();
       return}
     if(e.key!=="Tab")return;
-    // While the boot error panel owns the presentation, the trap holds focus on its Reload: the sheet under it has no visible control.
-    const scope=bootPanelShowing()?document.getElementById("bootSplash"):el;
-    const stops=modalFocusables(scope);
+    const stops=modalFocusables(el);
     if(!stops.length){e.preventDefault();return}
     const first=stops[0],last=stops[stops.length-1];
     if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}
     else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}
-    else if(!scope.contains(document.activeElement)){e.preventDefault();(e.shiftKey?last:first).focus()}};
+    else if(!el.contains(document.activeElement)){e.preventDefault();(e.shiftKey?last:first).focus()}};
   rec.onPointer=e=>{
     if(!activeModal||activeModal.el!==el||$("#nativeContextMenu")?.open)return;
     const t=e.target instanceof Element?e.target:null;
@@ -5222,6 +5218,9 @@ async function installTransferPrepareStandaloneBoot(){
     // cookie it wrote; only the installed app claims it.
     const cookie=transfer.contextFrom()==="standalone"?transfer.readTransferCookie({document}):null;
     if(!cookie&&!inboundBefore)return{ok:true,absent:true};
+    // The claiming sheet is the surface for as long as the claim or the import that follows runs. The splash gives
+    // way to it, so the stall deadline has nothing to declare here.
+    releaseBootSplash();
     openIosInstallSheet("claiming");
     if(inboundBefore?.phase==="local-committed"||inboundBefore?.phase==="cleanup-pending"){
       const standalone=await installTransferStandaloneClient();
@@ -25788,8 +25787,6 @@ if(DurableState){
    The head script shows the panel itself when app.js has not arrived, and app.js
    starts out stalled when it finds that panel. */
 let bootSplashState=document.documentElement.classList.contains("is-boot-failed")?"stalled":"covering";
-/* The error panel owns the presentation while it is up: its Reload is the only control the lifter can see. */
-function bootPanelShowing(){return(bootSplashState==="stalled"||bootSplashState==="failed")&&!!document.getElementById("bootSplash")}
 function releaseBootSplash(){
   if(bootSplashState!=="covering"&&bootSplashState!=="stalled")return;
   const lifting=bootSplashState==="stalled";
@@ -25825,9 +25822,6 @@ function showBootFailure(reason){
   // rest of the page during boot, is never announced.
   document.querySelector("#bootSplash .bootsplash__fail")?.setAttribute("role","alert");
   root.classList.add("is-boot-failed");
-  // A sheet that was already open made the splash inert; the panel has to take input.
-  const splash=document.getElementById("bootSplash");
-  if(splash)splash.inert=false;
   const reload=document.getElementById("bootReload");
   if(reload){reload.onclick=()=>location.reload();try{reload.focus({preventScroll:true})}catch{}}}
 window.__repforgeShowBootFailure=showBootFailure;
