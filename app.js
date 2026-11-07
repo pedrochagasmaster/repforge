@@ -2909,7 +2909,7 @@ function showDraftInitializationRecovery(result,{retryMode="initialize",label=da
     focus:null,retry:true,retryMode,label,contextTouched,discardIdentity:identity,discardRaw,
     discard:kind==="program"&&(!!identity||!!discardRaw)};
   renderDraftRecovery();focusDraftRecovery()}
-function clearDraftUiRecovery(){draftUiRecovery=null;renderDraftRecovery()}
+function clearDraftUiRecovery(){draftUiRecovery=null;WorkoutSession.clearRecovery();renderDraftRecovery()}
 async function copyDraftRecoveryValue(){const value=draftUiRecovery?.copyValue;if(value==null)return false;
   try{if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(String(value));toast(t("draft.recovery.copied"));return true}}catch{}
   try{const ta=document.createElement("textarea");ta.value=String(value);ta.setAttribute("readonly","");
@@ -11252,6 +11252,7 @@ const WorkoutSession=(()=>{
     const operation=saveState.operation;
     move("draining",{operation});
     return operation}
+  function clearRecovery(){if(saveState.phase==="recovery")move("editing")}
   function returnToEditing(){
     if(saveState.phase==="recovery")move("editing");
     return saveState.phase==="editing"}
@@ -11312,23 +11313,25 @@ async function finish(operation){
     const session=capturedDraft.draftId,date=capturedDraft.program.scheduleDate,
       savedDay=capturedDraft.program.dayLabel,startedAt=Date.parse(capturedDraft.session.startedAt)||0,
       prevLog=state.log.slice(),savedDraft=capturedDraft;
-    const proposal=cloneSnapshot(state);proposal.log=proposal.log.concat(cloneSnapshot(rows));
     const timing=sessionTimingRecord(capturedDraft.session.startedAt,operation.finishedAt);
-    if(timing)proposal.sessionTiming={...(proposal.sessionTiming||{}),[session]:timing};
-    // The proposal and exact draft removal stay attached to this operation so
-    // recovery retries cannot recapture a changed aggregate or add its rows twice.
+    // The captured rows and exact draft removal stay attached to this operation;
+    // each attempt rebuilds its state proposal from the current durable snapshot.
     const effect=destructiveDraftClearEffect(capturedRaw);
     const expectedBlockId=Object.prototype.hasOwnProperty.call(savedDraft.program||{},"blockId")
       ?savedDraft.program.blockId:null;
     prepared=operation.prepared={
-      draft:savedDraft,rawDraft:capturedRaw,proposal,effect,session,
+      draft:savedDraft,rawDraft:capturedRaw,effect,session,rows,timing,
       expectedProgramId:savedDraft.program.programId,expectedBlockId,
       completed:{rows,prevLog,session,date,day:savedDay,startedAt,draftId:savedDraft.draftId}}}
   move("committing",{operation});
   if(typeof window.__repforgeDraftBeforeSaveCommit==="function")
     await window.__repforgeDraftBeforeSaveCommit({session:prepared.session,draftId:prepared.draft.draftId,
       revision:prepared.draft.revision,operationId:operation.operationId});
-  const result=await commitProposedState(prepared.proposal,operation.io,
+  const proposal=cloneSnapshot(state);
+  if(!(proposal.log||[]).some(row=>row.session===prepared.session))
+    proposal.log=(proposal.log||[]).concat(cloneSnapshot(prepared.rows));
+  if(prepared.timing)proposal.sessionTiming={...(proposal.sessionTiming||{}),[prepared.session]:prepared.timing};
+  const result=await commitProposedState(proposal,operation.io,
     {effect:prepared.effect,reconcileSessionIds:[prepared.session],expectedProgramId:prepared.expectedProgramId,
       expectedBlockId:prepared.expectedBlockId});
   operation.result=result;
@@ -11337,7 +11340,7 @@ async function finish(operation){
   move("saved",{operation});
   resetWorkoutSessionIdentity();
   return{result,completed:prepared.completed}}
-  return Object.freeze({start,leave,finish,beginSave,canBeginSave,retrySave,recover,
+  return Object.freeze({start,leave,finish,beginSave,canBeginSave,retrySave,clearRecovery,recover,
     captureEarlyFinish,refreshEarlyFinish,earlyFinishDraft,earlyFinishMatches,cancelEarlyFinish,
     reloadLatest:returnToEditing,resetAfterDraftRemoval,dispatch:enqueueDraftCommand,
     projection:workoutDraftProjection,flush:drainDraftWork})})();
@@ -11400,9 +11403,15 @@ async function retryWorkoutSave(){
   const operation=WorkoutSession.retrySave();
   if(!operation)return{ignored:true};
   return saveWorkoutV2(operation)}
+async function focusSaveRecovery(){
+  if(!draftUiRecovery)return false;
+  const sheet=$("#sessionSheet");
+  if(sheet&&(!sheet.hidden||activeModal?.el===sheet)){
+    const closing=closeSessionSheet();if(closing&&typeof closing.then==="function")await closing}
+  renderDraftRecovery();focusDraftRecovery();return true}
 
 async function saveWorkout(e,io,options={}){if(e&&e.preventDefault)e.preventDefault();
-  if(!WorkoutSession.canBeginSave(options))return{ignored:true};
+  if(!WorkoutSession.canBeginSave(options)){await focusSaveRecovery();return{ignored:true}}
   if(!activeWorkoutDraft){showDraftInitializationRecovery({status:"invalid",raw:DraftStore.readRaw()});return{localOk:false,idbOk:false,reason:"missing-active-draft"}}
   const operation=WorkoutSession.beginSave(io,options);
   if(!operation)return{ignored:true};
@@ -25004,7 +25013,8 @@ function init(){
   const earlyBtn=$("#sessionEarlyFinish");if(earlyBtn)earlyBtn.onclick=async()=>{
     await WorkoutSession.flush();
     if(!activeWorkoutDraft)return;
-    if(!WorkoutSession.captureEarlyFinish(activeWorkoutDraft))return;
+    if(!WorkoutSession.captureEarlyFinish(activeWorkoutDraft)){
+      await focusSaveRecovery();return}
     renderEarlyFinishPreview();
     const earlyMsg=$("#sessionEarlyMsg");
     if(earlyMsg){earlyMsg.classList.remove("is-error");earlyMsg.textContent=t("session.sheet.early_prompt")}
