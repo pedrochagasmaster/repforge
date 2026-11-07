@@ -9045,10 +9045,13 @@ function openSessionSheet(){
   requestAnimationFrame(() => { sheet.classList.add("is-open"); scrim?.classList.add("is-open"); });
 }
 
-function closeSessionSheet(){
+function closeSessionSheet({preserveEarlyConfirmation=false}={}){
   const sheet = $("#sessionSheet");
   if (!sheet) return Promise.resolve(false);
-  if (sheet.hidden && !(activeModal && activeModal.el === sheet)) return Promise.resolve(false);
+  const modal = activeModal?.el === sheet ? activeModal : null;
+  if (sheet.hidden && !modal) return Promise.resolve(false);
+  if (modal && (modal.state === "closing" || modal.state === "closed")) return Promise.resolve(false);
+  if(!preserveEarlyConfirmation)WorkoutSession.cancelEarlyFinish();
   teardownSessionSorting();
   return closeModal(sheet);
 }
@@ -11309,6 +11312,7 @@ const WorkoutSession=(()=>{
     if(saveState.phase==="recovery"&&completion==="normal"&&
       !reopenAfterTotalFailure(activeWorkoutDraft))return false;
     if(saveState.phase==="editing")return completion==="normal";
+    if(saveState.phase==="early-confirmation"&&completion==="normal")return true;
     return saveState.phase==="early-confirmation"&&completion===EARLY_FINISH_CONFIRMATION&&
       sameDraft(saveState.expectedDraft,options.expectedDraft)}
   function beginSave(io,options={}){
@@ -25236,7 +25240,7 @@ function init(){
       return;
     }
     const expectedDraft=WorkoutSession.earlyFinishDraft();
-    const p=closeSessionSheet();if(p&&typeof p.then==="function")await p;
+    const p=closeSessionSheet({preserveEarlyConfirmation:true});if(p&&typeof p.then==="function")await p;
     const finishPromise=saveWorkout(null,null,{expectedDraft,completion:EARLY_FINISH_CONFIRMATION});
     window.__repforgeLastWorkoutFinish=finishPromise;
     await finishPromise;
