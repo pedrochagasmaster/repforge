@@ -1647,6 +1647,20 @@ async function runP4cPostMarkerBootOrdering(browser, envelope) {
       } catch { return "invalid"; }
     };
     window.__p4cBootTrace = trace;
+    // The head script's 12 s stall timer runs at 300 ms, once app.js has defined its
+    // failure hook. A probe on the same delay counts the deadline, so the test can
+    // wait for it to pass without sleeping.
+    const realSetTimeout = window.setTimeout.bind(window);
+    window.__bootDeadlinePasses = 0;
+    window.setTimeout = (fn, ms, ...rest) => {
+      if (ms !== 12000) return realSetTimeout(fn, ms, ...rest);
+      realSetTimeout(() => { window.__bootDeadlinePasses += 1; }, 300);
+      const run = () => {
+        if (typeof window.__repforgeShowBootFailure !== "function") return void realSetTimeout(run, 20);
+        fn();
+      };
+      return realSetTimeout(run, 300);
+    };
     let booted = false;
     Object.defineProperty(window, "__repforgeBooted", {
       configurable: true,
@@ -1709,6 +1723,30 @@ async function runP4cPostMarkerBootOrdering(browser, envelope) {
       visible: document.querySelector("#iosInstallSheet")?.hidden === false,
       retryVisible: !document.querySelector("#installTransferRetry")?.classList.contains("hidden"),
     }));
+    // Occlusion, not visibility: the splash is inert once the sheet opens, so hit-testing skips it.
+    // The check reads the splash's own box and opacity at the Retry's centre.
+    await page.waitForFunction(() => window.__bootDeadlinePasses >= 1 &&
+      document.querySelector("#iosInstallSheet")?.dataset.transferState === "interrupted" &&
+      document.getAnimations().every((animation) => animation.playState !== "running"), undefined, { timeout: 10000 });
+    const occlusion = await page.evaluate(() => {
+      const retry = document.getElementById("installTransferRetry");
+      const splash = document.getElementById("bootSplash");
+      const box = retry.getBoundingClientRect();
+      const x = box.left + box.width / 2;
+      const y = box.top + box.height / 2;
+      const splashBox = splash?.getBoundingClientRect();
+      const style = splash ? getComputedStyle(splash) : null;
+      const covers = !!splash && style.display !== "none" && style.visibility !== "hidden" && parseFloat(style.opacity) > 0.5 &&
+        !!splashBox && x >= splashBox.left && x <= splashBox.right && y >= splashBox.top && y <= splashBox.bottom;
+      const hit = document.elementFromPoint(x, y);
+      return { covers, retryHit: !!hit?.closest("#installTransferRetry"), failed: document.documentElement.classList.contains("is-boot-failed") };
+    });
+    check(!occlusion.covers && occlusion.retryHit,
+      "P4c-F: the interrupted-transfer sheet is not covered by the boot splash, and its Retry is the control under the pointer",
+      { occlusion });
+    check(!occlusion.failed,
+      "P4c-F: no 'didn't start' panel once the stall deadline has passed while the transfer sheet is the surface",
+      { occlusion });
     check(trace.faulted === true && trace.booted === false && localMarker?.phase === "importing" &&
       idbMarker?.phase === "importing" && telemetryAfterMarker.length === 0 && initAfterMarker.length === 0 &&
       recoveryUi.state === "interrupted" && recoveryUi.visible && recoveryUi.retryVisible,
