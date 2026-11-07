@@ -24,15 +24,16 @@ function mountFallbackGestures() {
   window.addEventListener("pointermove", focusDragMove, { passive: true });
   window.addEventListener("pointerup", focusDragEnd);
   window.addEventListener("pointercancel", focusDragEnd);
-  let disposed = false;
+  let state = "mounted-fallback";
   const onEscape=e=>{if(e.key==="Escape")cancelFallbackGestures()};
   document.addEventListener("keydown",onEscape,true);
   fallbackGestureController = {
+    get state() { return state; },
     isFluid:false,
-    navigate:dir=>!disposed && fallbackFocusAnimateTo(dir),
+    navigate:dir=>state==="mounted-fallback" && fallbackFocusAnimateTo(dir),
     dispose() {
-      if (disposed) return;
-      disposed = true;
+      if (state === "disposed") return;
+      state = "disposed";
       cancelFallbackGestures();
       fallbackGestureController=null;
       document.removeEventListener("keydown",onEscape,true);
@@ -1261,6 +1262,8 @@ function pushRoute(direction,pages,change){
   settle?.()}
 function routeViewEl(id){return $(`#${id}`)}
 const SHEET_FADE_MS=180;
+function modalState(){return activeModal?activeModal.state:"closed"}
+window.__repforgeModalState=modalState;
 function openModal(el,opts={}){
   if(!el)return false;
   const extras=opts.extras||[];
@@ -1269,17 +1272,45 @@ function openModal(el,opts={}){
     const opener=opts.returnFocus||activeModal.returnFocus;
     const prevInert=activeModal.prevInert;
     const prev=activeModal;
-    detachModalListeners(prev);
-    hideModalElement(prev);
+    if(prev.state==="closing"){
+      prev.fastClose?.();
+      prev.cancelClose=null;
+      prev.fastClose=null;
+    }else{
+      prev.state="closed";
+      detachModalListeners(prev);
+      hideModalElement(prev);
+    }
     activeModal=null;
     return openModal(el,{...opts,handoff:false,returnFocus:opener,prevInert})}
-  if(activeModal&&activeModal.el===el)return true;
+  if(activeModal&&activeModal.el===el){
+    if(activeModal.state==="closing"){
+      const rec=activeModal;
+      rec.cancelClose?.();
+      rec.cancelClose=null;
+      rec.fastClose=null;
+      rec.state="open";
+      if(opts.onEscape)rec.onEscape=opts.onEscape;
+      if(opts.returnFocus)rec.returnFocus=opts.returnFocus;
+      if(rec.el.tagName==="DIALOG"){if(typeof rec.el.showModal==="function"&&!rec.el.open)rec.el.showModal()}
+      else{rec.el.hidden=false;rec.el.classList.remove("hidden")}
+      rec.scrim?.classList.remove("hidden");
+      rec.el.classList.add("is-open");
+      rec.scrim?.classList.add("is-open");
+      applyModalInert([rec.el,rec.scrim,...extras]);
+      const focusEl=typeof opts.initialFocus==="function"?opts.initialFocus():opts.initialFocus;
+      const toFocus=focusEl||modalFocusables(rec.el)[0];
+      if(toFocus)quietFocus(toFocus);
+      return true;
+    }
+    return true;
+  }
   // Under reduced motion a sheet cross-fades out in place (ADR 0023), so its hide waits for the fade.
   const sheet=el.classList.contains("sheet");
   const rec={
     el,scrim:opts.scrim||null,returnFocus:opts.returnFocus||document.activeElement,
     onEscape:opts.onEscape,delayHide:sheet&&reducedMotion()?Math.max(opts.delayHide||0,SHEET_FADE_MS):opts.delayHide||0,
-    prevInert:opts.prevInert||snapshotBodyInert(),closing:false
+    prevInert:opts.prevInert||snapshotBodyInert(),state:"open"
   };
   // A sheet with detents opens at its first one, whatever a drag left it on last time.
   if(sheet)delete el.dataset.detent;
@@ -1317,14 +1348,15 @@ function openModal(el,opts={}){
   return true}
 function closeModal(el){
   const rec=activeModal;
-  if(!rec||(el&&rec.el!==el)||rec.closing)return Promise.resolve(false);
-  rec.closing=true;
+  if(!rec||(el&&rec.el!==el)||rec.state==="closing"||rec.state==="closed")return Promise.resolve(false);
+  rec.state="closing";
   return new Promise(resolve=>{
     let fallback=null,onEnd=null;
-    const finish=()=>{
-      if(rec.done)return;rec.done=true;
-      if(fallback)clearTimeout(fallback);
-      if(onEnd)rec.el.removeEventListener("transitionend",onEnd);
+    const finish=(success=true)=>{
+      if(rec.state==="closed")return;
+      rec.state="closed";
+      if(fallback){clearTimeout(fallback);fallback=null;}
+      if(onEnd){rec.el.removeEventListener("transitionend",onEnd);onEnd=null;}
       detachModalListeners(rec);
       hideModalElement(rec);
       restoreBodyInert(rec.prevInert);
@@ -1333,14 +1365,28 @@ function closeModal(el){
       if(target){
         quietFocus(target)}
       if(!activeModal&&modalSettleQueue.length){const queued=modalSettleQueue;modalSettleQueue=[];queued.forEach(callback=>callback())}
-      resolve(true)};
+      resolve(success)};
+    rec.cancelClose=()=>{
+      if(fallback){clearTimeout(fallback);fallback=null;}
+      if(onEnd){rec.el.removeEventListener("transitionend",onEnd);onEnd=null;}
+      resolve(false);
+    };
+    rec.fastClose=()=>{
+      if(rec.state==="closed")return;
+      rec.state="closed";
+      if(fallback){clearTimeout(fallback);fallback=null;}
+      if(onEnd){rec.el.removeEventListener("transitionend",onEnd);onEnd=null;}
+      detachModalListeners(rec);
+      hideModalElement(rec);
+      resolve(true);
+    };
     if(rec.delayHide>0){
       rec.el.classList.remove("is-open");
       rec.scrim?.classList.remove("is-open");
-      fallback=setTimeout(finish,rec.delayHide);
-      onEnd=e=>{if(e.target===rec.el)finish()};
+      fallback=setTimeout(()=>finish(true),rec.delayHide);
+      onEnd=e=>{if(e.target===rec.el)finish(true)};
       rec.el.addEventListener("transitionend",onEnd)}
-    else finish()})}
+    else finish(true)})}
 /* Settings disclosures open panels whose height is content — a strategy
  * explainer here, a table there, and different again in Portuguese. The state
  * change is applied to the accessibility tree immediately; only the geometry is
@@ -7944,7 +7990,7 @@ function sheetDragStart(e){
   if(sheetDrag)return;
   if(e.pointerType==="mouse"&&e.button!==0)return;
   const rec=activeModal;
-  if(!rec||rec.closing||typeof rec.onEscape!=="function")return;
+  if(!rec||rec.state!=="open"||typeof rec.onEscape!=="function")return;
   if(!rec.el?.classList.contains("sheet"))return;
   const target=e.target instanceof Element?e.target:null;
   if(!target||!rec.el.contains(target))return;
@@ -7957,7 +8003,7 @@ function sheetDragStart(e){
 function sheetDragMove(e){
   if(!sheetDrag||e.pointerId!==sheetDrag.id)return;
   const rec=sheetDrag.rec;
-  if(activeModal!==rec||rec.closing){sheetDragEnd();return}
+  if(activeModal!==rec||rec.state!=="open"){sheetDragEnd();return}
   const dy=e.clientY-sheetDrag.y,dx=e.clientX-sheetDrag.x;
   if(!sheetDrag.live){
     // Upwards or sideways is somebody else's gesture; only a downward push takes
@@ -8012,7 +8058,7 @@ function sheetDragEnd(e){
   // anything short of either is the lifter changing their mind.
   const flick=vy>=.5&&dy>=32;
   const dismiss=flick||dy>=Math.min(160,Math.max(64,(rec.el.offsetHeight||0)*.32));
-  const gone=activeModal!==rec||rec.closing;
+  const gone=activeModal!==rec||rec.state!=="open";
   if(!motion){
     // No runtime: the stylesheet finishes the gesture exactly as it did before.
     sheetDragRelease(rec);
