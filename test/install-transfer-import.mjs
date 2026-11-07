@@ -1169,6 +1169,27 @@ async function runMeaningfulDestinationMatrix(browser, envelope) {
   }
 }
 
+/* The device rest record (repforge_rest_v1) is not destination data: a fresh destination that holds only it is still eligible,
+   and an accepted transfer replaces the draft, which ends that rest and removes the record. */
+async function runRestRecordIsNotDestinationData(browser, envelope) {
+  console.log("\nA device rest record alone does not make the destination meaningful");
+  const REST_KEY = "repforge_rest_v1";
+  const { context, page } = await openFreshContext(browser);
+  try {
+    await page.evaluate((key) => {
+      const now = Date.now();
+      localStorage.setItem(key, JSON.stringify({ draftId: "rest-record-only", restId: "rest-record-only",
+        rest: { kind: "running", deadlineMs: now + 60000, lengthSec: 60, exerciseId: null, rang: false, expiresAt: now + 3660000 } }));
+    }, REST_KEY);
+    const result = await importInto(page, envelope);
+    check(result?.ok === true, "a fresh destination holding only a rest record accepts the transfer", result);
+    const after = await page.evaluate((key) => localStorage.getItem(key), REST_KEY);
+    check(after === null, "the accepted transfer removes the device rest record", after);
+  } finally {
+    await context.close();
+  }
+}
+
 async function runP4cStandaloneClaimCommit(browser, envelope) {
   console.log("\nPlan 053-P4c A standalone cookie claim/import/commit boundary");
   const events = [];
@@ -2271,6 +2292,7 @@ async function main() {
       await runProfileDestinationProtection(browser, envelope);
       await runMalformedProfileSettings(browser);
       await runMeaningfulDestinationMatrix(browser, envelope);
+      await runRestRecordIsNotDestinationData(browser, envelope);
       await runP4cStandaloneClaimCommit(browser, envelope);
       await runP4cConcurrentImport(browser, envelope);
       await runP4cMarkerContract(browser, envelope);

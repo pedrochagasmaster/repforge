@@ -948,11 +948,14 @@ try {
     await page.evaluate(() => window.__repforgeEnterWorkout({day: "Day 1" }));
     const activeDraftRaw = await page.evaluate((draftKey) => localStorage.getItem(draftKey), DRAFT);
     assert(JSON.parse(activeDraftRaw || "null")?.schemaVersion === 2, "Backup proof starts with a real active DraftV2");
+    await page.evaluate(() => localStorage.setItem("repforge_rest_v1", JSON.stringify({ draftId: "rest-plant", restId: "rest-plant",
+      rest: { kind: "running", deadlineMs: Date.now() + 60000, lengthSec: 60, exerciseId: null, rang: false, expiresAt: Date.now() + 3660000 } })));
     const [download] = await Promise.all([
       page.waitForEvent("download"),
       page.evaluate(() => document.querySelector("#exportJson")?.click()),
     ]);
     const exported = JSON.parse(readFileSync(await download.path(), "utf8"));
+    assert(!JSON.stringify(exported).includes("rest-plant"), "Backup excludes the device rest record");
     assert(!("_storageRevision" in exported), "Backup omits _storageRevision", JSON.stringify(Object.keys(exported)));
     assert(!("_storageFollowUp" in exported), "Backup omits the follow-up marker", JSON.stringify(exported));
     assert(!("workoutDraft" in exported) && !JSON.stringify(exported).includes(activeDraftRaw),
