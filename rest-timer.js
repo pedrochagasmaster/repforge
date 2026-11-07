@@ -118,6 +118,34 @@
     return result(createRestClock(0), [EFFECTS.CLEARED]);
   }
 
+  /** The armed clock as plain data a reload can read back, or null when idle. The deadline or held remainder is all the time it keeps. */
+  function snapshot(state) {
+    if (state.kind === "idle") return null;
+    const { lengthSec, exerciseId, rang } = state;
+    return state.kind === "paused"
+      ? { kind: "paused", remainingMs: state.remainingMs, lengthSec, exerciseId, rang }
+      : { kind: "running", deadlineMs: state.deadlineMs, lengthSec, exerciseId, rang };
+  }
+
+  /**
+   * Put back a clock read from a snapshot after a reload: the same deadline or held remainder, and the same bell. Only an
+   * idle clock takes one, and only a well-formed snapshot; anything else leaves the clock as it is. No effect is named,
+   * because a restored clock is the same rest, not a new one: its bell was settled before the reload, or is still due.
+   */
+  function restore(state, saved) {
+    if (state.kind !== "idle" || saved === null || typeof saved !== "object") return unchanged(state);
+    const { kind, lengthSec, rang } = saved;
+    const exerciseId = saved.exerciseId ?? null;
+    const timed = kind === "paused" ? "remainingMs" : kind === "running" ? "deadlineMs" : null;
+    const valid = timed !== null && Number.isFinite(saved[timed]) && Number.isFinite(lengthSec) && lengthSec >= 0
+      && (exerciseId === null || typeof exerciseId === "string") && typeof rang === "boolean";
+    if (!valid) return unchanged(state);
+    const common = { lengthSec, exerciseId, rang };
+    return result(freeze(kind === "paused"
+      ? { kind, remainingMs: saved.remainingMs, ...common }
+      : { kind, deadlineMs: saved.deadlineMs, ...common }), NO_EFFECTS);
+  }
+
   return Object.freeze({
     MAX_SEC,
     OVERTIME_MAX_SEC,
@@ -132,5 +160,7 @@
     setLength,
     settle,
     stop,
+    snapshot,
+    restore,
   });
 });
