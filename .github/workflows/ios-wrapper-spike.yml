@@ -1,0 +1,43 @@
+name: Build Taurifer iPhone Lab (unsigned IPA)
+on:
+  push:
+    branches: [experiment/ios-webview-spike]
+    paths:
+      - experiments/ios-spike/**
+      - .github/workflows/ios-wrapper-spike.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build-unsigned-ipa:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        run: xcodegen generate --spec experiments/ios-spike/project.yml --project experiments/ios-spike
+      - name: Build for a real iPhone (unsigned)
+        run: |
+          set -euo pipefail
+          xcodebuild -project experiments/ios-spike/TauriferLab.xcodeproj \
+            -scheme TauriferLab -configuration Release -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/taurifer-build" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
+      - name: Package unsigned IPA
+        run: |
+          set -euo pipefail
+          app="$RUNNER_TEMP/taurifer-build/Build/Products/Release-iphoneos/TauriferLab.app"
+          test -f "$app/Info.plist"
+          mkdir -p "$RUNNER_TEMP/ipa/Payload"
+          ditto "$app" "$RUNNER_TEMP/ipa/Payload/TauriferLab.app"
+          ( cd "$RUNNER_TEMP/ipa" && /usr/bin/zip -qry /tmp/TauriferLab-unsigned.ipa Payload )
+          /usr/bin/unzip -t /tmp/TauriferLab-unsigned.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TauriferLab-unsigned-IPA
+          path: /tmp/TauriferLab-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 7
