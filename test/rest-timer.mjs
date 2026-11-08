@@ -585,6 +585,92 @@ try {
     await context.close();
   }
 
+  phase("The latest preset tap owns the saved rest and the clock");
+  for (const { second, failOlder = false, failLatest = false } of [{ second: 120 }, { second: 180 }, { second: 180, failOlder: true }, { second: 180, failLatest: true }]) {
+    const { context, page } = await focusPage(browser);
+    await logSet(page);
+    await page.locator("#restTab").click();
+    await page.waitForSelector("#restSheet.is-open");
+    await page.locator('#restPresets [data-value="120"]').click();
+    await page.waitForFunction(() => exerciseStoredRest(restExercise()) === 120 && window.__repforgeRest.state().lengthSec === 120);
+    await page.evaluate(async ({ second, failOlder, failLatest }) => {
+      await window.__repforgeStorage.flush();
+      window.__repforgeRest.setLeft(45000, { held: true, lengthSec: 120 });
+      syncRest();
+      const request = navigator.locks.request.bind(navigator.locks);
+      const local = Storage.prototype.setItem, put = IDBObjectStore.prototype.put;
+      window.presetGates = []; window.presetLockCount = 0; window.presetFirstFinished = false; window.presetGating = true;
+      navigator.locks.request = function (name, ...args) {
+        const callback = args.pop();
+        if (name !== "repforge:state-write") return request(name, ...args, callback);
+        return request(name, ...args, async (lock) => {
+          const number = ++window.presetLockCount;
+          if (window.presetGating) await new Promise((resolve) => window.presetGates.push(resolve));
+          try { return await callback(lock); }
+          finally { if (number === 1) window.presetFirstFinished = true; }
+        });
+      };
+      const refused = (value) => value?.programMeta?.programDefinition?.days?.some((day) =>
+        day.slots?.some((slot) => slot.prescriptionsByCycle?.some((cycle) => cycle.sets?.some((set) => set.restSeconds === (failOlder ? 90 : second)))));
+      Storage.prototype.setItem = function (key, value) {
+        if ((failOlder || failLatest) && key === "repforge_v1" && refused(JSON.parse(value))) throw new DOMException("preset write refused", "QuotaExceededError");
+        return local.apply(this, arguments);
+      };
+      IDBObjectStore.prototype.put = function (value, key) {
+        if ((failOlder || failLatest) && key === "repforge_v1" && refused(value)) throw new DOMException("preset write refused", "QuotaExceededError");
+        return put.apply(this, arguments);
+      };
+      window.presetFailureShown = false; window.presetProgramFailureShown = false;
+      const observer = new MutationObserver(() => {
+        if (document.body.textContent.includes(t("toast.program_save_failed"))) window.presetProgramFailureShown = true;
+        if (["toast.program_save_failed", "toast.storage_full"].some((key) => document.body.textContent.includes(t(key)))) window.presetFailureShown = true;
+      });
+      observer.observe(document.body, { subtree: true, childList: true, characterData: true });
+      window.releasePresetRace = () => {
+        window.presetGating = false; navigator.locks.request = request;
+        for (const release of window.presetGates.splice(0)) release();
+      };
+      window.restorePresetRace = () => {
+        window.releasePresetRace(); Storage.prototype.setItem = local; IDBObjectStore.prototype.put = put; observer.disconnect();
+      };
+    }, { second, failOlder, failLatest });
+    await page.locator('#restPresets [data-value="90"]').click();
+    await page.waitForFunction(() => window.presetLockCount === 1);
+    await page.locator(`#restPresets [data-value="${second}"]`).click();
+    await page.evaluate(() => window.presetGates.shift()());
+    await page.waitForFunction(() => window.presetFirstFinished);
+    await page.evaluate(() => new Promise(requestAnimationFrame));
+    const afterOlder = await read(page);
+    assert(afterOlder.length !== 90,
+      `superseded 90-second completion never moves the clock after the later ${second}-second tap (failure=${failOlder})`, afterOlder);
+    await page.evaluate(() => window.releasePresetRace());
+    await page.evaluate(async () => { await window.__repforgeStorage.flush(); await new Promise(requestAnimationFrame); await window.__repforgeStorage.flush(); });
+    await page.waitForFunction(() => {
+      const checked = [...document.querySelectorAll('#restPresets [aria-checked="true"]')];
+      return checked.length === 1 && Number(checked[0].dataset.value) === exerciseStoredRest(restExercise());
+    });
+    const final = await page.evaluate(() => {
+      const saved = JSON.parse(localStorage.getItem("repforge_v1"));
+      const slotId = restSlotOf(restExercise()).id;
+      const slot = saved.programMeta.programDefinition.days.flatMap((day) => day.slots).find((slot) => slot.id === slotId);
+      return { clock: window.__repforgeRest.state(), saved: slot.prescriptionsByCycle[0].sets[0].restSeconds,
+        record: JSON.parse(localStorage.getItem("repforge_rest_v1"))?.rest, failureShown: window.presetFailureShown, programFailureShown: window.presetProgramFailureShown,
+        checked: [...document.querySelectorAll('#restPresets [aria-checked="true"]')].map((button) => Number(button.dataset.value)) };
+    });
+    if (failLatest) {
+      assert(final.saved === 120 && final.clock.lengthSec === 120 && final.clock.pausedMs === 45000
+        && final.record?.remainingMs === 45000 && final.checked.join() === "120" && final.programFailureShown,
+        "a refused latest preset preserves the original clock and program and shows the existing failure copy", final);
+    } else {
+      assert(final.saved === second && final.clock.lengthSec === second && final.clock.pausedMs == null && final.checked.join() === String(second)
+        && final.record?.lengthSec === second && final.record?.deadlineMs === final.clock.endMs,
+        `latest ${second}-second tap wins the stored preset, selection, clock and device deadline (failure=${failOlder})`, final);
+      assert(!final.failureShown, `a superseded preset save shows no failure (failure=${failOlder})`, final);
+    }
+    await page.evaluate(() => window.restorePresetRace());
+    await context.close();
+  }
+
   phase("The dial turns under the finger: a quarter-turn is a quarter of the rest, in 15-second detents");
   {
     const { context, page, errors } = await focusPage(browser);
