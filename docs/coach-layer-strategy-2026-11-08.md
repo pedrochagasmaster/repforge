@@ -188,9 +188,9 @@ cadence, and proposes dissolving the 0–100 gauge into it.
 
 ## 4. The landing, briefly
 
-The landing follows from §3 and is not designed here. The owner chose the additive change
-now (D-14): a proof chapter, one band, two FAQ entries, with the headline, structure and
-actions kept. Per D-1 the coach comparison stays out of the copy; the page shows the
+The landing follows from §3 and is designed in [`plans/083-landing-test-set.md`](../plans/083-landing-test-set.md).
+The owner chose the additive change now (D-14): a proof chapter, one band, two FAQ entries, with
+the headline, structure and actions kept. Per D-1 the coach comparison stays out of the copy; the page shows the
 mechanism, never the profession. Session zero becomes the proof scene
 instead of a bench press table with an RIR column: a beginner finding their weights in
 twenty minutes is the most beginner-friendly demonstration the product can make, and it is
@@ -353,16 +353,20 @@ The decided items, in the order they should be built. Each needs its own plan un
 2. **Plan: the effort ladder** (D-3, D-15): [`plans/078-effort-ladder.md`](../plans/078-effort-ladder.md).
    Words by default with one onboarding question; two stages instead of three; `effortScale`
    retired; the B→C tip retired. Small, Free, before the alpha.
-3. **Plan: session zero** (D-2, D-5). The guided first session, the declared priors table in
-   the mechanics doc, the skip rules. Free, before the alpha.
-4. **Plan: the estimator** (D-4). `ENGINE_VERSION` 078.x: per-lift estimate and uncertainty,
-   standing words in the target and Why, uncertainty-driven test sets under OD-12's ceilings.
-5. **Plan: the profile and the thirty-day cadence** (D-6, D-8). The gauge dissolved; the
-   findings designed; everything Free in the alpha.
-6. **Plan: the weekly review** (D-9). Facts and proposals, both on in the alpha; the
-   proposal path reuses the within-block adaptation contract from thesis §8.3 job 3.
-7. **The landing's additive change** (D-14), small, at any point after step 2 so the proof
-   can show the words stage.
+3. **Plan: session zero** (D-2, D-5): [`plans/079-session-zero.md`](../plans/079-session-zero.md).
+   A ramp per lift inside the first session, the declared priors table in the mechanics doc, the
+   skip rules. Free, before the alpha.
+4. **Plan: the estimator** (D-4): [`plans/080-estimator.md`](../plans/080-estimator.md).
+   `ENGINE_VERSION` 078.x: per-lift estimate and uncertainty, standing words in the target and Why,
+   uncertainty-driven test sets under OD-12's ceilings.
+5. **Plan: the profile and the thirty-day cadence** (D-6, D-8):
+   [`plans/081-profile-and-findings.md`](../plans/081-profile-and-findings.md). The gauge dissolved;
+   the findings designed; everything Free in the alpha.
+6. **Plan: the weekly review** (D-9): [`plans/082-weekly-review.md`](../plans/082-weekly-review.md).
+   Facts and proposals, both on in the alpha; the proposal path reuses the within-block adaptation
+   contract from thesis §8.3 job 3.
+7. **The landing's additive change** (D-14): [`plans/083-landing-test-set.md`](../plans/083-landing-test-set.md),
+   small, at any point after step 2 so the proof can show the words stage.
 8. **The alpha** runs with steps 2 to 6 on for every participant. Its funnel and retention
    evidence decides D-7 to D-11.
 9. **An ADR for the entitlement lifecycle** (D-13), then and only then the funnel work of §6
