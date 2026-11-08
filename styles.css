@@ -1669,6 +1669,7 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
 .shelf__pads--chips{gap:6px}
 .shelf__pads--numbers{flex-wrap:wrap;gap:var(--space-4)}
 .shelf__pads--numbers .shelf__chip{flex:1 1 var(--control-target);min-width:max(var(--control-target),2.5em)}
+.exercise--focus.is-text-scaled .shelf__pads--numbers .shelf__chip{flex-basis:calc((100% - 2 * var(--space-4))/3)}
 .shelf__pads .shelf__chip{padding:0 var(--space-4);border:1px solid var(--control-selection-boundary);background:var(--control-selection-bg);color:var(--control-selection-ink);cursor:pointer;
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .shelf__pads .shelf__chip.is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
