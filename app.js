@@ -21082,7 +21082,7 @@ async function commitEntryAdjust({definition,edits,name}){
     review.edits=edits.slice();
     if(!shared)writeEntryAdjustLog({draftId:review.draftId,fingerprint:base.fingerprint,edits:review.edits});
     syncEntryAdjustFooter()}
-  return{ok:true}}
+  return{ok:true,current}}
 /* The pinned footer follows the review without re-rendering the screen. */
 function syncEntryAdjustFooter(){
   const pinned=$("#entryCandidateReview .entry__pinned");
@@ -21155,7 +21155,9 @@ function mountEntryAdjust(){
   if(!host||!Review||!review)return;
   entryAdjustMount=Review.mountProgramReview(host,{
     view:review.view,
-    candidate:()=>entryGeneration.status===ENTRY_GENERATION_STATUS.IDLE&&entryState?.result?entryAdjust?.identity:null,
+    queueKey:()=>review,
+    candidate:()=>entryState?.result&&!entryAnswerRebuildPending()&&
+      (entryGeneration.status!==ENTRY_GENERATION_STATUS.GENERATING_RESULT||entryGeneration.from!==entryState)?entryAdjust?.identity:null,
     present:options=>{if(entryAdjust===review)entryAdjustMount?.present(options)},
     read:()=>({baseline:entryAdjust.baseline.preview.programDefinition,definition:entryState.result.preview.programDefinition,
       edits:entryAdjust.edits,name:entryResultName()||t("untitled_program"),

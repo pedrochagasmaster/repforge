@@ -778,7 +778,8 @@
       inFlight++;
       host.setAttribute("aria-busy", "true");
       const settle = () => { if (--inFlight === 0) host.removeAttribute("aria-busy"); };
-      const candidate = candidateNow();
+      // Invalidation expires queued work, but a surviving candidate keeps its write order.
+      const candidate = adapter.queueKey?.() ?? candidateNow();
       const keyed = candidate && (typeof candidate === "object" || typeof candidate === "function");
       const previous = keyed ? candidateQueues.get(candidate) || Promise.resolve() : unkeyedQueue;
       const queued = previous.then(task, task).finally(settle);
@@ -791,6 +792,9 @@
     function observe(action, kind) {
       try { adapter.observe?.(kind && EDIT_KIND_SET.has(kind) ? { action, kind } : { action }); } catch {}
     }
+    function observeCommit(saved, action, kind) {
+      if (saved?.ok && saved.current !== false) observe(action, kind);
+    }
     function apply(edit, { toast = null, flip = false, close = false } = {}) {
       const pinned = candidateNow();
       return run(async () => {
@@ -802,10 +806,10 @@
         if (close) await closeSheet();
         if (!matchesCandidate(pinned)) return false;
         const saved = await adapter.commit({ definition: result.definition, edits: [...state.edits, edit], name: state.name });
-        // A write that landed for a candidate since replaced publishes nothing here: the replacement owns the screen.
+        // Observation follows the durable result; an expired task still cannot paint the screen.
+        observeCommit(saved, "edit", edit.kind);
         if (!matchesCandidate(pinned)) return false;
         if (!saved?.ok) { observe("save_failed", edit.kind); adapter.announce(t("entry.review.save_failed")); paint(); paintSheet(); return false; }
-        observe("edit", edit.kind);
         const count = changes(read().baseline, read().definition).count;
         present({ before: disposed ? null : before, toast,
           announcement: t(count === 1 ? "entry.review.changes_one" : "entry.review.changes", { n: count }) });
@@ -824,9 +828,9 @@
         if (!replayed.ok) return false;
         const before = measure();
         const saved = await adapter.commit({ definition: replayed.definition, edits, name: state.name });
+        observeCommit(saved, "undo", state.edits[state.edits.length - 1]?.kind);
         if (!matchesCandidate(pinned)) return false;
         if (!saved?.ok) { observe("save_failed", state.edits[state.edits.length - 1]?.kind); adapter.announce(t("entry.review.save_failed")); return false; }
-        observe("undo", state.edits[state.edits.length - 1]?.kind);
         present({ before: disposed ? null : before, clearToast: true, announcement: t("entry.review.toast.undone") });
         return true;
       });
@@ -845,9 +849,9 @@
         if (!matchesCandidate(pinned)) return false;
         const current = read();
         const saved = await adapter.commit({ definition: current.baseline, edits: [], name: null });
+        observeCommit(saved, "restore");
         if (!matchesCandidate(pinned)) return false;
         if (!saved?.ok) { observe("save_failed"); adapter.announce(t("entry.review.save_failed")); return false; }
-        observe("restore");
         present({ clearReorder: true, focus: "[data-review-title]", announcement: t("entry.review.toast.restored") });
         return true;
       });
@@ -1191,8 +1195,9 @@
           if (!matchesCandidate(pinned)) return false;
           const current = read();
           const saved = await adapter.commit({ definition: current.definition, edits: current.edits, name: value });
+          observeCommit(saved, "rename_program");
           if (!matchesCandidate(pinned)) return false;
-          if (saved?.ok) { observe("rename_program"); present({ focus: "[data-review-title]" }); }
+          if (saved?.ok) { present({ focus: "[data-review-title]" }); }
           return !!saved?.ok;
         });
       }
