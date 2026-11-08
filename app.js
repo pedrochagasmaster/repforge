@@ -1399,7 +1399,7 @@ function closeModal(el){
       hideModalElement(rec);
       resolve(true);
     };
-    if(rec.delayHide>0){
+    if(rec.delayHide>0&&!rec.el.hasAttribute("data-gesture-dismissed")){
       rec.el.classList.remove("is-open");
       rec.scrim?.classList.remove("is-open");
       fallback=setTimeout(()=>finish(true),rec.delayHide);
@@ -7450,6 +7450,7 @@ function closeRestSheet(){
   const sheet=$("#restSheet");
   if(!sheet)return Promise.resolve(false);
   if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
+  releaseRestDialDrag();
   restSheetReturn=null;
   return closeModal(sheet)}
 /** Picking a length restarts the rest at it; idle, it only sets what the next
@@ -7481,6 +7482,14 @@ function setRestLeftMs(ms,length){
    the next rest. It is a slider for the keyboard and assistive technology: the arrows step 15 seconds. */
 const snapDialSec=sec=>Math.min(REST_DIAL_MAX,Math.max(REST_DIAL_MIN,Math.round(sec/REST_DIAL_STEP)*REST_DIAL_STEP));
 let restDialDrag=null;
+function releaseRestDialDrag(pointerId=null){
+  const drag=restDialDrag;
+  if(!drag||(pointerId!=null&&pointerId!==drag.id))return;
+  restDialDrag=null;
+  const dial=$("#restDial");
+  dial?.classList.remove("is-turning");
+  try{if(dial?.hasPointerCapture?.(drag.id))dial.releasePointerCapture(drag.id)}catch{}
+}
 /** Set the time left from the dial. `scale` is the full turn the drag began on. */
 function setRestFromDial(sec,scale=restPlanSec()){
   if(!restState().active){applyRest(RepForgeRestTimer.setLength(restClock,sec));syncRest();paintRestSheet();return}
@@ -7525,12 +7534,10 @@ function bindRestDial(){
     // A light detent where the hardware has one; the time and the arc step with it.
     if(!first)navigator.vibrate?.(4);
     setRestFromDial(value,drag.scale)});
-  const end=event=>{
-    const drag=restDialDrag;if(!drag||event.pointerId!==drag.id)return;
-    restDialDrag=null;dial.classList.remove("is-turning");
-    try{dial.releasePointerCapture(event.pointerId)}catch{}};
+  const end=event=>releaseRestDialDrag(event.pointerId);
   dial.addEventListener("pointerup",end);
   dial.addEventListener("pointercancel",end);
+  dial.addEventListener("lostpointercapture",end);
   dial.addEventListener("keydown",event=>{
     const steps={ArrowRight:1,ArrowUp:1,ArrowLeft:-1,ArrowDown:-1,PageUp:4,PageDown:-4}[event.key];
     let value=null;
