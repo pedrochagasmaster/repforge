@@ -332,6 +332,29 @@
   // kinds appear only at a completed boundary; performance-derived kinds
   // require sufficient observed outcomes, and recovery eligibility is passed
   // through from the approved policy (never recomputed here).
+  /** Calendar-week facts. Outcomes, stalls and fatigue remain the caller's
+   * authoritative calculations, explicitly bound to this week. */
+  function buildWeekReview(log, sessionEvents, program, meta, week) {
+    const start = weekStartOf(week), end = addDays(start,6);
+    const rows = scopedRows(log,start,end,meta);
+    const sessions = new Set(rows.map(row => String(row.session ?? "")).filter(Boolean));
+    const days = [...new Set(normalizeProgram(program,meta).exercises.map(exercise => exercise.day).filter(Boolean))];
+    const completedDays = new Set(rows.map(row => row.day));
+    const skips = [], pain = [];
+    for (const id of sessions) {
+      const events = sessionEvents?.[id];
+      if (events?.v !== 1) continue;
+      for (const event of events.skips || []) skips.push({...event});
+      for (const event of events.pain || []) pain.push({...event});
+    }
+    const facts = meta?.weekFacts?.start === start && meta?.weekFacts?.end === end ? meta.weekFacts : {};
+    return {start,end,completedSessions:sessions.size,plannedSessions:days.length,
+      missedDays:days.filter(day => !completedDays.has(day)),
+      outcomes:(facts.outcomes || []).filter(fact => OUTCOMES.includes(fact.outcome)).map(fact => ({...fact})),
+      stalled:[...(facts.stalled || [])],fatigue:[...(facts.fatigue || [])],skips,pain,
+      trimUsed:skips.some(event => event.reason === "trim")};
+  }
+
   function buildReviewCheckpoint(program, meta, log, now) {
     const norm = normalizeProgram(program, meta);
     const today = isoDate(now);
@@ -584,6 +607,7 @@
     buildWeekStatus,
     buildProgramActionQueue,
     buildReviewCheckpoint,
+    buildWeekReview,
     buildStrengthEvidence,
     buildVolumeEvidence,
     buildPREvidence,
