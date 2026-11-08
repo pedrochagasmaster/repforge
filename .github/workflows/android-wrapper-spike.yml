@@ -23,14 +23,16 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Configure Android SDK
-        uses: android-actions/setup-android@v3
       - name: Configure Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-      - name: Install required Android SDK packages
-        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Validate runner Android SDK and install packages
+        run: |
+          set -euo pipefail
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          test -d "$ANDROID_HOME"
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
       - name: Compile signed debug APK
         working-directory: experiments/android-spike
         run: gradle :app:assembleDebug --no-daemon --stacktrace
@@ -40,7 +42,7 @@ jobs:
           apk='experiments/android-spike/app/build/outputs/apk/debug/app-debug.apk'
           test -s "$apk"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$apk"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk" | head -15
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk" | sed -n '1,15p'
           sha256sum "$apk"
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
