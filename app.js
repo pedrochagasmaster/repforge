@@ -3327,12 +3327,16 @@ function confirmDiscardDraft(){
   return draftDiscardAsk}
 /** `undo` is the day picker's Undo putting back the day it just changed: the
  *  change itself marked the draft's day as touched, so only logged work asks. */
-async function requestWorkoutDay(nextDay,{undo=false}={}){
+async function requestWorkoutDay(nextDay,{undo=false,ofDraft}={}){
   if(!nextDay||nextDay===day) return true;
+  // An Undo is bound to the draft its own day change made (N12): once that draft is replaced, it changes nothing.
+  const stillOfDraft=()=>ofDraft===undefined||activeWorkoutDraft?.draftId===ofDraft;
+  if(!stillOfDraft())return false;
   const hasProgress=undo?draftHasLoggedWork():draftHasProgress();
   if(hasProgress){
     if(!await confirmDiscardDraft()){
       return false}
+    if(!stillOfDraft())return false;
     if(!await clearDraft())return false;
     resetSessionContextFields()}
   else if(activeWorkoutDraft?.program?.dayLabel&&activeWorkoutDraft.program.dayLabel!==nextDay){
@@ -7985,21 +7989,23 @@ function hideDayChangeToast(){
   dayChangeToastEl?.remove();dayChangeToastEl=null}
 function showDayChangeToast(previousDay,newDay){
   hideDayChangeToast();
+  const draftId=activeWorkoutDraft?.draftId??null;
   const n=days().indexOf(newDay)+1;
   const el=document.createElement("div");
   el.className="review-toast daychange-toast";
   el.setAttribute("role","status");
   el.innerHTML=`<span class="review-toast__text">${esc(t("today.day_changed",{n}))}</span>`+
     `<button type="button" class="review-toast__undo" data-role="daychange-undo">${esc(t("common.undo"))}</button>`;
-  el.querySelector('[data-role="daychange-undo"]').onclick=()=>{hideDayChangeToast();undoDayChange(previousDay)};
+  el.querySelector('[data-role="daychange-undo"]').onclick=()=>{hideDayChangeToast();undoDayChange(previousDay,draftId)};
   document.body.append(el);
   dayChangeToastEl=el;
   dayChangeToastTimer=setTimeout(hideDayChangeToast,4200)}
 /** Undo is `requestWorkoutDay` run backwards. It is silent unless a set was
  *  logged on the new day in the meantime; then the discard question appears
  *  again rather than silently discarding that work. */
-async function undoDayChange(previousDay){
-  if(!await requestWorkoutDay(previousDay,{undo:true}))return;
+async function undoDayChange(previousDay,draftId){
+  if(!days().includes(previousDay))return;
+  if(!await requestWorkoutDay(previousDay,{undo:true,ofDraft:draftId}))return;
   renderToday()}
 /** Keep the sheet above the software keyboard rather than behind it, and inside
  *  the band the keyboard leaves visible so its header stays on screen.
