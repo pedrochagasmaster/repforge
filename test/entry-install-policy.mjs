@@ -1060,6 +1060,57 @@ async function run() {
   phase("Phase 4: Bounded Browser Projection on Live App");
   const browser = await launchChromium();
   try {
+    // D12: historical editor follow-up bytes must not replay navigation forever.
+    {
+      const context = await browser.newContext({ viewport: { width: 390, height: 844 }, userAgent: ANDROID_UA });
+      try {
+        const page = await context.newPage();
+        await page.addInitScript(INSTALL_EVENT);
+        await page.goto(BASE, { waitUntil: "domcontentloaded" });
+        await page.waitForFunction(() => window.__repforgeBooted === true);
+        const saved = await page.evaluate(async () => {
+          const proposal = window.__repforgeWorkoutDraft.state();
+          proposal.programMeta = { ...proposal.programMeta, onboarded: true, name: "Existing program" };
+          proposal.program = [{ id: "existing", movementId: "slot:existing", day: "Day 1", order: 1, name: "Existing lift",
+            sets: 3, min: 6, max: 10, primary: "Chest", secondary: "", notes: "", alternates: [] }];
+          proposal.log.push({ session: "legacy-followup", date: "2026-09-13", day: "Day 1", name: "Existing lift",
+            exerciseId: "existing", performedName: "Existing lift", performedMovementId: "slot:existing",
+            set: 1, load: 20, reps: 8, rir: 2, notes: "", created: "2026-09-13T12:00:00.000Z" });
+          proposal._storageFollowUp = { kind: "onboarding-edit", origin: "first" };
+          await window.__repforgeCommitProposedState(proposal);
+          const stored = JSON.parse(localStorage.getItem("repforge_v1"));
+          return { program: stored.program, log: stored.log };
+        });
+        for (let boot = 1; boot <= 2; boot++) {
+          await page.reload({ waitUntil: "domcontentloaded" });
+          await page.waitForFunction(() => window.__repforgeBooted === true);
+          const observed = await page.evaluate(async () => {
+            const local = JSON.parse(localStorage.getItem("repforge_v1"));
+            const db = await new Promise((resolve, reject) => {
+              const request = indexedDB.open("repforge");
+              request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
+            });
+            const mirrored = await new Promise((resolve, reject) => {
+              const request = db.transaction("kv").objectStore("kv").get("repforge_v1");
+              request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
+            });
+            db.close();
+            window.__fireInstall();
+            return { marker: local._storageFollowUp ?? null, mirroredMarker: mirrored?._storageFollowUp ?? null,
+              program: local.program, log: local.log, editor: document.querySelector("#program").classList.contains("program-editor-installed"),
+              today: document.querySelector("#log").classList.contains("active"),
+              banner: !document.querySelector("#installBanner").classList.contains("hidden") };
+          });
+          const expectedRoute = boot === 1 ? observed.editor && !observed.today : !observed.editor && observed.today;
+          assert(observed.marker === null && observed.mirroredMarker === null && expectedRoute,
+            `D12: boot ${boot} consumes the obsolete marker and honors its destination only once`, JSON.stringify(observed));
+          assert(isDeepStrictEqual(observed.program, saved.program) && isDeepStrictEqual(observed.log, saved.log),
+            `D12: boot ${boot} preserves the program and workout log`);
+          if (boot === 1) assert(observed.banner, "D12: obsolete marker no longer suppresses the eligible install banner", JSON.stringify(observed));
+        }
+      } finally { await context.close(); }
+    }
+
     // Projection B1: Empty first run on Chromium with beforeinstallprompt
     // Plan 054 requirement: Chromium must await value milestone 1 (state: chromium-awaiting-value).
     // Production P7 seam requirement: app loads and consumes window.RepForgeInstallPolicy,
