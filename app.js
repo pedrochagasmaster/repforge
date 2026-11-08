@@ -22399,6 +22399,8 @@ function onInstalledEditorPopState(){
       history.pushState(installedEditorHistoryState(),"",location.href);
       installedEditorHistoryArmed=true;
     }catch{}
+    // An Apply in flight already owns the decision (#658): Back keeps the editor and asks nothing.
+    if(installedProgramEditor.isCommitting?.())return true;
     // A name still typed in the editor's rename sheet is held while the sheet steps aside (#445),
     // then the decision opens over the editor.
     const held=installedProgramEditor.holdPendingRename?.();
