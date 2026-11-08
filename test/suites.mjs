@@ -100,6 +100,7 @@ export const SUITES = {
     s("test/install-transfer-recovery.mjs", [], {"domains": ["install"], "cost": "normal", "tier": "feedback", "nodeArgs": ["--test"]}),
   ],
   "state": [
+    s("test/effort-ladder-migration.mjs", [], { domains: ["workout", "settings", "persistence"], seconds: 10 }),
     s("test/programlab-store.mjs", [], { domains: ["program", "persistence", "privacy"], seconds: 2 }),
     s("test/privacy-offline.mjs", [], {"domains": ["privacy", "offline"], "cost": "normal", "tier": "packet", "seconds": 3}),
     s("test/sw-upgrade.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback", "seconds": 9}),
