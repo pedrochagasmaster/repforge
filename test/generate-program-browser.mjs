@@ -438,16 +438,18 @@ async function undoAfterLeaving(browser) {
   await page.locator("#reviewSheet [data-review-remove]").click();
   // The sheet closes before the removal reaches its commit; only then is the commit held.
   await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 5000 });
-  // Undo is queued behind the held removal; the lifter then leaves the review.
+  // Undo is queued behind the held removal; Back leaves the mounted screen,
+  // but the candidate is still current and owns the queued work.
   await page.locator("#entryReview [data-review-undo]").click();
   await page.locator("#onbBack").click();
   await page.waitForFunction(() => window.__repforgeEntryState()?.step !== "result", undefined, { timeout: 10000 });
   await releaseSetupWrites(page);
   await settleSetupWrites(page);
-  const expected = Review.replay(session.baseline, [...session.log, { kind: "remove", slotId: removed.id }], REVIEW_CTX);
+  const expected = Review.replay(session.baseline, [{ kind: "sets", slotId: kept.id, count: kept.prescriptionsByCycle[0].sets.length + 1 }], REVIEW_CTX);
   check(expected.ok && JSON.stringify(await reviewed(page)) === JSON.stringify(expected.definition),
-    "review: an undo queued as the review leaves does not publish; the removal it followed stays");
-  check((await reviewLog(page))?.edits?.length === 2, "review: the edit log keeps the removal the undo never reversed");
+    "review: an undo queued before Back still reverses the removal on its current candidate");
+  check(JSON.stringify((await reviewLog(page))?.edits) === JSON.stringify([{ kind: "sets", slotId: kept.id, count: kept.prescriptionsByCycle[0].sets.length + 1 }]),
+    "review: the queued undo leaves only the earlier edit in the candidate log");
   await run.context.close();
   return run.errors;
 }
@@ -1614,6 +1616,9 @@ async function main() {
   const browser = await launchChromium();
   const allErrors = [];
   try {
+    if (process.env.N14_ONLY === "F5") {
+      allErrors.push(await undoAfterLeaving(browser));
+    } else {
     allErrors.push(await recoveredGenerationJourney(browser));
     allErrors.push(await sourceSplitChoicesJourney(browser));
     allErrors.push(await recommendSplitStep(browser));
@@ -1793,6 +1798,7 @@ async function main() {
     allErrors.push(await onboardingBuildingReduced(browser));
     allErrors.push(await onboardingBuildingMainFallback(browser));
     allErrors.push(await onboardingConflict(browser));
+    }
     check(allErrors.flat().length === 0, "no page errors during Generate", allErrors.flat());
   } catch (error) {
     failures.push(String(error?.stack || error));
