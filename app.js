@@ -2980,9 +2980,14 @@ function paintDraftRetryPending(){
   if(!label){label=document.createElement("p");label.className="motion-hairline__label draft-recovery__saving";
     root.insertBefore(label,root.querySelector(".draft-recovery__actions"))}
   label.textContent=t("custom.saving")}
+// TEMPORARY DIAGNOSTIC (PR 654, invalid-draft frame). Logs only when window.__repforgeDiag is set by the catalog scenario. Revert before merge.
+function diagLog(...parts){if(window.__repforgeDiag)console.log("DIAG "+parts.join(" "))}
+function diagScroll(){return"scrollH="+document.documentElement.scrollHeight+" bodyH="+document.body.scrollHeight+" scrollY="+window.scrollY}
 function focusDraftRecovery(){
   const root=$("#draftRecovery");if(!root)return;
-  root.scrollIntoView({block:"start"});root.focus({preventScroll:true})}
+  diagLog("focusDraftRecovery-before",performance.now().toFixed(1),Date.now(),diagScroll());
+  root.scrollIntoView({block:"start"});root.focus({preventScroll:true});
+  diagLog("focusDraftRecovery-after",performance.now().toFixed(1),Date.now(),diagScroll())}
 function showDraftCommandRecovery(status,attempt,{pendingValue=null,pendingField=null,recoveryField=null,focus=null,retryAction=null,telemetry=null}={}){
   const recoveryAttempt=attempt&&recoveryField?{...attempt,fieldDisplayValue:
     typeof attempt.fieldDisplayValue==="string"?attempt.fieldDisplayValue:String(pendingValue??"")}:attempt;
@@ -6853,7 +6858,7 @@ function paintRest(){
   paintSessionRest();
   paintRestVisuals()}
 /** The tab over the shelf follows the session. */
-function updateRestChrome(){syncRestTab()}
+function updateRestChrome(){diagLog("updateRestChrome",performance.now().toFixed(1),Date.now(),diagScroll());syncRestTab()}
 
 /* ---- The rest tab, the shelf's edge and the dial (rest timer redesign, owner-approved mock 2026-10-23) ----
    While a rest runs, a tab rises out of the current Focus shelf's top edge: a ring, "Rest", the time and a chevron;
@@ -7097,7 +7102,7 @@ function playRestFlick(){
   restFlickCount++;
   window.RepForgeMotion?.flickRestLight?.(c.lit,c.halves,c.length)}
 /* Ending the rest removes its device record. */
-function stopRest(){applyRest(RepForgeRestTimer.stop());
+function stopRest(){diagLog("stopRest",performance.now().toFixed(1),Date.now(),diagScroll());applyRest(RepForgeRestTimer.stop());
   removeRestRecord();
   paintRest();
   updateRestChrome()}
@@ -7193,6 +7198,7 @@ function retryRestRecord(){
    the finish question. A bell that is due is settled at once: a deadline passed while the app was gone has no ticker to
    ring it. A rung bell or a held clock is left as it is. */
 function restoreRest(draftId){
+  diagLog("restoreRest",performance.now().toFixed(1),Date.now(),"draftId="+draftId,diagScroll());
   // The tab-scoped record of the build before this one is dropped: its one rest timer is lost on upgrade, by choice.
   try{sessionStorage.removeItem(REST_RECORD_KEY)}catch{}
   const stored=readRestRecord(),record=stored.ok?stored.record:null,now=Date.now();
