@@ -3458,12 +3458,13 @@ function fatigueFlagged(){return exercises().filter(e=>fatigueSignal(recommendat
 async function applyFatigueTrim(){
   const flagged=new Set(fatigueFlagged().map(e=>e.id));
   if(!activeWorkoutDraft)return;
+  const draftId=activeWorkoutDraft.draftId;
   // What this Trim changes, so its toast names the lifts and Undo puts back exactly that (owner, 2026-11-04).
   const restored=[],trimmed=[];
   for(const id of [...skipped])if(!flagged.has(id)){const result=await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return;restored.push(id)}
   for(const id of flagged)if(!skipped.has(id)){const result=await WorkoutSession.dispatch("skipExercise",{exerciseInstanceId:id,reason:"trim"},{bulk:true});if(result.status!=="applied")return;trimmed.push(id)}
   renderWorkout();
-  if(trimmed.length)showTrimToast(trimmed,restored)}
+  if(trimmed.length)showTrimToast(trimmed,restored,draftId)}
 /** The lifts a Trim hid, by name: two, then how many more. */
 function trimmedNamesText(ids){
   const names=ids.map(id=>exerciseDisplayName(sessionExercise(prog.find(id))));
@@ -3474,18 +3475,21 @@ function trimmedNamesText(ids){
    Undo restores the lifts this Trim hid and re-hides any it had brought back, by hand, so no reason is recorded. */
 let trimToastEl=null,trimToastTimer=null;
 function hideTrimToast(){clearTimeout(trimToastTimer);trimToastTimer=null;trimToastEl?.remove();trimToastEl=null}
-function showTrimToast(trimmed,restored){
+function showTrimToast(trimmed,restored,draftId){
   hideTrimToast();
   const el=document.createElement("div");
   el.className="review-toast trim-toast";el.setAttribute("role","status");
   el.innerHTML=`<span class="review-toast__text">${esc(trimmedNamesText(trimmed))}</span>`+
     `<button type="button" class="review-toast__undo" data-role="trim-undo">${esc(t("common.undo"))}</button>`;
-  el.querySelector('[data-role="trim-undo"]').onclick=async()=>{hideTrimToast();await undoFatigueTrim(trimmed,restored)};
+  el.querySelector('[data-role="trim-undo"]').onclick=async()=>{hideTrimToast();await undoFatigueTrim(trimmed,restored,draftId)};
   document.body.append(el);trimToastEl=el;trimToastTimer=setTimeout(hideTrimToast,6000)}
-async function undoFatigueTrim(trimmed,restored){
-  if(!activeWorkoutDraft)return;
-  for(const id of trimmed)if(skipped.has(id)){const result=await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
-  for(const id of restored)if(!skipped.has(id)){const result=await WorkoutSession.dispatch("skipExercise",{exerciseInstanceId:id},{bulk:true});if(result.status!=="applied")return}
+/* Undo belongs to the session the Trim was made in (N12). Once that session is replaced, nothing it names may change
+   in the replacement, so each step checks the draft is still that one before it dispatches. */
+async function undoFatigueTrim(trimmed,restored,draftId){
+  const sameSession=()=>activeWorkoutDraft?.draftId===draftId;
+  if(!sameSession())return;
+  for(const id of trimmed)if(skipped.has(id)){if(!sameSession())return;const result=await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
+  for(const id of restored)if(!skipped.has(id)){if(!sameSession())return;const result=await WorkoutSession.dispatch("skipExercise",{exerciseInstanceId:id},{bulk:true});if(result.status!=="applied")return}
   renderWorkout()}
 let focusIndex=0,statsSeg="overview",evidenceView=null,prFilter="all";
 let strengthScope="current-block",volumeScope="this-week",volumeDrillMuscle=null;
