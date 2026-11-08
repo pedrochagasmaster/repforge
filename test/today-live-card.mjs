@@ -212,6 +212,8 @@ const entriesSettled = (page) => page.waitForFunction(() => window.__entries.len
 /** Where the screen is after entries settle: Focus open, the recovery panel, and the stored draft's day. */
 const readEntryOutcome = (page) => page.evaluate(() => ({
   focus: !document.querySelector("#workoutShell")?.classList.contains("hidden") && document.body.classList.contains("is-workout"),
+  focusBody: document.body.classList.contains("is-focus-wo"),
+  workoutBody: document.body.classList.contains("is-workout"),
   recovery: !document.querySelector("#draftRecovery")?.classList.contains("hidden"),
   draftDay: window.__repforgeWorkoutDraft.current()?.program?.dayLabel ?? null,
   results: window.__entries?.map((e) => e.result) ?? [],
@@ -362,7 +364,7 @@ try {
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     const r = await readEntryOutcome(page);
     const stats = await page.locator("#stats").evaluate(el => el.classList.contains("active"));
-    assert(!r.recovery && (leave ? stats && !r.focus : r.focus),
+    assert(!r.recovery && (leave ? stats && !r.focus && !r.focusBody && !r.workoutBody : r.focus),
       leave ? "L11: a Retry released after a dock departure keeps Focus closed"
         : "J18: Retry and Start share the create, with no false recovery panel", JSON.stringify({ ...r, stats }));
     assert(errors.length === 0, "no page errors", errors.join(" | "));
