@@ -3358,6 +3358,7 @@ async function requestWorkoutDay(nextDay,{undo=false,ofDraft}={}){
     showDraftInitializationRecovery(created,{retryMode:"create",label:nextDay,contextTouched:selectionContextTouched});
     return false;
   }
+  if(!workoutActive)workoutLeft=true;
   return true}
 /* ---- Effort stages (Plan 077, OD-4 and OD-5) ----
    The stage is one app-wide choice, made in Settings or from the arrow on the shelf's effort field. A workout in
