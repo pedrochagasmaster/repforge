@@ -14835,7 +14835,7 @@ async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
     ...(entryState.route==="build"?{suggestLoadsPending:Array.isArray(proposal.programMeta?.suggestLoadsPending)
       ?cloneSnapshot(proposal.programMeta.suggestLoadsPending):[]}:{}),
     days:previewDays,
-    customExercises:(entryState.result.preview?.customExercises||[])
+    customExercises:(proposal.customExercises||[])
       .filter(entry=>referencedCustomIds.has(entry.id)).map(cloneSnapshot)};
   if(!preview.suggestLoadsPending?.length)delete preview.suggestLoadsPending;
   const previousEntryState=entryState;
@@ -14886,7 +14886,7 @@ async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
     // here is safe for the editor document too: a later commit always
     // resolves with a document rebuilt from whatever entryState currently
     // holds, so no commit ever renders this one's stale snapshot.
-    }else if(entryState===attemptedEntryState)entryState=previousEntryState;
+    }else if(entryState===attemptedEntryState){entryState=previousEntryState;onboardingProgramEditor?.discard?.()}
   }
   if(saved?.ok&&progressionData.incompatibilities.length){
     entryEditorStatusFocusPending=true;
