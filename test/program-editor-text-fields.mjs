@@ -13,7 +13,7 @@
  */
 import { launchChromium } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
-import { SHEET, applyInstalledEditor, editorSettled, openExerciseSheet, openInstalledEditor } from "./fixtures/installed-editor.mjs";
+import { SHEET, applyInstalledEditor, closeEditorSheet, editorSettled, openExerciseSheet, openInstalledEditor, setSheetSetCount } from "./fixtures/installed-editor.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -469,6 +469,141 @@ async function restDayNames(browser) {
   }
 }
 
+/**
+ * Packet G (Audit N2, rows 17 and 25): owner-on-owner history stack interleavings.
+ * Pushed routes, installed editor, and entry sentinel share one history stack.
+ */
+async function historyStackInterleavings(browser) {
+  console.log("\nHistory stack interleavings (Packet G, rows 17, 25, N2)");
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block" });
+  const page = await context.newPage();
+  try {
+    await page.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await writeFixture(page, fixture());
+
+    // Proof for Item 1: Pushed pages must not overwrite each other.
+    await page.evaluate(() => window.__repforgeOpenLibrary ? window.__repforgeOpenLibrary() : window.openLibrary?.());
+    await page.waitForFunction(() => document.body.classList.contains("is-library"), undefined, { timeout: 5000 });
+    await page.locator('#library [data-lib-preview]').first().click();
+    await page.waitForFunction(() => document.body.classList.contains("is-preview"), undefined, { timeout: 5000 });
+    await page.goBack();
+    await page.waitForTimeout(200);
+    const isLibraryAfterFirstBack = await page.evaluate(() => document.body.classList.contains("is-library") && !document.body.classList.contains("is-preview"));
+    check(isLibraryAfterFirstBack === true, "browser Back from preview returns to library", { isLibraryAfterFirstBack });
+    await page.goBack();
+    await page.waitForTimeout(200);
+    const isBaseAfterSecondBack = await page.evaluate(() => !document.body.classList.contains("is-library") && !document.body.classList.contains("is-preview"));
+    check(isBaseAfterSecondBack === true, "browser Back from library returns to page beneath", { isBaseAfterSecondBack });
+
+    // Proof for Item 2A: Clean editor over in-app library close.
+    const page2 = await context.newPage();
+    await page2.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForApp(page2);
+    await writeFixture(page2, fixture());
+    await openInstalledEditor(page2);
+    await page2.locator('#programEditor [data-role="add-exercise"]').first().click();
+    await page2.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
+    await page2.locator("#exPickFull").click();
+    await page2.waitForFunction(() => document.body.classList.contains("is-library"), undefined, { timeout: 5000 });
+    await page2.locator("#libBack").click();
+    await page2.waitForFunction(() => !document.body.classList.contains("is-library"), undefined, { timeout: 5000 });
+    await page2.waitForTimeout(200);
+    const cleanEditorState = await page2.evaluate(() => ({
+      editorOpen: !!document.querySelector("#programEditor [data-role='editor']"),
+      leaveDialogOpen: !!document.querySelector("#programEditorLeave")?.open,
+    }));
+    check(cleanEditorState.editorOpen === true && cleanEditorState.leaveDialogOpen === false,
+      "in-app library close over clean editor does not close editor", cleanEditorState);
+    await page2.close();
+
+    // Proof for Item 2B: Dirty editor over in-app library close.
+    const page3 = await context.newPage();
+    await page3.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForApp(page3);
+    await writeFixture(page3, fixture());
+    await openInstalledEditor(page3);
+    await openExerciseSheet(page3, EXERCISE_ID);
+    await setSheetSetCount(page3, 5);
+    await closeEditorSheet(page3);
+    await page3.locator('#programEditor [data-role="add-exercise"]').first().click();
+    await page3.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
+    await page3.locator("#exPickFull").click();
+    await page3.waitForFunction(() => document.body.classList.contains("is-library"), undefined, { timeout: 5000 });
+    await page3.locator("#libBack").click();
+    await page3.waitForFunction(() => !document.body.classList.contains("is-library"), undefined, { timeout: 5000 });
+    await page3.waitForTimeout(200);
+    const dirtyEditorState = await page3.evaluate(() => ({
+      editorOpen: !!document.querySelector("#programEditor [data-role='editor']"),
+      leaveDialogOpen: !!document.querySelector("#programEditorLeave")?.open,
+    }));
+    check(dirtyEditorState.editorOpen === true && dirtyEditorState.leaveDialogOpen === false,
+      "in-app library close over dirty editor does not open leave dialog", dirtyEditorState);
+    await page3.close();
+
+    // Escape must release the editor entry as well as the library above it.
+    const escapePage = await context.newPage();
+    const returnURL = new URL("?history-return=escape-editor", BASE).href;
+    await escapePage.goto(returnURL, { waitUntil: "domcontentloaded" });
+    await waitForApp(escapePage);
+    await writeFixture(escapePage, fixture());
+    await escapePage.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForApp(escapePage);
+    await openInstalledEditor(escapePage);
+    await escapePage.locator('#programEditor [data-role="add-exercise"]').first().click();
+    await escapePage.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
+    await escapePage.locator("#exPickFull").click();
+    await escapePage.waitForFunction(() => document.body.classList.contains("is-library"), undefined, { timeout: 5000 });
+    await escapePage.evaluate(() => {
+      window.__repforgeTestHistoryPopped = false;
+      window.addEventListener("popstate", () => { window.__repforgeTestHistoryPopped = true; }, { once: true });
+    });
+    await escapePage.keyboard.press("Escape");
+    await escapePage.waitForFunction(() => window.__repforgeTestHistoryPopped === true
+      && !document.body.classList.contains("is-library")
+      && document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), undefined, { timeout: 5000 });
+    check(true, "Escape over the library closes both library and editor");
+    await openInstalledEditor(escapePage);
+    await escapePage.goBack();
+    const editorClosed = await escapePage.waitForFunction(() =>
+      document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), undefined, { timeout: 5000 })
+      .then(() => true, () => false);
+    check(editorClosed, "Back closes the reopened editor after Escape over the library");
+    await escapePage.goBack();
+    await escapePage.waitForURL(returnURL, { timeout: 5000 });
+    await waitForApp(escapePage);
+    check(escapePage.url() === returnURL, "the next Back returns to the preceding app page without overshooting");
+    await escapePage.close();
+
+    // Proof for Item 3: Reload with editor open, Back, Keep editing, Back.
+    const page4 = await context.newPage();
+    await page4.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForApp(page4);
+    await writeFixture(page4, fixture());
+    await openInstalledEditor(page4);
+    await page4.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page4);
+    await openInstalledEditor(page4);
+    await page4.locator('#programEditor [data-role="program-name-edit"]').click();
+    const renameInput = page4.locator(`${SHEET}.is-open [data-role="rename-input"]`);
+    await renameInput.waitFor({ timeout: 5000 });
+    await renameInput.fill("Reload dirty name");
+    await page4.goBack();
+    await page4.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
+    const dialogOpened = await page4.evaluate(() => !!document.querySelector("#programEditorLeave")?.open);
+    check(dialogOpened === true, "browser Back after reload opens leave dialog for dirty editor");
+    await page4.locator("#programEditorKeep").click();
+    await page4.waitForFunction(() => !document.querySelector("#programEditorLeave")?.open, undefined, { timeout: 5000 });
+    await page4.goBack();
+    await page4.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
+    const dialogOpenedAgain = await page4.evaluate(() => !!document.querySelector("#programEditorLeave")?.open);
+    check(dialogOpenedAgain === true, "browser Back again after Keep editing reopens leave dialog");
+    await page4.close();
+  } finally {
+    await context.close();
+  }
+}
+
 async function main() {
   console.log("Program editor text-field regression");
   console.log(`Target: ${BASE}\n`);
@@ -478,6 +613,7 @@ async function main() {
     await installedPart(browser);
     await renameBack(browser);
     await restDayNames(browser);
+    await historyStackInterleavings(browser);
   } finally {
     await browser.close();
   }
