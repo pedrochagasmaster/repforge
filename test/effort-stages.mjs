@@ -250,8 +250,32 @@ try {
 
   await boot(page, { settings: { rirMode: "effort" }, log: qualifyingLog() });
   await logOpenSet(page);
+  await page.evaluate(async () => {
+    await window.__repforgeStorage.flush();
+    const local = Storage.prototype.setItem, put = IDBObjectStore.prototype.put;
+    window.restoreStageStorage = () => { Storage.prototype.setItem = local; IDBObjectStore.prototype.put = put; };
+    Storage.prototype.setItem = function (key, ...args) {
+      if (key === "repforge_v1") throw new DOMException("stage write blocked", "QuotaExceededError");
+      return local.call(this, key, ...args);
+    };
+    IDBObjectStore.prototype.put = function (value, key) {
+      if (key === "repforge_v1") throw new DOMException("stage write blocked", "QuotaExceededError");
+      return put.apply(this, arguments);
+    };
+  });
   await page.locator(".resttip .resttip__yes").click();
-  await page.evaluate(async () => { await window.__repforgeWorkoutDraft.flush(); await window.__repforgeStorage?.flush?.(); });
+  await page.evaluate(async () => { await window.__repforgeStorage.flush(); syncRestTab(); });
+  pref = await tipPrefs(page);
+  shown = await tip(page);
+  s = await settings(page);
+  assert(pref?.c?.n !== 2 && shown?.to === "c" && s.rirMode === "effort",
+    "a failed stage save leaves the tip unaccepted and available to retry", { pref, shown, scale: s.effortScale });
+  await page.evaluate(() => window.restoreStageStorage());
+  if (shown) {
+    await page.locator(".resttip .resttip__yes").click();
+    await page.waitForFunction(() => window.__repforgeUi.loadUiPrefs()?.stageTip?.c?.n === 2);
+  }
+  await page.evaluate(() => window.__repforgeStorage.flush());
   s = await settings(page);
   st = await shelfState(page);
   assert(s.rirMode === "numeric" && await tip(page) === null && st.label === "Reps left",

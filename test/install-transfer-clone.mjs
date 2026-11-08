@@ -309,7 +309,11 @@ async function runBrowserCharacterization() {
     assert(Array.isArray(normalized?.programHistory) && normalized.programHistory.length >= EXPECTATIONS.durableState.minimumHistoryEntries, "live normalized producer retains program history");
     assert(Array.isArray(normalized?.customExercises) && normalized.customExercises.some((entry) => entry.id === EXPECTATIONS.durableState.customExerciseId), "live normalized producer retains custom definitions");
 
+    // The device rest record is device state beside the journal: it must not reach the backup, as the journal does not.
+    await page.evaluate(() => localStorage.setItem("repforge_rest_v1", JSON.stringify({ draftId: "rest-plant", restId: "rest-plant",
+      rest: { kind: "running", deadlineMs: Date.now() + 60000, lengthSec: 60, exerciseId: null, rang: false, expiresAt: Date.now() + 3660000 } })));
     const backup = await downloadBackup(page);
+    assert(!JSON.stringify(backup).includes("rest-plant") && !("restId" in backup), "production backup excludes the device rest record");
     assert(EXPECTATIONS.volatileDurableKeys.every((key) => !(key in backup)), "production backup producer excludes volatile durable metadata");
     assert(!("workoutDraft" in backup) && !JSON.stringify(backup).includes("journal-only") && !JSON.stringify(backup).includes("recovery-only"), "production backup excludes active draft and volatile sidecars");
     assert(backup.programMeta?.id === EXPECTATIONS.durableState.programMetaId && backup.programMeta?.name === EXPECTATIONS.durableState.programMetaName, "normalized backup retains program metadata");
