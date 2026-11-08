@@ -2271,32 +2271,11 @@
       const matches=async snapshot=>{
         try{return (await verify(cloneSnapshot(snapshot)))?.ok===true}
         catch{return false}};
-      let refreshed=await refreshPersistenceHead();
+      const refreshed=await refreshPersistenceHead();
       let head=cloneSnapshot(refreshed.head||persistHead);
       if(refreshed.conflict||!isValidStateShape(head))
         return unresolved(head,"transition_settlement_unresolved");
       if(!await matches(head))return unresolved(head,"transition_settlement_receipt_mismatch");
-
-      if(typeof pendingJournalId==="string"&&pendingJournalId){
-        const pending=readPendingJournal();
-        const record=pending.entries.find(item=>item.journal.id===pendingJournalId);
-        const invalid=pending.invalid.some(item=>item.key===PENDING_PREFIX+pendingJournalId);
-        if(invalid)return unresolved(head,"transition_settlement_journal_invalid",{pendingJournalCleanup:true});
-        if(record){
-          if(!transitionJournalAttempt(record.journal.proposal,record.journal.base)||
-            !await matches(record.journal.proposal))
-            return unresolved(head,"transition_settlement_journal_mismatch",{pendingJournalCleanup:true});
-          const closed=await executeDraftTransaction({record,transactionId:record.journal.id,
-            effect:record.journal.effectOutcome,discard:true});
-          if(!closed.settled)
-            return unresolved(head,"transition_settlement_pending",{pendingJournalCleanup:true});
-        }
-        refreshed=await refreshPersistenceHead();
-        head=cloneSnapshot(refreshed.head||persistHead);
-        if(refreshed.conflict||!isValidStateShape(head))
-          return unresolved(head,"transition_settlement_unresolved");
-        if(!await matches(head))return unresolved(head,"transition_settlement_receipt_mismatch");
-      }
 
       const ownJournalPending=()=>{
         if(typeof pendingJournalId!=="string"||!pendingJournalId)return false;
@@ -2304,26 +2283,38 @@
         return pending.entries.some(item=>item.journal.id===pendingJournalId)||
           pending.invalid.some(item=>item.key===PENDING_PREFIX+pendingJournalId);
       };
-      const localBefore=readLocalStatus(),idbBefore=await readIdbStatus();
-      const localMatches=localBefore.status==="valid"&&
-        storageSnapshotsEqual(localBefore.parsed,head)&&await matches(localBefore.parsed);
-      const idbMatches=idbBefore.status==="valid"&&
-        storageSnapshotsEqual(idbBefore.parsed,head)&&await matches(idbBefore.parsed);
-      if(!localMatches||!idbMatches){
+      const replicaHoldsHead=async replica=>replica.status==="valid"&&
+        storageSnapshotsEqual(replica.parsed,head)&&await matches(replica.parsed);
+      const pending=typeof pendingJournalId==="string"&&pendingJournalId?readPendingJournal():null;
+      const record=pending?.entries.find(item=>item.journal.id===pendingJournalId);
+      if(pending?.invalid.some(item=>item.key===PENDING_PREFIX+pendingJournalId))
+        return unresolved(head,"transition_settlement_journal_invalid",{pendingJournalCleanup:true});
+      if(record&&(!transitionJournalAttempt(record.journal.proposal,record.journal.base)||
+        !await matches(record.journal.proposal)))
+        return unresolved(head,"transition_settlement_journal_mismatch",{pendingJournalCleanup:true});
+
+      // The journal is what recovers the successor if a replica is lost, so it
+      // closes only after both replicas hold the verified head.
+      if(!await replicaHoldsHead(readLocalStatus())||!await replicaHoldsHead(await readIdbStatus())){
         const written=await writeSnapshot(head,storageIO);
         const local=readLocalStatus(),idb=await readIdbStatus();
-        const healedLocal=local.status==="valid"&&storageSnapshotsEqual(local.parsed,head)&&
-          await matches(local.parsed);
-        const healedIdb=idb.status==="valid"&&storageSnapshotsEqual(idb.parsed,head)&&
-          await matches(idb.parsed);
-        const journalPending=ownJournalPending();
-        if(!written.localOk||!written.idbOk||!healedLocal||!healedIdb||journalPending)
-          return unresolved(head,journalPending?"transition_settlement_pending":"transition_settlement_unresolved",
-            {localOk:written.localOk,idbOk:written.idbOk,pendingJournalCleanup:journalPending});
+        if(!written.localOk||!written.idbOk||!await replicaHoldsHead(local)||!await replicaHoldsHead(idb))
+          return unresolved(head,"transition_settlement_unresolved",
+            {localOk:written.localOk,idbOk:written.idbOk,pendingJournalCleanup:ownJournalPending()});
         head=cloneSnapshot(local.parsed);
       }
+      if(record){
+        const closed=await executeDraftTransaction({record,transactionId:record.journal.id,
+          effect:record.journal.effectOutcome,discard:true});
+        if(!closed.settled)
+          return unresolved(head,"transition_settlement_pending",
+            {localOk:true,idbOk:true,pendingJournalCleanup:true});
+      }
       if(ownJournalPending())
-        return unresolved(head,"transition_settlement_pending",{pendingJournalCleanup:true});
+        return unresolved(head,"transition_settlement_pending",
+          {localOk:true,idbOk:true,pendingJournalCleanup:true});
+      if(!await replicaHoldsHead(readLocalStatus())||!await replicaHoldsHead(await readIdbStatus()))
+        return unresolved(head,"transition_settlement_unresolved");
       const liveBase=cloneSnapshot(persistHead||head);
       persistHead=cloneSnapshot(head);
       applyAcceptedSnapshot(liveBase,head);
