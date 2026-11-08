@@ -890,6 +890,22 @@ async function failedReviewWriteRepaints(browser) {
   await run.context.close();
   return run.errors;
 }
+async function failedReviewWriteAfterRemount(browser) {
+  const run = await queuedReviewSetup(browser), { page, baseline, a } = run;
+  await remountQueuedReview(page);
+  await failNextReviewWrite(page);
+  await releaseSetupWrites(page);
+  await page.waitForFunction(() => window.__reviewActions.some(action => action.action === "save_failed"));
+  await settleQueuedReviewWrites(page);
+  const expected = Review.replay(baseline, [{ kind: "sets", slotId: a.id, count: setCount(baseline, a.id) + 1 }], REVIEW_CTX);
+  const durable = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_program_setup_draft_v1")).state.result.preview.programDefinition);
+  check(JSON.stringify(await reviewed(page)) === JSON.stringify(expected.definition) &&
+    JSON.stringify(durable) === JSON.stringify(expected.definition),
+    "#677: Cancel and stay cannot save an edit whose own write failed");
+  await checkReviewScreen(page, baseline, "#677 remount");
+  await run.context.close();
+  return run.errors;
+}
 async function activateQueuedUndo(browser) {
   const run = await queuedReviewSetup(browser), { page, baseline, a, b } = run;
   await page.locator("#entryReview [data-review-undo]").click();
@@ -954,7 +970,7 @@ async function remountedQueueBusy(browser) {
   return run.errors;
 }
 
-const lifetimeCases = { X677: failedReviewWriteRepaints, X678: activateQueuedUndo, F15: failedEditQueuedUndo, F16: queuedStepperTaps, F17: remountedQueueBusy, X679: backNextAsksBeforeDiscard, F22: revisionF22, F20: revisionF20, F19: revisionF19, F21: revisionF21, F1: restoreDoesNotCrossCandidate, F2: restoreQuestionDoesNotCrossCandidate,
+const lifetimeCases = { X677: async browser => [...await failedReviewWriteRepaints(browser), ...await failedReviewWriteAfterRemount(browser)], X678: activateQueuedUndo, F15: failedEditQueuedUndo, F16: queuedStepperTaps, F17: remountedQueueBusy, X679: backNextAsksBeforeDiscard, F22: revisionF22, F20: revisionF20, F19: revisionF19, F21: revisionF21, F1: restoreDoesNotCrossCandidate, F2: restoreQuestionDoesNotCrossCandidate,
   F3: renameDoesNotCrossCandidate, F4: sameCandidateEditsAcrossRemount, F5: undoAfterLeaving,
   F6: sameCandidateCommitRepaintsRemount, F7: revisionF7, F8: revisionF8, F9: revisionF9,
   F10: revisionF10, F11: revisionF11, F12: revisionF12, F13: revisionF13, F14: revisionF14,
