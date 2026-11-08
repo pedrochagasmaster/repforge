@@ -1262,6 +1262,11 @@
       "owner": "plan-064/r3f",
       "content": "flat",
       "scenario": "With no rest running the sheet opens from the actions sheet's Rest timer row: the dial at the default length and Start."
+    },
+    "workout/rest-overrun-finish": {
+      "owner": "plan-055",
+      "content": "flat",
+      "scenario": "A logged set, then a rest carried past the one-hour cap by the live count-up: the Early finish question opens with its reason line."
     }
   },
   "components": [
@@ -2303,7 +2308,8 @@
         "workout/effort-stage-b",
         "workout/stage-tip",
         "workout/why-calibration",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/rest-overrun-finish"
       ],
       "neverDisabledReason": "A note can always be written for the exercise in progress."
     },
@@ -5669,7 +5675,8 @@
         "workout/abandon",
         "workout/early-finish",
         "workout/reorder",
-        "workout/session"
+        "workout/session",
+        "workout/rest-overrun-finish"
       ]
     },
     {
@@ -5694,7 +5701,8 @@
         "workout/abandon",
         "workout/early-finish",
         "workout/reorder",
-        "workout/session"
+        "workout/session",
+        "workout/rest-overrun-finish"
       ]
     },
     {
@@ -5715,7 +5723,8 @@
       "rationale": "Performs a reversible supporting action without becoming the screen commitment: the drawn secondary button beside the primary confirmation (OG-6 round 1), which leaves the sheet and commits nothing.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/early-finish"
+        "workout/early-finish",
+        "workout/rest-overrun-finish"
       ]
     },
     {
@@ -5737,7 +5746,8 @@
       "rationale": "Advances the current task with the strongest action weight.",
       "owner": "plan-058",
       "catalogStates": [
-        "workout/early-finish"
+        "workout/early-finish",
+        "workout/rest-overrun-finish"
       ]
     },
     {
@@ -5849,7 +5859,8 @@
         "workout/abandon",
         "workout/early-finish",
         "workout/reorder",
-        "workout/session"
+        "workout/session",
+        "workout/rest-overrun-finish"
       ]
     },
     {
@@ -5869,7 +5880,8 @@
         "workout/abandon",
         "workout/early-finish",
         "workout/reorder",
-        "workout/session"
+        "workout/session",
+        "workout/rest-overrun-finish"
       ]
     },
     {
@@ -5940,7 +5952,8 @@
         "workout/abandon",
         "workout/early-finish",
         "workout/reorder",
-        "workout/session"
+        "workout/session",
+        "workout/rest-overrun-finish"
       ]
     },
     {
@@ -5960,7 +5973,8 @@
         "workout/abandon",
         "workout/early-finish",
         "workout/reorder",
-        "workout/session"
+        "workout/session",
+        "workout/rest-overrun-finish"
       ]
     },
     {
@@ -7049,7 +7063,8 @@
         "workout/effort-stage-b",
         "workout/stage-tip",
         "workout/why-calibration",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/rest-overrun-finish"
       ],
       "progressScopes": {
         "workout-exercise-order": "exercise-set"
@@ -8184,7 +8199,8 @@
         "workout/abandon",
         "workout/early-finish",
         "workout/reorder",
-        "workout/session"
+        "workout/session",
+        "workout/rest-overrun-finish"
       ]
     },
     {
@@ -8209,7 +8225,8 @@
         "workout/abandon",
         "workout/early-finish",
         "workout/reorder",
-        "workout/session"
+        "workout/session",
+        "workout/rest-overrun-finish"
       ]
     },
     {
@@ -8983,7 +9000,8 @@
         "workout/last-rep-slow",
         "progress/overview-calibration",
         "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/calibration-ring-bar",
+        "workout/rest-overrun-finish"
       ]
     },
     {
@@ -9059,7 +9077,8 @@
         "session/summary-share",
         "session/summary-share-photo",
         "workout/why-calibration",
-        "history/session-share"
+        "history/session-share",
+        "workout/rest-overrun-finish"
       ]
     },
     {
@@ -11929,7 +11948,8 @@
         "workout/reorder",
         "workout/session",
         "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/calibration-ring-bar",
+        "workout/rest-overrun-finish"
       ],
       "neverDisabledReason": "The menu or choice stays reachable whenever its owning row is present."
     },
@@ -12954,7 +12974,8 @@
         "workout/effort-stage-b",
         "workout/stage-tip",
         "workout/why-calibration",
-        "workout/last-rep-slow"
+        "workout/last-rep-slow",
+        "workout/rest-overrun-finish"
       ]
     },
     {
@@ -13453,7 +13474,8 @@
         "workout/why-manual",
         "workout/why-setup",
         "workout/max-set-guess",
-        "workout/why-calibration"
+        "workout/why-calibration",
+        "workout/rest-overrun-finish"
       ]
     },
     {

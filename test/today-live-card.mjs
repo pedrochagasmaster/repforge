@@ -154,6 +154,52 @@ const reading = (page) => page.evaluate(() => {
   };
 });
 
+/** Hold the state-write lock, so every durable write waits the way it does on a slow device. */
+async function holdWrites(page) {
+  await page.evaluate(() => new Promise((ready) => {
+    navigator.locks.request("repforge:state-write", () => new Promise((release) => {
+      window.__unlockWrites = release;
+      ready();
+    }));
+  }));
+}
+const releaseWrites = (page) => page.evaluate(() => window.__unlockWrites());
+
+/** Hold the suggestion refresh that Resume awaits; `window.__releaseResume()` lets it through. */
+async function holdSuggestions(page) {
+  await page.evaluate(() => {
+    const original = window.refreshSuggestions;
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    window.__releaseResume = release;
+    window.refreshSuggestions = (...args) => gate.then(() => original(...args));
+  });
+}
+
+/** Record each enterWorkout call and whether it has settled. The entries still run as they would. */
+async function trackEntries(page) {
+  await page.evaluate(() => {
+    window.__entries = [];
+    const original = window.enterWorkout;
+    window.enterWorkout = (...args) => {
+      const entry = { done: false, result: undefined };
+      window.__entries.push(entry);
+      const work = original(...args);
+      work.then((value) => { entry.done = true; entry.result = value; }, () => { entry.done = true; });
+      return work;
+    };
+  });
+}
+const entriesSettled = (page) => page.waitForFunction(() => window.__entries.length > 0 && window.__entries.every((e) => e.done), undefined, { timeout: 10000 });
+
+/** Where the screen is after entries settle: Focus open, the recovery panel, and the stored draft's day. */
+const readEntryOutcome = (page) => page.evaluate(() => ({
+  focus: !document.querySelector("#workoutShell")?.classList.contains("hidden") && document.body.classList.contains("is-workout"),
+  recovery: !document.querySelector("#draftRecovery")?.classList.contains("hidden"),
+  draftDay: window.__repforgeWorkoutDraft.current()?.program?.dayLabel ?? null,
+  results: window.__entries.map((e) => e.result),
+}));
+
 const browser = await launchChromium();
 try {
   phase("No workout open: Today is unchanged");
@@ -223,6 +269,286 @@ try {
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
     const tapped = await page.evaluate(() => window.__repforgeWorkoutDraft.current().session.selectedExerciseId);
     assert(tapped === current, "a tap anywhere on the card opens the current exercise", JSON.stringify({ tapped, current }));
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  phase("A dock tab chosen while Resume waits: Focus stays closed");
+  {
+    const { context, page, errors } = await freshPage(browser);
+    await shapeSession(page);
+    // Hold the suggestion refresh that Resume awaits, and release it by hand.
+    await page.evaluate(() => {
+      const original = window.refreshSuggestions;
+      let release;
+      const gate = new Promise((resolve) => { release = resolve; });
+      window.__releaseResume = release;
+      window.__resumeHeld = 0;
+      window.__resumeRefreshed = false;
+      window.refreshSuggestions = (...args) => {
+        window.__resumeHeld++;
+        return gate.then(() => original(...args)).then((result) => { window.__resumeRefreshed = true; return result; });
+      };
+    });
+    await page.click("#todayLiveResume");
+    await page.waitForFunction(() => window.__resumeHeld === 1, undefined, { timeout: 5000 });
+    await page.click('nav button[data-view="stats"]');
+    await page.waitForSelector("#stats.active", { timeout: 5000 });
+    await page.evaluate(() => window.__releaseResume());
+    await page.waitForFunction(() => window.__resumeRefreshed === true, undefined, { timeout: 5000 });
+    const after = await page.evaluate(() => ({
+      stats: document.querySelector("#stats")?.classList.contains("active") === true,
+      shellOpen: !document.querySelector("#workoutShell")?.classList.contains("hidden"),
+      focusBody: document.body.classList.contains("is-focus-wo"),
+      workoutBody: document.body.classList.contains("is-workout"),
+    }));
+    assert(after.stats && !after.shellOpen && !after.focusBody && !after.workoutBody,
+      "a held Resume does not reopen Focus over the tab the lifter chose", JSON.stringify(after));
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  phase("Resume tapped twice opens Focus once, on the current exercise");
+  {
+    const { context, page, errors } = await freshPage(browser);
+    const s = await shapeSession(page);
+    await page.evaluate(() => { document.querySelector("#todayLiveResume").click(); document.querySelector("#todayLiveResume").click(); });
+    await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
+    await page.waitForSelector("#workout .exercise.is-current", { timeout: 5000 });
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    const twice = await page.evaluate(() => ({
+      selected: window.__repforgeWorkoutDraft.current().session.selectedExerciseId,
+      focus: document.body.classList.contains("is-focus-wo"),
+      workoutBody: document.body.classList.contains("is-workout"),
+    }));
+    assert(twice.selected === s.selected && twice.focus && twice.workoutBody,
+      "two taps on Resume leave Focus open on the current exercise", JSON.stringify({ twice, selected: s.selected }));
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  phase("A second tap on Start joins the first: Focus opens once, with no recovery panel");
+  {
+    const { context, page, errors } = await freshPage(browser);
+    await trackEntries(page);
+    await holdWrites(page);
+    await page.click("#startWorkout");
+    await page.waitForFunction(() => window.__entries.length === 1, undefined, { timeout: 5000 });
+    await page.click("#startWorkout");
+    await page.waitForFunction(() => window.__entries.length === 2, undefined, { timeout: 5000 });
+    await releaseWrites(page);
+    await entriesSettled(page);
+    const r = await readEntryOutcome(page);
+    assert(r.focus && !r.recovery && r.draftDay === seedProgram()[0].day,
+      "two taps on Start leave Focus open on the day, with no recovery panel", JSON.stringify(r));
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  phase("Start after a dock cancel waits for the write still in flight: Focus opens, no recovery panel");
+  {
+    const { context, page, errors } = await freshPage(browser);
+    await trackEntries(page);
+    await holdWrites(page);
+    await page.click("#startWorkout");
+    await page.waitForFunction(() => window.__entries.length === 1, undefined, { timeout: 5000 });
+    await page.click('nav button[data-view="stats"]');
+    await page.waitForSelector("#stats.active", { timeout: 5000 });
+    await page.click('nav button[data-view="log"]');
+    await page.waitForSelector("#startWorkout:not(.hidden)", { timeout: 5000 });
+    await page.click("#startWorkout");
+    await page.waitForFunction(() => window.__entries.length === 2, undefined, { timeout: 5000 });
+    await releaseWrites(page);
+    await entriesSettled(page);
+    const r = await readEntryOutcome(page);
+    assert(r.focus && !r.recovery && r.draftDay === seedProgram()[0].day,
+      "Start after a dock cancel opens Focus, with no recovery panel", JSON.stringify(r));
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  phase("Up next tapped during a held Start takes over: Focus opens on that day");
+  {
+    const { context, page, errors } = await freshPage(browser);
+    const days = [...new Set(seedProgram().map((row) => row.day))];
+    await trackEntries(page);
+    await holdWrites(page);
+    await page.click("#startWorkout");
+    await page.waitForFunction(() => window.__entries.length === 1, undefined, { timeout: 5000 });
+    await page.waitForSelector("#upNextBtn", { timeout: 5000 });
+    await page.click("#upNextBtn");
+    await page.waitForFunction(() => window.__entries.length === 2, undefined, { timeout: 5000 });
+    await releaseWrites(page);
+    await entriesSettled(page);
+    const r = await readEntryOutcome(page);
+    assert(r.focus && !r.recovery && r.draftDay === days[1],
+      "Up next opens Focus on the next day, and the Start it replaced does not", JSON.stringify({ r, days }));
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  phase("Cancelling Up next while Start waits leaves the chosen tab and draft alone");
+  for (const logged of [false, true]) {
+    const { context, page, errors } = await freshPage(browser);
+    if (logged) await shapeSession(page);
+    const before = await page.evaluate(() => localStorage.getItem("repforge_draft_v1"));
+    await trackEntries(page);
+    await page.evaluate(() => {
+      const original = window.createWorkoutDraft;
+      let release;
+      const gate = new Promise((resolve) => { release = resolve; });
+      window.__releaseStart = release;
+      window.__startHeld = false;
+      window.createWorkoutDraft = (...args) => {
+        window.__startHeld = true;
+        return gate.then(() => original(...args));
+      };
+    });
+    await page.click(logged ? "#todayLiveResume" : "#startWorkout");
+    await page.waitForFunction(() => window.__startHeld, undefined, { timeout: 5000 });
+    await page.click("#upNextBtn");
+    await page.waitForFunction(() => window.__entries.length === 2, undefined, { timeout: 5000 });
+    await page.click('nav button[data-view="stats"]');
+    await page.waitForSelector("#stats.active", { timeout: 5000 });
+    await page.evaluate(() => window.__releaseStart());
+    await page.waitForFunction(() => window.__entries.every((e) => e.done)
+      || document.querySelector("#draftDiscardSheet")?.hidden === false, undefined, { timeout: 10000 });
+    const after = await page.evaluate(() => ({
+      stats: document.querySelector("#stats").classList.contains("active"),
+      question: document.querySelector("#draftDiscardSheet")?.hidden === false,
+      stored: localStorage.getItem("repforge_draft_v1"),
+    }));
+    const r = await readEntryOutcome(page);
+    assert(after.stats && !after.question && !r.focus && r.draftDay === seedProgram()[0].day
+      && (!logged || after.stored === before),
+      logged ? "cancelled Up next never asks to discard the logged session over Progress"
+        : "cancelled Up next never silently changes the pristine session's day",
+      JSON.stringify({ ...r, stats: after.stats, question: after.question, unchanged: after.stored === before }));
+    if (after.question) await page.click("#draftDiscardKeep");
+    await entriesSettled(page);
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  phase("A plain Start joins Up next while the pristine draft's removal waits for a write");
+  {
+    const { context, page, errors } = await freshPage(browser);
+    await page.click("#startWorkout");
+    await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
+    await page.click("#leaveWorkout");
+    await page.waitForSelector("#todayDash:not(.hidden)", { timeout: 5000 });
+    await trackEntries(page);
+    await holdWrites(page);
+    // Observe the real lock request so Start lands while Up next's clear is blocked.
+    await page.evaluate(() => {
+      const original = navigator.locks.request.bind(navigator.locks);
+      window.__dayWriteQueued = false;
+      navigator.locks.request = (...args) => {
+        const result = original(...args);
+        if (args[0] === "repforge:state-write") {
+          window.__dayWriteQueued = true;
+          navigator.locks.request = original;
+        }
+        return result;
+      };
+    });
+    await page.click("#upNextBtn");
+    await page.waitForFunction(() => window.__dayWriteQueued && window.__entries.length === 1,
+      undefined, { timeout: 5000 });
+    await page.click("#startWorkout");
+    await page.waitForFunction(() => window.__entries.length === 2, undefined, { timeout: 5000 });
+    await releaseWrites(page);
+    await entriesSettled(page);
+    const r = await readEntryOutcome(page);
+    const days = [...new Set(seedProgram().map((row) => row.day))];
+    assert(r.focus && !r.recovery && r.draftDay === days[1] && r.results.every(Boolean),
+      "Start joins the held Up next: Focus opens on Day 2 with no false recovery panel", JSON.stringify(r));
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  phase("A Settings commit that renders during a held Resume leaves Focus open");
+  {
+    const { context, page, errors } = await freshPage(browser);
+    await shapeSession(page);
+    await trackEntries(page);
+    await page.evaluate(() => {
+      window.__renders = 0;
+      const original = window.render;
+      window.render = (...args) => { window.__renders++; return original(...args); };
+    });
+    await page.click("#openSettings");
+    await page.waitForSelector("#settings.active", { timeout: 5000 });
+    await holdWrites(page);
+    await page.evaluate(() => document.querySelector("#maxSetToggle").click());
+    await page.click("#settingsBack");
+    await page.waitForSelector("#todayLiveResume", { timeout: 5000 });
+    await holdSuggestions(page);
+    await page.click("#todayLiveResume");
+    await page.waitForFunction(() => window.__entries.length === 1, undefined, { timeout: 5000 });
+    const rendersBefore = await page.evaluate(() => window.__renders);
+    await releaseWrites(page);
+    await page.waitForFunction((before) => window.__renders > before, rendersBefore, { timeout: 5000 });
+    await page.evaluate(() => window.__releaseResume());
+    await entriesSettled(page);
+    const r = await readEntryOutcome(page);
+    assert(r.focus && !r.recovery, "the Settings render does not cancel the Resume: Focus opens",
+      JSON.stringify(r));
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  phase("A Today row tapped during a held Resume leaves Focus closed, on the exercise page");
+  {
+    const { context, page, errors } = await freshPage(browser);
+    await shapeSession(page);
+    await trackEntries(page);
+    await holdSuggestions(page);
+    await page.click("#todayLiveResume");
+    await page.waitForFunction(() => window.__entries.length === 1, undefined, { timeout: 5000 });
+    await page.click("#todayExList [data-exopen]");
+    await page.waitForSelector("#exercise.active", { timeout: 5000 });
+    await page.evaluate(() => window.__releaseResume());
+    await entriesSettled(page);
+    const onExercise = await page.evaluate(() => ({
+      exercise: document.body.classList.contains("is-exercise"),
+      focusBody: document.body.classList.contains("is-workout") || document.body.classList.contains("is-focus-wo"),
+      shellOpen: !document.querySelector("#workoutShell")?.classList.contains("hidden"),
+    }));
+    assert(onExercise.exercise && !onExercise.focusBody && !onExercise.shellOpen,
+      "the exercise page stays on top: no Focus state beneath it", JSON.stringify(onExercise));
+    await page.click("#exBack");
+    await page.waitForSelector("#todayDash:not(.hidden)", { timeout: 5000 });
+    const back = await page.evaluate(() => ({
+      today: document.querySelector("#todayDash")?.classList.contains("hidden") === false,
+      focusBody: document.body.classList.contains("is-workout") || document.body.classList.contains("is-focus-wo"),
+    }));
+    assert(back.today && !back.focusBody, "Back from the exercise page lands on Today, not Focus", JSON.stringify(back));
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  phase("A Start whose draft could not be created does not poison the next tap");
+  {
+    const { context, page, errors } = await freshPage(browser);
+    await trackEntries(page);
+    // The first draft create fails once, then the write path is healthy again.
+    await page.evaluate(() => {
+      const original = window.createWorkoutDraft;
+      window.createWorkoutDraft = async (...args) => {
+        window.createWorkoutDraft = original;
+        return { status: "create-error" };
+      };
+    });
+    await page.click("#startWorkout");
+    await page.waitForFunction(() => window.__entries.length === 1, undefined, { timeout: 5000 });
+    await entriesSettled(page);
+    const failed = await readEntryOutcome(page);
+    assert(!failed.focus && failed.results[0] === false, "the first Start reports that it could not open", JSON.stringify(failed));
+    await page.evaluate(() => window.__repforgeEnterWorkout({}));
+    const retried = await readEntryOutcome(page);
+    assert(retried.focus && !retried.recovery && retried.draftDay === seedProgram()[0].day,
+      "the next plain entry opens Focus instead of joining the failed one", JSON.stringify(retried));
     assert(errors.length === 0, "no page errors", errors.join(" | "));
     await context.close();
   }
