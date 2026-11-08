@@ -640,6 +640,87 @@ phase("named days keep their names");
 }
 
 // ---------------------------------------------------------------------------
+// 5b. A Day Undo belongs to the day change that showed its toast (N12)
+// ---------------------------------------------------------------------------
+/** Synchronisation only: the Undo handler calls `undoDayChange`, so report when that call's work has settled. */
+async function trackDayUndo(page) {
+  await page.evaluate(() => {
+    const original = window.undoDayChange;
+    window.undoDayChange = (...args) => {
+      window.__undoSettled = false;
+      const work = original(...args);
+      work.then(() => { window.__undoSettled = true; }, () => { window.__undoSettled = true; });
+      return work;
+    };
+  });
+}
+const draftIdentity = (page) => page.evaluate(() => {
+  const d = window.__repforgeWorkoutDraft.current();
+  return { draftId: d?.draftId ?? null, day: d?.program?.dayLabel ?? null };
+});
+
+phase("a stale Day Undo leaves the session that replaced its own");
+{
+  const { context, page } = await freshPage(browser);
+  page.on("pageerror", (e) => errors.push(String(e.message)));
+  let dialogs = 0;
+  page.on("dialog", (d) => {
+    dialogs++;
+    d.dismiss();
+  });
+  const days = await page.evaluate((k) => [
+    ...new Set(JSON.parse(localStorage.getItem(k) || "{}").program.map((e) => e.day)),
+  ], KEY);
+  await openPicker(page);
+  await page.click(`[data-daypick="${days[1]}"]`);
+  await page.waitForSelector(".daychange-toast", { timeout: 5000 });
+  // The session is replaced while the toast is up: cleared, then started again on the same day with nothing logged.
+  await page.evaluate(async (d) => {
+    await clearDraft();
+    await window.__repforgeEnterWorkout({ day: d });
+    await window.__repforgeWorkoutDraft.flush();
+  }, days[1]);
+  await trackDayUndo(page);
+  const before = await draftIdentity(page);
+  await clickDayToastUndo(page);
+  await page.waitForFunction(() => window.__undoSettled === true, undefined, { timeout: 5000 });
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  const after = await draftIdentity(page);
+  assert(after.draftId === before.draftId && after.day === days[1] && dialogs === 0,
+    "Undo leaves the replacement session and its day alone, and asks nothing",
+    JSON.stringify({ before, after, dialogs }));
+  await context.close();
+}
+
+phase("a stale Day Undo for a day the program no longer has does nothing");
+{
+  const { context, page } = await freshPage(browser);
+  page.on("pageerror", (e) => errors.push(String(e.message)));
+  const days = await page.evaluate((k) => [
+    ...new Set(JSON.parse(localStorage.getItem(k) || "{}").program.map((e) => e.day)),
+  ], KEY);
+  await openPicker(page);
+  await page.click(`[data-daypick="${days[1]}"]`);
+  await page.waitForSelector(".daychange-toast", { timeout: 5000 });
+  // The program no longer has the day the lifter came from: the app's day list (days()) leaves it out.
+  await page.evaluate((gone) => {
+    const real = window.days;
+    window.days = () => real().filter((d) => d !== gone);
+  }, days[0]);
+  await trackDayUndo(page);
+  const before = await draftIdentity(page);
+  await clickDayToastUndo(page);
+  await page.waitForFunction(() => window.__undoSettled === true, undefined, { timeout: 5000 });
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  const after = await draftIdentity(page);
+  const recovery = await page.evaluate(() => !document.querySelector("#draftRecovery")?.classList.contains("hidden"));
+  assert(after.draftId === before.draftId && after.day === days[1] && !recovery,
+    "Undo to a missing day changes nothing: the draft stays, and no recovery opens",
+    JSON.stringify({ before, after, recovery }));
+  await context.close();
+}
+
+// ---------------------------------------------------------------------------
 // 6. Page furniture stays behind the sheet it would otherwise cover
 // ---------------------------------------------------------------------------
 phase("nothing floats over the open sheet");
