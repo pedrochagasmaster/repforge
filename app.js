@@ -8382,7 +8382,8 @@ function enterWorkout(opts={}){
   if(pendingWorkoutEntry?.key===key)return pendingWorkoutEntry.promise;
   const entry={key,promise:null};
   pendingWorkoutEntry=entry;
-  entry.promise=presentWorkoutEntry(opts,entry);
+  // Whatever the outcome, an entry that is no longer pending must not be joined by a later tap.
+  entry.promise=presentWorkoutEntry(opts,entry).finally(()=>{if(pendingWorkoutEntry===entry)pendingWorkoutEntry=null});
   return entry.promise}
 async function presentWorkoutEntry(opts,entry){
   // An earlier start settles first, so this entry reads the draft that start left behind.
