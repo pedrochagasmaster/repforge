@@ -762,7 +762,35 @@ async function revisionF19(browser) {
   return errors;
 }
 
-const lifetimeCases = { F19: revisionF19, F21: revisionF21, F1: restoreDoesNotCrossCandidate, F2: restoreQuestionDoesNotCrossCandidate,
+async function revisionF20(browser) {
+  const errors = [];
+  for (const mode of ["failure", "abandoned"]) {
+    const run = await fresh(browser, { fakeWorker: true }), { page } = run;
+    if (mode === "abandoned") await seedCustom(page, BASE); else await answerGenerate(page);
+    await page.locator("#entryReview [data-review-slot]").first().waitFor();
+    const baseline = await reviewed(page), [, b, c] = trainingDays(baseline)[0].slots;
+    await holdSetupWrites(page);
+    await removeReviewSlot(page, b.id);
+    await beginAnswerRebuild(page);
+    await releaseSetupWrites(page);
+    await settleQueuedReviewWrites(page);
+    if (mode === "failure") await failAnswerRebuild(page);
+    else { await returnToCustomReview(page); await releaseAnswerRebuild(page); await settleQueuedReviewWrites(page); }
+    check(!slotsOf(await reviewed(page)).some(slot => slot.id === b.id) && await replayMatchesSaved(page, baseline),
+      `F20: ${mode} rebuild retains the durable removal and its log`);
+    check((await reviewActions(page)).filter(action => action.action === "edit" && action.kind === "remove").length === 1,
+      `F20: ${mode} rebuild observes the started write exactly once after it lands`, await reviewActions(page));
+    await removeReviewSlot(page, c.id);
+    await settleQueuedReviewWrites(page);
+    check((await reviewActions(page)).filter(action => action.action === "edit" && action.kind === "remove").length === 2,
+      `F20: ${mode} rebuild observes both surviving removals once`, await reviewActions(page));
+    errors.push(...run.errors);
+    await run.context.close();
+  }
+  return errors;
+}
+
+const lifetimeCases = { F20: revisionF20, F19: revisionF19, F21: revisionF21, F1: restoreDoesNotCrossCandidate, F2: restoreQuestionDoesNotCrossCandidate,
   F3: renameDoesNotCrossCandidate, F4: sameCandidateEditsAcrossRemount, F5: undoAfterLeaving,
   F6: sameCandidateCommitRepaintsRemount, F7: revisionF7, F8: revisionF8, F9: revisionF9,
   F10: revisionF10, F11: revisionF11, F12: revisionF12, F13: revisionF13, F14: revisionF14,
