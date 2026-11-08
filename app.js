@@ -1176,6 +1176,14 @@ function syncEdgeSwipe(){
   routeEdge={page,dispose(){registration.dispose();watch.disconnect();unmount()}}}
 function scheduleEdgeSwipeSync(){
   if(!routeEdgeFrame)routeEdgeFrame=requestAnimationFrame(syncEdgeSwipe)}
+function scheduleBodyRouteHistorySync(records){
+  // Library, preview and exercise are body routes. Their Back entry must exist
+  // before the next frame, while nested page mutations can settle on the frame.
+  if(records.some(record=>{
+    const before=new Set((record.oldValue||"").split(/\s+/));
+    const after=new Set(document.body.className.split(/\s+/));
+    return ["is-library","is-preview","is-exercise"].some(name=>before.has(name)!==after.has(name))}))syncRouteHistory();
+  scheduleEdgeSwipeSync()}
 /* ---- Browser history for pushed pages (ADR 0023, Plan 075 phase 3) ----
    Each pushed page on screen holds one history entry, so Safari's back button,
    its edge swipe in a tab and Android's back pop it exactly as its Back control
@@ -1186,7 +1194,7 @@ function scheduleEdgeSwipeSync(){
    SAFARI_SWIPE_MS of a touch at the left edge it is Safari's own swipe, which
    has already animated, so the route just changes. */
 const ROUTE_HISTORY_KEY="tauriferRoute",SAFARI_SWIPE_MS=900,SAFARI_EDGE=30;
-let routeHistory=[],routeHistoryIgnore=0,routeEdgeTouchAt=-Infinity;
+let routeHistory=[],expectedRouteDepth=null,routeEdgeTouchAt=-Infinity;
 function openPushedRoutes(){
   const body=document.body.classList,history=$("#history"),open=[];
   if(body.contains("is-library"))open.push("library");
@@ -1195,20 +1203,31 @@ function openPushedRoutes(){
   if(history?.classList.contains("active")&&history.classList.contains("is-session-page"))open.push("history");
   return open}
 function syncRouteHistory(){
-  if(routeHistoryIgnore)return;
+  if(expectedRouteDepth!==null)return;
   const open=openPushedRoutes(),kept=routeHistory.filter(id=>open.includes(id)),closed=routeHistory.length-kept.length;
   const depth=routeHistory.length;
   routeHistory=kept;
   // Step back only over entries that are ours and on top: another owner (the editor, onboarding) may have pushed
   // since, and history.go would pop its entry instead. A route closed under one is forgotten, its entry left.
   // Pages opened in the same change are pushed once the browser has stepped back (onRoutePopState).
-  if(closed&&history.state?.[ROUTE_HISTORY_KEY]?.depth===depth){routeHistoryIgnore++;try{history.go(-closed)}catch{routeHistoryIgnore--}return}
+  if(closed&&history.state?.[ROUTE_HISTORY_KEY]?.depth===depth){
+    expectedRouteDepth=kept.length;
+    try{history.go(-closed)}catch{expectedRouteDepth=null}
+    return}
   for(const id of open)if(!routeHistory.includes(id)){
     routeHistory.push(id);
     const current=history.state&&typeof history.state==="object"?history.state:{};
     try{history.pushState({...current,[ROUTE_HISTORY_KEY]:{view:id,depth:routeHistory.length}},"",location.href)}catch{}}}
 function onRoutePopState(){
-  if(routeHistoryIgnore){routeHistoryIgnore--;syncRouteHistory();return true}
+  if(expectedRouteDepth!==null){
+    const arrivingDepth=history.state?.[ROUTE_HISTORY_KEY]?.depth||0;
+    if(arrivingDepth===expectedRouteDepth){
+      expectedRouteDepth=null;
+      syncRouteHistory();
+      return true;
+    }
+    expectedRouteDepth=null;
+  }
   const depth=history.state?.[ROUTE_HISTORY_KEY]?.depth||0;
   if(routeHistory.length<=depth)return false;
   const swiped=performance.now()-routeEdgeTouchAt<SAFARI_SWIPE_MS;
@@ -1237,7 +1256,7 @@ function watchRouteSurfaces(){
   const main=$("main"),history=$("#history");
   if(main)new MutationObserver(scheduleEdgeSwipeSync).observe(main,{attributes:true,attributeFilter:["class"],subtree:true});
   // The library, preview and exercise routes are body classes.
-  new MutationObserver(scheduleEdgeSwipeSync).observe(document.body,{attributes:true,attributeFilter:["class"]});
+  new MutationObserver(scheduleBodyRouteHistorySync).observe(document.body,{attributes:true,attributeFilter:["class"],attributeOldValue:true});
   // A reload starts with no page pushed, so an entry left by the last session is no longer one.
   try{const st=history.state;if(st&&typeof st==="object"&&st[ROUTE_HISTORY_KEY]){const{[ROUTE_HISTORY_KEY]:_,...rest}=st;history.replaceState(rest,"",location.href)}}catch{}
   if(history){
@@ -1764,7 +1783,11 @@ const loadInputToast=p=>t(p.kind==="empty"?"toast.enter_weight_before_save_set":
 const fmtLoad=kg=>fmt(toDisplay(kg));
 const fmtLoadPlain=kg=>fmtPlain(toDisplay(kg));
 const term=key=>`<button type="button" class="term" data-term="${esc(key)}">${esc(tOr(`glossary.term.${key}`,key))}</button>`;
+/* A Trim or Day toast belongs to the session it was made in. When that session ends or is replaced, the toast
+   leaves at once (owner, 2026-11-08); its Undo guards still hold for a button that was already tapped or held. */
+function retireWorkoutUndoToasts(){hideTrimToast();hideDayChangeToast()}
 function resetWorkoutSessionIdentity(){
+  retireWorkoutUndoToasts();
   abandonVoiceOp();
   clearUnfinishedWatch();
   lastCommitAt=0;sessionStartedAt=0;
@@ -1780,7 +1803,7 @@ function resetDraftSessionPresentation(){
 }
 /* Ending a session by any route (discard, replace, clear) ends its rest clock with it: a
    running rest belongs to the session it was started in. */
-function resetDraftSessionState(){resetWorkoutSessionIdentity();WorkoutSession.resetAfterDraftRemoval();resetDraftSessionPresentation();stopRest()}
+function resetDraftSessionState(){resetWorkoutSessionIdentity();WorkoutSession.resetAfterDraftRemoval();resetDraftSessionPresentation();endWorkoutRest()}
 async function clearDraft(){
   if(draftUiRecovery?.attempt||draftUiRecovery?.status==="refresh-failed"){
     renderDraftRecovery();focusDraftRecovery();return false}
@@ -2478,7 +2501,7 @@ let activeRecoveryRecord=null,activeRecoveryRecordBlockId=null;
 // cap read from the deadline). This file reads the wall clock, keeps the one interval the clock asks for, and carries out
 // the effects each transition names.
 let restClock=RepForgeRestTimer.createRestClock(0),restIntervalId=null;
-// The armed rest survives a reload of this tab, for the workout it started in (see saveRestRecord and restoreRest).
+// The armed rest is kept on the device (see saveRestRecord). restDraftId is the workout it started in.
 const REST_RECORD_KEY="repforge_rest_v1";
 let restDraftId=null;
 // A tap on a shelf field brings the field pads back for the rest of this rest;
@@ -2882,7 +2905,7 @@ async function initializeWorkoutDraft({restoreDay=false}={}){
     activeWorkoutDraft=checked.draft;activeWorkoutDraftRaw=read.raw;
     if(restoreDay&&days().includes(activeWorkoutDraft.program.dayLabel))day=activeWorkoutDraft.program.dayLabel;
     return{status:"ready",draft:activeWorkoutDraft}}
-  if(parsed.kind==="absent"){activeWorkoutDraft=null;activeWorkoutDraftRaw=null;abandonVoiceOp();return{status:"absent"}}
+  if(parsed.kind==="absent"){activeWorkoutDraft=null;activeWorkoutDraftRaw=null;abandonVoiceOp();removeRestRecord();if(restClock.kind!=="idle")stopRest();return{status:"absent"}}
   storeDraftRecovery(read.raw,parsed.code||parsed.kind);return{status:parsed.kind,error:parsed,raw:read.raw}}
 async function createWorkoutDraft(label=day,{contextTouched:selectionContextTouched}={}){
   const existing=await initializeWorkoutDraft();if(existing.status==="ready")return existing;
@@ -2896,7 +2919,7 @@ async function createWorkoutDraft(label=day,{contextTouched:selectionContextTouc
   if(WorkoutDraft.isDomainError(draft))return{status:"create-error",error:draft};
   const nextRaw=JSON.stringify(WorkoutDraft.serialize(draft));
   const installed=await DraftStore.compareAndSwapV2({expectedRaw:null,nextRaw,operationId});
-  if(installed.status==="applied"){activeWorkoutDraft=installed.draft;activeWorkoutDraftRaw=installed.raw;return{status:"ready",draft:installed.draft}}
+  if(installed.status==="applied"){retireWorkoutUndoToasts();activeWorkoutDraft=installed.draft;activeWorkoutDraftRaw=installed.raw;return{status:"ready",draft:installed.draft}}
   return installed}
 function draftFocusIdentity(payload={}){
   const el=document.activeElement;
@@ -3316,12 +3339,17 @@ function confirmDiscardDraft(){
   return draftDiscardAsk}
 /** `undo` is the day picker's Undo putting back the day it just changed: the
  *  change itself marked the draft's day as touched, so only logged work asks. */
-async function requestWorkoutDay(nextDay,{undo=false}={}){
+async function requestWorkoutDay(nextDay,{undo=false,ofDraft}={}){
   if(!nextDay||nextDay===day) return true;
+  await workoutStartTail;
+  // An Undo is bound to the draft its own day change made (N12): once that draft is replaced, it changes nothing.
+  const stillOfDraft=()=>ofDraft===undefined||activeWorkoutDraft?.draftId===ofDraft;
+  if(!stillOfDraft())return false;
   const hasProgress=undo?draftHasLoggedWork():draftHasProgress();
   if(hasProgress){
     if(!await confirmDiscardDraft()){
       return false}
+    if(!stillOfDraft())return false;
     if(!await clearDraft())return false;
     resetSessionContextFields()}
   else if(activeWorkoutDraft?.program?.dayLabel&&activeWorkoutDraft.program.dayLabel!==nextDay){
@@ -3333,7 +3361,7 @@ async function requestWorkoutDay(nextDay,{undo=false}={}){
   day=nextDay;
   contextTouched.day=true;
   const selectionContextTouched={day:true,date:false,sessionNotes:false,bodyweight:false};
-  const created=await WorkoutSession.start(nextDay,{contextTouched:selectionContextTouched});
+  const created=await startWorkoutDraft(nextDay,{contextTouched:selectionContextTouched});
   if(created.status!=="ready"){
     showDraftInitializationRecovery(created,{retryMode:"create",label:nextDay,contextTouched:selectionContextTouched});
     return false;
@@ -3447,12 +3475,13 @@ function fatigueFlagged(){return exercises().filter(e=>fatigueSignal(recommendat
 async function applyFatigueTrim(){
   const flagged=new Set(fatigueFlagged().map(e=>e.id));
   if(!activeWorkoutDraft)return;
+  const draftId=activeWorkoutDraft.draftId;
   // What this Trim changes, so its toast names the lifts and Undo puts back exactly that (owner, 2026-11-04).
   const restored=[],trimmed=[];
   for(const id of [...skipped])if(!flagged.has(id)){const result=await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return;restored.push(id)}
   for(const id of flagged)if(!skipped.has(id)){const result=await WorkoutSession.dispatch("skipExercise",{exerciseInstanceId:id,reason:"trim"},{bulk:true});if(result.status!=="applied")return;trimmed.push(id)}
   renderWorkout();
-  if(trimmed.length)showTrimToast(trimmed,restored)}
+  if(trimmed.length)showTrimToast(trimmed,restored,draftId)}
 /** The lifts a Trim hid, by name: two, then how many more. */
 function trimmedNamesText(ids){
   const names=ids.map(id=>exerciseDisplayName(sessionExercise(prog.find(id))));
@@ -3463,18 +3492,21 @@ function trimmedNamesText(ids){
    Undo restores the lifts this Trim hid and re-hides any it had brought back, by hand, so no reason is recorded. */
 let trimToastEl=null,trimToastTimer=null;
 function hideTrimToast(){clearTimeout(trimToastTimer);trimToastTimer=null;trimToastEl?.remove();trimToastEl=null}
-function showTrimToast(trimmed,restored){
+function showTrimToast(trimmed,restored,draftId){
   hideTrimToast();
   const el=document.createElement("div");
   el.className="review-toast trim-toast";el.setAttribute("role","status");
   el.innerHTML=`<span class="review-toast__text">${esc(trimmedNamesText(trimmed))}</span>`+
     `<button type="button" class="review-toast__undo" data-role="trim-undo">${esc(t("common.undo"))}</button>`;
-  el.querySelector('[data-role="trim-undo"]').onclick=async()=>{hideTrimToast();await undoFatigueTrim(trimmed,restored)};
+  el.querySelector('[data-role="trim-undo"]').onclick=async()=>{hideTrimToast();await undoFatigueTrim(trimmed,restored,draftId)};
   document.body.append(el);trimToastEl=el;trimToastTimer=setTimeout(hideTrimToast,6000)}
-async function undoFatigueTrim(trimmed,restored){
-  if(!activeWorkoutDraft)return;
-  for(const id of trimmed)if(skipped.has(id)){const result=await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
-  for(const id of restored)if(!skipped.has(id)){const result=await WorkoutSession.dispatch("skipExercise",{exerciseInstanceId:id},{bulk:true});if(result.status!=="applied")return}
+/* Undo belongs to the session the Trim was made in (N12). Once that session is replaced, nothing it names may change
+   in the replacement, so each step checks the draft is still that one before it dispatches. */
+async function undoFatigueTrim(trimmed,restored,draftId){
+  const sameSession=()=>activeWorkoutDraft?.draftId===draftId;
+  if(!sameSession())return;
+  for(const id of trimmed)if(skipped.has(id)){if(!sameSession())return;const result=await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
+  for(const id of restored)if(!skipped.has(id)){if(!sameSession())return;const result=await WorkoutSession.dispatch("skipExercise",{exerciseInstanceId:id},{bulk:true});if(result.status!=="applied")return}
   renderWorkout()}
 let focusIndex=0,statsSeg="overview",evidenceView=null,prFilter="all";
 let strengthScope="current-block",volumeScope="this-week",volumeDrillMuscle=null;
@@ -5396,6 +5428,7 @@ async function installTransferWriteDraft(logical,durableRevision){
     if(parsed?.kind!=="valid")return{ok:false,code:"draft-untrusted"};
     const removed=await DraftStore.removeV2({expectedDraftId:parsed.draft.draftId,
       expectedRevision:parsed.draft.revision,operationId:`install-import-remove-${uid()}`});
+    if(removed.status==="applied")endWorkoutRest();
     return{ok:removed.status==="applied"||removed.status==="missing",status:removed.status,
       code:removed.status==="applied"?null:"draft-remove-failed"}}
   const next=cloneSnapshot(logical),operationId=`install-import-${uid()}`;
@@ -5407,6 +5440,8 @@ async function installTransferWriteDraft(logical,durableRevision){
   const written=await DraftStore.compareAndSwapV2({expectedRaw:current.raw,nextRaw,operationId});
   if(written.status==="applied"){
     activeWorkoutDraft=written.draft;activeWorkoutDraftRaw=written.raw;workoutDraftRecovery=null;
+    // The draft is replaced, so any rest that belonged to the one before ends with it.
+    endWorkoutRest();
     return{ok:true,status:written.status,raw:written.raw}}
   return{ok:false,status:written.status,code:"draft-write-failed"}}
 function installTransferWriteCandidate(logical){
@@ -6943,8 +6978,9 @@ function bindStageTip(tip,shelf,ex,n){
   shelf.querySelector(".shelf__pads")?.addEventListener("pointerdown",away,{once:true});
   tip.querySelectorAll("[data-tipdismiss]").forEach(b=>b.onclick=()=>{dismissStageTip(tip.dataset.to);tip.remove();quietFocus(shelf.querySelector(".saveset"))});
   tip.querySelector("[data-tipaccept]")?.addEventListener("click",async()=>{
-    const to=tip.dataset.to;acceptStageTip(to);tip.remove();
-    if(await commitEffortStage(to))toast(t("toast.effort_stage",{stage:t(STAGE_LABEL[to])}),{quiet:true})})}
+    const to=tip.dataset.to;tip.remove();
+    if(await commitEffortStage(to)){
+      acceptStageTip(to);toast(t("toast.effort_stage",{stage:t(STAGE_LABEL[to])}),{quiet:true})}})}
 /* The stage tip (OD-6): Taurifer suggests the next stage up, never down, once the lifter has settled into this one.
    A→B after 6 workouts in stage A with at least 80% of their working sets given a word by the lifter (not left at the
    offered one); B→C after 6 workouts in stage B with at most 10% "Not sure". A dismissal keeps it quiet for 4 weeks,
@@ -7082,9 +7118,14 @@ function playRestFlick(){
   const c=restContour;if(!c?.svg.isConnected)return;
   restFlickCount++;
   window.RepForgeMotion?.flickRestLight?.(c.lit,c.halves,c.length)}
+/* Ending the rest removes its device record. */
 function stopRest(){applyRest(RepForgeRestTimer.stop());
+  removeRestRecord();
   paintRest();
   updateRestChrome()}
+/* The workout, its draft or the state they belong to has ended or been replaced on this device: every rest record goes,
+   whichever tab wrote it, because there is one draft per device. */
+function endWorkoutRest(){stopRest();removeRestRecord()}
 /** Past the bell the clock keeps running as a "+m:ss" count-up, so a glance
  *  says how long the set has been waiting. It stops climbing after an hour —
  *  by then the number has stopped meaning anything. */
@@ -7103,38 +7144,105 @@ function ringRest(){
   if(!window.RepForgeNotify||!RepForgeNotify.enabledFor(state.settings,"timer"))return;
   if(document.visibilityState==="visible")navigator.vibrate?.([200,100,200]);
   else RepForgeNotify.fireOS({title:t("notify.title"),body:t("notify.rest.body"),tag:"repforge-rest",url:"./"})}
-/** Keep a transition's new state, carry out its effects, then run the one interval the clock asks for. */
-function applyRest(result){
+/** Keep a transition's new state, carry out its effects, then run the one interval the clock asks for. A clock that this
+    transition takes to the one-hour cap ends here, whatever carried it there. The finish question is offered only when the
+    count-up itself reached the cap (`timed`, a tick or a return to the page): a hand nudge, a resume or a dial turn ends the
+    rest and offers nothing. */
+function applyRest(result,{timed=false}={}){
   const before=restClock;
-  restClock=result.state;
+  let next=result.state,effects=result.effects,offerCap=false;
   // A rest belongs to the workout it started in, so its record names that draft for as long as the rest runs.
-  if(before.kind==="idle"&&restClock.kind!=="idle")restDraftId=activeWorkoutDraft?.draftId??null;
-  if(restClock!==before&&(before.kind!=="idle"||restClock.kind!=="idle"))saveRestRecord();
-  for(const effect of result.effects){
+  if(before.kind==="idle"&&next.kind!=="idle")restDraftId=activeWorkoutDraft?.draftId??null;
+  if(next.kind!=="idle"&&RepForgeRestTimer.view(next,Date.now()).phase==="capped"){
+    next=RepForgeRestTimer.stop().state;effects=[RepForgeRestTimer.EFFECTS.CLEARED];offerCap=timed}
+  restClock=next;
+  if(next!==before&&(before.kind!=="idle"||next.kind!=="idle"))saveRestRecord();
+  for(const effect of effects){
     if(effect===RepForgeRestTimer.EFFECTS.BELL)ringRest();
     else if(effect===RepForgeRestTimer.EFFECTS.REARMED){restFlickArmed=true;clearRestNotices()}
     else if(effect===RepForgeRestTimer.EFFECTS.CLEARED)clearRestNotices()}
-  restReconcileTicker()}
-/* Tab-scoped, like the entry review's undo log: a reload of this tab finds the rest again, and nothing else keeps it. It is
-   never in the state, a backup, the install transfer or telemetry. Stopping the rest clears it. */
+  restReconcileTicker();
+  if(offerCap)offerRestOverrunFinish()}
+/* The armed rest is kept on the device (localStorage), so a phone that kills the app brings it back when the app is opened
+   again. The record is {draftId, rest}: the workout the rest belongs to, and the rest-timer snapshot. There is one record per
+   device and the last writer wins. It is read only when a clock is restored: a live tab never reads another tab's record and
+   is never changed by it, so two tabs on one rest each keep their own clock. It is never in the state, a backup, the install
+   transfer, a setup link or telemetry. A record is written on each change of an armed clock and removed when the rest stops. */
+/* restUnsaved: the last write was refused. The rest keeps running, and the write is tried again on the next tick or return
+   to the page, until storage takes it. */
+let restUnsaved=false;
+function readRestRecord(){
+  try{const raw=localStorage.getItem(REST_RECORD_KEY);
+    return{ok:true,raw,record:raw===null?null:JSON.parse(raw)}}
+  catch{return{ok:false,raw:null,record:null}}}
+/* A removal that storage refuses leaves the record it meant to remove. This tab keeps a note of it, tab-scoped so a reload
+   still has it: the draft, and the record's exact text when it could be read. A readable record that the note matches is the
+   rest this tab ended, so it is never restored, and its removal is retried on tick, on return to the page and before a
+   restore. A save or a clear in this tab drops the note. */
+const REST_ENDED_KEY="repforge_rest_ended_v1";
+let restRemovalPending=false;
+function endedRestNote(){try{return JSON.parse(sessionStorage.getItem(REST_ENDED_KEY)||"null")}catch{return null}}
+function forgetEndedRest(){restRemovalPending=false;try{sessionStorage.removeItem(REST_ENDED_KEY)}catch{}}
+function endedHere(stored){
+  const note=endedRestNote();
+  if(!note||!stored.ok||stored.raw===null)return false;
+  return note.raw!==null?note.raw===stored.raw:stored.record?.draftId===note.draftId}
+function removeRestRecord(){
+  const stored=readRestRecord();
+  try{localStorage.removeItem(REST_RECORD_KEY);forgetEndedRest()}
+  catch{
+    if(stored.ok&&stored.raw===null)return;
+    restRemovalPending=true;
+    try{sessionStorage.setItem(REST_ENDED_KEY,JSON.stringify({draftId:stored.record?.draftId??restDraftId??null,raw:stored.raw}))}catch{}}}
 function saveRestRecord(){
-  const rest=RepForgeRestTimer.snapshot(restClock);
-  if(!rest)return forgetRestRecord();
+  const rest=RepForgeRestTimer.snapshot(restClock,Date.now());
+  if(!rest){restUnsaved=false;removeRestRecord();return}
   if(!restDraftId)return;
-  try{sessionStorage.setItem(REST_RECORD_KEY,JSON.stringify({draftId:restDraftId,rest}))}catch{}}
-function forgetRestRecord(){try{sessionStorage.removeItem(REST_RECORD_KEY)}catch{}}
-/* After a reload, the tab's record comes back only for the draft it was written for; any other draft, or none, forgets it.
-   The restored clock is settled against the wall time at once: a deadline passed while the page was gone has no ticker to
-   ring it (a capped clock stops ticking), so its bell is consumed here, once. A rung bell or a held clock is left as it is. */
+  try{localStorage.setItem(REST_RECORD_KEY,JSON.stringify({draftId:restDraftId,rest}));restUnsaved=false;forgetEndedRest()}
+  catch{restUnsaved=true}}
+/* A refused write or a refused removal is tried again on the next tick or return to the page. Nothing is written or removed
+   once storage has taken it, and a record this tab did not end is never removed here. */
+function retryRestRecord(){
+  if(restRemovalPending||endedRestNote()){
+    const stored=readRestRecord();
+    if(stored.ok){
+      if(stored.raw===null)forgetEndedRest();
+      else if(endedHere(stored))removeRestRecord();
+      else forgetEndedRest()}}
+  if(restUnsaved&&restClock.kind!=="idle")saveRestRecord()}
+/* After a reload, the device's record comes back only for the draft it was written for, only while its clock is valid, and
+   only while it has not reached the cap. A running rest that reached the cap while the app was away ends here and may offer
+   the finish question. A bell that is due is settled at once: a deadline passed while the app was gone has no ticker to
+   ring it. A rung bell or a held clock is left as it is. */
 function restoreRest(draftId){
-  let saved=null;
-  try{saved=JSON.parse(sessionStorage.getItem(REST_RECORD_KEY)||"null")}catch{}
-  if(!draftId||saved?.draftId!==draftId){forgetRestRecord();return}
-  const restored=RepForgeRestTimer.restore(restClock,saved.rest);
-  const settled=RepForgeRestTimer.settle(restored.state,Date.now());
+  // The tab-scoped record of the build before this one is dropped: its one rest timer is lost on upgrade, by choice.
+  try{sessionStorage.removeItem(REST_RECORD_KEY)}catch{}
+  const stored=readRestRecord(),record=stored.ok?stored.record:null,now=Date.now();
+  // A rest this tab ended whose removal was refused is never restored; its removal is owed, and is tried again here.
+  if(endedHere(stored)){removeRestRecord();return}
+  if(!draftId||record?.draftId!==draftId||!RepForgeRestTimer.snapshotValid(record.rest,now)){removeRestRecord();return}
+  if(RepForgeRestTimer.capReached(record.rest,now)){removeRestRecord();offerRestOverrunFinish();return}
+  const restored=RepForgeRestTimer.restore(restClock,record.rest,now);
+  if(restored.state.kind==="idle"){removeRestRecord();return}
+  restDraftId=draftId;
+  const settled=RepForgeRestTimer.settle(restored.state,now);
   applyRest({state:settled.state,effects:[...restored.effects,...settled.effects]});
-  if(restClock.kind==="idle")forgetRestRecord();
-  else syncRest()}
+  syncRest()}
+/* The question a rest over the cap may open. It can apply only when the draft is open, the lifter is on the logging route,
+   at least one set is logged, nothing else is open and no recovery panel is showing. It never saves: it waits for its
+   confirm tap. The reason line is shown for this one opening (restOverrunReasonPending), never for the lifter's own. */
+let restOverrunReasonPending=false;
+function restOverrunFinishOfferable(){
+  const draft=activeWorkoutDraft;
+  if(!draft||!workoutActive||currentViewId()!=="log"||activeModal||draftUiRecovery||workoutDraftRecovery)return false;
+  if(WorkoutSession.earlyFinishDraft())return false;
+  return Object.values(draft.exercises||{}).some(exercise=>Object.values(exercise?.sets||{})
+    .some(set=>set.role!=="warmup"&&set.completion!=="pending"))}
+function offerRestOverrunFinish(){
+  if(!restOverrunFinishOfferable())return;
+  restOverrunReasonPending=true;
+  openSessionSheet();
+  $("#sessionEarlyFinish")?.click()}
 function clearRestNotices(){
   const ra=$("#restAnnounce");if(ra)ra.textContent="";
   if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest")}
@@ -7145,7 +7253,8 @@ function restReconcileTicker(){
   else if(!want&&restIntervalId){clearInterval(restIntervalId);restIntervalId=null}}
 /** An interval tick, or a catch-up on return to the page: settle the bell if its deadline has passed, then repaint. */
 function tickRest(){
-  applyRest(RepForgeRestTimer.settle(restClock,Date.now()));
+  applyRest(RepForgeRestTimer.settle(restClock,Date.now()),{timed:true});
+  retryRestRecord();
   paintRest()}
 /** Repaint every rest surface from the clock as it stands, without waiting for
  *  the next tick — a held clock has no tick, and a nudged one should read the
@@ -7246,22 +7355,29 @@ function renderRestPresets(){
   else host.querySelectorAll('[role="radio"]').forEach(b=>{b.onclick=()=>{input.value=b.dataset.value;chooseRestPreset(+b.dataset.value)}})}
 /** Store an exercise's rest in the program: every set of the slot that carried the rest shown takes the new one, as
  *  the program editor's rest does. Only the definition changes, so the workout in progress keeps its draft. */
-async function saveExerciseRest(ex,sec){
+async function saveExerciseRest(ex,sec,isCurrent){
   if(!restSlotOf(ex)||exerciseStoredRest(ex)===sec)return false;
   const shown=exerciseStoredRest(ex);
   const proposal=cloneSnapshot(state),slot=restSlotOf(ex,proposal);
   if(!slot)return false;
   for(const cycle of slot.prescriptionsByCycle||[])for(const set of cycle.sets||[])
     if((set.restSeconds??null)===shown)set.restSeconds=sec;
-  const result=await commitProposedState(proposal,storageIO);
+  const result=await commitProposedState(proposal,storageIO,{
+    preflight:()=>isCurrent()?null:{reject:true,result:{superseded:true}}});
   return!!(result?.localOk||result?.idbOk)}
+let restPresetRequest=0;
 /** A preset sets this exercise's rest, and the rest on the clock restarts at it; idle, it is what the next one runs for. */
 async function chooseRestPreset(sec){
-  const s=clampRestSec(sec),ex=restExercise();
+  const s=clampRestSec(sec),ex=restExercise(),request=++restPresetRequest;
+  const isCurrent=()=>request===restPresetRequest;
+  await DurableState.flushStorage();
+  if(!isCurrent())return;
+  const saved=!ex||exerciseStoredRest(ex)===s||await saveExerciseRest(ex,s,isCurrent);
+  if(!isCurrent())return;
+  if(!saved){toast(t("toast.program_save_failed"));renderRestPresets();paintRestSheet();return}
   if(restState().active)startRest(s);
   else{applyRest(RepForgeRestTimer.setLength(restClock,0));syncRest()}
   paintRestSheet();
-  if(ex)await saveExerciseRest(ex,s);
   renderRestPresets();paintRestSheet()}
 /** The next set, for the dial: the set the Focus shelf is on, its load and reps. */
 function restNextLine(){
@@ -7455,6 +7571,7 @@ function onAppVisible(){
   // clock now. The tick (re)starts from the state the settle leaves, if the count-up still needs one.
   const v=restState();
   if(v.active&&!v.held&&v.leftMs<=0)tickRest();
+  else retryRestRecord();
   reconcileNotifyPermission();
   paintNotifyControls();
   updateSessionBanner();
@@ -7515,7 +7632,7 @@ function updateSessionBanner(){
 function draftHasLoggedWork(){try{return draftHasSessionWork(JSON.parse(DraftStore.readRaw()||"{}"),{ignoreDay:true})}catch{return false}}
 function draftHasProgress(){try{const d=JSON.parse(DraftStore.readRaw()||"{}");
   return draftHasSessionWork(d)||!!contextFlagsFromDraft(d).day}catch{return false}}
-function setWorkoutActive(on){const was=workoutActive;workoutActive=!!on;
+function setWorkoutActive(on){const was=workoutActive;workoutActive=!!on;if(was&&!on)cancelWorkoutEntry();
   const dash=$("#todayDash"),shell=$("#workoutShell");
   // N5: Today to Focus is the same push as a drill-down, and Back from Focus is it
   // run the other way. Finishing a session clears the draft first, so the card has
@@ -7970,21 +8087,23 @@ function hideDayChangeToast(){
   dayChangeToastEl?.remove();dayChangeToastEl=null}
 function showDayChangeToast(previousDay,newDay){
   hideDayChangeToast();
+  const draftId=activeWorkoutDraft?.draftId??null;
   const n=days().indexOf(newDay)+1;
   const el=document.createElement("div");
   el.className="review-toast daychange-toast";
   el.setAttribute("role","status");
   el.innerHTML=`<span class="review-toast__text">${esc(t("today.day_changed",{n}))}</span>`+
     `<button type="button" class="review-toast__undo" data-role="daychange-undo">${esc(t("common.undo"))}</button>`;
-  el.querySelector('[data-role="daychange-undo"]').onclick=()=>{hideDayChangeToast();undoDayChange(previousDay)};
+  el.querySelector('[data-role="daychange-undo"]').onclick=()=>{hideDayChangeToast();undoDayChange(previousDay,draftId)};
   document.body.append(el);
   dayChangeToastEl=el;
   dayChangeToastTimer=setTimeout(hideDayChangeToast,4200)}
 /** Undo is `requestWorkoutDay` run backwards. It is silent unless a set was
  *  logged on the new day in the meantime; then the discard question appears
  *  again rather than silently discarding that work. */
-async function undoDayChange(previousDay){
-  if(!await requestWorkoutDay(previousDay,{undo:true}))return;
+async function undoDayChange(previousDay,draftId){
+  if(!days().includes(previousDay))return;
+  if(!await requestWorkoutDay(previousDay,{undo:true,ofDraft:draftId}))return;
   renderToday()}
 /** Keep the sheet above the software keyboard rather than behind it, and inside
  *  the band the keyboard leaves visible so its header stays on screen.
@@ -8267,15 +8386,41 @@ function focusDragEnd(e){
   if(e?.type==="pointercancel"||!past||!focusCanGo(dir)){focusSettle(track,card,deck,{from:dx,velocity:vx});return}
   card.classList.remove("is-dragging");
   focusAnimateTo(dir)}
-async function enterWorkout(opts={}){if(opts.day&&!await requestWorkoutDay(opts.day))return false;
+/* The Focus entry still waiting on its draft and suggestions. Choosing another tab cancels it, so the late
+   presentation cannot reopen Focus over that tab. A plain tap or a tap for the same day joins the entry already
+   waiting; a different day (Up next during a held Start or Resume) takes over from it. */
+let pendingWorkoutEntry=null;
+function cancelWorkoutEntry(){pendingWorkoutEntry=null}
+/* Draft starts run one at a time: two concurrent starts both find no draft and the second loses the create. */
+let workoutStartTail=Promise.resolve();
+function startWorkoutDraft(label,options){
+  const run=workoutStartTail.then(()=>WorkoutSession.start(label,options));
+  workoutStartTail=run.then(()=>{},()=>{});
+  return run}
+function enterWorkout(opts={}){
+  const key=opts.day??null;
+  if(pendingWorkoutEntry&&(key===null||pendingWorkoutEntry.key===key))return pendingWorkoutEntry.promise;
+  const entry={key,promise:null};
+  pendingWorkoutEntry=entry;
+  // Whatever the outcome, an entry that is no longer pending must not be joined by a later tap.
+  entry.promise=presentWorkoutEntry(opts,entry).finally(()=>{if(pendingWorkoutEntry===entry)pendingWorkoutEntry=null});
+  return entry.promise}
+async function presentWorkoutEntry(opts,entry){
+  // An earlier start settles first, so this entry reads the draft that start left behind.
+  await workoutStartTail;
+  if(entry!==pendingWorkoutEntry)return false;
+  if(opts.day&&!await requestWorkoutDay(opts.day))return false;
+  if(entry!==pendingWorkoutEntry)return false;
   if(opts.day)focusIndex=0;
-  const prepared=await WorkoutSession.start(day);
+  const prepared=await startWorkoutDraft(day);
   if(prepared.status!=="ready"){
     showDraftInitializationRecovery(prepared,{retryMode:"create",label:day});return false}
   clearDraftUiRecovery();
   // Recommendations fill the day's untouched pending values before the first paint.
   const firstExercise=exercises(day)[0];
   if(firstExercise)await refreshSuggestions(firstExercise.id);
+  if(entry!==pendingWorkoutEntry)return false;
+  pendingWorkoutEntry=null;
   workoutLeft=false;setWorkoutActive(true);
   hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});
   // Focus is the sole workout route.
@@ -8988,6 +9133,7 @@ function renderSessionSheet(){
   WorkoutSession.cancelEarlyFinish();
   const earlyPrompt = $("#sessionEarlyPrompt");
   if (earlyPrompt) earlyPrompt.classList.add("hidden");
+  $("#sessionEarlyReason")?.classList.add("hidden");
   const earlyBtn = $("#sessionEarlyFinish");
   if (earlyBtn) earlyBtn.classList.remove("hidden");
   const earlyMsg = $("#sessionEarlyMsg");
@@ -11498,7 +11644,7 @@ async function saveWorkoutV2(operation){
         retryKind:"workout-save",retryAction:stale?null:()=>retryWorkoutSave(operation),discard:false};
       renderDraftRecovery();focusDraftRecovery()}
     return result}
-  resetDraftSessionPresentation();resetSessionContextFields();stopRest();
+  resetDraftSessionPresentation();resetSessionContextFields();endWorkoutRest();
   const {rows,prevLog,session,date,day:savedDay,startedAt,draftId}=completed;
   if(typeof window.__repforgeDraftAfterSaveCommit==="function")
     await window.__repforgeDraftAfterSaveCommit({session,draftId});
@@ -11834,6 +11980,10 @@ function syncShareControls(st){
   if(pick)pick.textContent=t(st.photo?"share.change_photo":"share.choose_photo");
   if(note)note.textContent=t(photo?"share.photo_note":"share.note");
   window.RepForgeMotion?.syncNativeControls?.($("#shareCardSheet"))}
+function syncShareAvailability(st){
+  const ready=!!st.file&&(st.drawn.style!=="photo"||st.drawn.photo);
+  const share=$("#shareCardShare"),save=$("#shareCardSave");
+  if(share)share.disabled=!ready;if(save)save.disabled=!ready}
 /** Draws the chosen card and keeps it ready as a file; a newer choice wins over a slower older one. */
 async function paintShareCard(){
   const st=shareSheet;if(!st||!window.TauriferShareCards)return;
@@ -11844,9 +11994,10 @@ async function paintShareCard(){
   if(shareSheet!==st||token!==st.token)return;
   const style=SHARE_STYLES[st.kind][st.styleIndex];
   const out=TauriferShareCards.render(st.model,{kind:st.kind,size:st.size,style,mark,photo:style==="photo"?st.photo:null});
-  if(!out)return;
+  if(!out){syncShareAvailability(st);return}
   const blob=await TauriferShareCards.toBlob(out.canvas);
-  if(shareSheet!==st||token!==st.token||!blob)return;
+  if(shareSheet!==st||token!==st.token)return;
+  if(!blob){syncShareAvailability(st);return}
   if(st.url)URL.revokeObjectURL(st.url);
   st.url=URL.createObjectURL(blob);
   st.file=new File([blob],shareFileName(st),{type:"image/png"});
@@ -11856,8 +12007,7 @@ async function paintShareCard(){
     img.alt=st.kind==="record"&&st.model.lead?t("summary.card.aria_poster",{kicker:st.model.lead.kicker,lift:st.model.lead.name,load:st.model.lead.load,unit:st.model.unit,reps:st.summary.lead.reps})
       :t("summary.card.aria_stats",{day:st.model.day,date:shortDate(st.summary.date)})}
   // Until a photo is chosen the Photo preview is a stand-in ground, so there is nothing to send yet.
-  const ready=style!=="photo"||!!st.photo;
-  if(share)share.disabled=!ready;if(save)save.disabled=!ready}
+  syncShareAvailability(st)}
 /** A past session as the cards draw it (finish-share PR 4): the same numbers the finish screen gave it, read from the
  *  log as it stood when the session was saved. Records compare with what came before it; outcome words are History's
  *  own per-session outcomes, not the current block's; the week is the block week History shows. Null for a session
@@ -11889,7 +12039,7 @@ function openShareSheet(opener,{summary:given=null,origin="summary"}={}){
   const s=given||sessionSummaryCurrent,sheet=$("#shareCardSheet"),scrim=$("#shareCardScrim");
   if(!s||!sheet)return;
   const model=shareCardModel(s);
-  shareSheet={summary:s,origin,model,kind:model.lead?shareCardInView(s):"stats",size:"story",styleIndex:0,token:0,url:"",file:null,drawn:null,photo:null};
+  shareSheet={summary:s,origin,model,kind:model.lead?shareCardInView(s):"stats",size:"story",styleIndex:0,token:0,photoToken:0,url:"",file:null,drawn:null,photo:null};
   syncShareControls(shareSheet);
   // Without file sharing (desktop Firefox, some web views) the image is saved instead: Save leads.
   const canShare=shareCanFiles(),share=$("#shareCardShare"),save=$("#shareCardSave");
@@ -11937,7 +12087,7 @@ function bindShareSheet(){
   change("#shareCardKind",v=>{const photo=sharePhotoStyle(shareSheet);
     shareSheet.kind=v==="record"&&shareSheet.model.lead?"record":"stats";shareSheet.styleIndex=photo?SHARE_STYLES[shareSheet.kind].indexOf("photo"):0});
   change("#shareCardSize",v=>{shareSheet.size=v==="square"?"square":"story"});
-  change("#shareCardStyle",v=>{shareSheet.styleIndex=Math.max(0,SHARE_STYLE_VALUES.indexOf(v));
+  change("#shareCardStyle",v=>{shareSheet.photoToken++;shareSheet.styleIndex=Math.max(0,SHARE_STYLE_VALUES.indexOf(v));
     // Choosing Photo with no picture yet goes straight to the picker, inside the same tap.
     if(sharePhotoStyle(shareSheet)&&!shareSheet.photo)pickSharePhoto()});
   on("#sharePhotoPick",()=>pickSharePhoto());
@@ -11946,8 +12096,8 @@ function bindShareSheet(){
     const st=shareSheet,file=input.files?.[0];
     input.value="";
     if(!st||!file)return;
-    const photo=await decodeSharePhoto(file);
-    if(shareSheet!==st){photo?.close?.();return}
+    const token=++st.photoToken,photo=await decodeSharePhoto(file);
+    if(shareSheet!==st||token!==st.photoToken){releaseSharePhoto({photo});return}
     if(!photo)return toast(t("share.photo_error"),{placement:"top"});
     releaseSharePhoto(st);st.photo=photo;
     st.styleIndex=SHARE_STYLES[st.kind].indexOf("photo");
@@ -13261,7 +13411,7 @@ function exerciseSessionsDetail(key){const m=new Map();
 function currentViewId(){return $$(".view").find(v=>v.classList.contains("active"))?.id||"log"}
 function openExerciseView(key,from){if(!key)return;
   // Leaving the logging route retires voice: a recognizer started in Focus must not outlive it.
-  abandonVoiceOp();
+  abandonVoiceOp();cancelWorkoutEntry();
   const slot=prog.find(key),movement=slot?(workoutActive?sessionExercise(slot):slot):null;
   exView={key:movement?exerciseLiftKey(movement):key,openKey:key,from:from||currentViewId(),exercise:movement?Object.assign({},movement):null};
   chartView={scope:"current-block",metric:"top",pt:null};
@@ -14284,7 +14434,7 @@ function createInstalledProgramEditorAdapter(){
         installedEditorSession.edits.push(cloneSnapshot(intent));
         return{ok:true,staged:true,document:cloneSnapshot(staged),token:cloneSnapshot(expectedToken)}
       }
-      const session=installedEditorSession||{document:cloneSnapshot(nextDocument),token:cloneSnapshot(expectedToken),edits:intent?.edits||[]};
+      const startedSession=installedEditorSession,session=startedSession||{document:cloneSnapshot(nextDocument),token:cloneSnapshot(expectedToken),edits:intent?.edits||[]};
       const refreshed=await refreshPersistenceHead();
       if(refreshed.conflict)return{ok:false,conflict:true,editorConflict:true};
       const head=refreshed.head||state,headToken=installedEditorToken(head);
@@ -14346,7 +14496,7 @@ function createInstalledProgramEditorAdapter(){
         if(discarded)reportWorkoutDiscarded(activeWorkoutDraft||draftBefore,"program_edit");
         captureEvent("active_program_edited",{outcome:discarded?"discarded_workout":"saved"});
         if(discarded)resetDraftSessionState();
-        installedEditorSession=null;return{...result,ok:true,document,token:installedEditorToken(state)}}
+        if(installedEditorSession===startedSession)installedEditorSession=null;return{...result,ok:true,document,token:installedEditorToken(state)}}
       return{...result,ok:false,conflict:!!(result.conflict||result.staleRevision)};
     },
     chooseExercise:editorChooseExercise,
@@ -14460,7 +14610,8 @@ function onboardingEditorStatus(){
   const message=progression?editorAdapterTranslate("entry.editor.progression_invalid",undefined,"This program has an unsupported progression pairing."):
     issues.some(issue=>issue.startsWith("exercise_invalid:"))?editorAdapterTranslate("entry.editor.exercise_invalid",undefined,"Complete each exercise before continuing."):
       emptyDays.length?editorAdapterTranslate("entry.editor.empty_days",{days:emptyDays.join(", ")},"Add an exercise to each training day."):
-        issues.length?editorAdapterTranslate("entry.editor.incomplete",{n:issues.length},"Finish the program before continuing."):
+        issues.some(issue=>issue.startsWith("metric_configuration_required:"))?t("entry.preview.metrics_required"):
+          issues.length?editorAdapterTranslate("entry.editor.incomplete",{n:issues.length},"Finish the program before continuing."):
           editorAdapterTranslate("entry.editor.draft_saved",undefined,"Draft saved");
   return{issues,message}}
 function updateOnboardingEditorActions(){
@@ -14497,6 +14648,9 @@ function disposeProgramEditors(){
   onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;
   installedProgramEditor?.dispose?.();installedProgramEditor=null;installedEditorSession=null;
 }
+// Reload or close with unsaved installed-editor work asks first (#659). The editor's own dirty predicate decides,
+// so the prompt is live exactly while work is unsaved and never outlives the editor.
+window.addEventListener("beforeunload",event=>{if(!installedProgramEditor?.isDirty())return;event.preventDefault();event.returnValue=""});
 // @ci-domain program,entry
 /* ---- The installed editor's page sheet (Plan 075 phase 2B, ADR 0023) ----
    Edit presents #program itself as a page sheet (the generic sheet/detents
@@ -14517,13 +14671,17 @@ function captureProgramEditorSnapshot(){
   return copy;
 }
 function attemptProgramEditorDismiss(){
-  if(!programEditMode)return;
+  if(!programEditMode||installedProgramEditor?.isCommitting?.())return;
   if(installedProgramEditor?.isDirty()){pendingEditorNavigation=null;openInstalledLeaveDialog();return}
   finishInstalledEditor();
 }
 function updateInstalledEditorDoneButton(){
   const done=$("#programEditDone");if(!done)return;
-  done.disabled=installedProgramEditor?.canApply?.()===false;
+  const committing=!!installedProgramEditor?.isCommitting?.();
+  done.disabled=committing||installedProgramEditor?.canApply?.()===false;
+  const editor=$("#programEditor");
+  if(editor){editor.inert=committing;editor.setAttribute("aria-busy",String(committing))}
+  const meta=$("#programMeta");if(meta)meta.inert=committing;
 }
 function enterProgramEditorSheet(copy){
   if(programEditorSheetOpen)return;
@@ -14627,6 +14785,17 @@ function disarmInstalledEditorHistory({historyAlreadyPopped=false}={}){
   if(!installedEditorHistoryArmed)return;
   installedEditorHistoryArmed=false;
   if(historyAlreadyPopped)return;
+  const routesOnTop=Math.max(routeHistory.length,history.state?.[ROUTE_HISTORY_KEY]?.depth||0);
+  if(routesOnTop>0){
+    const toClose=routeHistory.slice().reverse();
+    routeHistory=[];
+    for(const id of toClose){
+      try{releaseSwallowedClick();$(EDGE_BACK[id])?.click()}catch{}
+    }
+    installedEditorHistoryRelease=true;
+    try{history.go(-(1+routesOnTop))}catch{installedEditorHistoryRelease=false}
+    return;
+  }
   installedEditorHistoryRelease=true;
   try{history.back()}catch{installedEditorHistoryRelease=false}
 }
@@ -14688,11 +14857,16 @@ function finishInstalledEditor({discard=false,historyAlreadyPopped=false}={}){
   }
 }
 async function applyInstalledEditorAndContinue(){
-  const editor=installedProgramEditor;if(!editor)return;
+  const editor=installedProgramEditor;if(!editor||editor.isCommitting?.())return;
   const mode=installedLeaveMode?.workout?"apply_discard_workout":"apply";
   const apply=$("#programEditorApply");if(apply)apply.disabled=true;
-  const result=await editor.commit({kind:mode});
-  if(apply)apply.disabled=false;
+  const pending=editor.commit({kind:mode});
+  updateInstalledEditorDoneButton();
+  let result;
+  try{result=await pending}
+  finally{if(apply)apply.disabled=false;updateInstalledEditorDoneButton()}
+  // The commit belongs to the editor that started it (#658): if that editor has since closed, nothing here may close its successor.
+  if(installedProgramEditor!==editor)return result;
   if(result?.workoutConflict){
     openInstalledLeaveDialog({workout:true});
     return result;
@@ -14726,7 +14900,7 @@ async function applyInstalledEditorAndContinue(){
   return result;
 }
 async function requestInstalledDone(){
-  if(!programEditMode||!installedProgramEditor)return;
+  if(!programEditMode||!installedProgramEditor||installedProgramEditor.isCommitting?.())return;
   if(!installedProgramEditor.isDirty()){finishInstalledEditor();return}
   // Done is the editor's explicit commit action. The three-way leave dialog is
   // reserved for navigation and browser Back, so a deliberate tap never
@@ -14827,7 +15001,7 @@ async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
     ...(entryState.route==="build"?{suggestLoadsPending:Array.isArray(proposal.programMeta?.suggestLoadsPending)
       ?cloneSnapshot(proposal.programMeta.suggestLoadsPending):[]}:{}),
     days:previewDays,
-    customExercises:(entryState.result.preview?.customExercises||[])
+    customExercises:(proposal.customExercises||[])
       .filter(entry=>referencedCustomIds.has(entry.id)).map(cloneSnapshot)};
   if(!preview.suggestLoadsPending?.length)delete preview.suggestLoadsPending;
   const previousEntryState=entryState;
@@ -14878,7 +15052,7 @@ async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
     // here is safe for the editor document too: a later commit always
     // resolves with a document rebuilt from whatever entryState currently
     // holds, so no commit ever renders this one's stale snapshot.
-    }else if(entryState===attemptedEntryState)entryState=previousEntryState;
+    }else if(entryState===attemptedEntryState){entryState=previousEntryState;onboardingProgramEditor?.discard?.()}
   }
   if(saved?.ok&&progressionData.incompatibilities.length){
     entryEditorStatusFocusPending=true;
@@ -15076,7 +15250,8 @@ function renderProgramHeader(){
       :issues.some(issue=>issue.startsWith("exercise_invalid:"))
         ?t("entry.editor.exercise_invalid")
         :emptyDays.length?t("entry.editor.empty_days",{days:emptyDays.join(", ")})
-          :issues.length?t("entry.editor.incomplete",{n:issues.length}):t("entry.editor.ready");
+          :issues.some(issue=>issue.startsWith("metric_configuration_required:"))?t("entry.preview.metrics_required")
+            :issues.length?t("entry.editor.incomplete",{n:issues.length}):t("entry.editor.ready");
     const status=saveError||issueStatus;
     const activateLabel=hasActiveProgram()?t("entry.preview.activate_replace"):t("entry.preview.activate_first");
     el.innerHTML=`<p class="pmeta__draft"><span class="pmeta__draft-mark" aria-hidden="true"></span>${esc(t("entry.preview.lede"))}</p>`+
@@ -15106,9 +15281,11 @@ function renderProgramHeader(){
     `</div>`;
   renderProgramChips();
   const nameInp=$("#programName"),startInp=$("#programStarted");
-  nameInp.oninput=async()=>{const captured=nameInp.value,result=await persistProgramMeta({name:captured});
+  nameInp.oninput=async()=>{if(installedProgramEditor?.isCommitting?.())return;
+    const captured=nameInp.value,result=await persistProgramMeta({name:captured});
     if(!(result.localOk||result.idbOk)&&nameInp.value===captured)nameInp.value=state.programMeta?.name||""};
-  startInp.onchange=async()=>{const captured=startInp.value,result=await persistProgramMeta({started:captured||null});
+  startInp.onchange=async()=>{if(installedProgramEditor?.isCommitting?.())return;
+    const captured=startInp.value,result=await persistProgramMeta({started:captured||null});
     if(result.localOk||result.idbOk)renderProgramChips();
     else if(startInp.value===captured)startInp.value=state.programMeta?.started||""};
 }
@@ -17750,13 +17927,21 @@ function parseBackupFile(text){
   const parsed=boundedImportJson(text,{maxBytes:BACKUP_MAX_BYTES,maxNodes:BACKUP_MAX_NODES});
   return isImportableState(parsed)?parsed:null}
 
+/* The latest program-file pick, and the flow it was picked in. A read from slow
+   storage can still be arriving after another pick, a Cancel or a change of
+   flow; only the read that is still current may open a review. */
+let programFileRead=null;
 /* Reading a file no longer changes anything: it opens the review screen. The
    old path linked names and wrote the program behind one confirm(), which meant
    a wrong file had already replaced the program by the time you saw it. */
 async function importProgramFile(e,io){const f=e.target.files?.[0];if(!f)return;
+  const read={flow:entryState};
+  programFileRead=read;
+  const current=()=>programFileRead===read&&entryState===read.flow;
   try{
     if(Number.isFinite(f.size)&&f.size>BACKUP_MAX_BYTES)throw Error();
     const text=await f.text();
+    if(!current()){e.target.value="";return}
     const parsedBackup=parseBackupFile(text),legacyBackup=isLegacyBackup(parsedBackup);
     const backup=legacyBackup?null:parsedBackup;
     const source=parseProgramSource(text,f.name);
@@ -17781,7 +17966,7 @@ async function importProgramFile(e,io){const f=e.target.files?.[0];if(!f)return;
       openImportChoice(Object.assign(importChoiceContext(backup,e.target,io),
         {bodyKey:"dialog.import.body_program",programOnly:draft?()=>openImportReview(draft):null}));
     else openImportReview(draft);
-  }catch{toast(t("toast.program_import_invalid"))}
+  }catch{if(current())toast(t("toast.program_import_invalid"))}
   e.target.value=""}
 let pendingImportIo=null;
 // @ci-domain entry
@@ -17918,6 +18103,9 @@ function setImportSourceMode(mode,{render=true}={}){
     if(!confirm(t("entry.freeform.confirm_discard")))return;
   }
   entryImportMode=mode==="freeform"?"freeform":"file";
+  // A file read picked on the other door belongs to that door's flow: a switch,
+  // even one back before it lands, must not let it open a review here.
+  if(entryImportMode!==prev)programFileRead=null;
   setUiPref("importSourceMode",entryImportMode);
   // Clearing only the stored copy left the text in memory, so a lifter who
   // confirmed the discard got it back by switching doors again.
@@ -18734,6 +18922,8 @@ function disarmEntryHistory(){
 function closeOnboarding(){
   // The pasted program and the reply belong to the flow that asked for them.
   resetFreeformImport();
+  // So does a program file still being read: a Cancel must not reopen its review.
+  programFileRead=null;
   cancelEntryGeneration();
   entryPickerInput=null;entryDialog=null;entryReplaceResolve?.(false);entryReplaceResolve=null;closeEntryDialog();
   onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;setupEditorOpen=false;
@@ -19981,11 +20171,15 @@ function cancelEntryGeneration(){
 function syncEntryBusy(){
   const status=entryGeneration.status;
   const resultBusy=status===ENTRY_GENERATION_STATUS.GENERATING_RESULT&&entryGeneration.from===entryState;
-  const answerBusy=status===ENTRY_GENERATION_STATUS.REBUILDING_ANSWER&&entryGeneration.committed===entryState;
+  const answerBusy=entryAnswerRebuildPending();
   const next=$("#onbNext");
   if(next){if(resultBusy)next.setAttribute("aria-busy","true");else next.removeAttribute("aria-busy")}
   const review=$("#entryCandidateReview");
-  if(review){if(answerBusy)review.setAttribute("aria-busy","true");else review.removeAttribute("aria-busy")}}
+  if(review){if(answerBusy)review.setAttribute("aria-busy","true");else review.removeAttribute("aria-busy")}
+  // Activation waits for the rebuild it would commit; a control that is blocked
+  // for its own reason stays disabled when the rebuild settles.
+  const activate=$("#entryActivate");
+  if(activate)activate.disabled=answerBusy||activate.dataset.entryBlocked==="true"}
 /* B's building moment (Plan 072): a four-line checklist and a thin bar while
    the program generates. The step moves to the result when the checklist has
    finished, or the lifter skipped it, and the program has landed; if the
@@ -20547,7 +20741,7 @@ function openEntryEditor(chip){
   if(!entryState?.result)return;
   if(entryEditor?.chip===chip){closeEntryEditor();return}
   entryResetEditorFields();
-  entryEditor={chip,kind:ENTRY_CHIP_KIND[chip],draftId:entryState.draftId,draft:{...entryState,answers:cloneSnapshot(entryState.answers)},error:null};
+  entryEditor={chip,kind:ENTRY_CHIP_KIND[chip],draftId:entryState.draftId,draft:{...entryState,answers:cloneSnapshot(entryAskedAnswers())},error:null};
   entryReviewError=null;
   renderOnboarding();
   const title=$("#entryEditorTitle"),editor=$("#entryEditor"),scroller=$("#onboarding");
@@ -20642,10 +20836,19 @@ async function undoEntryMovementConfirmation(exerciseId){
   const outcome=await guardEntryRebuild(()=>applyEntryAnswerEdit({movementConfirmations:confirmations},{lead:t("entry.change.lead.answer")}));
   return outcome===false?{ok:false,cancelled:true}:outcome?.ok?outcome:
     {...outcome,message:entryFailureText(outcome?.failure)||t("entry.issue.compile")}}
+/* A rebuild still building on the committed state: the program it will settle
+   is not the one the lifter has been shown, so it is not yet the program. */
+function entryAnswerRebuildPending(){
+  const current=entryGeneration;
+  return current.status===ENTRY_GENERATION_STATUS.REBUILDING_ANSWER&&current.committed===entryState}
+/* The answers the lifter has asked for: a rebuild still building on the
+   committed state owns the newest ones, so a change is judged against those. */
+function entryAskedAnswers(){
+  return entryAnswerRebuildPending()?entryGeneration.next.answers:entryState.answers}
 async function applyEntryEditor(){
   const editor=entryEditor;
   if(!editor||entryPendingAvoid)return;
-  const base=entryState.answers,draft=editor.draft.answers,patch={};
+  const base=entryAskedAnswers(),draft=editor.draft.answers,patch={};
   for(const key of Object.keys(draft))if(entryCanon(base[key])!==entryCanon(draft[key]))patch[key]=draft[key];
   if(!Object.keys(patch).length){closeEntryEditor();return}
   const outcome=await applyEntryAnswerEdit(patch,{lead:t("entry.change.lead.answer")});
@@ -21333,7 +21536,8 @@ function renderEntryPinned({progressionIssue=false,configurationIssue=false,revi
   const reason=progressionIssue?t("entry.preview.activation_blocked"):reviewIssue?t(reviewIssue):t("entry.preview.metrics_required");
   return `<div class="entry__pinned">`+
     (blocked?`<p id="entryActivationStatus" class="entry__reason" role="alert" tabindex="-1">${esc(reason)}</p>`:"")+
-    `<button type="button" id="entryActivate" class="btn btn--cta${blocked?" btn--noarrow":""}"${blocked?` disabled aria-describedby="entryActivationStatus"`:""}>${esc(activateLabel)}</button></div>`}
+    `<button type="button" id="entryActivate" class="btn btn--cta${blocked?" btn--noarrow":""}" data-entry-blocked="${blocked?"true":"false"}"`+
+    `${blocked||entryAnswerRebuildPending()?" disabled":""}${blocked?` aria-describedby="entryActivationStatus"`:""}>${esc(activateLabel)}</button></div>`}
 function renderEntryNotice(){
   if(!entryUiNotice)return"";
   // Cancel is a dialog and Resume is a card on the hub; neither is a notice.
@@ -22342,6 +22546,8 @@ function onInstalledEditorPopState(){
       history.pushState(installedEditorHistoryState(),"",location.href);
       installedEditorHistoryArmed=true;
     }catch{}
+    // An Apply in flight already owns the decision (#658): Back keeps the editor and asks nothing.
+    if(installedProgramEditor.isCommitting?.())return true;
     // A name still typed in the editor's rename sheet is held while the sheet steps aside (#445),
     // then the decision opens over the editor.
     const held=installedProgramEditor.holdPendingRename?.();
@@ -22360,7 +22566,7 @@ function onEntryPopState(){
   entryBack()}
 // @ci-domain global
 async function activateEntryPreview({destination="log",manualBuild=false,skipReplaceConfirm=false,io=storageIO}={}){
-  if(!ProgramEntry||!entryState)return;
+  if(!ProgramEntry||!entryState||entryAnswerRebuildPending())return;
   await setupDraftWriteQueue;
   const activationDraftHandle=entryDraftHandle;
   // A previous attempt may already have committed the exact draft and then
@@ -22794,7 +23000,6 @@ async function triggerInstall(source="automatic"){
 function installBannerEligible(){
   const decision=installPolicyDecision();
   if(!decision.eligible||!["eligible-milestone","ios-transfer"].includes(decision.state))return false;
-  if(state?.[STORAGE_FOLLOWUP]?.kind==="onboarding-edit")return false;
   if(firstRunActive||$("#onboarding")?.classList.contains("active"))return false;
   return true;
 }
@@ -24852,7 +25057,7 @@ function showSettings(){
   $$("nav button").forEach(x=>{x.classList.remove("active");x.setAttribute("aria-current","false")});
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="settings"));
   document.body.classList.add("is-settings");document.body.classList.remove("is-exercise","is-onboarding","is-workout");
-  abandonVoiceOp();workoutActive=false;workoutLeft=true;window.scrollTo({top:0});render();
+  abandonVoiceOp();cancelWorkoutEntry();workoutActive=false;workoutLeft=true;window.scrollTo({top:0});render();
   // Settings opens on its heading (R7 J-09); Back, below, returns to the control that opened it.
   focusRoute(routeHeading("settings"));
   queueMicrotask(()=>maybeShowContextualGuides(["install","privacy"]))}
@@ -24944,12 +25149,10 @@ window.__repforgeUi={loadUiPrefs,isStandalone,isIOS,showInstallBanner,currentThe
   replayGuide:replayContextualGuide,showGuide:showContextualGuide,
   openInstallTransferState:stateName=>openIosInstallSheet(stateName),openPrivacy:()=>openPrivacySheet(),
   setPref:(key,value)=>setUiPref(key,value),sharedSettings:()=>sharedSettings(state.settings)};
-function resumeProgramEditFollowUp(){
+async function resumeProgramEditFollowUp(){
   if(state?.[STORAGE_FOLLOWUP]?.kind!=="onboarding-edit")return false;
-  programEditMode=true;
-  document.body.classList.remove("is-settings","is-workout","is-exercise","is-onboarding","is-library","is-preview","is-import");
-  $$("nav button").forEach(x=>{const on=x.dataset.view==="program";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
-  $$(".view").forEach(v=>v.classList.toggle("active",v.id==="program"));
+  const proposal=cloneSnapshot(state);delete proposal[STORAGE_FOLLOWUP];
+  await commitProposedState(proposal);
   return true}
 window.__repforgeOnboarding={
   entry:()=>entryState,
@@ -25209,10 +25412,12 @@ function init(){
 
   const earlyBtn=$("#sessionEarlyFinish");if(earlyBtn)earlyBtn.onclick=async()=>{
     await WorkoutSession.flush();
+    const restReason=restOverrunReasonPending;restOverrunReasonPending=false;
     if(!activeWorkoutDraft)return;
     if(!WorkoutSession.captureEarlyFinish(activeWorkoutDraft)){
       await focusSaveRecovery();return}
     renderEarlyFinishPreview();
+    $("#sessionEarlyReason")?.classList.toggle("hidden",!restReason);
     const earlyMsg=$("#sessionEarlyMsg");
     if(earlyMsg){earlyMsg.classList.remove("is-error");earlyMsg.textContent=t("session.sheet.early_prompt")}
     const earlyPrompt=$("#sessionEarlyPrompt");if(earlyPrompt)earlyPrompt.classList.remove("hidden");
@@ -25226,6 +25431,7 @@ function init(){
 
   const earlyCancel=$("#sessionEarlyCancel");if(earlyCancel)earlyCancel.onclick=()=>{
     WorkoutSession.cancelEarlyFinish();
+    $("#sessionEarlyReason")?.classList.add("hidden");
     const earlyPrompt=$("#sessionEarlyPrompt");if(earlyPrompt)earlyPrompt.classList.add("hidden");
     const earlyBtn=$("#sessionEarlyFinish");if(earlyBtn)earlyBtn.classList.remove("hidden");
     $("#sessionAbandon")?.classList.remove("hidden");
@@ -25333,7 +25539,7 @@ function init(){
     const next=at<0?(e.shiftKey?stops.length-1:0):(at+(e.shiftKey?-1:1)+stops.length)%stops.length;
     stops[next].focus()});
   const leaveApply=$("#programEditorApply");if(leaveApply)leaveApply.onclick=()=>applyInstalledEditorAndContinue();
-  const leaveDiscard=$("#programEditorDiscard");if(leaveDiscard)leaveDiscard.onclick=()=>finishInstalledEditor({discard:true});
+  const leaveDiscard=$("#programEditorDiscard");if(leaveDiscard)leaveDiscard.onclick=()=>{if(!installedProgramEditor?.isCommitting?.())finishInstalledEditor({discard:true})};
   const leaveKeep=$("#programEditorKeep");if(leaveKeep)leaveKeep.onclick=()=>closeInstalledLeaveDialog();
   const histSearchBtn=$("#historySearchBtn");if(histSearchBtn)histSearchBtn.onclick=()=>HistoryUi.setSearchOpen(!HistoryUi.isSearchOpen());
   const histSearch=$("#historySearch");if(histSearch)histSearch.oninput=()=>HistoryUi.setQuery(histSearch.value);
@@ -25441,6 +25647,7 @@ function init(){
     const discardDraftRaw=readDraftRaw();
     if(confirm(t("confirm.delete_log")))await deleteTrainingLog(storageIO,{discardDraftRaw})};
   $$("nav button").forEach(b=>b.onclick=()=>{
+    if(programEditMode&&installedProgramEditor?.isCommitting?.())return;
     if(programEditMode&&installedProgramEditor?.isDirty()){
       pendingEditorNavigation=b.dataset.view;
       openInstalledLeaveDialog();
@@ -25449,7 +25656,7 @@ function init(){
     if(programEditMode)finishInstalledEditor();
     if(dockRetap(b))return;
     abandonVoiceOp();
-    exView=null;workoutActive=false;workoutLeft=true;
+    exView=null;cancelWorkoutEntry();workoutActive=false;workoutLeft=true;
     // Progress remembers its segment, so arriving there can itself open the review.
     const opensReview=b.dataset.view==="stats"&&statsSeg==="review"&&!evidenceView&&!$("#stats")?.classList.contains("active");
     document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-workout");
@@ -25805,7 +26012,7 @@ async function boot(){
   await prepareSharedSetup(sharedCandidate);
   const draftBoot=await initializeWorkoutDraft({restoreDay:true});
   if(draftBoot.status==="ready")hydrateWorkoutDraft({restoreDay:true});
-  resumeProgramEditFollowUp();
+  void resumeProgramEditFollowUp().catch(()=>{});
   init();
   restoreRest(draftBoot.status==="ready"?activeWorkoutDraft.draftId:null);
   if(transferResult.transferResult?.localOk===true){

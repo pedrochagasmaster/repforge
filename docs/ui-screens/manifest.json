@@ -2082,6 +2082,13 @@
       "variants": "demandingText"
     },
     {
+      "id": "rest-overrun-finish",
+      "flow": "workout",
+      "label": "Early finish after a rest past an hour",
+      "scenario": "A logged set, then a rest carried past the one-hour cap by the live count-up: the Early finish question opens with its reason line.",
+      "variants": "demandingText"
+    },
+    {
       "id": "abandon",
       "flow": "workout",
       "label": "End without saving",

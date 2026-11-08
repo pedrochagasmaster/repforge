@@ -2477,6 +2477,7 @@
   "session.sheet.abandon_confirm": "Encerrar e descartar",
   "toast.session_abandoned": "Sessão encerrada. Nada foi salvo.",
   "session.sheet.early_prompt": "Séries não registradas serão omitidas do histórico.",
+  "session.sheet.early_rest_reason": "Seu descanso passou de uma hora. Terminou por hoje?",
   "session.sheet.early_confirm": "Confirmar conclusão antecipada",
   "session.sheet.stale_error": "A sessão foi atualizada. Revise antes de concluir.",
   "ex.actions.title": "Ações do exercício",
