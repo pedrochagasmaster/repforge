@@ -2359,11 +2359,40 @@ export const APP_SCENARIOS = {
     await page.evaluate((draftKey) => localStorage.setItem(draftKey, '{"schemaVersion":2,"truncated":'), LOG_DRAFT);
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForFunction(() => window.__repforgeWorkoutDraft?.recovery()?.kind === "invalid");
+    // Capture only the settled layout: web fonts loaded, the document height unchanged across two frames, and no running
+    // animation. The app's scroll clamps to the document height at the moment it runs, so a later height change would move
+    // the panel; waiting for the height to settle first keeps the scroll position the same on every run.
+    await page.evaluate(() => document.fonts.ready);
+    await page.evaluate(() => new Promise((resolve) => {
+      let last = -1;
+      let stableFrames = 0;
+      const step = () => {
+        const height = document.documentElement.scrollHeight;
+        stableFrames = height === last ? stableFrames + 1 : 0;
+        last = height;
+        if (stableFrames >= 2) resolve();
+        else requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }));
+    await page.evaluate(() => Promise.all(document.getAnimations().filter((animation) => animation.effect?.getTiming?.().iterations !== Infinity)
+      .map((animation) => animation.finished.catch(() => {}))));
+    // The app's own move to the panel (focusDraftRecovery): scroll it to the top, clamped by the document's height, and
+    // focus it without scrolling again. The target is the same clamp, read before the scroll runs.
+    const target = await page.evaluate(() => {
+      const root = document.querySelector("#draftRecovery");
+      const top = root.getBoundingClientRect().top + window.scrollY;
+      const max = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+      const expected = Math.min(top, max);
+      root.scrollIntoView({ block: "start" });
+      root.focus({ preventScroll: true });
+      return expected;
+    });
+    await page.waitForFunction((y) => Math.abs(window.scrollY - y) < 1, target);
     await page.waitForFunction(() => {
       const box = document.querySelector("#draftRecovery")?.getBoundingClientRect();
       return box && box.top >= 0 && box.bottom <= innerHeight;
     });
-    await sleep(page, 400);
   },
   // The rest timer redesign: the pinned clock moved to 1:30 of 2:00, read from the tab over the shelf, whose ring and
   // the shelf's top edge show the quarter gone.
