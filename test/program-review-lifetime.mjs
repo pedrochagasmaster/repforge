@@ -25,6 +25,18 @@ const entry = (page) => page.evaluate(() => window.__repforgeEntryState?.());
 async function fresh(browser, { uuid, hasTouch = false, reducedMotion, withoutMotion = false, withoutWorker = false, fakeWorker = false } = {}) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch,
     ...(reducedMotion ? { reducedMotion } : {}) });
+  await context.addInitScript(() => {
+    window.__reviewActions = [];
+    localStorage.setItem("repforge_telemetry_enabled_v1", "true");
+    let installed;
+    Object.defineProperty(window, "RepForgeTelemetry", { configurable: true, get: () => installed, set(next) {
+      installed = next;
+      next.boot({ adapter: { capture: (name, properties) => {
+        if (name === "program_review_action") window.__reviewActions.push({ ...properties });
+      }, setEnabled() {} }, appVersion: "test", crypto: window.crypto, location: window.location,
+        now: () => new Date(), releaseChannel: "preview", storage: window.localStorage });
+    } });
+  });
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(String(error?.stack || error)));
@@ -608,7 +620,111 @@ async function discardAfterQueuedUndo(browser) {
 }
 
 
-const lifetimeCases = { F1: restoreDoesNotCrossCandidate, F2: restoreQuestionDoesNotCrossCandidate,
+const seedCustom = async (page, url) => {
+  await page.evaluate(async () => {
+    window.startOnboarding('first-run', { userInitiated: true, forceFresh: true });
+    const Entry = window.RepForgeProgramEntry, active = window.__repforgeEntryState();
+    let draft = Entry.selectRoute(Entry.createState({ draftId: 'review-custom', activeProgramRevisionAtStart: active.activeProgramRevisionAtStart, now: new Date().toISOString(), versions: window.RepForgeProgramEntryAdapter.currentVersions(window.RepForgeProgramCompiler) }), 'custom');
+    draft = Entry.setAnswers(draft, { desiredResult: 'balanced', structuredExperience: 'over_24m', daysPerWeek: 4, sessionMinutes: 60, environment: { kind: 'everything' }, primaryMuscles: [], deEmphasizedMuscles: [], ignoredMuscles: [], mustHaveExercises: [], exerciseConstraints: [], block: { cycles: 7, periodization: 'static' }, deload: true });
+    return window.__repforgePersistSetupDraft({ ...draft, step: 'exercise_preferences' });
+  });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await waitForAppBoot(page, { base: url });
+  await page.click('#firstRunCreate');
+  await page.click('#entryResumeContinue');
+  await page.waitForFunction(() => window.__repforgeEntryState()?.step === 'exercise_preferences');
+  for (let i = 0; i < 4 && (await entry(page)).step !== 'result'; i++) {
+    const before = (await entry(page)).step;
+    await page.click('#onbNext');
+    await page.waitForFunction((b) => window.__repforgeEntryState()?.step !== b, before);
+  }
+  await page.locator('#entryReview [data-review-slot]').first().waitFor();
+  await settleQueuedReviewWrites(page);
+};
+
+// Reuse the review-3 failure and abandoned-Custom journeys with the production write lock.
+async function beginAnswerRebuild(page) {
+  await page.evaluate(() => { window.__heldReviewWorker.hold = true; });
+  const n = await page.evaluate(() => window.__heldReviewWorker.requests.length);
+  await page.click('[data-entry-chip="days"]');
+  await page.locator('#entryEditor [data-entry-pick="daysPerWeek"][data-entry-val="3"]').click();
+  await page.click("#entryChipApply");
+  await page.click("#reviewConfirmGo");
+  await page.waitForFunction(n => window.__heldReviewWorker.requests.length > n, n);
+}
+async function failAnswerRebuild(page) {
+  await page.evaluate(() => {
+    const item = window.__heldReviewWorker.requests.findLast(item => !item.sent);
+    item.sent = true;
+    item.worker.onmessage({ data: { id: item.message.id, ok: false, message: "injected generation failure" } });
+    window.__heldReviewWorker.hold = false;
+  });
+  await page.waitForFunction(() => !document.querySelector("#entryCandidateReview[aria-busy]"));
+  await page.click("#entryChipKeep");
+}
+async function returnToCustomReview(page) {
+  await page.click("#onbBack");
+  await page.click("#onbBack");
+  await page.waitForFunction(() => window.__repforgeEntryState()?.step !== "result");
+  await page.click("#onbNext");
+  await page.locator("#entryReview [data-review-slot]").first().waitFor();
+}
+const releaseAnswerRebuild = page => page.evaluate(() => {
+  window.__heldReviewWorker.hold = false;
+  window.__heldReviewWorker.releaseAll();
+});
+const reviewActions = page => page.evaluate(() => window.__reviewActions);
+const setCount = (definition, id) => slotsOf(definition).find(slot => slot.id === id).prescriptionsByCycle[0].sets.length;
+async function removeReviewSlot(page, id, { queued = false } = {}) {
+  await openSlot(page, id);
+  await page.locator("#reviewSheet [data-review-remove]").click();
+  if (!queued) {
+    await page.locator("#reviewSheet").waitFor({ state: "hidden" });
+    await page.waitForFunction(id => !window.__repforgeEntryState().result.preview.programDefinition.days
+      .flatMap(day => day.slots || []).some(slot => slot.id === id), id);
+  }
+}
+async function replayMatchesSaved(page, baseline) {
+  const replayed = Review.replay(baseline, (await reviewLog(page))?.edits || [], REVIEW_CTX);
+  return replayed.ok && JSON.stringify(replayed.definition) === JSON.stringify(await reviewed(page));
+}
+
+async function revisionF21(browser) {
+  const run = await fresh(browser, { fakeWorker: true }), { page } = run;
+  await seedCustom(page, BASE);
+  const baseline = await reviewed(page), a = trainingDays(baseline)[0].slots[0];
+  await openSlot(page, a.id);
+  await page.locator('#reviewSheet [data-review-sets="1"]').click();
+  await settleQueuedReviewWrites(page);
+  await closeSheet(page);
+  const count = setCount(await reviewed(page), a.id);
+  check((await reviewActions(page)).filter(action => action.action === "edit").length === 1,
+    "F21: the initial landed edit is observed before rebuilding");
+  await beginAnswerRebuild(page);
+  await returnToCustomReview(page);
+  check(await page.locator("#entryCandidateReview").getAttribute("aria-busy") !== "true", "F21: returned Custom candidate is editable");
+  await openSlot(page, a.id);
+  await page.locator('#reviewSheet [data-review-sets="1"]').click();
+  await settleQueuedReviewWrites(page);
+  check(setCount(await reviewed(page), a.id) === count + 1,
+    "F21: a fresh edit lands before the obsolete worker responds");
+  check((await reviewLog(page))?.edits?.length === 2 && await replayMatchesSaved(page, baseline),
+    "F21: the fresh edit is logged and replay equals the saved candidate");
+  check((await reviewActions(page)).filter(action => action.action === "edit").length === 2,
+    "F21: each landed edit is observed once while the obsolete response is pending");
+  await closeSheet(page);
+  await releaseAnswerRebuild(page);
+  await settleQueuedReviewWrites(page);
+  await openSlot(page, a.id);
+  await page.locator('#reviewSheet [data-review-sets="1"]').click();
+  await settleQueuedReviewWrites(page);
+  check(setCount(await reviewed(page), a.id) === count + 2 && await replayMatchesSaved(page, baseline),
+    "F21: the obsolete response cannot erase fresh work or stop the next edit");
+  await run.context.close();
+  return run.errors;
+}
+
+const lifetimeCases = { F21: revisionF21, F1: restoreDoesNotCrossCandidate, F2: restoreQuestionDoesNotCrossCandidate,
   F3: renameDoesNotCrossCandidate, F4: sameCandidateEditsAcrossRemount, F5: undoAfterLeaving,
   F6: sameCandidateCommitRepaintsRemount, F7: revisionF7, F8: revisionF8, F9: revisionF9,
   F10: revisionF10, F11: revisionF11, F12: revisionF12, F13: revisionF13, F14: revisionF14,
