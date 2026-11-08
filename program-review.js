@@ -42,6 +42,7 @@
   const EDIT_KIND_SET = new Set(EDIT_KINDS);
   const PROVENANCE_SOURCE = "lifter_review";
   const candidateQueues = new WeakMap();
+  const FAILED_EDIT = Symbol("failed-edit");
   async function whenIdle(candidate) {
     let pending;
     while ((pending = candidateQueues.get(candidate))) await pending.catch(() => {});
@@ -822,7 +823,7 @@
         // Observation follows the durable result; an expired task still cannot paint the screen.
         observeCommit(saved, "edit", edit.kind);
         if (!matchesCandidate(pinned)) return false;
-        if (!saved?.ok) { observe("save_failed", edit.kind); adapter.announce(t("entry.review.save_failed")); paint(); paintSheet(); return false; }
+        if (!saved?.ok) { observe("save_failed", edit.kind); adapter.announce(t("entry.review.save_failed")); paint(); paintSheet(); return FAILED_EDIT; }
         const count = changes(read().baseline, read().definition).count;
         present({ before: disposed ? null : before, toast,
           announcement: t(count === 1 ? "entry.review.changes_one" : "entry.review.changes", { n: count }) });
@@ -832,7 +833,7 @@
     function undo() {
       const pinned = candidateNow();
       return run(async previous => {
-        if (previous === false) return false;
+        if (previous === FAILED_EDIT) return false;
         // Candidate identity survives a same-candidate remount; only a rebuild or discard supersedes this undo (N14).
         if (!matchesCandidate(pinned)) return false;
         const state = read();
