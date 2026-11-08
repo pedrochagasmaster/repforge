@@ -15894,6 +15894,9 @@ async function commitSettings(silent){const editRevision=settingsEditRevision;co
   proposal.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=parseDec($("#minJump").value);return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec,lastExport:state.settings.lastExport,unit:newUnit,lang:newLang,rirMode:newRirMode,effortScale:newEffortScale,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked,maxSetPrompts:$("#maxSetPrompts")?$("#maxSetPrompts").checked:state.settings.maxSetPrompts!==false,slowRepTaps:$("#slowRepTaps")?$("#slowRepTaps").checked:state.settings.slowRepTaps!==false,notify:normalizeNotify({enabled:!!state.settings.notify?.enabled,timer:!!$("#notifyTimer")?.checked,session:!!$("#notifySession")?.checked,unfinished:!!$("#notifyUnfinished")?.checked,missed:!!$("#notifyMissed")?.checked})});
   const result=await commitProposedState(proposal,storageIO,{effect:unitEffect||modeEffect});
   if(!(result.localOk||result.idbOk)){if(editRevision===settingsEditRevision)renderSettings();return result}
+  // Overlapping held steps can retain an earlier completion in live state.
+  // Once the latest edit commits, the durable owner supplies the settings to paint.
+  if(editRevision===settingsEditRevision)state.settings=DurableState.getPersistHead().settings;
   reportSettingsChanged(settingsBefore,state.settings);
   if(modeEffect)await reloadDraftAfterEffect();
   // A length picked in the timer sheet holds for the session, but a new default
