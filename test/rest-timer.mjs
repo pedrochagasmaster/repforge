@@ -201,6 +201,7 @@ try {
     const resumed = await read(page);
     assert(resumed.paused == null && resumed.hold === "pause", "Resume lets it go", resumed);
     await page.locator('#restPresets [data-value="180"]').click();
+    await page.waitForFunction(() => window.__repforgeRest.state().lengthSec === 180);
     const preset = await read(page);
     assert(preset.length === 180 && preset.left > 175000, "a preset restarts the rest at its length", preset);
     await page.locator("#restMinus").click();
@@ -537,6 +538,50 @@ try {
     const next = await read(page);
     assert(next.length === 90, "the exercise's next set rests for its own 1:30", next);
     assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  phase("A failed preset save preserves the held clock and can be retried");
+  {
+    const { context, page } = await focusPage(browser);
+    await logSet(page);
+    await page.locator("#restTab").click();
+    await page.waitForSelector("#restSheet.is-open");
+    const before = await page.evaluate(async () => {
+      await window.__repforgeStorage.flush();
+      window.__repforgeRest.setLeft(45000, { held: true, lengthSec: 120 });
+      syncRest();
+      const local = Storage.prototype.setItem, put = IDBObjectStore.prototype.put;
+      window.restorePresetStorage = () => { Storage.prototype.setItem = local; IDBObjectStore.prototype.put = put; };
+      Storage.prototype.setItem = function (key, ...args) {
+        if (key === "repforge_v1") throw new DOMException("preset write blocked", "QuotaExceededError");
+        return local.call(this, key, ...args);
+      };
+      IDBObjectStore.prototype.put = function (value, key) {
+        if (key === "repforge_v1") throw new DOMException("preset write blocked", "QuotaExceededError");
+        return put.apply(this, arguments);
+      };
+      return { clock: JSON.stringify(window.__repforgeRest.state()), definition: localStorage.getItem("repforge_v1") };
+    });
+    await page.locator('#restPresets [data-value="90"]').click();
+    await page.evaluate(() => window.__repforgeStorage.flush());
+    const failed = await page.evaluate(() => ({ clock: JSON.stringify(window.__repforgeRest.state()),
+      definition: localStorage.getItem("repforge_v1"), error: document.body.textContent.includes(t("toast.program_save_failed")) }));
+    assert(failed.clock === before.clock && failed.definition === before.definition && failed.error,
+      "a refused preset save keeps the clock and program unchanged and explains the failure",
+      { clockBefore: before.clock, clockAfter: failed.clock, programUnchanged: failed.definition === before.definition, error: failed.error });
+    await page.evaluate(() => window.restorePresetStorage());
+    await page.locator('#restPresets [data-value="90"]').click();
+    await page.waitForFunction(() => window.__repforgeRest.state().lengthSec === 90 && !window.__repforgeRest.state().pausedMs);
+    await page.evaluate(() => window.__repforgeStorage.flush());
+    const retried = await read(page);
+    const stored = await page.evaluate(() => exerciseStoredRest(restExercise()));
+    assert(stored === 90 && retried.length === 90 && retried.left > 85000 && retried.paused == null,
+      "retry saves the preset and restarts the clock only after success", { stored, retried });
+    await page.evaluate(() => window.__repforgeRest.setLeft(45000, { held: true }));
+    await page.locator('#restPresets [data-value="90"]').click();
+    await page.waitForFunction(() => window.__repforgeRest.state().pausedMs == null);
+    assert((await read(page)).left > 85000, "choosing the saved preset still restarts the clock");
     await context.close();
   }
 
