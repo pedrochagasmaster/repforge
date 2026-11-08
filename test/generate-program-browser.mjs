@@ -522,8 +522,8 @@ async function sameCandidateEditsAcrossRemount(browser) {
   await page.locator(`#entryReview [data-review-slot="${second.id}"]`).waitFor({ timeout: 10000 });
   await openSlot(page, second.id);
   await page.locator("#reviewSheet [data-review-remove]").click();
-  await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 5000 });
   await releaseSetupWrites(page);
+  await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 5000 });
   await settleSetupWrites(page);
   const edits = (await reviewLog(page))?.edits;
   const replayed = Review.replay(baseline, edits || [], REVIEW_CTX);

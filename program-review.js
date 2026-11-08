@@ -41,6 +41,7 @@
   ]);
   const EDIT_KIND_SET = new Set(EDIT_KINDS);
   const PROVENANCE_SOURCE = "lifter_review";
+  const candidateQueues = new WeakMap();
 
   const clone = (value) => JSON.parse(JSON.stringify(value));
   const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
@@ -533,7 +534,6 @@
     const t = adapter.t;
     // Figures in Plex Mono, words in the language font (R7 V-18).
     const nums = adapter.nums || esc;
-    let queue = Promise.resolve();
     let sheet = null;
     let toastEl = null, toastTimer = 0;
     let disposed = false;
@@ -761,12 +761,18 @@
     /* Edits run one at a time, each on the document the previous one left.
        While any is in flight the host says so, for assistive tech and tests. */
     let inFlight = 0;
+    let unkeyedQueue = Promise.resolve();
     function run(task) {
       inFlight++;
       host.setAttribute("aria-busy", "true");
       const settle = () => { if (--inFlight === 0) host.removeAttribute("aria-busy"); };
-      queue = queue.then(task, task).finally(settle);
-      return queue;
+      const candidate = candidateNow();
+      const keyed = candidate && (typeof candidate === "object" || typeof candidate === "function");
+      const previous = keyed ? candidateQueues.get(candidate) || Promise.resolve() : unkeyedQueue;
+      const queued = previous.then(task, task).finally(settle);
+      if (keyed) candidateQueues.set(candidate, queued);
+      else unkeyedQueue = queued;
+      return queued;
     }
     /* What the lifter did, for the host's measurement: an action and the edit
        kind, never the edit's content. */
@@ -800,8 +806,8 @@
     function undo() {
       const pinned = candidateNow();
       return run(async () => {
-        // An undo that waited behind an edit runs only while this review is mounted, as an edit does (N14).
-        if (disposed || candidateNow() !== pinned) return false;
+        // Candidate identity survives a same-candidate remount; only a rebuild or discard supersedes this undo (N14).
+        if (candidateNow() !== pinned) return false;
         const state = read();
         if (!state.edits.length) return false;
         const edits = state.edits.slice(0, -1);
@@ -821,6 +827,7 @@
       });
     }
     async function restore() {
+      const pinned = candidateNow();
       const state = read();
       const count = changes(state.baseline, state.definition).count;
       const confirmed = await adapter.confirm({
@@ -828,10 +835,12 @@
         body: t(count === 1 ? "entry.review.restore_body_one" : "entry.review.restore_body", { n: count }),
         go: t("entry.review.restore_go"), keep: t("entry.review.keep"),
       });
-      if (!confirmed) return false;
+      if (!confirmed || candidateNow() !== pinned) return false;
       return run(async () => {
+        if (candidateNow() !== pinned) return false;
         const current = read();
         const saved = await adapter.commit({ definition: current.baseline, edits: [], name: null });
+        if (candidateNow() !== pinned) return false;
         if (!saved?.ok) { observe("save_failed"); adapter.announce(t("entry.review.save_failed")); return false; }
         observe("restore");
         view.reorder = null;
@@ -1150,6 +1159,7 @@
       adapter.sheet().body.querySelector("#reviewRenameError")?.remove();
     }
     async function saveRename() {
+      const pinned = candidateNow();
       const input = adapter.sheet().body.querySelector("#reviewRenameInput");
       const value = String(input?.value || "").trim();
       const state = read(), target = sheet?.target;
@@ -1175,8 +1185,10 @@
         await closeSheet();
         if (!value || value === state.name) return;
         run(async () => {
+          if (candidateNow() !== pinned) return false;
           const current = read();
           const saved = await adapter.commit({ definition: current.definition, edits: current.edits, name: value });
+          if (candidateNow() !== pinned) return false;
           if (saved?.ok) { observe("rename_program"); paint({ focus: "[data-review-title]" }); }
           return !!saved?.ok;
         });
