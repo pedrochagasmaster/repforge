@@ -8371,8 +8371,8 @@ function focusDragEnd(e){
   card.classList.remove("is-dragging");
   focusAnimateTo(dir)}
 /* The Focus entry still waiting on its draft and suggestions. Choosing another tab cancels it, so the late
-   presentation cannot reopen Focus over that tab. A tap for the same target joins the entry already waiting; a
-   different day (Up next during a held Start or Resume) takes over from it. */
+   presentation cannot reopen Focus over that tab. A plain tap or a tap for the same day joins the entry already
+   waiting; a different day (Up next during a held Start or Resume) takes over from it. */
 let pendingWorkoutEntry=null;
 function cancelWorkoutEntry(){pendingWorkoutEntry=null}
 /* Draft starts run one at a time: two concurrent starts both find no draft and the second loses the create. */
@@ -8383,7 +8383,7 @@ function startWorkoutDraft(label,options){
   return run}
 function enterWorkout(opts={}){
   const key=opts.day??null;
-  if(pendingWorkoutEntry?.key===key)return pendingWorkoutEntry.promise;
+  if(pendingWorkoutEntry&&(key===null||pendingWorkoutEntry.key===key))return pendingWorkoutEntry.promise;
   const entry={key,promise:null};
   pendingWorkoutEntry=entry;
   // Whatever the outcome, an entry that is no longer pending must not be joined by a later tap.

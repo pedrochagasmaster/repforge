@@ -430,6 +430,43 @@ try {
     await context.close();
   }
 
+  phase("A plain Start joins Up next while the pristine draft's removal waits for a write");
+  {
+    const { context, page, errors } = await freshPage(browser);
+    await page.click("#startWorkout");
+    await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
+    await page.click("#leaveWorkout");
+    await page.waitForSelector("#todayDash:not(.hidden)", { timeout: 5000 });
+    await trackEntries(page);
+    await holdWrites(page);
+    // Observe the real lock request so Start lands while Up next's clear is blocked.
+    await page.evaluate(() => {
+      const original = navigator.locks.request.bind(navigator.locks);
+      window.__dayWriteQueued = false;
+      navigator.locks.request = (...args) => {
+        const result = original(...args);
+        if (args[0] === "repforge:state-write") {
+          window.__dayWriteQueued = true;
+          navigator.locks.request = original;
+        }
+        return result;
+      };
+    });
+    await page.click("#upNextBtn");
+    await page.waitForFunction(() => window.__dayWriteQueued && window.__entries.length === 1,
+      undefined, { timeout: 5000 });
+    await page.click("#startWorkout");
+    await page.waitForFunction(() => window.__entries.length === 2, undefined, { timeout: 5000 });
+    await releaseWrites(page);
+    await entriesSettled(page);
+    const r = await readEntryOutcome(page);
+    const days = [...new Set(seedProgram().map((row) => row.day))];
+    assert(r.focus && !r.recovery && r.draftDay === days[1] && r.results.every(Boolean),
+      "Start joins the held Up next: Focus opens on Day 2 with no false recovery panel", JSON.stringify(r));
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
   phase("A Settings commit that renders during a held Resume leaves Focus open");
   {
     const { context, page, errors } = await freshPage(browser);
