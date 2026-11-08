@@ -762,6 +762,25 @@ async function runSessionPageBackChecks(browser) {
         list: !!document.querySelector("#sessions .session__open"),
       }));
       assert(after.session === false && after.list, "browser Back closes the session page to the list", JSON.stringify(after));
+      await page.locator("#sessions .session__open").first().click();
+      await page.waitForFunction(() => history.state?.tauriferRoute?.view === "history"
+        && !document.body.classList.contains("is-pushing"));
+      await page.locator("[data-del]").click();
+      await page.waitForSelector("[data-history-delete-confirm]");
+      // Let the nested History route observer settle before the browser traversal.
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      await page.waitForFunction(() => !document.body.classList.contains("is-pushing"));
+      const deleteEntry = await page.evaluate(() => history.state?.tauriferRoute?.view ?? null);
+      assert(deleteEntry === "history", "delete confirmation retains the session's Back entry", `state=${deleteEntry}`);
+      await page.goBack({ waitUntil: "domcontentloaded" });
+      await page.waitForFunction(() => !!document.querySelector("#sessions .session__open")
+        && !document.querySelector("[data-history-delete-confirm]"), undefined, { timeout: 5000 }).catch(() => {});
+      const deleteBack = await page.evaluate(() => ({ url: location.href,
+        list: !!document.querySelector("#sessions .session__open"),
+        confirming: !!document.querySelector("[data-history-delete-confirm]"),
+        route: history.state?.tauriferRoute ?? null }));
+      assert(deleteBack.list && !deleteBack.confirming && deleteBack.route === null,
+        "Back from delete confirmation returns within History in one traversal", JSON.stringify(deleteBack));
     } else {
       assert(false, "browser Back closes the session page to the list", "no history entry to go back to");
     }
