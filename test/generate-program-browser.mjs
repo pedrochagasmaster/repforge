@@ -50,7 +50,7 @@ function check(condition, message, detail) {
 const state = (page) => page.evaluate(() => window.__repforgeWorkoutDraft.state());
 const entry = (page) => page.evaluate(() => window.__repforgeEntryState?.());
 
-async function fresh(browser, { uuid, hasTouch = false, reducedMotion, withoutMotion = false, withoutWorker = false } = {}) {
+async function fresh(browser, { uuid, hasTouch = false, reducedMotion, withoutMotion = false, withoutWorker = false, fakeWorker = false } = {}) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch,
     ...(reducedMotion ? { reducedMotion } : {}) });
   const page = await context.newPage();
@@ -58,6 +58,27 @@ async function fresh(browser, { uuid, hasTouch = false, reducedMotion, withoutMo
   page.on("pageerror", (error) => errors.push(String(error?.stack || error)));
   if (withoutMotion) await page.route("**/motion-layer.js*", (route) => route.abort());
   if (withoutWorker) await page.addInitScript(() => { window.Worker = undefined; });
+  if (fakeWorker) await page.addInitScript(() => {
+    const engine = window.__heldReviewWorker = { hold: false, requests: [], releaseAll() {
+      for (const item of this.requests) if (!item.sent) {
+        item.sent = true;
+        const value = window.RepForgeProgramCompiler.generateProgram(item.message.request,
+          window.RepForgeExerciseCatalog.snapshot(), item.message.generationOptions);
+        item.worker.onmessage({ data: { id: item.message.id, ok: true, value } });
+      }
+    } };
+    window.Worker = class {
+      constructor() { this.onmessage = null; }
+      postMessage(message) {
+        if (message.type === "init") { queueMicrotask(() => this.onmessage({ data: { type: "ready" } })); return; }
+        if (message.type !== "generate") return;
+        const item = { worker: this, message, sent: false };
+        engine.requests.push(item);
+        if (!engine.hold) { engine.hold = true; engine.releaseAll(); engine.hold = false; }
+      }
+      terminate() {}
+    };
+  });
   // Fix draft identity where a scenario needs a reproducible setup fixture.
   if (uuid) {
     await page.addInitScript((fixed) => {
@@ -549,6 +570,44 @@ async function restoreDoesNotCrossCandidate(browser) {
     { expected: expected.ok && expected.definition, saved: await reviewed(page) });
   check((await reviewLog(page))?.edits?.length === 1,
     "review: the replacement candidate keeps its edit log after the old restore settles", await reviewLog(page));
+  await run.context.close();
+  return run.errors;
+}
+
+async function restoreQuestionDoesNotCrossCandidate(browser) {
+  const run = await fresh(browser, { fakeWorker: true });
+  const { page } = run;
+  await answerGenerate(page);
+  await page.waitForSelector("#entryReview [data-review-slot]", { timeout: 15000 });
+  const [day] = trainingDays(await reviewed(page));
+  await openSlot(page, day.slots[0].id);
+  await page.locator('#reviewSheet [data-review-sets="1"]').click();
+  await page.waitForFunction(() => !document.querySelector("#entryReview[aria-busy]"), undefined, { timeout: 10000 });
+  await closeSheet(page);
+  await page.evaluate(() => { window.__heldReviewWorker.hold = true; });
+  const requestCount = await page.evaluate(() => window.__heldReviewWorker.requests.length);
+  await page.click('[data-entry-chip="days"]');
+  await page.locator('#entryEditor [data-entry-pick="daysPerWeek"][data-entry-val="3"]').click();
+  await page.click("#entryChipApply");
+  await page.click("#reviewConfirmGo");
+  await page.waitForFunction((count) => window.__heldReviewWorker.requests.length > count, requestCount, { timeout: 10000 });
+  await page.click('[data-entry-chip="days"]');
+  await page.locator("#entryReview [data-review-restore]").click();
+  await page.waitForSelector("#reviewConfirmGo", { timeout: 5000 });
+  await page.evaluate(() => window.__heldReviewWorker.releaseAll());
+  await page.waitForFunction(() => window.__repforgeEntryState()?.answers?.daysPerWeek === 3 &&
+    window.__repforgeEntryState()?.step === "result", undefined, { timeout: 15000 });
+  const rebuilt = await reviewed(page);
+  const toastsBefore = await page.evaluate(() => [...document.querySelectorAll(".review-toast, .toast, #toast")]
+    .filter((el) => el.offsetParent !== null || el.getClientRects().length).map((el) => el.textContent.trim()).filter(Boolean));
+  await page.click("#reviewConfirmGo");
+  await page.waitForFunction(() => !document.querySelector("#entryReview[aria-busy]"), undefined, { timeout: 10000 });
+  check(JSON.stringify(await reviewed(page)) === JSON.stringify(rebuilt),
+    "review: answering a stale Restore question cannot replace the rebuilt candidate", await reviewed(page));
+  const toastsAfter = await page.evaluate(() => [...document.querySelectorAll(".review-toast, .toast, #toast")]
+    .filter((el) => el.offsetParent !== null || el.getClientRects().length).map((el) => el.textContent.trim()).filter(Boolean));
+  check(JSON.stringify(toastsAfter) === JSON.stringify(toastsBefore),
+    "review: a stale Restore question does not announce success on the replacement candidate", toastsAfter);
   await run.context.close();
   return run.errors;
 }
@@ -1693,6 +1752,8 @@ async function main() {
       allErrors.push(await sameCandidateEditsAcrossRemount(browser));
     } else if (process.env.N14_ONLY === "F1") {
       allErrors.push(await restoreDoesNotCrossCandidate(browser));
+    } else if (process.env.N14_ONLY === "F2") {
+      allErrors.push(await restoreQuestionDoesNotCrossCandidate(browser));
     } else {
     allErrors.push(await recoveredGenerationJourney(browser));
     allErrors.push(await sourceSplitChoicesJourney(browser));
