@@ -176,10 +176,13 @@ try {
     await page.evaluate(font => { document.documentElement.style.fontSize = font; }, font);
     const boxes = await page.locator(`${SHELF} .shelf__chip`).evaluateAll(chips => chips.map(chip => {
       const r = chip.getBoundingClientRect();
-      return { left: r.left, right: r.right, width: r.width, height: r.height, clipped: chip.scrollWidth > chip.clientWidth };
+      return { top: r.top, left: r.left, right: r.right, width: r.width, height: r.height, clipped: chip.scrollWidth > chip.clientWidth };
     }));
     assert(boxes.length === 6 && boxes.every(r => r.left >= 0 && r.right <= width && r.width >= 44 && r.height >= 44 && !r.clipped),
       `six numeric choices fit at ${width}px and ${font} text`, boxes);
+    if (font === "32px") assert(boxes.slice(0, 3).every(r => Math.abs(r.top - boxes[0].top) < 1) &&
+      boxes.slice(3).every(r => Math.abs(r.top - boxes[3].top) < 1) && boxes[3].top > boxes[0].top,
+      `enlarged numeric choices form two equal rows at ${width}px`, boxes);
   }
   await page.setViewportSize({ width: 390, height: 844 });
   await page.evaluate(() => { document.documentElement.style.fontSize = ""; });
