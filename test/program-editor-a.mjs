@@ -774,6 +774,34 @@ async function unsavedReloadJourney(browser) {
   }
 }
 
+/** P074-S1-HELD-BACK (#658, review R1): browser Back while an Apply write is held asks nothing; the write settles once and closes the editor. */
+async function heldApplyBackJourney(browser) {
+  console.log("P074-S1-HELD-BACK");
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  try {
+    await page.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
+    await openEditor(page);
+    await renameProgram(page, "Back during held Apply");
+    await holdLocalWrites(page);
+    await page.click("#programEditDone");
+    await page.waitForFunction(() => window.__heldWrite.calls > 0, undefined, { timeout: 10000 });
+    // Count popstate after the app's own listener, so the check runs once the app has handled Back.
+    await page.evaluate(() => window.addEventListener("popstate", () => { window.__popSeen = (window.__popSeen || 0) + 1; }));
+    await page.evaluate(() => history.back());
+    await page.waitForFunction(() => window.__popSeen > 0, undefined, { timeout: 10000 });
+    check(!(await page.locator("#programEditorLeave").isVisible()), "browser Back asks nothing while the Apply write is held");
+    check(await page.locator("#program.sheet.is-open").count() === 1, "the editor stays open after Back while the Apply write is held");
+    await page.evaluate(() => window.__heldWrite.release());
+    await editorGone(page);
+    check((await programName(page)) === "Back during held Apply", "the held Apply saves once after Back");
+  } finally {
+    await context.close();
+  }
+}
+
 /** One journey's failure is recorded and the next journey still runs. */
 async function journey(name, run) {
   try { await run(); } catch (error) { failures.push(`${name}: ${error.message}`); console.error(`  ✗ ${name} stopped: ${error.message}`); }
@@ -799,6 +827,7 @@ async function main() {
     await reducedMotionJourney(browser);
     await restPillJourney(browser);
     await journey("P074-S1-HELD-APPLY", () => heldApplyJourney(browser));
+    await journey("P074-S1-HELD-BACK", () => heldApplyBackJourney(browser));
     await journey("P074-S1-RELOAD", () => unsavedReloadJourney(browser));
     check(!errors.length, "no page errors", errors);
   } catch (error) {
