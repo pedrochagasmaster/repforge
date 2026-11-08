@@ -855,6 +855,37 @@ async function revisionF11(browser) {
   return run.errors;
 }
 
+async function revisionF12(browser) {
+  const run = await queuedReviewSetup(browser), { page, b } = run;
+  await page.locator("#entryReview [data-review-undo]").click();
+  await page.evaluate(() => { window.__heldReviewWorker.hold = true; });
+  const n = await page.evaluate(() => window.__heldReviewWorker.requests.length);
+  await page.click('[data-entry-chip="days"]');
+  await page.locator('#entryEditor [data-entry-pick="daysPerWeek"][data-entry-val="3"]').click();
+  await page.click("#entryChipApply");
+  await page.click("#reviewConfirmGo");
+  await page.waitForFunction(n => window.__heldReviewWorker.requests.length > n, n);
+  await releaseSetupWrites(page);
+  await settleQueuedReviewWrites(page);
+  check(!slotsOf(await reviewed(page)).some(slot => slot.id === b.id), "F12: queued Undo is dropped once answer rebuild starts");
+  await page.evaluate(() => { window.__heldReviewWorker.hold = false; window.__heldReviewWorker.releaseAll(); });
+  const landed = await page.waitForFunction(() => window.__repforgeEntryState()?.answers.daysPerWeek === 3, undefined,
+    { timeout: 6000 }).then(() => true, () => false);
+  check(landed && trainingDays(await reviewed(page)).length === 3, "F12: three-day answer rebuild wins over queued Undo");
+  // Q6 / F18: changing an answer clears result before the held write resumes.
+  const changed = await queuedReviewSetup(browser), nextPage = changed.page;
+  await nextPage.locator("#entryReview [data-review-undo]").click();
+  await nextPage.click("#onbBack");
+  await nextPage.locator('#onbBody [data-entry-pick]:not(.is-selected):not([aria-checked="true"]):not([aria-pressed="true"])').first().click();
+  check(!(await entry(nextPage)).result, "F18: answer change clears the previous result");
+  await releaseSetupWrites(nextPage);
+  await settleQueuedReviewWrites(nextPage);
+  check(changed.errors.length === 0, "F18: invalidated review work never reads a cleared result", changed.errors);
+  await changed.context.close();
+  await run.context.close();
+  return run.errors;
+}
+
 async function discardAfterQueuedUndo(browser) {
   const run = await fresh(browser);
   const { page } = run;
@@ -2001,6 +2032,8 @@ async function main() {
       allErrors.push(await revisionF13(browser));
     } else if (process.env.N14_ONLY === "F11") {
       allErrors.push(await revisionF11(browser));
+    } else if (process.env.N14_ONLY === "F12") {
+      allErrors.push(await revisionF12(browser));
     } else if (process.env.N14_ONLY === "F5") {
       allErrors.push(await undoAfterLeaving(browser));
     } else if (process.env.N14_ONLY === "F4") {
@@ -2188,6 +2221,7 @@ async function main() {
     allErrors.push(await revisionF10(browser));
     allErrors.push(await revisionF13(browser));
     allErrors.push(await revisionF11(browser));
+    allErrors.push(await revisionF12(browser));
     allErrors.push(await discardAfterQueuedUndo(browser));
     allErrors.push(await answerEditorMatchesRecommend(browser));
     allErrors.push(await minimumBudget(browser));
