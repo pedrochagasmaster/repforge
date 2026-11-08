@@ -1186,7 +1186,7 @@ function scheduleEdgeSwipeSync(){
    SAFARI_SWIPE_MS of a touch at the left edge it is Safari's own swipe, which
    has already animated, so the route just changes. */
 const ROUTE_HISTORY_KEY="tauriferRoute",SAFARI_SWIPE_MS=900,SAFARI_EDGE=30;
-let routeHistory=[],routeHistoryIgnore=0,routeEdgeTouchAt=-Infinity;
+let routeHistory=[],expectedRouteDepth=null,routeEdgeTouchAt=-Infinity;
 function openPushedRoutes(){
   const body=document.body.classList,history=$("#history"),open=[];
   if(body.contains("is-library"))open.push("library");
@@ -1195,20 +1195,31 @@ function openPushedRoutes(){
   if(history?.classList.contains("active")&&history.classList.contains("is-session-page"))open.push("history");
   return open}
 function syncRouteHistory(){
-  if(routeHistoryIgnore)return;
+  if(expectedRouteDepth!==null)return;
   const open=openPushedRoutes(),kept=routeHistory.filter(id=>open.includes(id)),closed=routeHistory.length-kept.length;
   const depth=routeHistory.length;
   routeHistory=kept;
   // Step back only over entries that are ours and on top: another owner (the editor, onboarding) may have pushed
   // since, and history.go would pop its entry instead. A route closed under one is forgotten, its entry left.
   // Pages opened in the same change are pushed once the browser has stepped back (onRoutePopState).
-  if(closed&&history.state?.[ROUTE_HISTORY_KEY]?.depth===depth){routeHistoryIgnore++;try{history.go(-closed)}catch{routeHistoryIgnore--}return}
+  if(closed&&history.state?.[ROUTE_HISTORY_KEY]?.depth===depth){
+    expectedRouteDepth=kept.length;
+    try{history.go(-closed)}catch{expectedRouteDepth=null}
+    return}
   for(const id of open)if(!routeHistory.includes(id)){
     routeHistory.push(id);
     const current=history.state&&typeof history.state==="object"?history.state:{};
     try{history.pushState({...current,[ROUTE_HISTORY_KEY]:{view:id,depth:routeHistory.length}},"",location.href)}catch{}}}
 function onRoutePopState(){
-  if(routeHistoryIgnore){routeHistoryIgnore--;syncRouteHistory();return true}
+  if(expectedRouteDepth!==null){
+    const arrivingDepth=history.state?.[ROUTE_HISTORY_KEY]?.depth||0;
+    if(arrivingDepth===expectedRouteDepth){
+      expectedRouteDepth=null;
+      syncRouteHistory();
+      return true;
+    }
+    expectedRouteDepth=null;
+  }
   const depth=history.state?.[ROUTE_HISTORY_KEY]?.depth||0;
   if(routeHistory.length<=depth)return false;
   const swiped=performance.now()-routeEdgeTouchAt<SAFARI_SWIPE_MS;
@@ -14627,6 +14638,17 @@ function disarmInstalledEditorHistory({historyAlreadyPopped=false}={}){
   if(!installedEditorHistoryArmed)return;
   installedEditorHistoryArmed=false;
   if(historyAlreadyPopped)return;
+  const routesOnTop=Math.max(routeHistory.length,history.state?.[ROUTE_HISTORY_KEY]?.depth||0);
+  if(routesOnTop>0){
+    const toClose=routeHistory.slice().reverse();
+    routeHistory=[];
+    for(const id of toClose){
+      try{releaseSwallowedClick();$(EDGE_BACK[id])?.click()}catch{}
+    }
+    installedEditorHistoryRelease=true;
+    try{history.go(-(1+routesOnTop))}catch{installedEditorHistoryRelease=false}
+    return;
+  }
   installedEditorHistoryRelease=true;
   try{history.back()}catch{installedEditorHistoryRelease=false}
 }
