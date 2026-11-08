@@ -724,7 +724,45 @@ async function revisionF21(browser) {
   return run.errors;
 }
 
-const lifetimeCases = { F21: revisionF21, F1: restoreDoesNotCrossCandidate, F2: restoreQuestionDoesNotCrossCandidate,
+async function revisionF19(browser) {
+  const errors = [];
+  for (const mode of ["failure", "abandoned"]) {
+    const run = await fresh(browser, { fakeWorker: true }), { page } = run;
+    if (mode === "abandoned") await seedCustom(page, BASE); else await answerGenerate(page);
+    await page.locator("#entryReview [data-review-slot]").first().waitFor();
+    const baseline = await reviewed(page), [, b, c] = trainingDays(baseline)[0].slots;
+    await holdSetupWrites(page);
+    await removeReviewSlot(page, b.id);
+    await beginAnswerRebuild(page);
+    if (mode === "failure") await failAnswerRebuild(page);
+    else { await returnToCustomReview(page); await releaseAnswerRebuild(page); await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve))); }
+    await removeReviewSlot(page, c.id, { queued: true });
+    await releaseSetupWrites(page);
+    await page.locator("#reviewSheet").waitFor({ state: "hidden" });
+    await settleQueuedReviewWrites(page);
+    check((await reviewLog(page))?.edits?.length === 2 && await replayMatchesSaved(page, baseline),
+      `F19: ${mode} rebuild keeps both removals in one replayable queue`, await reviewLog(page));
+    const saved = await reviewed(page);
+    const durable = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_program_setup_draft_v1")).state.result.preview.programDefinition);
+    check(JSON.stringify(durable) === JSON.stringify(saved), `F19: ${mode} rebuild persists the reviewed definition`);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    await page.click("#firstRunResumeSetup");
+    await page.locator("#entryReview [data-review-slot]").first().waitFor();
+    check((await reviewLog(page))?.edits?.length === 2 && await replayMatchesSaved(page, baseline),
+      `F19: ${mode} rebuild preserves Undo history across reload`);
+    await page.locator("#entryReview [data-review-undo]").click();
+    await settleQueuedReviewWrites(page);
+    const expected = Review.replay(baseline, [{ kind: "remove", slotId: b.id }], REVIEW_CTX);
+    check(expected.ok && JSON.stringify(expected.definition) === JSON.stringify(await reviewed(page)),
+      `F19: ${mode} rebuild Undo reverses only the last removal`);
+    errors.push(...run.errors);
+    await run.context.close();
+  }
+  return errors;
+}
+
+const lifetimeCases = { F19: revisionF19, F21: revisionF21, F1: restoreDoesNotCrossCandidate, F2: restoreQuestionDoesNotCrossCandidate,
   F3: renameDoesNotCrossCandidate, F4: sameCandidateEditsAcrossRemount, F5: undoAfterLeaving,
   F6: sameCandidateCommitRepaintsRemount, F7: revisionF7, F8: revisionF8, F9: revisionF9,
   F10: revisionF10, F11: revisionF11, F12: revisionF12, F13: revisionF13, F14: revisionF14,
