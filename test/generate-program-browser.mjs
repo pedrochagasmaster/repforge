@@ -685,6 +685,86 @@ async function sameCandidateCommitRepaintsRemount(browser) {
   return run.errors;
 }
 
+// Round 3 journeys reuse U1, RS1, RN1, RS3, Q7, Q8, MO1b and Q1 from the independent review probes.
+async function queuedReviewSetup(browser) {
+  const run = await fresh(browser, { fakeWorker: true });
+  const { page } = run;
+  await answerGenerate(page);
+  await page.locator("#entryReview [data-review-slot]").first().waitFor();
+  const baseline = await reviewed(page);
+  const [a, b, c] = trainingDays(baseline)[0].slots;
+  await openSlot(page, a.id);
+  await page.locator('#reviewSheet [data-review-sets="1"]').click();
+  await page.waitForFunction(() => !document.querySelector("#entryReview[aria-busy]"));
+  await closeSheet(page);
+  await holdSetupWrites(page);
+  await openSlot(page, b.id);
+  await page.locator("#reviewSheet [data-review-remove]").click();
+  await page.waitForSelector("#reviewSheet", { state: "hidden" });
+  // A closed sheet precedes commit: prove the removal has reached the held write.
+  await page.waitForFunction((id) => !window.__repforgeEntryState().result.preview.programDefinition.days
+    .flatMap(day => day.slots || []).some(slot => slot.id === id), b.id);
+  return { ...run, baseline, a, b, c };
+}
+async function settleQueuedReviewWrites(page) {
+  // Reuse the probes' flush/frame boundary: a queued task can enqueue the next write after a flush.
+  for (let i = 0; i < 4; i++) {
+    await settleSetupWrites(page);
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
+  }
+}
+async function remountQueuedReview(page) {
+  await page.click("#onbCancel");
+  await page.locator("#entryCancelDiscard").waitFor();
+  await page.keyboard.press("Escape");
+  await page.locator("#entryCancelDiscard").waitFor({ state: "hidden" });
+  await page.locator("#entryReview").waitFor();
+}
+async function queueReviewRestore(page) {
+  await page.locator("#entryReview [data-review-restore]").click();
+  await page.click("#reviewConfirmGo");
+  await page.locator("#reviewConfirmGo").waitFor({ state: "hidden" });
+}
+const reviewToasts = page => page.evaluate(() => [...document.querySelectorAll(".review-toast, .toast, #toast")]
+  .filter(el => el.getClientRects().length).map(el => el.textContent.trim()));
+async function checkReviewScreen(page, baseline, finding) {
+  const facts = await page.evaluate(() => {
+    const host = document.querySelector("#entryReview"), st = window.__repforgeEntryState();
+    const tab = Number(host.querySelector(".review__tab.is-on").dataset.reviewTab);
+    return { rows: [...host.querySelectorAll("[data-review-slot]")].map(el => el.dataset.reviewSlot),
+      wanted: st.result.preview.programDefinition.days[tab].slots.map(slot => slot.id),
+      count: host.querySelector("[data-review-count]")?.textContent.trim() || null,
+      title: host.querySelector("[data-review-title] span").textContent,
+      name: st.result.name };
+  });
+  const def = await reviewed(page), log = (await reviewLog(page))?.edits || [];
+  const count = Review.changes(baseline, def).count;
+  check(JSON.stringify(facts.rows) === JSON.stringify(facts.wanted), `${finding}: painted rows equal the saved candidate`, facts);
+  check(facts.count === (count ? `${count} ${count === 1 ? "change" : "changes"} of yours` : null),
+    `${finding}: painted change count equals the saved candidate`, facts);
+  check(facts.title === facts.name, `${finding}: painted title equals the saved candidate`, facts);
+  const replayed = Review.replay(baseline, log, REVIEW_CTX);
+  check(replayed.ok && JSON.stringify(replayed.definition) === JSON.stringify(def), `${finding}: replay equals saved candidate`);
+}
+
+async function revisionF7(browser) {
+  const run = await queuedReviewSetup(browser), { page, baseline, b } = run;
+  await page.locator("#entryReview [data-review-undo]").click();
+  await remountQueuedReview(page);
+  await releaseSetupWrites(page);
+  await settleQueuedReviewWrites(page);
+  await checkReviewScreen(page, baseline, "F7");
+  check((await reviewToasts(page)).includes("Change undone."), "F7: remounted review announces the queued Undo");
+  const shown = await page.locator("#entryReview [data-review-slot]").evaluateAll(rows => rows.map(row => row.dataset.reviewSlot));
+  await page.click("#entryActivate");
+  await page.waitForFunction(() => window.__repforgeWorkoutDraft.state().programMeta.onboarded === true);
+  const active = (await state(page)).programMeta.programDefinition;
+  check(shown.includes(b.id) && active.days.some(day => day.slots?.some(slot => slot.id === b.id)),
+    "F7: Activate commits the restored row shown on review");
+  await run.context.close();
+  return run.errors;
+}
+
 async function discardAfterQueuedUndo(browser) {
   const run = await fresh(browser);
   const { page } = run;
@@ -1819,7 +1899,9 @@ async function main() {
   const browser = await launchChromium();
   const allErrors = [];
   try {
-    if (process.env.N14_ONLY === "F5") {
+    if (process.env.N14_ONLY === "F7") {
+      allErrors.push(await revisionF7(browser));
+    } else if (process.env.N14_ONLY === "F5") {
       allErrors.push(await undoAfterLeaving(browser));
     } else if (process.env.N14_ONLY === "F4") {
       allErrors.push(await sameCandidateEditsAcrossRemount(browser));
@@ -2000,6 +2082,7 @@ async function main() {
     allErrors.push(await reviewGuards(browser));
     allErrors.push(await undoAfterLeaving(browser));
     allErrors.push(await editAcrossRemount(browser));
+    allErrors.push(await revisionF7(browser));
     allErrors.push(await discardAfterQueuedUndo(browser));
     allErrors.push(await answerEditorMatchesRecommend(browser));
     allErrors.push(await minimumBudget(browser));
