@@ -42,6 +42,10 @@
   const EDIT_KIND_SET = new Set(EDIT_KINDS);
   const PROVENANCE_SOURCE = "lifter_review";
   const candidateQueues = new WeakMap();
+  async function whenIdle(candidate) {
+    let pending;
+    while ((pending = candidateQueues.get(candidate))) await pending.catch(() => {});
+  }
 
   const clone = (value) => JSON.parse(JSON.stringify(value));
   const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
@@ -777,7 +781,10 @@
     function run(task) {
       inFlight++;
       host.setAttribute("aria-busy", "true");
-      const settle = () => { if (--inFlight === 0) host.removeAttribute("aria-busy"); };
+      const settle = () => {
+        if (--inFlight === 0) host.removeAttribute("aria-busy");
+        if (keyed && candidateQueues.get(candidate) === queued) candidateQueues.delete(candidate);
+      };
       // Invalidation expires queued work, but a surviving candidate keeps its write order.
       const candidate = adapter.queueKey?.() ?? candidateNow();
       const keyed = candidate && (typeof candidate === "object" || typeof candidate === "function");
@@ -1397,5 +1404,6 @@
     changes,
     blockers,
     mountProgramReview,
+    whenIdle,
   });
 });

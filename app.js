@@ -22629,7 +22629,10 @@ function onEntryPopState(){
 // @ci-domain global
 async function activateEntryPreview({destination="log",manualBuild=false,skipReplaceConfirm=false,io=storageIO}={}){
   if(!ProgramEntry||!entryState||entryAnswerRebuildPending())return;
+  const review=entryAdjust,identity=review?.identity;
+  await window.RepForgeProgramReview?.whenIdle(review);
   await setupDraftWriteQueue;
+  if(!entryState||entryAnswerRebuildPending()||review&&(entryAdjust!==review||review.identity!==identity))return;
   const activationDraftHandle=entryDraftHandle;
   // A previous attempt may already have committed the exact draft and then
   // failed only while consuming this separate setup record. Treat that receipt
