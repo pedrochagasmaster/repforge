@@ -197,7 +197,7 @@ const readEntryOutcome = (page) => page.evaluate(() => ({
   focus: !document.querySelector("#workoutShell")?.classList.contains("hidden") && document.body.classList.contains("is-workout"),
   recovery: !document.querySelector("#draftRecovery")?.classList.contains("hidden"),
   draftDay: window.__repforgeWorkoutDraft.current()?.program?.dayLabel ?? null,
-  results: window.__entries.map((e) => e.result),
+  results: window.__entries?.map((e) => e.result) ?? [],
 }));
 
 const browser = await launchChromium();
@@ -269,6 +269,26 @@ try {
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
     const tapped = await page.evaluate(() => window.__repforgeWorkoutDraft.current().session.selectedExerciseId);
     assert(tapped === current, "a tap anywhere on the card opens the current exercise", JSON.stringify({ tapped, current }));
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  phase("L8: a picked day stays on Today after an exercise page detour");
+  {
+    const { context, page, errors } = await freshPage(browser);
+    await trackEntries(page);
+    await page.click("#chooseAnotherDay");
+    await page.waitForSelector("#dayPickSheet.is-open");
+    await page.click('[data-daypick="Day 2"]');
+    await page.waitForSelector(".daychange-toast");
+    await page.waitForFunction(() => !document.querySelector("#dayPickSheet").classList.contains("is-open"));
+    await page.locator(".today-rx__row").first().click();
+    await page.waitForSelector("#exercise.active");
+    await page.click("#exBack");
+    await page.waitForSelector("#log.active");
+    const r = await readEntryOutcome(page);
+    assert(!r.focus && r.draftDay === "Day 2",
+      "L8: returning from a Today row keeps Today open on the picked day", JSON.stringify(r));
     assert(errors.length === 0, "no page errors", errors.join(" | "));
     await context.close();
   }
