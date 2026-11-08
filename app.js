@@ -1229,7 +1229,13 @@ function onRoutePopState(){
     expectedRouteDepth=null;
   }
   const depth=history.state?.[ROUTE_HISTORY_KEY]?.depth||0;
-  if(routeHistory.length<=depth)return false;
+  if(depth>routeHistory.length){
+    // Closed routes cannot be restored from a depth marker. Return to the live
+    // entry so Forward is harmless and cannot reach another owner's Back handler.
+    expectedRouteDepth=routeHistory.length;
+    try{history.go(routeHistory.length-depth)}catch{expectedRouteDepth=null}
+    return true}
+  if(routeHistory.length===depth)return false;
   const swiped=performance.now()-routeEdgeTouchAt<SAFARI_SWIPE_MS;
   while(routeHistory.length>depth){
     const id=routeHistory.pop();
