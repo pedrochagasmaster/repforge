@@ -7346,10 +7346,11 @@ async function saveExerciseRest(ex,sec){
 /** A preset sets this exercise's rest, and the rest on the clock restarts at it; idle, it is what the next one runs for. */
 async function chooseRestPreset(sec){
   const s=clampRestSec(sec),ex=restExercise();
+  if(ex&&exerciseStoredRest(ex)!==s&&!await saveExerciseRest(ex,s)){
+    toast(t("toast.program_save_failed"));renderRestPresets();paintRestSheet();return}
   if(restState().active)startRest(s);
   else{applyRest(RepForgeRestTimer.setLength(restClock,0));syncRest()}
   paintRestSheet();
-  if(ex)await saveExerciseRest(ex,s);
   renderRestPresets();paintRestSheet()}
 /** The next set, for the dial: the set the Focus shelf is on, its load and reps. */
 function restNextLine(){
