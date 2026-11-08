@@ -246,11 +246,19 @@ async function main() {
     await installSeedProgram(source, { waitFor: () => waitForAppBoot(source, { base: BASE }) });
     await enterWorkout(source);
     await saveFirstSet(source);
+    await source.evaluate(async () => {
+      const api = window.__repforgeWorkoutDraft;
+      await api.dispatch("markDiscomfort", {exerciseInstanceId:"seed-ex-1",kind:"discomfort"});
+      await api.dispatch("skipExercise", {exerciseInstanceId:"seed-ex-2",reason:"time"});
+      await api.flush();
+    });
     await source.clock.setFixedTime(new Date(FINISHED));
     const finished = await finishEarly(source);
     let state = await durable(source);
     const [sid] = sessionIds(state);
     const expected = { startedAt: STARTED, completedAt: FINISHED, durationSeconds: 2530 };
+    const expectedEvents = {v:1,skips:[{exerciseId:"seed-ex-2",slotId:"seed-ex-2",reason:"time"}],pain:[{exerciseId:"seed-ex-1",slotId:"seed-ex-1",kind:"discomfort",swapped:false}]};
+    check(JSON.stringify(state.sessionEvents?.[sid])===JSON.stringify(expectedEvents),"session events commit beside the rows",state.sessionEvents);
     check(finished?.localOk || finished?.idbOk, "the early finish saved the session", finished);
     check(JSON.stringify(state.sessionTiming?.[sid]) === JSON.stringify(expected),
       "the session keeps its start, its finish and 42 min 10 s of wall-clock time", state.sessionTiming);
@@ -261,6 +269,7 @@ async function main() {
     await reload(source);
     state = await durable(source);
     check(JSON.stringify(state.sessionTiming?.[sid]) === JSON.stringify(expected), "a reload reads the same timing", state.sessionTiming);
+    check(JSON.stringify(state.sessionEvents?.[sid])===JSON.stringify(expectedEvents),"session events survive this reload/import boundary",state.sessionEvents);
     const backup = await exportBackup(source);
     check(JSON.stringify(backup.sessionTiming?.[sid]) === JSON.stringify(expected), "the backup export carries it", backup.sessionTiming);
     const envelope = await transferEnvelope(source);
@@ -272,6 +281,7 @@ async function main() {
     await reload(restored);
     state = await durable(restored);
     check(JSON.stringify(state.sessionTiming?.[sid]) === JSON.stringify(expected), "a backup Replace and reload keep it", state.sessionTiming);
+    check(JSON.stringify(state.sessionEvents?.[sid])===JSON.stringify(expectedEvents),"session events survive this reload/import boundary",state.sessionEvents);
 
     const transferred = await bootFresh(await context({ guides: "live" }), FINISHED);
     const imported = await importTransfer(transferred, envelope);
@@ -279,6 +289,7 @@ async function main() {
     await reload(transferred);
     state = await durable(transferred);
     check(JSON.stringify(state.sessionTiming?.[sid]) === JSON.stringify(expected), "an install-transfer import and reload keep it", state.sessionTiming);
+    check(JSON.stringify(state.sessionEvents?.[sid])===JSON.stringify(expectedEvents),"session events survive this reload/import boundary",state.sessionEvents);
 
     const merged = await bootFresh(await context(), FINISHED);
     await installSeedProgram(merged, { waitFor: () => waitForAppBoot(merged, { base: BASE }) });
@@ -286,6 +297,7 @@ async function main() {
     await reload(merged);
     state = await durable(merged);
     check(JSON.stringify(state.sessionTiming?.[sid]) === JSON.stringify(expected), "a backup Merge brings the added session's timing", state.sessionTiming);
+    check(JSON.stringify(state.sessionEvents?.[sid])===JSON.stringify(expectedEvents),"session events survive this reload/import boundary",state.sessionEvents);
 
     phase("A reader takes a payload that carries timing without refusing it");
     // Built by hand, so this phase also runs against a release that writes none.
@@ -358,6 +370,7 @@ async function main() {
       sid, { timeout: 10000 });
     state = await durable(source);
     check(!state.sessionTiming || !(sid in state.sessionTiming), "no timing outlives its session", state.sessionTiming);
+    check(!state.sessionEvents?.[sid],"no session events outlive the deleted session",state.sessionEvents);
   } catch (error) {
     failures.push(String(error?.stack || error));
     console.error(error?.stack || error);
