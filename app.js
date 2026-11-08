@@ -3333,6 +3333,7 @@ function confirmDiscardDraft(){
 async function requestWorkoutDay(nextDay,{undo=false,ofDraft}={}){
   if(!nextDay||nextDay===day) return true;
   await workoutStartTail;
+  if(undo)await draftWriteTail;
   // An Undo is bound to the draft its own day change made (N12): once that draft is replaced, it changes nothing.
   const stillOfDraft=()=>ofDraft===undefined||activeWorkoutDraft?.draftId===ofDraft;
   if(!stillOfDraft())return false;
