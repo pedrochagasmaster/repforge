@@ -394,7 +394,8 @@ try {
     });
     await page.click("#startWorkout");
     await page.waitForFunction(() => window.__createHeld === true);
-    await page.locator("#todayExList [data-row-menu]").first().click();
+    await page.locator("#todayExList [data-row-menu]").first().focus();
+    await page.keyboard.press("Enter");
     await page.locator('#nativeContextMenu [data-menu-value="swap"]').click();
     await page.waitForSelector("#nativeContextMenu", { state: "detached" });
     await page.evaluate(() => window.__releaseCreate());
