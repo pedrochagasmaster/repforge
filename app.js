@@ -7201,12 +7201,14 @@ function endedHere(stored){
   if(!note||!stored.ok||stored.raw===null)return false;
   return typeof note.raw==="string"&&note.raw===stored.raw}
 function removeRestRecord(){
-  const stored=readRestRecord();
+  const expectedRaw=endedRestNote()?.raw??restRecordRaw;
   try{localStorage.removeItem(REST_RECORD_KEY);forgetEndedRest()}
   catch{
-    if(stored.ok&&stored.raw===null)return;
+    // Removal can fail after another tab publishes a rest. Only replace the exact record ended here.
+    const stored=readRestRecord();
+    if(stored.ok&&(stored.raw===null||stored.raw!==expectedRaw)){forgetEndedRest();return}
     restRemovalPending=true;
-    let raw=stored.ok?stored.raw:restRecordRaw;
+    let raw=expectedRaw;
     if(stored.ok){
       const marker=JSON.stringify({draftId:stored.record?.draftId??restDraftId??null,ended:true});
       try{localStorage.setItem(REST_RECORD_KEY,marker);raw=marker}catch{}}
@@ -7236,13 +7238,14 @@ function restoreRest(draftId){
   // The tab-scoped record of the build before this one is dropped: its one rest timer is lost on upgrade, by choice.
   try{sessionStorage.removeItem(REST_RECORD_KEY)}catch{}
   const stored=readRestRecord(),record=stored.ok?stored.record:null,now=Date.now();
+  if(stored.ok)restRecordRaw=stored.raw;
   // A rest this tab ended whose removal was refused is never restored; its removal is owed, and is tried again here.
   if(record?.ended===true||endedHere(stored)){removeRestRecord();return}
   if(!draftId||record?.draftId!==draftId||!RepForgeRestTimer.snapshotValid(record.rest,now)){removeRestRecord();return}
   if(RepForgeRestTimer.capReached(record.rest,now)){removeRestRecord();offerRestOverrunFinish();return}
   const restored=RepForgeRestTimer.restore(restClock,record.rest,now);
   if(restored.state.kind==="idle"){removeRestRecord();return}
-  restDraftId=draftId;restRecordRaw=stored.raw;
+  restDraftId=draftId;
   const settled=RepForgeRestTimer.settle(restored.state,now);
   applyRest({state:settled.state,effects:[...restored.effects,...settled.effects]});
   syncRest()}
