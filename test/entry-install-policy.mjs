@@ -1106,6 +1106,12 @@ async function run() {
         for (let boot = 1; boot <= 2; boot++) {
           await page.reload({ waitUntil: "domcontentloaded" });
           await page.waitForFunction(() => window.__repforgeBooted === true);
+          const initialRoute = await page.evaluate(() => ({
+            editor: document.querySelector("#program").classList.contains("program-editor-installed"),
+            today: document.querySelector("#log").classList.contains("active"),
+          }));
+          assert(!initialRoute.editor && initialRoute.today,
+            `D12 route: boot ${boot} opens Today before maintenance settles`, JSON.stringify(initialRoute));
           await followUpReplicas(page, { consumed: true });
           const observed = await page.evaluate(async () => {
             const local = JSON.parse(localStorage.getItem("repforge_v1"));
@@ -1124,9 +1130,9 @@ async function run() {
               today: document.querySelector("#log").classList.contains("active"),
               banner: !document.querySelector("#installBanner").classList.contains("hidden") };
           });
-          const expectedRoute = boot === 1 ? observed.editor && !observed.today : !observed.editor && observed.today;
+          const expectedRoute = !observed.editor && observed.today;
           assert(observed.marker === null && observed.mirroredMarker === null && expectedRoute,
-            `D12: boot ${boot} consumes the obsolete marker and honors its destination only once`, JSON.stringify(observed));
+            `D12: boot ${boot} consumes the obsolete marker without opening the editor`, JSON.stringify(observed));
           assert(isDeepStrictEqual(observed.program, saved.program) && isDeepStrictEqual(observed.log, saved.log),
             `D12: boot ${boot} preserves the program and workout log`);
           if (boot === 1) assert(observed.banner, "D12: obsolete marker no longer suppresses the eligible install banner", JSON.stringify(observed));
@@ -1205,11 +1211,14 @@ async function run() {
           window.__fireInstall();
           const local = JSON.parse(localStorage.getItem("repforge_v1"));
           return { booted: window.__repforgeBooted === true, failure: window.__repforgeBootFailureState,
+            editor: document.querySelector("#program").classList.contains("program-editor-installed"),
+            today: document.querySelector("#log").classList.contains("active"),
             marker: local._storageFollowUp, program: local.program, log: local.log,
             banner: !document.querySelector("#installBanner").classList.contains("hidden") };
         });
         assert(pending.booted && !pending.failure, `D12 maintenance: ${mode} cleanup does not block usable boot`, JSON.stringify(pending));
         assert(pending.banner, `D12 maintenance: ${mode} cleanup cannot suppress eligible installation`);
+        assert(!pending.editor && pending.today, `D12 route: ${mode} cleanup leaves Today active`, JSON.stringify(pending));
         const retained = await followUpReplicas(page);
         assert([retained.local, retained.mirrored].every(value => value._storageFollowUp?.kind === "onboarding-edit"
           && isDeepStrictEqual(value.program, saved.program) && isDeepStrictEqual(value.log, saved.log)),
