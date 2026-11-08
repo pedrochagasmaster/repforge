@@ -1142,6 +1142,10 @@
       return ERROR_CODES.INVALID_ENVELOPE;
     }
     if (!isPlainObject(value.settings) || !isPlainObject(value.programMeta)) return ERROR_CODES.INVALID_ENVELOPE;
+    if (hasOwn(value,"sessionEvents")) {
+      const draft = runtimeWorkoutDraft();
+      if (!draft?.validateSessionEvents?.(value.sessionEvents)) return ERROR_CODES.INVALID_ENVELOPE;
+    }
     if (hasOwn(value, "programmingContext")) {
       const contextError = validateProgrammingContext(value.programmingContext);
       if (contextError) return contextError;

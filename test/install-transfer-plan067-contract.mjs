@@ -803,4 +803,14 @@ for (const bad of ["yes", 1, null]) {
   assert.equal(refused.ok, false, `the contract refuses a completed set's lastRepSlow ${JSON.stringify(bad)}`);
 }
 
+{
+  const withEvents = structuredClone(valid);
+  withEvents.durableState.sessionEvents = {session:{v:1,skips:[{exerciseId:"slot",slotId:"slot",reason:"time"}],pain:[]}};
+  withEvents.integrity.canonicalPayloadHash = canonicalHash(withEvents);
+  assert.equal((await Contract.validateEnvelopeIntegrity(withEvents,webcrypto)).ok,true,"valid session events cross transfer");
+  withEvents.durableState.sessionEvents.session.skips[0].reason = "free text";
+  withEvents.integrity.canonicalPayloadHash = canonicalHash(withEvents);
+  assert.equal((await Contract.validateEnvelopeIntegrity(withEvents,webcrypto)).ok,false,"malformed session events are refused");
+}
+
 console.log("PASS Plan 067 install-transfer clone contract");

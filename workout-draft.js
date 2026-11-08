@@ -2,6 +2,7 @@
   "use strict";
 
   const SCHEMA_VERSION = 2;
+  const SWAP_REASONS = Object.freeze(["equipment", "preference", "pain", "crowded", "other"]);
   const SKIP_REASONS = Object.freeze(["time", "recovery", "pain", "equipment", "schedule", "trim", "other"]);
   const STATUS = new Set(["active", "finishing"]);
   const SET_ROLES = new Set(["working", "warmup"]);
@@ -548,6 +549,7 @@
     }
     if (value.status !== "active" && value.status !== "skipped") issues.push(`${path}.status`);
     if (hasOwn(value, "skipReason") && (!SKIP_REASONS.includes(value.skipReason) || value.status !== "skipped")) issues.push(`${path}.skipReason`);
+    if (hasOwn(value, "swapReason") && !SWAP_REASONS.includes(value.swapReason)) issues.push(`${path}.swapReason`);
     if (hasOwn(value, "discomfort") && (!isPlainObject(value.discomfort) ||
       Object.keys(value.discomfort).some(key => !["kind", "swapped"].includes(key)) ||
       !["pain", "discomfort"].includes(value.discomfort.kind) || typeof value.discomfort.swapped !== "boolean")) {
@@ -1515,6 +1517,18 @@
         }
         break;
       }
+      case "recordSubstitutionReason": {
+        item = targetExercise(next, command);
+        if (isDomainError(item)) return item;
+        const substitution = item.exercise.substitution;
+        if (command.draftId !== draft.draftId || !substitution ||
+          substitution.selectedAt !== command.selectedAt ||
+          substitution.replacement.exerciseInstanceId !== command.replacementId) return error("stale-substitution");
+        if (!SWAP_REASONS.includes(command.reason)) return error("invalid-swap-reason");
+        item.exercise.swapReason = command.reason;
+        if (command.reason === "pain") item.exercise.discomfort = {kind:"pain",swapped:true};
+        break;
+      }
       case "markDiscomfort": {
         item = targetExercise(next, command);
         if (isDomainError(item)) return item;
@@ -1715,7 +1729,30 @@
       ? { effortSource: set.completion.effortSource } : {};
   }
 
-  function toHistoryRows(draft, completedAt) {
+  function validateSessionEvents(value) {
+    if (!isPlainObject(value)) return false;
+    const exact = (record, keys) => isPlainObject(record) && Object.keys(record).length === keys.length && keys.every(key => hasOwn(record,key));
+    return Object.entries(value).every(([id, record]) => isText(id,{max:MAX_ID}) &&
+      exact(record,["v","skips","pain"]) && record.v === 1 &&
+      ["skips","pain"].every(field => Array.isArray(record[field]) && record[field].length <= 2000 &&
+        record[field].every(event => exact(event,field === "skips" ? ["exerciseId","slotId","reason"] : ["exerciseId","slotId","kind","swapped"]) &&
+          isText(event.exerciseId,{max:MAX_ID}) && isText(event.slotId,{max:MAX_ID}) &&
+          (field === "skips" ? SKIP_REASONS.includes(event.reason) : ["pain","discomfort"].includes(event.kind) && typeof event.swapped === "boolean"))));
+  }
+
+  function sessionEventsOf(draft) {
+    const events = {v:1,skips:[],pain:[]};
+    for (const id of draft.exerciseOrder) {
+      const exercise = draft.exercises[id];
+      const identity = {exerciseId:exercise.exerciseInstanceId,slotId:exercise.sourceExerciseId};
+      if (exercise.status === "skipped") events.skips.push({...identity,reason:exercise.skipReason || "other"});
+      if (exercise.discomfort) events.pain.push({...identity,...exercise.discomfort});
+    }
+    return events;
+  }
+
+  // Legacy row-only callers retain their array; the session commit requests both projections.
+  function toHistoryRows(draft, completedAt, {includeSessionEvents = false} = {}) {
     const issues = validateForSave(draft);
     if (issues.length) return error("draft-not-saveable", { issues });
     if (!isText(completedAt, { max: 100 })) return error("invalid-completed-at");
@@ -1817,7 +1854,7 @@
         rows.push(row);
       }
     }
-    return rows;
+    return includeSessionEvents ? {rows,sessionEvents:sessionEventsOf(draft)} : rows;
   }
 
   const LEGACY_META_FIELDS = new Set([
@@ -2123,6 +2160,7 @@
     migrateLegacy,
     reduce,
     toHistoryRows,
+    validateSessionEvents,
     validateLoadingContext(value) {
       const issues = [];
       validateLoadingContext(value, "loadingContext", issues);

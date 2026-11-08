@@ -1122,5 +1122,46 @@ console.log("\nIssue #320: create() clamps a target RIR that falls back to the l
   }
 }
 
+// A reason answered after the swap is bound to that exact substitution.
+{
+  const selectedAt = "2026-08-15T11:00:00.000Z";
+  const swapped = apply(fresh(), "substituteExercise", {exerciseInstanceId:"slot-squat",replacement,selectedAt});
+  const binding = {draftId:swapped.draftId,exerciseInstanceId:"slot-squat",selectedAt,replacementId:replacement.exerciseInstanceId,reason:"pain"};
+  const reasoned = command(swapped,"recordSubstitutionReason",binding).result;
+  assert(!Draft.isDomainError(reasoned),"post-swap reason accepts the exact substitution");
+  if (!Draft.isDomainError(reasoned)) {
+    assert(reasoned.exercises["slot-squat"].swapReason === "pain", "post-swap reason is durable");
+    assert(reasoned.exercises["slot-squat"].discomfort.kind === "pain" && reasoned.exercises["slot-squat"].discomfort.swapped === true,"pain swap records its discomfort fact");
+  }
+  for (const wrong of [{draftId:"different-draft"},{selectedAt:"2026-08-15T12:00:00.000Z"},{replacementId:"different-movement"},{exerciseInstanceId:"slot-curl"},{reason:"free text"}]) {
+    assert(Draft.isDomainError(command(swapped,"recordSubstitutionReason",{...binding,...wrong}).result),"stale or malformed post-swap answer is refused");
+  }
+  const restored = apply(swapped,"restoreOriginalExercise",{exerciseInstanceId:"slot-squat"});
+  assert(Draft.isDomainError(command(restored,"recordSubstitutionReason",binding).result),"answer after undoing the swap is refused");
+  const second = apply(swapped,"substituteExercise",{exerciseInstanceId:"slot-squat",replacement,selectedAt:"2026-08-15T12:00:00.000Z"});
+  assert(Draft.isDomainError(command(second,"recordSubstitutionReason",binding).result),"answer for an earlier swap to the same movement is refused");
+}
+
+{
+  let eventDraft = fresh();
+  eventDraft = apply(eventDraft,"editSetField",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",field:"load",value:"50"});
+  eventDraft = apply(eventDraft,"editSetField",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",field:"reps",value:"8"});
+  eventDraft = apply(eventDraft,"completeSet",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",completedAt:"2026-08-15T11:00:00.000Z"});
+  eventDraft = apply(eventDraft,"skipExercise",{exerciseInstanceId:"slot-curl",reason:"time"});
+  eventDraft = apply(eventDraft,"markDiscomfort",{exerciseInstanceId:"slot-squat",kind:"discomfort"});
+  const result = Draft.toHistoryRows(apply(eventDraft,"beginFinish"),"2026-08-15T11:01:00.000Z",{includeSessionEvents:true});
+  assert(Array.isArray(result.rows),"session compilation exposes rows beside events");
+  assert(same(result.sessionEvents,{v:1,skips:[{exerciseId:"slot-curl",slotId:"source-curl",reason:"time"}],pain:[{exerciseId:"slot-squat",slotId:"source-squat",kind:"discomfort",swapped:false}]}),"session compilation includes skipped lifts and discomfort without inventing set rows");
+  assert(typeof Draft.validateSessionEvents === "function","session event validation is shared by persistence and transfer");
+  if (typeof Draft.validateSessionEvents === "function") {
+    const record = {"draft-051":result.sessionEvents};
+    assert(Draft.validateSessionEvents(record),"compiled events validate");
+    for (const mutate of [r=>r["draft-051"].v=2,r=>r["draft-051"].skips[0].reason="free text",r=>r["draft-051"].pain[0].swapped="yes",r=>r["draft-051"].pain[0].text="private"]) {
+      const bad = structuredClone(record);mutate(bad);
+      assert(!Draft.validateSessionEvents(bad),"malformed session events fail closed");
+    }
+  }
+}
+
 console.log(`\n${results.passed} passed, ${results.failed} failed`);
 if (results.failed) process.exitCode = 1;
