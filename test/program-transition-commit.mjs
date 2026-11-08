@@ -346,6 +346,113 @@ async function setupPredecessorWithSentinelAndDraft(page, tag = "p6b") {
   };
 }
 
+function proposeRetryChange(page, tag, change = { kind: "fewer_days", daysPerWeek: 3 }) {
+  return page.evaluate(async ({ tag, change }) => {
+    const result = await window.__repforgeProgramTransition.proposeChange({
+      change,
+      transitionId: `tr_retry_${tag}`,
+      successorProgramId: `prog_retry_${tag}`,
+      createdAt: "2026-11-01T12:00:00.000Z",
+    });
+    if (!result?.ok) return result;
+    return {
+      ...result,
+      args: {
+        proposal: result.proposal,
+        proposalHash: result.proposal.proposalHash,
+        transitionId: result.proposal.transitionId,
+        successorProgramId: result.proposal.successor.programId,
+        confirmedAt: "2026-11-01T12:05:00.000Z",
+        acknowledgedDraftRaw: localStorage.getItem("repforge_draft_v1"),
+      },
+    };
+  }, { tag, change });
+}
+
+// Each case gets an activated program and a proposal in a fresh context.
+async function withRetryProposal(browser, tag, run) {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  try {
+    await page.goto(BASE);
+    await waitForAppBoot(page, { base: BASE });
+    const activation = await activateGeneratedPredecessor(page);
+    if (!activation.ok) throw new Error(`${tag} fixture activation failed: ${JSON.stringify(activation).slice(0, 500)}`);
+    const proposed = await proposeRetryChange(page, tag);
+    if (!proposed?.ok) throw new Error(`${tag} fixture proposal failed: ${proposed?.code}`);
+    await run({ context, page, args: proposed.args });
+  } finally {
+    await context.close();
+  }
+}
+
+// Flippable faults on the production storage boundary. A reload clears them.
+async function armRetryFaults(page, faults = {}) {
+  await page.evaluate((next) => {
+    if (!window.__retryFaults) {
+      const io = window.RepForgeDurableState.storageIO;
+      const { writeIdb } = io;
+      const { removeItem, setItem } = Storage.prototype;
+      const quota = () => new DOMException("probe", "QuotaExceededError");
+      io.writeIdb = async (snapshot) => window.__retryFaults.idb ? false : writeIdb(snapshot);
+      Storage.prototype.removeItem = function(key) {
+        const name = String(key), fault = window.__retryFaults;
+        if (fault.journalRemove && name.startsWith("repforge_pending_v1:")) throw quota();
+        if (fault.closeRemove && name.startsWith("repforge_draft_v1:closing:")) throw quota();
+        return removeItem.call(this, key);
+      };
+      Storage.prototype.setItem = function(key, value) {
+        if (window.__retryFaults.closeSet && String(key).startsWith("repforge_draft_v1:closing:")) throw quota();
+        return setItem.call(this, key, value);
+      };
+    }
+    window.__retryFaults = next;
+  }, faults);
+}
+
+const journalKeys = (artifacts) => artifacts.filter((key) => key.startsWith("repforge_pending_v1:"));
+
+// F4: a retry heals before it closes, so a failed heal keeps the only recovery copy.
+async function checkFailedHealKeepsJournal(browser) {
+  await withRetryProposal(browser, "order", async ({ page, args }) => {
+    const predecessorId = args.proposal.predecessor.programId;
+    await armRetryFaults(page, { idb: true, journalRemove: true });
+    const first = await confirmTransition(page, args);
+    const split = await readReplicas(page);
+    check(first?.settled === false && split.local.programId === args.successorProgramId &&
+      split.idb.programId === predecessorId && journalKeys(await transitionRetryArtifacts(page)).length === 1,
+    "the first attempt leaves split replicas and one journal", transitionReplicaSummary(split));
+
+    await armRetryFaults(page, { idb: true });
+    const failedHeal = await confirmTransition(page, args);
+    const afterFailedHeal = await transitionRetryArtifacts(page);
+    check(failedHeal?.committed === false && failedHeal?.settled === false,
+      "a retry whose heal fails stays unsettled", failedHeal);
+    check(journalKeys(afterFailedHeal).length === 1,
+      "a retry whose heal fails keeps its recovery journal", { code: failedHeal?.code, afterFailedHeal });
+
+    await page.evaluate((key) => localStorage.removeItem(key), KEY);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    const recovered = await readReplicas(page);
+    check(recovered.local?.programId === args.successorProgramId && recovered.idb?.programId === args.successorProgramId &&
+      recovered.local?.historyLen === 1,
+    "boot recovers the successor from the journal the failed retry kept", transitionReplicaSummary(recovered));
+  });
+
+  await withRetryProposal(browser, "healfirst", async ({ page, args }) => {
+    await armRetryFaults(page, { idb: true, journalRemove: true });
+    await confirmTransition(page, args);
+    await armRetryFaults(page, { journalRemove: true });
+    const retry = await confirmTransition(page, args);
+    const healed = await readReplicas(page);
+    check(retry?.settled === false && healed.idb.programId === args.successorProgramId &&
+      healed.local.revision === healed.idb.revision,
+    "a retry heals both replicas before it reaches the journal close that fails",
+    { code: retry?.code, replicas: transitionReplicaSummary(healed) });
+  });
+}
+
 async function checkTransitionRetryFault(browser, kind) {
   const context = await browser.newContext();
   const page = await context.newPage();
@@ -358,26 +465,7 @@ async function checkTransitionRetryFault(browser, kind) {
 
     const activation = await activateGeneratedPredecessor(page);
     check(activation.ok, `${kind} transition retry fixture activates its predecessor`, activation);
-    const proposed = await page.evaluate(async (retryKind) => {
-      const result = await window.__repforgeProgramTransition.proposeChange({
-        change: { kind: "fewer_days", daysPerWeek: 3 },
-        transitionId: `tr_retry_${retryKind}`,
-        successorProgramId: `prog_retry_${retryKind}`,
-        createdAt: "2026-11-01T12:00:00.000Z",
-      });
-      if (!result?.ok) return result;
-      return {
-        ...result,
-        args: {
-          proposal: result.proposal,
-          proposalHash: result.proposal.proposalHash,
-          transitionId: result.proposal.transitionId,
-          successorProgramId: result.proposal.successor.programId,
-          confirmedAt: "2026-11-01T12:05:00.000Z",
-          acknowledgedDraftRaw: localStorage.getItem("repforge_draft_v1"),
-        },
-      };
-    }, kind);
+    const proposed = await proposeRetryChange(page, kind);
     check(proposed?.ok === true, `${kind} transition retry proposal is produced`, proposed?.code);
     if (!proposed?.ok) return;
 
@@ -1730,6 +1818,7 @@ async function main() {
 
     await checkTransitionRetryFault(browser, "idb");
     await checkTransitionRetryFault(browser, "cleanup");
+    await checkFailedHealKeepsJournal(browser);
 
     await context.close();
   } finally {
