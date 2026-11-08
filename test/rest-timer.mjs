@@ -588,22 +588,30 @@ try {
     const dialBox = await page.locator("#restDial").boundingBox();
     const centre = { x: dialBox.x + dialBox.width / 2, y: dialBox.y + dialBox.height / 2, r: dialBox.width * 0.448 };
     const dialPoint = (turn) => [centre.x + centre.r * Math.sin(turn * 2 * Math.PI), centre.y - centre.r * Math.cos(turn * 2 * Math.PI)];
-    await page.mouse.move(...dialPoint(0.125));
-    await page.mouse.down();
-    await page.mouse.move(...dialPoint(0.2));
+    const dialTouch = await page.context().newCDPSession(page);
+    const point = (angle) => { const [x, y] = dialPoint(angle); return { x, y }; };
+    await dialTouch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point(0.125)] });
+    await dialTouch.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [point(0.2)] });
+    await page.waitForFunction(() => document.querySelector("#restDial").classList.contains("is-turning"));
     assert(await page.evaluate(() => document.querySelector("#restDial").classList.contains("is-turning")),
       "the first pointer owns the dial before the sheet closes");
     await page.keyboard.press("Escape");
     await page.waitForSelector("#restSheet", { state: "hidden" });
     const abandonedTurn = await page.evaluate(() => document.querySelector("#restDial").classList.contains("is-turning"));
     assert(!abandonedTurn, "closing the sheet releases a dial drag even if the finger never sent pointerup", abandonedTurn);
-    await page.mouse.up();
+    await dialTouch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
     await page.locator("#restTab").click();
     await page.waitForSelector("#restSheet.is-open", { timeout: 5000 });
     await page.waitForTimeout(320);
     await page.evaluate(() => { window.__repforgeRest.setLeft(298000, { held: true, lengthSec: 300 }); syncRest(); });
-    r = await turn(0.125, 0.375);
-    assert(r.left === 375, "the dial accepts another turn after the interrupted capture", r);
+    await dialTouch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point(0.125)] });
+    for (let i = 1; i <= 18; i++) {
+      await dialTouch.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [point(0.125 + 0.25 * i / 18)] });
+    }
+    await dialTouch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await dialTouch.detach();
+    r = await page.evaluate(() => ({ left: Math.round(restLeftMs() / 1000), turning: document.querySelector("#restDial").classList.contains("is-turning") }));
+    assert(r.left === 375 && !r.turning, "the dial accepts another touch after the interrupted capture", r);
 
     phase("The dial is a slider for the keyboard and assistive technology");
     await page.evaluate(() => { window.__repforgeRest.setLeft(298000, { held: true, lengthSec: 300 }); syncRest(); });

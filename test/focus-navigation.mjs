@@ -33,7 +33,7 @@ async function main() {
   });
 
   try {
-    const page = await browser.newPage();
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
     const pageErrors = [];
     page.on("pageerror", (err) => pageErrors.push(`[PAGE ERROR] ${err.message}`));
     page.on("console", (msg) => {
@@ -58,20 +58,26 @@ async function main() {
      * 1. Arbitrary navigation: Next / Prev and bounds
      * ====================================================================== */
     console.log("\nNavigation: a flick held still before release does not advance");
+    await page.waitForFunction(() => !document.querySelector(".is-push-over,.is-push-under"));
     const touch = await page.context().newCDPSession(page);
     const deckBox = await page.locator("#focusDeck").boundingBox();
     const x = Math.round(deckBox.x + deckBox.width / 2);
     const y = Math.round(deckBox.y + 30);
     await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
-    for (const dx of [27, 55]) {
-      await page.waitForTimeout(8);
+    for (const dx of [20, 40, 60]) {
       await touch.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: x - dx, y }] });
+      await page.waitForFunction((dx) => new DOMMatrixReadOnly(getComputedStyle(document.querySelector("#focusTrack")).transform).m41 <= -(dx - 10), dx);
     }
+    const dragged = await page.evaluate(() => ({
+      swiping: document.querySelector("#focusDeck").classList.contains("is-swiping"),
+      x: new DOMMatrixReadOnly(getComputedStyle(document.querySelector("#focusTrack")).transform).m41,
+    }));
+    assert(dragged.swiping && dragged.x < -20, "the real touch has taken the Focus deck before release", JSON.stringify(dragged));
     // This stationary interval is the behaviour under test: velocity must expire.
     await page.waitForTimeout(220);
     await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
     await touch.detach();
-    await page.waitForTimeout(340);
+    await page.waitForFunction(() => !document.querySelector("#focusDeck").classList.contains("is-swiping"));
     assert(await page.evaluate(() => window.__repforgeFocus.at()) === 0,
       "a short flick held still before release settles the current exercise instead of advancing");
 

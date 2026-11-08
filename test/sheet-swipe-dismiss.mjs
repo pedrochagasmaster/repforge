@@ -482,6 +482,10 @@ async function run() {
   await page.waitForTimeout(20);
   await page.mouse.up();
   await page.waitForTimeout(520);
+  await page.waitForFunction(() => {
+    const sheet = window.__sheet("#programTextSheet");
+    return !sheet.inline && Math.abs(sheet.y) < 1;
+  });
   const caught = await page.evaluate(() => window.__sheet("#programTextSheet"));
   assert(caught.open && !caught.hidden && !caught.inline && Math.abs(caught.y) < 1,
     "re-grabbing a committed exit reverses it without closing or snapping", JSON.stringify(caught));
