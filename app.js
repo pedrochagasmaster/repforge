@@ -12030,7 +12030,7 @@ function bindShareSheet(){
   change("#shareCardKind",v=>{const photo=sharePhotoStyle(shareSheet);
     shareSheet.kind=v==="record"&&shareSheet.model.lead?"record":"stats";shareSheet.styleIndex=photo?SHARE_STYLES[shareSheet.kind].indexOf("photo"):0});
   change("#shareCardSize",v=>{shareSheet.size=v==="square"?"square":"story"});
-  change("#shareCardStyle",v=>{shareSheet.styleIndex=Math.max(0,SHARE_STYLE_VALUES.indexOf(v));
+  change("#shareCardStyle",v=>{shareSheet.photoToken++;shareSheet.styleIndex=Math.max(0,SHARE_STYLE_VALUES.indexOf(v));
     // Choosing Photo with no picture yet goes straight to the picker, inside the same tap.
     if(sharePhotoStyle(shareSheet)&&!shareSheet.photo)pickSharePhoto()});
   on("#sharePhotoPick",()=>pickSharePhoto());
