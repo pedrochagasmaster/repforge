@@ -2,6 +2,7 @@
   "use strict";
 
   const SCHEMA_VERSION = 2;
+  const SKIP_REASONS = Object.freeze(["time", "recovery", "pain", "equipment", "schedule", "trim", "other"]);
   const STATUS = new Set(["active", "finishing"]);
   const SET_ROLES = new Set(["working", "warmup"]);
   const RIR_MODES = new Set(["numeric", "effort"]);
@@ -546,7 +547,12 @@
       }
     }
     if (value.status !== "active" && value.status !== "skipped") issues.push(`${path}.status`);
-    if (hasOwn(value, "skipReason") && (value.skipReason !== "trim" || value.status !== "skipped")) issues.push(`${path}.skipReason`);
+    if (hasOwn(value, "skipReason") && (!SKIP_REASONS.includes(value.skipReason) || value.status !== "skipped")) issues.push(`${path}.skipReason`);
+    if (hasOwn(value, "discomfort") && (!isPlainObject(value.discomfort) ||
+      Object.keys(value.discomfort).some(key => !["kind", "swapped"].includes(key)) ||
+      !["pain", "discomfort"].includes(value.discomfort.kind) || typeof value.discomfort.swapped !== "boolean")) {
+      issues.push(`${path}.discomfort`);
+    }
     if (!isText(value.setupNotes, { empty: true })) issues.push(`${path}.setupNotes`);
     if (!Array.isArray(value.setOrder)) issues.push(`${path}.setOrder`);
     if (!isPlainObject(value.sets)) issues.push(`${path}.sets`);
@@ -1499,13 +1505,21 @@
         item = targetExercise(next, command);
         if (isDomainError(item)) return item;
         item.exercise.status = command.type === "skipExercise" ? "skipped" : "active";
-        // Why it is hidden: only Trim says so ("trim"), so its lifts read as trimmed after a reload. A skip by hand or a
-        // restore clears it. History rows never carry it: a skipped lift records nothing either way.
-        if (command.type === "skipExercise" && command.reason === "trim") item.exercise.skipReason = "trim";
-        else delete item.exercise.skipReason;
+        if (command.type === "skipExercise" && hasOwn(command, "reason")) {
+          if (!SKIP_REASONS.includes(command.reason)) return error("invalid-skip-reason");
+          item.exercise.skipReason = command.reason;
+          if (command.reason === "pain") item.exercise.discomfort = { kind: "pain", swapped: false };
+        } else delete item.exercise.skipReason;
         if (command.type === "skipExercise" && next.session.selectedExerciseId === item.exercise.exerciseInstanceId) {
           next.session.selectedExerciseId = next.exerciseOrder.find((id) => next.exercises[id].status === "active") ?? null;
         }
+        break;
+      }
+      case "markDiscomfort": {
+        item = targetExercise(next, command);
+        if (isDomainError(item)) return item;
+        if (!["pain", "discomfort"].includes(command.kind)) return error("invalid-discomfort");
+        item.exercise.discomfort = { kind: command.kind, swapped: false };
         break;
       }
       case "substituteExercise": {
@@ -2101,6 +2115,7 @@
 
   const api = Object.freeze({
     SCHEMA_VERSION,
+    SKIP_REASONS,
     EFFORT_SOURCES,
     validCalibration,
     create,

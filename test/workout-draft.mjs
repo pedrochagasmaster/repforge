@@ -401,8 +401,8 @@ assert(JSON.stringify(draft.exercises["slot-curl"]) === beforeSkip,
   assert(!Object.prototype.hasOwnProperty.call(retrimmedManual.exercises["slot-curl"], "skipReason"), "skipping by hand replaces a trim reason");
   const restored = apply(trimmed, "restoreExercise", { exerciseInstanceId: "slot-curl" });
   assert(JSON.stringify(restored.exercises["slot-curl"]) === beforeSkip, "restoring a trimmed lift clears its reason and returns the subtree whole");
-  const bad = structuredClone(trimmed); bad.exercises["slot-curl"].skipReason = "other";
-  assert(!Draft.validate(bad).ok, "only trim is a skip reason");
+  const bad = structuredClone(trimmed); bad.exercises["slot-curl"].skipReason = "unknown";
+  assert(!Draft.validate(bad).ok, "unknown skip reasons are refused");
   const activeWithReason = structuredClone(trimmed); activeWithReason.exercises["slot-curl"].status = "active";
   assert(!Draft.validate(activeWithReason).ok, "an active lift carries no skip reason");
 }
@@ -1102,6 +1102,23 @@ console.log("\nIssue #320: create() clamps a target RIR that falls back to the l
     assert(set.programmed.targetRir === 6, "the historical RIR 8 fallback clamps to 6 on creation");
     assert(set.programmed.targetRirClamped === true, "the clamp on creation is recorded as programmed.targetRirClamped");
     assert(Draft.validate(created).ok, "the freshly created draft with the clamped target still validates");
+  }
+}
+
+// Session facts remain separate from set rows, including a skipped lift.
+{
+  for (const reason of ["time", "recovery", "pain", "equipment", "schedule", "trim", "other"]) {
+    const skipped = apply(fresh(), "skipExercise", { exerciseInstanceId: "slot-curl", reason });
+    assert(skipped.exercises["slot-curl"].skipReason === reason, `skip retains closed reason ${reason}`);
+  }
+  const invalid = command(fresh(), "skipExercise", { exerciseInstanceId: "slot-curl", reason: "free text" }).result;
+  assert(Draft.isDomainError(invalid), "skip rejects an unknown reason before changing the draft");
+  const marked = command(fresh(), "markDiscomfort", { exerciseInstanceId: "slot-squat", kind: "discomfort" }).result;
+  assert(!Draft.isDomainError(marked), "discomfort can be recorded on the draft");
+  if (!Draft.isDomainError(marked)) {
+    assert(marked.exercises["slot-squat"].discomfort.kind === "discomfort", "the discomfort kind survives as a structured mark");
+    assert(Draft.validate(JSON.parse(JSON.stringify(marked))).ok, "a serialized discomfort mark remains valid");
+
   }
 }
 
