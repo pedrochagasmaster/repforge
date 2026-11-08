@@ -485,8 +485,21 @@ async function historyStackInterleavings(browser) {
     // Proof for Item 1: Pushed pages must not overwrite each other.
     await page.evaluate(() => window.__repforgeOpenLibrary ? window.__repforgeOpenLibrary() : window.openLibrary?.());
     await page.waitForFunction(() => document.body.classList.contains("is-library"), undefined, { timeout: 5000 });
+    await page.evaluate(() => {
+      window.__previewHistoryAtRouteMutation = new Promise((resolve) => {
+        const observer = new MutationObserver(() => {
+          if (!document.body.classList.contains("is-preview")) return;
+          observer.disconnect();
+          resolve({ route: history.state?.tauriferRoute || null, classes: [...document.body.classList], url: location.href });
+        });
+        observer.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+      });
+    });
     await page.locator('#library [data-lib-preview]').first().click();
     await page.waitForFunction(() => document.body.classList.contains("is-preview"), undefined, { timeout: 5000 });
+    const previewHistoryAtRouteMutation = await page.evaluate(() => window.__previewHistoryAtRouteMutation);
+    check(previewHistoryAtRouteMutation?.route?.view === "exercisePreview",
+      "preview owns its browser history entry as the route opens", previewHistoryAtRouteMutation);
     // Back closes the page on popstate, which runs after goBack resolves, and the close starts a push motion. Read the
     // destination once that has settled (the motion ended, the page is closed), not after a fixed wait. The
     // assertions below are unchanged; a destination that never settles fails them.
