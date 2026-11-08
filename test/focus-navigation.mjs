@@ -33,7 +33,7 @@ async function main() {
   });
 
   try {
-    const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    const page = await browser.newPage();
     const pageErrors = [];
     page.on("pageerror", (err) => pageErrors.push(`[PAGE ERROR] ${err.message}`));
     page.on("console", (msg) => {
@@ -58,28 +58,41 @@ async function main() {
      * 1. Arbitrary navigation: Next / Prev and bounds
      * ====================================================================== */
     console.log("\nNavigation: a flick held still before release does not advance");
-    await page.waitForFunction(() => !document.querySelector(".is-push-over,.is-push-under"));
-    const touch = await page.context().newCDPSession(page);
-    const deckBox = await page.locator("#focusDeck").boundingBox();
+    // Keep the gesture's intentional stray-click suppression out of the
+    // independent button-navigation journey below.
+    const gesturePage = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await gesturePage.goto(BASE_URL, { waitUntil: "domcontentloaded" });
+    await gesturePage.waitForFunction(() => window.__repforgeBooted === true);
+    await installSeedProgram(gesturePage, {
+      key: STATE_KEY,
+      waitFor: async (p) => p.waitForFunction(() => window.__repforgeBooted === true),
+    });
+    await gesturePage.locator("#startWorkout").click();
+    await gesturePage.waitForSelector("#workoutShell:not(.hidden)");
+    await gesturePage.waitForFunction(() => !document.querySelector(".is-push-over,.is-push-under"));
+    const touch = await gesturePage.context().newCDPSession(page);
+    const deckBox = await gesturePage.locator("#focusDeck").boundingBox();
     const x = Math.round(deckBox.x + deckBox.width / 2);
     const y = Math.round(deckBox.y + 30);
     await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
     for (const dx of [20, 40, 60]) {
       await touch.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: x - dx, y }] });
-      await page.waitForFunction((dx) => new DOMMatrixReadOnly(getComputedStyle(document.querySelector("#focusTrack")).transform).m41 <= -(dx - 10), dx);
+      await gesturePage.waitForFunction((dx) => new DOMMatrixReadOnly(getComputedStyle(document.querySelector("#focusTrack")).transform).m41 <= -(dx - 10), dx);
     }
-    const dragged = await page.evaluate(() => ({
+    const dragged = await gesturePage.evaluate(() => ({
       swiping: document.querySelector("#focusDeck").classList.contains("is-swiping"),
       x: new DOMMatrixReadOnly(getComputedStyle(document.querySelector("#focusTrack")).transform).m41,
     }));
     assert(dragged.swiping && dragged.x < -20, "the real touch has taken the Focus deck before release", JSON.stringify(dragged));
     // This stationary interval is the behaviour under test: velocity must expire.
-    await page.waitForTimeout(220);
+    await gesturePage.waitForTimeout(220);
     await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
     await touch.detach();
-    await page.waitForFunction(() => !document.querySelector("#focusDeck").classList.contains("is-swiping"));
-    assert(await page.evaluate(() => window.__repforgeFocus.at()) === 0,
+    await gesturePage.waitForFunction(() => !document.querySelector("#focusDeck").classList.contains("is-swiping"));
+    assert(await gesturePage.evaluate(() => window.__repforgeFocus.at()) === 0,
       "a short flick held still before release settles the current exercise instead of advancing");
+
+    await gesturePage.close();
 
     console.log("\nNavigation: bounds and next/previous controls");
     const segments = page.locator("#woProgress button[data-focusgo]");
