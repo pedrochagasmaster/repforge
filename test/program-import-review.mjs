@@ -782,6 +782,31 @@ async function main() {
       JSON.stringify(model?.counts)
     );
 
+    // #670: a populated training day can still need measurement configuration.
+    await reset(page);
+    await page.evaluate(() => window.startOnboarding("first-run"));
+    await importFile(page, "unconfigured-custom.json", JSON.stringify({
+      version: 3, meta: { name: "Custom range" },
+      exercises: [{ day: "Day A", order: 1, name: "Review unnamed cable move", sets: 1, min: 6, max: 8 }],
+    }));
+    await page.locator('[data-imp-act="custom"]').click();
+    await page.locator('#exCustomEquip [data-val="cable"]').click();
+    await page.locator('#exCustomPrimary .pchip').first().click();
+    await page.locator('#exCustomSave').click();
+    await page.waitForSelector('#exCustomSheet', { state: "hidden" });
+    await stageReviewedImport(page);
+    await page.locator('#entryEdit').click();
+    await page.waitForSelector('#onbProgramEditor [data-role="metric-composition"]');
+    const metricStatus = await page.locator('#entryEditorStatus').textContent();
+    const expectedMetricStatus = await page.evaluate(() => window.RepForgeI18n.t("entry.preview.metrics_required"));
+    assert(metricStatus === expectedMetricStatus && await page.locator('#entryEditorActivate').isDisabled(),
+      "#670: activation names missing measurements instead of asking for exercises", metricStatus);
+    await page.locator('#onbProgramEditor [data-role="metric-composition"]').selectOption({ label: "Reps" });
+    await page.waitForFunction(() => window.__repforgeEntryPersistenceDiagnostic?.()?.operation === "editor-commit" &&
+      window.__repforgeEntryPersistenceDiagnostic?.()?.ok === true && !document.querySelector('#entryEditorActivate')?.disabled);
+    assert(await page.locator('#entryEditorActivate').isEnabled(),
+      "configuring measurements clears the activation blocker");
+
     // ---- onboarding import is one coherent state transition ----
     await reset(page);
     await page.evaluate(() => window.startOnboarding("first-run"));

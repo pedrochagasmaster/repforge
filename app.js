@@ -1176,6 +1176,14 @@ function syncEdgeSwipe(){
   routeEdge={page,dispose(){registration.dispose();watch.disconnect();unmount()}}}
 function scheduleEdgeSwipeSync(){
   if(!routeEdgeFrame)routeEdgeFrame=requestAnimationFrame(syncEdgeSwipe)}
+function scheduleBodyRouteHistorySync(records){
+  // Library, preview and exercise are body routes. Their Back entry must exist
+  // before the next frame, while nested page mutations can settle on the frame.
+  if(records.some(record=>{
+    const before=new Set((record.oldValue||"").split(/\s+/));
+    const after=new Set(document.body.className.split(/\s+/));
+    return ["is-library","is-preview","is-exercise"].some(name=>before.has(name)!==after.has(name))}))syncRouteHistory();
+  scheduleEdgeSwipeSync()}
 /* ---- Browser history for pushed pages (ADR 0023, Plan 075 phase 3) ----
    Each pushed page on screen holds one history entry, so Safari's back button,
    its edge swipe in a tab and Android's back pop it exactly as its Back control
@@ -1248,7 +1256,7 @@ function watchRouteSurfaces(){
   const main=$("main"),history=$("#history");
   if(main)new MutationObserver(scheduleEdgeSwipeSync).observe(main,{attributes:true,attributeFilter:["class"],subtree:true});
   // The library, preview and exercise routes are body classes.
-  new MutationObserver(scheduleEdgeSwipeSync).observe(document.body,{attributes:true,attributeFilter:["class"]});
+  new MutationObserver(scheduleBodyRouteHistorySync).observe(document.body,{attributes:true,attributeFilter:["class"],attributeOldValue:true});
   // A reload starts with no page pushed, so an entry left by the last session is no longer one.
   try{const st=history.state;if(st&&typeof st==="object"&&st[ROUTE_HISTORY_KEY]){const{[ROUTE_HISTORY_KEY]:_,...rest}=st;history.replaceState(rest,"",location.href)}}catch{}
   if(history){
@@ -6970,8 +6978,9 @@ function bindStageTip(tip,shelf,ex,n){
   shelf.querySelector(".shelf__pads")?.addEventListener("pointerdown",away,{once:true});
   tip.querySelectorAll("[data-tipdismiss]").forEach(b=>b.onclick=()=>{dismissStageTip(tip.dataset.to);tip.remove();quietFocus(shelf.querySelector(".saveset"))});
   tip.querySelector("[data-tipaccept]")?.addEventListener("click",async()=>{
-    const to=tip.dataset.to;acceptStageTip(to);tip.remove();
-    if(await commitEffortStage(to))toast(t("toast.effort_stage",{stage:t(STAGE_LABEL[to])}),{quiet:true})})}
+    const to=tip.dataset.to;tip.remove();
+    if(await commitEffortStage(to)){
+      acceptStageTip(to);toast(t("toast.effort_stage",{stage:t(STAGE_LABEL[to])}),{quiet:true})}})}
 /* The stage tip (OD-6): Taurifer suggests the next stage up, never down, once the lifter has settled into this one.
    A→B after 6 workouts in stage A with at least 80% of their working sets given a word by the lifter (not left at the
    offered one); B→C after 6 workouts in stage B with at most 10% "Not sure". A dismissal keeps it quiet for 4 weeks,
@@ -7346,22 +7355,29 @@ function renderRestPresets(){
   else host.querySelectorAll('[role="radio"]').forEach(b=>{b.onclick=()=>{input.value=b.dataset.value;chooseRestPreset(+b.dataset.value)}})}
 /** Store an exercise's rest in the program: every set of the slot that carried the rest shown takes the new one, as
  *  the program editor's rest does. Only the definition changes, so the workout in progress keeps its draft. */
-async function saveExerciseRest(ex,sec){
+async function saveExerciseRest(ex,sec,isCurrent){
   if(!restSlotOf(ex)||exerciseStoredRest(ex)===sec)return false;
   const shown=exerciseStoredRest(ex);
   const proposal=cloneSnapshot(state),slot=restSlotOf(ex,proposal);
   if(!slot)return false;
   for(const cycle of slot.prescriptionsByCycle||[])for(const set of cycle.sets||[])
     if((set.restSeconds??null)===shown)set.restSeconds=sec;
-  const result=await commitProposedState(proposal,storageIO);
+  const result=await commitProposedState(proposal,storageIO,{
+    preflight:()=>isCurrent()?null:{reject:true,result:{superseded:true}}});
   return!!(result?.localOk||result?.idbOk)}
+let restPresetRequest=0;
 /** A preset sets this exercise's rest, and the rest on the clock restarts at it; idle, it is what the next one runs for. */
 async function chooseRestPreset(sec){
-  const s=clampRestSec(sec),ex=restExercise();
+  const s=clampRestSec(sec),ex=restExercise(),request=++restPresetRequest;
+  const isCurrent=()=>request===restPresetRequest;
+  await DurableState.flushStorage();
+  if(!isCurrent())return;
+  const saved=!ex||exerciseStoredRest(ex)===s||await saveExerciseRest(ex,s,isCurrent);
+  if(!isCurrent())return;
+  if(!saved){toast(t("toast.program_save_failed"));renderRestPresets();paintRestSheet();return}
   if(restState().active)startRest(s);
   else{applyRest(RepForgeRestTimer.setLength(restClock,0));syncRest()}
   paintRestSheet();
-  if(ex)await saveExerciseRest(ex,s);
   renderRestPresets();paintRestSheet()}
 /** The next set, for the dial: the set the Focus shelf is on, its load and reps. */
 function restNextLine(){
@@ -11964,6 +11980,10 @@ function syncShareControls(st){
   if(pick)pick.textContent=t(st.photo?"share.change_photo":"share.choose_photo");
   if(note)note.textContent=t(photo?"share.photo_note":"share.note");
   window.RepForgeMotion?.syncNativeControls?.($("#shareCardSheet"))}
+function syncShareAvailability(st){
+  const ready=!!st.file&&(st.drawn.style!=="photo"||st.drawn.photo);
+  const share=$("#shareCardShare"),save=$("#shareCardSave");
+  if(share)share.disabled=!ready;if(save)save.disabled=!ready}
 /** Draws the chosen card and keeps it ready as a file; a newer choice wins over a slower older one. */
 async function paintShareCard(){
   const st=shareSheet;if(!st||!window.TauriferShareCards)return;
@@ -11974,9 +11994,10 @@ async function paintShareCard(){
   if(shareSheet!==st||token!==st.token)return;
   const style=SHARE_STYLES[st.kind][st.styleIndex];
   const out=TauriferShareCards.render(st.model,{kind:st.kind,size:st.size,style,mark,photo:style==="photo"?st.photo:null});
-  if(!out)return;
+  if(!out){syncShareAvailability(st);return}
   const blob=await TauriferShareCards.toBlob(out.canvas);
-  if(shareSheet!==st||token!==st.token||!blob)return;
+  if(shareSheet!==st||token!==st.token)return;
+  if(!blob){syncShareAvailability(st);return}
   if(st.url)URL.revokeObjectURL(st.url);
   st.url=URL.createObjectURL(blob);
   st.file=new File([blob],shareFileName(st),{type:"image/png"});
@@ -11986,8 +12007,7 @@ async function paintShareCard(){
     img.alt=st.kind==="record"&&st.model.lead?t("summary.card.aria_poster",{kicker:st.model.lead.kicker,lift:st.model.lead.name,load:st.model.lead.load,unit:st.model.unit,reps:st.summary.lead.reps})
       :t("summary.card.aria_stats",{day:st.model.day,date:shortDate(st.summary.date)})}
   // Until a photo is chosen the Photo preview is a stand-in ground, so there is nothing to send yet.
-  const ready=style!=="photo"||!!st.photo;
-  if(share)share.disabled=!ready;if(save)save.disabled=!ready}
+  syncShareAvailability(st)}
 /** A past session as the cards draw it (finish-share PR 4): the same numbers the finish screen gave it, read from the
  *  log as it stood when the session was saved. Records compare with what came before it; outcome words are History's
  *  own per-session outcomes, not the current block's; the week is the block week History shows. Null for a session
@@ -12019,7 +12039,7 @@ function openShareSheet(opener,{summary:given=null,origin="summary"}={}){
   const s=given||sessionSummaryCurrent,sheet=$("#shareCardSheet"),scrim=$("#shareCardScrim");
   if(!s||!sheet)return;
   const model=shareCardModel(s);
-  shareSheet={summary:s,origin,model,kind:model.lead?shareCardInView(s):"stats",size:"story",styleIndex:0,token:0,url:"",file:null,drawn:null,photo:null};
+  shareSheet={summary:s,origin,model,kind:model.lead?shareCardInView(s):"stats",size:"story",styleIndex:0,token:0,photoToken:0,url:"",file:null,drawn:null,photo:null};
   syncShareControls(shareSheet);
   // Without file sharing (desktop Firefox, some web views) the image is saved instead: Save leads.
   const canShare=shareCanFiles(),share=$("#shareCardShare"),save=$("#shareCardSave");
@@ -12067,7 +12087,7 @@ function bindShareSheet(){
   change("#shareCardKind",v=>{const photo=sharePhotoStyle(shareSheet);
     shareSheet.kind=v==="record"&&shareSheet.model.lead?"record":"stats";shareSheet.styleIndex=photo?SHARE_STYLES[shareSheet.kind].indexOf("photo"):0});
   change("#shareCardSize",v=>{shareSheet.size=v==="square"?"square":"story"});
-  change("#shareCardStyle",v=>{shareSheet.styleIndex=Math.max(0,SHARE_STYLE_VALUES.indexOf(v));
+  change("#shareCardStyle",v=>{shareSheet.photoToken++;shareSheet.styleIndex=Math.max(0,SHARE_STYLE_VALUES.indexOf(v));
     // Choosing Photo with no picture yet goes straight to the picker, inside the same tap.
     if(sharePhotoStyle(shareSheet)&&!shareSheet.photo)pickSharePhoto()});
   on("#sharePhotoPick",()=>pickSharePhoto());
@@ -12076,8 +12096,8 @@ function bindShareSheet(){
     const st=shareSheet,file=input.files?.[0];
     input.value="";
     if(!st||!file)return;
-    const photo=await decodeSharePhoto(file);
-    if(shareSheet!==st){photo?.close?.();return}
+    const token=++st.photoToken,photo=await decodeSharePhoto(file);
+    if(shareSheet!==st||token!==st.photoToken){releaseSharePhoto({photo});return}
     if(!photo)return toast(t("share.photo_error"),{placement:"top"});
     releaseSharePhoto(st);st.photo=photo;
     st.styleIndex=SHARE_STYLES[st.kind].indexOf("photo");
@@ -14590,7 +14610,8 @@ function onboardingEditorStatus(){
   const message=progression?editorAdapterTranslate("entry.editor.progression_invalid",undefined,"This program has an unsupported progression pairing."):
     issues.some(issue=>issue.startsWith("exercise_invalid:"))?editorAdapterTranslate("entry.editor.exercise_invalid",undefined,"Complete each exercise before continuing."):
       emptyDays.length?editorAdapterTranslate("entry.editor.empty_days",{days:emptyDays.join(", ")},"Add an exercise to each training day."):
-        issues.length?editorAdapterTranslate("entry.editor.incomplete",{n:issues.length},"Finish the program before continuing."):
+        issues.some(issue=>issue.startsWith("metric_configuration_required:"))?t("entry.preview.metrics_required"):
+          issues.length?editorAdapterTranslate("entry.editor.incomplete",{n:issues.length},"Finish the program before continuing."):
           editorAdapterTranslate("entry.editor.draft_saved",undefined,"Draft saved");
   return{issues,message}}
 function updateOnboardingEditorActions(){
@@ -14656,7 +14677,11 @@ function attemptProgramEditorDismiss(){
 }
 function updateInstalledEditorDoneButton(){
   const done=$("#programEditDone");if(!done)return;
-  done.disabled=!!installedProgramEditor?.isCommitting?.()||installedProgramEditor?.canApply?.()===false;
+  const committing=!!installedProgramEditor?.isCommitting?.();
+  done.disabled=committing||installedProgramEditor?.canApply?.()===false;
+  const editor=$("#programEditor");
+  if(editor){editor.inert=committing;editor.setAttribute("aria-busy",String(committing))}
+  const meta=$("#programMeta");if(meta)meta.inert=committing;
 }
 function enterProgramEditorSheet(copy){
   if(programEditorSheetOpen)return;
@@ -15225,7 +15250,8 @@ function renderProgramHeader(){
       :issues.some(issue=>issue.startsWith("exercise_invalid:"))
         ?t("entry.editor.exercise_invalid")
         :emptyDays.length?t("entry.editor.empty_days",{days:emptyDays.join(", ")})
-          :issues.length?t("entry.editor.incomplete",{n:issues.length}):t("entry.editor.ready");
+          :issues.some(issue=>issue.startsWith("metric_configuration_required:"))?t("entry.preview.metrics_required")
+            :issues.length?t("entry.editor.incomplete",{n:issues.length}):t("entry.editor.ready");
     const status=saveError||issueStatus;
     const activateLabel=hasActiveProgram()?t("entry.preview.activate_replace"):t("entry.preview.activate_first");
     el.innerHTML=`<p class="pmeta__draft"><span class="pmeta__draft-mark" aria-hidden="true"></span>${esc(t("entry.preview.lede"))}</p>`+
@@ -15255,9 +15281,11 @@ function renderProgramHeader(){
     `</div>`;
   renderProgramChips();
   const nameInp=$("#programName"),startInp=$("#programStarted");
-  nameInp.oninput=async()=>{const captured=nameInp.value,result=await persistProgramMeta({name:captured});
+  nameInp.oninput=async()=>{if(installedProgramEditor?.isCommitting?.())return;
+    const captured=nameInp.value,result=await persistProgramMeta({name:captured});
     if(!(result.localOk||result.idbOk)&&nameInp.value===captured)nameInp.value=state.programMeta?.name||""};
-  startInp.onchange=async()=>{const captured=startInp.value,result=await persistProgramMeta({started:captured||null});
+  startInp.onchange=async()=>{if(installedProgramEditor?.isCommitting?.())return;
+    const captured=startInp.value,result=await persistProgramMeta({started:captured||null});
     if(result.localOk||result.idbOk)renderProgramChips();
     else if(startInp.value===captured)startInp.value=state.programMeta?.started||""};
 }
@@ -22972,7 +23000,6 @@ async function triggerInstall(source="automatic"){
 function installBannerEligible(){
   const decision=installPolicyDecision();
   if(!decision.eligible||!["eligible-milestone","ios-transfer"].includes(decision.state))return false;
-  if(state?.[STORAGE_FOLLOWUP]?.kind==="onboarding-edit")return false;
   if(firstRunActive||$("#onboarding")?.classList.contains("active"))return false;
   return true;
 }
@@ -25122,12 +25149,10 @@ window.__repforgeUi={loadUiPrefs,isStandalone,isIOS,showInstallBanner,currentThe
   replayGuide:replayContextualGuide,showGuide:showContextualGuide,
   openInstallTransferState:stateName=>openIosInstallSheet(stateName),openPrivacy:()=>openPrivacySheet(),
   setPref:(key,value)=>setUiPref(key,value),sharedSettings:()=>sharedSettings(state.settings)};
-function resumeProgramEditFollowUp(){
+async function resumeProgramEditFollowUp(){
   if(state?.[STORAGE_FOLLOWUP]?.kind!=="onboarding-edit")return false;
-  programEditMode=true;
-  document.body.classList.remove("is-settings","is-workout","is-exercise","is-onboarding","is-library","is-preview","is-import");
-  $$("nav button").forEach(x=>{const on=x.dataset.view==="program";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
-  $$(".view").forEach(v=>v.classList.toggle("active",v.id==="program"));
+  const proposal=cloneSnapshot(state);delete proposal[STORAGE_FOLLOWUP];
+  await commitProposedState(proposal);
   return true}
 window.__repforgeOnboarding={
   entry:()=>entryState,
@@ -25987,7 +26012,7 @@ async function boot(){
   await prepareSharedSetup(sharedCandidate);
   const draftBoot=await initializeWorkoutDraft({restoreDay:true});
   if(draftBoot.status==="ready")hydrateWorkoutDraft({restoreDay:true});
-  resumeProgramEditFollowUp();
+  void resumeProgramEditFollowUp().catch(()=>{});
   init();
   restoreRest(draftBoot.status==="ready"?activeWorkoutDraft.draftId:null);
   if(transferResult.transferResult?.localOk===true){

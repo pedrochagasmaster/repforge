@@ -22,6 +22,7 @@
  *
  * Run: node tools/run-tests.mjs entry --suite program-editor-a
  */
+import { writeFileSync } from "node:fs";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 import { installSeedProgram, seedProgram } from "./fixtures/seed-program.mjs";
 
@@ -709,6 +710,57 @@ const renameProgram = async (page, name) => {
 const editorGone = (page) => page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), undefined, { timeout: 10000 });
 const programName = async (page) => (await durable(page)).programMeta?.name;
 
+async function heldMetadataKeyboard(page, outcome) {
+  const pending = () => page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith("repforge_pending_v1:")));
+  const before = await pending();
+  const focus = [];
+  for (let index = 0; index < 15; index++) {
+    await page.keyboard.press("Tab");
+    const id = await page.evaluate(() => document.activeElement.id);
+    focus.push(id);
+    if (id === "programName") {
+      await page.keyboard.press("ControlOrMeta+A");
+      await page.keyboard.type("Typed while Apply waits");
+      await page.keyboard.press("Tab");
+      break;
+    }
+  }
+  check(!focus.includes("programName") && !focus.includes("programStarted"),
+    `R1 ${outcome}: Tab skips metadata during held Apply`, focus);
+  check((await pending()).length === before.length,
+    `R1 ${outcome}: keyboard input queues no metadata writes`, { before, after: await pending() });
+  const labels = await page.locator('#programMeta input').evaluateAll(inputs => inputs.map(input => input.getAttribute("aria-label")));
+  const cdp = await page.context().newCDPSession(page);
+  try {
+    const { nodes } = await cdp.send("Accessibility.getFullAXTree");
+    if (process.env.REPFORGE_ARTIFACT_DIR) writeFileSync(`${process.env.REPFORGE_ARTIFACT_DIR}/r1-${outcome}-ax.json`,
+      JSON.stringify({ focus, nodes }, null, 2));
+    const exposed = nodes.filter(node => !node.ignored &&
+      (labels.includes(node.name?.value) || node.role?.value === "button" && node.name?.value === "Show date picker"))
+      .map(node => ({ role: node.role?.value, name: node.name?.value }));
+    check(exposed.length === 0, `R1 ${outcome}: Chromium accessibility tree excludes metadata controls`, exposed);
+  } finally { await cdp.detach(); }
+}
+async function metadataReplicaNames(page) {
+  await page.evaluate(() => window.__repforgeStorage.flush());
+  return page.evaluate(async key => {
+    const local = JSON.parse(localStorage.getItem(key));
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open("repforge", 1);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    try {
+      const stored = await new Promise((resolve, reject) => {
+        const request = db.transaction("kv").objectStore("kv").get(key);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      return [local?.programMeta?.name, stored?.programMeta?.name];
+    } finally { db.close(); }
+  }, KEY);
+}
+
 /** P074-S1-HELD-APPLY (#658): while an Apply write is in flight, Done, Cancel and Discard are refused; the write completes once and nothing later is closed. */
 async function heldApplyJourney(browser) {
   console.log("P074-S1-HELD-APPLY");
@@ -724,12 +776,21 @@ async function heldApplyJourney(browser) {
     await page.click("#programEditDone");
     await page.waitForFunction(() => window.__heldWrite.calls > 0, undefined, { timeout: 10000 });
     check(await page.locator("#programEditDone").isDisabled(), "Done is refused while the Apply write is held");
+    await heldMetadataKeyboard(page, "success");
+    await page.locator(`${EDITOR} [data-role="exercise-row"]`).first().click({ force: true });
+    check(!(await page.locator(`${SHEET}.is-open`).count()),
+      "#668: exercise sheets cannot accept text while Apply is committing");
+    if (await page.locator(`${SHEET}.is-open`).count()) await closeSheet(page);
+
     await page.click("#programEditCancel");
     check(!(await page.locator("#programEditorLeave").isVisible()), "Cancel asks nothing while the Apply write is held");
     check(await page.locator("#program.sheet.is-open").count() === 1, "the editor stays open while the Apply write is held");
     await page.evaluate(() => window.__heldWrite.release());
     await editorGone(page);
     check((await programName(page)) === "Old discarded Apply", "the Apply the lifter chose saves once", await programName(page));
+    const replicas = await metadataReplicaNames(page);
+    check(replicas.every(name => name === "Old discarded Apply"), "R1 success: both replicas keep the applied name after keyboard input", replicas);
+    check(await page.locator('#programMeta').evaluate(node => !node.inert), "R1 success: metadata recovers after Apply");
     await openEditor(page);
     await renameProgram(page, "New unsaved editor changes");
     await page.click("#programEditCancel");
@@ -737,6 +798,40 @@ async function heldApplyJourney(browser) {
     await page.click("#programEditorDiscard");
     await editorGone(page);
     check((await programName(page)) === "Old discarded Apply", "Discard of a later session leaves the saved name");
+    await openEditor(page);
+    await renameProgram(page, "Retry after failed Apply");
+    await page.evaluate(() => {
+      const io = window.RepForgeDurableState.storageIO;
+      const local = io.writeLocal, idb = io.writeIdb;
+      let release;
+      const held = new Promise(resolve => { release = resolve; });
+      window.__failedApply = { started: false, release,
+        restore: () => { io.writeLocal = local; io.writeIdb = idb; } };
+      io.writeLocal = async () => { window.__failedApply.started = true; await held; return false; };
+      io.writeIdb = async () => false;
+    });
+    await page.click("#programEditDone");
+    await page.waitForFunction(() => window.__failedApply.started);
+    await heldMetadataKeyboard(page, "failure");
+    await page.locator(`${EDITOR} [data-role="program-name-edit"]`).click({ force: true });
+    check(!(await page.locator(`${SHEET}.is-open`).count()),
+      "#668: rename cannot accept text while a failing Apply is committing");
+    if (await page.locator(`${SHEET}.is-open`).count()) {
+      await page.keyboard.press("Escape");
+      await page.waitForSelector(SHEET, { state: "hidden" });
+    }
+    await page.evaluate(() => window.__failedApply.release());
+    await page.waitForFunction(() => !document.querySelector("#programEditDone").disabled);
+    check(await page.locator('#programMeta').evaluate(node => !node.inert), "R1 failure: metadata recovers after Apply");
+    await page.evaluate(() => window.__failedApply.restore());
+    await renameProgram(page, "Edited after failed Apply");
+    await page.click("#programEditDone");
+    await editorGone(page);
+    check((await programName(page)) === "Edited after failed Apply",
+      "#668: a failed Apply restores editing and a retry saves the next edit");
+    const retried = await metadataReplicaNames(page);
+    check(retried.every(name => name === "Edited after failed Apply"), "R1 failure: both replicas keep the retry name after keyboard input", retried);
+
   } finally {
     await context.close();
   }

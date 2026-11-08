@@ -2477,6 +2477,7 @@
 
     // ----- the sheets -----
     function openSheetView(next, { focus = null } = {}) {
+      if (committing) return;
       const wasOpen = !!view.sheet;
       // A newly opened exercise sheet adjusts the rep range's minimum first (#520); the choice lasts while that sheet
       // stays open and is never program data.
