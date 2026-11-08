@@ -793,6 +793,20 @@ async function revisionF9(browser) {
   return run.errors;
 }
 
+async function revisionF10(browser) {
+  const run = await queuedReviewSetup(browser), { page, baseline } = run;
+  await queueReviewRestore(page);
+  await page.click("#onbCancel");
+  await page.click("#entryCancelKeep");
+  await releaseSetupWrites(page);
+  await page.waitForFunction(() => !document.querySelector("#onboarding.active"));
+  await settleQueuedReviewWrites(page);
+  check(JSON.stringify(await reviewed(page)) === JSON.stringify(baseline), "F10: Restore still lands after Keep");
+  check(!(await reviewToasts(page)).includes("Recommendation restored."), "F10: Restore does not announce on Today");
+  await run.context.close();
+  return run.errors;
+}
+
 async function discardAfterQueuedUndo(browser) {
   const run = await fresh(browser);
   const { page } = run;
@@ -1933,6 +1947,8 @@ async function main() {
       allErrors.push(await revisionF8(browser));
     } else if (process.env.N14_ONLY === "F9") {
       allErrors.push(await revisionF9(browser));
+    } else if (process.env.N14_ONLY === "F10") {
+      allErrors.push(await revisionF10(browser));
     } else if (process.env.N14_ONLY === "F5") {
       allErrors.push(await undoAfterLeaving(browser));
     } else if (process.env.N14_ONLY === "F4") {
@@ -2117,6 +2133,7 @@ async function main() {
     allErrors.push(await revisionF7(browser));
     allErrors.push(await revisionF8(browser));
     allErrors.push(await revisionF9(browser));
+    allErrors.push(await revisionF10(browser));
     allErrors.push(await discardAfterQueuedUndo(browser));
     allErrors.push(await answerEditorMatchesRecommend(browser));
     allErrors.push(await minimumBudget(browser));
