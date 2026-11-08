@@ -4310,11 +4310,14 @@ function renderReviewFlow(el){
     bindFlowCancel(el);return}
   if(flow.stage==="error"){
     const stale=flow.stale===true||String(flow.code||"").includes("stale")||String(flow.code||"").includes("mismatch");
-    el.innerHTML=`<p class="review__error" role="alert">${esc(t(stale?"review.error.stale":"review.error.failed"))}</p>`+
+    const copy=flow.applied===true?"toast.program_save_failed":stale?"review.error.stale":"review.error.failed";
+    el.innerHTML=`<p class="review__error" role="alert">${esc(t(copy))}</p>`+
       `<div class="btnrow"><button type="button" class="btn btn--steel" data-flow-restart>${esc(t("review.error.retry"))}</button>`+
       `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.diagnosis.cancel"))}</button></div>`;
-    const restart=$("[data-flow-restart]",el);if(restart)restart.onclick=flow.action==="reduce-volume"
-      ?startVolumeReduction:flow.action==="recovery-week"?startRecoveryWeek:startScheduleRepair;
+    const restart=$("[data-flow-restart]",el);if(restart)restart.onclick=flow.applied===true
+      // The program already changed: a new flow would reduce it a second time.
+      ?()=>submitReviewProposal(flow,restart)
+      :flow.action==="reduce-volume"?startVolumeReduction:flow.action==="recovery-week"?startRecoveryWeek:startScheduleRepair;
     bindFlowCancel(el);return}
   if(flow.stage==="done"){
     el.innerHTML=`<p class="review__staged" role="status">${esc(t(flow.doneKey||"review.done.committed"))}</p>`+
@@ -4453,22 +4456,25 @@ function renderSiblingPreview(el,flow){
     `<div class="btnrow review__preview-actions"><button type="button" class="btn btn--cta" data-preview-confirm>${esc(t(recovery?"review.recovery.confirm":"review.preview.confirm"))}</button>`+
     `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.preview.cancel"))}</button></div>`;
   const confirm=$("[data-preview-confirm]",el);
-  if(confirm)confirm.onclick=async()=>{
-    confirm.disabled=true;
-    const persisted=await repforgeProgramTransitionAdapter.confirmTransition({
-      proposal:p,proposalHash:p.proposalHash,transitionId:p.transitionId,
-      successorProgramId:p.successor?.programId,confirmedAt:new Date().toISOString(),
-      acknowledgedDraftRaw:readDraftRaw()});
-    if(persisted?.committed===true&&persisted?.settled===true){
-      const action={"schedule-repair":"schedule_repair","reduce-volume":"reduce_volume","recovery-week":"recovery_week","guided-edit":"guided_edit"}[flow.action];
-      if(action)captureEvent("block_transition_chosen",{action});
-      const doneKey=recovery?"review.recovery.committed":change.kind==="reduce_volume"?"review.volume.committed":"review.done.committed";
-      reviewFlow={stage:"done",doneKey};
-      day=days()[0]||"Day 1";toast(t(doneKey));render();
-    }else{
-      reviewFlow={...flow,stage:"error",code:persisted?.code,stale:persisted?.duplicate===true||!!persisted?.stale||!!persisted?.staleRevision};
-      render()}}
+  if(confirm)confirm.onclick=()=>submitReviewProposal(flow,confirm);
   bindFlowCancel(el)}
+async function submitReviewProposal(flow,button){
+  button.disabled=true;
+  const p=flow.proposal||{},change=p.change||{};
+  const persisted=await repforgeProgramTransitionAdapter.confirmTransition({
+    proposal:p,proposalHash:p.proposalHash,transitionId:p.transitionId,
+    successorProgramId:p.successor?.programId,confirmedAt:new Date().toISOString(),
+    acknowledgedDraftRaw:readDraftRaw()});
+  if(persisted?.committed===true&&persisted?.settled===true){
+    const action={"schedule-repair":"schedule_repair","reduce-volume":"reduce_volume","recovery-week":"recovery_week","guided-edit":"guided_edit"}[flow.action];
+    if(action)captureEvent("block_transition_chosen",{action});
+    const doneKey=change.kind==="recovery_week"?"review.recovery.committed":change.kind==="reduce_volume"?"review.volume.committed":"review.done.committed";
+    reviewFlow={stage:"done",doneKey};
+    day=days()[0]||"Day 1";toast(t(doneKey));render();
+  }else{
+    reviewFlow={...flow,stage:"error",code:persisted?.code,applied:persisted?.applied===true,
+      stale:persisted?.duplicate===true||!!persisted?.stale||!!persisted?.staleRevision};
+    render()}}
 let pendingBlockTransition=null;
 let onboardingOrigin=null;
 let blockCommitInFlight=null;
@@ -12522,7 +12528,8 @@ async function settleProgramTransitionReceipt(proposal,pendingJournalId=null){
     verify:head=>classifyCommittedTransition(head,proposal,archiveId)==="match"
       ?{ok:true}:{ok:false,code:"transition_settlement_receipt_mismatch"}});
   const outcome={...result};delete outcome.head;
-  return{ok:outcome.committed===true&&outcome.settled===true,...outcome}}
+  return{ok:outcome.committed===true&&outcome.settled===true,...outcome,
+    applied:classifyCommittedTransition(result.head,proposal,archiveId)==="match"}}
 /* Sets a volume reduction removes from the current cycle, by slot. A draft
    that already holds progress in one of those sets blocks the confirmation. */
 function reducedSetCounts(proposal,snapshot){
@@ -12700,8 +12707,9 @@ const repforgeProgramTransitionAdapter = {
     if(res?.committed===true&&res?.settled===true)pendingProgramTransitionSettlement=null;
     else pendingProgramTransitionSettlement={transitionId:proposal.transitionId,
       proposalHash:proposal.proposalHash,pendingJournalId:res?.pendingJournalId||null};
-    if (res.localOk || res.idbOk) return { ok: true, committed: true, ...res };
-    return { ok: false, committed: false, ...res };
+    const applied = classifyCommittedTransition(state, proposal, archiveId) === "match";
+    if (res.localOk || res.idbOk) return { ok: true, committed: true, ...res, applied };
+    return { ok: false, committed: false, ...res, applied };
   },
 
   // Guided editing stages the live program as a Build draft so the lifter can
