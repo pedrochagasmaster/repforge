@@ -172,7 +172,7 @@ try {
   });
   check(rowLook.labelWeight === "400" && Number(rowLook.valueWeight) <= 400 && rowLook.valueColor !== rowLook.labelColor,
     "a row's label is regular and its value is grey, not bold", rowLook);
-  for (const [row, label, values, current] of [["#langRow", "Language", ["en", "pt"], "en"], ["#rirModeRow", "Effort logging", ["effort", "reps", "numeric"], "numeric"]]) {
+  for (const [row, label, values, current] of [["#langRow", "Language", ["en", "pt"], "en"], ["#rirModeRow", "Effort logging", ["effort", "numeric"], "numeric"]]) {
     const named = await page.evaluate((sel) => {
       const el = document.querySelector(sel);
       const ids = (el.getAttribute("aria-labelledby") || "").split(/\s+/).filter(Boolean);

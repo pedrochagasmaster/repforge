@@ -160,6 +160,12 @@ try {
   st = await shelfState(page);
   assert(st.label === "Reps left" && st.chips.join() === "0,1,2,3,4,5+" && st.head === "Left",
     "the next set asks for reps left: 0 · 1 · 2 · 3 · 4 · 5+, and the column is named Left", st);
+  const numericField = page.locator(`${SHELF} [data-effspin]`);
+  for (const [key, value] of [["Home", "0"], ["End", "5"], ["ArrowLeft", "4"], ["ArrowRight", "5"]]) {
+    await numericField.press(key);
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    assert((await firstSets(page)).sets[1].rir === value, `${key} selects reps left ${value}`);
+  }
   await page.locator(`${SHELF} .shelf__chip[data-e="5"]`).click();
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   await logOpenSet(page);
