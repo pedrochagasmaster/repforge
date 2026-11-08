@@ -2356,21 +2356,14 @@ export const APP_SCENARIOS = {
     await sleep(page, 400);
   },
   "workout/invalid-draft": async (page) => {
-    // TEMPORARY DIAGNOSTIC (PR 654): the app logs its rest calls and scroll values only while this flag is set. Revert before merge.
-    await page.addInitScript(() => { window.__repforgeDiag = true; });
-    page.on("console", (message) => { if (message.text().startsWith("DIAG")) console.log(`[node ${Date.now()}] ${message.text()}`); });
-    const scroll = () => page.evaluate(() => ({ scrollH: document.documentElement.scrollHeight, bodyH: document.body.scrollHeight, scrollY: window.scrollY, innerH: innerHeight, at: Math.round(performance.now()) }));
     await page.evaluate((draftKey) => localStorage.setItem(draftKey, '{"schemaVersion":2,"truncated":'), LOG_DRAFT);
-    console.log(`[node ${Date.now()}] DIAG-NODE before-reload`);
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForFunction(() => window.__repforgeWorkoutDraft?.recovery()?.kind === "invalid");
-    console.log(`[node ${Date.now()}] DIAG-NODE recovery-invalid ${JSON.stringify(await scroll())}`);
     await page.waitForFunction(() => {
       const box = document.querySelector("#draftRecovery")?.getBoundingClientRect();
       return box && box.top >= 0 && box.bottom <= innerHeight;
     });
     await sleep(page, 400);
-    console.log(`[node ${Date.now()}] DIAG-NODE capture ${JSON.stringify(await scroll())}`);
   },
   // The rest timer redesign: the pinned clock moved to 1:30 of 2:00, read from the tab over the shelf, whose ring and
   // the shelf's top edge show the quarter gone.
