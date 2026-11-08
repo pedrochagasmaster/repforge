@@ -403,6 +403,108 @@ async function trimNamesItsLifts(browser) {
   }
 }
 
+/**
+ * A Trim's Undo belongs to the session whose lifts it hid (N12). When that session is replaced while the toast is up,
+ * Undo must leave the replacement as it is: a lift the new session hid by hand stays hidden.
+ */
+async function staleTrimUndoLeavesReplacementAlone(browser) {
+  phase("A Trim's Undo after its session was replaced leaves the new session alone");
+  const { context, page } = await freshPage(browser);
+  const flagged = ["seed-ex-2", "seed-ex-4", "seed-ex-5"];
+  try {
+    await page.evaluate(async () => { await window.__repforgeEnterWorkout({ day: "Day 1" }); });
+    await page.waitForSelector("#workout .exercise.is-current", { timeout: 5000 });
+    await page.evaluate(async (ids) => {
+      window.fatigueFlagged = () => exercises().filter((e) => ids.includes(e.id));
+      await applyFatigueTrim();
+      await window.__repforgeWorkoutDraft.flush();
+    }, flagged);
+    await page.waitForSelector(".trim-toast [data-role=trim-undo]", { timeout: 5000 });
+    // The toast leaves when its session is replaced, so keep its Undo button to press after the replacement.
+    await page.evaluate(() => { window.__staleTrimUndo = document.querySelector(".trim-toast [data-role=trim-undo]"); });
+    // The session is replaced while the toast is up: cleared, then started again for the same day.
+    await page.evaluate(async () => {
+      await clearDraft();
+      await window.__repforgeEnterWorkout({ day: "Day 1" });
+      await window.__repforgeWorkoutDraft.flush();
+    });
+    // The new session hides one of the same lifts by hand.
+    await page.evaluate(async () => {
+      await window.__repforgeWorkoutDraft.dispatch("skipExercise", { exerciseInstanceId: "seed-ex-2" });
+      await window.__repforgeWorkoutDraft.flush();
+      renderWorkout();
+    });
+    // Synchronisation only: report when the Undo handler's work has settled, so the read below sees its effect.
+    await page.evaluate(() => {
+      const original = window.undoFatigueTrim;
+      window.undoFatigueTrim = (...args) => {
+        window.__undoSettled = false;
+        const work = original(...args);
+        work.then(() => { window.__undoSettled = true; }, () => { window.__undoSettled = true; });
+        return work;
+      };
+    });
+    const read = () => page.evaluate(() => {
+      const d = window.__repforgeWorkoutDraft.current();
+      const ex = d.exercises["seed-ex-2"];
+      return { draftId: d.draftId, revision: d.revision, status: ex.status, skipReason: ex.skipReason ?? null };
+    });
+    const before = await read();
+    await page.evaluate(() => window.__staleTrimUndo.click());
+    await page.waitForFunction(() => window.__undoSettled === true, undefined, { timeout: 5000 });
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    const after = await read();
+    assert(after.draftId === before.draftId && after.revision === before.revision && after.status === "skipped" && after.skipReason === before.skipReason,
+      "Undo changes nothing in the replacement: the lift hidden by hand stays hidden, and the draft is untouched",
+      JSON.stringify({ before, after }));
+  } finally {
+    await context.close();
+  }
+}
+
+/**
+ * The owner's decision (2026-11-08): a Trim toast leaves when its session ends or is replaced. An ordinary edit in the
+ * same session keeps it up for its own timer.
+ */
+async function trimToastEndsWithItsSession(browser) {
+  phase("A Trim toast leaves when its session ends or is replaced, and stays for ordinary edits in the same session");
+  const { context, page } = await freshPage(browser);
+  const flagged = ["seed-ex-2", "seed-ex-4", "seed-ex-5"];
+  const trimToastUp = () => page.evaluate(() => !!document.querySelector(".trim-toast"));
+  const trim = () => page.evaluate(async (ids) => {
+    window.fatigueFlagged = () => exercises().filter((e) => ids.includes(e.id));
+    await applyFatigueTrim();
+    await window.__repforgeWorkoutDraft.flush();
+  }, flagged);
+  try {
+    await page.evaluate(async () => { await window.__repforgeEnterWorkout({ day: "Day 1" }); });
+    await page.waitForSelector("#workout .exercise.is-current", { timeout: 5000 });
+    await trim();
+    await page.waitForSelector(".trim-toast", { timeout: 5000 });
+    await page.evaluate(async () => {
+      const d = window.__repforgeWorkoutDraft.current();
+      const other = d.exerciseOrder.find((id) => id !== d.session.selectedExerciseId && d.exercises[id].status !== "skipped");
+      await window.__repforgeWorkoutDraft.dispatch("selectExercise", { exerciseInstanceId: other });
+      await window.__repforgeWorkoutDraft.flush();
+    });
+    assert(await trimToastUp(), "an ordinary edit in the same session keeps the Trim toast up", "toast gone");
+    await page.evaluate(async () => { await clearDraft(); });
+    assert(!(await trimToastUp()), "ending the session (discard) removes the Trim toast at once", "toast still up");
+    await page.evaluate(async () => { await window.__repforgeEnterWorkout({ day: "Day 1" }); });
+    await page.waitForSelector("#workout .exercise.is-current", { timeout: 5000 });
+    await trim();
+    await page.waitForSelector(".trim-toast", { timeout: 5000 });
+    await page.evaluate(async () => {
+      await clearDraft();
+      await window.__repforgeEnterWorkout({ day: "Day 1" });
+      await window.__repforgeWorkoutDraft.flush();
+    });
+    assert(!(await trimToastUp()), "starting a replacement session removes the Trim toast at once", "toast still up");
+  } finally {
+    await context.close();
+  }
+}
+
 async function main() {
   const browser = await launchChromium();
   // REPFORGE_SESSION_ONLY=finish runs only the finish-with-hidden-lifts proofs.
@@ -605,6 +707,8 @@ async function main() {
     await finishWithHiddenLifts(browser);
     await hiddenBarInContext(browser);
     await trimNamesItsLifts(browser);
+    await staleTrimUndoLeavesReplacementAlone(browser);
+    await trimToastEndsWithItsSession(browser);
   } finally {
     await context.close();
     await browser.close();

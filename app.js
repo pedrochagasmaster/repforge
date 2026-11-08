@@ -1775,7 +1775,11 @@ const loadInputToast=p=>t(p.kind==="empty"?"toast.enter_weight_before_save_set":
 const fmtLoad=kg=>fmt(toDisplay(kg));
 const fmtLoadPlain=kg=>fmtPlain(toDisplay(kg));
 const term=key=>`<button type="button" class="term" data-term="${esc(key)}">${esc(tOr(`glossary.term.${key}`,key))}</button>`;
+/* A Trim or Day toast belongs to the session it was made in. When that session ends or is replaced, the toast
+   leaves at once (owner, 2026-11-08); its Undo guards still hold for a button that was already tapped or held. */
+function retireWorkoutUndoToasts(){hideTrimToast();hideDayChangeToast()}
 function resetWorkoutSessionIdentity(){
+  retireWorkoutUndoToasts();
   abandonVoiceOp();
   clearUnfinishedWatch();
   lastCommitAt=0;sessionStartedAt=0;
@@ -2907,7 +2911,7 @@ async function createWorkoutDraft(label=day,{contextTouched:selectionContextTouc
   if(WorkoutDraft.isDomainError(draft))return{status:"create-error",error:draft};
   const nextRaw=JSON.stringify(WorkoutDraft.serialize(draft));
   const installed=await DraftStore.compareAndSwapV2({expectedRaw:null,nextRaw,operationId});
-  if(installed.status==="applied"){activeWorkoutDraft=installed.draft;activeWorkoutDraftRaw=installed.raw;return{status:"ready",draft:installed.draft}}
+  if(installed.status==="applied"){retireWorkoutUndoToasts();activeWorkoutDraft=installed.draft;activeWorkoutDraftRaw=installed.raw;return{status:"ready",draft:installed.draft}}
   return installed}
 function draftFocusIdentity(payload={}){
   const el=document.activeElement;
@@ -3327,12 +3331,17 @@ function confirmDiscardDraft(){
   return draftDiscardAsk}
 /** `undo` is the day picker's Undo putting back the day it just changed: the
  *  change itself marked the draft's day as touched, so only logged work asks. */
-async function requestWorkoutDay(nextDay,{undo=false}={}){
+async function requestWorkoutDay(nextDay,{undo=false,ofDraft}={}){
   if(!nextDay||nextDay===day) return true;
+  await workoutStartTail;
+  // An Undo is bound to the draft its own day change made (N12): once that draft is replaced, it changes nothing.
+  const stillOfDraft=()=>ofDraft===undefined||activeWorkoutDraft?.draftId===ofDraft;
+  if(!stillOfDraft())return false;
   const hasProgress=undo?draftHasLoggedWork():draftHasProgress();
   if(hasProgress){
     if(!await confirmDiscardDraft()){
       return false}
+    if(!stillOfDraft())return false;
     if(!await clearDraft())return false;
     resetSessionContextFields()}
   else if(activeWorkoutDraft?.program?.dayLabel&&activeWorkoutDraft.program.dayLabel!==nextDay){
@@ -3344,7 +3353,7 @@ async function requestWorkoutDay(nextDay,{undo=false}={}){
   day=nextDay;
   contextTouched.day=true;
   const selectionContextTouched={day:true,date:false,sessionNotes:false,bodyweight:false};
-  const created=await WorkoutSession.start(nextDay,{contextTouched:selectionContextTouched});
+  const created=await startWorkoutDraft(nextDay,{contextTouched:selectionContextTouched});
   if(created.status!=="ready"){
     showDraftInitializationRecovery(created,{retryMode:"create",label:nextDay,contextTouched:selectionContextTouched});
     return false;
@@ -3458,12 +3467,13 @@ function fatigueFlagged(){return exercises().filter(e=>fatigueSignal(recommendat
 async function applyFatigueTrim(){
   const flagged=new Set(fatigueFlagged().map(e=>e.id));
   if(!activeWorkoutDraft)return;
+  const draftId=activeWorkoutDraft.draftId;
   // What this Trim changes, so its toast names the lifts and Undo puts back exactly that (owner, 2026-11-04).
   const restored=[],trimmed=[];
   for(const id of [...skipped])if(!flagged.has(id)){const result=await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return;restored.push(id)}
   for(const id of flagged)if(!skipped.has(id)){const result=await WorkoutSession.dispatch("skipExercise",{exerciseInstanceId:id,reason:"trim"},{bulk:true});if(result.status!=="applied")return;trimmed.push(id)}
   renderWorkout();
-  if(trimmed.length)showTrimToast(trimmed,restored)}
+  if(trimmed.length)showTrimToast(trimmed,restored,draftId)}
 /** The lifts a Trim hid, by name: two, then how many more. */
 function trimmedNamesText(ids){
   const names=ids.map(id=>exerciseDisplayName(sessionExercise(prog.find(id))));
@@ -3474,18 +3484,21 @@ function trimmedNamesText(ids){
    Undo restores the lifts this Trim hid and re-hides any it had brought back, by hand, so no reason is recorded. */
 let trimToastEl=null,trimToastTimer=null;
 function hideTrimToast(){clearTimeout(trimToastTimer);trimToastTimer=null;trimToastEl?.remove();trimToastEl=null}
-function showTrimToast(trimmed,restored){
+function showTrimToast(trimmed,restored,draftId){
   hideTrimToast();
   const el=document.createElement("div");
   el.className="review-toast trim-toast";el.setAttribute("role","status");
   el.innerHTML=`<span class="review-toast__text">${esc(trimmedNamesText(trimmed))}</span>`+
     `<button type="button" class="review-toast__undo" data-role="trim-undo">${esc(t("common.undo"))}</button>`;
-  el.querySelector('[data-role="trim-undo"]').onclick=async()=>{hideTrimToast();await undoFatigueTrim(trimmed,restored)};
+  el.querySelector('[data-role="trim-undo"]').onclick=async()=>{hideTrimToast();await undoFatigueTrim(trimmed,restored,draftId)};
   document.body.append(el);trimToastEl=el;trimToastTimer=setTimeout(hideTrimToast,6000)}
-async function undoFatigueTrim(trimmed,restored){
-  if(!activeWorkoutDraft)return;
-  for(const id of trimmed)if(skipped.has(id)){const result=await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
-  for(const id of restored)if(!skipped.has(id)){const result=await WorkoutSession.dispatch("skipExercise",{exerciseInstanceId:id},{bulk:true});if(result.status!=="applied")return}
+/* Undo belongs to the session the Trim was made in (N12). Once that session is replaced, nothing it names may change
+   in the replacement, so each step checks the draft is still that one before it dispatches. */
+async function undoFatigueTrim(trimmed,restored,draftId){
+  const sameSession=()=>activeWorkoutDraft?.draftId===draftId;
+  if(!sameSession())return;
+  for(const id of trimmed)if(skipped.has(id)){if(!sameSession())return;const result=await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
+  for(const id of restored)if(!skipped.has(id)){if(!sameSession())return;const result=await WorkoutSession.dispatch("skipExercise",{exerciseInstanceId:id},{bulk:true});if(result.status!=="applied")return}
   renderWorkout()}
 let focusIndex=0,statsSeg="overview",evidenceView=null,prFilter="all";
 let strengthScope="current-block",volumeScope="this-week",volumeDrillMuscle=null;
@@ -7603,7 +7616,7 @@ function updateSessionBanner(){
 function draftHasLoggedWork(){try{return draftHasSessionWork(JSON.parse(DraftStore.readRaw()||"{}"),{ignoreDay:true})}catch{return false}}
 function draftHasProgress(){try{const d=JSON.parse(DraftStore.readRaw()||"{}");
   return draftHasSessionWork(d)||!!contextFlagsFromDraft(d).day}catch{return false}}
-function setWorkoutActive(on){const was=workoutActive;workoutActive=!!on;
+function setWorkoutActive(on){const was=workoutActive;workoutActive=!!on;if(was&&!on)cancelWorkoutEntry();
   const dash=$("#todayDash"),shell=$("#workoutShell");
   // N5: Today to Focus is the same push as a drill-down, and Back from Focus is it
   // run the other way. Finishing a session clears the draft first, so the card has
@@ -8058,21 +8071,23 @@ function hideDayChangeToast(){
   dayChangeToastEl?.remove();dayChangeToastEl=null}
 function showDayChangeToast(previousDay,newDay){
   hideDayChangeToast();
+  const draftId=activeWorkoutDraft?.draftId??null;
   const n=days().indexOf(newDay)+1;
   const el=document.createElement("div");
   el.className="review-toast daychange-toast";
   el.setAttribute("role","status");
   el.innerHTML=`<span class="review-toast__text">${esc(t("today.day_changed",{n}))}</span>`+
     `<button type="button" class="review-toast__undo" data-role="daychange-undo">${esc(t("common.undo"))}</button>`;
-  el.querySelector('[data-role="daychange-undo"]').onclick=()=>{hideDayChangeToast();undoDayChange(previousDay)};
+  el.querySelector('[data-role="daychange-undo"]').onclick=()=>{hideDayChangeToast();undoDayChange(previousDay,draftId)};
   document.body.append(el);
   dayChangeToastEl=el;
   dayChangeToastTimer=setTimeout(hideDayChangeToast,4200)}
 /** Undo is `requestWorkoutDay` run backwards. It is silent unless a set was
  *  logged on the new day in the meantime; then the discard question appears
  *  again rather than silently discarding that work. */
-async function undoDayChange(previousDay){
-  if(!await requestWorkoutDay(previousDay,{undo:true}))return;
+async function undoDayChange(previousDay,draftId){
+  if(!days().includes(previousDay))return;
+  if(!await requestWorkoutDay(previousDay,{undo:true,ofDraft:draftId}))return;
   renderToday()}
 /** Keep the sheet above the software keyboard rather than behind it, and inside
  *  the band the keyboard leaves visible so its header stays on screen.
@@ -8355,15 +8370,41 @@ function focusDragEnd(e){
   if(e?.type==="pointercancel"||!past||!focusCanGo(dir)){focusSettle(track,card,deck,{from:dx,velocity:vx});return}
   card.classList.remove("is-dragging");
   focusAnimateTo(dir)}
-async function enterWorkout(opts={}){if(opts.day&&!await requestWorkoutDay(opts.day))return false;
+/* The Focus entry still waiting on its draft and suggestions. Choosing another tab cancels it, so the late
+   presentation cannot reopen Focus over that tab. A plain tap or a tap for the same day joins the entry already
+   waiting; a different day (Up next during a held Start or Resume) takes over from it. */
+let pendingWorkoutEntry=null;
+function cancelWorkoutEntry(){pendingWorkoutEntry=null}
+/* Draft starts run one at a time: two concurrent starts both find no draft and the second loses the create. */
+let workoutStartTail=Promise.resolve();
+function startWorkoutDraft(label,options){
+  const run=workoutStartTail.then(()=>WorkoutSession.start(label,options));
+  workoutStartTail=run.then(()=>{},()=>{});
+  return run}
+function enterWorkout(opts={}){
+  const key=opts.day??null;
+  if(pendingWorkoutEntry&&(key===null||pendingWorkoutEntry.key===key))return pendingWorkoutEntry.promise;
+  const entry={key,promise:null};
+  pendingWorkoutEntry=entry;
+  // Whatever the outcome, an entry that is no longer pending must not be joined by a later tap.
+  entry.promise=presentWorkoutEntry(opts,entry).finally(()=>{if(pendingWorkoutEntry===entry)pendingWorkoutEntry=null});
+  return entry.promise}
+async function presentWorkoutEntry(opts,entry){
+  // An earlier start settles first, so this entry reads the draft that start left behind.
+  await workoutStartTail;
+  if(entry!==pendingWorkoutEntry)return false;
+  if(opts.day&&!await requestWorkoutDay(opts.day))return false;
+  if(entry!==pendingWorkoutEntry)return false;
   if(opts.day)focusIndex=0;
-  const prepared=await WorkoutSession.start(day);
+  const prepared=await startWorkoutDraft(day);
   if(prepared.status!=="ready"){
     showDraftInitializationRecovery(prepared,{retryMode:"create",label:day});return false}
   clearDraftUiRecovery();
   // Recommendations fill the day's untouched pending values before the first paint.
   const firstExercise=exercises(day)[0];
   if(firstExercise)await refreshSuggestions(firstExercise.id);
+  if(entry!==pendingWorkoutEntry)return false;
+  pendingWorkoutEntry=null;
   workoutLeft=false;setWorkoutActive(true);
   hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});
   // Focus is the sole workout route.
@@ -13350,7 +13391,7 @@ function exerciseSessionsDetail(key){const m=new Map();
 function currentViewId(){return $$(".view").find(v=>v.classList.contains("active"))?.id||"log"}
 function openExerciseView(key,from){if(!key)return;
   // Leaving the logging route retires voice: a recognizer started in Focus must not outlive it.
-  abandonVoiceOp();
+  abandonVoiceOp();cancelWorkoutEntry();
   const slot=prog.find(key),movement=slot?(workoutActive?sessionExercise(slot):slot):null;
   exView={key:movement?exerciseLiftKey(movement):key,openKey:key,from:from||currentViewId(),exercise:movement?Object.assign({},movement):null};
   chartView={scope:"current-block",metric:"top",pt:null};
@@ -24989,7 +25030,7 @@ function showSettings(){
   $$("nav button").forEach(x=>{x.classList.remove("active");x.setAttribute("aria-current","false")});
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="settings"));
   document.body.classList.add("is-settings");document.body.classList.remove("is-exercise","is-onboarding","is-workout");
-  abandonVoiceOp();workoutActive=false;workoutLeft=true;window.scrollTo({top:0});render();
+  abandonVoiceOp();cancelWorkoutEntry();workoutActive=false;workoutLeft=true;window.scrollTo({top:0});render();
   // Settings opens on its heading (R7 J-09); Back, below, returns to the control that opened it.
   focusRoute(routeHeading("settings"));
   queueMicrotask(()=>maybeShowContextualGuides(["install","privacy"]))}
@@ -25590,7 +25631,7 @@ function init(){
     if(programEditMode)finishInstalledEditor();
     if(dockRetap(b))return;
     abandonVoiceOp();
-    exView=null;workoutActive=false;workoutLeft=true;
+    exView=null;cancelWorkoutEntry();workoutActive=false;workoutLeft=true;
     // Progress remembers its segment, so arriving there can itself open the review.
     const opensReview=b.dataset.view==="stats"&&statsSeg==="review"&&!evidenceView&&!$("#stats")?.classList.contains("active");
     document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-workout");
