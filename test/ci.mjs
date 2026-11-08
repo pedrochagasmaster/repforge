@@ -471,19 +471,33 @@ test("full-lane UI-system shard reports merge into the catalog-wide never-render
     "a re-run that wrote no report leaves its shard missing instead of reviving the stale report");
 });
 
+// Checker proofs use a complete scratch baseline. A new manifest state has no
+// committed capture until CI renders it; that omission belongs to the real
+// catalog gate, not these deliberate pixel-mismatch and evidence tests.
+function catalogCheckerFixture(manifest,dir){
+  const baseline=join(dir,"baseline"),staging=join(dir,"staging");
+  const captures=expandCaptures(manifest),committed=join(process.cwd(),manifest.artifactRoot);
+  for(const capture of captures){
+    let source=capturePath(manifest,capture,committed);
+    if(!existsSync(source)){
+      const fixture=captures.find(other=>other.viewport===capture.viewport&&existsSync(capturePath(manifest,other,committed)));
+      assert.ok(fixture,"checker fixture has real pixels of the required size");
+      source=capturePath(manifest,fixture,committed);
+    }
+    const target=capturePath(manifest,capture,baseline),staged=capturePath(manifest,capture,staging);
+    mkdirSync(dirname(target),{recursive:true});mkdirSync(dirname(staged),{recursive:true});
+    symlinkSync(source,target);symlinkSync(target,staged);
+  }
+  return {committedRoot:baseline,stagingRoot:staging};
+}
+
 test("verify mode compares a staged capture with the committed catalog and keeps evidence for failures", (t) => {
   const real = loadManifest();
   const dir = scratch(t);
-  const stagingRoot = join(dir, "staging");
-  const committedRoot = join(process.cwd(), real.artifactRoot);
-  for (const capture of expandCaptures(real)) {
-    const target = capturePath(real, capture, stagingRoot);
-    mkdirSync(dirname(target), { recursive: true });
-    symlinkSync(capturePath(real, capture, committedRoot), target);
-  }
+  const {stagingRoot,committedRoot}=catalogCheckerFixture(real,dir);
   const semantic = JSON.parse(readFileSync(join(process.cwd(), "docs/ui-screens/entry-semantics.json"), "utf8"));
   const artifactDir = join(dir, "artifacts");
-  assert.equal(verifyCatalog({ stagingRoot, semanticArtifact: semantic, artifactDir, manifest: real }), true);
+  assert.equal(verifyCatalog({ stagingRoot, baselineRoot:committedRoot, semanticArtifact: semantic, artifactDir, manifest: real }), true);
   assert.equal(JSON.parse(readFileSync(join(artifactDir, "visual-report.json"), "utf8")).ok, true);
   assert.equal(existsSync(join(artifactDir, "visual-failures")), false);
 
@@ -494,7 +508,7 @@ test("verify mode compares a staged capture with the committed catalog and keeps
   rmSync(victimPath);
   cpSync(capturePath(real, impostor, committedRoot), victimPath);
   const committedBytes = readFileSync(capturePath(real, victim, committedRoot));
-  assert.equal(verifyCatalog({ stagingRoot, semanticArtifact: semantic, artifactDir, manifest: real }), false);
+  assert.equal(verifyCatalog({ stagingRoot, baselineRoot:committedRoot, semanticArtifact: semantic, artifactDir, manifest: real }), false);
   const relativePath = relative(stagingRoot, victimPath);
   assert.ok(existsSync(join(artifactDir, "visual-failures", "current", relativePath)), "the failing capture is retained");
   assert.ok(existsSync(join(artifactDir, "visual-failures", "baseline", relativePath)), "its committed baseline is retained beside it");
@@ -1057,13 +1071,7 @@ test("CI-captured frames are published with a manifest and placed only onto regi
 test("verify publishes the changed frames it rendered when CI asks for captures", (t) => {
   const real = loadManifest();
   const dir = scratch(t);
-  const stagingRoot = join(dir, "staging");
-  const committedRoot = join(process.cwd(), real.artifactRoot);
-  for (const capture of expandCaptures(real)) {
-    const target = capturePath(real, capture, stagingRoot);
-    mkdirSync(dirname(target), { recursive: true });
-    symlinkSync(capturePath(real, capture, committedRoot), target);
-  }
+  const {stagingRoot,committedRoot}=catalogCheckerFixture(real,dir);
   const [victim] = expandCaptures(real).filter((capture) => capture.flow === "workout");
   const [impostor] = expandCaptures(real).filter((capture) => capture.flow === "progress" && capture.viewport === victim.viewport
     && capture.theme === victim.theme && capture.locale === victim.locale && capture.text === victim.text);
@@ -1072,7 +1080,7 @@ test("verify publishes the changed frames it rendered when CI asks for captures"
   cpSync(capturePath(real, impostor, committedRoot), victimPath);
   const semantic = JSON.parse(readFileSync(join(process.cwd(), "docs/ui-screens/entry-semantics.json"), "utf8"));
   const captures = join(dir, "captures");
-  assert.equal(verifyCatalog({ stagingRoot, semanticArtifact: semantic, artifactDir: join(dir, "artifacts"), manifest: real,
+  assert.equal(verifyCatalog({ stagingRoot, baselineRoot:committedRoot, semanticArtifact: semantic, artifactDir: join(dir, "artifacts"), manifest: real,
     captures: { dir: captures, producer: "verify-test", source: "c".repeat(40) } }), false);
   const changes = JSON.parse(readFileSync(join(captures, "changes-verify-test.json"), "utf8"));
   const repoPath = `${real.artifactRoot}/${relative(stagingRoot, victimPath).replaceAll("\\", "/")}`;
@@ -1161,23 +1169,17 @@ test("only pure frame, semantic and role findings count as deterministic", () =>
 test("verify marks a catalog mismatch deterministic", (t) => {
   const real = loadManifest();
   const dir = scratch(t);
-  const stagingRoot = join(dir, "staging");
-  const committedRoot = join(process.cwd(), real.artifactRoot);
-  for (const capture of expandCaptures(real)) {
-    const target = capturePath(real, capture, stagingRoot);
-    mkdirSync(dirname(target), { recursive: true });
-    symlinkSync(capturePath(real, capture, committedRoot), target);
-  }
+  const {stagingRoot,committedRoot}=catalogCheckerFixture(real,dir);
   const semantic = JSON.parse(readFileSync(join(process.cwd(), "docs/ui-screens/entry-semantics.json"), "utf8"));
   const artifactDir = join(dir, "artifacts");
-  assert.equal(verifyCatalog({ stagingRoot, semanticArtifact: semantic, artifactDir, manifest: real }), true);
+  assert.equal(verifyCatalog({ stagingRoot, baselineRoot:committedRoot, semanticArtifact: semantic, artifactDir, manifest: real }), true);
   assert.equal(existsSync(join(artifactDir, "deterministic-failure.json")), false);
   const [victim] = expandCaptures(real).filter((capture) => capture.flow === "workout");
   const [impostor] = expandCaptures(real).filter((capture) => capture.flow === "progress" && capture.viewport === victim.viewport
     && capture.theme === victim.theme && capture.locale === victim.locale && capture.text === victim.text);
   rmSync(capturePath(real, victim, stagingRoot));
   cpSync(capturePath(real, impostor, committedRoot), capturePath(real, victim, stagingRoot));
-  assert.equal(verifyCatalog({ stagingRoot, semanticArtifact: semantic, artifactDir, manifest: real }), false);
+  assert.equal(verifyCatalog({ stagingRoot, baselineRoot:committedRoot, semanticArtifact: semantic, artifactDir, manifest: real }), false);
   assert.match(JSON.parse(readFileSync(join(artifactDir, "deterministic-failure.json"), "utf8")).reason, /1 catalog frame/);
 });
 

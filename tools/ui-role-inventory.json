@@ -586,7 +586,7 @@
     "progress/review-active": {
       "owner": "plan-056",
       "content": "flat",
-      "scenario": "The active-block checkpoint is read-only."
+      "scenario": "Calendar-week facts before block-to-date evidence; no proposals or active structural actions."
     },
     "progress/review-complete": {
       "owner": "plan-056",
@@ -1267,6 +1267,21 @@
       "owner": "plan-055",
       "content": "flat",
       "scenario": "A logged set, then a rest carried past the one-hour cap by the live count-up: the Early finish question opens with its reason line."
+    },
+    "today/week-card": {
+      "owner": "plan-082",
+      "content": "flat",
+      "scenario": "Last week facts and Review/Dismiss actions."
+    },
+    "workout/discomfort-mark": {
+      "owner": "plan-082",
+      "content": "flat",
+      "scenario": "Discomfort recorded in exercise actions."
+    },
+    "workout/skip-reason": {
+      "owner": "plan-082",
+      "content": "flat",
+      "scenario": "Closed reason sheet before skipping an exercise."
     }
   },
   "components": [
@@ -12852,6 +12867,147 @@
         "settings/privacy",
         "settings/rest-controls",
         "settings/language-menu"
+      ]
+    },
+    {
+      "id": "week-card-review",
+      "selector": "#weekCardReview",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Opens last week in Review.",
+      "owner": "plan-082",
+      "catalogStates": [
+        "today/week-card"
+      ]
+    },
+    {
+      "id": "week-card-dismiss",
+      "selector": "#weekCardDismiss",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Dismisses the current ISO week on this device.",
+      "owner": "plan-082",
+      "catalogStates": [
+        "today/week-card"
+      ]
+    },
+    {
+      "id": "discomfort-mark",
+      "selector": "#exActionDiscomfortBtn",
+      "roles": {
+        "control": "selection"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Records discomfort in this session.",
+      "owner": "plan-082",
+      "catalogStates": [
+        "workout/discomfort-mark"
+      ]
+    },
+    {
+      "id": "skip-reason-choice",
+      "selector": "[data-skip-reason]",
+      "roles": {
+        "control": "selection"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Chooses a closed reason and skips the exercise.",
+      "owner": "plan-082",
+      "catalogStates": [
+        "workout/skip-reason"
+      ]
+    },
+    {
+      "id": "skip-reason-close",
+      "selector": "#skipReasonClose",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Dismisses without skipping.",
+      "owner": "plan-082",
+      "catalogStates": [
+        "workout/skip-reason"
+      ]
+    },
+    {
+      "id": "skip-reason-sheet",
+      "selector": "#skipReasonSheet",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "bottom-sheet",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Collects a reason with the underlying workout inert.",
+      "owner": "plan-082",
+      "catalogStates": [
+        "workout/skip-reason"
+      ]
+    },
+    {
+      "id": "skip-reason-scrim",
+      "selector": "#skipReasonScrim",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "scrim",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Dims the underlying workout.",
+      "owner": "plan-082",
+      "catalogStates": [
+        "workout/skip-reason"
       ]
     }
   ],

@@ -3135,7 +3135,9 @@ function captureDraftCommandTelemetry(command,before,after,ui){
     // the reason after the pick (refinement audit A4, owner 2026-11-01), so its swap's event waits for that answer and
     // goes out then, with the payload it had when the reason was asked first.
     if(command.type==="substituteExercise"&&(ui?.substitutionSource==="alternate"||ui?.substitutionSource==="library")){
-      if(ui.reasonAfter)pendingSubstitutionEvent={source:ui.substitutionSource};
+      if(ui.reasonAfter){const substitution=after.exercises[command.exerciseInstanceId].substitution;
+        pendingSubstitutionEvent={source:ui.substitutionSource,draftId:after.draftId,exerciseInstanceId:command.exerciseInstanceId,
+          selectedAt:substitution.selectedAt,replacementId:substitution.replacement.exerciseInstanceId}}
       else captureEvent("substitution_used",SUBSTITUTION_REASONS.includes(ui.substitutionReason)
         ?{source:ui.substitutionSource,reason:ui.substitutionReason}:{source:ui.substitutionSource})}}
   catch{}}
@@ -3143,9 +3145,10 @@ function captureDraftCommandTelemetry(command,before,after,ui){
 let pendingSubstitutionEvent=null;
 /** Send the held swap event with the reason chosen, or with none for a skip, a dismissal or the page going away: the
  *  same event and properties as when the reason was chosen before the pick, once. */
-function settleSubstitutionEvent(reason){
+async function settleSubstitutionEvent(reason){
   const pending=pendingSubstitutionEvent;pendingSubstitutionEvent=null;
   if(!pending)return;
+  if(SUBSTITUTION_REASONS.includes(reason))await WorkoutSession.dispatch("recordSubstitutionReason",{...pending,reason});
   captureEvent("substitution_used",SUBSTITUTION_REASONS.includes(reason)?{source:pending.source,reason}:{source:pending.source})}
 addEventListener("pagehide",()=>settleSubstitutionEvent(null));
 function enqueueDraftCommand(type,payload={},ui={}){
@@ -3156,6 +3159,7 @@ function enqueueDraftCommand(type,payload={},ui={}){
   const task=draftWriteTail.then(async()=>{
     if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
     if(!activeWorkoutDraft)return{status:"missing"};
+    if(ui.draftId&&activeWorkoutDraft.draftId!==ui.draftId)return{status:"stale"};
     if((draftUiRecovery?.attempt||draftUiRecovery?.status==="refresh-failed")&&!draftUiRecovery.allowRetry){
       focusDraftRecovery();return{status:"recovery-pending"}}
     if(type==="refreshUntouchedSuggestions"&&window.__repforgeDraftFault==="stale-suggestion-loop")
@@ -4214,6 +4218,79 @@ function buildPlainSummary(snapshot){if(!snapshot)return"";
   const copy=blockRecommendationCopy(snapshot.recommendation);
   parts.push(copy.line.replace(/^Recommendation:\s*/i,"").trim());
   return parts.join(" ")}
+// Calendar facts use the same comparison, stall and fatigue owners as Progress.
+function weekReviewFacts(date){
+  const Model=window.RepForgeProgressModel,{start,end}=weekRange(date),blockId=snapshotBlockId(state);
+  const log=state.log.filter(row=>String(row.date)<=end&&(!blockId||row.blockId===blockId));
+  const rows=readLogRows(log),trained=new Set(rows.filter(row=>String(row.date)>=start&&isWork(row)).map(liftKey));
+  const outcomes=strengthEvidenceRecords("current-block",log).filter(record=>trained.has(record.exerciseId)&&record.outcome)
+    .map(({exerciseId,outcome})=>({exerciseId,outcome}));
+  const stalled=[],fatigue=[];
+  for(const key of trained){
+    const current=currentExerciseForLiftKey(key),sample=rows.find(row=>liftKey(row)===key);
+    const ex=current||exerciseIdentityFromRow(sample);
+    if(isStalled(sessionsForLog(ex,rows)))stalled.push(key);
+    if(!current)continue;
+    const matched=canonicalPrescriptionSlot(current,state.programMeta?.programDefinition);
+    if(!matched)continue;
+    const definition=state.programMeta.programDefinition;
+    const elapsed=Math.floor(RepForgeProgressModel.calendarDayDistance(state.programMeta.started,end)/7)+1;
+    const cycle=Math.min(definition.cycles,Math.max(1,elapsed));
+    const first=RepForgeProgramCompiler.prescriptionsForCycle(definition,cycle).find(item=>item.slotId===matched.slot.id);
+    if(!first)continue;
+    const history=progressionHistoryFor(first.exerciseId,first.metricIds,slotLoadingProjection(matched.slot),matched.slot.metricDefinitions,log);
+    const trend=window.RepForgeProgression?.performanceTrend?.(first,history,{bySlotId:{[matched.slot.id]:slotLoadingContext(matched.slot)}});
+    if(fatigueSignal({performanceTrend:trend}))fatigue.push(key);
+  }
+  const meta={...state.programMeta,blockId,weekFacts:{start,end,outcomes,stalled,fatigue}};
+  return Model.buildWeekReview(readLogRows(),state.sessionEvents,prog.toJSON(),meta,date);
+}
+function weekFactName(id){
+  const ex=prog.find(id)||currentExerciseForLiftKey(id);
+  if(ex)return exerciseDisplayName(ex);
+  const row=readLogRows().find(row=>liftKey(row)===id||row.exerciseId===id);
+  return row?displayName(row):id;
+}
+function weekFactSentences(facts){
+  const names=ids=>[...new Set(ids.map(weekFactName))].join(", ");
+  const lines=[t("review.week.sessions",{done:facts.completedSessions,planned:facts.plannedSessions})];
+  if(facts.missedDays.length)lines.push(t("review.week.missed",{days:facts.missedDays.map(dayLabel).join(", ")}));
+  for(const outcome of REVIEW_OUTCOME_ORDER){const ids=facts.outcomes.filter(fact=>fact.outcome===outcome).map(fact=>fact.exerciseId);
+    if(ids.length)lines.push(t(`review.week.${outcome}`,{lifts:names(ids)}))}
+  if(facts.stalled.length)lines.push(t("review.week.stalled",{lifts:names(facts.stalled)}));
+  for(const event of facts.pain)lines.push(t(`review.week.${event.kind}${event.swapped?"_swapped":""}`,{lift:weekFactName(event.exerciseId)}));
+  for(const event of facts.skips)lines.push(t("review.week.skipped",{lift:weekFactName(event.exerciseId),reason:t(`focus.skip_reason.${event.reason}`)}));
+  if(facts.fatigue.length)lines.push(t("review.week.fatigue",{lifts:names(facts.fatigue)}));
+  if(facts.trimUsed)lines.push(t("review.week.trim"));
+  return lines;
+}
+function weekReviewHtml(date,period){
+  const facts=weekReviewFacts(date);
+  return `<section class="review__week" data-week-review="${period}" aria-labelledby="weekReview-${period}">`+
+    `<h4 class="section-label" id="weekReview-${period}">${esc(t(period==="last"?"review.week.last":"review.week.current"))}</h4>`+
+    weekFactSentences(facts).map(line=>`<p>${esc(line)}</p>`).join("")+`</section>`;
+}
+function isoWeekId(date){
+  const d=new Date(`${date}T12:00:00Z`),dow=d.getUTCDay()||7;
+  d.setUTCDate(d.getUTCDate()+4-dow);
+  const year=d.getUTCFullYear(),first=new Date(Date.UTC(year,0,1));
+  const week=Math.ceil((((d-first)/86400000)+1)/7);
+  return `${year}-W${String(week).padStart(2,"0")}`;
+}
+function renderWeekCard(){
+  const el=$("#todayWeekCard");if(!el)return;
+  const id=isoWeekId(today()),facts=weekReviewFacts(shiftDate(weekStart(today()),-7));
+  const visible=facts.completedSessions>0&&uiPrefs.weekCardSeen!==id;
+  el.classList.toggle("hidden",!visible);el.replaceChildren();if(!visible)return;
+  const lines=weekFactSentences(facts);
+  el.innerHTML=`<p class="section-label">${esc(t("review.week.last"))}</p><p>${esc(lines[0])}</p>`+
+    `<p>${esc(t("review.week.card_facts",{improved:facts.outcomes.filter(fact=>fact.outcome==="improved").length,stalled:facts.stalled.length,pain:facts.pain.length}))}</p><div class="week-card__actions">`+
+    `<button type="button" class="text-link" id="weekCardReview">${esc(t("review.week.open"))}</button>`+
+    `<button type="button" class="text-link" id="weekCardDismiss">${esc(t("review.week.dismiss"))}</button></div>`;
+  $("#weekCardReview").onclick=()=>{navTo("stats");setStatsSeg("review")};
+  $("#weekCardDismiss").onclick=()=>{if(setUiPref("weekCardSeen",id))renderWeekCard()};
+}
+
 function renderReview(){const el=$("#reviewPanel");if(!el)return;
   if(!state.programMeta?.started){el.innerHTML=`<p class="lede">${esc(t("review.no_start"))}</p>`;return}
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
@@ -4233,18 +4310,18 @@ function renderReview(){const el=$("#reviewPanel");if(!el)return;
   const outcomeLine=reviewOutcomesHtml(checkpoint.observedOutcomes,
     records.filter(r=>r.evidenceState!=="sufficient").length,key=>liftDisplayName(nameForLiftKey(key),key));
   const actions=checkpoint.lifecycle==="block-complete"?renderReviewActions(checkpoint):"";
-  const readOnlyNote=checkpoint.lifecycle==="active-block"
-    ?`<p class="review__readonly" role="note">${esc(t("review.active_readonly"))}</p>`:"";
+  const weeklyFacts=checkpoint.lifecycle==="active-block"
+    ?weekReviewHtml(shiftDate(weekStart(today()),-7),"last")+weekReviewHtml(today(),"current"):"";
   const evidenceNote=checkpoint.lifecycle==="block-complete"&&!checkpoint.hasSufficientEvidence
     ?`<p class="review__summary">${esc(t("review.insufficient.note"))}</p>`:"";
   if(reviewFlow){renderReviewFlow(el);return}
-  el.innerHTML=`<div class="blockprogress" data-progress-dimension="block" data-progress-scope="block-review-evidence"><h4 class="blockprogress__title">${esc(t("review.progress_title"))}</h4>`+
+  el.innerHTML=weeklyFacts+`<div class="blockprogress" data-progress-dimension="block" data-progress-scope="block-review-evidence"><h4 class="blockprogress__title">${esc(t("review.progress_title"))}</h4>`+
     `<p><b>${esc(weekLine)}</b></p>`+
     `<p><b>${esc(t("review.sessions"))}</b> ${esc(t("review.sessions_completed",{done:volume.completedSessions,planned:volume.period.plannedSessions||volume.plannedSessions}))}</p>`+
     `<p><b>${esc(t("review.volume"))}</b> ${esc(t("review.volume_planned",{pct}))}</p>`+
     `<p class="lede">${esc(t("stats.volume.period_text",{start:longDate(volume.period.start||meta.started||""),end:longDate(volume.period.end||today())}))}</p></div>`+
     `<p class="section-label">${esc(t("review.outcomes.label"))}</p><div class="review__outcomes">${outcomeLine}</div>`+
-    evidenceNote+readOnlyNote+actions;
+    evidenceNote+actions;
   bindReviewActions()}
 const REVIEW_OUTCOME_ORDER=["improved","maintained","declined"];
 const REVIEW_UNCOMPARED_KEYS=["review.outcomes.uncompared.one","review.outcomes.uncompared.other"];
@@ -6415,11 +6492,11 @@ function liftCalibration(history,context,metricDefinitions,extra=[],asOf=null){
   const Calibration=window.RepForgeEffortCalibration;
   const errors=Calibration?.checkErrors?.({sessions,today:asOf||activeWorkoutDraft?.program?.scheduleDate||today()})||[];
   return Calibration?.estimate?.(errors)||{version:null,n:0,bias:0,spread:null,state:"uncalibrated",reason:"few",delta:0}}
-function progressionHistoryFor(exerciseId,metricIds,slotProjection,metricDefinitions){
+function progressionHistoryFor(exerciseId,metricIds,slotProjection,metricDefinitions,log=state.log){
   const grouped=new Map();
   const requiresExecutionMode=(metricDefinitions||[]).some(metric=>
     ["repsPerSide","loadPerSideKg","persistentLoadPerSideKg"].includes(metric.semantic));
-  for(const row of state.log||[]){
+  for(const row of log||[]){
     const performed=enginePerformedRow(row,exerciseId,metricIds);if(!performed)continue;
     if(requiresExecutionMode){
       const projection=readLogRow(row),mode=slotProjection?.executionMode;
@@ -8849,11 +8926,12 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
   // The dashboard describes a program: with none there is nothing to describe,
   // and the empty state stands in for the whole surface.
   const empty=$("#todayNoProgram");
-  if(!hasProgramContent())return renderTodayNoProgram();
+  if(!hasProgramContent()){ $("#todayWeekCard")?.classList.add("hidden");return renderTodayNoProgram()}
   if(empty)empty.classList.add("hidden");
   for(const sel of["#todaySessionLabel","#todaySession","#todayWeekLabel","#todayWeek","#todayUpNextLabel","#todayUpNext","#todayLast"]){
     const el=$(sel);if(el)el.classList.remove("hidden")}
   renderTodayCalibration();
+  renderWeekCard();
   const week=weeklySnapshot();
   const mc=mesocycleWeek(),nm=state.programMeta?.name,progEl=$("#todayProgram");
   if(progEl){if(nm||mc.current!=null||mc.isComplete){progEl.classList.remove("hidden");
@@ -9270,6 +9348,7 @@ function renderExActionsSheet(exId) {
     ? exerciseDisplayName(draftEx.substitution.replacement)
     : draftEx.displayName ? exerciseDisplayName(draftEx)
       : progEx ? exerciseDisplayName(sessionExercise(progEx)) : exId;
+  $("#exActionDiscomfortStatus")?.classList.toggle("hidden",!draftEx.discomfort);
   const nameEl = $("#exActionsName");
   if (nameEl) nameEl.textContent = shownName;
 
@@ -10770,6 +10849,24 @@ async function openEffortMenu(key,opener,pick){
   if(value==="unsure"){await pick(key,"unsure");return}
   if(value!=="a"&&value!=="b"&&value!=="c"||value===stage)return;
   if(await commitEffortStage(value))toast(t("toast.effort_stage",{stage:t(STAGE_LABEL[value])}),{quiet:true})}
+let skipReasonTarget=null;
+const SESSION_SKIP_REASONS=["time","recovery","pain","equipment","schedule","other"];
+function closeSkipReasonSheet(){skipReasonTarget=null;return closeModal($("#skipReasonSheet"))}
+function openSkipReasonSheet(exerciseInstanceId){
+  if(!activeWorkoutDraft?.exercises?.[exerciseInstanceId])return;
+  const target={exerciseInstanceId,draftId:activeWorkoutDraft.draftId};skipReasonTarget=target;
+  const sheet=$("#skipReasonSheet"),scrim=$("#skipReasonScrim"),choices=$("#skipReasonChoices");
+  choices.innerHTML=SESSION_SKIP_REASONS.map(reason=>`<button type="button" class="exactions__act" data-skip-reason="${reason}">${esc(t(`focus.skip_reason.${reason}`))}</button>`).join("");
+  choices.querySelectorAll("[data-skip-reason]").forEach(button=>button.onclick=async()=>{
+    if(skipReasonTarget!==target)return;
+    choices.querySelectorAll("button").forEach(control=>control.disabled=true);
+    const result=await WorkoutSession.dispatch("skipExercise",{exerciseInstanceId,reason:button.dataset.skipReason},{draftId:target.draftId});
+    if(result.status==="applied"){if(workoutActive)renderWorkout();else renderToday();await closeSkipReasonSheet()}
+    else choices.querySelectorAll("button").forEach(control=>control.disabled=false);
+  });
+  openModal(sheet,{initialFocus:sheet,returnFocus:document.activeElement,onEscape:closeSkipReasonSheet,scrim});
+  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim.classList.add("is-open")});
+}
 async function todayRowContext(row,opener=row){
   if(opener===row&&row.contains(document.activeElement))opener=document.activeElement;
   const focusAttribute=opener.matches("[data-row-menu]")?"data-row-menu":opener.matches("[data-exopen]")?"data-exopen":"data-context-row";
@@ -10785,7 +10882,8 @@ async function todayRowContext(row,opener=row){
   const prepared=await WorkoutSession.start(day);
   if(prepared.status!=="ready"){showDraftInitializationRecovery(prepared,{retryMode:"create",label:day});return}
   if(action==="swap"){openSubstitutePicker(ex.id);return}
-  const result=await WorkoutSession.dispatch(action==="restore"?"restoreExercise":"skipExercise",{exerciseInstanceId:ex.id});
+  if(action==="skip"){openSkipReasonSheet(ex.id);return}
+  const result=await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:ex.id});
   if(result.status==="applied"){
     renderToday();
     quietFocus(document.querySelector(`#todayExList [${focusAttribute}="${CSS.escape(ex.id)}"]`));
@@ -13062,12 +13160,12 @@ function compareProgressStrengthSession(ex,currentRows,readerContext){
   const previousPoint=series.points[index-1],forPoint=selected=>rows.filter(row=>row.exerciseId===key&&row.sessionKey===selected.sessionKey&&
     row.strengthComparable!==false&&(row.strengthConvention||"load")===convention);
   return compareProjectedSessionOutcome(forPoint(point),forPoint(previousPoint),convention)}
-function strengthEvidenceRecords(scope="current-block"){
+function strengthEvidenceRecords(scope="current-block",log=state.log){
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;if(!Model)return[];
   const meta={started:state.programMeta?.started||null,
     mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6,
     blockId:snapshotBlockId(state)};
-  const rows=strengthEvidenceRows(),programKeys=new Set(prog.exercises.map(ex=>exerciseLiftKey(ex)||`slot:${ex.id}`));
+  const rows=strengthEvidenceRows(log),programKeys=new Set(prog.exercises.map(ex=>exerciseLiftKey(ex)||`slot:${ex.id}`));
   const keys=new Set([...programKeys,...rows.map(liftKey)]);
   const outcomeByStatus={improved:"improved",flat:"maintained",regressed:"declined"},records=[];
   const hasEffort=row=>row?.rir!=null&&row.rir!==""&&Number.isFinite(Number(row.rir));
@@ -16390,8 +16488,8 @@ function showPickerReasonStep(entry){
       pickerState.reasons.map(reason=>`<button type="button" class="pchip" data-pick-reason="${reason}">${esc(t(SUBSTITUTION_REASON_LABELS[reason]))}</button>`).join("")+
     `</div></div>`+
     `<button type="button" class="text-link pick__skip" id="exPickReasonSkip">${esc(t("picker.reason_skip"))}</button></div>`;
-  list.querySelectorAll("[data-pick-reason]").forEach(button=>button.onclick=()=>{
-    settleSubstitutionEvent(button.dataset.pickReason);closeExercisePicker()});
+  list.querySelectorAll("[data-pick-reason]").forEach(button=>button.onclick=async()=>{
+    button.disabled=true;await settleSubstitutionEvent(button.dataset.pickReason);closeExercisePicker()});
   const skip=$("#exPickReasonSkip");if(skip)skip.onclick=()=>{settleSubstitutionEvent(null);closeExercisePicker()};
   list.querySelector("[data-pick-reason]")?.focus({preventScroll:true})}
 function renderPickerFilters(){
@@ -25497,13 +25595,23 @@ function init(){
     }
   };
 
+  const discomfort=$("#exActionDiscomfortBtn");
+  if(discomfort)discomfort.onclick=async()=>{
+    const id=activeExActionsId,draftId=activeWorkoutDraft?.draftId;
+    if(!id||!draftId)return;
+    const result=await WorkoutSession.dispatch("markDiscomfort",{exerciseInstanceId:id,kind:"discomfort"},{draftId});
+    if(result.status==="applied"){renderWorkout();renderExActionsSheet(id)}
+  };
+  $("#skipReasonClose").onclick=closeSkipReasonSheet;
+  $("#skipReasonScrim").onclick=closeSkipReasonSheet;
+
   const exActionSkip=$("#exActionSkipBtn");
   if(exActionSkip)exActionSkip.onclick=async()=>{
     const id=activeExActionsId;
     if(id&&activeWorkoutDraft){
       const isSkipped=activeWorkoutDraft.exercises[id]?.status==="skipped";
-      const type=isSkipped?"restoreExercise":"skipExercise";
-      const res=await WorkoutSession.dispatch(type,{exerciseInstanceId:id});
+      if(!isSkipped){await closeExActionsSheet();openSkipReasonSheet(id);return}
+      const res=await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:id});
       if(res.status==="applied"){
         renderWorkout();
         closeExActionsSheet();

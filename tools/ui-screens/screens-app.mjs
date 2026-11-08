@@ -455,6 +455,17 @@ export function appState(key, lang) {
   // movements (tools/build-seed-program-fixture.mjs), so program/share-*
   // no longer needs to fabricate varied libraryIds onto a flat-row fixture.
   const state = catalogState();
+  if (["progress/review-active","today/week-card"].includes(key)) {
+    const [up,stall,skipped]=state.program.filter(exercise=>exercise.day==="Day 1");
+    const dates=[isoDaysAgo(19),isoDaysAgo(12),isoDaysAgo(5)];
+    state.log=dates.flatMap((date,index)=>[up,stall].map((exercise,i)=>metricLogRow(state.programMeta,exercise,{
+      session:`weekly-${index}`,date,day:index===2?"Day 2":"Day 1",set:1,load:i===0?50+index*2.5:40,reps:10,rir:2,created:`${date}T12:00:00.000Z`
+    })));
+    const date=isoDaysAgo(4);
+    state.log.push(metricLogRow(state.programMeta,up,{session:"weekly-second",date,day:"Day 1",set:1,load:55,reps:11,rir:2,created:`${date}T12:00:00.000Z`}));
+    state.sessionEvents={"weekly-2":{v:1,skips:[{exerciseId:skipped.id,slotId:skipped.id,reason:"time"}],pain:[{exerciseId:stall.id,slotId:stall.id,kind:"discomfort",swapped:false}]}};
+  }
+
   if (key === "progress/overview-baseline" || key === "progress/review-insufficient") {
     const seen = new Set();
     state.log = state.log.filter((row) => {
@@ -2718,6 +2729,19 @@ export const APP_SCENARIOS = {
   "progress/review": (page) => progressSegment(page, "review"),
   "progress/review-guide": async (page) => { await progressSegment(page, "review"); await replayGuide(page, "block-transition"); },
   "progress/review-active": (page) => progressSegment(page, "review"),
+  "today/week-card": async page => {await page.locator("#todayWeekCard:not(.hidden)").waitFor();},
+  "workout/discomfort-mark": async page => {
+    await focusMode(page);await page.locator("#woOverflowBtn").click();
+    await page.locator('[data-workout-action="exercise"]').click();
+    await page.locator("#exActionDiscomfortBtn").click();
+    await page.locator("#exActionDiscomfortStatus:not(.hidden)").waitFor();
+  },
+  "workout/skip-reason": async page => {
+    await focusMode(page);await page.locator("#woOverflowBtn").click();
+    await page.locator('[data-workout-action="exercise"]').click();
+    await page.locator("#exActionSkipBtn").click();
+    await page.locator("#skipReasonSheet:not([hidden])").waitFor();
+  },
   "progress/review-complete": openCompletedReview,
   "progress/review-insufficient": openCompletedReview,
   "progress/schedule-diagnosis": openScheduleDiagnosis,
