@@ -70,7 +70,7 @@ async function main() {
     await gesturePage.locator("#startWorkout").click();
     await gesturePage.waitForSelector("#workoutShell:not(.hidden)");
     await gesturePage.waitForFunction(() => !document.querySelector(".is-push-over,.is-push-under"));
-    const touch = await gesturePage.context().newCDPSession(page);
+    const touch = await gesturePage.context().newCDPSession(gesturePage);
     const deckBox = await gesturePage.locator("#focusDeck").boundingBox();
     const x = Math.round(deckBox.x + deckBox.width / 2);
     const y = Math.round(deckBox.y + 30);
