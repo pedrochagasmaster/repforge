@@ -20561,7 +20561,7 @@ function openEntryEditor(chip){
   if(!entryState?.result)return;
   if(entryEditor?.chip===chip){closeEntryEditor();return}
   entryResetEditorFields();
-  entryEditor={chip,kind:ENTRY_CHIP_KIND[chip],draftId:entryState.draftId,draft:{...entryState,answers:cloneSnapshot(entryState.answers)},error:null};
+  entryEditor={chip,kind:ENTRY_CHIP_KIND[chip],draftId:entryState.draftId,draft:{...entryState,answers:cloneSnapshot(entryAskedAnswers())},error:null};
   entryReviewError=null;
   renderOnboarding();
   const title=$("#entryEditorTitle"),editor=$("#entryEditor"),scroller=$("#onboarding");
