@@ -66,8 +66,9 @@
   /** Hold a running clock where it stands, or let a held one run again from its remainder. */
   function toggleHold(state, now) {
     if (state.kind === "running") {
-      return result(freeze({ kind: "paused", remainingMs: state.deadlineMs - now, lengthSec: state.lengthSec,
-        exerciseId: state.exerciseId, rang: state.rang }), NO_EFFECTS);
+      const remainingMs = state.deadlineMs - now;
+      return result(freeze({ kind: "paused", remainingMs, lengthSec: state.lengthSec, exerciseId: state.exerciseId, rang: state.rang,
+        heldAt: now, expiresAt: now + remainingMs + OVERTIME_MAX_SEC * 1000 }), NO_EFFECTS);
     }
     if (state.kind === "paused") {
       return result(freeze({ kind: "running", deadlineMs: now + state.remainingMs, lengthSec: state.lengthSec,
@@ -85,8 +86,12 @@
     const length = lengthSec === undefined ? state.lengthSec : lengthSec;
     const nextHeld = held === undefined ? state.kind === "paused" : held;
     const rang = ms > 0 ? false : state.rang;
+    // A held rest keeps the expiry it was first held with: moving its remainder while held does not renew it.
+    const holding = state.kind === "paused" && state.expiresAt !== undefined;
+    const heldAt = holding ? state.heldAt : now;
+    const expires = holding ? state.expiresAt : now + ms + OVERTIME_MAX_SEC * 1000;
     const next = nextHeld
-      ? { kind: "paused", remainingMs: ms, lengthSec: length, exerciseId: state.exerciseId, rang }
+      ? { kind: "paused", remainingMs: ms, lengthSec: length, exerciseId: state.exerciseId, rang, heldAt, expiresAt: expires }
       : { kind: "running", deadlineMs: now + ms, lengthSec: length, exerciseId: state.exerciseId, rang };
     return result(freeze(next), ms > 0 ? [EFFECTS.REARMED] : NO_EFFECTS);
   }
@@ -119,31 +124,75 @@
   }
 
   /** The armed clock as plain data a reload can read back, or null when idle. The deadline or held remainder is all the time it keeps. */
-  function snapshot(state) {
+  function snapshot(state, now) {
     if (state.kind === "idle") return null;
     const { lengthSec, exerciseId, rang } = state;
+    const expires = expiresAt(state, now);
     return state.kind === "paused"
-      ? { kind: "paused", remainingMs: state.remainingMs, lengthSec, exerciseId, rang }
-      : { kind: "running", deadlineMs: state.deadlineMs, lengthSec, exerciseId, rang };
+      ? { kind: "paused", remainingMs: state.remainingMs, lengthSec, exerciseId, rang, heldAt: state.heldAt, expiresAt: expires }
+      : { kind: "running", deadlineMs: state.deadlineMs, lengthSec, exerciseId, rang, expiresAt: expires };
+  }
+
+  /**
+   * The wall time after which a snapshot of this clock is no longer worth restoring: the moment its count-up reaches the
+   * one-hour cap, measured on the clock's own timeline. A running rest runs out from its deadline. A held rest is measured
+   * as if it had kept running from `now`, so holding it does not keep it alive for longer than the cap allows.
+   */
+  function expiresAt(state, now) {
+    if (state.kind === "idle") return null;
+    if (state.kind === "paused") return state.expiresAt ?? now + state.remainingMs + OVERTIME_MAX_SEC * 1000;
+    return state.deadlineMs + OVERTIME_MAX_SEC * 1000;
+  }
+
+  /**
+   * Whether a saved snapshot describes a clock this device could have written: well formed, its expiry agreeing with its
+   * own deadline (a running rest) or with its remainder and the moment it was written (a held one), and its time left
+   * within the rest maximum. Only a snapshot that passes is restored, adopted from another tab, or trusted for the cap.
+   */
+  function snapshotValid(saved, now) {
+    if (saved === null || typeof saved !== "object" || !Number.isFinite(now)) return false;
+    const { kind, lengthSec, rang, expiresAt: expires } = saved;
+    const exerciseId = saved.exerciseId ?? null;
+    if (!(Number.isFinite(lengthSec) && lengthSec >= 0 && lengthSec <= MAX_SEC)) return false;
+    if (!((exerciseId === null || typeof exerciseId === "string") && typeof rang === "boolean" && Number.isFinite(expires))) return false;
+    if (kind === "running") {
+      return Number.isFinite(saved.deadlineMs) && expires === saved.deadlineMs + OVERTIME_MAX_SEC * 1000
+        && saved.deadlineMs - now <= MAX_SEC * 1000;
+    }
+    if (kind === "paused") {
+      // The remainder may be moved while held (a nudge, the dial), so the record is bounded by what a held rest can hold: the
+      // moment of its first hold is not in the future, and its expiry is no further from that hold than a rest plus the cap.
+      const { remainingMs: remaining, heldAt } = saved;
+      return Number.isFinite(remaining) && remaining <= MAX_SEC * 1000 && remaining >= -OVERTIME_MAX_SEC * 1000
+        && Number.isFinite(heldAt) && heldAt <= now
+        && expires > heldAt && expires - heldAt <= (MAX_SEC + OVERTIME_MAX_SEC) * 1000;
+    }
+    return false;
+  }
+
+  /** A valid running snapshot whose count-up has reached the one-hour cap by `now`: its rest ends, and the question may open. */
+  function capReached(saved, now) {
+    return saved?.kind === "running" && snapshotValid(saved, now) && now >= saved.expiresAt;
+  }
+
+  /** The live clock a valid snapshot describes, or null. Malformed, expired and capped snapshots describe no live clock. */
+  function fromSnapshot(saved, now) {
+    if (!snapshotValid(saved, now) || saved.expiresAt <= now) return null;
+    const common = { lengthSec: saved.lengthSec, exerciseId: saved.exerciseId ?? null, rang: saved.rang };
+    return freeze(saved.kind === "paused"
+      ? { kind: "paused", remainingMs: saved.remainingMs, heldAt: saved.heldAt, expiresAt: saved.expiresAt, ...common }
+      : { kind: "running", deadlineMs: saved.deadlineMs, ...common });
   }
 
   /**
    * Put back a clock read from a snapshot after a reload: the same deadline or held remainder, and the same bell. Only an
-   * idle clock takes one, and only a well-formed snapshot; anything else leaves the clock as it is. No effect is named,
-   * because a restored clock is the same rest, not a new one: its bell was settled before the reload, or is still due.
+   * idle clock takes one, and only a live, valid snapshot. No effect is named, because a restored clock is the same rest,
+   * not a new one: its bell was settled before the reload, or is still due.
    */
-  function restore(state, saved) {
-    if (state.kind !== "idle" || saved === null || typeof saved !== "object") return unchanged(state);
-    const { kind, lengthSec, rang } = saved;
-    const exerciseId = saved.exerciseId ?? null;
-    const timed = kind === "paused" ? "remainingMs" : kind === "running" ? "deadlineMs" : null;
-    const valid = timed !== null && Number.isFinite(saved[timed]) && Number.isFinite(lengthSec) && lengthSec >= 0
-      && (exerciseId === null || typeof exerciseId === "string") && typeof rang === "boolean";
-    if (!valid) return unchanged(state);
-    const common = { lengthSec, exerciseId, rang };
-    return result(freeze(kind === "paused"
-      ? { kind, remainingMs: saved.remainingMs, ...common }
-      : { kind, deadlineMs: saved.deadlineMs, ...common }), NO_EFFECTS);
+  function restore(state, saved, now) {
+    if (state.kind !== "idle") return unchanged(state);
+    const clock = fromSnapshot(saved, now);
+    return clock ? result(clock, NO_EFFECTS) : unchanged(state);
   }
 
   return Object.freeze({
@@ -161,6 +210,10 @@
     settle,
     stop,
     snapshot,
+    expiresAt,
+    snapshotValid,
+    capReached,
+    fromSnapshot,
     restore,
   });
 });

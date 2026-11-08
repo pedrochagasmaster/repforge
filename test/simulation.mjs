@@ -3569,7 +3569,8 @@ async function main() {
   );
   await page.click("#rirModeRow");
   await page.click('#nativeContextMenu [data-menu-value="numeric"]');
-  await page.waitForTimeout(80);
+  // Settle the RIR-mode write itself: the next step reads the storage revision, so a fixed wait can lose the race.
+  await page.evaluate(() => window.__repforgeStorage.flush());
 
   beginPhase("Phase: beginner program");
   const logBeforeBeginner = (await getState(page)).log.length;

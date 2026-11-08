@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 251 screens,
-1471 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 252 screens,
+1479 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -222,6 +222,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Workout — why this weight, setup required](screens/workout/why-setup__phone-390-light-en.png) | 8 | A generated asymmetric per-side slot with no known execution mode: Why asks the lifter to specify how they do the movement. |
 | [Session details and map](screens/workout/session__phone-390-light-en.png) | 8 | Session details and map through production controls. |
 | [Early finish confirmation](screens/workout/early-finish__phone-390-light-en.png) | 8 | Early finish confirmation through production controls. |
+| [Early finish after a rest past an hour](screens/workout/rest-overrun-finish__phone-390-light-en.png) | 8 | A logged set, then a rest carried past the one-hour cap by the live count-up: the Early finish question opens with its reason line. |
 | [End without saving](screens/workout/abandon__phone-390-light-en.png) | 8 | End without saving, with a reason chip chosen, through production controls. |
 | [Exercise actions](screens/workout/exercise-actions__phone-390-light-en.png) | 8 | Exercise actions through production controls. |
 | [Warm-up role](screens/workout/warmup-actions__phone-390-light-en.png) | 8 | Warm-up role through production controls. |

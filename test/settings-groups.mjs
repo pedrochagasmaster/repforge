@@ -195,6 +195,8 @@ try {
   await page.locator("#rirModeRow").click();
   await page.locator('#nativeContextMenu [data-menu-value="effort"]').click();
   await page.waitForFunction((dataKey) => JSON.parse(localStorage.getItem(dataKey) || "{}").settings?.rirMode === "effort", DATA_KEY, { timeout: 5000 });
+  await page.waitForFunction(() => document.querySelector("#rirModeDisplay")?.textContent.trim() === "Easy / Hard / Max" &&
+    !document.querySelector("#rirEffortLede")?.hidden, undefined, { timeout: 5000 });
   const chosen = await page.evaluate(() => ({ display: document.querySelector("#rirModeDisplay").textContent.trim(),
     lede: !document.querySelector("#rirEffortLede").hidden, focus: document.activeElement?.id }));
   check(chosen.display === "Easy / Hard / Max" && chosen.lede && chosen.focus === "rirModeRow",
