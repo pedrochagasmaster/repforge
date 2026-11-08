@@ -1084,6 +1084,8 @@ async function saveSessionEdit(sid){
       searchIndex:searchHistoryIndex,
       fingerprint:historySessionFingerprint,
       selection:()=>cloneSnapshot(historySelection),
+      // The delete confirmation changes the page styling but keeps the session route.
+      hasPushedPage:()=>historySelection.mode==="reading"||historySelection.mode==="deleting",
       renderWithSource:renderHistory,
       diagnostics:historyDiagnostics,
       render:renderHistory,

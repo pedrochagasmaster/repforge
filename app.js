@@ -1200,7 +1200,7 @@ function openPushedRoutes(){
   if(body.contains("is-library"))open.push("library");
   if(body.contains("is-preview"))open.push("exercisePreview");
   if(body.contains("is-exercise"))open.push("exercise");
-  if(history?.classList.contains("active")&&history.classList.contains("is-session-page"))open.push("history");
+  if(history?.classList.contains("active")&&HistoryUi.hasPushedPage())open.push("history");
   return open}
 function syncRouteHistory(){
   if(expectedRouteDepth!==null)return;
