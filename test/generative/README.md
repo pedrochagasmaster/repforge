@@ -85,16 +85,17 @@ proposals until a later successful repair.
 Quota faults can skip one matching write before firing. This reaches canonical
 publication and final checkpoint writes: the canonical key is also the prefix
 of the checkpoint key, so failing its first prefix match would only exercise
-the pending checkpoint. Fixed journeys in `test/workout-draft-store-model.mjs`
+the pending checkpoint. Fixed journeys in `test/generative/self-test.mjs`
 prove each injection fires, including both sides of canonical removal, and
 negative controls prove the oracle rejects lost publication, accepted stale
-writers, reboot loss and phantom drafts. That Node contract is registered in
-`test/suites.mjs`; generated search runs in the existing CI generative lane.
+writers, reboot loss and phantom drafts. These contracts run in the existing
+registered generative self-test command; generated search runs in the existing
+CI generative lane.
 
 ```bash
 node test/generative/run.mjs --profile ci --filter "draft store" --seed 612009
 node test/generative/run.mjs --profile deep --filter "draft store" --seed 612009
-node --test test/workout-draft-store-model.mjs
+node --test test/generative/self-test.mjs
 ```
 
 New production counterexamples belong in an issue with their shrunk sequence,

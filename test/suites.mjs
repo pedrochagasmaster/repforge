@@ -46,7 +46,6 @@ export const SUITES = {
     s("test/program-day-names.mjs", [], {"domains": ["program"], "cost": "normal", "tier": "feedback"}),
     s("test/program-day-move-shape.mjs", [], {"domains": ["program"], "cost": "normal", "tier": "feedback"}),
     s("test/program-transition-plan067.mjs", [], {"domains": ["program", "transition"], "cost": "normal", "tier": "feedback"}),
-    s("test/workout-draft-store-model.mjs", [], {"domains": ["workout", "persistence"], "cost": "normal", "tier": "feedback", "nodeArgs": ["--test"]}),
     s("test/durable-outcome-contract.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback"}),
     s("test/install-transfer-client-contract.mjs", [], {"domains": ["install"], "cost": "normal", "tier": "feedback"}),
     s("test/install-transfer-plan067-contract.mjs", [], {"domains": ["install"], "cost": "normal", "tier": "feedback"}),
