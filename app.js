@@ -6970,8 +6970,9 @@ function bindStageTip(tip,shelf,ex,n){
   shelf.querySelector(".shelf__pads")?.addEventListener("pointerdown",away,{once:true});
   tip.querySelectorAll("[data-tipdismiss]").forEach(b=>b.onclick=()=>{dismissStageTip(tip.dataset.to);tip.remove();quietFocus(shelf.querySelector(".saveset"))});
   tip.querySelector("[data-tipaccept]")?.addEventListener("click",async()=>{
-    const to=tip.dataset.to;acceptStageTip(to);tip.remove();
-    if(await commitEffortStage(to))toast(t("toast.effort_stage",{stage:t(STAGE_LABEL[to])}),{quiet:true})})}
+    const to=tip.dataset.to;tip.remove();
+    if(await commitEffortStage(to)){
+      acceptStageTip(to);toast(t("toast.effort_stage",{stage:t(STAGE_LABEL[to])}),{quiet:true})}})}
 /* The stage tip (OD-6): Taurifer suggests the next stage up, never down, once the lifter has settled into this one.
    A→B after 6 workouts in stage A with at least 80% of their working sets given a word by the lifter (not left at the
    offered one); B→C after 6 workouts in stage B with at most 10% "Not sure". A dismissal keeps it quiet for 4 weeks,
@@ -7346,22 +7347,29 @@ function renderRestPresets(){
   else host.querySelectorAll('[role="radio"]').forEach(b=>{b.onclick=()=>{input.value=b.dataset.value;chooseRestPreset(+b.dataset.value)}})}
 /** Store an exercise's rest in the program: every set of the slot that carried the rest shown takes the new one, as
  *  the program editor's rest does. Only the definition changes, so the workout in progress keeps its draft. */
-async function saveExerciseRest(ex,sec){
+async function saveExerciseRest(ex,sec,isCurrent){
   if(!restSlotOf(ex)||exerciseStoredRest(ex)===sec)return false;
   const shown=exerciseStoredRest(ex);
   const proposal=cloneSnapshot(state),slot=restSlotOf(ex,proposal);
   if(!slot)return false;
   for(const cycle of slot.prescriptionsByCycle||[])for(const set of cycle.sets||[])
     if((set.restSeconds??null)===shown)set.restSeconds=sec;
-  const result=await commitProposedState(proposal,storageIO);
+  const result=await commitProposedState(proposal,storageIO,{
+    preflight:()=>isCurrent()?null:{reject:true,result:{superseded:true}}});
   return!!(result?.localOk||result?.idbOk)}
+let restPresetRequest=0;
 /** A preset sets this exercise's rest, and the rest on the clock restarts at it; idle, it is what the next one runs for. */
 async function chooseRestPreset(sec){
-  const s=clampRestSec(sec),ex=restExercise();
+  const s=clampRestSec(sec),ex=restExercise(),request=++restPresetRequest;
+  const isCurrent=()=>request===restPresetRequest;
+  await DurableState.flushStorage();
+  if(!isCurrent())return;
+  const saved=!ex||exerciseStoredRest(ex)===s||await saveExerciseRest(ex,s,isCurrent);
+  if(!isCurrent())return;
+  if(!saved){toast(t("toast.program_save_failed"));renderRestPresets();paintRestSheet();return}
   if(restState().active)startRest(s);
   else{applyRest(RepForgeRestTimer.setLength(restClock,0));syncRest()}
   paintRestSheet();
-  if(ex)await saveExerciseRest(ex,s);
   renderRestPresets();paintRestSheet()}
 /** The next set, for the dial: the set the Focus shelf is on, its load and reps. */
 function restNextLine(){
