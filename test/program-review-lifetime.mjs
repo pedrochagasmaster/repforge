@@ -935,6 +935,10 @@ async function failedEditQueuedUndo(browser) {
   check(!(await reviewActions(page)).some(action => action.action === "undo"),
     "F15: a failed edit's queued Undo does not report undoing an earlier edit");
   await checkReviewScreen(page, baseline, "F15");
+  await page.locator("#entryReview [data-review-undo]").click();
+  await page.waitForFunction(() => !document.querySelector("#entryReview[aria-busy]"));
+  check(JSON.stringify(await reviewed(page)) === JSON.stringify(baseline),
+    "F15: a fresh Undo after failure still reverses the earlier landed edit");
   await run.context.close();
   return run.errors;
 }
