@@ -227,6 +227,60 @@ try {
     await context.close();
   }
 
+  phase("A dock tab chosen while Resume waits: Focus stays closed");
+  {
+    const { context, page, errors } = await freshPage(browser);
+    await shapeSession(page);
+    // Hold the suggestion refresh that Resume awaits, and release it by hand.
+    await page.evaluate(() => {
+      const original = window.refreshSuggestions;
+      let release;
+      const gate = new Promise((resolve) => { release = resolve; });
+      window.__releaseResume = release;
+      window.__resumeHeld = 0;
+      window.__resumeRefreshed = false;
+      window.refreshSuggestions = (...args) => {
+        window.__resumeHeld++;
+        return gate.then(() => original(...args)).then((result) => { window.__resumeRefreshed = true; return result; });
+      };
+    });
+    await page.click("#todayLiveResume");
+    await page.waitForFunction(() => window.__resumeHeld === 1, undefined, { timeout: 5000 });
+    await page.click('nav button[data-view="stats"]');
+    await page.waitForSelector("#stats.active", { timeout: 5000 });
+    await page.evaluate(() => window.__releaseResume());
+    await page.waitForFunction(() => window.__resumeRefreshed === true, undefined, { timeout: 5000 });
+    const after = await page.evaluate(() => ({
+      stats: document.querySelector("#stats")?.classList.contains("active") === true,
+      shellOpen: !document.querySelector("#workoutShell")?.classList.contains("hidden"),
+      focusBody: document.body.classList.contains("is-focus-wo"),
+      workoutBody: document.body.classList.contains("is-workout"),
+    }));
+    assert(after.stats && !after.shellOpen && !after.focusBody && !after.workoutBody,
+      "a held Resume does not reopen Focus over the tab the lifter chose", JSON.stringify(after));
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  phase("Resume tapped twice opens Focus once, on the current exercise");
+  {
+    const { context, page, errors } = await freshPage(browser);
+    const s = await shapeSession(page);
+    await page.evaluate(() => { document.querySelector("#todayLiveResume").click(); document.querySelector("#todayLiveResume").click(); });
+    await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
+    await page.waitForSelector("#workout .exercise.is-current", { timeout: 5000 });
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    const twice = await page.evaluate(() => ({
+      selected: window.__repforgeWorkoutDraft.current().session.selectedExerciseId,
+      focus: document.body.classList.contains("is-focus-wo"),
+      workoutBody: document.body.classList.contains("is-workout"),
+    }));
+    assert(twice.selected === s.selected && twice.focus && twice.workoutBody,
+      "two taps on Resume leave Focus open on the current exercise", JSON.stringify({ twice, selected: s.selected }));
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
   phase("Reduced motion: the dot is still");
   {
     const { context, page, errors } = await freshPage(browser, { reducedMotion: "reduce" });
