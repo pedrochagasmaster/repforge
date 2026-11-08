@@ -21026,6 +21026,7 @@ function mountEntryAdjust(){
   if(!host||!Review||!review)return;
   entryAdjustMount=Review.mountProgramReview(host,{
     view:review.view,
+    candidate:()=>entryAdjust,
     read:()=>({baseline:entryAdjust.baseline.preview.programDefinition,definition:entryState.result.preview.programDefinition,
       edits:entryAdjust.edits,name:entryResultName()||t("untitled_program"),
       answers:entryState.answers,offers:entryCurrentVerifiedOffers(entryState),

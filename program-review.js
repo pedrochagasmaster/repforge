@@ -541,6 +541,9 @@
     let repsOnly = null;
 
     const read = () => adapter.read();
+    // The candidate a queued edit, undo or restore was asked on. A rebuild or a discard replaces it: work asked on the
+    // old one must not publish into the new one (Packet O, N14).
+    const candidateNow = () => adapter.candidate?.() ?? null;
     const trainingIndex = (definition) => Math.max(0, definition.days.findIndex((day) => day.kind === "training"));
     const findSlot = (definition, slotId) => {
       for (const [dayIndex, day] of definition.days.entries()) {
@@ -790,7 +793,10 @@
       });
     }
     function undo() {
+      const pinned = candidateNow();
       return run(async () => {
+        // An undo that waited behind an edit runs only while this review is mounted, as an edit does (N14).
+        if (disposed || candidateNow() !== pinned) return false;
         const state = read();
         if (!state.edits.length) return false;
         const edits = state.edits.slice(0, -1);
