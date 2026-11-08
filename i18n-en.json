@@ -2477,6 +2477,7 @@
   "session.sheet.abandon_confirm": "End and discard",
   "toast.session_abandoned": "Session ended. Nothing was saved.",
   "session.sheet.early_prompt": "Unlogged sets will be omitted from history.",
+  "session.sheet.early_rest_reason": "Your rest ran past an hour. Finished for today?",
   "session.sheet.early_confirm": "Confirm early finish",
   "session.sheet.stale_error": "Session was updated. Review before finishing.",
   "ex.actions.title": "Exercise actions",
