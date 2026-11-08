@@ -691,6 +691,62 @@ async function rangeJourney(page) {
   await closeSheet(page);
 }
 
+/** Holds every durable local write until the test releases it; `calls` counts the writes that arrived. */
+const holdLocalWrites = (page) => page.evaluate(() => {
+  const io = window.RepForgeDurableState.storageIO, write = io.writeLocal;
+  let release;
+  const held = new Promise((resolve) => { release = resolve; });
+  window.__heldWrite = { calls: 0, release };
+  io.writeLocal = async (...args) => { window.__heldWrite.calls++; await held; return write(...args); };
+});
+const renameProgram = async (page, name) => {
+  await page.click(`${EDITOR} [data-role="program-name-edit"]`);
+  await page.fill(`${SHEET}.is-open [data-role="rename-input"]`, name);
+  await page.click(`${SHEET} [data-role="rename-save"]`);
+  await page.waitForSelector(SHEET, { state: "hidden" });
+  await settled(page);
+};
+const editorGone = (page) => page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), undefined, { timeout: 10000 });
+const programName = async (page) => (await durable(page)).programMeta?.name;
+
+/** P074-S1-HELD-APPLY (#658): while an Apply write is in flight, Done, Cancel and Discard are refused; the write completes once and nothing later is closed. */
+async function heldApplyJourney(browser) {
+  console.log("P074-S1-HELD-APPLY");
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  try {
+    await page.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
+    await openEditor(page);
+    await renameProgram(page, "Old discarded Apply");
+    await holdLocalWrites(page);
+    await page.click("#programEditDone");
+    await page.waitForFunction(() => window.__heldWrite.calls > 0, undefined, { timeout: 10000 });
+    check(await page.locator("#programEditDone").isDisabled(), "Done is refused while the Apply write is held");
+    await page.click("#programEditCancel");
+    check(!(await page.locator("#programEditorLeave").isVisible()), "Cancel asks nothing while the Apply write is held");
+    check(await page.locator("#program.sheet.is-open").count() === 1, "the editor stays open while the Apply write is held");
+    await page.evaluate(() => window.__heldWrite.release());
+    await editorGone(page);
+    check((await programName(page)) === "Old discarded Apply", "the Apply the lifter chose saves once", await programName(page));
+    await openEditor(page);
+    await renameProgram(page, "New unsaved editor changes");
+    await page.click("#programEditCancel");
+    await page.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
+    await page.click("#programEditorDiscard");
+    await editorGone(page);
+    check((await programName(page)) === "Old discarded Apply", "Discard of a later session leaves the saved name");
+  } finally {
+    await context.close();
+  }
+}
+
+/** One journey's failure is recorded and the next journey still runs. */
+async function journey(name, run) {
+  try { await run(); } catch (error) { failures.push(`${name}: ${error.message}`); console.error(`  ✗ ${name} stopped: ${error.message}`); }
+}
+
 async function main() {
   console.log("Plan 074 S1: the Program editor in candidate A");
   const browser = await launchChromium();
@@ -710,6 +766,7 @@ async function main() {
     await rangeJourney(page);
     await reducedMotionJourney(browser);
     await restPillJourney(browser);
+    await journey("P074-S1-HELD-APPLY", () => heldApplyJourney(browser));
     check(!errors.length, "no page errors", errors);
   } catch (error) {
     failures.push(String(error?.stack || error));
