@@ -448,6 +448,31 @@ try {
     await context.close();
   }
 
+  phase("A Start whose draft could not be created does not poison the next tap");
+  {
+    const { context, page, errors } = await freshPage(browser);
+    await trackEntries(page);
+    // The first draft create fails once, then the write path is healthy again.
+    await page.evaluate(() => {
+      const original = window.createWorkoutDraft;
+      window.createWorkoutDraft = async (...args) => {
+        window.createWorkoutDraft = original;
+        return { status: "create-error" };
+      };
+    });
+    await page.click("#startWorkout");
+    await page.waitForFunction(() => window.__entries.length === 1, undefined, { timeout: 5000 });
+    await entriesSettled(page);
+    const failed = await readEntryOutcome(page);
+    assert(!failed.focus && failed.results[0] === false, "the first Start reports that it could not open", JSON.stringify(failed));
+    await page.evaluate(() => window.__repforgeEnterWorkout({}));
+    const retried = await readEntryOutcome(page);
+    assert(retried.focus && !retried.recovery && retried.draftDay === seedProgram()[0].day,
+      "the next plain entry opens Focus instead of joining the failed one", JSON.stringify(retried));
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
   phase("Reduced motion: the dot is still");
   {
     const { context, page, errors } = await freshPage(browser, { reducedMotion: "reduce" });
