@@ -3037,13 +3037,7 @@ function runDraftRetry(recovery){
   if(recovery.retryAction)return Promise.resolve(recovery.retryAction()).then(result=>{
     if(result?.status==="applied"){clearDraftUiRecovery();renderWorkout()}
     else showDraftCommandRecovery(result?.status,null,recovery);return result});
-  if(!recovery.attempt){const operation=recovery.retryMode==="create"?WorkoutSession.start(recovery.label,{contextTouched:recovery.contextTouched}):
-      initializeWorkoutDraft({restoreDay:true});return operation.then(result=>{
-    if(result.status==="ready"){hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});clearDraftUiRecovery();
-      if(!workoutActive)setWorkoutActive(true);
-      document.body.classList.add("is-focus-wo");
-      renderTabs();renderWorkout();renderToday();restoreDraftFocus(recovery.focus)}
-    else showDraftInitializationRecovery(result,{retryMode:recovery.retryMode,label:recovery.label,contextTouched:recovery.contextTouched});return result})}
+  if(!recovery.attempt)return enterWorkout({recovery});
   const task=draftWriteTail.then(()=>DraftStore.compareAndSwapV2(recovery.attempt))
     .then(result=>applyDraftRetryResult(result,recovery));
   draftWriteTail=task.then(()=>undefined,()=>undefined);return task}
@@ -8379,7 +8373,7 @@ function cancelWorkoutEntry(){pendingWorkoutEntry=null}
 /* Draft starts run one at a time: two concurrent starts both find no draft and the second loses the create. */
 let workoutStartTail=Promise.resolve();
 function startWorkoutDraft(label,options){
-  const run=workoutStartTail.then(()=>WorkoutSession.start(label,options));
+  const run=workoutStartTail.then(()=>options?.restoreDay?initializeWorkoutDraft({restoreDay:true}):WorkoutSession.start(label,options));
   workoutStartTail=run.then(()=>{},()=>{});
   return run}
 function enterWorkout(opts={}){
@@ -8397,9 +8391,11 @@ async function presentWorkoutEntry(opts,entry){
   if(opts.day&&!await requestWorkoutDay(opts.day))return false;
   if(entry!==pendingWorkoutEntry)return false;
   if(opts.day)focusIndex=0;
-  const prepared=await startWorkoutDraft(day);
+  const recovery=opts.recovery;
+  const prepared=await startWorkoutDraft(recovery?.label??day,recovery?
+    {contextTouched:recovery.contextTouched,restoreDay:recovery.retryMode!=="create"}:undefined);
   if(prepared.status!=="ready"){
-    showDraftInitializationRecovery(prepared,{retryMode:"create",label:day});return false}
+    showDraftInitializationRecovery(prepared,recovery||{retryMode:"create",label:day});return false}
   clearDraftUiRecovery();
   // Recommendations fill the day's untouched pending values before the first paint.
   const firstExercise=exercises(day)[0];
@@ -8410,7 +8406,9 @@ async function presentWorkoutEntry(opts,entry){
   hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});
   // Focus is the sole workout route.
   document.body.classList.add("is-focus-wo");
-  renderTabs();renderWorkout();renderToday();window.scrollTo({top:0});return true}
+  renderTabs();renderWorkout();renderToday();window.scrollTo({top:0});
+  if(recovery)restoreDraftFocus(recovery.focus);
+  return true}
 async function leaveWorkout(){
   if(document.activeElement&&document.activeElement.tagName==="INPUT"){
     document.activeElement.blur();
