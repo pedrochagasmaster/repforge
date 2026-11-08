@@ -452,6 +452,61 @@ async function undoAfterLeaving(browser) {
   return run.errors;
 }
 
+async function editAcrossRemount(browser) {
+  const run = await fresh(browser);
+  const { page } = run;
+  await answerGenerate(page);
+  await page.waitForSelector("#entryReview [data-review-slot]", { timeout: 15000 });
+  const baseline = await reviewed(page);
+  const [dayA] = trainingDays(baseline);
+  await holdSetupWrites(page);
+  await openSlot(page, dayA.slots[1].id);
+  await page.locator("#reviewSheet [data-review-remove]").click();
+  await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 5000 });
+  // Back then forward rebuilds the recommendation while the removal is still committing.
+  await page.locator("#onbBack").click();
+  await page.waitForFunction(() => window.__repforgeEntryState()?.step !== "result", undefined, { timeout: 10000 });
+  await page.locator("#onbNext").click();
+  await page.waitForFunction(() => window.__repforgeEntryState()?.step === "result", undefined, { timeout: 15000 });
+  await page.locator("#entryReview [data-review-slot]").first().waitFor({ timeout: 10000 });
+  await releaseSetupWrites(page);
+  await settleSetupWrites(page);
+  check(JSON.stringify(await reviewed(page)) === JSON.stringify(baseline),
+    "review: the rebuilt recommendation is what the screen keeps after the held removal lands");
+  check(await page.locator(".review-toast").count() === 0,
+    "review: a removal that landed after the review remounted shows no toast");
+  check(!await reviewLog(page), "review: nor writes its edit log into the rebuilt candidate");
+  await run.context.close();
+  return run.errors;
+}
+
+async function discardAfterQueuedUndo(browser) {
+  const run = await fresh(browser);
+  const { page } = run;
+  await answerGenerate(page);
+  await page.waitForSelector("#entryReview [data-review-slot]", { timeout: 15000 });
+  const session = { page, baseline: await reviewed(page), log: [] };
+  const [dayA] = trainingDays(session.baseline);
+  const [kept, removed] = dayA.slots;
+  await openSlot(page, kept.id);
+  await step(page, session, { kind: "sets", slotId: kept.id, count: kept.prescriptionsByCycle[0].sets.length + 1 },
+    () => page.locator('#reviewSheet [data-review-sets="1"]').click(), "a set added before the held removal");
+  await closeSheet(page);
+  await holdSetupWrites(page);
+  await openSlot(page, removed.id);
+  await page.locator("#reviewSheet [data-review-remove]").click();
+  await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 5000 });
+  await page.locator("#entryReview [data-review-undo]").click();
+  await page.locator("#onbCancel").click();
+  await page.locator("#entryCancelDiscard").click({ timeout: 5000 });
+  await releaseSetupWrites(page);
+  await page.waitForFunction(() => !document.querySelector("#onboarding.active"), undefined, { timeout: 10000 });
+  await settleSetupWrites(page);
+  check(!await reviewLog(page), "review: a discarded draft leaves no edit log behind, even when an undo was queued");
+  await run.context.close();
+  return run.errors;
+}
+
 async function minimumBudget(browser) {
   const run = await fresh(browser);
   await answerGenerate(run.page, { days: 2, minutes: 20 });
@@ -1726,6 +1781,8 @@ async function main() {
     allErrors.push(await reviewAndAdjust(browser));
     allErrors.push(await reviewGuards(browser));
     allErrors.push(await undoAfterLeaving(browser));
+    allErrors.push(await editAcrossRemount(browser));
+    allErrors.push(await discardAfterQueuedUndo(browser));
     allErrors.push(await answerEditorMatchesRecommend(browser));
     allErrors.push(await minimumBudget(browser));
     allErrors.push(await onboardingB(browser));
