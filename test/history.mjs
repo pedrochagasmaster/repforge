@@ -762,14 +762,20 @@ async function runSessionPageBackChecks(browser) {
         list: !!document.querySelector("#sessions .session__open"),
       }));
       assert(after.session === false && after.list, "browser Back closes the session page to the list", JSON.stringify(after));
+      await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
       await page.locator("#sessions .session__open").first().click();
       await page.waitForFunction(() => history.state?.tauriferRoute?.view === "history"
         && !document.body.classList.contains("is-pushing"));
+      await page.locator("[data-del]").scrollIntoViewIfNeeded();
+      const sessionScroll = await page.evaluate(() => scrollY);
+      assert(sessionScroll > 0, "200% text scrolls the session before Delete", `scrollY=${sessionScroll}`);
       await page.locator("[data-del]").click();
       await page.waitForSelector("[data-history-delete-confirm]");
       // Let the nested History route observer settle before the browser traversal.
       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       await page.waitForFunction(() => !document.body.classList.contains("is-pushing"));
+      const confirmationScroll = await page.evaluate(() => scrollY);
+      assert(confirmationScroll === 0, "delete confirmation opens at the top at 200% text", `scrollY=${confirmationScroll}`);
       const deleteEntry = await page.evaluate(() => history.state?.tauriferRoute?.view ?? null);
       assert(deleteEntry === "history", "delete confirmation retains the session's Back entry", `state=${deleteEntry}`);
       await page.goBack({ waitUntil: "domcontentloaded" });
