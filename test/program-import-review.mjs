@@ -115,6 +115,40 @@ async function importFile(page, name, body) {
   await settle(page, 500);
 }
 
+/** A program file that names its own program, for the picks a test makes. */
+function programFile(name, programName) {
+  return {
+    name, mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify({
+      version: 3, meta: { name: programName },
+      exercises: [{ day: "Day A", order: 1, name: "Barbell bench press", sets: 3, min: 6, max: 8 }],
+    })),
+  };
+}
+
+/**
+ * Holds the read of every file called `name` until the test calls
+ * `window.__releaseFileRead()`. The read itself is the real one, so the file
+ * still arrives; only its arrival is in the test's hands.
+ */
+async function holdFileReads(page, name) {
+  await page.evaluate((name) => {
+    const original = File.prototype.text;
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    window.__releaseFileRead = () => release();
+    window.__heldFileReads = { started: 0, finished: 0 };
+    File.prototype.text = async function text() {
+      if (this.name !== name) return original.call(this);
+      window.__heldFileReads.started++;
+      await gate;
+      const result = await original.call(this);
+      window.__heldFileReads.finished++;
+      return result;
+    };
+  }, name);
+}
+
 /** Settles every open row on its first proposal. One decision at a time: each
  *  click re-renders the list, so a captured NodeList goes stale after the first. */
 async function acceptFirstProposals(page) {
@@ -1067,6 +1101,86 @@ async function main() {
     choice = await dialogState();
     assert(!choice.open && choice.reviewing,
       "a program export goes straight to the review, as it always did", JSON.stringify(choice));
+    // ---- a slow program-file read answers only for the latest pick ----
+    // A pick's read that finishes late must not replace the review the lifter
+    // has since opened for a later pick; continuing activates the later file.
+    await reset(page);
+    await page.evaluate(() => window.startOnboarding("first-run"));
+    await holdFileReads(page, "first.json");
+    await page.setInputFiles("#importProgram", programFile("first.json", "Older slow file"));
+    await page.waitForFunction(() => window.__heldFileReads.started === 1, undefined, { timeout: 10000 });
+    await page.setInputFiles("#importProgram", programFile("latest.json", "Latest file"));
+    await page.waitForFunction(() => window.__repforgeImportDraft()?.fileName === "latest.json",
+      undefined, { timeout: 10000 });
+    await page.evaluate(() => window.__releaseFileRead());
+    await page.waitForFunction(() => window.__heldFileReads.finished === 1, undefined, { timeout: 10000 });
+    const pickedLatest = await page.evaluate(() => window.__repforgeImportDraft()?.fileName ?? null);
+    assert(pickedLatest === "latest.json",
+      "an earlier file's read that finishes late leaves the latest pick's review in place",
+      JSON.stringify({ pickedLatest }));
+    await reviewAndActivateImport(page);
+    const latestActive = await getState(page);
+    assert(latestActive.programMeta?.name === "Latest file",
+      "continuing from the review activates the latest pick, not the earlier file",
+      JSON.stringify(latestActive.programMeta));
+
+    // ---- a program-file read pending across a door change does not open its review ----
+    // Switching to pasted text (and back) is a change of door, so the read that
+    // was started on the file door must not open a review over that flow.
+    for (const returnToFile of [false, true]) {
+      await reset(page);
+      await page.evaluate(() => window.startOnboarding("first-run"));
+      await page.evaluate(() => {
+        if (document.querySelector("[data-entry-hub=\"import\"]")) document.querySelector("[data-entry-hub=\"import\"]").click();
+      });
+      if (await page.locator("#onbNext").isVisible().catch(() => false) &&
+          !(await page.locator("#entryFreeformSwitch").isVisible().catch(() => false))) {
+        await page.click("#onbNext");
+      }
+      await page.waitForSelector("#entryFreeformSwitch", { timeout: 10000 });
+      await holdFileReads(page, "abandoned.json");
+      await page.setInputFiles("#importProgram", programFile("abandoned.json", "Abandoned file"));
+      await page.waitForFunction(() => window.__heldFileReads.started === 1, undefined, { timeout: 10000 });
+      await page.click("#entryFreeformSwitch");
+      if (returnToFile) await page.click("#entryFreeformFile");
+      else await page.fill("#entryFreeformIn", "My newly pasted coach program");
+      await page.evaluate(() => window.__releaseFileRead());
+      await page.waitForFunction(() => window.__heldFileReads.finished === 1, undefined, { timeout: 10000 });
+      const door = await page.evaluate(() => ({
+        review: window.__repforgeImportDraft()?.fileName ?? null,
+        pastedText: document.querySelector("#entryFreeformIn")?.value ?? null,
+      }));
+      assert(door.review === null,
+        returnToFile
+          ? "a file read pending across a switch away and back to the file door opens no review"
+          : "a file read pending across a switch to pasted text opens no review over that flow",
+        JSON.stringify(door));
+      if (!returnToFile) {
+        assert(door.pastedText === "My newly pasted coach program",
+          "the pasted text survives an earlier file read finishing", JSON.stringify(door));
+      }
+    }
+
+    // ---- a canceled program-file read does not reopen the import review ----
+    await reset(page);
+    await page.evaluate(() => window.startOnboarding("first-run"));
+    await holdFileReads(page, "slow.json");
+    await page.setInputFiles("#importProgram", programFile("slow.json", "Canceled slow file"));
+    await page.waitForFunction(() => window.__heldFileReads.started === 1, undefined, { timeout: 10000 });
+    await page.click("#onbCancel");
+    await page.locator("#entryCancelDiscard").click();
+    await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"),
+      undefined, { timeout: 10000 });
+    await page.evaluate(() => window.__releaseFileRead());
+    await page.waitForFunction(() => window.__heldFileReads.finished === 1, undefined, { timeout: 10000 });
+    const revived = await page.evaluate(() => ({
+      review: window.__repforgeImportDraft()?.fileName ?? null,
+      importing: document.body.classList.contains("is-import"),
+    }));
+    assert(revived.review === null && !revived.importing,
+      "a program file read that finishes after Cancel does not reopen the import review", JSON.stringify(revived));
+    assert((await getState(page)).programMeta?.name !== "Canceled slow file",
+      "a canceled program file is not written to the program");
   } finally {
     await context.close();
     await browser.close();

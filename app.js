@@ -17758,13 +17758,21 @@ function parseBackupFile(text){
   const parsed=boundedImportJson(text,{maxBytes:BACKUP_MAX_BYTES,maxNodes:BACKUP_MAX_NODES});
   return isImportableState(parsed)?parsed:null}
 
+/* The latest program-file pick, and the flow it was picked in. A read from slow
+   storage can still be arriving after another pick, a Cancel or a change of
+   flow; only the read that is still current may open a review. */
+let programFileRead=null;
 /* Reading a file no longer changes anything: it opens the review screen. The
    old path linked names and wrote the program behind one confirm(), which meant
    a wrong file had already replaced the program by the time you saw it. */
 async function importProgramFile(e,io){const f=e.target.files?.[0];if(!f)return;
+  const read={flow:entryState};
+  programFileRead=read;
+  const current=()=>programFileRead===read&&entryState===read.flow;
   try{
     if(Number.isFinite(f.size)&&f.size>BACKUP_MAX_BYTES)throw Error();
     const text=await f.text();
+    if(!current()){e.target.value="";return}
     const parsedBackup=parseBackupFile(text),legacyBackup=isLegacyBackup(parsedBackup);
     const backup=legacyBackup?null:parsedBackup;
     const source=parseProgramSource(text,f.name);
@@ -17789,7 +17797,7 @@ async function importProgramFile(e,io){const f=e.target.files?.[0];if(!f)return;
       openImportChoice(Object.assign(importChoiceContext(backup,e.target,io),
         {bodyKey:"dialog.import.body_program",programOnly:draft?()=>openImportReview(draft):null}));
     else openImportReview(draft);
-  }catch{toast(t("toast.program_import_invalid"))}
+  }catch{if(current())toast(t("toast.program_import_invalid"))}
   e.target.value=""}
 let pendingImportIo=null;
 // @ci-domain entry
@@ -17926,6 +17934,9 @@ function setImportSourceMode(mode,{render=true}={}){
     if(!confirm(t("entry.freeform.confirm_discard")))return;
   }
   entryImportMode=mode==="freeform"?"freeform":"file";
+  // A file read picked on the other door belongs to that door's flow: a switch,
+  // even one back before it lands, must not let it open a review here.
+  if(entryImportMode!==prev)programFileRead=null;
   setUiPref("importSourceMode",entryImportMode);
   // Clearing only the stored copy left the text in memory, so a lifter who
   // confirmed the discard got it back by switching doors again.
@@ -18742,6 +18753,8 @@ function disarmEntryHistory(){
 function closeOnboarding(){
   // The pasted program and the reply belong to the flow that asked for them.
   resetFreeformImport();
+  // So does a program file still being read: a Cancel must not reopen its review.
+  programFileRead=null;
   cancelEntryGeneration();
   entryPickerInput=null;entryDialog=null;entryReplaceResolve?.(false);entryReplaceResolve=null;closeEntryDialog();
   onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;setupEditorOpen=false;
@@ -19989,11 +20002,15 @@ function cancelEntryGeneration(){
 function syncEntryBusy(){
   const status=entryGeneration.status;
   const resultBusy=status===ENTRY_GENERATION_STATUS.GENERATING_RESULT&&entryGeneration.from===entryState;
-  const answerBusy=status===ENTRY_GENERATION_STATUS.REBUILDING_ANSWER&&entryGeneration.committed===entryState;
+  const answerBusy=entryAnswerRebuildPending();
   const next=$("#onbNext");
   if(next){if(resultBusy)next.setAttribute("aria-busy","true");else next.removeAttribute("aria-busy")}
   const review=$("#entryCandidateReview");
-  if(review){if(answerBusy)review.setAttribute("aria-busy","true");else review.removeAttribute("aria-busy")}}
+  if(review){if(answerBusy)review.setAttribute("aria-busy","true");else review.removeAttribute("aria-busy")}
+  // Activation waits for the rebuild it would commit; a control that is blocked
+  // for its own reason stays disabled when the rebuild settles.
+  const activate=$("#entryActivate");
+  if(activate)activate.disabled=answerBusy||activate.dataset.entryBlocked==="true"}
 /* B's building moment (Plan 072): a four-line checklist and a thin bar while
    the program generates. The step moves to the result when the checklist has
    finished, or the lifter skipped it, and the program has landed; if the
@@ -20555,7 +20572,7 @@ function openEntryEditor(chip){
   if(!entryState?.result)return;
   if(entryEditor?.chip===chip){closeEntryEditor();return}
   entryResetEditorFields();
-  entryEditor={chip,kind:ENTRY_CHIP_KIND[chip],draftId:entryState.draftId,draft:{...entryState,answers:cloneSnapshot(entryState.answers)},error:null};
+  entryEditor={chip,kind:ENTRY_CHIP_KIND[chip],draftId:entryState.draftId,draft:{...entryState,answers:cloneSnapshot(entryAskedAnswers())},error:null};
   entryReviewError=null;
   renderOnboarding();
   const title=$("#entryEditorTitle"),editor=$("#entryEditor"),scroller=$("#onboarding");
@@ -20650,10 +20667,19 @@ async function undoEntryMovementConfirmation(exerciseId){
   const outcome=await guardEntryRebuild(()=>applyEntryAnswerEdit({movementConfirmations:confirmations},{lead:t("entry.change.lead.answer")}));
   return outcome===false?{ok:false,cancelled:true}:outcome?.ok?outcome:
     {...outcome,message:entryFailureText(outcome?.failure)||t("entry.issue.compile")}}
+/* A rebuild still building on the committed state: the program it will settle
+   is not the one the lifter has been shown, so it is not yet the program. */
+function entryAnswerRebuildPending(){
+  const current=entryGeneration;
+  return current.status===ENTRY_GENERATION_STATUS.REBUILDING_ANSWER&&current.committed===entryState}
+/* The answers the lifter has asked for: a rebuild still building on the
+   committed state owns the newest ones, so a change is judged against those. */
+function entryAskedAnswers(){
+  return entryAnswerRebuildPending()?entryGeneration.next.answers:entryState.answers}
 async function applyEntryEditor(){
   const editor=entryEditor;
   if(!editor||entryPendingAvoid)return;
-  const base=entryState.answers,draft=editor.draft.answers,patch={};
+  const base=entryAskedAnswers(),draft=editor.draft.answers,patch={};
   for(const key of Object.keys(draft))if(entryCanon(base[key])!==entryCanon(draft[key]))patch[key]=draft[key];
   if(!Object.keys(patch).length){closeEntryEditor();return}
   const outcome=await applyEntryAnswerEdit(patch,{lead:t("entry.change.lead.answer")});
@@ -21341,7 +21367,8 @@ function renderEntryPinned({progressionIssue=false,configurationIssue=false,revi
   const reason=progressionIssue?t("entry.preview.activation_blocked"):reviewIssue?t(reviewIssue):t("entry.preview.metrics_required");
   return `<div class="entry__pinned">`+
     (blocked?`<p id="entryActivationStatus" class="entry__reason" role="alert" tabindex="-1">${esc(reason)}</p>`:"")+
-    `<button type="button" id="entryActivate" class="btn btn--cta${blocked?" btn--noarrow":""}"${blocked?` disabled aria-describedby="entryActivationStatus"`:""}>${esc(activateLabel)}</button></div>`}
+    `<button type="button" id="entryActivate" class="btn btn--cta${blocked?" btn--noarrow":""}" data-entry-blocked="${blocked?"true":"false"}"`+
+    `${blocked||entryAnswerRebuildPending()?" disabled":""}${blocked?` aria-describedby="entryActivationStatus"`:""}>${esc(activateLabel)}</button></div>`}
 function renderEntryNotice(){
   if(!entryUiNotice)return"";
   // Cancel is a dialog and Resume is a card on the hub; neither is a notice.
@@ -22368,7 +22395,7 @@ function onEntryPopState(){
   entryBack()}
 // @ci-domain global
 async function activateEntryPreview({destination="log",manualBuild=false,skipReplaceConfirm=false,io=storageIO}={}){
-  if(!ProgramEntry||!entryState)return;
+  if(!ProgramEntry||!entryState||entryAnswerRebuildPending())return;
   await setupDraftWriteQueue;
   const activationDraftHandle=entryDraftHandle;
   // A previous attempt may already have committed the exact draft and then
