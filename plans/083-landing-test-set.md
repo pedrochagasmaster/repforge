@@ -2,8 +2,8 @@
 
 Status: **approved in substance by owner decision D-14 (2026-11-08)**: the landing changes additively now,
 small: a proof chapter, one band, two FAQ entries, with the headline, structure and actions kept, and no
-coach comparison in the copy (D-1). One item needs the owner's word before PR 1 (§3.5, the telemetry
-range). Copy is reviewed in each PR (#315). Docs only.
+coach comparison in the copy (D-1). The one open item, the telemetry range (§3.5), was **approved by the
+owner on 2026-11-08**: `landing_action.chapter` widens to 1–5. Copy is reviewed in each PR (#315). Docs only.
 Source: `docs/coach-layer-strategy-2026-11-08.md` §4 and §10 (D-14); the brand guide's "First-run modes".
 Step 7 of the note's §11; any point after Plan 078 PR 1, so the proof can show the words stage.
 Written against `main` 0fbae7b; check for drift before executing.
@@ -101,19 +101,17 @@ capture's `details:nth-of-type(3)` (`screens-onboarding.mjs:930–934`) still op
 
 `landing.faq.rir.q` stays; under Plan 078 the glossary entry it shows defines RIR as reps left.
 
-### 3.5 Telemetry: the one owner call before PR 1
+### 3.5 Telemetry: `landing_action.chapter` widens to 1–5. Owner-approved 2026-11-08.
 
-A tap on the fifth chapter cannot be reported under `chapter: integerIn(1, 4)`. Two options:
-
-- **Widen to 1–5.** A schema change to a Plan 071 closed property; it needs the owner's explicit approval.
-  Touch points: `telemetry.js:160`; `test/telemetry-unit.mjs:95–105` (accepted and sent lists);
-  `test/fixtures/telemetry.mjs:94` (chapter 5 moves from invalid to valid); `test/telemetry-runtime.mjs:396`;
-  `plans/071-telemetry-coverage.md:131, 310`; `docs/measurement/posthog-dashboard-recipes.md:120–121`.
-- **Report nothing for chapter five.** The click handler (`app.js:24023–25`) skips the capture for index 4.
-  The funnel loses one chapter's taps and the schema is untouched.
-
-The plan recommends widening, because the chapter is the page's new argument and its taps are the first
-signal of whether calibration is what people respond to (the note's §6). It is the owner's call.
+A tap on the fifth chapter cannot be reported under `chapter: integerIn(1, 4)`. The owner approved widening
+the closed property to 1–5, a Plan 071 schema change, because the chapter is the page's new argument and its
+taps are the first signal of whether calibration is what people respond to (the note's §6). The property
+stays a closed integer range; no new event and no new property. Touch points, all in PR 1:
+`telemetry.js:160`; `test/telemetry-unit.mjs:95–105` (accepted and sent lists become 1–5);
+`test/fixtures/telemetry.mjs:94` (chapter 5 moves from invalid to valid, chapter 6 takes its place);
+`test/telemetry-runtime.mjs:396`; `plans/071-telemetry-coverage.md:131, 310`;
+`docs/measurement/posthog-dashboard-recipes.md:120–121`. The alternative (reporting nothing for chapter five)
+is recorded as rejected.
 
 ### 3.6 Documents corrected in the same change
 
@@ -129,7 +127,7 @@ with it. The strategy note's §4 is updated to point here.
 | `app.js` | `LANDING_CASES` (lift, `did`), `LANDING_DEMO` timing, the chapter-five scene in `landingDemoHtml` and `paintLandingDemo`, `LANDING_DEMO_KEYS`, the band's fills in `renderLandingWays`, the FAQ fills, the stills; the chapter capture per §3.5 |
 | `styles.css` | Five chapter columns; the check band |
 | `i18n-en.json`, `i18n-pt.json` | `landing.anim.sub` lift name; `landing.anim.ch5.*`; `landing.check.*`; `landing.faq.test.*`, `landing.faq.failure.*`; regenerate `i18n.js` |
-| `telemetry.js` and its tests, Plan 071, the dashboard recipes | Only under §3.5's first option |
+| `telemetry.js` and its tests, Plan 071, the dashboard recipes | `chapter` range 1–5 (§3.5) |
 | `docs/brand-guide.md` | "First-run modes" corrected |
 | `docs/ui-screens/manifest.json`, `README.md` | §6 |
 | `sw.js` | Revisions from live `main` at merge |
@@ -162,5 +160,5 @@ No draft, row, contract or engine change. No Worker redeploy.
 
 | PR | Content |
 | --- | --- |
-| 1 | The lift swap and the fifth chapter, with the telemetry decision applied; frames |
+| 1 | The lift swap and the fifth chapter, the `chapter` range 1–5 with its tests and docs; frames |
 | 2 | The check band and the two FAQ entries; the brand guide correction; frames |

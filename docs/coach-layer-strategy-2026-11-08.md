@@ -342,6 +342,7 @@ is decided from alpha evidence; agents treat it as undecided.
 | D-13 | Where and when is the entitlement-lifecycle decision recorded? | **A new ADR before any funnel work.** |
 | D-14 | Does the landing wait for the alpha, or change additively now? | **Additive now, small**, with the coach comparison kept out of the copy (D-1). |
 | D-15 | Do reps left and RIR merge into one numeric stage? | **Yes**: chips 0 · 1 · 2 · 3 · 4 · 5+, with 5+ stored as 5; RIR becomes a glossary word. |
+| D-16 | May `landing_action.chapter` widen from 1–4 to 1–5 for the test-set proof chapter (Plan 083 §3.5, a Plan 071 closed-enum change)? | **Yes** (2026-11-08). The property stays a closed integer range; no new event or property. |
 
 ## 11. Sequencing
 
