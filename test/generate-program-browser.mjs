@@ -836,6 +836,25 @@ async function revisionF13(browser) {
   return run.errors;
 }
 
+async function revisionF11(browser) {
+  const run = await queuedReviewSetup(browser), { page, b } = run;
+  await page.locator("#entryReview [data-review-undo]").click();
+  await page.evaluate(() => { window.__heldReviewWorker.hold = true; });
+  await page.click("#onbBack");
+  const n = await page.evaluate(() => window.__heldReviewWorker.requests.length);
+  await page.click("#onbNext");
+  await page.waitForFunction(n => window.__heldReviewWorker.requests.length > n, n);
+  await releaseSetupWrites(page);
+  await settleQueuedReviewWrites(page);
+  check(!slotsOf(await reviewed(page)).some(slot => slot.id === b.id), "F11: queued Undo is dropped once result generation starts");
+  await page.evaluate(() => { window.__heldReviewWorker.hold = false; window.__heldReviewWorker.releaseAll(); });
+  const landed = await page.waitForFunction(() => window.__repforgeEntryState()?.step === "result", undefined,
+    { timeout: 6000 }).then(() => true, () => false);
+  check(landed, "F11: result generation lands after the held write drains");
+  await run.context.close();
+  return run.errors;
+}
+
 async function discardAfterQueuedUndo(browser) {
   const run = await fresh(browser);
   const { page } = run;
@@ -1980,6 +1999,8 @@ async function main() {
       allErrors.push(await revisionF10(browser));
     } else if (process.env.N14_ONLY === "F13") {
       allErrors.push(await revisionF13(browser));
+    } else if (process.env.N14_ONLY === "F11") {
+      allErrors.push(await revisionF11(browser));
     } else if (process.env.N14_ONLY === "F5") {
       allErrors.push(await undoAfterLeaving(browser));
     } else if (process.env.N14_ONLY === "F4") {
@@ -2166,6 +2187,7 @@ async function main() {
     allErrors.push(await revisionF9(browser));
     allErrors.push(await revisionF10(browser));
     allErrors.push(await revisionF13(browser));
+    allErrors.push(await revisionF11(browser));
     allErrors.push(await discardAfterQueuedUndo(browser));
     allErrors.push(await answerEditorMatchesRecommend(browser));
     allErrors.push(await minimumBudget(browser));
