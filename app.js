@@ -1791,7 +1791,7 @@ function resetDraftSessionPresentation(){
 }
 /* Ending a session by any route (discard, replace, clear) ends its rest clock with it: a
    running rest belongs to the session it was started in. */
-function resetDraftSessionState(){resetWorkoutSessionIdentity();WorkoutSession.resetAfterDraftRemoval();resetDraftSessionPresentation();stopRest()}
+function resetDraftSessionState(){resetWorkoutSessionIdentity();WorkoutSession.resetAfterDraftRemoval();resetDraftSessionPresentation();endWorkoutRest()}
 async function clearDraft(){
   if(draftUiRecovery?.attempt||draftUiRecovery?.status==="refresh-failed"){
     renderDraftRecovery();focusDraftRecovery();return false}
@@ -2489,7 +2489,7 @@ let activeRecoveryRecord=null,activeRecoveryRecordBlockId=null;
 // cap read from the deadline). This file reads the wall clock, keeps the one interval the clock asks for, and carries out
 // the effects each transition names.
 let restClock=RepForgeRestTimer.createRestClock(0),restIntervalId=null;
-// The armed rest survives a reload of this tab, for the workout it started in (see saveRestRecord and restoreRest).
+// The armed rest is kept on the device (see saveRestRecord). restDraftId is the workout it started in.
 const REST_RECORD_KEY="repforge_rest_v1";
 let restDraftId=null;
 // A tap on a shelf field brings the field pads back for the rest of this rest;
@@ -2893,7 +2893,7 @@ async function initializeWorkoutDraft({restoreDay=false}={}){
     activeWorkoutDraft=checked.draft;activeWorkoutDraftRaw=read.raw;
     if(restoreDay&&days().includes(activeWorkoutDraft.program.dayLabel))day=activeWorkoutDraft.program.dayLabel;
     return{status:"ready",draft:activeWorkoutDraft}}
-  if(parsed.kind==="absent"){activeWorkoutDraft=null;activeWorkoutDraftRaw=null;abandonVoiceOp();return{status:"absent"}}
+  if(parsed.kind==="absent"){activeWorkoutDraft=null;activeWorkoutDraftRaw=null;abandonVoiceOp();removeRestRecord();if(restClock.kind!=="idle")stopRest();return{status:"absent"}}
   storeDraftRecovery(read.raw,parsed.code||parsed.kind);return{status:parsed.kind,error:parsed,raw:read.raw}}
 async function createWorkoutDraft(label=day,{contextTouched:selectionContextTouched}={}){
   const existing=await initializeWorkoutDraft();if(existing.status==="ready")return existing;
@@ -5415,6 +5415,7 @@ async function installTransferWriteDraft(logical,durableRevision){
     if(parsed?.kind!=="valid")return{ok:false,code:"draft-untrusted"};
     const removed=await DraftStore.removeV2({expectedDraftId:parsed.draft.draftId,
       expectedRevision:parsed.draft.revision,operationId:`install-import-remove-${uid()}`});
+    if(removed.status==="applied")endWorkoutRest();
     return{ok:removed.status==="applied"||removed.status==="missing",status:removed.status,
       code:removed.status==="applied"?null:"draft-remove-failed"}}
   const next=cloneSnapshot(logical),operationId=`install-import-${uid()}`;
@@ -5426,6 +5427,8 @@ async function installTransferWriteDraft(logical,durableRevision){
   const written=await DraftStore.compareAndSwapV2({expectedRaw:current.raw,nextRaw,operationId});
   if(written.status==="applied"){
     activeWorkoutDraft=written.draft;activeWorkoutDraftRaw=written.raw;workoutDraftRecovery=null;
+    // The draft is replaced, so any rest that belonged to the one before ends with it.
+    endWorkoutRest();
     return{ok:true,status:written.status,raw:written.raw}}
   return{ok:false,status:written.status,code:"draft-write-failed"}}
 function installTransferWriteCandidate(logical){
@@ -7101,9 +7104,14 @@ function playRestFlick(){
   const c=restContour;if(!c?.svg.isConnected)return;
   restFlickCount++;
   window.RepForgeMotion?.flickRestLight?.(c.lit,c.halves,c.length)}
+/* Ending the rest removes its device record. */
 function stopRest(){applyRest(RepForgeRestTimer.stop());
+  removeRestRecord();
   paintRest();
   updateRestChrome()}
+/* The workout, its draft or the state they belong to has ended or been replaced on this device: every rest record goes,
+   whichever tab wrote it, because there is one draft per device. */
+function endWorkoutRest(){stopRest();removeRestRecord()}
 /** Past the bell the clock keeps running as a "+m:ss" count-up, so a glance
  *  says how long the set has been waiting. It stops climbing after an hour —
  *  by then the number has stopped meaning anything. */
@@ -7122,38 +7130,105 @@ function ringRest(){
   if(!window.RepForgeNotify||!RepForgeNotify.enabledFor(state.settings,"timer"))return;
   if(document.visibilityState==="visible")navigator.vibrate?.([200,100,200]);
   else RepForgeNotify.fireOS({title:t("notify.title"),body:t("notify.rest.body"),tag:"repforge-rest",url:"./"})}
-/** Keep a transition's new state, carry out its effects, then run the one interval the clock asks for. */
-function applyRest(result){
+/** Keep a transition's new state, carry out its effects, then run the one interval the clock asks for. A clock that this
+    transition takes to the one-hour cap ends here, whatever carried it there. The finish question is offered only when the
+    count-up itself reached the cap (`timed`, a tick or a return to the page): a hand nudge, a resume or a dial turn ends the
+    rest and offers nothing. */
+function applyRest(result,{timed=false}={}){
   const before=restClock;
-  restClock=result.state;
+  let next=result.state,effects=result.effects,offerCap=false;
   // A rest belongs to the workout it started in, so its record names that draft for as long as the rest runs.
-  if(before.kind==="idle"&&restClock.kind!=="idle")restDraftId=activeWorkoutDraft?.draftId??null;
-  if(restClock!==before&&(before.kind!=="idle"||restClock.kind!=="idle"))saveRestRecord();
-  for(const effect of result.effects){
+  if(before.kind==="idle"&&next.kind!=="idle")restDraftId=activeWorkoutDraft?.draftId??null;
+  if(next.kind!=="idle"&&RepForgeRestTimer.view(next,Date.now()).phase==="capped"){
+    next=RepForgeRestTimer.stop().state;effects=[RepForgeRestTimer.EFFECTS.CLEARED];offerCap=timed}
+  restClock=next;
+  if(next!==before&&(before.kind!=="idle"||next.kind!=="idle"))saveRestRecord();
+  for(const effect of effects){
     if(effect===RepForgeRestTimer.EFFECTS.BELL)ringRest();
     else if(effect===RepForgeRestTimer.EFFECTS.REARMED){restFlickArmed=true;clearRestNotices()}
     else if(effect===RepForgeRestTimer.EFFECTS.CLEARED)clearRestNotices()}
-  restReconcileTicker()}
-/* Tab-scoped, like the entry review's undo log: a reload of this tab finds the rest again, and nothing else keeps it. It is
-   never in the state, a backup, the install transfer or telemetry. Stopping the rest clears it. */
+  restReconcileTicker();
+  if(offerCap)offerRestOverrunFinish()}
+/* The armed rest is kept on the device (localStorage), so a phone that kills the app brings it back when the app is opened
+   again. The record is {draftId, rest}: the workout the rest belongs to, and the rest-timer snapshot. There is one record per
+   device and the last writer wins. It is read only when a clock is restored: a live tab never reads another tab's record and
+   is never changed by it, so two tabs on one rest each keep their own clock. It is never in the state, a backup, the install
+   transfer, a setup link or telemetry. A record is written on each change of an armed clock and removed when the rest stops. */
+/* restUnsaved: the last write was refused. The rest keeps running, and the write is tried again on the next tick or return
+   to the page, until storage takes it. */
+let restUnsaved=false;
+function readRestRecord(){
+  try{const raw=localStorage.getItem(REST_RECORD_KEY);
+    return{ok:true,raw,record:raw===null?null:JSON.parse(raw)}}
+  catch{return{ok:false,raw:null,record:null}}}
+/* A removal that storage refuses leaves the record it meant to remove. This tab keeps a note of it, tab-scoped so a reload
+   still has it: the draft, and the record's exact text when it could be read. A readable record that the note matches is the
+   rest this tab ended, so it is never restored, and its removal is retried on tick, on return to the page and before a
+   restore. A save or a clear in this tab drops the note. */
+const REST_ENDED_KEY="repforge_rest_ended_v1";
+let restRemovalPending=false;
+function endedRestNote(){try{return JSON.parse(sessionStorage.getItem(REST_ENDED_KEY)||"null")}catch{return null}}
+function forgetEndedRest(){restRemovalPending=false;try{sessionStorage.removeItem(REST_ENDED_KEY)}catch{}}
+function endedHere(stored){
+  const note=endedRestNote();
+  if(!note||!stored.ok||stored.raw===null)return false;
+  return note.raw!==null?note.raw===stored.raw:stored.record?.draftId===note.draftId}
+function removeRestRecord(){
+  const stored=readRestRecord();
+  try{localStorage.removeItem(REST_RECORD_KEY);forgetEndedRest()}
+  catch{
+    if(stored.ok&&stored.raw===null)return;
+    restRemovalPending=true;
+    try{sessionStorage.setItem(REST_ENDED_KEY,JSON.stringify({draftId:stored.record?.draftId??restDraftId??null,raw:stored.raw}))}catch{}}}
 function saveRestRecord(){
-  const rest=RepForgeRestTimer.snapshot(restClock);
-  if(!rest)return forgetRestRecord();
+  const rest=RepForgeRestTimer.snapshot(restClock,Date.now());
+  if(!rest){restUnsaved=false;removeRestRecord();return}
   if(!restDraftId)return;
-  try{sessionStorage.setItem(REST_RECORD_KEY,JSON.stringify({draftId:restDraftId,rest}))}catch{}}
-function forgetRestRecord(){try{sessionStorage.removeItem(REST_RECORD_KEY)}catch{}}
-/* After a reload, the tab's record comes back only for the draft it was written for; any other draft, or none, forgets it.
-   The restored clock is settled against the wall time at once: a deadline passed while the page was gone has no ticker to
-   ring it (a capped clock stops ticking), so its bell is consumed here, once. A rung bell or a held clock is left as it is. */
+  try{localStorage.setItem(REST_RECORD_KEY,JSON.stringify({draftId:restDraftId,rest}));restUnsaved=false;forgetEndedRest()}
+  catch{restUnsaved=true}}
+/* A refused write or a refused removal is tried again on the next tick or return to the page. Nothing is written or removed
+   once storage has taken it, and a record this tab did not end is never removed here. */
+function retryRestRecord(){
+  if(restRemovalPending||endedRestNote()){
+    const stored=readRestRecord();
+    if(stored.ok){
+      if(stored.raw===null)forgetEndedRest();
+      else if(endedHere(stored))removeRestRecord();
+      else forgetEndedRest()}}
+  if(restUnsaved&&restClock.kind!=="idle")saveRestRecord()}
+/* After a reload, the device's record comes back only for the draft it was written for, only while its clock is valid, and
+   only while it has not reached the cap. A running rest that reached the cap while the app was away ends here and may offer
+   the finish question. A bell that is due is settled at once: a deadline passed while the app was gone has no ticker to
+   ring it. A rung bell or a held clock is left as it is. */
 function restoreRest(draftId){
-  let saved=null;
-  try{saved=JSON.parse(sessionStorage.getItem(REST_RECORD_KEY)||"null")}catch{}
-  if(!draftId||saved?.draftId!==draftId){forgetRestRecord();return}
-  const restored=RepForgeRestTimer.restore(restClock,saved.rest);
-  const settled=RepForgeRestTimer.settle(restored.state,Date.now());
+  // The tab-scoped record of the build before this one is dropped: its one rest timer is lost on upgrade, by choice.
+  try{sessionStorage.removeItem(REST_RECORD_KEY)}catch{}
+  const stored=readRestRecord(),record=stored.ok?stored.record:null,now=Date.now();
+  // A rest this tab ended whose removal was refused is never restored; its removal is owed, and is tried again here.
+  if(endedHere(stored)){removeRestRecord();return}
+  if(!draftId||record?.draftId!==draftId||!RepForgeRestTimer.snapshotValid(record.rest,now)){removeRestRecord();return}
+  if(RepForgeRestTimer.capReached(record.rest,now)){removeRestRecord();offerRestOverrunFinish();return}
+  const restored=RepForgeRestTimer.restore(restClock,record.rest,now);
+  if(restored.state.kind==="idle"){removeRestRecord();return}
+  restDraftId=draftId;
+  const settled=RepForgeRestTimer.settle(restored.state,now);
   applyRest({state:settled.state,effects:[...restored.effects,...settled.effects]});
-  if(restClock.kind==="idle")forgetRestRecord();
-  else syncRest()}
+  syncRest()}
+/* The question a rest over the cap may open. It can apply only when the draft is open, the lifter is on the logging route,
+   at least one set is logged, nothing else is open and no recovery panel is showing. It never saves: it waits for its
+   confirm tap. The reason line is shown for this one opening (restOverrunReasonPending), never for the lifter's own. */
+let restOverrunReasonPending=false;
+function restOverrunFinishOfferable(){
+  const draft=activeWorkoutDraft;
+  if(!draft||!workoutActive||currentViewId()!=="log"||activeModal||draftUiRecovery||workoutDraftRecovery)return false;
+  if(WorkoutSession.earlyFinishDraft())return false;
+  return Object.values(draft.exercises||{}).some(exercise=>Object.values(exercise?.sets||{})
+    .some(set=>set.role!=="warmup"&&set.completion!=="pending"))}
+function offerRestOverrunFinish(){
+  if(!restOverrunFinishOfferable())return;
+  restOverrunReasonPending=true;
+  openSessionSheet();
+  $("#sessionEarlyFinish")?.click()}
 function clearRestNotices(){
   const ra=$("#restAnnounce");if(ra)ra.textContent="";
   if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest")}
@@ -7164,7 +7239,8 @@ function restReconcileTicker(){
   else if(!want&&restIntervalId){clearInterval(restIntervalId);restIntervalId=null}}
 /** An interval tick, or a catch-up on return to the page: settle the bell if its deadline has passed, then repaint. */
 function tickRest(){
-  applyRest(RepForgeRestTimer.settle(restClock,Date.now()));
+  applyRest(RepForgeRestTimer.settle(restClock,Date.now()),{timed:true});
+  retryRestRecord();
   paintRest()}
 /** Repaint every rest surface from the clock as it stands, without waiting for
  *  the next tick — a held clock has no tick, and a nudged one should read the
@@ -7474,6 +7550,7 @@ function onAppVisible(){
   // clock now. The tick (re)starts from the state the settle leaves, if the count-up still needs one.
   const v=restState();
   if(v.active&&!v.held&&v.leftMs<=0)tickRest();
+  else retryRestRecord();
   reconcileNotifyPermission();
   paintNotifyControls();
   updateSessionBanner();
@@ -9017,6 +9094,7 @@ function renderSessionSheet(){
   WorkoutSession.cancelEarlyFinish();
   const earlyPrompt = $("#sessionEarlyPrompt");
   if (earlyPrompt) earlyPrompt.classList.add("hidden");
+  $("#sessionEarlyReason")?.classList.add("hidden");
   const earlyBtn = $("#sessionEarlyFinish");
   if (earlyBtn) earlyBtn.classList.remove("hidden");
   const earlyMsg = $("#sessionEarlyMsg");
@@ -11527,7 +11605,7 @@ async function saveWorkoutV2(operation){
         retryKind:"workout-save",retryAction:stale?null:()=>retryWorkoutSave(operation),discard:false};
       renderDraftRecovery();focusDraftRecovery()}
     return result}
-  resetDraftSessionPresentation();resetSessionContextFields();stopRest();
+  resetDraftSessionPresentation();resetSessionContextFields();endWorkoutRest();
   const {rows,prevLog,session,date,day:savedDay,startedAt,draftId}=completed;
   if(typeof window.__repforgeDraftAfterSaveCommit==="function")
     await window.__repforgeDraftAfterSaveCommit({session,draftId});
@@ -25286,10 +25364,12 @@ function init(){
 
   const earlyBtn=$("#sessionEarlyFinish");if(earlyBtn)earlyBtn.onclick=async()=>{
     await WorkoutSession.flush();
+    const restReason=restOverrunReasonPending;restOverrunReasonPending=false;
     if(!activeWorkoutDraft)return;
     if(!WorkoutSession.captureEarlyFinish(activeWorkoutDraft)){
       await focusSaveRecovery();return}
     renderEarlyFinishPreview();
+    $("#sessionEarlyReason")?.classList.toggle("hidden",!restReason);
     const earlyMsg=$("#sessionEarlyMsg");
     if(earlyMsg){earlyMsg.classList.remove("is-error");earlyMsg.textContent=t("session.sheet.early_prompt")}
     const earlyPrompt=$("#sessionEarlyPrompt");if(earlyPrompt)earlyPrompt.classList.remove("hidden");
@@ -25303,6 +25383,7 @@ function init(){
 
   const earlyCancel=$("#sessionEarlyCancel");if(earlyCancel)earlyCancel.onclick=()=>{
     WorkoutSession.cancelEarlyFinish();
+    $("#sessionEarlyReason")?.classList.add("hidden");
     const earlyPrompt=$("#sessionEarlyPrompt");if(earlyPrompt)earlyPrompt.classList.add("hidden");
     const earlyBtn=$("#sessionEarlyFinish");if(earlyBtn)earlyBtn.classList.remove("hidden");
     $("#sessionAbandon")?.classList.remove("hidden");

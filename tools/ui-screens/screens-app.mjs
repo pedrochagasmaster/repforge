@@ -293,7 +293,7 @@ const D_FIXTURE_STATES = new Set([
   "workout/logged-sets", // #517: the logged sets shown in place, the rest running
   "workout/logged-sets-folded", // #517: a banner shortens the window and the oldest logged set folds
   "workout/deload-week", // Plan 072 S4: the deload cue in Focus
-  "workout/session", "workout/early-finish", "workout/exercise-note", "workout/warmup-actions", // R3d
+  "workout/session", "workout/early-finish", "workout/rest-overrun-finish", "workout/exercise-note", "workout/warmup-actions", // R3d
   "workout/exercise-note-line", // the exercise note on the card (owner, 2026-11-05)
   "workout/max-set-prompt", "workout/max-set-guess", "workout/max-set-active", "workout/max-set-result", // Plan 077 PR 3
   "workout/effort-stage-a", "workout/effort-stage-b", "workout/effort-menu", "workout/stage-tip", // Plan 077 PR 2
@@ -2161,6 +2161,22 @@ export const APP_SCENARIOS = {
   "workout/session": async page => { await focusMode(page); await page.click("#sessionSheetBtn"); await resetSheetScroll(page, ".session-sheet__body"); },
   // #522: the confirmation opens at the end of the scroll, so the frame shows the scroll pinned to its end.
   "workout/early-finish": async page => { await focusMode(page); await logCurrentSet(page); await page.click("#sessionSheetBtn"); await page.click("#sessionEarlyFinish"); await pinSheetScrollToEnd(page, ".session-sheet__body"); },
+  // The live count-up carried past the one-hour cap ends the rest and offers the question with its reason line (owner, 2026-11-07).
+  "workout/rest-overrun-finish": async page => {
+    await focusMode(page); await logCurrentSet(page);
+    // The catalog clock is pinned, so the count-up is carried to the cap the way the app carries it: the rest runs down to one
+    // second short of the cap, the clock moves on one second, and the production tick finds the cap. The offer is for the
+    // count-up reaching the cap, so the rest is never set past it directly.
+    await page.evaluate(() => {
+      startRest(120);
+      window.__repforgeRest.setLeft(-3599 * 1000);
+      const pinned = Date.now();
+      Date.now = () => pinned + 1000;
+      tickRest();
+    });
+    await page.waitForSelector("#sessionEarlyReason:not(.hidden)", { timeout: 8000 });
+    await pinSheetScrollToEnd(page, ".session-sheet__body");
+  },
   "workout/abandon": async page => {
     await focusMode(page);
     await logCurrentSet(page);
@@ -2343,11 +2359,40 @@ export const APP_SCENARIOS = {
     await page.evaluate((draftKey) => localStorage.setItem(draftKey, '{"schemaVersion":2,"truncated":'), LOG_DRAFT);
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForFunction(() => window.__repforgeWorkoutDraft?.recovery()?.kind === "invalid");
+    // Capture only the settled layout: web fonts loaded, the document height unchanged across two frames, and no running
+    // animation. The app's scroll clamps to the document height at the moment it runs, so a later height change would move
+    // the panel; waiting for the height to settle first keeps the scroll position the same on every run.
+    await page.evaluate(() => document.fonts.ready);
+    await page.evaluate(() => new Promise((resolve) => {
+      let last = -1;
+      let stableFrames = 0;
+      const step = () => {
+        const height = document.documentElement.scrollHeight;
+        stableFrames = height === last ? stableFrames + 1 : 0;
+        last = height;
+        if (stableFrames >= 2) resolve();
+        else requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }));
+    await page.evaluate(() => Promise.all(document.getAnimations().filter((animation) => animation.effect?.getTiming?.().iterations !== Infinity)
+      .map((animation) => animation.finished.catch(() => {}))));
+    // The app's own move to the panel (focusDraftRecovery): scroll it to the top, clamped by the document's height, and
+    // focus it without scrolling again. The target is the same clamp, read before the scroll runs.
+    const target = await page.evaluate(() => {
+      const root = document.querySelector("#draftRecovery");
+      const top = root.getBoundingClientRect().top + window.scrollY;
+      const max = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+      const expected = Math.min(top, max);
+      root.scrollIntoView({ block: "start" });
+      root.focus({ preventScroll: true });
+      return expected;
+    });
+    await page.waitForFunction((y) => Math.abs(window.scrollY - y) < 1, target);
     await page.waitForFunction(() => {
       const box = document.querySelector("#draftRecovery")?.getBoundingClientRect();
       return box && box.top >= 0 && box.bottom <= innerHeight;
     });
-    await sleep(page, 400);
   },
   // The rest timer redesign: the pinned clock moved to 1:30 of 2:00, read from the tab over the shelf, whose ring and
   // the shelf's top edge show the quarter gone.

@@ -487,13 +487,17 @@ async function historyStackInterleavings(browser) {
     await page.waitForFunction(() => document.body.classList.contains("is-library"), undefined, { timeout: 5000 });
     await page.locator('#library [data-lib-preview]').first().click();
     await page.waitForFunction(() => document.body.classList.contains("is-preview"), undefined, { timeout: 5000 });
+    // Back closes the page on popstate, which runs after goBack resolves, and the close starts a push motion. Read the
+    // destination once that has settled (the motion ended, the page is closed), not after a fixed wait. The
+    // assertions below are unchanged; a destination that never settles fails them.
     await page.goBack();
-    // Wait for the state Back must reach, not a fixed delay: the popstate handling can outlast any delay on a loaded runner.
-    await page.waitForFunction(() => document.body.classList.contains("is-library") && !document.body.classList.contains("is-preview"), undefined, { timeout: 5000 }).catch(() => {});
+    await page.waitForFunction(() => document.body.classList.contains("is-library") && !document.body.classList.contains("is-preview")
+      && !document.body.classList.contains("is-pushing"), undefined, { timeout: 5000 }).catch(() => {});
     const isLibraryAfterFirstBack = await page.evaluate(() => document.body.classList.contains("is-library") && !document.body.classList.contains("is-preview"));
     check(isLibraryAfterFirstBack === true, "browser Back from preview returns to library", { isLibraryAfterFirstBack });
     await page.goBack();
-    await page.waitForFunction(() => !document.body.classList.contains("is-library") && !document.body.classList.contains("is-preview"), undefined, { timeout: 5000 }).catch(() => {});
+    await page.waitForFunction(() => !document.body.classList.contains("is-library") && !document.body.classList.contains("is-preview")
+      && !document.body.classList.contains("is-pushing"), undefined, { timeout: 5000 }).catch(() => {});
     const isBaseAfterSecondBack = await page.evaluate(() => !document.body.classList.contains("is-library") && !document.body.classList.contains("is-preview"));
     check(isBaseAfterSecondBack === true, "browser Back from library returns to page beneath", { isBaseAfterSecondBack });
 
