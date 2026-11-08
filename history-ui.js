@@ -588,11 +588,12 @@ async function historyBeginDelete(sid){
     desiredFingerprint:null,workingCopy:null,removedRowIndices:[],dirty:false,validation:null,
     operation:"delete",operationId:uid()});
   renderHistory();historyFocus($("[data-history-delete-status]"));return true}
-/** A deleted session takes its recorded duration with it (#515). */
+/** Session-owned facts and duration leave with the deleted session. */
 function withoutSessionTiming(snapshot,sid){
-  if(!snapshot.sessionTiming||!Object.prototype.hasOwnProperty.call(snapshot.sessionTiming,String(sid)))return;
-  const{[String(sid)]:_removed,...rest}=snapshot.sessionTiming;
-  if(Object.keys(rest).length)snapshot.sessionTiming=rest;else delete snapshot.sessionTiming}
+  for(const key of ["sessionTiming","sessionEvents"]){
+    if(!snapshot[key]||!Object.prototype.hasOwnProperty.call(snapshot[key],String(sid)))continue;
+    const{[String(sid)]:_removed,...rest}=snapshot[key];
+    if(Object.keys(rest).length)snapshot[key]=rest;else delete snapshot[key]}}
 async function deleteSession(sid,{originalFingerprint=null,operationId=null}={}){
   const original=typeof originalFingerprint==="string"?originalFingerprint:"";
   const ownOperation=operationId||historySelection.operationId;

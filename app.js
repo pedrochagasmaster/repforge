@@ -545,6 +545,7 @@ function isValidStateShape(s){
     // relabeling or dropping unknown historical muscle identity.
     if(!isPlainStateObject(s)||!Array.isArray(s.program)||!s.program.every(isSafeProgressionFields)||
       !Array.isArray(s.log)||!s.log.every(isSafeLogRow))return false;
+    if(Object.prototype.hasOwnProperty.call(s,"sessionEvents")&&!WorkoutDraft.validateSessionEvents(s.sessionEvents))return false;
     if(Object.prototype.hasOwnProperty.call(s,"programMeta")&&!isSafeProgressionMeta(s.programMeta,s.customExercises||[]))return false;
     if(Object.prototype.hasOwnProperty.call(s,"recoveryTransitions")&&!isValidRecoveryTransitions(s.recoveryTransitions))return false;
     if(Object.prototype.hasOwnProperty.call(s,STORAGE_DRAFT_TXN)&&!pendingDraftTransaction(s))return false;
@@ -3785,6 +3786,11 @@ function normalizeSessionTiming(value,log){
     const record=sessionTimingRecord(entry.startedAt,entry.completedAt);
     if(record&&record.durationSeconds===entry.durationSeconds)out[sid]=record}
   return Object.keys(out).length?out:null}
+function normalizeSessionEvents(value,log){
+  if(!WorkoutDraft.validateSessionEvents(value))return null;
+  const sessions=new Set((log||[]).map(row=>String(row?.session??"")));
+  const entries=Object.entries(value).filter(([sid])=>sessions.has(sid));
+  return entries.length?cloneSnapshot(Object.fromEntries(entries)):null}
 function normalizeLoaded(s,options={}){
   if(s==null)return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program:[],log:[],programHistory:[],customExercises:[],[STORAGE_REV]:0};
   if(!isValidStateShape(s))throw new TypeError("Invalid Taurifer state");
@@ -3813,6 +3819,9 @@ function normalizeLoaded(s,options={}){
     const normalized=window.RepForgeProgramEntry?.normalizeProfile?.(s.profile);
     out.profile=normalized?.ok&&Object.keys(normalized.value).length
       ?normalized.value:cloneSnapshot(s.profile)}
+  if(Object.prototype.hasOwnProperty.call(s,"sessionEvents")){
+    const events=normalizeSessionEvents(s.sessionEvents,out.log);
+    if(events)out.sessionEvents=events}
   if(Object.prototype.hasOwnProperty.call(s,"sessionTiming")){
     const timing=normalizeSessionTiming(s.sessionTiming,out.log);
     if(timing)out.sessionTiming=timing}
@@ -3845,6 +3854,8 @@ async function mergeImportedLog(incoming,io=storageIO){
   if(!added)return{revision:readRevision(state),localOk:true,idbOk:true,added:0};
   const proposal=cloneSnapshot(state);
   proposal.log=proposal.log.concat(cloneSnapshot(add));
+  const addedEvents=normalizeSessionEvents(incoming.sessionEvents,add);
+  if(addedEvents)proposal.sessionEvents={...(proposal.sessionEvents||{}),...addedEvents};
   const addedTiming=normalizeSessionTiming(incoming.sessionTiming,add);
   if(addedTiming)proposal.sessionTiming={...(proposal.sessionTiming||{}),...addedTiming};
   migrateLogSnapshot(proposal);
@@ -5639,7 +5650,7 @@ async function runInstallTransferPreBootRequest(){
   }catch(error){return{ok:false,code:error?.message||"preboot-import-failed"}}}
 async function deleteTrainingLog(io=storageIO,{discardDraftRaw=readDraftRaw()}={}){
   const proposal=cloneSnapshot(state);
-  proposal.log=[];delete proposal.sessionTiming;
+  proposal.log=[];delete proposal.sessionTiming;delete proposal.sessionEvents;
   const effect=destructiveDraftClearEffect(discardDraftRaw);
   const result=await commitProposedState(proposal,io,{effect});
   if(result.localOk||result.idbOk){
@@ -11431,9 +11442,10 @@ async function finish(operation){
       move("editing");return{result:{localOk:false,idbOk:false,validation:true,issues:finishing.issues||[]}}}
     const issues=WorkoutDraft.validateForSave(finishing);
     if(issues.length){move("editing");return{result:{localOk:false,idbOk:false,validation:true,issues}}}
-    const rows=WorkoutDraft.toHistoryRows(finishing,operation.finishedAt);
-    if(WorkoutDraft.isDomainError(rows)){
-      move("editing");return{result:{localOk:false,idbOk:false,validation:true,issues:rows.issues}}}
+    const projection=WorkoutDraft.toHistoryRows(finishing,operation.finishedAt,{includeSessionEvents:true});
+    if(WorkoutDraft.isDomainError(projection)){
+      move("editing");return{result:{localOk:false,idbOk:false,validation:true,issues:projection.issues}}}
+    const {rows,sessionEvents}=projection;
     const session=capturedDraft.draftId,date=capturedDraft.program.scheduleDate,
       savedDay=capturedDraft.program.dayLabel,startedAt=Date.parse(capturedDraft.session.startedAt)||0,
       prevLog=state.log.slice(),savedDraft=capturedDraft;
@@ -11444,7 +11456,7 @@ async function finish(operation){
     const expectedBlockId=Object.prototype.hasOwnProperty.call(savedDraft.program||{},"blockId")
       ?savedDraft.program.blockId:null;
     prepared=operation.prepared={
-      draft:savedDraft,rawDraft:capturedRaw,effect,session,rows,timing,
+      draft:savedDraft,rawDraft:capturedRaw,effect,session,rows,timing,sessionEvents,
       expectedProgramId:savedDraft.program.programId,expectedBlockId,
       completed:{rows,prevLog,session,date,day:savedDay,startedAt,draftId:savedDraft.draftId}}}
   move("committing",{operation});
@@ -11454,6 +11466,7 @@ async function finish(operation){
   const proposal=cloneSnapshot(state);
   if(!(proposal.log||[]).some(row=>row.session===prepared.session))
     proposal.log=(proposal.log||[]).concat(cloneSnapshot(prepared.rows));
+  proposal.sessionEvents={...(proposal.sessionEvents||{}),[prepared.session]:cloneSnapshot(prepared.sessionEvents)};
   if(prepared.timing)proposal.sessionTiming={...(proposal.sessionTiming||{}),[prepared.session]:prepared.timing};
   const result=await commitProposedState(proposal,operation.io,
     {effect:prepared.effect,reconcileSessionIds:[prepared.session],expectedProgramId:prepared.expectedProgramId,
