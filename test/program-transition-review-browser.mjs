@@ -332,6 +332,69 @@ async function checkRetainedRetryWhileFaulted(browser, errors) {
   await context.close();
 }
 
+// A transfer freeze refuses settlement before reading a durable head. It is
+// no evidence that the already-applied reduction was rolled back.
+async function checkFrozenRetainedRetry(browser, errors) {
+  const { context, page } = await reachVolumePreview(browser, errors);
+  await spyTransitionTelemetry(page);
+  const proposal = await page.evaluate(() => window.__repforgeProgressReview.flow().proposal);
+  const countSets = (definition) => slots(definition).reduce((sum, slot) =>
+    sum + slot.prescriptionsByCycle[0].sets.length, 0);
+  check(countSets((await state(page)).programMeta.programDefinition) === 91 &&
+    countSets(proposal.successor.programDefinition) === 69,
+  "the frozen-retry fixture reduces 91 sets to 69");
+  await failIdbWrites(page);
+  await page.locator("[data-preview-confirm]").click();
+  await page.locator("#reviewPanel .review__error").waitFor({ state: "visible", timeout: 15000 });
+  const partial = await replicas(page);
+  check(partial.local.programHistory.length === 1 && partial.idb.programHistory.length === 0 &&
+    JSON.stringify(partial.local.programMeta.programDefinition) === JSON.stringify(proposal.successor.programDefinition),
+  "before the freeze the reduction applied locally and remains unsettled");
+  await page.evaluate(() => {
+    window.__clearReviewIdbFailure();
+    localStorage.setItem("repforge_install_transfer_freeze_v1", JSON.stringify({
+      version: 1, owner: "review-other-tab", createdAt: new Date().toISOString(),
+    }));
+  });
+  await tryAgainSettles(page);
+  const frozen = await page.evaluate(() => ({
+    flow: window.__repforgeProgressReview.flow(),
+    copy: document.querySelector("#reviewPanel .review__error")?.textContent,
+    events: window.__reviewTransitionEvents.length,
+  }));
+  check(frozen.flow?.code === "install-transfer-frozen" && frozen.flow.applied === true &&
+    frozen.flow.proposal?.proposalHash === proposal.proposalHash && frozen.events === 0,
+  "a frozen settlement retry retains the applied fact and original proposal", {
+    code: frozen.flow?.code, applied: frozen.flow?.applied,
+    proposalHash: frozen.flow?.proposal?.proposalHash, events: frozen.events,
+  });
+  check(frozen.copy === EN["toast.program_save_failed"],
+    "a frozen retry never claims nothing was modified", frozen.copy);
+  check(JSON.stringify(await replicas(page)) === JSON.stringify(partial),
+    "the frozen retry leaves both whole durable replicas unchanged");
+  await page.evaluate(() => localStorage.removeItem("repforge_install_transfer_freeze_v1"));
+  const final = await tryAgainSettles(page);
+  if (final.stage === "volume-question") {
+    await page.locator("[data-volume-confirm]").click();
+    await page.locator("[data-preview-confirm]").waitFor({ state: "visible", timeout: 15000 });
+    await page.locator("[data-preview-confirm]").click();
+    await page.locator("#reviewPanel .review__staged").waitFor({ state: "visible", timeout: 15000 });
+  }
+  const durable = await replicas(page);
+  check(final.stage === "done" && [durable.local, durable.idb].every(snapshot =>
+    snapshot.programHistory.length === 1 && countSets(snapshot.programMeta.programDefinition) === 69 &&
+    snapshot._storageRevision === partial.local._storageRevision &&
+    JSON.stringify(snapshot.programMeta.programDefinition) === JSON.stringify(proposal.successor.programDefinition)),
+  "after the freeze clears Try again settles once with one archive and 69 sets", {
+    stage: final.stage, archives: durable.local.programHistory.length,
+    sets: countSets(durable.local.programMeta.programDefinition),
+  });
+  check(JSON.stringify(durable.local) === JSON.stringify(durable.idb) &&
+    (await transitionArtifacts(page)).length === 0 && (await reviewScreen(page)).events === 1,
+  "the unfrozen retry heals both replicas, closes its artifacts and emits one success event");
+  await context.close();
+}
+
 // Returning to Review while the commit waits for the storage lock re-renders the
 // preview for the same proposal. Its Confirm stays disabled, so the proposal is
 // submitted once.
@@ -942,6 +1005,7 @@ async function main() {
     await retryContext.close();
 
     await checkRetainedRetryWhileFaulted(browser, errors);
+    await checkFrozenRetainedRetry(browser, errors);
     await checkNothingChangedFailure(browser, errors);
     await checkConfirmStaysDisabledInFlight(browser, errors, { journalFault: false });
     await checkConfirmStaysDisabledInFlight(browser, errors, { journalFault: true });
