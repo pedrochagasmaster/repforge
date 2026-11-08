@@ -166,6 +166,18 @@ try {
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     assert((await firstSets(page)).sets[1].rir === value, `${key} selects reps left ${value}`);
   }
+  for (const [width, font] of [[320, "16px"], [390, "32px"]]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.evaluate(font => { document.documentElement.style.fontSize = font; }, font);
+    const boxes = await page.locator(`${SHELF} .shelf__chip`).evaluateAll(chips => chips.map(chip => {
+      const r = chip.getBoundingClientRect();
+      return { left: r.left, right: r.right, width: r.width, height: r.height, clipped: chip.scrollWidth > chip.clientWidth };
+    }));
+    assert(boxes.length === 6 && boxes.every(r => r.left >= 0 && r.right <= width && r.width >= 44 && r.height >= 44 && !r.clipped),
+      `six numeric choices fit at ${width}px and ${font} text`, boxes);
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(() => { document.documentElement.style.fontSize = ""; });
   await page.locator(`${SHELF} .shelf__chip[data-e="5"]`).click();
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   await logOpenSet(page);
