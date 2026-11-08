@@ -777,6 +777,11 @@
     /* Edits run one at a time, each on the document the previous one left.
        While any is in flight the host says so, for assistive tech and tests. */
     let inFlight = 0;
+    const mountedQueue = adapter.queueKey?.() ?? candidateNow();
+    if (candidateQueues.has(mountedQueue)) {
+      host.setAttribute("aria-busy", "true");
+      whenIdle(mountedQueue).then(() => { if (!disposed && !inFlight) host.removeAttribute("aria-busy"); });
+    }
     let unkeyedQueue = Promise.resolve();
     function run(task) {
       inFlight++;
@@ -802,11 +807,12 @@
     function observeCommit(saved, action, kind) {
       if (saved?.ok && saved.current !== false) observe(action, kind);
     }
-    function apply(edit, { toast = null, flip = false, close = false } = {}) {
+    function apply(editInput, { toast = null, flip = false, close = false } = {}) {
       const pinned = candidateNow();
       return run(async () => {
         if (!matchesCandidate(pinned)) return false;
         const state = read();
+        const edit = typeof editInput === "function" ? editInput(state) : editInput;
         const result = applyEdit(state.definition, edit, { ...editorContext(state), ordinal: state.edits.length + 1 });
         if (!result.ok) { observe("refused", edit.kind); adapter.announce(t("entry.review.refused")); return false; }
         const before = flip ? measure() : null;
@@ -825,7 +831,8 @@
     }
     function undo() {
       const pinned = candidateNow();
-      return run(async () => {
+      return run(async previous => {
+        if (previous === false) return false;
         // Candidate identity survives a same-candidate remount; only a rebuild or discard supersedes this undo (N14).
         if (!matchesCandidate(pinned)) return false;
         const state = read();
@@ -1111,7 +1118,11 @@
       let button;
       if ((button = hit("[data-review-execution-mode]"))) {
         apply({ kind: "execution_mode", slotId: slot.id, executionMode: button.dataset.reviewExecutionMode });
-      } else if ((button = hit("[data-review-sets]"))) apply({ kind: "sets", slotId: slot.id, count: sets.length + Number(button.dataset.reviewSets) });
+      } else if ((button = hit("[data-review-sets]"))) {
+        const slotId = slot.id, delta = Number(button.dataset.reviewSets);
+        apply(current => ({ kind: "sets", slotId,
+          count: (findSlot(current.definition, slotId)?.slot.prescriptionsByCycle[0].sets.length || 0) + delta }));
+      }
       else if ((button = hit("[data-review-rir]"))) {
         const [setIndex, dir] = button.dataset.reviewRir.split(":").map(Number);
         apply({ kind: "rir", slotId: slot.id, setIndex, rir: (sets[setIndex - 1].rir ?? 2) + dir });
