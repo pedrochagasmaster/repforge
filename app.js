@@ -10754,7 +10754,7 @@ async function todayRowContext(row,opener=row){
   if(action==="details"){openExerciseView(ex.id,"log");return}
   if(action==="why"){openWhySheet(ex.id,opener);return}
   if(!["swap","skip","restore"].includes(action))return;
-  const prepared=await WorkoutSession.start(day);
+  const prepared=await startWorkoutDraft(day);
   if(prepared.status!=="ready"){showDraftInitializationRecovery(prepared,{retryMode:"create",label:day});return}
   if(action==="swap"){openSubstitutePicker(ex.id);return}
   const result=await WorkoutSession.dispatch(action==="restore"?"restoreExercise":"skipExercise",{exerciseInstanceId:ex.id});
