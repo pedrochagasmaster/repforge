@@ -506,8 +506,14 @@ async function historyStackInterleavings(browser) {
     await page.goBack();
     await page.waitForFunction(() => document.body.classList.contains("is-library") && !document.body.classList.contains("is-preview")
       && !document.body.classList.contains("is-pushing"), undefined, { timeout: 5000 }).catch(() => {});
-    const isLibraryAfterFirstBack = await page.evaluate(() => document.body.classList.contains("is-library") && !document.body.classList.contains("is-preview"));
-    check(isLibraryAfterFirstBack === true, "browser Back from preview returns to library", { isLibraryAfterFirstBack });
+    const afterFirstBack = await page.evaluate(() => ({
+      isLibrary: document.body.classList.contains("is-library"),
+      isPreview: document.body.classList.contains("is-preview"),
+      isPushing: document.body.classList.contains("is-pushing"),
+      bodyClasses: [...document.body.classList],
+      historyState: history.state,
+    }));
+    check(afterFirstBack.isLibrary && !afterFirstBack.isPreview, "browser Back from preview returns to library", afterFirstBack);
     await page.goBack();
     await page.waitForFunction(() => !document.body.classList.contains("is-library") && !document.body.classList.contains("is-preview")
       && !document.body.classList.contains("is-pushing"), undefined, { timeout: 5000 }).catch(() => {});
