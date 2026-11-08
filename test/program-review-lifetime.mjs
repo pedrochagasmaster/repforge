@@ -974,7 +974,34 @@ async function remountedQueueBusy(browser) {
   return run.errors;
 }
 
-const lifetimeCases = { X677: async browser => [...await failedReviewWriteRepaints(browser), ...await failedReviewWriteAfterRemount(browser)], X678: activateQueuedUndo, F15: failedEditQueuedUndo, F16: queuedStepperTaps, F17: remountedQueueBusy, X679: backNextAsksBeforeDiscard, F22: revisionF22, F20: revisionF20, F19: revisionF19, F21: revisionF21, F1: restoreDoesNotCrossCandidate, F2: restoreQuestionDoesNotCrossCandidate,
+async function undoAfterFailedRename(browser) {
+  const run = await queuedReviewSetup(browser), { page, baseline, a } = run;
+  await page.locator("#entryReview [data-review-title]").click();
+  await page.fill("#reviewRenameInput", "Unsaved rename");
+  await page.locator("#reviewSheet [data-review-rename-save]").click();
+  await page.locator("#reviewSheet").waitFor({ state: "hidden" });
+  await page.locator("#entryReview [data-review-undo]").click();
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function(key, value) {
+      if (key === "repforge_program_setup_draft_v1" && JSON.parse(value).state.result.name === "Unsaved rename") {
+        Storage.prototype.setItem = original;
+        throw new DOMException("injected rename failure", "QuotaExceededError");
+      }
+      return original.call(this, key, value);
+    };
+  });
+  await releaseSetupWrites(page);
+  await settleQueuedReviewWrites(page);
+  const expected = Review.replay(baseline, [{ kind: "sets", slotId: a.id, count: setCount(baseline, a.id) + 1 }], REVIEW_CTX);
+  check(JSON.stringify(await reviewed(page)) === JSON.stringify(expected.definition),
+    "F15 control: a failed rename does not suppress Undo of the preceding logged edit");
+  await checkReviewScreen(page, baseline, "F15 rename control");
+  await run.context.close();
+  return run.errors;
+}
+
+const lifetimeCases = { F15control: undoAfterFailedRename, X677: async browser => [...await failedReviewWriteRepaints(browser), ...await failedReviewWriteAfterRemount(browser)], X678: activateQueuedUndo, F15: failedEditQueuedUndo, F16: queuedStepperTaps, F17: remountedQueueBusy, X679: backNextAsksBeforeDiscard, F22: revisionF22, F20: revisionF20, F19: revisionF19, F21: revisionF21, F1: restoreDoesNotCrossCandidate, F2: restoreQuestionDoesNotCrossCandidate,
   F3: renameDoesNotCrossCandidate, F4: sameCandidateEditsAcrossRemount, F5: undoAfterLeaving,
   F6: sameCandidateCommitRepaintsRemount, F7: revisionF7, F8: revisionF8, F9: revisionF9,
   F10: revisionF10, F11: revisionF11, F12: revisionF12, F13: revisionF13, F14: revisionF14,
