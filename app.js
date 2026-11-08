@@ -19735,7 +19735,7 @@ function entrySkip(){
   const advanced=ProgramEntry.advance(entryState);
   if(!advanced.ok){renderOnboarding();return}
   if(advanced.state.step==="result"&&!advanced.state.result?.preview){startEntryResult(advanced.state);return}
-  if(advanced.state.step==="building"){guardEntryRebuild(()=>entrySetState(advanced.state));return}
+  if(advanced.state.step==="building"){entrySetState(advanced.state);return}
   entrySetState(advanced.state)}
 /* Continue is held until a choice exists on the Basics choice screens; Skip is
    the way past them without an answer. */
