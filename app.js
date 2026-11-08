@@ -1775,7 +1775,11 @@ const loadInputToast=p=>t(p.kind==="empty"?"toast.enter_weight_before_save_set":
 const fmtLoad=kg=>fmt(toDisplay(kg));
 const fmtLoadPlain=kg=>fmtPlain(toDisplay(kg));
 const term=key=>`<button type="button" class="term" data-term="${esc(key)}">${esc(tOr(`glossary.term.${key}`,key))}</button>`;
+/* A Trim or Day toast belongs to the session it was made in. When that session ends or is replaced, the toast
+   leaves at once (owner, 2026-11-08); its Undo guards still hold for a button that was already tapped or held. */
+function retireWorkoutUndoToasts(){hideTrimToast();hideDayChangeToast()}
 function resetWorkoutSessionIdentity(){
+  retireWorkoutUndoToasts();
   abandonVoiceOp();
   clearUnfinishedWatch();
   lastCommitAt=0;sessionStartedAt=0;
@@ -2907,7 +2911,7 @@ async function createWorkoutDraft(label=day,{contextTouched:selectionContextTouc
   if(WorkoutDraft.isDomainError(draft))return{status:"create-error",error:draft};
   const nextRaw=JSON.stringify(WorkoutDraft.serialize(draft));
   const installed=await DraftStore.compareAndSwapV2({expectedRaw:null,nextRaw,operationId});
-  if(installed.status==="applied"){activeWorkoutDraft=installed.draft;activeWorkoutDraftRaw=installed.raw;return{status:"ready",draft:installed.draft}}
+  if(installed.status==="applied"){retireWorkoutUndoToasts();activeWorkoutDraft=installed.draft;activeWorkoutDraftRaw=installed.raw;return{status:"ready",draft:installed.draft}}
   return installed}
 function draftFocusIdentity(payload={}){
   const el=document.activeElement;

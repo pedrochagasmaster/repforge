@@ -674,6 +674,8 @@ phase("a stale Day Undo leaves the session that replaced its own");
   await openPicker(page);
   await page.click(`[data-daypick="${days[1]}"]`);
   await page.waitForSelector(".daychange-toast", { timeout: 5000 });
+  // The toast leaves when its session is replaced, so keep its Undo button to press after the replacement.
+  await page.evaluate(() => { window.__staleDayUndo = document.querySelector(".daychange-toast .review-toast__undo"); });
   // The session is replaced while the toast is up: cleared, then started again on the same day with nothing logged.
   await page.evaluate(async (d) => {
     await clearDraft();
@@ -682,7 +684,7 @@ phase("a stale Day Undo leaves the session that replaced its own");
   }, days[1]);
   await trackDayUndo(page);
   const before = await draftIdentity(page);
-  await clickDayToastUndo(page);
+  await page.evaluate(() => window.__staleDayUndo.click());
   await page.waitForFunction(() => window.__undoSettled === true, undefined, { timeout: 5000 });
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   const after = await draftIdentity(page);

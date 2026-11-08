@@ -420,6 +420,8 @@ async function staleTrimUndoLeavesReplacementAlone(browser) {
       await window.__repforgeWorkoutDraft.flush();
     }, flagged);
     await page.waitForSelector(".trim-toast [data-role=trim-undo]", { timeout: 5000 });
+    // The toast leaves when its session is replaced, so keep its Undo button to press after the replacement.
+    await page.evaluate(() => { window.__staleTrimUndo = document.querySelector(".trim-toast [data-role=trim-undo]"); });
     // The session is replaced while the toast is up: cleared, then started again for the same day.
     await page.evaluate(async () => {
       await clearDraft();
@@ -448,7 +450,7 @@ async function staleTrimUndoLeavesReplacementAlone(browser) {
       return { draftId: d.draftId, revision: d.revision, status: ex.status, skipReason: ex.skipReason ?? null };
     });
     const before = await read();
-    await page.locator(".trim-toast [data-role=trim-undo]").click();
+    await page.evaluate(() => window.__staleTrimUndo.click());
     await page.waitForFunction(() => window.__undoSettled === true, undefined, { timeout: 5000 });
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     const after = await read();
@@ -488,6 +490,8 @@ async function trimToastEndsWithItsSession(browser) {
     assert(await trimToastUp(), "an ordinary edit in the same session keeps the Trim toast up", "toast gone");
     await page.evaluate(async () => { await clearDraft(); });
     assert(!(await trimToastUp()), "ending the session (discard) removes the Trim toast at once", "toast still up");
+    await page.evaluate(async () => { await window.__repforgeEnterWorkout({ day: "Day 1" }); });
+    await page.waitForSelector("#workout .exercise.is-current", { timeout: 5000 });
     await trim();
     await page.waitForSelector(".trim-toast", { timeout: 5000 });
     await page.evaluate(async () => {
