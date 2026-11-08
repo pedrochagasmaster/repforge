@@ -2672,9 +2672,9 @@ try {
 
   await controlsWithoutMotionLayer(browser);
   await nativeEditorControls(browser);
+  await reducedMotionSheets(browser);
   await nativeControls(browser);
   await detents(browser);
-  await reducedMotionSheets(browser);
   await dayPickerCommits(browser);
   await libraryOverEditorSheet(browser);
   await wheelPicker(browser);
