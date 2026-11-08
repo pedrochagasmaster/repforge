@@ -14620,6 +14620,7 @@ function updateInstalledEditorDoneButton(){
   done.disabled=committing||installedProgramEditor?.canApply?.()===false;
   const editor=$("#programEditor");
   if(editor){editor.inert=committing;editor.setAttribute("aria-busy",String(committing))}
+  const meta=$("#programMeta");if(meta)meta.inert=committing;
 }
 function enterProgramEditorSheet(copy){
   if(programEditorSheetOpen)return;
@@ -15219,9 +15220,11 @@ function renderProgramHeader(){
     `</div>`;
   renderProgramChips();
   const nameInp=$("#programName"),startInp=$("#programStarted");
-  nameInp.oninput=async()=>{const captured=nameInp.value,result=await persistProgramMeta({name:captured});
+  nameInp.oninput=async()=>{if(installedProgramEditor?.isCommitting?.())return;
+    const captured=nameInp.value,result=await persistProgramMeta({name:captured});
     if(!(result.localOk||result.idbOk)&&nameInp.value===captured)nameInp.value=state.programMeta?.name||""};
-  startInp.onchange=async()=>{const captured=startInp.value,result=await persistProgramMeta({started:captured||null});
+  startInp.onchange=async()=>{if(installedProgramEditor?.isCommitting?.())return;
+    const captured=startInp.value,result=await persistProgramMeta({started:captured||null});
     if(result.localOk||result.idbOk)renderProgramChips();
     else if(startInp.value===captured)startInp.value=state.programMeta?.started||""};
 }
