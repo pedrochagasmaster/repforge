@@ -50,4 +50,49 @@ try {
       "#663: an ended rest stays ended after refused removal and app kill");
     console.log("PASS #663: ended rest survives app kill as ended");
   } finally { await context.close(); }
+
+  for (const denyWrite of [false, true]) {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    try {
+      const first = await openWorkout(context, { fresh: true });
+      await startRest(first);
+      const second = await openWorkout(context);
+      await first.evaluate(({ key, denyWrite }) => {
+        const get = Storage.prototype.getItem, remove = Storage.prototype.removeItem, set = Storage.prototype.setItem;
+        window.restoreRestStorage = () => {
+          Storage.prototype.getItem = get;
+          Storage.prototype.removeItem = remove;
+          Storage.prototype.setItem = set;
+        };
+        Storage.prototype.getItem = function (name) {
+          if (this === localStorage && name === key) throw new DOMException("read denied", "SecurityError");
+          return get.call(this, name);
+        };
+        Storage.prototype.removeItem = function (name) {
+          if (this === localStorage && name === key) throw new DOMException("removal denied", "SecurityError");
+          return remove.call(this, name);
+        };
+        if (denyWrite) Storage.prototype.setItem = function (name, value) {
+          if (this === localStorage && name === key) throw new DOMException("write denied", "SecurityError");
+          return set.call(this, name, value);
+        };
+      }, { key: RECORD, denyWrite });
+      await endRest(first);
+      await startRest(second, 180);
+      const newer = await second.evaluate(key => localStorage.getItem(key), RECORD);
+      await first.evaluate(() => {
+        window.restoreRestStorage();
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+      assert.equal(await first.evaluate(key => localStorage.getItem(key), RECORD), newer,
+        `#664: an ended-rest retry preserves the newer tab's exact record, writes denied=${denyWrite}`);
+      await first.close();
+      await second.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(second);
+      const restored = await second.evaluate(() => window.__repforgeRest.state());
+      assert.ok(restored.active && restored.lengthSec === 180,
+        "#664: the newer rest restores after the older tab recovers storage");
+      console.log(`PASS #664: newer rest preserved, writes denied=${denyWrite}`);
+    } finally { await context.close(); }
+  }
 } finally { await browser.close(); }
