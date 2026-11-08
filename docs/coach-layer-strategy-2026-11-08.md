@@ -1,8 +1,9 @@
 # The coach layer: calibration from day zero, a thirty-day cadence, and the Pro funnel
 
-**Status:** draft for owner decision (2026-11-08). Nothing here is approved. Agents do not
-amend the thesis, ADR 0010, PRODUCT.md or Plan 077 on the strength of this note; the owner
-does, by answering §10.
+**Status:** owner decisions recorded (2026-11-08, §10). The decided items govern the plans
+in §11; the items the owner deferred to after the alpha stay open and are marked so. Agents
+do not amend the thesis, ADR 0010, PRODUCT.md or Plan 077 on the strength of this note; the
+owner does, or instructs it explicitly, per §8.
 **Source:** the owner's statements of 2026-11-08 (§1) and the discussion that followed.
 Written against `main` 0fbae7b; check for drift before executing anything derived from it.
 **Form:** the same shape as the calibration synthesis behind Plan 077: a problem, a
@@ -61,6 +62,15 @@ to this proposal.
 Everything that follows is deterministic, explained in the Why reader, and bounded, as
 ADR 0003 requires. It adds no account, no sync and no AI to Free or core (ADR 0011).
 
+**How far the framing goes (D-1).** The four functions are an engineering frame: coaches are
+a real competitor, so the product is built and judged against what a coach does in the
+first month. They are not the thesis's core proposition and not the selling point. In
+marketing the comparison stays subtle; the subject is sensitive in Brazil, where
+prescribing training is a regulated profession, and the owner requires a CREF-registered
+physical education professional (Conselho Regional de Educação Física) on board before
+commercialization. Copy never calls Taurifer a coach and never implies professional
+supervision.
+
 ## 3. The product shape
 
 ### 3.1 Session zero: find your weights
@@ -91,10 +101,12 @@ this, and it is the most beginner-friendly thing they do.
 Plan 077's ladder exists (OD-4, OD-6, shipped in #628). Two changes: where it starts, and
 how many rungs it has.
 
-- **Words are the default for a new install.** `DEFAULTS.rirMode` becomes `"effort"` with
-  `effortScale:"feel"`; existing installs keep their setting. The numeric stage is where a
-  lifter arrives after the ladder's tip, or by choice in the menu or Settings. OD-6's
-  "never a stage down" rule is then harmless, because nobody starts at the top.
+- **Words are the default for a new install, and onboarding asks once (D-3).** `DEFAULTS.rirMode`
+  becomes `"effort"` with `effortScale:"feel"`; existing installs keep their setting. One
+  onboarding question lets a lifter who already counts reps left start on the numeric stage,
+  so an experienced lifter never has to climb. Otherwise the numeric stage is where a lifter
+  arrives after the ladder's tip, or by choice in the menu or Settings. OD-6's "never a
+  stage down" rule is then harmless, because nobody starts at the top without choosing to.
 - **One numeric stage, not two.** Reps left and RIR are the same quantity. The engine
   credits performed RIR only up to the cap of 5 (OD-23b, #624), and the mechanics doc
   already says nobody knows whether they had 6 or 9 left, so the number field's extra
@@ -167,17 +179,19 @@ cadence, and proposes dissolving the 0–100 gauge into it.
 - The profile lists, per lift in the active program, the estimate's standing in words, the
   test sets and their results, and what the next finding needs. Program-wide it shows the
   effort stage, the findings so far, and the signals the gauge computes today, as counts.
-- The percentage goes. With test sets at 55 % of its weight (`calibration-gauge.js`), the
-  number is mostly "have you done your test sets", which is a bar to fill. The owner can
-  keep it; if so, PRODUCT.md should say that the gauge is an evidence instrument and record
-  why it is not a score, rather than leave the tension implicit. OD-21's intent to use the
-  gauge for Pro conversion is withdrawn in this proposal either way; §5 gives Pro a better
-  surface.
-- Free shows the current program's profile. Pro keeps the profile across programs (§5).
+- The percentage goes (D-6). With test sets at 55 % of its weight (`calibration-gauge.js`),
+  the number is mostly "have you done your test sets", which is a bar to fill. The Today
+  ring and the Progress percent are replaced by the profile's counts and standing words.
+- During the alpha the whole profile is Free, current program and across programs (D-8).
+  Where the Pro line falls is decided after the alpha, together with OD-21 (D-7), which
+  stays open: whether any calibration surface becomes a Pro lever is not decided here.
 
 ## 4. The landing, briefly
 
-The landing follows from §3 and is not designed here. Session zero becomes the proof scene
+The landing follows from §3 and is not designed here. The owner chose the additive change
+now (D-14): a proof chapter, one band, two FAQ entries, with the headline, structure and
+actions kept. Per D-1 the coach comparison stays out of the copy; the page shows the
+mechanism, never the profession. Session zero becomes the proof scene
 instead of a bench press table with an RIR column: a beginner finding their weights in
 twenty minutes is the most beginner-friendly demonstration the product can make, and it is
 true on day one rather than six weeks later. The headline stays outcome-shaped; the lede
@@ -187,8 +201,12 @@ you did, rendered from the real modules as every landing figure is. The two FAQ 
 
 ## 5. The Free and Pro cut
 
-Free hooks; Pro compounds. The cut keeps thesis §8.2's current-program execution boundary
-whole and places the coach's attention and memory in Pro.
+Free hooks; Pro compounds. The cut below is the **proposed target** for the commercial
+beta, not the alpha's configuration. The owner decided (D-7, D-8, D-9, D-12) that the alpha
+runs with every feature on for every participant, facts and proposals alike, and that each
+Free/Pro line is drawn afterwards from what the alpha shows, as ADR 0010 already sequences.
+The cut keeps thesis §8.2's current-program execution boundary whole and places the coach's
+attention and memory in Pro.
 
 | | Free | Pro |
 | --- | --- | --- |
@@ -210,8 +228,10 @@ Two rules make the cut honest:
 
 ## 6. The funnel: present, try, decide
 
-A single paywall at the first block transition is too late as the only moment: the users who
-finish onboarding outnumber the users who train for two months many times over. A hard wall
+The owner deferred the funnel's shape to after the alpha (D-10, D-11); this section records
+the reasoning and the proposed target so the alpha can be instrumented to decide it. A single
+paywall at the first block transition is too late as the only moment: the users who finish
+onboarding outnumber the users who train for two months many times over. A hard wall
 at onboarding, as MacroFactor Workouts runs (§5.5), is wrong for Taurifer for structural
 reasons: no brand to carry a refund rate, a creator channel that dies if a received program
 hits a wall (§13.3), and an alpha that learns nothing if nobody trains. The answer separates
@@ -248,7 +268,8 @@ analogy to apps with brands.
   asks for a card at day zero needs a payment provider at day zero; Brazil means Pix as
   much as cards; app-store billing is not available to a PWA without wrapping it (thesis
   §4.4, §11.1). ADR 0010 requires term, expiry, restoration, refund handling and purchase
-  reconciliation before any money changes hands. Nothing in §6 ships before this is decided.
+  reconciliation before any money changes hands. The owner decided (D-13) that a new ADR
+  records this before any funnel work; nothing in §6 ships before it exists.
 - **The alpha runs with everyone on Pro.** ADR 0010 sequences a noncommercial alpha before
   payment, and it is also the only way to learn whether the weekly review and the profile
   move day-thirty retention at all. If they do not, they deserve no paywall anywhere.
@@ -259,9 +280,10 @@ analogy to apps with brands.
 | Document | Change |
 | --- | --- |
 | `docs/business-product-thesis.md` §8.3 | Pro MVP gains the weekly review as the visible form of job 3; the profile across programs is named; the trial-as-first-program and the day-zero presentation are recorded |
-| `docs/business-product-thesis.md` §8.4, ADR 0010 | "Payment waits for working value" keeps its substance; its sequencing admits presenting Pro at onboarding once the entitlement lifecycle exists |
-| `PRODUCT.md` | Positioning adds the coach-function framing; the gauge's status is settled one way or the other (§3.5) |
-| `plans/077-calibration-free-layer.md` | OD-12's calendar cadence becomes a ceiling under the estimator; OD-20's percentage is dissolved or justified; OD-21 is closed as withdrawn |
+| `docs/business-product-thesis.md` §8.4, ADR 0010 | Unchanged until the alpha decides D-10 and D-11; the entitlement ADR (D-13) is written first |
+| `docs/adr/` | A new ADR for the entitlement lifecycle (D-13): provider, Pix and card, device-side token, restoration, refunds, reconciliation |
+| `PRODUCT.md` | The coach-function frame is recorded as an engineering frame with the D-1 limits (subtle in marketing, never the selling point, CREF-registered professional before commercialization); the gauge is recorded as dissolved into the profile (D-6) |
+| `plans/077-calibration-free-layer.md` | OD-12's calendar cadence becomes a ceiling under the estimator; OD-20's percentage is dissolved into the profile; OD-21 stays open, to be decided after the alpha |
 | `app.js` `DEFAULTS` | `rirMode:"effort"`, `effortScale:"feel"` for new installs (existing installs keep their setting) |
 | `plans/077-calibration-free-layer.md` OD-3, OD-4, OD-6 | Two stages instead of three: words and reps left (0–4, 5+ stored as 5); the B→C tip and `effortScale` are retired or kept for compatibility |
 | `docs/progressive-overload-mechanics.md` §4 | The estimator, the standing words, and the declared priors table |
@@ -287,38 +309,50 @@ Recorded so the next discussion does not start from zero.
 - **"Sob medida" as the Portuguese frame.** The most used phrase in Brazilian fitness
   marketing, and it implies tailored generation, which is Pro.
 
-## 10. Owner decisions needed
+## 10. Owner decisions
 
-Each has a proposed default; agents take no default as decided.
+Recorded 2026-11-08 from the owner's answers. "After the alpha" means the item stays open and
+is decided from alpha evidence; agents treat it as undecided.
 
-| # | Question | Proposed |
+| # | Question | Decision |
 | --- | --- | --- |
-| D-1 | Is the coach-function framing (§2) the product's positioning? | yes |
-| D-2 | Does session zero replace the "pick a load" prompt for new programs without loads? | yes, skippable; skipped by default when loads are known |
-| D-3 | Do words become the default stage for new installs? | yes |
-| D-15 | Do reps left and RIR merge into one numeric stage (chips 0–4 and 5+, stored as 5), leaving RIR as a glossary word? | yes |
-| D-4 | Does the engine become an estimator with uncertainty-driven test sets, keeping OD-12's safety rules as ceilings? | yes, as `ENGINE_VERSION` 078.x with its own plan |
-| D-5 | Declared population priors for opening loads and new-lift ratios, published in the mechanics doc? | yes |
-| D-6 | The gauge: dissolve into the profile as counts and words, or keep the percentage and record why it is not a score? | dissolve |
-| D-7 | OD-21 (gauge as a Pro lever): withdrawn? | withdrawn |
-| D-8 | The profile surface: Free for the current program, Pro across programs? | yes |
-| D-9 | The weekly review: facts Free, proposals Pro, from week two? | yes |
-| D-10 | Pro presented at the end of onboarding with a real baseline-versus-advanced choice? | yes, once entitlement exists |
-| D-11 | The trial is the first program, not a calendar period? | yes |
-| D-12 | The alpha runs with every participant on Pro, no payment? | yes (ADR 0010 already says so) |
-| D-13 | Which document records the entitlement-lifecycle decision, and when? | a new ADR before any funnel work |
-| D-14 | Does the landing wait for the first alpha lifters, or change additively now (§4)? | additive now, small |
+| D-1 | Is the coach-function framing the product's positioning? | **Adopted as an engineering frame only.** Not the thesis's core proposition, not the selling point; subtle in marketing. The subject is sensitive in Brazil; a CREF-registered physical education professional is required before commercialization. |
+| D-2 | Does session zero replace the "pick a load" prompt for new programs without loads? | **Yes**, skippable; skipped by default when loads are known. |
+| D-3 | Do words become the default stage for new installs? | **Yes, and onboarding asks once**, so a lifter who already counts reps left can start on the numeric stage. |
+| D-4 | Does the engine become an estimator with uncertainty-driven test sets, keeping OD-12's safety rules as ceilings? | **Yes**, as `ENGINE_VERSION` 078.x with its own plan. |
+| D-5 | Declared population priors for opening loads and new-lift ratios, published in the mechanics doc? | **Yes**, published and versioned. |
+| D-6 | The gauge: dissolve into the profile, or keep the percentage? | **Dissolve.** The Today ring and the Progress percent go; counts and standing words replace them. |
+| D-7 | Is any part of calibration a Pro lever (OD-21)? | **Open, after the alpha.** The alpha runs with every Pro feature on; the gate comes after, as ADR 0010 plans. |
+| D-8 | The profile surface: Free for the current program, Pro across programs? | **All Free during the alpha; split decided after.** |
+| D-9 | The weekly review: facts Free, proposals Pro, from week two? | **Facts and proposals both ship in the alpha; split decided after.** |
+| D-10 | Pro presented at the end of onboarding as a real baseline-versus-advanced choice? | **After the alpha.** |
+| D-11 | Is the trial the first program rather than a calendar period? | **After the alpha.** |
+| D-12 | Does the alpha run with every participant on Pro, no payment? | **Yes** (ADR 0010 already says so; D-7 to D-9 restate it). |
+| D-13 | Where and when is the entitlement-lifecycle decision recorded? | **A new ADR before any funnel work.** |
+| D-14 | Does the landing wait for the alpha, or change additively now? | **Additive now, small**, with the coach comparison kept out of the copy (D-1). |
+| D-15 | Do reps left and RIR merge into one numeric stage? | **Yes**: chips 0 · 1 · 2 · 3 · 4 · 5+, with 5+ stored as 5; RIR becomes a glossary word. |
 
-## 11. Sequencing, if approved
+## 11. Sequencing
 
-1. Owner answers §10; the documents in §8 are amended by the owner or on explicit
-   instruction.
-2. A plan for session zero, the words default and the two-stage ladder (small, Free,
-   before the alpha).
-3. A plan for the estimator and the uncertainty-driven cadence, replacing OD-12's calendar.
-4. A plan for the thirty-day cadence and the profile surface, dissolving the gauge.
-5. The weekly review, facts first (Free), proposals second (Pro).
-6. An ADR for the entitlement lifecycle; only then the funnel work of §6.
-7. The landing's additive change (§4), or its redesign once alpha evidence exists.
+The decided items, in the order they should be built. Each needs its own plan under
+`plans/`, within the backlog's authority.
 
-Steps 2 to 4 are what the alpha should run with. Steps 5 to 7 wait for what the alpha shows.
+1. The owner amends, or instructs the amendment of, the documents in §8 for the decided
+   items (D-1 to D-6, D-12 to D-15). The deferred items (D-7 to D-11) are recorded as open.
+2. **Plan: the effort ladder** (D-3, D-15). Words by default with one onboarding question;
+   two stages instead of three; `effortScale` retired or kept for compatibility; the B→C tip
+   retired. Small, Free, before the alpha.
+3. **Plan: session zero** (D-2, D-5). The guided first session, the declared priors table in
+   the mechanics doc, the skip rules. Free, before the alpha.
+4. **Plan: the estimator** (D-4). `ENGINE_VERSION` 078.x: per-lift estimate and uncertainty,
+   standing words in the target and Why, uncertainty-driven test sets under OD-12's ceilings.
+5. **Plan: the profile and the thirty-day cadence** (D-6, D-8). The gauge dissolved; the
+   findings designed; everything Free in the alpha.
+6. **Plan: the weekly review** (D-9). Facts and proposals, both on in the alpha; the
+   proposal path reuses the within-block adaptation contract from thesis §8.3 job 3.
+7. **The landing's additive change** (D-14), small, at any point after step 2 so the proof
+   can show the words stage.
+8. **The alpha** runs with steps 2 to 6 on for every participant. Its funnel and retention
+   evidence decides D-7 to D-11.
+9. **An ADR for the entitlement lifecycle** (D-13), then and only then the funnel work of §6
+   as the alpha evidence shapes it.
