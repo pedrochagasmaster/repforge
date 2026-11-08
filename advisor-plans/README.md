@@ -48,7 +48,7 @@ Ordered by backlog status, then by the order the owner set within it.
 | [006](006-install-transfer-constant-drift-guard.md) | Test guards the transfer client against contract drift | Now: CI/docs drift (Q612) | S | — | TODO |
 | [005](005-claude-md-stale-architecture-table.md) | CLAUDE.md points drifting architecture facts to live owners | Now: CI/docs drift (Q614) | S | — | DONE — PR #269 |
 | [004](004-reconcile-plan-index-status.md) | Plan index and status guidance reflect implemented 055–058 and the pre-059 window | Now: CI/docs drift (Q614, Q621) | S | PR #248 merged | DONE — PR #268 |
-| [009](009-generative-draft-store-model.md) | fast-check model of DraftV2 store commands with injected faults | Next (Q612) | L | 003 | TODO |
+| [009](009-generative-draft-store-model.md) | fast-check model of DraftV2 store commands with injected faults | Next (Q612) | L | 003 | IMPLEMENTED; awaiting review |
 | [016](016-durable-state-fault-hook-via-host.md) | `durable-state.js` takes its fault hook via `configureHost` | Next (Q612) | S | — (update 009's shim if landed) | TODO |
 | [025](025-existing-user-setup-link-handoff.md) | Design: existing users receive a setup link via archive-and-replace | Gated: approved design before a second coach program (Q615) | M | 001; after the overhaul (Q604) | TODO (Phase 1 only) |
 | [007](007-today-render-history-scans.md) | Today render memoizes recommendations and groups week rows once | Later, after the overhaul (Q611) | M | — | TODO |

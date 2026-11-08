@@ -14,7 +14,7 @@ export const PROFILES = {
 };
 export const SUITE_FILES = [
   "canonicalization", "setup-links", "schema-boundaries", "identity", "malformed-inputs",
-  "progression-metrics", "program-compiler",
+  "progression-metrics", "program-compiler", "workout-draft-store",
 ];
 
 export function parseArgs(argv, env = process.env) {
