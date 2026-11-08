@@ -14,6 +14,7 @@ const STATE = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
 const CHECKPOINT = `${DRAFT}:v2-checkpoint`;
 const RECOVERY = `${DRAFT}:recovery`;
+const STATE_WRITE_LOCK = "repforge:state-write";
 const OLD_APP_SHA = "3fbae92fcee58c0d72539b9f4e2c270a9d60dbd4";
 // An installed older version runs its own shell with every module it loads from
 // its own release (its cache holds them), so the legacy writer is served that
@@ -290,6 +291,42 @@ async function shelfInput(page, field, root = "#workout .exercise.is-current .fo
   return input;
 }
 
+async function holdStateWriteLock(page) {
+  await page.evaluate((name) => new Promise((resolve) => {
+    navigator.locks.request(name, () => new Promise((release) => {
+      window.__releaseTestStateWriteLock = release;
+      resolve();
+    }));
+  }), STATE_WRITE_LOCK);
+}
+
+async function releaseStateWriteLock(page) {
+  await page.evaluate(() => {
+    window.__releaseTestStateWriteLock?.();
+    delete window.__releaseTestStateWriteLock;
+  });
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+}
+
+async function poundLoadSurfaces(page, key) {
+  return page.evaluate((fieldKey) => {
+    const card = document.querySelector("#workout .exercise.is-current");
+    const input = [...card.querySelectorAll(".focus-shelf input[data-k]")]
+      .find((node) => node.dataset.k === fieldKey);
+    const field = input?.closest(".shelf__field");
+    const hook = window.__repforgeWorkoutDraft;
+    const target = hook.target(fieldKey);
+    const set = hook.current().exercises[target.exerciseInstanceId].sets[target.setId];
+    return {
+      input: input?.value ?? null,
+      shelf: field?.querySelector(".shelf__val")?.textContent?.trim() ?? null,
+      ledger: card.querySelector(".ledgerline--open [data-lv='load']")?.textContent?.trim() ?? null,
+      canonical: set.edited.metrics[target.metricId] ?? null,
+      banner: document.querySelector("#draftRecoveryPending")?.textContent?.trim() ?? "",
+    };
+  }, key);
+}
+
 async function fillCurrent(page, field, value) {
   const input = await shelfInput(page, field);
   const key = await input.getAttribute("data-k");
@@ -386,6 +423,94 @@ async function main() {
   watch(page);
 
   try {
+    console.log("\nPound values stay in display units through a held write, recovery, retry, and Finish");
+    await reset(page, { lang: "pt", unit: "lb" });
+    await enter(page);
+    let poundLoadInput = await shelfInput(page, "load");
+    await poundLoadInput.fill("80");
+    await (await shelfInput(page, "reps")).fill("8");
+    await (await shelfInput(page, "rir")).fill("2");
+    await page.locator("#workout .exercise.is-current .focus-shelf .saveset").click();
+    await page.waitForFunction(() => {
+      const draft = window.__repforgeWorkoutDraft.current(), exercise = draft.exercises[draft.session.selectedExerciseId];
+      return exercise.sets[exercise.setOrder[0]].completion !== "pending";
+    });
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    poundLoadInput = await shelfInput(page, "load");
+    let poundLoadKey = await poundLoadInput.getAttribute("data-k");
+    const poundTarget = await page.evaluate((key) => {
+      const hook = window.__repforgeWorkoutDraft, target = hook.target(key);
+      const set = hook.current().exercises[target.exerciseInstanceId].sets[target.setId];
+      return { draftId: hook.current().draftId, ordinal: target.ordinal,
+        exerciseInstanceId: target.exerciseInstanceId, savedLoad: set.edited.metrics[target.metricId] ?? null };
+    }, poundLoadKey);
+    const poundDraftBeforeFailure = (await rawState(page)).raw;
+    await page.evaluate((checkpointKey) => {
+      const original = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (key) {
+        if (key === checkpointKey) {
+          Storage.prototype.setItem = original;
+          throw new DOMException("proof pound draft checkpoint quota", "QuotaExceededError");
+        }
+        return original.apply(this, arguments);
+      };
+    }, CHECKPOINT);
+    await holdStateWriteLock(page);
+    await poundLoadInput.fill("100");
+    await page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="${SHELF_FIELD.reps}"]`).click();
+    const poundHeld = await poundLoadSurfaces(page, poundLoadKey);
+    check(poundHeld.input === "100" && poundHeld.shelf === "100" && poundHeld.ledger === "100" &&
+      poundHeld.canonical === poundTarget.savedLoad,
+    "a held 100 lb edit rebuilds the shelf and ledger without changing the acknowledged draft", poundHeld);
+    await releaseStateWriteLock(page);
+    await page.waitForFunction(() => document.querySelector("#draftRecoveryPending")?.textContent.includes("100"));
+    const poundFailed = await poundLoadSurfaces(page, poundLoadKey);
+    const poundAfterFailure = await rawState(page);
+    check(poundAfterFailure.raw === poundDraftBeforeFailure && poundFailed.input === "100" &&
+      poundFailed.shelf === "100" && poundFailed.ledger === "100" && poundFailed.banner.includes("100"),
+    "the failed write rebuild leaves shelf, input, ledger, banner, and acknowledged bytes at their proper values",
+    { poundFailed, rawPreserved: poundAfterFailure.raw === poundDraftBeforeFailure });
+
+    await page.locator("#draftRecoveryRetry").click();
+    const poundKg = 100 / 2.2046226218;
+    await page.waitForFunction(({ key, expected }) => {
+      const hook = window.__repforgeWorkoutDraft, target = hook.target(key);
+      const set = hook.current().exercises[target.exerciseInstanceId].sets[target.setId];
+      return Math.abs(Number(set.edited.metrics[target.metricId]) - expected) < 1e-12 &&
+        document.querySelector("#draftRecovery")?.classList.contains("hidden");
+    }, { key: poundLoadKey, expected: poundKg });
+    await page.waitForFunction((key) => document.activeElement?.dataset?.k === key, poundLoadKey);
+    const poundRetried = await poundLoadSurfaces(page, poundLoadKey);
+    check(poundRetried.input === "100" && poundRetried.shelf === "100" && poundRetried.ledger === "100" &&
+      Math.abs(Number(poundRetried.canonical) - poundKg) < 1e-12,
+    "Retry stores 45.359 kg while every pound display still reads 100", poundRetried);
+
+    await fillCurrent(page, "reps", "8");
+    await (await shelfInput(page, "rir")).fill("2");
+    await page.waitForFunction((key) => {
+      const hook = window.__repforgeWorkoutDraft, target = hook.target(key);
+      return hook.current().exercises[target.exerciseInstanceId].sets[target.setId].edited.rir === "2";
+    }, poundLoadKey);
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    await page.locator("#workout .exercise.is-current .focus-shelf .saveset").click();
+    await page.waitForFunction((key) => {
+      const hook = window.__repforgeWorkoutDraft, target = hook.target(key);
+      return hook.current().exercises[target.exerciseInstanceId].sets[target.setId].completion !== "pending";
+    }, poundLoadKey);
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    const poundSave = await finishEarly(page);
+    await page.evaluate(() => window.__repforgeStorage.flush());
+    const poundSavedState = await rawState(page);
+    const poundRow = poundSavedState.state.log.find((row) => row.session === poundTarget.draftId &&
+      row.exerciseId === poundTarget.exerciseInstanceId && row.set === poundTarget.ordinal);
+    check((poundSave?.localOk || poundSave?.idbOk) && poundRow &&
+      Math.abs(Number(poundRow.load) - poundKg) < 1e-12 &&
+      Math.abs(metricValue(poundRow, "load") - poundKg) < 1e-12 &&
+      Math.abs(Number(poundRow.load) * 2.2046226218 - 100) < 1e-10,
+    "Finish logs the recovered load as the same 100 lb value shown throughout the journey",
+    { result: poundSave, row: poundRow, expectedKg: poundKg,
+      loggedLb: poundRow ? Number(poundRow.load) * 2.2046226218 : null });
+
     console.log("\n1. A visible programmed set owns DraftV2 through correction, reload, and save");
     await reset(page);
     const first = seedProgram()[0];
@@ -1384,6 +1509,9 @@ async function main() {
       const draft = window.__repforgeWorkoutDraft.current(), exercise = draft.exercises[draft.session.selectedExerciseId];
       return exercise.sets[exercise.setOrder[0]].completion !== "pending";
     });
+    // Completing a set can start an untouched-suggestion write. Drain that real
+    // follow-up before the one-shot quota fault so it reaches the correction below.
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     loadInput = await shelfInput(page, "load");
     loadKey = await loadInput.getAttribute("data-k");
     const durableBeforeFailure = (await rawState(page)).raw;

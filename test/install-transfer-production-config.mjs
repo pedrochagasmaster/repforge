@@ -82,6 +82,10 @@ for (const path of endpoints) {
   assert.ok(`taurifer.com${path}`.startsWith(routePattern.slice(0, -1)), `${path} is inside ${routePattern}`);
 }
 const client = readFileSync(join(ROOT, "install-transfer.js"), "utf8");
-assert.match(client, /createFetchTransport\(\{ fetch: fetchFn = root\.fetch, baseUrl = root\.location\?\.href \} = \{\}\)/u, "the client resolves endpoints against the page origin");
+assert.match(
+  client,
+  /createFetchTransport\(\{ fetch: fetchFn = root\.fetch, baseUrl = root\.location\?\.href(?:, clock = root)? \} = \{\}\)/u,
+  "the client resolves endpoints against the page origin with an optional injected request clock",
+);
 
 console.log("install-transfer production config: route, origin, switches, bindings, migrations, and EU path pinned");
