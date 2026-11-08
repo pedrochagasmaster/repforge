@@ -45,7 +45,7 @@
  */
 import { createRequire } from "node:module";
 import { isDeepStrictEqual } from "node:util";
-import { launchChromium } from "./browser.mjs";
+import { launchChromium, waitForAsyncCondition } from "./browser.mjs";
 import { MINIMAL_PAYLOAD, cloneFixture } from "./fixtures/shared-setup.mjs";
 import {
   APP_INDEX,
@@ -447,6 +447,40 @@ export function referenceRecordInstallDismissal(prefs, { milestone, nowMs }) {
 // -----------------------------------------------------------------------------
 // Test Execution
 // -----------------------------------------------------------------------------
+
+async function seedLegacyFollowUp(page) {
+  return page.evaluate(async () => {
+    const proposal = window.__repforgeWorkoutDraft.state();
+    proposal.programMeta = { ...proposal.programMeta, onboarded: true, name: "Existing program" };
+    proposal.program = [{ id: "existing", movementId: "slot:existing", day: "Day 1", order: 1, name: "Existing lift",
+      sets: 3, min: 6, max: 10, primary: "Chest", secondary: "", notes: "", alternates: [] }];
+    proposal.log.push({ session: "legacy-followup", date: "2026-09-13", day: "Day 1", name: "Existing lift",
+      exerciseId: "existing", performedName: "Existing lift", performedMovementId: "slot:existing",
+      set: 1, load: 20, reps: 8, rir: 2, notes: "", created: "2026-09-13T12:00:00.000Z" });
+    proposal._storageFollowUp = { kind: "onboarding-edit", origin: "first" };
+    await window.__repforgeCommitProposedState(proposal);
+    const stored = JSON.parse(localStorage.getItem("repforge_v1"));
+    return { program: stored.program, log: stored.log };
+  });
+}
+
+async function followUpReplicas(page, { consumed = false } = {}) {
+  const read = async consumed => {
+    const local = JSON.parse(localStorage.getItem("repforge_v1"));
+    const mirrored = await new Promise((resolve, reject) => {
+      const open = indexedDB.open("repforge");
+      open.onerror = () => reject(open.error);
+      open.onsuccess = () => {
+        const db = open.result, read = db.transaction("kv").objectStore("kv").get("repforge_v1");
+        read.onsuccess = () => resolve(read.result); read.onerror = () => reject(read.error);
+        read.transaction.oncomplete = () => db.close();
+      };
+    });
+    if (consumed && (!local || !mirrored || local._storageFollowUp || mirrored._storageFollowUp)) return false;
+    return { local, mirrored };
+  };
+  return consumed ? waitForAsyncCondition(page, read, true) : page.evaluate(read, false);
+}
 
 async function run() {
   console.log("Packet 054-P7: Pure Install Policy Characterization & Acceptance Suite");
@@ -1068,22 +1102,11 @@ async function run() {
         await page.addInitScript(INSTALL_EVENT);
         await page.goto(BASE, { waitUntil: "domcontentloaded" });
         await page.waitForFunction(() => window.__repforgeBooted === true);
-        const saved = await page.evaluate(async () => {
-          const proposal = window.__repforgeWorkoutDraft.state();
-          proposal.programMeta = { ...proposal.programMeta, onboarded: true, name: "Existing program" };
-          proposal.program = [{ id: "existing", movementId: "slot:existing", day: "Day 1", order: 1, name: "Existing lift",
-            sets: 3, min: 6, max: 10, primary: "Chest", secondary: "", notes: "", alternates: [] }];
-          proposal.log.push({ session: "legacy-followup", date: "2026-09-13", day: "Day 1", name: "Existing lift",
-            exerciseId: "existing", performedName: "Existing lift", performedMovementId: "slot:existing",
-            set: 1, load: 20, reps: 8, rir: 2, notes: "", created: "2026-09-13T12:00:00.000Z" });
-          proposal._storageFollowUp = { kind: "onboarding-edit", origin: "first" };
-          await window.__repforgeCommitProposedState(proposal);
-          const stored = JSON.parse(localStorage.getItem("repforge_v1"));
-          return { program: stored.program, log: stored.log };
-        });
+        const saved = await seedLegacyFollowUp(page);
         for (let boot = 1; boot <= 2; boot++) {
           await page.reload({ waitUntil: "domcontentloaded" });
           await page.waitForFunction(() => window.__repforgeBooted === true);
+          await followUpReplicas(page, { consumed: true });
           const observed = await page.evaluate(async () => {
             const local = JSON.parse(localStorage.getItem("repforge_v1"));
             const db = await new Promise((resolve, reject) => {
@@ -1108,6 +1131,107 @@ async function run() {
             `D12: boot ${boot} preserves the program and workout log`);
           if (boot === 1) assert(observed.banner, "D12: obsolete marker no longer suppresses the eligible install banner", JSON.stringify(observed));
         }
+      } finally { await context.close(); }
+    }
+
+    for (const mode of ["held", "failed", "rejected"]) {
+      const context = await browser.newContext({ viewport: { width: 390, height: 844 }, userAgent: ANDROID_UA, reducedMotion: "reduce", serviceWorkers: "block" });
+      let owner;
+      try {
+        const page = await context.newPage(), errors = [];
+        page.on("pageerror", error => errors.push(error.message));
+        await page.addInitScript(INSTALL_EVENT);
+        await page.addInitScript(() => {
+          const mode = sessionStorage.getItem("test-followup-mode");
+          if (!mode) return;
+          const request = navigator.locks.request.bind(navigator.locks);
+          navigator.locks.request = (name, ...args) => {
+            const cleanup = name === "repforge:state-write" && Object.keys(localStorage).some(key => {
+              if (!key.startsWith("repforge_pending_v1:")) return false;
+              const journal = JSON.parse(localStorage.getItem(key));
+              return journal.base?._storageFollowUp?.kind === "onboarding-edit" && !journal.proposal?._storageFollowUp;
+            });
+            if (!cleanup || window.__cleanupReached) return request(name, ...args);
+            window.__cleanupReached = true;
+            if (mode === "rejected") {
+              window.__cleanupSettled = true;
+              return Promise.reject(new Error("Injected optional cleanup rejection"));
+            }
+            const enter = () => request(name, ...args).finally(() => { window.__cleanupSettled = true; });
+            if (mode === "held") return new Promise(resolve => { window.__releaseCleanup = resolve; }).then(enter);
+            return enter();
+          };
+          if (mode === "failed") {
+            const set = Storage.prototype.setItem, put = IDBObjectStore.prototype.put;
+            Storage.prototype.setItem = function(key, value) {
+              if (key === "repforge_v1" && !JSON.parse(value)._storageFollowUp) throw new DOMException("Cleanup publication fault", "QuotaExceededError");
+              return set.call(this, key, value);
+            };
+            IDBObjectStore.prototype.put = function(value, key) {
+              if (key === "repforge_v1" && !value._storageFollowUp) throw new DOMException("Cleanup publication fault", "QuotaExceededError");
+              return put.call(this, value, key);
+            };
+          }
+        });
+        await page.goto(BASE, { waitUntil: "domcontentloaded" });
+        await page.waitForFunction(() => window.__repforgeBooted === true);
+        const saved = await seedLegacyFollowUp(page);
+        await page.evaluate(mode => sessionStorage.setItem("test-followup-mode", mode), mode);
+        await page.reload({ waitUntil: "domcontentloaded" });
+        await page.waitForFunction(() => window.__cleanupReached);
+        if (mode === "held") {
+          owner = await context.newPage();
+          const ownerUrl = new URL("followup-lock-owner", BASE).href;
+          await owner.route(ownerUrl, route => route.fulfill({ contentType: "text/html", body: "<!doctype html><title>Lock owner</title>" }));
+          await owner.goto(ownerUrl);
+          await owner.evaluate(() => {
+            window.__lockWork = navigator.locks.request("repforge:state-write", () => {
+              window.__lockAcquired = true;
+              return new Promise(resolve => { window.__unlock = resolve; });
+            });
+          });
+          await owner.waitForFunction(() => window.__lockAcquired);
+          await page.evaluate(() => window.__releaseCleanup());
+          await waitForAsyncCondition(owner, async () => {
+            const locks = await navigator.locks.query();
+            const held = locks.held.find(lock => lock.name === "repforge:state-write");
+            return !!held && locks.pending.some(lock => lock.name === held.name && lock.clientId !== held.clientId);
+          });
+        } else await page.waitForFunction(() => window.__cleanupSettled);
+        // The app's own slow-boot result supplies the failing boundary, without a test delay.
+        await page.waitForFunction(() => window.__repforgeBooted === true && !document.querySelector("#bootSplash") || window.__repforgeBootFailureState,
+          undefined, { timeout: 20000 });
+        const pending = await page.evaluate(() => {
+          window.__fireInstall();
+          const local = JSON.parse(localStorage.getItem("repforge_v1"));
+          return { booted: window.__repforgeBooted === true, failure: window.__repforgeBootFailureState,
+            marker: local._storageFollowUp, program: local.program, log: local.log,
+            banner: !document.querySelector("#installBanner").classList.contains("hidden") };
+        });
+        assert(pending.booted && !pending.failure, `D12 maintenance: ${mode} cleanup does not block usable boot`, JSON.stringify(pending));
+        assert(pending.banner, `D12 maintenance: ${mode} cleanup cannot suppress eligible installation`);
+        const retained = await followUpReplicas(page);
+        assert([retained.local, retained.mirrored].every(value => value._storageFollowUp?.kind === "onboarding-edit"
+          && isDeepStrictEqual(value.program, saved.program) && isDeepStrictEqual(value.log, saved.log)),
+          `D12 maintenance: ${mode} cleanup retains retryable state and training data in both replicas`);
+        let usable = false;
+        if (pending.booted) {
+          if (await page.locator("#programEditDone").isVisible()) await page.click("#programEditDone");
+          await page.click('nav button[data-view="history"]');
+          await page.waitForFunction(() => document.querySelector("#history").classList.contains("active"));
+          usable = await page.locator("#history").isVisible();
+        }
+        assert(usable, `D12 maintenance: ${mode} cleanup leaves History reachable through real controls`);
+        await page.evaluate(() => sessionStorage.removeItem("test-followup-mode"));
+        await page.reload({ waitUntil: "domcontentloaded" });
+        if (owner) await owner.evaluate(async () => { window.__unlock(); await window.__lockWork; });
+        await page.waitForFunction(() => window.__repforgeBooted === true);
+        const retried = await followUpReplicas(page, { consumed: true });
+        assert(!retried.local._storageFollowUp && !retried.mirrored._storageFollowUp
+          && isDeepStrictEqual(retried.local.program, saved.program) && isDeepStrictEqual(retried.local.log, saved.log)
+          && isDeepStrictEqual(retried.mirrored.program, saved.program) && isDeepStrictEqual(retried.mirrored.log, saved.log),
+          `D12 maintenance: later boot retries ${mode} cleanup in both replicas without changing training data`);
+        assert(!errors.length, `D12 maintenance: ${mode} cleanup has no unhandled page errors`, JSON.stringify(errors));
       } finally { await context.close(); }
     }
 
