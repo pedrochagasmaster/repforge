@@ -543,6 +543,82 @@ async function checkPreflightPendingJournalCloses(browser) {
   });
 }
 
+async function checkRecoveredAfterReload(page, args, label) {
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+  const reloaded = await readReplicas(page);
+  check(reloaded.local.programId === args.successorProgramId && reloaded.idb.programId === args.successorProgramId &&
+    reloaded.local.historyLen === 1 && reloaded.idb.historyLen === 1,
+  `${label}: a reload keeps the successor and one archive`, transitionReplicaSummary(reloaded));
+}
+
+// F3: settlement finds every journal of this transition in storage, whatever
+// attempt came last.
+async function checkEveryOutstandingJournalCloses(browser) {
+  await withRetryProposal(browser, "pointer", async ({ page, args }) => {
+    await armRetryFaults(page, { journalRemove: true });
+    await confirmTransition(page, args);
+    await armRetryFaults(page, {});
+    const other = await proposeRetryChange(page, "pointerother", { kind: "shorter_sessions", sessionMinutes: 60 });
+    await page.evaluate(async () => {
+      const next = window.__repforgeWorkoutDraft.state();
+      next.settings = { ...next.settings, restSec: 101 };
+      await window.__repforgeCommitProposedState(next);
+      await window.__repforgeStorage.flush();
+    });
+    const stale = await confirmTransition(page, other.args);
+    check(stale?.code === "stale_proposal", "an intervening proposal is refused as stale", stale);
+    const retry = await confirmTransition(page, args);
+    const remaining = await transitionRetryArtifacts(page);
+    check(retry?.settled === true && remaining.length === 0,
+      "a refused attempt for another proposal does not hide this transition's journal", { retry, remaining });
+    await checkRecoveredAfterReload(page, args, "after a refused attempt");
+    check(await page.evaluate(() => window.__repforgeWorkoutDraft.state().settings.restSec) === 101,
+      "the later setting survives the settled retry");
+  });
+
+  await withRetryProposal(browser, "repeat", async ({ context, page, args }) => {
+    const follower = await openFollowerTab(context);
+    await armRetryFaults(follower, { journalRemove: true });
+    await confirmTransition(page, args);
+    await confirmTransition(follower, args);
+    await confirmTransition(follower, args);
+    const stacked = journalKeys(await transitionRetryArtifacts(follower));
+    check(stacked.length === 2, "each faulted attempt leaves its own journal", stacked);
+    await armRetryFaults(follower, {});
+    const retry = await confirmTransition(follower, args);
+    const remaining = await transitionRetryArtifacts(follower);
+    check(retry?.settled === true && remaining.length === 0,
+      "a settled retry closes the journal of every earlier attempt", { retry, remaining });
+    await checkRecoveredAfterReload(follower, args, "after repeated attempts");
+  });
+
+  await withRetryProposal(browser, "normalpath", async ({ page, args }) => {
+    await armRetryFaults(page, { closeSet: true });
+    await confirmTransition(page, args);
+    await confirmTransition(page, args);
+    await armRetryFaults(page, {});
+    const committed = await confirmTransition(page, args);
+    const remaining = await transitionRetryArtifacts(page);
+    check(committed?.settled === true && remaining.length === 0,
+      "a normal commit does not report settled over journals from earlier attempts", { committed, remaining });
+    await checkRecoveredAfterReload(page, args, "after a normal commit over earlier attempts");
+  });
+
+  await withRetryProposal(browser, "unreadable", async ({ page, args }) => {
+    await armRetryFaults(page, { journalRemove: true });
+    await confirmTransition(page, args);
+    await armRetryFaults(page, {});
+    await page.evaluate(() => localStorage.setItem("repforge_pending_v1:unreadable", "{"));
+    const refused = await confirmTransition(page, args);
+    check(refused?.settled === false && refused?.code === "transition_settlement_journal_invalid",
+      "a journal that cannot be read may be this transition's, so a retry stays unsettled", refused);
+    await checkRecoveredAfterReload(page, args, "after an unreadable journal");
+    const remaining = await transitionRetryArtifacts(page);
+    check(remaining.length === 0, "boot clears the unreadable journal", remaining);
+  });
+}
+
 async function checkTransitionRetryFault(browser, kind) {
   const context = await browser.newContext();
   const page = await context.newPage();
@@ -1911,6 +1987,7 @@ async function main() {
     await checkFailedHealKeepsJournal(browser);
     await checkStrandedCloseMarkerSettles(browser);
     await checkPreflightPendingJournalCloses(browser);
+    await checkEveryOutstandingJournalCloses(browser);
 
     await context.close();
   } finally {
