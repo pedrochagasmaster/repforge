@@ -68,7 +68,7 @@
     if (state.kind === "running") {
       const remainingMs = state.deadlineMs - now;
       return result(freeze({ kind: "paused", remainingMs, lengthSec: state.lengthSec, exerciseId: state.exerciseId, rang: state.rang,
-        expiresAt: now + remainingMs + OVERTIME_MAX_SEC * 1000 }), NO_EFFECTS);
+        heldAt: now, expiresAt: now + remainingMs + OVERTIME_MAX_SEC * 1000 }), NO_EFFECTS);
     }
     if (state.kind === "paused") {
       return result(freeze({ kind: "running", deadlineMs: now + state.remainingMs, lengthSec: state.lengthSec,
@@ -87,9 +87,11 @@
     const nextHeld = held === undefined ? state.kind === "paused" : held;
     const rang = ms > 0 ? false : state.rang;
     // A held rest keeps the expiry it was first held with: moving its remainder while held does not renew it.
-    const expires = state.kind === "paused" && state.expiresAt !== undefined ? state.expiresAt : now + ms + OVERTIME_MAX_SEC * 1000;
+    const holding = state.kind === "paused" && state.expiresAt !== undefined;
+    const heldAt = holding ? state.heldAt : now;
+    const expires = holding ? state.expiresAt : now + ms + OVERTIME_MAX_SEC * 1000;
     const next = nextHeld
-      ? { kind: "paused", remainingMs: ms, lengthSec: length, exerciseId: state.exerciseId, rang, expiresAt: expires }
+      ? { kind: "paused", remainingMs: ms, lengthSec: length, exerciseId: state.exerciseId, rang, heldAt, expiresAt: expires }
       : { kind: "running", deadlineMs: now + ms, lengthSec: length, exerciseId: state.exerciseId, rang };
     return result(freeze(next), ms > 0 ? [EFFECTS.REARMED] : NO_EFFECTS);
   }
@@ -127,7 +129,7 @@
     const { lengthSec, exerciseId, rang } = state;
     const expires = expiresAt(state, now);
     return state.kind === "paused"
-      ? { kind: "paused", remainingMs: state.remainingMs, lengthSec, exerciseId, rang, expiresAt: expires }
+      ? { kind: "paused", remainingMs: state.remainingMs, lengthSec, exerciseId, rang, heldAt: state.heldAt, expiresAt: expires }
       : { kind: "running", deadlineMs: state.deadlineMs, lengthSec, exerciseId, rang, expiresAt: expires };
   }
 
@@ -158,9 +160,12 @@
         && saved.deadlineMs - now <= MAX_SEC * 1000;
     }
     if (kind === "paused") {
-      const remaining = saved.remainingMs;
-      const writtenAt = expires - remaining - OVERTIME_MAX_SEC * 1000;
-      return Number.isFinite(remaining) && remaining <= MAX_SEC * 1000 && remaining >= -OVERTIME_MAX_SEC * 1000 && writtenAt <= now;
+      // The remainder may be moved while held (a nudge, the dial), so the record is bounded by what a held rest can hold: the
+      // moment of its first hold is not in the future, and its expiry is no further from that hold than a rest plus the cap.
+      const { remainingMs: remaining, heldAt } = saved;
+      return Number.isFinite(remaining) && remaining <= MAX_SEC * 1000 && remaining >= -OVERTIME_MAX_SEC * 1000
+        && Number.isFinite(heldAt) && heldAt <= now
+        && expires > heldAt && expires - heldAt <= (MAX_SEC + OVERTIME_MAX_SEC) * 1000;
     }
     return false;
   }
@@ -175,7 +180,7 @@
     if (!snapshotValid(saved, now) || saved.expiresAt <= now) return null;
     const common = { lengthSec: saved.lengthSec, exerciseId: saved.exerciseId ?? null, rang: saved.rang };
     return freeze(saved.kind === "paused"
-      ? { kind: "paused", remainingMs: saved.remainingMs, expiresAt: saved.expiresAt, ...common }
+      ? { kind: "paused", remainingMs: saved.remainingMs, heldAt: saved.heldAt, expiresAt: saved.expiresAt, ...common }
       : { kind: "running", deadlineMs: saved.deadlineMs, ...common });
   }
 
