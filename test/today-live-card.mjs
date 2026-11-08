@@ -334,6 +334,7 @@ try {
         work.finally(() => { window.__retryDone = true; });
         return work;
       };
+      renderDraftRecovery();
     });
     if (leave) {
       await page.evaluate(() => {
