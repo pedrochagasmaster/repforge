@@ -2289,7 +2289,10 @@
       const record=pending?.entries.find(item=>item.journal.id===pendingJournalId);
       if(pending?.invalid.some(item=>item.key===PENDING_PREFIX+pendingJournalId))
         return unresolved(head,"transition_settlement_journal_invalid",{pendingJournalCleanup:true});
-      if(record&&(!transitionJournalAttempt(record.journal.proposal,record.journal.base)||
+      // A preflight-pending journal was rejected before its rebase, so its
+      // proposal never carries the receipt. Boot discards it as intent only too.
+      if(record&&!record.journal.preflightPending&&
+        (!transitionJournalAttempt(record.journal.proposal,record.journal.base)||
         !await matches(record.journal.proposal)))
         return unresolved(head,"transition_settlement_journal_mismatch",{pendingJournalCleanup:true});
 
