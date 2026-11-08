@@ -777,10 +777,8 @@ try {
     await reloadIntoFocus(page);
     const restored = await page.evaluate(() => window.__repforgeRest.state());
     const rang = await page.waitForFunction(() => window.__repforgeRest.state().rang === true, undefined, { timeout: 3000 }).then(() => true, () => false);
-    // The bell's line is written two animation frames after the bell (announceRestDone). Wait for those same two frames, which
-    // were requested after it, rather than a poll that may run before them.
-    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-    const announced = await page.evaluate(() => document.querySelector("#restAnnounce")?.textContent === window.RepForgeI18n.t("rest.complete"));
+    const announced = await page.waitForFunction(() => document.querySelector("#restAnnounce")?.textContent === window.RepForgeI18n.t("rest.complete"),
+      undefined, { timeout: 3000 }).then(() => true, () => false);
     const afterBell = await page.evaluate(() => window.__repforgeRest.state());
     assert(rang && announced && afterBell.phase === "overtime" && afterBell.endMs === capped.endMs,
       "the restored overdue bell rings once on the restore, and the count-up keeps its deadline", { restored, afterBell, announced });
