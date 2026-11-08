@@ -237,6 +237,43 @@ try {
     } finally { await context.close(); }
   }
 
+  for (const [origin, key, opener] of [["summary", "session/summary", "#sumShare"], ["history", "history/session", "[data-history-share]"]]) {
+    const { context, page, errors } = await openSummary(browser, key, { canShare: true });
+    try {
+      await page.click(opener);
+      await page.waitForFunction(() => window.__repforgeShareSheet.state()?.file);
+      const photo = Buffer.from(await page.evaluate(async () => {
+        const canvas = new OffscreenCanvas(640, 320);
+        canvas.getContext("2d").fillRect(0, 0, 640, 320);
+        return [...new Uint8Array(await (await canvas.convertToBlob()).arrayBuffer())];
+      }));
+      await page.evaluate(() => {
+        const decode = window.createImageBitmap.bind(window);
+        window.__styleBitmapClosed = false;
+        window.createImageBitmap = async (file, ...options) => {
+          const bitmap = await decode(file, ...options);
+          if (!(file instanceof File)) return bitmap;
+          const close = bitmap.close.bind(bitmap);
+          bitmap.close = () => { window.__styleBitmapClosed = true; close(); };
+          return new Promise(resolve => { window.__releaseStylePhoto = () => resolve(bitmap); });
+        };
+      });
+      const [chooser] = await Promise.all([page.waitForEvent("filechooser"), page.locator('#shareStyleSegments [data-value="photo"]').click()]);
+      await chooser.setFiles({ name: "held-style.png", mimeType: "image/png", buffer: photo });
+      await page.waitForFunction(() => !!window.__releaseStylePhoto);
+      await page.locator('#shareStyleSegments [data-value="primary"]').click();
+      await page.waitForFunction(() => window.__repforgeShareSheet.state()?.drawn?.style === "orange" && !window.__repforgeShareSheet.state().shareDisabled);
+      const preview = await page.locator("#shareCardPreview").getAttribute("src");
+      await page.evaluate(async () => { window.__releaseStylePhoto(); await new Promise(requestAnimationFrame); });
+      const observed = await state(page);
+      check(observed.style === "orange" && observed.photo === null && observed.drawn.style === "orange"
+        && !observed.shareDisabled && !observed.saveDisabled && await page.locator("#shareCardPreview").getAttribute("src") === preview,
+        `N13 style: ${origin} keeps the explicit style chosen during decode`, observed);
+      check(await page.evaluate(() => window.__styleBitmapClosed), `N13 style: ${origin} releases the rejected bitmap`);
+      check(!errors.length, `${origin} style cancellation has no page errors`, errors);
+    } finally { await context.close(); }
+  }
+
   console.log("\nShare from History");
   {
     // The finish screen's card for Day 1, to compare with the one History draws for the same session.
