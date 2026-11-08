@@ -886,6 +886,23 @@ async function revisionF12(browser) {
   return run.errors;
 }
 
+async function revisionF14(browser) {
+  const run = await queuedReviewSetup(browser), { page, baseline, b, c } = run;
+  await openSlot(page, c.id);
+  await page.locator('#reviewSheet [data-review-sets="1"]').click();
+  await closeSheet(page);
+  await page.locator("#entryReview [data-review-undo]").click();
+  await remountQueuedReview(page);
+  await releaseSetupWrites(page);
+  await settleQueuedReviewWrites(page);
+  const edits = (await reviewLog(page))?.edits || [];
+  check(edits.length === 2 && edits[1].kind === "remove" && edits[1].slotId === b.id,
+    "F14: queued edit lands across remount so Undo reverses the set edit, keeping removal", edits);
+  await checkReviewScreen(page, baseline, "F14");
+  await run.context.close();
+  return run.errors;
+}
+
 async function discardAfterQueuedUndo(browser) {
   const run = await fresh(browser);
   const { page } = run;
@@ -2034,6 +2051,10 @@ async function main() {
       allErrors.push(await revisionF11(browser));
     } else if (process.env.N14_ONLY === "F12") {
       allErrors.push(await revisionF12(browser));
+    } else if (process.env.N14_ONLY === "round3") {
+      for (const scenario of [revisionF7, revisionF8, revisionF9, revisionF10, revisionF13, revisionF11, revisionF12, revisionF14]) allErrors.push(await scenario(browser));
+    } else if (process.env.N14_ONLY === "F14") {
+      allErrors.push(await revisionF14(browser));
     } else if (process.env.N14_ONLY === "F5") {
       allErrors.push(await undoAfterLeaving(browser));
     } else if (process.env.N14_ONLY === "F4") {
@@ -2222,6 +2243,7 @@ async function main() {
     allErrors.push(await revisionF13(browser));
     allErrors.push(await revisionF11(browser));
     allErrors.push(await revisionF12(browser));
+    allErrors.push(await revisionF14(browser));
     allErrors.push(await discardAfterQueuedUndo(browser));
     allErrors.push(await answerEditorMatchesRecommend(browser));
     allErrors.push(await minimumBudget(browser));
