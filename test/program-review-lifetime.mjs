@@ -861,7 +861,100 @@ async function backNextAsksBeforeDiscard(browser) {
   return run.errors;
 }
 
-const lifetimeCases = { X679: backNextAsksBeforeDiscard, F22: revisionF22, F20: revisionF20, F19: revisionF19, F21: revisionF21, F1: restoreDoesNotCrossCandidate, F2: restoreQuestionDoesNotCrossCandidate,
+const failNextReviewWrite = page => page.evaluate(() => {
+  const original = Storage.prototype.setItem;
+  Storage.prototype.setItem = function(key, value) {
+    if (key === "repforge_program_setup_draft_v1") {
+      Storage.prototype.setItem = original;
+      throw new DOMException("injected quota failure", "QuotaExceededError");
+    }
+    return original.call(this, key, value);
+  };
+});
+async function failedReviewWriteRepaints(browser) {
+  const run = await fresh(browser, { fakeWorker: true }), { page } = run;
+  await answerGenerate(page);
+  await page.locator("#entryReview [data-review-slot]").first().waitFor();
+  const baseline = await reviewed(page), b = trainingDays(baseline)[0].slots[1];
+  await openSlot(page, b.id);
+  await failNextReviewWrite(page);
+  await page.locator("#reviewSheet [data-review-remove]").click();
+  await page.waitForFunction(() => window.__reviewActions.some(action => action.action === "save_failed"));
+  await settleQueuedReviewWrites(page);
+  const durable = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_program_setup_draft_v1")).state.result.preview.programDefinition);
+  check(JSON.stringify(await reviewed(page)) === JSON.stringify(baseline) && JSON.stringify(durable) === JSON.stringify(baseline),
+    "#677: failed removal keeps the saved recommendation");
+  await checkReviewScreen(page, baseline, "#677");
+  check(await page.locator(`#entryReview [data-review-slot="${b.id}"]`).count() === 1,
+    "#677: the failed removal's row is restored on screen");
+  await run.context.close();
+  return run.errors;
+}
+async function activateQueuedUndo(browser) {
+  const run = await queuedReviewSetup(browser), { page, baseline, a, b } = run;
+  await page.locator("#entryReview [data-review-undo]").click();
+  await page.click("#entryActivate");
+  await releaseSetupWrites(page);
+  await page.waitForFunction(() => window.__repforgeWorkoutDraft.state().programMeta.onboarded === true);
+  await settleQueuedReviewWrites(page);
+  const active = (await state(page)).programMeta.programDefinition;
+  const expected = Review.replay(baseline, [{ kind: "sets", slotId: a.id, count: setCount(baseline, a.id) + 1 }], REVIEW_CTX);
+  check(JSON.stringify(active) === JSON.stringify(expected.definition) && slotsOf(active).some(slot => slot.id === b.id),
+    "#678: Activate includes the queued Undo and retains the earlier edit");
+  check(await page.evaluate(() => localStorage.getItem("repforge_program_setup_draft_v1") === null) && !await reviewLog(page),
+    "#678: Activate leaves no setup draft or edit log after queued work settles");
+  await run.context.close();
+  return run.errors;
+}
+async function failedEditQueuedUndo(browser) {
+  const run = await queuedReviewSetup(browser), { page, baseline, a } = run;
+  await page.locator("#entryReview [data-review-undo]").click();
+  await failNextReviewWrite(page);
+  await releaseSetupWrites(page);
+  await page.waitForFunction(() => window.__reviewActions.some(action => action.action === "save_failed"));
+  await settleQueuedReviewWrites(page);
+  const expected = Review.replay(baseline, [{ kind: "sets", slotId: a.id, count: setCount(baseline, a.id) + 1 }], REVIEW_CTX);
+  check(JSON.stringify(await reviewed(page)) === JSON.stringify(expected.definition),
+    "F15: Undo queued for a failed edit preserves the earlier landed edit");
+  check(!(await reviewActions(page)).some(action => action.action === "undo"),
+    "F15: a failed edit's queued Undo does not report undoing an earlier edit");
+  await checkReviewScreen(page, baseline, "F15");
+  await run.context.close();
+  return run.errors;
+}
+async function queuedStepperTaps(browser) {
+  const run = await queuedReviewSetup(browser), { page, baseline, c } = run;
+  await openSlot(page, c.id);
+  await page.locator('#reviewSheet [data-review-sets="1"]').click({ clickCount: 2 });
+  await closeSheet(page);
+  await releaseSetupWrites(page);
+  await settleQueuedReviewWrites(page);
+  const count = setCount(baseline, c.id);
+  check(setCount(await reviewed(page), c.id) === count + 2,
+    "F16: two queued stepper taps add two sets");
+  const edits = (await reviewLog(page)).edits;
+  check(edits.at(-2)?.count === count + 1 && edits.at(-1)?.count === count + 2,
+    "F16: each tap records a separate change in the replay log", edits);
+  await page.locator("#entryReview [data-review-undo]").click();
+  await page.waitForFunction(() => !document.querySelector("#entryReview[aria-busy]"));
+  check(setCount(await reviewed(page), c.id) === count + 1, "F16: one Undo reverses only the last stepper tap");
+  await run.context.close();
+  return run.errors;
+}
+async function remountedQueueBusy(browser) {
+  const run = await queuedReviewSetup(browser), { page } = run;
+  await remountQueuedReview(page);
+  check(await page.locator("#entryReview").getAttribute("aria-busy") === "true",
+    "F17: the remounted review exposes the candidate's pending work");
+  await releaseSetupWrites(page);
+  await settleQueuedReviewWrites(page);
+  check(await page.locator("#entryReview").getAttribute("aria-busy") === null,
+    "F17: the remounted review stops reporting busy when its queue drains");
+  await run.context.close();
+  return run.errors;
+}
+
+const lifetimeCases = { X677: failedReviewWriteRepaints, X678: activateQueuedUndo, F15: failedEditQueuedUndo, F16: queuedStepperTaps, F17: remountedQueueBusy, X679: backNextAsksBeforeDiscard, F22: revisionF22, F20: revisionF20, F19: revisionF19, F21: revisionF21, F1: restoreDoesNotCrossCandidate, F2: restoreQuestionDoesNotCrossCandidate,
   F3: renameDoesNotCrossCandidate, F4: sameCandidateEditsAcrossRemount, F5: undoAfterLeaving,
   F6: sameCandidateCommitRepaintsRemount, F7: revisionF7, F8: revisionF8, F9: revisionF9,
   F10: revisionF10, F11: revisionF11, F12: revisionF12, F13: revisionF13, F14: revisionF14,
