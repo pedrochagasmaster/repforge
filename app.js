@@ -4341,7 +4341,16 @@ function renderReviewFlow(el){
     const restart=$("[data-flow-restart]",el);if(restart)restart.onclick=flow.applied===true
       // The program already changed: a new flow would reduce it a second time.
       ?()=>submitReviewProposal(flow,restart)
-      :flow.action==="reduce-volume"?startVolumeReduction:flow.action==="recovery-week"?startRecoveryWeek:startScheduleRepair;
+      :async()=>{
+        if(stale){
+          restart.disabled=true;
+          const refreshed=await refreshPersistenceHead();
+          if(reviewFlow!==flow)return;
+          if(refreshed?.conflict||!refreshed?.head){restart.disabled=false;return}
+          applyAcceptedSnapshot(cloneSnapshot(state),refreshed.head)}
+        if(flow.action==="reduce-volume")startVolumeReduction();
+        else if(flow.action==="recovery-week")startRecoveryWeek();
+        else startScheduleRepair()};
     if(restart&&flow.applied===true)restart.disabled=reviewCommitInFlight;
     bindFlowCancel(el);return}
   if(flow.stage==="done"){
