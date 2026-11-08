@@ -14598,11 +14598,6 @@ function disarmInstalledEditorHistory({historyAlreadyPopped=false}={}){
   installedEditorHistoryRelease=true;
   try{history.back()}catch{installedEditorHistoryRelease=false}
 }
-try{
-  window.attemptProgramEditorDismiss=attemptProgramEditorDismiss;
-  Object.defineProperty(window,"__installedEditorHistoryArmed",{get:()=>installedEditorHistoryArmed,configurable:true});
-  Object.defineProperty(window,"__installedEditorHistoryRelease",{get:()=>installedEditorHistoryRelease,configurable:true});
-}catch{}
 // A refused editor commit lists each problem in plain words; "Go to" resolves
 // with that problem's index once the dialog has closed, Keep editing with null.
 function showEditorIssues(items){
