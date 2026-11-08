@@ -790,7 +790,39 @@ async function revisionF20(browser) {
   return errors;
 }
 
-const lifetimeCases = { F20: revisionF20, F19: revisionF19, F21: revisionF21, F1: restoreDoesNotCrossCandidate, F2: restoreQuestionDoesNotCrossCandidate,
+async function revisionF22(browser) {
+  const run = await fresh(browser), { page } = run;
+  await answerGenerate(page);
+  await page.locator("#entryReview [data-review-slot]").first().waitFor();
+  const baseline = await reviewed(page), [a, b, c] = trainingDays(baseline)[0].slots;
+  const session = { baseline, log: [] };
+  await openSlot(page, a.id);
+  await step(page, session, { kind: "sets", slotId: a.id, count: setCount(baseline, a.id) + 1 },
+    () => page.locator('#reviewSheet [data-review-sets="1"]').click(), "F22 N0 adds a set to A");
+  await closeSheet(page);
+  await step(page, session, { kind: "remove", slotId: b.id },
+    () => removeReviewSlot(page, b.id), "F22 N0 removes B");
+  session.log.pop();
+  await step(page, session, null, () => page.locator("#entryReview [data-review-undo]").click(),
+    "F22 N0 Undo restores B and keeps the set edit");
+  await step(page, session, { kind: "remove", slotId: c.id },
+    () => removeReviewSlot(page, c.id), "F22 N0 removes C");
+  check(await page.locator(".review-toast [data-review-toast-undo]").isVisible(),
+    "F22: the completed removal exposes its actionable Undo before Restore");
+  await queueReviewRestore(page);
+  await page.waitForFunction(() => !document.querySelector("#entryReview[aria-busy]") &&
+    window.__reviewActions.some(action => action.action === "restore"));
+  const durable = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_program_setup_draft_v1")).state.result.preview.programDefinition);
+  check(JSON.stringify(await reviewed(page)) === JSON.stringify(baseline) &&
+    JSON.stringify(durable) === JSON.stringify(baseline) && !(await reviewLog(page))?.edits?.length,
+    "F22: completed Restore agrees with the recommendation, durable draft and empty edit log");
+  check(await page.locator("[data-review-toast-undo]:visible, #entryReview [data-review-undo]:visible").count() === 0,
+    "F22: completed Restore leaves no actionable Undo", await reviewToasts(page));
+  await run.context.close();
+  return run.errors;
+}
+
+const lifetimeCases = { F22: revisionF22, F20: revisionF20, F19: revisionF19, F21: revisionF21, F1: restoreDoesNotCrossCandidate, F2: restoreQuestionDoesNotCrossCandidate,
   F3: renameDoesNotCrossCandidate, F4: sameCandidateEditsAcrossRemount, F5: undoAfterLeaving,
   F6: sameCandidateCommitRepaintsRemount, F7: revisionF7, F8: revisionF8, F9: revisionF9,
   F10: revisionF10, F11: revisionF11, F12: revisionF12, F13: revisionF13, F14: revisionF14,
