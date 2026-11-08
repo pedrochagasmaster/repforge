@@ -424,7 +424,7 @@ try {
       await page.waitForSelector(".daychange-toast");
       await page.waitForFunction(() => !document.querySelector("#dayPickSheet").classList.contains("is-open"));
     }
-    await page.click("#startWorkout");
+    await page.locator("#startWorkout:visible,#todayLiveResume:visible").first().click();
     await page.waitForSelector("#workout .exercise.is-current");
     if (kind === "trim") {
       await page.evaluate(() => {
