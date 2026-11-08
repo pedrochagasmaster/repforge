@@ -11964,6 +11964,10 @@ function syncShareControls(st){
   if(pick)pick.textContent=t(st.photo?"share.change_photo":"share.choose_photo");
   if(note)note.textContent=t(photo?"share.photo_note":"share.note");
   window.RepForgeMotion?.syncNativeControls?.($("#shareCardSheet"))}
+function syncShareAvailability(st){
+  const ready=!!st.file&&(st.drawn.style!=="photo"||st.drawn.photo);
+  const share=$("#shareCardShare"),save=$("#shareCardSave");
+  if(share)share.disabled=!ready;if(save)save.disabled=!ready}
 /** Draws the chosen card and keeps it ready as a file; a newer choice wins over a slower older one. */
 async function paintShareCard(){
   const st=shareSheet;if(!st||!window.TauriferShareCards)return;
@@ -11974,9 +11978,10 @@ async function paintShareCard(){
   if(shareSheet!==st||token!==st.token)return;
   const style=SHARE_STYLES[st.kind][st.styleIndex];
   const out=TauriferShareCards.render(st.model,{kind:st.kind,size:st.size,style,mark,photo:style==="photo"?st.photo:null});
-  if(!out)return;
+  if(!out){syncShareAvailability(st);return}
   const blob=await TauriferShareCards.toBlob(out.canvas);
-  if(shareSheet!==st||token!==st.token||!blob)return;
+  if(shareSheet!==st||token!==st.token)return;
+  if(!blob){syncShareAvailability(st);return}
   if(st.url)URL.revokeObjectURL(st.url);
   st.url=URL.createObjectURL(blob);
   st.file=new File([blob],shareFileName(st),{type:"image/png"});
@@ -11986,8 +11991,7 @@ async function paintShareCard(){
     img.alt=st.kind==="record"&&st.model.lead?t("summary.card.aria_poster",{kicker:st.model.lead.kicker,lift:st.model.lead.name,load:st.model.lead.load,unit:st.model.unit,reps:st.summary.lead.reps})
       :t("summary.card.aria_stats",{day:st.model.day,date:shortDate(st.summary.date)})}
   // Until a photo is chosen the Photo preview is a stand-in ground, so there is nothing to send yet.
-  const ready=style!=="photo"||!!st.photo;
-  if(share)share.disabled=!ready;if(save)save.disabled=!ready}
+  syncShareAvailability(st)}
 /** A past session as the cards draw it (finish-share PR 4): the same numbers the finish screen gave it, read from the
  *  log as it stood when the session was saved. Records compare with what came before it; outcome words are History's
  *  own per-session outcomes, not the current block's; the week is the block week History shows. Null for a session
@@ -12019,7 +12023,7 @@ function openShareSheet(opener,{summary:given=null,origin="summary"}={}){
   const s=given||sessionSummaryCurrent,sheet=$("#shareCardSheet"),scrim=$("#shareCardScrim");
   if(!s||!sheet)return;
   const model=shareCardModel(s);
-  shareSheet={summary:s,origin,model,kind:model.lead?shareCardInView(s):"stats",size:"story",styleIndex:0,token:0,url:"",file:null,drawn:null,photo:null};
+  shareSheet={summary:s,origin,model,kind:model.lead?shareCardInView(s):"stats",size:"story",styleIndex:0,token:0,photoToken:0,url:"",file:null,drawn:null,photo:null};
   syncShareControls(shareSheet);
   // Without file sharing (desktop Firefox, some web views) the image is saved instead: Save leads.
   const canShare=shareCanFiles(),share=$("#shareCardShare"),save=$("#shareCardSave");
@@ -12067,7 +12071,7 @@ function bindShareSheet(){
   change("#shareCardKind",v=>{const photo=sharePhotoStyle(shareSheet);
     shareSheet.kind=v==="record"&&shareSheet.model.lead?"record":"stats";shareSheet.styleIndex=photo?SHARE_STYLES[shareSheet.kind].indexOf("photo"):0});
   change("#shareCardSize",v=>{shareSheet.size=v==="square"?"square":"story"});
-  change("#shareCardStyle",v=>{shareSheet.styleIndex=Math.max(0,SHARE_STYLE_VALUES.indexOf(v));
+  change("#shareCardStyle",v=>{shareSheet.photoToken++;shareSheet.styleIndex=Math.max(0,SHARE_STYLE_VALUES.indexOf(v));
     // Choosing Photo with no picture yet goes straight to the picker, inside the same tap.
     if(sharePhotoStyle(shareSheet)&&!shareSheet.photo)pickSharePhoto()});
   on("#sharePhotoPick",()=>pickSharePhoto());
@@ -12076,8 +12080,8 @@ function bindShareSheet(){
     const st=shareSheet,file=input.files?.[0];
     input.value="";
     if(!st||!file)return;
-    const photo=await decodeSharePhoto(file);
-    if(shareSheet!==st){photo?.close?.();return}
+    const token=++st.photoToken,photo=await decodeSharePhoto(file);
+    if(shareSheet!==st||token!==st.photoToken){releaseSharePhoto({photo});return}
     if(!photo)return toast(t("share.photo_error"),{placement:"top"});
     releaseSharePhoto(st);st.photo=photo;
     st.styleIndex=SHARE_STYLES[st.kind].indexOf("photo");
@@ -22980,7 +22984,6 @@ async function triggerInstall(source="automatic"){
 function installBannerEligible(){
   const decision=installPolicyDecision();
   if(!decision.eligible||!["eligible-milestone","ios-transfer"].includes(decision.state))return false;
-  if(state?.[STORAGE_FOLLOWUP]?.kind==="onboarding-edit")return false;
   if(firstRunActive||$("#onboarding")?.classList.contains("active"))return false;
   return true;
 }
@@ -25130,12 +25133,10 @@ window.__repforgeUi={loadUiPrefs,isStandalone,isIOS,showInstallBanner,currentThe
   replayGuide:replayContextualGuide,showGuide:showContextualGuide,
   openInstallTransferState:stateName=>openIosInstallSheet(stateName),openPrivacy:()=>openPrivacySheet(),
   setPref:(key,value)=>setUiPref(key,value),sharedSettings:()=>sharedSettings(state.settings)};
-function resumeProgramEditFollowUp(){
+async function resumeProgramEditFollowUp(){
   if(state?.[STORAGE_FOLLOWUP]?.kind!=="onboarding-edit")return false;
-  programEditMode=true;
-  document.body.classList.remove("is-settings","is-workout","is-exercise","is-onboarding","is-library","is-preview","is-import");
-  $$("nav button").forEach(x=>{const on=x.dataset.view==="program";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
-  $$(".view").forEach(v=>v.classList.toggle("active",v.id==="program"));
+  const proposal=cloneSnapshot(state);delete proposal[STORAGE_FOLLOWUP];
+  await commitProposedState(proposal);
   return true}
 window.__repforgeOnboarding={
   entry:()=>entryState,
@@ -25995,7 +25996,7 @@ async function boot(){
   await prepareSharedSetup(sharedCandidate);
   const draftBoot=await initializeWorkoutDraft({restoreDay:true});
   if(draftBoot.status==="ready")hydrateWorkoutDraft({restoreDay:true});
-  resumeProgramEditFollowUp();
+  void resumeProgramEditFollowUp().catch(()=>{});
   init();
   restoreRest(draftBoot.status==="ready"?activeWorkoutDraft.draftId:null);
   if(transferResult.transferResult?.localOk===true){
