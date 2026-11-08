@@ -6957,8 +6957,9 @@ function bindStageTip(tip,shelf,ex,n){
   shelf.querySelector(".shelf__pads")?.addEventListener("pointerdown",away,{once:true});
   tip.querySelectorAll("[data-tipdismiss]").forEach(b=>b.onclick=()=>{dismissStageTip(tip.dataset.to);tip.remove();quietFocus(shelf.querySelector(".saveset"))});
   tip.querySelector("[data-tipaccept]")?.addEventListener("click",async()=>{
-    const to=tip.dataset.to;acceptStageTip(to);tip.remove();
-    if(await commitEffortStage(to))toast(t("toast.effort_stage",{stage:t(STAGE_LABEL[to])}),{quiet:true})})}
+    const to=tip.dataset.to;tip.remove();
+    if(await commitEffortStage(to)){
+      acceptStageTip(to);toast(t("toast.effort_stage",{stage:t(STAGE_LABEL[to])}),{quiet:true})}})}
 /* The stage tip (OD-6): Taurifer suggests the next stage up, never down, once the lifter has settled into this one.
    A→B after 6 workouts in stage A with at least 80% of their working sets given a word by the lifter (not left at the
    offered one); B→C after 6 workouts in stage B with at most 10% "Not sure". A dismissal keeps it quiet for 4 weeks,
