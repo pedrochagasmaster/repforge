@@ -19734,7 +19734,7 @@ function entrySkip(){
   const advanced=ProgramEntry.advance(entryState);
   if(!advanced.ok){renderOnboarding();return}
   if(advanced.state.step==="result"&&!advanced.state.result?.preview){startEntryResult(advanced.state);return}
-  if(advanced.state.step==="building"){entrySetState(advanced.state);return}
+  if(advanced.state.step==="building"){guardEntryRebuild(()=>entrySetState(advanced.state));return}
   entrySetState(advanced.state)}
 /* Continue is held until a choice exists on the Basics choice screens; Skip is
    the way past them without an answer. */
@@ -22560,6 +22560,7 @@ function entryAdvance(){
       const preferred=splits.choices.find(choice=>choice.default)||splits.choices[0];
       if(preferred)nextState=ProgramEntry.setAnswers(nextState,{splitPreference:preferred.id})}}
   if(nextState.step==="result"&&!nextState.result?.preview){startEntryResult(nextState);return}
+  if(nextState.step==="building"){guardEntryRebuild(()=>entrySetState(nextState));return}
   entrySetState(nextState)}
 function entryBack(){
   if(!ProgramEntry||!entryState)return;

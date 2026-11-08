@@ -178,7 +178,7 @@ async function editAcrossRemount(browser) {
   // Back then forward rebuilds the recommendation while the removal is still committing.
   await page.locator("#onbBack").click();
   await page.waitForFunction(() => window.__repforgeEntryState()?.step !== "result", undefined, { timeout: 10000 });
-  await page.locator("#onbNext").click();
+  await continueReviewRebuild(page);
   await page.waitForFunction(() => window.__repforgeEntryState()?.step === "result", undefined, { timeout: 15000 });
   await page.locator("#entryReview [data-review-slot]").first().waitFor({ timeout: 10000 });
   await releaseSetupWrites(page);
@@ -245,7 +245,7 @@ async function restoreDoesNotCrossCandidate(browser) {
   await page.locator("#reviewConfirmGo").click();
   await page.locator("#onbBack").click();
   await page.waitForFunction(() => window.__repforgeEntryState()?.step !== "result", undefined, { timeout: 10000 });
-  await page.locator("#onbNext").click();
+  await continueReviewRebuild(page);
   await page.waitForFunction(() => window.__repforgeEntryState()?.step === "result", undefined, { timeout: 15000 });
   await page.locator("#entryReview [data-review-slot]").first().waitFor({ timeout: 10000 });
   await openSlot(page, newRemoval.id);
@@ -318,7 +318,7 @@ async function renameDoesNotCrossCandidate(browser) {
   await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 5000 });
   await page.locator("#onbBack").click();
   await page.waitForFunction(() => window.__repforgeEntryState()?.step !== "result", undefined, { timeout: 10000 });
-  await page.locator("#onbNext").click();
+  await continueReviewRebuild(page);
   await page.waitForFunction(() => window.__repforgeEntryState()?.step === "result", undefined, { timeout: 15000 });
   await page.locator("#entryReview [data-review-slot]").first().waitFor({ timeout: 10000 });
   const rebuiltName = await entry(page).then((value) => value.result.name);
@@ -511,7 +511,7 @@ async function revisionF13(browser) {
   await page.locator("#reviewSheet").waitFor({ state: "hidden" });
   await offer.click();
   await page.click("#onbBack");
-  await page.click("#onbNext");
+  await continueReviewRebuild(page);
   await page.waitForFunction(() => window.__repforgeEntryState()?.step === "result");
   await page.locator(`#entryReview [data-review-confirm-offer-action="${slotId}"]`).waitFor();
   const rebuilt = await reviewed(page);
@@ -531,7 +531,7 @@ async function revisionF11(browser) {
   await page.evaluate(() => { window.__heldReviewWorker.hold = true; });
   await page.click("#onbBack");
   const n = await page.evaluate(() => window.__heldReviewWorker.requests.length);
-  await page.click("#onbNext");
+  await continueReviewRebuild(page);
   await page.waitForFunction(n => window.__heldReviewWorker.requests.length > n, n);
   await releaseSetupWrites(page);
   await settleQueuedReviewWrites(page);
@@ -635,7 +635,7 @@ const seedCustom = async (page, url) => {
   await page.waitForFunction(() => window.__repforgeEntryState()?.step === 'exercise_preferences');
   for (let i = 0; i < 4 && (await entry(page)).step !== 'result'; i++) {
     const before = (await entry(page)).step;
-    await page.click('#onbNext');
+    await continueReviewRebuild(page);
     await page.waitForFunction((b) => window.__repforgeEntryState()?.step !== b, before);
   }
   await page.locator('#entryReview [data-review-slot]').first().waitFor();
@@ -666,7 +666,7 @@ async function returnToCustomReview(page) {
   await page.click("#onbBack");
   await page.click("#onbBack");
   await page.waitForFunction(() => window.__repforgeEntryState()?.step !== "result");
-  await page.click("#onbNext");
+  await continueReviewRebuild(page);
   await page.locator("#entryReview [data-review-slot]").first().waitFor();
 }
 const releaseAnswerRebuild = page => page.evaluate(() => {
@@ -820,6 +820,14 @@ async function revisionF22(browser) {
     "F22: completed Restore leaves no actionable Undo", await reviewToasts(page));
   await run.context.close();
   return run.errors;
+}
+
+async function continueReviewRebuild(page) {
+  const previous = (await entry(page)).step;
+  await page.click("#onbNext");
+  await page.waitForFunction(step => window.__repforgeEntryState().step !== step ||
+    !!document.querySelector("#reviewConfirmGo")?.getClientRects().length, previous);
+  if (await page.locator("#reviewConfirmGo").isVisible()) await page.click("#reviewConfirmGo");
 }
 
 async function backNextAsksBeforeDiscard(browser) {
