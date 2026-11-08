@@ -852,7 +852,7 @@
         observeCommit(saved, "restore");
         if (!matchesCandidate(pinned)) return false;
         if (!saved?.ok) { observe("save_failed"); adapter.announce(t("entry.review.save_failed")); return false; }
-        present({ clearReorder: true, focus: "[data-review-title]", announcement: t("entry.review.toast.restored") });
+        present({ clearToast: true, clearReorder: true, focus: "[data-review-title]", announcement: t("entry.review.toast.restored") });
         return true;
       });
     }
