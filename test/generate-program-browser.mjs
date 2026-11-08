@@ -482,6 +482,38 @@ async function editAcrossRemount(browser) {
   return run.errors;
 }
 
+async function sameCandidateEditsAcrossRemount(browser) {
+  const run = await fresh(browser);
+  const { page } = run;
+  await answerGenerate(page);
+  await page.waitForSelector("#entryReview [data-review-slot]", { timeout: 15000 });
+  const baseline = await reviewed(page);
+  const [day] = trainingDays(baseline);
+  const [first, second] = day.slots;
+  await holdSetupWrites(page);
+  await openSlot(page, first.id);
+  await page.locator("#reviewSheet [data-review-remove]").click();
+  await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 5000 });
+  await page.locator("#onbCancel").click();
+  await page.waitForSelector("#entryCancelDiscard", { timeout: 5000 });
+  await page.keyboard.press("Escape");
+  await page.waitForSelector("#entryCancelDiscard", { state: "hidden", timeout: 5000 });
+  await page.locator(`#entryReview [data-review-slot="${second.id}"]`).waitFor({ timeout: 10000 });
+  await openSlot(page, second.id);
+  await page.locator("#reviewSheet [data-review-remove]").click();
+  await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 5000 });
+  await releaseSetupWrites(page);
+  await settleSetupWrites(page);
+  const edits = (await reviewLog(page))?.edits;
+  const replayed = Review.replay(baseline, edits || [], REVIEW_CTX);
+  check(replayed.ok && JSON.stringify(replayed.definition) === JSON.stringify(await reviewed(page)),
+    "review: edits across a same-candidate remount keep the log equal to the saved definition",
+    { edits, replayed: replayed.ok && replayed.definition, saved: await reviewed(page) });
+  check(edits?.length === 2, "review: both removals remain undoable after the same-candidate remount", edits);
+  await run.context.close();
+  return run.errors;
+}
+
 async function discardAfterQueuedUndo(browser) {
   const run = await fresh(browser);
   const { page } = run;
@@ -1618,6 +1650,8 @@ async function main() {
   try {
     if (process.env.N14_ONLY === "F5") {
       allErrors.push(await undoAfterLeaving(browser));
+    } else if (process.env.N14_ONLY === "F4") {
+      allErrors.push(await sameCandidateEditsAcrossRemount(browser));
     } else {
     allErrors.push(await recoveredGenerationJourney(browser));
     allErrors.push(await sourceSplitChoicesJourney(browser));
