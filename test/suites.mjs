@@ -168,7 +168,6 @@ export const FULL_SUITES = {
     s("test/runtime-budget.mjs"),
     s("tools/check-design-md.mjs", [], { domains: ["shell"], cost: "tiny" }),
     s("test/landing-demo-copy.mjs", [], { domains: ["entry"], cost: "tiny" }),
-    s("test/starting-loads.mjs", [], { domains: ["workout"], cost: "tiny" }),
     s("test/effort-calibration.mjs", [], { domains: ["workout"], cost: "tiny" }),
     s("test/calibration-gauge.mjs", [], { domains: ["workout", "progress"], cost: "tiny" }),
     s("test/rest-timer-model.mjs", [], { domains: ["workout"], cost: "tiny" }),
@@ -309,6 +308,7 @@ export const FULL_SUITES = {
 };
 
 export const SUPPORT = {
+  "test/starting-loads.mjs": "Opening-load and ramp arithmetic proofs executed by progression-engine-plan067.mjs in the PR lane; also runnable directly.",
   "test/entry-privacy.mjs": "Shared privacy characterization/oracles imported by the four scoped contracts.",
   "test/suites.mjs": "CI/local inventory, imported by tools/run-tests.mjs.",
   "test/browser.mjs": "Shared Playwright launcher and boot helpers.",
