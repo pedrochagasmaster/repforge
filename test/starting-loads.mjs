@@ -72,3 +72,40 @@ test("an exact decimal boundary does not lose a grid step", () => {
 test("an excluded source convention cannot supply an external-load ratio", () => {
   assert.deepEqual(Loads.ratioLoad({ anchorLoadKg: 60, from: { ...from, convention: "bodyweight" }, to }), { loadKg: 8, basis: "prior" });
 });
+
+test("a combination Smith trainer uses its cable stack for cable hinges", () => {
+  const integerGrid = Array.from({ length: 1000 }, (_, i) => i + 1);
+  for (const name of ["Cable Romanian deadlift", "Cable pull-through"]) {
+    assert.deepEqual(Loads.openingLoad(args(name, {
+      equipmentName: "Pin-loaded Smith machine functional trainer", grid: integerGrid,
+    })), { loadKg: 24, basis: "prior" }, name);
+  }
+});
+
+test("a combination Smith trainer keeps the Smith bar's declared hinge prior", () => {
+  const integerGrid = Array.from({ length: 1000 }, (_, i) => i + 1);
+  for (const equipmentName of [null, "Smith machine and weight plates", "Pin-loaded Smith machine functional trainer"]) {
+    assert.deepEqual(Loads.openingLoad(args("Smith machine Romanian deadlift", {
+      equipmentName, grid: integerGrid,
+    })), { loadKg: 32, basis: "prior" }, equipmentName);
+  }
+});
+
+test("combination-trainer priors agree with each catalog movement's dedicated equipment", () => {
+  const combination = "Pin-loaded Smith machine functional trainer";
+  const integerGrid = Array.from({ length: 1000 }, (_, i) => i + 1);
+  for (const entry of catalog.exercises) {
+    const equipment = entry.resistanceEquipmentGroupIds.map(lookup);
+    if (!equipment.some(option => option.name === combination)) continue;
+    // The catalog offers either a dedicated Smith bar or dedicated cable equipment alongside the trainer.
+    const dedicated = equipment.find(option => option.name === "Smith machine and weight plates")
+      || equipment.find(option => option.name !== combination && lookup(option.category)?.name === "Cable Machines");
+    assert.ok(dedicated, entry.name);
+    for (const experience of ["beginner", "intermediate", "advanced"]) {
+      const options = args(entry.name, { experience, grid: integerGrid });
+      const expected = Loads.openingLoad({ ...options, equipmentName: dedicated.name });
+      assert.deepEqual(Loads.openingLoad({ ...options, equipmentName: combination }), expected, `${entry.name}: ${experience} trainer`);
+      assert.deepEqual(Loads.openingLoad(options), expected, `${entry.name}: ${experience} catalog options`);
+    }
+  }
+});
