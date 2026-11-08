@@ -771,9 +771,20 @@ try {
     const { context, page, errors } = await focusPage(browser);
     await logSet(page);
     await page.waitForSelector("#restTab", { timeout: 5000 });
-    await page.evaluate(() => window.__repforgeRest.setLeft(-600 * 1000));
-    const capped = await page.evaluate(() => window.__repforgeRest.state());
-    assert(capped.phase === "overtime" && !capped.rang, "set up: ten minutes past the bell, not yet rung", capped);
+    // The overdue rest is written while this page's rest is idle. A running clock here would tick, and a tick before the
+    // reload commits would ring the bell on the page that is leaving, and the line with it. The reloaded page then restores
+    // a rest that has already rung, which is correct, but is not the restore this phase is checking.
+    await page.evaluate(() => {
+      stopRest();
+      const draft = JSON.parse(localStorage.getItem("repforge_draft_v1"));
+      const now = Date.now();
+      localStorage.setItem("repforge_rest_v1", JSON.stringify({ draftId: draft.draftId, rest: { kind: "running", deadlineMs: now - 600000,
+        lengthSec: 120, exerciseId: null, rang: false, expiresAt: now - 600000 + 3600000 } }));
+    });
+    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_rest_v1")).rest);
+    const capped = { endMs: stored.deadlineMs };
+    assert(!stored.rang && stored.kind === "running" && stored.deadlineMs < Date.now() - 500000,
+      "set up: a rest ten minutes past its bell is on the device, not yet rung", stored);
     await reloadIntoFocus(page);
     const restored = await page.evaluate(() => window.__repforgeRest.state());
     const rang = await page.waitForFunction(() => window.__repforgeRest.state().rang === true, undefined, { timeout: 3000 }).then(() => true, () => false);
