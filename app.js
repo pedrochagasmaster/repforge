@@ -17926,6 +17926,9 @@ function setImportSourceMode(mode,{render=true}={}){
     if(!confirm(t("entry.freeform.confirm_discard")))return;
   }
   entryImportMode=mode==="freeform"?"freeform":"file";
+  // A file read picked on the other door belongs to that door's flow: a switch,
+  // even one back before it lands, must not let it open a review here.
+  if(entryImportMode!==prev)programFileRead=null;
   setUiPref("importSourceMode",entryImportMode);
   // Clearing only the stored copy left the text in memory, so a lifter who
   // confirmed the discard got it back by switching doors again.
