@@ -332,6 +332,63 @@ async function checkRetainedRetryWhileFaulted(browser, errors) {
   await context.close();
 }
 
+// Returning to Review while the commit waits for the storage lock re-renders the
+// preview for the same proposal. Its Confirm stays disabled, so the proposal is
+// submitted once.
+async function checkConfirmStaysDisabledInFlight(browser, errors, { journalFault }) {
+  const { context, page } = await reachVolumePreview(browser, errors);
+  await spyTransitionTelemetry(page);
+  const proposal = await page.evaluate(() => window.__repforgeProgressReview.flow().proposal);
+  const holder = await context.newPage();
+  await holder.goto(BASE, { waitUntil: "domcontentloaded" });
+  await waitForAppBoot(holder, { base: BASE });
+  await holder.evaluate(() => {
+    window.__held = false;
+    const hold = new Promise((resolve) => { window.__releaseLock = resolve; });
+    window.__lockDone = navigator.locks.request("repforge:state-write", async () => { window.__held = true; await hold; });
+  });
+  await holder.waitForFunction(() => window.__held === true);
+  if (journalFault) {
+    await page.evaluate(() => {
+      const removeItem = Storage.prototype.removeItem;
+      Storage.prototype.removeItem = function(key) {
+        if (String(key).startsWith("repforge_pending_v1:")) throw new DOMException("probe", "QuotaExceededError");
+        return removeItem.call(this, key);
+      };
+      window.__clearJournalFault = () => { Storage.prototype.removeItem = removeItem; };
+    });
+  }
+  const label = journalFault ? "with a journal fault" : "without a fault";
+  await page.locator("[data-preview-confirm]").click();
+  await page.locator('nav button[data-view="program"]').click();
+  await openReview(page);
+  const confirm = page.locator("[data-preview-confirm]");
+  await confirm.waitFor({ state: "visible", timeout: 15000 });
+  const reenabled = await confirm.isEnabled();
+  check(!reenabled, `Confirm stays disabled across a re-render while the commit is in flight ${label}`);
+  if (reenabled) await confirm.click();
+  await holder.evaluate(() => { window.__releaseLock(); return window.__lockDone; });
+  await holder.close();
+  await page.locator("#reviewPanel .review__error, #reviewPanel .review__staged").first().waitFor({ state: "visible", timeout: 15000 });
+  await flush(page);
+  let screen = await reviewScreen(page);
+  if (journalFault) {
+    check(screen.stage === "error" && screen.copy === EN["toast.program_save_failed"] && screen.events === 0,
+      "the one attempt reports the failed save and sends no success telemetry", screen);
+    await page.evaluate(() => window.__clearJournalFault());
+    await page.locator("[data-flow-restart]").click();
+    await page.locator("#reviewPanel .review__staged").waitFor({ state: "visible", timeout: 15000 });
+    screen = await reviewScreen(page);
+  }
+  const durable = await replicas(page);
+  const artifacts = await transitionArtifacts(page);
+  check(screen.stage === "done" && screen.events === 1 && artifacts.length === 0 && durable.local.programHistory.length === 1 &&
+    JSON.stringify(durable.local.programMeta.programDefinition) === JSON.stringify(proposal.successor.programDefinition) &&
+    JSON.stringify(durable.idb.programMeta.programDefinition) === JSON.stringify(proposal.successor.programDefinition),
+  `the proposal commits once with one success event ${label}`, { screen, artifacts, archives: durable.local.programHistory.length });
+  await context.close();
+}
+
 // Neither replica took the write: nothing changed, so the existing copy is
 // still true and Try again still starts a new flow.
 async function checkNothingChangedFailure(browser, errors) {
@@ -886,6 +943,8 @@ async function main() {
 
     await checkRetainedRetryWhileFaulted(browser, errors);
     await checkNothingChangedFailure(browser, errors);
+    await checkConfirmStaysDisabledInFlight(browser, errors, { journalFault: false });
+    await checkConfirmStaysDisabledInFlight(browser, errors, { journalFault: true });
 
     check(errors.length === 0, "no page errors during the Review journeys", errors);
   } catch (error) {
