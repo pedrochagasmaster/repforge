@@ -405,6 +405,59 @@ try {
     await context.close();
   }
 
+  phase("T18b/T20: Undo tapped while End waits cannot recover an ended session");
+  for (const kind of ["trim", "day"]) {
+    const { context, page, errors } = await freshPage(browser, { reducedMotion: "reduce" });
+    if (kind === "day") {
+      await page.click("#chooseAnotherDay");
+      await page.waitForSelector("#dayPickSheet.is-open");
+      await page.click('[data-daypick="Day 2"]');
+      await page.waitForSelector(".daychange-toast");
+      await page.waitForFunction(() => !document.querySelector("#dayPickSheet").classList.contains("is-open"));
+    }
+    await page.click("#startWorkout");
+    await page.waitForSelector("#workout .exercise.is-current");
+    if (kind === "trim") {
+      await page.evaluate(() => {
+        window.fatigueFlagged = () => exercises().filter(e => ["seed-ex-2", "seed-ex-4", "seed-ex-5"].includes(e.id));
+        renderFatigue();
+      });
+      await page.click("#fatigue .fatigue__trim");
+      await page.waitForSelector(".trim-toast");
+    }
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    await page.evaluate(kind => {
+      const name = kind === "trim" ? "undoFatigueTrim" : "undoDayChange";
+      const original = window[name];
+      window[name] = (...args) => {
+        const work = original(...args);
+        work.finally(() => { window.__undoDone = true; });
+        return work;
+      };
+    }, kind);
+    await page.click("#sessionSheetBtn");
+    await page.click("#sessionAbandon");
+    await page.waitForSelector("#sessionAbandonPrompt:not(.hidden)");
+    await holdWrites(page);
+    await observeNextWrite(page);
+    await page.click("#sessionAbandonConfirm");
+    await page.waitForFunction(() => window.__writeQueued === true);
+    await page.locator(`.${kind === "trim" ? "trim" : "daychange"}-toast .review-toast__undo`).click();
+    await releaseWrites(page);
+    await page.evaluate(() => window.__repforgeLastAbandon);
+    await page.waitForFunction(() => window.__undoDone === true);
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    const after = await page.evaluate(() => ({
+      draft: window.__repforgeWorkoutDraft.current(),
+      stored: localStorage.getItem("repforge_draft_v1"),
+      recovery: !document.querySelector("#draftRecovery").classList.contains("hidden"),
+    }));
+    assert(after.draft === null && after.stored === null && !after.recovery,
+      `${kind === "trim" ? "T18b" : "T20"}: End settles before Undo, with no draft or false recovery left`, JSON.stringify(after));
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
   phase("A dock tab chosen while Resume waits: Focus stays closed");
   {
     const { context, page, errors } = await freshPage(browser);
