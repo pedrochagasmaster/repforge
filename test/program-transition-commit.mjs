@@ -128,6 +128,23 @@ async function readReplicas(page) {
   return { local: semantic(local), idb: semantic(idb), rawLocal: localRaw };
 }
 
+async function transitionRetryArtifacts(page) {
+  return page.evaluate(() => Object.keys(localStorage).filter((key) =>
+    key.startsWith("repforge_pending_v1:") || key.startsWith("repforge_draft_v1:closing") ||
+    key.startsWith("repforge_draft_v1:pending")
+  ));
+}
+
+function transitionReplicaSummary(replicas) {
+  const summary = (replica) => ({
+    programId: replica?.programId,
+    revision: replica?.revision,
+    transitionId: replica?.transitionIn?.transitionId ?? null,
+    historyLen: replica?.historyLen,
+  });
+  return { local: summary(replicas.local), idb: summary(replicas.idb) };
+}
+
 async function clearStorage(page) {
   await page.evaluate(async ({ key, draftKey, checkpointKey, dbName }) => {
     localStorage.removeItem(key);
@@ -327,6 +344,112 @@ async function setupPredecessorWithSentinelAndDraft(page, tag = "p6b") {
     preDraftRaw: draftSetup.raw,
     preCheckpointRaw: draftSetup.checkpointRaw,
   };
+}
+
+async function checkTransitionRetryFault(browser, kind) {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  try {
+    await page.goto(BASE);
+    await waitForAppBoot(page, { base: BASE });
+    await clearStorage(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+
+    const activation = await activateGeneratedPredecessor(page);
+    check(activation.ok, `${kind} transition retry fixture activates its predecessor`, activation);
+    const proposed = await page.evaluate(async (retryKind) => {
+      const result = await window.__repforgeProgramTransition.proposeChange({
+        change: { kind: "fewer_days", daysPerWeek: 3 },
+        transitionId: `tr_retry_${retryKind}`,
+        successorProgramId: `prog_retry_${retryKind}`,
+        createdAt: "2026-11-01T12:00:00.000Z",
+      });
+      if (!result?.ok) return result;
+      return {
+        ...result,
+        args: {
+          proposal: result.proposal,
+          proposalHash: result.proposal.proposalHash,
+          transitionId: result.proposal.transitionId,
+          successorProgramId: result.proposal.successor.programId,
+          confirmedAt: "2026-11-01T12:05:00.000Z",
+          acknowledgedDraftRaw: localStorage.getItem("repforge_draft_v1"),
+        },
+      };
+    }, kind);
+    check(proposed?.ok === true, `${kind} transition retry proposal is produced`, proposed?.code);
+    if (!proposed?.ok) return;
+
+    await page.evaluate((faultKind) => {
+      const io = window.RepForgeDurableState.storageIO;
+      const writeIdb = io.writeIdb;
+      const removeItem = Storage.prototype.removeItem;
+      io.writeIdb = async (snapshot) => faultKind === "idb" ? false : writeIdb(snapshot);
+      Storage.prototype.removeItem = function(key) {
+        if (faultKind === "cleanup" && String(key).startsWith("repforge_pending_v1:")) {
+          throw new DOMException("probe cleanup quota", "QuotaExceededError");
+        }
+        return removeItem.call(this, key);
+      };
+      window.__clearTransitionRetryFault = () => {
+        io.writeIdb = writeIdb;
+        Storage.prototype.removeItem = removeItem;
+      };
+    }, kind);
+
+    const first = await confirmTransition(page, proposed.args);
+    const afterFirst = await readReplicas(page);
+    const artifactsAfterFirst = await transitionRetryArtifacts(page);
+    check(first?.committed === false && first?.settled === false,
+      `${kind} first transition attempt does not report settlement`, first);
+    check(afterFirst.local.programId === proposed.args.successorProgramId,
+      `${kind} first attempt has the successor in localStorage`, transitionReplicaSummary(afterFirst));
+    if (kind === "idb") {
+      check(afterFirst.idb.programId === proposed.args.proposal.predecessor.programId,
+        "failed IndexedDB write leaves its predecessor replica stale", transitionReplicaSummary(afterFirst));
+    } else {
+      check(afterFirst.idb.programId === proposed.args.successorProgramId && artifactsAfterFirst.length > 0,
+        "failed journal cleanup leaves the committed replicas and its journal pending",
+        { replicas: transitionReplicaSummary(afterFirst), artifactsAfterFirst });
+    }
+
+    const retryWhileFaulted = await confirmTransition(page, proposed.args);
+    const stillFaulted = await readReplicas(page);
+    const artifactsWhileFaulted = await transitionRetryArtifacts(page);
+    check(retryWhileFaulted?.committed === false && retryWhileFaulted?.settled === false,
+      `${kind} same-proposal retry stays unsettled while the fault remains`, retryWhileFaulted);
+    if (kind === "idb") {
+      check(stillFaulted.local.programId === proposed.args.successorProgramId &&
+        stillFaulted.idb.programId === proposed.args.proposal.predecessor.programId,
+        "same-proposal retry does not claim success while IndexedDB is stale", transitionReplicaSummary(stillFaulted));
+    } else {
+      check(stillFaulted.local.programId === proposed.args.successorProgramId &&
+        stillFaulted.idb.programId === proposed.args.successorProgramId && artifactsWhileFaulted.length > 0,
+        "same-proposal retry does not claim success while its journal remains",
+        { replicas: transitionReplicaSummary(stillFaulted), artifactsWhileFaulted });
+    }
+
+    await page.evaluate(() => window.__clearTransitionRetryFault());
+    const settledRetry = await confirmTransition(page, proposed.args);
+    const afterSettlement = await readReplicas(page);
+    const artifactsAfterSettlement = await transitionRetryArtifacts(page);
+    check(settledRetry?.committed === true && settledRetry?.settled === true &&
+      settledRetry?.localOk === true && settledRetry?.idbOk === true,
+    `${kind} retry settles after the fault clears`, settledRetry);
+    check(afterSettlement.local.programId === proposed.args.successorProgramId &&
+      afterSettlement.idb.programId === proposed.args.successorProgramId &&
+      afterSettlement.local.revision === afterSettlement.idb.revision &&
+      isDeepStrictEqual(afterSettlement.local.transitionIn, afterSettlement.idb.transitionIn) &&
+      isDeepStrictEqual(afterSettlement.local.programHistory, afterSettlement.idb.programHistory),
+    `${kind} retry heals and verifies matching transition replicas`, transitionReplicaSummary(afterSettlement));
+    check(afterSettlement.local.historyLen === 1 && afterSettlement.idb.historyLen === 1 &&
+      artifactsAfterSettlement.length === 0,
+    `${kind} retry leaves one archive and no pending journal or draft artifact`, artifactsAfterSettlement);
+  } finally {
+    await page.evaluate(() => window.__clearTransitionRetryFault?.()).catch(() => {});
+    await context.close();
+  }
 }
 
 async function main() {
@@ -1604,6 +1727,9 @@ async function main() {
       "duplicate B->C retry created no extra archive");
 
     await ctx14.close();
+
+    await checkTransitionRetryFault(browser, "idb");
+    await checkTransitionRetryFault(browser, "cleanup");
 
     await context.close();
   } finally {
