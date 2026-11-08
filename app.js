@@ -22935,7 +22935,6 @@ async function triggerInstall(source="automatic"){
 function installBannerEligible(){
   const decision=installPolicyDecision();
   if(!decision.eligible||!["eligible-milestone","ios-transfer"].includes(decision.state))return false;
-  if(state?.[STORAGE_FOLLOWUP]?.kind==="onboarding-edit")return false;
   if(firstRunActive||$("#onboarding")?.classList.contains("active"))return false;
   return true;
 }
@@ -25952,7 +25951,7 @@ async function boot(){
   await prepareSharedSetup(sharedCandidate);
   const draftBoot=await initializeWorkoutDraft({restoreDay:true});
   if(draftBoot.status==="ready")hydrateWorkoutDraft({restoreDay:true});
-  await resumeProgramEditFollowUp();
+  void resumeProgramEditFollowUp().catch(()=>{});
   init();
   restoreRest(draftBoot.status==="ready"?activeWorkoutDraft.draftId:null);
   if(transferResult.transferResult?.localOk===true){
