@@ -803,7 +803,7 @@ async function main() {
       "#670: activation names missing measurements instead of asking for exercises", metricStatus);
     await page.locator('#onbProgramEditor [data-role="metric-composition"]').selectOption({ label: "Reps" });
     await page.waitForFunction(() => window.__repforgeEntryPersistenceDiagnostic?.()?.operation === "editor-commit" &&
-      window.__repforgeEntryPersistenceDiagnostic?.()?.ok === true);
+      window.__repforgeEntryPersistenceDiagnostic?.()?.ok === true && !document.querySelector('#entryEditorActivate')?.disabled);
     assert(await page.locator('#entryEditorActivate').isEnabled(),
       "configuring measurements clears the activation blocker");
 
