@@ -541,6 +541,40 @@ async function historyStackInterleavings(browser) {
       "in-app library close over dirty editor does not open leave dialog", dirtyEditorState);
     await page3.close();
 
+    // Escape must release the editor entry as well as the library above it.
+    const escapePage = await context.newPage();
+    const returnURL = new URL("?history-return=escape-editor", BASE).href;
+    await escapePage.goto(returnURL, { waitUntil: "domcontentloaded" });
+    await waitForApp(escapePage);
+    await writeFixture(escapePage, fixture());
+    await escapePage.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForApp(escapePage);
+    await openInstalledEditor(escapePage);
+    await escapePage.locator('#programEditor [data-role="add-exercise"]').first().click();
+    await escapePage.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
+    await escapePage.locator("#exPickFull").click();
+    await escapePage.waitForFunction(() => document.body.classList.contains("is-library"), undefined, { timeout: 5000 });
+    await escapePage.evaluate(() => {
+      window.__repforgeTestHistoryPopped = false;
+      window.addEventListener("popstate", () => { window.__repforgeTestHistoryPopped = true; }, { once: true });
+    });
+    await escapePage.keyboard.press("Escape");
+    await escapePage.waitForFunction(() => window.__repforgeTestHistoryPopped === true
+      && !document.body.classList.contains("is-library")
+      && document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), undefined, { timeout: 5000 });
+    check(true, "Escape over the library closes both library and editor");
+    await openInstalledEditor(escapePage);
+    await escapePage.goBack();
+    const editorClosed = await escapePage.waitForFunction(() =>
+      document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), undefined, { timeout: 5000 })
+      .then(() => true, () => false);
+    check(editorClosed, "Back closes the reopened editor after Escape over the library");
+    await escapePage.goBack();
+    await escapePage.waitForURL(returnURL, { timeout: 5000 });
+    await waitForApp(escapePage);
+    check(escapePage.url() === returnURL, "the next Back returns to the preceding app page without overshooting");
+    await escapePage.close();
+
     // Proof for Item 3: Reload with editor open, Back, Keep editing, Back.
     const page4 = await context.newPage();
     await page4.goto(BASE, { waitUntil: "domcontentloaded" });
