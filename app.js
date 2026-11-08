@@ -4266,6 +4266,9 @@ function legacyReviewPanel(el){
 // confirmed by hash) or the exact-program guided fallback, which stages a
 // setup draft and never archives. Cancel leaves the program untouched.
 let reviewFlow=null;
+/* Leaving Review and coming back rebuilds these buttons while a commit waits
+   for the storage lock, so the in-flight fact outlives any one button. */
+let reviewCommitInFlight=false;
 /* The days question opens on the program's current days per week (owner, 2026-10-25); the minutes question opens empty. */
 const scheduleDiagnosisTarget=kind=>kind==="fewer_days"?String(days().length||""):"";
 function startScheduleRepair(){reviewFlow={stage:"diagnosis",action:"schedule-repair",kind:"fewer_days",target:scheduleDiagnosisTarget("fewer_days")};renderReview()}
@@ -4318,6 +4321,7 @@ function renderReviewFlow(el){
       // The program already changed: a new flow would reduce it a second time.
       ?()=>submitReviewProposal(flow,restart)
       :flow.action==="reduce-volume"?startVolumeReduction:flow.action==="recovery-week"?startRecoveryWeek:startScheduleRepair;
+    if(restart&&flow.applied===true)restart.disabled=reviewCommitInFlight;
     bindFlowCancel(el);return}
   if(flow.stage==="done"){
     el.innerHTML=`<p class="review__staged" role="status">${esc(t(flow.doneKey||"review.done.committed"))}</p>`+
@@ -4456,15 +4460,18 @@ function renderSiblingPreview(el,flow){
     `<div class="btnrow review__preview-actions"><button type="button" class="btn btn--cta" data-preview-confirm>${esc(t(recovery?"review.recovery.confirm":"review.preview.confirm"))}</button>`+
     `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.preview.cancel"))}</button></div>`;
   const confirm=$("[data-preview-confirm]",el);
-  if(confirm)confirm.onclick=()=>submitReviewProposal(flow,confirm);
+  if(confirm){confirm.disabled=reviewCommitInFlight;confirm.onclick=()=>submitReviewProposal(flow,confirm)}
   bindFlowCancel(el)}
 async function submitReviewProposal(flow,button){
-  button.disabled=true;
+  if(reviewCommitInFlight)return;
+  reviewCommitInFlight=true;button.disabled=true;
   const p=flow.proposal||{},change=p.change||{};
-  const persisted=await repforgeProgramTransitionAdapter.confirmTransition({
+  let persisted;
+  try{persisted=await repforgeProgramTransitionAdapter.confirmTransition({
     proposal:p,proposalHash:p.proposalHash,transitionId:p.transitionId,
     successorProgramId:p.successor?.programId,confirmedAt:new Date().toISOString(),
-    acknowledgedDraftRaw:readDraftRaw()});
+    acknowledgedDraftRaw:readDraftRaw()})}
+  finally{reviewCommitInFlight=false}
   if(persisted?.committed===true&&persisted?.settled===true){
     const action={"schedule-repair":"schedule_repair","reduce-volume":"reduce_volume","recovery-week":"recovery_week","guided-edit":"guided_edit"}[flow.action];
     if(action)captureEvent("block_transition_chosen",{action});
