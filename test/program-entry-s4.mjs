@@ -193,9 +193,119 @@ async function sameStateAnswerRebuild(browser) {
   await context.close();
 }
 
+/* Holds every answer rebuild the production services start, until the test
+   releases them, oldest first. */
+async function holdAnswerRebuilds(page) {
+  await page.evaluate(() => {
+    const base = window.RepForgeProgramEntryAdapter.createProductionServices({
+      Compiler: window.RepForgeProgramCompiler,
+      catalog: window.RepForgeExerciseCatalog.snapshot(),
+    });
+    window.__repforgeHeldRebuilds = [];
+    window.__repforgeProgramEntryServicesOverride = {
+      ...base,
+      generateProgram: ({ request }) => {
+        const generated = base.generateProgram({ request });
+        return new Promise((resolve) => window.__repforgeHeldRebuilds.push(() => resolve(generated)));
+      },
+    };
+  });
+}
+
+async function openDaysEditorAndApply(page, days) {
+  await page.locator('#entryCandidateReview [data-entry-chip="days"]').click();
+  await page.locator(`#entryEditor [data-entry-pick="daysPerWeek"][data-entry-val="${days}"]`).click();
+  await page.locator("#entryChipApply").click();
+}
+
+async function sameCanonicalProgram(page) {
+  return page.evaluate(() => {
+    const current = window.__repforgeEntryState();
+    const catalog = window.RepForgeExerciseCatalog.snapshot();
+    const mapped = window.RepForgeProgramEntryAdapter.programRequestFromAnswers(current.answers, catalog);
+    return JSON.stringify(current.result.preview.programDefinition) ===
+      JSON.stringify(window.RepForgeProgramCompiler.generateProgram(mapped.value, catalog).value);
+  });
+}
+
+function trainingDayCount(definition) {
+  return definition.days.filter((day) => day.kind === "training").length;
+}
+
+/* #655: the lifter edits Days to another value and back to the committed one
+   while the first rebuild is still pending. The editor must still start a
+   rebuild for the latest answer, so the pending one cannot land last. */
+async function returnToCommittedAnswerWhileRebuildPending(browser) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: "UTC" });
+  const page = await context.newPage();
+  await page.clock.setFixedTime(START);
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+  await page.click("#firstRunCreate");
+  await answerRecommend(page, { skipBasics: true });
+  const original = await page.evaluate(() => window.__repforgeEntryState()?.answers?.daysPerWeek);
+  const other = original === 3 ? 4 : 3;
+  await holdAnswerRebuilds(page);
+  await openDaysEditorAndApply(page, other);
+  await page.waitForFunction(() => window.__repforgeHeldRebuilds?.length === 1, undefined, { timeout: 10000 });
+  await page.locator(`#entryEditor [data-entry-pick="daysPerWeek"][data-entry-val="${original}"]`).click();
+  await page.locator("#entryChipApply").click();
+  await page.waitForFunction(() => window.__repforgeHeldRebuilds.length === 2 || !document.querySelector("#entryEditor"),
+    undefined, { timeout: 10000 });
+  assert.equal(await page.evaluate(() => window.__repforgeHeldRebuilds.length), 2,
+    "returning to the committed Days answer while a rebuild is pending starts a rebuild for that answer");
+  await page.evaluate(() => window.__repforgeHeldRebuilds.forEach((release) => release()));
+  await page.waitForFunction((want) => window.__repforgeEntryState()?.answers.daysPerWeek === want &&
+    !document.querySelector("#entryEditor"), original, { timeout: 10000 });
+  assert.equal(await sameCanonicalProgram(page), true, "the settled program is the one for the latest answers");
+  await page.locator("#entryActivate").click();
+  await page.waitForFunction(() => window.__repforgeWorkoutDraft.state()?.programMeta?.onboarded === true,
+    undefined, { timeout: 10000 });
+  const active = await page.evaluate(() => window.__repforgeWorkoutDraft.state().programMeta.programDefinition);
+  assert.equal(trainingDayCount(active), original, "activation after settlement commits the latest answer");
+  await context.close();
+}
+
+/* #656: a rebuild is pending and the Days editor is collapsed. Activation must
+   stay unavailable through its control and its handler, so the previous
+   program can never be what gets committed. */
+async function activationWaitsForPendingAnswerRebuild(browser) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: "UTC" });
+  const page = await context.newPage();
+  await page.clock.setFixedTime(START);
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+  await page.click("#firstRunCreate");
+  await answerRecommend(page, { skipBasics: true });
+  const original = await page.evaluate(() => window.__repforgeEntryState()?.answers?.daysPerWeek);
+  const other = original === 3 ? 4 : 3;
+  await holdAnswerRebuilds(page);
+  await openDaysEditorAndApply(page, other);
+  await page.waitForFunction(() => window.__repforgeHeldRebuilds?.length === 1, undefined, { timeout: 10000 });
+  await page.locator('[data-entry-chip="days"]').click();
+  assert.equal(await page.locator("#entryActivate").isEnabled(), false,
+    "activation is unavailable while the rebuild for the lifter's newer answer is pending");
+  await page.evaluate(() => window.__repforgeActivateEntryPreview());
+  assert.equal(await page.evaluate(() => window.__repforgeWorkoutDraft.state()?.programMeta?.onboarded === true), false,
+    "the activation handler refuses while the rebuild is pending");
+  await page.evaluate(() => window.__repforgeHeldRebuilds.forEach((release) => release()));
+  await page.waitForFunction((want) => window.__repforgeEntryState()?.answers.daysPerWeek === want &&
+    !document.querySelector("#entryEditor"), other, { timeout: 10000 });
+  await page.waitForFunction(() => document.querySelector("#entryActivate") && !document.querySelector("#entryActivate").disabled,
+    undefined, { timeout: 10000 });
+  await page.locator("#entryActivate").click();
+  await page.waitForFunction(() => window.__repforgeWorkoutDraft.state()?.programMeta?.onboarded === true,
+    undefined, { timeout: 10000 });
+  const active = await page.evaluate(() => window.__repforgeWorkoutDraft.state().programMeta.programDefinition);
+  assert.equal(trainingDayCount(active), other, "the activated program is the one for the latest answer");
+  await context.close();
+}
+
 const browser = await launchChromium();
 try {
   await sameStateAnswerRebuild(browser);
+  await returnToCommittedAnswerWhileRebuildPending(browser);
+  await activationWaitsForPendingAnswerRebuild(browser);
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: "UTC" });
   const page = await context.newPage();
   await installOfferWorkerHarness(page);
