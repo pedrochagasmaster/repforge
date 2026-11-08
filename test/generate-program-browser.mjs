@@ -807,6 +807,35 @@ async function revisionF10(browser) {
   return run.errors;
 }
 
+async function revisionF13(browser) {
+  const run = await fresh(browser), { page } = run;
+  await page.click("#firstRunCreate");
+  await answerRecommend(page, { skipBasics: true });
+  const offer = page.locator("#entryReview [data-review-confirm-offer-action]").first();
+  await offer.waitFor();
+  const slotId = await offer.getAttribute("data-review-confirm-offer-action");
+  const base = await reviewed(page);
+  const other = trainingDays(base).flatMap(day => day.slots).find(slot => slot.id !== slotId);
+  await holdSetupWrites(page);
+  await openSlot(page, other.id);
+  await page.locator("#reviewSheet [data-review-remove]").click();
+  await page.locator("#reviewSheet").waitFor({ state: "hidden" });
+  await offer.click();
+  await page.click("#onbBack");
+  await page.click("#onbNext");
+  await page.waitForFunction(() => window.__repforgeEntryState()?.step === "result");
+  await page.locator(`#entryReview [data-review-confirm-offer-action="${slotId}"]`).waitFor();
+  const rebuilt = await reviewed(page);
+  await releaseSetupWrites(page);
+  await settleQueuedReviewWrites(page);
+  check(Object.keys((await entry(page)).answers.movementConfirmations || {}).length === 0,
+    "F13: queued movement offer cannot confirm on the rebuilt candidate");
+  check(JSON.stringify(await reviewed(page)) === JSON.stringify(rebuilt), "F13: rebuilt movement slot stays unchanged");
+  check(!(await reviewToasts(page)).some(text => text.includes("could not be saved")), "F13: stale movement offer does not report a false save failure");
+  await run.context.close();
+  return run.errors;
+}
+
 async function discardAfterQueuedUndo(browser) {
   const run = await fresh(browser);
   const { page } = run;
@@ -1949,6 +1978,8 @@ async function main() {
       allErrors.push(await revisionF9(browser));
     } else if (process.env.N14_ONLY === "F10") {
       allErrors.push(await revisionF10(browser));
+    } else if (process.env.N14_ONLY === "F13") {
+      allErrors.push(await revisionF13(browser));
     } else if (process.env.N14_ONLY === "F5") {
       allErrors.push(await undoAfterLeaving(browser));
     } else if (process.env.N14_ONLY === "F4") {
@@ -2134,6 +2165,7 @@ async function main() {
     allErrors.push(await revisionF8(browser));
     allErrors.push(await revisionF9(browser));
     allErrors.push(await revisionF10(browser));
+    allErrors.push(await revisionF13(browser));
     allErrors.push(await discardAfterQueuedUndo(browser));
     allErrors.push(await answerEditorMatchesRecommend(browser));
     allErrors.push(await minimumBudget(browser));
