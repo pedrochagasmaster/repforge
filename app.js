@@ -20924,7 +20924,7 @@ async function entryAdjusted(){
   return !sameDefinition(review.baseline.preview.programDefinition,entryState.result.preview.programDefinition)||
     entryResultName()!==entryResultName(review.baseline)}
 async function commitEntryAdjust({definition,edits,name}){
-  const review=entryAdjust;
+  const review=entryAdjust,mountAtStart=entryAdjustMount;
   if(!review||!entryState?.result)return{ok:false};
   const base=review.baseline;
   const shared=entryState.route==="shared";
@@ -20949,10 +20949,17 @@ async function commitEntryAdjust({definition,edits,name}){
   else{
     const saved=await persistEntryRulesState(next);
     if(!saved?.ok)return{ok:false}}
-  review.answers=entryState.result.answersFingerprint;
-  review.edits=edits.slice();
-  if(!shared)writeEntryAdjustLog({draftId:review.draftId,fingerprint:base.fingerprint,edits:review.edits});
-  syncEntryAdjustFooter();
+  // The write has landed, but its candidate may have been replaced or discarded while the write waited: then its
+  // edit log belongs to nobody and must not be written over the replacement's.
+  const current=entryAdjust===review;
+  if(current){
+    review.answers=entryState.result.answersFingerprint;
+    review.edits=edits.slice();
+    if(!shared)writeEntryAdjustLog({draftId:review.draftId,fingerprint:base.fingerprint,edits:review.edits});
+    syncEntryAdjustFooter()}
+  // A review that unmounted while this write waited (Back, then forward) left the mounted one showing the state before
+  // the write; the mounted review repaints so its changes and undo match the saved program.
+  if(entryAdjustMount&&(entryAdjustMount!==mountAtStart||!current))entryAdjustMount.refresh?.();
   return{ok:true}}
 /* The pinned footer follows the review without re-rendering the screen. */
 function syncEntryAdjustFooter(){

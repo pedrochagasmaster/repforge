@@ -774,16 +774,21 @@
       try { adapter.observe?.(kind && EDIT_KIND_SET.has(kind) ? { action, kind } : { action }); } catch {}
     }
     function apply(edit, { toast = null, flip = false, close = false } = {}) {
+      const pinned = candidateNow();
       return run(async () => {
-        if (disposed) return false;
+        if (disposed || candidateNow() !== pinned) return false;
         const state = read();
         const result = applyEdit(state.definition, edit, { ...editorContext(state), ordinal: state.edits.length + 1 });
         if (!result.ok) { observe("refused", edit.kind); adapter.announce(t("entry.review.refused")); return false; }
         const before = flip ? measure() : null;
         if (close) await closeSheet();
+        if (candidateNow() !== pinned) return false;
         const saved = await adapter.commit({ definition: result.definition, edits: [...state.edits, edit], name: state.name });
+        // A write that landed for a candidate since replaced publishes nothing here: the replacement owns the screen.
+        if (candidateNow() !== pinned) return false;
         if (!saved?.ok) { observe("save_failed", edit.kind); adapter.announce(t("entry.review.save_failed")); paint(); paintSheet(); return false; }
         observe("edit", edit.kind);
+        if (disposed) return true;
         paint({ before });
         paintSheet();
         const count = changes(read().baseline, read().definition).count;
@@ -804,9 +809,11 @@
         if (!replayed.ok) return false;
         const before = measure();
         const saved = await adapter.commit({ definition: replayed.definition, edits, name: state.name });
+        if (candidateNow() !== pinned) return false;
         if (!saved?.ok) { observe("save_failed", state.edits[state.edits.length - 1]?.kind); adapter.announce(t("entry.review.save_failed")); return false; }
         observe("undo", state.edits[state.edits.length - 1]?.kind);
         hideToast();
+        if (disposed) return true;
         paint({ before });
         paintSheet();
         adapter.announce(t("entry.review.toast.undone"));
