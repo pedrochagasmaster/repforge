@@ -80,6 +80,15 @@ try {
       assert.equal(Object.hasOwn(result.settings, "effortScale"), false, `${mode}: retired setting is absent`);
       assert.equal(result.mode, mode === "finishing" ? "effort" : "numeric", `${mode}: draft changes only when its reducer permits it`);
       assert.equal(result.edited[mode === "numeric" ? "rir" : "effort"], mode === "numeric" ? "3" : "r2", `${mode}: held input survives unchanged`);
+      if (mode !== "finishing") {
+        await page.evaluate(async () => { await window.__repforgeEnterWorkout({}); window.__repforgeFocus.to(0); });
+        const shelf = "#workout .exercise.is-current .focus-shelf";
+        await page.locator(`${shelf} [data-shelf-field="rir"]`).click();
+        assert.equal(await page.locator(`${shelf} [data-field="rir"] .shelf__val`).textContent(), mode === "numeric" ? "3" : "2",
+          `${mode}: the held value renders as a count`);
+        assert.deepEqual(await page.locator(`${shelf} .shelf__chip`).allTextContents(), ["0", "1", "2", "3", "4", "5+"],
+          `${mode}: the resumed draft uses the numeric chips`);
+      }
       console.log(`PASS ${mode}: settings migration preserves held input`);
     } finally { await page.close(); }
   }

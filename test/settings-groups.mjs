@@ -205,6 +205,10 @@ try {
   await page.locator('#nativeContextMenu [data-menu-value="numeric"]').click();
   await page.waitForFunction((dataKey) => JSON.parse(localStorage.getItem(dataKey) || "{}").settings?.rirMode === "numeric", DATA_KEY, { timeout: 5000 });
 
+  check(await page.locator("#rirModeDisplay").textContent() === "Reps left (0 to 5+)",
+    "numeric logging displays the reps-left range");
+  check(await page.locator('input[name="rirMode"]').count() === 2, "only two backing radios remain");
+
   console.log("\nAppearance boundary");
   const stateBefore = await page.evaluate((dataKey) => localStorage.getItem(dataKey), DATA_KEY);
   await page.locator('#themeSegments [data-value="dark"]').click();

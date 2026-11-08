@@ -160,20 +160,21 @@ try {
   assert(second.source === "effort" && second.effort === "max", "a chosen label records effortSource effort", second);
 
   phase("An untouched numeric chip remains a prefill");
+  await page.evaluate(() => window.__repforgeFocus.to(1));
   await page.locator(`${SHELF} [data-effmenu]`).click();
   await page.locator('#nativeContextMenu [data-menu-value="c"]').click();
   await page.waitForSelector("#nativeContextMenu", { state: "detached" });
   await page.evaluate(async () => { await window.__repforgeStorage.flush(); await window.__repforgeWorkoutDraft.flush(); });
-  await typeField(page, "load", 3, "50");
-  await typeField(page, "reps", 3, "6");
+  await typeField(page, "load", 1, "50");
+  await typeField(page, "reps", 1, "6");
   await page.locator(field("rir")).click();
   const numericShown = await page.locator(`${SHELF} .shelf__chip.is-offered`).textContent();
   await page.locator(`${SHELF} .saveset`).click();
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
-  const numeric = await page.evaluate(id => {
-    const ex = window.__repforgeWorkoutDraft.current().exercises[id], set = ex.sets[ex.setOrder[2]];
+  const numeric = await page.evaluate(() => {
+    const draft = window.__repforgeWorkoutDraft.current(), ex = draft.exercises[draft.exerciseOrder[1]], set = ex.sets[ex.setOrder[0]];
     return { rir: set.edited.rir, source: set.completion.effortSource };
-  }, exId);
+  });
   assert(numeric.source === "prefilled" && Number(numeric.rir) === Number(numericShown.replace("+", "")),
     "an untouched numeric chip logs its displayed count with prefilled provenance", { numericShown, numeric });
 
@@ -186,7 +187,7 @@ try {
     "the saved rows say prefilled and effort beside their RIR, identically in localStorage and IndexedDB", rows(saved.local));
 
   phase("A History correction remains a measured RIR");
-  await page.locator("#summaryDone").click();
+  await page.locator("#sumDone").click();
   await page.locator('nav [data-view="history"]').click();
   await page.locator('#sessions [data-edit]').first().click();
   await page.locator('[data-history-edit]').click();

@@ -166,7 +166,7 @@ try {
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     assert((await firstSets(page)).sets[1].rir === value, `${key} selects reps left ${value}`);
   }
-  for (const [width, font] of [[320, "16px"], [390, "32px"]]) {
+  for (const [width, font] of [[320, "16px"], [320, "32px"], [390, "32px"]]) {
     await page.setViewportSize({ width, height: 844 });
     await page.evaluate(font => { document.documentElement.style.fontSize = font; }, font);
     const boxes = await page.locator(`${SHELF} .shelf__chip`).evaluateAll(chips => chips.map(chip => {
@@ -305,6 +305,17 @@ try {
   await boot(page, { settings: { rirMode: "numeric" }, log: qualifyingLog("rir") });
   await logOpenSet(page);
   assert(await tip(page) === null, "it never suggests a stage down");
+  phase("Voice and held numeric input");
+  await boot(page, { settings: { rirMode: "numeric", voiceInputEnabled: true } });
+  assert(await page.evaluate(() => window.__repforgeApplyCommandText("60 x 8 @9")),
+    "a spoken set reaches the production command handler");
+  draft = await firstSets(page);
+  assert(draft.sets[0].rir === "5", "voice caps a count above five to stored 5", draft);
+  await chooseInMenu(page, "a");
+  st = await shelfState(page);
+  draft = await firstSets(page);
+  assert(draft.mode === "effort" && draft.sets[0].rir === "5" && st.label === "Reps left" && st.value === "5+",
+    "a held numeric set keeps its value and control after switching to words", { st, draft });
   assert(errors.length === 0, "no page errors", errors);
 } finally {
   await browser.close();
