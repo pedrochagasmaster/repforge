@@ -488,11 +488,12 @@ async function historyStackInterleavings(browser) {
     await page.locator('#library [data-lib-preview]').first().click();
     await page.waitForFunction(() => document.body.classList.contains("is-preview"), undefined, { timeout: 5000 });
     await page.goBack();
-    await page.waitForTimeout(200);
+    // Wait for the state Back must reach, not a fixed delay: the popstate handling can outlast any delay on a loaded runner.
+    await page.waitForFunction(() => document.body.classList.contains("is-library") && !document.body.classList.contains("is-preview"), undefined, { timeout: 5000 }).catch(() => {});
     const isLibraryAfterFirstBack = await page.evaluate(() => document.body.classList.contains("is-library") && !document.body.classList.contains("is-preview"));
     check(isLibraryAfterFirstBack === true, "browser Back from preview returns to library", { isLibraryAfterFirstBack });
     await page.goBack();
-    await page.waitForTimeout(200);
+    await page.waitForFunction(() => !document.body.classList.contains("is-library") && !document.body.classList.contains("is-preview"), undefined, { timeout: 5000 }).catch(() => {});
     const isBaseAfterSecondBack = await page.evaluate(() => !document.body.classList.contains("is-library") && !document.body.classList.contains("is-preview"));
     check(isBaseAfterSecondBack === true, "browser Back from library returns to page beneath", { isBaseAfterSecondBack });
 
