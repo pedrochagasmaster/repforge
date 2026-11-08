@@ -411,6 +411,11 @@ try {
   phase("T18b/T20: Undo tapped while End waits cannot recover an ended session");
   for (const kind of ["trim", "day"]) {
     const { context, page, errors } = await freshPage(browser, { reducedMotion: "reduce" });
+    // This journey owns the End/Undo ordering; the toast timer has its own retained proof.
+    await page.evaluate(() => {
+      const schedule = window.setTimeout;
+      window.setTimeout = (fn, ms, ...args) => schedule(fn, ms === 4200 || ms === 6000 ? 3600000 : ms, ...args);
+    });
     if (kind === "day") {
       await page.click("#chooseAnotherDay");
       await page.waitForSelector("#dayPickSheet.is-open");
