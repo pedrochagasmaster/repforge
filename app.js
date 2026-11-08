@@ -4459,14 +4459,14 @@ function renderSiblingPreview(el,flow){
       proposal:p,proposalHash:p.proposalHash,transitionId:p.transitionId,
       successorProgramId:p.successor?.programId,confirmedAt:new Date().toISOString(),
       acknowledgedDraftRaw:readDraftRaw()});
-    if(persisted?.committed){
+    if(persisted?.committed===true&&persisted?.settled===true){
       const action={"schedule-repair":"schedule_repair","reduce-volume":"reduce_volume","recovery-week":"recovery_week","guided-edit":"guided_edit"}[flow.action];
       if(action)captureEvent("block_transition_chosen",{action});
       const doneKey=recovery?"review.recovery.committed":change.kind==="reduce_volume"?"review.volume.committed":"review.done.committed";
       reviewFlow={stage:"done",doneKey};
       day=days()[0]||"Day 1";toast(t(doneKey));render();
     }else{
-      reviewFlow={stage:"error",action:flow.action,code:persisted?.code,stale:persisted?.duplicate===true||!!persisted?.stale||!!persisted?.staleRevision};
+      reviewFlow={...flow,stage:"error",code:persisted?.code,stale:persisted?.duplicate===true||!!persisted?.stale||!!persisted?.staleRevision};
       render()}}
   bindFlowCancel(el)}
 let pendingBlockTransition=null;
@@ -12515,6 +12515,14 @@ function transitionPredecessor(snapshot){
   return{programId:meta.id,durableRevision:readRevision(snapshot),
     programDefinition:cloneSnapshot(meta.programDefinition),
     customExerciseDefinitions:compilerCustomDefinitions(snapshot.customExercises)}}
+let pendingProgramTransitionSettlement=null;
+async function settleProgramTransitionReceipt(proposal,pendingJournalId=null){
+  const archiveId=proposal?.predecessor?.programId;
+  const result=await DurableState.settleProgramTransitionAlreadyCommitted({pendingJournalId,
+    verify:head=>classifyCommittedTransition(head,proposal,archiveId)==="match"
+      ?{ok:true}:{ok:false,code:"transition_settlement_receipt_mismatch"}});
+  const outcome={...result};delete outcome.head;
+  return{ok:outcome.committed===true&&outcome.settled===true,...outcome}}
 /* Sets a volume reduction removes from the current cycle, by slot. A draft
    that already holds progress in one of those sets blocks the confirmation. */
 function reducedSetCounts(proposal,snapshot){
@@ -12589,7 +12597,13 @@ const repforgeProgramTransitionAdapter = {
 
     const preIdem = classifyCommittedTransition(state, proposal, archiveId);
     if (preIdem === "match") {
-      return { ok: true, committed: true, alreadyCommitted: true, revision: readRevision(state), localOk: true, idbOk: true, kind: "committed" };
+      const pending=pendingProgramTransitionSettlement?.transitionId===proposal.transitionId&&
+        pendingProgramTransitionSettlement?.proposalHash===proposal.proposalHash
+        ?pendingProgramTransitionSettlement:null;
+      const settled=await settleProgramTransitionReceipt(proposal,pending?.pendingJournalId||null);
+      if(settled.committed===true&&settled.settled===true&&pending)
+        pendingProgramTransitionSettlement=null;
+      return settled;
     }
     if (preIdem === "conflict") return invalid("conflicting_transition_record");
     if (acknowledgedDraftRaw !== readDraftRaw()) {
@@ -12677,6 +12691,15 @@ const repforgeProgramTransitionAdapter = {
     };
 
     const res = await commitProgramReplacement(baseProposal, storageIO, { capture, effect, preflight });
+    if(res?.alreadyCommitted===true){
+      const settled=await settleProgramTransitionReceipt(proposal,res.pendingJournalId||null);
+      if(settled.committed!==true||settled.settled!==true)
+        pendingProgramTransitionSettlement={transitionId:proposal.transitionId,
+          proposalHash:proposal.proposalHash,pendingJournalId:res.pendingJournalId||null};
+      return settled}
+    if(res?.committed===true&&res?.settled===true)pendingProgramTransitionSettlement=null;
+    else pendingProgramTransitionSettlement={transitionId:proposal.transitionId,
+      proposalHash:proposal.proposalHash,pendingJournalId:res?.pendingJournalId||null};
     if (res.localOk || res.idbOk) return { ok: true, committed: true, ...res };
     return { ok: false, committed: false, ...res };
   },

@@ -2259,6 +2259,79 @@
     }));
   }
 
+  async function settleProgramTransitionAlreadyCommitted({verify,pendingJournalId=null}={}){
+    if(typeof verify!=="function")
+      return normalizeDurableOutcome({localOk:false,idbOk:false,conflict:true,
+        finalizationPending:true,code:"transition_settlement_verifier_missing"});
+    return enqueueWrite(()=>withStorageLock(storageIO,async()=>{
+      await runDurableStateTestHook("durableSettlementLockHeld",{pendingJournalId});
+      const unresolved=(head,code,{localOk=false,idbOk=false,pendingJournalCleanup=false}={})=>
+        normalizeDurableOutcome({revision:readRevision(head),localOk,idbOk,conflict:true,
+          finalizationPending:true,pendingJournalCleanup,code,head});
+      const matches=async snapshot=>{
+        try{return (await verify(cloneSnapshot(snapshot)))?.ok===true}
+        catch{return false}};
+      let refreshed=await refreshPersistenceHead();
+      let head=cloneSnapshot(refreshed.head||persistHead);
+      if(refreshed.conflict||!isValidStateShape(head))
+        return unresolved(head,"transition_settlement_unresolved");
+      if(!await matches(head))return unresolved(head,"transition_settlement_receipt_mismatch");
+
+      if(typeof pendingJournalId==="string"&&pendingJournalId){
+        const pending=readPendingJournal();
+        const record=pending.entries.find(item=>item.journal.id===pendingJournalId);
+        const invalid=pending.invalid.some(item=>item.key===PENDING_PREFIX+pendingJournalId);
+        if(invalid)return unresolved(head,"transition_settlement_journal_invalid",{pendingJournalCleanup:true});
+        if(record){
+          if(!transitionJournalAttempt(record.journal.proposal,record.journal.base)||
+            !await matches(record.journal.proposal))
+            return unresolved(head,"transition_settlement_journal_mismatch",{pendingJournalCleanup:true});
+          const closed=await executeDraftTransaction({record,transactionId:record.journal.id,
+            effect:record.journal.effectOutcome,discard:true});
+          if(!closed.settled)
+            return unresolved(head,"transition_settlement_pending",{pendingJournalCleanup:true});
+        }
+        refreshed=await refreshPersistenceHead();
+        head=cloneSnapshot(refreshed.head||persistHead);
+        if(refreshed.conflict||!isValidStateShape(head))
+          return unresolved(head,"transition_settlement_unresolved");
+        if(!await matches(head))return unresolved(head,"transition_settlement_receipt_mismatch");
+      }
+
+      const ownJournalPending=()=>{
+        if(typeof pendingJournalId!=="string"||!pendingJournalId)return false;
+        const pending=readPendingJournal();
+        return pending.entries.some(item=>item.journal.id===pendingJournalId)||
+          pending.invalid.some(item=>item.key===PENDING_PREFIX+pendingJournalId);
+      };
+      const localBefore=readLocalStatus(),idbBefore=await readIdbStatus();
+      const localMatches=localBefore.status==="valid"&&
+        storageSnapshotsEqual(localBefore.parsed,head)&&await matches(localBefore.parsed);
+      const idbMatches=idbBefore.status==="valid"&&
+        storageSnapshotsEqual(idbBefore.parsed,head)&&await matches(idbBefore.parsed);
+      if(!localMatches||!idbMatches){
+        const written=await writeSnapshot(head,storageIO);
+        const local=readLocalStatus(),idb=await readIdbStatus();
+        const healedLocal=local.status==="valid"&&storageSnapshotsEqual(local.parsed,head)&&
+          await matches(local.parsed);
+        const healedIdb=idb.status==="valid"&&storageSnapshotsEqual(idb.parsed,head)&&
+          await matches(idb.parsed);
+        const journalPending=ownJournalPending();
+        if(!written.localOk||!written.idbOk||!healedLocal||!healedIdb||journalPending)
+          return unresolved(head,journalPending?"transition_settlement_pending":"transition_settlement_unresolved",
+            {localOk:written.localOk,idbOk:written.idbOk,pendingJournalCleanup:journalPending});
+        head=cloneSnapshot(local.parsed);
+      }
+      if(ownJournalPending())
+        return unresolved(head,"transition_settlement_pending",{pendingJournalCleanup:true});
+      const liveBase=cloneSnapshot(persistHead||head);
+      persistHead=cloneSnapshot(head);
+      applyAcceptedSnapshot(liveBase,head);
+      return normalizeDurableOutcome({revision:readRevision(head),localOk:true,idbOk:true,
+        alreadyCommitted:true,head});
+    }));
+  }
+
   async function settleCustomExerciseMutation({verify,recover=null,pendingJournalId=null}={}){
     if(typeof verify!=="function")
       return normalizeDurableOutcome({localOk:false,idbOk:false,conflict:true,
@@ -2973,6 +3046,7 @@
     resolveBootReplicas,
     readDurableState,
     settleHistoryAlreadyCommitted,
+    settleProgramTransitionAlreadyCommitted,
     settleCustomExerciseMutation,
     settlePendingJournal,
 
