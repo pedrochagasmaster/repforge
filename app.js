@@ -4492,7 +4492,7 @@ async function submitReviewProposal(flow,button){
     reviewFlow={stage:"done",doneKey};
     day=days()[0]||"Day 1";toast(t(doneKey));render();
   }else{
-    reviewFlow={...flow,stage:"error",code:persisted?.code,applied:persisted?.applied===true,
+    reviewFlow={...flow,stage:"error",code:persisted?.code,applied:(persisted?.applied??flow.applied)===true,
       stale:persisted?.duplicate===true||!!persisted?.stale||!!persisted?.staleRevision};
     render()}}
 let pendingBlockTransition=null;
@@ -12586,7 +12586,8 @@ async function settleProgramTransitionReceipt(proposal){
       ?{ok:true}:{ok:false,code:"transition_settlement_receipt_mismatch"}});
   const outcome={...result};delete outcome.head;
   return{ok:outcome.committed===true&&outcome.settled===true,...outcome,
-    applied:classifyCommittedTransition(result.head,proposal,archiveId)==="match"}}
+    // A headless refusal gives no evidence that the prior receipt was rolled back.
+    applied:result.head?classifyCommittedTransition(result.head,proposal,archiveId)==="match":undefined}}
 /* Sets a volume reduction removes from the current cycle, by slot. A draft
    that already holds progress in one of those sets blocks the confirmation. */
 function reducedSetCounts(proposal,snapshot){
