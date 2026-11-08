@@ -7188,8 +7188,8 @@ function readRestRecord(){
   try{const raw=localStorage.getItem(REST_RECORD_KEY);
     return{ok:true,raw,record:raw===null?null:JSON.parse(raw)}}
   catch{return{ok:false,raw:null,record:null}}}
-/* A removal that storage refuses leaves the record it meant to remove. This tab keeps a note of it, tab-scoped so a reload
-   still has it: the draft, and the record's exact text when it could be read. A readable record that the note matches is the
+/* If removal is refused but writing works, an ended marker prevents a new app instance from restoring the rest.
+   This tab also keeps a note, tab-scoped so a reload still has it: the draft, and the record's exact text when readable. A readable record that the note matches is the
    rest this tab ended, so it is never restored, and its removal is retried on tick, on return to the page and before a
    restore. A save or a clear in this tab drops the note. */
 const REST_ENDED_KEY="repforge_rest_ended_v1";
@@ -7206,7 +7206,11 @@ function removeRestRecord(){
   catch{
     if(stored.ok&&stored.raw===null)return;
     restRemovalPending=true;
-    try{sessionStorage.setItem(REST_ENDED_KEY,JSON.stringify({draftId:stored.record?.draftId??restDraftId??null,raw:stored.raw}))}catch{}}}
+    let raw=stored.raw;
+    if(stored.ok){
+      const marker=JSON.stringify({draftId:stored.record?.draftId??restDraftId??null,ended:true});
+      try{localStorage.setItem(REST_RECORD_KEY,marker);raw=marker}catch{}}
+    try{sessionStorage.setItem(REST_ENDED_KEY,JSON.stringify({draftId:stored.record?.draftId??restDraftId??null,raw}))}catch{}}}
 function saveRestRecord(){
   const rest=RepForgeRestTimer.snapshot(restClock,Date.now());
   if(!rest){restUnsaved=false;removeRestRecord();return}
@@ -7232,7 +7236,7 @@ function restoreRest(draftId){
   try{sessionStorage.removeItem(REST_RECORD_KEY)}catch{}
   const stored=readRestRecord(),record=stored.ok?stored.record:null,now=Date.now();
   // A rest this tab ended whose removal was refused is never restored; its removal is owed, and is tried again here.
-  if(endedHere(stored)){removeRestRecord();return}
+  if(record?.ended===true||endedHere(stored)){removeRestRecord();return}
   if(!draftId||record?.draftId!==draftId||!RepForgeRestTimer.snapshotValid(record.rest,now)){removeRestRecord();return}
   if(RepForgeRestTimer.capReached(record.rest,now)){removeRestRecord();offerRestOverrunFinish();return}
   const restored=RepForgeRestTimer.restore(restClock,record.rest,now);
