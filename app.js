@@ -19140,7 +19140,8 @@ function requestEntryCancel(){
   if(!entryState)return cancelOnboarding();
   entryDialogOpener=entryOpenerToken();
   entryUiNotice="cancel";
-  persistSetupDraft(entryState);
+  // Review edits already own their saves; a second snapshot could publish an edit whose write fails.
+  if(!entryAdjustRoute()||!entryState.result?.preview)persistSetupDraft(entryState);
   renderOnboarding()}
 async function keepEntryDraftAndCancel(){
   await setupDraftWriteQueue;
@@ -21145,7 +21146,9 @@ async function commitEntryAdjust({definition,edits,name}){
   if(shared)entryState=next;
   else{
     const saved=await persistEntryRulesState(next);
-    if(!saved?.ok)return{ok:false}}
+    if(!saved?.ok){
+      if(entryAdjust===review)entryAdjustMount?.refresh();
+      return{ok:false}}}
   // The write has landed, but its candidate may have been replaced or discarded while the write waited: then its
   // edit log belongs to nobody and must not be written over the replacement's.
   const current=entryAdjust===review&&!!entryState?.result;
