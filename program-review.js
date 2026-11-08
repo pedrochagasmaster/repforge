@@ -544,6 +544,18 @@
     // The candidate a queued edit, undo or restore was asked on. A rebuild or a discard replaces it: work asked on the
     // old one must not publish into the new one (Packet O, N14).
     const candidateNow = () => adapter.candidate?.() ?? null;
+    const matchesCandidate = pinned => (!adapter.candidate || pinned != null) && candidateNow() === pinned;
+    // The host owns the current mount; queued work can outlive the one that asked for it.
+    const present = options => adapter.present ? adapter.present(options) : presentHere(options);
+    function presentHere({ before = null, focus = null, toast = null, announcement = null, clearToast = false, clearReorder = false } = {}) {
+      if (disposed) return;
+      if (clearToast) hideToast();
+      if (clearReorder) view.reorder = null;
+      paint({ before, focus });
+      paintSheet();
+      if (toast) showToast(toast);
+      else if (announcement) adapter.announce(announcement);
+    }
     const trainingIndex = (definition) => Math.max(0, definition.days.findIndex((day) => day.kind === "training"));
     const findSlot = (definition, slotId) => {
       for (const [dayIndex, day] of definition.days.entries()) {
@@ -782,24 +794,21 @@
     function apply(edit, { toast = null, flip = false, close = false } = {}) {
       const pinned = candidateNow();
       return run(async () => {
-        if (disposed || candidateNow() !== pinned) return false;
+        if (!matchesCandidate(pinned)) return false;
         const state = read();
         const result = applyEdit(state.definition, edit, { ...editorContext(state), ordinal: state.edits.length + 1 });
         if (!result.ok) { observe("refused", edit.kind); adapter.announce(t("entry.review.refused")); return false; }
         const before = flip ? measure() : null;
         if (close) await closeSheet();
-        if (candidateNow() !== pinned) return false;
+        if (!matchesCandidate(pinned)) return false;
         const saved = await adapter.commit({ definition: result.definition, edits: [...state.edits, edit], name: state.name });
         // A write that landed for a candidate since replaced publishes nothing here: the replacement owns the screen.
-        if (candidateNow() !== pinned) return false;
+        if (!matchesCandidate(pinned)) return false;
         if (!saved?.ok) { observe("save_failed", edit.kind); adapter.announce(t("entry.review.save_failed")); paint(); paintSheet(); return false; }
         observe("edit", edit.kind);
-        if (disposed) return true;
-        paint({ before });
-        paintSheet();
         const count = changes(read().baseline, read().definition).count;
-        if (toast) showToast(toast);
-        else adapter.announce(t(count === 1 ? "entry.review.changes_one" : "entry.review.changes", { n: count }));
+        present({ before: disposed ? null : before, toast,
+          announcement: t(count === 1 ? "entry.review.changes_one" : "entry.review.changes", { n: count }) });
         return true;
       });
     }
@@ -807,7 +816,7 @@
       const pinned = candidateNow();
       return run(async () => {
         // Candidate identity survives a same-candidate remount; only a rebuild or discard supersedes this undo (N14).
-        if (candidateNow() !== pinned) return false;
+        if (!matchesCandidate(pinned)) return false;
         const state = read();
         if (!state.edits.length) return false;
         const edits = state.edits.slice(0, -1);
@@ -815,14 +824,10 @@
         if (!replayed.ok) return false;
         const before = measure();
         const saved = await adapter.commit({ definition: replayed.definition, edits, name: state.name });
-        if (candidateNow() !== pinned) return false;
+        if (!matchesCandidate(pinned)) return false;
         if (!saved?.ok) { observe("save_failed", state.edits[state.edits.length - 1]?.kind); adapter.announce(t("entry.review.save_failed")); return false; }
         observe("undo", state.edits[state.edits.length - 1]?.kind);
-        hideToast();
-        if (disposed) return true;
-        paint({ before });
-        paintSheet();
-        adapter.announce(t("entry.review.toast.undone"));
+        present({ before: disposed ? null : before, clearToast: true, announcement: t("entry.review.toast.undone") });
         return true;
       });
     }
@@ -835,17 +840,15 @@
         body: t(count === 1 ? "entry.review.restore_body_one" : "entry.review.restore_body", { n: count }),
         go: t("entry.review.restore_go"), keep: t("entry.review.keep"),
       });
-      if (!confirmed || candidateNow() !== pinned) return false;
+      if (!confirmed || !matchesCandidate(pinned)) return false;
       return run(async () => {
-        if (candidateNow() !== pinned) return false;
+        if (!matchesCandidate(pinned)) return false;
         const current = read();
         const saved = await adapter.commit({ definition: current.baseline, edits: [], name: null });
-        if (candidateNow() !== pinned) return false;
+        if (!matchesCandidate(pinned)) return false;
         if (!saved?.ok) { observe("save_failed"); adapter.announce(t("entry.review.save_failed")); return false; }
         observe("restore");
-        view.reorder = null;
-        paint({ focus: "[data-review-title]" });
-        adapter.announce(t("entry.review.toast.restored"));
+        present({ clearReorder: true, focus: "[data-review-title]", announcement: t("entry.review.toast.restored") });
         return true;
       });
     }
@@ -1185,11 +1188,11 @@
         await closeSheet();
         if (!value || value === state.name) return;
         run(async () => {
-          if (candidateNow() !== pinned) return false;
+          if (!matchesCandidate(pinned)) return false;
           const current = read();
           const saved = await adapter.commit({ definition: current.definition, edits: current.edits, name: value });
-          if (candidateNow() !== pinned) return false;
-          if (saved?.ok) { observe("rename_program"); paint({ focus: "[data-review-title]" }); }
+          if (!matchesCandidate(pinned)) return false;
+          if (saved?.ok) { observe("rename_program"); present({ focus: "[data-review-title]" }); }
           return !!saved?.ok;
         });
       }
@@ -1204,22 +1207,28 @@
       if ((el = hit("[data-review-confirm-offer-action]"))) {
         const offer = read().offers?.find(item => item.slotId === el.dataset.reviewConfirmOfferAction);
         if (!offer) return;
+        const pinned = candidateNow();
         el.disabled = true;
         run(async () => {
+          if (!matchesCandidate(pinned)) return false;
           const outcome = await adapter.confirmOffer?.(offer);
+          if (!matchesCandidate(pinned)) return false;
           if (outcome?.ok || outcome?.superseded) return true;
-          if (!outcome?.cancelled) adapter.announce(outcome?.message || t("entry.review.save_failed"));
+          if (!outcome?.cancelled && !outcome?.stale) adapter.announce(outcome?.message || t("entry.review.save_failed"));
           if (el.isConnected) el.disabled = false;
           return false;
         });
         return;
       }
       if ((el = hit("[data-review-confirmation-undo]"))) {
+        const pinned = candidateNow();
         el.disabled = true;
         run(async () => {
+          if (!matchesCandidate(pinned)) return false;
           const outcome = await adapter.undoConfirmation?.(el.dataset.reviewConfirmationUndo);
+          if (!matchesCandidate(pinned)) return false;
           if (outcome?.ok || outcome?.superseded) return true;
-          if (!outcome?.cancelled) adapter.announce(outcome?.message || t("entry.review.save_failed"));
+          if (!outcome?.cancelled && !outcome?.stale) adapter.announce(outcome?.message || t("entry.review.save_failed"));
           if (el.isConnected) el.disabled = false;
           return false;
         });
@@ -1348,6 +1357,7 @@
     paint();
 
     return {
+      present: presentHere,
       refresh: () => { subsCache.clear(); paint(); paintSheet(); },
       dispose() {
         disposed = true;
