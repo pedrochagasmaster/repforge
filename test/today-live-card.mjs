@@ -165,6 +165,23 @@ async function holdWrites(page) {
 }
 const releaseWrites = (page) => page.evaluate(() => window.__unlockWrites());
 
+/** Observe the lock request itself, so the next control lands during the blocked write. */
+async function observeNextWrite(page) {
+  await page.evaluate(() => {
+    const original = navigator.locks.request.bind(navigator.locks);
+    window.__writeQueued = false;
+    navigator.locks.request = (...args) => {
+      const work = original(...args);
+      if (args[0] === "repforge:state-write") {
+        window.__writeQueued = true;
+        navigator.locks.request = original;
+      }
+      return work;
+    };
+  });
+}
+
+
 /** Hold the suggestion refresh that Resume awaits; `window.__releaseResume()` lets it through. */
 async function holdSuggestions(page) {
   await page.evaluate(() => {
@@ -289,6 +306,101 @@ try {
     const r = await readEntryOutcome(page);
     assert(!r.focus && r.draftDay === "Day 2",
       "L8: returning from a Today row keeps Today open on the picked day", JSON.stringify(r));
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  phase("L11/J18: recovery Retry joins the workout entry and its start queue");
+  for (const leave of [true, false]) {
+    const { context, page, errors } = await freshPage(browser);
+    await trackEntries(page);
+    await page.evaluate(() => {
+      const original = window.createWorkoutDraft;
+      window.createWorkoutDraft = async () => {
+        window.createWorkoutDraft = original;
+        return { status: "storage-error" };
+      };
+    });
+    await page.click("#startWorkout");
+    await entriesSettled(page);
+    await page.waitForSelector("#draftRecoveryRetry:visible");
+    await page.evaluate(() => {
+      const original = window.retryDraftRecovery;
+      window.__retryDone = false;
+      window.retryDraftRecovery = (...args) => {
+        const work = original(...args);
+        work.finally(() => { window.__retryDone = true; });
+        return work;
+      };
+    });
+    if (leave) {
+      await page.evaluate(() => {
+        const original = window.createWorkoutDraft;
+        let release;
+        const gate = new Promise(resolve => { release = resolve; });
+        window.__releaseRetry = release;
+        window.createWorkoutDraft = (...args) => {
+          window.__retryCreateHeld = true;
+          return gate.then(() => original(...args));
+        };
+      });
+      await page.click("#draftRecoveryRetry");
+      await page.waitForFunction(() => window.__retryCreateHeld === true);
+      await page.click('nav button[data-view="stats"]');
+      await page.waitForSelector("#stats.active");
+      await page.evaluate(() => window.__releaseRetry());
+    } else {
+      await holdWrites(page);
+      await observeNextWrite(page);
+      await page.click("#draftRecoveryRetry");
+      await page.waitForFunction(() => window.__writeQueued === true);
+      await page.click("#startWorkout");
+      await releaseWrites(page);
+    }
+    await page.waitForFunction(() => window.__retryDone === true);
+    await entriesSettled(page);
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    const r = await readEntryOutcome(page);
+    const stats = await page.locator("#stats").evaluate(el => el.classList.contains("active"));
+    assert(!r.recovery && (leave ? stats && !r.focus : r.focus),
+      leave ? "L11: a Retry released after a dock departure keeps Focus closed"
+        : "J18: Retry and Start share the create, with no false recovery panel", JSON.stringify({ ...r, stats }));
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  phase("L5: a Today row's Swap waits for the Start already creating its draft");
+  {
+    const { context, page, errors } = await freshPage(browser);
+    await trackEntries(page);
+    await page.evaluate(() => {
+      const original = window.createWorkoutDraft;
+      let release;
+      const gate = new Promise(resolve => { release = resolve; });
+      window.__releaseCreate = release;
+      window.createWorkoutDraft = (...args) => {
+        window.__createHeld = true;
+        return gate.then(() => original(...args));
+      };
+      const rowContext = window.todayRowContext;
+      window.todayRowContext = (...args) => {
+        const work = rowContext(...args);
+        work.finally(() => { window.__rowDone = true; });
+        return work;
+      };
+    });
+    await page.click("#startWorkout");
+    await page.waitForFunction(() => window.__createHeld === true);
+    await page.locator("#todayExList [data-row-menu]").first().click();
+    await page.locator('#nativeContextMenu [data-menu-value="swap"]').click();
+    await page.waitForSelector("#nativeContextMenu", { state: "detached" });
+    await page.evaluate(() => window.__releaseCreate());
+    await page.waitForFunction(() => window.__rowDone === true);
+    await entriesSettled(page);
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    const r = await readEntryOutcome(page);
+    assert(r.focus && !r.recovery && r.draftDay === "Day 1",
+      "L5: Swap and Start use the same ready draft without a recovery panel", JSON.stringify(r));
     assert(errors.length === 0, "no page errors", errors.join(" | "));
     await context.close();
   }
