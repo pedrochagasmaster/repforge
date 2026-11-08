@@ -222,6 +222,138 @@ async function seed(page, { manual = false, request = REQUEST, asVersion } = {})
   if (!result.ok) throw new Error(`seeding failed: ${JSON.stringify(result).slice(0, 1500)}`);
 }
 
+async function failIdbWrites(page) {
+  await page.evaluate(() => {
+    const io = window.RepForgeDurableState.storageIO;
+    const writeIdb = io.writeIdb;
+    io.writeIdb = async () => false;
+    window.__clearReviewIdbFailure = () => { io.writeIdb = writeIdb; };
+  });
+}
+
+async function reachVolumePreview(browser, errors) {
+  const { context, page } = await freshPage(browser, errors);
+  await seed(page);
+  await finishBlock(page);
+  await openReview(page);
+  await page.locator('[data-review-action="reduce-volume"]').click();
+  await page.locator("[data-volume-confirm]").click();
+  await page.locator("[data-preview-confirm]").waitFor({ state: "visible", timeout: 15000 });
+  return { context, page };
+}
+
+async function spyTransitionTelemetry(page) {
+  await page.evaluate(() => {
+    const telemetry = window.RepForgeTelemetry;
+    const capture = telemetry.capture;
+    window.__reviewTransitionEvents = [];
+    const spy = Object.create(telemetry);
+    spy.capture = (name, properties) => {
+      if (name === "block_transition_chosen") window.__reviewTransitionEvents.push({ name, properties });
+      return capture.call(telemetry, name, properties);
+    };
+    window.RepForgeTelemetry = spy;
+  });
+}
+
+const transitionArtifacts = (page) => page.evaluate(() => Object.keys(localStorage).filter((key) =>
+  key.startsWith("repforge_pending_v1:") || key.startsWith("repforge_draft_v1:closing") ||
+  key.startsWith("repforge_draft_v1:pending")));
+
+const reviewScreen = (page) => page.evaluate(() => {
+  const panel = document.querySelector("#reviewPanel");
+  return {
+    stage: window.__repforgeProgressReview.flow()?.stage,
+    proposalHash: window.__repforgeProgressReview.flow()?.proposal?.proposalHash,
+    copy: panel.querySelector(".review__error")?.textContent,
+    events: window.__reviewTransitionEvents?.length,
+  };
+});
+
+async function tryAgainSettles(page) {
+  await page.locator("[data-flow-restart]").click();
+  await page.waitForFunction(() => {
+    const flow = window.__repforgeProgressReview.flow();
+    return flow?.stage !== "error" || document.querySelector("[data-flow-restart]")?.disabled === false;
+  }, null, { timeout: 15000 });
+  return reviewScreen(page);
+}
+
+// The change is durable but its journal cannot be closed. Try again stays on
+// the settling path until the fault clears, and a settlement `mismatch` code
+// never claims that nothing was modified.
+async function checkRetainedRetryWhileFaulted(browser, errors) {
+  const { context, page } = await reachVolumePreview(browser, errors);
+  await spyTransitionTelemetry(page);
+  const proposal = await page.evaluate(() => window.__repforgeProgressReview.flow().proposal);
+  await page.evaluate(() => {
+    const removeItem = Storage.prototype.removeItem;
+    Storage.prototype.removeItem = function(key) {
+      if (String(key).startsWith("repforge_pending_v1:")) throw new DOMException("probe", "QuotaExceededError");
+      return removeItem.call(this, key);
+    };
+    window.__clearJournalFault = () => { Storage.prototype.removeItem = removeItem; };
+  });
+  await page.locator("[data-preview-confirm]").click();
+  await page.locator("#reviewPanel .review__error").waitFor({ state: "visible", timeout: 15000 });
+  const failed = await reviewScreen(page);
+  check(failed.copy === EN["toast.program_save_failed"],
+    "a change applied with its journal still open uses the existing save-failure copy", failed);
+  const stillFaulted = await tryAgainSettles(page);
+  const journalsWhileFaulted = await transitionArtifacts(page);
+  check(stillFaulted.stage === "error" && stillFaulted.proposalHash === proposal.proposalHash &&
+    stillFaulted.copy === EN["toast.program_save_failed"] && stillFaulted.events === 0 && journalsWhileFaulted.length > 0,
+  "Try again stays on the retained proposal while the fault remains", { stillFaulted, journalsWhileFaulted });
+  if (stillFaulted.stage !== "error") { await context.close(); return; }
+
+  await page.evaluate(() => {
+    const durable = window.RepForgeDurableState;
+    const settle = durable.settleProgramTransitionAlreadyCommitted;
+    durable.settleProgramTransitionAlreadyCommitted = async (options) => ({
+      ...await settle(options), committed: false, settled: false, code: "transition_settlement_journal_mismatch",
+    });
+    window.__restoreSettlement = () => { durable.settleProgramTransitionAlreadyCommitted = settle; };
+  });
+  const mismatched = await tryAgainSettles(page);
+  check(mismatched.copy === EN["toast.program_save_failed"] && !/nothing was modified/i.test(mismatched.copy || ""),
+    "a settlement mismatch code does not select the stale copy once the change is applied", mismatched);
+
+  await page.evaluate(() => { window.__restoreSettlement(); window.__clearJournalFault(); });
+  await page.locator("[data-flow-restart]").click();
+  await page.locator("#reviewPanel .review__staged").waitFor({ state: "visible", timeout: 15000 });
+  const settled = await reviewScreen(page);
+  const durable = await replicas(page);
+  const artifacts = await transitionArtifacts(page);
+  check(settled.stage === "done" && settled.events === 1 && artifacts.length === 0 &&
+    JSON.stringify(durable.local.programMeta.programDefinition) === JSON.stringify(proposal.successor.programDefinition) &&
+    JSON.stringify(durable.idb.programMeta.programDefinition) === JSON.stringify(proposal.successor.programDefinition) &&
+    durable.local.programHistory.length === 1,
+  "Try again settles once the fault clears, with one archive and one success event", { settled, artifacts });
+  await context.close();
+}
+
+// Neither replica took the write: nothing changed, so the existing copy is
+// still true and Try again still starts a new flow.
+async function checkNothingChangedFailure(browser, errors) {
+  const { context, page } = await reachVolumePreview(browser, errors);
+  const before = await replicas(page);
+  await page.evaluate(() => {
+    const io = window.RepForgeDurableState.storageIO;
+    io.writeLocal = async () => false;
+    io.writeIdb = async () => false;
+  });
+  await page.locator("[data-preview-confirm]").click();
+  await page.locator("#reviewPanel .review__error").waitFor({ state: "visible", timeout: 15000 });
+  const failed = await reviewScreen(page);
+  const after = await replicas(page);
+  check(failed.copy === EN["review.error.failed"] && JSON.stringify(after.local) === JSON.stringify(before.local),
+    "a write that changed nothing keeps the nothing-was-modified copy", failed);
+  await page.locator("[data-flow-restart]").click();
+  await page.locator("[data-volume-confirm]").waitFor({ state: "visible", timeout: 15000 });
+  check(true, "Try again after nothing changed starts a new flow");
+  await context.close();
+}
+
 async function confirmPreview(page, { title }) {
   await page.locator("[data-preview-confirm]").waitFor({ state: "visible", timeout: 15000 });
   const text = await page.locator("#reviewPanel").innerText();
@@ -678,6 +810,82 @@ async function main() {
     await manual.locator("#onbProgramEditor").waitFor({ state: "visible", timeout: 15000 });
     check(true, "the staged draft opens in the program editor");
     await manualContext.close();
+
+    // A committed-but-unsettled volume change retries its retained proposal -
+    // it must not reduce the successor for a second time.
+    const { context: retryContext, page: retry } = await freshPage(browser, errors);
+    await seed(retry);
+    await finishBlock(retry);
+    await openReview(retry);
+    await retry.locator('[data-review-action="reduce-volume"]').click();
+    await retry.locator("[data-volume-confirm]").click();
+    await retry.locator("[data-preview-confirm]").waitFor({ state: "visible", timeout: 15000 });
+    const retryProposal = await retry.evaluate(() => window.__repforgeProgressReview.flow().proposal);
+    const retryBefore = await state(retry);
+    const retryEvents = await retry.evaluate(() => {
+      const telemetry = window.RepForgeTelemetry;
+      const capture = telemetry.capture;
+      window.__reviewTransitionEvents = [];
+      const spy = Object.create(telemetry);
+      spy.capture = (name, properties) => {
+        if (name === "block_transition_chosen") window.__reviewTransitionEvents.push({ name, properties });
+        return capture.call(telemetry, name, properties);
+      };
+      window.RepForgeTelemetry = spy;
+      return true;
+    });
+    check(retryEvents, "the retry journey records transition telemetry through the production interface");
+    await failIdbWrites(retry);
+    await retry.locator("[data-preview-confirm]").click();
+    await retry.locator("#reviewPanel .review__error").waitFor({ state: "visible", timeout: 15000 });
+    const retryFailure = await retry.evaluate(() => ({
+      flow: window.__repforgeProgressReview.flow(),
+      copy: document.querySelector("#reviewPanel .review__error")?.textContent,
+      events: window.__reviewTransitionEvents.length,
+    }));
+    const partialReplicas = await replicas(retry);
+    check(retryFailure.flow?.proposal?.proposalHash === retryProposal.proposalHash,
+      "the failed confirmation retains its original proposal");
+    check(retryFailure.copy === EN["toast.program_save_failed"] && !/nothing was modified/i.test(retryFailure.copy || ""),
+      "a committed-but-unsettled change uses the existing save-failure copy", retryFailure.copy);
+    check(retryFailure.events === 0, "an unsettled transition emits no success telemetry", retryFailure.events);
+    check(JSON.stringify(partialReplicas.local.programMeta.programDefinition) ===
+      JSON.stringify(retryProposal.successor.programDefinition) &&
+      JSON.stringify(partialReplicas.idb.programMeta.programDefinition) ===
+        JSON.stringify(retryBefore.programMeta.programDefinition),
+    "the failed save leaves the proposed successor only in local storage");
+
+    await retry.evaluate(() => window.__clearReviewIdbFailure());
+    await retry.locator("[data-flow-restart]").click();
+    await retry.waitForFunction(() => {
+      const stage = window.__repforgeProgressReview.flow()?.stage;
+      return stage === "done" || stage === "volume-question";
+    }, null, { timeout: 15000 });
+    const retryStage = await retry.evaluate(() => window.__repforgeProgressReview.flow()?.stage);
+    if (retryStage === "volume-question") {
+      await retry.locator("[data-volume-confirm]").click();
+      await retry.locator("[data-preview-confirm]").waitFor({ state: "visible", timeout: 15000 });
+      await retry.locator("[data-preview-confirm]").click();
+      await retry.locator("#reviewPanel .review__staged").waitFor({ state: "visible", timeout: 15000 });
+    }
+    const retryAfter = await state(retry);
+    const settledReplicas = await replicas(retry);
+    const settledEvents = await retry.evaluate(() => window.__reviewTransitionEvents.length);
+    check(retryStage === "done", "Try again settles the retained proposal without opening a new reduction flow", retryStage);
+    check(JSON.stringify(retryAfter.programMeta.programDefinition) ===
+      JSON.stringify(retryProposal.successor.programDefinition) && retryAfter.programHistory.length === 1,
+    "retry applies the volume reduction once and creates one archive", {
+      archives: retryAfter.programHistory.length,
+      expectedProgramId: retryProposal.successor.programId,
+      actualProgramId: retryAfter.programMeta.id,
+    });
+    check(JSON.stringify(settledReplicas.local) === JSON.stringify(settledReplicas.idb),
+      "retry heals the two durable replicas");
+    check(settledEvents === 1, "the settled transition emits success telemetry once", settledEvents);
+    await retryContext.close();
+
+    await checkRetainedRetryWhileFaulted(browser, errors);
+    await checkNothingChangedFailure(browser, errors);
 
     check(errors.length === 0, "no page errors during the Review journeys", errors);
   } catch (error) {
