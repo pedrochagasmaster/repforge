@@ -18927,6 +18927,7 @@ function closeOnboarding(){
   cancelEntryGeneration();
   entryPickerInput=null;entryDialog=null;entryReplaceResolve?.(false);entryReplaceResolve=null;closeEntryDialog();
   onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;setupEditorOpen=false;
+  entryAdjustMount?.dispose();entryAdjustMount=null;
   $("#onboarding")?.classList.remove("program-editor-onboarding");
   $("#onboarding").classList.remove("active");$("#onboarding").classList.add("hidden");document.body.classList.remove("is-onboarding","is-entry-editor","is-settings");
   disarmEntryHistory();
@@ -19121,6 +19122,7 @@ function entrySetState(next,{persist=true}={}){
   if(next?.step!==entryState?.step||next?.route!==entryState?.route){
     entryPickerDraft={};entryPriorityLimitShown=false;
   }
+  if(!next?.result)invalidateEntryAdjustWork();
   entryState=next;
   if(next?.step!=="background")entryGoalFromHub=false;
   entryValidationNotice=false;
@@ -20232,6 +20234,7 @@ function entryBuildingPending(settled){
   wait.hidden=!pending;
   wait.classList.toggle("is-pending",pending)}
 async function startEntryResult(target,{checklist=null}={}){
+  invalidateEntryAdjustWork();
   supersedeEntryGeneration();
   const job={status:ENTRY_GENERATION_STATUS.GENERATING_RESULT,from:entryState,target,controller:new AbortController(),checklist};
   entryGeneration=job;entryCompileError=null;
@@ -20792,6 +20795,7 @@ async function applyEntryAnswerEdit(patch,{lead,beforeLabel,afterLabel}={}){
     if(!ProgramCompiler.availableSplits(mapped.request).includes(mapped.request.split))return{ok:false,failure:{code:"generation_conflict",
       conflicts:[{code:"unsupported_generation_domain"}]}}}
   if(current.status===ENTRY_GENERATION_STATUS.REBUILDING_ANSWER)current.controller?.abort();
+  invalidateEntryAdjustWork();
   const job={status:ENTRY_GENERATION_STATUS.REBUILDING_ANSWER,committed,next,controller:new AbortController()};
   entryGeneration=job;syncEntryBusy();
   let outcome;
@@ -21004,6 +21008,8 @@ function entryAdjustCtx(){
 function readEntryAdjustLog(){try{return JSON.parse(sessionStorage.getItem(ENTRY_ADJUST_KEY)||"null")}catch{return null}}
 function writeEntryAdjustLog(value){
   try{if(value?.edits?.length)sessionStorage.setItem(ENTRY_ADJUST_KEY,JSON.stringify(value));else sessionStorage.removeItem(ENTRY_ADJUST_KEY)}catch{}}
+// A rebuild wins from its start, even if generation later fails or is cancelled.
+function invalidateEntryAdjustWork(){if(entryAdjust)entryAdjust.identity={}}
 function clearEntryAdjust(){
   entryAdjustMount?.dispose();entryAdjustMount=null;entryAdjust=null;
   try{sessionStorage.removeItem(ENTRY_ADJUST_KEY)}catch{}}
@@ -21026,7 +21032,7 @@ function adoptEntryAdjust(baseline){
   if(!shared&&saved?.draftId===entryState.draftId&&saved?.fingerprint===baseline.fingerprint&&Array.isArray(saved.edits)){
     const replayed=Review.replay(baseline.preview.programDefinition,saved.edits,entryAdjustCtx());
     if(replayed.ok&&sameDefinition(replayed.definition,stored))edits=saved.edits}
-  entryAdjust={draftId:entryState.draftId,answers:result.answersFingerprint,baseline,edits,view:{tab:null,reorder:null}};
+  entryAdjust={identity:{},draftId:entryState.draftId,answers:result.answersFingerprint,baseline,edits,view:{tab:null,reorder:null}};
   if(!shared)writeEntryAdjustLog({draftId:entryState.draftId,fingerprint:baseline.fingerprint,edits});
   return entryAdjust}
 /* After a reload the recommendation is not at hand: generate it, then mount
@@ -21096,11 +21102,15 @@ async function commitEntryAdjust({definition,edits,name}){
   else{
     const saved=await persistEntryRulesState(next);
     if(!saved?.ok)return{ok:false}}
-  review.answers=entryState.result.answersFingerprint;
-  review.edits=edits.slice();
-  if(!shared)writeEntryAdjustLog({draftId:review.draftId,fingerprint:base.fingerprint,edits:review.edits});
-  syncEntryAdjustFooter();
-  return{ok:true}}
+  // The write has landed, but its candidate may have been replaced or discarded while the write waited: then its
+  // edit log belongs to nobody and must not be written over the replacement's.
+  const current=entryAdjust===review&&!!entryState?.result;
+  if(current){
+    review.answers=entryState.result.answersFingerprint;
+    review.edits=edits.slice();
+    if(!shared)writeEntryAdjustLog({draftId:review.draftId,fingerprint:base.fingerprint,edits:review.edits});
+    syncEntryAdjustFooter()}
+  return{ok:true,current}}
 /* The pinned footer follows the review without re-rendering the screen. */
 function syncEntryAdjustFooter(){
   const pinned=$("#entryCandidateReview .entry__pinned");
@@ -21173,6 +21183,10 @@ function mountEntryAdjust(){
   if(!host||!Review||!review)return;
   entryAdjustMount=Review.mountProgramReview(host,{
     view:review.view,
+    queueKey:()=>review,
+    candidate:()=>entryState?.result&&!entryAnswerRebuildPending()&&
+      (entryGeneration.status!==ENTRY_GENERATION_STATUS.GENERATING_RESULT||entryGeneration.from!==entryState)?entryAdjust?.identity:null,
+    present:options=>{if(entryAdjust===review)entryAdjustMount?.present(options)},
     read:()=>({baseline:entryAdjust.baseline.preview.programDefinition,definition:entryState.result.preview.programDefinition,
       edits:entryAdjust.edits,name:entryResultName()||t("untitled_program"),
       answers:entryState.answers,offers:entryCurrentVerifiedOffers(entryState),
