@@ -380,7 +380,10 @@ async function main() {
   const dialogs = [];
   page.on("dialog", async (dialog) => {
     dialogs.push({ type: dialog.type(), message: dialog.message() });
-    await dialog.dismiss();
+    // A reload while an installed editor holds unsaved work asks before unloading (#659). The races below reload
+    // that way on purpose, so the lifter's answer is to leave; every other dialog is still refused.
+    if (dialog.type() === "beforeunload") await dialog.accept();
+    else await dialog.dismiss();
   });
 
   try {
