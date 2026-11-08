@@ -14497,6 +14497,9 @@ function disposeProgramEditors(){
   onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;
   installedProgramEditor?.dispose?.();installedProgramEditor=null;installedEditorSession=null;
 }
+// Reload or close with unsaved installed-editor work asks first (#659). The editor's own dirty predicate decides,
+// so the prompt is live exactly while work is unsaved and never outlives the editor.
+window.addEventListener("beforeunload",event=>{if(!installedProgramEditor?.isDirty())return;event.preventDefault();event.returnValue=""});
 // @ci-domain program,entry
 /* ---- The installed editor's page sheet (Plan 075 phase 2B, ADR 0023) ----
    Edit presents #program itself as a page sheet (the generic sheet/detents
