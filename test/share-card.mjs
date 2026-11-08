@@ -173,6 +173,54 @@ try {
       const shared = await page.evaluate(() => window.__shared);
       check(shared.length === 1 && shared[0].length === 1 && shared[0][0].name === s.file.name, "Share hands over the one composed PNG, not the photo", shared);
 
+      // Hold real decodes at the browser boundary and complete the newer pick first.
+      await page.evaluate(() => {
+        const decode = window.createImageBitmap.bind(window);
+        window.__photoPicks = {};
+        window.createImageBitmap = async (file, ...options) => {
+          const bitmap = await decode(file, ...options);
+          if (!(file instanceof File) || !file.name.startsWith("ordered-")) return bitmap;
+          return new Promise(resolve => {
+            window.__photoPicks[file.name] = () => { resolve(bitmap); return bitmap.width; };
+          });
+        };
+      });
+      await page.setInputFiles("#sharePhotoInput", { name: "ordered-old.png", mimeType: "image/png", buffer: photo });
+      await page.waitForFunction(() => !!window.__photoPicks["ordered-old.png"]);
+      const newer = Buffer.from(await page.evaluate(async () => {
+        const canvas = new OffscreenCanvas(640, 320);
+        canvas.getContext("2d").fillRect(0, 0, 640, 320);
+        return [...new Uint8Array(await (await canvas.convertToBlob()).arrayBuffer())];
+      }));
+      await page.setInputFiles("#sharePhotoInput", { name: "ordered-new.png", mimeType: "image/png", buffer: newer });
+      await page.waitForFunction(() => !!window.__photoPicks["ordered-new.png"]);
+      await page.evaluate(() => window.__photoPicks["ordered-new.png"]());
+      await page.waitForFunction(() => window.__repforgeShareSheet.state()?.photo?.width === 640 && !window.__repforgeShareSheet.state().shareDisabled);
+      await page.evaluate(() => window.__photoPicks["ordered-old.png"]());
+      s = await state(page);
+      check(s.photo.width === 640 && s.photo.height === 320, "N13: an older photo decode cannot overwrite the newer pick", s.photo);
+      await page.waitForFunction(() => !window.__repforgeShareSheet.state().shareDisabled);
+
+      for (const failure of ["render-null", "blob-null"]) {
+        const beforeFailure = await page.locator("#shareCardPreview").getAttribute("src");
+        await page.evaluate(failure => {
+          const cards = window.TauriferShareCards = { ...window.TauriferShareCards }, method = failure === "render-null" ? "render" : "toBlob", original = cards[method];
+          window.__failedPaint = false;
+          cards[method] = (...args) => {
+            cards[method] = original;
+            window.__failedPaint = true;
+            return method === "render" ? null : Promise.resolve(null);
+          };
+          const size = document.querySelector("#shareCardSize");
+          size.value = size.value === "story" ? "square" : "story";
+          size.dispatchEvent(new Event("change", { bubbles: true }));
+        }, failure);
+        await page.waitForFunction(() => window.__failedPaint);
+        s = await state(page);
+        check(!s.shareDisabled && !s.saveDisabled && await page.locator("#shareCardPreview").getAttribute("src") === beforeFailure,
+          `N13: ${failure} keeps the displayed PNG available to Share and Save`, s);
+      }
+
       await page.keyboard.press("Escape");
       await page.waitForFunction(() => document.querySelector("#shareCardSheet").hidden, undefined, { timeout: 5000 }).catch(() => {});
       const after = await stored();
