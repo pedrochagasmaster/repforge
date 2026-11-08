@@ -370,7 +370,7 @@ function proposeRetryChange(page, tag, change = { kind: "fewer_days", daysPerWee
 }
 
 // Each case gets an activated program and a proposal in a fresh context.
-async function withRetryProposal(browser, tag, run) {
+async function withRetryProposal(browser, tag, run, { beforePropose } = {}) {
   const context = await browser.newContext();
   const page = await context.newPage();
   try {
@@ -378,6 +378,7 @@ async function withRetryProposal(browser, tag, run) {
     await waitForAppBoot(page, { base: BASE });
     const activation = await activateGeneratedPredecessor(page);
     if (!activation.ok) throw new Error(`${tag} fixture activation failed: ${JSON.stringify(activation).slice(0, 500)}`);
+    await beforePropose?.(page);
     const proposed = await proposeRetryChange(page, tag);
     if (!proposed?.ok) throw new Error(`${tag} fixture proposal failed: ${proposed?.code}`);
     await run({ context, page, args: proposed.args });
@@ -451,6 +452,60 @@ async function checkFailedHealKeepsJournal(browser) {
     "a retry heals both replicas before it reaches the journal close that fails",
     { code: retry?.code, replicas: transitionReplicaSummary(healed) });
   });
+}
+
+const closeMarkers = (artifacts) => artifacts.filter((key) => key.startsWith("repforge_draft_v1:closing"));
+
+const openRetryWorkout = (page) => page.evaluate(async () => {
+  const day = window.__repforgeWorkoutDraft.state().program[0].day;
+  return window.__repforgeEnterWorkout({ day });
+});
+
+const editRetryNotes = (page, value) => page.evaluate(async (notes) => {
+  await window.__repforgeWorkoutDraft.dispatch("setSessionNotes", { value: notes });
+  await window.__repforgeWorkoutDraft.flush();
+  return localStorage.getItem("repforge_draft_v1");
+}, value);
+
+// F1: a retry that finds no journal still ends the close of the attempt before it.
+async function checkStrandedCloseMarkerSettles(browser) {
+  await withRetryProposal(browser, "closemarker", async ({ page, args }) => {
+    await armRetryFaults(page, { closeRemove: true });
+    const first = await confirmTransition(page, args);
+    const stranded = await transitionRetryArtifacts(page);
+    check(first?.settled === false && journalKeys(stranded).length === 0 && closeMarkers(stranded).length === 1,
+      "a failed close marker removal leaves the marker without a journal", { first, stranded });
+
+    const whileFaulted = await confirmTransition(page, args);
+    const markerWhileFaulted = closeMarkers(await transitionRetryArtifacts(page));
+    check(whileFaulted?.settled === false && markerWhileFaulted.length === 1,
+      "a retry stays unsettled while the close marker remains", { whileFaulted, markerWhileFaulted });
+
+    await armRetryFaults(page, {});
+    const cleared = await confirmTransition(page, args);
+    const remaining = await transitionRetryArtifacts(page);
+    check(cleared?.committed === true && cleared?.settled === true && remaining.length === 0,
+      "a retry ends the close once the fault clears", { cleared, remaining });
+    check(await openRetryWorkout(page) === true, "a new workout starts after the settled retry");
+  });
+
+  await withRetryProposal(browser, "closesidecar", async ({ page, args }) => {
+    await armRetryFaults(page, { closeRemove: true });
+    await confirmTransition(page, args);
+    const before = await editRetryNotes(page, "edit-during-stranded-close");
+    await armRetryFaults(page, {});
+    const cleared = await confirmTransition(page, args);
+    const remaining = await transitionRetryArtifacts(page);
+    const canonical = await page.evaluate(() => localStorage.getItem("repforge_draft_v1"));
+    check(cleared?.settled === true && remaining.length === 0 && canonical?.includes("edit-during-stranded-close"),
+      "the settled retry promotes the draft edit it found in a sidecar", { cleared, remaining, before: before?.length });
+    const after = await editRetryNotes(page, "edit-after-settled");
+    check(after?.includes("edit-after-settled") && (await transitionRetryArtifacts(page)).length === 0,
+      "a draft edit after the settled retry reaches the canonical draft");
+  }, { beforePropose: async (page) => {
+    if (await openRetryWorkout(page) !== true) throw new Error("the sidecar fixture could not open a workout");
+    await editRetryNotes(page, "edit-before-proposal");
+  } });
 }
 
 async function checkTransitionRetryFault(browser, kind) {
@@ -1819,6 +1874,7 @@ async function main() {
     await checkTransitionRetryFault(browser, "idb");
     await checkTransitionRetryFault(browser, "cleanup");
     await checkFailedHealKeepsJournal(browser);
+    await checkStrandedCloseMarkerSettles(browser);
 
     await context.close();
   } finally {
