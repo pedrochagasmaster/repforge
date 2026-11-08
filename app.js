@@ -3329,6 +3329,7 @@ function confirmDiscardDraft(){
  *  change itself marked the draft's day as touched, so only logged work asks. */
 async function requestWorkoutDay(nextDay,{undo=false,ofDraft}={}){
   if(!nextDay||nextDay===day) return true;
+  await workoutStartTail;
   // An Undo is bound to the draft its own day change made (N12): once that draft is replaced, it changes nothing.
   const stillOfDraft=()=>ofDraft===undefined||activeWorkoutDraft?.draftId===ofDraft;
   if(!stillOfDraft())return false;
@@ -3348,7 +3349,7 @@ async function requestWorkoutDay(nextDay,{undo=false,ofDraft}={}){
   day=nextDay;
   contextTouched.day=true;
   const selectionContextTouched={day:true,date:false,sessionNotes:false,bodyweight:false};
-  const created=await WorkoutSession.start(nextDay,{contextTouched:selectionContextTouched});
+  const created=await startWorkoutDraft(nextDay,{contextTouched:selectionContextTouched});
   if(created.status!=="ready"){
     showDraftInitializationRecovery(created,{retryMode:"create",label:nextDay,contextTouched:selectionContextTouched});
     return false;
@@ -8366,14 +8367,30 @@ function focusDragEnd(e){
   card.classList.remove("is-dragging");
   focusAnimateTo(dir)}
 /* The Focus entry still waiting on its draft and suggestions. Choosing another tab cancels it, so the late
-   presentation cannot reopen Focus over that tab; a second entry replaces it and the first gives up quietly. */
+   presentation cannot reopen Focus over that tab. A tap for the same target joins the entry already waiting; a
+   different day (Up next during a held Start or Resume) takes over from it. */
 let pendingWorkoutEntry=null;
 function cancelWorkoutEntry(){pendingWorkoutEntry=null}
-async function enterWorkout(opts={}){const entry=pendingWorkoutEntry={};
+/* Draft starts run one at a time: two concurrent starts both find no draft and the second loses the create. */
+let workoutStartTail=Promise.resolve();
+function startWorkoutDraft(label,options){
+  const run=workoutStartTail.then(()=>WorkoutSession.start(label,options));
+  workoutStartTail=run.then(()=>{},()=>{});
+  return run}
+function enterWorkout(opts={}){
+  const key=opts.day??null;
+  if(pendingWorkoutEntry?.key===key)return pendingWorkoutEntry.promise;
+  const entry={key,promise:null};
+  pendingWorkoutEntry=entry;
+  entry.promise=presentWorkoutEntry(opts,entry);
+  return entry.promise}
+async function presentWorkoutEntry(opts,entry){
+  // An earlier start settles first, so this entry reads the draft that start left behind.
+  await workoutStartTail;
   if(opts.day&&!await requestWorkoutDay(opts.day))return false;
   if(entry!==pendingWorkoutEntry)return false;
   if(opts.day)focusIndex=0;
-  const prepared=await WorkoutSession.start(day);
+  const prepared=await startWorkoutDraft(day);
   if(prepared.status!=="ready"){
     showDraftInitializationRecovery(prepared,{retryMode:"create",label:day});return false}
   clearDraftUiRecovery();
