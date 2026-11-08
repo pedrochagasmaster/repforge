@@ -37,7 +37,7 @@
 
   /* How a set's effort was entered (Plan 077, OD-1): the same enum as workout-draft.js's EFFORT_SOURCES, held here
      because the contract validates on its own (test/effort-provenance-contract.mjs keeps the two equal). */
-  const EFFORT_SOURCES = Object.freeze(["rir", "effort", "reps_left", "reps_left_3plus", "unsure", "prefilled", "failure"]);
+  const EFFORT_SOURCES = Object.freeze(["rir", "effort", "reps_left", "reps_left_3plus", "reps_left_5plus", "unsure", "prefilled", "failure"]);
   const validEffortSource = (holder) => !hasOwn(holder, "effortSource") || EFFORT_SOURCES.includes(holder.effortSource);
   /* A max set's guess (Plan 077, OD-17), the same shape as workout-draft.js's validCalibration
      (test/install-transfer-plan067-contract.mjs keeps the two in step). */
