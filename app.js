@@ -7190,15 +7190,15 @@ function applyRest(result,{timed=false}={}){
    transfer, a setup link or telemetry. A record is written on each change of an armed clock and removed when the rest stops. */
 /* restUnsaved: the last write was refused. The rest keeps running, and the write is tried again on the next tick or return
    to the page, until storage takes it. */
-let restUnsaved=false;
+let restUnsaved=false,restRecordRaw=null;
 function readRestRecord(){
   try{const raw=localStorage.getItem(REST_RECORD_KEY);
     return{ok:true,raw,record:raw===null?null:JSON.parse(raw)}}
   catch{return{ok:false,raw:null,record:null}}}
-/* A removal that storage refuses leaves the record it meant to remove. This tab keeps a note of it, tab-scoped so a reload
-   still has it: the draft, and the record's exact text when it could be read. A readable record that the note matches is the
-   rest this tab ended, so it is never restored, and its removal is retried on tick, on return to the page and before a
-   restore. A save or a clear in this tab drops the note. */
+/* If removal is refused but writing works, an ended marker prevents a new app instance from restoring the rest.
+   The tab note retains the exact record text, using the last published snapshot if reads also fail. A workout id alone
+   cannot identify an ended rest: another tab may have started a newer one. Matching removals are retried on tick, on return
+   to the page and before restore. A save or a clear in this tab drops the note. */
 const REST_ENDED_KEY="repforge_rest_ended_v1";
 let restRemovalPending=false;
 function endedRestNote(){try{return JSON.parse(sessionStorage.getItem(REST_ENDED_KEY)||"null")}catch{return null}}
@@ -7206,19 +7206,26 @@ function forgetEndedRest(){restRemovalPending=false;try{sessionStorage.removeIte
 function endedHere(stored){
   const note=endedRestNote();
   if(!note||!stored.ok||stored.raw===null)return false;
-  return note.raw!==null?note.raw===stored.raw:stored.record?.draftId===note.draftId}
+  return typeof note.raw==="string"&&note.raw===stored.raw}
 function removeRestRecord(){
-  const stored=readRestRecord();
+  const expectedRaw=endedRestNote()?.raw??restRecordRaw;
   try{localStorage.removeItem(REST_RECORD_KEY);forgetEndedRest()}
   catch{
-    if(stored.ok&&stored.raw===null)return;
+    // Removal can fail after another tab publishes a rest. Only replace the exact record ended here.
+    const stored=readRestRecord();
+    if(stored.ok&&(stored.raw===null||stored.raw!==expectedRaw)){forgetEndedRest();return}
     restRemovalPending=true;
-    try{sessionStorage.setItem(REST_ENDED_KEY,JSON.stringify({draftId:stored.record?.draftId??restDraftId??null,raw:stored.raw}))}catch{}}}
+    let raw=expectedRaw;
+    if(stored.ok){
+      const marker=JSON.stringify({draftId:stored.record?.draftId??restDraftId??null,ended:true});
+      try{localStorage.setItem(REST_RECORD_KEY,marker);raw=marker}catch{}}
+    try{sessionStorage.setItem(REST_ENDED_KEY,JSON.stringify({draftId:stored.record?.draftId??restDraftId??null,raw}))}catch{}}}
 function saveRestRecord(){
   const rest=RepForgeRestTimer.snapshot(restClock,Date.now());
   if(!rest){restUnsaved=false;removeRestRecord();return}
   if(!restDraftId)return;
-  try{localStorage.setItem(REST_RECORD_KEY,JSON.stringify({draftId:restDraftId,rest}));restUnsaved=false;forgetEndedRest()}
+  const raw=JSON.stringify({draftId:restDraftId,rest});
+  try{localStorage.setItem(REST_RECORD_KEY,raw);restRecordRaw=raw;restUnsaved=false;forgetEndedRest()}
   catch{restUnsaved=true}}
 /* A refused write or a refused removal is tried again on the next tick or return to the page. Nothing is written or removed
    once storage has taken it, and a record this tab did not end is never removed here. */
@@ -7238,8 +7245,9 @@ function restoreRest(draftId){
   // The tab-scoped record of the build before this one is dropped: its one rest timer is lost on upgrade, by choice.
   try{sessionStorage.removeItem(REST_RECORD_KEY)}catch{}
   const stored=readRestRecord(),record=stored.ok?stored.record:null,now=Date.now();
+  if(stored.ok)restRecordRaw=stored.raw;
   // A rest this tab ended whose removal was refused is never restored; its removal is owed, and is tried again here.
-  if(endedHere(stored)){removeRestRecord();return}
+  if(record?.ended===true||endedHere(stored)){removeRestRecord();return}
   if(!draftId||record?.draftId!==draftId||!RepForgeRestTimer.snapshotValid(record.rest,now)){removeRestRecord();return}
   if(RepForgeRestTimer.capReached(record.rest,now)){removeRestRecord();offerRestOverrunFinish();return}
   const restored=RepForgeRestTimer.restore(restClock,record.rest,now);
