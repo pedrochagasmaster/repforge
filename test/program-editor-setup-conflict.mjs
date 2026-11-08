@@ -381,6 +381,48 @@ async function proveCoherentForeignConflict(browser) {
   await context.close();
 }
 
+/** Issue #661: a custom exercise imported from a file keeps the metric the lifter chose in the Build editor, through Save draft and a reload. */
+async function importedCustomMetricJourney(browser) {
+  console.log("Issue #661: imported custom exercise keeps its chosen measurements");
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  try {
+    await page.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await page.click("#firstRunCreate");
+    await page.click('[data-entry-hub="import"]');
+    await page.click("#onbNext");
+    const chooser = page.waitForEvent("filechooser");
+    await page.click("#entryImportPick");
+    await (await chooser).setFiles({
+      name: "custom.json", mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify({ version: 3, meta: { name: "Custom config proof" }, exercises: [{ day: "Day A", order: 1, name: "Review unnamed cable move", sets: 1, min: 6, max: 8 }] })),
+    });
+    await page.waitForSelector("#importReview.active", { timeout: 10000 });
+    await page.click('[data-imp-act="custom"]');
+    await page.click('#exCustomEquip [data-val="cable"]');
+    await page.locator("#exCustomPrimary .pchip").first().click();
+    await page.click("#exCustomSave");
+    await page.waitForSelector("#exCustomSheet", { state: "hidden", timeout: 10000 });
+    await page.click("#importCommit");
+    await page.click("#entryEdit");
+    await page.waitForSelector('#onbProgramEditor [data-role="metric-composition"]', { timeout: 10000 });
+    await page.locator('#onbProgramEditor [data-role="metric-composition"]').selectOption({ label: "Reps" });
+    await page.waitForFunction(() => window.__repforgeEntryPersistenceDiagnostic?.()?.operation === "editor-commit", undefined, { timeout: 10000 });
+    const diagnostic = await page.evaluate(() => window.__repforgeEntryPersistenceDiagnostic());
+    check(diagnostic.ok === true, "the Reps choice is accepted by the setup draft", diagnostic);
+    await page.click("#entryEditorSave");
+    await page.waitForFunction(() => document.querySelector("#onbProgramEditor [data-role=\"editor-status\"]")?.textContent.trim().length > 0, undefined, { timeout: 10000 });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    const stored = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), SETUP_DRAFT_KEY);
+    const slots = (stored.state || stored).result.preview.programDefinition.days.flatMap((day) => day.slots || []);
+    check(slots.length > 0 && slots.every((slot) => slot.metricIds.length > 0), "the Reps choice survives Save draft and reload", slots.map((slot) => slot.metricIds));
+  } finally {
+    await context.close();
+  }
+}
+
 async function main() {
   console.log("Program editor setup-draft conflict semantics (issue #331)");
   console.log(`Target: ${BASE}\n`);
@@ -388,6 +430,7 @@ async function main() {
   try {
     await proveNoSelfConflict(browser);
     await proveCoherentForeignConflict(browser);
+    await importedCustomMetricJourney(browser);
   } finally {
     await browser.close();
   }
