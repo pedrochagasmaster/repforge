@@ -460,6 +460,47 @@ async function staleTrimUndoLeavesReplacementAlone(browser) {
   }
 }
 
+/**
+ * The owner's decision (2026-11-08): a Trim toast leaves when its session ends or is replaced. An ordinary edit in the
+ * same session keeps it up for its own timer.
+ */
+async function trimToastEndsWithItsSession(browser) {
+  phase("A Trim toast leaves when its session ends or is replaced, and stays for ordinary edits in the same session");
+  const { context, page } = await freshPage(browser);
+  const flagged = ["seed-ex-2", "seed-ex-4", "seed-ex-5"];
+  const trimToastUp = () => page.evaluate(() => !!document.querySelector(".trim-toast"));
+  const trim = () => page.evaluate(async (ids) => {
+    window.fatigueFlagged = () => exercises().filter((e) => ids.includes(e.id));
+    await applyFatigueTrim();
+    await window.__repforgeWorkoutDraft.flush();
+  }, flagged);
+  try {
+    await page.evaluate(async () => { await window.__repforgeEnterWorkout({ day: "Day 1" }); });
+    await page.waitForSelector("#workout .exercise.is-current", { timeout: 5000 });
+    await trim();
+    await page.waitForSelector(".trim-toast", { timeout: 5000 });
+    await page.evaluate(async () => {
+      const d = window.__repforgeWorkoutDraft.current();
+      const other = d.exerciseOrder.find((id) => id !== d.session.selectedExerciseId && d.exercises[id].status !== "skipped");
+      await window.__repforgeWorkoutDraft.dispatch("selectExercise", { exerciseInstanceId: other });
+      await window.__repforgeWorkoutDraft.flush();
+    });
+    assert(await trimToastUp(), "an ordinary edit in the same session keeps the Trim toast up", "toast gone");
+    await page.evaluate(async () => { await clearDraft(); });
+    assert(!(await trimToastUp()), "ending the session (discard) removes the Trim toast at once", "toast still up");
+    await trim();
+    await page.waitForSelector(".trim-toast", { timeout: 5000 });
+    await page.evaluate(async () => {
+      await clearDraft();
+      await window.__repforgeEnterWorkout({ day: "Day 1" });
+      await window.__repforgeWorkoutDraft.flush();
+    });
+    assert(!(await trimToastUp()), "starting a replacement session removes the Trim toast at once", "toast still up");
+  } finally {
+    await context.close();
+  }
+}
+
 async function main() {
   const browser = await launchChromium();
   // REPFORGE_SESSION_ONLY=finish runs only the finish-with-hidden-lifts proofs.
@@ -663,6 +704,7 @@ async function main() {
     await hiddenBarInContext(browser);
     await trimNamesItsLifts(browser);
     await staleTrimUndoLeavesReplacementAlone(browser);
+    await trimToastEndsWithItsSession(browser);
   } finally {
     await context.close();
     await browser.close();

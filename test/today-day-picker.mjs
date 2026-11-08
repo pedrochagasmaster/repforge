@@ -723,6 +723,38 @@ phase("a stale Day Undo for a day the program no longer has does nothing");
 // ---------------------------------------------------------------------------
 // 6. Page furniture stays behind the sheet it would otherwise cover
 // ---------------------------------------------------------------------------
+phase("A Day toast leaves when its session ends or is replaced, and stays for ordinary edits in the same session");
+{
+  const { context, page } = await freshPage(browser);
+  page.on("pageerror", (e) => errors.push(String(e.message)));
+  const days = await page.evaluate((k) => [
+    ...new Set(JSON.parse(localStorage.getItem(k) || "{}").program.map((e) => e.day)),
+  ], KEY);
+  const dayToastUp = () => page.evaluate(() => !!document.querySelector(".daychange-toast"));
+  await openPicker(page);
+  await page.click(`[data-daypick="${days[1]}"]`);
+  await page.waitForSelector(".daychange-toast", { timeout: 5000 });
+  await page.evaluate(async () => {
+    const d = window.__repforgeWorkoutDraft.current();
+    const other = d.exerciseOrder.find((id) => id !== d.session.selectedExerciseId);
+    await window.__repforgeWorkoutDraft.dispatch("selectExercise", { exerciseInstanceId: other });
+    await window.__repforgeWorkoutDraft.flush();
+  });
+  assert(await dayToastUp(), "an ordinary edit in the same session keeps the Day toast up", "toast gone");
+  await page.evaluate(async () => { await clearDraft(); });
+  assert(!(await dayToastUp()), "ending the session (discard) removes the Day toast at once", "toast still up");
+  await openPicker(page);
+  await page.click(`[data-daypick="${days[0]}"]`);
+  await page.waitForSelector(".daychange-toast", { timeout: 5000 });
+  await page.evaluate(async (d) => {
+    await clearDraft();
+    await window.__repforgeEnterWorkout({ day: d });
+    await window.__repforgeWorkoutDraft.flush();
+  }, days[0]);
+  assert(!(await dayToastUp()), "starting a replacement session removes the Day toast at once", "toast still up");
+  await context.close();
+}
+
 phase("nothing floats over the open sheet");
 {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, userAgent: IOS_SAFARI_UA });
