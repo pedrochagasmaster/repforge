@@ -350,9 +350,9 @@ The decided items, in the order they should be built. Each needs its own plan un
 
 1. The owner amends, or instructs the amendment of, the documents in §8 for the decided
    items (D-1 to D-6, D-12 to D-15). The deferred items (D-7 to D-11) are recorded as open.
-2. **Plan: the effort ladder** (D-3, D-15). Words by default with one onboarding question;
-   two stages instead of three; `effortScale` retired or kept for compatibility; the B→C tip
-   retired. Small, Free, before the alpha.
+2. **Plan: the effort ladder** (D-3, D-15): [`plans/078-effort-ladder.md`](../plans/078-effort-ladder.md).
+   Words by default with one onboarding question; two stages instead of three; `effortScale`
+   retired; the B→C tip retired. Small, Free, before the alpha.
 3. **Plan: session zero** (D-2, D-5). The guided first session, the declared priors table in
    the mechanics doc, the skip rules. Free, before the alpha.
 4. **Plan: the estimator** (D-4). `ENGINE_VERSION` 078.x: per-lift estimate and uncertainty,
