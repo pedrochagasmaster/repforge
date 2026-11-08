@@ -1139,7 +1139,6 @@ function edgeBackPage(){
   return view}
 function syncEdgeSwipe(){
   routeEdgeFrame=0;
-  syncRouteHistory();
   syncMiniBar();
   const page=edgeBackPage();
   if(routeEdge?.page===page)return;
@@ -1175,6 +1174,10 @@ function syncEdgeSwipe(){
   watch.observe(page,{attributes:true,attributeFilter:["class"]});
   routeEdge={page,dispose(){registration.dispose();watch.disconnect();unmount()}}}
 function scheduleEdgeSwipeSync(){
+  // Route history has to be in place as soon as the route mutation settles.
+  // Deferring ownership to the animation frame leaves a window where Back can
+  // pop the page beneath a newly opened route.
+  syncRouteHistory();
   if(!routeEdgeFrame)routeEdgeFrame=requestAnimationFrame(syncEdgeSwipe)}
 /* ---- Browser history for pushed pages (ADR 0023, Plan 075 phase 3) ----
    Each pushed page on screen holds one history entry, so Safari's back button,
