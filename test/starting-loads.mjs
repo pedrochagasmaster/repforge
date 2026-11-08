@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Algorithm boundaries: published priors, grid floors, ramp arithmetic and ratios.
 import assert from "node:assert/strict";
+import test from "node:test";
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const Loads = require("../starting-loads.js");
@@ -57,3 +58,17 @@ assert.deepEqual(Loads.ratioLoad({ anchorLoadKg: null, from, to }), { loadKg: 8,
 assert.deepEqual(Loads.ratioLoad({ anchorLoadKg: 60, from: { ...from, exercise: null }, to }), { loadKg: 8, basis: "prior" });
 assert.deepEqual(Loads.ratioLoad({ anchorLoadKg: 60, from: { ...from, bodyweightKg: null }, to: { ...to, bodyweightKg: null } }), { loadKg: 16, basis: "ratio" });
 console.log("starting loads: published table and boundary cases passed");
+
+test("catalog machine categories supply the declared prior without a machine word in the name", () => {
+  assert.deepEqual(Loads.openingLoad(args("Pendulum squat", { grid: Array.from({ length: 14 }, (_, i) => (i + 1) * 5) })), { loadKg: 60, basis: "prior" });
+});
+test("a ratio needs only the destination grid", () => {
+  assert.deepEqual(Loads.ratioLoad({ anchorLoadKg: 60, from: { ...from, grid: undefined }, to }), { loadKg: 16, basis: "ratio" });
+});
+test("an exact decimal boundary does not lose a grid step", () => {
+  assert.deepEqual(Loads.openingLoad(args("Barbell bench press", { bodyweightKg: 90, experience: "advanced", grid: Array.from({ length: 100 }, (_, i) => i + 1) })), { loadKg: 63, basis: "prior" });
+});
+
+test("an excluded source convention cannot supply an external-load ratio", () => {
+  assert.deepEqual(Loads.ratioLoad({ anchorLoadKg: 60, from: { ...from, convention: "bodyweight" }, to }), { loadKg: 8, basis: "prior" });
+});

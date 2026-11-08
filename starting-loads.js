@@ -22,16 +22,20 @@
   const EXPERIENCE = ["beginner", "intermediate", "advanced"];
   const positive = value => typeof value === "number" && Number.isFinite(value) && value > 0;
   const names = (ids, lookup) => (Array.isArray(ids) ? ids : []).map(id => lookup(id)?.name).filter(name => typeof name === "string");
-  function equipmentClass(name) {
-    if (/smith|fixed[- ]weight|^EZ bar\b/i.test(name)) return 1;
+  function equipmentClass(equipment, lookup) {
+    const name = typeof equipment === "string" ? equipment : equipment?.name || "";
+    const category = typeof equipment === "object" ? lookup(equipment?.category)?.name : null;
+    if (/smith|fixed[- ]weight|^EZ bar\b/i.test(name) || category === "Fixed Weight Bars") return 1;
     if (/^(barbell|axle bar|buffalo bar|cambered (bench press|squat) bar|safety squat bar|swiss bar|(open )?trap bar|marrs bar)\b/i.test(name)) return 0;
-    if (/^dumbbells?\b/i.test(name)) return 2;
+    if (/^(plate-loaded adjustable )?dumbbells?\b/i.test(name)) return 2;
+    if (["Cable Machines", "Plate Loaded Machines", "Pin Loaded Machines"].includes(category)) return 3;
     if (/machine|cable|pin-loaded|plate-loaded|leg press|hack squat|pec deck/i.test(name)) return 3;
     return null;
   }
   function parameters({ exercise = null, lookup = () => null, equipmentName = null, experience = "beginner", convention, grid = [] } = {}) {
-    const equipment = equipmentName ? [equipmentName] : names(exercise?.resistanceEquipmentGroupIds, lookup);
-    const classes = equipment.map(equipmentClass);
+    const options = (exercise?.resistanceEquipmentGroupIds || []).map(id => lookup(id)).filter(Boolean);
+    const equipment = equipmentName ? [options.find(entry => entry.name === equipmentName) || equipmentName] : options;
+    const classes = equipment.map(entry => equipmentClass(entry, lookup));
     const equipmentIndex = classes.length && classes.every(value => value === classes[0]) ? classes[0] : null;
     const patterns = names(exercise?.movementPattern, lookup);
     const experienceIndex = EXPERIENCE.indexOf(experience);
@@ -44,13 +48,13 @@
     const floor = equipmentIndex === 0 ? 20 : 0;
     const loads = Array.isArray(grid) ? [...new Set(grid.filter(value => positive(value) && value >= floor))].sort((a, b) => a - b) : [];
     const excluded = convention === "bodyweight" || convention === "assistance" || convention === "configuration_required";
-    return { fraction, loads: excluded ? [] : loads };
+    return { fraction: excluded ? null : fraction, loads: excluded ? [] : loads };
   }
   function roundedLoad(raw, loads) {
     if (!loads.length) return null;
     let result = loads[0];
     for (const load of loads) {
-      if (load > raw) break;
+      if (load - raw > Number.EPSILON * Math.max(1, Math.abs(raw), load) * 4) break;
       result = load;
     }
     return result;
@@ -76,7 +80,7 @@
    * A usable history anchor needs no bodyweight; without both priors, use the destination's plain opening. */
   function ratioLoad({ anchorLoadKg, from = {}, to = {} } = {}) {
     const old = parameters(from), next = parameters(to);
-    if (!positive(anchorLoadKg) || old.fraction == null || next.fraction == null || !old.loads.length || !next.loads.length) return openingLoad(to);
+    if (!positive(anchorLoadKg) || old.fraction == null || next.fraction == null || !next.loads.length) return openingLoad(to);
     return { loadKg: roundedLoad(anchorLoadKg * next.fraction / old.fraction, next.loads), basis: "ratio" };
   }
   const api = Object.freeze({ PRIORS_VERSION, PRIORS, openingLoad, nextRampLoad, ratioLoad });
