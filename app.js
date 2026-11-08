@@ -13385,7 +13385,7 @@ function exerciseSessionsDetail(key){const m=new Map();
 function currentViewId(){return $$(".view").find(v=>v.classList.contains("active"))?.id||"log"}
 function openExerciseView(key,from){if(!key)return;
   // Leaving the logging route retires voice: a recognizer started in Focus must not outlive it.
-  abandonVoiceOp();
+  abandonVoiceOp();cancelWorkoutEntry();
   const slot=prog.find(key),movement=slot?(workoutActive?sessionExercise(slot):slot):null;
   exView={key:movement?exerciseLiftKey(movement):key,openKey:key,from:from||currentViewId(),exercise:movement?Object.assign({},movement):null};
   chartView={scope:"current-block",metric:"top",pt:null};
