@@ -14615,7 +14615,10 @@ function attemptProgramEditorDismiss(){
 }
 function updateInstalledEditorDoneButton(){
   const done=$("#programEditDone");if(!done)return;
-  done.disabled=!!installedProgramEditor?.isCommitting?.()||installedProgramEditor?.canApply?.()===false;
+  const committing=!!installedProgramEditor?.isCommitting?.();
+  done.disabled=committing||installedProgramEditor?.canApply?.()===false;
+  const editor=$("#programEditor");
+  if(editor){editor.inert=committing;editor.setAttribute("aria-busy",String(committing))}
 }
 function enterProgramEditorSheet(copy){
   if(programEditorSheetOpen)return;
