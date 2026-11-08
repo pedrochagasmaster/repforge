@@ -1785,7 +1785,7 @@ async function main() {
   if (failures.length) process.exitCode = 1;
 }
 
-main().catch((error) => {
+main().then(() => import("./effort-ladder-migration.mjs")).catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });

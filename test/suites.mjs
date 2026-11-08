@@ -100,7 +100,6 @@ export const SUITES = {
     s("test/install-transfer-recovery.mjs", [], {"domains": ["install"], "cost": "normal", "tier": "feedback", "nodeArgs": ["--test"]}),
   ],
   "state": [
-    s("test/effort-ladder-migration.mjs", [], { domains: ["workout", "settings", "persistence"], seconds: 10 }),
     s("test/programlab-store.mjs", [], { domains: ["program", "persistence", "privacy"], seconds: 2 }),
     s("test/privacy-offline.mjs", [], {"domains": ["privacy", "offline"], "cost": "normal", "tier": "packet", "seconds": 3}),
     s("test/sw-upgrade.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback", "seconds": 9}),
@@ -117,7 +116,7 @@ export const SUITES = {
     s("test/install-transfer-client-browser.mjs", [], {"domains": ["install"], "cost": "normal", "tier": "feedback", "seconds": 5}),
     s("test/install-transfer-import.mjs", [], {"domains": ["install"], "cost": "normal", "tier": "feedback", "seconds": 201}),
     s("test/install-transfer-ui.mjs", [], {"domains": ["install"], "cost": "normal", "tier": "feedback", "seconds": 27}),
-    s("test/workout-draft-storage.mjs", [], {"domains": ["workout"], "cost": "normal", "tier": "feedback", "seconds": 83}),
+    s("test/workout-draft-storage.mjs", [], {"domains": ["workout", "settings", "persistence"], "cost": "normal", "tier": "feedback", "seconds": 83}),
     s("test/draftv2-staged-cas.mjs", [], {"domains": ["persistence"], "cost": "normal", "tier": "feedback", "seconds": 26}),
     s("test/workout-draft-sw-upgrade.mjs", [], {"domains": ["workout"], "cost": "normal", "tier": "feedback", "seconds": 8}),
     s("test/adversarial-draft-transactions.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback", "seconds": 42}),
@@ -309,6 +308,7 @@ export const FULL_SUITES = {
 };
 
 export const SUPPORT = {
+  "test/effort-ladder-migration.mjs": "Plan 078 boot migration proof; every assertion runs from the PR workout-draft-storage owner.",
   "test/entry-privacy.mjs": "Shared privacy characterization/oracles imported by the four scoped contracts.",
   "test/suites.mjs": "CI/local inventory, imported by tools/run-tests.mjs.",
   "test/browser.mjs": "Shared Playwright launcher and boot helpers.",
