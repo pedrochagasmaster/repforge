@@ -22,9 +22,10 @@
   const EXPERIENCE = ["beginner", "intermediate", "advanced"];
   const positive = value => typeof value === "number" && Number.isFinite(value) && value > 0;
   const names = (ids, lookup) => (Array.isArray(ids) ? ids : []).map(id => lookup(id)?.name).filter(name => typeof name === "string");
-  function equipmentClass(equipment, lookup) {
+  function equipmentClass(equipment, lookup, smithBar) {
     const name = typeof equipment === "string" ? equipment : equipment?.name || "";
     const category = typeof equipment === "object" ? lookup(equipment?.category)?.name : null;
+    if (/smith/i.test(name) && /functional trainer/i.test(name)) return smithBar ? 1 : 3;
     if (/smith|fixed[- ]weight|^EZ bar\b/i.test(name) || category === "Fixed Weight Bars") return 1;
     if (/^(barbell|axle bar|buffalo bar|cambered (bench press|squat) bar|safety squat bar|swiss bar|(open )?trap bar|marrs bar)\b/i.test(name)) return 0;
     if (/^(plate-loaded adjustable )?dumbbells?\b/i.test(name)) return 2;
@@ -35,7 +36,9 @@
   function parameters({ exercise = null, lookup = () => null, equipmentName = null, experience = "beginner", convention, grid = [] } = {}) {
     const options = (exercise?.resistanceEquipmentGroupIds || []).map(id => lookup(id)).filter(Boolean);
     const equipment = equipmentName ? [options.find(entry => entry.name === equipmentName) || equipmentName] : options;
-    const classes = equipment.map(entry => equipmentClass(entry, lookup));
+    // Smith-bar movements also offer a dedicated Smith bar; cable movements offer cable equipment.
+    const smithBar = options.some(entry => entry.name === "Smith machine and weight plates");
+    const classes = equipment.map(entry => equipmentClass(entry, lookup, smithBar));
     const equipmentIndex = classes.length && classes.every(value => value === classes[0]) ? classes[0] : null;
     const patterns = names(exercise?.movementPattern, lookup);
     const experienceIndex = EXPERIENCE.indexOf(experience);
