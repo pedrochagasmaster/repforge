@@ -7526,7 +7526,7 @@ function updateSessionBanner(){
 function draftHasLoggedWork(){try{return draftHasSessionWork(JSON.parse(DraftStore.readRaw()||"{}"),{ignoreDay:true})}catch{return false}}
 function draftHasProgress(){try{const d=JSON.parse(DraftStore.readRaw()||"{}");
   return draftHasSessionWork(d)||!!contextFlagsFromDraft(d).day}catch{return false}}
-function setWorkoutActive(on){const was=workoutActive;workoutActive=!!on;
+function setWorkoutActive(on){const was=workoutActive;workoutActive=!!on;if(!on)cancelWorkoutEntry();
   const dash=$("#todayDash"),shell=$("#workoutShell");
   // N5: Today to Focus is the same push as a drill-down, and Back from Focus is it
   // run the other way. Finishing a session clears the draft first, so the card has
@@ -8278,7 +8278,13 @@ function focusDragEnd(e){
   if(e?.type==="pointercancel"||!past||!focusCanGo(dir)){focusSettle(track,card,deck,{from:dx,velocity:vx});return}
   card.classList.remove("is-dragging");
   focusAnimateTo(dir)}
-async function enterWorkout(opts={}){if(opts.day&&!await requestWorkoutDay(opts.day))return false;
+/* The Focus entry still waiting on its draft and suggestions. Choosing another tab cancels it, so the late
+   presentation cannot reopen Focus over that tab; a second entry replaces it and the first gives up quietly. */
+let pendingWorkoutEntry=null;
+function cancelWorkoutEntry(){pendingWorkoutEntry=null}
+async function enterWorkout(opts={}){const entry=pendingWorkoutEntry={};
+  if(opts.day&&!await requestWorkoutDay(opts.day))return false;
+  if(entry!==pendingWorkoutEntry)return false;
   if(opts.day)focusIndex=0;
   const prepared=await WorkoutSession.start(day);
   if(prepared.status!=="ready"){
@@ -8287,6 +8293,8 @@ async function enterWorkout(opts={}){if(opts.day&&!await requestWorkoutDay(opts.
   // Recommendations fill the day's untouched pending values before the first paint.
   const firstExercise=exercises(day)[0];
   if(firstExercise)await refreshSuggestions(firstExercise.id);
+  if(entry!==pendingWorkoutEntry)return false;
+  pendingWorkoutEntry=null;
   workoutLeft=false;setWorkoutActive(true);
   hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});
   // Focus is the sole workout route.
@@ -24911,7 +24919,7 @@ function showSettings(){
   $$("nav button").forEach(x=>{x.classList.remove("active");x.setAttribute("aria-current","false")});
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="settings"));
   document.body.classList.add("is-settings");document.body.classList.remove("is-exercise","is-onboarding","is-workout");
-  abandonVoiceOp();workoutActive=false;workoutLeft=true;window.scrollTo({top:0});render();
+  abandonVoiceOp();cancelWorkoutEntry();workoutActive=false;workoutLeft=true;window.scrollTo({top:0});render();
   // Settings opens on its heading (R7 J-09); Back, below, returns to the control that opened it.
   focusRoute(routeHeading("settings"));
   queueMicrotask(()=>maybeShowContextualGuides(["install","privacy"]))}
@@ -25509,7 +25517,7 @@ function init(){
     if(programEditMode)finishInstalledEditor();
     if(dockRetap(b))return;
     abandonVoiceOp();
-    exView=null;workoutActive=false;workoutLeft=true;
+    exView=null;cancelWorkoutEntry();workoutActive=false;workoutLeft=true;
     // Progress remembers its segment, so arriving there can itself open the review.
     const opensReview=b.dataset.view==="stats"&&statsSeg==="review"&&!evidenceView&&!$("#stats")?.classList.contains("active");
     document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-workout");
