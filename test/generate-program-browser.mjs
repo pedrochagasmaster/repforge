@@ -765,6 +765,19 @@ async function revisionF7(browser) {
   return run.errors;
 }
 
+async function revisionF8(browser) {
+  const run = await queuedReviewSetup(browser), { page, baseline } = run;
+  await queueReviewRestore(page);
+  await remountQueuedReview(page);
+  await releaseSetupWrites(page);
+  await settleQueuedReviewWrites(page);
+  check(JSON.stringify(await reviewed(page)) === JSON.stringify(baseline), "F8: queued Restore lands on its candidate");
+  await checkReviewScreen(page, baseline, "F8");
+  check((await reviewToasts(page)).includes("Recommendation restored."), "F8: remounted review announces Restore");
+  await run.context.close();
+  return run.errors;
+}
+
 async function discardAfterQueuedUndo(browser) {
   const run = await fresh(browser);
   const { page } = run;
@@ -1901,6 +1914,8 @@ async function main() {
   try {
     if (process.env.N14_ONLY === "F7") {
       allErrors.push(await revisionF7(browser));
+    } else if (process.env.N14_ONLY === "F8") {
+      allErrors.push(await revisionF8(browser));
     } else if (process.env.N14_ONLY === "F5") {
       allErrors.push(await undoAfterLeaving(browser));
     } else if (process.env.N14_ONLY === "F4") {
@@ -2083,6 +2098,7 @@ async function main() {
     allErrors.push(await undoAfterLeaving(browser));
     allErrors.push(await editAcrossRemount(browser));
     allErrors.push(await revisionF7(browser));
+    allErrors.push(await revisionF8(browser));
     allErrors.push(await discardAfterQueuedUndo(browser));
     allErrors.push(await answerEditorMatchesRecommend(browser));
     allErrors.push(await minimumBudget(browser));
