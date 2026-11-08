@@ -165,6 +165,17 @@ async function holdWrites(page) {
 }
 const releaseWrites = (page) => page.evaluate(() => window.__unlockWrites());
 
+/** Hold the suggestion refresh that Resume awaits; `window.__releaseResume()` lets it through. */
+async function holdSuggestions(page) {
+  await page.evaluate(() => {
+    const original = window.refreshSuggestions;
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    window.__releaseResume = release;
+    window.refreshSuggestions = (...args) => gate.then(() => original(...args));
+  });
+}
+
 /** Record each enterWorkout call and whether it has settled. The entries still run as they would. */
 async function trackEntries(page) {
   await page.evaluate(() => {
@@ -372,6 +383,37 @@ try {
     const r = await readEntryOutcome(page);
     assert(r.focus && !r.recovery && r.draftDay === days[1],
       "Up next opens Focus on the next day, and the Start it replaced does not", JSON.stringify({ r, days }));
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  phase("A Settings commit that renders during a held Resume leaves Focus open");
+  {
+    const { context, page, errors } = await freshPage(browser);
+    await shapeSession(page);
+    await trackEntries(page);
+    await page.evaluate(() => {
+      window.__renders = 0;
+      const original = window.render;
+      window.render = (...args) => { window.__renders++; return original(...args); };
+    });
+    await page.click("#openSettings");
+    await page.waitForSelector("#settings.active", { timeout: 5000 });
+    await holdWrites(page);
+    await page.evaluate(() => document.querySelector("#maxSetToggle").click());
+    await page.click("#settingsBack");
+    await page.waitForSelector("#todayLiveResume", { timeout: 5000 });
+    await holdSuggestions(page);
+    await page.click("#todayLiveResume");
+    await page.waitForFunction(() => window.__entries.length === 1, undefined, { timeout: 5000 });
+    const rendersBefore = await page.evaluate(() => window.__renders);
+    await releaseWrites(page);
+    await page.waitForFunction((before) => window.__renders > before, rendersBefore, { timeout: 5000 });
+    await page.evaluate(() => window.__releaseResume());
+    await entriesSettled(page);
+    const r = await readEntryOutcome(page);
+    assert(r.focus && !r.recovery, "the Settings render does not cancel the Resume: Focus opens",
+      JSON.stringify(r));
     assert(errors.length === 0, "no page errors", errors.join(" | "));
     await context.close();
   }
