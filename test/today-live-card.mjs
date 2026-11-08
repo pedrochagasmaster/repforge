@@ -387,6 +387,49 @@ try {
     await context.close();
   }
 
+  phase("Cancelling Up next while Start waits leaves the chosen tab and draft alone");
+  for (const logged of [false, true]) {
+    const { context, page, errors } = await freshPage(browser);
+    if (logged) await shapeSession(page);
+    const before = await page.evaluate(() => localStorage.getItem("repforge_draft_v1"));
+    await trackEntries(page);
+    await page.evaluate(() => {
+      const original = window.createWorkoutDraft;
+      let release;
+      const gate = new Promise((resolve) => { release = resolve; });
+      window.__releaseStart = release;
+      window.__startHeld = false;
+      window.createWorkoutDraft = (...args) => {
+        window.__startHeld = true;
+        return gate.then(() => original(...args));
+      };
+    });
+    await page.click(logged ? "#todayLiveResume" : "#startWorkout");
+    await page.waitForFunction(() => window.__startHeld, undefined, { timeout: 5000 });
+    await page.click("#upNextBtn");
+    await page.waitForFunction(() => window.__entries.length === 2, undefined, { timeout: 5000 });
+    await page.click('nav button[data-view="stats"]');
+    await page.waitForSelector("#stats.active", { timeout: 5000 });
+    await page.evaluate(() => window.__releaseStart());
+    await page.waitForFunction(() => window.__entries.every((e) => e.done)
+      || document.querySelector("#draftDiscardSheet")?.hidden === false, undefined, { timeout: 10000 });
+    const after = await page.evaluate(() => ({
+      stats: document.querySelector("#stats").classList.contains("active"),
+      question: document.querySelector("#draftDiscardSheet")?.hidden === false,
+      stored: localStorage.getItem("repforge_draft_v1"),
+    }));
+    const r = await readEntryOutcome(page);
+    assert(after.stats && !after.question && !r.focus && r.draftDay === seedProgram()[0].day
+      && (!logged || after.stored === before),
+      logged ? "cancelled Up next never asks to discard the logged session over Progress"
+        : "cancelled Up next never silently changes the pristine session's day",
+      JSON.stringify({ ...r, stats: after.stats, question: after.question, unchanged: after.stored === before }));
+    if (after.question) await page.click("#draftDiscardKeep");
+    await entriesSettled(page);
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
   phase("A Settings commit that renders during a held Resume leaves Focus open");
   {
     const { context, page, errors } = await freshPage(browser);

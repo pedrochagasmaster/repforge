@@ -8392,6 +8392,7 @@ function enterWorkout(opts={}){
 async function presentWorkoutEntry(opts,entry){
   // An earlier start settles first, so this entry reads the draft that start left behind.
   await workoutStartTail;
+  if(entry!==pendingWorkoutEntry)return false;
   if(opts.day&&!await requestWorkoutDay(opts.day))return false;
   if(entry!==pendingWorkoutEntry)return false;
   if(opts.day)focusIndex=0;
