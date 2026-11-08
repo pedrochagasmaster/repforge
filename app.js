@@ -12521,10 +12521,19 @@ function transitionPredecessor(snapshot){
   return{programId:meta.id,durableRevision:readRevision(snapshot),
     programDefinition:cloneSnapshot(meta.programDefinition),
     customExerciseDefinitions:compilerCustomDefinitions(snapshot.customExercises)}}
-let pendingProgramTransitionSettlement=null;
-async function settleProgramTransitionReceipt(proposal,pendingJournalId=null){
+/* A rebased journal carries the whole receipt. A preflight-pending journal was
+   rejected before its rebase, so only its archive names the transition. */
+function transitionJournalOwned(journal,proposal){
   const archiveId=proposal?.predecessor?.programId;
-  const result=await DurableState.settleProgramTransitionAlreadyCommitted({pendingJournalId,
+  if(classifyCommittedTransition(journal?.proposal,proposal,archiveId)==="match")return true;
+  return journal?.preflightPending===true&&(journal.proposal?.programHistory||[]).some(entry=>
+    entry?.id===archiveId&&entry.transitionOut?.transitionId===proposal.transitionId&&
+    entry.transitionOut?.proposalHash===proposal.proposalHash&&
+    entry.transitionOut?.successorProgramId===proposal.successor?.programId)}
+async function settleProgramTransitionReceipt(proposal){
+  const archiveId=proposal?.predecessor?.programId;
+  const result=await DurableState.settleProgramTransitionAlreadyCommitted({
+    ownsJournal:journal=>transitionJournalOwned(journal,proposal),
     verify:head=>classifyCommittedTransition(head,proposal,archiveId)==="match"
       ?{ok:true}:{ok:false,code:"transition_settlement_receipt_mismatch"}});
   const outcome={...result};delete outcome.head;
@@ -12603,15 +12612,7 @@ const repforgeProgramTransitionAdapter = {
     const archiveId = predecessorProgramId;
 
     const preIdem = classifyCommittedTransition(state, proposal, archiveId);
-    if (preIdem === "match") {
-      const pending=pendingProgramTransitionSettlement?.transitionId===proposal.transitionId&&
-        pendingProgramTransitionSettlement?.proposalHash===proposal.proposalHash
-        ?pendingProgramTransitionSettlement:null;
-      const settled=await settleProgramTransitionReceipt(proposal,pending?.pendingJournalId||null);
-      if(settled.committed===true&&settled.settled===true&&pending)
-        pendingProgramTransitionSettlement=null;
-      return settled;
-    }
+    if (preIdem === "match") return settleProgramTransitionReceipt(proposal);
     if (preIdem === "conflict") return invalid("conflicting_transition_record");
     if (acknowledgedDraftRaw !== readDraftRaw()) {
       return { ok: false, committed: false, draftConflict: true, conflict: true, code: "draft_mismatch", localOk: false, idbOk: false, revision: readRevision(state) };
@@ -12698,15 +12699,12 @@ const repforgeProgramTransitionAdapter = {
     };
 
     const res = await commitProgramReplacement(baseProposal, storageIO, { capture, effect, preflight });
-    if(res?.alreadyCommitted===true){
-      const settled=await settleProgramTransitionReceipt(proposal,res.pendingJournalId||null);
-      if(settled.committed!==true||settled.settled!==true)
-        pendingProgramTransitionSettlement={transitionId:proposal.transitionId,
-          proposalHash:proposal.proposalHash,pendingJournalId:res.pendingJournalId||null};
-      return settled}
-    if(res?.committed===true&&res?.settled===true)pendingProgramTransitionSettlement=null;
-    else pendingProgramTransitionSettlement={transitionId:proposal.transitionId,
-      proposalHash:proposal.proposalHash,pendingJournalId:res?.pendingJournalId||null};
+    if(res?.alreadyCommitted===true)return settleProgramTransitionReceipt(proposal);
+    // This attempt committed, but an earlier one may have left its journal.
+    if(res?.committed===true&&res?.settled===true&&
+      DurableState.readPendingJournal().entries.some(record=>transitionJournalOwned(record.journal,proposal))){
+      const swept=await settleProgramTransitionReceipt(proposal);
+      if(swept.settled!==true)return swept}
     const applied = classifyCommittedTransition(state, proposal, archiveId) === "match";
     if (res.localOk || res.idbOk) return { ok: true, committed: true, ...res, applied };
     return { ok: false, committed: false, ...res, applied };

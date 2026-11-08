@@ -2259,12 +2259,12 @@
     }));
   }
 
-  async function settleProgramTransitionAlreadyCommitted({verify,pendingJournalId=null}={}){
-    if(typeof verify!=="function")
+  async function settleProgramTransitionAlreadyCommitted({verify,ownsJournal}={}){
+    if(typeof verify!=="function"||typeof ownsJournal!=="function")
       return normalizeDurableOutcome({localOk:false,idbOk:false,conflict:true,
         finalizationPending:true,code:"transition_settlement_verifier_missing"});
     return enqueueWrite(()=>withStorageLock(storageIO,async()=>{
-      await runDurableStateTestHook("durableSettlementLockHeld",{pendingJournalId});
+      await runDurableStateTestHook("durableSettlementLockHeld");
       const unresolved=(head,code,{localOk=false,idbOk=false,pendingJournalCleanup=false}={})=>
         normalizeDurableOutcome({revision:readRevision(head),localOk,idbOk,conflict:true,
           finalizationPending:true,pendingJournalCleanup,code,head});
@@ -2277,24 +2277,14 @@
         return unresolved(head,"transition_settlement_unresolved");
       if(!await matches(head))return unresolved(head,"transition_settlement_receipt_mismatch");
 
-      const ownJournalPending=()=>{
-        if(typeof pendingJournalId!=="string"||!pendingJournalId)return false;
-        const pending=readPendingJournal();
-        return pending.entries.some(item=>item.journal.id===pendingJournalId)||
-          pending.invalid.some(item=>item.key===PENDING_PREFIX+pendingJournalId);
-      };
+      const ownJournals=()=>readPendingJournal().entries.filter(record=>{
+        try{return ownsJournal(cloneSnapshot(record.journal))===true}
+        catch{return false}});
       const replicaHoldsHead=async replica=>replica.status==="valid"&&
         storageSnapshotsEqual(replica.parsed,head)&&await matches(replica.parsed);
-      const pending=typeof pendingJournalId==="string"&&pendingJournalId?readPendingJournal():null;
-      const record=pending?.entries.find(item=>item.journal.id===pendingJournalId);
-      if(pending?.invalid.some(item=>item.key===PENDING_PREFIX+pendingJournalId))
+      // A journal that cannot be read may be this transition's. Boot clears it.
+      if(readPendingJournal().invalid.length)
         return unresolved(head,"transition_settlement_journal_invalid",{pendingJournalCleanup:true});
-      // A preflight-pending journal was rejected before its rebase, so its
-      // proposal never carries the receipt. Boot discards it as intent only too.
-      if(record&&!record.journal.preflightPending&&
-        (!transitionJournalAttempt(record.journal.proposal,record.journal.base)||
-        !await matches(record.journal.proposal)))
-        return unresolved(head,"transition_settlement_journal_mismatch",{pendingJournalCleanup:true});
 
       // The journal is what recovers the successor if a replica is lost, so it
       // closes only after both replicas hold the verified head.
@@ -2303,17 +2293,17 @@
         const local=readLocalStatus(),idb=await readIdbStatus();
         if(!written.localOk||!written.idbOk||!await replicaHoldsHead(local)||!await replicaHoldsHead(idb))
           return unresolved(head,"transition_settlement_unresolved",
-            {localOk:written.localOk,idbOk:written.idbOk,pendingJournalCleanup:ownJournalPending()});
+            {localOk:written.localOk,idbOk:written.idbOk,pendingJournalCleanup:ownJournals().length>0});
         head=cloneSnapshot(local.parsed);
       }
-      if(record){
+      for(const record of ownJournals()){
         const closed=await executeDraftTransaction({record,transactionId:record.journal.id,
           effect:record.journal.effectOutcome,discard:true});
         if(!closed.settled)
           return unresolved(head,"transition_settlement_pending",
             {localOk:true,idbOk:true,pendingJournalCleanup:true});
       }
-      if(ownJournalPending())
+      if(ownJournals().length)
         return unresolved(head,"transition_settlement_pending",
           {localOk:true,idbOk:true,pendingJournalCleanup:true});
       // A close that lost only its marker has no journal left to find it by.
