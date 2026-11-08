@@ -2313,6 +2313,15 @@
       if(ownJournalPending())
         return unresolved(head,"transition_settlement_pending",
           {localOk:true,idbOk:true,pendingJournalCleanup:true});
+      // A close that lost only its marker has no journal left to find it by.
+      // Under this lock, a marker or sidecar without a journal is an orphan.
+      const orphansRemain=()=>{
+        const journalIds=new Set(readPendingJournal().entries.map(item=>item.journal.id));
+        return[...DraftStore.closingIds(),...DraftStore.pending().entries.map(entry=>entry.value.transactionId)]
+          .some(id=>!journalIds.has(id))};
+      if(!(await settleOrphanDraftArtifacts(head)).settled||orphansRemain())
+        return unresolved(head,"transition_settlement_pending",
+          {localOk:true,idbOk:true,pendingJournalCleanup:true});
       if(!await replicaHoldsHead(readLocalStatus())||!await replicaHoldsHead(await readIdbStatus()))
         return unresolved(head,"transition_settlement_unresolved");
       const liveBase=cloneSnapshot(persistHead||head);
