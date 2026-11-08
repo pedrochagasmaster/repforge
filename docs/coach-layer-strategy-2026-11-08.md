@@ -14,10 +14,17 @@ Three statements reopen earlier owner decisions. The owner may override their ow
 decisions; agents may not.
 
 1. **The app is not beginner friendly.** RIR and the rest of the bodybuilding vocabulary
-   frighten newcomers. Today every new install defaults to the numeric RIR field
-   (`DEFAULTS.rirMode:"numeric"`, `app.js:1711`), the landing's glossary answers "What is
-   RIR?" with a definition, and onboarding asks a beginner to pick a load they can hold for
-   a rep range they have never felt.
+   frighten newcomers. Plan 077 PR 2 (#628) already built the answer: three effort stages,
+   words (Easy / Hard / Max), reps left (0 · 1 · 2 · 3+) and RIR as a number, switchable
+   from the effort field's menu on the workout screen, with tips that climb the ladder
+   after six qualifying workouts (OD-4, OD-6). One default keeps it from running for a
+   newcomer: a fresh install starts at the top, in numeric RIR (`DEFAULTS.rirMode:
+   "numeric"`, `app.js:1711`; a missing setting normalizes to numeric; onboarding never
+   asks), and OD-6 never suggests a stage down, so the tips never reach them. Separately,
+   onboarding asks a beginner to pick a load they can hold for a rep range they have never
+   felt. The owner also notes (2026-11-08) that reps left and RIR are the same quantity
+   with different bounds, and that two stages for one quantity is a design failure (§3.2,
+   D-15).
 2. **The Pro boundary is weak.** Nothing pulls a lifter to keep logging until the value of
    consistently logged data is real. A lifter who churns at week two never sees it; a lifter
    who stays can ignore the paywall and keep using Free, because the thing Pro sells is not
@@ -47,7 +54,7 @@ to this proposal.
 | Coach function | Today | Proposed |
 | --- | --- | --- |
 | Finds your starting weights in the first session | The lifter guesses a load for a range ("Pick a load you can hold for {min}-{max} reps") | **Session zero**: a guided first session that ramps each exercise and sets the loads from reps and a word (§3.1) |
-| Teaches you to feel effort by correcting your perception | Numeric RIR by default; a test set every 14 days; a correction after three | **The effort ladder as teaching**: words by default, test sets as lessons, the letters RIR only at stage C (§3.2) |
+| Teaches you to feel effort by correcting your perception | The three-stage ladder exists but new installs start at numeric RIR and are never offered a stage down; a test set every 14 days; a correction after three | **The effort ladder as teaching**: words by default, one numeric stage, test sets as lessons (§3.2) |
 | Watches the week and adjusts | Block review at the end of the block | **Weekly review**: facts for everyone, bounded proposals for Pro (§5) |
 | Remembers you across programs | Nothing survives the block as a model of the lifter | **The profile**: what Taurifer knows about you, compounding across programs in Pro (§3.5) |
 
@@ -81,12 +88,22 @@ this, and it is the most beginner-friendly thing they do.
 
 ### 3.2 The effort ladder as teaching
 
-Plan 077's three stages exist (OD-4). The change is what they are for.
+Plan 077's ladder exists (OD-4, OD-6, shipped in #628). Two changes: where it starts, and
+how many rungs it has.
 
-- **Stage A (words) is the default for a new install.** `DEFAULTS.rirMode` becomes
-  `"effort"` with `effortScale:"feel"`. Stage C, the numeric field, is where a lifter
-  arrives after the ladder's tips (OD-6), or by choice in Settings. The letters RIR do not
-  appear on a working surface before stage C; the glossary stays available.
+- **Words are the default for a new install.** `DEFAULTS.rirMode` becomes `"effort"` with
+  `effortScale:"feel"`; existing installs keep their setting. The numeric stage is where a
+  lifter arrives after the ladder's tip, or by choice in the menu or Settings. OD-6's
+  "never a stage down" rule is then harmless, because nobody starts at the top.
+- **One numeric stage, not two.** Reps left and RIR are the same quantity. The engine
+  credits performed RIR only up to the cap of 5 (OD-23b, #624), and the mechanics doc
+  already says nobody knows whether they had 6 or 9 left, so the number field's extra
+  range is never used. Stages B and C merge into one stage labelled *reps left*, with chips
+  0 · 1 · 2 · 3 · 4 · 5+ and "5+" stored as 5, the cap. RIR becomes a glossary word, never
+  a mode label. Storage is unaffected: `rirMode` keeps its two values for setup links and
+  the transfer contract, provenance rows keep `reps_left` and `reps_left_3plus`, and
+  `effortScale` is retired or kept for compatibility, decided in the plan. The letters RIR
+  do not appear on a working surface; the glossary stays available.
 - **A test set is a lesson, not a measurement.** The result line already says "You guessed
   11 and did 14". For a stage-A lifter the lesson reads in their own words: *you said a
   couple left, you had five*. That is how a coach corrects perception, and it is the
@@ -246,6 +263,7 @@ analogy to apps with brands.
 | `PRODUCT.md` | Positioning adds the coach-function framing; the gauge's status is settled one way or the other (§3.5) |
 | `plans/077-calibration-free-layer.md` | OD-12's calendar cadence becomes a ceiling under the estimator; OD-20's percentage is dissolved or justified; OD-21 is closed as withdrawn |
 | `app.js` `DEFAULTS` | `rirMode:"effort"`, `effortScale:"feel"` for new installs (existing installs keep their setting) |
+| `plans/077-calibration-free-layer.md` OD-3, OD-4, OD-6 | Two stages instead of three: words and reps left (0–4, 5+ stored as 5); the B→C tip and `effortScale` are retired or kept for compatibility |
 | `docs/progressive-overload-mechanics.md` §4 | The estimator, the standing words, and the declared priors table |
 | `docs/backlog.md` | A Now row for session zero and the ladder default, Next rows for the estimator, the cadence and the profile, a Gated row for the funnel behind entitlement |
 | `CONTEXT.md` | Terms: *session zero*, *standing* (of an estimate), *finding*, *profile*, *weekly review*; the coach is the human comparison only, never a product name |
@@ -277,7 +295,8 @@ Each has a proposed default; agents take no default as decided.
 | --- | --- | --- |
 | D-1 | Is the coach-function framing (§2) the product's positioning? | yes |
 | D-2 | Does session zero replace the "pick a load" prompt for new programs without loads? | yes, skippable; skipped by default when loads are known |
-| D-3 | Does stage A become the default for new installs? | yes |
+| D-3 | Do words become the default stage for new installs? | yes |
+| D-15 | Do reps left and RIR merge into one numeric stage (chips 0–4 and 5+, stored as 5), leaving RIR as a glossary word? | yes |
 | D-4 | Does the engine become an estimator with uncertainty-driven test sets, keeping OD-12's safety rules as ceilings? | yes, as `ENGINE_VERSION` 078.x with its own plan |
 | D-5 | Declared population priors for opening loads and new-lift ratios, published in the mechanics doc? | yes |
 | D-6 | The gauge: dissolve into the profile as counts and words, or keep the percentage and record why it is not a score? | dissolve |
@@ -294,7 +313,8 @@ Each has a proposed default; agents take no default as decided.
 
 1. Owner answers §10; the documents in §8 are amended by the owner or on explicit
    instruction.
-2. A plan for session zero and the stage-A default (small, Free, before the alpha).
+2. A plan for session zero, the words default and the two-stage ladder (small, Free,
+   before the alpha).
 3. A plan for the estimator and the uncertainty-driven cadence, replacing OD-12's calendar.
 4. A plan for the thirty-day cadence and the profile surface, dissolving the gauge.
 5. The weekly review, facts first (Free), proposals second (Pro).
