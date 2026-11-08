@@ -25086,10 +25086,6 @@ window.__repforgeUi={loadUiPrefs,isStandalone,isIOS,showInstallBanner,currentThe
   setPref:(key,value)=>setUiPref(key,value),sharedSettings:()=>sharedSettings(state.settings)};
 async function resumeProgramEditFollowUp(){
   if(state?.[STORAGE_FOLLOWUP]?.kind!=="onboarding-edit")return false;
-  programEditMode=true;
-  document.body.classList.remove("is-settings","is-workout","is-exercise","is-onboarding","is-library","is-preview","is-import");
-  $$("nav button").forEach(x=>{const on=x.dataset.view==="program";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
-  $$(".view").forEach(v=>v.classList.toggle("active",v.id==="program"));
   const proposal=cloneSnapshot(state);delete proposal[STORAGE_FOLLOWUP];
   await commitProposedState(proposal);
   return true}
