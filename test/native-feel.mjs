@@ -328,6 +328,15 @@ async function reducedMotionSheets(browser) {
   assert(leaving.some((f) => f.opacity > 0.02 && f.opacity < 0.98) && leaving.every((f) => Math.abs(f.y) <= 1),
     "it fades out in place before it hides", JSON.stringify(leaving.slice(0, 8)));
   assert(closing.at(-1)?.hidden === true, "and then it is hidden", JSON.stringify(closing.at(-1)));
+
+  // Direct manipulation still tracks the thumb; release skips momentum and
+  // closes through the same modal path, without a second 180ms fade.
+  await sample(true);
+  await drag(page, await grip(page, "#programTextSheet"), down(210, 5), { pause: 24 });
+  await page.waitForSelector("#programTextSheet", { state: "hidden", timeout: 3000 });
+  const swipeClosed = await page.evaluate(() => ({ ...window.__sheet("#programTextSheet"), inert: document.querySelector("#program").inert }));
+  assert(swipeClosed.hidden && !swipeClosed.open && !swipeClosed.inline && !swipeClosed.inert,
+    "a reduced-motion gesture dismisses immediately and frees the page", JSON.stringify(swipeClosed));
   await context.close();
 }
 

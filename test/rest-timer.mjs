@@ -584,6 +584,27 @@ try {
       await page.evaluate(() => getComputedStyle(document.querySelector("#restSheet .restsheet__controls")).touchAction) !== "none",
       "only the dial keeps its touches; the rest of the sheet still swipes");
 
+    phase("A sheet closed during a dial turn releases the dial for the next gesture");
+    const dialBox = await page.locator("#restDial").boundingBox();
+    const centre = { x: dialBox.x + dialBox.width / 2, y: dialBox.y + dialBox.height / 2, r: dialBox.width * 0.448 };
+    const dialPoint = (turn) => [centre.x + centre.r * Math.sin(turn * 2 * Math.PI), centre.y - centre.r * Math.cos(turn * 2 * Math.PI)];
+    await page.mouse.move(...dialPoint(0.125));
+    await page.mouse.down();
+    await page.mouse.move(...dialPoint(0.2));
+    assert(await page.evaluate(() => document.querySelector("#restDial").classList.contains("is-turning")),
+      "the first pointer owns the dial before the sheet closes");
+    await page.keyboard.press("Escape");
+    await page.waitForSelector("#restSheet", { state: "hidden" });
+    const abandonedTurn = await page.evaluate(() => document.querySelector("#restDial").classList.contains("is-turning"));
+    assert(!abandonedTurn, "closing the sheet releases a dial drag even if the finger never sent pointerup", abandonedTurn);
+    await page.mouse.up();
+    await page.locator("#restTab").click();
+    await page.waitForSelector("#restSheet.is-open", { timeout: 5000 });
+    await page.waitForTimeout(320);
+    await page.evaluate(() => { window.__repforgeRest.setLeft(298000, { held: true, lengthSec: 300 }); syncRest(); });
+    r = await turn(0.125, 0.375);
+    assert(r.left === 375, "the dial accepts another turn after the interrupted capture", r);
+
     phase("The dial is a slider for the keyboard and assistive technology");
     await page.evaluate(() => { window.__repforgeRest.setLeft(298000, { held: true, lengthSec: 300 }); syncRest(); });
     const slider = await page.evaluate(() => { const d = document.querySelector("#restDial");

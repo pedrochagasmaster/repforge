@@ -57,6 +57,24 @@ async function main() {
     /* ======================================================================
      * 1. Arbitrary navigation: Next / Prev and bounds
      * ====================================================================== */
+    console.log("\nNavigation: a flick held still before release does not advance");
+    const touch = await page.context().newCDPSession(page);
+    const deckBox = await page.locator("#focusDeck").boundingBox();
+    const x = Math.round(deckBox.x + deckBox.width / 2);
+    const y = Math.round(deckBox.y + 30);
+    await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+    for (const dx of [27, 55]) {
+      await page.waitForTimeout(8);
+      await touch.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: x - dx, y }] });
+    }
+    // This stationary interval is the behaviour under test: velocity must expire.
+    await page.waitForTimeout(220);
+    await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await touch.detach();
+    await page.waitForTimeout(340);
+    assert(await page.evaluate(() => window.__repforgeFocus.at()) === 0,
+      "a short flick held still before release settles the current exercise instead of advancing");
+
     console.log("\nNavigation: bounds and next/previous controls");
     const segments = page.locator("#woProgress button[data-focusgo]");
     const nextRow = page.locator("#workout .exercise.is-current [data-fnextrow]");
