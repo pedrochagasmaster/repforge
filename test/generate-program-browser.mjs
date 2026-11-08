@@ -641,6 +641,50 @@ async function renameDoesNotCrossCandidate(browser) {
   return run.errors;
 }
 
+async function sameCandidateCommitRepaintsRemount(browser) {
+  const run = await fresh(browser);
+  const { page } = run;
+  await answerGenerate(page);
+  await page.waitForSelector("#entryReview [data-review-slot]", { timeout: 15000 });
+  const baseline = await reviewed(page);
+  const [day] = trainingDays(baseline);
+  const removed = day.slots[1];
+  await holdSetupWrites(page);
+  await openSlot(page, removed.id);
+  await page.locator("#reviewSheet [data-review-remove]").click();
+  await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 5000 });
+  await page.waitForFunction((definition) => JSON.stringify(window.__repforgeEntryState()?.result?.preview?.programDefinition) !== definition,
+    JSON.stringify(baseline), { timeout: 10000 });
+  await page.locator("#onbCancel").click();
+  await page.waitForSelector("#entryCancelDiscard", { timeout: 5000 });
+  await page.keyboard.press("Escape");
+  await page.waitForSelector("#entryCancelDiscard", { state: "hidden", timeout: 5000 });
+  await page.locator("#entryReview").waitFor({ state: "visible", timeout: 10000 });
+  await page.evaluate(() => {
+    const host = document.querySelector("#entryReview");
+    window.__reviewRepaintRecords = 0;
+    window.__reviewRepaintObserver = new MutationObserver((records) => { window.__reviewRepaintRecords += records.length; });
+    window.__reviewRepaintObserver.observe(host, { childList: true, subtree: true });
+  });
+  await releaseSetupWrites(page);
+  await settleSetupWrites(page);
+  const repaints = await page.evaluate(() => {
+    const count = window.__reviewRepaintRecords;
+    window.__reviewRepaintObserver.disconnect();
+    return count;
+  });
+  check(repaints > 0,
+    "review: the same-candidate commit repaints the remounted review", repaints);
+  check(!await page.locator(`#entryReview [data-review-slot="${removed.id}"]`).count() &&
+    await page.locator("#entryReview [data-review-count]").count() === 1,
+    "review: a same-candidate commit repaints the remount with its saved edit",
+    await page.locator("#entryReview").innerText());
+  check((await reviewLog(page))?.edits?.length === 1,
+    "review: the remounted screen's Undo matches the committed edit log", await reviewLog(page));
+  await run.context.close();
+  return run.errors;
+}
+
 async function discardAfterQueuedUndo(browser) {
   const run = await fresh(browser);
   const { page } = run;
@@ -1785,6 +1829,8 @@ async function main() {
       allErrors.push(await restoreQuestionDoesNotCrossCandidate(browser));
     } else if (process.env.N14_ONLY === "F3") {
       allErrors.push(await renameDoesNotCrossCandidate(browser));
+    } else if (process.env.N14_ONLY === "F6") {
+      allErrors.push(await sameCandidateCommitRepaintsRemount(browser));
     } else {
     allErrors.push(await recoveredGenerationJourney(browser));
     allErrors.push(await sourceSplitChoicesJourney(browser));
