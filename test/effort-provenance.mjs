@@ -165,6 +165,11 @@ try {
   await page.locator('#nativeContextMenu [data-menu-value="c"]').click();
   await page.waitForSelector("#nativeContextMenu", { state: "detached" });
   await page.evaluate(async () => { await window.__repforgeStorage.flush(); await window.__repforgeWorkoutDraft.flush(); });
+  await page.evaluate(() => window.__repforgeFocus.to(0));
+  const retainedWord = await page.locator('#workout .exercise.is-current [data-editn="1"] [data-lv="rir"]').textContent();
+  assert(["Easy", "Hard", "Max"].includes(retainedWord.trim()),
+    "a completed prefilled word keeps its vocabulary after a stage change", retainedWord);
+  await page.evaluate(() => window.__repforgeFocus.to(1));
   await typeField(page, "load", 1, "50");
   await typeField(page, "reps", 1, "6");
   await page.locator(field("rir")).click();
