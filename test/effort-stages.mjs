@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * Plan 077 PR 2: the three effort stages on the real Focus screen.
+ * Plan 078 PR 1: the two effort stages on the real Focus screen.
  *
- * - Stage A sets its word with one tap on a chip; stage B offers 0 · 1 · 2 · 3+.
- * - The effort field's arrow opens the menu: the three stages, the app's checked, and "Not sure" for this set (OD-2).
+ * - Stage A sets its word with one tap on a chip; the numeric stage offers 0 · 1 · 2 · 3 · 4 · 5+.
+ * - The effort field's arrow opens the menu: the two stages, the app's checked, and "Not sure" for this set (OD-2).
  * - A switch applies app-wide from the next set on (OD-5): sets already logged keep what was entered and how, the
- *   live draft takes the new mode in the same commit, and the stage is a device-local `effortScale` beside `rirMode`.
+ *   live draft takes the new mode in the same commit, and the retired `effortScale` is removed.
  * - The stage tip (OD-6) shows in a rest only, after 6 qualifying workouts, never once the next set is being entered;
  *   a dismissal keeps it quiet for 4 weeks and a second ends it.
  *
@@ -29,7 +29,7 @@ function assert(cond, name, detail) {
 }
 const phase = (n) => console.log(`\n${n}`);
 
-/** Six earlier workouts whose working sets the lifter gave a word: enough for the A→B tip. */
+/** Six earlier workouts whose working sets the lifter gave a word: enough for the words-to-numbers tip. */
 const qualifyingLog = (source = "effort") => Array.from({ length: 6 }, (_, i) => [1, 2, 3].map((set) => {
   const date = `2026-10-${String(10 + i).padStart(2, "0")}`;
   return { session: `earlier-${i}`, date, day: "Day 1", name: "Earlier lift", exerciseId: "earlier", set, load: 50, reps: 8, rir: 1,
@@ -76,7 +76,7 @@ async function boot(page, { settings = {}, log = [], uiPrefs = null } = {}) {
     await api.flush();
     window.__repforgeFocus?.to?.(0);
   });
-  await page.waitForTimeout(400);
+  await page.waitForFunction(() => !!document.querySelector("#workout .exercise.is-current .saveset"));
 }
 
 const shelfState = (page) => page.evaluate((shelf) => ({
@@ -106,13 +106,13 @@ async function chooseInMenu(page, value) {
   await page.locator(`#nativeContextMenu [data-menu-value="${value}"]`).click();
   await page.waitForSelector("#nativeContextMenu", { state: "detached" });
   await page.evaluate(async () => { await window.__repforgeWorkoutDraft.flush(); await window.__repforgeStorage?.flush?.(); });
-  await page.waitForTimeout(300);
+  await page.waitForFunction(() => !document.querySelector("#nativeContextMenu"));
   return menu;
 }
 const logOpenSet = async (page) => {
   await page.locator(`${SHELF} .saveset`).click();
   await page.evaluate(async () => { await window.__repforgeWorkoutDraft.flush(); });
-  await page.waitForTimeout(500);
+  await page.evaluate(async () => { await window.__repforgeWorkoutDraft.flush(); await window.__repforgeStorage?.flush?.(); });
 };
 const tip = (page) => page.evaluate(() => {
   const el = document.querySelector(".resttip");
@@ -121,7 +121,7 @@ const tip = (page) => page.evaluate(() => {
 const tipPrefs = (page) => page.evaluate(() => window.__repforgeUi?.loadUiPrefs?.()?.stageTip ?? null);
 
 const browser = await launchChromium();
-const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+const page = await browser.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" });
 const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));
 
@@ -139,15 +139,15 @@ try {
   assert(st.value === "Max" && st.pressed.join() === "Max" && draft.sets[0].effort === "max",
     "a chip sets the word in the field, the chips and the draft", { st, draft });
 
-  phase("The arrow menu switches to stage B from the next set");
-  let menu = await chooseInMenu(page, "b");
-  assert(menu.title === "How you log effort" && menu.items.map((i) => i.value).join() === "a,b,c,unsure" &&
-    menu.items[0].checked === "true" && menu.items[3].group && menu.items[3].checked === null,
-    "the menu lists the three stages, the current one checked, and Not sure under them", menu);
+  phase("The arrow menu switches to reps left from the next set");
+  let menu = await chooseInMenu(page, "c");
+  assert(menu.title === "How you log effort" && menu.items.map((i) => i.value).join() === "a,c,unsure" &&
+    menu.items[0].checked === "true" && menu.items[2].group && menu.items[2].checked === null,
+    "the menu lists the two stages, the current one checked, and Not sure under them", menu);
   draft = await firstSets(page);
   let s = await settings(page);
-  assert(s.rirMode === "effort" && s.effortScale === "reps" && draft.mode === "effort",
-    "stage B is rirMode effort with effortScale reps, and the live draft agrees", { s, mode: draft.mode });
+  assert(s.rirMode === "numeric" && !("effortScale" in s) && draft.mode === "numeric",
+    "reps left uses numeric mode, retires effortScale, and the live draft agrees", { s, mode: draft.mode });
   st = await shelfState(page);
   assert(st.value === "Max" && st.chips.join() === "Easy,Hard,Max",
     "the set the lifter already entered keeps its word", st);
@@ -158,24 +158,24 @@ try {
     "set 1 logs the word it was entered with", draft.sets[0]);
   await page.locator(`${SHELF} [data-shelf-field="rir"]`).click();
   st = await shelfState(page);
-  assert(st.label === "Reps left" && st.chips.join() === "0,1,2,3+" && st.head === "Left",
-    "the next set asks for reps left: 0 · 1 · 2 · 3+, and the column is named Left", st);
-  await page.locator(`${SHELF} .shelf__chip[data-e="r3p"]`).click();
+  assert(st.label === "Reps left" && st.chips.join() === "0,1,2,3,4,5+" && st.head === "Left",
+    "the next set asks for reps left: 0 · 1 · 2 · 3 · 4 · 5+, and the column is named Left", st);
+  await page.locator(`${SHELF} .shelf__chip[data-e="5"]`).click();
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   await logOpenSet(page);
   draft = await firstSets(page);
-  assert(draft.sets[1].effort === "r3p" && draft.sets[1].source === "reps_left_3plus",
-    "3+ logs as reps_left_3plus", draft.sets[1]);
+  assert(draft.sets[1].rir === "5" && draft.sets[1].source === "reps_left_5plus",
+    "5+ logs as reps_left_5plus", draft.sets[1]);
   const rows = await page.evaluate(() => [...document.querySelectorAll("#workout .exercise.is-current .ledgerline[data-editn]")]
     .map((row) => [...row.querySelectorAll(".ledgerline__vals > .fx-col")].at(-1)?.textContent?.trim()));
-  assert(rows.join() === "Max,3+", "each logged row reads back in its own vocabulary", rows);
+  assert(rows.join() === "Max,5+", "each logged row reads back in its own vocabulary", rows);
 
-  phase("Not sure for this set, then numeric RIR");
+  phase("Not sure for this set, then reps left");
   await boot(page, { settings: { rirMode: "effort", effortScale: "reps" } });
   await chooseInMenu(page, "unsure");
   st = await shelfState(page);
   draft = await firstSets(page);
-  assert(st.value === "Not sure" && draft.sets[0].effort === "unsure" && draft.mode === "effort",
+  assert(st.value === "Not sure" && draft.sets[0].effort === "unsure" && draft.mode === "numeric",
     "Not sure is this set's value and leaves the stage as it was", { st, draft });
   await logOpenSet(page);
   draft = await firstSets(page);
@@ -184,25 +184,25 @@ try {
   draft = await firstSets(page);
   s = await settings(page);
   st = await shelfState(page);
-  assert(s.rirMode === "numeric" && s.effortScale === "reps" && draft.mode === "numeric" && st.label === "RIR" && st.head === "RIR",
-    "stage C switches the setting and the draft to numeric and keeps the scale for a return to words", { s, mode: draft.mode, st });
+  assert(s.rirMode === "numeric" && !("effortScale" in s) && draft.mode === "numeric" && st.label === "Reps left" && st.head === "Left",
+    "the numeric stage labels the field Reps left and the column Left", { s, mode: draft.mode, st });
   await page.locator(`${SHELF} [data-shelf-field="rir"]`).click();
-  await page.locator(`${SHELF} .shelf__pad[data-dir="1"]`).click();
+  await page.locator(`${SHELF} .shelf__chip[data-e="2"]`).click();
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   await logOpenSet(page);
   await finishEarly(page);
   const saved = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)).log.filter((row) => row.session)
     .slice(0, 2).map((row) => ({ rir: row.rir, source: row.effortSource })), KEY);
-  assert(saved[0]?.rir === null && saved[0]?.source === "unsure" && Number.isFinite(saved[1]?.rir) && saved[1]?.source === "rir",
-    "History keeps Not sure as unknown effort and the next set as RIR", saved);
+  assert(saved[0]?.rir === null && saved[0]?.source === "unsure" && Number.isFinite(saved[1]?.rir) && saved[1]?.source === "reps_left",
+    "History keeps Not sure as unknown effort and the next set as reps left", saved);
 
   phase("Settings keeps the stage on this device");
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 20000 });
   s = await settings(page);
   const shared = await page.evaluate(() => window.__repforgeUi?.sharedSettings?.() ?? null);
-  assert(s.effortScale === "reps" && shared && !("effortScale" in shared) && shared.rirMode === s.rirMode,
-    "effortScale survives a reload and stays out of the shared settings", { s, shared });
+  assert(!("effortScale" in s) && shared && !("effortScale" in shared) && shared.rirMode === s.rirMode,
+    "effortScale remains absent after reload and shared settings keep the numeric mode", { s, shared });
 
   phase("The stage tip, between sets only");
   await boot(page, { settings: { rirMode: "effort" }, log: qualifyingLog("prefilled") });
@@ -212,7 +212,7 @@ try {
   assert(await tip(page) === null, "no tip before a set is logged: there is no rest");
   await logOpenSet(page);
   let shown = await tip(page);
-  assert(shown?.id === "stage-tip" && shown.to === "b" && /reps left/i.test(shown.text),
+  assert(shown?.id === "stage-tip" && shown.to === "c" && /reps left/i.test(shown.text),
     "after 6 qualifying workouts the tip suggests reps left during the rest", shown);
   const first = await page.evaluate(() => { state.settings.maxSetPrompts = true; syncRestTab(); return document.querySelector(".resttip")?.dataset.tip || null; });
   assert(first === "max-set", "where a test set is also on offer, its prompt takes the slot first", first);
@@ -225,41 +225,41 @@ try {
   }, SHELF);
   assert(cta.live && cta.clear, "the tip leaves the shelf clear and Log set live under it", cta);
   await page.locator(`${SHELF} [data-shelf-field="rir"]`).click();
-  await page.waitForTimeout(200);
+  await page.waitForSelector(".resttip", { state: "detached" });
   assert(await tip(page) === null, "entering the next set puts the tip away");
 
   await boot(page, { settings: { rirMode: "effort" }, log: qualifyingLog() });
   await logOpenSet(page);
   await page.locator(".resttip .resttip__no").click();
   let pref = await tipPrefs(page);
-  const days = pref?.b?.until ? (Date.parse(pref.b.until) - Date.now()) / 864e5 : 0;
-  assert(await tip(page) === null && pref?.b?.n === 1 && days > 27.9 && days <= 28,
+  const days = pref?.c?.until ? (Date.parse(pref.c.until) - Date.now()) / 864e5 : 0;
+  assert(await tip(page) === null && pref?.c?.n === 1 && days > 27.9 && days <= 28,
     "Not now hides it and keeps it quiet for 4 weeks", pref);
   await boot(page, { settings: { rirMode: "effort" }, log: qualifyingLog(), uiPrefs: { stageTip: pref } });
   await logOpenSet(page);
   assert(await tip(page) === null, "inside the 4 weeks it stays quiet");
-  await boot(page, { settings: { rirMode: "effort" }, log: qualifyingLog(), uiPrefs: { stageTip: { b: { n: 1, until: "2020-01-01T00:00:00.000Z" } } } });
+  await boot(page, { settings: { rirMode: "effort" }, log: qualifyingLog(), uiPrefs: { stageTip: { c: { n: 1, until: "2020-01-01T00:00:00.000Z" } } } });
   await logOpenSet(page);
   shown = await tip(page);
-  assert(shown?.to === "b", "after the 4 weeks it comes back", shown);
+  assert(shown?.to === "c", "after the 4 weeks it comes back", shown);
   await page.locator(".resttip .resttip__x").click();
   pref = await tipPrefs(page);
   await boot(page, { settings: { rirMode: "effort" }, log: qualifyingLog(), uiPrefs: { stageTip: pref } });
   await logOpenSet(page);
-  assert(pref?.b?.n === 2 && await tip(page) === null, "a second dismissal ends it", pref);
+  assert(pref?.c?.n === 2 && await tip(page) === null, "a second dismissal ends it", pref);
 
   await boot(page, { settings: { rirMode: "effort" }, log: qualifyingLog() });
   await logOpenSet(page);
   await page.locator(".resttip .resttip__yes").click();
-  await page.waitForTimeout(500);
+  await page.evaluate(async () => { await window.__repforgeWorkoutDraft.flush(); await window.__repforgeStorage?.flush?.(); });
   s = await settings(page);
   st = await shelfState(page);
-  assert(s.effortScale === "reps" && await tip(page) === null && st.label === "Reps left",
+  assert(s.rirMode === "numeric" && await tip(page) === null && st.label === "Reps left",
     "Try it switches to reps left from the next set", { s, st });
   await boot(page, { settings: { rirMode: "effort", effortScale: "reps" }, log: qualifyingLog("reps_left") });
   await logOpenSet(page);
   shown = await tip(page);
-  assert(shown?.to === "c", "after 6 steady reps-left workouts it suggests RIR as a number", shown);
+  assert(shown === null, "the numeric stage never offers another rung", shown);
   await boot(page, { settings: { rirMode: "numeric" }, log: qualifyingLog("rir") });
   await logOpenSet(page);
   assert(await tip(page) === null, "it never suggests a stage down");
