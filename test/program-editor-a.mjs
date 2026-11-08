@@ -742,6 +742,38 @@ async function heldApplyJourney(browser) {
   }
 }
 
+/** P074-S1-RELOAD (#659): a dirty editor makes the browser ask before reload; a dismissed prompt keeps the staged rename; a closed clean editor does not ask. */
+async function unsavedReloadJourney(browser) {
+  console.log("P074-S1-RELOAD");
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  try {
+    await page.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
+    await openEditor(page);
+    await renameProgram(page, "Lost on reload");
+    // The reload is not awaited: while the browser's prompt is open the page cannot answer evaluate.
+    const prompted = page.waitForEvent("dialog", { timeout: 10000 });
+    page.evaluate(() => location.reload()).catch(() => {});
+    const dialog = await prompted;
+    check(dialog.type() === "beforeunload", "a dirty editor asks before the page reloads", dialog.type());
+    await dialog.dismiss();
+    check((await page.locator("#programEditor").innerText()).includes("Lost on reload"), "a dismissed reload keeps the staged rename on screen");
+    await page.click("#programEditDone");
+    await editorGone(page);
+    check((await programName(page)) === "Lost on reload", "Done saves the staged rename");
+    const prompts = [];
+    page.on("dialog", (open) => { prompts.push(open.type()); open.accept(); });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    check(prompts.length === 0, "a closed clean editor does not ask before reload", prompts);
+    check((await programName(page)) === "Lost on reload", "the saved name survives the reload");
+  } finally {
+    await context.close();
+  }
+}
+
 /** One journey's failure is recorded and the next journey still runs. */
 async function journey(name, run) {
   try { await run(); } catch (error) { failures.push(`${name}: ${error.message}`); console.error(`  ✗ ${name} stopped: ${error.message}`); }
@@ -767,6 +799,7 @@ async function main() {
     await reducedMotionJourney(browser);
     await restPillJourney(browser);
     await journey("P074-S1-HELD-APPLY", () => heldApplyJourney(browser));
+    await journey("P074-S1-RELOAD", () => unsavedReloadJourney(browser));
     check(!errors.length, "no page errors", errors);
   } catch (error) {
     failures.push(String(error?.stack || error));
