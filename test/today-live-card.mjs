@@ -418,6 +418,36 @@ try {
     await context.close();
   }
 
+  phase("A Today row tapped during a held Resume leaves Focus closed, on the exercise page");
+  {
+    const { context, page, errors } = await freshPage(browser);
+    await shapeSession(page);
+    await trackEntries(page);
+    await holdSuggestions(page);
+    await page.click("#todayLiveResume");
+    await page.waitForFunction(() => window.__entries.length === 1, undefined, { timeout: 5000 });
+    await page.click("#todayExList [data-exopen]");
+    await page.waitForSelector("#exercise.active", { timeout: 5000 });
+    await page.evaluate(() => window.__releaseResume());
+    await entriesSettled(page);
+    const onExercise = await page.evaluate(() => ({
+      exercise: document.body.classList.contains("is-exercise"),
+      focusBody: document.body.classList.contains("is-workout") || document.body.classList.contains("is-focus-wo"),
+      shellOpen: !document.querySelector("#workoutShell")?.classList.contains("hidden"),
+    }));
+    assert(onExercise.exercise && !onExercise.focusBody && !onExercise.shellOpen,
+      "the exercise page stays on top: no Focus state beneath it", JSON.stringify(onExercise));
+    await page.click("#exBack");
+    await page.waitForSelector("#todayDash:not(.hidden)", { timeout: 5000 });
+    const back = await page.evaluate(() => ({
+      today: document.querySelector("#todayDash")?.classList.contains("hidden") === false,
+      focusBody: document.body.classList.contains("is-workout") || document.body.classList.contains("is-focus-wo"),
+    }));
+    assert(back.today && !back.focusBody, "Back from the exercise page lands on Today, not Focus", JSON.stringify(back));
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
   phase("Reduced motion: the dot is still");
   {
     const { context, page, errors } = await freshPage(browser, { reducedMotion: "reduce" });
