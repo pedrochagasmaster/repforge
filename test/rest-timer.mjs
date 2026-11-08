@@ -609,6 +609,43 @@ try {
         dragging: document.querySelector("#restSheet")?.classList.contains("is-dragging"), time: document.querySelector("#restDialTime")?.textContent,
         now: document.querySelector("#restDial").getAttribute("aria-valuenow"), text: document.querySelector("#restDial").getAttribute("aria-valuetext") }));
     };
+    // Close with Escape while the real pointer is captured, then release after the sheet is hidden.
+    const grab = await page.locator("#restDial").boundingBox();
+    await page.mouse.move(grab.x + grab.width * 0.8, grab.y + grab.height * 0.2);
+    await page.mouse.down();
+    await page.mouse.move(grab.x + grab.width * 0.9, grab.y + grab.height * 0.4);
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => document.querySelector("#restSheet").hidden);
+    await page.mouse.up();
+    await page.locator("#restTab").click();
+    await page.waitForSelector("#restSheet.is-open");
+    await page.locator("#restDial").click({ trial: true });
+    await page.evaluate(() => { window.__repforgeRest.setLeft(298000, { held: true, lengthSec: 300 }); syncRest(); });
+    const afterClose = await turn(0.125, 0.375);
+    assert(afterClose.left === 375, "the dial responds after closing the sheet mid-drag and reopening", afterClose);
+    const touch = await context.newCDPSession(page);
+    const ring = await page.locator("#restDial").boundingBox();
+    const point = (angle) => ({ x: ring.x + ring.width / 2 + ring.width * 0.448 * Math.sin(angle * Math.PI * 2),
+      y: ring.y + ring.height / 2 - ring.width * 0.448 * Math.cos(angle * Math.PI * 2) });
+    await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point(0.125)] });
+    await touch.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [point(0.25)] });
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => document.querySelector("#restSheet").hidden);
+    await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await page.locator("#restTab").click();
+    await page.waitForSelector("#restSheet.is-open");
+    await page.locator("#restDial").click({ trial: true });
+    const reopenedRing = await page.locator("#restDial").boundingBox();
+    Object.assign(ring, reopenedRing);
+    await page.evaluate(() => { window.__repforgeRest.setLeft(298000, { held: true, lengthSec: 300 }); syncRest(); });
+    await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point(0.125)] });
+    for (let i = 1; i <= 18; i++) await touch.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [point(0.125 + i / 72)] });
+    await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    const afterTouchClose = await read(page);
+    assert(Math.round(afterTouchClose.left / 1000) === 375,
+      "the dial responds to touch after closing the sheet mid-touch and reopening", afterTouchClose);
+    await touch.detach();
+    await page.evaluate(() => { window.__repforgeRest.setLeft(298000, { held: true, lengthSec: 300 }); syncRest(); });
     let r = await turn(0.125, 0.375);
     assert(r.left === 375 && r.time === "6:15" && r.open, "a quarter-turn clockwise from 4:58 of 5:00 adds a quarter (1:15), snapped to 6:15; the grab keeps its offset", r);
     assert(r.length === 375, "past the rest's length the ring stays full and the length grows with the time", r);
