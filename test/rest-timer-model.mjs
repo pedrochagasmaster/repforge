@@ -19,7 +19,7 @@ import assert from "node:assert/strict";
 const require = createRequire(import.meta.url);
 const clock = require("../rest-timer.js");
 
-const { createRestClock, view, start, toggleHold, setRemaining, nudge, setLength, settle, stop, snapshot, restore, EFFECTS, OVERTIME_MAX_SEC } = clock;
+const { createRestClock, view, start, toggleHold, setRemaining, nudge, setLength, settle, stop, snapshot, restore, expiresAt, snapshotValid, capReached, fromSnapshot, EFFECTS, OVERTIME_MAX_SEC, MAX_SEC } = clock;
 const T0 = 1_000_000;
 const SEC = 1000;
 let passed = 0;
@@ -265,13 +265,14 @@ check("only overtime and running tick; capped, held and idle never do", () => {
 });
 
 check("an idle clock has no snapshot, and a running, held or overrun clock snapshots its deadline or remainder", () => {
-  assert.equal(snapshot(createRestClock(90)), null);
-  assert.equal(snapshot(running(60)).deadlineMs, T0 + 60 * SEC);
-  assert.equal(snapshot(toggleHold(running(60), T0 + 10 * SEC).state).remainingMs, 50 * SEC);
-  assert.equal(snapshot(settle(running(60), T0 + 63 * SEC).state).rang, true);
+  assert.equal(snapshot(createRestClock(90), T0), null);
+  assert.equal(snapshot(running(60), T0).deadlineMs, T0 + 60 * SEC);
+  assert.equal(snapshot(toggleHold(running(60), T0 + 10 * SEC).state, T0 + 10 * SEC).remainingMs, 50 * SEC);
+  assert.equal(snapshot(settle(running(60), T0 + 63 * SEC).state, T0 + 63 * SEC).rang, true);
 });
 
 check("a snapshot read back restores the same clock at any later time: deadline, held remainder, overrun and bell", () => {
+  const WRITTEN = T0 + 63 * SEC;
   const cases = [
     { name: "running", state: running(60) },
     { name: "held", state: toggleHold(running(120), T0 + 10 * SEC).state },
@@ -279,8 +280,8 @@ check("a snapshot read back restores the same clock at any later time: deadline,
     { name: "held overrun", state: toggleHold(settle(running(60), T0 + 63 * SEC).state, T0 + 63 * SEC).state },
   ];
   for (const { name, state } of cases) {
-    const saved = JSON.parse(JSON.stringify(snapshot(state)));
-    const { state: restored, effects } = restore(createRestClock(0), saved);
+    const saved = JSON.parse(JSON.stringify(snapshot(state, WRITTEN)));
+    const { state: restored, effects } = restore(createRestClock(0), saved, WRITTEN);
     assert.deepEqual(effects, [], `${name}: restoring makes no sound and no notice`);
     for (const later of [T0 + 61 * SEC, T0 + 200 * SEC]) {
       assert.deepEqual(view(restored, later), view(state, later), `${name} at +${(later - T0) / SEC}s reads the same`);
@@ -289,14 +290,14 @@ check("a snapshot read back restores the same clock at any later time: deadline,
 });
 
 check("a restored overrun whose bell already rang does not ring again", () => {
-  const saved = JSON.parse(JSON.stringify(snapshot(settle(running(60), T0 + 61 * SEC).state)));
-  const { state } = restore(createRestClock(0), saved);
+  const saved = JSON.parse(JSON.stringify(snapshot(settle(running(60), T0 + 61 * SEC).state, T0 + 61 * SEC)));
+  const { state } = restore(createRestClock(0), saved, T0 + 61 * SEC);
   assert.deepEqual(settle(state, T0 + 400 * SEC).effects, []);
   assert.equal(view(state, T0 + 400 * SEC).rang, true);
 });
 
 check("a restored running rest whose deadline passed while the page was gone rings once, as it was due", () => {
-  const { state } = restore(createRestClock(0), JSON.parse(JSON.stringify(snapshot(running(60)))));
+  const { state } = restore(createRestClock(0), JSON.parse(JSON.stringify(snapshot(running(60), T0))), T0);
   assert.deepEqual(settle(state, T0 + 30 * SEC).effects, []);
   const rung = settle(state, T0 + 61 * SEC);
   assert.deepEqual(rung.effects, [EFFECTS.BELL]);
@@ -308,12 +309,125 @@ check("restore takes only a well-formed snapshot into an idle clock, and anythin
   for (const bad of [null, undefined, "running", 7, {}, { kind: "idle" }, { kind: "running", lengthSec: 60, rang: false },
     { kind: "running", deadlineMs: Number.NaN, lengthSec: 60, rang: false }, { kind: "paused", lengthSec: 60, rang: false },
     { kind: "paused", remainingMs: 1000, lengthSec: -5, rang: false }, { kind: "running", deadlineMs: T0, lengthSec: 60, rang: "yes" }]) {
-    const result = restore(idle, bad);
+    const result = restore(idle, bad, T0);
     assert.equal(result.state, idle, `refused: ${JSON.stringify(bad)}`);
     assert.deepEqual(result.effects, []);
   }
   const armed = running(60);
-  assert.equal(restore(armed, snapshot(running(90, T0 + 5 * SEC))).state, armed, "a clock already armed keeps its own deadline");
+  assert.equal(restore(armed, snapshot(running(90, T0 + 5 * SEC), T0 + 5 * SEC), T0 + 5 * SEC).state, armed, "a clock already armed keeps its own deadline");
+});
+
+check("a snapshot carries the wall time its count-up would reach the one-hour cap, and nothing is carried for idle", () => {
+  assert.equal(expiresAt(createRestClock(90), T0), null);
+  assert.equal(snapshot(running(60), T0).expiresAt, T0 + 60 * SEC + OVERTIME_MAX_SEC * SEC);
+  assert.equal(snapshot(settle(running(60), T0 + 63 * SEC).state, T0 + 63 * SEC).expiresAt, T0 + 60 * SEC + OVERTIME_MAX_SEC * SEC,
+    "an overrun is measured from its deadline, not from when it was written");
+  const held = toggleHold(running(120), T0 + 10 * SEC).state;
+  assert.equal(snapshot(held, T0 + 10 * SEC).expiresAt, T0 + 10 * SEC + 110 * SEC + OVERTIME_MAX_SEC * SEC,
+    "a held rest is measured as if it had kept running from the moment it was written");
+});
+
+check("a snapshot past its expiry is refused, and one just before it is restored", () => {
+  const saved = JSON.parse(JSON.stringify(snapshot(running(60), T0)));
+  const before = restore(createRestClock(0), saved, saved.expiresAt - 1);
+  assert.equal(view(before.state, saved.expiresAt - 1).active, true, "one millisecond before the expiry it restores");
+  const after = restore(createRestClock(0), saved, saved.expiresAt);
+  assert.equal(after.state.kind, "idle", "at the expiry it is gone");
+  assert.deepEqual(after.effects, []);
+});
+
+check("a snapshot with no expiry is not restored", () => {
+  const { expiresAt: _dropped, ...noExpiry } = snapshot(running(60), T0);
+  assert.equal(restore(createRestClock(0), noExpiry, T0).state.kind, "idle");
+});
+
+
+// A record is data the device wrote, and this device can be given a bad one: an expiry that does not agree with its deadline,
+// time left beyond a rest's maximum (a clock rolled back), or a paused remainder written in the future are not restorable.
+const CAP = OVERTIME_MAX_SEC * SEC;
+const savedRunning = (deadlineMs, expires = deadlineMs + CAP) => ({ kind: "running", deadlineMs, lengthSec: 120, exerciseId: null, rang: false, expiresAt: expires });
+
+check("a record must agree with itself: running needs the expiry its deadline implies, and time left within the rest maximum", () => {
+  assert.equal(snapshotValid(savedRunning(T0 + 120 * SEC), T0), true, "a consistent running record is valid");
+  assert.equal(snapshotValid({ kind: "running", lengthSec: 120, exerciseId: null, rang: false, expiresAt: 1 }, T0), false, "an expiry alone is not a clock");
+  assert.equal(snapshotValid(savedRunning(T0 + 120 * SEC, T0 - SEC), T0), false, "a deadline ahead with an expiry already past is refused");
+  assert.equal(snapshotValid(savedRunning(T0 + 120 * SEC, T0 + 120 * SEC + CAP + SEC), T0), false, "an expiry not one cap past the deadline is refused");
+  assert.equal(snapshotValid(savedRunning(T0 + 24 * 3600 * SEC + 120 * SEC), T0), false, "a rolled-back clock: a day of time left is refused");
+  assert.equal(snapshotValid(savedRunning(T0 + 864_000_000_000, T0 + CAP), T0), false, "a far-future deadline with an unrelated expiry is refused");
+});
+
+check("a paused remainder must be within the rest maximum and must not come from the future", () => {
+  const held = toggleHold(running(120), T0 + 10 * SEC).state;
+  const saved = JSON.parse(JSON.stringify(snapshot(held, T0 + 10 * SEC)));
+  assert.equal(snapshotValid(saved, T0 + 10 * SEC), true, "a held snapshot is valid where it was written");
+  assert.equal(snapshotValid({ ...saved, remainingMs: MAX_SEC * SEC + SEC }, T0 + 10 * SEC), false, "a remainder beyond the maximum is refused");
+  assert.equal(snapshotValid(saved, T0 - 60 * SEC), false, "a record written after the clock now reads is refused");
+});
+
+check("a record past the cap is capped; a malformed record is not", () => {
+  assert.equal(capReached(savedRunning(T0), T0 + CAP), true, "a valid running record at its expiry has reached the cap");
+  assert.equal(capReached(savedRunning(T0), T0 + CAP - 1), false, "one millisecond short of the cap has not");
+  assert.equal(capReached({ kind: "running", expiresAt: 1, rang: false }, T0 + CAP), false, "a malformed record never reports the cap");
+});
+
+check("a valid record becomes the clock it describes, and an invalid one becomes nothing", () => {
+  const armed = fromSnapshot(savedRunning(T0 + 120 * SEC), T0);
+  assert.equal(view(armed, T0).leftMs, 120 * SEC);
+  assert.equal(fromSnapshot({ kind: "running", expiresAt: 1 }, T0), null);
+  assert.equal(fromSnapshot(savedRunning(T0 + 120 * SEC, T0 - SEC), T0), null);
+  assert.equal(fromSnapshot(savedRunning(T0), T0 + CAP), null, "a capped record is not adopted as a live rest");
+});
+
+check("restore refuses a record that claims more time than a rest allows", () => {
+  const rolled = restore(createRestClock(0), savedRunning(T0 + 24 * 3600 * SEC + 120 * SEC), T0);
+  assert.equal(rolled.state.kind, "idle");
+  assert.deepEqual(rolled.effects, []);
+});
+
+// A held rest keeps the expiry it was first held with. Restoring it and writing it again move nothing; a nudge while held
+// moves nothing; a resume and a new hold take a new expiry, because that is a new hold.
+check("a held rest keeps the expiry it was first held with, through a restore and a later rewrite", () => {
+  const held = toggleHold(running(120), T0 + 10 * SEC).state;
+  const first = JSON.parse(JSON.stringify(snapshot(held, T0 + 10 * SEC)));
+  const restored = restore(createRestClock(0), first, T0 + 30 * SEC).state;
+  assert.equal(snapshot(restored, T0 + 30 * SEC).expiresAt, first.expiresAt, "a restore does not renew the expiry");
+  assert.equal(snapshot(restored, T0 + 60 * SEC).expiresAt, first.expiresAt, "a later rewrite does not renew it either");
+});
+
+check("a nudge while held keeps the expiry; a resume and a new hold take a new one", () => {
+  const held = toggleHold(running(120), T0 + 10 * SEC).state;
+  const expiry = snapshot(held, T0 + 10 * SEC).expiresAt;
+  const nudged = setRemaining(held, { ms: 200 * SEC, now: T0 + 20 * SEC }).state;
+  assert.equal(snapshot(nudged, T0 + 20 * SEC).expiresAt, expiry, "a nudge while held keeps the expiry");
+  const resumed = toggleHold(nudged, T0 + 30 * SEC).state;
+  const reheld = toggleHold(resumed, T0 + 40 * SEC).state;
+  // Resumed at T0+30 with 200 s left, so the deadline is T0+230; at T0+40, 190 s remain. The new hold's expiry follows from that.
+  assert.equal(snapshot(reheld, T0 + 40 * SEC).expiresAt, T0 + 40 * SEC + 190 * SEC + OVERTIME_MAX_SEC * SEC,
+    "a new hold after a resume takes the expiry of that hold");
+});
+
+// A held rest whose remainder is moved after its hold is still a record this device wrote: taking time off, or turning the
+// dial, changes the remainder and not the expiry, so the record must stay valid. The record is checked a moment later.
+check("a held rest taken off by −30 s is still a valid record a moment later", () => {
+  const held = toggleHold(running(120), T0 + 10 * SEC).state;
+  const nudged = setRemaining(held, { ms: 80 * SEC, now: T0 + 10 * SEC }).state;
+  const saved = JSON.parse(JSON.stringify(snapshot(nudged, T0 + 10 * SEC)));
+  assert.equal(snapshotValid(saved, T0 + 20 * SEC), true, "a −30 s record is valid at T0+20 s");
+  assert.equal(fromSnapshot(saved, T0 + 20 * SEC).remainingMs, 80 * SEC, "and restores the remainder it was taken down to");
+});
+
+check("a held rest whose dial was turned down after the hold is still a valid record a moment later", () => {
+  const held = toggleHold(running(120), T0 + 10 * SEC).state;
+  const turned = setRemaining(held, { ms: 60 * SEC, now: T0 + 10 * SEC }).state;
+  const saved = JSON.parse(JSON.stringify(snapshot(turned, T0 + 10 * SEC)));
+  assert.equal(snapshotValid(saved, T0 + 20 * SEC), true, "a dial-turned record is valid at T0+20 s");
+});
+
+check("a held record whose expiry lies further from its hold than any held rest can last is refused", () => {
+  const held = toggleHold(running(120), T0 + 10 * SEC).state;
+  const saved = JSON.parse(JSON.stringify(snapshot(held, T0 + 10 * SEC)));
+  saved.expiresAt = saved.heldAt + MAX_SEC * SEC + OVERTIME_MAX_SEC * SEC + SEC;
+  assert.equal(snapshotValid(saved, T0 + 20 * SEC), false, "one second past the longest held lifetime is refused");
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
