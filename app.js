@@ -14549,7 +14549,8 @@ function onboardingEditorStatus(){
   const message=progression?editorAdapterTranslate("entry.editor.progression_invalid",undefined,"This program has an unsupported progression pairing."):
     issues.some(issue=>issue.startsWith("exercise_invalid:"))?editorAdapterTranslate("entry.editor.exercise_invalid",undefined,"Complete each exercise before continuing."):
       emptyDays.length?editorAdapterTranslate("entry.editor.empty_days",{days:emptyDays.join(", ")},"Add an exercise to each training day."):
-        issues.length?editorAdapterTranslate("entry.editor.incomplete",{n:issues.length},"Finish the program before continuing."):
+        issues.some(issue=>issue.startsWith("metric_configuration_required:"))?t("entry.preview.metrics_required"):
+          issues.length?editorAdapterTranslate("entry.editor.incomplete",{n:issues.length},"Finish the program before continuing."):
           editorAdapterTranslate("entry.editor.draft_saved",undefined,"Draft saved");
   return{issues,message}}
 function updateOnboardingEditorActions(){
@@ -15187,7 +15188,8 @@ function renderProgramHeader(){
       :issues.some(issue=>issue.startsWith("exercise_invalid:"))
         ?t("entry.editor.exercise_invalid")
         :emptyDays.length?t("entry.editor.empty_days",{days:emptyDays.join(", ")})
-          :issues.length?t("entry.editor.incomplete",{n:issues.length}):t("entry.editor.ready");
+          :issues.some(issue=>issue.startsWith("metric_configuration_required:"))?t("entry.preview.metrics_required")
+            :issues.length?t("entry.editor.incomplete",{n:issues.length}):t("entry.editor.ready");
     const status=saveError||issueStatus;
     const activateLabel=hasActiveProgram()?t("entry.preview.activate_replace"):t("entry.preview.activate_first");
     el.innerHTML=`<p class="pmeta__draft"><span class="pmeta__draft-mark" aria-hidden="true"></span>${esc(t("entry.preview.lede"))}</p>`+
