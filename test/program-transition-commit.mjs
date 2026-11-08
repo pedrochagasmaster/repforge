@@ -508,6 +508,41 @@ async function checkStrandedCloseMarkerSettles(browser) {
   } });
 }
 
+async function openFollowerTab(context) {
+  const follower = await context.newPage();
+  await follower.goto(BASE);
+  await waitForAppBoot(follower, { base: BASE });
+  return follower;
+}
+
+// F2: a locked preflight that matches rejects before the journal is rebased, so
+// this attempt's journal is intent only and can close without matching the receipt.
+async function checkPreflightPendingJournalCloses(browser) {
+  await withRetryProposal(browser, "intent", async ({ context, page, args }) => {
+    const follower = await openFollowerTab(context);
+    await armRetryFaults(follower, { journalRemove: true });
+    const committed = await confirmTransition(page, args);
+    check(committed?.committed === true && committed?.settled === true, "the first tab commits the proposal", committed);
+    const faulted = await confirmTransition(follower, args);
+    check(faulted?.settled === false && faulted?.code === "transition_settlement_pending" && faulted?.applied === true,
+      "an unclosable intent-only journal reports pending cleanup, not a mismatch", faulted);
+  });
+
+  await withRetryProposal(browser, "intentclose", async ({ context, page, args }) => {
+    const follower = await openFollowerTab(context);
+    await armRetryFaults(follower, { journalRemove: true });
+    // The attempt's own discard fails, and the fault clears once settlement holds the lock.
+    await follower.evaluate(() => {
+      window.__repforgeDurableStateTestHooks = { durableSettlementLockHeld: () => { window.__retryFaults = {}; } };
+    });
+    await confirmTransition(page, args);
+    const settled = await confirmTransition(follower, args);
+    const remaining = await transitionRetryArtifacts(follower);
+    check(settled?.committed === true && settled?.settled === true && remaining.length === 0,
+      "settlement closes this attempt's intent-only journal", { settled, remaining });
+  });
+}
+
 async function checkTransitionRetryFault(browser, kind) {
   const context = await browser.newContext();
   const page = await context.newPage();
@@ -1875,6 +1910,7 @@ async function main() {
     await checkTransitionRetryFault(browser, "cleanup");
     await checkFailedHealKeepsJournal(browser);
     await checkStrandedCloseMarkerSettles(browser);
+    await checkPreflightPendingJournalCloses(browser);
 
     await context.close();
   } finally {
