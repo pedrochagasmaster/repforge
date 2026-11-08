@@ -441,6 +441,53 @@ console.log("\nToday — completed session state");
 }
 
 // ---------------------------------------------------------------------------
+// 2b. A second tap on Log another session while its write is held joins the first
+// ---------------------------------------------------------------------------
+{
+  const { context, page } = await freshPage(browser);
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(String(error)));
+  const state = await readState(page);
+  await persistState(page, { ...state, log: sessionRows(state, "Day 1", ymd(0)) });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  await page.evaluate(() => {
+    window.__entries = [];
+    const original = window.enterWorkout;
+    window.enterWorkout = (...args) => {
+      const entry = { done: false, result: undefined };
+      window.__entries.push(entry);
+      const work = original(...args);
+      work.then((value) => { entry.done = true; entry.result = value; }, () => { entry.done = true; });
+      return work;
+    };
+  });
+  // The state-write lock held by the page itself: every durable write waits behind it.
+  await page.evaluate(() => new Promise((ready) => {
+    navigator.locks.request("repforge:state-write", () => new Promise((release) => {
+      window.__unlockWrites = release;
+      ready();
+    }));
+  }));
+  await page.click("#logAnotherSession");
+  await page.waitForFunction(() => window.__entries.length === 1, undefined, { timeout: 5000 });
+  await page.click("#logAnotherSession");
+  await page.waitForFunction(() => window.__entries.length === 2, undefined, { timeout: 5000 });
+  await page.evaluate(() => window.__unlockWrites());
+  await page.waitForFunction(() => window.__entries.every((e) => e.done), undefined, { timeout: 10000 });
+  const opened = await page.evaluate(() => ({
+    shell: !document.querySelector("#workoutShell")?.classList.contains("hidden") && document.body.classList.contains("is-workout"),
+    recovery: !document.querySelector("#draftRecovery")?.classList.contains("hidden"),
+    day: window.__repforgeWorkoutDraft.current()?.program?.dayLabel ?? null,
+    results: window.__entries.map((e) => e.result),
+  }));
+  assert(opened.shell && !opened.recovery && opened.day === "Day 2",
+    "two taps on Log another session open Focus once on the next day, with no recovery panel", JSON.stringify(opened));
+  assert(errors.length === 0, "no page errors", errors.join(" | "));
+  await context.close();
+}
+
+// ---------------------------------------------------------------------------
 // 3. The recap hands off to the saved session on History
 // ---------------------------------------------------------------------------
 {
