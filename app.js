@@ -6972,7 +6972,7 @@ function bindStageTip(tip,shelf,ex,n){
 /* Offer counting reps left after six workouts with at least 80% lifter-chosen words.
    One dismissal snoozes four weeks; the second dismissal or acceptance ends the tip. */
 const STAGE_TIP_WORKOUTS=6,STAGE_TIP_SNOOZE_DAYS=28;
-const STAGE_TIP_COPY={c:{title:"focus.stage_tip.b_title",body:"focus.stage_tip.b_body"}};
+const STAGE_TIP_COPY={title:"focus.stage_tip.b_title",body:"focus.stage_tip.b_body"};
 /** Workouts in the log that qualify a stage for its tip, counted from the rows' recorded effortSource. */
 function stageTipQualifyingWorkouts(stage){
   const sessions=new Map();
@@ -7003,7 +7003,7 @@ function dismissStageTip(to){
   setStageTipPref(to,n>=2?{n:2}:{n,until:new Date(Date.now()+STAGE_TIP_SNOOZE_DAYS*864e5).toISOString()})}
 const acceptStageTip=to=>setStageTipPref(to,{n:2});
 function stageTipHtml(to){
-  const copy=STAGE_TIP_COPY[to],title=t(copy.title);
+  const copy=STAGE_TIP_COPY,title=t(copy.title);
   return `<section class="resttip" data-tip="stage-tip" data-to="${to}" aria-label="${esc(title)}">`+
     `<p class="resttip__text"><b>${esc(title)}</b> ${esc(t(copy.body))}</p>`+
     `<div class="resttip__acts"><button type="button" class="resttip__no" data-tipdismiss>${esc(t("focus.stage_tip.not_now"))}</button>`+

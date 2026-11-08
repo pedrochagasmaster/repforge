@@ -377,10 +377,10 @@ const APP_ASOF = {
 /** Plan 077 PR 2: the effort stage each state is drawn in (OD-4), and for the stage tip a lifter whose last workouts
  *  were logged with words they chose (OD-6). */
 const EFFORT_STAGE_STATES = Object.freeze({
-  "workout/effort-stage-a": { rirMode: "effort", effortScale: "feel" },
+  "workout/effort-stage-a": { rirMode: "effort" },
   "workout/effort-stage-b": { rirMode: "numeric" },
-  "workout/effort-menu": { rirMode: "effort", effortScale: "feel" },
-  "workout/stage-tip": { rirMode: "effort", effortScale: "feel" },
+  "workout/effort-menu": { rirMode: "effort" },
+  "workout/stage-tip": { rirMode: "effort" },
   // Plan 077 PR 4: the gauge and the last-rep question, on a lifter who logged RIR and took two test sets.
   "progress/overview-calibration": { rirMode: "numeric" },
   "today/calibration-mini": { rirMode: "numeric" },
