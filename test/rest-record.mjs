@@ -51,6 +51,37 @@ try {
     console.log("PASS #663: ended rest survives app kill as ended");
   } finally { await context.close(); }
 
+  {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    try {
+      const first = await openWorkout(context, { fresh: true });
+      await startRest(first);
+      const second = await openWorkout(context);
+      await second.locator("#restTab").click();
+      await second.waitForSelector("#restSheet.is-open");
+      await second.locator('#restPresets [data-value="180"]').click();
+      await second.waitForFunction(() => window.__repforgeRest.state().lengthSec === 180);
+      const newer = await second.evaluate(key => localStorage.getItem(key), RECORD);
+      await first.evaluate(key => {
+        const remove = Storage.prototype.removeItem;
+        Storage.prototype.removeItem = function (name) {
+          if (this === localStorage && name === key) throw new DOMException("removal denied", "SecurityError");
+          return remove.call(this, name);
+        };
+      }, RECORD);
+      await endRest(first);
+      assert.equal(await second.evaluate(key => localStorage.getItem(key), RECORD), newer,
+        "R702-1: ending the older rest must not replace the newer tab's already published record");
+      await first.close();
+      await second.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(second);
+      const restored = await second.evaluate(() => window.__repforgeRest.state());
+      assert.ok(restored.active && restored.lengthSec === 180 && restored.endMs === JSON.parse(newer).rest.deadlineMs,
+        "R702-1: the newer rest restores at its identical deadline after the older tab closes");
+      console.log("PASS R702-1: newer rest published before older End survives marker fallback and reload");
+    } finally { await context.close(); }
+  }
+
   for (const denyWrite of [false, true]) {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
     try {
