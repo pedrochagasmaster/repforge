@@ -659,6 +659,8 @@
       throw new TypeError("mountProgramEditor(host, adapter) requires read and commit");
     const initial = adapter.read() || {};
     let document = clone(initial.document || initial.nextDocument || initial);
+    // True from the moment Apply hands its document to the host until the host settles it (#658): no edit may land in between.
+    let committing = false;
     let token = clone(initial.token);
     // Older snapshots may not have a structure section yet. Materialize it
     // before taking the baseline; otherwise mounting an untouched editor would
@@ -720,6 +722,7 @@
       Promise.resolve().then(() => { renderQueued = false; if (!destroyed) render(); });
     };
     const stage = (next, edit, { redraw = true } = {}) => {
+      if (committing) return Promise.resolve({ ok: false, refused: true });
       // The host's returned document redraws the list a second time; the focus
       // the caller asked for has to land on that final DOM, not the first one.
       const focusRequest = pendingFocus;
@@ -1012,13 +1015,17 @@
         return (reviewLayout ? closeSheetView() : Promise.resolve()).then(() => reportBlockers(blocked)).then(() =>
           issues.length ? { ok: false, invalid: true, issues } : { ok: false, invalid: true, suggestLoads: optIn });
       }
-      const result = adapter.commit({ expectedToken: clone(token), nextDocument: clone(document), intent: intent(kind, { edits: clone(edits) }) });
+      committing = true;
+      let result;
+      try { result = adapter.commit({ expectedToken: clone(token), nextDocument: clone(document), intent: intent(kind, { edits: clone(edits) }) }); }
+      catch (error) { committing = false; throw error; }
       return Promise.resolve(result).then(value => {
+        committing = false;
         if (value?.ok === false || value?.conflict || value?.staleRevision) return value;
         baseDocument = clone(document); edits = []; undoMove = null; undoStack = [];
         if (value?.token !== undefined) token = clone(value.token);
         return value;
-      });
+      }, error => { committing = false; throw error; });
     };
     const discard = () => {
       const latest = adapter.read() || {};
@@ -2283,6 +2290,7 @@
       if (busy) editor.setAttribute("aria-busy", "true"); else editor.removeAttribute("aria-busy");
     }
     function act(task, { redrawSheet = true } = {}) {
+      if (committing) return Promise.resolve(false);
       busy++;
       markBusy();
       const runTask = async () => {
@@ -3347,6 +3355,7 @@
       commit: apply,
       discard,
       replaceExercise: exerciseInstanceId => replaceForExercise(exerciseInstanceId, { repair: true }),
+      isCommitting: () => committing,
     };
   }
 

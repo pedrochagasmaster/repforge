@@ -14284,7 +14284,7 @@ function createInstalledProgramEditorAdapter(){
         installedEditorSession.edits.push(cloneSnapshot(intent));
         return{ok:true,staged:true,document:cloneSnapshot(staged),token:cloneSnapshot(expectedToken)}
       }
-      const session=installedEditorSession||{document:cloneSnapshot(nextDocument),token:cloneSnapshot(expectedToken),edits:intent?.edits||[]};
+      const startedSession=installedEditorSession,session=startedSession||{document:cloneSnapshot(nextDocument),token:cloneSnapshot(expectedToken),edits:intent?.edits||[]};
       const refreshed=await refreshPersistenceHead();
       if(refreshed.conflict)return{ok:false,conflict:true,editorConflict:true};
       const head=refreshed.head||state,headToken=installedEditorToken(head);
@@ -14346,7 +14346,7 @@ function createInstalledProgramEditorAdapter(){
         if(discarded)reportWorkoutDiscarded(activeWorkoutDraft||draftBefore,"program_edit");
         captureEvent("active_program_edited",{outcome:discarded?"discarded_workout":"saved"});
         if(discarded)resetDraftSessionState();
-        installedEditorSession=null;return{...result,ok:true,document,token:installedEditorToken(state)}}
+        if(installedEditorSession===startedSession)installedEditorSession=null;return{...result,ok:true,document,token:installedEditorToken(state)}}
       return{...result,ok:false,conflict:!!(result.conflict||result.staleRevision)};
     },
     chooseExercise:editorChooseExercise,
@@ -14517,13 +14517,13 @@ function captureProgramEditorSnapshot(){
   return copy;
 }
 function attemptProgramEditorDismiss(){
-  if(!programEditMode)return;
+  if(!programEditMode||installedProgramEditor?.isCommitting?.())return;
   if(installedProgramEditor?.isDirty()){pendingEditorNavigation=null;openInstalledLeaveDialog();return}
   finishInstalledEditor();
 }
 function updateInstalledEditorDoneButton(){
   const done=$("#programEditDone");if(!done)return;
-  done.disabled=installedProgramEditor?.canApply?.()===false;
+  done.disabled=!!installedProgramEditor?.isCommitting?.()||installedProgramEditor?.canApply?.()===false;
 }
 function enterProgramEditorSheet(copy){
   if(programEditorSheetOpen)return;
@@ -14688,11 +14688,16 @@ function finishInstalledEditor({discard=false,historyAlreadyPopped=false}={}){
   }
 }
 async function applyInstalledEditorAndContinue(){
-  const editor=installedProgramEditor;if(!editor)return;
+  const editor=installedProgramEditor;if(!editor||editor.isCommitting?.())return;
   const mode=installedLeaveMode?.workout?"apply_discard_workout":"apply";
   const apply=$("#programEditorApply");if(apply)apply.disabled=true;
-  const result=await editor.commit({kind:mode});
-  if(apply)apply.disabled=false;
+  const pending=editor.commit({kind:mode});
+  updateInstalledEditorDoneButton();
+  let result;
+  try{result=await pending}
+  finally{if(apply)apply.disabled=false;updateInstalledEditorDoneButton()}
+  // The commit belongs to the editor that started it (#658): if that editor has since closed, nothing here may close its successor.
+  if(installedProgramEditor!==editor)return result;
   if(result?.workoutConflict){
     openInstalledLeaveDialog({workout:true});
     return result;
@@ -14726,7 +14731,7 @@ async function applyInstalledEditorAndContinue(){
   return result;
 }
 async function requestInstalledDone(){
-  if(!programEditMode||!installedProgramEditor)return;
+  if(!programEditMode||!installedProgramEditor||installedProgramEditor.isCommitting?.())return;
   if(!installedProgramEditor.isDirty()){finishInstalledEditor();return}
   // Done is the editor's explicit commit action. The three-way leave dialog is
   // reserved for navigation and browser Back, so a deliberate tap never
@@ -25333,7 +25338,7 @@ function init(){
     const next=at<0?(e.shiftKey?stops.length-1:0):(at+(e.shiftKey?-1:1)+stops.length)%stops.length;
     stops[next].focus()});
   const leaveApply=$("#programEditorApply");if(leaveApply)leaveApply.onclick=()=>applyInstalledEditorAndContinue();
-  const leaveDiscard=$("#programEditorDiscard");if(leaveDiscard)leaveDiscard.onclick=()=>finishInstalledEditor({discard:true});
+  const leaveDiscard=$("#programEditorDiscard");if(leaveDiscard)leaveDiscard.onclick=()=>{if(!installedProgramEditor?.isCommitting?.())finishInstalledEditor({discard:true})};
   const leaveKeep=$("#programEditorKeep");if(leaveKeep)leaveKeep.onclick=()=>closeInstalledLeaveDialog();
   const histSearchBtn=$("#historySearchBtn");if(histSearchBtn)histSearchBtn.onclick=()=>HistoryUi.setSearchOpen(!HistoryUi.isSearchOpen());
   const histSearch=$("#historySearch");if(histSearch)histSearch.oninput=()=>HistoryUi.setQuery(histSearch.value);
@@ -25441,6 +25446,7 @@ function init(){
     const discardDraftRaw=readDraftRaw();
     if(confirm(t("confirm.delete_log")))await deleteTrainingLog(storageIO,{discardDraftRaw})};
   $$("nav button").forEach(b=>b.onclick=()=>{
+    if(programEditMode&&installedProgramEditor?.isCommitting?.())return;
     if(programEditMode&&installedProgramEditor?.isDirty()){
       pendingEditorNavigation=b.dataset.view;
       openInstalledLeaveDialog();
