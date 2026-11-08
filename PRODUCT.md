@@ -82,6 +82,18 @@ The mechanism a neighboring product could not truthfully copy:
   once they declare the required semantics. A shared program is first-class,
   not a degraded import.
 
+**The coach is the engineering yardstick, not the pitch** (owner, 2026-11-08;
+[`docs/coach-layer-strategy-2026-11-08.md`](docs/coach-layer-strategy-2026-11-08.md)
+D-1). Hired coaches are a real competitor, so the product is built and judged
+against the four things a coach does deterministically in a lifter's first
+month: finds the starting weights, teaches the lifter to feel effort, watches
+the week, remembers the lifter across programs. That frame is internal. It is
+not the thesis's core proposition and never the selling point; in marketing the
+comparison stays subtle. Prescribing training is a regulated profession in
+Brazil, so copy never calls Taurifer a coach or implies professional
+supervision, and a CREF-registered physical education professional (Conselho
+Regional de Educação Física) is on board before commercialization.
+
 ## Operating Context
 
 - **Where:** a gym floor, on a phone, mid-session. Mobile is the only shipped
@@ -172,6 +184,21 @@ treat them as either shipped or unauthorized):
   without approval. It pulls no accounts, cloud infra, or LLM dependency into
   Free or core. **ADR 0011 supersedes ADR 0002 and Plan 038; the BYOK AI coach
   is dead.**
+- **The coach layer** (owner decisions D-2 to D-6, D-15 of 2026-11-08, in
+  [`docs/coach-layer-strategy-2026-11-08.md`](docs/coach-layer-strategy-2026-11-08.md)),
+  all Free and all on for every alpha participant: *session zero*, a guided
+  first session that finds starting loads in words for programs without them;
+  words as the default effort stage with one onboarding question, and one
+  numeric stage, *reps left* (0–4, 5+ stored as 5), replacing the separate
+  reps-left and RIR stages; a published, versioned table of declared priors for
+  opening loads and new-lift ratios; the engine as an estimator (`ENGINE_VERSION`
+  078.x) whose targets state their standing in words and which requests test
+  sets when unsure, under Plan 077's safety ceilings; and the *profile*, "what
+  Taurifer knows about you", into which the 0–100 calibration gauge is
+  dissolved as counts and words. The Free/Pro line on the profile and the
+  weekly review, whether any calibration surface is a Pro lever (Plan 077
+  OD-21), the point where Pro is presented and the trial's shape are decided
+  after the alpha, never before.
 
 **Explicitly undecided / not to be invented:** launch date, entitlement
 lifecycle mechanics, and anything the backlog marks Gated or Evidence-only.

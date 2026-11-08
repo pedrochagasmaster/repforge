@@ -290,6 +290,17 @@ analogy to apps with brands.
 | `docs/backlog.md` | A Now row for session zero and the ladder default, Next rows for the estimator, the cadence and the profile, a Gated row for the funnel behind entitlement |
 | `CONTEXT.md` | Terms: *session zero*, *standing* (of an estimate), *finding*, *profile*, *weekly review*; the coach is the human comparison only, never a product name |
 
+**Applied on 2026-11-08, on the owner's instruction, in PR #667:** PRODUCT.md (the engineering
+frame with the D-1 limits; the coach layer under approved-and-unimplemented); the thesis (a
+v1.4 amendment note, §3.5 and §8.3); Plan 077 (an amendments block for OD-3/4/6, OD-12,
+OD-20, OD-21 and the new work) and its row in `plans/README.md`; the backlog (a Now row for
+the six plans; the entitlement row in Gated); CONTEXT.md (reps left, test set, session zero,
+standing, finding, profile, weekly review, coach).
+**Deliberately not applied:** ADR 0010 (unchanged by decision, D-10/D-11); the entitlement ADR
+(D-13, written before funnel work, not now); the mechanics doc (it describes shipped
+behaviour, so the estimator and the priors enter it with their plans); `DEFAULTS` (code,
+with Settings, catalog and test consequences, so it belongs to the ladder plan).
+
 ## 9. Examined and rejected
 
 Recorded so the next discussion does not start from zero.
