@@ -1124,6 +1124,43 @@ async function main() {
       "continuing from the review activates the latest pick, not the earlier file",
       JSON.stringify(latestActive.programMeta));
 
+    // ---- a program-file read pending across a door change does not open its review ----
+    // Switching to pasted text (and back) is a change of door, so the read that
+    // was started on the file door must not open a review over that flow.
+    for (const returnToFile of [false, true]) {
+      await reset(page);
+      await page.evaluate(() => window.startOnboarding("first-run"));
+      await page.evaluate(() => {
+        if (document.querySelector("[data-entry-hub=\"import\"]")) document.querySelector("[data-entry-hub=\"import\"]").click();
+      });
+      if (await page.locator("#onbNext").isVisible().catch(() => false) &&
+          !(await page.locator("#entryFreeformSwitch").isVisible().catch(() => false))) {
+        await page.click("#onbNext");
+      }
+      await page.waitForSelector("#entryFreeformSwitch", { timeout: 10000 });
+      await holdFileReads(page, "abandoned.json");
+      await page.setInputFiles("#importProgram", programFile("abandoned.json", "Abandoned file"));
+      await page.waitForFunction(() => window.__heldFileReads.started === 1, undefined, { timeout: 10000 });
+      await page.click("#entryFreeformSwitch");
+      if (returnToFile) await page.click("#entryFreeformFile");
+      else await page.fill("#entryFreeformIn", "My newly pasted coach program");
+      await page.evaluate(() => window.__releaseFileRead());
+      await page.waitForFunction(() => window.__heldFileReads.finished === 1, undefined, { timeout: 10000 });
+      const door = await page.evaluate(() => ({
+        review: window.__repforgeImportDraft()?.fileName ?? null,
+        pastedText: document.querySelector("#entryFreeformIn")?.value ?? null,
+      }));
+      assert(door.review === null,
+        returnToFile
+          ? "a file read pending across a switch away and back to the file door opens no review"
+          : "a file read pending across a switch to pasted text opens no review over that flow",
+        JSON.stringify(door));
+      if (!returnToFile) {
+        assert(door.pastedText === "My newly pasted coach program",
+          "the pasted text survives an earlier file read finishing", JSON.stringify(door));
+      }
+    }
+
     // ---- a canceled program-file read does not reopen the import review ----
     await reset(page);
     await page.evaluate(() => window.startOnboarding("first-run"));
