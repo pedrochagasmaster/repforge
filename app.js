@@ -14590,7 +14590,8 @@ function onboardingEditorStatus(){
   const message=progression?editorAdapterTranslate("entry.editor.progression_invalid",undefined,"This program has an unsupported progression pairing."):
     issues.some(issue=>issue.startsWith("exercise_invalid:"))?editorAdapterTranslate("entry.editor.exercise_invalid",undefined,"Complete each exercise before continuing."):
       emptyDays.length?editorAdapterTranslate("entry.editor.empty_days",{days:emptyDays.join(", ")},"Add an exercise to each training day."):
-        issues.length?editorAdapterTranslate("entry.editor.incomplete",{n:issues.length},"Finish the program before continuing."):
+        issues.some(issue=>issue.startsWith("metric_configuration_required:"))?t("entry.preview.metrics_required"):
+          issues.length?editorAdapterTranslate("entry.editor.incomplete",{n:issues.length},"Finish the program before continuing."):
           editorAdapterTranslate("entry.editor.draft_saved",undefined,"Draft saved");
   return{issues,message}}
 function updateOnboardingEditorActions(){
@@ -14656,7 +14657,11 @@ function attemptProgramEditorDismiss(){
 }
 function updateInstalledEditorDoneButton(){
   const done=$("#programEditDone");if(!done)return;
-  done.disabled=!!installedProgramEditor?.isCommitting?.()||installedProgramEditor?.canApply?.()===false;
+  const committing=!!installedProgramEditor?.isCommitting?.();
+  done.disabled=committing||installedProgramEditor?.canApply?.()===false;
+  const editor=$("#programEditor");
+  if(editor){editor.inert=committing;editor.setAttribute("aria-busy",String(committing))}
+  const meta=$("#programMeta");if(meta)meta.inert=committing;
 }
 function enterProgramEditorSheet(copy){
   if(programEditorSheetOpen)return;
@@ -15225,7 +15230,8 @@ function renderProgramHeader(){
       :issues.some(issue=>issue.startsWith("exercise_invalid:"))
         ?t("entry.editor.exercise_invalid")
         :emptyDays.length?t("entry.editor.empty_days",{days:emptyDays.join(", ")})
-          :issues.length?t("entry.editor.incomplete",{n:issues.length}):t("entry.editor.ready");
+          :issues.some(issue=>issue.startsWith("metric_configuration_required:"))?t("entry.preview.metrics_required")
+            :issues.length?t("entry.editor.incomplete",{n:issues.length}):t("entry.editor.ready");
     const status=saveError||issueStatus;
     const activateLabel=hasActiveProgram()?t("entry.preview.activate_replace"):t("entry.preview.activate_first");
     el.innerHTML=`<p class="pmeta__draft"><span class="pmeta__draft-mark" aria-hidden="true"></span>${esc(t("entry.preview.lede"))}</p>`+
@@ -15255,9 +15261,11 @@ function renderProgramHeader(){
     `</div>`;
   renderProgramChips();
   const nameInp=$("#programName"),startInp=$("#programStarted");
-  nameInp.oninput=async()=>{const captured=nameInp.value,result=await persistProgramMeta({name:captured});
+  nameInp.oninput=async()=>{if(installedProgramEditor?.isCommitting?.())return;
+    const captured=nameInp.value,result=await persistProgramMeta({name:captured});
     if(!(result.localOk||result.idbOk)&&nameInp.value===captured)nameInp.value=state.programMeta?.name||""};
-  startInp.onchange=async()=>{const captured=startInp.value,result=await persistProgramMeta({started:captured||null});
+  startInp.onchange=async()=>{if(installedProgramEditor?.isCommitting?.())return;
+    const captured=startInp.value,result=await persistProgramMeta({started:captured||null});
     if(result.localOk||result.idbOk)renderProgramChips();
     else if(startInp.value===captured)startInp.value=state.programMeta?.started||""};
 }
