@@ -113,6 +113,7 @@
     hint(sheet, "transform");
 
     let disposed = false;
+    let exitArrival = null;
     const handOff = () => {
       sheet.style.transform = "";
       if (scrim) scrim.style.opacity = "";
@@ -121,6 +122,7 @@
     const dispose = ({ preserve = false } = {}) => {
       if (disposed) return;
       disposed = true;
+      exitArrival?.abandon();
       y.stop();
       stopPaint();
       if (!preserve) handOff();
@@ -149,11 +151,23 @@
       },
       dismiss({ velocity = 0 } = {}) {
         if (disposed) return settled;
-        if (reducedMotion()) { dispose(); return settled; }
-        return animate(y, height, { ...VOCABULARY.gestureExit, velocity: perSecond(velocity) })
-          .then(() => true, () => false)
-          .finally(() => dispose());
+        if (reducedMotion()) { dispose(); return Promise.resolve(true); }
+        // The host closes the modal *after* the throw finishes. Keep the final
+        // transform and linked scrim until that close, or the sheet jumps back
+        // to rest before the host can remove its open class.
+        // Motion's playback .then() does not return the callback value. The
+        // shared arrival helper converts it into a real Promise<boolean> and
+        // resolves false when a second grab abandons this run.
+        exitArrival = arrival(
+          animate(y, height, { ...VOCABULARY.gestureExit, velocity: perSecond(velocity) }),
+          () => !disposed,
+        );
+        return exitArrival.then(arrived => {
+          if (arrived) dispose({ preserve: true });
+          return arrived;
+        });
       },
+      release: handOff,
       cancel: dispose,
     };
   }
@@ -718,6 +732,7 @@
      logical state functions remain authoritative. */
   const SHEET_LOCK = 8;
   const FOCUS_LOCK = 10;
+  const FOCUS_STALE_MS = 100; // a stationary thumb no longer has fling velocity
   const FOCUS_SLIDE_MS = 210;
   const sheetRuns = new Map();
   let sheetGesture = null;
@@ -775,6 +790,7 @@
      rest. Every sheet rubber-bands above its highest detent. */
   const SHEET_MEDIUM_SHARE = 0.52;
   const SHEET_FLICK = 1.1; // px/ms: a flick this fast from the lowest detent dismisses
+  const SHEET_STALE_MS = 100; // a stationary thumb has no remaining release velocity
   function sheetDetents(sheet) {
     const names = (sheet.dataset.detents || "").split(/\s+/).filter(Boolean);
     if (!names.includes("medium")) return [{ name: "", position: 0 }];
@@ -800,8 +816,9 @@
     if (!target || !sheet) return;
     if (event.pointerType === "mouse" && (target.closest("input,select,textarea,[contenteditable]") || global.isNativeTextSelectionTarget?.(target))) return;
     if (sheetScrollHeld(target, sheet)) return;
-    // A control that owns its own drag (the session map's grip) keeps the pointer; the sheet does not follow it.
-    if (target.closest("[data-sheet-hold]")) return;
+    // Interactive controls keep their presses and drags. Text areas remain
+    // swipeable by touch where the note-sheet contract explicitly allows it.
+    if (target.closest("[data-sheet-hold],button,a[href],select,summary,[role='button'],[role='slider'],[role='switch'],[role='radio'],[role='checkbox'],[role='tab']")) return;
     sheetGesture = {
       id: event.pointerId, sheet, scrim: currentScrim(), x: event.clientX, y: event.clientY,
       anchorY: event.clientY, dy: 0, live: false, velocity: 0, upward: onSheetRail(target, sheet),
@@ -874,13 +891,15 @@
     // not evidence of intent: projecting it can throw a 40px push past the
     // commitment distance and dismiss a sheet nobody released.
     const released = event?.type !== "pointercancel";
+    const stalled = (event?.timeStamp || performance.now()) - gesture.lastT > SHEET_STALE_MS;
+    const velocity = released && !stalled ? gesture.velocity : 0;
     const current = motion.current();
     const stops = gesture.stops || [{ name: "", position: 0 }];
     const resting = sheetRestingAt(gesture.sheet);
     const lowest = stops[stops.length - 1].position;
-    const projected = released ? projectMomentum(current, gesture.velocity) : resting.position;
+    const projected = released ? projectMomentum(current, velocity) : resting.position;
     const threshold = Math.min(160, Math.max(64, ((gesture.sheet.offsetHeight || 0) - lowest) * 0.32));
-    const flick = released && gesture.velocity >= SHEET_FLICK && current > lowest - 20;
+    const flick = released && velocity >= SHEET_FLICK && current > lowest - 20;
     const choice = flick ? { dismiss: true } : nearestSnap(projected, [
       ...stops.map(stop => ({ ...stop, dismiss: false })),
       { position: lowest + threshold * 2, dismiss: true },
@@ -892,20 +911,35 @@
       // guarded-leave prompt the way Cancel would; a small jiggle on the rail does
       // not. `gesture.dy` is the thumb's own unresisted travel (sheetPointerMove),
       // never the rubber-banded `current` the choice above was built from.
-      const rawAttempt = (released && gesture.velocity >= SHEET_FLICK) || gesture.dy > threshold;
+      const rawAttempt = (released && velocity >= SHEET_FLICK) || gesture.dy > threshold;
       if (resting.name) gesture.sheet.dataset.detent = resting.name; else delete gesture.sheet.dataset.detent;
-      motion.settle({ velocity: gesture.velocity, to: resting.position }).finally(() => {
+      motion.settle({ velocity, to: resting.position }).finally(() => {
         if (sheetRuns.get(gesture.sheet) === motion) sheetRuns.delete(gesture.sheet);
       });
       if (rawAttempt) sheetGuards.get(gesture.sheet)?.onBlocked?.();
     } else if (choice?.dismiss) {
-      motion.dismiss({ velocity: gesture.velocity });
-      dismissSheetByExistingPath(gesture.sheet);
+      const sheet = gesture.sheet;
+      motion.dismiss({ velocity }).then(arrived => {
+        // A second finger can catch and reverse the exit. It has taken over
+        // this tracker and must not be closed by the old release.
+        if (!arrived || sheetRuns.get(sheet) !== motion || sheet.hidden || !sheet.classList.contains("is-open")) return;
+        // The sheet is already offscreen, so the modal's ordinary delay-hide
+        // would keep an invisible focus trap for another 280ms.
+        sheet.dataset.gestureDismissed = "";
+        try { dismissSheetByExistingPath(sheet); }
+        finally {
+          delete sheet.dataset.gestureDismissed;
+          motion.release();
+          if (sheetRuns.get(sheet) === motion) sheetRuns.delete(sheet);
+        }
+      }).catch(() => {
+        if (sheetRuns.get(sheet) === motion) { motion.cancel(); sheetRuns.delete(sheet); }
+      });
     } else {
       const stop = released ? choice : resting;
       if (stop.name) gesture.sheet.dataset.detent = stop.name;
       else delete gesture.sheet.dataset.detent;
-      motion.settle({ velocity: released ? gesture.velocity : 0, to: stop.position }).finally(() => {
+      motion.settle({ velocity, to: stop.position }).finally(() => {
         if (sheetRuns.get(gesture.sheet) === motion) sheetRuns.delete(gesture.sheet);
       });
     }
@@ -1095,15 +1129,17 @@
     // A cancelled pointer is not a release: the card returns to the one it was
     // on rather than advancing on momentum the lifter never committed.
     const released = event?.type !== "pointercancel";
+    const stalled = (event?.timeStamp || performance.now()) - gesture.lastT > FOCUS_STALE_MS;
+    const velocity = released && !stalled ? gesture.velocity : 0;
     const step = focusStep();
-    const projected = released ? projectMomentum(gesture.dx, gesture.velocity) : 0;
+    const projected = released ? projectMomentum(gesture.dx, velocity) : 0;
     const snaps = [{ position: 0, dir: 0 }];
     if (focusCanGo(-1)) snaps.push({ position: step, dir: -1 });
     if (focusCanGo(1)) snaps.push({ position: -step, dir: 1 });
     const choice = nearestSnap(projected, snaps) || snaps[0];
     if (!choice.dir) {
       gesture.track.classList.add("is-settling");
-      const run = settleFocusDeck(gesture.track, { from: gesture.dx, velocity: released ? gesture.velocity : 0 });
+      const run = settleFocusDeck(gesture.track, { from: gesture.dx, velocity });
       if (run) run.finally(() => {
         gesture.track.classList.remove("is-settling");
         gesture.deck.classList.remove("is-swiping");

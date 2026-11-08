@@ -2259,6 +2259,72 @@
     }));
   }
 
+  async function settleProgramTransitionAlreadyCommitted({verify,ownsJournal}={}){
+    if(typeof verify!=="function"||typeof ownsJournal!=="function")
+      return normalizeDurableOutcome({localOk:false,idbOk:false,conflict:true,
+        finalizationPending:true,code:"transition_settlement_verifier_missing"});
+    return enqueueWrite(()=>withStorageLock(storageIO,async()=>{
+      await runDurableStateTestHook("durableSettlementLockHeld");
+      const unresolved=(head,code,{localOk=false,idbOk=false,pendingJournalCleanup=false}={})=>
+        normalizeDurableOutcome({revision:readRevision(head),localOk,idbOk,conflict:true,
+          finalizationPending:true,pendingJournalCleanup,code,head});
+      const matches=async snapshot=>{
+        try{return (await verify(cloneSnapshot(snapshot)))?.ok===true}
+        catch{return false}};
+      const refreshed=await refreshPersistenceHead();
+      let head=cloneSnapshot(refreshed.head||persistHead);
+      if(refreshed.conflict||!isValidStateShape(head))
+        return unresolved(head,"transition_settlement_unresolved");
+      if(!await matches(head))return unresolved(head,"transition_settlement_receipt_mismatch");
+
+      const ownJournals=()=>readPendingJournal().entries.filter(record=>{
+        try{return ownsJournal(cloneSnapshot(record.journal))===true}
+        catch{return false}});
+      const replicaHoldsHead=async replica=>replica.status==="valid"&&
+        storageSnapshotsEqual(replica.parsed,head)&&await matches(replica.parsed);
+      // A journal that cannot be read may be this transition's. Boot clears it.
+      if(readPendingJournal().invalid.length)
+        return unresolved(head,"transition_settlement_journal_invalid",{pendingJournalCleanup:true});
+
+      // The journal is what recovers the successor if a replica is lost, so it
+      // closes only after both replicas hold the verified head.
+      if(!await replicaHoldsHead(readLocalStatus())||!await replicaHoldsHead(await readIdbStatus())){
+        const written=await writeSnapshot(head,storageIO);
+        const local=readLocalStatus(),idb=await readIdbStatus();
+        if(!written.localOk||!written.idbOk||!await replicaHoldsHead(local)||!await replicaHoldsHead(idb))
+          return unresolved(head,"transition_settlement_unresolved",
+            {localOk:written.localOk,idbOk:written.idbOk,pendingJournalCleanup:ownJournals().length>0});
+        head=cloneSnapshot(local.parsed);
+      }
+      for(const record of ownJournals()){
+        const closed=await executeDraftTransaction({record,transactionId:record.journal.id,
+          effect:record.journal.effectOutcome,discard:true});
+        if(!closed.settled)
+          return unresolved(head,"transition_settlement_pending",
+            {localOk:true,idbOk:true,pendingJournalCleanup:true});
+      }
+      if(ownJournals().length)
+        return unresolved(head,"transition_settlement_pending",
+          {localOk:true,idbOk:true,pendingJournalCleanup:true});
+      // A close that lost only its marker has no journal left to find it by.
+      // Under this lock, a marker or sidecar without a journal is an orphan.
+      const orphansRemain=()=>{
+        const journalIds=new Set(readPendingJournal().entries.map(item=>item.journal.id));
+        return[...DraftStore.closingIds(),...DraftStore.pending().entries.map(entry=>entry.value.transactionId)]
+          .some(id=>!journalIds.has(id))};
+      if(!(await settleOrphanDraftArtifacts(head)).settled||orphansRemain())
+        return unresolved(head,"transition_settlement_pending",
+          {localOk:true,idbOk:true,pendingJournalCleanup:true});
+      if(!await replicaHoldsHead(readLocalStatus())||!await replicaHoldsHead(await readIdbStatus()))
+        return unresolved(head,"transition_settlement_unresolved");
+      const liveBase=cloneSnapshot(persistHead||head);
+      persistHead=cloneSnapshot(head);
+      applyAcceptedSnapshot(liveBase,head);
+      return normalizeDurableOutcome({revision:readRevision(head),localOk:true,idbOk:true,
+        alreadyCommitted:true,head});
+    }));
+  }
+
   async function settleCustomExerciseMutation({verify,recover=null,pendingJournalId=null}={}){
     if(typeof verify!=="function")
       return normalizeDurableOutcome({localOk:false,idbOk:false,conflict:true,
@@ -2973,6 +3039,7 @@
     resolveBootReplicas,
     readDurableState,
     settleHistoryAlreadyCommitted,
+    settleProgramTransitionAlreadyCommitted,
     settleCustomExerciseMutation,
     settlePendingJournal,
 

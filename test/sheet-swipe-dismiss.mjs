@@ -447,10 +447,71 @@ async function run() {
   );
   assert(sprung.scrim > 0.99, "the scrim comes back with it", String(sprung.scrim));
 
+  phase("a short flick held still before release settles instead of dismissing");
+  await drag(page, rail, down(55, 3), { pause: 8, settleAt: 220 });
+  await page.waitForTimeout(460);
+  const pausedFlick = await page.evaluate(() => window.__sheet("#programTextSheet"));
+  assert(pausedFlick.open && !pausedFlick.hidden && !pausedFlick.inline,
+    "release velocity expires when the thumb stops before lifting", JSON.stringify(pausedFlick));
+
+  if (pausedFlick.hidden) await openProgramText(page);
+
   phase("a fast flick counts as a full push");
   await drag(page, rail, down(72, 3), { pause: 8 });
   await page.waitForTimeout(520);
   assert(await page.evaluate(() => window.__sheet("#programTextSheet").hidden), "a short, fast throw dismisses");
+
+  phase("a committed sheet throw stays under the finger and can be caught before exit");
+  await openProgramText(page);
+  const throwRail = await grip(page, "#programTextSheet");
+  await page.mouse.move(throwRail.x, throwRail.y);
+  await page.mouse.down();
+  for (const dy of [50, 125, 190]) {
+    await page.mouse.move(throwRail.x, throwRail.y + dy);
+    await page.waitForTimeout(35);
+  }
+  await page.mouse.up();
+  const leaving = await page.evaluate(() => window.__sheet("#programTextSheet"));
+  assert(leaving.open && !leaving.hidden && !!leaving.inline,
+    "a throw keeps the sheet mounted while its velocity-seeded spring exits", JSON.stringify(leaving));
+  if (!leaving.open) await openProgramText(page);
+  const movingRail = await grip(page, "#programTextSheet");
+  await page.mouse.move(movingRail.x, movingRail.y);
+  await page.mouse.down();
+  await page.mouse.move(movingRail.x, movingRail.y - 180);
+  await page.waitForTimeout(20);
+  await page.mouse.up();
+  await page.waitForTimeout(520);
+  await page.waitForFunction(() => {
+    const sheet = window.__sheet("#programTextSheet");
+    return !sheet.inline && Math.abs(sheet.y) < 1;
+  });
+  const caught = await page.evaluate(() => window.__sheet("#programTextSheet"));
+  assert(caught.open && !caught.hidden && !caught.inline && Math.abs(caught.y) < 1,
+    "re-grabbing a committed exit reverses it without closing or snapping", JSON.stringify(caught));
+  assert(await page.evaluate(() => window.__repforgeModalState() === "open" && window.__inert("#program") && !window.__scrim("#programTextScrim").hidden),
+    "catching the exit retains modal ownership, background inertness and its scrim");
+  await page.keyboard.press("Tab");
+  assert(await page.evaluate(() => document.querySelector("#programTextSheet").contains(document.activeElement)),
+    "the caught sheet retains its focus trap");
+  await page.keyboard.press("Escape");
+  await page.waitForSelector("#programTextSheet", { state: "hidden" });
+  assert(await page.evaluate(() => window.__repforgeModalState() === "closed" && !window.__inert("#program") && window.__scrim("#programTextScrim").hidden),
+    "closing a caught exit releases modal ownership, inertness and the scrim");
+
+  phase("Escape during an exit cannot close a reopened sheet");
+  await openProgramText(page);
+  await drag(page, await grip(page, "#programTextSheet"), down(190, 4), { pause: 24 });
+  await page.keyboard.press("Escape");
+  await page.waitForSelector("#programTextSheet", { state: "hidden" });
+  await openProgramText(page);
+  // Outlast the abandoned exit so its completion cannot close the new modal.
+  await page.waitForTimeout(520);
+  const reopenedExit = await page.evaluate(() => ({ ...window.__sheet("#programTextSheet"), modal: window.__repforgeModalState(), inert: window.__inert("#program") }));
+  assert(reopenedExit.open && !reopenedExit.hidden && !reopenedExit.inline && reopenedExit.modal === "open" && reopenedExit.inert,
+    "an abandoned exit cannot double-close or strand the reopened modal", JSON.stringify(reopenedExit));
+  await page.keyboard.press("Escape");
+  await page.waitForSelector("#programTextSheet", { state: "hidden" });
 
   phase("gestures that belong to something else are left alone");
   await openProgramText(page);
@@ -564,6 +625,19 @@ async function run() {
   await page.click("#restTab");
   await page.waitForSelector("#restSheet.is-open", { timeout: 5000 });
   await page.waitForTimeout(320);
+  // Buttons are actions, not drag rails: their long presses must not take the sheet.
+  const closeButton = await page.locator("#restSheetClose").boundingBox();
+  await drag(page, { x: Math.round(closeButton.x + closeButton.width / 2), y: Math.round(closeButton.y + closeButton.height / 2) },
+    down(180, 4), { pause: 25 });
+  await page.waitForTimeout(380);
+  const fromControl = await page.evaluate(() => window.__sheet("#restSheet"));
+  assert(fromControl.open && !fromControl.hidden && !fromControl.inline,
+    "dragging from a sheet action does not steal the control or dismiss the sheet", JSON.stringify(fromControl));
+  if (fromControl.hidden) {
+    await page.click("#restTab");
+    await page.waitForSelector("#restSheet.is-open");
+    await page.waitForTimeout(320);
+  }
   const restRail = await grip(page, "#restSheet");
   await drag(page, restRail, down(200), { pause: 16 });
   await page.waitForTimeout(520);
