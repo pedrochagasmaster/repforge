@@ -423,6 +423,12 @@ async function importedCustomMetricJourney(browser) {
     const stored = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), SETUP_DRAFT_KEY);
     const slots = (stored.state || stored).result.preview.programDefinition.days.flatMap((day) => day.slots || []);
     check(slots.length > 0 && slots.every((slot) => slot.metricIds.length > 0), "the Reps choice survives Save draft and reload", slots.map((slot) => slot.metricIds));
+    // The landing offers the saved setup; resuming it opens the Build at the editor.
+    await page.click("#firstRunResumeSetup", { timeout: 10000 });
+    await page.locator("#entryEditorActivate, #entryEdit").first().waitFor({ timeout: 10000 });
+    if (await page.locator("#entryEdit").isVisible()) await page.click("#entryEdit");
+    await page.waitForSelector("#entryEditorActivate", { timeout: 10000 });
+    check(await page.locator("#entryEditorActivate").isEnabled(), "activation is available after the reload");
   } finally {
     await context.close();
   }
