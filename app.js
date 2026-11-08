@@ -1139,6 +1139,7 @@ function edgeBackPage(){
   return view}
 function syncEdgeSwipe(){
   routeEdgeFrame=0;
+  syncRouteHistory();
   syncMiniBar();
   const page=edgeBackPage();
   if(routeEdge?.page===page)return;
