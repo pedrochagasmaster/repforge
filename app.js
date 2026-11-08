@@ -1796,21 +1796,26 @@ function resetDraftSessionPresentation(){
 /* Ending a session by any route (discard, replace, clear) ends its rest clock with it: a
    running rest belongs to the session it was started in. */
 function resetDraftSessionState(){resetWorkoutSessionIdentity();WorkoutSession.resetAfterDraftRemoval();resetDraftSessionPresentation();endWorkoutRest()}
-async function clearDraft(){
-  if(draftUiRecovery?.attempt||draftUiRecovery?.status==="refresh-failed"){
-    renderDraftRecovery();focusDraftRecovery();return false}
-  if(activeWorkoutDraft){
-    const removed=await DraftStore.removeV2({expectedDraftId:activeWorkoutDraft.draftId,
-      expectedRevision:activeWorkoutDraft.revision,operationId:`clear-${uid()}`});
-    if(removed.status!=="applied"){
-      showDraftCommandRecovery(removed.status,null,{focus:draftFocusIdentity(),retryAction:clearDraft});
-      return false}}
-  else{
-    const read=DraftStore.readCanonicalStatus();if(read.status!=="ok")return false;
-    const parsed=WorkoutDraft?.parse(read.raw);
-    if(parsed?.kind==="valid")return false;
-    if(!DraftStore.remove())return false}
-  resetDraftSessionState();return true}
+function clearDraft(){
+  const draft=activeWorkoutDraft;
+  const task=draftWriteTail.then(async()=>{
+    if(draftUiRecovery?.attempt||draftUiRecovery?.status==="refresh-failed"){
+      renderDraftRecovery();focusDraftRecovery();return false}
+    if(draft){
+      const removed=await DraftStore.removeV2({expectedDraftId:draft.draftId,
+        expectedRevision:draft.revision,operationId:`clear-${uid()}`});
+      if(removed.status!=="applied"){
+        showDraftCommandRecovery(removed.status,null,{focus:draftFocusIdentity(),retryAction:clearDraft});
+        return false}}
+    else{
+      const read=DraftStore.readCanonicalStatus();if(read.status!=="ok")return false;
+      const parsed=WorkoutDraft?.parse(read.raw);
+      if(parsed?.kind==="valid")return false;
+      if(!DraftStore.remove())return false}
+    resetDraftSessionState();return true
+  });
+  draftWriteTail=task.then(()=>undefined,()=>undefined);
+  return task}
 const loadDraft=()=>{if(activeWorkoutDraft)return WorkoutSession.projection();
   try{return JSON.parse(DraftStore.readRaw()||"{}")}catch{return{}}};
 function convertDraftUnitsRaw(raw,oldUnit,newUnit){
