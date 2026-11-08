@@ -154,6 +154,41 @@ const reading = (page) => page.evaluate(() => {
   };
 });
 
+/** Hold the state-write lock, so every durable write waits the way it does on a slow device. */
+async function holdWrites(page) {
+  await page.evaluate(() => new Promise((ready) => {
+    navigator.locks.request("repforge:state-write", () => new Promise((release) => {
+      window.__unlockWrites = release;
+      ready();
+    }));
+  }));
+}
+const releaseWrites = (page) => page.evaluate(() => window.__unlockWrites());
+
+/** Record each enterWorkout call and whether it has settled. The entries still run as they would. */
+async function trackEntries(page) {
+  await page.evaluate(() => {
+    window.__entries = [];
+    const original = window.enterWorkout;
+    window.enterWorkout = (...args) => {
+      const entry = { done: false, result: undefined };
+      window.__entries.push(entry);
+      const work = original(...args);
+      work.then((value) => { entry.done = true; entry.result = value; }, () => { entry.done = true; });
+      return work;
+    };
+  });
+}
+const entriesSettled = (page) => page.waitForFunction(() => window.__entries.length > 0 && window.__entries.every((e) => e.done), undefined, { timeout: 10000 });
+
+/** Where the screen is after entries settle: Focus open, the recovery panel, and the stored draft's day. */
+const readEntryOutcome = (page) => page.evaluate(() => ({
+  focus: !document.querySelector("#workoutShell")?.classList.contains("hidden") && document.body.classList.contains("is-workout"),
+  recovery: !document.querySelector("#draftRecovery")?.classList.contains("hidden"),
+  draftDay: window.__repforgeWorkoutDraft.current()?.program?.dayLabel ?? null,
+  results: window.__entries.map((e) => e.result),
+}));
+
 const browser = await launchChromium();
 try {
   phase("No workout open: Today is unchanged");
@@ -277,6 +312,66 @@ try {
     }));
     assert(twice.selected === s.selected && twice.focus && twice.workoutBody,
       "two taps on Resume leave Focus open on the current exercise", JSON.stringify({ twice, selected: s.selected }));
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  phase("A second tap on Start joins the first: Focus opens once, with no recovery panel");
+  {
+    const { context, page, errors } = await freshPage(browser);
+    await trackEntries(page);
+    await holdWrites(page);
+    await page.click("#startWorkout");
+    await page.waitForFunction(() => window.__entries.length === 1, undefined, { timeout: 5000 });
+    await page.click("#startWorkout");
+    await page.waitForFunction(() => window.__entries.length === 2, undefined, { timeout: 5000 });
+    await releaseWrites(page);
+    await entriesSettled(page);
+    const r = await readEntryOutcome(page);
+    assert(r.focus && !r.recovery && r.draftDay === seedProgram()[0].day,
+      "two taps on Start leave Focus open on the day, with no recovery panel", JSON.stringify(r));
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  phase("Start after a dock cancel waits for the write still in flight: Focus opens, no recovery panel");
+  {
+    const { context, page, errors } = await freshPage(browser);
+    await trackEntries(page);
+    await holdWrites(page);
+    await page.click("#startWorkout");
+    await page.waitForFunction(() => window.__entries.length === 1, undefined, { timeout: 5000 });
+    await page.click('nav button[data-view="stats"]');
+    await page.waitForSelector("#stats.active", { timeout: 5000 });
+    await page.click('nav button[data-view="log"]');
+    await page.waitForSelector("#startWorkout:not(.hidden)", { timeout: 5000 });
+    await page.click("#startWorkout");
+    await page.waitForFunction(() => window.__entries.length === 2, undefined, { timeout: 5000 });
+    await releaseWrites(page);
+    await entriesSettled(page);
+    const r = await readEntryOutcome(page);
+    assert(r.focus && !r.recovery && r.draftDay === seedProgram()[0].day,
+      "Start after a dock cancel opens Focus, with no recovery panel", JSON.stringify(r));
+    assert(errors.length === 0, "no page errors", errors.join(" | "));
+    await context.close();
+  }
+
+  phase("Up next tapped during a held Start takes over: Focus opens on that day");
+  {
+    const { context, page, errors } = await freshPage(browser);
+    const days = [...new Set(seedProgram().map((row) => row.day))];
+    await trackEntries(page);
+    await holdWrites(page);
+    await page.click("#startWorkout");
+    await page.waitForFunction(() => window.__entries.length === 1, undefined, { timeout: 5000 });
+    await page.waitForSelector("#upNextBtn", { timeout: 5000 });
+    await page.click("#upNextBtn");
+    await page.waitForFunction(() => window.__entries.length === 2, undefined, { timeout: 5000 });
+    await releaseWrites(page);
+    await entriesSettled(page);
+    const r = await readEntryOutcome(page);
+    assert(r.focus && !r.recovery && r.draftDay === days[1],
+      "Up next opens Focus on the next day, and the Start it replaced does not", JSON.stringify({ r, days }));
     assert(errors.length === 0, "no page errors", errors.join(" | "));
     await context.close();
   }
