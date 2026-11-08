@@ -76,6 +76,7 @@ export const SUITES = {
     s("test/program-compiler-search.mjs", [], {"domains": ["program"], "cost": "normal", "tier": "feedback", "seconds": 10}),
     s("test/programlab-default-parity.mjs", [], { domains: ["program"], seconds: 40 }),
     s("test/programlab-native-policy.mjs", [], { domains: ["program"], seconds: 3 }),
+    s("test/starting-loads.mjs", [], { domains: ["workout"], cost: "tiny" }),
     s("test/progression-engine-plan067.mjs", [], {"domains": ["progress"], "cost": "normal", "tier": "feedback"}),
     s("test/program-entry-contracts.mjs", [], {"domains": ["entry", "program"], "cost": "normal", "tier": "feedback"}),
     s("test/ui-screens.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback"}),
