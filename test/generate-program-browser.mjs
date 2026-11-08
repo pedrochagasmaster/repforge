@@ -514,6 +514,45 @@ async function sameCandidateEditsAcrossRemount(browser) {
   return run.errors;
 }
 
+async function restoreDoesNotCrossCandidate(browser) {
+  const run = await fresh(browser);
+  const { page } = run;
+  await answerGenerate(page);
+  await page.waitForSelector("#entryReview [data-review-slot]", { timeout: 15000 });
+  const baseline = await reviewed(page);
+  const [day] = trainingDays(baseline);
+  const [edited, queuedRemoval, newRemoval] = day.slots;
+  const session = { page, baseline, log: [] };
+  await openSlot(page, edited.id);
+  await step(page, session, { kind: "sets", slotId: edited.id, count: edited.prescriptionsByCycle[0].sets.length + 1 },
+    () => page.locator('#reviewSheet [data-review-sets="1"]').click(), "a set added before the held restore");
+  await closeSheet(page);
+  await holdSetupWrites(page);
+  await openSlot(page, queuedRemoval.id);
+  await page.locator("#reviewSheet [data-review-remove]").click();
+  await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 5000 });
+  await page.locator("#entryReview [data-review-restore]").click();
+  await page.locator("#reviewConfirmGo").click();
+  await page.locator("#onbBack").click();
+  await page.waitForFunction(() => window.__repforgeEntryState()?.step !== "result", undefined, { timeout: 10000 });
+  await page.locator("#onbNext").click();
+  await page.waitForFunction(() => window.__repforgeEntryState()?.step === "result", undefined, { timeout: 15000 });
+  await page.locator("#entryReview [data-review-slot]").first().waitFor({ timeout: 10000 });
+  await openSlot(page, newRemoval.id);
+  await page.locator("#reviewSheet [data-review-remove]").click();
+  await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 5000 });
+  await releaseSetupWrites(page);
+  await settleSetupWrites(page);
+  const expected = Review.replay(baseline, [{ kind: "remove", slotId: newRemoval.id }], REVIEW_CTX);
+  check(expected.ok && JSON.stringify(await reviewed(page)) === JSON.stringify(expected.definition),
+    "review: a queued restore cannot erase an edit on the replacement candidate",
+    { expected: expected.ok && expected.definition, saved: await reviewed(page) });
+  check((await reviewLog(page))?.edits?.length === 1,
+    "review: the replacement candidate keeps its edit log after the old restore settles", await reviewLog(page));
+  await run.context.close();
+  return run.errors;
+}
+
 async function discardAfterQueuedUndo(browser) {
   const run = await fresh(browser);
   const { page } = run;
@@ -1652,6 +1691,8 @@ async function main() {
       allErrors.push(await undoAfterLeaving(browser));
     } else if (process.env.N14_ONLY === "F4") {
       allErrors.push(await sameCandidateEditsAcrossRemount(browser));
+    } else if (process.env.N14_ONLY === "F1") {
+      allErrors.push(await restoreDoesNotCrossCandidate(browser));
     } else {
     allErrors.push(await recoveredGenerationJourney(browser));
     allErrors.push(await sourceSplitChoicesJourney(browser));
