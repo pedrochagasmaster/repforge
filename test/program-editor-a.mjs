@@ -724,6 +724,11 @@ async function heldApplyJourney(browser) {
     await page.click("#programEditDone");
     await page.waitForFunction(() => window.__heldWrite.calls > 0, undefined, { timeout: 10000 });
     check(await page.locator("#programEditDone").isDisabled(), "Done is refused while the Apply write is held");
+    await page.locator(`${EDITOR} [data-role="exercise-row"]`).first().click({ force: true });
+    check(!(await page.locator(`${SHEET}.is-open`).count()),
+      "#668: exercise sheets cannot accept text while Apply is committing");
+    if (await page.locator(`${SHEET}.is-open`).count()) await closeSheet(page);
+
     await page.click("#programEditCancel");
     check(!(await page.locator("#programEditorLeave").isVisible()), "Cancel asks nothing while the Apply write is held");
     check(await page.locator("#program.sheet.is-open").count() === 1, "the editor stays open while the Apply write is held");
@@ -737,6 +742,36 @@ async function heldApplyJourney(browser) {
     await page.click("#programEditorDiscard");
     await editorGone(page);
     check((await programName(page)) === "Old discarded Apply", "Discard of a later session leaves the saved name");
+    await openEditor(page);
+    await renameProgram(page, "Retry after failed Apply");
+    await page.evaluate(() => {
+      const io = window.RepForgeDurableState.storageIO;
+      const local = io.writeLocal, idb = io.writeIdb;
+      let release;
+      const held = new Promise(resolve => { release = resolve; });
+      window.__failedApply = { started: false, release,
+        restore: () => { io.writeLocal = local; io.writeIdb = idb; } };
+      io.writeLocal = async () => { window.__failedApply.started = true; await held; return false; };
+      io.writeIdb = async () => false;
+    });
+    await page.click("#programEditDone");
+    await page.waitForFunction(() => window.__failedApply.started);
+    await page.locator(`${EDITOR} [data-role="program-name-edit"]`).click({ force: true });
+    check(!(await page.locator(`${SHEET}.is-open`).count()),
+      "#668: rename cannot accept text while a failing Apply is committing");
+    if (await page.locator(`${SHEET}.is-open`).count()) {
+      await page.keyboard.press("Escape");
+      await page.waitForSelector(SHEET, { state: "hidden" });
+    }
+    await page.evaluate(() => window.__failedApply.release());
+    await page.waitForFunction(() => !document.querySelector("#programEditDone").disabled);
+    await page.evaluate(() => window.__failedApply.restore());
+    await renameProgram(page, "Edited after failed Apply");
+    await page.click("#programEditDone");
+    await editorGone(page);
+    check((await programName(page)) === "Edited after failed Apply",
+      "#668: a failed Apply restores editing and a retry saves the next edit");
+
   } finally {
     await context.close();
   }
