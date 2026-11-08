@@ -989,7 +989,7 @@ async function pokeLoad(page, times = 1) {
 }
 
 async function wheelPicker(browser) {
-  phase("A second tap on Load opens the wheel; RIR's second tap still types");
+  phase("A second tap on Load opens the wheel; reps left keeps its chips");
   {
     const { context, page } = await todayPage(browser);
     await enterSeededFocus(page);
@@ -1018,7 +1018,8 @@ async function wheelPicker(browser) {
     const rirOpened = await page.waitForSelector("#wheelSheet.is-open", { timeout: 300 }).then(() => true, () => false);
     assert(!rirOpened, "RIR's second tap does not open the wheel");
     const rirFace = await fieldFace(page, WHEEL_RIR_SEL);
-    assert(rirFace.editing, "RIR's second tap still opens the typed input, as before", JSON.stringify(rirFace));
+    assert(!rirFace.editing && await page.locator(`${CURRENT} .shelf__chip`).count() === 6,
+      "the numeric effort field keeps six chips and no typed editor", JSON.stringify(rirFace));
     await context.close();
   }
 
@@ -1151,9 +1152,11 @@ async function wheelPicker(browser) {
     // Chromium hides a ring on script focus after touch by itself; iOS Safari does not, so the quiet mark is what keeps it off there.
     assert(wheelClosed.field === `metric_${WHEEL_WEIGHT}` && !wheelClosed.ring && wheelClosed.quiet,
       "after a touch on the wheel focus returns to Load with no ring", JSON.stringify(wheelClosed));
-    // A typed edit: RIR's second tap types. Whatever path then moves focus back onto a field by script (a rebuild's
+    // A typed edit through the Reps wheel's keyboard action. Whatever path then moves focus back onto a field by script (a rebuild's
     // restore, a sheet's return), the keys typed into the field are not keyboard navigation, so no ring is drawn.
-    await page.tap(WHEEL_RIR_SEL); await page.tap(WHEEL_RIR_SEL);
+    await page.tap(WHEEL_REPS_SEL); await page.tap(WHEEL_REPS_SEL);
+    await page.waitForSelector("#wheelSheet.is-open");
+    await page.tap("#wheelKeyboard");
     await page.waitForSelector(`${CURRENT} .focus-shelf .shelf__field.is-editing .shelf__input`);
     await page.keyboard.press("Backspace"); await page.keyboard.type("2"); await page.keyboard.press("Enter");
     // Enter submits the log form, which is inert while its save runs.

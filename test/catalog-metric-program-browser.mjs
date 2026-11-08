@@ -8,7 +8,7 @@
  */
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
+import { chooseRepsLeft, launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const STATE_KEY = "repforge_v1";
@@ -427,8 +427,8 @@ async function addMetricSet(page, movement, { actualRir = null } = {}) {
     const rir = page.locator(`#workout .exercise.is-current .focus-shelf input[data-k="${active.id}_1_rir"]`);
     const rirButton = page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="rir"]`);
     if (await rir.getAttribute("aria-hidden") === "true") await rirButton.click();
-    await rir.waitFor({ state: "visible", timeout: 5000 });
-    await rir.fill(String(actualRir));
+
+    await chooseRepsLeft(page, String(actualRir));
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   }
   await page.locator(`#workout .exercise.is-current [data-save="${active.id}_1"]`).click();

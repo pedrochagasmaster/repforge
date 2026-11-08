@@ -36,7 +36,7 @@ const qualifyingLog = (source = "effort") => Array.from({ length: 6 }, (_, i) =>
     notes: "", created: `${date}T10:00:00.000Z`, primary: "Chest", secondary: "", effortSource: source };
 })).flat();
 
-async function boot(page, { settings = {}, log = [], uiPrefs = null } = {}) {
+async function boot(page, { settings = {}, log = [], uiPrefs = null, targetRir = null } = {}) {
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 20000 });
   await page.evaluate(async ({ k, settings, program, meta, log, uiPrefs }) => {
@@ -56,7 +56,12 @@ async function boot(page, { settings = {}, log = [], uiPrefs = null } = {}) {
     await new Promise((res, rej) => { const tx = db.transaction("kv", "readwrite"); tx.objectStore("kv").put(s, k); tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
     db.close();
     window.__repforgeUi?.setPref?.("stageTip", uiPrefs?.stageTip ?? {});
-  }, { k: KEY, settings, program: seedProgram(), meta: seedProgramMeta(), log, uiPrefs });
+  }, { k: KEY, settings, program: seedProgram(), meta: (() => {
+    const meta = seedProgramMeta();
+    if (targetRir != null) for (const cycle of meta.programDefinition.days[0].slots[0].prescriptionsByCycle)
+      for (const set of cycle.sets) set.rir = targetRir;
+    return meta;
+  })(), log, uiPrefs });
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 20000 });
   await page.evaluate(() => window.closeFirstRun?.());
@@ -305,6 +310,16 @@ try {
   await boot(page, { settings: { rirMode: "numeric" }, log: qualifyingLog("rir") });
   await logOpenSet(page);
   assert(await tip(page) === null, "it never suggests a stage down");
+  phase("A programmed count above five is offered as 5+");
+  await boot(page, { settings: { rirMode: "numeric" }, targetRir: 6 });
+  await page.locator(`${SHELF} [data-shelf-field="rir"]`).click();
+  st = await shelfState(page);
+  assert(st.value === "5+" && st.pressed.length === 0, "the programmed count offers 5+ without claiming a choice", st);
+  await logOpenSet(page);
+  draft = await firstSets(page);
+  assert(draft.sets[0].rir === "5" && draft.sets[0].source === "prefilled",
+    "accepting the offered 5+ stores 5 and remains a prefill", draft);
+
   phase("Voice and held numeric input");
   await boot(page, { settings: { rirMode: "numeric", voiceInputEnabled: true } });
   assert(await page.evaluate(() => window.__repforgeApplyCommandText("60 x 8 @9")),

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /** Focused Playwright checks for modal, disclosure, and live-status semantics. Requires the app HTTP server. */
 import { pathToFileURL } from "url";
-import { launchChromium, openShelfField } from "./browser.mjs";
+import { chooseRepsLeft, launchChromium, openShelfField } from "./browser.mjs";
 import { runProgramEntryA11y } from "./program-entry-a11y.mjs";
 import { MINIMAL_PAYLOAD, cloneFixture } from "./fixtures/shared-setup.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
@@ -371,6 +371,7 @@ export async function runWorkoutValidationFocusCheck(browser, check = assert) {
   const setKey = loadKey?.replace(`_metric_${WEIGHT_METRIC}`, "");
   const repsKey = `${setKey}_metric_${REPS_METRIC}`;
   const shelfFill = async (selector, field, value) => {
+    if (field === "rir") { await chooseRepsLeft(page, value); return; }
     const input = page.locator(`#workout .exercise.is-current .focus-shelf ${selector}`);
     if (await input.getAttribute("aria-hidden") === "true")
       await openShelfField(page, `#workout .exercise.is-current .focus-shelf [data-shelf-field="${field}"]`);

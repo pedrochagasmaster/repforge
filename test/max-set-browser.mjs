@@ -11,7 +11,7 @@
  *
  * Run: node test/max-set-browser.mjs   (REPFORGE_URL points at a static server)
  */
-import { launchChromium, openShelfField } from "./browser.mjs";
+import { chooseRepsLeft, launchChromium, openShelfField } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 import { finishEarly } from "./fixtures/focus-workout.mjs";
 
@@ -76,6 +76,11 @@ const field = (id) => `${SHELF} [data-shelf-field="${FIELD_IDS[id] || id}"]`;
 const inputFor = (id, n) => `${SHELF} .shelf__input[data-k$="_${n}_${FIELD_IDS[id] || id}"]`;
 
 async function typeField(page, id, n, value) {
+  if (id === "rir") {
+    await chooseRepsLeft(page, String(value));
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    return;
+  }
   const input = page.locator(inputFor(id, n));
   for (let tap = 0; tap < 2 && await input.getAttribute("aria-hidden") === "true"; tap++) await openShelfField(page, field(id));
   await input.fill(value);

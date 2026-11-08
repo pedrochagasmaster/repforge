@@ -13,7 +13,7 @@
  * Run: node test/focus-mode.mjs
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
-import { launchChromium, openShelfField } from "./browser.mjs";
+import { chooseRepsLeft, launchChromium, openShelfField } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 import { exerciseAction, finishEarly, openLoggedSets } from "./fixtures/focus-workout.mjs";
 import { loadRoleInventory, requiredBoundaryExceptionRequests } from "../tools/ui-system-core.mjs";
@@ -555,7 +555,7 @@ async function main() {
   assert(kbUp.flag === "up" && kbUp.field && kbUp.field[0] >= kbUp.band[0] && kbUp.field[1] <= kbUp.band[1] + 1,
     "with the keyboard up, the opened load field sits wholly above it before anything is typed (#300)", JSON.stringify(kbUp));
   const kbFields = [];
-  for (const k of ["reps", "rir", "load"]) {
+  for (const k of ["reps", "load"]) {
     const field = page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field='${SHELF_ID[k]}']`);
     if (!(await field.count())) continue;
     // Tapping a field button (not an input) closes the keyboard first, as it does on the phone.
@@ -1616,7 +1616,7 @@ async function main() {
     for (let n = 1; n <= 2; n++) {
       await ad.locator(`#workout .exercise.is-current .focus-shelf .shelf__input[data-metric-id="${WEIGHT}"]`).fill("100");
       await ad.locator(`#workout .exercise.is-current .focus-shelf .shelf__input[data-metric-id="${REPS}"]`).fill("8");
-      await ad.locator(`#workout .exercise.is-current .focus-shelf .shelf__input[data-k="${target.slotId}_${n}_rir"]`).fill("2");
+      await chooseRepsLeft(ad, "2");
       await ad.evaluate(() => window.__repforgeWorkoutDraft.flush());
       await ad.locator(`#workout .exercise.is-current [data-save="${target.slotId}_${n}"]`).click();
       await ad.waitForFunction(({ id, n }) => {

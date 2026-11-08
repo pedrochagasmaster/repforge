@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { seedProgramMeta } from "./fixtures/seed-program.mjs";
 /** Deterministic repro for an accepted workout racing an ordinary Settings persist. */
-import { launchChromium } from "./browser.mjs";
+import { chooseRepsLeft, launchChromium } from "./browser.mjs";
 import {
   clearPersistenceArtifacts,
   inventoryPersistenceArtifacts,
@@ -339,7 +339,7 @@ try {
   await page.evaluate(() => window.__repforgeEnterWorkout({}));
   await page.locator('[data-k="race-press_1_load"]').fill("60");
   await page.locator('[data-k="race-press_1_reps"]').fill("10");
-  await page.locator('[data-k="race-press_1_rir"]').fill("1");
+  await chooseRepsLeft(page, "1");
   const workoutDraftBeforeFault = await flushFieldBearingDraft(page, { load: "60", reps: "10", rir: "1" });
   check(typeof workoutDraftBeforeFault === "string" && workoutDraftBeforeFault.length > 0,
     "same-page race captures the exact field-bearing DraftV2 bytes before fault injection");
@@ -441,7 +441,7 @@ try {
     await page.evaluate(() => window.__repforgeEnterWorkout({}));
     await page.locator('[data-k="race-press_1_load"]').fill("62.5");
     await page.locator('[data-k="race-press_1_reps"]').fill("9");
-    await page.locator('[data-k="race-press_1_rir"]').fill("1");
+    await chooseRepsLeft(page, "1");
     await completeOnlySet(page);
     const crossAccepted = await page.evaluate(() => window.__repforgeSaveWorkout());
     await flushStorage(page);
@@ -484,7 +484,7 @@ try {
   await page.evaluate(() => window.__repforgeEnterWorkout({}));
   await page.locator('[data-k="race-press_1_load"]').fill("65");
   await page.locator('[data-k="race-press_1_reps"]').fill("8");
-  await page.locator('[data-k="race-press_1_rir"]').fill("1");
+  await chooseRepsLeft(page, "1");
   const resetDraftBefore = await flushFieldBearingDraft(page, { load: "65", reps: "8", rir: "1" });
   await page.evaluate((key) => {
     const originalSet = Storage.prototype.setItem;
@@ -544,7 +544,7 @@ try {
   await page.evaluate(() => window.__repforgeEnterWorkout({}));
   await page.locator('[data-k="race-press_1_load"]').fill("67.5");
   await page.locator('[data-k="race-press_1_reps"]').fill("8");
-  await page.locator('[data-k="race-press_1_rir"]').fill("1");
+  await chooseRepsLeft(page, "1");
   await completeOnlySet(page);
   await page.evaluate(
     ({ key }) => {

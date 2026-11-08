@@ -3,7 +3,7 @@
  * Deterministic production-path repros for twelve cross-tab persistence races.
  * Requires the repository root at REPFORGE_URL (default http://localhost:8000/).
  */
-import { launchChromium, openShelfField, waitForAsyncCondition } from "./browser.mjs";
+import { chooseRepsLeft, launchChromium, openShelfField, waitForAsyncCondition } from "./browser.mjs";
 import { SHEET, closeEditorSheet, editorSettled, openExerciseSheet, openInstalledEditor, sheetTap } from "./fixtures/installed-editor.mjs";
 import {
   clearPersistenceArtifacts,
@@ -352,7 +352,7 @@ async function fillSet(page, set, { load, reps, rir }) {
   const keys = setFieldKeys(set);
   await (await shelfInput(page, keys.load, `metric_${WEIGHT_METRIC}`)).fill(String(load));
   await (await shelfInput(page, keys.reps, `metric_${REPS_METRIC}`)).fill(String(reps));
-  await (await shelfInput(page, keys.rir, "rir")).fill(String(rir));
+  await chooseRepsLeft(page, String(rir));
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
 }
 
