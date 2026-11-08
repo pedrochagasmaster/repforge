@@ -612,6 +612,35 @@ async function restoreQuestionDoesNotCrossCandidate(browser) {
   return run.errors;
 }
 
+async function renameDoesNotCrossCandidate(browser) {
+  const run = await fresh(browser);
+  const { page } = run;
+  await answerGenerate(page);
+  await page.waitForSelector("#entryReview [data-review-slot]", { timeout: 15000 });
+  const baseline = await reviewed(page);
+  const [day] = trainingDays(baseline);
+  await holdSetupWrites(page);
+  await openSlot(page, day.slots[1].id);
+  await page.locator("#reviewSheet [data-review-remove]").click();
+  await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 5000 });
+  await page.locator("#entryReview [data-review-title]").click();
+  await page.fill("#reviewRenameInput", "Old candidate name");
+  await page.locator("#reviewSheet [data-review-rename-save]").click();
+  await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 5000 });
+  await page.locator("#onbBack").click();
+  await page.waitForFunction(() => window.__repforgeEntryState()?.step !== "result", undefined, { timeout: 10000 });
+  await page.locator("#onbNext").click();
+  await page.waitForFunction(() => window.__repforgeEntryState()?.step === "result", undefined, { timeout: 15000 });
+  await page.locator("#entryReview [data-review-slot]").first().waitFor({ timeout: 10000 });
+  const rebuiltName = await entry(page).then((value) => value.result.name);
+  await releaseSetupWrites(page);
+  await settleSetupWrites(page);
+  check((await entry(page)).result.name === rebuiltName && rebuiltName !== "Old candidate name",
+    "review: a queued program rename cannot publish into the replacement candidate", await entry(page).then((value) => value.result.name));
+  await run.context.close();
+  return run.errors;
+}
+
 async function discardAfterQueuedUndo(browser) {
   const run = await fresh(browser);
   const { page } = run;
@@ -1754,6 +1783,8 @@ async function main() {
       allErrors.push(await restoreDoesNotCrossCandidate(browser));
     } else if (process.env.N14_ONLY === "F2") {
       allErrors.push(await restoreQuestionDoesNotCrossCandidate(browser));
+    } else if (process.env.N14_ONLY === "F3") {
+      allErrors.push(await renameDoesNotCrossCandidate(browser));
     } else {
     allErrors.push(await recoveredGenerationJourney(browser));
     allErrors.push(await sourceSplitChoicesJourney(browser));
