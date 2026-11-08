@@ -404,6 +404,54 @@ async function reviewGuards(browser) {
   return run.errors;
 }
 
+/** N14: an edit, undo or discard still queued or committing when the review leaves must not publish into the
+ *  candidate the lifter has left. The setup-draft write lock holds the commit for real until the test releases it. */
+async function holdSetupWrites(page) {
+  await page.evaluate(() => new Promise((granted) => {
+    navigator.locks.request("repforge:state-write", () => new Promise((release) => {
+      window.__releaseSetupWrites = release;
+      granted();
+    }));
+  }));
+}
+const releaseSetupWrites = (page) => page.evaluate(() => window.__releaseSetupWrites?.());
+/** Queued review work enqueues its own draft write when it starts, so one flush can miss it: flush twice. */
+const settleSetupWrites = (page) => page.evaluate(async () => {
+  await window.__repforgeStorage.flush();
+  await window.__repforgeStorage.flush();
+});
+
+async function undoAfterLeaving(browser) {
+  const run = await fresh(browser);
+  const { page } = run;
+  await answerGenerate(page);
+  await page.waitForSelector("#entryReview [data-review-slot]", { timeout: 15000 });
+  const session = { page, baseline: await reviewed(page), log: [] };
+  const [dayA] = trainingDays(session.baseline);
+  const [kept, removed] = dayA.slots;
+  await openSlot(page, kept.id);
+  await step(page, session, { kind: "sets", slotId: kept.id, count: kept.prescriptionsByCycle[0].sets.length + 1 },
+    () => page.locator('#reviewSheet [data-review-sets="1"]').click(), "a set added before the held removal");
+  await closeSheet(page);
+  await holdSetupWrites(page);
+  await openSlot(page, removed.id);
+  await page.locator("#reviewSheet [data-review-remove]").click();
+  // The sheet closes before the removal reaches its commit; only then is the commit held.
+  await page.waitForSelector("#reviewSheet", { state: "hidden", timeout: 5000 });
+  // Undo is queued behind the held removal; the lifter then leaves the review.
+  await page.locator("#entryReview [data-review-undo]").click();
+  await page.locator("#onbBack").click();
+  await page.waitForFunction(() => window.__repforgeEntryState()?.step !== "result", undefined, { timeout: 10000 });
+  await releaseSetupWrites(page);
+  await settleSetupWrites(page);
+  const expected = Review.replay(session.baseline, [...session.log, { kind: "remove", slotId: removed.id }], REVIEW_CTX);
+  check(expected.ok && JSON.stringify(await reviewed(page)) === JSON.stringify(expected.definition),
+    "review: an undo queued as the review leaves does not publish; the removal it followed stays");
+  check((await reviewLog(page))?.edits?.length === 2, "review: the edit log keeps the removal the undo never reversed");
+  await run.context.close();
+  return run.errors;
+}
+
 async function minimumBudget(browser) {
   const run = await fresh(browser);
   await answerGenerate(run.page, { days: 2, minutes: 20 });
@@ -1677,6 +1725,7 @@ async function main() {
 
     allErrors.push(await reviewAndAdjust(browser));
     allErrors.push(await reviewGuards(browser));
+    allErrors.push(await undoAfterLeaving(browser));
     allErrors.push(await answerEditorMatchesRecommend(browser));
     allErrors.push(await minimumBudget(browser));
     allErrors.push(await onboardingB(browser));
