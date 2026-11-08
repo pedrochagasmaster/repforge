@@ -45,6 +45,7 @@ No property scrapes `app.js`.
 | `identity.mjs` | Exact raw exercise UUIDs, source metric order, and compiler-approved custom definitions survive v4; unknown IDs and retired short aliases never resolve. |
 | `malformed-inputs.mjs` | v4 decode is total over hostile input, over-limit envelopes fail early, and unsupported v1/v2/v3 inputs preserve their exact source string. |
 | `progression-metrics.mjs` | The current metric recommendation API is deterministic and pure over source metric compositions, preserves actual value records, and never invents load/repetition targets for time/distance movements. |
+| `workout-draft-store.mjs` | Acknowledged and uncertain DraftV2 aggregates survive generated saves, stale saves, removals, fault/quota injection and boot reconciliation without loss or invention. |
 | `program-compiler.mjs` | The actual compiler replays seeded requests against the raw UUID catalog, validates every result, preserves exact source metrics and null coefficients, and returns typed failures for arbitrary JSON. |
 
 The setup arbitraries create small complete seven-day ProgramDefinitions so
@@ -62,3 +63,41 @@ schemas do not stay merely because they once had a property.
 
 `model/canonicalize.mjs` remains independent of `shared-setup.js`, so equality
 checks do not trust the implementation under test to define its own oracle.
+
+## DraftV2 store search
+
+`workout-draft-store.mjs` drives the shipped `DraftStore.compareAndSwapV2`,
+`removeV2` and `reconcileV2Checkpoint` interfaces with Map-backed localStorage
+and sequential Web Locks callbacks. It exercises the draft store only, not
+state journals, cross-tab scheduling or the browser's storage implementation.
+Draft creation, edits, serialization and parsing use `workout-draft.js`.
+The harness supplies the store's hidden `workoutDraftFault` global and restores
+its globals after each journey.
+
+The independent model tracks the last acknowledged aggregate and proposals
+with uncertain outcomes. Generated journeys contain 1–40 weighted save,
+stale-save, removal, fault, quota and reboot actions, followed by a final
+reconciliation. Every action checks canonical validity and checkpoint validity;
+stale saves must preserve exact bytes. Reconciliation may recover only an
+acknowledged or pending aggregate. Failed boot repair keeps its uncertain
+proposals until a later successful repair.
+
+Quota faults can skip one matching write before firing. This reaches canonical
+publication and final checkpoint writes: the canonical key is also the prefix
+of the checkpoint key, so failing its first prefix match would only exercise
+the pending checkpoint. Fixed journeys in `test/generative/self-test.mjs`
+prove each injection fires, including both sides of canonical removal, and
+negative controls prove the oracle rejects lost publication, accepted stale
+writers, reboot loss and phantom drafts. These contracts run in the existing
+registered generative self-test command; generated search runs in the existing
+CI generative lane.
+
+```bash
+node test/generative/run.mjs --profile ci --filter "draft store" --seed 612009
+node test/generative/run.mjs --profile deep --filter "draft store" --seed 612009
+node --test test/generative/self-test.mjs
+```
+
+New production counterexamples belong in an issue with their shrunk sequence,
+seed and path, plus an explicitly skipped regression naming that issue. This
+slice never changes production code to make a counterexample pass.
