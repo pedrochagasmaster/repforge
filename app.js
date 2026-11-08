@@ -7612,7 +7612,7 @@ function updateSessionBanner(){
 function draftHasLoggedWork(){try{return draftHasSessionWork(JSON.parse(DraftStore.readRaw()||"{}"),{ignoreDay:true})}catch{return false}}
 function draftHasProgress(){try{const d=JSON.parse(DraftStore.readRaw()||"{}");
   return draftHasSessionWork(d)||!!contextFlagsFromDraft(d).day}catch{return false}}
-function setWorkoutActive(on){const was=workoutActive;workoutActive=!!on;if(!on)cancelWorkoutEntry();
+function setWorkoutActive(on){const was=workoutActive;workoutActive=!!on;if(was&&!on)cancelWorkoutEntry();
   const dash=$("#todayDash"),shell=$("#workoutShell");
   // N5: Today to Focus is the same push as a drill-down, and Back from Focus is it
   // run the other way. Finishing a session clears the draft first, so the card has
