@@ -822,7 +822,38 @@ async function revisionF22(browser) {
   return run.errors;
 }
 
-const lifetimeCases = { F22: revisionF22, F20: revisionF20, F19: revisionF19, F21: revisionF21, F1: restoreDoesNotCrossCandidate, F2: restoreQuestionDoesNotCrossCandidate,
+async function backNextAsksBeforeDiscard(browser) {
+  const run = await fresh(browser, { fakeWorker: true }), { page } = run;
+  await answerGenerate(page);
+  await page.locator("#entryReview [data-review-slot]").first().waitFor();
+  const baseline = await reviewed(page), a = trainingDays(baseline)[0].slots[0];
+  await openSlot(page, a.id);
+  await page.locator('#reviewSheet [data-review-sets="1"]').click();
+  await page.waitForFunction(() => !document.querySelector("#entryReview[aria-busy]"));
+  await closeSheet(page);
+  const edited = await reviewed(page), log = await reviewLog(page);
+  await page.click("#onbBack");
+  const previous = (await entry(page)).step;
+  await page.click("#onbNext");
+  const asked = await page.locator("#reviewConfirmGo").waitFor({ timeout: 3000 }).then(() => true, () => false);
+  check(asked && (await entry(page)).step === previous,
+    "#679: Back then Next asks before discarding landed edits");
+  if (asked) {
+    await page.keyboard.press("Escape");
+    check(JSON.stringify(await reviewed(page)) === JSON.stringify(edited) &&
+      JSON.stringify(await reviewLog(page)) === JSON.stringify(log), "#679: Keep preserves the saved edit and its log");
+    await page.click("#onbNext");
+    await page.click("#reviewConfirmGo");
+    await page.waitForFunction(() => window.__repforgeEntryState().step === "result");
+    await page.locator("#entryReview [data-review-slot]").first().waitFor();
+    check(JSON.stringify(await reviewed(page)) === JSON.stringify(baseline) && !await reviewLog(page),
+      "#679: confirming rebuild replaces the edits and clears their log");
+  }
+  await run.context.close();
+  return run.errors;
+}
+
+const lifetimeCases = { X679: backNextAsksBeforeDiscard, F22: revisionF22, F20: revisionF20, F19: revisionF19, F21: revisionF21, F1: restoreDoesNotCrossCandidate, F2: restoreQuestionDoesNotCrossCandidate,
   F3: renameDoesNotCrossCandidate, F4: sameCandidateEditsAcrossRemount, F5: undoAfterLeaving,
   F6: sameCandidateCommitRepaintsRemount, F7: revisionF7, F8: revisionF8, F9: revisionF9,
   F10: revisionF10, F11: revisionF11, F12: revisionF12, F13: revisionF13, F14: revisionF14,
