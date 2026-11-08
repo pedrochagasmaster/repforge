@@ -728,6 +728,48 @@ export async function runCountFormChecks(page, check = assert) {
  * under its session's head, every set present with its figures, nothing wider than the column, no word or date broken
  * into pieces, and no row absurdly tall.
  */
+/**
+ * A History session page is a pushed page: it holds one browser history entry, so the browser's Back (Android back,
+ * Safari's back button) closes it to the list instead of leaving the app.
+ */
+async function runSessionPageBackChecks(browser) {
+  console.log("\nHistory session page holds a Back entry");
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block" });
+  try {
+    const page = await context.newPage();
+    await page.goto(BASE, { waitUntil: "domcontentloaded" });
+    await clearState(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
+    const state = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) || "null"), KEY);
+    const day1 = state.program.find((e) => e.day === "Day 1") || state.program[0];
+    await persistState(page, { ...state, log: [metricLogRow(state.programMeta, day1, { session: "back-a", date: "2026-03-03", set: 1, load: 80, reps: 8, rir: 1 })] });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await page.evaluate(() => document.querySelector('nav button[data-view="history"]')?.click());
+    await page.waitForSelector("#history.view.active #sessions .session__open", { timeout: 5000 });
+    await page.locator("#sessions .session__open").first().click();
+    await page.waitForSelector("#history.is-session-page", { timeout: 5000 });
+    await page.waitForFunction(() => !document.body.classList.contains("is-pushing"), undefined, { timeout: 5000 });
+    const entry = await page.evaluate(() => history.state?.tauriferRoute?.view ?? null);
+    assert(entry === "history", "opening a session pushes its history entry", `state=${entry}`);
+    if (entry === "history") {
+      await page.goBack({ waitUntil: "domcontentloaded" });
+      await page.waitForFunction(() => !document.querySelector("#history")?.classList.contains("is-session-page"), undefined, { timeout: 5000 }).catch(() => {});
+      const after = await page.evaluate(() => ({
+        session: document.querySelector("#history")?.classList.contains("is-session-page") ?? null,
+        list: !!document.querySelector("#sessions .session__open"),
+      }));
+      assert(after.session === false && after.list, "browser Back closes the session page to the list", JSON.stringify(after));
+    } else {
+      assert(false, "browser Back closes the session page to the list", "no history entry to go back to");
+    }
+  } finally {
+    await context.close();
+  }
+}
+
 async function runEverySetChecks(browser) {
   console.log("\nEvery set on a phone (#524)");
   const rows = [
@@ -830,6 +872,7 @@ async function main() {
 
     await context.close();
     await runHistoryHeadAtLargeText(browser);
+    await runSessionPageBackChecks(browser);
     await runEverySetChecks(browser);
   } finally {
     await browser.close();

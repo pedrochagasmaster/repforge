@@ -1176,6 +1176,14 @@ function syncEdgeSwipe(){
   routeEdge={page,dispose(){registration.dispose();watch.disconnect();unmount()}}}
 function scheduleEdgeSwipeSync(){
   if(!routeEdgeFrame)routeEdgeFrame=requestAnimationFrame(syncEdgeSwipe)}
+function scheduleBodyRouteHistorySync(records){
+  // Library, preview and exercise are body routes. Their Back entry must exist
+  // before the next frame, while nested page mutations can settle on the frame.
+  if(records.some(record=>{
+    const before=new Set((record.oldValue||"").split(/\s+/));
+    const after=new Set(document.body.className.split(/\s+/));
+    return ["is-library","is-preview","is-exercise"].some(name=>before.has(name)!==after.has(name))}))syncRouteHistory();
+  scheduleEdgeSwipeSync()}
 /* ---- Browser history for pushed pages (ADR 0023, Plan 075 phase 3) ----
    Each pushed page on screen holds one history entry, so Safari's back button,
    its edge swipe in a tab and Android's back pop it exactly as its Back control
@@ -1248,7 +1256,7 @@ function watchRouteSurfaces(){
   const main=$("main"),history=$("#history");
   if(main)new MutationObserver(scheduleEdgeSwipeSync).observe(main,{attributes:true,attributeFilter:["class"],subtree:true});
   // The library, preview and exercise routes are body classes.
-  new MutationObserver(scheduleEdgeSwipeSync).observe(document.body,{attributes:true,attributeFilter:["class"]});
+  new MutationObserver(scheduleBodyRouteHistorySync).observe(document.body,{attributes:true,attributeFilter:["class"],attributeOldValue:true});
   // A reload starts with no page pushed, so an entry left by the last session is no longer one.
   try{const st=history.state;if(st&&typeof st==="object"&&st[ROUTE_HISTORY_KEY]){const{[ROUTE_HISTORY_KEY]:_,...rest}=st;history.replaceState(rest,"",location.href)}}catch{}
   if(history){
