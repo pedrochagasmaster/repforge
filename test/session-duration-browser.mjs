@@ -246,12 +246,18 @@ async function main() {
     await installSeedProgram(source, { waitFor: () => waitForAppBoot(source, { base: BASE }) });
     await enterWorkout(source);
     await saveFirstSet(source);
-    await source.evaluate(async () => {
-      const api = window.__repforgeWorkoutDraft;
-      await api.dispatch("markDiscomfort", {exerciseInstanceId:"seed-ex-1",kind:"discomfort"});
-      await api.dispatch("skipExercise", {exerciseInstanceId:"seed-ex-2",reason:"time"});
-      await api.flush();
-    });
+    await selectExercise(source, SEED_A);
+    await source.locator("#woOverflowBtn").click();
+    await source.locator('[data-workout-action="exercise"]').click();
+    check(await source.locator("#exActionDiscomfortBtn").count()===1,"exercise actions offer a discomfort mark");
+    await source.locator("#exActionDiscomfortBtn").click();
+    await source.waitForFunction(()=>window.__repforgeWorkoutDraft.current()?.exercises?.["seed-ex-1"]?.discomfort?.kind==="discomfort");
+    await selectExercise(source, "seed-ex-2");
+    await source.locator("#woOverflowBtn").click();
+    await source.locator('[data-workout-action="exercise"]').click();
+    await source.locator("#exActionSkipBtn").click();
+    await source.locator('[data-skip-reason="time"]').click();
+    await source.waitForFunction(()=>window.__repforgeWorkoutDraft.current()?.exercises?.["seed-ex-2"]?.skipReason==="time");
     await source.clock.setFixedTime(new Date(FINISHED));
     const finished = await finishEarly(source);
     let state = await durable(source);

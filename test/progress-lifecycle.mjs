@@ -79,6 +79,7 @@ if (BROWSER) {
   const { launchChromium, waitForAppBoot } = await import("./browser.mjs");
   const base = process.env.REPFORGE_URL || "http://localhost:8000/";
   const browser = await launchChromium();
+  await (await import("./week-review-browser.mjs")).runWeekReviewBrowser(browser);
   const errors = [];
   const DAY = 86400000;
   const START = Date.parse("2026-03-02T09:00:00.000Z");
