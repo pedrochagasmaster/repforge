@@ -587,7 +587,9 @@ async function historyBeginDelete(sid){
   historySetSelection({mode:"deleting",sessionId:String(sid),originalFingerprint:selected||historySessionFingerprint(rows),
     desiredFingerprint:null,workingCopy:null,removedRowIndices:[],dirty:false,validation:null,
     operation:"delete",operationId:uid()});
-  renderHistory();historyFocus($("[data-history-delete-status]"));return true}
+  renderHistory();
+  try{root.scrollTo?.(0,0)}catch{}
+  historyFocus($("[data-history-delete-status]"));return true}
 /** A deleted session takes its recorded duration with it (#515). */
 function withoutSessionTiming(snapshot,sid){
   if(!snapshot.sessionTiming||!Object.prototype.hasOwnProperty.call(snapshot.sessionTiming,String(sid)))return;
