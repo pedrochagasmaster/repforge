@@ -277,6 +277,7 @@ export const FULL_SUITES = {
     s("test/today-sticky-start.mjs", [], { seconds: 19 }),
     s("test/today-live-card.mjs", [], { domains: ["today", "workout"], seconds: 20 }),
     s("test/minibar.mjs", [], { domains: ["today", "workout", "shell"], seconds: 25 }),
+    s("test/rest-record.mjs", [], { domains: ["workout", "persistence"], seconds: 27 }),
     s("test/rest-timer.mjs", [], { domains: ["workout"], seconds: 25 }),
     s("test/shell-chrome-clearance.mjs", [], { domains: ["shell", "today", "progress", "history", "program"], seconds: 83 }),
     s("test/focus-mode.mjs", [], { domains: ["workout"], seconds: 76 }),
