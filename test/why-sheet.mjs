@@ -33,7 +33,7 @@ import { chooseRepsLeft, launchChromium, openShelfField, waitForAppBoot } from "
 import { seed as seedHistory } from "../tools/ui-screens/session.mjs";
 import { installGeneratedProgram, definitionSlot, isWeightRepsSlot, metricLogRow } from "./fixtures/history-metric-rows.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
-import { openActions, exerciseAction, finishEarly } from "./fixtures/focus-workout.mjs";
+import { openActions, exerciseAction, finishEarly as finishRampSession } from "./fixtures/focus-workout.mjs";
 import { openCatalogState } from "./fixtures/catalog-state.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -814,7 +814,7 @@ try {
   await swapPage.locator("#exActionDiscomfortBtn").click();
   assert(!await swapPage.locator("#exPickSheet").isVisible(), "B1: first discomfort records pain without a picker");
   await swapPage.locator("#exActionsClose").click();
-  await finishEarly(swapPage);
+  await finishRampSession(swapPage);
   await swapPage.locator("#sumDone").click();
   await swapPage.evaluate(() => window.__repforgeStorage.flush());
   await swapPage.reload();
