@@ -23524,11 +23524,11 @@ function landingDemoHtml(add){
   const status=t(left===1?"maxset.status_wait_one":"maxset.status_wait",{n:left});
   const rule=`<p class="maxset__rule">${esc(t("maxset.fail_rule"))}</p><p class="maxset__safety">${esc(t("maxset.safety"))}</p>`+
     `<p class="maxset__safety">${esc(t("maxset.press_line"))}</p>`;
-  const testLedger=(finished=false)=>`<div class="fcard__ledger">${head}`+
+  const testLedger=(finished=false,armed=true)=>`<div class="fcard__ledger">${head}`+
     c.logged.slice(0,-1).map(values=>line(check,values.map(landingNum),false,"","")).join("")+
-    line(finished?check:c.sets,[landingNum(test[0]),landingNum(finished?test[1]:guess),landingNum(test[2])],!finished,"",
-      `<small class="ledgerline__tag">${esc(t("maxset.tag",{n:landingNum(guess)}))}</small>`)+`</div>`;
-  const testScenes=`<div class="firstrun-demo__test-backdrop"></div><div class="firstrun-demo__test-tip firstrun-demo__test-scene">${testLedger()}<section class="resttip">`+
+    line(finished?check:c.sets,[landingNum(test[0]),landingNum(finished?test[1]:armed?guess:before[1]),landingNum(armed?test[2]:before[2])],!finished,"",
+      armed?`<small class="ledgerline__tag">${esc(t("maxset.tag",{n:landingNum(guess)}))}</small>`:"")+`</div>`;
+  const testScenes=`<div class="firstrun-demo__test-backdrop"></div><div class="firstrun-demo__test-tip firstrun-demo__test-scene">${testLedger(false,false)}<section class="resttip">`+
     `<p class="resttip__text"><b>${esc(t("maxset.invite_title"))}</b> ${esc(t("maxset.invite_body",{load:landingKg(test[0])}))}</p>`+
     `<div class="resttip__acts">${button("resttip__no",esc(t("maxset.not_now")))}${button("resttip__yes",esc(t("maxset.make_guess")))}</div></section></div>`+
     `<div class="firstrun-demo__test-guess firstrun-demo__test-scene"><div class="sheetband"><span class="sheetband__handle"></span>`+

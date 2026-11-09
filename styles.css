@@ -6095,7 +6095,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-demo__test-tip,.firstrun-demo__test-cue,.firstrun-demo__test-result{background:var(--bg);border-radius:var(--radius-none)}
 .firstrun-demo__test-backdrop{position:absolute;z-index:3;inset:80px 0 0;background:var(--bg);opacity:0}
 .firstrun-demo__test-tip .resttip{position:relative;inset:auto;margin:var(--space-16) 0 0}
-.firstrun-demo__test-guess{padding:0;overflow:hidden}
+.firstrun-demo__test-guess{bottom:0;padding:0 0 34px;overflow:hidden;border-radius:var(--radius-prominent) var(--radius-prominent) var(--radius-none) var(--radius-none)}
 .firstrun-demo__test-cue .fx-cue{margin:0}
 .firstrun-demo__test-cue .fcard__ledger{margin-top:var(--space-16)}
 
