@@ -9925,8 +9925,8 @@ function toggleFocusLedger(button){
 /** The line under the exercise name: sets and reps, the effort window, and the
  *  name of the strategy that sets the target. Read off the program's own
  *  envelope; a slot with none is the range it always was. */
-/** An effort window of one value reads as that value: "RIR 1", never "RIR 1–1". */
-const singleRir=line=>String(line).replace(/RIR (\S+)–\1(?![\d.,])/,"RIR $1");
+/** An effort window of one value reads as that value: "1 left", never "1–1 left". */
+const singleRir=line=>String(line).replace(/(· )(\d+(?:[.,]\d+)?)–\2(?= (?:left|reps sobrando))/g,"$1$2");
 function focusExMeta(ex){
   if(ex?.hasRepTarget===false)return programPrescriptionSummary(ex);
   // A canonical slot is adaptive or manual; its RIR comes from its own sets.
@@ -13577,12 +13577,12 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
     const cmp=exRef?compareExerciseSession(exRef,s.rows):null;
     const note=s.note?`<p class="exsess__note">${esc(s.note)}</p>`:"";
     return `<div class="exsess"><div class="exsess__head"><span class="exsess__date">${esc(shortDate(s.date))}</span>`+
-      (best?`<span class="exsess__set">${fmtLoad(best.load)} × ${best.reps}</span><span class="exsess__day">RIR ${fmt(best.rir)}</span>`:"")+
+      (best?`<span class="exsess__set">${fmtLoad(best.load)} × ${best.reps}</span><span class="exsess__day">${esc(t("stats.table.rir"))} ${fmt(best.rir)}</span>`:"")+
       (cmp&&cmp.status!=="not_comparable"?`<span class="exsess__delta">${esc(cmp.label)}</span>`:"")+`</div>${note}</div>`}).join("")
     :`<div class="empty">${esc(t("exercise.empty.no_sets"))}</div>`;
 
   el.innerHTML=`<p class="exdet__muscle">${esc(muscleListLabel(tmpl?.primary||""))}</p><h2 class="exdet__name">${esc(name)}</h2>`+
-    `<p class="exdet__meta">${tmpl?`${esc(dayLabel(tmpl.day))} · ${esc(tmpl.hasRepTarget===false?programPrescriptionSummary(tmpl):`${tmpl.sets} × ${tmpl.min}–${tmpl.max} ${t("log.reps")}`)}${tmpl.hasRepTarget===false?"":` · RIR 0–${fmt(state.settings.rirHigh)}`}`:esc(t("exercise.not_in_program"))}</p>`+
+    `<p class="exdet__meta">${tmpl?`${esc(dayLabel(tmpl.day))} · ${esc(tmpl.hasRepTarget===false?programPrescriptionSummary(tmpl):`${tmpl.sets} × ${tmpl.min}–${tmpl.max} ${t("log.reps")}`)}${tmpl.hasRepTarget===false?"":` · ${esc(t("stats.table.rir"))} 0–${fmt(state.settings.rirHigh)}`}`:esc(t("exercise.not_in_program"))}</p>`+
     artHtml+
     recHtml+
     `<div class="exdet__stats-wrap"><div class="statrow statrow--4 exdet__stats">${tiles.map(tile=>`<div class="statrow__cell"><div class="statrow__val">${tile.val}</div><div class="statrow__cap">${tile.label}</div></div>`).join("")}</div></div>`+

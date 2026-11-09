@@ -356,7 +356,7 @@ async function main() {
       "focus.shelf.pad_rir", "today.target", "stats.table.rir", "stats.outcome_short.missing_effort",
       "validation.rir", "exercise.understand", "settings.rir_logging"].includes(key));
   for (const lang of ["en", "pt"]) {
-    const technicalLabels = workingEffortKeys.filter(key => /\bRIR\b/i.test(runtime[lang][key]));
+    const technicalLabels = workingEffortKeys.filter(key => /\bRIR\b/i.test(runtime[lang][key].replace(/\{\w+\}/g, "")));
     assert(!technicalLabels.length, `${lang.toUpperCase()} working effort copy uses reps left`, technicalLabels.join(", "));
     assert((runtime[lang]["glossary.RIR"].match(/\bRIR\b/g) || []).length === 1 &&
       runtime[lang]["glossary.RIR"].includes(lang === "pt" ? "reps sobrando" : "reps left"),
