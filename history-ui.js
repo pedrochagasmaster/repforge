@@ -670,8 +670,8 @@ function historyReadingView(s,rows){
     const metricRows=isSourceMetricRow(g.rows[0]),records=metricRows?historyMetricRecords(g.rows[0])||[]:[];
     const showRir=metricRows?(historyHasStrengthMetrics(g.rows[0])||historyHasRir(g.rows)):true;
     const count=metricRows?records.length+(showRir?1:0):3;
-    const headers=metricRows?historyMetricHeader(records)+(showRir?`<span class="fx-col">${esc(t("glossary.term.RIR"))}</span>`:""):
-      `<span class="fx-col">${esc(unitLabel())}</span><span class="fx-col">${esc(t("log.reps"))}</span><span class="fx-col">${esc(t("glossary.term.RIR"))}</span>`;
+    const headers=metricRows?historyMetricHeader(records)+(showRir?`<span class="fx-col">${esc(t("stats.table.rir"))}</span>`:""):
+      `<span class="fx-col">${esc(unitLabel())}</span><span class="fx-col">${esc(t("log.reps"))}</span><span class="fx-col">${esc(t("stats.table.rir"))}</span>`;
     const setRows=g.rows.map(row=>{
       const cells=metricRows?(historyMetricRecords(row)||[]).map(record=>historyMetricCell(row,record)).join("")+
         (showRir?`<span class="fx-col">${row.rir==null||row.rir===""?"–":esc(fmt(row.rir))}</span>`:""):
@@ -1024,8 +1024,8 @@ function sessionEditor(s,sets){
     const first=g.rows[0].r,name=shownName(first),metricRows=isSourceMetricRow(first),records=metricRows?historyMetricRecords(first)||[]:[],
       showRir=metricRows?(historyHasStrengthMetrics(first)||historyHasRir(g.rows.map(item=>item.r))):true,count=metricRows?records.length+(showRir?1:0):3,
       exerciseId=first.performedLibraryId||first.performedMovementId||first.exerciseId||g.key,
-      headerValues=metricRows?historyMetricHeader(records)+(showRir?`<span class="fx-col">${esc(t("glossary.term.RIR"))}</span>`:""):
-        `<span class="fx-col">${esc(unitLabel())}</span><span class="fx-col">${esc(t("log.reps"))}</span><span class="fx-col">${esc(t("glossary.term.RIR"))}</span>`,
+      headerValues=metricRows?historyMetricHeader(records)+(showRir?`<span class="fx-col">${esc(t("stats.table.rir"))}</span>`:""):
+        `<span class="fx-col">${esc(unitLabel())}</span><span class="fx-col">${esc(t("log.reps"))}</span><span class="fx-col">${esc(t("stats.table.rir"))}</span>`,
       header=`<div class="ledgerline__head histedit__cols"><span>${esc(t("log.set"))}</span>`+
         `<span class="ledgerline__vals edrow__vals${metricRows?" history-metric-grid":""}"${metricRows?` style="--history-metric-count:${count}"`:""}>${headerValues}</span><span></span></div>`;
     const rows=g.rows.map(({r,i})=>{
@@ -1037,10 +1037,10 @@ function sessionEditor(s,sets){
           const metric=record.definition,metricLabel=historyMetricLabel(metric),unit=historyMetricUnit(metric),numeric=metric.semantic==="reps"||metric.semantic==="repsPerSide",
             value=historyMetricText(record.value,metric),fieldLabel=`${aria} ${esc(metricLabel)}${unit?` (${esc(unit)})`:""}`;
           return`<input class="edrow__in" data-ek="metric|${i}|${esc(metric.id)}" type="text" inputmode="${numeric?"numeric":"decimal"}" enterkeyhint="next" value="${esc(value)}" aria-label="${fieldLabel}"${disabled}>`}).join("")+
-          (showRir?`<input class="edrow__in" data-ek="rir|${i}" type="text" inputmode="decimal" enterkeyhint="done" value="${r.rir==null?"":esc(fmt(r.rir))}" aria-label="${aria} ${esc(t("glossary.term.RIR"))}"${disabled}>`:"")
+          (showRir?`<input class="edrow__in" data-ek="rir|${i}" type="text" inputmode="decimal" enterkeyhint="done" value="${r.rir==null?"":esc(fmt(r.rir))}" aria-label="${aria} ${esc(t("stats.table.rir"))}"${disabled}>`:"")
       }else fields=`<input class="edrow__in" data-ek="load|${i}" type="text" inputmode="decimal" enterkeyhint="next" value="${esc(fmtLoadPlain(r.load))}" aria-label="${aria} ${unitLabel()}"${disabled}>`+
         `<input class="edrow__in" data-ek="reps|${i}" type="text" inputmode="numeric" enterkeyhint="next" value="${esc(r.reps)}" aria-label="${aria} ${esc(t("log.reps"))}"${disabled}>`+
-        `<input class="edrow__in" data-ek="rir|${i}" type="text" inputmode="decimal" enterkeyhint="done" value="${esc(fmt(r.rir))}" aria-label="${aria} ${esc(t("glossary.term.RIR"))}"${disabled}>`;
+        `<input class="edrow__in" data-ek="rir|${i}" type="text" inputmode="decimal" enterkeyhint="done" value="${esc(fmt(r.rir))}" aria-label="${aria} ${esc(t("stats.table.rir"))}"${disabled}>`;
       return`<div class="ledgerline edrow${isRemoved?" is-removed":""}" data-edidx="${i}"><span class="ledgerline__idx">${esc(mark)}</span>`+
         `<span class="ledgerline__vals edrow__vals${metricRows?" history-metric-grid":""}"${metricRows?` style="--history-metric-count:${count}"`:""}>${fields}</span>`+
         `<button type="button" class="edrow__rm${isRemoved?" is-undo":""}" data-edrm="${i}" aria-label="${esc(label)}" title="${esc(label)}"><span class="edrow__rm-glyph" aria-hidden="true">${isRemoved?EDROW_RM_GLYPH.undo:EDROW_RM_GLYPH.remove}</span></button></div>`}).join("");
