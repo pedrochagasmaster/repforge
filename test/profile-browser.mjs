@@ -12,7 +12,7 @@
  */
 import { launchChromium } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
-import { metricLogRow } from "./fixtures/history-metric-rows.mjs";
+import { metricLogRow, installGeneratedProgram, definitionSlot, isWeightRepsSlot } from "./fixtures/history-metric-rows.mjs";
 import { finishEarly } from "./fixtures/focus-workout.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -156,6 +156,65 @@ try {
   await page.click('[data-view="stats"]');
   assert((await page.locator("#overviewProfile .profile-effort").innerText()).includes("9 of 10"),
     "prefilled effort and the two older sessions do not inflate chosen effort counts");
+
+  phase("Saved ramp-only sessions still occupy the latest-ten window");
+  const rampContext=await browser.newContext({viewport:{width:390,height:844},serviceWorkers:"block"});
+  try {
+    const rampPage=await rampContext.newPage();
+    await rampPage.goto(BASE,{waitUntil:"domcontentloaded"});
+    await rampPage.waitForFunction(()=>window.__repforgeBooted===true);
+    const generated=await installGeneratedProgram(rampPage);
+    generated.settings.rirMode="effort";
+    await rampPage.evaluate(async next=>{
+      const result=await window.__repforgeCommitProposedState(next);
+      if(!result.committed)throw new Error("word-stage fixture proposal refused");
+      await window.__repforgeStorage.flush();
+    },generated);
+    const target=generated.program.find(ex=>isWeightRepsSlot(definitionSlot(generated.programMeta,ex))&&ex.sets>=3);
+    await rampPage.evaluate(id=>window.__repforgeGoToLogExercise(id),target.id);
+    const card="#workout .exercise.is-current";
+    await rampPage.locator(`${card} [data-ramp-start]`).click();
+    await rampPage.locator(`${card} [data-shelf-field="rir"]`).click();
+    await rampPage.locator(`${card} [data-effchip][data-e="easy"]`).click();
+    await rampPage.evaluate(()=>window.__repforgeWorkoutDraft.flush());
+    await rampPage.locator(`${card} .saveset`).click();
+    await rampPage.waitForFunction(()=>{
+      const draft=window.__repforgeWorkoutDraft.current(),ex=draft.exercises[draft.session.selectedExerciseId];
+      return Object.values(ex.sets).some(set=>set.origin==="ramp"&&set.completion!=="pending");
+    });
+    await finishEarly(rampPage);
+    const warm=await rampPage.evaluate(()=>JSON.parse(localStorage.getItem("repforge_v1")).log[0]);
+    assert(warm?.warmup===true&&warm.origin==="ramp"&&!warm.startingLoad,"production early finish saves a ramp-only session");
+    async function installHistory(history){
+      await rampPage.evaluate(async next=>{
+        const result=await window.__repforgeCommitProposedState(next);
+        if(!result.committed)throw new Error("profile regression history proposal refused");
+        await window.__repforgeStorage.flush();
+      },{...generated,log:history});
+      await rampPage.reload({waitUntil:"domcontentloaded"});
+      await rampPage.waitForFunction(()=>window.__repforgeBooted===true);
+      await rampPage.click('nav [data-view="stats"]');
+    }
+    const rampWindow=Array.from({length:12},(_,i)=>{
+      const date=day(12-i),session=`ramp-window-${i}`,created=`${date}T10:00:00.000Z`;
+      return i>=10?{...warm,session,date,created}:metricLogRow(generated.programMeta,target,{session,date,created,set:1,load:40,reps:8,
+        extra:{effortSource:i<2?"prefilled":"effort"}});
+    });
+    await installHistory(rampWindow);
+    for(const [lang,reading] of [["en","8 of 8"],["pt","8 de 8"]]){
+      await rampPage.evaluate(lang=>{I18N.setLang(lang);render();},lang);
+      const text=await rampPage.locator("#overviewProfile .profile-effort").innerText();
+      assert(text.includes(reading),`${lang}: the last ten saved sessions contain eight chosen working sets, not ten`,text);
+    }
+    const sources=["effort","rir","reps_left","reps_left_5plus","effort","rir","prefilled","unsure","prefilled",null];
+    const ordinary=Array.from({length:12},(_,i)=>sources.map((source,set)=>metricLogRow(generated.programMeta,target,{
+      session:`ordinary-${i}`,date:day(12-i),set:set+1,load:40,reps:8,
+      extra:{...(source?{effortSource:i<2?"prefilled":source}:{})}
+    }))).flat();
+    await installHistory(ordinary);
+    const text=await rampPage.locator("#overviewProfile .profile-effort").innerText();
+    assert(text.includes("60 of 90"),"ordinary sessions keep 60/90; prefilled, unsure and source-less rows do not inflate chosen counts",text);
+  } finally {await rampContext.close()}
 
   phase("Was the last rep slow? Only after an exercise's last set");
   await boot(page);
