@@ -1203,5 +1203,34 @@ console.log("\nIssue #320: create() clamps a target RIR that falls back to the l
   assert(!Draft.isDomainError(cleared)&&project(cleared).pain.length===0,"explicit clear retracts the mark");
 }
 
+// Plan 079: insert a warm-up without consuming any programmed working set.
+{
+  let d=fresh();
+  const first=d.exercises["slot-squat"].sets["squat-set-1"];
+  const opening={v:1,openingKg:20,basis:"prior",ramps:1,version:"priors@079.1"};
+  const payload={exerciseInstanceId:"slot-squat",beforeSetId:"squat-set-1",setId:"ramp-1",role:"warmup",origin:"ramp",
+    programmed:first.programmed,edited:{...first.edited,load:"20",reps:"6",rir:"3"},startingLoad:opening};
+  const inserted=command(d,"insertSet",payload).result;
+  assert(!Draft.isDomainError(inserted),"ramp insertion is a supported draft command",JSON.stringify(inserted));
+  if(!Draft.isDomainError(inserted)){
+    d=inserted;
+    assert(same(d.exercises["slot-squat"].setOrder,["ramp-1","squat-set-1","squat-set-2"]),"ramp precedes the first working set");
+    assert(d.exercises["slot-squat"].setOrder.every((id,i)=>d.exercises["slot-squat"].sets[id].ordinal===i+1),"insertion renumbers every ordinal");
+    assert(Draft.validate(d).ok&&Draft.parse(JSON.stringify(d)).exercises["slot-squat"].sets["ramp-1"].origin==="ramp","ramp and opening provenance survive production parse");
+    d=apply(d,"completeSet",{exerciseInstanceId:"slot-squat",setId:"ramp-1",completedAt:"2026-08-15T11:00:00.000Z"});
+    for(let i=2;i<=3;i++)d=apply(d,"insertSet",{...payload,setId:`ramp-${i}`,startingLoad:{...opening,ramps:i}});
+    assert(Draft.isDomainError(command(d,"insertSet",{...payload,setId:"ramp-4"}).result),"a fourth ramp is refused");
+    d=apply(d,"editSetField",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",field:"load",value:"30"});
+    d=apply(d,"editSetField",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",field:"reps",value:"6"});
+    d=apply(d,"completeSet",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",completedAt:"2026-08-15T11:01:00.000Z"});
+    assert(Draft.isDomainError(command(d,"insertSet",{...payload,setId:"late-ramp"}).result),"completed working set prevents mid-exercise insertion");
+    const rows=Draft.toHistoryRows(d,"2026-08-15T11:02:00.000Z");
+    assert(rows[0]?.warmup===true&&!rows[0]?.startingLoad,"ramp saves as an ordinary warm-up without first-working provenance");
+    assert(rows.find(row=>!row.warmup)?.startingLoad?.ramps===3,"only first working row carries the opening and ramp count");
+    const bad=structuredClone(d);bad.exercises["slot-squat"].sets["squat-set-1"].startingLoad.extra=true;
+    assert(!Draft.validate(bad).ok,"opening provenance rejects unknown fields");
+  }
+}
+
 console.log(`\n${results.passed} passed, ${results.failed} failed`);
 if (results.failed) process.exitCode = 1;
