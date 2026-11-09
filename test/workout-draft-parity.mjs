@@ -628,7 +628,7 @@ async function main() {
   if (results.failed) process.exitCode = 1;
 }
 
-main().then(() => import("./session-zero-browser.mjs")).catch((error) => {
+main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });

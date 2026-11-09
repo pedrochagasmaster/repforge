@@ -143,8 +143,8 @@ export const SUITES = {
     s("test/guide-modal.mjs", [], {"domains": ["workout", "progress", "settings", "entry"], "cost": "normal", "tier": "feedback", "seconds": 43}),
     s("test/history-delete-replay.mjs", [], {"domains": ["history"], "cost": "normal", "tier": "feedback", "seconds": 13}),
     s("test/focus-pending-field.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback", "seconds": 67}),
-    s("test/workout-draft-parity.mjs", [], {"domains": ["workout", "history", "persistence"], "cost": "normal", "tier": "feedback", "seconds": 120}),
-    s("test/workout-finish-boundary.mjs", [], {"domains": ["workout"], "cost": "normal", "tier": "feedback", "seconds": 8}),
+    s("test/workout-draft-parity.mjs", [], {"domains": ["workout"], "cost": "normal", "tier": "feedback", "seconds": 53}),
+    s("test/workout-finish-boundary.mjs", [], {"domains": ["workout", "history", "persistence"], "cost": "normal", "tier": "feedback", "seconds": 70}),
     s("test/management-summary.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback", "seconds": 3}),
     s("test/progress-lifecycle.mjs", [], {"domains": ["progress", "today", "workout", "persistence"], "cost": "long", "tier": "candidate", "env": {"REPFORGE_LIFECYCLE_BROWSER": "1"}, "timeoutMs": 900000, "seconds": 23}),
     s("test/progress-recovery.mjs", [], {"domains": ["progress"], "cost": "long", "tier": "candidate", "timeoutMs": 900000, "seconds": 7}),
@@ -310,7 +310,7 @@ export const FULL_SUITES = {
 };
 
 export const SUPPORT = {
-  "test/session-zero-browser.mjs": "Session-zero browser journeys executed by workout-draft-parity.mjs in the PR lane.",
+  "test/session-zero-browser.mjs": "Session-zero browser journeys executed by workout-finish-boundary.mjs in the PR lane.",
   "test/week-review-browser.mjs": "Plan 082 weekly facts journeys executed by test/progress-lifecycle.mjs in the PR lane.",
   "test/week-review.mjs": "Plan 082 weekly-facts assertions executed by test/progress-model.mjs in the PR lane.",
   "test/engine-standing.mjs": "Standing and frozen selection proofs executed by progression-engine-plan067.mjs in the PR lane.",

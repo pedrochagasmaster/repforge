@@ -1,4 +1,4 @@
-/** Session-zero journeys, composed into the existing draft-parity PR command. */
+/** Session-zero journeys, composed into the existing finish-boundary PR command. */
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import { launchChromium, waitForAppBoot, openShelfField, chooseRepsLeft } from "./browser.mjs";
