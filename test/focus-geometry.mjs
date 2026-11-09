@@ -192,6 +192,7 @@ async function checkStandingLedger(browser) {
   const failures = [];
   for (const width of [320, 390]) for (const lang of ["en", "pt"]) {
     const text = width === 320 ? "normal" : "text200";
+    // Match the registered 320px frame. The established inset checks above remain unchanged; 390px keeps them too.
     const opened = await openCatalogState(browser, "workout/focus", width, lang, text,
       width === 320 ? { safe: { top: 0, bottom: 0 } } : {});
     try {

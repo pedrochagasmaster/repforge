@@ -1204,6 +1204,14 @@ body:has(.exercise--focus.is-text-scaled) .wo-head__title{font-size:min(var(--fo
 .exercise--focus.is-hero-compact .fx-cue__l2{margin-top:0;font-size:min(var(--font-size-subtitle),var(--large-cap-subtitle))}
 .exercise--focus.is-hero-compact .fx-cue__evidence{margin-top:var(--space-4);font-size:min(var(--font-size-body-small),var(--large-cap-body))}
 .exercise--focus.is-hero-compact .fcard__ledger{margin-top:0}
+/* The standing line uses the compact hero's whitespace before it takes room from the open row. Numeric column
+   labels have no control; a glossary term keeps its full target. Enlarged text retains its own fitting path. */
+.exercise--focus.is-hero-compact:not(.is-text-scaled):has(.fx-cue__standing) .fcard__context{padding-top:0}
+.exercise--focus.is-hero-compact:not(.is-text-scaled):has(.fx-cue__standing) .fx-head{margin-bottom:var(--space-12)}
+.exercise--focus.is-hero-compact:not(.is-text-scaled):has(.fx-cue__standing) .fx-cue{margin:0}
+.exercise--focus.is-hero-compact:not(.is-text-scaled):has(.fx-cue__standing) .fx-cue__standing,
+.exercise--focus.is-hero-compact:not(.is-text-scaled):has(.fx-cue__standing) .fx-cue__evidence{margin-top:0}
+.exercise--focus.is-hero-compact:not(.is-text-scaled):has(.fx-cue__standing) .ledgerline__head:not(:has(.term)){min-height:1lh}
 /* The column heads give way only to the disclosure: while it folds rows it takes their place, and at the first set,
    with nothing to fold, the heads (RIR's is the glossary's way in from Focus) stay. */
 .exercise--focus.is-hero-compact .fcard__ledger:has(.ledger__more:not([hidden])) .ledgerline__head{display:none}

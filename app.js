@@ -9711,7 +9711,12 @@ function focusEvidenceText(ex,n,r,cue){
     {reps:plain(facts.reps),rir:plain(fmt(facts.rir)),effort:esc(effortLabel(effortForRir(facts.rir)))}));
   return parts.join(" ")}
 function targetStanding(rec,n=1){
-  return rec.targetSets?.find(item=>item.prescription.setIndex===n)?.result?.standing||rec.standing}
+  const result=rec.targetSets?.find(item=>item.prescription.setIndex===n)?.result;
+  const standing=result?.standing||rec.standing;
+  // A manual or unconfigured prescription can lack an anchor for reasons unrelated to the lift's history.
+  if(standing?.word==="first"&&standing.reasons.includes("no_history")&&
+    !(result?.reasonCodes||rec.reasonCodes||[]).includes("no_comparable_history"))return null;
+  return standing}
 function standingWord(standing){
   if(!standing)return "";
   return t(standing.word==="first"?(standing.reasons.includes("live_only")?"standing.first_load":"standing.first")
@@ -24805,17 +24810,17 @@ function whySheetModel(ex,surface="focus"){
     decision:head.inSession&&rec.label?t("why.decision_before",{label:rec.label}):rec.label,glyph,blocks:[],calc:[],evidence:""};
   const placed=new Set(),take=k=>{const r=pick(k);if(r)placed.add(r);return r};
   const block=(leadKey,lead,text,label)=>model.blocks.push({leadKey,lead,text,...(label?{label}:{})});
-  if(rec.status==="manual"){block("manual","",t("why.manual"));addStandingBlock(model,rec.standing);return model}
+  if(rec.status==="manual"){block("manual","",t("why.manual"));addStandingBlock(model,targetStanding(rec));return model}
   if(rec.status==="configuration_required"&&rec.reasonCodes?.includes("execution_context_required")){
     block("setup","",t("why.setup.execution_mode"));
-    addStandingBlock(model,rec.standing);return model}
+    addStandingBlock(model,targetStanding(rec));return model}
   if(rec.status==="configuration_required"&&rec.reasonCodes?.includes("per_side_convention_required")){
     const slotId=String(ex?.slotId||ex?.id||"");
     const slot=(state.programMeta?.programDefinition?.days||[]).flatMap(day=>day.slots||[]).find(item=>item?.id===slotId);
     const mode=slot?.executionMode;
     if(mode==="bilateral"||mode==="unilateral")
       block("setup","",t("why.setup.per_side",{mode:t(`why.setup.mode.${mode}`)}));
-    addStandingBlock(model,rec.standing);return model}
+    addStandingBlock(model,targetStanding(rec));return model}
   if(Array.isArray(rec.targetSets))return engineWhyModel(ex,rec,model,head);
   const draft=loadDraft(),prev=last(ex).filter(x=>+x.load>0),performed=whyPerformedText(prev,u);
   const calc=model.calc,setRows=sets=>sets.forEach((x,i)=>calc.push({k:t("why.calc.set",{n:i+1}),v:`${fmtLoad(x.load)} × ${x.reps}`,rir:effortOrRirLabel(x.rir)}));
