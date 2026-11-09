@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 255 screens,
-1503 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 257 screens,
+1519 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -287,6 +287,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Progress — recovery preview](screens/progress/recovery-preview__phone-390-light-en.png) | 8 | The policy-versioned week-one prescription diff before confirmation. |
 | [Progress — active recovery week](screens/progress/recovery-active__phone-390-light-en.png) | 8 | The confirmed recovery overlay is visible during week one. |
 | [Progress — recovery reassessment](screens/progress/recovery-reassessment__phone-390-light-en.png) | 8 | Canonical week two asks Better, About the same, or Worse. |
+| [Review with a proposed change](screens/progress/review-proposal__phone-390-light-en.png) | 8 | Recurring skips, an equipment cause and an alternate, with four explicit actions. |
+| [Review of an accepted change](screens/progress/review-evaluated__phone-390-light-en.png) | 8 | An accepted removal and the following week’s observed outcome. |
 
 ### History
 
