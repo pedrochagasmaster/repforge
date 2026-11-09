@@ -169886,7 +169886,7 @@
         },
         {
           "tag": "p",
-          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Nothing changes until an exercise has 3 test sets. Then the weight moves at most 1 step up or 2 down."
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
         },
         {
           "tag": "p",
@@ -170257,7 +170257,7 @@
         },
         {
           "tag": "p",
-          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down."
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
         },
         {
           "tag": "summary",
@@ -170499,7 +170499,7 @@
         },
         {
           "tag": "p",
-          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Nothing changes until an exercise has 3 test sets. Then the weight moves at most 1 step up or 2 down."
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
         },
         {
           "tag": "p",
@@ -170870,7 +170870,7 @@
         },
         {
           "tag": "p",
-          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down."
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
         },
         {
           "tag": "summary",
@@ -171112,7 +171112,7 @@
         },
         {
           "tag": "p",
-          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. Nada muda até o exercício ter 3 séries-teste. Depois, a carga muda no máximo 1 incremento para cima ou 2 para baixo."
+          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
         },
         {
           "tag": "p",
@@ -171483,7 +171483,7 @@
         },
         {
           "tag": "p",
-          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo."
+          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
         },
         {
           "tag": "summary",
@@ -174914,7 +174914,7 @@
         },
         {
           "tag": "p",
-          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Nothing changes until an exercise has 3 test sets. Then the weight moves at most 1 step up or 2 down."
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
         },
         {
           "tag": "p",
@@ -175285,7 +175285,7 @@
         },
         {
           "tag": "p",
-          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down."
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
         },
         {
           "tag": "summary",
@@ -175527,7 +175527,7 @@
         },
         {
           "tag": "p",
-          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Nothing changes until an exercise has 3 test sets. Then the weight moves at most 1 step up or 2 down."
+          "text": "At most 1 test set per session, one per exercise every 14 days, 2 a week. Test sets change nothing until an exercise has 3 of them. After that, they move the suggested weight at most 1 step up or 2 down from what it would otherwise be."
         },
         {
           "tag": "p",
@@ -175898,7 +175898,7 @@
         },
         {
           "tag": "p",
-          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down."
+          "text": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After 3 test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most 1 step up or 2 down from what it would otherwise be."
         },
         {
           "tag": "summary",
@@ -176140,7 +176140,7 @@
         },
         {
           "tag": "p",
-          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. Nada muda até o exercício ter 3 séries-teste. Depois, a carga muda no máximo 1 incremento para cima ou 2 para baixo."
+          "text": "No máximo 1 série-teste por sessão, uma por exercício a cada 14 dias e 2 por semana. As séries-teste não mudam nada até o exercício ter 3. Depois, elas mudam a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
         },
         {
           "tag": "p",
@@ -176511,7 +176511,7 @@
         },
         {
           "tag": "p",
-          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo."
+          "text": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após 3 séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo 1 incremento para cima ou 2 para baixo em relação ao que seria sugerida."
         },
         {
           "tag": "summary",
