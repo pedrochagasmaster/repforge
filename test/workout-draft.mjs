@@ -1216,7 +1216,7 @@ console.log("\nIssue #320: create() clamps a target RIR that falls back to the l
     d=inserted;
     assert(same(d.exercises["slot-squat"].setOrder,["ramp-1","squat-set-1","squat-set-2"]),"ramp precedes the first working set");
     assert(d.exercises["slot-squat"].setOrder.every((id,i)=>d.exercises["slot-squat"].sets[id].ordinal===i+1),"insertion renumbers every ordinal");
-    assert(Draft.validate(d).ok&&Draft.parse(JSON.stringify(d)).exercises["slot-squat"].sets["ramp-1"].origin==="ramp","ramp and opening provenance survive production parse");
+    assert(Draft.validate(d).ok&&Draft.parse(JSON.stringify(d)).draft.exercises["slot-squat"].sets["ramp-1"].origin==="ramp","ramp and opening provenance survive production parse");
     d=apply(d,"completeSet",{exerciseInstanceId:"slot-squat",setId:"ramp-1",completedAt:"2026-08-15T11:00:00.000Z"});
     for(let i=2;i<=3;i++)d=apply(d,"insertSet",{...payload,setId:`ramp-${i}`,startingLoad:{...opening,ramps:i}});
     assert(Draft.isDomainError(command(d,"insertSet",{...payload,setId:"ramp-4"}).result),"a fourth ramp is refused");

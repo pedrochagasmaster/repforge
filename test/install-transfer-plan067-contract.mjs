@@ -814,3 +814,16 @@ for (const bad of ["yes", 1, null]) {
 }
 
 console.log("PASS Plan 067 install-transfer clone contract");
+
+// Plan 079: opening provenance is strict at both durable-row and draft boundaries.
+const opening079 = {v:1,openingKg:20,basis:"prior",ramps:2,version:"priors@079.1"};
+for (const location of ["row", "draft"]) {
+  for (const value of [opening079, {...opening079,extra:true}, {...opening079,openingKg:-20}, {...opening079,ramps:4}, {...opening079,basis:"unknown"}]) {
+    const envelope=structuredClone(valid);
+    const target=location==="row"?envelope.durableState.log[0]
+      :envelope.workoutDraft.exercises[activeSlot.id].sets[envelope.workoutDraft.exercises[activeSlot.id].setOrder[0]];
+    target.startingLoad=value;
+    envelope.integrity.canonicalPayloadHash=canonicalHash(envelope);
+    assert.equal((await Contract.validateEnvelopeIntegrity(envelope,webcrypto)).ok,value===opening079,`${location}: strict starting-load provenance ${JSON.stringify(value)}`);
+  }
+}

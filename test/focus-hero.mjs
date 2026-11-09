@@ -224,9 +224,8 @@ try {
     ok(engine.status === "new" && engine.reasonCodes.includes("no_comparable_history") && engine.load == null,
       "the fixture's first set has no comparable history", engine);
     const now = await card(page);
-    const expected = await t(page, "focus.evidence.none_history");
-    ok(now.l1 === await t(page, "focus.cue.pick_load", { min: (await page.evaluate((id) => window.__repforgeProgression.programSlot(id).min, target.rowId)),
-      max: (await page.evaluate((id) => window.__repforgeProgression.programSlot(id).max, target.rowId)) }), "the hero asks for a load", now.l1);
+    const expected = await t(page, "focus.evidence.floor");
+    ok(now.l1 === await t(page, "focus.cue.find_weight"), "the hero finds an opening load", now.l1);
     ok(now.evidenceText === expected, "the evidence line gives the no-history reason from the catalog", now);
     ok(!now.figs.length, "with nothing performed, nothing in the line rides in Mono", now.figs);
     ok(!/\d+(?:[.,]\d+)?\s*kg/.test(now.evidenceText), "the no-suggestion line names no weight", now.evidenceText);
