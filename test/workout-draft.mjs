@@ -1253,5 +1253,41 @@ for(const basis of ["prior","ratio","floor"]){
   }
 }
 
+// #730: substitution snapshots predate inserted trial ordinals. Restoring the
+// original keeps performed work and restores every still-pending prescription.
+for(const ramps of [0,1,2,3])for(const workingLogged of [false,true]){
+  let d=makeMetricDraft();
+  const original=d.exercises[metricSlotId];
+  d=apply(d,"substituteExercise",{exerciseInstanceId:metricSlotId,replacement:replacementSnapshot,
+    replacementProgram,selectedAt:"2026-08-15T10:00:00.000Z"});
+  for(let n=1;n<=ramps;n++){
+    const first=d.exercises[metricSlotId].sets[`${metricSlotId}-set-1`];
+    const edited={...first.edited,rir:"3",metrics:Object.fromEntries(first.programmed.metrics.map(metric=>[metric.id,
+      metric.semantic==="reps"?"8":"20"]))};
+    d=apply(d,"insertSet",{exerciseInstanceId:metricSlotId,beforeSetId:first.setId,setId:`restore-ramp-${n}`,
+      role:"warmup",origin:"ramp",programmed:first.programmed,edited});
+    d=apply(d,"completeSet",{exerciseInstanceId:metricSlotId,setId:`restore-ramp-${n}`,completedAt:"2026-08-15T10:01:00.000Z"});
+  }
+  if(workingLogged){
+    for(const metricId of replacementMetricIds)d=apply(d,"editMetricValue",{exerciseInstanceId:metricSlotId,
+      setId:`${metricSlotId}-set-1`,metricId,value:metricId===replacementMetricIds[0]?"20":"8"});
+    d=apply(d,"completeSet",{exerciseInstanceId:metricSlotId,setId:`${metricSlotId}-set-1`,completedAt:"2026-08-15T10:02:00.000Z"});
+  }
+  // Exercise the exact stored shape before issuing the command, as a reload does.
+  d=Draft.parse(JSON.stringify(Draft.serialize(d))).draft;
+  const before=d.exercises[metricSlotId],outcome=command(d,"restoreOriginalExercise",{exerciseInstanceId:metricSlotId}).result;
+  const label=`restore with ${ramps} ramps, working logged=${workingLogged}`;
+  assert(!Draft.isDomainError(outcome),`${label}: command applies`,JSON.stringify(outcome));
+  if(Draft.isDomainError(outcome))continue;
+  const restored=outcome.exercises[metricSlotId];
+  assert(restored.substitution===null&&same(restored.setOrder,before.setOrder)&&restored.programmed.sets===original.programmed.sets,
+    `${label}: original returns with all authored and ramp identities retained`);
+  assert(restored.setOrder.every((id,index)=>restored.sets[id].ordinal===index+1),`${label}: every set has its live ordered ordinal`);
+  assert(restored.setOrder.every(id=>before.sets[id].completion!=="pending"?same(restored.sets[id],before.sets[id]):
+    same(restored.sets[id].programmed,original.sets[id].programmed)&&same(restored.sets[id].edited,original.sets[id].edited)),
+    `${label}: performed replacement work is unchanged and pending original prescriptions return`);
+  assert(Draft.parse(JSON.stringify(Draft.serialize(outcome))).kind==="valid",`${label}: the restored aggregate survives reload`);
+}
+
 console.log(`\n${results.passed} passed, ${results.failed} failed`);
 if (results.failed) process.exitCode = 1;

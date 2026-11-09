@@ -5,7 +5,7 @@ import {readFileSync} from "node:fs";
 import { launchChromium, waitForAppBoot, openShelfField, chooseRepsLeft } from "./browser.mjs";
 import { cases as engineFixtures } from "./fixtures/engine-standing.mjs";
 import { installGeneratedProgram, definitionSlot, isWeightRepsSlot, metricLogRow } from "./fixtures/history-metric-rows.mjs";
-import { finishEarly } from "./fixtures/focus-workout.mjs";
+import { openActions, exerciseAction, finishEarly } from "./fixtures/focus-workout.mjs";
 
 const BASE=process.env.REPFORGE_URL||"http://localhost:8000/";
 let checks=0;
@@ -128,6 +128,55 @@ const browser=await launchChromium();
 try{
   if(!process.env.REPFORGE_ZERO_SKIP_PARITY)await nonRampParity(browser);
   if(!process.env.REPFORGE_ZERO_PARITY_ONLY){
+  const swapRestore=await open(browser),sp=swapRestore.page,sid=swapRestore.target.id;
+  const originalSwap=await exercise(sp);
+  await exerciseAction(sp,sid,"#exActionSubstBtn");
+  await sp.locator("#exPickSearch").fill("Pendulum");
+  await sp.locator("#exPickList .pickrow__name").filter({hasText:/^Pendulum squat$/i}).click();
+  await sp.waitForFunction(()=>!document.querySelector("#exPickSheet")?.classList.contains("is-open")||document.querySelector("#exPickSheet")?.classList.contains("is-reason-step"));
+  if(await sp.locator("#exPickSheet.is-reason-step").count())await sp.locator("#exPickReasonSkip").click();
+  await sp.locator("#exPickSheet").waitFor({state:"hidden"});
+  await sp.evaluate(()=>window.__repforgeWorkoutDraft.flush());
+  // PR 3 supplies the substituted-lift opening UI. Here the actual production
+  // commands establish its already-authorized ramp boundary without importing
+  // that packet's ratio policy into PR 2.
+  await sp.evaluate(async id=>{
+    const api=window.__repforgeWorkoutDraft,ex=api.current().exercises[id],set=ex.sets[ex.setOrder[0]];
+    const edited={...set.edited,effort:"easy",rir:null,metrics:Object.fromEntries(set.programmed.metrics.map(metric=>
+      [metric.id,metric.semantic==="loadKg"?"40":String(set.programmed.minReps)]))};
+    const inserted=await api.dispatch("insertSet",{exerciseInstanceId:id,beforeSetId:set.setId,setId:"restore-ramp",
+      role:"warmup",origin:"ramp",programmed:set.programmed,edited});
+    if(inserted.status!=="applied")throw new Error(`ramp setup failed: ${JSON.stringify(inserted)}`);
+    const completed=await api.dispatch("completeSet",{exerciseInstanceId:id,setId:"restore-ramp"});
+    if(completed.status!=="applied")throw new Error(`ramp completion failed: ${JSON.stringify(completed)}`);
+    await api.flush();
+  },sid);
+  await sp.reload();await waitForAppBoot(sp,{base:BASE});await sp.evaluate(id=>window.__repforgeGoToLogExercise(id),sid);
+  await field(sp,"loadKg",40);await field(sp,"reps",8);await answer(sp,"hard");await nextWorking(sp,1);await sp.evaluate(()=>window.stopRest());
+  await sp.reload();await waitForAppBoot(sp,{base:BASE});await sp.evaluate(id=>window.__repforgeGoToLogExercise(id),sid);
+  const beforeRestore=await exercise(sp);
+  await openActions(sp,sid);await sp.locator("#exActionRestoreOrigBtn").click();
+  await sp.evaluate(()=>window.__repforgeWorkoutDraft.flush());
+  let afterRestore=await exercise(sp);
+  check(afterRestore.substitution===null,"#730: the visible Restore original action succeeds after a ramp and working set");
+  await sp.locator("#exActionsSheet").waitFor({state:"hidden"});
+  check(afterRestore.setOrder.length===swapRestore.target.sets+1&&afterRestore.setOrder.every((id,index)=>afterRestore.sets[id].ordinal===index+1),
+    "#730: restoration retains the ramp and every authored working set in order");
+  check(afterRestore.setOrder.every(id=>beforeRestore.sets[id].completion!=="pending"?
+    JSON.stringify(afterRestore.sets[id])===JSON.stringify(beforeRestore.sets[id]):
+    JSON.stringify(afterRestore.sets[id].programmed.metricIds)===JSON.stringify(originalSwap.sets[id].programmed.metricIds)),
+    "#730: completed replacement work is intact and pending sets use the original composition");
+  await sp.reload();await waitForAppBoot(sp,{base:BASE});await sp.evaluate(id=>window.__repforgeGoToLogExercise(id),sid);
+  afterRestore=await exercise(sp);
+  check(afterRestore.substitution===null&&afterRestore.setOrder.every((id,index)=>afterRestore.sets[id].ordinal===index+1),"#730: restoration survives the production reload path");
+  for(let count=2;count<=swapRestore.target.sets;count++){
+    await field(sp,"loadKg",40);await field(sp,"reps",8);await answer(sp,"hard");
+    await sp.waitForFunction(({id,count})=>Object.values(window.__repforgeWorkoutDraft.current().exercises[id].sets).filter(set=>set.role==="working"&&set.completion!=="pending").length===count,{id:sid,count});
+    await sp.evaluate(()=>window.stopRest());
+  }
+  await sp.evaluate(async id=>{const api=window.__repforgeWorkoutDraft;for(const exerciseInstanceId of api.current().exerciseOrder)if(exerciseInstanceId!==id)await api.dispatch("skipExercise",{exerciseInstanceId});await api.flush();},sid);
+  check((await sp.evaluate(()=>window.__repforgeSaveWorkout())).committed===true,"#730: restored pending sets stay reachable through normal completion");
+  await swapRestore.context.close();
   const compatibility=await open(browser),cp=compatibility.page;
   await cp.locator(`${card} [data-ramp-start]`).click();await answer(cp,"easy");await waitWarmups(cp,1);
   const retained=await cp.evaluate(()=>({raw:localStorage.getItem("repforge_draft_v1"),checkpoint:localStorage.getItem("repforge_draft_v1:v2-checkpoint")}));
