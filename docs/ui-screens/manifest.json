@@ -1364,7 +1364,7 @@
       "id": "summary",
       "flow": "session",
       "label": "Session summary",
-      "scenario": "The Direction D lifter's Day 1 finish screen (owner decisions, 2026-11-05): the card row opening on the squat record poster, then the stats card; the four tiles (strength gained, records, weeks in a row, kg moved).",
+      "scenario": "The Direction D lifter's Day 1 finish screen (owner decisions, 2026-11-05): the card row opening on the squat record poster, then the stats card; the three tiles (strength gained, records, kg moved).",
       "variants": "demandingText"
     },
     {
