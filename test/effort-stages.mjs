@@ -138,6 +138,16 @@ try {
   let st = await shelfState(page);
   assert(st.label === "Effort" && st.chips.join() === "Easy,Hard,Max" && st.pressed.length === 0 && st.head === "Effort",
     "stage A offers Easy, Hard and Max as chips, none pressed before the lifter chooses", st);
+  const wordsLayout = await page.locator(`${SHELF} [data-field="rir"]`).evaluate(field => {
+    const label = getComputedStyle(field.querySelector(".shelf__lab"));
+    const other = getComputedStyle(field.closest(".focus-shelf").querySelector(".shelf__field[data-metric] .shelf__lab"));
+    const menu = getComputedStyle(field.querySelector(".shelf__menu"));
+    return { lineHeight: label.lineHeight, otherLineHeight: other.lineHeight,
+      reserved: parseFloat(label.paddingRight), arrowTop: parseFloat(menu.paddingTop) };
+  });
+  assert(wordsLayout.lineHeight === wordsLayout.otherLineHeight && wordsLayout.reserved === 14 && wordsLayout.arrowTop === 7,
+    "words keep the existing caption leading, arrow reservation and arrow position", wordsLayout);
+  if (process.env.EFFORT_STAGES_ONLY !== "words-layout") {
   await page.locator(`${SHELF} .shelf__chip[data-e="max"]`).click();
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   st = await shelfState(page);
@@ -485,6 +495,7 @@ try {
   draft = await firstSets(page);
   assert(draft.mode === "effort" && draft.sets[0].rir === "5" && st.label === "Reps left" && st.value === "5+",
     "a held numeric set keeps its value and control after switching to words", { st, draft });
+  }
   assert(errors.length === 0, "no page errors", errors);
 } finally {
   await browser.close();
