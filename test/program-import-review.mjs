@@ -812,6 +812,49 @@ async function main() {
     assert(await page.locator('#entryEditorActivate').isEnabled(),
       "configuring measurements clears the activation blocker");
 
+    // #691: an imported training day must remain executable after editing.
+    for (const lang of ["en", "pt"]) {
+      await reset(page);
+      await page.evaluate((lang) => window.RepForgeI18n.setLang(lang), lang);
+      await page.evaluate(() => window.startOnboarding("first-run"));
+      await importFile(page, "empty-day.json", JSON.stringify({
+        version: 3, meta: { name: "Two training days" },
+        exercises: [
+          { day: "Day A", order: 1, name: "Barbell bench press", sets: 1, min: 6, max: 8 },
+          { day: "Day B", order: 1, name: "Bent-over barbell row", sets: 1, min: 6, max: 8 },
+        ],
+      }));
+      await stageReviewedImport(page);
+      await page.click("#entryEdit");
+      const secondDay = page.locator('#onbProgramEditor [data-role="day"][data-day="Day B"]');
+      if (!await secondDay.locator('[data-role="remove-exercise"]').isVisible()) {
+        await secondDay.locator('[data-role="toggle-day"]').click();
+      }
+      await secondDay.locator('[data-role="remove-exercise"]').click();
+      await page.waitForFunction((key) => JSON.parse(localStorage.getItem(key)).state.result.preview.program.length === 1,
+        SETUP_DRAFT);
+      const blocked = await page.evaluate(() => ({
+        disabled: document.querySelector("#entryEditorActivate").disabled,
+        status: document.querySelector("#entryEditorStatus").textContent,
+        expected: window.RepForgeI18n.t("entry.editor.empty_days", { days: "Day B" }),
+        described: document.querySelector("#entryEditorActivate").getAttribute("aria-describedby"),
+      }));
+      assert(blocked.disabled && blocked.status === blocked.expected && blocked.described === "entryEditorStatus",
+        `#691 ${lang}: an empty imported training day blocks activation with existing guidance`, JSON.stringify(blocked));
+      const before = await page.evaluate((key) => localStorage.getItem(key), KEY);
+      const refused = blocked.disabled ? await page.evaluate(() => window.__repforgeActivateEntryPreview()) : null;
+      assert(refused?.ok === false && await page.evaluate((key) => localStorage.getItem(key), KEY) === before,
+        `#691 ${lang}: the activation handler refuses the empty day without writing active state`, JSON.stringify(refused));
+      await secondDay.locator('[data-role="add-exercise"]').click();
+      await page.waitForSelector("#exPickSheet.is-open");
+      await page.fill("#exPickSearch", "Barbell bench press");
+      await page.locator(`#exPickList [data-pick="${BENCH_PRESS}"]`).click();
+      await page.waitForFunction(() => !document.querySelector("#entryEditorActivate").disabled);
+      assert(await page.locator("#entryEditorActivate").isEnabled(),
+        `#691 ${lang}: filling the training day restores activation`);
+    }
+    await page.evaluate(() => window.RepForgeI18n.setLang("en"));
+
     // ---- onboarding import is one coherent state transition ----
     await reset(page);
     await page.evaluate(() => window.startOnboarding("first-run"));
