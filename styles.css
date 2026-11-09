@@ -988,7 +988,8 @@ input:is([type=date],[type=time])::-webkit-date-and-time-value{min-height:1.5em;
 }
 .recblock__lab::before,.chip::before{display:none!important;content:none!important}
 .recblock__head{font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);color:var(--ink);margin:0 0 2px}
-.recblock__body,.rec{font-size:var(--font-size-body-small);line-height:1.45;color:var(--ink-soft);margin:0}
+.recblock__body,.rec,.recblock__standing{font-size:var(--font-size-body-small);line-height:1.45;color:var(--ink-soft);margin:0}
+.recblock__standing{margin:var(--space-4) 0 0}
 
 /* ---- Choice rows (native UI kit §5, owner 2026-10-24) ----
    A choice is a plain row: no box, a 1px hairline between rows and above and below the run, and a trailing mark.
@@ -1194,6 +1195,7 @@ body:has(.exercise--focus.is-text-scaled) .wo-head__title{font-size:min(var(--fo
 .exercise--focus.is-text-scaled .fx-cue__l1{font-size:min(var(--font-size-focus-cue),var(--large-cap-title))}
 .exercise--focus.is-text-scaled .fx-cue__l2{font-size:min(var(--font-size-focus-cue-second),var(--large-cap-body))}
 .exercise--focus.is-text-scaled .fx-cue__evidence{font-size:min(var(--font-size-focus-evidence),var(--large-cap-body))}
+.exercise--focus.is-text-scaled .fx-cue__standing{font-size:min(var(--font-size-body-small),var(--large-cap-body))}
 /* A window too short for the hero, its evidence line and the open set together (owner review of #550): once the
    logged rows have all folded, the hero steps down to the feature-title size and its reps line to subtitle, the cue's
    spacing tightens, and the table's column heads give way. The shelf's own labels still name each value. */
@@ -1405,6 +1407,10 @@ article.exercise--focus .fcard__context{min-height:var(--focus-context-floor)}
 .fx-cue__l2{
   margin:var(--space-4) 0 0;font-family:var(--font-language);font-size:var(--font-size-focus-cue-second);
   line-height:var(--line-standard);letter-spacing:-.01em;color:var(--color-ink-secondary);
+}
+.fx-cue__standing{
+  margin:var(--space-4) 0 0;font-family:var(--font-language);font-size:var(--font-size-body-small);
+  line-height:var(--line-standard);color:var(--color-ink-secondary);overflow-wrap:anywhere;
 }
 .fx-cue__evidence{
   max-width:22rem;margin:var(--space-8) 0 0;font-family:var(--font-language);font-size:var(--font-size-focus-evidence);

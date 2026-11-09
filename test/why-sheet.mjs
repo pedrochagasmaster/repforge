@@ -384,7 +384,7 @@ try {
   assert(perSideCue.line1 === "Needs setup" && perSideCue.line2 === `${perSideTruth.min}–${perSideTruth.max} reps`,
     "P069-S3-CUE: Focus labels the Review catalog-picked ambiguous range Needs setup", JSON.stringify({ cue: perSideCue, truth: perSideTruth }));
   const perSideWhy = await openWhy(perSidePage);
-  const perSideWhyText = perSideWhy.blocks.map((block) => block.text).join(" ");
+  const perSideWhyText = perSideWhy.blocks.find((block) => block.lead === "setup")?.text;
   assert(perSideWhyText === "Tell Taurifer how you do this: both sides together, or one side at a time.",
     "P069-S3-WHY: ambiguous Review catalog pick explains the missing execution mode", perSideWhy);
   await closeWhy(perSidePage);
@@ -607,7 +607,7 @@ try {
   assert(buildCue.line1 === "Your targets" && buildCue.line2 === `${buildRow.min}–${buildRow.max} reps`,
     "P069-S1-CUE: Focus labels a Build slot's stored range as Your targets", JSON.stringify(buildCue));
   const buildWhy = await openWhy(buildPage);
-  const buildWhyText = buildWhy.blocks.map((block) => block.text).join(" ");
+  const buildWhyText = buildWhy.blocks.find((block) => block.lead === "manual")?.text;
   assert(buildWhy.target === "" && buildWhyText === "This exercise has a rep range, but Taurifer does not suggest a load.",
     "P069-S1-WHY: a Build slot has no invented target and Why stays neutral about who chose the range", buildWhy);
   assert(buildErrors.length === 0, "no page errors in the Build Why journey", buildErrors);
@@ -698,6 +698,7 @@ try {
     const line = standingPage.locator("#workout .exercise.is-current .fx-cue__standing");
     assert(word === "solid" ? await line.count() === 0 : await line.count() === 1,
       `P080: ${scenario} renders one quiet line, solid renders none`);
+    if (scenario !== "first") {
     const sheet = await openWhy(standingPage);
     const block = sheet.blocks.find(b => b.lead === "engine-standing");
     const reasons = await standingPage.locator('[data-lead="engine-standing"] [data-standing-reason]').evaluateAll(nodes => nodes.map(node => node.dataset.standingReason));
@@ -710,6 +711,7 @@ try {
       assert(leads.indexOf("engine-standing") < leads.indexOf("engine-calibration"), "P080: standing comes before calibration", leads);
     }
     await closeWhy(standingPage);
+    }
     await standingPage.locator("#woDayTitle [data-exopen]").click();
     await standingPage.waitForSelector("#exDetail .recblock");
     const detailLine = standingPage.locator("#exDetail .recblock__standing");

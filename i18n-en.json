@@ -3039,5 +3039,18 @@
   "exercise.chart.cap.top": "top load",
   "exercise.chart.cap.e1rm": "best e1RM",
   "exercise.chart.cap.change": "this block",
-  "stats.cap.moved": "moved"
+  "stats.cap.moved": "moved",
+  "standing.first": "First time on this lift",
+  "standing.first_load": "First time at this load",
+  "standing.learning": "Still learning this lift",
+  "standing.solid": "Solid",
+  "why.lead.standing": "Footing",
+  "why.standing.no_history": "No comparable sessions recorded yet.",
+  "why.standing.live_only": "This session is the first evidence at this load.",
+  "why.standing.few_sets": "Evidence from {sets} {setWord}, weighted by age and effort reports.",
+  "why.standing.few_sessions": "Recorded sessions on this lift: {sessions}.",
+  "why.standing.disagreement": "Sets disagree more than usual.",
+  "why.standing.inconsistent_checks": "Your {checks} test sets have given inconsistent effort estimates.",
+  "why.standing.break": "After a break of {weeks} weeks.",
+  "why.standing.evidence": "{sets} {setWord} over {sessions} {sessionWord}, weighted by age and effort reports."
 }

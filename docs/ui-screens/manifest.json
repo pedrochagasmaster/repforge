@@ -1140,7 +1140,7 @@
       "id": "focus",
       "flow": "workout",
       "label": "Workout — focus mode",
-      "scenario": "One exercise at a time.",
+      "scenario": "One exercise at a time. One prior session leaves the target still learning this lift.",
       "variants": "demandingText"
     },
     {
@@ -1336,8 +1336,15 @@
       "id": "why-this-weight",
       "flow": "workout",
       "label": "Workout — why this weight",
-      "scenario": "The recommendation inspector for a range lift: sentences first, each under a bold lead, the working behind See the working, the evidence footer.",
+      "scenario": "The recommendation inspector for a range lift: sentences first, each under a bold lead, the working behind See the working, the evidence footer. Footing explains the target’s standing before the effort estimate.",
       "variants": "demandingText"
+    },
+    {
+      "id": "why-standing",
+      "flow": "workout",
+      "label": "Workout — Why, standing",
+      "scenario": "The standing block for a learning lift after a 50-day break, with few sets and few sessions.",
+      "variants": "localized"
     },
     {
       "id": "why-calibration",
@@ -1742,7 +1749,7 @@
       "id": "exercise-detail-suggested",
       "flow": "library",
       "label": "Exercise library — detail with a suggestion",
-      "scenario": "Movement detail for an Adaptive lift: the suggested weight with Understand RIR and Why this weight?.",
+      "scenario": "Movement detail for an Adaptive lift: the suggested weight with Understand RIR and Why this weight?. The target has one prior session and shares Focus’s quiet standing line.",
       "variants": "standard"
     },
     {

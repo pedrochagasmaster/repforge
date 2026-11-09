@@ -1267,6 +1267,11 @@
       "owner": "plan-055",
       "content": "flat",
       "scenario": "A logged set, then a rest carried past the one-hour cap by the live count-up: the Early finish question opens with its reason line."
+    },
+    "workout/why-standing": {
+      "owner": "plan-080",
+      "content": "flat",
+      "scenario": "A learning lift’s footing, few sets and sessions, after a 50-day break."
     }
   },
   "components": [
@@ -2309,7 +2314,8 @@
         "workout/stage-tip",
         "workout/why-calibration",
         "workout/last-rep-slow",
-        "workout/rest-overrun-finish"
+        "workout/rest-overrun-finish",
+        "workout/why-standing"
       ],
       "neverDisabledReason": "A note can always be written for the exercise in progress."
     },
@@ -6917,7 +6923,8 @@
         "workout/why-in-session",
         "workout/why-manual",
         "workout/why-setup",
-        "workout/why-calibration"
+        "workout/why-calibration",
+        "workout/why-standing"
       ]
     },
     {
@@ -6939,7 +6946,8 @@
         "workout/why-in-session",
         "workout/why-manual",
         "workout/why-setup",
-        "workout/why-calibration"
+        "workout/why-calibration",
+        "workout/why-standing"
       ]
     },
     {
@@ -6961,7 +6969,8 @@
         "workout/why-in-session",
         "workout/why-manual",
         "workout/why-setup",
-        "workout/why-calibration"
+        "workout/why-calibration",
+        "workout/why-standing"
       ]
     },
     {
@@ -7064,7 +7073,8 @@
         "workout/stage-tip",
         "workout/why-calibration",
         "workout/last-rep-slow",
-        "workout/rest-overrun-finish"
+        "workout/rest-overrun-finish",
+        "workout/why-standing"
       ],
       "progressScopes": {
         "workout-exercise-order": "exercise-set"
@@ -9001,7 +9011,8 @@
         "progress/overview-calibration",
         "today/calibration-mini",
         "today/calibration-ring-bar",
-        "workout/rest-overrun-finish"
+        "workout/rest-overrun-finish",
+        "workout/why-standing"
       ]
     },
     {
@@ -9078,7 +9089,8 @@
         "session/summary-share-photo",
         "workout/why-calibration",
         "history/session-share",
-        "workout/rest-overrun-finish"
+        "workout/rest-overrun-finish",
+        "workout/why-standing"
       ]
     },
     {
@@ -9118,7 +9130,8 @@
         "program/editor-suggest-loads",
         "program/editor-issue-field",
         "program/editor-day-name-refused",
-        "workout/why-calibration"
+        "workout/why-calibration",
+        "workout/why-standing"
       ]
     },
     {
@@ -10299,7 +10312,8 @@
         "workout/why-this-weight",
         "workout/why-per-side",
         "workout/why-in-session",
-        "workout/why-calibration"
+        "workout/why-calibration",
+        "workout/why-standing"
       ]
     },
     {
@@ -12853,6 +12867,24 @@
         "settings/rest-controls",
         "settings/language-menu"
       ]
+    },
+    {
+      "id": "target-standing",
+      "selector": ".fx-cue__standing, .recblock__standing",
+      "roles": {
+        "typography": "body-small"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Quiet evidence under a target, without a badge or numerical grade.",
+      "owner": "plan-080",
+      "catalogStates": [
+        "workout/focus",
+        "library/exercise-detail-suggested"
+      ]
     }
   ],
   "contextualVariants": [
@@ -12975,7 +13007,8 @@
         "workout/stage-tip",
         "workout/why-calibration",
         "workout/last-rep-slow",
-        "workout/rest-overrun-finish"
+        "workout/rest-overrun-finish",
+        "workout/why-standing"
       ]
     },
     {
@@ -13475,7 +13508,8 @@
         "workout/why-setup",
         "workout/max-set-guess",
         "workout/why-calibration",
-        "workout/rest-overrun-finish"
+        "workout/rest-overrun-finish",
+        "workout/why-standing"
       ]
     },
     {
