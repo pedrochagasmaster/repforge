@@ -7930,8 +7930,9 @@ function profileLiftHtml(ex,rec=recommendation(ex)){
     (load?`<p>${esc(load)}</p>`:"")+`</li>`}
 /** Recent sessions use the same effortSource provenance as the stage tip. Prefilled and unsure are not chosen. */
 function profileEffortCounts(){
-  const rows=(state.log||[]).filter(row=>row&&!row.warmup&&row.effortSource!=="failure").sort(compareLogChronology);
-  const sessions=[...new Set(rows.map(row=>row.session))].slice(-10),recent=rows.filter(row=>sessions.includes(row.session));
+  const rows=[...state.log||[]].sort(compareLogChronology);
+  const sessions=[...new Set(rows.map(row=>row.session))].slice(-10);
+  const recent=rows.filter(row=>sessions.includes(row.session)&&!row.warmup&&row.effortSource&&row.effortSource!=="failure");
   return{n:recent.filter(row=>["effort","rir","reps_left","reps_left_3plus","reps_left_5plus"].includes(row.effortSource)).length,m:recent.length}}
 /** Progress › Overview reads counts from the six signals. No component or combined percentage is presented. */
 function renderOverviewProfile(){
