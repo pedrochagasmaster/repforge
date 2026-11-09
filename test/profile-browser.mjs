@@ -36,6 +36,7 @@ for (let i=0;i<log.length;i++) {
   const row=log[i],ex=program.find(ex=>ex.id===row.exerciseId);
   log[i]=metricLogRow(seedProgramMeta(),ex,{...row,extra:{effortSource:row.effortSource,...(row.calibration?{calibration:row.calibration}:{})}});
 }
+log[0].effortSource = "prefilled";
 log[0].startingLoad = { v: 1, openingKg: 40, basis: "floor", ramps: 1, version: "priors@079.1" };
 
 async function boot(page, { history = log, settings = {} } = {}) {
@@ -116,14 +117,14 @@ try {
     "every program lift has its standing or an explicit unavailable reason");
   assert(!/%/.test(profile) && await page.locator("#overviewProfile [role=progressbar], #overviewProfile .calbar").count() === 0,
     "the profile has no percentage or bar", profile);
-  assert(profile.includes("36 of 36 pairs") && profile.includes("15 of 15 week pairs") && profile.includes("0 of 0 sets"),
+  assert(profile.includes("35 of 35 pairs") && profile.includes("15 of 15 week pairs") && profile.includes("0 of 0 sets"),
     "agreement, weeks and suggestion hits show agreed and counted, without target denominators", profile);
   const checks = await page.locator("#overviewProfile .calcheck").allTextContents();
   assert(checks.length === 1 && /Seated leg curl/.test(checks[0]) && /Guessed 10 → Did 12/.test(checks[0]),
     "recent test sets retain the guess and result", checks);
   assert(profile.includes("Started at 40 kg, worked at 60 kg."), "opening and first working load come from the same session", profile);
   assert(profile.includes("2 more test sets"), "per-lift test sets say what is still needed", profile);
-  assert(profile.includes("Reps left") && profile.includes("54 of 54"), "effort stage and recent chosen effort counts are shown", profile);
+  assert(profile.includes("Reps left") && profile.includes("53 of 54"), "effort stage and recent chosen effort counts are shown", profile);
   await page.click('[data-view="log"]');
   await page.locator('#todayExList [data-exopen]').first().click();
   await page.waitForSelector("#exDetail .exercise-profile");
@@ -141,11 +142,20 @@ try {
   for (const [lang, width] of [["pt", 390], ["en", 390], ["pt", 320], ["en", 320]]) {
     await page.setViewportSize({ width, height: 844 });
     await page.evaluate(lang => { I18N.setLang(lang); document.documentElement.style.fontSize = "200%"; render(); }, lang);
-    sizes.push([`${lang} ${width}`, await overlaps()]);
+    const overflow = await page.locator("#overviewProfile").evaluate(el=>el.scrollWidth>el.clientWidth+1);
+    sizes.push([`${lang} ${width}`, [...await overlaps(),...(overflow?["profile overflows"]:[])]]);
   }
   assert(sizes.every(([, rows]) => rows.length === 0), "counts wrap without overlap at 200% in PT/EN at 390/320", sizes);
   await page.evaluate(() => { document.documentElement.style.fontSize = ""; I18N.setLang("en"); render(); });
   await page.setViewportSize({ width: 390, height: 844 });
+
+  phase("Chosen effort uses only the last ten sessions");
+  const windowHistory = Array.from({length:12},(_,i)=>({...log[0],session:`recent-${i}`,date:day(12-i),
+    created:`${day(12-i)}T10:00:00.000Z`,effortSource:i<2||i===11?"prefilled":"rir"}));
+  await boot(page,{history:windowHistory});
+  await page.click('[data-view="stats"]');
+  assert((await page.locator("#overviewProfile .profile-effort").innerText()).includes("9 of 10"),
+    "prefilled effort and the two older sessions do not inflate chosen effort counts");
 
   phase("Was the last rep slow? Only after an exercise's last set");
   await boot(page);

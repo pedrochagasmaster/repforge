@@ -5278,7 +5278,8 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
   font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink)}
 .calcheck__name{min-width:0;overflow-wrap:anywhere}
 .calcheck__name small{display:block;font-size:var(--font-size-caption);color:var(--color-ink-secondary)}
-.calcheck__gd{flex:none;font-family:var(--font-training-data);font-size:var(--font-size-body-small);color:var(--color-ink-secondary);white-space:nowrap}
+.calcheck>span{min-width:0;overflow-wrap:anywhere}
+.calcheck__gd{flex:none;font-family:var(--font-training-data);font-size:var(--font-size-body-small);color:var(--color-ink-secondary)}
 .calcheck__gd b{font-weight:var(--weight-semibold);color:var(--color-ink)}
 .calcheck--empty{color:var(--color-ink-secondary);font-size:var(--font-size-body-small)}
 /* Needs attention: the mark, the lift and its figure share the first line; the
