@@ -179,6 +179,16 @@ async function runRoundFourCases(browser,manifest){
     }catch(error){failures.push(new Error(`${locale} ${kind}: ${error.message}`,{cause:error}))}
     finally{await context.close()}
   }
+  for(const key of ["workout/exercise-actions","workout/warmup-actions","workout/skipped-actions","workout/substituted-actions"]){
+    const {page,context}=await openPage(browser,manifest,{flow:"workout",screen:key.split("/")[1],viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},appState(key,"en"));
+    try{
+      await dismissChrome(page);await APP_SCENARIOS[key](page);
+      assert.equal(await page.locator("#exActionsSheet").isVisible(),true);
+      assert.equal(await page.locator("#exActionsSheet .exactions-sheet__body").evaluate(body=>body.scrollTop),0,"capture resets the exercise-actions body despite the separate skip sheet");
+      console.log(`PASS round 4: ${key} capture scenario`);
+    }catch(error){failures.push(new Error(`${key}: ${error.message}`,{cause:error}))}
+    finally{await context.close()}
+  }
   if(failures.length)throw new AggregateError(failures,"round 4 zero-count proofs failed");
 }
 
