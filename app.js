@@ -6916,7 +6916,7 @@ function recommendation(ex){
     targetSets,engineResults:results,metricDefinitions:definitions,slotId:matched.slot.id,
     stalled:false,block:{dir:null,sessions:0},blockNote:"",pushReps:false,
     prescription:cloneSnapshot(first),historyAnchor:result?.historyAnchor||null,fatigue:result?.fatigue||null,
-    loadingAssumptions:result?.loadingAssumptions||null,standing:result?.standing||null};
+    loadingAssumptions:result?.loadingAssumptions||null};
   // The observations the engine was given, so a surface can read back the set it anchored on. Not enumerable, so the
   // recommendation that serialises (and that the parity proofs compare) is exactly what it was.
   Object.defineProperty(rec,"progressionInputs",{value:{history,currentSession}});
