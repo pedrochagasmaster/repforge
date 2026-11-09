@@ -2737,6 +2737,7 @@ export const APP_SCENARIOS = {
     await page.locator('[data-workout-action="exercise"]').click();
     await page.locator("#exActionDiscomfortBtn").click();
     await page.locator("#exActionDiscomfortStatus:not(.hidden)").waitFor();
+    await page.locator("#exActionDiscomfortStatus").scrollIntoViewIfNeeded();
   },
   "workout/skip-reason": async page => {
     await focusMode(page);await page.locator("#woOverflowBtn").click();
