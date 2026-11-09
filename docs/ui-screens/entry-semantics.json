@@ -166439,7 +166439,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "Como sentiu a série Fácil / Difícil / Máximo",
+          "name": "Como sentiu a série Fácil / Difícil / Máx",
           "aria-checked": "true",
           "tabindex": "0",
           "type": "button"
@@ -166450,7 +166450,7 @@
         },
         {
           "tag": "span",
-          "text": "Fácil / Difícil / Máximo"
+          "text": "Fácil / Difícil / Máx"
         },
         {
           "tag": "button",
