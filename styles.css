@@ -3908,6 +3908,11 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .sharecard__brand img{width:4.4cqi;height:4.4cqi;border-radius:1cqi}
 .sharecard__brand b{font-weight:var(--weight-semibold)}
 /* The four numbers: Sans with tabular numerals (Mono's comma opens a gap in "6,453"), the unit once, small. */
+.sum-finding{display:block;width:100%;min-height:var(--control-target);margin-top:var(--space-18);padding:var(--space-14) 0;border:0;border-block:1px solid var(--boundary-decorative);background:var(--control-quiet-bg);color:var(--control-quiet-ink);text-align:left;font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-reading);overflow-wrap:anywhere}
+.sum-finding__label{font-weight:var(--weight-semibold);margin-right:var(--space-8)}
+.sum-finding:hover{background:var(--well)}
+.sum-finding.is-pressed{background:var(--row-pressed-bg);transform:var(--control-pressed-transform)}
+.sum-finding:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
 #sessionSummary .sum-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,8.5rem),1fr));gap:var(--space-18) var(--space-14);margin-top:var(--space-26);padding:0;border:0}
 .sum-tile{min-width:0}
 .sum-tile p{margin:0}
@@ -5263,6 +5268,11 @@ body.is-focus-wo .toast:not(.toast--top){bottom:calc(var(--toast-clear,0px) + va
 .ovprofile{margin-bottom:var(--space-8)}
 .ovprofile .ovsec:first-child{margin-top:var(--space-12)}
 .profile-stage,.profile-effort,.profile-history-label{margin:var(--space-8) 0;font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.profile-findings{list-style:none;margin:0;padding:0}
+.profile-finding{padding:var(--space-12) 0;border-bottom:1px solid var(--boundary-decorative);overflow-wrap:anywhere}
+.profile-finding time{font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+.profile-finding p,.profile-finding-empty,.profile-finding-need{margin:var(--space-8) 0;font-size:var(--font-size-body-small);line-height:var(--line-reading);overflow-wrap:anywhere}
+.profile-finding-empty,.profile-finding-need{color:var(--color-ink-secondary)}
 .profile-lifts,.profile-signals{list-style:none;margin:0;padding:0}
 .profile-lift{padding:var(--space-12) 0;border-bottom:1px solid var(--boundary-decorative);overflow-wrap:anywhere}
 .profile-lift__name{margin:0 0 var(--space-4);font-size:var(--font-size-body);font-weight:var(--weight-semibold)}

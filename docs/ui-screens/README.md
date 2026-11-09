@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 259 screens,
-1530 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 261 screens,
+1546 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -245,7 +245,9 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [Session summary](screens/session/summary__phone-390-light-en.png) | 8 | The Direction D lifter's Day 1 finish screen (owner decisions, 2026-11-05): the card row opening on the squat record poster, then the stats card; the four tiles (strength gained, records, weeks in a row, kg moved). |
+| [Session summary](screens/session/summary__phone-390-light-en.png) | 8 | The Direction D lifter's Day 1 finish screen (owner decisions, 2026-11-05): the card row opening on the squat record poster, then the stats card; the next finding's need above the three tiles (strength gained, records, kg moved). |
+| [Session summary with a finding](screens/session/summary-finding__phone-390-light-en.png) | 8 | A first test set releases a finding on the finish screen, above three factual tiles. The line opens the profile. |
+| [Profile from session summary](screens/session/summary-profile__phone-390-light-en.png) | 8 | The finish-screen finding opens the profile with Back returning to the same finished session. |
 | [Session summary — maintained](screens/session/summary-maintained__phone-390-light-en.png) | 8 | A finished Day 2 whose Romanian deadlift is maintained, with its other lifts improved and an e1RM record leading the card row. |
 | [Session summary — declined](screens/session/summary-declined__phone-390-light-en.png) | 8 | A finished Day 3 with no record and nothing improved: the stats card is the only card, and declined lifts read in ink without turning into a prescription. |
 | [Session summary — records and every lift](screens/session/summary-lifts__phone-390-light-en.png) | 8 | The Day 1 finish screen scrolled past its card row and tiles: the record tiles, then every lift with its outcome word, sets, record and next target. |
@@ -258,8 +260,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | Screen | Frames | What it shows |
 | --- | --- | --- |
 | [Progress — overview](screens/progress/overview__phone-390-light-en.png) | 8 | The Progress landing tab. |
-| [Progress — profile](screens/progress/overview-profile__phone-390-light-en.png) | 8 | Active program lifts with their standing, test sets and opening loads; evidence as counts, and recent test sets. Findings belong to Plan 081 PR2. |
-| [Progress — profile after two sessions](screens/progress/overview-profile-first__phone-390-light-en.png) | 8 | Two recorded sessions: early standing and counts, with no findings until Plan 081 PR2. |
+| [Progress — profile](screens/progress/overview-profile__phone-390-light-en.png) | 8 | Two dated findings, newest first, and what the next needs, followed by active-program standing and counts. |
+| [Progress — profile after two sessions](screens/progress/overview-profile-first__phone-390-light-en.png) | 8 | Two early sessions support one dated finding; the next need says which lifts still start from a guess. |
 | [Mini bar on Progress](screens/progress/minibar__phone-390-light-en.png) | 8 | While a session is open, the frosted bar above the dock: a ring of the sets done, the session's name, the exercise and the time so far, and Resume. |
 | [Progress — overview guide](screens/progress/overview-guide__phone-390-light-en.png) | 8 | The progress guide on arrival: the guide dialog centred over the dimmed Overview. |
 | [Progress — baseline-building overview](screens/progress/overview-baseline__phone-390-light-en.png) | 8 | Sparse evidence remains neutral and contributes no Needs action items. |

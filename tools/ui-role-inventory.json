@@ -451,7 +451,17 @@
     "session/summary": {
       "owner": "plan-064/r3h",
       "content": "flat",
-      "scenario": "The Direction D lifter's Day 1 finish screen: the card row (record poster, then the stats card) and the four tiles."
+      "scenario": "The Direction D lifter's Day 1 finish screen: the card row (record poster, then the stats card) the next finding's need, and the three tiles."
+    },
+    "session/summary-finding": {
+      "owner": "plan-081",
+      "content": "flat",
+      "scenario": "The finish screen with the first test-set finding and the profile link above its factual tiles."
+    },
+    "session/summary-profile": {
+      "owner": "plan-081",
+      "content": "flat",
+      "scenario": "The profile opened from the finish screen, with Back restoring that session."
     },
     "session/summary-lifts": {
       "owner": "plan-064/r3h",
@@ -1296,12 +1306,12 @@
     "progress/overview-profile": {
       "owner": "plan-081",
       "content": "flat",
-      "scenario": "Active program standing, counts and recent test sets."
+      "scenario": "Dated findings and the next evidence needed, followed by standing and counts."
     },
     "progress/overview-profile-first": {
       "owner": "plan-081",
       "content": "flat",
-      "scenario": "Early standing and counts after two recorded sessions."
+      "scenario": "Dated findings and the next evidence needed, followed by standing and counts."
     }
   },
   "components": [
@@ -5964,6 +5974,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
@@ -5988,6 +5999,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
@@ -6261,7 +6273,8 @@
         "progress/volume-reduction-preview",
         "progress/minibar",
         "progress/overview-profile",
-        "progress/overview-profile-first"
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -6315,6 +6328,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
@@ -6340,6 +6354,7 @@
       "owner": "finish-share",
       "catalogStates": [
         "session/summary",
+        "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
@@ -6505,6 +6520,30 @@
       "neverDisabledReason": "Every choice the sheet offers can be drawn; a card the session cannot back is hidden, not disabled."
     },
     {
+      "id": "summary-profile-back",
+      "selector": "#summaryProfileBack",
+      "roles": { "control": "quiet-navigation" },
+      "variant": "back",
+      "facets": [],
+      "states": ["default", "hover", "pressed", "focus-visible", "disabled"],
+      "rationale": "Returns from the profile to the finished session that opened it.",
+      "owner": "plan-081",
+      "catalogStates": ["session/summary-profile"],
+      "neverDisabledReason": "The return session stays available for this profile visit."
+    },
+    {
+      "id": "sumfinding",
+      "selector": "#sumFinding",
+      "roles": { "control": "quiet-navigation" },
+      "variant": "profile-link",
+      "facets": [],
+      "states": ["default", "hover", "pressed", "focus-visible", "disabled"],
+      "rationale": "Opens the profile from a finding or its next need after the session.",
+      "owner": "plan-081",
+      "catalogStates": ["session/summary", "session/summary-finding", "session/summary-first", "session/summary-maintained", "session/summary-declined"],
+      "neverDisabledReason": "The profile is available whenever the finish screen has a finding or a next need."
+    },
+    {
       "id": "sumsee",
       "selector": "#sumSee",
       "roles": {
@@ -6523,6 +6562,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
@@ -7071,7 +7111,8 @@
         "progress/overview-action",
         "progress/minibar",
         "progress/overview-profile",
-        "progress/overview-profile-first"
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -8354,6 +8395,7 @@
       "owner": "plan-058",
       "catalogStates": [
         "session/summary",
+        "session/summary-finding",
         "session/summary-lifts",
         "session/summary-declined",
         "session/summary-maintained",
@@ -8682,6 +8724,7 @@
         "program/minibar-rest-done",
         "progress/overview-profile",
         "progress/overview-profile-first",
+        "session/summary-profile",
         "today/week-card",
         "history/ramp-rows"
       ]
@@ -8762,6 +8805,7 @@
         "program/minibar-rest-done",
         "progress/overview-profile",
         "progress/overview-profile-first",
+        "session/summary-profile",
         "today/week-card",
         "history/ramp-rows"
       ]
@@ -8851,6 +8895,7 @@
         "program/minibar-rest-done",
         "progress/overview-profile",
         "progress/overview-profile-first",
+        "session/summary-profile",
         "today/week-card",
         "history/ramp-rows"
       ]
@@ -8960,6 +9005,7 @@
         "workout/why-per-side",
         "workout/why-in-session",
         "session/summary",
+        "session/summary-finding",
         "session/summary-lifts",
         "session/summary-maintained",
         "session/summary-declined",
@@ -9005,6 +9051,7 @@
         "workout/last-rep-slow",
         "progress/overview-profile",
         "progress/overview-profile-first",
+        "session/summary-profile",
         "workout/rest-overrun-finish",
         "workout/why-standing",
         "workout/focus-ramp",
@@ -9302,7 +9349,8 @@
         "progress/volume-reduction-preview",
         "progress/minibar",
         "progress/overview-profile",
-        "progress/overview-profile-first"
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -9358,7 +9406,8 @@
         "progress/volume-reduction-preview",
         "progress/minibar",
         "progress/overview-profile",
-        "progress/overview-profile-first"
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -10367,7 +10416,8 @@
         "progress/overview-action",
         "progress/minibar",
         "progress/overview-profile",
-        "progress/overview-profile-first"
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     },
     {
@@ -13164,6 +13214,7 @@
       "catalogStates": [
         "progress/overview-profile",
         "progress/overview-profile-first",
+        "session/summary-profile",
         "library/exercise-detail-suggested"
       ]
     },
@@ -13183,7 +13234,65 @@
       "catalogStates": [
         "progress/overview-profile",
         "progress/overview-profile-first",
+        "session/summary-profile",
         "library/exercise-detail-suggested"
+      ]
+    },
+    {
+      "id": "profile-finding-copy",
+      "selector": ".profile-finding p",
+      "roles": {
+        "typography": "body-small"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "A sentence supported by the saved sessions.",
+      "owner": "plan-081",
+      "catalogStates": [
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "session/summary-profile"
+      ]
+    },
+    {
+      "id": "profile-finding-date",
+      "selector": ".profile-finding time",
+      "roles": {
+        "typography": "caption"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The first date the record supports the finding.",
+      "owner": "plan-081",
+      "catalogStates": [
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "session/summary-profile"
+      ]
+    },
+    {
+      "id": "profile-finding-need",
+      "selector": ".profile-finding-need",
+      "roles": {
+        "typography": "body-small"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "The next finding and the evidence it still needs.",
+      "owner": "plan-081",
+      "catalogStates": [
+        "progress/overview-profile",
+        "progress/overview-profile-first",
+        "session/summary-profile"
       ]
     }
   ],
@@ -13383,6 +13492,7 @@
         "today/draft-resume",
         "progress/overview-profile",
         "progress/overview-profile-first",
+        "session/summary-profile",
         "history/ramp-rows"
       ]
     },
@@ -13435,6 +13545,7 @@
       "owner": "plan-057/058",
       "catalogStates": [
         "session/summary",
+        "session/summary-finding",
         "session/summary-maintained",
         "session/summary-declined",
         "session/summary-first"
@@ -13908,6 +14019,7 @@
         "today/draft-resume",
         "progress/overview-profile",
         "progress/overview-profile-first",
+        "session/summary-profile",
         "history/ramp-rows"
       ]
     },
@@ -13970,6 +14082,7 @@
         "today/draft-resume",
         "progress/overview-profile",
         "progress/overview-profile-first",
+        "session/summary-profile",
         "history/ramp-rows"
       ]
     },
