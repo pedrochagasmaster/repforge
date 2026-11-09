@@ -1116,8 +1116,10 @@ console.log("\nIssue #320: create() clamps a target RIR that falls back to the l
   const marked = command(fresh(), "markDiscomfort", { exerciseInstanceId: "slot-squat", kind: "discomfort" }).result;
   assert(!Draft.isDomainError(marked), "discomfort can be recorded on the draft");
   if (!Draft.isDomainError(marked)) {
-    assert(marked.exercises["slot-squat"].discomfort.kind === "discomfort", "the discomfort kind survives as a structured mark");
+    assert(marked.exercises["slot-squat"].discomfort[0].kind === "discomfort", "the discomfort kind survives as a structured mark");
     assert(Draft.validate(JSON.parse(JSON.stringify(marked))).ok, "a serialized discomfort mark remains valid");
+    const falseSwap=JSON.parse(JSON.stringify(marked));falseSwap.exercises["slot-squat"].discomfort[0].swapped=true;
+    assert(!Draft.validate(falseSwap).ok,"a swap observation must match an actual substitution relation");
 
   }
 }
@@ -1131,7 +1133,7 @@ console.log("\nIssue #320: create() clamps a target RIR that falls back to the l
   assert(!Draft.isDomainError(reasoned),"post-swap reason accepts the exact substitution");
   if (!Draft.isDomainError(reasoned)) {
     assert(reasoned.exercises["slot-squat"].swapReason === "pain", "post-swap reason is durable");
-    assert(reasoned.exercises["slot-squat"].discomfort.kind === "pain" && reasoned.exercises["slot-squat"].discomfort.swapped === true,"pain swap records its discomfort fact");
+    assert(reasoned.exercises["slot-squat"].discomfort[0].kind === "pain" && reasoned.exercises["slot-squat"].discomfort[0].swapped === true,"pain swap records its discomfort fact");
   }
   for (const wrong of [{draftId:"different-draft"},{selectedAt:"2026-08-15T12:00:00.000Z"},{replacementId:"different-movement"},{exerciseInstanceId:"slot-curl"},{reason:"free text"}]) {
     assert(Draft.isDomainError(command(swapped,"recordSubstitutionReason",{...binding,...wrong}).result),"stale or malformed post-swap answer is refused");
@@ -1151,7 +1153,7 @@ console.log("\nIssue #320: create() clamps a target RIR that falls back to the l
   eventDraft = apply(eventDraft,"markDiscomfort",{exerciseInstanceId:"slot-squat",kind:"discomfort"});
   const result = Draft.toHistoryRows(apply(eventDraft,"beginFinish"),"2026-08-15T11:01:00.000Z",{includeSessionEvents:true});
   assert(Array.isArray(result.rows),"session compilation exposes rows beside events");
-  assert(same(result.sessionEvents,{v:1,skips:[{exerciseId:"slot-curl",slotId:"source-curl",reason:"time"}],pain:[{exerciseId:"slot-squat",slotId:"source-squat",kind:"discomfort",swapped:false}]}),"session compilation includes skipped lifts and discomfort without inventing set rows");
+  assert(same(result.sessionEvents,{v:1,skips:[{exerciseId:"slot:slot-curl",name:"Seated leg curl",slotId:"source-curl",reason:"time"}],pain:[{exerciseId:"sq_hs",name:"Hack squat",kind:"discomfort",swapped:false,slotId:"source-squat"}]}),"session compilation includes skipped lifts and discomfort without inventing set rows");
   assert(typeof Draft.validateSessionEvents === "function","session event validation is shared by persistence and transfer");
   if (typeof Draft.validateSessionEvents === "function") {
     const record = {"draft-051":result.sessionEvents};
