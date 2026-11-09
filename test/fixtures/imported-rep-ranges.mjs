@@ -18,10 +18,12 @@ async function resume(page) {
 }
 
 async function configure(page, slotId, value) {
-  const select = page.locator(`#onbProgramEditor [data-role="metric-composition"][data-slot-id="${slotId}"]`);
-  const day = select.locator('xpath=ancestor::*[@data-role="day"]');
-  if (!await select.isVisible()) await day.locator('[data-role="toggle-day"]').click();
-  await select.selectOption(value);
+  const exercise = page.locator(`#onbProgramEditor [data-role="exercise"][data-id="${slotId}"]`);
+  const day = exercise.locator('xpath=ancestor::*[@data-role="day"]');
+  if (!await exercise.isVisible()) await day.locator('[data-role="toggle-day"]').click();
+  const toggle = exercise.locator('[data-role="toggle-exercise"]');
+  if (await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
+  await exercise.locator('[data-role="metric-composition"]').selectOption(value);
   await page.waitForFunction(({ key, slotId, value }) => {
     const state = JSON.parse(localStorage.getItem(key));
     const slot = state.state.result.preview.programDefinition.days.flatMap(day => day.slots).find(slot => slot.id === slotId);
@@ -110,11 +112,13 @@ export async function verifyImportedRepRanges(browser, base) {
         return Entry.normalizeSetupDraft(state).ok;
       });
       const otherRoute = structuredClone(original);otherRoute.route = "build";otherRoute.step = "editor";otherRoute.result.route = "build";
+      delete otherRoute.result.preview.format;
+      const otherRouteControl = structuredClone(otherRoute);delete otherRouteControl.result.preview.importedRepRanges;
       return { valid: valid.ok, preserved: JSON.stringify(valid.value?.result.preview.importedRepRanges) === JSON.stringify(original.result.preview.importedRepRanges),
-        invalid, otherRoute: Entry.normalizeSetupDraft(otherRoute).ok };
+        invalid, otherRouteControl: Entry.normalizeSetupDraft(otherRouteControl).ok, otherRoute: Entry.normalizeSetupDraft(otherRoute).ok };
     }, original);
     check(validation.valid && validation.preserved, "setup normalization preserves valid pending ranges", validation);
-    check(validation.invalid.every(ok => ok === false) && !validation.otherRoute,
+    check(validation.invalid.every(ok => ok === false) && validation.otherRouteControl && !validation.otherRoute,
       "malformed, unbounded, unknown-slot and unrelated-route metadata is rejected", validation);
 
     await page.click("#entryEditorSave");
