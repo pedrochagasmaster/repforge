@@ -6414,6 +6414,7 @@ function enginePerformedRow(row,exerciseId,metricIds){
     loadingConvention:row.loadingConvention,metricIds:[...row.metricIds],metricValues:cloneSnapshot(row.metricValues),
     loadingContext:isPlainStateObject(row.loadingContext)?cloneSnapshot(row.loadingContext):null,
     ...(row.effortSource?{effortSource:row.effortSource}:{}),
+    ...(row.warmup===true?{warmup:true}:{}),
     ...(row.effortSource==="failure"&&WorkoutDraft?.validCalibration?.(row.calibration)?{calibration:cloneSnapshot(row.calibration)}:{})}}
 /** A lift's calibration checks: its max sets in the comparable history (same equipment and loading as today), with any
  *  of `extra` (sessions not yet in the log), read by the estimator. */
@@ -6523,7 +6524,7 @@ function recommendation(ex){
   // reads it shifted, within its load bound. Today's checks count from the next session on.
   const calibration=liftCalibration(history,loadingContext.bySlotId[matched.slot.id],matched.slot.metricDefinitions);
   const results=engine.recommendSets(prescriptions,history,currentSession,loadingContext,{
-    weightMatch:state.settings.weightMatch===true,expandRepRange:state.settings.expandRepRange!==false,
+    now:today(),weightMatch:state.settings.weightMatch===true,expandRepRange:state.settings.expandRepRange!==false,
     ...(calibration.delta?{calibration:{version:calibration.version,delta:calibration.delta}}:{})});
   // Owner, 2026-11-04: an adaptive set with no comparable history starts from the load the program authored for it,
   // offered as a suggestion; once history exists the engine's recommendation takes over. No load is invented.
@@ -23465,7 +23466,7 @@ const LANDING_DEMO_KEYS=["focus.exmeta.range","program.progression.adaptive","fo
   "dialog.done"];
 let landingDemo=null;
 /** The proof's screen, from the "add" case and the engine's answer for it (`add`). */
-function landingDemoHtml(add){
+function landingDemoHtml(add,testSet){
   const c=LANDING_CASES.add,[load0,reps0,rir0]=c.logged[0],target=add||{load:load0,reps:reps0},rir=1;
   const kg=landingNum(target.load),reps=landingNum(target.reps),unit=LANDING_UNIT;
   const button=(cls,inner,attrs="")=>`<button type="button" class="${cls}" tabindex="-1"${attrs}>${inner}</button>`;
@@ -23520,10 +23521,7 @@ function landingDemoHtml(add){
   const nextRow=esc(t("focus.next_row",{name:"\u0000"})).replace("\u0000",`<b>${esc(landingExerciseName(LANDING_DEMO.next))}</b>`);
   // The session the target came from, as its ledger read: no "last" line under rows that are the last session.
   const lastSession=c.logged.map(([l,r,e])=>line(check,[landingNum(l),landingNum(r),landingNum(e)],false," firstrun-demo__last","")).join("");
-  const before=LANDING_TEST_SETS.at(-2),test=LANDING_TEST_SETS.at(-1),guess=EffortCalibration.prefillGuess(before[1],before[2]).predictedReps;
-  const result=EffortCalibration.result(guess,test[1]),left=EffortCalibration.ESTIMATOR.minChecks-1;
-  const diff=result.error<0?t("maxset.result_more",{n:-result.error}):result.error>0?t("maxset.result_fewer",{n:result.error}):t("maxset.result_same");
-  const status=t(left===1?"maxset.status_wait_one":"maxset.status_wait",{n:left});
+  const {before,test,guess,result,diff,status}=testSet;
   const rule=`<p class="maxset__rule">${esc(t("maxset.fail_rule"))}</p><p class="maxset__safety">${esc(t("maxset.safety"))}</p>`+
     `<p class="maxset__safety">${esc(t("maxset.press_line"))}</p>`;
   const testLedger=(finished=false,armed=true)=>`<div class="fcard__ledger">${head}`+
@@ -23686,6 +23684,12 @@ function layoutLandingDemo(d){
 function renderLandingProof(add){
   const root=$("#firstRun"),screen=root?.querySelector("#firstRunDemo");if(!screen)return;
   const c=LANDING_CASES.add,first=c.logged[0];
+  const before=LANDING_TEST_SETS.at(-2),test=LANDING_TEST_SETS.at(-1),guess=EffortCalibration.prefillGuess(before[1],before[2]).predictedReps;
+  const result=EffortCalibration.result(guess,test[1]),left=EffortCalibration.ESTIMATOR.minChecks-1;
+  const diff=result.error<0?t("maxset.result_more",{n:-result.error}):result.error>0?t("maxset.result_fewer",{n:result.error}):t("maxset.result_same");
+  const status=t(left===1?"maxset.status_wait_one":"maxset.status_wait",{n:left});
+  const summary=root.querySelector('[data-landing-fill="test-result"]');
+  if(summary)summary.textContent=`${t("maxset.guessed")} ${landingNum(result.guess)}. ${t("maxset.did")} ${landingNum(result.did)}. ${diff} ${status}`;
   const ch4=root.querySelector('[data-landing-fill="ch4"]');
   if(ch4&&add)ch4.textContent=t("landing.demo.s7.text",{done_reps:landingNum(first[1]),load:landingKg(first[0]),sets:landingNum(c.sets),
     min:landingNum(c.repMin),max:landingNum(c.repMax),next_load:landingKg(add.load),next_reps:landingNum(add.reps)});
@@ -23696,7 +23700,7 @@ function renderLandingProof(add){
   for(const name of tokens)if(name.startsWith("--font-size-")){
     const value=tokens.getPropertyValue(name).trim();
     if(/^\d*\.?\d+rem$/.test(value))screen.style.setProperty(name,`${parseFloat(value)*16}px`)}
-  screen.innerHTML=landingDemoHtml(add);
+  screen.innerHTML=landingDemoHtml(add,{before,test,guess,result,diff,status});
   const q=sel=>screen.querySelector(sel),qa=sel=>[...screen.querySelectorAll(sel)];
   landingDemo={root:q(".firstrun-demo"),ev:q(".firstrun-demo__ev"),
     done1:q(".firstrun-demo__done1"),open2:q(".firstrun-demo__open2"),ring:q(".firstrun-demo__ring"),rows:qa(".firstrun-demo__row"),

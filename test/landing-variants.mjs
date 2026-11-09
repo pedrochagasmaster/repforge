@@ -723,6 +723,54 @@ async function scrollToDevice(page, top = 16) {
   await page.waitForTimeout(400);
 }
 
+async function accessibleProofResult(browser) {
+  phase("Proof accessibility: readable chapters and computed result at both text sizes");
+  const calibration = require('../effort-calibration.js');
+  const guess = calibration.prefillGuess(10, 2).predictedReps;
+  const result = calibration.result(guess, 12);
+  for (const width of [320, 390]) for (const lang of ["en", "pt"]) for (const scale of [1, 2]) {
+    const { context, page } = await landingPage(browser, { lang, width });
+    await page.evaluate(async scale => {
+      document.documentElement.style.fontSize = `${scale * 100}%`;
+      await document.fonts.ready;
+      window.__repforgeLandingSeek(19);
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    }, scale);
+    const expected = `${tr(lang, 'maxset.guessed')} ${guess}. ${tr(lang, 'maxset.did')} ${result.did}. ` +
+      `${tr(lang, 'maxset.result_more', { n: -result.error })} ` +
+      tr(lang, 'maxset.status_wait', { n: calibration.ESTIMATOR.minChecks - 1 });
+    const measured = await page.evaluate(() => {
+      const chapters = document.querySelector('#firstRunChapters');
+      const summary = chapters.querySelector('[data-landing-fill="test-result"]');
+      const buttons = [...chapters.querySelectorAll('.firstrun-chapter__go')];
+      const splitWords = [];
+      for (const title of chapters.querySelectorAll('.firstrun-chapter__title')) {
+        const node = title.firstChild;
+        for (const match of node.textContent.matchAll(/\S+/g)) {
+          const range = document.createRange();range.setStart(node, match.index);range.setEnd(node, match.index + match[0].length);
+          if (range.getClientRects().length > 1) splitWords.push(match[0]);
+        }
+      }
+      return { columns: new Set(buttons.map(button => Math.round(button.getBoundingClientRect().left))).size, splitWords,
+        text: summary?.textContent, font: summary ? parseFloat(getComputedStyle(summary).fontSize) : 0,
+        exposed: !!summary && !summary.closest('[inert], [aria-hidden="true"]') && getComputedStyle(summary).visibility === 'visible',
+        whole: !!summary && summary.scrollWidth <= summary.clientWidth + 1,
+        phoneFont: parseFloat(getComputedStyle(document.querySelector('.firstrun-demo__test-result .ledgerline__resline')).fontSize),
+        overflow: document.documentElement.scrollWidth > innerWidth,
+      };
+    });
+    const label = `${lang} ${width} text${scale * 100}`;
+    assert(measured.columns <= (scale === 2 ? 1 : 2) && measured.splitWords.length === 0,
+      `[${label}] chapter titles reflow without splitting words`, JSON.stringify(measured));
+    assert(measured.text === expected, `[${label}] the fourth caption includes the computed guess result`, JSON.stringify(measured));
+    const tree = await page.locator('#firstRunChapters').ariaSnapshot();
+    assert(measured.exposed && tree.includes(expected), `[${label}] the result is in the accessibility tree outside the inert phone`, tree);
+    assert(measured.font === 16 * scale && measured.phoneFont === 14 && measured.whole && !measured.overflow,
+      `[${label}] the readable result scales while the phone keeps its authored text`, JSON.stringify(measured));
+    await context.close();
+  }
+}
+
 async function finalPage(browser) {
   // Standard landing, both languages, both themes' captures.
   for (const lang of ["en", "pt"]) {
@@ -1395,6 +1443,7 @@ async function main() {
   copyPins();
   const browser = await launchChromium();
   try {
+    await accessibleProofResult(browser);
     await characterize(browser);
     await finalPage(browser);
     await dockFocusRing(browser);
