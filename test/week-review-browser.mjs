@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {join} from "node:path";
-import {mkdirSync} from "node:fs";
+import {mkdirSync,readFileSync} from "node:fs";
 import {loadManifest} from "../tools/ui-screens/manifest.mjs";
 import {appState, APP_SCENARIOS} from "../tools/ui-screens/screens-app.mjs";
 import {openPage, dismissChrome, seed, settle} from "../tools/ui-screens/session.mjs";
@@ -212,6 +212,8 @@ async function runCatalogWeekCardCases(browser,manifest){
 async function runAdaptationCases(browser,manifest){
   for(const action of ["accept","decline","later","change"]){
     const state=appState("progress/review-active","en");
+    state.programMeta.blockId="weekly-adaptation-block";
+    state.log=state.log.map(row=>({...row,blockId:state.programMeta.blockId}));
     const skipped=state.program.filter(exercise=>exercise.day==="Day 1")[2];
     const slot=state.programMeta.programDefinition.days.flatMap(day=>day.slots).find(slot=>slot.id===skipped.id);
     slot.alternates=[state.program[0].libraryId];
@@ -245,6 +247,25 @@ async function runAdaptationCases(browser,manifest){
         await APP_SCENARIOS["progress/review-active"](page);
         assert.equal(await page.locator('[data-adaptation-card]').count(),0,"decision survives reload and suppresses this week's second proposal");
         assert.deepEqual(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations),saved.programMeta.adaptations,"normalization retains the complete receipt");
+        if(action==="accept"){
+          await page.evaluate(()=>window.__repforgeShowSettings());
+          await page.locator("#dataBackupRow").click();
+          const [download]=await Promise.all([page.waitForEvent("download"),page.locator("#exportJson").click()]);
+          const backup=JSON.parse(readFileSync(await download.path(),"utf8"));
+          assert.deepEqual(backup.programMeta.adaptations,saved.programMeta.adaptations,"the actual backup exporter carries the receipt");
+          await page.evaluate(()=>window.__repforgeShowSettings());await page.locator("#dataImportRow").click();
+          await page.locator("#importJson").setInputFiles({name:"weekly-change.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(backup))});
+          await page.locator("#importChoice").waitFor({state:"visible"});await page.locator("#importReplace").click();
+          await page.locator("#importChoice").waitFor({state:"hidden"});await page.evaluate(()=>window.__repforgeStorage.flush());
+          await page.reload({waitUntil:"domcontentloaded"});await waitForAppBoot(page);
+          assert.deepEqual(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations),saved.programMeta.adaptations,"the production backup importer and reload preserve the receipt");
+          await page.clock.setFixedTime(new Date("2026-09-07T12:00:00Z"));
+          await page.reload({waitUntil:"domcontentloaded"});await waitForAppBoot(page);
+          await APP_SCENARIOS["progress/review-active"](page);
+          await page.waitForFunction(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations[0].evaluation);
+          assert.equal(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations[0].evaluation.outcome),"insufficient","an unobserved following week is not called a success");
+          assert.match(await page.locator('[data-adaptation-evaluation]').innerText(),/not enough sessions/);
+        }
       }
     }finally{await context.close()}
   }

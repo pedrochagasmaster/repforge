@@ -358,6 +358,56 @@
       trimUsed:skips.some(event => event.reason === "trim")};
   }
 
+  /** Completed-week observations use movement AND slot identity. A replacement
+   * in the same slot cannot inherit the original movement's pattern. */
+  function detectPatterns(log, sessionEvents, program, meta, week) {
+    const end = weekStartOf(week), start = addDays(end, -14);
+    const rows = (log || []).filter(row => isoDate(row.date) >= start && isoDate(row.date) < end &&
+      (!meta?.blockId || row.blockId === meta.blockId));
+    const sessions = new Map();
+    for (const row of rows) if (row.session) {
+      if (!sessions.has(row.session)) sessions.set(row.session, {date:isoDate(row.date),day:row.day,rows:[]});
+      sessions.get(row.session).rows.push(row);
+    }
+    const exercises = Array.isArray(program) ? program : program?.exercises || [];
+    const groups = new Map(), days = new Map();
+    const observe = (pattern, event, session) => {
+      const exercise = exercises.find(ex => (ex.slotId || ex.id) === event.slotId &&
+        (ex.libraryId || ex.movementId || ex.id) === event.exerciseId);
+      if (!exercise) return;
+      const key = `${pattern}:${event.slotId}:${event.exerciseId}`;
+      if (!groups.has(key)) groups.set(key, {pattern,slotId:event.slotId,exerciseId:event.exerciseId,name:event.name,day:exercise.day,sessions:new Set()});
+      groups.get(key).sessions.add(session);
+    };
+    for (const [id, session] of sessions) {
+      const events = sessionEvents?.[id];
+      if (!days.has(session.day)) days.set(session.day, []);
+      days.get(session.day).push({id,...session,trim:events?.skips?.some(event => event.reason === "trim"),
+        flagged:new Set(meta?.fatigueSessions?.[id] || []).size >= 2});
+      for (const event of events?.skips || []) if (event.reason !== "trim") observe("recurring_skip",event,id);
+      for (const event of events?.pain || []) observe("recurring_pain",event,id);
+    }
+    const patterns = [...groups.values()].filter(group => group.sessions.size >= 2)
+      .map(({sessions,...pattern}) => ({...pattern,count:sessions.size}));
+    for (const [day, entries] of days) {
+      const last = entries.sort((a,b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id)).slice(-3);
+      if (last.filter(entry => entry.flagged).length >= 2 || entries.filter(entry => entry.trim).length >= 2) {
+        const exercise = exercises.find(ex => ex.day === day);
+        if (exercise) patterns.push({pattern:"recurring_fatigue",day,slotId:exercise.slotId || exercise.id,
+          exerciseId:exercise.libraryId || exercise.movementId || exercise.id});
+      }
+    }
+    // The caller supplies the existing stall owner's result, bounded to these
+    // completed weeks, rather than introducing another performance rule.
+    for (const stalled of meta?.hardStalls || []) {
+      const exercise = exercises.find(ex => (ex.slotId || ex.id) === stalled.slotId &&
+        (ex.libraryId || ex.movementId || ex.id) === stalled.exerciseId);
+      if (exercise) patterns.push({pattern:"stall_hard",...stalled,day:exercise.day});
+    }
+    const order = ["recurring_pain","recurring_skip","recurring_fatigue","stall_hard"];
+    return patterns.sort((a,b) => order.indexOf(a.pattern)-order.indexOf(b.pattern) || a.slotId.localeCompare(b.slotId));
+  }
+
   function buildReviewCheckpoint(program, meta, log, now) {
     const norm = normalizeProgram(program, meta);
     const today = isoDate(now);
@@ -611,6 +661,7 @@
     buildProgramActionQueue,
     buildReviewCheckpoint,
     buildWeekReview,
+    detectPatterns,
     buildStrengthEvidence,
     buildVolumeEvidence,
     buildPREvidence,

@@ -9225,3 +9225,8 @@ body.is-entry-editor #entryProgramName,
 .week-card__actions{display:flex;flex-wrap:wrap;gap:var(--space-12);justify-content:space-between}
 #stats #reviewPanel .review__week{padding:var(--space-16) 0;border-bottom:.5px solid var(--boundary-decorative)}
 #stats #reviewPanel .review__week p{line-height:var(--line-reading);overflow-wrap:anywhere}
+.week-proposal__causes,.week-proposal__actions{display:flex;flex-wrap:wrap;gap:var(--space-8);align-items:center}
+.week-proposal__cause{min-height:44px;padding:var(--space-8) var(--space-12);border:1px solid var(--control-selection-boundary);border-radius:var(--radius-control);background:var(--control-selection-bg);color:var(--control-selection-ink);font:inherit;white-space:normal}
+.week-proposal__causes [aria-pressed="true"]{border-color:var(--control-selection-boundary);background:var(--control-selection-active-bg);color:var(--control-selection-ink)}
+.week-proposal__actions{margin-top:var(--space-16);gap:var(--space-16)}
+.week-proposal__actions .text-link{min-height:44px}

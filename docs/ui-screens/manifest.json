@@ -2276,6 +2276,20 @@
       "label": "Workout — skip reason",
       "scenario": "Closed skip reasons, with no reason chosen before the tap.",
       "variants": "demandingText"
+    },
+    {
+      "id": "review-proposal",
+      "flow": "progress",
+      "label": "Review with a proposed change",
+      "scenario": "Recurring skips, an equipment cause and an alternate, with four explicit actions.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "review-evaluated",
+      "flow": "progress",
+      "label": "Review of an accepted change",
+      "scenario": "An accepted removal and the following week’s observed outcome.",
+      "variants": "demandingText"
     }
   ]
 }

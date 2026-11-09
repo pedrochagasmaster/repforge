@@ -658,7 +658,116 @@
     });
   }
 
+  const ADAPTATION_PATTERNS = ["recurring_skip","recurring_pain","recurring_fatigue","stall_hard"];
+  const ADAPTATION_CAUSES = {
+    recurring_skip:["time","equipment","pain","preference","other"],
+    recurring_pain:["pain"], recurring_fatigue:["recovery","time","schedule","other"], stall_hard:["hard_sets"],
+  };
+  const adaptationWeek = value => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+    Number.isFinite(Date.parse(value)) && new Date(`${value}T12:00:00Z`).getUTCDay() === 1 &&
+    new Date(`${value}T12:00:00Z`).toISOString().slice(0,10) === value;
+  const boundedId = value => typeof value === "string" && value.trim().length > 0 && value.length <= 256;
+  const adaptationDays = (a,b) => Math.round((Date.parse(a)-Date.parse(b))/86400000);
+
+  function validateAdaptations(value) {
+    try { value = copyJson(value); } catch { return false; }
+    if (!Array.isArray(value) || value.length > 512) return false;
+    const ids = new Set(), weeks = new Set();
+    return value.every(record => {
+      const keys = ["id","v","blockId","week","pattern","cause","kind","target","proposedAt","decision","decidedAt"];
+      if (!plainRecord(record) || Object.keys(record).some(key => ![...keys,"appliedEdit","evaluation"].includes(key)) ||
+          keys.some(key => !Object.hasOwn(record,key)) || record.v !== 1 || !boundedId(record.id) || ids.has(record.id) ||
+          !boundedId(record.blockId) || !adaptationWeek(record.week) || !ADAPTATION_PATTERNS.includes(record.pattern) ||
+          !ADAPTATION_CAUSES[record.pattern].includes(record.cause) ||
+          !["swap_exercise","drop_exercise","reduce_sets"].includes(record.kind) ||
+          !["accepted","declined","snoozed"].includes(record.decision) ||
+          !isCanonicalInstant(record.proposedAt) || !isCanonicalInstant(record.decidedAt) || record.decidedAt < record.proposedAt) return false;
+      const weekKey = `${record.blockId}:${record.week}`;
+      if (weeks.has(weekKey)) return false;
+      ids.add(record.id); weeks.add(weekKey);
+      const target = record.target;
+      const targetKeys = ["slotId","exerciseId",...(record.kind === "swap_exercise" ? ["replacementId"] : []),
+        ...(record.kind === "reduce_sets" ? ["setsDelta"] : [])];
+      if (!ownKeysAre(target,targetKeys) || !boundedId(target.slotId) || !boundedId(target.exerciseId) ||
+          record.kind === "swap_exercise" && (!boundedId(target.replacementId) || target.replacementId === target.exerciseId) ||
+          record.kind === "reduce_sets" && target.setsDelta !== -1 ||
+          (record.pattern === "recurring_fatigue") !== (record.kind === "reduce_sets") || record.pattern === "stall_hard") return false;
+      if (record.decision === "accepted") {
+        if (!ownKeysAre(record.appliedEdit,["expectedToken","intent"]) || record.appliedEdit.intent !== "adaptation_apply") return false;
+        const token = record.appliedEdit.expectedToken;
+        if (!plainRecord(token) || !Number.isSafeInteger(token.revision) || token.revision < 0 ||
+            !boundedId(token.programId) || token.blockId !== record.blockId ||
+            Object.keys(token).some(key => !["revision","programId","blockId","fingerprint"].includes(key)) ||
+            Object.hasOwn(token,"fingerprint") && (typeof token.fingerprint !== "string" || !token.fingerprint || token.fingerprint.length > 1048576)) return false;
+      } else if (Object.hasOwn(record,"appliedEdit") || Object.hasOwn(record,"evaluation")) return false;
+      if (Object.hasOwn(record,"evaluation")) {
+        const evaluation = record.evaluation;
+        if (!ownKeysAre(evaluation,["week","outcome"]) || !adaptationWeek(evaluation.week) ||
+            adaptationDays(evaluation.week,record.week) < 7 ||
+            !["pattern_stopped","pattern_continued","insufficient"].includes(evaluation.outcome)) return false;
+      }
+      return true;
+    });
+  }
+
+  function adaptationEligible(records, pattern, blockId, week) {
+    return !(records || []).some(record => record.blockId === blockId &&
+      (record.week === week || record.pattern === pattern.pattern && record.target.slotId === pattern.slotId &&
+        record.target.exerciseId === pattern.exerciseId && (record.decision === "declined" ||
+          record.decision === "accepted" && !record.evaluation || record.decision === "snoozed" && adaptationDays(week,record.week) < 14)));
+  }
+
+  function proposeAdaptation(pattern, document, options = {}) {
+    if (!pattern || !ADAPTATION_PATTERNS.includes(pattern.pattern) || pattern.pattern === "stall_hard") return null;
+    const nextDocument = copyJson(document), definition = nextDocument.programMeta?.programDefinition;
+    const day = definition?.days?.find(day => day.slots.some(slot => slot.id === pattern.slotId && slot.exerciseId === pattern.exerciseId));
+    const slot = day?.slots.find(slot => slot.id === pattern.slotId);
+    if (!slot) return null;
+    const target = {slotId:slot.id,exerciseId:slot.exerciseId};
+    const cause = options.cause || (pattern.pattern === "recurring_pain" ? "pain" : null);
+    if (cause && !ADAPTATION_CAUSES[pattern.pattern].includes(cause)) return null;
+    if (pattern.pattern === "recurring_fatigue") {
+      let changed = false;
+      for (const accessory of day.slots) {
+        if (accessory.order === 1 || !(accessory.role.endsWith("Accessory") || accessory.role === "manual" && options.isAccessory?.(accessory))) continue;
+        for (const cycle of accessory.prescriptionsByCycle || []) {
+          if (cycle.cycleIndex < options.cycleIndex || cycle.sets.length <= 1) continue;
+          cycle.sets.pop(); changed = true;
+        }
+        const row = nextDocument.program.find(row => (row.slotId || row.id) === accessory.id);
+        if (row) row.sets = accessory.prescriptionsByCycle.find(cycle => cycle.cycleIndex === options.cycleIndex)?.sets.length || row.sets;
+      }
+      if (!changed) return null;
+      return {kind:"reduce_sets",pattern:pattern.pattern,cause,target:{...target,setsDelta:-1},nextDocument};
+    }
+    const replacementId = (slot.alternates || []).find(id => id !== slot.exerciseId &&
+      (pattern.pattern !== "recurring_pain" || options.isDifferentMovement?.(slot.exerciseId,id)));
+    if (replacementId) {
+      // The editor owns movement composition and clears incompatible load
+      // targets. Its canonical builder supplies the replacement document.
+      return {kind:"swap_exercise",pattern:pattern.pattern,cause,target:{...target,replacementId},
+        nextDocument:options.replaceExercise ? options.replaceExercise(nextDocument,slot,replacementId) : null};
+    }
+    if (day.slots.length <= 1) return null;
+    day.slots = day.slots.filter(item => item.id !== slot.id);
+    day.slots.forEach((item,index) => { item.order = index+1; });
+    nextDocument.program = nextDocument.program.filter(row => (row.slotId || row.id) !== slot.id);
+    for (const row of nextDocument.program.filter(row => row.day === day.name)) row.order = day.slots.find(slot => slot.id === (row.slotId || row.id))?.order || row.order;
+    return {kind:"drop_exercise",pattern:pattern.pattern,cause,target,nextDocument};
+  }
+
+  function evaluateAdaptation(record, patterns, {week,observed}) {
+    const continued = patterns.some(pattern => pattern.pattern === record.pattern && pattern.slotId === record.target.slotId &&
+      pattern.exerciseId === (record.target.replacementId || record.target.exerciseId));
+    return {week,outcome:!observed ? "insufficient" : continued ? "pattern_continued" : "pattern_stopped"};
+  }
+
   const api = Object.freeze({
+    validateAdaptations,
+    adaptationEligible,
+    proposeAdaptation,
+    evaluateAdaptation,
+    ADAPTATION_CAUSES,
     SCHEMA_VERSION,
     KIND,
     canonicalProposalJson: (proposal) => canonicalJson(proposalPreimage(proposal)),
