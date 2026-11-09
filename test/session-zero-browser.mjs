@@ -97,7 +97,11 @@ async function nonRampParity(browser){
             load:set.load??value("loadKg")??40,reps:set.reps??value("reps")??7,rir:set.rir??null,
             extra:{...(set.warmup?{warmup:true}:{}),...(source?{effortSource:source}:{}),...(set.equipmentId&&set.equipmentId!=="rack-a"?{equipmentId:set.equipmentId}:{})}}));
         }
-        await page.evaluate(async state=>{await window.__repforgeCommitProposedState(state);await window.__repforgeStorage.flush();},next);
+        await page.evaluate(async ({state,name})=>{
+          const result=await window.__repforgeCommitProposedState(state);
+          if(result.committed!==true)throw new Error(`${name}: history proposal was rejected`);
+          await window.__repforgeStorage.flush();
+        },{state:next,name:dataset.name});
         adapted.push(await page.evaluate(ids=>ids.map(id=>{const api=window.__repforgeProgression,rec=api.recommendation(api.programSlot(id));return{rec,inputs:rec.progressionInputs};}),targets.map(target=>target.id)));
       }
       return{exact,adapted};
