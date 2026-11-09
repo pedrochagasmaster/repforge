@@ -1,0 +1,20 @@
+{
+  "benchmark": "taurifer-program-import",
+  "version": "1.0.0",
+  "generatedAtPolicy": "reproducible (no volatile timestamps)",
+  "generation": "20 researched format references x 10 original synthetic cases per reference",
+  "referenceCount": 20,
+  "syntheticCaseCount": 200,
+  "localeCounts": {
+    "en": 100,
+    "pt": 100
+  },
+  "splitCounts": {
+    "development": 120,
+    "validation": 40,
+    "holdout": 40
+  },
+  "sha256": "3649aa907b4248efbfc629204ae610846260eff033fabeccd6df5aa9403b8a1c",
+  "goldPolicy": "Generated directly from synthetic structured prescription, never LLM-scored",
+  "licensePolicy": "Public URL and broad format descriptors only; no reference post text stored"
+}
