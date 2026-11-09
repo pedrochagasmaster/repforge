@@ -193,6 +193,29 @@ console.log("\nD-owned state list");
     "every rule no governing document provides is recorded as an explicit gap", `${GAPS.length} gaps`);
 }
 
+console.log("\nComposed catalog sentences");
+{
+  const catalog = loadCatalog("pt"), dictionary = catalog.dictionary;
+  const fill = (key, vars) => dictionary[key].replace(/\{(\w+)\}/g, (_, name) => vars[name]);
+  const first = fill("focus.evidence.history_effort", { load: "102,5 × 7", effort: dictionary["effort.hard"] });
+  const next = fill("focus.evidence.target_effort", { reps: "6", effort: dictionary["effort.hard"] });
+  const why = dictionary["focus.evidence.why"];
+  const evidence = text => ({ text: [{ text, locator: "#composedEvidence" }], requestedI18nKeys: [],
+    timerLabels: [], data: { strings: ["102,5 × 7"], dateWords: [] } });
+  const approved = checkStrings(evidence(`${first} ${next} ${why}`), catalog);
+  check(approved.length === 0, "composed approved PT sentences retain their commas and decimal data", show(approved));
+  const extra = checkStrings(evidence(`${first} ${next} Quantum flux capacitor engaged. ${why}`), catalog);
+  check(has(extra, "not a catalog"), "an unreviewed sentence between approved sentences is rejected", show(extra));
+  const raw = checkStrings(evidence(`${first} picker.equipment.band ${why}`), catalog);
+  check(has(raw, "picker.equipment.band"), "composition does not hide a raw translation key", show(raw));
+  const punctuation = checkStrings(evidence(`${first} ${next} ${why} —`), catalog);
+  check(has(punctuation, "banned"), "composition does not bypass the punctuation guard", show(punctuation));
+}
+if (process.argv.includes("--catalog-composition-only")) {
+  console.log(`\n${results.passed} passed, ${results.failed} failed`);
+  process.exit(results.failed ? 1 : 0);
+}
+
 // ------------------------------------------------------------ the real app
 const preview = await maybeStartLocalPreview([{ lane: "state" }], { cwd: ROOT });
 setCaptureBase(preview.env.REPFORGE_URL);

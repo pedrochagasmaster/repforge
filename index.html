@@ -455,19 +455,18 @@
         <!-- A choice row opens a native pull-down anchored to it (the prototype, owner 2026-10-28); the radios keep the value. -->
         <button type="button" class="settings-row settings-row--pull" id="rirModeRow" aria-haspopup="menu" aria-labelledby="rirModeLabel rirModeDisplay">
           <span class="settings-row__label" id="rirModeLabel" data-i18n="settings.rir_logging">Effort logging</span>
-          <span class="settings-row__value"><span id="rirModeDisplay">RIR (a number)</span> <span class="icon-mask icon-mask--chev-down settings-row__pull" aria-hidden="true"></span></span>
+          <span class="settings-row__value"><span id="rirModeDisplay">Reps left (0 to 5+)</span> <span class="icon-mask icon-mask--chev-down settings-row__pull" aria-hidden="true"></span></span>
         </button>
         <div id="rirModePanel" hidden>
           <fieldset class="field rirmode">
             <legend class="visually-hidden" data-i18n="settings.rir_logging">Effort logging</legend>
             <div class="rirmode__opts">
               <label class="rirmode__opt"><input type="radio" name="rirMode" value="effort"> <span data-i18n="settings.rir_effort">Easy / Hard / Max</span></label>
-              <label class="rirmode__opt"><input type="radio" name="rirMode" value="reps"> <span data-i18n="settings.rir_reps">Reps left</span></label>
-              <label class="rirmode__opt"><input type="radio" name="rirMode" value="numeric" checked> <span data-i18n="settings.rir_numbers">RIR (a number)</span></label>
+              <label class="rirmode__opt"><input type="radio" name="rirMode" value="numeric" checked> <span data-i18n="settings.rir_numbers">Reps left (0 to 5+)</span></label>
             </div>
           </fieldset>
         </div>
-        <p class="lede settings-row__foot" id="rirEffortLede" data-i18n="settings.effort_lede" hidden>Easy ≈ 3 reps left in the tank (RIR 3) · Hard ≈ 1 left (RIR 1) · Max ≈ nothing left (RIR 0).</p>
+        <p class="lede settings-row__foot" id="rirEffortLede" data-i18n="settings.effort_lede" hidden>Easy ≈ 3 reps left in the tank · Hard ≈ 1 left · Max ≈ nothing left.</p>
         <div class="settings-row" style="cursor:default">
           <span class="settings-row__label" data-i18n="settings.max_set_prompts">Test-set prompts</span>
           <button type="button" class="toggle" id="maxSetToggle" aria-pressed="true" data-i18n-aria="settings.max_set_prompts"></button>
@@ -1553,7 +1552,7 @@ Triceps pushdown 3x12-15</pre>
   <script src="shared-setup.js?v=574"></script>
   <script src="workout-draft.js?v=698"></script>
   <script src="effort-calibration.js?v=640"></script>
-  <script src="calibration-gauge.js?v=640"></script>
+  <script src="calibration-gauge.js?v=697"></script>
   <script src="program-transition.js?v=560"></script>
   <script src="program-engine.js?v=669"></script>
   <script src="install-transfer-contract.js?v=698"></script>

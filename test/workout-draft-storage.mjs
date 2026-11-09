@@ -4,7 +4,7 @@ import { exerciseAction, finishEarly, openLoggedSets, sessionField } from "./fix
  * Production storage/DOM gate for Plan 051's first DraftV2 vertical slice.
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
-import { launchChromium, openShelfField } from "./browser.mjs";
+import { chooseRepsLeft, launchChromium, openShelfField } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 import { legacyRelease } from "./fixtures/legacy-release.mjs";
 import { readFileSync } from "node:fs";
@@ -328,9 +328,12 @@ async function poundLoadSurfaces(page, key) {
 }
 
 async function fillCurrent(page, field, value) {
-  const input = await shelfInput(page, field);
+  const input = field === "rir"
+    ? page.locator('#workout .exercise.is-current .focus-shelf input[data-k$="_rir"]')
+    : await shelfInput(page, field);
   const key = await input.getAttribute("data-k");
-  await input.fill(String(value));
+  if (field === "rir") await chooseRepsLeft(page, String(value));
+  else await input.fill(String(value));
   await page.waitForFunction(({ key, metricId, field, value }) => {
     const draft = window.__repforgeWorkoutDraft.current();
     const target = window.__repforgeWorkoutDraft.target(key);
@@ -429,7 +432,7 @@ async function main() {
     let poundLoadInput = await shelfInput(page, "load");
     await poundLoadInput.fill("80");
     await (await shelfInput(page, "reps")).fill("8");
-    await (await shelfInput(page, "rir")).fill("2");
+    await chooseRepsLeft(page, "2");
     await page.locator("#workout .exercise.is-current .focus-shelf .saveset").click();
     await page.waitForFunction(() => {
       const draft = window.__repforgeWorkoutDraft.current(), exercise = draft.exercises[draft.session.selectedExerciseId];
@@ -486,7 +489,7 @@ async function main() {
     "Retry stores 45.359 kg while every pound display still reads 100", poundRetried);
 
     await fillCurrent(page, "reps", "8");
-    await (await shelfInput(page, "rir")).fill("2");
+    await chooseRepsLeft(page, "2");
     await page.waitForFunction((key) => {
       const hook = window.__repforgeWorkoutDraft, target = hook.target(key);
       return hook.current().exercises[target.exerciseInstanceId].sets[target.setId].edited.rir === "2";
@@ -583,7 +586,7 @@ async function main() {
     const precisionLoad = 12.5 / 2.2046226218;
     await (await shelfInput(page, "load")).fill("12.5");
     await (await shelfInput(page, "reps")).fill("8");
-    await (await shelfInput(page, "rir")).fill("2");
+    await chooseRepsLeft(page, "2");
     await sessionField(page, "#sessionBodyweight", "12.5");
     await page.waitForFunction(({ draft, id, expected, weight }) => {
       const value = JSON.parse(localStorage.getItem(draft) || "null");
@@ -1503,7 +1506,7 @@ async function main() {
     let loadKey = await loadInput.getAttribute("data-k");
     await loadInput.fill("150");
     await (await shelfInput(page, "reps")).fill("8");
-    await (await shelfInput(page, "rir")).fill("2");
+    await chooseRepsLeft(page, "2");
     await page.locator("#workout .exercise.is-current .focus-shelf .saveset").click();
     await page.waitForFunction(() => {
       const draft = window.__repforgeWorkoutDraft.current(), exercise = draft.exercises[draft.session.selectedExerciseId];
@@ -1785,7 +1788,7 @@ async function main() {
   if (failures.length) process.exitCode = 1;
 }
 
-main().catch((error) => {
+main().then(() => import("./effort-ladder-migration.mjs")).catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });

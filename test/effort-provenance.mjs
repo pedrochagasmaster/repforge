@@ -159,6 +159,30 @@ try {
   }, exId);
   assert(second.source === "effort" && second.effort === "max", "a chosen label records effortSource effort", second);
 
+  phase("An untouched numeric chip remains a prefill");
+  await page.evaluate(() => window.__repforgeFocus.to(1));
+  await page.locator(`${SHELF} [data-effmenu]`).click();
+  await page.locator('#nativeContextMenu [data-menu-value="c"]').click();
+  await page.waitForSelector("#nativeContextMenu", { state: "detached" });
+  await page.evaluate(async () => { await window.__repforgeStorage.flush(); await window.__repforgeWorkoutDraft.flush(); });
+  await page.evaluate(() => window.__repforgeFocus.to(0));
+  const retainedWord = await page.locator('#workout .exercise.is-current [data-editn="1"] [data-lv="rir"]').textContent();
+  assert(["Easy", "Hard", "Max"].includes(retainedWord.trim()),
+    "a completed prefilled word keeps its vocabulary after a stage change", retainedWord);
+  await page.evaluate(() => window.__repforgeFocus.to(1));
+  await typeField(page, "load", 1, "50");
+  await typeField(page, "reps", 1, "6");
+  await page.locator(field("rir")).click();
+  const numericShown = await page.locator(`${SHELF} .shelf__chip.is-offered`).textContent();
+  await page.locator(`${SHELF} .saveset`).click();
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  const numeric = await page.evaluate(() => {
+    const draft = window.__repforgeWorkoutDraft.current(), ex = draft.exercises[draft.exerciseOrder[1]], set = ex.sets[ex.setOrder[0]];
+    return { rir: set.edited.rir, source: set.completion.effortSource };
+  });
+  assert(numeric.source === "prefilled" && Number(numeric.rir) === Number(numericShown.replace("+", "")),
+    "an untouched numeric chip logs its displayed count with prefilled provenance", { numericShown, numeric });
+
   phase("History keeps the source, in both replicas");
   await finishEarly(page);
   const saved = await readReplicas(page);
@@ -167,6 +191,18 @@ try {
     rows(saved.local)[0]?.[2] === "prefilled" && rows(saved.local)[1]?.[2] === "effort" && rows(saved.local)[1]?.[1] === 0,
     "the saved rows say prefilled and effort beside their RIR, identically in localStorage and IndexedDB", rows(saved.local));
 
+  phase("A History correction remains a measured RIR");
+  await page.locator("#sumDone").click();
+  await page.locator('nav [data-view="history"]').click();
+  await page.locator('#sessions [data-edit]').first().click();
+  await page.locator('[data-history-edit]').click();
+  await page.locator('[data-ek="rir|0"]').fill("2");
+  await page.locator('[data-edsave]').click();
+  await page.waitForFunction(() => !document.querySelector(".session--edit"));
+  const corrected = (await readReplicas(page)).local.log.find(row => row.exerciseId === exId && row.set === 1);
+  assert(corrected.rir === 2 && corrected.effortSource === "rir" && corrected.rirMeasured === true,
+    "History keeps corrections distinct from a reps-left report", corrected);
+
   phase("The app accepts the enum, refuses anything else, and never adds a source");
   const validity = await page.evaluate(() => {
     const base = JSON.parse(JSON.stringify(state));
@@ -174,7 +210,7 @@ try {
     const withSource = (value) => { const s = JSON.parse(JSON.stringify(base)); s.log[0] = { ...row, effortSource: value }; return window.__repforgeValidateStateShape(s); };
     const without = JSON.parse(JSON.stringify(base)); delete without.log[0].effortSource;
     return {
-      accepted: ["rir", "effort", "reps_left", "reps_left_3plus", "unsure", "prefilled", "failure"].map(withSource),
+      accepted: ["rir", "effort", "reps_left", "reps_left_3plus", "reps_left_5plus", "unsure", "prefilled", "failure"].map(withSource),
       unknown: withSource("x"), number: withSource(1), absent: window.__repforgeValidateStateShape(without),
     };
   });

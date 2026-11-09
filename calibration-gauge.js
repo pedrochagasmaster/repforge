@@ -39,7 +39,7 @@
     if (!row || row.warmup) return 0;
     switch (row.effortSource) {
       case "rir": case "reps_left": return 1;
-      case "effort": case "reps_left_3plus": case undefined: case null: return 0.5;
+      case "effort": case "reps_left_3plus": case "reps_left_5plus": case undefined: case null: return 0.5;
       default: return 0;
     }
   }

@@ -116,7 +116,7 @@ export const SUITES = {
     s("test/install-transfer-client-browser.mjs", [], {"domains": ["install"], "cost": "normal", "tier": "feedback", "seconds": 5}),
     s("test/install-transfer-import.mjs", [], {"domains": ["install"], "cost": "normal", "tier": "feedback", "seconds": 201}),
     s("test/install-transfer-ui.mjs", [], {"domains": ["install"], "cost": "normal", "tier": "feedback", "seconds": 27}),
-    s("test/workout-draft-storage.mjs", [], {"domains": ["workout"], "cost": "normal", "tier": "feedback", "seconds": 83}),
+    s("test/workout-draft-storage.mjs", [], {"domains": ["workout", "settings", "persistence"], "cost": "normal", "tier": "feedback", "seconds": 83}),
     s("test/draftv2-staged-cas.mjs", [], {"domains": ["persistence"], "cost": "normal", "tier": "feedback", "seconds": 26}),
     s("test/workout-draft-sw-upgrade.mjs", [], {"domains": ["workout"], "cost": "normal", "tier": "feedback", "seconds": 8}),
     s("test/adversarial-draft-transactions.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback", "seconds": 42}),
@@ -312,6 +312,7 @@ export const FULL_SUITES = {
 export const SUPPORT = {
   "test/week-review-browser.mjs": "Plan 082 weekly facts journeys executed by test/progress-lifecycle.mjs in the PR lane.",
   "test/week-review.mjs": "Plan 082 weekly-facts assertions executed by test/progress-model.mjs in the PR lane.",
+  "test/effort-ladder-migration.mjs": "Plan 078 boot migration proof; every assertion runs from the PR workout-draft-storage owner.",
   "test/starting-loads.mjs": "Opening-load and ramp arithmetic proofs executed by progression-engine-plan067.mjs in the PR lane; also runnable directly.",
   "test/entry-privacy.mjs": "Shared privacy characterization/oracles imported by the four scoped contracts.",
   "test/suites.mjs": "CI/local inventory, imported by tools/run-tests.mjs.",

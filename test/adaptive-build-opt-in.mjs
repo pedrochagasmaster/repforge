@@ -15,7 +15,7 @@
  *
  * Run: node tools/run-tests.mjs entry --suite-id test-adaptive-build-opt-in-mjs
  */
-import { launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
+import { chooseRepsLeft, launchChromium, openShelfField, waitForAppBoot } from "./browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const EXERCISE_ID = "19f5c6f170d8808bb424e98de4472a7e";
@@ -94,7 +94,7 @@ async function logSet(page, rowId, ordinal, metricIds, { load, reps, rir }) {
   const rirInput = page.locator(`#workout .exercise.is-current .focus-shelf input[data-k="${rowId}_${ordinal}_rir"]`);
   if (await rirInput.getAttribute("aria-hidden") === "true")
     await page.locator('#workout .exercise.is-current .focus-shelf [data-shelf-field="rir"]').click();
-  await rirInput.fill(String(rir));
+  await chooseRepsLeft(page, String(rir));
   await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   await page.locator(`#workout .exercise.is-current [data-save="${rowId}_${ordinal}"]`).click();
   await page.waitForFunction(({ rowId, ordinal }) => {

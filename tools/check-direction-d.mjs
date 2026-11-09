@@ -636,6 +636,10 @@ export function checkStrings(evidence, catalog) {
   const catalogOrData = (value) => {
     const whole = value.replace(/\s+/g, " ").trim();
     if (!/\p{L}/u.test(whole) || matchers.some((pattern) => pattern.test(whole))) return true;
+    // Validate composed sentences before punctuation/data splitting can erase a
+    // catalog sentence's own comma or a decimal inside its substituted figures.
+    const sentences = whole.split(/(?<=[.!?])\s+/u);
+    if (sentences.length > 1 && sentences.every(sentence => matchers.some(pattern => pattern.test(sentence)))) return true;
     // Keep exact catalog fragments intact before removing arbitrary raw data strings. A
     // recorded value such as "Reps" can also be part of approved copy such as "Reps por lado".
     const protectedParts = whole.split(/(\s*[·•|,;:()[\]+×–]\s*|\s+-\s+)/u);

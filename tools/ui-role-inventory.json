@@ -401,12 +401,12 @@
     "workout/effort-stage-b": {
       "owner": "plan-077",
       "content": "flat",
-      "scenario": "Stage B: Reps left with the chips 0 · 1 · 2 · 3+, 2 chosen."
+      "scenario": "Numeric stage: Reps left with the chips 0 · 1 · 2 · 3 · 4 · 5+, 2 chosen."
     },
     "workout/effort-menu": {
       "owner": "plan-077",
       "content": "flat",
-      "scenario": "The effort field's arrow opened: the three stages, the current one checked, and Not sure for this set."
+      "scenario": "The effort field's arrow opened: the two stages, the current one checked, and Not sure for this set."
     },
     "workout/stage-tip": {
       "owner": "plan-077",
@@ -836,7 +836,7 @@
     "settings/effort-menu": {
       "owner": "plan-077",
       "content": "flat",
-      "scenario": "Effort logging opened as a native pull-down: the three stages, the current one checked."
+      "scenario": "Effort logging opened as a native pull-down: the two stages, the current one checked."
     },
     "settings/guides": {
       "owner": "plan-057",
@@ -9548,7 +9548,7 @@
         "focus-visible",
         "selected"
       ],
-      "rationale": "Stages A and B set the set's effort with one tap (Plan 077, OD-4): the chosen chip is pressed in ink, the offered one carries a quiet boundary until the lifter confirms it.",
+      "rationale": "Words and numeric reps left set the set's effort with one tap (Plan 078, D-15): the chosen chip is pressed in ink, the offered one carries a quiet boundary until the lifter confirms it.",
       "owner": "plan-077",
       "catalogStates": [
         "workout/effort-stage-a",

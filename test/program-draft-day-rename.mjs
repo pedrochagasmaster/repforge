@@ -3,7 +3,7 @@
  * Focused regression for renaming a training day while a workout draft is active.
  * Requires the repository root at REPFORGE_URL (default http://localhost:8000/).
  */
-import { launchChromium, openShelfField, waitForAsyncCondition } from "./browser.mjs";
+import { chooseRepsLeft, launchChromium, openShelfField, waitForAsyncCondition } from "./browser.mjs";
 import { EDITOR, SHEET, editorSettled, openInstalledEditor, showEditorDay } from "./fixtures/installed-editor.mjs";
 import {
   clearPersistenceArtifacts,
@@ -631,7 +631,7 @@ async function fillRaceWorkout(page, load) {
   await page.evaluate(() => window.__repforgeEnterWorkout({}));
   await (await shelfInput(page, SET_FIELD_KEYS.load, `metric_${WEIGHT_METRIC}`)).fill(String(load));
   await (await shelfInput(page, SET_FIELD_KEYS.reps, `metric_${REPS_METRIC}`)).fill("8");
-  await (await shelfInput(page, SET_FIELD_KEYS.rir, "rir")).fill("1");
+  await chooseRepsLeft(page, "1");
   await waitForRaceDraft(page, load);
 }
 
