@@ -16,7 +16,7 @@
     "onboarding-start/first-run-proof": {
       "owner": "plan-064/r2",
       "content": "flat",
-      "scenario": "The landing scrolled to the proof band: the phone playing Focus's own screen, held mid-chapter 2 (the set logged, the rest tab risen with its light), its four chapters, and the persistent Build control."
+      "scenario": "Scrolled to the five-chapter proof: Focus's Smith machine bench press, held with the first set logged and the rest tab risen."
     },
     "onboarding-start/first-run-ways": {
       "owner": "plan-064/r2",
@@ -1267,6 +1267,11 @@
       "owner": "plan-055",
       "content": "flat",
       "scenario": "A logged set, then a rest carried past the one-hour cap by the live count-up: the Early finish question opens with its reason line."
+    },
+    "onboarding-start/first-run-proof-test": {
+      "owner": "plan-083/pr1",
+      "content": "flat",
+      "scenario": "Scrolled to Test your guess: the last working set's computed guess, logged result and remaining checks."
     }
   },
   "components": [
@@ -3078,6 +3083,7 @@
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-ways"
       ]
@@ -3108,6 +3114,7 @@
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-ways"
       ]
@@ -3138,6 +3145,7 @@
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-ways"
       ]
@@ -3166,6 +3174,7 @@
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-ways"
       ]
@@ -3194,6 +3203,7 @@
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-ways"
       ]
@@ -3223,6 +3233,7 @@
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-ways"
       ]
@@ -3292,6 +3303,7 @@
       "owner": "plan-064/r2",
       "catalogStates": [
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -3314,13 +3326,14 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "One of the proof's four chapters: it moves the playing phone to its chapter without committing any state. Its progress line is the button's own bottom edge (a left rule from 900px) and the current chapter is marked by aria-current.",
+      "rationale": "One of the proof's five chapters: it moves the playing phone to its chapter without committing any state. Its progress line is the button's own bottom edge (a left rule from 900px) and the current chapter is marked by aria-current.",
       "owner": "plan-064/r2",
       "catalogStates": [
         "onboarding-shared/gate",
         "onboarding-shared/invalid",
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -3351,6 +3364,7 @@
         "onboarding-shared/invalid",
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -3381,6 +3395,7 @@
         "onboarding-shared/invalid",
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -3410,6 +3425,7 @@
         "onboarding-shared/invalid",
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -8906,6 +8922,7 @@
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-ways",
         "program/editor-day-name-refused",
@@ -12867,6 +12884,7 @@
         "onboarding-shared/invalid",
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -12885,6 +12903,7 @@
         "onboarding-shared/invalid",
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -12900,6 +12919,7 @@
       "owner": "plan-064/r2",
       "catalogStates": [
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -12918,6 +12938,7 @@
         "onboarding-shared/invalid",
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -13083,6 +13104,7 @@
         "onboarding-shared/gate",
         "onboarding-shared/invalid",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -13127,6 +13149,7 @@
         "onboarding-shared/invalid",
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -13238,6 +13261,7 @@
         "onboarding-start/first-run-data",
         "onboarding-start/first-run-faq-open",
         "onboarding-start/first-run-proof",
+        "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-ways"
       ],

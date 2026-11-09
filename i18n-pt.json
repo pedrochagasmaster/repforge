@@ -2359,7 +2359,7 @@
   "landing.hero.chip.offline": "Funciona sem internet depois de aberto",
   "landing.hero.chip.free": "Grátis para montar e registrar",
   "landing.demo.title": "Veja na prática.",
-  "landing.anim.sub": "Esta é a tela de treino do app numa sessão de supino: a meta, um toque para registrar a série, o descanso e o que muda na próxima vez.",
+  "landing.anim.sub": "Esta é a tela de treino do app numa sessão de supino reto no Smith: a meta, um toque para registrar a série, o descanso e o que muda na próxima vez.",
   "landing.anim.ch1.title": "Saiba o peso",
   "landing.anim.ch1.text": "Ao abrir o exercício, a carga e as repetições de hoje já estão lá, com o motivo em uma linha.",
   "landing.anim.ch2.title": "Registre com um toque",
@@ -3039,5 +3039,7 @@
   "exercise.chart.cap.top": "maior carga",
   "exercise.chart.cap.e1rm": "melhor e1RM",
   "exercise.chart.cap.change": "no bloco",
-  "stats.cap.moved": "carga total"
+  "stats.cap.moved": "carga total",
+  "landing.anim.ch5.title": "Teste seu palpite",
+  "landing.anim.ch5.text": "Estime quantas reps consegue na última série e compare com o que fez. O Taurifer aprende como você avalia o esforço neste exercício."
 }

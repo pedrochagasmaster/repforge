@@ -33,7 +33,7 @@
   <link rel="apple-touch-startup-image" href="icons/splash-1640x2360.png" media="screen and (device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
   <link rel="apple-touch-startup-image" href="icons/splash-1668x2224.png" media="screen and (device-width: 834px) and (device-height: 1112px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
   <link rel="apple-touch-startup-image" href="icons/splash-1536x2048.png" media="screen and (device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
-  <link rel="stylesheet" href="styles.css?v=697">
+  <link rel="stylesheet" href="styles.css?v=702">
   <link rel="stylesheet" href="motion-polish.css?v=643">
   <!-- Runs before the first paint, and only reads.
        Theme: app.js owns the Appearance setting, but it is the last script on the
@@ -757,7 +757,7 @@
       <section class="firstrun-band firstrun-band--raised firstrun-proof" id="firstRunProof" data-landing-section="proof" aria-labelledby="firstRunProofTitle">
         <div class="firstrun-wrap">
           <h2 class="firstrun-h2" id="firstRunProofTitle" data-i18n="landing.demo.title">See it in practice.</h2>
-          <p class="firstrun-sub" data-i18n="landing.anim.sub">This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time.</p>
+          <p class="firstrun-sub" data-i18n="landing.anim.sub">This is the app's workout screen in a Smith machine bench press session: the target, one tap to log the set, the rest, and what changes next time.</p>
           <div class="firstrun-proof__stage" data-landing-stage>
             <div class="firstrun-proof__device" aria-hidden="true" inert>
               <div class="firstrun-proof__rig"><div class="firstrun-proof__glass"><div class="firstrun-proof__screen theme-light" id="firstRunDemo"></div></div></div>
@@ -776,7 +776,11 @@
                 <p class="firstrun-chapter__text"><span data-i18n="landing.demo.s4.text">The timer counts your rest. With notifications on, it tells you when it's up.</span> <span data-i18n="landing.anim.prefilled">The next set is already filled in.</span></p>
               </li>
               <li class="firstrun-chapter" data-landing-chapter>
-                <button type="button" class="firstrun-chapter__go" data-chapter="3"><span class="firstrun-chapter__title" data-i18n="landing.anim.ch4.title">See it adapt</span><span class="firstrun-chapter__bar" aria-hidden="true"><span class="firstrun-chapter__fill"></span></span></button>
+                <button type="button" class="firstrun-chapter__go" data-chapter="3"><span class="firstrun-chapter__title" data-i18n="landing.anim.ch5.title">Test your guess</span><span class="firstrun-chapter__bar" aria-hidden="true"><span class="firstrun-chapter__fill"></span></span></button>
+                <p class="firstrun-chapter__text" data-i18n="landing.anim.ch5.text">Guess how many reps you can do on your last set, then compare with what you did. Taurifer learns how you judge effort on this exercise.</p>
+              </li>
+              <li class="firstrun-chapter" data-landing-chapter>
+                <button type="button" class="firstrun-chapter__go" data-chapter="4"><span class="firstrun-chapter__title" data-i18n="landing.anim.ch4.title">See it adapt</span><span class="firstrun-chapter__bar" aria-hidden="true"><span class="firstrun-chapter__fill"></span></span></button>
                 <p class="firstrun-chapter__text" data-landing-fill="ch4"></p>
               </li>
             </ol>
@@ -1511,7 +1515,7 @@ Triceps pushdown 3x12-15</pre>
   <script src="posthog-init.js"></script>
   <script src="schedule.js"></script>
   <script src="notify.js"></script>
-  <script src="i18n.js?v=697"></script>
+  <script src="i18n.js?v=702"></script>
   <script src="exercises.js?v=067"></script>
   <script src="generation-identity.js?v=459"></script>
   <script src="exercise-catalog.js?v=459"></script>
@@ -1549,6 +1553,6 @@ Triceps pushdown 3x12-15</pre>
   <script src="progress-model.js?v=309"></script>
   <script src="history-ui.js?v=694"></script>
   <script src="share-cards.js?v=639"></script>
-  <script src="app.js?v=697"></script>
+  <script src="app.js?v=702"></script>
 </body>
 </html>

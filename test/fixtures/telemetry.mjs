@@ -45,7 +45,6 @@ export const ALPHA_EVENT_NAMES = Object.freeze([
 export const VALID_ALPHA_EVENTS = Object.freeze([
   ["app_boot", { first_run: true, language: "en", platform_class: "desktop" }],
   ["landing_viewed", { landing: "generic", visit: "first" }],
-  ["landing_action", { action: "create" }],
   ["landing_action", { action: "proof_chapter", chapter: 5 }],
   ["install_prompt_outcome", { surface: "landing", mode: "native", outcome: "accepted" }],
   ["app_installed", {}],

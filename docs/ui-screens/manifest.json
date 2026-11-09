@@ -503,7 +503,14 @@
       "id": "first-run-proof",
       "flow": "onboarding-start",
       "label": "One-time landing — proof",
-      "scenario": "Scrolled to the proof: seven steps over the real workout screen with the pinned phone, lens and rail, and the persistent Build control.",
+      "scenario": "Scrolled to the five-chapter proof: Focus's Smith machine bench press, held with the first set logged and the rest tab risen.",
+      "variants": "standard"
+    },
+    {
+      "id": "first-run-proof-test",
+      "flow": "onboarding-start",
+      "label": "One-time landing — test set",
+      "scenario": "Scrolled to Test your guess: the last working set's computed guess, logged result and remaining checks.",
       "variants": "standard"
     },
     {

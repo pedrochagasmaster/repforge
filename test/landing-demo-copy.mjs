@@ -32,7 +32,8 @@ const block = between("function landingDemoHtml(", "function renderLandingProof(
   between("function paintLandingDemo(", "function renderLandingWays(");
 const said = [...block.matchAll(/\bt\("([\w.]+)"/g)].map((match) => match[1]);
 const outside = app.slice(0, app.indexOf("/* ---- The proof: the workout screen, playing itself")) +
-  app.slice(app.indexOf("/** Everything on the landing that is a number"));
+  app.slice(app.indexOf("/** Everything on the landing that is a number")) +
+  readFileSync(new URL("../index.html", import.meta.url), "utf8").split('id="maxSetSheet"')[1]?.split('id="workoutActionScrim"')[0];
 
 console.log("Landing proof copy");
 check("app.js lists the phone's strings and holds its builder", () => {

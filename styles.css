@@ -5995,7 +5995,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   border-radius:var(--radius-landing-phone);background:var(--bg);
 }
 .firstrun-proof__screen{position:absolute;left:0;top:0;width:390px;height:844px;pointer-events:none}
-.firstrun-chapters{list-style:none;margin:0;padding:0;width:100%;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));column-gap:var(--space-8)}
+.firstrun-chapters{list-style:none;margin:0;padding:0;width:100%;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));column-gap:var(--space-8)}
 .firstrun-chapter{display:contents}
 .firstrun-chapter__go{
   grid-row:1;position:relative;display:flex;align-items:flex-start;min-width:0;min-height:var(--control-target);margin:0;
@@ -6089,6 +6089,15 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-demo__target .fx-cue__mark{display:inline-block;width:.62em;height:.62em;margin-right:.14em}
 .firstrun-demo__did{margin:var(--space-8) 0 0;font-size:var(--font-size-focus-evidence);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .firstrun-demo__history{margin-top:var(--space-16)}
+
+/* The proof reuses Focus's test-set content inside its inert phone. */
+.firstrun-demo__test-scene{position:absolute;z-index:4;left:0;right:0;bottom:34px;background:var(--surface);border-radius:var(--radius-prominent);padding:var(--space-16);opacity:0;will-change:transform,opacity}
+.firstrun-demo__test-tip,.firstrun-demo__test-cue,.firstrun-demo__test-result{background:var(--bg);border-radius:var(--radius-none)}
+.firstrun-demo__test-backdrop{position:absolute;z-index:3;inset:80px 0 0;background:var(--bg);opacity:0}
+.firstrun-demo__test-tip .resttip{position:relative;inset:auto;margin:var(--space-16) 0 0}
+.firstrun-demo__test-guess{padding:0;overflow:hidden}
+.firstrun-demo__test-cue .fx-cue{margin:0}
+.firstrun-demo__test-cue .fcard__ledger{margin-top:var(--space-16)}
 
 /* ---- The three ways ---- */
 .firstrun-ways{padding-bottom:0}
@@ -9223,4 +9232,3 @@ body.is-entry-editor #entryProgramName,
 .sheet--actions button.is-destructive{color:var(--color-destructive)}
 @media(prefers-reduced-motion:reduce){.native-context__preview{transform:none}}
 @media(prefers-reduced-transparency:reduce){.native-context__menu{background:var(--surface);backdrop-filter:none;-webkit-backdrop-filter:none}.native-context::backdrop{backdrop-filter:none;-webkit-backdrop-filter:none}}
-

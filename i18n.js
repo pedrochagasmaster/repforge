@@ -2361,7 +2361,7 @@ const EN = {
   "landing.hero.chip.offline": "Works offline once opened",
   "landing.hero.chip.free": "Free to build and log",
   "landing.demo.title": "See it in practice.",
-  "landing.anim.sub": "This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time.",
+  "landing.anim.sub": "This is the app's workout screen in a Smith machine bench press session: the target, one tap to log the set, the rest, and what changes next time.",
   "landing.anim.ch1.title": "Know the weight",
   "landing.anim.ch1.text": "Open the exercise and today's weight and reps are already there, with the reason in one line.",
   "landing.anim.ch2.title": "Log in one tap",
@@ -3042,6 +3042,8 @@ const EN = {
   "exercise.chart.cap.e1rm": "best e1RM",
   "exercise.chart.cap.change": "this block",
   "stats.cap.moved": "moved",
+  "landing.anim.ch5.title": "Test your guess",
+  "landing.anim.ch5.text": "Guess how many reps you can do on your last set, then compare with what you did. Taurifer learns how you judge effort on this exercise.",
 };
 const PT = {
   "catalog.unavailable.title": "Biblioteca de exercícios indisponível",
@@ -5404,7 +5406,7 @@ const PT = {
   "landing.hero.chip.offline": "Funciona sem internet depois de aberto",
   "landing.hero.chip.free": "Grátis para montar e registrar",
   "landing.demo.title": "Veja na prática.",
-  "landing.anim.sub": "Esta é a tela de treino do app numa sessão de supino: a meta, um toque para registrar a série, o descanso e o que muda na próxima vez.",
+  "landing.anim.sub": "Esta é a tela de treino do app numa sessão de supino reto no Smith: a meta, um toque para registrar a série, o descanso e o que muda na próxima vez.",
   "landing.anim.ch1.title": "Saiba o peso",
   "landing.anim.ch1.text": "Ao abrir o exercício, a carga e as repetições de hoje já estão lá, com o motivo em uma linha.",
   "landing.anim.ch2.title": "Registre com um toque",
@@ -6085,6 +6087,8 @@ const PT = {
   "exercise.chart.cap.e1rm": "melhor e1RM",
   "exercise.chart.cap.change": "no bloco",
   "stats.cap.moved": "carga total",
+  "landing.anim.ch5.title": "Teste seu palpite",
+  "landing.anim.ch5.text": "Estime quantas reps consegue na última série e compare com o que fez. O Taurifer aprende como você avalia o esforço neste exercício.",
 };
 (function (root) {
   const STRINGS = { en: EN, pt: PT };

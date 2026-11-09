@@ -1109,12 +1109,13 @@ async function finalPage(browser) {
       chapter: window.__repforgeLandingProof().chapter,
       playing: window.__repforgeLandingProof().playing,
       text: document.querySelector('.firstrun-demo__test-result')?.textContent,
+      pair: [...document.querySelectorAll('.firstrun-demo__test-result .ledgerline__pair b')].map(el => el.textContent),
       opacity: Number(getComputedStyle(document.querySelector('.firstrun-demo__test-result') || document.body).opacity),
     }));
     const calibration = require('../effort-calibration.js');
     const guess = calibration.prefillGuess(10, 2).predictedReps;
     assert(testStill.chapter === 3 && !testStill.playing && testStill.opacity === 1 &&
-      testStill.text?.includes(tr('pt', 'maxset.guessed')) && hasNumber(testStill.text, guess, 'pt') && hasNumber(testStill.text, 12, 'pt') &&
+      testStill.text?.includes(tr('pt', 'maxset.guessed')) && JSON.stringify(testStill.pair) === JSON.stringify([String(guess), '12']) &&
       testStill.text.includes(tr('pt', 'maxset.status_wait', {n: calibration.ESTIMATOR.minChecks - 1})),
       'reduced motion: test-set still shows the computed guess, result and remaining checks', JSON.stringify(testStill));
     await context.close();

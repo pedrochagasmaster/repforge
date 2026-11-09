@@ -255,6 +255,17 @@ chapters switch it. The chapter captions say everything the
 phone shows; nothing depends on the motion to say it.
 
 
+Plan 083 PR 1 extends this same player to 24 seconds, with chapters at 0, 6,
+10, 14 and 20 seconds. Smith machine bench press replaces the free-barbell
+example so its last working set can take a test set. Between rest and the next
+session, the invitation, prefilled guess sheet, failure cue and result appear
+in order. Each uses the Focus classes and strings, with 200ms opacity and 12px
+translate transitions; no runtime is added. Reduced motion holds the result
+at 19 seconds. The next-session sheet starts at 20.05s, closes at 22.9s, and
+the reset and camera pull-back start at 23.4s and 23.6s. The inert phone
+keeps its authored text scale, as the adjacent captured image does; chapter
+controls and captions outside it follow the visitor's text size.
+
 ## The landing's feature tabs
 
 The owner replaced the outcomes section ("Your next target follows what you did", its
