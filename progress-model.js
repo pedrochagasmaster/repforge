@@ -689,7 +689,7 @@
       }
       if (pending === "first_solid") {
         const closest = current.slice().sort((a, b) => (b.standing?.evidence?.sets || 0) - (a.standing?.evidence?.sets || 0))[0] || lift;
-        need = { key: closest.key, lift: closest.name, m: Math.max(0, Math.ceil(6 - (closest.standing?.evidence?.sets || 0))),
+        need = { key: closest.key, lift: closest.name, m: Math.max(0, Math.ceil((6 - (closest.standing?.evidence?.sets || 0)) / (closest.nextSetQuality || 0.5))),
           reason: closest.standing?.reasons?.includes("disagreement") || closest.standing?.reasons?.includes("inconsistent_checks")
             ? "agreement" : (closest.standing?.evidence?.sessions || 0) < 2 ? "sessions" : "sets" };
       }

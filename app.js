@@ -7968,7 +7968,7 @@ function findingReadings(){
     const observations=compatible.filter(row=>row.strengthComparable!==false&&(row.equipmentId??null)===(context.equipmentId??null)&&row.loadingConvention===context.loadingConvention)
       .map(row=>({key:`${key}|${row.strengthConvention||"load"}`,session:String(row.session),date:row.date,set:row.setIndex??Number(row.set)-1,
         load:row.load,reps:row.reps,rir:row.rir,q:CalibrationGauge.rowQuality(row)}));
-    return[{key,name:plan.name,recommendation,standing:recommendation?.standing,calibration,weeks:CalibrationGauge.weeksFrom(observations,capE1rm),
+    return[{key,name:plan.name,recommendation,standing:recommendation?.standing,nextSetQuality:CalibrationGauge.rowQuality({effortSource:effortStage()==="a"?"effort":"rir"}),calibration,weeks:CalibrationGauge.weeksFrom(observations,capE1rm),
       records:detectPRs(compatible).filter(record=>record.deltaLoad>0||record.deltaReps>0||record.deltaE1rm>0),improved}]})}}
 let findingsCache={key:"",value:null};
 function profileFindings(){
