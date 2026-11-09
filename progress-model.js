@@ -370,10 +370,12 @@
       sessions.get(row.session).rows.push(row);
     }
     const exercises = Array.isArray(program) ? program : program?.exercises || [];
+    const targets = Array.isArray(meta?.observationTargets) ? meta.observationTargets : exercises.map(exercise => ({
+      slotId:exercise.slotId || exercise.id,exerciseId:exercise.libraryId || exercise.movementId || exercise.id,day:exercise.day,
+    }));
     const groups = new Map(), days = new Map();
     const observe = (pattern, event, session) => {
-      const exercise = exercises.find(ex => (ex.slotId || ex.id) === event.slotId &&
-        (ex.libraryId || ex.movementId || ex.id) === event.exerciseId);
+      const exercise = targets.find(target => target.slotId === event.slotId && target.exerciseId === event.exerciseId);
       if (!exercise) return;
       const key = `${pattern}:${event.slotId}:${event.exerciseId}`;
       if (!groups.has(key)) groups.set(key, {pattern,slotId:event.slotId,exerciseId:event.exerciseId,name:event.name,day:exercise.day,sessions:new Set()});

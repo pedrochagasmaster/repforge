@@ -758,7 +758,7 @@
 
   function evaluateAdaptation(record, patterns, {week,observed}) {
     const continued = patterns.some(pattern => pattern.pattern === record.pattern && pattern.slotId === record.target.slotId &&
-      pattern.exerciseId === (record.target.replacementId || record.target.exerciseId));
+      (pattern.exerciseId === record.target.exerciseId || pattern.exerciseId === record.target.replacementId));
     return {week,outcome:!observed ? "insufficient" : continued ? "pattern_continued" : "pattern_stopped"};
   }
 

@@ -4333,7 +4333,7 @@ function renderWeekCard(){
 }
 
 let weeklyAdaptationView=null,weeklyAdaptationBusy=false,weeklyEvaluationPending=false;
-function weeklyPatterns(week=weekStart(today()),source=state){
+function weeklyPatterns(week=weekStart(today()),source=state,observationTargets=null){
   const start=shiftDate(week,-14),end=shiftDate(week,-1),blockId=snapshotBlockId(source);
   if(!blockId)return[];
   const historical=source.log.filter(row=>String(row.date)<=end&&row.blockId===blockId);
@@ -4357,7 +4357,7 @@ function weeklyPatterns(week=weekStart(today()),source=state){
     }
   }
   return RepForgeProgressModel.detectPatterns(log,source.sessionEvents,source.program,
-    {...source.programMeta,blockId,fatigueSessions,hardStalls},week);
+    {...source.programMeta,blockId,fatigueSessions,hardStalls,observationTargets},week);
 }
 function weeklyProposal(pattern,cause,document=installedEditorDocument()){
   return RepForgeProgramTransition.proposeAdaptation(pattern,document,{
@@ -4377,13 +4377,28 @@ function weeklyProposal(pattern,cause,document=installedEditorDocument()){
       return next;
     }});
 }
+function weeklyAdaptationContext(record){
+  let latest=null,name=null,observedDay=null;
+  for(const row of state.log){
+    if(row.blockId!==record.blockId)continue;
+    const events=state.sessionEvents?.[row.session];
+    const observations=[...(events?.skips||[]),...(events?.pain||[])];
+    const event=observations.find(event=>event.slotId===record.target.slotId&&event.exerciseId===record.target.exerciseId);
+    const tracked=event||observations.find(event=>event.slotId===record.target.slotId&&event.exerciseId===record.target.replacementId);
+    if(!tracked)continue;
+    observedDay=observedDay||row.day;
+    if(event&&row.date<record.week&&(!latest||compareLogChronology(row,latest)>0)){latest=row;name=event.name}
+  }
+  const day=state.programMeta.programDefinition?.days.find(day=>day.slots.some(slot=>slot.id===record.target.slotId))?.name||latest?.day||observedDay;
+  return{day,lift:name||libraryName(libraryEntry(record.target.exerciseId))||t("program.default.exercise")};
+}
 function weeklyAdaptationHtml(){
   const week=weekStart(today()),blockId=snapshotBlockId(state),records=state.programMeta.adaptations||[];
   const patterns=weeklyPatterns(week);
   const lines=patterns.filter(pattern=>pattern.pattern==="stall_hard").map(pattern=>
     `<p>${esc(t("review.pattern.stall_hard",{lift:weekFactName(pattern.slotId)}))} <button type="button" class="text-link" data-adaptation-why="${esc(pattern.slotId)}">${esc(t("review.proposal.why_reader"))}</button></p>`).join("");
   const evaluations=records.filter(record=>record.blockId===blockId&&record.evaluation?.week<=week).slice(-1).map(record=>{
-    const lift=libraryName(libraryEntry(record.target.exerciseId))||t("program.default.exercise");
+    const {lift}=weeklyAdaptationContext(record);
     const replacement=libraryName(libraryEntry(record.target.replacementId))||t("program.default.exercise");
     const change=t(`review.proposal.applied.${record.kind}`,{lift,replacement});
     return `<p data-adaptation-evaluation>${esc(t(`review.proposal.evaluation.${record.evaluation.outcome}`,{week:longDate(record.week),change}))}</p>`;
@@ -4469,10 +4484,11 @@ async function evaluateWeeklyAdaptations(){
     const followingEnd=shiftDate(record.week,7);
     const following={...state,log:state.log.filter(row=>row.blockId===blockId&&row.date>=record.week&&row.date<followingEnd)};
     const slot=state.programMeta.programDefinition?.days.flatMap(day=>day.slots).find(slot=>slot.id===record.target.slotId);
-    const day=state.programMeta.programDefinition?.days.find(day=>day.slots.some(slot=>slot.id===record.target.slotId))?.name||
-      state.log.find(row=>row.blockId===blockId&&[...(state.sessionEvents?.[row.session]?.skips||[]),...(state.sessionEvents?.[row.session]?.pain||[])].some(event=>event.slotId===record.target.slotId&&event.exerciseId===record.target.exerciseId))?.day;
+    const {day}=weeklyAdaptationContext(record);
     const observed=following.log.some(row=>day&&row.day===day||slot&&(row.slotId||row.exerciseId)===slot.id);
-    const evaluation=RepForgeProgramTransition.evaluateAdaptation(record,weeklyPatterns(followingEnd,following),{week:followingEnd,observed});
+    const targets=record.kind==="reduce_sets"?null:[...new Set([record.target.exerciseId,record.target.replacementId].filter(Boolean))]
+      .map(exerciseId=>({slotId:record.target.slotId,exerciseId,day}));
+    const evaluation=RepForgeProgramTransition.evaluateAdaptation(record,weeklyPatterns(followingEnd,following,targets),{week:followingEnd,observed});
     proposal.programMeta.adaptations.find(item=>item.id===record.id).evaluation=evaluation;
   }
   weeklyEvaluationPending=true;
