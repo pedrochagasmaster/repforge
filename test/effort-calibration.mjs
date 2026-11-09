@@ -6,6 +6,9 @@
  * Run: node test/effort-calibration.mjs
  */
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { createContext, runInContext } from "node:vm";
+import { cases as standingCases } from "./fixtures/engine-standing.mjs";
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 
@@ -83,6 +86,37 @@ for (const state of ["calibrated", "over", "under"]) {
 }
 assert.equal(Calibration.frequencyAllows({history:[{exerciseKey:"other",date:"2026-11-01"}],
   today:"2026-11-06",exerciseKey:"curl",gaugeFull:true}).ok, true, "the global monthly schedule is retired");
+
+// R716-1: the real engine fallback must preserve targets without requesting a failure set.
+{
+  const realm = createContext({});
+  for (const file of ["exercise-metrics.js", "progression-engine.js", "calibration-gauge.js"])
+    runInContext(readFileSync(new URL(`../${file}`, import.meta.url), "utf8"), realm);
+  const gauge = realm.RepForgeCalibrationGauge;
+  const run = input => {
+    realm.inputJson = JSON.stringify(input);
+    return JSON.parse(runInContext("JSON.stringify(RepForgeProgression.recommendSets(...JSON.parse(inputJson)))", realm))[0];
+  };
+  const solid = standingCases.find(item => item.name === "three-on-target-checks").input;
+  const selected = run(solid), calibration = solid[4].calibration;
+  assert.equal(selected.standing.word, "solid");
+  assert.equal(Calibration.shouldOffer({standing:selected.standing,calibration,lastCheckDays:20}).ok, false);
+  const learning = run(standingCases.find(item => item.name === "one-session-ten-days").input);
+  assert.equal(Calibration.shouldOffer({standing:learning.standing,calibration:Calibration.estimate([])}).ok, true,
+    "genuine qualifying uncertainty still requests a check");
+  const broken = () => { throw new Error("standing calculation failed"); };
+  for (const [index,fault] of [undefined,{}, {decay:gauge.decay},
+    {...gauge,decay:broken},{...gauge,rowQuality:broken},{...gauge,pairsFrom:broken}].entries()) {
+    realm.RepForgeCalibrationGauge = fault;
+    const fallback = run(solid);
+    const {standing,...target} = fallback, {standing:normal,...expected} = selected;
+    assert.deepEqual(target,expected,`fault ${index}: every selected target field survives`);
+    for (const currentCalibration of [calibration,Calibration.estimate([])])
+      assert.deepEqual(Calibration.shouldOffer({standing,calibration:currentCalibration,lastCheckDays:20}),
+        {ok:false,reason:null},`fault ${index}: unavailable evidence never requests a failure set`);
+    assert.equal(standing.unavailable,true,`fault ${index}: the fallback marks its evidence unavailable`);
+  }
+}
 
 // The result: guess − did; positive means fewer than guessed.
 assert.deepEqual(Calibration.result(13, 16), { guess: 13, did: 16, error: -3 });
