@@ -377,6 +377,7 @@ const APP_ASOF = {
 /** Plan 077 PR 2: the effort stage each state is drawn in (OD-4), and for the stage tip a lifter whose last workouts
  *  were logged with words they chose (OD-6). */
 const EFFORT_STAGE_STATES = Object.freeze({
+  "workout/focus-glossary": { rirMode: "effort" },
   "workout/effort-stage-a": { rirMode: "effort" },
   "workout/effort-stage-b": { rirMode: "numeric" },
   "workout/effort-menu": { rirMode: "effort" },
@@ -2151,7 +2152,7 @@ export const APP_SCENARIOS = {
   },
   "workout/focus-glossary": async (page) => {
     await focusMode(page);
-    const term = page.locator("#workout [data-term]").first();
+    const term = page.locator('#workout .exercise.is-current [data-term="Effort"]');
     await term.waitFor({ state: "visible", timeout: 20000 });
     await term.click();
     await page.waitForSelector("#glossary:not(.hidden)", { timeout: 10000 });

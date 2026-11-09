@@ -3562,9 +3562,9 @@ async function main() {
     "Settings → RIR logging → legend under the row"
   );
   assert(
-    /RIR 3/i.test((await page.locator("#settings").textContent()) || ""),
-    "Settings shows effort scale legend with RIR 3",
-    "Settings text missing RIR 3 legend",
+    (await page.locator("#rirEffortLede").textContent()).trim() === await page.evaluate(() => window.RepForgeI18n.t("settings.effort_lede")),
+    "Settings shows the approved effort legend",
+    "Settings effort legend differs from the approved translation",
     "Settings → RIR logging → legend line under the row"
   );
   await page.click("#rirModeRow");

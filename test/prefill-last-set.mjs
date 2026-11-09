@@ -131,7 +131,7 @@ const reading = (page, n) => page.evaluate(({ n, weight, reps }) => {
     stored: set ? {
       done: set.completion !== "pending", role: set.role,
       load: set.edited.metrics?.[weight] ?? null, reps: set.edited.metrics?.[reps] ?? null, rir: set.edited.rir, effort: set.edited.effort,
-      touched: set.touched,
+      touched: set.touched, targetRir: set.programmed.targetRir,
     } : null,
   };
 }, { n, weight: WEIGHT, reps: REPS });
@@ -247,7 +247,7 @@ try {
         await logShown(page);
         const r = await reading(page, 2);
         check(r.load.value !== "82.5" && Number(r.load.value) === Number(r.stored.load) && Number(r.reps.value) === Number(r.stored.reps) &&
-          r.load.grey && r.reps.grey && r.rir.value !== "2",
+          r.load.grey && r.reps.grey && Number(r.rir.value) === Number(r.stored.targetRir),
         "a recommended set 2 shows the engine's acknowledged load and reps, not set 1's", r);
       } finally { await opened.context.close(); }
     }
@@ -315,6 +315,13 @@ try {
       r = await reading(page, 1);
       check(same([r.load.value, r.reps.value, r.rir.value], ["32.5", "8", "3"]),
         "set 1 of the next session falls back to the previous session's 32.5 / 8 / 3", r);
+      await reboot(page);
+      await enterFocus(page);
+      r = await reading(page, 1);
+      check(r.rir.value === "3" && untouched(r.stored), "the saved effort offer survives a reload without becoming a new edit", r);
+      await logShown(page);
+      r = await reading(page, 1);
+      check(r.stored.done && Number(r.stored.rir) === 3, "logging the saved-history offer stores the effort that was shown", r);
     } finally { await context.close(); }
   }
 
