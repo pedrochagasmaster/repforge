@@ -6905,6 +6905,8 @@ function recommendation(ex){
   Object.defineProperty(rec,"plannedLoad",{value:status==="new"?firstActual?.planned?.value??null:null});
   // Not enumerable either: what the lift's checks say, and whether the shift moved any of its targets.
   Object.defineProperty(rec,"standing",{value:result?.standing||null});
+  const movement=draftExercise?.substitution?.replacement||draftExercise||ex;
+  Object.defineProperty(rec,"standingMovementMatches",{value:(movement.libraryId||movement.movementId)===first.exerciseId});
   Object.defineProperty(rec,"calibration",{value:{...calibration,moved:results.some(item=>item?.calibration?.moved===true)}});
   // Whether the lift's own performance dropped, the one fatigue signal (owner, 2026-11-06). Not enumerable, like the above.
   // Read lazily: only the fatigue surfaces ask, and most recommendations are drawn without them.
@@ -10156,6 +10158,9 @@ function focusEvidenceText(ex,n,r,cue){
     {reps:plain(facts.reps),rir:plain(fmt(facts.rir)),effort:esc(effortLabel(effortForRir(facts.rir)))}));
   return parts.join(" ")}
 function targetStanding(rec,n=1){
+  // Substitution targets still use the authored slot; its evidence cannot describe the replacement lift.
+  if(rec.standingMovementMatches===false)return{word:"first",reasons:["no_history"],
+    evidence:{sets:0,sessions:0,pairs:0,agreement:null,gapDays:null,checks:0,spread:null,state:"uncalibrated"}};
   const result=rec.targetSets?.find(item=>item.prescription.setIndex===n)?.result;
   const standing=result?.standing||rec.standing;
   // A manual or unconfigured prescription can lack an anchor for reasons unrelated to the lift's history.

@@ -856,6 +856,10 @@ try {
   assert(restored.target === original.target, "B1: restoration keeps the original selected load");
   await closeWhy(swapPage);
   assert(await swapPage.locator(`${focus} .fx-cue__standing`).textContent() === "Still learning this lift", "B1: restored Focus reads Hack squat standing");
+  await swapPage.locator("#woDayTitle [data-exopen]").click();
+  await swapPage.waitForSelector("#exDetail .recblock");
+  assert(await swapPage.locator("#exDetail .recblock__standing").textContent() === "Still learning this lift",
+    "B1: restored exercise page reads Hack squat standing");
   await swapContext.close();
   assert(errors.length === 0, "no page errors during the why-sheet sessions", errors);
 } finally {
