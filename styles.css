@@ -1657,12 +1657,14 @@ button.ledgerline:focus-visible{outline:var(--control-focus-outline);outline-off
    so the rest of the field still selects it. Stages A and B set the value with one tap on a chip. */
 .shelf__menu{
   position:absolute;z-index:1;top:0;right:0;display:flex;align-items:flex-start;justify-content:flex-end;width:var(--control-target);height:var(--control-target);
-  margin:0;padding:calc(var(--space-4) + 3px) var(--space-8) 0 0;border:0;border-radius:0 var(--shelf-inner-radius) 0 var(--shelf-inner-radius);background:transparent;
+  margin:0;padding:var(--space-4) var(--space-8) 0 0;border:0;border-radius:0 var(--shelf-inner-radius) 0 var(--shelf-inner-radius);background:transparent;
   color:var(--color-ink-secondary);cursor:pointer;
 }
 .shelf__menu:focus-visible{outline:var(--control-focus-outline);outline-offset:-2px}
 .shelf__chev{display:block;width:16px;height:16px;background:currentColor}
-.shelf__field[data-field="rir"] .shelf__lab{padding-right:var(--space-14)}
+/* Reserve the arrow on the first caption line; later lines use the whole tile. */
+.shelf__field[data-field="rir"] .shelf__lab{align-self:stretch;padding-right:0;line-height:var(--line-tight)}
+.shelf__field[data-field="rir"] .shelf__lab::before{content:"";float:right;width:var(--space-14);height:1lh}
 /* A word in the effort field keeps the numerals' line box, so the three fields share one baseline. */
 .shelf__field.is-word .shelf__val{font-family:var(--font-language);font-weight:var(--weight-semibold);font-size:min(var(--font-size-subtitle),var(--shelf-numeral-fit));
   line-height:calc(min(var(--font-size-metric),var(--shelf-numeral-fit)) * var(--line-tight))}
@@ -2974,6 +2976,7 @@ article.exercise--focus:has(.resttab) .fcard__context{margin-bottom:var(--rest-t
   .focus-shelf{padding-top:var(--space-8);padding-bottom:calc(var(--space-12) + env(safe-area-inset-bottom,0px))}
 }
 @media (max-height:600px){
+  .workshelf.focus-shelf{padding-top:var(--space-8);padding-bottom:calc(var(--space-12) + env(safe-area-inset-bottom,0px))}
   .shelf__fieldbtn,.shelf__input{min-height:56px}
   .shelf__pads .shelf__pad{height:48px;min-height:48px}
   .focus-shelf .btn--cta.saveset{min-height:48px}
