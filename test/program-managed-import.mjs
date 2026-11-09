@@ -40,7 +40,7 @@ function observed(){
 
 const browser=await launchChromium();
 let passed=0;const failures=[];
-async function scenario(name,{config={enabled:true,sitekey:SITEKEY,maxChars:12000},configRaw=null,worker},body){
+async function scenario(name,{config={enabled:true,sitekey:SITEKEY,maxChars:12000},configRaw=null,mockConfig=true,worker},body){
   const ctx=await browser.newContext({serviceWorkers:"block",viewport:{width:390,height:844}});
   await ctx.addInitScript(()=>{
     /* Fake Turnstile: numbered tokens, and callbacks a test can fire to expire
@@ -60,11 +60,12 @@ async function scenario(name,{config={enabled:true,sitekey:SITEKEY,maxChars:1200
     };
   });
   const page=await ctx.newPage();
-  const sent=observed(),failed=observed();
+  const sent=observed(),failed=observed(),consoleErrors=[];
+  page.on("console",message=>{if(message.type()==="error")consoleErrors.push(message.text())});
   page.on("requestfailed",request=>{
     if(new URL(request.url()).pathname==="/api/program-import")failed.push(request.failure()?.errorText||"failed");
   });
-  await page.route("**/api/program-import/config",route=>route.fulfill(configRaw||{
+  if(mockConfig)await page.route("**/api/program-import/config",route=>route.fulfill(configRaw||{
     status:200,contentType:"application/json",body:JSON.stringify(config)
   }));
   await page.route("**/api/program-import",async route=>{
@@ -77,7 +78,7 @@ async function scenario(name,{config={enabled:true,sitekey:SITEKEY,maxChars:1200
   try{
     await page.goto(BASE,{waitUntil:"domcontentloaded"});
     await waitForAppBoot(page,{base:BASE});
-    await body({page,sent,failed});
+    await body({page,sent,failed,consoleErrors});
     passed++;
     console.log("✓ "+name);
   }catch(error){
@@ -126,6 +127,15 @@ try{
     await page.waitForSelector("#entryManagedConvert:not([disabled])");
     assert.equal(await page.evaluate(()=>window.__ts.options.action),"program_import");
     assert.equal(await page.locator("#entryFreeformContinue").textContent(),EN.external);
+    // The class swap may start a background transition; read the settled style.
+    await waitForAsyncCondition(page,()=>document.querySelector("#entryFreeformContinue")?.getAnimations().length===0);
+    const fills=await page.evaluate(()=>({
+      fallback:getComputedStyle(document.querySelector("#entryFreeformContinue")).backgroundColor,
+      primary:getComputedStyle(document.querySelector("#entryManagedConvert")).backgroundColor,
+      cls:document.querySelector("#entryFreeformContinue").className
+    }));
+    assert.match(fills.cls,/\bbtn--ghost\b/);
+    assert.notEqual(fills.fallback,fills.primary,"the hand-off is a quiet secondary action, not a second primary: "+JSON.stringify(fills));
     assert.match(await page.locator("#entryManagedLede").textContent(),/Taurifer reads it here/);
     await page.locator("#entryManagedConvert").click();
     await page.waitForSelector("#importReview.active");
@@ -209,6 +219,22 @@ try{
       assert.equal(sent.items.length,0);
     });
   }
+
+  await scenario("no Worker deployed → the app's own disabled default, no failed request",{
+    mockConfig:false,worker:()=>{throw Error("no request expected")}
+  },async({page,sent,consoleErrors})=>{
+    const probe=page.waitForResponse(response=>new URL(response.url()).pathname==="/api/program-import/config");
+    await openFreeform(page);
+    const response=await probe;
+    assert.equal(response.status(),200,"the app ships a disabled default for the probe");
+    assert.deepEqual(await response.json(),{enabled:false,sitekey:null,maxChars:12000});
+    await page.locator("#entryFreeformIn").fill(source);
+    await page.waitForSelector("#entryFreeformContinue:not([disabled])");
+    assert.equal(await page.locator("#entryFreeformContinue").textContent(),EN.continue);
+    assert.equal(await page.locator("#entryManagedPanel").isHidden(),true);
+    assert.deepEqual(consoleErrors,[],"probing for the service logs no error");
+    assert.equal(sent.items.length,0);
+  });
 
   await scenario("rate limit → message, source kept, manual handoff still works",{
     worker:()=>({status:429,body:{ok:false,code:"limit_reached",retryAfter:120}})
