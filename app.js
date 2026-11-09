@@ -7944,14 +7944,18 @@ function findingReadings(){
   for(const ex of state.program){
     const matched=canonicalPrescriptionSlot(ex),key=String(ex.libraryId||ex.movementId||ex.name||"");
     if(!matched)continue;
-    const slot=matched.slot,context=slotLoadingContext(slot);
-    plans.push({key,name:exerciseDisplayName(ex),slot,context,projection:slotLoadingProjection(slot)})}
+    const slot=matched.slot;
+    plans.push({key,name:exerciseDisplayName(ex),slot,projection:slotLoadingProjection(slot)})}
   return(log,asOf,request={recommendation:true,weeks:true,calibration:true})=>{
     const elapsed=state.programMeta?.started?Math.floor(RepForgeProgressModel.calendarDayDistance(state.programMeta.started,asOf)/7)+1:1;
     const cycle=Math.max(1,Math.min(definition.cycles||1,elapsed));
     if(!cycles.has(cycle))cycles.set(cycle,compiler.prescriptionsForCycle(definition,cycle));
+    const measurement=log.filter(row=>Number(row.loadingContext?.bodyweightKg??row.bodyweight)>0).slice().sort(compareLogChronology).at(-1);
+    const bodyweight=Number(measurement?.loadingContext?.bodyweightKg??measurement?.bodyweight)||null;
     return plans.filter(plan=>!request.keys||request.keys.includes(plan.key)).flatMap(plan=>{
-    const{slot,context,key}=plan,first=cycles.get(cycle).find(item=>item.slotId===slot.id);if(!first)return[];
+    const{slot,key}=plan,context={...plan.projection,equipmentId:null,availableLoadsKg:loadGridKg(loadStepKg(slot.exerciseId)),
+      bodyweightKg:bodyweight,bodyweightContributionEnabled:materialBodyweightCoefficient(slot.loadingModel?.bodyweightCoefficient,plan.projection.loadingConvention)>0&&bodyweight>0};
+    const first=cycles.get(cycle).find(item=>item.slotId===slot.id);if(!first)return[];
     const history=progressionHistoryFor(first.exerciseId,first.metricIds,plan.projection,slot.metricDefinitions,log);
     const calibration=liftCalibration(history,context,slot.metricDefinitions,[],asOf);
     const recommendation=request.recommendation?engine.recommendSets([first],history,[],{bySlotId:{[slot.id]:context}},
