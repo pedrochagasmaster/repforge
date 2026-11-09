@@ -4343,7 +4343,7 @@ function weeklyPatterns(week=weekStart(today()),source=state,observationTargets=
       hardStalls.push({slotId:ex.slotId||ex.id,exerciseId:ex.libraryId||ex.movementId||ex.id});
     const matched=canonicalPrescriptionSlot(ex,definition);if(!matched)continue;
     for(const session of sessions.filter(session=>session.date>=start)){
-      const upto=source.log.filter(row=>row.blockId===blockId&&compareLogChronology(row,session)<=0);
+      const upto=source.log.filter(row=>row.blockId===blockId&&(row.session===session.session||compareLogChronology(row,session)<0));
       const cycle=Math.min(definition.cycles,Math.max(1,Math.floor(RepForgeProgressModel.calendarDayDistance(source.programMeta.started,session.date)/7)+1));
       const first=RepForgeProgramCompiler.prescriptionsForCycle(definition,cycle).find(item=>item.slotId===matched.slot.id);
       if(!first)continue;
