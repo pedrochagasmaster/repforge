@@ -11620,17 +11620,11 @@ function sessionOutcomeGroups(rows,prs=[]){
       next:line?{glyph:rxVerdict(rec),line}:null}});
   return{evidence,showBaseline,liftGroups}}
 
-/* ---- The finish screen's numbers (owner decisions, 2026-11-05) ----
-   Four tiles: strength gained this block, records, weeks in a row and the load moved. A tile the session cannot
-   back (no gain, no record, a streak under two weeks) gives its place to the fallbacks, sets then total reps. */
-const SUMMARY_TILES=["strength","records","streak","volume"],SUMMARY_TILE_FALLBACKS=["sets","reps"];
+/* ---- The finish screen's numbers ----
+   Strength gained this block, records and load moved. Unsupported figures give
+   their place to the working-set and total-rep counts. */
+const SUMMARY_TILES=["strength","records","volume"],SUMMARY_TILE_FALLBACKS=["sets","reps"];
 const strengthKey=row=>`${liftKey(row)}\u0000${row.strengthConvention||"load"}`;
-/** Consecutive Monday–Sunday weeks with at least one logged session, counting back from the week of `date`. */
-function weeksInARow(log,date){
-  const weeks=new Set((log||[]).map(row=>weekStart(row.date)));
-  let count=0;
-  for(let week=weekStart(date);weeks.has(week);week=shiftDate(week,-7))count++;
-  return count}
 /** The day's first lift that can set a record, and how much heavier its top working set is than in the block's first
  *  session with that lift, in the same convention. Null outside a block, in week 1, or when it is not heavier. */
 function strengthGainedThisBlock(rows,prevLog){
@@ -11647,8 +11641,8 @@ function strengthGainedThisBlock(rows,prevLog){
   return now>then&&!sameLoad(now,then)?{name:displayName(mine[0]),liftKey:liftKey(mine[0]),delta:now-then}:null}
 /** The tiles in order: each default the session can back, else the next fallback. */
 function summaryTiles(facts){
-  // A tile says something the session achieved: no records, or a streak of one week, gives its place to a fallback.
-  const backed={strength:!!facts.strength,records:facts.records>0,streak:facts.streak>=2,volume:true,sets:true,reps:true};
+  // Only show a gain or record when the session supports it.
+  const backed={strength:!!facts.strength,records:facts.records>0,volume:true,sets:true,reps:true};
   const fallbacks=SUMMARY_TILE_FALLBACKS.filter(id=>backed[id]);
   return SUMMARY_TILES.map(id=>backed[id]?id:fallbacks.shift()).filter(Boolean)}
 /** The card the row opens on: the session's heaviest record, else its first improved lift; none otherwise. */
@@ -11675,11 +11669,11 @@ function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
   // A clock only earns a slot when it plausibly measured this session: a draft
   // resumed the next morning would otherwise report a nine-hour workout.
   const mins=startedAt?Math.round((Date.now()-startedAt)/60000):0;
-  const strength=strengthGainedThisBlock(rows,prevLog),streak=weeksInARow([...(prevLog||[]),...rows],date);
+  const strength=strengthGainedThisBlock(rows,prevLog);
   return{session,date,day:sessDay,
-    strength,streak,
+    strength,
     reps:sum(performedWorkingRows(rows).map(row=>+row.reps)),
-    tiles:summaryTiles({strength,streak,records:prs.length}),
+    tiles:summaryTiles({strength,records:prs.length}),
     lead:summaryLeadCard(prs,liftGroups),
     sets:rows.length,
     volume:movedTonnage(rows),
@@ -12053,7 +12047,6 @@ function summaryTileValues(s){
   return s.tiles.map(id=>id==="strength"?{id,label:t("summary.tile.strength"),text:`+${fmtLoad(s.strength.delta)}`,unit,accent:true,
       sub:liftDisplayName(s.strength.name,s.strength.liftKey)}
     :id==="records"?{id,label:t("summary.tile.records"),text:fmt(s.prs.length),ramp:s.prs.length,accent:s.prs.length>0}
-    :id==="streak"?{id,label:t("summary.tile.streak"),text:fmt(s.streak),ramp:s.streak}
     :id==="volume"?{id,label:t("summary.tile.moved"),text:kfmt(toDisplay(s.volume)),ramp:toDisplay(s.volume),kfmt:true,unit}
     :id==="sets"?{id,label:t("summary.tile.sets"),text:fmt(s.sets),ramp:s.sets}
     :{id,label:t("summary.tile.reps"),text:fmt(s.reps),ramp:s.reps})}
@@ -12070,13 +12063,23 @@ function summaryLiftHtml(lift,s){
       `<span class="sum-grp__next"${lift.exerciseId?` data-parity-target="${esc(lift.exerciseId)}"`:""}>`+
       `${verdictMarkHtml(lift.next.glyph)}<span>${esc(lift.next.line)}</span></span></p>`:"")+`</div>`}
 
+function summaryUnseenFinding(s){
+  const seen=loadUiPrefs().findingsSeen;
+  return s.finding&&!(Array.isArray(seen)&&seen.includes(s.finding.id))?s.finding:null}
+function summaryFindingHtml(s){
+  const finding=summaryUnseenFinding(s),line=finding?.text||s.findingNeed;
+  if(!line)return "";
+  return `<button type="button" class="sum-finding" id="sumFinding"${finding?` data-finding="${esc(finding.id)}"`:""}>`+
+    (finding?`<span class="sum-finding__label">${esc(t("summary.new_today"))}</span>`:"")+`${esc(line)}</button>`}
+
 function sessionSummaryHtml(s){
   const out=[];
   out.push(`<p class="sum-eyebrow">${esc(t("summary.eyebrow"))}</p>`);
   out.push(`<h2 class="sum-hero" id="sumTitle" tabindex="-1">${esc(dayLabel(s.day))}</h2>`);
   out.push(`<p class="sum-sub">${esc(summarySubLine(s))}</p>`);
   out.push(summaryCardsHtml(s));
-  // The four numbers. The counts ramp (motion amendment M2); a signed margin does not.
+  out.push(summaryFindingHtml(s));
+  // The session figures. The counts ramp (motion amendment M2); a signed margin does not.
   out.push(`<div class="sum-stats sum-tiles">${summaryTileValues(s).map(tile=>`<div class="sum-tile" data-tile="${tile.id}">`+
     `<p class="sum-tile__lab">${esc(tile.label)}</p><p class="sum-tile__val${tile.accent?" is-accent":""}">`+
     (tile.ramp!=null?`<span data-ramp="${esc(tile.ramp)}"${tile.kfmt?' data-kfmt="1"':""}>${esc(tile.text)}</span>`:`<span>${esc(tile.text)}</span>`)+
@@ -12148,6 +12151,10 @@ function renderSessionSummary(s){
   const body=$("#sessionSummaryBody");if(!body)return;
   stopSummaryRamp();
   body.innerHTML=sessionSummaryHtml(s);
+  const finding=$("#sumFinding");if(finding)finding.onclick=()=>{
+    closeSessionSummary({nav:"stats"});setStatsSeg("overview");
+    const profile=$("#overviewProfile");
+    if(profile){profile.setAttribute("tabindex","-1");profile.scrollIntoView({block:"start"});profile.focus({preventScroll:true})}};
   const done=$("#sumDone");if(done)done.onclick=()=>closeSessionSummary();
   const share=$("#sumShare");if(share)share.onclick=()=>openShareSheet(share);
   const see=$("#sumSee");if(see)see.onclick=()=>{
@@ -12170,6 +12177,10 @@ function openSessionSummary(s){
   renderSessionSummary(s);
   const ok=openModal(el,{initialFocus:()=>$("#sumTitle"),onEscape:()=>closeSessionSummary()});
   if(!ok){sessionSummaryCurrent=null;return false}
+  const finding=summaryUnseenFinding(s);
+  if(finding){
+    const prefs=loadUiPrefs(),seen=Array.isArray(prefs.findingsSeen)?prefs.findingsSeen:[];
+    replaceUiPrefs({...prefs,findingsSeen:[...new Set([...seen,finding.id])]})}
   // The blocks are all present and opaque on the first frame; only the totals count up. The ramp starts
   // before the first paint, so the finished figures are never seen and then reset to zero.
   rampSessionStats(el.querySelector(".sum-stats"));
@@ -12305,11 +12316,11 @@ function historyShareSummary(sid,{week=null}={}){
       sets:[...group.rows].sort((a,b)=>(+a.set||0)-(+b.set||0)).map(row=>({load:+row.load,reps:+row.reps})),
       state:outcome==="improved"?{kind:"outcome",outcome:"improved"}:{kind:"insufficient",reason:null},
       pr:prs.find(entry=>entry.liftKey===group.liftKey)||null,next:null}});
-  const date=first.date,strength=week>=2?strengthGainedThisBlock(rows,prevLog):null,streak=weeksInARow([...prevLog,...rows],date);
+  const date=first.date,strength=week>=2?strengthGainedThisBlock(rows,prevLog):null;
   const seconds=state.sessionTiming?.[id]?.durationSeconds,mins=Number.isFinite(seconds)?Math.round(seconds/60):null;
-  return{session:id,date,day:first.day,strength,streak,
+  return{session:id,date,day:first.day,strength,
     reps:sum(work.map(row=>+row.reps)),
-    tiles:summaryTiles({strength,streak,records:prs.length}),
+    tiles:summaryTiles({strength,records:prs.length}),
     lead:summaryLeadCard(prs,liftGroups),
     sets:rows.length,volume:movedTonnage(rows),prs,liftGroups,
     minutes:mins>=1&&mins<=480?mins:null,
