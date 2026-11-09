@@ -57,6 +57,10 @@ for (const name of ["quality-prefilled", "quality-unsure", "quality-failure", "m
   assert.deepEqual(standing(name, "learning", ["few_sets", "few_sessions"]), empty);
 }
 assert.equal(standing("ninety-day-decay", "learning", ["few_sets", "break"]).sets, 3);
+assert.equal(standing("missing-source", "solid", []).sets, 6);
+const partlyDated = standing("undated-pair-endpoint", "learning", ["few_sets"]);
+assert.equal(partlyDated.sets, 4);
+assert.equal(partlyDated.pairs, 2, "a zero-weight undated endpoint cannot form a pair");
 const identical = standing("identical-pairs", "solid", []);
 assert.equal(identical.pairs, 0);
 assert.equal(identical.agreement, null);
@@ -77,8 +81,8 @@ for (const name of ["wrong-equipment", "missing-rir"]) assert.deepEqual(standing
 // The gauge and engine use exactly the same exported pair rule, including both bounds and the RIR cap.
 for (const [ratio, agree] of [[0.849, false], [0.85, true], [1.03, true], [1.031, false]]) {
   const pair = Gauge.pairsFrom([
-    { key: "lift", session: "s", set: 0, load: 100, reps: 10, rir: 2, q: 1 },
-    { key: "lift", session: "s", set: 1, load: 100 * ratio, reps: 10, rir: 2, q: 1 },
+    { key: "lift", session: "s", set: 0, load: 100, reps: 28, rir: 2, q: 1 },
+    { key: "lift", session: "s", set: 1, load: 100 * ratio, reps: 28, rir: 2, q: 1 },
   ], (load, reps, rir) => load * (1 + (reps + rir) / 30));
   assert.equal(pair[0].agree, agree);
 }

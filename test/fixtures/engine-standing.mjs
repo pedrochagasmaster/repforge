@@ -36,3 +36,6 @@ add('invalid',solid(),{prescription:{metricType:'invalid'}});
 for(const delta of [-1,1,2]) add('bounded-shift-'+delta,solid(),{settings:{calibration:{version:"calibration@077.1",delta,n:4,spread:1,state:delta<0?'under':'over',reason:null}}});
 add('wrong-equipment',solid().map(s=>({...s,sets:s.sets.map(r=>({...r,equipmentId:'other'}))})));
 add('missing-rir',solid().map(s=>({...s,sets:s.sets.map(r=>({...r,rir:null}))})));
+add('missing-source',solid().map(s=>({...s,sets:s.sets.map(({effortSource,...r})=>r)})));
+add('undated-pair-endpoint',[session('a',[100,95,90],null),session('b',[100,95,90])]);
+cases.at(-1).input[1][0].sets[1].date = '2026-11-09';
