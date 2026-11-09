@@ -1245,7 +1245,9 @@ for(const basis of ["prior","ratio","floor"]){
     assert(Draft.isDomainError(command(d,"insertSet",{...payload,setId:"late-ramp"}).result),"completed working set prevents mid-exercise insertion");
     const rows=Draft.toHistoryRows(apply(d,"beginFinish"),"2026-08-15T11:02:00.000Z");
     assert(rows[0]?.warmup===true&&!rows[0]?.startingLoad,"ramp saves as an ordinary warm-up without first-working provenance");
+    assert(rows[0]?.origin==="ramp","a saved ramp has an explicit marker that cannot be confused with a manual warm-up");
     assert(rows.find(row=>!row.warmup)?.startingLoad?.ramps===3,"only first working row carries the opening and ramp count");
+    assert(rows.find(row=>!row.warmup)?.setIndex===0,"only inserted ramps are removed from the saved engine index");
     const bad=structuredClone(d);bad.exercises["slot-squat"].sets["squat-set-1"].startingLoad.extra=true;
     assert(!Draft.validate(bad).ok,"opening provenance rejects unknown fields");
   }

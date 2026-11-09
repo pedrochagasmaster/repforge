@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { legacyRelease } from "./fixtures/legacy-release.mjs";
 import {readFileSync} from "node:fs";
 import { launchChromium, waitForAppBoot, openShelfField, chooseRepsLeft } from "./browser.mjs";
-import { installGeneratedProgram, definitionSlot, isWeightRepsSlot } from "./fixtures/history-metric-rows.mjs";
+import { cases as engineFixtures } from "./fixtures/engine-standing.mjs";
+import { installGeneratedProgram, definitionSlot, isWeightRepsSlot, metricLogRow } from "./fixtures/history-metric-rows.mjs";
 import { finishEarly } from "./fixtures/focus-workout.mjs";
 
 const BASE=process.env.REPFORGE_URL||"http://localhost:8000/";
@@ -69,8 +70,59 @@ async function nextWorking(page,count){
     return Object.values(ex.sets).filter(set=>set.role==="working"&&set.completion!=="pending").length===count;
   },count);
 }
+// Compare the public app adapter, not just unchanged engine arithmetic. The
+// retained release supplies its own shell and every script at the same origin.
+async function nonRampParity(browser){
+  const context=await browser.newContext({serviceWorkers:"block"}),page=await context.newPage();
+  try{
+    await page.goto(BASE);await waitForAppBoot(page,{base:BASE});
+    const state=await installGeneratedProgram(page),targets=state.program.filter(row=>isWeightRepsSlot(definitionSlot(state.programMeta,row)));
+    const fixtures=engineFixtures.map(({name,input})=>({name:`fixture:${name}`,sessions:input[1]}));
+    const generated=[];
+    for(const shape of ["ordinary","manual-warmup","missing-first"])for(const load of [20,40,80])generated.push({name:`${shape}:${load}`,sessions:Array.from({length:3},(_,session)=>({sessionId:`s${session}`,date:`2026-11-0${5+session}`,sets:[0,1,2].filter(index=>shape!=="missing-first"||index!==0).map(setIndex=>({setIndex,load:setIndex===0?load:load*.8,reps:7,rir:1,...(shape==="manual-warmup"&&setIndex===0?{warmup:true}:{})}))}))});
+    let seed=790728;
+    const random=limit=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed%limit;};
+    for(let trial=0;trial<64;trial++)generated.push({name:`generated:${trial}`,sessions:Array.from({length:random(5)},(_,session)=>({sessionId:`s${session}`,date:`2026-11-0${5+session}`,sets:Array.from({length:1+random(6)},(_,setIndex)=>({setIndex,load:10+random(40)*2.5,reps:1+random(14),rir:random(5),warmup:random(4)===0})).filter(()=>random(4)!==0)}))});
+    const datasets=[...fixtures,...generated];
+    async function capture(){
+      const exact=await page.evaluate(cases=>cases.map(({input})=>window.RepForgeProgression.recommendSets(...input)),engineFixtures);
+      const adapted=[];
+      for(const dataset of datasets){
+        const next=structuredClone(state);next.log=[];
+        for(const target of targets)for(const session of dataset.sessions)for(const set of session.sets){
+          const values=set.metricValues||[],definitions=definitionSlot(next.programMeta,target).metricDefinitions;
+          const value=semantic=>values.find(value=>value.metricId===definitions.find(metric=>metric.semantic===semantic)?.id)?.value;
+          const source=set.effortSource;
+          next.log.push(metricLogRow(next.programMeta,target,{session:session.sessionId,date:session.date||"2026-11-05",set:set.setIndex+1,
+            load:set.load??value("loadKg")??40,reps:set.reps??value("reps")??7,rir:set.rir??null,
+            extra:{...(set.warmup?{warmup:true}:{}),...(source?{effortSource:source}:{}),...(set.equipmentId&&set.equipmentId!=="rack-a"?{equipmentId:set.equipmentId}:{})}}));
+        }
+        await page.evaluate(async state=>{await window.__repforgeCommitProposedState(state);await window.__repforgeStorage.flush();},next);
+        adapted.push(await page.evaluate(ids=>ids.map(id=>{const api=window.__repforgeProgression,rec=api.recommendation(api.programSlot(id));return{rec,inputs:rec.progressionInputs};}),targets.map(target=>target.id)));
+      }
+      return{exact,adapted};
+    }
+    const head=await capture(),previous=legacyRelease("542a457ee2439d28522cc164b8323a7a0f7f7574");
+    await page.route("**/*",async route=>{
+      const url=new URL(route.request().url());if(url.origin!==new URL(BASE).origin)return route.continue();
+      const path=url.pathname==="/"?"index.html":decodeURIComponent(url.pathname).slice(1),body=previous.file(path);
+      if(!body)return route.fulfill({status:404,body:""});
+      const contentType=path.endsWith(".html")?"text/html":path.endsWith(".js")?"text/javascript":path.endsWith(".json")?"application/json":path.endsWith(".css")?"text/css":"application/octet-stream";
+      return route.fulfill({body,contentType});
+    });
+    await page.reload();await waitForAppBoot(page,{base:BASE});
+    const base=await capture();
+    assert.deepEqual(head.exact,base.exact,"all existing engine fixtures retain complete base results");
+    const differences=[];
+    for(let i=0;i<datasets.length;i++)for(let j=0;j<targets.length;j++)if(JSON.stringify(head.adapted[i][j])!==JSON.stringify(base.adapted[i][j]))differences.push({case:datasets[i].name,slot:targets[j].id,base:base.adapted[i][j].rec.load,head:head.adapted[i][j].rec.load});
+    console.log(`Non-ramp parity: ${engineFixtures.length} exact engine fixtures, ${fixtures.length*targets.length} fixture-adapter comparisons, ${generated.length*targets.length} generated-history comparisons (seed 790728), ${differences.length} differences`);
+    assert.deepEqual(differences,[],"ordinary history anchors, targets and eligibility must equal the base release");
+  }finally{await context.close()}
+}
 const browser=await launchChromium();
 try{
+  await nonRampParity(browser);
+  if(!process.env.REPFORGE_ZERO_PARITY_ONLY){
   const compatibility=await open(browser),cp=compatibility.page;
   await cp.locator(`${card} [data-ramp-start]`).click();await answer(cp,"easy");await waitWarmups(cp,1);
   const retained=await cp.evaluate(()=>({raw:localStorage.getItem("repforge_draft_v1"),checkpoint:localStorage.getItem("repforge_draft_v1:v2-checkpoint")}));
@@ -273,4 +325,5 @@ try{
     await planned.context.close();
   }
   console.log(`Session zero: ${checks} passed, 0 failed`);
+  }
 }finally{await browser.close()}

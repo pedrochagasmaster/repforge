@@ -842,4 +842,9 @@ for (const location of ["row", "draft"]) {
   const accepted=await Contract.validateEnvelopeIntegrity(envelope,webcrypto);
   assert.equal(accepted.ok,true,`an actual inserted ramp and its untouched working prefill cross transfer: ${JSON.stringify(accepted)}`);
 }
-console.log("PASS session-zero transfer: 10 strict provenance cases and an inserted production draft");
+for(const origin of ["ramp","manual",null]){
+  const envelope=structuredClone(valid);envelope.durableState.log[0].origin=origin;
+  envelope.integrity.canonicalPayloadHash=canonicalHash(envelope);
+  assert.equal((await Contract.validateEnvelopeIntegrity(envelope,webcrypto)).ok,true,`extensible saved-row provenance is retained: ${JSON.stringify(origin)}`);
+}
+console.log("PASS session-zero transfer: 10 strict provenance cases, 3 extensible row-marker cases and an inserted production draft");
