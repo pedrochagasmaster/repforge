@@ -1167,7 +1167,12 @@ console.log("\nIssue #320: create() clamps a target RIR that falls back to the l
 {
   let d=apply(fresh(),"substituteExercise",{exerciseInstanceId:"slot-squat",replacement,selectedAt:"2026-08-15T11:00:00.000Z"});
   d=apply(d,"recordSubstitutionReason",{draftId:d.draftId,exerciseInstanceId:"slot-squat",selectedAt:d.exercises["slot-squat"].substitution.selectedAt,replacementId:replacement.exerciseInstanceId,reason:"pain"});
-  const project=draft=>Draft.toHistoryRows(apply(draft,"beginFinish"),"2026-08-15T12:00:00.000Z",{includeSessionEvents:true}).sessionEvents;
+  const project=draft=>{
+    let value=apply(draft,"editSetField",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",field:"load",value:"50"});
+    value=apply(value,"editSetField",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",field:"reps",value:"8"});
+    value=apply(value,"completeSet",{exerciseInstanceId:"slot-squat",setId:"squat-set-1",completedAt:"2026-08-15T11:30:00.000Z"});
+    return Draft.toHistoryRows(apply(value,"beginFinish"),"2026-08-15T12:00:00.000Z",{includeSessionEvents:true}).sessionEvents;
+  };
   const original=project(d).pain[0];
   assert(original.exerciseId==="sq_hs"&&original.name==="Hack squat","B2: pain swap records the original movement identity and name");
   const added=apply(d,"markDiscomfort",{exerciseInstanceId:"slot-squat",kind:"discomfort"});
