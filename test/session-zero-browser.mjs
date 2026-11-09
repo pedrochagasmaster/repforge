@@ -11,13 +11,13 @@ const BASE=process.env.REPFORGE_URL||"http://localhost:8000/";
 let checks=0;
 const check=(value,label)=>{assert.ok(value,label);checks++;console.log(`  ✓ ${label}`)};
 const card="#workout .exercise.is-current";
-async function open(browser,{mode="effort",planned=false,bodyweight=80,historySource=null}={}){
+async function open(browser,{mode="effort",planned=false,bodyweight=80,historySource=null,targetName=null}={}){
   const context=await browser.newContext({viewport:{width:390,height:844},serviceWorkers:"block"}),page=await context.newPage();
   await page.goto(BASE);await waitForAppBoot(page,{base:BASE});
   const state=await installGeneratedProgram(page,{name:"Opening-load proof"});
   const squats=await page.evaluate(()=>window.RepForgeExerciseCatalog.snapshot().exercises
     .filter(ex=>ex.movementPattern?.some(id=>window.RepForgeExerciseCatalog.getObject(id)?.name==="Squat")).map(ex=>ex.id));
-  const target=state.program.find(row=>squats.includes(row.libraryId)&&isWeightRepsSlot(definitionSlot(state.programMeta,row))&&row.sets>=3);
+  const target=state.program.find(row=>targetName?row.name===targetName:squats.includes(row.libraryId)&&isWeightRepsSlot(definitionSlot(state.programMeta,row))&&row.sets>=3);
   assert.ok(target,"generated fixture has a weighted squat");
   await page.evaluate(async ({id,mode,planned,bodyweight})=>{
     const state=JSON.parse(localStorage.getItem("repforge_v1"));
@@ -137,10 +137,7 @@ async function nonRampParity(browser){
     assert.deepEqual(differences,[],"ordinary history anchors, targets and eligibility must equal the base release");
   }finally{await context.close()}
 }
-const browser=await launchChromium();
-try{
-  if(!process.env.REPFORGE_ZERO_SKIP_PARITY)await nonRampParity(browser);
-  if(!process.env.REPFORGE_ZERO_PARITY_ONLY){
+async function ratioJourneys(browser){
   // A mid-block new movement uses a real working observation, never the newer 400 kg ramp.
   const added=await open(browser,{historySource:"Pendulum squat"});
   check(await added.page.locator(`${card} [data-ramp-start]`).innerText()==="Start at 35 kg","mid-block new lift carries the same-row/class working anchor");
@@ -155,7 +152,7 @@ try{
   await unrelated.context.close();
   const swapped=await open(browser,{historySource:"original"});
   const replacement=await swapped.page.evaluate(()=>window.RepForgeExerciseCatalog.snapshot().exercises.find(ex=>ex.name==="Pendulum squat").id);
-  check(await swapped.page.locator(`${card} [data-ramp-start]`).count()===0,"a movement with its own working history keeps the engine target");
+  check(await swapped.page.locator(`${card} [data-ramp-start]`).count()===0,"a movement with its own working history does not borrow another opening");
   await swapped.page.locator("#woOverflowBtn").click();await swapped.page.locator('[data-workout-action="exercise"]').click();
   await swapped.page.locator("#exActionSubstBtn").click();
   await swapped.page.locator("#exPickSearch").fill("Pendulum squat");
@@ -171,8 +168,29 @@ try{
   check(subrec.targetSets[1].result.historyAnchor.displayLoadKg===30,"replacement's first working set takes over from its ratio and Easy warm-up");
   await swapped.page.reload();await waitForAppBoot(swapped.page,{base:BASE});
   check(Object.values((await exercise(swapped.page)).sets).some(set=>set.startingLoad?.basis==="ratio"),"substitution opening survives reload in the existing draft shape");
-  console.log("BASE RESTORE DIAGNOSTIC",JSON.stringify(await swapped.page.evaluate(id=>window.__repforgeWorkoutDraft.dispatch("restoreOriginalExercise",{exerciseInstanceId:id}),swapped.target.id)));
   await swapped.context.close();
+  const dumbbells=await open(browser,{targetName:"Dumbbell bench press"}),dp=dumbbells.page;
+  await dp.locator(`${card} [data-ramp-start]`).click();
+  await field(dp,"loadPerSideKg",20);await field(dp,"repsPerSide",8);await answer(dp,"hard");await nextWorking(dp,1);
+  await finishEarly(dp);await dp.reload();await waitForAppBoot(dp,{base:BASE});
+  await dp.evaluate(id=>window.__repforgeGoToLogExercise(id),dumbbells.target.id);
+  const incline=await dp.evaluate(()=>window.RepForgeExerciseCatalog.snapshot().exercises.find(ex=>ex.name==="Low incline dumbbell press").id);
+  await dp.locator("#woOverflowBtn").click();await dp.locator('[data-workout-action="exercise"]').click();await dp.locator("#exActionSubstBtn").click();
+  await dp.locator("#exPickSearch").fill("Low incline dumbbell press");await dp.locator(`#exPickList [data-pick="${incline}"]`).click();
+  await dp.locator('[data-pick-reason="equipment"]').click();
+  check(await dp.locator(`${card} [data-ramp-start]`).innerText()==="Start at 20 kg","per-hand substitution carries a per-hand working anchor");
+  await dp.locator(`${card} [data-ramp-start]`).click();await answer(dp,"hard");await nextWorking(dp,1);
+  const perSide=await dp.evaluate(id=>{const rec=window.__repforgeProgression.recommendation(window.__repforgeProgression.programSlot(id));return {current:rec.progressionInputs.currentSession,target:rec.targetSets[1]}},dumbbells.target.id);
+  check(perSide.current[0].loadingContext.externalLoadMultiplier===2,"replacement per-hand working evidence keeps the catalog's bilateral multiplier");
+  check(perSide.target.result.historyAnchor?.displayLoadKg===20,"a per-hand replacement's working set becomes the engine anchor");
+  await dumbbells.context.close();
+}
+const browser=await launchChromium();
+try{
+  if(!process.env.REPFORGE_ZERO_SKIP_PARITY)await nonRampParity(browser);
+  if(!process.env.REPFORGE_ZERO_PARITY_ONLY){
+  await ratioJourneys(browser);
+  if(!process.env.REPFORGE_ZERO_RATIOS_ONLY){
   const compatibility=await open(browser),cp=compatibility.page;
   await cp.locator(`${card} [data-ramp-start]`).click();await answer(cp,"easy");await waitWarmups(cp,1);
   const retained=await cp.evaluate(()=>({raw:localStorage.getItem("repforge_draft_v1"),checkpoint:localStorage.getItem("repforge_draft_v1:v2-checkpoint")}));
@@ -373,6 +391,7 @@ try{
     const planned=await open(browser,{planned:loads});
     check(await planned.page.locator(`${card} .fx-cue.is-ramp`).count()===0,`authored loads skip the ramp, including a load on a later set (${loads})`);
     await planned.context.close();
+  }
   }
   console.log(`Session zero: ${checks} passed, 0 failed`);
   }
