@@ -161,6 +161,35 @@ async function main() {
     await page.locator('nav button[data-view="history"]').click();
     await page.waitForSelector("#history.view.active", { timeout: 5000 });
 
+    // #708: the read column and correction controls use the working-surface term in both languages.
+    for (const [lang, label] of [["en", "Reps left"], ["pt", "Reps sobrando"]]) {
+      await writeState(page, { ...state, settings: { ...state.settings, lang } });
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await waitForApp(page);
+      await page.locator('nav button[data-view="history"]').click();
+      await page.locator('#sessions [data-sess="history-edit-a"] .session__open').click();
+      await page.waitForSelector('.session--read[data-reading="history-edit-a"]', { timeout: 5000 });
+      const columns = await page.locator('.session--read .histpage__cols .fx-col:last-child').allTextContents();
+      assert(columns.length > 0 && columns.every(value => value.trim() === label),
+        `#708 ${lang}: History read columns say ${label}`, JSON.stringify(columns));
+      await page.locator('[data-history-edit="history-edit-a"]').click();
+      await page.waitForSelector('.session--edit[data-editing="history-edit-a"]', { timeout: 5000 });
+      const controls = await page.locator('.session--edit input[data-ek^="rir|"]').evaluateAll(inputs => inputs.map(input => ({
+        label: input.getAttribute("aria-label"), type: input.type, mode: input.getAttribute("inputmode"),
+      })));
+      const editColumns = await page.locator('.session--edit .histedit__cols .fx-col:last-child').allTextContents();
+      assert(editColumns.length > 0 && editColumns.every(value => value.trim() === label) &&
+        controls.length === 2 && controls.every(input => input.label.endsWith(` ${label}`) && input.type === "text" && input.mode === "decimal"),
+        `#708 ${lang}: History edit columns and numeric correction labels say ${label}`, JSON.stringify({ editColumns, controls }));
+      assert(await page.evaluate(() => window.RepForgeI18n.t("glossary.term.RIR")) === "RIR",
+        `#708 ${lang}: the glossary heading remains RIR`);
+      await page.locator('[data-edcancel]').click();
+    }
+    await writeState(page, state);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await page.locator('nav button[data-view="history"]').click();
+
     const beforeEdit = await readReplicas(page);
     assert(beforeEdit.local?.log?.length === 4 && beforeEdit.idb?.log?.length === 4,
       "History starts from two persisted sessions", JSON.stringify({ local: beforeEdit.local?.log?.length, idb: beforeEdit.idb?.log?.length }));
