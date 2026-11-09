@@ -30,7 +30,7 @@
  * PART 2 - the final page (always on since the page packet landed). It asserts
  * that each section exists, that the proof has five chapters and shows the
  * oracle's numbers, that the feature tabs are five and name the library's real
- * size (test/landing-features.mjs owns their frames), that the FAQ has five
+ * size (test/landing-features.mjs owns their frames), that the FAQ has seven
  * <details>, that the persistent Build dock exists on the standard landing but
  * never on the shared-link gate, and that the proof's player plays only while it
  * is on screen and the page is visible, jumps by chapter, shows stills under
@@ -38,12 +38,12 @@
  * disposes with the gate (nothing it starts outlives the landing).
  *
  * Hooks PART 2 reads (all inside #firstRun):
- *   [data-landing-section="hero|proof|ways|features|data|faq|close|footer"]
+ *   [data-landing-section="hero|proof|check|ways|features|data|faq|close|footer"]
  *   [data-landing-chapter]         x5 in the proof section, in order, each a
  *                                  [data-chapter] button and its caption; the last
  *                                  caption is the result
  *   [data-feature]                 x5 tabs in the features section
- *   details.faq                    x5 in the faq section
+ *   details.faq                    x7 in the faq section
  *   #firstRunCreateDock            the persistent Build control; absent on the
  *                                  valid shared-link gate
  *   window.__repforgeLandingProof()  what the open landing's controller holds
@@ -620,6 +620,12 @@ function copyPins() {
     for (const key of ["landing.demo.s7.text", "landing.anim.ch1.text"]) {
       assert(!CATALOG[lang][key].includes("{now}"), `[${lang}] ${key} names no "Now" line (Focus does not render one)`, CATALOG[lang][key]);
     }
+    for (const key of ["landing.check.title", "landing.check.more", "landing.check.fewer", "landing.check.equal",
+      "landing.check.limits", "landing.check.exclusion", "landing.faq.test.q", "landing.faq.test.a",
+      "landing.faq.failure.q", "landing.faq.failure.limits", "landing.faq.failure.choice"]) {
+      assert(typeof CATALOG[lang][key] === "string" && !/\d/.test(CATALOG[lang][key].replace(/\{\w+\}/g, "")),
+        `[${lang}] ${key} exists without hard-coded figures`, CATALOG[lang][key]);
+    }
     for (const key of RETIRED_KEYS) assert(!(key in CATALOG[lang]), `[${lang}] retired key ${key} is gone`);
   }
   // The import-review counts are measured from the live app by tools/capture-landing-proof.mjs
@@ -646,7 +652,7 @@ function copyPins() {
 // ===========================================================================
 // PART 2 - the final page
 // ===========================================================================
-const SECTIONS = ["hero", "proof", "ways", "features", "data", "faq", "close", "footer"];
+const SECTIONS = ["hero", "proof", "check", "ways", "features", "data", "faq", "close", "footer"];
 
 const readFinal = (sectionNames) => {
   const root = document.querySelector("#firstRun");
@@ -729,6 +735,39 @@ async function finalPage(browser) {
     assert(f.steps.length === 5, `[${lang}] the proof has five chapters in the document`, `found ${f.steps.length}`);
     assert(f.steps.length > 0 && f.steps.every((step) => step.length > 0), `[${lang}] every chapter carries its title and caption`, JSON.stringify(f.steps.map((s) => s.length)));
     const calibration = require('../effort-calibration.js');
+    const checks = await page.locator('[data-landing-section="check"] li').allTextContents();
+    const examples = [[11, 14, "more"], [10, 9, "fewer"], [10, 10, "equal"]];
+    assert(checks.length === examples.length, `[${lang}] the check band has three comparisons`, JSON.stringify(checks));
+    examples.forEach(([guess, did, kind], index) => {
+      const result = calibration.result(guess, did);
+      assert(checks[index] === tr(lang, `landing.check.${kind}`, {
+        guess: result.guess, did: result.did, difference: Math.abs(result.error),
+      }), `[${lang}] check comparison ${kind} comes from the calibration result`, checks[index]);
+    });
+    const limits = Object.fromEntries(Object.entries({
+      perWorkout: calibration.LIMITS.perWorkout, days: calibration.LIMITS.perExerciseDays,
+      perWeek: calibration.LIMITS.perWeek, minChecks: calibration.ESTIMATOR.minChecks,
+      ...require('../progression-engine.js').CALIBRATION_STEPS,
+    }).map(([key, value]) => [key, value.toLocaleString(lang === "pt" ? "pt-BR" : "en-US")]));
+    for (const [fill, key] of [["check.limits", "landing.check.limits"], ["faq.test.a", "landing.faq.test.a"],
+      ["faq.failure.limits", "landing.faq.failure.limits"]]) {
+      assert(await page.locator(`[data-landing-fill="${fill}"]`).textContent() === tr(lang, key, limits),
+        `[${lang}] ${fill} uses the shipped safety and adjustment limits`);
+    }
+    assert(f.faqQuestions[5] === tr(lang, "landing.faq.test.q") && f.faqQuestions[6] === tr(lang, "landing.faq.failure.q"),
+      `[${lang}] the test-set questions follow the original five`);
+    await page.locator('.firstrun-qa summary').nth(4).focus();
+    for (const index of [5, 6]) {
+      await page.keyboard.press("Tab");
+      assert(await page.locator('.firstrun-qa summary').nth(index).evaluate(el => el === document.activeElement),
+        `[${lang}] Tab reaches test-set question ${index + 1}`);
+      await page.keyboard.press("Enter");
+      assert(await page.locator('.firstrun-qa').nth(index).evaluate(el => el.open), `[${lang}] the new question opens with Enter`);
+      await page.keyboard.press("Enter");
+    }
+    assert(await page.locator('[data-landing-fill="faq.failure.choice"] b').allTextContents().then(values =>
+      values.includes(tr(lang, "nav.settings")) && values.includes(tr(lang, "settings.max_set_prompts"))),
+      `[${lang}] the failure answer names the real Settings switch`);
     const exercise = Catalog.exercises.find(ex => ex.id === BENCH);
     assert(calibration.eligibility({exercise, lookup: id => Catalog.uuidIndex[id]}).eligible, 'the proof movement can take a test set');
     for (const [time, selector, key] of [[14.5, '.firstrun-demo__test-tip', 'maxset.invite_title'],
@@ -774,7 +813,7 @@ async function finalPage(browser) {
     assert(f.waysWritten === tr(lang, "landing.ways.written.body", { weeks: DEFAULT_WEEKS }), `[${lang}] the ways' program length is the default ${DEFAULT_WEEKS} weeks`, f.waysWritten);
 
 
-    assert(f.faqCount === 5, `[${lang}] the questions section has five <details>`, `found ${f.faqCount}`);
+    assert(f.faqCount === 7, `[${lang}] the questions section has seven <details>`, `found ${f.faqCount}`);
     assert(f.faqOpen === 0, `[${lang}] every question starts closed`);
     assert(f.rirAnswer === tr(lang, "glossary.RIR"), `[${lang}] the RIR answer is the app's own definition (glossary.RIR)`, f.rirAnswer);
     assert(f.footerPrivacyTargetsData, `[${lang}] the footer Privacy link goes to the data section, not the sheet`);
