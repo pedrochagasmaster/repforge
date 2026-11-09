@@ -1305,6 +1305,12 @@ export const ONBOARDING_SCENARIOS = {
   "onboarding-import/freeform-unreadable": (page) => freeformTo(page, "unreadable"),
   "onboarding-import/preview": (page) => importTo(page, "preview"),
 
+  "onboarding-start/effort-choice": async (page) => {
+    await buildTo(page, "editor-ready");
+    await page.evaluate(() => window.__repforgeUi.setPref("effortChosen", false));
+    await page.click("#entryEditorActivate");
+    await page.waitForSelector("#effortChoiceSheet.is-open");
+  },
   "onboarding-shared/gate": (page) => sharedTo(page, "gate"),
   "onboarding-shared/invalid": sharedInvalidTo,
   "onboarding-shared/preview": (page) => sharedTo(page, "preview"),

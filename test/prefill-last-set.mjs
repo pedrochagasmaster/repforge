@@ -61,8 +61,11 @@ async function start(browser, definition, { lang = "en", effort = false, day } =
   const opened = await openCatalogState(browser, "today/no-program", 390, lang, "normal");
   const { page } = opened;
   await page.evaluate(async ({ programDefinition, effort }) => {
+    const baseProposal = JSON.parse(localStorage.getItem("repforge_v1"));
+    baseProposal.settings.rirMode = effort ? "effort" : "numeric";
     await window.__repforgeFinalizeProgramSetup({
       programDefinition, name: "Prefill", answers: {}, destination: "log", origin: "first-run",
+      baseProposal,
       draftConfirmed: true, telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: "prefill-last-set" },
     });
     await window.__repforgeStorage.flush();
@@ -313,19 +316,36 @@ try {
       // The next session: set 1 has nothing above it and falls back to the previous session's set 1.
       await enterFocus(page);
       r = await reading(page, 1);
-      check(same([r.load.value, r.reps.value, r.rir.value], ["32.5", "8", "3"]),
-        "set 1 of the next session falls back to the previous session's 32.5 / 8 / 3", r);
+      check(same([r.load.value, r.reps.value, r.rir.value], ["32.5", "8", "1"]),
+        "set 1 carries history load and reps but offers the programmed effort target before history", r);
       await reboot(page);
       await enterFocus(page);
       r = await reading(page, 1);
-      check(r.rir.value === "3" && untouched(r.stored), "the saved effort offer survives a reload without becoming a new edit", r);
+      check(r.rir.value === "1" && untouched(r.stored), "the programmed effort offer survives a reload without becoming a new edit", r);
       await logShown(page);
       r = await reading(page, 1);
-      check(r.stored.done && Number(r.stored.rir) === 3, "logging the saved-history offer stores the effort that was shown", r);
+      check(r.stored.done && Number(r.stored.rir) === 1, "logging the programmed offer stores the effort that was shown", r);
     } finally { await context.close(); }
   }
 
-  console.log("\n7. Portuguese, and effort mode");
+  console.log("\n7. History effort is the fallback when there is no programmed target");
+  {
+    const definition = seedProgramMeta({}).programDefinition;
+    for (const cycle of definition.days[0].slots[0].prescriptionsByCycle)
+      for (const set of cycle.sets) set.rir = null;
+    const { context, page } = await start(browser, definition);
+    try {
+      await enter(page, { load: "30", reps: "8", rir: "3" });
+      await logShown(page);
+      await finishEarly(page);
+      await enterFocus(page);
+      const r = await reading(page, 1);
+      check(r.stored.targetRir == null && r.rir.value === "3" && untouched(r.stored),
+        "without a programmed effort target, set 1 offers last session's 3 without writing an edit", r);
+    } finally { await context.close(); }
+  }
+
+  console.log("\n8. Portuguese, and effort mode");
   {
     let opened = await start(browser, seedProgramMeta({}).programDefinition, { lang: "pt" });
     try {

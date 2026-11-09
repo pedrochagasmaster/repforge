@@ -1267,6 +1267,11 @@
       "owner": "plan-055",
       "content": "flat",
       "scenario": "A logged set, then a rest carried past the one-hour cap by the live count-up: the Early finish question opens with its reason line."
+    },
+    "onboarding-start/effort-choice": {
+      "owner": "plan-078/pr2",
+      "content": "flat",
+      "scenario": "The once-per-device effort choice at program activation, with words selected."
     }
   },
   "components": [
@@ -8133,7 +8138,8 @@
         "program/editor-suggest-loads",
         "program/editor-issue-field",
         "onboarding-recommend/deload",
-        "onboarding-recommend/deload-start"
+        "onboarding-recommend/deload-start",
+        "onboarding-start/effort-choice"
       ]
     },
     {
@@ -8175,7 +8181,8 @@
         "program/editor-suggest-loads",
         "program/editor-issue-field",
         "onboarding-recommend/deload",
-        "onboarding-recommend/deload-start"
+        "onboarding-recommend/deload-start",
+        "onboarding-start/effort-choice"
       ]
     },
     {
@@ -9078,7 +9085,8 @@
         "session/summary-share-photo",
         "workout/why-calibration",
         "history/session-share",
-        "workout/rest-overrun-finish"
+        "workout/rest-overrun-finish",
+        "onboarding-start/effort-choice"
       ]
     },
     {
@@ -12853,6 +12861,67 @@
         "settings/rest-controls",
         "settings/language-menu"
       ]
+    },
+    {
+      "id": "effort-choice-sheet",
+      "selector": "#effortChoiceSheet",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "One device-only question before the first activation writes its program.",
+      "owner": "plan-078/pr2",
+      "catalogStates": [
+        "onboarding-start/effort-choice"
+      ]
+    },
+    {
+      "id": "effort-choice-continue",
+      "selector": "#effortChoiceContinue",
+      "roles": {
+        "control": "primary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Commits the selected effort stage with program activation.",
+      "owner": "plan-078/pr2",
+      "catalogStates": [
+        "onboarding-start/effort-choice"
+      ],
+      "neverDisabledReason": "The question remains answerable or dismissible until its choice is submitted."
+    },
+    {
+      "id": "effort-choice-close",
+      "selector": "#effortChoiceClose",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible"
+      ],
+      "rationale": "Returns to the unchanged candidate without acknowledging a choice.",
+      "owner": "plan-078/pr2",
+      "catalogStates": [
+        "onboarding-start/effort-choice"
+      ],
+      "neverDisabledReason": "The question remains answerable or dismissible until its choice is submitted."
     }
   ],
   "contextualVariants": [

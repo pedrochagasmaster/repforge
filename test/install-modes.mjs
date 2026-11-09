@@ -39,7 +39,7 @@
  */
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
-import { launchChromium } from "./browser.mjs";
+import { answerEffortChoice, launchChromium } from "./browser.mjs";
 import { encodeSetupLink } from "./fixtures/setup-link-v4.mjs";
 import {
   APP_INDEX,
@@ -181,6 +181,7 @@ async function bannerPage(browser, { ua, locale = "en-US", width = 393, native =
   await page.click("#importCommit");
   await page.waitForSelector("#entryActivate", { timeout: 10000 });
   await page.click("#entryActivate");
+  await answerEffortChoice(page);
   await page.waitForFunction(() => document.querySelector("#firstRun").classList.contains("hidden"), undefined, {
     timeout: 8000,
   });
@@ -614,6 +615,7 @@ async function run() {
     await page.click("#importCommit");
     await page.waitForSelector("#entryActivate", { timeout: 10000 });
     await page.click("#entryActivate");
+    await answerEffortChoice(page);
     await page.waitForFunction(
       () =>
         document.querySelector("#firstRun").classList.contains("hidden") &&

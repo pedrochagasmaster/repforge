@@ -3042,6 +3042,11 @@ const EN = {
   "exercise.chart.cap.e1rm": "best e1RM",
   "exercise.chart.cap.change": "this block",
   "stats.cap.moved": "moved",
+  "entry.effort_choice.title": "How do you want to log effort?",
+  "entry.effort_choice.words": "How the set felt",
+  "entry.effort_choice.words_hint": "Easy / Hard / Max",
+  "entry.effort_choice.numbers": "Reps left",
+  "entry.effort_choice.numbers_hint": "0 to 5+",
 };
 const PT = {
   "catalog.unavailable.title": "Biblioteca de exercícios indisponível",
@@ -6085,6 +6090,11 @@ const PT = {
   "exercise.chart.cap.e1rm": "melhor e1RM",
   "exercise.chart.cap.change": "no bloco",
   "stats.cap.moved": "carga total",
+  "entry.effort_choice.title": "Como quer registrar o esforço?",
+  "entry.effort_choice.words": "Como sentiu a série",
+  "entry.effort_choice.words_hint": "Fácil / Difícil / Máximo",
+  "entry.effort_choice.numbers": "Reps sobrando",
+  "entry.effort_choice.numbers_hint": "0 a 5+",
 };
 (function (root) {
   const STRINGS = { en: EN, pt: PT };

@@ -11,7 +11,6 @@
  *
  * Run: node test/effort-stages.mjs   (REPFORGE_URL points at a static server)
  */
-import { verifyEffortChoice } from "./effort-choice.mjs";
 import { launchChromium } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 import { finishEarly } from "./fixtures/focus-workout.mjs";
@@ -133,8 +132,6 @@ const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));
 
 try {
-  phase("Words default and activation choice");
-  results.passed += await verifyEffortChoice(browser);
   phase("Stage A: one tap on the word");
   await boot(page, { settings: { rirMode: "effort" } });
   await page.locator(`${SHELF} [data-shelf-field="rir"]`).click();

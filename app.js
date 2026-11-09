@@ -1731,7 +1731,7 @@ function glossaryPopover(termKey,anchor){const g=$("#glossary");if(!g)return;
   const viewportHeight=document.documentElement.clientHeight||window.innerHeight;
   const top=Math.max(8,Math.min(r.bottom+6,viewportHeight-bounds.height-8));
   g.style.top=`${window.scrollY+top}px`;g.style.left=`${window.scrollX+left}px`}
-const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",lang:null,rirMode:"numeric",voiceInputEnabled:false,maxSetPrompts:true,slowRepTaps:true,notify:{enabled:false,timer:true,session:true,unfinished:true,missed:true}};
+const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",lang:null,rirMode:"effort",voiceInputEnabled:false,maxSetPrompts:true,slowRepTaps:true,notify:{enabled:false,timer:true,session:true,unfinished:true,missed:true}};
 const normSetting=(v,def,min=0)=>Number.isFinite(+v)&&+v>=min?+v:def;
 /** The hard-set threshold is an RIR a set must be at or under to count as hard: 1 to 10, else the default (Plan 077,
  *  OD-23e). A setup link may still carry 0–100; the device applies it within these bounds. */
@@ -1751,7 +1751,7 @@ function withUnknownKeys(raw,known){
   return Object.assign(out,known)}
 function normalizeNotify(n){
   return withUnknownKeys(n,{enabled:!!(n&&n.enabled),timer:n?.timer!==false,session:n?.session!==false,unfinished:n?.unfinished!==false,missed:n?.missed!==false})}
-const normalizeSettings=s=>{const lang=I18N?.normalizeLang(s?.lang)||I18N?.detectLang()||"en";const normalized=withUnknownKeys(s,{jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normHardRir(s?.hardRir),restSec:normalizeRestSec(s?.restSec),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",lang,rirMode:s?.rirMode==="effort"&&s?.effortScale!=="reps"?"effort":"numeric",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled),maxSetPrompts:normBool(s?.maxSetPrompts,DEFAULTS.maxSetPrompts),slowRepTaps:normBool(s?.slowRepTaps,DEFAULTS.slowRepTaps),notify:normalizeNotify(s?.notify)});delete normalized.effortScale;return normalized};
+const normalizeSettings=s=>{const lang=I18N?.normalizeLang(s?.lang)||I18N?.detectLang()||"en";const normalized=withUnknownKeys(s,{jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normHardRir(s?.hardRir),restSec:normalizeRestSec(s?.restSec),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",lang,rirMode:s?.rirMode==="numeric"||s?.rirMode==="effort"&&s?.effortScale==="reps"?"numeric":"effort",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled),maxSetPrompts:normBool(s?.maxSetPrompts,DEFAULTS.maxSetPrompts),slowRepTaps:normBool(s?.slowRepTaps,DEFAULTS.slowRepTaps),notify:normalizeNotify(s?.notify)});delete normalized.effortScale;return normalized};
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const LB=2.2046226218;
 /* Locale keyboards (pt-BR, de, fr, …) put a comma on the decimal pad. HTML
@@ -3824,7 +3824,11 @@ function normalizeLoaded(s,options={}){
   if(s==null)return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program:[],log:[],programHistory:[],customExercises:[],[STORAGE_REV]:0};
   if(!isValidStateShape(s))throw new TypeError("Invalid Taurifer state");
   const customs=normalizeCustomExercises(s.customExercises),lookup=snapshotLookup(customs);
-  const out={settings:normalizeSettings(s.settings),programMeta:null,
+  // A legacy installed snapshot or backup can predate the explicit mode. Its
+  // old implicit numeric choice must survive the new fresh-device default.
+  const hasTraining=!!(s.program?.length||s.log?.length||s.programHistory?.length||s.programMeta?.onboarded||structureDayLabels(s.programMeta));
+  const settings=hasTraining&&!["numeric","effort"].includes(s.settings?.rirMode)?{...s.settings,rirMode:"numeric"}:s.settings;
+  const out={settings:normalizeSettings(settings),programMeta:null,
     program:[],log:cloneSnapshot(s.log),
     programHistory:normalizeProgramHistory(Object.prototype.hasOwnProperty.call(s,"programHistory")?s.programHistory:[],lookup),
     customExercises:customs};
@@ -22661,6 +22665,37 @@ function onEntryPopState(){
   if(!$("#onboarding")?.classList.contains("active")||!entryState)return;
   try{history.pushState(entryHistoryState(true),"",location.href)}catch{}
   entryBack()}
+// @ci-domain entry
+let effortChoiceAsk=null;
+async function chooseActivationEffort(mode){
+  if(effortChoiceAsk)return null;
+  const sheet=$("#effortChoiceSheet"),scrim=$("#effortChoiceScrim");
+  const choices=Array.from(sheet.querySelectorAll("[data-effort-choice]"));
+  let selected=mode==="numeric"?"numeric":"effort";
+  const paint=()=>choices.forEach(button=>{
+    const on=button.dataset.effortChoice===selected;
+    button.classList.toggle("is-selected",on);button.setAttribute("aria-checked",String(on));
+    button.tabIndex=on?0:-1});
+  paint();
+  effortChoiceAsk=new Promise(resolve=>{
+    let settled=false;
+    const finish=async value=>{
+      if(settled)return;settled=true;
+      await closeModal(sheet);resolve(value)};
+    choices.forEach(button=>{
+      button.onclick=()=>{selected=button.dataset.effortChoice;paint()};
+      button.onkeydown=event=>{
+        if(!["ArrowDown","ArrowUp","ArrowLeft","ArrowRight","Home","End"].includes(event.key))return;
+        event.preventDefault();
+        selected=event.key==="Home"?"effort":event.key==="End"?"numeric":selected==="effort"?"numeric":"effort";
+        paint();choices.find(item=>item.dataset.effortChoice===selected)?.focus()}});
+    $("#effortChoiceContinue").onclick=()=>finish(selected);
+    $("#effortChoiceClose").onclick=scrim.onclick=()=>finish(null);
+    if(openModal(sheet,{scrim,onEscape:()=>finish(null),initialFocus:choices.find(button=>button.dataset.effortChoice===selected),delayHide:280})===false){
+      resolve(null);return}
+    document.body.classList.add("is-sheet-open");
+    requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim.classList.add("is-open")})});
+  try{return await effortChoiceAsk}finally{effortChoiceAsk=null}}
 // @ci-domain global
 async function activateEntryPreview({destination="log",manualBuild=false,skipReplaceConfirm=false,io=storageIO}={}){
   if(!ProgramEntry||!entryState||entryAnswerRebuildPending())return;
@@ -22780,6 +22815,13 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     ?(entryState.result?.compilerContext||null):null;
   if(compilerContext)baseProposal.programMeta.compilerContext=cloneSnapshot(compilerContext);
   const telemetryRoute=route==="recommend"||route==="custom"||route==="browse"||route==="build"||route==="import"||route==="shared"?route:"custom";
+  const needsEffortChoice=!state.log.length&&loadUiPrefs().effortChosen!==true;
+  let chosenEffort=null;
+  if(needsEffortChoice){
+    const candidate=entryState;
+    chosenEffort=await chooseActivationEffort(route==="shared"?baseProposal.settings.rirMode:"effort");
+    if(chosenEffort===null||entryState!==candidate||entryDraftHandle!==activationDraftHandle)return{cancelled:true};
+    baseProposal.settings={...baseProposal.settings,rirMode:chosenEffort}}
   const result=await finalizeProgramSetup({
     exercises,
     name,
@@ -22798,6 +22840,7 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     replace:route==="shared",
     expectedFirstRunEmpty:route==="shared",
     reviewChanges:entryReviewChanges()});
+  if(result?.committed===true&&chosenEffort!==null)setUiPref("effortChosen",true);
   if(result?.setupDraftConflict){
     reportActivationFailed("setup_conflict");
     entryUiNotice="save_conflict";
@@ -25915,6 +25958,7 @@ async function applyBootDecision(decision){
   const migrated=migrateLog();
   const oldSettings=decision.snapshot?.settings;
   const retiredScale=Object.prototype.hasOwnProperty.call(oldSettings||{},"effortScale");
+  const effortModeDrift=decision.snapshot&&oldSettings?.rirMode!==state.settings.rirMode;
   // The old reps scale becomes numeric without rewriting any held set. A finishing
   // draft refuses the reducer command; only this upgrade still migrates Settings.
   const modeEffect=oldSettings?.rirMode==="effort"&&oldSettings.effortScale==="reps"
@@ -25922,7 +25966,7 @@ async function applyBootDecision(decision){
   const migrationEffect=modeEffect?.status===DRAFT_EFFECT_INVALID?null:modeEffect;
   const metaDrift=decision.snapshot&&canonicalPayload({programMeta:decision.snapshot.programMeta})!==canonicalPayload({programMeta:state.programMeta});
   const revisionless=decision.snapshot&&!Object.prototype.hasOwnProperty.call(decision.snapshot,STORAGE_REV);
-  if(decision.kind==="first-run"||decision.migrate||revisionless||migrated||metaDrift||retiredScale||decision.recoveryChanged)await persist({effect:migrationEffect});
+  if(decision.kind==="first-run"||decision.migrate||revisionless||migrated||metaDrift||retiredScale||effortModeDrift||decision.recoveryChanged)await persist({effect:migrationEffect});
   if(I18N)I18N.setLang(resolveLang())}
 window.__repforgeSharedSetup={
   get status(){return sharedSetupDraft.status},

@@ -2255,6 +2255,13 @@
       "label": "Today — skipped exercise",
       "scenario": "A context-menu skip acknowledged on Today, stored only in the workout draft: the skip opens today's session, so the live card leads and the row reads Skipped today.",
       "variants": "demandingText"
+    },
+    {
+      "id": "effort-choice",
+      "flow": "onboarding-start",
+      "label": "Effort choice at activation",
+      "scenario": "At durable activation on a fresh device, choose words or reps left. Words are selected.",
+      "variants": "accessibility"
     }
   ]
 }

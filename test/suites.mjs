@@ -310,6 +310,7 @@ export const FULL_SUITES = {
 };
 
 export const SUPPORT = {
+  "test/effort-choice.mjs": "Plan 078 activation/default proof, composed into the PR program-entry-s4 owner.",
   "test/effort-ladder-migration.mjs": "Plan 078 boot migration proof; every assertion runs from the PR workout-draft-storage owner.",
   "test/starting-loads.mjs": "Opening-load and ramp arithmetic proofs executed by progression-engine-plan067.mjs in the PR lane; also runnable directly.",
   "test/entry-privacy.mjs": "Shared privacy characterization/oracles imported by the four scoped contracts.",

@@ -9224,3 +9224,8 @@ body.is-entry-editor #entryProgramName,
 @media(prefers-reduced-motion:reduce){.native-context__preview{transform:none}}
 @media(prefers-reduced-transparency:reduce){.native-context__menu{background:var(--surface);backdrop-filter:none;-webkit-backdrop-filter:none}.native-context::backdrop{backdrop-filter:none;-webkit-backdrop-filter:none}}
 
+
+/* @ci-domain entry */
+.sheet--effort-choice{height:auto}
+.sheet--effort-choice .sheet__body{display:flex;flex-direction:column;overflow:auto;gap:var(--space-8)}
+.sheet--effort-choice .sheetband__title{overflow-wrap:anywhere}

@@ -3039,5 +3039,10 @@
   "exercise.chart.cap.top": "maior carga",
   "exercise.chart.cap.e1rm": "melhor e1RM",
   "exercise.chart.cap.change": "no bloco",
-  "stats.cap.moved": "carga total"
+  "stats.cap.moved": "carga total",
+  "entry.effort_choice.title": "Como quer registrar o esforço?",
+  "entry.effort_choice.words": "Como sentiu a série",
+  "entry.effort_choice.words_hint": "Fácil / Difícil / Máximo",
+  "entry.effort_choice.numbers": "Reps sobrando",
+  "entry.effort_choice.numbers_hint": "0 a 5+"
 }

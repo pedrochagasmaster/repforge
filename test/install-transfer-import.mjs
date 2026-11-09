@@ -436,6 +436,7 @@ async function setDeviceSections(page) {
   return page.evaluate(() => {
     const before = localStorage.getItem("repforge_telemetry_identity_v1");
     window.__repforgeUi?.setTheme?.("dark");
+    window.__repforgeUi?.setPref?.("effortChosen", true);
     const consent = window.RepForgeTelemetry?.setEnabled?.(false);
     return {
       consent,
@@ -499,6 +500,7 @@ async function buildEnvelope(observation) {
 }
 
 function assertEnvelopeSourceFields(envelope) {
+  check(envelope.uiPreferences?.effortChosen === true, "source envelope retains the explicit effort choice");
   const state = envelope?.durableState;
   check(sameValue(state?.profile, {
     sex: "female", birthDate: "1990-03-10", heightCm: 180, heightUnit: "cm", weightKg: 83, cardioExperience: "1_to_4y",
@@ -998,6 +1000,11 @@ async function seedMeaningfulDestination(page, kind, envelope) {
     const parse = (value) => {
       try { return JSON.parse(value); } catch { return null; }
     };
+    if (["effort-choice", "effort-choice-malformed"].includes(kind)) {
+      const value = kind === "effort-choice" ? true : "yes";
+      window.__repforgeUi.setPref("effortChosen", value);
+      return { ok: window.__repforgeUi.loadUiPrefs().effortChosen === value };
+    }
     if (kind === "prefs-only") {
       window.__repforgeUi?.setTheme?.("dark");
       return { ok: window.__repforgeUi?.loadUiPrefs?.()?.theme === "dark" };
@@ -1137,6 +1144,8 @@ async function runMeaningfulDestinationMatrix(browser, envelope) {
   console.log("\nPlan 053-P4b meaningful-destination refusal matrix");
   const cases = [
     ["prefs-only", "prefs-only"],
+    ["effort choice", "effort-choice"],
+    ["malformed effort choice", "effort-choice-malformed"],
     ["unknown-guide-only", "unknown-guide"],
     ["wrong-version-guide-only", "wrong-version-guide"],
     ["missing-version-guide-only", "missing-version-guide"],
@@ -2386,7 +2395,7 @@ async function main() {
     const automaticGuideState = freshGuideRecords.length > 0 && freshGuideRecords.every(([id, record]) =>
       record?.status === "unseen" || id === "privacy" && record?.status === "shown");
     check(freshDestinationPrefs?.entryLandingSeen === true &&
-      freshDestinationPrefs?.theme === undefined && automaticGuideState &&
+      freshDestinationPrefs?.theme === undefined && freshDestinationPrefs?.effortChosen === undefined && automaticGuideState &&
       freshDestinationPrefs?.installLastOfferedMilestone === null &&
       freshDestinationPrefs?.installLastOfferedAt === null &&
       freshDestinationPrefs?.installDismissedMilestone === null &&
