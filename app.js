@@ -9529,7 +9529,7 @@ function setFieldVals(ex,n,r,draft,prev){
   const rirVal=pending("rir")??(legacy!=null?String(legacy):null)??carriedRir??draft[`${key}_rir`]
     ??(carried("effort")!=null?String(EFFORT_RIR[carried("effort")]??1):null)
     ??(draftSetAt(ex.id,n)?.programmed?.targetRir!=null?String(draftSetAt(ex.id,n).programmed.targetRir):old&&old.rir!=null?fmtPlain(old.rir):1);
-  const numericEffort=repsLeftView(rirVal,hasPendingField(`${key}_rir`)||!!shelfTouched(ex.id,n).effort);
+  const numericEffort=repsLeftView(rirVal,committed.has(key)||hasPendingField(`${key}_rir`)||!!shelfTouched(ex.id,n).effort);
   return{key,isW,kgVal,repsVal,rirVal,numericEffort,effortVal,stage,unsure:own==="unsure"}}
 /** The stage a set is drawn in (Plan 077, OD-5): the vocabulary the lifter entered its effort in, else the app's.
  *  "Not sure" belongs to no stage, so a set marked so is drawn in the app's. */
@@ -10527,6 +10527,7 @@ function syncShelfField(input,padDir=0){
   const val=field.querySelector(".shelf__val");
   if(val){const moved=val.textContent!==(text||"—");val.textContent=text||"—";if(moved)shelfValueMove(val,padDir)}
   field.classList.remove("is-untouched");
+  if(id==="rir")field.classList.remove("is-word");
   const cell=id?input.closest(".exercise")?.querySelector(`.ledgerline--open [data-lv="${id}"]`):null;
   if(cell){cell.textContent=text||"—";cell.classList.remove("is-soft")}}
 function setKeyParts(key){const text=String(key||""),at=text.lastIndexOf("_");return[text.slice(0,at),+text.slice(at+1)]}
@@ -11076,7 +11077,6 @@ function bindWorkout(){
         {pendingValue:i.value,pendingField:{key,token},recoveryField})}
     finally{settlePendingField(key,token,{rejected:result?.status!=="applied"})}
     if(result.status!=="applied")return;
-    if(target.field==="rir"){renderWorkout();return}
     const live=liveShelfInput(key);
     if(!live)return;
     syncShelfField(live,padDir);
