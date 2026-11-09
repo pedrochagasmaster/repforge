@@ -308,7 +308,7 @@ producer, then the proof passes.
    `install_prompt_outcome`, `app_installed`, `display_mode`.
    Added 2026-10-30 (owner-approved with the playing proof, #572): `landing_action`
    `{action: proof_chapter, chapter: 1–5}` for a tapped proof chapter. The schema
-   takes the action value and a closed integer range (`integerIn(1, 4)`) and no free
+   takes the action value and a closed integer range (`integerIn(1, 5)`) and no free
    text; autoplay emits nothing and opt-out emits nothing (`test/telemetry-unit.mjs`,
    `test/telemetry-runtime.mjs`).
 5. **Workout, block and management.** `substitution_used`,

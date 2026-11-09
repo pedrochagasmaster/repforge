@@ -23337,11 +23337,12 @@ function closeFirstRunInstall(){
 /* ---- Landing page: engine-true numbers, filled copy and the proof ----
    Every number the page shows is produced here at render time and poured into an
    i18n template, never typed into markup or a catalog value. The proof's case goes
-   through the real progression engine with the app's default settings. The input
-   below is the only authored number set: what the example lifter logged. */
+   through the real progression engine with the app's default settings. The inputs
+   below are authored example sets: what the example lifter logged. */
 const LANDING_UNIT="kg";
 const LANDING_CASES={
-	add:{ex:"1a05c6f170d88058a3a0c07e098a9605",sets:3,repMin:8,repMax:10,logged:[[60,10,2],[60,10,2],[60,12,0]]}};
+	add:{ex:"1a05c6f170d88058a3a0c07e098a9605",sets:3,repMin:8,repMax:10,logged:[[60,10,2],[60,10,2],[60,10,2]]}};
+const LANDING_TEST_SETS=[[60,10,2],[60,10,2],[60,12,0]];
 /** The import-review capture: its size per language, the counts its screen shows
  *  (they differ by language: the sample's names classify differently) and the
  *  library movement its first row suggests. Written by tools/capture-landing-proof.mjs
@@ -23519,22 +23520,22 @@ function landingDemoHtml(add){
   const nextRow=esc(t("focus.next_row",{name:"\u0000"})).replace("\u0000",`<b>${esc(landingExerciseName(LANDING_DEMO.next))}</b>`);
   // The session the target came from, as its ledger read: no "last" line under rows that are the last session.
   const lastSession=c.logged.map(([l,r,e])=>line(check,[landingNum(l),landingNum(r),landingNum(e)],false," firstrun-demo__last","")).join("");
-  const before=c.logged.at(-2),test=c.logged.at(-1),guess=EffortCalibration.prefillGuess(before[1],before[2]).predictedReps;
+  const before=LANDING_TEST_SETS.at(-2),test=LANDING_TEST_SETS.at(-1),guess=EffortCalibration.prefillGuess(before[1],before[2]).predictedReps;
   const result=EffortCalibration.result(guess,test[1]),left=EffortCalibration.ESTIMATOR.minChecks-1;
   const diff=result.error<0?t("maxset.result_more",{n:-result.error}):result.error>0?t("maxset.result_fewer",{n:result.error}):t("maxset.result_same");
   const status=t(left===1?"maxset.status_wait_one":"maxset.status_wait",{n:left});
   const rule=`<p class="maxset__rule">${esc(t("maxset.fail_rule"))}</p><p class="maxset__safety">${esc(t("maxset.safety"))}</p>`+
     `<p class="maxset__safety">${esc(t("maxset.press_line"))}</p>`;
   const testLedger=(finished=false,armed=true)=>`<div class="fcard__ledger">${head}`+
-    c.logged.slice(0,-1).map(values=>line(check,values.map(landingNum),false,"","")).join("")+
-    line(finished?check:c.sets,[landingNum(test[0]),landingNum(finished?test[1]:armed?guess:before[1]),landingNum(armed?test[2]:before[2])],!finished,"",
+    LANDING_TEST_SETS.slice(0,-1).map(values=>line(check,values.map(landingNum),false,"","")).join("")+
+    line(finished?check:LANDING_TEST_SETS.length,[landingNum(test[0]),landingNum(finished?test[1]:armed?guess:before[1]),landingNum(armed?test[2]:before[2])],!finished,"",
       armed?`<small class="ledgerline__tag">${esc(t("maxset.tag",{n:landingNum(guess)}))}</small>`:"")+`</div>`;
   const testScenes=`<div class="firstrun-demo__test-backdrop"></div><div class="firstrun-demo__test-tip firstrun-demo__test-scene">${testLedger(false,false)}<section class="resttip">`+
     `<p class="resttip__text"><b>${esc(t("maxset.invite_title"))}</b> ${esc(t("maxset.invite_body",{load:landingKg(test[0])}))}</p>`+
     `<div class="resttip__acts">${button("resttip__no",esc(t("maxset.not_now")))}${button("resttip__yes",esc(t("maxset.make_guess")))}</div></section></div>`+
     `<div class="firstrun-demo__test-guess firstrun-demo__test-scene"><div class="sheetband"><span class="sheetband__handle"></span>`+
     `<h2 class="sheetband__title">${esc(t("maxset.guess_q",{load:landingKg(test[0])}))}</h2>`+
-    `<p class="sheetband__sub">${esc(t("maxset.guess_from",{n:landingNum(c.sets-1),reps:landingNum(before[1]),left:landingNum(before[2])}))}</p></div>`+
+    `<p class="sheetband__sub">${esc(t("maxset.guess_from",{n:landingNum(LANDING_TEST_SETS.length-1),reps:landingNum(before[1]),left:landingNum(before[2])}))}</p></div>`+
     `<div class="sheetbody sheetbody--maxset"><div class="maxset__count">${button("stepbtn maxset__pad","−")}<output class="maxset__n">${esc(landingNum(guess))}</output>${button("stepbtn maxset__pad","+")}</div>${rule}</div>`+
     `<div class="sheetfoot sheetfoot--pair">${button("",esc(t("maxset.not_now")))}${button("",esc(t("maxset.start")))}</div></div>`+
     `<div class="firstrun-demo__test-cue firstrun-demo__test-scene"><div class="fx-cue is-now"><p class="fx-cue__l1">${esc(t("maxset.cue_head",{load:landingNum(test[0]),unit}))}</p>`+

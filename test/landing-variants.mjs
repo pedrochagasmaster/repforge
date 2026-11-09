@@ -139,7 +139,7 @@ const APP_DEFAULTS = (() => {
  */
 const BENCH = "1a05c6f170d88058a3a0c07e098a9605";
 const LANDING_CASES = Object.freeze({
-  add: { exercise: BENCH, repMin: 8, repMax: 10, logged: [[60, 10, 2], [60, 10, 2], [60, 12, 0]], move: "up" },
+  add: { exercise: BENCH, repMin: 8, repMax: 10, logged: [[60, 10, 2], [60, 10, 2], [60, 10, 2]], move: "up" },
 });
 const SETS = 3;
 const TARGET_RIR = 1;
