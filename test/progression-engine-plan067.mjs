@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// Keep opening-load arithmetic in this existing PR-lane command (the command-count ceiling is unchanged).
+import "./starting-loads.mjs";
 import assert from "node:assert/strict";
 import path from "node:path";
 import { createRequire } from "node:module";

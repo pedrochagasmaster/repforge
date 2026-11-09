@@ -47,6 +47,7 @@ const expected = [
   "progression-engine.js",
   "rest-timer.js",
   "schedule.js",
+  "starting-loads.js",
   "share-cards.js",
   "shared-setup.js",
   "sw.js",
