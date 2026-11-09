@@ -159,7 +159,7 @@ async function setLoadStep(page, slotId, value) {
 async function main() {
   console.log("P067 slice 3: adaptive prescriptions through production draft commands");
   const browser = await launchChromium();
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: "America/Sao_Paulo" });
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(String(error?.stack || error)));
@@ -280,6 +280,31 @@ async function main() {
       "saved warm-ups cannot supply standing evidence or make it solid", warmup.standing);
     check(warmup.selected === "recommended" && warmup.unchanged,
       "preserving warm-up provenance leaves the previously selected loads and reps intact", warmup);
+
+    // R709-4: the actual recommendation uses the app's local calendar at the Brazil/UTC day boundary.
+    await page.clock.setFixedTime(new Date("2026-11-09T01:30:00Z"));
+    const calendar = await page.evaluate((slotId) => {
+      const original = state.log, engine = window.RepForgeProgression;
+      const source = original.find((row) => row.exerciseId === slotId && !row.warmup && row.setIndex === 0);
+      const given = [];
+      try {
+        state.log = Array.from({ length: 4 }, (_, session) => Array.from({ length: 3 }, (_, index) => ({
+          ...source, session: `calendar-${session}`, date: "2026-09-28", set: index + 1, setIndex: index,
+        }))).flat();
+        window.RepForgeProgression = { ...engine, recommendSets: (...args) => {
+          given.push(args[4]); return engine.recommendSets(...args);
+        } };
+        const ex = state.program.find((row) => (row.slotId || row.id) === slotId);
+        const rec = window.__repforgeRecommendation(ex);
+        return { source: !!source, day: today(), given: given.at(-1)?.now,
+          standing: rec.engineResults[0].standing, selected: rec.engineResults[0].status };
+      } finally { state.log = original; window.RepForgeProgression = engine; }
+    }, target.slotId);
+    check(calendar.source && calendar.day === "2026-11-08" && calendar.given === calendar.day,
+      "the production recommendation passes the app's Brazil-local day to the engine", calendar);
+    check(calendar.selected === "recommended" && calendar.standing.word === "solid"
+      && calendar.standing.evidence.gapDays === 41 && calendar.standing.reasons.length === 0,
+      "Brazil's late evening does not cross the 42-day standing threshold early", calendar);
 
     check(errors.length === 0, "no page errors during adaptive sessions", errors);
   } catch (error) {
