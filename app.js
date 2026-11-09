@@ -6834,7 +6834,7 @@ function slotLoadingContext(slot){
   return{equipmentId:null,availableLoadsKg:loadGridKg(loadStepKg(slot.exerciseId)),loadingConvention,
     bodyweightContributionEnabled:coefficient>0&&bodyweight>0,bodyweightKg:bodyweight||null,
     executionMode,externalLoadMultiplier}}
-function recommendation(ex){
+function recommendation(ex,{savedHistoryOnly=false}={}){
   const compiler=typeof window!=="undefined"?window.RepForgeProgramCompiler:null;
   const engine=typeof window!=="undefined"?window.RepForgeProgression:null;
   const definition=state.programMeta?.programDefinition;
@@ -6843,7 +6843,9 @@ function recommendation(ex){
     return{status:"manual",engineStatus:"manual",reason:"canonical_program_definition_required",load:null,targetSets:[]};
   const cycleCount=Number.isInteger(definition.cycles)&&definition.cycles>0?definition.cycles:1;
   const elapsed=mesocycleLifecycle(state.programMeta).current||1,cycleNumber=Math.min(cycleCount,Math.max(1,elapsed));
-  const draftExercise=activeWorkoutDraft?.exercises?.[ex.id];
+  const liveExercise=activeWorkoutDraft?.exercises?.[ex.id];
+  // A saved profile names a movement, even while its program slot has a different live replacement.
+  const draftExercise=savedHistoryOnly&&liveExercise?.substitution?.replacement?.libraryId!==ex.libraryId?null:liveExercise;
   const nonRampOrdinals=draftExercise?.setOrder.map(id=>draftExercise.sets[id]).filter(set=>set.origin!=="ramp").map(set=>set.ordinal)||[];
   let prescriptions=compiler.prescriptionsForCycle(definition,cycleNumber).filter(item=>item.slotId===matched.slot.id);
   // A fresh swap executes the replacement's metric prescription. The installed program stays unchanged.
@@ -6862,11 +6864,11 @@ function recommendation(ex){
   if(!prescriptions.length)return{status:"manual",engineStatus:"manual",reason:"cycle_prescription_unavailable",load:null,targetSets:[]};
   const first=prescriptions[0],slotProjection=slotLoadingProjection(matched.slot);
   const history=progressionHistoryFor(first.exerciseId,first.metricIds,slotProjection,matched.slot.metricDefinitions);
-  const currentSession=progressionCurrentSession(first);
+  const currentSession=savedHistoryOnly?[]:progressionCurrentSession(first);
   const loadingContext={bySlotId:{[matched.slot.id]:slotLoadingContext(matched.slot)}};
   // The lift's own max sets say how its reported RIR reads (Plan 077, OD-14 to OD-18): from three checks, the engine
   // reads it shifted, within its load bound. Today's checks count from the next session on.
-  const calibration=liftCalibration(history,loadingContext.bySlotId[matched.slot.id],matched.slot.metricDefinitions);
+  const calibration=liftCalibration(history,loadingContext.bySlotId[matched.slot.id],matched.slot.metricDefinitions,[],savedHistoryOnly?today():null);
   const results=engine.recommendSets(prescriptions,history,currentSession,loadingContext,{
     now:today(),weightMatch:state.settings.weightMatch===true,expandRepRange:state.settings.expandRepRange!==false,
     calibration:{version:calibration.version,delta:calibration.delta,n:calibration.n,spread:calibration.spread,state:calibration.state,reason:calibration.reason}});
@@ -6923,7 +6925,7 @@ function recommendation(ex){
   Object.defineProperty(rec,"plannedLoad",{value:status==="new"?firstActual?.planned?.value??null:null});
   // Not enumerable either: what the lift's checks say, and whether the shift moved any of its targets.
   Object.defineProperty(rec,"standing",{value:result?.standing||null});
-  const movement=draftExercise?.substitution?.replacement||draftExercise||ex;
+  const movement=savedHistoryOnly?ex:draftExercise?.substitution?.replacement||draftExercise||ex;
   Object.defineProperty(rec,"standingMovementMatches",{value:(movement.libraryId||movement.movementId)===first.exerciseId});
   Object.defineProperty(rec,"calibration",{value:{...calibration,moved:results.some(item=>item?.calibration?.moved===true)}});
   // Whether the lift's own performance dropped, the one fatigue signal (owner, 2026-11-06). Not enumerable, like the above.
@@ -8135,7 +8137,7 @@ function calibrationGauge(){
   gaugeCache={key,value};
   return value}
 /** The same standing reason and test-set reading used by Why and the logged test-set row. */
-function profileLiftHtml(ex,rec=recommendation(ex)){
+function profileLiftHtml(ex,rec=recommendation(ex,{savedHistoryOnly:true})){
   const standing=targetStanding(rec),e=standing?.evidence;
   const vars=e?{sets:fmt(Math.round(e.sets*10)/10),setWord:tp(Math.round(e.sets*10)/10,"set"),sessions:e.sessions,
     sessionWord:tp(e.sessions,"session"),weeks:Math.floor((e.gapDays||0)/7),checks:e.checks}:{};
@@ -14068,7 +14070,7 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
     `<img class="exdet-art__img" src="${esc(artSrc)}" alt="${esc(t("preview.art_alt",{name}))}" `+
     `decoding="async" width="768" height="768"></div></div>`:"";
 
-  const rec=tmpl?recommendation(tmpl):null;
+  const rec=tmpl?recommendation(tmpl,{savedHistoryOnly:true}):null;
   // With no weight to suggest (a Manual lift, one that needs setup, one with no usable history) the block says what
   // Focus says for the same lift, its cue and its one sentence of why, rather than a heading over nothing (refinement
   // audit A1, 2026-11-01).
