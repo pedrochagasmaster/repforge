@@ -147,7 +147,67 @@ try {
   phase("During the rest before the last set: the prompt, then the guess");
   await page.waitForSelector(`${TIP}`, { state: "visible", timeout: 5000 });
   const tipText = await page.locator(TIP).innerText();
+  assert(/still learning this lift/i.test(tipText), "the invite explains why the check is requested", tipText);
   assert(/test set/i.test(tipText) && /50 kg/.test(tipText), "the prompt names the test set and the load", tipText);
+  phase("Estimator request and every safety ceiling");
+  const gates = await page.evaluate((id) => {
+    const originalDraft = activeWorkoutDraft, originalLog = state.log, originalSettings = state.settings;
+    const engine = window.RepForgeProgression;
+    const draft = JSON.parse(JSON.stringify(originalDraft));
+    const ex = sessionExercise(prog.find(id)), de = draft.exercises[id];
+    const working = de.setOrder.map(key => de.sets[key]).filter(set => set.role === "working");
+    const final = working.at(-1), before = working.at(-2), date = draft.program.scheduleDate;
+    const key = maxSetDraftKey(de, final);
+    const ago = days => new Date(Date.parse(date + "T00:00:00Z") - days * 864e5).toISOString().slice(0, 10);
+    let word = "learning", sets = 2;
+    window.RepForgeProgression = { ...engine, recommendSets: (...args) => engine.recommendSets(...args).map(result => ({
+      ...result, standing: {version:"standing@078.1",word,reasons:[],evidence:{sets}} })) };
+    const offer = () => maxSetOffer(ex, final.ordinal);
+    const outcomes = {};
+    try {
+      activeWorkoutDraft = draft;
+      outcomes.learning = !!offer();
+      const order = [...de.setOrder]; de.setOrder = [final.setId]; outcomes.minSets = !offer(); de.setOrder = order;
+      outcomes.highReps = !maxSetOffer({...ex,max:21,hasRepTarget:true}, final.ordinal);
+      const eligibility = maxSetEligibility; maxSetEligibility = () => ({eligible:false});
+      try { outcomes.ineligible = !offer(); } finally { maxSetEligibility = eligibility; }
+      const deload = isProgramDeloadWeek; isProgramDeloadWeek = () => true;
+      try { outcomes.deload = !offer(); } finally { isProgramDeloadWeek = deload; }
+      const completion = before.completion; before.completion = "pending"; outcomes.pending = !offer(); before.completion = completion;
+      maxSetDeclined.add(`${draft.draftId}:${id}`); outcomes.declined = !offer(); maxSetDeclined.delete(`${draft.draftId}:${id}`);
+      outcomes.notLast = !maxSetOffer(ex, before.ordinal);
+      state.settings = {...originalSettings, maxSetPrompts:false}; outcomes.off = !offer(); state.settings = originalSettings;
+      const oldEffort = before.edited.effort, oldRir = before.edited.rir;
+      before.edited.effort = "max"; before.edited.rir = "0"; outcomes.afterMax = !offer();
+      before.edited.effort = oldEffort; before.edited.rir = oldRir;
+      final.calibration = {v:1,predictedReps:10,predictionEdited:false,prefillBasis:"reps"}; outcomes.workout = !offer(); delete final.calibration;
+      const row = {calibration:{v:1,predictedReps:10,predictionEdited:false,prefillBasis:"reps"},effortSource:"failure",sourceLibraryId:key};
+      state.log = [...originalLog,{...row,date:ago(13)}]; outcomes.key13 = !offer();
+      state.log = [...originalLog,{...row,date:ago(14)}]; outcomes.key14 = !!offer();
+      state.log = [...originalLog,{...row,sourceLibraryId:"other1",date},{...row,sourceLibraryId:"other2",date}]; outcomes.week = !offer();
+      state.log = originalLog;
+      for (const kind of ["pain","discomfort"]) {
+        // Plan 082 owns this draft record and the commands that create it. Read its exact observation shape.
+        de.discomfort = [{exerciseId:key,name:de.displayName,kind,swapped:true,replacementId:"other"}];
+        outcomes[kind] = !offer();
+      }
+      de.discomfort = [{exerciseId:"unrelated",name:"Other lift",kind:"pain",swapped:false}];
+      outcomes.otherPain = !!offer(); delete de.discomfort;
+      // A solid calibrated lift reads its last check from the saved rows, independently of the global gauge.
+      const actualRecommendation = recommendation;
+      recommendation = current => {
+        const rec = actualRecommendation(current);
+        return {...rec, calibration:{state:"calibrated",n:3}, standing:{word,evidence:{sets}}};
+      };
+      try {
+        word = "solid";
+        state.log = [...originalLog,{...row,date:ago(59)}]; outcomes.day59 = !offer();
+        state.log = [...originalLog,{...row,date:ago(60)}]; outcomes.day60 = offer()?.reason === "recheck";
+      } finally { recommendation = actualRecommendation; }
+      return outcomes;
+    } finally { activeWorkoutDraft = originalDraft; state.log = originalLog; state.settings = originalSettings; window.RepForgeProgression = engine; }
+  }, exId);
+  for (const [gate, passed] of Object.entries(gates)) assert(passed, `request gate: ${gate}`, gates);
   await page.locator(`${TIP} [data-maxset-guess]`).click();
   await page.waitForSelector("#maxSetSheet.is-open", { timeout: 5000 });
   const sheet = await page.evaluate(() => ({
@@ -239,7 +299,7 @@ try {
     } finally { window.RepForgeProgression = engine; }
   }, exId);
   assert(cal.n === 3 && cal.state === "under" && Math.abs(cal.delta + 1) < 1e-9, "three checks of −2 read as under-estimating, shift −1", cal);
-  assert(cal.given?.version === "calibration@077.1" && cal.given?.delta === -1, "the engine is given the lift's shift", cal);
+  assert(cal.given?.version === "calibration@077.1" && cal.given?.delta === -1 && cal.given?.n === 3 && cal.given?.state === "under" && Number.isFinite(cal.given?.spread), "the engine is given the lift's shift", cal);
   const line = await page.evaluate((id) => {
     // Today's max set on top of the three in the log: its result line says suggestions now allow for it.
     const ex = sessionExercise(prog.find(id)), de = window.__repforgeWorkoutDraft.current().exercises[id];

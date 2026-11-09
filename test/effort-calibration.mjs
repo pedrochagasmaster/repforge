@@ -66,6 +66,24 @@ assert.equal(allows(week, "2026-11-09").ok, true, "the next Monday starts a new 
 assert.equal(allows([{ exerciseKey: "row", date: "2026-11-01" }, { exerciseKey: "press", date: "2026-11-04" }], "2026-11-06").ok, true,
   "Sunday 1 November belongs to the week before");
 
+// Plan 080: uncertainty requests a check; frequency limits remain separate ceilings.
+assert.equal(Calibration.RECHECK_DAYS, 60);
+const request = (word, state, n, lastCheckDays, reason = null) => Calibration.shouldOffer({
+  standing: { word }, calibration: { state, n, reason }, lastCheckDays });
+assert.deepEqual(request("learning", "calibrated", 3, 1), { ok: true, reason: "learning" });
+for (const word of ["first", "solid"]) {
+  for (const n of [0, 1, 2]) assert.equal(request(word, "uncalibrated", n, null, "few").ok, true);
+  assert.equal(request(word, "uncalibrated", 3, 1, "inconsistent").ok, true);
+}
+for (const state of ["calibrated", "over", "under"]) {
+  assert.equal(request("solid", state, 3, 59).ok, false);
+  assert.deepEqual(request("solid", state, 3, 60), { ok: true, reason: "recheck" });
+  assert.equal(request("solid", state, 3, null).ok, false);
+  assert.equal(request("first", state, 3, 60).ok, false);
+}
+assert.equal(Calibration.frequencyAllows({history:[{exerciseKey:"other",date:"2026-11-01"}],
+  today:"2026-11-06",exerciseKey:"curl",gaugeFull:true}).ok, true, "the global monthly schedule is retired");
+
 // The result: guess − did; positive means fewer than guessed.
 assert.deepEqual(Calibration.result(13, 16), { guess: 13, did: 16, error: -3 });
 assert.deepEqual(Calibration.result(10, 9), { guess: 10, did: 9, error: 1 });
