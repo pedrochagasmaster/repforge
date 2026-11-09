@@ -11,7 +11,7 @@ import {withTauriferParser} from "./parser.mjs";
 import {gradeCase} from "./grade.mjs";
 import {loadRun,writeReport} from "./report.mjs";
 
-export async function regradeRun(sourceDir,outDir,repoRoot){
+export async function regradeRun(sourceDir,outDir,repoRoot,{unlockHoldout=false}={}){
   validateCases();
   const source=resolve(sourceDir),out=resolve(outDir);
   if(source===out)throw new Error("Regraded results must be written to a new directory");
@@ -20,8 +20,8 @@ export async function regradeRun(sourceDir,outDir,repoRoot){
   const meta=JSON.parse(readFileSync(resolve(source,"meta.json"),"utf8"));
   if(!["development","validation","holdout","stress"].includes(meta.split))
     throw new Error("Unknown source run split");
-  if(meta.split==="holdout")
-    throw new Error("Do not replay protected holdout cases for tuning");
+  if(meta.split==="holdout"&&!unlockHoldout)
+    throw new Error("Holdout regrade requires explicit --unlock-holdout; do not tune on it");
   const cases=new Map(getCases(meta.split).map(c=>[c.id,c]));
   const results=loadRun(source);
   const manifest=JSON.parse(readFileSync(resolve(repoRoot,
@@ -48,6 +48,8 @@ export async function regradeRun(sourceDir,outDir,repoRoot){
         exitCode:old.exitCode,rawOutputPath:null
       });
       graded.repeatIndex=old.repeatIndex;
+      graded.effort=old.effort||meta.effort||"medium";
+      graded.costSource=old.costSource||null;
       graded.promptHash=old.promptHash;
       graded.provider=old.provider;
       graded.transportFailure=old.transportFailure;
@@ -63,6 +65,7 @@ export async function regradeRun(sourceDir,outDir,repoRoot){
     benchmarkHash:newHash,gitHead:meta.gitHead,
     derivedFrom:source,originalMetaSha256:identityHash,
     previousBenchmarkHash:meta.benchmarkHash,
+    holdoutRegradeAuthorized:meta.split==="holdout"&&unlockHoldout,
     graderReplayedAt:new Date().toISOString(),
     regradeGoldChanged:meta.benchmarkHash!==newHash,
     resultSchema:3,

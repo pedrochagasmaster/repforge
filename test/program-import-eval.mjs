@@ -16,7 +16,7 @@ const info=validateCases();
 assert.equal(info.cases,200);
 assert.equal(info.exercises,2676);
 assert.equal(info.gapCases,60);
-assert.equal(info.unsupportedCases,120);
+assert.equal(info.unsupportedCases,136);
 const samples=getCases("all");
 const stress=getCases("stress");
 const manual=getCases("adjudication");

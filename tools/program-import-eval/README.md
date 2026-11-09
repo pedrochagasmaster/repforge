@@ -12,8 +12,11 @@ Full implementation notes and current contracts:
 - 20 researched public *format* references × 10 original synthetic workouts
   = **200** baseline programs, 100 Portuguese / 100 English, with 2,676
   annotated exercise rows.
-- Split by entire reference family: 120 development, 40 validation, 40 sealed
-  holdout. No holdout replays for prompt tuning.
+- Split by entire reference family: 120 development, 40 validation, 40
+  holdout. **The holdout is exposed:** the 2026-11-08 effort sweep scored it
+  at every effort level, so it is no longer sealed. Treat it as a further
+  development split, and build a new, independently annotated holdout before
+  any later prompt or routing decision.
 - **40 additional scored stress cases**: 24 difficult positives and 16
   no-program messages that must be rejected.
 - **8 human-adjudication examples**: truly ambiguous prescriptions without
@@ -85,3 +88,26 @@ production automatically.
 Direct provider HTTP requests are modeled on OpenAI Responses and Anthropic
 Messages; both `prompt` and `schema` modes are covered by no-network mocks.
 No live direct-API call has been proven without separately supplied keys.
+
+## Haiku 5.5 direct-API effort sweep
+
+The completed owner-requested 2026-11-08 sweep used all four supported effort
+levels, `low`, `medium`, `high` and `xhigh`, on all 240
+scored cases (960 requests). Full result and case-level scores are in
+`docs/evals/2026-11-08-haiku-55-effort-sweep.md` and its paired CSV.
+
+For the configured devbox, export the user-provided key into the process
+environment (do not paste it into shell commands or files):
+
+```bash
+source <(grep -m1 '^export ANT_KEY=' /home/ubuntu/.bashrc)
+export ANTHROPIC_API_KEY="$ANT_KEY"
+node tools/program-import-eval/haiku-effort-sweep.mjs \
+  --execute --include-holdout --concurrency 8 --max-output-tokens 32768
+```
+
+The generator and original responses are preserved. `regrade-haiku-effort-sweep.mjs`
+verifies that model inputs are byte-identical and corrects gold without API
+calls. `analyze-haiku-effort-sweep.mjs` produces a concise report and
+per-case CSV from the corrected runs. Never use the now-exposed holdout as
+a fresh independent validation set.

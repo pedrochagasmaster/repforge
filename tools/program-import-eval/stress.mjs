@@ -21,7 +21,7 @@ source:"Programa: Plano de terça\nTreino A\nSupino inclinado: 2x15 bem leve de 
 rows:[["Treino A","Supino inclinado",3,6,8],["Treino A","Crucifixo na polia",3,10,12]],unsupported:["warmups"]},
 { id:"ptx-03",name:"Puxar em bi-set",tag:"superset",
 source:"Programa: Puxar em bi-set\nTreino B — Costas\nA1) Remada na máquina — 4 x 8–10\nA2) Puxada neutra — 4 x 10\nBi-set A1/A2 sem pausa entre exercícios. Descanso 90s ao final do par.",
-rows:[["Treino B","Remada na máquina",4,8,10],["Treino B","Puxada neutra",4,10,10]],unsupported:["supersets","rest_times"]},
+rows:[["Treino B — Costas","Remada na máquina",4,8,10],["Treino B — Costas","Puxada neutra",4,10,10]],unsupported:["supersets","rest_times"]},
 { id:"ptx-04",name:"Isométricos e falha",tag:"time_or_failure",
 source:"Programa: Isométricos e falha\nTreino C\nPrancha lateral — 3 séries de 30 segundos cada lado (não é contagem de reps).\nAgachamento búlgaro — 2 séries até a falha, sem número de repetições.",
 rows:[["Treino C","Prancha lateral",3,null,null],["Treino C","Agachamento búlgaro",2,null,null]],unsupported:["other_notes"]},

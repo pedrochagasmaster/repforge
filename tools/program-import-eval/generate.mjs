@@ -171,7 +171,10 @@ function formatDay(day, rows, locale, style) {
 function generateOne(reference, index) {
   const rand = rng(hashSeed("taurifer-benchmark-v1|" + reference.id + "|" + index));
   const locale = reference.locale;
-  const chosenDays = days(locale, 2 + Math.floor(rand() * 3), reference.style);
+  // Gold day labels must match the renderer, which uppercases weekly/schedule headers.
+  const labels = days(locale, 2 + Math.floor(rand() * 3), reference.style);
+  const chosenDays = ["weekly", "schedule"].includes(reference.style)
+    ? labels.map(day => day.toUpperCase()) : labels;
   const library = locale === "pt" ? PT_EXERCISES : EN_EXERCISES;
   const titles=locale==="pt" ? ["Ficha da semana", "Treino de academia", "Plano de hipertrofia", "Bloco A-B", "Treinos de novembro"]
     : ["Current gym program", "My weekly training", "Strength and size", "Upper lower rotation", "Coach plan"];
@@ -205,6 +208,13 @@ function generateOne(reference, index) {
   const categories = selectedCategories(index, rand);
   // Treat embedded instructions as untrusted source notes, never program rows.
   if (index === 9 && !categories.includes("other_notes")) categories.push("other_notes");
+  // Some renderers embed unsupported prescriptions in exercise lines.
+  // Include them in gold without adding any new source note or modifying input text.
+  const notImported = [...categories];
+  if (reference.style === "rir" && !notImported.includes("rir_rpe"))
+    notImported.push("rir_rpe");
+  if (["loads", "weights"].includes(reference.style) && !notImported.includes("other_notes"))
+    notImported.push("other_notes");
   const blocks = chosenDays.map(day => formatDay(day, exercises.filter(x=>x.day===day), locale, reference.style));
   const header = (locale === "pt" ? "Programa: " : "Program: ") + name;
   const intro = (locale === "pt" ? "Segue minha ficha. Não quero que troque os exercícios." :
@@ -226,7 +236,7 @@ function generateOne(reference, index) {
     origin: "synthetic",
     referenceId: reference.id,
     locale, split: reference.split, difficulty,
-    tags: [reference.style, difficulty, ...categories,
+    tags: [reference.style, difficulty, ...notImported,
       ...(missing.length ? ["missing_values"] : []),
       ...(index === 5 ? ["amrap"] : []),
       ...(index === 9 ? ["prompt_injection"] : []),
@@ -240,7 +250,7 @@ function generateOne(reference, index) {
         ...(r.sets == null ? {} : {sets:r.sets}),
         ...(r.min == null ? {} : {min:r.min,max:r.max})
       })),
-      missing, notImported: categories
+      missing, notImported
     }
   };
   if (source.length > 12000) throw new Error(output.id + " exceeds product input limit");

@@ -12,9 +12,9 @@ import {loadRun,writeReport} from "./report.mjs";
 import {regradeRun} from "./regrade.mjs";
 
 const ROOT=resolve(dirname(fileURLToPath(import.meta.url)),"../..");
-const KNOWN=new Set(["transport","model","mode","split","locale","prompt",
+const KNOWN=new Set(["transport","model","mode","effort","split","locale","prompt",
   "limit","case","cases","indices","repeat","out","timeout-ms",
-  "max-calls","max-output-tokens","execute","unlock-holdout",
+  "max-calls","max-output-tokens","concurrency","execute","unlock-holdout",
   "no-raw-replies","left","right","run","from"]);
 const BOOLEAN=new Set(["execute","unlock-holdout","no-raw-replies"]);
 function opts(args){
@@ -46,10 +46,11 @@ const help=[
   "  compare --left DIR --right DIR Paired comparison (same cases/repeats)",
   "Execution (explicitly incurs model calls):",
   "  run --transport claude|codex|openai-api|anthropic-api",
-  "      --model ID --mode prompt|schema [--prompt baseline|strict-v1|compact-v1]",
+  "      --model ID --mode prompt|schema --effort low|medium|high|xhigh",
+  "      [--prompt baseline|strict-v1|compact-v1]",
   "      [--split development|validation|holdout|stress] [--locale en|pt|both]",
   "      [--cases id,id,... | --case id | --indices 01,05,08,10]",
-  "      [--limit N] [--repeat 1..5] [--max-calls N]",
+  "      [--limit N] [--repeat 1..5] [--max-calls N] [--concurrency 1..16]",
   "      [--max-output-tokens 8192] [--timeout-ms 120000]",
   "      [--no-raw-replies] [--out DIR] --execute",
   "Defaults: development, both locales, one repeat, prompt mode, max 100 calls.",
@@ -67,11 +68,12 @@ const config=(o)=>({
   repoRoot:ROOT,
   transport:o.transport||"",
   model:o.model,
-  mode:o.mode||"prompt",promptId:o.prompt||"baseline",
+  mode:o.mode||"prompt",effort:o.effort||"medium",promptId:o.prompt||"baseline",
   split:o.split||"development",locale:o.locale||"both",
   limit:number(o.limit,0,"--limit"),
   repeat:number(o.repeat,1,"--repeat"),
   maxCalls:number(o["max-calls"],100,"--max-calls"),
+  concurrency:number(o.concurrency,1,"--concurrency"),
   maxOutputTokens:number(o["max-output-tokens"],8192,"--max-output-tokens"),
   timeoutMs:number(o["timeout-ms"],120000,"--timeout-ms"),
   caseId:o.case||null,caseIds:o.cases||null,indices:o.indices||null,

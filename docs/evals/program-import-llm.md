@@ -24,7 +24,9 @@ The evaluation suite never writes a program or alters training history.
 **Main benchmark (200 synthetic programs):** Twenty public, linked free-text
 exercise-prescription format references, ten original generated cases per
 reference, 100 in Brazilian Portuguese and 100 in English. Development has
-120 cases, validation 40, and protected holdout 40. All variants inspired by a
+120 cases, validation 40, and holdout 40. **The holdout is exposed** (see
+[the 2026-11-08 effort sweep](#completed-2026-11-08-haiku-effort-sweep)) and is no
+longer a protected test set. All variants inspired by a
 reference stay in its split. References provide broad formatting cues only,
 not copied personal data or sentences. The generator first constructs the
 prescription, then renders text, then emits independently known gold. The
@@ -48,8 +50,9 @@ independently authored stress/adjudication cases are an additional evaluation
 dimension, not extra variants attributed to public sources.
 
 All fixture files have deterministic byte output and content SHA-256 manifests.
-The locked holdout file exists on disk, but the CLI unlock flag is only a
-workflow guard, not a permission boundary. The stress suite is an exploratory
+The holdout file exists on disk, and the CLI unlock flag is only a
+workflow guard, not a permission boundary. The 2026-11-08 sweep used it, so it
+is exposed and not sealed. The stress suite is an exploratory
 development set, **not** a second holdout.
 
 ## Devbox commands
@@ -184,3 +187,25 @@ insufficient for production.
 
 Do not automatically copy a benchmark-winning prompt into production.
 Review actual user source and imported outcome before ratifying any change.
+
+## Completed 2026-11-08 Haiku effort sweep
+
+A founder-authorized full direct API sweep of the baseline prompt covered
+240 scored inputs at each of low/medium/high/xhigh (960 total) with 8 concurrent
+requests and 32,768 max output tokens for every effort. The key was provided
+through `ANT_KEY` on the devbox; it was never written into a repo file or report.
+Gold-label corrections were regraded offline using saved synthetic replies,
+with source-bytes verified unchanged. See
+[the result report](2026-11-08-haiku-55-effort-sweep.md) and
+[sanitized per-case comparison](2026-11-08-haiku-55-effort-sweep-cases.csv).
+
+The previous 40-case synthetic holdout was deliberately exposed across all
+four effort levels. **It must not be reused as a protected holdout for subsequent
+prompt selection.** Replace it with independent, consented, separately held
+real-world programs before choosing a production model/effort. Medium is the
+current synthetic benchmark default candidate, not a ratified product change.
+
+The exact CLI commands for rerunning this intentionally large sweep are in
+`tools/program-import-eval/haiku-effort-sweep.mjs`; always pass
+`--execute --include-holdout` and set `ANT_KEY` or
+`ANTHROPIC_API_KEY` as an environment variable.

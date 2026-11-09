@@ -17,6 +17,8 @@ export async function postJSON(url,headers,payload,{timeoutMs=120000,fetchImpl=f
     },body:JSON.stringify(payload),signal:controller.signal});
     if(!res.ok)return {
       errorCode:safeCode(res.status),status:res.status,
+      retryAfterSeconds:(()=>{const h=res.headers.get("retry-after");
+        if(!h)return null;const n=Number(h);return Number.isFinite(n)&&n>=0?n:null;})(),
       latencyMs:Math.round(performance.now()-start)
     };
     const hinted=Number(res.headers.get("content-length")||0);

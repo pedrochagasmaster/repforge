@@ -77,15 +77,20 @@ function selectedCases({split="development",caseId=null,caseIds=null,indices=nul
 
 export function planRun(options={}){
   const {transport,model=defaultModel[transport],mode="prompt",
-    repeat=1,unlockHoldout=false,maxCalls=100,repoRoot,
+    repeat=1,unlockHoldout=false,maxCalls=100,repoRoot,effort="medium",concurrency=1,
     persistRaw=true,maxOutputTokens=8192}=options;
   must(adapters[transport],"Transport must be claude, codex, openai-api or anthropic-api");
   must(cheapModel[transport].has(model),"Only the explicitly approved inexpensive model is permitted for "+transport);
   must(["prompt","schema"].includes(mode),"Mode must be prompt or schema");
+  must(["low","medium","high","xhigh"].includes(effort),"Effort must be low, medium, high or xhigh");
+  must(transport==="anthropic-api"||effort==="medium",
+    "Explicit effort levels in this benchmark are supported only by the direct Anthropic API");
   must(!["claude","codex"].includes(transport)||mode==="prompt",
     "CLI wrappers support only prompt mode; use direct APIs for schema mode");
   must(isInt(repeat)&&repeat>=1&&repeat<=5,"Repeat must be between 1 and 5");
   must(isInt(maxCalls)&&maxCalls>=1&&maxCalls<=5000,"--max-calls must be 1..5000");
+  must(isInt(concurrency)&&concurrency>=1&&concurrency<=16,
+    "Concurrent requests must be in range 1..16");
   must(isInt(maxOutputTokens)&&maxOutputTokens>=128&&maxOutputTokens<=32768,
     "--max-output-tokens must be 128..32768");
   const split=options.split||"development";
@@ -111,12 +116,12 @@ export function planRun(options={}){
     benchmarkVersion:manifest.version,
     benchmarkHash:split==="stress"?manifest.stress.stressSha256:manifest.sha256,
     harnessHash:hashFiles(harnessFiles),
-    gitHead:gitHead(repoRoot),mode,model,transport,
+    gitHead:gitHead(repoRoot),mode,model,transport,effort,
     promptId:options.promptId||"baseline",
     promptHash:Object.fromEntries(Object.entries(templates).map(([lang,prompt])=>
       [lang,promptHash(prompt)])),
     caseIds:cases.map(x=>x.id),split,locale:options.locale||"both",
-    repeat,calls,maxCalls,maxOutputTokens,persistRaw,
+    repeat,calls,maxCalls,maxOutputTokens,persistRaw,concurrency,
     transportVersion:{"claude":"claude","codex":"codex"}[transport]
       ?version(transport):"direct-http-v1",
     templates,cases
@@ -127,7 +132,7 @@ export async function executeRun(options){
   must(options.execute===true,
     "This command spends model calls. Re-run with --execute to authorize.");
   const plan=planRun(options);
-  const {transport,model,mode,repeat,cases,templates}=plan;
+  const {transport,model,mode,repeat,cases,templates,effort}=plan;
   if(transport==="openai-api"&&!process.env.OPENAI_API_KEY)
     throw new Error("OPENAI_API_KEY is not configured on the devbox");
   if(transport==="anthropic-api"&&!process.env.ANTHROPIC_API_KEY)
@@ -145,8 +150,8 @@ export async function executeRun(options){
   mkdirSync(resolve(out,"replies"),{recursive:true});
   if(existsSync(metadataPath)){
     const prior=JSON.parse(readFileSync(metadataPath,"utf8"));
-    for(const field of ["transport","model","mode","promptId","split",
-      "gitHead","benchmarkHash","harnessHash","repeat","maxOutputTokens","persistRaw"]){
+    for(const field of ["transport","model","mode","effort","promptId","split",
+      "gitHead","benchmarkHash","harnessHash","repeat","maxOutputTokens","persistRaw","concurrency"]){
       must(prior[field]===meta[field],"Refusing to resume differing run: "+field);
     }
     must(JSON.stringify(prior.caseIds)===JSON.stringify(meta.caseIds),
@@ -169,66 +174,81 @@ export async function executeRun(options){
   const pending=plan.calls-seen.size;
   must(pending<=plan.maxCalls,"Remaining calls exceed --max-calls");
   const cwd=mkdtempSync(resolve(tmpdir(),"taurifer-eval-"));
+  const tasks=cases.flatMap(sample=>Array.from({length:repeat},(_,i)=>({sample,rep:i+1})))
+    .filter(({sample,rep})=>!seen.has(sample.id+"#"+rep));
+  let cursor=0,fatalError=null;
+  const worker=async parse=>{
+    while(!fatalError){
+      const task=tasks[cursor++];
+      if(!task)return;
+      const {sample,rep}=task;
+      const key=sample.id+"#"+rep;
+      const prompt=renderPrompt(templates[sample.locale],sample.source);
+      const provider=await adapters[transport](prompt,{
+        model,mode,effort,cwd,timeoutMs:options.timeoutMs||120000,
+        maxOutputTokens:plan.maxOutputTokens
+      });
+      const reply=provider.reply||"";
+      const filename=sample.id+"-r"+rep+".txt";
+      const rawPath=resolve(out,"replies",filename);
+      if(plan.persistRaw)writeFileSync(rawPath,reply,"utf8");
+      let parsed,parserError=null;
+      try{parsed=await parse(reply)}
+      catch(err){parsed={status:"unreadable"};parserError=err.message}
+      const graded=gradeCase(sample,parsed,{
+        transport,model,promptId:plan.promptId,
+        latencyMs:provider.latencyMs,usage:provider.usage,
+        costUsd:provider.costUsd,exitCode:provider.exitCode,
+        rawOutputPath:plan.persistRaw?"replies/"+filename:null
+      });
+      graded.effort=effort;
+      graded.costSource=provider.costSource||null;
+      graded.repeatIndex=rep;
+      graded.promptHash=plan.promptHash[sample.locale];
+      const resolved=provider.actualModel||null;
+      const expected=transport==="claude"?"claude-haiku-5-5":model;
+      const drift=resolved&&resolved!==expected;
+      graded.transportFailure=provider.exitCode!==0||provider.timedOut||
+        provider.tooLarge||!!provider.spawnError||!reply.trim()||
+        provider.unexpectedToolEvents>0||!!drift;
+      if(graded.transportFailure){
+        graded.semanticPass=false;
+        graded.errors.push({code:drift?"model_drift":"transport_failure"});
+      }
+      if(parserError){
+        graded.semanticPass=false;graded.errors.push({code:"parser_exception"});
+      }
+      graded.provider={
+        exitCode:provider.exitCode,timedOut:provider.timedOut,
+        tooLarge:provider.tooLarge,errorCode:provider.errorCode||null,
+        actualModel:resolved,httpStatus:provider.httpStatus||null,
+        requestId:provider.providerRequestId||null,
+        format:provider.providerFormat||null,
+        unexpectedToolEvents:provider.unexpectedToolEvents||0
+      };
+      appendFileSync(resultsPath,JSON.stringify(graded)+"\n","utf8");
+      results.push(graded);seen.add(key);
+      process.stdout.write("["+results.length+"/"+plan.calls+"] "+key+" "+
+        (graded.semanticPass?"PASS":"FAIL")+" status="+graded.status+
+        " latency="+provider.latencyMs+"ms\n");
+      if(["unauthorized","forbidden","model_not_allowlisted","request_rejected",
+        "unsupported_effort","missing_anthropic_api_key"].includes(provider.errorCode)){
+        fatalError=new Error("Provider configuration failed ("+provider.errorCode+
+          "); stopped further requests. Resume from run directory after fixing it.");
+      }
+    }
+  };
   try{
     await withTauriferParser(options.repoRoot,async parse=>{
-      for(const sample of cases){
-        for(let rep=1;rep<=repeat;rep++){
-          const key=sample.id+"#"+rep;
-          if(seen.has(key))continue;
-          const prompt=renderPrompt(templates[sample.locale],sample.source);
-          const provider=await adapters[transport](prompt,{
-            model,mode,cwd,timeoutMs:options.timeoutMs||120000,
-            maxOutputTokens:plan.maxOutputTokens
-          });
-          const reply=provider.reply||"";
-          const filename=sample.id+"-r"+rep+".txt";
-          const rawPath=resolve(out,"replies",filename);
-          if(plan.persistRaw)writeFileSync(rawPath,reply,"utf8");
-          let parsed,parserError=null;
-          try{parsed=await parse(reply)}
-          catch(err){parsed={status:"unreadable"};parserError=err.message}
-          const graded=gradeCase(sample,parsed,{
-            transport,model,promptId:plan.promptId,
-            latencyMs:provider.latencyMs,usage:provider.usage,
-            costUsd:provider.costUsd,exitCode:provider.exitCode,
-            rawOutputPath:plan.persistRaw?"replies/"+filename:null
-          });
-          graded.repeatIndex=rep;
-          graded.promptHash=plan.promptHash[sample.locale];
-          const resolved=provider.actualModel||null;
-          const expected=transport==="claude"?"claude-haiku-5-5":model;
-          const drift=resolved&&resolved!==expected;
-          graded.transportFailure=provider.exitCode!==0||provider.timedOut||
-            provider.tooLarge||!!provider.spawnError||!reply.trim()||
-            provider.unexpectedToolEvents>0||!!drift;
-          if(graded.transportFailure){
-            graded.semanticPass=false;
-            graded.errors.push({code:drift?"model_drift":"transport_failure"});
-          }
-          if(parserError){
-            graded.semanticPass=false;graded.errors.push({code:"parser_exception"});
-          }
-          graded.provider={
-            exitCode:provider.exitCode,
-            timedOut:provider.timedOut,
-            tooLarge:provider.tooLarge,
-            errorCode:provider.errorCode||null,
-            actualModel:resolved,
-            httpStatus:provider.httpStatus||null,
-            requestId:provider.providerRequestId||null,
-            format:provider.providerFormat||null,
-            unexpectedToolEvents:provider.unexpectedToolEvents||0
-          };
-          appendFileSync(resultsPath,JSON.stringify(graded)+"\n","utf8");
-          results.push(graded);seen.add(key);
-          process.stdout.write("["+results.length+"/"+plan.calls+"] "+key+" "+
-            (graded.semanticPass?"PASS":"FAIL")+" status="+graded.status+
-            " latency="+provider.latencyMs+"ms\n");
-        }
-      }
+      await Promise.all(Array.from({length:Math.min(plan.concurrency,tasks.length)},
+        ()=>worker(parse)));
     });
   }finally{
     rmSync(cwd,{recursive:true,force:true});
+  }
+  if(fatalError){
+    writeReport(results,meta,out);
+    throw fatalError;
   }
   const report=writeReport(results,meta,out);
   return {out,meta,summary:report.summary};

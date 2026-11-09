@@ -53,9 +53,27 @@ assert.equal(claude.exitCode,0);
 assert.equal(claude.actualModel,"claude-haiku-5-5");
 assert.equal(requests[2].opts.headers["x-api-key"],"test-secret");
 assert.equal(requests[2].url,"https://api.anthropic.com/v1/messages");
+// Adaptive reasoning must never appear in parser-visible text or be classed as a tool.
+for(const effort of ["low","medium","high","xhigh"]){
+  const reasoned=await invokeAnthropic(input,{apiKey:"test-secret",mode:"prompt",
+    effort,fetchImpl:async()=>response({...fakeClaude,content:[
+      {type:"thinking",thinking:"private internal model reasoning"},
+      {type:"text",text:'{"version":3,"exercises":[]}'},
+      {type:"redacted_thinking",data:"hidden"}
+    ]})});
+  assert.equal(reasoned.exitCode,0);
+  assert.equal(reasoned.reply,'{"version":3,"exercises":[]}');
+  assert.equal(reasoned.effort,effort);
+  assert.equal(reasoned.costUsd,41*0.10/1e6+27*0.50/1e6);
+}
+assert.equal((await invokeAnthropic(input,{apiKey:"test-secret",effort:"max",
+  fetchImpl:fetchClaude})).errorCode,"unsupported_effort");
+const xhigh=await invokeAnthropic(input,{apiKey:"test-secret",effort:"xhigh",
+  fetchImpl:fetchClaude});
+assert.equal(JSON.parse(requests[requests.length-1].opts.body).output_config.effort,"xhigh");
 const structuredClaude=await invokeAnthropic(input,{apiKey:"test-secret",mode:"schema",fetchImpl:fetchClaude});
 assert.equal(structuredClaude.exitCode,0);
-const anthropicBody=JSON.parse(requests[3].opts.body);
+const anthropicBody=JSON.parse(requests[requests.length-1].opts.body);
 assert.deepEqual(anthropicBody.output_config.format.schema,IMPORT_SCHEMA);
 
 assert.equal((await invokeOpenAI("x",{apiKey:"",fetchImpl:fetchOpen})).errorCode,"missing_openai_api_key");
@@ -70,6 +88,7 @@ const wrong=await invokeOpenAI(input,{apiKey:"test-secret",fetchImpl:async()=>re
 assert.equal(wrong.errorCode,"model_mismatch");
 const trunc=await invokeAnthropic(input,{apiKey:"test-secret",fetchImpl:async()=>response({...fakeClaude,stop_reason:"max_tokens"})});
 assert.equal(trunc.errorCode,"truncated_reply");
+assert(trunc.costUsd>0,"a truncated 200 response is still billable");
 const tool=await invokeOpenAI(input,{apiKey:"test-secret",fetchImpl:async()=>response({...fakeOpenAI,output:[...fakeOpenAI.output,{type:"function_call",name:"eval"}]})});
 assert.equal(tool.errorCode,"unexpected_tool_output");
 const huge=await postJSON("https://fake.test",{a:"b"},{a:1},{fetchImpl:async()=>new Response("x".repeat(5*1024*1024))});
