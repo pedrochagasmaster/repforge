@@ -1714,10 +1714,8 @@
         if (isDomainError(item)) return item;
         const originals = item.exercise.substitution?.originalPendingSets;
         for (const [setId, original] of Object.entries(originals || {})) {
-          const current = item.exercise.sets[setId];
-          if (current?.completion === "pending") {
-            item.exercise.sets[setId] = { ...jsonClone(original), ordinal: current.ordinal };
-          }
+          const set = item.exercise.sets[setId];
+          if (set?.completion === "pending") item.exercise.sets[setId] = { ...jsonClone(original), ordinal: set.ordinal };
         }
         for (const setId of item.exercise.setOrder) if (item.exercise.sets[setId].completion === "pending") clearOpening(item.exercise.sets[setId]);
         item.exercise.substitution = null;

@@ -92,7 +92,7 @@ async function freshPage(browser) {
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
   // A cleared device has no program: install the one these cases log against.
-  await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
+  await installSeedProgram(page, { key: KEY, waitFor: waitForApp, settings: { rirMode: "numeric" } });
   return { context, page };
 }
 

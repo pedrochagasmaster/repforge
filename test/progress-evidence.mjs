@@ -96,6 +96,60 @@ async function assertCanonicalOutcomeLabels(page, outcomes) {
   }
 }
 
+// #715: the effort column uses Focus's compact label and stays whole at narrow widths and enlarged text.
+{
+  const failures = [];
+  let cases = 0;
+  for (const lang of ["en", "pt"]) {
+    const { context, page } = await freshPage({ lang, seededLog: log.map(row => ({ ...row, load: 100 })) });
+    await page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("strength"));
+    const keys = await page.evaluate(() => ["seed-ex-13", "seed-ex-8"].map(id => window.__repforgeProgressEvidence.keyForExerciseId(id)));
+    for (const width of [320, 390]) for (const scale of [100, 200]) {
+      await page.setViewportSize({ width, height: width === 320 ? 568 : 844 });
+      await page.evaluate(scale => { document.documentElement.style.fontSize = `${scale}%`; }, scale);
+      for (const [index, key] of keys.entries()) {
+        const row = page.locator(`#strengthDash [data-evkey="${key}"]`);
+        if (await row.getAttribute("aria-expanded") !== "true") await row.click();
+        const table = page.locator(`#strengthDash [data-evdetail="${key}"] table`);
+        await table.scrollIntoViewIfNeeded();
+        const observation = await table.evaluate(table => {
+          const head = table.querySelector("th:last-child");
+          const range = document.createRange();
+          range.selectNodeContents(head);
+          const rects = [...range.getClientRects()].filter(rect => rect.width && rect.height);
+          const box = head.getBoundingClientRect();
+          const cells = [...table.querySelectorAll("tr > :last-child")];
+          return {
+            text: head.textContent.trim(), expected: window.RepForgeI18n.t("focus.col.left"),
+            repsLines: (() => { const range = document.createRange(); range.selectNodeContents(table.querySelector("th:nth-child(3)"));
+              return new Set([...range.getClientRects()].filter(rect => rect.width && rect.height).map(rect => Math.round(rect.top))).size; })(),
+            brokenNumbers: [...table.querySelectorAll("tbody td:not(:first-child)")].flatMap(cell => {
+              const range = document.createRange(); range.selectNodeContents(cell);
+              const rects = [...range.getClientRects()].filter(rect => rect.width && rect.height);
+              const box = cell.getBoundingClientRect();
+              const broken = new Set(rects.map(rect => Math.round(rect.top))).size !== 1
+                || rects.some(rect => rect.left < box.left - 0.5 || rect.right > box.right + 0.5);
+              return broken ? [cell.textContent.trim()] : [];
+            }),
+            lines: new Set(rects.map(rect => Math.round(rect.top))).size,
+            clipped: rects.some(rect => rect.left < box.left - 0.5 || rect.right > box.right + 0.5
+              || rect.top < box.top - 0.5 || rect.bottom > box.bottom + 0.5 || rect.top < 0 || rect.bottom > innerHeight),
+            outside: cells.some(cell => { const r = cell.getBoundingClientRect();
+              return r.left < -0.5 || r.right > innerWidth + 0.5 || cell.scrollWidth > cell.clientWidth + 1; }),
+          };
+        });
+        const label = `${lang} ${width}px ${scale}% ${index === 0 ? "sparse" : "comparison"}`;
+        if (observation.text !== observation.expected || observation.lines !== 1 || observation.clipped || observation.outside || observation.brokenNumbers.length || observation.repsLines > 2)
+          failures.push({ label, ...observation });
+        cases++;
+      }
+    }
+    await context.close();
+  }
+  console.log(`#715 effort header: ${cases - failures.length}/${cases} cases passed; ${JSON.stringify(failures)}`);
+  assert.deepEqual(failures, [], "#715: sparse/comparison effort headings use Left/Sobra and fit whole in EN/PT at 320/390 and 100/200%");
+}
+
 // Strength: sparse policy, scopes, drill-in.
 {
   const { context, page } = await freshPage();

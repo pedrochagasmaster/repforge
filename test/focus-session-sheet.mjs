@@ -98,7 +98,7 @@ async function freshPage(browser) {
   await clearState(page);
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
-  await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
+  await installSeedProgram(page, { key: KEY, waitFor: waitForApp, settings: { rirMode: "numeric" } });
   return { context, page, errors };
 }
 

@@ -69,7 +69,10 @@ async function seedGeneratedPress(page) {
     const target = definition.days.filter((day) => day.kind === "training").flatMap((day) =>
       day.slots.map((slot) => ({ day, slot }))).find(({ slot }) => slot.id === compatible.id && slot.exerciseId === exerciseId);
     if (!target) throw new Error("The explicit press choice did not retain its slot");
+    const baseProposal = window.__repforgeWorkoutDraft.state();
+    baseProposal.settings.rirMode = "numeric";
     await window.__repforgeFinalizeProgramSetup({
+      baseProposal,
       programDefinition: definition, name: "Per-side transfer proof", answers: {},
       destination: "log", origin: "first-run", draftConfirmed: true,
       telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: "p069-s3-transfer-roundtrip" },

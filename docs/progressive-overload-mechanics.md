@@ -76,18 +76,17 @@ response to recorded performance, not a calendar event.
 
 ## 2. What you record
 
-For every working set you log three numbers:
+For every working set you log weight, reps and effort:
 
 - **Weight** — what was on the bar (or the machine stack).
 - **Reps** — how many repetitions you completed.
-- **Effort** — how close to your limit the set was, recorded as
-  **reps in reserve**: the number of extra reps you honestly could have done
-  before failing. 0 means you had nothing left; 2 means you stopped two reps
-  short of failure.
+- **Effort** — the number of clean **reps left** before failure, also called
+  reps in reserve (RIR). 0 means you had nothing left; 2 means you stopped two
+  reps short of failure.
 
-If you prefer words to numbers, the app has an effort mode with three
-choices — *easy*, *hard*, and *max* — which it reads as roughly 3, 1, and 0
-reps in reserve.
+You can record effort in words — *Easy*, *Hard*, and *Max*, which the app reads
+as roughly 3, 1, and 0 reps left — or as a count: **0, 1, 2, 3, 4, or 5+**.
+5+ means at least five reps left and is recorded as 5, the engine's credit cap.
 
 Two small conventions:
 

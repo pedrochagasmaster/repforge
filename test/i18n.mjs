@@ -361,6 +361,19 @@ async function main() {
   assert(!ptRtMiss.length, "PT JSON matches PT runtime dictionary", ptRtMiss.slice(0, 8).join(", "));
   assert(Object.keys(runtime.en).length === enKeys.length, "EN runtime has the same key count as EN JSON", `${Object.keys(runtime.en).length} vs ${enKeys.length}`);
   assert(Object.keys(runtime.pt).length === ptKeys.length, "PT runtime has the same key count as PT JSON", `${Object.keys(runtime.pt).length} vs ${ptKeys.length}`);
+  // Plan 078 D-15: these working surfaces use reps left; RIR belongs in the glossary.
+  const workingEffortKeys = enKeys.filter(key => key.startsWith("focus.prev_line") ||
+    key.startsWith("focus.exmeta.") || ["focus.evidence.session", "focus.evidence.history",
+      "focus.evidence.target", "focus.evidence.target_fatigue", "focus.evidence.what_rir",
+      "focus.shelf.pad_rir", "today.target", "stats.table.rir", "stats.outcome_short.missing_effort",
+      "validation.rir", "exercise.understand", "settings.rir_logging"].includes(key));
+  for (const lang of ["en", "pt"]) {
+    const technicalLabels = workingEffortKeys.filter(key => /\bRIR\b/i.test(runtime[lang][key].replace(/\{\w+\}/g, "")));
+    assert(!technicalLabels.length, `${lang.toUpperCase()} working effort copy uses reps left`, technicalLabels.join(", "));
+    assert((runtime[lang]["glossary.RIR"].match(/\bRIR\b/g) || []).length === 1 &&
+      runtime[lang]["glossary.RIR"].includes(lang === "pt" ? "reps sobrando" : "reps left"),
+      `${lang.toUpperCase()} glossary names RIR once as reps left`);
+  }
   // #418: the result's "How it was built" line names the chosen place, so every
   // place the entry flow offers needs that sentence in both languages.
   const entrySource = readFileSync(join(ROOT, "program-entry.js"), "utf8");

@@ -461,8 +461,8 @@
           <fieldset class="field rirmode">
             <legend class="visually-hidden" data-i18n="settings.rir_logging">Effort logging</legend>
             <div class="rirmode__opts">
-              <label class="rirmode__opt"><input type="radio" name="rirMode" value="effort"> <span data-i18n="settings.rir_effort">Easy / Hard / Max</span></label>
-              <label class="rirmode__opt"><input type="radio" name="rirMode" value="numeric" checked> <span data-i18n="settings.rir_numbers">Reps left (0 to 5+)</span></label>
+              <label class="rirmode__opt"><input type="radio" name="rirMode" value="effort" checked> <span data-i18n="settings.rir_effort">Easy / Hard / Max</span></label>
+              <label class="rirmode__opt"><input type="radio" name="rirMode" value="numeric"> <span data-i18n="settings.rir_numbers">Reps left (0 to 5+)</span></label>
             </div>
           </fieldset>
         </div>
@@ -758,7 +758,7 @@
       <section class="firstrun-band firstrun-band--raised firstrun-proof" id="firstRunProof" data-landing-section="proof" aria-labelledby="firstRunProofTitle">
         <div class="firstrun-wrap">
           <h2 class="firstrun-h2" id="firstRunProofTitle" data-i18n="landing.demo.title">See it in practice.</h2>
-          <p class="firstrun-sub" data-i18n="landing.anim.sub">This is the app's workout screen in a bench press session: the target, one tap to log the set, the rest, and what changes next time.</p>
+          <p class="firstrun-sub" data-i18n="landing.anim.sub">This is the app's workout screen in a Smith machine bench press session: the target, one tap to log the set, the rest, and what changes next time.</p>
           <div class="firstrun-proof__stage" data-landing-stage>
             <div class="firstrun-proof__device" aria-hidden="true" inert>
               <div class="firstrun-proof__rig"><div class="firstrun-proof__glass"><div class="firstrun-proof__screen theme-light" id="firstRunDemo"></div></div></div>
@@ -777,7 +777,11 @@
                 <p class="firstrun-chapter__text"><span data-i18n="landing.demo.s4.text">The timer counts your rest. With notifications on, it tells you when it's up.</span> <span data-i18n="landing.anim.prefilled">The next set is already filled in.</span></p>
               </li>
               <li class="firstrun-chapter" data-landing-chapter>
-                <button type="button" class="firstrun-chapter__go" data-chapter="3"><span class="firstrun-chapter__title" data-i18n="landing.anim.ch4.title">See it adapt</span><span class="firstrun-chapter__bar" aria-hidden="true"><span class="firstrun-chapter__fill"></span></span></button>
+                <button type="button" class="firstrun-chapter__go" data-chapter="3"><span class="firstrun-chapter__title" data-i18n="landing.anim.ch5.title">Test your guess</span><span class="firstrun-chapter__bar" aria-hidden="true"><span class="firstrun-chapter__fill"></span></span></button>
+                <p class="firstrun-chapter__text"><span data-i18n="landing.anim.ch5.text">Guess how many reps you can do on your last set, then compare with what you did. Taurifer learns how you judge effort on this exercise.</span> <span class="firstrun-chapter__result" data-landing-fill="test-result"></span></p>
+              </li>
+              <li class="firstrun-chapter" data-landing-chapter>
+                <button type="button" class="firstrun-chapter__go" data-chapter="4"><span class="firstrun-chapter__title" data-i18n="landing.anim.ch4.title">See it adapt</span><span class="firstrun-chapter__bar" aria-hidden="true"><span class="firstrun-chapter__fill"></span></span></button>
                 <p class="firstrun-chapter__text" data-landing-fill="ch4"></p>
               </li>
             </ol>
@@ -908,7 +912,7 @@ Triceps pushdown 3x12-15</pre>
             </details>
             <details class="firstrun-qa">
               <summary><span data-i18n="landing.faq.rir.q">What is RIR?</span><i aria-hidden="true"></i></summary>
-              <div class="firstrun-qa__a"><p data-i18n="glossary.RIR">RIR is the number of reps you could still complete before failure. RIR 2 means two reps left. If you are new to RIR, estimate whether you could do one or two more.</p></div>
+              <div class="firstrun-qa__a"><p data-i18n="glossary.RIR">Reps left is the number of clean reps you could still complete before failure, also called RIR. 2 means two reps left. If you are new to counting, estimate whether you could do one or two more.</p></div>
             </details>
             <details class="firstrun-qa">
               <summary><span data-i18n="landing.faq.coach.q">Can my coach send me a program?</span><i aria-hidden="true"></i></summary>
@@ -1342,6 +1346,23 @@ Triceps pushdown 3x12-15</pre>
     <div class="sheet__body" id="volumeAuditBody"></div>
   </div>
   <div id="shareSetupScrim" class="sheet-scrim hidden"></div>
+  <div id="effortChoiceScrim" class="sheet-scrim hidden" aria-hidden="true"></div>
+  <div id="effortChoiceSheet" class="sheet sheet--effort-choice hidden" role="dialog" aria-modal="true" aria-labelledby="effortChoiceTitle" hidden>
+    <div class="sheetband">
+      <span class="sheetband__handle" aria-hidden="true"></span>
+      <h2 class="sheetband__title" id="effortChoiceTitle" data-i18n="entry.effort_choice.title">How do you want to log effort?</h2>
+      <button type="button" class="sheetband__close" id="effortChoiceClose" data-i18n-aria="dialog.close" aria-label="Close"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
+    </div>
+    <div class="sheet__body" role="radiogroup" aria-labelledby="effortChoiceTitle">
+      <button type="button" class="radio-card is-selected" role="radio" aria-checked="true" data-effort-choice="effort">
+        <span class="radio-card__body"><span class="radio-card__title" data-i18n="entry.effort_choice.words">How the set felt</span> <span class="radio-card__cap" data-i18n="entry.effort_choice.words_hint">Easy / Hard / Max</span></span><span class="radio-card__mark" aria-hidden="true"></span>
+      </button>
+      <button type="button" class="radio-card" role="radio" aria-checked="false" tabindex="-1" data-effort-choice="numeric">
+        <span class="radio-card__body"><span class="radio-card__title" data-i18n="entry.effort_choice.numbers">Reps left</span> <span class="radio-card__cap" data-i18n="entry.effort_choice.numbers_hint">0 to 5+</span></span><span class="radio-card__mark" aria-hidden="true"></span>
+      </button>
+    </div>
+    <div class="sheet__foot"><button type="button" class="btn btn--cta" id="effortChoiceContinue" data-i18n="entry.next">Continue</button></div>
+  </div>
   <div id="shareSetupSheet" class="sheet sheet--setup hidden ph-no-capture" role="dialog" aria-modal="true" aria-labelledby="shareSetupTitle" hidden>
     <div class="sheetband">
       <span class="sheetband__handle" aria-hidden="true"></span>
@@ -1531,7 +1552,7 @@ Triceps pushdown 3x12-15</pre>
   <script src="generation-identity.js?v=459"></script>
   <script src="exercise-catalog.js?v=459"></script>
   <script src="exercise-metrics.js?v=485"></script>
-  <script src="progression-engine.js?v=698"></script>
+  <script src="progression-engine.js?v=700"></script>
   <!-- Both third-party runtimes are vendored and precached, never fetched from
        a CDN: the app has to behave identically on a plane. They load before the
        modules that use them, and both are optional by construction — without

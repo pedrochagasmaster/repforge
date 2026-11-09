@@ -63,6 +63,11 @@ try {
   await page.clock.setFixedTime(new Date("2026-10-05T12:00:00.000Z"));
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
+  await page.evaluate(async () => {
+    const proposal = window.__repforgeWorkoutDraft.state();
+    proposal.settings.rirMode = "numeric";
+    await window.__repforgeCommitProposedState(proposal);
+  });
 
   // Recommend → Review: pick the ambiguous movement and answer its mode.
   await page.click("#firstRunCreate");

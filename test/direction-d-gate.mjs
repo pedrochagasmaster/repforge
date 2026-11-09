@@ -211,6 +211,19 @@ console.log("\nComposed catalog sentences");
   const punctuation = checkStrings(evidence(`${first} ${next} ${why} —`), catalog);
   check(has(punctuation, "banned"), "composition does not bypass the punctuation guard", show(punctuation));
 }
+for (const [lang, label] of [["en", "left"], ["pt", "sobrando"]]) {
+  const catalog = loadCatalog(lang);
+  const effort = value => ({ text: [{ text: `3 × 4–8 reps · ${value} ${label} · ${catalog.dictionary["program.progression.adaptive"]}`, locator: "#focusMeta" }],
+    requestedI18nKeys: [], timerLabels: [], data: { strings: [], dateWords: [] } });
+  for (const value of ["1", "1,5", "1–2"]) {
+    const failures = checkStrings(effort(value), catalog);
+    check(failures.length === 0, `${lang}: approved numeric effort survives range collapse and composition (${value})`, show(failures));
+  }
+  for (const value of ["Quantum", "1 invented"]) {
+    const failures = checkStrings(effort(value), catalog);
+    check(has(failures, "not a catalog"), `${lang}: an effort suffix cannot approve an invented word (${value})`, show(failures));
+  }
+}
 if (process.argv.includes("--catalog-composition-only")) {
   console.log(`\n${results.passed} passed, ${results.failed} failed`);
   process.exit(results.failed ? 1 : 0);

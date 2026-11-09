@@ -59,7 +59,10 @@ async function seed(page) {
       .filter(({ slot }) => JSON.stringify(slot.metricIds) === JSON.stringify([weight, reps]) &&
         slot.prescriptionsByCycle[0].sets.length >= 3)
       .sort((a, b) => b.slot.prescriptionsByCycle[0].sets.length - a.slot.prescriptionsByCycle[0].sets.length)[0];
+    const baseProposal = window.__repforgeWorkoutDraft.state();
+    baseProposal.settings.rirMode = "numeric";
     return window.__repforgeFinalizeProgramSetup({
+      baseProposal,
       programDefinition: definition, name: "Focus hero proof", answers: {}, destination: "log", origin: "first-run",
       draftConfirmed: true, telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: "focus-hero-523" },
     }).then(() => window.__repforgeStorage.flush()).then(() => {
@@ -417,7 +420,7 @@ try {
         status: kind === "setup" ? "configuration_required" : kind === "manual" ? "manual" : "new", reasonCodes,
         targetSets: [{ prescription: { setIndex: 1 }, status: kind === "setup" ? "configuration_required" : "manual", result: { reasonCodes } }],
         progressionInputs: inputs || { history: [], currentSession: [] } }, 1, kind), { id: target.rowId, kind, reasonCodes, inputs });
-      const expected = await t(page, `focus.evidence.none_${key}`, { what: "RIR", min: await page.evaluate((id) => window.__repforgeProgression.programSlot(id).min, target.rowId),
+      const expected = await t(page, `focus.evidence.none_${key}`, { what: await t(page, "focus.evidence.what_rir"), min: await page.evaluate((id) => window.__repforgeProgression.programSlot(id).min, target.rowId),
         max: await page.evaluate((id) => window.__repforgeProgression.programSlot(id).max, target.rowId) });
       ok(said?.key === key && said.text === expected && !/\d+(?:[.,]\d+)?\s*kg/.test(said.text), `${reasonCodes.join(" + ")} (${kind}) says ${key}`, said);
     }
@@ -438,7 +441,7 @@ try {
         targetSets: [{ prescription: { setIndex: 1 }, status: "manual", result: { reasonCodes: ["no_comparable_history"] } },
           { prescription: { setIndex: 2 }, status: "manual", result: { reasonCodes: ownCodes } }],
         progressionInputs: inputs }, 2, "start"), { id: target.rowId, ownCodes, inputs });
-      const expected = await t(page, `focus.evidence.none_${key}`, { what: "RIR", min: await page.evaluate((id) => window.__repforgeProgression.programSlot(id).min, target.rowId),
+      const expected = await t(page, `focus.evidence.none_${key}`, { what: await t(page, "focus.evidence.what_rir"), min: await page.evaluate((id) => window.__repforgeProgression.programSlot(id).min, target.rowId),
         max: await page.evaluate((id) => window.__repforgeProgression.programSlot(id).max, target.rowId) });
       ok(said?.key === key && said.text === expected, `set 2, ${why}: says ${key}`, said);
     }

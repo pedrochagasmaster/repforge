@@ -25,10 +25,10 @@
  *
  * Also always on, and Node-only: the engine-truth oracle. The proof's case is
  * evaluated here with the adaptive engine (progression-engine.js recommendSets)
- * and the app's default load step, and the load must move the way chapter 4 says.
+ * and the app's default load step, and the load must move the way chapter 5 says.
  *
  * PART 2 - the final page (always on since the page packet landed). It asserts
- * that each section exists, that the proof has four chapters and shows the
+ * that each section exists, that the proof has five chapters and shows the
  * oracle's numbers, that the feature tabs are five and name the library's real
  * size (test/landing-features.mjs owns their frames), that the FAQ has five
  * <details>, that the persistent Build dock exists on the standard landing but
@@ -39,7 +39,7 @@
  *
  * Hooks PART 2 reads (all inside #firstRun):
  *   [data-landing-section="hero|proof|ways|features|data|faq|close|footer"]
- *   [data-landing-chapter]         x4 in the proof section, in order, each a
+ *   [data-landing-chapter]         x5 in the proof section, in order, each a
  *                                  [data-chapter] button and its caption; the last
  *                                  caption is the result
  *   [data-feature]                 x5 tabs in the features section
@@ -135,9 +135,9 @@ const APP_DEFAULTS = (() => {
 })();
 
 /**
- * The input of the proof's case and the move chapter 4 claims: the load goes up.
+ * The input of the proof's case and the move chapter 5 claims: the load goes up.
  */
-const BENCH = "19f5c6f170d8808bb424e98de4472a7e";
+const BENCH = "1a05c6f170d88058a3a0c07e098a9605";
 const LANDING_CASES = Object.freeze({
   add: { exercise: BENCH, repMin: 8, repMax: 10, logged: [[60, 10, 2], [60, 10, 2], [60, 10, 2]], move: "up" },
 });
@@ -614,7 +614,7 @@ function copyPins() {
   assert(DEFAULT_WEEKS === 6, "the ways' {weeks} is the default programMeta.mesocycleLengthWeeks", String(DEFAULT_WEEKS));
   for (const lang of ["en", "pt"]) {
     assert(CATALOG[lang]["landing.ways.written.body"].includes("{weeks}"), `[${lang}] the program length is a placeholder, never typed into the catalog`);
-    for (const key of ["landing.demo.s7.text", "landing.outcomes.did_same", "landing.outcomes.target", "landing.features.library.title", "landing.features.library.text"]) {
+    for (const key of ["landing.anim.ch5.text", "landing.demo.s7.text", "landing.outcomes.did_same", "landing.outcomes.target", "landing.features.library.title", "landing.features.library.text"]) {
       assert(!/\d/.test(CATALOG[lang][key].replace(/\{\w+\}/g, "").replace(/e1RM/g, "")), `[${lang}] ${key} carries no hard-coded number`, CATALOG[lang][key]);
     }
     for (const key of ["landing.demo.s7.text", "landing.anim.ch1.text"]) {
@@ -717,23 +717,111 @@ async function scrollToDevice(page, top = 16) {
   await page.waitForTimeout(400);
 }
 
+async function accessibleProofResult(browser) {
+  phase("Proof accessibility: readable chapters and computed result at both text sizes");
+  const calibration = require('../effort-calibration.js');
+  const guess = calibration.prefillGuess(10, 2).predictedReps;
+  const result = calibration.result(guess, 12);
+  for (const width of [320, 390]) for (const lang of ["en", "pt"]) for (const scale of [1, 2]) {
+    const { context, page } = await landingPage(browser, { lang, width });
+    await page.evaluate(async scale => {
+      document.documentElement.style.fontSize = `${scale * 100}%`;
+      await document.fonts.ready;
+      window.__repforgeLandingSeek(19);
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    }, scale);
+    const expected = `${tr(lang, 'maxset.guessed')} ${guess}. ${tr(lang, 'maxset.did')} ${result.did}. ` +
+      `${tr(lang, 'maxset.result_more', { n: -result.error })} ` +
+      tr(lang, 'maxset.status_wait', { n: calibration.ESTIMATOR.minChecks - 1 });
+    const measured = await page.evaluate(() => {
+      const chapters = document.querySelector('#firstRunChapters');
+      const summary = chapters.querySelector('[data-landing-fill="test-result"]');
+      const buttons = [...chapters.querySelectorAll('.firstrun-chapter__go')];
+      const splitWords = [];
+      for (const title of chapters.querySelectorAll('.firstrun-chapter__title')) {
+        const node = title.firstChild;
+        for (const match of node.textContent.matchAll(/\S+/g)) {
+          const range = document.createRange();range.setStart(node, match.index);range.setEnd(node, match.index + match[0].length);
+          if (range.getClientRects().length > 1) splitWords.push(match[0]);
+        }
+      }
+      return { columns: new Set(buttons.map(button => Math.round(button.getBoundingClientRect().left))).size, splitWords,
+        text: summary?.textContent, font: summary ? parseFloat(getComputedStyle(summary).fontSize) : 0,
+        exposed: !!summary && !summary.closest('[inert], [aria-hidden="true"]') && getComputedStyle(summary).visibility === 'visible',
+        whole: !!summary && summary.scrollWidth <= summary.clientWidth + 1,
+        phoneFont: parseFloat(getComputedStyle(document.querySelector('.firstrun-demo__test-result .ledgerline__resline')).fontSize),
+        overflow: document.documentElement.scrollWidth > innerWidth,
+      };
+    });
+    const label = `${lang} ${width} text${scale * 100}`;
+    assert(measured.columns <= (scale === 2 ? 1 : 2) && measured.splitWords.length === 0,
+      `[${label}] chapter titles reflow without splitting words`, JSON.stringify(measured));
+    assert(measured.text === expected, `[${label}] the fourth caption includes the computed guess result`, JSON.stringify(measured));
+    const tree = await page.locator('#firstRunChapters').ariaSnapshot();
+    assert(measured.exposed && tree.includes(expected), `[${label}] the result is in the accessibility tree outside the inert phone`, tree);
+    assert(measured.font === 16 * scale && measured.phoneFont === 14 && measured.whole && !measured.overflow,
+      `[${label}] the readable result scales while the phone keeps its authored text`, JSON.stringify(measured));
+    await context.close();
+  }
+}
+
 async function finalPage(browser) {
   // Standard landing, both languages, both themes' captures.
   for (const lang of ["en", "pt"]) {
     phase(`Final page [${lang}]: sections and engine-true numbers`);
     const { context, page, errors } = await landingPage(browser, { lang });
     const f = await page.evaluate(readFinal, SECTIONS);
+    await page.locator("#firstRunDemo .ledgerline__head").first().waitFor({ state: "attached" });
+    const effortLabels = await page.locator("#firstRunDemo").evaluate(root => ({
+      columns: [...root.querySelectorAll(".ledgerline__head .fx-col:last-child")].map(node => node.textContent.trim()),
+      shelf: [...root.querySelectorAll(".firstrun-demo__shelf .shelf__field")].at(-1)?.querySelector(".shelf__lab")?.textContent.trim(),
+    }));
+    assert(effortLabels.columns.length === 5 && effortLabels.columns.every(value => value === tr(lang, "focus.col.left")),
+      `[${lang}] the numerical landing phone uses Focus's reps-left column heading (#712)`, JSON.stringify(effortLabels));
+    assert(effortLabels.shelf === tr(lang, "focus.field.left"),
+      `[${lang}] the numerical landing phone uses Focus's reps-left shelf label (#712)`, JSON.stringify(effortLabels));
+
 
     for (const name of SECTIONS) assert(f.sections[name], `[${lang}] the ${name} section is present (data-landing-section="${name}")`);
 
-    assert(f.steps.length === 4, `[${lang}] the proof has four chapters in the document`, `found ${f.steps.length}`);
+    assert(f.steps.length === 5, `[${lang}] the proof has five chapters in the document`, `found ${f.steps.length}`);
     assert(f.steps.length > 0 && f.steps.every((step) => step.length > 0), `[${lang}] every chapter carries its title and caption`, JSON.stringify(f.steps.map((s) => s.length)));
+    const calibration = require('../effort-calibration.js');
+    const exercise = Catalog.exercises.find(ex => ex.id === BENCH);
+    assert(calibration.eligibility({exercise, lookup: id => Catalog.uuidIndex[id]}).eligible, 'the proof movement can take a test set');
+    for (const [time, selector, key] of [[14.5, '.firstrun-demo__test-tip', 'maxset.invite_title'],
+      [15.8, '.firstrun-demo__test-guess', 'maxset.press_line'], [17.4, '.firstrun-demo__test-cue', 'maxset.fail_rule'],
+      [19, '.firstrun-demo__test-result', 'maxset.guessed']]) {
+      await page.evaluate(t => window.__repforgeLandingSeek(t), time);
+      const scene = await page.evaluate(sel => {const el=document.querySelector(sel);return {text:el?.textContent,opacity:el?Number(getComputedStyle(el).opacity):0}}, selector);
+      assert(scene.opacity === 1 && scene.text?.includes(tr(lang, key)), `[${lang}] test-set scene at ${time}s uses Focus copy`, JSON.stringify(scene));
+    }
+    await page.evaluate(() => window.__repforgeLandingSeek(22));
+    const adaptation = await page.evaluate(() => ({
+      rows: [...document.querySelectorAll('.firstrun-demo__history .firstrun-demo__last')].map(row =>
+        [...row.querySelectorAll('[data-lv]')].map(cell => cell.textContent.trim())),
+      explanation: document.querySelector('.firstrun-demo__did')?.textContent,
+      target: document.querySelector('.firstrun-demo__target')?.textContent,
+      caption: document.querySelector('[data-landing-fill="ch4"]')?.textContent,
+    }));
+    const history = adaptation.rows;
+    assert(history.length === SETS && history.every(row => row.every((value, i) => value === history[0][i])),
+      `[${lang}] the all-sets explanation describes every rendered history row`, JSON.stringify(adaptation));
+    assert(adaptation.explanation === tr(lang, "landing.outcomes.did_same", {
+      reps: history[0]?.[1], load: `${history[0]?.[0]} kg`, sets: SETS, min: 8, max: 10,
+    }), `[${lang}] the next-session explanation uses its rendered history`, adaptation.explanation);
+    assert(hasNumber(adaptation.target, ENGINE.add.load, lang) && hasNumber(adaptation.target, ENGINE.add.reps, lang),
+      `[${lang}] the next-session target agrees with the progression engine`, adaptation.target);
+    assert(adaptation.caption === tr(lang, "landing.demo.s7.text", {
+      done_reps: history[0]?.[1], load: `${history[0]?.[0]} kg`, sets: SETS, min: 8, max: 10,
+      next_load: `${ENGINE.add.load.toLocaleString(lang === "pt" ? "pt-BR" : "en-US")} kg`, next_reps: ENGINE.add.reps,
+    }), `[${lang}] the accessible adaptation caption describes its rendered history and engine target`, adaptation.caption);
     const add = LANDING_CASES.add;
     const last = f.steps.at(-1) || "";
     assert(
       hasNumber(last, ENGINE.add.load, lang) && hasNumber(last, ENGINE.add.reps, lang) && hasNumber(last, SETS, lang) &&
         hasNumber(last, add.logged[0][0], lang) && hasNumber(last, add.logged[0][1], lang) && hasNumber(last, add.repMin, lang) && hasNumber(last, add.repMax, lang),
-      `[${lang}] chapter 4 shows the engine's next target ${ENGINE.add.load} x ${ENGINE.add.reps} and the sets it came from`, last
+      `[${lang}] chapter 5 shows the engine's next target ${ENGINE.add.load} x ${ENGINE.add.reps} and the sets it came from`, last
     );
 
     // The feature tabs: five, one selected, each with its screen, and the library's size as the copy states it.
@@ -822,8 +910,8 @@ async function finalPage(browser) {
     assert(open?.open && open.listeners > 0 && open.observers === 8 && !open.playing && !open.featurePlaying,
       "opening the landing mounts the controller; the proof below the fold is not playing", JSON.stringify(open));
     const at = await page.evaluate(chapterState);
-    assert(at.devices === 1 && at.screen && at.count === 4 && at.current.length === 1 && at.current[0] === 0 && at.captions === 1,
-      "one phone with Focus's screen, four chapters, the first current with its caption", JSON.stringify(at));
+    assert(at.devices === 1 && at.screen && at.count === 5 && at.current.length === 1 && at.current[0] === 0 && at.captions === 1,
+      "one phone with Focus's screen, five chapters, the first current with its caption", JSON.stringify(at));
     await scrollToDevice(page);
     const t0 = (await page.evaluate(proofState)).time;
     await page.waitForTimeout(900);
@@ -892,7 +980,7 @@ async function finalPage(browser) {
     const sweep = await page.evaluate(() => {
       const screen = document.querySelector("#firstRunDemo"), items = [...document.querySelectorAll("[data-landing-chapter]")];
       const bad = [];
-      for (let i = 0; i <= 17 * 30; i++) {
+      for (let i = 0; i <= 24 * 30 - 1; i++) {
         const time = i / 30;
         window.__repforgeLandingSeek(time);
         const said = [screen.textContent, ...[...screen.querySelectorAll("[style]"), ...items].map((node) => node.getAttribute("style") || "")].join(" ");
@@ -916,12 +1004,13 @@ async function finalPage(browser) {
         tab: q(".resttab__label").textContent, clock: q(".resttab__time").textContent,
       };
     };
-    const starts = [0, 6, 10, 14], loop = 18;
+    const starts = [0, 6, 10, 14, 20], loop = 24;
     // The screen at each chapter's start: the state the chapter opens on, and nothing a later chapter left.
     const opens = [
       (s) => s.checked === 0 && s.turned === 0 && s.finger === 0 && !s.wheel && !s.next && s.tab === tr("en", "rest.inline.label"),
       (s) => s.checked === 0 && s.turned === 1 && s.finger === 0 && !s.wheel && !s.next,
       (s) => s.checked === 1 && s.turned === 0 && !s.wheel && !s.next && s.tab === tr("en", "rest.inline.label") && /^1:\d\d$/.test(s.clock),
+      (s) => s.checked === 1 && !s.wheel && !s.next && s.tab === tr("en", "rest.inline.done"),
       (s) => s.checked === 1 && !s.wheel && !s.next && s.tab === tr("en", "rest.inline.done"),
     ];
     const inStep = (s, i) => s.chapter === i && s.current.length === 1 && s.current[0] === i &&
@@ -935,13 +1024,13 @@ async function finalPage(browser) {
       assert(inStep(edge, before) && inStep(after, i) && after.progress[i] < .05 && opens[i](after),
         `chapter ${i + 1}'s edge: the chip and the frame change together, and the frame opens on its own state`, JSON.stringify({ edge, after }));
       // A chip tapped from the end of the loop jumps the frame back to the same state.
-      await page.evaluate(() => window.__repforgeLandingSeek(17));
+      await page.evaluate(() => window.__repforgeLandingSeek(23));
       await page.click(`[data-chapter="${i}"]`);
       const tapped = await page.evaluate(read);
       assert(inStep(tapped, i) && opens[i](tapped), `tapping chapter ${i + 1} from the loop's end shows its opening state`, JSON.stringify(tapped));
     }
     // The clock itself wraps the loop into chapter 1 with set 1 open again.
-    await page.evaluate(() => window.__repforgeLandingSeek(17.8));
+    await page.evaluate(() => window.__repforgeLandingSeek(23.8));
     await page.evaluate(() => window.__repforgeLandingSeek(null));
     await page.waitForTimeout(700);
     const wrapped = await page.evaluate(read);
@@ -963,7 +1052,7 @@ async function finalPage(browser) {
       const screen = document.querySelector("#firstRunDemo"), rig = document.querySelector(".firstrun-proof__rig"), frame = document.querySelector(".firstrun-proof__device").getBoundingClientRect();
       const small = [];
       let zoomed = 0;
-      for (let time = 1.05; time < 17.35; time += .25) {
+      for (let time = 1.05; time < 23.35; time += .25) {
         window.__repforgeLandingSeek(time);
         const k = rig.getBoundingClientRect().width / rig.offsetWidth;
         zoomed++;
@@ -993,7 +1082,7 @@ async function finalPage(browser) {
       const screen = document.querySelector("#firstRunDemo"), tab = screen.querySelector(".resttab"), label = tab.querySelector(".resttab__label");
       const shelf = screen.querySelector(".firstrun-demo__shelf"), drawn = screen.querySelector(".firstrun-demo__contour .firstrun-demo__rise");
       const bad = [];
-      for (let time = 7.8; time < 17.3; time += .1) {
+      for (let time = 7.8; time < 23.3; time += .1) {
         window.__repforgeLandingSeek(time);
         const words = [...tab.querySelectorAll(".resttab__label,.resttab__time,.resttab__chev")].map((el) => el.getBoundingClientRect());
         const shape = drawn.getBoundingClientRect(), k = screen.getBoundingClientRect().width / screen.offsetWidth;
@@ -1017,7 +1106,7 @@ async function finalPage(browser) {
       const frame = document.querySelector(".firstrun-proof__device").getBoundingClientRect(), rig = document.querySelector(".firstrun-proof__rig");
       const screen = document.querySelector("#firstRunDemo");
       const out = [];
-      for (const time of [2, 3.6, 5, 9.2, 13.6, 16.6]) {
+      for (const time of [2, 3.6, 5, 9.2, 13.6, 15.6, 18.8, 22.6]) {
         window.__repforgeLandingSeek(time);
         const k = rig.getBoundingClientRect().width / rig.offsetWidth;
         const check = (selector, margin) => screen.querySelectorAll(selector).forEach((node) => {
@@ -1034,7 +1123,7 @@ async function finalPage(browser) {
     assert(cuts.length === 0, `[${lang} ${width}] no settled shot cuts the shelf's controls, the cue or the ledger at the frame's edges`, JSON.stringify(cuts.slice(0, 6)));
     await context.close();
   }
-  for (const [width, height] of [[390, 844], [320, 568]]) for (const lang of ["en", "pt"]) {
+  for (const [width, height] of [[390, 844], [375, 667], [320, 568]]) for (const lang of ["en", "pt"]) {
     const { context, page } = await landingPage(browser, { lang, width, height });
     await scrollToDevice(page);
     const captions = await page.evaluate(() => {
@@ -1093,6 +1182,20 @@ async function finalPage(browser) {
     assert(ctl.chapter === 2 && !ctl.playing && third.current[0] === 2 && third.captions === 1 && third.tab === tr("pt", "rest.inline.done"),
       "reduced motion: a chapter switches the still (Rest at a glance shows the app's Descanso concluído)", JSON.stringify({ ctl, third }));
     assert(!third.overflowX, "reduced motion: no horizontal scroll", JSON.stringify(third));
+    await page.click('[data-chapter="3"]');
+    const testStill = await page.evaluate(() => ({
+      chapter: window.__repforgeLandingProof().chapter,
+      playing: window.__repforgeLandingProof().playing,
+      text: document.querySelector('.firstrun-demo__test-result')?.textContent,
+      pair: [...document.querySelectorAll('.firstrun-demo__test-result .ledgerline__pair b')].map(el => el.textContent),
+      opacity: Number(getComputedStyle(document.querySelector('.firstrun-demo__test-result') || document.body).opacity),
+    }));
+    const calibration = require('../effort-calibration.js');
+    const guess = calibration.prefillGuess(10, 2).predictedReps;
+    assert(testStill.chapter === 3 && !testStill.playing && testStill.opacity === 1 &&
+      testStill.text?.includes(tr('pt', 'maxset.guessed')) && JSON.stringify(testStill.pair) === JSON.stringify([String(guess), '12']) &&
+      testStill.text.includes(tr('pt', 'maxset.status_wait', {n: calibration.ESTIMATOR.minChecks - 1})),
+      'reduced motion: test-set still shows the computed guess, result and remaining checks', JSON.stringify(testStill));
     await context.close();
   }
 
@@ -1309,6 +1412,7 @@ async function main() {
   copyPins();
   const browser = await launchChromium();
   try {
+    await accessibleProofResult(browser);
     await characterize(browser);
     await finalPage(browser);
     await dockFocusRing(browser);

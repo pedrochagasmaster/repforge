@@ -74,6 +74,7 @@ export function collectProgramEntrySemantics() {
   // surface a shared setup link lands on. It was absent while this collector
   // only served the Plan 048 entry states; both are registered screens now.
   const root = [
+    document.querySelector("#effortChoiceSheet"),
     document.querySelector("#onboarding"),
     document.querySelector("#firstRun"),
     document.querySelector("#program"),

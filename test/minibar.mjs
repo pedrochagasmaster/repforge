@@ -62,7 +62,7 @@ async function freshPage(browser, { reducedMotion = "no-preference" } = {}) {
   });
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
-  await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
+  await installSeedProgram(page, { key: KEY, waitFor: waitForApp, settings: { rirMode: "numeric" } });
   await page.waitForSelector("#startWorkout:not(.hidden)", { timeout: 5000 });
   return { context, page, errors };
 }
@@ -191,12 +191,12 @@ try {
       shown: document.querySelector("#workout .exercise.is-current")?.dataset.ex || null, bar: !document.querySelector("#miniBar")?.classList.contains("hidden") }));
     assert(opened.selected === shape.ids[2] && (!opened.shown || opened.shown === shape.ids[2]) && !opened.bar,
       "Resume opens Focus on the current exercise, and the bar gives way to it", { opened, current: shape.ids[2] });
-    // Coordinator note (2026-10-24): an effort window of one value reads "RIR 1", never "RIR 1–1".
+    // Coordinator note (2026-10-24): an effort window of one value reads "1 left", never "1–1 left".
     const rir = await page.evaluate(() => ({
-      one: singleRir("3 × 8–10 reps · RIR 1–1"), comma: singleRir("3 × 8–10 reps · RIR 1,5–1,5"), range: singleRir("3 × 8–10 reps · RIR 1–2"),
+      one: singleRir("3 × 8–10 reps · 1–1 left"), comma: singleRir("3 × 8–10 reps · 1,5–1,5 left"), range: singleRir("3 × 8–10 reps · 1–2 left"),
       shown: document.querySelector("#workout .exercise.is-current .focus-ex__meta")?.textContent || "" }));
-    assert(rir.one === "3 × 8–10 reps · RIR 1" && rir.comma === "3 × 8–10 reps · RIR 1,5" && rir.range === "3 × 8–10 reps · RIR 1–2"
-      && !/RIR (\S+)–\1(?![\d.,])/.test(rir.shown), "the Focus meta line names a one-value effort window once", rir);
+    assert(rir.one === "3 × 8–10 reps · 1 left" && rir.comma === "3 × 8–10 reps · 1,5 left" && rir.range === "3 × 8–10 reps · 1–2 left"
+      && !/(\S+)–\1(?= left)/.test(rir.shown), "the Focus meta line names a one-value effort window once", rir);
     await page.evaluate(() => window.__repforgeLeaveWorkout?.());
     await page.waitForSelector("#todayDash:not(.hidden)", { timeout: 5000 });
     await tab(page, "program");
