@@ -257,7 +257,7 @@ async function main() {
   agree("RT-03 typed 57.5 then Reps selected", await readField(page, "load"), 57.5);
 
   // ---- d: reps and numeric RIR ----------------------------------------------
-  phase("RT-03: reps and RIR pad taps");
+  phase("RT-03: a reps pad and a numeric effort chip");
   await boot(page);
   await page.locator(field("reps")).click();
   const reps0 = num((await readField(page, "reps")).input);
@@ -265,7 +265,7 @@ async function main() {
   await holdLock(page);
   await page.locator(pad(1)).click();
   await page.locator(field("rir")).click();
-  await page.locator(pad(-1)).click();
+  await page.locator(`${SHELF} [data-effchip][data-e="${rir0 - 1}"]`).click();
   await page.locator(field("load")).click();
   await releaseLock(page);
   const reps = await readField(page, "reps");

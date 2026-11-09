@@ -29,8 +29,7 @@
  * short sheet keeps one rest; under reduced motion a sheet cross-fades in place.
  *
  * Phase 2W, the wheel picker (owner amendment to choice 8): a second tap on the
- * selected Load or Reps shelf field opens a wheel in a fit sheet (RIR still
- * types); a keyboard step and a scroll each settle on a value that writes
+ * selected Load or Reps shelf field opens a wheel in a fit sheet (numeric effort keeps its chips); a keyboard step and a scroll each settle on a value that writes
  * through the field's own input, the way typing would, and the keyboard button
  * hands off to that same typed path.
  *
@@ -52,7 +51,7 @@
  *
  * Phase 5 addendum, the concentric shelf: a 28px sheet with 16px insets, every
  * field, pad and Log set at 12px (the sheet minus the inset), 8px between
- * siblings and 12px between rows, no field label wrapping, and a per-side
+ * siblings and 12px between rows, whole field labels, and a per-side
  * exercise's Load and Reps in one tile under exactly one "Per side" caption,
  * each field's name still saying per side.
  *
@@ -2432,7 +2431,10 @@ function measureShelf() {
       const range = document.createRange(); range.selectNodeContents(node); return [...range.getClientRects()];
     });
     const lines = new Set(rects.filter((r) => r.width > 1 && r.height > 1).map((r) => Math.round(r.top))).size;
-    return { text: el.textContent.trim(), lines };
+    const box = el.closest(".shelf__fieldbtn").getBoundingClientRect();
+    const value = el.closest(".shelf__fieldbtn").querySelector(".shelf__valrow").getBoundingClientRect();
+    return { text: el.textContent.trim(), lines, effort: el.closest(".shelf__field").dataset.field === "rir",
+      whole: rects.every(r => r.left >= box.left && r.right <= box.right && r.bottom <= value.top + 1) };
   });
   const s = css(shelf);
   const bg = css(document.documentElement).getPropertyValue("--bg").trim();
@@ -2468,7 +2470,10 @@ async function concentricShelf(browser) {
         `${label}: a 28px sheet with 16px insets`, JSON.stringify({ sheet: m.sheet, inset: m.inset }));
       assert(inner === 12 && m.radii.every((r) => r === inner), `${label}: every field, pad and Log set is 12px, the sheet minus its inset`, JSON.stringify(m.radii));
       assert(m.gaps.fields === 8 && m.gaps.pads === 8 && m.rowGap === 12, `${label}: 8px between siblings and 12px between rows`, JSON.stringify({ gaps: m.gaps, rowGap: m.rowGap }));
-      assert(m.labels.every((l) => l.lines === 1), `${label}: no field label wraps`, JSON.stringify(m.labels));
+      // D-15 names the count in full. The Portuguese effort caption can use two
+      // lines; the existing load/reps labels still stay on one and all remain whole.
+      assert(m.labels.every(l => l.lines >= 1 && l.lines <= (l.effort ? 2 : 1) && l.whole),
+        `${label}: field labels stay whole above their values, with at most two effort lines`, JSON.stringify(m.labels));
       assert(!m.outlined.length && m.fills.every((f) => f === m.bgColor) && m.ring !== "none",
         `${label}: quiet tiles on --bg with no outline, and the selected field keeps its ring`, JSON.stringify({ outlined: m.outlined, fills: m.fills, bg: m.bgColor, ring: m.ring }));
       if (key === "workout/focus-per-side") {

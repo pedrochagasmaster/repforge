@@ -428,7 +428,15 @@ async function addMetricSet(page, movement, { actualRir = null } = {}) {
     const rirButton = page.locator(`#workout .exercise.is-current .focus-shelf [data-shelf-field="rir"]`);
     if (await rir.getAttribute("aria-hidden") === "true") await rirButton.click();
 
-    await chooseRepsLeft(page, String(actualRir));
+    if (actualRir > 5) {
+      // A retained pre-chip writer can have authored this value. Exercise that
+      // shipped draft boundary; today's six-chip control never offers 6.
+      await page.evaluate(async ({ id, setId, value }) => {
+        await window.__repforgeWorkoutDraft.dispatch("editSetField", {
+          exerciseInstanceId: id, setId, field: "rir", value: String(value)
+        });
+      }, { id: active.id, setId: active.setId, value: actualRir });
+    } else await chooseRepsLeft(page, String(actualRir));
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   }
   await page.locator(`#workout .exercise.is-current [data-save="${active.id}_1"]`).click();
