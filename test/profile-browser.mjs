@@ -104,6 +104,9 @@ try {
     "the profile includes every active program slot before history exists");
   assert((await page.locator("#overviewProfile").innerText()).includes("0 of 0"), "empty evidence is a count, not a target");
 
+  assert(await page.locator("#overviewProfile [data-finding-next=weights_found]").count() === 1,
+    "the empty profile says how many lifts still start from a guess");
+
   await boot(page);
   assert(await page.locator("#todayCalRing, #todayCalRingBar").count() === 0, "Today has no ring after history either");
   await page.evaluate(() => window.scrollTo(0, 400));
@@ -111,6 +114,16 @@ try {
   await page.click('[data-view="stats"]');
   await page.waitForSelector("#overviewProfile .profile-lift");
   const profile = await page.locator("#overviewProfile").innerText();
+  const findings = await page.locator("#overviewProfile [data-finding]").evaluateAll(nodes => nodes.map(node => ({
+    id:node.dataset.finding, date:node.querySelector("time")?.dateTime, text:node.textContent
+  })));
+  assert(findings.length === 6 && new Set(findings.map(f=>f.id)).size === 6,
+    "the profile derives six findings without inventing a calibrated effort reading", findings);
+  assert(findings.every(f=>/^\d{4}-\d{2}-\d{2}$/.test(f.date)) &&
+    findings.every((f,i)=>!i||findings[i-1].date>=f.date), "findings are dated and newest first", findings);
+  assert(await page.locator("#overviewProfile [data-finding-next=effort_read]").count() === 1 &&
+    (await page.locator("#overviewProfile .profile-finding-need").innerText()).includes("2 more test sets"),
+    "the next finding names its lift and remaining test sets");
   const names = await page.locator("#overviewProfile .profile-lift__name").allTextContents();
   assert(JSON.stringify(names) === JSON.stringify(program.map(ex => ex.name)), "profile rows follow training-day order", names);
   assert(await page.locator("#overviewProfile .profile-lift__standing").count() === program.length,
