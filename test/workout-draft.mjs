@@ -1163,5 +1163,21 @@ console.log("\nIssue #320: create() clamps a target RIR that falls back to the l
   }
 }
 
+// Review B2/B3: observations retain movement identity and independent swap facts.
+{
+  let d=apply(fresh(),"substituteExercise",{exerciseInstanceId:"slot-squat",replacement,selectedAt:"2026-08-15T11:00:00.000Z"});
+  d=apply(d,"recordSubstitutionReason",{draftId:d.draftId,exerciseInstanceId:"slot-squat",selectedAt:d.exercises["slot-squat"].substitution.selectedAt,replacementId:replacement.exerciseInstanceId,reason:"pain"});
+  const project=draft=>Draft.toHistoryRows(apply(draft,"beginFinish"),"2026-08-15T12:00:00.000Z",{includeSessionEvents:true}).sessionEvents;
+  const original=project(d).pain[0];
+  assert(original.exerciseId==="sq_hs"&&original.name==="Hack squat","B2: pain swap records the original movement identity and name");
+  const added=apply(d,"markDiscomfort",{exerciseInstanceId:"slot-squat",kind:"discomfort"});
+  const marks=project(added).pain;
+  assert(marks.length===2&&marks.some(mark=>mark.kind==="pain"&&mark.swapped)&&marks.some(mark=>mark.exerciseId===replacement.libraryId&&mark.name===replacement.displayName),"B3: replacement discomfort preserves original pain and swap");
+  const restored=apply(d,"restoreOriginalExercise",{exerciseInstanceId:"slot-squat"});
+  assert(project(restored).pain[0]?.swapped===false,"B3: restoring the original removes the completed swap fact, not the observation");
+  const cleared=command(restored,"clearDiscomfort",{exerciseInstanceId:"slot-squat"}).result;
+  assert(!Draft.isDomainError(cleared)&&project(cleared).pain.length===0,"explicit clear retracts the mark");
+}
+
 console.log(`\n${results.passed} passed, ${results.failed} failed`);
 if (results.failed) process.exitCode = 1;

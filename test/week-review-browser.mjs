@@ -7,6 +7,25 @@ import {waitForAppBoot} from "./browser.mjs";
 
 export async function runWeekReviewBrowser(browser) {
   const manifest=loadManifest();
+  for(const kind of ["first-week","empty-day","cross-block"]){
+    const state=appState("progress/review-active","en");
+    if(kind==="first-week"){state.programMeta.started="2026-08-31";state.log=[];delete state.sessionEvents}
+    if(kind==="empty-day"){
+      const day=state.programMeta.programDefinition.days.find(day=>day.name==="Day 3");day.slots=[];
+      state.program=state.program.filter(exercise=>exercise.day!=="Day 3");
+    }
+    if(kind==="cross-block"){
+      state.log=state.log.filter(row=>["weekly-2","weekly-second"].includes(row.session)).map((row,index)=>({...row,date:"2026-08-31",blockId:row.session==="weekly-2"?"previous-block":state.programMeta.blockId}));
+    }
+    const {page,context}=await openPage(browser,manifest,{flow:"progress",screen:"review-active",viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},state);
+    try{
+      await dismissChrome(page);await APP_SCENARIOS["progress/review-active"](page);
+      const last=page.locator('[data-week-review="last"]'),current=page.locator('[data-week-review="current"]');
+      if(kind==="first-week")assert.equal(await last.count(),0,"B1: no invented pre-activation week");
+      else assert.match(await (kind==="cross-block"?current:last).innerText(),/2 of 3 sessions/,`B4: ${kind} uses Today's calendar inventory`);
+      assert.doesNotMatch(await current.innerText(),/not completed:/,"unfinished current week says nothing about missed days");
+    }finally{await context.close()}
+  }
   for (const locale of ["en","pt"]) {
     const capture={flow:"progress",screen:"review-active",viewport:"phone-390",theme:"light",locale,text:"normal",motion:"normal"};
     const opened=await openPage(browser,manifest,capture,appState("progress/review-active",locale));
