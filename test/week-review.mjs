@@ -25,3 +25,16 @@ const later={...meta,started:"2026-11-09",completedWeek:true};
 assert.equal(Model.buildWeekReview(log,sessionEvents,program,later,"2026-10-29").programExisted,true,"retained sessions establish a real historical week");
 assert.equal(Model.buildWeekReview([],{},program,later,"2026-10-29").programExisted,false,"no-history pre-activation week stays absent");
 assert.equal(Model.buildWeekReview([],{},program,{...later,completedWeek:false},"2026-10-29").plannedSessions,2,"current calendar denominator always follows authored days");
+
+for(const started of ["2026-10-28","2026-11-09"]){
+  const historical=Model.buildWeekReview(log,sessionEvents,program,{...meta,started,completedWeek:true},"2026-10-29");
+  assert.equal(historical.completedSessions,2);
+  assert.equal(historical.plannedSessions,null,"a partial or unestablished historical week has no target");
+  assert.deepEqual(historical.missedDays,[]);
+  assert.deepEqual(historical.pain,sessionEvents.one.pain);
+}
+const full=Model.buildWeekReview(log.filter(row=>row.session!=="foreign"),sessionEvents,program,{...meta,started:"2026-10-26",completedWeek:true},"2026-10-29");
+assert.equal(full.plannedSessions,2,"Monday start establishes the full-week target");
+assert.deepEqual(full.missedDays,["Thursday"]);
+assert.equal(Model.buildWeekReview([],{},program,{completedWeek:true},"2026-10-29").plannedSessions,2,"missing start preserves existing target behavior");
+assert.equal(Model.buildWeekReview([],{},program,{...later,completedWeek:true},"2026-10-29").programExisted,false);

@@ -4,7 +4,7 @@ import {mkdirSync} from "node:fs";
 import {loadManifest} from "../tools/ui-screens/manifest.mjs";
 import {appState, APP_SCENARIOS} from "../tools/ui-screens/screens-app.mjs";
 import {openPage, dismissChrome, seed, settle} from "../tools/ui-screens/session.mjs";
-import {waitForAppBoot,openShelfField} from "./browser.mjs";
+import {waitForAppBoot,openShelfField,answerRecommend} from "./browser.mjs";
 import {openActions,finishEarly} from "./fixtures/focus-workout.mjs";
 
 async function holdDraftWrite(page){
@@ -48,12 +48,13 @@ async function runRoundTwoCases(browser,manifest){
         if(kind!=="future-start"){
           assert.equal(await page.locator('[data-week-review="last"]').count(),1,"retained sessions establish that last week existed");
           const last=await page.locator('[data-week-review="last"]').innerText();
-          assert.match(last,/2 of 3 sessions/);
+          assert.match(last,/2 sessions completed\./);
+          assert.doesNotMatch(last,/not completed:/);
           for(const event of Object.values(state.sessionEvents).flatMap(record=>[...record.pain,...record.skips]))assert.ok(last.includes(event.name),"retained observations remain visible");
         }else assert.match(await page.locator('[data-week-review="current"]').innerText(),/2 of 3 sessions/);
         await page.locator('nav [data-view="log"]').click();
         if(kind==="future-start")assert.match(await page.locator(".ov-week-line").innerText(),/2 of 3 sessions/);
-        else assert.match(await page.locator("#todayWeekCard").innerText(),/2 of 3 sessions/,"retained last week also keeps its Today card");
+        else assert.match(await page.locator("#todayWeekCard").innerText(),/2 sessions completed\./,"retained last week also keeps its sessions-only Today card");
       }finally{await context.close()}
     });
   }
@@ -109,8 +110,62 @@ async function runRoundTwoCases(browser,manifest){
   if(failures.length)throw new AggregateError(failures,"round 2 regression proofs failed");
 }
 
+async function runRoundThreeCases(browser,manifest){
+  const failures=[];
+  const check=async(name,proof)=>{try{await proof();console.log(`PASS round 3: ${name}`)}catch(error){failures.push(new Error(`${name}: ${error.message}`,{cause:error}))}};
+  const capture=locale=>({flow:"progress",screen:"review-active",viewport:"phone-390",theme:"light",locale,text:"normal",motion:"normal"});
+  async function verifyHistory(page,state,summary,hasTarget){
+    await page.locator('nav [data-view="stats"]').click();await page.locator('#statsSeg [data-seg="review"]').click();
+    const last=page.locator('#stats [data-week-review="last"]');
+    assert.equal(await last.locator("p").first().innerText(),summary,"historical count uses only an established full-week target");
+    const text=await last.innerText();
+    if(hasTarget)assert.match(text,/Training days not completed: Day 3\./);
+    else assert.doesNotMatch(text,/not completed:|não concluídos:/,"unknown historical targets produce no missed days");
+    for(const event of Object.values(state.sessionEvents).flatMap(record=>[...record.pain,...record.skips]))assert.ok(text.includes(event.name),"historical observations remain visible");
+    await page.locator('nav [data-view="log"]').click();
+    assert.equal(await page.locator("#todayWeekCard p").nth(1).innerText(),summary,"Today card uses exactly the same historical summary");
+  }
+  await check("activate a new four-day program over retained history",async()=>{
+    const state=appState("progress/review-active","en");state.program=[];state.programMeta={onboarded:false};
+    const {page,context}=await openPage(browser,manifest,capture("en"),state);
+    try{
+      await dismissChrome(page);await page.locator("#todaySetupProgram").click();
+      await answerRecommend(page,{skipBasics:true,days:4});await page.locator("#entryActivate").click();
+      await page.waitForFunction(()=>window.__repforgeWorkoutDraft.state().programMeta.onboarded===true);
+      await page.evaluate(()=>window.__repforgeStorage.flush());
+      assert.equal(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.programDefinition.days.filter(day=>day.kind==="training").length),4);
+      assert.equal(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().log.length),state.log.length);
+      await verifyHistory(page,state,"2 sessions completed.",false);
+      await page.reload({waitUntil:"domcontentloaded"});await waitForAppBoot(page);
+      await verifyHistory(page,state,"2 sessions completed.",false);
+    }finally{await context.close()}
+  });
+  for(const locale of ["en","pt"])for(const done of [1,2]){
+    await check(`${locale} historical ${done}-session grammar`,async()=>{
+      const state=appState("progress/review-active",locale);state.programMeta.started="2026-08-31";
+      state.log=state.log.filter(row=>(done===1?["weekly-2"]:["weekly-2","weekly-second"]).includes(row.session));
+      const {page,context}=await openPage(browser,manifest,capture(locale),state);
+      try{
+        await dismissChrome(page);
+        const summary=locale==="pt"?(done===1?"1 sessão concluída.":"2 sessões concluídas."):(done===1?"1 session completed.":"2 sessions completed.");
+        await verifyHistory(page,state,summary,false);
+      }finally{await context.close()}
+    });
+  }
+  for(const kind of ["mid-week","full-week"]){
+    await check(kind,async()=>{
+      const state=appState("progress/review-active","en");state.programMeta.started=kind==="mid-week"?"2026-08-26":"2026-08-24";
+      const {page,context}=await openPage(browser,manifest,capture("en"),state);
+      try{await dismissChrome(page);await verifyHistory(page,state,kind==="mid-week"?"2 sessions completed.":"2 of 3 sessions completed.",kind==="full-week")}
+      finally{await context.close()}
+    });
+  }
+  if(failures.length)throw new AggregateError(failures,"round 3 regression proofs failed");
+}
+
 export async function runWeekReviewBrowser(browser) {
   const manifest=loadManifest();
+  await runRoundThreeCases(browser,manifest);
   await runRoundTwoCases(browser,manifest);
   for(const kind of ["first-week","empty-day","cross-block"]){
     const state=appState("progress/review-active","en");
