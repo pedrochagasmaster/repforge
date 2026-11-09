@@ -6520,7 +6520,7 @@ function canonicalPrescriptionSlot(ex,definition=state.programMeta?.programDefin
   return null}
 function enginePerformedRow(row,exerciseId,metricIds){
   const performedId=String(row?.performedLibraryId||row?.performedMovementId||"");
-  if(performedId!==exerciseId||row?.metricType!=="source_metrics@1"||
+  if(row?.origin==="ramp"||performedId!==exerciseId||row?.metricType!=="source_metrics@1"||
     !Array.isArray(row.metricIds)||JSON.stringify(row.metricIds)!==JSON.stringify(metricIds)||
     !Array.isArray(row.metricValues)||!Number.isInteger(row.setIndex)||row.setIndex<0)return null;
   const values=ExerciseMetrics?.validateMetricValues?.(metricIds,row.metricValues);
@@ -6548,9 +6548,6 @@ function liftCalibration(history,context,metricDefinitions,extra=[],asOf=null){
   const Calibration=window.RepForgeEffortCalibration;
   const errors=Calibration?.checkErrors?.({sessions,today:asOf||activeWorkoutDraft?.program?.scheduleDate||today()})||[];
   return Calibration?.estimate?.(errors)||{version:null,n:0,bias:0,spread:null,state:"uncalibrated",reason:"few",delta:0}}
-// Engine indices describe working sets; the ledger keeps its physical ordinals.
-function engineWorkingSets(sets){
-  return sets.filter(set=>!set.warmup).sort((a,b)=>a.setIndex-b.setIndex).map((set,index)=>({...set,setIndex:index}))}
 function progressionHistoryFor(exerciseId,metricIds,slotProjection,metricDefinitions,log=state.log){
   const grouped=new Map();
   const requiresExecutionMode=(metricDefinitions||[]).some(metric=>
@@ -6564,17 +6561,19 @@ function progressionHistoryFor(exerciseId,metricIds,slotProjection,metricDefinit
     if(!grouped.has(sessionId))grouped.set(sessionId,{sessionId,date:row.date,created:row.created,completed:true,sets:[]});
     grouped.get(sessionId).sets.push(performed)}
   return[...grouped.values()].sort(compareLogChronology).map(session=>({
-    sessionId:session.sessionId,date:session.date,completed:true,sets:engineWorkingSets(session.sets)})).filter(session=>session.sets.length)}
+    sessionId:session.sessionId,date:session.date,completed:true,sets:session.sets.sort((a,b)=>a.setIndex-b.setIndex)}))}
 function progressionCurrentSession(prescription){
   if(!activeWorkoutDraft?.exercises)return[];
   const exercise=activeWorkoutDraft.exercises[prescription.slotId]||
     Object.values(activeWorkoutDraft.exercises).find(item=>item.libraryId===prescription.exerciseId||item.sourceExerciseId===prescription.exerciseId);
   if(!exercise||exercise.status==="skipped")return[];
   const sets=[];
-  let workingIndex=0;
+  let rampCount=0;
   for(const setId of exercise.setOrder||[]){
-    const set=exercise.sets?.[setId];if(!set||set.role==="warmup")continue;
-    const setIndex=workingIndex++;if(set.completion==="pending")continue;
+    const set=exercise.sets?.[setId];if(!set)continue;
+    if(set.origin==="ramp"){rampCount++;continue}
+    if(set.role==="warmup"||set.completion==="pending")continue;
+    const setIndex=set.ordinal-1-rampCount;
     const values=[];let valid=true;
     for(const metric of set.programmed?.metrics||[]){
       const parsed=ExerciseMetrics?.parseMetricValue?.(metric,set.edited?.metrics?.[metric.id]);
@@ -6638,7 +6637,7 @@ function recommendation(ex){
   const cycleCount=Number.isInteger(definition.cycles)&&definition.cycles>0?definition.cycles:1;
   const elapsed=mesocycleLifecycle(state.programMeta).current||1,cycleNumber=Math.min(cycleCount,Math.max(1,elapsed));
   const draftExercise=activeWorkoutDraft?.exercises?.[ex.id];
-  const workingOrdinals=draftExercise?.setOrder.map(id=>draftExercise.sets[id]).filter(set=>set.role!=="warmup").map(set=>set.ordinal)||[];
+  const nonRampOrdinals=draftExercise?.setOrder.map(id=>draftExercise.sets[id]).filter(set=>set.origin!=="ramp").map(set=>set.ordinal)||[];
   const prescriptions=compiler.prescriptionsForCycle(definition,cycleNumber).filter(item=>item.slotId===matched.slot.id);
   if(!prescriptions.length)return{status:"manual",engineStatus:"manual",reason:"cycle_prescription_unavailable",load:null,targetSets:[]};
   const first=prescriptions[0],slotProjection=slotLoadingProjection(matched.slot);
@@ -6656,7 +6655,7 @@ function recommendation(ex){
   const plannedSemantic=(matched.slot.metricDefinitions||[]).find(metric=>PLANNED_LOAD_SEMANTICS.includes(metric.semantic))?.semantic||null;
   const targetSets=prescriptions.map((prescription,index)=>{
     const result=results[index]||null;
-    const displayPrescription={...prescription,setIndex:workingOrdinals[index]??prescription.setIndex};
+    const displayPrescription={...prescription,setIndex:nonRampOrdinals[index]??prescription.setIndex};
     const item={prescription:displayPrescription,result,targets:result?.status==="recommended"?result.targets:prescription.targets,
       rir:prescription.rir,status:result?.status||"manual"};
     const codes=result?.reasonCodes||[],authoredLoad=plannedSemantic?prescription.targets?.[plannedSemantic]:null;
@@ -7867,8 +7866,8 @@ function gaugeHits(){
         group.engine.push(performed);
         group.sets.push({setIndex:row.setIndex,load:read.load,reps:read.reps,rir:performed.rir,q:CalibrationGauge.rowQuality(row)})}
       const sessions=[...grouped.values()].sort(compareLogChronology);if(!sessions.length)continue;
-      sessionsByKey[key]=sessions.map(session=>({date:session.date,sets:engineWorkingSets(session.sets),
-        engine:{sessionId:session.sessionId,completed:true,date:session.date,sets:engineWorkingSets(session.engine)}}));
+      sessionsByKey[key]=sessions.map(session=>({date:session.date,sets:session.sets,
+        engine:{sessionId:session.sessionId,completed:true,date:session.date,sets:session.engine.sort((a,b)=>a.setIndex-b.setIndex)}}));
       plans[key]={prescriptions,repSemantic,loadSemantic,slotId:slot.id,metricDefinitions:slot.metricDefinitions,
         context:{bySlotId:{[slot.id]:slotLoadingContext(slot)}}}}
     const settings={weightMatch:state.settings.weightMatch===true,expandRepRange:state.settings.expandRepRange!==false};

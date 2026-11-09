@@ -1876,8 +1876,11 @@
       if (exercise.status === "skipped") continue;
       const original = snapshotFromExercise(exercise);
       const current = exercise.substitution?.replacement || original;
+      let rampCount = 0;
       for (const setId of exercise.setOrder) {
         const set = exercise.sets[setId];
+        const precedingRamps = rampCount;
+        if (set.origin === "ramp") rampCount++;
         if (!isCandidate(set)) continue;
         // A set completed before a substitution keeps the movement it was performed as.
         const performed = isPlainObject(set.performed) ? set.performed : current;
@@ -1900,7 +1903,9 @@
           name: original.displayName,
           exerciseId: exercise.exerciseInstanceId,
           set: set.ordinal,
-          setIndex: set.ordinal - 1,
+          // Only inserted trials shift the engine index. Manual warm-ups and
+          // missing observations keep the historical indexing contract.
+          setIndex: set.ordinal - 1 - precedingRamps,
           load: metricBySemantic.has("loadKg") ? metricBySemantic.get("loadKg") : metricDefinitions ? null : values.load,
           reps: metricBySemantic.has("reps") ? metricBySemantic.get("reps") : metricDefinitions ? null : values.reps,
           rir: metricDefinitions
@@ -1963,6 +1968,7 @@
         else if (performed.movementId) row.performedMovementId = performed.movementId;
         if (exercise.setupNotes.trim()) row.exNote = exercise.setupNotes.trim();
         if (set.role === "warmup") row.warmup = true;
+        if (set.origin === "ramp") row.origin = "ramp";
         if (set.role === "working" && validStartingLoad(set.startingLoad) &&
           !rows.some(prior => prior.exerciseId === exercise.exerciseInstanceId && !prior.warmup)) row.startingLoad = jsonClone(set.startingLoad);
         const bodyweight = draft.session.bodyweight;

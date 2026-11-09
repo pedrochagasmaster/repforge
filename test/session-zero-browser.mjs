@@ -121,7 +121,7 @@ async function nonRampParity(browser){
 }
 const browser=await launchChromium();
 try{
-  await nonRampParity(browser);
+  if(!process.env.REPFORGE_ZERO_SKIP_PARITY)await nonRampParity(browser);
   if(!process.env.REPFORGE_ZERO_PARITY_ONLY){
   const compatibility=await open(browser),cp=compatibility.page;
   await cp.locator(`${card} [data-ramp-start]`).click();await answer(cp,"easy");await waitWarmups(cp,1);
