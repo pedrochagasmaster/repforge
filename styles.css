@@ -9229,5 +9229,6 @@ body.is-entry-editor #entryProgramName,
 
 /* @ci-domain entry */
 .sheet--effort-choice{height:auto}
-.sheet--effort-choice .sheet__body{display:flex;flex-direction:column;overflow:auto;gap:var(--space-8)}
-.sheet--effort-choice .sheetband__title{overflow-wrap:anywhere}
+.sheet--effort-choice .sheet__body{flex-direction:column;overflow:auto}
+#effortChoiceScrim{z-index:53}
+#effortChoiceSheet{z-index:54}

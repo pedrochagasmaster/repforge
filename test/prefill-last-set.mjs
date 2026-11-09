@@ -61,11 +61,8 @@ async function start(browser, definition, { lang = "en", effort = false, day } =
   const opened = await openCatalogState(browser, "today/no-program", 390, lang, "normal");
   const { page } = opened;
   await page.evaluate(async ({ programDefinition, effort }) => {
-    const baseProposal = JSON.parse(localStorage.getItem("repforge_v1"));
-    baseProposal.settings.rirMode = effort ? "effort" : "numeric";
     await window.__repforgeFinalizeProgramSetup({
       programDefinition, name: "Prefill", answers: {}, destination: "log", origin: "first-run",
-      baseProposal,
       draftConfirmed: true, telemetryRoute: "recommend", entrySource: { route: "recommend", fingerprint: "prefill-last-set" },
     });
     await window.__repforgeStorage.flush();

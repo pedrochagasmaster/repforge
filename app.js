@@ -22816,12 +22816,15 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     ?(entryState.result?.compilerContext||null):null;
   if(compilerContext)baseProposal.programMeta.compilerContext=cloneSnapshot(compilerContext);
   const telemetryRoute=route==="recommend"||route==="custom"||route==="browse"||route==="build"||route==="import"||route==="shared"?route:"custom";
+  const activationRevision=readRevision(state);
   const needsEffortChoice=!state.log.length&&loadUiPrefs().effortChosen!==true;
   let chosenEffort=null;
   if(needsEffortChoice){
     const candidate=entryState;
     chosenEffort=await chooseActivationEffort(route==="shared"?baseProposal.settings.rirMode:"effort");
     if(chosenEffort===null||entryState!==candidate||entryDraftHandle!==activationDraftHandle)return{cancelled:true};
+    if(readRevision(state)!==activationRevision){
+      await surfaceEntryDurableConflict();return{staleRevision:true}}
     baseProposal.settings={...baseProposal.settings,rirMode:chosenEffort}}
   const result=await finalizeProgramSetup({
     exercises,
