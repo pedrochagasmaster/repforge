@@ -270,6 +270,9 @@ async function runAdaptationCases(browser,manifest){
       await dismissChrome(page);await APP_SCENARIOS["progress/review-evaluated"](page);
       await page.waitForFunction(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations[0].evaluation);
       assert.equal(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations[0].evaluation.outcome),"pattern_continued","evaluation retains the recorded observations when the affected slot is no longer in the current program");
+      await page.evaluate(()=>window.__repforgeStorage.flush());
+      await page.reload({waitUntil:"domcontentloaded"});await waitForAppBoot(page);
+      assert.equal(await page.evaluate(()=>window.__repforgeWorkoutDraft.state().programMeta.adaptations[0].evaluation.outcome),"pattern_continued","the evaluated receipt survives the actual loader");
     }catch(error){failures.push(error)}finally{await context.close()}
   }
   for(const action of ["accept","decline","later","change"]){
