@@ -514,13 +514,6 @@
       "variants": "standard"
     },
     {
-      "id": "first-run-check",
-      "flow": "onboarding-start",
-      "label": "One-time landing — test-set comparisons",
-      "scenario": "Scrolled to the surface band: computed guess/result comparisons, safety ceilings, correction limits and excluded barbell movements.",
-      "variants": "standard"
-    },
-    {
       "id": "first-run-ways",
       "flow": "onboarding-start",
       "label": "One-time landing — three ways",
@@ -956,9 +949,9 @@
     },
     {
       "id": "editor-alternates",
-      "flow": "program",
-      "label": "Program — editor alternates",
-      "scenario": "The installed Program editor with an exercise's sheet scrolled to its in-session alternates: two chosen movements in order, each with reorder and remove controls, and Add alternate.",
+      "flow": "onboarding-build",
+      "label": "Build — editor alternates",
+      "scenario": "The Build editor (the classic layout) with its first exercise's in-session alternates: two chosen movements in order, each with move and remove controls, and Add alternate.",
       "variants": "localized"
     },
     {
@@ -1019,17 +1012,17 @@
     },
     {
       "id": "review",
-      "flow": "progress",
-      "label": "Progress — Review",
-      "scenario": "The mesocycle review surface.",
-      "variants": "demandingText"
+      "flow": "onboarding-import",
+      "label": "Import — exercise review",
+      "scenario": "Reviewing candidate matches: collapsed candidate chips, disclosure expanded, and unmatched flat escape hatches.",
+      "variants": "accessibility"
     },
     {
       "id": "preview",
-      "flow": "onboarding-shared",
-      "label": "Shared setup — review",
-      "scenario": "The received program in B's review with the Shared program source, Restore, and its block as received (no Change), before explicit activation.",
-      "variants": "accessibility"
+      "flow": "onboarding-import",
+      "label": "Import — review",
+      "scenario": "A mapped exercise with manual progression ownership and provenance.",
+      "variants": "demandingText"
     },
     {
       "id": "gate",
@@ -1044,6 +1037,13 @@
       "label": "Shared setup — invalid landing",
       "scenario": "An invalid setup link explains that nothing was saved and keeps safe Build and Track actions available.",
       "variants": "localized"
+    },
+    {
+      "id": "preview",
+      "flow": "onboarding-shared",
+      "label": "Shared setup — review",
+      "scenario": "The received program in B's review with the Shared program source, Restore, and its block as received (no Change), before explicit activation.",
+      "variants": "accessibility"
     },
     {
       "id": "resume",
@@ -1075,9 +1075,9 @@
     },
     {
       "id": "no-program",
-      "flow": "program",
-      "label": "Program — no program",
-      "scenario": "A fresh device's Program tab, with setup as the only action.",
+      "flow": "today",
+      "label": "Today — no program",
+      "scenario": "A fresh device after leaving setup, with no program or workout controls.",
       "variants": "localized"
     },
     {
@@ -1138,9 +1138,9 @@
     },
     {
       "id": "deload-week",
-      "flow": "workout",
-      "label": "Workout — deload week",
-      "scenario": "Focus shows the recovery note during the program's deload cycle.",
+      "flow": "today",
+      "label": "Today — deload week",
+      "scenario": "The active program's deload cycle shows its recovery note.",
       "variants": "localized"
     },
     {
@@ -1177,6 +1177,13 @@
       "label": "Workout — why this weight, per-side loading",
       "scenario": "The generated bilateral press's Why sheet explains the multiplier and enabled bodyweight contribution.",
       "variants": "demandingText"
+    },
+    {
+      "id": "deload-week",
+      "flow": "workout",
+      "label": "Workout — deload week",
+      "scenario": "Focus shows the recovery note during the program's deload cycle.",
+      "variants": "localized"
     },
     {
       "id": "fatigue",
@@ -1249,13 +1256,6 @@
       "variants": "demandingText"
     },
     {
-      "id": "max-set-recheck",
-      "flow": "workout",
-      "label": "Workout — test-set re-check",
-      "scenario": "A solid calibrated lift, its last check 60 days ago with regular sessions since. The invite explains that it has been a while since the last check.",
-      "variants": "demandingText"
-    },
-    {
       "id": "max-set-guess",
       "flow": "workout",
       "label": "Workout — test-set guess",
@@ -1299,9 +1299,9 @@
     },
     {
       "id": "effort-menu",
-      "flow": "settings",
-      "label": "Settings effort logging menu",
-      "scenario": "Effort logging opened as a native pull-down anchored to its row: Easy / Hard / Max, Reps left and RIR (a number), the current one checked.",
+      "flow": "workout",
+      "label": "Workout — effort menu",
+      "scenario": "The effort field's arrow opened: How you log effort, the two stages with the current one checked, and Not sure for this set under them (Plan 077, OD-2 and OD-4).",
       "variants": "demandingText"
     },
     {
@@ -1345,13 +1345,6 @@
       "label": "Workout — why this weight",
       "scenario": "The recommendation inspector for a range lift: sentences first, each under a bold lead, the working behind See the working, the evidence footer. Estimate basis explains the target’s standing before the effort estimate.",
       "variants": "demandingText"
-    },
-    {
-      "id": "why-standing",
-      "flow": "workout",
-      "label": "Workout — Why, standing",
-      "scenario": "The standing block for a learning lift after a 50-day break, with few sets and few sessions.",
-      "variants": "localized"
     },
     {
       "id": "why-calibration",
@@ -1432,9 +1425,9 @@
     },
     {
       "id": "overview",
-      "flow": "program",
-      "label": "Program",
-      "scenario": "The current program and its days.",
+      "flow": "progress",
+      "label": "Progress — overview",
+      "scenario": "The Progress landing tab.",
       "variants": "demandingText"
     },
     {
@@ -1550,6 +1543,13 @@
       "variants": "standard"
     },
     {
+      "id": "review",
+      "flow": "progress",
+      "label": "Progress — Review",
+      "scenario": "The mesocycle review surface.",
+      "variants": "demandingText"
+    },
+    {
       "id": "review-guide",
       "flow": "progress",
       "label": "Progress — review guide",
@@ -1649,9 +1649,9 @@
     },
     {
       "id": "list",
-      "flow": "library",
-      "label": "Exercise library",
-      "scenario": "The searchable movement library.",
+      "flow": "history",
+      "label": "History",
+      "scenario": "The logged session list.",
       "variants": "demandingText"
     },
     {
@@ -1670,9 +1670,9 @@
     },
     {
       "id": "session",
-      "flow": "workout",
-      "label": "Session details and map",
-      "scenario": "Session details and map through production controls.",
+      "flow": "history",
+      "label": "History — expanded session",
+      "scenario": "One session expanded in place.",
       "variants": "demandingText"
     },
     {
@@ -1718,6 +1718,13 @@
       "variants": "demandingText"
     },
     {
+      "id": "list",
+      "flow": "library",
+      "label": "Exercise library",
+      "scenario": "The searchable movement library.",
+      "variants": "demandingText"
+    },
+    {
       "id": "list-selected",
       "flow": "library",
       "label": "Exercise library — selected movement",
@@ -1753,6 +1760,20 @@
       "variants": "demandingText"
     },
     {
+      "id": "no-program",
+      "flow": "program",
+      "label": "Program — no program",
+      "scenario": "A fresh device's Program tab, with setup as the only action.",
+      "variants": "localized"
+    },
+    {
+      "id": "overview",
+      "flow": "program",
+      "label": "Program",
+      "scenario": "The current program and its days.",
+      "variants": "demandingText"
+    },
+    {
       "id": "minibar-rest-done",
       "flow": "program",
       "label": "Mini bar on Program, rest done",
@@ -1764,6 +1785,13 @@
       "flow": "program",
       "label": "Program — editor",
       "scenario": "The installed Program editor as a page sheet (Plan 075 phase 2B): Cancel and Done in its bar over a pushed-back copy of the Program view, the program name, its days and current week, the day tabs, and the first day's exercises with one line per set.",
+      "variants": "localized"
+    },
+    {
+      "id": "editor-alternates",
+      "flow": "program",
+      "label": "Program — editor alternates",
+      "scenario": "The installed Program editor with an exercise's sheet scrolled to its in-session alternates: two chosen movements in order, each with reorder and remove controls, and Add alternate.",
       "variants": "localized"
     },
     {
@@ -1890,6 +1918,13 @@
       "flow": "settings",
       "label": "Settings language menu",
       "scenario": "Language opened as a native pull-down anchored to its row: English and Português, the current one checked.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "effort-menu",
+      "flow": "settings",
+      "label": "Settings effort logging menu",
+      "scenario": "Effort logging opened as a native pull-down anchored to its row: Easy / Hard / Max, Reps left and RIR (a number), the current one checked.",
       "variants": "demandingText"
     },
     {
@@ -2037,6 +2072,13 @@
       "flow": "install",
       "label": "Install transfer — claimed then expired",
       "scenario": "Claimed-expired recovery remains frozen until explicit divergence confirmation.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "session",
+      "flow": "workout",
+      "label": "Session details and map",
+      "scenario": "Session details and map through production controls.",
       "variants": "demandingText"
     },
     {
@@ -2278,6 +2320,20 @@
       "variants": "accessibility"
     },
     {
+      "id": "why-standing",
+      "flow": "workout",
+      "label": "Workout — Why, standing",
+      "scenario": "The standing block for a learning lift after a 50-day break, with few sets and few sessions.",
+      "variants": "localized"
+    },
+    {
+      "id": "max-set-recheck",
+      "flow": "workout",
+      "label": "Workout — test-set re-check",
+      "scenario": "A solid calibrated lift, its last check 60 days ago with regular sessions since. The invite explains that it has been a while since the last check.",
+      "variants": "demandingText"
+    },
+    {
       "id": "review-proposal",
       "flow": "progress",
       "label": "Review with a proposed change",
@@ -2297,6 +2353,13 @@
       "label": "Workout: immediate pain swap",
       "scenario": "Second marked session on the same movement and slot opens the dismissible swap picker, with different equipment classes first.",
       "variants": "localized"
+    },
+    {
+      "id": "first-run-check",
+      "flow": "onboarding-start",
+      "label": "One-time landing — test-set comparisons",
+      "scenario": "Scrolled to the surface band: computed guess/result comparisons, safety ceilings, correction limits and excluded barbell movements.",
+      "variants": "standard"
     }
   ]
 }
