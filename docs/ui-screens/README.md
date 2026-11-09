@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 253 screens,
-1482 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 256 screens,
+1506 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -182,6 +182,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Workout in progress](screens/today/in-progress__phone-390-light-en.png) | 8 | Option A's live card while a session is open: one lift done, one part done, one skipped and the next one current, each with its status mark. |
 | [Today row actions](screens/today/context-menu__phone-390-light-en.png) | 8 | A Today exercise lifted above its context menu, opened through its visible actions button. |
 | [Today — skipped exercise](screens/today/skipped__phone-390-light-en.png) | 8 | A context-menu skip acknowledged on Today, stored only in the workout draft: the skip opens today's session, so the live card leads and the row reads Skipped today. |
+| [Today — last week](screens/today/week-card__phone-390-light-en.png) | 8 | Two sentences about last week with Review and Dismiss. |
 
 ### Workout logging
 
@@ -236,6 +237,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Swap picker with alternates](screens/workout/swap-alternates__phone-390-light-en.png) | 3 | workout/swap-alternates |
 | [Swap picker with a reason chosen](screens/workout/swap-reason__phone-390-light-en.png) | 3 | workout/swap-reason |
 | [Workout actions](screens/workout/actions__phone-390-light-en.png) | 8 | Focus session actions with a separate Cancel, before any action commits. |
+| [Workout — discomfort recorded](screens/workout/discomfort-mark__phone-390-light-en.png) | 8 | Exercise actions acknowledge a discomfort mark for this session. |
+| [Workout — skip reason](screens/workout/skip-reason__phone-390-light-en.png) | 8 | Closed skip reasons, with no reason chosen before the tap. |
 
 ### Session summary
 
@@ -272,7 +275,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Progress — PR detail](screens/progress/prs-drill-in__phone-390-light-en.png) | 3 | A personal record expands to locale-formatted evidence detail. |
 | [Progress — Review](screens/progress/review__phone-390-light-en.png) | 8 | The mesocycle review surface. |
 | [Progress — review guide](screens/progress/review-guide__phone-390-light-en.png) | 8 | The block-transition guide on the Review tab: the guide dialog centred over the dimmed review. |
-| [Progress — active Review](screens/progress/review-active__phone-390-light-en.png) | 8 | The active-block checkpoint is read-only. |
+| [Progress — active Review](screens/progress/review-active__phone-390-light-en.png) | 8 | Last week and this week so far, with sessions, improved and stalled lifts, discomfort and a skip reason before block evidence. |
 | [Progress — completed-block Review](screens/progress/review-complete__phone-390-light-en.png) | 8 | A completed block exposes the evidence-valid structural routes. |
 | [Progress — insufficient-evidence Review](screens/progress/review-insufficient__phone-390-light-en.png) | 8 | A completed block with sparse evidence excludes performance-derived actions. |
 | [Progress — schedule diagnosis](screens/progress/schedule-diagnosis__phone-390-light-en.png) | 8 | The one-question choice between fewer days and shorter sessions. |

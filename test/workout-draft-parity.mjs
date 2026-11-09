@@ -292,7 +292,7 @@ async function main() {
     await page.locator("#exActionsWarmupList [data-warm-toggle-set]").nth(1).click();
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     await page.locator("#exActionsClose").click();
-    await exerciseAction(page, second.id, "#exActionSkipBtn");
+    await exerciseAction(page, second.id, "#exActionSkipBtn",{skipReason:"time"});
     await exerciseAction(page, second.id, "#exActionSkipBtn");
     const restoredSecond = await setValues(page, second.id, 1);
     assert(

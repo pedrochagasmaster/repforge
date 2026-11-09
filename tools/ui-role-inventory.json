@@ -586,7 +586,7 @@
     "progress/review-active": {
       "owner": "plan-056",
       "content": "flat",
-      "scenario": "The active-block checkpoint is read-only."
+      "scenario": "Calendar-week facts before block-to-date evidence; no proposals or active structural actions."
     },
     "progress/review-complete": {
       "owner": "plan-056",
@@ -1272,6 +1272,21 @@
       "owner": "plan-080",
       "content": "flat",
       "scenario": "A learning lift’s footing, few sets and sessions, after a 50-day break."
+    },
+    "today/week-card": {
+      "owner": "plan-082",
+      "content": "flat",
+      "scenario": "Last week facts and Review/Dismiss actions."
+    },
+    "workout/discomfort-mark": {
+      "owner": "plan-082",
+      "content": "flat",
+      "scenario": "Discomfort recorded in exercise actions."
+    },
+    "workout/skip-reason": {
+      "owner": "plan-082",
+      "content": "flat",
+      "scenario": "Closed reason sheet before skipping an exercise."
     }
   },
   "components": [
@@ -1356,7 +1371,8 @@
         "today/ready-scrolled",
         "today/in-progress",
         "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/calibration-ring-bar",
+        "today/week-card"
       ]
     },
     {
@@ -2361,7 +2377,8 @@
         "workout/exercise-actions",
         "workout/skipped-actions",
         "workout/substituted-actions",
-        "workout/warmup-actions"
+        "workout/warmup-actions",
+        "workout/discomfort-mark"
       ]
     },
     {
@@ -2407,7 +2424,8 @@
         "workout/exercise-actions",
         "workout/skipped-actions",
         "workout/substituted-actions",
-        "workout/warmup-actions"
+        "workout/warmup-actions",
+        "workout/discomfort-mark"
       ]
     },
     {
@@ -2432,7 +2450,8 @@
         "workout/exercise-actions",
         "workout/skipped-actions",
         "workout/substituted-actions",
-        "workout/warmup-actions"
+        "workout/warmup-actions",
+        "workout/discomfort-mark"
       ]
     },
     {
@@ -2458,7 +2477,8 @@
         "workout/exercise-actions",
         "workout/skipped-actions",
         "workout/substituted-actions",
-        "workout/warmup-actions"
+        "workout/warmup-actions",
+        "workout/discomfort-mark"
       ]
     },
     {
@@ -2478,7 +2498,8 @@
         "workout/exercise-actions",
         "workout/skipped-actions",
         "workout/substituted-actions",
-        "workout/warmup-actions"
+        "workout/warmup-actions",
+        "workout/discomfort-mark"
       ]
     },
     {
@@ -2498,7 +2519,8 @@
         "workout/exercise-actions",
         "workout/skipped-actions",
         "workout/substituted-actions",
-        "workout/warmup-actions"
+        "workout/warmup-actions",
+        "workout/discomfort-mark"
       ]
     },
     {
@@ -4505,7 +4527,8 @@
         "today/ready-scrolled",
         "today/in-progress",
         "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/calibration-ring-bar",
+        "today/week-card"
       ]
     },
     {
@@ -4559,7 +4582,8 @@
         "program/custom-exercise-archiving",
         "program/custom-exercise-saving",
         "today/context-menu",
-        "today/day-picker"
+        "today/day-picker",
+        "today/week-card"
       ],
       "neverDisabledReason": "The ring is shown only when there is a gauge to open; with none it is hidden, not disabled."
     },
@@ -6239,7 +6263,8 @@
         "today/deload-week",
         "today/ready-scrolled",
         "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/calibration-ring-bar",
+        "today/week-card"
       ]
     },
     {
@@ -6708,7 +6733,8 @@
         "today/ready-scrolled",
         "today/in-progress",
         "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/calibration-ring-bar",
+        "today/week-card"
       ],
       "progressScopes": {
         "active-program-week": "block"
@@ -6766,7 +6792,8 @@
         "today/ready-scrolled",
         "today/in-progress",
         "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/calibration-ring-bar",
+        "today/week-card"
       ],
       "progressScopes": {
         "current-week-trained-days": "week"
@@ -6833,7 +6860,8 @@
         "today/ready-scrolled",
         "today/in-progress",
         "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/calibration-ring-bar",
+        "today/week-card"
       ]
     },
     {
@@ -8690,7 +8718,8 @@
         "program/minibar-rest-done",
         "progress/overview-calibration",
         "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/calibration-ring-bar",
+        "today/week-card"
       ]
     },
     {
@@ -8769,7 +8798,8 @@
         "program/minibar-rest-done",
         "progress/overview-calibration",
         "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/calibration-ring-bar",
+        "today/week-card"
       ]
     },
     {
@@ -8857,7 +8887,8 @@
         "program/minibar-rest-done",
         "progress/overview-calibration",
         "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/calibration-ring-bar",
+        "today/week-card"
       ]
     },
     {
@@ -9090,7 +9121,9 @@
         "workout/why-calibration",
         "history/session-share",
         "workout/rest-overrun-finish",
-        "workout/why-standing"
+        "workout/why-standing",
+        "workout/skip-reason",
+        "workout/discomfort-mark"
       ]
     },
     {
@@ -9209,7 +9242,8 @@
         "today/in-progress",
         "program/minibar-rest-done",
         "today/calibration-mini",
-        "today/calibration-ring-bar"
+        "today/calibration-ring-bar",
+        "today/week-card"
       ]
     },
     {
@@ -11429,7 +11463,8 @@
         "workout/exercise-actions",
         "workout/warmup-actions",
         "workout/skipped-actions",
-        "workout/substituted-actions"
+        "workout/substituted-actions",
+        "workout/discomfort-mark"
       ]
     },
     {
@@ -12884,6 +12919,178 @@
       "catalogStates": [
         "workout/focus",
         "library/exercise-detail-suggested"
+      ]
+    },
+    {
+      "id": "week-card-review",
+      "selector": "#weekCardReview",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Opens last week in Review.",
+      "owner": "plan-082",
+      "catalogStates": [
+        "today/ready",
+        "today/calibration-mini",
+        "today/calibration-ring-bar",
+        "today/dock-viewer",
+        "today/ready-scrolled",
+        "today/rest-bar",
+        "today/day-picker",
+        "today/done",
+        "today/deload-week",
+        "today/draft-resume",
+        "today/in-progress",
+        "today/context-menu",
+        "today/skipped",
+        "today/week-card"
+      ]
+    },
+    {
+      "id": "week-card-dismiss",
+      "selector": "#weekCardDismiss",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Dismisses the current ISO week on this device.",
+      "owner": "plan-082",
+      "catalogStates": [
+        "today/ready",
+        "today/calibration-mini",
+        "today/calibration-ring-bar",
+        "today/dock-viewer",
+        "today/ready-scrolled",
+        "today/rest-bar",
+        "today/day-picker",
+        "today/done",
+        "today/deload-week",
+        "today/draft-resume",
+        "today/in-progress",
+        "today/context-menu",
+        "today/skipped",
+        "today/week-card"
+      ]
+    },
+    {
+      "id": "discomfort-mark",
+      "selector": "#exActionDiscomfortBtn",
+      "roles": {
+        "control": "selection"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "selected"
+      ],
+      "rationale": "Records discomfort in this session.",
+      "owner": "plan-082",
+      "catalogStates": [
+        "workout/discomfort-mark",
+        "workout/warmup-actions",
+        "workout/skipped-actions",
+        "workout/exercise-actions",
+        "workout/substituted-actions"
+      ]
+    },
+    {
+      "id": "skip-reason-choice",
+      "selector": "[data-skip-reason]",
+      "roles": {
+        "control": "selection"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Chooses a closed reason and skips the exercise.",
+      "owner": "plan-082",
+      "catalogStates": [
+        "workout/skip-reason"
+      ]
+    },
+    {
+      "id": "skip-reason-close",
+      "selector": "#skipReasonClose",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [
+        "icon-only"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Dismisses without skipping.",
+      "owner": "plan-082",
+      "catalogStates": [
+        "workout/skip-reason"
+      ]
+    },
+    {
+      "id": "skip-reason-sheet",
+      "selector": "#skipReasonSheet",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "bottom-sheet",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Collects a reason with the underlying workout inert.",
+      "owner": "plan-082",
+      "catalogStates": [
+        "workout/skip-reason"
+      ]
+    },
+    {
+      "id": "skip-reason-scrim",
+      "selector": "#skipReasonScrim",
+      "roles": {
+        "elevation": "modal"
+      },
+      "variant": "scrim",
+      "facets": [],
+      "states": [
+        "default"
+      ],
+      "rationale": "Dims the underlying workout.",
+      "owner": "plan-082",
+      "catalogStates": [
+        "workout/skip-reason"
       ]
     }
   ],

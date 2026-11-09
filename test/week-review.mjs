@@ -1,0 +1,40 @@
+import assert from "node:assert/strict";
+import {createRequire} from "node:module";
+const require=createRequire(import.meta.url);
+const Model=require("../progress-model.js");
+const program=[{id:"a",day:"Monday",sets:3},{id:"b",day:"Thursday",sets:3}];
+const log=[{session:"old",date:"2026-10-25",day:"Monday",blockId:"block"},{session:"one",date:"2026-10-26",day:"Monday",blockId:"block"},{session:"one",date:"2026-10-26",day:"Monday",blockId:"block"},{session:"next",date:"2026-11-02",day:"Thursday",blockId:"block"},{session:"foreign",date:"2026-10-29",day:"Thursday",blockId:"other"}];
+const sessionEvents={one:{v:1,skips:[{exerciseId:"b",slotId:"b",reason:"trim"}],pain:[{exerciseId:"a",slotId:"a",kind:"pain",swapped:true}]},old:{v:1,skips:[{exerciseId:"a",slotId:"a",reason:"time"}],pain:[]}};
+const meta={started:"2026-10-01",blockId:"block",weekFacts:{start:"2026-10-26",end:"2026-11-01",outcomes:[{exerciseId:"a",outcome:"improved"}],stalled:["b"],fatigue:["a"]}};
+const before=JSON.stringify({log,sessionEvents,program,meta});
+const facts=Model.buildWeekReview(log,sessionEvents,program,meta,"2026-10-29");
+assert.equal(facts.start,"2026-10-26");assert.equal(facts.end,"2026-11-01");
+assert.equal(facts.completedSessions,2);assert.equal(facts.plannedSessions,2);
+assert.deepEqual(facts.missedDays,[]);
+assert.deepEqual(facts.skips,sessionEvents.one.skips);assert.deepEqual(facts.pain,sessionEvents.one.pain);
+assert.equal(facts.trimUsed,true);assert.deepEqual(facts.outcomes,meta.weekFacts.outcomes);
+assert.deepEqual(facts.stalled,["b"]);assert.deepEqual(facts.fatigue,["a"]);
+assert.equal(JSON.stringify({log,sessionEvents,program,meta}),before);
+const empty=Model.buildWeekReview(log,sessionEvents,program,meta,"2026-11-09");
+assert.equal(empty.completedSessions,0);assert.deepEqual(empty.skips,[]);assert.deepEqual(empty.pain,[]);
+assert.deepEqual(empty.outcomes,[]);assert.deepEqual(empty.stalled,[]);assert.deepEqual(empty.fatigue,[]);
+assert.equal(Object.hasOwn(facts,"status"),false);assert.equal(Object.hasOwn(facts,"percent"),false);
+console.log("PASS weekly facts: calendar bounds, session deduplication, block-scoped performance, events, authoritative outcomes and purity");
+
+const later={...meta,started:"2026-11-09",completedWeek:true};
+assert.equal(Model.buildWeekReview(log,sessionEvents,program,later,"2026-10-29").programExisted,true,"retained sessions establish a real historical week");
+assert.equal(Model.buildWeekReview([],{},program,later,"2026-10-29").programExisted,false,"no-history pre-activation week stays absent");
+assert.equal(Model.buildWeekReview([],{},program,{...later,completedWeek:false},"2026-10-29").plannedSessions,2,"current calendar denominator always follows authored days");
+
+for(const started of ["2026-10-28","2026-11-09"]){
+  const historical=Model.buildWeekReview(log,sessionEvents,program,{...meta,started,completedWeek:true},"2026-10-29");
+  assert.equal(historical.completedSessions,2);
+  assert.equal(historical.plannedSessions,null,"a partial or unestablished historical week has no target");
+  assert.deepEqual(historical.missedDays,[]);
+  assert.deepEqual(historical.pain,sessionEvents.one.pain);
+}
+const full=Model.buildWeekReview(log.filter(row=>row.session!=="foreign"),sessionEvents,program,{...meta,started:"2026-10-26",completedWeek:true},"2026-10-29");
+assert.equal(full.plannedSessions,2,"Monday start establishes the full-week target");
+assert.deepEqual(full.missedDays,["Thursday"]);
+assert.equal(Model.buildWeekReview([],{},program,{completedWeek:true},"2026-10-29").plannedSessions,2,"missing start preserves existing target behavior");
+assert.equal(Model.buildWeekReview([],{},program,{...later,completedWeek:true},"2026-10-29").programExisted,false);
