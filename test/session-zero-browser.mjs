@@ -9,7 +9,7 @@ const BASE=process.env.REPFORGE_URL||"http://localhost:8000/";
 let checks=0;
 const check=(value,label)=>{assert.ok(value,label);checks++;console.log(`  ✓ ${label}`)};
 const card="#workout .exercise.is-current";
-async function open(browser,{mode="effort",planned=false}={}){
+async function open(browser,{mode="effort",planned=false,bodyweight=80}={}){
   const context=await browser.newContext({viewport:{width:390,height:844}}),page=await context.newPage();
   await page.goto(BASE);await waitForAppBoot(page,{base:BASE});
   const state=await installGeneratedProgram(page,{name:"Opening-load proof"});
@@ -17,9 +17,9 @@ async function open(browser,{mode="effort",planned=false}={}){
     .filter(ex=>ex.movementPattern?.some(id=>window.RepForgeExerciseCatalog.getObject(id)?.name==="Squat")).map(ex=>ex.id));
   const target=state.program.find(row=>squats.includes(row.libraryId)&&isWeightRepsSlot(definitionSlot(state.programMeta,row))&&row.sets>=3);
   assert.ok(target,"generated fixture has a weighted squat");
-  await page.evaluate(async ({id,mode,planned})=>{
+  await page.evaluate(async ({id,mode,planned,bodyweight})=>{
     const state=JSON.parse(localStorage.getItem("repforge_v1"));
-    state.profile={weightKg:80};state.programMeta.experience="beginner";
+    state.profile=bodyweight==null?{}:{weightKg:bodyweight};state.programMeta.experience="beginner";
     state.settings.rirMode=mode;delete state.settings.effortScale;
     if(planned){
       const slot=state.programMeta.programDefinition.days.flatMap(day=>day.slots||[]).find(slot=>slot.id===id);
@@ -27,7 +27,7 @@ async function open(browser,{mode="effort",planned=false}={}){
     }
     await window.__repforgeCommitProposedState(state);
     await window.__repforgeStorage.flush();
-  },{id:target.id,mode,planned});
+  },{id:target.id,mode,planned,bodyweight});
   await page.reload();await waitForAppBoot(page,{base:BASE});
   await page.evaluate(id=>window.__repforgeGoToLogExercise(id),target.id);
   await page.locator(`${card}[data-ex="${target.id}"]`).waitFor();
@@ -70,6 +70,37 @@ async function nextWorking(page,count){
 }
 const browser=await launchChromium();
 try{
+  const weight=await open(browser,{bodyweight:null}),wp=weight.page;
+  const start=wp.locator(`${card} [data-ramp-start]`);
+  check((await start.innerText())==="Start at 2.5 kg","missing bodyweight advertises the floor");
+  async function bodyweight(value){
+    await wp.locator("#sessionSheetBtn").click();await wp.locator("#sessionBodyweight").fill(value);
+    await wp.evaluate(()=>window.__repforgeWorkoutDraft.flush());
+    await wp.locator("#sessionSheetClose").click();
+    await wp.waitForFunction(()=>!document.body.classList.contains("is-sheet-open"));
+  }
+  await wp.locator(`${card} [data-ramp-bodyweight]`).click();await wp.locator("#sessionBodyweight").fill("80");
+  await wp.evaluate(()=>window.__repforgeWorkoutDraft.flush());await wp.locator("#sessionSheetClose").click();
+  await wp.waitForFunction(()=>!document.body.classList.contains("is-sheet-open"));
+  check((await start.innerText())==="Start at 62.5 kg"&&!(await wp.locator(`${card} .fx-cue__evidence`).innerText()).includes("lightest"),
+    "acknowledged bodyweight refreshes both the offered load and its explanation");
+  await bodyweight("40");check((await start.innerText())==="Start at 30 kg","decreasing bodyweight refreshes the offer");
+  await bodyweight("");check((await start.innerText())==="Start at 2.5 kg","removing bodyweight restores the visible floor");
+  await wp.evaluate(()=>new Promise(ready=>{navigator.locks.request("repforge:draft-write",()=>new Promise(release=>{window.__releaseOpeningWrite=release;ready();}));}));
+  await wp.locator("#sessionSheetBtn").click();await wp.locator("#sessionBodyweight").fill("80");
+  await wp.locator("#sessionSheetClose").click();await wp.waitForFunction(()=>!document.body.classList.contains("is-sheet-open"));
+  check((await start.innerText())==="Start at 2.5 kg","a held bodyweight write has not advertised its new load");
+  await start.click();await wp.evaluate(()=>window.__releaseOpeningWrite());
+  await wp.evaluate(()=>window.__repforgeWorkoutDraft.flush());
+  await wp.waitForFunction(()=>document.querySelector("#workout .exercise.is-current [data-ramp-start]")?.textContent==="Start at 62.5 kg");
+  check(Object.values((await exercise(wp)).sets).every(set=>!set.startingLoad),"accepting the old offer during a held write never silently applies the new load");
+  await start.click();await wp.evaluate(()=>window.__repforgeWorkoutDraft.flush());
+  let accepted=Object.values((await exercise(wp)).sets)[0];
+  check(accepted.startingLoad.openingKg===62.5,"acceptance applies exactly the newly advertised load");
+  await bodyweight("40");await bodyweight("");
+  accepted=Object.values((await exercise(wp)).sets)[0];
+  check(accepted.startingLoad.openingKg===62.5&&(await start.innerText())==="Start at 62.5 kg","bodyweight edits preserve an already accepted pending opening");
+  await weight.context.close();
   const anchor=await open(browser);
   await anchor.page.locator(`${card} [data-ramp-start]`).click();
   await answer(anchor.page,"easy");await waitWarmups(anchor.page,1);
