@@ -10049,8 +10049,8 @@ function toggleFocusLedger(button){
 /** The line under the exercise name: sets and reps, the effort window, and the
  *  name of the strategy that sets the target. Read off the program's own
  *  envelope; a slot with none is the range it always was. */
-/** An effort window of one value reads as that value: "RIR 1", never "RIR 1–1". */
-const singleRir=line=>String(line).replace(/RIR (\S+)–\1(?![\d.,])/,"RIR $1");
+/** An effort window of one value reads as that value: "1 left", never "1–1 left". */
+const singleRir=line=>String(line).replace(/(· )(\d+(?:[.,]\d+)?)–\2(?= (?:left|sobrando))/g,"$1$2");
 function focusExMeta(ex){
   if(ex?.hasRepTarget===false)return programPrescriptionSummary(ex);
   // A canonical slot is adaptive or manual; its RIR comes from its own sets.
@@ -12455,7 +12455,7 @@ function strengthDetailTable(k,projection=strengthProjection(strengthScope)){
     repsLabel=series?.perSideReps?t("focus.metric.reps_per_side"):t("stats.table.reps"),
     e1rmLabel=series?.perSideLoad?`${t("stats.table.e1rm_unit",{unit:u})} · ${t("focus.metric.load_per_side_kg")}`:t("stats.table.e1rm_unit",{unit:u});
   return reason+range+table(sess.map(s=>({[t("stats.table.date")]:shortDate(s.date),[topLabel]:fmtLoad(s.top),[repsLabel]:s.topReps,
-      [e1rmLabel]:fmt(Math.round(toDisplay(s.e1rm))),[t("stats.table.rir")]:fmt(s.rir)}))).replace("<table>",'<table class="evtable">')}
+      [e1rmLabel]:fmt(Math.round(toDisplay(s.e1rm))),[t("focus.col.left")]:fmt(s.rir)}))).replace("<table>",'<table class="evtable">')}
 function legacyStrengthTable(el){
   const rows=strengthDashboard();
   if(!rows.length){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_lifts"))}</div>`;return}
@@ -13725,12 +13725,12 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
     const cmp=exRef?compareExerciseSession(exRef,s.rows):null;
     const note=s.note?`<p class="exsess__note">${esc(s.note)}</p>`:"";
     return `<div class="exsess"><div class="exsess__head"><span class="exsess__date">${esc(shortDate(s.date))}</span>`+
-      (best?`<span class="exsess__set">${fmtLoad(best.load)} × ${best.reps}</span><span class="exsess__day">RIR ${fmt(best.rir)}</span>`:"")+
+      (best?`<span class="exsess__set">${fmtLoad(best.load)} × ${best.reps}</span><span class="exsess__day">${esc(t("stats.table.rir"))} ${fmt(best.rir)}</span>`:"")+
       (cmp&&cmp.status!=="not_comparable"?`<span class="exsess__delta">${esc(cmp.label)}</span>`:"")+`</div>${note}</div>`}).join("")
     :`<div class="empty">${esc(t("exercise.empty.no_sets"))}</div>`;
 
   el.innerHTML=`<p class="exdet__muscle">${esc(muscleListLabel(tmpl?.primary||""))}</p><h2 class="exdet__name">${esc(name)}</h2>`+
-    `<p class="exdet__meta">${tmpl?`${esc(dayLabel(tmpl.day))} · ${esc(tmpl.hasRepTarget===false?programPrescriptionSummary(tmpl):`${tmpl.sets} × ${tmpl.min}–${tmpl.max} ${t("log.reps")}`)}${tmpl.hasRepTarget===false?"":` · RIR 0–${fmt(state.settings.rirHigh)}`}`:esc(t("exercise.not_in_program"))}</p>`+
+    `<p class="exdet__meta">${tmpl?`${esc(dayLabel(tmpl.day))} · ${esc(tmpl.hasRepTarget===false?programPrescriptionSummary(tmpl):`${tmpl.sets} × ${tmpl.min}–${tmpl.max} ${t("log.reps")}`)}${tmpl.hasRepTarget===false?"":` · ${esc(t("stats.table.rir"))} 0–${fmt(state.settings.rirHigh)}`}`:esc(t("exercise.not_in_program"))}</p>`+
     artHtml+
     recHtml+
     `<div class="exdet__stats-wrap"><div class="statrow statrow--4 exdet__stats">${tiles.map(tile=>`<div class="statrow__cell"><div class="statrow__val">${tile.val}</div><div class="statrow__cap">${tile.label}</div></div>`).join("")}</div></div>`+
@@ -23615,7 +23615,7 @@ const landingLoopTime=time=>{const L=LANDING_DEMO.loop;return Number.isFinite(ti
 /** Every catalog string the proof's screen shows; test/landing-demo-copy.mjs fails when one leaves a catalog or Focus
  *  stops saying it. */
 const LANDING_DEMO_KEYS=["focus.exmeta.range","program.progression.adaptive","focus.cue.up","focus.cue.reps",
-  "focus.evidence.history","focus.evidence.target","focus.evidence.why","log.set","log.reps","stats.table.rir",
+  "focus.evidence.history","focus.evidence.target","focus.evidence.why","log.set","log.reps","focus.col.left","focus.field.left",
   "focus.prev_line","focus.next_row","focus.metric.load_kg","focus.metric.reps","focus.shelf.pad_load","focus.shelf.log_set",
   "rest.inline.label","rest.inline.done","landing.outcomes.next_label","landing.outcomes.target","landing.outcomes.did_same",
   "dialog.done"];
@@ -23631,7 +23631,7 @@ function landingDemoHtml(add){
   const line=(index,values,soft,extra="",last=prev)=>`<div class="ledgerline${last?" ledgerline--two":""}${extra}"><span class="ledgerline__idx">${index}</span>${cells(values,soft)}${last}</div>`;
   const check=`<span class="fx-check" aria-hidden="true"></span>`;
   const head=`<div class="ledgerline__head"><span>${esc(t("log.set"))}</span><span class="ledgerline__vals">`+
-    `<span class="fx-col">${esc(unit)}</span><span class="fx-col">${esc(t("log.reps"))}</span><span class="fx-col">${esc(t("stats.table.rir"))}</span></span></div>`;
+    `<span class="fx-col">${esc(unit)}</span><span class="fx-col">${esc(t("log.reps"))}</span><span class="fx-col">${esc(t("focus.col.left"))}</span></span></div>`;
   // Set 1 is logged at one rep over the target: the finger turns the Reps wheel to it in chapter 1.
   const turned=landingNum(target.reps+1);
   const set=[kg,reps,landingNum(rir0)],did=[kg,turned,landingNum(rir0)],aim=[kg,reps,landingNum(rir)];
@@ -23700,7 +23700,7 @@ function landingDemoHtml(add){
       `<span class="resttab firstrun-demo__tab"><span class="resttab__label"></span><span class="resttab__end"><span class="resttab__time"></span>`+
       `<span class="resttab__chev icon-mask icon-mask--chev-up" aria-hidden="true"></span></span></span>`+
       `<div class="shelf__fields firstrun-demo__fields">${field(load,`${load}, ${unit}`,kg,unit)}${repsField}`+
-        `${field(t("stats.table.rir"),t("stats.table.rir"),landingNum(rir0),"")}<span class="firstrun-demo__sel"></span></div>`+
+        `${field(t("focus.field.left"),t("focus.field.left"),landingNum(rir0),"")}<span class="firstrun-demo__sel"></span></div>`+
       `<div class="shelf__pads">${pad("−")}${pad("+")}</div>`+
       button("btn btn--cta btn--noarrow saveset firstrun-demo__log",`<span class="firstrun-demo__log1">${esc(t("focus.shelf.log_set",{n:1}))}</span>`+
         `<span class="firstrun-demo__log2">${esc(t("focus.shelf.log_set",{n:2}))}</span>`)+

@@ -5399,6 +5399,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 #stats .evrow--d .evrow__detail,#stats .evrow__detail{padding:0 0 var(--space-8);border-bottom:1px solid var(--boundary-decorative);overflow-x:visible}
 .evrow__detail .lede{margin:0 0 var(--space-4)}
 .evtable{width:100%;min-width:0;table-layout:fixed;border-collapse:collapse;margin-top:var(--space-8)}
+.evtable th:last-child{white-space:nowrap;font-size:min(var(--font-size-label),var(--large-cap-caption));letter-spacing:normal;text-transform:none}
 .evtable th,.evtable td{
   padding:var(--space-8) 0;border-bottom:1px solid var(--boundary-decorative);text-align:right;white-space:normal;overflow-wrap:anywhere;
   font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink);
@@ -5408,7 +5409,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
   letter-spacing:var(--track-label);text-transform:uppercase;color:var(--color-ink-secondary);
 }
 .evtable th:first-child,.evtable td:first-child{width:26%;text-align:left;font-family:var(--font-language)}
-.evtable th + th,.evtable td + td{padding-left:var(--space-8)}
+.evtable th + th,.evtable td + td{padding-left:var(--space-2)}
 .evtable tbody tr:last-child td{border-bottom:0}
 
 /* A narrow screen or enlarged text: the rows stack instead of squeezing the words. */

@@ -723,6 +723,16 @@ async function finalPage(browser) {
     phase(`Final page [${lang}]: sections and engine-true numbers`);
     const { context, page, errors } = await landingPage(browser, { lang });
     const f = await page.evaluate(readFinal, SECTIONS);
+    await page.locator("#firstRunDemo .ledgerline__head").first().waitFor({ state: "attached" });
+    const effortLabels = await page.locator("#firstRunDemo").evaluate(root => ({
+      columns: [...root.querySelectorAll(".ledgerline__head .fx-col:last-child")].map(node => node.textContent.trim()),
+      shelf: [...root.querySelectorAll(".firstrun-demo__shelf .shelf__field")].at(-1)?.querySelector(".shelf__lab")?.textContent.trim(),
+    }));
+    assert(effortLabels.columns.length === 2 && effortLabels.columns.every(value => value === tr(lang, "focus.col.left")),
+      `[${lang}] the numerical landing phone uses Focus's reps-left column heading (#712)`, JSON.stringify(effortLabels));
+    assert(effortLabels.shelf === tr(lang, "focus.field.left"),
+      `[${lang}] the numerical landing phone uses Focus's reps-left shelf label (#712)`, JSON.stringify(effortLabels));
+
 
     for (const name of SECTIONS) assert(f.sections[name], `[${lang}] the ${name} section is present (data-landing-section="${name}")`);
 
