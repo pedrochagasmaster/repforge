@@ -808,7 +808,7 @@ async function runEverySetChecks(browser) {
       metricDefinitions: [{ id: "m-reps-side", semantic: "repsPerSide", unit: "reps" }, { id: "m-load-side", semantic: "loadPerSideKg", unit: "kg" }],
       metricValues: [{ metricId: "m-reps-side", value: 7, unit: "reps" }, { metricId: "m-load-side", value: 14, unit: "kg" }] },
   ];
-  const expected = { en: ["Set 1", "Warm-up 1", "Set 2", "Reps per side: 7", "Load per side: 14 kg", "RIR 2"], pt: ["Série 1", "Aquecimento 1", "Série 2", "RIR 2"] };
+  const expected = { en: ["Set 1", "Warm-up 1", "Set 2", "Reps per side: 7", "Load per side: 14 kg", "Reps left 2"], pt: ["Série 1", "Aquecimento 1", "Série 2", "Reps sobrando 2"] };
   for (const lang of ["en", "pt"]) for (const width of [320, 390, 430]) for (const scale of [1, 2]) {
     const context = await browser.newContext({ viewport: { width, height: 844 }, serviceWorkers: "block" });
     try {

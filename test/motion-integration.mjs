@@ -888,10 +888,10 @@ async function landingProofMotion(browser, { reducedMotion = "no-preference" } =
   });
   if (reduced) {
     assert(!written.proof.playing && written.proof.frames === 0 && written.props.length === 0, "under reduced motion the phone does not play", JSON.stringify(written));
-    await page.click('[data-chapter="3"]');
+    await page.click('[data-chapter="4"]');
     const still = await page.evaluate(() => ({ proof: window.__repforgeLandingProof(),
       sheet: getComputedStyle(document.querySelector(".firstrun-demo__sheet")).transform, frames: window.__repforgeLandingProof().frames }));
-    assert(still.proof.chapter === 3 && still.frames === 0 && /^(none|matrix\(1, 0, 0, 1, 0, 0\))$/.test(still.sheet),
+    assert(still.proof.chapter === 4 && still.frames === 0 && /^(none|matrix\(1, 0, 0, 1, 0, 0\))$/.test(still.sheet),
       "a chapter switches to its still (the next-session sheet is up)", JSON.stringify(still));
   } else {
     assert(written.proof.playing && written.props.length > 0 && written.props.every((name) => name === "transform" || name === "opacity"),
