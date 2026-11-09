@@ -330,7 +330,6 @@ try {
       await logShown(page);
       r = await reading(page, 1);
       check(r.stored.done && Number(r.stored.rir) === Number(expected), "logging the target/history offer stores the effort shown", r);
-
     } finally { await context.close(); }
   }
 

@@ -1,13 +1,18 @@
 /** Activation-boundary effort choice, composed into the program-entry browser owner. */
 import assert from "node:assert/strict";
 import { openCatalogState } from "./fixtures/catalog-state.mjs";
+import { collectProgramEntrySemantics } from "../tools/ui-screens/semantics.mjs";
 import { emptyEntryState } from "../tools/ui-screens/fixtures.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 export async function verifyEffortChoice(browser) {
   let passed = 0;
-  const check = (condition, message) => { assert.ok(condition, message); passed++; console.log(`  ✓ ${message}`); };
+  const failures = [];
+  const check = (condition, message) => {
+    if (condition) { passed++; console.log(`  ✓ ${message}`); }
+    else { failures.push(message); console.error(`  ✗ ${message}`); }
+  };
   const boot = async page => {
     await page.goto(BASE);
     await page.waitForFunction(() => window.__repforgeBooted === true);
@@ -62,6 +67,9 @@ export async function verifyEffortChoice(browser) {
         `${route} preselects ${route === "shared" ? "the shared stage" : "words"}`);
       check(await page.evaluate(() => Number(getComputedStyle(document.querySelector("#effortChoiceSheet")).zIndex) >
         Number(getComputedStyle(document.querySelector("#onboarding")).zIndex)), "the effort question paints above onboarding");
+      const semantics = await page.evaluate(collectProgramEntrySemantics);
+      check(semantics[0]?.role === "dialog" && semantics.some(record => record.tag === "h2" && record.text === semantics[0].labelledBy),
+        "catalog semantics describe the activation question rather than the underlying editor");
       check(JSON.stringify(await stored(page)) === JSON.stringify(before), "opening the question persists no proposal field");
       const duplicate = await page.evaluate(() => window.__repforgeActivateEntryPreview());
       check(duplicate?.cancelled === true && await page.locator("#effortChoiceSheet").isVisible(), "a repeated activation keeps one unanswered question");
@@ -119,5 +127,6 @@ export async function verifyEffortChoice(browser) {
         "a refused activation does not acknowledge the device choice");
     } finally { await context.close(); }
   }
+  assert.equal(failures.length, 0, failures.join("; "));
   return passed;
 }
