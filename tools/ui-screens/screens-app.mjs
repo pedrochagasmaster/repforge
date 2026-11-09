@@ -2196,7 +2196,7 @@ export const APP_SCENARIOS = {
     await page.locator('#sessionAbandonReasons [data-abandon-reason="time"]').click();
     await pinSheetScrollToEnd(page, ".session-sheet__body");
   },
-  "workout/exercise-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click(); await resetSheetScroll(page, ".exactions-sheet__body"); },
+  "workout/exercise-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click(); await resetSheetScroll(page, "#exActionsSheet .exactions-sheet__body"); },
   "workout/skipped-actions": async page => {
     await focusMode(page);
     const id=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
@@ -2208,7 +2208,7 @@ export const APP_SCENARIOS = {
     await page.locator("#sessionSheetBtn").click();
     await page.locator(`[data-session-map-jump="${id}"]`).click();
     await page.locator("#exActionsSheet.is-open").waitFor();
-    await resetSheetScroll(page, ".exactions-sheet__body");
+    await resetSheetScroll(page, "#exActionsSheet .exactions-sheet__body");
   },
   "workout/substituted-actions": async page => {
     await focusMode(page);
@@ -2224,7 +2224,7 @@ export const APP_SCENARIOS = {
     await page.locator("#exActionsSheet.is-open").waitFor();
     await page.evaluate(() => Promise.all(document.getAnimations()
       .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity).map((a) => a.finished.catch(() => {}))));
-    await resetSheetScroll(page, ".exactions-sheet__body");
+    await resetSheetScroll(page, "#exActionsSheet .exactions-sheet__body");
   },
   "workout/swap-alternates": async page => {
     await focusMode(page);
@@ -2243,7 +2243,7 @@ export const APP_SCENARIOS = {
     await page.locator("#exPickSheet.is-reason-step .pick__followup").waitFor();
     await sleep(page, 400);
   },
-  "workout/warmup-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click(); await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); await resetSheetScroll(page, ".exactions-sheet__body"); },
+  "workout/warmup-actions": async page => { await focusMode(page); await page.locator("#woOverflowBtn").click(); await page.locator('[data-workout-action="exercise"]').click(); await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); await resetSheetScroll(page, "#exActionsSheet .exactions-sheet__body"); },
   // The session map reorders as the editor does: the row's menu (long-press, or its button for the keyboard) moves it.
   "workout/reorder": async page => {
     await focusMode(page);

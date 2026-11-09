@@ -4315,8 +4315,11 @@ function renderWeekCard(){
   const visible=facts.programExisted&&facts.completedSessions>0;
   el.classList.toggle("hidden",!visible);el.replaceChildren();if(!visible)return;
   const summary=weekSessionSentence(facts);
+  const counts={improved:facts.outcomes.filter(fact=>fact.outcome==="improved").length,stalled:facts.stalled.length,pain:facts.pain.length};
+  const detail=Object.entries(counts).filter(([,count])=>count>0)
+    .map(([key,count])=>t(`review.week.card_facts.${key}`,{[key]:count})).join(" ");
   el.innerHTML=`<p class="section-label">${esc(t("review.week.last"))}</p><p>${esc(summary)}</p>`+
-    `<p>${esc(t("review.week.card_facts",{improved:facts.outcomes.filter(fact=>fact.outcome==="improved").length,stalled:facts.stalled.length,pain:facts.pain.length}))}</p><div class="week-card__actions">`+
+    (detail?`<p>${esc(detail)}</p>`:"")+`<div class="week-card__actions">`+
     `<button type="button" class="text-link" id="weekCardReview">${esc(t("review.week.open"))}</button>`+
     `<button type="button" class="text-link" id="weekCardDismiss">${esc(t("review.week.dismiss"))}</button></div>`;
   $("#weekCardReview").onclick=()=>{setUiPref("weekCardSeen",id);renderWeekCard();navTo("stats");setStatsSeg("review")};

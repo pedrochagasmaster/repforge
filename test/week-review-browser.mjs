@@ -183,6 +183,7 @@ async function runRoundFourCases(browser,manifest){
     const {page,context}=await openPage(browser,manifest,{flow:"workout",screen:key.split("/")[1],viewport:"phone-390",theme:"light",locale:"en",text:"normal",motion:"normal"},appState(key,"en"));
     try{
       await dismissChrome(page);await APP_SCENARIOS[key](page);
+      await page.locator("#exActionsSheet").waitFor({state:"visible"});
       assert.equal(await page.locator("#exActionsSheet").isVisible(),true);
       assert.equal(await page.locator("#exActionsSheet .exactions-sheet__body").evaluate(body=>body.scrollTop),0,"capture resets the exercise-actions body despite the separate skip sheet");
       console.log(`PASS round 4: ${key} capture scenario`);
