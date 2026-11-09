@@ -9926,7 +9926,7 @@ function toggleFocusLedger(button){
  *  name of the strategy that sets the target. Read off the program's own
  *  envelope; a slot with none is the range it always was. */
 /** An effort window of one value reads as that value: "1 left", never "1–1 left". */
-const singleRir=line=>String(line).replace(/(· )(\d+(?:[.,]\d+)?)–\2(?= (?:left|reps sobrando))/g,"$1$2");
+const singleRir=line=>String(line).replace(/(· )(\d+(?:[.,]\d+)?)–\2(?= (?:left|sobrando))/g,"$1$2");
 function focusExMeta(ex){
   if(ex?.hasRepTarget===false)return programPrescriptionSummary(ex);
   // A canonical slot is adaptive or manual; its RIR comes from its own sets.
