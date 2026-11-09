@@ -13,7 +13,7 @@
  */
 import { chooseRepsLeft, launchChromium, openShelfField } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
-import { finishEarly, openActions } from "./fixtures/focus-workout.mjs";
+import { finishEarly, openActions, selectExercise } from "./fixtures/focus-workout.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -355,6 +355,81 @@ try {
   }, exId);
   assert(/2 more than you guessed\. Suggestions on this exercise now allow for this\./.test(line), "from the third check the result line says suggestions now allow for it", line);
   assert(cal.why === cal.moved, "the Why sheet names the tendency exactly when the shift moved the suggestion", cal);
+
+  phase("Saved pain protects the movement for the whole day");
+  const safetyContext = await browser.newContext({viewport:{width:390,height:844},locale:"en-US"});
+  const safety = await safetyContext.newPage();
+  safety.on("pageerror", error => errors.push(String(error)));
+  safety.on("dialog", dialog => dialog.accept());
+  await safety.clock.setFixedTime(new Date("2026-11-09T12:00:00Z"));
+  await safety.goto(BASE,{waitUntil:"domcontentloaded"}); await settle(safety);
+  await persist(safety, `
+    s.settings = {...s.settings,lang:"en",rirMode:"numeric",restSec:120};
+    s.program = ${JSON.stringify(seedProgram())}; s.programMeta = ${JSON.stringify(seedProgramMeta())};
+    s.log = []; delete s.sessionEvents;`);
+  await safety.reload({waitUntil:"domcontentloaded"}); await settle(safety);
+  const enterFirstDay = async () => {
+    await safety.evaluate(async () => { await window.__repforgeEnterWorkout({day:"Day 1"}); window.__repforgeFocus.to(0); });
+    await safety.locator(SHELF).waitFor({state:"visible"});
+  };
+  const finishSafety = async () => {
+    await finishEarly(safety);
+    await safety.locator("#sumDone").click();
+    await safety.locator("#sessionSummary").waitFor({state:"hidden"});
+  };
+  await enterFirstDay();
+  const safetyId = await safety.evaluate(() => window.__repforgeWorkoutDraft.current().session.selectedExerciseId);
+  const movementId = seedProgram().find(row => row.id === safetyId).libraryId;
+  await logSet(safety,safetyId,1);
+  await safety.locator(`${TIP}[data-tip="max-set"]`).waitFor({state:"visible"});
+  await openActions(safety,safetyId);
+  await safety.locator("#exActionSkipBtn").click();
+  await safety.locator('[data-skip-reason="pain"]').click();
+  await safety.locator("#skipReasonSheet").waitFor({state:"hidden"});
+  await safety.evaluate(async id => {
+    await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:id}); renderWorkout(); window.__repforgeFocus.to(0);
+  },safetyId);
+  assert(await safety.locator(`${TIP}[data-tip="max-set"]`).count() === 0,"restoring a pain-skipped movement keeps the live protection");
+  await finishSafety();
+  const painful = await readReplicas(safety);
+  const painSession = painful.local.log.find(row => row.exerciseId === safetyId).session;
+  assert(painful.local.sessionEvents[painSession].pain.some(item => item.exerciseId === movementId && item.kind === "pain") &&
+    JSON.stringify(painful.local.sessionEvents) === JSON.stringify(painful.idb.sessionEvents),
+    "the real finish saves movement-specific pain in both replicas");
+  await enterFirstDay(); await logSet(safety,safetyId,1);
+  assert(await safety.locator(`${TIP}[data-tip="max-set"]`).count() === 0,"saved same-day pain blocks a new workout's offer");
+  await selectExercise(safety,"seed-ex-2"); await logSet(safety,"seed-ex-2",1);
+  await safety.locator(`${TIP}[data-tip="max-set"]`).waitFor({state:"visible"});
+  assert(await safety.locator(`${TIP}[data-tip="max-set"]`).isVisible(),"another movement remains eligible despite today's saved pain");
+  await safety.reload({waitUntil:"domcontentloaded"}); await settle(safety); await enterFirstDay();
+  assert(await safety.locator(`${TIP}[data-tip="max-set"]`).count() === 0,"saved same-day pain stays protective after reload");
+  await finishSafety();
+  await safety.clock.setFixedTime(new Date("2026-11-10T12:00:00Z"));
+  await safety.reload({waitUntil:"domcontentloaded"}); await settle(safety);
+  await enterFirstDay(); await logSet(safety,safetyId,1);
+  await safety.locator(`${TIP}[data-tip="max-set"]`).waitFor({state:"visible"});
+  assert(await safety.locator(`${TIP}[data-tip="max-set"]`).isVisible(),"yesterday's saved pain alone permits today's opportunity");
+  for (const pressed of ["true","false"]) {
+    await openActions(safety,safetyId); await safety.locator("#exActionDiscomfortBtn").click();
+    await safety.waitForFunction(value => document.querySelector("#exActionDiscomfortBtn")?.getAttribute("aria-pressed") === value,pressed);
+    await safety.locator("#exActionsClose").click(); await safety.locator("#exActionsSheet").waitFor({state:"hidden"});
+  }
+  const sessionsBeforeClear = new Set(Object.keys((await readReplicas(safety)).local.sessionEvents));
+  await finishSafety();
+  const clearSaved = (await readReplicas(safety)).local;
+  const clearedSession = Object.keys(clearSaved.sessionEvents).find(id => !sessionsBeforeClear.has(id));
+  assert(clearSaved.sessionEvents[clearedSession].pain.length === 0,"a mark cleared before finishing saves no pain observation");
+  await safety.reload({waitUntil:"domcontentloaded"}); await settle(safety);
+  await enterFirstDay(); await logSet(safety,safetyId,1);
+  await safety.locator(`${TIP}[data-tip="max-set"]`).waitFor({state:"visible"});
+  assert(await safety.locator(`${TIP}[data-tip="max-set"]`).isVisible(),"a saved cleared mark does not block a later same-day workout after reload");
+  await safety.evaluate(() => window.__repforgeStorage.flush());
+  await persist(safety, `s.sessionEvents[${JSON.stringify(painSession)}].pain = {unreadable:true};`);
+  await safety.reload({waitUntil:"domcontentloaded"});
+  await safety.locator("#storageRecovery").waitFor({state:"visible"});
+  const unreadable = await safety.evaluate(() => ({active:!!activeWorkoutDraft,tips:document.querySelectorAll('[data-tip="max-set"]').length}));
+  assert(!unreadable.active && unreadable.tips === 0,"unreadable saved pain evidence enters production recovery without an offer",unreadable);
+  await safetyContext.close();
 
   assert(errors.length === 0, "no page errors", errors.join(" | "));
 } finally {
