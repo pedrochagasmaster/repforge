@@ -714,7 +714,7 @@
     return !(records || []).some(record => record.blockId === blockId &&
       (record.week === week || record.pattern === pattern.pattern && record.target.slotId === pattern.slotId &&
         record.target.exerciseId === pattern.exerciseId && (record.decision === "declined" ||
-          record.decision === "accepted" && !record.evaluation || record.decision === "snoozed" && adaptationDays(week,record.week) < 14)));
+          record.decision === "accepted" && (!record.evaluation || record.evaluation.outcome === "insufficient") || record.decision === "snoozed" && adaptationDays(week,record.week) < 14)));
   }
 
   function proposeAdaptation(pattern, document, options = {}) {

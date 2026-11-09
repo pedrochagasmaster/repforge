@@ -2757,11 +2757,11 @@ export const APP_SCENARIOS = {
   "progress/review-proposal": async page => {
     await progressSegment(page,"review");
     await page.locator('[data-adaptation-cause="equipment"]').click();
-    await page.locator('[data-adaptation-card]').scrollIntoViewIfNeeded();
+    await page.locator('.week-proposal__actions').evaluate(element=>element.scrollIntoView({block:"center",behavior:"instant"}));
   },
   "progress/review-evaluated": async page => {
     await progressSegment(page,"review");
-    await page.locator('[data-adaptation-evaluation]').scrollIntoViewIfNeeded();
+    await page.locator('[data-adaptation-evaluation]').evaluate(element=>element.scrollIntoView({block:"center",behavior:"instant"}));
   },
   "today/week-card": async page => {await page.locator("#todayWeekCard:not(.hidden)").waitFor();},
   "workout/discomfort-mark": async page => {

@@ -3083,7 +3083,7 @@
   "review.pattern.recurring_skip": "{lift} foi pulado em duas ou mais sessões nas últimas duas semanas.",
   "review.pattern.recurring_pain": "Houve dor ou desconforto em {lift} em duas ou mais sessões nas últimas duas semanas.",
   "review.pattern.recurring_fatigue": "Sinais de fadiga ou cortes de séries se repetiram em {day} nas últimas duas semanas.",
-  "review.pattern.stall_hard": "{lift} ficou sem avanço por três sessões com até uma rep sobrando. A recomendação continua sendo manter.",
+  "review.pattern.stall_hard": "{lift} ficou sem avanço por três sessões com até uma rep sobrando.",
   "review.proposal.why_reader": "Ver o porquê",
   "review.proposal.ask_why": "O que mais contribuiu para isso?",
   "review.why.time": "Tempo",
@@ -3092,7 +3092,7 @@
   "review.why.preference": "Preferência",
   "review.why.other": "Outro motivo",
   "review.why.recovery": "Recuperação",
-  "review.why.schedule": "Horários",
+  "review.why.schedule": "Agenda",
   "review.proposal.swap_exercise": "Para o restante do bloco: trocar {lift} por {replacement}.",
   "review.proposal.drop_exercise": "Para o restante do bloco: retirar {lift}.",
   "review.proposal.reduce_sets": "Para o restante do bloco: uma série a menos nos exercícios acessórios de {day}, mantendo pelo menos uma série em cada. O primeiro exercício composto fica igual.",
@@ -3101,8 +3101,11 @@
   "review.proposal.later": "Mais tarde",
   "review.proposal.decline": "Não",
   "review.proposal.save_failed": "A mudança não foi salva. Seu treino pode ter mudado ou uma sessão pode estar em andamento. Reabra a Revisão para tentar de novo.",
-  "review.proposal.evaluation.pattern_stopped": "Mudança aceita para a semana de {week}: o padrão não se repetiu nas sessões seguintes.",
-  "review.proposal.evaluation.pattern_continued": "Mudança aceita para a semana de {week}: o padrão se repetiu nas sessões seguintes.",
-  "review.proposal.evaluation.insufficient": "Mudança aceita para a semana de {week}: ainda não há sessões suficientes para avaliar.",
-  "review.proposal.set_change": "Semana {week}, {lift}: de {before} séries para {after} séries."
+  "review.proposal.evaluation.pattern_stopped": "Mudança aceita: {change} Semana de {week}: não foi detectado um padrão recorrente.",
+  "review.proposal.evaluation.pattern_continued": "Mudança aceita: {change} Semana de {week}: o padrão continuou.",
+  "review.proposal.evaluation.insufficient": "Mudança aceita: {change} Semana de {week}: sessões insuficientes para avaliar.",
+  "review.proposal.set_change": "Semana {week}, {lift}: de {before} séries para {after} séries.",
+  "review.proposal.applied.swap_exercise": "Troca de {lift} por {replacement}.",
+  "review.proposal.applied.drop_exercise": "Retirada de {lift}.",
+  "review.proposal.applied.reduce_sets": "Uma série a menos nos exercícios acessórios, mantendo pelo menos uma."
 }

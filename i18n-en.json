@@ -3083,7 +3083,7 @@
   "review.pattern.recurring_skip": "{lift} was skipped in two or more sessions over the last two weeks.",
   "review.pattern.recurring_pain": "Pain or discomfort was reported on {lift} in two or more sessions over the last two weeks.",
   "review.pattern.recurring_fatigue": "Fatigue flags or trimmed sets recurred on {day} over the last two weeks.",
-  "review.pattern.stall_hard": "{lift} stalled for three sessions with at most one rep left. The recommendation remains to hold.",
+  "review.pattern.stall_hard": "{lift} stalled for three sessions with at most one rep left.",
   "review.proposal.why_reader": "Read Why",
   "review.proposal.ask_why": "What contributed most?",
   "review.why.time": "Time",
@@ -3101,8 +3101,11 @@
   "review.proposal.later": "Later",
   "review.proposal.decline": "No",
   "review.proposal.save_failed": "The change was not saved. Your program may have changed or a session may be in progress. Reopen Review to try again.",
-  "review.proposal.evaluation.pattern_stopped": "Change accepted for the week of {week}: the pattern did not recur in the following sessions.",
-  "review.proposal.evaluation.pattern_continued": "Change accepted for the week of {week}: the pattern recurred in the following sessions.",
-  "review.proposal.evaluation.insufficient": "Change accepted for the week of {week}: there are not enough sessions to evaluate yet.",
-  "review.proposal.set_change": "Week {week}, {lift}: {before} sets to {after} sets."
+  "review.proposal.evaluation.pattern_stopped": "Accepted change: {change} Week of {week}: no recurring pattern was detected.",
+  "review.proposal.evaluation.pattern_continued": "Accepted change: {change} Week of {week}: the pattern continued.",
+  "review.proposal.evaluation.insufficient": "Accepted change: {change} Week of {week}: not enough sessions to evaluate.",
+  "review.proposal.set_change": "Week {week}, {lift}: {before} sets to {after} sets.",
+  "review.proposal.applied.swap_exercise": "Replaced {lift} with {replacement}.",
+  "review.proposal.applied.drop_exercise": "Removed {lift}.",
+  "review.proposal.applied.reduce_sets": "One fewer set on accessory lifts, keeping at least one."
 }

@@ -4336,16 +4336,17 @@ let weeklyAdaptationView=null,weeklyAdaptationBusy=false,weeklyEvaluationPending
 function weeklyPatterns(week=weekStart(today()),source=state){
   const start=shiftDate(week,-14),end=shiftDate(week,-1),blockId=snapshotBlockId(source);
   if(!blockId)return[];
-  const log=source.log.filter(row=>String(row.date)>=start&&String(row.date)<=end&&row.blockId===blockId);
+  const historical=source.log.filter(row=>String(row.date)<=end&&row.blockId===blockId);
+  const history=readLogRows(historical),log=historical.filter(row=>String(row.date)>=start);
   const fatigueSessions={},hardStalls=[];
   const definition=source.programMeta?.programDefinition;
   for(const ex of source.program){
-    const rows=readLogRows(log).filter(matchLift(ex)),sessions=sessionsForLog(ex,rows);
-    if(sessions.length>=3&&isStalled(sessions)&&rows.filter(isWork).length&&
+    const rows=history.filter(matchLift(ex)),sessions=sessionsForLog(ex,rows);
+    if(sessions.at(-1)?.date>=start&&isStalled(sessions)&&rows.filter(isWork).length&&
       rows.filter(row=>isWork(row)&&sessions.slice(-3).some(session=>session.session===row.session)).every(row=>row.rir!=null&&row.rir!==""&&Number.isFinite(Number(row.rir))&&Number(row.rir)<=1))
       hardStalls.push({slotId:ex.slotId||ex.id,exerciseId:ex.libraryId||ex.movementId||ex.id});
     const matched=canonicalPrescriptionSlot(ex,definition);if(!matched)continue;
-    for(const session of sessions){
+    for(const session of sessions.filter(session=>session.date>=start)){
       const upto=source.log.filter(row=>row.blockId===blockId&&compareLogChronology(row,session)<=0);
       const cycle=Math.min(definition.cycles,Math.max(1,Math.floor(RepForgeProgressModel.calendarDayDistance(source.programMeta.started,session.date)/7)+1));
       const first=RepForgeProgramCompiler.prescriptionsForCycle(definition,cycle).find(item=>item.slotId===matched.slot.id);
@@ -4381,8 +4382,12 @@ function weeklyAdaptationHtml(){
   const patterns=weeklyPatterns(week);
   const lines=patterns.filter(pattern=>pattern.pattern==="stall_hard").map(pattern=>
     `<p>${esc(t("review.pattern.stall_hard",{lift:weekFactName(pattern.slotId)}))} <button type="button" class="text-link" data-adaptation-why="${esc(pattern.slotId)}">${esc(t("review.proposal.why_reader"))}</button></p>`).join("");
-  const evaluations=records.filter(record=>record.blockId===blockId&&record.evaluation?.week<=week).slice(-1).map(record=>
-    `<p data-adaptation-evaluation>${esc(t(`review.proposal.evaluation.${record.evaluation.outcome}`,{week:longDate(record.week)}))}</p>`).join("");
+  const evaluations=records.filter(record=>record.blockId===blockId&&record.evaluation?.week<=week).slice(-1).map(record=>{
+    const lift=libraryName(libraryEntry(record.target.exerciseId))||t("program.default.exercise");
+    const replacement=libraryName(libraryEntry(record.target.replacementId))||t("program.default.exercise");
+    const change=t(`review.proposal.applied.${record.kind}`,{lift,replacement});
+    return `<p data-adaptation-evaluation>${esc(t(`review.proposal.evaluation.${record.evaluation.outcome}`,{week:longDate(record.week),change}))}</p>`;
+  }).join("");
   const pattern=patterns.find(pattern=>pattern.pattern!=="stall_hard"&&
     RepForgeProgramTransition.adaptationEligible(records,pattern,blockId,week)&&weeklyProposal(pattern,null));
   if(!pattern){weeklyAdaptationView=null;return lines+evaluations}
@@ -4408,7 +4413,7 @@ function weeklyAdaptationHtml(){
     `<p>${esc(t(`review.pattern.${pattern.pattern}`,{lift,day:dayLabel(pattern.day)}))}</p>`+why+
     `<p data-adaptation-change>${esc(change)}</p>`+setChanges+
     (view.error?`<p role="alert">${esc(t("review.proposal.save_failed"))}</p>`:"")+
-    `<div class="week-proposal__actions">`+["accept","change","later","decline"].map(action=>`<button type="button" class="${action==="accept"?"btn btn--cta btn--noarrow":"text-link"}" data-adaptation-action="${action}"${weeklyAdaptationBusy||action==="accept"&&needsCause&&!view.cause?" disabled":""}>${esc(t(`review.proposal.${action}`))}</button>`).join("")+`</div></section>`;
+    `<div class="week-proposal__actions">`+["accept","change","later","decline"].map(action=>`<button type="button"${action==="accept"?' id="weeklyAdaptationAccept"':""} class="${action==="accept"?"btn btn--cta btn--noarrow":"text-link"}" data-adaptation-action="${action}"${weeklyAdaptationBusy||action==="accept"&&needsCause&&!view.cause?" disabled":""}>${esc(t(`review.proposal.${action}`))}</button>`).join("")+`</div></section>`;
 }
 function bindWeeklyAdaptation(){
   $$('[data-adaptation-cause]').forEach(button=>button.onclick=()=>{
@@ -6606,7 +6611,7 @@ function setStatsSeg(seg){
   paintStatsTabs();
   for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===seg)}
   for(const [k,id] of Object.entries(EVIDENCE_SEG)){const el=$("#"+id);if(el)el.classList.remove("active")}
-  if(opensReview)weeklyAdaptationView=null;
+  if(opensReview||seg==="review"&&weeklyAdaptationView?.error)weeklyAdaptationView=null;
   if(seg==="review")renderReview();
   if(opensReview)captureBlockReviewViewed();
   queueMicrotask(()=>maybeShowContextualGuides([seg==="review"?"block-transition":"progress"]))}
