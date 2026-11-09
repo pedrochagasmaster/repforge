@@ -24,7 +24,7 @@
  *
  * Run: node test/journeys-in.mjs   (requires the app served over HTTP)
  */
-import { chooseRepsLeft, launchChromium, waitForAppBoot, answerRecommend } from "./browser.mjs";
+import { answerEffortChoice, chooseRepsLeft, launchChromium, waitForAppBoot, answerRecommend } from "./browser.mjs";
 import { encodeSetupLink } from "./fixtures/setup-link-v4.mjs";
 import { APP_INDEX, waitForFirstRun } from "./shared-setup-flow.mjs";
 import { finishEarly } from "./fixtures/focus-workout.mjs";
@@ -174,6 +174,7 @@ async function walkRecommend(page) {
 async function activate(page) {
   await mark(page);
   await page.click("#entryActivate");
+  await answerEffortChoice(page, "numeric");
   await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), undefined, { timeout: 15000 });
 }
 

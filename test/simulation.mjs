@@ -335,7 +335,7 @@ async function resetWithSeedProgram(page) {
     }]));
     localStorage.setItem(k, JSON.stringify(prefs));
   });
-  await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
+  await installSeedProgram(page, { key: KEY, waitFor: waitForApp, settings: { rirMode: "numeric" } });
 }
 
 /** Bulk-inject a year of training history (fast path for stats/history coverage). */
@@ -3095,7 +3095,7 @@ async function main() {
   // The program import above replaced the seed program with an imported copy;
   // the substitution walk needs the seed's own slots back.
   await clearDraftFixture(page);
-  await installSeedProgram(page, { waitFor: (p) => waitForApp(p) });
+  await installSeedProgram(page, { waitFor: (p) => waitForApp(p), settings: { rirMode: "numeric" } });
   await nav(page, "program");
   let subState = await getState(page);
   const d1First = subState.program.filter((e) => e.name.includes("Hack squat") || e.name.includes("pendulum")).sort((a, b) => a.order - b.order)[0];
@@ -3688,7 +3688,7 @@ async function main() {
   // generated beginner program has one-set jobs, so the Focus walk below runs
   // on the two-set seed program again.
   await clearDraftFixture(page);
-  await installSeedProgram(page, { waitFor: (p) => waitForApp(p) });
+  await installSeedProgram(page, { waitFor: (p) => waitForApp(p), settings: { rirMode: "numeric" } });
   await nav(page, "log");
   await selectDay(page, "Day 1");
 

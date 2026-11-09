@@ -180,7 +180,7 @@ async function freshPage(browser) {
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
   // A cleared device has no program: install the one these cases pick days from.
-  await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
+  await installSeedProgram(page, { key: KEY, waitFor: waitForApp, settings: { rirMode: "numeric" } });
   return { context, page };
 }
 
@@ -768,7 +768,7 @@ phase("nothing floats over the open sheet");
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
   // A cleared device has no program: install the one these cases pick days from.
-  await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
+  await installSeedProgram(page, { key: KEY, waitFor: waitForApp, settings: { rirMode: "numeric" } });
   // The install banner is a fixed card above the nav, and iOS Safari is where it
   // is offered; it used to be drawn over the sheet, hiding the first day rows.
   await page.evaluate(() => window.__repforgeUi.showInstallBanner(true));

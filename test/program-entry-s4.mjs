@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 /** Packet 1.3 production journey: review deload edit → activation → Today/Focus. */
+import { verifyEffortChoice } from "./effort-choice.mjs";
 import assert from "node:assert/strict";
 import { answerRecommend, launchChromium, waitForAppBoot } from "./browser.mjs";
 
@@ -303,6 +304,7 @@ async function activationWaitsForPendingAnswerRebuild(browser) {
 
 const browser = await launchChromium();
 try {
+  console.log(`${await verifyEffortChoice(browser)} effort-choice assertions passed`);
   await sameStateAnswerRebuild(browser);
   await returnToCommittedAnswerWhileRebuildPending(browser);
   await activationWaitsForPendingAnswerRebuild(browser);

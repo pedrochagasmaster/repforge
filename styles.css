@@ -5399,6 +5399,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
 #stats .evrow--d .evrow__detail,#stats .evrow__detail{padding:0 0 var(--space-8);border-bottom:1px solid var(--boundary-decorative);overflow-x:visible}
 .evrow__detail .lede{margin:0 0 var(--space-4)}
 .evtable{width:100%;min-width:0;table-layout:fixed;border-collapse:collapse;margin-top:var(--space-8)}
+.evtable th:last-child{white-space:nowrap;font-size:min(var(--font-size-label),var(--large-cap-caption));letter-spacing:normal;text-transform:none}
 .evtable th,.evtable td{
   padding:var(--space-8) 0;border-bottom:1px solid var(--boundary-decorative);text-align:right;white-space:normal;overflow-wrap:anywhere;
   font-family:var(--font-training-data);font-size:var(--font-size-body-small);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink);
@@ -5408,7 +5409,7 @@ button.strrow:focus-visible{outline:var(--control-focus-outline);outline-offset:
   letter-spacing:var(--track-label);text-transform:uppercase;color:var(--color-ink-secondary);
 }
 .evtable th:first-child,.evtable td:first-child{width:26%;text-align:left;font-family:var(--font-language)}
-.evtable th + th,.evtable td + td{padding-left:var(--space-8)}
+.evtable th + th,.evtable td + td{padding-left:var(--space-2)}
 .evtable tbody tr:last-child td{border-bottom:0}
 
 /* A narrow screen or enlarged text: the rows stack instead of squeezing the words. */
@@ -5998,7 +5999,7 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   border-radius:var(--radius-landing-phone);background:var(--bg);
 }
 .firstrun-proof__screen{position:absolute;left:0;top:0;width:390px;height:844px;pointer-events:none}
-.firstrun-chapters{list-style:none;margin:0;padding:0;width:100%;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));column-gap:var(--space-8)}
+.firstrun-chapters{list-style:none;margin:0;padding:0;width:100%;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));column-gap:var(--space-8)}
 .firstrun-chapter{display:contents}
 .firstrun-chapter__go{
   grid-row:1;position:relative;display:flex;align-items:flex-start;min-width:0;min-height:var(--control-target);margin:0;
@@ -6016,6 +6017,16 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   color:var(--firstrun-ink-soft);text-wrap:pretty;opacity:0;visibility:hidden;transition:opacity .2s cubic-bezier(.2,.7,.2,1),visibility 0s .2s;
 }
 .firstrun-chapter.is-current .firstrun-chapter__text{opacity:1;visibility:visible;transition:opacity .2s cubic-bezier(.2,.7,.2,1)}
+.firstrun-chapter__result{display:block;margin-top:var(--space-12)}
+@container(max-width:25em){
+  .firstrun-chapters{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .firstrun-chapter__go{grid-row:auto}
+  .firstrun-chapter__text{grid-row:4;order:1}
+}
+@container(max-width:15em){
+  .firstrun-chapters{grid-template-columns:minmax(0,1fr)}
+  .firstrun-chapter__text{grid-row:6}
+}
 @media(max-width:340px){.firstrun-proof__device{border-radius:var(--radius-landing-stage-compact)}}
 @media(min-width:900px){
   .firstrun-proof{padding-bottom:var(--firstrun-gap-8)}
@@ -6092,6 +6103,15 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-demo__target .fx-cue__mark{display:inline-block;width:.62em;height:.62em;margin-right:.14em}
 .firstrun-demo__did{margin:var(--space-8) 0 0;font-size:var(--font-size-focus-evidence);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .firstrun-demo__history{margin-top:var(--space-16)}
+
+/* The proof reuses Focus's test-set content inside its inert phone. */
+.firstrun-demo__test-scene{position:absolute;z-index:4;left:0;right:0;bottom:34px;background:var(--surface);border-radius:var(--radius-prominent);padding:var(--space-16);opacity:0;will-change:transform,opacity}
+.firstrun-demo__test-tip,.firstrun-demo__test-cue,.firstrun-demo__test-result{background:var(--bg);border-radius:var(--radius-none)}
+.firstrun-demo__test-backdrop{position:absolute;z-index:3;inset:80px 0 0;background:var(--bg);opacity:0}
+.firstrun-demo__test-tip .resttip{position:relative;inset:auto;margin:var(--space-16) 0 0}
+.firstrun-demo__test-guess{bottom:0;padding:0 0 34px;overflow:hidden;border-radius:var(--radius-prominent) var(--radius-prominent) var(--radius-none) var(--radius-none)}
+.firstrun-demo__test-cue .fx-cue{margin:0}
+.firstrun-demo__test-cue .fcard__ledger{margin-top:var(--space-16)}
 
 /* ---- The three ways ---- */
 .firstrun-ways{padding-bottom:0}
@@ -9239,3 +9259,8 @@ body.is-entry-editor #entryProgramName,
 /* Session zero uses the same cue and shelf, with explicit start and skip actions. */
 .fx-ramp-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-block: 12px; }
 .fx-ramp-actions .text-link { min-height: 44px; }
+/* @ci-domain entry */
+.sheet--effort-choice{height:auto}
+.sheet--effort-choice .sheet__body{flex-direction:column;overflow:auto}
+#effortChoiceScrim{z-index:53}
+#effortChoiceSheet{z-index:54}

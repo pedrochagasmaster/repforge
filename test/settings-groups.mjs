@@ -68,6 +68,14 @@ try {
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await ready(page);
 
+  await page.evaluate(async () => {
+    const proposal = window.__repforgeWorkoutDraft.state();
+    proposal.settings.rirMode = "numeric";
+    await window.__repforgeCommitProposedState(proposal);
+  });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await ready(page);
+
   console.log("Settings task groups");
   const groups = await page.evaluate(() => [...document.querySelectorAll("#settings > .settings-group")]
     .map((group) => ({
@@ -205,6 +213,8 @@ try {
   await page.locator('#nativeContextMenu [data-menu-value="numeric"]').click();
   await page.waitForFunction((dataKey) => JSON.parse(localStorage.getItem(dataKey) || "{}").settings?.rirMode === "numeric", DATA_KEY, { timeout: 5000 });
 
+  await page.waitForFunction(() => document.querySelector("#rirModeDisplay")?.textContent.trim() === "Reps left (0 to 5+)",
+    undefined, { timeout: 5000 });
   check(await page.locator("#rirModeDisplay").textContent() === "Reps left (0 to 5+)",
     "numeric logging displays the reps-left range");
   check(await page.locator('input[name="rirMode"]').count() === 2, "only two backing radios remain");
