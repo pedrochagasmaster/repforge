@@ -191,13 +191,12 @@ cadence, and proposes dissolving the 0–100 gauge into it.
 The landing follows from §3 and is designed in [`plans/083-landing-test-set.md`](../plans/083-landing-test-set.md).
 The owner chose the additive change now (D-14): a proof chapter, one band, two FAQ entries, with
 the headline, structure and actions kept. Per D-1 the coach comparison stays out of the copy; the page shows the
-mechanism, never the profession. Session zero becomes the proof scene
-instead of a bench press table with an RIR column: a beginner finding their weights in
-twenty minutes is the most beginner-friendly demonstration the product can make, and it is
-true on day one rather than six weeks later. The headline stays outcome-shaped; the lede
-says the mechanism in words; one band carries two numbers per set, what you said and what
-you did, rendered from the real modules as every landing figure is. The two FAQ entries
-"What is a test set?" and "Will it make me train to failure all the time?" stay.
+mechanism, never the profession. The five-chapter proof uses a Smith machine bench press:
+the target, logging, rest, a test set and the next session. The check band compares
+what the lifter guessed with what they did, rendered from the calibration module,
+and states the safety and correction limits from their module constants. The two
+FAQ entries explain what a test set is and why it does not mean training to failure
+all the time. A session-zero demonstration stays outside this additive change.
 
 ## 5. The Free and Pro cut
 

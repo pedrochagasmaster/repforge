@@ -3044,6 +3044,17 @@ const EN = {
   "stats.cap.moved": "moved",
   "landing.anim.ch5.title": "Test your guess",
   "landing.anim.ch5.text": "Guess how many reps you can do on your last set, then compare with what you did. Taurifer learns how you judge effort on this exercise.",
+  "landing.check.title": "It checks your judgement, not just your numbers.",
+  "landing.check.more": "You guessed {guess} and did {did}: {difference} more than you expected.",
+  "landing.check.fewer": "You guessed {guess} and did {did}: {difference} fewer.",
+  "landing.check.equal": "Exactly what you guessed.",
+  "landing.check.limits": "At most {perWorkout} test set per session, one per exercise every {days} days, {perWeek} a week. Nothing changes until an exercise has {minChecks} test sets. Then the weight moves at most {up} step up or {down} down.",
+  "landing.check.exclusion": "Never on a barbell squat, bench press or deadlift.",
+  "landing.faq.test.q": "What is a test set?",
+  "landing.faq.test.a": "You guess how many reps you can do at the same weight on an exercise's last working set, then take it to technical failure. It replaces that set, without adding another, and compares your guess with what you did. After {minChecks} test sets on that exercise, consistent results can adjust how Taurifer reads your reps left, moving the suggested weight at most {up} step up or {down} down.",
+  "landing.faq.failure.q": "Will it make me train to failure all the time?",
+  "landing.faq.failure.limits": "No. At most {perWorkout} test set per session, one per exercise every {days} days and {perWeek} a week.",
+  "landing.faq.failure.choice": "You choose each time. You can turn off {toggle} in {settings}.",
 };
 const PT = {
   "catalog.unavailable.title": "Biblioteca de exercícios indisponível",
@@ -6089,6 +6100,17 @@ const PT = {
   "stats.cap.moved": "carga total",
   "landing.anim.ch5.title": "Teste seu palpite",
   "landing.anim.ch5.text": "Estime quantas reps consegue na última série e compare com o que fez. O Taurifer aprende como você avalia o esforço neste exercício.",
+  "landing.check.title": "Ele confere sua percepção de esforço, não só seus números.",
+  "landing.check.more": "Você chutou {guess} e fez {did}: {difference} a mais do que esperava.",
+  "landing.check.fewer": "Você chutou {guess} e fez {did}: {difference} a menos.",
+  "landing.check.equal": "Exatamente o que você chutou.",
+  "landing.check.limits": "No máximo {perWorkout} série-teste por sessão, uma por exercício a cada {days} dias e {perWeek} por semana. Nada muda até o exercício ter {minChecks} séries-teste. Depois, a carga muda no máximo {up} incremento para cima ou {down} para baixo.",
+  "landing.check.exclusion": "Nunca no agachamento, supino ou levantamento terra com barra livre.",
+  "landing.faq.test.q": "O que é uma série-teste?",
+  "landing.faq.test.a": "Você chuta quantas reps consegue fazer com a mesma carga na última série de trabalho de um exercício e vai até a falha técnica. Ela substitui essa série, sem acrescentar outra, e compara seu chute com o que você fez. Após {minChecks} séries-teste nesse exercício, resultados consistentes podem ajustar como o Taurifer lê suas reps sobrando, mudando a carga sugerida no máximo {up} incremento para cima ou {down} para baixo.",
+  "landing.faq.failure.q": "Vou ter que treinar até a falha o tempo todo?",
+  "landing.faq.failure.limits": "Não. No máximo {perWorkout} série-teste por sessão, uma por exercício a cada {days} dias e {perWeek} por semana.",
+  "landing.faq.failure.choice": "Você escolhe a cada vez. Pode desligar {toggle} em {settings}.",
 };
 (function (root) {
   const STRINGS = { en: EN, pt: PT };

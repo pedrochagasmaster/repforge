@@ -36,7 +36,7 @@
     "onboarding-start/first-run-faq-open": {
       "owner": "plan-064/r2",
       "content": "flat",
-      "scenario": "The landing scrolled to the questions with the RIR answer open."
+      "scenario": "Seven questions, with the original third RIR answer open and the two new test-set questions closed."
     },
     "onboarding-start/first-run-close": {
       "owner": "plan-064/r2",
@@ -1272,6 +1272,11 @@
       "owner": "plan-083/pr1",
       "content": "flat",
       "scenario": "Scrolled to Test your guess: the last working set's computed guess, logged result and remaining checks."
+    },
+    "onboarding-start/first-run-check": {
+      "owner": "plan-083/pr2",
+      "content": "flat",
+      "scenario": "The surface band with computed test-set comparisons, safety ceilings, correction limits and barbell exclusions."
     }
   },
   "components": [
@@ -3085,6 +3090,7 @@
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-features",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways"
       ]
     },
@@ -3116,6 +3122,7 @@
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-features",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways"
       ]
     },
@@ -3147,6 +3154,7 @@
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-features",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways"
       ]
     },
@@ -3176,6 +3184,7 @@
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-features",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways"
       ]
     },
@@ -3205,6 +3214,7 @@
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-features",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways"
       ]
     },
@@ -3235,6 +3245,7 @@
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-features",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways"
       ]
     },
@@ -3304,6 +3315,7 @@
       "catalogStates": [
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-proof-test",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -3334,6 +3346,7 @@
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-proof-test",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -3365,6 +3378,7 @@
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-proof-test",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -3396,6 +3410,7 @@
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-proof-test",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -3426,6 +3441,7 @@
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-proof-test",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -8924,6 +8940,7 @@
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-features",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways",
         "program/editor-day-name-refused",
         "program/progression-editor",
@@ -12885,6 +12902,7 @@
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-proof-test",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -12904,6 +12922,7 @@
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-proof-test",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -12920,6 +12939,7 @@
       "catalogStates": [
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-proof-test",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -12939,6 +12959,7 @@
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-proof-test",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -13105,6 +13126,7 @@
         "onboarding-shared/invalid",
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-proof-test",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -13150,6 +13172,7 @@
         "onboarding-start/first-run",
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-proof-test",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways",
         "onboarding-start/first-run-features",
         "onboarding-start/first-run-data",
@@ -13263,6 +13286,7 @@
         "onboarding-start/first-run-proof",
         "onboarding-start/first-run-proof-test",
         "onboarding-start/first-run-features",
+        "onboarding-start/first-run-check",
         "onboarding-start/first-run-ways"
       ],
       "cssLiterals": [

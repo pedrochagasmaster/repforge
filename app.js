@@ -23820,6 +23820,19 @@ function renderLandingWays(){
   fill("data.pointer",landingRich("landing.data.pointer",{},{settings:t("nav.settings"),privacy:t("privacy.open")}));
   fill("faq.coach.a1",landingRich("landing.faq.coach.a1",{},{control:t("program.share_setup")}));
   fill("faq.data.a2",landingRich("landing.faq.data.a2",{},{settings:t("nav.settings"),toggle:t("settings.analytics.title")}));
+  const calibration=RepForgeEffortCalibration;
+  const limits={perWorkout:landingNum(calibration.LIMITS.perWorkout),days:landingNum(calibration.LIMITS.perExerciseDays),
+    perWeek:landingNum(calibration.LIMITS.perWeek),minChecks:landingNum(calibration.ESTIMATOR.minChecks),
+    up:landingNum(RepForgeProgression.CALIBRATION_STEPS.up),down:landingNum(RepForgeProgression.CALIBRATION_STEPS.down)};
+  for(const [guess,did] of [[11,14],[10,9],[10,10]]){
+    const result=calibration.result(guess,did),kind=result.error<0?"more":result.error>0?"fewer":"equal";
+    fill(`check.${kind}`,esc(t(`landing.check.${kind}`,{guess:landingNum(result.guess),did:landingNum(result.did),
+      difference:landingNum(Math.abs(result.error))})))}
+  fill("check.limits",esc(t("landing.check.limits",limits)));
+  fill("faq.test.a",esc(t("landing.faq.test.a",limits)));
+  fill("faq.failure.limits",esc(t("landing.faq.failure.limits",limits)));
+  fill("faq.failure.choice",landingRich("landing.faq.failure.choice",{},
+    {settings:t("nav.settings"),toggle:t("settings.max_set_prompts")}));
   const lang=landingLang(),shot=LANDING_PASTE_SHOT,img=root.querySelector('[data-shot="paste-review"]');
   if(img){
     const dims=shot.dims[lang];img.setAttribute("width",dims[0]);img.setAttribute("height",dims[1]);

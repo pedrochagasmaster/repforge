@@ -768,6 +768,8 @@ async function finalPage(browser) {
     assert(await page.locator('[data-landing-fill="faq.failure.choice"] b').allTextContents().then(values =>
       values.includes(tr(lang, "nav.settings")) && values.includes(tr(lang, "settings.max_set_prompts"))),
       `[${lang}] the failure answer names the real Settings switch`);
+    await page.evaluate(() => document.querySelector("#firstRun").scrollTo({top: 0, behavior: "instant"}));
+    await page.waitForFunction(() => !document.querySelector("#firstRunDock").classList.contains("is-on"));
     const exercise = Catalog.exercises.find(ex => ex.id === BENCH);
     assert(calibration.eligibility({exercise, lookup: id => Catalog.uuidIndex[id]}).eligible, 'the proof movement can take a test set');
     for (const [time, selector, key] of [[14.5, '.firstrun-demo__test-tip', 'maxset.invite_title'],

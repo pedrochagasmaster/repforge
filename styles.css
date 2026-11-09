@@ -5815,6 +5815,10 @@ body.is-firstrun>nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 }
 .firstrun-faq{--firstrun-band-bg:var(--well)}
 
+/* ---- Test-set comparisons ---- */
+.firstrun-check__examples{list-style:none;padding:0;margin:0;font-size:var(--font-size-body);line-height:var(--line-reading)}
+.firstrun-check__examples li{padding-block:var(--firstrun-gap-2);border-bottom:1px solid var(--firstrun-rule)}
+
 /* ---- Type ---- */
 .firstrun-h1{
   margin:0;text-align:left;font-family:var(--font-language);font-size:var(--font-size-landing-headline);font-weight:var(--weight-medium);
