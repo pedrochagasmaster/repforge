@@ -756,6 +756,14 @@
     return {kind:"drop_exercise",pattern:pattern.pattern,cause,target,nextDocument};
   }
 
+  function adaptationFollowupRows(record, log) {
+    const end = new Date(Date.parse(`${record.week}T12:00:00.000Z`) + 7 * 86400000).toISOString().slice(0,10);
+    const approvedAt = Date.parse(record.decidedAt);
+    return (log || []).filter(row => row.blockId === record.blockId && row.date >= record.week && row.date < end &&
+      typeof row.created === "string" && row.created.includes("T") && /(?:Z|[+-]\d\d:\d\d)$/.test(row.created) &&
+      Number.isFinite(Date.parse(row.created)) && Date.parse(row.created) >= approvedAt);
+  }
+
   function evaluateAdaptation(record, patterns, {week,observed}) {
     const continued = patterns.some(pattern => pattern.pattern === record.pattern && pattern.slotId === record.target.slotId &&
       (pattern.exerciseId === record.target.exerciseId || pattern.exerciseId === record.target.replacementId));
@@ -767,6 +775,7 @@
     adaptationEligible,
     proposeAdaptation,
     evaluateAdaptation,
+    adaptationFollowupRows,
     ADAPTATION_CAUSES,
     SCHEMA_VERSION,
     KIND,

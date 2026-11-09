@@ -4482,7 +4482,7 @@ async function evaluateWeeklyAdaptations(){
   const proposal=cloneSnapshot(state);
   for(const record of pending){
     const followingEnd=shiftDate(record.week,7);
-    const following={...state,log:state.log.filter(row=>row.blockId===blockId&&row.date>=record.week&&row.date<followingEnd)};
+    const following={...state,log:RepForgeProgramTransition.adaptationFollowupRows(record,state.log)};
     const slot=state.programMeta.programDefinition?.days.flatMap(day=>day.slots).find(slot=>slot.id===record.target.slotId);
     const {day}=weeklyAdaptationContext(record);
     const observed=following.log.some(row=>day&&row.day===day||slot&&(row.slotId||row.exerciseId)===slot.id);
