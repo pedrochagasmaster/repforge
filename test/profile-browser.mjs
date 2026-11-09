@@ -216,6 +216,98 @@ try {
     assert(text.includes("60 of 90"),"ordinary sessions keep 60/90; prefilled, unsure and source-less rows do not inflate chosen counts",text);
   } finally {await rampContext.close()}
 
+  phase("Profiles keep their movement's saved evidence during a live swap");
+  const swapContext=await browser.newContext({viewport:{width:390,height:844},serviceWorkers:"block"});
+  try {
+    const swapPage=await swapContext.newPage();
+    await swapPage.goto(BASE,{waitUntil:"domcontentloaded"});
+    await swapPage.waitForFunction(()=>window.__repforgeBooted===true);
+    const generated=await installGeneratedProgram(swapPage);
+    const target=generated.program.find(ex=>ex.name==="Hack squat");
+    if(!target)throw new Error("generated fixture needs Hack squat");
+    generated.settings.rirMode="effort";
+    generated.profile={weightKg:80};
+    generated.log=[metricLogRow(generated.programMeta,target,{session:"opening",date:day(40),set:1,load:40,reps:8,rir:2,
+      extra:{effortSource:"effort",startingLoad:{v:1,openingKg:35,basis:"floor",ramps:1,version:"priors@079.1"}}}),
+      ...[33,19,5].map((age,i)=>metricLogRow(generated.programMeta,target,{session:`check-${i}`,date:day(age),set:1,load:40,reps:8,rir:0,
+        extra:{effortSource:"failure",calibration:{v:1,predictedReps:8,predictionEdited:false,prefillBasis:"reps_rir"}}}))];
+    await swapPage.evaluate(async next=>{
+      const result=await window.__repforgeCommitProposedState(next);
+      if(!result.committed)throw new Error("swap profile fixture refused");
+      await window.__repforgeStorage.flush();
+    },generated);
+    await swapPage.reload({waitUntil:"domcontentloaded"});
+    await swapPage.waitForFunction(()=>window.__repforgeBooted===true);
+    const profile=swapPage.locator("#overviewProfile .profile-lift").filter({has:swapPage.locator("h4",{hasText:"Hack squat"})}).first();
+    async function overview(){
+      await swapPage.locator('nav [data-view="stats"]').click();
+      return {profile:await profile.innerText(),history:await swapPage.locator("#overviewProfile .profile-signal")
+        .filter({has:swapPage.locator("span",{hasText:/^Hack squat$/})}).innerText()};
+    }
+    async function originalDetail(){
+      await swapPage.locator('nav [data-view="program"]').click();
+      await swapPage.locator(`#programOverview [data-exopen="${target.id}"]`).click();
+      const text=await swapPage.locator("#exDetail .profile-lift").innerText();
+      await swapPage.locator("#exBack").click();
+      return text;
+    }
+    const baseline=await overview(),detail=await originalDetail();
+    assert(baseline.profile.includes("3 test sets")&&baseline.profile.includes("Started at 35 kg, worked at 40 kg")&&baseline.history.includes("4"),
+      "Hack squat baseline has its own three checks, opening load and four history rows",baseline);
+    await swapPage.evaluate(id=>window.__repforgeGoToLogExercise(id),target.id);
+    const replacementId=await swapPage.evaluate(()=>window.RepForgeExerciseCatalog.snapshot().exercises.find(ex=>ex.name==="Pendulum squat").id);
+    await swapPage.locator("#woOverflowBtn").click();
+    await swapPage.locator('[data-workout-action="exercise"]').click();
+    await swapPage.locator("#exActionSubstBtn").click();
+    await swapPage.locator("#exPickSearch").fill("Pendulum squat");
+    await swapPage.locator(`#exPickList [data-pick="${replacementId}"]`).click();
+    await swapPage.locator('[data-pick-reason="equipment"]').click();
+    await swapPage.waitForFunction(id=>{
+      const draft=window.__repforgeWorkoutDraft.current();
+      return draft.exercises[draft.session.selectedExerciseId].substitution?.replacement?.libraryId===id;
+    },replacementId);
+    await swapPage.evaluate(()=>window.__repforgeWorkoutDraft.flush());
+    await swapPage.locator('[data-pick-reason="equipment"]').waitFor({state:"hidden"});
+    async function replacementProfile(label){
+      await swapPage.locator('.wo-head__name[data-exopen]').click();
+      const text=await swapPage.locator("#exDetail .profile-lift").innerText();
+      assert(text.includes("Pendulum squat")&&text.includes("First time on this lift")&&text.includes("No test sets yet")&&!text.includes("Started at"),
+        `${label}: Pendulum has zero checks, no standing history and no borrowed opening load`,text);
+      await swapPage.locator("#exBack").click();
+    }
+    for(const reload of [false,true]){
+      if(reload){
+        await swapPage.reload({waitUntil:"domcontentloaded"});
+        await swapPage.waitForFunction(()=>window.__repforgeBooted===true);
+        await swapPage.evaluate(id=>window.__repforgeGoToLogExercise(id),target.id);
+      }
+      const label=reload?"reloaded swap":"live swap";
+      await replacementProfile(label);
+      await swapPage.locator("#leaveWorkout").click();
+      const reading=await overview();
+      assert(JSON.stringify(reading)===JSON.stringify(baseline),`${label}: Overview retains Hack standing, checks, opening and history`,reading);
+      const readingDetail=await originalDetail();
+      assert(readingDetail===detail,`${label}: Program detail retains Hack's own profile`,readingDetail);
+    }
+    await swapPage.evaluate(id=>window.__repforgeGoToLogExercise(id),target.id);
+    await swapPage.locator("#woOverflowBtn").click();
+    await swapPage.locator('[data-workout-action="exercise"]').click();
+    await swapPage.locator("#exActionRestoreOrigBtn").click();
+    await swapPage.evaluate(()=>window.__repforgeWorkoutDraft.flush());
+    await swapPage.locator("#leaveWorkout").click();
+    for(const reload of [false,true]){
+      if(reload){
+        await swapPage.reload({waitUntil:"domcontentloaded"});
+        await swapPage.waitForFunction(()=>window.__repforgeBooted===true);
+        await swapPage.evaluate(id=>window.__repforgeGoToLogExercise(id),target.id);
+        await swapPage.locator("#leaveWorkout").click();
+      }
+      const reading=await overview();
+      assert(JSON.stringify(reading)===JSON.stringify(baseline)&&await originalDetail()===detail,
+        `${reload?"reloaded restore":"restore"}: Hack's saved profile stays unchanged`,reading);
+    }
+  } finally {await swapContext.close()}
+
   phase("Was the last rep slow? Only after an exercise's last set");
   await boot(page);
   await logFirstExercise(page, 1);
