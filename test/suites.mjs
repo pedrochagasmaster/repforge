@@ -143,7 +143,7 @@ export const SUITES = {
     s("test/guide-modal.mjs", [], {"domains": ["workout", "progress", "settings", "entry"], "cost": "normal", "tier": "feedback", "seconds": 43}),
     s("test/history-delete-replay.mjs", [], {"domains": ["history"], "cost": "normal", "tier": "feedback", "seconds": 13}),
     s("test/focus-pending-field.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback", "seconds": 67}),
-    s("test/workout-draft-parity.mjs", [], {"domains": ["workout"], "cost": "normal", "tier": "feedback", "seconds": 53}),
+    s("test/workout-draft-parity.mjs", [], {"domains": ["workout", "history", "persistence"], "cost": "normal", "tier": "feedback", "seconds": 120}),
     s("test/workout-finish-boundary.mjs", [], {"domains": ["workout"], "cost": "normal", "tier": "feedback", "seconds": 8}),
     s("test/management-summary.mjs", [], {"domains": ["global"], "cost": "normal", "tier": "feedback", "seconds": 3}),
     s("test/progress-lifecycle.mjs", [], {"domains": ["progress", "today", "workout", "persistence"], "cost": "long", "tier": "candidate", "env": {"REPFORGE_LIFECYCLE_BROWSER": "1"}, "timeoutMs": 900000, "seconds": 23}),

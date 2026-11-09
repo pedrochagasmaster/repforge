@@ -1961,6 +1961,7 @@ export const APP_SCENARIOS = {
     await view(page,"history");await page.locator("#sessions .session__open").first().click();
     await page.locator(".session--read").waitFor();
     await page.waitForFunction(()=>!document.body.classList.contains("is-pushing"));
+    await page.evaluate(async()=>{await document.fonts.ready;window.scrollTo({top:document.documentElement.scrollHeight,behavior:"instant"})});
   },
   "programlab/editor": page => captureProgramLab(page),
   "programlab/comparison": page => captureProgramLab(page, true),

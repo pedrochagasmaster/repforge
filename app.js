@@ -462,8 +462,8 @@ function isSafeLogRow(entry){
   if(Object.prototype.hasOwnProperty.call(entry,"effortSource")&&!(WorkoutDraft?.EFFORT_SOURCES||[]).includes(entry.effortSource))return false;
   // "Was the last rep slow?" (Plan 077, OD-25): a boolean, or absent.
   if(Object.prototype.hasOwnProperty.call(entry,"lastRepSlow")&&typeof entry.lastRepSlow!=="boolean")return false;
-  // A max set's guess (Plan 077, OD-17): the draft's shape, or absent.
   if(Object.prototype.hasOwnProperty.call(entry,"startingLoad")&&!WorkoutDraft?.validStartingLoad?.(entry.startingLoad))return false;
+  // A max set's guess (Plan 077, OD-17): the draft's shape, or absent.
   if(Object.prototype.hasOwnProperty.call(entry,"calibration")&&!WorkoutDraft?.validCalibration?.(entry.calibration))return false;
   for(const key of ["performedName","performedLibraryId","performedMovementId","performedPrimary","performedSecondary"])
     if(Object.prototype.hasOwnProperty.call(entry,key)&&entry[key]!=null&&typeof entry[key]!=="string")
@@ -9710,7 +9710,7 @@ function focusRefLoad(ex,n,draft,prev){
 function focusRamp(ex,n,r){
   const de=activeWorkoutDraft?.exercises?.[ex.id],set=draftSetAt(ex.id,n),loads=window.RepForgeStartingLoads;
   if(!loads||!de||!set||set.completion!=="pending"||set.role!=="working"||de.substitution||set.calibration||
-    r.status!=="new"||r.plannedLoad!=null||last(ex).length||r.progressionInputs?.history?.length||
+    r.status!=="new"||r.plannedLoad!=null||r.targetSets?.some(item=>item.planned)||last(ex).length||r.progressionInputs?.history?.length||
     de.setOrder.some(id=>de.sets[id].role==="working"&&(de.sets[id].completion!=="pending"||de.sets[id].performed)))return null;
   const convention=de.programmed.loadingConvention;
   if(!["external","per_side"].includes(convention)||de.programmed.loadingContext?.externalLoadMultiplier===0)return null;
