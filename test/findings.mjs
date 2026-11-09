@@ -26,7 +26,7 @@ function readings(log,now) {
   const calibration=Calibration.estimate(Calibration.checkErrors({today:now,sessions:history.map(s=>({date:s.date,checks:s.sets.filter(r=>r.calibration).map(r=>({predictedReps:r.calibration.predictedReps,reps:r.reps}))}))}));
   const recommendation=Engine.recommendSets(prescriptions,history,[],context,{now,calibration})[0];
   const observations=rows.map(r=>({key,session:r.session,date:r.date,set:r.setIndex,load:r.load,reps:r.reps,rir:r.rir,q:Gauge.rowQuality(r)}));
-  return [{key,slotId:'slot-a',name:'Leg press',recommendation,standing:recommendation.standing,calibration,weeks:Gauge.weeksFrom(observations,(load,reps,rir)=>load*(1+(reps+rir)/30)),improved:false}];
+  return [{key,slotId:'slot-a',name:'Leg press',recommendation,standing:recommendation.standing,nextSetQuality:Gauge.rowQuality(rows.findLast(r=>r.effortSource!=='failure')||{effortSource:'rir'}),calibration,weeks:Gauge.weeksFrom(observations,(load,reps,rir)=>load*(1+(reps+rir)/30)),improved:false}];
 }
 const build=(log,now='2026-11-09',p=program,read=readings)=>Model.buildFindings(log,p,{},now,read);
 const found=(result,id)=>result.released.find(f=>f.id===id);
@@ -90,6 +90,19 @@ proof('solid uses the engine weighted sets and agreement, released at the first 
   const words=[...one,...two].map(r=>({...r,effortSource:'effort'}));
   assert.equal(found(build(words),'first_solid'),undefined);
 });
+proof('solid distance reaches the exact weighted boundary for words and numeric entries',()=>{
+  for(const source of ['effort','rir']) {
+    const log=['01','08','15'].flatMap((d,i)=>session('quality'+i,`2026-10-${d}`,{checks:true,loads:[100,95,90],extra:{effortSource:source}}));
+    // Keep the last set a genuine test, independently of the working entry mode.
+    for(const row of log.filter(r=>r.calibration)){row.effortSource='failure';row.rir=0;}
+    const before=build(log,'2026-10-15');
+    assert.equal(before.next.id,'first_solid');
+    const n=before.next.need.m;
+    const more=count=>session('quality2','2026-10-15',{loads:Array(count).fill(100),extra:{effortSource:source}}).map((r,i)=>({...r,setIndex:i+3,set:i+4}));
+    assert.equal(found(build([...log,...more(n-1)],'2026-10-15'),'first_solid'),undefined);
+    assert.ok(found(build([...log,...more(n)],'2026-10-15'),'first_solid'),`${source}: ${n} promised sets must suffice`);
+  }
+});
 proof('a disagreement cannot be relabelled solid just because there are six sets',()=>{
   const log=['01','08'].flatMap((d,i)=>session('bad'+i,`2026-10-${d}`,{loads:[100,130,170,220]}));
   assert.equal(found(build(log),'first_solid'),undefined);
@@ -132,6 +145,11 @@ proof('needs include named lifts and exact remaining calendar days',()=>{
   const next=build(log,'2026-10-20').next;
   assert.equal(next.id,'month_one');assert.equal(next.need.d,9);
 });
+proof('manual prescriptions never promise an adaptive target after another session',()=>{
+  const read=(rows,now)=>readings(rows,now).map(f=>({...f,recommendation:{status:'manual'},targetEligible:false,standing:null}));
+  const out=build(one,'2026-10-01',program,read);
+  assert.equal(out.next.id,'first_target');assert.equal(out.next.need,null);
+});
 proof('the first trend includes only a record already observed on its release date',()=>{
   const read=(rows,now)=>readings(rows,now).map(f=>({...f,records:[{date:'2026-10-08',load:105,reps:8},{date:'2026-11-05',load:110,reps:8}]}));
   const result=build([...one,...two],undefined,program,read);
@@ -160,6 +178,15 @@ proof('a bodyweight-only history anchor also releases the first target',()=>{
   assert.equal(read(one,'2026-10-08')[0].recommendation.status,'recommended');
   const f=found(build(log,undefined,program,read),'first_target');
   assert.equal(f.date,'2026-10-01');assert.equal(f.load,null);assert.equal(f.loadingConvention,'bodyweight');
+});
+proof('a year of later sessions preserves the first released evidence',()=>{
+  const log=Array.from({length:208},(_,i)=>session('year'+i,new Date(Date.parse('2025-11-10')+(Math.floor(i/4)*7+i%4)*864e5).toISOString().slice(0,10))).flat();
+  const result=build(log,'2026-11-09');
+  assert.equal(result.released.length,5);
+  assert.deepEqual(found(result,'first_target'),found(build(log.slice(0,4),'2025-11-10'),'first_target'));
+  assert.equal(found(result,'first_solid').date,'2025-11-11');
+  assert.equal(found(result,'first_trend').date,'2025-11-17');
+  assert.equal(found(result,'month_one').date,'2025-12-08');
 });
 proof('the month starts with a timed working session too',()=>{
   const metric=require('../exercise-metrics.js').DEFINITIONS.find(m=>m.semantic==='durationSeconds');

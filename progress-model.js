@@ -625,8 +625,8 @@
       if (!sessions.has(id)) sessions.set(id, []);
       sessions.get(id).push(row);
     }
-    const prefix = [];
-    const read = (history, date) => standings(history.slice(), date) || [];
+    const prefix = [], seenKeys = new Set(), checkCounts = new Map();
+    const read = (history, date, request) => standings(history.slice(), date, request) || [];
     const hasAnchor = (fact) => fact.recommendation?.historyAnchor?.source === "history";
     const weights = (history, facts) => new Set([
       ...history.filter((row) => row.startingLoad).map(keyOf),
@@ -635,7 +635,23 @@
     for (const session of sessions.values()) {
       const date = isoDate(session[0].date);
       prefix.push(...session);
-      const after = read(prefix, date);
+      for (const row of session) {
+        seenKeys.add(keyOf(row));
+        if (row.effortSource === "failure" && row.calibration) checkCounts.set(keyOf(row), (checkCounts.get(keyOf(row)) || 0) + 1);
+      }
+      // Released facts never need their historical engine work repeated. Checks
+      // cannot produce a reading until three exist; the current and month reads
+      // below still refresh every lift at their exact as-of date.
+      const checkingWeights = !released.has("weights_found") && (prefix.some((row) => row.startingLoad) ||
+        lifts.length > 0 && lifts.every((lift) => seenKeys.has(lift.key)));
+      const recommendation = checkingWeights || ["first_target", "first_solid"].some((id) => !released.has(id));
+      const weeks = !released.has("first_trend") && weekStartOf(prefix[0].date) !== weekStartOf(date);
+      const calibrationKeys = !released.has("effort_read") ? [...checkCounts].filter(([, n]) => n >= 3).map(([key]) => key) : [];
+      const calibration = calibrationKeys.length > 0;
+      const after = recommendation || weeks || calibration ? read(prefix, date, {
+        recommendation, weeks, calibration,
+        keys: checkingWeights ? null : [...new Set([...session.map(keyOf), ...calibrationKeys])],
+      }) : [];
       // This saved session can support the next target immediately. Replay
       // only this prefix so no later session can supply its reason or values.
       const target = after.find((fact) => hasAnchor(fact) && fact.recommendation?.reasonCodes?.includes("history_anchor") &&
@@ -670,12 +686,12 @@
     const monthDate = rows.length ? addDays(rows[0].date, 28) : null;
     if (monthDate && monthDate <= today) {
       const monthRows = rows.filter((row) => isoDate(row.date) <= monthDate);
-      const facts = read(monthRows, monthDate);
+      const facts = read(monthRows, monthDate, { recommendation: true, calibration: true, weeks: false });
       release("month_one", monthDate, { sessions: new Set(monthRows.map((row) => row.session || row.date)).size,
         improved: new Set(facts.filter((fact) => fact.improved).map((fact) => fact.key)).size,
         solid: new Set(facts.filter((fact) => fact.standing?.word === "solid").map((fact) => fact.key)).size });
     }
-    const current = read(rows, today);
+    const current = read(rows, today, { recommendation: true, calibration: true, weeks: false });
     const lift = current[0] || { key: lifts[0]?.key || "", name: lifts[0]?.name || "" };
     const pending = FINDING_IDS.find((id) => !released.has(id));
     let need = null;
@@ -689,10 +705,11 @@
       }
       if (pending === "first_solid") {
         const closest = current.slice().sort((a, b) => (b.standing?.evidence?.sets || 0) - (a.standing?.evidence?.sets || 0))[0] || lift;
-        need = { key: closest.key, lift: closest.name, m: Math.max(0, Math.ceil(6 - (closest.standing?.evidence?.sets || 0))),
+        need = { key: closest.key, lift: closest.name, m: Math.max(0, Math.ceil((6 - (closest.standing?.evidence?.sets || 0)) / (closest.nextSetQuality || 0.5))),
           reason: closest.standing?.reasons?.includes("disagreement") || closest.standing?.reasons?.includes("inconsistent_checks")
             ? "agreement" : (closest.standing?.evidence?.sessions || 0) < 2 ? "sessions" : "sets" };
       }
+      if (pending === "first_target" && current.length && current.every((fact) => fact.targetEligible === false || fact.recommendation?.reasonCodes?.includes("manual_prescription"))) need = null;
       if (pending === "month_one") need.d = monthDate ? calendarDayDistance(today, monthDate) : 28;
     }
     return { version: FINDINGS_VERSION,

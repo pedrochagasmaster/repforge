@@ -121,9 +121,8 @@ try {
     "manual prescriptions release four findings without inventing a target or solid standing", findings);
   assert(findings.every(f=>/^\d{4}-\d{2}-\d{2}$/.test(f.date)) &&
     findings.every((f,i)=>!i||findings[i-1].date>=f.date), "findings are dated and newest first", findings);
-  assert(await page.locator("#overviewProfile [data-finding-next=first_target]").count() === 1 &&
-    (await page.locator("#overviewProfile .profile-finding-need").innerText()).includes("one more session"),
-    "a manual program keeps its first target pending");
+  assert(await page.locator("#overviewProfile .profile-finding-need").count() === 0,
+    "manual prescriptions omit an impossible adaptive target need");
   const names = await page.locator("#overviewProfile .profile-lift__name").allTextContents();
   assert(JSON.stringify(names) === JSON.stringify(program.map(ex => ex.name)), "profile rows follow training-day order", names);
   assert(await page.locator("#overviewProfile .profile-lift__standing").count() === program.length,
@@ -188,6 +187,40 @@ try {
     assert(items.length===6&&!items.includes("effort_read"),"adaptive history releases six truthful findings",items);
     assert((await findingPage.locator("#overviewProfile [data-finding-next=effort_read]").innerText()).includes("2 more test sets"),
       "one check leaves two checks on the named lift");
+    const weighted=generated.program.find(lift=>isWeightRepsSlot(definitionSlot(generated.programMeta,lift))&&definitionSlot(generated.programMeta,lift).loadingModel?.bodyweightCoefficient>=0.3);
+    const bodyHistory=[0,1].flatMap(w=>[1,2,3,4].map(set=>{
+      const row=metricLogRow(generated.programMeta,weighted,{session:`measurement-${w}`,date:day(14-w*7),set,load:60,reps:11-set,rir:2,extra:{effortSource:'rir',bodyweight:w?120:80}});
+      row.loadingContext.bodyweightKg=row.bodyweight;row.loadingContext.bodyweightContributionEnabled=true;return row;
+    }));
+    const targets=[];
+    for(const rows of [bodyHistory.slice(0,4),bodyHistory])targets.push(await findingPage.evaluate(async next=>{
+      const commit=await window.__repforgeCommitProposedState(next);if(!commit.committed)throw new Error('measurement proposal refused');
+      return profileFindings().released.find(f=>f.id==='first_target');
+    },{...generated,log:rows}));
+    assert(targets[0]&&JSON.stringify(targets[0])===JSON.stringify(targets[1]),
+      'a later bodyweight cannot rewrite the first target, date or reason',targets);
+    for(const kind of ['reps','load']) {
+      const baseline=[0,1].flatMap(w=>[1,2,3,4].map(set=>metricLogRow(generated.programMeta,ex,{
+        session:`baseline-${w}`,date:day(14-w*7),set,load:kind==='load'?50+set*2.5:60,reps:kind==='reps'?6+set:8,rir:2,extra:{effortSource:'rir'}
+      })));
+      const recordFacts=await findingPage.evaluate(async next=>{
+        const commit=await window.__repforgeCommitProposedState(next);if(!commit.committed)throw new Error('record proposal refused');
+        const rows=readLogRows(),read=findingReadings();
+        const facts=read(rows,today());
+        return {records:facts.flatMap(f=>f.records),owner:sessionPRs(rows.slice(0,4),[]).concat(sessionPRs(rows.slice(4),rows.slice(0,4)))};
+      },{...generated,log:baseline});
+      assert(recordFacts.owner.length===0&&recordFacts.records.length===0,
+        `${kind}: changes inside the baseline and an identical session create no record`,recordFacts);
+      const later=[...baseline,...[1,2,3,4].map(set=>metricLogRow(generated.programMeta,ex,{
+        session:'record-later',date:day(1),set,load:75,reps:8,rir:2,extra:{effortSource:'rir'}
+      }))];
+      const real=await findingPage.evaluate(async next=>{
+        const commit=await window.__repforgeCommitProposedState(next);if(!commit.committed)throw new Error('record proposal refused');
+        return findingReadings()(readLogRows(),today()).flatMap(f=>f.records);
+      },{...generated,log:later});
+      assert(real.length>0&&real.every(r=>r.date===day(1)&&r.load===75&&r.reps===8),
+        `${kind}: the first real record retains its own date and values`,real);
+    }
     const original=generated.program.find(other=>other.libraryId!==ex.libraryId);
     for(const row of history){row.exerciseId=original.id;row.name=original.name;}
     await findingPage.evaluate(async next=>{
