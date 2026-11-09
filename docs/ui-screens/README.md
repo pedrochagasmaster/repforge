@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 256 screens,
-1516 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 257 screens,
+1519 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -239,6 +239,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Finding an opening load](screens/workout/focus-ramp__phone-390-light-en.png) | 8 | A fresh generated program with bodyweight 80 kg offers the declared opening and the skip. |
 | [After an Easy ramp set](screens/workout/focus-ramp-easy__phone-390-light-en.png) | 8 | A completed Easy set is a warm-up; the cue offers the next grid load before the working sets. |
 | [Finding a weight without bodyweight](screens/workout/focus-ramp-floor__phone-390-light-en.png) | 8 | Without bodyweight the opening uses the equipment floor and offers the existing Session bodyweight field. |
+| [Workout: immediate pain swap](screens/workout/pain-swap__phone-390-light-en.png) | 3 | Second marked session on the same movement and slot opens the dismissible swap picker, with different equipment classes first. |
 
 ### Session summary
 

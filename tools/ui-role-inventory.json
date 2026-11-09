@@ -1332,6 +1332,11 @@
       "owner": "plan-082",
       "content": "flat",
       "scenario": "An accepted removal and the following week’s observed outcome."
+    },
+    "workout/pain-swap": {
+      "owner": "plan-082",
+      "content": "flat",
+      "scenario": "The second marked session opens the ordinary swap picker, with different equipment classes first and no selection made."
     }
   },
   "components": [
@@ -2380,7 +2385,8 @@
         "workout/focus-ramp",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
-        "workout/why-standing"
+        "workout/why-standing",
+        "workout/pain-swap"
       ],
       "neverDisabledReason": "A note can always be written for the exercise in progress."
     },
@@ -2948,7 +2954,8 @@
       "catalogStates": [
         "program/exercise-picker",
         "workout/swap-alternates",
-        "workout/swap-reason"
+        "workout/swap-reason",
+        "workout/pain-swap"
       ]
     },
     {
@@ -2972,7 +2979,8 @@
       "catalogStates": [
         "program/exercise-picker",
         "workout/swap-alternates",
-        "workout/swap-reason"
+        "workout/swap-reason",
+        "workout/pain-swap"
       ]
     },
     {
@@ -2996,7 +3004,8 @@
       "catalogStates": [
         "program/exercise-picker",
         "workout/swap-alternates",
-        "workout/swap-reason"
+        "workout/swap-reason",
+        "workout/pain-swap"
       ]
     },
     {
@@ -3015,7 +3024,8 @@
       "catalogStates": [
         "program/exercise-picker",
         "workout/swap-alternates",
-        "workout/swap-reason"
+        "workout/swap-reason",
+        "workout/pain-swap"
       ]
     },
     {
@@ -3040,7 +3050,8 @@
       "catalogStates": [
         "program/exercise-picker",
         "workout/swap-alternates",
-        "workout/swap-reason"
+        "workout/swap-reason",
+        "workout/pain-swap"
       ]
     },
     {
@@ -3059,7 +3070,8 @@
       "catalogStates": [
         "program/exercise-picker",
         "workout/swap-alternates",
-        "workout/swap-reason"
+        "workout/swap-reason",
+        "workout/pain-swap"
       ]
     },
     {
@@ -4037,7 +4049,8 @@
         "workout/last-rep-slow",
         "workout/focus-ramp",
         "workout/focus-ramp-easy",
-        "workout/focus-ramp-floor"
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {
@@ -4919,7 +4932,8 @@
         "program/share-setup",
         "program/text-export",
         "workout/swap-alternates",
-        "program/minibar-rest-done"
+        "program/minibar-rest-done",
+        "workout/pain-swap"
       ],
       "progressScopes": {
         "active-program-week": "block"
@@ -6025,7 +6039,8 @@
         "workout/last-rep-slow",
         "workout/focus-ramp",
         "workout/focus-ramp-easy",
-        "workout/focus-ramp-floor"
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {
@@ -7118,7 +7133,8 @@
         "workout/last-rep-slow",
         "workout/focus-ramp",
         "workout/focus-ramp-easy",
-        "workout/focus-ramp-floor"
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {
@@ -7181,7 +7197,8 @@
         "workout/focus-ramp",
         "workout/focus-ramp-easy",
         "workout/focus-ramp-floor",
-        "workout/why-standing"
+        "workout/why-standing",
+        "workout/pain-swap"
       ],
       "progressScopes": {
         "workout-exercise-order": "exercise-set"
@@ -7340,7 +7357,8 @@
         "workout/focus-ramp",
         "workout/focus-ramp-easy",
         "history/ramp-rows",
-        "workout/focus-ramp-floor"
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {
@@ -7592,7 +7610,8 @@
         "workout/last-rep-slow",
         "workout/focus-ramp",
         "workout/focus-ramp-easy",
-        "workout/focus-ramp-floor"
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ],
       "neverDisabledReason": "The header draws the name only while the workout has an exercise to open, and opening it is always available."
     },
@@ -7669,7 +7688,8 @@
         "workout/last-rep-slow",
         "workout/focus-ramp",
         "workout/focus-ramp-easy",
-        "workout/focus-ramp-floor"
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {
@@ -7871,7 +7891,8 @@
         "program/exercise-picker",
         "workout/abandon",
         "workout/swap-alternates",
-        "workout/swap-reason"
+        "workout/swap-reason",
+        "workout/pain-swap"
       ]
     },
     {
@@ -7900,7 +7921,8 @@
       "catalogStates": [
         "program/exercise-picker",
         "workout/swap-alternates",
-        "workout/swap-reason"
+        "workout/swap-reason",
+        "workout/pain-swap"
       ]
     },
     {
@@ -8482,7 +8504,8 @@
         "workout/last-rep-slow",
         "workout/focus-ramp",
         "workout/focus-ramp-easy",
-        "workout/focus-ramp-floor"
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {
@@ -8551,7 +8574,8 @@
         "workout/last-rep-slow",
         "workout/focus-ramp",
         "workout/focus-ramp-easy",
-        "workout/focus-ramp-floor"
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {
@@ -8598,7 +8622,8 @@
         "workout/last-rep-slow",
         "workout/focus-ramp",
         "workout/focus-ramp-easy",
-        "workout/focus-ramp-floor"
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {
@@ -9171,7 +9196,8 @@
         "workout/focus-ramp-easy",
         "history/ramp-rows",
         "workout/focus-ramp-floor",
-        "workout/why-standing"
+        "workout/why-standing",
+        "workout/pain-swap"
       ]
     },
     {
@@ -9252,7 +9278,8 @@
         "workout/why-standing",
         "workout/skip-reason",
         "workout/discomfort-mark",
-        "onboarding-start/effort-choice"
+        "onboarding-start/effort-choice",
+        "workout/pain-swap"
       ]
     },
     {
@@ -9341,7 +9368,8 @@
         "workout/focus-ramp",
         "workout/focus-ramp-easy",
         "history/ramp-rows",
-        "workout/focus-ramp-floor"
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {
@@ -9421,7 +9449,8 @@
         "workout/last-rep-slow",
         "workout/focus-ramp",
         "workout/focus-ramp-easy",
-        "workout/focus-ramp-floor"
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {
@@ -9593,7 +9622,8 @@
         "workout/last-rep-slow",
         "workout/focus-ramp",
         "workout/focus-ramp-easy",
-        "workout/focus-ramp-floor"
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {
@@ -9646,7 +9676,8 @@
         "workout/last-rep-slow",
         "workout/focus-ramp",
         "workout/focus-ramp-easy",
-        "workout/focus-ramp-floor"
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {
@@ -9695,7 +9726,8 @@
         "workout/last-rep-slow",
         "workout/focus-ramp",
         "workout/focus-ramp-easy",
-        "workout/focus-ramp-floor"
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ],
       "neverDisabledReason": "The way to change how effort is logged stays reachable whenever the shelf is."
     },
@@ -9855,7 +9887,8 @@
         "workout/stage-tip",
         "workout/focus-ramp",
         "workout/focus-ramp-easy",
-        "workout/focus-ramp-floor"
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {
@@ -9902,7 +9935,8 @@
         "workout/last-rep-slow",
         "workout/focus-ramp",
         "workout/focus-ramp-easy",
-        "workout/focus-ramp-floor"
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {
@@ -9949,7 +9983,8 @@
         "workout/last-rep-slow",
         "workout/focus-ramp",
         "workout/focus-ramp-easy",
-        "workout/focus-ramp-floor"
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {
@@ -9996,7 +10031,8 @@
         "workout/last-rep-slow",
         "workout/focus-ramp",
         "workout/focus-ramp-easy",
-        "workout/focus-ramp-floor"
+        "workout/focus-ramp-floor",
+        "workout/pain-swap"
       ]
     },
     {

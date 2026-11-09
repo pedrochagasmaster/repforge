@@ -2283,6 +2283,13 @@
       "label": "Review of an accepted change",
       "scenario": "An accepted removal and the following week’s observed outcome.",
       "variants": "demandingText"
+    },
+    {
+      "id": "pain-swap",
+      "flow": "workout",
+      "label": "Workout: immediate pain swap",
+      "scenario": "Second marked session on the same movement and slot opens the dismissible swap picker, with different equipment classes first.",
+      "variants": "localized"
     }
   ]
 }
