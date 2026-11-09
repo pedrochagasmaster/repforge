@@ -42,12 +42,35 @@ assert.equal(custom("Paused bench").eligible, false);
 assert.equal(custom("Agachamento livre").eligible, false);
 assert.equal(custom("Levantamento terra romeno").eligible, false);
 assert.equal(custom("Supino inclinado").press, true);
+// Owner decision 2026-11-09: both words in the English catalog name exclude the movement.
+const namedBarbellSquats = catalog.exercises.filter(exercise => /barbell/i.test(exercise.name) && /squat/i.test(exercise.name));
+assert.deepEqual(catalog.exercises.filter(exercise => /barbell/i.test(exercise.name) && /squat/i.test(exercise.name) &&
+  Calibration.eligibility({exercise,lookup}).eligible).map(exercise => exercise.name), [],
+  "no English catalog name containing both barbell and squat remains eligible");
+for (const exercise of namedBarbellSquats) for (const name of [exercise.name,exercise.name.toUpperCase()])
+  for (const equipmentName of [null,"Dumbbells","Barbell"])
+    assert.equal(Calibration.eligibility({exercise:{...exercise,name},lookup,equipmentName}).eligible,false,
+      `${name}: the name exclusion applies regardless of case or performed equipment`);
+const additionalNames = ["Barbell Bulgarian split squat","Barbell front foot elevated split squat","Barbell split squat"];
+const additionalIds = new Set(additionalNames.map(name => {
+  assert.ok(byName(name),`${name} is in the catalog`); return byName(name).id;
+}));
+const retainedExclusions = catalog.exercises.filter(exercise => !additionalIds.has(exercise.id) &&
+  !Calibration.eligibility({exercise,lookup}).eligible).map(exercise => exercise.id).sort();
+assert.equal(retainedExclusions.length,113,"all 113 prior default exclusions remain");
+assert.equal(createHash("sha256").update(retainedExclusions.join("\n")).digest("hex"),
+  "5afa7b8dbd7bf5ede49b12fc248b6902ca28e0ebb0403a5421cfdd3de0505afc",
+  "across the whole catalog, no other default eligibility changes");
+assert.equal(createHash("sha256").update(JSON.stringify(catalog.exercises.map(exercise =>
+  [exercise.id,Calibration.eligibility({exercise,lookup}).press]).sort())).digest("hex"),
+  "7eec11fa4494cb01109d4f78355e1c4e9eb3740a6611b038bc6d4127ef11ce93","press safety classification is unchanged across the whole catalog");
+
 // The catalog's excluded set is pinned, so a catalog or rule change is a reviewed change.
 const excluded = catalog.exercises.filter((exercise) => !Calibration.eligibility({ exercise, lookup }).eligible)
   .map((exercise) => exercise.id).sort();
-assert.equal(excluded.length, 113, "the rule excludes 113 of the catalog's exercises");
+assert.equal(excluded.length, 116, "the rule excludes 116 of the catalog's exercises");
 assert.equal(createHash("sha256").update(excluded.join("\n")).digest("hex"),
-  "5afa7b8dbd7bf5ede49b12fc248b6902ca28e0ebb0403a5421cfdd3de0505afc", "the excluded set is the reviewed one");
+  "5ff2692cc82953d165d115df4e84af2405c75916e078367695c3be3653063540", "the excluded set is the reviewed one");
 assert.equal(Calibration.VERSION, "eligibility@077.1");
 
 // OD-9: reps + reps left − 1; the reps alone without a known RIR; clamped to the stepper.
