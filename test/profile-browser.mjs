@@ -121,9 +121,8 @@ try {
     "manual prescriptions release four findings without inventing a target or solid standing", findings);
   assert(findings.every(f=>/^\d{4}-\d{2}-\d{2}$/.test(f.date)) &&
     findings.every((f,i)=>!i||findings[i-1].date>=f.date), "findings are dated and newest first", findings);
-  assert(await page.locator("#overviewProfile [data-finding-next=first_target]").count() === 1 &&
-    (await page.locator("#overviewProfile .profile-finding-need").innerText()).includes("one more session"),
-    "a manual program keeps its first target pending");
+  assert(await page.locator("#overviewProfile .profile-finding-need").count() === 0,
+    "manual prescriptions omit an impossible adaptive target need");
   const names = await page.locator("#overviewProfile .profile-lift__name").allTextContents();
   assert(JSON.stringify(names) === JSON.stringify(program.map(ex => ex.name)), "profile rows follow training-day order", names);
   assert(await page.locator("#overviewProfile .profile-lift__standing").count() === program.length,

@@ -145,6 +145,11 @@ proof('needs include named lifts and exact remaining calendar days',()=>{
   const next=build(log,'2026-10-20').next;
   assert.equal(next.id,'month_one');assert.equal(next.need.d,9);
 });
+proof('manual prescriptions never promise an adaptive target after another session',()=>{
+  const read=(rows,now)=>readings(rows,now).map(f=>({...f,recommendation:{status:'manual'},standing:null}));
+  const out=build(one,'2026-10-01',program,read);
+  assert.equal(out.next.id,'first_target');assert.equal(out.next.need,null);
+});
 proof('the first trend includes only a record already observed on its release date',()=>{
   const read=(rows,now)=>readings(rows,now).map(f=>({...f,records:[{date:'2026-10-08',load:105,reps:8},{date:'2026-11-05',load:110,reps:8}]}));
   const result=build([...one,...two],undefined,program,read);
