@@ -203,6 +203,14 @@ async function checkStandingLedger(browser) {
       const standing = await opened.page.locator(".exercise.is-current .fx-cue__standing").boundingBox();
       if (!standing || standing.y < m.window.top - 1 || standing.y + standing.height > m.window.bottom + 1)
         failures.push(`${width}px ${lang} ${text}: standing is not whole in the context window`);
+      if (width === 390 && lang === "pt") {
+        const available = Math.min(row.shelfTop, m.window.bottom) - m.window.top;
+        assert(standing && row.bottom - standing.y <= available,
+          "390px PT 200% regression fixture fits standing and the current row together");
+        assert(standing.y >= m.window.top - 1 && standing.y + standing.height <= m.window.bottom + 1,
+          "390px PT 200% keeps the fitting standing line visible with the current row",
+          JSON.stringify({ row, window: m.window, standing }));
+      }
       if (width === 320 && m.window.scrollTop !== 0)
         failures.push(`${width}px ${lang}: initial context scrolled ${m.window.scrollTop}px`);
       console.log(`  ${width}px ${lang} ${text}: ${JSON.stringify({ row, window: m.window, standing })}`);
