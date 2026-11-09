@@ -4394,9 +4394,13 @@ function weeklyAdaptationHtml(){
   if(!proposal||!proposal.nextDocument)return lines+evaluations;
   const lift=weekFactName(pattern.slotId),replacement=proposal.target.replacementId?libraryName(libraryEntry(proposal.target.replacementId)):"";
   const change=t(`review.proposal.${proposal.kind}`,{lift,replacement,day:dayLabel(pattern.day)});
-  const setChanges=proposal.kind==="reduce_sets"?proposal.nextDocument.program.filter(row=>{
-    const before=state.program.find(item=>item.id===row.id);return before&&before.sets!==row.sets;
-  }).map(row=>`<p>${esc(t("review.proposal.set_change",{lift:exerciseDisplayName(row),before:state.program.find(item=>item.id===row.id).sets,after:row.sets}))}</p>`).join(""):"";
+  const setChanges=proposal.kind==="reduce_sets"?proposal.nextDocument.programMeta.programDefinition.days.flatMap(day=>day.slots).map(slot=>{
+    const before=state.programMeta.programDefinition.days.flatMap(day=>day.slots).find(item=>item.id===slot.id);
+    const changed=slot.prescriptionsByCycle.find(cycle=>cycle.sets.length!==before?.prescriptionsByCycle.find(item=>item.cycleIndex===cycle.cycleIndex)?.sets.length);
+    if(!changed)return"";
+    const count=before.prescriptionsByCycle.find(item=>item.cycleIndex===changed.cycleIndex).sets.length;
+    return `<p>${esc(t("review.proposal.set_change",{lift:weekFactName(slot.id),week:changed.cycleIndex,before:count,after:changed.sets.length}))}</p>`;
+  }).join(""):"";
   const why=needsCause?`<p id="weeklyAdaptationWhy">${esc(t("review.proposal.ask_why"))}</p><div class="week-proposal__causes" role="group" aria-labelledby="weeklyAdaptationWhy">`+
     RepForgeProgramTransition.ADAPTATION_CAUSES[pattern.pattern].map(cause=>`<button type="button" class="week-proposal__cause" data-adaptation-cause="${cause}" aria-pressed="${view.cause===cause}"${weeklyAdaptationBusy?" disabled":""}>${esc(t(`review.why.${cause}`))}</button>`).join("")+`</div>`:"";
   return lines+evaluations+`<section class="review__week week-proposal" data-adaptation-card aria-labelledby="weeklyAdaptationTitle">`+
@@ -4412,20 +4416,23 @@ function bindWeeklyAdaptation(){
     weeklyAdaptationView.cause=button.dataset.adaptationCause;renderReview();
     $(`[data-adaptation-cause="${button.dataset.adaptationCause}"]`)?.focus({preventScroll:true});
   });
-  $$('[data-adaptation-why]').forEach(button=>button.onclick=()=>openWhySheet(button.dataset.adaptationWhy,button));
+  $$('[data-adaptation-why]').forEach(button=>button.onclick=()=>openWhySheetFor(prog.find(button.dataset.adaptationWhy),button,{surface:"exercise",measure:false}));
   $$('[data-adaptation-action]').forEach(button=>button.onclick=()=>decideWeeklyAdaptation(button.dataset.adaptationAction));
 }
 async function decideWeeklyAdaptation(action){
   const view=weeklyAdaptationView;if(!view||weeklyAdaptationBusy)return;
   if(action==="change"){
     navTo("program");programEditMode=true;renderProgram();
-    afterModalSettles(()=>$('#programEditor [data-role="exercise-row"][data-id="'+CSS.escape(view.pattern.slotId)+'"]')?.click());
+    afterModalSettles(()=>{
+      $('#programEditor [data-role="day-tab"][data-day="'+CSS.escape(view.pattern.day)+'"]')?.click();
+      $('#programEditor [data-role="exercise-row"][data-id="'+CSS.escape(view.pattern.slotId)+'"]')?.click();
+    });
     return;
   }
   const decision={accept:"accepted",decline:"declined",later:"snoozed"}[action];
   if(!decision||decision==="accepted"&&!view.proposal.cause)return;
   const record={id:`adaptation:${uid()}`,v:1,blockId:snapshotBlockId(state),week:weekStart(today()),
-    pattern:view.pattern.pattern,cause:view.proposal.cause||"other",kind:view.proposal.kind,target:cloneSnapshot(view.proposal.target),
+    pattern:view.pattern.pattern,cause:view.proposal.cause,kind:view.proposal.kind,target:cloneSnapshot(view.proposal.target),
     proposedAt:view.proposedAt,decision,decidedAt:new Date().toISOString(),
     ...(decision==="accepted"?{appliedEdit:{expectedToken:cloneSnapshot(view.token),intent:"adaptation_apply"}}:{})};
   weeklyAdaptationBusy=true;view.error=false;renderReview();
@@ -4443,8 +4450,9 @@ async function decideWeeklyAdaptation(action){
     }
   }catch{result={ok:false}}
   weeklyAdaptationBusy=false;
-  if(result?.ok||result?.committed&&result?.settled){weeklyAdaptationView=null;render();renderReview()}
-  else{view.error=true;renderReview()}
+  if(result?.ok||result?.committed&&result?.settled){
+    weeklyAdaptationView=null;render();renderReview();focusRoute($("#weekReview-current"));
+  }else{view.error=true;renderReview();focusRoute($(`[data-adaptation-action="${action}"]`))}
 }
 async function evaluateWeeklyAdaptations(){
   if(weeklyEvaluationPending)return;
@@ -25189,12 +25197,12 @@ function renderWhySheet(model){
       const chev=disc.querySelector(".chevron");if(chev)chev.classList.toggle("is-down",!open)}}
   const evidence=$("#whyEvidence");if(evidence){evidence.textContent=model.evidence;evidence.classList.toggle("hidden",!model.evidence)}}
 
-function openWhySheetFor(ex,opener){
+function openWhySheetFor(ex,opener,{surface=opener?.closest?.("#exDetail")?"exercise":"focus",measure=true}={}){
   const sheet=$("#whySheet"),scrim=$("#whyScrim");
   if(!sheet||!ex)return;
   // Focus is the only workout-logging surface; the exercise page is the other opener.
-  captureEvent("recommendation_explained",{surface:opener?.closest?.("#exDetail")?"exercise":"focus"});
-  renderWhySheet(whySheetModel(ex,opener?.closest?.("#exDetail")?"exercise":"focus"));
+  if(measure)captureEvent("recommendation_explained",{surface});
+  renderWhySheet(whySheetModel(ex,surface));
   document.body.classList.add("is-sheet-open");
   openModal(sheet,{initialFocus:$("#whyClose"),returnFocus:opener,onEscape:closeWhySheet,scrim,
     delayHide:reducedMotion()?0:280});

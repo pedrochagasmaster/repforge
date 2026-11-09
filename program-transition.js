@@ -678,7 +678,7 @@
       if (!plainRecord(record) || Object.keys(record).some(key => ![...keys,"appliedEdit","evaluation"].includes(key)) ||
           keys.some(key => !Object.hasOwn(record,key)) || record.v !== 1 || !boundedId(record.id) || ids.has(record.id) ||
           !boundedId(record.blockId) || !adaptationWeek(record.week) || !ADAPTATION_PATTERNS.includes(record.pattern) ||
-          !ADAPTATION_CAUSES[record.pattern].includes(record.cause) ||
+          !(ADAPTATION_CAUSES[record.pattern].includes(record.cause) || record.cause === null && record.decision !== "accepted") ||
           !["swap_exercise","drop_exercise","reduce_sets"].includes(record.kind) ||
           !["accepted","declined","snoozed"].includes(record.decision) ||
           !isCanonicalInstant(record.proposedAt) || !isCanonicalInstant(record.decidedAt) || record.decidedAt < record.proposedAt) return false;
@@ -729,7 +729,7 @@
     if (pattern.pattern === "recurring_fatigue") {
       let changed = false;
       for (const accessory of day.slots) {
-        if (accessory.order === 1 || !(accessory.role.endsWith("Accessory") || accessory.role === "manual" && options.isAccessory?.(accessory))) continue;
+        if (!(accessory.role.endsWith("Accessory") || accessory.role === "manual" && options.isAccessory?.(accessory))) continue;
         for (const cycle of accessory.prescriptionsByCycle || []) {
           if (cycle.cycleIndex < options.cycleIndex || cycle.sets.length <= 1) continue;
           cycle.sets.pop(); changed = true;

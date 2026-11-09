@@ -3106,7 +3106,7 @@ const EN = {
   "review.proposal.evaluation.pattern_stopped": "Change accepted for the week of {week}: the pattern did not recur in the following sessions.",
   "review.proposal.evaluation.pattern_continued": "Change accepted for the week of {week}: the pattern recurred in the following sessions.",
   "review.proposal.evaluation.insufficient": "Change accepted for the week of {week}: there are not enough sessions to evaluate yet.",
-  "review.proposal.set_change": "{lift}: {before} sets to {after} sets.",
+  "review.proposal.set_change": "Week {week}, {lift}: {before} sets to {after} sets.",
 };
 const PT = {
   "catalog.unavailable.title": "Biblioteca de exercícios indisponível",
@@ -6214,7 +6214,7 @@ const PT = {
   "review.proposal.evaluation.pattern_stopped": "Mudança aceita para a semana de {week}: o padrão não se repetiu nas sessões seguintes.",
   "review.proposal.evaluation.pattern_continued": "Mudança aceita para a semana de {week}: o padrão se repetiu nas sessões seguintes.",
   "review.proposal.evaluation.insufficient": "Mudança aceita para a semana de {week}: ainda não há sessões suficientes para avaliar.",
-  "review.proposal.set_change": "{lift}: de {before} séries para {after} séries.",
+  "review.proposal.set_change": "Semana {week}, {lift}: de {before} séries para {after} séries.",
 };
 (function (root) {
   const STRINGS = { en: EN, pt: PT };

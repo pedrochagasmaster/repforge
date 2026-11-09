@@ -3104,5 +3104,5 @@
   "review.proposal.evaluation.pattern_stopped": "Mudança aceita para a semana de {week}: o padrão não se repetiu nas sessões seguintes.",
   "review.proposal.evaluation.pattern_continued": "Mudança aceita para a semana de {week}: o padrão se repetiu nas sessões seguintes.",
   "review.proposal.evaluation.insufficient": "Mudança aceita para a semana de {week}: ainda não há sessões suficientes para avaliar.",
-  "review.proposal.set_change": "{lift}: de {before} séries para {after} séries."
+  "review.proposal.set_change": "Semana {week}, {lift}: de {before} séries para {after} séries."
 }

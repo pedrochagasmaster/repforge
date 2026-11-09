@@ -3104,5 +3104,5 @@
   "review.proposal.evaluation.pattern_stopped": "Change accepted for the week of {week}: the pattern did not recur in the following sessions.",
   "review.proposal.evaluation.pattern_continued": "Change accepted for the week of {week}: the pattern recurred in the following sessions.",
   "review.proposal.evaluation.insufficient": "Change accepted for the week of {week}: there are not enough sessions to evaluate yet.",
-  "review.proposal.set_change": "{lift}: {before} sets to {after} sets."
+  "review.proposal.set_change": "Week {week}, {lift}: {before} sets to {after} sets."
 }
