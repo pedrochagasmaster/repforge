@@ -5,7 +5,9 @@
 
   const VERSION = "eligibility@077.1";
   /* The big barbell lifts are out (owner, 2026-11-05): the squat, hinge and horizontal-push families done with a free
-     barbell. Smith, EZ, fixed-weight and landmine bars stay in, as do dumbbells, machines, cables and bodyweight. */
+     barbell. Catalog names containing both barbell and squat are also excluded (owner, 2026-11-09), regardless of
+     performed equipment. Otherwise Smith, EZ, fixed-weight and landmine bars stay in, as do dumbbells, machines, cables
+     and bodyweight. */
   const BIG_LIFT_PATTERNS = Object.freeze(["Squat", "Hip Hinge", "Horizontal Push"]);
   const PRESS_PATTERNS = Object.freeze(["Horizontal Push", "Vertical Push"]);
   const FREE_BARBELL = /^(barbell|axle bar|buffalo bar|cambered (bench press|squat) bar|safety squat bar|swiss bar|(open )?trap bar|marrs bar)\b/i;
@@ -40,7 +42,8 @@
     const barbell = typeof equipmentName === "string" && equipmentName
       ? FREE_BARBELL.test(equipmentName)
       : names(exercise.resistanceEquipmentGroupIds, lookup).some((group) => FREE_BARBELL.test(group));
-    return { eligible: !(bigFamily && barbell), press, version: VERSION };
+    const namedBarbellSquat = /barbell/i.test(exercise.name || "") && /squat/i.test(exercise.name || "");
+    return { eligible: !namedBarbellSquat && !(bigFamily && barbell), press, version: VERSION };
   }
 
   /** The guess prefilled for the max set: the set before's reps plus its reps left, less one for the extra rest and

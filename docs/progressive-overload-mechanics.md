@@ -219,8 +219,9 @@ sets must be prescribed, and only the last working set can become a test set.
 It replaces that set. It is never offered immediately after a Max or zero
 reps-left set, during a lighter week, after pain or discomfort on that movement
 today, including earlier saved sessions, or on an excluded free-barbell squat,
-bench press or deadlift. Saved observations match by movement identity. A
-session protects today when either its workout date or its completion falls on today locally. Completion
+bench press or deadlift. Any catalog exercise whose English name contains both
+"barbell" and "squat" is excluded too, regardless of case or performed equipment.
+Saved observations match by movement identity. A session protects today when either its workout date or its completion falls on today locally. Completion
 comes from the saved session timing or the log row timestamp, so a session
 spanning midnight still protects the day it finished. If neither date can be
 read, the request is refused. A mark cleared before finishing is absent from
