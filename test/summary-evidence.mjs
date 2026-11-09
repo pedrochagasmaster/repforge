@@ -223,6 +223,12 @@ try {
     "the first finish after day 28 presents the month finding even without a session on its release date",
     JSON.stringify(month.summary.finding));
 
+  const manualOpening = { ...row("manual-opening", "2026-09-17", "seed-ex-3", 60, 8, 2),
+    startingLoad: { v: 1, openingKg: 40, basis: "floor", ramps: 1, version: "priors@079.1" } };
+  const manual = await build(page, [], [manualOpening]).catch(error => ({ error: String(error) }));
+  check(!manual.error && manual.summary.finding?.id === "weights_found" && manual.summary.findingNeed === "",
+    "a manual program's opening finding renders without an impossible adaptive target need", JSON.stringify(manual));
+
   const tabs = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: "UTC" });
   const tabA = await tabs.newPage();
   await boot(tabA);
