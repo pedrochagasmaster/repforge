@@ -181,7 +181,7 @@ async function bannerPage(browser, { ua, locale = "en-US", width = 393, native =
   await page.click("#importCommit");
   await page.waitForSelector("#entryActivate", { timeout: 10000 });
   await page.click("#entryActivate");
-  await answerEffortChoice(page);
+  await answerEffortChoice(page, "numeric");
   await page.waitForFunction(() => document.querySelector("#firstRun").classList.contains("hidden"), undefined, {
     timeout: 8000,
   });
@@ -615,7 +615,7 @@ async function run() {
     await page.click("#importCommit");
     await page.waitForSelector("#entryActivate", { timeout: 10000 });
     await page.click("#entryActivate");
-    await answerEffortChoice(page);
+    await answerEffortChoice(page, "numeric");
     await page.waitForFunction(
       () =>
         document.querySelector("#firstRun").classList.contains("hidden") &&

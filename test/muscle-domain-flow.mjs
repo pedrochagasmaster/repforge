@@ -7,7 +7,7 @@
  */
 import assert from "node:assert/strict";
 import { SHEET, applyInstalledEditor, closeEditorSheet, editorSettled, openExerciseSheet, openInstalledEditor, sheetTap, showEditorDay } from "./fixtures/installed-editor.mjs";
-import { assertServingApp, launchChromium, waitForAppBoot } from "./browser.mjs";
+import { answerEffortChoice, assertServingApp, launchChromium, waitForAppBoot } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://127.0.0.1:8000/";
@@ -252,6 +252,7 @@ async function main() {
       await target.click("#firstRunSharedStart");
       await target.waitForSelector("#entryActivate", { timeout: 10000 });
       await target.click("#entryActivate");
+      await answerEffortChoice(target);
       await target.waitForFunction(() => window.__repforgeWorkoutDraft.state()?.programMeta?.onboarded === true, null, { timeout: 20000 });
       await target.evaluate(() => window.__repforgeStorage?.flush?.());
 

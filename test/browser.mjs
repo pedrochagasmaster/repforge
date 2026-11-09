@@ -325,8 +325,15 @@ export async function chooseRepsLeft(page, value) {
 }
 
 /** Complete the first-activation question in journeys that keep onboarding choices live. */
-export async function answerEffortChoice(page) {
+export async function answerEffortChoice(page, mode) {
   await page.waitForFunction(() => document.querySelector("#effortChoiceSheet")?.classList.contains("is-open") ||
-    !document.querySelector("#onboarding")?.classList.contains("active"));
-  if (await page.locator("#effortChoiceSheet").isVisible()) await page.locator("#effortChoiceContinue").click();
+    (!document.querySelector("#onboarding")?.classList.contains("active")
+      && window.__repforgeWorkoutDraft?.state()?.program?.length > 0));
+  if (await page.locator("#effortChoiceSheet").isVisible()) {
+    if (mode) await page.locator(`#effortChoiceSheet [data-effort-choice="${mode}"]`).click();
+    await page.locator("#effortChoiceContinue").click();
+  }
+  await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active")
+    && window.__repforgeWorkoutDraft?.state()?.programMeta?.onboarded === true);
+  await page.evaluate(() => window.__repforgeStorage.flush());
 }

@@ -174,7 +174,7 @@ async function walkRecommend(page) {
 async function activate(page) {
   await mark(page);
   await page.click("#entryActivate");
-  await answerEffortChoice(page);
+  await answerEffortChoice(page, "numeric");
   await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), undefined, { timeout: 15000 });
 }
 
